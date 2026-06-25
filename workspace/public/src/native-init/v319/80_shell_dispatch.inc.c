@@ -1693,7 +1693,7 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_G4_EVENT_ALLOC_SIZE 4096ULL
 #define GPU_G4_ALLOC_FLAGS 0ULL
 #define GPU_G4_WAIT_TIMEOUT_MS 1000U
-#define GPU_G4_CMD_MAX_DWORDS 320U
+#define GPU_G4_CMD_MAX_DWORDS 384U
 #define GPU_G4_FILL_BYTES 256ULL
 #define GPU_G4_FILL_DWORDS ((unsigned int)(GPU_G4_FILL_BYTES / 4ULL))
 #define GPU_G4_READBACK_DWORDS 16U
@@ -2018,8 +2018,9 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H3_REG_RB_COLOR_FLAG_BUFFER0_ADDR 0x8903U
 #define GPU_H3_REG_RB_COLOR_FLAG_BUFFER0_PITCH 0x8905U
 #define GPU_A640_REG_RB_DBG_ECO_CNTL 0x8e04U
+#define GPU_A640_REG_RB_RBP_CNTL 0x8e01U
 #define GPU_A640_RB_DBG_ECO_CNTL 0x04100000U
-#define GPU_H3_A640_INIT_MAGIC_REG_WRITES 1U
+#define GPU_A640_RB_RBP_CNTL 0x00000001U
 #define GPU_H2_REG_VPC_VARYING_INTERP_MODE_0 0x9200U
 #define GPU_H2_REG_VPC_VARYING_REPLACE_MODE_0 0x9208U
 #define GPU_H2_REG_VPC_VS_CLIP_CULL_CNTL 0x9101U
@@ -2032,17 +2033,25 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H2_REG_VPC_VS_CNTL 0x9301U
 #define GPU_H2_REG_VPC_PS_CNTL 0x9304U
 #define GPU_H3_REG_VPC_SO_OVERRIDE 0x9306U
+#define GPU_A640_REG_VPC_DBG_ECO_CNTL 0x9600U
+#define GPU_A640_VPC_DBG_ECO_CNTL 0x02000000U
 #define GPU_H2_REG_VPC_VS_CLIP_CULL_CNTL_V2 0x9311U
 #define GPU_H2_REG_VPC_VS_SIV_CNTL_V2 0x9314U
 #define GPU_H3_REG_VPC_RAST_STREAM_CNTL 0x9980U
 #define GPU_H3_REG_PC_DGEN_RAST_CNTL 0x9981U
 #define GPU_H2_REG_PC_RESTART_INDEX 0x9803U
 #define GPU_H2_REG_PC_MODE_CNTL 0x9804U
+#define GPU_A640_REG_PC_MODE_CNTL 0x9804U
+#define GPU_A640_REG_PC_POWER_CNTL 0x9805U
+#define GPU_A640_PC_MODE_CNTL 0x0000001fU
+#define GPU_A640_PC_POWER_CNTL 0x00000001U
 #define GPU_H2_REG_PC_CNTL 0x9b00U
 #define GPU_H2_REG_PC_VS_CNTL 0x9b01U
 #define GPU_H3_REG_PC_STEREO_RENDERING_CNTL 0x9b07U
 #define GPU_H2_REG_VFD_CNTL_0 0xa000U
 #define GPU_H2_REG_VFD_CNTL_1 0xa001U
+#define GPU_A640_REG_VFD_POWER_CNTL 0xa0f8U
+#define GPU_A640_VFD_POWER_CNTL 0x00000001U
 #define GPU_H2_REG_VFD_MODE_CNTL 0xa009U
 #define GPU_H2_REG_VFD_INDEX_OFFSET 0xa00eU
 #define GPU_H2_REG_VFD_INSTANCE_START_OFFSET 0xa00fU
@@ -2059,8 +2068,12 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H2_REG_SP_PS_MRT_CNTL 0xa98dU
 #define GPU_H2_REG_SP_PS_OUTPUT_REG0 0xa98eU
 #define GPU_H2_REG_SP_PS_MRT_REG0 0xa996U
+#define GPU_A640_REG_SP_CHICKEN_BITS 0xae03U
+#define GPU_A640_SP_CHICKEN_BITS 0x00000420U
 #define GPU_H3_REG_TPL1_WINDOW_OFFSET 0xb307U
 #define GPU_H3_REG_TPL1_MSAA_SAMPLE_POS_CNTL 0xb304U
+#define GPU_A640_REG_TPL1_DBG_ECO_CNTL 0xb600U
+#define GPU_A640_TPL1_DBG_ECO_CNTL 0x00008000U
 #define GPU_H3_REG_TPL1_PS_SWIZZLE_CNTL 0xb183U
 #define GPU_H3_REG_SP_WINDOW_OFFSET 0xb4d1U
 #define GPU_H3_REG_SP_PS_INITIAL_TEX_LOAD_CNTL 0xa99eU
@@ -2070,6 +2083,9 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H3_REG_SP_REG_PROG_ID_1 0xb984U
 #define GPU_H3_REG_SP_REG_PROG_ID_2 0xb985U
 #define GPU_H3_REG_SP_REG_PROG_ID_3 0xb986U
+#define GPU_A640_REG_UCHE_UNKNOWN_0E12 0x0e12U
+#define GPU_A640_UCHE_UNKNOWN_0E12 0x00000001U
+#define GPU_H3_A640_INIT_MAGIC_REG_WRITES 9U
 #define GPU_H3_REG_RB_CCU_CNTL 0x8e07U
 #define GPU_KGSL_CMDLIST_IB 0x00000001U
 #define GPU_KGSL_OBJLIST_MEMOBJ 0x00000008U
@@ -2908,7 +2924,31 @@ static bool gpu_h3_append_a640_init_magic_pm4(uint32_t *words,
                                               unsigned int *dwords) {
     return gpu_g4_pm4_emit_reg1(words, dwords,
                                 GPU_A640_REG_RB_DBG_ECO_CNTL,
-                                GPU_A640_RB_DBG_ECO_CNTL);
+                                GPU_A640_RB_DBG_ECO_CNTL) &&
+           gpu_g4_pm4_emit_reg1(words, dwords,
+                                GPU_A640_REG_SP_CHICKEN_BITS,
+                                GPU_A640_SP_CHICKEN_BITS) &&
+           gpu_g4_pm4_emit_reg1(words, dwords,
+                                GPU_A640_REG_TPL1_DBG_ECO_CNTL,
+                                GPU_A640_TPL1_DBG_ECO_CNTL) &&
+           gpu_g4_pm4_emit_reg1(words, dwords,
+                                GPU_A640_REG_VPC_DBG_ECO_CNTL,
+                                GPU_A640_VPC_DBG_ECO_CNTL) &&
+           gpu_g4_pm4_emit_reg1(words, dwords,
+                                GPU_A640_REG_RB_RBP_CNTL,
+                                GPU_A640_RB_RBP_CNTL) &&
+           gpu_g4_pm4_emit_reg1(words, dwords,
+                                GPU_A640_REG_PC_MODE_CNTL,
+                                GPU_A640_PC_MODE_CNTL) &&
+           gpu_g4_pm4_emit_reg1(words, dwords,
+                                GPU_A640_REG_PC_POWER_CNTL,
+                                GPU_A640_PC_POWER_CNTL) &&
+           gpu_g4_pm4_emit_reg1(words, dwords,
+                                GPU_A640_REG_VFD_POWER_CNTL,
+                                GPU_A640_VFD_POWER_CNTL) &&
+           gpu_g4_pm4_emit_reg1(words, dwords,
+                                GPU_A640_REG_UCHE_UNKNOWN_0E12,
+                                GPU_A640_UCHE_UNKNOWN_0E12);
 }
 
 static bool gpu_h3_build_draw_envelope_pm4(uint32_t *words,
@@ -7825,7 +7865,7 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
         return -EINVAL;
     }
     a90_console_printf("gpu.h3.draw.version=1\r\n");
-    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-rb-dbg-eco-init-magic-flag-mrt-cffdump-color-target-varying-ij-vpc-linkage-clip-guardband-su-rasterizer-a6xx-output-routing-sp-frontend-prog-id-state-sp-const-fs-output-cntl-raster-mode-cp-set-mode-window-offset-visibility-packets-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader\r\n");
+    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-a640-nonzero-init-magic-block-flag-mrt-cffdump-color-target-varying-ij-vpc-linkage-clip-guardband-su-rasterizer-a6xx-output-routing-sp-frontend-prog-id-state-sp-const-fs-output-cntl-raster-mode-cp-set-mode-window-offset-visibility-packets-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader\r\n");
     a90_console_printf("gpu.h3.draw.path=%s\r\n", GPU_G0_DEVNODE);
     a90_console_printf("gpu.h3.draw.timeout_ms=%d\r\n", timeout_ms);
     a90_console_printf("gpu.h3.draw.wait_timeout_ms=%u\r\n", GPU_H3_WAIT_TIMEOUT_MS);
@@ -7947,15 +7987,47 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
                        GPU_H3_PM4_CP_SET_MODE);
     a90_console_printf("gpu.h3.draw.cp_set_mode_value=0x%x\r\n",
                        GPU_H3_CP_SET_MODE_RESTORE_VALUE);
-    a90_console_printf("gpu.h3.draw.a640_magic_source=mesa-freedreno-devices-a640-a6xx-gen2-rb-dbg-eco-cntl\r\n");
-    a90_console_printf("gpu.h3.draw.a640_magic_mode=rb-dbg-eco-only\r\n");
+    a90_console_printf("gpu.h3.draw.a640_magic_source=mesa-freedreno-devices-a640-a6xx-gen2-nonzero-magic-regs\r\n");
+    a90_console_printf("gpu.h3.draw.a640_magic_mode=nonzero-block\r\n");
+    a90_console_printf("gpu.h3.draw.a640_magic_nonzero_block=rb_dbg_eco,sp_chicken_bits,tpl1_dbg_eco,vpc_dbg_eco,rb_rbp,pc_mode,pc_power,vfd_power,uche_unknown_0e12\r\n");
     a90_console_printf("gpu.h3.draw.rb_dbg_eco_cntl=0x%x\r\n",
                        GPU_A640_RB_DBG_ECO_CNTL);
     a90_console_printf("gpu.h3.draw.rb_dbg_eco_cntl_reg=0x%x\r\n",
                        GPU_A640_REG_RB_DBG_ECO_CNTL);
+    a90_console_printf("gpu.h3.draw.sp_chicken_bits=0x%x\r\n",
+                       GPU_A640_SP_CHICKEN_BITS);
+    a90_console_printf("gpu.h3.draw.sp_chicken_bits_reg=0x%x\r\n",
+                       GPU_A640_REG_SP_CHICKEN_BITS);
+    a90_console_printf("gpu.h3.draw.tpl1_dbg_eco_cntl=0x%x\r\n",
+                       GPU_A640_TPL1_DBG_ECO_CNTL);
+    a90_console_printf("gpu.h3.draw.tpl1_dbg_eco_cntl_reg=0x%x\r\n",
+                       GPU_A640_REG_TPL1_DBG_ECO_CNTL);
+    a90_console_printf("gpu.h3.draw.vpc_dbg_eco_cntl=0x%x\r\n",
+                       GPU_A640_VPC_DBG_ECO_CNTL);
+    a90_console_printf("gpu.h3.draw.vpc_dbg_eco_cntl_reg=0x%x\r\n",
+                       GPU_A640_REG_VPC_DBG_ECO_CNTL);
+    a90_console_printf("gpu.h3.draw.rb_rbp_cntl=0x%x\r\n",
+                       GPU_A640_RB_RBP_CNTL);
+    a90_console_printf("gpu.h3.draw.rb_rbp_cntl_reg=0x%x\r\n",
+                       GPU_A640_REG_RB_RBP_CNTL);
+    a90_console_printf("gpu.h3.draw.pc_mode_cntl_magic=0x%x\r\n",
+                       GPU_A640_PC_MODE_CNTL);
+    a90_console_printf("gpu.h3.draw.pc_mode_cntl_magic_reg=0x%x\r\n",
+                       GPU_A640_REG_PC_MODE_CNTL);
+    a90_console_printf("gpu.h3.draw.pc_power_cntl=0x%x\r\n",
+                       GPU_A640_PC_POWER_CNTL);
+    a90_console_printf("gpu.h3.draw.pc_power_cntl_reg=0x%x\r\n",
+                       GPU_A640_REG_PC_POWER_CNTL);
+    a90_console_printf("gpu.h3.draw.vfd_power_cntl=0x%x\r\n",
+                       GPU_A640_VFD_POWER_CNTL);
+    a90_console_printf("gpu.h3.draw.vfd_power_cntl_reg=0x%x\r\n",
+                       GPU_A640_REG_VFD_POWER_CNTL);
+    a90_console_printf("gpu.h3.draw.uche_unknown_0e12=0x%x\r\n",
+                       GPU_A640_UCHE_UNKNOWN_0E12);
+    a90_console_printf("gpu.h3.draw.uche_unknown_0e12_reg=0x%x\r\n",
+                       GPU_A640_REG_UCHE_UNKNOWN_0E12);
     a90_console_printf("gpu.h3.draw.a640_init_magic_reg_writes=%u\r\n",
                        GPU_H3_A640_INIT_MAGIC_REG_WRITES);
-    a90_console_printf("gpu.h3.draw.a640_magic_deferred_nonzero_block=sp_chicken_bits,tpl1_dbg_eco,vpc_dbg_eco,rb_rbp,pc_power,vfd_power,uche_unknown_0e12\r\n");
     a90_console_printf("gpu.h3.draw.rb_render_cntl_source=mesa-freedreno-a640-cffdump-draw2-rb-render-cntl-flag-mrt0\r\n");
     a90_console_printf("gpu.h3.draw.rb_render_cntl=0x%x\r\n", GPU_H3_RB_RENDER_CNTL);
     a90_console_printf("gpu.h3.draw.hlsq_round4_audit=local-a6xx-fd6-uses-sp-program-config-not-legacy-hlsq-control-regs\r\n");

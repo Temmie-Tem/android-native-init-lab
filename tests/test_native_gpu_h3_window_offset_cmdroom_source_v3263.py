@@ -36,7 +36,7 @@ class NativeGpuH3WindowOffsetCmdroomSourceV3263Tests(unittest.TestCase):
     def test_dispatch_has_window_offsets_and_enough_cmd_room(self) -> None:
         source = DISPATCH.read_text(encoding="utf-8")
 
-        self.assertIn("#define GPU_G4_CMD_MAX_DWORDS 320U", source)
+        self.assertIn("#define GPU_G4_CMD_MAX_DWORDS 384U", source)
         self.assertIn("#define GPU_H3_REG_RB_WINDOW_OFFSET 0x8890U", source)
         self.assertIn("#define GPU_H3_REG_RB_RESOLVE_WINDOW_OFFSET 0x88d4U", source)
         self.assertIn("#define GPU_H3_REG_SP_WINDOW_OFFSET 0xb4d1U", source)

@@ -929,6 +929,26 @@ bounded unit should follow the operator probe order by adding the rest of the no
 (`SP_CHICKEN_BITS`, `TPL1_DBG_ECO_CNTL`, `VPC_DBG_ECO_CNTL`, `RB_RBP_CNTL`, `PC_MODE_CNTL`, `PC_POWER_CNTL`,
 `VFD_POWER_CNTL`, and `UCHE_UNKNOWN_0E12`) while keeping `RB_CCU_CNTL` separate.
 
+V3284/V3285 followed that probe order and added the full non-zero A640/a6xx_gen2 device-DB magic block before H3 shader
+and draw state: `RB_DBG_ECO_CNTL=0x04100000`, `SP_CHICKEN_BITS=0x420`, `TPL1_DBG_ECO_CNTL=0x8000`,
+`VPC_DBG_ECO_CNTL=0x02000000`, `RB_RBP_CNTL=1`, `PC_MODE_CNTL=0x1f`, `PC_POWER_CNTL=1`, `VFD_POWER_CNTL=1`, and
+`UCHE_UNKNOWN_0E12=1`. Because the block raises the expected H3 PM4 size to `329` dwords, V3284 also raised the shared
+GPU command-buffer guard from `320` to `384` dwords. The source unit built `0.11.68
+(v3284-gpu-h3-a640-magic-block-probe)` with SHA256
+`7eacd6670856beaeea681d1df6deb3169bcee68fe730c8dcb050b6fdc28b6572`, flashed through `native_init_flash.py`, and
+passed flash-helper version/status plus post-flash health (`selftest pass=12 warn=1 fail=0`; one immediate standalone
+selftest attempt lost serial framing after truncated input, then slow-mode `version`/`selftest` passed). V3285 live
+telemetry confirmed `a640_magic_mode=nonzero-block`, `a640_init_magic_reg_writes=9`, `pm4_dwords=329`,
+`state_reg_writes=121`, and `vfd_reg_writes=14`. Two H3 runs submitted and retired cleanly (`submit_rc=0`,
+`wait_rc=0`, `retired_timestamp=1`, warm `total_elapsed_ms=12`) and post-probe selftest stayed clean. Readback remained
+unchanged (`readback_changed_count=0`, `readback0=0x20202020`, `readback_center=0x20202020`), and the color-flag buffer
+also stayed unchanged (`color_flag_changed_count=0`, `color_flag0=0x0`). Focused dmesg showed no GPU fault, hang,
+snapshot, opcode, SMMU/IOMMU, or page-fault signature; only an unrelated modem firmware timeout and expected first-use
+`a640_zap` load/reset lines matched the filter. This removes the A640 magic-reg block as the primary no-pixel cause.
+Next bounded unit should stop isolated magic/register guesses and use the definitive packet-level path: capture or
+assemble a real Mesa/freedreno A640 sysmem single-triangle `.rd`/cffdump stream and diff it against current H3,
+admitting only remaining direct-sysmem-compatible packet groups.
+
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
   rasterizer; gives GPU compute a *screen consumer*. **Matrix/GPGPU math is absorbed here, NOT a standalone goal** —

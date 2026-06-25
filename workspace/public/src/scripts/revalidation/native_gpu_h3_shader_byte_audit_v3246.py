@@ -357,7 +357,34 @@ def run_audit(
     color_flag_pitch = macros.resolve("GPU_H3_COLOR_FLAG_BUFFER_PITCH")
     rb_dbg_eco_reg = macros.resolve("GPU_A640_REG_RB_DBG_ECO_CNTL")
     rb_dbg_eco_cntl = macros.resolve("GPU_A640_RB_DBG_ECO_CNTL")
+    sp_chicken_bits_reg = macros.resolve("GPU_A640_REG_SP_CHICKEN_BITS")
+    sp_chicken_bits = macros.resolve("GPU_A640_SP_CHICKEN_BITS")
+    tpl1_dbg_eco_reg = macros.resolve("GPU_A640_REG_TPL1_DBG_ECO_CNTL")
+    tpl1_dbg_eco_cntl = macros.resolve("GPU_A640_TPL1_DBG_ECO_CNTL")
+    vpc_dbg_eco_reg = macros.resolve("GPU_A640_REG_VPC_DBG_ECO_CNTL")
+    vpc_dbg_eco_cntl = macros.resolve("GPU_A640_VPC_DBG_ECO_CNTL")
+    rb_rbp_reg = macros.resolve("GPU_A640_REG_RB_RBP_CNTL")
+    rb_rbp_cntl = macros.resolve("GPU_A640_RB_RBP_CNTL")
+    pc_mode_magic_reg = macros.resolve("GPU_A640_REG_PC_MODE_CNTL")
+    pc_mode_magic = macros.resolve("GPU_A640_PC_MODE_CNTL")
+    pc_power_reg = macros.resolve("GPU_A640_REG_PC_POWER_CNTL")
+    pc_power_cntl = macros.resolve("GPU_A640_PC_POWER_CNTL")
+    vfd_power_reg = macros.resolve("GPU_A640_REG_VFD_POWER_CNTL")
+    vfd_power_cntl = macros.resolve("GPU_A640_VFD_POWER_CNTL")
+    uche_unknown_0e12_reg = macros.resolve("GPU_A640_REG_UCHE_UNKNOWN_0E12")
+    uche_unknown_0e12 = macros.resolve("GPU_A640_UCHE_UNKNOWN_0E12")
     a640_init_magic_reg_writes = macros.resolve("GPU_H3_A640_INIT_MAGIC_REG_WRITES")
+    a640_nonzero_magic_matches = {
+        "rb_dbg_eco": (rb_dbg_eco_reg, rb_dbg_eco_cntl) == (0x8E04, 0x04100000),
+        "sp_chicken_bits": (sp_chicken_bits_reg, sp_chicken_bits) == (0xAE03, 0x00000420),
+        "tpl1_dbg_eco": (tpl1_dbg_eco_reg, tpl1_dbg_eco_cntl) == (0xB600, 0x00008000),
+        "vpc_dbg_eco": (vpc_dbg_eco_reg, vpc_dbg_eco_cntl) == (0x9600, 0x02000000),
+        "rb_rbp": (rb_rbp_reg, rb_rbp_cntl) == (0x8E01, 0x00000001),
+        "pc_mode": (pc_mode_magic_reg, pc_mode_magic) == (0x9804, 0x0000001F),
+        "pc_power": (pc_power_reg, pc_power_cntl) == (0x9805, 0x00000001),
+        "vfd_power": (vfd_power_reg, vfd_power_cntl) == (0xA0F8, 0x00000001),
+        "uche_unknown_0e12": (uche_unknown_0e12_reg, uche_unknown_0e12) == (0x0E12, 0x00000001),
+    }
     checks = {
         "all_shader_words_match_expected": not mismatches,
         "external_ir3_disasm_used": disasm_path is not None,
@@ -392,8 +419,26 @@ def run_audit(
         "rb_dbg_eco_reg": rb_dbg_eco_reg,
         "rb_dbg_eco_cntl": rb_dbg_eco_cntl,
         "rb_dbg_eco_matches_a640_device_db": rb_dbg_eco_reg == 0x8E04 and rb_dbg_eco_cntl == 0x04100000,
+        "sp_chicken_bits_reg": sp_chicken_bits_reg,
+        "sp_chicken_bits": sp_chicken_bits,
+        "tpl1_dbg_eco_reg": tpl1_dbg_eco_reg,
+        "tpl1_dbg_eco_cntl": tpl1_dbg_eco_cntl,
+        "vpc_dbg_eco_reg": vpc_dbg_eco_reg,
+        "vpc_dbg_eco_cntl": vpc_dbg_eco_cntl,
+        "rb_rbp_reg": rb_rbp_reg,
+        "rb_rbp_cntl": rb_rbp_cntl,
+        "pc_mode_magic_reg": pc_mode_magic_reg,
+        "pc_mode_magic": pc_mode_magic,
+        "pc_power_reg": pc_power_reg,
+        "pc_power_cntl": pc_power_cntl,
+        "vfd_power_reg": vfd_power_reg,
+        "vfd_power_cntl": vfd_power_cntl,
+        "uche_unknown_0e12_reg": uche_unknown_0e12_reg,
+        "uche_unknown_0e12": uche_unknown_0e12,
+        "a640_nonzero_magic_matches": a640_nonzero_magic_matches,
+        "a640_nonzero_magic_all_match": all(a640_nonzero_magic_matches.values()),
         "a640_init_magic_reg_writes": a640_init_magic_reg_writes,
-        "a640_init_magic_is_rb_dbg_eco_only": a640_init_magic_reg_writes == 1,
+        "a640_init_magic_is_nonzero_block": a640_init_magic_reg_writes == 9,
         "sp_vs_output_reg0_a_regid": sp_vs_output_reg0 & 0xFF,
         "sp_vs_output_reg0_a_compmask": (sp_vs_output_reg0 >> 8) & 0xF,
         "sp_vs_output_reg0_b_regid": (sp_vs_output_reg0 >> 16) & 0xFF,
@@ -428,7 +473,8 @@ def run_audit(
         and checks["rb_render_cntl_matches_a640_cffdump_flag_mrt0"]
         and checks["color_flag_buffer_pitch_matches_a640_cffdump"]
         and checks["rb_dbg_eco_matches_a640_device_db"]
-        and checks["a640_init_magic_is_rb_dbg_eco_only"]
+        and checks["a640_nonzero_magic_all_match"]
+        and checks["a640_init_magic_is_nonzero_block"]
         and checks["sp_vs_output_reg0_a_regid"] == 8
         and checks["sp_vs_output_reg0_a_compmask"] == 0xF
         and checks["sp_vs_output_reg0_b_regid"] == 0
@@ -444,8 +490,8 @@ def run_audit(
         and checks["vpc_ps_cntl_viewidloc"] == 0xFF
     )
     return {
-        "cycle": "V3282",
-        "scope": "gpu-h3-rb-dbg-eco-init-magic-shader-byte-audit",
+        "cycle": "V3284",
+        "scope": "gpu-h3-a640-nonzero-init-magic-shader-byte-audit",
         "dispatch": str(dispatch.relative_to(REPO_ROOT)),
         "chip_id": chip_id,
         "passed": passed,
