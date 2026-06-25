@@ -1368,6 +1368,88 @@ struct gpu_h1_shader_state_probe_result {
     long total_elapsed_ms;
 };
 
+struct gpu_h2_3d_state_probe_result {
+    int version;
+    int open_rc;
+    int open_errno;
+    int create_rc;
+    int create_errno;
+    int cmd_alloc_rc;
+    int cmd_alloc_errno;
+    int cmd_info_rc;
+    int cmd_info_errno;
+    int cmd_mmap_rc;
+    int cmd_mmap_errno;
+    int color_alloc_rc;
+    int color_alloc_errno;
+    int color_info_rc;
+    int color_info_errno;
+    int color_mmap_rc;
+    int color_mmap_errno;
+    int color_init_rc;
+    int cmd_write_rc;
+    int sync_rc;
+    int sync_errno;
+    int submit_rc;
+    int submit_errno;
+    int timestamp_event_rc;
+    int timestamp_event_errno;
+    int wait_rc;
+    int wait_errno;
+    int readtimestamp_rc;
+    int readtimestamp_errno;
+    int fence_poll_attempted;
+    int fence_poll_rc;
+    int fence_poll_errno;
+    int fence_poll_revents;
+    int fence_close_rc;
+    int fence_close_errno;
+    int cmd_munmap_attempted;
+    int cmd_munmap_rc;
+    int cmd_munmap_errno;
+    int color_munmap_attempted;
+    int color_munmap_rc;
+    int color_munmap_errno;
+    int cmd_free_attempted;
+    int cmd_free_deferred;
+    int cmd_free_rc;
+    int cmd_free_errno;
+    int color_free_attempted;
+    int color_free_deferred;
+    int color_free_rc;
+    int color_free_errno;
+    int destroy_attempted;
+    int destroy_rc;
+    int destroy_errno;
+    int close_rc;
+    int close_errno;
+    unsigned int context_id;
+    unsigned int cmd_gpuobj_id;
+    unsigned int color_gpuobj_id;
+    unsigned int submit_timestamp;
+    unsigned int retired_timestamp;
+    unsigned int wait_timeout_ms;
+    unsigned int pm4_dwords;
+    unsigned int state_reg_writes;
+    unsigned int color_width;
+    unsigned int color_height;
+    unsigned int color_stride;
+    unsigned int color_format;
+    unsigned int draw_attempted;
+    unsigned int shader_execution_attempted;
+    unsigned int kms_blit_attempted;
+    int fence_fd;
+    uint64_t cmd_info_gpuaddr;
+    uint64_t color_info_gpuaddr;
+    uint64_t cmd_size;
+    uint64_t cmd_mmap_len;
+    uint64_t color_mmap_len;
+    uint64_t color_bytes;
+    uint64_t cmd_sync_length;
+    uint64_t color_sync_length;
+    long total_elapsed_ms;
+};
+
 struct gpu_g4_solid_fill_child_run {
     struct gpu_g4_solid_fill_probe_result result;
     pid_t child_pid;
@@ -1425,7 +1507,7 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_G4_EVENT_ALLOC_SIZE 4096ULL
 #define GPU_G4_ALLOC_FLAGS 0ULL
 #define GPU_G4_WAIT_TIMEOUT_MS 1000U
-#define GPU_G4_CMD_MAX_DWORDS 64U
+#define GPU_G4_CMD_MAX_DWORDS 256U
 #define GPU_G4_FILL_BYTES 256ULL
 #define GPU_G4_FILL_DWORDS ((unsigned int)(GPU_G4_FILL_BYTES / 4ULL))
 #define GPU_G4_READBACK_DWORDS 16U
@@ -1462,6 +1544,15 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H1_CP_LOAD_STATE6_SB_FS_SHADER (12U << 18)
 #define GPU_H1_PM4_CP_LOAD_STATE6_GEOM 0x32U
 #define GPU_H1_PM4_CP_LOAD_STATE6_FRAG 0x34U
+#define GPU_H2_CMD_ALLOC_SIZE 4096ULL
+#define GPU_H2_COLOR_WIDTH 128U
+#define GPU_H2_COLOR_HEIGHT 128U
+#define GPU_H2_COLOR_BPP 4U
+#define GPU_H2_COLOR_STRIDE (GPU_H2_COLOR_WIDTH * GPU_H2_COLOR_BPP)
+#define GPU_H2_COLOR_ALLOC_SIZE ((uint64_t)GPU_H2_COLOR_STRIDE * GPU_H2_COLOR_HEIGHT)
+#define GPU_H2_CMD_MAX_DWORDS 160U
+#define GPU_H2_WAIT_TIMEOUT_MS 1000U
+#define GPU_H2_CLEAR_PATTERN 0x20202020U
 #define GPU_G4_REG_GRAS_A2D_BLT_CNTL 0x8400U
 #define GPU_G4_REG_GRAS_A2D_DEST_TL 0x8405U
 #define GPU_G4_REG_GRAS_A2D_DEST_BR 0x8406U
@@ -1482,6 +1573,62 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H1_REG_SP_PS_BASE 0xa983U
 #define GPU_H1_REG_SP_PS_CONFIG 0xab04U
 #define GPU_H1_REG_SP_PS_INSTR_SIZE 0xab05U
+#define GPU_H2_REG_GRAS_CL_CNTL 0x8000U
+#define GPU_H2_REG_GRAS_CL_VIEWPORT 0x8010U
+#define GPU_H2_REG_GRAS_CL_GUARDBAND_CLIP_ADJ 0x8006U
+#define GPU_H2_REG_GRAS_SU_CNTL 0x8090U
+#define GPU_H2_REG_GRAS_SC_CNTL 0x80a0U
+#define GPU_H2_REG_GRAS_SC_SCREEN_SCISSOR_TL 0x80b0U
+#define GPU_H2_REG_GRAS_SC_SCREEN_SCISSOR_BR 0x80b1U
+#define GPU_H2_REG_GRAS_SC_VIEWPORT_SCISSOR_TL 0x80d0U
+#define GPU_H2_REG_GRAS_SC_VIEWPORT_SCISSOR_BR 0x80d1U
+#define GPU_H2_REG_GRAS_SC_WINDOW_SCISSOR_TL 0x80f0U
+#define GPU_H2_REG_GRAS_SC_WINDOW_SCISSOR_BR 0x80f1U
+#define GPU_H2_REG_GRAS_LRZ_CNTL 0x8100U
+#define GPU_H2_REG_GRAS_MODE_CNTL 0x8110U
+#define GPU_H2_REG_RB_RENDER_CNTL 0x8801U
+#define GPU_H2_REG_RB_RAS_MSAA_CNTL 0x8802U
+#define GPU_H2_REG_RB_DEST_MSAA_CNTL 0x8803U
+#define GPU_H2_REG_RB_PS_OUTPUT_CNTL 0x880bU
+#define GPU_H2_REG_RB_PS_MRT_CNTL 0x880cU
+#define GPU_H2_REG_RB_PS_OUTPUT_MASK 0x880dU
+#define GPU_H2_REG_RB_SRGB_CNTL 0x880fU
+#define GPU_H2_REG_RB_MODE_CNTL 0x8811U
+#define GPU_H2_REG_RB_MRT0_CONTROL 0x8820U
+#define GPU_H2_REG_RB_MRT0_BLEND_CONTROL 0x8821U
+#define GPU_H2_REG_RB_MRT0_BUF_INFO 0x8822U
+#define GPU_H2_REG_RB_MRT0_PITCH 0x8823U
+#define GPU_H2_REG_RB_MRT0_ARRAY_PITCH 0x8824U
+#define GPU_H2_REG_RB_MRT0_BASE 0x8825U
+#define GPU_H2_REG_RB_MRT0_BASE_GMEM 0x8827U
+#define GPU_H2_REG_RB_BLEND_CNTL 0x8865U
+#define GPU_H2_REG_RB_DEPTH_CNTL 0x8871U
+#define GPU_H2_REG_RB_STENCIL_CNTL 0x8880U
+#define GPU_H2_REG_VPC_VARYING_INTERP_MODE_0 0x9200U
+#define GPU_H2_REG_VPC_VARYING_REPLACE_MODE_0 0x9208U
+#define GPU_H2_REG_VPC_REPLACE_MODE_CNTL 0x9236U
+#define GPU_H2_REG_VPC_ROTATION_CNTL 0x9300U
+#define GPU_H2_REG_VPC_VS_CNTL 0x9301U
+#define GPU_H2_REG_VPC_PS_CNTL 0x9304U
+#define GPU_H2_REG_PC_RESTART_INDEX 0x9803U
+#define GPU_H2_REG_PC_MODE_CNTL 0x9804U
+#define GPU_H2_REG_PC_CNTL 0x9b00U
+#define GPU_H2_REG_PC_VS_CNTL 0x9b01U
+#define GPU_H2_REG_VFD_CNTL_0 0xa000U
+#define GPU_H2_REG_VFD_CNTL_1 0xa001U
+#define GPU_H2_REG_VFD_MODE_CNTL 0xa009U
+#define GPU_H2_REG_VFD_INDEX_OFFSET 0xa00eU
+#define GPU_H2_REG_VFD_INSTANCE_START_OFFSET 0xa00fU
+#define GPU_H2_REG_SP_VS_OUTPUT_CNTL 0xa802U
+#define GPU_H2_REG_SP_VS_OUTPUT_REG0 0xa803U
+#define GPU_H2_REG_SP_VS_VPC_DEST_REG0 0xa813U
+#define GPU_H2_REG_SP_BLEND_CNTL 0xa989U
+#define GPU_H2_REG_SP_SRGB_CNTL 0xa98aU
+#define GPU_H2_REG_SP_PS_OUTPUT_MASK 0xa98bU
+#define GPU_H2_REG_SP_PS_OUTPUT_CNTL 0xa98cU
+#define GPU_H2_REG_SP_PS_MRT_CNTL 0xa98dU
+#define GPU_H2_REG_SP_PS_OUTPUT_REG0 0xa98eU
+#define GPU_H2_REG_SP_PS_MRT_REG0 0xa996U
 #define GPU_KGSL_CMDLIST_IB 0x00000001U
 #define GPU_KGSL_OBJLIST_MEMOBJ 0x00000008U
 #define GPU_KGSL_GPUMEM_CACHE_TO_GPU (1U << 0)
@@ -1845,6 +1992,162 @@ static bool gpu_h1_build_shader_state_pm4(uint32_t *words,
         !gpu_g4_pm4_emit_pkt7(words, dwords, (uint8_t)GPU_G3_PM4_CP_NOP, 1) ||
         !gpu_g4_pm4_push(words, dwords, 0)) {
         return false;
+    }
+    return true;
+}
+
+static uint32_t gpu_h2_float_bits(float value) {
+    union {
+        float f;
+        uint32_t u;
+    } bits;
+
+    bits.f = value;
+    return bits.u;
+}
+
+static uint32_t gpu_h2_xy(uint32_t x, uint32_t y) {
+    return (x & 0xffffU) | ((y & 0xffffU) << 16);
+}
+
+static bool gpu_h2_pm4_emit_reg6(uint32_t *words,
+                                 unsigned int *dwords,
+                                 uint32_t reg,
+                                 uint32_t value0,
+                                 uint32_t value1,
+                                 uint32_t value2,
+                                 uint32_t value3,
+                                 uint32_t value4,
+                                 uint32_t value5) {
+    return gpu_g4_pm4_emit_pkt4(words, dwords, reg, 6) &&
+           gpu_g4_pm4_push(words, dwords, value0) &&
+           gpu_g4_pm4_push(words, dwords, value1) &&
+           gpu_g4_pm4_push(words, dwords, value2) &&
+           gpu_g4_pm4_push(words, dwords, value3) &&
+           gpu_g4_pm4_push(words, dwords, value4) &&
+           gpu_g4_pm4_push(words, dwords, value5);
+}
+
+static bool gpu_h2_build_3d_state_pm4(uint32_t *words,
+                                      unsigned int *dwords,
+                                      unsigned int *state_reg_writes,
+                                      uint64_t color_gpuaddr) {
+    uint64_t color_base = color_gpuaddr & ~0x3fULL;
+    uint32_t rb_mrt_control = 0xfU << 7;
+    uint32_t rb_mrt_info =
+        GPU_G4_A6XX_FMT6_32_UINT |
+        (GPU_G4_A6XX_TILE6_LINEAR << 8) |
+        (GPU_G4_A3XX_COLOR_SWAP_WZYX << 13);
+    uint32_t sp_ps_mrt =
+        GPU_G4_A6XX_FMT6_32_UINT |
+        (1U << 9);
+    uint32_t pitch_qwords = GPU_H2_COLOR_STRIDE >> 6;
+    uint32_t array_pitch_qwords = (uint32_t)(GPU_H2_COLOR_ALLOC_SIZE >> 6);
+    uint32_t screen_tl = gpu_h2_xy(0, 0);
+    uint32_t screen_br = gpu_h2_xy(GPU_H2_COLOR_WIDTH, GPU_H2_COLOR_HEIGHT);
+    unsigned int reg_writes = 0;
+
+    *dwords = 0;
+    if (state_reg_writes != NULL) {
+        *state_reg_writes = 0;
+    }
+    if (!gpu_g4_pm4_emit_pkt7(words, dwords, (uint8_t)GPU_G4_PM4_CP_WAIT_FOR_IDLE, 0)) {
+        return false;
+    }
+    if (!gpu_h2_pm4_emit_reg6(words, dwords, GPU_H2_REG_GRAS_CL_VIEWPORT,
+                              gpu_h2_float_bits((float)GPU_H2_COLOR_WIDTH / 2.0f),
+                              gpu_h2_float_bits((float)GPU_H2_COLOR_WIDTH / 2.0f),
+                              gpu_h2_float_bits((float)GPU_H2_COLOR_HEIGHT / 2.0f),
+                              gpu_h2_float_bits((float)GPU_H2_COLOR_HEIGHT / 2.0f),
+                              gpu_h2_float_bits(0.0f),
+                              gpu_h2_float_bits(1.0f))) {
+        return false;
+    }
+    reg_writes += 6;
+    if (!gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_GRAS_CL_CNTL, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_GRAS_CL_GUARDBAND_CLIP_ADJ, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_GRAS_SU_CNTL, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_GRAS_SC_CNTL, 2) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_GRAS_LRZ_CNTL, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_GRAS_MODE_CNTL, 2)) {
+        return false;
+    }
+    reg_writes += 6;
+    if (!gpu_g4_pm4_emit_reg2(words, dwords, GPU_H2_REG_GRAS_SC_SCREEN_SCISSOR_TL,
+                              screen_tl, screen_br) ||
+        !gpu_g4_pm4_emit_reg2(words, dwords, GPU_H2_REG_GRAS_SC_VIEWPORT_SCISSOR_TL,
+                              screen_tl, screen_br) ||
+        !gpu_g4_pm4_emit_reg2(words, dwords, GPU_H2_REG_GRAS_SC_WINDOW_SCISSOR_TL,
+                              screen_tl, screen_br)) {
+        return false;
+    }
+    reg_writes += 6;
+    if (!gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_RENDER_CNTL, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_RAS_MSAA_CNTL, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_DEST_MSAA_CNTL, 1U << 2) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_PS_OUTPUT_CNTL, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_PS_MRT_CNTL, 1) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_PS_OUTPUT_MASK, 0xf) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_SRGB_CNTL, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_MODE_CNTL, 0x10) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_BLEND_CNTL, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_DEPTH_CNTL, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_STENCIL_CNTL, 0)) {
+        return false;
+    }
+    reg_writes += 11;
+    if (!gpu_g4_pm4_emit_reg2(words, dwords, GPU_H2_REG_RB_MRT0_CONTROL,
+                              rb_mrt_control, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_MRT0_BUF_INFO,
+                              rb_mrt_info) ||
+        !gpu_g4_pm4_emit_reg2(words, dwords, GPU_H2_REG_RB_MRT0_PITCH,
+                              pitch_qwords, array_pitch_qwords) ||
+        !gpu_g4_pm4_emit_reg2(words, dwords, GPU_H2_REG_RB_MRT0_BASE,
+                              (uint32_t)(color_base & 0xffffffffULL),
+                              (uint32_t)(color_base >> 32)) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_MRT0_BASE_GMEM, 0)) {
+        return false;
+    }
+    reg_writes += 8;
+    if (!gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_VPC_VARYING_INTERP_MODE_0, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_VPC_VARYING_REPLACE_MODE_0, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_VPC_REPLACE_MODE_CNTL, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_VPC_ROTATION_CNTL, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_VPC_VS_CNTL, 4) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_VPC_PS_CNTL, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_PC_RESTART_INDEX, 0xffffffffU) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_PC_MODE_CNTL, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_PC_CNTL, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_PC_VS_CNTL, 4)) {
+        return false;
+    }
+    reg_writes += 10;
+    if (!gpu_g4_pm4_emit_reg2(words, dwords, GPU_H2_REG_VFD_CNTL_0, 0, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_VFD_MODE_CNTL, 3) ||
+        !gpu_g4_pm4_emit_reg2(words, dwords, GPU_H2_REG_VFD_INDEX_OFFSET, 0, 0)) {
+        return false;
+    }
+    reg_writes += 5;
+    if (!gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_VS_OUTPUT_CNTL, 1) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_VS_OUTPUT_REG0, 0x00000f00U) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_VS_VPC_DEST_REG0, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_BLEND_CNTL, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_SRGB_CNTL, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_PS_OUTPUT_MASK, 0xf) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_PS_OUTPUT_CNTL, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_PS_MRT_CNTL, 1) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_PS_OUTPUT_REG0, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_PS_MRT_REG0, sp_ps_mrt)) {
+        return false;
+    }
+    reg_writes += 10;
+    if (!gpu_g4_pm4_emit_pkt7(words, dwords, (uint8_t)GPU_G4_PM4_CP_WAIT_FOR_IDLE, 0) ||
+        !gpu_g4_pm4_emit_pkt7(words, dwords, (uint8_t)GPU_G3_PM4_CP_NOP, 1) ||
+        !gpu_g4_pm4_push(words, dwords, 0)) {
+        return false;
+    }
+    if (state_reg_writes != NULL) {
+        *state_reg_writes = reg_writes;
     }
     return true;
 }
@@ -5365,6 +5668,638 @@ static int gpu_h1_shader_state_probe(int timeout_ms, bool materialize_devnode) {
     return timed_out ? -ETIMEDOUT : 0;
 }
 
+static bool gpu_h2_3d_state_result_ok(const struct gpu_h2_3d_state_probe_result *result) {
+    return result != NULL &&
+           result->color_init_rc == 0 &&
+           result->cmd_write_rc == 0 &&
+           result->sync_rc == 0 &&
+           result->submit_rc == 0 &&
+           result->timestamp_event_rc == 0 &&
+           result->wait_rc == 0 &&
+           result->readtimestamp_rc == 0 &&
+           result->retired_timestamp >= result->submit_timestamp &&
+           result->cmd_free_rc == 0 &&
+           result->color_free_rc == 0 &&
+           result->destroy_rc == 0;
+}
+
+static int gpu_h2_3d_state_probe_child(int write_fd) {
+    struct gpu_h2_3d_state_probe_result result;
+    struct gpu_kgsl_drawctxt_create create_arg;
+    long total_started_ms = monotonic_millis();
+    void *cmd_map = MAP_FAILED;
+    void *color_map = MAP_FAILED;
+    int fd = -1;
+    int fence_fd = -1;
+
+    memset(&result, 0, sizeof(result));
+    memset(&create_arg, 0, sizeof(create_arg));
+    result.version = 1;
+    result.close_rc = -1;
+    result.create_rc = -1;
+    result.cmd_alloc_rc = -1;
+    result.cmd_info_rc = -1;
+    result.cmd_mmap_rc = -1;
+    result.color_alloc_rc = -1;
+    result.color_info_rc = -1;
+    result.color_mmap_rc = -1;
+    result.color_init_rc = -1;
+    result.cmd_write_rc = -1;
+    result.sync_rc = -1;
+    result.submit_rc = -1;
+    result.timestamp_event_rc = -1;
+    result.wait_rc = -1;
+    result.readtimestamp_rc = -1;
+    result.fence_poll_rc = -1;
+    result.fence_close_rc = -1;
+    result.cmd_munmap_rc = -1;
+    result.color_munmap_rc = -1;
+    result.cmd_free_rc = -1;
+    result.color_free_rc = -1;
+    result.destroy_rc = -1;
+    result.wait_timeout_ms = GPU_H2_WAIT_TIMEOUT_MS;
+    result.color_width = GPU_H2_COLOR_WIDTH;
+    result.color_height = GPU_H2_COLOR_HEIGHT;
+    result.color_stride = GPU_H2_COLOR_STRIDE;
+    result.color_format = GPU_G4_A6XX_FMT6_32_UINT;
+    result.color_bytes = GPU_H2_COLOR_ALLOC_SIZE;
+    result.draw_attempted = 0;
+    result.shader_execution_attempted = 0;
+    result.kms_blit_attempted = 0;
+    result.fence_fd = -1;
+
+    errno = 0;
+    fd = open(GPU_G0_DEVNODE, O_RDWR | O_CLOEXEC);
+    if (fd < 0) {
+        result.open_rc = -1;
+        result.open_errno = errno;
+        goto out;
+    }
+    result.open_rc = 0;
+
+    create_arg.flags = GPU_G1_CONTEXT_FLAGS;
+    errno = 0;
+    if (ioctl(fd, GPU_IOCTL_KGSL_DRAWCTXT_CREATE, &create_arg) < 0) {
+        result.create_rc = -1;
+        result.create_errno = errno;
+        goto out;
+    }
+    result.create_rc = 0;
+    result.context_id = create_arg.drawctxt_id;
+
+    {
+        struct gpu_kgsl_gpuobj_alloc cmd_alloc_arg;
+        struct gpu_kgsl_gpuobj_info cmd_info_arg;
+        struct gpu_kgsl_gpuobj_alloc color_alloc_arg;
+        struct gpu_kgsl_gpuobj_info color_info_arg;
+        uint64_t cmd_mmap_offset;
+        uint64_t color_mmap_offset;
+
+        memset(&cmd_alloc_arg, 0, sizeof(cmd_alloc_arg));
+        cmd_alloc_arg.size = GPU_H2_CMD_ALLOC_SIZE;
+        cmd_alloc_arg.flags = GPU_G4_ALLOC_FLAGS;
+        errno = 0;
+        if (ioctl(fd, GPU_IOCTL_KGSL_GPUOBJ_ALLOC, &cmd_alloc_arg) < 0) {
+            result.cmd_alloc_rc = -1;
+            result.cmd_alloc_errno = errno;
+            goto out;
+        }
+        result.cmd_alloc_rc = 0;
+        result.cmd_gpuobj_id = cmd_alloc_arg.id;
+
+        memset(&cmd_info_arg, 0, sizeof(cmd_info_arg));
+        cmd_info_arg.id = cmd_alloc_arg.id;
+        errno = 0;
+        if (ioctl(fd, GPU_IOCTL_KGSL_GPUOBJ_INFO, &cmd_info_arg) < 0) {
+            result.cmd_info_rc = -1;
+            result.cmd_info_errno = errno;
+            goto out;
+        }
+        result.cmd_info_rc = 0;
+        result.cmd_info_gpuaddr = cmd_info_arg.gpuaddr;
+        result.cmd_mmap_len = cmd_alloc_arg.mmapsize;
+
+        cmd_mmap_offset = (uint64_t)cmd_alloc_arg.id * GPU_G2_MMAP_PAGE_SIZE;
+        if (cmd_alloc_arg.mmapsize < (uint64_t)GPU_H2_CMD_MAX_DWORDS * 4ULL ||
+            cmd_mmap_offset / GPU_G2_MMAP_PAGE_SIZE != (uint64_t)cmd_alloc_arg.id) {
+            result.cmd_mmap_rc = -1;
+            result.cmd_mmap_errno = EINVAL;
+            goto out;
+        }
+        errno = 0;
+        cmd_map = mmap(NULL, (size_t)cmd_alloc_arg.mmapsize,
+                       PROT_READ | PROT_WRITE, MAP_SHARED, fd,
+                       (off_t)cmd_mmap_offset);
+        if (cmd_map == MAP_FAILED) {
+            result.cmd_mmap_rc = -1;
+            result.cmd_mmap_errno = errno;
+            goto out;
+        }
+        result.cmd_mmap_rc = 0;
+
+        memset(&color_alloc_arg, 0, sizeof(color_alloc_arg));
+        color_alloc_arg.size = GPU_H2_COLOR_ALLOC_SIZE;
+        color_alloc_arg.flags = GPU_G4_ALLOC_FLAGS;
+        errno = 0;
+        if (ioctl(fd, GPU_IOCTL_KGSL_GPUOBJ_ALLOC, &color_alloc_arg) < 0) {
+            result.color_alloc_rc = -1;
+            result.color_alloc_errno = errno;
+            goto out;
+        }
+        result.color_alloc_rc = 0;
+        result.color_gpuobj_id = color_alloc_arg.id;
+
+        memset(&color_info_arg, 0, sizeof(color_info_arg));
+        color_info_arg.id = color_alloc_arg.id;
+        errno = 0;
+        if (ioctl(fd, GPU_IOCTL_KGSL_GPUOBJ_INFO, &color_info_arg) < 0) {
+            result.color_info_rc = -1;
+            result.color_info_errno = errno;
+            goto out;
+        }
+        result.color_info_rc = 0;
+        result.color_info_gpuaddr = color_info_arg.gpuaddr;
+        result.color_mmap_len = color_alloc_arg.mmapsize;
+
+        color_mmap_offset = (uint64_t)color_alloc_arg.id * GPU_G2_MMAP_PAGE_SIZE;
+        if (color_alloc_arg.mmapsize < GPU_H2_COLOR_ALLOC_SIZE ||
+            color_mmap_offset / GPU_G2_MMAP_PAGE_SIZE != (uint64_t)color_alloc_arg.id) {
+            result.color_mmap_rc = -1;
+            result.color_mmap_errno = EINVAL;
+            goto out;
+        }
+        errno = 0;
+        color_map = mmap(NULL, (size_t)color_alloc_arg.mmapsize,
+                         PROT_READ | PROT_WRITE, MAP_SHARED, fd,
+                         (off_t)color_mmap_offset);
+        if (color_map == MAP_FAILED) {
+            result.color_mmap_rc = -1;
+            result.color_mmap_errno = errno;
+            goto out;
+        }
+        result.color_mmap_rc = 0;
+
+        {
+            uint32_t *color_words = (uint32_t *)color_map;
+            unsigned int index;
+
+            for (index = 0; index < (unsigned int)(GPU_H2_COLOR_ALLOC_SIZE / 4ULL); ++index) {
+                color_words[index] = GPU_H2_CLEAR_PATTERN;
+            }
+            __sync_synchronize();
+            result.color_init_rc = 0;
+        }
+
+        {
+            uint32_t *cmd_words = (uint32_t *)cmd_map;
+            unsigned int pm4_dwords = 0;
+            unsigned int state_reg_writes = 0;
+
+            memset(cmd_words, 0, (size_t)cmd_alloc_arg.mmapsize);
+            if (!gpu_h2_build_3d_state_pm4(cmd_words,
+                                           &pm4_dwords,
+                                           &state_reg_writes,
+                                           color_info_arg.gpuaddr)) {
+                result.cmd_write_rc = -1;
+                goto out;
+            }
+            __sync_synchronize();
+            result.pm4_dwords = pm4_dwords;
+            result.state_reg_writes = state_reg_writes;
+            result.cmd_size = (uint64_t)pm4_dwords * 4ULL;
+            result.cmd_write_rc = 0;
+        }
+
+        {
+            struct gpu_kgsl_gpuobj_sync_obj sync_objs[2];
+            struct gpu_kgsl_gpuobj_sync sync_arg;
+
+            memset(sync_objs, 0, sizeof(sync_objs));
+            sync_objs[0].id = cmd_alloc_arg.id;
+            sync_objs[0].length = result.cmd_size;
+            sync_objs[0].op = GPU_KGSL_GPUMEM_CACHE_TO_GPU | GPU_KGSL_GPUMEM_CACHE_RANGE;
+            sync_objs[1].id = color_alloc_arg.id;
+            sync_objs[1].length = GPU_H2_COLOR_ALLOC_SIZE;
+            sync_objs[1].op = GPU_KGSL_GPUMEM_CACHE_TO_GPU | GPU_KGSL_GPUMEM_CACHE_RANGE;
+            result.cmd_sync_length = sync_objs[0].length;
+            result.color_sync_length = sync_objs[1].length;
+            memset(&sync_arg, 0, sizeof(sync_arg));
+            sync_arg.objs = (uint64_t)(uintptr_t)sync_objs;
+            sync_arg.obj_len = sizeof(sync_objs[0]);
+            sync_arg.count = 2;
+            errno = 0;
+            if (ioctl(fd, GPU_IOCTL_KGSL_GPUOBJ_SYNC, &sync_arg) < 0) {
+                result.sync_rc = -1;
+                result.sync_errno = errno;
+                goto out;
+            }
+            result.sync_rc = 0;
+        }
+
+        {
+            struct gpu_kgsl_command_object cmd_obj;
+            struct gpu_kgsl_command_object mem_objs[2];
+            struct gpu_kgsl_gpu_command command_arg;
+
+            memset(&cmd_obj, 0, sizeof(cmd_obj));
+            cmd_obj.gpuaddr = cmd_info_arg.gpuaddr;
+            cmd_obj.size = result.cmd_size;
+            cmd_obj.flags = GPU_KGSL_CMDLIST_IB;
+            cmd_obj.id = cmd_alloc_arg.id;
+
+            memset(mem_objs, 0, sizeof(mem_objs));
+            mem_objs[0].gpuaddr = cmd_info_arg.gpuaddr;
+            mem_objs[0].size = cmd_info_arg.size;
+            mem_objs[0].flags = GPU_KGSL_OBJLIST_MEMOBJ;
+            mem_objs[0].id = cmd_alloc_arg.id;
+            mem_objs[1].gpuaddr = color_info_arg.gpuaddr;
+            mem_objs[1].size = color_info_arg.size;
+            mem_objs[1].flags = GPU_KGSL_OBJLIST_MEMOBJ;
+            mem_objs[1].id = color_alloc_arg.id;
+
+            memset(&command_arg, 0, sizeof(command_arg));
+            command_arg.cmdlist = (uint64_t)(uintptr_t)&cmd_obj;
+            command_arg.cmdsize = sizeof(cmd_obj);
+            command_arg.numcmds = 1;
+            command_arg.objlist = (uint64_t)(uintptr_t)mem_objs;
+            command_arg.objsize = sizeof(mem_objs[0]);
+            command_arg.numobjs = 2;
+            command_arg.context_id = create_arg.drawctxt_id;
+
+            errno = 0;
+            if (ioctl(fd, GPU_IOCTL_KGSL_GPU_COMMAND, &command_arg) < 0) {
+                result.submit_rc = -1;
+                result.submit_errno = errno;
+                goto out;
+            }
+            result.submit_rc = 0;
+            result.submit_timestamp = command_arg.timestamp;
+        }
+
+        {
+            struct gpu_kgsl_timestamp_event_fence fence_arg;
+            struct gpu_kgsl_timestamp_event event_arg;
+
+            memset(&fence_arg, 0, sizeof(fence_arg));
+            fence_arg.fence_fd = -1;
+            memset(&event_arg, 0, sizeof(event_arg));
+            event_arg.type = GPU_KGSL_TIMESTAMP_EVENT_FENCE;
+            event_arg.timestamp = result.submit_timestamp;
+            event_arg.context_id = create_arg.drawctxt_id;
+            event_arg.priv = &fence_arg;
+            event_arg.len = sizeof(fence_arg);
+            errno = 0;
+            if (ioctl(fd, GPU_IOCTL_KGSL_TIMESTAMP_EVENT, &event_arg) < 0) {
+                result.timestamp_event_rc = -1;
+                result.timestamp_event_errno = errno;
+            } else {
+                result.timestamp_event_rc = 0;
+                fence_fd = fence_arg.fence_fd;
+                result.fence_fd = fence_fd;
+            }
+        }
+
+        {
+            struct gpu_kgsl_device_waittimestamp_ctxtid wait_arg;
+
+            memset(&wait_arg, 0, sizeof(wait_arg));
+            wait_arg.context_id = create_arg.drawctxt_id;
+            wait_arg.timestamp = result.submit_timestamp;
+            wait_arg.timeout = GPU_H2_WAIT_TIMEOUT_MS;
+            errno = 0;
+            if (ioctl(fd, GPU_IOCTL_KGSL_DEVICE_WAITTIMESTAMP_CTXTID, &wait_arg) < 0) {
+                result.wait_rc = -1;
+                result.wait_errno = errno;
+            } else {
+                result.wait_rc = 0;
+            }
+        }
+
+        {
+            struct gpu_kgsl_cmdstream_readtimestamp_ctxtid read_arg;
+
+            memset(&read_arg, 0, sizeof(read_arg));
+            read_arg.context_id = create_arg.drawctxt_id;
+            read_arg.type = GPU_KGSL_TIMESTAMP_RETIRED;
+            errno = 0;
+            if (ioctl(fd, GPU_IOCTL_KGSL_CMDSTREAM_READTIMESTAMP_CTXTID, &read_arg) < 0) {
+                result.readtimestamp_rc = -1;
+                result.readtimestamp_errno = errno;
+            } else {
+                result.readtimestamp_rc = 0;
+                result.retired_timestamp = read_arg.timestamp;
+            }
+        }
+
+        if (fence_fd >= 0) {
+            struct pollfd pfd;
+
+            memset(&pfd, 0, sizeof(pfd));
+            pfd.fd = fence_fd;
+            pfd.events = POLLIN;
+            result.fence_poll_attempted = 1;
+            errno = 0;
+            result.fence_poll_rc = poll(&pfd, 1, 0);
+            result.fence_poll_errno = result.fence_poll_rc < 0 ? errno : 0;
+            result.fence_poll_revents = pfd.revents;
+            errno = 0;
+            if (close(fence_fd) < 0) {
+                result.fence_close_rc = -1;
+                result.fence_close_errno = errno;
+            } else {
+                result.fence_close_rc = 0;
+                result.fence_close_errno = 0;
+            }
+            fence_fd = -1;
+        }
+    }
+
+out:
+    if (fence_fd >= 0) {
+        errno = 0;
+        if (close(fence_fd) < 0) {
+            result.fence_close_rc = -1;
+            result.fence_close_errno = errno;
+        } else {
+            result.fence_close_rc = 0;
+            result.fence_close_errno = 0;
+        }
+    }
+    if (color_map != MAP_FAILED) {
+        result.color_munmap_attempted = 1;
+        errno = 0;
+        if (munmap(color_map, (size_t)result.color_mmap_len) < 0) {
+            result.color_munmap_rc = -1;
+            result.color_munmap_errno = errno;
+        } else {
+            result.color_munmap_rc = 0;
+        }
+    }
+    if (cmd_map != MAP_FAILED) {
+        result.cmd_munmap_attempted = 1;
+        errno = 0;
+        if (munmap(cmd_map, (size_t)result.cmd_mmap_len) < 0) {
+            result.cmd_munmap_rc = -1;
+            result.cmd_munmap_errno = errno;
+        } else {
+            result.cmd_munmap_rc = 0;
+        }
+    }
+    if (fd >= 0 && result.color_gpuobj_id != 0) {
+        struct gpu_kgsl_gpuobj_free free_arg;
+        struct gpu_kgsl_gpu_event_timestamp event_arg;
+
+        memset(&free_arg, 0, sizeof(free_arg));
+        memset(&event_arg, 0, sizeof(event_arg));
+        free_arg.id = result.color_gpuobj_id;
+        if (result.submit_rc == 0 && result.wait_rc != 0 && result.submit_timestamp != 0) {
+            event_arg.context_id = result.context_id;
+            event_arg.timestamp = result.submit_timestamp;
+            free_arg.flags = GPU_KGSL_GPUOBJ_FREE_ON_EVENT;
+            free_arg.priv = (uint64_t)(uintptr_t)&event_arg;
+            free_arg.type = GPU_KGSL_GPU_EVENT_TIMESTAMP;
+            free_arg.len = sizeof(event_arg);
+            result.color_free_deferred = 1;
+        }
+        result.color_free_attempted = 1;
+        errno = 0;
+        if (ioctl(fd, GPU_IOCTL_KGSL_GPUOBJ_FREE, &free_arg) < 0) {
+            result.color_free_rc = -1;
+            result.color_free_errno = errno;
+        } else {
+            result.color_free_rc = 0;
+        }
+    }
+    if (fd >= 0 && result.cmd_gpuobj_id != 0) {
+        struct gpu_kgsl_gpuobj_free free_arg;
+        struct gpu_kgsl_gpu_event_timestamp event_arg;
+
+        memset(&free_arg, 0, sizeof(free_arg));
+        memset(&event_arg, 0, sizeof(event_arg));
+        free_arg.id = result.cmd_gpuobj_id;
+        if (result.submit_rc == 0 && result.wait_rc != 0 && result.submit_timestamp != 0) {
+            event_arg.context_id = result.context_id;
+            event_arg.timestamp = result.submit_timestamp;
+            free_arg.flags = GPU_KGSL_GPUOBJ_FREE_ON_EVENT;
+            free_arg.priv = (uint64_t)(uintptr_t)&event_arg;
+            free_arg.type = GPU_KGSL_GPU_EVENT_TIMESTAMP;
+            free_arg.len = sizeof(event_arg);
+            result.cmd_free_deferred = 1;
+        }
+        result.cmd_free_attempted = 1;
+        errno = 0;
+        if (ioctl(fd, GPU_IOCTL_KGSL_GPUOBJ_FREE, &free_arg) < 0) {
+            result.cmd_free_rc = -1;
+            result.cmd_free_errno = errno;
+        } else {
+            result.cmd_free_rc = 0;
+        }
+    }
+    if (fd >= 0 && result.context_id != 0) {
+        struct gpu_kgsl_drawctxt_destroy destroy_arg;
+
+        memset(&destroy_arg, 0, sizeof(destroy_arg));
+        destroy_arg.drawctxt_id = result.context_id;
+        result.destroy_attempted = 1;
+        errno = 0;
+        if (ioctl(fd, GPU_IOCTL_KGSL_DRAWCTXT_DESTROY, &destroy_arg) < 0) {
+            result.destroy_rc = -1;
+            result.destroy_errno = errno;
+        } else {
+            result.destroy_rc = 0;
+        }
+    }
+    if (fd >= 0) {
+        errno = 0;
+        if (close(fd) < 0) {
+            result.close_rc = -1;
+            result.close_errno = errno;
+        } else {
+            result.close_rc = 0;
+        }
+    }
+    result.total_elapsed_ms = monotonic_millis() - total_started_ms;
+    (void)write_all_checked(write_fd, (const char *)&result, sizeof(result));
+    close(write_fd);
+    _exit(0);
+}
+
+static int gpu_h2_3d_state_probe(int timeout_ms, bool materialize_devnode) {
+    int pipefd[2];
+    pid_t pid;
+    long deadline_ms;
+    bool got_result = false;
+    bool timed_out = false;
+    bool child_killed = false;
+    bool child_reaped = false;
+    int child_status = 0;
+    struct gpu_h2_3d_state_probe_result result;
+
+    memset(&result, 0, sizeof(result));
+    if (timeout_ms <= 0) {
+        timeout_ms = GPU_G0_DEFAULT_TIMEOUT_MS;
+    }
+    if (timeout_ms > GPU_G0_MAX_TIMEOUT_MS) {
+        a90_console_printf("gpu.h2.state.error=timeout-too-large max_ms=%d\r\n",
+                           GPU_G0_MAX_TIMEOUT_MS);
+        return -EINVAL;
+    }
+    a90_console_printf("gpu.h2.state.version=1\r\n");
+    a90_console_printf("gpu.h2.state.scope=first-triangle-h2-3d-fixed-function-state-no-draw\r\n");
+    a90_console_printf("gpu.h2.state.path=%s\r\n", GPU_G0_DEVNODE);
+    a90_console_printf("gpu.h2.state.timeout_ms=%d\r\n", timeout_ms);
+    a90_console_printf("gpu.h2.state.wait_timeout_ms=%u\r\n", GPU_H2_WAIT_TIMEOUT_MS);
+    a90_console_printf("gpu.h2.state.parent_enters_open=0\r\n");
+    a90_console_printf("gpu.h2.state.parent_enters_ioctl=0\r\n");
+    a90_console_printf("gpu.h2.state.source=mesa-freedreno-a6xx-fd6-emit-draw-plus-a6xx-xml\r\n");
+    a90_console_printf("gpu.h2.state.offscreen=u32-linear-128x128\r\n");
+    a90_console_printf("gpu.h2.state.draw_attempted=0\r\n");
+    a90_console_printf("gpu.h2.state.shader_execution_attempted=0\r\n");
+    a90_console_printf("gpu.h2.state.kms_blit_attempted=0\r\n");
+    a90_console_printf("gpu.h2.state.power_write_attempted=0\r\n");
+    a90_console_printf("gpu.h2.state.proprietary_blob_attempted=0\r\n");
+    if (materialize_devnode) {
+        int mat_rc = gpu_g0_materialize_devnode();
+
+        a90_console_printf("gpu.h2.state.materialize_requested=1\r\n");
+        a90_console_printf("gpu.h2.state.materialize_rc=%d\r\n", mat_rc);
+        if (mat_rc < 0) {
+            return mat_rc;
+        }
+    } else {
+        a90_console_printf("gpu.h2.state.materialize_requested=0\r\n");
+    }
+    if (pipe(pipefd) < 0) {
+        int saved_errno = errno;
+        a90_console_printf("gpu.h2.state.pipe_rc=-1 errno=%d\r\n", saved_errno);
+        return -saved_errno;
+    }
+    pid = fork();
+    if (pid < 0) {
+        int saved_errno = errno;
+        close(pipefd[0]);
+        close(pipefd[1]);
+        a90_console_printf("gpu.h2.state.fork_rc=-1 errno=%d\r\n", saved_errno);
+        return -saved_errno;
+    }
+    if (pid == 0) {
+        close(pipefd[0]);
+        return gpu_h2_3d_state_probe_child(pipefd[1]);
+    }
+    close(pipefd[1]);
+    deadline_ms = monotonic_millis() + timeout_ms;
+    a90_console_printf("gpu.h2.state.child_pid=%ld\r\n", (long)pid);
+
+    while (monotonic_millis() <= deadline_ms) {
+        struct pollfd pfd;
+        long now_ms = monotonic_millis();
+        int remaining_ms = (int)(deadline_ms > now_ms ? deadline_ms - now_ms : 0);
+        int poll_ms = remaining_ms > 50 ? 50 : remaining_ms;
+        ssize_t rd;
+        pid_t wait_rc;
+
+        if (poll_ms < 0) {
+            poll_ms = 0;
+        }
+        pfd.fd = pipefd[0];
+        pfd.events = POLLIN | POLLHUP;
+        pfd.revents = 0;
+        if (poll(&pfd, 1, poll_ms) > 0 && (pfd.revents & (POLLIN | POLLHUP)) != 0) {
+            rd = read(pipefd[0], &result, sizeof(result));
+            if (rd == (ssize_t)sizeof(result)) {
+                got_result = true;
+            }
+            break;
+        }
+        wait_rc = waitpid(pid, &child_status, WNOHANG);
+        if (wait_rc == pid) {
+            child_reaped = true;
+            break;
+        }
+    }
+
+    if (!got_result && !child_reaped) {
+        timed_out = true;
+        if (kill(pid, SIGKILL) == 0) {
+            child_killed = true;
+        }
+        if (waitpid(pid, &child_status, 0) == pid) {
+            child_reaped = true;
+        }
+    } else if (!child_reaped) {
+        if (waitpid(pid, &child_status, 0) == pid) {
+            child_reaped = true;
+        }
+    }
+    close(pipefd[0]);
+
+    a90_console_printf("gpu.h2.state.result=%s\r\n",
+                       got_result ? (gpu_h2_3d_state_result_ok(&result) ?
+                                     "3d-state-retired-no-draw" : "returned-error") :
+                       (timed_out ? "timeout" : "no-result"));
+    a90_console_printf("gpu.h2.state.timed_out=%d\r\n", timed_out ? 1 : 0);
+    a90_console_printf("gpu.h2.state.child_killed=%d\r\n", child_killed ? 1 : 0);
+    a90_console_printf("gpu.h2.state.child_reaped=%d\r\n", child_reaped ? 1 : 0);
+    a90_console_printf("gpu.h2.state.child_status=0x%x\r\n", child_status);
+    if (got_result) {
+        a90_console_printf("gpu.h2.state.open_rc=%d\r\n", result.open_rc);
+        a90_console_printf("gpu.h2.state.open_errno=%d\r\n", result.open_errno);
+        a90_console_printf("gpu.h2.state.create_rc=%d\r\n", result.create_rc);
+        a90_console_printf("gpu.h2.state.create_errno=%d\r\n", result.create_errno);
+        a90_console_printf("gpu.h2.state.context_id=%u\r\n", result.context_id);
+        a90_console_printf("gpu.h2.state.cmd_alloc_rc=%d\r\n", result.cmd_alloc_rc);
+        a90_console_printf("gpu.h2.state.cmd_info_gpuaddr=0x%llx\r\n",
+                           (unsigned long long)result.cmd_info_gpuaddr);
+        a90_console_printf("gpu.h2.state.cmd_mmap_len=%llu\r\n",
+                           (unsigned long long)result.cmd_mmap_len);
+        a90_console_printf("gpu.h2.state.color_alloc_rc=%d\r\n", result.color_alloc_rc);
+        a90_console_printf("gpu.h2.state.color_info_gpuaddr=0x%llx\r\n",
+                           (unsigned long long)result.color_info_gpuaddr);
+        a90_console_printf("gpu.h2.state.color_mmap_len=%llu\r\n",
+                           (unsigned long long)result.color_mmap_len);
+        a90_console_printf("gpu.h2.state.color_width=%u\r\n", result.color_width);
+        a90_console_printf("gpu.h2.state.color_height=%u\r\n", result.color_height);
+        a90_console_printf("gpu.h2.state.color_stride=%u\r\n", result.color_stride);
+        a90_console_printf("gpu.h2.state.color_bytes=%llu\r\n",
+                           (unsigned long long)result.color_bytes);
+        a90_console_printf("gpu.h2.state.color_format=0x%x\r\n", result.color_format);
+        a90_console_printf("gpu.h2.state.color_init_rc=%d\r\n", result.color_init_rc);
+        a90_console_printf("gpu.h2.state.cmd_write_rc=%d\r\n", result.cmd_write_rc);
+        a90_console_printf("gpu.h2.state.pm4_dwords=%u\r\n", result.pm4_dwords);
+        a90_console_printf("gpu.h2.state.state_reg_writes=%u\r\n", result.state_reg_writes);
+        a90_console_printf("gpu.h2.state.cmd_size=%llu\r\n",
+                           (unsigned long long)result.cmd_size);
+        a90_console_printf("gpu.h2.state.sync_rc=%d\r\n", result.sync_rc);
+        a90_console_printf("gpu.h2.state.sync_errno=%d\r\n", result.sync_errno);
+        a90_console_printf("gpu.h2.state.cmd_sync_length=%llu\r\n",
+                           (unsigned long long)result.cmd_sync_length);
+        a90_console_printf("gpu.h2.state.color_sync_length=%llu\r\n",
+                           (unsigned long long)result.color_sync_length);
+        a90_console_printf("gpu.h2.state.submit_rc=%d\r\n", result.submit_rc);
+        a90_console_printf("gpu.h2.state.submit_errno=%d\r\n", result.submit_errno);
+        a90_console_printf("gpu.h2.state.submit_timestamp=%u\r\n", result.submit_timestamp);
+        a90_console_printf("gpu.h2.state.timestamp_event_rc=%d\r\n",
+                           result.timestamp_event_rc);
+        a90_console_printf("gpu.h2.state.fence_fd=%d\r\n", result.fence_fd);
+        a90_console_printf("gpu.h2.state.wait_rc=%d\r\n", result.wait_rc);
+        a90_console_printf("gpu.h2.state.wait_errno=%d\r\n", result.wait_errno);
+        a90_console_printf("gpu.h2.state.readtimestamp_rc=%d\r\n",
+                           result.readtimestamp_rc);
+        a90_console_printf("gpu.h2.state.retired_timestamp=%u\r\n",
+                           result.retired_timestamp);
+        a90_console_printf("gpu.h2.state.fence_poll_rc=%d\r\n", result.fence_poll_rc);
+        a90_console_printf("gpu.h2.state.fence_poll_revents=0x%x\r\n",
+                           result.fence_poll_revents);
+        a90_console_printf("gpu.h2.state.cmd_free_rc=%d\r\n", result.cmd_free_rc);
+        a90_console_printf("gpu.h2.state.color_free_rc=%d\r\n", result.color_free_rc);
+        a90_console_printf("gpu.h2.state.destroy_rc=%d\r\n", result.destroy_rc);
+        a90_console_printf("gpu.h2.state.close_rc=%d\r\n", result.close_rc);
+        a90_console_printf("gpu.h2.state.total_elapsed_ms=%ld\r\n",
+                           result.total_elapsed_ms);
+    }
+    return timed_out ? -ETIMEDOUT : 0;
+}
+
 static int gpu_g5_blit_gpu_readback_to_kms(uint32_t raw_pixel,
                                            uint32_t *rect_x,
                                            uint32_t *rect_y,
@@ -5670,6 +6605,24 @@ static int handle_gpu(char **argv, int argc) {
         }
         return gpu_h1_shader_state_probe(timeout_ms, materialize_devnode);
     }
+    if (strcmp(subcommand, "h2-3d-state-probe") == 0 ||
+        strcmp(subcommand, "3d-state-probe") == 0) {
+        for (index = 2; index < argc; ++index) {
+            if (strcmp(argv[index], "--timeout-ms") == 0) {
+                if (index + 1 >= argc || !gpu_g0_parse_int(argv[index + 1], &timeout_ms)) {
+                    a90_console_printf("gpu.h2.state.error=bad-timeout\r\n");
+                    return -EINVAL;
+                }
+                ++index;
+            } else if (strcmp(argv[index], "--materialize-devnode") == 0) {
+                materialize_devnode = true;
+            } else {
+                a90_console_printf("usage: gpu h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]\r\n");
+                return -EINVAL;
+            }
+        }
+        return gpu_h2_3d_state_probe(timeout_ms, materialize_devnode);
+    }
     if (strcmp(subcommand, "g4-solid-fill-probe") == 0 ||
         strcmp(subcommand, "solid-fill-probe") == 0) {
         for (index = 2; index < argc; ++index) {
@@ -5707,7 +6660,7 @@ static int handle_gpu(char **argv, int argc) {
         return gpu_g5_kms_blit_probe(timeout_ms, materialize_devnode);
     }
     if (strcmp(subcommand, "g0-open-probe") != 0) {
-        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]]\r\n");
+        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]]\r\n");
         return -EINVAL;
     }
     for (index = 2; index < argc; ++index) {
@@ -5802,7 +6755,7 @@ static const struct shell_command command_table[] = {
     { "pstore", handle_pstore, "pstore [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "watchdoginv", handle_watchdoginv, "watchdoginv [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "tracefs", handle_tracefs, "tracefs [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
-    { "gpu", handle_gpu, "gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]]", CMD_NONE, A90_CMD_GROUP_CORE },
+    { "gpu", handle_gpu, "gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "audio", handle_audio, "audio [status|profiles|profile|speaker-map|stages|prereq|app-type|setcal|route|play|chime|play-status|stop|adsp-status|snd-status]", CMD_NONE, A90_CMD_GROUP_ANDROID },
     { "video", handle_video, "video [status|frame [bars|checker|mono|0xRRGGBB]|demo [badapple|badapple-scale|nyan|doom [status|verify|play|frame|engine-probe] [frames] [--wad runtime-private --sha256 EXPECTED]|frame-pattern]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status PATH]|cache [status|verify|play] SHA256 [--trust-cache] [--layout full|player-hud]|cache preset [badapple|badapple-scale|nyan] [status|verify|play]]", CMD_DISPLAY, A90_CMD_GROUP_DISPLAY },
     { "wifi", handle_wifi, "wifi [status|scan [delay_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|config [status|prepare [profile]]]", CMD_NONE, A90_CMD_GROUP_NETWORK },
