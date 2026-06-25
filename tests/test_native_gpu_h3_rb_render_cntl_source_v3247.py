@@ -83,6 +83,8 @@ class NativeGpuH3RbRenderCntlSourceV3247Tests(unittest.TestCase):
             in source
             or '"gpu.h3.draw.scope=first-triangle-h3-window-offset-visibility-packets-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader'
             in source
+            or '"gpu.h3.draw.scope=first-triangle-h3-cp-set-mode-window-offset-visibility-packets-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader'
+            in source
         )
         self.assertIn(
             '"gpu.h3.draw.rb_render_cntl_source=mesa-freedreno-a6xx-fd6-gmem-update-render-cntl-ccu-single-cacheline',

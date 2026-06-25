@@ -62,9 +62,11 @@ class NativeGpuH3WindowOffsetSourceV3261Tests(unittest.TestCase):
             state_emit.index("GPU_H3_PM4_CP_SET_VISIBILITY_OVERRIDE"),
             state_emit.index("GPU_H3_REG_RB_CCU_CNTL,\n                              GPU_H3_RB_CCU_CNTL"),
         )
-        self.assertIn(
-            '"gpu.h3.draw.scope=first-triangle-h3-window-offset-visibility-packets-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader',
-            source,
+        self.assertTrue(
+            '"gpu.h3.draw.scope=first-triangle-h3-window-offset-visibility-packets-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader'
+            in source
+            or '"gpu.h3.draw.scope=first-triangle-h3-cp-set-mode-window-offset-visibility-packets-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader'
+            in source
         )
         self.assertIn(
             '"gpu.h3.draw.window_offset_source=mesa-freedreno-a6xx-fd6-sysmem-prep-set-window-offset-zero',

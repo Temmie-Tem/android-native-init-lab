@@ -755,6 +755,21 @@ real Mesa fd6 sysmem single-triangle command-stream capture/diff against H3, wit
 per-MRT render-component/write-enable register names that are not equivalent to the already-programmed
 `RB_PS_OUTPUT_MASK`, `SP_PS_OUTPUT_MASK`, and `RB_MRT0_CONTROL.COMPONENT_ENABLE` path.
 
+V3265/V3266 then tested the next concrete draw-state bootstrap packet because a real Mesa `.rd` capture was not
+immediately available on the host (`meson`/Mesa driver build absent; existing local Mesa build contains freedreno tools
+only, not the Gallium driver). V3265 added Mesa restore-path `CP_SET_MODE(0)` (`opcode=0x63`, value `0`) after the
+pre-draw CCU/cache invalidation and before the H3 shader/state/draw packets, built from the V3263 baseline as
+`0.11.59 (v3265-gpu-h3-cp-set-mode-probe)` with SHA256
+`cb8c579aa4cc694de363d7e2334c202f255431bba9e4f1a385fe0f2b3094ba84`, flashed through `native_init_flash.py`, and
+passed post-flash health after a managed bridge restart cleared serial fragment noise (`selftest pass=12 warn=1
+fail=0`). V3266 live telemetry confirmed `cp_set_mode=0x63`, `cp_set_mode_value=0x0`, `pm4_dwords=262`,
+`state_reg_writes=98`, `submit_rc=0`, `wait_rc=0`, and `retired_timestamp=1`; two H3 runs still left readback unchanged
+(`readback_changed_count=0`, `readback0=0x20202020`, `readback_center=0x20202020`), with no focused
+KGSL/GPU/GMU/A640 fault, hang, snapshot, or timeout signature and post-probe health still clean. This removes missing
+restore-path `CP_SET_MODE(0)` as the primary no-pixel root cause. Next bounded unit should either build a host-only
+freedreno Gallium+drm-shim reference environment to generate an `.rd` for cffdump diff, or, if that remains unavailable,
+continue source-grounded diff around remaining A6xx program/RB state that is present in Mesa but absent from H3.
+
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
   rasterizer; gives GPU compute a *screen consumer*. **Matrix/GPGPU math is absorbed here, NOT a standalone goal** —

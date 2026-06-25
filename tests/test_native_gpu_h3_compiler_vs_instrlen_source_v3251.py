@@ -79,6 +79,8 @@ class NativeGpuH3CompilerVsInstrlenSourceV3251Tests(unittest.TestCase):
             in source
             or '"gpu.h3.draw.scope=first-triangle-h3-window-offset-visibility-packets-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader'
             in source
+            or '"gpu.h3.draw.scope=first-triangle-h3-cp-set-mode-window-offset-visibility-packets-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader'
+            in source
         )
         self.assertIn('"gpu.h3.draw.shader_payload=mesa-reference-ir3-minimal-vs-u32-z-w-instrlen1-plus-audited-fs-f32-r0x', source)
         self.assertIn('"gpu.h3.draw.vs_shader_instrlen=%u', source)
