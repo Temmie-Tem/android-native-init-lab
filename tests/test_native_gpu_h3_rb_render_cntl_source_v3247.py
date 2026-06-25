@@ -66,9 +66,11 @@ class NativeGpuH3RbRenderCntlSourceV3247Tests(unittest.TestCase):
             "GPU_H3_REG_RB_CCU_CNTL,\n                              GPU_H3_RB_CCU_CNTL",
             source,
         )
-        self.assertIn(
-            '"gpu.h3.draw.scope=first-triangle-h3-rb-render-cntl-r0-output-mov-f32-shader',
-            source,
+        self.assertTrue(
+            '"gpu.h3.draw.scope=first-triangle-h3-rb-render-cntl-r0-output-mov-f32-shader'
+            in source
+            or '"gpu.h3.draw.scope=first-triangle-h3-cache-invalidate-rb-render-cntl-r0-output-mov-f32-shader'
+            in source
         )
         self.assertIn(
             '"gpu.h3.draw.rb_render_cntl_source=mesa-freedreno-a6xx-fd6-gmem-update-render-cntl-ccu-single-cacheline',

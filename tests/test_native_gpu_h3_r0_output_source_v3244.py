@@ -104,6 +104,8 @@ class NativeGpuH3R0OutputSourceV3244Tests(unittest.TestCase):
             '"gpu.h3.draw.scope=first-triangle-h3-r0-output-full-state-mov-f32-shader' in source
             or '"gpu.h3.draw.scope=first-triangle-h3-rb-render-cntl-r0-output-mov-f32-shader'
             in source
+            or '"gpu.h3.draw.scope=first-triangle-h3-cache-invalidate-rb-render-cntl-r0-output-mov-f32-shader'
+            in source
         )
         self.assertIn(
             '"gpu.h3.draw.shader_payload=hand-assembled-ir3-r0-output-mov-f32-vs-position-fs-color-no-full-compiler',

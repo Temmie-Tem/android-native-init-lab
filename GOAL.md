@@ -650,6 +650,21 @@ filter found no KGSL/GPU fault, hang, snapshot, or timeout signature, but the re
 `RB_RENDER_CNTL.CCUSINGLECACHELINESIZE=2` hypothesis as the primary no-pixel root cause. Next bounded unit should
 continue outside shader bytes and this RB render-control field, using a remaining Mesa first-draw packet diff to isolate
 a narrower render-target/cache/visibility or draw-mode delta before claiming H4.
+V3249/V3250 then tested the Mesa A6xx restore-path cache/visibility hypothesis by adding `fd6_cache_inv()` before the
+H3 shader/state/draw packets: `CP_EVENT_WRITE(PC_CCU_INVALIDATE_COLOR=0x19)`,
+`CP_EVENT_WRITE(PC_CCU_INVALIDATE_DEPTH=0x18)`, `CP_EVENT_WRITE(CACHE_INVALIDATE=0x31)`, then `CP_WAIT_FOR_IDLE`. The
+image built as `0.11.51 (v3249-gpu-h3-cache-invalidate-probe)` with SHA256
+`167251fa73fa537c8a3c75716a7b7e3061605b62a0fd24494a11805d089c50a6`, flashed through `native_init_flash.py`, and passed
+post-flash health (`selftest pass=12 warn=1 fail=0`). Live telemetry confirmed the candidate sequence
+(`pre_draw_cache_invalidate_events=0x19,0x18,0x31`) and the expected command growth (`pm4_dwords=240`,
+`state_reg_writes=92`) while preserving `rb_render_cntl=0x10`. The draw again submitted and retired cleanly
+(`submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`, `fence_poll_rc=1`, `total_elapsed_ms=29`), and the focused dmesg
+filter found no KGSL/GPU fault, hang, snapshot, or GPU timeout signature, but readback remained unchanged
+(`readback_changed_count=0`, `readback0=0x20202020`, `readback_center=0x20202020`). This removes missing pre-draw
+CCU/UCHE invalidation as the primary no-pixel root cause. Next bounded unit should continue with a narrower
+first-draw packet diff outside shader bytes, `RB_RENDER_CNTL`, and pre-draw cache invalidation; good remaining targets
+are draw-state bootstrap such as `CP_SET_MODE`/`SP_UPDATE_CNTL`/restore state ordering, or another concrete
+compiler-emitted program/output state delta if it can be isolated before flashing.
 
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
