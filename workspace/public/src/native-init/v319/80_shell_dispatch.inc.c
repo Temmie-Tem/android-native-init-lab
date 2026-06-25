@@ -1780,6 +1780,7 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H3_RB_PS_SAMPLEFREQ_CNTL 0x00000000U
 #define GPU_H3_GRAS_SC_MSAA_SAMPLE_POS_CNTL 0x00000000U
 #define GPU_H3_RB_MSAA_SAMPLE_POS_CNTL 0x00000000U
+#define GPU_H3_RB_RENDER_CNTL 0x00000010U
 #define GPU_H3_TPL1_MSAA_SAMPLE_POS_CNTL 0x00000000U
 #define GPU_H3_RB_CCU_CNTL 0x10000000U
 #define GPU_H3_RB_CCU_COLOR_OFFSET 0x00020000U
@@ -2398,7 +2399,8 @@ static bool gpu_h2_append_3d_state_pm4(uint32_t *words,
         return false;
     }
     reg_writes += 6;
-    if (!gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_RENDER_CNTL, 0) ||
+    if (!gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_RENDER_CNTL,
+                              GPU_H3_RB_RENDER_CNTL) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_RAS_MSAA_CNTL, 0) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_DEST_MSAA_CNTL, 1U << 2) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H3_REG_RB_MSAA_SAMPLE_POS_CNTL,
@@ -7439,7 +7441,7 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
         return -EINVAL;
     }
     a90_console_printf("gpu.h3.draw.version=1\r\n");
-    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-r0-output-full-state-mov-f32-shader\r\n");
+    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-rb-render-cntl-r0-output-mov-f32-shader\r\n");
     a90_console_printf("gpu.h3.draw.path=%s\r\n", GPU_G0_DEVNODE);
     a90_console_printf("gpu.h3.draw.timeout_ms=%d\r\n", timeout_ms);
     a90_console_printf("gpu.h3.draw.wait_timeout_ms=%u\r\n", GPU_H3_WAIT_TIMEOUT_MS);
@@ -7487,6 +7489,8 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
     a90_console_printf("gpu.h3.draw.render_marker_source=mesa-freedreno-a6xx-fd6-set-render-mode-rm6-direct-render\r\n");
     a90_console_printf("gpu.h3.draw.cp_set_marker=0x%x\r\n",
                        GPU_H3_A6XX_CP_SET_MARKER_RM6_DIRECT_RENDER);
+    a90_console_printf("gpu.h3.draw.rb_render_cntl_source=mesa-freedreno-a6xx-fd6-gmem-update-render-cntl-ccu-single-cacheline\r\n");
+    a90_console_printf("gpu.h3.draw.rb_render_cntl=0x%x\r\n", GPU_H3_RB_RENDER_CNTL);
     a90_console_printf("gpu.h3.draw.rb_ccu_source=mesa-freedreno-a6xx-fd6-emit-gmem-cache-cntl-sysmem-adreno640v2\r\n");
     a90_console_printf("gpu.h3.draw.rb_ccu_cntl=0x%x\r\n", GPU_H3_RB_CCU_CNTL);
     a90_console_printf("gpu.h3.draw.rb_ccu_color_offset=0x%x\r\n",

@@ -636,6 +636,20 @@ the layer/view sentinel, not the position selector. This makes the exact hand-as
 no-pixel root cause. Next bounded unit should compare the remaining first-draw packet/linkage delta outside the already
 verified shader bytes, especially render-target/RB linkage or any compiler-emitted minimal-shader state that is still
 absent from the KGSL-direct envelope.
+V3247/V3248 then tested a concrete remaining Mesa A6xx RB linkage delta by changing the already-emitted
+`RB_RENDER_CNTL` value from `0x00000000` to `0x00000010`, matching `fd6_gmem.cc::update_render_cntl()` with
+`CCUSINGLECACHELINESIZE=2`, while keeping the V3244 r0 shader contract, V3246 audited ir3 bytes, direct-render marker,
+RB CCU sysmem state, sample-location defaults, static-context defaults, and firmware-class materialize preflight intact.
+The image built as `0.11.50 (v3247-gpu-h3-rb-render-cntl-probe)` with SHA256
+`56ea2b9aa2b46e2c5257db52c4c05a392871bed67fbd6c6a61807a880d3a5f4e`, flashed through `native_init_flash.py`, passed
+post-flash health (`selftest pass=12 warn=1 fail=0`), and live telemetry confirmed `gpu.h3.draw.rb_render_cntl=0x10`
+with unchanged envelope counts (`pm4_dwords=233`, `state_reg_writes=92`). The draw again submitted and retired cleanly
+(`submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`, `fence_poll_rc=1`, `total_elapsed_ms=29`) and the focused dmesg
+filter found no KGSL/GPU fault, hang, snapshot, or timeout signature, but the readback remained unchanged
+(`readback_changed_count=0`, `readback0=0x20202020`, `readback_center=0x20202020`). This removes the missing
+`RB_RENDER_CNTL.CCUSINGLECACHELINESIZE=2` hypothesis as the primary no-pixel root cause. Next bounded unit should
+continue outside shader bytes and this RB render-control field, using a remaining Mesa first-draw packet diff to isolate
+a narrower render-target/cache/visibility or draw-mode delta before claiming H4.
 
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the

@@ -100,9 +100,10 @@ class NativeGpuH3R0OutputSourceV3244Tests(unittest.TestCase):
             source.index("GPU_H3_A6XX_CP_SET_MARKER_RM6_DIRECT_RENDER"),
             source.index("GPU_H3_REG_RB_CCU_CNTL,\n                              GPU_H3_RB_CCU_CNTL"),
         )
-        self.assertIn(
-            '"gpu.h3.draw.scope=first-triangle-h3-r0-output-full-state-mov-f32-shader',
-            source,
+        self.assertTrue(
+            '"gpu.h3.draw.scope=first-triangle-h3-r0-output-full-state-mov-f32-shader' in source
+            or '"gpu.h3.draw.scope=first-triangle-h3-rb-render-cntl-r0-output-mov-f32-shader'
+            in source
         )
         self.assertIn(
             '"gpu.h3.draw.shader_payload=hand-assembled-ir3-r0-output-mov-f32-vs-position-fs-color-no-full-compiler',
