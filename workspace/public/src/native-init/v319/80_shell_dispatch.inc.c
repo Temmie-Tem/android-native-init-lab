@@ -1830,6 +1830,13 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H5_H3_PRESENT_MARGIN_X 28U
 #define GPU_H5_H3_PRESENT_TOP 176U
 #define GPU_H5_LINEAR_CLEAR_PATTERN 0x00000000U
+#define GPU_H5_VISUAL_HOLD_DEFAULT_MS 30000
+#define GPU_H5_VISUAL_HOLD_MAX_MS 60000
+#define GPU_H5_VISUAL_MIN_PANEL_MARGIN 60U
+#define GPU_H5_VISUAL_TOP_TEXT_Y 48U
+#define GPU_H5_VISUAL_BOTTOM_RESERVED 260U
+#define GPU_H5_VISUAL_FILL_COLOR 0x00ff40U
+#define GPU_H5_VISUAL_BG_COLOR 0x050505U
 #define GPU_H5_A2D_BLT_CNTL_SCALE_RGBA8 0x10f03000U
 #define GPU_H5_A2D_OUTPUT_INFO_RGBA8 0x0000f180U
 #define GPU_H5_A2D_SRC_TEXTURE_INFO_TILE6_3_FLAGS \
@@ -8810,10 +8817,67 @@ static uint32_t gpu_h5_pack_rgb_for_xbgr8888(uint32_t color) {
 }
 
 static uint32_t gpu_h5_h3_readback_word_to_xbgr8888(uint32_t word) {
-    if (word == GPU_H2_CLEAR_PATTERN) {
+    if (word == GPU_H2_CLEAR_PATTERN || word == GPU_H5_LINEAR_CLEAR_PATTERN) {
         return gpu_h5_pack_rgb_for_xbgr8888(0x101010U);
     }
     return word & 0x00ffffffU;
+}
+
+static bool gpu_h5_find_linear_nonzero_bounds(const uint32_t *source,
+                                              uint32_t *min_x,
+                                              uint32_t *min_y,
+                                              uint32_t *max_x,
+                                              uint32_t *max_y) {
+    uint32_t found_min_x = GPU_H2_COLOR_WIDTH;
+    uint32_t found_min_y = GPU_H2_COLOR_HEIGHT;
+    uint32_t found_max_x = 0U;
+    uint32_t found_max_y = 0U;
+    uint32_t y;
+    bool found = false;
+
+    if (source == NULL) {
+        return false;
+    }
+
+    for (y = 0; y < GPU_H2_COLOR_HEIGHT; ++y) {
+        uint32_t x;
+
+        for (x = 0; x < GPU_H2_COLOR_WIDTH; ++x) {
+            if (source[(y * GPU_H2_COLOR_WIDTH) + x] == GPU_H5_LINEAR_CLEAR_PATTERN) {
+                continue;
+            }
+            if (!found || x < found_min_x) {
+                found_min_x = x;
+            }
+            if (!found || y < found_min_y) {
+                found_min_y = y;
+            }
+            if (!found || x > found_max_x) {
+                found_max_x = x;
+            }
+            if (!found || y > found_max_y) {
+                found_max_y = y;
+            }
+            found = true;
+        }
+    }
+
+    if (!found) {
+        return false;
+    }
+    if (min_x != NULL) {
+        *min_x = found_min_x;
+    }
+    if (min_y != NULL) {
+        *min_y = found_min_y;
+    }
+    if (max_x != NULL) {
+        *max_x = found_max_x;
+    }
+    if (max_y != NULL) {
+        *max_y = found_max_y;
+    }
+    return true;
 }
 
 static int gpu_h5_blit_h3_readback_to_kms(const uint32_t *source,
@@ -8824,8 +8888,14 @@ static int gpu_h5_blit_h3_readback_to_kms(const uint32_t *source,
                                           uint32_t *rect_h,
                                           uint32_t *scale_out) {
     struct a90_fb *fb = a90_kms_framebuffer();
-    uint32_t scale_x;
-    uint32_t scale_y;
+    uint32_t min_x = 0U;
+    uint32_t min_y = 0U;
+    uint32_t max_x = 0U;
+    uint32_t max_y = 0U;
+    uint32_t src_w;
+    uint32_t src_h;
+    uint32_t usable_w;
+    uint32_t usable_h;
     uint32_t scale;
     uint32_t dst_w;
     uint32_t dst_h;
@@ -8839,28 +8909,39 @@ static int gpu_h5_blit_h3_readback_to_kms(const uint32_t *source,
         fb->width == 0U || fb->height == 0U || fb->stride < fb->width * 4U) {
         return -ENODEV;
     }
+    if (!gpu_h5_find_linear_nonzero_bounds(source, &min_x, &min_y, &max_x, &max_y)) {
+        return -EIO;
+    }
 
-    scale_x = (fb->width > (GPU_H5_H3_PRESENT_MARGIN_X * 2U)) ?
-        (fb->width - (GPU_H5_H3_PRESENT_MARGIN_X * 2U)) / GPU_H2_COLOR_WIDTH : 0U;
-    scale_y = (fb->height > (GPU_H5_H3_PRESENT_TOP + 96U)) ?
-        (fb->height - GPU_H5_H3_PRESENT_TOP - 96U) / GPU_H2_COLOR_HEIGHT : 0U;
-    scale = scale_x < scale_y ? scale_x : scale_y;
+    src_w = (max_x - min_x) + 1U;
+    src_h = (max_y - min_y) + 1U;
+    a90_console_printf("gpu.h5.vis.source_bbox=%u,%u,%u,%u\r\n",
+                       min_x, min_y, max_x, max_y);
+    a90_console_printf("gpu.h5.vis.visual_shape=solid-mask-centered\r\n");
+    usable_w = fb->width > (GPU_H5_VISUAL_MIN_PANEL_MARGIN * 2U) ?
+        fb->width - (GPU_H5_VISUAL_MIN_PANEL_MARGIN * 2U) : fb->width;
+    usable_h = fb->height > (GPU_H5_VISUAL_TOP_TEXT_Y + GPU_H5_VISUAL_BOTTOM_RESERVED) ?
+        fb->height - GPU_H5_VISUAL_TOP_TEXT_Y - GPU_H5_VISUAL_BOTTOM_RESERVED : fb->height;
+    scale = usable_w / src_w;
+    if (src_h > 0U && usable_h / src_h < scale) {
+        scale = usable_h / src_h;
+    }
     if (scale == 0U) {
         return -ENOSPC;
     }
-    if (scale > 8U) {
-        scale = 8U;
-    }
-    dst_w = GPU_H2_COLOR_WIDTH * scale;
-    dst_h = GPU_H2_COLOR_HEIGHT * scale;
+    dst_w = src_w * scale;
+    dst_h = src_h * scale;
     x = (fb->width - dst_w) / 2U;
-    y = GPU_H5_H3_PRESENT_TOP;
+    y = (fb->height - dst_h) / 2U;
+    if (y < GPU_H5_H3_PRESENT_TOP) {
+        y = GPU_H5_H3_PRESENT_TOP;
+    }
     if (y + dst_h > fb->height) {
         y = (fb->height - dst_h) / 2U;
     }
 
-    a90_draw_text(fb, 36U, 48U, "GPU H5 TRIANGLE KMS", 0xffffff, 4U);
-    a90_draw_text(fb, 36U, 104U, "A2D LINEAR H3 STRICT", 0x80ff80, 3U);
+    a90_draw_text(fb, 36U, 48U, "GPU H5 VISUAL CLOSE", 0xffffff, 4U);
+    a90_draw_text(fb, 36U, 104U, "RECOGNIZABLE TRIANGLE HOLD", 0x80ff80, 3U);
     a90_draw_rect_outline(fb,
                           x > 8U ? x - 8U : x,
                           y > 8U ? y - 8U : y,
@@ -8868,22 +8949,27 @@ static int gpu_h5_blit_h3_readback_to_kms(const uint32_t *source,
                           dst_h + 16U < fb->height ? dst_h + 16U : dst_h,
                           4U,
                           0xffffff);
+    a90_draw_rect(fb, x, y, dst_w, dst_h, 0x000000);
 
-    for (sy = 0; sy < GPU_H2_COLOR_HEIGHT; ++sy) {
+    for (sy = min_y; sy <= max_y; ++sy) {
         uint32_t sx;
 
-        for (sx = 0; sx < GPU_H2_COLOR_WIDTH; ++sx) {
-            uint32_t pixel = gpu_h5_h3_readback_word_to_xbgr8888(
-                source[(sy * GPU_H2_COLOR_WIDTH) + sx]);
+        for (sx = min_x; sx <= max_x; ++sx) {
+            uint32_t raw = source[(sy * GPU_H2_COLOR_WIDTH) + sx];
+            uint32_t pixel = raw == GPU_H5_LINEAR_CLEAR_PATTERN ?
+                gpu_h5_h3_readback_word_to_xbgr8888(raw) :
+                gpu_h5_pack_rgb_for_xbgr8888(GPU_H5_VISUAL_FILL_COLOR);
+            uint32_t src_rel_y = sy - min_y;
+            uint32_t src_rel_x = sx - min_x;
             uint32_t dy;
 
             for (dy = 0; dy < scale; ++dy) {
                 uint32_t *row =
-                    (uint32_t *)((char *)fb->pixels + ((y + (sy * scale) + dy) * fb->stride));
+                    (uint32_t *)((char *)fb->pixels + ((y + (src_rel_y * scale) + dy) * fb->stride));
                 uint32_t dx;
 
                 for (dx = 0; dx < scale; ++dx) {
-                    row[x + (sx * scale) + dx] = pixel;
+                    row[x + (src_rel_x * scale) + dx] = pixel;
                 }
             }
         }
@@ -8894,11 +8980,13 @@ static int gpu_h5_blit_h3_readback_to_kms(const uint32_t *source,
              h3->linear_readback_nonzero_count,
              h3->linear_readback_first_nonzero_index);
     a90_draw_text(fb, 36U, y + dst_h + 28U, line, 0xffcc33, 3U);
-    snprintf(line, sizeof(line), "CENTER %08X CORNERS %u RAW %u",
-             h3->linear_readback_center,
-             h3->linear_exterior_corners_zero,
-             h3->readback_changed_count);
+    snprintf(line, sizeof(line), "BBOX %u,%u-%u,%u SCALE %u",
+             min_x, min_y, max_x, max_y, scale);
     a90_draw_text(fb, 36U, y + dst_h + 72U, line, 0xbbbbbb, 3U);
+    snprintf(line, sizeof(line), "CENTER %08X CORNERS %u",
+             h3->linear_readback_center,
+             h3->linear_exterior_corners_zero);
+    a90_draw_text(fb, 36U, y + dst_h + 116U, line, 0xbbbbbb, 3U);
 
     if (rect_x != NULL) {
         *rect_x = x;
@@ -9124,7 +9212,9 @@ static int gpu_g5_kms_blit_probe(int timeout_ms, bool materialize_devnode) {
     return present_rc == 0 ? 0 : -EIO;
 }
 
-static int gpu_h5_triangle_kms_probe(int timeout_ms, bool materialize_devnode) {
+static int gpu_h5_triangle_kms_probe(int timeout_ms,
+                                     bool materialize_devnode,
+                                     int hold_ms) {
     struct gpu_h3_draw_snapshot_child_run run;
     struct a90_kms_info kms_info;
     const struct gpu_h3_draw_envelope_probe_result *h3;
@@ -9151,14 +9241,23 @@ static int gpu_h5_triangle_kms_probe(int timeout_ms, bool materialize_devnode) {
                            GPU_G0_MAX_TIMEOUT_MS);
         return -EINVAL;
     }
+    if (hold_ms < 0 || hold_ms > GPU_H5_VISUAL_HOLD_MAX_MS) {
+        a90_console_printf("gpu.h5.vis.error=bad-hold max_ms=%d\r\n",
+                           GPU_H5_VISUAL_HOLD_MAX_MS);
+        return -EINVAL;
+    }
 
     a90_console_printf("gpu.h5.kms.version=1\r\n");
-    a90_console_printf("gpu.h5.kms.scope=first-triangle-h5-a2d-linearized-strict-sample-kms-probe\r\n");
+    a90_console_printf("gpu.h5.kms.scope=first-triangle-h5-visual-close-held-kms-probe\r\n");
     a90_console_printf("gpu.h5.kms.kgsl_path=%s\r\n", GPU_G0_DEVNODE);
     a90_console_printf("gpu.h5.kms.drm_path=/dev/dri/card0\r\n");
     a90_console_printf("gpu.h5.kms.timeout_ms=%d\r\n", timeout_ms);
+    a90_console_printf("gpu.h5.vis.version=1\r\n");
+    a90_console_printf("gpu.h5.vis.mode=linear-nonzero-mask-solid-fill-centered\r\n");
+    a90_console_printf("gpu.h5.vis.hold_ms=%d\r\n", hold_ms);
+    a90_console_printf("gpu.h5.vis.hold_max_ms=%d\r\n", GPU_H5_VISUAL_HOLD_MAX_MS);
     a90_console_printf("gpu.h5.kms.kgsl_source=h3-blend-output-readback-changed\r\n");
-    a90_console_printf("gpu.h5.kms.blit_mode=h3-private-buffer-a2d-linearized-snapshot-to-kms-dumb-framebuffer\r\n");
+    a90_console_printf("gpu.h5.kms.blit_mode=h3-private-linear-snapshot-solid-triangle-mask-to-kms-dumb-framebuffer\r\n");
     a90_console_printf("gpu.h5.kms.raw_tile_order_visualization=0\r\n");
     a90_console_printf("gpu.h5.kms.linearized_tile6_3_a2d_blit=1\r\n");
     a90_console_printf("gpu.h5.kms.zero_copy_attempted=0\r\n");
@@ -9166,6 +9265,8 @@ static int gpu_h5_triangle_kms_probe(int timeout_ms, bool materialize_devnode) {
     a90_console_printf("gpu.h5.kms.kms_blit_attempted=1\r\n");
     a90_console_printf("gpu.h5.kms.power_write_attempted=0\r\n");
     a90_console_printf("gpu.h5.kms.proprietary_blob_attempted=0\r\n");
+    stop_auto_hud(false);
+    a90_console_printf("gpu.h5.vis.autohud_stop_attempted=1\r\n");
 
     if (materialize_devnode) {
         int mat_rc = gpu_g0_materialize_devnode();
@@ -9305,8 +9406,21 @@ static int gpu_h5_triangle_kms_probe(int timeout_ms, bool materialize_devnode) {
     a90_console_printf("gpu.h5.kms.present_elapsed_ms=%ld\r\n", present_elapsed_ms);
     a90_console_printf("gpu.h5.kms.present_rc=%d\r\n", present_rc);
     a90_console_printf("gpu.h5.kms.result=%s\r\n",
-                       present_rc == 0 ? "h3-linear-readback-kms-presented" :
+                       present_rc == 0 ? "h3-visual-triangle-kms-presented" :
                        "kms-present-failed");
+    if (present_rc == 0 && hold_ms > 0) {
+        long hold_started_ms = monotonic_millis();
+
+        a90_console_printf("gpu.h5.vis.hold_begin=1\r\n");
+        usleep((useconds_t)hold_ms * 1000U);
+        a90_console_printf("gpu.h5.vis.hold_elapsed_ms=%ld\r\n",
+                           monotonic_millis() - hold_started_ms);
+        a90_console_printf("gpu.h5.vis.result=triangle-presented-held\r\n");
+    } else if (present_rc == 0) {
+        a90_console_printf("gpu.h5.vis.result=triangle-presented-no-hold\r\n");
+    } else {
+        a90_console_printf("gpu.h5.vis.result=kms-present-failed\r\n");
+    }
     a90_console_printf("gpu.h5.kms.total_elapsed_ms=%ld\r\n",
                        monotonic_millis() - total_started_ms);
     return present_rc == 0 ? 0 : -EIO;
@@ -9315,6 +9429,7 @@ static int gpu_h5_triangle_kms_probe(int timeout_ms, bool materialize_devnode) {
 static int handle_gpu(char **argv, int argc) {
     const char *subcommand = argc >= 2 ? argv[1] : "g0-status";
     int timeout_ms = GPU_G0_DEFAULT_TIMEOUT_MS;
+    int hold_ms = GPU_H5_VISUAL_HOLD_DEFAULT_MS;
     bool rdwr = false;
     bool materialize_devnode = false;
     int index;
@@ -9492,17 +9607,23 @@ static int handle_gpu(char **argv, int argc) {
                     return -EINVAL;
                 }
                 ++index;
+            } else if (strcmp(argv[index], "--hold-ms") == 0) {
+                if (index + 1 >= argc || !gpu_g0_parse_int(argv[index + 1], &hold_ms)) {
+                    a90_console_printf("gpu.h5.vis.error=bad-hold\r\n");
+                    return -EINVAL;
+                }
+                ++index;
             } else if (strcmp(argv[index], "--materialize-devnode") == 0) {
                 materialize_devnode = true;
             } else {
-                a90_console_printf("usage: gpu h5-triangle-kms-probe [--timeout-ms N] [--materialize-devnode]\r\n");
+                a90_console_printf("usage: gpu h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]\r\n");
                 return -EINVAL;
             }
         }
-        return gpu_h5_triangle_kms_probe(timeout_ms, materialize_devnode);
+        return gpu_h5_triangle_kms_probe(timeout_ms, materialize_devnode, hold_ms);
     }
     if (strcmp(subcommand, "g0-open-probe") != 0) {
-        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--materialize-devnode]]\r\n");
+        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]\r\n");
         return -EINVAL;
     }
     for (index = 2; index < argc; ++index) {
@@ -9597,7 +9718,7 @@ static const struct shell_command command_table[] = {
     { "pstore", handle_pstore, "pstore [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "watchdoginv", handle_watchdoginv, "watchdoginv [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "tracefs", handle_tracefs, "tracefs [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
-    { "gpu", handle_gpu, "gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--materialize-devnode]]", CMD_NONE, A90_CMD_GROUP_CORE },
+    { "gpu", handle_gpu, "gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "audio", handle_audio, "audio [status|profiles|profile|speaker-map|stages|prereq|app-type|setcal|route|play|chime|play-status|stop|adsp-status|snd-status]", CMD_NONE, A90_CMD_GROUP_ANDROID },
     { "video", handle_video, "video [status|frame [bars|checker|mono|0xRRGGBB]|demo [badapple|badapple-scale|nyan|doom [status|verify|play|frame|engine-probe] [frames] [--wad runtime-private --sha256 EXPECTED]|frame-pattern]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status PATH]|cache [status|verify|play] SHA256 [--trust-cache] [--layout full|player-hud]|cache preset [badapple|badapple-scale|nyan] [status|verify|play]]", CMD_DISPLAY, A90_CMD_GROUP_DISPLAY },
     { "wifi", handle_wifi, "wifi [status|scan [delay_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|config [status|prepare [profile]]]", CMD_NONE, A90_CMD_GROUP_NETWORK },

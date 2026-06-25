@@ -1091,6 +1091,22 @@ triangle proof: vertex buffer + VS + rasterizer + FS + sysmem color/flag write +
 all within the freedreno/KGSL-direct recoverable envelope. Next work should move to the after-triangle backlog, starting
 with a small visible compute/fragment-shader demo or extraction of the now-proven GPU path.
 
+V3297/V3298 then closed the operator sensory H5 gate. V3297 kept the strict proof path but changed presentation from a
+raw proof surface to a recognizable KMS screen: it finds the A2D-linearized nonzero triangle bbox, scales that mask into
+a centered high-contrast solid triangle, stops autohud before present, and holds the framebuffer on screen. The source
+build produced `0.11.74 (v3297-gpu-h5-visual-triangle-hold-probe)` with SHA256
+`a0728c476f7fa6793d28fc930d7dcdf8c3eac99dc3db44e7044274c5431f4e80`. V3298 flashed that artifact through
+`native_init_flash.py` after reconfirming rollback images/TWRP; resident came back as `0.11.74`, post-flash and
+post-probe selftest stayed `pass=12 warn=1 fail=0`, and after `hide` cleared the auto menu the live command
+`gpu h5-triangle-kms-probe --timeout-ms 5000 --hold-ms 30000 --materialize-devnode` completed in `30159ms` with
+`gpu.h5.kms.result=h3-visual-triangle-kms-presented` and `gpu.h5.vis.result=triangle-presented-held`. Strict proof
+telemetry still passed (`h3_linear_readback_nonzero_count=2016`, `h3_linear_readback_center=0xff00b900`,
+`h3_linear_exterior_corners_zero=1`, `strict_linear_triangle_sample_proof=1`), the visible bbox was
+`64,64,126,126`, and KMS presented a centered `945x945` visual triangle region at `67,727` on the `1080x2400`
+framebuffer. The operator confirmed the triangle was visible on the panel during the hold. Focused dmesg again showed
+no GPU fault/hang/snapshot/opcode/SMMU/IOMMU/page-fault signature. The first-triangle epic is now closed both by
+telemetry and by human visual confirmation; the next rung is the after-triangle backlog.
+
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
   rasterizer; gives GPU compute a *screen consumer*. **Matrix/GPGPU math is absorbed here, NOT a standalone goal** —

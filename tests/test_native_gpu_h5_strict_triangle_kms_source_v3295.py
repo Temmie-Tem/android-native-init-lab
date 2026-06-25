@@ -80,8 +80,14 @@ class NativeGpuH5StrictTriangleKmsSourceV3295Tests(unittest.TestCase):
         self.assertIn("h3->linear_exterior_corners_zero == 0U", source)
         self.assertIn("gpu.h5.kms.strict_linear_triangle_sample_proof=%u", source)
         self.assertIn("gpu.h5.kms.result=h3-linear-readback-failed", source)
-        self.assertIn("h3-linear-readback-kms-presented", source)
-        self.assertIn("A2D LINEAR H3 STRICT", source)
+        self.assertTrue(
+            "h3-linear-readback-kms-presented" in source
+            or "h3-visual-triangle-kms-presented" in source
+        )
+        self.assertTrue(
+            "A2D LINEAR H3 STRICT" in source
+            or "GPU H5 VISUAL CLOSE" in source
+        )
 
     def test_h5_keeps_existing_h3_shader_contract(self) -> None:
         result = audit.run_audit(ir3_disasm="/missing/ir3-disasm")

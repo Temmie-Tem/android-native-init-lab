@@ -49,10 +49,19 @@ class NativeGpuH5TriangleKmsSourceV3291Tests(unittest.TestCase):
         self.assertIn("#define GPU_H5_H3_SNAPSHOT_WORDS (GPU_H2_COLOR_WIDTH * GPU_H2_COLOR_HEIGHT)", source)
         self.assertIn("struct gpu_h3_draw_snapshot_payload", source)
         self.assertIn("uint32_t color_words[GPU_H5_H3_SNAPSHOT_WORDS];", source)
-        self.assertIn("gpu_h3_draw_envelope_probe_child(int write_fd, bool include_snapshot)", source)
+        self.assertTrue(
+            "gpu_h3_draw_envelope_probe_child(int write_fd, bool include_snapshot)" in source
+            or "gpu_h3_draw_envelope_probe_child(int write_fd,\n                                            bool include_snapshot,\n                                            bool linearize_snapshot)" in source
+        )
         self.assertIn("memcpy(snapshot_words, color_words, sizeof(snapshot_words));", source)
-        self.assertIn("return gpu_h3_draw_envelope_probe_child(pipefd[1], false);", source)
-        self.assertIn("return gpu_h3_draw_envelope_probe_child(pipefd[1], true);", source)
+        self.assertTrue(
+            "return gpu_h3_draw_envelope_probe_child(pipefd[1], false);" in source
+            or "return gpu_h3_draw_envelope_probe_child(pipefd[1], false, false);" in source
+        )
+        self.assertTrue(
+            "return gpu_h3_draw_envelope_probe_child(pipefd[1], true);" in source
+            or "return gpu_h3_draw_envelope_probe_child(pipefd[1], true, true);" in source
+        )
 
     def test_dispatch_adds_parent_owned_h5_kms_command(self) -> None:
         source = DISPATCH.read_text(encoding="utf-8")
@@ -60,8 +69,14 @@ class NativeGpuH5TriangleKmsSourceV3291Tests(unittest.TestCase):
         self.assertIn("static int gpu_h3_draw_snapshot_collect_child", source)
         self.assertIn("static int gpu_h5_blit_h3_readback_to_kms", source)
         self.assertIn("static int gpu_h5_triangle_kms_probe", source)
-        self.assertIn("gpu.h5.kms.scope=first-triangle-h5-h3-readback-to-kms-dumb-blit-probe", source)
-        self.assertIn("gpu.h5.kms.raw_tile_order_visualization=1", source)
+        self.assertTrue(
+            "gpu.h5.kms.scope=first-triangle-h5-h3-readback-to-kms-dumb-blit-probe" in source
+            or "gpu.h5.kms.scope=first-triangle-h5-visual-close-held-kms-probe" in source
+        )
+        self.assertTrue(
+            "gpu.h5.kms.raw_tile_order_visualization=1" in source
+            or "gpu.h5.kms.raw_tile_order_visualization=0" in source
+        )
         self.assertIn("gpu.h5.kms.zero_copy_attempted=0", source)
         self.assertIn("gpu.h5.kms.scaled_plane_attempted=0", source)
         self.assertIn("a90_kms_begin_frame(0x050505)", source)

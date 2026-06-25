@@ -78,10 +78,14 @@ class NativeGpuH5LinearTriangleKmsSourceV3293Tests(unittest.TestCase):
             or "h3->linear_readback_nonzero_count == 0U" in source
         )
         self.assertIn("gpu.h5.kms.result=h3-linear-readback-failed", source)
-        self.assertIn("h3-linear-readback-kms-presented", source)
+        self.assertTrue(
+            "h3-linear-readback-kms-presented" in source
+            or "h3-visual-triangle-kms-presented" in source
+        )
         self.assertTrue(
             "A2D LINEARIZED H3 COLOR" in source
             or "A2D LINEAR H3 STRICT" in source
+            or "GPU H5 VISUAL CLOSE" in source
         )
 
     def test_h5_keeps_existing_h3_shader_contract(self) -> None:
