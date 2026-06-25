@@ -976,6 +976,20 @@ build unit. Focused source tests and shader/cffdump audits passed. Next live uni
 through `native_init_flash.py` under the usual rollback gates and check whether `readback_changed_count` or the
 color-flag buffer changes before moving to the smaller blend/output-state group.
 
+V3288 flashed that V3287 candidate through `native_init_flash.py` after reconfirming the rollback images and TWRP
+recovery. Flash-helper verification matched local, remote, and boot readback-prefix SHA
+`560538eb253daa013971a2492575f80797082b3359d51e159c3a76e990aa9255`; resident came back as `0.11.69
+(v3287-gpu-h3-vfd-vs-contract-probe)`, and post-flash/post-probe selftest stayed `pass=12 warn=1 fail=0`. Two H3
+draw-envelope runs confirmed the VFD/VS contract was live (`VFD_CNTL_0=0x303`, `VFD_CNTL_1=0xfcfcfc09`, fetch instrs
+`0xc8200000/0xc8200200/0x44c00400`, dest cntls `0xf/0x4f/0x81`, stride `36`, `pm4_dwords=335`, `vfd_reg_writes=20`),
+submitted and retired cleanly (`submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`, warm `total_elapsed_ms=11`), but
+readback and the color-flag buffer remained unchanged (`readback_changed_count=0`, `readback0=0x20202020`,
+`readback_center=0x20202020`, `color_flag_changed_count=0`, `color_flag0=0x0`). Focused dmesg showed no GPU fault,
+hang, snapshot, opcode, SMMU/IOMMU, or page-fault signature; only the unrelated modem firmware wait timeout and expected
+`a640_zap` first-use lines matched. This removes the VFD/VS input-contract mismatch as the primary no-pixel cause. Next
+bounded live unit should test the smaller direct-sysmem-compatible blend/output group from V3286:
+`SP_BLEND_CNTL=0x100`, `RB_BLEND_CNTL=0xffff0100`, and `RB_MRT[0].BLEND_CONTROL=0x08040804`.
+
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
   rasterizer; gives GPU compute a *screen consumer*. **Matrix/GPGPU math is absorbed here, NOT a standalone goal** —
