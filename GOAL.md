@@ -1000,6 +1000,23 @@ build unit. Focused source tests, shader-byte audit, cffdump current-H3 model te
 live unit should flash V3289 through `native_init_flash.py` under the usual rollback gates and check whether this
 blend/output group changes `readback_changed_count` or the color-flag buffer.
 
+V3290 flashed the V3289 artifact through `native_init_flash.py` after reconfirming the rollback images and TWRP
+recovery. Flash-helper verification matched local, remote, and boot readback-prefix SHA
+`10e43f8fc8c751774d830b797b783f3a058f10efaeeccab5d0dd57f806e6f34d`; resident came back as `0.11.70
+(v3289-gpu-h3-blend-output-probe)`, and post-flash/post-probe health stayed clean (`selftest pass=12 warn=1 fail=0`;
+one immediate selftest attempt lost serial framing after truncated input, then slow-mode selftest passed). Two H3
+draw-envelope runs submitted and retired cleanly and, for the first time, changed sysmem readback and the color-flag
+buffer: run 1 reported `readback_changed_count=672`, `readback_first_changed_index=9216`,
+`readback_first_changed_value=0xfb9802e6`, `color_flag_changed_count=32`, `color_flag_first_changed_index=256`,
+`color_flag_first_changed_value=0x1010101`, `total_elapsed_ms=30`; warm run 2 repeated the same changed counts and
+first-changed values with `total_elapsed_ms=12`. `readback0` and `readback_center` remained the clear value
+`0x20202020`, so this is H4 first-pixel/readback proof rather than H5 visible/centered presentation. Focused dmesg
+showed no GPU fault, hang, snapshot, opcode, SMMU/IOMMU, or page-fault signature; only the unrelated WLAN firmware wait
+timeout matched the filter. This confirms the missing load-bearing group was the blend/output state, not the already
+ruled-out A640 magic block or VFD/VS input contract alone. Next bounded unit is H5: present or blit the proven offscreen
+triangle result to `/dev/dri/card0`, or first inspect/reposition the changed region if a centered display proof is
+required.
+
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
   rasterizer; gives GPU compute a *screen consumer*. **Matrix/GPGPU math is absorbed here, NOT a standalone goal** —
