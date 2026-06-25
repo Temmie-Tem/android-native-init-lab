@@ -47,7 +47,7 @@ class NativeGpuH3MinimalIr3MovShaderSourceV3216Tests(unittest.TestCase):
         source = DISPATCH.read_text(encoding="utf-8")
         self.assertIn("GPU_G4_A6XX_FMT6_32_FLOAT 0x4aU", source)
         self.assertIn("GPU_H3_COLOR_FORMAT GPU_G4_A6XX_FMT6_32_FLOAT", source)
-        self.assertIn("GPU_H3_COLOR_OUTPUT_MASK 0x1U", source)
+        self.assertIn("GPU_H3_COLOR_OUTPUT_MASK 0xfU", source)
         self.assertIn("GPU_H1_IR3_END_LO 0x00000000U", source)
         self.assertIn("GPU_H1_IR3_END_HI 0x03000000U", source)
         self.assertIn("GPU_H3_IR3_F32_0_LO 0x00000000U", source)
@@ -55,19 +55,24 @@ class NativeGpuH3MinimalIr3MovShaderSourceV3216Tests(unittest.TestCase):
         self.assertIn("GPU_H3_IR3_MOV_F32F32_R0X_HI 0x20444000U", source)
         self.assertIn("GPU_H3_IR3_MOV_F32F32_R0Z_HI 0x20444002U", source)
         self.assertIn("GPU_H3_IR3_MOV_F32F32_R0W_HI 0x20444003U", source)
-        self.assertIn("GPU_H3_IR3_F32_0_LO, GPU_H3_IR3_MOV_F32F32_R0Z_HI", source)
-        self.assertIn("GPU_H3_IR3_F32_1_LO, GPU_H3_IR3_MOV_F32F32_R0W_HI", source)
+        self.assertIn("#define GPU_H3_IR3_MOV_U32U32_R0Z_HI 0x204cc002U", source)
+        self.assertIn("#define GPU_H3_IR3_MOV_U32U32_R0W_HI 0x204cc003U", source)
+        self.assertNotIn("GPU_H3_IR3_F32_0_LO, GPU_H3_IR3_MOV_F32F32_R0Z_HI", source)
+        self.assertIn("GPU_H3_IR3_F32_1_LO, GPU_H3_IR3_MOV_U32U32_R0Z_HI", source)
+        self.assertIn("GPU_H3_IR3_F32_1_LO, GPU_H3_IR3_MOV_U32U32_R0W_HI", source)
         self.assertIn("GPU_H3_IR3_F32_1_LO, GPU_H3_IR3_MOV_F32F32_R0X_HI", source)
         self.assertIn("GPU_H1_IR3_END_LO, GPU_H1_IR3_END_HI", source)
         self.assertIn("color_format |", source)
         self.assertIn("color_uint ? (1U << 9) : 0U", source)
         self.assertIn("GPU_H3_COLOR_FORMAT, GPU_H3_COLOR_OUTPUT_MASK", source)
-        self.assertIn(
-            '"gpu.h3.draw.scope=first-triangle-h3-minimal-ir3-mov-f32-shader',
-            source,
+        self.assertTrue(
+            '"gpu.h3.draw.scope=first-triangle-h3-minimal-ir3-mov-f32-shader'
+            in source
+            or '"gpu.h3.draw.scope=first-triangle-h3-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader'
+            in source
         )
         self.assertIn(
-            '"gpu.h3.draw.shader_payload=hand-assembled-ir3-mov-f32-vs-position-fs-color-no-full-compiler',
+            '"gpu.h3.draw.shader_payload=mesa-reference-ir3-minimal-vs-u32-z-w-instrlen1-plus-audited-fs-f32-r0x',
             source,
         )
         self.assertIn('"gpu.h3.draw.ir3_end_opcode_hi=0x%x', source)

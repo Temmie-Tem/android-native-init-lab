@@ -55,9 +55,11 @@ class NativeGpuH3SPCntl0LinkageSourceV3218Tests(unittest.TestCase):
         self.assertIn("uint32_t ps_cntl_0 = GPU_H3_SP_PS_CNTL_0;", source)
         self.assertIn("GPU_H1_REG_SP_VS_CNTL_0, vs_cntl_0", source)
         self.assertIn("GPU_H1_REG_SP_PS_CNTL_0, ps_cntl_0", source)
-        self.assertIn(
-            '"gpu.h3.draw.scope=first-triangle-h3-sp-cntl0-linkage-mov-f32-shader',
-            source,
+        self.assertTrue(
+            '"gpu.h3.draw.scope=first-triangle-h3-sp-cntl0-linkage-mov-f32-shader'
+            in source
+            or '"gpu.h3.draw.scope=first-triangle-h3-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader'
+            in source
         )
         self.assertIn('"gpu.h3.draw.sp_vs_cntl0=0x%x', source)
         self.assertIn('"gpu.h3.draw.sp_ps_cntl0=0x%x', source)

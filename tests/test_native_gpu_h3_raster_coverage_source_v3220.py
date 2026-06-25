@@ -48,7 +48,7 @@ class NativeGpuH3RasterCoverageSourceV3220Tests(unittest.TestCase):
         self.assertIn("GPU_H2_REG_GRAS_SC_RAS_MSAA_CNTL, 0", source)
         self.assertIn("GPU_H2_REG_GRAS_SC_DEST_MSAA_CNTL", source)
         self.assertIn("GPU_H2_REG_GRAS_SC_SCREEN_SCISSOR_CNTL, 0", source)
-        self.assertIn("reg_writes += 9;", source)
+        self.assertIn("reg_writes += 16;", source)
         self.assertIn(
             '"gpu.h3.draw.raster_coverage_source=mesa-freedreno-a6xx-gras-rb-msaa-defaults',
             source,

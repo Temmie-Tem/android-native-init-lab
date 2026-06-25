@@ -74,9 +74,11 @@ class NativeGpuH3CacheInvalidateSourceV3249Tests(unittest.TestCase):
             source.index("GPU_G4_EVENT_PC_CCU_INVALIDATE_COLOR"),
             source.index("gpu_h3_append_shader_state_pm4(words, dwords, vs_gpuaddr, fs_gpuaddr)"),
         )
-        self.assertIn(
-            '"gpu.h3.draw.scope=first-triangle-h3-cache-invalidate-rb-render-cntl-r0-output-mov-f32-shader',
-            source,
+        self.assertTrue(
+            '"gpu.h3.draw.scope=first-triangle-h3-cache-invalidate-rb-render-cntl-r0-output-mov-f32-shader'
+            in source
+            or '"gpu.h3.draw.scope=first-triangle-h3-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader'
+            in source
         )
         self.assertIn(
             '"gpu.h3.draw.cache_invalidate_source=mesa-freedreno-a6xx-fd6-emit-restore-fd6-cache-inv',

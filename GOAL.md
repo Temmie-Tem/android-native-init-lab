@@ -665,6 +665,22 @@ CCU/UCHE invalidation as the primary no-pixel root cause. Next bounded unit shou
 first-draw packet diff outside shader bytes, `RB_RENDER_CNTL`, and pre-draw cache invalidation; good remaining targets
 are draw-state bootstrap such as `CP_SET_MODE`/`SP_UPDATE_CNTL`/restore state ordering, or another concrete
 compiler-emitted program/output state delta if it can be isolated before flashing.
+V3251/V3252 then tested the operator-identified shader-binary/load-contract hypothesis. The source unit replaced the H3
+VS with the local Mesa reference minimal VS bytes (`mov.u32u32 r0.z, 0x3f800000`; `mov.u32u32 r0.w, 0x3f800000`;
+`end`; zero padding), kept the V3246 `ir3-disasm`-audited FS, aligned both shader BO payloads to 128 bytes, and changed
+`SP_VS_INSTR_SIZE`, `SP_PS_INSTR_SIZE`, and CP_LOAD_STATE6 shader `NUM_UNIT` to Mesa-style `instrlen=1`. The image
+built as `0.11.52 (v3251-gpu-h3-compiler-vs-instrlen-probe)` with SHA256
+`ac608fe5914a834b5f895c79ee28b4c4d5212b8fbdbcec0e73408fde92226426`, flashed through `native_init_flash.py`, passed
+post-flash health (`selftest pass=12 warn=1 fail=0`), and live telemetry confirmed the new shader-load contract
+(`vs_shader_dwords=32`, `fs_shader_dwords=32`, `vs_shader_instrlen=1`, `fs_shader_instrlen=1`, `ir3_instr_align=16`,
+`ir3_mov_u32u32_r0z_hi=0x204cc002`, `ir3_mov_u32u32_r0w_hi=0x204cc003`). Two H3 runs submitted and retired cleanly
+(`submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`, warm `total_elapsed_ms=12`) and the focused dmesg filter found no
+KGSL/GPU fault, hang, snapshot, or timeout signature, but the readback remained unchanged
+(`readback_changed_count=0`, `readback0=0x20202020`, `readback_center=0x20202020`). This removes unverified shader bytes
+and shader `instrlen`/load unit count as the primary no-pixel root cause. Next bounded unit should stay shader-byte
+frozen unless a real disassembler-backed mismatch appears, and instead isolate a concrete Mesa first-draw packet delta
+outside shader bytes: draw-state bootstrap ordering, `CP_SET_MODE`/`SP_UPDATE_CNTL`-style restore state, or the sysmem
+MRT/CCU visibility path.
 
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the

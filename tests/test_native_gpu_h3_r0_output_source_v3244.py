@@ -63,8 +63,11 @@ class NativeGpuH3R0OutputSourceV3244Tests(unittest.TestCase):
     def test_dispatch_programs_r0_output_shader_contract(self) -> None:
         source = DISPATCH.read_text(encoding="utf-8")
 
-        self.assertIn("#define GPU_H3_VS_SHADER_DWORDS 12U", source)
-        self.assertIn("#define GPU_H3_FS_SHADER_DWORDS 8U", source)
+        self.assertIn("#define GPU_H3_SHADER_ALIGNED_DWORDS (GPU_H3_IR3_INSTR_ALIGN * 2U)", source)
+        self.assertIn("#define GPU_H3_VS_SHADER_INSTRLEN 1U", source)
+        self.assertIn("#define GPU_H3_FS_SHADER_INSTRLEN 1U", source)
+        self.assertIn("#define GPU_H3_VS_SHADER_DWORDS GPU_H3_SHADER_ALIGNED_DWORDS", source)
+        self.assertIn("#define GPU_H3_FS_SHADER_DWORDS GPU_H3_SHADER_ALIGNED_DWORDS", source)
         self.assertIn("#define GPU_H3_VS_OUTPUT_REGID 0U", source)
         self.assertIn("#define GPU_H3_PS_OUTPUT_REGID 0U", source)
         self.assertIn("#define GPU_H3_SP_FULLREGFOOTPRINT 2U", source)
@@ -74,21 +77,24 @@ class NativeGpuH3R0OutputSourceV3244Tests(unittest.TestCase):
         self.assertIn("#define GPU_H3_IR3_MOV_F32F32_R0Y_R0Y_HI 0x20044001U", source)
         self.assertIn("#define GPU_H3_IR3_MOV_F32F32_R0Z_HI 0x20444002U", source)
         self.assertIn("#define GPU_H3_IR3_MOV_F32F32_R0W_HI 0x20444003U", source)
+        self.assertIn("#define GPU_H3_IR3_MOV_U32U32_R0Z_HI 0x204cc002U", source)
+        self.assertIn("#define GPU_H3_IR3_MOV_U32U32_R0W_HI 0x204cc003U", source)
         self.assertIn("#define GPU_G4_PM4_CP_SET_MARKER 0x65U", source)
         self.assertIn("#define GPU_H3_A6XX_CP_SET_MARKER_RM6_DIRECT_RENDER 1U", source)
         self.assertIn("#define GPU_H3_RB_CCU_CNTL 0x10000000U", source)
 
         self.assertIn("static const uint32_t vs_shader[GPU_H3_VS_SHADER_DWORDS]", source)
-        self.assertIn(
+        self.assertNotIn(
             "GPU_H3_IR3_MOV_F32F32_R0X_R0X_LO, GPU_H3_IR3_MOV_F32F32_R0X_R0X_HI",
             source,
         )
-        self.assertIn(
+        self.assertNotIn(
             "GPU_H3_IR3_MOV_F32F32_R0Y_R0Y_LO, GPU_H3_IR3_MOV_F32F32_R0Y_R0Y_HI",
             source,
         )
-        self.assertIn("GPU_H3_IR3_F32_0_LO, GPU_H3_IR3_MOV_F32F32_R0Z_HI", source)
-        self.assertIn("GPU_H3_IR3_F32_1_LO, GPU_H3_IR3_MOV_F32F32_R0W_HI", source)
+        self.assertNotIn("GPU_H3_IR3_F32_0_LO, GPU_H3_IR3_MOV_F32F32_R0Z_HI", source)
+        self.assertIn("GPU_H3_IR3_F32_1_LO, GPU_H3_IR3_MOV_U32U32_R0Z_HI", source)
+        self.assertIn("GPU_H3_IR3_F32_1_LO, GPU_H3_IR3_MOV_U32U32_R0W_HI", source)
         self.assertIn("static const uint32_t fs_shader[GPU_H3_FS_SHADER_DWORDS]", source)
         self.assertIn("GPU_H3_IR3_F32_1_LO, GPU_H3_IR3_MOV_F32F32_R0X_HI", source)
         self.assertNotIn("GPU_H3_IR3_F32_1_LO, GPU_H3_IR3_MOV_F32F32_R1X_HI", source)
@@ -106,9 +112,11 @@ class NativeGpuH3R0OutputSourceV3244Tests(unittest.TestCase):
             in source
             or '"gpu.h3.draw.scope=first-triangle-h3-cache-invalidate-rb-render-cntl-r0-output-mov-f32-shader'
             in source
+            or '"gpu.h3.draw.scope=first-triangle-h3-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader'
+            in source
         )
         self.assertIn(
-            '"gpu.h3.draw.shader_payload=hand-assembled-ir3-r0-output-mov-f32-vs-position-fs-color-no-full-compiler',
+            '"gpu.h3.draw.shader_payload=mesa-reference-ir3-minimal-vs-u32-z-w-instrlen1-plus-audited-fs-f32-r0x',
             source,
         )
         self.assertIn('"gpu.h3.draw.vs_output_regid=0x%x', source)

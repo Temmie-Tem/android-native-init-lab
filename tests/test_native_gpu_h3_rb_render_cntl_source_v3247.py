@@ -71,6 +71,8 @@ class NativeGpuH3RbRenderCntlSourceV3247Tests(unittest.TestCase):
             in source
             or '"gpu.h3.draw.scope=first-triangle-h3-cache-invalidate-rb-render-cntl-r0-output-mov-f32-shader'
             in source
+            or '"gpu.h3.draw.scope=first-triangle-h3-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader'
+            in source
         )
         self.assertIn(
             '"gpu.h3.draw.rb_render_cntl_source=mesa-freedreno-a6xx-fd6-gmem-update-render-cntl-ccu-single-cacheline',
@@ -78,7 +80,7 @@ class NativeGpuH3RbRenderCntlSourceV3247Tests(unittest.TestCase):
         )
         self.assertIn('"gpu.h3.draw.rb_render_cntl=0x%x', source)
         self.assertIn(
-            '"gpu.h3.draw.shader_payload=hand-assembled-ir3-r0-output-mov-f32-vs-position-fs-color-no-full-compiler',
+            '"gpu.h3.draw.shader_payload=mesa-reference-ir3-minimal-vs-u32-z-w-instrlen1-plus-audited-fs-f32-r0x',
             source,
         )
         self.assertNotIn(

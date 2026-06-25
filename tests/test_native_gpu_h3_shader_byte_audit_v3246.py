@@ -29,22 +29,17 @@ class NativeGpuH3ShaderByteAuditV3246Tests(unittest.TestCase):
         self.assertEqual(
             [entry["word"] for entry in result["decoded"]["vs_shader"]],
             [
-                "20044000_00000000",
-                "20044001_00000001",
-                "20444002_00000000",
-                "20444003_3f800000",
+                "204cc002_3f800000",
+                "204cc003_3f800000",
                 "03000000_00000000",
-                "00000000_00000000",
-            ],
+            ] + ["00000000_00000000"] * 13,
         )
         self.assertEqual(
             [entry["word"] for entry in result["decoded"]["fs_shader"]],
             [
                 "20444000_3f800000",
                 "03000000_00000000",
-                "00000000_00000000",
-                "00000000_00000000",
-            ],
+            ] + ["00000000_00000000"] * 14,
         )
 
     def test_half_precision_and_vpc_position_checks_are_closed(self) -> None:
@@ -52,6 +47,10 @@ class NativeGpuH3ShaderByteAuditV3246Tests(unittest.TestCase):
         checks = result["checks"]
 
         self.assertTrue(checks["fs_writes_full_f32_r0x"])
+        self.assertTrue(checks["vs_uses_mesa_reference_u32_z_w_instrlen1"])
+        self.assertEqual(checks["vs_shader_instrlen"], 1)
+        self.assertEqual(checks["fs_shader_instrlen"], 1)
+        self.assertEqual(checks["ir3_instr_align"], 16)
         self.assertFalse(checks["sp_ps_output_reg0_half_precision"])
         self.assertTrue(checks["fs_full_precision_matches_ps_output"])
         self.assertEqual(checks["sp_ps_output_reg0_regid"], 0)

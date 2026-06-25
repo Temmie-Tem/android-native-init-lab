@@ -24,18 +24,15 @@ DEFAULT_TMP_IR3_DISASM = Path("/tmp/a90-mesa-h3-build-ir3/src/freedreno/isa/ir3-
 DEFAULT_CHIP_ID = "06040000"
 
 EXPECTED_VS = [
-    "mov.f32f32 r0.x, r0.x",
-    "mov.f32f32 r0.y, r0.y",
-    "mov.f32f32 r0.z, (0.0)",
-    "mov.f32f32 r0.w, (1.0)",
+    "mov.u32u32 r0.z, 0x3f800000",
+    "mov.u32u32 r0.w, 0x3f800000",
     "end",
-    "nop",
+    *["nop"] * 13,
 ]
 EXPECTED_FS = [
     "mov.f32f32 r0.x, (1.0)",
     "end",
-    "nop",
-    "nop",
+    *["nop"] * 14,
 ]
 
 
@@ -160,18 +157,22 @@ def _extract_h3_shader_arrays(source: str, macros: MacroResolver) -> dict[str, l
     shaders: dict[str, list[InstructionWord]] = {}
     for name in ("vs_shader", "fs_shader"):
         match = re.search(
-            rf"static const uint32_t {name}\[[^\]]+\]\s*=\s*\{{(?P<body>.*?)\}};",
+            rf"static const uint32_t {name}\[(?P<length>[^\]]+)\]\s*=\s*\{{(?P<body>.*?)\}};",
             section,
             re.S,
         )
         if not match:
             raise ValueError(f"{name} array not found in H3 probe child")
+        declared_len = macros.resolve(match.group("length"))
         tokens = [
             item.strip()
             for item in match.group("body").replace("\n", " ").split(",")
             if item.strip()
         ]
         values = [macros.resolve(token) & 0xFFFFFFFF for token in tokens]
+        if len(values) > declared_len:
+            raise ValueError(f"{name} initializer exceeds declared length: {len(values)} > {declared_len}")
+        values.extend([0] * (declared_len - len(values)))
         if len(values) % 2:
             raise ValueError(f"{name} dword count is odd: {len(values)}")
         shaders[name] = [
@@ -230,6 +231,20 @@ def decode_current_ir3_word(word: InstructionWord) -> dict[str, Any]:
                 "dst_regid": dst,
                 "src_immediate": src_is_immediate,
                 "disasm": f"mov.f32f32 {dst_name}, {src}",
+            }
+        if dst_type == 3 and src_type == 3:
+            dst_name = _reg_name(dst)
+            if src_is_immediate:
+                src = f"0x{word.lo:08x}"
+            else:
+                src = _reg_name(word.lo & 0xFF)
+            return common | {
+                "mnemonic": "mov.u32u32",
+                "dst_type": "u32",
+                "src_type": "u32",
+                "dst_regid": dst,
+                "src_immediate": src_is_immediate,
+                "disasm": f"mov.u32u32 {dst_name}, {src}",
             }
         half_dst = dst_type in (0, 2, 4, 6, 7)
         return common | {
@@ -326,6 +341,16 @@ def run_audit(
         "ir3_disasm_path": str(disasm_path) if disasm_path else None,
         "fs_writes_full_f32_r0x": fs_first.get("disasm") == "mov.f32f32 r0.x, (1.0)"
         or fs_first.get("mesa_ir3_disasm") == "mov.f32f32 r0.x, (1.0)",
+        "vs_uses_mesa_reference_u32_z_w_instrlen1": (
+            decoded["vs_shader"][0].get("disasm") == "mov.u32u32 r0.z, 0x3f800000"
+            or decoded["vs_shader"][0].get("mesa_ir3_disasm") == "mov.u32u32 r0.z, 0x3f800000"
+        ) and (
+            decoded["vs_shader"][1].get("disasm") == "mov.u32u32 r0.w, 0x3f800000"
+            or decoded["vs_shader"][1].get("mesa_ir3_disasm") == "mov.u32u32 r0.w, 0x3f800000"
+        ),
+        "vs_shader_instrlen": macros.resolve("GPU_H3_VS_SHADER_INSTRLEN"),
+        "fs_shader_instrlen": macros.resolve("GPU_H3_FS_SHADER_INSTRLEN"),
+        "ir3_instr_align": macros.resolve("GPU_H3_IR3_INSTR_ALIGN"),
         "sp_ps_output_reg0_regid": ps_output_reg0 & 0xFF,
         "sp_ps_output_reg0_half_precision": bool(ps_output_reg0 & (1 << 8)),
         "fs_full_precision_matches_ps_output": not bool(ps_output_reg0 & (1 << 8)),
@@ -347,6 +372,10 @@ def run_audit(
     passed = (
         checks["all_shader_words_match_expected"]
         and checks["fs_writes_full_f32_r0x"]
+        and checks["vs_uses_mesa_reference_u32_z_w_instrlen1"]
+        and checks["vs_shader_instrlen"] == 1
+        and checks["fs_shader_instrlen"] == 1
+        and checks["ir3_instr_align"] == 16
         and checks["fs_full_precision_matches_ps_output"]
         and checks["sp_vs_output_reg0_regid"] == 0
         and checks["sp_vs_output_reg0_compmask"] == 0xF
