@@ -815,6 +815,25 @@ not reached. This removes missing SP const enable and missing invalid FS depth/s
 primary no-pixel root cause. Next bounded unit should fall back to the real fd6 sysmem single-triangle `.rd`/cffdump
 register-packet diff against H3 instead of continuing isolated downstream register sweeps.
 
+V3272/V3273 then tested the actionable part of the follow-up "HLSQ front-end" claim. The legacy `HLSQ_CONTROL_*` /
+`HLSQ_*_CNTL` names still are not an A6xx fd6 draw-state path in the local XML/source, but the real A6xx SP front-end
+program-id/system-value group was missing: `SP_PS_INITIAL_TEX_LOAD_CNTL`, `SP_PS_WAVE_CNTL`, `SP_LB_PARAM_LIMIT`, and
+`SP_REG_PROG_ID_0..2` (H3 already emitted `SP_REG_PROG_ID_3`). V3272 added the current constant-FS-compatible fd6
+mapping: no varyings, `SP_PS_INITIAL_TEX_LOAD_CNTL=0x8`, `SP_PS_WAVE_CNTL=0x0`, `SP_LB_PARAM_LIMIT=0x7`, and invalid
+`0xfc` regids for unused front-face/sample/IJ/coord system values (`SP_REG_PROG_ID_0..2=0xfcfcfcfc`,
+`SP_REG_PROG_ID_3=0x0000fcfc`). It built `0.11.62 (v3272-gpu-h3-sp-frontend-prog-id-probe)` with SHA256
+`6ff91c08ee0a866c251675780a23b94834aed44ccd26a3ead4f3e4e9022b0b96`, flashed through `native_init_flash.py`, and
+passed post-flash health (`selftest pass=12 warn=1 fail=0`). V3273 live telemetry confirmed
+`sp_ps_initial_tex_load_cntl=0x8`, `sp_ps_wave_cntl=0x0`, `sp_lb_param_limit=0x7`,
+`sp_reg_prog_id_0=0xfcfcfcfc`, `sp_reg_prog_id_1=0xfcfcfcfc`, `sp_reg_prog_id_2=0xfcfcfcfc`, `pm4_dwords=282`,
+and `state_reg_writes=106`; two H3 runs submitted and retired cleanly (`submit_rc=0`, `wait_rc=0`,
+`retired_timestamp=1`, warm `total_elapsed_ms=12`) and post-probe selftest stayed clean. Readback remained unchanged
+(`readback_changed_count=0`, `readback0=0x20202020`, `readback_center=0x20202020`), so H4 is still not reached. This
+removes missing SP front-end/system-value invalid-reg state as the primary no-pixel root cause. Next bounded unit
+should continue the real fd6 `.rd`/cffdump diff and focus on direct-sysmem-compatible remaining deltas, especially the
+clip/guardband/SU group (`GRAS_CL_CNTL=0xc0`, `GRAS_CL_GUARDBAND_CLIP_ADJ=0x0007fdff`, `GRAS_SU_CNTL=0x814`) before
+any broader GMEM/UBWC flag-buffer architecture change.
+
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
   rasterizer; gives GPU compute a *screen consumer*. **Matrix/GPGPU math is absorbed here, NOT a standalone goal** —
