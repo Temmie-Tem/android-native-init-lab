@@ -504,6 +504,14 @@ signature, but readback still stayed unchanged (`readback_changed_count=0`, `rea
 `readback_center=0x20202020`) and post-probe selftest stayed `fail=0`. That removes this tested VPC sentinel linkage
 gap as the primary blocker; next bounded unit should focus on FS output/MRT or RB output linkage, or generate a
 minimal Mesa-equivalent packet diff for the first draw.
+V3224/V3225 then tested the bounded FS/MRT output component-mask hypothesis by changing `GPU_H3_COLOR_OUTPUT_MASK` from
+`0x1` to Mesa's full RT0 mask `0xf`, which programs `RB_PS_OUTPUT_MASK=0x0000000f`,
+`SP_PS_OUTPUT_MASK=0x0000000f`, and `RB_MRT0_CONTROL.COMPONENT_ENABLE=0x00000780`. Live result again retired cleanly
+(`submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`, `fence_poll_rc=1`, `total_elapsed_ms=32`) with no GPU fault/hang
+signature, but readback still stayed unchanged (`readback_changed_count=0`, `readback0=0x20202020`,
+`readback_center=0x20202020`) and post-probe selftest stayed `fail=0`. That removes the tested RT0 component-mask gap
+as the primary blocker. The next bounded unit should generate a Mesa-equivalent first-draw packet diff, then test the
+smallest resulting RB/CCU/FS-output or shader-output linkage delta before claiming H4.
 
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the

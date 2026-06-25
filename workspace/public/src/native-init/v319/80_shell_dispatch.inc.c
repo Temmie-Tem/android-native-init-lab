@@ -1736,7 +1736,7 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H3_VERTEX_BYTES ((uint64_t)GPU_H3_VERTEX_DWORDS * 4ULL)
 #define GPU_H3_A6XX_FMT6_32_32_FLOAT 0x67U
 #define GPU_H3_COLOR_FORMAT GPU_G4_A6XX_FMT6_32_FLOAT
-#define GPU_H3_COLOR_OUTPUT_MASK 0x1U
+#define GPU_H3_COLOR_OUTPUT_MASK 0xfU
 #define GPU_H3_PM4_CP_DRAW_INDX_OFFSET 0x38U
 #define GPU_H3_DI_PT_TRILIST 4U
 #define GPU_H3_DI_SRC_SEL_AUTO_INDEX 2U
@@ -7293,7 +7293,7 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
         return -EINVAL;
     }
     a90_console_printf("gpu.h3.draw.version=1\r\n");
-    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-vpc-linkage-mov-f32-shader\r\n");
+    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-mrt-component-mask-mov-f32-shader\r\n");
     a90_console_printf("gpu.h3.draw.path=%s\r\n", GPU_G0_DEVNODE);
     a90_console_printf("gpu.h3.draw.timeout_ms=%d\r\n", timeout_ms);
     a90_console_printf("gpu.h3.draw.wait_timeout_ms=%u\r\n", GPU_H3_WAIT_TIMEOUT_MS);
@@ -7316,6 +7316,7 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
                        GPU_H3_VPC_VS_CLIP_CULL_CNTL);
     a90_console_printf("gpu.h3.draw.gras_cl_vs_clip_cull_distance=0x%x\r\n",
                        GPU_H3_GRAS_CL_VS_CLIP_CULL_DISTANCE);
+    a90_console_printf("gpu.h3.draw.mrt_component_mask_source=mesa-freedreno-a6xx-mrt-components-full-rt0\r\n");
     a90_console_printf("gpu.h3.draw.ir3_end_opcode_hi=0x%x\r\n", GPU_H1_IR3_END_HI);
     a90_console_printf("gpu.h3.draw.ir3_mov_f32f32_r0x_hi=0x%x\r\n",
                        GPU_H3_IR3_MOV_F32F32_R0X_HI);
