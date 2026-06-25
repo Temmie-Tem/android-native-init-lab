@@ -549,6 +549,17 @@ post-flash and post-probe selftest (`pass=12 warn=1 fail=0`), and the H3 draw ag
 removes this tested static-context no-op/disable group as the primary blocker. Next bounded unit should revisit the
 hand-assembled shader output contract or compare the remaining Mesa first-draw packet stream for a smaller
 shader-output/RB linkage delta before claiming H4.
+V3234/V3235 then tested the narrow shader-output/input-register overlap hypothesis by keeping VFD input in `r0.xy` but
+moving VS clip-position output to `r1.xyzw`, moving FS color output to `r1.x`, and programming
+`SP_VS_OUTPUT_REG0=0x00000f04` plus `SP_PS_OUTPUT_REG0=0x04` from Mesa `fd6_program.cc::emit_vpc()` /
+`emit_fs_outputs()` output-regid mapping. The image built and flashed as `0.11.44
+(v3234-gpu-h3-shader-output-probe)`, passed post-flash health (`selftest pass=12 warn=1 fail=0`), but the H3 draw
+regressed to a child timeout (`result=timeout`, `timed_out=1`, `child_status=0x9`, `rc=-110`, duration about
+`5004ms`) before any readback proof. A post-probe selftest still passed and a GPU fault/hang dmesg filter found no
+match, but a follow-up `gpu g3-noop-submit-probe` also timed out, so the failed H3 can wedge the KGSL queue until
+reboot. This removes r1 output split with the old `FULLREGFOOTPRINT=1` as a valid standalone fix. Next bounded unit
+should keep the V3234 r1 split but bump VS/PS full register footprint to `2`; if that still times out, revert the r1
+split and move to another Mesa packet delta before claiming H4.
 
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the

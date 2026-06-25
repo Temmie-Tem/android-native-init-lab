@@ -1708,10 +1708,17 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H1_IR3_END_HI 0x03000000U
 #define GPU_H3_IR3_F32_0_LO 0x00000000U
 #define GPU_H3_IR3_F32_1_LO 0x3f800000U
+#define GPU_H3_IR3_MOV_F32F32_R1X_R0X_LO 0x00000000U
+#define GPU_H3_IR3_MOV_F32F32_R1Y_R0Y_LO 0x00000001U
+#define GPU_H3_IR3_MOV_F32F32_R1X_R0X_HI 0x20044004U
+#define GPU_H3_IR3_MOV_F32F32_R1Y_R0Y_HI 0x20044005U
 #define GPU_H3_IR3_MOV_F32F32_R0X_HI 0x20444000U
 #define GPU_H3_IR3_MOV_F32F32_R0Y_HI 0x20444001U
 #define GPU_H3_IR3_MOV_F32F32_R0Z_HI 0x20444002U
 #define GPU_H3_IR3_MOV_F32F32_R0W_HI 0x20444003U
+#define GPU_H3_IR3_MOV_F32F32_R1X_HI 0x20444004U
+#define GPU_H3_IR3_MOV_F32F32_R1Z_HI 0x20444006U
+#define GPU_H3_IR3_MOV_F32F32_R1W_HI 0x20444007U
 #define GPU_H1_CP_LOAD_STATE6_STATE_SRC_INDIRECT (2U << 16)
 #define GPU_H1_CP_LOAD_STATE6_SB_VS_SHADER (8U << 18)
 #define GPU_H1_CP_LOAD_STATE6_SB_FS_SHADER (12U << 18)
@@ -1737,6 +1744,12 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H3_A6XX_FMT6_32_32_FLOAT 0x67U
 #define GPU_H3_COLOR_FORMAT GPU_G4_A6XX_FMT6_32_FLOAT
 #define GPU_H3_COLOR_OUTPUT_MASK 0xfU
+#define GPU_H3_VS_SHADER_DWORDS 12U
+#define GPU_H3_FS_SHADER_DWORDS 8U
+#define GPU_H3_VS_OUTPUT_REGID 4U
+#define GPU_H3_PS_OUTPUT_REGID 4U
+#define GPU_H3_SP_VS_OUTPUT_REG0 \
+    ((GPU_H3_VS_OUTPUT_REGID & 0xffU) | (0xfU << 8))
 #define GPU_H3_PM4_CP_DRAW_INDX_OFFSET 0x38U
 #define GPU_H3_DI_PT_TRILIST 4U
 #define GPU_H3_DI_SRC_SEL_AUTO_INDEX 2U
@@ -2288,7 +2301,9 @@ static bool gpu_h2_append_3d_state_pm4(uint32_t *words,
                                        uint64_t color_gpuaddr,
                                        uint32_t color_format,
                                        uint32_t color_output_mask,
-                                       bool color_uint) {
+                                       bool color_uint,
+                                       uint32_t sp_vs_output_reg0,
+                                       uint32_t sp_ps_output_reg0) {
     uint64_t color_base = color_gpuaddr & ~0x3fULL;
     uint32_t rb_mrt_control = (color_output_mask & 0xfU) << 7;
     uint32_t rb_mrt_info =
@@ -2430,7 +2445,8 @@ static bool gpu_h2_append_3d_state_pm4(uint32_t *words,
     }
     reg_writes += 5;
     if (!gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_VS_OUTPUT_CNTL, 1) ||
-        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_VS_OUTPUT_REG0, 0x00000f00U) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_VS_OUTPUT_REG0,
+                              sp_vs_output_reg0) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_VS_VPC_DEST_REG0, 0) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_BLEND_CNTL, 0) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_SRGB_CNTL, 0) ||
@@ -2440,7 +2456,8 @@ static bool gpu_h2_append_3d_state_pm4(uint32_t *words,
                               color_output_mask) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_PS_OUTPUT_CNTL, 0) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_PS_MRT_CNTL, 1) ||
-        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_PS_OUTPUT_REG0, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_PS_OUTPUT_REG0,
+                              sp_ps_output_reg0) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_PS_MRT_REG0, sp_ps_mrt) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H3_REG_SP_REG_PROG_ID_3,
                               GPU_H3_SP_REG_PROG_ID_3)) {
@@ -2464,7 +2481,8 @@ static bool gpu_h2_build_3d_state_pm4(uint32_t *words,
                                       uint64_t color_gpuaddr) {
     *dwords = 0;
     return gpu_h2_append_3d_state_pm4(words, dwords, state_reg_writes, color_gpuaddr,
-                                      GPU_G4_A6XX_FMT6_32_UINT, 0xfU, true);
+                                      GPU_G4_A6XX_FMT6_32_UINT, 0xfU, true,
+                                      0x00000f00U, 0U);
 }
 
 static bool gpu_h3_append_shader_state_pm4(uint32_t *words,
@@ -2489,7 +2507,7 @@ static bool gpu_h3_append_shader_state_pm4(uint32_t *words,
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H1_REG_SP_VS_CONFIG,
                               GPU_H1_SP_CONFIG_ENABLED) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H1_REG_SP_VS_INSTR_SIZE,
-                              GPU_H1_VS_SHADER_DWORDS)) {
+                              GPU_H3_VS_SHADER_DWORDS)) {
         return false;
     }
     if (!gpu_g4_pm4_emit_reg1(words, dwords, GPU_H1_REG_SP_PS_CNTL_0, ps_cntl_0) ||
@@ -2500,19 +2518,19 @@ static bool gpu_h3_append_shader_state_pm4(uint32_t *words,
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H1_REG_SP_PS_CONFIG,
                               GPU_H1_SP_CONFIG_ENABLED) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H1_REG_SP_PS_INSTR_SIZE,
-                              GPU_H1_FS_SHADER_DWORDS)) {
+                              GPU_H3_FS_SHADER_DWORDS)) {
         return false;
     }
     return gpu_h1_pm4_emit_load_state6_shader(words, dwords,
                                               (uint8_t)GPU_H1_PM4_CP_LOAD_STATE6_GEOM,
                                               GPU_H1_CP_LOAD_STATE6_SB_VS_SHADER,
                                               vs_gpuaddr,
-                                              GPU_H1_VS_SHADER_DWORDS) &&
+                                              GPU_H3_VS_SHADER_DWORDS) &&
            gpu_h1_pm4_emit_load_state6_shader(words, dwords,
                                               (uint8_t)GPU_H1_PM4_CP_LOAD_STATE6_FRAG,
                                               GPU_H1_CP_LOAD_STATE6_SB_FS_SHADER,
                                               fs_gpuaddr,
-                                              GPU_H1_FS_SHADER_DWORDS);
+                                              GPU_H3_FS_SHADER_DWORDS);
 }
 
 static uint32_t gpu_h3_vfd_fetch_instr(uint32_t idx,
@@ -2567,7 +2585,8 @@ static bool gpu_h3_build_draw_envelope_pm4(uint32_t *words,
     if (!gpu_h3_append_shader_state_pm4(words, dwords, vs_gpuaddr, fs_gpuaddr) ||
         !gpu_h2_append_3d_state_pm4(words, dwords, state_reg_writes, color_gpuaddr,
                                     GPU_H3_COLOR_FORMAT, GPU_H3_COLOR_OUTPUT_MASK,
-                                    false)) {
+                                    false, GPU_H3_SP_VS_OUTPUT_REG0,
+                                    GPU_H3_PS_OUTPUT_REGID)) {
         return false;
     }
     if (!gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_VFD_CNTL_0, 0x00000101U) ||
@@ -6771,14 +6790,16 @@ static bool gpu_h3_draw_envelope_result_retired(const struct gpu_h3_draw_envelop
 }
 
 static int gpu_h3_draw_envelope_probe_child(int write_fd) {
-    static const uint32_t vs_shader[GPU_H1_VS_SHADER_DWORDS] = {
-        GPU_H3_IR3_F32_0_LO, GPU_H3_IR3_MOV_F32F32_R0Z_HI,
-        GPU_H3_IR3_F32_1_LO, GPU_H3_IR3_MOV_F32F32_R0W_HI,
+    static const uint32_t vs_shader[GPU_H3_VS_SHADER_DWORDS] = {
+        GPU_H3_IR3_MOV_F32F32_R1X_R0X_LO, GPU_H3_IR3_MOV_F32F32_R1X_R0X_HI,
+        GPU_H3_IR3_MOV_F32F32_R1Y_R0Y_LO, GPU_H3_IR3_MOV_F32F32_R1Y_R0Y_HI,
+        GPU_H3_IR3_F32_0_LO, GPU_H3_IR3_MOV_F32F32_R1Z_HI,
+        GPU_H3_IR3_F32_1_LO, GPU_H3_IR3_MOV_F32F32_R1W_HI,
         GPU_H1_IR3_END_LO, GPU_H1_IR3_END_HI,
         0x00000000U, 0x00000000U,
     };
-    static const uint32_t fs_shader[GPU_H1_FS_SHADER_DWORDS] = {
-        GPU_H3_IR3_F32_1_LO, GPU_H3_IR3_MOV_F32F32_R0X_HI,
+    static const uint32_t fs_shader[GPU_H3_FS_SHADER_DWORDS] = {
+        GPU_H3_IR3_F32_1_LO, GPU_H3_IR3_MOV_F32F32_R1X_HI,
         GPU_H1_IR3_END_LO, GPU_H1_IR3_END_HI,
         0x00000000U, 0x00000000U, 0x00000000U, 0x00000000U,
     };
@@ -7377,14 +7398,20 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
         return -EINVAL;
     }
     a90_console_printf("gpu.h3.draw.version=1\r\n");
-    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-static-context-mov-f32-shader\r\n");
+    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-shader-output-r1-mov-f32-shader\r\n");
     a90_console_printf("gpu.h3.draw.path=%s\r\n", GPU_G0_DEVNODE);
     a90_console_printf("gpu.h3.draw.timeout_ms=%d\r\n", timeout_ms);
     a90_console_printf("gpu.h3.draw.wait_timeout_ms=%u\r\n", GPU_H3_WAIT_TIMEOUT_MS);
     a90_console_printf("gpu.h3.draw.parent_enters_open=0\r\n");
     a90_console_printf("gpu.h3.draw.parent_enters_ioctl=0\r\n");
     a90_console_printf("gpu.h3.draw.source=mesa-freedreno-a6xx-fd6-draw-plus-vfd-fetch-dest\r\n");
-    a90_console_printf("gpu.h3.draw.shader_payload=hand-assembled-ir3-mov-f32-vs-position-fs-color-no-full-compiler\r\n");
+    a90_console_printf("gpu.h3.draw.shader_payload=hand-assembled-ir3-r1-output-mov-f32-vs-position-fs-color-no-full-compiler\r\n");
+    a90_console_printf("gpu.h3.draw.shader_output_source=mesa-freedreno-a6xx-fd6-emit-vpc-emit-fs-outputs-regid-map\r\n");
+    a90_console_printf("gpu.h3.draw.vs_shader_dwords=%u\r\n", GPU_H3_VS_SHADER_DWORDS);
+    a90_console_printf("gpu.h3.draw.fs_shader_dwords=%u\r\n", GPU_H3_FS_SHADER_DWORDS);
+    a90_console_printf("gpu.h3.draw.vs_output_regid=0x%x\r\n", GPU_H3_VS_OUTPUT_REGID);
+    a90_console_printf("gpu.h3.draw.ps_output_regid=0x%x\r\n", GPU_H3_PS_OUTPUT_REGID);
+    a90_console_printf("gpu.h3.draw.sp_vs_output_reg0=0x%x\r\n", GPU_H3_SP_VS_OUTPUT_REG0);
     a90_console_printf("gpu.h3.draw.shader_mode_source=mesa-freedreno-a6xx-fd6-emit-shader-regs-sp-tpl1-mode\r\n");
     a90_console_printf("gpu.h3.draw.sp_mode_cntl=0x%x\r\n", GPU_H3_SP_MODE_CNTL);
     a90_console_printf("gpu.h3.draw.tpl1_mode_cntl=0x%x\r\n", GPU_H3_TPL1_MODE_CNTL);
