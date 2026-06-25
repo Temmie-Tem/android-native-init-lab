@@ -1620,12 +1620,20 @@ struct gpu_h3_draw_envelope_probe_result {
     unsigned int readback_first_changed_index;
     unsigned int linear_readback_changed_count;
     unsigned int linear_readback_first_changed_index;
+    unsigned int linear_readback_nonzero_count;
+    unsigned int linear_readback_first_nonzero_index;
+    unsigned int linear_center_nonzero;
+    unsigned int linear_exterior_corners_zero;
     uint32_t readback0;
     uint32_t readback_center;
     uint32_t readback_first_changed_value;
     uint32_t linear_readback0;
     uint32_t linear_readback_center;
     uint32_t linear_readback_first_changed_value;
+    uint32_t linear_readback_first_nonzero_value;
+    uint32_t linear_readback_corner_tr;
+    uint32_t linear_readback_corner_bl;
+    uint32_t linear_readback_corner_br;
     uint32_t color_flag0;
     uint32_t color_flag_first_changed_value;
     int fence_fd;
@@ -1821,6 +1829,7 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H5_H3_SNAPSHOT_WORDS (GPU_H2_COLOR_WIDTH * GPU_H2_COLOR_HEIGHT)
 #define GPU_H5_H3_PRESENT_MARGIN_X 28U
 #define GPU_H5_H3_PRESENT_TOP 176U
+#define GPU_H5_LINEAR_CLEAR_PATTERN 0x00000000U
 #define GPU_H5_A2D_BLT_CNTL_SCALE_RGBA8 0x10f03000U
 #define GPU_H5_A2D_OUTPUT_INFO_RGBA8 0x0000f180U
 #define GPU_H5_A2D_SRC_TEXTURE_INFO_TILE6_3_FLAGS \
@@ -7662,7 +7671,7 @@ static int gpu_h3_draw_envelope_probe_child(int write_fd,
             }
             if (linear_map != MAP_FAILED) {
                 for (index = 0; index < (unsigned int)(GPU_H2_COLOR_ALLOC_SIZE / 4ULL); ++index) {
-                    linear_words[index] = GPU_H2_CLEAR_PATTERN;
+                    linear_words[index] = GPU_H5_LINEAR_CLEAR_PATTERN;
                 }
             }
             for (index = 0; index < (unsigned int)(GPU_H3_COLOR_FLAG_ALLOC_SIZE / 4ULL); ++index) {
@@ -7928,6 +7937,11 @@ static int gpu_h3_draw_envelope_probe_child(int write_fd,
                 unsigned int center_index =
                     (GPU_H2_COLOR_HEIGHT / 2U) * GPU_H2_COLOR_WIDTH +
                     (GPU_H2_COLOR_WIDTH / 2U);
+                unsigned int corner_tr_index = GPU_H2_COLOR_WIDTH - 1U;
+                unsigned int corner_bl_index =
+                    (GPU_H2_COLOR_HEIGHT - 1U) * GPU_H2_COLOR_WIDTH;
+                unsigned int corner_br_index =
+                    (GPU_H2_COLOR_HEIGHT * GPU_H2_COLOR_WIDTH) - 1U;
 
                 result.readback_sync_rc = 0;
                 result.readback0 = color_words[0];
@@ -7954,16 +7968,34 @@ static int gpu_h3_draw_envelope_probe_child(int write_fd,
                     }
                 }
                 result.linear_readback_first_changed_index = UINT_MAX;
+                result.linear_readback_first_nonzero_index = UINT_MAX;
                 if (linearize_snapshot && linear_map != MAP_FAILED) {
                     result.linear_readback0 = linear_words[0];
                     result.linear_readback_center = linear_words[center_index];
+                    result.linear_readback_corner_tr = linear_words[corner_tr_index];
+                    result.linear_readback_corner_bl = linear_words[corner_bl_index];
+                    result.linear_readback_corner_br = linear_words[corner_br_index];
+                    result.linear_center_nonzero =
+                        result.linear_readback_center != GPU_H5_LINEAR_CLEAR_PATTERN ? 1U : 0U;
+                    result.linear_exterior_corners_zero =
+                        (result.linear_readback0 == GPU_H5_LINEAR_CLEAR_PATTERN &&
+                         result.linear_readback_corner_tr == GPU_H5_LINEAR_CLEAR_PATTERN &&
+                         result.linear_readback_corner_bl == GPU_H5_LINEAR_CLEAR_PATTERN &&
+                         result.linear_readback_corner_br == GPU_H5_LINEAR_CLEAR_PATTERN) ? 1U : 0U;
                     for (index = 0; index < word_count; ++index) {
-                        if (linear_words[index] != GPU_H2_CLEAR_PATTERN) {
+                        if (linear_words[index] != GPU_H5_LINEAR_CLEAR_PATTERN) {
                             if (result.linear_readback_changed_count == 0) {
                                 result.linear_readback_first_changed_index = index;
                                 result.linear_readback_first_changed_value = linear_words[index];
                             }
                             result.linear_readback_changed_count += 1U;
+                        }
+                        if (linear_words[index] != 0U) {
+                            if (result.linear_readback_nonzero_count == 0) {
+                                result.linear_readback_first_nonzero_index = index;
+                                result.linear_readback_first_nonzero_value = linear_words[index];
+                            }
+                            result.linear_readback_nonzero_count += 1U;
                         }
                     }
                 }
@@ -8828,7 +8860,7 @@ static int gpu_h5_blit_h3_readback_to_kms(const uint32_t *source,
     }
 
     a90_draw_text(fb, 36U, 48U, "GPU H5 TRIANGLE KMS", 0xffffff, 4U);
-    a90_draw_text(fb, 36U, 104U, "A2D LINEARIZED H3 COLOR", 0x80ff80, 3U);
+    a90_draw_text(fb, 36U, 104U, "A2D LINEAR H3 STRICT", 0x80ff80, 3U);
     a90_draw_rect_outline(fb,
                           x > 8U ? x - 8U : x,
                           y > 8U ? y - 8U : y,
@@ -8858,14 +8890,14 @@ static int gpu_h5_blit_h3_readback_to_kms(const uint32_t *source,
     }
     __sync_synchronize();
 
-    snprintf(line, sizeof(line), "LINEAR %u FIRST %u",
-             h3->linear_readback_changed_count,
-             h3->linear_readback_first_changed_index);
+    snprintf(line, sizeof(line), "NONZERO %u FIRST %u",
+             h3->linear_readback_nonzero_count,
+             h3->linear_readback_first_nonzero_index);
     a90_draw_text(fb, 36U, y + dst_h + 28U, line, 0xffcc33, 3U);
-    snprintf(line, sizeof(line), "VALUE %08X RAW %u FLAGS %u",
-             h3->linear_readback_first_changed_value,
-             h3->readback_changed_count,
-             h3->color_flag_changed_count);
+    snprintf(line, sizeof(line), "CENTER %08X CORNERS %u RAW %u",
+             h3->linear_readback_center,
+             h3->linear_exterior_corners_zero,
+             h3->readback_changed_count);
     a90_draw_text(fb, 36U, y + dst_h + 72U, line, 0xbbbbbb, 3U);
 
     if (rect_x != NULL) {
@@ -9121,7 +9153,7 @@ static int gpu_h5_triangle_kms_probe(int timeout_ms, bool materialize_devnode) {
     }
 
     a90_console_printf("gpu.h5.kms.version=1\r\n");
-    a90_console_printf("gpu.h5.kms.scope=first-triangle-h5-a2d-linearized-h3-readback-to-kms-probe\r\n");
+    a90_console_printf("gpu.h5.kms.scope=first-triangle-h5-a2d-linearized-strict-sample-kms-probe\r\n");
     a90_console_printf("gpu.h5.kms.kgsl_path=%s\r\n", GPU_G0_DEVNODE);
     a90_console_printf("gpu.h5.kms.drm_path=/dev/dri/card0\r\n");
     a90_console_printf("gpu.h5.kms.timeout_ms=%d\r\n", timeout_ms);
@@ -9186,10 +9218,30 @@ static int gpu_h5_triangle_kms_probe(int timeout_ms, bool materialize_devnode) {
                            h3->linear_readback_first_changed_index);
         a90_console_printf("gpu.h5.kms.h3_linear_readback_first_changed_value=0x%x\r\n",
                            h3->linear_readback_first_changed_value);
+        a90_console_printf("gpu.h5.kms.h3_linear_readback_nonzero_count=%u\r\n",
+                           h3->linear_readback_nonzero_count);
+        a90_console_printf("gpu.h5.kms.h3_linear_readback_first_nonzero_index=%u\r\n",
+                           h3->linear_readback_first_nonzero_index);
+        a90_console_printf("gpu.h5.kms.h3_linear_readback_first_nonzero_value=0x%x\r\n",
+                           h3->linear_readback_first_nonzero_value);
         a90_console_printf("gpu.h5.kms.h3_linear_readback0=0x%x\r\n",
                            h3->linear_readback0);
         a90_console_printf("gpu.h5.kms.h3_linear_readback_center=0x%x\r\n",
                            h3->linear_readback_center);
+        a90_console_printf("gpu.h5.kms.h3_linear_readback_corner_tr=0x%x\r\n",
+                           h3->linear_readback_corner_tr);
+        a90_console_printf("gpu.h5.kms.h3_linear_readback_corner_bl=0x%x\r\n",
+                           h3->linear_readback_corner_bl);
+        a90_console_printf("gpu.h5.kms.h3_linear_readback_corner_br=0x%x\r\n",
+                           h3->linear_readback_corner_br);
+        a90_console_printf("gpu.h5.kms.h3_linear_center_nonzero=%u\r\n",
+                           h3->linear_center_nonzero);
+        a90_console_printf("gpu.h5.kms.h3_linear_exterior_corners_zero=%u\r\n",
+                           h3->linear_exterior_corners_zero);
+        a90_console_printf("gpu.h5.kms.strict_linear_triangle_sample_proof=%u\r\n",
+                           (h3->linear_readback_nonzero_count > 0U &&
+                            h3->linear_center_nonzero != 0U &&
+                            h3->linear_exterior_corners_zero != 0U) ? 1U : 0U);
         a90_console_printf("gpu.h5.kms.h3_total_elapsed_ms=%ld\r\n",
                            h3->total_elapsed_ms);
     }
@@ -9198,7 +9250,9 @@ static int gpu_h5_triangle_kms_probe(int timeout_ms, bool materialize_devnode) {
         !gpu_h3_draw_envelope_result_retired(h3) ||
         h3->readback_changed_count == 0U ||
         h3->linear_blit_attempted == 0U ||
-        h3->linear_readback_changed_count == 0U) {
+        h3->linear_readback_nonzero_count == 0U ||
+        h3->linear_center_nonzero == 0U ||
+        h3->linear_exterior_corners_zero == 0U) {
         a90_console_printf("gpu.h5.kms.result=h3-linear-readback-failed\r\n");
         a90_console_printf("gpu.h5.kms.total_elapsed_ms=%ld\r\n",
                            monotonic_millis() - total_started_ms);

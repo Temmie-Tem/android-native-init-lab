@@ -10,28 +10,28 @@ ROOT = Path(__file__).resolve().parents[1]
 DISPATCH = ROOT / "workspace/public/src/native-init/v319/80_shell_dispatch.inc.c"
 
 runner = load_script(
-    "workspace/public/src/scripts/revalidation/build_native_init_boot_v3293_gpu_h5_linear_triangle_kms_probe.py"
+    "workspace/public/src/scripts/revalidation/build_native_init_boot_v3295_gpu_h5_strict_triangle_kms_probe.py"
 )
 audit = load_script(
     "workspace/public/src/scripts/revalidation/native_gpu_h3_shader_byte_audit_v3246.py"
 )
 
 
-class NativeGpuH5LinearTriangleKmsSourceV3293Tests(unittest.TestCase):
-    def test_v3293_identity_and_required_markers(self) -> None:
-        self.assertEqual(runner.CYCLE, "V3293")
-        self.assertEqual(runner.INIT_VERSION, "0.11.72")
-        self.assertEqual(runner.INIT_BUILD, "v3293-gpu-h5-linear-triangle-kms-probe")
+class NativeGpuH5StrictTriangleKmsSourceV3295Tests(unittest.TestCase):
+    def test_v3295_identity_and_required_markers(self) -> None:
+        self.assertEqual(runner.CYCLE, "V3295")
+        self.assertEqual(runner.INIT_VERSION, "0.11.73")
+        self.assertEqual(runner.INIT_BUILD, "v3295-gpu-h5-strict-triangle-kms-probe")
         self.assertEqual(
             runner.BOOT_IMAGE.name,
-            "boot_linux_v3293_gpu_h5_linear_triangle_kms_probe.img",
+            "boot_linux_v3295_gpu_h5_strict_triangle_kms_probe.img",
         )
 
         required = b"\n".join(runner.REQUIRED_STRINGS)
-        self.assertIn(b"0.11.72", required)
-        self.assertIn(b"v3293-gpu-h5-linear-triangle-kms-probe", required)
+        self.assertIn(b"0.11.73", required)
+        self.assertIn(b"v3295-gpu-h5-strict-triangle-kms-probe", required)
         self.assertIn(
-            b"gpu.h5.kms.scope=first-triangle-h5-a2d-linearized-h3-readback-to-kms-probe",
+            b"gpu.h5.kms.scope=first-triangle-h5-a2d-linearized-strict-sample-kms-probe",
             required,
         )
         self.assertIn(
@@ -40,7 +40,10 @@ class NativeGpuH5LinearTriangleKmsSourceV3293Tests(unittest.TestCase):
         )
         self.assertIn(b"gpu.h5.kms.raw_tile_order_visualization=0", required)
         self.assertIn(b"gpu.h5.kms.linearized_tile6_3_a2d_blit=1", required)
-        self.assertIn(b"gpu.h5.kms.h3_linear_readback_changed_count=%u", required)
+        self.assertIn(b"gpu.h5.kms.h3_linear_readback_nonzero_count=%u", required)
+        self.assertIn(b"gpu.h5.kms.h3_linear_center_nonzero=%u", required)
+        self.assertIn(b"gpu.h5.kms.h3_linear_exterior_corners_zero=%u", required)
+        self.assertIn(b"gpu.h5.kms.strict_linear_triangle_sample_proof=%u", required)
         self.assertIn(b"h3-linear-readback-kms-presented", required)
 
     def test_dispatch_adds_a2d_tile6_3_to_linear_stage(self) -> None:
@@ -69,20 +72,16 @@ class NativeGpuH5LinearTriangleKmsSourceV3293Tests(unittest.TestCase):
         self.assertIn("memcpy(snapshot_words, linear_words, sizeof(snapshot_words));", source)
         self.assertIn("gpu.h5.kms.raw_tile_order_visualization=0", source)
         self.assertIn("gpu.h5.kms.linearized_tile6_3_a2d_blit=1", source)
-        self.assertTrue(
-            "gpu.h5.kms.h3_linear_readback_changed_count=%u" in source
-            or "gpu.h5.kms.h3_linear_readback_nonzero_count=%u" in source
-        )
-        self.assertTrue(
-            "h3->linear_readback_changed_count == 0U" in source
-            or "h3->linear_readback_nonzero_count == 0U" in source
-        )
+        self.assertIn("gpu.h5.kms.h3_linear_readback_nonzero_count=%u", source)
+        self.assertIn("#define GPU_H5_LINEAR_CLEAR_PATTERN 0x00000000U", source)
+        self.assertIn("linear_words[index] = GPU_H5_LINEAR_CLEAR_PATTERN;", source)
+        self.assertIn("h3->linear_readback_nonzero_count == 0U", source)
+        self.assertIn("h3->linear_center_nonzero == 0U", source)
+        self.assertIn("h3->linear_exterior_corners_zero == 0U", source)
+        self.assertIn("gpu.h5.kms.strict_linear_triangle_sample_proof=%u", source)
         self.assertIn("gpu.h5.kms.result=h3-linear-readback-failed", source)
         self.assertIn("h3-linear-readback-kms-presented", source)
-        self.assertTrue(
-            "A2D LINEARIZED H3 COLOR" in source
-            or "A2D LINEAR H3 STRICT" in source
-        )
+        self.assertIn("A2D LINEAR H3 STRICT", source)
 
     def test_h5_keeps_existing_h3_shader_contract(self) -> None:
         result = audit.run_audit(ir3_disasm="/missing/ir3-disasm")
@@ -99,11 +98,11 @@ class NativeGpuH5LinearTriangleKmsSourceV3293Tests(unittest.TestCase):
     def test_builder_manifest_records_linearized_scope(self) -> None:
         source = Path(runner.__file__).read_text(encoding="utf-8")
 
-        self.assertIn('"source_baseline": "v3292-h5-raw-tile-readback-kms-live-telemetry-proof"', source)
+        self.assertIn('"source_baseline": "v3294-h5-a2d-linearized-kms-live-telemetry-proof"', source)
         self.assertIn('"h5_presentation": H5_PRESENTATION', source)
         self.assertIn('"a2d_linearization_attempted": True', source)
         self.assertIn('"raw_tile_order_visualization": False', source)
-        self.assertIn("gpu-h5-linear-triangle-kms-probe-candidate", source)
+        self.assertIn("gpu-h5-strict-triangle-kms-probe-candidate", source)
 
 
 if __name__ == "__main__":

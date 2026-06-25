@@ -1071,6 +1071,26 @@ linear destination was initialized to the old `0x20202020` sentinel while A2D re
 buffer and add `linear_nonzero_count`, first-nonzero value, exterior-corner zero samples, and interior sample telemetry
 before claiming a strict literal triangle proof and moving to the after-triangle backlog.
 
+V3295/V3296 then removed that caveat and **closed the H0-H5 first-triangle ladder**. V3295 changed the linear
+destination to zero-clear and strengthened the H5 gate to require true non-zero pixels, a non-zero center sample, and
+zero exterior corner samples before KMS presentation. The source build produced `0.11.73
+(v3295-gpu-h5-strict-triangle-kms-probe)` with SHA256
+`f20b4ff3ab76fd0c8d854ede72f13079cf0f90fa248dad059768647fa8a7e4ae`. V3296 flashed that artifact through
+`native_init_flash.py` after reconfirming rollback images/TWRP; resident came back as `0.11.73`, post-flash and
+post-probe selftest stayed `pass=12 warn=1 fail=0`, and the clean rerun of
+`gpu h5-triangle-kms-probe --timeout-ms 5000 --materialize-devnode` completed in `55ms` with
+`gpu.h5.kms.result=h3-linear-readback-kms-presented`. Strict proof telemetry passed:
+`h3_linear_readback_nonzero_count=2016`, `h3_linear_readback_first_nonzero_index=8256`,
+`h3_linear_readback_first_nonzero_value=0xff00b900`, `h3_linear_readback_center=0xff00b900`,
+`h3_linear_readback0=0x0`, `h3_linear_readback_corner_tr=0x0`, `h3_linear_readback_corner_bl=0x0`,
+`h3_linear_readback_corner_br=0x0`, `h3_linear_center_nonzero=1`, `h3_linear_exterior_corners_zero=1`, and
+`strict_linear_triangle_sample_proof=1`; KMS reported `present_rc=0` for a `1024x1024` scaled region on the
+`1080x2400` framebuffer. Focused dmesg showed no GPU fault/hang/snapshot/opcode/SMMU/IOMMU/page-fault signature
+(only expected `a640_zap` load/reset and an unrelated modem firmware wait timeout). This is the first real GPU
+triangle proof: vertex buffer + VS + rasterizer + FS + sysmem color/flag write + A2D linearization + KMS presentation,
+all within the freedreno/KGSL-direct recoverable envelope. Next work should move to the after-triangle backlog, starting
+with a small visible compute/fragment-shader demo or extraction of the now-proven GPU path.
+
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
   rasterizer; gives GPU compute a *screen consumer*. **Matrix/GPGPU math is absorbed here, NOT a standalone goal** —
