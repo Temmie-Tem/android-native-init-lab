@@ -485,7 +485,7 @@ ir3 `stib`/`ldib` buffer ops.
   operator visually confirms the fractal on the panel = compute-demo close. **Matrix/GPGPU math is ABSORBED here** (no
   standalone matmul, no blob/BLAS). Modularization stays an extraction (rule-of-three) after the chain's consumers exist.
 
-**STATUS (2026-06-26) — C0 host-only recon landed as V3299; C1 shader-byte gate landed as V3300.**
+**STATUS (2026-06-26) — C0 host-only recon landed as V3299; C1 shader-byte gate landed as V3300; C1 native-init source/build landed as V3301 pending live flash.**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
 `CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed
@@ -494,8 +494,13 @@ host-only full-NIR freedreno tool build under `/tmp/a90-mesa-c1-fullnir-softpipe
 The verified C1 shader is 32 dwords / 128 bytes, `instrlen=1`, `constlen=4`, `local_size=32,1,1`,
 `sha256=7142780e5a7332c4bffdf4e0defb78450003295a9932b356140636845087285a`, and disassembles to
 `mov.u32u32 r0.y, r0.x`; `(rpt5)nop`; `stib.b.untyped.1d.u32.1.imm r0.x, r0.y, 0`; `end`. No boot artifact was built
-and no flash was run for V3300. Remaining C1 work: embed those verified CS words in native-init, bind one 32-word UAV,
-dispatch one 32-lane workgroup, then WFI/readback and pass only if `buf[i] == i`.
+and no flash was run for V3300. V3301 embeds those verified CS words in native-init, adds
+`gpu c1-compute-invocationid-probe`, binds one 32-word R32_UINT UAV descriptor, emits `SP_CS_*`, `LOAD_STATE6`
+shader/constants/UAV, `RM6_COMPUTE`, and `CP_EXEC_CS`, then gates success on WFI/readback where all `buf[i] == i`.
+V3301 source/build validation produced
+`workspace/private/inputs/boot_images/boot_linux_v3301_gpu_compute_c1_invocationid_probe.img`
+(`sha256=c4128f367a17f2481866142d79942d958ea19fa34528937dece6edf3d04e7dfa`, size 66052096 bytes);
+next C1 work is the flash-gated live probe and post-probe health check.
 
 **(historical, first-triangle ladder — DONE record)** Threshold from fixed-function plumbing to *real GPU
 graphics*: vertex buffer → vertex shader → rasterizer → fragment shader → a shaded triangle, readback-verified, blitted
