@@ -91,10 +91,11 @@ class NativeGpuH3A640MagicBlockSourceV3284Tests(unittest.TestCase):
         checks = result["checks"]
 
         self.assertTrue(result["passed"])
-        self.assertIn(result["cycle"], {"V3284", "V3287"})
+        self.assertIn(result["cycle"], {"V3284", "V3287", "V3289"})
         self.assertIn(result["scope"], {
             "gpu-h3-a640-nonzero-init-magic-shader-byte-audit",
             "gpu-h3-vfd-vs-contract-replay-shader-byte-audit",
+            "gpu-h3-blend-output-state-shader-byte-audit",
         })
         self.assertTrue(checks["a640_nonzero_magic_all_match"])
         self.assertEqual(checks["a640_init_magic_reg_writes"], 9)

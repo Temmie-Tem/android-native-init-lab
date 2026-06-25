@@ -990,6 +990,16 @@ hang, snapshot, opcode, SMMU/IOMMU, or page-fault signature; only the unrelated 
 bounded live unit should test the smaller direct-sysmem-compatible blend/output group from V3286:
 `SP_BLEND_CNTL=0x100`, `RB_BLEND_CNTL=0xffff0100`, and `RB_MRT[0].BLEND_CONTROL=0x08040804`.
 
+V3289 implemented that direct-sysmem-compatible blend/output group as a source/build unit on top of the V3288
+live-tested VFD/VS contract. H3 now emits `SP_BLEND_CNTL=0x100`, `RB_BLEND_CNTL=0xffff0100`, and
+`RB_MRT[0].BLEND_CONTROL=0x08040804`, while PM4 size and register counts stay unchanged (`pm4_dwords=335`,
+`state_reg_writes=121`, `vfd_reg_writes=20`). The source unit built `0.11.70
+(v3289-gpu-h3-blend-output-probe)` with SHA256
+`10e43f8fc8c751774d830b797b783f3a058f10efaeeccab5d0dd57f806e6f34d`; no device flash or live readback was run in this
+build unit. Focused source tests, shader-byte audit, cffdump current-H3 model tests, and the boot build passed. Next
+live unit should flash V3289 through `native_init_flash.py` under the usual rollback gates and check whether this
+blend/output group changes `readback_changed_count` or the color-flag buffer.
+
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
   rasterizer; gives GPU compute a *screen consumer*. **Matrix/GPGPU math is absorbed here, NOT a standalone goal** —

@@ -144,9 +144,11 @@ class NativeGpuH3CffdumpDiffV3286Tests(unittest.TestCase):
         blend = result["top_candidates"][1]
         self.assertEqual(blend["classification"], "direct_sysmem_compatible_output_state")
         self.assertEqual(blend["reference"]["SP_BLEND_CNTL"], 0x100)
-        self.assertEqual(blend["current_h3"]["SP_BLEND_CNTL"], 0)
+        self.assertEqual(blend["current_h3"]["SP_BLEND_CNTL"], 0x100)
         self.assertEqual(blend["reference"]["RB_BLEND_CNTL"], 0xFFFF0100)
-        self.assertEqual(blend["current_h3"]["RB_BLEND_CNTL"], 0)
+        self.assertEqual(blend["current_h3"]["RB_BLEND_CNTL"], 0xFFFF0100)
+        self.assertEqual(blend["reference"]["RB_MRT[0].BLEND_CONTROL"], 0x08040804)
+        self.assertEqual(blend["current_h3"]["RB_MRT[0].BLEND_CONTROL"], 0x08040804)
 
     def test_reference_matched_core_keeps_already_closed_hypotheses(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

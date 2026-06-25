@@ -358,6 +358,9 @@ def run_audit(
     sp_ps_mrt_reg0 = macros.resolve("GPU_H3_SP_PS_MRT_REG0")
     rb_mrt0_buf_info = macros.resolve("GPU_H3_RB_MRT0_BUF_INFO")
     rb_render_cntl = macros.resolve("GPU_H3_RB_RENDER_CNTL")
+    sp_blend_cntl = macros.resolve("GPU_H3_SP_BLEND_CNTL")
+    rb_blend_cntl = macros.resolve("GPU_H3_RB_BLEND_CNTL")
+    rb_mrt0_blend_control = macros.resolve("GPU_H3_RB_MRT0_BLEND_CONTROL")
     color_flag_pitch = macros.resolve("GPU_H3_COLOR_FLAG_BUFFER_PITCH")
     rb_dbg_eco_reg = macros.resolve("GPU_A640_REG_RB_DBG_ECO_CNTL")
     rb_dbg_eco_cntl = macros.resolve("GPU_A640_RB_DBG_ECO_CNTL")
@@ -419,6 +422,14 @@ def run_audit(
         "rb_render_cntl": rb_render_cntl,
         "rb_render_cntl_flag_mrts": (rb_render_cntl >> 16) & 0xFF,
         "rb_render_cntl_matches_a640_cffdump_flag_mrt0": rb_render_cntl == 0x00010010,
+        "sp_blend_cntl": sp_blend_cntl,
+        "rb_blend_cntl": rb_blend_cntl,
+        "rb_mrt0_blend_control": rb_mrt0_blend_control,
+        "blend_output_group_matches_a640_cffdump_draw2": (
+            sp_blend_cntl == 0x00000100
+            and rb_blend_cntl == 0xFFFF0100
+            and rb_mrt0_blend_control == 0x08040804
+        ),
         "color_flag_buffer_pitch": color_flag_pitch,
         "color_flag_buffer_pitch_matches_a640_cffdump": color_flag_pitch == 0x00004001,
         "rb_dbg_eco_reg": rb_dbg_eco_reg,
@@ -499,6 +510,7 @@ def run_audit(
         and checks["rb_mrt0_buf_info_matches_h3_color_format"]
         and checks["rb_mrt0_buf_info_matches_a640_cffdump_tile6_3"]
         and checks["rb_render_cntl_matches_a640_cffdump_flag_mrt0"]
+        and checks["blend_output_group_matches_a640_cffdump_draw2"]
         and checks["color_flag_buffer_pitch_matches_a640_cffdump"]
         and checks["rb_dbg_eco_matches_a640_device_db"]
         and checks["a640_nonzero_magic_all_match"]
@@ -520,8 +532,8 @@ def run_audit(
         and checks["vpc_ps_cntl_viewidloc"] == 0xFF
     )
     return {
-        "cycle": "V3287",
-        "scope": "gpu-h3-vfd-vs-contract-replay-shader-byte-audit",
+        "cycle": "V3289",
+        "scope": "gpu-h3-blend-output-state-shader-byte-audit",
         "dispatch": str(dispatch.relative_to(REPO_ROOT)),
         "chip_id": chip_id,
         "passed": passed,

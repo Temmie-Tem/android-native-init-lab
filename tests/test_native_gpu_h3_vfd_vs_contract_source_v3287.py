@@ -80,8 +80,11 @@ class NativeGpuH3VfdVsContractSourceV3287Tests(unittest.TestCase):
         checks = result["checks"]
 
         self.assertTrue(result["passed"])
-        self.assertEqual(result["cycle"], "V3287")
-        self.assertEqual(result["scope"], "gpu-h3-vfd-vs-contract-replay-shader-byte-audit")
+        self.assertIn(result["cycle"], {"V3287", "V3289"})
+        self.assertIn(result["scope"], {
+            "gpu-h3-vfd-vs-contract-replay-shader-byte-audit",
+            "gpu-h3-blend-output-state-shader-byte-audit",
+        })
         self.assertEqual([entry["disasm"] for entry in result["decoded"]["vs_shader"][:5]], [
             "mov.f32f32 r2.x, r1.x",
             "mov.f32f32 r2.y, r1.y",

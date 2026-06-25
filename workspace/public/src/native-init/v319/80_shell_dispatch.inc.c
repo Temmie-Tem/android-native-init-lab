@@ -1930,6 +1930,9 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H3_SP_REG_PROG_ID_2 GPU_H3_SP_REG_PROG_ID_0
 #define GPU_H3_SP_REG_PROG_ID_3 \
     ((GPU_H3_SP_INVALID_REG << 0) | (GPU_H3_SP_INVALID_REG << 8))
+#define GPU_H3_SP_BLEND_CNTL 0x00000100U
+#define GPU_H3_RB_BLEND_CNTL 0xffff0100U
+#define GPU_H3_RB_MRT0_BLEND_CONTROL 0x08040804U
 #define GPU_H3_PC_MODE_CNTL 0x0000001fU
 #define GPU_H3_PC_VS_CNTL 0x00000008U
 #define GPU_H3_VFD_CNTL_0 0x00000303U
@@ -2716,14 +2719,15 @@ static bool gpu_h2_append_3d_state_pm4(uint32_t *words,
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_PS_SAMPLEFREQ_CNTL,
                               GPU_H3_RB_PS_SAMPLEFREQ_CNTL) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_MODE_CNTL, 0x10) ||
-        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_BLEND_CNTL, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_BLEND_CNTL,
+                              GPU_H3_RB_BLEND_CNTL) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_DEPTH_CNTL, 0) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_STENCIL_CNTL, 0)) {
         return false;
     }
     reg_writes += 16;
     if (!gpu_g4_pm4_emit_reg2(words, dwords, GPU_H2_REG_RB_MRT0_CONTROL,
-                              rb_mrt_control, 0) ||
+                              rb_mrt_control, GPU_H3_RB_MRT0_BLEND_CONTROL) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_MRT0_BUF_INFO,
                               rb_mrt_info) ||
         !gpu_g4_pm4_emit_reg2(words, dwords, GPU_H2_REG_RB_MRT0_PITCH,
@@ -2801,7 +2805,8 @@ static bool gpu_h2_append_3d_state_pm4(uint32_t *words,
                               sp_vs_output_reg0) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_VS_VPC_DEST_REG0,
                               GPU_H3_SP_VS_VPC_DEST_REG0) ||
-        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_BLEND_CNTL, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_BLEND_CNTL,
+                              GPU_H3_SP_BLEND_CNTL) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_SRGB_CNTL, 0) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H3_REG_TPL1_MSAA_SAMPLE_POS_CNTL,
                               GPU_H3_TPL1_MSAA_SAMPLE_POS_CNTL) ||
@@ -7890,7 +7895,7 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
         return -EINVAL;
     }
     a90_console_printf("gpu.h3.draw.version=1\r\n");
-    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-vfd-vs-contract-replay-a640-nonzero-init-magic-block-flag-mrt-cffdump-color-target-varying-ij-vpc-linkage-clip-guardband-su-rasterizer-a6xx-output-routing-sp-frontend-prog-id-state-sp-const-fs-output-cntl-raster-mode-cp-set-mode-window-offset-visibility-packets-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl\r\n");
+    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-blend-output-state-vfd-vs-contract-replay-a640-nonzero-init-magic-block-flag-mrt-cffdump-color-target-varying-ij-vpc-linkage-clip-guardband-su-rasterizer-a6xx-output-routing-sp-frontend-prog-id-state-sp-const-fs-output-cntl-raster-mode-cp-set-mode-window-offset-visibility-packets-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl\r\n");
     a90_console_printf("gpu.h3.draw.path=%s\r\n", GPU_G0_DEVNODE);
     a90_console_printf("gpu.h3.draw.timeout_ms=%d\r\n", timeout_ms);
     a90_console_printf("gpu.h3.draw.wait_timeout_ms=%u\r\n", GPU_H3_WAIT_TIMEOUT_MS);
@@ -8056,6 +8061,11 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
                        GPU_H3_A640_INIT_MAGIC_REG_WRITES);
     a90_console_printf("gpu.h3.draw.rb_render_cntl_source=mesa-freedreno-a640-cffdump-draw2-rb-render-cntl-flag-mrt0\r\n");
     a90_console_printf("gpu.h3.draw.rb_render_cntl=0x%x\r\n", GPU_H3_RB_RENDER_CNTL);
+    a90_console_printf("gpu.h3.draw.blend_output_state_source=mesa-freedreno-a640-cffdump-draw2-direct-sysmem-compatible-blend-output-group\r\n");
+    a90_console_printf("gpu.h3.draw.sp_blend_cntl=0x%x\r\n", GPU_H3_SP_BLEND_CNTL);
+    a90_console_printf("gpu.h3.draw.rb_blend_cntl=0x%x\r\n", GPU_H3_RB_BLEND_CNTL);
+    a90_console_printf("gpu.h3.draw.rb_mrt0_blend_control=0x%x\r\n",
+                       GPU_H3_RB_MRT0_BLEND_CONTROL);
     a90_console_printf("gpu.h3.draw.hlsq_round4_audit=local-a6xx-fd6-uses-sp-program-config-not-legacy-hlsq-control-regs\r\n");
     a90_console_printf("gpu.h3.draw.fs_output_cntl_source=mesa-freedreno-a6xx-fd6-program-invalid-depth-sampmask-stencil-regids-and-rb-sp-mrt-count-one\r\n");
     a90_console_printf("gpu.h3.draw.rb_ps_output_cntl=0x%x\r\n",

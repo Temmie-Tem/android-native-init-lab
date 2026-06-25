@@ -62,11 +62,12 @@ class NativeGpuH3RbDbgEcoSourceV3282Tests(unittest.TestCase):
         checks = result["checks"]
 
         self.assertTrue(result["passed"])
-        self.assertIn(result["cycle"], {"V3282", "V3284", "V3287"})
+        self.assertIn(result["cycle"], {"V3282", "V3284", "V3287", "V3289"})
         self.assertIn(result["scope"], {
             "gpu-h3-rb-dbg-eco-init-magic-shader-byte-audit",
             "gpu-h3-a640-nonzero-init-magic-shader-byte-audit",
             "gpu-h3-vfd-vs-contract-replay-shader-byte-audit",
+            "gpu-h3-blend-output-state-shader-byte-audit",
         })
         self.assertEqual(checks["rb_dbg_eco_reg"], 0x8E04)
         self.assertEqual(checks["rb_dbg_eco_cntl"], 0x04100000)

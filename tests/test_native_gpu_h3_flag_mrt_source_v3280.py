@@ -78,7 +78,7 @@ class NativeGpuH3FlagMrtSourceV3280Tests(unittest.TestCase):
         checks = result["checks"]
 
         self.assertTrue(result["passed"])
-        self.assertIn(result["cycle"], {"V3280", "V3282", "V3284", "V3287"})
+        self.assertIn(result["cycle"], {"V3280", "V3282", "V3284", "V3287", "V3289"})
         self.assertIn(
             result["scope"],
             {
@@ -86,6 +86,7 @@ class NativeGpuH3FlagMrtSourceV3280Tests(unittest.TestCase):
                 "gpu-h3-rb-dbg-eco-init-magic-shader-byte-audit",
                 "gpu-h3-a640-nonzero-init-magic-shader-byte-audit",
                 "gpu-h3-vfd-vs-contract-replay-shader-byte-audit",
+                "gpu-h3-blend-output-state-shader-byte-audit",
             },
         )
         self.assertEqual(checks["sp_ps_mrt_reg0_color_format"], 0x30)
