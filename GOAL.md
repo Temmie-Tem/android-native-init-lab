@@ -428,7 +428,7 @@ the Audio section above). Full detail: `CLAUDE.md` + `docs/reports/`. No active 
    report; never `-A`. Message per project convention; end with the Co-Authored-By line.
 9. **REPEAT** → back to STATE.
 
-## 🟢 GPU epic — G0→G5 first-light DONE ✅, next rung = first triangle (overnight)
+## 🟢 GPU epic — G0→G5 first-light DONE ✅, first triangle H0→H5 DONE + EYE-CONFIRMED ✅, active rung = visible COMPUTE demo (C0→C3)
 
 **Persistent HARD FRAMING (inherited by every GPU rung, do not deviate):**
 - **freedreno / Mesa / KGSL-direct ONLY.** The proprietary Adreno blob path (libGLESv2/EGL/OpenCL via Bionic/Android
@@ -450,7 +450,42 @@ CPU-readback verified (`0xa5c3f00d`); G5 GPU-filled buffer CPU-copied into the K
 zero-copy/plane scanout (G5 is CPU-copy), and no demo is GPU-accelerated yet.** This is the control-path first-light,
 the foundation — not graphics.
 
-**NEXT GPU EPIC = first triangle (H0→H5, overnight deep target).** Threshold from fixed-function plumbing to *real GPU
+**FIRST TRIANGLE H0→H5 = DONE + EYE-CONFIRMED (2026-06-26, init `0.11.73`).** Operator visually confirmed a GREEN
+RIGHT-TRIANGLE on the panel. The long no-pixel wall's root cause was the **blend/output register group**
+(`RB_BLEND_CNTL=0xffff0100`, `RB_MRT0.BLEND_CONTROL=0x08040804`, `SP_BLEND_CNTL=0x100`) — found via a built
+**cffdump-diff tool** (`native_gpu_h3_cffdump_diff_v3286.py`) against a local A640 cffdump reference: V3286 diff →
+V3290 first pixels (`readback_changed_count=672`) → V3292 KMS present → V3295/V3296 strict linear-triangle proof
+(`strict_linear_triangle_sample_proof=1`) → V3298 visual hold. Operator nudges that landed: FS-output `0xfc` invalid
+regids, A640 device-DB magic regs (`freedreno_devices.py`, necessary-not-sufficient); ruled out HLSQ-rename and the
+CCU-flush hypothesis. The H0→H5 detail below is retained as the done record. **The first triangle proves "GPU draws the
+screen."**
+
+**ACTIVE = visible COMPUTE demo (C0→C3).** Proves "GPU does real WORK" (the multipurpose-server motivation), not just
+display. Bounded ladder mirroring H0→H5, reusing the proven G0-G3 KGSL submit/fence/buffer core + the H5 KMS present
+path; swaps the 3D draw for a hand-assembled ir3 COMPUTE dispatch. Same HARD FRAMING and bright lines (freedreno/
+KGSL-direct, NO blob/EGL/OpenCL/BLAS, NO power writes, NO panel re-init, recoverable, rollback `v2321`).
+**Operator PRE-STAGED the compute reference (2026-06-26) so C0 starts warm and does NOT repeat the triangle's 40-probe
+stall** — staged at `/tmp/a90-mesa-gpu-src/a6xx_compute_dispatch_reference.txt` (+ `comp_a6xx.cc` = Mesa computerator
+hand-built a6xx compute cmdstream, `comp_fd6_compute.cc`, and `kern_*.asm` = known-good ir3 compute kernels). It pins
+the ordered CS dispatch envelope, CS register offsets (from local a6xx.xml), the UAV output-buffer binding, and the
+ir3 `stib`/`ldib` buffer ops.
+- **C0** (host-only recon): confirm/encode the CS dispatch envelope from the staged reference — `cs_restore`→`SP_CS_*`
+  program (CONFIG.enabled+nuav, CNTL_0/1, WGE_CNTL, BASE, INSTR_SIZE) + `CP_LOAD_STATE6 ST6_SHADER`; UAV bind
+  (`SP_CS_UAV_BASE`/`USIZE` + `CP_LOAD_STATE6 ST6_UAV`); `CP_SET_MARKER RM6_COMPUTE`; `SP_CS_NDRANGE_0..6` + KERNEL_GROUP;
+  `CP_EXEC_CS(ngroups)`; WFI. **Hand-assemble the kernel from `kern_invocationid.asm`** (do NOT port the Mesa compiler);
+  reuse the V3246 ir3-disasm to verify bytes.
+- **C1** dispatch the trivial kernel = `kern_invocationid.asm` (writes per-invocation id to the UAV buffer). **PASS
+  criterion: readback `buf[i] == i` for grid 32 (or `changed_count>0` with the per-invocation pattern).** If unchanged,
+  do NOT churn "what's missing" — immediately run the execution-proof bisect (CP_MEM_WRITE sentinel to `buf[0]` before
+  `CP_EXEC_CS`; drop `KGSL_CONTEXT_NO_SNAPSHOT` and read GPU fault state), then register-diff against `comp_a6xx.cc`.
+- **C2** Mandelbrot kernel: each invocation = one pixel → `z=z²+c` bounded escape loop (float `mul.f`/`add.f`/`cmps.f`
+  + predicate/branch from `kern_branch.asm`) → color buffer. **Crux.** If ir3 float+loop too fiddly, FALL BACK to a
+  simpler per-pixel kernel (gradient/xy-pattern) — still proves "GPU computes per pixel and shows it" — and record it.
+- **C3** blit the compute output to `/dev/dri/card0` via the proven H5 present path (reuse tile→linear if needed);
+  operator visually confirms the fractal on the panel = compute-demo close. **Matrix/GPGPU math is ABSORBED here** (no
+  standalone matmul, no blob/BLAS). Modularization stays an extraction (rule-of-three) after the chain's consumers exist.
+
+**(historical, first-triangle ladder — DONE record)** Threshold from fixed-function plumbing to *real GPU
 graphics*: vertex buffer → vertex shader → rasterizer → fragment shader → a shaded triangle, readback-verified, blitted
 to KMS. Reuses the proven G0-G3 core (context/buffer/submit/fence/readback) + G5 blit; swaps the 2D fill for a 3D draw.
 - **H0** (host-only deep recon): study minimal A6xx 3D pipeline state (mesa fd6 + envytools regs); **hand-assemble the
@@ -1107,18 +1142,27 @@ framebuffer. The operator confirmed the triangle was visible on the panel during
 no GPU fault/hang/snapshot/opcode/SMMU/IOMMU/page-fault signature. The first-triangle epic is now closed both by
 telemetry and by human visual confirmation; the next rung is the after-triangle backlog.
 
-**GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
-- **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
+**GPU roadmap — ORDERED CHAIN after the triangle (operator "full-steam" 2026-06-26; do NOT pre-build, pull each rung
+only when reached, but the loop must flow rung→rung and NOT halt between them — re-charter the active-epic to the next
+rung as each closes).** Honest ceiling acknowledged and accepted: native-init has NO OpenCL/Vulkan/CUDA (blob/Bionic
+wall), so every kernel/shader is hand-assembled ir3 and this never becomes a general GPGPU server — the value is
+*device-proven GPU capability + accelerating our own pipeline*, not third-party workloads.
+
+- **① VISIBLE compute demo (ACTIVE = C0→C3, e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
   rasterizer; gives GPU compute a *screen consumer*. **Matrix/GPGPU math is absorbed here, NOT a standalone goal** —
-  there is no module/library to load (OpenCL/BLAS = blob/Bionic wall; Mesa rusticl/turnip = full-stack port, unbounded),
-  so any kernel is hand-assembled ir3, and an abstract matmul with no consumer is the forbidden "capability with no
-  consumer" anti-pattern.
-- **Modularization is NOT an epic — it is an extraction.** Do not design a `a90_gpu` API upfront. Once the triangle AND
-  the compute demo are two real consumers pulling on the same G0-G3 core (rule of three), *extract* the common
-  KGSL submit/fence/buffer layer into an internal helper as a bounded refactor. Keep the already-shared core clean
-  meanwhile; formalize an API only after 2-3 real call sites reveal its shape.
-- **zero-copy KMS/dmabuf scanout** (G5 CPU-copy → direct GPU-buffer scanout; crux = A6xx tiling/UBWC ↔ display modifier)
-  — efficiency win, do *after* the triangle (premature on a solid fill).
+  no module/library to load (OpenCL/BLAS = blob/Bionic wall; Mesa rusticl/turnip = full-stack port, unbounded), so any
+  kernel is hand-assembled ir3; an abstract matmul with no consumer is the forbidden "capability with no consumer".
+- **② GPU-ACCELERATED 2D = texturing + frame blit/scale (the real acceleration payoff).** Bring up the A6xx texture
+  pipe (TPL1 sampler): render a textured fullscreen quad sampling an image, then use the GPU to scale/composite/blit
+  frames — the demo player (Bad Apple/DOOM) blits via CPU `memcpy` today, so this makes the GPU a *real consumer of
+  existing work* (frees the CPU, enables higher res/fps) and exercises the sampler path. This is the third real call
+  site for the rule-of-three extraction and the natural motivator for zero-copy.
+- **③ Modularization = EXTRACTION, not an epic.** Do not design a `a90_gpu` API upfront. With triangle + compute +
+  accel-blit as three real consumers pulling on the same G0-G3 core (rule of three), *extract* the common KGSL
+  submit/fence/buffer layer into an internal helper as a bounded refactor; formalize an API only after the call sites
+  reveal its shape.
+- **④ zero-copy KMS/dmabuf scanout** (G5 CPU-copy → direct GPU-buffer scanout; crux = A6xx tiling/UBWC ↔ display
+  modifier) — efficiency win; do after ② makes CPU-copy the bottleneck. Closing ④ closes the GPU epic.
 
 ## Stop conditions
 
@@ -1134,11 +1178,14 @@ telemetry and by human visual confirmation; the next rung is the after-triangle 
   content, not a standalone format epic.**
   Recoverable boot-partition flashes only, rollback `v2321`. **Bright lines:** no backlight/PMIC/PWM/regulator/GDSC
   writes; no from-scratch panel re-init; forbidden partitions absolute. Venus HW decode NOT needed (pre-rendered frames).
-- **ACTIVE EPIC (overnight) = GPU first triangle (H0→H5)** — the GPU G0→G5 first-light ladder is DONE/device-proven
-  (V3206, init `0.11.30`); the next rung is real GPU graphics (shaded triangle). See the "🟢 GPU epic" block for the
-  H0-H5 ladder, the hand-assembled-ir3 crux, and the after-triangle backlog (visible compute demo → extracted
-  modularization → zero-copy). Chosen deliberately as a *deep unattended overnight* target (not operator-ROI). Bluetooth /
-  sensors / haptics / Wi-Fi SoftAP remain reference-only until separately chartered (attended daytime quick-wins).
+- **ACTIVE EPIC = GPU visible COMPUTE demo (C0→C3).** The GPU first-triangle ladder H0→H5 is **DONE + EYE-CONFIRMED
+  (2026-06-26)** — operator visually confirmed a GREEN RIGHT-TRIANGLE on the panel; strict proof `V3295/V3296`
+  (`strict_linear_triangle_sample_proof=1`, center `0xff00b900`, exterior corners `0`), KMS-presented, no GPU fault,
+  init `0.11.73`. Per the operator B-decision (the triangle proves "GPU draws the screen"; a compute demo proves "GPU
+  does real work" — the multipurpose-server motivation), the next chartered rung is a visible compute demo. See the
+  "🟢 GPU epic" block for the C0→C3 ladder. Reuses the proven G0-G3 KGSL core + H5 KMS present; swaps the 3D draw for a
+  hand-assembled ir3 COMPUTE dispatch. Bluetooth / sensors / haptics / Wi-Fi SoftAP remain reference-only until
+  separately chartered (attended daytime quick-wins).
 - Device unreachable after an auto-rollback → STOP, leave an incident report.
 - The same sub-goal fails twice → STOP or shelve it and move on; do NOT retry-loop.
 - No sub-goal is safely actionable without the operator → STOP with a note (but T1 is
