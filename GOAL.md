@@ -485,15 +485,17 @@ ir3 `stib`/`ldib` buffer ops.
   operator visually confirms the fractal on the panel = compute-demo close. **Matrix/GPGPU math is ABSORBED here** (no
   standalone matmul, no blob/BLAS). Modularization stays an extraction (rule-of-three) after the chain's consumers exist.
 
-**STATUS (2026-06-26) — C0 host-only recon landed as V3299; C1 is gated on CS shader bytes.**
+**STATUS (2026-06-26) — C0 host-only recon landed as V3299; C1 shader-byte gate landed as V3300.**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
 `CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed
-to a 32-lane `buf[i] == i` proof. No boot artifact was built and no flash was run. Remaining gate: materialize
-`kern_invocationid.asm` into real CS shader words and verify them with `ir3-disasm` before any C1 live flash. Current
-host build state explains the gate: `computerator` is a build target but no executable exists, and the local
-`/tmp/a90-mesa-h3-build-ir3/src/compiler/nir/libnir.a` is `nir_stub.c.o` only, so assembler targets cannot resolve full
-NIR symbols.
+to a 32-lane `buf[i] == i` proof. V3300 then materialized that kernel into verified A640 CS shader words with a bounded
+host-only full-NIR freedreno tool build under `/tmp/a90-mesa-c1-fullnir-softpipe-v3300` and `ir3-disasm -g FD640`.
+The verified C1 shader is 32 dwords / 128 bytes, `instrlen=1`, `constlen=4`, `local_size=32,1,1`,
+`sha256=7142780e5a7332c4bffdf4e0defb78450003295a9932b356140636845087285a`, and disassembles to
+`mov.u32u32 r0.y, r0.x`; `(rpt5)nop`; `stib.b.untyped.1d.u32.1.imm r0.x, r0.y, 0`; `end`. No boot artifact was built
+and no flash was run for V3300. Remaining C1 work: embed those verified CS words in native-init, bind one 32-word UAV,
+dispatch one 32-lane workgroup, then WFI/readback and pass only if `buf[i] == i`.
 
 **(historical, first-triangle ladder — DONE record)** Threshold from fixed-function plumbing to *real GPU
 graphics*: vertex buffer → vertex shader → rasterizer → fragment shader → a shaded triangle, readback-verified, blitted
