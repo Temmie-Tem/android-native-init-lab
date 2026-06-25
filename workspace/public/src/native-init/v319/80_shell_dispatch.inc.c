@@ -1474,6 +1474,12 @@ struct gpu_h3_draw_envelope_probe_result {
     int color_flag_info_errno;
     int color_flag_mmap_rc;
     int color_flag_mmap_errno;
+    int linear_alloc_rc;
+    int linear_alloc_errno;
+    int linear_info_rc;
+    int linear_info_errno;
+    int linear_mmap_rc;
+    int linear_mmap_errno;
     int event_alloc_rc;
     int event_alloc_errno;
     int event_info_rc;
@@ -1527,6 +1533,9 @@ struct gpu_h3_draw_envelope_probe_result {
     int color_flag_munmap_attempted;
     int color_flag_munmap_rc;
     int color_flag_munmap_errno;
+    int linear_munmap_attempted;
+    int linear_munmap_rc;
+    int linear_munmap_errno;
     int vs_munmap_attempted;
     int vs_munmap_rc;
     int vs_munmap_errno;
@@ -1548,6 +1557,10 @@ struct gpu_h3_draw_envelope_probe_result {
     int color_flag_free_deferred;
     int color_flag_free_rc;
     int color_flag_free_errno;
+    int linear_free_attempted;
+    int linear_free_deferred;
+    int linear_free_rc;
+    int linear_free_errno;
     int event_free_attempted;
     int event_free_deferred;
     int event_free_rc;
@@ -1573,6 +1586,7 @@ struct gpu_h3_draw_envelope_probe_result {
     unsigned int cmd_gpuobj_id;
     unsigned int color_gpuobj_id;
     unsigned int color_flag_gpuobj_id;
+    unsigned int linear_gpuobj_id;
     unsigned int event_gpuobj_id;
     unsigned int vs_gpuobj_id;
     unsigned int fs_gpuobj_id;
@@ -1601,17 +1615,24 @@ struct gpu_h3_draw_envelope_probe_result {
     unsigned int draw_attempted;
     unsigned int shader_execution_attempted;
     unsigned int kms_blit_attempted;
+    unsigned int linear_blit_attempted;
     unsigned int readback_changed_count;
     unsigned int readback_first_changed_index;
+    unsigned int linear_readback_changed_count;
+    unsigned int linear_readback_first_changed_index;
     uint32_t readback0;
     uint32_t readback_center;
     uint32_t readback_first_changed_value;
+    uint32_t linear_readback0;
+    uint32_t linear_readback_center;
+    uint32_t linear_readback_first_changed_value;
     uint32_t color_flag0;
     uint32_t color_flag_first_changed_value;
     int fence_fd;
     uint64_t cmd_info_gpuaddr;
     uint64_t color_info_gpuaddr;
     uint64_t color_flag_info_gpuaddr;
+    uint64_t linear_info_gpuaddr;
     uint64_t event_info_gpuaddr;
     uint64_t vs_info_gpuaddr;
     uint64_t fs_info_gpuaddr;
@@ -1620,6 +1641,7 @@ struct gpu_h3_draw_envelope_probe_result {
     uint64_t cmd_mmap_len;
     uint64_t color_mmap_len;
     uint64_t color_flag_mmap_len;
+    uint64_t linear_mmap_len;
     uint64_t event_size;
     uint64_t vs_mmap_len;
     uint64_t fs_mmap_len;
@@ -1628,6 +1650,7 @@ struct gpu_h3_draw_envelope_probe_result {
     uint64_t cmd_sync_length;
     uint64_t color_sync_length;
     uint64_t color_flag_sync_length;
+    uint64_t linear_sync_length;
     uint64_t event_sync_length;
     uint64_t vs_sync_length;
     uint64_t fs_sync_length;
@@ -1693,7 +1716,7 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_G4_EVENT_ALLOC_SIZE 4096ULL
 #define GPU_G4_ALLOC_FLAGS 0ULL
 #define GPU_G4_WAIT_TIMEOUT_MS 1000U
-#define GPU_G4_CMD_MAX_DWORDS 384U
+#define GPU_G4_CMD_MAX_DWORDS 512U
 #define GPU_G4_FILL_BYTES 256ULL
 #define GPU_G4_FILL_DWORDS ((unsigned int)(GPU_G4_FILL_BYTES / 4ULL))
 #define GPU_G4_READBACK_DWORDS 16U
@@ -1798,6 +1821,22 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H5_H3_SNAPSHOT_WORDS (GPU_H2_COLOR_WIDTH * GPU_H2_COLOR_HEIGHT)
 #define GPU_H5_H3_PRESENT_MARGIN_X 28U
 #define GPU_H5_H3_PRESENT_TOP 176U
+#define GPU_H5_A2D_BLT_CNTL_SCALE_RGBA8 0x10f03000U
+#define GPU_H5_A2D_OUTPUT_INFO_RGBA8 0x0000f180U
+#define GPU_H5_A2D_SRC_TEXTURE_INFO_TILE6_3_FLAGS \
+    (GPU_H3_COLOR_FORMAT | \
+     (GPU_G4_A6XX_TILE6_3 << 8) | \
+     (GPU_G4_A3XX_COLOR_SWAP_WZYX << 10) | \
+     (1U << 12) | \
+     (1U << 20) | \
+     (1U << 22))
+#define GPU_H5_A2D_DEST_BUFFER_INFO_LINEAR GPU_H3_COLOR_FORMAT
+#define GPU_H5_A2D_SRC_TEXTURE_SIZE \
+    (GPU_H2_COLOR_WIDTH | (GPU_H2_COLOR_HEIGHT << 15))
+#define GPU_H5_A2D_SRC_TEXTURE_PITCH ((GPU_H2_COLOR_STRIDE >> 6) << 9)
+#define GPU_H5_A2D_DEST_BUFFER_PITCH (GPU_H2_COLOR_STRIDE >> 6)
+#define GPU_H5_A2D_SRC_MAX_X ((GPU_H2_COLOR_WIDTH - 1U) << 8)
+#define GPU_H5_A2D_SRC_MAX_Y ((GPU_H2_COLOR_HEIGHT - 1U) << 8)
 #define GPU_H3_CMD_ALLOC_SIZE 8192ULL
 #define GPU_H3_VERTEX_ALLOC_SIZE 4096ULL
 #define GPU_H3_EVENT_ALLOC_SIZE 4096ULL
@@ -1972,15 +2011,29 @@ struct gpu_h3_draw_snapshot_child_run {
 #define GPU_H3_VFD_DEST_CNTL1 0x0000004fU
 #define GPU_H3_VFD_DEST_CNTL2 0x00000081U
 #define GPU_G4_REG_GRAS_A2D_BLT_CNTL 0x8400U
+#define GPU_H5_REG_GRAS_A2D_SRC_XMIN 0x8401U
+#define GPU_H5_REG_GRAS_A2D_SRC_XMAX 0x8402U
+#define GPU_H5_REG_GRAS_A2D_SRC_YMIN 0x8403U
+#define GPU_H5_REG_GRAS_A2D_SRC_YMAX 0x8404U
 #define GPU_G4_REG_GRAS_A2D_DEST_TL 0x8405U
 #define GPU_G4_REG_GRAS_A2D_DEST_BR 0x8406U
+#define GPU_H5_REG_GRAS_A2D_SCISSOR_TL 0x840aU
+#define GPU_H5_REG_GRAS_A2D_SCISSOR_BR 0x840bU
 #define GPU_G4_REG_RB_A2D_BLT_CNTL 0x8c00U
 #define GPU_G4_REG_RB_A2D_PIXEL_CNTL 0x8c01U
 #define GPU_G4_REG_RB_A2D_DEST_BUFFER_INFO 0x8c17U
 #define GPU_G4_REG_RB_A2D_DEST_BUFFER_BASE 0x8c18U
 #define GPU_G4_REG_RB_A2D_DEST_BUFFER_PITCH 0x8c1aU
+#define GPU_H5_REG_RB_A2D_DEST_FLAG_BUFFER_BASE 0x8c20U
+#define GPU_H5_REG_RB_A2D_DEST_FLAG_BUFFER_PITCH 0x8c22U
 #define GPU_G4_REG_RB_A2D_CLEAR_COLOR_DW0 0x8c2cU
 #define GPU_G4_REG_SP_A2D_OUTPUT_INFO 0xacc0U
+#define GPU_H5_REG_TPL1_A2D_SRC_TEXTURE_INFO 0xb4c0U
+#define GPU_H5_REG_TPL1_A2D_SRC_TEXTURE_SIZE 0xb4c1U
+#define GPU_H5_REG_TPL1_A2D_SRC_TEXTURE_BASE 0xb4c2U
+#define GPU_H5_REG_TPL1_A2D_SRC_TEXTURE_PITCH 0xb4c4U
+#define GPU_H5_REG_TPL1_A2D_SRC_TEXTURE_FLAG_BASE 0xb4caU
+#define GPU_H5_REG_TPL1_A2D_SRC_TEXTURE_FLAG_PITCH 0xb4ccU
 #define GPU_H1_REG_SP_VS_CNTL_0 0xa800U
 #define GPU_H1_REG_SP_VS_PROGRAM_COUNTER_OFFSET 0xa81bU
 #define GPU_H1_REG_SP_VS_BASE 0xa81cU
@@ -2431,6 +2484,93 @@ static bool gpu_g4_build_solid_fill_pm4(uint32_t *words,
                               (uint32_t)(dst_base >> 32)) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_G4_REG_RB_A2D_DEST_BUFFER_PITCH, 0) ||
         !gpu_g4_pm4_emit_reg2(words, dwords, GPU_G4_REG_GRAS_A2D_DEST_TL, 0, dest_br)) {
+        return false;
+    }
+    if (!gpu_g4_pm4_emit_pkt7(words, dwords, (uint8_t)GPU_G4_PM4_CP_BLIT, 1) ||
+        !gpu_g4_pm4_push(words, dwords, GPU_G4_A6XX_CP_BLIT_OP_SCALE) ||
+        !gpu_g4_pm4_emit_event_ts(words, dwords,
+                                  GPU_G4_EVENT_PC_CCU_FLUSH_COLOR_TS,
+                                  event_gpuaddr,
+                                  GPU_G4_EVENT_SEQNO_VALUE) ||
+        !gpu_g4_pm4_emit_pkt7(words, dwords, (uint8_t)GPU_G4_PM4_CP_WAIT_FOR_IDLE, 0)) {
+        return false;
+    }
+    return true;
+}
+
+static bool gpu_h5_append_tile6_3_to_linear_a2d_pm4(uint32_t *words,
+                                                    unsigned int *dwords,
+                                                    uint64_t src_gpuaddr,
+                                                    uint64_t src_flag_gpuaddr,
+                                                    uint64_t dst_gpuaddr,
+                                                    uint64_t event_gpuaddr) {
+    uint64_t src_base = src_gpuaddr & ~0x3fULL;
+    uint64_t src_flag_base = src_flag_gpuaddr & ~0x3fULL;
+    uint64_t dst_base = dst_gpuaddr & ~0x3fULL;
+    uint32_t src_br =
+        ((GPU_H2_COLOR_HEIGHT - 1U) << 16) | (GPU_H2_COLOR_WIDTH - 1U);
+
+    if (!gpu_g4_pm4_emit_event_ts(words, dwords,
+                                  GPU_G4_EVENT_PC_CCU_FLUSH_COLOR_TS,
+                                  event_gpuaddr,
+                                  GPU_G4_EVENT_SEQNO_VALUE) ||
+        !gpu_g4_pm4_emit_pkt7(words, dwords, (uint8_t)GPU_G4_PM4_CP_WAIT_FOR_IDLE, 0)) {
+        return false;
+    }
+    if (!gpu_g4_pm4_emit_pkt7(words, dwords, (uint8_t)GPU_G4_PM4_CP_SET_MARKER, 1) ||
+        !gpu_g4_pm4_push(words, dwords, GPU_G4_A6XX_CP_SET_MARKER_RM6_BLIT2DSCALE)) {
+        return false;
+    }
+    if (!gpu_g4_pm4_emit_reg1(words, dwords, GPU_G4_REG_RB_A2D_BLT_CNTL,
+                              GPU_H5_A2D_BLT_CNTL_SCALE_RGBA8) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_G4_REG_GRAS_A2D_BLT_CNTL,
+                              GPU_H5_A2D_BLT_CNTL_SCALE_RGBA8) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_G4_REG_SP_A2D_OUTPUT_INFO,
+                              GPU_H5_A2D_OUTPUT_INFO_RGBA8) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_G4_REG_RB_A2D_PIXEL_CNTL, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_G4_REG_RB_A2D_DEST_BUFFER_INFO,
+                              GPU_H5_A2D_DEST_BUFFER_INFO_LINEAR)) {
+        return false;
+    }
+    if (!gpu_g4_pm4_emit_reg2(words, dwords, GPU_G4_REG_RB_A2D_DEST_BUFFER_BASE,
+                              (uint32_t)(dst_base & 0xffffffffULL),
+                              (uint32_t)(dst_base >> 32)) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_G4_REG_RB_A2D_DEST_BUFFER_PITCH,
+                              GPU_H5_A2D_DEST_BUFFER_PITCH) ||
+        !gpu_g4_pm4_emit_reg2(words, dwords, GPU_H5_REG_RB_A2D_DEST_FLAG_BUFFER_BASE,
+                              (uint32_t)(dst_base & 0xffffffffULL),
+                              (uint32_t)(dst_base >> 32)) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H5_REG_RB_A2D_DEST_FLAG_BUFFER_PITCH,
+                              0)) {
+        return false;
+    }
+    if (!gpu_g4_pm4_emit_reg4(words, dwords, GPU_H5_REG_GRAS_A2D_SRC_XMIN,
+                              0,
+                              GPU_H5_A2D_SRC_MAX_X,
+                              0,
+                              GPU_H5_A2D_SRC_MAX_Y) ||
+        !gpu_g4_pm4_emit_reg2(words, dwords, GPU_G4_REG_GRAS_A2D_DEST_TL,
+                              0,
+                              src_br) ||
+        !gpu_g4_pm4_emit_reg2(words, dwords, GPU_H5_REG_GRAS_A2D_SCISSOR_TL,
+                              0,
+                              src_br)) {
+        return false;
+    }
+    if (!gpu_g4_pm4_emit_reg1(words, dwords, GPU_H5_REG_TPL1_A2D_SRC_TEXTURE_INFO,
+                              GPU_H5_A2D_SRC_TEXTURE_INFO_TILE6_3_FLAGS) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H5_REG_TPL1_A2D_SRC_TEXTURE_SIZE,
+                              GPU_H5_A2D_SRC_TEXTURE_SIZE) ||
+        !gpu_g4_pm4_emit_reg2(words, dwords, GPU_H5_REG_TPL1_A2D_SRC_TEXTURE_BASE,
+                              (uint32_t)(src_base & 0xffffffffULL),
+                              (uint32_t)(src_base >> 32)) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H5_REG_TPL1_A2D_SRC_TEXTURE_PITCH,
+                              GPU_H5_A2D_SRC_TEXTURE_PITCH) ||
+        !gpu_g4_pm4_emit_reg2(words, dwords, GPU_H5_REG_TPL1_A2D_SRC_TEXTURE_FLAG_BASE,
+                              (uint32_t)(src_flag_base & 0xffffffffULL),
+                              (uint32_t)(src_flag_base >> 32)) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H5_REG_TPL1_A2D_SRC_TEXTURE_FLAG_PITCH,
+                              GPU_H3_COLOR_FLAG_BUFFER_PITCH)) {
         return false;
     }
     if (!gpu_g4_pm4_emit_pkt7(words, dwords, (uint8_t)GPU_G4_PM4_CP_BLIT, 1) ||
@@ -2996,10 +3136,12 @@ static bool gpu_h3_build_draw_envelope_pm4(uint32_t *words,
                                            unsigned int *vfd_reg_writes,
                                            uint64_t color_gpuaddr,
                                            uint64_t color_flag_gpuaddr,
+                                           uint64_t linear_gpuaddr,
                                            uint64_t event_gpuaddr,
                                            uint64_t vs_gpuaddr,
                                            uint64_t fs_gpuaddr,
-                                           uint64_t vertex_gpuaddr) {
+                                           uint64_t vertex_gpuaddr,
+                                           bool linearize_to_linear_buffer) {
     uint64_t vertex_base = vertex_gpuaddr & ~0x3fULL;
     uint32_t draw_initiator = gpu_h3_draw_initiator();
 
@@ -3057,13 +3199,26 @@ static bool gpu_h3_build_draw_envelope_pm4(uint32_t *words,
         *vfd_reg_writes = 20;
     }
     if (!gpu_h3_pm4_emit_draw_indx_offset(words, dwords, draw_initiator, 1U,
-                                          GPU_H3_VERTEX_COUNT) ||
-        !gpu_g4_pm4_emit_event_ts(words, dwords,
-                                  GPU_G4_EVENT_PC_CCU_FLUSH_COLOR_TS,
-                                  event_gpuaddr,
-                                  GPU_G4_EVENT_SEQNO_VALUE) ||
-        !gpu_g4_pm4_emit_pkt7(words, dwords, (uint8_t)GPU_G4_PM4_CP_WAIT_FOR_IDLE, 0) ||
-        !gpu_g4_pm4_emit_pkt7(words, dwords, (uint8_t)GPU_G3_PM4_CP_NOP, 1) ||
+                                          GPU_H3_VERTEX_COUNT)) {
+        return false;
+    }
+    if (linearize_to_linear_buffer) {
+        if (!gpu_h5_append_tile6_3_to_linear_a2d_pm4(words, dwords,
+                                                     color_gpuaddr,
+                                                     color_flag_gpuaddr,
+                                                     linear_gpuaddr,
+                                                     event_gpuaddr)) {
+            return false;
+        }
+    } else if (!gpu_g4_pm4_emit_event_ts(words, dwords,
+                                         GPU_G4_EVENT_PC_CCU_FLUSH_COLOR_TS,
+                                         event_gpuaddr,
+                                         GPU_G4_EVENT_SEQNO_VALUE) ||
+               !gpu_g4_pm4_emit_pkt7(words, dwords,
+                                     (uint8_t)GPU_G4_PM4_CP_WAIT_FOR_IDLE, 0)) {
+        return false;
+    }
+    if (!gpu_g4_pm4_emit_pkt7(words, dwords, (uint8_t)GPU_G3_PM4_CP_NOP, 1) ||
         !gpu_g4_pm4_push(words, dwords, 0)) {
         return false;
     }
@@ -7249,7 +7404,9 @@ static bool gpu_h3_draw_envelope_result_retired(const struct gpu_h3_draw_envelop
            result->destroy_rc == 0;
 }
 
-static int gpu_h3_draw_envelope_probe_child(int write_fd, bool include_snapshot) {
+static int gpu_h3_draw_envelope_probe_child(int write_fd,
+                                            bool include_snapshot,
+                                            bool linearize_snapshot) {
     static const uint32_t vs_shader[GPU_H3_VS_SHADER_DWORDS] = {
         GPU_H3_IR3_MOV_F32F32_R2X_R1X_LO, GPU_H3_IR3_MOV_F32F32_R2X_R1X_HI,
         GPU_H3_IR3_MOV_F32F32_R2Y_R1Y_LO, GPU_H3_IR3_MOV_F32F32_R2Y_R1Y_HI,
@@ -7281,6 +7438,7 @@ static int gpu_h3_draw_envelope_probe_child(int write_fd, bool include_snapshot)
     void *cmd_map = MAP_FAILED;
     void *color_map = MAP_FAILED;
     void *color_flag_map = MAP_FAILED;
+    void *linear_map = MAP_FAILED;
     void *vs_map = MAP_FAILED;
     void *fs_map = MAP_FAILED;
     void *vertex_map = MAP_FAILED;
@@ -7304,6 +7462,9 @@ static int gpu_h3_draw_envelope_probe_child(int write_fd, bool include_snapshot)
     result.color_flag_alloc_rc = -1;
     result.color_flag_info_rc = -1;
     result.color_flag_mmap_rc = -1;
+    result.linear_alloc_rc = -1;
+    result.linear_info_rc = -1;
+    result.linear_mmap_rc = -1;
     result.event_alloc_rc = -1;
     result.event_info_rc = -1;
     result.vs_alloc_rc = -1;
@@ -7330,12 +7491,14 @@ static int gpu_h3_draw_envelope_probe_child(int write_fd, bool include_snapshot)
     result.cmd_munmap_rc = -1;
     result.color_munmap_rc = -1;
     result.color_flag_munmap_rc = -1;
+    result.linear_munmap_rc = -1;
     result.vs_munmap_rc = -1;
     result.fs_munmap_rc = -1;
     result.vertex_munmap_rc = -1;
     result.cmd_free_rc = -1;
     result.color_free_rc = -1;
     result.color_flag_free_rc = -1;
+    result.linear_free_rc = -1;
     result.event_free_rc = -1;
     result.vs_free_rc = -1;
     result.fs_free_rc = -1;
@@ -7359,6 +7522,7 @@ static int gpu_h3_draw_envelope_probe_child(int write_fd, bool include_snapshot)
     result.draw_attempted = 1;
     result.shader_execution_attempted = 1;
     result.kms_blit_attempted = 0;
+    result.linear_blit_attempted = linearize_snapshot ? 1U : 0U;
     result.fence_fd = -1;
 
     errno = 0;
@@ -7387,6 +7551,8 @@ static int gpu_h3_draw_envelope_probe_child(int write_fd, bool include_snapshot)
         struct gpu_kgsl_gpuobj_info color_info_arg;
         struct gpu_kgsl_gpuobj_alloc color_flag_alloc_arg;
         struct gpu_kgsl_gpuobj_info color_flag_info_arg;
+        struct gpu_kgsl_gpuobj_alloc linear_alloc_arg;
+        struct gpu_kgsl_gpuobj_info linear_info_arg;
         struct gpu_kgsl_gpuobj_alloc event_alloc_arg;
         struct gpu_kgsl_gpuobj_info event_info_arg;
         struct gpu_kgsl_gpuobj_alloc vs_alloc_arg;
@@ -7398,6 +7564,7 @@ static int gpu_h3_draw_envelope_probe_child(int write_fd, bool include_snapshot)
         uint64_t cmd_mmap_offset;
         uint64_t color_mmap_offset;
         uint64_t color_flag_mmap_offset;
+        uint64_t linear_mmap_offset;
         uint64_t vs_mmap_offset;
         uint64_t fs_mmap_offset;
         uint64_t vertex_mmap_offset;
@@ -7451,6 +7618,10 @@ static int gpu_h3_draw_envelope_probe_child(int write_fd, bool include_snapshot)
                                GPU_H2_COLOR_ALLOC_SIZE);
         GPU_H3_ALLOC_INFO_MMAP(color_flag, GPU_H3_COLOR_FLAG_ALLOC_SIZE,
                                GPU_H3_COLOR_FLAG_ALLOC_SIZE);
+        if (linearize_snapshot) {
+            GPU_H3_ALLOC_INFO_MMAP(linear, GPU_H2_COLOR_ALLOC_SIZE,
+                                   GPU_H2_COLOR_ALLOC_SIZE);
+        }
 
         memset(&event_alloc_arg, 0, sizeof(event_alloc_arg));
         event_alloc_arg.size = GPU_H3_EVENT_ALLOC_SIZE;
@@ -7483,10 +7654,16 @@ static int gpu_h3_draw_envelope_probe_child(int write_fd, bool include_snapshot)
         {
             uint32_t *color_words = (uint32_t *)color_map;
             uint32_t *color_flag_words = (uint32_t *)color_flag_map;
+            uint32_t *linear_words = (uint32_t *)linear_map;
             unsigned int index;
 
             for (index = 0; index < (unsigned int)(GPU_H2_COLOR_ALLOC_SIZE / 4ULL); ++index) {
                 color_words[index] = GPU_H2_CLEAR_PATTERN;
+            }
+            if (linear_map != MAP_FAILED) {
+                for (index = 0; index < (unsigned int)(GPU_H2_COLOR_ALLOC_SIZE / 4ULL); ++index) {
+                    linear_words[index] = GPU_H2_CLEAR_PATTERN;
+                }
             }
             for (index = 0; index < (unsigned int)(GPU_H3_COLOR_FLAG_ALLOC_SIZE / 4ULL); ++index) {
                 color_flag_words[index] = 0;
@@ -7517,10 +7694,13 @@ static int gpu_h3_draw_envelope_probe_child(int write_fd, bool include_snapshot)
                                                 &vfd_reg_writes,
                                                 color_info_arg.gpuaddr,
                                                 color_flag_info_arg.gpuaddr,
+                                                linearize_snapshot ?
+                                                linear_info_arg.gpuaddr : 0ULL,
                                                 event_info_arg.gpuaddr,
                                                 vs_info_arg.gpuaddr,
                                                 fs_info_arg.gpuaddr,
-                                                vertex_info_arg.gpuaddr)) {
+                                                vertex_info_arg.gpuaddr,
+                                                linearize_snapshot)) {
                 result.cmd_write_rc = -1;
                 goto out;
             }
@@ -7533,8 +7713,9 @@ static int gpu_h3_draw_envelope_probe_child(int write_fd, bool include_snapshot)
         }
 
         {
-            struct gpu_kgsl_gpuobj_sync_obj sync_objs[7];
+            struct gpu_kgsl_gpuobj_sync_obj sync_objs[8];
             struct gpu_kgsl_gpuobj_sync sync_arg;
+            unsigned int sync_count = 7U;
 
             memset(sync_objs, 0, sizeof(sync_objs));
             sync_objs[0].id = cmd_alloc_arg.id;
@@ -7558,6 +7739,13 @@ static int gpu_h3_draw_envelope_probe_child(int write_fd, bool include_snapshot)
             sync_objs[6].id = vertex_alloc_arg.id;
             sync_objs[6].length = GPU_H3_VERTEX_BYTES;
             sync_objs[6].op = GPU_KGSL_GPUMEM_CACHE_TO_GPU | GPU_KGSL_GPUMEM_CACHE_RANGE;
+            if (linearize_snapshot) {
+                sync_objs[7].id = linear_alloc_arg.id;
+                sync_objs[7].length = GPU_H2_COLOR_ALLOC_SIZE;
+                sync_objs[7].op = GPU_KGSL_GPUMEM_CACHE_TO_GPU | GPU_KGSL_GPUMEM_CACHE_RANGE;
+                result.linear_sync_length = sync_objs[7].length;
+                sync_count = 8U;
+            }
             result.cmd_sync_length = sync_objs[0].length;
             result.color_sync_length = sync_objs[1].length;
             result.color_flag_sync_length = sync_objs[2].length;
@@ -7568,7 +7756,7 @@ static int gpu_h3_draw_envelope_probe_child(int write_fd, bool include_snapshot)
             memset(&sync_arg, 0, sizeof(sync_arg));
             sync_arg.objs = (uint64_t)(uintptr_t)sync_objs;
             sync_arg.obj_len = sizeof(sync_objs[0]);
-            sync_arg.count = 7;
+            sync_arg.count = sync_count;
             errno = 0;
             if (ioctl(fd, GPU_IOCTL_KGSL_GPUOBJ_SYNC, &sync_arg) < 0) {
                 result.sync_rc = -1;
@@ -7580,8 +7768,9 @@ static int gpu_h3_draw_envelope_probe_child(int write_fd, bool include_snapshot)
 
         {
             struct gpu_kgsl_command_object cmd_obj;
-            struct gpu_kgsl_command_object mem_objs[7];
+            struct gpu_kgsl_command_object mem_objs[8];
             struct gpu_kgsl_gpu_command command_arg;
+            unsigned int mem_count = 7U;
 
             memset(&cmd_obj, 0, sizeof(cmd_obj));
             cmd_obj.gpuaddr = cmd_info_arg.gpuaddr;
@@ -7618,6 +7807,13 @@ static int gpu_h3_draw_envelope_probe_child(int write_fd, bool include_snapshot)
             mem_objs[6].size = vertex_info_arg.size;
             mem_objs[6].flags = GPU_KGSL_OBJLIST_MEMOBJ;
             mem_objs[6].id = vertex_alloc_arg.id;
+            if (linearize_snapshot) {
+                mem_objs[7].gpuaddr = linear_info_arg.gpuaddr;
+                mem_objs[7].size = linear_info_arg.size;
+                mem_objs[7].flags = GPU_KGSL_OBJLIST_MEMOBJ;
+                mem_objs[7].id = linear_alloc_arg.id;
+                mem_count = 8U;
+            }
 
             memset(&command_arg, 0, sizeof(command_arg));
             command_arg.cmdlist = (uint64_t)(uintptr_t)&cmd_obj;
@@ -7625,7 +7821,7 @@ static int gpu_h3_draw_envelope_probe_child(int write_fd, bool include_snapshot)
             command_arg.numcmds = 1;
             command_arg.objlist = (uint64_t)(uintptr_t)mem_objs;
             command_arg.objsize = sizeof(mem_objs[0]);
-            command_arg.numobjs = 7;
+            command_arg.numobjs = mem_count;
             command_arg.context_id = create_arg.drawctxt_id;
 
             errno = 0;
@@ -7694,8 +7890,9 @@ static int gpu_h3_draw_envelope_probe_child(int write_fd, bool include_snapshot)
         }
 
         if (result.wait_rc == 0) {
-            struct gpu_kgsl_gpuobj_sync_obj sync_objs[2];
+            struct gpu_kgsl_gpuobj_sync_obj sync_objs[3];
             struct gpu_kgsl_gpuobj_sync sync_arg;
+            unsigned int sync_count = 2U;
 
             memset(sync_objs, 0, sizeof(sync_objs));
             sync_objs[0].id = color_alloc_arg.id;
@@ -7705,10 +7902,17 @@ static int gpu_h3_draw_envelope_probe_child(int write_fd, bool include_snapshot)
             sync_objs[1].length = GPU_H3_COLOR_FLAG_ALLOC_SIZE;
             sync_objs[1].op = GPU_KGSL_GPUMEM_CACHE_FROM_GPU | GPU_KGSL_GPUMEM_CACHE_RANGE;
             result.readback_sync_length = sync_objs[0].length + sync_objs[1].length;
+            if (linearize_snapshot) {
+                sync_objs[2].id = linear_alloc_arg.id;
+                sync_objs[2].length = GPU_H2_COLOR_ALLOC_SIZE;
+                sync_objs[2].op = GPU_KGSL_GPUMEM_CACHE_FROM_GPU | GPU_KGSL_GPUMEM_CACHE_RANGE;
+                result.readback_sync_length += sync_objs[2].length;
+                sync_count = 3U;
+            }
             memset(&sync_arg, 0, sizeof(sync_arg));
             sync_arg.objs = (uint64_t)(uintptr_t)sync_objs;
             sync_arg.obj_len = sizeof(sync_objs[0]);
-            sync_arg.count = 2;
+            sync_arg.count = sync_count;
             errno = 0;
             if (ioctl(fd, GPU_IOCTL_KGSL_GPUOBJ_SYNC, &sync_arg) < 0) {
                 result.readback_sync_rc = -1;
@@ -7716,6 +7920,7 @@ static int gpu_h3_draw_envelope_probe_child(int write_fd, bool include_snapshot)
             } else {
                 uint32_t *color_words = (uint32_t *)color_map;
                 uint32_t *color_flag_words = (uint32_t *)color_flag_map;
+                uint32_t *linear_words = (uint32_t *)linear_map;
                 unsigned int word_count = (unsigned int)(GPU_H2_COLOR_ALLOC_SIZE / 4ULL);
                 unsigned int flag_word_count =
                     (unsigned int)(GPU_H3_COLOR_FLAG_ALLOC_SIZE / 4ULL);
@@ -7748,8 +7953,26 @@ static int gpu_h3_draw_envelope_probe_child(int write_fd, bool include_snapshot)
                         result.color_flag_changed_count += 1U;
                     }
                 }
+                result.linear_readback_first_changed_index = UINT_MAX;
+                if (linearize_snapshot && linear_map != MAP_FAILED) {
+                    result.linear_readback0 = linear_words[0];
+                    result.linear_readback_center = linear_words[center_index];
+                    for (index = 0; index < word_count; ++index) {
+                        if (linear_words[index] != GPU_H2_CLEAR_PATTERN) {
+                            if (result.linear_readback_changed_count == 0) {
+                                result.linear_readback_first_changed_index = index;
+                                result.linear_readback_first_changed_value = linear_words[index];
+                            }
+                            result.linear_readback_changed_count += 1U;
+                        }
+                    }
+                }
                 if (include_snapshot) {
-                    memcpy(snapshot_words, color_words, sizeof(snapshot_words));
+                    if (linearize_snapshot && linear_map != MAP_FAILED) {
+                        memcpy(snapshot_words, linear_words, sizeof(snapshot_words));
+                    } else {
+                        memcpy(snapshot_words, color_words, sizeof(snapshot_words));
+                    }
                     snapshot_valid = true;
                 }
             }
@@ -7824,6 +8047,13 @@ out:
             munmap(color_flag_map, (size_t)result.color_flag_mmap_len) < 0 ? -1 : 0;
         result.color_flag_munmap_errno = result.color_flag_munmap_rc < 0 ? errno : 0;
     }
+    if (linear_map != MAP_FAILED) {
+        result.linear_munmap_attempted = 1;
+        errno = 0;
+        result.linear_munmap_rc =
+            munmap(linear_map, (size_t)result.linear_mmap_len) < 0 ? -1 : 0;
+        result.linear_munmap_errno = result.linear_munmap_rc < 0 ? errno : 0;
+    }
     if (cmd_map != MAP_FAILED) {
         result.cmd_munmap_attempted = 1;
         errno = 0;
@@ -7865,6 +8095,7 @@ out:
     GPU_H3_FREE_FIELD(fs);
     GPU_H3_FREE_FIELD(vs);
     GPU_H3_FREE_FIELD(event);
+    GPU_H3_FREE_FIELD(linear);
     GPU_H3_FREE_FIELD(color_flag);
     GPU_H3_FREE_FIELD(color);
     GPU_H3_FREE_FIELD(cmd);
@@ -8275,7 +8506,7 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
     }
     if (pid == 0) {
         close(pipefd[0]);
-        return gpu_h3_draw_envelope_probe_child(pipefd[1], false);
+        return gpu_h3_draw_envelope_probe_child(pipefd[1], false, false);
     }
     close(pipefd[1]);
     deadline_ms = monotonic_millis() + timeout_ms;
@@ -8465,7 +8696,7 @@ static int gpu_h3_draw_snapshot_collect_child(int timeout_ms,
     }
     if (run->child_pid == 0) {
         close(pipefd[0]);
-        return gpu_h3_draw_envelope_probe_child(pipefd[1], true);
+        return gpu_h3_draw_envelope_probe_child(pipefd[1], true, true);
     }
     close(pipefd[1]);
     {
@@ -8597,7 +8828,7 @@ static int gpu_h5_blit_h3_readback_to_kms(const uint32_t *source,
     }
 
     a90_draw_text(fb, 36U, 48U, "GPU H5 TRIANGLE KMS", 0xffffff, 4U);
-    a90_draw_text(fb, 36U, 104U, "RAW H3 READBACK TILE ORDER", 0x80ff80, 3U);
+    a90_draw_text(fb, 36U, 104U, "A2D LINEARIZED H3 COLOR", 0x80ff80, 3U);
     a90_draw_rect_outline(fb,
                           x > 8U ? x - 8U : x,
                           y > 8U ? y - 8U : y,
@@ -8627,12 +8858,13 @@ static int gpu_h5_blit_h3_readback_to_kms(const uint32_t *source,
     }
     __sync_synchronize();
 
-    snprintf(line, sizeof(line), "CHANGED %u FIRST %u",
-             h3->readback_changed_count,
-             h3->readback_first_changed_index);
+    snprintf(line, sizeof(line), "LINEAR %u FIRST %u",
+             h3->linear_readback_changed_count,
+             h3->linear_readback_first_changed_index);
     a90_draw_text(fb, 36U, y + dst_h + 28U, line, 0xffcc33, 3U);
-    snprintf(line, sizeof(line), "VALUE %08X FLAGS %u",
-             h3->readback_first_changed_value,
+    snprintf(line, sizeof(line), "VALUE %08X RAW %u FLAGS %u",
+             h3->linear_readback_first_changed_value,
+             h3->readback_changed_count,
              h3->color_flag_changed_count);
     a90_draw_text(fb, 36U, y + dst_h + 72U, line, 0xbbbbbb, 3U);
 
@@ -8889,13 +9121,14 @@ static int gpu_h5_triangle_kms_probe(int timeout_ms, bool materialize_devnode) {
     }
 
     a90_console_printf("gpu.h5.kms.version=1\r\n");
-    a90_console_printf("gpu.h5.kms.scope=first-triangle-h5-h3-readback-to-kms-dumb-blit-probe\r\n");
+    a90_console_printf("gpu.h5.kms.scope=first-triangle-h5-a2d-linearized-h3-readback-to-kms-probe\r\n");
     a90_console_printf("gpu.h5.kms.kgsl_path=%s\r\n", GPU_G0_DEVNODE);
     a90_console_printf("gpu.h5.kms.drm_path=/dev/dri/card0\r\n");
     a90_console_printf("gpu.h5.kms.timeout_ms=%d\r\n", timeout_ms);
     a90_console_printf("gpu.h5.kms.kgsl_source=h3-blend-output-readback-changed\r\n");
-    a90_console_printf("gpu.h5.kms.blit_mode=h3-private-buffer-readback-snapshot-to-kms-dumb-framebuffer\r\n");
-    a90_console_printf("gpu.h5.kms.raw_tile_order_visualization=1\r\n");
+    a90_console_printf("gpu.h5.kms.blit_mode=h3-private-buffer-a2d-linearized-snapshot-to-kms-dumb-framebuffer\r\n");
+    a90_console_printf("gpu.h5.kms.raw_tile_order_visualization=0\r\n");
+    a90_console_printf("gpu.h5.kms.linearized_tile6_3_a2d_blit=1\r\n");
     a90_console_printf("gpu.h5.kms.zero_copy_attempted=0\r\n");
     a90_console_printf("gpu.h5.kms.scaled_plane_attempted=0\r\n");
     a90_console_printf("gpu.h5.kms.kms_blit_attempted=1\r\n");
@@ -8945,14 +9178,28 @@ static int gpu_h5_triangle_kms_probe(int timeout_ms, bool materialize_devnode) {
                            h3->readback_first_changed_value);
         a90_console_printf("gpu.h5.kms.h3_color_flag_changed_count=%u\r\n",
                            h3->color_flag_changed_count);
+        a90_console_printf("gpu.h5.kms.h3_linear_blit_attempted=%u\r\n",
+                           h3->linear_blit_attempted);
+        a90_console_printf("gpu.h5.kms.h3_linear_readback_changed_count=%u\r\n",
+                           h3->linear_readback_changed_count);
+        a90_console_printf("gpu.h5.kms.h3_linear_readback_first_changed_index=%u\r\n",
+                           h3->linear_readback_first_changed_index);
+        a90_console_printf("gpu.h5.kms.h3_linear_readback_first_changed_value=0x%x\r\n",
+                           h3->linear_readback_first_changed_value);
+        a90_console_printf("gpu.h5.kms.h3_linear_readback0=0x%x\r\n",
+                           h3->linear_readback0);
+        a90_console_printf("gpu.h5.kms.h3_linear_readback_center=0x%x\r\n",
+                           h3->linear_readback_center);
         a90_console_printf("gpu.h5.kms.h3_total_elapsed_ms=%ld\r\n",
                            h3->total_elapsed_ms);
     }
 
     if (!run.got_result ||
         !gpu_h3_draw_envelope_result_retired(h3) ||
-        h3->readback_changed_count == 0U) {
-        a90_console_printf("gpu.h5.kms.result=h3-readback-failed\r\n");
+        h3->readback_changed_count == 0U ||
+        h3->linear_blit_attempted == 0U ||
+        h3->linear_readback_changed_count == 0U) {
+        a90_console_printf("gpu.h5.kms.result=h3-linear-readback-failed\r\n");
         a90_console_printf("gpu.h5.kms.total_elapsed_ms=%ld\r\n",
                            monotonic_millis() - total_started_ms);
         return collect_rc < 0 ? collect_rc : -EIO;
@@ -9004,7 +9251,8 @@ static int gpu_h5_triangle_kms_probe(int timeout_ms, bool materialize_devnode) {
     a90_console_printf("gpu.h5.kms.present_elapsed_ms=%ld\r\n", present_elapsed_ms);
     a90_console_printf("gpu.h5.kms.present_rc=%d\r\n", present_rc);
     a90_console_printf("gpu.h5.kms.result=%s\r\n",
-                       present_rc == 0 ? "h3-readback-kms-presented" : "kms-present-failed");
+                       present_rc == 0 ? "h3-linear-readback-kms-presented" :
+                       "kms-present-failed");
     a90_console_printf("gpu.h5.kms.total_elapsed_ms=%ld\r\n",
                        monotonic_millis() - total_started_ms);
     return present_rc == 0 ? 0 : -EIO;

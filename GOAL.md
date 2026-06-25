@@ -1051,6 +1051,26 @@ surface is a raw `RGBA8 tile6_3` readback visualization. If the operator require
 than the raw proof surface, the next bounded unit should add tile/format conversion or render into a KMS-friendly linear
 presentation buffer before moving to after-triangle backlog.
 
+V3293/V3294 implemented and live-tested that literal-presentation direction by adding a bounded A6xx A2D copy from the
+V3290-proven `RGBA8 tile6_3` + flag render target into a separate linear RGBA8 snapshot before KMS presentation. The
+source unit built `0.11.72 (v3293-gpu-h5-linear-triangle-kms-probe)` with SHA256
+`59b7973d99a7d5a44384d3390ad261231f9fab1b16ee21fce48b9f0537e89e70`, raised the shared GPU command-buffer guard to
+`512` dwords for the added A2D PM4 stage, and changed H5 telemetry to
+`scope=first-triangle-h5-a2d-linearized-h3-readback-to-kms-probe` with raw tile-order visualization disabled. V3294
+flashed that exact artifact through `native_init_flash.py` after reconfirming rollback images/TWRP; resident came back
+as `0.11.72`, post-flash and post-probe selftest stayed `pass=12 warn=1 fail=0` (one busy/framing hiccup was recovered
+by restarting the managed bridge), and the live command completed in `58ms` with
+`gpu.h5.kms.result=h3-linear-readback-kms-presented`. H3 still reported the V3290 proof counts
+(`readback_changed_count=672`, `readback_first_changed_index=9216`, `color_flag_changed_count=32`), the linear stage
+reported `h3_linear_blit_attempted=1`, `h3_linear_readback0=0x0`, and
+`h3_linear_readback_center=0xff00b900`, and KMS presented a `1024x1024` scaled region on the `1080x2400` framebuffer
+with `present_rc=0`. Focused dmesg showed no GPU fault/hang/snapshot/opcode/SMMU/IOMMU/page-fault signature; only
+expected `a640_zap` load/reset lines matched. Caveat: `h3_linear_readback_changed_count=16384` is inflated because the
+linear destination was initialized to the old `0x20202020` sentinel while A2D resolves untouched/clear areas to
+`0x00000000`; this proves A2D linearization + KMS presentation, but the next bounded unit should zero-clear the linear
+buffer and add `linear_nonzero_count`, first-nonzero value, exterior-corner zero samples, and interior sample telemetry
+before claiming a strict literal triangle proof and moving to the after-triangle backlog.
+
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
   rasterizer; gives GPU compute a *screen consumer*. **Matrix/GPGPU math is absorbed here, NOT a standalone goal** —
