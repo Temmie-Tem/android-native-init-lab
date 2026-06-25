@@ -355,6 +355,9 @@ def run_audit(
     rb_mrt0_buf_info = macros.resolve("GPU_H3_RB_MRT0_BUF_INFO")
     rb_render_cntl = macros.resolve("GPU_H3_RB_RENDER_CNTL")
     color_flag_pitch = macros.resolve("GPU_H3_COLOR_FLAG_BUFFER_PITCH")
+    rb_dbg_eco_reg = macros.resolve("GPU_A640_REG_RB_DBG_ECO_CNTL")
+    rb_dbg_eco_cntl = macros.resolve("GPU_A640_RB_DBG_ECO_CNTL")
+    a640_init_magic_reg_writes = macros.resolve("GPU_H3_A640_INIT_MAGIC_REG_WRITES")
     checks = {
         "all_shader_words_match_expected": not mismatches,
         "external_ir3_disasm_used": disasm_path is not None,
@@ -386,6 +389,11 @@ def run_audit(
         "rb_render_cntl_matches_a640_cffdump_flag_mrt0": rb_render_cntl == 0x00010010,
         "color_flag_buffer_pitch": color_flag_pitch,
         "color_flag_buffer_pitch_matches_a640_cffdump": color_flag_pitch == 0x00004001,
+        "rb_dbg_eco_reg": rb_dbg_eco_reg,
+        "rb_dbg_eco_cntl": rb_dbg_eco_cntl,
+        "rb_dbg_eco_matches_a640_device_db": rb_dbg_eco_reg == 0x8E04 and rb_dbg_eco_cntl == 0x04100000,
+        "a640_init_magic_reg_writes": a640_init_magic_reg_writes,
+        "a640_init_magic_is_rb_dbg_eco_only": a640_init_magic_reg_writes == 1,
         "sp_vs_output_reg0_a_regid": sp_vs_output_reg0 & 0xFF,
         "sp_vs_output_reg0_a_compmask": (sp_vs_output_reg0 >> 8) & 0xF,
         "sp_vs_output_reg0_b_regid": (sp_vs_output_reg0 >> 16) & 0xFF,
@@ -419,6 +427,8 @@ def run_audit(
         and checks["rb_mrt0_buf_info_matches_a640_cffdump_tile6_3"]
         and checks["rb_render_cntl_matches_a640_cffdump_flag_mrt0"]
         and checks["color_flag_buffer_pitch_matches_a640_cffdump"]
+        and checks["rb_dbg_eco_matches_a640_device_db"]
+        and checks["a640_init_magic_is_rb_dbg_eco_only"]
         and checks["sp_vs_output_reg0_a_regid"] == 8
         and checks["sp_vs_output_reg0_a_compmask"] == 0xF
         and checks["sp_vs_output_reg0_b_regid"] == 0
@@ -434,8 +444,8 @@ def run_audit(
         and checks["vpc_ps_cntl_viewidloc"] == 0xFF
     )
     return {
-        "cycle": "V3280",
-        "scope": "gpu-h3-flag-mrt-shader-byte-audit",
+        "cycle": "V3282",
+        "scope": "gpu-h3-rb-dbg-eco-init-magic-shader-byte-audit",
         "dispatch": str(dispatch.relative_to(REPO_ROOT)),
         "chip_id": chip_id,
         "passed": passed,

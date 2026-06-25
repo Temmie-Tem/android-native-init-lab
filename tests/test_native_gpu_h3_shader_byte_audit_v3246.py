@@ -74,6 +74,11 @@ class NativeGpuH3ShaderByteAuditV3246Tests(unittest.TestCase):
         self.assertTrue(checks["rb_render_cntl_matches_a640_cffdump_flag_mrt0"])
         self.assertEqual(checks["color_flag_buffer_pitch"], 0x00004001)
         self.assertTrue(checks["color_flag_buffer_pitch_matches_a640_cffdump"])
+        self.assertEqual(checks["rb_dbg_eco_reg"], 0x8E04)
+        self.assertEqual(checks["rb_dbg_eco_cntl"], 0x04100000)
+        self.assertTrue(checks["rb_dbg_eco_matches_a640_device_db"])
+        self.assertEqual(checks["a640_init_magic_reg_writes"], 1)
+        self.assertTrue(checks["a640_init_magic_is_rb_dbg_eco_only"])
 
         self.assertEqual(checks["sp_vs_output_reg0_a_regid"], 8)
         self.assertEqual(checks["sp_vs_output_reg0_a_compmask"], 0xF)

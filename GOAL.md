@@ -911,6 +911,24 @@ the primary no-pixel cause. Next bounded unit should continue the real fd6 sysme
 against current H3 and admit only direct-sysmem-compatible packet groups; do not return to isolated HLSQ/output/raster
 guesses unless the diff proves that packet group is actually missing.
 
+V3282/V3283 then tested the first A640 device-DB init-magic candidate from the operator-staged
+`/tmp/a90-mesa-gpu-src/a640_magic_regs.txt`, adding only `RB_DBG_ECO_CNTL=0x04100000` at register `0x8e04` before
+H3 shader and draw state while preserving the V3280 flag-MRT target group. The source unit built `0.11.67
+(v3282-gpu-h3-rb-dbg-eco-probe)` with SHA256
+`f2afd2eda2b8632fff582e79c3defe5b9520ecb63d36e0498f3fced945fa9879`, flashed through `native_init_flash.py`, and
+passed post-flash health (`selftest pass=12 warn=1 fail=0`; one immediate verbose selftest attempt lost framing after
+prompt noise, then slow-mode `version`/`selftest` passed). V3283 live telemetry confirmed
+`a640_magic_mode=rb-dbg-eco-only`, `rb_dbg_eco_cntl_reg=0x8e04`, `rb_dbg_eco_cntl=0x4100000`,
+`a640_init_magic_reg_writes=1`, `pm4_dwords=313`, `state_reg_writes=121`, and `vfd_reg_writes=14`. Two H3 runs
+submitted and retired cleanly (`submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`, warm `total_elapsed_ms=12`) and
+post-probe selftest stayed clean. Readback remained unchanged (`readback_changed_count=0`, `readback0=0x20202020`,
+`readback_center=0x20202020`), and the color-flag buffer also stayed unchanged (`color_flag_changed_count=0`,
+`color_flag0=0x0`) with no focused KGSL/GPU/Adreno/A6xx/A640 fault, hang, snapshot, timeout, opcode, SMMU/IOMMU, or
+page-fault signature in the recent dmesg tail. This removes `RB_DBG_ECO_CNTL` alone as the primary no-pixel cause. Next
+bounded unit should follow the operator probe order by adding the rest of the non-zero A640 device-DB magic block
+(`SP_CHICKEN_BITS`, `TPL1_DBG_ECO_CNTL`, `VPC_DBG_ECO_CNTL`, `RB_RBP_CNTL`, `PC_MODE_CNTL`, `PC_POWER_CNTL`,
+`VFD_POWER_CNTL`, and `UCHE_UNKNOWN_0E12`) while keeping `RB_CCU_CNTL` separate.
+
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
   rasterizer; gives GPU compute a *screen consumer*. **Matrix/GPGPU math is absorbed here, NOT a standalone goal** —

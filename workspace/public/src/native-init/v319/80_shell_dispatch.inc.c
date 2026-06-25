@@ -2017,6 +2017,9 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H3_REG_RB_RESOLVE_WINDOW_OFFSET 0x88d4U
 #define GPU_H3_REG_RB_COLOR_FLAG_BUFFER0_ADDR 0x8903U
 #define GPU_H3_REG_RB_COLOR_FLAG_BUFFER0_PITCH 0x8905U
+#define GPU_A640_REG_RB_DBG_ECO_CNTL 0x8e04U
+#define GPU_A640_RB_DBG_ECO_CNTL 0x04100000U
+#define GPU_H3_A640_INIT_MAGIC_REG_WRITES 1U
 #define GPU_H2_REG_VPC_VARYING_INTERP_MODE_0 0x9200U
 #define GPU_H2_REG_VPC_VARYING_REPLACE_MODE_0 0x9208U
 #define GPU_H2_REG_VPC_VS_CLIP_CULL_CNTL 0x9101U
@@ -2901,6 +2904,13 @@ static bool gpu_h3_pm4_emit_draw_indx_offset(uint32_t *words,
            gpu_g4_pm4_push(words, dwords, indices);
 }
 
+static bool gpu_h3_append_a640_init_magic_pm4(uint32_t *words,
+                                              unsigned int *dwords) {
+    return gpu_g4_pm4_emit_reg1(words, dwords,
+                                GPU_A640_REG_RB_DBG_ECO_CNTL,
+                                GPU_A640_RB_DBG_ECO_CNTL);
+}
+
 static bool gpu_h3_build_draw_envelope_pm4(uint32_t *words,
                                            unsigned int *dwords,
                                            unsigned int *state_reg_writes,
@@ -2928,7 +2938,8 @@ static bool gpu_h3_build_draw_envelope_pm4(uint32_t *words,
         !gpu_g4_pm4_push(words, dwords, GPU_H3_CP_SET_MODE_RESTORE_VALUE)) {
         return false;
     }
-    if (!gpu_h3_append_shader_state_pm4(words, dwords, vs_gpuaddr, fs_gpuaddr) ||
+    if (!gpu_h3_append_a640_init_magic_pm4(words, dwords) ||
+        !gpu_h3_append_shader_state_pm4(words, dwords, vs_gpuaddr, fs_gpuaddr) ||
         !gpu_h2_append_3d_state_pm4(words, dwords, state_reg_writes, color_gpuaddr,
                                     color_flag_gpuaddr,
                                     GPU_H3_COLOR_FORMAT, GPU_H3_COLOR_OUTPUT_MASK,
@@ -7814,7 +7825,7 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
         return -EINVAL;
     }
     a90_console_printf("gpu.h3.draw.version=1\r\n");
-    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-flag-mrt-cffdump-color-target-varying-ij-vpc-linkage-clip-guardband-su-rasterizer-a6xx-output-routing-sp-frontend-prog-id-state-sp-const-fs-output-cntl-raster-mode-cp-set-mode-window-offset-visibility-packets-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader\r\n");
+    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-rb-dbg-eco-init-magic-flag-mrt-cffdump-color-target-varying-ij-vpc-linkage-clip-guardband-su-rasterizer-a6xx-output-routing-sp-frontend-prog-id-state-sp-const-fs-output-cntl-raster-mode-cp-set-mode-window-offset-visibility-packets-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader\r\n");
     a90_console_printf("gpu.h3.draw.path=%s\r\n", GPU_G0_DEVNODE);
     a90_console_printf("gpu.h3.draw.timeout_ms=%d\r\n", timeout_ms);
     a90_console_printf("gpu.h3.draw.wait_timeout_ms=%u\r\n", GPU_H3_WAIT_TIMEOUT_MS);
@@ -7936,6 +7947,15 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
                        GPU_H3_PM4_CP_SET_MODE);
     a90_console_printf("gpu.h3.draw.cp_set_mode_value=0x%x\r\n",
                        GPU_H3_CP_SET_MODE_RESTORE_VALUE);
+    a90_console_printf("gpu.h3.draw.a640_magic_source=mesa-freedreno-devices-a640-a6xx-gen2-rb-dbg-eco-cntl\r\n");
+    a90_console_printf("gpu.h3.draw.a640_magic_mode=rb-dbg-eco-only\r\n");
+    a90_console_printf("gpu.h3.draw.rb_dbg_eco_cntl=0x%x\r\n",
+                       GPU_A640_RB_DBG_ECO_CNTL);
+    a90_console_printf("gpu.h3.draw.rb_dbg_eco_cntl_reg=0x%x\r\n",
+                       GPU_A640_REG_RB_DBG_ECO_CNTL);
+    a90_console_printf("gpu.h3.draw.a640_init_magic_reg_writes=%u\r\n",
+                       GPU_H3_A640_INIT_MAGIC_REG_WRITES);
+    a90_console_printf("gpu.h3.draw.a640_magic_deferred_nonzero_block=sp_chicken_bits,tpl1_dbg_eco,vpc_dbg_eco,rb_rbp,pc_power,vfd_power,uche_unknown_0e12\r\n");
     a90_console_printf("gpu.h3.draw.rb_render_cntl_source=mesa-freedreno-a640-cffdump-draw2-rb-render-cntl-flag-mrt0\r\n");
     a90_console_printf("gpu.h3.draw.rb_render_cntl=0x%x\r\n", GPU_H3_RB_RENDER_CNTL);
     a90_console_printf("gpu.h3.draw.hlsq_round4_audit=local-a6xx-fd6-uses-sp-program-config-not-legacy-hlsq-control-regs\r\n");

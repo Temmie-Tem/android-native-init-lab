@@ -78,8 +78,14 @@ class NativeGpuH3FlagMrtSourceV3280Tests(unittest.TestCase):
         checks = result["checks"]
 
         self.assertTrue(result["passed"])
-        self.assertEqual(result["cycle"], "V3280")
-        self.assertEqual(result["scope"], "gpu-h3-flag-mrt-shader-byte-audit")
+        self.assertIn(result["cycle"], {"V3280", "V3282"})
+        self.assertIn(
+            result["scope"],
+            {
+                "gpu-h3-flag-mrt-shader-byte-audit",
+                "gpu-h3-rb-dbg-eco-init-magic-shader-byte-audit",
+            },
+        )
         self.assertEqual(checks["sp_ps_mrt_reg0_color_format"], 0x30)
         self.assertEqual(checks["rb_mrt0_buf_info_color_format"], 0x30)
         self.assertEqual(checks["rb_mrt0_buf_info_tile_mode"], 0x3)
