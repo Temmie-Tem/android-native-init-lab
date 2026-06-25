@@ -351,7 +351,8 @@ def run_audit(
     vpc_ps_cntl = macros.resolve("GPU_H3_VPC_PS_CNTL")
     vpc_vs_siv_cntl = macros.resolve("GPU_H3_VPC_VS_SIV_CNTL")
     vpc_vs_siv_cntl_v2 = macros.resolve("GPU_H3_VPC_VS_SIV_CNTL_V2")
-    sp_ps_mrt_reg0 = macros.resolve("GPU_H3_COLOR_FORMAT")
+    sp_ps_mrt_reg0 = macros.resolve("GPU_H3_SP_PS_MRT_REG0")
+    rb_mrt0_buf_info = macros.resolve("GPU_H3_RB_MRT0_BUF_INFO")
     checks = {
         "all_shader_words_match_expected": not mismatches,
         "external_ir3_disasm_used": disasm_path is not None,
@@ -373,6 +374,9 @@ def run_audit(
         "sp_ps_mrt_reg0_color_format": sp_ps_mrt_reg0 & 0xFF,
         "sp_ps_mrt_reg0_color_uint": bool(sp_ps_mrt_reg0 & (1 << 9)),
         "sp_ps_mrt_reg0_has_no_half_precision_field": True,
+        "sp_ps_mrt_reg0_matches_a640_cffdump_rgba8": (sp_ps_mrt_reg0 & 0xFF) == 0x30,
+        "rb_mrt0_buf_info_color_format": rb_mrt0_buf_info & 0xFF,
+        "rb_mrt0_buf_info_matches_h3_color_format": (rb_mrt0_buf_info & 0xFF) == (sp_ps_mrt_reg0 & 0xFF),
         "sp_vs_output_reg0_a_regid": sp_vs_output_reg0 & 0xFF,
         "sp_vs_output_reg0_a_compmask": (sp_vs_output_reg0 >> 8) & 0xF,
         "sp_vs_output_reg0_b_regid": (sp_vs_output_reg0 >> 16) & 0xFF,
@@ -401,6 +405,8 @@ def run_audit(
         and checks["ir3_instr_align"] == 16
         and checks["fs_full_precision_matches_ps_output"]
         and checks["sp_ps_output_reg0_regid"] == 2
+        and checks["sp_ps_mrt_reg0_matches_a640_cffdump_rgba8"]
+        and checks["rb_mrt0_buf_info_matches_h3_color_format"]
         and checks["sp_vs_output_reg0_a_regid"] == 8
         and checks["sp_vs_output_reg0_a_compmask"] == 0xF
         and checks["sp_vs_output_reg0_b_regid"] == 0
@@ -416,8 +422,8 @@ def run_audit(
         and checks["vpc_ps_cntl_viewidloc"] == 0xFF
     )
     return {
-        "cycle": "V3276",
-        "scope": "gpu-h3-varying-ij-shader-byte-audit",
+        "cycle": "V3278",
+        "scope": "gpu-h3-rgba8-mrt-shader-byte-audit",
         "dispatch": str(dispatch.relative_to(REPO_ROOT)),
         "chip_id": chip_id,
         "passed": passed,

@@ -873,6 +873,25 @@ cffdump varying/IJ/VPC/VFD linkage group as the primary no-pixel cause. Next bou
 HLSQ/output/raster guesses and compare a real fd6 sysmem single-triangle `.rd`/cffdump packet stream against H3, then
 admit only direct-sysmem-compatible missing packet groups.
 
+V3278/V3279 then tested the strongest direct-sysmem cffdump color-target mismatch found in the local `.rd` diff:
+the reference A640 sysmem triangle uses `SP_PS_MRT[0].REG=0x00000030` / RGBA8 UNORM for MRT0, while H3 still used
+`FMT6_32_FLOAT` (`0x4a`). V3278 changed H3 MRT0 to `FMT6_8_8_8_8_UNORM` (`0x30`) while keeping the V3276 varying/IJ
+pipeline intact, added telemetry for `color_format_source`, `sp_ps_mrt_reg0`, `rb_mrt0_buf_info`, and
+`offscreen=rgba8-linear-128x128`, and explicitly kept the local A6xx/H3 HLSQ audit: the local XML/generated headers
+and cffdump path do not expose a legacy `HLSQ_CONTROL_*` program block to write safely. V3278 built `0.11.65
+(v3278-gpu-h3-rgba8-mrt-probe)` with SHA256
+`c51ac3a3e10114d605fd5ffb4d0a27b6c6a5a2e4259ab9282389f2f5aa5f8e71`, flashed through `native_init_flash.py`, and
+passed post-flash health (`selftest pass=12 warn=1 fail=0`). V3279 live telemetry confirmed
+`sp_ps_mrt_reg0=0x30`, `rb_mrt0_buf_info=0x30`, `color_format=0x30`, `pm4_dwords=306`, `state_reg_writes=118`, and
+`vfd_reg_writes=14`. Two H3 runs submitted and retired cleanly (`submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`,
+warm `total_elapsed_ms=12`) and post-probe selftest stayed clean. Readback remained unchanged
+(`readback_changed_count=0`, `readback0=0x20202020`, `readback_center=0x20202020`) with no focused KGSL/GPU/GMU/A640
+fault, hang, snapshot, timeout, CP opcode, page-fault, or hardware-error signature; dmesg only showed expected first-use
+`a640_zap` load/reset plus an unrelated modem firmware timeout. This removes the cffdump float-vs-RGBA8 MRT mismatch
+as the primary no-pixel cause. Next bounded unit should use the real fd6 sysmem single-triangle `.rd`/cffdump packet
+diff against current H3 rather than isolated HLSQ/output/raster guesses, and admit only direct-sysmem-compatible missing
+packet groups.
+
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
   rasterizer; gives GPU compute a *screen consumer*. **Matrix/GPGPU math is absorbed here, NOT a standalone goal** —

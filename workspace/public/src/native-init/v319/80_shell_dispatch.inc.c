@@ -1680,6 +1680,7 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_G4_SENTINEL_PATTERN 0x11111111U
 #define GPU_G4_A6XX_FMT6_32_FLOAT 0x4aU
 #define GPU_G4_A6XX_FMT6_32_UINT 0x4bU
+#define GPU_G4_A6XX_FMT6_8_8_8_8_UNORM 0x30U
 #define GPU_G4_A6XX_R2D_INT32 0x7U
 #define GPU_G4_A6XX_OUTPUT_IFMT_2D_UINT 0x2U
 #define GPU_G4_A6XX_TILE6_LINEAR 0x0U
@@ -1775,8 +1776,13 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H3_VERTEX_DWORDS (GPU_H3_VERTEX_COUNT * 2U)
 #define GPU_H3_VERTEX_BYTES ((uint64_t)GPU_H3_VERTEX_DWORDS * 4ULL)
 #define GPU_H3_A6XX_FMT6_32_32_FLOAT 0x67U
-#define GPU_H3_COLOR_FORMAT GPU_G4_A6XX_FMT6_32_FLOAT
+#define GPU_H3_COLOR_FORMAT GPU_G4_A6XX_FMT6_8_8_8_8_UNORM
 #define GPU_H3_COLOR_OUTPUT_MASK 0xfU
+#define GPU_H3_RB_MRT0_BUF_INFO \
+    (GPU_H3_COLOR_FORMAT | \
+     (GPU_G4_A6XX_TILE6_LINEAR << 8) | \
+     (GPU_G4_A3XX_COLOR_SWAP_WZYX << 13))
+#define GPU_H3_SP_PS_MRT_REG0 GPU_H3_COLOR_FORMAT
 #define GPU_H3_IR3_INSTR_ALIGN 16U
 #define GPU_H3_SHADER_ALIGNED_DWORDS (GPU_H3_IR3_INSTR_ALIGN * 2U)
 #define GPU_H3_VS_SHADER_INSTR_COUNT 7U
@@ -7706,7 +7712,7 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
         return -EINVAL;
     }
     a90_console_printf("gpu.h3.draw.version=1\r\n");
-    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-varying-ij-vpc-linkage-cffdump-diff-clip-guardband-su-rasterizer-a6xx-output-routing-sp-frontend-prog-id-state-sp-const-fs-output-cntl-raster-mode-cp-set-mode-window-offset-visibility-packets-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader\r\n");
+    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-rgba8-mrt-cffdump-diff-varying-ij-vpc-linkage-clip-guardband-su-rasterizer-a6xx-output-routing-sp-frontend-prog-id-state-sp-const-fs-output-cntl-raster-mode-cp-set-mode-window-offset-visibility-packets-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader\r\n");
     a90_console_printf("gpu.h3.draw.path=%s\r\n", GPU_G0_DEVNODE);
     a90_console_printf("gpu.h3.draw.timeout_ms=%d\r\n", timeout_ms);
     a90_console_printf("gpu.h3.draw.wait_timeout_ms=%u\r\n", GPU_H3_WAIT_TIMEOUT_MS);
@@ -7941,7 +7947,12 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
     a90_console_printf("gpu.h3.draw.color_output_mask=0x%x\r\n",
                        GPU_H3_COLOR_OUTPUT_MASK);
     a90_console_printf("gpu.h3.draw.vertex_format=fmt6-32-32-float\r\n");
-    a90_console_printf("gpu.h3.draw.offscreen=f32-linear-128x128\r\n");
+    a90_console_printf("gpu.h3.draw.color_format_source=mesa-freedreno-a640-cffdump-rgba8-mrt0\r\n");
+    a90_console_printf("gpu.h3.draw.sp_ps_mrt_reg0=0x%x\r\n",
+                       GPU_H3_SP_PS_MRT_REG0);
+    a90_console_printf("gpu.h3.draw.rb_mrt0_buf_info=0x%x\r\n",
+                       GPU_H3_RB_MRT0_BUF_INFO);
+    a90_console_printf("gpu.h3.draw.offscreen=rgba8-linear-128x128\r\n");
     a90_console_printf("gpu.h3.draw.draw_attempted=1\r\n");
     a90_console_printf("gpu.h3.draw.shader_execution_attempted=1\r\n");
     a90_console_printf("gpu.h3.draw.readback_change_expected=1\r\n");

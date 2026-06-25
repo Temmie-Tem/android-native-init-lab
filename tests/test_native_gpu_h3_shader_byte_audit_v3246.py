@@ -61,9 +61,12 @@ class NativeGpuH3ShaderByteAuditV3246Tests(unittest.TestCase):
         self.assertFalse(checks["sp_ps_output_reg0_half_precision"])
         self.assertTrue(checks["fs_full_precision_matches_ps_output"])
         self.assertEqual(checks["sp_ps_output_reg0_regid"], 2)
-        self.assertEqual(checks["sp_ps_mrt_reg0_color_format"], 0x4A)
+        self.assertEqual(checks["sp_ps_mrt_reg0_color_format"], 0x30)
         self.assertFalse(checks["sp_ps_mrt_reg0_color_uint"])
         self.assertTrue(checks["sp_ps_mrt_reg0_has_no_half_precision_field"])
+        self.assertTrue(checks["sp_ps_mrt_reg0_matches_a640_cffdump_rgba8"])
+        self.assertEqual(checks["rb_mrt0_buf_info_color_format"], 0x30)
+        self.assertTrue(checks["rb_mrt0_buf_info_matches_h3_color_format"])
 
         self.assertEqual(checks["sp_vs_output_reg0_a_regid"], 8)
         self.assertEqual(checks["sp_vs_output_reg0_a_compmask"], 0xF)
