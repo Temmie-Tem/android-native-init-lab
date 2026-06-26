@@ -2409,6 +2409,7 @@ struct gpu_c2_compute_pattern_probe_result {
 #define GPU_M2_GRAPH_MAX_INTERVAL_MS 1000U
 #define GPU_M2_GRAPH_DEFAULT_HOLD_MS 5000
 #define GPU_M2_GRAPH_MAX_TIMEOUT_MS 60000
+#define GPU_M2_GRAPH_PARENT_TIMEOUT_MARGIN_MS 5000
 #define GPU_M2_GRAPH_SCOPE "gpu-m2-live-monitor-graphs-textured-2d"
 #define GPU_M3_EXTRACT_SCOPE "gpu-m3-shared-kgsl-2d-present-extraction"
 #define GPU_M3_EXTRACT_LAYER "gpu_2d_present_v1"
@@ -15198,6 +15199,7 @@ static int gpu_m2_monitor_live_graph_probe(int timeout_ms,
     bool child_killed = false;
     bool child_reaped = false;
     int child_status = 0;
+    int parent_timeout_ms;
     struct gpu_m2_monitor_graph_summary summary;
 
     memset(&summary, 0, sizeof(summary));
@@ -15230,6 +15232,10 @@ static int gpu_m2_monitor_live_graph_probe(int timeout_ms,
                            GPU_H5_VISUAL_HOLD_MAX_MS);
         return -EINVAL;
     }
+    parent_timeout_ms = timeout_ms;
+    if (hold_ms > 0) {
+        parent_timeout_ms += hold_ms + GPU_M2_GRAPH_PARENT_TIMEOUT_MARGIN_MS;
+    }
 
     a90_console_printf("gpu.m2.graph.version=1\r\n");
     a90_console_printf("gpu.m2.graph.scope=" GPU_M2_GRAPH_SCOPE "\r\n");
@@ -15245,6 +15251,8 @@ static int gpu_m2_monitor_live_graph_probe(int timeout_ms,
     a90_console_printf("gpu.m2.graph.interval_ms=%u\r\n", interval_ms);
     a90_console_printf("gpu.m2.graph.timeout_ms=%d\r\n", timeout_ms);
     a90_console_printf("gpu.m2.graph.hold_ms=%d\r\n", hold_ms);
+    a90_console_printf("gpu.m2.graph.parent_timeout_ms=%d\r\n", parent_timeout_ms);
+    a90_console_printf("gpu.m2.graph.timeout_split=render-plus-visual-hold\r\n");
     a90_console_printf("gpu.m2.graph.source=%ux%u mono1 stride=%u\r\n",
                        GPU_M2_GRAPH_SOURCE_WIDTH,
                        GPU_M2_GRAPH_SOURCE_HEIGHT,
@@ -15293,7 +15301,7 @@ static int gpu_m2_monitor_live_graph_probe(int timeout_ms,
         _exit(child_rc == 0 ? 0 : 1);
     }
     close(pipefd[1]);
-    deadline_ms = monotonic_millis() + timeout_ms;
+    deadline_ms = monotonic_millis() + parent_timeout_ms;
     a90_console_printf("gpu.m2.graph.child_pid=%ld\r\n", (long)pid);
 
     while (monotonic_millis() <= deadline_ms) {

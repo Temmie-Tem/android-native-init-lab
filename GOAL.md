@@ -589,6 +589,21 @@ remained `pass=12 warn=1 fail=0`. A second replay with `--hold-ms 45000` complet
 `presented=12`, `graph_pixels_set=2722`, `semantic.match_count=64`, `semantic.output_other_count=0`, and post-replay
 selftest `pass=12 warn=1 fail=0`. Operator eye-confirmation of the held live monitor panel is still pending before
 marking the ③ monitor rung eye-confirmed/closed.**
+
+**STATUS (2026-06-27 M3 60s hold budget fix) — V3321 fixed the V3320 visual-hold rough edge by splitting the monitor
+parent watchdog into render timeout + visual hold budget + 5 s margin. Built
+`boot_linux_v3321_gpu_m3_hold_timeout_budget.img` (SHA256
+`48050046e743694d6e74ed6123b49f87d5d2dd0f87a44bd14e3d548431ca9a49`), flashed through `native_init_flash.py`, and
+passed live validation. After hiding the auto menu, `gpu m3-monitor-extraction-probe --frames 12 --interval-ms 200
+--timeout-ms 60000 --hold-ms 60000 --materialize-devnode` reported `parent_timeout_ms=125000`,
+`timeout_split=render-plus-visual-hold`, `timed_out=0`, `child_killed=0`, M2 delegate
+`result=monitor-live-graph-pass`, `presented=12`, `present_rc=0`, `graph_pixels_set=2733`, `cpu.count=8`,
+`cluster.count=3`, `semantic.match_count=64`, `semantic.mismatch_count=0`, `semantic.output_other_count=0`, and
+`result=shared-2d-present-monitor-pass`; duration was `62502ms`. Focused D3 Bad Apple regression also stayed green
+(`result=video-texture-present-pass`, `presented=3`, `present_rc=0`, `semantic.match_count=64`,
+`semantic.output_other_count=0`) and post-probe selftest stayed `pass=12 warn=1 fail=0`. The 60 s held live monitor is
+now cleanly replayable; operator eye-confirmation of the held live monitor panel is still pending before marking the ③
+monitor rung eye-confirmed/closed.**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
 `CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed
