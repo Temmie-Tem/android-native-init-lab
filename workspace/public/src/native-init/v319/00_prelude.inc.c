@@ -55,6 +55,7 @@
 #include "../a90_log.h"
 #include "../a90_menu.h"
 #include "../a90_metrics.h"
+#include "../a90_monitor.h"
 #include "../a90_netservice.h"
 #include "../a90_pid1_guard.h"
 #include "../a90_pstore.h"

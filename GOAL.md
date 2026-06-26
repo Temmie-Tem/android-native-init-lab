@@ -536,6 +536,14 @@ zones, and battery/power-supply nodes without writes. SD855 clusters are discove
 max frequency as Silver `0-3` @ 1.7856 GHz, Gold `4-6` @ 2.4192 GHz, and Prime `7` @ 2.8416 GHz; implementation must derive
 those labels dynamically and tolerate absent/empty thermal nodes. No boot artifact was built and no flash was run. NEXT =
 M0 sampler + history ring probe telemetry (`gpu.m0.monitor.*`).**
+
+**STATUS (2026-06-27 M0 live) — V3317 implemented `a90_monitor.c/.h` plus `gpu m0-monitor-sampler-probe`, built
+`boot_linux_v3317_gpu_m0_monitor_sampler.img` (SHA256
+`47dcc28d9a9de86a56258bfd066839d5d3e3c93f9c5b55e6de266d3ffb5ba813`), flashed through `native_init_flash.py`, and passed
+live validation. Probe telemetry reported `cpu.count=8`, `cluster.count=3`, `history.count=3`, derived labels Silver
+`0-3`, Gold `4-6`, Prime `7`, KGSL model `Adreno640v2`, GPU freq/temp, thermal zone summary, battery readouts, and
+`power_write_attempted=0` / `kms_present_attempted=0`; post-probe selftest stayed `pass=12 warn=1 fail=0`. M0 is DONE.
+NEXT = M1 static dashboard with existing draw primitives.**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
 `CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed
