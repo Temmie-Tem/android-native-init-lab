@@ -486,7 +486,7 @@ ir3 `stib`/`ldib` buffer ops.
   operator visually confirms the fractal on the panel = compute-demo close. **Matrix/GPGPU math is ABSORBED here** (no
   standalone matmul, no blob/BLAS). Modularization stays an extraction (rule-of-three) after the chain's consumers exist.
 
-**STATUS (2026-06-26) — C0 host-only recon landed as V3299; C1 shader-byte gate landed as V3300; C1 native-init source/build + live UAV readback proof landed as V3301; C2 128x128 compute pattern source/build + live readback proof landed as V3302.**
+**STATUS (2026-06-26) — C0 host-only recon landed as V3299; C1 shader-byte gate landed as V3300; C1 native-init source/build + live UAV readback proof landed as V3301; C2 128x128 compute pattern source/build + live readback proof landed as V3302; C3 source/build + device-presented-held proof landed as V3303, with operator eye confirmation still pending.**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
 `CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed
@@ -516,8 +516,19 @@ flash/readback verified the exact artifact, booted `0.11.76`, and the live
 `readback0=0`, `readback1=1`, `readback127=127`, `readback128=128`, `readback4096=4096`,
 `readback8192=8192`, `readback16383=16383`, `expected_match_count=16384`, `mismatch_count=0`,
 `pass=1`, `total_elapsed_ms=15`. Post-probe selftest stayed `fail=0`, and the bridge capture fault
-filter found no GPU fault/hang/page-fault match. C2 is closed; next compute rung is **C3**: present the
-compute buffer through the proven H5 KMS path for visual confirmation.
+filter found no GPU fault/hang/page-fault match. V3303 then added `gpu c3-compute-kms-probe`, which
+runs the C2 probe, writes a bounded 64KiB UAV snapshot, verifies the snapshot, expands it into the KMS
+dumb framebuffer, presents, and holds. V3303 source/build validation produced
+`workspace/private/inputs/boot_images/boot_linux_v3303_gpu_compute_c3_kms_probe.img`
+(`sha256=0a041e834cedae3b54bea5c1b4fb70b4be133156e8c9317d8f6c30b304c01e20`, size 66117632 bytes);
+flash/readback verified the exact artifact and booted `0.11.77`. The live
+`gpu c3-compute-kms-probe --timeout-ms 5000 --hold-ms 30000 --materialize-devnode` run passed:
+`snapshot_write_bytes=65536`, `snapshot_expected_match_count=16384`, `snapshot_mismatch_count=0`,
+`blit_rect=92,752,896,896`, `blit_scale=7`, `present_rc=0`, `result=compute-pattern-presented`,
+`hold_elapsed_ms=30000`, `vis.result=compute-pattern-presented-held`, `rc=0`, `duration_ms=30161`.
+Post-probe selftest stayed `fail=0`, and the bridge capture fault filter found no GPU
+fault/hang/page-fault match. C3 device-side present is proven; final compute-demo close still needs
+operator visual confirmation of the held pattern on the panel.
 
 **(historical, first-triangle ladder — DONE record)** Threshold from fixed-function plumbing to *real GPU
 graphics*: vertex buffer → vertex shader → rasterizer → fragment shader → a shaded triangle, readback-verified, blitted
@@ -1212,7 +1223,7 @@ wall), so every kernel/shader is hand-assembled ir3 and this never becomes a gen
   content, not a standalone format epic.**
   Recoverable boot-partition flashes only, rollback `v2321`. **Bright lines:** no backlight/PMIC/PWM/regulator/GDSC
   writes; no from-scratch panel re-init; forbidden partitions absolute. Venus HW decode NOT needed (pre-rendered frames).
-- **ACTIVE EPIC = GPU visible COMPUTE demo (C0→C3).** The GPU first-triangle ladder H0→H5 is **DONE + EYE-CONFIRMED
+- **ACTIVE EPIC = GPU visible COMPUTE demo (C0→C3; V3303 device-presented-held, EYE-CONFIRM PENDING).** The GPU first-triangle ladder H0→H5 is **DONE + EYE-CONFIRMED
   (2026-06-26)** — operator visually confirmed a GREEN RIGHT-TRIANGLE on the panel; strict proof `V3295/V3296`
   (`strict_linear_triangle_sample_proof=1`, center `0xff00b900`, exterior corners `0`), KMS-presented, no GPU fault,
   init `0.11.73`. Per the operator B-decision (the triangle proves "GPU draws the screen"; a compute demo proves "GPU
