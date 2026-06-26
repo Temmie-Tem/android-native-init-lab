@@ -498,6 +498,7 @@ warm and does not repeat a stall; carry the execution-proof bisect + register-di
 - **D0** (host-only recon): A6xx texture/sampler state — TPL1 sampler descriptor + texture (IBO) descriptor + how the
   FS binds them (`CP_LOAD_STATE6 ST6_TEX`/`ST6_SHADER`), and the ir3 `sam` op. Hand-assemble a textured FS (sample tex
   at interpolated UV → output); reuse the triangle's VS/raster/RB. Verify bytes with the V3246 ir3-disasm.
+  **V3304 landed the Mesa fd6 texture/TPL1 reference recon; D1 shader-byte materialization remains the next gate.**
 - **D1** render a fullscreen quad sampling a STATIC test texture (e.g. an uploaded checkerboard) → readback proof that
   the FS sampled it (output matches the texture pattern). PASS = sampled pattern present, not clear. Same bisect if not.
 - **D2** feed a REAL frame (a demo/SD-cache frame) as the texture; GPU scales/blits it to the output buffer → readback.
@@ -506,7 +507,7 @@ warm and does not repeat a stall; carry the execution-proof bisect + register-di
   measure (fps / CPU freed); operator confirms the demo still renders correctly via the GPU blit = ② close. This makes
   the GPU a real CONSUMER of existing work and is the third call site for the ③ rule-of-three extraction.
 
-**STATUS (2026-06-26) — C0 host-only recon landed as V3299; C1 shader-byte gate landed as V3300; C1 native-init source/build + live UAV readback proof landed as V3301; C2 128x128 compute pattern source/build + live readback proof landed as V3302; C3 source/build + device-presented-held proof landed as V3303 and is now operator eye-confirmed.**
+**STATUS (2026-06-26) — C0 host-only recon landed as V3299; C1 shader-byte gate landed as V3300; C1 native-init source/build + live UAV readback proof landed as V3301; C2 128x128 compute pattern source/build + live readback proof landed as V3302; C3 source/build + device-presented-held proof landed as V3303 and is now operator eye-confirmed; D0 texture reference recon landed as V3304.**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
 `CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed
@@ -556,7 +557,15 @@ C3 command was replayed with a 60 s hold: `snapshot_expected_match_count=16384`,
 the GPU fault filter had no match. A final replay again returned `0.11.77`, pre/post `selftest fail=0`,
 `present_rc=0`, `vis.result=compute-pattern-presented-held`, 60 s hold, and no GPU fault-filter match. The operator
 then visually confirmed the expected held pattern on the panel: "무지개 그라데이션과 네모난 격자무늬 프렉탈 같은검 말하는건가? 보인다".
-C3 is therefore closed, and the visible compute-demo C0→C3 ladder is DONE + EYE-CONFIRMED.
+C3 is therefore closed, and the visible compute-demo C0→C3 ladder is DONE + EYE-CONFIRMED. V3304 then pre-staged a
+fresh sparse Mesa freedreno reference at `/tmp/a90-mesa-gpu-src` (commit
+`6adb0d5e01dca952fcb04b7773ad92b0ab2e132d`) and added `native_gpu_2d_d0_texture_reference_v3304.py`. The D0 recon
+passed against `fd6_texture.cc`, `fd6_texture.h`, `fd6_emit.cc`, `fd6_emit.h`, `fd6_program.cc`, `a6xx.xml`,
+`adreno_pm4.xml`, and `ir3-cat5.xml`: sampler descriptors are 4 dwords, TEXMEMOBJ descriptors are 16 dwords, FS texture
+state is `FD6_GROUP_FS_TEX`, FS sampler load is `CP_LOAD_STATE6_FRAG` + `ST6_SHADER` + `SB6_FS_TEX`, FS TEXMEMOBJ load
+is `CP_LOAD_STATE6_FRAG` + `ST6_CONSTANTS` + `SB6_FS_TEX`, `SP_PS_CONFIG` carries `NTEX/NSAMP`, and the non-bindless
+cat5 `sam` contract exposes `s#0/t#0`. D1 is now gated on materializing and `ir3-disasm` verifying the minimal textured
+FS shader bytes before building/flashing a static checkerboard texture probe.
 
 **(historical, first-triangle ladder — DONE record)** Threshold from fixed-function plumbing to *real GPU
 graphics*: vertex buffer → vertex shader → rasterizer → fragment shader → a shaded triangle, readback-verified, blitted
