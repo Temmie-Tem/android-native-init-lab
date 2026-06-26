@@ -428,7 +428,7 @@ the Audio section above). Full detail: `CLAUDE.md` + `docs/reports/`. No active 
    report; never `-A`. Message per project convention; end with the Co-Authored-By line.
 9. **REPEAT** → back to STATE.
 
-## 🟢 GPU epic — first-light G0→G5 ✅, first triangle H0→H5 ✅ eye-confirmed, compute demo C0→C3 ✅ eye-confirmed, active rung = ② GPU-accelerated 2D (D0→D3)
+## 🟢 GPU epic — first-light G0→G5 ✅, first triangle H0→H5 ✅ eye-confirmed, compute demo C0→C3 ✅ eye-confirmed, GPU-accelerated 2D D0→D3 ✅ eye-confirmed, next = ③ modularization/extraction
 
 **Persistent HARD FRAMING (inherited by every GPU rung, do not deviate):**
 - **freedreno / Mesa / KGSL-direct ONLY.** The proprietary Adreno blob path (libGLESv2/EGL/OpenCL via Bionic/Android
@@ -488,7 +488,7 @@ ir3 `stib`/`ldib` buffer ops.
   **Matrix/GPGPU math is ABSORBED here** (no standalone matmul, no blob/BLAS). Modularization stays an extraction
   (rule-of-three) after the chain's consumers exist.
 
-**ACTIVE NOW = ② GPU-ACCELERATED 2D = texturing + frame blit/scale (D0→D3).** The real acceleration payoff: the demo
+**② GPU-ACCELERATED 2D = texturing + frame blit/scale (D0→D3) = DONE + EYE-CONFIRMED.** The real acceleration payoff: the demo
 player (Bad Apple/DOOM) blits frames via CPU `memcpy` today; make the GPU sample + scale + composite them. Brings up
 the A6xx texture pipe (TPL1 sampler + texture/IBO descriptor) and a textured fullscreen quad — reuses the proven H
 triangle pipeline (VS/raster/RB) + H5 present; the new pieces are the sampler state and an ir3 FS that does `sam`
@@ -507,7 +507,7 @@ warm and does not repeat a stall; carry the execution-proof bisect + register-di
   measure (fps / CPU freed); operator confirms the demo still renders correctly via the GPU blit = ② close. This makes
   the GPU a real CONSUMER of existing work and is the third call site for the ③ rule-of-three extraction.
 
-**STATUS (2026-06-27) — C0 host-only recon landed as V3299; C1 shader-byte gate landed as V3300; C1 native-init source/build + live UAV readback proof landed as V3301; C2 128x128 compute pattern source/build + live readback proof landed as V3302; C3 source/build + device-presented-held proof landed as V3303 and is now operator eye-confirmed; D0 texture reference recon landed as V3304; D1 textured FS shader-byte gate landed as V3305 and closed live as V3310; D2 real SD-cache Bad Apple frame texture readback closed live as V3311; D3 source/build first landed as V3312, live exposed a fork/protocol bug, and fork-fixed V3313 passed telemetry live validation plus a no-flash 60 s eye-confirm replay hold. V3314 added high-contrast `--start-frame 515` plus a stricter final-frame semantic gate; live presentation, hold, KMS, and health were clean, but exact source-pixel validation missed one scaled-edge sample (`semantic_match_count=63`, `semantic_mismatch_count=1`). V3315 fixed that validation-design gap with a bounded 3x3 source-neighborhood tolerance and passed live: `semantic_sample_count=64`, `match_count=64`, `exact_match_count=63`, `edge_tolerant_match_count=1`, `mismatch_count=0`, `output_other_count=0`, post-probe `selftest fail=0`, no GPU fault-filter match. NEXT = operator visual confirmation of the held D3 Bad Apple GPU-blit frame, then close rung ② / start extraction backlog.**
+**STATUS (2026-06-27) — C0 host-only recon landed as V3299; C1 shader-byte gate landed as V3300; C1 native-init source/build + live UAV readback proof landed as V3301; C2 128x128 compute pattern source/build + live readback proof landed as V3302; C3 source/build + device-presented-held proof landed as V3303 and is now operator eye-confirmed; D0 texture reference recon landed as V3304; D1 textured FS shader-byte gate landed as V3305 and closed live as V3310; D2 real SD-cache Bad Apple frame texture readback closed live as V3311; D3 source/build first landed as V3312, live exposed a fork/protocol bug, and fork-fixed V3313 passed telemetry live validation plus a no-flash 60 s eye-confirm replay hold. V3314 added high-contrast `--start-frame 515` plus a stricter final-frame semantic gate; live presentation, hold, KMS, and health were clean, but exact source-pixel validation missed one scaled-edge sample (`semantic_match_count=63`, `semantic_mismatch_count=1`). V3315 fixed that validation-design gap with a bounded 3x3 source-neighborhood tolerance and passed live: `semantic_sample_count=64`, `match_count=64`, `exact_match_count=63`, `edge_tolerant_match_count=1`, `mismatch_count=0`, `output_other_count=0`, post-probe `selftest fail=0`, no GPU fault-filter match. The operator then visually confirmed the held GPU-blit output: "배드애플 보였다 프레임은 정상적으로 나오는거 같았다". Rung ② is DONE + EYE-CONFIRMED. NEXT = ③ modularization/extraction backlog.**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
 `CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed
@@ -603,8 +603,10 @@ V3315 GPU-blit path for 60 s and passed again: `video-texture-present-pass`, `pr
 A later attempt to extend the hold to 120 s correctly hit the current guard (`bad-hold max_ms=60000`), then replayed
 the supported max 60 s hold again with the same clean result (`video-texture-present-pass`, `presented=60`,
 `fps_milli=30005`, `match_count=64`, `edge_tolerant_match_count=1`, `mismatch_count=0`, `output_other_count=0`,
-post-replay `selftest fail=0`, no fault-filter match). Final rung-② close still needs operator visual confirmation
-that the held GPU-blit demo frame looked correct on the panel.
+post-replay `selftest fail=0`, no fault-filter match). The operator then visually confirmed the held frame on the
+physical panel: "배드애플 보였다 프레임은 정상적으로 나오는거 같았다". D3 and rung ② are therefore DONE +
+EYE-CONFIRMED. The next GPU-chain item is ③ modularization/extraction: pull the common KGSL submit/fence/buffer layer
+only now that triangle, compute, and accelerated 2D are all real consumers.
 
 **(historical, first-triangle ladder — DONE record)** Threshold from fixed-function plumbing to *real GPU
 graphics*: vertex buffer → vertex shader → rasterizer → fragment shader → a shaded triangle, readback-verified, blitted
@@ -1273,7 +1275,7 @@ wall), so every kernel/shader is hand-assembled ir3 and this never becomes a gen
   rasterizer; gives GPU compute a *screen consumer*. **Matrix/GPGPU math is absorbed here, NOT a standalone goal** —
   no module/library to load (OpenCL/BLAS = blob/Bionic wall; Mesa rusticl/turnip = full-stack port, unbounded), so any
   kernel is hand-assembled ir3; an abstract matmul with no consumer is the forbidden "capability with no consumer".
-- **② GPU-ACCELERATED 2D = texturing + frame blit/scale (the real acceleration payoff).** Bring up the A6xx texture
+- **② GPU-ACCELERATED 2D = texturing + frame blit/scale (DONE + EYE-CONFIRMED, V3315).** Bring up the A6xx texture
   pipe (TPL1 sampler): render a textured fullscreen quad sampling an image, then use the GPU to scale/composite/blit
   frames — the demo player (Bad Apple/DOOM) blits via CPU `memcpy` today, so this makes the GPU a *real consumer of
   existing work* (frees the CPU, enables higher res/fps) and exercises the sampler path. This is the third real call
@@ -1299,16 +1301,14 @@ wall), so every kernel/shader is hand-assembled ir3 and this never becomes a gen
   content, not a standalone format epic.**
   Recoverable boot-partition flashes only, rollback `v2321`. **Bright lines:** no backlight/PMIC/PWM/regulator/GDSC
   writes; no from-scratch panel re-init; forbidden partitions absolute. Venus HW decode NOT needed (pre-rendered frames).
-- **ACTIVE EPIC = ② GPU-ACCELERATED 2D (D0→D3).** Two GPU rungs are CLOSED + EYE-CONFIRMED (2026-06-26): the
-  first-triangle ladder H0→H5 (operator saw a GREEN RIGHT-TRIANGLE; strict proof `V3295/V3296`, init `0.11.73`) and
-  the visible COMPUTE demo C0→C3 (operator saw the rainbow gradient / square-grid pattern; `V3303` C3 KMS present + 60 s
-  hold, init `0.11.77`, `selftest fail=0`, no GPU fault). Per the operator "쭉쭉/full-steam" decision, the loop now
-  continues the GPU chain to **② GPU-accelerated 2D = texturing + frame blit/scale** (D0→D3, see the "🟢 GPU epic"
-  block) — bring up the A6xx texture pipe so the GPU samples/scales/composites real demo frames (CPU `memcpy` blit
-  today), the real acceleration payoff and the third rule-of-three consumer for ③ extraction. V3313 now proves the D3
-  telemetry gate (`video-texture-present-pass`, 60 presented frames, ~29.97 fps, `selftest fail=0`); final ② close is
-  operator visual confirmation of the held Bad Apple GPU-blit frame. Bluetooth / sensors / haptics / Wi-Fi SoftAP remain
-  reference-only until separately chartered (attended daytime quick-wins).
+- **ACTIVE EPIC = ③ MODULARIZATION / EXTRACTION backlog.** Three GPU rungs are CLOSED + EYE-CONFIRMED: the
+  first-triangle ladder H0→H5 (operator saw a GREEN RIGHT-TRIANGLE; strict proof `V3295/V3296`, init `0.11.73`), the
+  visible COMPUTE demo C0→C3 (operator saw the rainbow gradient / square-grid pattern; `V3303` C3 KMS present + 60 s
+  hold, init `0.11.77`, `selftest fail=0`, no GPU fault), and GPU-accelerated 2D D0→D3 (operator saw the held Bad
+  Apple GPU-blit frame; `V3315` semantic edge-tolerant D3 present + 60 s hold, init `0.11.87`, `selftest fail=0`, no
+  GPU fault). The loop now moves to **③ modularization = extraction**: pull the common KGSL submit/fence/buffer layer
+  only from the three proven consumers, without designing a broad API upfront. Bluetooth / sensors / haptics / Wi-Fi
+  SoftAP remain reference-only until separately chartered (attended daytime quick-wins).
 - Device unreachable after an auto-rollback → STOP, leave an incident report.
 - The same sub-goal fails twice → STOP or shelve it and move on; do NOT retry-loop.
 - No sub-goal is safely actionable without the operator → STOP with a note (but T1 is
