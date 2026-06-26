@@ -428,7 +428,7 @@ the Audio section above). Full detail: `CLAUDE.md` + `docs/reports/`. No active 
    report; never `-A`. Message per project convention; end with the Co-Authored-By line.
 9. **REPEAT** → back to STATE.
 
-## 🟢 GPU epic — G0→G5 first-light DONE ✅, first triangle H0→H5 DONE + EYE-CONFIRMED ✅, active rung = visible COMPUTE demo (C0→C3)
+## 🟢 GPU epic — G0→G5 first-light DONE ✅, first triangle H0→H5 DONE + EYE-CONFIRMED ✅, visible COMPUTE demo C0→C3 DONE + EYE-CONFIRMED ✅
 
 **Persistent HARD FRAMING (inherited by every GPU rung, do not deviate):**
 - **freedreno / Mesa / KGSL-direct ONLY.** The proprietary Adreno blob path (libGLESv2/EGL/OpenCL via Bionic/Android
@@ -460,10 +460,11 @@ regids, A640 device-DB magic regs (`freedreno_devices.py`, necessary-not-suffici
 CCU-flush hypothesis. The H0→H5 detail below is retained as the done record. **The first triangle proves "GPU draws the
 screen."**
 
-**ACTIVE = visible COMPUTE demo (C0→C3).** Proves "GPU does real WORK" (the multipurpose-server motivation), not just
-display. Bounded ladder mirroring H0→H5, reusing the proven G0-G3 KGSL submit/fence/buffer core + the H5 KMS present
-path; swaps the 3D draw for a hand-assembled ir3 COMPUTE dispatch. Same HARD FRAMING and bright lines (freedreno/
-KGSL-direct, NO blob/EGL/OpenCL/BLAS, NO power writes, NO panel re-init, recoverable, rollback `v2321`).
+**VISIBLE COMPUTE demo C0→C3 = DONE + EYE-CONFIRMED (2026-06-26, init `0.11.77`).** Proves "GPU does
+real WORK" (the multipurpose-server motivation), not just display. The ladder mirrored H0→H5, reused the proven
+G0-G3 KGSL submit/fence/buffer core + the H5 KMS present path, and swapped the 3D draw for a hand-assembled ir3
+COMPUTE dispatch. Same HARD FRAMING and bright lines were preserved (freedreno/KGSL-direct, NO blob/EGL/OpenCL/BLAS,
+NO power writes, NO panel re-init, recoverable, rollback `v2321`).
 **Operator PRE-STAGED the compute reference (2026-06-26) so C0 starts warm and does NOT repeat the triangle's 40-probe
 stall** — staged at `/tmp/a90-mesa-gpu-src/a6xx_compute_dispatch_reference.txt` (+ `comp_a6xx.cc` = Mesa computerator
 hand-built a6xx compute cmdstream, `comp_fd6_compute.cc`, and `kern_*.asm` = known-good ir3 compute kernels). It pins
@@ -483,10 +484,11 @@ ir3 `stib`/`ldib` buffer ops.
   simpler per-pixel kernel (gradient/xy-pattern) — still proves "GPU computes per pixel and shows it" — and record it.
   **V3302 used the fallback: a 128x128 workgroup-id UAV pattern, live readback-proven.**
 - **C3** blit the compute output to `/dev/dri/card0` via the proven H5 present path (reuse tile→linear if needed);
-  operator visually confirms the fractal on the panel = compute-demo close. **Matrix/GPGPU math is ABSORBED here** (no
-  standalone matmul, no blob/BLAS). Modularization stays an extraction (rule-of-three) after the chain's consumers exist.
+  operator visually confirmed the rainbow gradient / square-grid fractal-like pattern on the panel = compute-demo close.
+  **Matrix/GPGPU math is ABSORBED here** (no standalone matmul, no blob/BLAS). Modularization stays an extraction
+  (rule-of-three) after the chain's consumers exist.
 
-**STATUS (2026-06-26) — C0 host-only recon landed as V3299; C1 shader-byte gate landed as V3300; C1 native-init source/build + live UAV readback proof landed as V3301; C2 128x128 compute pattern source/build + live readback proof landed as V3302; C3 source/build + device-presented-held proof landed as V3303, with operator eye confirmation still pending.**
+**STATUS (2026-06-26) — C0 host-only recon landed as V3299; C1 shader-byte gate landed as V3300; C1 native-init source/build + live UAV readback proof landed as V3301; C2 128x128 compute pattern source/build + live readback proof landed as V3302; C3 source/build + device-presented-held proof landed as V3303 and is now operator eye-confirmed.**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
 `CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed
@@ -527,18 +529,16 @@ flash/readback verified the exact artifact and booted `0.11.77`. The live
 `blit_rect=92,752,896,896`, `blit_scale=7`, `present_rc=0`, `result=compute-pattern-presented`,
 `hold_elapsed_ms=30000`, `vis.result=compute-pattern-presented-held`, `rc=0`, `duration_ms=30161`.
 Post-probe selftest stayed `fail=0`, and the bridge capture fault filter found no GPU
-fault/hang/page-fault match. C3 device-side present is proven; final compute-demo close still needs
-operator visual confirmation of the held pattern on the panel. A later 60 s eye-confirm replay attempt was paused before
-a new proof could be collected because the host lost the A90 USB gadget (`serial-missing`, no ACM/ADB/NCM after 90 s);
-no new flash or rollback was attempted. Restore USB visibility, health-check, then replay the existing V3303 C3 command
-for eye confirmation. USB visibility later recovered; resident `0.11.77` health stayed `selftest fail=0`, and the
-existing V3303 C3 command was replayed with a 60 s hold: `snapshot_expected_match_count=16384`,
+fault/hang/page-fault match. A later 60 s eye-confirm replay attempt was paused before a new proof could be collected
+because the host lost the A90 USB gadget (`serial-missing`, no ACM/ADB/NCM after 90 s); no new flash or rollback was
+attempted. USB visibility later recovered; resident `0.11.77` health stayed `selftest fail=0`, and the existing V3303
+C3 command was replayed with a 60 s hold: `snapshot_expected_match_count=16384`,
 `snapshot_mismatch_count=0`, `present_rc=0`, `result=compute-pattern-presented`, `hold_elapsed_ms=60000`,
 `vis.result=compute-pattern-presented-held`, `rc=0`, `duration_ms=60041`; post-replay selftest stayed `fail=0`, and
 the GPU fault filter had no match. A final replay again returned `0.11.77`, pre/post `selftest fail=0`,
-`present_rc=0`, `vis.result=compute-pattern-presented-held`, 60 s hold, and no GPU fault-filter match. C3 is blocked
-only on the operator's explicit eye confirmation of the held panel pattern; host/device telemetry cannot create that
-human visual statement.
+`present_rc=0`, `vis.result=compute-pattern-presented-held`, 60 s hold, and no GPU fault-filter match. The operator
+then visually confirmed the expected held pattern on the panel: "무지개 그라데이션과 네모난 격자무늬 프렉탈 같은검 말하는건가? 보인다".
+C3 is therefore closed, and the visible compute-demo C0→C3 ladder is DONE + EYE-CONFIRMED.
 
 **(historical, first-triangle ladder — DONE record)** Threshold from fixed-function plumbing to *real GPU
 graphics*: vertex buffer → vertex shader → rasterizer → fragment shader → a shaded triangle, readback-verified, blitted
@@ -1203,7 +1203,7 @@ rung as each closes).** Honest ceiling acknowledged and accepted: native-init ha
 wall), so every kernel/shader is hand-assembled ir3 and this never becomes a general GPGPU server — the value is
 *device-proven GPU capability + accelerating our own pipeline*, not third-party workloads.
 
-- **① VISIBLE compute demo (ACTIVE = C0→C3, e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
+- **① VISIBLE compute demo (DONE = C0→C3, V3303 eye-confirmed; e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
   rasterizer; gives GPU compute a *screen consumer*. **Matrix/GPGPU math is absorbed here, NOT a standalone goal** —
   no module/library to load (OpenCL/BLAS = blob/Bionic wall; Mesa rusticl/turnip = full-stack port, unbounded), so any
   kernel is hand-assembled ir3; an abstract matmul with no consumer is the forbidden "capability with no consumer".
@@ -1233,14 +1233,15 @@ wall), so every kernel/shader is hand-assembled ir3 and this never becomes a gen
   content, not a standalone format epic.**
   Recoverable boot-partition flashes only, rollback `v2321`. **Bright lines:** no backlight/PMIC/PWM/regulator/GDSC
   writes; no from-scratch panel re-init; forbidden partitions absolute. Venus HW decode NOT needed (pre-rendered frames).
-- **ACTIVE EPIC = GPU visible COMPUTE demo (C0→C3; V3303 device-presented-held, EYE-CONFIRM PENDING).** The GPU first-triangle ladder H0→H5 is **DONE + EYE-CONFIRMED
-  (2026-06-26)** — operator visually confirmed a GREEN RIGHT-TRIANGLE on the panel; strict proof `V3295/V3296`
-  (`strict_linear_triangle_sample_proof=1`, center `0xff00b900`, exterior corners `0`), KMS-presented, no GPU fault,
-  init `0.11.73`. Per the operator B-decision (the triangle proves "GPU draws the screen"; a compute demo proves "GPU
-  does real work" — the multipurpose-server motivation), the next chartered rung is a visible compute demo. See the
-  "🟢 GPU epic" block for the C0→C3 ladder. Reuses the proven G0-G3 KGSL core + H5 KMS present; swaps the 3D draw for a
-  hand-assembled ir3 COMPUTE dispatch. Bluetooth / sensors / haptics / Wi-Fi SoftAP remain reference-only until
-  separately chartered (attended daytime quick-wins).
+- **CLOSED GPU RUNG = visible COMPUTE demo (C0→C3; V3303 device-presented-held + EYE-CONFIRMED).** The GPU
+  first-triangle ladder H0→H5 is **DONE + EYE-CONFIRMED (2026-06-26)** — operator visually confirmed a GREEN
+  RIGHT-TRIANGLE on the panel; strict proof `V3295/V3296` (`strict_linear_triangle_sample_proof=1`, center
+  `0xff00b900`, exterior corners `0`), KMS-presented, no GPU fault, init `0.11.73`. Per the operator B-decision, the
+  visible compute demo now proves "GPU does real work" — resident `0.11.77`, V3303 C3 KMS present, 60 s hold,
+  selftest `fail=0`, no GPU fault-filter match, and operator eye confirmation of the rainbow gradient / square-grid
+  fractal-like panel pattern. The next ordered GPU rung is **② GPU-ACCELERATED 2D**, but it is not started in this
+  closure commit. Bluetooth / sensors / haptics / Wi-Fi SoftAP remain reference-only until separately chartered
+  (attended daytime quick-wins).
 - Device unreachable after an auto-rollback → STOP, leave an incident report.
 - The same sub-goal fails twice → STOP or shelve it and move on; do NOT retry-loop.
 - No sub-goal is safely actionable without the operator → STOP with a note (but T1 is
