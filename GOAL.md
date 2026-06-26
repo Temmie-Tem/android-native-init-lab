@@ -544,6 +544,14 @@ live validation. Probe telemetry reported `cpu.count=8`, `cluster.count=3`, `his
 `0-3`, Gold `4-6`, Prime `7`, KGSL model `Adreno640v2`, GPU freq/temp, thermal zone summary, battery readouts, and
 `power_write_attempted=0` / `kms_present_attempted=0`; post-probe selftest stayed `pass=12 warn=1 fail=0`. M0 is DONE.
 NEXT = M1 static dashboard with existing draw primitives.**
+
+**STATUS (2026-06-27 M1 live) — V3318 implemented `gpu m1-monitor-dashboard-probe` using the M0 sampler plus existing
+draw/KMS primitives, built `boot_linux_v3318_gpu_m1_monitor_dashboard.img` (SHA256
+`e5a3905e94f65d8a8a071955cea92ddd3e0037c0c3839946f9c5c2357fdd6858`), flashed through `native_init_flash.py`, and passed
+live validation. Probe telemetry reported `cpu.count=8`, `cluster.count=3`, `history.count=3`, KGSL model
+`Adreno640v2`, framebuffer `1080x2400` stride `4352`, `kgsl_submit_attempted=0`, `kms_present_attempted=1`,
+`present_rc=0`, `hold_elapsed_ms=5000`, and `result=dashboard-presented`; post-probe selftest stayed
+`pass=12 warn=1 fail=0`. M1 is DONE. NEXT = M2 GPU-accelerated live graphs via the 2D textured-quad/blit path.**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
 `CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed

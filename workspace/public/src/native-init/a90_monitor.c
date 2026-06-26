@@ -1,6 +1,8 @@
 #include "a90_monitor.h"
 
 #include "a90_console.h"
+#include "a90_draw.h"
+#include "a90_kms.h"
 #include "a90_metrics.h"
 #include "a90_sensormap.h"
 #include "a90_util.h"
@@ -782,6 +784,376 @@ static unsigned int monitor_capacity_readable_count(const struct a90_monitor_sta
     return count;
 }
 
+static void monitor_format_freq(char *out, size_t out_size, long khz) {
+    if (khz < 0) {
+        snprintf(out, out_size, "?");
+    } else if (khz >= 1000000L) {
+        long tenths = (khz + 50000L) / 100000L;
+
+        snprintf(out, out_size, "%ld.%ldG", tenths / 10L, tenths % 10L);
+    } else {
+        snprintf(out, out_size, "%ldM", (khz + 500L) / 1000L);
+    }
+}
+
+static void monitor_format_hz(char *out, size_t out_size, long hz) {
+    if (hz < 0) {
+        snprintf(out, out_size, "?");
+    } else if (hz >= 1000000000L) {
+        long tenths = (hz + 50000000L) / 100000000L;
+
+        snprintf(out, out_size, "%ld.%ldG", tenths / 10L, tenths % 10L);
+    } else {
+        snprintf(out, out_size, "%ldM", (hz + 500000L) / 1000000L);
+    }
+}
+
+static void monitor_format_millic(char *out, size_t out_size, long millic) {
+    long tenths;
+    long whole;
+    long frac;
+
+    if (millic < -100000L) {
+        snprintf(out, out_size, "?");
+        return;
+    }
+    tenths = millic / 100L;
+    whole = tenths / 10L;
+    frac = tenths % 10L;
+    if (frac < 0) {
+        frac = -frac;
+    }
+    snprintf(out, out_size, "%ld.%ldC", whole, frac);
+}
+
+static void monitor_format_decic(char *out, size_t out_size, long decic) {
+    long whole;
+    long frac;
+
+    if (decic < -1000L) {
+        snprintf(out, out_size, "?");
+        return;
+    }
+    whole = decic / 10L;
+    frac = decic % 10L;
+    if (frac < 0) {
+        frac = -frac;
+    }
+    snprintf(out, out_size, "%ld.%ldC", whole, frac);
+}
+
+static long monitor_clamp_percent(long value) {
+    if (value < 0) {
+        return 0;
+    }
+    if (value > 100) {
+        return 100;
+    }
+    return value;
+}
+
+static void monitor_draw_bar(struct a90_fb *fb,
+                             uint32_t x,
+                             uint32_t y,
+                             uint32_t width,
+                             uint32_t height,
+                             long percent,
+                             uint32_t fill,
+                             uint32_t bg) {
+    uint32_t filled = (uint32_t)((monitor_clamp_percent(percent) * (long)width) / 100L);
+
+    a90_draw_rect(fb, x, y, width, height, bg);
+    if (filled > 0) {
+        a90_draw_rect(fb, x, y, filled, height, fill);
+    }
+    a90_draw_rect_outline(fb, x, y, width, height, 2U, 0x36424c);
+}
+
+static void monitor_draw_metric_pair(struct a90_fb *fb,
+                                     uint32_t x,
+                                     uint32_t y,
+                                     uint32_t width,
+                                     const char *label,
+                                     const char *value,
+                                     uint32_t accent,
+                                     uint32_t scale) {
+    a90_draw_text_fit(fb, x, y, label, 0x9ca8b5, scale, width);
+    a90_draw_text_fit(fb, x, y + scale * 10U, value, accent, scale + 1U, width);
+}
+
+static void monitor_draw_cluster_row(const struct a90_monitor_state *state,
+                                     const struct a90_monitor_sample *sample,
+                                     struct a90_fb *fb,
+                                     unsigned int cluster_index,
+                                     uint32_t x,
+                                     uint32_t y,
+                                     uint32_t width,
+                                     uint32_t scale,
+                                     uint32_t accent) {
+    const struct a90_monitor_cluster *cluster = &state->clusters[cluster_index];
+    char cpus[64];
+    char freq[24];
+    char line[128];
+    long usage_sum = 0;
+    long freq_sum = 0;
+    unsigned int usage_count = 0;
+    unsigned int freq_count = 0;
+    unsigned int cpu_index;
+    uint32_t bar_x;
+    uint32_t bar_w;
+
+    monitor_format_cpu_mask(cluster->mask, cpus, sizeof(cpus));
+    for (cpu_index = 0; cpu_index < state->cpu_count; ++cpu_index) {
+        const struct a90_monitor_cpu *cpu = &state->cpus[cpu_index];
+
+        if ((cluster->mask & (1ULL << cpu->id)) == 0) {
+            continue;
+        }
+        if (sample->cpu_usage_pct[cpu_index] >= 0) {
+            usage_sum += sample->cpu_usage_pct[cpu_index];
+            ++usage_count;
+        }
+        if (sample->cpu_cur_khz[cpu_index] >= 0) {
+            freq_sum += sample->cpu_cur_khz[cpu_index];
+            ++freq_count;
+        }
+    }
+
+    monitor_format_freq(freq,
+                        sizeof(freq),
+                        freq_count > 0 ? freq_sum / (long)freq_count : A90_MONITOR_INVALID_LONG);
+    snprintf(line,
+             sizeof(line),
+             "%s CPU %s  %s  %ld%%",
+             cluster->label,
+             cpus,
+             freq,
+             usage_count > 0 ? usage_sum / (long)usage_count : A90_MONITOR_INVALID_LONG);
+
+    a90_draw_text_fit(fb, x, y, line, 0xffffff, scale, width);
+    bar_x = x;
+    bar_w = width;
+    monitor_draw_bar(fb,
+                     bar_x,
+                     y + scale * 11U,
+                     bar_w,
+                     scale * 4U,
+                     usage_count > 0 ? usage_sum / (long)usage_count : 0,
+                     accent,
+                     0x131923);
+}
+
+static void monitor_draw_cpu_grid(const struct a90_monitor_state *state,
+                                  const struct a90_monitor_sample *sample,
+                                  struct a90_fb *fb,
+                                  uint32_t x,
+                                  uint32_t y,
+                                  uint32_t width,
+                                  uint32_t scale) {
+    uint32_t col_gap = scale * 4U;
+    uint32_t row_gap = scale * 4U;
+    uint32_t cell_w = (width - col_gap) / 2U;
+    uint32_t cell_h = scale * 14U;
+    unsigned int index;
+
+    for (index = 0; index < state->cpu_count; ++index) {
+        char freq[24];
+        char line[96];
+        uint32_t col = index % 2U;
+        uint32_t row = index / 2U;
+        uint32_t cell_x = x + col * (cell_w + col_gap);
+        uint32_t cell_y = y + row * (cell_h + row_gap);
+        long usage = sample->cpu_usage_pct[index] >= 0 ? sample->cpu_usage_pct[index] : 0;
+        uint32_t fill = 0x66ddff;
+
+        if (strcmp(state->clusters[state->cpus[index].cluster_index].label, "Silver") == 0) {
+            fill = 0x88ee88;
+        } else if (strcmp(state->clusters[state->cpus[index].cluster_index].label, "Gold") == 0) {
+            fill = 0xffcc33;
+        } else if (strcmp(state->clusters[state->cpus[index].cluster_index].label, "Prime") == 0) {
+            fill = 0xff7777;
+        }
+
+        monitor_format_freq(freq, sizeof(freq), sample->cpu_cur_khz[index]);
+        snprintf(line,
+                 sizeof(line),
+                 "CPU%u %s %ld%%",
+                 state->cpus[index].id,
+                 freq,
+                 sample->cpu_usage_pct[index]);
+        a90_draw_text_fit(fb, cell_x, cell_y, line, 0xdce6f0, scale, cell_w);
+        monitor_draw_bar(fb,
+                         cell_x,
+                         cell_y + scale * 8U,
+                         cell_w,
+                         scale * 4U,
+                         usage,
+                         fill,
+                         0x111722);
+    }
+}
+
+static int monitor_prepare_state_for_display(struct a90_monitor_state *state,
+                                             struct a90_monitor_sample *sample,
+                                             unsigned int samples,
+                                             unsigned int interval_ms) {
+    unsigned int index;
+
+    if (monitor_discover_topology(state) < 0) {
+        return -1;
+    }
+    for (index = 0; index < samples; ++index) {
+        (void)monitor_take_sample(state, sample);
+        if (index + 1U < samples && interval_ms > 0) {
+            monitor_sleep_ms(interval_ms);
+        }
+    }
+    return monitor_history_latest(&state->history) != NULL ? 0 : -1;
+}
+
+static int monitor_draw_dashboard(const struct a90_monitor_state *state,
+                                  const struct a90_monitor_sample *sample) {
+    struct a90_fb *fb;
+    uint32_t width;
+    uint32_t height;
+    uint32_t margin;
+    uint32_t scale;
+    uint32_t title_scale;
+    uint32_t y;
+    uint32_t section_h;
+    uint32_t gap;
+    uint32_t content_w;
+    char line[160];
+    char gpu_freq[24];
+    char gpu_temp[24];
+    char bat_temp[24];
+    char mem_line[64];
+    char therm_line[96];
+    unsigned int cluster_index;
+
+    if (a90_kms_begin_frame(0x061018) < 0) {
+        return negative_errno_or(ENODEV);
+    }
+    fb = a90_kms_framebuffer();
+    if (fb == NULL) {
+        return -ENODEV;
+    }
+
+    width = fb->width;
+    height = fb->height;
+    margin = width / 18U;
+    if (margin < 32U) {
+        margin = 32U;
+    }
+    scale = width >= 1000U ? 4U : 3U;
+    title_scale = scale + 2U;
+    gap = scale * 6U;
+    content_w = width - margin * 2U;
+    y = margin;
+
+    a90_draw_rect(fb, 0, 0, width, height, 0x061018);
+    a90_draw_rect(fb, 0, 0, width, scale * 5U, 0x66ddff);
+    a90_draw_rect(fb, 0, height - scale * 5U, width, scale * 5U, 0xffcc33);
+
+    a90_draw_text_fit(fb,
+                      margin,
+                      y,
+                      "A90 SYSTEM MONITOR",
+                      0xffffff,
+                      title_scale,
+                      content_w);
+    y += title_scale * 10U;
+    snprintf(line,
+             sizeof(line),
+             "READ ONLY M1 STATIC DASHBOARD  SAMPLES %u  HISTORY %u",
+             A90_MONITOR_M0_DEFAULT_SAMPLES,
+             state->history.count);
+    a90_draw_text_fit(fb, margin, y, line, 0x9ca8b5, scale, content_w);
+    y += scale * 14U + gap;
+
+    a90_draw_text_fit(fb, margin, y, "HW INFO", 0xffcc33, scale + 1U, content_w);
+    y += scale * 12U;
+    section_h = scale * 24U;
+    a90_draw_rect(fb, margin, y, content_w, section_h, 0x101820);
+    a90_draw_rect_outline(fb, margin, y, content_w, section_h, 2U, 0x304050);
+    monitor_format_hz(gpu_freq, sizeof(gpu_freq), sample->gpu_cur_hz);
+    monitor_format_millic(gpu_temp, sizeof(gpu_temp), sample->gpu_temp_millic);
+    monitor_format_decic(bat_temp, sizeof(bat_temp), sample->battery_temp_decic);
+    snprintf(mem_line,
+             sizeof(mem_line),
+             "%ld/%ldMB",
+             sample->mem_total_kb >= 0 && sample->mem_available_kb >= 0 ?
+             (sample->mem_total_kb - sample->mem_available_kb) / 1024L : A90_MONITOR_INVALID_LONG,
+             sample->mem_total_kb >= 0 ? sample->mem_total_kb / 1024L : A90_MONITOR_INVALID_LONG);
+    monitor_draw_metric_pair(fb, margin + scale * 4U, y + scale * 4U,
+                             content_w / 4U, "GPU", gpu_freq, 0x66ddff, scale);
+    snprintf(line, sizeof(line), "%ld%% %s", sample->gpu_busy_pct, gpu_temp);
+    monitor_draw_metric_pair(fb, margin + content_w / 4U, y + scale * 4U,
+                             content_w / 4U, "GPU LOAD", line, 0x88ee88, scale);
+    snprintf(line, sizeof(line), "%ld%% %s", sample->battery_capacity_pct, bat_temp);
+    monitor_draw_metric_pair(fb, margin + content_w / 2U, y + scale * 4U,
+                             content_w / 4U, "BATTERY", line, 0xffcc33, scale);
+    monitor_draw_metric_pair(fb, margin + (content_w * 3U) / 4U, y + scale * 4U,
+                             content_w / 4U - scale * 4U, "MEMORY", mem_line, 0xffffff, scale);
+    y += section_h + gap;
+
+    a90_draw_text_fit(fb, margin, y, "CPU CLUSTERS", 0xffcc33, scale + 1U, content_w);
+    y += scale * 12U;
+    for (cluster_index = 0; cluster_index < state->cluster_count; ++cluster_index) {
+        uint32_t color = 0x66ddff;
+
+        if (strcmp(state->clusters[cluster_index].label, "Silver") == 0) {
+            color = 0x88ee88;
+        } else if (strcmp(state->clusters[cluster_index].label, "Gold") == 0) {
+            color = 0xffcc33;
+        } else if (strcmp(state->clusters[cluster_index].label, "Prime") == 0) {
+            color = 0xff7777;
+        }
+        monitor_draw_cluster_row(state,
+                                 sample,
+                                 fb,
+                                 cluster_index,
+                                 margin,
+                                 y,
+                                 content_w,
+                                 scale,
+                                 color);
+        y += scale * 20U;
+    }
+    y += gap;
+
+    a90_draw_text_fit(fb, margin, y, "PER CORE", 0xffcc33, scale + 1U, content_w);
+    y += scale * 12U;
+    monitor_draw_cpu_grid(state, sample, fb, margin, y, content_w, scale);
+    y += scale * 74U + gap;
+
+    a90_draw_text_fit(fb, margin, y, "DOOM INFO", 0xffcc33, scale + 1U, content_w);
+    y += scale * 12U;
+    a90_draw_rect(fb, margin, y, content_w, scale * 28U, 0x101820);
+    a90_draw_rect_outline(fb, margin, y, content_w, scale * 28U, 2U, 0x304050);
+    snprintf(line,
+             sizeof(line),
+             "ENGINE V3317  INPUT UDP NCM  AUDIO NATIVE SFX  DISPLAY KMS");
+    a90_draw_text_fit(fb, margin + scale * 4U, y + scale * 4U, line, 0xdce6f0, scale, content_w - scale * 8U);
+    snprintf(therm_line,
+             sizeof(therm_line),
+             "THERMAL %d/%d MAX %s",
+             sample->sensor_summary.thermal_readable,
+             sample->sensor_summary.thermal_zones,
+             sample->sensor_summary.max_temp_type[0] ? sample->sensor_summary.max_temp_type : "-");
+    a90_draw_text_fit(fb, margin + scale * 4U, y + scale * 14U, therm_line, 0x9ca8b5, scale, content_w - scale * 8U);
+
+    a90_draw_text_fit(fb,
+                      margin,
+                      height - margin - scale * 10U,
+                      "BRIDGE hide/q TO EXIT  READS ONLY  NO POWER WRITES",
+                      0xffffff,
+                      scale,
+                      content_w);
+
+    return a90_kms_present("gpu-m1-monitor-dashboard", true);
+}
+
 int a90_monitor_m0_sampler_probe(unsigned int samples, unsigned int interval_ms) {
     struct a90_monitor_state state;
     struct a90_monitor_sample sample;
@@ -911,5 +1283,78 @@ int a90_monitor_m0_sampler_probe(unsigned int samples, unsigned int interval_ms)
     a90_console_printf("gpu.m0.monitor.elapsed_ms=%ld\r\n",
                        monotonic_millis() - started_ms);
     a90_console_printf("gpu.m0.monitor.result=sampler-pass\r\n");
+    return 0;
+}
+
+int a90_monitor_m1_dashboard_probe(unsigned int samples,
+                                    unsigned int interval_ms,
+                                    unsigned int hold_ms) {
+    struct a90_monitor_state state;
+    struct a90_monitor_sample sample;
+    const struct a90_monitor_sample *latest;
+    struct a90_kms_info kms_info;
+    long started_ms = monotonic_millis();
+    int present_rc;
+
+    if (samples < A90_MONITOR_M0_MIN_SAMPLES) {
+        samples = A90_MONITOR_M0_MIN_SAMPLES;
+    } else if (samples > A90_MONITOR_M0_MAX_SAMPLES) {
+        samples = A90_MONITOR_M0_MAX_SAMPLES;
+    }
+    if (interval_ms > A90_MONITOR_M0_MAX_INTERVAL_MS) {
+        interval_ms = A90_MONITOR_M0_MAX_INTERVAL_MS;
+    }
+    if (hold_ms > A90_MONITOR_M1_MAX_HOLD_MS) {
+        hold_ms = A90_MONITOR_M1_MAX_HOLD_MS;
+    }
+
+    a90_console_printf("gpu.m1.monitor.scope=static-dashboard-existing-draw-primitives\r\n");
+    a90_console_printf("gpu.m1.monitor.samples_requested=%u\r\n", samples);
+    a90_console_printf("gpu.m1.monitor.interval_ms=%u\r\n", interval_ms);
+    a90_console_printf("gpu.m1.monitor.hold_ms=%u\r\n", hold_ms);
+    a90_console_printf("gpu.m1.monitor.power_write_attempted=0\r\n");
+    a90_console_printf("gpu.m1.monitor.kgsl_submit_attempted=0\r\n");
+    a90_console_printf("gpu.m1.monitor.kms_present_attempted=1\r\n");
+
+    if (monitor_prepare_state_for_display(&state, &sample, samples, interval_ms) < 0) {
+        a90_console_printf("gpu.m1.monitor.result=sampler-failed\r\n");
+        a90_console_printf("gpu.m1.monitor.errno=%d\r\n", errno);
+        return -errno;
+    }
+    latest = monitor_history_latest(&state.history);
+    if (latest == NULL) {
+        a90_console_printf("gpu.m1.monitor.result=no-samples\r\n");
+        return -EIO;
+    }
+
+    present_rc = monitor_draw_dashboard(&state, latest);
+    a90_kms_info(&kms_info);
+
+    a90_console_printf("gpu.m1.monitor.cpu.count=%u\r\n", state.cpu_count);
+    a90_console_printf("gpu.m1.monitor.cluster.count=%u\r\n", state.cluster_count);
+    a90_console_printf("gpu.m1.monitor.history.count=%u\r\n", state.history.count);
+    a90_console_printf("gpu.m1.monitor.gpu.model=%s\r\n",
+                       state.gpu_model[0] != '\0' ? state.gpu_model : "?");
+    a90_console_printf("gpu.m1.monitor.fb.initialized=%d\r\n", kms_info.initialized ? 1 : 0);
+    a90_console_printf("gpu.m1.monitor.fb.width=%u\r\n", kms_info.width);
+    a90_console_printf("gpu.m1.monitor.fb.height=%u\r\n", kms_info.height);
+    a90_console_printf("gpu.m1.monitor.fb.stride=%u\r\n", kms_info.stride);
+    a90_console_printf("gpu.m1.monitor.present_rc=%d\r\n", present_rc);
+    if (present_rc < 0) {
+        a90_console_printf("gpu.m1.monitor.result=kms-present-failed\r\n");
+        return present_rc;
+    }
+
+    if (hold_ms > 0) {
+        long hold_started_ms = monotonic_millis();
+
+        monitor_sleep_ms(hold_ms);
+        a90_console_printf("gpu.m1.monitor.hold_elapsed_ms=%ld\r\n",
+                           monotonic_millis() - hold_started_ms);
+    }
+
+    a90_console_printf("gpu.m1.monitor.elapsed_ms=%ld\r\n",
+                       monotonic_millis() - started_ms);
+    a90_console_printf("gpu.m1.monitor.result=dashboard-presented\r\n");
     return 0;
 }

@@ -16171,6 +16171,50 @@ static int handle_gpu(char **argv, int argc) {
         }
         return a90_monitor_m0_sampler_probe(samples, interval_ms);
     }
+    if (strcmp(subcommand, "m1-monitor-dashboard-probe") == 0 ||
+        strcmp(subcommand, "monitor-dashboard-probe") == 0) {
+        uint32_t samples = A90_MONITOR_M0_DEFAULT_SAMPLES;
+        uint32_t interval_ms = A90_MONITOR_M0_DEFAULT_INTERVAL_MS;
+        uint32_t hold_ms = A90_MONITOR_M1_DEFAULT_HOLD_MS;
+
+        for (index = 2; index < argc; ++index) {
+            if (strcmp(argv[index], "--samples") == 0) {
+                if (index + 1 >= argc ||
+                    !parse_u32_arg(argv[index + 1],
+                                   A90_MONITOR_M0_MIN_SAMPLES,
+                                   A90_MONITOR_M0_MAX_SAMPLES,
+                                   &samples)) {
+                    a90_console_printf("gpu.m1.monitor.error=bad-samples\r\n");
+                    return -EINVAL;
+                }
+                ++index;
+            } else if (strcmp(argv[index], "--interval-ms") == 0) {
+                if (index + 1 >= argc ||
+                    !parse_u32_arg(argv[index + 1],
+                                   0,
+                                   A90_MONITOR_M0_MAX_INTERVAL_MS,
+                                   &interval_ms)) {
+                    a90_console_printf("gpu.m1.monitor.error=bad-interval\r\n");
+                    return -EINVAL;
+                }
+                ++index;
+            } else if (strcmp(argv[index], "--hold-ms") == 0) {
+                if (index + 1 >= argc ||
+                    !parse_u32_arg(argv[index + 1],
+                                   0,
+                                   A90_MONITOR_M1_MAX_HOLD_MS,
+                                   &hold_ms)) {
+                    a90_console_printf("gpu.m1.monitor.error=bad-hold\r\n");
+                    return -EINVAL;
+                }
+                ++index;
+            } else {
+                a90_console_printf("usage: gpu m1-monitor-dashboard-probe [--samples N] [--interval-ms N] [--hold-ms N]\r\n");
+                return -EINVAL;
+            }
+        }
+        return a90_monitor_m1_dashboard_probe(samples, interval_ms, hold_ms);
+    }
     if (strcmp(subcommand, "g4-solid-fill-probe") == 0 ||
         strcmp(subcommand, "solid-fill-probe") == 0) {
         for (index = 2; index < argc; ++index) {
@@ -16232,7 +16276,7 @@ static int handle_gpu(char **argv, int argc) {
         return gpu_h5_triangle_kms_probe(timeout_ms, materialize_devnode, hold_ms);
     }
     if (strcmp(subcommand, "g0-open-probe") != 0) {
-        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m0-monitor-sampler-probe [--samples N] [--interval-ms N]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]\r\n");
+        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m0-monitor-sampler-probe [--samples N] [--interval-ms N]|m1-monitor-dashboard-probe [--samples N] [--interval-ms N] [--hold-ms N]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]\r\n");
         return -EINVAL;
     }
     for (index = 2; index < argc; ++index) {
@@ -16327,7 +16371,7 @@ static const struct shell_command command_table[] = {
     { "pstore", handle_pstore, "pstore [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "watchdoginv", handle_watchdoginv, "watchdoginv [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "tracefs", handle_tracefs, "tracefs [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
-    { "gpu", handle_gpu, "gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m0-monitor-sampler-probe [--samples N] [--interval-ms N]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]", CMD_NONE, A90_CMD_GROUP_CORE },
+    { "gpu", handle_gpu, "gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m0-monitor-sampler-probe [--samples N] [--interval-ms N]|m1-monitor-dashboard-probe [--samples N] [--interval-ms N] [--hold-ms N]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "audio", handle_audio, "audio [status|profiles|profile|speaker-map|stages|prereq|app-type|setcal|route|play|chime|play-status|stop|adsp-status|snd-status]", CMD_NONE, A90_CMD_GROUP_ANDROID },
     { "video", handle_video, "video [status|frame [bars|checker|mono|0xRRGGBB]|demo [badapple|badapple-scale|nyan|doom [status|verify|play|frame|engine-probe] [frames] [--wad runtime-private --sha256 EXPECTED]|frame-pattern]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status PATH]|cache [status|verify|play] SHA256 [--trust-cache] [--layout full|player-hud]|cache preset [badapple|badapple-scale|nyan] [status|verify|play]]", CMD_DISPLAY, A90_CMD_GROUP_DISPLAY },
     { "wifi", handle_wifi, "wifi [status|scan [delay_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|config [status|prepare [profile]]]", CMD_NONE, A90_CMD_GROUP_NETWORK },
