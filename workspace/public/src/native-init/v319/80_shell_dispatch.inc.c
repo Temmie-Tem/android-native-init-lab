@@ -3902,6 +3902,17 @@ struct gpu_d3_video_frame_stats {
     uint64_t changed_count;
     uint32_t first_word;
     uint32_t center_word;
+    uint32_t semantic_sample_count;
+    uint32_t semantic_sample_match_count;
+    uint32_t semantic_sample_mismatch_count;
+    uint32_t semantic_first_mismatch_index;
+    uint32_t semantic_first_mismatch_expected;
+    uint32_t semantic_first_mismatch_value;
+    uint32_t semantic_source_dark_count;
+    uint32_t semantic_source_light_count;
+    uint32_t semantic_output_dark_count;
+    uint32_t semantic_output_light_count;
+    uint32_t semantic_output_other_count;
 };
 
 struct gpu_d3_video_summary {
@@ -3916,8 +3927,11 @@ struct gpu_d3_video_summary {
     int close_rc;
     int close_errno;
     uint32_t requested_frames;
+    uint32_t start_frame;
     uint32_t presented_frames;
     uint32_t failed_frame;
+    uint32_t skipped_frames;
+    uint32_t last_frame_index;
     uint32_t source_width;
     uint32_t source_height;
     uint32_t source_stride;
@@ -3947,6 +3961,17 @@ struct gpu_d3_video_summary {
     uint64_t changed_total;
     uint32_t last_first_word;
     uint32_t last_center_word;
+    uint32_t semantic_sample_count;
+    uint32_t semantic_sample_match_count;
+    uint32_t semantic_sample_mismatch_count;
+    uint32_t semantic_first_mismatch_index;
+    uint32_t semantic_first_mismatch_expected;
+    uint32_t semantic_first_mismatch_value;
+    uint32_t semantic_source_dark_count;
+    uint32_t semantic_source_light_count;
+    uint32_t semantic_output_dark_count;
+    uint32_t semantic_output_light_count;
+    uint32_t semantic_output_other_count;
 };
 
 static uint64_t gpu_d1_round_up_u64(uint64_t value, uint64_t alignment) {
@@ -13795,7 +13820,8 @@ static int gpu_d3_create_session(struct gpu_d3_session *session,
 
 static void gpu_d3_write_mono1_texture(uint32_t *texture_words,
                                        const uint8_t *frame,
-                                       const struct video_stream_manifest *manifest) {
+                                       const struct video_stream_manifest *manifest,
+                                       struct gpu_d3_video_frame_stats *stats) {
     uint32_t y;
 
     if (texture_words == NULL || frame == NULL || manifest == NULL) {
@@ -13805,9 +13831,17 @@ static void gpu_d3_write_mono1_texture(uint32_t *texture_words,
         uint32_t x;
 
         for (x = 0; x < manifest->width; ++x) {
+            bool bit = gpu_d2_mono1_bit(frame, manifest, x, y);
+
             texture_words[((size_t)y * manifest->width) + x] =
-                gpu_d2_mono1_bit(frame, manifest, x, y) ?
-                    GPU_D2_REALFRAME_LIGHT_WORD : GPU_D2_REALFRAME_DARK_WORD;
+                bit ? GPU_D2_REALFRAME_LIGHT_WORD : GPU_D2_REALFRAME_DARK_WORD;
+            if (stats != NULL) {
+                if (bit) {
+                    stats->semantic_source_light_count += 1U;
+                } else {
+                    stats->semantic_source_dark_count += 1U;
+                }
+            }
         }
     }
 }
@@ -13998,13 +14032,85 @@ static int gpu_d3_copy_linear_to_kms(struct gpu_d3_session *session,
         stats->first_word = words[0];
         stats->center_word = words[center];
         for (index = 0; index < count; ++index) {
+            uint32_t rgb = words[index] & 0x00ffffffU;
+
             if (words[index] != GPU_H5_LINEAR_CLEAR_PATTERN) {
                 stats->changed_count += 1U;
+            }
+            if (rgb == GPU_D2_REALFRAME_DARK_RGB) {
+                stats->semantic_output_dark_count += 1U;
+            } else if (rgb == GPU_D2_REALFRAME_LIGHT_RGB) {
+                stats->semantic_output_light_count += 1U;
+            } else {
+                stats->semantic_output_other_count += 1U;
             }
         }
     }
     __sync_synchronize();
     return 0;
+}
+
+static void gpu_d3_validate_linear_semantics(const struct gpu_d3_session *session,
+                                             const struct video_stream_manifest *manifest,
+                                             const uint8_t *frame,
+                                             struct gpu_d3_video_frame_stats *stats) {
+    const uint32_t *words;
+    uint32_t index;
+
+    if (session == NULL || manifest == NULL || frame == NULL || stats == NULL ||
+        session->linear.map == NULL || session->linear.map == MAP_FAILED ||
+        session->target_width == 0U || session->target_height == 0U ||
+        manifest->width == 0U || manifest->height == 0U) {
+        return;
+    }
+    words = (const uint32_t *)session->linear.map;
+    stats->semantic_first_mismatch_index = UINT_MAX;
+    for (index = 0; index < GPU_D1_CHECKER_SAMPLE_COUNT; ++index) {
+        uint32_t sx = index % GPU_D1_CHECKER_SAMPLE_GRID;
+        uint32_t sy = index / GPU_D1_CHECKER_SAMPLE_GRID;
+        uint32_t target_x = (uint32_t)(
+            (((uint64_t)((sx * 2U) + 1U)) * session->target_width) /
+            (2ULL * GPU_D1_CHECKER_SAMPLE_GRID));
+        uint32_t target_y = (uint32_t)(
+            (((uint64_t)((sy * 2U) + 1U)) * session->target_height) /
+            (2ULL * GPU_D1_CHECKER_SAMPLE_GRID));
+        uint32_t source_x;
+        uint32_t source_y;
+        uint32_t expected;
+        uint32_t value;
+
+        if (target_x >= session->target_width) {
+            target_x = session->target_width - 1U;
+        }
+        if (target_y >= session->target_height) {
+            target_y = session->target_height - 1U;
+        }
+        source_x = (uint32_t)(
+            (((uint64_t)target_x) * manifest->width + (session->target_width / 2U)) /
+            session->target_width);
+        source_y = (uint32_t)(
+            (((uint64_t)target_y) * manifest->height + (session->target_height / 2U)) /
+            session->target_height);
+        if (source_x >= manifest->width) {
+            source_x = manifest->width - 1U;
+        }
+        if (source_y >= manifest->height) {
+            source_y = manifest->height - 1U;
+        }
+        expected = gpu_d2_realframe_expected_rgb(frame, manifest, source_x, source_y);
+        value = words[((size_t)target_y * session->target_width) + target_x] & 0x00ffffffU;
+        stats->semantic_sample_count += 1U;
+        if (value == expected) {
+            stats->semantic_sample_match_count += 1U;
+        } else {
+            if (stats->semantic_sample_mismatch_count == 0U) {
+                stats->semantic_first_mismatch_index = index;
+                stats->semantic_first_mismatch_expected = expected;
+                stats->semantic_first_mismatch_value = value;
+            }
+            stats->semantic_sample_mismatch_count += 1U;
+        }
+    }
 }
 
 static int gpu_d3_render_frame_to_kms(struct gpu_d3_session *session,
@@ -14033,7 +14139,8 @@ static int gpu_d3_render_frame_to_kms(struct gpu_d3_session *session,
     memset(session->color_flag.map, 0, (size_t)GPU_D3_VIDEO_COLOR_FLAG_ALLOC_SIZE);
     memset(session->linear.map, 0, (size_t)session->target_bytes);
     started_ns = video_monotonic_ns();
-    gpu_d3_write_mono1_texture((uint32_t *)session->texture.map, frame, manifest);
+    stats->semantic_first_mismatch_index = UINT_MAX;
+    gpu_d3_write_mono1_texture((uint32_t *)session->texture.map, frame, manifest, stats);
     __sync_synchronize();
     after_texture_ns = video_monotonic_ns();
     stats->texture_write_us = (after_texture_ns - started_ns) / 1000ULL;
@@ -14068,6 +14175,9 @@ static int gpu_d3_render_frame_to_kms(struct gpu_d3_session *session,
     after_copy_ns = video_monotonic_ns();
     stats->kms_copy_us = (after_copy_ns - before_copy_ns) / 1000ULL;
     stats->copy_rc = rc;
+    if (rc == 0) {
+        gpu_d3_validate_linear_semantics(session, manifest, frame, stats);
+    }
     stats->rc = rc;
     return rc;
 }
@@ -14085,7 +14195,8 @@ static void gpu_d3_add_us(uint64_t value,
 
 static int gpu_d3_video_texture_present_child(int write_fd,
                                               uint32_t requested_frames,
-                                              int hold_ms) {
+                                              int hold_ms,
+                                              uint32_t start_frame) {
     struct gpu_d3_video_summary summary;
     struct video_stream_manifest manifest;
     struct video_stream_header_v1 header;
@@ -14105,6 +14216,7 @@ static int gpu_d3_video_texture_present_child(int write_fd,
     uint64_t total_sum_us = 0;
     uint32_t limit_frames;
     uint32_t frame_index;
+    uint32_t display_index;
     uint32_t dst_x = 0U;
     uint32_t dst_y = 48U;
     int rc = 0;
@@ -14118,10 +14230,14 @@ static int gpu_d3_video_texture_present_child(int write_fd,
     summary.present_rc = -1;
     summary.close_rc = -1;
     summary.requested_frames = requested_frames;
+    summary.start_frame = start_frame;
     summary.target_width = GPU_D3_VIDEO_TARGET_WIDTH;
     summary.target_height = GPU_D3_VIDEO_TARGET_HEIGHT;
     summary.target_stride = GPU_D3_VIDEO_TARGET_STRIDE;
     summary.target_bytes = (uint32_t)GPU_D3_VIDEO_TARGET_BYTES;
+    summary.failed_frame = UINT_MAX;
+    summary.last_frame_index = UINT_MAX;
+    summary.semantic_first_mismatch_index = UINT_MAX;
 
     summary.manifest_rc = video_parse_manifest(GPU_D2_REALFRAME_BADAPPLE_MANIFEST_PATH, &manifest);
     if (summary.manifest_rc < 0) {
@@ -14140,13 +14256,19 @@ static int gpu_d3_video_texture_present_child(int write_fd,
     summary.source_height = manifest.height;
     summary.source_stride = manifest.stride;
     summary.source_frame_bytes = manifest.frame_bytes;
+    if (start_frame >= manifest.frame_count) {
+        summary.manifest_rc = -EINVAL;
+        rc = -EINVAL;
+        goto out;
+    }
     interval_ns = video_frame_interval_ns(manifest.fps_num, manifest.fps_den);
     if (interval_ns == 0U) {
         rc = -EINVAL;
         goto out;
     }
-    limit_frames = requested_frames > 0U && requested_frames < manifest.frame_count ?
-        requested_frames : manifest.frame_count;
+    limit_frames = requested_frames > 0U &&
+        requested_frames < manifest.frame_count - start_frame ?
+        requested_frames : manifest.frame_count - start_frame;
     if (limit_frames > GPU_D3_VIDEO_MAX_FRAMES) {
         limit_frames = GPU_D3_VIDEO_MAX_FRAMES;
     }
@@ -14177,19 +14299,40 @@ static int gpu_d3_video_texture_present_child(int write_fd,
         summary.gpu_create_rc = rc;
         goto out;
     }
+    for (frame_index = 0; frame_index < start_frame; ++frame_index) {
+        struct video_stream_frame_record_v1 record;
+
+        rc = video_read_exact_fd(fd, &record, sizeof(record));
+        if (rc < 0) {
+            summary.failed_frame = frame_index;
+            goto out;
+        }
+        if (record.index != frame_index || record.payload_bytes != manifest.frame_bytes) {
+            summary.failed_frame = frame_index;
+            rc = -EINVAL;
+            goto out;
+        }
+        rc = video_skip_exact_fd(fd, record.payload_bytes);
+        if (rc < 0) {
+            summary.failed_frame = frame_index;
+            goto out;
+        }
+        summary.skipped_frames += 1U;
+    }
     stop_auto_hud(false);
     started_ns = video_monotonic_ns();
-    for (frame_index = 0; frame_index < limit_frames; ++frame_index) {
+    for (display_index = 0; display_index < limit_frames; ++display_index) {
         struct video_stream_frame_record_v1 record;
         struct gpu_d3_video_frame_stats stats;
         uint64_t frame_start_ns = video_monotonic_ns();
         uint64_t after_read_ns;
         uint64_t before_present_ns;
         uint64_t after_present_ns;
-        uint64_t deadline_ns = started_ns + ((uint64_t)frame_index * interval_ns);
+        uint64_t deadline_ns = started_ns + ((uint64_t)display_index * interval_ns);
         uint64_t read_us;
         char line[96];
 
+        frame_index = start_frame + display_index;
         rc = video_read_exact_fd(fd, &record, sizeof(record));
         if (rc < 0) {
             summary.failed_frame = frame_index;
@@ -14237,9 +14380,21 @@ static int gpu_d3_video_texture_present_child(int write_fd,
         summary.changed_total += stats.changed_count;
         summary.last_first_word = stats.first_word;
         summary.last_center_word = stats.center_word;
+        summary.last_frame_index = frame_index;
+        summary.semantic_sample_count = stats.semantic_sample_count;
+        summary.semantic_sample_match_count = stats.semantic_sample_match_count;
+        summary.semantic_sample_mismatch_count = stats.semantic_sample_mismatch_count;
+        summary.semantic_first_mismatch_index = stats.semantic_first_mismatch_index;
+        summary.semantic_first_mismatch_expected = stats.semantic_first_mismatch_expected;
+        summary.semantic_first_mismatch_value = stats.semantic_first_mismatch_value;
+        summary.semantic_source_dark_count = stats.semantic_source_dark_count;
+        summary.semantic_source_light_count = stats.semantic_source_light_count;
+        summary.semantic_output_dark_count = stats.semantic_output_dark_count;
+        summary.semantic_output_light_count = stats.semantic_output_light_count;
+        summary.semantic_output_other_count = stats.semantic_output_other_count;
 
         snprintf(line, sizeof(line), "GPU D3 TEXTURE FRAME %u/%u",
-                 frame_index + 1U, limit_frames);
+                 display_index + 1U, limit_frames);
         a90_draw_rect(fb, 0, 0, fb->width, 44U, 0x05070c);
         a90_draw_text(fb, 48U, 12U, line, 0x66ddff, 2U);
         a90_draw_text(fb, fb->width > 360U ? fb->width - 350U : 48U,
@@ -14322,10 +14477,23 @@ out:
     return summary.result_rc;
 }
 
+static bool gpu_d3_video_summary_passed(const struct gpu_d3_video_summary *summary) {
+    /* Legacy V3313 gate kept for source-contract compatibility: summary.changed_total > 0ULL. */
+    return summary != NULL &&
+           summary->result_rc == 0 &&
+           summary->presented_frames > 0U &&
+           summary->changed_total > 0ULL &&
+           summary->semantic_sample_count == GPU_D1_CHECKER_SAMPLE_COUNT &&
+           summary->semantic_sample_match_count == GPU_D1_CHECKER_SAMPLE_COUNT &&
+           summary->semantic_sample_mismatch_count == 0U &&
+           summary->semantic_output_other_count == 0U;
+}
+
 static int gpu_d3_video_texture_present_probe(int timeout_ms,
                                               bool materialize_devnode,
                                               uint32_t requested_frames,
-                                              int hold_ms) {
+                                              int hold_ms,
+                                              uint32_t start_frame) {
     int pipefd[2];
     pid_t pid;
     long deadline_ms;
@@ -14369,6 +14537,7 @@ static int gpu_d3_video_texture_present_probe(int timeout_ms,
     a90_console_printf("gpu.d3.video.preset=badapple\r\n");
     a90_console_printf("gpu.d3.video.manifest=%s\r\n", GPU_D2_REALFRAME_BADAPPLE_MANIFEST_PATH);
     a90_console_printf("gpu.d3.video.frames_requested=%u\r\n", requested_frames);
+    a90_console_printf("gpu.d3.video.start_frame=%u\r\n", start_frame);
     a90_console_printf("gpu.d3.video.timeout_ms=%d\r\n", timeout_ms);
     a90_console_printf("gpu.d3.video.hold_ms=%d\r\n", hold_ms);
     a90_console_printf("gpu.d3.video.texture_source=sd-cache-mono1-expanded-to-rgba8-texture-per-frame\r\n");
@@ -14408,7 +14577,10 @@ static int gpu_d3_video_texture_present_probe(int timeout_ms,
         int child_rc;
 
         close(pipefd[0]);
-        child_rc = gpu_d3_video_texture_present_child(pipefd[1], requested_frames, hold_ms);
+        child_rc = gpu_d3_video_texture_present_child(pipefd[1],
+                                                      requested_frames,
+                                                      hold_ms,
+                                                      start_frame);
         _exit(child_rc == 0 ? 0 : 1);
     }
     close(pipefd[1]);
@@ -14458,9 +14630,7 @@ static int gpu_d3_video_texture_present_probe(int timeout_ms,
     close(pipefd[0]);
 
     a90_console_printf("gpu.d3.video.result=%s\r\n",
-                       got_result && summary.result_rc == 0 &&
-                       summary.presented_frames > 0U &&
-                       summary.changed_total > 0ULL ?
+                       got_result && gpu_d3_video_summary_passed(&summary) ?
                            "video-texture-present-pass" :
                        (timed_out ? "timeout" : "video-texture-present-failed"));
     a90_console_printf("gpu.d3.video.timed_out=%d\r\n", timed_out ? 1 : 0);
@@ -14484,6 +14654,12 @@ static int gpu_d3_video_texture_present_probe(int timeout_ms,
         a90_console_printf("gpu.d3.video.target_stride=%u\r\n", summary.target_stride);
         a90_console_printf("gpu.d3.video.target_bytes=%u\r\n", summary.target_bytes);
         a90_console_printf("gpu.d3.video.pm4_dwords=%u\r\n", summary.pm4_dwords);
+        a90_console_printf("gpu.d3.video.start_frame_actual=%u\r\n",
+                           summary.start_frame);
+        a90_console_printf("gpu.d3.video.skipped_frames=%u\r\n",
+                           summary.skipped_frames);
+        a90_console_printf("gpu.d3.video.last_frame_index=%u\r\n",
+                           summary.last_frame_index);
         a90_console_printf("gpu.d3.video.presented=%u\r\n", summary.presented_frames);
         a90_console_printf("gpu.d3.video.failed_frame=%u\r\n", summary.failed_frame);
         a90_console_printf("gpu.d3.video.stream_bytes=%llu\r\n",
@@ -14527,6 +14703,28 @@ static int gpu_d3_video_texture_present_probe(int timeout_ms,
                            summary.last_first_word);
         a90_console_printf("gpu.d3.video.last_center_word=0x%x\r\n",
                            summary.last_center_word);
+        a90_console_printf("gpu.d3.video.semantic.sample_count=%u\r\n",
+                           summary.semantic_sample_count);
+        a90_console_printf("gpu.d3.video.semantic.match_count=%u\r\n",
+                           summary.semantic_sample_match_count);
+        a90_console_printf("gpu.d3.video.semantic.mismatch_count=%u\r\n",
+                           summary.semantic_sample_mismatch_count);
+        a90_console_printf("gpu.d3.video.semantic.first_mismatch_index=%u\r\n",
+                           summary.semantic_first_mismatch_index);
+        a90_console_printf("gpu.d3.video.semantic.first_mismatch_expected=0x%x\r\n",
+                           summary.semantic_first_mismatch_expected);
+        a90_console_printf("gpu.d3.video.semantic.first_mismatch_value=0x%x\r\n",
+                           summary.semantic_first_mismatch_value);
+        a90_console_printf("gpu.d3.video.semantic.source_dark_count=%u\r\n",
+                           summary.semantic_source_dark_count);
+        a90_console_printf("gpu.d3.video.semantic.source_light_count=%u\r\n",
+                           summary.semantic_source_light_count);
+        a90_console_printf("gpu.d3.video.semantic.output_dark_count=%u\r\n",
+                           summary.semantic_output_dark_count);
+        a90_console_printf("gpu.d3.video.semantic.output_light_count=%u\r\n",
+                           summary.semantic_output_light_count);
+        a90_console_printf("gpu.d3.video.semantic.output_other_count=%u\r\n",
+                           summary.semantic_output_other_count);
         a90_console_printf("gpu.d3.video.kms_begin_rc=%d\r\n", summary.kms_begin_rc);
         a90_console_printf("gpu.d3.video.present_rc=%d\r\n", summary.present_rc);
         a90_console_printf("gpu.d3.video.close_rc=%d errno=%d\r\n",
@@ -14535,7 +14733,7 @@ static int gpu_d3_video_texture_present_probe(int timeout_ms,
     if (timed_out) {
         return -ETIMEDOUT;
     }
-    return got_result && summary.result_rc == 0 && summary.presented_frames > 0U ?
+    return got_result && gpu_d3_video_summary_passed(&summary) ?
         0 : -EIO;
 }
 
@@ -15825,6 +16023,7 @@ static int handle_gpu(char **argv, int argc) {
     if (strcmp(subcommand, "d3-video-texture-present-probe") == 0 ||
         strcmp(subcommand, "video-texture-present-probe") == 0) {
         uint32_t requested_frames = GPU_D3_VIDEO_DEFAULT_FRAMES;
+        uint32_t start_frame = 0U;
         int hold_ms = 0;
 
         for (index = 2; index < argc; ++index) {
@@ -15839,6 +16038,14 @@ static int handle_gpu(char **argv, int argc) {
                     !parse_u32_arg(argv[index + 1], 1, GPU_D3_VIDEO_MAX_FRAMES,
                                    &requested_frames)) {
                     a90_console_printf("gpu.d3.video.error=bad-frames\r\n");
+                    return -EINVAL;
+                }
+                ++index;
+            } else if (strcmp(argv[index], "--start-frame") == 0) {
+                if (index + 1 >= argc ||
+                    !parse_u32_arg(argv[index + 1], 0, VIDEO_STREAM_MAX_FRAMES - 1U,
+                                   &start_frame)) {
+                    a90_console_printf("gpu.d3.video.error=bad-start-frame\r\n");
                     return -EINVAL;
                 }
                 ++index;
@@ -15858,14 +16065,15 @@ static int handle_gpu(char **argv, int argc) {
             } else if (strcmp(argv[index], "--materialize-devnode") == 0) {
                 materialize_devnode = true;
             } else {
-                a90_console_printf("usage: gpu d3-video-texture-present-probe [--preset badapple] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]\r\n");
+                a90_console_printf("usage: gpu d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]\r\n");
                 return -EINVAL;
             }
         }
         return gpu_d3_video_texture_present_probe(timeout_ms,
                                                  materialize_devnode,
                                                  requested_frames,
-                                                 hold_ms);
+                                                 hold_ms,
+                                                 start_frame);
     }
     if (strcmp(subcommand, "g4-solid-fill-probe") == 0 ||
         strcmp(subcommand, "solid-fill-probe") == 0) {
@@ -15928,7 +16136,7 @@ static int handle_gpu(char **argv, int argc) {
         return gpu_h5_triangle_kms_probe(timeout_ms, materialize_devnode, hold_ms);
     }
     if (strcmp(subcommand, "g0-open-probe") != 0) {
-        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]\r\n");
+        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]\r\n");
         return -EINVAL;
     }
     for (index = 2; index < argc; ++index) {
@@ -16023,7 +16231,7 @@ static const struct shell_command command_table[] = {
     { "pstore", handle_pstore, "pstore [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "watchdoginv", handle_watchdoginv, "watchdoginv [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "tracefs", handle_tracefs, "tracefs [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
-    { "gpu", handle_gpu, "gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]", CMD_NONE, A90_CMD_GROUP_CORE },
+    { "gpu", handle_gpu, "gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "audio", handle_audio, "audio [status|profiles|profile|speaker-map|stages|prereq|app-type|setcal|route|play|chime|play-status|stop|adsp-status|snd-status]", CMD_NONE, A90_CMD_GROUP_ANDROID },
     { "video", handle_video, "video [status|frame [bars|checker|mono|0xRRGGBB]|demo [badapple|badapple-scale|nyan|doom [status|verify|play|frame|engine-probe] [frames] [--wad runtime-private --sha256 EXPECTED]|frame-pattern]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status PATH]|cache [status|verify|play] SHA256 [--trust-cache] [--layout full|player-hud]|cache preset [badapple|badapple-scale|nyan] [status|verify|play]]", CMD_DISPLAY, A90_CMD_GROUP_DISPLAY },
     { "wifi", handle_wifi, "wifi [status|scan [delay_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|config [status|prepare [profile]]]", CMD_NONE, A90_CMD_GROUP_NETWORK },

@@ -507,7 +507,7 @@ warm and does not repeat a stall; carry the execution-proof bisect + register-di
   measure (fps / CPU freed); operator confirms the demo still renders correctly via the GPU blit = ② close. This makes
   the GPU a real CONSUMER of existing work and is the third call site for the ③ rule-of-three extraction.
 
-**STATUS (2026-06-27) — C0 host-only recon landed as V3299; C1 shader-byte gate landed as V3300; C1 native-init source/build + live UAV readback proof landed as V3301; C2 128x128 compute pattern source/build + live readback proof landed as V3302; C3 source/build + device-presented-held proof landed as V3303 and is now operator eye-confirmed; D0 texture reference recon landed as V3304; D1 textured FS shader-byte gate landed as V3305 and closed live as V3310; D2 real SD-cache Bad Apple frame texture readback closed live as V3311; D3 source/build first landed as V3312, live exposed a fork/protocol bug, and fork-fixed V3313 passed telemetry live validation plus a no-flash 60 s eye-confirm replay hold. NEXT = operator visual confirmation of the held D3 Bad Apple GPU-blit frame, then close rung ② / start extraction backlog.**
+**STATUS (2026-06-27) — C0 host-only recon landed as V3299; C1 shader-byte gate landed as V3300; C1 native-init source/build + live UAV readback proof landed as V3301; C2 128x128 compute pattern source/build + live readback proof landed as V3302; C3 source/build + device-presented-held proof landed as V3303 and is now operator eye-confirmed; D0 texture reference recon landed as V3304; D1 textured FS shader-byte gate landed as V3305 and closed live as V3310; D2 real SD-cache Bad Apple frame texture readback closed live as V3311; D3 source/build first landed as V3312, live exposed a fork/protocol bug, and fork-fixed V3313 passed telemetry live validation plus a no-flash 60 s eye-confirm replay hold. V3314 added high-contrast `--start-frame 515` plus a stricter final-frame semantic gate; live presentation, hold, KMS, and health were clean, but exact source-pixel validation missed one scaled-edge sample (`semantic_match_count=63`, `semantic_mismatch_count=1`). NEXT = V3315 edge-tolerant semantic validator, then operator visual confirmation of the held D3 Bad Apple GPU-blit frame and close rung ② / start extraction backlog.**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
 `CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed
@@ -587,8 +587,15 @@ copied into KMS, and presented with `gpu.d3.video.result=video-texture-present-p
 `selftest fail=0`, and no GPU fault-filter match. A follow-up no-flash eye-confirm replay held the same V3313
 GPU-blit path for 60 s and passed again: `gpu.d3.video.result=video-texture-present-pass`, `presented=60`,
 `fps_milli=30177`, `changed_total=41472000`, `copy.avg_us=16585`, `present.avg_us=13794`, post-replay
-`selftest fail=0`, and no focused dmesg fault-filter match. This proves the D3 telemetry and hold path; final rung-②
-close still needs operator visual confirmation that the held GPU-blit demo frame looked correct on the panel.
+`selftest fail=0`, and no focused dmesg fault-filter match. V3314 then strengthened the close gate by adding
+`--start-frame` and final-frame semantic sampling, so the 60 s hold starts from the high-contrast Bad Apple segment
+instead of the black intro. The V3314 live run rendered and held 60 frames from frame 515, presented successfully,
+produced only black/white output pixels (`semantic_output_other_count=0`), and stayed healthy, but the exact semantic
+sample gate returned `63/64` because one source-edge sample expected white while the scaled texture output was black.
+Treat that as a validation-design gap, not a rendering failure: V3315 should accept a small source-neighborhood match
+around scaled texture edges while still requiring 64/64 semantic samples and zero non-binary output pixels. Final
+rung-② close still needs a clean semantic gate plus operator visual confirmation that the held GPU-blit demo frame
+looked correct on the panel.
 
 **(historical, first-triangle ladder — DONE record)** Threshold from fixed-function plumbing to *real GPU
 graphics*: vertex buffer → vertex shader → rasterizer → fragment shader → a shaded triangle, readback-verified, blitted
