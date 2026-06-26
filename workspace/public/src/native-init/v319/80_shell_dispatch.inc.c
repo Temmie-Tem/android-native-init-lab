@@ -1877,6 +1877,8 @@ struct gpu_c2_compute_pattern_probe_result {
     int readtimestamp_errno;
     int readback_sync_rc;
     int readback_sync_errno;
+    int snapshot_write_rc;
+    int snapshot_write_errno;
     int fence_poll_attempted;
     int fence_poll_rc;
     int fence_poll_errno;
@@ -1974,6 +1976,7 @@ struct gpu_c2_compute_pattern_probe_result {
     uint64_t descriptor_sync_length;
     uint64_t event_sync_length;
     uint64_t readback_sync_length;
+    uint64_t snapshot_write_bytes;
     long total_elapsed_ms;
 };
 
@@ -2197,6 +2200,9 @@ struct gpu_c2_compute_pattern_probe_result {
 #define GPU_C2_SAMPLE_4096 4096U
 #define GPU_C2_SAMPLE_8192 8192U
 #define GPU_C2_SAMPLE_LAST (GPU_C2_UAV_WORDS - 1U)
+#define GPU_C2_SNAPSHOT_PATH "/tmp/a90-gpu-c2-pattern-snapshot-v3302.u32"
+#define GPU_C3_VISUAL_FILL_BG 0x050505U
+#define GPU_C3_VISUAL_PANEL_BG 0x080c10U
 #define GPU_H2_CMD_ALLOC_SIZE 4096ULL
 #define GPU_H2_COLOR_WIDTH 128U
 #define GPU_H2_COLOR_HEIGHT 128U
@@ -8578,6 +8584,56 @@ static uint32_t gpu_c2_pattern_expected_value(unsigned int index) {
     return index;
 }
 
+static int gpu_c2_write_snapshot_file(const uint32_t *words,
+                                      uint64_t *bytes_written,
+                                      int *snapshot_errno) {
+    int fd;
+    int close_rc;
+
+    if (bytes_written != NULL) {
+        *bytes_written = 0ULL;
+    }
+    if (snapshot_errno != NULL) {
+        *snapshot_errno = 0;
+    }
+    if (words == NULL) {
+        if (snapshot_errno != NULL) {
+            *snapshot_errno = EINVAL;
+        }
+        return -1;
+    }
+
+    errno = 0;
+    fd = open(GPU_C2_SNAPSHOT_PATH,
+              O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW,
+              0600);
+    if (fd < 0) {
+        if (snapshot_errno != NULL) {
+            *snapshot_errno = errno;
+        }
+        return -1;
+    }
+    errno = 0;
+    if (write_all_checked(fd, (const char *)words, (size_t)GPU_C2_UAV_BYTES) < 0) {
+        if (snapshot_errno != NULL) {
+            *snapshot_errno = errno;
+        }
+        close(fd);
+        return -1;
+    }
+    close_rc = close(fd);
+    if (close_rc < 0) {
+        if (snapshot_errno != NULL) {
+            *snapshot_errno = errno;
+        }
+        return -1;
+    }
+    if (bytes_written != NULL) {
+        *bytes_written = GPU_C2_UAV_BYTES;
+    }
+    return 0;
+}
+
 static int gpu_c2_compute_pattern_probe_child(int write_fd) {
     static const uint32_t compute_shader[GPU_C2_SHADER_DWORDS] = {
         0x000000c0U, 0x200cc000U, 0x000000c0U, 0x200cc001U,
@@ -8628,6 +8684,7 @@ static int gpu_c2_compute_pattern_probe_child(int write_fd) {
     result.wait_rc = -1;
     result.readtimestamp_rc = -1;
     result.readback_sync_rc = -1;
+    result.snapshot_write_rc = -1;
     result.fence_poll_rc = -1;
     result.fence_close_rc = -1;
     result.cmd_munmap_rc = -1;
@@ -9001,6 +9058,10 @@ static int gpu_c2_compute_pattern_probe_child(int write_fd) {
                         result.changed_count += 1U;
                     }
                 }
+                result.snapshot_write_rc =
+                    gpu_c2_write_snapshot_file(uav_words,
+                                               &result.snapshot_write_bytes,
+                                               &result.snapshot_write_errno);
             }
         }
 
@@ -9621,6 +9682,14 @@ static int gpu_c2_compute_pattern_probe(int timeout_ms, bool materialize_devnode
                            result.readback_sync_rc);
         a90_console_printf("gpu.c2.compute.readback_sync_errno=%d\r\n",
                            result.readback_sync_errno);
+        a90_console_printf("gpu.c2.compute.snapshot_path=%s\r\n",
+                           GPU_C2_SNAPSHOT_PATH);
+        a90_console_printf("gpu.c2.compute.snapshot_write_rc=%d\r\n",
+                           result.snapshot_write_rc);
+        a90_console_printf("gpu.c2.compute.snapshot_write_errno=%d\r\n",
+                           result.snapshot_write_errno);
+        a90_console_printf("gpu.c2.compute.snapshot_write_bytes=%llu\r\n",
+                           (unsigned long long)result.snapshot_write_bytes);
         a90_console_printf("gpu.c2.compute.readback0=%u\r\n", result.readback0);
         a90_console_printf("gpu.c2.compute.readback1=%u\r\n", result.readback1);
         a90_console_printf("gpu.c2.compute.readback2=%u\r\n", result.readback2);
@@ -11354,6 +11423,410 @@ static int gpu_g5_blit_gpu_readback_to_kms(uint32_t raw_pixel,
     return 0;
 }
 
+static int gpu_c3_read_c2_snapshot(uint32_t *words,
+                                   uint64_t *bytes_read,
+                                   int *read_errno) {
+    int fd;
+    uint64_t total = 0ULL;
+
+    if (bytes_read != NULL) {
+        *bytes_read = 0ULL;
+    }
+    if (read_errno != NULL) {
+        *read_errno = 0;
+    }
+    if (words == NULL) {
+        if (read_errno != NULL) {
+            *read_errno = EINVAL;
+        }
+        return -1;
+    }
+
+    errno = 0;
+    fd = open(GPU_C2_SNAPSHOT_PATH, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        if (read_errno != NULL) {
+            *read_errno = errno;
+        }
+        return -1;
+    }
+    while (total < GPU_C2_UAV_BYTES) {
+        ssize_t nread;
+
+        errno = 0;
+        nread = read(fd,
+                     ((char *)words) + total,
+                     (size_t)(GPU_C2_UAV_BYTES - total));
+        if (nread < 0) {
+            if (read_errno != NULL) {
+                *read_errno = errno;
+            }
+            close(fd);
+            return -1;
+        }
+        if (nread == 0) {
+            if (read_errno != NULL) {
+                *read_errno = EIO;
+            }
+            close(fd);
+            return -1;
+        }
+        total += (uint64_t)nread;
+    }
+    if (close(fd) < 0) {
+        if (read_errno != NULL) {
+            *read_errno = errno;
+        }
+        return -1;
+    }
+    if (bytes_read != NULL) {
+        *bytes_read = total;
+    }
+    return 0;
+}
+
+static uint32_t gpu_c3_c2_word_to_rgb(uint32_t word, uint32_t x, uint32_t y) {
+    uint32_t expected = (y * GPU_C2_PATTERN_WIDTH) + x;
+    uint32_t red = (x * 255U) / (GPU_C2_PATTERN_WIDTH - 1U);
+    uint32_t green = (y * 255U) / (GPU_C2_PATTERN_HEIGHT - 1U);
+    uint32_t blue = ((word ^ (word >> 7)) & 0x7fU) * 2U;
+
+    if (word != expected) {
+        return 0xff0040U;
+    }
+    return (red << 16) | (green << 8) | blue;
+}
+
+static int gpu_c3_blit_c2_snapshot_to_kms(const uint32_t *source,
+                                          uint32_t mismatch_count,
+                                          uint32_t *rect_x,
+                                          uint32_t *rect_y,
+                                          uint32_t *rect_w,
+                                          uint32_t *rect_h,
+                                          uint32_t *scale_out) {
+    struct a90_fb *fb = a90_kms_framebuffer();
+    uint32_t usable_w;
+    uint32_t usable_h;
+    uint32_t scale;
+    uint32_t dst_w;
+    uint32_t dst_h;
+    uint32_t x;
+    uint32_t y;
+    uint32_t sy;
+    char line[96];
+
+    if (source == NULL ||
+        fb == NULL || fb->pixels == NULL || fb->pixels == MAP_FAILED ||
+        fb->width == 0U || fb->height == 0U || fb->stride < fb->width * 4U) {
+        return -ENODEV;
+    }
+
+    usable_w = fb->width > (GPU_H5_VISUAL_MIN_PANEL_MARGIN * 2U) ?
+        fb->width - (GPU_H5_VISUAL_MIN_PANEL_MARGIN * 2U) : fb->width;
+    usable_h = fb->height > (GPU_H5_VISUAL_TOP_TEXT_Y + GPU_H5_VISUAL_BOTTOM_RESERVED) ?
+        fb->height - GPU_H5_VISUAL_TOP_TEXT_Y - GPU_H5_VISUAL_BOTTOM_RESERVED : fb->height;
+    scale = usable_w / GPU_C2_PATTERN_WIDTH;
+    if (usable_h / GPU_C2_PATTERN_HEIGHT < scale) {
+        scale = usable_h / GPU_C2_PATTERN_HEIGHT;
+    }
+    if (scale == 0U) {
+        return -ENOSPC;
+    }
+    dst_w = GPU_C2_PATTERN_WIDTH * scale;
+    dst_h = GPU_C2_PATTERN_HEIGHT * scale;
+    x = (fb->width - dst_w) / 2U;
+    y = (fb->height - dst_h) / 2U;
+    if (y < GPU_H5_H3_PRESENT_TOP) {
+        y = GPU_H5_H3_PRESENT_TOP;
+    }
+    if (y + dst_h > fb->height) {
+        y = (fb->height - dst_h) / 2U;
+    }
+
+    a90_draw_text(fb, 36U, 48U, "GPU C3 COMPUTE VISUAL", 0xffffff, 4U);
+    a90_draw_text(fb, 36U, 104U, "128X128 UAV PATTERN FROM GPU", 0x80ff80, 3U);
+    a90_draw_rect(fb, x, y, dst_w, dst_h, GPU_C3_VISUAL_PANEL_BG);
+    a90_draw_rect_outline(fb,
+                          x > 8U ? x - 8U : x,
+                          y > 8U ? y - 8U : y,
+                          dst_w + 16U < fb->width ? dst_w + 16U : dst_w,
+                          dst_h + 16U < fb->height ? dst_h + 16U : dst_h,
+                          4U,
+                          mismatch_count == 0U ? 0xffffffU : 0xff0040U);
+
+    for (sy = 0; sy < GPU_C2_PATTERN_HEIGHT; ++sy) {
+        uint32_t sx;
+
+        for (sx = 0; sx < GPU_C2_PATTERN_WIDTH; ++sx) {
+            uint32_t raw = source[(sy * GPU_C2_PATTERN_WIDTH) + sx];
+            uint32_t pixel = gpu_h5_pack_rgb_for_xbgr8888(
+                gpu_c3_c2_word_to_rgb(raw, sx, sy));
+            uint32_t dy;
+
+            for (dy = 0; dy < scale; ++dy) {
+                uint32_t *row =
+                    (uint32_t *)((char *)fb->pixels + ((y + (sy * scale) + dy) * fb->stride));
+                uint32_t dx;
+
+                for (dx = 0; dx < scale; ++dx) {
+                    row[x + (sx * scale) + dx] = pixel;
+                }
+            }
+        }
+    }
+    __sync_synchronize();
+
+    snprintf(line, sizeof(line), "WORDS %u  MISMATCH %u",
+             GPU_C2_UAV_WORDS, mismatch_count);
+    a90_draw_text(fb, 36U, y + dst_h + 28U, line, 0xffcc33, 3U);
+    snprintf(line, sizeof(line), "SAMPLES 0 1 127 128 4096 8192 16383 OK");
+    a90_draw_text(fb, 36U, y + dst_h + 72U, line, 0xbbbbbb, 3U);
+    snprintf(line, sizeof(line), "SCALE %u  RECT %u,%u %ux%u",
+             scale, x, y, dst_w, dst_h);
+    a90_draw_text(fb, 36U, y + dst_h + 116U, line, 0xbbbbbb, 3U);
+
+    if (rect_x != NULL) {
+        *rect_x = x;
+    }
+    if (rect_y != NULL) {
+        *rect_y = y;
+    }
+    if (rect_w != NULL) {
+        *rect_w = dst_w;
+    }
+    if (rect_h != NULL) {
+        *rect_h = dst_h;
+    }
+    if (scale_out != NULL) {
+        *scale_out = scale;
+    }
+    return 0;
+}
+
+static int gpu_c3_compute_kms_probe(int timeout_ms,
+                                    bool materialize_devnode,
+                                    int hold_ms) {
+    struct a90_kms_info kms_info;
+    uint32_t *snapshot = NULL;
+    long total_started_ms = monotonic_millis();
+    long stage_started_ms;
+    int compute_rc;
+    int read_rc = -1;
+    int read_errno = 0;
+    int begin_rc = -1;
+    int blit_rc = -1;
+    int present_rc = -1;
+    uint64_t bytes_read = 0ULL;
+    uint32_t expected_match_count = 0U;
+    uint32_t mismatch_count = 0U;
+    uint32_t first_mismatch_index = UINT_MAX;
+    uint32_t first_mismatch_expected = 0U;
+    uint32_t first_mismatch_value = 0U;
+    uint32_t rect_x = 0U;
+    uint32_t rect_y = 0U;
+    uint32_t rect_w = 0U;
+    uint32_t rect_h = 0U;
+    uint32_t scale = 0U;
+    long begin_elapsed_ms = 0;
+    long blit_elapsed_ms = 0;
+    long present_elapsed_ms = 0;
+    unsigned int index;
+
+    if (timeout_ms <= 0) {
+        timeout_ms = GPU_G0_DEFAULT_TIMEOUT_MS;
+    }
+    if (timeout_ms > GPU_G0_MAX_TIMEOUT_MS) {
+        a90_console_printf("gpu.c3.kms.error=timeout-too-large max_ms=%d\r\n",
+                           GPU_G0_MAX_TIMEOUT_MS);
+        return -EINVAL;
+    }
+    if (hold_ms < 0 || hold_ms > GPU_H5_VISUAL_HOLD_MAX_MS) {
+        a90_console_printf("gpu.c3.vis.error=bad-hold max_ms=%d\r\n",
+                           GPU_H5_VISUAL_HOLD_MAX_MS);
+        return -EINVAL;
+    }
+
+    a90_console_printf("gpu.c3.kms.version=1\r\n");
+    a90_console_printf("gpu.c3.kms.scope=visible-compute-c3-c2-uav-pattern-to-kms-held\r\n");
+    a90_console_printf("gpu.c3.kms.kgsl_path=%s\r\n", GPU_G0_DEVNODE);
+    a90_console_printf("gpu.c3.kms.drm_path=/dev/dri/card0\r\n");
+    a90_console_printf("gpu.c3.kms.timeout_ms=%d\r\n", timeout_ms);
+    a90_console_printf("gpu.c3.vis.version=1\r\n");
+    a90_console_printf("gpu.c3.vis.mode=c2-uav-r32-pattern-gradient-expanded\r\n");
+    a90_console_printf("gpu.c3.vis.hold_ms=%d\r\n", hold_ms);
+    a90_console_printf("gpu.c3.vis.hold_max_ms=%d\r\n", GPU_H5_VISUAL_HOLD_MAX_MS);
+    a90_console_printf("gpu.c3.kms.compute_source=c2-workgroup-id-uav-readback-snapshot\r\n");
+    a90_console_printf("gpu.c3.kms.snapshot_path=%s\r\n", GPU_C2_SNAPSHOT_PATH);
+    a90_console_printf("gpu.c3.kms.blit_mode=c2-private-uav-snapshot-to-kms-dumb-framebuffer\r\n");
+    a90_console_printf("gpu.c3.kms.zero_copy_attempted=0\r\n");
+    a90_console_printf("gpu.c3.kms.scaled_plane_attempted=0\r\n");
+    a90_console_printf("gpu.c3.kms.kms_blit_attempted=1\r\n");
+    a90_console_printf("gpu.c3.kms.power_write_attempted=0\r\n");
+    a90_console_printf("gpu.c3.kms.proprietary_blob_attempted=0\r\n");
+    stop_auto_hud(false);
+    a90_console_printf("gpu.c3.vis.autohud_stop_attempted=1\r\n");
+
+    if (materialize_devnode) {
+        int mat_rc = gpu_g0_materialize_devnode();
+
+        a90_console_printf("gpu.c3.kms.materialize_requested=1\r\n");
+        a90_console_printf("gpu.c3.kms.materialize_rc=%d\r\n", mat_rc);
+        if (mat_rc < 0) {
+            return mat_rc;
+        }
+    } else {
+        a90_console_printf("gpu.c3.kms.materialize_requested=0\r\n");
+    }
+
+    unlink(GPU_C2_SNAPSHOT_PATH);
+    stage_started_ms = monotonic_millis();
+    compute_rc = gpu_c2_compute_pattern_probe(timeout_ms, false);
+    a90_console_printf("gpu.c3.kms.c2_compute_elapsed_ms=%ld\r\n",
+                       monotonic_millis() - stage_started_ms);
+    a90_console_printf("gpu.c3.kms.c2_compute_rc=%d\r\n", compute_rc);
+    if (compute_rc < 0) {
+        a90_console_printf("gpu.c3.kms.result=c2-compute-failed\r\n");
+        a90_console_printf("gpu.c3.kms.total_elapsed_ms=%ld\r\n",
+                           monotonic_millis() - total_started_ms);
+        return compute_rc;
+    }
+
+    snapshot = (uint32_t *)malloc((size_t)GPU_C2_UAV_BYTES);
+    if (snapshot == NULL) {
+        a90_console_printf("gpu.c3.kms.result=oom\r\n");
+        a90_console_printf("gpu.c3.kms.total_elapsed_ms=%ld\r\n",
+                           monotonic_millis() - total_started_ms);
+        return -ENOMEM;
+    }
+
+    read_rc = gpu_c3_read_c2_snapshot(snapshot, &bytes_read, &read_errno);
+    a90_console_printf("gpu.c3.kms.snapshot_read_rc=%d\r\n", read_rc);
+    a90_console_printf("gpu.c3.kms.snapshot_read_errno=%d\r\n", read_errno);
+    a90_console_printf("gpu.c3.kms.snapshot_read_bytes=%llu\r\n",
+                       (unsigned long long)bytes_read);
+    if (read_rc < 0 || bytes_read != GPU_C2_UAV_BYTES) {
+        free(snapshot);
+        a90_console_printf("gpu.c3.kms.result=snapshot-read-failed\r\n");
+        a90_console_printf("gpu.c3.kms.total_elapsed_ms=%ld\r\n",
+                           monotonic_millis() - total_started_ms);
+        return -EIO;
+    }
+
+    for (index = 0; index < GPU_C2_UAV_WORDS; ++index) {
+        uint32_t expected = gpu_c2_pattern_expected_value(index);
+
+        if (snapshot[index] == expected) {
+            expected_match_count += 1U;
+        } else {
+            if (first_mismatch_index == UINT_MAX) {
+                first_mismatch_index = index;
+                first_mismatch_expected = expected;
+                first_mismatch_value = snapshot[index];
+            }
+            mismatch_count += 1U;
+        }
+    }
+    a90_console_printf("gpu.c3.kms.snapshot_readback0=%u\r\n", snapshot[0]);
+    a90_console_printf("gpu.c3.kms.snapshot_readback1=%u\r\n", snapshot[1]);
+    a90_console_printf("gpu.c3.kms.snapshot_readback127=%u\r\n",
+                       snapshot[GPU_C2_SAMPLE_127]);
+    a90_console_printf("gpu.c3.kms.snapshot_readback128=%u\r\n",
+                       snapshot[GPU_C2_SAMPLE_128]);
+    a90_console_printf("gpu.c3.kms.snapshot_readback4096=%u\r\n",
+                       snapshot[GPU_C2_SAMPLE_4096]);
+    a90_console_printf("gpu.c3.kms.snapshot_readback8192=%u\r\n",
+                       snapshot[GPU_C2_SAMPLE_8192]);
+    a90_console_printf("gpu.c3.kms.snapshot_readback16383=%u\r\n",
+                       snapshot[GPU_C2_SAMPLE_LAST]);
+    a90_console_printf("gpu.c3.kms.snapshot_expected_match_count=%u\r\n",
+                       expected_match_count);
+    a90_console_printf("gpu.c3.kms.snapshot_mismatch_count=%u\r\n",
+                       mismatch_count);
+    a90_console_printf("gpu.c3.kms.snapshot_first_mismatch_index=%u\r\n",
+                       first_mismatch_index);
+    a90_console_printf("gpu.c3.kms.snapshot_first_mismatch_expected=%u\r\n",
+                       first_mismatch_expected);
+    a90_console_printf("gpu.c3.kms.snapshot_first_mismatch_value=%u\r\n",
+                       first_mismatch_value);
+    if (expected_match_count != GPU_C2_UAV_WORDS || mismatch_count != 0U) {
+        free(snapshot);
+        a90_console_printf("gpu.c3.kms.result=snapshot-contract-failed\r\n");
+        a90_console_printf("gpu.c3.kms.total_elapsed_ms=%ld\r\n",
+                           monotonic_millis() - total_started_ms);
+        return -EIO;
+    }
+
+    stage_started_ms = monotonic_millis();
+    begin_rc = a90_kms_begin_frame(GPU_C3_VISUAL_FILL_BG);
+    begin_elapsed_ms = monotonic_millis() - stage_started_ms;
+    a90_kms_info(&kms_info);
+    a90_console_printf("gpu.c3.kms.begin_frame_elapsed_ms=%ld\r\n", begin_elapsed_ms);
+    a90_console_printf("gpu.c3.kms.begin_frame_rc=%d\r\n", begin_rc);
+    a90_console_printf("gpu.c3.kms.fb_initialized=%d\r\n", kms_info.initialized ? 1 : 0);
+    a90_console_printf("gpu.c3.kms.fb_width=%u\r\n", kms_info.width);
+    a90_console_printf("gpu.c3.kms.fb_height=%u\r\n", kms_info.height);
+    a90_console_printf("gpu.c3.kms.fb_stride=%u\r\n", kms_info.stride);
+    a90_console_printf("gpu.c3.kms.fb_id=%u\r\n", kms_info.fb_id);
+    a90_console_printf("gpu.c3.kms.current_buffer=%u\r\n", kms_info.current_buffer);
+    if (begin_rc < 0) {
+        free(snapshot);
+        a90_console_printf("gpu.c3.kms.result=kms-begin-frame-failed\r\n");
+        a90_console_printf("gpu.c3.kms.total_elapsed_ms=%ld\r\n",
+                           monotonic_millis() - total_started_ms);
+        return -EIO;
+    }
+
+    stage_started_ms = monotonic_millis();
+    blit_rc = gpu_c3_blit_c2_snapshot_to_kms(snapshot,
+                                            mismatch_count,
+                                            &rect_x,
+                                            &rect_y,
+                                            &rect_w,
+                                            &rect_h,
+                                            &scale);
+    blit_elapsed_ms = monotonic_millis() - stage_started_ms;
+    a90_console_printf("gpu.c3.kms.blit_elapsed_ms=%ld\r\n", blit_elapsed_ms);
+    a90_console_printf("gpu.c3.kms.blit_rc=%d\r\n", blit_rc);
+    a90_console_printf("gpu.c3.kms.blit_rect=%u,%u,%u,%u\r\n",
+                       rect_x, rect_y, rect_w, rect_h);
+    a90_console_printf("gpu.c3.kms.blit_scale=%u\r\n", scale);
+    free(snapshot);
+    snapshot = NULL;
+    if (blit_rc < 0) {
+        a90_console_printf("gpu.c3.kms.result=kms-blit-failed\r\n");
+        a90_console_printf("gpu.c3.kms.total_elapsed_ms=%ld\r\n",
+                           monotonic_millis() - total_started_ms);
+        return blit_rc;
+    }
+
+    stage_started_ms = monotonic_millis();
+    present_rc = a90_kms_present("gpu-c3-compute-kms", true);
+    present_elapsed_ms = monotonic_millis() - stage_started_ms;
+    a90_console_printf("gpu.c3.kms.present_elapsed_ms=%ld\r\n", present_elapsed_ms);
+    a90_console_printf("gpu.c3.kms.present_rc=%d\r\n", present_rc);
+    if (present_rc == 0) {
+        a90_console_printf("gpu.c3.kms.result=compute-pattern-presented\r\n");
+    } else {
+        a90_console_printf("gpu.c3.kms.result=kms-present-failed\r\n");
+    }
+    if (present_rc == 0 && hold_ms > 0) {
+        long hold_started_ms = monotonic_millis();
+
+        a90_console_printf("gpu.c3.vis.hold_begin=1\r\n");
+        usleep((useconds_t)hold_ms * 1000U);
+        a90_console_printf("gpu.c3.vis.hold_elapsed_ms=%ld\r\n",
+                           monotonic_millis() - hold_started_ms);
+        a90_console_printf("gpu.c3.vis.result=compute-pattern-presented-held\r\n");
+    } else if (present_rc == 0) {
+        a90_console_printf("gpu.c3.vis.result=compute-pattern-presented-no-hold\r\n");
+    } else {
+        a90_console_printf("gpu.c3.vis.result=kms-present-failed\r\n");
+    }
+    a90_console_printf("gpu.c3.kms.total_elapsed_ms=%ld\r\n",
+                       monotonic_millis() - total_started_ms);
+    return present_rc == 0 ? 0 : -EIO;
+}
+
 static int gpu_g5_kms_blit_probe(int timeout_ms, bool materialize_devnode) {
     struct gpu_g4_solid_fill_child_run run;
     struct a90_kms_info kms_info;
@@ -11874,6 +12347,30 @@ static int handle_gpu(char **argv, int argc) {
         }
         return gpu_c2_compute_pattern_probe(timeout_ms, materialize_devnode);
     }
+    if (strcmp(subcommand, "c3-compute-kms-probe") == 0 ||
+        strcmp(subcommand, "compute-kms-probe") == 0) {
+        for (index = 2; index < argc; ++index) {
+            if (strcmp(argv[index], "--timeout-ms") == 0) {
+                if (index + 1 >= argc || !gpu_g0_parse_int(argv[index + 1], &timeout_ms)) {
+                    a90_console_printf("gpu.c3.kms.error=bad-timeout\r\n");
+                    return -EINVAL;
+                }
+                ++index;
+            } else if (strcmp(argv[index], "--hold-ms") == 0) {
+                if (index + 1 >= argc || !gpu_g0_parse_int(argv[index + 1], &hold_ms)) {
+                    a90_console_printf("gpu.c3.vis.error=bad-hold\r\n");
+                    return -EINVAL;
+                }
+                ++index;
+            } else if (strcmp(argv[index], "--materialize-devnode") == 0) {
+                materialize_devnode = true;
+            } else {
+                a90_console_printf("usage: gpu c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]\r\n");
+                return -EINVAL;
+            }
+        }
+        return gpu_c3_compute_kms_probe(timeout_ms, materialize_devnode, hold_ms);
+    }
     if (strcmp(subcommand, "g4-solid-fill-probe") == 0 ||
         strcmp(subcommand, "solid-fill-probe") == 0) {
         for (index = 2; index < argc; ++index) {
@@ -11935,7 +12432,7 @@ static int handle_gpu(char **argv, int argc) {
         return gpu_h5_triangle_kms_probe(timeout_ms, materialize_devnode, hold_ms);
     }
     if (strcmp(subcommand, "g0-open-probe") != 0) {
-        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]\r\n");
+        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]\r\n");
         return -EINVAL;
     }
     for (index = 2; index < argc; ++index) {
@@ -12030,7 +12527,7 @@ static const struct shell_command command_table[] = {
     { "pstore", handle_pstore, "pstore [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "watchdoginv", handle_watchdoginv, "watchdoginv [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "tracefs", handle_tracefs, "tracefs [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
-    { "gpu", handle_gpu, "gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]", CMD_NONE, A90_CMD_GROUP_CORE },
+    { "gpu", handle_gpu, "gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "audio", handle_audio, "audio [status|profiles|profile|speaker-map|stages|prereq|app-type|setcal|route|play|chime|play-status|stop|adsp-status|snd-status]", CMD_NONE, A90_CMD_GROUP_ANDROID },
     { "video", handle_video, "video [status|frame [bars|checker|mono|0xRRGGBB]|demo [badapple|badapple-scale|nyan|doom [status|verify|play|frame|engine-probe] [frames] [--wad runtime-private --sha256 EXPECTED]|frame-pattern]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status PATH]|cache [status|verify|play] SHA256 [--trust-cache] [--layout full|player-hud]|cache preset [badapple|badapple-scale|nyan] [status|verify|play]]", CMD_DISPLAY, A90_CMD_GROUP_DISPLAY },
     { "wifi", handle_wifi, "wifi [status|scan [delay_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|config [status|prepare [profile]]]", CMD_NONE, A90_CMD_GROUP_NETWORK },
