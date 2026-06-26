@@ -535,7 +535,10 @@ for eye confirmation. USB visibility later recovered; resident `0.11.77` health 
 existing V3303 C3 command was replayed with a 60 s hold: `snapshot_expected_match_count=16384`,
 `snapshot_mismatch_count=0`, `present_rc=0`, `result=compute-pattern-presented`, `hold_elapsed_ms=60000`,
 `vis.result=compute-pattern-presented-held`, `rc=0`, `duration_ms=60041`; post-replay selftest stayed `fail=0`, and
-the GPU fault filter had no match. C3 still awaits the operator's explicit eye confirmation of the held panel pattern.
+the GPU fault filter had no match. A final replay again returned `0.11.77`, pre/post `selftest fail=0`,
+`present_rc=0`, `vis.result=compute-pattern-presented-held`, 60 s hold, and no GPU fault-filter match. C3 is blocked
+only on the operator's explicit eye confirmation of the held panel pattern; host/device telemetry cannot create that
+human visual statement.
 
 **(historical, first-triangle ladder — DONE record)** Threshold from fixed-function plumbing to *real GPU
 graphics*: vertex buffer → vertex shader → rasterizer → fragment shader → a shaded triangle, readback-verified, blitted
