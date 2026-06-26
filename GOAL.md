@@ -478,14 +478,15 @@ ir3 `stib`/`ldib` buffer ops.
   criterion: readback `buf[i] == i` for grid 32 (or `changed_count>0` with the per-invocation pattern).** If unchanged,
   do NOT churn "what's missing" — immediately run the execution-proof bisect (CP_MEM_WRITE sentinel to `buf[0]` before
   `CP_EXEC_CS`; drop `KGSL_CONTEXT_NO_SNAPSHOT` and read GPU fault state), then register-diff against `comp_a6xx.cc`.
-- **C2** Mandelbrot kernel: each invocation = one pixel → `z=z²+c` bounded escape loop (float `mul.f`/`add.f`/`cmps.f`
+- **C2** Mandelbrot-or-pattern kernel: each invocation = one pixel → `z=z²+c` bounded escape loop (float `mul.f`/`add.f`/`cmps.f`
   + predicate/branch from `kern_branch.asm`) → color buffer. **Crux.** If ir3 float+loop too fiddly, FALL BACK to a
   simpler per-pixel kernel (gradient/xy-pattern) — still proves "GPU computes per pixel and shows it" — and record it.
+  **V3302 used the fallback: a 128x128 workgroup-id UAV pattern, live readback-proven.**
 - **C3** blit the compute output to `/dev/dri/card0` via the proven H5 present path (reuse tile→linear if needed);
   operator visually confirms the fractal on the panel = compute-demo close. **Matrix/GPGPU math is ABSORBED here** (no
   standalone matmul, no blob/BLAS). Modularization stays an extraction (rule-of-three) after the chain's consumers exist.
 
-**STATUS (2026-06-26) — C0 host-only recon landed as V3299; C1 shader-byte gate landed as V3300; C1 native-init source/build + live UAV readback proof landed as V3301.**
+**STATUS (2026-06-26) — C0 host-only recon landed as V3299; C1 shader-byte gate landed as V3300; C1 native-init source/build + live UAV readback proof landed as V3301; C2 128x128 compute pattern source/build + live readback proof landed as V3302.**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
 `CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed
@@ -504,8 +505,19 @@ flash/readback verified the exact artifact, booted `0.11.75`, and the live
 `gpu c1-compute-invocationid-probe --timeout-ms 5000 --materialize-devnode` run passed:
 `readback0=0`, `readback1=1`, `readback31=31`, `expected_match_count=32`, `mismatch_count=0`, `pass=1`,
 `total_elapsed_ms=28`. Post-probe selftest stayed `fail=0`, and the bridge capture fault filter found no GPU
-fault/hang/page-fault match. C1 is closed; next compute rung is **C2**: turn the compute output into a visible
-buffer pattern suitable for the proven H5 KMS present path.
+fault/hang/page-fault match. V3302 embeds a verified 32-dword FD640 workgroup-id CS shader
+(`sha256=9259cd6e225aba4d1e86fb88527494404617b2aaf753c948379ade2edb18a6d1`, asm
+`sha256=1f7f223c66a97975e416dce96b0a960933b7fa21b7bf4c6d380b3eb63e31b0d6`) and dispatches
+16,384 one-lane workgroups into a 128x128 R32_UINT UAV. V3302 source/build validation produced
+`workspace/private/inputs/boot_images/boot_linux_v3302_gpu_compute_c2_pattern_probe.img`
+(`sha256=3f437360d9c428548fb1d89dfa90d56091313375c0b04578c45d95021d43af5a`, size 66117632 bytes);
+flash/readback verified the exact artifact, booted `0.11.76`, and the live
+`gpu c2-compute-pattern-probe --timeout-ms 5000 --materialize-devnode` run passed:
+`readback0=0`, `readback1=1`, `readback127=127`, `readback128=128`, `readback4096=4096`,
+`readback8192=8192`, `readback16383=16383`, `expected_match_count=16384`, `mismatch_count=0`,
+`pass=1`, `total_elapsed_ms=15`. Post-probe selftest stayed `fail=0`, and the bridge capture fault
+filter found no GPU fault/hang/page-fault match. C2 is closed; next compute rung is **C3**: present the
+compute buffer through the proven H5 KMS path for visual confirmation.
 
 **(historical, first-triangle ladder — DONE record)** Threshold from fixed-function plumbing to *real GPU
 graphics*: vertex buffer → vertex shader → rasterizer → fragment shader → a shaded triangle, readback-verified, blitted
