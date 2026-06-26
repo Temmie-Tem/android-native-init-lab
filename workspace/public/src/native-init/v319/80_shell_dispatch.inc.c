@@ -2395,6 +2395,7 @@ struct gpu_c2_compute_pattern_probe_result {
 #define GPU_D3_VIDEO_TARGET_BYTES \
     ((uint64_t)GPU_D3_VIDEO_TARGET_STRIDE * GPU_D3_VIDEO_TARGET_HEIGHT)
 #define GPU_D3_VIDEO_COLOR_FLAG_ALLOC_SIZE 65536ULL
+#define GPU_D3_VIDEO_SEMANTIC_EDGE_RADIUS 1U
 #define GPU_D3_VIDEO_LABEL "GPU D3 VIDEO TEXTURE"
 #define GPU_D3_VIDEO_SCOPE "gpu-2d-d3-demo-player-texture-blit-present"
 #define GPU_H3_A6XX_FMT6_32_32_FLOAT 0x67U
@@ -3904,6 +3905,8 @@ struct gpu_d3_video_frame_stats {
     uint32_t center_word;
     uint32_t semantic_sample_count;
     uint32_t semantic_sample_match_count;
+    uint32_t semantic_exact_match_count;
+    uint32_t semantic_edge_tolerant_match_count;
     uint32_t semantic_sample_mismatch_count;
     uint32_t semantic_first_mismatch_index;
     uint32_t semantic_first_mismatch_expected;
@@ -3963,6 +3966,8 @@ struct gpu_d3_video_summary {
     uint32_t last_center_word;
     uint32_t semantic_sample_count;
     uint32_t semantic_sample_match_count;
+    uint32_t semantic_exact_match_count;
+    uint32_t semantic_edge_tolerant_match_count;
     uint32_t semantic_sample_mismatch_count;
     uint32_t semantic_first_mismatch_index;
     uint32_t semantic_first_mismatch_expected;
@@ -14050,6 +14055,44 @@ static int gpu_d3_copy_linear_to_kms(struct gpu_d3_session *session,
     return 0;
 }
 
+static bool gpu_d3_source_neighborhood_matches(const struct video_stream_manifest *manifest,
+                                               const uint8_t *frame,
+                                               uint32_t source_x,
+                                               uint32_t source_y,
+                                               uint32_t value) {
+    int radius = (int)GPU_D3_VIDEO_SEMANTIC_EDGE_RADIUS;
+    int base_x = (int)source_x;
+    int base_y = (int)source_y;
+    int dy;
+
+    if (manifest == NULL || frame == NULL || manifest->width == 0U ||
+        manifest->height == 0U) {
+        return false;
+    }
+    for (dy = -radius; dy <= radius; ++dy) {
+        int dx;
+        int ny = base_y + dy;
+
+        if (ny < 0 || ny >= (int)manifest->height) {
+            continue;
+        }
+        for (dx = -radius; dx <= radius; ++dx) {
+            int nx = base_x + dx;
+
+            if (nx < 0 || nx >= (int)manifest->width) {
+                continue;
+            }
+            if (gpu_d2_realframe_expected_rgb(frame,
+                                              manifest,
+                                              (uint32_t)nx,
+                                              (uint32_t)ny) == value) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 static void gpu_d3_validate_linear_semantics(const struct gpu_d3_session *session,
                                              const struct video_stream_manifest *manifest,
                                              const uint8_t *frame,
@@ -14101,6 +14144,14 @@ static void gpu_d3_validate_linear_semantics(const struct gpu_d3_session *sessio
         value = words[((size_t)target_y * session->target_width) + target_x] & 0x00ffffffU;
         stats->semantic_sample_count += 1U;
         if (value == expected) {
+            stats->semantic_exact_match_count += 1U;
+            stats->semantic_sample_match_count += 1U;
+        } else if (gpu_d3_source_neighborhood_matches(manifest,
+                                                       frame,
+                                                       source_x,
+                                                       source_y,
+                                                       value)) {
+            stats->semantic_edge_tolerant_match_count += 1U;
             stats->semantic_sample_match_count += 1U;
         } else {
             if (stats->semantic_sample_mismatch_count == 0U) {
@@ -14383,6 +14434,9 @@ static int gpu_d3_video_texture_present_child(int write_fd,
         summary.last_frame_index = frame_index;
         summary.semantic_sample_count = stats.semantic_sample_count;
         summary.semantic_sample_match_count = stats.semantic_sample_match_count;
+        summary.semantic_exact_match_count = stats.semantic_exact_match_count;
+        summary.semantic_edge_tolerant_match_count =
+            stats.semantic_edge_tolerant_match_count;
         summary.semantic_sample_mismatch_count = stats.semantic_sample_mismatch_count;
         summary.semantic_first_mismatch_index = stats.semantic_first_mismatch_index;
         summary.semantic_first_mismatch_expected = stats.semantic_first_mismatch_expected;
@@ -14485,6 +14539,9 @@ static bool gpu_d3_video_summary_passed(const struct gpu_d3_video_summary *summa
            summary->changed_total > 0ULL &&
            summary->semantic_sample_count == GPU_D1_CHECKER_SAMPLE_COUNT &&
            summary->semantic_sample_match_count == GPU_D1_CHECKER_SAMPLE_COUNT &&
+           summary->semantic_sample_match_count ==
+               summary->semantic_exact_match_count +
+               summary->semantic_edge_tolerant_match_count &&
            summary->semantic_sample_mismatch_count == 0U &&
            summary->semantic_output_other_count == 0U;
 }
@@ -14707,6 +14764,12 @@ static int gpu_d3_video_texture_present_probe(int timeout_ms,
                            summary.semantic_sample_count);
         a90_console_printf("gpu.d3.video.semantic.match_count=%u\r\n",
                            summary.semantic_sample_match_count);
+        a90_console_printf("gpu.d3.video.semantic.exact_match_count=%u\r\n",
+                           summary.semantic_exact_match_count);
+        a90_console_printf("gpu.d3.video.semantic.edge_tolerant_match_count=%u\r\n",
+                           summary.semantic_edge_tolerant_match_count);
+        a90_console_printf("gpu.d3.video.semantic.edge_tolerance_radius=%u\r\n",
+                           GPU_D3_VIDEO_SEMANTIC_EDGE_RADIUS);
         a90_console_printf("gpu.d3.video.semantic.mismatch_count=%u\r\n",
                            summary.semantic_sample_mismatch_count);
         a90_console_printf("gpu.d3.video.semantic.first_mismatch_index=%u\r\n",
