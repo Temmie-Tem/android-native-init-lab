@@ -2410,6 +2410,8 @@ struct gpu_c2_compute_pattern_probe_result {
 #define GPU_M2_GRAPH_DEFAULT_HOLD_MS 5000
 #define GPU_M2_GRAPH_MAX_TIMEOUT_MS 60000
 #define GPU_M2_GRAPH_SCOPE "gpu-m2-live-monitor-graphs-textured-2d"
+#define GPU_M3_EXTRACT_SCOPE "gpu-m3-shared-kgsl-2d-present-extraction"
+#define GPU_M3_EXTRACT_LAYER "gpu_2d_present_v1"
 #define GPU_H3_A6XX_FMT6_32_32_FLOAT 0x67U
 #define GPU_H3_A6XX_FMT6_32_32_32_32_FLOAT 0x82U
 #define GPU_H3_A6XX_FMT6_32_SINT 0x4cU
@@ -13645,10 +13647,10 @@ static void gpu_d3_session_init(struct gpu_d3_session *session) {
     gpu_d3_bo_init(&session->texture);
 }
 
-static int gpu_d3_alloc_map_bo(int fd,
-                               struct gpu_d3_bo *bo,
-                               uint64_t size,
-                               uint64_t min_size) {
+static int gpu_2d_present_alloc_map_bo(int fd,
+                                       struct gpu_d3_bo *bo,
+                                       uint64_t size,
+                                       uint64_t min_size) {
     uint64_t mmap_offset;
 
     if (fd < 0 || bo == NULL || size == 0U || min_size == 0U) {
@@ -13685,7 +13687,7 @@ static int gpu_d3_alloc_map_bo(int fd,
     return 0;
 }
 
-static void gpu_d3_unmap_free_bo(int fd, struct gpu_d3_bo *bo) {
+static void gpu_2d_present_unmap_free_bo(int fd, struct gpu_d3_bo *bo) {
     if (bo == NULL) {
         return;
     }
@@ -13708,17 +13710,17 @@ static void gpu_d3_destroy_session(struct gpu_d3_session *session) {
         return;
     }
     if (session->fd >= 0) {
-        gpu_d3_unmap_free_bo(session->fd, &session->texture);
-        gpu_d3_unmap_free_bo(session->fd, &session->texmem);
-        gpu_d3_unmap_free_bo(session->fd, &session->sampler);
-        gpu_d3_unmap_free_bo(session->fd, &session->vertex);
-        gpu_d3_unmap_free_bo(session->fd, &session->fs);
-        gpu_d3_unmap_free_bo(session->fd, &session->vs);
-        gpu_d3_unmap_free_bo(session->fd, &session->event);
-        gpu_d3_unmap_free_bo(session->fd, &session->linear);
-        gpu_d3_unmap_free_bo(session->fd, &session->color_flag);
-        gpu_d3_unmap_free_bo(session->fd, &session->color);
-        gpu_d3_unmap_free_bo(session->fd, &session->cmd);
+        gpu_2d_present_unmap_free_bo(session->fd, &session->texture);
+        gpu_2d_present_unmap_free_bo(session->fd, &session->texmem);
+        gpu_2d_present_unmap_free_bo(session->fd, &session->sampler);
+        gpu_2d_present_unmap_free_bo(session->fd, &session->vertex);
+        gpu_2d_present_unmap_free_bo(session->fd, &session->fs);
+        gpu_2d_present_unmap_free_bo(session->fd, &session->vs);
+        gpu_2d_present_unmap_free_bo(session->fd, &session->event);
+        gpu_2d_present_unmap_free_bo(session->fd, &session->linear);
+        gpu_2d_present_unmap_free_bo(session->fd, &session->color_flag);
+        gpu_2d_present_unmap_free_bo(session->fd, &session->color);
+        gpu_2d_present_unmap_free_bo(session->fd, &session->cmd);
         if (session->context_id != 0U) {
             struct gpu_kgsl_drawctxt_destroy destroy_arg;
 
@@ -13732,9 +13734,9 @@ static void gpu_d3_destroy_session(struct gpu_d3_session *session) {
     }
 }
 
-static int gpu_d3_create_session(struct gpu_d3_session *session,
-                                 const struct video_stream_manifest *manifest,
-                                 struct gpu_d3_video_summary *summary) {
+static int gpu_2d_present_create_session(struct gpu_d3_session *session,
+                                         const struct video_stream_manifest *manifest,
+                                         struct gpu_d3_video_summary *summary) {
     static const uint32_t vs_shader[GPU_H3_VS_SHADER_DWORDS] = {
         GPU_H3_IR3_MOV_F32F32_R2X_R1X_LO, GPU_H3_IR3_MOV_F32F32_R2X_R1X_HI,
         GPU_H3_IR3_MOV_F32F32_R2Y_R1Y_LO, GPU_H3_IR3_MOV_F32F32_R2Y_R1Y_HI,
@@ -13810,42 +13812,44 @@ static int gpu_d3_create_session(struct gpu_d3_session *session,
     }
     session->context_id = create_arg.drawctxt_id;
 
-    rc = gpu_d3_alloc_map_bo(session->fd, &session->cmd, GPU_H3_CMD_ALLOC_SIZE,
-                             (uint64_t)GPU_G4_CMD_MAX_DWORDS * 4ULL);
+    rc = gpu_2d_present_alloc_map_bo(session->fd,
+                                     &session->cmd,
+                                     GPU_H3_CMD_ALLOC_SIZE,
+                                     (uint64_t)GPU_G4_CMD_MAX_DWORDS * 4ULL);
     if (rc < 0) return rc;
-    rc = gpu_d3_alloc_map_bo(session->fd, &session->color,
-                             session->target_bytes, session->target_bytes);
+    rc = gpu_2d_present_alloc_map_bo(session->fd, &session->color,
+                                     session->target_bytes, session->target_bytes);
     if (rc < 0) return rc;
-    rc = gpu_d3_alloc_map_bo(session->fd, &session->color_flag,
-                             GPU_D3_VIDEO_COLOR_FLAG_ALLOC_SIZE,
-                             GPU_D3_VIDEO_COLOR_FLAG_ALLOC_SIZE);
+    rc = gpu_2d_present_alloc_map_bo(session->fd, &session->color_flag,
+                                     GPU_D3_VIDEO_COLOR_FLAG_ALLOC_SIZE,
+                                     GPU_D3_VIDEO_COLOR_FLAG_ALLOC_SIZE);
     if (rc < 0) return rc;
-    rc = gpu_d3_alloc_map_bo(session->fd, &session->linear,
-                             session->target_bytes, session->target_bytes);
+    rc = gpu_2d_present_alloc_map_bo(session->fd, &session->linear,
+                                     session->target_bytes, session->target_bytes);
     if (rc < 0) return rc;
-    rc = gpu_d3_alloc_map_bo(session->fd, &session->event,
-                             GPU_H3_EVENT_ALLOC_SIZE, GPU_H3_EVENT_ALLOC_SIZE);
+    rc = gpu_2d_present_alloc_map_bo(session->fd, &session->event,
+                                     GPU_H3_EVENT_ALLOC_SIZE, GPU_H3_EVENT_ALLOC_SIZE);
     if (rc < 0) return rc;
-    rc = gpu_d3_alloc_map_bo(session->fd, &session->vs,
-                             GPU_H1_SHADER_ALLOC_SIZE, sizeof(vs_shader));
+    rc = gpu_2d_present_alloc_map_bo(session->fd, &session->vs,
+                                     GPU_H1_SHADER_ALLOC_SIZE, sizeof(vs_shader));
     if (rc < 0) return rc;
-    rc = gpu_d3_alloc_map_bo(session->fd, &session->fs,
-                             GPU_H1_SHADER_ALLOC_SIZE, sizeof(fs_shader));
+    rc = gpu_2d_present_alloc_map_bo(session->fd, &session->fs,
+                                     GPU_H1_SHADER_ALLOC_SIZE, sizeof(fs_shader));
     if (rc < 0) return rc;
-    rc = gpu_d3_alloc_map_bo(session->fd, &session->vertex,
-                             GPU_H3_VERTEX_ALLOC_SIZE, GPU_D1_VERTEX_BYTES);
+    rc = gpu_2d_present_alloc_map_bo(session->fd, &session->vertex,
+                                     GPU_H3_VERTEX_ALLOC_SIZE, GPU_D1_VERTEX_BYTES);
     if (rc < 0) return rc;
-    rc = gpu_d3_alloc_map_bo(session->fd, &session->sampler,
-                             GPU_D1_DESCRIPTOR_ALLOC_SIZE,
-                             GPU_D1_SAMPLER_DESC_DWORDS * 4ULL);
+    rc = gpu_2d_present_alloc_map_bo(session->fd, &session->sampler,
+                                     GPU_D1_DESCRIPTOR_ALLOC_SIZE,
+                                     GPU_D1_SAMPLER_DESC_DWORDS * 4ULL);
     if (rc < 0) return rc;
-    rc = gpu_d3_alloc_map_bo(session->fd, &session->texmem,
-                             GPU_D1_DESCRIPTOR_ALLOC_SIZE,
-                             GPU_D1_TEXMEMOBJ_DESC_DWORDS * 4ULL);
+    rc = gpu_2d_present_alloc_map_bo(session->fd, &session->texmem,
+                                     GPU_D1_DESCRIPTOR_ALLOC_SIZE,
+                                     GPU_D1_TEXMEMOBJ_DESC_DWORDS * 4ULL);
     if (rc < 0) return rc;
-    rc = gpu_d3_alloc_map_bo(session->fd, &session->texture,
-                             gpu_d1_round_up_u64(session->texture_bytes, 4096ULL),
-                             session->texture_bytes);
+    rc = gpu_2d_present_alloc_map_bo(session->fd, &session->texture,
+                                     gpu_d1_round_up_u64(session->texture_bytes, 4096ULL),
+                                     session->texture_bytes);
     if (rc < 0) return rc;
 
     memset(session->color.map, 0, (size_t)session->target_bytes);
@@ -13892,6 +13896,15 @@ static int gpu_d3_create_session(struct gpu_d3_session *session,
     return 0;
 }
 
+static int gpu_d3_create_session(struct gpu_d3_session *session,
+                                 const struct video_stream_manifest *manifest,
+                                 struct gpu_d3_video_summary *summary) __attribute__((unused));
+static int gpu_d3_create_session(struct gpu_d3_session *session,
+                                 const struct video_stream_manifest *manifest,
+                                 struct gpu_d3_video_summary *summary) {
+    return gpu_2d_present_create_session(session, manifest, summary);
+}
+
 static void gpu_d3_write_mono1_texture(uint32_t *texture_words,
                                        const uint8_t *frame,
                                        const struct video_stream_manifest *manifest,
@@ -13920,7 +13933,7 @@ static void gpu_d3_write_mono1_texture(uint32_t *texture_words,
     }
 }
 
-static int gpu_d3_sync_to_gpu(struct gpu_d3_session *session) {
+static int gpu_2d_present_sync_to_gpu(struct gpu_d3_session *session) {
     struct gpu_kgsl_gpuobj_sync_obj sync_objs[11];
     struct gpu_kgsl_gpuobj_sync sync_arg;
 
@@ -13972,7 +13985,7 @@ static int gpu_d3_sync_to_gpu(struct gpu_d3_session *session) {
     return 0;
 }
 
-static int gpu_d3_sync_linear_from_gpu(struct gpu_d3_session *session) {
+static int gpu_2d_present_sync_linear_from_gpu(struct gpu_d3_session *session) {
     struct gpu_kgsl_gpuobj_sync_obj sync_obj;
     struct gpu_kgsl_gpuobj_sync sync_arg;
 
@@ -13994,8 +14007,8 @@ static int gpu_d3_sync_linear_from_gpu(struct gpu_d3_session *session) {
     return 0;
 }
 
-static int gpu_d3_submit_wait(struct gpu_d3_session *session,
-                              struct gpu_d3_video_frame_stats *stats) {
+static int gpu_2d_present_submit_wait(struct gpu_d3_session *session,
+                                      struct gpu_d3_video_frame_stats *stats) {
     struct gpu_kgsl_command_object cmd_obj;
     struct gpu_kgsl_command_object mem_objs[11];
     struct gpu_kgsl_gpu_command command_arg;
@@ -14070,11 +14083,11 @@ static int gpu_d3_submit_wait(struct gpu_d3_session *session,
     return 0;
 }
 
-static int gpu_d3_copy_linear_to_kms(struct gpu_d3_session *session,
-                                     struct a90_fb *fb,
-                                     uint32_t dst_x,
-                                     uint32_t dst_y,
-                                     struct gpu_d3_video_frame_stats *stats) {
+static int gpu_2d_present_copy_linear_to_kms(struct gpu_d3_session *session,
+                                             struct a90_fb *fb,
+                                             uint32_t dst_x,
+                                             uint32_t dst_y,
+                                             struct gpu_d3_video_frame_stats *stats) {
     const uint8_t *src;
     uint32_t y;
 
@@ -14233,13 +14246,13 @@ static void gpu_d3_validate_linear_semantics(const struct gpu_d3_session *sessio
     }
 }
 
-static int gpu_d3_render_frame_to_kms(struct gpu_d3_session *session,
-                                      const struct video_stream_manifest *manifest,
-                                      const uint8_t *frame,
-                                      struct a90_fb *fb,
-                                      uint32_t dst_x,
-                                      uint32_t dst_y,
-                                      struct gpu_d3_video_frame_stats *stats) {
+static int gpu_2d_present_render_frame_to_kms(struct gpu_d3_session *session,
+                                              const struct video_stream_manifest *manifest,
+                                              const uint8_t *frame,
+                                              struct a90_fb *fb,
+                                              uint32_t dst_x,
+                                              uint32_t dst_y,
+                                              struct gpu_d3_video_frame_stats *stats) {
     uint64_t started_ns;
     uint64_t after_texture_ns;
     uint64_t before_wait_ns;
@@ -14265,14 +14278,14 @@ static int gpu_d3_render_frame_to_kms(struct gpu_d3_session *session,
     after_texture_ns = video_monotonic_ns();
     stats->texture_write_us = (after_texture_ns - started_ns) / 1000ULL;
 
-    rc = gpu_d3_sync_to_gpu(session);
+    rc = gpu_2d_present_sync_to_gpu(session);
     stats->sync_rc = rc;
     if (rc < 0) {
         stats->rc = rc;
         return rc;
     }
     before_wait_ns = video_monotonic_ns();
-    rc = gpu_d3_submit_wait(session, stats);
+    rc = gpu_2d_present_submit_wait(session, stats);
     after_wait_ns = video_monotonic_ns();
     stats->gpu_wait_us = (after_wait_ns - before_wait_ns) / 1000ULL;
     if (rc < 0) {
@@ -14281,7 +14294,7 @@ static int gpu_d3_render_frame_to_kms(struct gpu_d3_session *session,
     }
 
     before_readback_ns = video_monotonic_ns();
-    rc = gpu_d3_sync_linear_from_gpu(session);
+    rc = gpu_2d_present_sync_linear_from_gpu(session);
     after_readback_ns = video_monotonic_ns();
     stats->readback_sync_us = (after_readback_ns - before_readback_ns) / 1000ULL;
     stats->readback_sync_rc = rc;
@@ -14291,7 +14304,7 @@ static int gpu_d3_render_frame_to_kms(struct gpu_d3_session *session,
     }
 
     before_copy_ns = video_monotonic_ns();
-    rc = gpu_d3_copy_linear_to_kms(session, fb, dst_x, dst_y, stats);
+    rc = gpu_2d_present_copy_linear_to_kms(session, fb, dst_x, dst_y, stats);
     after_copy_ns = video_monotonic_ns();
     stats->kms_copy_us = (after_copy_ns - before_copy_ns) / 1000ULL;
     stats->copy_rc = rc;
@@ -14300,6 +14313,23 @@ static int gpu_d3_render_frame_to_kms(struct gpu_d3_session *session,
     }
     stats->rc = rc;
     return rc;
+}
+
+static int gpu_d3_render_frame_to_kms(struct gpu_d3_session *session,
+                                      const struct video_stream_manifest *manifest,
+                                      const uint8_t *frame,
+                                      struct a90_fb *fb,
+                                      uint32_t dst_x,
+                                      uint32_t dst_y,
+                                      struct gpu_d3_video_frame_stats *stats) __attribute__((unused));
+static int gpu_d3_render_frame_to_kms(struct gpu_d3_session *session,
+                                      const struct video_stream_manifest *manifest,
+                                      const uint8_t *frame,
+                                      struct a90_fb *fb,
+                                      uint32_t dst_x,
+                                      uint32_t dst_y,
+                                      struct gpu_d3_video_frame_stats *stats) {
+    return gpu_2d_present_render_frame_to_kms(session, manifest, frame, fb, dst_x, dst_y, stats);
 }
 
 static void gpu_d3_add_us(uint64_t value,
@@ -14414,7 +14444,7 @@ static int gpu_d3_video_texture_present_child(int write_fd,
         rc = -ENOMEM;
         goto out;
     }
-    rc = gpu_d3_create_session(&session, &manifest, &summary);
+    rc = gpu_2d_present_create_session(&session, &manifest, &summary);
     if (rc < 0) {
         summary.gpu_create_rc = rc;
         goto out;
@@ -14488,7 +14518,7 @@ static int gpu_d3_video_texture_present_child(int write_fd,
         dst_x = fb->width > session.target_width ?
             (fb->width - session.target_width) / 2U : 0U;
         dst_y = 48U;
-        rc = gpu_d3_render_frame_to_kms(&session, &manifest, frame, fb, dst_x, dst_y, &stats);
+        rc = gpu_2d_present_render_frame_to_kms(&session, &manifest, frame, fb, dst_x, dst_y, &stats);
         if (rc < 0) {
             summary.failed_frame = frame_index;
             goto out;
@@ -14668,6 +14698,7 @@ static int gpu_d3_video_texture_present_probe(int timeout_ms,
     a90_console_printf("gpu.d3.video.hold_ms=%d\r\n", hold_ms);
     a90_console_printf("gpu.d3.video.texture_source=sd-cache-mono1-expanded-to-rgba8-texture-per-frame\r\n");
     a90_console_printf("gpu.d3.video.blit_mode=kgsl-textured-quad-scale-to-960x720-linear-readback-kms-copy\r\n");
+    a90_console_printf("gpu.d3.video.extraction_layer=" GPU_M3_EXTRACT_LAYER "\r\n");
     a90_console_printf("gpu.d3.video.target=%ux%u stride=%u\r\n",
                        GPU_D3_VIDEO_TARGET_WIDTH,
                        GPU_D3_VIDEO_TARGET_HEIGHT,
@@ -14960,7 +14991,7 @@ static int gpu_m2_monitor_live_graph_child(int write_fd,
         rc = -ENOMEM;
         goto out;
     }
-    rc = gpu_d3_create_session(&session, &manifest, &d3_summary);
+    rc = gpu_2d_present_create_session(&session, &manifest, &d3_summary);
     if (rc < 0) {
         summary.gpu_create_rc = rc;
         goto out;
@@ -15037,7 +15068,7 @@ static int gpu_m2_monitor_live_graph_child(int write_fd,
         dst_x = fb->width > session.target_width ?
             (fb->width - session.target_width) / 2U : 0U;
         dst_y = 120U;
-        rc = gpu_d3_render_frame_to_kms(&session, &manifest, frame, fb, dst_x, dst_y, &stats);
+        rc = gpu_2d_present_render_frame_to_kms(&session, &manifest, frame, fb, dst_x, dst_y, &stats);
         if (rc < 0) {
             summary.failed_frame = display_index;
             goto out;
@@ -15080,6 +15111,12 @@ static int gpu_m2_monitor_live_graph_child(int write_fd,
                  requested_frames);
         a90_draw_text(fb, 48U, dst_y + session.target_height + 28U,
                       line, 0xbbbbbb, 2U);
+        a90_draw_text(fb,
+                      48U,
+                      dst_y + session.target_height + 58U,
+                      "SHARED KGSL 2D PRESENT",
+                      0xffcc33,
+                      2U);
 
         rc = video_wait_until_ns(deadline_ns);
         if (rc < 0) {
@@ -15202,6 +15239,8 @@ static int gpu_m2_monitor_live_graph_probe(int timeout_ms,
     a90_console_printf("gpu.m2.graph.drm_path=/dev/dri/card0\r\n");
     a90_console_printf("gpu.m2.graph.texture_source=live-monitor-mono1-graph-cpu-gpu-mem-temp\r\n");
     a90_console_printf("gpu.m2.graph.blit_mode=kgsl-textured-quad-scale-to-960x720-linear-readback-kms-copy\r\n");
+    a90_console_printf("gpu.m2.graph.extraction_layer=" GPU_M3_EXTRACT_LAYER "\r\n");
+    a90_console_printf("gpu.m2.graph.pipeline=shared-kgsl-2d-present-v1\r\n");
     a90_console_printf("gpu.m2.graph.frames_requested=%u\r\n", requested_frames);
     a90_console_printf("gpu.m2.graph.interval_ms=%u\r\n", interval_ms);
     a90_console_printf("gpu.m2.graph.timeout_ms=%d\r\n", timeout_ms);
@@ -15396,6 +15435,37 @@ static int gpu_m2_monitor_live_graph_probe(int timeout_ms,
     }
     return got_result && gpu_m2_monitor_graph_summary_passed(&summary) ?
         0 : -EIO;
+}
+
+static int gpu_m3_monitor_extraction_probe(int timeout_ms,
+                                           bool materialize_devnode,
+                                           uint32_t requested_frames,
+                                           uint32_t interval_ms,
+                                           int hold_ms) {
+    int rc;
+
+    a90_console_printf("gpu.m3.extract.version=1\r\n");
+    a90_console_printf("gpu.m3.extract.scope=" GPU_M3_EXTRACT_SCOPE "\r\n");
+    a90_console_printf("gpu.m3.extract.layer=" GPU_M3_EXTRACT_LAYER "\r\n");
+    a90_console_printf("gpu.m3.extract.command=gpu m3-monitor-extraction-probe --frames %u --interval-ms %u --timeout-ms %d --hold-ms %d --materialize-devnode\r\n",
+                       requested_frames, interval_ms, timeout_ms, hold_ms);
+    a90_console_printf("gpu.m3.extract.shared_core=bo-map,sync-to-gpu,submit-wait,linear-readback,kms-copy\r\n");
+    a90_console_printf("gpu.m3.extract.live_consumer=m2-monitor-live-graph-probe\r\n");
+    a90_console_printf("gpu.m3.extract.regression_consumers=d3-video-texture-present-probe,m2-monitor-live-graph-probe\r\n");
+    a90_console_printf("gpu.m3.extract.kgsl_submit_attempted=1\r\n");
+    a90_console_printf("gpu.m3.extract.kms_present_attempted=1\r\n");
+    a90_console_printf("gpu.m3.extract.power_write_attempted=0\r\n");
+    a90_console_printf("gpu.m3.extract.proprietary_blob_attempted=0\r\n");
+    rc = gpu_m2_monitor_live_graph_probe(timeout_ms,
+                                         materialize_devnode,
+                                         requested_frames,
+                                         interval_ms,
+                                         hold_ms);
+    a90_console_printf("gpu.m3.extract.delegate_rc=%d\r\n", rc);
+    a90_console_printf("gpu.m3.extract.result=%s\r\n",
+                       rc == 0 ? "shared-2d-present-monitor-pass" :
+                                 "shared-2d-present-monitor-failed");
+    return rc;
 }
 
 static uint32_t gpu_h5_pack_rgb_for_xbgr8888(uint32_t color) {
@@ -16875,6 +16945,68 @@ static int handle_gpu(char **argv, int argc) {
                                                interval_ms,
                                                (int)hold_ms);
     }
+    if (strcmp(subcommand, "m3-monitor-extraction-probe") == 0 ||
+        strcmp(subcommand, "monitor-extraction-probe") == 0) {
+        uint32_t requested_frames = GPU_M2_GRAPH_DEFAULT_FRAMES;
+        uint32_t interval_ms = GPU_M2_GRAPH_DEFAULT_INTERVAL_MS;
+        uint32_t timeout_ms = GPU_M2_GRAPH_MAX_TIMEOUT_MS;
+        uint32_t hold_ms = GPU_M2_GRAPH_DEFAULT_HOLD_MS;
+        bool materialize_devnode = false;
+
+        for (index = 2; index < argc; ++index) {
+            if (strcmp(argv[index], "--frames") == 0) {
+                if (index + 1 >= argc ||
+                    !parse_u32_arg(argv[index + 1],
+                                   1,
+                                   GPU_M2_GRAPH_MAX_FRAMES,
+                                   &requested_frames)) {
+                    a90_console_printf("gpu.m3.extract.error=bad-frames\r\n");
+                    return -EINVAL;
+                }
+                ++index;
+            } else if (strcmp(argv[index], "--interval-ms") == 0) {
+                if (index + 1 >= argc ||
+                    !parse_u32_arg(argv[index + 1],
+                                   1,
+                                   GPU_M2_GRAPH_MAX_INTERVAL_MS,
+                                   &interval_ms)) {
+                    a90_console_printf("gpu.m3.extract.error=bad-interval\r\n");
+                    return -EINVAL;
+                }
+                ++index;
+            } else if (strcmp(argv[index], "--timeout-ms") == 0) {
+                if (index + 1 >= argc ||
+                    !parse_u32_arg(argv[index + 1],
+                                   1,
+                                   GPU_M2_GRAPH_MAX_TIMEOUT_MS,
+                                   &timeout_ms)) {
+                    a90_console_printf("gpu.m3.extract.error=bad-timeout\r\n");
+                    return -EINVAL;
+                }
+                ++index;
+            } else if (strcmp(argv[index], "--hold-ms") == 0) {
+                if (index + 1 >= argc ||
+                    !parse_u32_arg(argv[index + 1],
+                                   0,
+                                   GPU_H5_VISUAL_HOLD_MAX_MS,
+                                   &hold_ms)) {
+                    a90_console_printf("gpu.m3.extract.error=bad-hold\r\n");
+                    return -EINVAL;
+                }
+                ++index;
+            } else if (strcmp(argv[index], "--materialize-devnode") == 0) {
+                materialize_devnode = true;
+            } else {
+                a90_console_printf("usage: gpu m3-monitor-extraction-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]\r\n");
+                return -EINVAL;
+            }
+        }
+        return gpu_m3_monitor_extraction_probe((int)timeout_ms,
+                                               materialize_devnode,
+                                               requested_frames,
+                                               interval_ms,
+                                               (int)hold_ms);
+    }
     if (strcmp(subcommand, "g4-solid-fill-probe") == 0 ||
         strcmp(subcommand, "solid-fill-probe") == 0) {
         for (index = 2; index < argc; ++index) {
@@ -16936,7 +17068,7 @@ static int handle_gpu(char **argv, int argc) {
         return gpu_h5_triangle_kms_probe(timeout_ms, materialize_devnode, hold_ms);
     }
     if (strcmp(subcommand, "g0-open-probe") != 0) {
-        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m0-monitor-sampler-probe [--samples N] [--interval-ms N]|m1-monitor-dashboard-probe [--samples N] [--interval-ms N] [--hold-ms N]|m2-monitor-live-graph-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]\r\n");
+        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m0-monitor-sampler-probe [--samples N] [--interval-ms N]|m1-monitor-dashboard-probe [--samples N] [--interval-ms N] [--hold-ms N]|m2-monitor-live-graph-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m3-monitor-extraction-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]\r\n");
         return -EINVAL;
     }
     for (index = 2; index < argc; ++index) {
@@ -17031,7 +17163,7 @@ static const struct shell_command command_table[] = {
     { "pstore", handle_pstore, "pstore [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "watchdoginv", handle_watchdoginv, "watchdoginv [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "tracefs", handle_tracefs, "tracefs [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
-    { "gpu", handle_gpu, "gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m0-monitor-sampler-probe [--samples N] [--interval-ms N]|m1-monitor-dashboard-probe [--samples N] [--interval-ms N] [--hold-ms N]|m2-monitor-live-graph-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]", CMD_NONE, A90_CMD_GROUP_CORE },
+    { "gpu", handle_gpu, "gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m0-monitor-sampler-probe [--samples N] [--interval-ms N]|m1-monitor-dashboard-probe [--samples N] [--interval-ms N] [--hold-ms N]|m2-monitor-live-graph-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m3-monitor-extraction-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "audio", handle_audio, "audio [status|profiles|profile|speaker-map|stages|prereq|app-type|setcal|route|play|chime|play-status|stop|adsp-status|snd-status]", CMD_NONE, A90_CMD_GROUP_ANDROID },
     { "video", handle_video, "video [status|frame [bars|checker|mono|0xRRGGBB]|demo [badapple|badapple-scale|nyan|doom [status|verify|play|frame|engine-probe] [frames] [--wad runtime-private --sha256 EXPECTED]|frame-pattern]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status PATH]|cache [status|verify|play] SHA256 [--trust-cache] [--layout full|player-hud]|cache preset [badapple|badapple-scale|nyan] [status|verify|play]]", CMD_DISPLAY, A90_CMD_GROUP_DISPLAY },
     { "wifi", handle_wifi, "wifi [status|scan [delay_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|config [status|prepare [profile]]]", CMD_NONE, A90_CMD_GROUP_NETWORK },

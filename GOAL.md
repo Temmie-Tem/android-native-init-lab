@@ -562,6 +562,22 @@ proven D3 KGSL textured-quad path to a `960x720` target, `kgsl_submit_attempted=
 `Adreno640v2`, `pm4_dwords=409`, `semantic.sample_count=64`, `semantic.match_count=64`, `semantic.mismatch_count=0`,
 `semantic.output_other_count=0`, and `result=monitor-live-graph-pass`; post-probe selftest stayed
 `pass=12 warn=1 fail=0`. M2 is DONE. NEXT = M3 polish + shared KGSL submit/fence/buffer/texture/present extraction.**
+
+**STATUS (2026-06-27 M3 live telemetry) — V3320 extracted the D3-named 2D present path into the shared
+`gpu_2d_present_*` layer and routed both D3 video texture present plus M2 live monitor graphs through
+`gpu_2d_present_create_session` / `gpu_2d_present_render_frame_to_kms`. Built
+`boot_linux_v3320_gpu_m3_monitor_extraction.img` (SHA256
+`dd2f4fa31b81340ad35477cb0d23655b9b837887272a4224926311e04ef43ea2`), flashed through
+`native_init_flash.py`, and passed telemetry live validation. `gpu m3-monitor-extraction-probe --frames 12
+--interval-ms 200 --timeout-ms 60000 --hold-ms 5000 --materialize-devnode` reported
+`gpu.m3.extract.layer=gpu_2d_present_v1`, shared core `bo-map,sync-to-gpu,submit-wait,linear-readback,kms-copy`,
+M2 delegate `result=monitor-live-graph-pass`, `presented=12`, `present_rc=0`, `semantic.match_count=64`,
+`semantic.mismatch_count=0`, `semantic.output_other_count=0`, and
+`result=shared-2d-present-monitor-pass`. Focused D3 regression with Bad Apple frame 515 for 3 frames also passed:
+`extraction_layer=gpu_2d_present_v1`, `result=video-texture-present-pass`, `presented=3`, `present_rc=0`,
+`semantic.match_count=64`, `semantic.output_other_count=0`; the operator confirmed the Bad Apple path was visible
+and frames looked normal. Post-probe selftest stayed `pass=12 warn=1 fail=0`. M3 telemetry is DONE; explicit operator
+eye-confirmation of the held live monitor panel remains if the ③ rung is to be marked eye-confirmed/closed.**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
 `CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed
