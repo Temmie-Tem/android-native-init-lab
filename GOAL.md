@@ -428,7 +428,7 @@ the Audio section above). Full detail: `CLAUDE.md` + `docs/reports/`. No active 
    report; never `-A`. Message per project convention; end with the Co-Authored-By line.
 9. **REPEAT** → back to STATE.
 
-## 🟢 GPU epic — G0→G5 first-light DONE ✅, first triangle H0→H5 DONE + EYE-CONFIRMED ✅, visible COMPUTE demo C0→C3 DONE + EYE-CONFIRMED ✅
+## 🟢 GPU epic — first-light G0→G5 ✅, first triangle H0→H5 ✅ eye-confirmed, compute demo C0→C3 ✅ eye-confirmed, active rung = ② GPU-accelerated 2D (D0→D3)
 
 **Persistent HARD FRAMING (inherited by every GPU rung, do not deviate):**
 - **freedreno / Mesa / KGSL-direct ONLY.** The proprietary Adreno blob path (libGLESv2/EGL/OpenCL via Bionic/Android
@@ -487,6 +487,24 @@ ir3 `stib`/`ldib` buffer ops.
   operator visually confirmed the rainbow gradient / square-grid fractal-like pattern on the panel = compute-demo close.
   **Matrix/GPGPU math is ABSORBED here** (no standalone matmul, no blob/BLAS). Modularization stays an extraction
   (rule-of-three) after the chain's consumers exist.
+
+**ACTIVE NOW = ② GPU-ACCELERATED 2D = texturing + frame blit/scale (D0→D3).** The real acceleration payoff: the demo
+player (Bad Apple/DOOM) blits frames via CPU `memcpy` today; make the GPU sample + scale + composite them. Brings up
+the A6xx texture pipe (TPL1 sampler + texture/IBO descriptor) and a textured fullscreen quad — reuses the proven H
+triangle pipeline (VS/raster/RB) + H5 present; the new pieces are the sampler state and an ir3 FS that does `sam`
+(texture sample). Same HARD FRAMING / bright lines. **Apply the proven method: PRE-STAGE the reference first** (fetch
+`fd6_texture.cc` + the fd6 tex-const/IBO emit + a6xx TPL1 regs, the same way compute used computerator) so D0 starts
+warm and does not repeat a stall; carry the execution-proof bisect + register-diff-against-fd6 discipline.
+- **D0** (host-only recon): A6xx texture/sampler state — TPL1 sampler descriptor + texture (IBO) descriptor + how the
+  FS binds them (`CP_LOAD_STATE6 ST6_TEX`/`ST6_SHADER`), and the ir3 `sam` op. Hand-assemble a textured FS (sample tex
+  at interpolated UV → output); reuse the triangle's VS/raster/RB. Verify bytes with the V3246 ir3-disasm.
+- **D1** render a fullscreen quad sampling a STATIC test texture (e.g. an uploaded checkerboard) → readback proof that
+  the FS sampled it (output matches the texture pattern). PASS = sampled pattern present, not clear. Same bisect if not.
+- **D2** feed a REAL frame (a demo/SD-cache frame) as the texture; GPU scales/blits it to the output buffer → readback.
+  PASS = scaled frame content in the buffer.
+- **D3** wire the GPU textured-quad blit into the demo player's present path (replace the CPU `memcpy` blit); present +
+  measure (fps / CPU freed); operator confirms the demo still renders correctly via the GPU blit = ② close. This makes
+  the GPU a real CONSUMER of existing work and is the third call site for the ③ rule-of-three extraction.
 
 **STATUS (2026-06-26) — C0 host-only recon landed as V3299; C1 shader-byte gate landed as V3300; C1 native-init source/build + live UAV readback proof landed as V3301; C2 128x128 compute pattern source/build + live readback proof landed as V3302; C3 source/build + device-presented-held proof landed as V3303 and is now operator eye-confirmed.**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
@@ -1233,14 +1251,15 @@ wall), so every kernel/shader is hand-assembled ir3 and this never becomes a gen
   content, not a standalone format epic.**
   Recoverable boot-partition flashes only, rollback `v2321`. **Bright lines:** no backlight/PMIC/PWM/regulator/GDSC
   writes; no from-scratch panel re-init; forbidden partitions absolute. Venus HW decode NOT needed (pre-rendered frames).
-- **CLOSED GPU RUNG = visible COMPUTE demo (C0→C3; V3303 device-presented-held + EYE-CONFIRMED).** The GPU
-  first-triangle ladder H0→H5 is **DONE + EYE-CONFIRMED (2026-06-26)** — operator visually confirmed a GREEN
-  RIGHT-TRIANGLE on the panel; strict proof `V3295/V3296` (`strict_linear_triangle_sample_proof=1`, center
-  `0xff00b900`, exterior corners `0`), KMS-presented, no GPU fault, init `0.11.73`. Per the operator B-decision, the
-  visible compute demo now proves "GPU does real work" — resident `0.11.77`, V3303 C3 KMS present, 60 s hold,
-  selftest `fail=0`, no GPU fault-filter match, and operator eye confirmation of the rainbow gradient / square-grid
-  fractal-like panel pattern. The next ordered GPU rung is **② GPU-ACCELERATED 2D**, but it is not started in this
-  closure commit. Bluetooth / sensors / haptics / Wi-Fi SoftAP remain reference-only until separately chartered
+- **ACTIVE EPIC = ② GPU-ACCELERATED 2D (D0→D3).** Two GPU rungs are CLOSED + EYE-CONFIRMED (2026-06-26): the
+  first-triangle ladder H0→H5 (operator saw a GREEN RIGHT-TRIANGLE; strict proof `V3295/V3296`, init `0.11.73`) and
+  the visible COMPUTE demo C0→C3 (operator saw the rainbow gradient / square-grid pattern; `V3303` C3 KMS present + 60 s
+  hold, init `0.11.77`, `selftest fail=0`, no GPU fault). Per the operator "쭉쭉/full-steam" decision, the loop now
+  continues the GPU chain to **② GPU-accelerated 2D = texturing + frame blit/scale** (D0→D3, see the "🟢 GPU epic"
+  block) — bring up the A6xx texture pipe so the GPU samples/scales/composites real demo frames (CPU `memcpy` blit
+  today), the real acceleration payoff and the third rule-of-three consumer for ③ extraction. Apply the proven method:
+  pre-stage the texture reference (fd6_texture/tex-const + TPL1 regs) so D0 starts warm; flow rung→rung, do NOT halt
+  between D-rungs. Bluetooth / sensors / haptics / Wi-Fi SoftAP remain reference-only until separately chartered
   (attended daytime quick-wins).
 - Device unreachable after an auto-rollback → STOP, leave an incident report.
 - The same sub-goal fails twice → STOP or shelve it and move on; do NOT retry-loop.
