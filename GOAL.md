@@ -596,8 +596,12 @@ V3315 then accepted a bounded 3x3 source-neighborhood match around scaled textur
 semantic samples and zero non-binary output pixels. The V3315 live run passed with `video-texture-present-pass`,
 `presented=60`, `fps_milli=29655`, `changed_total=41472000`, `semantic_sample_count=64`, `match_count=64`,
 `exact_match_count=63`, `edge_tolerant_match_count=1`, `mismatch_count=0`, `output_other_count=0`, post-probe
-`selftest fail=0`, and no focused dmesg fault-filter match. Final rung-② close still needs operator visual
-confirmation that the held GPU-blit demo frame looked correct on the panel.
+`selftest fail=0`, and no focused dmesg fault-filter match. A follow-up no-flash eye-confirm replay held the same
+V3315 GPU-blit path for 60 s and passed again: `video-texture-present-pass`, `presented=60`, `fps_milli=29908`,
+`semantic_sample_count=64`, `match_count=64`, `exact_match_count=63`, `edge_tolerant_match_count=1`,
+`mismatch_count=0`, `output_other_count=0`, post-replay `selftest fail=0`, and no focused dmesg fault-filter match.
+Final rung-② close still needs operator visual confirmation that the held GPU-blit demo frame looked correct on the
+panel.
 
 **(historical, first-triangle ladder — DONE record)** Threshold from fixed-function plumbing to *real GPU
 graphics*: vertex buffer → vertex shader → rasterizer → fragment shader → a shaded triangle, readback-verified, blitted
