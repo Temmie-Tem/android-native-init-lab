@@ -498,7 +498,7 @@ warm and does not repeat a stall; carry the execution-proof bisect + register-di
 - **D0** (host-only recon): A6xx texture/sampler state — TPL1 sampler descriptor + texture (IBO) descriptor + how the
   FS binds them (`CP_LOAD_STATE6 ST6_TEX`/`ST6_SHADER`), and the ir3 `sam` op. Hand-assemble a textured FS (sample tex
   at interpolated UV → output); reuse the triangle's VS/raster/RB. Verify bytes with the V3246 ir3-disasm.
-  **V3304 landed the Mesa fd6 texture/TPL1 reference recon; D1 shader-byte materialization remains the next gate.**
+  **V3304 landed the Mesa fd6 texture/TPL1 reference recon; V3305 landed the D1 textured FS shader-byte gate.**
 - **D1** render a fullscreen quad sampling a STATIC test texture (e.g. an uploaded checkerboard) → readback proof that
   the FS sampled it (output matches the texture pattern). PASS = sampled pattern present, not clear. Same bisect if not.
 - **D2** feed a REAL frame (a demo/SD-cache frame) as the texture; GPU scales/blits it to the output buffer → readback.
@@ -507,7 +507,7 @@ warm and does not repeat a stall; carry the execution-proof bisect + register-di
   measure (fps / CPU freed); operator confirms the demo still renders correctly via the GPU blit = ② close. This makes
   the GPU a real CONSUMER of existing work and is the third call site for the ③ rule-of-three extraction.
 
-**STATUS (2026-06-26) — C0 host-only recon landed as V3299; C1 shader-byte gate landed as V3300; C1 native-init source/build + live UAV readback proof landed as V3301; C2 128x128 compute pattern source/build + live readback proof landed as V3302; C3 source/build + device-presented-held proof landed as V3303 and is now operator eye-confirmed; D0 texture reference recon landed as V3304.**
+**STATUS (2026-06-26) — C0 host-only recon landed as V3299; C1 shader-byte gate landed as V3300; C1 native-init source/build + live UAV readback proof landed as V3301; C2 128x128 compute pattern source/build + live readback proof landed as V3302; C3 source/build + device-presented-held proof landed as V3303 and is now operator eye-confirmed; D0 texture reference recon landed as V3304; D1 textured FS shader-byte gate landed as V3305.**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
 `CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed
@@ -564,8 +564,17 @@ passed against `fd6_texture.cc`, `fd6_texture.h`, `fd6_emit.cc`, `fd6_emit.h`, `
 `adreno_pm4.xml`, and `ir3-cat5.xml`: sampler descriptors are 4 dwords, TEXMEMOBJ descriptors are 16 dwords, FS texture
 state is `FD6_GROUP_FS_TEX`, FS sampler load is `CP_LOAD_STATE6_FRAG` + `ST6_SHADER` + `SB6_FS_TEX`, FS TEXMEMOBJ load
 is `CP_LOAD_STATE6_FRAG` + `ST6_CONSTANTS` + `SB6_FS_TEX`, `SP_PS_CONFIG` carries `NTEX/NSAMP`, and the non-bindless
-cat5 `sam` contract exposes `s#0/t#0`. D1 is now gated on materializing and `ir3-disasm` verifying the minimal textured
-FS shader bytes before building/flashing a static checkerboard texture probe.
+cat5 `sam` contract exposes `s#0/t#0`. V3305 then added
+`native_gpu_2d_d1_textured_shader_bytes_v3305.py`, using a local libdrm-backed Mesa tool build under
+`/tmp/a90-mesa-d1-texture-build-libdrm` to materialize and `ir3-disasm` verify the minimal FD640 textured FS:
+`bary.f r0.x, 0, r0.x`; `bary.f r0.y, 1, r0.x`; `sam (f32)(xyzw)r0.z, r0.x, s#0, t#0`; `end`; padded nops.
+The shader is 32 dwords / 128 bytes, `instrlen=1`, `constlen=0`, `max_reg=1`, `max_half_reg=-1`,
+`num_samp=1`, `num_tex=1`, `sha256=4e8ad0a934d236149af999619a1fe99690e7b732d2e4ca69a2b345100d8d04a3`, and its
+sample output register `r0.z` maps to scalar regid 2, matching the existing H3 color-output contract
+(`GPU_H3_PS_OUTPUT_REGID=2`, fullregfootprint covers the payload, RGBA8 MRT contract present). The next D1 unit is now
+the native-init source/build static checkerboard texture probe: embed the verified FS words, load one sampler and one
+TEXMEMOBJ descriptor with `NTEX=1/NSAMP=1`, draw a fullscreen textured quad, and require readback to contain the sampled
+checkerboard pattern.
 
 **(historical, first-triangle ladder — DONE record)** Threshold from fixed-function plumbing to *real GPU
 graphics*: vertex buffer → vertex shader → rasterizer → fragment shader → a shaded triangle, readback-verified, blitted
