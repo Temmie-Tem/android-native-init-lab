@@ -528,7 +528,10 @@ flash/readback verified the exact artifact and booted `0.11.77`. The live
 `hold_elapsed_ms=30000`, `vis.result=compute-pattern-presented-held`, `rc=0`, `duration_ms=30161`.
 Post-probe selftest stayed `fail=0`, and the bridge capture fault filter found no GPU
 fault/hang/page-fault match. C3 device-side present is proven; final compute-demo close still needs
-operator visual confirmation of the held pattern on the panel.
+operator visual confirmation of the held pattern on the panel. A later 60 s eye-confirm replay attempt was paused before
+a new proof could be collected because the host lost the A90 USB gadget (`serial-missing`, no ACM/ADB/NCM after 90 s);
+no new flash or rollback was attempted. Restore USB visibility, health-check, then replay the existing V3303 C3 command
+for eye confirmation.
 
 **(historical, first-triangle ladder — DONE record)** Threshold from fixed-function plumbing to *real GPU
 graphics*: vertex buffer → vertex shader → rasterizer → fragment shader → a shaded triangle, readback-verified, blitted
