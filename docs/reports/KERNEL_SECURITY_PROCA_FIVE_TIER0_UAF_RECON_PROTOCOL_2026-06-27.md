@@ -45,6 +45,36 @@ This stays RECON — no grooming/primitive/EL1 was attempted, and the exploitati
 (dedicated `task_integrity_cache` + RKP_CFP + RKP_KDP) are unchanged. The Tier-0 warm-start kit
 is now complete: trigger confirmed (fault site) + freed-slot passive behavior (fixed sentinel).
 
+### CORRECTION (2026-06-28, host-only source RE — the value-leak interpretation above was WRONG)
+Source review of the stock kernel tree
+(`workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel` +
+`tmp/wifi/v766-.../source/security/samsung/five/`) overturns two claims in the value-leak section:
+
+1. **`0xffffffff` is NOT a sentinel/poison — it is a legitimate enum value.**
+   `include/linux/task_integrity.h`: `INTEGRITY_PROCESSING = 0xffffffff` (and `INTEGRITY_NONE = 0x0`).
+   The ping-pong-execve harness keeps the victim mid-`execve`, so the `0 ↔ 0xffffffff` toggle is the
+   **live** object's normal `NONE ↔ PROCESSING` transition during verification — NOT freed-slot
+   reclaim content. The leak harness was largely observing a healthy live object, not a freed one.
+
+2. **The free path SCRUBS the object before `kmem_cache_free`, so passive value-read is BLIND to
+   reclaim by construction.** `task_integrity_free()` (security/samsung/five/task_integrity.c) sets
+   `user_value=INTEGRITY_NONE(0)`, `value=0`, `usage_count=0`, `reset_cause=CAUSE_UNSET(0)`,
+   `reset_file=NULL`, `kfree(label); label=NULL` — then frees. The freed slot therefore starts
+   **zeroed**; reading `value` (offset 0) after free yields 0 until/unless another allocation
+   overwrites it. So `zero=93.9%` is "scrubbed-freed OR settled-live", and the read CANNOT reveal
+   reclaim content even if reclaim occurs.
+
+**Consequence:** the prior conclusion *"passive observation shows no controllable reclaim content →
+the dedicated-cache obstacle is real"* was an **over-read**. Passive observation is structurally
+incapable of seeing reclaim here (free-scrub + only offset 0 exposed). **Controllability is still
+OPEN**, not refuted; deciding it needs ACTIVE heap grooming + a use-site full-object observation,
+which crosses the RECON→exploit boundary and requires a separate explicit charter. What IS
+established: the triggered `reset_file` UAF fault proves the slot DOES get incidentally reclaimed
+with non-NULL data at the `reset_file` offset during the race (otherwise the `!reset_file` guard
+would have taken the empty branch). The dedicated cache (`kmem_cache_create("task_integrity_cache",
+…, SLAB_HWCACHE_ALIGN|SLAB_PANIC|SLAB_NOTRACK, init_once)`) remains an exploitation obstacle, but
+"no controllable reclaim" is NOT a proven fact — it is untested.
+
 ---
 
 ## Original design (executed as written below)
