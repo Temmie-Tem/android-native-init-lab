@@ -768,15 +768,28 @@ SoftAP target. Current public allowlist policy has `allow_server_exposure=false`
 make AP/server exposure explicit, bounded, private, and cleanup-backed before any daemon start. Report:
 `docs/reports/NATIVE_INIT_V3336_SOFTAP_SERVER_ENDGAME_CHARTER_2026-06-27.md`.
 
+**STATUS (2026-06-27 S1 read-only live inventory) — V3337 ran the no-flash, no-mutation SoftAP
+inventory gate on resident `0.11.103`.** Bridge was healthy; `version/status/selftest` were clean
+(`selftest pass=12 warn=1 fail=0`). `wifi status` reported `wlan0_present=0`, no carrier/IP/default
+route, standalone supplicant executable present but stopped, ctrl socket missing, autoconnect disabled,
+and `secret_values_logged=0`. `wifiinv` reported `net_total=9`, `wlan_like=0`, `rfkill_wifi=0`,
+`module_matches=0`, `paths=9/26`, `file_matches=16`; current visible matches are system Wi-Fi rc/config
+surfaces, not a native-visible hostapd AP stack. `wififeas` returned `decision=no-go` with gates
+`wlan=no rfkill=no module=no candidates=yes`: do not enable Wi-Fi/AP mode from native-init with current
+evidence. A read-only BusyBox applet inventory did show transfer/server helpers (`httpd`, `nc`,
+`udhcpd`, `wget`, `sha256sum`) are present, so the server half is not the immediate blocker. **S1 is
+DONE; next bounded source unit is S2 status/plan/dry-run plumbing that reports this no-go cleanly and
+does not start hostapd/AP mode.** Report:
+`docs/reports/NATIVE_INIT_V3337_SOFTAP_S1_READONLY_INVENTORY_LIVE_2026-06-27.md`.
+
 - **S0 (host-only charter/recon) = DONE.** Inventory current command/docs/source surface, distinguish
   client-mode Wi-Fi from SoftAP/server mode, and write the bounded ladder + safety recipe.
-- **S1 (read-only live AP/server inventory).** On current resident, run only bridge health + `version`,
-  `status`, `selftest`, `wifi status`, `wifiinv summary/full`, and `wififeas gate/full`; optionally
-  read-only applet/binary presence for `hostapd`, `busybox` server applets, and candidate transfer
-  helpers. No scan/connect/DHCP/ping, no hostapd start, no interface mode change.
+- **S1 (read-only live AP/server inventory) = DONE / NO-GO BELOW WLAN.** Current resident has no
+  wlan-like interface, Wi-Fi rfkill, or module evidence; transfer applets exist.
 - **S2 (source contract + config materialization).** Add an explicit `wifi softap` command surface with
   `status`, `plan`, and dry-run config materialization under `/cache/a90-softap/`; generated SSID/PSK
-  remain private-only, public output reports hashes/booleans only.
+  remain private-only, public output reports hashes/booleans only. While S1 remains no-go, S2 must stop
+  at status/plan/prepare and must not start hostapd/AP mode.
 - **S3 (bounded AP bring-up).** Start AP mode only after S1/S2 pass: stop conflicting client supplicant,
   configure a private local AP subnet, start hostapd and a bounded DHCP service, expose no WAN/NAT by
   default, and provide `softap cleanup` that kills workers and removes address/route residue.
