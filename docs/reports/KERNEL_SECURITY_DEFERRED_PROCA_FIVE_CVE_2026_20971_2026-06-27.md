@@ -41,19 +41,54 @@ Date: 2026-06-27 (operator host-side, web-research only; no device action).
    kernel* privesc. Native-init runs as **PID1/root (EL0)** and controls all of
    userspace — there is **no untrusted attacker** in our boot, so there is **no
    defensive security problem** whether FIVE is alive or not.
-2. **Only offensive utility, and only if "alive."** For us the bug could at most be a
-   candidate **EL0 → EL1** (kernel code execution) primitive. Whether
-   FIVE/PROCA is initialized under our custom init (LSM/bprm hooks + policy load)
-   determines whether `/proc/<pid>/integrity/` even exists — likely inert. "Alive"
-   gates *reachability of a tool*, not *risk*.
-3. **Long, weak IF-chain even if alive.** alive → triggerable UAF (race + controlled
-   realloc) → **KCFI** bypass → usable write → and **RKP/EL2** (KNOX hypervisor) still
-   sits above EL1 (the same RKP per-boot-key wall that closed ROPP symbolization).
-   `reachable ≠ exploitable`, confirmed ×3 in the kernel-security recon phase.
+2. **Only offensive utility — and "alive" is now CONFIRMED (see host-RE section below).**
+   For us the bug could at most be a candidate **EL0 → EL1** (kernel code execution)
+   primitive. The earlier guess that FIVE/PROCA is "likely inert" under native-init was
+   **wrong**: it is compiled in, `CONFIG_FIVE=y`, inits at boot, and the vulnerable
+   `/proc/<pid>/integrity/{value,label,reset_file}` nodes are live for every process.
+   "Alive" gates *reachability of a tool*, not *risk* — and the tool is reachable.
+3. **Still an IF-chain, but lighter than on the devices LucidBit tested.** reachable
+   (confirmed) → triggerable UAF (race + controlled realloc) → usable primitive → and
+   **RKP/EL2** (KNOX hypervisor) still sits above EL1 (the RKP per-boot-key wall that
+   closed ROPP symbolization). **Key delta: our kernel is 4.14 with NO kernel CFI**
+   (1 cfi symbol in `System.map`), so the **arbitrary-call primitive that KCFI blocked
+   on the S21/S24/A54 (5.x) that LucidBit tested is likely NOT blocked here.** That
+   removes the single mitigation LucidBit called out, making this the strongest EL0→EL1
+   lead the project has found (vs the 3 closed-phase n-days: FastRPC unreachable, Binder
+   not-vulnerable, KGSL runtime-open-blocked). It is still real exploit-dev, and
+   `reachable ≠ exploitable` remains the discipline.
 4. **Nothing on the current roadmap needs EL1.** GPU ④ zero-copy (KGSL/DRM), SoftAP
    (nl80211/cfg80211), sensors/BT/haptics (dev-node/HAL glue), and the headless-server
    distro pivot (`pivot_root` on the stock kernel) are all **EL0 userspace-driver-glue**
    problems — the method that has carried WiFi, USB, audio (ACDB), and GPU so far.
+
+## Host-RE + live read-only confirmation (2026-06-27, idle-window investigation)
+
+Done host-only from the stock `System.map`/`kernel.raw` plus a single **read-only**
+native-init probe (no exploit, no write, no flash) while the autonomous loop was paused:
+
+- **Compiled in + active.** `System.map` carries the full FIVE subsystem
+  (`__five_bprm_check`, `five_fork`, `five_file_*`, `five_hook_*`, `init_five`,
+  `__initcall_init_five7`) and PROCA (`proca_module_init7`, `proca_hook_task_forked`,
+  `g_proca_table`, `__initcall_proca_init_gaf1`). The exact CVE handlers are registered:
+  `proc_integrity_value_read`, `proc_integrity_label_read`, `proc_integrity_reset_file`,
+  `proc_integrity_inode_operations`.
+- **Nodes are LIVE under native-init.** On init `0.11.104` (kernel `4.14.190`), a
+  read-only probe showed `/proc/self/integrity/` and `/proc/1/integrity/` both contain
+  `value`, `label`, `reset_cause`, `reset_file`, and **411** `/proc/<pid>/integrity`
+  directories exist — i.e. `task_integrity` is allocated per task for every process.
+  Kernel config confirms `CONFIG_FIVE=y`, `CONFIG_INTEGRITY=y` (legacy Samsung FIVE,
+  not GKI). **Reachability = YES.**
+- **No kernel CFI.** `System.map` has 1 cfi symbol → the 4.14 kernel is not built with
+  kernel CFI, so the arbitrary-call mitigation LucidBit hit on newer Galaxies is absent.
+- **RKP/EL2 present** (119 hyp/rkp/knox symbols; prior project work already proved RKP is
+  active) → still a wall for EL1 cred/page-table persistence, not for EL1 code-exec itself.
+
+Net: this moved from "probably dead for us" to **"reachable, mitigation-light EL0→EL1
+candidate"** — but it stays DEFERRED. We are already EL0 root, there is no named roadmap
+wall that needs EL1, and turning the UAF into reliable code exec is still exploit-dev under
+RKP. The read-only reopen step is now DONE (positive); what remains gated is the decision
+to spend exploit-dev effort, which needs a concrete EL1-only wall to justify it.
 
 ## Relationship to the closed kernel-security recon phase
 
@@ -66,17 +101,15 @@ it is exploit-dev-gated and behind KCFI + RKP.
 
 ## Reopen gate (exact)
 
-Reopen **only** when BOTH hold:
-1. The GPU epic is closed (④ zero-copy eye-confirmed), and
-2. A **named, concrete** roadmap wall appears where the stock kernel refuses an EL0
-   userspace path and **only kernel code execution** would clear it (e.g. a driver
-   `open()`/ioctl hard-gated under native-init, mirroring the KGSL
-   "runtime-open-blocked" finding) — bring that wall's name to the reopen.
-
-First step on reopen is **read-only**, no exploit: confirm whether FIVE/PROCA is live
-under native-init by checking for `/proc/self/integrity/` (and `/proc/1/integrity/`)
-existence on the resident image. If absent/inert, the candidate is dead for us and this
-note can be closed. Do not attempt the UAF, KCFI bypass, or any kernel write.
+The read-only reachability step is **DONE (positive, 2026-06-27)** — see the host-RE
+section. What remains gated: reopen for **exploit-dev** only when a **named, concrete**
+roadmap wall appears where the stock kernel refuses an EL0 userspace path and **only
+kernel code execution** would clear it (e.g. a driver `open()`/ioctl hard-gated under
+native-init, mirroring the KGSL "runtime-open-blocked" finding). Bring that wall's name
+to the reopen; do not start exploit-dev speculatively just because the bug is reachable.
+Until then: do not attempt the UAF race, the arbitrary-call/spinlock-write primitive, or
+any kernel write. The value recorded here is that the lead is **live and the strongest
+EL0→EL1 option on file**, ready if a wall ever demands it.
 
 ## Sources
 
