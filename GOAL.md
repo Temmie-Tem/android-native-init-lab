@@ -838,6 +838,19 @@ until a future read-only lower-surface unit proves WLAN/AP prerequisites.** Repo
 `docs/reports/NATIVE_INIT_V3339_SOFTAP_S2_STATUS_PLAN_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3339_SOFTAP_S2_STATUS_PLAN_LIVE_2026-06-27.md`.
 
+**STATUS (2026-06-28 S3 lower WLAN/AP gate split) — V3340 proved the blocker is lineage-specific
+and narrowed the remaining gate.** Reflashed the existing V3339 SoftAP S2 image and confirmed it still
+has no `wlan0`: `wifi softap status` stayed `softap-status-blocked-wlan-gate`, `wifi scan` failed at
+link-up with `errno=19`, and a lower probe showed `wlan0_present=0`. Then flashed the Wi-Fi-proven
+V2237 fallback: after its normal long helper window, the helper exited cleanly with
+`supervisor_result=wlan0-ready` and `wlan0_present=1`; standalone `wpa_supplicant` and BusyBox `udhcpd`
+were present, and no station/AP/server worker was running. However, no `iw` binary was visible, so
+the required `AP iftype settable` add/delete proof is still unverified. The device was rolled back to
+V2321 with post-rollback selftest `pass=11 warn=1 fail=0`. **S3 remains blocked, but the next unit is now
+specific: port the V2237 WLAN bring-up route into the current SoftAP baseline and add a tiny cfg80211/
+nl80211 AP-iftype probe or stage a minimal private `iw` equivalent, before any `mode=2` AP start.**
+Report: `docs/reports/NATIVE_INIT_V3340_SOFTAP_S3_LOWER_WLAN_SPLIT_LIVE_2026-06-28.md`.
+
 - **S0 (host-only charter/recon) = DONE.** Inventory current command/docs/source surface, distinguish
   client-mode Wi-Fi from SoftAP/server mode, and write the bounded ladder + safety recipe.
 - **S1 (read-only live AP/server inventory) = DONE / NO-GO BELOW WLAN.** Current resident has no
@@ -847,9 +860,10 @@ until a future read-only lower-surface unit proves WLAN/AP prerequisites.** Repo
   `status`, `plan`, and dry-run config materialization under `/cache/a90-softap/`; generated SSID/PSK
   remain private-only, public output reports hashes/booleans only. While S1 remains no-go, S2 must stop
   at status/plan/prepare and must not start hostapd/AP mode.
-- **S3 (bounded AP bring-up) = BLOCKED BY LOWER WLAN/AP GATE.** Start AP mode only after a future
-  read-only unit proves wlan-like interface/rfkill/module/AP prerequisites: stop conflicting client supplicant,
-  configure a private local AP subnet, start hostapd and a bounded DHCP service, expose no WAN/NAT by
+- **S3 (bounded AP bring-up) = BLOCKED BY AP-IFTYPE GATE AFTER WLAN LINEAGE SPLIT.** Start AP mode only
+  after a future read-only unit proves the V2237-style WLAN surface in the current SoftAP baseline and
+  proves AP iftype add/delete with cleanup: stop conflicting client supplicant,
+  configure a private local AP subnet, start `wpa_supplicant mode=2` and a bounded DHCP service, expose no WAN/NAT by
   default, and provide `softap cleanup` that kills workers and removes address/route residue.
 - **OPERATOR RECON (2026-06-27, host-verified — answers the S3 "lower WLAN/AP gate" + corrects the daemon
   choice).** SoftAP is NOT non-viable; all three layers already exist on this device (verified host-only
