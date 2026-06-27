@@ -622,11 +622,11 @@ NO backlight/PMIC/PWM/regulator/GDSC writes, NO panel re-init, recoverable boot-
   `/dev/dri/card0` (enumerate `drmModeGetPlane`/IN_FORMATS read-only), and whether a shared linear buffer or a tiled
   buffer with a matching modifier is the feasible zero-copy path. Enumerate the actual on-device plane formats — do not
   hardcode. Output: a written zero-copy feasibility decision + the exact buffer allocation/modifier recipe.
-- **Z1 (source/build).** Allocate the GPU render target as a scanout-capable buffer (KGSL alloc + import to the KMS
-  framebuffer, matching the Z0 modifier), so one buffer is both the GPU output and the scanned-out FB. Gate behind a
-  token; keep the CPU-copy present path as the live fallback. Prove the buffer is shared (same physical/dmabuf, no
-  copy step) via readback/telemetry before any present.
-- **Z2 (live present).** Page-flip the GPU-rendered buffer directly to scan-out for one of the existing consumers
+- **Z1 (allocator bridge proof).** Prove one shared scanout-linear allocation path before any present: a buffer that KMS
+  can accept as an `XBGR8888` framebuffer and that can plausibly become the GPU render target. Keep the CPU-copy present
+  path as the live fallback.
+- **Z2 (shared GPU target + live present).** Make that shared buffer the actual GPU output target, then page-flip the
+  GPU-rendered buffer directly to scan-out for one of the existing consumers
   (monitor graph or Bad Apple blit) with the CPU copy removed; measure CPU/fps/latency delta vs the copy path; confirm
   no GPU fault, `selftest fail=0`, rollback to `v2321` clean.
 - **Z3 (eye-confirm + close).** Operator visually confirms the zero-copy consumer renders correctly on-panel and holds;
@@ -646,6 +646,21 @@ dmabuf bridge) before removing the current KGSL-linear → KMS CPU copy. If the 
 target/import that shared GEM/dma-buf, pivot the submit path to DRM `msm` for this rung or close
 zero-copy as infeasible on KGSL-only. Report:
 `docs/reports/NATIVE_INIT_V3322_GPU_Z0_ZERO_COPY_MODIFIER_RECON_2026-06-27.md`.**
+
+**STATUS (2026-06-27 Z1 shared-linear allocator preflight) — V3323 completed the no-flash DRM msm
+shared-linear preflight.** Helper `a90_drm_msm_shared_linear_probe_z1` was built static
+(`sha256=d5e86d6b2ab180374977c14817867894d42538bf26ffe8817f41ba422950a4d2`), installed temporarily via
+NCM/bridge-nc, and ran on resident `0.11.92` with pre/post `selftest fail=0`. Live result:
+`DRM_CAP_DUMB_BUFFER=1`, `DRM_CAP_ADDFB2_MODIFIERS=1`, `DRM_CAP_PRIME=0x3 import=1 export=1`;
+`DRM_IOCTL_MSM_GEM_NEW` with `MSM_BO_SCANOUT | MSM_BO_WC` succeeded for `960x720`, stride `3840`,
+bytes `2764800`; `MSM_INFO_GET_OFFSET` succeeded; mmap/writeback samples succeeded; PRIME
+export/import succeeded; `DRM_IOCTL_MODE_ADDFB2` accepted the GEM as `XBGR8888`; cleanup `RMFB` and
+GEM close succeeded. `MSM_INFO_GET_IOVA` and `MSM_INFO_GET_FLAGS` returned `-22`, so Z1 proves the
+display-side shared-linear scanout allocation path but **does not yet prove current KGSL submit can
+directly target that memory**. Active next: find/prove a KGSL dma-buf/import-or-target route for this
+GEM, or pivot the zero-copy source unit to DRM `msm` submit; do not remove the current KGSL→KMS CPU
+copy fallback until a shared GPU target is proven. Report:
+`docs/reports/NATIVE_INIT_V3323_GPU_Z1_SHARED_LINEAR_PREFLIGHT_2026-06-27.md`.**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
 `CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed
