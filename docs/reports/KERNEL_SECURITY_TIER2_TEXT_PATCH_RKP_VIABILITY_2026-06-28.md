@@ -66,6 +66,25 @@ patched `.text` at runtime**, and a patch inside a real ROPP-protected function 
   only open Tier-2 questions; the core capability (observable data/constant/behavior patches)
   is proven.
 
+## Stage C attempt — code injection with a direct call (`bl printk`): BLOCKED on symbol resolution
+Attempted 2026-06-28. **Analytical answer (favorable):** a direct `bl` is a PC-relative call,
+**not** an indirect branch, so JOPP (which gates `blr`/`br` via the `0x00be7bad` magic) does
+not apply; the callee handles its own ROPP return-address encryption. So a patched-in **direct**
+call (exactly what KASAN-lite logging needs) should execute under RKP_CFP; only an **indirect**
+`blr` would need JOPP handling. **Empirical test blocked:** a `bl printk` needs printk's exact
+image address, and we could not resolve it reliably:
+- The staged `v2197-stock-kallsyms` `System.map` does **not** match the v2321 kernel image —
+  disassembling at its `printk` address (`0xffffff800813be60`) under either file↔vaddr mapping
+  (`-0x8080000` or `-0x8080000+0x14`) shows mid-function/branch code, not a `printk` prologue,
+  and its `__memmove` address lands on NOPs. Symbol addresses are shifted/mismatched.
+- Runtime `/proc/kallsyms` returns **pointer-hashed** addresses even at `kptr_restrict=0`
+  (kernel `%p` hashing), so the real KASLR/link addresses are not readable that way.
+A safe injection test therefore needs a symbol map extracted **from the v2321 image itself**
+(kallsyms-in-image parse) to pin `printk`, plus a code cave + register save/restore. Deferred:
+the analytical answer covers the direct-call case that matters; the empirical confirmation is a
+documented next step if KASAN-lite is actually built. No injection was flashed (a wrong `bl`
+target would crash). Device left on clean v2321, `fail=0`.
+
 ## Implication for the PROCA/FIVE work
 The Tier-2 path that was listed as "unproven .text-patch under RKP" in the UAF warm-start
 kit is now **proven for benign non-CFP `.text` patches**. A one-site KASAN-lite (poison the
