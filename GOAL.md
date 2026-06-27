@@ -58,9 +58,16 @@ writes; `v2321` stays the flash-gate rollback target. Magisk remains an Android-
 only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V2324 → V2815): `CLAUDE.md` +
 `docs/reports/` + `docs/operations/VERSIONING_POLICY.md`. Reopen only for an explicit audio polish/feature ask.
 
-### ⚡ ACTIVE EPIC (operator-chartered 2026-06-19; re-scoped 2026-06-19) — Video PLAYBACK (frame streaming on the EXISTING KMS display)
+### ✅ SUPERSEDED — Video PLAYBACK / Bad Apple / GPU demo ladder — DONE (kept below for history)
 
-> **This is now THE active frontier.** Audio CORE is device-proven + promoted (`0.10.0`); its Tier-C polish is optional background.
+> **POINTER (operator, 2026-06-28): this Video/GPU track is CLOSED. The single active epic is now
+> `## 🟢 ACTIVE NOW — SoftAP server-endgame (S0→S4)` further down this file.** Bad Apple full-song
+> demo, GPU first-light/triangle/compute/accel-2D/monitor/zero-copy rungs, and DOOM are all DONE and
+> eye-confirmed; the loop pivoted GPU→SoftAP at V3336. Do NOT resume Video/Nyan/GPU work — go to the
+> SoftAP ACTIVE NOW block (next bounded unit = S3 read-only lower WLAN/AP gate, then bounded AP
+> bring-up via `wpa_supplicant mode=2`). The text below is retained as reference history only.
+
+> **(history)** Audio CORE is device-proven + promoted (`0.10.0`); its Tier-C polish is optional background.
 >
 > **⚠️ KEY RE-SCOPE (operator, 2026-06-19): the DISPLAY IS ALREADY PROVEN — do NOT treat "can native init draw to the screen" as an
 > open question.** `workspace/public/src/native-init/a90_kms.c` (682 lines) already does real **DRM/KMS**: opens `/dev/dri/card0`,
