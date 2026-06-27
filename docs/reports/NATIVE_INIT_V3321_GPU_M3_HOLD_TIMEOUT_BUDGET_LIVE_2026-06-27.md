@@ -47,6 +47,37 @@ Key telemetry:
 - Result: `gpu.m3.extract.result=shared-2d-present-monitor-pass`
 - Command duration: `62502ms`
 
+## Operator Eye-Confirmation Replay
+
+No new flash was performed. The already-flashed V3321 resident was rechecked first:
+
+- Version: `A90 Linux init 0.11.92 (v3321-gpu-m3-hold-timeout-budget)`
+- Pre-replay selftest: `pass=12 warn=1 fail=0`
+
+First replay:
+
+```text
+hide
+gpu m3-monitor-extraction-probe --frames 12 --interval-ms 200 --timeout-ms 60000 --hold-ms 60000 --materialize-devnode
+```
+
+- The operator reported that graph-like content was visible, but the automatic HUD may have interfered with the visual hold.
+- Telemetry still passed: `presented=12`, `present_rc=0`, `timed_out=0`, `child_killed=0`, `semantic.match_count=64`, `semantic.mismatch_count=0`, `semantic.output_other_count=0`, `gpu.m3.extract.result=shared-2d-present-monitor-pass`.
+- Follow-up selftest: `pass=12 warn=1 fail=0`.
+
+Second replay used the stronger foreground-display setup:
+
+```text
+stophud
+gpu m3-monitor-extraction-probe --frames 12 --interval-ms 200 --timeout-ms 60000 --hold-ms 60000 --materialize-devnode
+```
+
+- `stophud` reported `autohud: stopped`.
+- Telemetry passed: `presented=12`, `present_rc=0`, `timed_out=0`, `child_killed=0`, `graph_pixels_set=2720`, `semantic.match_count=64`, `semantic.mismatch_count=0`, `semantic.output_other_count=0`, `gpu.m3.extract.result=shared-2d-present-monitor-pass`.
+- Command duration: `63588ms`.
+- Follow-up selftest: `pass=12 warn=1 fail=0`.
+- Operator eye-confirmation: "보인다 유지되는거 같다".
+
 ## D3 Regression
 
 Command:
@@ -69,4 +100,4 @@ Key telemetry:
 
 ## Status
 
-V3321 fixes the V3320 60-second hold collision by separating the render timeout from the visual hold budget. The remaining human-facing close item for the full ③ monitor rung is still explicit operator eye-confirmation of the held live monitor panel before promoting the rung from telemetry-pass to eye-confirmed.
+V3321 fixes the V3320 60-second hold collision by separating the render timeout from the visual hold budget. The no-flash `stophud` replay also closes the human-facing gate: the held live monitor panel was visible and stayed on screen according to operator confirmation. The full ③ monitor rung is now telemetry-pass and eye-confirmed.

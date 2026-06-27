@@ -428,7 +428,7 @@ the Audio section above). Full detail: `CLAUDE.md` + `docs/reports/`. No active 
    report; never `-A`. Message per project convention; end with the Co-Authored-By line.
 9. **REPEAT** → back to STATE.
 
-## 🟢 GPU epic — first-light G0→G5 ✅, first triangle H0→H5 ✅, compute C0→C3 ✅, GPU-accel 2D D0→D3 ✅ (all eye-confirmed), active rung = ③ on-panel system monitor M0→M3 (delivers the extraction)
+## 🟢 GPU epic — first-light G0→G5 ✅, first triangle H0→H5 ✅, compute C0→C3 ✅, GPU-accel 2D D0→D3 ✅, on-panel system monitor M0→M3 ✅ (all eye-confirmed; ③ extraction delivered)
 
 **Persistent HARD FRAMING (inherited by every GPU rung, do not deviate):**
 - **freedreno / Mesa / KGSL-direct ONLY.** The proprietary Adreno blob path (libGLESv2/EGL/OpenCL via Bionic/Android
@@ -507,7 +507,7 @@ warm and does not repeat a stall; carry the execution-proof bisect + register-di
   measure (fps / CPU freed); operator confirms the demo still renders correctly via the GPU blit = ② close. This makes
   the GPU a real CONSUMER of existing work and is the third call site for the ③ rule-of-three extraction.
 
-**ACTIVE NOW = ③ on-panel GPU-accelerated SYSTEM MONITOR (M0→M3) — the visible/useful consumer that DELIVERS the
+**③ on-panel GPU-accelerated SYSTEM MONITOR (M0→M3) — DONE + EYE-CONFIRMED; this visible/useful consumer DELIVERED the
 rule-of-three extraction.** Rather than a bare refactor, build a glanceable on-panel system dashboard (per-core/cluster
 CPU, freq, thermals, GPU, battery) as a 4th real GPU consumer; building it forces a clean reuse of the G0-G3 KGSL core +
 H draw + ②D texture/blit, so the ③ extraction falls out organically (GOAL discipline: formalize the API only after the
@@ -601,9 +601,12 @@ passed live validation. After hiding the auto menu, `gpu m3-monitor-extraction-p
 `cluster.count=3`, `semantic.match_count=64`, `semantic.mismatch_count=0`, `semantic.output_other_count=0`, and
 `result=shared-2d-present-monitor-pass`; duration was `62502ms`. Focused D3 Bad Apple regression also stayed green
 (`result=video-texture-present-pass`, `presented=3`, `present_rc=0`, `semantic.match_count=64`,
-`semantic.output_other_count=0`) and post-probe selftest stayed `pass=12 warn=1 fail=0`. The 60 s held live monitor is
-now cleanly replayable; operator eye-confirmation of the held live monitor panel is still pending before marking the ③
-monitor rung eye-confirmed/closed.**
+`semantic.output_other_count=0`) and post-probe selftest stayed `pass=12 warn=1 fail=0`. A no-flash operator replay then
+confirmed the human-facing close: the first `hide` run showed the monitor graph but had possible auto-HUD interference;
+the second run stopped auto-HUD with `stophud` first and again passed (`presented=12`, `timed_out=0`, `child_killed=0`,
+`graph_pixels_set=2720`, `semantic.match_count=64`, `semantic.mismatch_count=0`, `semantic.output_other_count=0`,
+duration `63588ms`, follow-up selftest `pass=12 warn=1 fail=0`). The operator confirmed: "보인다 유지되는거 같다".
+The ③ monitor rung is DONE + EYE-CONFIRMED. NEXT = ④ zero-copy or pivot to the server-endgame (SoftAP).**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
 `CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed
