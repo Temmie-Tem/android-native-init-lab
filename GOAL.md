@@ -755,6 +755,20 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## 🟣 DELEGATED OPERATOR SIDE-QUEST — Tier-2 Stage C: confirm a patched-in direct `bl` executes under RKP_CFP
+
+**Operator-delegated, recon-only, separate from the SoftAP roadmap below.** The operator proved
+Tier-2 kernel `.text` patching boots (Stage A) and takes runtime effect (Stage B, num_pwrlevels
+5→99→5). The last gate — does a **new direct `bl` call** injected into `.text` execute under
+RKP_CFP — is analytically favorable (a direct `bl` is not an indirect branch, so JOPP does not gate
+it; the callee self-handles ROPP) but the empirical test is blocked on **reliably locating `printk`**
+(the in-image kallsyms map's address↔file-offset calibration is unreliable here — two DELTAs differ
+by `text_offset` 0x4ef4 and neither maps the map's `printk` onto real `printk` code). **Full warm-start
+spec (method to pin `printk` by signature, the ROPP-correct injection design, the bounded
+panic_on_oops=0 test, and hard guardrails): `docs/reports/KERNEL_SECURITY_TIER2_STAGE_C_INJECTION_LOOP_CHARTER_2026-06-28.md`.**
+RECON only (no grooming/UAF/EL1; no `ret`/`blr`/CFP-site patches; preserve `x17`); bounded +
+recoverable (injection runs on sysfs READ, rollback `v2321`); fails-twice → STOP with a report.
+
 ## 🟢 ACTIVE NOW — SoftAP server-endgame (S0→S4), after GPU epic close
 
 **STATUS (2026-06-27 S0 charter/recon) — V3336 pivots the loop from GPU to SoftAP and freezes the
