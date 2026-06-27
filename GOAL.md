@@ -428,7 +428,7 @@ the Audio section above). Full detail: `CLAUDE.md` + `docs/reports/`. No active 
    report; never `-A`. Message per project convention; end with the Co-Authored-By line.
 9. **REPEAT** → back to STATE.
 
-## 🟢 GPU epic — first-light G0→G5 ✅, first triangle H0→H5 ✅, compute C0→C3 ✅, GPU-accel 2D D0→D3 ✅, on-panel system monitor M0→M3 ✅ (all eye-confirmed; ③ extraction delivered)
+## 🟢 GPU epic — first-light G0→G5 ✅, triangle H0→H5 ✅, compute C0→C3 ✅, accel-2D D0→D3 ✅, monitor M0→M3 ✅ (all eye-confirmed; ③ extraction delivered), active rung = ④ zero-copy scanout Z0→Z3 (closes the GPU epic), then SoftAP server-endgame pivot
 
 **Persistent HARD FRAMING (inherited by every GPU rung, do not deviate):**
 - **freedreno / Mesa / KGSL-direct ONLY.** The proprietary Adreno blob path (libGLESv2/EGL/OpenCL via Bionic/Android
@@ -606,7 +606,31 @@ confirmed the human-facing close: the first `hide` run showed the monitor graph 
 the second run stopped auto-HUD with `stophud` first and again passed (`presented=12`, `timed_out=0`, `child_killed=0`,
 `graph_pixels_set=2720`, `semantic.match_count=64`, `semantic.mismatch_count=0`, `semantic.output_other_count=0`,
 duration `63588ms`, follow-up selftest `pass=12 warn=1 fail=0`). The operator confirmed: "보인다 유지되는거 같다".
-The ③ monitor rung is DONE + EYE-CONFIRMED. NEXT = ④ zero-copy or pivot to the server-endgame (SoftAP).**
+The ③ monitor rung is DONE + EYE-CONFIRMED.**
+
+**ACTIVE NOW = ④ zero-copy KMS/dmabuf scanout (Z0→Z3) — the final GPU rung; closing it closes the GPU epic, then
+pivot to the SoftAP server-endgame.** Today the GPU renders into a buffer and the present path CPU-`memcpy`/blits into
+the KMS scanout buffer (G5 is CPU-copy). The ④ goal is to make the GPU-rendered buffer the scanout buffer directly —
+no CPU copy on the present path — and measure the win (fps / CPU cycles freed / present latency). The crux is the
+A6xx tiling/UBWC layout ↔ DRM display modifier match (the GPU writes tiled/compressed; the display controller must
+scan that exact layout, or the buffer must be a linear/known modifier both sides agree on). Use the V3320/M3-extracted
+shared KGSL submit/fence/buffer/present helper as the single edit site. Bright lines unchanged: KMS present + GPU only,
+NO backlight/PMIC/PWM/regulator/GDSC writes, NO panel re-init, recoverable boot-partition flash, rollback `v2321`.
+- **Z0 (host-only recon).** From the staged Mesa/freedreno sources in `/tmp/a90-mesa-gpu-src/` (fd6_gmem/resolve, the
+  `fdl6_*` layout helpers, `a6xx.xml` RB/scanout regs) + the existing `a90_kms.c` modeset path, pin: what tiling/UBWC
+  modifier the GPU writes for the demo/monitor color buffer, what DRM format-modifier the A90 display plane accepts on
+  `/dev/dri/card0` (enumerate `drmModeGetPlane`/IN_FORMATS read-only), and whether a shared linear buffer or a tiled
+  buffer with a matching modifier is the feasible zero-copy path. Enumerate the actual on-device plane formats — do not
+  hardcode. Output: a written zero-copy feasibility decision + the exact buffer allocation/modifier recipe.
+- **Z1 (source/build).** Allocate the GPU render target as a scanout-capable buffer (KGSL alloc + import to the KMS
+  framebuffer, matching the Z0 modifier), so one buffer is both the GPU output and the scanned-out FB. Gate behind a
+  token; keep the CPU-copy present path as the live fallback. Prove the buffer is shared (same physical/dmabuf, no
+  copy step) via readback/telemetry before any present.
+- **Z2 (live present).** Page-flip the GPU-rendered buffer directly to scan-out for one of the existing consumers
+  (monitor graph or Bad Apple blit) with the CPU copy removed; measure CPU/fps/latency delta vs the copy path; confirm
+  no GPU fault, `selftest fail=0`, rollback to `v2321` clean.
+- **Z3 (eye-confirm + close).** Operator visually confirms the zero-copy consumer renders correctly on-panel and holds;
+  record the measured efficiency win. Eye-confirm = ④ closed = **GPU epic closed**. Then re-charter to SoftAP.**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
 `CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed
@@ -1400,16 +1424,17 @@ wall), so every kernel/shader is hand-assembled ir3 and this never becomes a gen
   content, not a standalone format epic.**
   Recoverable boot-partition flashes only, rollback `v2321`. **Bright lines:** no backlight/PMIC/PWM/regulator/GDSC
   writes; no from-scratch panel re-init; forbidden partitions absolute. Venus HW decode NOT needed (pre-rendered frames).
-- **ACTIVE EPIC = ③ on-panel GPU-accelerated SYSTEM MONITOR (M0→M3), which DELIVERS the rule-of-three extraction.**
-  Three GPU rungs are CLOSED + EYE-CONFIRMED: first-triangle H0→H5 (GREEN RIGHT-TRIANGLE; `V3295/V3296`, `0.11.73`),
-  COMPUTE demo C0→C3 (rainbow/grid pattern; `V3303`, `0.11.77`), and GPU-accel 2D D0→D3 (held Bad Apple GPU-blit frame;
-  `V3315`, `0.11.87`, `selftest fail=0`, no GPU fault). Per the operator decision, instead of a bare refactor the loop
-  builds a glanceable on-panel system dashboard (per-core/cluster CPU + freq + thermals + GPU + battery, with live
-  GPU-drawn graphs) as a 4th real consumer; **building it forces clean reuse of the G0-G3 core + H draw + ②D blit, so
-  the ③ extraction (shared KGSL submit/fence/buffer/texture/present helper) falls out organically.** See the "🟢 GPU
-  epic" block for the M0→M3 ladder. ALL reads + KMS present, NO power writes (bright-line-trivially safe). Then ④
-  zero-copy or the SoftAP server-endgame pivot. Bluetooth / sensors / haptics / Wi-Fi SoftAP remain reference-only
-  until separately chartered (attended daytime quick-wins).
+- **ACTIVE EPIC = ④ zero-copy KMS/dmabuf scanout (Z0→Z3) — the final GPU rung; closing it closes the GPU epic.**
+  Four GPU rungs are CLOSED + EYE-CONFIRMED: first-triangle H0→H5 (GREEN RIGHT-TRIANGLE; `V3295/V3296`, `0.11.73`),
+  COMPUTE demo C0→C3 (rainbow/grid pattern; `V3303`, `0.11.77`), GPU-accel 2D D0→D3 (held Bad Apple GPU-blit frame;
+  `V3315`, `0.11.87`), and on-panel SYSTEM MONITOR M0→M3 (held GPU-drawn graphs; `V3321`, `selftest fail=0`), which
+  DELIVERED the ③ rule-of-three extraction (shared KGSL submit/fence/buffer/texture/present helper). Per the operator
+  decision (2026-06-27: "④ 먼저 닫고 SoftAP"), the loop now makes the GPU-rendered buffer the scanout buffer directly
+  (G5 CPU-copy → direct GPU-buffer scan-out; crux = A6xx tiling/UBWC ↔ DRM display modifier) using the extracted helper
+  as the single edit site, and measures the efficiency win. See the "🟢 GPU epic" block for the Z0→Z3 ladder. KMS
+  present + GPU only, NO power writes (bright-line-trivially safe). Closing ④ closes the GPU epic; **NEXT = pivot to the
+  SoftAP server-endgame** (highest-ROI feature toward the headless-server-distro). Bluetooth / sensors / haptics remain
+  reference-only until separately chartered (attended daytime quick-wins).
 - Device unreachable after an auto-rollback → STOP, leave an incident report.
 - The same sub-goal fails twice → STOP or shelve it and move on; do NOT retry-loop.
 - No sub-goal is safely actionable without the operator → STOP with a note (but T1 is
