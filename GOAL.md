@@ -870,6 +870,24 @@ any `wpa_supplicant mode=2` AP start.** Reports:
 `docs/reports/NATIVE_INIT_V3341_SOFTAP_S3_IFTYPE_PROBE_SOURCE_BUILD_2026-06-28.md` and
 `docs/reports/NATIVE_INIT_V3341_SOFTAP_S3_IFTYPE_PROBE_LIVE_2026-06-28.md`.
 
+**STATUS (2026-06-28 S3 firmware-source + lower AP gate pass) — V3342 restored the safe
+read-only QCACLD firmware source route and proved the lower WLAN/AP gate.** Built
+`boot_linux_v3342_softap_s3_fwsource_iftype_probe.img`
+(`sha256=836f76249d578ef42e25a2d0c7b43cc3ef1d8db9efe5dabc6ee5ce13b10e5502`), flashed it through
+`native_init_flash.py`, booted `A90 Linux init 0.11.106 (v3342-softap-s3-fwsource-iftype-probe)`,
+and kept health clean (`selftest pass=12 warn=1 fail=0`). Helper evidence showed
+`source_policy=qcacld-fwsource-mounted-vendor-first`, `WCNSS_qcom_cfg.ini` `source_rc=0`, `fed=1`,
+and `wlan0_present=1`. The bounded `wifi softap iftype-probe 220000` then passed:
+`wlan0_wait_rc=0`, `wlan0_present=1`, `sta_supplicant.stoppable=1`, `ap_iftype_add_rc=0`,
+`ap_iftype_iface_created=1`, `ap_iftype_cleanup_ok=1`, and `decision=softap-iftype-probe-pass`.
+The no-start contract held (`config_write_attempted=0`, `wpa_supplicant_mode2_start_attempted=0`,
+`dhcp_server_start_attempted=0`, `listener_start_attempted=0`, `address_assign_attempted=0`,
+`server_exposure_attempted=0`). **Next bounded unit = V3343: start a private, cleanup-backed
+`wpa_supplicant mode=2` SoftAP on 2.4GHz ch 1/6/11 with BusyBox `udhcpd`, no WAN/NAT/default-route
+export, then run `softap cleanup` and keep `selftest fail=0`.** Reports:
+`docs/reports/NATIVE_INIT_V3342_SOFTAP_S3_FWSOURCE_IFTYPE_PROBE_SOURCE_BUILD_2026-06-28.md` and
+`docs/reports/NATIVE_INIT_V3342_SOFTAP_S3_FWSOURCE_IFTYPE_PROBE_LIVE_2026-06-28.md`.
+
 - **S0 (host-only charter/recon) = DONE.** Inventory current command/docs/source surface, distinguish
   client-mode Wi-Fi from SoftAP/server mode, and write the bounded ladder + safety recipe.
 - **S1 (read-only live AP/server inventory) = DONE / NO-GO BELOW WLAN.** Current resident has no
@@ -879,11 +897,11 @@ any `wpa_supplicant mode=2` AP start.** Reports:
   `status`, `plan`, and dry-run config materialization under `/cache/a90-softap/`; generated SSID/PSK
   remain private-only, public output reports hashes/booleans only. While S1 remains no-go, S2 must stop
   at status/plan/prepare and must not start hostapd/AP mode.
-- **S3 (bounded AP bring-up) = BLOCKED BEFORE AP-IFTYPE BY QCACLD FIRMWARE SOURCE VISIBILITY.** Start AP mode only
-  after a future unit restores the V2237-style WLAN firmware feed/source route in the current SoftAP baseline,
-  proves `wlan0` present, and proves AP iftype add/delete with cleanup: stop conflicting client supplicant,
-  configure a private local AP subnet, start `wpa_supplicant mode=2` and a bounded DHCP service, expose no WAN/NAT by
-  default, and provide `softap cleanup` that kills workers and removes address/route residue.
+- **S3 (bounded AP bring-up) = LOWER WLAN/AP GATE PROVEN; AP START NEXT.** V3342 proved `wlan0`
+  present, STA supplicant stoppable, and AP iftype add/delete with cleanup. The next unit may start AP mode,
+  but only by configuring a private local AP subnet, starting `wpa_supplicant mode=2` and a bounded DHCP service,
+  exposing no WAN/NAT/default route by default, pinning 2.4GHz ch 1/6/11, and providing `softap cleanup` that
+  kills workers and removes address/route residue.
 - **OPERATOR RECON (2026-06-27, host-verified — answers the S3 "lower WLAN/AP gate" + corrects the daemon
   choice).** SoftAP is NOT non-viable; all three layers already exist on this device (verified host-only
   from the stock `System.map` + staged userland, no device action):

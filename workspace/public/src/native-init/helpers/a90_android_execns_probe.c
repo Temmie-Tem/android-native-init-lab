@@ -56263,7 +56263,8 @@ static int a90_qcacld_build_fw_sysfs_path(char *path,
     return 0;
 }
 
-static int a90_qcacld_read_fw_source(const struct a90_qcacld_fw_fallback_request *request,
+static int a90_qcacld_read_fw_source(const struct paths *paths,
+                                     const struct a90_qcacld_fw_fallback_request *request,
                                      unsigned char **data_out,
                                      size_t *data_len_out,
                                      char *source_path_out,
@@ -56275,6 +56276,8 @@ static int a90_qcacld_read_fw_source(const struct a90_qcacld_fw_fallback_request
         "/vendor/firmware",
         "/proc/1/root/vendor/firmware",
     };
+    const char *roots[8];
+    size_t root_count = 0;
     struct stat stat_buf;
     unsigned char *data = NULL;
     int source_fd = -1;
@@ -56291,14 +56294,28 @@ static int a90_qcacld_read_fw_source(const struct a90_qcacld_fw_fallback_request
         *source_errno_out = 0;
     }
 
+    if (paths != NULL && paths->vendor_firmware[0] != '\0') {
+        roots[root_count++] = paths->vendor_firmware;
+    }
+    if (paths != NULL && paths->rfs_bridge_source_readonly_vendor_firmware[0] != '\0') {
+        roots[root_count++] = paths->rfs_bridge_source_readonly_vendor_firmware;
+    }
+    if (paths != NULL && paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware[0] != '\0') {
+        roots[root_count++] = paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware;
+    }
     for (size_t source_index = 0;
-         source_index < sizeof(source_roots) / sizeof(source_roots[0]);
+         source_index < sizeof(source_roots) / sizeof(source_roots[0]) &&
+         root_count < sizeof(roots) / sizeof(roots[0]);
          source_index++) {
+        roots[root_count++] = source_roots[source_index];
+    }
+
+    for (size_t source_index = 0; source_index < root_count; source_index++) {
         char candidate[MAX_PATH_LEN];
 
         if (a90_qcacld_build_fw_source_path(candidate,
                                             sizeof(candidate),
-                                            source_roots[source_index],
+                                            roots[source_index],
                                             request->firmware_name) < 0) {
             saved_errno = errno;
             continue;
@@ -56382,6 +56399,7 @@ static int a90_qcacld_read_fw_source(const struct a90_qcacld_fw_fallback_request
 static int a90_qcacld_feed_one_fw_fallback(struct buffer *stdout_buf,
                                            const char *phase,
                                            int request_index,
+                                           const struct paths *paths,
                                            const struct a90_qcacld_fw_fallback_request *request,
                                            bool *fed_out) {
     static const char * const prefix = "qcacld_firmware_class_fallback_feeder";
@@ -56433,7 +56451,8 @@ static int a90_qcacld_feed_one_fw_fallback(struct buffer *stdout_buf,
         return 0;
     }
 
-    source_rc = a90_qcacld_read_fw_source(request,
+    source_rc = a90_qcacld_read_fw_source(paths,
+                                         request,
                                          &data,
                                          &data_len,
                                          source_path,
@@ -56592,6 +56611,7 @@ static int append_qcacld_fwclass_boundary_stack_sampler(
 }
 
 static int append_qcacld_firmware_class_fallback_feeder(struct buffer *stdout_buf,
+                                                        const struct paths *paths,
                                                         const char *phase,
                                                         long wait_ms) {
     static const char * const prefix = "qcacld_firmware_class_fallback_feeder";
@@ -56607,6 +56627,7 @@ static int append_qcacld_firmware_class_fallback_feeder(struct buffer *stdout_bu
                       "%s.%s.mode=bounded-qcacld-firmware-class-fallback-feeder\n"
                       "%s.%s.wait_ms=%ld\n"
                       "%s.%s.request_count=%zu\n"
+                      "%s.%s.source_policy=qcacld-fwsource-mounted-vendor-first\n"
                       "%s.%s.sysfs_data_write_scope=firmware_class_userspace_fallback_only\n"
                       "%s.%s.no_partition_write=1\n"
                       "%s.%s.no_firmware_file_write=1\n"
@@ -56624,6 +56645,7 @@ static int append_qcacld_firmware_class_fallback_feeder(struct buffer *stdout_bu
                       prefix, phase, wait_ms,
                       prefix, phase,
                       sizeof(a90_qcacld_fw_requests) / sizeof(a90_qcacld_fw_requests[0]),
+                      prefix, phase,
                       prefix, phase,
                       prefix, phase,
                       prefix, phase,
@@ -56678,6 +56700,7 @@ static int append_qcacld_firmware_class_fallback_feeder(struct buffer *stdout_bu
             if (a90_qcacld_feed_one_fw_fallback(stdout_buf,
                                                 phase,
                                                 (int)request_index,
+                                                paths,
                                                 &a90_qcacld_fw_requests[request_index],
                                                 &request_fed) < 0) {
                 return -1;
@@ -59602,6 +59625,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
 #if A90_WIFI_TEST_BOOT_QCACLD_FIRMWARE_CLASS_FALLBACK_FEEDER
 #if A90_WIFI_TEST_BOOT_TAIL_PERF_REGS_CODEWORD_SAMPLER
             int fwclass_feeder_rc = append_qcacld_firmware_class_fallback_feeder(stdout_buf,
+                                                                                 paths,
                                                                                  "after_boot_wlan_trigger",
                                                                                  30000);
             if (append_tail_perf_regs_codeword_sampler_finish(stdout_buf,
@@ -59631,6 +59655,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
 #else
 #if A90_WIFI_TEST_BOOT_WORKQUEUE_FWCLASS_FUNC_SAMPLER
             int fwclass_feeder_rc = append_qcacld_firmware_class_fallback_feeder(stdout_buf,
+                                                                                 paths,
                                                                                  "after_boot_wlan_trigger",
                                                                                  30000);
             if (append_workqueue_fwclass_func_sampler_finish(stdout_buf,
@@ -59649,6 +59674,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
             }
 #else
 	        if (append_qcacld_firmware_class_fallback_feeder(stdout_buf,
+                                                             paths,
 	                                                         "after_boot_wlan_trigger",
 	                                                         30000) < 0) {
 	            stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
