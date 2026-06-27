@@ -825,6 +825,23 @@ until a future read-only lower-surface unit proves WLAN/AP prerequisites.** Repo
   read-only unit proves wlan-like interface/rfkill/module/AP prerequisites: stop conflicting client supplicant,
   configure a private local AP subnet, start hostapd and a bounded DHCP service, expose no WAN/NAT by
   default, and provide `softap cleanup` that kills workers and removes address/route residue.
+- **OPERATOR RECON (2026-06-27, host-verified — answers the S3 "lower WLAN/AP gate" + corrects the daemon
+  choice).** SoftAP is NOT non-viable; all three layers already exist on this device (verified host-only
+  from the stock `System.map` + staged userland, no device action):
+  1. **Driver/SAP = built into the stock kernel** (qcacld), 84 SAP symbols incl. `hdd_hostapd_open`,
+     `hdd_softap_register_sta`/`stop_bss`/`sta_deauth`/`set_channel_change`, `wlan_hdd_cfg80211_change_beacon`,
+     `__cfg80211_stop_ap`, `sap_fsm`, and even `hdd_softap_inspect_dhcp_packet` (the AP/tether path is real).
+     Concurrency policy is present too (`policy_mgr_allow_sap_go_concurrency`, `policy_mgr_add_sap_mandatory_chan`,
+     `hdd_set_sap_ht2040_mode`), but the first bring-up should be single-AP after stopping the STA supplicant.
+  2. **AP daemon = DO NOT stage hostapd.** The already-proven Ubuntu `wpa_supplicant 2.11` binary in the
+     staged `ubuntu-arm64-wpa` runtime is built with `CONFIG_AP` (117 AP strings incl.
+     `hostapd_setup_interface_complete_sync`). Run SoftAP via `wpa_supplicant` **`mode=2`**, reusing the exact
+     client-mode binary + libs already working — this skips the whole hostapd cross-compile/stage detour.
+  3. **DHCP = busybox `udhcpd`** (`CONFIG_UDHCPD=y`, already built in); no dnsmasq needed.
+  4. **Pin the first AP to 2.4GHz ch 1/6/11** to avoid the 5GHz DFS CAC path (`sap_fsm_cac_start`) — DFS adds
+     radar-CAC delay/complexity that will stall first proof. No WAN/NAT (`allow_server_exposure=false` stays
+     frozen). So the S3 "lower gate" read-only unit just needs to confirm wlan0 present + AP iftype settable +
+     supplicant stoppable; the driver capability question is already answered YES here.
 - **S4 (server-endgame proof).** Start the local transfer server on the AP, have a client join, prove
   HTTP download and raw upload SHA integrity, stop the server/AP, and confirm follow-up
   `selftest fail=0`. Public artifacts must redact SSID/PSK/client identifiers and concrete network
