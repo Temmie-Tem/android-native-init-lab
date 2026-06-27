@@ -26,10 +26,24 @@ killed, the device stayed up** (kernel activity continued, no reboot). Cleanup: 
 `panic_on_oops` restored to 1, `selftest pass=12 warn=1 fail=0`, no loop collision.
 
 **Conclusion:** reachability is no longer just source-plausible — it is empirically proven, with
-the exact fault site. NOT captured (would need a value-only reader, which does not fault): the
-info-leak observation of freed-slot reclaim content (the dedicated-cache exploitability datum).
+the exact fault site.
+
+### Info-leak / reclaim observation (value-only variant, 2026-06-27)
+A second non-faulting harness (`a90_five_uaf_leak`, reads only `/proc/<vpid>/integrity/value`
+= `task_integrity_user_read` → `user_value` at offset 0, no pointer chase) ran 10 s:
+`reads=568150`, `zero(0x0)=533327` (93.9%, the valid `INTEGRITY_NONE`), `nonzero=34823` (6.1%,
+ALL `0xffffffff`), `changes=69463`, device survived (value reads do not fault; slab page stays
+mapped), `selftest fail=0` after restore. **The race is won constantly (value toggles 0 ↔
+0xffffffff ~69k times), but the freed-slot leak is a single FIXED sentinel `0xffffffff` (-1) —
+NOT diverse heap-reclaim content.** Whether 0xffffffff is a free/reset-transition value or slab
+poison/freelist-tail (not traced further), the exploitability takeaway is the same: **passive
+observation shows no controllable reclaim content in the dedicated `task_integrity_cache`** —
+empirical support that weaponizing this needs ACTIVE heap grooming / cross-cache, not passive
+reuse. The dedicated-cache obstacle is real.
+
 This stays RECON — no grooming/primitive/EL1 was attempted, and the exploitation obstacles
-(dedicated `task_integrity_cache` + RKP_CFP + RKP_KDP) are unchanged.
+(dedicated `task_integrity_cache` + RKP_CFP + RKP_KDP) are unchanged. The Tier-0 warm-start kit
+is now complete: trigger confirmed (fault site) + freed-slot passive behavior (fixed sentinel).
 
 ---
 
