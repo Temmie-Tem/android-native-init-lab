@@ -2425,6 +2425,7 @@ struct gpu_c2_compute_pattern_probe_result {
 #define GPU_D3_VIDEO_TARGET_STRIDE (GPU_D3_VIDEO_TARGET_WIDTH * GPU_D3_VIDEO_TARGET_BPP)
 #define GPU_D3_VIDEO_TARGET_BYTES \
     ((uint64_t)GPU_D3_VIDEO_TARGET_STRIDE * GPU_D3_VIDEO_TARGET_HEIGHT)
+#define GPU_Z3_PRIMARY_MAX_TARGET_BYTES (32ULL * 1024ULL * 1024ULL)
 #define GPU_D3_VIDEO_COLOR_FLAG_ALLOC_SIZE 65536ULL
 #define GPU_D3_VIDEO_SEMANTIC_EDGE_RADIUS 1U
 #define GPU_D3_VIDEO_LABEL "GPU D3 VIDEO TEXTURE"
@@ -4112,6 +4113,7 @@ struct gpu_z2_imported_target_summary {
     int render_rc;
     int kms_begin_rc;
     int kms_base_present_rc;
+    int kms_restore_rc;
     int kms_info_initialized;
     int kms_client_cap_universal_rc;
     int kms_client_cap_atomic_rc;
@@ -4140,9 +4142,11 @@ struct gpu_z2_imported_target_summary {
     uint32_t drm_buffer_kind;
     uint32_t drm_dumb_pitch;
     uint32_t kms_crtc_id;
+    uint32_t kms_base_fb_id;
     int kms_crtc_index;
     uint32_t kms_screen_width;
     uint32_t kms_screen_height;
+    uint32_t kms_primary_setcrtc_attempted;
     uint32_t kms_plane_id;
     uint32_t kms_plane_count;
     uint32_t kms_plane_compatible_count;
@@ -13982,7 +13986,11 @@ static int gpu_2d_present_create_session_internal(
     struct gpu_d3_video_summary *summary,
     int imported_linear_dmabuf_fd,
     void *imported_linear_map,
-    struct gpu_z2_linear_import_metrics *import_metrics) {
+    struct gpu_z2_linear_import_metrics *import_metrics,
+    uint32_t target_width_override,
+    uint32_t target_height_override,
+    uint32_t target_stride_override,
+    uint64_t target_bytes_override) {
     static const uint32_t vs_shader[GPU_H3_VS_SHADER_DWORDS] = {
         GPU_H3_IR3_MOV_F32F32_R2X_R1X_LO, GPU_H3_IR3_MOV_F32F32_R2X_R1X_HI,
         GPU_H3_IR3_MOV_F32F32_R2Y_R1Y_LO, GPU_H3_IR3_MOV_F32F32_R2Y_R1Y_HI,
@@ -14019,6 +14027,7 @@ static int gpu_2d_present_create_session_internal(
     struct gpu_kgsl_drawctxt_create create_arg;
     unsigned int state_reg_writes = 0;
     unsigned int vfd_reg_writes = 0;
+    bool target_override;
     int rc;
 
     if (session == NULL || manifest == NULL || summary == NULL ||
@@ -14032,16 +14041,36 @@ static int gpu_2d_present_create_session_internal(
     session->texture_height = manifest->height;
     session->texture_stride = manifest->width * GPU_D1_TEXTURE_BPP;
     session->texture_bytes = (uint64_t)session->texture_stride * session->texture_height;
-    session->target_width = manifest->width * VIDEO_PLAYER_HUD_SCALE;
-    session->target_height = manifest->height * VIDEO_PLAYER_HUD_SCALE;
-    session->target_stride = session->target_width * GPU_D3_VIDEO_TARGET_BPP;
-    session->target_bytes = (uint64_t)session->target_stride * session->target_height;
+    target_override = target_width_override != 0U ||
+                      target_height_override != 0U ||
+                      target_stride_override != 0U ||
+                      target_bytes_override != 0ULL;
+    if (target_override) {
+        if (target_width_override == 0U ||
+            target_height_override == 0U ||
+            target_stride_override < target_width_override * GPU_D3_VIDEO_TARGET_BPP ||
+            target_bytes_override < (uint64_t)target_stride_override *
+                                    target_height_override ||
+            target_bytes_override > GPU_Z3_PRIMARY_MAX_TARGET_BYTES) {
+            return -EINVAL;
+        }
+        session->target_width = target_width_override;
+        session->target_height = target_height_override;
+        session->target_stride = target_stride_override;
+        session->target_bytes = target_bytes_override;
+    } else {
+        session->target_width = manifest->width * VIDEO_PLAYER_HUD_SCALE;
+        session->target_height = manifest->height * VIDEO_PLAYER_HUD_SCALE;
+        session->target_stride = session->target_width * GPU_D3_VIDEO_TARGET_BPP;
+        session->target_bytes = (uint64_t)session->target_stride * session->target_height;
+    }
     if (session->texture_bytes == 0U ||
         session->texture_bytes > GPU_D2_REALFRAME_MAX_TEXTURE_BYTES ||
-        session->target_width != GPU_D3_VIDEO_TARGET_WIDTH ||
-        session->target_height != GPU_D3_VIDEO_TARGET_HEIGHT ||
-        session->target_stride != GPU_D3_VIDEO_TARGET_STRIDE ||
-        session->target_bytes != GPU_D3_VIDEO_TARGET_BYTES) {
+        (!target_override &&
+         (session->target_width != GPU_D3_VIDEO_TARGET_WIDTH ||
+          session->target_height != GPU_D3_VIDEO_TARGET_HEIGHT ||
+          session->target_stride != GPU_D3_VIDEO_TARGET_STRIDE ||
+          session->target_bytes != GPU_D3_VIDEO_TARGET_BYTES))) {
         return -EINVAL;
     }
 
@@ -14160,7 +14189,11 @@ static int gpu_2d_present_create_session(struct gpu_d3_session *session,
                                                   summary,
                                                   -1,
                                                   MAP_FAILED,
-                                                  NULL);
+                                                  NULL,
+                                                  0U,
+                                                  0U,
+                                                  0U,
+                                                  0ULL);
 }
 
 static int gpu_d3_create_session(struct gpu_d3_session *session,
@@ -14353,34 +14386,40 @@ static int gpu_2d_present_submit_wait(struct gpu_d3_session *session,
 static int gpu_2d_present_sample_linear(struct gpu_d3_session *session,
                                         struct gpu_d3_video_frame_stats *stats) {
     const uint32_t *words;
+    uint32_t row_words;
     uint32_t center;
-    uint64_t count;
-    uint64_t index;
+    uint32_t y;
 
     if (session == NULL || stats == NULL ||
         session->linear.map == NULL || session->linear.map == MAP_FAILED ||
-        session->target_width == 0U || session->target_height == 0U) {
+        session->target_width == 0U || session->target_height == 0U ||
+        session->target_stride < session->target_width * sizeof(uint32_t)) {
         return -EINVAL;
     }
     words = (const uint32_t *)session->linear.map;
-    center = (session->target_height / 2U) * session->target_width +
+    row_words = session->target_stride / sizeof(uint32_t);
+    center = (session->target_height / 2U) * row_words +
         (session->target_width / 2U);
-    count = (uint64_t)session->target_width * session->target_height;
 
     stats->first_word = words[0];
     stats->center_word = words[center];
-    for (index = 0; index < count; ++index) {
-        uint32_t rgb = words[index] & 0x00ffffffU;
+    for (y = 0; y < session->target_height; ++y) {
+        uint32_t x;
+        const uint32_t *row = words + ((size_t)y * row_words);
 
-        if (words[index] != GPU_H5_LINEAR_CLEAR_PATTERN) {
-            stats->changed_count += 1U;
-        }
-        if (rgb == GPU_D2_REALFRAME_DARK_RGB) {
-            stats->semantic_output_dark_count += 1U;
-        } else if (rgb == GPU_D2_REALFRAME_LIGHT_RGB) {
-            stats->semantic_output_light_count += 1U;
-        } else {
-            stats->semantic_output_other_count += 1U;
+        for (x = 0; x < session->target_width; ++x) {
+            uint32_t rgb = row[x] & 0x00ffffffU;
+
+            if (row[x] != GPU_H5_LINEAR_CLEAR_PATTERN) {
+                stats->changed_count += 1U;
+            }
+            if (rgb == GPU_D2_REALFRAME_DARK_RGB) {
+                stats->semantic_output_dark_count += 1U;
+            } else if (rgb == GPU_D2_REALFRAME_LIGHT_RGB) {
+                stats->semantic_output_light_count += 1U;
+            } else {
+                stats->semantic_output_other_count += 1U;
+            }
         }
     }
     __sync_synchronize();
@@ -14464,15 +14503,18 @@ static void gpu_d3_validate_linear_semantics(const struct gpu_d3_session *sessio
                                              const uint8_t *frame,
                                              struct gpu_d3_video_frame_stats *stats) {
     const uint32_t *words;
+    uint32_t row_words;
     uint32_t index;
 
     if (session == NULL || manifest == NULL || frame == NULL || stats == NULL ||
         session->linear.map == NULL || session->linear.map == MAP_FAILED ||
         session->target_width == 0U || session->target_height == 0U ||
+        session->target_stride < session->target_width * sizeof(uint32_t) ||
         manifest->width == 0U || manifest->height == 0U) {
         return;
     }
     words = (const uint32_t *)session->linear.map;
+    row_words = session->target_stride / sizeof(uint32_t);
     stats->semantic_first_mismatch_index = UINT_MAX;
     for (index = 0; index < GPU_D1_CHECKER_SAMPLE_COUNT; ++index) {
         uint32_t sx = index % GPU_D1_CHECKER_SAMPLE_GRID;
@@ -14507,7 +14549,7 @@ static void gpu_d3_validate_linear_semantics(const struct gpu_d3_session *sessio
             source_y = manifest->height - 1U;
         }
         expected = gpu_d2_realframe_expected_rgb(frame, manifest, source_x, source_y);
-        value = words[((size_t)target_y * session->target_width) + target_x] & 0x00ffffffU;
+        value = words[((size_t)target_y * row_words) + target_x] & 0x00ffffffU;
         stats->semantic_sample_count += 1U;
         if (value == expected) {
             stats->semantic_exact_match_count += 1U;
@@ -16662,7 +16704,8 @@ static bool gpu_z2_imported_target_summary_passed(
            summary->gpu_create_rc == 0 &&
            summary->render_rc == 0 &&
            summary->kgsl_gpuaddr != 0ULL &&
-           summary->kgsl_size >= GPU_D3_VIDEO_TARGET_BYTES &&
+           summary->target_bytes != 0U &&
+           summary->kgsl_size >= summary->target_bytes &&
            summary->changed_count > 0ULL &&
            summary->semantic_sample_count == GPU_D1_CHECKER_SAMPLE_COUNT &&
            summary->semantic_sample_match_count == GPU_D1_CHECKER_SAMPLE_COUNT &&
@@ -16682,8 +16725,9 @@ static bool gpu_z3_kms_dumb_imported_target_summary_passed(
            summary->drm_buffer_kind == GPU_Z3_BUFFER_KIND_KMS_DUMB &&
            summary->drm_dumb_create_rc == 0 &&
            summary->drm_dumb_map_offset_rc == 0 &&
-           summary->drm_dumb_pitch == GPU_D3_VIDEO_TARGET_STRIDE &&
-           summary->drm_dumb_size >= GPU_D3_VIDEO_TARGET_BYTES &&
+           summary->target_bytes != 0U &&
+           summary->drm_dumb_pitch == summary->target_stride &&
+           summary->drm_dumb_size >= summary->target_bytes &&
            summary->drm_prime_export_rc == 0 &&
            summary->drm_addfb2_rc == 0 &&
            summary->kgsl_import_rc == 0 &&
@@ -16691,7 +16735,7 @@ static bool gpu_z3_kms_dumb_imported_target_summary_passed(
            summary->gpu_create_rc == 0 &&
            summary->render_rc == 0 &&
            summary->kgsl_gpuaddr != 0ULL &&
-           summary->kgsl_size >= GPU_D3_VIDEO_TARGET_BYTES &&
+           summary->kgsl_size >= summary->target_bytes &&
            summary->changed_count > 0ULL &&
            summary->semantic_sample_count == GPU_D1_CHECKER_SAMPLE_COUNT &&
            summary->semantic_sample_match_count == GPU_D1_CHECKER_SAMPLE_COUNT &&
@@ -16730,9 +16774,28 @@ static bool gpu_z3_imported_scanout_present_summary_passed(
            summary->kms_disable_plane_rc == 0;
 }
 
+static bool gpu_z3_imported_scanout_primary_summary_passed(
+    const struct gpu_z2_imported_target_summary *summary) {
+    return gpu_z3_kms_dumb_imported_target_summary_passed(summary) &&
+           summary->kms_begin_rc == 0 &&
+           summary->kms_base_present_rc == 0 &&
+           summary->kms_restore_rc == 0 &&
+           summary->kms_info_initialized == 1 &&
+           summary->kms_crtc_id != 0U &&
+           summary->kms_crtc_index >= 0 &&
+           summary->kms_screen_width == summary->target_width &&
+           summary->kms_screen_height == summary->target_height &&
+           summary->kms_base_fb_id != 0U &&
+           summary->kms_primary_setcrtc_attempted == 1U &&
+           summary->kms_present_rc == 0 &&
+           summary->hold_ms > 0U &&
+           summary->kms_disable_plane_rc == 0;
+}
+
 static int gpu_z2_imported_scanout_target_child(int write_fd,
                                                 bool present_external,
-                                                int hold_ms) {
+                                                int hold_ms,
+                                                bool primary_setcrtc) {
     struct gpu_z2_imported_target_summary summary;
     struct gpu_d3_video_summary d3_summary;
     struct gpu_z2_linear_import_metrics import_metrics;
@@ -16780,6 +16843,7 @@ static int gpu_z2_imported_scanout_target_child(int write_fd,
     summary.render_rc = -ENOSYS;
     summary.kms_begin_rc = present_external ? -ENOSYS : 0;
     summary.kms_base_present_rc = present_external ? -ENOSYS : 0;
+    summary.kms_restore_rc = present_external && primary_setcrtc ? -ENOSYS : 0;
     summary.kms_info_initialized = 0;
     summary.kms_client_cap_universal_rc = present_external ? -ENOSYS : 0;
     summary.kms_client_cap_atomic_rc = present_external ? -ENOSYS : 0;
@@ -16795,6 +16859,8 @@ static int gpu_z2_imported_scanout_target_child(int write_fd,
     summary.close_prime_rc = 0;
     summary.close_drm_fd_rc = 0;
     summary.kms_crtc_index = -1;
+    summary.kms_primary_setcrtc_attempted =
+        present_external && primary_setcrtc ? 1U : 0U;
     summary.source_width = manifest.width;
     summary.source_height = manifest.height;
     summary.source_stride = manifest.stride;
@@ -16838,6 +16904,7 @@ static int gpu_z2_imported_scanout_target_child(int write_fd,
         summary.kms_crtc_index = kms_info.crtc_index;
         summary.kms_screen_width = kms_info.width;
         summary.kms_screen_height = kms_info.height;
+        summary.kms_base_fb_id = kms_info.fb_id;
         if (!kms_info.initialized || kms_info.crtc_id == 0U ||
             kms_info.crtc_index < 0 || kms_info.width == 0U ||
             kms_info.height == 0U) {
@@ -16853,6 +16920,13 @@ static int gpu_z2_imported_scanout_target_child(int write_fd,
             goto out;
         }
         summary.drm_open_rc = 0;
+        if (primary_setcrtc) {
+            summary.target_width = kms_info.width;
+            summary.target_height = kms_info.height;
+            summary.target_stride = kms_info.width * GPU_D3_VIDEO_TARGET_BPP;
+            summary.target_bytes = (uint32_t)(
+                (uint64_t)summary.target_stride * summary.target_height);
+        }
     } else {
         errno = 0;
         drm_fd = open("/dev/dri/card0", O_RDWR | O_CLOEXEC);
@@ -16866,8 +16940,10 @@ static int gpu_z2_imported_scanout_target_child(int write_fd,
 
     if (use_kms_dumb_target) {
         memset(&dumb, 0, sizeof(dumb));
-        dumb.width = GPU_D3_VIDEO_TARGET_WIDTH;
-        dumb.height = GPU_D3_VIDEO_TARGET_HEIGHT;
+        dumb.width = primary_setcrtc ? summary.kms_screen_width :
+                                       GPU_D3_VIDEO_TARGET_WIDTH;
+        dumb.height = primary_setcrtc ? summary.kms_screen_height :
+                                        GPU_D3_VIDEO_TARGET_HEIGHT;
         dumb.bpp = 32U;
         errno = 0;
         if (gpu_z2_ioctl_retry(drm_fd, DRM_IOCTL_MODE_CREATE_DUMB, &dumb) < 0) {
@@ -16881,10 +16957,25 @@ static int gpu_z2_imported_scanout_target_child(int write_fd,
         summary.drm_dumb_create_rc = 0;
         summary.drm_dumb_pitch = dumb.pitch;
         summary.drm_dumb_size = dumb.size;
-        if (dumb.pitch != GPU_D3_VIDEO_TARGET_STRIDE ||
-            dumb.size < GPU_D3_VIDEO_TARGET_BYTES) {
-            rc = -EINVAL;
-            goto out;
+        if (primary_setcrtc) {
+            if (dumb.width == 0U || dumb.height == 0U ||
+                dumb.pitch < dumb.width * GPU_D3_VIDEO_TARGET_BPP ||
+                dumb.size < (uint64_t)dumb.pitch * dumb.height ||
+                dumb.size > GPU_Z3_PRIMARY_MAX_TARGET_BYTES ||
+                dumb.size > UINT32_MAX) {
+                rc = -EINVAL;
+                goto out;
+            }
+            summary.target_width = dumb.width;
+            summary.target_height = dumb.height;
+            summary.target_stride = dumb.pitch;
+            summary.target_bytes = (uint32_t)dumb.size;
+        } else {
+            if (dumb.pitch != GPU_D3_VIDEO_TARGET_STRIDE ||
+                dumb.size < GPU_D3_VIDEO_TARGET_BYTES) {
+                rc = -EINVAL;
+                goto out;
+            }
         }
         memset(&dumb_map, 0, sizeof(dumb_map));
         dumb_map.handle = drm_handle;
@@ -16900,7 +16991,7 @@ static int gpu_z2_imported_scanout_target_child(int write_fd,
         summary.drm_mmap_offset = offset;
     } else {
         memset(&gem, 0, sizeof(gem));
-        gem.size = GPU_D3_VIDEO_TARGET_BYTES;
+        gem.size = summary.target_bytes;
         gem.flags = MSM_BO_SCANOUT | MSM_BO_WC;
         errno = 0;
         if (gpu_z2_ioctl_retry(drm_fd, DRM_IOCTL_MSM_GEM_NEW, &gem) < 0) {
@@ -16948,11 +17039,11 @@ static int gpu_z2_imported_scanout_target_child(int write_fd,
     summary.drm_prime_export_rc = 0;
 
     memset(&addfb2, 0, sizeof(addfb2));
-    addfb2.width = GPU_D3_VIDEO_TARGET_WIDTH;
-    addfb2.height = GPU_D3_VIDEO_TARGET_HEIGHT;
+    addfb2.width = summary.target_width;
+    addfb2.height = summary.target_height;
     addfb2.pixel_format = DRM_FORMAT_XBGR8888;
     addfb2.handles[0] = drm_handle;
-    addfb2.pitches[0] = GPU_D3_VIDEO_TARGET_STRIDE;
+    addfb2.pitches[0] = summary.target_stride;
     errno = 0;
     if (gpu_z2_ioctl_retry(drm_fd, DRM_IOCTL_MODE_ADDFB2, &addfb2) < 0) {
         rc = negative_errno_or(EIO);
@@ -16984,7 +17075,15 @@ static int gpu_z2_imported_scanout_target_child(int write_fd,
                                                 &d3_summary,
                                                 prime_fd,
                                                 map,
-                                                &import_metrics);
+                                                &import_metrics,
+                                                primary_setcrtc ?
+                                                    summary.target_width : 0U,
+                                                primary_setcrtc ?
+                                                    summary.target_height : 0U,
+                                                primary_setcrtc ?
+                                                    summary.target_stride : 0U,
+                                                primary_setcrtc ?
+                                                    summary.target_bytes : 0ULL);
     if (session.linear.map == map) {
         session_owns_map = true;
         map = MAP_FAILED;
@@ -17032,7 +17131,35 @@ static int gpu_z2_imported_scanout_target_child(int write_fd,
         }
     }
 
-    if (present_external) {
+    if (present_external && primary_setcrtc) {
+        started_ns = video_monotonic_ns();
+        summary.kms_present_rc =
+            a90_kms_present_external_fb(fb_id,
+                                        "gpu-z3-imported-scanout-primary",
+                                        false);
+        finished_ns = video_monotonic_ns();
+        summary.present_us =
+            finished_ns > started_ns ? (finished_ns - started_ns) / 1000ULL : 1ULL;
+        if (summary.kms_present_rc < 0) {
+            rc = negative_errno_or(EIO);
+            summary.kms_present_rc = rc;
+            goto out;
+        }
+        if (hold_ms > 0) {
+            usleep((useconds_t)hold_ms * 1000U);
+        }
+        if (summary.kms_base_fb_id != 0U) {
+            summary.kms_restore_rc =
+                a90_kms_present_external_fb(summary.kms_base_fb_id,
+                                            "gpu-z3-imported-scanout-primary-restore",
+                                            false);
+            if (summary.kms_restore_rc < 0) {
+                rc = negative_errno_or(EIO);
+                summary.kms_restore_rc = rc;
+                goto out;
+            }
+        }
+    } else if (present_external) {
         rc = gpu_z3_select_idle_xbgr_plane(drm_fd,
                                            summary.kms_crtc_index,
                                            &summary);
@@ -17053,13 +17180,26 @@ static int gpu_z2_imported_scanout_target_child(int write_fd,
     }
 
     summary.result_rc =
+        present_external && primary_setcrtc ?
+            (gpu_z3_imported_scanout_primary_summary_passed(&summary) ? 0 : -EIO) :
         present_external ?
             (gpu_z3_imported_scanout_present_summary_passed(&summary) ? 0 : -EIO) :
             (gpu_z2_imported_target_summary_passed(&summary) ? 0 : -EIO);
     rc = summary.result_rc;
 
 out:
-    if (present_external && drm_fd >= 0) {
+    if (present_external && primary_setcrtc && drm_fd >= 0 &&
+        summary.kms_base_fb_id != 0U &&
+        summary.kms_restore_rc == -ENOSYS) {
+        summary.kms_restore_rc =
+            a90_kms_present_external_fb(summary.kms_base_fb_id,
+                                        "gpu-z3-imported-scanout-primary-restore",
+                                        false);
+        if (summary.kms_restore_rc < 0) {
+            summary.kms_restore_rc = negative_errno_or(EIO);
+        }
+    }
+    if (present_external && !primary_setcrtc && drm_fd >= 0) {
         summary.kms_disable_plane_rc =
             gpu_z3_disable_present_plane(drm_fd, &summary);
     }
@@ -17203,7 +17343,7 @@ static int gpu_z2_imported_scanout_target_probe(int timeout_ms,
         int child_rc;
 
         close(pipefd[0]);
-        child_rc = gpu_z2_imported_scanout_target_child(pipefd[1], false, 0);
+        child_rc = gpu_z2_imported_scanout_target_child(pipefd[1], false, 0, false);
         _exit(child_rc == 0 ? 0 : 1);
     }
     close(pipefd[1]);
@@ -17333,9 +17473,10 @@ static int gpu_z2_imported_scanout_target_probe(int timeout_ms,
         0 : -EIO;
 }
 
-static int gpu_z3_imported_scanout_plane_probe(int timeout_ms,
-                                               int hold_ms,
-                                               bool materialize_devnode) {
+static int gpu_z3_imported_scanout_probe(int timeout_ms,
+                                         int hold_ms,
+                                         bool materialize_devnode,
+                                         bool primary_setcrtc) {
     int pipefd[2];
     pid_t pid;
     long deadline_ms;
@@ -17365,23 +17506,45 @@ static int gpu_z3_imported_scanout_plane_probe(int timeout_ms,
     }
 
     a90_console_printf("gpu.z3.scanout.version=1\r\n");
-    a90_console_printf("gpu.z3.scanout.scope=gpu-z3-imported-scanout-plane-present\r\n");
-    a90_console_printf("gpu.z3.scanout.command=gpu z3-imported-scanout-plane-probe --timeout-ms %d --hold-ms %d --materialize-devnode\r\n",
-                       timeout_ms, hold_ms);
+    if (primary_setcrtc) {
+        a90_console_printf("gpu.z3.scanout.scope=gpu-z3-imported-scanout-primary-setcrtc\r\n");
+    } else {
+        a90_console_printf("gpu.z3.scanout.scope=gpu-z3-imported-scanout-plane-present\r\n");
+    }
+    a90_console_printf("gpu.z3.scanout.command=gpu %s --timeout-ms %d --hold-ms %d --materialize-devnode\r\n",
+                       primary_setcrtc ?
+                           "z3-imported-scanout-primary-probe" :
+                           "z3-imported-scanout-plane-probe",
+                       timeout_ms,
+                       hold_ms);
     a90_console_printf("gpu.z3.scanout.kgsl_path=%s\r\n", GPU_G0_DEVNODE);
     a90_console_printf("gpu.z3.scanout.drm_path=/dev/dri/card0\r\n");
     a90_console_printf("gpu.z3.scanout.buffer=kms-dumb-scanout-gem-prime-fd-kgsl-dmabuf-import\r\n");
-    a90_console_printf("gpu.z3.scanout.target=%ux%u stride=%u bytes=%llu format=XBGR8888\r\n",
-                       GPU_D3_VIDEO_TARGET_WIDTH,
-                       GPU_D3_VIDEO_TARGET_HEIGHT,
-                       GPU_D3_VIDEO_TARGET_STRIDE,
-                       (unsigned long long)GPU_D3_VIDEO_TARGET_BYTES);
-    a90_console_printf("gpu.z3.scanout.present_mode=legacy-overlay-plane-setplane\r\n");
-    a90_console_printf("gpu.z3.scanout.present_order=atomic-overlay-plane-first-legacy-setplane-fallback\r\n");
+    if (primary_setcrtc) {
+        a90_console_printf("gpu.z3.scanout.target=panel-fullscreen-from-kms-mode format=XBGR8888\r\n");
+    } else {
+        a90_console_printf("gpu.z3.scanout.target=%ux%u stride=%u bytes=%llu format=XBGR8888\r\n",
+                           GPU_D3_VIDEO_TARGET_WIDTH,
+                           GPU_D3_VIDEO_TARGET_HEIGHT,
+                           GPU_D3_VIDEO_TARGET_STRIDE,
+                           (unsigned long long)GPU_D3_VIDEO_TARGET_BYTES);
+    }
+    if (primary_setcrtc) {
+        a90_console_printf("gpu.z3.scanout.present_mode=primary-setcrtc-fullscreen\r\n");
+        a90_console_printf("gpu.z3.scanout.present_order=primary-setcrtc-then-restore-base-fb\r\n");
+    } else {
+        a90_console_printf("gpu.z3.scanout.present_mode=legacy-overlay-plane-setplane\r\n");
+        a90_console_printf("gpu.z3.scanout.present_order=atomic-overlay-plane-first-legacy-setplane-fallback\r\n");
+    }
     a90_console_printf("gpu.z3.scanout.kgsl_submit_attempted=1\r\n");
     a90_console_printf("gpu.z3.scanout.kms_adfb2_attempted=1\r\n");
     a90_console_printf("gpu.z3.scanout.kms_copy_attempted=0\r\n");
     a90_console_printf("gpu.z3.scanout.kms_present_attempted=1\r\n");
+    if (primary_setcrtc) {
+        a90_console_printf("gpu.z3.scanout.primary_setcrtc_attempted=1\r\n");
+    } else {
+        a90_console_printf("gpu.z3.scanout.primary_setcrtc_attempted=0\r\n");
+    }
     a90_console_printf("gpu.z3.scanout.primary_pageflip_attempted=0\r\n");
     a90_console_printf("gpu.z3.scanout.power_write_attempted=0\r\n");
     a90_console_printf("gpu.z3.scanout.proprietary_blob_attempted=0\r\n");
@@ -17418,7 +17581,10 @@ static int gpu_z3_imported_scanout_plane_probe(int timeout_ms,
         int child_rc;
 
         close(pipefd[0]);
-        child_rc = gpu_z2_imported_scanout_target_child(pipefd[1], true, hold_ms);
+        child_rc = gpu_z2_imported_scanout_target_child(pipefd[1],
+                                                        true,
+                                                        hold_ms,
+                                                        primary_setcrtc);
         _exit(child_rc == 0 ? 0 : 1);
     }
     close(pipefd[1]);
@@ -17468,10 +17634,17 @@ static int gpu_z3_imported_scanout_plane_probe(int timeout_ms,
     close(pipefd[0]);
 
     a90_console_printf("gpu.z3.scanout.result=%s\r\n",
-                       got_result && gpu_z3_imported_scanout_present_summary_passed(&summary) ?
-                           "z3-imported-scanout-plane-present-pass" :
+                       got_result &&
+                       (primary_setcrtc ?
+                            gpu_z3_imported_scanout_primary_summary_passed(&summary) :
+                            gpu_z3_imported_scanout_present_summary_passed(&summary)) ?
+                           (primary_setcrtc ?
+                                "z3-imported-scanout-primary-setcrtc-pass" :
+                                "z3-imported-scanout-plane-present-pass") :
                        (timed_out ? "timeout" :
-                                    "z3-imported-scanout-plane-present-failed"));
+                                    (primary_setcrtc ?
+                                         "z3-imported-scanout-primary-setcrtc-failed" :
+                                         "z3-imported-scanout-plane-present-failed")));
     a90_console_printf("gpu.z3.scanout.timed_out=%d\r\n", timed_out ? 1 : 0);
     a90_console_printf("gpu.z3.scanout.child_killed=%d\r\n", child_killed ? 1 : 0);
     a90_console_printf("gpu.z3.scanout.child_reaped=%d\r\n", child_reaped ? 1 : 0);
@@ -17507,6 +17680,16 @@ static int gpu_z3_imported_scanout_plane_probe(int timeout_ms,
                            (unsigned long long)summary.kgsl_va_len);
         a90_console_printf("gpu.z3.scanout.gpu_create_rc=%d render_rc=%d\r\n",
                            summary.gpu_create_rc, summary.render_rc);
+        a90_console_printf("gpu.z3.scanout.source_size=%ux%u stride=%u frame_bytes=%u\r\n",
+                           summary.source_width,
+                           summary.source_height,
+                           summary.source_stride,
+                           summary.source_frame_bytes);
+        a90_console_printf("gpu.z3.scanout.target_size=%ux%u stride=%u bytes=%u\r\n",
+                           summary.target_width,
+                           summary.target_height,
+                           summary.target_stride,
+                           summary.target_bytes);
         a90_console_printf("gpu.z3.scanout.pm4_dwords=%u\r\n", summary.pm4_dwords);
         a90_console_printf("gpu.z3.scanout.graph_pixels_set=%u graph_points=%u\r\n",
                            summary.graph_pixels_set, summary.graph_points);
@@ -17526,6 +17709,10 @@ static int gpu_z3_imported_scanout_plane_probe(int timeout_ms,
                            summary.kms_begin_rc,
                            summary.kms_base_present_rc,
                            summary.kms_info_initialized);
+        a90_console_printf("gpu.z3.scanout.kms.base_fb_id=%u primary_setcrtc_attempted=%u restore_rc=%d\r\n",
+                           summary.kms_base_fb_id,
+                           summary.kms_primary_setcrtc_attempted,
+                           summary.kms_restore_rc);
         a90_console_printf("gpu.z3.scanout.kms.screen=%ux%u crtc=%u crtc_index=%d\r\n",
                            summary.kms_screen_width,
                            summary.kms_screen_height,
@@ -17592,8 +17779,29 @@ static int gpu_z3_imported_scanout_plane_probe(int timeout_ms,
     if (timed_out) {
         return -ETIMEDOUT;
     }
-    return got_result && gpu_z3_imported_scanout_present_summary_passed(&summary) ?
+    return got_result &&
+           (primary_setcrtc ?
+                gpu_z3_imported_scanout_primary_summary_passed(&summary) :
+                gpu_z3_imported_scanout_present_summary_passed(&summary)) ?
         0 : -EIO;
+}
+
+static int gpu_z3_imported_scanout_plane_probe(int timeout_ms,
+                                               int hold_ms,
+                                               bool materialize_devnode) {
+    return gpu_z3_imported_scanout_probe(timeout_ms,
+                                         hold_ms,
+                                         materialize_devnode,
+                                         false);
+}
+
+static int gpu_z3_imported_scanout_primary_probe(int timeout_ms,
+                                                 int hold_ms,
+                                                 bool materialize_devnode) {
+    return gpu_z3_imported_scanout_probe(timeout_ms,
+                                         hold_ms,
+                                         materialize_devnode,
+                                         true);
 }
 
 static uint32_t gpu_h5_pack_rgb_for_xbgr8888(uint32_t color) {
@@ -19157,9 +19365,14 @@ static int handle_gpu(char **argv, int argc) {
         return gpu_z2_imported_scanout_target_probe(timeout_ms, materialize_devnode);
     }
     if (strcmp(subcommand, "z3-imported-scanout-plane-probe") == 0 ||
-        strcmp(subcommand, "imported-scanout-plane-probe") == 0) {
+        strcmp(subcommand, "imported-scanout-plane-probe") == 0 ||
+        strcmp(subcommand, "z3-imported-scanout-primary-probe") == 0 ||
+        strcmp(subcommand, "imported-scanout-primary-probe") == 0) {
         bool materialize_devnode = false;
         int hold_ms = 12000;
+        bool primary_setcrtc =
+            strcmp(subcommand, "z3-imported-scanout-primary-probe") == 0 ||
+            strcmp(subcommand, "imported-scanout-primary-probe") == 0;
 
         timeout_ms = GPU_G0_DEFAULT_TIMEOUT_MS;
         for (index = 2; index < argc; ++index) {
@@ -19178,13 +19391,17 @@ static int handle_gpu(char **argv, int argc) {
             } else if (strcmp(argv[index], "--materialize-devnode") == 0) {
                 materialize_devnode = true;
             } else {
-                a90_console_printf("usage: gpu z3-imported-scanout-plane-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]\r\n");
+                a90_console_printf("usage: gpu [z3-imported-scanout-plane-probe|z3-imported-scanout-primary-probe] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]\r\n");
                 return -EINVAL;
             }
         }
-        return gpu_z3_imported_scanout_plane_probe(timeout_ms,
-                                                   hold_ms,
-                                                   materialize_devnode);
+        return primary_setcrtc ?
+            gpu_z3_imported_scanout_primary_probe(timeout_ms,
+                                                  hold_ms,
+                                                  materialize_devnode) :
+            gpu_z3_imported_scanout_plane_probe(timeout_ms,
+                                                hold_ms,
+                                                materialize_devnode);
     }
     if (strcmp(subcommand, "g4-solid-fill-probe") == 0 ||
         strcmp(subcommand, "solid-fill-probe") == 0) {
@@ -19247,7 +19464,7 @@ static int handle_gpu(char **argv, int argc) {
         return gpu_h5_triangle_kms_probe(timeout_ms, materialize_devnode, hold_ms);
     }
     if (strcmp(subcommand, "g0-open-probe") != 0) {
-        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m0-monitor-sampler-probe [--samples N] [--interval-ms N]|m1-monitor-dashboard-probe [--samples N] [--interval-ms N] [--hold-ms N]|m2-monitor-live-graph-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m3-monitor-extraction-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|z2-imported-scanout-target-probe [--timeout-ms N] [--materialize-devnode]|z3-imported-scanout-plane-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]\r\n");
+        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m0-monitor-sampler-probe [--samples N] [--interval-ms N]|m1-monitor-dashboard-probe [--samples N] [--interval-ms N] [--hold-ms N]|m2-monitor-live-graph-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m3-monitor-extraction-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|z2-imported-scanout-target-probe [--timeout-ms N] [--materialize-devnode]|z3-imported-scanout-plane-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|z3-imported-scanout-primary-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]\r\n");
         return -EINVAL;
     }
     for (index = 2; index < argc; ++index) {
@@ -19342,7 +19559,7 @@ static const struct shell_command command_table[] = {
     { "pstore", handle_pstore, "pstore [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "watchdoginv", handle_watchdoginv, "watchdoginv [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "tracefs", handle_tracefs, "tracefs [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
-    { "gpu", handle_gpu, "gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m0-monitor-sampler-probe [--samples N] [--interval-ms N]|m1-monitor-dashboard-probe [--samples N] [--interval-ms N] [--hold-ms N]|m2-monitor-live-graph-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m3-monitor-extraction-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|z2-imported-scanout-target-probe [--timeout-ms N] [--materialize-devnode]|z3-imported-scanout-plane-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]", CMD_NONE, A90_CMD_GROUP_CORE },
+    { "gpu", handle_gpu, "gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m0-monitor-sampler-probe [--samples N] [--interval-ms N]|m1-monitor-dashboard-probe [--samples N] [--interval-ms N] [--hold-ms N]|m2-monitor-live-graph-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m3-monitor-extraction-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|z2-imported-scanout-target-probe [--timeout-ms N] [--materialize-devnode]|z3-imported-scanout-plane-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|z3-imported-scanout-primary-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "audio", handle_audio, "audio [status|profiles|profile|speaker-map|stages|prereq|app-type|setcal|route|play|chime|play-status|stop|adsp-status|snd-status]", CMD_NONE, A90_CMD_GROUP_ANDROID },
     { "video", handle_video, "video [status|frame [bars|checker|mono|0xRRGGBB]|demo [badapple|badapple-scale|nyan|doom [status|verify|play|frame|engine-probe] [frames] [--wad runtime-private --sha256 EXPECTED]|frame-pattern]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status PATH]|cache [status|verify|play] SHA256 [--trust-cache] [--layout full|player-hud]|cache preset [badapple|badapple-scale|nyan] [status|verify|play]]", CMD_DISPLAY, A90_CMD_GROUP_DISPLAY },
     { "wifi", handle_wifi, "wifi [status|scan [delay_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|config [status|prepare [profile]]]", CMD_NONE, A90_CMD_GROUP_NETWORK },

@@ -77,6 +77,7 @@ struct a90_kms_scaled_plane_result {
 int a90_kms_begin_frame(uint32_t color);
 int a90_kms_begin_frame_no_clear(void);
 int a90_kms_present(const char *label, bool verbose);
+int a90_kms_present_external_fb(uint32_t fb_id, const char *label, bool verbose);
 int a90_kms_present_pageflip(const char *label, int timeout_ms, struct a90_kms_flip_result *result);
 const char *a90_kms_scaled_plane_stage_name(int stage);
 int a90_kms_present_scaled_plane_xbgr8888(const uint32_t *source,

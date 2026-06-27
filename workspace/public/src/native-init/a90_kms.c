@@ -1065,6 +1065,41 @@ int a90_kms_present(const char *label, bool verbose) {
     return 0;
 }
 
+int a90_kms_present_external_fb(uint32_t fb_id, const char *label, bool verbose) {
+    struct drm_mode_crtc setcrtc;
+    uint32_t connector_list[1];
+
+    if (kms_state.fd < 0 ||
+        kms_state.connector_id == 0U ||
+        kms_state.crtc_id == 0U ||
+        fb_id == 0U) {
+        errno = ENODEV;
+        return -1;
+    }
+
+    connector_list[0] = kms_state.connector_id;
+    memset(&setcrtc, 0, sizeof(setcrtc));
+    setcrtc.crtc_id = kms_state.crtc_id;
+    setcrtc.fb_id = fb_id;
+    setcrtc.set_connectors_ptr = (uintptr_t)connector_list;
+    setcrtc.count_connectors = 1;
+    setcrtc.mode = kms_state.mode;
+    setcrtc.mode_valid = 1;
+
+    if (drm_ioctl_retry(kms_state.fd, DRM_IOCTL_MODE_SETCRTC, &setcrtc) < 0) {
+        a90_console_printf("%s: external SETCRTC failed: %s\r\n",
+                label, strerror(errno));
+        return -1;
+    }
+
+    if (verbose) {
+        a90_console_printf("%s: presented external fb=%u %ux%u on crtc=%u\r\n",
+                label, fb_id, kms_state.width, kms_state.height,
+                kms_state.crtc_id);
+    }
+    return 0;
+}
+
 static int kms_wait_pageflip_event(const char *label,
                                    int timeout_ms,
                                    struct a90_kms_flip_result *result) {

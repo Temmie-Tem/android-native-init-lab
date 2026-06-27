@@ -428,7 +428,7 @@ the Audio section above). Full detail: `CLAUDE.md` + `docs/reports/`. No active 
    report; never `-A`. Message per project convention; end with the Co-Authored-By line.
 9. **REPEAT** → back to STATE.
 
-## 🟢 GPU epic — first-light G0→G5 ✅, triangle H0→H5 ✅, compute C0→C3 ✅, accel-2D D0→D3 ✅, monitor M0→M3 ✅ (all eye-confirmed; ③ extraction delivered), active rung = ④ zero-copy scanout Z0→Z3 (closes the GPU epic), then SoftAP server-endgame pivot
+## 🟢 GPU epic — first-light G0→G5 ✅, triangle H0→H5 ✅, compute C0→C3 ✅, accel-2D D0→D3 ✅, monitor M0→M3 ✅, zero-copy scanout Z0→Z3 ✅ (all eye-confirmed; GPU epic CLOSED), next = SoftAP server-endgame pivot
 
 **Persistent HARD FRAMING (inherited by every GPU rung, do not deviate):**
 - **freedreno / Mesa / KGSL-direct ONLY.** The proprietary Adreno blob path (libGLESv2/EGL/OpenCL via Bionic/Android
@@ -735,6 +735,28 @@ existing primary SETCRTC. That IS zero-copy (GPU output BO == scanout BO, no `me
 overlay SSPP entirely. Keep the CPU-copy dumb base as live fallback. Then hold for operator eye-confirm
 and record the CPU-copy-removal/latency delta = ④ close = GPU epic closed. If primary SETCRTC with an
 imported PRIME/dmabuf FB itself fails, THAT is the real new datum to report — not another overlay variant.**
+
+**STATUS (2026-06-27 Z3 primary SETCRTC pass + eye-confirmed) — V3335 implemented, live-validated,
+and operator-confirmed the primary-CRTC zero-copy route after the overlay wall.** Source adds
+`gpu z3-imported-scanout-primary-probe`, an `a90_kms_present_external_fb()` helper, dynamic full-panel
+target overrides for the shared GPU 2D presenter, and stride-aware semantic/readback sampling for KMS
+dumb pitch padding. Built `boot_linux_v3335_gpu_z3_primary_setcrtc.img`
+(`sha256=e7e0240e7894e9bd54a0a4fd5a3bf267b126097a5177ccd17686076528ea736b`), flashed only through
+`native_init_flash.py`, and booted `A90 Linux init 0.11.103 (v3335-gpu-z3-primary-setcrtc)` with
+post-flash selftest `pass=12 warn=1 fail=0`. After `stophud`, live command
+`gpu z3-imported-scanout-primary-probe --timeout-ms 60000 --hold-ms 12000 --materialize-devnode`
+completed device-side in `12243ms` with `result=z3-imported-scanout-primary-setcrtc-pass`: full-panel
+KMS dumb scanout target `1080x2400`, stride `4352`, bytes `10444800`; PRIME export `0`; KGSL dma-buf
+import/info `0`; `render_rc=0`; semantic `64/64` exact; `kms_copy_attempted=0`; primary
+`SETCRTC present_rc=0`; base FB `restore_rc=0`; cleanup `RMFB/dumb_destroy/close_prime/close_drm_fd`
+all `0`; follow-up selftest stayed `pass=12 warn=1 fail=0`. The first host `a90ctl` read timed out
+before the 12 s hold finished, but the bridge capture and `last` confirmed command rc `0`. The
+operator then confirmed the held primary SETCRTC graph was visible and remained on-panel:
+"보인다 유지되는거 같다". **Z3 is PASS + EYE-CONFIRMED; ④ zero-copy scanout is CLOSED, and the GPU
+epic is DONE.** Reports:
+`docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
+`docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
+
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
 `CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed
@@ -1528,28 +1550,28 @@ wall), so every kernel/shader is hand-assembled ir3 and this never becomes a gen
   content, not a standalone format epic.**
   Recoverable boot-partition flashes only, rollback `v2321`. **Bright lines:** no backlight/PMIC/PWM/regulator/GDSC
   writes; no from-scratch panel re-init; forbidden partitions absolute. Venus HW decode NOT needed (pre-rendered frames).
-- **ACTIVE EPIC = ④ zero-copy KMS/dmabuf scanout (Z0→Z3) — the final GPU rung; closing it closes the GPU epic.**
+- **GPU EPIC CLOSED = ④ zero-copy KMS/dmabuf scanout (Z0→Z3) is DONE + EYE-CONFIRMED; NEXT = SoftAP server-endgame.**
   Four GPU rungs are CLOSED + EYE-CONFIRMED: first-triangle H0→H5 (GREEN RIGHT-TRIANGLE; `V3295/V3296`, `0.11.73`),
   COMPUTE demo C0→C3 (rainbow/grid pattern; `V3303`, `0.11.77`), GPU-accel 2D D0→D3 (held Bad Apple GPU-blit frame;
   `V3315`, `0.11.87`), and on-panel SYSTEM MONITOR M0→M3 (held GPU-drawn graphs; `V3321`, `selftest fail=0`), which
   DELIVERED the ③ rule-of-three extraction (shared KGSL submit/fence/buffer/texture/present helper). Per the operator
-  decision (2026-06-27: "④ 먼저 닫고 SoftAP"), the loop now makes the GPU-rendered buffer the scanout buffer directly
-  (G5 CPU-copy → direct GPU-buffer scan-out; crux = A6xx tiling/UBWC ↔ DRM display modifier) using the extracted helper
-  as the single edit site, and measures the efficiency win. See the "🟢 GPU epic" block for the Z0→Z3 ladder. KMS
-  present + GPU only, NO power writes (bright-line-trivially safe). Closing ④ closes the GPU epic; **NEXT = pivot to the
-  SoftAP server-endgame** (highest-ROI feature toward the headless-server-distro). Bluetooth / sensors / haptics remain
+  decision (2026-06-27: "④ 먼저 닫고 SoftAP"), V3335 made the GPU-rendered buffer the full-panel scanout buffer directly
+  (G5 CPU-copy → direct GPU-buffer scan-out) through the primary SETCRTC path. KMS present + GPU only, NO power writes
+  (bright-line-trivially safe). **NEXT = pivot to the SoftAP server-endgame** (highest-ROI feature toward the
+  headless-server-distro). Bluetooth / sensors / haptics remain
   reference-only until separately chartered (attended daytime quick-wins).
   **Z-ladder status (2026-06-27):** Z2 is closed: V3326 rendered the monitor graph directly into a DRM msm scanout GEM
   exported as PRIME/imported into KGSL, with `kms_copy_attempted=0`, `kms_present_attempted=0`, `changed_count=691200`,
-  semantic exact match `64/64`, and post-probe `selftest fail=0`. Z3 overlay-plane scanout is not closed. V3327 fixed
+  semantic exact match `64/64`, and post-probe `selftest fail=0`. Z3 overlay-plane scanout was intentionally abandoned
+  after the overlay wall. V3327 fixed
   the imported render-target shape but hit non-master-fd `EACCES`; V3328 reused the KMS master fd and moved the failure
   to `EINVAL`; V3329 added atomic plane commit; V3330 switched the target to a KMS dumb scanout buffer; V3331 filtered
   for an idle overlay plane (`plane_id=90`, `selected_type=0`); V3332 added `zpos/alpha/rotation`; V3333 proved the
   selected overlay has no `IN_FORMATS` blob and is treated LINEAR-capable while lacking `pixel blend mode`; V3334 proved
   `DRM_MODE_ATOMIC_ALLOW_MODESET` does not change the result (`atomic_flags=0x400`, still `atomic_commit_rc=-22`).
-  Throughout, GPU render/import/readback stayed good and health stayed clean. Stop extending overlay guesses for now;
-  the next bounded zero-copy unit should render into a full-screen KMS dumb buffer imported into KGSL and try the
-  primary pageflip/primary-plane path, restoring the existing KMS framebuffer afterward.
+  V3335 then rendered into a full-screen KMS dumb buffer imported into KGSL and presented that same framebuffer through
+  primary SETCRTC with `kms_copy_attempted=0`, `present_rc=0`, `restore_rc=0`, semantic exact `64/64`, post-probe
+  `selftest fail=0`, and operator eye-confirmation that the held graph was visible and remained on-panel.
 - Device unreachable after an auto-rollback → STOP, leave an incident report.
 - The same sub-goal fails twice → STOP or shelve it and move on; do NOT retry-loop.
 - No sub-goal is safely actionable without the operator → STOP with a note (but T1 is
