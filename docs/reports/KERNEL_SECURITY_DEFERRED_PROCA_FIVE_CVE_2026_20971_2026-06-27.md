@@ -83,6 +83,12 @@ native-init probe (no exploit, no write, no flash) while the autonomous loop was
   directories exist — i.e. `task_integrity` is allocated per task for every process.
   Kernel config confirms `CONFIG_FIVE=y`, `CONFIG_INTEGRITY=y` (legacy Samsung FIVE,
   not GKI). **Reachability = YES.**
+- **UAF EMPIRICALLY TRIGGERED (Tier-0, 2026-06-27).** A bounded `panic_on_oops=0`
+  race harness produced the exact kernel oops `proc_integrity_reset_file+0x58 → d_path`
+  (deref of a freed `reset_file` after concurrent `execve`) in ~5 s; the oops was non-fatal
+  (device stayed up, reader task killed only), `selftest fail=0` after. Reachability is now
+  proven, not just source-plausible. See
+  `KERNEL_SECURITY_PROCA_FIVE_TIER0_UAF_RECON_PROTOCOL_2026-06-27.md`.
 - **No Clang KCFI, but RKP_CFP IS present (CORRECTED 2026-06-27).** `System.map` has 1 cfi
   symbol (no Clang KCFI), but device config shows `CONFIG_RKP_CFP=y` + `RKP_CFP_JOPP=y`
   (indirect-branch magic `0x00be7bad`) + `RKP_CFP_ROPP=y` (per-boot return-address

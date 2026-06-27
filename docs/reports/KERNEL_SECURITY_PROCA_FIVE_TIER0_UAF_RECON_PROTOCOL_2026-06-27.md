@@ -1,4 +1,39 @@
-# Tier-0 PROCA/FIVE UAF recon protocol (CVE-2026-20971) — DESIGN, attended-execute gated
+# Tier-0 PROCA/FIVE UAF recon protocol (CVE-2026-20971) — EXECUTED 2026-06-27, UAF CONFIRMED
+
+## RESULT (2026-06-27, attended, init 0.11.104 / kernel 4.14.190)
+
+**The PROCA/FIVE `task_integrity` UAF (CVE-2026-20971) is empirically triggerable under
+native-init — confirmed in a ~5 s pilot.** A `panic_on_oops=0` non-fatal run (sec_debug
+already off) of the `a90_five_uaf_probe` harness (aarch64 static, sha256
+`4049ea75822a4f73ce532fa0b7ca3aac84f50693d40c6e1c0f32c3f0d3e1de1e`) produced
+`reader_terminated_by_signal=11` and the exact kernel oops:
+
+```
+Call trace:
+ d_path+0x30/0x188
+ proc_integrity_reset_file+0x58/0xc0
+ proc_single_show+0x58/0xb0
+ seq_read+0x1bc/0x510
+ __vfs_read / vfs_read / SyS_read / __sys_trace_return
+Code: ... (f9400400)   # ldr x0,[x0] — deref of a freed/garbage reset_file pointer
+---[ end trace 28c1400c0fcf950b ]---
+```
+
+The fault is `proc_integrity_reset_file` dereferencing `task->integrity->reset_file->f_path`
+(via `d_path`) after the object was freed by a concurrent `execve` (`__five_bprm_check`) — the
+CVE race exactly. **`panic_on_oops=0` held: the oops was non-fatal, only the reader task was
+killed, the device stayed up** (kernel activity continued, no reboot). Cleanup: harness removed,
+`panic_on_oops` restored to 1, `selftest pass=12 warn=1 fail=0`, no loop collision.
+
+**Conclusion:** reachability is no longer just source-plausible — it is empirically proven, with
+the exact fault site. NOT captured (would need a value-only reader, which does not fault): the
+info-leak observation of freed-slot reclaim content (the dedicated-cache exploitability datum).
+This stays RECON — no grooming/primitive/EL1 was attempted, and the exploitation obstacles
+(dedicated `task_integrity_cache` + RKP_CFP + RKP_KDP) are unchanged.
+
+---
+
+## Original design (executed as written below)
 
 **Status: DESIGN ONLY. Not yet executed.** This is the bounded, stock-kernel, no-recompile
 recon experiment for the PROCA/FIVE `task_integrity` UAF. It is RECON, not exploitation: it
