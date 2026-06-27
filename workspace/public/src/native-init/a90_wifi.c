@@ -32,6 +32,7 @@
 #include "a90_run.h"
 #include "a90_util.h"
 #include "a90_wificfg.h"
+#include "a90_wififeas.h"
 
 #ifndef SOCK_CLOEXEC
 #define SOCK_CLOEXEC 02000000
@@ -91,6 +92,8 @@
 #define A90_WIFI_PING_GATEWAY_LOG "/cache/a90-wifi/ping-gateway.log"
 #define A90_WIFI_PING_INTERNET_LOG "/cache/a90-wifi/ping-internet.log"
 #define A90_WIFI_PING_INTERNET_TARGET "1.1.1.1"
+#define A90_WIFI_SOFTAP_VERSION "a90-native-wifi-softap-v1"
+#define A90_WIFI_SOFTAP_ROOT "/cache/a90-softap"
 
 static int wifi_open_dir_no_follow(const char *path) {
     return open(path, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
@@ -3243,10 +3246,125 @@ static int wifi_parse_delay_ms(const char *text, int *delay_ms) {
     return wifi_parse_delay_ms_max(text, delay_ms, 30000);
 }
 
+static const char *wifi_softap_decision_for(const char *subcommand,
+                                            enum a90_wififeas_decision decision) {
+    bool prepare = subcommand != NULL && strcmp(subcommand, "prepare") == 0;
+
+    if (decision == A90_WIFI_FEAS_BASELINE_REQUIRED) {
+        return prepare ?
+               "softap-prepare-baseline-required" :
+               "softap-status-baseline-required";
+    }
+    if (decision == A90_WIFI_FEAS_GO_READ_ONLY_ONLY) {
+        return prepare ?
+               "softap-prepare-start-not-implemented" :
+               "softap-status-prereq-visible-start-not-implemented";
+    }
+    return prepare ?
+           "softap-prepare-blocked-wlan-gate" :
+           "softap-status-blocked-wlan-gate";
+}
+
+static int wifi_softap_print_surface(const char *subcommand) {
+    struct a90_wififeas_result feasibility;
+    char busybox_kind[32];
+    int feasibility_rc;
+    int busybox_rc;
+    bool include_plan = subcommand != NULL && strcmp(subcommand, "status") != 0;
+    bool prepare = subcommand != NULL && strcmp(subcommand, "prepare") == 0;
+
+    feasibility_rc = a90_wififeas_evaluate(&feasibility);
+    if (feasibility_rc < 0) {
+        return feasibility_rc;
+    }
+
+    busybox_rc = wifi_path_kind("/cache/bin/busybox", true, busybox_kind, sizeof(busybox_kind));
+
+    a90_console_printf("[wifi softap %s]\r\n", subcommand != NULL ? subcommand : "status");
+    a90_console_printf("version=%s\r\n", A90_WIFI_SOFTAP_VERSION);
+    a90_console_printf("scope=read-only-status-plan-no-ap-start\r\n");
+    a90_console_printf("runtime_root=%s\r\n", A90_WIFI_SOFTAP_ROOT);
+    a90_console_printf("ssid_psk_logged=0\r\n");
+    a90_console_printf("config_write_attempted=0\r\n");
+    a90_console_printf("hostapd_start_attempted=0\r\n");
+    a90_console_printf("dhcp_server_start_attempted=0\r\n");
+    a90_console_printf("listener_start_attempted=0\r\n");
+    a90_console_printf("interface_mode_change_attempted=0\r\n");
+    a90_console_printf("address_assign_attempted=0\r\n");
+    a90_console_printf("server_exposure_attempted=0\r\n");
+    a90_console_printf("start_supported=0\r\n");
+    a90_console_printf("start_allowed=0\r\n");
+    a90_console_printf("prepare_dry_run=%d\r\n", prepare ? 1 : 0);
+    a90_console_printf("busybox.kind=%s\r\n", busybox_kind[0] != '\0' ? busybox_kind : "unknown");
+    a90_console_printf("busybox.executable=%d\r\n", busybox_rc == 0 ? 1 : 0);
+    a90_console_printf("wififeas.decision=%s\r\n",
+                       a90_wififeas_decision_name(feasibility.decision));
+    a90_console_printf("wififeas.reason=%s\r\n", feasibility.reason);
+    a90_console_printf("wififeas.next=%s\r\n", feasibility.next_step);
+    a90_console_printf("gates.wlan=%d\r\n", feasibility.has_wlan_iface ? 1 : 0);
+    a90_console_printf("gates.rfkill=%d\r\n", feasibility.has_wifi_rfkill ? 1 : 0);
+    a90_console_printf("gates.module=%d\r\n", feasibility.has_driver_module ? 1 : 0);
+    a90_console_printf("gates.candidates=%d\r\n", feasibility.has_candidate_files ? 1 : 0);
+    a90_console_printf("inventory.net_total=%d\r\n", feasibility.inventory.net_total);
+    a90_console_printf("inventory.wlan_like=%d\r\n", feasibility.inventory.wlan_ifaces);
+    a90_console_printf("inventory.rfkill_wifi=%d\r\n", feasibility.inventory.rfkill_wifi);
+    a90_console_printf("inventory.module_matches=%d\r\n", feasibility.inventory.module_matches);
+    a90_console_printf("inventory.file_matches=%d\r\n", feasibility.inventory.file_matches);
+    if (include_plan) {
+        a90_console_printf("plan.s0=charter-done\r\n");
+        a90_console_printf("plan.s1=readonly-inventory-done\r\n");
+        a90_console_printf("plan.s2=status-plan-prepare-no-start\r\n");
+        a90_console_printf("plan.s3=blocked-until-wlan-ap-prereq-visible\r\n");
+        a90_console_printf("plan.s4=blocked-until-ap-and-server-start-pass\r\n");
+    }
+    a90_console_printf("decision=%s\r\n",
+                       wifi_softap_decision_for(subcommand, feasibility.decision));
+    a90_logf("wifi-softap",
+             "sub=%s decision=%s wlan=%d rfkill=%d modules=%d candidates=%d",
+             subcommand != NULL ? subcommand : "status",
+             wifi_softap_decision_for(subcommand, feasibility.decision),
+             feasibility.inventory.wlan_ifaces,
+             feasibility.inventory.rfkill_wifi,
+             feasibility.inventory.module_matches,
+             feasibility.inventory.file_matches);
+    return 0;
+}
+
+static int wifi_softap_cmd(char **argv, int argc) {
+    const char *subcommand = argc > 2 ? argv[2] : "status";
+
+    if (argc < 2 || argc > 4) {
+        a90_console_printf("usage: wifi softap [status|plan|prepare [profile]|cleanup]\r\n");
+        return -EINVAL;
+    }
+    if (strcmp(subcommand, "status") == 0 && (argc == 2 || argc == 3)) {
+        return wifi_softap_print_surface("status");
+    }
+    if (strcmp(subcommand, "plan") == 0 && argc == 3) {
+        return wifi_softap_print_surface("plan");
+    }
+    if (strcmp(subcommand, "prepare") == 0 && (argc == 3 || argc == 4)) {
+        (void)argv;
+        return wifi_softap_print_surface("prepare");
+    }
+    if (strcmp(subcommand, "cleanup") == 0 && argc == 3) {
+        return wifi_softap_print_surface("cleanup");
+    }
+
+    a90_console_printf("usage: wifi softap [status|plan|prepare [profile]|cleanup]\r\n");
+    return -EINVAL;
+}
+
 int a90_wifi_cmd(char **argv, int argc) {
     if (argc == 1 ||
         (argc == 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "status") == 0)) {
         return a90_wifi_print_status();
+    }
+    if (argc >= 2 &&
+        argv != NULL &&
+        argv[1] != NULL &&
+        strcmp(argv[1], "softap") == 0) {
+        return wifi_softap_cmd(argv, argc);
     }
     if ((argc == 2 || argc == 3) &&
         argv != NULL &&
@@ -3351,6 +3469,6 @@ int a90_wifi_cmd(char **argv, int argc) {
         return a90_wificfg_cmd(argv, argc);
     }
 
-    a90_console_printf("usage: wifi [status|scan [delay_ms]|events [timeout_ms]|netevents [timeout_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|profile [list|status [profile]]|autoconnect [status|enable [profile]|disable|once [profile]]|config [status|prepare [profile]]]\r\n");
+    a90_console_printf("usage: wifi [status|scan [delay_ms]|events [timeout_ms]|netevents [timeout_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|softap [status|plan|prepare [profile]|cleanup]|profile [list|status [profile]]|autoconnect [status|enable [profile]|disable|once [profile]]|config [status|prepare [profile]]]\r\n");
     return -EINVAL;
 }

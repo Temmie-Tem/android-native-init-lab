@@ -782,11 +782,25 @@ DONE; next bounded source unit is S2 status/plan/dry-run plumbing that reports t
 does not start hostapd/AP mode.** Report:
 `docs/reports/NATIVE_INIT_V3337_SOFTAP_S1_READONLY_INVENTORY_LIVE_2026-06-27.md`.
 
+**STATUS (2026-06-27 S2 status/plan source) — V3338 added the first `wifi softap` command surface
+without AP bring-up.** `wifi softap`, `wifi softap status`, `wifi softap plan`, `wifi softap prepare
+[profile]`, and `wifi softap cleanup` now evaluate `a90_wififeas` and print redaction-friendly
+readiness fields, gate counters, plan steps, and explicit `*_attempted=0` fields for config write,
+hostapd start, DHCP-server start, listener exposure, interface mode change, and address assignment.
+`start_supported=0` and `start_allowed=0` are hard-coded in this S2 source unit while S1 remains
+no-go. `prepare` is dry-run/no-op under the current blocker and reports
+`softap-prepare-blocked-wlan-gate`; no SSID/PSK config is written. Updated the Wi-Fi lifecycle command
+contract and added a focused source test. Host validation: `py_compile`, V3338 source test `5/5`, AArch64
+`a90_wifi.c` object compile with `-Wall -Wextra -Werror`, and `git diff --check`. No boot image was
+built, no flash was run, and no live Wi-Fi action was attempted. Report:
+`docs/reports/NATIVE_INIT_V3338_SOFTAP_S2_STATUS_PLAN_SOURCE_2026-06-27.md`.
+
 - **S0 (host-only charter/recon) = DONE.** Inventory current command/docs/source surface, distinguish
   client-mode Wi-Fi from SoftAP/server mode, and write the bounded ladder + safety recipe.
 - **S1 (read-only live AP/server inventory) = DONE / NO-GO BELOW WLAN.** Current resident has no
   wlan-like interface, Wi-Fi rfkill, or module evidence; transfer applets exist.
-- **S2 (source contract + config materialization).** Add an explicit `wifi softap` command surface with
+- **S2 (source contract + config materialization) = PARTIAL SOURCE DONE.** Added an explicit `wifi softap`
+  command surface with
   `status`, `plan`, and dry-run config materialization under `/cache/a90-softap/`; generated SSID/PSK
   remain private-only, public output reports hashes/booleans only. While S1 remains no-go, S2 must stop
   at status/plan/prepare and must not start hostapd/AP mode.

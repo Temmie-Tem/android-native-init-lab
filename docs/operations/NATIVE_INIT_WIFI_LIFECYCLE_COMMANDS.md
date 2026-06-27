@@ -16,6 +16,10 @@ wifi connect [profile]
 wifi dhcp [profile]
 wifi ping [gateway|internet|all]
 wifi cleanup
+wifi softap status
+wifi softap plan
+wifi softap prepare [profile]
+wifi softap cleanup
 wifi profile list
 wifi profile status [profile]
 wifi autoconnect status
@@ -334,6 +338,31 @@ Expected decision labels:
 
 It is intentionally separate from `wifi dhcp` so stability runs can choose
 whether to keep the link up for hold/idle validation.
+
+## `wifi softap ...`
+
+`wifi softap status|plan|prepare|cleanup` is the SoftAP server-endgame command
+surface. In the current S2 contract it is intentionally read-only/reporting
+only: there is no AP daemon start, no DHCP-server start, no listener exposure,
+no interface mode change, no address assignment, and no config write while the
+S1 feasibility gate remains `no-go`.
+
+Current commands:
+
+- `wifi softap status`: prints the SoftAP readiness surface, current
+  `wififeas` decision, WLAN/rfkill/module/candidate gates, and explicit
+  `*_attempted=0` fields for AP/server mutations.
+- `wifi softap plan`: prints the same status plus the S0-S4 ladder state.
+- `wifi softap prepare [profile]`: dry-run only while blocked; it evaluates
+  readiness and reports `softap-prepare-blocked-wlan-gate` when the WLAN/AP
+  lower surface is absent. It does not write SSID/PSK config or start services.
+- `wifi softap cleanup`: reporting/no-op in S2; real cleanup becomes mandatory
+  before any later AP start command can be accepted.
+
+The command surface is separate from client-mode `wifi connect` and
+autoconnect. Public output must keep `ssid_psk_logged=0` and must not print raw
+SSID, PSK, BSSID, MAC, client identifiers, concrete peer addresses, or uploaded
+file contents.
 
 ## Connectivity Runner
 
