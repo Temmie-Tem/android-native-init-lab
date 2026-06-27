@@ -718,6 +718,23 @@ Active next: Z3 page-flip/present the same imported FB directly, hold it for ope
 and record the CPU-copy removal/latency delta before closing the GPU epic. Reports:
 `docs/reports/NATIVE_INIT_V3326_GPU_Z2_IMPORTED_SCANOUT_PASS_GATE_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3326_GPU_Z2_IMPORTED_SCANOUT_PASS_GATE_LIVE_2026-06-27.md`.**
+
+**OPERATOR REDIRECT (2026-06-27, Z3 present wall) — STOP iterating overlay-plane present variants;
+present the imported scanout FB on the PRIMARY crtc via the already-proven SETCRTC path.** V3327–V3332
+all failed the same step: presenting the imported MSM_BO_SCANOUT FB on a DPU **overlay** plane returned
+`EACCES` then `SETPLANE/atomic EINVAL` (`-13` → `-22`). GPU render/import/semantic were all clean
+(`64/64`); the failure is the DPU SSPP overlay-plane format/zpos/rect constraint, **not** a zero-copy
+problem. Do NOT keep cycling legacy-setplane / master-fd / atomic / overlay-filter / overlay-state
+variants — that is the overlay rabbit hole. Instead reuse the working full-screen present:
+`a90_kms.c` `kms_present()` already does `DRM_IOCTL_MODE_SETCRTC` on the **primary** crtc with the
+full panel mode (`mode.hdisplay × mode.vdisplay`) and gives `base_present_rc=0`. For Z3, allocate the
+imported scanout GEM at **full panel size** (not 960×720 at an overlay offset), GPU-render the monitor
+graph into it, `ADDFB2` (already `rc=0`), then present via that same base path with
+`setcrtc.fb_id = imported_fb_id` — i.e. swap the dumb `fb_id` for the imported scanout `fb_id` in the
+existing primary SETCRTC. That IS zero-copy (GPU output BO == scanout BO, no `memcpy`) and avoids the
+overlay SSPP entirely. Keep the CPU-copy dumb base as live fallback. Then hold for operator eye-confirm
+and record the CPU-copy-removal/latency delta = ④ close = GPU epic closed. If primary SETCRTC with an
+imported PRIME/dmabuf FB itself fails, THAT is the real new datum to report — not another overlay variant.**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
 `CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed
