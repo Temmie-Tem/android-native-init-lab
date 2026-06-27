@@ -190,3 +190,43 @@ Two precise consequences:
   dereference `label`/`reset_file`, so it cannot follow the dangling pointer and did
   not fault. `panic_on_oops=0` was a safety net only; restored to `1` afterward.
 - Device ended on clean `v2321` (readback `ca978551…`, `selftest fail=0`).
+
+## Follow-up ①: grooming-pressure measurement (RECON, 2026-06-28)
+
+Question: under allocation pressure, does the victim's freed `task_integrity` slot
+escape the LIFO self-recapture (a precursor to slot controllability)? Measured with a
+private pressure harness (`a90_five_uaf_groom`, `--pressure K` = K extra execve-storm
+processes pinned to the victim cpu to contend the dedicated cache's per-cpu freelist),
+reusing the same KASAN-lite image; harness source/binary kept private (gitignored),
+not committed. Each level: clear dmesg, run `--secs 2 --max-reads 250 --pressure K`,
+classify the use-site dumps. All runs `reader_exited code=0` (no fault).
+
+| pressure K | reads | distinct slots | scrubbed-freed (usage_count=0) | live PROCESSING | foreign |
+| --- | --- | --- | --- | --- | --- |
+| 0 | 250 | 2 | 0 | 11 | 0 |
+| 16 | 250 | 1 | 0 | 0 | 0 |
+| 32 | 250 | 1 | 0 | 0 | 0 |
+
+`usage_count` was `1` (live) on every read at K=16/32; pressure did not produce a
+single scrubbed-freed or foreign-owned observation, and slot diversity did not grow.
+
+Mechanistic confirmation (source, no extra flash): `five_bprm_check`
+(security/samsung/five/.../five_main.c) swaps integrity in the order **alloc NEW →
+`task_integrity_assign(task, NEW)` → `task_integrity_put(OLD)`** — i.e. the new object
+is installed BEFORE the old is freed. So `task->integrity` is never dangling; a handler
+that re-reads `task->integrity` (as our hook does, and as the real handler does for its
+loads) always observes a valid object, which is exactly why pressure cannot surface a
+freed/foreign `task_integrity` slot through this path.
+
+### Updated verdict on the controllability question
+- **`task_integrity` object/slot control = NEGATIVE**, now both empirically (0/1000+
+  reads across single-thread and 32× pressure ever showed a freed/foreign slot) and
+  mechanistically (assign-before-free + dedicated cache). The simplest grooming
+  (allocation pressure) does not open the window.
+- The genuinely exploitable surface is therefore **not** `task_integrity` but the
+  **`reset_file` `struct file *`**: the CVE race is a reader holding/with a stale view
+  across `task_integrity_put` → `fput(reset_file)`, a UAF on the **`file` object in the
+  filp cache** (a different, general-purpose cache), reached via `d_path` in the
+  original handler. Characterizing/controlling that is a separate investigation
+  (filp-cache UAF), is real exploit-dev under RKP_KDP/RKP_CFP, and stays behind the
+  RECON→exploit charter gate. Not pursued here.
