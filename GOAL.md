@@ -631,6 +631,21 @@ NO backlight/PMIC/PWM/regulator/GDSC writes, NO panel re-init, recoverable boot-
   no GPU fault, `selftest fail=0`, rollback to `v2321` clean.
 - **Z3 (eye-confirm + close).** Operator visually confirms the zero-copy consumer renders correctly on-panel and holds;
   record the measured efficiency win. Eye-confirm = ④ closed = **GPU epic closed**. Then re-charter to SoftAP.**
+
+**STATUS (2026-06-27 Z0 modifier recon) — V3322 completed the no-flash display-side zero-copy feasibility pass.**
+Read-only helper `a90_drm_modifier_probe_z0` was built as a static AArch64 binary
+(`sha256=4e79afa9d7bdb470f8038876e4973dbcf60ae6f47a6f980036709549e6bb937a`), installed temporarily via
+NCM/bridge-nc, and queried `/dev/dri/card0` only. Live result on resident `0.11.92`:
+`plane_count=16`, `compatible_active_crtc=16`, `rect_props=16`, `DRM_CAP_ADDFB2_MODIFIERS=1`,
+`DRM_CAP_PRIME=0x3 import=1 export=1`, all 16 planes expose `XBGR8888`, but no plane exposes an
+`IN_FORMATS` modifier blob (`rc=-61`, modifier counts all zero). Therefore the explicit
+`QCOM_TILED3`/UBWC modifier route is NOT evidenced on this display stack. The only safe Z1 route is
+**implicit/legacy linear scanout**: keep `DRM_FORMAT_XBGR8888`, 960x720, stride 3840, and first prove
+one shared scanout-linear allocation path (`msm` DRM GEM `MSM_BO_SCANOUT | MSM_BO_WC` and GEM/iova or
+dmabuf bridge) before removing the current KGSL-linear → KMS CPU copy. If the existing KGSL path cannot
+target/import that shared GEM/dma-buf, pivot the submit path to DRM `msm` for this rung or close
+zero-copy as infeasible on KGSL-only. Report:
+`docs/reports/NATIVE_INIT_V3322_GPU_Z0_ZERO_COPY_MODIFIER_RECON_2026-06-27.md`.**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
 `CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed
