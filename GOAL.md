@@ -795,16 +795,34 @@ contract and added a focused source test. Host validation: `py_compile`, V3338 s
 built, no flash was run, and no live Wi-Fi action was attempted. Report:
 `docs/reports/NATIVE_INIT_V3338_SOFTAP_S2_STATUS_PLAN_SOURCE_2026-06-27.md`.
 
+**STATUS (2026-06-27 S2 flash/live validation) — V3339 built, flashed, and live-validated the
+SoftAP status/plan surface on-device.** Built
+`boot_linux_v3339_softap_s2_status_plan.img`
+(`sha256=5f23c579ddbcac75cf9859685f638cad3371e2ebf228af8e441c6863fa25858b`) from V3335,
+flashed only through `native_init_flash.py`, and booted `A90 Linux init 0.11.104
+(v3339-softap-s2-status-plan)` with boot readback SHA match and post-flash selftest
+`pass=12 warn=1 fail=0`. After stopping the auto HUD/menu gate, live commands
+`wifi softap status`, `wifi softap plan`, and `wifi softap prepare` all returned rc `0`.
+They reported `wififeas.decision=no-go`, `gates.wlan=0`, `gates.rfkill=0`,
+`gates.module=0`, `gates.candidates=1`, `start_supported=0`, `start_allowed=0`,
+and all config/AP/server mutation fields as `0`; `prepare` reported
+`prepare_dry_run=1` and `decision=softap-prepare-blocked-wlan-gate`. Follow-up
+selftest stayed `pass=12 warn=1 fail=0`. **S2 is DONE; S3 AP bring-up remains blocked
+until a future read-only lower-surface unit proves WLAN/AP prerequisites.** Reports:
+`docs/reports/NATIVE_INIT_V3339_SOFTAP_S2_STATUS_PLAN_SOURCE_BUILD_2026-06-27.md` and
+`docs/reports/NATIVE_INIT_V3339_SOFTAP_S2_STATUS_PLAN_LIVE_2026-06-27.md`.
+
 - **S0 (host-only charter/recon) = DONE.** Inventory current command/docs/source surface, distinguish
   client-mode Wi-Fi from SoftAP/server mode, and write the bounded ladder + safety recipe.
 - **S1 (read-only live AP/server inventory) = DONE / NO-GO BELOW WLAN.** Current resident has no
   wlan-like interface, Wi-Fi rfkill, or module evidence; transfer applets exist.
-- **S2 (source contract + config materialization) = PARTIAL SOURCE DONE.** Added an explicit `wifi softap`
+- **S2 (source contract + config materialization) = DONE / LIVE VALIDATED BELOW AP START.** Added an explicit `wifi softap`
   command surface with
   `status`, `plan`, and dry-run config materialization under `/cache/a90-softap/`; generated SSID/PSK
   remain private-only, public output reports hashes/booleans only. While S1 remains no-go, S2 must stop
   at status/plan/prepare and must not start hostapd/AP mode.
-- **S3 (bounded AP bring-up).** Start AP mode only after S1/S2 pass: stop conflicting client supplicant,
+- **S3 (bounded AP bring-up) = BLOCKED BY LOWER WLAN/AP GATE.** Start AP mode only after a future
+  read-only unit proves wlan-like interface/rfkill/module/AP prerequisites: stop conflicting client supplicant,
   configure a private local AP subnet, start hostapd and a bounded DHCP service, expose no WAN/NAT by
   default, and provide `softap cleanup` that kills workers and removes address/route residue.
 - **S4 (server-endgame proof).** Start the local transfer server on the AP, have a client join, prove
