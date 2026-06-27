@@ -111,6 +111,56 @@ Until then: do not attempt the UAF race, the arbitrary-call/spinlock-write primi
 any kernel write. The value recorded here is that the lead is **live and the strongest
 EL0→EL1 option on file**, ready if a wall ever demands it.
 
+## Experiment design + static exploitability assessment — PREPARED warm-start kit (2026-06-27, NOT executed)
+
+Recorded so that if a future EL1-only wall ever justifies this, the work resumes warm
+instead of cold (project lesson: a pre-staged tool/reference is the unblock). Everything
+below is host-only source analysis + the read-only live characterization already done; the
+live UAF trigger was NOT run and must not be on this device (see the device blocker).
+
+**Confirmed vulnerable code (our source).** `fs/proc/base.c`: the `integrity` DIR is added
+to `tgid_base_stuff[]` unconditionally under `#ifdef CONFIG_FIVE` (so live for every pid),
+and the handlers dereference `task->integrity` with **no refcount** on the integrity object:
+- `proc_integrity_value_read` → `task_integrity_user_read(task->integrity)`
+- `proc_integrity_label_read` → `spin_lock(&task->integrity->value_lock); l = task->integrity->label`
+- `proc_integrity_reset_file` → `task->integrity->reset_file->f_path`
+
+**Object (`struct task_integrity`, `include/linux/task_integrity.h`):**
+`user_value`(0), `value`(4), `atomic_t usage_count`(8 — the refcount the handlers fail to
+take), `spinlock_t value_lock`(0xc — LucidBit's spinlock-write offset), `spinlock_t list_lock`,
+`struct integrity_label *label`, `struct processing_event_list events`,
+`enum reset_cause`, `struct file *reset_file`. Allocated from a **dedicated slab cache**
+`kmem_cache_create("task_integrity_cache", ...)`.
+
+**Live characterization (read-only, init 0.11.104).** Our unsigned native-init processes
+carry `value=0`, `label=NULL` (handler prints `-1`), `reset_cause=no-cert`,
+`reset_file=<live struct file*>`. So `reset_file` is a dereferenceable kernel pointer and
+`value_lock` is a live spinlock in the freed-object window; `label` is NULL for us.
+
+**Static exploitability verdict.** The UAF is reachable and the primitive surface is real
+(refcount UAF; spinlock write at 0xc; `label`/`reset_file` pointer derefs → leak/arb-read),
+and the 4.14 kernel has **no kernel CFI**, so the arbitrary-call mitigation LucidBit hit on
+5.x Galaxies is absent here. BUT two hard obstacles remain: (1) **dedicated
+`task_integrity_cache`** blocks the easy spray — reclaiming the freed slot with
+attacker-controlled bytes needs same-type reclaim (kernel-initialized content, hard to
+weaponize) or a **cross-cache attack** (advanced, unreliable); (2) **RKP/EL2** still guards
+cred/page-tables above EL1. Verdict: *plausible for the bug class, but a hard exploit-dev
+project with a real chance of failing — not a "keep poking and it falls out."*
+
+**Device blocker (why ③ live-trigger is not on this device).** `CONFIG_KASAN` not set +
+`CONFIG_PANIC_ON_OOPS=y` → no instrumented UAF detection and any bad deref oops → immediate
+panic/reboot. The race would be "loop execve until garbage-leak or panic," blind, on the
+single device running the autonomous loop. No safe observation path here.
+
+**What a real attempt would need (the prepared tool list).** A sacrificial secondary device
+(or emulator) with a **KASAN-built kernel** for observation; a heap-grooming strategy for the
+dedicated cache (same-type reclaim vs cross-cache page-reclaim); a race harness (parent
+`open`+`read` of `/proc/<child>/integrity/value` via seq_file vs child repeated `execve`,
+pinned to opposing CPUs); a target plan for converting the spinlock-write/pointer-deref into
+PC control given no-CFI; and an RKP-aware post-EL1 plan (avoid cred/PT writes — we are
+already root, so the goal is EL1 code exec, not cred escalation). Reopen still gated on a
+named EL1-only wall (see Reopen gate).
+
 ## Sources
 
 - LucidBit Labs — "When Defenses Become Attack Surface" (technical analysis):
