@@ -767,7 +767,64 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
-## 🟣 ACTIVE NOW — DELEGATED: REPL U2 — kernel-grade CALL-SAFETY inventory + fail-closed classifier
+## 🟣 ACTIVE NOW — DELEGATED: REPL U3 — broad advisory call-safety risk-assessment sweep
+
+**Operator-chartered 2026-06-29 (U2 DONE/verified; user pre-decided U2→U3).** U2 gave a vetted ~15-symbol
+seed + a disasm signal/taint extractor + a fail-closed gate. U3 SCALES that to a large function-family sweep
+so we get broad, evidence-backed *risk triage* across the kernel — not just the seed.
+
+**Goal:** run the U2 classifier across useful function families (allocator, string/mem, list, bounded
+read-I/O, sysfs-`show`, refcount/get-put) and emit ① a signal-bucketed risk profile, ② a ranked
+**candidate**-SAFE list, ③ explicit danger flags (held-lock/IRQ/sleep assumption, arg-pointer deref via the
+U2 taint flow, variadic-twin prologue, non-leaf with locking). All host-only, disasm-driven, off the
+byte-identical verified map.
+
+**HARD CONSTRAINT (the whole point):** the sweep is **descriptive/advisory only**. It MUST NOT auto-promote
+anything to an auto-callable tier. Auto-call whitelist promotion stays fail-closed: seed / operator-disasm /
+live-proof only. Rationale = the kfree lesson + false-SAFE asymmetry: static signals UNDER-approximate, so a
+false-DENY is free (operator can unblock) but a false-SAFE is a device fault. Tune the sweep to **rank
+candidates and catch danger**, never to declare auto-SAFE. A swept "candidate-SAFE" verdict is advisory and
+carries its evidence; it does NOT enter the gate's SAFE set without an explicit operator-disasm or live-proof
+step.
+
+**Deliverables (host-only, in `a90_repl.py` + tests):**
+1. A `call-safety-sweep` subcommand: take a family selector (name-prefix/-regex sets or an explicit symbol
+   list) + the verified map + v2321 image, classify each via the existing U2 path (identity via C1 first),
+   and emit per-symbol records with tier + signals + the danger flags above, plus a summary histogram.
+2. A conservative **candidate-SAFE ranking**: only functions that pass the U2 positive proofs
+   (SAFE-SCALAR taint-clean, or SAFE-WITH-VALID-PTR with all derefs covered by declared ptr args) AND have
+   no danger flag are listed as *candidate*, each tagged `advisory-not-auto-callable` with its evidence.
+3. Keep the gate UNCHANGED: swept results never mutate `CALL_SAFETY_SEEDS` or `auto_call_allowed`. Add a test
+   asserting a swept candidate-SAFE symbol is still gate-refused for `call` until explicitly seeded/vetted.
+4. Bounded + deterministic: cap the swept set per run (e.g. a named family), stable ordering, no network, no
+   device. Objdump excerpts optional/private.
+
+**Definition of done for U3:** `call-safety-sweep` produces evidence-backed risk profiles + a ranked
+advisory candidate-SAFE list + danger flags over at least 2–3 real families; the advisory/auto-call
+firewall is enforced (swept SAFE ≠ gate-callable) and tested; the U2 invariants still hold; `py_compile` +
+focused suite pass; host-only, no device action, no boot image. After U3, the optional tool runbook is the
+only remainder before the REPL epic can fully close.
+
+**Guardrails:** host-only static analysis; exploit-free framing; BEHAVIOR-CHANGING/DENY families stay
+classified, never chained or promoted; keep raw runtime pointers out of commits; scoped `git add`;
+fails-twice on the same approach → STOP + report. Operator Gate-2's each commit by independently re-running
+the sweep + disasm-spot-checking a sample (especially any candidate-SAFE verdict — false-SAFE is the risk);
+the loop owns host build + tests + commits and does NOT touch the device for U3.
+
+## ✅ DONE — REPL U2 (call-safety inventory + fail-closed classifier), operator-verified 2026-06-29
+
+> ### ✅ OPERATOR GATE-2 SIGN-OFF (2026-06-29) — U2 DONE; kfree correction verified
+>
+> Reran the classifier against the verified map: `kfree=SAFE-WITH-VALID-PTR` (arg-taint `arg_memory_base_use_count=43`
+> — would have dropped out of SAFE-SCALAR on the taint proof alone, defense-in-depth ✓), `__kmalloc=SAFE-SCALAR`
+> (`arg_memory_base_use_count=0`, disasm = `cmp x0,#0x2000` + arithmetic, no deref ✓). Gate fails closed:
+> `require_call_safety_for_call("kfree", ("0x1234",))` RAISES "SAFE-WITH-VALID-PTR requires"; only NULL (`0x0`) and an
+> explicit caller-vouched pointer token (`@owned_kmalloc_ptr`) pass — you cannot *accidentally* `call kfree <scalar>`.
+> Invariants intact: printk = real `0xffffff800813adfc` (not the twin) valid-ptr; kallsyms_lookup_name = DENY;
+> commit_creds / prepare_kernel_cred / set_memory_x / call_usermodehelper_exec = BEHAVIOR-CHANGING, never auto-callable.
+> 59/59 + 24/24 tests pass. Host-only, no device action, no boot image. **U2 DoD met.**
+
+### (history — U2 charter, DONE 2026-06-29) DELEGATED: REPL U2 — kernel-grade CALL-SAFETY inventory + fail-closed classifier
 
 **Operator-chartered 2026-06-29 (reopens the optional U2 remainder; kernel target ⇒ higher rigor than a
 normal tool warrants).** v2c-C2E settled the *address* axis: ~147k symbols, three oracles byte-identical,
@@ -815,18 +872,8 @@ newly-classified-SAFE function is a SEPARATE later unit behind its own explicit 
 vetted and operator-disasm-verifiable; the `call` path fails closed for non-whitelisted targets; tests cover
 each tier + the refusal + the 3-proven-stay-SAFE / kallsyms_lookup_name-DENY invariants; `py_compile` +
 focused suite pass; host-only, no device action, no boot image. After U2, a tool runbook is the only
-remaining optional remainder before the REPL epic can fully close.
-
-**BACKLOG IDEA (do NOT start until U2 is confirmed DONE) — U3: broad advisory risk-assessment sweep.**
-Once the U2 seed + signal extractor are vetted, scale the classifier from the ~15 hand-seed to a large
-function-family sweep (allocator / string / list / bounded read-I/O / sysfs-`show`) to produce ① a
-signal-bucketed risk profile, ② a ranked *candidate*-SAFE list, and ③ danger flags (held-lock assumption,
-arg-pointer deref, variadic-twin shape). **Hard constraint:** the sweep is **descriptive/advisory only** —
-auto-call whitelist promotion stays fail-closed (seed / operator-disasm / live-proof), and the sweep MUST
-NOT auto-promote anything to an auto-callable tier. Rationale = the kfree lesson + the false-SAFE asymmetry:
-static signals UNDER-approximate, so false-DENY is free (operator can unblock) but false-SAFE is a device
-fault — therefore tune the sweep to rank candidates + catch danger, never to declare SAFE. Host-only. This
-is a backlog note, not an active charter; operator re-charters it after U2 closes clean.
+remaining optional remainder before the REPL epic can fully close. (U3 was promoted from this backlog note
+to the active charter at the top of this section once U2 was operator-verified DONE.)
 
 **STATUS (2026-06-29 U2 host pass) — disasm-backed call-safety classifier + fail-closed call gate landed.**
 `a90_repl.py` now has `call-safety-classify`, which C1-resolves identity first and emits evidence-backed
