@@ -12,6 +12,15 @@ from pathlib import Path
 from _loader import load_revalidation
 
 extract = load_revalidation("a90_stock_kallsyms_extract")
+REPO_ROOT = Path(__file__).resolve().parents[1]
+V2321_BOOT = (
+    REPO_ROOT
+    / "workspace"
+    / "private"
+    / "inputs"
+    / "boot_images"
+    / "boot_linux_v2321_usb_clean_identity_rodata.img"
+)
 
 
 def make_token_table_blob() -> tuple[bytes, list[int], list[bytes], int]:
@@ -62,6 +71,38 @@ class KernelImageAndScalarHelpers(unittest.TestCase):
             self.assertEqual(wrapped_image.wrapper_size, len(wrapper))
             self.assertEqual(wrapped_image.wrapper_sha256, extract.sha256_bytes(wrapper))
             self.assertEqual(wrapped_image.raw_sha256, extract.sha256_bytes(raw_payload))
+
+    def test_unwrap_kernel_accepts_android_boot_wrapped_uncompressed_img(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            raw_payload = b"raw-kernel"
+            kernel_blob = b"UNCOMPRESSED_IMG" + struct.pack("<I", len(raw_payload)) + raw_payload
+            page_size = 0x1000
+            header = bytearray(page_size)
+            header[:8] = b"ANDROID!"
+            struct.pack_into(
+                "<10I",
+                header,
+                8,
+                len(kernel_blob),
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                page_size,
+                0,
+                0,
+            )
+            boot_path = root / "boot.img"
+            boot_path.write_bytes(bytes(header) + kernel_blob)
+
+            image = extract.unwrap_kernel(boot_path)
+
+            self.assertEqual(image.raw, raw_payload)
+            self.assertEqual(image.raw_offset, page_size + 20)
+            self.assertEqual(image.wrapper_size, page_size + len(kernel_blob))
 
     def test_unwrap_kernel_rejects_short_or_truncated_wrapper(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -136,10 +177,19 @@ class NameAndMarkerHelpers(unittest.TestCase):
         self.assertIsNone(extract.parse_record_offsets(padded, 0, len(padded)))
         self.assertIsNone(extract.parse_record_offsets(bytes([129]) + b"x" * 129, 0, 130))
 
+    def test_parse_record_offsets_handles_two_byte_uleb128_lengths(self):
+        records = bytes([0x81, 0x01]) + bytes([1]) * 129 + bytes([1, 2])
+        self.assertEqual(extract.parse_record_offsets(records, 0, len(records)), ([0, 131], 133))
+
     def test_decode_names_joins_token_bytes(self):
         records = bytes([2, 1, 2, 1, 3])
         tokens = [b"", b"T", b"_text", b"foo"] + [b""] * 252
         self.assertEqual(extract.decode_names(records, 0, [0, 3], tokens), ["T_text", "foo"])
+
+    def test_decode_names_handles_two_byte_uleb128_lengths(self):
+        records = bytes([0x81, 0x01]) + bytes([1]) * 129
+        tokens = [b"", b"a"] + [b""] * 254
+        self.assertEqual(extract.decode_names(records, 0, [0], tokens), ["a" * 129])
 
     def test_find_num_syms_position_finds_preceding_qword(self):
         data = b"prefix" + struct.pack("<Q", 1234) + b"names"
@@ -209,6 +259,55 @@ class AddressAndRenderingHelpers(unittest.TestCase):
             extract.render_system_map(names, addresses),
             "0000000000001010 T _text\n0000000000001040 t worker\n",
         )
+
+
+@unittest.skipUnless(V2321_BOOT.exists(), "v2321 private boot image not present")
+class V2321KallsymsRegression(unittest.TestCase):
+    def test_v2321_ground_truth_symbols_are_stage_c_file_vaddrs(self):
+        image = extract.unwrap_kernel(V2321_BOOT)
+        token_table = extract.find_token_table(image.raw, [0x2103100])
+        marker_start, markers = extract.find_marker_table(image.raw, token_table.table_start, [0x2101F00])
+        names = extract.find_names(image.raw, token_table, marker_start, markers, [0x1F10700])
+        addresses = extract.find_address_table(image.raw, names, extract.DEFAULT_TEXT_ADDRESS)
+        overrides, sources = extract.build_semantic_overrides(image.raw, extract.DEFAULT_TEXT_ADDRESS)
+        addresses = extract.apply_semantic_overrides(addresses, names, overrides, sources)
+
+        symbol_map: dict[str, int] = {}
+        for line in extract.render_system_map(names, addresses).splitlines():
+            address, _kind, symbol = line.split(maxsplit=2)
+            symbol_map[symbol] = int(address, 16)
+
+        self.assertEqual(symbol_map["kgsl_pwrctrl_num_pwrlevels_show"], 0xFFFFFF80089262DC)
+        self.assertEqual(symbol_map["kgsl_pwrctrl_gpu_busy_percentage_show"], 0xFFFFFF800892790C)
+        self.assertEqual(symbol_map["kgsl_pwrctrl_force_no_nap_store"], 0xFFFFFF80089273B4)
+        self.assertEqual(symbol_map["kgsl_pwrctrl_force_no_nap_show"], 0xFFFFFF8008927344)
+        self.assertEqual(symbol_map["printk"], 0xFFFFFF800813D8CC)
+        self.assertEqual(symbol_map["__kmalloc"], 0xFFFFFF80082724BC)
+        self.assertEqual(symbol_map["kfree"], 0xFFFFFF800827276C)
+        self.assertEqual(symbol_map["kallsyms_lookup_name"], 0xFFFFFF800818452C)
+
+        source_by_symbol = {
+            name[1:]: addresses.decoded_address_sources[index]
+            for index, name in enumerate(names.names)
+            if name and name[1:]
+        }
+        self.assertEqual(source_by_symbol["kgsl_pwrctrl_num_pwrlevels_show"], "rkp-ropp-local-run")
+        self.assertEqual(source_by_symbol["kgsl_pwrctrl_gpu_busy_percentage_show"], "rkp-ropp-local-run")
+        self.assertEqual(source_by_symbol["kgsl_pwrctrl_force_no_nap_store"], "rkp-ropp-local-run")
+        self.assertEqual(source_by_symbol["kgsl_pwrctrl_force_no_nap_show"], "rkp-ropp-local-run")
+        self.assertEqual(source_by_symbol["printk"], "plain-printk-variadic-wrapper-signature")
+        self.assertEqual(source_by_symbol["__kmalloc"], "base-relative")
+
+        num_off = symbol_map["kgsl_pwrctrl_num_pwrlevels_show"] - extract.DEFAULT_TEXT_ADDRESS
+        busy_off = symbol_map["kgsl_pwrctrl_gpu_busy_percentage_show"] - extract.DEFAULT_TEXT_ADDRESS
+        store_off = symbol_map["kgsl_pwrctrl_force_no_nap_store"] - extract.DEFAULT_TEXT_ADDRESS
+        self.assertEqual(extract.u32(image.raw, num_off + 0x44), 0x51000503)
+        busy_words = extract.function_body_words(image.raw, busy_off)
+        self.assertIn(0x1B0A7D29, busy_words)  # mul w9, w9, w10
+        self.assertIn(0x1AC80923, busy_words)  # udiv w3, w9, w8
+        self.assertIn(0x52820001, busy_words)  # mov w1, #0x1000
+        self.assertEqual(extract.u32(image.raw, store_off), 0xD10103FF)
+        self.assertEqual(extract.u32(image.raw, store_off + 4), 0xCA1103D0)
 
 
 if __name__ == "__main__":

@@ -124,12 +124,30 @@ these accepted corrections — the FINAL v2 plan supersedes the draft plan above
    `store` body replacement / `store`↔`show` split / trampoline into a confirmed-unused cave.
 
 **Final v2 plan (supersedes the draft plan)**
-- **v2a0 — validate the symbol map (host-only).** Codex found existing artifacts
-  `workspace/private/tmp/tier2c/kallsyms_v2321/stock-kallsyms.json` and
-  `workspace/private/runs/kernel/v2197-stock-kallsyms/System.map`; **try these first** and spot-check
-  against known link addrs (`force_no_nap_store 0xffffff80089273b4`, plain `printk 0xffffff800813d8cc`).
-  Only if they don't validate do we fix `a90_stock_kallsyms_extract.py` ("marker table not found",
-  likely `CONFIG_KALLSYMS_BASE_RELATIVE`/markers-stride).
+- **v2a0 — validate the symbol map (host-only). DONE/FIXED + operator-verified.** The existing maps were
+  garbage; the extractor is now fixed at the ROOT (ULEB128 compressed-name length) and operator-disasm-
+  verified (num_pwrlevels_show==0xffffff80089262dc has `sub w3,w8,#1`; gpu_busy==0xffffff800892790c has
+  the ×100/udiv percent code; force_no_nap_store==0xffffff80089273b4; __kmalloc/kfree/kallsyms_lookup_name
+  all pure decode). Overrides are now cross-checks only. Report:
+  `KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2A1_KALLSYMS_LOCAL_DECODE_FIX_2026-06-29.md`. (Original
+  finding below.)
+  The existing artifacts (`workspace/private/tmp/tier2c/kallsyms_v2321/System.map` ==
+  `workspace/private/runs/kernel/v2197-stock-kallsyms/System.map`, byte-identical) are **garbage**:
+  they place `kgsl_pwrctrl_force_no_nap_show`@`0xffffff80089278f8` and `…_store`@`0xffffff8008927910`
+  only **24 bytes apart** (a `snprintf` show handler cannot be 24 B), and the `store` address
+  `0x…7910` contradicts the **live-proven** v2321 `force_no_nap_store` at stage_c vaddr
+  `0xffffff80089273b4` (v1-repl peeked it and got the stub's own bytes). The provenance json shows
+  `relative_base_raw=0x0` and `synthetic_base=0xffffff800807b10c` (≠ the live-proven
+  `KERNEL_FILE_VADDR_BASE=0xffffff800807ffec`), i.e. a **`CONFIG_KALLSYMS_BASE_RELATIVE` /
+  `ABSOLUTE_PERCPU` decode bug** in `a90_stock_kallsyms_extract.py` (same bug family as its
+  "marker table not found" failure on the raw image). **This garbage map is also the confirmed root of
+  the original poke-agent brick** — the flawed builder took `force_no_nap_store`'s address from this
+  map (`0x…7910 ≈ 0x…7920`), which in v2321 is actually `gpu_busy_percentage_show` (read at boot).
+  So v2a0's real task is to **fix the extractor** and validate its output against the stage_c /
+  live-proven convention: `force_no_nap_store == 0xffffff80089273b4`,
+  `force_no_nap_show == 0xffffff8008927344`, plain `printk == 0xffffff800813d8cc`. Only a map that
+  reproduces those is usable; the extracted vaddr must equal `stage_c.kernel_vaddr(file_offset)` so that
+  `runtime(sym) = extracted_vaddr(sym) + live_slide` holds.
 - **v2a1 — host REPL driver over the existing v1-repl image.** `a90_repl.py`: get live `slide` (`op0`),
   resolve name→link→runtime, drive named `peek`/`call` over the bridge (flash v1-repl, validate,
   rollback V2321). Cross-check `call kallsyms_lookup_name(name_in_kmalloc)` == `link(name)+slide`.
