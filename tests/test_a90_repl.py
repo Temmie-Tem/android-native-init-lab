@@ -215,6 +215,18 @@ class StaticImageCrossCheckTests(unittest.TestCase):
         link = repl.resolve_link(self.symbols, "printk")
         repl.assert_no_precall_x0_pointer_deref(self.image, link, "printk")
 
+    def test_allocator_abi_audit_finds_no_live_ready_scalar(self) -> None:
+        audit = repl.run_allocator_abi_audit(self.symbols, self.image)
+        self.assertTrue(audit["ok"], audit)
+        self.assertEqual(
+            audit["decision"],
+            "a90-repl-v2a2r-allocator-abi-audit-no-live-ready-scalar",
+        )
+        self.assertEqual(audit["live_ready_candidates"], [])
+        rows = {row["symbol"]: row for row in audit["rows"]}
+        self.assertIn("precall-x0-deref", rows["__kmalloc"]["blocked_reasons"][0])
+        self.assertTrue(all(row["status"] == "rejected" for row in rows.values()))
+
     def test_assert_jopp_entry_rejects_non_entry(self) -> None:
         link = repl.resolve_link(self.symbols, "printk")
         with self.assertRaises(repl.ReplError):

@@ -65,7 +65,7 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > Bad Apple full-song demo, GPU first-light/triangle/compute/accel-2D/monitor/zero-copy rungs, and DOOM
 > are all DONE and eye-confirmed; the loop pivoted GPU→SoftAP at V3336; SoftAP S0→S4 is DONE at V3344.
 > Do NOT resume Video/Nyan/GPU/SoftAP work — go to the **Runtime Kernel REPL** delegated block (next
-> bounded unit = **v2a2R**: host-only allocator ABI locator / safe owned-buffer plan; v1-slide, v1-repl
+> bounded unit = **v2a2H**: explicit owned-scratch helper design/source gate; v1-slide, v1-repl
 > slide/peek/poke/call, the kallsyms extractor (v2a0), and the named host driver (v2a1) are all
 > LIVE-PROVEN). The text below is retained as reference history only.
 
@@ -902,7 +902,7 @@ check showed `panic_on_oops=1`. Report:
 dereferences `x0` before the first `BL`; the current direct `__kmalloc` path is blocked before live.
 **Do not rerun direct `call __kmalloc(size, GFP_KERNEL)` without a newly validated target.**
 
-### ▶ NEXT BOUNDED UNIT = v2a2R (HOST-ONLY) — allocator ABI locator / safe owned-buffer plan
+### ✅ v2a2R (HOST-ONLY) — allocator ABI locator / safe owned-buffer plan
 
 Find a replacement for the invalid direct `__kmalloc` plan before any more live `poke-roundtrip` attempts.
 This unit is host-only by default: inspect the v1-repl boot image + regenerated System.map, classify candidate
@@ -915,6 +915,34 @@ owned-buffer APIs by static ABI, and require a report/test update before live. A
 No live device command is needed unless the static ABI gate produces a concrete, bounded candidate. If the
 only viable path is a new helper image, build and Gate-2 it as a new V-iteration; do not mutate the existing
 v1-repl image in place. Keep raw runtime pointers and slides out of committed artifacts.
+
+**STATUS (2026-06-29 v2a2R host-only audit) — existing scalar allocator path saturated.** `a90_repl.py`
+now exposes `allocator-audit`, which checks 13 plausible owned-buffer allocator/free pairs in the v1-repl
+boot image for JOPP shape, pre-helper-call `x0` dereferences, leaf/global-return thunks, and known
+pointer-argument wrappers. Result:
+`a90-repl-v2a2r-allocator-abi-audit-no-live-ready-scalar`; every candidate is rejected and
+`live_ready_candidates=[]`. Focused validation is now `tests.test_a90_repl` **29/29 PASS**. Report:
+`docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2A2R_ALLOCATOR_ABI_AUDIT_2026-06-29.md`.
+**Next bounded unit:** revise v2a2 around a small explicit owned-scratch helper/call target with known ABI,
+then Gate-2 and live-validate `poke` -> `peek` -> cleanup. Do not rerun direct allocator calls from the
+current v1-repl image.
+
+### ▶ NEXT BOUNDED UNIT = v2a2H (HOST-ONLY SOURCE GATE) — explicit owned-scratch helper
+
+Design and source-gate a replacement for the invalid direct allocator path. The target is still the original
+v2a2 semantic proof: a non-protected owned buffer where `op2 poke` lands, `op1 peek` reads back the value,
+and cleanup/rollback leaves the device clean. The implementation must avoid guessing allocator ABIs from
+exported names.
+
+Preferred shape:
+- Build a new bounded helper image only if the source design can prove an explicit owned scratch location or
+  call target with a known ABI. Do not mutate the existing v1-repl image in place.
+- Keep all writes recoverable under the boot-partition-only flash gates; no forbidden partitions, no RKP
+  bypass, no protected `.text`/rodata/page-table/cred target.
+- Gate-2 before flash: diff only `{boot-id, intended helper body}`, disassemble helper body, preserve JOPP/
+  ROPP expectations, and prove the scratch target is writable non-protected state.
+- Live step, when reached: flash exact SHA, health-check, run `poke` -> `peek` -> cleanup, restore
+  `panic_on_oops=1`, rollback to v2321, final `selftest fail=0`.
 
 **Guardrails (hard, RECON / exploit-free):** NO RKP bypass, NO write to RKP-protected memory
 (`.text`/rodata/page-tables/cred), NO RWX, NO `ret`/`blr`/CFP-site patch, NO grooming/UAF/spray,

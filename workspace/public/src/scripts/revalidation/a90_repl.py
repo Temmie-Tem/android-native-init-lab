@@ -97,6 +97,103 @@ A64_LDR32_UNSIGNED_BASE = 0xB9400000
 A64_LDRB_UNSIGNED_BASE = 0x39400000
 A64_LDRH_UNSIGNED_BASE = 0x79400000
 A64_LDR_UNSIGNED_MASK = 0xFFC003E0
+A64_RET = 0xD65F03C0
+A64_MOV_W0_WZR = 0x2A1F03E0
+A64_MOV_X0_XZR = 0xAA1F03E0
+
+ALLOCATOR_ABI_CANDIDATES: tuple[dict[str, str | None], ...] = (
+    {
+        "symbol": "__kmalloc",
+        "free_symbol": "kfree",
+        "expected_abi": "size,gfp",
+        "note": "original v2a2 plan",
+    },
+    {
+        "symbol": "__get_free_pages",
+        "free_symbol": "free_pages",
+        "expected_abi": "gfp,order",
+        "note": "page allocator direct pointer candidate",
+    },
+    {
+        "symbol": "get_zeroed_page",
+        "free_symbol": "free_pages",
+        "expected_abi": "gfp",
+        "note": "single-page direct pointer candidate",
+    },
+    {
+        "symbol": "alloc_pages_exact",
+        "free_symbol": "free_pages_exact",
+        "expected_abi": "size,gfp",
+        "note": "exact-size page allocator candidate",
+    },
+    {
+        "symbol": "__alloc_pages_nodemask",
+        "free_symbol": "__free_pages",
+        "expected_abi": "gfp,order,nid,nodemask",
+        "note": "returns struct page, not directly pokable unless converted",
+    },
+    {
+        "symbol": "kmalloc_order",
+        "free_symbol": "kfree",
+        "expected_abi": "size,gfp,order",
+        "note": "large kmalloc fallback candidate",
+    },
+    {
+        "symbol": "kmalloc_order_trace",
+        "free_symbol": "kfree",
+        "expected_abi": "size,gfp,order",
+        "note": "large kmalloc trace candidate",
+    },
+    {
+        "symbol": "vmalloc",
+        "free_symbol": "vfree",
+        "expected_abi": "size",
+        "note": "vmalloc candidate",
+    },
+    {
+        "symbol": "__vmalloc",
+        "free_symbol": "vfree",
+        "expected_abi": "size,gfp,prot",
+        "note": "internal vmalloc candidate",
+    },
+    {
+        "symbol": "kvmalloc_node",
+        "free_symbol": "kvfree",
+        "expected_abi": "size,gfp,node",
+        "note": "kvmalloc candidate",
+    },
+    {
+        "symbol": "kmem_cache_alloc",
+        "free_symbol": "kmem_cache_free",
+        "expected_abi": "cache,gfp",
+        "note": "requires existing cache pointer, not size-only",
+    },
+    {
+        "symbol": "kmem_cache_alloc_trace",
+        "free_symbol": "kmem_cache_free",
+        "expected_abi": "cache,gfp,size",
+        "note": "requires existing cache pointer",
+    },
+    {
+        "symbol": "mempool_kmalloc",
+        "free_symbol": "mempool_kfree",
+        "expected_abi": "gfp,pool_data",
+        "note": "mempool helper candidate",
+    },
+)
+
+ALLOCATOR_KNOWN_NON_SCALAR: dict[str, str] = {
+    "__alloc_pages_nodemask": "returns struct page, not a writable kernel virtual pointer",
+    "kmalloc_order": "this recovered path is not accepted as a pointer-return scalar allocator",
+    "kmalloc_order_trace": "this recovered path is trace/bookkeeping shaped, not live-ready",
+    "kmem_cache_alloc": "x0 is a kmem_cache pointer, not an allocation size",
+    "kmem_cache_alloc_trace": "x0 is a kmem_cache pointer, not an allocation size",
+    "mempool_kmalloc": "mempool helper ABI needs pool data, not a standalone size/gfp call",
+    "mempool_kfree": "mempool helper ABI needs pool data, not standalone free",
+    "vmalloc": "leaf thunk in this image returns allocator metadata/global, not vmalloc(size)",
+    "__vmalloc": "this image treats x0 as a descriptor pointer before validating scalar args",
+    "kvmalloc_node": "this image treats x0 as a descriptor/context pointer",
+}
 
 A90R_RE = re.compile(r"A90R([0-9a-fA-F]+)")
 
@@ -390,19 +487,101 @@ def _is_a64_bl(word: int) -> bool:
     return (word & A64_BL_MASK) == A64_BL
 
 
-def _is_a64_unsigned_load_from_x0(word: int) -> bool:
-    # LDR/LD(R)B/H unsigned-immediate with Rn == x0/w0. This intentionally
-    # covers only the simple scalar-allocator hazard seen live: the candidate
-    # treats x0 as a context pointer before any helper call can sanitize it.
-    if (word & A64_LDR_UNSIGNED_MASK) not in {
-        A64_LDR64_UNSIGNED_BASE,
-        A64_LDR32_UNSIGNED_BASE,
-        A64_LDRB_UNSIGNED_BASE,
-        A64_LDRH_UNSIGNED_BASE,
-    }:
-        return False
-    rn = (word >> 5) & 0x1F
-    return rn == 0
+def _is_a64_ret(word: int) -> bool:
+    return word == A64_RET
+
+
+def _is_a64_zero_return_move(word: int) -> bool:
+    return word in (A64_MOV_W0_WZR, A64_MOV_X0_XZR)
+
+
+def _decode_a64_bl_target(pc: int, word: int) -> int:
+    imm26 = word & 0x03FFFFFF
+    if imm26 & (1 << 25):
+        imm26 -= 1 << 26
+    return (pc + (imm26 << 2)) & MASK64
+
+
+def _decode_a64_unsigned_load(word: int) -> dict[str, int] | None:
+    # LDR/LD(R)B/H unsigned-immediate. This intentionally covers only the
+    # simple scalar-allocator hazard seen live: the candidate treats x0 as a
+    # context pointer before any helper call can sanitize it.
+    shape = word & A64_LDR_UNSIGNED_MASK
+    if shape == A64_LDR64_UNSIGNED_BASE:
+        width = 8
+    elif shape == A64_LDR32_UNSIGNED_BASE:
+        width = 4
+    elif shape == A64_LDRH_UNSIGNED_BASE:
+        width = 2
+    elif shape == A64_LDRB_UNSIGNED_BASE:
+        width = 1
+    else:
+        return None
+    return {
+        "rt": word & 0x1F,
+        "rn": (word >> 5) & 0x1F,
+        "width": width,
+        "imm": ((word >> 10) & 0xFFF) * width,
+    }
+
+
+def _first_precall_x0_deref(words: list[int]) -> dict[str, int] | None:
+    for index, word in enumerate(words):
+        if _is_a64_bl(word) or _is_a64_ret(word):
+            return None
+        load = _decode_a64_unsigned_load(word)
+        if load and load["rn"] == 0:
+            return {"offset": index * 4, "word": word, **load}
+    return None
+
+
+def _nearest_symbol(symbols: dict[str, Symbol], addr: int) -> dict[str, str | int] | None:
+    nearest: Symbol | None = None
+    for symbol in symbols.values():
+        if symbol.vaddr <= addr and (nearest is None or nearest.vaddr < symbol.vaddr):
+            nearest = symbol
+    if nearest is None:
+        return None
+    return {
+        "symbol": nearest.name,
+        "link_vaddr": f"0x{nearest.vaddr:x}",
+        "delta": addr - nearest.vaddr,
+    }
+
+
+def _scan_function_shape(symbols: dict[str, Symbol],
+                         image: StaticImage,
+                         link_vaddr: int,
+                         *,
+                         scan_bytes: int = 0x100) -> dict[str, object]:
+    words = image.u32_words_at_vaddr(link_vaddr, scan_bytes // 4)
+    first_bl: dict[str, object] | None = None
+    first_ret_offset: int | None = None
+    zero_return_before_ret = False
+
+    for index, word in enumerate(words):
+        pc = link_vaddr + index * 4
+        if _is_a64_bl(word):
+            target = _decode_a64_bl_target(pc, word)
+            first_bl = {
+                "offset": index * 4,
+                "word": f"0x{word:08x}",
+                "target": f"0x{target:x}",
+                "nearest_symbol": _nearest_symbol(symbols, target),
+            }
+            break
+        if _is_a64_ret(word):
+            first_ret_offset = index * 4
+            break
+        if _is_a64_zero_return_move(word):
+            zero_return_before_ret = True
+
+    return {
+        "first_bl": first_bl,
+        "first_ret_offset": first_ret_offset,
+        "zero_return_before_first_ret_or_bl": zero_return_before_ret,
+        "precall_x0_deref": _first_precall_x0_deref(words),
+    }
 
 
 def assert_no_precall_x0_pointer_deref(image: StaticImage, link_vaddr: int,
@@ -412,16 +591,97 @@ def assert_no_precall_x0_pointer_deref(image: StaticImage, link_vaddr: int,
     reads `[x0,#72]`, so calling it as `__kmalloc(size, flags)` faults at
     `size + 0x48` before any owned buffer exists.
     """
-    words = image.u32_words_at_vaddr(link_vaddr, 0x80 // 4)
-    for index, word in enumerate(words):
-        if _is_a64_bl(word):
-            return
-        if _is_a64_unsigned_load_from_x0(word):
-            raise ReplError(
-                f"{name} is not safe for scalar direct-call ABI: "
-                f"entry+0x{index * 4:x} dereferences x0 before first BL "
-                f"(word={word:#x})"
-            )
+    deref = _first_precall_x0_deref(image.u32_words_at_vaddr(link_vaddr, 0x80 // 4))
+    if deref:
+        raise ReplError(
+            f"{name} is not safe for scalar direct-call ABI: "
+            f"entry+0x{deref['offset']:x} dereferences x0 before first BL "
+            f"(word={deref['word']:#x})"
+        )
+
+
+def analyze_allocator_candidate(symbols: dict[str, Symbol],
+                                image: StaticImage,
+                                candidate: dict[str, str | None]) -> dict[str, object]:
+    name = str(candidate["symbol"])
+    free_symbol = candidate.get("free_symbol")
+    row: dict[str, object] = {
+        "symbol": name,
+        "free_symbol": free_symbol,
+        "expected_abi": candidate.get("expected_abi"),
+        "note": candidate.get("note"),
+        "status": "rejected",
+        "live_ready": False,
+        "blocked_reasons": [],
+    }
+    blocked = row["blocked_reasons"]
+    assert isinstance(blocked, list)
+
+    symbol = symbols.get(name)
+    if symbol is None:
+        blocked.append("missing-symbol")
+        return row
+
+    row["link_vaddr"] = f"0x{symbol.vaddr:x}"
+    try:
+        magic = image.u32_at_vaddr(symbol.vaddr - 4)
+    except Exception as exc:  # noqa: BLE001 - report malformed image/map pairing
+        blocked.append(f"static-image-read-failed:{exc}")
+        return row
+
+    row["jopp_entry"] = magic == JOPP_MAGIC
+    row["entry_minus_4"] = f"0x{magic:08x}"
+    if magic != JOPP_MAGIC:
+        blocked.append("not-jopp-entry")
+
+    shape = _scan_function_shape(symbols, image, symbol.vaddr)
+    row.update(shape)
+
+    deref = shape["precall_x0_deref"]
+    if deref:
+        assert isinstance(deref, dict)
+        blocked.append(
+            "precall-x0-deref:"
+            f"+0x{deref['offset']:x}/imm=0x{deref['imm']:x}/word=0x{deref['word']:08x}"
+        )
+
+    if shape["first_bl"] is None:
+        blocked.append("no-helper-call-before-return-or-scan-limit")
+
+    if shape["zero_return_before_first_ret_or_bl"]:
+        blocked.append("zero-return-pattern-before-first-ret-or-bl")
+
+    manual = ALLOCATOR_KNOWN_NON_SCALAR.get(name)
+    if manual:
+        blocked.append(f"known-non-scalar:{manual}")
+
+    if not blocked:
+        row["status"] = "needs-manual-abi-proof"
+        row["blocked_reasons"] = ["no-hard-static-blocker-but-not-auto-live-ready"]
+    return row
+
+
+def run_allocator_abi_audit(symbols: dict[str, Symbol],
+                            image: StaticImage,
+                            candidates: tuple[dict[str, str | None], ...] = ALLOCATOR_ABI_CANDIDATES
+                            ) -> dict[str, object]:
+    rows = [analyze_allocator_candidate(symbols, image, candidate) for candidate in candidates]
+    live_ready = [row["symbol"] for row in rows if row.get("live_ready")]
+    return {
+        "decision": (
+            "a90-repl-v2a2r-allocator-abi-audit-live-ready-candidate"
+            if live_ready else "a90-repl-v2a2r-allocator-abi-audit-no-live-ready-scalar"
+        ),
+        "ok": True,
+        "raw_runtime_values_redacted": True,
+        "candidate_count": len(rows),
+        "live_ready_candidates": live_ready,
+        "rows": rows,
+        "next_required": (
+            "run bounded live poke-roundtrip only for a live_ready candidate"
+            if live_ready else "design a small owned-scratch helper or provide stronger ABI proof"
+        ),
+    }
 
 
 CALL_SENTINEL = 0xA90CA11  # recognizable arg echoed by the called printk
@@ -724,6 +984,15 @@ def cmd_poke_roundtrip(args: argparse.Namespace) -> int:
     return 0 if summary["ok"] else 1
 
 
+def cmd_allocator_audit(args: argparse.Namespace) -> int:
+    symbols = load_system_map(args.map)
+    image = load_static_image(args.image)
+    summary = run_allocator_abi_audit(symbols, image)
+    write_evidence(args, summary)
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -755,6 +1024,13 @@ def main(argv: list[str] | None = None) -> int:
     p_round.add_argument("--skip-width32", action="store_true",
                          help="skip the optional 32-bit poke path")
     p_round.set_defaults(func=cmd_poke_roundtrip)
+
+    p_audit = sub.add_parser(
+        "allocator-audit",
+        help="host-only v2a2R static ABI audit for owned-buffer candidates",
+    )
+    add_common(p_audit)
+    p_audit.set_defaults(func=cmd_allocator_audit)
 
     args = parser.parse_args(argv)
     return args.func(args)
