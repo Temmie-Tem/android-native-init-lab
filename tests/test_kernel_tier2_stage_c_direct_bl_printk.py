@@ -74,6 +74,13 @@ class KernelTier2StageCDirectBlPrintkTests(unittest.TestCase):
                 runner.PRINTK_EXPECTED_EMIT_CORE_OFF,
             ),
         )
+        self.assertEqual(
+            runner.direct_bl_xref_count(
+                kernel,
+                runner.kernel_vaddr(runner.PRINTK_EXPECTED_ENTRY_OFF),
+            ),
+            runner.PRINTK_EXPECTED_DIRECT_BL_XREFS,
+        )
 
     def test_boot_id_recompute_matches_clean_v2321_when_available(self) -> None:
         if not runner.BASE_BOOT.exists():

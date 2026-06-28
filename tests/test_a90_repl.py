@@ -303,13 +303,14 @@ class StaticImageCrossCheckTests(unittest.TestCase):
         self.assertTrue(kmalloc.evidence["map_agrees_with_export"] is False)
         self.assertTrue(kfree.evidence["map_agrees_with_export"] is False)
 
-    def test_resolve_verified_printk_accepts_map_signature(self) -> None:
+    def test_resolve_verified_printk_uses_export_xref_ground_truth(self) -> None:
         resolution = repl.resolve_verified(self.symbols, self.image, "printk", purpose="call")
 
         self.assertTrue(resolution.verified, resolution.public_dict())
-        self.assertEqual(resolution.method, "disasm-signature+xref+map")
-        self.assertEqual(resolution.link_vaddr, 0xFFFFFF800813D8CC)
-        self.assertGreaterEqual(resolution.evidence["map_direct_bl_xref_count"], 1)
+        self.assertEqual(resolution.method, "export-recovery")
+        self.assertEqual(resolution.link_vaddr, 0xFFFFFF800813ADFC)
+        self.assertEqual(resolution.evidence["export_selected_direct_bl_xref_count"], 44694)
+        self.assertFalse(resolution.evidence["map_agrees_with_export"])
 
     def test_resolve_verified_blocks_known_unsafe_call(self) -> None:
         resolution = repl.resolve_verified(self.symbols, self.image, "kallsyms_lookup_name", purpose="call")
@@ -339,17 +340,15 @@ class StaticImageCrossCheckTests(unittest.TestCase):
             "a90-repl-v2c-c2c-high-confidence-map-audit-host-pass",
         )
         self.assertEqual(audit["audited_symbol_count"], 3)
-        self.assertEqual(audit["counts"]["map_match"], 1)
-        self.assertEqual(audit["counts"]["map_mismatch"], 2)
+        self.assertEqual(audit["counts"]["map_match"], 0)
+        self.assertEqual(audit["counts"]["map_mismatch"], 3)
         self.assertEqual(audit["counts"]["unknown"], 0)
 
         focus = audit["focus_rows"]
-        self.assertEqual(focus["printk"]["status"], "map-match")
-        self.assertEqual(focus["printk"]["truth_link_vaddr"], "0xffffff800813d8cc")
+        self.assertEqual(focus["printk"]["status"], "map-mismatch")
+        self.assertEqual(focus["printk"]["truth_link_vaddr"], "0xffffff800813adfc")
         self.assertEqual(focus["printk"]["map_link_vaddr"], "0xffffff800813d8cc")
-        self.assertFalse(focus["printk"]["string_ref_candidates_promoted"])
-        self.assertIn("0xffffff800813adfc", focus["printk"]["string_ref_candidate_link_vaddrs"])
-        self.assertIn("noisy-string-ref-candidates-not-promoted", focus["printk"]["high_confidence_reasons"])
+        self.assertIn("stage-c-printk-signature-disagrees-with-map", focus["printk"]["map_wrong_evidence"])
         self.assertEqual(focus["__kmalloc"]["status"], "map-mismatch")
         self.assertEqual(focus["__kmalloc"]["truth_link_vaddr"], "0xffffff800826ae34")
         self.assertEqual(focus["__kmalloc"]["map_link_vaddr"], "0xffffff80082724bc")
@@ -418,10 +417,10 @@ class StaticImageCrossCheckTests(unittest.TestCase):
             anchors["kgsl_pwrctrl_force_no_nap_store"]["ksymtab_scope"],
             "not-exported",
         )
-        self.assertEqual(anchors["printk"]["status"], "anchor-match-export-conflict")
-        self.assertEqual(anchors["printk"]["truth_link_vaddr"], "0xffffff800813d8cc")
+        self.assertEqual(anchors["printk"]["status"], "anchor-match")
+        self.assertEqual(anchors["printk"]["truth_link_vaddr"], "0xffffff800813adfc")
         self.assertEqual(anchors["printk"]["export_row_link_vaddr"], "0xffffff800813adfc")
-        self.assertTrue(anchors["printk"]["export_row_conflicts_with_semantic_anchor"])
+        self.assertFalse(anchors["printk"]["export_row_conflicts_with_semantic_anchor"])
 
         self.assertEqual(
             audit["current_map_drift"]["counts"],
@@ -430,7 +429,7 @@ class StaticImageCrossCheckTests(unittest.TestCase):
         if compare_maps:
             self.assertEqual(
                 audit["compare_map_drift"]["c2b-padding"]["counts"],
-                {"map_match": 12514, "map_mismatch": 4, "missing_map_symbol": 0},
+                {"map_match": 12515, "map_mismatch": 3, "missing_map_symbol": 0},
             )
             c2b_mismatches = {
                 row["symbol"]
@@ -439,7 +438,6 @@ class StaticImageCrossCheckTests(unittest.TestCase):
             self.assertEqual(
                 c2b_mismatches,
                 {
-                    "printk",
                     "ehci_reset",
                     "iio_read_channel_ext_info",
                     "iio_write_channel_ext_info",
@@ -477,6 +475,12 @@ class FaithfulFakeTransport:
         recovery = repl.recover_allocator_export_addresses(self.symbols, self.image)
         self.kmalloc_link = int(recovery["recovered"]["__kmalloc"], 16)
         self.kfree_link = int(recovery["recovered"]["kfree"], 16)
+        self.printk_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "printk",
+            purpose="call",
+        ).link_vaddr
         self.heap_ptr = 0xFFFFFFC012300000
         self.heap: dict[int, int] = {}
         self.freed: list[int] = []
@@ -514,7 +518,8 @@ class FaithfulFakeTransport:
         elif op == repl.OP_CALL:
             kmalloc = self.kmalloc_link + self.slide
             kfree = self.kfree_link + self.slide
-            printk = repl.resolve_link(self.symbols, "printk") + self.slide
+            assert self.printk_link is not None
+            printk = self.printk_link + self.slide
             if arg0 == kmalloc:
                 lines.append(f"A90R{self.heap_ptr:x}")
             elif arg0 == kfree:
@@ -558,7 +563,7 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(kinds, {"named-peek", "named-call-printk"})
         self.assertTrue(all(c["ok"] for c in summary["checks"]))
         self.assertTrue(summary["call_resolution"]["verified"])
-        self.assertEqual(summary["call_resolution"]["method"], "disasm-signature+xref+map")
+        self.assertEqual(summary["call_resolution"]["method"], "export-recovery")
 
     def test_selftest_rejects_known_unsafe_call_before_transport(self) -> None:
         fake = FaithfulFakeTransport(0x130000, self.symbols, self.image)

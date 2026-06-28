@@ -47,6 +47,7 @@ PRINTK_VA_HELPER_REQUIRED_BODY_WORDS = {
     0xAA1303E4,  # mov x4, x19 (fmt)
     0x9100A3E5,  # add x5, sp, #0x28 (copied va_list)
 }
+PRINTK_MIN_DIRECT_BL_XREFS = 1000
 
 
 @dataclass(frozen=True)
@@ -85,6 +86,7 @@ class AddressTable:
     offsets_start: int
     relative_base_pos: int
     relative_base: int
+    padding_before_relative_base: int
     low_offsets: list[int]
     synthetic_base: int
     text_offset: int
@@ -294,6 +296,14 @@ def direct_bl_targets(data: bytes,
     return targets
 
 
+def direct_bl_xref_count(data: bytes, target_vaddr: int, text_address: int) -> int:
+    count = 0
+    for offset in range(0, len(data) - 4, 4):
+        if encode_bl_target(text_address + offset, u32(data, offset)) == target_vaddr:
+            count += 1
+    return count
+
+
 def iter_word_offsets(data: bytes, word: int) -> list[int]:
     encoded = struct.pack("<I", word)
     hits: list[int] = []
@@ -308,24 +318,31 @@ def iter_word_offsets(data: bytes, word: int) -> list[int]:
 
 
 def locate_printk_variadic_wrapper(data: bytes, text_address: int) -> int:
-    hits: list[int] = []
+    hits: list[tuple[int, int]] = []
     for magic_offset in iter_word_offsets(data, U32_RKP_MAGIC):
         entry_offset = function_entry_after_magic(data, magic_offset)
         if entry_offset is None:
             continue
         if not PRINTK_REQUIRED_BODY_WORDS.issubset(function_body_words(data, entry_offset)):
             continue
-        for _call_offset, helper_offset in direct_bl_targets(data, entry_offset, text_address):
-            helper_entry = function_entry_after_magic(data, helper_offset - 4)
-            if helper_entry != helper_offset:
-                continue
-            helper_words = function_body_words(data, helper_entry)
-            if not PRINTK_VA_HELPER_REQUIRED_BODY_WORDS.issubset(helper_words):
-                continue
-            hits.append(entry_offset)
-    if len(hits) != 1:
-        raise RuntimeError(f"expected one plain printk variadic-wrapper hit, found {len(hits)}")
-    return text_address + hits[0]
+        link_vaddr = text_address + entry_offset
+        hits.append((direct_bl_xref_count(data, link_vaddr, text_address), entry_offset))
+    if not hits:
+        raise RuntimeError("expected at least one plain printk variadic-wrapper hit, found 0")
+    hits.sort(reverse=True)
+    best_xrefs, best_entry = hits[0]
+    runner_up_xrefs = hits[1][0] if len(hits) > 1 else 0
+    if best_xrefs < PRINTK_MIN_DIRECT_BL_XREFS:
+        raise RuntimeError(
+            "plain printk variadic-wrapper has too few direct BL xrefs: "
+            f"{best_xrefs} < {PRINTK_MIN_DIRECT_BL_XREFS}"
+        )
+    if best_xrefs == runner_up_xrefs:
+        raise RuntimeError(
+            "plain printk variadic-wrapper direct BL xref tie: "
+            f"best={best_xrefs} hit_count={len(hits)}"
+        )
+    return text_address + best_entry
 
 
 def build_semantic_overrides(data: bytes, text_address: int) -> tuple[dict[str, int], dict[str, str]]:
@@ -338,7 +355,7 @@ def build_semantic_overrides(data: bytes, text_address: int) -> tuple[dict[str, 
     sources["kgsl_pwrctrl_force_no_nap_store"] = "force_no_nap device-attribute function pointer"
     printk_vaddr = locate_printk_variadic_wrapper(data, text_address)
     overrides["printk"] = printk_vaddr
-    sources["printk"] = "plain printk variadic-wrapper signature"
+    sources["printk"] = "plain printk variadic-wrapper signature + max direct BL xrefs"
     return overrides, sources
 
 
@@ -443,8 +460,13 @@ def apply_kgsl_ropp_local_run_decode(data: bytes,
     if "tkgsl_pwrctrl_num_pwrlevels_show" not in names.names:
         return
     anchor_index = symbol_index(names, "tkgsl_pwrctrl_num_pwrlevels_show")
-    anchor_raw = legacy_stage_c_local_raw_offset(low_offsets[anchor_index], text_offset)
     ropp_entries = iter_ropp_entry_offsets(data)
+
+    direct_raw = low_offsets[anchor_index]
+    if direct_raw in ropp_entries and has_word_within(data, direct_raw, 0x51000503, 0x80):
+        return
+
+    anchor_raw = legacy_stage_c_local_raw_offset(low_offsets[anchor_index], text_offset)
     try:
         anchor_entry_pos = ropp_entries.index(anchor_raw)
     except ValueError as exc:
@@ -480,7 +502,7 @@ def apply_printk_signature_decode(data: bytes,
         return
     printk_index = symbol_index(names, "Tprintk")
     decoded_addresses[printk_index] = locate_printk_variadic_wrapper(data, text_address)
-    decoded_sources[printk_index] = "plain-printk-variadic-wrapper-signature"
+    decoded_sources[printk_index] = "plain-printk-variadic-wrapper-signature-max-bl-xrefs"
 
 
 def apply_structural_decode_corrections(data: bytes,
@@ -730,7 +752,14 @@ def find_num_syms_position(data: bytes, names_start: int, count: int) -> int:
 def find_address_table(data: bytes, names: NameTable, text_address: int) -> AddressTable:
     relative_base_pos = names.num_syms_pos - 8
     relative_base = u64(data, relative_base_pos) if relative_base_pos >= 0 else 0
-    offsets_start = relative_base_pos - 4 * names.num_syms
+    padding_before_relative_base = 0
+    while (
+        relative_base_pos - 4 - padding_before_relative_base >= 0
+        and padding_before_relative_base < 0x1000
+        and u32(data, relative_base_pos - 4 - padding_before_relative_base) == 0
+    ):
+        padding_before_relative_base += 4
+    offsets_start = relative_base_pos - padding_before_relative_base - 4 * names.num_syms
     if offsets_start < 0:
         raise RuntimeError("kallsyms_offsets would start before image")
     low_offsets = [u32(data, offsets_start + 4 * index) for index in range(names.num_syms)]
@@ -756,6 +785,7 @@ def find_address_table(data: bytes, names: NameTable, text_address: int) -> Addr
         offsets_start,
         relative_base_pos,
         relative_base,
+        padding_before_relative_base,
         low_offsets,
         text_address,
         text_offset,
@@ -843,6 +873,7 @@ def main() -> int:
         "offsets_start": f"0x{addresses.offsets_start:x}",
         "relative_base_pos": f"0x{addresses.relative_base_pos:x}",
         "relative_base_raw": f"0x{addresses.relative_base:x}",
+        "padding_before_relative_base": addresses.padding_before_relative_base,
         "address_decode": "base-relative raw Image offsets rendered as Stage-C file vaddrs",
         "file_text_address": f"0x{args.text_address:x}",
         "synthetic_base": f"0x{addresses.synthetic_base:x}",

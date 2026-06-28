@@ -1313,6 +1313,21 @@ operator disasm verification. Validation: `py_compile` pass, CLI `ksymtab-ground
 >    `addr = kallsyms_relative_base + (u32)offset` (LWN 673381); ksymtab PREL32/RELA relative refs
 >    (LWN 758337). This is a *confidence* step; C1 fail-closed already gates safety regardless.
 
+**STATUS (2026-06-29 v2c Gate-2 host pass) — C2B padding fix promoted; printk twin fixed by BL-xref.**
+`a90_stock_kallsyms_extract.py` now skips the `380`-byte zero padding before `kallsyms_relative_base` and
+keeps the C2B KGSL early-return guard, so regenerated map anchors are
+`printk=0xffffff800813adfc`, `__kmalloc=0xffffff800826ae34`, `kfree=0xffffff800826b354`,
+`kgsl_pwrctrl_force_no_nap_store=0xffffff80089273b4`, and
+`kgsl_pwrctrl_num_pwrlevels_show=0xffffff80089262dc`. `locate_printk_variadic_wrapper` now selects the
+variadic-body candidate with the maximum direct `bl` xref count (`44694`), eliminating the lower-xref
+`0xffffff800813d8cc` twin false positive. C1 `resolve_verified(printk)` now resolves through export/xref
+ground truth. C2E recheck against the regenerated private promoted map is `12515` matches / `3` mismatches /
+`0` missing over `12518` relocated export rows; residuals are `ehci_reset`,
+`iio_read_channel_ext_info`, and `iio_write_channel_ext_info`, fenced for operator disasm review. Host-only:
+no device action, no boot image change. Validation: `py_compile` pass, focused unittest set **71/71 PASS**,
+CLI extractor pass, CLI `ksymtab-ground-truth` pass. Report:
+`docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2C_GATE2_C2B_KALLSYMS_PROMOTION_2026-06-29.md`.
+
 **Guardrails: unchanged from below** (RECON / exploit-free; no RKP bypass; no protected-memory write; no
 RWX; preserve `x17`; boot-partition-only flashes with pinned+readback SHA; rollback v2321; fails-twice →
 STOP + report; keep raw runtime pointers/slide out of commits; scoped `git add`). Operator cross-checks any

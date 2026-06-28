@@ -83,9 +83,12 @@ PRINTK_VA_HELPER_REQUIRED_BODY_WORDS = {
     0xAA1303E4,  # mov x4, x19 (fmt)
     0x9100A3E5,  # add x5, sp, #0x28 (copied va_list)
 }
-PRINTK_EXPECTED_ENTRY_OFF = 0xBD8E0
-PRINTK_EXPECTED_VA_HELPER_OFF = 0xBD790
-PRINTK_EXPECTED_EMIT_CORE_OFF = 0xBBD60
+PRINTK_EXPECTED_ENTRY_OFF = 0xBAE10
+PRINTK_EXPECTED_DIRECT_BL_XREFS = 44694
+PRINTK_MIN_DIRECT_BL_XREFS = 1000
+PRINTK_OPTIONAL_HELPER_SENTINEL = -1
+PRINTK_EXPECTED_VA_HELPER_OFF = PRINTK_OPTIONAL_HELPER_SENTINEL
+PRINTK_EXPECTED_EMIT_CORE_OFF = PRINTK_OPTIONAL_HELPER_SENTINEL
 
 MARKER = b"A90TIER2C\n\x00"
 
@@ -274,47 +277,78 @@ def direct_bl_targets(kernel: bytes, entry_off: int, max_len: int = 0x400) -> It
                 yield off, target_off
 
 
+def direct_bl_xref_count(kernel: bytes, target_vaddr: int) -> int:
+    count = 0
+    for off in range(0, len(kernel) - 4, 4):
+        if decode_bl_target(kernel_vaddr(off), u32_at(kernel, off)) == target_vaddr:
+            count += 1
+    return count
+
+
+def locate_printk_va_helper(kernel: bytes, entry_off: int) -> tuple[int, int]:
+    for _call_off, helper_off in direct_bl_targets(kernel, entry_off):
+        helper_magic_off = helper_off - 4
+        helper_entry_off = function_entry_after_magic(kernel, helper_magic_off)
+        if helper_entry_off != helper_off:
+            continue
+        helper_words = function_body_words(kernel, helper_entry_off)
+        if not PRINTK_VA_HELPER_REQUIRED_BODY_WORDS.issubset(helper_words):
+            continue
+        for _helper_call_off, helper_target_off in direct_bl_targets(kernel, helper_entry_off):
+            helper_target_magic_off = helper_target_off - 4
+            if (
+                helper_target_off < helper_entry_off
+                and function_entry_after_magic(kernel, helper_target_magic_off) == helper_target_off
+            ):
+                return helper_entry_off, helper_target_off
+    return PRINTK_OPTIONAL_HELPER_SENTINEL, PRINTK_OPTIONAL_HELPER_SENTINEL
+
+
 def locate_printk_variadic_wrapper(kernel: bytes) -> tuple[int, int, int, int]:
     """Locate the plain printk(fmt, ...) wrapper, not printk_emit(..., fmt, ...)."""
 
-    hits: list[tuple[int, int, int, int]] = []
+    hits: list[tuple[int, int, int, int, int]] = []
     for magic_off in iter_word_offsets(kernel, U32_MAGIC):
         entry_off = function_entry_after_magic(kernel, magic_off)
         if entry_off is None:
             continue
         if not PRINTK_REQUIRED_BODY_WORDS.issubset(function_body_words(kernel, entry_off)):
             continue
-        for _call_off, helper_off in direct_bl_targets(kernel, entry_off):
-            helper_magic_off = helper_off - 4
-            helper_entry_off = function_entry_after_magic(kernel, helper_magic_off)
-            if helper_entry_off != helper_off:
-                continue
-            helper_words = function_body_words(kernel, helper_entry_off)
-            if not PRINTK_VA_HELPER_REQUIRED_BODY_WORDS.issubset(helper_words):
-                continue
-            emit_core_off = None
-            for _helper_call_off, helper_target_off in direct_bl_targets(kernel, helper_entry_off):
-                helper_target_magic_off = helper_target_off - 4
-                if (
-                    helper_target_off < helper_entry_off
-                    and function_entry_after_magic(kernel, helper_target_magic_off) == helper_target_off
-                ):
-                    emit_core_off = helper_target_off
-                    break
-            if emit_core_off is not None:
-                hits.append((magic_off, entry_off, helper_entry_off, emit_core_off))
-    if len(hits) != 1:
-        raise RuntimeError(f"expected one plain printk variadic-wrapper signature hit, found {len(hits)}")
-    hit = hits[0]
-    expected = (
-        PRINTK_EXPECTED_ENTRY_OFF - 4,
-        PRINTK_EXPECTED_ENTRY_OFF,
-        PRINTK_EXPECTED_VA_HELPER_OFF,
-        PRINTK_EXPECTED_EMIT_CORE_OFF,
-    )
-    if hit != expected:
-        raise RuntimeError(f"unexpected printk signature hit: actual={hit!r} expected={expected!r}")
-    return hit
+        direct_xrefs = direct_bl_xref_count(kernel, kernel_vaddr(entry_off))
+        helper_entry_off, emit_core_off = locate_printk_va_helper(kernel, entry_off)
+        hits.append((direct_xrefs, magic_off, entry_off, helper_entry_off, emit_core_off))
+    if not hits:
+        raise RuntimeError("expected at least one plain printk variadic-wrapper signature hit, found 0")
+    hits.sort(reverse=True)
+    best_xrefs, magic_off, entry_off, helper_entry_off, emit_core_off = hits[0]
+    runner_up_xrefs = hits[1][0] if len(hits) > 1 else 0
+    if best_xrefs < PRINTK_MIN_DIRECT_BL_XREFS:
+        raise RuntimeError(
+            "plain printk variadic-wrapper has too few direct BL xrefs: "
+            f"{best_xrefs} < {PRINTK_MIN_DIRECT_BL_XREFS}"
+        )
+    if best_xrefs == runner_up_xrefs:
+        raise RuntimeError(
+            "plain printk variadic-wrapper direct BL xref tie: "
+            f"best={best_xrefs} hit_count={len(hits)}"
+        )
+    expected_entry = (PRINTK_EXPECTED_ENTRY_OFF - 4, PRINTK_EXPECTED_ENTRY_OFF)
+    actual_entry = (magic_off, entry_off)
+    if actual_entry != expected_entry or best_xrefs != PRINTK_EXPECTED_DIRECT_BL_XREFS:
+        raise RuntimeError(
+            "unexpected printk signature hit: "
+            f"actual_entry={actual_entry!r} xrefs={best_xrefs} "
+            f"expected_entry={expected_entry!r} expected_xrefs={PRINTK_EXPECTED_DIRECT_BL_XREFS}"
+        )
+    return magic_off, entry_off, helper_entry_off, emit_core_off
+
+
+def optional_kernel_offset_text(offset: int) -> str | None:
+    return None if offset == PRINTK_OPTIONAL_HELPER_SENTINEL else hex(offset)
+
+
+def optional_kernel_vaddr_text(offset: int) -> str | None:
+    return None if offset == PRINTK_OPTIONAL_HELPER_SENTINEL else hex(kernel_vaddr(offset))
 
 
 def build_injection(entry_off: int, next_magic_off: int, printk_entry_off: int) -> tuple[bytes, int]:
@@ -433,10 +467,11 @@ def build_candidate() -> dict[str, object]:
         "printk_magic_off": hex(printk_magic_off),
         "printk_entry_off": hex(printk_entry_off),
         "printk_entry_vaddr": hex(kernel_vaddr(printk_entry_off)),
-        "printk_va_helper_off": hex(printk_va_helper_off),
-        "printk_va_helper_vaddr": hex(kernel_vaddr(printk_va_helper_off)),
-        "printk_emit_core_off": hex(printk_emit_core_off),
-        "printk_emit_core_vaddr": hex(kernel_vaddr(printk_emit_core_off)),
+        "printk_direct_bl_xref_count": PRINTK_EXPECTED_DIRECT_BL_XREFS,
+        "printk_va_helper_off": optional_kernel_offset_text(printk_va_helper_off),
+        "printk_va_helper_vaddr": optional_kernel_vaddr_text(printk_va_helper_off),
+        "printk_emit_core_off": optional_kernel_offset_text(printk_emit_core_off),
+        "printk_emit_core_vaddr": optional_kernel_vaddr_text(printk_emit_core_off),
         "control_flow": {
             "new_direct_bl": True,
             "bl_target": "plain-printk-variadic-wrapper-signature",
@@ -475,7 +510,7 @@ def render_report(manifest: dict[str, object]) -> str:
         f"- KGSL patch room: `{manifest['kgsl_patch_room']}` bytes; payload length `{manifest['kgsl_patch_len']}` bytes.",
         f"- Marker: `{manifest['marker']}` at `{manifest['marker_vaddr']}`.",
         f"- Printk target: `{manifest['printk_entry_vaddr']}` at kernel offset `{manifest['printk_entry_off']}`.",
-        f"- Printk target was located by the plain `printk(fmt, ...)` variadic-wrapper signature: RKP marker, stack frame, `x1..x7` and `q0..q7` vararg spills, va_list setup, and a direct call into the printk va_list helper at `{manifest['printk_va_helper_vaddr']}` / emit core at `{manifest['printk_emit_core_vaddr']}`.",
+        f"- Printk target was located by the plain `printk(fmt, ...)` variadic-wrapper signature plus maximum direct-BL xref count (`{manifest['printk_direct_bl_xref_count']}`). Optional old-helper fields are `{manifest['printk_va_helper_vaddr']}` / `{manifest['printk_emit_core_vaddr']}` for this selected target.",
         "",
         "## Diff Contract",
         "",
