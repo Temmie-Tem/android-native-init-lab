@@ -767,6 +767,62 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## 🟣 ACTIVE NOW — DELEGATED: REPL U2 — kernel-grade CALL-SAFETY inventory + fail-closed classifier
+
+**Operator-chartered 2026-06-29 (reopens the optional U2 remainder; kernel target ⇒ higher rigor than a
+normal tool warrants).** v2c-C2E settled the *address* axis: ~147k symbols, three oracles byte-identical,
+exported subset relocation-verified. The remaining real gap is **call-safety**: the REPL knows the address
+of 77,561 functions but only **3** are live-call-proven safe (`printk`, `__kmalloc`, `kfree`). Two hard
+lessons say "address known" ≠ "safe to call": a live `call kallsyms_lookup_name` **rebooted the device**
+(right address, wrong call context), and the `printk` **twin** false-positive showed a working-looking call
+can hit the wrong function. C1 fail-closed verifies *identity* but NOT *call-context safety*. U2 closes that.
+
+**This unit is HOST-ONLY static analysis. No device action. No new boot image.** Live call-proof of any
+newly-classified-SAFE function is a SEPARATE later unit behind its own explicit gate (bounded, recoverable,
+`panic_on_oops=0`, rollback v2321) — do NOT flash or call live in U2.
+
+**Deliverables (all in `a90_repl.py` + tests, host-only):**
+1. A `call-safety-classify` subcommand: given the verified System.map + v2321 image, disasm each candidate
+   function (objdump aarch64-linux-gnu at its link vaddr) and emit a per-symbol classification record with
+   the **disasm evidence** that justifies it. Resolve identity through the existing C1 `resolve_verified`
+   first (real symbol, not a twin), so classification never runs on a mislabeled/twin target.
+2. Static safety signals to extract per function: (a) early **pointer-arg deref** of x0..x7 before any
+   validation (`ldr/ldrb [xN]` on an arg reg) → faults on garbage; (b) **locking/context** assumptions —
+   `bl` to spin_lock/mutex_lock/rcu, `lockdep_assert_held`, irq save/restore, `might_sleep`; (c) **variadic
+   prologue** (the printk-twin shape) → twin/ABI risk; (d) leaf vs non-leaf; (e) does it return an
+   interpretable value. Record the raw signals, not just a verdict.
+3. Classification tiers (DENY-by-default):
+   - `SAFE-SCALAR` — only scalar args, no arg-pointer deref, no held-lock assumption → callable with
+     arbitrary scalars without fault (e.g. `__kmalloc`, `kfree`, `ksize`).
+   - `SAFE-WITH-VALID-PTR` — safe **iff** a named arg is a caller-supplied verified pointer of the right
+     kind (e.g. `printk` fmt, `kernel_read(file*,…)`); auto-call only when that pointer is provided+verified.
+   - `CONTEXT-SENSITIVE` — depends on lock/irq/atomic context that the sysfs-store call context can't
+     guarantee → NOT auto-callable; needs explicit context proof.
+   - `BEHAVIOR-CHANGING` — technically callable but mutates global/security state (`commit_creds`,
+     `set_memory_x`, `call_usermodehelper_exec`) → **never** in any auto-call set; RECON-framed, gated
+     behind explicit intent; do NOT build an exploit chain here.
+   - `DENY` — derefs args unsafely / known-unsafe (`kallsyms_lookup_name` observed reboot) / destructive.
+4. Wire into the REPL `call` path: a `classify_call_safety(symbol)` gate that **fails closed** — `call`
+   REFUSES any target not in the vetted SAFE set unless an explicit `--allow-unvetted` override token is
+   passed. The 3 proven (`printk`/`__kmalloc`/`kfree`) must classify SAFE; `kallsyms_lookup_name` must
+   classify DENY.
+5. Seed a small **diverse, useful** vetted set (~10–15) so the surface is actually usable, not just a gate:
+   allocator family (`__kmalloc`/`kfree`/`ksize`/`kmem_cache_alloc`/`kmem_cache_free`), logging (`printk`),
+   bounded read I/O as `SAFE-WITH-VALID-PTR` (`kernel_read`, `filp_open`/`filp_close`), plus the DENY/
+   BEHAVIOR-CHANGING exemplars above as negative anchors. Each seed entry must be operator-disasm-verifiable.
+
+**Definition of done for U2:** `call-safety-classify` emits evidence-backed tiers; the seed whitelist is
+vetted and operator-disasm-verifiable; the `call` path fails closed for non-whitelisted targets; tests cover
+each tier + the refusal + the 3-proven-stay-SAFE / kallsyms_lookup_name-DENY invariants; `py_compile` +
+focused suite pass; host-only, no device action, no boot image. After U2, a tool runbook is the only
+remaining optional remainder before the REPL epic can fully close.
+
+**Guardrails:** host-only static analysis; exploit-free framing (this is CALL-SAFETY, not weaponization);
+`commit_creds`/`prepare_kernel_cred`/etc. stay RECON-classified, never chained; keep raw runtime pointers
+out of commits; scoped `git add`; fails-twice on the same approach → STOP + report. Operator (Claude)
+Gate-2's each commit by independently disasm-verifying a sample of the classifications against the v2321
+image; the loop owns host build + tests + commits and does NOT touch the device for U2.
+
 ## ✅ CLOSED — Tier-2 Runtime Kernel REPL (v1-repl → v2a → v2c), DONE at v2c-C2E (2026-06-29)
 
 **CLOSED 2026-06-29 by operator Gate-2 sign-off (commit `fd76bc9a`).** The flash-once named runtime
