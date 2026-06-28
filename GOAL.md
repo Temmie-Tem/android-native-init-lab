@@ -817,6 +817,22 @@ each tier + the refusal + the 3-proven-stay-SAFE / kallsyms_lookup_name-DENY inv
 focused suite pass; host-only, no device action, no boot image. After U2, a tool runbook is the only
 remaining optional remainder before the REPL epic can fully close.
 
+**STATUS (2026-06-29 U2 host pass) — disasm-backed call-safety classifier + fail-closed call gate landed.**
+`a90_repl.py` now has `call-safety-classify`, which C1-resolves identity first and emits evidence-backed
+tiers with static signals: early arg-register derefs, BL targets, context-sensitive lock/IRQ/sleep calls,
+leaf/non-leaf shape, direct-BL xrefs, printk variadic-prologue matching, return-kind metadata, and optional
+`aarch64-linux-gnu-objdump` excerpts. Seed whitelist is DENY-by-default and currently classifies
+`__kmalloc`/`kfree` as `SAFE-SCALAR`; `printk` (real `0xffffff800813adfc`, not the `0x813d8cc` twin),
+`ksize`, `kmem_cache_alloc`, `kmem_cache_free`, `kernel_read`, `filp_open`, and `filp_close` as
+`SAFE-WITH-VALID-PTR`; `commit_creds`, `prepare_kernel_cred`, `set_memory_x`, and
+`call_usermodehelper_exec` as `BEHAVIOR-CHANGING`; and `kallsyms_lookup_name` as `DENY`.
+The `call` path now runs `require_call_safety_for_call()` before any serial transport action: non-whitelisted
+targets fail closed, `SAFE-WITH-VALID-PTR` requires declared `@...` pointer args, BEHAVIOR/CONTEXT require
+the exact non-DENY override token, and `DENY` cannot be overridden. Host-only: no device action, no live
+call-proof, no boot-image change. Validation: `py_compile` pass, `tests.test_a90_repl` **57/57 PASS**,
+focused companion suite **24/24 PASS**, and CLI classifier smoke with objdump evidence PASS. Report:
+`docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_U2_CALL_SAFETY_CLASSIFIER_2026-06-29.md`.
+
 **Guardrails:** host-only static analysis; exploit-free framing (this is CALL-SAFETY, not weaponization);
 `commit_creds`/`prepare_kernel_cred`/etc. stay RECON-classified, never chained; keep raw runtime pointers
 out of commits; scoped `git add`; fails-twice on the same approach → STOP + report. Operator (Claude)

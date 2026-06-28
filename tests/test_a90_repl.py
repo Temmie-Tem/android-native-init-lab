@@ -458,6 +458,139 @@ class StaticImageCrossCheckTests(unittest.TestCase):
             self.assertEqual(data[off + len(name)], 0)  # trailing NUL
 
 
+@unittest.skipUnless(
+    C2B_PADDING_MAP_PATH.is_file() and IMAGE_PATH.is_file(),
+    "promoted v2c System.map and/or v1-repl image not present",
+)
+class CallSafetyClassificationTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        self.image = repl.load_static_image(IMAGE_PATH)
+
+    def _row(self, name: str):
+        return repl.classify_call_safety(
+            self.symbols,
+            self.image,
+            name,
+            include_objdump=False,
+        )
+
+    def test_proven_live_call_targets_stay_safe(self) -> None:
+        printk = self._row("printk")
+        self.assertEqual(printk["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertTrue(printk["safe_group"])
+        self.assertEqual(printk["resolution"]["link_vaddr"], "0xffffff800813adfc")
+        self.assertNotEqual(printk["resolution"]["link_vaddr"], "0xffffff800813d8cc")
+        self.assertEqual(printk["required_valid_pointer_args"], {"0": "fmt"})
+        self.assertGreater(
+            printk["signals"]["direct_bl_xref_count"],
+            1000,
+        )
+        self.assertTrue(printk["signals"]["variadic_prologue_matches_printk"])
+
+        kmalloc = self._row("__kmalloc")
+        self.assertEqual(kmalloc["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertTrue(kmalloc["safe_group"])
+        self.assertEqual(kmalloc["resolution"]["link_vaddr"], "0xffffff800826ae34")
+        self.assertEqual(kmalloc["signals"]["arg_pointer_derefs_before_first_bl_or_ret"], [])
+
+        kfree = self._row("kfree")
+        self.assertEqual(kfree["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertTrue(kfree["safe_group"])
+        self.assertEqual(kfree["resolution"]["link_vaddr"], "0xffffff800826b354")
+        self.assertEqual(kfree["signals"]["arg_pointer_derefs_before_first_bl_or_ret"], [])
+
+    def test_known_unsafe_and_behavior_changing_anchors(self) -> None:
+        kallsyms = self._row("kallsyms_lookup_name")
+        self.assertEqual(kallsyms["tier"], repl.CALL_SAFETY_DENY)
+        self.assertFalse(kallsyms["safe_group"])
+        self.assertEqual(kallsyms["resolution"]["method"], "blocked-known-unsafe")
+        self.assertIn("known-unsafe-live-call", " ".join(kallsyms["reasons"]))
+
+        commit_creds = self._row("commit_creds")
+        self.assertEqual(commit_creds["tier"], repl.CALL_SAFETY_BEHAVIOR_CHANGING)
+        self.assertFalse(commit_creds["safe_group"])
+        self.assertTrue(commit_creds["resolution"]["verified"])
+
+    def test_safe_with_valid_pointer_seed_records_required_args(self) -> None:
+        kernel_read = self._row("kernel_read")
+        self.assertEqual(kernel_read["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            kernel_read["required_valid_pointer_args"],
+            {"0": "struct-file", "1": "buffer", "3": "loff_t-pos"},
+        )
+        self.assertTrue(kernel_read["resolution"]["verified"])
+
+    def test_non_seeded_targets_are_denied_by_default(self) -> None:
+        row = self._row("kgsl_pwrctrl_force_no_nap_store")
+        self.assertEqual(row["tier"], repl.CALL_SAFETY_DENY)
+        self.assertFalse(row["safe_group"])
+        self.assertIn("deny-by-default:not-in-vetted-seed-whitelist", row["reasons"])
+
+    def test_seed_inventory_summary_counts_tiers(self) -> None:
+        summary = repl.run_call_safety_classify(
+            self.symbols,
+            self.image,
+            (),
+            include_objdump=False,
+        )
+        self.assertTrue(summary["ok"], summary)
+        self.assertTrue(summary["host_only"])
+        self.assertFalse(summary["device_action"])
+        self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
+        self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 2)
+        self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 5)
+        self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
+
+    def test_call_safety_gate_requires_pointer_tokens_for_safe_with_valid_ptr(self) -> None:
+        with self.assertRaisesRegex(repl.ReplError, "SAFE-WITH-VALID-PTR requires"):
+            repl.require_call_safety_for_call(
+                self.symbols,
+                self.image,
+                "printk",
+                ("0x1234",),
+            )
+
+        row = repl.require_call_safety_for_call(
+            self.symbols,
+            self.image,
+            "printk",
+            ("@repl_format",),
+        )
+        self.assertEqual(row["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+
+    def test_unvetted_override_does_not_override_deny(self) -> None:
+        with self.assertRaisesRegex(repl.ReplError, "DENY cannot be overridden"):
+            repl.require_call_safety_for_call(
+                self.symbols,
+                self.image,
+                "kallsyms_lookup_name",
+                ("@kallsyms_lookup_name",),
+                allow_unvetted_token=repl.CALL_SAFETY_ALLOW_UNVETTED_TOKEN,
+            )
+
+    def test_unvetted_override_requires_exact_token_for_non_safe_tier(self) -> None:
+        with self.assertRaisesRegex(repl.ReplError, "invalid --allow-unvetted token"):
+            repl.require_call_safety_for_call(
+                self.symbols,
+                self.image,
+                "commit_creds",
+                ("@commit_creds",),
+                allow_unvetted_token="wrong",
+            )
+
+        row = repl.require_call_safety_for_call(
+            self.symbols,
+            self.image,
+            "commit_creds",
+            ("@commit_creds",),
+            allow_unvetted_token=repl.CALL_SAFETY_ALLOW_UNVETTED_TOKEN,
+        )
+        self.assertEqual(row["tier"], repl.CALL_SAFETY_BEHAVIOR_CHANGING)
+        self.assertTrue(row["override_used"])
+
+
 def _buf_from_op_sh(sh_str: str) -> bytes:
     octal = sh_str[len("printf '") : sh_str.index("'", len("printf '"))]
     return decode_printf_octal(octal)
@@ -755,6 +888,8 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(summary["decision"], "a90-repl-v2c-u1-call-pass")
         self.assertEqual(summary["return_value_count"], 2)
         self.assertTrue(summary["resolution"]["verified"])
+        self.assertEqual(summary["call_safety"]["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertTrue(summary["call_safety"]["safe_group"])
         self.assertTrue(summary["argument_values_redacted"])
         self.assertTrue(summary["return_values_redacted"])
         self.assertNotIn("return_values", summary)
@@ -772,13 +907,47 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
         session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
 
-        with self.assertRaisesRegex(repl.ReplError, "not verified"):
+        with self.assertRaisesRegex(repl.ReplError, "call-safety gate refused"):
             repl.run_call(
                 session,
                 self.symbols,
                 self.image,
                 "kallsyms_lookup_name",
                 (),
+            )
+        self.assertEqual(fake.op_count, 0)
+
+    def test_u2_call_gate_rejects_behavior_changing_symbol_before_transport(self) -> None:
+        fake = FaithfulFakeTransport(0x130000, self.symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        with self.assertRaisesRegex(repl.ReplError, "call-safety gate refused"):
+            repl.run_call(
+                session,
+                self.symbols,
+                self.image,
+                "commit_creds",
+                ("@commit_creds",),
+            )
+        self.assertEqual(fake.op_count, 0)
+
+    def test_u2_call_gate_rejects_printk_without_verified_pointer_arg(self) -> None:
+        fake = FaithfulFakeTransport(0x130000, self.symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        with self.assertRaisesRegex(repl.ReplError, "SAFE-WITH-VALID-PTR requires"):
+            repl.run_call(
+                session,
+                self.symbols,
+                self.image,
+                "printk",
+                ("0xa90ca11",),
             )
         self.assertEqual(fake.op_count, 0)
 

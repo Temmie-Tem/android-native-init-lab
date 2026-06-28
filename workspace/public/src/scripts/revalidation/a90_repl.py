@@ -43,8 +43,11 @@ import argparse
 import hashlib
 import json
 import re
+import shutil
 import struct
+import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -108,6 +111,114 @@ KNOWN_UNSAFE_CALL_TARGETS = {
         "faulted/rebooted during v2a1 live validation; resolve symbols from "
         "static evidence instead of calling this target"
     ),
+}
+CALL_SAFETY_ALLOW_UNVETTED_TOKEN = "A90_REPL_U2_ALLOW_UNVETTED_STATIC_ONLY"
+CALL_SAFETY_SAFE_SCALAR = "SAFE-SCALAR"
+CALL_SAFETY_SAFE_WITH_VALID_PTR = "SAFE-WITH-VALID-PTR"
+CALL_SAFETY_CONTEXT_SENSITIVE = "CONTEXT-SENSITIVE"
+CALL_SAFETY_BEHAVIOR_CHANGING = "BEHAVIOR-CHANGING"
+CALL_SAFETY_DENY = "DENY"
+CALL_SAFETY_SAFE_TIERS = frozenset((
+    CALL_SAFETY_SAFE_SCALAR,
+    CALL_SAFETY_SAFE_WITH_VALID_PTR,
+))
+CALL_SAFETY_CONTEXT_CALL_PATTERNS = (
+    "spin_lock",
+    "raw_spin",
+    "mutex_lock",
+    "lockdep_assert",
+    "rcu_",
+    "might_sleep",
+    "local_irq",
+    "preempt_",
+    "_irqsave",
+    "_irqrestore",
+)
+CALL_SAFETY_SEEDS = {
+    "printk": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "fmt"},
+        "return_kind": "int",
+        "reason": "live-proven printk target; x0 must be a verified format-string pointer",
+    },
+    "__kmalloc": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "kernel-pointer-or-null",
+        "reason": "live-proven allocator entry; scalar size/gfp ABI",
+    },
+    "kfree": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "void",
+        "reason": "live-proven cleanup call for REPL-owned kmalloc pointer",
+    },
+    "ksize": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "kmalloc-object"},
+        "return_kind": "size_t",
+        "reason": "allocator-family helper; x0 must be a verified kmalloc object pointer",
+    },
+    "kmem_cache_alloc": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "kmem_cache"},
+        "return_kind": "kernel-pointer-or-null",
+        "reason": "allocator-family helper; cache pointer must be verified",
+    },
+    "kmem_cache_free": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "kmem_cache", 1: "cache-object"},
+        "return_kind": "void",
+        "reason": "allocator-family cleanup; cache and object pointers must be verified",
+    },
+    "kernel_read": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "struct-file", 1: "buffer", 3: "loff_t-pos"},
+        "return_kind": "ssize_t",
+        "reason": "bounded read helper; file, destination buffer, and pos pointer must be verified",
+    },
+    "filp_open": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "pathname"},
+        "return_kind": "struct-file-or-errptr",
+        "reason": "file-open helper; pathname pointer must be verified and caller must close",
+    },
+    "filp_close": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "struct-file"},
+        "return_kind": "int",
+        "reason": "file cleanup helper; file pointer must be verified",
+    },
+    "kallsyms_lookup_name": {
+        "tier": CALL_SAFETY_DENY,
+        "required_valid_pointer_args": {},
+        "return_kind": "kernel-address",
+        "reason": "known unsafe: live call rebooted the device",
+    },
+    "commit_creds": {
+        "tier": CALL_SAFETY_BEHAVIOR_CHANGING,
+        "required_valid_pointer_args": {0: "struct-cred"},
+        "return_kind": "int",
+        "reason": "credential mutation; recon only, never auto-call",
+    },
+    "prepare_kernel_cred": {
+        "tier": CALL_SAFETY_BEHAVIOR_CHANGING,
+        "required_valid_pointer_args": {0: "struct-task-or-null"},
+        "return_kind": "struct-cred-or-null",
+        "reason": "credential construction; recon only, never chained",
+    },
+    "set_memory_x": {
+        "tier": CALL_SAFETY_BEHAVIOR_CHANGING,
+        "required_valid_pointer_args": {},
+        "return_kind": "int",
+        "reason": "changes kernel memory permissions; never auto-call",
+    },
+    "call_usermodehelper_exec": {
+        "tier": CALL_SAFETY_BEHAVIOR_CHANGING,
+        "required_valid_pointer_args": {0: "subprocess-info"},
+        "return_kind": "int",
+        "reason": "starts usermode helper; never auto-call",
+    },
 }
 EXPORT_NAME_RE = re.compile(rb"[A-Za-z_][A-Za-z0-9_\.]{0,127}\x00")
 EXPORT_RECORD_NAME_DELTA = 24
@@ -1944,7 +2055,8 @@ def resolve_verified(symbols: dict[str, Symbol],
                      image: StaticImage,
                      name: str,
                      *,
-                     purpose: str = "call") -> VerifiedResolution:
+                     purpose: str = "call",
+                     allow_pre_arg_deref: bool = False) -> VerifiedResolution:
     """Resolve a symbol for a potentially dangerous target and attach proof.
 
     System.map is intentionally treated as untrusted for executable/write
@@ -1963,6 +2075,7 @@ def resolve_verified(symbols: dict[str, Symbol],
     evidence: dict[str, object] = {
         "purpose": purpose,
         "map_link_vaddr": f"0x{map_link:x}" if map_link is not None else None,
+        "allow_pre_arg_deref": allow_pre_arg_deref,
         "blocked_reasons": blocked,
     }
 
@@ -1987,7 +2100,7 @@ def resolve_verified(symbols: dict[str, Symbol],
         min_xrefs = MIN_ALLOCATOR_EXPORT_BL_XREFS.get(name, MIN_VERIFIED_DIRECT_BL_XREFS)
         if (
             candidate.get("jopp_entry")
-            and candidate.get("precall_x0_deref") is None
+            and (allow_pre_arg_deref or candidate.get("precall_x0_deref") is None)
             and bl_count >= min_xrefs
         ):
             passing_exports.append(candidate)
@@ -2029,12 +2142,14 @@ def resolve_verified(symbols: dict[str, Symbol],
     if magic != JOPP_MAGIC:
         blocked.append("map-target-not-jopp-entry")
     deref = shape["precall_x0_deref"]
-    if deref:
+    if deref and not allow_pre_arg_deref:
         assert isinstance(deref, dict)
         blocked.append(
             "map-target-precall-x0-deref:"
             f"+0x{deref['offset']:x}/imm=0x{deref['imm']:x}/word=0x{deref['word']:08x}"
         )
+    elif deref:
+        evidence["map_target_pre_arg_deref_allowed"] = True
     if bl_count < MIN_VERIFIED_DIRECT_BL_XREFS:
         blocked.append(f"map-target-low-direct-bl-xrefs:{bl_count}<{MIN_VERIFIED_DIRECT_BL_XREFS}")
     if shape["first_bl"] is None:
@@ -2045,6 +2160,335 @@ def resolve_verified(symbols: dict[str, Symbol],
     if blocked:
         return VerifiedResolution(name, map_link, False, "unverified", evidence)
     return VerifiedResolution(name, map_link, True, "disasm-signature+xref+map", evidence)
+
+
+def _first_precall_arg_derefs(words: list[int]) -> list[dict[str, int]]:
+    derefs: list[dict[str, int]] = []
+    for index, word in enumerate(words):
+        if _is_a64_bl(word) or _is_a64_ret(word):
+            return derefs
+        load = _decode_a64_unsigned_load(word)
+        if load and 0 <= load["rn"] <= 7:
+            derefs.append({"offset": index * 4, "word": word, "arg_reg": load["rn"], **load})
+    return derefs
+
+
+def _objdump_function_excerpt(image: StaticImage,
+                              link_vaddr: int,
+                              *,
+                              byte_count: int = 0x100,
+                              max_lines: int = 40) -> dict[str, object]:
+    tool = shutil.which("aarch64-linux-gnu-objdump")
+    if tool is None:
+        return {
+            "available": False,
+            "tool": "aarch64-linux-gnu-objdump",
+            "reason": "tool-not-found",
+        }
+    try:
+        code = image.bytes_at_vaddr(link_vaddr, byte_count)
+    except Exception as exc:  # noqa: BLE001 - classify should keep going with word evidence
+        return {
+            "available": False,
+            "tool": tool,
+            "reason": f"bytes-unavailable:{exc}",
+        }
+    with tempfile.NamedTemporaryFile(prefix="a90-repl-disasm-", suffix=".bin") as tmp:
+        tmp.write(code)
+        tmp.flush()
+        result = subprocess.run(
+            [
+                tool,
+                "-D",
+                "-b",
+                "binary",
+                "-m",
+                "aarch64",
+                f"--adjust-vma=0x{link_vaddr:x}",
+                tmp.name,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5.0,
+        )
+    if result.returncode != 0:
+        return {
+            "available": False,
+            "tool": tool,
+            "returncode": result.returncode,
+            "stderr_tail": result.stderr[-400:],
+        }
+    lines = [
+        line.rstrip()
+        for line in result.stdout.splitlines()
+        if line.strip() and "file format binary" not in line
+    ]
+    return {
+        "available": True,
+        "tool": tool,
+        "adjust_vma": f"0x{link_vaddr:x}",
+        "line_count": len(lines),
+        "lines": lines[:max_lines],
+        "truncated": len(lines) > max_lines,
+    }
+
+
+def _call_safety_static_signals(symbols: dict[str, Symbol],
+                                image: StaticImage,
+                                link_vaddr: int,
+                                *,
+                                scan_bytes: int = 0x100,
+                                include_objdump: bool = True) -> dict[str, object]:
+    raw = cached_static_raw_image(image)
+    words = image.u32_words_at_vaddr(link_vaddr, scan_bytes // 4)
+    bl_targets: list[dict[str, object]] = []
+    ret_offsets: list[int] = []
+    for index, word in enumerate(words):
+        pc = link_vaddr + index * 4
+        if _is_a64_bl(word):
+            target = _decode_a64_bl_target(pc, word)
+            bl_targets.append({
+                "offset": index * 4,
+                "word": f"0x{word:08x}",
+                "target": f"0x{target:x}",
+                "nearest_symbol": _nearest_symbol(symbols, target),
+            })
+        elif _is_a64_ret(word):
+            ret_offsets.append(index * 4)
+
+    context_calls: list[dict[str, object]] = []
+    for call in bl_targets:
+        nearest = call.get("nearest_symbol")
+        nearest_name = str(nearest.get("symbol")) if isinstance(nearest, dict) else ""
+        if any(pattern in nearest_name for pattern in CALL_SAFETY_CONTEXT_CALL_PATTERNS):
+            context_calls.append(call)
+
+    try:
+        printk_resolution = resolve_verified(symbols, image, "printk", purpose="call")
+        printk_link = require_verified_resolution(printk_resolution, "call-safety-printk-prologue")
+        printk_words = image.u32_words_at_vaddr(printk_link, 0x20 // 4)
+        variadic_prologue = words[: len(printk_words)] == printk_words
+    except Exception:
+        printk_link = None
+        variadic_prologue = False
+
+    bl_count, sample_sites = _count_direct_bl_xrefs_cached(raw, link_vaddr)
+    signals: dict[str, object] = {
+        "scan_bytes": scan_bytes,
+        "first_words": [f"0x{word:08x}" for word in words[:12]],
+        "jopp_entry": image.u32_at_vaddr(link_vaddr - 4) == JOPP_MAGIC,
+        "direct_bl_xref_count": bl_count,
+        "direct_bl_xref_sample_sites": sample_sites,
+        "arg_pointer_derefs_before_first_bl_or_ret": [
+            {
+                **{key: value for key, value in row.items() if key != "word"},
+                "word": f"0x{row['word']:08x}",
+                "arg": f"x{row['arg_reg']}",
+            }
+            for row in _first_precall_arg_derefs(words)
+        ],
+        "bl_count_in_scan": len(bl_targets),
+        "leaf": len(bl_targets) == 0,
+        "bl_targets_sample": bl_targets[:12],
+        "context_call_count": len(context_calls),
+        "context_calls_sample": context_calls[:8],
+        "ret_offsets_sample": [f"0x{offset:x}" for offset in ret_offsets[:8]],
+        "variadic_prologue_matches_printk": variadic_prologue,
+        "printk_prologue_link_vaddr": f"0x{printk_link:x}" if printk_link is not None else None,
+    }
+    if include_objdump:
+        signals["objdump"] = _objdump_function_excerpt(image, link_vaddr, byte_count=scan_bytes)
+    return signals
+
+
+def classify_call_safety(symbols: dict[str, Symbol],
+                         image: StaticImage,
+                         name: str,
+                         *,
+                         include_objdump: bool = True) -> dict[str, object]:
+    seed = CALL_SAFETY_SEEDS.get(name)
+    seed_required_ptrs = dict(seed.get("required_valid_pointer_args", {})) if seed else {}
+    resolution = resolve_verified(
+        symbols,
+        image,
+        name,
+        purpose="call",
+        allow_pre_arg_deref=bool(seed_required_ptrs),
+    )
+    link = resolution.link_vaddr
+    tier = CALL_SAFETY_DENY
+    reasons: list[str] = []
+    warnings: list[str] = []
+
+    if seed:
+        tier = str(seed["tier"])
+        reasons.append(f"seed:{seed['reason']}")
+    else:
+        reasons.append("deny-by-default:not-in-vetted-seed-whitelist")
+
+    if name in KNOWN_UNSAFE_CALL_TARGETS:
+        tier = CALL_SAFETY_DENY
+        reasons.append(f"known-unsafe-live-call:{KNOWN_UNSAFE_CALL_TARGETS[name]}")
+
+    behavior_prefixes = (
+        "commit_creds",
+        "prepare_kernel_cred",
+        "set_memory_",
+        "call_usermodehelper",
+    )
+    if name.startswith(behavior_prefixes):
+        tier = CALL_SAFETY_BEHAVIOR_CHANGING
+        reasons.append("behavior-changing-name-family")
+
+    signals: dict[str, object] = {}
+    if link is not None:
+        try:
+            signals = _call_safety_static_signals(
+                symbols,
+                image,
+                link,
+                include_objdump=include_objdump,
+            )
+        except Exception as exc:  # noqa: BLE001 - evidence-backed deny beats crashing classification
+            warnings.append(f"static-signal-scan-failed:{exc}")
+            if tier in CALL_SAFETY_SAFE_TIERS:
+                tier = CALL_SAFETY_DENY
+                reasons.append("static-signal-scan-failed-for-safe-seed")
+
+    if not resolution.verified and tier in CALL_SAFETY_SAFE_TIERS:
+        tier = CALL_SAFETY_DENY
+        reasons.append("identity-not-c1-verified")
+
+    arg_derefs = signals.get("arg_pointer_derefs_before_first_bl_or_ret", [])
+    required_ptrs = seed_required_ptrs
+    if tier == CALL_SAFETY_SAFE_SCALAR and arg_derefs:
+        tier = CALL_SAFETY_DENY
+        reasons.append("safe-scalar-contradicted-by-early-arg-pointer-deref")
+    if tier == CALL_SAFETY_SAFE_WITH_VALID_PTR and arg_derefs:
+        deref_regs = {
+            int(str(row["arg"])[1:])
+            for row in arg_derefs
+            if isinstance(row, dict) and str(row.get("arg", "")).startswith("x")
+        }
+        missing = sorted(deref_regs - set(required_ptrs))
+        if missing:
+            tier = CALL_SAFETY_DENY
+            reasons.append(
+                "valid-pointer-seed-missing-required-deref-args:"
+                + ",".join(f"x{reg}" for reg in missing)
+            )
+
+    context_count = int(signals.get("context_call_count", 0) or 0)
+    if tier in CALL_SAFETY_SAFE_TIERS and context_count:
+        tier = CALL_SAFETY_CONTEXT_SENSITIVE
+        reasons.append("context-sensitive-locking-or-sleep-call-in-scan")
+
+    if signals.get("variadic_prologue_matches_printk") and name != "printk":
+        warnings.append("variadic-prologue-matches-printk-twin-shape")
+        if tier in CALL_SAFETY_SAFE_TIERS:
+            tier = CALL_SAFETY_DENY
+            reasons.append("printk-twin-variadic-prologue-risk")
+
+    auto_call_allowed = tier == CALL_SAFETY_SAFE_SCALAR
+    if tier == CALL_SAFETY_SAFE_WITH_VALID_PTR:
+        auto_call_allowed = bool(required_ptrs)
+
+    return {
+        "symbol": name,
+        "tier": tier,
+        "safe_group": tier in CALL_SAFETY_SAFE_TIERS,
+        "auto_call_allowed": auto_call_allowed,
+        "seeded": seed is not None,
+        "vetted_seed_whitelist": seed is not None,
+        "required_valid_pointer_args": {str(key): value for key, value in required_ptrs.items()},
+        "return_kind": str(seed.get("return_kind", "unknown")) if seed else "unknown",
+        "reasons": reasons,
+        "warnings": warnings,
+        "resolution": resolution.public_dict(),
+        "signals": signals,
+    }
+
+
+def run_call_safety_classify(symbols: dict[str, Symbol],
+                             image: StaticImage,
+                             names: tuple[str, ...],
+                             *,
+                             include_objdump: bool = True) -> dict[str, object]:
+    classify_names = names or tuple(CALL_SAFETY_SEEDS)
+    rows = [
+        classify_call_safety(symbols, image, name, include_objdump=include_objdump)
+        for name in classify_names
+    ]
+    counts: dict[str, int] = {}
+    for row in rows:
+        tier = str(row["tier"])
+        counts[tier] = counts.get(tier, 0) + 1
+    return {
+        "decision": "a90-repl-u2-call-safety-classify-host-pass",
+        "ok": True,
+        "host_only": True,
+        "device_action": False,
+        "boot_image_changed": False,
+        "deny_by_default": True,
+        "allow_unvetted_token": CALL_SAFETY_ALLOW_UNVETTED_TOKEN,
+        "seed_whitelist_count": len(CALL_SAFETY_SEEDS),
+        "requested_symbol_count": len(classify_names),
+        "counts": counts,
+        "rows": rows,
+    }
+
+
+def _call_arg_is_verified_pointer_token(arg: int | str) -> bool:
+    return isinstance(arg, str) and arg.startswith("@") and len(arg) > 1
+
+
+def require_call_safety_for_call(symbols: dict[str, Symbol],
+                                 image: StaticImage,
+                                 symbol: str,
+                                 xargs: tuple[int | str, ...],
+                                 *,
+                                 allow_unvetted_token: str | None = None) -> dict[str, object]:
+    row = classify_call_safety(symbols, image, symbol, include_objdump=False)
+    tier = str(row["tier"])
+    if allow_unvetted_token is not None:
+        if allow_unvetted_token != CALL_SAFETY_ALLOW_UNVETTED_TOKEN:
+            raise ReplError(
+                "invalid --allow-unvetted token; expected "
+                f"{CALL_SAFETY_ALLOW_UNVETTED_TOKEN!r}"
+            )
+        if tier == CALL_SAFETY_DENY:
+            raise ReplError(
+                f"call-safety gate refused {symbol!r}: DENY cannot be overridden "
+                f"(reasons={row['reasons']})"
+            )
+        override_row = dict(row)
+        override_row["override_used"] = True
+        return override_row
+
+    if tier == CALL_SAFETY_SAFE_SCALAR:
+        return row
+
+    if tier == CALL_SAFETY_SAFE_WITH_VALID_PTR:
+        required = {
+            int(index): kind
+            for index, kind in dict(row["required_valid_pointer_args"]).items()
+        }
+        missing = [
+            f"x{index}:{kind}"
+            for index, kind in sorted(required.items())
+            if index >= len(xargs) or not _call_arg_is_verified_pointer_token(xargs[index])
+        ]
+        if not missing:
+            return row
+        raise ReplError(
+            f"call-safety gate refused {symbol!r}: SAFE-WITH-VALID-PTR requires "
+            f"verified @pointer args {missing}"
+        )
+
+    raise ReplError(
+        f"call-safety gate refused {symbol!r}: tier={tier} reasons={row['reasons']}"
+    )
 
 
 def assert_no_precall_x0_pointer_deref(image: StaticImage, link_vaddr: int,
@@ -2518,9 +2962,19 @@ def run_call(session: ReplSession,
              symbol: str,
              xargs: tuple[int | str, ...],
              *,
-             replay_safe: bool = False) -> tuple[dict[str, object], dict[str, object]]:
-    resolution = resolve_verified(symbols, image, symbol, purpose="call")
-    link = require_verified_resolution(resolution, "call")
+             replay_safe: bool = False,
+             allow_unvetted_token: str | None = None) -> tuple[dict[str, object], dict[str, object]]:
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        symbol,
+        xargs,
+        allow_unvetted_token=allow_unvetted_token,
+    )
+    resolution = call_safety["resolution"]
+    if not isinstance(resolution, dict) or not resolution.get("verified") or resolution.get("link_vaddr") is None:
+        raise ReplError(f"call target {symbol!r} is not verified by call-safety identity gate")
+    link = int(str(resolution["link_vaddr"]), 16)
     private: dict[str, object] = {}
     session.hide()
     session.set_panic_on_oops(0)
@@ -2548,11 +3002,13 @@ def run_call(session: ReplSession,
         "symbol": symbol,
         "arg_count": len(xargs),
         "return_value_count": len(values),
-        "resolution": resolution.public_dict(),
+        "resolution": resolution,
+        "call_safety": call_safety,
         "raw_runtime_values_redacted": True,
         "argument_values_redacted": True,
         "return_values_redacted": True,
         "replay_safe": replay_safe,
+        "allow_unvetted_override_used": bool(call_safety.get("override_used")),
     }
     private.update({
         "slide": f"0x{slide:x}",
@@ -2789,8 +3245,23 @@ def cmd_call(args: argparse.Namespace) -> int:
         args.symbol,
         tuple(args.xargs),
         replay_safe=args.replay_safe,
+        allow_unvetted_token=args.allow_unvetted,
     )
     write_evidence(args, {**summary, "_private": private})
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0 if summary["ok"] else 1
+
+
+def cmd_call_safety_classify(args: argparse.Namespace) -> int:
+    symbols = load_system_map(args.map)
+    image = load_static_image(args.image)
+    summary = run_call_safety_classify(
+        symbols,
+        image,
+        tuple(args.symbols),
+        include_objdump=not args.no_objdump,
+    )
+    write_evidence(args, summary)
     print(json.dumps(summary, indent=2, sort_keys=True))
     return 0 if summary["ok"] else 1
 
@@ -2965,7 +3436,24 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_call.add_argument("--replay-safe", action="store_true",
                         help="allow retry on transient capture loss only for idempotent calls")
+    p_call.add_argument("--allow-unvetted", default=None, metavar="TOKEN",
+                        help="override non-DENY call-safety refusal with the exact U2 token")
     p_call.set_defaults(func=cmd_call)
+
+    p_call_safety = sub.add_parser(
+        "call-safety-classify",
+        help="host-only U2 disasm-backed call-safety classifier",
+    )
+    p_call_safety.add_argument("--map", type=Path, required=True)
+    p_call_safety.add_argument("--image", type=Path, default=REPO_ROOT / DEFAULT_IMAGE,
+                               help="static boot image matching the verified map")
+    p_call_safety.add_argument("--evidence-dir", type=Path, default=None,
+                               help="private dir for raw evidence (kept out of git)")
+    p_call_safety.add_argument("--no-objdump", action="store_true",
+                               help="omit aarch64-linux-gnu-objdump excerpts from output")
+    p_call_safety.add_argument("symbols", nargs="*",
+                               help="symbols to classify; defaults to the vetted seed inventory")
+    p_call_safety.set_defaults(func=cmd_call_safety_classify)
 
     p_poke = sub.add_parser(
         "poke",
