@@ -2,11 +2,12 @@
 
 - Cycle: `TIER2_REPL_V2A2`
 - Date: `2026-06-29`
-- Decision: `tier2-repl-v2a2-poke-roundtrip-source-gate-pass` (host/source only; LIVE pending)
+- Decision: `tier2-repl-v2a2-poke-roundtrip-source-gate-pass` (host/source only; later LIVE attempt
+  blocked by allocator ABI mismatch)
 - Scope: extend the existing host driver for an allocator-backed `poke` -> `peek` round-trip over the
   already-live-proven v1-repl image. No new boot image and no new kernel `.text`.
 - Driver: `workspace/public/src/scripts/revalidation/a90_repl.py`
-- Test: `tests/test_a90_repl.py` (25 host-only tests)
+- Test: `tests/test_a90_repl.py` (28 host-only tests after the live-ABI guard update)
 - Live image to drive later: `workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img`
   SHA256 `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`
 - Rollback image: clean V2321 SHA256 `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`
@@ -42,7 +43,7 @@ derives this from the header by default instead of copying a note.
 ## Host Validation
 
 - `py_compile`: PASS for `a90_repl.py` and `tests/test_a90_repl.py`.
-- `tests.test_a90_repl`: 25 PASS.
+- `tests.test_a90_repl`: 28 PASS.
 - `poke-roundtrip --help`: command surface present.
 - Full `python3 -m unittest discover -s tests`: attempted, but the repository-wide suite is not green in
   this checkout (`3679` tests, `217` failures, `56` errors, `3` skipped). Representative errors are
@@ -59,9 +60,21 @@ derives this from the header by default instead of copying a note.
 - v1-repl image SHA remains `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`.
 - V2321 rollback image SHA remains `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`.
 
-## Live Command Shape
+## Live Follow-Up
 
-After flashing the unchanged v1-repl image and regenerating/using the private v2a2 System.map:
+The later live attempt is recorded separately in
+`docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2A2_LIVE_ALLOCATOR_ABI_BLOCKED_2026-06-29.md`.
+It flashed the unchanged v1-repl image, reached clean health, but the allocator call faulted before
+any `poke`: this kernel's recovered `__kmalloc` entry dereferences `x0` as a context/cache pointer
+before the first helper call, so `__kmalloc(size, GFP_KERNEL)` is not a valid scalar direct-call ABI for
+the v1-repl `op3` caller. The device was rolled back to clean V2321 with final `selftest fail=0`.
+Do not rerun the direct `__kmalloc` path without a newly validated allocator target or a revised
+owned-buffer mechanism.
+
+## Original Live Command Shape
+
+After flashing the unchanged v1-repl image and regenerating/using the private v2a2 System.map, the
+original command shape was:
 
 ```bash
 PYTHONPATH=workspace/public/src/scripts/revalidation \

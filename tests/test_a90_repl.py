@@ -206,6 +206,15 @@ class StaticImageCrossCheckTests(unittest.TestCase):
             link = repl.resolve_link(self.symbols, name)
             repl.assert_jopp_entry(self.image, link, name)  # raises on failure
 
+    def test_kmalloc_direct_scalar_abi_is_rejected(self) -> None:
+        link = repl.resolve_link(self.symbols, "__kmalloc")
+        with self.assertRaisesRegex(repl.ReplError, "dereferences x0"):
+            repl.assert_no_precall_x0_pointer_deref(self.image, link, "__kmalloc")
+
+    def test_printk_direct_scalar_abi_has_no_precall_x0_deref(self) -> None:
+        link = repl.resolve_link(self.symbols, "printk")
+        repl.assert_no_precall_x0_pointer_deref(self.image, link, "printk")
+
     def test_assert_jopp_entry_rejects_non_entry(self) -> None:
         link = repl.resolve_link(self.symbols, "printk")
         with self.assertRaises(repl.ReplError):
@@ -237,11 +246,13 @@ class FaithfulFakeTransport:
         self.heap_ptr = 0xFFFFFFC012300000
         self.heap: dict[int, int] = {}
         self.freed: list[int] = []
+        self.op_count = 0
 
     def run_serial_command(self, argv, *, host, port, timeout):
         sh_str = argv[-1]
         if "grep -a A90R" not in sh_str:
             return {"ok": True, "rc": 0, "stdout": "", "stderr": ""}
+        self.op_count += 1
         buf = _buf_from_op_sh(sh_str)
         op = buf[8]
         import struct as _s
@@ -323,7 +334,12 @@ class SelftestIntegrationTests(unittest.TestCase):
         repl.transport.run_serial_command = fake.run_serial_command
         self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
         session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
-        summary, private = repl.run_poke_roundtrip(session, self.symbols, self.image)
+        summary, private = repl.run_poke_roundtrip(
+            session,
+            self.symbols,
+            self.image,
+            check_allocator_abi=False,
+        )
 
         self.assertTrue(summary["ok"], summary)
         self.assertEqual(summary["decision"], "a90-repl-v2a2-poke-roundtrip-pass")
@@ -351,9 +367,25 @@ class SelftestIntegrationTests(unittest.TestCase):
         session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
 
         with self.assertRaises(repl.ReplError):
-            repl.run_poke_roundtrip(session, self.symbols, self.image)
+            repl.run_poke_roundtrip(
+                session,
+                self.symbols,
+                self.image,
+                check_allocator_abi=False,
+            )
         self.assertFalse(fake.heap)
         self.assertFalse(fake.freed)
+
+    def test_poke_roundtrip_default_guard_rejects_before_transport(self) -> None:
+        fake = FaithfulFakeTransport(0x130000, self.symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        with self.assertRaisesRegex(repl.ReplError, "dereferences x0"):
+            repl.run_poke_roundtrip(session, self.symbols, self.image)
+        self.assertEqual(fake.op_count, 0)
 
 
 if __name__ == "__main__":

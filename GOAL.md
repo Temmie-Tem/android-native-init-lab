@@ -65,7 +65,7 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > Bad Apple full-song demo, GPU first-light/triangle/compute/accel-2D/monitor/zero-copy rungs, and DOOM
 > are all DONE and eye-confirmed; the loop pivoted GPU→SoftAP at V3336; SoftAP S0→S4 is DONE at V3344.
 > Do NOT resume Video/Nyan/GPU/SoftAP work — go to the **Runtime Kernel REPL** delegated block (next
-> bounded unit = **v2a2**: store-landed `poke` round-trip via `__kmalloc`/`kfree`; v1-slide, v1-repl
+> bounded unit = **v2a2R**: host-only allocator ABI locator / safe owned-buffer plan; v1-slide, v1-repl
 > slide/peek/poke/call, the kallsyms extractor (v2a0), and the named host driver (v2a1) are all
 > LIVE-PROVEN). The text below is retained as reference history only.
 
@@ -818,7 +818,7 @@ driver writes + reads `A90R` in ONE `run` shell bounded by `tail -n N`; **`call 
 unsafe** (faulted/rebooted live, recoverable) → the call proof uses the v1-repl-proven `printk` target.
 Report: `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2A1_NAMED_DRIVER_2026-06-29.md`.
 
-### ▶ NEXT BOUNDED UNIT = v2a2 (LIVE) — store-landed `poke` round-trip via `__kmalloc`/`kfree`
+### ⚠ v2a2 = SOURCE PASS / LIVE BLOCKED — direct `__kmalloc` poke round-trip
 
 **Objective:** prove a real allocator-backed `poke`→`peek` round-trip over the **EXISTING** v1-repl image
 (NO new boot image, NO new kernel `.text`). Extend the host driver `a90_repl.py` (commit 5b8aebe6) with a
@@ -873,21 +873,48 @@ Then v2b (`show`-buf bulk `peek` for arbitrary length) stays BLOCKED until a saf
 cleanup protocol are proven; the printk-loop stays the shipping default. Guardrails below + the v2a2-specific
 note: `poke` writes ONLY to the `__kmalloc`'d buffer we own (non-protected) and we `kfree` it.
 
-**STATUS (2026-06-29 v2a2 host/source gate) — host driver ready; LIVE still pending.** Codex extended
+**STATUS (2026-06-29 v2a2 host/source gate) — host driver was source-ready before live ABI discovery.** Codex extended
 `a90_repl.py` with the `poke-roundtrip` subcommand and added a faithful fake-transport integration test
 that models `__kmalloc` returning an owned lowmem pointer, two qword `poke`/`peek` checks, the optional
 low-32-bit poke path, and `kfree`. The driver keeps raw slide/runtime pointer values out of stdout and
 committed artifacts; `--evidence-dir` writes them only to private evidence. It regenerates the v2a2 private
 System.map under `workspace/private/runs/kernel/v2a2-repl-poke-roundtrip/`; anchors match `printk`,
 `kgsl_pwrctrl_force_no_nap_store`, `__kmalloc`, and `kfree`. Host validation: `py_compile` PASS,
-`tests.test_a90_repl` **25/25 PASS**, v1-repl image SHA remains `b846ae9f…`, v2321 rollback SHA remains
+`tests.test_a90_repl` **28/28 PASS**, v1-repl image SHA remains `b846ae9f…`, v2321 rollback SHA remains
 `ca978551…`. Full repo `unittest discover` was attempted and remains non-green in this checkout
 (`3679` tests, `217` failures, `56` errors, `3` skipped) due to existing private artifact dependencies
 outside v2a2; focused v2a2 tests pass. Report:
 `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2A2_POKE_ROUNDTRIP_SOURCE_2026-06-29.md`.
-**Next bounded action remains v2a2 LIVE validation**: flash the unchanged v1-repl image, run
-`a90_repl.py poke-roundtrip` with the v2a2 private System.map/evidence dir, restore `panic_on_oops`, roll
-back to v2321, and require final `selftest fail=0`.
+
+**STATUS (2026-06-29 v2a2 LIVE attempt) — blocked by allocator ABI mismatch, device recovered.** Codex
+flashed the unchanged v1-repl image (`b846ae9f...`) through `native_init_flash.py`; post-flash
+`version/status/selftest` were clean. The first `poke-roundtrip` run timed out around the
+`panic_on_oops=0` transaction but the device stayed reachable. The retry reached `op3 call __kmalloc`
+and faulted before any `poke`: dmesg showed fault address `0x1048`, and static boot-image disassembly
+of the recovered `__kmalloc @ 0xffffff80082724bc` shows `ldr x23, [x0,#72]` before the first helper call.
+Calling that entry as `__kmalloc(size=0x1000, GFP_KERNEL)` therefore dereferences `0x1000+0x48`, exactly
+the observed fault. v2a1 named-peek proved name→address mapping, not allocator call ABI. `panic_on_oops`
+was restored to `1`; rollback to clean v2321 via the checked helper passed with readback SHA
+`ca978551...`, `version/status` passed, final `selftest verbose` was `pass=11 warn=1 fail=0`, and a direct
+check showed `panic_on_oops=1`. Report:
+`docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2A2_LIVE_ALLOCATOR_ABI_BLOCKED_2026-06-29.md`.
+`a90_repl.py` now has a host-side guard that rejects scalar allocator candidates whose entry
+dereferences `x0` before the first `BL`; the current direct `__kmalloc` path is blocked before live.
+**Do not rerun direct `call __kmalloc(size, GFP_KERNEL)` without a newly validated target.**
+
+### ▶ NEXT BOUNDED UNIT = v2a2R (HOST-ONLY) — allocator ABI locator / safe owned-buffer plan
+
+Find a replacement for the invalid direct `__kmalloc` plan before any more live `poke-roundtrip` attempts.
+This unit is host-only by default: inspect the v1-repl boot image + regenerated System.map, classify candidate
+owned-buffer APIs by static ABI, and require a report/test update before live. Acceptable outcomes:
+
+1. a JOPP entry whose first basic block matches a scalar allocator ABI and returns a sane writable pointer,
+   paired with a validated free path; or
+2. a revised small helper design that returns/owns a scratch buffer under the normal boot-image flash gates.
+
+No live device command is needed unless the static ABI gate produces a concrete, bounded candidate. If the
+only viable path is a new helper image, build and Gate-2 it as a new V-iteration; do not mutate the existing
+v1-repl image in place. Keep raw runtime pointers and slides out of committed artifacts.
 
 **Guardrails (hard, RECON / exploit-free):** NO RKP bypass, NO write to RKP-protected memory
 (`.text`/rodata/page-tables/cred), NO RWX, NO `ret`/`blr`/CFP-site patch, NO grooming/UAF/spray,

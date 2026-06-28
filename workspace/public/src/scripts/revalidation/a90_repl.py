@@ -90,6 +90,14 @@ POKE_SENTINEL_32 = 0xC001D00D
 KERNEL_LOWMEM_MIN = 0xFFFFFFC000000000
 KERNEL_LOWMEM_MAX = 0xFFFFFFFFFFFFFFFF
 
+A64_BL_MASK = 0xFC000000
+A64_BL = 0x94000000
+A64_LDR64_UNSIGNED_BASE = 0xF9400000
+A64_LDR32_UNSIGNED_BASE = 0xB9400000
+A64_LDRB_UNSIGNED_BASE = 0x39400000
+A64_LDRH_UNSIGNED_BASE = 0x79400000
+A64_LDR_UNSIGNED_MASK = 0xFFC003E0
+
 A90R_RE = re.compile(r"A90R([0-9a-fA-F]+)")
 
 
@@ -240,6 +248,13 @@ class StaticImage:
         abs_off = self.kernel_off + self.file_off(vaddr)
         return struct.unpack_from("<I", self.data, abs_off)[0]
 
+    def u32_words_at_vaddr(self, vaddr: int, count: int) -> list[int]:
+        abs_off = self.kernel_off + self.file_off(vaddr)
+        return [
+            struct.unpack_from("<I", self.data, abs_off + index * 4)[0]
+            for index in range(count)
+        ]
+
     def find_symbol_string_vaddr(self, name: str) -> int:
         """Find a clean NUL-bounded ASCII occurrence of `name` and return its
         link vaddr. Used to hand kallsyms_lookup_name an existing kernel string
@@ -371,6 +386,44 @@ def assert_jopp_entry(image: StaticImage, link_vaddr: int, name: str) -> None:
         )
 
 
+def _is_a64_bl(word: int) -> bool:
+    return (word & A64_BL_MASK) == A64_BL
+
+
+def _is_a64_unsigned_load_from_x0(word: int) -> bool:
+    # LDR/LD(R)B/H unsigned-immediate with Rn == x0/w0. This intentionally
+    # covers only the simple scalar-allocator hazard seen live: the candidate
+    # treats x0 as a context pointer before any helper call can sanitize it.
+    if (word & A64_LDR_UNSIGNED_MASK) not in {
+        A64_LDR64_UNSIGNED_BASE,
+        A64_LDR32_UNSIGNED_BASE,
+        A64_LDRB_UNSIGNED_BASE,
+        A64_LDRH_UNSIGNED_BASE,
+    }:
+        return False
+    rn = (word >> 5) & 0x1F
+    return rn == 0
+
+
+def assert_no_precall_x0_pointer_deref(image: StaticImage, link_vaddr: int,
+                                       name: str) -> None:
+    """Reject scalar-call candidates whose entry dereferences x0 before the
+    first BL. v2a2 live proved this matters: the recovered `__kmalloc` entry
+    reads `[x0,#72]`, so calling it as `__kmalloc(size, flags)` faults at
+    `size + 0x48` before any owned buffer exists.
+    """
+    words = image.u32_words_at_vaddr(link_vaddr, 0x80 // 4)
+    for index, word in enumerate(words):
+        if _is_a64_bl(word):
+            return
+        if _is_a64_unsigned_load_from_x0(word):
+            raise ReplError(
+                f"{name} is not safe for scalar direct-call ABI: "
+                f"entry+0x{index * 4:x} dereferences x0 before first BL "
+                f"(word={word:#x})"
+            )
+
+
 CALL_SENTINEL = 0xA90CA11  # recognizable arg echoed by the called printk
 
 
@@ -451,7 +504,8 @@ def run_poke_roundtrip(session: ReplSession,
                        alloc_size: int = KMALLOC_ROUNDTRIP_SIZE,
                        gfp_header: Path = DEFAULT_GFP_HEADER,
                        gfp_value: int | None = None,
-                       include_width32: bool = True) -> tuple[dict[str, object], dict[str, object]]:
+                       include_width32: bool = True,
+                       check_allocator_abi: bool = True) -> tuple[dict[str, object], dict[str, object]]:
     """v2a2 proof: allocate owned kernel memory, poke it, peek it, free it.
 
     Returns `(public_summary, private_evidence)`. The public half deliberately
@@ -472,6 +526,13 @@ def run_poke_roundtrip(session: ReplSession,
     if gfp is None:
         raise ReplError("GFP_KERNEL derivation returned no value")
 
+    kmalloc_link = resolve_link(symbols, "__kmalloc")
+    kfree_link = resolve_link(symbols, "kfree")
+    assert_jopp_entry(image, kmalloc_link, "__kmalloc")
+    assert_jopp_entry(image, kfree_link, "kfree")
+    if check_allocator_abi:
+        assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
     session.hide()
     session.set_panic_on_oops(0)
     try:
@@ -479,10 +540,6 @@ def run_poke_roundtrip(session: ReplSession,
         if slide & 0xFFF:
             raise ReplError("slide is not page-aligned; refusing to proceed")
 
-        kmalloc_link = resolve_link(symbols, "__kmalloc")
-        kfree_link = resolve_link(symbols, "kfree")
-        assert_jopp_entry(image, kmalloc_link, "__kmalloc")
-        assert_jopp_entry(image, kfree_link, "kfree")
         kmalloc_runtime = (kmalloc_link + slide) & MASK64
         kfree_runtime = (kfree_link + slide) & MASK64
 
