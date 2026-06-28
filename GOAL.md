@@ -64,11 +64,12 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > `## 🟣 ACTIVE NOW — DELEGATED: Tier-2 Runtime Kernel REPL (v1-repl → v2a)` further down this file.**
 > Bad Apple full-song demo, GPU first-light/triangle/compute/accel-2D/monitor/zero-copy rungs, and DOOM
 > are all DONE and eye-confirmed; the loop pivoted GPU→SoftAP at V3336; SoftAP S0→S4 is DONE at V3344.
-> Do NOT resume Video/Nyan/GPU/SoftAP work — go to the **Runtime Kernel REPL** delegated block (next
-> bounded unit = **v2a2 live rerun after operator disasm cross-check**: use the existing v1-repl image
-> plus v2a2R' recovered `__kmalloc`/`kfree` export addresses; v1-slide, v1-repl slide/peek/poke/call,
-> the kallsyms extractor (v2a0), and the named host driver (v2a1) are all LIVE-PROVEN). The text below
-> is retained as reference history only.
+> Do NOT resume Video/Nyan/GPU/SoftAP work — go to the **Runtime Kernel REPL** delegated block. v2a2 is
+> now LIVE-PROVEN via the existing v1-repl image plus v2a2R' recovered `__kmalloc`/`kfree` export
+> addresses; v1-slide, v1-repl slide/peek/poke/call, the kallsyms extractor (v2a0), named host driver
+> (v2a1), and recovered-export allocator-backed poke round-trip (v2a2) are all LIVE-PROVEN. v2b
+> (`show`-buf bulk peek) remains blocked/optional until a fixed scratch anchor + cleanup protocol is
+> explicitly reopened. The text below is retained as reference history only.
 
 > **(history)** Audio CORE is device-proven + promoted (`0.10.0`); its Tier-C polish is optional background.
 >
@@ -819,12 +820,14 @@ driver writes + reads `A90R` in ONE `run` shell bounded by `tail -n N`; **`call 
 unsafe** (faulted/rebooted live, recoverable) → the call proof uses the v1-repl-proven `printk` target.
 Report: `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2A1_NAMED_DRIVER_2026-06-29.md`.
 
-### ⚠ v2a2 = SOURCE PASS / LIVE BLOCKED — direct `__kmalloc` poke round-trip
+### ✅ v2a2 = DONE / LIVE-PROVEN — recovered-export `__kmalloc` poke round-trip
 
 **Objective:** prove a real allocator-backed `poke`→`peek` round-trip over the **EXISTING** v1-repl image
 (NO new boot image, NO new kernel `.text`). Extend the host driver `a90_repl.py` (commit 5b8aebe6) with a
 `poke-roundtrip` subcommand + a faithful unit test, run it live, roll back to v2321, commit. This **reuses
 the already-LIVE-PROVEN ops** op1 peek / op2 poke / op3 call — do **not** write any new kernel stub.
+The original map-derived allocator addresses in the charter below were later proven to be drifted labels;
+the live pass uses the v2a2R' recovered export addresses documented in the current status block.
 
 **Reuse (do not re-derive):**
 - Driver `workspace/public/src/scripts/revalidation/a90_repl.py`. Op buffer: `+0x00` u64 magic
@@ -946,9 +949,23 @@ xref counts. Required recovered link addresses:
 `__ksymtab___kmalloc`/`__ksymtab_kfree` qwords read as `0x0`, proving those map labels are drifted too.
 Focused validation: `tests.test_a90_repl` **31/31 PASS**. Report:
 `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2A2RP_ALLOCATOR_EXPORT_RECOVERY_2026-06-29.md`.
-**Next bounded unit:** operator independently disassembles/cross-checks the two recovered addresses, then
-reruns the existing v1-repl-image `poke-roundtrip` with `--use-recovered-allocator-exports` under the
-normal flash gates, rollback, and final `selftest fail=0`.
+
+**STATUS (2026-06-29 v2a2 recovered-export LIVE PASS) — allocator-backed poke round-trip is live-proven.**
+Host objdump cross-check confirmed recovered `__kmalloc=0xffffff800826ae34` preserves scalar `x0` until
+the first `BL` and recovered `kfree=0xffffff800826b354` preserves `x0` as the pointer argument; direct
+`bl` xrefs are `1765` and `10596`. Flashed exact v1-repl image
+`b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65` via `native_init_flash.py`; pushed
+image SHA and boot readback SHA matched, and post-flash health was clean after one serial-fragment retry.
+Ran `a90_repl.py poke-roundtrip --use-recovered-allocator-exports`: decision
+`a90-repl-v2a2-poke-roundtrip-pass`; checks `kmalloc-owned-buffer`, sentinel A/B qword `poke`→`peek`,
+low32 `poke`→`peek`, and `kfree-owned-buffer` all passed. `panic_on_oops` was restored to `1`; candidate
+selftest was `pass=11 warn=1 fail=0`; rollback to v2321
+`ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb` had matching readback SHA; final
+`version/status/selftest` were clean (`fail=0`) and final `panic_on_oops=1`. Report:
+`docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2A2_LIVE_RECOVERED_EXPORTS_2026-06-29.md`.
+**v2a is now complete.** v2b (`show`-buf bulk `peek` for arbitrary length) remains blocked/optional until
+a fixed scratch anchor + cleanup protocol is proven; otherwise the v1-repl printk loop is the shipping
+bulk path.
 
 ### ✅ v2a2R (HOST-ONLY) — allocator ABI locator / safe owned-buffer plan
 
@@ -977,10 +994,9 @@ allocator-backed round-trip.
 
 ### ⛔ SUPERSEDED by the OPERATOR GATE-2 CORRECTION above — v2a2H (new owned-scratch helper image) is NOT the next unit
 
-**The real NEXT BOUNDED UNIT was v2a2R' (host-only), now complete as source/static recovery above. Next is
-operator disasm cross-check + existing-image live `poke-roundtrip` rerun with recovered allocator exports.**
-Do not build a new helper image to work around a map-mislabel. The block below is retained only as the
-(now-rejected) ABI-workaround design.
+**The real NEXT BOUNDED UNIT was v2a2R' (host-only), followed by the recovered-export live rerun; both are
+now complete.** Do not build a new helper image to work around a map-mislabel. The block below is retained
+only as the (now-rejected) ABI-workaround design.
 
 ### ~~v2a2H (HOST-ONLY SOURCE GATE) — explicit owned-scratch helper~~ (rejected; see correction)
 
@@ -1011,7 +1027,8 @@ Fails-twice → STOP and report; anti-churn in force. Report each unit to `docs/
 **Operator/loop split:** the operator (Claude) did the corrected `poke` agent, `slide`, v1-repl Gate-2,
 the v2a0 kallsyms fix, and the v2a1 named host driver (all live-validated, since only the operator can
 reach the device bridge + commit). Codex builds host-only/RE units; the operator runs all live flash/
-validate + commits. v2a1 was operator-direct (small + protocol-tight). Next = **v2a2**.
+validate + commits. v2a1 was operator-direct (small + protocol-tight). v2a2 is now complete; next frontier
+is TBD, and v2b stays blocked/optional unless explicitly reopened.
 
 ## 🟣 DONE — DELEGATED OPERATOR SIDE-QUEST — Tier-2 Stage C: confirm a patched-in direct `bl` executes under RKP_CFP
 
