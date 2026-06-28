@@ -1136,6 +1136,15 @@ host-only unit unless it explicitly needs a live check. Report each to `docs/rep
   `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2C_S1A_SAFE_OP_RETRY_2026-06-29.md`.
   Remaining S1 gate: live serial-fragment validation and any extra non-replay re-read/realign handling if
   unsafe ops still see fragment loss.
+
+  **STATUS (2026-06-29 v2c S1 live gate) — sequential REPL live path passed; parallel host commands still noisy.**
+  Flashed the unchanged v1-repl image via `native_init_flash.py` with pinned SHA/readback SHA, then ran the
+  v2c REPL selftest plus U1 `read`/`call`/owned-`poke` commands with `--safe-op-retries 3`; all passed and
+  the device stayed healthy. A deliberately accidental parallel final `a90ctl version`/`selftest` check hit
+  host-side serial-lock / `ATAT` fragment noise, then sequential retry passed immediately. Treat this as a
+  caller-concurrency constraint: live bridge validation commands remain single-client/sequential unless a
+  later transport layer adds explicit concurrency support. Report:
+  `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2C_U1_S1_LIVE_VALIDATION_2026-06-29.md`.
 - **U1 — usability surface.** Add first-class CLI: `call SYMBOL [args…]` (verified targets only),
   `read SYMBOL|ADDR --len N` = **arbitrary-length bulk peek by host-side looping op1 in 8-byte chunks**
   (this unblocks the old "v2b" need with NO new image — looping the existing `peek` op suffices for reads),
@@ -1153,7 +1162,17 @@ host-only unit unless it explicitly needs a live check. Report each to `docs/rep
   Validation: `py_compile` pass, CLI `--help` smoke checks pass, `tests.test_a90_repl` +
   `tests.test_a90_stock_kallsyms_extract` **61/61 PASS**. Report:
   `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2C_U1_CLI_SURFACE_2026-06-29.md`.
-  Remaining U1 gate: live bridge validation of these commands under the v2c flash/rollback rules.
+
+  **STATUS (2026-06-29 v2c U1 live pass + rollback clean) — CLI surface is device-proven.**
+  Live run over the existing v1-repl image passed: `read kgsl_pwrctrl_force_no_nap_store --len 20`
+  reported `chunk_count=3`, `static_image_match=true`, and SHA256
+  `5642494b8364c16a197612eba47d416916d4059ae03f5a46a8aeeb285f5184c9`; `call printk @repl_format
+  0xa90ca11 --replay-safe` used verified `printk`, private evidence confirmed sentinel echo + stub return;
+  `poke --width 8 0xaabbccddeeff0011` allocated a verified `__kmalloc` buffer, matched poke→peek, and
+  freed via verified `kfree`. Rolled back to v2321 (`ca978551...`) via the checked flash helper; final
+  `version` was `A90 Linux init 0.9.285 (v2321-usb-clean-identity-rodata)` and final `selftest verbose`
+  was `pass=11 warn=1 fail=0`. Report:
+  `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2C_U1_S1_LIVE_VALIDATION_2026-06-29.md`.
 - **U2 (optional/stretch).** Small ergonomics: a session that fetches the slide once and reuses it; a
   `--json` machine surface; a short operator runbook for the tool in `docs/operations/`.
 
