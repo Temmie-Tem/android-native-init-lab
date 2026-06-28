@@ -1345,6 +1345,23 @@ extractor map. C2E three-way compare gives identical promoted and `vmlinux-to-el
 action, no boot image change. Report:
 `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2C_VMLINUX_TO_ELF_THIRD_ORACLE_2026-06-29.md`.
 
+> ### ✅ OPERATOR GATE-2 SIGN-OFF (2026-06-29) — C2E/v2c DONE; operator disasm-review CLEARED; **loop HALTS at this boundary**
+>
+> I independently regenerated the promoted extractor map from the v2321 image and it is **byte-identical**
+> to both the promoted map and the `vmlinux-to-elf` output (all SHA `9e6a1d6f322344e3d6fced7e6d29a254e1516cc5163bad8595388a9d0d02ec3a`).
+> I disasm-confirmed all four anchors by independent BL-xref count: `printk=0xffffff800813adfc` (44694 xrefs —
+> NOT the 14-xref twin `0x813d8cc`), `__kmalloc=0xffffff800826ae34` (1765), `kfree=0xffffff800826b354` (10596),
+> `kgsl_pwrctrl_force_no_nap_store=0xffffff80089273b4` (preserved, no kgsl regression), `num_pwrlevels_show=0xffffff80089262dc`.
+> The `locate_printk_variadic_wrapper` disambiguation is **structural** (max direct-BL xref + tie guard + min-1000
+> threshold), not a hardcoded address; it independently returns `0x813adfc`. C1 fail-closed is **strengthened**
+> (printk now requires export/xref ground truth; the old hardcoded drifted-map expectation table is removed).
+> The 3 residuals (`ehci_reset`, `iio_read_channel_ext_info`, `iio_write_channel_ext_info`) are **identical across
+> all three oracles** → a semantic export-alias artifact on the oracle side, not decoder drift; correctly fenced.
+> **C2E DoD met and exceeded (third independent oracle byte-identical).** The Runtime Kernel REPL side-quest is at
+> its epic boundary: the loop should **HALT here and not invent further units.** Operator will re-charter the next
+> direction (close the REPL epic / U2 ergonomics + tool runbook / a new epic). Do not flash, do not start a new
+> kallsyms/decoder unit, do not touch the device.
+
 **Guardrails: unchanged from below** (RECON / exploit-free; no RKP bypass; no protected-memory write; no
 RWX; preserve `x17`; boot-partition-only flashes with pinned+readback SHA; rollback v2321; fails-twice →
 STOP + report; keep raw runtime pointers/slide out of commits; scoped `git add`). Operator cross-checks any
