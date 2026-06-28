@@ -65,8 +65,9 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > Bad Apple full-song demo, GPU first-light/triangle/compute/accel-2D/monitor/zero-copy rungs, and DOOM
 > are all DONE and eye-confirmed; the loop pivoted GPU→SoftAP at V3336; SoftAP S0→S4 is DONE at V3344.
 > Do NOT resume Video/Nyan/GPU/SoftAP work — go to the **Runtime Kernel REPL** delegated block (next
-> bounded unit = **v1-repl**: add `poke`+small `peek`+`call` to the flash-once REPL; v1-slide already
-> LIVE-PROVEN by the operator). The text below is retained as reference history only.
+> bounded unit = **v2-bulk**: `show`-buf output + kmalloc-bootstrap scratch for arbitrary-length
+> `peek`; v1-slide and v1-repl slide/peek/poke/call are already LIVE-PROVEN). The text below is
+> retained as reference history only.
 
 > **(history)** Audio CORE is device-proven + promoted (`0.10.0`); its Tier-C polish is optional background.
 >
@@ -793,18 +794,21 @@ semantics), never by the generic ROPP shape.** The corrected `force_no_nap_store
 `0x8A73C8` == `0xD10103FF` (`sub sp,#0x40`), next word == `0xCA1103D0` (`eor`), magic at `0x8A73C4`,
 next magic at `0x8A749C`. `force_no_nap` is never read/written at boot or by the periodic monitor.
 
-**Next bounded unit = v1-repl** (`build_kernel_tier2_repl_v1_repl.py`): one flash-once stub with an
-**op byte** dispatching: `op=0 slide` (have it), `op=1 peek(addr,len)` small, `op=2 poke(addr,val,width)`
-(have it), `op=3 call(addr,x0..x7)`. Output via **printk** (proven; bounded width is fine for slide /
-call-return / small peek). `call` is **non-leaf** → must use the ROPP `eor` frame (preserve `x17`); its
-`blr` is JOPP-gated → only call **real function entries** (word at entry−4 == `0x00BE7BAD`); runs in
-sysfs-write **process context** (sleepable). If the 4-op stub exceeds the 212 B `store` room, split per
-design **D6**: keep `poke/call/slide` in `store`, move `peek`'s read loop into `force_no_nap_show`
-(108 B / 27 instr), or `b`-trampoline into a confirmed-unused larger cave. **Live validation:** set
-`panic_on_oops=0`; prove `slide`; `call kallsyms_lookup_name("<symbol>")` and confirm its result equals
-`(in-image link vaddr) + slide`; `peek` a known kernel string and confirm bytes match the image; restore
-`panic_on_oops=1`; roll back to clean v2321 with `selftest fail=0`. **Then v2-bulk**: `show`-buf output
-+ `kmalloc`-bootstrapped scratch for arbitrary-length `peek`.
+**v1-repl = ✅ DONE / LIVE-PROVEN** (`build_kernel_tier2_repl_v1_repl.py`, image `b846ae9f…`, commit
+f44b34c8). One flash-once 212 B stub in `force_no_nap_store`: magic guard + op byte → `op0 slide`,
+`op1 peek(addr,len≤8)`, `op2 poke(addr,val,width)`, `op3 call(target,x0..x7)`, plain-`printk` output,
+ROPP frame preserving x16+x17, `blr` to JOPP entries. Codex host-built + self-Gate-2'd; operator
+re-Gate-2'd (all 48 instrs) + live-validated all four ops + rolled back V2321 `fail=0`: slide leaked,
+`peek` of the stub entry returned its own first qword, `call printk(fmt,0xCAFE1234)` printed
+`A90Rcafe1234` and captured return `0xc`, `op2` NULL-poke faulted (store path executes). Report:
+`docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V1_REPL_2026-06-28.md`.
+
+**Next bounded unit = v2-bulk:** add `show`-buf output (write result bytes into the `force_no_nap_show`
+handler's `buf` and return a length so `cat` reads them) + a `kmalloc`-bootstrap scratch (use `op3 call`
+to `__kmalloc` once, host remembers the pointer) for **arbitrary-length `peek`** beyond the current
+one-qword printk path, plus a store-landed `poke`→`peek` round-trip. Also FIX the in-image kallsyms
+extractor (`a90_stock_kallsyms_extract.py` fails "marker table not found") so named symbols resolve for
+`call kallsyms_lookup_name(...)`. Same guardrails below.
 
 **Guardrails (hard, RECON / exploit-free):** NO RKP bypass, NO write to RKP-protected memory
 (`.text`/rodata/page-tables/cred), NO RWX, NO `ret`/`blr`/CFP-site patch, NO grooming/UAF/spray,
