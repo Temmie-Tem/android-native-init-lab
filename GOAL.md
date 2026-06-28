@@ -767,7 +767,19 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
-## 🟣 ACTIVE NOW — DELEGATED: Tier-2 Runtime Kernel REPL (v1-repl → v2a)
+## ✅ CLOSED — Tier-2 Runtime Kernel REPL (v1-repl → v2a → v2c), DONE at v2c-C2E (2026-06-29)
+
+**CLOSED 2026-06-29 by operator Gate-2 sign-off (commit `fd76bc9a`).** The flash-once named runtime
+kernel REPL is live-proven (v2a1 named peek/call, v2a2 kmalloc poke round-trip via recovered exports,
+v2c C1 fail-closed + U1 CLI), and the kallsyms ground-truth map is settled with **three independent
+oracles byte-identical** (extractor padding-fix map ≡ relocated-`__ksymtab` C2E oracle ≡ `vmlinux-to-elf`,
+SHA `9e6a1d6f…`); all four anchors disasm-verified, C1 fail-closed enforced/strengthened, device on clean
+v2321. U2 ergonomics + a tool runbook remain the only optional remainders (re-charter if wanted). Loop is
+HALTED at this boundary awaiting the next epic. Full sign-off detail + DoD evidence is in the v2c STATUS
+blocks below.
+
+<!-- Former heading (epic was ACTIVE 2026-06-28 → 2026-06-29): -->
+### (history) DELEGATED: Tier-2 Runtime Kernel REPL (v1-repl → v2a)
 
 **Operator-chartered 2026-06-28. This is the single active epic.** Build a **flash-once runtime kernel
 REPL** so future EL1/kernel experiments need NO reflash per step: after one flash, drive runtime kernel
