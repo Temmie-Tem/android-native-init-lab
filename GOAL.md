@@ -1328,6 +1328,23 @@ no device action, no boot image change. Validation: `py_compile` pass, focused u
 CLI extractor pass, CLI `ksymtab-ground-truth` pass. Report:
 `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2C_GATE2_C2B_KALLSYMS_PROMOTION_2026-06-29.md`.
 
+**STATUS (2026-06-29 v2c third-oracle host pass) — `vmlinux-to-elf` independently confirms the promoted
+map.** Private `vmlinux-to-elf` clone at commit `19683fb95b29cd31362d49e6f48ab8368f96cbdf` was installed
+under `workspace/private/inputs/external_tools/kernel/vmlinux-to-elf` only. `kallsyms-finder` on
+`boot_linux_v2321_usb_clean_identity_rodata.img` emitted `147295` symbols and found the same structural
+layout: token table `0x02103100`, token index `0x02103500`, markers `0x02101f00`, names `0x01f10700`,
+`kallsyms_num_syms` `0x01f10600`, relocation table `0x2699618..0x2a532b8` (`162780` records), and
+`kallsyms_offsets` `0x01e80700`. Its output map SHA256 is
+`9e6a1d6f322344e3d6fced7e6d29a254e1516cc5163bad8595388a9d0d02ec3a`, byte-identical to the promoted
+extractor map. C2E three-way compare gives identical promoted and `vmlinux-to-elf` counts:
+`12515` matches / `3` mismatches / `0` missing, with the same fenced residuals
+`ehci_reset`, `iio_read_channel_ext_info`, and `iio_write_channel_ext_info`. Four core anchors plus
+`kallsyms_lookup_name` agree (`printk=0xffffff800813adfc`, `__kmalloc=0xffffff800826ae34`,
+`kfree=0xffffff800826b354`, `force_no_nap_store=0xffffff80089273b4`,
+`num_pwrlevels_show=0xffffff80089262dc`, `kallsyms_lookup_name=0xffffff800817cfa4`). Host-only: no device
+action, no boot image change. Report:
+`docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2C_VMLINUX_TO_ELF_THIRD_ORACLE_2026-06-29.md`.
+
 **Guardrails: unchanged from below** (RECON / exploit-free; no RKP bypass; no protected-memory write; no
 RWX; preserve `x17`; boot-partition-only flashes with pinned+readback SHA; rollback v2321; fails-twice →
 STOP + report; keep raw runtime pointers/slide out of commits; scoped `git add`). Operator cross-checks any
