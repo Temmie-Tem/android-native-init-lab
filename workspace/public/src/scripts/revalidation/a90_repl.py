@@ -40,6 +40,7 @@ under workspace/private when --evidence-dir is given.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import struct
@@ -90,6 +91,7 @@ KMALLOC_ROUNDTRIP_SIZE = 0x1000
 POKE_SENTINEL_A = 0xA90F00D1CAFE0001
 POKE_SENTINEL_B = 0x1122334455667788
 POKE_SENTINEL_32 = 0xC001D00D
+DEFAULT_READ_CHUNK = PEEK_MAX_LEN
 KERNEL_LOWMEM_MIN = 0xFFFFFFC000000000
 KERNEL_LOWMEM_MAX = 0xFFFFFFFFFFFFFFFF
 ALLOCATOR_EXPORT_REQUIRED = ("__kmalloc", "kfree")
@@ -286,6 +288,16 @@ def parse_define_u32(text: str, name: str) -> int:
     return int(match.group(1), 0)
 
 
+def parse_int_auto(text: str) -> int:
+    try:
+        value = int(text, 0)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"invalid integer/address: {text!r}") from exc
+    if value < 0:
+        raise argparse.ArgumentTypeError(f"value must be non-negative: {text!r}")
+    return value
+
+
 def derive_gfp_kernel_value(header: Path = DEFAULT_GFP_HEADER) -> tuple[int, dict[str, int]]:
     """Derive GFP_KERNEL from this kernel tree's include/linux/gfp.h.
 
@@ -401,6 +413,15 @@ class StaticImage:
             struct.unpack_from("<I", self.data, abs_off + index * 4)[0]
             for index in range(count)
         ]
+
+    def bytes_at_vaddr(self, vaddr: int, length: int) -> bytes:
+        if length < 0:
+            raise RuntimeError(f"negative byte length: {length}")
+        abs_off = self.kernel_off + self.file_off(vaddr)
+        end = abs_off + length
+        if end > len(self.data):
+            raise RuntimeError(f"vaddr byte range outside image: {vaddr:#x}+{length:#x}")
+        return self.data[abs_off:end]
 
     def find_symbol_string_vaddr(self, name: str) -> int:
         """Find a clean NUL-bounded ASCII occurrence of `name` and return its
@@ -1785,6 +1806,259 @@ def run_poke_roundtrip(session: ReplSession,
     return summary, private
 
 
+def _parse_read_target(symbols: dict[str, Symbol],
+                       image: StaticImage,
+                       target: str,
+                       *,
+                       runtime_addr: bool = False) -> tuple[int, dict[str, object]]:
+    if runtime_addr:
+        link = parse_int_auto(target)
+        return link, {
+            "target": target,
+            "target_kind": "runtime-vaddr",
+            "link_vaddr": None,
+            "resolution_verified": False,
+            "resolution_method": "raw-runtime-address",
+        }
+    try:
+        link = parse_int_auto(target)
+        return link, {
+            "target": target,
+            "target_kind": "link-vaddr",
+            "link_vaddr": f"0x{link:x}",
+            "resolution_verified": False,
+            "resolution_method": "raw-link-address",
+        }
+    except argparse.ArgumentTypeError:
+        resolution = resolve_verified(symbols, image, target, purpose="peek")
+        if resolution.link_vaddr is None:
+            raise ReplError(f"read target {target!r} did not resolve")
+        return resolution.link_vaddr, {
+            "target": target,
+            "target_kind": "symbol",
+            "link_vaddr": f"0x{resolution.link_vaddr:x}",
+            "resolution_verified": resolution.verified,
+            "resolution_method": resolution.method,
+            "resolution": resolution.public_dict(),
+        }
+
+
+def read_runtime_bytes(session: ReplSession,
+                       runtime_vaddr: int,
+                       length: int,
+                       *,
+                       chunk_size: int = DEFAULT_READ_CHUNK) -> bytes:
+    if length < 0:
+        raise ValueError(f"read length must be non-negative: {length}")
+    if not 1 <= chunk_size <= PEEK_MAX_LEN:
+        raise ValueError(f"read chunk size must be 1..{PEEK_MAX_LEN}: {chunk_size}")
+    out = bytearray()
+    offset = 0
+    while offset < length:
+        this_len = min(chunk_size, length - offset)
+        value = session.peek_runtime((runtime_vaddr + offset) & MASK64, this_len)
+        out.extend(struct.pack("<Q", value & MASK64)[:this_len])
+        offset += this_len
+    return bytes(out)
+
+
+def run_read(session: ReplSession,
+             symbols: dict[str, Symbol],
+             image: StaticImage,
+             target: str,
+             *,
+             length: int,
+             runtime_addr: bool = False,
+             chunk_size: int = DEFAULT_READ_CHUNK) -> tuple[dict[str, object], dict[str, object]]:
+    if length <= 0:
+        raise ReplError(f"read length must be positive: {length}")
+    link, target_info = _parse_read_target(symbols, image, target, runtime_addr=runtime_addr)
+    private: dict[str, object] = {}
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = 0 if runtime_addr else session.slide()
+        if not runtime_addr and slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        runtime_vaddr = link if runtime_addr else (link + slide) & MASK64
+        data = read_runtime_bytes(session, runtime_vaddr, length, chunk_size=chunk_size)
+    finally:
+        session.set_panic_on_oops(1)
+
+    static_match = None
+    if not runtime_addr:
+        try:
+            static_match = data == image.bytes_at_vaddr(link, length)
+        except Exception:  # noqa: BLE001 - raw link may be outside the static image
+            static_match = None
+
+    chunks = (length + chunk_size - 1) // chunk_size
+    summary = {
+        "decision": "a90-repl-v2c-u1-read-pass",
+        "ok": True,
+        **target_info,
+        "len": length,
+        "chunk_size": chunk_size,
+        "chunk_count": chunks,
+        "static_image_match": static_match,
+        "data_sha256": hashlib.sha256(data).hexdigest(),
+        "raw_runtime_values_redacted": True,
+        "data_hex_redacted": True,
+    }
+    private.update({
+        "slide": None if runtime_addr else f"0x{slide:x}",
+        "runtime_vaddr": f"0x{runtime_vaddr:x}",
+        "data_hex": data.hex(),
+    })
+    return summary, private
+
+
+def run_call(session: ReplSession,
+             symbols: dict[str, Symbol],
+             image: StaticImage,
+             symbol: str,
+             xargs: tuple[int, ...],
+             *,
+             replay_safe: bool = False) -> tuple[dict[str, object], dict[str, object]]:
+    resolution = resolve_verified(symbols, image, symbol, purpose="call")
+    link = require_verified_resolution(resolution, "call")
+    private: dict[str, object] = {}
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        values = session.call_runtime_values((link + slide) & MASK64, xargs, replay_safe=replay_safe)
+    finally:
+        session.set_panic_on_oops(1)
+
+    summary = {
+        "decision": "a90-repl-v2c-u1-call-pass",
+        "ok": True,
+        "symbol": symbol,
+        "arg_count": len(xargs),
+        "return_value_count": len(values),
+        "resolution": resolution.public_dict(),
+        "raw_runtime_values_redacted": True,
+        "argument_values_redacted": True,
+        "return_values_redacted": True,
+        "replay_safe": replay_safe,
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "target_runtime": f"0x{((link + slide) & MASK64):x}",
+        "args": [f"0x{value:x}" for value in xargs],
+        "return_values": [f"0x{value:x}" for value in values],
+    })
+    return summary, private
+
+
+def run_owned_poke(session: ReplSession,
+                   symbols: dict[str, Symbol],
+                   image: StaticImage,
+                   *,
+                   value: int,
+                   width: int = 8,
+                   alloc_size: int = KMALLOC_ROUNDTRIP_SIZE,
+                   gfp_header: Path = DEFAULT_GFP_HEADER,
+                   gfp_value: int | None = None) -> tuple[dict[str, object], dict[str, object]]:
+    if width not in (4, 8):
+        raise ReplError("poke width must be 4 or 8")
+    if alloc_size < width:
+        raise ReplError(f"alloc_size must be >= width ({width}): {alloc_size}")
+
+    gfp, gfp_components = (
+        (gfp_value, {}) if gfp_value is not None else derive_gfp_kernel_value(gfp_header)
+    )
+    if gfp is None:
+        raise ReplError("GFP_KERNEL derivation returned no value")
+
+    kmalloc_resolution = resolve_verified(symbols, image, "__kmalloc", purpose="call")
+    kfree_resolution = resolve_verified(symbols, image, "kfree", purpose="call")
+    kmalloc_link = require_verified_resolution(kmalloc_resolution, "allocator call")
+    kfree_link = require_verified_resolution(kfree_resolution, "allocator free call")
+
+    private: dict[str, object] = {}
+    checks: list[dict[str, object]] = []
+    ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_ok = False
+    free_error = ""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+        ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        ptr_ok = is_kernel_lowmem_pointer(ptr)
+        checks.append({
+            "check": "kmalloc-owned-buffer",
+            "ok": ptr_ok,
+            "alloc_size": alloc_size,
+            "kernel_lowmem": ptr_ok,
+        })
+        if not ptr_ok:
+            raise ReplError("__kmalloc did not return a sane kernel lowmem pointer")
+
+        session.poke_runtime(ptr, value, width)
+        got = session.peek_runtime(ptr, width)
+        expected = value & ((1 << (width * 8)) - 1)
+        value_ok = got == expected
+        checks.append({
+            "check": "owned-buffer-poke-peek",
+            "ok": value_ok,
+            "width": width,
+            "matches_written_value": value_ok,
+        })
+        if not value_ok:
+            raise ReplError("owned-buffer poke/peek mismatch")
+    finally:
+        if ptr and is_kernel_lowmem_pointer(ptr) and kfree_runtime:
+            try:
+                session.call_runtime(kfree_runtime, (ptr,))
+                free_ok = True
+            except Exception as exc:  # noqa: BLE001 - keep cleanup failure visible
+                free_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "kfree-owned-buffer",
+        "ok": free_ok,
+        "free_attempted": bool(ptr and is_kernel_lowmem_pointer(ptr) and kfree_runtime),
+    })
+    if free_error:
+        raise ReplError(f"kfree failed after owned-buffer poke: {free_error}")
+
+    passed = all(check["ok"] for check in checks)
+    summary = {
+        "decision": "a90-repl-v2c-u1-owned-poke-pass" if passed else "a90-repl-v2c-u1-owned-poke-fail",
+        "ok": passed,
+        "width": width,
+        "alloc_size": alloc_size,
+        "gfp_kernel": f"0x{gfp:x}",
+        "allocator_resolutions": {
+            "__kmalloc": kmalloc_resolution.public_dict(),
+            "kfree": kfree_resolution.public_dict(),
+        },
+        "raw_runtime_values_redacted": True,
+        "value_redacted": True,
+        "checks": checks,
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "alloc_ptr": f"0x{ptr:x}",
+        "value": f"0x{value:x}",
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
 # ----------------------------------------------------------------------------
 # CLI
 # ----------------------------------------------------------------------------
@@ -1876,6 +2150,60 @@ def cmd_peek(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_read(args: argparse.Namespace) -> int:
+    symbols = load_system_map(args.map)
+    image = load_static_image(args.image)
+    session = make_session(args)
+    summary, private = run_read(
+        session,
+        symbols,
+        image,
+        args.target,
+        length=args.len,
+        runtime_addr=args.runtime_addr,
+        chunk_size=args.chunk_size,
+    )
+    write_evidence(args, {**summary, "_private": private})
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0 if summary["ok"] else 1
+
+
+def cmd_call(args: argparse.Namespace) -> int:
+    symbols = load_system_map(args.map)
+    image = load_static_image(args.image)
+    session = make_session(args)
+    summary, private = run_call(
+        session,
+        symbols,
+        image,
+        args.symbol,
+        tuple(args.xargs),
+        replay_safe=args.replay_safe,
+    )
+    write_evidence(args, {**summary, "_private": private})
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0 if summary["ok"] else 1
+
+
+def cmd_poke(args: argparse.Namespace) -> int:
+    symbols = load_system_map(args.map)
+    image = load_static_image(args.image)
+    session = make_session(args)
+    summary, private = run_owned_poke(
+        session,
+        symbols,
+        image,
+        value=args.value,
+        width=args.width,
+        alloc_size=args.alloc_size,
+        gfp_header=args.gfp_header,
+        gfp_value=args.gfp,
+    )
+    write_evidence(args, {**summary, "_private": private})
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0 if summary["ok"] else 1
+
+
 def cmd_poke_roundtrip(args: argparse.Namespace) -> int:
     symbols = load_system_map(args.map)
     image = load_static_image(args.image)
@@ -1965,11 +2293,47 @@ def main(argv: list[str] | None = None) -> int:
     p_peek.add_argument("--len", type=int, default=8)
     p_peek.set_defaults(func=cmd_peek)
 
+    p_read = sub.add_parser(
+        "read",
+        help="v2c U1 arbitrary-length runtime read via looped 8-byte peek ops",
+    )
+    add_common(p_read)
+    p_read.add_argument("target", help="symbol name or link vaddr; use --runtime-addr for a runtime vaddr")
+    p_read.add_argument("--len", type=int, required=True)
+    p_read.add_argument("--chunk-size", type=int, default=DEFAULT_READ_CHUNK)
+    p_read.add_argument("--runtime-addr", action="store_true",
+                        help="interpret target as a runtime vaddr and do not apply KASLR slide")
+    p_read.set_defaults(func=cmd_read)
+
+    p_call = sub.add_parser(
+        "call",
+        help="v2c U1 verified named call; raw return values are private evidence only",
+    )
+    add_common(p_call)
+    p_call.add_argument("symbol")
+    p_call.add_argument("xargs", nargs="*", type=parse_int_auto, help="x0..x7 integer arguments")
+    p_call.add_argument("--replay-safe", action="store_true",
+                        help="allow retry on transient capture loss only for idempotent calls")
+    p_call.set_defaults(func=cmd_call)
+
+    p_poke = sub.add_parser(
+        "poke",
+        help="v2c U1 owned-buffer-only poke proof; never pokes an arbitrary address",
+    )
+    add_common(p_poke)
+    p_poke.add_argument("value", type=parse_int_auto)
+    p_poke.add_argument("--width", type=int, choices=(4, 8), default=8)
+    p_poke.add_argument("--alloc-size", type=parse_int_auto, default=KMALLOC_ROUNDTRIP_SIZE)
+    p_poke.add_argument("--gfp-header", type=Path, default=DEFAULT_GFP_HEADER)
+    p_poke.add_argument("--gfp", type=parse_int_auto, default=None,
+                        help="override GFP value; default derives GFP_KERNEL from --gfp-header")
+    p_poke.set_defaults(func=cmd_poke)
+
     p_round = sub.add_parser("poke-roundtrip", help="v2a2 kmalloc-backed poke/peek/kfree proof")
     add_common(p_round)
-    p_round.add_argument("--alloc-size", type=lambda value: int(value, 0), default=KMALLOC_ROUNDTRIP_SIZE)
+    p_round.add_argument("--alloc-size", type=parse_int_auto, default=KMALLOC_ROUNDTRIP_SIZE)
     p_round.add_argument("--gfp-header", type=Path, default=DEFAULT_GFP_HEADER)
-    p_round.add_argument("--gfp", type=lambda value: int(value, 0), default=None,
+    p_round.add_argument("--gfp", type=parse_int_auto, default=None,
                          help="override GFP value; default derives GFP_KERNEL from --gfp-header")
     p_round.add_argument("--skip-width32", action="store_true",
                          help="skip the optional 32-bit poke path")

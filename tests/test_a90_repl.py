@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import struct
 import unittest
+import hashlib
 from pathlib import Path
 
 from _loader import load_script
@@ -595,6 +596,118 @@ class SelftestIntegrationTests(unittest.TestCase):
                 allocator_source="System.map",
             )
         self.assertEqual(fake.op_count, 0)
+
+    def test_u1_read_reads_arbitrary_length_in_chunks(self) -> None:
+        slide = 0x130000
+        fake = FaithfulFakeTransport(slide, self.symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        summary, private = repl.run_read(
+            session,
+            self.symbols,
+            self.image,
+            "kgsl_pwrctrl_force_no_nap_store",
+            length=20,
+        )
+
+        link = repl.resolve_link(self.symbols, "kgsl_pwrctrl_force_no_nap_store")
+        want = self.image.bytes_at_vaddr(link, 20)
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-v2c-u1-read-pass")
+        self.assertEqual(summary["chunk_count"], 3)
+        self.assertEqual(summary["static_image_match"], True)
+        self.assertEqual(summary["data_sha256"], hashlib.sha256(want).hexdigest())
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertNotIn("data_hex", summary)
+        self.assertEqual(private["data_hex"], want.hex())
+        self.assertEqual(fake.op_count, 4)  # slide + ceil(20/8) peek ops
+
+    def test_u1_read_rejects_zero_length_before_transport(self) -> None:
+        fake = FaithfulFakeTransport(0x130000, self.symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        with self.assertRaisesRegex(repl.ReplError, "read length"):
+            repl.run_read(
+                session,
+                self.symbols,
+                self.image,
+                "kgsl_pwrctrl_force_no_nap_store",
+                length=0,
+            )
+        self.assertEqual(fake.op_count, 0)
+
+    def test_u1_call_verified_symbol_redacts_values(self) -> None:
+        slide = 0x130000
+        fake = FaithfulFakeTransport(slide, self.symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        summary, private = repl.run_call(
+            session,
+            self.symbols,
+            self.image,
+            "printk",
+            (repl.FORMAT_LINK_VADDR + slide, repl.CALL_SENTINEL),
+            replay_safe=True,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-v2c-u1-call-pass")
+        self.assertEqual(summary["return_value_count"], 2)
+        self.assertTrue(summary["resolution"]["verified"])
+        self.assertTrue(summary["argument_values_redacted"])
+        self.assertTrue(summary["return_values_redacted"])
+        self.assertNotIn("return_values", summary)
+        self.assertEqual(private["return_values"], [f"0x{repl.CALL_SENTINEL:x}", "0xb"])
+
+    def test_u1_call_rejects_unverified_symbol_before_transport(self) -> None:
+        fake = FaithfulFakeTransport(0x130000, self.symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        with self.assertRaisesRegex(repl.ReplError, "not verified"):
+            repl.run_call(
+                session,
+                self.symbols,
+                self.image,
+                "kallsyms_lookup_name",
+                (),
+            )
+        self.assertEqual(fake.op_count, 0)
+
+    def test_u1_poke_is_owned_buffer_only_and_redacted(self) -> None:
+        fake = FaithfulFakeTransport(0x130000, self.symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        summary, private = repl.run_owned_poke(
+            session,
+            self.symbols,
+            self.image,
+            value=0xAABBCCDDEEFF0011,
+            width=8,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-v2c-u1-owned-poke-pass")
+        self.assertEqual(fake.heap[fake.heap_ptr], 0xAABBCCDDEEFF0011)
+        self.assertEqual(fake.freed, [fake.heap_ptr])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["value_redacted"])
+        self.assertNotIn("alloc_ptr", summary)
+        self.assertEqual(private["alloc_ptr"], f"0x{fake.heap_ptr:x}")
 
 
 if __name__ == "__main__":

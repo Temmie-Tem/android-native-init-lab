@@ -1141,6 +1141,18 @@ host-only unit unless it explicitly needs a live check. Report each to `docs/rep
   (this unblocks the old "v2b" need with NO new image — looping the existing `peek` op suffices for reads),
   and `poke` to a verified-owned buffer. Keep raw runtime pointers/slide out of stdout (private evidence
   only), as today.
+
+  **STATUS (2026-06-29 v2c U1 host pass) — first-class CLI surface landed.**
+  `a90_repl.py` now exposes `read`, `call`, and `poke` subcommands on the existing v1-repl image. `read`
+  accepts a symbol/link-vaddr/runtime-vaddr and performs arbitrary-length host-side looped op1 reads in
+  1..8 byte chunks, reporting SHA256/static-image-match while keeping raw bytes and runtime addresses in
+  private evidence only. `call` requires C1 `resolve_verified(..., purpose="call")` and rejects unverified
+  symbols before transport; args and returns are redacted from stdout. `poke` is owned-buffer-only: verified
+  `__kmalloc` → poke fresh buffer → peek verify → verified `kfree`, with no arbitrary-address poke path.
+  Validation: `py_compile` pass, CLI `--help` smoke checks pass, `tests.test_a90_repl` +
+  `tests.test_a90_stock_kallsyms_extract` **61/61 PASS**. Report:
+  `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2C_U1_CLI_SURFACE_2026-06-29.md`.
+  Remaining U1 gate: live bridge validation of these commands under the v2c flash/rollback rules.
 - **U2 (optional/stretch).** Small ergonomics: a session that fetches the slide once and reuses it; a
   `--json` machine surface; a short operator runbook for the tool in `docs/operations/`.
 
