@@ -833,6 +833,29 @@ call-proof, no boot-image change. Validation: `py_compile` pass, `tests.test_a90
 focused companion suite **24/24 PASS**, and CLI classifier smoke with objdump evidence PASS. Report:
 `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_U2_CALL_SAFETY_CLASSIFIER_2026-06-29.md`.
 
+> ### 🛑 OPERATOR GATE-2 (2026-06-29) — U2 architecture is GOOD; ONE seed mis-tier to fix: `kfree` is NOT `SAFE-SCALAR`
+>
+> Independently verified: gate fails closed correctly (DENY non-overridable even with token; SAFE-WITH-VALID-PTR
+> demands declared ptr args; non-SAFE refused before transport), and the invariants hold (printk/kernel_read=
+> valid-ptr, __kmalloc=SAFE-SCALAR ✓ genuinely scalar — `cmp x0,#0x2000` + arithmetic, no deref; kallsyms_lookup_name=
+> DENY; creds-family=BEHAVIOR-CHANGING). **But `kfree` is mis-tiered `SAFE-SCALAR` ⇒ `auto_call_allowed=True`, so the
+> gate would wave through `call kfree <arbitrary scalar>` — and `kfree(garbage_nonzero)` faults** (it computes a wild
+> `page*` via `virt_to_head_page` and derefs it). That is exactly the "address-known, call-unsafe" footgun U2 exists to
+> stop. **Root cause (structural, not just this seed):** the SAFE-SCALAR static check ("no `[xN]` arg deref before the
+> first `bl`") UNDER-APPROXIMATES pointer consumption. `kfree` saves `x0→x22`, NULL-checks, then derefs a *derived*
+> page pointer after a `bl` — so the early-deref signal is empty and the wrong tier survives. **Fix (host-only, no
+> device):**
+> 1. Reseed `kfree` as `SAFE-WITH-VALID-PTR` with `required_valid_pointer_args={0: "kmalloc-object-or-NULL"}` (the
+>    v2a2 round-trip still works — the caller supplies the real kmalloc'd pointer; this just forces that acknowledgment).
+> 2. Strengthen `SAFE-SCALAR` to a POSITIVE proof: an arg register may be SAFE-SCALAR only if it never flows into a
+>    memory-base use ANYWHERE in the reachable body (track `mov xN→xM` taint + loads/stores whose base traces to an
+>    arg reg + args passed into a deref-ing callee), not merely "no `[xN]` before first `bl`." Equivalently: a
+>    pointer-typed arg is NEVER SAFE-SCALAR. Re-audit every current SAFE-SCALAR seed under the stronger rule
+>    (`__kmalloc` should remain SAFE-SCALAR; `kfree` should drop out).
+> 3. Add a regression test: `call kfree <scalar>` without a declared valid pointer must be REFUSED by the gate.
+>
+> Keep everything else as-is. Host-only; do not touch the device; this is a classifier-precision fix, not a redesign.
+
 **Guardrails:** host-only static analysis; exploit-free framing (this is CALL-SAFETY, not weaponization);
 `commit_creds`/`prepare_kernel_cred`/etc. stay RECON-classified, never chained; keep raw runtime pointers
 out of commits; scoped `git add`; fails-twice on the same approach → STOP + report. Operator (Claude)
