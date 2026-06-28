@@ -817,6 +817,17 @@ each tier + the refusal + the 3-proven-stay-SAFE / kallsyms_lookup_name-DENY inv
 focused suite pass; host-only, no device action, no boot image. After U2, a tool runbook is the only
 remaining optional remainder before the REPL epic can fully close.
 
+**BACKLOG IDEA (do NOT start until U2 is confirmed DONE) — U3: broad advisory risk-assessment sweep.**
+Once the U2 seed + signal extractor are vetted, scale the classifier from the ~15 hand-seed to a large
+function-family sweep (allocator / string / list / bounded read-I/O / sysfs-`show`) to produce ① a
+signal-bucketed risk profile, ② a ranked *candidate*-SAFE list, and ③ danger flags (held-lock assumption,
+arg-pointer deref, variadic-twin shape). **Hard constraint:** the sweep is **descriptive/advisory only** —
+auto-call whitelist promotion stays fail-closed (seed / operator-disasm / live-proof), and the sweep MUST
+NOT auto-promote anything to an auto-callable tier. Rationale = the kfree lesson + the false-SAFE asymmetry:
+static signals UNDER-approximate, so false-DENY is free (operator can unblock) but false-SAFE is a device
+fault — therefore tune the sweep to rank candidates + catch danger, never to declare SAFE. Host-only. This
+is a backlog note, not an active charter; operator re-charters it after U2 closes clean.
+
 **STATUS (2026-06-29 U2 host pass) — disasm-backed call-safety classifier + fail-closed call gate landed.**
 `a90_repl.py` now has `call-safety-classify`, which C1-resolves identity first and emits evidence-backed
 tiers with static signals: early arg-register derefs, BL targets, context-sensitive lock/IRQ/sleep calls,
