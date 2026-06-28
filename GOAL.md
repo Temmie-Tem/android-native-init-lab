@@ -1298,6 +1298,20 @@ operator disasm verification. Validation: `py_compile` pass, CLI `ksymtab-ground
 > 4. Operator will independently re-disasm-verify the promoted in-tree map (anchors + a sample of newly-
 >    corrected exports) before it is trusted for anything beyond C1-gated use. Guardrails unchanged; this is
 >    host-only (no device); keep raw pointers/slide out of commits.
+> 5. **FOLLOW-UP (host-only, recommended) — cross-validate against `vmlinux-to-elf`.** Web research
+>    (2026-06-29) confirms every bug we hit is a *documented, known* class, and a mature reference tool
+>    already handles them: `vmlinux-to-elf` (github.com/marin-m/vmlinux-to-elf, also bkerler fork) recovers a
+>    System.map from a raw arm64 `Image` and explicitly handles (a) the variable kallsyms table
+>    alignment/padding (our 380-byte `relative_base` pad) and (b) the ksymtab relocation gotcha
+>    (pre-4.19 arm64 uses 16-byte `{value,name}` + **24-byte `R_AARCH64_RELATIVE` (`0x403`) RELA** records;
+>    the unrelocated section reads as zeros — exactly why our C2E oracle reconstructs from the relocations).
+>    Run `vmlinux-to-elf` on the v2321 image as an INDEPENDENT THIRD oracle and require three-way agreement
+>    (promoted extractor map ≡ C2E ksymtab-relocation oracle ≡ `vmlinux-to-elf`) on the four anchors + a
+>    sample of corrected exports before declaring the map ground-truth. If `vmlinux-to-elf` disagrees, treat
+>    that as a STOP-and-investigate signal, not a silent override. (It is a host-only Python tool — vendor it
+>    privately if used; do not add a network/runtime dependency to the build.) Refs: kallsyms BASE_RELATIVE
+>    `addr = kallsyms_relative_base + (u32)offset` (LWN 673381); ksymtab PREL32/RELA relative refs
+>    (LWN 758337). This is a *confidence* step; C1 fail-closed already gates safety regardless.
 
 **Guardrails: unchanged from below** (RECON / exploit-free; no RKP bypass; no protected-memory write; no
 RWX; preserve `x17`; boot-partition-only flashes with pinned+readback SHA; rollback v2321; fails-twice →
