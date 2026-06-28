@@ -64,12 +64,13 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > `## 🟣 ACTIVE NOW — DELEGATED: Tier-2 Runtime Kernel REPL (v1-repl → v2a)` further down this file.**
 > Bad Apple full-song demo, GPU first-light/triangle/compute/accel-2D/monitor/zero-copy rungs, and DOOM
 > are all DONE and eye-confirmed; the loop pivoted GPU→SoftAP at V3336; SoftAP S0→S4 is DONE at V3344.
-> Do NOT resume Video/Nyan/GPU/SoftAP work — go to the **Runtime Kernel REPL** delegated block. v2a2 is
-> now LIVE-PROVEN via the existing v1-repl image plus v2a2R' recovered `__kmalloc`/`kfree` export
-> addresses; v1-slide, v1-repl slide/peek/poke/call, the kallsyms extractor (v2a0), named host driver
-> (v2a1), and recovered-export allocator-backed poke round-trip (v2a2) are all LIVE-PROVEN. v2b
-> (`show`-buf bulk peek) remains blocked/optional until a fixed scratch anchor + cleanup protocol is
-> explicitly reopened. The text below is retained as reference history only.
+> Do NOT resume Video/Nyan/GPU/SoftAP work — go to the **Runtime Kernel REPL** delegated block. v2a is
+> LIVE-PROVEN end-to-end (v1-slide, v1-repl slide/peek/poke/call, kallsyms extractor v2a0, named host
+> driver v2a1, recovered-export allocator-backed poke round-trip v2a2). **The ACTIVE NEXT EPIC is now v2c —
+> Tier-2 Kernel REPL PRODUCTIZATION (correctness + stability + usability)**; see the `▶ ACTIVE NEXT EPIC =
+> v2c` block. v2c's centerpiece is fail-closed resolution (the kallsyms map silently mislabels regions —
+> this bit v2a2). v2b "show-buf" bulk peek is superseded by v2c U1's host-side looped `read`. The text below
+> is retained as reference history only.
 
 > **(history)** Audio CORE is device-proven + promoted (`0.10.0`); its Tier-C polish is optional background.
 >
@@ -1027,8 +1028,57 @@ Fails-twice → STOP and report; anti-churn in force. Report each unit to `docs/
 **Operator/loop split:** the operator (Claude) did the corrected `poke` agent, `slide`, v1-repl Gate-2,
 the v2a0 kallsyms fix, and the v2a1 named host driver (all live-validated, since only the operator can
 reach the device bridge + commit). Codex builds host-only/RE units; the operator runs all live flash/
-validate + commits. v2a1 was operator-direct (small + protocol-tight). v2a2 is now complete; next frontier
-is TBD, and v2b stays blocked/optional unless explicitly reopened.
+validate + commits. v2a1 was operator-direct (small + protocol-tight). v2a is complete; the next frontier
+is the v2c productization epic below.
+
+### ▶ ACTIVE NEXT EPIC = v2c — Tier-2 Kernel REPL PRODUCTIZATION (correctness + stability + usability)
+
+**Operator-chartered 2026-06-29 after a maturity review.** v2a proved the capability (flash-once
+`slide`/`peek`/`poke`/`call`, named/recovered-address resolution, owned-buffer round-trip), but it is an
+operator-driven proof, not yet a *trustworthy, stable, usable tool*. v2c hardens it into one. **No new boot
+image is needed** for most of this — it drives the existing v1-repl image (`b846ae9f…`); only bounded live
+re-validation flashes, with v2321 rollback. Work the sub-units in priority order; each is a bounded
+host-only unit unless it explicitly needs a live check. Report each to `docs/reports/`.
+
+**The #1 gap is CORRECTNESS (the kallsyms map silently mislabels regions — this is what bit v2a2).**
+
+- **C1 — fail-closed resolution (highest priority).** Make the `System.map` *untrusted by default* for any
+  `call`/`poke` target. Add `resolve_verified(symbol) -> (link_vaddr, verified: bool, method, evidence)`
+  and REQUIRE `verified=True` before any `call`/`poke`; refuse otherwise. Verification ladder:
+  (1) export-recovery ground truth (already built, exported symbols only); (2) disasm-signature + `bl`-xref
+  sanity (e.g. a callable function entry must be JOPP-shaped, have a plausible xref count, and not match a
+  known-bad shape); (3) optional agreement with the map. `peek` of read-only data may use the map but must
+  surface `verified=False` in output. This structurally prevents the v2a2 mislabel-call class.
+- **C2 — map-trust audit + decoder root-fix.** Build a host-only `map-audit` that cross-checks the kallsyms
+  `System.map` against export-recovery ground truth for *all* exported symbols, emits a drift report (which
+  symbols/address-regions disagree), and quantifies map accuracy. Then use that to find and fix the residual
+  `a90_stock_kallsyms_extract.py` name↔address drift in the mm/slab (and any other drifted) region — the
+  v2a0 ULEB128 fix did not cover it. Goal: a map that is either correct everywhere or annotated with its
+  trustworthy regions. (C2 can be staged: audit first, decoder fix as a follow-up.)
+- **S1 — transport stability.** Harden the live op path against the observed serial-fragment noise
+  (`ATAT` / missing `A90P1 END`): per-op bounded re-read/realign retry, robust ring read (busybox `dmesg`
+  is read-and-clear; keep the single-shell `op_sh` + `tail -n N`), and clear classification of
+  transient-noise vs real failure. Ops should self-heal a noisy read instead of aborting the run.
+- **U1 — usability surface.** Add first-class CLI: `call SYMBOL [args…]` (verified targets only),
+  `read SYMBOL|ADDR --len N` = **arbitrary-length bulk peek by host-side looping op1 in 8-byte chunks**
+  (this unblocks the old "v2b" need with NO new image — looping the existing `peek` op suffices for reads),
+  and `poke` to a verified-owned buffer. Keep raw runtime pointers/slide out of stdout (private evidence
+  only), as today.
+- **U2 (optional/stretch).** Small ergonomics: a session that fetches the slide once and reuses it; a
+  `--json` machine surface; a short operator runbook for the tool in `docs/operations/`.
+
+**Definition of done for v2c:** named `call`/`poke` cannot target an unverified address (fail-closed);
+a map-audit report exists and the known mm/slab drift is fixed or explicitly fenced; arbitrary-length
+`read` works; the live op path survives serial-fragment noise without aborting; one bounded live
+re-validation passes and rolls back to v2321 `fail=0`; raw pointers/slide never leave private evidence.
+
+**Guardrails: unchanged from below** (RECON / exploit-free; no RKP bypass; no protected-memory write; no
+RWX; preserve `x17`; boot-partition-only flashes with pinned+readback SHA; rollback v2321; fails-twice →
+STOP + report; keep raw runtime pointers/slide out of commits; scoped `git add`). Operator cross-checks any
+recovered/verified address by independent disasm before a live rerun and steers via GOAL.md; the loop owns
+host build + (sandbox-disabled) live + commits. v2b "show-buf" bulk peek is **superseded** by U1's
+host-side looped `read` (no new image required); only build a new image if a future unit needs new on-device
+behavior.
 
 ## 🟣 DONE — DELEGATED OPERATOR SIDE-QUEST — Tier-2 Stage C: confirm a patched-in direct `bl` executes under RKP_CFP
 
