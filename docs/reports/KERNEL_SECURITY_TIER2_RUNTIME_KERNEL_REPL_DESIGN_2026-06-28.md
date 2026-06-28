@@ -120,8 +120,15 @@ EL2 (RKP’s own memory) and EL3 (TrustZone), and unmapped physical memory (map 
 
 ## Phased build plan (next steps, each its own unit)
 
-1. **v1-slide** — minimal `store` stub: magic-guard + `adr` self-PC + `bl printk`. Gate-2 disasm,
-   flash, prove `slide` live, roll back V2321. (Breaks the slide assumption first.)
+1. **v1-slide** — ✅ **DONE / LIVE-PROVEN** (`build_kernel_tier2_repl_v1_slide.py`, image
+   `boot_linux_tier2_repl_v1_slide.img` SHA256 `658a7d10…`). Minimal `store` stub: ROPP frame +
+   magic-guard + `adr x1,.` self-PC + `bl printk`. Gate-2 disasm matched the design; flashed,
+   booted clean (`selftest fail=0`); a magic-matched write to `force_no_nap` printed
+   `A90SLIDE <runtime_pc>` to dmesg, and `slide = runtime_pc − (entry_vaddr + 40)` came out a
+   single page-granular value, internally consistent (the `adr` at entry+0x28 reported
+   entry_runtime+0x28). The `adr` self-PC slide leak is proven — the heavy V2216 perf/codeword
+   method is not needed. Rolled back to clean V2321, `selftest fail=0`. (The raw per-boot slide
+   is a runtime KASLR value and is deliberately kept out of this report.)
 2. **v1-repl** — add `poke` (have it), small `peek`, and `call` (ROPP frame) with printk output,
    within the budget (split per D6 if needed). Validate `call` on a benign function
    (e.g. `call kallsyms_lookup_name("…")` and confirm = `link_addr + slide`).
