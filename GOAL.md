@@ -1200,6 +1200,52 @@ U1 CLI `read`/`call`/owned-`poke`, S1 sequential live validation, and rollback-t
 landed and reported. U2 remains optional/stretch only; any future broad map drift claim still requires a
 new independent oracle and must not come from the noisy 24-byte `0x403` table.
 
+### ▶ NEXT UNIT = v2c-C2E — real `__ksymtab` ground-truth oracle + authoritative drift map (+ kallsyms decoder root-fix decision)
+
+**Operator-chartered 2026-06-29.** This closes the one real remaining correctness gap: the kallsyms
+`System.map` is mislabeled in unknown regions (mm/slab proven), and today only C1 fail-closed + per-symbol
+export-recovery protect us. C2E builds a *sound, at-scale* ground-truth oracle and produces an authoritative
+map-drift report, then decides whether a decoder root-fix is warranted. **Host-only** until a bounded live
+re-validation is explicitly needed; drives the existing v1-repl image; no new boot image.
+
+**Hard lessons to obey (do NOT repeat):**
+- The C2A string-ref scanner is UNSOUND (noisy; printk → false candidates `0x813adfc`/`0x81b8eac`, missing
+  the real `0x813d8cc`). **Do NOT use name-string-ref heuristics as ground truth.** They stay non-authoritative.
+- A correct oracle MUST reproduce the operator anchors or it is wrong: `printk=0xffffff800813d8cc`,
+  `force_no_nap_store=0xffffff80089273b4`, `__kmalloc=0xffffff800826ae34` (`cmp x0,#0x2000`, 1765 `bl` xrefs),
+  `kfree=0xffffff800826b354` (10596 xrefs). Gate the oracle on these before trusting any drift count.
+
+**Steps:**
+1. **Structural `__ksymtab` parse (the sound oracle).** Locate the real export tables by STRUCTURE, not
+   names: find the contiguous run of fixed-stride entries where every "name" field points into one
+   contiguous `__ksymtab_strings`-like ASCII region and every "value" field resolves to a `.text` JOPP
+   function entry (`u32(entry-4)==0x00be7bad`). Determine the exact entry layout empirically (old-style
+   `{unsigned long value; const char *name}` vs PREL32 `{s32 value_off; s32 name_off}` vs the observed
+   24-byte/`0x403`-stride variant) by which layout makes ALL anchors resolve correctly. Also try to bound it
+   via `__start___ksymtab`/`__stop___ksymtab` if those map symbols land in a trustworthy region. Output: an
+   authoritative `{addr → exported-name}` table that reproduces every anchor.
+2. **Authoritative drift report.** Cross-check that table against `System.map` for all exported symbols;
+   emit real match/mismatch counts + the mismatched address-regions. (This is the *trustworthy* version of
+   the C2A audit; it must show `printk=match`, `__kmalloc`/`kfree=mismatch`.) Make `run_map_audit` (or a new
+   `ksymtab-audit`) use this oracle for exported symbols.
+3. **Localize the kallsyms decoder divergence.** Using the ksymtab ground truth, find the exact symbol /
+   table position where `a90_stock_kallsyms_extract.py` first pairs a name with the wrong address in the
+   mm/slab region (the v2a0 ULEB128 fix covered names-length but something else drifts here). Diagnose the
+   root cause (e.g. an offsets-table padding/alignment or ABSOLUTE_PERCPU edge) WITHOUT guessing.
+4. **Decoder root-fix DECISION (gated).** Only fix `a90_stock_kallsyms_extract.py` if step 3 yields a
+   precise, low-risk cause AND the regenerated map reproduces ALL anchors with **zero regression** on the
+   currently-correct regions (printk/kgsl). Operator will independently disasm-verify the regenerated map
+   before any reliance. If the cause is not cleanly isolable, DO NOT rewrite the decoder — instead publish a
+   trust-region map (which `System.map` regions are ksymtab-confirmed) and keep C1 fail-closed as the
+   safety net. Non-exported (static) symbols remain map-only and stay `verified=false` for `call`/`poke`.
+
+**Definition of done for C2E:** a structural `__ksymtab` oracle that reproduces all four anchors; an
+authoritative drift report (real counts, `printk=match`/`__kmalloc`+`kfree=mismatch`); the decoder
+divergence localized with a root cause; and either a regression-free decoder fix (operator-disasm-verified)
+or an explicit, documented decision to keep map-as-is + trust-region fencing. C1 fail-closed stays enforced
+throughout. Guardrails unchanged below; keep raw pointers/slide out of commits; fails-twice → STOP + report.
+After C2E, U2 ergonomics + a tool runbook are the only optional remainders, then the REPL epic can close.
+
 **Guardrails: unchanged from below** (RECON / exploit-free; no RKP bypass; no protected-memory write; no
 RWX; preserve `x17`; boot-partition-only flashes with pinned+readback SHA; rollback v2321; fails-twice →
 STOP + report; keep raw runtime pointers/slide out of commits; scoped `git add`). Operator cross-checks any
