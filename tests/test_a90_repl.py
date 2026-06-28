@@ -47,6 +47,13 @@ class CommandBufferTests(unittest.TestCase):
         buf = repl.build_cmd_buffer(repl.OP_PEEK, ((1 << 70) | 0xDEAD, 8))
         self.assertEqual(struct.unpack_from("<Q", buf, 0x10)[0], 0xDEAD & repl.MASK64)
 
+    def test_poke_buffer_layout(self) -> None:
+        buf = repl.build_cmd_buffer(repl.OP_POKE, (0xFFFFFFC012300000, 0xAABBCCDD, 4))
+        self.assertEqual(buf[0x08], repl.OP_POKE)
+        self.assertEqual(struct.unpack_from("<Q", buf, 0x10)[0], 0xFFFFFFC012300000)
+        self.assertEqual(struct.unpack_from("<Q", buf, 0x18)[0], 0xAABBCCDD)
+        self.assertEqual(struct.unpack_from("<Q", buf, 0x20)[0], 4)
+
     def test_too_many_args_rejected(self) -> None:
         with self.assertRaises(ValueError):
             repl.build_cmd_buffer(repl.OP_CALL, tuple(range(10)))
@@ -74,6 +81,20 @@ class ConstantTests(unittest.TestCase):
         self.assertEqual(repl.ADR_SELF_LINK_VADDR, 0xFFFFFF80089273F0)
         self.assertEqual(repl.REPL_MAGIC, 0xA90C0DE5DEADBEEF)
         self.assertEqual(repl.JOPP_MAGIC, 0x00BE7BAD)
+
+    def test_gfp_kernel_derives_from_private_kernel_header(self) -> None:
+        value, components = repl.derive_gfp_kernel_value()
+        self.assertEqual(components["___GFP_IO"], 0x40)
+        self.assertEqual(components["___GFP_FS"], 0x80)
+        self.assertEqual(components["___GFP_DIRECT_RECLAIM"], 0x400000)
+        self.assertEqual(components["___GFP_KSWAPD_RECLAIM"], 0x1000000)
+        self.assertEqual(value, 0x14000C0)
+
+    def test_lowmem_pointer_gate(self) -> None:
+        self.assertTrue(repl.is_kernel_lowmem_pointer(0xFFFFFFC012300000))
+        self.assertFalse(repl.is_kernel_lowmem_pointer(0))
+        self.assertFalse(repl.is_kernel_lowmem_pointer(repl.ENTRY_VADDR))
+        self.assertFalse(repl.is_kernel_lowmem_pointer(0xFFFFFFC012300003))
 
 
 class FakeTransport:
@@ -213,6 +234,9 @@ class FaithfulFakeTransport:
         self.slide = slide
         self.symbols = symbols
         self.image = image
+        self.heap_ptr = 0xFFFFFFC012300000
+        self.heap: dict[int, int] = {}
+        self.freed: list[int] = []
 
     def run_serial_command(self, argv, *, host, port, timeout):
         sh_str = argv[-1]
@@ -222,16 +246,41 @@ class FaithfulFakeTransport:
         op = buf[8]
         import struct as _s
         arg0 = _s.unpack_from("<Q", buf, 0x10)[0]
+        arg1 = _s.unpack_from("<Q", buf, 0x18)[0]
+        arg2 = _s.unpack_from("<Q", buf, 0x20)[0]
         lines = []
         if op == repl.OP_SLIDE:
             lines.append(f"A90R{(repl.ADR_SELF_LINK_VADDR + self.slide):x}")
         elif op == repl.OP_PEEK:
-            link = arg0 - self.slide
-            lines.append(f"A90R{self.image.u64_at_vaddr(link):x}")
+            if arg0 in self.heap:
+                lines.append(f"A90R{self.heap[arg0]:x}")
+            else:
+                link = arg0 - self.slide
+                lines.append(f"A90R{self.image.u64_at_vaddr(link):x}")
+        elif op == repl.OP_POKE:
+            if arg2 == 8:
+                self.heap[arg0] = arg1 & repl.MASK64
+            elif arg2 == 4:
+                current = self.heap.get(arg0, 0)
+                self.heap[arg0] = (current & ~0xFFFFFFFF) | (arg1 & 0xFFFFFFFF)
+            else:
+                raise AssertionError(f"unexpected poke width: {arg2}")
+            lines.append(f"A90R{arg2:x}")
         elif op == repl.OP_CALL:
-            sentinel = _s.unpack_from("<Q", buf, 0x20)[0]  # arg2 == x1
-            lines.append(f"A90R{sentinel:x}")   # called printk echoes the sentinel
-            lines.append("A90Rb")               # stub prints printk's return value
+            kmalloc = repl.resolve_link(self.symbols, "__kmalloc") + self.slide
+            kfree = repl.resolve_link(self.symbols, "kfree") + self.slide
+            printk = repl.resolve_link(self.symbols, "printk") + self.slide
+            if arg0 == kmalloc:
+                lines.append(f"A90R{self.heap_ptr:x}")
+            elif arg0 == kfree:
+                self.freed.append(arg1)
+                lines.append("A90R0")
+            elif arg0 == printk:
+                sentinel = arg2  # arg2 == x1
+                lines.append(f"A90R{sentinel:x}")   # called printk echoes the sentinel
+                lines.append("A90Rb")               # stub prints printk's return value
+            else:
+                raise AssertionError(f"unexpected call target: {arg0:#x}")
         return {"ok": True, "rc": 0, "stdout": "\n".join(lines) + "\n", "stderr": ""}
 
 
@@ -267,6 +316,44 @@ class SelftestIntegrationTests(unittest.TestCase):
     def test_selftest_rejects_non_page_aligned_slide(self) -> None:
         with self.assertRaises(repl.ReplError):
             self._run(0x130123)
+
+    def test_poke_roundtrip_passes_with_faithful_stub(self) -> None:
+        fake = FaithfulFakeTransport(0x130000, self.symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_poke_roundtrip(session, self.symbols, self.image)
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-v2a2-poke-roundtrip-pass")
+        kinds = {c["check"] for c in summary["checks"]}
+        self.assertEqual(
+            kinds,
+            {
+                "kmalloc-owned-buffer",
+                "poke-peek-qword",
+                "poke-peek-low32",
+                "kfree-owned-buffer",
+            },
+        )
+        self.assertEqual(fake.heap[fake.heap_ptr], 0x11223344C001D00D)
+        self.assertEqual(fake.freed, [fake.heap_ptr])
+        self.assertEqual(private["alloc_ptr"], f"0x{fake.heap_ptr:x}")
+        self.assertNotIn("alloc_ptr", summary)
+
+    def test_poke_roundtrip_rejects_non_lowmem_alloc(self) -> None:
+        fake = FaithfulFakeTransport(0x130000, self.symbols, self.image)
+        fake.heap_ptr = 0x12345000
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        with self.assertRaises(repl.ReplError):
+            repl.run_poke_roundtrip(session, self.symbols, self.image)
+        self.assertFalse(fake.heap)
+        self.assertFalse(fake.freed)
 
 
 if __name__ == "__main__":

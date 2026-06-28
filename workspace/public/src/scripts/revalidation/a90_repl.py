@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Host-side driver for the flash-once Tier-2 runtime kernel REPL (v1-repl image).
 
-This is the v2a1 unit: it does *not* build a new boot image. It drives the
+This started as the v2a1 unit and now also carries the v2a2 host driver. It
+does *not* build a new boot image. It drives the
 already-live-proven `boot_linux_tier2_repl_v1_repl.img` (SHA256
 b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65) over the
 existing serial bridge, resolving kernel symbols *by name* from the
 fixed `a90_stock_kallsyms_extract.py` System.map and turning the per-boot KASLR
-slide (op 0) into named `peek`/`call`:
+slide (op 0) into named `peek`/`call`/owned-buffer `poke`:
 
     runtime_vaddr(symbol) = link_vaddr(symbol, System.map) + slide
 
@@ -25,12 +26,14 @@ Command buffer layout (matches build_kernel_tier2_repl_v1_repl.py):
     +0x20 u64 arg2   (poke width, call x1)
     +0x28..+0x50     (call x2..x7)
 
-Safety: this driver only ever *reads* with `peek` and only calls real function
+Safety: normal selftest only *reads* with `peek` and calls real function
 entries (JOPP-gated, verified `u32(entry-4)==0x00BE7BAD` against the static
-image). It does not issue `poke`. Per-boot raw runtime pointers and the slide
-are kept out of stdout and committed artifacts; only symbolic PASS/FAIL and
-link-relative facts are surfaced. Private evidence (with raw values) is written
-under workspace/private when --evidence-dir is given.
+image). The v2a2 `poke-roundtrip` command issues `poke` only into a fresh
+`__kmalloc` buffer it owns, verifies via `peek`, then calls `kfree`. Per-boot
+raw runtime pointers and the slide are kept out of stdout and committed
+artifacts; only symbolic PASS/FAIL and link-relative facts are surfaced.
+Private evidence (with raw values) is written under workspace/private when
+--evidence-dir is given.
 """
 from __future__ import annotations
 
@@ -74,6 +77,18 @@ MASK64 = (1 << 64) - 1
 DEFAULT_BUSYBOX = "/bin/busybox"
 DEFAULT_IMAGE = "workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img"
 DEFAULT_DMESG_TAIL = 16
+DEFAULT_GFP_HEADER = (
+    REPO_ROOT
+    / "workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource"
+    / "Kernel/include/linux/gfp.h"
+)
+
+KMALLOC_ROUNDTRIP_SIZE = 0x1000
+POKE_SENTINEL_A = 0xA90F00D1CAFE0001
+POKE_SENTINEL_B = 0x1122334455667788
+POKE_SENTINEL_32 = 0xC001D00D
+KERNEL_LOWMEM_MIN = 0xFFFFFFC000000000
+KERNEL_LOWMEM_MAX = 0xFFFFFFFFFFFFFFFF
 
 A90R_RE = re.compile(r"A90R([0-9a-fA-F]+)")
 
@@ -131,6 +146,44 @@ def op_sh(buf: bytes, busybox: str = DEFAULT_BUSYBOX, *, tail_lines: int = 60,
 
 def parse_a90r_values(text: str) -> list[int]:
     return [int(hexval, 16) for hexval in A90R_RE.findall(text)]
+
+
+def parse_define_u32(text: str, name: str) -> int:
+    match = re.search(
+        rf"^#define\s+{re.escape(name)}\s+(0x[0-9a-fA-F]+|\d+)u?\b",
+        text,
+        re.MULTILINE,
+    )
+    if not match:
+        raise RuntimeError(f"missing {name} in GFP header")
+    return int(match.group(1), 0)
+
+
+def derive_gfp_kernel_value(header: Path = DEFAULT_GFP_HEADER) -> tuple[int, dict[str, int]]:
+    """Derive GFP_KERNEL from this kernel tree's include/linux/gfp.h.
+
+    The public source currently uses widened reclaim bits, so deriving beats
+    copying an expected value from notes.
+    """
+    text = header.read_text()
+    components = {
+        "___GFP_IO": parse_define_u32(text, "___GFP_IO"),
+        "___GFP_FS": parse_define_u32(text, "___GFP_FS"),
+        "___GFP_DIRECT_RECLAIM": parse_define_u32(text, "___GFP_DIRECT_RECLAIM"),
+        "___GFP_KSWAPD_RECLAIM": parse_define_u32(text, "___GFP_KSWAPD_RECLAIM"),
+    }
+    value = 0
+    for component in components.values():
+        value |= component
+    return value, components
+
+
+def is_kernel_lowmem_pointer(value: int) -> bool:
+    return (
+        value != 0
+        and KERNEL_LOWMEM_MIN <= value <= KERNEL_LOWMEM_MAX
+        and (value & 0x7) == 0
+    )
 
 
 # ----------------------------------------------------------------------------
@@ -391,6 +444,131 @@ def run_selftest(session: ReplSession,
     }
 
 
+def run_poke_roundtrip(session: ReplSession,
+                       symbols: dict[str, Symbol],
+                       image: StaticImage,
+                       *,
+                       alloc_size: int = KMALLOC_ROUNDTRIP_SIZE,
+                       gfp_header: Path = DEFAULT_GFP_HEADER,
+                       gfp_value: int | None = None,
+                       include_width32: bool = True) -> tuple[dict[str, object], dict[str, object]]:
+    """v2a2 proof: allocate owned kernel memory, poke it, peek it, free it.
+
+    Returns `(public_summary, private_evidence)`. The public half deliberately
+    omits raw slide/runtime pointer values.
+    """
+    checks: list[dict[str, object]] = []
+    private: dict[str, object] = {}
+    ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_attempted = False
+    free_ok = False
+    free_error = ""
+
+    gfp, gfp_components = (
+        (gfp_value, {}) if gfp_value is not None else derive_gfp_kernel_value(gfp_header)
+    )
+    if gfp is None:
+        raise ReplError("GFP_KERNEL derivation returned no value")
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+
+        kmalloc_link = resolve_link(symbols, "__kmalloc")
+        kfree_link = resolve_link(symbols, "kfree")
+        assert_jopp_entry(image, kmalloc_link, "__kmalloc")
+        assert_jopp_entry(image, kfree_link, "kfree")
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        ptr_ok = is_kernel_lowmem_pointer(ptr)
+        checks.append({
+            "check": "kmalloc-owned-buffer",
+            "ok": ptr_ok,
+            "non_null": ptr != 0,
+            "kernel_lowmem": ptr_ok,
+            "alloc_size": alloc_size,
+        })
+        if not ptr_ok:
+            raise ReplError("__kmalloc did not return a sane kernel lowmem pointer")
+
+        for label, sentinel in (
+            ("sentinel-a", POKE_SENTINEL_A),
+            ("sentinel-b", POKE_SENTINEL_B),
+        ):
+            session.poke_runtime(ptr, sentinel, 8)
+            got = session.peek_runtime(ptr, 8)
+            ok = got == sentinel
+            checks.append({
+                "check": "poke-peek-qword",
+                "label": label,
+                "ok": ok,
+                "width": 8,
+                "matches_written_value": ok,
+            })
+            if not ok:
+                raise ReplError(f"{label} poke/peek mismatch")
+
+        if include_width32:
+            session.poke_runtime(ptr, POKE_SENTINEL_32, 4)
+            got32 = session.peek_runtime(ptr, 8)
+            expected32 = (POKE_SENTINEL_B & ~0xFFFFFFFF) | POKE_SENTINEL_32
+            ok32 = got32 == expected32
+            checks.append({
+                "check": "poke-peek-low32",
+                "ok": ok32,
+                "width": 4,
+                "preserved_high32": ok32,
+                "matches_written_low32": ok32,
+            })
+            if not ok32:
+                raise ReplError("32-bit poke/peek mismatch")
+    finally:
+        if ptr and is_kernel_lowmem_pointer(ptr) and kfree_runtime:
+            free_attempted = True
+            try:
+                session.call_runtime(kfree_runtime, (ptr,))
+                free_ok = True
+            except Exception as exc:  # noqa: BLE001 - keep cleanup failure visible
+                free_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    if free_attempted:
+        checks.append({
+            "check": "kfree-owned-buffer",
+            "ok": free_ok,
+            "free_attempted": True,
+        })
+    if free_error:
+        raise ReplError(f"kfree failed after round-trip: {free_error}")
+
+    passed = all(check["ok"] for check in checks)
+    summary = {
+        "decision": (
+            "a90-repl-v2a2-poke-roundtrip-pass"
+            if passed else "a90-repl-v2a2-poke-roundtrip-fail"
+        ),
+        "ok": passed,
+        "alloc_size": alloc_size,
+        "gfp_kernel": f"0x{gfp:x}",
+        "gfp_source": str(gfp_header.relative_to(REPO_ROOT)) if gfp_header.is_relative_to(REPO_ROOT) else str(gfp_header),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "alloc_ptr": f"0x{ptr:x}",
+        "gfp_components": {key: f"0x{value:x}" for key, value in gfp_components.items()},
+    })
+    return summary, private
+
+
 # ----------------------------------------------------------------------------
 # CLI
 # ----------------------------------------------------------------------------
@@ -471,6 +649,24 @@ def cmd_peek(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_poke_roundtrip(args: argparse.Namespace) -> int:
+    symbols = load_system_map(args.map)
+    image = load_static_image(args.image)
+    session = make_session(args)
+    summary, private = run_poke_roundtrip(
+        session,
+        symbols,
+        image,
+        alloc_size=args.alloc_size,
+        gfp_header=args.gfp_header,
+        gfp_value=args.gfp,
+        include_width32=not args.skip_width32,
+    )
+    write_evidence(args, {**summary, "_private": private})
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0 if summary["ok"] else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -492,6 +688,16 @@ def main(argv: list[str] | None = None) -> int:
     p_peek.add_argument("symbol")
     p_peek.add_argument("--len", type=int, default=8)
     p_peek.set_defaults(func=cmd_peek)
+
+    p_round = sub.add_parser("poke-roundtrip", help="v2a2 kmalloc-backed poke/peek/kfree proof")
+    add_common(p_round)
+    p_round.add_argument("--alloc-size", type=lambda value: int(value, 0), default=KMALLOC_ROUNDTRIP_SIZE)
+    p_round.add_argument("--gfp-header", type=Path, default=DEFAULT_GFP_HEADER)
+    p_round.add_argument("--gfp", type=lambda value: int(value, 0), default=None,
+                         help="override GFP value; default derives GFP_KERNEL from --gfp-header")
+    p_round.add_argument("--skip-width32", action="store_true",
+                         help="skip the optional 32-bit poke path")
+    p_round.set_defaults(func=cmd_poke_roundtrip)
 
     args = parser.parse_args(argv)
     return args.func(args)

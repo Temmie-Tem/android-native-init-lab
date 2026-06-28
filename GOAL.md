@@ -851,7 +851,8 @@ the already-LIVE-PROVEN ops** op1 peek / op2 poke / op3 call — do **not** writ
 1. `slide = op0`.
 2. `ptr = call __kmalloc(size=0x1000, gfp=GFP_KERNEL)` (target=`__kmalloc`+slide, x0=size, x1=gfp). Derive
    `GFP_KERNEL` EXACTLY from kernel headers under `workspace/private/inputs/.../include/linux/gfp.h` for
-   4.14 (cross-check expect `0x6c0` = `___GFP_IO|___GFP_FS|___GFP_DIRECT_RECLAIM|___GFP_KSWAPD_RECLAIM`).
+   this 4.14 tree: `___GFP_IO|___GFP_FS|___GFP_DIRECT_RECLAIM|___GFP_KSWAPD_RECLAIM` =
+   `0x40|0x80|0x400000|0x1000000` = **`0x14000c0`**. Do not use the stale `0x6c0` note from older planning.
    The returned x0 is a runtime heap pointer — **keep it OUT of commits** (private evidence only).
    **Sanity-gate:** `ptr` must be non-null and in the kernel lowmem VA range; if not, STOP (do not poke a
    bad ptr).
@@ -871,6 +872,22 @@ built** (assert this; confirm the v1-repl image SHA is unchanged) → no operato
 Then v2b (`show`-buf bulk `peek` for arbitrary length) stays BLOCKED until a safe fixed scratch anchor +
 cleanup protocol are proven; the printk-loop stays the shipping default. Guardrails below + the v2a2-specific
 note: `poke` writes ONLY to the `__kmalloc`'d buffer we own (non-protected) and we `kfree` it.
+
+**STATUS (2026-06-29 v2a2 host/source gate) — host driver ready; LIVE still pending.** Codex extended
+`a90_repl.py` with the `poke-roundtrip` subcommand and added a faithful fake-transport integration test
+that models `__kmalloc` returning an owned lowmem pointer, two qword `poke`/`peek` checks, the optional
+low-32-bit poke path, and `kfree`. The driver keeps raw slide/runtime pointer values out of stdout and
+committed artifacts; `--evidence-dir` writes them only to private evidence. It regenerates the v2a2 private
+System.map under `workspace/private/runs/kernel/v2a2-repl-poke-roundtrip/`; anchors match `printk`,
+`kgsl_pwrctrl_force_no_nap_store`, `__kmalloc`, and `kfree`. Host validation: `py_compile` PASS,
+`tests.test_a90_repl` **25/25 PASS**, v1-repl image SHA remains `b846ae9f…`, v2321 rollback SHA remains
+`ca978551…`. Full repo `unittest discover` was attempted and remains non-green in this checkout
+(`3679` tests, `217` failures, `56` errors, `3` skipped) due to existing private artifact dependencies
+outside v2a2; focused v2a2 tests pass. Report:
+`docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2A2_POKE_ROUNDTRIP_SOURCE_2026-06-29.md`.
+**Next bounded action remains v2a2 LIVE validation**: flash the unchanged v1-repl image, run
+`a90_repl.py poke-roundtrip` with the v2a2 private System.map/evidence dir, restore `panic_on_oops`, roll
+back to v2321, and require final `selftest fail=0`.
 
 **Guardrails (hard, RECON / exploit-free):** NO RKP bypass, NO write to RKP-protected memory
 (`.text`/rodata/page-tables/cred), NO RWX, NO `ret`/`blr`/CFP-site patch, NO grooming/UAF/spray,
