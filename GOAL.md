@@ -902,6 +902,38 @@ check showed `panic_on_oops=1`. Report:
 dereferences `x0` before the first `BL`; the current direct `__kmalloc` path is blocked before live.
 **Do not rerun direct `call __kmalloc(size, GFP_KERNEL)` without a newly validated target.**
 
+> ### 🛑 OPERATOR GATE-2 CORRECTION (2026-06-29) — the "allocator ABI" root-cause is a MISDIAGNOSIS; the MAP is mislabeled
+>
+> Operator re-Gate-2'd the live blocker by disasm + xref analysis of the v2321/v1-repl boot image and
+> found the loop chased the wrong problem. **There is no allocator-ABI problem. The kallsyms map (post-v2a0)
+> still MISLABELS the mm/slab region**, so `call __kmalloc` called the WRONG function.
+> - **Ironclad evidence — bl xref counts:** map `__kmalloc @0xffffff80082724bc`, `kfree @0xffffff800827276c`,
+>   and `kmalloc_slab @0xffffff800823eaa4` each have **0 direct `bl` xrefs** in the whole image. `__kmalloc`
+>   and especially `kfree` are among the most-called kernel functions (hundreds–thousands of call sites);
+>   **0 xrefs is impossible if those addresses were really those functions.**
+> - **Disasm corroboration:** the function at the map's `__kmalloc` saves 4 args and does `ldr x23,[x0,#72]`
+>   before its first `BL` — impossible for `__kmalloc(size_t size, gfp_t flags)` (source `slab.h:358`; `x0` is
+>   a scalar size, never dereferenced). The map's `kmalloc_slab`/`__kmalloc_track_caller` entries likewise do
+>   not match their signatures. By contrast `printk @0x813d8cc` and the kgsl/`force_no_nap` region remain
+>   correct → this is a **localized residual name↔address decode drift in the mm/slab region**, not a global map break.
+> - **Why v2a1 didn't catch it:** v2a1's named-`peek` only checks bytes-at-address; it never tests that the
+>   name maps to the right *function*. The first real test of `__kmalloc`'s identity was this `call`, which faulted.
+>
+> **Consequences / redirect (supersedes v2a2R "ABI locator" and v2a2H "new helper image"):**
+> - **Do NOT build a new helper image (v2a2H) and do NOT keep auditing allocator "ABIs."** Both target a
+>   non-existent problem. `__kmalloc(size, GFP_KERNEL)` *is* callable via the existing v1-repl `op3` scalar
+>   path — once the CORRECT address is used.
+> - **New v2a2R' (host-only): get GROUND-TRUTH allocator addresses.** Either (a) decode the **PREL32
+>   `__ksymtab` export table** (`struct kernel_symbol { s32 value_offset; s32 name_offset; }`; value =
+>   `&entry + value_offset`) to read the real `__kmalloc`/`kfree` addresses, and/or (b) re-audit
+>   `a90_stock_kallsyms_extract.py` for the residual mm-region drift. Then **disasm-verify** the chosen
+>   `__kmalloc`: `x0` = scalar size (no pre-`BL` `x0` deref), high `bl`-xref count, reaches the slab path; and
+>   `kfree`: `x0` = pointer, frees cleanly. Only then re-enable the existing-image `poke-roundtrip`.
+> - The loop's `x0`-deref guard is a fine generic safety net — **keep it**, but it must not be read as
+>   "allocators are unsafe to call." The guard correctly rejected a *mislabeled* entry.
+> - This stays host-only (no device, no collision); operator will cross-check the recovered addresses by
+>   independent disasm before any live rerun. Device remains clean on v2321.
+
 ### ✅ v2a2R (HOST-ONLY) — allocator ABI locator / safe owned-buffer plan
 
 Find a replacement for the invalid direct `__kmalloc` plan before any more live `poke-roundtrip` attempts.
@@ -927,7 +959,14 @@ pointer-argument wrappers. Result:
 then Gate-2 and live-validate `poke` -> `peek` -> cleanup. Do not rerun direct allocator calls from the
 current v1-repl image.
 
-### ▶ NEXT BOUNDED UNIT = v2a2H (HOST-ONLY SOURCE GATE) — explicit owned-scratch helper
+### ⛔ SUPERSEDED by the OPERATOR GATE-2 CORRECTION above — v2a2H (new owned-scratch helper image) is NOT the next unit
+
+**The real NEXT BOUNDED UNIT is v2a2R' (host-only): recover the GROUND-TRUTH `__kmalloc`/`kfree` addresses
+(PREL32 `__ksymtab` decode and/or kallsyms mm-region drift re-audit) + disasm-verify, then re-run the
+EXISTING-image `poke-roundtrip`.** Do not build a new helper image to work around a map-mislabel. The block
+below is retained only as the (now-rejected) ABI-workaround design.
+
+### ~~v2a2H (HOST-ONLY SOURCE GATE) — explicit owned-scratch helper~~ (rejected; see correction)
 
 Design and source-gate a replacement for the invalid direct allocator path. The target is still the original
 v2a2 semantic proof: a non-protected owned buffer where `op2 poke` lands, `op1 peek` reads back the value,
