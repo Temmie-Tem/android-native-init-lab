@@ -1913,11 +1913,33 @@ def run_read(session: ReplSession,
     return summary, private
 
 
+def _resolve_call_arg(arg: int | str,
+                      symbols: dict[str, Symbol],
+                      image: StaticImage,
+                      slide: int) -> tuple[int, str]:
+    if isinstance(arg, int):
+        return arg & MASK64, "integer"
+    try:
+        return parse_int_auto(arg) & MASK64, "integer"
+    except argparse.ArgumentTypeError:
+        pass
+    if not arg.startswith("@"):
+        raise ReplError(f"call arg must be an integer or @symbol token: {arg!r}")
+
+    name = arg[1:]
+    if name in ("repl_format", "format"):
+        return (FORMAT_LINK_VADDR + slide) & MASK64, "pseudo:@repl_format"
+    resolution = resolve_verified(symbols, image, name, purpose="peek")
+    if resolution.link_vaddr is None:
+        raise ReplError(f"call arg symbol {name!r} did not resolve")
+    return (resolution.link_vaddr + slide) & MASK64, f"symbol:@{name}:{resolution.method}"
+
+
 def run_call(session: ReplSession,
              symbols: dict[str, Symbol],
              image: StaticImage,
              symbol: str,
-             xargs: tuple[int, ...],
+             xargs: tuple[int | str, ...],
              *,
              replay_safe: bool = False) -> tuple[dict[str, object], dict[str, object]]:
     resolution = resolve_verified(symbols, image, symbol, purpose="call")
@@ -1929,7 +1951,17 @@ def run_call(session: ReplSession,
         slide = session.slide()
         if slide & 0xFFF:
             raise ReplError("slide is not page-aligned; refusing to proceed")
-        values = session.call_runtime_values((link + slide) & MASK64, xargs, replay_safe=replay_safe)
+        resolved_arg_rows = [
+            _resolve_call_arg(arg, symbols, image, slide)
+            for arg in xargs
+        ]
+        resolved_args = tuple(row[0] for row in resolved_arg_rows)
+        arg_sources = [row[1] for row in resolved_arg_rows]
+        values = session.call_runtime_values(
+            (link + slide) & MASK64,
+            resolved_args,
+            replay_safe=replay_safe,
+        )
     finally:
         session.set_panic_on_oops(1)
 
@@ -1948,7 +1980,8 @@ def run_call(session: ReplSession,
     private.update({
         "slide": f"0x{slide:x}",
         "target_runtime": f"0x{((link + slide) & MASK64):x}",
-        "args": [f"0x{value:x}" for value in xargs],
+        "arg_sources": arg_sources,
+        "args": [f"0x{value:x}" for value in resolved_args],
         "return_values": [f"0x{value:x}" for value in values],
     })
     return summary, private
@@ -2311,7 +2344,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     add_common(p_call)
     p_call.add_argument("symbol")
-    p_call.add_argument("xargs", nargs="*", type=parse_int_auto, help="x0..x7 integer arguments")
+    p_call.add_argument(
+        "xargs",
+        nargs="*",
+        help="x0..x7 integer args; @repl_format or @symbol tokens resolve to runtime pointers privately",
+    )
     p_call.add_argument("--replay-safe", action="store_true",
                         help="allow retry on transient capture loss only for idempotent calls")
     p_call.set_defaults(func=cmd_call)

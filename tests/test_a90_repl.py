@@ -655,7 +655,7 @@ class SelftestIntegrationTests(unittest.TestCase):
             self.symbols,
             self.image,
             "printk",
-            (repl.FORMAT_LINK_VADDR + slide, repl.CALL_SENTINEL),
+            ("@repl_format", f"0x{repl.CALL_SENTINEL:x}"),
             replay_safe=True,
         )
 
@@ -666,6 +666,11 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertTrue(summary["argument_values_redacted"])
         self.assertTrue(summary["return_values_redacted"])
         self.assertNotIn("return_values", summary)
+        self.assertEqual(private["arg_sources"], ["pseudo:@repl_format", "integer"])
+        self.assertEqual(
+            private["args"],
+            [f"0x{repl.FORMAT_LINK_VADDR + slide:x}", f"0x{repl.CALL_SENTINEL:x}"],
+        )
         self.assertEqual(private["return_values"], [f"0x{repl.CALL_SENTINEL:x}", "0xb"])
 
     def test_u1_call_rejects_unverified_symbol_before_transport(self) -> None:

@@ -33,7 +33,9 @@ Added U1 helpers and CLI commands in `a90_repl.py`:
   match, and writes raw bytes only to private evidence.
 - `run_call(...)` requires `resolve_verified(..., purpose="call")` and refuses
   unverified symbols before any transport op. Argument and return values are
-  private evidence only.
+  private evidence only. Arguments may be integers or private runtime-pointer
+  tokens: `@repl_format` for the v1-repl `A90R%llx` format string, or `@symbol`
+  for a symbol link address plus the current slide.
 - `run_owned_poke(...)` allocates via verified `__kmalloc`, pokes the fresh owned
   buffer, verifies by `peek`, then calls verified `kfree` in cleanup. There is no
   arbitrary-address `poke` CLI.
@@ -71,7 +73,8 @@ Focused fake-transport coverage:
 - `read` of `kgsl_pwrctrl_force_no_nap_store` length `20` used `1` slide op +
   `3` peek ops, matched static image bytes, and redacted raw data from the
   public summary.
-- `call printk(...)` used verified C1 resolution and redacted args/returns from
+- `call printk @repl_format 0xa90ca11` used verified C1 resolution, resolved
+  the runtime format-string pointer privately, and redacted args/returns from
   the public summary.
 - `call kallsyms_lookup_name` was refused before transport.
 - `poke VALUE` used a kmalloc-owned buffer, verified by peek, freed it, and

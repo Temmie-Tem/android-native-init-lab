@@ -1146,9 +1146,10 @@ host-only unit unless it explicitly needs a live check. Report each to `docs/rep
   `a90_repl.py` now exposes `read`, `call`, and `poke` subcommands on the existing v1-repl image. `read`
   accepts a symbol/link-vaddr/runtime-vaddr and performs arbitrary-length host-side looped op1 reads in
   1..8 byte chunks, reporting SHA256/static-image-match while keeping raw bytes and runtime addresses in
-  private evidence only. `call` requires C1 `resolve_verified(..., purpose="call")` and rejects unverified
-  symbols before transport; args and returns are redacted from stdout. `poke` is owned-buffer-only: verified
-  `__kmalloc` → poke fresh buffer → peek verify → verified `kfree`, with no arbitrary-address poke path.
+  private evidence only. `call` requires C1 `resolve_verified(..., purpose="call")`, supports private
+  runtime-pointer tokens like `@repl_format`/`@symbol`, and rejects unverified symbols before transport; args
+  and returns are redacted from stdout. `poke` is owned-buffer-only: verified `__kmalloc` → poke fresh buffer
+  → peek verify → verified `kfree`, with no arbitrary-address poke path.
   Validation: `py_compile` pass, CLI `--help` smoke checks pass, `tests.test_a90_repl` +
   `tests.test_a90_stock_kallsyms_extract` **61/61 PASS**. Report:
   `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2C_U1_CLI_SURFACE_2026-06-29.md`.
