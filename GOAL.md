@@ -1263,6 +1263,42 @@ operator disasm verification. Validation: `py_compile` pass, CLI `ksymtab-ground
 `tests.test_a90_repl` + `tests.test_a90_stock_kallsyms_extract` **63/63 PASS**. Report:
 `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2C_C2E_KSYMTAB_GROUND_TRUTH_ORACLE_2026-06-29.md`.
 
+> ### ✅ OPERATOR GATE-2 (2026-06-29) — C2E oracle is RIGHT; C2B padding fix is VINDICATED; promote it (gated). My earlier C2A-revert conclusion was partly wrong.
+>
+> Operator independently verified the C2E result and a regenerated C2B map. **The relocated-`__ksymtab`
+> oracle is correct, and the current `System.map` really is broadly drifted for exported symbols — my
+> earlier "map is mostly right, only mm/slab wrong" was based on a FALSE printk confirmation.**
+> - **printk:** `0xffffff800813d8cc` (current map + signature override) and `0xffffff800813adfc` (oracle
+>   export row) have **byte-identical variadic prologues** (both are printk-twins), but xref counts settle it:
+>   `0x813d8cc` has **14** `bl` xrefs, `0x813adfc` has **44694**. **The real `printk` is `0x813adfc`** (the
+>   most-called function in the kernel). The v2a1 live `call printk` "worked" only because it hit a
+>   functionally-equivalent twin — that was a false positive, not proof the map address was right.
+> - **C2B is a precise, real root-cause and is regression-free.** I regenerated the map with C2B applied
+>   (`padding_before_relative_base = 380 = 95×4`, skipping the zero-u32 pad before `kallsyms_relative_base`):
+>   `__kmalloc → 0xffffff800826ae34` ✓, `kfree → 0xffffff800826b354` ✓ (both were WRONG in the current map),
+>   while `kgsl_pwrctrl_force_no_nap_store → 0xffffff80089273b4` ✓ and `num_pwrlevels_show → 0xffffff80089262dc`
+>   ✓ are PRESERVED (no kgsl regression — C2B's early-return guard handles that). This matches the oracle
+>   `12514/12518`. **My earlier instruction to revert C2B was the mistake; the loop was right to keep it and
+>   build C2E to settle it.**
+>
+> **Re-authorized direction (supersedes the "do not promote / map-as-is" decision above):**
+> 1. **Promote the C2B padding fix** into `a90_stock_kallsyms_extract.py` (re-apply commit 4ba3c52c's
+>    `padding_before_relative_base` logic + the kgsl early-return guard). Operator has disasm-verified the
+>    four anchors on the regenerated map; gate stands only on the loop reproducing them in-tree.
+> 2. **Fix the printk-twin bug (separate from C2B).** `locate_printk_variadic_wrapper` /
+>    `apply_printk_signature_decode` currently pick the 14-xref twin `0x813d8cc`; there are ≥2 identical-
+>    prologue variadic functions, so the locator must **disambiguate by `bl`-xref count** (the real `printk`
+>    is the highest-xref one, `0x813adfc`). After this, the regenerated map's `printk` must be `0x813adfc`
+>    and the C2E drift vs the oracle should approach `~12518/12518`. (Note: the live-proven v1-repl IMAGE
+>    still calls the twin `0x813d8cc` — that is functionally fine and need NOT be rebuilt; only the
+>    host-side map/locator needs the real address.)
+> 3. **Re-run the C2E drift report on the promoted map** and confirm: all four anchors correct, printk now
+>    `0x813adfc`, near-total oracle agreement, and a fenced residual list (any remaining mismatches are
+>    non-exported/local or genuine semantic exceptions, not decode drift). C1 fail-closed stays enforced.
+> 4. Operator will independently re-disasm-verify the promoted in-tree map (anchors + a sample of newly-
+>    corrected exports) before it is trusted for anything beyond C1-gated use. Guardrails unchanged; this is
+>    host-only (no device); keep raw pointers/slide out of commits.
+
 **Guardrails: unchanged from below** (RECON / exploit-free; no RKP bypass; no protected-memory write; no
 RWX; preserve `x17`; boot-partition-only flashes with pinned+readback SHA; rollback v2321; fails-twice →
 STOP + report; keep raw runtime pointers/slide out of commits; scoped `git add`). Operator cross-checks any
