@@ -65,9 +65,10 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > Bad Apple full-song demo, GPU first-light/triangle/compute/accel-2D/monitor/zero-copy rungs, and DOOM
 > are all DONE and eye-confirmed; the loop pivoted GPU→SoftAP at V3336; SoftAP S0→S4 is DONE at V3344.
 > Do NOT resume Video/Nyan/GPU/SoftAP work — go to the **Runtime Kernel REPL** delegated block (next
-> bounded unit = **v2a2H**: explicit owned-scratch helper design/source gate; v1-slide, v1-repl
-> slide/peek/poke/call, the kallsyms extractor (v2a0), and the named host driver (v2a1) are all
-> LIVE-PROVEN). The text below is retained as reference history only.
+> bounded unit = **v2a2 live rerun after operator disasm cross-check**: use the existing v1-repl image
+> plus v2a2R' recovered `__kmalloc`/`kfree` export addresses; v1-slide, v1-repl slide/peek/poke/call,
+> the kallsyms extractor (v2a0), and the named host driver (v2a1) are all LIVE-PROVEN). The text below
+> is retained as reference history only.
 
 > **(history)** Audio CORE is device-proven + promoted (`0.10.0`); its Tier-C polish is optional background.
 >
@@ -934,6 +935,21 @@ dereferences `x0` before the first `BL`; the current direct `__kmalloc` path is 
 > - This stays host-only (no device, no collision); operator will cross-check the recovered addresses by
 >   independent disasm before any live rerun. Device remains clean on v2321.
 
+**STATUS (2026-06-29 v2a2R' host-only recovery) — ground-truth allocator addresses recovered.**
+`a90_repl.py allocator-export-recovery` now bypasses the mislabeled mm/slab System.map entries by finding
+exact export strings in the static v1-repl boot image, following aligned qword references to those strings,
+and selecting the nearby JOPP text entries with no pre-first-`BL` `x0` dereference and high direct-`BL`
+xref counts. Required recovered link addresses:
+`__kmalloc=0xffffff800826ae34` (`1765` direct `bl` xrefs) and
+`kfree=0xffffff800826b354` (`10596` direct `bl` xrefs). Optional slab helpers also recover:
+`kmalloc_order=0xffffff8008238444`, `kmalloc_order_trace=0xffffff8008238484`. The mapped
+`__ksymtab___kmalloc`/`__ksymtab_kfree` qwords read as `0x0`, proving those map labels are drifted too.
+Focused validation: `tests.test_a90_repl` **31/31 PASS**. Report:
+`docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2A2RP_ALLOCATOR_EXPORT_RECOVERY_2026-06-29.md`.
+**Next bounded unit:** operator independently disassembles/cross-checks the two recovered addresses, then
+reruns the existing v1-repl-image `poke-roundtrip` with `--use-recovered-allocator-exports` under the
+normal flash gates, rollback, and final `selftest fail=0`.
+
 ### ✅ v2a2R (HOST-ONLY) — allocator ABI locator / safe owned-buffer plan
 
 Find a replacement for the invalid direct `__kmalloc` plan before any more live `poke-roundtrip` attempts.
@@ -955,16 +971,16 @@ pointer-argument wrappers. Result:
 `a90-repl-v2a2r-allocator-abi-audit-no-live-ready-scalar`; every candidate is rejected and
 `live_ready_candidates=[]`. Focused validation is now `tests.test_a90_repl` **29/29 PASS**. Report:
 `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2A2R_ALLOCATOR_ABI_AUDIT_2026-06-29.md`.
-**Next bounded unit:** revise v2a2 around a small explicit owned-scratch helper/call target with known ABI,
-then Gate-2 and live-validate `poke` -> `peek` -> cleanup. Do not rerun direct allocator calls from the
-current v1-repl image.
+**Superseded by the correction above:** this audit rejected mislabeled map entries, not real allocator
+functions. Keep the `x0`-deref guard as a safety net, but use v2a2R' export recovery before any live
+allocator-backed round-trip.
 
 ### ⛔ SUPERSEDED by the OPERATOR GATE-2 CORRECTION above — v2a2H (new owned-scratch helper image) is NOT the next unit
 
-**The real NEXT BOUNDED UNIT is v2a2R' (host-only): recover the GROUND-TRUTH `__kmalloc`/`kfree` addresses
-(PREL32 `__ksymtab` decode and/or kallsyms mm-region drift re-audit) + disasm-verify, then re-run the
-EXISTING-image `poke-roundtrip`.** Do not build a new helper image to work around a map-mislabel. The block
-below is retained only as the (now-rejected) ABI-workaround design.
+**The real NEXT BOUNDED UNIT was v2a2R' (host-only), now complete as source/static recovery above. Next is
+operator disasm cross-check + existing-image live `poke-roundtrip` rerun with recovered allocator exports.**
+Do not build a new helper image to work around a map-mislabel. The block below is retained only as the
+(now-rejected) ABI-workaround design.
 
 ### ~~v2a2H (HOST-ONLY SOURCE GATE) — explicit owned-scratch helper~~ (rejected; see correction)
 

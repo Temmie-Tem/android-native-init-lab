@@ -29,11 +29,13 @@ Command buffer layout (matches build_kernel_tier2_repl_v1_repl.py):
 Safety: normal selftest only *reads* with `peek` and calls real function
 entries (JOPP-gated, verified `u32(entry-4)==0x00BE7BAD` against the static
 image). The v2a2 `poke-roundtrip` command issues `poke` only into a fresh
-`__kmalloc` buffer it owns, verifies via `peek`, then calls `kfree`. Per-boot
-raw runtime pointers and the slide are kept out of stdout and committed
-artifacts; only symbolic PASS/FAIL and link-relative facts are surfaced.
-Private evidence (with raw values) is written under workspace/private when
---evidence-dir is given.
+`__kmalloc` buffer it owns, verifies via `peek`, then calls `kfree`. If the
+recovered kallsyms map mislabels the slab region, `--use-recovered-allocator-
+exports` first recovers ground-truth `__kmalloc`/`kfree` link addresses from
+static export string references. Per-boot raw runtime pointers and the slide
+are kept out of stdout and committed artifacts; only symbolic PASS/FAIL and
+link-relative facts are surfaced. Private evidence (with raw values) is written
+under workspace/private when --evidence-dir is given.
 """
 from __future__ import annotations
 
@@ -89,6 +91,12 @@ POKE_SENTINEL_B = 0x1122334455667788
 POKE_SENTINEL_32 = 0xC001D00D
 KERNEL_LOWMEM_MIN = 0xFFFFFFC000000000
 KERNEL_LOWMEM_MAX = 0xFFFFFFFFFFFFFFFF
+ALLOCATOR_EXPORT_REQUIRED = ("__kmalloc", "kfree")
+ALLOCATOR_EXPORT_OPTIONAL = ("kmalloc_order", "kmalloc_order_trace")
+MIN_ALLOCATOR_EXPORT_BL_XREFS = {
+    "__kmalloc": 100,
+    "kfree": 100,
+}
 
 A64_BL_MASK = 0xFC000000
 A64_BL = 0x94000000
@@ -369,6 +377,199 @@ def load_static_image(path: Path) -> StaticImage:
     data = path.read_bytes()
     layout = stage_c.parse_boot_layout(data)
     return StaticImage(kernel_off=layout.kernel_off, data=data)
+
+
+def static_raw_image(image: StaticImage) -> bytes:
+    """Return the loaded arm64 Image bytes, excluding the 20-byte wrapper."""
+    layout = stage_c.parse_boot_layout(image.data)
+    kernel = image.data[layout.kernel_off : layout.kernel_off + layout.kernel_size]
+    if kernel.startswith(b"UNCOMPRESSED_IMG"):
+        size = struct.unpack_from("<I", kernel, stage_c.KERNEL_WRAPPER_RAW_OFFSET - 4)[0]
+        start = stage_c.KERNEL_WRAPPER_RAW_OFFSET
+        return kernel[start : start + size]
+    return kernel
+
+
+def _raw_off_to_vaddr(raw_off: int) -> int:
+    return stage_c.KERNEL_TEXT_VADDR + raw_off
+
+
+def _vaddr_to_raw_off(vaddr: int) -> int:
+    return vaddr - stage_c.KERNEL_TEXT_VADDR
+
+
+def _iter_exact_c_string_offsets(raw: bytes, text: str) -> list[int]:
+    needle = text.encode("ascii") + b"\x00"
+    hits: list[int] = []
+    start = 0
+    while True:
+        off = raw.find(needle, start)
+        if off < 0:
+            return hits
+        before = raw[off - 1] if off else 0
+        if not (0x30 <= before <= 0x39 or 0x41 <= before <= 0x5A or before == 0x5F or 0x61 <= before <= 0x7A):
+            hits.append(off)
+        start = off + 1
+
+
+def _iter_aligned_qword_hits(raw: bytes, value: int) -> list[int]:
+    encoded = struct.pack("<Q", value & MASK64)
+    hits: list[int] = []
+    start = 0
+    while True:
+        off = raw.find(encoded, start)
+        if off < 0:
+            return hits
+        if off % 8 == 0:
+            hits.append(off)
+        start = off + 1
+
+
+def _is_static_jopp_text_entry(raw: bytes, vaddr: int) -> bool:
+    raw_off = _vaddr_to_raw_off(vaddr)
+    if raw_off < 4 or raw_off + 4 > len(raw):
+        return False
+    return struct.unpack_from("<I", raw, raw_off - 4)[0] == JOPP_MAGIC
+
+
+def _count_direct_bl_xrefs(raw: bytes, target_vaddr: int) -> tuple[int, list[str]]:
+    count = 0
+    sample_sites: list[str] = []
+    for off in range(0, len(raw) - 4, 4):
+        word = struct.unpack_from("<I", raw, off)[0]
+        if not _is_a64_bl(word):
+            continue
+        if _decode_a64_bl_target(_raw_off_to_vaddr(off), word) != target_vaddr:
+            continue
+        count += 1
+        if len(sample_sites) < 8:
+            sample_sites.append(f"0x{_raw_off_to_vaddr(off):x}")
+    return count, sample_sites
+
+
+def _function_words_from_raw(raw: bytes, link_vaddr: int, byte_count: int = 0x80) -> list[int]:
+    raw_off = _vaddr_to_raw_off(link_vaddr)
+    if raw_off < 0 or raw_off + byte_count > len(raw):
+        raise RuntimeError(f"function address outside raw image: 0x{link_vaddr:x}")
+    return [
+        struct.unpack_from("<I", raw, raw_off + index * 4)[0]
+        for index in range(byte_count // 4)
+    ]
+
+
+def _recover_export_candidates(raw: bytes, symbol: str) -> list[dict[str, object]]:
+    candidates: list[dict[str, object]] = []
+    for string_off in _iter_exact_c_string_offsets(raw, symbol):
+        string_vaddr = _raw_off_to_vaddr(string_off)
+        for name_ref_off in _iter_aligned_qword_hits(raw, string_vaddr):
+            for value_off in range(max(0, name_ref_off - 0x40), name_ref_off, 8):
+                value = struct.unpack_from("<Q", raw, value_off)[0]
+                if not _is_static_jopp_text_entry(raw, value):
+                    continue
+                words = _function_words_from_raw(raw, value)
+                deref = _first_precall_x0_deref(words)
+                bl_count, sample_sites = _count_direct_bl_xrefs(raw, value)
+                candidates.append({
+                    "symbol": symbol,
+                    "link_vaddr": f"0x{value:x}",
+                    "string_vaddr": f"0x{string_vaddr:x}",
+                    "string_raw_off": f"0x{string_off:x}",
+                    "name_ref_vaddr": f"0x{_raw_off_to_vaddr(name_ref_off):x}",
+                    "name_ref_raw_off": f"0x{name_ref_off:x}",
+                    "value_ref_vaddr": f"0x{_raw_off_to_vaddr(value_off):x}",
+                    "value_ref_raw_off": f"0x{value_off:x}",
+                    "name_ref_minus_value_ref": name_ref_off - value_off,
+                    "jopp_entry": True,
+                    "precall_x0_deref": deref,
+                    "direct_bl_xref_count": bl_count,
+                    "direct_bl_xref_sample_sites": sample_sites,
+                })
+    candidates.sort(
+        key=lambda row: (
+            row["precall_x0_deref"] is not None,
+            -int(row["direct_bl_xref_count"]),
+            int(str(row["link_vaddr"]), 16),
+        )
+    )
+    return candidates
+
+
+def recover_allocator_export_addresses(
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    required: tuple[str, ...] = ALLOCATOR_EXPORT_REQUIRED,
+    optional: tuple[str, ...] = ALLOCATOR_EXPORT_OPTIONAL,
+) -> dict[str, object]:
+    raw = static_raw_image(image)
+    rows: list[dict[str, object]] = []
+    recovered: dict[str, int] = {}
+    ok = True
+
+    for symbol in (*required, *optional):
+        candidates = _recover_export_candidates(raw, symbol)
+        selected = candidates[0] if candidates else None
+        map_symbol = symbols.get(symbol)
+        map_link = map_symbol.vaddr if map_symbol else None
+        map_ksymtab = symbols.get(f"__ksymtab_{symbol}")
+        map_ksymtab_first_qword = None
+        if map_ksymtab is not None:
+            try:
+                map_ksymtab_first_qword = image.u64_at_vaddr(map_ksymtab.vaddr)
+            except Exception:  # noqa: BLE001 - report unavailable as null
+                map_ksymtab_first_qword = None
+
+        row: dict[str, object] = {
+            "symbol": symbol,
+            "required": symbol in required,
+            "map_link_vaddr": f"0x{map_link:x}" if map_link is not None else None,
+            "map_ksymtab_vaddr": f"0x{map_ksymtab.vaddr:x}" if map_ksymtab is not None else None,
+            "map_ksymtab_first_qword": (
+                f"0x{map_ksymtab_first_qword:x}" if map_ksymtab_first_qword is not None else None
+            ),
+            "candidate_count": len(candidates),
+            "candidates": candidates[:4],
+            "status": "missing",
+            "selected_link_vaddr": None,
+            "blocked_reasons": [],
+        }
+        blocked = row["blocked_reasons"]
+        assert isinstance(blocked, list)
+        if selected is None:
+            blocked.append("no-export-string-ref-candidate")
+        else:
+            selected_vaddr = int(str(selected["link_vaddr"]), 16)
+            min_xrefs = MIN_ALLOCATOR_EXPORT_BL_XREFS.get(symbol, 0)
+            row["selected_link_vaddr"] = selected["link_vaddr"]
+            row["map_mismatch"] = map_link is not None and selected_vaddr != map_link
+            row["selected_direct_bl_xref_count"] = selected["direct_bl_xref_count"]
+            row["selected_precall_x0_deref"] = selected["precall_x0_deref"]
+            if selected["precall_x0_deref"] is not None:
+                blocked.append("selected-entry-dereferences-x0-before-first-bl")
+            if int(selected["direct_bl_xref_count"]) < min_xrefs:
+                blocked.append(f"selected-entry-low-bl-xrefs:{selected['direct_bl_xref_count']}<{min_xrefs}")
+            if not blocked:
+                row["status"] = "recovered"
+                recovered[symbol] = selected_vaddr
+        if symbol in required and row["status"] != "recovered":
+            ok = False
+        rows.append(row)
+
+    return {
+        "decision": (
+            "a90-repl-v2a2rp-allocator-export-recovery-pass"
+            if ok else "a90-repl-v2a2rp-allocator-export-recovery-fail"
+        ),
+        "ok": ok,
+        "raw_runtime_values_redacted": True,
+        "method": "absolute export string-reference recovery from static boot image",
+        "note": (
+            "System.map __ksymtab labels are drifted/zero in the raw image; "
+            "ground truth is recovered from exact symbol strings and nearby JOPP text values"
+        ),
+        "recovered": {name: f"0x{value:x}" for name, value in sorted(recovered.items())},
+        "rows": rows,
+    }
 
 
 # ----------------------------------------------------------------------------
@@ -679,7 +880,9 @@ def run_allocator_abi_audit(symbols: dict[str, Symbol],
         "rows": rows,
         "next_required": (
             "run bounded live poke-roundtrip only for a live_ready candidate"
-            if live_ready else "design a small owned-scratch helper or provide stronger ABI proof"
+            if live_ready else (
+                "run allocator-export-recovery; map-labeled allocator entries may be mislabeled"
+            )
         ),
     }
 
@@ -765,7 +968,9 @@ def run_poke_roundtrip(session: ReplSession,
                        gfp_header: Path = DEFAULT_GFP_HEADER,
                        gfp_value: int | None = None,
                        include_width32: bool = True,
-                       check_allocator_abi: bool = True) -> tuple[dict[str, object], dict[str, object]]:
+                       check_allocator_abi: bool = True,
+                       allocator_links: dict[str, int] | None = None,
+                       allocator_source: str = "System.map") -> tuple[dict[str, object], dict[str, object]]:
     """v2a2 proof: allocate owned kernel memory, poke it, peek it, free it.
 
     Returns `(public_summary, private_evidence)`. The public half deliberately
@@ -786,8 +991,9 @@ def run_poke_roundtrip(session: ReplSession,
     if gfp is None:
         raise ReplError("GFP_KERNEL derivation returned no value")
 
-    kmalloc_link = resolve_link(symbols, "__kmalloc")
-    kfree_link = resolve_link(symbols, "kfree")
+    allocator_links = allocator_links or {}
+    kmalloc_link = allocator_links.get("__kmalloc", resolve_link(symbols, "__kmalloc"))
+    kfree_link = allocator_links.get("kfree", resolve_link(symbols, "kfree"))
     assert_jopp_entry(image, kmalloc_link, "__kmalloc")
     assert_jopp_entry(image, kfree_link, "kfree")
     if check_allocator_abi:
@@ -875,6 +1081,11 @@ def run_poke_roundtrip(session: ReplSession,
         "alloc_size": alloc_size,
         "gfp_kernel": f"0x{gfp:x}",
         "gfp_source": str(gfp_header.relative_to(REPO_ROOT)) if gfp_header.is_relative_to(REPO_ROOT) else str(gfp_header),
+        "allocator_address_source": allocator_source,
+        "allocator_link_vaddrs": {
+            "__kmalloc": f"0x{kmalloc_link:x}",
+            "kfree": f"0x{kfree_link:x}",
+        },
         "raw_runtime_values_redacted": True,
         "checks": checks,
     }
@@ -970,6 +1181,20 @@ def cmd_poke_roundtrip(args: argparse.Namespace) -> int:
     symbols = load_system_map(args.map)
     image = load_static_image(args.image)
     session = make_session(args)
+    recovery = None
+    allocator_links = None
+    allocator_source = "System.map"
+    if args.use_recovered_allocator_exports:
+        recovery = recover_allocator_export_addresses(symbols, image)
+        if not recovery["ok"]:
+            raise ReplError("allocator export recovery failed; refusing live poke-roundtrip")
+        recovered = recovery["recovered"]
+        assert isinstance(recovered, dict)
+        allocator_links = {
+            "__kmalloc": int(str(recovered["__kmalloc"]), 16),
+            "kfree": int(str(recovered["kfree"]), 16),
+        }
+        allocator_source = "allocator-export-recovery"
     summary, private = run_poke_roundtrip(
         session,
         symbols,
@@ -978,8 +1203,13 @@ def cmd_poke_roundtrip(args: argparse.Namespace) -> int:
         gfp_header=args.gfp_header,
         gfp_value=args.gfp,
         include_width32=not args.skip_width32,
+        allocator_links=allocator_links,
+        allocator_source=allocator_source,
     )
-    write_evidence(args, {**summary, "_private": private})
+    payload = {**summary, "_private": private}
+    if recovery is not None:
+        payload["_allocator_export_recovery"] = recovery
+    write_evidence(args, payload)
     print(json.dumps(summary, indent=2, sort_keys=True))
     return 0 if summary["ok"] else 1
 
@@ -991,6 +1221,15 @@ def cmd_allocator_audit(args: argparse.Namespace) -> int:
     write_evidence(args, summary)
     print(json.dumps(summary, indent=2, sort_keys=True))
     return 0
+
+
+def cmd_allocator_export_recovery(args: argparse.Namespace) -> int:
+    symbols = load_system_map(args.map)
+    image = load_static_image(args.image)
+    summary = recover_allocator_export_addresses(symbols, image)
+    write_evidence(args, summary)
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0 if summary["ok"] else 1
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1023,6 +1262,8 @@ def main(argv: list[str] | None = None) -> int:
                          help="override GFP value; default derives GFP_KERNEL from --gfp-header")
     p_round.add_argument("--skip-width32", action="store_true",
                          help="skip the optional 32-bit poke path")
+    p_round.add_argument("--use-recovered-allocator-exports", action="store_true",
+                         help="recover ground-truth __kmalloc/kfree addresses from export string refs before live")
     p_round.set_defaults(func=cmd_poke_roundtrip)
 
     p_audit = sub.add_parser(
@@ -1031,6 +1272,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     add_common(p_audit)
     p_audit.set_defaults(func=cmd_allocator_audit)
+
+    p_export = sub.add_parser(
+        "allocator-export-recovery",
+        help="host-only v2a2R' recovery of ground-truth __kmalloc/kfree addresses",
+    )
+    add_common(p_export)
+    p_export.set_defaults(func=cmd_allocator_export_recovery)
 
     args = parser.parse_args(argv)
     return args.func(args)

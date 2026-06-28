@@ -227,6 +227,32 @@ class StaticImageCrossCheckTests(unittest.TestCase):
         self.assertIn("precall-x0-deref", rows["__kmalloc"]["blocked_reasons"][0])
         self.assertTrue(all(row["status"] == "rejected" for row in rows.values()))
 
+    def test_allocator_export_recovery_finds_ground_truth_addresses(self) -> None:
+        recovery = repl.recover_allocator_export_addresses(self.symbols, self.image)
+        self.assertTrue(recovery["ok"], recovery)
+        self.assertEqual(
+            recovery["decision"],
+            "a90-repl-v2a2rp-allocator-export-recovery-pass",
+        )
+        self.assertEqual(
+            recovery["recovered"],
+            {
+                "__kmalloc": "0xffffff800826ae34",
+                "kfree": "0xffffff800826b354",
+                "kmalloc_order": "0xffffff8008238444",
+                "kmalloc_order_trace": "0xffffff8008238484",
+            },
+        )
+        rows = {row["symbol"]: row for row in recovery["rows"]}
+        self.assertTrue(rows["__kmalloc"]["map_mismatch"])
+        self.assertTrue(rows["kfree"]["map_mismatch"])
+        self.assertEqual(rows["__kmalloc"]["map_ksymtab_first_qword"], "0x0")
+        self.assertEqual(rows["kfree"]["map_ksymtab_first_qword"], "0x0")
+        self.assertIsNone(rows["__kmalloc"]["selected_precall_x0_deref"])
+        self.assertIsNone(rows["kfree"]["selected_precall_x0_deref"])
+        self.assertGreater(rows["__kmalloc"]["selected_direct_bl_xref_count"], 1000)
+        self.assertGreater(rows["kfree"]["selected_direct_bl_xref_count"], 10000)
+
     def test_assert_jopp_entry_rejects_non_entry(self) -> None:
         link = repl.resolve_link(self.symbols, "printk")
         with self.assertRaises(repl.ReplError):
@@ -255,6 +281,8 @@ class FaithfulFakeTransport:
         self.slide = slide
         self.symbols = symbols
         self.image = image
+        self.kmalloc_link = repl.resolve_link(self.symbols, "__kmalloc")
+        self.kfree_link = repl.resolve_link(self.symbols, "kfree")
         self.heap_ptr = 0xFFFFFFC012300000
         self.heap: dict[int, int] = {}
         self.freed: list[int] = []
@@ -290,8 +318,8 @@ class FaithfulFakeTransport:
                 raise AssertionError(f"unexpected poke width: {arg2}")
             lines.append(f"A90R{arg2:x}")
         elif op == repl.OP_CALL:
-            kmalloc = repl.resolve_link(self.symbols, "__kmalloc") + self.slide
-            kfree = repl.resolve_link(self.symbols, "kfree") + self.slide
+            kmalloc = self.kmalloc_link + self.slide
+            kfree = self.kfree_link + self.slide
             printk = repl.resolve_link(self.symbols, "printk") + self.slide
             if arg0 == kmalloc:
                 lines.append(f"A90R{self.heap_ptr:x}")
@@ -369,6 +397,38 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(fake.freed, [fake.heap_ptr])
         self.assertEqual(private["alloc_ptr"], f"0x{fake.heap_ptr:x}")
         self.assertNotIn("alloc_ptr", summary)
+
+    def test_poke_roundtrip_can_use_recovered_allocator_exports(self) -> None:
+        recovery = repl.recover_allocator_export_addresses(self.symbols, self.image)
+        recovered = {
+            name: int(value, 16)
+            for name, value in recovery["recovered"].items()
+            if name in {"__kmalloc", "kfree"}
+        }
+        fake = FaithfulFakeTransport(0x130000, self.symbols, self.image)
+        fake.kmalloc_link = recovered["__kmalloc"]
+        fake.kfree_link = recovered["kfree"]
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, _private = repl.run_poke_roundtrip(
+            session,
+            self.symbols,
+            self.image,
+            allocator_links=recovered,
+            allocator_source="allocator-export-recovery",
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["allocator_address_source"], "allocator-export-recovery")
+        self.assertEqual(
+            summary["allocator_link_vaddrs"],
+            {
+                "__kmalloc": "0xffffff800826ae34",
+                "kfree": "0xffffff800826b354",
+            },
+        )
 
     def test_poke_roundtrip_rejects_non_lowmem_alloc(self) -> None:
         fake = FaithfulFakeTransport(0x130000, self.symbols, self.image)
