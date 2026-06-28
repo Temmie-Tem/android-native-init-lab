@@ -359,6 +359,28 @@ class StaticImageCrossCheckTests(unittest.TestCase):
         self.assertEqual(focus["kfree"]["passing_candidate_count"], 1)
         self.assertEqual(focus["kfree"]["map_direct_bl_xref_count"], 0)
 
+    def test_ksymtab_abi_audit_fences_noisy_403_table(self) -> None:
+        audit = repl.run_ksymtab_abi_audit(self.symbols, self.image)
+
+        self.assertTrue(audit["ok"], audit)
+        self.assertEqual(audit["decision"], "a90-repl-v2c-c2d-ksymtab-abi-audit-fenced")
+        self.assertEqual(audit["source_abi_record_size"], 16)
+        top_run = audit["noisy_403_table_runs"][0]
+        self.assertGreater(top_run["record_count"], 100000)
+        self.assertEqual(top_run["record_size"], 24)
+        self.assertEqual(top_run["flags_qword"], "0x403")
+
+        rows = audit["focus_rows"]
+        for name in ("printk", "__kmalloc", "kfree"):
+            self.assertEqual(rows[name]["absolute_kernel_symbol_pair_candidate_count"], 0)
+            self.assertEqual(rows[name]["status"], "no-parseable-source-abi-ksymtab-row")
+            self.assertGreaterEqual(rows[name]["noisy_403_candidate_count"], 1)
+            self.assertTrue(rows[name]["noisy_403_candidates"][0]["inside_403_run"])
+            self.assertEqual(
+                rows[name]["noisy_403_candidates"][0]["classification"],
+                "noisy-24-byte-0x403-record-table-not-kernel_symbol-pair",
+            )
+
     def test_assert_jopp_entry_rejects_non_entry(self) -> None:
         link = repl.resolve_link(self.symbols, "printk")
         with self.assertRaises(repl.ReplError):

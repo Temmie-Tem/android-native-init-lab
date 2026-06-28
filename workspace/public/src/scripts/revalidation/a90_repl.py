@@ -113,6 +113,7 @@ EXPORT_RECORD_NAME_DELTA = 24
 FUNCTION_SYMBOL_KINDS = frozenset("TtWw")
 MAP_AUDIT_ANCHORS = ("printk", "__kmalloc", "kfree")
 PRINTK_LIVE_PROOF = "v2a1 named call printk(format,sentinel) echoed the sentinel"
+KSYMTAB_ABI_AUDIT_FOCUS = ("printk", "__kmalloc", "kfree")
 
 A64_BL_MASK = 0xFC000000
 A64_BL = 0x94000000
@@ -1039,6 +1040,176 @@ def run_map_audit(symbols: dict[str, Symbol],
         "next_required": (
             "locate the real __ksymtab/__ksymtab_strings section bounds for any broad drift map; "
             "until then, trust only verified call/poke resolutions and high-confidence rows"
+        ),
+    }
+
+
+def _find_403_record_runs(raw: bytes, *, min_records: int = 20) -> list[dict[str, object]]:
+    runs: list[dict[str, object]] = []
+    for align in range(0, 24, 8):
+        start: int | None = None
+        count = 0
+        for off in range(align, len(raw) - 8, 24):
+            if struct.unpack_from("<Q", raw, off)[0] == 0x403:
+                if start is None:
+                    start = off
+                    count = 1
+                else:
+                    count += 1
+                continue
+            if start is not None and count >= min_records:
+                runs.append({
+                    "raw_off": f"0x{start:x}",
+                    "link_vaddr": f"0x{_raw_off_to_vaddr(start):x}",
+                    "record_count": count,
+                    "record_size": 24,
+                    "flags_qword": "0x403",
+                    "alignment": align,
+                })
+            start = None
+            count = 0
+        if start is not None and count >= min_records:
+            runs.append({
+                "raw_off": f"0x{start:x}",
+                "link_vaddr": f"0x{_raw_off_to_vaddr(start):x}",
+                "record_count": count,
+                "record_size": 24,
+                "flags_qword": "0x403",
+                "alignment": align,
+            })
+    runs.sort(key=lambda row: (-int(row["record_count"]), int(str(row["raw_off"]), 16)))
+    return runs
+
+
+def _is_off_in_403_run(off: int, runs: list[dict[str, object]]) -> bool:
+    for run in runs:
+        start = int(str(run["raw_off"]), 16)
+        end = start + int(run["record_count"]) * int(run["record_size"])
+        if start <= off < end:
+            return True
+    return False
+
+
+def _kernel_symbol_abs_pair_candidates(raw: bytes, symbol: str) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for string_off in _iter_exact_c_string_offsets(raw, symbol):
+        string_vaddr = _raw_off_to_vaddr(string_off)
+        for name_ref_off in _iter_aligned_qword_hits(raw, string_vaddr):
+            if name_ref_off < 8:
+                continue
+            value = struct.unpack_from("<Q", raw, name_ref_off - 8)[0]
+            if not _is_vaddr_inside_raw(raw, value):
+                continue
+            bl_count, sample_sites = _count_direct_bl_xrefs_cached(raw, value)
+            rows.append({
+                "record_raw_off": f"0x{name_ref_off - 8:x}",
+                "record_link_vaddr": f"0x{_raw_off_to_vaddr(name_ref_off - 8):x}",
+                "string_raw_off": f"0x{string_off:x}",
+                "string_link_vaddr": f"0x{string_vaddr:x}",
+                "name_ref_raw_off": f"0x{name_ref_off:x}",
+                "value_link_vaddr": f"0x{value:x}",
+                "jopp_entry": _is_static_jopp_text_entry(raw, value),
+                "direct_bl_xref_count": bl_count,
+                "direct_bl_xref_sample_sites": sample_sites,
+            })
+    return rows
+
+
+def _noisy_403_symbol_candidates(raw: bytes,
+                                 symbol: str,
+                                 runs_403: list[dict[str, object]]) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for string_off in _iter_exact_c_string_offsets(raw, symbol):
+        string_vaddr = _raw_off_to_vaddr(string_off)
+        for name_ref_off in _iter_aligned_qword_hits(raw, string_vaddr):
+            if name_ref_off < 24:
+                continue
+            name_record_flags = struct.unpack_from("<Q", raw, name_ref_off - 8)[0]
+            previous_record_value = struct.unpack_from("<Q", raw, name_ref_off - 24)[0]
+            if name_record_flags != 0x403 or not _is_vaddr_inside_raw(raw, previous_record_value):
+                continue
+            bl_count, sample_sites = _count_direct_bl_xrefs_cached(raw, previous_record_value)
+            rows.append({
+                "string_raw_off": f"0x{string_off:x}",
+                "string_link_vaddr": f"0x{string_vaddr:x}",
+                "name_ref_raw_off": f"0x{name_ref_off:x}",
+                "name_record_raw_off": f"0x{name_ref_off - 8:x}",
+                "value_record_raw_off": f"0x{name_ref_off - 32:x}",
+                "candidate_link_vaddr": f"0x{previous_record_value:x}",
+                "candidate_jopp_entry": _is_static_jopp_text_entry(raw, previous_record_value),
+                "candidate_direct_bl_xref_count": bl_count,
+                "candidate_direct_bl_xref_sample_sites": sample_sites,
+                "inside_403_run": (
+                    _is_off_in_403_run(name_ref_off - 8, runs_403)
+                    and _is_off_in_403_run(name_ref_off - 32, runs_403)
+                ),
+                "classification": "noisy-24-byte-0x403-record-table-not-kernel_symbol-pair",
+            })
+    return rows
+
+
+def run_ksymtab_abi_audit(symbols: dict[str, Symbol],
+                          image: StaticImage,
+                          *,
+                          focus_symbols: tuple[str, ...] = KSYMTAB_ABI_AUDIT_FOCUS
+                          ) -> dict[str, object]:
+    """Audit whether the image contains source-ABI `struct kernel_symbol` rows.
+
+    The available kernel source defines `struct kernel_symbol` as a 16-byte
+    absolute pair `{ unsigned long value; const char *name; }`. C2A's noisy
+    string-ref recovery instead follows a 24-byte `0x403, pointer, aux` table.
+    This audit separates those two cases so the 24-byte table is not promoted
+    to broad `__ksymtab` truth.
+    """
+    raw = cached_static_raw_image(image)
+    runs_403 = _find_403_record_runs(raw)
+    rows: dict[str, dict[str, object]] = {}
+    for symbol in focus_symbols:
+        map_symbol = symbols.get(symbol)
+        abs_pairs = _kernel_symbol_abs_pair_candidates(raw, symbol)
+        noisy = _noisy_403_symbol_candidates(raw, symbol, runs_403)
+        rows[symbol] = {
+            "symbol": symbol,
+            "map_link_vaddr": f"0x{map_symbol.vaddr:x}" if map_symbol else None,
+            "absolute_kernel_symbol_pair_candidate_count": len(abs_pairs),
+            "absolute_kernel_symbol_pair_candidates": abs_pairs[:8],
+            "noisy_403_candidate_count": len(noisy),
+            "noisy_403_candidates": noisy[:8],
+            "status": (
+                "no-parseable-source-abi-ksymtab-row"
+                if not abs_pairs else "source-abi-ksymtab-row-present"
+            ),
+        }
+
+    bad_abs_rows = [
+        name for name, row in rows.items()
+        if int(row["absolute_kernel_symbol_pair_candidate_count"]) != 0
+    ]
+    return {
+        "decision": (
+            "a90-repl-v2c-c2d-ksymtab-abi-audit-fenced"
+            if not bad_abs_rows else "a90-repl-v2c-c2d-ksymtab-abi-audit-review"
+        ),
+        "ok": not bad_abs_rows,
+        "raw_runtime_values_redacted": True,
+        "source_abi": "struct kernel_symbol { unsigned long value; const char *name; }",
+        "source_abi_record_size": 16,
+        "source_reference": (
+            "workspace/private/inputs/kernel_source/"
+            "SM-A908N_KOR_12_Opensource/Kernel/include/linux/export.h"
+        ),
+        "focus_rows": rows,
+        "noisy_403_table_runs": runs_403[:8],
+        "noisy_403_table_total_run_count": len(runs_403),
+        "conclusion": (
+            "No focus anchor has a parseable 16-byte source-ABI kernel_symbol pair in the raw image. "
+            "The string-ref candidates come from a large 24-byte 0x403 record table, so they remain "
+            "noisy evidence unless independently verified per symbol."
+        ),
+        "next_required": (
+            "Do not claim a broad export drift count from the 0x403 table. Keep call/poke on C1 "
+            "verified resolution and high-confidence C2C rows; use semantic/independent proof for "
+            "any additional symbol."
         ),
     }
 
@@ -2301,6 +2472,15 @@ def cmd_map_audit(args: argparse.Namespace) -> int:
     return 0 if summary["ok"] else 1
 
 
+def cmd_ksymtab_audit(args: argparse.Namespace) -> int:
+    symbols = load_system_map(args.map)
+    image = load_static_image(args.image)
+    summary = run_ksymtab_abi_audit(symbols, image, focus_symbols=tuple(args.focus_symbols))
+    write_evidence(args, summary)
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0 if summary["ok"] else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -2399,6 +2579,14 @@ def main(argv: list[str] | None = None) -> int:
     add_common(p_map_audit)
     p_map_audit.add_argument("--row-limit", type=int, default=80)
     p_map_audit.set_defaults(func=cmd_map_audit)
+
+    p_ksymtab = sub.add_parser(
+        "ksymtab-audit",
+        help="host-only v2c C2D audit for source-ABI kernel_symbol rows vs noisy 0x403 table",
+    )
+    add_common(p_ksymtab)
+    p_ksymtab.add_argument("--focus-symbols", nargs="+", default=list(KSYMTAB_ABI_AUDIT_FOCUS))
+    p_ksymtab.set_defaults(func=cmd_ksymtab_audit)
 
     args = parser.parse_args(argv)
     return args.func(args)

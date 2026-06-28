@@ -1121,6 +1121,20 @@ host-only unit unless it explicitly needs a live check. Report each to `docs/rep
   `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2C_C2C_HIGH_CONFIDENCE_MAP_AUDIT_2026-06-29.md`.
   Remaining C2 work: a real `__ksymtab`/`__ksymtab_strings` section parse, or equivalent grounded oracle,
   before claiming any broad drift count or changing `a90_stock_kallsyms_extract.py`.
+
+  **STATUS (2026-06-29 v2c C2D host pass) — noisy C2A ksymtab source fenced.**
+  The local Samsung kernel source for this image defines `struct kernel_symbol` as the 16-byte absolute
+  pair `{ unsigned long value; const char *name; }`, not the PREL32 `{ s32 value_offset; s32 name_offset; }`
+  ABI. `a90_repl.py ksymtab-audit` now checks that source ABI directly and separates it from the large
+  24-byte `0x403, pointer, aux` table that C2A had accidentally treated as broad truth. For `printk`,
+  `__kmalloc`, and `kfree`, no parseable 16-byte source-ABI ksymtab row exists in the raw v1-repl image;
+  all string-ref candidates are inside the single noisy 24-byte `0x403` table (`162763` records). This
+  explicitly fences the broad drift count and blocks any decoder rewrite from that table. Validation:
+  `py_compile` pass, CLI `ksymtab-audit` pass, `tests.test_a90_repl` +
+  `tests.test_a90_stock_kallsyms_extract` **62/62 PASS**. Report:
+  `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2C_C2D_KSYMTAB_ABI_AUDIT_2026-06-29.md`.
+  C2 status: known allocator drift is fixed by C1 verified resolution and C2C anchors; broad map drift is
+  intentionally **not claimed** unless a future independent oracle is added.
 - **S1 — transport stability.** Harden the live op path against the observed serial-fragment noise
   (`ATAT` / missing `A90P1 END`): per-op bounded re-read/realign retry, robust ring read (busybox `dmesg`
   is read-and-clear; keep the single-shell `op_sh` + `tail -n N`), and clear classification of
