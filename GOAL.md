@@ -1123,6 +1123,17 @@ host-only unit unless it explicitly needs a live check. Report each to `docs/rep
   (`ATAT` / missing `A90P1 END`): per-op bounded re-read/realign retry, robust ring read (busybox `dmesg`
   is read-and-clear; keep the single-shell `op_sh` + `tail -n N`), and clear classification of
   transient-noise vs real failure. Ops should self-heal a noisy read instead of aborting the run.
+
+  **STATUS (2026-06-29 v2c S1A host pass) — safe-op retry + transient-noise classification landed.**
+  `a90_repl.py` now raises `ReplTransientNoiseError` for no-`A90R` capture, retries replay-safe ops
+  (`slide`/`peek`) with bounded `--safe-op-retries`, uses configured `--dmesg-tail`, and exposes
+  `--retry-delay-sec`. Generic `call` is deliberately not replayed by default to avoid duplicate
+  `__kmalloc`/`kfree` side effects; `run_selftest` marks its `printk` proof call explicitly replay-safe.
+  Validation: `py_compile` pass, `tests.test_a90_repl` + `tests.test_a90_stock_kallsyms_extract`
+  **56/56 PASS**. Report:
+  `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2C_S1A_SAFE_OP_RETRY_2026-06-29.md`.
+  Remaining S1 gate: live serial-fragment validation and any extra non-replay re-read/realign handling if
+  unsafe ops still see fragment loss.
 - **U1 — usability surface.** Add first-class CLI: `call SYMBOL [args…]` (verified targets only),
   `read SYMBOL|ADDR --len N` = **arbitrary-length bulk peek by host-side looping op1 in 8-byte chunks**
   (this unblocks the old "v2b" need with NO new image — looping the existing `peek` op suffices for reads),

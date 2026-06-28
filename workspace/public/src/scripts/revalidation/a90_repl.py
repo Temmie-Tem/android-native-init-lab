@@ -71,6 +71,7 @@ OP_PEEK = v1repl.OP_PEEK
 OP_POKE = v1repl.OP_POKE
 OP_CALL = v1repl.OP_CALL
 PEEK_MAX_LEN = v1repl.PEEK_MAX_LEN
+REPLAY_SAFE_OPS = frozenset((OP_SLIDE, OP_PEEK))
 
 CMD_BUF_LEN = 0x58  # magic + op + arg0..arg8
 ARG_BASE = 0x10
@@ -832,6 +833,10 @@ class ReplError(RuntimeError):
     pass
 
 
+class ReplTransientNoiseError(ReplError):
+    pass
+
+
 @dataclass
 class ReplConfig:
     host: str = a90ctl.DEFAULT_HOST
@@ -840,6 +845,8 @@ class ReplConfig:
     timeout: float = 25.0
     dmesg_tail: int = DEFAULT_DMESG_TAIL
     settle_sec: float = 0.4
+    safe_op_retries: int = 2
+    retry_delay_sec: float = 0.2
 
 
 class ReplSession:
@@ -887,15 +894,36 @@ class ReplSession:
             return None
         return self._op_values(op, args)[-1]
 
-    def _op_values(self, op: int, args: tuple[int, ...] = ()) -> list[int]:
+    def _op_values(self, op: int, args: tuple[int, ...] = (), *,
+                   replay_safe: bool | None = None) -> list[int]:
         buf = build_cmd_buffer(op, args)
-        # Write + read in a single shell so the kernel-log ring cannot drain
-        # between the two; the newest A90R line is this op's result.
-        text = self._run_sh(op_sh(buf, self.config.busybox), allow_error=True)
-        values = parse_a90r_values(text)
-        if not values:
-            raise ReplError(f"no A90R output captured for op={op} args={args}")
-        return values
+        replay_safe = (op in REPLAY_SAFE_OPS) if replay_safe is None else replay_safe
+        attempts = 1 + (max(0, self.config.safe_op_retries) if replay_safe else 0)
+        samples: list[str] = []
+        for attempt in range(attempts):
+            # Write + read in a single shell so the kernel-log ring cannot drain
+            # between the two; the newest A90R line is this op's result.
+            text = self._run_sh(
+                op_sh(
+                    buf,
+                    self.config.busybox,
+                    tail_lines=self.config.dmesg_tail,
+                ),
+                allow_error=True,
+            )
+            values = parse_a90r_values(text)
+            if values:
+                return values
+            samples.append(text[-160:].replace("\n", "\\n"))
+            if attempt + 1 < attempts:
+                self.hide()
+                if self.config.retry_delay_sec > 0:
+                    time.sleep(self.config.retry_delay_sec)
+        raise ReplTransientNoiseError(
+            f"no A90R output captured for op={op} after {attempts} attempt(s); "
+            f"replay_safe={replay_safe}; classify=transient-serial-or-ring-noise; "
+            f"stdout_tail_samples={samples!r}"
+        )
 
     # --- public ops --------------------------------------------------------
     def slide(self) -> int:
@@ -911,11 +939,13 @@ class ReplSession:
         return self.call_runtime_values(target_runtime, xargs)[-1]
 
     def call_runtime_values(self, target_runtime: int,
-                            xargs: tuple[int, ...] = ()) -> list[int]:
+                            xargs: tuple[int, ...] = (),
+                            *,
+                            replay_safe: bool = False) -> list[int]:
         if len(xargs) > 8:
             raise ValueError(f"too many call args (max x0..x7): {len(xargs)}")
         args = (target_runtime & MASK64, *(value & MASK64 for value in xargs))
-        return self._op_values(OP_CALL, args)
+        return self._op_values(OP_CALL, args, replay_safe=replay_safe)
 
     def poke_runtime(self, runtime_vaddr: int, value: int, width: int = 8) -> int:
         # Present for completeness; the v2a1 selftest never calls this.
@@ -1303,6 +1333,7 @@ def run_selftest(session: ReplSession,
         values = session.call_runtime_values(
             call_link + slide,
             (format_runtime, CALL_SENTINEL),
+            replay_safe=True,
         )
         sentinel_echoed = CALL_SENTINEL in values
         checks.append({
@@ -1492,6 +1523,9 @@ def add_common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--busybox", default=DEFAULT_BUSYBOX)
     parser.add_argument("--timeout", type=float, default=25.0)
     parser.add_argument("--dmesg-tail", type=int, default=DEFAULT_DMESG_TAIL)
+    parser.add_argument("--safe-op-retries", type=int, default=2,
+                        help="bounded replay count for idempotent slide/peek ops when A90R capture is noisy")
+    parser.add_argument("--retry-delay-sec", type=float, default=0.2)
     parser.add_argument("--evidence-dir", type=Path, default=None,
                         help="private dir for raw evidence (kept out of git)")
 
@@ -1503,6 +1537,8 @@ def make_session(args: argparse.Namespace) -> ReplSession:
         busybox=args.busybox,
         timeout=args.timeout,
         dmesg_tail=args.dmesg_tail,
+        safe_op_retries=args.safe_op_retries,
+        retry_delay_sec=args.retry_delay_sec,
     ))
 
 

@@ -117,9 +117,9 @@ class FakeTransport:
 
 
 class LiveMathTests(unittest.TestCase):
-    def _session(self, responses):
+    def _session(self, responses, **config_kwargs):
         fake = FakeTransport(responses)
-        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0, **config_kwargs))
         session_transport = repl.transport
         self._orig = session_transport.run_serial_command
         session_transport.run_serial_command = fake.run_serial_command
@@ -164,9 +164,42 @@ class LiveMathTests(unittest.TestCase):
         self.assertEqual(struct.unpack_from("<Q", buf, 0x20)[0], 0x5678)  # x1
 
     def test_no_output_raises(self) -> None:
-        session, _ = self._session([""])
-        with self.assertRaises(repl.ReplError):
+        session, _ = self._session([""], safe_op_retries=0)
+        with self.assertRaises(repl.ReplTransientNoiseError):
             session.slide()
+
+    def test_slide_retries_transient_noise_for_replay_safe_op(self) -> None:
+        slide = 0x108000
+        runtime_pc = repl.ADR_SELF_LINK_VADDR + slide
+        session, fake = self._session(
+            ["ATAT\n", f"A90R{runtime_pc:x}\n"],
+            safe_op_retries=1,
+            retry_delay_sec=0.0,
+        )
+        self.assertEqual(session.slide(), slide)
+        self.assertEqual(len(fake.sent), 2)
+
+    def test_call_noise_is_not_replayed_by_default(self) -> None:
+        session, fake = self._session(
+            ["ATAT\n", "A90Rc\n"],
+            safe_op_retries=3,
+            retry_delay_sec=0.0,
+        )
+        with self.assertRaises(repl.ReplTransientNoiseError):
+            session.call_runtime(0xFFFFFF800813D8CC, (0x1234,))
+        self.assertEqual(len(fake.sent), 1)
+
+    def test_call_runtime_values_can_replay_when_explicitly_safe(self) -> None:
+        session, fake = self._session(
+            ["ATAT\n", "A90Rc\n"],
+            safe_op_retries=1,
+            retry_delay_sec=0.0,
+        )
+        self.assertEqual(
+            session.call_runtime_values(0xFFFFFF800813D8CC, (0x1234,), replay_safe=True),
+            [0xC],
+        )
+        self.assertEqual(len(fake.sent), 2)
 
 
 @unittest.skipUnless(MAP_PATH.is_file(), "v2a1 System.map not generated")
