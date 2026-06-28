@@ -798,12 +798,43 @@ step.
    asserting a swept candidate-SAFE symbol is still gate-refused for `call` until explicitly seeded/vetted.
 4. Bounded + deterministic: cap the swept set per run (e.g. a named family), stable ordering, no network, no
    device. Objdump excerpts optional/private.
+5. **SOURCE cross-reference as the PRIMARY oracle (operator-requested enrichment).** We hold the exact stock
+   tree at `workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel/`. For each swept symbol,
+   parse the C prototype/signature from source and use it as ground truth that OVERRIDES disasm
+   under-approximation: a pointer-typed arg ⇒ never `SAFE-SCALAR` (this is exactly what the kfree false-SAFE
+   needed — `void kfree(const void *)` says "pointer" instantly); `might_sleep()` / `__must_hold()` / lock
+   annotations / `__user` ⇒ context/danger flags. Disasm/taint stays as the corroborating second oracle;
+   when source and disasm disagree, take the MORE restrictive verdict and flag the disagreement. Record the
+   source signature + file:line as evidence. (Source parse is best-effort: missing/ambiguous source must
+   DOWNGRADE toward DENY, never upgrade.)
+6. **WEB is advisory-only, operator-side, NOT baked into the tool.** Do not add any network/runtime web
+   dependency to `call-safety-sweep`; it stays deterministic+offline. General kernel-API semantics from the
+   web are an operator aid during Gate-2 only, never a classification authority (our own source tree
+   outranks the web).
+
+**NOT in U3 (separate later gate) — live "call the function and check the result."** Classification is
+static+source only. Actually invoking a swept candidate on the device to "verify" is a SEPARATE,
+explicitly-gated, ONE-TARGET-AT-A-TIME, recoverable step (operator approval, `panic_on_oops=0`, rollback
+v2321) — NEVER an autonomous mass live-call sweep (mass false-SAFE = cascading device faults + operator
+collision, V2631). The loop MUST NOT live-call functions in U3.
+
+**Prior-art note (operator web check 2026-06-29):** the building-block methods are public and mature — reuse
+them, don't reinvent: `vmlinux-to-elf` (symbol ground truth, already used), `drgn`/eBPF `probe_read_kernel`
+(read-only kernel introspection), standard known-offset KASLR-slide leak, and static call-graph/side-effect
+analysis (SyzScope/DR.CHECKER/B-Side — but those are framed for fuzzing/attack-surface/bug-triage). NO public
+off-the-shelf tool produces a fail-closed "which stock-kernel functions are safe to invoke from a runtime
+REPL" advisory whitelist, and nothing exists for this device's native-init REPL specifically. So U3 borrows
+proven methods (source signatures + disasm taint + call-graph danger reachability) and the integrated
+device-specific artifact is ours. Recursive improvement is allowed only as STATIC call-graph propagation
+(a function reaching only proven-safe callees with no arg→memory-base flow inherits a safety argument), never
+as recursive live-calling.
 
 **Definition of done for U3:** `call-safety-sweep` produces evidence-backed risk profiles + a ranked
-advisory candidate-SAFE list + danger flags over at least 2–3 real families; the advisory/auto-call
-firewall is enforced (swept SAFE ≠ gate-callable) and tested; the U2 invariants still hold; `py_compile` +
-focused suite pass; host-only, no device action, no boot image. After U3, the optional tool runbook is the
-only remainder before the REPL epic can fully close.
+advisory candidate-SAFE list + danger flags over at least 2–3 real families, with source-signature evidence
+attached and source overriding disasm toward the more-restrictive verdict; the advisory/auto-call firewall is
+enforced (swept SAFE ≠ gate-callable) and tested; the tool stays offline/deterministic (no web/network/device);
+the U2 invariants still hold; `py_compile` + focused suite pass; host-only, no device action, no boot image.
+After U3, the optional tool runbook is the only remainder before the REPL epic can fully close.
 
 **Guardrails:** host-only static analysis; exploit-free framing; BEHAVIOR-CHANGING/DENY families stay
 classified, never chained or promoted; keep raw runtime pointers out of commits; scoped `git add`;
