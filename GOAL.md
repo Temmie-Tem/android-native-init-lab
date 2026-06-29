@@ -767,7 +767,38 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
-## ✅ DONE — REPL U3 — broad advisory call-safety risk-assessment sweep
+## 🟣 ACTIVE NOW — REPL U3 — broad advisory call-safety risk-assessment sweep (NOT done — Gate-2 reopened)
+
+> ### 🛑 OPERATOR GATE-2 (2026-06-29) — U3 firewall HOLDS, but the source oracle is INERT + advisory list has false-SAFEs. NOT done.
+>
+> I ran `call-safety-sweep --family allocator` against the v2321 image + the stock source tree and independently
+> checked it. **Good (live safety intact):** `auto_call_firewall=sweep-results-do-not-mutate-CALL_SAFETY_SEEDS-or-call-gate`,
+> every non-seeded candidate is `gate_tier=DENY / gate_auto_call_allowed=False` (candidate-SAFE ≠ gate-callable ✓),
+> `offline_source_oracle=True`, `network_dependency=False`, `device_action=False`. No live danger, no seed mutation.
+> **But three advisory-layer defects (the U3 deliverable + the operator-requested enrichment are not working):**
+> 1. **The source-xref oracle is completely INERT.** `lookup_source_signature('ksize', source_root=<tree>)` returns
+>    `found=None` for EVERY symbol, even though `size_t ksize(const void *)` is at `include/linux/slab.h:153`. I proved
+>    the bug is in the ORCHESTRATION layer, not the parser: `_extract_source_signatures_from_file(root, slab.h, 'ksize')`
+>    and `_parse_source_signature_statement(...)` BOTH correctly return the signature with `is_pointer=True,
+>    pointer_arg_indices=[0]`, and `slab.h` IS in `_source_candidate_files('ksize')` — yet the top-level
+>    `lookup_source_signature` discards it and returns None. So the "source overrides disasm" safety net does nothing.
+>    **FIX:** make `lookup_source_signature` actually return the file-level extraction it already computes (debug the
+>    candidate-iteration/precedence/cache path; note `_source_candidate_files` returns 655 unfiltered files starting at
+>    `arch/alpha/...`, so fix the selection too — prefer `include/linux/*.h` declarations and the symbol's own subsystem).
+> 2. **No `__init`/`__exit` danger flag.** `kmem_cache_init` is `void __init kmem_cache_init(void)` (slab.h:121) — calling
+>    it at runtime executes freed `.init.text` and faults — yet it is listed `candidate_safe=True` with NO flag. Add a
+>    danger flag from the source `__init`/`__exit` annotation AND/OR the symbol's address landing in the init section range.
+> 3. **Advisory candidate logic ignores the taint arg-memory-base signal for non-seeded symbols.** `kfree_skb_partial`
+>    has taint `arg_memory_base_use_count=3 / no_flow=False` (it derefs its skb pointer arg) yet is `candidate_safe=True`
+>    with no blocking flag. A non-seeded symbol with arg→memory-base flow and no covering declared pointer args MUST NOT
+>    be candidate-SAFE. (Pure disasm taint already flagged it; the advisory just didn't honor it — independent of source.)
+>
+> Net: the firewall is right, but the advisory candidate-SAFE list is currently polluted with pointer-consumers and an
+> `__init` function precisely because the source oracle is dead. Fix #1 (it's the headline enrichment), then #2/#3, then
+> re-sweep ≥2 families and confirm pointer-arg/`__init` symbols drop out of candidate-SAFE with source evidence attached.
+> Host-only; firewall + offline/deterministic must stay; do not touch the device. U3 is NOT done until this lands.
+
+### (history — U3 charter) broad advisory call-safety risk-assessment sweep
 
 **Operator-chartered 2026-06-29 (U2 DONE/verified; user pre-decided U2→U3).** U2 gave a vetted ~15-symbol
 seed + a disasm signal/taint extractor + a fail-closed gate. U3 SCALES that to a large function-family sweep
