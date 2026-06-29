@@ -767,6 +767,36 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `strcasecmp` owned-string casefold compare contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `strcasecmp` promoted under two owned NUL strings only
+>
+> Thirty-second one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py`
+> `call-proof` with `strcasecmp`, using two tool-owned NUL-terminated kernel string buffers
+> containing `A90STRCASECMP-PROOF-ZZ` and `a90strcasecmp-proof-zz`, then rewriting one
+> right-string byte for a first-difference positive-sign case. Static gate:
+> `strcasecmp=0xffffff80099b9684`, `export-recovery`, direct-BL xrefs `112`, JOPP entry,
+> leaf/no-BL, RET in scan, and byte-load/casefold compare loop. Source contract:
+> `extern int strcasecmp(const char *s1, const char *s2)`, with x0/x1 as string pointer
+> args. The call-safety seed is `SAFE-WITH-VALID-PTR`; required valid pointer args are x0
+> `left-string-buffer` and x1 `right-string-buffer`.
+>
+> Live path: confirmed rollback images and TWRP, flashed the existing v1-repl boot image
+> (`b846ae9f...`) through `native_init_flash.py`, confirmed clean native selftest `fail=0` and
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof strcasecmp` with the C2B verified map.
+> Result: `a90-repl-live-call-proof-strcasecmp-pass`; checks covered C1 identity, source pointer
+> contract, call-safety contract, distinct owned left/right string allocations, casefold-equal
+> return `0x0`, mismatch offset `20`, folded-left byte `0x7a`, right mismatch byte `0x40`,
+> positive mismatch return `0x3a`, string immutability after both calls, and
+> `kfree-owned-strcasecmp-strings`.
+>
+> Candidate selftest after proof was `pass=11 warn=1 fail=0`. Rollback to clean v2321 used the
+> checked helper with readback SHA `ca978551...`; final resident `version/status` confirmed v2321
+> and final slow-mode `selftest` confirmed `pass=11 warn=1 fail=0`. Function map records
+> `strcasecmp` only under the two-owned-NUL-terminated-string contract. This does not authorize
+> arbitrary pointers, user pointers, unterminated strings, locale assumptions beyond the kernel
+> helper behavior observed here, or mass calls.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `strlcat` owned-buffer size-bounded append contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `strlcat` promoted under owned dst/src string plus bounded size contract only

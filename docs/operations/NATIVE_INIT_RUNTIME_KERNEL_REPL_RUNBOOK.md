@@ -418,6 +418,16 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
   --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
   --evidence-dir workspace/private/runs/kernel/<unit>/ \
+  strcasecmp
+```
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/a90_repl.py call-proof \
+  --map workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map \
+  --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
+  --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
+  --evidence-dir workspace/private/runs/kernel/<unit>/ \
   strncmp
 ```
 
@@ -561,6 +571,9 @@ proof allocates two owned
 NUL-terminated string buffers, compares equal strings for return `0`, changes one right-string byte so
 the first difference should return a positive sign, verifies both strings and canaries stay unchanged
 after both calls, and redacts the owned pointers and observed raw bytes from public output. The
+`strcasecmp` proof uses the same two-owned-string shape, but the first call compares case-only
+differences for return `0`; the second call rewrites one right-string byte so the first casefolded
+difference should return a positive sign, then verifies both strings and canaries stay unchanged. The
 `strncmp` proof allocates two owned NUL-terminated string buffers, sets a bounded count that stops
 immediately before a deliberate post-count byte difference, requires return `0`, then introduces a
 count-internal right-string byte difference that should return a positive sign, verifies both strings

@@ -38,6 +38,7 @@ and the C1 fail-closed identity gate.
 | `strspn` | `0xffffff80099b9a6c`, `export-recovery`, direct BL xrefs `2`, leaf/no-BL | owned NUL-terminated haystack and accept-set kernel string buffers | `strspn("A90STRSPN-HEAD-Q-TAIL", "A90STRSPNHED-") == 15`; full accept set `A90STRSPNHEDQIL-` returned haystack length `21`; both strings stayed unchanged | `kfree-owned-strspn-strings-ok` | `a90-repl-live-call-proof-strspn-pass` |
 | `strcspn` | `0xffffff80099b9ac4`, `export-recovery`, direct BL xrefs `8`, leaf/no-BL | owned NUL-terminated haystack and reject-set kernel string buffers | `strcspn("A90STRCSPN-HEAD-Q-TAIL", "QZ") == 16`; missing reject set `xy` returned haystack length `22`; both strings stayed unchanged | `kfree-owned-strcspn-strings-ok` | `a90-repl-live-call-proof-strcspn-pass` |
 | `strcmp` | `0xffffff80099a8b6c`, `leaf-map-disasm+xref`, direct BL xrefs `3507`, leaf/no-BL | two owned NUL-terminated kernel string buffers | equal string compare returned `0x0`; first-difference case returned positive (`0xd0`); both strings stayed unchanged | `kfree-owned-strcmp-strings-ok` | `a90-repl-live-call-proof-strcmp-pass` |
+| `strcasecmp` | `0xffffff80099b9684`, `export-recovery`, direct BL xrefs `112`, leaf/no-BL | two owned NUL-terminated kernel string buffers | `strcasecmp("A90STRCASECMP-PROOF-ZZ", "a90strcasecmp-proof-zz") == 0x0`; first casefolded mismatch returned positive (`0x3a`); both strings stayed unchanged | `kfree-owned-strcasecmp-strings-ok` | `a90-repl-live-call-proof-strcasecmp-pass` |
 | `strncmp` | `0xffffff80099a8d44`, `leaf-map-disasm+xref`, direct BL xrefs `590`, leaf/no-BL | two owned NUL-terminated kernel string buffers plus bounded count inside both buffers | `strncmp("A90STRNCMP-PREFIXZ-LEFT", "A90STRNCMP-PREFIX@-RIGHT", 17) == 0x0` despite post-count byte difference; count-internal mismatch at offset `3` returned positive (`0x98`); both strings stayed unchanged | `kfree-owned-strncmp-strings-ok` | `a90-repl-live-call-proof-strncmp-pass` |
 | `strnlen` | `0xffffff80099a8f4c`, `leaf-map-disasm+xref`, direct BL xrefs `473`, leaf/no-BL | owned NUL-terminated kernel string buffer plus scalar `maxlen` | `strnlen("A90STRNLEN", 64) == 0xa` | `kfree-owned-string-buffer-ok` | `a90-repl-live-call-proof-strnlen-pass` |
 | `strrchr` | `0xffffff80099a900c`, `leaf-map-disasm+xref`, direct BL xrefs `1405`, leaf/no-BL | owned NUL-terminated kernel string buffer plus scalar search byte | `strrchr("A90STRRCHR-A-B-A-Z", 'A')` returned the owned pointer at offset `15` (redacted); missing `@` returned `0x0`; string stayed unchanged | `kfree-owned-strrchr-string-buffer-ok` | `a90-repl-live-call-proof-strrchr-pass` |
@@ -63,7 +64,7 @@ and the C1 fail-closed identity gate.
   proof gate only under their paired owned `/init` file/buffer/position contracts. Broader read paths,
   arbitrary file pointers, and arbitrary destination buffers remain parked until separate contracts are
   proven.
-- String sweep: `strlen`, `strnchr`, `skip_spaces`, `strim`, `strreplace`, `strchr`, `strchrnul`, `strstr`, `strpbrk`, `strcmp`, `strncmp`, `strnlen`, `strrchr`,
+- String sweep: `strlen`, `strnchr`, `skip_spaces`, `strim`, `strreplace`, `strchr`, `strchrnul`, `strstr`, `strpbrk`, `strcmp`, `strcasecmp`, `strncmp`, `strnlen`, `strrchr`,
   `strscpy`, `strlcpy`, `strcpy`, `strlcat`, `strncat`, `strcat`, and
   `strncpy` have crossed the live proof gate only under owned NUL-terminated kernel string/buffer
   contracts. `strnchr` additionally requires scalar bounded count/search-byte args and only proves
@@ -80,7 +81,8 @@ and the C1 fail-closed identity gate.
   one missing-needle NULL case; `strpbrk` additionally requires owned haystack and accept-set strings
   and only proves one present accept-set hit plus one missing accept-set NULL case; `strcmp`
   additionally requires two owned terminated strings and only proves equal/positive-sign compare
-  cases; `strncmp` additionally requires two owned terminated strings plus a scalar bounded count
+  cases; `strcasecmp` additionally requires two owned terminated strings and only proves case-fold
+  equal plus positive-sign mismatch cases; `strncmp` additionally requires two owned terminated strings plus a scalar bounded count
   inside both buffers and only proves bounded-equal plus positive-sign mismatch cases; `strnlen`
   additionally requires the scalar `maxlen` contract; `strrchr` additionally
   requires a scalar search byte and a terminated owned string; `strscpy`, `strlcpy`, `strcpy`,
