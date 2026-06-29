@@ -130,6 +130,11 @@ LEAF_MAP_GROUND_TRUTH_SYMBOLS = {
         "expected_pointer_args": (0,),
         "note": "non-JOPP arm64 leaf reverse string search helper; identity rests on map label, high xref count, and leaf shape",
     },
+    "memset": {
+        "min_direct_bl_xrefs": 5000,
+        "expected_pointer_args": (0,),
+        "note": "non-JOPP arm64 leaf memory fill helper; identity rests on map label, high xref count, and leaf shape",
+    },
 }
 MIN_VERIFIED_DIRECT_BL_XREFS = 1
 KNOWN_UNSAFE_CALL_TARGETS = {
@@ -271,6 +276,12 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {0: "string-buffer"},
         "return_kind": "string-pointer-or-null",
         "reason": "reverse string search helper; x0 must be an owned NUL-terminated kernel string buffer",
+    },
+    "memset": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "destination-buffer"},
+        "return_kind": "destination-pointer",
+        "reason": "bounded memory fill helper; x0 must be an owned buffer and size must stay inside destination",
     },
     "kmem_cache_alloc": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
@@ -4534,6 +4545,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern char * strrchr(const char *,int)",
     },
+    "memset": {
+        "input_contract": "owned destination buffer plus scalar fill byte plus bounded size",
+        "return_contract": "void * == owned destination pointer; first size bytes equal fill byte; post-size canary preserved",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern void * memset(void *,int,__kernel_size_t)",
+    },
 }
 FILP_OPEN_PROOF_PATH = b"/init\x00"
 FILP_OPEN_PROOF_FLAGS = 0
@@ -4571,6 +4588,10 @@ STRRCHR_SEARCH_BYTE = ord("A")
 STRRCHR_EXPECTED_OFFSET = STRRCHR_PROOF_BYTES[:-1].rfind(bytes([STRRCHR_SEARCH_BYTE]))
 STRRCHR_MISSING_BYTE = ord("@")
 STRRCHR_CANARY_LEN = 8
+MEMSET_PROOF_SIZE = 32
+MEMSET_PROOF_BYTE = 0x5A
+MEMSET_INITIAL_BYTE = 0x11
+MEMSET_CANARY_LEN = 8
 LINUX_MAX_ERRNO = 4095
 LINUX_ERR_PTR_MIN = ((-LINUX_MAX_ERRNO) & MASK64)
 
@@ -5072,6 +5093,199 @@ def _run_call_proof_strrchr(session: ReplSession,
         "alloc_ptr": f"0x{ptr:x}",
         "hit_return_ptr": f"0x{hit_return:x}",
         "observed_bytes_hex": observed.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
+def _run_call_proof_memset(session: ReplSession,
+                           symbols: dict[str, Symbol],
+                           image: StaticImage,
+                           *,
+                           alloc_size: int,
+                           source_root: Path,
+                           gfp: int,
+                           gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    scan_len = MEMSET_PROOF_SIZE + MEMSET_CANARY_LEN
+    if alloc_size < scan_len:
+        raise ReplError(f"memset call-proof alloc_size must be at least {scan_len} bytes")
+
+    source = lookup_source_signature("memset", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "memset",
+        ("@owned_destination_buffer", MEMSET_PROOF_BYTE, MEMSET_PROOF_SIZE),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["memset"]["expected_tier"]:
+        raise ReplError("memset call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError("memset source signature does not declare x0 as the destination pointer argument")
+
+    resolutions = {
+        "memset": resolve_verified(symbols, image, "memset", purpose="call", allow_pre_arg_deref=True),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    memset_link = require_verified_resolution(resolutions["memset"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof buffer allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof buffer cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    initial_scan = (bytes([MEMSET_INITIAL_BYTE]) * MEMSET_PROOF_SIZE) + (b"\xcc" * MEMSET_CANARY_LEN)
+    expected_scan = (bytes([MEMSET_PROOF_BYTE]) * MEMSET_PROOF_SIZE) + (b"\xcc" * MEMSET_CANARY_LEN)
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "memset",
+            "resolution_method": resolutions["memset"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+            "fill_byte": f"0x{MEMSET_PROOF_BYTE:02x}",
+            "bounded_size": MEMSET_PROOF_SIZE,
+        },
+    ]
+    private: dict[str, object] = {}
+    ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_attempted = False
+    free_ok = False
+    free_error = ""
+    return_ptr = 0
+    observed_before = b""
+    observed_after = b""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        memset_runtime = (memset_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        ptr_ok = is_kernel_lowmem_pointer(ptr)
+        checks.append({
+            "check": "kmalloc-owned-memset-destination-buffer",
+            "ok": ptr_ok,
+            "alloc_size": alloc_size,
+            "kernel_lowmem": ptr_ok,
+        })
+        if not ptr_ok:
+            raise ReplError("__kmalloc did not return a sane memset destination buffer")
+
+        _poke_bytes(session, ptr, initial_scan)
+        observed_before = _peek_bytes(session, ptr, scan_len)
+        setup_ok = observed_before == initial_scan
+        checks.append({
+            "check": "owned-memset-destination-poke-peek",
+            "ok": setup_ok,
+            "initial_byte": f"0x{MEMSET_INITIAL_BYTE:02x}",
+            "fill_byte": f"0x{MEMSET_PROOF_BYTE:02x}",
+            "size_arg": MEMSET_PROOF_SIZE,
+            "canary_len": MEMSET_CANARY_LEN,
+        })
+        if not setup_ok:
+            raise ReplError("owned memset destination poke/peek mismatch")
+
+        return_ptr = session.call_runtime(memset_runtime, (ptr, MEMSET_PROOF_BYTE, MEMSET_PROOF_SIZE))
+        return_ok = return_ptr == ptr
+        checks.append({
+            "check": "memset-return-contract",
+            "ok": return_ok,
+            "return_matches_destination": return_ok,
+        })
+        if not return_ok:
+            raise ReplError("memset did not return the owned destination pointer")
+
+        observed_after = _peek_bytes(session, ptr, scan_len)
+        fill_ok = observed_after[:MEMSET_PROOF_SIZE] == bytes([MEMSET_PROOF_BYTE]) * MEMSET_PROOF_SIZE
+        canary_ok = observed_after[MEMSET_PROOF_SIZE:] == b"\xcc" * MEMSET_CANARY_LEN
+        checks.append({
+            "check": "memset-fill-and-canary-contract",
+            "ok": fill_ok and canary_ok,
+            "filled_size": MEMSET_PROOF_SIZE,
+            "fill_byte": f"0x{MEMSET_PROOF_BYTE:02x}",
+            "prefix_filled": fill_ok,
+            "post_size_canary_preserved": canary_ok,
+        })
+        if not (fill_ok and canary_ok):
+            raise ReplError("memset fill bytes or post-size canary did not match contract")
+    finally:
+        if ptr and is_kernel_lowmem_pointer(ptr) and kfree_runtime:
+            free_attempted = True
+            try:
+                session.call_runtime(kfree_runtime, (ptr,))
+                free_ok = True
+            except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                free_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "kfree-owned-memset-destination-buffer",
+        "ok": free_ok,
+        "free_attempted": free_attempted,
+    })
+    if free_error:
+        raise ReplError(f"kfree failed after memset proof: {free_error}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-memset-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "memset",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["memset"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["memset"]["return_contract"],
+        "alloc_size": alloc_size,
+        "size_arg": MEMSET_PROOF_SIZE,
+        "fill_byte": f"0x{MEMSET_PROOF_BYTE:02x}",
+        "initial_byte": f"0x{MEMSET_INITIAL_BYTE:02x}",
+        "expected_return_value": "owned-destination-pointer-redacted",
+        "observed_return_value": "owned-destination-pointer-redacted",
+        "return_matches_destination": return_ptr == ptr,
+        "filled_size": MEMSET_PROOF_SIZE,
+        "post_size_canary_preserved": True,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "memset",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["memset"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["memset"]["return_contract"],
+            "observed_return_value": "owned-destination-pointer-redacted,filled-size=32",
+            "cleanup": "kfree-owned-memset-destination-buffer-ok" if free_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "memset_runtime": f"0x{((memset_link + slide) & MASK64):x}",
+        "dst_ptr": f"0x{ptr:x}",
+        "return_ptr": f"0x{return_ptr:x}",
+        "observed_before_hex": observed_before.hex(),
+        "observed_after_hex": observed_after.hex(),
         "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
     })
     return summary, private
@@ -6645,6 +6859,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "strrchr":
         return _run_call_proof_strrchr(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "memset":
+        return _run_call_proof_memset(
             session,
             symbols,
             image,

@@ -605,6 +605,14 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(strrchr["signals"]["direct_bl_xref_count"], 1000)
         self.assertTrue(strrchr["signals"]["leaf"])
 
+        memset = self._row("memset")
+        self.assertEqual(memset["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(memset["required_valid_pointer_args"], {"0": "destination-buffer"})
+        self.assertTrue(memset["resolution"]["verified"])
+        self.assertEqual(memset["resolution"]["method"], "leaf-map-disasm+xref")
+        self.assertGreaterEqual(memset["signals"]["direct_bl_xref_count"], 5000)
+        self.assertTrue(memset["signals"]["leaf"])
+
     def test_non_seeded_targets_are_denied_by_default(self) -> None:
         row = self._row("kgsl_pwrctrl_force_no_nap_store")
         self.assertEqual(row["tier"], repl.CALL_SAFETY_DENY)
@@ -771,6 +779,15 @@ class CallSafetyClassificationTests(unittest.TestCase):
             "extern char * strrchr(const char *,int)",
         )
         self.assertTrue(strrchr["selected"]["path"].endswith("include/linux/string.h"))
+
+        memset = repl.lookup_source_signature("memset", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(memset["status"], "found", memset)
+        self.assertEqual(memset["selected"]["pointer_arg_indices"], [0])
+        self.assertEqual(
+            memset["selected"]["signature"],
+            "extern void * memset(void *,int,__kernel_size_t)",
+        )
+        self.assertTrue(memset["selected"]["path"].endswith("include/linux/string.h"))
 
     def test_call_safety_sweep_is_advisory_and_does_not_promote_gate(self) -> None:
         if not KERNEL_SOURCE_ROOT.is_dir():
@@ -1030,6 +1047,13 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.memset_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "memset",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.filp_open_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -1128,6 +1152,8 @@ class FaithfulFakeTransport:
             memcmp = self.memcmp_link + self.slide
             assert self.strrchr_link is not None
             strrchr = self.strrchr_link + self.slide
+            assert self.memset_link is not None
+            memset = self.memset_link + self.slide
             assert self.filp_open_link is not None
             filp_open = self.filp_open_link + self.slide
             assert self.filp_close_link is not None
@@ -1232,6 +1258,13 @@ class FaithfulFakeTransport:
                 search = arg2 & 0xFF
                 offset = data[:nul].rfind(bytes([search]))
                 lines.append("A90R0" if offset < 0 else f"A90R{arg1 + offset:x}")
+            elif arg0 == memset:
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"memset dst is not an allocated pointer: {arg1:#x}")
+                if arg3 != repl.MEMSET_PROOF_SIZE:
+                    raise AssertionError(f"unexpected memset size: {arg3:#x}")
+                self._set_heap_bytes(arg1, bytes([arg2 & 0xFF]) * arg3)
+                lines.append(f"A90R{arg1:x}")
             elif arg0 == filp_open:
                 path = self._heap_bytes(arg1, 16).split(b"\x00", 1)[0]
                 if path != b"/init":
@@ -1717,6 +1750,59 @@ class SelftestIntegrationTests(unittest.TestCase):
             repl.STRRCHR_PROOF_BYTES + (b"\xcc" * repl.STRRCHR_CANARY_LEN)
         ).hex()
         self.assertEqual(private["observed_bytes_hex"], expected_hex)
+        self.assertEqual(fake.freed, [fake.heap_ptr])
+
+    def test_call_proof_memset_passes_with_owned_destination_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "memset",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-memset-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "memset")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern void * memset(void *,int,__kernel_size_t)",
+        )
+        self.assertEqual(summary["size_arg"], repl.MEMSET_PROOF_SIZE)
+        self.assertEqual(summary["fill_byte"], f"0x{repl.MEMSET_PROOF_BYTE:02x}")
+        self.assertEqual(summary["initial_byte"], f"0x{repl.MEMSET_INITIAL_BYTE:02x}")
+        self.assertEqual(summary["expected_return_value"], "owned-destination-pointer-redacted")
+        self.assertEqual(summary["observed_return_value"], "owned-destination-pointer-redacted")
+        self.assertTrue(summary["return_matches_destination"])
+        self.assertTrue(summary["post_size_canary_preserved"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("dst_ptr", summary)
+        self.assertNotIn("return_ptr", summary)
+        self.assertEqual(private["dst_ptr"], f"0x{fake.heap_ptr:x}")
+        self.assertEqual(private["return_ptr"], f"0x{fake.heap_ptr:x}")
+        expected_before_hex = (
+            bytes([repl.MEMSET_INITIAL_BYTE]) * repl.MEMSET_PROOF_SIZE
+            + (b"\xcc" * repl.MEMSET_CANARY_LEN)
+        ).hex()
+        expected_after_hex = (
+            bytes([repl.MEMSET_PROOF_BYTE]) * repl.MEMSET_PROOF_SIZE
+            + (b"\xcc" * repl.MEMSET_CANARY_LEN)
+        ).hex()
+        self.assertEqual(private["observed_before_hex"], expected_before_hex)
+        self.assertEqual(private["observed_after_hex"], expected_after_hex)
         self.assertEqual(fake.freed, [fake.heap_ptr])
 
     def test_call_proof_filp_open_passes_with_owned_pathname_contract(self) -> None:
