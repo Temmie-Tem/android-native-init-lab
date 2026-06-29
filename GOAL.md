@@ -769,6 +769,25 @@ epic is DONE.** Reports:
 
 ## ✅ DONE — REPL U4 — source-scan perf polish + tool runbook; REPL epic CLOSED
 
+> ### ✅ OPERATOR GATE-2 SIGN-OFF (2026-06-29) — U4 DONE; Runtime Kernel REPL epic CLOSED
+>
+> Independently verified 7993fbba host-only. **Perf:** allocator + read-io family sweeps each complete in **~6s**
+> (was ~126s, ~21× faster) via hint-first source lookup (`ksize` resolves with `candidate_file_count<=1`), cached
+> file reads, and one-pass BL-xref indexing. **Verdicts byte-identical + regression-pinned**
+> (`test_u4_family_sweep_verdicts_are_pinned`): allocator `candidate_safe_ranked==['ksize']` (kfree_const/
+> kmem_cache_shrink still dropped DRIVEN BY SOURCE), read-io `==['filp_close','filp_open','kernel_read']`,
+> kmem_cache_init/__init + kfree_skb_partial/taint drops hold. `lookup_source_signature('ksize')` still
+> found=True/ptr=True. Firewall intact (offline, no device/network/seed mutation); 63/63 tests; U2 invariants hold.
+> Runbook `docs/operations/NATIVE_INIT_RUNTIME_KERNEL_REPL_RUNBOOK.md` covers commands + map regen + 4 anchors
+> (printk `0xffffff800813adfc`, real-not-twin) + fail-closed/advisory-firewall safety + the operator-gated
+> one-target live-call exception; only static link anchors, no runtime pointers/slide. **U4 DoD met.**
+>
+> **The Runtime Kernel REPL epic (v1-repl → v2a → v2c → U1–U4) is CLOSED.** Delivered: a flash-once named runtime
+> kernel REPL (peek/poke/call/slide, C1 fail-closed identity), a triple-oracle-verified kallsyms ground-truth map,
+> a disasm+source call-safety classifier with a fail-closed gate, and a broad advisory risk-assessment sweep — all
+> host-driven, exploit-free, device on clean v2321. The only future extension is a separately-gated one-target live
+> call-proof of a vetted candidate, if ever chartered. Loop HALTED at the epic boundary awaiting the next epic.
+
 > ### ✅ STATUS (2026-06-29 U4 host pass) — perf polish + runbook complete
 >
 > U4 is host-only complete. `call-safety-sweep` now keeps U3 verdicts while avoiding repeated broad
