@@ -569,6 +569,14 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertEqual(strim["resolution"]["link_vaddr"], "0xffffff80099b99f4")
         self.assertGreaterEqual(strim["signals"]["direct_bl_xref_count"], 50)
 
+        strreplace = self._row("strreplace")
+        self.assertEqual(strreplace["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(strreplace["required_valid_pointer_args"], {"0": "mutable-string-buffer"})
+        self.assertTrue(strreplace["resolution"]["verified"])
+        self.assertEqual(strreplace["resolution"]["method"], "export-recovery")
+        self.assertEqual(strreplace["resolution"]["link_vaddr"], "0xffffff80099ba12c")
+        self.assertGreaterEqual(strreplace["signals"]["direct_bl_xref_count"], 10)
+
         strchr = self._row("strchr")
         self.assertEqual(strchr["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(strchr["required_valid_pointer_args"], {"0": "string-buffer"})
@@ -856,6 +864,12 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertEqual(strim["selected"]["pointer_arg_indices"], [0])
         self.assertEqual(strim["selected"]["signature"], "extern char * strim(char *)")
         self.assertTrue(strim["selected"]["path"].endswith("include/linux/string.h"))
+
+        strreplace = repl.lookup_source_signature("strreplace", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(strreplace["status"], "found", strreplace)
+        self.assertEqual(strreplace["selected"]["pointer_arg_indices"], [0])
+        self.assertEqual(strreplace["selected"]["signature"], "char * strreplace(char *s, char old, char new)")
+        self.assertTrue(strreplace["selected"]["path"].endswith("include/linux/string.h"))
 
         strchr = repl.lookup_source_signature("strchr", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(strchr["status"], "found", strchr)
@@ -1208,6 +1222,13 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.strreplace_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "strreplace",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.strchr_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -1408,6 +1429,8 @@ class FaithfulFakeTransport:
             skip_spaces = self.skip_spaces_link + self.slide
             assert self.strim_link is not None
             strim = self.strim_link + self.slide
+            assert self.strreplace_link is not None
+            strreplace = self.strreplace_link + self.slide
             assert self.strchr_link is not None
             strchr = self.strchr_link + self.slide
             assert self.strchrnul_link is not None
@@ -1498,6 +1521,19 @@ class FaithfulFakeTransport:
                 if trimmed_end < len(raw):
                     self._set_heap_bytes(arg1 + trimmed_end, b"\x00")
                 lines.append(f"A90R{arg1 + leading:x}")
+            elif arg0 == strreplace:
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"strreplace string is not an allocated pointer: {arg1:#x}")
+                data = self._heap_bytes(arg1, len(repl.STRREPLACE_PROOF_BYTES))
+                nul = data.find(b"\x00")
+                if nul < 0:
+                    raise AssertionError("strreplace proof buffer is not NUL-terminated in scan window")
+                body = bytearray(data[:nul])
+                for index, byte in enumerate(body):
+                    if byte == (arg2 & 0xFF):
+                        body[index] = arg3 & 0xFF
+                self._set_heap_bytes(arg1, bytes(body))
+                lines.append(f"A90R{arg1 + nul:x}")
             elif arg0 == strchr:
                 if arg1 not in self.allocated:
                     raise AssertionError(f"strchr string is not an allocated pointer: {arg1:#x}")
@@ -2058,6 +2094,66 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(private["observed_trimmed_hex"], expected_trimmed.hex())
         self.assertEqual(private["expected_clean_hex"], expected_clean.hex())
         self.assertEqual(private["observed_bytes_hex"], expected_clean.hex())
+        self.assertEqual(fake.freed, [fake.heap_ptr])
+
+    def test_call_proof_strreplace_passes_with_owned_mutable_string_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "strreplace",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        expected_original = repl.STRREPLACE_PROOF_BYTES + (b"\xcc" * repl.STRREPLACE_CANARY_LEN)
+        expected_replaced = repl.STRREPLACE_EXPECTED_BYTES + (b"\xcc" * repl.STRREPLACE_CANARY_LEN)
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-strreplace-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "strreplace")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "char * strreplace(char *s, char old, char new)",
+        )
+        self.assertEqual(summary["proof_string"], repl.STRREPLACE_PROOF_LABEL)
+        self.assertEqual(summary["expected_replaced_string"], repl.STRREPLACE_EXPECTED_BYTES[:-1].decode("ascii"))
+        self.assertEqual(summary["old_byte"], f"0x{repl.STRREPLACE_OLD_BYTE:02x}")
+        self.assertEqual(summary["new_byte"], f"0x{repl.STRREPLACE_NEW_BYTE:02x}")
+        self.assertEqual(summary["missing_byte"], f"0x{repl.STRREPLACE_MISSING_BYTE:02x}")
+        self.assertEqual(summary["expected_nul_offset"], repl.STRREPLACE_NUL_OFFSET)
+        self.assertEqual(summary["hit_expected_return_value"], "owned-string-nul-terminator-pointer-redacted")
+        self.assertEqual(summary["hit_observed_return_value"], "owned-string-nul-terminator-pointer-redacted")
+        self.assertTrue(summary["hit_return_matches_nul_offset"])
+        self.assertTrue(summary["replacement_bytes_match_expected"])
+        self.assertEqual(summary["missing_expected_return_value"], "owned-string-nul-terminator-pointer-redacted")
+        self.assertEqual(summary["missing_observed_return_value"], "owned-string-nul-terminator-pointer-redacted")
+        self.assertTrue(summary["missing_return_matches_nul_offset"])
+        self.assertTrue(summary["missing_string_unchanged_after_call"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("alloc_ptr", summary)
+        self.assertNotIn("hit_return_ptr", summary)
+        self.assertNotIn("missing_return_ptr", summary)
+        self.assertEqual(private["alloc_ptr"], f"0x{fake.heap_ptr:x}")
+        self.assertEqual(private["hit_return_ptr"], f"0x{fake.heap_ptr + repl.STRREPLACE_NUL_OFFSET:x}")
+        self.assertEqual(private["missing_return_ptr"], f"0x{fake.heap_ptr + repl.STRREPLACE_NUL_OFFSET:x}")
+        self.assertEqual(private["expected_original_hex"], expected_original.hex())
+        self.assertEqual(private["expected_replaced_hex"], expected_replaced.hex())
+        self.assertEqual(private["observed_replaced_hex"], expected_replaced.hex())
+        self.assertEqual(private["expected_missing_hex"], expected_original.hex())
+        self.assertEqual(private["observed_bytes_hex"], expected_original.hex())
         self.assertEqual(fake.freed, [fake.heap_ptr])
 
     def test_call_proof_strscpy_passes_with_owned_buffers_contract(self) -> None:

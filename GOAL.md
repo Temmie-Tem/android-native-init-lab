@@ -767,6 +767,34 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `strreplace` owned-mutable-string contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `strreplace` promoted under owned mutable NUL-string contract only
+>
+> Twenty-second one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py`
+> `call-proof` with `strreplace`, using one tool-owned mutable NUL-terminated kernel string
+> (`A90STRREPLACE-Q-Q-END`) plus scalar old/new bytes. Static gate:
+> `strreplace=0xffffff80099ba12c`, `export-recovery`, direct-BL xrefs `15`, JOPP entry,
+> leaf/no-BL, first RET in scan at offset `0x8`. Source contract:
+> `char * strreplace(char *s, char old, char new)`, with x0 as the mutable string pointer and
+> x1/x2 as scalar bytes. The call-safety seed is `SAFE-WITH-VALID-PTR`; required valid pointer
+> arg is x0 `mutable-string-buffer`.
+>
+> Live path: confirmed rollback images and TWRP, flashed the existing v1-repl boot image
+> (`b846ae9f...`) through `native_init_flash.py`, confirmed clean native selftest `fail=0` and
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof strreplace` with the C2B verified map.
+> Result: `a90-repl-live-call-proof-strreplace-pass`; checks covered C1 identity, source pointer
+> contract, call-safety contract, owned mutable string allocation, hit-case poke/peek, return of the
+> owned NUL terminator pointer at offset `21`, bounded `Q -> Z` replacement, missing-byte rewrite,
+> missing-byte return at the same NUL offset, missing-case immutability, and
+> `kfree-owned-strreplace-string-buffer`.
+>
+> Candidate selftest after proof was `pass=11 warn=1 fail=0`. Rollback to clean v2321 used the checked
+> helper with readback SHA `ca978551...`; final `selftest` confirmed v2321 health with
+> `pass=11 warn=1 fail=0`. Function map records `strreplace` only under this owned mutable
+> NUL-terminated kernel string plus scalar old/new byte contract. This does not authorize arbitrary
+> pointers, user pointers, unterminated strings, read-only strings, or mass calls.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `strim` owned-mutable-string contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `strim` promoted under owned mutable NUL-string contract only

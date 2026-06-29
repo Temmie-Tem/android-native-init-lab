@@ -217,6 +217,7 @@ CALL_SAFETY_SWEEP_FAMILIES = {
             "strnlen",
             "skip_spaces",
             "strim",
+            "strreplace",
             "strcmp",
             "strncmp",
             "strstr",
@@ -292,6 +293,12 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {0: "mutable-string-buffer"},
         "return_kind": "string-pointer",
         "reason": "leading/trailing whitespace trim helper; x0 must be an owned mutable NUL-terminated kernel string buffer",
+    },
+    "strreplace": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "mutable-string-buffer"},
+        "return_kind": "string-pointer",
+        "reason": "in-place string byte replacement helper; x0 must be an owned mutable NUL-terminated kernel string buffer",
     },
     "strchr": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
@@ -4624,6 +4631,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern char * strim(char *)",
     },
+    "strreplace": {
+        "input_contract": "owned mutable NUL-terminated kernel string buffer plus scalar old/new bytes",
+        "return_contract": "char * == owned string buffer NUL terminator pointer; old bytes are replaced with new byte",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "char * strreplace(char *s, char old, char new)",
+    },
     "strchr": {
         "input_contract": "owned NUL-terminated kernel string buffer plus scalar search byte",
         "return_contract": "char * == owned string buffer plus expected first-occurrence offset; missing byte returns NULL",
@@ -4734,6 +4747,18 @@ STRIM_EXPECTED_NUL_OFFSET = len(STRIM_PROOF_BYTES[:-1].rstrip(b" "))
 STRIM_CLEAN_BYTES = b"A90STRIM-CLEAN\x00"
 STRIM_CLEAN_LABEL = STRIM_CLEAN_BYTES[:-1].decode("ascii")
 STRIM_CANARY_LEN = 8
+STRREPLACE_PROOF_BYTES = b"A90STRREPLACE-Q-Q-END\x00"
+STRREPLACE_PROOF_LABEL = STRREPLACE_PROOF_BYTES[:-1].decode("ascii")
+STRREPLACE_OLD_BYTE = ord("Q")
+STRREPLACE_NEW_BYTE = ord("Z")
+STRREPLACE_EXPECTED_BYTES = STRREPLACE_PROOF_BYTES.replace(
+    bytes([STRREPLACE_OLD_BYTE]),
+    bytes([STRREPLACE_NEW_BYTE]),
+)
+STRREPLACE_MISSING_BYTE = ord("@")
+STRREPLACE_MISSING_NEW_BYTE = ord("!")
+STRREPLACE_NUL_OFFSET = len(STRREPLACE_PROOF_BYTES) - 1
+STRREPLACE_CANARY_LEN = 8
 STRCHR_PROOF_BYTES = b"A90STRCHR-Q-B-Q-Z\x00"
 STRCHR_PROOF_LABEL = STRCHR_PROOF_BYTES[:-1].decode("ascii")
 STRCHR_SEARCH_BYTE = ord("Q")
@@ -6473,6 +6498,254 @@ def _run_call_proof_strim(session: ReplSession,
         "expected_trimmed_hex": expected_trimmed_scan.hex(),
         "observed_trimmed_hex": observed_trimmed.hex(),
         "expected_clean_hex": expected_clean_scan.hex(),
+        "observed_bytes_hex": observed.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
+def _run_call_proof_strreplace(session: ReplSession,
+                               symbols: dict[str, Symbol],
+                               image: StaticImage,
+                               *,
+                               alloc_size: int,
+                               source_root: Path,
+                               gfp: int,
+                               gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    scan_len = len(STRREPLACE_PROOF_BYTES) + STRREPLACE_CANARY_LEN
+    if alloc_size < scan_len:
+        raise ReplError(f"strreplace call-proof alloc_size must be at least {scan_len} bytes")
+    if STRREPLACE_OLD_BYTE not in STRREPLACE_PROOF_BYTES[:-1]:
+        raise ReplError("strreplace proof string must contain the old byte")
+    if STRREPLACE_NEW_BYTE in STRREPLACE_PROOF_BYTES[:-1]:
+        raise ReplError("strreplace proof string must not already contain the new byte")
+    if STRREPLACE_MISSING_BYTE in STRREPLACE_PROOF_BYTES:
+        raise ReplError("strreplace missing-byte proof byte must not appear in the proof string")
+
+    source = lookup_source_signature("strreplace", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "strreplace",
+        ("@owned_mutable_string_buffer", STRREPLACE_OLD_BYTE, STRREPLACE_NEW_BYTE),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["strreplace"]["expected_tier"]:
+        raise ReplError("strreplace call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError("strreplace source signature does not declare x0 as the mutable string pointer argument")
+
+    resolutions = {
+        "strreplace": resolve_verified(symbols, image, "strreplace", purpose="call", allow_pre_arg_deref=True),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    strreplace_link = require_verified_resolution(resolutions["strreplace"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof string allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof string cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    expected_original_scan = STRREPLACE_PROOF_BYTES + (b"\xcc" * STRREPLACE_CANARY_LEN)
+    expected_replaced_scan = STRREPLACE_EXPECTED_BYTES + (b"\xcc" * STRREPLACE_CANARY_LEN)
+    expected_missing_scan = expected_original_scan
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "strreplace",
+            "resolution_method": resolutions["strreplace"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    private: dict[str, object] = {}
+    ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_ok = False
+    free_error: str | None = None
+    hit_return = 0
+    miss_return = 0
+    observed = b""
+    observed_replaced = b""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        strreplace_runtime = (strreplace_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        ptr_ok = is_kernel_lowmem_pointer(ptr)
+        checks.append({
+            "check": "kmalloc-owned-strreplace-string-buffer",
+            "ok": ptr_ok,
+            "alloc_size": alloc_size,
+            "kernel_lowmem": ptr_ok,
+        })
+        if not ptr_ok:
+            raise ReplError("__kmalloc did not return a sane strreplace string buffer")
+
+        _poke_bytes(session, ptr, expected_original_scan)
+        observed = _peek_bytes(session, ptr, scan_len)
+        hit_setup_ok = observed == expected_original_scan
+        checks.append({
+            "check": "owned-strreplace-hit-string-poke-peek",
+            "ok": hit_setup_ok,
+            "proof_string": STRREPLACE_PROOF_LABEL,
+            "canary_len": STRREPLACE_CANARY_LEN,
+        })
+        if not hit_setup_ok:
+            raise ReplError("owned strreplace hit string poke/peek mismatch")
+
+        hit_return = session.call_runtime(strreplace_runtime, (ptr, STRREPLACE_OLD_BYTE, STRREPLACE_NEW_BYTE))
+        expected_return = (ptr + STRREPLACE_NUL_OFFSET) & MASK64
+        hit_return_ok = hit_return == expected_return
+        checks.append({
+            "check": "strreplace-hit-return-contract",
+            "ok": hit_return_ok,
+            "expected_offset": STRREPLACE_NUL_OFFSET,
+            "expected_return": "owned-string-nul-terminator-pointer-redacted",
+            "observed_return": "owned-string-nul-terminator-pointer-redacted" if hit_return_ok else f"0x{hit_return:x}",
+        })
+        if not hit_return_ok:
+            raise ReplError(
+                f"strreplace hit case returned 0x{hit_return:x}, "
+                f"expected owned NUL terminator pointer at offset {STRREPLACE_NUL_OFFSET}"
+            )
+
+        observed_replaced = _peek_bytes(session, ptr, scan_len)
+        replace_ok = observed_replaced == expected_replaced_scan
+        checks.append({
+            "check": "strreplace-hit-mutation-contract",
+            "ok": replace_ok,
+            "old_byte": f"0x{STRREPLACE_OLD_BYTE:02x}",
+            "new_byte": f"0x{STRREPLACE_NEW_BYTE:02x}",
+            "bounded_mutation": replace_ok,
+        })
+        if not replace_ok:
+            raise ReplError("strreplace hit case did not produce the expected bounded replacement")
+
+        _poke_bytes(session, ptr, expected_missing_scan)
+        observed = _peek_bytes(session, ptr, scan_len)
+        miss_setup_ok = observed == expected_missing_scan
+        checks.append({
+            "check": "owned-strreplace-missing-string-poke-peek",
+            "ok": miss_setup_ok,
+            "proof_string": STRREPLACE_PROOF_LABEL,
+        })
+        if not miss_setup_ok:
+            raise ReplError("owned strreplace missing string poke/peek mismatch")
+
+        miss_return = session.call_runtime(
+            strreplace_runtime,
+            (ptr, STRREPLACE_MISSING_BYTE, STRREPLACE_MISSING_NEW_BYTE),
+        )
+        miss_return_ok = miss_return == expected_return
+        checks.append({
+            "check": "strreplace-missing-return-contract",
+            "ok": miss_return_ok,
+            "expected_offset": STRREPLACE_NUL_OFFSET,
+            "expected_return": "owned-string-nul-terminator-pointer-redacted",
+            "observed_return": "owned-string-nul-terminator-pointer-redacted" if miss_return_ok else f"0x{miss_return:x}",
+        })
+        if not miss_return_ok:
+            raise ReplError(
+                f"strreplace missing case returned 0x{miss_return:x}, "
+                f"expected owned NUL terminator pointer at offset {STRREPLACE_NUL_OFFSET}"
+            )
+
+        observed = _peek_bytes(session, ptr, scan_len)
+        missing_unchanged = observed == expected_missing_scan
+        checks.append({
+            "check": "strreplace-missing-string-immutability",
+            "ok": missing_unchanged,
+            "string_unchanged": missing_unchanged,
+        })
+        if not missing_unchanged:
+            raise ReplError("strreplace missing-byte case modified the owned string")
+    finally:
+        if kfree_runtime and ptr and is_kernel_lowmem_pointer(ptr):
+            try:
+                session.call_runtime(kfree_runtime, (ptr,))
+                free_ok = True
+            except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                free_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "kfree-owned-strreplace-string-buffer",
+        "ok": free_ok,
+        "free_attempted": bool(kfree_runtime and ptr),
+    })
+    if free_error:
+        raise ReplError(f"kfree failed after strreplace proof: {free_error}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-strreplace-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "strreplace",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["strreplace"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["strreplace"]["return_contract"],
+        "alloc_size": alloc_size,
+        "proof_string": STRREPLACE_PROOF_LABEL,
+        "expected_replaced_string": STRREPLACE_EXPECTED_BYTES[:-1].decode("ascii"),
+        "old_byte": f"0x{STRREPLACE_OLD_BYTE:02x}",
+        "new_byte": f"0x{STRREPLACE_NEW_BYTE:02x}",
+        "missing_byte": f"0x{STRREPLACE_MISSING_BYTE:02x}",
+        "expected_nul_offset": STRREPLACE_NUL_OFFSET,
+        "hit_expected_return_value": "owned-string-nul-terminator-pointer-redacted",
+        "hit_observed_return_value": "owned-string-nul-terminator-pointer-redacted",
+        "hit_return_matches_nul_offset": hit_return == ((ptr + STRREPLACE_NUL_OFFSET) & MASK64),
+        "replacement_bytes_match_expected": observed_replaced == expected_replaced_scan,
+        "missing_expected_return_value": "owned-string-nul-terminator-pointer-redacted",
+        "missing_observed_return_value": "owned-string-nul-terminator-pointer-redacted",
+        "missing_return_matches_nul_offset": miss_return == ((ptr + STRREPLACE_NUL_OFFSET) & MASK64),
+        "missing_string_unchanged_after_call": observed == expected_missing_scan,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "strreplace",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["strreplace"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["strreplace"]["return_contract"],
+            "observed_return_value": f"nul-offset={STRREPLACE_NUL_OFFSET},replacement-ok,missing-unchanged",
+            "cleanup": "kfree-owned-strreplace-string-buffer-ok" if free_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "strreplace_runtime": f"0x{((strreplace_link + slide) & MASK64):x}",
+        "alloc_ptr": f"0x{ptr:x}",
+        "hit_return_ptr": f"0x{hit_return:x}",
+        "missing_return_ptr": f"0x{miss_return:x}",
+        "expected_original_hex": expected_original_scan.hex(),
+        "expected_replaced_hex": expected_replaced_scan.hex(),
+        "observed_replaced_hex": observed_replaced.hex(),
+        "expected_missing_hex": expected_missing_scan.hex(),
         "observed_bytes_hex": observed.hex(),
         "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
     })
@@ -9487,6 +9760,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "strim":
         return _run_call_proof_strim(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "strreplace":
+        return _run_call_proof_strreplace(
             session,
             symbols,
             image,

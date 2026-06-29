@@ -248,6 +248,16 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
   --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
   --evidence-dir workspace/private/runs/kernel/<unit>/ \
+  strreplace
+```
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/a90_repl.py call-proof \
+  --map workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map \
+  --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
+  --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
+  --evidence-dir workspace/private/runs/kernel/<unit>/ \
   strnlen
 ```
 
@@ -405,7 +415,10 @@ raw bytes from public output. The `strim` proof writes an owned mutable NUL-term
 with leading and trailing ASCII spaces, requires the returned pointer to match the expected first
 non-space offset, verifies the first trailing space was replaced with NUL and the canary was preserved,
 then rewrites the buffer with a clean no-space string, requires the original pointer to be returned,
-and redacts the owned pointer and observed raw bytes from public output. The `strnlen` proof uses the same owned-string pattern with a scalar `maxlen`
+and redacts the owned pointer and observed raw bytes from public output. The `strreplace` proof writes
+an owned mutable NUL-terminated string buffer, replaces a scalar old byte with a scalar new byte,
+requires the returned pointer to match the owned NUL terminator offset, verifies the bounded byte
+replacement and canary preservation, then checks a missing-byte no-op case. The `strnlen` proof uses the same owned-string pattern with a scalar `maxlen`
 and requires exact bounded length return. The `strscpy` proof allocates owned destination and source
 buffers, bounds the size inside the destination, requires exact copied length, verifies the destination
 prefix and post-size canary, and frees both buffers. The `strlcpy` proof uses the same owned-buffer
