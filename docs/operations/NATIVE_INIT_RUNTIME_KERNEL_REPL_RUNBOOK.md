@@ -268,6 +268,16 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
   --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
   --evidence-dir workspace/private/runs/kernel/<unit>/ \
+  strchr
+```
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/a90_repl.py call-proof \
+  --map workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map \
+  --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
+  --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
+  --evidence-dir workspace/private/runs/kernel/<unit>/ \
   strcmp
 ```
 
@@ -314,7 +324,11 @@ prefix and post-size canary, and frees both buffers. The `strlcpy` proof uses th
 shape, but requires exact source length return because `strlcpy` returns `strlen(src)`. The `strncpy`
 proof also uses owned destination and source buffers, but requires the returned pointer to match the
 owned destination pointer, verifies NUL padding up to the bounded count, verifies the post-count canary,
-and redacts the runtime pointer value from public output. The `strcmp` proof allocates two owned
+and redacts the runtime pointer value from public output. The `strchr` proof allocates one owned
+NUL-terminated string buffer, searches for a byte that appears multiple times, requires the returned
+pointer to match the expected first-occurrence offset, checks a missing byte returns `0`, verifies the
+string and canary stay unchanged, and redacts the owned pointer and observed raw bytes from public
+output. The `strcmp` proof allocates two owned
 NUL-terminated string buffers, compares equal strings for return `0`, changes one right-string byte so
 the first difference should return a positive sign, verifies both strings and canaries stay unchanged
 after both calls, and redacts the owned pointers and observed raw bytes from public output. The
