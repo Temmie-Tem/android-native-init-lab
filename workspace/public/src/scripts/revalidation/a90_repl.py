@@ -216,6 +216,7 @@ CALL_SAFETY_SWEEP_FAMILIES = {
             "strlen",
             "strnlen",
             "skip_spaces",
+            "strim",
             "strcmp",
             "strncmp",
             "strstr",
@@ -285,6 +286,12 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {0: "string-buffer"},
         "return_kind": "string-pointer",
         "reason": "leading-whitespace skip helper; x0 must be an owned NUL-terminated kernel string buffer",
+    },
+    "strim": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "mutable-string-buffer"},
+        "return_kind": "string-pointer",
+        "reason": "leading/trailing whitespace trim helper; x0 must be an owned mutable NUL-terminated kernel string buffer",
     },
     "strchr": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
@@ -4611,6 +4618,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern char * __must_check skip_spaces(const char *)",
     },
+    "strim": {
+        "input_contract": "owned mutable NUL-terminated kernel string buffer with leading and trailing ASCII spaces",
+        "return_contract": "char * == owned string buffer plus expected first non-space offset; first trailing space is replaced with NUL",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern char * strim(char *)",
+    },
     "strchr": {
         "input_contract": "owned NUL-terminated kernel string buffer plus scalar search byte",
         "return_contract": "char * == owned string buffer plus expected first-occurrence offset; missing byte returns NULL",
@@ -4713,6 +4726,14 @@ SKIP_SPACES_EXPECTED_OFFSET = len(SKIP_SPACES_PROOF_BYTES) - len(SKIP_SPACES_PRO
 SKIP_SPACES_NO_LEADING_BYTES = b"A90SKIP-NO-LEADING\x00"
 SKIP_SPACES_NO_LEADING_LABEL = SKIP_SPACES_NO_LEADING_BYTES[:-1].decode("ascii")
 SKIP_SPACES_CANARY_LEN = 8
+STRIM_PROOF_BYTES = b"   A90STRIM-BODY   \x00"
+STRIM_PROOF_LABEL = STRIM_PROOF_BYTES[:-1].decode("ascii")
+STRIM_TRIMMED_LABEL = STRIM_PROOF_BYTES[:-1].strip(b" ").decode("ascii")
+STRIM_EXPECTED_OFFSET = len(STRIM_PROOF_BYTES) - len(STRIM_PROOF_BYTES.lstrip(b" "))
+STRIM_EXPECTED_NUL_OFFSET = len(STRIM_PROOF_BYTES[:-1].rstrip(b" "))
+STRIM_CLEAN_BYTES = b"A90STRIM-CLEAN\x00"
+STRIM_CLEAN_LABEL = STRIM_CLEAN_BYTES[:-1].decode("ascii")
+STRIM_CANARY_LEN = 8
 STRCHR_PROOF_BYTES = b"A90STRCHR-Q-B-Q-Z\x00"
 STRCHR_PROOF_LABEL = STRCHR_PROOF_BYTES[:-1].decode("ascii")
 STRCHR_SEARCH_BYTE = ord("Q")
@@ -6202,6 +6223,257 @@ def _run_call_proof_skip_spaces(session: ReplSession,
         "observed_bytes_hex": observed.hex(),
         "expected_leading_hex": expected_leading_scan.hex(),
         "expected_no_leading_hex": expected_no_leading_scan.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
+def _run_call_proof_strim(session: ReplSession,
+                          symbols: dict[str, Symbol],
+                          image: StaticImage,
+                          *,
+                          alloc_size: int,
+                          source_root: Path,
+                          gfp: int,
+                          gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    scan_len = max(len(STRIM_PROOF_BYTES), len(STRIM_CLEAN_BYTES)) + STRIM_CANARY_LEN
+    if alloc_size < scan_len:
+        raise ReplError(f"strim call-proof alloc_size must be at least {scan_len} bytes")
+    if STRIM_EXPECTED_OFFSET <= 0:
+        raise ReplError("strim proof string must start with at least one ASCII space")
+    if STRIM_EXPECTED_NUL_OFFSET <= STRIM_EXPECTED_OFFSET:
+        raise ReplError("strim proof string must contain a non-space body")
+    if STRIM_EXPECTED_NUL_OFFSET >= len(STRIM_PROOF_BYTES) - 1:
+        raise ReplError("strim proof string must contain trailing ASCII spaces before NUL")
+    if STRIM_PROOF_BYTES[STRIM_EXPECTED_NUL_OFFSET] != 0x20:
+        raise ReplError("strim proof expected NUL offset must point at the first trailing space")
+    if STRIM_CLEAN_BYTES[:1] == b" " or STRIM_CLEAN_BYTES[-2:-1] == b" ":
+        raise ReplError("strim clean proof string must have no leading or trailing spaces")
+
+    source = lookup_source_signature("strim", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "strim",
+        ("@owned_mutable_string_buffer",),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["strim"]["expected_tier"]:
+        raise ReplError("strim call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError("strim source signature does not declare x0 as the mutable string pointer argument")
+
+    resolutions = {
+        "strim": resolve_verified(symbols, image, "strim", purpose="call", allow_pre_arg_deref=True),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    strim_link = require_verified_resolution(resolutions["strim"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof string allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof string cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    payload_len = scan_len - STRIM_CANARY_LEN
+    expected_original_scan = STRIM_PROOF_BYTES.ljust(payload_len, b"\x00") + (
+        b"\xcc" * STRIM_CANARY_LEN
+    )
+    trimmed_payload = bytearray(STRIM_PROOF_BYTES.ljust(payload_len, b"\x00"))
+    trimmed_payload[STRIM_EXPECTED_NUL_OFFSET] = 0
+    expected_trimmed_scan = bytes(trimmed_payload) + (b"\xcc" * STRIM_CANARY_LEN)
+    expected_clean_scan = STRIM_CLEAN_BYTES.ljust(payload_len, b"\x00") + (
+        b"\xcc" * STRIM_CANARY_LEN
+    )
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "strim",
+            "resolution_method": resolutions["strim"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    private: dict[str, object] = {}
+    ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_ok = False
+    free_error: str | None = None
+    trim_return = 0
+    clean_return = 0
+    observed = b""
+    observed_trimmed = b""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        strim_runtime = (strim_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        ptr_ok = is_kernel_lowmem_pointer(ptr)
+        checks.append({
+            "check": "kmalloc-owned-strim-string-buffer",
+            "ok": ptr_ok,
+            "alloc_size": alloc_size,
+            "kernel_lowmem": ptr_ok,
+        })
+        if not ptr_ok:
+            raise ReplError("__kmalloc did not return a sane strim string buffer")
+
+        _poke_bytes(session, ptr, expected_original_scan)
+        observed = _peek_bytes(session, ptr, scan_len)
+        trim_setup_ok = observed == expected_original_scan
+        checks.append({
+            "check": "owned-strim-trim-string-poke-peek",
+            "ok": trim_setup_ok,
+            "proof_string": STRIM_PROOF_LABEL,
+            "canary_len": STRIM_CANARY_LEN,
+        })
+        if not trim_setup_ok:
+            raise ReplError("owned strim trim string poke/peek mismatch")
+
+        trim_return = session.call_runtime(strim_runtime, (ptr,))
+        expected_trim_return = (ptr + STRIM_EXPECTED_OFFSET) & MASK64
+        trim_return_ok = trim_return == expected_trim_return
+        checks.append({
+            "check": "strim-trim-return-contract",
+            "ok": trim_return_ok,
+            "expected_offset": STRIM_EXPECTED_OFFSET,
+            "expected_return": "owned-string-pointer-plus-offset-redacted",
+            "observed_return": "owned-string-pointer-plus-offset-redacted" if trim_return_ok else f"0x{trim_return:x}",
+        })
+        if not trim_return_ok:
+            raise ReplError(
+                f"strim trim case returned 0x{trim_return:x}, "
+                f"expected owned pointer at offset {STRIM_EXPECTED_OFFSET}"
+            )
+
+        observed_trimmed = _peek_bytes(session, ptr, scan_len)
+        trim_mutation_ok = observed_trimmed == expected_trimmed_scan
+        checks.append({
+            "check": "strim-trim-mutation-contract",
+            "ok": trim_mutation_ok,
+            "expected_first_trailing_space_nul_offset": STRIM_EXPECTED_NUL_OFFSET,
+            "bounded_mutation": trim_mutation_ok,
+        })
+        if not trim_mutation_ok:
+            raise ReplError("strim trim case did not produce the expected bounded NUL trim")
+
+        _poke_bytes(session, ptr, expected_clean_scan)
+        observed = _peek_bytes(session, ptr, scan_len)
+        clean_setup_ok = observed == expected_clean_scan
+        checks.append({
+            "check": "owned-strim-clean-string-poke-peek",
+            "ok": clean_setup_ok,
+            "proof_string": STRIM_CLEAN_LABEL,
+        })
+        if not clean_setup_ok:
+            raise ReplError("owned strim clean string poke/peek mismatch")
+
+        clean_return = session.call_runtime(strim_runtime, (ptr,))
+        clean_return_ok = clean_return == ptr
+        checks.append({
+            "check": "strim-clean-return-contract",
+            "ok": clean_return_ok,
+            "expected_offset": 0,
+            "expected_return": "owned-string-pointer-redacted",
+            "observed_return": "owned-string-pointer-redacted" if clean_return_ok else f"0x{clean_return:x}",
+        })
+        if not clean_return_ok:
+            raise ReplError(f"strim clean case returned 0x{clean_return:x}, expected original pointer")
+
+        observed = _peek_bytes(session, ptr, scan_len)
+        clean_unchanged = observed == expected_clean_scan
+        checks.append({
+            "check": "strim-clean-string-immutability",
+            "ok": clean_unchanged,
+            "string_unchanged": clean_unchanged,
+        })
+        if not clean_unchanged:
+            raise ReplError("strim clean case modified the owned string")
+    finally:
+        if kfree_runtime and ptr and is_kernel_lowmem_pointer(ptr):
+            try:
+                session.call_runtime(kfree_runtime, (ptr,))
+                free_ok = True
+            except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                free_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "kfree-owned-strim-string-buffer",
+        "ok": free_ok,
+        "free_attempted": bool(kfree_runtime and ptr),
+    })
+    if free_error:
+        raise ReplError(f"kfree failed after strim proof: {free_error}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-strim-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "strim",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["strim"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["strim"]["return_contract"],
+        "alloc_size": alloc_size,
+        "proof_string": STRIM_PROOF_LABEL,
+        "trimmed_string": STRIM_TRIMMED_LABEL,
+        "clean_string": STRIM_CLEAN_LABEL,
+        "expected_trim_offset": STRIM_EXPECTED_OFFSET,
+        "expected_first_trailing_space_nul_offset": STRIM_EXPECTED_NUL_OFFSET,
+        "trim_expected_return_value": "owned-string-pointer-plus-offset-redacted",
+        "trim_observed_return_value": "owned-string-pointer-plus-offset-redacted",
+        "trim_return_matches_expected_offset": trim_return == ((ptr + STRIM_EXPECTED_OFFSET) & MASK64),
+        "trimmed_bytes_match_expected": observed_trimmed == expected_trimmed_scan,
+        "clean_expected_return_value": "owned-string-pointer-redacted",
+        "clean_observed_return_value": "owned-string-pointer-redacted",
+        "clean_return_matches_original_pointer": clean_return == ptr,
+        "clean_string_unchanged_after_call": observed == expected_clean_scan,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "strim",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["strim"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["strim"]["return_contract"],
+            "observed_return_value": f"trim-offset={STRIM_EXPECTED_OFFSET},clean-offset=0",
+            "cleanup": "kfree-owned-strim-string-buffer-ok" if free_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "strim_runtime": f"0x{((strim_link + slide) & MASK64):x}",
+        "alloc_ptr": f"0x{ptr:x}",
+        "trim_return_ptr": f"0x{trim_return:x}",
+        "clean_return_ptr": f"0x{clean_return:x}",
+        "expected_original_hex": expected_original_scan.hex(),
+        "expected_trimmed_hex": expected_trimmed_scan.hex(),
+        "observed_trimmed_hex": observed_trimmed.hex(),
+        "expected_clean_hex": expected_clean_scan.hex(),
+        "observed_bytes_hex": observed.hex(),
         "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
     })
     return summary, private
@@ -9205,6 +9477,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "skip_spaces":
         return _run_call_proof_skip_spaces(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "strim":
+        return _run_call_proof_strim(
             session,
             symbols,
             image,

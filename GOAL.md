@@ -767,6 +767,35 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `strim` owned-mutable-string contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `strim` promoted under owned mutable NUL-string contract only
+>
+> Twenty-first one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py`
+> `call-proof` with `strim`, using one tool-owned mutable NUL-terminated kernel string first with
+> leading/trailing ASCII spaces (`   A90STRIM-BODY   `) and then with no leading/trailing spaces
+> (`A90STRIM-CLEAN`). Static gate: `strim=0xffffff80099b99f4`, `export-recovery`,
+> direct-BL xrefs `59`, JOPP entry, calls `__pi_strlen`, RET in scan at offset `0x6c`.
+> Source contract: `extern char * strim(char *)`, with x0 as the mutable string pointer. The
+> call-safety seed is `SAFE-WITH-VALID-PTR`; required valid pointer arg is x0
+> `mutable-string-buffer`.
+>
+> Live path: confirmed rollback images and TWRP, flashed the existing v1-repl boot image
+> (`b846ae9f...`) through `native_init_flash.py`, confirmed clean native selftest `fail=0`.
+> One REPL selftest attempt hit serial END-marker noise before any proof call; immediate retry passed
+> as `a90-repl-v2a1-selftest-pass`. Then `call-proof strim` ran with the C2B verified map. Result:
+> `a90-repl-live-call-proof-strim-pass`; checks covered C1 identity, source pointer contract,
+> call-safety contract, owned mutable string allocation, trim-case poke/peek, trim return at offset
+> `3`, bounded first-trailing-space NUL mutation at offset `16`, clean-string rewrite, clean return at
+> offset `0`, clean-string immutability, and `kfree-owned-strim-string-buffer`.
+>
+> Candidate selftest after proof was `pass=11 warn=1 fail=0`. Rollback to clean v2321 used the checked
+> helper with readback SHA `ca978551...`; final slow-mode `selftest` confirmed v2321 health with
+> `pass=11 warn=1 fail=0`. Function map records `strim` only under this owned mutable
+> NUL-terminated kernel string contract. This does not authorize arbitrary pointers, user pointers,
+> unterminated strings, non-ASCII whitespace assumptions beyond this proof, read-only strings, or mass
+> calls.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `skip_spaces` owned-string contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `skip_spaces` promoted under owned NUL-string contract only

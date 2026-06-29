@@ -28,6 +28,7 @@ and the C1 fail-closed identity gate.
 | `kernel_read` | `0xffffff800828bae4`, `export-recovery`, direct BL xrefs `17` | `filp_open(/init)` file pointer plus owned read buffer plus owned `loff_t *` position | `kernel_read(file, buf, 16, pos) == 0x10`, buffer prefix `7f454c46`, pos advanced to `0x10` | `filp_close` returned `0`; owned path/read/pos buffers freed | `a90-repl-live-call-proof-kernel_read-pass` |
 | `strlen` | `0xffffff80099a8cc0`, `leaf-map-disasm+xref`, direct BL xrefs `2073`, leaf/no-BL | owned NUL-terminated kernel string buffer | `strlen("A90STRLEN") == 0x9` | `kfree-owned-string-buffer-ok` | `a90-repl-live-call-proof-strlen-pass` |
 | `skip_spaces` | `0xffffff80099b99d4`, `export-recovery`, direct BL xrefs `52`, first RET offset `0x18` | owned NUL-terminated kernel string buffer | `skip_spaces("   A90SKIP-SPACES")` returned the owned string pointer at offset `3` (redacted); no-leading string `A90SKIP-NO-LEADING` returned the original owned pointer (redacted); string stayed unchanged | `kfree-owned-skip-spaces-string-buffer-ok` | `a90-repl-live-call-proof-skip_spaces-pass` |
+| `strim` | `0xffffff80099b99f4`, `export-recovery`, direct BL xrefs `59`, calls `__pi_strlen` | owned mutable NUL-terminated kernel string buffer | `strim("   A90STRIM-BODY   ")` returned the owned string pointer at offset `3` (redacted) and replaced the first trailing space at offset `16` with NUL; clean string `A90STRIM-CLEAN` returned the original owned pointer (redacted) and stayed unchanged | `kfree-owned-strim-string-buffer-ok` | `a90-repl-live-call-proof-strim-pass` |
 | `strchr` | `0xffffff80099a8b48`, `leaf-map-disasm+xref`, direct BL xrefs `127`, leaf/no-BL | owned NUL-terminated kernel string buffer plus scalar search byte | `strchr("A90STRCHR-Q-B-Q-Z", 'Q')` returned the owned pointer at offset `10` (redacted); missing `@` returned `0x0`; string stayed unchanged | `kfree-owned-strchr-string-buffer-ok` | `a90-repl-live-call-proof-strchr-pass` |
 | `strchrnul` | `0xffffff80099b9984`, `export-recovery`, direct BL xrefs `7`, leaf/no-BL | owned NUL-terminated kernel string buffer plus scalar search byte | `strchrnul("A90STRCHRNUL-Q-B-Q-Z", 'Q')` returned the owned pointer at offset `13` (redacted); missing `@` returned the owned NUL-terminator pointer at offset `20` (redacted); string stayed unchanged | `kfree-owned-strchrnul-string-buffer-ok` | `a90-repl-live-call-proof-strchrnul-pass` |
 | `strstr` | `0xffffff80099b9ebc`, `export-recovery`, direct BL xrefs `50`, calls `__pi_strlen`/`__pi_memcmp` | owned NUL-terminated haystack and needle kernel string buffers | `strstr("A90STRSTR-HEAD-NEEDLE-TAIL", "NEEDLE")` returned the owned haystack pointer at offset `15` (redacted); missing needle `ABSENT` returned `0x0`; both strings stayed unchanged | `kfree-owned-strstr-strings-ok` | `a90-repl-live-call-proof-strstr-pass` |
@@ -52,11 +53,13 @@ and the C1 fail-closed identity gate.
   proof gate only under their paired owned `/init` file/buffer/position contracts. Broader read paths,
   arbitrary file pointers, and arbitrary destination buffers remain parked until separate contracts are
   proven.
-- String sweep: `strlen`, `skip_spaces`, `strchr`, `strchrnul`, `strstr`, `strcmp`, `strncmp`, `strnlen`, `strrchr`,
+- String sweep: `strlen`, `skip_spaces`, `strim`, `strchr`, `strchrnul`, `strstr`, `strcmp`, `strncmp`, `strnlen`, `strrchr`,
   `strscpy`, `strlcpy`, and
   `strncpy` have crossed the live proof gate only under owned NUL-terminated kernel string/buffer
   contracts. `skip_spaces` additionally requires a valid owned string pointer and only proves
-  leading ASCII space skip to offset `3` plus the no-leading-space identity case; `strchr` additionally
+  leading ASCII space skip to offset `3` plus the no-leading-space identity case; `strim`
+  additionally requires a mutable owned string pointer and only proves leading/trailing ASCII space
+  trimming with bounded first-trailing-space NUL mutation plus the clean-string identity case; `strchr` additionally
   requires a scalar search byte and only proves first-occurrence
   hit plus missing-byte-returns-NULL cases; `strchrnul` additionally requires a scalar search byte
   and only proves first-occurrence hit plus missing-byte-returns-NUL-terminator cases; `strstr`
