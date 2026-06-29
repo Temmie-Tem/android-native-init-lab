@@ -767,6 +767,34 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `memcpy` owned-buffer copy contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `memcpy` promoted under distinct owned dst/src buffers plus bounded size only
+>
+> Seventeenth one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py
+> call-proof` with `memcpy`, using two distinct tool-owned kernel buffers, source bytes
+> `A90MEMCPY-SRC-0123456789ABCDEF`, bounded size `30`, initialized destination bytes `0x11`,
+> and independent post-size canaries. Static gate: `memcpy=0xffffff80099a8680`,
+> `leaf-map-disasm+xref`, direct-BL xrefs `6227`, leaf/no-BL, RET in scan at offset `0x150`.
+> Source contract: `extern void * memcpy(void *,const void *,__kernel_size_t)`, with x0 as the
+> destination pointer, x1 as the source pointer, and x2 as a scalar bounded size. The call-safety
+> seed is `SAFE-WITH-VALID-PTR`; required valid pointer args are x0 `destination-buffer` and
+> x1 `source-buffer`.
+>
+> Live path: confirmed rollback images and TWRP, flashed the existing v1-repl boot image
+> (`b846ae9f...`) through `native_init_flash.py`, confirmed native selftest `fail=0` and
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof memcpy` with the C2B verified map. Result:
+> `a90-repl-live-call-proof-memcpy-pass`; checks covered C1 identity, source pointer contract,
+> owned dst/src allocation, non-overlapping allocation ranges, buffer poke/peek, returned
+> destination pointer, destination prefix matching source, destination post-size canary preservation,
+> source-buffer immutability, and `kfree-owned-memcpy-buffers`.
+>
+> Candidate selftest after proof was `pass=11 warn=1 fail=0`. Rollback to clean v2321 used the checked
+> helper with readback SHA `ca978551...`; final `version`/`selftest` confirmed v2321 and
+> `pass=11 warn=1 fail=0`. Function map records `memcpy` only under the distinct-owned-buffer plus
+> bounded-size contract. This does not authorize arbitrary pointers, overlapping ranges, unbounded
+> sizes, user pointers, or `memmove`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `strncmp` owned-string bounded-compare contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `strncmp` promoted under two owned NUL strings plus bounded count only

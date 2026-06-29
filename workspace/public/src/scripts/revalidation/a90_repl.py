@@ -145,6 +145,11 @@ LEAF_MAP_GROUND_TRUTH_SYMBOLS = {
         "expected_pointer_args": (0,),
         "note": "non-JOPP arm64 leaf bounded memory search helper; identity rests on map label, xref count, and leaf shape",
     },
+    "memcpy": {
+        "min_direct_bl_xrefs": 5000,
+        "expected_pointer_args": (0, 1),
+        "note": "non-JOPP arm64 leaf memory copy helper; identity rests on map label, high xref count, and leaf shape",
+    },
     "strrchr": {
         "min_direct_bl_xrefs": 1000,
         "expected_pointer_args": (0,),
@@ -321,6 +326,12 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {0: "buffer"},
         "return_kind": "buffer-pointer-or-null",
         "reason": "bounded memory search helper; x0 must be an owned buffer and size must stay inside the buffer",
+    },
+    "memcpy": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "destination-buffer", 1: "source-buffer"},
+        "return_kind": "destination-pointer",
+        "reason": "bounded memory copy helper; x0/x1 must be distinct owned buffers and size must stay inside both buffers",
     },
     "strrchr": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
@@ -4623,6 +4634,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern void * memchr(const void *,int,__kernel_size_t)",
     },
+    "memcpy": {
+        "input_contract": "distinct owned destination/source buffers plus bounded size inside both buffers",
+        "return_contract": "void * == owned destination pointer; destination first size bytes match source; destination canary and source buffer stay unchanged",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern void * memcpy(void *,const void *,__kernel_size_t)",
+    },
     "strrchr": {
         "input_contract": "owned NUL-terminated kernel string buffer plus scalar search byte",
         "return_contract": "char * == owned string buffer plus expected last-occurrence offset; missing byte returns NULL",
@@ -4698,6 +4715,11 @@ MEMCHR_EXPECTED_OFFSET = MEMCHR_PROOF_BYTES.find(bytes([MEMCHR_SEARCH_BYTE]))
 MEMCHR_MISSING_BYTE = ord("@")
 MEMCHR_CANARY_BYTES = b"@" * 8
 MEMCHR_CANARY_LEN = len(MEMCHR_CANARY_BYTES)
+MEMCPY_PROOF_BYTES = b"A90MEMCPY-SRC-0123456789ABCDEF"
+MEMCPY_PROOF_SIZE = len(MEMCPY_PROOF_BYTES)
+MEMCPY_DST_INITIAL_BYTE = 0x11
+MEMCPY_DST_CANARY_LEN = 8
+MEMCPY_SRC_CANARY_LEN = 8
 STRRCHR_PROOF_BYTES = b"A90STRRCHR-A-B-A-Z\x00"
 STRRCHR_PROOF_LABEL = STRRCHR_PROOF_BYTES[:-1].decode("ascii")
 STRRCHR_SEARCH_BYTE = ord("A")
@@ -5214,6 +5236,230 @@ def _run_call_proof_memchr(session: ReplSession,
         "hit_return_ptr": f"0x{hit_return:x}",
         "missing_return_ptr": f"0x{missing_return:x}",
         "observed_bytes_hex": observed.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
+def _run_call_proof_memcpy(session: ReplSession,
+                           symbols: dict[str, Symbol],
+                           image: StaticImage,
+                           *,
+                           alloc_size: int,
+                           source_root: Path,
+                           gfp: int,
+                           gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    dst_scan_len = MEMCPY_PROOF_SIZE + MEMCPY_DST_CANARY_LEN
+    src_scan_len = MEMCPY_PROOF_SIZE + MEMCPY_SRC_CANARY_LEN
+    if alloc_size < max(dst_scan_len, src_scan_len):
+        raise ReplError(
+            f"memcpy call-proof alloc_size must be at least {max(dst_scan_len, src_scan_len)} bytes"
+        )
+
+    source = lookup_source_signature("memcpy", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "memcpy",
+        ("@owned_destination_buffer", "@owned_source_buffer", MEMCPY_PROOF_SIZE),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["memcpy"]["expected_tier"]:
+        raise ReplError("memcpy call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0, 1]:
+        raise ReplError("memcpy source signature does not declare x0/x1 as pointer arguments")
+
+    resolutions = {
+        "memcpy": resolve_verified(symbols, image, "memcpy", purpose="call", allow_pre_arg_deref=True),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    memcpy_link = require_verified_resolution(resolutions["memcpy"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof buffer allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof buffer cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    initial_dst_scan = (bytes([MEMCPY_DST_INITIAL_BYTE]) * MEMCPY_PROOF_SIZE) + (b"\xcc" * MEMCPY_DST_CANARY_LEN)
+    expected_dst_scan = MEMCPY_PROOF_BYTES + (b"\xcc" * MEMCPY_DST_CANARY_LEN)
+    expected_src_scan = MEMCPY_PROOF_BYTES + (b"\xdd" * MEMCPY_SRC_CANARY_LEN)
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "memcpy",
+            "resolution_method": resolutions["memcpy"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+            "bounded_size": MEMCPY_PROOF_SIZE,
+        },
+    ]
+    private: dict[str, object] = {}
+    dst_ptr = 0
+    src_ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_attempted: list[str] = []
+    free_ok: dict[str, bool] = {"dst": False, "src": False}
+    free_errors: list[str] = []
+    return_ptr = 0
+    observed_dst_before = b""
+    observed_dst_after = b""
+    observed_src_before = b""
+    observed_src_after = b""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        memcpy_runtime = (memcpy_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        dst_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        src_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        dst_ok = is_kernel_lowmem_pointer(dst_ptr)
+        src_ok = is_kernel_lowmem_pointer(src_ptr)
+        distinct_ok = dst_ptr != src_ptr
+        non_overlap_ok = (
+            dst_ok and src_ok and (
+                ((dst_ptr + alloc_size) & MASK64) <= src_ptr
+                or ((src_ptr + alloc_size) & MASK64) <= dst_ptr
+            )
+        )
+        checks.append({
+            "check": "kmalloc-owned-memcpy-buffers",
+            "ok": dst_ok and src_ok and distinct_ok and non_overlap_ok,
+            "alloc_size": alloc_size,
+            "dst_kernel_lowmem": dst_ok,
+            "src_kernel_lowmem": src_ok,
+            "distinct_buffers": distinct_ok,
+            "non_overlapping_alloc_ranges": non_overlap_ok,
+        })
+        if not (dst_ok and src_ok and distinct_ok and non_overlap_ok):
+            raise ReplError("__kmalloc did not return sane distinct non-overlapping memcpy buffers")
+
+        _poke_bytes(session, dst_ptr, initial_dst_scan)
+        _poke_bytes(session, src_ptr, expected_src_scan)
+        observed_dst_before = _peek_bytes(session, dst_ptr, dst_scan_len)
+        observed_src_before = _peek_bytes(session, src_ptr, src_scan_len)
+        setup_ok = observed_dst_before == initial_dst_scan and observed_src_before == expected_src_scan
+        checks.append({
+            "check": "owned-memcpy-buffer-poke-peek",
+            "ok": setup_ok,
+            "proof_bytes_label": MEMCPY_PROOF_BYTES.decode("ascii"),
+            "size_arg": MEMCPY_PROOF_SIZE,
+            "dst_canary_len": MEMCPY_DST_CANARY_LEN,
+            "src_canary_len": MEMCPY_SRC_CANARY_LEN,
+        })
+        if not setup_ok:
+            raise ReplError("owned memcpy buffer poke/peek mismatch")
+
+        return_ptr = session.call_runtime(memcpy_runtime, (dst_ptr, src_ptr, MEMCPY_PROOF_SIZE))
+        return_ok = return_ptr == dst_ptr
+        checks.append({
+            "check": "memcpy-return-contract",
+            "ok": return_ok,
+            "return_matches_destination": return_ok,
+        })
+        if not return_ok:
+            raise ReplError("memcpy did not return the owned destination pointer")
+
+        observed_dst_after = _peek_bytes(session, dst_ptr, dst_scan_len)
+        observed_src_after = _peek_bytes(session, src_ptr, src_scan_len)
+        dst_prefix_ok = observed_dst_after[:MEMCPY_PROOF_SIZE] == MEMCPY_PROOF_BYTES
+        dst_canary_ok = observed_dst_after[MEMCPY_PROOF_SIZE:] == b"\xcc" * MEMCPY_DST_CANARY_LEN
+        src_unchanged = observed_src_after == expected_src_scan
+        checks.append({
+            "check": "memcpy-copy-canary-and-source-immutability",
+            "ok": dst_prefix_ok and dst_canary_ok and src_unchanged,
+            "copied_size": MEMCPY_PROOF_SIZE,
+            "destination_prefix_matches_source": dst_prefix_ok,
+            "destination_post_size_canary_preserved": dst_canary_ok,
+            "source_buffer_unchanged": src_unchanged,
+        })
+        if not (dst_prefix_ok and dst_canary_ok and src_unchanged):
+            raise ReplError("memcpy destination/source bytes did not match contract")
+    finally:
+        if kfree_runtime:
+            for label, ptr in (("dst", dst_ptr), ("src", src_ptr)):
+                if ptr and is_kernel_lowmem_pointer(ptr):
+                    free_attempted.append(label)
+                    try:
+                        session.call_runtime(kfree_runtime, (ptr,))
+                        free_ok[label] = True
+                    except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                        free_errors.append(f"{label}:{exc}")
+        session.set_panic_on_oops(1)
+
+    cleanup_ok = bool(free_ok["dst"] and free_ok["src"])
+    checks.append({
+        "check": "kfree-owned-memcpy-buffers",
+        "ok": cleanup_ok,
+        "free_attempted": free_attempted,
+        "dst_free_ok": free_ok["dst"],
+        "src_free_ok": free_ok["src"],
+    })
+    if free_errors:
+        raise ReplError(f"kfree failed after memcpy proof: {free_errors}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-memcpy-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "memcpy",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["memcpy"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["memcpy"]["return_contract"],
+        "alloc_size": alloc_size,
+        "proof_bytes_label": MEMCPY_PROOF_BYTES.decode("ascii"),
+        "size_arg": MEMCPY_PROOF_SIZE,
+        "initial_destination_byte": f"0x{MEMCPY_DST_INITIAL_BYTE:02x}",
+        "expected_return_value": "owned-destination-pointer-redacted",
+        "observed_return_value": "owned-destination-pointer-redacted",
+        "return_matches_destination": return_ptr == dst_ptr,
+        "destination_prefix_matches_source": True,
+        "destination_post_size_canary_preserved": True,
+        "source_buffer_unchanged": True,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "memcpy",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["memcpy"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["memcpy"]["return_contract"],
+            "observed_return_value": f"owned-destination-pointer-redacted,copied-size={MEMCPY_PROOF_SIZE}",
+            "cleanup": "kfree-owned-memcpy-buffers-ok" if cleanup_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "memcpy_runtime": f"0x{((memcpy_link + slide) & MASK64):x}",
+        "dst_ptr": f"0x{dst_ptr:x}",
+        "src_ptr": f"0x{src_ptr:x}",
+        "return_ptr": f"0x{return_ptr:x}",
+        "dst_before_hex": observed_dst_before.hex(),
+        "dst_after_hex": observed_dst_after.hex(),
+        "src_before_hex": observed_src_before.hex(),
+        "src_after_hex": observed_src_after.hex(),
         "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
     })
     return summary, private
@@ -8227,6 +8473,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "memchr":
         return _run_call_proof_memchr(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "memcpy":
+        return _run_call_proof_memcpy(
             session,
             symbols,
             image,
