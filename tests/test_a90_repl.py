@@ -637,6 +637,18 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(match_string["signals"]["direct_bl_xref_count"], 5)
         self.assertFalse(match_string["signals"]["leaf"])
 
+        sysfs_streq = self._row("sysfs_streq")
+        self.assertEqual(sysfs_streq["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            sysfs_streq["required_valid_pointer_args"],
+            {"0": "left-string-buffer", "1": "right-string-buffer"},
+        )
+        self.assertTrue(sysfs_streq["resolution"]["verified"])
+        self.assertEqual(sysfs_streq["resolution"]["method"], "export-recovery")
+        self.assertEqual(sysfs_streq["resolution"]["link_vaddr"], "0xffffff80099b9c14")
+        self.assertGreaterEqual(sysfs_streq["signals"]["direct_bl_xref_count"], 60)
+        self.assertTrue(sysfs_streq["signals"]["leaf"])
+
         strpbrk = self._row("strpbrk")
         self.assertEqual(strpbrk["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -1074,6 +1086,15 @@ class CallSafetyClassificationTests(unittest.TestCase):
             "int match_string(const char * const *array, size_t n, const char *string)",
         )
         self.assertTrue(match_string["selected"]["path"].endswith("include/linux/string.h"))
+
+        sysfs_streq = repl.lookup_source_signature("sysfs_streq", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(sysfs_streq["status"], "found", sysfs_streq)
+        self.assertEqual(sysfs_streq["selected"]["pointer_arg_indices"], [0, 1])
+        self.assertEqual(
+            sysfs_streq["selected"]["signature"],
+            "extern bool sysfs_streq(const char *s1, const char *s2)",
+        )
+        self.assertTrue(sysfs_streq["selected"]["path"].endswith("include/linux/string.h"))
 
         strpbrk = repl.lookup_source_signature("strpbrk", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(strpbrk["status"], "found", strpbrk)
@@ -1538,6 +1559,13 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.sysfs_streq_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "sysfs_streq",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.strpbrk_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -1801,6 +1829,8 @@ class FaithfulFakeTransport:
             strnstr = self.strnstr_link + self.slide
             assert self.match_string_link is not None
             match_string = self.match_string_link + self.slide
+            assert self.sysfs_streq_link is not None
+            sysfs_streq = self.sysfs_streq_link + self.slide
             assert self.strpbrk_link is not None
             strpbrk = self.strpbrk_link + self.slide
             assert self.strspn_link is not None
@@ -2025,6 +2055,25 @@ class FaithfulFakeTransport:
                         result = index
                         break
                 lines.append(f"A90R{result:x}")
+            elif arg0 == sysfs_streq:
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"sysfs_streq left string is not an allocated pointer: {arg1:#x}")
+                if arg2 not in self.allocated:
+                    raise AssertionError(f"sysfs_streq right string is not an allocated pointer: {arg2:#x}")
+                left_data = self._heap_bytes(arg1, repl.SYSFS_STREQ_SCAN_LEN)
+                right_data = self._heap_bytes(arg2, repl.SYSFS_STREQ_SCAN_LEN)
+                left_nul = left_data.find(b"\x00")
+                right_nul = right_data.find(b"\x00")
+                if left_nul < 0 or right_nul < 0:
+                    raise AssertionError("sysfs_streq proof strings are not NUL-terminated in scan window")
+                left = left_data[:left_nul]
+                right = right_data[:right_nul]
+                equal = (
+                    left == right
+                    or (left.endswith(b"\n") and left[:-1] == right)
+                    or (right.endswith(b"\n") and right[:-1] == left)
+                )
+                lines.append("A90R1" if equal else "A90R0")
             elif arg0 == strpbrk:
                 if arg1 not in self.allocated:
                     raise AssertionError(f"strpbrk haystack is not an allocated pointer: {arg1:#x}")
@@ -3822,6 +3871,75 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(private["expected_missing_search_hex"], expected_missing)
         self.assertEqual(private["missing_search_bytes_hex"], expected_missing)
         self.assertEqual(fake.freed, [fake.heap_ptr])
+
+    def test_call_proof_sysfs_streq_passes_with_owned_strings_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "sysfs_streq",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-sysfs_streq-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "sysfs_streq")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern bool sysfs_streq(const char *s1, const char *s2)",
+        )
+        self.assertEqual(summary["newline_left"], repl.SYSFS_STREQ_LEFT_NEWLINE_LABEL)
+        self.assertEqual(summary["equal_left"], repl.SYSFS_STREQ_LEFT_EQUAL_LABEL)
+        self.assertEqual(summary["equal_right"], repl.SYSFS_STREQ_RIGHT_EQUAL_LABEL)
+        self.assertEqual(summary["mismatch_right"], repl.SYSFS_STREQ_RIGHT_MISMATCH_LABEL)
+        self.assertEqual(summary["newline_expected_return_value"], "0x1")
+        self.assertEqual(summary["newline_observed_return_value"], "0x1")
+        self.assertEqual(summary["strict_equal_expected_return_value"], "0x1")
+        self.assertEqual(summary["strict_equal_observed_return_value"], "0x1")
+        self.assertEqual(summary["mismatch_expected_return_value"], "0x0")
+        self.assertEqual(summary["mismatch_observed_return_value"], "0x0")
+        self.assertTrue(summary["strings_unchanged_after_calls"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("left_ptr", summary)
+        self.assertNotIn("right_ptr", summary)
+        self.assertEqual(private["left_ptr"], f"0x{fake.heap_ptr:x}")
+        self.assertEqual(private["right_ptr"], f"0x{fake.heap_ptr + 0x1000:x}")
+        expected_left_newline = (
+            repl.SYSFS_STREQ_LEFT_NEWLINE_BYTES.ljust(repl.SYSFS_STREQ_PAYLOAD_LEN, b"\x00")
+            + (b"\xcc" * repl.SYSFS_STREQ_CANARY_LEN)
+        ).hex()
+        expected_left_equal = (
+            repl.SYSFS_STREQ_LEFT_EQUAL_BYTES.ljust(repl.SYSFS_STREQ_PAYLOAD_LEN, b"\x00")
+            + (b"\xcc" * repl.SYSFS_STREQ_CANARY_LEN)
+        ).hex()
+        expected_right_equal = (
+            repl.SYSFS_STREQ_RIGHT_EQUAL_BYTES.ljust(repl.SYSFS_STREQ_PAYLOAD_LEN, b"\x00")
+            + (b"\xcc" * repl.SYSFS_STREQ_CANARY_LEN)
+        ).hex()
+        expected_right_mismatch = (
+            repl.SYSFS_STREQ_RIGHT_MISMATCH_BYTES.ljust(repl.SYSFS_STREQ_PAYLOAD_LEN, b"\x00")
+            + (b"\xcc" * repl.SYSFS_STREQ_CANARY_LEN)
+        ).hex()
+        self.assertEqual(private["expected_left_newline_hex"], expected_left_newline)
+        self.assertEqual(private["expected_left_equal_hex"], expected_left_equal)
+        self.assertEqual(private["expected_right_equal_hex"], expected_right_equal)
+        self.assertEqual(private["expected_right_mismatch_hex"], expected_right_mismatch)
+        self.assertEqual(private["left_bytes_hex"], expected_left_equal)
+        self.assertEqual(private["right_bytes_hex"], expected_right_mismatch)
+        self.assertEqual(fake.freed, [fake.heap_ptr, fake.heap_ptr + 0x1000])
 
     def test_call_proof_strpbrk_passes_with_owned_strings_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

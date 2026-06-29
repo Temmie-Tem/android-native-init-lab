@@ -349,6 +349,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "int-index-or-negative-errno",
         "reason": "bounded string-array matcher; x0 must be an owned const char* array, x2 must be an owned NUL-terminated search string, and n must stay inside the array",
     },
+    "sysfs_streq": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "left-string-buffer", 1: "right-string-buffer"},
+        "return_kind": "bool",
+        "reason": "sysfs string equality helper; x0/x1 must be owned NUL-terminated kernel string buffers",
+    },
     "strpbrk": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "required_valid_pointer_args": {0: "haystack-string-buffer", 1: "accept-string-buffer"},
@@ -4764,6 +4770,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "int match_string(const char * const *array, size_t n, const char *string)",
     },
+    "sysfs_streq": {
+        "input_contract": "two owned NUL-terminated kernel string buffers",
+        "return_contract": "bool true for exact match or one trailing-newline sysfs match; false for mismatch",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern bool sysfs_streq(const char *s1, const char *s2)",
+    },
     "strpbrk": {
         "input_contract": "owned NUL-terminated haystack and accept-set kernel string buffers",
         "return_contract": "char * == owned haystack buffer plus expected first accept-set byte offset; missing accept-set returns NULL",
@@ -4990,6 +5002,22 @@ MATCH_STRING_MAX_STRING_SCAN_LEN = max(
     len(MATCH_STRING_SEARCH_BYTES),
     len(MATCH_STRING_MISSING_BYTES),
 ) + MATCH_STRING_CANARY_LEN
+SYSFS_STREQ_LEFT_NEWLINE_BYTES = b"A90SYSFS-VALUE\n\x00"
+SYSFS_STREQ_LEFT_EQUAL_BYTES = b"A90SYSFS-VALUE\x00"
+SYSFS_STREQ_RIGHT_EQUAL_BYTES = b"A90SYSFS-VALUE\x00"
+SYSFS_STREQ_RIGHT_MISMATCH_BYTES = b"A90SYSFS-OTHER\x00"
+SYSFS_STREQ_LEFT_NEWLINE_LABEL = SYSFS_STREQ_LEFT_NEWLINE_BYTES[:-1].decode("ascii")
+SYSFS_STREQ_LEFT_EQUAL_LABEL = SYSFS_STREQ_LEFT_EQUAL_BYTES[:-1].decode("ascii")
+SYSFS_STREQ_RIGHT_EQUAL_LABEL = SYSFS_STREQ_RIGHT_EQUAL_BYTES[:-1].decode("ascii")
+SYSFS_STREQ_RIGHT_MISMATCH_LABEL = SYSFS_STREQ_RIGHT_MISMATCH_BYTES[:-1].decode("ascii")
+SYSFS_STREQ_PAYLOAD_LEN = max(
+    len(SYSFS_STREQ_LEFT_NEWLINE_BYTES),
+    len(SYSFS_STREQ_LEFT_EQUAL_BYTES),
+    len(SYSFS_STREQ_RIGHT_EQUAL_BYTES),
+    len(SYSFS_STREQ_RIGHT_MISMATCH_BYTES),
+)
+SYSFS_STREQ_CANARY_LEN = 8
+SYSFS_STREQ_SCAN_LEN = SYSFS_STREQ_PAYLOAD_LEN + SYSFS_STREQ_CANARY_LEN
 STRPBRK_HAYSTACK_BYTES = b"A90STRPBRK-HEAD-Q-TAIL-Z\x00"
 STRPBRK_HAYSTACK_LABEL = STRPBRK_HAYSTACK_BYTES[:-1].decode("ascii")
 STRPBRK_ACCEPT_BYTES = b"QZ\x00"
@@ -8442,6 +8470,295 @@ def _run_call_proof_match_string(session: ReplSession,
         "expected_item_hex": [item.hex() for item in expected_item_scans],
         "expected_search_hex": expected_search_scan.hex(),
         "expected_missing_search_hex": expected_missing_scan.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
+def _run_call_proof_sysfs_streq(session: ReplSession,
+                                symbols: dict[str, Symbol],
+                                image: StaticImage,
+                                *,
+                                alloc_size: int,
+                                source_root: Path,
+                                gfp: int,
+                                gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    if alloc_size < SYSFS_STREQ_SCAN_LEN:
+        raise ReplError(f"sysfs_streq call-proof alloc_size must be at least {SYSFS_STREQ_SCAN_LEN} bytes")
+    if not SYSFS_STREQ_LEFT_NEWLINE_BYTES.endswith(b"\n\x00"):
+        raise ReplError("sysfs_streq newline proof left string must end with newline before NUL")
+    if SYSFS_STREQ_LEFT_NEWLINE_BYTES[:-2] != SYSFS_STREQ_RIGHT_EQUAL_BYTES[:-1]:
+        raise ReplError("sysfs_streq newline proof strings must match after trimming one trailing newline")
+    if SYSFS_STREQ_LEFT_EQUAL_BYTES != SYSFS_STREQ_RIGHT_EQUAL_BYTES:
+        raise ReplError("sysfs_streq strict-equal proof strings must match exactly")
+    if SYSFS_STREQ_RIGHT_MISMATCH_BYTES == SYSFS_STREQ_RIGHT_EQUAL_BYTES:
+        raise ReplError("sysfs_streq mismatch proof string must differ from the equal string")
+
+    source = lookup_source_signature("sysfs_streq", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "sysfs_streq",
+        ("@owned_left_string_buffer", "@owned_right_string_buffer"),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["sysfs_streq"]["expected_tier"]:
+        raise ReplError("sysfs_streq call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0, 1]:
+        raise ReplError("sysfs_streq source signature does not declare x0/x1 as pointer arguments")
+
+    resolutions = {
+        "sysfs_streq": resolve_verified(symbols, image, "sysfs_streq", purpose="call", allow_pre_arg_deref=True),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    sysfs_streq_link = require_verified_resolution(resolutions["sysfs_streq"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof string allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof string cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    expected_left_newline_scan = SYSFS_STREQ_LEFT_NEWLINE_BYTES.ljust(SYSFS_STREQ_PAYLOAD_LEN, b"\x00") + (
+        b"\xcc" * SYSFS_STREQ_CANARY_LEN
+    )
+    expected_left_equal_scan = SYSFS_STREQ_LEFT_EQUAL_BYTES.ljust(SYSFS_STREQ_PAYLOAD_LEN, b"\x00") + (
+        b"\xcc" * SYSFS_STREQ_CANARY_LEN
+    )
+    expected_right_equal_scan = SYSFS_STREQ_RIGHT_EQUAL_BYTES.ljust(SYSFS_STREQ_PAYLOAD_LEN, b"\x00") + (
+        b"\xcc" * SYSFS_STREQ_CANARY_LEN
+    )
+    expected_right_mismatch_scan = SYSFS_STREQ_RIGHT_MISMATCH_BYTES.ljust(SYSFS_STREQ_PAYLOAD_LEN, b"\x00") + (
+        b"\xcc" * SYSFS_STREQ_CANARY_LEN
+    )
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "sysfs_streq",
+            "resolution_method": resolutions["sysfs_streq"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    private: dict[str, object] = {}
+    left_ptr = 0
+    right_ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_attempted: list[str] = []
+    free_ok: dict[str, bool] = {"left": False, "right": False}
+    free_errors: list[str] = []
+    newline_return = 0
+    strict_return = 0
+    mismatch_return = 0
+    observed_left = b""
+    observed_right = b""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        sysfs_streq_runtime = (sysfs_streq_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        left_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        right_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        left_ok = is_kernel_lowmem_pointer(left_ptr)
+        right_ok = is_kernel_lowmem_pointer(right_ptr)
+        distinct_ok = left_ptr != right_ptr
+        checks.append({
+            "check": "kmalloc-owned-sysfs-streq-strings",
+            "ok": left_ok and right_ok and distinct_ok,
+            "alloc_size": alloc_size,
+            "left_kernel_lowmem": left_ok,
+            "right_kernel_lowmem": right_ok,
+            "distinct_strings": distinct_ok,
+        })
+        if not (left_ok and right_ok and distinct_ok):
+            raise ReplError("__kmalloc did not return sane distinct sysfs_streq strings")
+
+        _poke_bytes(session, left_ptr, expected_left_newline_scan)
+        _poke_bytes(session, right_ptr, expected_right_equal_scan)
+        observed_left = _peek_bytes(session, left_ptr, SYSFS_STREQ_SCAN_LEN)
+        observed_right = _peek_bytes(session, right_ptr, SYSFS_STREQ_SCAN_LEN)
+        newline_setup_ok = observed_left == expected_left_newline_scan and observed_right == expected_right_equal_scan
+        checks.append({
+            "check": "owned-sysfs-streq-newline-string-poke-peek",
+            "ok": newline_setup_ok,
+            "left_string": SYSFS_STREQ_LEFT_NEWLINE_LABEL,
+            "right_string": SYSFS_STREQ_RIGHT_EQUAL_LABEL,
+            "canary_len": SYSFS_STREQ_CANARY_LEN,
+        })
+        if not newline_setup_ok:
+            raise ReplError("owned sysfs_streq newline string poke/peek mismatch")
+
+        newline_return = session.call_runtime(sysfs_streq_runtime, (left_ptr, right_ptr))
+        newline_ok = newline_return == 1
+        checks.append({
+            "check": "sysfs-streq-newline-return-contract",
+            "ok": newline_ok,
+            "expected_return": "0x1",
+            "observed_return": f"0x{newline_return:x}",
+            "trailing_newline_on_left": True,
+        })
+        if not newline_ok:
+            raise ReplError(f"sysfs_streq newline-equal case returned 0x{newline_return:x}, expected 1")
+
+        observed_left = _peek_bytes(session, left_ptr, SYSFS_STREQ_SCAN_LEN)
+        observed_right = _peek_bytes(session, right_ptr, SYSFS_STREQ_SCAN_LEN)
+        newline_unchanged = observed_left == expected_left_newline_scan and observed_right == expected_right_equal_scan
+        checks.append({
+            "check": "sysfs-streq-newline-string-immutability",
+            "ok": newline_unchanged,
+            "strings_unchanged": newline_unchanged,
+        })
+        if not newline_unchanged:
+            raise ReplError("sysfs_streq newline-equal case modified an owned string")
+
+        _poke_bytes(session, left_ptr, expected_left_equal_scan)
+        observed_left = _peek_bytes(session, left_ptr, SYSFS_STREQ_SCAN_LEN)
+        observed_right = _peek_bytes(session, right_ptr, SYSFS_STREQ_SCAN_LEN)
+        strict_setup_ok = observed_left == expected_left_equal_scan and observed_right == expected_right_equal_scan
+        checks.append({
+            "check": "owned-sysfs-streq-strict-equal-poke-peek",
+            "ok": strict_setup_ok,
+            "left_string": SYSFS_STREQ_LEFT_EQUAL_LABEL,
+            "right_string": SYSFS_STREQ_RIGHT_EQUAL_LABEL,
+        })
+        if not strict_setup_ok:
+            raise ReplError("owned sysfs_streq strict-equal string poke/peek mismatch")
+
+        strict_return = session.call_runtime(sysfs_streq_runtime, (left_ptr, right_ptr))
+        strict_ok = strict_return == 1
+        checks.append({
+            "check": "sysfs-streq-strict-equal-return-contract",
+            "ok": strict_ok,
+            "expected_return": "0x1",
+            "observed_return": f"0x{strict_return:x}",
+        })
+        if not strict_ok:
+            raise ReplError(f"sysfs_streq strict-equal case returned 0x{strict_return:x}, expected 1")
+
+        _poke_bytes(session, right_ptr, expected_right_mismatch_scan)
+        observed_left = _peek_bytes(session, left_ptr, SYSFS_STREQ_SCAN_LEN)
+        observed_right = _peek_bytes(session, right_ptr, SYSFS_STREQ_SCAN_LEN)
+        mismatch_setup_ok = observed_left == expected_left_equal_scan and observed_right == expected_right_mismatch_scan
+        checks.append({
+            "check": "owned-sysfs-streq-mismatch-poke-peek",
+            "ok": mismatch_setup_ok,
+            "left_string": SYSFS_STREQ_LEFT_EQUAL_LABEL,
+            "right_string": SYSFS_STREQ_RIGHT_MISMATCH_LABEL,
+        })
+        if not mismatch_setup_ok:
+            raise ReplError("owned sysfs_streq mismatch string poke/peek mismatch")
+
+        mismatch_return = session.call_runtime(sysfs_streq_runtime, (left_ptr, right_ptr))
+        mismatch_ok = mismatch_return == 0
+        checks.append({
+            "check": "sysfs-streq-mismatch-return-contract",
+            "ok": mismatch_ok,
+            "expected_return": "0x0",
+            "observed_return": f"0x{mismatch_return:x}",
+        })
+        if not mismatch_ok:
+            raise ReplError(f"sysfs_streq mismatch case returned 0x{mismatch_return:x}, expected 0")
+
+        observed_left = _peek_bytes(session, left_ptr, SYSFS_STREQ_SCAN_LEN)
+        observed_right = _peek_bytes(session, right_ptr, SYSFS_STREQ_SCAN_LEN)
+        final_unchanged = observed_left == expected_left_equal_scan and observed_right == expected_right_mismatch_scan
+        checks.append({
+            "check": "sysfs-streq-final-string-immutability",
+            "ok": final_unchanged,
+            "left_unchanged": observed_left == expected_left_equal_scan,
+            "right_unchanged": observed_right == expected_right_mismatch_scan,
+        })
+        if not final_unchanged:
+            raise ReplError("sysfs_streq mismatch case modified an owned string")
+    finally:
+        if kfree_runtime:
+            for label, ptr in (("left", left_ptr), ("right", right_ptr)):
+                if ptr and is_kernel_lowmem_pointer(ptr):
+                    free_attempted.append(label)
+                    try:
+                        session.call_runtime(kfree_runtime, (ptr,))
+                        free_ok[label] = True
+                    except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                        free_errors.append(f"{label}:{exc}")
+        session.set_panic_on_oops(1)
+
+    cleanup_ok = bool(free_ok["left"] and free_ok["right"])
+    checks.append({
+        "check": "kfree-owned-sysfs-streq-strings",
+        "ok": cleanup_ok,
+        "free_attempted": free_attempted,
+        "left_free_ok": free_ok["left"],
+        "right_free_ok": free_ok["right"],
+    })
+    if free_errors:
+        raise ReplError(f"kfree failed after sysfs_streq proof: {free_errors}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-sysfs_streq-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "sysfs_streq",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["sysfs_streq"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["sysfs_streq"]["return_contract"],
+        "alloc_size": alloc_size,
+        "newline_left": SYSFS_STREQ_LEFT_NEWLINE_LABEL,
+        "equal_left": SYSFS_STREQ_LEFT_EQUAL_LABEL,
+        "equal_right": SYSFS_STREQ_RIGHT_EQUAL_LABEL,
+        "mismatch_right": SYSFS_STREQ_RIGHT_MISMATCH_LABEL,
+        "newline_expected_return_value": "0x1",
+        "newline_observed_return_value": f"0x{newline_return:x}",
+        "strict_equal_expected_return_value": "0x1",
+        "strict_equal_observed_return_value": f"0x{strict_return:x}",
+        "mismatch_expected_return_value": "0x0",
+        "mismatch_observed_return_value": f"0x{mismatch_return:x}",
+        "strings_unchanged_after_calls": True,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "sysfs_streq",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["sysfs_streq"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["sysfs_streq"]["return_contract"],
+            "observed_return_value": "newline-equal=0x1,strict-equal=0x1,mismatch=0x0",
+            "cleanup": "kfree-owned-sysfs-streq-strings-ok" if cleanup_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "sysfs_streq_runtime": f"0x{((sysfs_streq_link + slide) & MASK64):x}",
+        "left_ptr": f"0x{left_ptr:x}",
+        "right_ptr": f"0x{right_ptr:x}",
+        "left_bytes_hex": observed_left.hex(),
+        "right_bytes_hex": observed_right.hex(),
+        "expected_left_newline_hex": expected_left_newline_scan.hex(),
+        "expected_left_equal_hex": expected_left_equal_scan.hex(),
+        "expected_right_equal_hex": expected_right_equal_scan.hex(),
+        "expected_right_mismatch_hex": expected_right_mismatch_scan.hex(),
         "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
     })
     return summary, private
@@ -13588,6 +13905,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "match_string":
         return _run_call_proof_match_string(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "sysfs_streq":
+        return _run_call_proof_sysfs_streq(
             session,
             symbols,
             image,

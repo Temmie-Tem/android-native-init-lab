@@ -767,6 +767,35 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `sysfs_streq` owned-string equality contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `sysfs_streq` promoted under two owned sysfs strings only
+>
+> Thirty-sixth one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py`
+> `call-proof` with `sysfs_streq`, using two tool-owned NUL-terminated kernel string buffers and no
+> host-supplied numeric pointer. Static gate: `sysfs_streq=0xffffff80099b9c14`, `export-recovery`,
+> direct-BL xrefs `68`, JOPP entry true, leaf/no-BL. The disasm reads only the two string arguments
+> (`ldrb` from x0/x1), so this proof explicitly allows the expected pre-call argument dereference for
+> a string helper after the owned-pointer contract is enforced. Source contract:
+> `extern bool sysfs_streq(const char *s1, const char *s2)`, with x0/x1 as pointer args. Call-safety
+> tier is `SAFE-WITH-VALID-PTR`.
+>
+> Live path: baseline v2321 selftest passed, flashed the existing v1-repl image
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65` through
+> `native_init_flash.py`, confirmed readback SHA, candidate `selftest pass=11 warn=1 fail=0`, and
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof sysfs_streq` with the C2B verified map.
+> Result: `a90-repl-live-call-proof-sysfs_streq-pass`; checks covered C1 identity, source
+> pointer contract, call-safety contract, distinct owned string allocations, newline sysfs equality
+> (`"A90SYSFS-VALUE\n"` vs `"A90SYSFS-VALUE"` -> `1`), strict equality (`1`), mismatch
+> (`"A90SYSFS-OTHER"` -> `0`), string/canary immutability, and `kfree-owned-sysfs-streq-strings`.
+>
+> Candidate selftest after proof stayed `fail=0`. Rolled back to clean v2321
+> (`ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`) with final resident
+> `v2321-usb-clean-identity-rodata` and final `selftest pass=11 warn=1 fail=0`. One final selftest
+> read hit known serial framing noise (`A90P1 END` missing) and passed immediately on retry.
+> Function map records `sysfs_streq` only under the two-owned-string contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_SYSFS_STREQ_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `match_string` owned string-array contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `match_string` promoted under owned const-char-pointer array only
