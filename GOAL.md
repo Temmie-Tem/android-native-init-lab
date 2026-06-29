@@ -767,7 +767,24 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
-## ✅ DONE — REPL U3 — broad advisory call-safety risk-assessment sweep
+## ✅ DONE — REPL U3 — broad advisory call-safety risk-assessment sweep (operator-verified 2026-06-29)
+
+> ### ✅ OPERATOR GATE-2 SIGN-OFF (2026-06-29) — U3 DONE; source now DRIVES candidacy; verified on 2 families
+>
+> Independently re-swept against the v2321 image + stock source tree. **Allocator** `candidate_safe_ranked=['ksize']`
+> only — `kfree_const` and `kmem_cache_shrink` now DROP (both `src_ptr=True, pointer_arg_indices=[0]`, `disasm_argmem=0`
+> → dropped DRIVEN BY SOURCE, exactly the disasm under-approximation source-xref was added to catch). **Read-io**
+> (completes in ~126s, 60 symbols) retains only seeded valid-ptr candidates `filp_open/filp_close/kernel_read` — no
+> false-SAFE leak. `kmem_cache_init` stays dropped via `source-__init-annotation`; `kfree_skb_partial` via taint.
+> Firewall holds on both families (`auto_call_firewall`, offline, no device/network/seed mutation); U2 invariants
+> intact (printk=SAFE-WITH-VALID-PTR real-not-twin, __kmalloc=SAFE-SCALAR, kfree=SAFE-WITH-VALID-PTR,
+> kallsyms_lookup_name=DENY, commit_creds=BEHAVIOR-CHANGING). All 3 reopened defects resolved. **U3 DoD met.**
+>
+> **Optional polish (not blocking, deferred):** each family sweep takes ~126s because the source candidate-file scan
+> is unfiltered (~655 files/symbol). For the productization/stability theme, pre-index or subsystem-scope the source
+> lookup (and/or cache across symbols) to bring a family sweep under a few seconds. Track with the tool runbook.
+>
+> After U3, only the optional tool runbook (+ this perf polish) remains before the REPL epic can fully close.
 
 > ### ✅ STATUS (2026-06-29 U3 Gate-2 2nd correction host pass) — source pointer verdict wired into candidacy
 >
