@@ -713,7 +713,13 @@ class CallSafetyClassificationTests(unittest.TestCase):
         summary = repl.run_call_safety_sweep(
             self.symbols,
             self.image,
-            explicit_symbols=("ksize", "kmem_cache_init", "kfree_skb_partial"),
+            explicit_symbols=(
+                "ksize",
+                "kfree_const",
+                "kmem_cache_init",
+                "kmem_cache_shrink",
+                "kfree_skb_partial",
+            ),
             limit=0,
             source_root=KERNEL_SOURCE_ROOT,
             include_objdump=False,
@@ -731,6 +737,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertEqual(ksize["source"]["pointer_arg_indices"], [0])
         self.assertTrue(ksize["source"]["selected"]["path"].endswith("include/linux/slab.h"))
         self.assertEqual(ksize["advisory"]["source_pointer_arg_indices"], [0])
+        self.assertEqual(ksize["source_signature"], "size_t ksize(const void *)")
 
         kmem_cache_init = rows["kmem_cache_init"]
         self.assertFalse(kmem_cache_init["advisory"]["candidate_safe"])
@@ -742,6 +749,25 @@ class CallSafetyClassificationTests(unittest.TestCase):
             "source-__init-annotation",
             kmem_cache_init["advisory"]["danger_flags"],
         )
+        self.assertEqual(
+            kmem_cache_init["source_signature"],
+            "void __init kmem_cache_init(void)",
+        )
+        self.assertEqual(kmem_cache_init["source_annotation_flags"], ["source-__init-annotation"])
+
+        for name in ("kfree_const", "kmem_cache_shrink"):
+            row = rows[name]
+            self.assertFalse(row["gate_seeded"])
+            self.assertTrue(row["source"]["has_pointer_arg"], row)
+            self.assertEqual(row["advisory"]["source_pointer_arg_indices"], [0])
+            self.assertEqual(row["advisory"]["source_or_arg_memory_indices"], [0])
+            self.assertFalse(row["advisory"]["candidate_safe"])
+            self.assertIn(
+                "unseeded-arg-memory-flow-without-gate-pointer-contract",
+                row["advisory"]["danger_flags"],
+            )
+            self.assertIsNotNone(row["source_signature"])
+            self.assertEqual(row["source_annotation_flags"], [])
 
         kfree_skb_partial = rows["kfree_skb_partial"]
         self.assertFalse(kfree_skb_partial["gate_seeded"])

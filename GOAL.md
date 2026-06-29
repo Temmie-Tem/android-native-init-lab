@@ -767,9 +767,25 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
-## 🟣 ACTIVE NOW — REPL U3 — broad advisory call-safety risk-assessment sweep (one more gap: source verdict not WIRED)
+## ✅ DONE — REPL U3 — broad advisory call-safety risk-assessment sweep
 
-> ### 🛑 OPERATOR GATE-2 (2026-06-29, 2nd pass) — oracle ACTIVATED + 2 defects fixed, but source pointer-arg is found yet NOT applied to candidacy
+> ### ✅ STATUS (2026-06-29 U3 Gate-2 2nd correction host pass) — source pointer verdict wired into candidacy
+>
+> The remaining source-verdict gap is fixed: advisory candidate blocking now uses
+> `source pointer_arg_indices ∪ disasm arg-memory-flow indices` before applying
+> `unseeded-arg-memory-flow-without-gate-pointer-contract`. Row output also exposes source evidence directly
+> (`source_signature`, `source_annotation_flags`, plus `source_evidence`) instead of only burying it in the nested
+> source object. Allocator re-sweep (`--family allocator --limit 80`) now has `candidate_safe_count=1` with only
+> `ksize` remaining; `kfree_const` (`extern void kfree_const(const void *x)`) and `kmem_cache_shrink`
+> (`int kmem_cache_shrink(struct kmem_cache *)`) both have source pointer indices `[0]`, union indices `[0]`,
+> `unseeded-arg-memory-flow-without-gate-pointer-contract`, and `candidate_safe=false`. Read-I/O re-sweep
+> (`--family read-io --limit 40`) retains only seeded/contract-backed candidates (`filp_close`, `filp_open`,
+> `kernel_read`). Both sweeps stayed `host_only=true`, `device_action=false`, and `network_dependency=false`.
+> Validation: `py_compile` PASS, `tests.test_a90_repl.CallSafetyClassificationTests` 12/12 PASS,
+> full `tests.test_a90_repl` 62/62 PASS. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_U3_GATE2_SOURCE_VERDICT_WIRING_2026-06-29.md`.
+
+> ### (history) 🛑 OPERATOR GATE-2 (2026-06-29, 2nd pass) — oracle ACTIVATED + 2 defects fixed, but source pointer-arg is found yet NOT applied to candidacy
 >
 > Verified cbe1d90d host-only. **Fixed ✓:** source oracle now `found=True` for all symbols; `kmem_cache_init`
 > drops from candidate-SAFE with flag `source-__init-annotation` (defect #2 ✓); `kfree_skb_partial` drops with

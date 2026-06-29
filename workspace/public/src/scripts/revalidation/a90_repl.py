@@ -3205,6 +3205,31 @@ def _source_pointer_arg_requirements(source: dict[str, object]) -> dict[str, str
     return req
 
 
+def _source_row_evidence(source: dict[str, object]) -> dict[str, object]:
+    selected = source.get("selected")
+    if not isinstance(selected, dict):
+        return {
+            "status": source.get("status"),
+            "found": bool(source.get("found")),
+            "has_pointer_arg": bool(source.get("has_pointer_arg")),
+            "pointer_arg_indices": list(source.get("pointer_arg_indices", [])),
+            "signature": None,
+            "path": None,
+            "line": None,
+            "annotation_flags": [],
+        }
+    return {
+        "status": source.get("status"),
+        "found": bool(source.get("found")),
+        "has_pointer_arg": bool(source.get("has_pointer_arg")),
+        "pointer_arg_indices": list(source.get("pointer_arg_indices", [])),
+        "signature": selected.get("signature"),
+        "path": selected.get("path"),
+        "line": selected.get("line"),
+        "annotation_flags": list(selected.get("annotation_flags", [])),
+    }
+
+
 def _arg_source_index_from_text(text: str) -> int | None:
     match = re.fullmatch(r"x([0-7])", text.strip())
     return int(match.group(1)) if match else None
@@ -3311,11 +3336,12 @@ def _call_safety_advisory_from_source(row: dict[str, object],
         for index in row.get("required_valid_pointer_args", {})
         if str(index).isdigit()
     }
-    unseeded_gate_uncovered = sorted(memory_source_args - gate_required_ptrs)
-    if memory_source_args and not row.get("seeded") and unseeded_gate_uncovered:
+    source_or_memory_args = pointer_args | memory_source_args
+    unseeded_gate_uncovered = sorted(source_or_memory_args - gate_required_ptrs)
+    if source_or_memory_args and not row.get("seeded") and unseeded_gate_uncovered:
         danger_flags.append("unseeded-arg-memory-flow-without-gate-pointer-contract")
         reasons.append(
-            "non-seeded target has arg-derived memory-base flow without a vetted gate pointer contract:"
+            "non-seeded target has source/disasm pointer-arg evidence without a vetted gate pointer contract:"
             + ",".join(f"x{arg}" for arg in unseeded_gate_uncovered)
         )
     context_blocked = bool(annotation_flags or context_count)
@@ -3363,6 +3389,7 @@ def _call_safety_advisory_from_source(row: dict[str, object],
         "required_valid_pointer_args_from_source": _source_pointer_arg_requirements(source),
         "source_pointer_arg_indices": sorted(pointer_args),
         "arg_memory_source_indices": sorted(memory_source_args),
+        "source_or_arg_memory_indices": sorted(source_or_memory_args),
         "danger_flags": sorted(set(danger_flags)),
         "blocking_danger_flags": sorted(set(blocking_flags)),
         "reasons": reasons,
@@ -3449,6 +3476,7 @@ def run_call_safety_sweep(symbols: dict[str, Symbol],
         advisory_counts[advisory_tier] = advisory_counts.get(advisory_tier, 0) + 1
         for flag in advisory.get("danger_flags", []) or []:
             danger_counts[str(flag)] = danger_counts.get(str(flag), 0) + 1
+        source_evidence = _source_row_evidence(source)
         rows.append({
             "symbol": name,
             "gate_tier": gate_tier,
@@ -3457,6 +3485,9 @@ def run_call_safety_sweep(symbols: dict[str, Symbol],
             "gate_required_valid_pointer_args": gate_row.get("required_valid_pointer_args", {}),
             "advisory": advisory,
             "source": source,
+            "source_evidence": source_evidence,
+            "source_signature": source_evidence["signature"],
+            "source_annotation_flags": source_evidence["annotation_flags"],
             "resolution": gate_row.get("resolution", {}),
             "signals": gate_row.get("signals", {}),
             "gate_reasons": gate_row.get("reasons", []),
@@ -3479,6 +3510,8 @@ def run_call_safety_sweep(symbols: dict[str, Symbol],
                 "required_valid_pointer_args_from_source"
             ],
             "source": row["source"].get("selected"),
+            "source_signature": row.get("source_signature"),
+            "source_annotation_flags": row.get("source_annotation_flags", []),
             "gate_seeded": row["gate_seeded"],
             "gate_auto_call_allowed": row["gate_auto_call_allowed"],
             "note": "advisory candidate; not inserted into CALL_SAFETY_SEEDS",
