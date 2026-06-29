@@ -1,6 +1,6 @@
 # Native-Init Runtime Kernel REPL Live-Call Function Map
 
-Date: 2026-06-29
+Date: 2026-06-30
 
 Scope: redacted public map of functions that have live-call evidence under the runtime kernel REPL.
 This is not an autonomous call allowlist. Each row is trusted only under the listed input contract
@@ -26,6 +26,7 @@ and the C1 fail-closed identity gate.
 | `filp_open` | `0xffffff800828a664`, `export-recovery`, direct BL xrefs `48` | owned kernel pathname buffer containing `/init`, `O_RDONLY`, mode `0` | sane `struct file *`, not NULL and not ERR_PTR | `filp_close` returned `0` | `a90-repl-live-call-proof-filp_open-pass` |
 | `filp_close` | `0xffffff800828ac14`, `export-recovery`, direct BL xrefs `67` | cleanup only: `struct file *` returned by the paired `filp_open` proof | returned `0` | closed opened file | paired cleanup evidence from `a90-repl-live-call-proof-filp_open-pass` |
 | `kernel_read` | `0xffffff800828bae4`, `export-recovery`, direct BL xrefs `17` | `filp_open(/init)` file pointer plus owned read buffer plus owned `loff_t *` position | `kernel_read(file, buf, 16, pos) == 0x10`, buffer prefix `7f454c46`, pos advanced to `0x10` | `filp_close` returned `0`; owned path/read/pos buffers freed | `a90-repl-live-call-proof-kernel_read-pass` |
+| `strnlen` | `0xffffff80099a8f4c`, `leaf-map-disasm+xref`, direct BL xrefs `473`, leaf/no-BL | owned NUL-terminated kernel string buffer plus scalar `maxlen` | `strnlen("A90STRNLEN", 64) == 0xa` | `kfree-owned-string-buffer-ok` | `a90-repl-live-call-proof-strnlen-pass` |
 
 ## Parked Candidate Families
 
@@ -35,3 +36,6 @@ and the C1 fail-closed identity gate.
   proof gate only under their paired owned `/init` file/buffer/position contracts. Broader read paths,
   arbitrary file pointers, and arbitrary destination buffers remain parked until separate contracts are
   proven.
+- String sweep: `strnlen` has crossed the live proof gate only under the owned NUL-terminated kernel
+  string plus scalar `maxlen` contract. Other string/memory helpers remain parked until separate C1
+  identity and pointer contracts are proven.

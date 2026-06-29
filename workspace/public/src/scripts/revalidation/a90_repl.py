@@ -109,6 +109,13 @@ MIN_ALLOCATOR_EXPORT_BL_XREFS = {
     "printk": 1000,
 }
 EXPORT_GROUND_TRUTH_SYMBOLS = frozenset((*ALLOCATOR_EXPORT_REQUIRED, "printk"))
+LEAF_MAP_GROUND_TRUTH_SYMBOLS = {
+    "strnlen": {
+        "min_direct_bl_xrefs": 100,
+        "expected_pointer_args": (0,),
+        "note": "non-JOPP arm64 leaf string helper; identity rests on map label, high xref count, and leaf shape",
+    },
+}
 MIN_VERIFIED_DIRECT_BL_XREFS = 1
 KNOWN_UNSAFE_CALL_TARGETS = {
     "kallsyms_lookup_name": (
@@ -207,6 +214,12 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {0: "kmalloc-object"},
         "return_kind": "size_t",
         "reason": "allocator-family helper; x0 must be a verified kmalloc object pointer",
+    },
+    "strnlen": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "string-buffer"},
+        "return_kind": "size_t",
+        "reason": "bounded string helper; x0 must be a verified NUL-terminated kernel buffer",
     },
     "kmem_cache_alloc": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
@@ -2215,6 +2228,29 @@ def resolve_verified(symbols: dict[str, Symbol],
         "map_direct_bl_xref_sample_sites": sample_sites,
         "map_shape": shape,
     })
+    leaf_truth = LEAF_MAP_GROUND_TRUTH_SYMBOLS.get(name)
+    if purpose == "call" and leaf_truth is not None:
+        leaf_blocked: list[str] = []
+        min_leaf_xrefs = int(leaf_truth["min_direct_bl_xrefs"])
+        if not _map_kind_is_function(map_symbol.kind if map_symbol else None):
+            leaf_blocked.append("leaf-map-target-not-function-kind")
+        if shape["first_bl"] is not None:
+            leaf_blocked.append("leaf-map-target-has-helper-call")
+        if shape["first_ret_offset"] is None:
+            leaf_blocked.append("leaf-map-target-no-ret-in-scan")
+        if shape["zero_return_before_first_ret_or_bl"]:
+            leaf_blocked.append("leaf-map-target-zero-return-pattern-before-ret")
+        if bl_count < min_leaf_xrefs:
+            leaf_blocked.append(f"leaf-map-target-low-direct-bl-xrefs:{bl_count}<{min_leaf_xrefs}")
+        if not leaf_blocked:
+            evidence["leaf_map_ground_truth"] = {
+                "accepted": True,
+                "min_direct_bl_xrefs": min_leaf_xrefs,
+                "note": leaf_truth["note"],
+            }
+            return VerifiedResolution(name, map_link, True, "leaf-map-disasm+xref", evidence)
+        evidence["leaf_map_rejected_reasons"] = leaf_blocked
+
     if magic != JOPP_MAGIC:
         blocked.append("map-target-not-jopp-entry")
     deref = shape["precall_x0_deref"]
@@ -4405,12 +4441,21 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern ssize_t kernel_read(struct file *, void *, size_t, loff_t *)",
     },
+    "strnlen": {
+        "input_contract": "owned NUL-terminated kernel string buffer + scalar maxlen",
+        "return_contract": "size_t == expected string length and <= maxlen",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern __kernel_size_t strnlen(const char *,__kernel_size_t)",
+    },
 }
 FILP_OPEN_PROOF_PATH = b"/init\x00"
 FILP_OPEN_PROOF_FLAGS = 0
 FILP_OPEN_PROOF_MODE = 0
 KERNEL_READ_PROOF_LEN = 16
 KERNEL_READ_EXPECTED_PREFIX = b"\x7fELF"
+STRNLEN_PROOF_BYTES = b"A90STRNLEN\x00"
+STRNLEN_PROOF_EXPECTED = len(STRNLEN_PROOF_BYTES) - 1
+STRNLEN_PROOF_MAXLEN = 64
 LINUX_MAX_ERRNO = 4095
 LINUX_ERR_PTR_MIN = ((-LINUX_MAX_ERRNO) & MASK64)
 
@@ -4436,6 +4481,178 @@ def _peek_bytes(session: ReplSession, runtime_vaddr: int, length: int) -> bytes:
         value = session.peek_runtime((runtime_vaddr + offset) & MASK64, 8)
         out.extend(value.to_bytes(8, "little"))
     return bytes(out[:length])
+
+
+def _run_call_proof_strnlen(session: ReplSession,
+                            symbols: dict[str, Symbol],
+                            image: StaticImage,
+                            *,
+                            alloc_size: int,
+                            source_root: Path,
+                            gfp: int,
+                            gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    if alloc_size < STRNLEN_PROOF_MAXLEN:
+        raise ReplError(
+            f"strnlen call-proof alloc_size must be at least {STRNLEN_PROOF_MAXLEN} bytes"
+        )
+
+    source = lookup_source_signature("strnlen", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "strnlen",
+        ("@owned_string_buffer", STRNLEN_PROOF_MAXLEN),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["strnlen"]["expected_tier"]:
+        raise ReplError("strnlen call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError("strnlen source signature does not declare x0 as string pointer")
+
+    resolutions = {
+        "strnlen": resolve_verified(symbols, image, "strnlen", purpose="call", allow_pre_arg_deref=True),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    strnlen_link = require_verified_resolution(resolutions["strnlen"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof string allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof string cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "strnlen",
+            "resolution_method": resolutions["strnlen"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    private: dict[str, object] = {}
+    ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_attempted = False
+    free_ok = False
+    free_error = ""
+    proof_return = 0
+    observed_bytes = b""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        strnlen_runtime = (strnlen_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        ptr_ok = is_kernel_lowmem_pointer(ptr)
+        checks.append({
+            "check": "kmalloc-owned-string-buffer",
+            "ok": ptr_ok,
+            "alloc_size": alloc_size,
+            "kernel_lowmem": ptr_ok,
+        })
+        if not ptr_ok:
+            raise ReplError("__kmalloc did not return a sane string buffer pointer")
+
+        _poke_bytes(session, ptr, b"\x00" * STRNLEN_PROOF_MAXLEN)
+        _poke_bytes(session, ptr, STRNLEN_PROOF_BYTES)
+        observed_bytes = _peek_bytes(session, ptr, len(STRNLEN_PROOF_BYTES))
+        payload_ok = observed_bytes == STRNLEN_PROOF_BYTES
+        checks.append({
+            "check": "owned-string-poke-peek",
+            "ok": payload_ok,
+            "string": STRNLEN_PROOF_BYTES[:-1].decode("ascii"),
+            "nul_terminated": observed_bytes.endswith(b"\x00"),
+        })
+        if not payload_ok:
+            raise ReplError("owned strnlen string poke/peek mismatch")
+
+        proof_return = session.call_runtime(strnlen_runtime, (ptr, STRNLEN_PROOF_MAXLEN))
+        return_ok = proof_return == STRNLEN_PROOF_EXPECTED
+        checks.append({
+            "check": "strnlen-return-contract",
+            "ok": return_ok,
+            "return_kind": "size_t",
+            "return_value": f"0x{proof_return:x}",
+            "expected_return": f"0x{STRNLEN_PROOF_EXPECTED:x}",
+            "maxlen": f"0x{STRNLEN_PROOF_MAXLEN:x}",
+        })
+        if not return_ok:
+            raise ReplError(
+                f"strnlen returned 0x{proof_return:x}, expected 0x{STRNLEN_PROOF_EXPECTED:x}"
+            )
+    finally:
+        if ptr and is_kernel_lowmem_pointer(ptr) and kfree_runtime:
+            free_attempted = True
+            try:
+                session.call_runtime(kfree_runtime, (ptr,))
+                free_ok = True
+            except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                free_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "kfree-owned-string-buffer",
+        "ok": free_ok,
+        "free_attempted": free_attempted,
+    })
+    if free_error:
+        raise ReplError(f"kfree failed after strnlen proof: {free_error}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-strnlen-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "strnlen",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["strnlen"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["strnlen"]["return_contract"],
+        "alloc_size": alloc_size,
+        "proof_string": STRNLEN_PROOF_BYTES[:-1].decode("ascii"),
+        "maxlen": STRNLEN_PROOF_MAXLEN,
+        "expected_return_value": f"0x{STRNLEN_PROOF_EXPECTED:x}",
+        "observed_return_value": f"0x{proof_return:x}",
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "strnlen",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["strnlen"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["strnlen"]["return_contract"],
+            "observed_return_value": f"0x{proof_return:x}",
+            "cleanup": "kfree-owned-string-buffer-ok" if free_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "strnlen_runtime": f"0x{((strnlen_link + slide) & MASK64):x}",
+        "alloc_ptr": f"0x{ptr:x}",
+        "observed_bytes_hex": observed_bytes.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
 
 
 def _run_call_proof_filp_open(session: ReplSession,
@@ -4975,6 +5192,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "kernel_read":
         return _run_call_proof_kernel_read(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "strnlen":
+        return _run_call_proof_strnlen(
             session,
             symbols,
             image,
