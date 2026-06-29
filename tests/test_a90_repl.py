@@ -649,6 +649,18 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(sysfs_streq["signals"]["direct_bl_xref_count"], 60)
         self.assertTrue(sysfs_streq["signals"]["leaf"])
 
+        kstrdup = self._row("kstrdup")
+        self.assertEqual(kstrdup["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            kstrdup["required_valid_pointer_args"],
+            {"0": "source-string-buffer"},
+        )
+        self.assertTrue(kstrdup["resolution"]["verified"])
+        self.assertEqual(kstrdup["resolution"]["method"], "export-recovery")
+        self.assertEqual(kstrdup["resolution"]["link_vaddr"], "0xffffff800822a664")
+        self.assertGreaterEqual(kstrdup["signals"]["direct_bl_xref_count"], 150)
+        self.assertFalse(kstrdup["signals"]["leaf"])
+
         strpbrk = self._row("strpbrk")
         self.assertEqual(strpbrk["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -1095,6 +1107,15 @@ class CallSafetyClassificationTests(unittest.TestCase):
             "extern bool sysfs_streq(const char *s1, const char *s2)",
         )
         self.assertTrue(sysfs_streq["selected"]["path"].endswith("include/linux/string.h"))
+
+        kstrdup = repl.lookup_source_signature("kstrdup", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(kstrdup["status"], "found", kstrdup)
+        self.assertEqual(kstrdup["selected"]["pointer_arg_indices"], [0])
+        self.assertEqual(
+            kstrdup["selected"]["signature"],
+            "extern char * kstrdup(const char *s, gfp_t gfp) __malloc",
+        )
+        self.assertTrue(kstrdup["selected"]["path"].endswith("include/linux/string.h"))
 
         strpbrk = repl.lookup_source_signature("strpbrk", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(strpbrk["status"], "found", strpbrk)
@@ -1566,6 +1587,12 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.kstrdup_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "kstrdup",
+            purpose="call",
+        ).link_vaddr
         self.strpbrk_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -1831,6 +1858,8 @@ class FaithfulFakeTransport:
             match_string = self.match_string_link + self.slide
             assert self.sysfs_streq_link is not None
             sysfs_streq = self.sysfs_streq_link + self.slide
+            assert self.kstrdup_link is not None
+            kstrdup = self.kstrdup_link + self.slide
             assert self.strpbrk_link is not None
             strpbrk = self.strpbrk_link + self.slide
             assert self.strspn_link is not None
@@ -2074,6 +2103,19 @@ class FaithfulFakeTransport:
                     or (right.endswith(b"\n") and right[:-1] == left)
                 )
                 lines.append("A90R1" if equal else "A90R0")
+            elif arg0 == kstrdup:
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"kstrdup source string is not an allocated pointer: {arg1:#x}")
+                data = self._heap_bytes(arg1, repl.KSTRDUP_SOURCE_SCAN_LEN)
+                nul = data.find(b"\x00")
+                if nul < 0:
+                    raise AssertionError("kstrdup source string is not NUL-terminated in scan window")
+                duplicate = data[:nul + 1]
+                ptr = self.next_heap_ptr
+                self.next_heap_ptr += 0x1000
+                self.allocated.add(ptr)
+                self._set_heap_bytes(ptr, duplicate)
+                lines.append(f"A90R{ptr:x}")
             elif arg0 == strpbrk:
                 if arg1 not in self.allocated:
                     raise AssertionError(f"strpbrk haystack is not an allocated pointer: {arg1:#x}")
@@ -3940,6 +3982,55 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(private["left_bytes_hex"], expected_left_equal)
         self.assertEqual(private["right_bytes_hex"], expected_right_mismatch)
         self.assertEqual(fake.freed, [fake.heap_ptr, fake.heap_ptr + 0x1000])
+
+    def test_call_proof_kstrdup_passes_with_owned_string_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "kstrdup",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-kstrdup-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "kstrdup")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern char * kstrdup(const char *s, gfp_t gfp) __malloc",
+        )
+        self.assertEqual(summary["source_string"], repl.KSTRDUP_SOURCE_LABEL)
+        self.assertTrue(summary["duplicate_matches_source"])
+        self.assertTrue(summary["returned_owned_duplicate_pointer"])
+        self.assertTrue(summary["duplicate_distinct_from_source"])
+        self.assertTrue(summary["source_unchanged_after_call"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("source_ptr", summary)
+        self.assertNotIn("duplicate_ptr", summary)
+        self.assertEqual(private["source_ptr"], f"0x{fake.heap_ptr:x}")
+        self.assertEqual(private["duplicate_ptr"], f"0x{fake.heap_ptr + 0x1000:x}")
+        expected_source = (
+            repl.KSTRDUP_SOURCE_BYTES + (b"\xcc" * repl.KSTRDUP_CANARY_LEN)
+        ).hex()
+        expected_duplicate = repl.KSTRDUP_SOURCE_BYTES.hex()
+        self.assertEqual(private["expected_source_hex"], expected_source)
+        self.assertEqual(private["source_bytes_hex"], expected_source)
+        self.assertEqual(private["expected_duplicate_hex"], expected_duplicate)
+        self.assertEqual(private["duplicate_bytes_hex"], expected_duplicate)
+        self.assertEqual(fake.freed, [fake.heap_ptr + 0x1000, fake.heap_ptr])
 
     def test_call_proof_strpbrk_passes_with_owned_strings_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

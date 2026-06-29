@@ -408,6 +408,16 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
   --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
   --evidence-dir workspace/private/runs/kernel/<unit>/ \
+  kstrdup
+```
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/a90_repl.py call-proof \
+  --map workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map \
+  --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
+  --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
+  --evidence-dir workspace/private/runs/kernel/<unit>/ \
   strpbrk
 ```
 
@@ -608,10 +618,14 @@ owned pointer and observed raw bytes from public output. The `sysfs_streq` proof
 NUL-terminated string buffers, requires a left-trailing-newline sysfs match and an exact match to
 return `1`, rewrites the right string to a mismatch and requires `0`, verifies both strings and
 canaries stay unchanged, frees both buffers, and redacts the owned pointers and observed raw bytes
-from public output. The `strpbrk` proof allocates owned haystack and accept-set strings, requires the present accept set to
-return the expected haystack offset, rewrites the accept buffer to a missing set and requires `0`,
-verifies both strings and canaries stay unchanged, frees both buffers, and redacts the owned pointers
-and observed raw bytes from public output. The `strspn` proof allocates owned haystack and accept-set
+from public output. The `kstrdup` proof allocates one owned source string, calls
+`kstrdup(source, GFP_KERNEL)`, requires a distinct owned kernel duplicate pointer, verifies the
+duplicate bytes match the source including NUL, verifies the source string and canary stay unchanged,
+frees both the duplicate and source allocations, and redacts the owned pointers and observed raw bytes
+from public output. The `strpbrk` proof allocates owned haystack and accept-set strings, requires the
+present accept set to return the expected haystack offset, rewrites the accept buffer to a missing set
+and requires `0`, verifies both strings and canaries stay unchanged, frees both buffers, and redacts
+the owned pointers and observed raw bytes from public output. The `strspn` proof allocates owned haystack and accept-set
 strings, requires a prefix-only accept set to return the initial accepted span length as a scalar size,
 rewrites the accept buffer to a full haystack-covering set and requires the haystack length, verifies
 both strings and canaries stay unchanged, frees both buffers, and redacts the owned pointers and

@@ -37,6 +37,7 @@ and the C1 fail-closed identity gate.
 | `strnstr` | `0xffffff80099b9f44`, `export-recovery`, direct BL xrefs `268`, calls `__pi_strlen`/`__pi_memcmp` | owned NUL-terminated haystack and needle kernel string buffers plus scalar bounded length inside haystack | `strnstr("A90STRNSTR-HEAD-NEEDLE-TAIL", "NEEDLE", 27)` returned the owned haystack pointer at offset `16` (redacted); boundary length `21` returned `0x0`; missing needle `ABSENT` returned `0x0`; both strings stayed unchanged | `kfree-owned-strnstr-strings-ok` | `a90-repl-live-call-proof-strnstr-pass` |
 | `match_string` | `0xffffff80099b9c9c`, `export-recovery`, direct BL xrefs `5`, calls `__pi_strcmp` | owned `const char *` array containing owned NUL-terminated kernel strings plus owned search string and scalar bounded count inside array | `match_string(["A90MATCH-ALPHA","A90MATCH-BRAVO","A90MATCH-CHARLIE"], 3, "A90MATCH-BRAVO") == 1`; missing search `A90MATCH-MISSING` returned `0xffffffea`; zero count returned `0xffffffea`; layout stayed unchanged | `kfree-owned-match-string-layout-ok` | `a90-repl-live-call-proof-match_string-pass` |
 | `sysfs_streq` | `0xffffff80099b9c14`, `export-recovery`, direct BL xrefs `68`, leaf/no-BL | two owned NUL-terminated kernel string buffers | `sysfs_streq("A90SYSFS-VALUE\n", "A90SYSFS-VALUE") == 1`; exact equal strings returned `1`; mismatch `A90SYSFS-OTHER` returned `0`; both strings stayed unchanged | `kfree-owned-sysfs-streq-strings-ok` | `a90-repl-live-call-proof-sysfs_streq-pass` |
+| `kstrdup` | `0xffffff800822a664`, `export-recovery`, direct BL xrefs `160`, calls `__pi_strlen`/`__kmalloc_track_caller`/`__memcpy` | owned NUL-terminated kernel source string buffer plus scalar `GFP_KERNEL` | `kstrdup("A90KSTRDUP-SOURCE-Q-END", GFP_KERNEL)` returned a distinct owned kernel duplicate pointer (redacted); duplicate bytes matched the source including NUL; source string and canary stayed unchanged | `kfree-owned-kstrdup-source-and-duplicate-ok` | `a90-repl-live-call-proof-kstrdup-pass` |
 | `strpbrk` | `0xffffff80099b9b34`, `export-recovery`, direct BL xrefs `40`, leaf/no-BL | owned NUL-terminated haystack and accept-set kernel string buffers | `strpbrk("A90STRPBRK-HEAD-Q-TAIL-Z", "QZ")` returned the owned haystack pointer at offset `16` (redacted); missing accept set `xy` returned `0x0`; both strings stayed unchanged | `kfree-owned-strpbrk-strings-ok` | `a90-repl-live-call-proof-strpbrk-pass` |
 | `strspn` | `0xffffff80099b9a6c`, `export-recovery`, direct BL xrefs `2`, leaf/no-BL | owned NUL-terminated haystack and accept-set kernel string buffers | `strspn("A90STRSPN-HEAD-Q-TAIL", "A90STRSPNHED-") == 15`; full accept set `A90STRSPNHEDQIL-` returned haystack length `21`; both strings stayed unchanged | `kfree-owned-strspn-strings-ok` | `a90-repl-live-call-proof-strspn-pass` |
 | `strcspn` | `0xffffff80099b9ac4`, `export-recovery`, direct BL xrefs `8`, leaf/no-BL | owned NUL-terminated haystack and reject-set kernel string buffers | `strcspn("A90STRCSPN-HEAD-Q-TAIL", "QZ") == 16`; missing reject set `xy` returned haystack length `22`; both strings stayed unchanged | `kfree-owned-strcspn-strings-ok` | `a90-repl-live-call-proof-strcspn-pass` |
@@ -68,7 +69,7 @@ and the C1 fail-closed identity gate.
   proof gate only under their paired owned `/init` file/buffer/position contracts. Broader read paths,
   arbitrary file pointers, and arbitrary destination buffers remain parked until separate contracts are
   proven.
-- String sweep: `strlen`, `strnchr`, `skip_spaces`, `strim`, `strreplace`, `strchr`, `strchrnul`, `strstr`, `strnstr`, `match_string`, `sysfs_streq`, `strpbrk`, `strcmp`, `strcasecmp`, `strncasecmp`, `strncmp`, `strnlen`, `strrchr`,
+- String sweep: `strlen`, `strnchr`, `skip_spaces`, `strim`, `strreplace`, `strchr`, `strchrnul`, `strstr`, `strnstr`, `match_string`, `sysfs_streq`, `kstrdup`, `strpbrk`, `strcmp`, `strcasecmp`, `strncasecmp`, `strncmp`, `strnlen`, `strrchr`,
   `strscpy`, `strlcpy`, `strcpy`, `strlcat`, `strncat`, `strcat`, and
   `strncpy` have crossed the live proof gate only under owned NUL-terminated kernel string/buffer
   contracts. `strnchr` additionally requires scalar bounded count/search-byte args and only proves
@@ -88,7 +89,9 @@ and the C1 fail-closed identity gate.
   requires an owned string-pointer array, owned NUL-terminated string entries, an owned search string,
   and a scalar count inside the array, and only proves one hit-index case plus missing/zero-count
   `-EINVAL` cases; `sysfs_streq` additionally requires two owned terminated strings and only proves
-  exact equality, one left-trailing-newline sysfs equality case, and one mismatch false case; `strpbrk` additionally requires owned haystack and accept-set strings
+  exact equality, one left-trailing-newline sysfs equality case, and one mismatch false case; `kstrdup`
+  additionally allocates a new owned duplicate string and only proves one owned source string plus
+  `GFP_KERNEL` case; `strpbrk` additionally requires owned haystack and accept-set strings
   and only proves one present accept-set hit plus one missing accept-set NULL case; `strcmp`
   additionally requires two owned terminated strings and only proves equal/positive-sign compare
   cases; `strcasecmp` additionally requires two owned terminated strings and only proves case-fold

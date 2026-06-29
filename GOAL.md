@@ -767,6 +767,35 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `kstrdup` owned-string duplicate contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `kstrdup` promoted under owned source string + GFP_KERNEL only
+>
+> Thirty-seventh one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py`
+> `call-proof` with `kstrdup`, using one tool-owned NUL-terminated source string buffer and scalar
+> `GFP_KERNEL`. Static gate: `kstrdup=0xffffff800822a664`, `export-recovery`, direct-BL xrefs `160`,
+> JOPP entry true, non-leaf helper calling `__pi_strlen`, `__kmalloc_track_caller`, and `__memcpy`.
+> Source contract: `extern char * kstrdup(const char *s, gfp_t gfp) __malloc`, with x0 as the only
+> pointer arg and x1 as scalar GFP. Call-safety tier is `SAFE-WITH-VALID-PTR`.
+>
+> Live path: baseline v2321 selftest passed, flashed the existing v1-repl image
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65` through
+> `native_init_flash.py`, confirmed readback SHA, candidate `selftest pass=11 warn=1 fail=0`, and
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof kstrdup` with the C2B verified map. A first
+> health-check attempt hit host-side serial contention because two serial consumers were started in
+> parallel; the bridge stayed reachable and the sequential retry passed.
+>
+> Result: `a90-repl-live-call-proof-kstrdup-pass`; checks covered C1 identity, source signature,
+> call-safety contract, owned source allocation/poke/peek, `kstrdup("A90KSTRDUP-SOURCE-Q-END",
+> GFP_KERNEL)` returning a distinct owned kernel duplicate pointer, duplicate bytes matching the
+> source including NUL, source/canary immutability, and `kfree-owned-kstrdup-source-and-duplicate`.
+>
+> Candidate selftest after proof stayed `fail=0`. Rolled back to clean v2321
+> (`ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`) with final resident
+> `v2321-usb-clean-identity-rodata` and final `selftest pass=11 warn=1 fail=0`. Function map records
+> `kstrdup` only under the owned source string + `GFP_KERNEL` contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_KSTRDUP_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `sysfs_streq` owned-string equality contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `sysfs_streq` promoted under two owned sysfs strings only
