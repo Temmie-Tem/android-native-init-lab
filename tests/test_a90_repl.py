@@ -625,6 +625,18 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(strpbrk["signals"]["direct_bl_xref_count"], 40)
         self.assertTrue(strpbrk["signals"]["leaf"])
 
+        strspn = self._row("strspn")
+        self.assertEqual(strspn["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            strspn["required_valid_pointer_args"],
+            {"0": "haystack-string-buffer", "1": "accept-string-buffer"},
+        )
+        self.assertTrue(strspn["resolution"]["verified"])
+        self.assertEqual(strspn["resolution"]["method"], "export-recovery")
+        self.assertEqual(strspn["resolution"]["link_vaddr"], "0xffffff80099b9a6c")
+        self.assertGreaterEqual(strspn["signals"]["direct_bl_xref_count"], 2)
+        self.assertTrue(strspn["signals"]["leaf"])
+
         strcspn = self._row("strcspn")
         self.assertEqual(strcspn["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -957,6 +969,15 @@ class CallSafetyClassificationTests(unittest.TestCase):
             "extern char * strpbrk(const char *,const char *)",
         )
         self.assertTrue(strpbrk["selected"]["path"].endswith("include/linux/string.h"))
+
+        strspn = repl.lookup_source_signature("strspn", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(strspn["status"], "found", strspn)
+        self.assertEqual(strspn["selected"]["pointer_arg_indices"], [0, 1])
+        self.assertEqual(
+            strspn["selected"]["signature"],
+            "extern __kernel_size_t strspn(const char *,const char *)",
+        )
+        self.assertTrue(strspn["selected"]["path"].endswith("include/linux/string.h"))
 
         strcspn = repl.lookup_source_signature("strcspn", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(strcspn["status"], "found", strcspn)
@@ -1342,6 +1363,13 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.strspn_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "strspn",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.strcspn_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -1547,6 +1575,8 @@ class FaithfulFakeTransport:
             strstr = self.strstr_link + self.slide
             assert self.strpbrk_link is not None
             strpbrk = self.strpbrk_link + self.slide
+            assert self.strspn_link is not None
+            strspn = self.strspn_link + self.slide
             assert self.strcspn_link is not None
             strcspn = self.strcspn_link + self.slide
             assert self.strcmp_link is not None
@@ -1725,6 +1755,29 @@ class FaithfulFakeTransport:
                         offset = index
                         break
                 lines.append("A90R0" if offset < 0 else f"A90R{arg1 + offset:x}")
+            elif arg0 == strspn:
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"strspn haystack is not an allocated pointer: {arg1:#x}")
+                if arg2 not in self.allocated:
+                    raise AssertionError(f"strspn accept set is not an allocated pointer: {arg2:#x}")
+                haystack_data = self._heap_bytes(arg1, len(repl.STRSPN_HAYSTACK_BYTES))
+                haystack_nul = haystack_data.find(b"\x00")
+                if haystack_nul < 0:
+                    raise AssertionError("strspn haystack is not NUL-terminated in scan window")
+                accept_data = self._heap_bytes(
+                    arg2,
+                    max(len(repl.STRSPN_PREFIX_ACCEPT_BYTES), len(repl.STRSPN_FULL_ACCEPT_BYTES)),
+                )
+                accept_nul = accept_data.find(b"\x00")
+                if accept_nul < 0:
+                    raise AssertionError("strspn accept set is not NUL-terminated in scan window")
+                accept = set(accept_data[:accept_nul])
+                span = 0
+                for byte in haystack_data[:haystack_nul]:
+                    if byte not in accept:
+                        break
+                    span += 1
+                lines.append(f"A90R{span:x}")
             elif arg0 == strcspn:
                 if arg1 not in self.allocated:
                     raise AssertionError(f"strcspn haystack is not an allocated pointer: {arg1:#x}")
@@ -3075,6 +3128,66 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(private["expected_missing_accept_hex"], expected_missing_accept_hex)
         self.assertEqual(private["haystack_bytes_hex"], expected_haystack_hex)
         self.assertEqual(private["accept_bytes_hex"], expected_missing_accept_hex)
+        self.assertEqual(fake.freed, [fake.heap_ptr, fake.heap_ptr + 0x1000])
+
+    def test_call_proof_strspn_passes_with_owned_strings_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "strspn",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-strspn-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "strspn")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern __kernel_size_t strspn(const char *,const char *)",
+        )
+        self.assertEqual(summary["haystack"], repl.STRSPN_HAYSTACK_LABEL)
+        self.assertEqual(summary["prefix_accept_set"], repl.STRSPN_PREFIX_ACCEPT_LABEL)
+        self.assertEqual(summary["full_accept_set"], repl.STRSPN_FULL_ACCEPT_LABEL)
+        self.assertEqual(summary["expected_prefix_return_value"], repl.STRSPN_EXPECTED_PREFIX_LEN)
+        self.assertEqual(summary["prefix_observed_return_value"], repl.STRSPN_EXPECTED_PREFIX_LEN)
+        self.assertTrue(summary["prefix_return_matches_expected_length"])
+        self.assertEqual(summary["full_expected_return_value"], repl.STRSPN_EXPECTED_FULL_LEN)
+        self.assertEqual(summary["full_observed_return_value"], repl.STRSPN_EXPECTED_FULL_LEN)
+        self.assertTrue(summary["full_return_matches_haystack_length"])
+        self.assertTrue(summary["strings_unchanged_after_calls"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("haystack_ptr", summary)
+        self.assertNotIn("accept_ptr", summary)
+        self.assertEqual(private["haystack_ptr"], f"0x{fake.heap_ptr:x}")
+        self.assertEqual(private["accept_ptr"], f"0x{fake.heap_ptr + 0x1000:x}")
+        expected_haystack_hex = (
+            repl.STRSPN_HAYSTACK_BYTES + (b"\xcc" * repl.STRSPN_CANARY_LEN)
+        ).hex()
+        expected_prefix_accept_hex = (
+            repl.STRSPN_PREFIX_ACCEPT_BYTES + (b"\xcc" * repl.STRSPN_CANARY_LEN)
+        ).hex()
+        expected_full_accept_hex = (
+            repl.STRSPN_FULL_ACCEPT_BYTES + (b"\xcc" * repl.STRSPN_CANARY_LEN)
+        ).hex()
+        self.assertEqual(private["expected_haystack_hex"], expected_haystack_hex)
+        self.assertEqual(private["expected_prefix_accept_hex"], expected_prefix_accept_hex)
+        self.assertEqual(private["expected_full_accept_hex"], expected_full_accept_hex)
+        self.assertEqual(private["haystack_bytes_hex"], expected_haystack_hex)
+        self.assertEqual(private["accept_bytes_hex"], expected_full_accept_hex)
         self.assertEqual(fake.freed, [fake.heap_ptr, fake.heap_ptr + 0x1000])
 
     def test_call_proof_strcspn_passes_with_owned_strings_contract(self) -> None:

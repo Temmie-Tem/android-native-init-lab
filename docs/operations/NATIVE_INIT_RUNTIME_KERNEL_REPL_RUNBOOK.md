@@ -348,6 +348,16 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
   --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
   --evidence-dir workspace/private/runs/kernel/<unit>/ \
+  strspn
+```
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/a90_repl.py call-proof \
+  --map workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map \
+  --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
+  --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
+  --evidence-dir workspace/private/runs/kernel/<unit>/ \
   strcspn
 ```
 
@@ -482,7 +492,11 @@ frees both buffers, and redacts the owned pointers and observed raw bytes from p
 `strpbrk` proof allocates owned haystack and accept-set strings, requires the present accept set to
 return the expected haystack offset, rewrites the accept buffer to a missing set and requires `0`,
 verifies both strings and canaries stay unchanged, frees both buffers, and redacts the owned pointers
-and observed raw bytes from public output. The `strcspn` proof allocates owned haystack and reject-set
+and observed raw bytes from public output. The `strspn` proof allocates owned haystack and accept-set
+strings, requires a prefix-only accept set to return the initial accepted span length as a scalar size,
+rewrites the accept buffer to a full haystack-covering set and requires the haystack length, verifies
+both strings and canaries stay unchanged, frees both buffers, and redacts the owned pointers and
+observed raw bytes from public output. The `strcspn` proof allocates owned haystack and reject-set
 strings, requires the present reject set to return the first reject byte offset as a scalar size, rewrites
 the reject buffer to a missing set and requires the haystack length, verifies both strings and canaries
 stay unchanged, frees both buffers, and redacts the owned pointers and observed raw bytes from public

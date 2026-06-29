@@ -223,6 +223,7 @@ CALL_SAFETY_SWEEP_FAMILIES = {
             "strncmp",
             "strstr",
             "strpbrk",
+            "strspn",
             "strcspn",
             "strscpy",
             "strlcpy",
@@ -333,6 +334,12 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {0: "haystack-string-buffer", 1: "accept-string-buffer"},
         "return_kind": "string-pointer-or-null",
         "reason": "accept-set string search helper; x0/x1 must be owned NUL-terminated kernel string buffers",
+    },
+    "strspn": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "haystack-string-buffer", 1: "accept-string-buffer"},
+        "return_kind": "size_t",
+        "reason": "accept-set span helper; x0/x1 must be owned NUL-terminated kernel string buffers",
     },
     "strcspn": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
@@ -4695,6 +4702,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern char * strpbrk(const char *,const char *)",
     },
+    "strspn": {
+        "input_contract": "owned NUL-terminated haystack and accept-set kernel string buffers",
+        "return_contract": "size_t == initial prefix length containing only accept-set bytes; full accept-set returns haystack length",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern __kernel_size_t strspn(const char *,const char *)",
+    },
     "strcspn": {
         "input_contract": "owned NUL-terminated haystack and reject-set kernel string buffers",
         "return_contract": "size_t == expected first reject-set byte offset; missing reject-set returns haystack length",
@@ -4854,6 +4867,22 @@ STRPBRK_EXPECTED_OFFSET = next(
     -1,
 )
 STRPBRK_CANARY_LEN = 8
+STRSPN_HAYSTACK_BYTES = b"A90STRSPN-HEAD-Q-TAIL\x00"
+STRSPN_HAYSTACK_LABEL = STRSPN_HAYSTACK_BYTES[:-1].decode("ascii")
+STRSPN_PREFIX_ACCEPT_BYTES = b"A90STRSPNHED-\x00"
+STRSPN_PREFIX_ACCEPT_LABEL = STRSPN_PREFIX_ACCEPT_BYTES[:-1].decode("ascii")
+STRSPN_FULL_ACCEPT_BYTES = b"A90STRSPNHEDQIL-\x00"
+STRSPN_FULL_ACCEPT_LABEL = STRSPN_FULL_ACCEPT_BYTES[:-1].decode("ascii")
+STRSPN_EXPECTED_PREFIX_LEN = next(
+    (
+        index
+        for index, byte in enumerate(STRSPN_HAYSTACK_BYTES[:-1])
+        if byte not in STRSPN_PREFIX_ACCEPT_BYTES[:-1]
+    ),
+    len(STRSPN_HAYSTACK_BYTES) - 1,
+)
+STRSPN_EXPECTED_FULL_LEN = len(STRSPN_HAYSTACK_BYTES) - 1
+STRSPN_CANARY_LEN = 8
 STRCSPN_HAYSTACK_BYTES = b"A90STRCSPN-HEAD-Q-TAIL\x00"
 STRCSPN_HAYSTACK_LABEL = STRCSPN_HAYSTACK_BYTES[:-1].decode("ascii")
 STRCSPN_REJECT_BYTES = b"QZ\x00"
@@ -7837,6 +7866,263 @@ def _run_call_proof_strpbrk(session: ReplSession,
         "expected_haystack_hex": expected_haystack_scan.hex(),
         "expected_hit_accept_hex": expected_hit_accept_scan.hex(),
         "expected_missing_accept_hex": expected_missing_accept_scan.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
+def _run_call_proof_strspn(session: ReplSession,
+                           symbols: dict[str, Symbol],
+                           image: StaticImage,
+                           *,
+                           alloc_size: int,
+                           source_root: Path,
+                           gfp: int,
+                           gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    haystack_scan_len = len(STRSPN_HAYSTACK_BYTES) + STRSPN_CANARY_LEN
+    accept_scan_len = max(len(STRSPN_PREFIX_ACCEPT_BYTES), len(STRSPN_FULL_ACCEPT_BYTES)) + STRSPN_CANARY_LEN
+    if alloc_size < max(haystack_scan_len, accept_scan_len):
+        raise ReplError(
+            f"strspn call-proof alloc_size must be at least {max(haystack_scan_len, accept_scan_len)} bytes"
+        )
+    if STRSPN_EXPECTED_PREFIX_LEN <= 0:
+        raise ReplError("strspn prefix accept set must match at least one leading byte")
+    if STRSPN_EXPECTED_PREFIX_LEN >= STRSPN_EXPECTED_FULL_LEN:
+        raise ReplError("strspn prefix accept set must stop before the haystack terminator")
+    if any(byte not in STRSPN_FULL_ACCEPT_BYTES[:-1] for byte in STRSPN_HAYSTACK_BYTES[:-1]):
+        raise ReplError("strspn full accept set must cover every proof haystack byte")
+
+    source = lookup_source_signature("strspn", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "strspn",
+        ("@owned_haystack_string_buffer", "@owned_accept_string_buffer"),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["strspn"]["expected_tier"]:
+        raise ReplError("strspn call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0, 1]:
+        raise ReplError("strspn source signature does not declare x0/x1 as pointer arguments")
+
+    resolutions = {
+        "strspn": resolve_verified(symbols, image, "strspn", purpose="call", allow_pre_arg_deref=True),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    strspn_link = require_verified_resolution(resolutions["strspn"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof string allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof string cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    expected_haystack_scan = STRSPN_HAYSTACK_BYTES + (b"\xcc" * STRSPN_CANARY_LEN)
+    expected_prefix_accept_scan = STRSPN_PREFIX_ACCEPT_BYTES + (b"\xcc" * STRSPN_CANARY_LEN)
+    expected_full_accept_scan = STRSPN_FULL_ACCEPT_BYTES + (b"\xcc" * STRSPN_CANARY_LEN)
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "strspn",
+            "resolution_method": resolutions["strspn"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    private: dict[str, object] = {}
+    haystack_ptr = 0
+    accept_ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_ok: dict[str, bool] = {"haystack": False, "accept": False}
+    free_errors: list[str] = []
+    prefix_return = 0
+    full_return = 0
+    observed_haystack = b""
+    observed_accept = b""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        strspn_runtime = (strspn_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        haystack_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        accept_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        ptrs_ok = (
+            is_kernel_lowmem_pointer(haystack_ptr)
+            and is_kernel_lowmem_pointer(accept_ptr)
+            and haystack_ptr != accept_ptr
+        )
+        checks.append({
+            "check": "kmalloc-owned-strspn-strings",
+            "ok": ptrs_ok,
+            "alloc_size": alloc_size,
+            "distinct_allocations": haystack_ptr != accept_ptr,
+        })
+        if not ptrs_ok:
+            raise ReplError("__kmalloc did not return sane distinct strspn string buffers")
+
+        _poke_bytes(session, haystack_ptr, expected_haystack_scan)
+        _poke_bytes(session, accept_ptr, expected_prefix_accept_scan)
+        observed_haystack = _peek_bytes(session, haystack_ptr, haystack_scan_len)
+        observed_accept = _peek_bytes(session, accept_ptr, len(expected_prefix_accept_scan))
+        setup_ok = observed_haystack == expected_haystack_scan and observed_accept == expected_prefix_accept_scan
+        checks.append({
+            "check": "owned-strspn-string-poke-peek",
+            "ok": setup_ok,
+            "haystack_label": STRSPN_HAYSTACK_LABEL,
+            "accept_set": STRSPN_PREFIX_ACCEPT_LABEL,
+            "canary_len": STRSPN_CANARY_LEN,
+        })
+        if not setup_ok:
+            raise ReplError("owned strspn string poke/peek mismatch")
+
+        prefix_return = session.call_runtime(strspn_runtime, (haystack_ptr, accept_ptr))
+        prefix_ok = prefix_return == STRSPN_EXPECTED_PREFIX_LEN
+        checks.append({
+            "check": "strspn-prefix-return-contract",
+            "ok": prefix_ok,
+            "accept_set": STRSPN_PREFIX_ACCEPT_LABEL,
+            "expected_return": STRSPN_EXPECTED_PREFIX_LEN,
+            "observed_return": prefix_return,
+        })
+        if not prefix_ok:
+            raise ReplError(
+                f"strspn prefix case returned 0x{prefix_return:x}, expected {STRSPN_EXPECTED_PREFIX_LEN}"
+            )
+
+        observed_haystack = _peek_bytes(session, haystack_ptr, haystack_scan_len)
+        observed_accept = _peek_bytes(session, accept_ptr, len(expected_prefix_accept_scan))
+        prefix_unchanged = observed_haystack == expected_haystack_scan and observed_accept == expected_prefix_accept_scan
+        checks.append({
+            "check": "strspn-prefix-string-immutability",
+            "ok": prefix_unchanged,
+            "strings_unchanged": prefix_unchanged,
+        })
+        if not prefix_unchanged:
+            raise ReplError("strspn prefix case modified an owned string")
+
+        _poke_bytes(session, accept_ptr, expected_full_accept_scan)
+        observed_accept = _peek_bytes(session, accept_ptr, len(expected_full_accept_scan))
+        full_setup_ok = observed_accept == expected_full_accept_scan
+        checks.append({
+            "check": "owned-strspn-full-accept-poke-peek",
+            "ok": full_setup_ok,
+            "full_accept_set": STRSPN_FULL_ACCEPT_LABEL,
+        })
+        if not full_setup_ok:
+            raise ReplError("owned strspn full-accept poke/peek mismatch")
+
+        full_return = session.call_runtime(strspn_runtime, (haystack_ptr, accept_ptr))
+        full_ok = full_return == STRSPN_EXPECTED_FULL_LEN
+        checks.append({
+            "check": "strspn-full-return-contract",
+            "ok": full_ok,
+            "full_accept_set": STRSPN_FULL_ACCEPT_LABEL,
+            "expected_return": STRSPN_EXPECTED_FULL_LEN,
+            "observed_return": full_return,
+        })
+        if not full_ok:
+            raise ReplError(
+                f"strspn full-accept case returned 0x{full_return:x}, expected {STRSPN_EXPECTED_FULL_LEN}"
+            )
+
+        observed_haystack = _peek_bytes(session, haystack_ptr, haystack_scan_len)
+        observed_accept = _peek_bytes(session, accept_ptr, len(expected_full_accept_scan))
+        full_unchanged = (
+            observed_haystack == expected_haystack_scan
+            and observed_accept == expected_full_accept_scan
+        )
+        checks.append({
+            "check": "strspn-full-string-immutability",
+            "ok": full_unchanged,
+            "strings_unchanged": full_unchanged,
+        })
+        if not full_unchanged:
+            raise ReplError("strspn full-accept case modified an owned string")
+    finally:
+        for label, ptr in (("haystack", haystack_ptr), ("accept", accept_ptr)):
+            if kfree_runtime and ptr and is_kernel_lowmem_pointer(ptr):
+                try:
+                    session.call_runtime(kfree_runtime, (ptr,))
+                    free_ok[label] = True
+                except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                    free_errors.append(f"{label}: {exc}")
+        session.set_panic_on_oops(1)
+
+    cleanup_ok = all(free_ok.values())
+    checks.append({
+        "check": "kfree-owned-strspn-strings",
+        "ok": cleanup_ok,
+        "free_attempted": {
+            "haystack": bool(kfree_runtime and haystack_ptr),
+            "accept": bool(kfree_runtime and accept_ptr),
+        },
+    })
+    if free_errors:
+        raise ReplError(f"kfree failed after strspn proof: {free_errors}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-strspn-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "strspn",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["strspn"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["strspn"]["return_contract"],
+        "alloc_size": alloc_size,
+        "haystack": STRSPN_HAYSTACK_LABEL,
+        "prefix_accept_set": STRSPN_PREFIX_ACCEPT_LABEL,
+        "full_accept_set": STRSPN_FULL_ACCEPT_LABEL,
+        "expected_prefix_return_value": STRSPN_EXPECTED_PREFIX_LEN,
+        "prefix_observed_return_value": prefix_return,
+        "prefix_return_matches_expected_length": prefix_return == STRSPN_EXPECTED_PREFIX_LEN,
+        "full_expected_return_value": STRSPN_EXPECTED_FULL_LEN,
+        "full_observed_return_value": full_return,
+        "full_return_matches_haystack_length": full_return == STRSPN_EXPECTED_FULL_LEN,
+        "strings_unchanged_after_calls": True,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "strspn",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["strspn"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["strspn"]["return_contract"],
+            "observed_return_value": f"prefix={STRSPN_EXPECTED_PREFIX_LEN},full={STRSPN_EXPECTED_FULL_LEN}",
+            "cleanup": "kfree-owned-strspn-strings-ok" if cleanup_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "strspn_runtime": f"0x{((strspn_link + slide) & MASK64):x}",
+        "haystack_ptr": f"0x{haystack_ptr:x}",
+        "accept_ptr": f"0x{accept_ptr:x}",
+        "haystack_bytes_hex": observed_haystack.hex(),
+        "accept_bytes_hex": observed_accept.hex(),
+        "expected_haystack_hex": expected_haystack_scan.hex(),
+        "expected_prefix_accept_hex": expected_prefix_accept_scan.hex(),
+        "expected_full_accept_hex": expected_full_accept_scan.hex(),
         "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
     })
     return summary, private
@@ -10916,6 +11202,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "strpbrk":
         return _run_call_proof_strpbrk(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "strspn":
+        return _run_call_proof_strspn(
             session,
             symbols,
             image,

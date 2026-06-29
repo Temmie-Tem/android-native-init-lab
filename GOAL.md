@@ -767,6 +767,39 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `strspn` owned-string accept-set span contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `strspn` promoted under owned NUL-string accept-set contract only
+>
+> Twenty-seventh one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py`
+> `call-proof` with `strspn`, using one tool-owned NUL-terminated haystack string
+> (`A90STRSPN-HEAD-Q-TAIL`) and one tool-owned NUL-terminated accept-set string first containing
+> only the initial prefix character set (`A90STRSPNHED-`), then rewriting the accept-set buffer to
+> cover the whole haystack (`A90STRSPNHEDQIL-`). Static gate:
+> `strspn=0xffffff80099b9a6c`, `export-recovery`, direct-BL xrefs `2`, JOPP entry,
+> leaf/no-BL, RETs in scan. Source contract:
+> `extern __kernel_size_t strspn(const char *,const char *)`, with x0 as the haystack
+> string pointer and x1 as the accept-set string pointer. The call-safety seed is
+> `SAFE-WITH-VALID-PTR`; required valid pointer args are x0 `haystack-string-buffer`
+> and x1 `accept-string-buffer`.
+>
+> Live path: confirmed rollback images and TWRP, flashed the existing v1-repl boot image
+> (`b846ae9f...`) through `native_init_flash.py`, confirmed clean native selftest `fail=0` and
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof strspn` with the C2B verified map.
+> Result: `a90-repl-live-call-proof-strspn-pass`; checks covered C1 identity, source pointer
+> contract, call-safety contract, distinct owned haystack/accept allocations, prefix accept-set
+> poke/peek, prefix return `15`, prefix immutability, full accept-set rewrite, full-case return
+> haystack length `21`, full-case immutability, and `kfree-owned-strspn-strings`.
+>
+> Candidate selftest after proof was `pass=11 warn=1 fail=0`. Rollback to clean v2321 used the checked
+> helper with readback SHA `ca978551...`; final `selftest` confirmed v2321 health with
+> `pass=11 warn=1 fail=0`. An initial parallel candidate health/REPL-selftest attempt caused serial
+> echo noise before END marker; immediate `version` re-sync and sequential retries passed. The first
+> final selftest after rollback also hit serial echo noise, then `version` re-sync and selftest passed.
+> Function map records `strspn` only under this owned NUL-terminated haystack plus owned
+> NUL-terminated accept-set contract. This does not authorize arbitrary pointers, user pointers,
+> unterminated strings, mutable side effects, or mass calls.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `strcspn` owned-string reject-set contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `strcspn` promoted under owned NUL-string reject-set contract only
