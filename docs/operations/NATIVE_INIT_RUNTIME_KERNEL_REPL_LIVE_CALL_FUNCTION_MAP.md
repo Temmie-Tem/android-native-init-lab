@@ -44,6 +44,7 @@ and the C1 fail-closed identity gate.
 | `strscpy` | `0xffffff80099b9794`, `export-recovery`, direct BL xrefs `8`, leaf/no-BL | owned destination buffer plus owned NUL-terminated source string buffer plus bounded size | `strscpy(dst, "A90STRSCPY", 32) == 0xa`, destination prefix matched source, canary after size preserved | `kfree-owned-strscpy-buffers-ok` | `a90-repl-live-call-proof-strscpy-pass` |
 | `strlcpy` | `0xffffff80099b9724`, `export-recovery`, direct BL xrefs `963`, calls `__pi_strlen`/`__memcpy` | owned destination buffer plus owned NUL-terminated source string buffer plus bounded size | `strlcpy(dst, "A90STRLCPY", 32) == 0xa`, destination prefix matched source, canary after size preserved | `kfree-owned-strlcpy-buffers-ok` | `a90-repl-live-call-proof-strlcpy-pass` |
 | `strcpy` | `0xffffff80099b96d4`, `export-recovery`, direct BL xrefs `589`, leaf/no-BL | owned destination buffer large enough for owned NUL-terminated source string buffer | `strcpy(dst, "A90STRCPY-SRC-Q-END")` returned the owned destination pointer (redacted), destination matched source including NUL, post-NUL tail and canary stayed unchanged, source stayed unchanged | `kfree-owned-strcpy-buffers-ok` | `a90-repl-live-call-proof-strcpy-pass` |
+| `strcat` | `0xffffff80099b988c`, `export-recovery`, direct BL xrefs `77`, leaf/no-BL | owned mutable NUL-terminated destination string buffer with enough tail room for owned source string | `strcat("A90STRCAT-DST", "-SRC-Q-END")` returned the owned destination pointer (redacted), destination became `A90STRCAT-DST-SRC-Q-END` including NUL, post-NUL tail and canary stayed unchanged, source stayed unchanged | `kfree-owned-strcat-buffers-ok` | `a90-repl-live-call-proof-strcat-pass` |
 | `strncpy` | `0xffffff80099b96f4`, `export-recovery`, direct BL xrefs `187`, leaf/no-BL | owned destination buffer plus owned NUL-terminated source string buffer plus bounded count | `strncpy(dst, "A90STRNCPY", 32)` returned the owned destination pointer (redacted), destination prefix matched source, NUL padded to count, canary after count preserved | `kfree-owned-strncpy-buffers-ok` | `a90-repl-live-call-proof-strncpy-pass` |
 | `memcmp` | `0xffffff80099a84b0`, `leaf-map-disasm+xref`, direct BL xrefs `921`, leaf/no-BL | two owned initialized buffers plus bounded size inside both buffers | equal buffer compare returned `0x0`; first-difference case returned positive (`0x80`); both buffers stayed unchanged | `kfree-owned-memcmp-buffers-ok` | `a90-repl-live-call-proof-memcmp-pass` |
 | `memchr` | `0xffffff80099a8488`, `leaf-map-disasm+xref`, direct BL xrefs `25`, leaf/no-BL | owned initialized buffer plus scalar search byte plus bounded size inside the buffer | `memchr("A90MEMCHR-HIT-Q-END-012345", 'Q', 26)` returned the owned pointer at offset `14` (redacted); missing `@` returned `0x0` even though the post-size canary contained `@`; buffer stayed unchanged | `kfree-owned-memchr-buffer-ok` | `a90-repl-live-call-proof-memchr-pass` |
@@ -61,7 +62,7 @@ and the C1 fail-closed identity gate.
   arbitrary file pointers, and arbitrary destination buffers remain parked until separate contracts are
   proven.
 - String sweep: `strlen`, `strnchr`, `skip_spaces`, `strim`, `strreplace`, `strchr`, `strchrnul`, `strstr`, `strpbrk`, `strcmp`, `strncmp`, `strnlen`, `strrchr`,
-  `strscpy`, `strlcpy`, and
+  `strscpy`, `strlcpy`, `strcpy`, `strcat`, and
   `strncpy` have crossed the live proof gate only under owned NUL-terminated kernel string/buffer
   contracts. `strnchr` additionally requires scalar bounded count/search-byte args and only proves
   one hit inside count plus one boundary-count NULL case; `skip_spaces` additionally requires a valid
@@ -80,8 +81,9 @@ and the C1 fail-closed identity gate.
   cases; `strncmp` additionally requires two owned terminated strings plus a scalar bounded count
   inside both buffers and only proves bounded-equal plus positive-sign mismatch cases; `strnlen`
   additionally requires the scalar `maxlen` contract; `strrchr` additionally
-  requires a scalar search byte and a terminated owned string; `strscpy`, `strlcpy`, and `strncpy`
-  additionally require an owned destination buffer and a bounded size/count inside that destination.
+  requires a scalar search byte and a terminated owned string; `strscpy`, `strlcpy`, `strcpy`,
+  `strcat`, and `strncpy` additionally require an owned destination buffer and enough capacity inside
+  that destination.
   Other string/memory helpers remain parked until separate C1 identity and pointer contracts are
   proven.
 - Memory-search/compare sweep: `memcmp` has crossed the live proof gate only under the two-owned-buffer

@@ -767,6 +767,36 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `strcat` owned-buffer append contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `strcat` promoted under owned dst/src string contract only
+>
+> Twenty-ninth one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py`
+> `call-proof` with `strcat`, using one tool-owned mutable destination string buffer first
+> containing `A90STRCAT-DST`, plus one tool-owned NUL-terminated source string buffer containing
+> `-SRC-Q-END`. Static gate: `strcat=0xffffff80099b988c`, `export-recovery`, direct-BL xrefs
+> `77`, JOPP entry, leaf/no-BL, RETs in scan. Source contract:
+> `extern char * strcat(char *, const char *)`, with x0 as the destination string buffer pointer
+> and x1 as the source string pointer. The call-safety seed is `SAFE-WITH-VALID-PTR`; required
+> valid pointer args are x0 `destination-buffer` and x1 `source-string-buffer`.
+>
+> Live path: confirmed rollback images and TWRP, flashed the existing v1-repl boot image
+> (`b846ae9f...`) through `native_init_flash.py`, confirmed clean native selftest `fail=0` and
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof strcat` with the C2B verified map.
+> Result: `a90-repl-live-call-proof-strcat-pass`; checks covered C1 identity, source pointer
+> contract, call-safety contract, distinct owned destination/source allocations, destination
+> prefix plus source poke/peek, destination-pointer return contract, append result
+> `A90STRCAT-DST-SRC-Q-END` including NUL, post-NUL tail preservation, destination canary
+> preservation, source immutability, and `kfree-owned-strcat-buffers`.
+>
+> Candidate selftest after proof was `pass=11 warn=1 fail=0`. Rollback to clean v2321 used the checked
+> helper with readback SHA `ca978551...`; final resident `version/status` confirmed v2321 and final
+> `selftest` confirmed `pass=11 warn=1 fail=0`. One candidate selftest attempt using slow serial input
+> hit echo noise before END marker; normal `version` re-synchronized the bridge, and native selftest
+> passed before REPL selftest and proof. Function map records `strcat` only under this owned mutable
+> destination plus owned NUL-terminated source contract. This does not authorize arbitrary pointers,
+> user pointers, undersized destinations, unterminated strings, overlapping strings, or mass calls.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `strcpy` owned-buffer copy contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `strcpy` promoted under owned dst/src string contract only

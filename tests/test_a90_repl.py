@@ -716,6 +716,18 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(strcpy["signals"]["direct_bl_xref_count"], 500)
         self.assertTrue(strcpy["signals"]["leaf"])
 
+        strcat = self._row("strcat")
+        self.assertEqual(strcat["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            strcat["required_valid_pointer_args"],
+            {"0": "destination-buffer", "1": "source-string-buffer"},
+        )
+        self.assertTrue(strcat["resolution"]["verified"])
+        self.assertEqual(strcat["resolution"]["method"], "export-recovery")
+        self.assertEqual(strcat["resolution"]["link_vaddr"], "0xffffff80099b988c")
+        self.assertGreaterEqual(strcat["signals"]["direct_bl_xref_count"], 70)
+        self.assertTrue(strcat["signals"]["leaf"])
+
         memcmp = self._row("memcmp")
         self.assertEqual(memcmp["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -1042,6 +1054,15 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertTrue(strcpy["selected"]["path"].endswith("include/linux/string.h"))
 
+        strcat = repl.lookup_source_signature("strcat", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(strcat["status"], "found", strcat)
+        self.assertEqual(strcat["selected"]["pointer_arg_indices"], [0, 1])
+        self.assertEqual(
+            strcat["selected"]["signature"],
+            "extern char * strcat(char *, const char *)",
+        )
+        self.assertTrue(strcat["selected"]["path"].endswith("include/linux/string.h"))
+
         memcmp = repl.lookup_source_signature("memcmp", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(memcmp["status"], "found", memcmp)
         self.assertEqual(memcmp["selected"]["pointer_arg_indices"], [0, 1])
@@ -1113,7 +1134,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         summary = repl.run_call_safety_sweep(
             self.symbols,
             self.image,
-            explicit_symbols=("__kmalloc", "kfree", "strcat", "kgsl_pwrctrl_force_no_nap_store"),
+            explicit_symbols=("__kmalloc", "kfree", "strncat", "kgsl_pwrctrl_force_no_nap_store"),
             limit=0,
             source_root=KERNEL_SOURCE_ROOT,
             include_objdump=False,
@@ -1138,20 +1159,20 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertEqual(kgsl_store["advisory"]["tier"], repl.CALL_SAFETY_DENY)
         self.assertIn("source-missing", kgsl_store["advisory"]["danger_flags"])
 
-        strcat = rows["strcat"]
-        self.assertEqual(strcat["gate_tier"], repl.CALL_SAFETY_DENY)
-        self.assertEqual(strcat["source"]["status"], "found")
-        self.assertEqual(strcat["advisory"]["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
-        self.assertFalse(strcat["advisory"]["candidate_safe"])
+        strncat = rows["strncat"]
+        self.assertEqual(strncat["gate_tier"], repl.CALL_SAFETY_DENY)
+        self.assertEqual(strncat["source"]["status"], "found")
+        self.assertEqual(strncat["advisory"]["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertFalse(strncat["advisory"]["candidate_safe"])
         self.assertIn(
             "unseeded-arg-memory-flow-without-gate-pointer-contract",
-            strcat["advisory"]["danger_flags"],
+            strncat["advisory"]["danger_flags"],
         )
         with self.assertRaisesRegex(repl.ReplError, "call-safety gate refused"):
             repl.require_call_safety_for_call(
                 self.symbols,
                 self.image,
-                "strcat",
+                "strncat",
                 ("@dst", "@src", "0x10"),
             )
 
@@ -1440,6 +1461,13 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.strcat_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "strcat",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.memcmp_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -1619,6 +1647,8 @@ class FaithfulFakeTransport:
             strncpy = self.strncpy_link + self.slide
             assert self.strcpy_link is not None
             strcpy = self.strcpy_link + self.slide
+            assert self.strcat_link is not None
+            strcat = self.strcat_link + self.slide
             assert self.memcmp_link is not None
             memcmp = self.memcmp_link + self.slide
             assert self.memchr_link is not None
@@ -1920,6 +1950,21 @@ class FaithfulFakeTransport:
                 if nul < 0:
                     raise AssertionError("strcpy source is not NUL-terminated in scan window")
                 self._set_heap_bytes(arg1, data[:nul + 1])
+                lines.append(f"A90R{arg1:x}")
+            elif arg0 == strcat:
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"strcat dst is not an allocated pointer: {arg1:#x}")
+                if arg2 not in self.allocated:
+                    raise AssertionError(f"strcat src is not an allocated pointer: {arg2:#x}")
+                dst_scan = self._heap_bytes(arg1, len(repl.STRCAT_EXPECTED_DST_BYTES) + repl.STRCAT_CANARY_LEN)
+                dst_nul = dst_scan.find(b"\x00")
+                if dst_nul < 0:
+                    raise AssertionError("strcat destination is not NUL-terminated in scan window")
+                src_scan = self._heap_bytes(arg2, len(repl.STRCAT_SRC_BYTES) + repl.STRCAT_CANARY_LEN)
+                src_nul = src_scan.find(b"\x00")
+                if src_nul < 0:
+                    raise AssertionError("strcat source is not NUL-terminated in scan window")
+                self._set_heap_bytes(arg1 + dst_nul, src_scan[:src_nul + 1])
                 lines.append(f"A90R{arg1:x}")
             elif arg0 == memcmp:
                 if arg1 not in self.allocated:
@@ -2567,6 +2612,58 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(summary["observed_return_value"], "owned-destination-pointer-redacted")
         self.assertTrue(summary["return_matches_destination_pointer"])
         self.assertTrue(summary["destination_matches_source"])
+        self.assertTrue(summary["source_unchanged_after_call"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("dst_ptr", summary)
+        self.assertNotIn("src_ptr", summary)
+        self.assertNotIn("return_ptr", summary)
+        self.assertEqual(private["dst_ptr"], f"0x{fake.heap_ptr:x}")
+        self.assertEqual(private["src_ptr"], f"0x{fake.heap_ptr + 0x1000:x}")
+        self.assertEqual(private["return_ptr"], f"0x{fake.heap_ptr:x}")
+        self.assertEqual(private["expected_src_hex"], expected_src.hex())
+        self.assertEqual(private["expected_dst_hex"], expected_dst.hex())
+        self.assertEqual(private["observed_src_hex"], expected_src.hex())
+        self.assertEqual(private["observed_dst_hex"], expected_dst.hex())
+        self.assertEqual(fake.freed, [fake.heap_ptr, fake.heap_ptr + 0x1000])
+
+    def test_call_proof_strcat_passes_with_owned_buffers_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "strcat",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        expected_src = repl.STRCAT_SRC_BYTES + (b"\xcc" * repl.STRCAT_CANARY_LEN)
+        expected_dst = (
+            repl.STRCAT_EXPECTED_DST_BYTES
+            + (bytes([repl.STRCAT_DST_INITIAL_BYTE]) * repl.STRCAT_DST_TAIL_LEN)
+            + (b"\xcc" * repl.STRCAT_CANARY_LEN)
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-strcat-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "strcat")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(summary["source_evidence"]["signature"], "extern char * strcat(char *, const char *)")
+        self.assertEqual(summary["proof_string"], repl.STRCAT_PROOF_LABEL)
+        self.assertEqual(summary["expected_return_value"], "owned-destination-pointer-redacted")
+        self.assertEqual(summary["observed_return_value"], "owned-destination-pointer-redacted")
+        self.assertTrue(summary["return_matches_destination_pointer"])
+        self.assertTrue(summary["destination_appended_source"])
         self.assertTrue(summary["source_unchanged_after_call"])
         self.assertTrue(summary["raw_runtime_values_redacted"])
         self.assertTrue(summary["owned_pointer_redacted"])
