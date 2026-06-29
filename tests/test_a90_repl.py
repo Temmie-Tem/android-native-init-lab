@@ -545,6 +545,14 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(strnlen["signals"]["direct_bl_xref_count"], 100)
         self.assertTrue(strnlen["signals"]["leaf"])
 
+        strlen = self._row("strlen")
+        self.assertEqual(strlen["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(strlen["required_valid_pointer_args"], {"0": "string-buffer"})
+        self.assertTrue(strlen["resolution"]["verified"])
+        self.assertEqual(strlen["resolution"]["method"], "leaf-map-disasm+xref")
+        self.assertGreaterEqual(strlen["signals"]["direct_bl_xref_count"], 1000)
+        self.assertTrue(strlen["signals"]["leaf"])
+
     def test_non_seeded_targets_are_denied_by_default(self) -> None:
         row = self._row("kgsl_pwrctrl_force_no_nap_store")
         self.assertEqual(row["tier"], repl.CALL_SAFETY_DENY)
@@ -671,6 +679,12 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertEqual(strnlen["selected"]["pointer_arg_indices"], [0])
         self.assertEqual(strnlen["selected"]["signature"], "extern __kernel_size_t strnlen(const char *,__kernel_size_t)")
         self.assertTrue(strnlen["selected"]["path"].endswith("include/linux/string.h"))
+
+        strlen = repl.lookup_source_signature("strlen", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(strlen["status"], "found", strlen)
+        self.assertEqual(strlen["selected"]["pointer_arg_indices"], [0])
+        self.assertEqual(strlen["selected"]["signature"], "extern __kernel_size_t strlen(const char *)")
+        self.assertTrue(strlen["selected"]["path"].endswith("include/linux/string.h"))
 
     def test_call_safety_sweep_is_advisory_and_does_not_promote_gate(self) -> None:
         if not KERNEL_SOURCE_ROOT.is_dir():
@@ -888,6 +902,13 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.strlen_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "strlen",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.filp_open_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -974,6 +995,8 @@ class FaithfulFakeTransport:
             ksize = self.ksize_link + self.slide
             assert self.strnlen_link is not None
             strnlen = self.strnlen_link + self.slide
+            assert self.strlen_link is not None
+            strlen = self.strlen_link + self.slide
             assert self.filp_open_link is not None
             filp_open = self.filp_open_link + self.slide
             assert self.filp_close_link is not None
@@ -1000,6 +1023,14 @@ class FaithfulFakeTransport:
                 nul = data.find(b"\x00")
                 length = arg2 if nul < 0 else nul
                 lines.append(f"A90R{length:x}")
+            elif arg0 == strlen:
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"strlen arg is not an allocated pointer: {arg1:#x}")
+                data = self._heap_bytes(arg1, repl.STRLEN_ZERO_FILL_LEN)
+                nul = data.find(b"\x00")
+                if nul < 0:
+                    raise AssertionError("strlen proof buffer is not NUL-terminated in scan window")
+                lines.append(f"A90R{nul:x}")
             elif arg0 == filp_open:
                 path = self._heap_bytes(arg1, 16).split(b"\x00", 1)[0]
                 if path != b"/init":
@@ -1220,6 +1251,40 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertNotIn("alloc_ptr", summary)
         self.assertEqual(private["alloc_ptr"], f"0x{fake.heap_ptr:x}")
         self.assertEqual(private["observed_bytes_hex"], repl.STRNLEN_PROOF_BYTES.hex())
+        self.assertEqual(fake.freed, [fake.heap_ptr])
+
+    def test_call_proof_strlen_passes_with_owned_string_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "strlen",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-strlen-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "strlen")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(summary["source_evidence"]["signature"], "extern __kernel_size_t strlen(const char *)")
+        self.assertEqual(summary["expected_return_value"], "0x9")
+        self.assertEqual(summary["observed_return_value"], "0x9")
+        self.assertEqual(summary["proof_string"], "A90STRLEN")
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertNotIn("alloc_ptr", summary)
+        self.assertEqual(private["alloc_ptr"], f"0x{fake.heap_ptr:x}")
+        self.assertEqual(private["observed_bytes_hex"], repl.STRLEN_PROOF_BYTES.hex())
         self.assertEqual(fake.freed, [fake.heap_ptr])
 
     def test_call_proof_filp_open_passes_with_owned_pathname_contract(self) -> None:
