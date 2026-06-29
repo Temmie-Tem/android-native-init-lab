@@ -767,7 +767,34 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
-## ✅ DONE — REPL U3 — broad advisory call-safety risk-assessment sweep
+## 🟣 ACTIVE NOW — REPL U3 — broad advisory call-safety risk-assessment sweep (one more gap: source verdict not WIRED)
+
+> ### 🛑 OPERATOR GATE-2 (2026-06-29, 2nd pass) — oracle ACTIVATED + 2 defects fixed, but source pointer-arg is found yet NOT applied to candidacy
+>
+> Verified cbe1d90d host-only. **Fixed ✓:** source oracle now `found=True` for all symbols; `kmem_cache_init`
+> drops from candidate-SAFE with flag `source-__init-annotation` (defect #2 ✓); `kfree_skb_partial` drops with
+> `unseeded-arg-memory-flow-without-gate-pointer-contract` (defect #3 ✓); firewall holds (candidate-SAFE still
+> `gate_tier` unchanged, offline, no device/network/seed mutation); U2 gate tiers intact (__kmalloc=SAFE-SCALAR,
+> kfree/ksize=SAFE-WITH-VALID-PTR).
+>
+> **Remaining gap (defect #1's PURPOSE, half-done): the source pointer-arg verdict is found but inert in the
+> candidate decision.** Re-sweep `allocator` leaves `kfree_const` and `kmem_cache_shrink` as `candidate_safe=True`
+> with NO pointer contract, even though source reports `has_pointer_arg=True, pointer_arg_indices=[0]` for both
+> (they are real pointer-consumers — `kfree_const(x)` frees, `kmem_cache_shrink(cachep)` derefs the cache). They
+> survive only because the disasm taint MISSED their deref (`arg_memory_base_use_count=0`), and the candidate-drop
+> is keyed on disasm taint, not on source. That is exactly the under-approximation source-xref was added to catch:
+> **source must override disasm toward more-restrictive, and it currently does not drive candidacy.**
+>
+> **FIX (host-only):** make the candidate-SAFE drop ALSO trigger on SOURCE pointer-args — a non-seeded symbol whose
+> source has `pointer_arg_indices` and no vetted gate pointer contract MUST NOT be candidate-SAFE (same treatment
+> `kfree_skb_partial` got from disasm taint). Equivalently: union the source pointer indices with the disasm
+> arg-memory-flow set before the "unseeded-...-without-gate-pointer-contract" check. After the fix, re-sweep
+> `allocator` + 1 more family and confirm `kfree_const` and `kmem_cache_shrink` drop out, leaving only seeded/
+> contract-backed candidates (e.g. `ksize`). Also surface the source EVIDENCE on each row (`signature` is `None` and
+> the row `annotation_flags` is `None` even when the `source-__init-annotation` flag fired) so the DoD's
+> "source-signature evidence attached" actually holds. Keep firewall + offline/deterministic; do not touch device.
+> Note: this is a NEW adjacent gap (verdict-wiring), distinct from the 1st reopen (oracle-inert) — not a
+> fails-twice loop; it is incremental. U3 not done until source drives candidacy.
 
 > ### ✅ STATUS (2026-06-29 U3 Gate-2 correction host pass) — source oracle active; false candidates removed
 >
