@@ -378,6 +378,16 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
   --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
   --evidence-dir workspace/private/runs/kernel/<unit>/ \
+  strnstr
+```
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/a90_repl.py call-proof \
+  --map workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map \
+  --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
+  --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
+  --evidence-dir workspace/private/runs/kernel/<unit>/ \
   strpbrk
 ```
 
@@ -565,6 +575,11 @@ redacts the owned pointer and observed raw bytes from public output. The `strstr
 haystack and needle strings, requires the present needle to return the expected haystack offset, rewrites
 the needle buffer to a missing string and requires `0`, verifies both strings and canaries stay unchanged,
 frees both buffers, and redacts the owned pointers and observed raw bytes from public output. The
+`strnstr` proof uses the same owned haystack/needle shape plus a scalar bounded length inside the
+haystack, requires the present needle to return the expected haystack offset when the length covers it,
+requires `0` when the bounded length excludes one needle byte, rewrites the needle buffer to a missing
+string and requires `0`, verifies both strings and canaries stay unchanged, frees both buffers, and
+redacts the owned pointers and observed raw bytes from public output. The
 `strpbrk` proof allocates owned haystack and accept-set strings, requires the present accept set to
 return the expected haystack offset, rewrites the accept buffer to a missing set and requires `0`,
 verifies both strings and canaries stay unchanged, frees both buffers, and redacts the owned pointers

@@ -34,6 +34,7 @@ and the C1 fail-closed identity gate.
 | `strchr` | `0xffffff80099a8b48`, `leaf-map-disasm+xref`, direct BL xrefs `127`, leaf/no-BL | owned NUL-terminated kernel string buffer plus scalar search byte | `strchr("A90STRCHR-Q-B-Q-Z", 'Q')` returned the owned pointer at offset `10` (redacted); missing `@` returned `0x0`; string stayed unchanged | `kfree-owned-strchr-string-buffer-ok` | `a90-repl-live-call-proof-strchr-pass` |
 | `strchrnul` | `0xffffff80099b9984`, `export-recovery`, direct BL xrefs `7`, leaf/no-BL | owned NUL-terminated kernel string buffer plus scalar search byte | `strchrnul("A90STRCHRNUL-Q-B-Q-Z", 'Q')` returned the owned pointer at offset `13` (redacted); missing `@` returned the owned NUL-terminator pointer at offset `20` (redacted); string stayed unchanged | `kfree-owned-strchrnul-string-buffer-ok` | `a90-repl-live-call-proof-strchrnul-pass` |
 | `strstr` | `0xffffff80099b9ebc`, `export-recovery`, direct BL xrefs `50`, calls `__pi_strlen`/`__pi_memcmp` | owned NUL-terminated haystack and needle kernel string buffers | `strstr("A90STRSTR-HEAD-NEEDLE-TAIL", "NEEDLE")` returned the owned haystack pointer at offset `15` (redacted); missing needle `ABSENT` returned `0x0`; both strings stayed unchanged | `kfree-owned-strstr-strings-ok` | `a90-repl-live-call-proof-strstr-pass` |
+| `strnstr` | `0xffffff80099b9f44`, `export-recovery`, direct BL xrefs `268`, calls `__pi_strlen`/`__pi_memcmp` | owned NUL-terminated haystack and needle kernel string buffers plus scalar bounded length inside haystack | `strnstr("A90STRNSTR-HEAD-NEEDLE-TAIL", "NEEDLE", 27)` returned the owned haystack pointer at offset `16` (redacted); boundary length `21` returned `0x0`; missing needle `ABSENT` returned `0x0`; both strings stayed unchanged | `kfree-owned-strnstr-strings-ok` | `a90-repl-live-call-proof-strnstr-pass` |
 | `strpbrk` | `0xffffff80099b9b34`, `export-recovery`, direct BL xrefs `40`, leaf/no-BL | owned NUL-terminated haystack and accept-set kernel string buffers | `strpbrk("A90STRPBRK-HEAD-Q-TAIL-Z", "QZ")` returned the owned haystack pointer at offset `16` (redacted); missing accept set `xy` returned `0x0`; both strings stayed unchanged | `kfree-owned-strpbrk-strings-ok` | `a90-repl-live-call-proof-strpbrk-pass` |
 | `strspn` | `0xffffff80099b9a6c`, `export-recovery`, direct BL xrefs `2`, leaf/no-BL | owned NUL-terminated haystack and accept-set kernel string buffers | `strspn("A90STRSPN-HEAD-Q-TAIL", "A90STRSPNHED-") == 15`; full accept set `A90STRSPNHEDQIL-` returned haystack length `21`; both strings stayed unchanged | `kfree-owned-strspn-strings-ok` | `a90-repl-live-call-proof-strspn-pass` |
 | `strcspn` | `0xffffff80099b9ac4`, `export-recovery`, direct BL xrefs `8`, leaf/no-BL | owned NUL-terminated haystack and reject-set kernel string buffers | `strcspn("A90STRCSPN-HEAD-Q-TAIL", "QZ") == 16`; missing reject set `xy` returned haystack length `22`; both strings stayed unchanged | `kfree-owned-strcspn-strings-ok` | `a90-repl-live-call-proof-strcspn-pass` |
@@ -65,7 +66,7 @@ and the C1 fail-closed identity gate.
   proof gate only under their paired owned `/init` file/buffer/position contracts. Broader read paths,
   arbitrary file pointers, and arbitrary destination buffers remain parked until separate contracts are
   proven.
-- String sweep: `strlen`, `strnchr`, `skip_spaces`, `strim`, `strreplace`, `strchr`, `strchrnul`, `strstr`, `strpbrk`, `strcmp`, `strcasecmp`, `strncasecmp`, `strncmp`, `strnlen`, `strrchr`,
+- String sweep: `strlen`, `strnchr`, `skip_spaces`, `strim`, `strreplace`, `strchr`, `strchrnul`, `strstr`, `strnstr`, `strpbrk`, `strcmp`, `strcasecmp`, `strncasecmp`, `strncmp`, `strnlen`, `strrchr`,
   `strscpy`, `strlcpy`, `strcpy`, `strlcat`, `strncat`, `strcat`, and
   `strncpy` have crossed the live proof gate only under owned NUL-terminated kernel string/buffer
   contracts. `strnchr` additionally requires scalar bounded count/search-byte args and only proves
@@ -79,7 +80,9 @@ and the C1 fail-closed identity gate.
   hit plus missing-byte-returns-NULL cases; `strchrnul` additionally requires a scalar search byte
   and only proves first-occurrence hit plus missing-byte-returns-NUL-terminator cases; `strstr`
   additionally requires owned haystack and needle strings and only proves one present substring plus
-  one missing-needle NULL case; `strpbrk` additionally requires owned haystack and accept-set strings
+  one missing-needle NULL case; `strnstr` additionally requires owned haystack and needle strings
+  plus a scalar bounded length inside the haystack and only proves one present substring inside the
+  length, one boundary-length NULL case, and one missing-needle NULL case; `strpbrk` additionally requires owned haystack and accept-set strings
   and only proves one present accept-set hit plus one missing accept-set NULL case; `strcmp`
   additionally requires two owned terminated strings and only proves equal/positive-sign compare
   cases; `strcasecmp` additionally requires two owned terminated strings and only proves case-fold

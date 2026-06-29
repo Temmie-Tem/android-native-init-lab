@@ -613,6 +613,18 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(strstr["signals"]["direct_bl_xref_count"], 50)
         self.assertFalse(strstr["signals"]["leaf"])
 
+        strnstr = self._row("strnstr")
+        self.assertEqual(strnstr["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            strnstr["required_valid_pointer_args"],
+            {"0": "haystack-string-buffer", "1": "needle-string-buffer"},
+        )
+        self.assertTrue(strnstr["resolution"]["verified"])
+        self.assertEqual(strnstr["resolution"]["method"], "export-recovery")
+        self.assertEqual(strnstr["resolution"]["link_vaddr"], "0xffffff80099b9f44")
+        self.assertGreaterEqual(strnstr["signals"]["direct_bl_xref_count"], 260)
+        self.assertFalse(strnstr["signals"]["leaf"])
+
         strpbrk = self._row("strpbrk")
         self.assertEqual(strpbrk["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -1033,6 +1045,15 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertTrue(strstr["selected"]["path"].endswith("include/linux/string.h"))
 
+        strnstr = repl.lookup_source_signature("strnstr", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(strnstr["status"], "found", strnstr)
+        self.assertEqual(strnstr["selected"]["pointer_arg_indices"], [0, 1])
+        self.assertEqual(
+            strnstr["selected"]["signature"],
+            "extern char * strnstr(const char *, const char *, size_t)",
+        )
+        self.assertTrue(strnstr["selected"]["path"].endswith("include/linux/string.h"))
+
         strpbrk = repl.lookup_source_signature("strpbrk", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(strpbrk["status"], "found", strpbrk)
         self.assertEqual(strpbrk["selected"]["pointer_arg_indices"], [0, 1])
@@ -1218,7 +1239,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         summary = repl.run_call_safety_sweep(
             self.symbols,
             self.image,
-            explicit_symbols=("__kmalloc", "kfree", "strnstr", "kgsl_pwrctrl_force_no_nap_store"),
+            explicit_symbols=("__kmalloc", "kfree", "match_string", "kgsl_pwrctrl_force_no_nap_store"),
             limit=0,
             source_root=KERNEL_SOURCE_ROOT,
             include_objdump=False,
@@ -1243,21 +1264,21 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertEqual(kgsl_store["advisory"]["tier"], repl.CALL_SAFETY_DENY)
         self.assertIn("source-missing", kgsl_store["advisory"]["danger_flags"])
 
-        strnstr = rows["strnstr"]
-        self.assertEqual(strnstr["gate_tier"], repl.CALL_SAFETY_DENY)
-        self.assertEqual(strnstr["source"]["status"], "found")
-        self.assertEqual(strnstr["advisory"]["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
-        self.assertFalse(strnstr["advisory"]["candidate_safe"])
+        match_string = rows["match_string"]
+        self.assertEqual(match_string["gate_tier"], repl.CALL_SAFETY_DENY)
+        self.assertEqual(match_string["source"]["status"], "found")
+        self.assertEqual(match_string["advisory"]["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertFalse(match_string["advisory"]["candidate_safe"])
         self.assertIn(
             "unseeded-arg-memory-flow-without-gate-pointer-contract",
-            strnstr["advisory"]["danger_flags"],
+            match_string["advisory"]["danger_flags"],
         )
         with self.assertRaisesRegex(repl.ReplError, "call-safety gate refused"):
             repl.require_call_safety_for_call(
                 self.symbols,
                 self.image,
-                "strnstr",
-                ("@haystack", "@needle", "0x20"),
+                "match_string",
+                ("@array", "0x2", "@string"),
             )
 
     def test_gate2_source_oracle_blocks_init_and_unseeded_arg_flow(self) -> None:
@@ -1479,6 +1500,13 @@ class FaithfulFakeTransport:
             self.symbols,
             self.image,
             "strstr",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
+        self.strnstr_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "strnstr",
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
@@ -1741,6 +1769,8 @@ class FaithfulFakeTransport:
             strchrnul = self.strchrnul_link + self.slide
             assert self.strstr_link is not None
             strstr = self.strstr_link + self.slide
+            assert self.strnstr_link is not None
+            strnstr = self.strnstr_link + self.slide
             assert self.strpbrk_link is not None
             strpbrk = self.strpbrk_link + self.slide
             assert self.strspn_link is not None
@@ -1911,6 +1941,30 @@ class FaithfulFakeTransport:
                     raise AssertionError("strstr needle is not NUL-terminated in scan window")
                 needle = needle_data[:needle_nul]
                 offset = 0 if not needle else haystack_data[:haystack_nul].find(needle)
+                lines.append("A90R0" if offset < 0 else f"A90R{arg1 + offset:x}")
+            elif arg0 == strnstr:
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"strnstr haystack is not an allocated pointer: {arg1:#x}")
+                if arg2 not in self.allocated:
+                    raise AssertionError(f"strnstr needle is not an allocated pointer: {arg2:#x}")
+                count = arg3
+                haystack_data = self._heap_bytes(arg1, count)
+                needle_data = self._heap_bytes(
+                    arg2,
+                    max(len(repl.STRNSTR_NEEDLE_BYTES), len(repl.STRNSTR_MISSING_BYTES)),
+                )
+                needle_nul = needle_data.find(b"\x00")
+                if needle_nul < 0:
+                    raise AssertionError("strnstr needle is not NUL-terminated in scan window")
+                needle = needle_data[:needle_nul]
+                offset = -1
+                if not needle:
+                    offset = 0
+                elif len(needle) <= count:
+                    for index in range(0, count - len(needle) + 1):
+                        if haystack_data[index:index + len(needle)] == needle:
+                            offset = index
+                            break
                 lines.append("A90R0" if offset < 0 else f"A90R{arg1 + offset:x}")
             elif arg0 == strpbrk:
                 if arg1 not in self.allocated:
@@ -3565,6 +3619,73 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(private["expected_missing_needle_hex"], expected_missing_needle_hex)
         self.assertEqual(private["haystack_bytes_hex"], expected_haystack_hex)
         self.assertEqual(private["needle_bytes_hex"], expected_missing_needle_hex)
+        self.assertEqual(fake.freed, [fake.heap_ptr, fake.heap_ptr + 0x1000])
+
+    def test_call_proof_strnstr_passes_with_owned_strings_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "strnstr",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-strnstr-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "strnstr")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern char * strnstr(const char *, const char *, size_t)",
+        )
+        self.assertEqual(summary["haystack"], repl.STRNSTR_HAYSTACK_LABEL)
+        self.assertEqual(summary["needle"], repl.STRNSTR_NEEDLE_LABEL)
+        self.assertEqual(summary["missing_needle"], repl.STRNSTR_MISSING_LABEL)
+        self.assertEqual(summary["hit_len"], repl.STRNSTR_HIT_LEN)
+        self.assertEqual(summary["bound_miss_len"], repl.STRNSTR_BOUND_MISS_LEN)
+        self.assertEqual(summary["expected_hit_offset"], repl.STRNSTR_EXPECTED_OFFSET)
+        self.assertTrue(summary["hit_return_matches_expected_offset"])
+        self.assertEqual(summary["bound_miss_expected_return_value"], "0x0")
+        self.assertEqual(summary["bound_miss_observed_return_value"], "0x0")
+        self.assertEqual(summary["missing_expected_return_value"], "0x0")
+        self.assertEqual(summary["missing_observed_return_value"], "0x0")
+        self.assertTrue(summary["strings_unchanged_after_calls"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("haystack_ptr", summary)
+        self.assertNotIn("needle_ptr", summary)
+        self.assertEqual(private["haystack_ptr"], f"0x{fake.heap_ptr:x}")
+        self.assertEqual(private["needle_ptr"], f"0x{fake.heap_ptr + 0x1000:x}")
+        self.assertEqual(
+            private["expected_hit_return"],
+            f"0x{fake.heap_ptr + repl.STRNSTR_EXPECTED_OFFSET:x}",
+        )
+        expected_haystack_hex = (
+            repl.STRNSTR_HAYSTACK_BYTES + (b"\xcc" * repl.STRNSTR_CANARY_LEN)
+        ).hex()
+        expected_hit_needle_hex = (
+            repl.STRNSTR_NEEDLE_BYTES + (b"\xcc" * repl.STRNSTR_CANARY_LEN)
+        ).hex()
+        expected_missing_hex = (
+            repl.STRNSTR_MISSING_BYTES + (b"\xcc" * repl.STRNSTR_CANARY_LEN)
+        ).hex()
+        self.assertEqual(private["expected_haystack_hex"], expected_haystack_hex)
+        self.assertEqual(private["expected_hit_needle_hex"], expected_hit_needle_hex)
+        self.assertEqual(private["expected_missing_needle_hex"], expected_missing_hex)
+        self.assertEqual(private["haystack_bytes_hex"], expected_haystack_hex)
+        self.assertEqual(private["hit_needle_bytes_hex"], expected_hit_needle_hex)
+        self.assertEqual(private["missing_needle_bytes_hex"], expected_missing_hex)
         self.assertEqual(fake.freed, [fake.heap_ptr, fake.heap_ptr + 0x1000])
 
     def test_call_proof_strpbrk_passes_with_owned_strings_contract(self) -> None:

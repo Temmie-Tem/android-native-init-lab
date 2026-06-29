@@ -767,6 +767,37 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `strnstr` owned-substring bounded-length contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `strnstr` promoted under owned haystack/needle plus bounded length only
+>
+> Thirty-fourth one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py`
+> `call-proof` with `strnstr`, using two tool-owned NUL-terminated kernel string buffers:
+> haystack `A90STRNSTR-HEAD-NEEDLE-TAIL`, present needle `NEEDLE`, missing needle `ABSENT`,
+> hit length `27`, and boundary-miss length `21` to prove the length bound excludes one needle
+> byte. Static gate: `strnstr=0xffffff80099b9f44`, `export-recovery`, direct-BL xrefs `268`,
+> JOPP entry, calls `__pi_strlen` and `__pi_memcmp`, RET in scan at offset `0x74`.
+> Source contract: `extern char * strnstr(const char *, const char *, size_t)`, with x0 as the
+> haystack string pointer, x1 as the needle string pointer, and x2 as the scalar bounded length.
+> The call-safety seed is `SAFE-WITH-VALID-PTR`; required valid pointer args are x0
+> `haystack-string-buffer` and x1 `needle-string-buffer`.
+>
+> Live path: confirmed rollback images and TWRP, flashed the existing v1-repl boot image
+> (`b846ae9f...`) through `native_init_flash.py`, confirmed clean native selftest `fail=0` and
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof strnstr` with the C2B verified map.
+> Result: `a90-repl-live-call-proof-strnstr-pass`; checks covered C1 identity, source pointer
+> contract, call-safety contract, distinct owned haystack/needle allocations, buffer poke/peek,
+> present-needle return at offset `16`, hit-case string immutability, boundary miss return `0x0`
+> at length `21`, boundary-miss string immutability, missing-needle rewrite to `ABSENT`, missing
+> return `0x0`, missing-case string immutability, and `kfree-owned-strnstr-strings`.
+>
+> Candidate selftest after proof was `pass=11 warn=1 fail=0`. Rollback to clean v2321 used the
+> checked helper with readback SHA `ca978551...`; final resident `version`/`selftest` confirmed
+> v2321 and `pass=11 warn=1 fail=0`. Function map records `strnstr` only under the owned
+> haystack/needle NUL-string plus bounded-length-inside-haystack contract. This does not authorize
+> arbitrary pointers, user pointers, unterminated strings, out-of-range lengths, broader substring
+> cases, or mass calls.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `strncasecmp` owned-string bounded casefold compare contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `strncasecmp` promoted under two owned NUL strings plus bounded count only
