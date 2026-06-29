@@ -28,6 +28,7 @@ and the C1 fail-closed identity gate.
 | `kernel_read` | `0xffffff800828bae4`, `export-recovery`, direct BL xrefs `17` | `filp_open(/init)` file pointer plus owned read buffer plus owned `loff_t *` position | `kernel_read(file, buf, 16, pos) == 0x10`, buffer prefix `7f454c46`, pos advanced to `0x10` | `filp_close` returned `0`; owned path/read/pos buffers freed | `a90-repl-live-call-proof-kernel_read-pass` |
 | `strlen` | `0xffffff80099a8cc0`, `leaf-map-disasm+xref`, direct BL xrefs `2073`, leaf/no-BL | owned NUL-terminated kernel string buffer | `strlen("A90STRLEN") == 0x9` | `kfree-owned-string-buffer-ok` | `a90-repl-live-call-proof-strlen-pass` |
 | `strnlen` | `0xffffff80099a8f4c`, `leaf-map-disasm+xref`, direct BL xrefs `473`, leaf/no-BL | owned NUL-terminated kernel string buffer plus scalar `maxlen` | `strnlen("A90STRNLEN", 64) == 0xa` | `kfree-owned-string-buffer-ok` | `a90-repl-live-call-proof-strnlen-pass` |
+| `strscpy` | `0xffffff80099b9794`, `export-recovery`, direct BL xrefs `8`, leaf/no-BL | owned destination buffer plus owned NUL-terminated source string buffer plus bounded size | `strscpy(dst, "A90STRSCPY", 32) == 0xa`, destination prefix matched source, canary after size preserved | `kfree-owned-strscpy-buffers-ok` | `a90-repl-live-call-proof-strscpy-pass` |
 
 ## Parked Candidate Families
 
@@ -37,7 +38,8 @@ and the C1 fail-closed identity gate.
   proof gate only under their paired owned `/init` file/buffer/position contracts. Broader read paths,
   arbitrary file pointers, and arbitrary destination buffers remain parked until separate contracts are
   proven.
-- String sweep: `strlen` and `strnlen` have crossed the live proof gate only under owned
-  NUL-terminated kernel string contracts. `strnlen` additionally requires the scalar `maxlen`
-  contract. Other string/memory helpers remain parked until separate C1 identity and pointer
-  contracts are proven.
+- String sweep: `strlen`, `strnlen`, and `strscpy` have crossed the live proof gate only under
+  owned NUL-terminated kernel string/buffer contracts. `strnlen` additionally requires the scalar
+  `maxlen` contract; `strscpy` additionally requires an owned destination buffer and a bounded size
+  inside that destination. Other string/memory helpers remain parked until separate C1 identity and
+  pointer contracts are proven.
