@@ -767,6 +767,40 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `kernel_read` owned-buffer contract
+
+> ### ✅ STATUS (2026-06-29 live pass) — `kernel_read` promoted under paired owned file/buffer/pos only
+>
+> Third one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py call-proof`
+> with `kernel_read`, using the already proven setup pattern: allocate owned kernel buffers, write
+> `/init\0`, call `filp_open(path, O_RDONLY, 0)`, allocate an owned read buffer plus owned `loff_t`
+> position, call `kernel_read(file, buf, 16, pos)`, verify the return/buffer/position contract, close
+> the file with `filp_close(file, NULL)`, and free all owned buffers.
+>
+> Static gate: `kernel_read=0xffffff800828bae4` (`export-recovery`, direct BL xrefs `17`), source
+> signature `extern ssize_t kernel_read(struct file *, void *, size_t, loff_t *)`, tier
+> `SAFE-WITH-VALID-PTR`, x0 requires `struct-file`, x1 requires `buffer`, x3 requires `loff_t-pos`.
+> Paired setup/cleanup stayed on verified `filp_open=0xffffff800828a664` and
+> `filp_close=0xffffff800828ac14`; allocator orchestration reused verified
+> `__kmalloc=0xffffff800826ae34` and `kfree=0xffffff800826b354`.
+>
+> Live path: baseline v2321 selftest passed, flashed existing v1-repl image
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`, confirmed candidate
+> `selftest pass=11 warn=1 fail=0` and `a90-repl-v2a1-selftest-pass`, then ran
+> `call-proof kernel_read` with the C2B verified map. Result:
+> `a90-repl-live-call-proof-kernel_read-pass`; observed return `0x10`, buffer prefix `7f454c46`
+> (`ELF`), position advanced to `0x10`, `filp_close` returned `0`, and path/read/pos buffers were
+> freed. Candidate selftest after proof stayed `fail=0`.
+>
+> Rolled back to clean v2321
+> (`ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`) with final resident
+> `v2321-usb-clean-identity-rodata` and final `selftest pass=11 warn=1 fail=0`. Two immediate health
+> commands during the unit hit known serial input fragmentation and missed `A90P1 END`; short
+> `version` commands realigned the bridge and slow-input retries passed. Function map now records
+> `kernel_read` only under this owned `/init` file/read-buffer/position contract; arbitrary file
+> pointers or destination buffers remain parked. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_KERNEL_READ_2026-06-29.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `filp_open` owned-pathname contract
 
 > ### ✅ STATUS (2026-06-29 live pass) — `filp_open` promoted to function-map row under owned pathname only

@@ -4399,10 +4399,18 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern struct file * filp_open(const char *, int, umode_t)",
     },
+    "kernel_read": {
+        "input_contract": "filp_open(/init) file pointer + owned read buffer + owned loff_t pos",
+        "return_contract": "ssize_t == read_len, buffer starts with ELF magic, pos advances by read_len",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern ssize_t kernel_read(struct file *, void *, size_t, loff_t *)",
+    },
 }
 FILP_OPEN_PROOF_PATH = b"/init\x00"
 FILP_OPEN_PROOF_FLAGS = 0
 FILP_OPEN_PROOF_MODE = 0
+KERNEL_READ_PROOF_LEN = 16
+KERNEL_READ_EXPECTED_PREFIX = b"\x7fELF"
 LINUX_MAX_ERRNO = 4095
 LINUX_ERR_PTR_MIN = ((-LINUX_MAX_ERRNO) & MASK64)
 
@@ -4420,6 +4428,14 @@ def _poke_bytes(session: ReplSession, runtime_vaddr: int, data: bytes) -> None:
         chunk = data[offset:offset + 8]
         value = int.from_bytes(chunk.ljust(8, b"\x00"), "little")
         session.poke_runtime((runtime_vaddr + offset) & MASK64, value, 8)
+
+
+def _peek_bytes(session: ReplSession, runtime_vaddr: int, length: int) -> bytes:
+    out = bytearray()
+    for offset in range(0, length, 8):
+        value = session.peek_runtime((runtime_vaddr + offset) & MASK64, 8)
+        out.extend(value.to_bytes(8, "little"))
+    return bytes(out[:length])
 
 
 def _run_call_proof_filp_open(session: ReplSession,
@@ -4653,6 +4669,276 @@ def _run_call_proof_filp_open(session: ReplSession,
     return summary, private
 
 
+def _run_call_proof_kernel_read(session: ReplSession,
+                                symbols: dict[str, Symbol],
+                                image: StaticImage,
+                                *,
+                                alloc_size: int,
+                                source_root: Path,
+                                gfp: int,
+                                gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    if alloc_size < 64:
+        raise ReplError("kernel_read call-proof alloc_size must be at least 64 bytes")
+
+    source_read = lookup_source_signature("kernel_read", source_root=source_root)
+    source_open = lookup_source_signature("filp_open", source_root=source_root)
+    source_close = lookup_source_signature("filp_close", source_root=source_root)
+    call_safety_read = require_call_safety_for_call(
+        symbols,
+        image,
+        "kernel_read",
+        ("@filp_open_result", "@owned_read_buffer", KERNEL_READ_PROOF_LEN, "@owned_loff_t_pos"),
+    )
+    call_safety_open = require_call_safety_for_call(
+        symbols,
+        image,
+        "filp_open",
+        ("@owned_pathname_ptr", FILP_OPEN_PROOF_FLAGS, FILP_OPEN_PROOF_MODE),
+    )
+    call_safety_close = require_call_safety_for_call(
+        symbols,
+        image,
+        "filp_close",
+        ("@filp_open_result", 0),
+    )
+    if call_safety_read.get("tier") != CALL_PROOF_TARGETS["kernel_read"]["expected_tier"]:
+        raise ReplError("kernel_read call-safety tier is not the expected vetted pointer tier")
+    if call_safety_open.get("tier") != CALL_SAFETY_SAFE_WITH_VALID_PTR:
+        raise ReplError("filp_open setup tier is not the expected vetted pointer tier")
+    if call_safety_close.get("tier") != CALL_SAFETY_SAFE_WITH_VALID_PTR:
+        raise ReplError("filp_close cleanup tier is not the expected vetted pointer tier")
+    if not source_read.get("found") or source_read.get("pointer_arg_indices") != [0, 1, 3]:
+        raise ReplError("kernel_read source signature does not declare x0/x1/x3 as pointer arguments")
+    if not source_open.get("found") or source_open.get("pointer_arg_indices") != [0]:
+        raise ReplError("filp_open source signature does not declare x0 as pathname pointer")
+    if not source_close.get("found") or source_close.get("pointer_arg_indices") != [0]:
+        raise ReplError("filp_close source signature does not declare x0 as struct file pointer")
+
+    resolutions = {
+        "kernel_read": resolve_verified(symbols, image, "kernel_read", purpose="call", allow_pre_arg_deref=True),
+        "filp_open": resolve_verified(symbols, image, "filp_open", purpose="call", allow_pre_arg_deref=True),
+        "filp_close": resolve_verified(symbols, image, "filp_close", purpose="call", allow_pre_arg_deref=True),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    kernel_read_link = require_verified_resolution(resolutions["kernel_read"], "call-proof target")
+    filp_open_link = require_verified_resolution(resolutions["filp_open"], "call-proof file open")
+    filp_close_link = require_verified_resolution(resolutions["filp_close"], "call-proof file close")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof allocator cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "kernel_read",
+            "resolution_method": resolutions["kernel_read"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source_read.get("selected", {}).get("signature")
+            if isinstance(source_read.get("selected"), dict) else None,
+            "pointer_arg_indices": source_read.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety_read.get("tier"),
+            "required_valid_pointer_args": call_safety_read.get("required_valid_pointer_args", {}),
+        },
+    ]
+    private: dict[str, object] = {}
+    slide = 0
+    path_ptr = 0
+    read_ptr = 0
+    pos_ptr = 0
+    file_ptr = 0
+    kfree_runtime = 0
+    filp_close_runtime = 0
+    close_attempted = False
+    close_ok = False
+    close_return = 0
+    close_error = ""
+    freed: list[str] = []
+    free_errors: list[str] = []
+    read_return = 0
+    read_data = b""
+    pos_after = 0
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        kernel_read_runtime = (kernel_read_link + slide) & MASK64
+        filp_open_runtime = (filp_open_link + slide) & MASK64
+        filp_close_runtime = (filp_close_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        path_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        read_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        pos_ptr = session.call_runtime(kmalloc_runtime, (64, gfp))
+        allocated_ok = all(is_kernel_lowmem_pointer(ptr) for ptr in (path_ptr, read_ptr, pos_ptr))
+        checks.append({
+            "check": "kmalloc-owned-read-contract-buffers",
+            "ok": allocated_ok,
+            "path_kernel_lowmem": is_kernel_lowmem_pointer(path_ptr),
+            "read_kernel_lowmem": is_kernel_lowmem_pointer(read_ptr),
+            "pos_kernel_lowmem": is_kernel_lowmem_pointer(pos_ptr),
+        })
+        if not allocated_ok:
+            raise ReplError("__kmalloc did not return sane kernel lowmem pointers for read proof")
+
+        path_payload = FILP_OPEN_PROOF_PATH.ljust(16, b"\x00")
+        _poke_bytes(session, path_ptr, path_payload)
+        _poke_bytes(session, read_ptr, b"\x00" * KERNEL_READ_PROOF_LEN)
+        session.poke_runtime(pos_ptr, 0, 8)
+        path_written = session.peek_runtime(path_ptr, 8) == int.from_bytes(path_payload[:8], "little")
+        pos_zero = session.peek_runtime(pos_ptr, 8) == 0
+        checks.append({
+            "check": "owned-inputs-initialized",
+            "ok": path_written and pos_zero,
+            "path": FILP_OPEN_PROOF_PATH[:-1].decode("ascii"),
+            "pos_zero": pos_zero,
+        })
+        if not path_written or not pos_zero:
+            raise ReplError("owned kernel_read inputs were not initialized correctly")
+
+        file_ptr = session.call_runtime(
+            filp_open_runtime,
+            (path_ptr, FILP_OPEN_PROOF_FLAGS, FILP_OPEN_PROOF_MODE),
+        )
+        file_ok = is_kernel_lowmem_pointer(file_ptr) and not _is_kernel_err_ptr(file_ptr)
+        checks.append({
+            "check": "filp-open-return-contract",
+            "ok": file_ok,
+            "return_kind": "struct-file-or-errptr",
+            "not_null": file_ptr != 0,
+            "not_err_ptr": not _is_kernel_err_ptr(file_ptr),
+            "kernel_lowmem": is_kernel_lowmem_pointer(file_ptr),
+        })
+        if not file_ok:
+            raise ReplError("filp_open did not return a sane struct file pointer")
+
+        read_return = session.call_runtime(
+            kernel_read_runtime,
+            (file_ptr, read_ptr, KERNEL_READ_PROOF_LEN, pos_ptr),
+        )
+        read_data = _peek_bytes(session, read_ptr, KERNEL_READ_PROOF_LEN)
+        pos_after = session.peek_runtime(pos_ptr, 8)
+        expected_read = KERNEL_READ_PROOF_LEN
+        read_ok = read_return == expected_read
+        prefix_ok = read_data.startswith(KERNEL_READ_EXPECTED_PREFIX)
+        pos_ok = pos_after == expected_read
+        checks.append({
+            "check": "kernel-read-return-buffer-pos-contract",
+            "ok": read_ok and prefix_ok and pos_ok,
+            "return_kind": "ssize_t",
+            "return_value": f"0x{read_return:x}",
+            "expected_return": f"0x{expected_read:x}",
+            "buffer_prefix": read_data[:4].hex(),
+            "expected_prefix": KERNEL_READ_EXPECTED_PREFIX.hex(),
+            "pos_after": f"0x{pos_after:x}",
+        })
+        if not read_ok or not prefix_ok or not pos_ok:
+            raise ReplError(
+                "kernel_read contract failed: "
+                f"return=0x{read_return:x} prefix={read_data[:4].hex()} pos=0x{pos_after:x}"
+            )
+
+        close_attempted = True
+        close_return = session.call_runtime(filp_close_runtime, (file_ptr, 0))
+        close_ok = close_return == 0
+        checks.append({
+            "check": "filp-close-opened-file",
+            "ok": close_ok,
+            "return_kind": "int",
+            "return_value": f"0x{close_return:x}",
+        })
+        if not close_ok:
+            raise ReplError(f"filp_close returned 0x{close_return:x}, expected 0")
+    finally:
+        if file_ptr and is_kernel_lowmem_pointer(file_ptr) and not _is_kernel_err_ptr(file_ptr) and not close_ok and filp_close_runtime:
+            close_attempted = True
+            try:
+                close_return = session.call_runtime(filp_close_runtime, (file_ptr, 0))
+                close_ok = close_return == 0
+            except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                close_error = str(exc)
+        for name, ptr in (("path", path_ptr), ("read", read_ptr), ("pos", pos_ptr)):
+            if ptr and is_kernel_lowmem_pointer(ptr) and kfree_runtime:
+                try:
+                    session.call_runtime(kfree_runtime, (ptr,))
+                    freed.append(name)
+                except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                    free_errors.append(f"{name}:{exc}")
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "kfree-owned-kernel-read-buffers",
+        "ok": sorted(freed) == ["path", "pos", "read"],
+        "freed": sorted(freed),
+    })
+    if close_error:
+        raise ReplError(f"filp_close cleanup failed after kernel_read proof: {close_error}")
+    if free_errors:
+        raise ReplError(f"kfree failed after kernel_read proof: {free_errors}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-kernel_read-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "kernel_read",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["kernel_read"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["kernel_read"]["return_contract"],
+        "pathname": FILP_OPEN_PROOF_PATH[:-1].decode("ascii"),
+        "read_len": KERNEL_READ_PROOF_LEN,
+        "observed_return_value": f"0x{read_return:x}",
+        "observed_prefix": read_data[:4].hex(),
+        "observed_pos_after": f"0x{pos_after:x}",
+        "close_return_value": f"0x{close_return:x}",
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source_read),
+        "setup_source_evidence": _source_row_evidence(source_open),
+        "cleanup_source_evidence": _source_row_evidence(source_close),
+        "call_safety": call_safety_read,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "read_data_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "kernel_read",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["kernel_read"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["kernel_read"]["return_contract"],
+            "observed_return_value": f"0x{read_return:x}",
+            "observed_prefix": read_data[:4].hex(),
+            "cleanup": "filp_close-returned-0-and-owned-buffers-freed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "kernel_read_runtime": f"0x{((kernel_read_link + slide) & MASK64):x}",
+        "filp_open_runtime": f"0x{((filp_open_link + slide) & MASK64):x}",
+        "filp_close_runtime": f"0x{((filp_close_link + slide) & MASK64):x}",
+        "path_ptr": f"0x{path_ptr:x}",
+        "read_ptr": f"0x{read_ptr:x}",
+        "pos_ptr": f"0x{pos_ptr:x}",
+        "file_ptr": f"0x{file_ptr:x}",
+        "read_data_hex": read_data.hex(),
+        "close_attempted": close_attempted,
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
 def run_call_proof(session: ReplSession,
                    symbols: dict[str, Symbol],
                    image: StaticImage,
@@ -4679,6 +4965,16 @@ def run_call_proof(session: ReplSession,
 
     if target == "filp_open":
         return _run_call_proof_filp_open(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "kernel_read":
+        return _run_call_proof_kernel_read(
             session,
             symbols,
             image,

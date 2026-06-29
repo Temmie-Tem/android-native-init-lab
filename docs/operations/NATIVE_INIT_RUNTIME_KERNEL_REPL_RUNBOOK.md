@@ -201,9 +201,21 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   filp_open
 ```
 
+```sh
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/a90_repl.py call-proof \
+  --map workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map \
+  --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
+  --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
+  --evidence-dir workspace/private/runs/kernel/<unit>/ \
+  kernel_read
+```
+
 `call-proof` is not a mass-call mechanism. It owns the input object internally, performs the static
 C1/source/call-safety checks, calls only the selected target, checks the return contract, frees the
-owned allocation, and redacts the runtime slide/allocation pointer from public output.
+owned allocations, and redacts the runtime slide/allocation pointers from public output. The
+`kernel_read` proof opens `/init`, reads 16 bytes into an owned buffer with an owned `loff_t *`
+position, requires ELF magic plus position advancement, closes the file, and frees all owned buffers.
 
 Before any live `call` unit:
 

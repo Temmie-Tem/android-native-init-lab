@@ -881,7 +881,15 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.kernel_read_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "kernel_read",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.heap_ptr = 0xFFFFFFC012300000
+        self.next_heap_ptr = self.heap_ptr
         self.heap: dict[int, int] = {}
         self.allocated: set[int] = set()
         self.freed: list[int] = []
@@ -889,6 +897,7 @@ class FaithfulFakeTransport:
         self.file_ptr = 0xFFFFFFC045670000
         self.opened_files: set[int] = set()
         self.closed_files: list[int] = []
+        self.kernel_read_payload = b"\x7fELF" + b"A90READPROOF"
         self.op_count = 0
 
     def _heap_bytes(self, addr: int, length: int) -> bytes:
@@ -898,6 +907,11 @@ class FaithfulFakeTransport:
             shift = (offset % 8) * 8
             out.append((self.heap.get(qaddr, 0) >> shift) & 0xFF)
         return bytes(out)
+
+    def _set_heap_bytes(self, addr: int, data: bytes) -> None:
+        for offset in range(0, len(data), 8):
+            chunk = data[offset:offset + 8]
+            self.heap[addr + offset] = int.from_bytes(chunk.ljust(8, b"\x00"), "little")
 
     def run_serial_command(self, argv, *, host, port, timeout):
         sh_str = argv[-1]
@@ -911,6 +925,7 @@ class FaithfulFakeTransport:
         arg1 = _s.unpack_from("<Q", buf, 0x18)[0]
         arg2 = _s.unpack_from("<Q", buf, 0x20)[0]
         arg3 = _s.unpack_from("<Q", buf, 0x28)[0]
+        arg4 = _s.unpack_from("<Q", buf, 0x30)[0]
         lines = []
         if op == repl.OP_SLIDE:
             lines.append(f"A90R{(repl.ADR_SELF_LINK_VADDR + self.slide):x}")
@@ -940,9 +955,13 @@ class FaithfulFakeTransport:
             filp_open = self.filp_open_link + self.slide
             assert self.filp_close_link is not None
             filp_close = self.filp_close_link + self.slide
+            assert self.kernel_read_link is not None
+            kernel_read = self.kernel_read_link + self.slide
             if arg0 == kmalloc:
-                self.allocated.add(self.heap_ptr)
-                lines.append(f"A90R{self.heap_ptr:x}")
+                ptr = self.next_heap_ptr
+                self.next_heap_ptr += 0x1000
+                self.allocated.add(ptr)
+                lines.append(f"A90R{ptr:x}")
             elif arg0 == kfree:
                 self.freed.append(arg1)
                 self.allocated.discard(arg1)
@@ -967,6 +986,21 @@ class FaithfulFakeTransport:
                 self.opened_files.discard(arg1)
                 self.closed_files.append(arg1)
                 lines.append("A90R0")
+            elif arg0 == kernel_read:
+                if arg1 not in self.opened_files:
+                    raise AssertionError(f"kernel_read file is not opened: {arg1:#x}")
+                if arg2 not in self.allocated:
+                    raise AssertionError(f"kernel_read buffer is not allocated: {arg2:#x}")
+                if arg4 not in self.allocated:
+                    raise AssertionError(f"kernel_read pos is not allocated: {arg4:#x}")
+                if self.heap.get(arg4, 0) != 0:
+                    raise AssertionError(f"kernel_read pos is not zero: {self.heap.get(arg4, 0):#x}")
+                data = self.kernel_read_payload[:arg3]
+                if len(data) != arg3:
+                    raise AssertionError(f"kernel_read requested too much: {arg3}")
+                self._set_heap_bytes(arg2, data)
+                self.heap[arg4] = arg3
+                lines.append(f"A90R{arg3:x}")
             elif arg0 == printk:
                 sentinel = arg2  # arg2 == x1
                 lines.append(f"A90R{sentinel:x}")   # called printk echoes the sentinel
@@ -1159,9 +1193,51 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(fake.freed, [fake.heap_ptr])
         self.assertEqual(fake.opened_files, set())
 
+    def test_call_proof_kernel_read_passes_with_owned_file_buffer_pos_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "kernel_read",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-kernel_read-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "kernel_read")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(summary["source_evidence"]["signature"], "extern ssize_t kernel_read(struct file *, void *, size_t, loff_t *)")
+        self.assertEqual(summary["observed_return_value"], "0x10")
+        self.assertEqual(summary["observed_prefix"], "7f454c46")
+        self.assertEqual(summary["observed_pos_after"], "0x10")
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["read_data_redacted"])
+        self.assertNotIn("file_ptr", summary)
+        self.assertEqual(private["file_ptr"], f"0x{fake.file_ptr:x}")
+        self.assertEqual(private["read_data_hex"][:8], "7f454c46")
+        self.assertEqual(fake.closed_files, [fake.file_ptr])
+        self.assertEqual(fake.freed, [
+            fake.heap_ptr,
+            fake.heap_ptr + 0x1000,
+            fake.heap_ptr + 0x2000,
+        ])
+        self.assertEqual(fake.opened_files, set())
+
     def test_poke_roundtrip_rejects_non_lowmem_alloc(self) -> None:
         fake = FaithfulFakeTransport(0x130000, self.symbols, self.image)
         fake.heap_ptr = 0x12345000
+        fake.next_heap_ptr = fake.heap_ptr
         orig = repl.transport.run_serial_command
         repl.transport.run_serial_command = fake.run_serial_command
         self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
