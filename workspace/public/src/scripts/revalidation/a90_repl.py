@@ -223,6 +223,7 @@ CALL_SAFETY_SWEEP_FAMILIES = {
             "strncmp",
             "strstr",
             "strpbrk",
+            "strcspn",
             "strscpy",
             "strlcpy",
             "memcpy",
@@ -332,6 +333,12 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {0: "haystack-string-buffer", 1: "accept-string-buffer"},
         "return_kind": "string-pointer-or-null",
         "reason": "accept-set string search helper; x0/x1 must be owned NUL-terminated kernel string buffers",
+    },
+    "strcspn": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "haystack-string-buffer", 1: "reject-string-buffer"},
+        "return_kind": "size_t",
+        "reason": "reject-set span helper; x0/x1 must be owned NUL-terminated kernel string buffers",
     },
     "strcmp": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
@@ -4688,6 +4695,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern char * strpbrk(const char *,const char *)",
     },
+    "strcspn": {
+        "input_contract": "owned NUL-terminated haystack and reject-set kernel string buffers",
+        "return_contract": "size_t == expected first reject-set byte offset; missing reject-set returns haystack length",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern __kernel_size_t strcspn(const char *,const char *)",
+    },
     "strcmp": {
         "input_contract": "two owned NUL-terminated kernel string buffers",
         "return_contract": "int == 0 for equal strings and positive sign when left first-difference byte is greater",
@@ -4841,6 +4854,22 @@ STRPBRK_EXPECTED_OFFSET = next(
     -1,
 )
 STRPBRK_CANARY_LEN = 8
+STRCSPN_HAYSTACK_BYTES = b"A90STRCSPN-HEAD-Q-TAIL\x00"
+STRCSPN_HAYSTACK_LABEL = STRCSPN_HAYSTACK_BYTES[:-1].decode("ascii")
+STRCSPN_REJECT_BYTES = b"QZ\x00"
+STRCSPN_REJECT_LABEL = STRCSPN_REJECT_BYTES[:-1].decode("ascii")
+STRCSPN_MISSING_BYTES = b"xy\x00"
+STRCSPN_MISSING_LABEL = STRCSPN_MISSING_BYTES[:-1].decode("ascii")
+STRCSPN_EXPECTED_OFFSET = next(
+    (
+        index
+        for index, byte in enumerate(STRCSPN_HAYSTACK_BYTES[:-1])
+        if byte in STRCSPN_REJECT_BYTES[:-1]
+    ),
+    -1,
+)
+STRCSPN_EXPECTED_MISSING_LEN = len(STRCSPN_HAYSTACK_BYTES) - 1
+STRCSPN_CANARY_LEN = 8
 STRCMP_PROOF_BYTES = b"A90STRCMP-PROOF-ZZ\x00"
 STRCMP_PROOF_LABEL = STRCMP_PROOF_BYTES[:-1].decode("ascii")
 STRCMP_CANARY_LEN = 8
@@ -7813,6 +7842,264 @@ def _run_call_proof_strpbrk(session: ReplSession,
     return summary, private
 
 
+def _run_call_proof_strcspn(session: ReplSession,
+                            symbols: dict[str, Symbol],
+                            image: StaticImage,
+                            *,
+                            alloc_size: int,
+                            source_root: Path,
+                            gfp: int,
+                            gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    haystack_scan_len = len(STRCSPN_HAYSTACK_BYTES) + STRCSPN_CANARY_LEN
+    reject_scan_len = max(len(STRCSPN_REJECT_BYTES), len(STRCSPN_MISSING_BYTES)) + STRCSPN_CANARY_LEN
+    if alloc_size < max(haystack_scan_len, reject_scan_len):
+        raise ReplError(
+            f"strcspn call-proof alloc_size must be at least {max(haystack_scan_len, reject_scan_len)} bytes"
+        )
+    if STRCSPN_EXPECTED_OFFSET < 0:
+        raise ReplError("strcspn proof haystack must contain at least one reject-set byte")
+    if any(byte in STRCSPN_HAYSTACK_BYTES[:-1] for byte in STRCSPN_MISSING_BYTES[:-1]):
+        raise ReplError("strcspn missing reject set must not appear in the proof haystack")
+    if STRCSPN_EXPECTED_MISSING_LEN <= STRCSPN_EXPECTED_OFFSET:
+        raise ReplError("strcspn missing case must return a length greater than the hit offset")
+
+    source = lookup_source_signature("strcspn", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "strcspn",
+        ("@owned_haystack_string_buffer", "@owned_reject_string_buffer"),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["strcspn"]["expected_tier"]:
+        raise ReplError("strcspn call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0, 1]:
+        raise ReplError("strcspn source signature does not declare x0/x1 as pointer arguments")
+
+    resolutions = {
+        "strcspn": resolve_verified(symbols, image, "strcspn", purpose="call", allow_pre_arg_deref=True),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    strcspn_link = require_verified_resolution(resolutions["strcspn"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof string allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof string cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    expected_haystack_scan = STRCSPN_HAYSTACK_BYTES + (b"\xcc" * STRCSPN_CANARY_LEN)
+    expected_hit_reject_scan = STRCSPN_REJECT_BYTES + (b"\xcc" * STRCSPN_CANARY_LEN)
+    expected_missing_reject_scan = STRCSPN_MISSING_BYTES + (b"\xcc" * STRCSPN_CANARY_LEN)
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "strcspn",
+            "resolution_method": resolutions["strcspn"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    private: dict[str, object] = {}
+    haystack_ptr = 0
+    reject_ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_ok: dict[str, bool] = {"haystack": False, "reject": False}
+    free_errors: list[str] = []
+    hit_return = 0
+    missing_return = 0
+    observed_haystack = b""
+    observed_reject = b""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        strcspn_runtime = (strcspn_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        haystack_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        reject_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        ptrs_ok = (
+            is_kernel_lowmem_pointer(haystack_ptr)
+            and is_kernel_lowmem_pointer(reject_ptr)
+            and haystack_ptr != reject_ptr
+        )
+        checks.append({
+            "check": "kmalloc-owned-strcspn-strings",
+            "ok": ptrs_ok,
+            "alloc_size": alloc_size,
+            "distinct_allocations": haystack_ptr != reject_ptr,
+        })
+        if not ptrs_ok:
+            raise ReplError("__kmalloc did not return sane distinct strcspn string buffers")
+
+        _poke_bytes(session, haystack_ptr, expected_haystack_scan)
+        _poke_bytes(session, reject_ptr, expected_hit_reject_scan)
+        observed_haystack = _peek_bytes(session, haystack_ptr, haystack_scan_len)
+        observed_reject = _peek_bytes(session, reject_ptr, len(expected_hit_reject_scan))
+        setup_ok = observed_haystack == expected_haystack_scan and observed_reject == expected_hit_reject_scan
+        checks.append({
+            "check": "owned-strcspn-string-poke-peek",
+            "ok": setup_ok,
+            "haystack_label": STRCSPN_HAYSTACK_LABEL,
+            "reject_set": STRCSPN_REJECT_LABEL,
+            "canary_len": STRCSPN_CANARY_LEN,
+        })
+        if not setup_ok:
+            raise ReplError("owned strcspn string poke/peek mismatch")
+
+        hit_return = session.call_runtime(strcspn_runtime, (haystack_ptr, reject_ptr))
+        hit_ok = hit_return == STRCSPN_EXPECTED_OFFSET
+        checks.append({
+            "check": "strcspn-hit-return-contract",
+            "ok": hit_ok,
+            "reject_set": STRCSPN_REJECT_LABEL,
+            "expected_return": STRCSPN_EXPECTED_OFFSET,
+            "observed_return": hit_return,
+        })
+        if not hit_ok:
+            raise ReplError(
+                f"strcspn hit returned 0x{hit_return:x}, expected {STRCSPN_EXPECTED_OFFSET}"
+            )
+
+        observed_haystack = _peek_bytes(session, haystack_ptr, haystack_scan_len)
+        observed_reject = _peek_bytes(session, reject_ptr, len(expected_hit_reject_scan))
+        hit_unchanged = observed_haystack == expected_haystack_scan and observed_reject == expected_hit_reject_scan
+        checks.append({
+            "check": "strcspn-hit-string-immutability",
+            "ok": hit_unchanged,
+            "strings_unchanged": hit_unchanged,
+        })
+        if not hit_unchanged:
+            raise ReplError("strcspn hit case modified an owned string")
+
+        _poke_bytes(session, reject_ptr, expected_missing_reject_scan)
+        observed_reject = _peek_bytes(session, reject_ptr, len(expected_missing_reject_scan))
+        missing_setup_ok = observed_reject == expected_missing_reject_scan
+        checks.append({
+            "check": "owned-strcspn-missing-reject-poke-peek",
+            "ok": missing_setup_ok,
+            "missing_reject_set": STRCSPN_MISSING_LABEL,
+        })
+        if not missing_setup_ok:
+            raise ReplError("owned strcspn missing-reject poke/peek mismatch")
+
+        missing_return = session.call_runtime(strcspn_runtime, (haystack_ptr, reject_ptr))
+        missing_ok = missing_return == STRCSPN_EXPECTED_MISSING_LEN
+        checks.append({
+            "check": "strcspn-missing-return-contract",
+            "ok": missing_ok,
+            "missing_reject_set": STRCSPN_MISSING_LABEL,
+            "expected_return": STRCSPN_EXPECTED_MISSING_LEN,
+            "observed_return": missing_return,
+        })
+        if not missing_ok:
+            raise ReplError(
+                f"strcspn missing-reject case returned 0x{missing_return:x}, "
+                f"expected {STRCSPN_EXPECTED_MISSING_LEN}"
+            )
+
+        observed_haystack = _peek_bytes(session, haystack_ptr, haystack_scan_len)
+        observed_reject = _peek_bytes(session, reject_ptr, len(expected_missing_reject_scan))
+        missing_unchanged = (
+            observed_haystack == expected_haystack_scan
+            and observed_reject == expected_missing_reject_scan
+        )
+        checks.append({
+            "check": "strcspn-missing-string-immutability",
+            "ok": missing_unchanged,
+            "strings_unchanged": missing_unchanged,
+        })
+        if not missing_unchanged:
+            raise ReplError("strcspn missing-reject case modified an owned string")
+    finally:
+        for label, ptr in (("haystack", haystack_ptr), ("reject", reject_ptr)):
+            if kfree_runtime and ptr and is_kernel_lowmem_pointer(ptr):
+                try:
+                    session.call_runtime(kfree_runtime, (ptr,))
+                    free_ok[label] = True
+                except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                    free_errors.append(f"{label}: {exc}")
+        session.set_panic_on_oops(1)
+
+    cleanup_ok = all(free_ok.values())
+    checks.append({
+        "check": "kfree-owned-strcspn-strings",
+        "ok": cleanup_ok,
+        "free_attempted": {
+            "haystack": bool(kfree_runtime and haystack_ptr),
+            "reject": bool(kfree_runtime and reject_ptr),
+        },
+    })
+    if free_errors:
+        raise ReplError(f"kfree failed after strcspn proof: {free_errors}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-strcspn-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "strcspn",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["strcspn"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["strcspn"]["return_contract"],
+        "alloc_size": alloc_size,
+        "haystack": STRCSPN_HAYSTACK_LABEL,
+        "reject_set": STRCSPN_REJECT_LABEL,
+        "missing_reject_set": STRCSPN_MISSING_LABEL,
+        "expected_hit_return_value": STRCSPN_EXPECTED_OFFSET,
+        "hit_observed_return_value": hit_return,
+        "hit_return_matches_expected_offset": hit_return == STRCSPN_EXPECTED_OFFSET,
+        "missing_expected_return_value": STRCSPN_EXPECTED_MISSING_LEN,
+        "missing_observed_return_value": missing_return,
+        "missing_return_matches_haystack_length": missing_return == STRCSPN_EXPECTED_MISSING_LEN,
+        "strings_unchanged_after_calls": True,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "strcspn",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["strcspn"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["strcspn"]["return_contract"],
+            "observed_return_value": f"hit={STRCSPN_EXPECTED_OFFSET},missing={STRCSPN_EXPECTED_MISSING_LEN}",
+            "cleanup": "kfree-owned-strcspn-strings-ok" if cleanup_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "strcspn_runtime": f"0x{((strcspn_link + slide) & MASK64):x}",
+        "haystack_ptr": f"0x{haystack_ptr:x}",
+        "reject_ptr": f"0x{reject_ptr:x}",
+        "haystack_bytes_hex": observed_haystack.hex(),
+        "reject_bytes_hex": observed_reject.hex(),
+        "expected_haystack_hex": expected_haystack_scan.hex(),
+        "expected_hit_reject_hex": expected_hit_reject_scan.hex(),
+        "expected_missing_reject_hex": expected_missing_reject_scan.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
 def _run_call_proof_strcmp(session: ReplSession,
                            symbols: dict[str, Symbol],
                            image: StaticImage,
@@ -10629,6 +10916,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "strpbrk":
         return _run_call_proof_strpbrk(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "strcspn":
+        return _run_call_proof_strcspn(
             session,
             symbols,
             image,

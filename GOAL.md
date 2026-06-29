@@ -767,6 +767,37 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `strcspn` owned-string reject-set contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `strcspn` promoted under owned NUL-string reject-set contract only
+>
+> Twenty-sixth one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py`
+> `call-proof` with `strcspn`, using one tool-owned NUL-terminated haystack string
+> (`A90STRCSPN-HEAD-Q-TAIL`) and one tool-owned NUL-terminated reject-set string (`QZ`),
+> then rewriting the reject-set buffer to a missing set (`xy`). Static gate:
+> `strcspn=0xffffff80099b9ac4`, `export-recovery`, direct-BL xrefs `8`, JOPP entry,
+> leaf/no-BL, RETs in scan. Source contract:
+> `extern __kernel_size_t strcspn(const char *,const char *)`, with x0 as the haystack
+> string pointer and x1 as the reject-set string pointer. The call-safety seed is
+> `SAFE-WITH-VALID-PTR`; required valid pointer args are x0 `haystack-string-buffer`
+> and x1 `reject-string-buffer`.
+>
+> Live path: confirmed rollback images and TWRP, flashed the existing v1-repl boot image
+> (`b846ae9f...`) through `native_init_flash.py`, confirmed clean native selftest `fail=0` and
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof strcspn` with the C2B verified map.
+> Result: `a90-repl-live-call-proof-strcspn-pass`; checks covered C1 identity, source pointer
+> contract, call-safety contract, distinct owned haystack/reject allocations, hit-case poke/peek,
+> hit-case return `16`, hit-case immutability, missing reject-set rewrite, missing-case return
+> haystack length `22`, missing-case immutability, and `kfree-owned-strcspn-strings`.
+>
+> Candidate selftest after proof was `pass=11 warn=1 fail=0`. Rollback to clean v2321 used the checked
+> helper with readback SHA `ca978551...`; final `selftest` confirmed v2321 health with
+> `pass=11 warn=1 fail=0`. The first candidate standalone selftest command hit serial input noise
+> (`ATATAT`) before END marker, then immediate `version` re-sync and retry passed. Function map records
+> `strcspn` only under this owned NUL-terminated haystack plus owned NUL-terminated reject-set contract.
+> This does not authorize arbitrary pointers, user pointers, unterminated strings, mutable side effects,
+> or mass calls.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `memchr_inv` owned-buffer inverse-search contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `memchr_inv` promoted under owned initialized buffer plus bounded size contract only
