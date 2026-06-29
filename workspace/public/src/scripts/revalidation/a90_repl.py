@@ -4386,6 +4386,196 @@ def run_owned_poke(session: ReplSession,
     return summary, private
 
 
+CALL_PROOF_TARGETS = {
+    "ksize": {
+        "input_contract": "owned-__kmalloc-pointer",
+        "return_contract": "size_t >= alloc_size and <= max_expected_return",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "size_t ksize(const void *)",
+    },
+}
+
+
+def _redacted_resolution_set(rows: dict[str, VerifiedResolution]) -> dict[str, dict[str, object]]:
+    return {name: row.public_dict() for name, row in rows.items()}
+
+
+def run_call_proof(session: ReplSession,
+                   symbols: dict[str, Symbol],
+                   image: StaticImage,
+                   target: str,
+                   *,
+                   alloc_size: int = KMALLOC_ROUNDTRIP_SIZE,
+                   max_expected_return: int | None = None,
+                   source_root: Path = DEFAULT_KERNEL_SOURCE_ROOT,
+                   gfp_header: Path = DEFAULT_GFP_HEADER,
+                   gfp_value: int | None = None) -> tuple[dict[str, object], dict[str, object]]:
+    if target != "ksize":
+        raise ReplError(f"unsupported call-proof target {target!r}; supported={sorted(CALL_PROOF_TARGETS)}")
+    if alloc_size <= 0:
+        raise ReplError(f"alloc_size must be positive: {alloc_size}")
+    max_return = max_expected_return if max_expected_return is not None else max(alloc_size * 2, alloc_size)
+    if max_return < alloc_size:
+        raise ReplError("max_expected_return must be >= alloc_size")
+
+    gfp, gfp_components = (
+        (gfp_value, {}) if gfp_value is not None else derive_gfp_kernel_value(gfp_header)
+    )
+    if gfp is None:
+        raise ReplError("GFP_KERNEL derivation returned no value")
+
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        ("@owned_kmalloc_ptr",),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected vetted pointer tier")
+    target_resolution_dict = call_safety.get("resolution")
+    if (
+        not isinstance(target_resolution_dict, dict)
+        or not target_resolution_dict.get("verified")
+        or target_resolution_dict.get("link_vaddr") is None
+    ):
+        raise ReplError(f"{target} is not verified by the C1 identity gate")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError(f"{target} source signature does not declare x0 as the owned pointer argument")
+
+    resolutions = {
+        target: resolve_verified(symbols, image, target, purpose="call", allow_pre_arg_deref=True),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    target_link = require_verified_resolution(resolutions[target], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    private: dict[str, object] = {}
+    ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_attempted = False
+    free_ok = False
+    free_error = ""
+    proof_return = 0
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        ptr_ok = is_kernel_lowmem_pointer(ptr)
+        checks.append({
+            "check": "kmalloc-owned-buffer",
+            "ok": ptr_ok,
+            "alloc_size": alloc_size,
+            "kernel_lowmem": ptr_ok,
+        })
+        if not ptr_ok:
+            raise ReplError("__kmalloc did not return a sane kernel lowmem pointer")
+
+        proof_return = session.call_runtime(target_runtime, (ptr,))
+        return_ok = alloc_size <= proof_return <= max_return
+        checks.append({
+            "check": "ksize-return-contract",
+            "ok": return_ok,
+            "return_kind": "size_t",
+            "return_value": f"0x{proof_return:x}",
+            "expected_min": f"0x{alloc_size:x}",
+            "expected_max": f"0x{max_return:x}",
+            "gte_alloc_size": proof_return >= alloc_size,
+            "lte_expected_max": proof_return <= max_return,
+        })
+        if not return_ok:
+            raise ReplError(
+                f"{target} returned 0x{proof_return:x}, outside expected "
+                f"[0x{alloc_size:x}, 0x{max_return:x}]"
+            )
+    finally:
+        if ptr and is_kernel_lowmem_pointer(ptr) and kfree_runtime:
+            free_attempted = True
+            try:
+                session.call_runtime(kfree_runtime, (ptr,))
+                free_ok = True
+            except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                free_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "kfree-owned-buffer",
+        "ok": free_ok,
+        "free_attempted": free_attempted,
+    })
+    if free_error:
+        raise ReplError(f"kfree failed after {target} proof: {free_error}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "alloc_size": alloc_size,
+        "max_expected_return": f"0x{max_return:x}",
+        "observed_return_value": f"0x{proof_return:x}",
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": f"0x{proof_return:x}",
+            "cleanup": "kfree-owned-buffer-ok" if free_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "target_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "alloc_ptr": f"0x{ptr:x}",
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
 # ----------------------------------------------------------------------------
 # CLI
 # ----------------------------------------------------------------------------
@@ -4557,6 +4747,26 @@ def cmd_poke(args: argparse.Namespace) -> int:
         value=args.value,
         width=args.width,
         alloc_size=args.alloc_size,
+        gfp_header=args.gfp_header,
+        gfp_value=args.gfp,
+    )
+    write_evidence(args, {**summary, "_private": private})
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0 if summary["ok"] else 1
+
+
+def cmd_call_proof(args: argparse.Namespace) -> int:
+    symbols = load_system_map(args.map)
+    image = load_static_image(args.image)
+    session = make_session(args)
+    summary, private = run_call_proof(
+        session,
+        symbols,
+        image,
+        args.target,
+        alloc_size=args.alloc_size,
+        max_expected_return=args.max_expected_return,
+        source_root=args.source_root,
         gfp_header=args.gfp_header,
         gfp_value=args.gfp,
     )
@@ -4773,6 +4983,22 @@ def main(argv: list[str] | None = None) -> int:
     p_poke.add_argument("--gfp", type=parse_int_auto, default=None,
                         help="override GFP value; default derives GFP_KERNEL from --gfp-header")
     p_poke.set_defaults(func=cmd_poke)
+
+    p_call_proof = sub.add_parser(
+        "call-proof",
+        help="one-target live-call proof with an internally-owned input contract",
+    )
+    add_common(p_call_proof)
+    p_call_proof.add_argument("target", choices=sorted(CALL_PROOF_TARGETS))
+    p_call_proof.add_argument("--alloc-size", type=parse_int_auto, default=KMALLOC_ROUNDTRIP_SIZE)
+    p_call_proof.add_argument("--max-expected-return", type=parse_int_auto, default=None,
+                              help="upper bound for target return contract; default is alloc_size*2")
+    p_call_proof.add_argument("--source-root", type=Path, default=DEFAULT_KERNEL_SOURCE_ROOT,
+                              help="offline kernel source tree for signature xref")
+    p_call_proof.add_argument("--gfp-header", type=Path, default=DEFAULT_GFP_HEADER)
+    p_call_proof.add_argument("--gfp", type=parse_int_auto, default=None,
+                              help="override GFP value; default derives GFP_KERNEL from --gfp-header")
+    p_call_proof.set_defaults(func=cmd_call_proof)
 
     p_round = sub.add_parser("poke-roundtrip", help="v2a2 kmalloc-backed poke/peek/kfree proof")
     add_common(p_round)

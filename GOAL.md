@@ -767,6 +767,34 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `ksize` owned-pointer contract
+
+> ### ✅ STATUS (2026-06-29 live pass) — `ksize` promoted to function-map row under owned input only
+>
+> Operator-chartered extension after the REPL epic close: one vetted target, static contract first, bounded
+> live call, result check, cleanup, rollback. Codex added `a90_repl.py call-proof ksize`, a focused faithful
+> fake integration test, runbook coverage, and a redacted public function map:
+> `docs/operations/NATIVE_INIT_RUNTIME_KERNEL_REPL_LIVE_CALL_FUNCTION_MAP.md`.
+>
+> Live path: flashed existing v1-repl image
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65` via
+> `native_init_flash.py`, confirmed `a90-repl-v2a1-selftest-pass`, then ran `call-proof` with the
+> C2B verified map. Static gate: `ksize=0xffffff800826b27c` (`export-recovery`, direct BL xrefs `39`),
+> source signature `size_t ksize(const void *)`, tier `SAFE-WITH-VALID-PTR`, x0 requires
+> `kmalloc-object`; allocator orchestration used verified `__kmalloc=0xffffff800826ae34` and
+> `kfree=0xffffff800826b354`.
+>
+> Result: `a90-repl-live-call-proof-ksize-pass`; the tool allocated an owned `0x1000` object,
+> called `ksize(ptr)`, observed return `0x1000` within `[0x1000,0x2000]`, freed the object, and kept
+> raw runtime slide/allocation pointer private. Candidate selftest stayed `fail=0`. Rolled back to clean
+> v2321 (`ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`) with final
+> `selftest pass=11 warn=1 fail=0`. One final selftest retry was needed after serial input fragmentation;
+> `version` realigned the bridge and slow-input retry passed. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_KSIZE_2026-06-29.md`.
+>
+> Boundary remains unchanged: this is **not** a mass-call unlock. `ksize` is live-proven only under
+> the internally owned `__kmalloc` pointer contract.
+
 ## ✅ DONE — REPL U4 — source-scan perf polish + tool runbook; REPL epic CLOSED
 
 > ### ✅ OPERATOR GATE-2 SIGN-OFF (2026-06-29) — U4 DONE; Runtime Kernel REPL epic CLOSED

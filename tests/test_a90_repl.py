@@ -860,9 +860,18 @@ class FaithfulFakeTransport:
             "printk",
             purpose="call",
         ).link_vaddr
+        self.ksize_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "ksize",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.heap_ptr = 0xFFFFFFC012300000
         self.heap: dict[int, int] = {}
+        self.allocated: set[int] = set()
         self.freed: list[int] = []
+        self.ksize_return = 0x1000
         self.op_count = 0
 
     def run_serial_command(self, argv, *, host, port, timeout):
@@ -899,11 +908,19 @@ class FaithfulFakeTransport:
             kfree = self.kfree_link + self.slide
             assert self.printk_link is not None
             printk = self.printk_link + self.slide
+            assert self.ksize_link is not None
+            ksize = self.ksize_link + self.slide
             if arg0 == kmalloc:
+                self.allocated.add(self.heap_ptr)
                 lines.append(f"A90R{self.heap_ptr:x}")
             elif arg0 == kfree:
                 self.freed.append(arg1)
+                self.allocated.discard(arg1)
                 lines.append("A90R0")
+            elif arg0 == ksize:
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"ksize arg is not an allocated pointer: {arg1:#x}")
+                lines.append(f"A90R{self.ksize_return:x}")
             elif arg0 == printk:
                 sentinel = arg2  # arg2 == x1
                 lines.append(f"A90R{sentinel:x}")   # called printk echoes the sentinel
@@ -1028,6 +1045,38 @@ class SelftestIntegrationTests(unittest.TestCase):
                 "kfree": "0xffffff800826b354",
             },
         )
+
+    def test_call_proof_ksize_passes_with_owned_pointer_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "ksize",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-ksize-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["observed_return_value"], "0x1000")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "ksize")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(summary["source_evidence"]["signature"], "size_t ksize(const void *)")
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertNotIn("alloc_ptr", summary)
+        self.assertEqual(private["alloc_ptr"], f"0x{fake.heap_ptr:x}")
+        self.assertEqual(fake.freed, [fake.heap_ptr])
+        self.assertEqual(fake.op_count, 4)  # slide + kmalloc + ksize + kfree
 
     def test_poke_roundtrip_rejects_non_lowmem_alloc(self) -> None:
         fake = FaithfulFakeTransport(0x130000, self.symbols, self.image)
