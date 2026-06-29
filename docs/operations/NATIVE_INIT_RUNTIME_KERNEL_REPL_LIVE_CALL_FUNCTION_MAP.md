@@ -23,10 +23,13 @@ and the C1 fail-closed identity gate.
 | `__kmalloc` | `0xffffff800826ae34`, `export-recovery`, direct BL xrefs `1765` | scalar `size`, scalar `gfp` | returned sane kernel lowmem owned pointer | caller-owned cleanup required | v2a2 recovered-export poke round-trip |
 | `kfree` | `0xffffff800826b354`, `export-recovery`, direct BL xrefs `10596` | owned `kmalloc` object pointer or NULL | cleanup call returned through REPL | freed owned allocation | v2a2 recovered-export poke round-trip |
 | `ksize` | `0xffffff800826b27c`, `export-recovery`, direct BL xrefs `39` | owned `__kmalloc` pointer generated inside `call-proof` | `ksize(0x1000 allocation) == 0x1000`, within `[0x1000, 0x2000]` | `kfree-owned-buffer-ok` | `a90-repl-live-call-proof-ksize-pass` |
+| `filp_open` | `0xffffff800828a664`, `export-recovery`, direct BL xrefs `48` | owned kernel pathname buffer containing `/init`, `O_RDONLY`, mode `0` | sane `struct file *`, not NULL and not ERR_PTR | `filp_close` returned `0` | `a90-repl-live-call-proof-filp_open-pass` |
+| `filp_close` | `0xffffff800828ac14`, `export-recovery`, direct BL xrefs `67` | cleanup only: `struct file *` returned by the paired `filp_open` proof | returned `0` | closed opened file | paired cleanup evidence from `a90-repl-live-call-proof-filp_open-pass` |
 
 ## Parked Candidate Families
 
 - Allocator sweep: only `ksize` has crossed the live proof gate beyond the allocator primitives
   already required for owned-buffer orchestration.
-- Read-I/O sweep: `filp_open`, `kernel_read`, and `filp_close` remain advisory candidates only.
-  They need their own owned-input/file-lifetime contract before any live call.
+- Read-I/O sweep: `filp_open` has crossed the live proof gate for the owned `/init` pathname
+  contract, and `filp_close` has cleanup-only evidence for that returned file pointer. `kernel_read`
+  remains parked until a separate owned file/buffer/position contract is proven.

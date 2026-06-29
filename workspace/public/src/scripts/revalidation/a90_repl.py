@@ -4393,11 +4393,264 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "size_t ksize(const void *)",
     },
+    "filp_open": {
+        "input_contract": "owned-kernel-pathname:/init",
+        "return_contract": "struct file pointer, not NULL and not ERR_PTR",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern struct file * filp_open(const char *, int, umode_t)",
+    },
 }
+FILP_OPEN_PROOF_PATH = b"/init\x00"
+FILP_OPEN_PROOF_FLAGS = 0
+FILP_OPEN_PROOF_MODE = 0
+LINUX_MAX_ERRNO = 4095
+LINUX_ERR_PTR_MIN = ((-LINUX_MAX_ERRNO) & MASK64)
 
 
 def _redacted_resolution_set(rows: dict[str, VerifiedResolution]) -> dict[str, dict[str, object]]:
     return {name: row.public_dict() for name, row in rows.items()}
+
+
+def _is_kernel_err_ptr(value: int) -> bool:
+    return (value & MASK64) >= LINUX_ERR_PTR_MIN
+
+
+def _poke_bytes(session: ReplSession, runtime_vaddr: int, data: bytes) -> None:
+    for offset in range(0, len(data), 8):
+        chunk = data[offset:offset + 8]
+        value = int.from_bytes(chunk.ljust(8, b"\x00"), "little")
+        session.poke_runtime((runtime_vaddr + offset) & MASK64, value, 8)
+
+
+def _run_call_proof_filp_open(session: ReplSession,
+                              symbols: dict[str, Symbol],
+                              image: StaticImage,
+                              *,
+                              alloc_size: int,
+                              source_root: Path,
+                              gfp: int,
+                              gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    if alloc_size < 64:
+        raise ReplError("filp_open call-proof alloc_size must be at least 64 bytes")
+
+    source_open = lookup_source_signature("filp_open", source_root=source_root)
+    source_close = lookup_source_signature("filp_close", source_root=source_root)
+    call_safety_open = require_call_safety_for_call(
+        symbols,
+        image,
+        "filp_open",
+        ("@owned_pathname_ptr", FILP_OPEN_PROOF_FLAGS, FILP_OPEN_PROOF_MODE),
+    )
+    call_safety_close = require_call_safety_for_call(
+        symbols,
+        image,
+        "filp_close",
+        ("@filp_open_result", 0),
+    )
+    if call_safety_open.get("tier") != CALL_PROOF_TARGETS["filp_open"]["expected_tier"]:
+        raise ReplError("filp_open call-safety tier is not the expected vetted pointer tier")
+    if call_safety_close.get("tier") != CALL_SAFETY_SAFE_WITH_VALID_PTR:
+        raise ReplError("filp_close cleanup tier is not the expected vetted pointer tier")
+    if not source_open.get("found") or source_open.get("pointer_arg_indices") != [0]:
+        raise ReplError("filp_open source signature does not declare x0 as pathname pointer")
+    if not source_close.get("found") or source_close.get("pointer_arg_indices") != [0]:
+        raise ReplError("filp_close source signature does not declare x0 as struct file pointer")
+
+    resolutions = {
+        "filp_open": resolve_verified(symbols, image, "filp_open", purpose="call", allow_pre_arg_deref=True),
+        "filp_close": resolve_verified(symbols, image, "filp_close", purpose="call", allow_pre_arg_deref=True),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    filp_open_link = require_verified_resolution(resolutions["filp_open"], "call-proof target")
+    filp_close_link = require_verified_resolution(resolutions["filp_close"], "call-proof cleanup")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof pathname allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof pathname cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "filp_open",
+            "resolution_method": resolutions["filp_open"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source_open.get("selected", {}).get("signature")
+            if isinstance(source_open.get("selected"), dict) else None,
+            "pointer_arg_indices": source_open.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety_open.get("tier"),
+            "required_valid_pointer_args": call_safety_open.get("required_valid_pointer_args", {}),
+        },
+        {
+            "check": "static-cleanup-contract",
+            "ok": True,
+            "cleanup_symbol": "filp_close",
+            "tier": call_safety_close.get("tier"),
+            "source_signature": source_close.get("selected", {}).get("signature")
+            if isinstance(source_close.get("selected"), dict) else None,
+        },
+    ]
+    private: dict[str, object] = {}
+    path_ptr = 0
+    file_ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    filp_close_runtime = 0
+    close_attempted = False
+    close_ok = False
+    close_return = 0
+    close_error = ""
+    free_attempted = False
+    free_ok = False
+    free_error = ""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        filp_open_runtime = (filp_open_link + slide) & MASK64
+        filp_close_runtime = (filp_close_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        path_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        path_ok = is_kernel_lowmem_pointer(path_ptr)
+        checks.append({
+            "check": "kmalloc-owned-pathname-buffer",
+            "ok": path_ok,
+            "alloc_size": alloc_size,
+            "kernel_lowmem": path_ok,
+        })
+        if not path_ok:
+            raise ReplError("__kmalloc did not return a sane pathname buffer pointer")
+
+        path_payload = FILP_OPEN_PROOF_PATH.ljust(16, b"\x00")
+        _poke_bytes(session, path_ptr, path_payload)
+        first_qword = session.peek_runtime(path_ptr, 8)
+        first_expected = int.from_bytes(path_payload[:8], "little")
+        path_written = first_qword == first_expected
+        checks.append({
+            "check": "owned-pathname-poke-peek",
+            "ok": path_written,
+            "path_redacted": False,
+            "path": FILP_OPEN_PROOF_PATH[:-1].decode("ascii"),
+        })
+        if not path_written:
+            raise ReplError("owned pathname poke/peek mismatch")
+
+        file_ptr = session.call_runtime(
+            filp_open_runtime,
+            (path_ptr, FILP_OPEN_PROOF_FLAGS, FILP_OPEN_PROOF_MODE),
+        )
+        file_ok = is_kernel_lowmem_pointer(file_ptr) and not _is_kernel_err_ptr(file_ptr)
+        checks.append({
+            "check": "filp-open-return-contract",
+            "ok": file_ok,
+            "return_kind": "struct-file-or-errptr",
+            "not_null": file_ptr != 0,
+            "not_err_ptr": not _is_kernel_err_ptr(file_ptr),
+            "kernel_lowmem": is_kernel_lowmem_pointer(file_ptr),
+        })
+        if not file_ok:
+            raise ReplError("filp_open did not return a sane struct file pointer")
+
+        close_attempted = True
+        close_return = session.call_runtime(filp_close_runtime, (file_ptr, 0))
+        close_ok = close_return == 0
+        checks.append({
+            "check": "filp-close-opened-file",
+            "ok": close_ok,
+            "return_kind": "int",
+            "return_value": f"0x{close_return:x}",
+        })
+        if not close_ok:
+            raise ReplError(f"filp_close returned 0x{close_return:x}, expected 0")
+    finally:
+        if file_ptr and is_kernel_lowmem_pointer(file_ptr) and not _is_kernel_err_ptr(file_ptr) and not close_ok and filp_close_runtime:
+            close_attempted = True
+            try:
+                close_return = session.call_runtime(filp_close_runtime, (file_ptr, 0))
+                close_ok = close_return == 0
+            except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                close_error = str(exc)
+        if path_ptr and is_kernel_lowmem_pointer(path_ptr) and kfree_runtime:
+            free_attempted = True
+            try:
+                session.call_runtime(kfree_runtime, (path_ptr,))
+                free_ok = True
+            except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                free_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "kfree-owned-pathname-buffer",
+        "ok": free_ok,
+        "free_attempted": free_attempted,
+    })
+    if close_error:
+        raise ReplError(f"filp_close cleanup failed after filp_open proof: {close_error}")
+    if free_error:
+        raise ReplError(f"kfree failed after filp_open proof: {free_error}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-filp_open-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "filp_open",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["filp_open"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["filp_open"]["return_contract"],
+        "alloc_size": alloc_size,
+        "pathname": FILP_OPEN_PROOF_PATH[:-1].decode("ascii"),
+        "open_flags": FILP_OPEN_PROOF_FLAGS,
+        "open_mode": FILP_OPEN_PROOF_MODE,
+        "close_return_value": f"0x{close_return:x}",
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source_open),
+        "cleanup_source_evidence": _source_row_evidence(source_close),
+        "call_safety": call_safety_open,
+        "cleanup_call_safety": call_safety_close,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "filp_open",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["filp_open"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["filp_open"]["return_contract"],
+            "observed_return": "sane-struct-file-pointer",
+            "cleanup": "filp_close-returned-0",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+        "paired_cleanup_function_map_entry": {
+            "symbol": "filp_close",
+            "status": "cleanup-live-proven",
+            "trusted_input_contract": "struct file pointer returned by filp_open proof",
+            "return_contract": "int == 0",
+            "observed_return_value": f"0x{close_return:x}",
+            "auto_call_policy": "cleanup-only-not-general-file-close-allowlist",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "filp_open_runtime": f"0x{((filp_open_link + slide) & MASK64):x}",
+        "filp_close_runtime": f"0x{((filp_close_link + slide) & MASK64):x}",
+        "path_ptr": f"0x{path_ptr:x}",
+        "file_ptr": f"0x{file_ptr:x}",
+        "close_attempted": close_attempted,
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
 
 
 def run_call_proof(session: ReplSession,
@@ -4410,7 +4663,7 @@ def run_call_proof(session: ReplSession,
                    source_root: Path = DEFAULT_KERNEL_SOURCE_ROOT,
                    gfp_header: Path = DEFAULT_GFP_HEADER,
                    gfp_value: int | None = None) -> tuple[dict[str, object], dict[str, object]]:
-    if target != "ksize":
+    if target not in CALL_PROOF_TARGETS:
         raise ReplError(f"unsupported call-proof target {target!r}; supported={sorted(CALL_PROOF_TARGETS)}")
     if alloc_size <= 0:
         raise ReplError(f"alloc_size must be positive: {alloc_size}")
@@ -4423,6 +4676,17 @@ def run_call_proof(session: ReplSession,
     )
     if gfp is None:
         raise ReplError("GFP_KERNEL derivation returned no value")
+
+    if target == "filp_open":
+        return _run_call_proof_filp_open(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
 
     source = lookup_source_signature(target, source_root=source_root)
     call_safety = require_call_safety_for_call(

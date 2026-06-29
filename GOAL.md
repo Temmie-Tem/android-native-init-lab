@@ -767,6 +767,33 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `filp_open` owned-pathname contract
+
+> ### ✅ STATUS (2026-06-29 live pass) — `filp_open` promoted to function-map row under owned pathname only
+>
+> Second one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py call-proof`
+> with `filp_open`, using a tool-owned kernel buffer containing `/init\0`, `O_RDONLY`, mode `0`, and
+> paired cleanup through `filp_close(file, NULL)`.
+>
+> Static gate: `filp_open=0xffffff800828a664` (`export-recovery`, direct BL xrefs `48`), source
+> signature `extern struct file * filp_open(const char *, int, umode_t)`, tier `SAFE-WITH-VALID-PTR`,
+> x0 requires `pathname`; paired cleanup `filp_close=0xffffff800828ac14` (`export-recovery`, direct BL
+> xrefs `67`), source signature `extern int filp_close(struct file *, fl_owner_t id)`. Allocator
+> orchestration reused verified `__kmalloc=0xffffff800826ae34` and `kfree=0xffffff800826b354`.
+>
+> Live path: flashed existing v1-repl image
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`, confirmed
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof filp_open` with the C2B verified map. Result:
+> `a90-repl-live-call-proof-filp_open-pass`; checks covered `kmalloc-owned-pathname-buffer`,
+> `owned-pathname-poke-peek`, sane non-ERR `struct file *` return, `filp_close` return `0`, and
+> `kfree-owned-pathname-buffer`. Candidate selftest stayed `fail=0`. Rolled back to clean v2321 with
+> final `selftest pass=11 warn=1 fail=0`.
+>
+> Function map updated: `filp_open` is live-proven only under the owned `/init` pathname contract;
+> `filp_close` gets cleanup-only evidence for the exact file pointer returned by this proof, not a
+> general close allowlist. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_FILP_OPEN_2026-06-29.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `ksize` owned-pointer contract
 
 > ### ✅ STATUS (2026-06-29 live pass) — `ksize` promoted to function-map row under owned input only
