@@ -31,6 +31,7 @@ and the C1 fail-closed identity gate.
 | `strscpy` | `0xffffff80099b9794`, `export-recovery`, direct BL xrefs `8`, leaf/no-BL | owned destination buffer plus owned NUL-terminated source string buffer plus bounded size | `strscpy(dst, "A90STRSCPY", 32) == 0xa`, destination prefix matched source, canary after size preserved | `kfree-owned-strscpy-buffers-ok` | `a90-repl-live-call-proof-strscpy-pass` |
 | `strlcpy` | `0xffffff80099b9724`, `export-recovery`, direct BL xrefs `963`, calls `__pi_strlen`/`__memcpy` | owned destination buffer plus owned NUL-terminated source string buffer plus bounded size | `strlcpy(dst, "A90STRLCPY", 32) == 0xa`, destination prefix matched source, canary after size preserved | `kfree-owned-strlcpy-buffers-ok` | `a90-repl-live-call-proof-strlcpy-pass` |
 | `strncpy` | `0xffffff80099b96f4`, `export-recovery`, direct BL xrefs `187`, leaf/no-BL | owned destination buffer plus owned NUL-terminated source string buffer plus bounded count | `strncpy(dst, "A90STRNCPY", 32)` returned the owned destination pointer (redacted), destination prefix matched source, NUL padded to count, canary after count preserved | `kfree-owned-strncpy-buffers-ok` | `a90-repl-live-call-proof-strncpy-pass` |
+| `memcmp` | `0xffffff80099a84b0`, `leaf-map-disasm+xref`, direct BL xrefs `921`, leaf/no-BL | two owned initialized buffers plus bounded size inside both buffers | equal buffer compare returned `0x0`; first-difference case returned positive (`0x80`); both buffers stayed unchanged | `kfree-owned-memcmp-buffers-ok` | `a90-repl-live-call-proof-memcmp-pass` |
 
 ## Parked Candidate Families
 
@@ -45,3 +46,6 @@ and the C1 fail-closed identity gate.
   `maxlen` contract; `strscpy`, `strlcpy`, and `strncpy` additionally require an owned destination
   buffer and a bounded size/count inside that destination. Other string/memory helpers remain parked
   until separate C1 identity and pointer contracts are proven.
+- Memory-compare sweep: `memcmp` has crossed the live proof gate only under the two-owned-buffer plus
+  bounded-size contract. It does not authorize arbitrary pointers, unbounded sizes, user pointers, or
+  other memory helpers such as `memcpy`, `memmove`, `memset`, or `memchr`.

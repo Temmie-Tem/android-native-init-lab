@@ -586,6 +586,17 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(strncpy["signals"]["direct_bl_xref_count"], 100)
         self.assertTrue(strncpy["signals"]["leaf"])
 
+        memcmp = self._row("memcmp")
+        self.assertEqual(memcmp["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            memcmp["required_valid_pointer_args"],
+            {"0": "left-buffer", "1": "right-buffer"},
+        )
+        self.assertTrue(memcmp["resolution"]["verified"])
+        self.assertEqual(memcmp["resolution"]["method"], "leaf-map-disasm+xref")
+        self.assertGreaterEqual(memcmp["signals"]["direct_bl_xref_count"], 500)
+        self.assertTrue(memcmp["signals"]["leaf"])
+
     def test_non_seeded_targets_are_denied_by_default(self) -> None:
         row = self._row("kgsl_pwrctrl_force_no_nap_store")
         self.assertEqual(row["tier"], repl.CALL_SAFETY_DENY)
@@ -734,6 +745,15 @@ class CallSafetyClassificationTests(unittest.TestCase):
             "extern char * strncpy(char *,const char *, __kernel_size_t)",
         )
         self.assertTrue(strncpy["selected"]["path"].endswith("include/linux/string.h"))
+
+        memcmp = repl.lookup_source_signature("memcmp", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(memcmp["status"], "found", memcmp)
+        self.assertEqual(memcmp["selected"]["pointer_arg_indices"], [0, 1])
+        self.assertEqual(
+            memcmp["selected"]["signature"],
+            "extern int memcmp(const void *,const void *,__kernel_size_t)",
+        )
+        self.assertTrue(memcmp["selected"]["path"].endswith("include/linux/string.h"))
 
     def test_call_safety_sweep_is_advisory_and_does_not_promote_gate(self) -> None:
         if not KERNEL_SOURCE_ROOT.is_dir():
@@ -979,6 +999,13 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.memcmp_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "memcmp",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.filp_open_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -1073,6 +1100,8 @@ class FaithfulFakeTransport:
             strlcpy = self.strlcpy_link + self.slide
             assert self.strncpy_link is not None
             strncpy = self.strncpy_link + self.slide
+            assert self.memcmp_link is not None
+            memcmp = self.memcmp_link + self.slide
             assert self.filp_open_link is not None
             filp_open = self.filp_open_link + self.slide
             assert self.filp_close_link is not None
@@ -1150,6 +1179,23 @@ class FaithfulFakeTransport:
                     copied = data[:nul + 1] + (b"\x00" * (arg3 - (nul + 1)))
                 self._set_heap_bytes(arg1, copied[:arg3])
                 lines.append(f"A90R{arg1:x}")
+            elif arg0 == memcmp:
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"memcmp left is not an allocated pointer: {arg1:#x}")
+                if arg2 not in self.allocated:
+                    raise AssertionError(f"memcmp right is not an allocated pointer: {arg2:#x}")
+                if arg3 != repl.MEMCMP_PROOF_SIZE:
+                    raise AssertionError(f"unexpected memcmp size: {arg3:#x}")
+                left = self._heap_bytes(arg1, arg3)
+                right = self._heap_bytes(arg2, arg3)
+                result = 0
+                for left_byte, right_byte in zip(left, right, strict=True):
+                    if left_byte != right_byte:
+                        result = left_byte - right_byte
+                        break
+                if result < 0:
+                    result &= 0xFFFFFFFF
+                lines.append(f"A90R{result:x}")
             elif arg0 == filp_open:
                 path = self._heap_bytes(arg1, 16).split(b"\x00", 1)[0]
                 if path != b"/init":
@@ -1530,6 +1576,59 @@ class SelftestIntegrationTests(unittest.TestCase):
             ],
             "00" * (repl.STRNCPY_PROOF_SIZE - len(repl.STRNCPY_PROOF_SRC_BYTES)),
         )
+        self.assertEqual(fake.freed, [fake.heap_ptr, fake.heap_ptr + 0x1000])
+
+    def test_call_proof_memcmp_passes_with_owned_buffers_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "memcmp",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-memcmp-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "memcmp")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern int memcmp(const void *,const void *,__kernel_size_t)",
+        )
+        self.assertEqual(summary["proof_bytes_label"], repl.MEMCMP_PROOF_BYTES.decode("ascii"))
+        self.assertEqual(summary["size_arg"], repl.MEMCMP_PROOF_SIZE)
+        self.assertEqual(summary["equal_expected_return_value"], "0x0")
+        self.assertEqual(summary["equal_observed_return_value"], "0x0")
+        self.assertEqual(summary["mismatch_expected_return_sign"], "positive")
+        self.assertGreater(int(str(summary["mismatch_observed_return_value"]), 16), 0)
+        self.assertEqual(summary["mismatch_offset"], repl.MEMCMP_MISMATCH_OFFSET)
+        self.assertTrue(summary["buffers_unchanged_after_calls"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("left_ptr", summary)
+        self.assertNotIn("right_ptr", summary)
+        self.assertEqual(private["left_ptr"], f"0x{fake.heap_ptr:x}")
+        self.assertEqual(private["right_ptr"], f"0x{fake.heap_ptr + 0x1000:x}")
+        expected_left_hex = (repl.MEMCMP_PROOF_BYTES + (b"\xcc" * repl.MEMCMP_CANARY_LEN)).hex()
+        self.assertEqual(private["left_bytes_hex"], expected_left_hex)
+        self.assertEqual(private["right_equal_bytes_hex"], expected_left_hex)
+        right_mismatch = bytearray(repl.MEMCMP_PROOF_BYTES)
+        right_mismatch[repl.MEMCMP_MISMATCH_OFFSET] = repl.MEMCMP_MISMATCH_RIGHT_BYTE
+        expected_right_mismatch_hex = (
+            bytes(right_mismatch) + (b"\xcc" * repl.MEMCMP_CANARY_LEN)
+        ).hex()
+        self.assertEqual(private["right_mismatch_bytes_hex"], expected_right_mismatch_hex)
         self.assertEqual(fake.freed, [fake.heap_ptr, fake.heap_ptr + 0x1000])
 
     def test_call_proof_filp_open_passes_with_owned_pathname_contract(self) -> None:

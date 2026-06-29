@@ -767,6 +767,32 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `memcmp` owned-buffer contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `memcmp` promoted under two owned buffers + bounded size only
+>
+> Ninth one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py call-proof`
+> with `memcmp`, using two tool-owned initialized kernel buffers containing
+> `A90MEMCMP-PROOF-0123456789ABCDEF`, scalar `size=32`, and one bounded mismatch mutation in the
+> right buffer. Static gate: `memcmp=0xffffff80099a84b0`, `leaf-map-disasm+xref`, direct-BL xrefs
+> `921`, leaf/no-BL, RET in scan. Source contract:
+> `extern int memcmp(const void *,const void *,__kernel_size_t)`, with x0/x1 as pointer args and x2
+> as scalar size. The call-safety seed remains `SAFE-WITH-VALID-PTR`; required valid pointer args are
+> x0 `left-buffer`, x1 `right-buffer`, with x2 bounded inside both owned buffers.
+>
+> Live path: confirmed rollback images and TWRP, flashed the existing v1-repl boot image
+> (`b846ae9f...`) through `native_init_flash.py`, confirmed native selftest `fail=0` and
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof memcmp` with the C2B verified map. Result:
+> `a90-repl-live-call-proof-memcmp-pass`; checks covered C1 identity, source pointer contract,
+> owned left/right allocation, equal-buffer poke/peek, equal return `0x0`, equal-buffer immutability,
+> mismatch poke/peek at offset `10` (`0x50` vs `0x40`), positive mismatch return (`0x80` observed),
+> mismatch-buffer immutability, and `kfree-owned-memcmp-buffers`.
+>
+> Candidate selftest after proof was `pass=11 warn=1 fail=0`. Rollback to clean v2321 used the checked
+> helper with readback SHA `ca978551...`; final selftest was `pass=11 warn=1 fail=0`. Function map
+> records `memcmp` only under the two-owned-buffer plus bounded-size contract. This does not authorize
+> arbitrary pointers, unbounded sizes, user pointers, or other memory helpers.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `strncpy` owned-buffer contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `strncpy` promoted under owned dst/src + bounded count only

@@ -261,6 +261,16 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   strncpy
 ```
 
+```sh
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/a90_repl.py call-proof \
+  --map workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map \
+  --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
+  --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
+  --evidence-dir workspace/private/runs/kernel/<unit>/ \
+  memcmp
+```
+
 `call-proof` is not a mass-call mechanism. It owns the input object internally, performs the static
 C1/source/call-safety checks, calls only the selected target, checks the return contract, frees the
 owned allocations, and redacts the runtime slide/allocation pointers from public output. The
@@ -274,7 +284,10 @@ prefix and post-size canary, and frees both buffers. The `strlcpy` proof uses th
 shape, but requires exact source length return because `strlcpy` returns `strlen(src)`. The `strncpy`
 proof also uses owned destination and source buffers, but requires the returned pointer to match the
 owned destination pointer, verifies NUL padding up to the bounded count, verifies the post-count canary,
-and redacts the runtime pointer value from public output.
+and redacts the runtime pointer value from public output. The `memcmp` proof allocates two owned
+initialized buffers, compares equal bytes for return `0`, changes one right-buffer byte so the first
+difference should return a positive sign, verifies both buffers stay unchanged after both calls, and
+redacts the owned pointers and observed raw bytes from public output.
 
 Before any live `call` unit:
 

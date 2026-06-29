@@ -120,6 +120,11 @@ LEAF_MAP_GROUND_TRUTH_SYMBOLS = {
         "expected_pointer_args": (0,),
         "note": "non-JOPP arm64 leaf string helper; identity rests on map label, high xref count, and leaf shape",
     },
+    "memcmp": {
+        "min_direct_bl_xrefs": 500,
+        "expected_pointer_args": (0, 1),
+        "note": "non-JOPP arm64 leaf memory compare helper; identity rests on map label, high xref count, and leaf shape",
+    },
 }
 MIN_VERIFIED_DIRECT_BL_XREFS = 1
 KNOWN_UNSAFE_CALL_TARGETS = {
@@ -249,6 +254,12 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {0: "destination-buffer", 1: "source-string-buffer"},
         "return_kind": "destination-pointer",
         "reason": "bounded string copy helper; x0/x1 must be owned buffers and count must stay inside destination",
+    },
+    "memcmp": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "left-buffer", 1: "right-buffer"},
+        "return_kind": "int-sign",
+        "reason": "bounded memory compare helper; x0/x1 must be owned buffers and size must stay inside both buffers",
     },
     "kmem_cache_alloc": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
@@ -4500,6 +4511,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern char * strncpy(char *,const char *, __kernel_size_t)",
     },
+    "memcmp": {
+        "input_contract": "two owned initialized buffers plus bounded size inside both buffers",
+        "return_contract": "int == 0 for equal bytes and positive sign when left first-difference byte is greater",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern int memcmp(const void *,const void *,__kernel_size_t)",
+    },
 }
 FILP_OPEN_PROOF_PATH = b"/init\x00"
 FILP_OPEN_PROOF_FLAGS = 0
@@ -4526,6 +4543,11 @@ STRNCPY_PROOF_SRC_BYTES = b"A90STRNCPY\x00"
 STRNCPY_PROOF_SIZE = 32
 STRNCPY_SRC_ZERO_FILL_LEN = 64
 STRNCPY_DST_CANARY_LEN = 8
+MEMCMP_PROOF_BYTES = b"A90MEMCMP-PROOF-0123456789ABCDEF"
+MEMCMP_PROOF_SIZE = len(MEMCMP_PROOF_BYTES)
+MEMCMP_CANARY_LEN = 8
+MEMCMP_MISMATCH_OFFSET = 10
+MEMCMP_MISMATCH_RIGHT_BYTE = ord("@")
 LINUX_MAX_ERRNO = 4095
 LINUX_ERR_PTR_MIN = ((-LINUX_MAX_ERRNO) & MASK64)
 
@@ -4551,6 +4573,267 @@ def _peek_bytes(session: ReplSession, runtime_vaddr: int, length: int) -> bytes:
         value = session.peek_runtime((runtime_vaddr + offset) & MASK64, 8)
         out.extend(value.to_bytes(8, "little"))
     return bytes(out[:length])
+
+
+def _run_call_proof_memcmp(session: ReplSession,
+                           symbols: dict[str, Symbol],
+                           image: StaticImage,
+                           *,
+                           alloc_size: int,
+                           source_root: Path,
+                           gfp: int,
+                           gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    scan_len = MEMCMP_PROOF_SIZE + MEMCMP_CANARY_LEN
+    if alloc_size < scan_len:
+        raise ReplError(f"memcmp call-proof alloc_size must be at least {scan_len} bytes")
+
+    if MEMCMP_MISMATCH_OFFSET >= MEMCMP_PROOF_SIZE:
+        raise ReplError("memcmp mismatch offset must be inside proof size")
+    if MEMCMP_PROOF_BYTES[MEMCMP_MISMATCH_OFFSET] <= MEMCMP_MISMATCH_RIGHT_BYTE:
+        raise ReplError("memcmp mismatch right byte must be less than left byte for positive sign proof")
+
+    source = lookup_source_signature("memcmp", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "memcmp",
+        ("@owned_left_buffer", "@owned_right_buffer", MEMCMP_PROOF_SIZE),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["memcmp"]["expected_tier"]:
+        raise ReplError("memcmp call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0, 1]:
+        raise ReplError("memcmp source signature does not declare x0/x1 as pointer arguments")
+
+    resolutions = {
+        "memcmp": resolve_verified(symbols, image, "memcmp", purpose="call", allow_pre_arg_deref=True),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    memcmp_link = require_verified_resolution(resolutions["memcmp"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof buffer allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof buffer cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    right_mismatch = bytearray(MEMCMP_PROOF_BYTES)
+    right_mismatch[MEMCMP_MISMATCH_OFFSET] = MEMCMP_MISMATCH_RIGHT_BYTE
+    right_mismatch_bytes = bytes(right_mismatch)
+    expected_left_scan = MEMCMP_PROOF_BYTES + (b"\xcc" * MEMCMP_CANARY_LEN)
+    expected_right_equal_scan = expected_left_scan
+    expected_right_mismatch_scan = right_mismatch_bytes + (b"\xcc" * MEMCMP_CANARY_LEN)
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "memcmp",
+            "resolution_method": resolutions["memcmp"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+            "bounded_size": MEMCMP_PROOF_SIZE,
+        },
+    ]
+    private: dict[str, object] = {}
+    left_ptr = 0
+    right_ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_attempted: list[str] = []
+    free_ok: dict[str, bool] = {"left": False, "right": False}
+    free_errors: list[str] = []
+    equal_return = 0
+    mismatch_return = 0
+    observed_left = b""
+    observed_right_equal = b""
+    observed_right_mismatch = b""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        memcmp_runtime = (memcmp_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        left_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        right_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        left_ok = is_kernel_lowmem_pointer(left_ptr)
+        right_ok = is_kernel_lowmem_pointer(right_ptr)
+        distinct_ok = left_ptr != right_ptr
+        checks.append({
+            "check": "kmalloc-owned-memcmp-buffers",
+            "ok": left_ok and right_ok and distinct_ok,
+            "alloc_size": alloc_size,
+            "left_kernel_lowmem": left_ok,
+            "right_kernel_lowmem": right_ok,
+            "distinct_buffers": distinct_ok,
+        })
+        if not (left_ok and right_ok and distinct_ok):
+            raise ReplError("__kmalloc did not return sane distinct memcmp buffers")
+
+        _poke_bytes(session, left_ptr, expected_left_scan)
+        _poke_bytes(session, right_ptr, expected_right_equal_scan)
+        observed_left = _peek_bytes(session, left_ptr, scan_len)
+        observed_right_equal = _peek_bytes(session, right_ptr, scan_len)
+        setup_ok = observed_left == expected_left_scan and observed_right_equal == expected_right_equal_scan
+        checks.append({
+            "check": "owned-memcmp-buffer-poke-peek",
+            "ok": setup_ok,
+            "proof_bytes_label": MEMCMP_PROOF_BYTES.decode("ascii"),
+            "size_arg": MEMCMP_PROOF_SIZE,
+            "canary_len": MEMCMP_CANARY_LEN,
+        })
+        if not setup_ok:
+            raise ReplError("owned memcmp buffer poke/peek mismatch")
+
+        equal_return = session.call_runtime(memcmp_runtime, (left_ptr, right_ptr, MEMCMP_PROOF_SIZE))
+        equal_ok = equal_return == 0
+        checks.append({
+            "check": "memcmp-equal-return-contract",
+            "ok": equal_ok,
+            "expected_return": "0x0",
+            "observed_return": f"0x{equal_return:x}",
+            "size_arg": MEMCMP_PROOF_SIZE,
+        })
+        if not equal_ok:
+            raise ReplError(f"memcmp equal case returned 0x{equal_return:x}, expected 0")
+
+        observed_left = _peek_bytes(session, left_ptr, scan_len)
+        observed_right_equal = _peek_bytes(session, right_ptr, scan_len)
+        equal_buffers_unchanged = observed_left == expected_left_scan and observed_right_equal == expected_right_equal_scan
+        checks.append({
+            "check": "memcmp-equal-buffer-immutability",
+            "ok": equal_buffers_unchanged,
+            "left_unchanged": observed_left == expected_left_scan,
+            "right_unchanged": observed_right_equal == expected_right_equal_scan,
+        })
+        if not equal_buffers_unchanged:
+            raise ReplError("memcmp equal case modified an owned buffer")
+
+        _poke_bytes(session, right_ptr, expected_right_mismatch_scan)
+        observed_right_mismatch = _peek_bytes(session, right_ptr, scan_len)
+        mismatch_setup_ok = observed_right_mismatch == expected_right_mismatch_scan
+        checks.append({
+            "check": "owned-memcmp-mismatch-poke-peek",
+            "ok": mismatch_setup_ok,
+            "mismatch_offset": MEMCMP_MISMATCH_OFFSET,
+            "left_byte": f"0x{MEMCMP_PROOF_BYTES[MEMCMP_MISMATCH_OFFSET]:02x}",
+            "right_byte": f"0x{MEMCMP_MISMATCH_RIGHT_BYTE:02x}",
+        })
+        if not mismatch_setup_ok:
+            raise ReplError("owned memcmp mismatch buffer poke/peek mismatch")
+
+        mismatch_return = session.call_runtime(memcmp_runtime, (left_ptr, right_ptr, MEMCMP_PROOF_SIZE))
+        mismatch_positive = 0 < mismatch_return < 0x80000000
+        checks.append({
+            "check": "memcmp-mismatch-return-contract",
+            "ok": mismatch_positive,
+            "expected_return_sign": "positive",
+            "observed_return": f"0x{mismatch_return:x}",
+            "mismatch_offset": MEMCMP_MISMATCH_OFFSET,
+            "left_byte": f"0x{MEMCMP_PROOF_BYTES[MEMCMP_MISMATCH_OFFSET]:02x}",
+            "right_byte": f"0x{MEMCMP_MISMATCH_RIGHT_BYTE:02x}",
+        })
+        if not mismatch_positive:
+            raise ReplError(f"memcmp mismatch case returned 0x{mismatch_return:x}, expected positive int")
+
+        observed_left = _peek_bytes(session, left_ptr, scan_len)
+        observed_right_mismatch = _peek_bytes(session, right_ptr, scan_len)
+        mismatch_buffers_unchanged = (
+            observed_left == expected_left_scan
+            and observed_right_mismatch == expected_right_mismatch_scan
+        )
+        checks.append({
+            "check": "memcmp-mismatch-buffer-immutability",
+            "ok": mismatch_buffers_unchanged,
+            "left_unchanged": observed_left == expected_left_scan,
+            "right_unchanged": observed_right_mismatch == expected_right_mismatch_scan,
+        })
+        if not mismatch_buffers_unchanged:
+            raise ReplError("memcmp mismatch case modified an owned buffer")
+    finally:
+        if kfree_runtime:
+            for label, ptr in (("left", left_ptr), ("right", right_ptr)):
+                if ptr and is_kernel_lowmem_pointer(ptr):
+                    free_attempted.append(label)
+                    try:
+                        session.call_runtime(kfree_runtime, (ptr,))
+                        free_ok[label] = True
+                    except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                        free_errors.append(f"{label}:{exc}")
+        session.set_panic_on_oops(1)
+
+    cleanup_ok = bool(free_ok["left"] and free_ok["right"])
+    checks.append({
+        "check": "kfree-owned-memcmp-buffers",
+        "ok": cleanup_ok,
+        "free_attempted": free_attempted,
+        "left_free_ok": free_ok["left"],
+        "right_free_ok": free_ok["right"],
+    })
+    if free_errors:
+        raise ReplError(f"kfree failed after memcmp proof: {free_errors}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-memcmp-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "memcmp",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["memcmp"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["memcmp"]["return_contract"],
+        "alloc_size": alloc_size,
+        "proof_bytes_label": MEMCMP_PROOF_BYTES.decode("ascii"),
+        "size_arg": MEMCMP_PROOF_SIZE,
+        "equal_expected_return_value": "0x0",
+        "equal_observed_return_value": f"0x{equal_return:x}",
+        "mismatch_expected_return_sign": "positive",
+        "mismatch_observed_return_value": f"0x{mismatch_return:x}",
+        "mismatch_offset": MEMCMP_MISMATCH_OFFSET,
+        "mismatch_left_byte": f"0x{MEMCMP_PROOF_BYTES[MEMCMP_MISMATCH_OFFSET]:02x}",
+        "mismatch_right_byte": f"0x{MEMCMP_MISMATCH_RIGHT_BYTE:02x}",
+        "buffers_unchanged_after_calls": True,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "memcmp",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["memcmp"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["memcmp"]["return_contract"],
+            "observed_return_value": "equal=0x0,mismatch=positive",
+            "cleanup": "kfree-owned-memcmp-buffers-ok" if cleanup_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "memcmp_runtime": f"0x{((memcmp_link + slide) & MASK64):x}",
+        "left_ptr": f"0x{left_ptr:x}",
+        "right_ptr": f"0x{right_ptr:x}",
+        "left_bytes_hex": observed_left.hex(),
+        "right_equal_bytes_hex": observed_right_equal.hex(),
+        "right_mismatch_bytes_hex": observed_right_mismatch.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
 
 
 def _run_call_proof_strlen(session: ReplSession,
@@ -6101,6 +6384,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "strncpy":
         return _run_call_proof_strncpy(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "memcmp":
+        return _run_call_proof_memcmp(
             session,
             symbols,
             image,
