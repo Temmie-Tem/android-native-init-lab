@@ -767,6 +767,36 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `memchr_inv` owned-buffer inverse-search contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `memchr_inv` promoted under owned initialized buffer plus bounded size contract only
+>
+> Twenty-fifth one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py`
+> `call-proof` with `memchr_inv`, using one tool-owned initialized kernel buffer, scalar fill byte
+> `0x5a`, bounded `size=32`, one non-fill byte `0x33` at offset `13`, and a non-fill post-size
+> canary. Static gate: `memchr_inv=0xffffff80099b9fc4`, `export-recovery`, direct-BL xrefs `31`,
+> JOPP entry, leaf/no-BL, RETs in scan. Source contract:
+> `void * memchr_inv(const void *s, int c, size_t n)`, with x0 as the buffer pointer and x1/x2 as
+> scalar fill-byte/size args. The call-safety seed is `SAFE-WITH-VALID-PTR`; required valid pointer
+> arg is x0 `buffer`.
+>
+> Live path: confirmed rollback images and TWRP, flashed the existing v1-repl boot image
+> (`b846ae9f...`) through `native_init_flash.py`, confirmed clean native selftest `fail=0` and
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof memchr_inv` with the C2B verified map.
+> Result: `a90-repl-live-call-proof-memchr_inv-pass`; checks covered C1 identity, source pointer
+> contract, call-safety contract, owned buffer allocation, hit-case poke/peek, return of the owned
+> buffer pointer at offset `13`, hit-case immutability, all-fill rewrite with non-fill canary outside
+> the bounded size, all-fill return `0x0`, all-fill immutability, and
+> `kfree-owned-memchr-inv-buffer`.
+>
+> Candidate selftest after proof was `pass=11 warn=1 fail=0`. Rollback to clean v2321 used the checked
+> helper with readback SHA `ca978551...`; final `selftest` confirmed v2321 health with
+> `pass=11 warn=1 fail=0`. The first candidate standalone selftest command hit serial input noise
+> (`cmdv1 ststATAT`) before END marker, then immediate `version` re-sync and retry passed. Function
+> map records `memchr_inv` only under this owned initialized kernel buffer plus scalar fill-byte and
+> bounded-size contract. This does not authorize arbitrary pointers, user pointers, uninitialized
+> buffers, unbounded sizes, or mass calls.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `strnchr` owned-string bounded-search contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `strnchr` promoted under owned NUL-string plus bounded count contract only

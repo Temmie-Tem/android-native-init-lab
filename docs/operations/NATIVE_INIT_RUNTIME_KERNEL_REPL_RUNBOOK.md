@@ -388,6 +388,16 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
   --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
   --evidence-dir workspace/private/runs/kernel/<unit>/ \
+  memchr_inv
+```
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/a90_repl.py call-proof \
+  --map workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map \
+  --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
+  --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
+  --evidence-dir workspace/private/runs/kernel/<unit>/ \
   memcpy
 ```
 
@@ -479,7 +489,11 @@ redacts the owned pointers and observed raw bytes from public output. The `memch
 owned initialized buffer, searches for a byte inside the bounded size, requires the returned pointer to
 match the expected first-occurrence offset, searches for a byte present only in the post-size canary and
 requires `0`, verifies the buffer and canary stay unchanged, and redacts the owned pointer and observed
-raw bytes from public output. The `memcpy` proof allocates distinct owned destination and source buffers,
+raw bytes from public output. The `memchr_inv` proof allocates one owned initialized buffer, searches
+for the first byte that differs from a scalar fill byte inside a bounded size, requires the returned
+pointer to match the expected non-fill offset, rewrites the bounded range so every byte equals the fill
+byte, requires `0` even though the post-size canary contains non-fill bytes, verifies buffer and canary
+immutability, and redacts the owned pointer and observed raw bytes from public output. The `memcpy` proof allocates distinct owned destination and source buffers,
 requires non-overlapping allocation ranges and a bounded size inside both buffers, copies a fixed source
 byte sequence into an initialized destination, requires the returned pointer to match the destination,
 verifies the destination prefix, destination post-size canary, and source immutability, then frees both
