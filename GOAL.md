@@ -767,6 +767,36 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `strcpy` owned-buffer copy contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `strcpy` promoted under owned dst/src string contract only
+>
+> Twenty-eighth one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py`
+> `call-proof` with `strcpy`, using one tool-owned destination buffer and one tool-owned
+> NUL-terminated source string buffer containing `A90STRCPY-SRC-Q-END`. Static gate:
+> `strcpy=0xffffff80099b96d4`, `export-recovery`, direct-BL xrefs `589`, JOPP entry,
+> leaf/no-BL, RETs in scan. Source contract:
+> `extern char * strcpy(char *,const char *)`, with x0 as the destination buffer pointer
+> and x1 as the source string pointer. The call-safety seed is `SAFE-WITH-VALID-PTR`;
+> required valid pointer args are x0 `destination-buffer` and x1 `source-string-buffer`.
+>
+> Live path: confirmed rollback images and TWRP, flashed the existing v1-repl boot image
+> (`b846ae9f...`) through `native_init_flash.py`, confirmed clean native selftest `fail=0` and
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof strcpy` with the C2B verified map.
+> Result: `a90-repl-live-call-proof-strcpy-pass`; checks covered C1 identity, source pointer
+> contract, call-safety contract, distinct owned destination/source allocations, destination
+> prefill plus source poke/peek, destination-pointer return contract, source copy including NUL,
+> post-NUL tail preservation, destination canary preservation, source immutability, and
+> `kfree-owned-strcpy-buffers`.
+>
+> Candidate selftest after proof was `pass=11 warn=1 fail=0`. Rollback to clean v2321 used the checked
+> helper with readback SHA `ca978551...`; final resident `version` confirmed v2321 and final
+> `selftest` confirmed `pass=11 warn=1 fail=0`. The first final selftest read after rollback returned
+> only a partial tail, and the next `version` hit serial echo noise; `--input-mode slow` re-synchronized
+> the console, then `version` and final selftest both passed. Function map records `strcpy` only under
+> this owned destination plus owned NUL-terminated source contract. This does not authorize arbitrary
+> pointers, user pointers, undersized destinations, unterminated sources, or mass calls.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `strspn` owned-string accept-set span contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `strspn` promoted under owned NUL-string accept-set contract only

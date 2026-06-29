@@ -298,6 +298,16 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
   --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
   --evidence-dir workspace/private/runs/kernel/<unit>/ \
+  strcpy
+```
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/a90_repl.py call-proof \
+  --map workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map \
+  --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
+  --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
+  --evidence-dir workspace/private/runs/kernel/<unit>/ \
   strncpy
 ```
 
@@ -476,11 +486,14 @@ replacement and canary preservation, then checks a missing-byte no-op case. The 
 and requires exact bounded length return. The `strscpy` proof allocates owned destination and source
 buffers, bounds the size inside the destination, requires exact copied length, verifies the destination
 prefix and post-size canary, and frees both buffers. The `strlcpy` proof uses the same owned-buffer
-shape, but requires exact source length return because `strlcpy` returns `strlen(src)`. The `strncpy`
-proof also uses owned destination and source buffers, but requires the returned pointer to match the
-owned destination pointer, verifies NUL padding up to the bounded count, verifies the post-count canary,
-and redacts the runtime pointer value from public output. The `strchr` proof allocates one owned
-NUL-terminated string buffer, searches for a byte that appears multiple times, requires the returned
+shape, but requires exact source length return because `strlcpy` returns `strlen(src)`. The `strcpy`
+proof allocates owned destination and source buffers, requires the returned pointer to match the owned
+destination pointer, verifies the destination matches the source including the NUL byte, verifies the
+post-NUL tail and canary stay unchanged, verifies source immutability, and frees both buffers. The
+`strncpy` proof also uses owned destination and source buffers, but requires the returned pointer to
+match the owned destination pointer, verifies NUL padding up to the bounded count, verifies the
+post-count canary, and redacts the runtime pointer value from public output. The `strchr` proof
+allocates one owned NUL-terminated string buffer, searches for a byte that appears multiple times, requires the returned
 pointer to match the expected first-occurrence offset, checks a missing byte returns `0`, verifies the
 string and canary stay unchanged, and redacts the owned pointer and observed raw bytes from public
 output. The `strchrnul` proof uses the same owned-string shape, but checks a missing byte returns the
