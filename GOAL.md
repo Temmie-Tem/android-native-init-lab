@@ -767,6 +767,32 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `strcmp` owned-string compare contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `strcmp` promoted under two owned NUL strings only
+>
+> Twelfth one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py
+> call-proof` with `strcmp`, using two tool-owned NUL-terminated kernel string buffers containing
+> `A90STRCMP-PROOF-ZZ\0`, then mutating one right-string byte from `0x5a` to `0x40` for a controlled
+> first-difference positive-sign case. Static gate: `strcmp=0xffffff80099a8b6c`,
+> `leaf-map-disasm+xref`, direct-BL xrefs `3507`, leaf/no-BL, RET in scan. Source contract:
+> `extern int strcmp(const char *,const char *)`, with x0/x1 as string pointer args. The call-safety
+> seed remains `SAFE-WITH-VALID-PTR`; required valid pointer args are x0 `left-string-buffer` and x1
+> `right-string-buffer`.
+>
+> Live path: confirmed rollback images and TWRP, flashed the existing v1-repl boot image
+> (`b846ae9f...`) through `native_init_flash.py`, confirmed native selftest `fail=0` and
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof strcmp` with the C2B verified map. Result:
+> `a90-repl-live-call-proof-strcmp-pass`; checks covered C1 identity, source pointer contract, owned
+> string allocation, string poke/peek, equal compare return `0x0`, equal-case immutability, mismatch
+> compare positive return `0xd0`, mismatch-case immutability, and `kfree-owned-strcmp-strings`.
+>
+> Candidate selftest after proof was `pass=11 warn=1 fail=0`. Rollback to clean v2321 used the checked
+> helper with readback SHA `ca978551...`; final selftest was `pass=11 warn=1 fail=0`. Function map
+> records `strcmp` only under the two-owned-NUL-terminated-string contract. This does not authorize
+> arbitrary pointers, unterminated strings, user pointers, locale/ordering assumptions beyond sign, or
+> other string helpers.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `memset` owned-destination contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `memset` promoted under owned dst + bounded size only

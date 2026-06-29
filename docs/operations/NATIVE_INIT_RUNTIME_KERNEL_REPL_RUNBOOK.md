@@ -1,6 +1,6 @@
 # Native-Init Runtime Kernel REPL Runbook
 
-Date: 2026-06-29
+Date: 2026-06-30
 
 Scope: Tier-2 runtime kernel REPL host tooling for the already-built v1-repl image. This document
 is operational guidance only; it does not authorize device work by itself.
@@ -268,6 +268,16 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
   --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
   --evidence-dir workspace/private/runs/kernel/<unit>/ \
+  strcmp
+```
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/a90_repl.py call-proof \
+  --map workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map \
+  --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
+  --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
+  --evidence-dir workspace/private/runs/kernel/<unit>/ \
   memcmp
 ```
 
@@ -304,7 +314,11 @@ prefix and post-size canary, and frees both buffers. The `strlcpy` proof uses th
 shape, but requires exact source length return because `strlcpy` returns `strlen(src)`. The `strncpy`
 proof also uses owned destination and source buffers, but requires the returned pointer to match the
 owned destination pointer, verifies NUL padding up to the bounded count, verifies the post-count canary,
-and redacts the runtime pointer value from public output. The `memcmp` proof allocates two owned
+and redacts the runtime pointer value from public output. The `strcmp` proof allocates two owned
+NUL-terminated string buffers, compares equal strings for return `0`, changes one right-string byte so
+the first difference should return a positive sign, verifies both strings and canaries stay unchanged
+after both calls, and redacts the owned pointers and observed raw bytes from public output. The
+`memcmp` proof allocates two owned
 initialized buffers, compares equal bytes for return `0`, changes one right-buffer byte so the first
 difference should return a positive sign, verifies both buffers stay unchanged after both calls, and
 redacts the owned pointers and observed raw bytes from public output. The `strrchr` proof allocates one

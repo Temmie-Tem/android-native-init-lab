@@ -115,6 +115,11 @@ LEAF_MAP_GROUND_TRUTH_SYMBOLS = {
         "expected_pointer_args": (0,),
         "note": "non-JOPP arm64 leaf string helper; identity rests on map label, high xref count, and leaf shape",
     },
+    "strcmp": {
+        "min_direct_bl_xrefs": 3000,
+        "expected_pointer_args": (0, 1),
+        "note": "non-JOPP arm64 leaf string compare helper; identity rests on map label, high xref count, and leaf shape",
+    },
     "strnlen": {
         "min_direct_bl_xrefs": 100,
         "expected_pointer_args": (0,),
@@ -246,6 +251,12 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {0: "string-buffer"},
         "return_kind": "size_t",
         "reason": "string helper; x0 must be a verified NUL-terminated kernel buffer",
+    },
+    "strcmp": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "left-string-buffer", 1: "right-string-buffer"},
+        "return_kind": "int-sign",
+        "reason": "string compare helper; x0/x1 must be owned NUL-terminated kernel string buffers",
     },
     "strscpy": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
@@ -4515,6 +4526,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern __kernel_size_t strlen(const char *)",
     },
+    "strcmp": {
+        "input_contract": "two owned NUL-terminated kernel string buffers",
+        "return_contract": "int == 0 for equal strings and positive sign when left first-difference byte is greater",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern int strcmp(const char *,const char *)",
+    },
     "strscpy": {
         "input_contract": "owned destination buffer plus owned NUL-terminated source string buffer plus bounded size",
         "return_contract": "ssize_t == copied source length and destination prefix matches source",
@@ -4563,6 +4580,11 @@ STRNLEN_PROOF_MAXLEN = 64
 STRLEN_PROOF_BYTES = b"A90STRLEN\x00"
 STRLEN_PROOF_EXPECTED = len(STRLEN_PROOF_BYTES) - 1
 STRLEN_ZERO_FILL_LEN = 64
+STRCMP_PROOF_BYTES = b"A90STRCMP-PROOF-ZZ\x00"
+STRCMP_PROOF_LABEL = STRCMP_PROOF_BYTES[:-1].decode("ascii")
+STRCMP_CANARY_LEN = 8
+STRCMP_MISMATCH_OFFSET = len(b"A90STRCMP-PROOF-")
+STRCMP_MISMATCH_RIGHT_BYTE = ord("@")
 STRSCPY_PROOF_SRC_BYTES = b"A90STRSCPY\x00"
 STRSCPY_PROOF_EXPECTED = len(STRSCPY_PROOF_SRC_BYTES) - 1
 STRSCPY_PROOF_SIZE = 32
@@ -4870,6 +4892,268 @@ def _run_call_proof_memcmp(session: ReplSession,
     private.update({
         "slide": f"0x{slide:x}",
         "memcmp_runtime": f"0x{((memcmp_link + slide) & MASK64):x}",
+        "left_ptr": f"0x{left_ptr:x}",
+        "right_ptr": f"0x{right_ptr:x}",
+        "left_bytes_hex": observed_left.hex(),
+        "right_equal_bytes_hex": observed_right_equal.hex(),
+        "right_mismatch_bytes_hex": observed_right_mismatch.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
+def _run_call_proof_strcmp(session: ReplSession,
+                           symbols: dict[str, Symbol],
+                           image: StaticImage,
+                           *,
+                           alloc_size: int,
+                           source_root: Path,
+                           gfp: int,
+                           gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    scan_len = len(STRCMP_PROOF_BYTES) + STRCMP_CANARY_LEN
+    if alloc_size < scan_len:
+        raise ReplError(f"strcmp call-proof alloc_size must be at least {scan_len} bytes")
+
+    if STRCMP_MISMATCH_OFFSET >= len(STRCMP_PROOF_BYTES) - 1:
+        raise ReplError("strcmp mismatch offset must be inside the non-NUL string body")
+    if STRCMP_MISMATCH_RIGHT_BYTE == 0:
+        raise ReplError("strcmp mismatch right byte must not terminate the proof string")
+    if STRCMP_PROOF_BYTES[STRCMP_MISMATCH_OFFSET] <= STRCMP_MISMATCH_RIGHT_BYTE:
+        raise ReplError("strcmp mismatch right byte must be less than left byte for positive sign proof")
+
+    source = lookup_source_signature("strcmp", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "strcmp",
+        ("@owned_left_string_buffer", "@owned_right_string_buffer"),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["strcmp"]["expected_tier"]:
+        raise ReplError("strcmp call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0, 1]:
+        raise ReplError("strcmp source signature does not declare x0/x1 as pointer arguments")
+
+    resolutions = {
+        "strcmp": resolve_verified(symbols, image, "strcmp", purpose="call", allow_pre_arg_deref=True),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    strcmp_link = require_verified_resolution(resolutions["strcmp"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof string allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof string cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    right_mismatch = bytearray(STRCMP_PROOF_BYTES)
+    right_mismatch[STRCMP_MISMATCH_OFFSET] = STRCMP_MISMATCH_RIGHT_BYTE
+    right_mismatch_bytes = bytes(right_mismatch)
+    expected_left_scan = STRCMP_PROOF_BYTES + (b"\xcc" * STRCMP_CANARY_LEN)
+    expected_right_equal_scan = expected_left_scan
+    expected_right_mismatch_scan = right_mismatch_bytes + (b"\xcc" * STRCMP_CANARY_LEN)
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "strcmp",
+            "resolution_method": resolutions["strcmp"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    private: dict[str, object] = {}
+    left_ptr = 0
+    right_ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_attempted: list[str] = []
+    free_ok: dict[str, bool] = {"left": False, "right": False}
+    free_errors: list[str] = []
+    equal_return = 0
+    mismatch_return = 0
+    observed_left = b""
+    observed_right_equal = b""
+    observed_right_mismatch = b""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        strcmp_runtime = (strcmp_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        left_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        right_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        left_ok = is_kernel_lowmem_pointer(left_ptr)
+        right_ok = is_kernel_lowmem_pointer(right_ptr)
+        distinct_ok = left_ptr != right_ptr
+        checks.append({
+            "check": "kmalloc-owned-strcmp-strings",
+            "ok": left_ok and right_ok and distinct_ok,
+            "alloc_size": alloc_size,
+            "left_kernel_lowmem": left_ok,
+            "right_kernel_lowmem": right_ok,
+            "distinct_strings": distinct_ok,
+        })
+        if not (left_ok and right_ok and distinct_ok):
+            raise ReplError("__kmalloc did not return sane distinct strcmp strings")
+
+        _poke_bytes(session, left_ptr, expected_left_scan)
+        _poke_bytes(session, right_ptr, expected_right_equal_scan)
+        observed_left = _peek_bytes(session, left_ptr, scan_len)
+        observed_right_equal = _peek_bytes(session, right_ptr, scan_len)
+        setup_ok = observed_left == expected_left_scan and observed_right_equal == expected_right_equal_scan
+        checks.append({
+            "check": "owned-strcmp-string-poke-peek",
+            "ok": setup_ok,
+            "proof_string": STRCMP_PROOF_LABEL,
+            "canary_len": STRCMP_CANARY_LEN,
+        })
+        if not setup_ok:
+            raise ReplError("owned strcmp string poke/peek mismatch")
+
+        equal_return = session.call_runtime(strcmp_runtime, (left_ptr, right_ptr))
+        equal_ok = equal_return == 0
+        checks.append({
+            "check": "strcmp-equal-return-contract",
+            "ok": equal_ok,
+            "expected_return": "0x0",
+            "observed_return": f"0x{equal_return:x}",
+        })
+        if not equal_ok:
+            raise ReplError(f"strcmp equal case returned 0x{equal_return:x}, expected 0")
+
+        observed_left = _peek_bytes(session, left_ptr, scan_len)
+        observed_right_equal = _peek_bytes(session, right_ptr, scan_len)
+        equal_strings_unchanged = (
+            observed_left == expected_left_scan
+            and observed_right_equal == expected_right_equal_scan
+        )
+        checks.append({
+            "check": "strcmp-equal-string-immutability",
+            "ok": equal_strings_unchanged,
+            "left_unchanged": observed_left == expected_left_scan,
+            "right_unchanged": observed_right_equal == expected_right_equal_scan,
+        })
+        if not equal_strings_unchanged:
+            raise ReplError("strcmp equal case modified an owned string")
+
+        _poke_bytes(session, right_ptr, expected_right_mismatch_scan)
+        observed_right_mismatch = _peek_bytes(session, right_ptr, scan_len)
+        mismatch_setup_ok = observed_right_mismatch == expected_right_mismatch_scan
+        checks.append({
+            "check": "owned-strcmp-mismatch-poke-peek",
+            "ok": mismatch_setup_ok,
+            "mismatch_offset": STRCMP_MISMATCH_OFFSET,
+            "left_byte": f"0x{STRCMP_PROOF_BYTES[STRCMP_MISMATCH_OFFSET]:02x}",
+            "right_byte": f"0x{STRCMP_MISMATCH_RIGHT_BYTE:02x}",
+        })
+        if not mismatch_setup_ok:
+            raise ReplError("owned strcmp mismatch string poke/peek mismatch")
+
+        mismatch_return = session.call_runtime(strcmp_runtime, (left_ptr, right_ptr))
+        mismatch_positive = 0 < mismatch_return < 0x80000000
+        checks.append({
+            "check": "strcmp-mismatch-return-contract",
+            "ok": mismatch_positive,
+            "expected_return_sign": "positive",
+            "observed_return": f"0x{mismatch_return:x}",
+            "mismatch_offset": STRCMP_MISMATCH_OFFSET,
+            "left_byte": f"0x{STRCMP_PROOF_BYTES[STRCMP_MISMATCH_OFFSET]:02x}",
+            "right_byte": f"0x{STRCMP_MISMATCH_RIGHT_BYTE:02x}",
+        })
+        if not mismatch_positive:
+            raise ReplError(f"strcmp mismatch case returned 0x{mismatch_return:x}, expected positive int")
+
+        observed_left = _peek_bytes(session, left_ptr, scan_len)
+        observed_right_mismatch = _peek_bytes(session, right_ptr, scan_len)
+        mismatch_strings_unchanged = (
+            observed_left == expected_left_scan
+            and observed_right_mismatch == expected_right_mismatch_scan
+        )
+        checks.append({
+            "check": "strcmp-mismatch-string-immutability",
+            "ok": mismatch_strings_unchanged,
+            "left_unchanged": observed_left == expected_left_scan,
+            "right_unchanged": observed_right_mismatch == expected_right_mismatch_scan,
+        })
+        if not mismatch_strings_unchanged:
+            raise ReplError("strcmp mismatch case modified an owned string")
+    finally:
+        if kfree_runtime:
+            for label, ptr in (("left", left_ptr), ("right", right_ptr)):
+                if ptr and is_kernel_lowmem_pointer(ptr):
+                    free_attempted.append(label)
+                    try:
+                        session.call_runtime(kfree_runtime, (ptr,))
+                        free_ok[label] = True
+                    except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                        free_errors.append(f"{label}:{exc}")
+        session.set_panic_on_oops(1)
+
+    cleanup_ok = bool(free_ok["left"] and free_ok["right"])
+    checks.append({
+        "check": "kfree-owned-strcmp-strings",
+        "ok": cleanup_ok,
+        "free_attempted": free_attempted,
+        "left_free_ok": free_ok["left"],
+        "right_free_ok": free_ok["right"],
+    })
+    if free_errors:
+        raise ReplError(f"kfree failed after strcmp proof: {free_errors}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-strcmp-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "strcmp",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["strcmp"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["strcmp"]["return_contract"],
+        "alloc_size": alloc_size,
+        "proof_string": STRCMP_PROOF_LABEL,
+        "equal_expected_return_value": "0x0",
+        "equal_observed_return_value": f"0x{equal_return:x}",
+        "mismatch_expected_return_sign": "positive",
+        "mismatch_observed_return_value": f"0x{mismatch_return:x}",
+        "mismatch_offset": STRCMP_MISMATCH_OFFSET,
+        "mismatch_left_byte": f"0x{STRCMP_PROOF_BYTES[STRCMP_MISMATCH_OFFSET]:02x}",
+        "mismatch_right_byte": f"0x{STRCMP_MISMATCH_RIGHT_BYTE:02x}",
+        "strings_unchanged_after_calls": True,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "strcmp",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["strcmp"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["strcmp"]["return_contract"],
+            "observed_return_value": "equal=0x0,mismatch=positive",
+            "cleanup": "kfree-owned-strcmp-strings-ok" if cleanup_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "strcmp_runtime": f"0x{((strcmp_link + slide) & MASK64):x}",
         "left_ptr": f"0x{left_ptr:x}",
         "right_ptr": f"0x{right_ptr:x}",
         "left_bytes_hex": observed_left.hex(),
@@ -6839,6 +7123,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "strncpy":
         return _run_call_proof_strncpy(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "strcmp":
+        return _run_call_proof_strcmp(
             session,
             symbols,
             image,
