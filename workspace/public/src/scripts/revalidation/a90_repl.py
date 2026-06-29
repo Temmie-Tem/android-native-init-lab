@@ -215,6 +215,7 @@ CALL_SAFETY_SWEEP_FAMILIES = {
         "symbols": (
             "strlen",
             "strnlen",
+            "strnchr",
             "skip_spaces",
             "strim",
             "strreplace",
@@ -282,6 +283,12 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {0: "string-buffer"},
         "return_kind": "size_t",
         "reason": "string helper; x0 must be a verified NUL-terminated kernel buffer",
+    },
+    "strnchr": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "string-buffer"},
+        "return_kind": "string-pointer-or-null",
+        "reason": "bounded string search helper; x0 must be an owned NUL-terminated kernel string buffer and count must stay inside the buffer",
     },
     "skip_spaces": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
@@ -4626,6 +4633,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern __kernel_size_t strlen(const char *)",
     },
+    "strnchr": {
+        "input_contract": "owned NUL-terminated kernel string buffer plus scalar bounded count and scalar search byte",
+        "return_contract": "char * == owned string buffer plus expected first-occurrence offset inside count; boundary-miss count returns NULL",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern char * strnchr(const char *, size_t, int)",
+    },
     "skip_spaces": {
         "input_contract": "owned NUL-terminated kernel string buffer with leading ASCII spaces",
         "return_contract": "char * == owned string buffer plus expected first non-space offset; no-leading-space case returns the original pointer",
@@ -4746,6 +4759,13 @@ STRNLEN_PROOF_MAXLEN = 64
 STRLEN_PROOF_BYTES = b"A90STRLEN\x00"
 STRLEN_PROOF_EXPECTED = len(STRLEN_PROOF_BYTES) - 1
 STRLEN_ZERO_FILL_LEN = 64
+STRNCHR_PROOF_BYTES = b"A90STRNCHR-HEAD-Q-TAIL-Q\x00"
+STRNCHR_PROOF_LABEL = STRNCHR_PROOF_BYTES[:-1].decode("ascii")
+STRNCHR_SEARCH_BYTE = ord("Q")
+STRNCHR_EXPECTED_OFFSET = STRNCHR_PROOF_BYTES[:-1].find(bytes([STRNCHR_SEARCH_BYTE]))
+STRNCHR_HIT_COUNT = len(STRNCHR_PROOF_BYTES) - 1
+STRNCHR_BOUND_MISS_COUNT = STRNCHR_EXPECTED_OFFSET
+STRNCHR_CANARY_LEN = 8
 SKIP_SPACES_PROOF_BYTES = b"   A90SKIP-SPACES\x00"
 SKIP_SPACES_PROOF_LABEL = SKIP_SPACES_PROOF_BYTES[:-1].decode("ascii")
 SKIP_SPACES_EXPECTED_OFFSET = len(SKIP_SPACES_PROOF_BYTES) - len(SKIP_SPACES_PROOF_BYTES.lstrip(b" "))
@@ -8650,6 +8670,236 @@ def _run_call_proof_strlen(session: ReplSession,
     return summary, private
 
 
+def _run_call_proof_strnchr(session: ReplSession,
+                            symbols: dict[str, Symbol],
+                            image: StaticImage,
+                            *,
+                            alloc_size: int,
+                            source_root: Path,
+                            gfp: int,
+                            gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    scan_len = len(STRNCHR_PROOF_BYTES) + STRNCHR_CANARY_LEN
+    if alloc_size < scan_len:
+        raise ReplError(f"strnchr call-proof alloc_size must be at least {scan_len} bytes")
+    if STRNCHR_EXPECTED_OFFSET < 0:
+        raise ReplError("strnchr proof string must contain the search byte")
+    if STRNCHR_BOUND_MISS_COUNT <= 0 or STRNCHR_BOUND_MISS_COUNT >= STRNCHR_HIT_COUNT:
+        raise ReplError("strnchr boundary miss count must be inside the proof string before the hit")
+
+    source = lookup_source_signature("strnchr", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "strnchr",
+        ("@owned_string_buffer", STRNCHR_HIT_COUNT, STRNCHR_SEARCH_BYTE),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["strnchr"]["expected_tier"]:
+        raise ReplError("strnchr call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError("strnchr source signature does not declare x0 as the string pointer argument")
+
+    resolutions = {
+        "strnchr": resolve_verified(symbols, image, "strnchr", purpose="call", allow_pre_arg_deref=True),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    strnchr_link = require_verified_resolution(resolutions["strnchr"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof string allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof string cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    expected_scan = STRNCHR_PROOF_BYTES + (b"\xcc" * STRNCHR_CANARY_LEN)
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "strnchr",
+            "resolution_method": resolutions["strnchr"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+            "hit_count": STRNCHR_HIT_COUNT,
+            "search_byte": f"0x{STRNCHR_SEARCH_BYTE:02x}",
+        },
+    ]
+    private: dict[str, object] = {}
+    ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_attempted = False
+    free_ok = False
+    free_error = ""
+    hit_return = 0
+    boundary_return = 0
+    observed = b""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        strnchr_runtime = (strnchr_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        ptr_ok = is_kernel_lowmem_pointer(ptr)
+        checks.append({
+            "check": "kmalloc-owned-strnchr-string-buffer",
+            "ok": ptr_ok,
+            "alloc_size": alloc_size,
+            "kernel_lowmem": ptr_ok,
+        })
+        if not ptr_ok:
+            raise ReplError("__kmalloc did not return a sane strnchr string buffer")
+
+        _poke_bytes(session, ptr, expected_scan)
+        observed = _peek_bytes(session, ptr, scan_len)
+        setup_ok = observed == expected_scan
+        checks.append({
+            "check": "owned-strnchr-string-poke-peek",
+            "ok": setup_ok,
+            "proof_string": STRNCHR_PROOF_LABEL,
+            "canary_len": STRNCHR_CANARY_LEN,
+        })
+        if not setup_ok:
+            raise ReplError("owned strnchr string poke/peek mismatch")
+
+        hit_return = session.call_runtime(strnchr_runtime, (ptr, STRNCHR_HIT_COUNT, STRNCHR_SEARCH_BYTE))
+        expected_hit_return = (ptr + STRNCHR_EXPECTED_OFFSET) & MASK64
+        hit_ok = hit_return == expected_hit_return
+        checks.append({
+            "check": "strnchr-hit-return-contract",
+            "ok": hit_ok,
+            "count": STRNCHR_HIT_COUNT,
+            "search_byte": f"0x{STRNCHR_SEARCH_BYTE:02x}",
+            "expected_offset": STRNCHR_EXPECTED_OFFSET,
+            "expected_return": "owned-string-pointer-plus-offset-redacted",
+            "observed_return": "owned-string-pointer-plus-offset-redacted" if hit_ok else f"0x{hit_return:x}",
+        })
+        if not hit_ok:
+            raise ReplError(
+                f"strnchr hit returned 0x{hit_return:x}, "
+                f"expected owned string pointer at offset {STRNCHR_EXPECTED_OFFSET}"
+            )
+
+        observed = _peek_bytes(session, ptr, scan_len)
+        hit_unchanged = observed == expected_scan
+        checks.append({
+            "check": "strnchr-hit-string-immutability",
+            "ok": hit_unchanged,
+            "string_unchanged": hit_unchanged,
+        })
+        if not hit_unchanged:
+            raise ReplError("strnchr hit case modified the owned string")
+
+        boundary_return = session.call_runtime(
+            strnchr_runtime,
+            (ptr, STRNCHR_BOUND_MISS_COUNT, STRNCHR_SEARCH_BYTE),
+        )
+        boundary_ok = boundary_return == 0
+        checks.append({
+            "check": "strnchr-boundary-miss-return-contract",
+            "ok": boundary_ok,
+            "count": STRNCHR_BOUND_MISS_COUNT,
+            "search_byte": f"0x{STRNCHR_SEARCH_BYTE:02x}",
+            "expected_return": "0x0",
+            "observed_return": f"0x{boundary_return:x}",
+        })
+        if not boundary_ok:
+            raise ReplError(
+                f"strnchr boundary-miss count returned 0x{boundary_return:x}, expected 0"
+            )
+
+        observed = _peek_bytes(session, ptr, scan_len)
+        boundary_unchanged = observed == expected_scan
+        checks.append({
+            "check": "strnchr-boundary-miss-string-immutability",
+            "ok": boundary_unchanged,
+            "string_unchanged": boundary_unchanged,
+        })
+        if not boundary_unchanged:
+            raise ReplError("strnchr boundary-miss case modified the owned string")
+    finally:
+        if ptr and is_kernel_lowmem_pointer(ptr) and kfree_runtime:
+            free_attempted = True
+            try:
+                session.call_runtime(kfree_runtime, (ptr,))
+                free_ok = True
+            except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                free_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "kfree-owned-strnchr-string-buffer",
+        "ok": free_ok,
+        "free_attempted": free_attempted,
+    })
+    if free_error:
+        raise ReplError(f"kfree failed after strnchr proof: {free_error}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-strnchr-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "strnchr",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["strnchr"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["strnchr"]["return_contract"],
+        "alloc_size": alloc_size,
+        "proof_string": STRNCHR_PROOF_LABEL,
+        "search_byte": f"0x{STRNCHR_SEARCH_BYTE:02x}",
+        "hit_count": STRNCHR_HIT_COUNT,
+        "expected_hit_offset": STRNCHR_EXPECTED_OFFSET,
+        "hit_expected_return_value": "owned-string-pointer-plus-offset-redacted",
+        "hit_observed_return_value": "owned-string-pointer-plus-offset-redacted",
+        "hit_return_matches_expected_offset": hit_return == ((ptr + STRNCHR_EXPECTED_OFFSET) & MASK64),
+        "boundary_miss_count": STRNCHR_BOUND_MISS_COUNT,
+        "boundary_miss_expected_return_value": "0x0",
+        "boundary_miss_observed_return_value": f"0x{boundary_return:x}",
+        "string_unchanged_after_calls": True,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "strnchr",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["strnchr"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["strnchr"]["return_contract"],
+            "observed_return_value": f"hit-offset={STRNCHR_EXPECTED_OFFSET},boundary-miss=0x0",
+            "cleanup": "kfree-owned-strnchr-string-buffer-ok" if free_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "strnchr_runtime": f"0x{((strnchr_link + slide) & MASK64):x}",
+        "alloc_ptr": f"0x{ptr:x}",
+        "hit_return_ptr": f"0x{hit_return:x}",
+        "boundary_return_ptr": f"0x{boundary_return:x}",
+        "observed_bytes_hex": observed.hex(),
+        "expected_bytes_hex": expected_scan.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
 def _run_call_proof_strscpy(session: ReplSession,
                             symbols: dict[str, Symbol],
                             image: StaticImage,
@@ -9997,6 +10247,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "strlen":
         return _run_call_proof_strlen(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "strnchr":
+        return _run_call_proof_strnchr(
             session,
             symbols,
             image,

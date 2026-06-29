@@ -228,6 +228,16 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
   --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
   --evidence-dir workspace/private/runs/kernel/<unit>/ \
+  strnchr
+```
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/a90_repl.py call-proof \
+  --map workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map \
+  --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
+  --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
+  --evidence-dir workspace/private/runs/kernel/<unit>/ \
   skip_spaces
 ```
 
@@ -417,7 +427,11 @@ owned allocations, and redacts the runtime slide/allocation pointers from public
 `kernel_read` proof opens `/init`, reads 16 bytes into an owned buffer with an owned `loff_t *`
 position, requires ELF magic plus position advancement, closes the file, and frees all owned buffers.
 The `strlen` proof writes an owned NUL-terminated string buffer, requires exact length return, and
-frees the owned buffer. The `skip_spaces` proof writes an owned NUL-terminated string buffer with
+frees the owned buffer. The `strnchr` proof allocates one owned NUL-terminated string buffer, searches
+for a scalar byte with a bounded count, requires the returned pointer at the expected offset, reruns
+with a count ending immediately before that byte and requires `0`, verifies string and canary
+immutability, frees the buffer, and redacts the owned pointer and observed raw bytes from public output.
+The `skip_spaces` proof writes an owned NUL-terminated string buffer with
 leading ASCII spaces, requires the returned pointer to match the expected first non-space offset,
 rewrites the same owned buffer with no leading spaces, requires the original pointer to be returned,
 verifies string and canary immutability after both calls, and redacts the owned pointer and observed

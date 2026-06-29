@@ -767,6 +767,33 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `strnchr` owned-string bounded-search contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `strnchr` promoted under owned NUL-string plus bounded count contract only
+>
+> Twenty-fourth one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py`
+> `call-proof` with `strnchr`, using one tool-owned NUL-terminated kernel string
+> (`A90STRNCHR-HEAD-Q-TAIL-Q`), scalar `count=24`, and scalar search byte `Q`. Static gate:
+> `strnchr=0xffffff80099b99a4`, `export-recovery`, direct-BL xrefs `45`, JOPP entry,
+> leaf/no-BL, RET in scan. Source contract: `extern char * strnchr(const char *, size_t, int)`,
+> with x0 as the string pointer and x1/x2 as scalar count/search-byte args. The call-safety seed is
+> `SAFE-WITH-VALID-PTR`; required valid pointer arg is x0 `string-buffer`.
+>
+> Live path: confirmed rollback images and TWRP, flashed the existing v1-repl boot image
+> (`b846ae9f...`) through `native_init_flash.py`, confirmed clean native selftest `fail=0` and
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof strnchr` with the C2B verified map.
+> Result: `a90-repl-live-call-proof-strnchr-pass`; checks covered C1 identity, source pointer
+> contract, call-safety contract, owned string allocation, hit-case poke/peek, return of the owned
+> string pointer at offset `16`, hit-case immutability, boundary-miss count `16` returning `0x0`,
+> boundary-miss immutability, and `kfree-owned-strnchr-string-buffer`.
+>
+> Candidate selftest after proof was `pass=11 warn=1 fail=0`. Rollback to clean v2321 used the checked
+> helper with readback SHA `ca978551...`; the first final selftest command hit serial input noise
+> (`cmdv1tATATAT`) and did not produce an END marker, then immediate `version` re-sync and selftest
+> confirmed v2321 health with `pass=11 warn=1 fail=0`. Function map records `strnchr` only under this
+> owned NUL-terminated kernel string plus scalar bounded count/search-byte contract. This does not
+> authorize arbitrary pointers, user pointers, unterminated strings, unbounded counts, or mass calls.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `strpbrk` owned-string accept-set contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `strpbrk` promoted under owned NUL-string accept-set contract only

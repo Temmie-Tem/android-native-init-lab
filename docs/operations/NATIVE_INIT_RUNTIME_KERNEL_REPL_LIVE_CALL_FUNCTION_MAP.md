@@ -27,6 +27,7 @@ and the C1 fail-closed identity gate.
 | `filp_close` | `0xffffff800828ac14`, `export-recovery`, direct BL xrefs `67` | cleanup only: `struct file *` returned by the paired `filp_open` proof | returned `0` | closed opened file | paired cleanup evidence from `a90-repl-live-call-proof-filp_open-pass` |
 | `kernel_read` | `0xffffff800828bae4`, `export-recovery`, direct BL xrefs `17` | `filp_open(/init)` file pointer plus owned read buffer plus owned `loff_t *` position | `kernel_read(file, buf, 16, pos) == 0x10`, buffer prefix `7f454c46`, pos advanced to `0x10` | `filp_close` returned `0`; owned path/read/pos buffers freed | `a90-repl-live-call-proof-kernel_read-pass` |
 | `strlen` | `0xffffff80099a8cc0`, `leaf-map-disasm+xref`, direct BL xrefs `2073`, leaf/no-BL | owned NUL-terminated kernel string buffer | `strlen("A90STRLEN") == 0x9` | `kfree-owned-string-buffer-ok` | `a90-repl-live-call-proof-strlen-pass` |
+| `strnchr` | `0xffffff80099b99a4`, `export-recovery`, direct BL xrefs `45`, leaf/no-BL | owned NUL-terminated kernel string buffer plus scalar bounded count and scalar search byte | `strnchr("A90STRNCHR-HEAD-Q-TAIL-Q", 24, 'Q')` returned the owned string pointer at offset `16` (redacted); boundary count `16` returned `0x0`; string stayed unchanged | `kfree-owned-strnchr-string-buffer-ok` | `a90-repl-live-call-proof-strnchr-pass` |
 | `skip_spaces` | `0xffffff80099b99d4`, `export-recovery`, direct BL xrefs `52`, first RET offset `0x18` | owned NUL-terminated kernel string buffer | `skip_spaces("   A90SKIP-SPACES")` returned the owned string pointer at offset `3` (redacted); no-leading string `A90SKIP-NO-LEADING` returned the original owned pointer (redacted); string stayed unchanged | `kfree-owned-skip-spaces-string-buffer-ok` | `a90-repl-live-call-proof-skip_spaces-pass` |
 | `strim` | `0xffffff80099b99f4`, `export-recovery`, direct BL xrefs `59`, calls `__pi_strlen` | owned mutable NUL-terminated kernel string buffer | `strim("   A90STRIM-BODY   ")` returned the owned string pointer at offset `3` (redacted) and replaced the first trailing space at offset `16` with NUL; clean string `A90STRIM-CLEAN` returned the original owned pointer (redacted) and stayed unchanged | `kfree-owned-strim-string-buffer-ok` | `a90-repl-live-call-proof-strim-pass` |
 | `strreplace` | `0xffffff80099ba12c`, `export-recovery`, direct BL xrefs `15`, leaf/no-BL | owned mutable NUL-terminated kernel string buffer plus scalar old/new bytes | `strreplace("A90STRREPLACE-Q-Q-END", 'Q', 'Z')` returned the owned NUL terminator pointer at offset `21` (redacted), replaced both `Q` bytes with `Z`, and preserved canary; missing byte `@` returned the same NUL pointer and left the string unchanged | `kfree-owned-strreplace-string-buffer-ok` | `a90-repl-live-call-proof-strreplace-pass` |
@@ -55,11 +56,12 @@ and the C1 fail-closed identity gate.
   proof gate only under their paired owned `/init` file/buffer/position contracts. Broader read paths,
   arbitrary file pointers, and arbitrary destination buffers remain parked until separate contracts are
   proven.
-- String sweep: `strlen`, `skip_spaces`, `strim`, `strreplace`, `strchr`, `strchrnul`, `strstr`, `strpbrk`, `strcmp`, `strncmp`, `strnlen`, `strrchr`,
+- String sweep: `strlen`, `strnchr`, `skip_spaces`, `strim`, `strreplace`, `strchr`, `strchrnul`, `strstr`, `strpbrk`, `strcmp`, `strncmp`, `strnlen`, `strrchr`,
   `strscpy`, `strlcpy`, and
   `strncpy` have crossed the live proof gate only under owned NUL-terminated kernel string/buffer
-  contracts. `skip_spaces` additionally requires a valid owned string pointer and only proves
-  leading ASCII space skip to offset `3` plus the no-leading-space identity case; `strim`
+  contracts. `strnchr` additionally requires scalar bounded count/search-byte args and only proves
+  one hit inside count plus one boundary-count NULL case; `skip_spaces` additionally requires a valid
+  owned string pointer and only proves leading ASCII space skip to offset `3` plus the no-leading-space identity case; `strim`
   additionally requires a mutable owned string pointer and only proves leading/trailing ASCII space
   trimming with bounded first-trailing-space NUL mutation plus the clean-string identity case;
   `strreplace` additionally requires a mutable owned string pointer plus scalar old/new bytes and only
