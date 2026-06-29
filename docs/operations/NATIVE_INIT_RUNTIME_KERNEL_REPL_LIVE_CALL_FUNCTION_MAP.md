@@ -29,6 +29,7 @@ and the C1 fail-closed identity gate.
 | `strlen` | `0xffffff80099a8cc0`, `leaf-map-disasm+xref`, direct BL xrefs `2073`, leaf/no-BL | owned NUL-terminated kernel string buffer | `strlen("A90STRLEN") == 0x9` | `kfree-owned-string-buffer-ok` | `a90-repl-live-call-proof-strlen-pass` |
 | `strchr` | `0xffffff80099a8b48`, `leaf-map-disasm+xref`, direct BL xrefs `127`, leaf/no-BL | owned NUL-terminated kernel string buffer plus scalar search byte | `strchr("A90STRCHR-Q-B-Q-Z", 'Q')` returned the owned pointer at offset `10` (redacted); missing `@` returned `0x0`; string stayed unchanged | `kfree-owned-strchr-string-buffer-ok` | `a90-repl-live-call-proof-strchr-pass` |
 | `strchrnul` | `0xffffff80099b9984`, `export-recovery`, direct BL xrefs `7`, leaf/no-BL | owned NUL-terminated kernel string buffer plus scalar search byte | `strchrnul("A90STRCHRNUL-Q-B-Q-Z", 'Q')` returned the owned pointer at offset `13` (redacted); missing `@` returned the owned NUL-terminator pointer at offset `20` (redacted); string stayed unchanged | `kfree-owned-strchrnul-string-buffer-ok` | `a90-repl-live-call-proof-strchrnul-pass` |
+| `strstr` | `0xffffff80099b9ebc`, `export-recovery`, direct BL xrefs `50`, calls `__pi_strlen`/`__pi_memcmp` | owned NUL-terminated haystack and needle kernel string buffers | `strstr("A90STRSTR-HEAD-NEEDLE-TAIL", "NEEDLE")` returned the owned haystack pointer at offset `15` (redacted); missing needle `ABSENT` returned `0x0`; both strings stayed unchanged | `kfree-owned-strstr-strings-ok` | `a90-repl-live-call-proof-strstr-pass` |
 | `strcmp` | `0xffffff80099a8b6c`, `leaf-map-disasm+xref`, direct BL xrefs `3507`, leaf/no-BL | two owned NUL-terminated kernel string buffers | equal string compare returned `0x0`; first-difference case returned positive (`0xd0`); both strings stayed unchanged | `kfree-owned-strcmp-strings-ok` | `a90-repl-live-call-proof-strcmp-pass` |
 | `strncmp` | `0xffffff80099a8d44`, `leaf-map-disasm+xref`, direct BL xrefs `590`, leaf/no-BL | two owned NUL-terminated kernel string buffers plus bounded count inside both buffers | `strncmp("A90STRNCMP-PREFIXZ-LEFT", "A90STRNCMP-PREFIX@-RIGHT", 17) == 0x0` despite post-count byte difference; count-internal mismatch at offset `3` returned positive (`0x98`); both strings stayed unchanged | `kfree-owned-strncmp-strings-ok` | `a90-repl-live-call-proof-strncmp-pass` |
 | `strnlen` | `0xffffff80099a8f4c`, `leaf-map-disasm+xref`, direct BL xrefs `473`, leaf/no-BL | owned NUL-terminated kernel string buffer plus scalar `maxlen` | `strnlen("A90STRNLEN", 64) == 0xa` | `kfree-owned-string-buffer-ok` | `a90-repl-live-call-proof-strnlen-pass` |
@@ -50,12 +51,14 @@ and the C1 fail-closed identity gate.
   proof gate only under their paired owned `/init` file/buffer/position contracts. Broader read paths,
   arbitrary file pointers, and arbitrary destination buffers remain parked until separate contracts are
   proven.
-- String sweep: `strlen`, `strchr`, `strchrnul`, `strcmp`, `strncmp`, `strnlen`, `strrchr`,
+- String sweep: `strlen`, `strchr`, `strchrnul`, `strstr`, `strcmp`, `strncmp`, `strnlen`, `strrchr`,
   `strscpy`, `strlcpy`, and
   `strncpy` have crossed the live proof gate only under owned NUL-terminated kernel string/buffer
   contracts. `strchr` additionally requires a scalar search byte and only proves first-occurrence
   hit plus missing-byte-returns-NULL cases; `strchrnul` additionally requires a scalar search byte
-  and only proves first-occurrence hit plus missing-byte-returns-NUL-terminator cases; `strcmp`
+  and only proves first-occurrence hit plus missing-byte-returns-NUL-terminator cases; `strstr`
+  additionally requires owned haystack and needle strings and only proves one present substring plus
+  one missing-needle NULL case; `strcmp`
   additionally requires two owned terminated strings and only proves equal/positive-sign compare
   cases; `strncmp` additionally requires two owned terminated strings plus a scalar bounded count
   inside both buffers and only proves bounded-equal plus positive-sign mismatch cases; `strnlen`

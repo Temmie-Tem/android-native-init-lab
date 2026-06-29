@@ -217,6 +217,7 @@ CALL_SAFETY_SWEEP_FAMILIES = {
             "strnlen",
             "strcmp",
             "strncmp",
+            "strstr",
             "strscpy",
             "strlcpy",
             "memcpy",
@@ -289,6 +290,12 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {0: "string-buffer"},
         "return_kind": "string-pointer",
         "reason": "forward string search helper; x0 must be an owned NUL-terminated kernel string buffer",
+    },
+    "strstr": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "haystack-string-buffer", 1: "needle-string-buffer"},
+        "return_kind": "string-pointer-or-null",
+        "reason": "substring search helper; x0/x1 must be owned NUL-terminated kernel string buffers",
     },
     "strcmp": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
@@ -4603,6 +4610,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern char * strchrnul(const char *,int)",
     },
+    "strstr": {
+        "input_contract": "owned NUL-terminated haystack and needle kernel string buffers",
+        "return_contract": "char * == owned haystack buffer plus expected substring offset; missing needle returns NULL",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern char * strstr(const char *, const char *)",
+    },
     "strcmp": {
         "input_contract": "two owned NUL-terminated kernel string buffers",
         "return_contract": "int == 0 for equal strings and positive sign when left first-difference byte is greater",
@@ -4694,6 +4707,14 @@ STRCHRNUL_EXPECTED_OFFSET = STRCHRNUL_PROOF_BYTES[:-1].find(bytes([STRCHRNUL_SEA
 STRCHRNUL_MISSING_BYTE = ord("@")
 STRCHRNUL_NUL_OFFSET = len(STRCHRNUL_PROOF_BYTES) - 1
 STRCHRNUL_CANARY_LEN = 8
+STRSTR_HAYSTACK_BYTES = b"A90STRSTR-HEAD-NEEDLE-TAIL\x00"
+STRSTR_HAYSTACK_LABEL = STRSTR_HAYSTACK_BYTES[:-1].decode("ascii")
+STRSTR_NEEDLE_BYTES = b"NEEDLE\x00"
+STRSTR_NEEDLE_LABEL = STRSTR_NEEDLE_BYTES[:-1].decode("ascii")
+STRSTR_MISSING_BYTES = b"ABSENT\x00"
+STRSTR_MISSING_LABEL = STRSTR_MISSING_BYTES[:-1].decode("ascii")
+STRSTR_EXPECTED_OFFSET = STRSTR_HAYSTACK_BYTES[:-1].find(STRSTR_NEEDLE_BYTES[:-1])
+STRSTR_CANARY_LEN = 8
 STRCMP_PROOF_BYTES = b"A90STRCMP-PROOF-ZZ\x00"
 STRCMP_PROOF_LABEL = STRCMP_PROOF_BYTES[:-1].decode("ascii")
 STRCMP_CANARY_LEN = 8
@@ -6150,6 +6171,263 @@ def _run_call_proof_strchrnul(session: ReplSession,
         "hit_return_ptr": f"0x{hit_return:x}",
         "missing_return_ptr": f"0x{miss_return:x}",
         "observed_bytes_hex": observed.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
+def _run_call_proof_strstr(session: ReplSession,
+                           symbols: dict[str, Symbol],
+                           image: StaticImage,
+                           *,
+                           alloc_size: int,
+                           source_root: Path,
+                           gfp: int,
+                           gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    haystack_scan_len = len(STRSTR_HAYSTACK_BYTES) + STRSTR_CANARY_LEN
+    needle_scan_len = max(len(STRSTR_NEEDLE_BYTES), len(STRSTR_MISSING_BYTES)) + STRSTR_CANARY_LEN
+    if alloc_size < max(haystack_scan_len, needle_scan_len):
+        raise ReplError(
+            f"strstr call-proof alloc_size must be at least {max(haystack_scan_len, needle_scan_len)} bytes"
+        )
+    if STRSTR_EXPECTED_OFFSET < 0:
+        raise ReplError("strstr proof haystack must contain the needle")
+    if STRSTR_MISSING_BYTES[:-1] in STRSTR_HAYSTACK_BYTES[:-1]:
+        raise ReplError("strstr missing needle must not appear in the proof haystack")
+
+    source = lookup_source_signature("strstr", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "strstr",
+        ("@owned_haystack_string_buffer", "@owned_needle_string_buffer"),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["strstr"]["expected_tier"]:
+        raise ReplError("strstr call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0, 1]:
+        raise ReplError("strstr source signature does not declare x0/x1 as pointer arguments")
+
+    resolutions = {
+        "strstr": resolve_verified(symbols, image, "strstr", purpose="call", allow_pre_arg_deref=True),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    strstr_link = require_verified_resolution(resolutions["strstr"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof string allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof string cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    expected_haystack_scan = STRSTR_HAYSTACK_BYTES + (b"\xcc" * STRSTR_CANARY_LEN)
+    expected_hit_needle_scan = STRSTR_NEEDLE_BYTES + (b"\xcc" * STRSTR_CANARY_LEN)
+    expected_missing_needle_scan = STRSTR_MISSING_BYTES + (b"\xcc" * STRSTR_CANARY_LEN)
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "strstr",
+            "resolution_method": resolutions["strstr"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    private: dict[str, object] = {}
+    haystack_ptr = 0
+    needle_ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_ok: dict[str, bool] = {"haystack": False, "needle": False}
+    free_errors: list[str] = []
+    hit_return = 0
+    missing_return = 0
+    observed_haystack = b""
+    observed_needle = b""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        strstr_runtime = (strstr_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        haystack_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        needle_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        ptrs_ok = (
+            is_kernel_lowmem_pointer(haystack_ptr)
+            and is_kernel_lowmem_pointer(needle_ptr)
+            and haystack_ptr != needle_ptr
+        )
+        checks.append({
+            "check": "kmalloc-owned-strstr-strings",
+            "ok": ptrs_ok,
+            "alloc_size": alloc_size,
+            "distinct_allocations": haystack_ptr != needle_ptr,
+        })
+        if not ptrs_ok:
+            raise ReplError("__kmalloc did not return sane distinct strstr string buffers")
+
+        _poke_bytes(session, haystack_ptr, expected_haystack_scan)
+        _poke_bytes(session, needle_ptr, expected_hit_needle_scan)
+        observed_haystack = _peek_bytes(session, haystack_ptr, haystack_scan_len)
+        observed_needle = _peek_bytes(session, needle_ptr, len(expected_hit_needle_scan))
+        setup_ok = observed_haystack == expected_haystack_scan and observed_needle == expected_hit_needle_scan
+        checks.append({
+            "check": "owned-strstr-string-poke-peek",
+            "ok": setup_ok,
+            "haystack_label": STRSTR_HAYSTACK_LABEL,
+            "needle_label": STRSTR_NEEDLE_LABEL,
+            "canary_len": STRSTR_CANARY_LEN,
+        })
+        if not setup_ok:
+            raise ReplError("owned strstr string poke/peek mismatch")
+
+        hit_return = session.call_runtime(strstr_runtime, (haystack_ptr, needle_ptr))
+        expected_hit_return = (haystack_ptr + STRSTR_EXPECTED_OFFSET) & MASK64
+        hit_ok = hit_return == expected_hit_return
+        checks.append({
+            "check": "strstr-hit-return-contract",
+            "ok": hit_ok,
+            "needle": STRSTR_NEEDLE_LABEL,
+            "expected_offset": STRSTR_EXPECTED_OFFSET,
+            "expected_return": "owned-haystack-pointer-plus-offset-redacted",
+            "observed_return": "owned-haystack-pointer-plus-offset-redacted" if hit_ok else f"0x{hit_return:x}",
+        })
+        if not hit_ok:
+            raise ReplError(
+                f"strstr hit returned 0x{hit_return:x}, "
+                f"expected owned haystack pointer at offset {STRSTR_EXPECTED_OFFSET}"
+            )
+
+        observed_haystack = _peek_bytes(session, haystack_ptr, haystack_scan_len)
+        observed_needle = _peek_bytes(session, needle_ptr, len(expected_hit_needle_scan))
+        hit_unchanged = observed_haystack == expected_haystack_scan and observed_needle == expected_hit_needle_scan
+        checks.append({
+            "check": "strstr-hit-string-immutability",
+            "ok": hit_unchanged,
+            "strings_unchanged": hit_unchanged,
+        })
+        if not hit_unchanged:
+            raise ReplError("strstr hit case modified an owned string")
+
+        _poke_bytes(session, needle_ptr, expected_missing_needle_scan)
+        observed_needle = _peek_bytes(session, needle_ptr, len(expected_missing_needle_scan))
+        missing_setup_ok = observed_needle == expected_missing_needle_scan
+        checks.append({
+            "check": "owned-strstr-missing-needle-poke-peek",
+            "ok": missing_setup_ok,
+            "missing_needle_label": STRSTR_MISSING_LABEL,
+        })
+        if not missing_setup_ok:
+            raise ReplError("owned strstr missing-needle poke/peek mismatch")
+
+        missing_return = session.call_runtime(strstr_runtime, (haystack_ptr, needle_ptr))
+        missing_ok = missing_return == 0
+        checks.append({
+            "check": "strstr-missing-return-contract",
+            "ok": missing_ok,
+            "missing_needle": STRSTR_MISSING_LABEL,
+            "expected_return": "0x0",
+            "observed_return": f"0x{missing_return:x}",
+        })
+        if not missing_ok:
+            raise ReplError(f"strstr missing-needle case returned 0x{missing_return:x}, expected 0")
+
+        observed_haystack = _peek_bytes(session, haystack_ptr, haystack_scan_len)
+        observed_needle = _peek_bytes(session, needle_ptr, len(expected_missing_needle_scan))
+        missing_unchanged = (
+            observed_haystack == expected_haystack_scan
+            and observed_needle == expected_missing_needle_scan
+        )
+        checks.append({
+            "check": "strstr-missing-string-immutability",
+            "ok": missing_unchanged,
+            "strings_unchanged": missing_unchanged,
+        })
+        if not missing_unchanged:
+            raise ReplError("strstr missing-needle case modified an owned string")
+    finally:
+        for label, ptr in (("haystack", haystack_ptr), ("needle", needle_ptr)):
+            if kfree_runtime and ptr and is_kernel_lowmem_pointer(ptr):
+                try:
+                    session.call_runtime(kfree_runtime, (ptr,))
+                    free_ok[label] = True
+                except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                    free_errors.append(f"{label}: {exc}")
+        session.set_panic_on_oops(1)
+
+    cleanup_ok = all(free_ok.values())
+    checks.append({
+        "check": "kfree-owned-strstr-strings",
+        "ok": cleanup_ok,
+        "free_attempted": {
+            "haystack": bool(kfree_runtime and haystack_ptr),
+            "needle": bool(kfree_runtime and needle_ptr),
+        },
+    })
+    if free_errors:
+        raise ReplError(f"kfree failed after strstr proof: {free_errors}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-strstr-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "strstr",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["strstr"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["strstr"]["return_contract"],
+        "alloc_size": alloc_size,
+        "haystack": STRSTR_HAYSTACK_LABEL,
+        "needle": STRSTR_NEEDLE_LABEL,
+        "missing_needle": STRSTR_MISSING_LABEL,
+        "expected_hit_offset": STRSTR_EXPECTED_OFFSET,
+        "hit_expected_return_value": "owned-haystack-pointer-plus-offset-redacted",
+        "hit_observed_return_value": "owned-haystack-pointer-plus-offset-redacted",
+        "hit_return_matches_expected_offset": hit_return == ((haystack_ptr + STRSTR_EXPECTED_OFFSET) & MASK64),
+        "missing_expected_return_value": "0x0",
+        "missing_observed_return_value": f"0x{missing_return:x}",
+        "strings_unchanged_after_calls": True,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "strstr",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["strstr"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["strstr"]["return_contract"],
+            "observed_return_value": f"hit-offset={STRSTR_EXPECTED_OFFSET},missing=0x0",
+            "cleanup": "kfree-owned-strstr-strings-ok" if cleanup_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "strstr_runtime": f"0x{((strstr_link + slide) & MASK64):x}",
+        "haystack_ptr": f"0x{haystack_ptr:x}",
+        "needle_ptr": f"0x{needle_ptr:x}",
+        "hit_return_ptr": f"0x{hit_return:x}",
+        "haystack_bytes_hex": observed_haystack.hex(),
+        "needle_bytes_hex": observed_needle.hex(),
+        "expected_haystack_hex": expected_haystack_scan.hex(),
+        "expected_hit_needle_hex": expected_hit_needle_scan.hex(),
+        "expected_missing_needle_hex": expected_missing_needle_scan.hex(),
         "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
     })
     return summary, private
@@ -8681,6 +8959,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "strchrnul":
         return _run_call_proof_strchrnul(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "strstr":
+        return _run_call_proof_strstr(
             session,
             symbols,
             image,

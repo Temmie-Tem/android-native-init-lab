@@ -288,6 +288,16 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
   --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
   --evidence-dir workspace/private/runs/kernel/<unit>/ \
+  strstr
+```
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/a90_repl.py call-proof \
+  --map workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map \
+  --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
+  --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
+  --evidence-dir workspace/private/runs/kernel/<unit>/ \
   strcmp
 ```
 
@@ -380,7 +390,11 @@ pointer to match the expected first-occurrence offset, checks a missing byte ret
 string and canary stay unchanged, and redacts the owned pointer and observed raw bytes from public
 output. The `strchrnul` proof uses the same owned-string shape, but checks a missing byte returns the
 owned string NUL-terminator pointer instead of `0`, verifies the string and canary stay unchanged, and
-redacts the owned pointer and observed raw bytes from public output. The `strcmp` proof allocates two owned
+redacts the owned pointer and observed raw bytes from public output. The `strstr` proof allocates owned
+haystack and needle strings, requires the present needle to return the expected haystack offset, rewrites
+the needle buffer to a missing string and requires `0`, verifies both strings and canaries stay unchanged,
+frees both buffers, and redacts the owned pointers and observed raw bytes from public output. The `strcmp`
+proof allocates two owned
 NUL-terminated string buffers, compares equal strings for return `0`, changes one right-string byte so
 the first difference should return a positive sign, verifies both strings and canaries stay unchanged
 after both calls, and redacts the owned pointers and observed raw bytes from public output. The
