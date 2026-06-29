@@ -767,6 +767,30 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `strrchr` owned-string contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `strrchr` promoted under owned NUL-terminated string only
+>
+> Tenth one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py call-proof`
+> with `strrchr`, using one tool-owned NUL-terminated kernel string buffer containing
+> `A90STRRCHR-A-B-A-Z\0`, scalar search byte `0x41` (`A`), and scalar missing-byte probe `0x40`
+> (`@`). Static gate: `strrchr=0xffffff80099a900c`, `leaf-map-disasm+xref`, direct-BL xrefs `1405`,
+> leaf/no-BL, RET in scan. Source contract: `extern char * strrchr(const char *,int)`, with x0 as
+> the string pointer and x1 as a scalar byte. The call-safety seed remains `SAFE-WITH-VALID-PTR`;
+> required valid pointer arg is x0 `string-buffer`.
+>
+> Live path: confirmed rollback images and TWRP, flashed the existing v1-repl boot image
+> (`b846ae9f...`) through `native_init_flash.py`, confirmed native selftest `fail=0` and
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof strrchr` with the C2B verified map. Result:
+> `a90-repl-live-call-proof-strrchr-pass`; checks covered C1 identity, source pointer contract,
+> owned string allocation, string poke/peek, hit return at expected offset `15`, string immutability,
+> missing-byte return `0x0`, second immutability check, and `kfree-owned-strrchr-string-buffer`.
+>
+> Candidate selftest after proof was `pass=11 warn=1 fail=0`. Rollback to clean v2321 used the checked
+> helper with readback SHA `ca978551...`; final selftest was `pass=11 warn=1 fail=0`. Function map
+> records `strrchr` only under the owned NUL-terminated string plus scalar-search-byte contract. This
+> does not authorize arbitrary pointers, unterminated strings, user pointers, or other string helpers.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `memcmp` owned-buffer contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `memcmp` promoted under two owned buffers + bounded size only

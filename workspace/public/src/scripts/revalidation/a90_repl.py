@@ -125,6 +125,11 @@ LEAF_MAP_GROUND_TRUTH_SYMBOLS = {
         "expected_pointer_args": (0, 1),
         "note": "non-JOPP arm64 leaf memory compare helper; identity rests on map label, high xref count, and leaf shape",
     },
+    "strrchr": {
+        "min_direct_bl_xrefs": 1000,
+        "expected_pointer_args": (0,),
+        "note": "non-JOPP arm64 leaf reverse string search helper; identity rests on map label, high xref count, and leaf shape",
+    },
 }
 MIN_VERIFIED_DIRECT_BL_XREFS = 1
 KNOWN_UNSAFE_CALL_TARGETS = {
@@ -260,6 +265,12 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {0: "left-buffer", 1: "right-buffer"},
         "return_kind": "int-sign",
         "reason": "bounded memory compare helper; x0/x1 must be owned buffers and size must stay inside both buffers",
+    },
+    "strrchr": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "string-buffer"},
+        "return_kind": "string-pointer-or-null",
+        "reason": "reverse string search helper; x0 must be an owned NUL-terminated kernel string buffer",
     },
     "kmem_cache_alloc": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
@@ -4517,6 +4528,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern int memcmp(const void *,const void *,__kernel_size_t)",
     },
+    "strrchr": {
+        "input_contract": "owned NUL-terminated kernel string buffer plus scalar search byte",
+        "return_contract": "char * == owned string buffer plus expected last-occurrence offset; missing byte returns NULL",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern char * strrchr(const char *,int)",
+    },
 }
 FILP_OPEN_PROOF_PATH = b"/init\x00"
 FILP_OPEN_PROOF_FLAGS = 0
@@ -4548,6 +4565,12 @@ MEMCMP_PROOF_SIZE = len(MEMCMP_PROOF_BYTES)
 MEMCMP_CANARY_LEN = 8
 MEMCMP_MISMATCH_OFFSET = 10
 MEMCMP_MISMATCH_RIGHT_BYTE = ord("@")
+STRRCHR_PROOF_BYTES = b"A90STRRCHR-A-B-A-Z\x00"
+STRRCHR_PROOF_LABEL = STRRCHR_PROOF_BYTES[:-1].decode("ascii")
+STRRCHR_SEARCH_BYTE = ord("A")
+STRRCHR_EXPECTED_OFFSET = STRRCHR_PROOF_BYTES[:-1].rfind(bytes([STRRCHR_SEARCH_BYTE]))
+STRRCHR_MISSING_BYTE = ord("@")
+STRRCHR_CANARY_LEN = 8
 LINUX_MAX_ERRNO = 4095
 LINUX_ERR_PTR_MIN = ((-LINUX_MAX_ERRNO) & MASK64)
 
@@ -4831,6 +4854,224 @@ def _run_call_proof_memcmp(session: ReplSession,
         "left_bytes_hex": observed_left.hex(),
         "right_equal_bytes_hex": observed_right_equal.hex(),
         "right_mismatch_bytes_hex": observed_right_mismatch.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
+def _run_call_proof_strrchr(session: ReplSession,
+                            symbols: dict[str, Symbol],
+                            image: StaticImage,
+                            *,
+                            alloc_size: int,
+                            source_root: Path,
+                            gfp: int,
+                            gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    scan_len = len(STRRCHR_PROOF_BYTES) + STRRCHR_CANARY_LEN
+    if alloc_size < scan_len:
+        raise ReplError(f"strrchr call-proof alloc_size must be at least {scan_len} bytes")
+    if STRRCHR_EXPECTED_OFFSET < 0:
+        raise ReplError("strrchr proof search byte is not present in the proof string")
+    if STRRCHR_MISSING_BYTE in STRRCHR_PROOF_BYTES:
+        raise ReplError("strrchr missing-byte proof value is present in the proof string")
+
+    source = lookup_source_signature("strrchr", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "strrchr",
+        ("@owned_string_buffer", STRRCHR_SEARCH_BYTE),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["strrchr"]["expected_tier"]:
+        raise ReplError("strrchr call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError("strrchr source signature does not declare x0 as the string pointer argument")
+
+    resolutions = {
+        "strrchr": resolve_verified(symbols, image, "strrchr", purpose="call", allow_pre_arg_deref=True),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    strrchr_link = require_verified_resolution(resolutions["strrchr"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof string allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof string cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    expected_scan = STRRCHR_PROOF_BYTES + (b"\xcc" * STRRCHR_CANARY_LEN)
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "strrchr",
+            "resolution_method": resolutions["strrchr"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+            "search_byte": f"0x{STRRCHR_SEARCH_BYTE:02x}",
+        },
+    ]
+    private: dict[str, object] = {}
+    ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_attempted = False
+    free_ok = False
+    free_error = ""
+    hit_return = 0
+    miss_return = 0
+    observed = b""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        strrchr_runtime = (strrchr_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        ptr_ok = is_kernel_lowmem_pointer(ptr)
+        checks.append({
+            "check": "kmalloc-owned-strrchr-string-buffer",
+            "ok": ptr_ok,
+            "alloc_size": alloc_size,
+            "kernel_lowmem": ptr_ok,
+        })
+        if not ptr_ok:
+            raise ReplError("__kmalloc did not return a sane strrchr string buffer")
+
+        _poke_bytes(session, ptr, expected_scan)
+        observed = _peek_bytes(session, ptr, scan_len)
+        setup_ok = observed == expected_scan
+        checks.append({
+            "check": "owned-strrchr-string-poke-peek",
+            "ok": setup_ok,
+            "proof_string": STRRCHR_PROOF_LABEL,
+            "canary_len": STRRCHR_CANARY_LEN,
+        })
+        if not setup_ok:
+            raise ReplError("owned strrchr string poke/peek mismatch")
+
+        hit_return = session.call_runtime(strrchr_runtime, (ptr, STRRCHR_SEARCH_BYTE))
+        expected_hit_return = (ptr + STRRCHR_EXPECTED_OFFSET) & MASK64
+        hit_ok = hit_return == expected_hit_return
+        checks.append({
+            "check": "strrchr-hit-return-contract",
+            "ok": hit_ok,
+            "search_byte": f"0x{STRRCHR_SEARCH_BYTE:02x}",
+            "expected_offset": STRRCHR_EXPECTED_OFFSET,
+            "return_matches_expected_offset": hit_ok,
+        })
+        if not hit_ok:
+            raise ReplError(
+                "strrchr hit case returned an unexpected pointer "
+                f"(expected offset {STRRCHR_EXPECTED_OFFSET})"
+            )
+
+        observed = _peek_bytes(session, ptr, scan_len)
+        hit_unchanged = observed == expected_scan
+        checks.append({
+            "check": "strrchr-hit-string-immutability",
+            "ok": hit_unchanged,
+            "string_unchanged": hit_unchanged,
+        })
+        if not hit_unchanged:
+            raise ReplError("strrchr hit case modified the owned string buffer")
+
+        miss_return = session.call_runtime(strrchr_runtime, (ptr, STRRCHR_MISSING_BYTE))
+        miss_ok = miss_return == 0
+        checks.append({
+            "check": "strrchr-miss-return-contract",
+            "ok": miss_ok,
+            "missing_byte": f"0x{STRRCHR_MISSING_BYTE:02x}",
+            "expected_return": "0x0",
+            "observed_return": f"0x{miss_return:x}",
+        })
+        if not miss_ok:
+            raise ReplError(f"strrchr miss case returned 0x{miss_return:x}, expected 0")
+
+        observed = _peek_bytes(session, ptr, scan_len)
+        miss_unchanged = observed == expected_scan
+        checks.append({
+            "check": "strrchr-miss-string-immutability",
+            "ok": miss_unchanged,
+            "string_unchanged": miss_unchanged,
+        })
+        if not miss_unchanged:
+            raise ReplError("strrchr miss case modified the owned string buffer")
+    finally:
+        if ptr and is_kernel_lowmem_pointer(ptr) and kfree_runtime:
+            free_attempted = True
+            try:
+                session.call_runtime(kfree_runtime, (ptr,))
+                free_ok = True
+            except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                free_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "kfree-owned-strrchr-string-buffer",
+        "ok": free_ok,
+        "free_attempted": free_attempted,
+    })
+    if free_error:
+        raise ReplError(f"kfree failed after strrchr proof: {free_error}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-strrchr-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "strrchr",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["strrchr"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["strrchr"]["return_contract"],
+        "alloc_size": alloc_size,
+        "proof_string": STRRCHR_PROOF_LABEL,
+        "search_byte": f"0x{STRRCHR_SEARCH_BYTE:02x}",
+        "expected_hit_offset": STRRCHR_EXPECTED_OFFSET,
+        "hit_expected_return_value": "owned-string-pointer-plus-offset-redacted",
+        "hit_observed_return_value": "owned-string-pointer-plus-offset-redacted",
+        "return_matches_expected_offset": hit_return == ((ptr + STRRCHR_EXPECTED_OFFSET) & MASK64),
+        "missing_byte": f"0x{STRRCHR_MISSING_BYTE:02x}",
+        "missing_expected_return_value": "0x0",
+        "missing_observed_return_value": f"0x{miss_return:x}",
+        "string_unchanged_after_calls": True,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "strrchr",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["strrchr"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["strrchr"]["return_contract"],
+            "observed_return_value": f"hit-offset={STRRCHR_EXPECTED_OFFSET},miss=0x0",
+            "cleanup": "kfree-owned-strrchr-string-buffer-ok" if free_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "strrchr_runtime": f"0x{((strrchr_link + slide) & MASK64):x}",
+        "alloc_ptr": f"0x{ptr:x}",
+        "hit_return_ptr": f"0x{hit_return:x}",
+        "observed_bytes_hex": observed.hex(),
         "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
     })
     return summary, private
@@ -6394,6 +6635,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "memcmp":
         return _run_call_proof_memcmp(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "strrchr":
+        return _run_call_proof_strrchr(
             session,
             symbols,
             image,

@@ -28,6 +28,7 @@ and the C1 fail-closed identity gate.
 | `kernel_read` | `0xffffff800828bae4`, `export-recovery`, direct BL xrefs `17` | `filp_open(/init)` file pointer plus owned read buffer plus owned `loff_t *` position | `kernel_read(file, buf, 16, pos) == 0x10`, buffer prefix `7f454c46`, pos advanced to `0x10` | `filp_close` returned `0`; owned path/read/pos buffers freed | `a90-repl-live-call-proof-kernel_read-pass` |
 | `strlen` | `0xffffff80099a8cc0`, `leaf-map-disasm+xref`, direct BL xrefs `2073`, leaf/no-BL | owned NUL-terminated kernel string buffer | `strlen("A90STRLEN") == 0x9` | `kfree-owned-string-buffer-ok` | `a90-repl-live-call-proof-strlen-pass` |
 | `strnlen` | `0xffffff80099a8f4c`, `leaf-map-disasm+xref`, direct BL xrefs `473`, leaf/no-BL | owned NUL-terminated kernel string buffer plus scalar `maxlen` | `strnlen("A90STRNLEN", 64) == 0xa` | `kfree-owned-string-buffer-ok` | `a90-repl-live-call-proof-strnlen-pass` |
+| `strrchr` | `0xffffff80099a900c`, `leaf-map-disasm+xref`, direct BL xrefs `1405`, leaf/no-BL | owned NUL-terminated kernel string buffer plus scalar search byte | `strrchr("A90STRRCHR-A-B-A-Z", 'A')` returned the owned pointer at offset `15` (redacted); missing `@` returned `0x0`; string stayed unchanged | `kfree-owned-strrchr-string-buffer-ok` | `a90-repl-live-call-proof-strrchr-pass` |
 | `strscpy` | `0xffffff80099b9794`, `export-recovery`, direct BL xrefs `8`, leaf/no-BL | owned destination buffer plus owned NUL-terminated source string buffer plus bounded size | `strscpy(dst, "A90STRSCPY", 32) == 0xa`, destination prefix matched source, canary after size preserved | `kfree-owned-strscpy-buffers-ok` | `a90-repl-live-call-proof-strscpy-pass` |
 | `strlcpy` | `0xffffff80099b9724`, `export-recovery`, direct BL xrefs `963`, calls `__pi_strlen`/`__memcpy` | owned destination buffer plus owned NUL-terminated source string buffer plus bounded size | `strlcpy(dst, "A90STRLCPY", 32) == 0xa`, destination prefix matched source, canary after size preserved | `kfree-owned-strlcpy-buffers-ok` | `a90-repl-live-call-proof-strlcpy-pass` |
 | `strncpy` | `0xffffff80099b96f4`, `export-recovery`, direct BL xrefs `187`, leaf/no-BL | owned destination buffer plus owned NUL-terminated source string buffer plus bounded count | `strncpy(dst, "A90STRNCPY", 32)` returned the owned destination pointer (redacted), destination prefix matched source, NUL padded to count, canary after count preserved | `kfree-owned-strncpy-buffers-ok` | `a90-repl-live-call-proof-strncpy-pass` |
@@ -41,11 +42,12 @@ and the C1 fail-closed identity gate.
   proof gate only under their paired owned `/init` file/buffer/position contracts. Broader read paths,
   arbitrary file pointers, and arbitrary destination buffers remain parked until separate contracts are
   proven.
-- String sweep: `strlen`, `strnlen`, `strscpy`, `strlcpy`, and `strncpy` have crossed the live proof gate only under
-  owned NUL-terminated kernel string/buffer contracts. `strnlen` additionally requires the scalar
-  `maxlen` contract; `strscpy`, `strlcpy`, and `strncpy` additionally require an owned destination
-  buffer and a bounded size/count inside that destination. Other string/memory helpers remain parked
-  until separate C1 identity and pointer contracts are proven.
+- String sweep: `strlen`, `strnlen`, `strrchr`, `strscpy`, `strlcpy`, and `strncpy` have crossed the
+  live proof gate only under owned NUL-terminated kernel string/buffer contracts. `strnlen`
+  additionally requires the scalar `maxlen` contract; `strrchr` additionally requires a scalar search
+  byte and a terminated owned string; `strscpy`, `strlcpy`, and `strncpy` additionally require an owned
+  destination buffer and a bounded size/count inside that destination. Other string/memory helpers
+  remain parked until separate C1 identity and pointer contracts are proven.
 - Memory-compare sweep: `memcmp` has crossed the live proof gate only under the two-owned-buffer plus
   bounded-size contract. It does not authorize arbitrary pointers, unbounded sizes, user pointers, or
   other memory helpers such as `memcpy`, `memmove`, `memset`, or `memchr`.
