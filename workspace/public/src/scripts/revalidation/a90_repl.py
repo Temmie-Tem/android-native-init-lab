@@ -637,6 +637,7 @@ def static_raw_image(image: StaticImage) -> bytes:
 
 _STATIC_RAW_CACHE: dict[tuple[int, int], bytes] = {}
 _DIRECT_BL_XREF_CACHE: dict[tuple[int, int], tuple[int, list[str]]] = {}
+_DIRECT_BL_XREF_INDEX_CACHE: dict[tuple[int, int], dict[int, tuple[int, list[str]]]] = {}
 _EXPORT_CANDIDATE_CACHE: dict[tuple[int, str], list[dict[str, object]]] = {}
 _EXPORT_STRING_INDEX_CACHE: dict[tuple[int, tuple[str, ...]], dict[int, tuple[str, ...]]] = {}
 _EXPORT_REF_INDEX_CACHE: dict[tuple[int, tuple[str, ...]], dict[str, list[int]]] = {}
@@ -709,11 +710,37 @@ def _count_direct_bl_xrefs(raw: bytes, target_vaddr: int) -> tuple[int, list[str
     return count, sample_sites
 
 
+def _direct_bl_xref_index(raw: bytes) -> dict[int, tuple[int, list[str]]]:
+    key = (id(raw), len(raw))
+    cached = _DIRECT_BL_XREF_INDEX_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    counts: dict[int, int] = {}
+    samples: dict[int, list[str]] = {}
+    for off in range(0, len(raw) - 4, 4):
+        word = struct.unpack_from("<I", raw, off)[0]
+        if not _is_a64_bl(word):
+            continue
+        target = _decode_a64_bl_target(_raw_off_to_vaddr(off), word)
+        counts[target] = counts.get(target, 0) + 1
+        sample_sites = samples.setdefault(target, [])
+        if len(sample_sites) < 8:
+            sample_sites.append(f"0x{_raw_off_to_vaddr(off):x}")
+
+    result = {
+        target: (count, samples.get(target, []))
+        for target, count in counts.items()
+    }
+    _DIRECT_BL_XREF_INDEX_CACHE[key] = result
+    return result
+
+
 def _count_direct_bl_xrefs_cached(raw: bytes, target_vaddr: int) -> tuple[int, list[str]]:
     key = (id(raw), target_vaddr)
     cached = _DIRECT_BL_XREF_CACHE.get(key)
     if cached is None:
-        cached = _count_direct_bl_xrefs(raw, target_vaddr)
+        cached = _direct_bl_xref_index(raw).get(target_vaddr, (0, []))
         _DIRECT_BL_XREF_CACHE[key] = cached
     return cached
 
@@ -2715,16 +2742,35 @@ def run_call_safety_classify(symbols: dict[str, Symbol],
 
 _SOURCE_SIGNATURE_CACHE: dict[tuple[str, str], dict[str, object]] = {}
 _SOURCE_CANDIDATE_FILE_CACHE: dict[tuple[str, str], tuple[Path, ...]] = {}
+_SOURCE_HINT_FILE_CACHE: dict[tuple[str, str], tuple[Path, ...]] = {}
+_SOURCE_FILE_TEXT_CACHE: dict[Path, str | None] = {}
+_SOURCE_C_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
+    "filp_clone_open": ("fs/internal.h", "include/linux/fs.h"),
     "filp_close": ("include/linux/fs.h",),
     "filp_open": ("include/linux/fs.h",),
+    "kfree_call_rcu": ("include/linux/rcutree.h",),
+    "kfree_const": ("include/linux/string.h",),
+    "kfree_link": ("include/linux/fs.h",),
     "kernel_read": ("include/linux/fs.h",),
+    "kernel_read_file": ("include/linux/fs.h",),
+    "kernel_read_file_from_fd": ("include/linux/fs.h",),
+    "kernel_read_file_from_path": ("include/linux/fs.h",),
     "kernel_write": ("include/linux/fs.h",),
     "kfree": ("include/linux/slab.h",),
     "ksize": ("include/linux/slab.h",),
+    "vfs_getxattr": ("include/linux/xattr.h",),
+    "vfs_getxattr_alloc": ("include/linux/xattr.h",),
+    "vfs_ioctl": ("fs/internal.h", "include/linux/fs.h"),
+    "vfs_kern_mount": ("include/linux/mount.h",),
+    "vfs_listxattr": ("include/linux/xattr.h",),
+    "vfs_load_quota_inode": ("fs/quota/dquot.c",),
 }
 _SOURCE_HEADER_HINTS_BY_PREFIX = (
     ("__kmalloc", ("include/linux/slab.h",)),
+    ("filp_", ("include/linux/fs.h", "fs/internal.h")),
+    ("kernel_read", ("include/linux/fs.h",)),
+    ("kernel_write", ("include/linux/fs.h",)),
     ("kfree_skb", ("include/linux/skbuff.h",)),
     ("kfree", ("include/linux/slab.h",)),
     ("kmalloc", ("include/linux/slab.h",)),
@@ -2737,7 +2783,13 @@ _SOURCE_HEADER_HINTS_BY_PREFIX = (
     ("refcount_", ("include/linux/refcount.h",)),
     ("str", ("include/linux/string.h", "arch/arm64/include/asm/string.h")),
     ("sysfs_", ("include/linux/sysfs.h",)),
-    ("vfs_", ("include/linux/fs.h",)),
+    ("vfs_", (
+        "include/linux/fs.h",
+        "include/linux/xattr.h",
+        "include/linux/mount.h",
+        "fs/internal.h",
+        "fs/quota/dquot.c",
+    )),
 )
 
 
@@ -3024,9 +3076,8 @@ def _source_candidate_files(root: Path, symbol: str) -> tuple[Path, ...]:
 def _extract_source_signatures_from_file(root: Path,
                                          file_path: Path,
                                          symbol: str) -> list[dict[str, object]]:
-    try:
-        original = file_path.read_text(errors="ignore")
-    except OSError:
+    original = _source_file_text(file_path)
+    if original is None:
         return []
     text = _strip_c_comments_preserve_newlines(original)
     matches: list[dict[str, object]] = []
@@ -3078,6 +3129,114 @@ def _source_match_sort_key(row: dict[str, object], symbol: str = "") -> tuple[in
     return (bucket, 0, int(row.get("line", 0) or 0), path)
 
 
+def _source_hint_files(root: Path, symbol: str) -> tuple[Path, ...]:
+    key = (str(root.resolve()), symbol)
+    cached = _SOURCE_HINT_FILE_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    files: list[Path] = []
+    for rel in _source_symbol_header_hints(symbol):
+        path = root / rel
+        if path.is_file():
+            files.append(path)
+    result = tuple(sorted(set(files), key=lambda path: _source_file_priority(root, path, symbol)))
+    _SOURCE_HINT_FILE_CACHE[key] = result
+    return result
+
+
+def _source_file_text(path: Path) -> str | None:
+    cached = _SOURCE_FILE_TEXT_CACHE.get(path)
+    if cached is not None or path in _SOURCE_FILE_TEXT_CACHE:
+        return cached
+    try:
+        text = path.read_text(errors="ignore")
+    except OSError:
+        text = None
+    _SOURCE_FILE_TEXT_CACHE[path] = text
+    return text
+
+
+def _dedupe_source_matches(matches: list[dict[str, object]],
+                           symbol: str) -> list[dict[str, object]]:
+    deduped: dict[tuple[str, int], dict[str, object]] = {}
+    for row in matches:
+        deduped[(str(row.get("signature")), int(row.get("line", 0) or 0))] = row
+    return sorted(deduped.values(), key=lambda row: _source_match_sort_key(row, symbol))
+
+
+def _source_lookup_result_from_matches(symbol: str,
+                                       root: Path,
+                                       candidate_files: tuple[Path, ...],
+                                       matches: list[dict[str, object]],
+                                       *,
+                                       strategy: str,
+                                       missing_reason: str) -> dict[str, object]:
+    candidate_file_sample = [_public_repo_path(path) for path in candidate_files[:12]]
+    matches = _dedupe_source_matches(matches, symbol)
+
+    if not matches:
+        return {
+            "symbol": symbol,
+            "found": False,
+            "has_pointer_arg": False,
+            "pointer_arg_indices": [],
+            "status": "missing",
+            "reason": missing_reason,
+            "source_root": _public_repo_path(root),
+            "candidate_file_count": len(candidate_files),
+            "candidate_files_sample": candidate_file_sample,
+            "candidate_scan_strategy": strategy,
+            "match_count": 0,
+            "selected": None,
+            "matches_sample": [],
+        }
+
+    shapes = {
+        (
+            int(row.get("arg_count", 0) or 0),
+            tuple(row.get("pointer_arg_indices", [])),
+            tuple(row.get("user_pointer_arg_indices", [])),
+            bool(row.get("variadic")),
+        )
+        for row in matches
+    }
+    if len(shapes) > 1:
+        return {
+            "symbol": symbol,
+            "found": False,
+            "has_pointer_arg": False,
+            "pointer_arg_indices": [],
+            "status": "ambiguous",
+            "reason": "source-signatures-have-incompatible-arg-shapes",
+            "source_root": _public_repo_path(root),
+            "candidate_file_count": len(candidate_files),
+            "candidate_files_sample": candidate_file_sample,
+            "candidate_scan_strategy": strategy,
+            "match_count": len(matches),
+            "selected": None,
+            "matches_sample": matches[:8],
+        }
+
+    selected = matches[0]
+    pointer_arg_indices = [int(index) for index in selected.get("pointer_arg_indices", [])]
+    return {
+        "symbol": symbol,
+        "found": True,
+        "has_pointer_arg": bool(pointer_arg_indices),
+        "pointer_arg_indices": pointer_arg_indices,
+        "status": "found",
+        "reason": "source-signature-found",
+        "source_root": _public_repo_path(root),
+        "candidate_file_count": len(candidate_files),
+        "candidate_files_sample": candidate_file_sample,
+        "candidate_scan_strategy": strategy,
+        "match_count": len(matches),
+        "selected": selected,
+        "matches_sample": matches[:8],
+    }
+
+
 def lookup_source_signature(symbol: str,
                             *,
                             source_root: Path = DEFAULT_KERNEL_SOURCE_ROOT) -> dict[str, object]:
@@ -3105,30 +3264,18 @@ def lookup_source_signature(symbol: str,
         _SOURCE_SIGNATURE_CACHE[key] = result
         return result
 
-    candidate_files = _source_candidate_files(root, symbol)
-    candidate_file_sample = [_public_repo_path(path) for path in candidate_files[:12]]
-    matches: list[dict[str, object]] = []
-    for path in candidate_files:
-        if path.suffix not in (".c", ".h"):
-            continue
-        matches.extend(_extract_source_signatures_from_file(root, path, symbol))
-
-    deduped: dict[tuple[str, int], dict[str, object]] = {}
-    for row in matches:
-        deduped[(str(row.get("signature")), int(row.get("line", 0) or 0))] = row
-    matches = sorted(deduped.values(), key=lambda row: _source_match_sort_key(row, symbol))
-
-    if not matches:
+    if not _SOURCE_C_IDENTIFIER_RE.fullmatch(symbol):
         result = {
             "symbol": symbol,
             "found": False,
             "has_pointer_arg": False,
             "pointer_arg_indices": [],
             "status": "missing",
-            "reason": "signature-not-found-in-source",
+            "reason": "source-symbol-not-c-identifier",
             "source_root": _public_repo_path(root),
-            "candidate_file_count": len(candidate_files),
-            "candidate_files_sample": candidate_file_sample,
+            "candidate_file_count": 0,
+            "candidate_files_sample": [],
+            "candidate_scan_strategy": "identifier-reject",
             "match_count": 0,
             "selected": None,
             "matches_sample": [],
@@ -3136,49 +3283,38 @@ def lookup_source_signature(symbol: str,
         _SOURCE_SIGNATURE_CACHE[key] = result
         return result
 
-    shapes = {
-        (
-            int(row.get("arg_count", 0) or 0),
-            tuple(row.get("pointer_arg_indices", [])),
-            tuple(row.get("user_pointer_arg_indices", [])),
-            bool(row.get("variadic")),
-        )
-        for row in matches
-    }
-    if len(shapes) > 1:
-        result = {
-            "symbol": symbol,
-            "found": False,
-            "has_pointer_arg": False,
-            "pointer_arg_indices": [],
-            "status": "ambiguous",
-            "reason": "source-signatures-have-incompatible-arg-shapes",
-            "source_root": _public_repo_path(root),
-            "candidate_file_count": len(candidate_files),
-            "candidate_files_sample": candidate_file_sample,
-            "match_count": len(matches),
-            "selected": None,
-            "matches_sample": matches[:8],
-        }
-        _SOURCE_SIGNATURE_CACHE[key] = result
-        return result
+    hint_files = _source_hint_files(root, symbol)
+    if hint_files:
+        hint_matches: list[dict[str, object]] = []
+        for path in hint_files:
+            hint_matches.extend(_extract_source_signatures_from_file(root, path, symbol))
+        if hint_matches:
+            result = _source_lookup_result_from_matches(
+                symbol,
+                root,
+                hint_files,
+                hint_matches,
+                strategy="hint",
+                missing_reason="signature-not-found-in-source-hints",
+            )
+            _SOURCE_SIGNATURE_CACHE[key] = result
+            return result
 
-    selected = matches[0]
-    pointer_arg_indices = [int(index) for index in selected.get("pointer_arg_indices", [])]
-    result = {
-        "symbol": symbol,
-        "found": True,
-        "has_pointer_arg": bool(pointer_arg_indices),
-        "pointer_arg_indices": pointer_arg_indices,
-        "status": "found",
-        "reason": "source-signature-found",
-        "source_root": _public_repo_path(root),
-        "candidate_file_count": len(candidate_files),
-        "candidate_files_sample": candidate_file_sample,
-        "match_count": len(matches),
-        "selected": selected,
-        "matches_sample": matches[:8],
-    }
+    candidate_files = _source_candidate_files(root, symbol)
+    matches: list[dict[str, object]] = []
+    for path in candidate_files:
+        if path.suffix not in (".c", ".h"):
+            continue
+        matches.extend(_extract_source_signatures_from_file(root, path, symbol))
+
+    result = _source_lookup_result_from_matches(
+        symbol,
+        root,
+        candidate_files,
+        matches,
+        strategy="rg-fallback",
+        missing_reason="signature-not-found-in-source",
+    )
     _SOURCE_SIGNATURE_CACHE[key] = result
     return result
 

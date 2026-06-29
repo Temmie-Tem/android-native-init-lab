@@ -767,7 +767,30 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
-## 🟣 ACTIVE NOW — REPL U4 — source-scan perf polish + tool runbook, then CLOSE the REPL epic
+## ✅ DONE — REPL U4 — source-scan perf polish + tool runbook; REPL epic CLOSED
+
+> ### ✅ STATUS (2026-06-29 U4 host pass) — perf polish + runbook complete
+>
+> U4 is host-only complete. `call-safety-sweep` now keeps U3 verdicts while avoiding repeated broad
+> source/header scans and repeated whole-image direct-BL xref scans: source lookup tries
+> symbol/family hints first (`ksize` now resolves via `candidate_scan_strategy=hint`,
+> `candidate_file_count=1`), source file text is cached, non-C local clone names are rejected early,
+> and BL xrefs are indexed once per raw image. Re-sweep verdicts are unchanged and regression-tested:
+> allocator `candidate_safe_ranked=['ksize']`; read-io
+> `candidate_safe_ranked=['filp_close', 'filp_open', 'kernel_read']`; `kmem_cache_init` remains
+> `source-__init` dropped; `kfree_const`, `kmem_cache_shrink`, and `kfree_skb_partial` remain dropped
+> by the source/disasm pointer-contract firewall. Fresh timings: allocator `6.10s` for 28 rows,
+> read-io `4.76s` for 40 rows.
+>
+> Runbook added: `docs/operations/NATIVE_INIT_RUNTIME_KERNEL_REPL_RUNBOOK.md`. U4 report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_U4_PERF_RUNBOOK_CLOSE_2026-06-29.md`.
+> Validation: `py_compile` PASS, `tests.test_a90_repl.CallSafetyClassificationTests` `13/13` PASS,
+> full `tests.test_a90_repl` `63/63` PASS, `git diff --check` PASS. No device, no flash, no boot
+> image, no network, no live REPL op.
+>
+> With U1-U4 complete, the Runtime Kernel REPL epic is CLOSED. Any future "call this function and
+> check a live result" is a new separately gated one-target live-call unit, not an autonomous mass
+> call or continuation of the advisory sweep.
 
 **Operator-chartered 2026-06-29 (user chose "runbook + perf polish 후 close").** U2+U3 core is done/verified;
 this is the final unit before the REPL epic closes. Two host-only deliverables, then close.

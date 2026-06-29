@@ -649,6 +649,8 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(ksize["found"], ksize)
         self.assertTrue(ksize["has_pointer_arg"], ksize)
         self.assertEqual(ksize["pointer_arg_indices"], [0])
+        self.assertEqual(ksize["candidate_scan_strategy"], "hint")
+        self.assertLessEqual(ksize["candidate_file_count"], 1)
         self.assertTrue(ksize["candidate_files_sample"][0].endswith("include/linux/slab.h"))
         self.assertTrue(ksize["selected"]["path"].endswith("include/linux/slab.h"))
 
@@ -779,6 +781,59 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertIn(
             "unseeded-arg-memory-flow-without-gate-pointer-contract",
             kfree_skb_partial["advisory"]["danger_flags"],
+        )
+
+    def test_u4_family_sweep_verdicts_are_pinned(self) -> None:
+        if not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("kernel source tree not present")
+
+        allocator = repl.run_call_safety_sweep(
+            self.symbols,
+            self.image,
+            families=("allocator",),
+            limit=80,
+            source_root=KERNEL_SOURCE_ROOT,
+            include_objdump=False,
+        )
+        self.assertTrue(allocator["ok"], allocator)
+        self.assertTrue(allocator["host_only"])
+        self.assertFalse(allocator["device_action"])
+        self.assertFalse(allocator["network_dependency"])
+        self.assertEqual(
+            [row["symbol"] for row in allocator["candidate_safe_ranked"]],
+            ["ksize"],
+        )
+        allocator_rows = {row["symbol"]: row for row in allocator["rows"]}
+        self.assertIn(
+            "source-__init-annotation",
+            allocator_rows["kmem_cache_init"]["advisory"]["danger_flags"],
+        )
+        self.assertIn(
+            "unseeded-arg-memory-flow-without-gate-pointer-contract",
+            allocator_rows["kfree_skb_partial"]["advisory"]["danger_flags"],
+        )
+        for name in ("kfree_const", "kmem_cache_shrink"):
+            self.assertFalse(allocator_rows[name]["advisory"]["candidate_safe"])
+            self.assertIn(
+                "unseeded-arg-memory-flow-without-gate-pointer-contract",
+                allocator_rows[name]["advisory"]["danger_flags"],
+            )
+
+        read_io = repl.run_call_safety_sweep(
+            self.symbols,
+            self.image,
+            families=("read-io",),
+            limit=40,
+            source_root=KERNEL_SOURCE_ROOT,
+            include_objdump=False,
+        )
+        self.assertTrue(read_io["ok"], read_io)
+        self.assertTrue(read_io["host_only"])
+        self.assertFalse(read_io["device_action"])
+        self.assertFalse(read_io["network_dependency"])
+        self.assertEqual(
+            [row["symbol"] for row in read_io["candidate_safe_ranked"]],
+            ["filp_close", "filp_open", "kernel_read"],
         )
 
 
