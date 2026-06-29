@@ -767,6 +767,34 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `strpbrk` owned-string accept-set contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `strpbrk` promoted under owned NUL-string accept-set contract only
+>
+> Twenty-third one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py`
+> `call-proof` with `strpbrk`, using one tool-owned NUL-terminated haystack string
+> (`A90STRPBRK-HEAD-Q-TAIL-Z`) and one tool-owned NUL-terminated accept-set string (`QZ`),
+> then rewriting the accept-set buffer to a missing set (`xy`). Static gate:
+> `strpbrk=0xffffff80099b9b34`, `export-recovery`, direct-BL xrefs `40`, JOPP entry,
+> leaf/no-BL, RET in scan. Source contract: `extern char * strpbrk(const char *,const char *)`,
+> with x0 as the haystack string pointer and x1 as the accept-set string pointer. The
+> call-safety seed is `SAFE-WITH-VALID-PTR`; required valid pointer args are x0
+> `haystack-string-buffer` and x1 `accept-string-buffer`.
+>
+> Live path: confirmed rollback images and TWRP, flashed the existing v1-repl boot image
+> (`b846ae9f...`) through `native_init_flash.py`, confirmed clean native selftest `fail=0` and
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof strpbrk` with the C2B verified map.
+> Result: `a90-repl-live-call-proof-strpbrk-pass`; checks covered C1 identity, source pointer
+> contract, call-safety contract, distinct owned haystack/accept allocations, hit-case poke/peek,
+> returned haystack pointer at offset `16`, hit-case immutability, missing accept-set rewrite,
+> missing-case return `0x0`, missing-case immutability, and `kfree-owned-strpbrk-strings`.
+>
+> Candidate selftest after proof was `pass=11 warn=1 fail=0`. Rollback to clean v2321 used the checked
+> helper with readback SHA `ca978551...`; final `selftest` confirmed v2321 health with
+> `pass=11 warn=1 fail=0`. Function map records `strpbrk` only under this owned
+> NUL-terminated haystack plus owned NUL-terminated accept-set contract. This does not authorize
+> arbitrary pointers, user pointers, unterminated strings, mutable side effects, or mass calls.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `strreplace` owned-mutable-string contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `strreplace` promoted under owned mutable NUL-string contract only
