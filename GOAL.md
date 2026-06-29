@@ -767,6 +767,31 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `strncpy` owned-buffer contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `strncpy` promoted under owned dst/src + bounded count only
+>
+> Eighth one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py call-proof`
+> with `strncpy`, using a tool-owned destination buffer, a tool-owned source buffer containing
+> `A90STRNCPY\0`, and scalar `count=32`. Static gate: `strncpy=0xffffff80099b96f4`, map/export
+> agree, direct-BL xrefs `187`, JOPP entry true, leaf/no-BL. Source contract:
+> `extern char * strncpy(char *,const char *, __kernel_size_t)`, with x0/x1 as pointer args. The
+> call-safety seed remains `SAFE-WITH-VALID-PTR`; required valid pointer args are x0
+> `destination-buffer`, x1 `source-string-buffer`, with the proof bounding x2 inside the destination.
+>
+> Live path: confirmed rollback images and TWRP, flashed the existing v1-repl boot image
+> (`b846ae9f...`) through `native_init_flash.py`, confirmed native selftest `fail=0` and
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof strncpy` with the C2B verified map. Result:
+> `a90-repl-live-call-proof-strncpy-pass`; checks covered C1 identity, source pointer contract,
+> owned dst/src allocation, source poke/peek, return pointer matching the owned destination pointer
+> (redacted publicly), destination prefix match, NUL padding through count `32`, post-count canary
+> preservation, and `kfree-owned-strncpy-buffers`.
+>
+> Candidate selftest after proof was `pass=11 warn=1 fail=0`. Rollback to clean v2321 used the checked
+> helper with readback SHA `ca978551...`; final selftest was `pass=11 warn=1 fail=0`. Function map
+> records `strncpy` only under the owned destination/source plus bounded-count contract. This does not
+> authorize arbitrary pointers, arbitrary counts, or other string/memory helpers.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `strlcpy` owned-buffer contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `strlcpy` promoted under owned dst/src + bounded size only
