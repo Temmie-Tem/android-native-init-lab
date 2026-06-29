@@ -150,6 +150,11 @@ LEAF_MAP_GROUND_TRUTH_SYMBOLS = {
         "expected_pointer_args": (0, 1),
         "note": "non-JOPP arm64 leaf memory copy helper; identity rests on map label, high xref count, and leaf shape",
     },
+    "memmove": {
+        "min_direct_bl_xrefs": 100,
+        "expected_pointer_args": (0, 1),
+        "note": "non-JOPP arm64 leaf overlap-safe memory move helper; identity rests on map label, xref count, and leaf shape",
+    },
     "strrchr": {
         "min_direct_bl_xrefs": 1000,
         "expected_pointer_args": (0,),
@@ -332,6 +337,12 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {0: "destination-buffer", 1: "source-buffer"},
         "return_kind": "destination-pointer",
         "reason": "bounded memory copy helper; x0/x1 must be distinct owned buffers and size must stay inside both buffers",
+    },
+    "memmove": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "destination-buffer", 1: "source-buffer"},
+        "return_kind": "destination-pointer",
+        "reason": "bounded overlap-safe memory move helper; x0/x1 must be verified ranges inside the same owned buffer for the overlap proof",
     },
     "strrchr": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
@@ -4640,6 +4651,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern void * memcpy(void *,const void *,__kernel_size_t)",
     },
+    "memmove": {
+        "input_contract": "same owned buffer with overlapping destination/source ranges plus bounded size inside allocation",
+        "return_contract": "void * == owned destination pointer; final buffer matches overlap-safe snapshot copy; outer canary preserved",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern void * memmove(void *,const void *,__kernel_size_t)",
+    },
     "strrchr": {
         "input_contract": "owned NUL-terminated kernel string buffer plus scalar search byte",
         "return_contract": "char * == owned string buffer plus expected last-occurrence offset; missing byte returns NULL",
@@ -4720,6 +4737,11 @@ MEMCPY_PROOF_SIZE = len(MEMCPY_PROOF_BYTES)
 MEMCPY_DST_INITIAL_BYTE = 0x11
 MEMCPY_DST_CANARY_LEN = 8
 MEMCPY_SRC_CANARY_LEN = 8
+MEMMOVE_PROOF_BYTES = b"A90MEMMOVE-OVERLAP-0123456789"
+MEMMOVE_PROOF_SIZE = len(MEMMOVE_PROOF_BYTES)
+MEMMOVE_DST_OFFSET = 5
+MEMMOVE_TAIL_FILL_BYTE = 0x22
+MEMMOVE_CANARY_LEN = 8
 STRRCHR_PROOF_BYTES = b"A90STRRCHR-A-B-A-Z\x00"
 STRRCHR_PROOF_LABEL = STRRCHR_PROOF_BYTES[:-1].decode("ascii")
 STRRCHR_SEARCH_BYTE = ord("A")
@@ -5460,6 +5482,232 @@ def _run_call_proof_memcpy(session: ReplSession,
         "dst_after_hex": observed_dst_after.hex(),
         "src_before_hex": observed_src_before.hex(),
         "src_after_hex": observed_src_after.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
+def _run_call_proof_memmove(session: ReplSession,
+                            symbols: dict[str, Symbol],
+                            image: StaticImage,
+                            *,
+                            alloc_size: int,
+                            source_root: Path,
+                            gfp: int,
+                            gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    scan_len = MEMMOVE_DST_OFFSET + MEMMOVE_PROOF_SIZE + MEMMOVE_CANARY_LEN
+    if alloc_size < scan_len:
+        raise ReplError(f"memmove call-proof alloc_size must be at least {scan_len} bytes")
+    if not (0 < MEMMOVE_DST_OFFSET < MEMMOVE_PROOF_SIZE):
+        raise ReplError("memmove proof must use overlapping dst-after-src ranges")
+
+    source = lookup_source_signature("memmove", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "memmove",
+        ("@owned_destination_buffer_plus_overlap_offset", "@owned_source_buffer", MEMMOVE_PROOF_SIZE),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["memmove"]["expected_tier"]:
+        raise ReplError("memmove call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0, 1]:
+        raise ReplError("memmove source signature does not declare x0/x1 as pointer arguments")
+
+    resolutions = {
+        "memmove": resolve_verified(symbols, image, "memmove", purpose="call", allow_pre_arg_deref=True),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    memmove_link = require_verified_resolution(resolutions["memmove"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof buffer allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof buffer cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    initial_scan = (
+        MEMMOVE_PROOF_BYTES
+        + (bytes([MEMMOVE_TAIL_FILL_BYTE]) * MEMMOVE_DST_OFFSET)
+        + (b"\xcc" * MEMMOVE_CANARY_LEN)
+    )
+    expected_after = bytearray(initial_scan)
+    expected_after[MEMMOVE_DST_OFFSET:MEMMOVE_DST_OFFSET + MEMMOVE_PROOF_SIZE] = (
+        initial_scan[:MEMMOVE_PROOF_SIZE]
+    )
+    expected_after_scan = bytes(expected_after)
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "memmove",
+            "resolution_method": resolutions["memmove"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+            "bounded_size": MEMMOVE_PROOF_SIZE,
+            "overlap_contract": "dst=src+offset, 0<offset<size",
+        },
+    ]
+    private: dict[str, object] = {}
+    ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_attempted = False
+    free_ok = False
+    free_error = ""
+    return_ptr = 0
+    observed_before = b""
+    observed_after = b""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        memmove_runtime = (memmove_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        ptr_ok = is_kernel_lowmem_pointer(ptr)
+        checks.append({
+            "check": "kmalloc-owned-memmove-overlap-buffer",
+            "ok": ptr_ok,
+            "alloc_size": alloc_size,
+            "kernel_lowmem": ptr_ok,
+        })
+        if not ptr_ok:
+            raise ReplError("__kmalloc did not return a sane memmove overlap buffer")
+
+        src_ptr = ptr
+        dst_ptr = (ptr + MEMMOVE_DST_OFFSET) & MASK64
+        ranges_inside = MEMMOVE_DST_OFFSET + MEMMOVE_PROOF_SIZE <= alloc_size
+        ranges_overlap = src_ptr < dst_ptr < ((src_ptr + MEMMOVE_PROOF_SIZE) & MASK64)
+        checks.append({
+            "check": "memmove-overlap-range-contract",
+            "ok": ranges_inside and ranges_overlap,
+            "source_offset": 0,
+            "destination_offset": MEMMOVE_DST_OFFSET,
+            "size_arg": MEMMOVE_PROOF_SIZE,
+            "ranges_inside_allocation": ranges_inside,
+            "ranges_overlap": ranges_overlap,
+            "expected_path": "dst-after-src-overlap-backward-copy",
+        })
+        if not (ranges_inside and ranges_overlap):
+            raise ReplError("memmove overlap ranges do not satisfy the proof contract")
+
+        _poke_bytes(session, ptr, initial_scan)
+        observed_before = _peek_bytes(session, ptr, scan_len)
+        setup_ok = observed_before == initial_scan
+        checks.append({
+            "check": "owned-memmove-buffer-poke-peek",
+            "ok": setup_ok,
+            "proof_bytes_label": MEMMOVE_PROOF_BYTES.decode("ascii"),
+            "size_arg": MEMMOVE_PROOF_SIZE,
+            "destination_offset": MEMMOVE_DST_OFFSET,
+            "canary_len": MEMMOVE_CANARY_LEN,
+        })
+        if not setup_ok:
+            raise ReplError("owned memmove buffer poke/peek mismatch")
+
+        return_ptr = session.call_runtime(memmove_runtime, (dst_ptr, src_ptr, MEMMOVE_PROOF_SIZE))
+        return_ok = return_ptr == dst_ptr
+        checks.append({
+            "check": "memmove-return-contract",
+            "ok": return_ok,
+            "return_matches_destination": return_ok,
+        })
+        if not return_ok:
+            raise ReplError("memmove did not return the owned destination pointer")
+
+        observed_after = _peek_bytes(session, ptr, scan_len)
+        final_ok = observed_after == expected_after_scan
+        canary_ok = observed_after[MEMMOVE_DST_OFFSET + MEMMOVE_PROOF_SIZE:] == b"\xcc" * MEMMOVE_CANARY_LEN
+        checks.append({
+            "check": "memmove-overlap-final-buffer-contract",
+            "ok": final_ok and canary_ok,
+            "final_buffer_matches_overlap_safe_snapshot": final_ok,
+            "post_move_canary_preserved": canary_ok,
+            "source_region_expected_to_overlap": True,
+        })
+        if not (final_ok and canary_ok):
+            raise ReplError("memmove overlap final buffer did not match the snapshot-copy contract")
+    finally:
+        if ptr and is_kernel_lowmem_pointer(ptr) and kfree_runtime:
+            free_attempted = True
+            try:
+                session.call_runtime(kfree_runtime, (ptr,))
+                free_ok = True
+            except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                free_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "kfree-owned-memmove-overlap-buffer",
+        "ok": free_ok,
+        "free_attempted": free_attempted,
+    })
+    if free_error:
+        raise ReplError(f"kfree failed after memmove proof: {free_error}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-memmove-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "memmove",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["memmove"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["memmove"]["return_contract"],
+        "alloc_size": alloc_size,
+        "proof_bytes_label": MEMMOVE_PROOF_BYTES.decode("ascii"),
+        "size_arg": MEMMOVE_PROOF_SIZE,
+        "source_offset": 0,
+        "destination_offset": MEMMOVE_DST_OFFSET,
+        "overlap_direction": "dst-after-src",
+        "expected_path": "overlap-backward-copy",
+        "expected_return_value": "owned-destination-pointer-redacted",
+        "observed_return_value": "owned-destination-pointer-redacted",
+        "return_matches_destination": return_ptr == ((ptr + MEMMOVE_DST_OFFSET) & MASK64),
+        "final_buffer_matches_overlap_safe_snapshot": True,
+        "post_move_canary_preserved": True,
+        "source_region_expected_to_overlap": True,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "memmove",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["memmove"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["memmove"]["return_contract"],
+            "observed_return_value": f"owned-destination-pointer-redacted,overlap-offset={MEMMOVE_DST_OFFSET},size={MEMMOVE_PROOF_SIZE}",
+            "cleanup": "kfree-owned-memmove-overlap-buffer-ok" if free_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "memmove_runtime": f"0x{((memmove_link + slide) & MASK64):x}",
+        "alloc_ptr": f"0x{ptr:x}",
+        "src_ptr": f"0x{ptr:x}",
+        "dst_ptr": f"0x{((ptr + MEMMOVE_DST_OFFSET) & MASK64):x}",
+        "return_ptr": f"0x{return_ptr:x}",
+        "before_hex": observed_before.hex(),
+        "after_hex": observed_after.hex(),
+        "expected_after_hex": expected_after_scan.hex(),
         "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
     })
     return summary, private
@@ -8483,6 +8731,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "memcpy":
         return _run_call_proof_memcpy(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "memmove":
+        return _run_call_proof_memmove(
             session,
             symbols,
             image,

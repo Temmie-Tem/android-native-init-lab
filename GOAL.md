@@ -767,6 +767,34 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `memmove` owned-overlap-buffer contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `memmove` promoted under same-owned-buffer overlap contract only
+>
+> Eighteenth one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py
+> call-proof` with `memmove`, using one tool-owned kernel buffer and deliberately overlapping ranges:
+> source offset `0`, destination offset `5`, bounded size `29`, and proof bytes
+> `A90MEMMOVE-OVERLAP-0123456789`. Static gate: `memmove=0xffffff80099a8800`,
+> `leaf-map-disasm+xref`, direct-BL xrefs `165`, leaf/no-BL, RET in scan at offset `0xc4`.
+> Source contract: `extern void * memmove(void *,const void *,__kernel_size_t)`, with x0 as the
+> destination pointer, x1 as the source pointer, and x2 as a scalar bounded size. The call-safety
+> seed is `SAFE-WITH-VALID-PTR`; required valid pointer args are x0 `destination-buffer` and
+> x1 `source-buffer`.
+>
+> Live path: confirmed rollback images and TWRP, flashed the existing v1-repl boot image
+> (`b846ae9f...`) through `native_init_flash.py`, confirmed clean native selftest `fail=0` and
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof memmove` with the C2B verified map. Result:
+> `a90-repl-live-call-proof-memmove-pass`; checks covered C1 identity, source pointer contract,
+> one owned allocation, `dst=src+5` overlap inside the allocation, buffer poke/peek, returned
+> destination pointer, final buffer matching overlap-safe snapshot-copy semantics, post-move canary
+> preservation, and `kfree-owned-memmove-overlap-buffer`.
+>
+> Candidate selftest after proof was `pass=11 warn=1 fail=0`. Rollback to clean v2321 used the checked
+> helper with readback SHA `ca978551...`; final `version`/`selftest` confirmed v2321 and
+> `pass=11 warn=1 fail=0`. Function map records `memmove` only under this same-owned-buffer,
+> dst-after-src overlap plus bounded-size contract. This does not authorize arbitrary pointers,
+> unbounded sizes, user pointers, or broader overlap shapes without their own proof.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `memcpy` owned-buffer copy contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `memcpy` promoted under distinct owned dst/src buffers plus bounded size only

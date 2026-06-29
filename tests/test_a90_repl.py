@@ -654,6 +654,17 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(memcpy["signals"]["direct_bl_xref_count"], 5000)
         self.assertTrue(memcpy["signals"]["leaf"])
 
+        memmove = self._row("memmove")
+        self.assertEqual(memmove["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            memmove["required_valid_pointer_args"],
+            {"0": "destination-buffer", "1": "source-buffer"},
+        )
+        self.assertTrue(memmove["resolution"]["verified"])
+        self.assertEqual(memmove["resolution"]["method"], "leaf-map-disasm+xref")
+        self.assertGreaterEqual(memmove["signals"]["direct_bl_xref_count"], 100)
+        self.assertTrue(memmove["signals"]["leaf"])
+
         strrchr = self._row("strrchr")
         self.assertEqual(strrchr["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(strrchr["required_valid_pointer_args"], {"0": "string-buffer"})
@@ -881,6 +892,15 @@ class CallSafetyClassificationTests(unittest.TestCase):
             "extern void * memcpy(void *,const void *,__kernel_size_t)",
         )
         self.assertTrue(memcpy["selected"]["path"].endswith("include/linux/string.h"))
+
+        memmove = repl.lookup_source_signature("memmove", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(memmove["status"], "found", memmove)
+        self.assertEqual(memmove["selected"]["pointer_arg_indices"], [0, 1])
+        self.assertEqual(
+            memmove["selected"]["signature"],
+            "extern void * memmove(void *,const void *,__kernel_size_t)",
+        )
+        self.assertTrue(memmove["selected"]["path"].endswith("include/linux/string.h"))
 
         strrchr = repl.lookup_source_signature("strrchr", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(strrchr["status"], "found", strrchr)
@@ -1193,6 +1213,13 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.memmove_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "memmove",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.strrchr_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -1243,17 +1270,25 @@ class FaithfulFakeTransport:
     def _heap_bytes(self, addr: int, length: int) -> bytes:
         out = bytearray()
         for offset in range(length):
-            qaddr = addr + ((offset // 8) * 8)
-            shift = (offset % 8) * 8
+            byte_addr = addr + offset
+            qaddr = byte_addr & ~0x7
+            shift = (byte_addr & 0x7) * 8
             out.append((self.heap.get(qaddr, 0) >> shift) & 0xFF)
         return bytes(out)
 
     def _set_heap_bytes(self, addr: int, data: bytes) -> None:
         for offset, byte in enumerate(data):
-            qaddr = addr + ((offset // 8) * 8)
-            shift = (offset % 8) * 8
+            byte_addr = addr + offset
+            qaddr = byte_addr & ~0x7
+            shift = (byte_addr & 0x7) * 8
             current = self.heap.get(qaddr, 0)
             self.heap[qaddr] = (current & ~(0xFF << shift)) | ((byte & 0xFF) << shift)
+
+    def _allocated_base_for(self, addr: int, length: int) -> int | None:
+        for base in self.allocated:
+            if base <= addr and addr + length <= base + 0x1000:
+                return base
+        return None
 
     def run_serial_command(self, argv, *, host, port, timeout):
         sh_str = argv[-1]
@@ -1317,6 +1352,8 @@ class FaithfulFakeTransport:
             memchr = self.memchr_link + self.slide
             assert self.memcpy_link is not None
             memcpy = self.memcpy_link + self.slide
+            assert self.memmove_link is not None
+            memmove = self.memmove_link + self.slide
             assert self.strrchr_link is not None
             strrchr = self.strrchr_link + self.slide
             assert self.memset_link is not None
@@ -1485,6 +1522,21 @@ class FaithfulFakeTransport:
                     raise AssertionError(f"memcpy src is not an allocated pointer: {arg2:#x}")
                 if arg3 != repl.MEMCPY_PROOF_SIZE:
                     raise AssertionError(f"unexpected memcpy size: {arg3:#x}")
+                self._set_heap_bytes(arg1, self._heap_bytes(arg2, arg3))
+                lines.append(f"A90R{arg1:x}")
+            elif arg0 == memmove:
+                dst_base = self._allocated_base_for(arg1, arg3)
+                src_base = self._allocated_base_for(arg2, arg3)
+                if dst_base is None:
+                    raise AssertionError(f"memmove dst range is not allocated: {arg1:#x}/len={arg3:#x}")
+                if src_base is None:
+                    raise AssertionError(f"memmove src range is not allocated: {arg2:#x}/len={arg3:#x}")
+                if dst_base != src_base:
+                    raise AssertionError("memmove proof expects dst/src in the same owned allocation")
+                if arg1 != dst_base + repl.MEMMOVE_DST_OFFSET or arg2 != dst_base:
+                    raise AssertionError(f"unexpected memmove offsets: dst={arg1 - dst_base:#x} src={arg2 - dst_base:#x}")
+                if arg3 != repl.MEMMOVE_PROOF_SIZE:
+                    raise AssertionError(f"unexpected memmove size: {arg3:#x}")
                 self._set_heap_bytes(arg1, self._heap_bytes(arg2, arg3))
                 lines.append(f"A90R{arg1:x}")
             elif arg0 == strrchr:
@@ -2057,6 +2109,70 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(private["src_before_hex"], expected_src_hex)
         self.assertEqual(private["src_after_hex"], expected_src_hex)
         self.assertEqual(fake.freed, [fake.heap_ptr, fake.heap_ptr + 0x1000])
+
+    def test_call_proof_memmove_passes_with_owned_overlap_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "memmove",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-memmove-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "memmove")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern void * memmove(void *,const void *,__kernel_size_t)",
+        )
+        self.assertEqual(summary["proof_bytes_label"], repl.MEMMOVE_PROOF_BYTES.decode("ascii"))
+        self.assertEqual(summary["size_arg"], repl.MEMMOVE_PROOF_SIZE)
+        self.assertEqual(summary["source_offset"], 0)
+        self.assertEqual(summary["destination_offset"], repl.MEMMOVE_DST_OFFSET)
+        self.assertEqual(summary["overlap_direction"], "dst-after-src")
+        self.assertEqual(summary["expected_path"], "overlap-backward-copy")
+        self.assertEqual(summary["expected_return_value"], "owned-destination-pointer-redacted")
+        self.assertEqual(summary["observed_return_value"], "owned-destination-pointer-redacted")
+        self.assertTrue(summary["return_matches_destination"])
+        self.assertTrue(summary["final_buffer_matches_overlap_safe_snapshot"])
+        self.assertTrue(summary["post_move_canary_preserved"])
+        self.assertTrue(summary["source_region_expected_to_overlap"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("alloc_ptr", summary)
+        self.assertNotIn("dst_ptr", summary)
+        self.assertNotIn("src_ptr", summary)
+        self.assertNotIn("return_ptr", summary)
+        self.assertEqual(private["alloc_ptr"], f"0x{fake.heap_ptr:x}")
+        self.assertEqual(private["src_ptr"], f"0x{fake.heap_ptr:x}")
+        self.assertEqual(private["dst_ptr"], f"0x{fake.heap_ptr + repl.MEMMOVE_DST_OFFSET:x}")
+        self.assertEqual(private["return_ptr"], f"0x{fake.heap_ptr + repl.MEMMOVE_DST_OFFSET:x}")
+        initial = (
+            repl.MEMMOVE_PROOF_BYTES
+            + (bytes([repl.MEMMOVE_TAIL_FILL_BYTE]) * repl.MEMMOVE_DST_OFFSET)
+            + (b"\xcc" * repl.MEMMOVE_CANARY_LEN)
+        )
+        expected_after = bytearray(initial)
+        expected_after[
+            repl.MEMMOVE_DST_OFFSET:repl.MEMMOVE_DST_OFFSET + repl.MEMMOVE_PROOF_SIZE
+        ] = initial[:repl.MEMMOVE_PROOF_SIZE]
+        self.assertEqual(private["before_hex"], initial.hex())
+        self.assertEqual(private["after_hex"], bytes(expected_after).hex())
+        self.assertEqual(private["expected_after_hex"], bytes(expected_after).hex())
+        self.assertEqual(fake.freed, [fake.heap_ptr])
 
     def test_call_proof_strchr_passes_with_owned_string_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
