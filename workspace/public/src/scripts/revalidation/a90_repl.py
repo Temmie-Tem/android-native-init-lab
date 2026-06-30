@@ -884,6 +884,21 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "int",
         "reason": "file cleanup helper; file pointer must be verified",
     },
+    "__task_pid_nr_ns": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {
+            0: "global-init_task-task_struct",
+            2: "struct-pid-namespace-or-NULL",
+        },
+        "return_kind": "pid_t",
+        "reason": "read-only task pid query; proof passes only the global init_task task_struct pointer, PIDTYPE_PID, and NULL namespace",
+    },
+    "sched_get_group_id": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "global-init_task-task_struct"},
+        "return_kind": "unsigned-int",
+        "reason": "read-only scheduler group-id query; proof passes only the global init_task task_struct pointer and validates against bounded direct field observation",
+    },
     "kallsyms_lookup_name": {
         "tier": CALL_SAFETY_DENY,
         "required_valid_pointer_args": {},
@@ -3444,6 +3459,8 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "get_boot_stat_time": ("include/soc/qcom/boot_stats.h",),
     "get_cpu_device": ("include/linux/cpu.h",),
     "get_current_napi_context": ("include/linux/netdevice.h",),
+    "__task_pid_nr_ns": ("include/linux/sched.h",),
+    "sched_get_group_id": ("include/linux/sched.h",),
     "get_ddr_vendor_name": ("include/linux/samsung/sec_smem.h",),
     "get_ddr_DSF_version": ("include/linux/samsung/sec_smem.h",),
     "get_ddr_total_density": ("include/linux/samsung/sec_smem.h",),
@@ -5233,6 +5250,18 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern struct napi_struct * get_current_napi_context(void)",
     },
+    "__task_pid_nr_ns": {
+        "input_contract": "global init_task task_struct pointer + PIDTYPE_PID + NULL namespace; global pointer is borrowed/read-only and is not freed",
+        "return_contract": "pid_t for init_task in the init namespace path is exactly 0 and stable across repeated calls",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "pid_t __task_pid_nr_ns(struct task_struct *task, enum pid_type type, struct pid_namespace *ns)",
+    },
+    "sched_get_group_id": {
+        "input_contract": "global init_task task_struct pointer; global pointer is borrowed/read-only and is not freed",
+        "return_contract": "unsigned int group id equals a bounded direct read-only observation of init_task->sched_task_group->id when present, else 0",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern unsigned int sched_get_group_id(struct task_struct *p)",
+    },
     "get_ddr_vendor_name": {
         "input_contract": "no arguments; Samsung SMEM DDR vendor info is read-only; returned char pointer is borrowed/read-only and is not freed",
         "return_contract": "char * is non-NULL, stable across repeated calls, and points to a bounded NUL-terminated printable DDR vendor string",
@@ -6298,6 +6327,40 @@ GET_CURRENT_NAPI_CONTEXT_LOAD_CURRENT_NAPI_WORD = 0xF9400900
 GET_CURRENT_NAPI_CONTEXT_RET_WORD = 0xD65F03C0
 GET_CURRENT_NAPI_CONTEXT_PADDING_NOP_WORD = 0xD503201F
 GET_CURRENT_NAPI_CONTEXT_NEXT_GUARD_WORD = 0x00BE7BAD
+TASK_PID_NR_NS_PIDTYPE_PID = 0
+TASK_PID_NR_NS_EXPECTED_INIT_TASK_PID = 0
+TASK_PID_NR_NS_REPEAT_COUNT = 2
+TASK_PID_NR_NS_ENTRY_WORD = 0xCA1103D0
+TASK_PID_NR_NS_STACK_WORD = 0xA9BD43FD
+TASK_PID_NR_NS_SAVE_NS_WORD = 0xAA0203F3
+TASK_PID_NR_NS_SAVE_TYPE_WORD = 0x2A0103F4
+TASK_PID_NR_NS_SAVE_TASK_WORD = 0xAA0003F5
+TASK_PID_NR_NS_RCU_LOCK_BL_WORD = 0x9401CC3E
+TASK_PID_NR_NS_NULL_NS_BRANCH_WORD = 0xB50000F3
+TASK_PID_NR_NS_CURRENT_LOAD_WORD = 0xD5384108
+TASK_PID_NR_NS_TASK_PIDS_LOAD_WORD = 0xF94392A8
+TASK_PID_NR_NS_TASK_PID_LOAD_WORD = 0xF94376B5
+TASK_PID_NR_NS_RCU_UNLOCK_BL_WORD = 0x9401CC29
+TASK_PID_NR_NS_RETURN_WORD = 0x2A1303E0
+TASK_PID_NR_NS_EXIT_WORD = 0xCA11021E
+TASK_PID_NR_NS_RET_WORD = 0xD65F03C0
+TASK_PID_NR_NS_PADDING_NOP_WORD = 0xD503201F
+TASK_PID_NR_NS_NEXT_GUARD_WORD = 0x00BE7BAD
+SCHED_GET_GROUP_ID_REPEAT_COUNT = 2
+SCHED_GET_GROUP_ID_TASK_GROUP_OFFSET = 984
+SCHED_GET_GROUP_ID_ENTRY_WORD = 0xCA1103D0
+SCHED_GET_GROUP_ID_STACK_WORD = 0xA9BE43FD
+SCHED_GET_GROUP_ID_SAVE_TASK_WORD = 0xAA0003F3
+SCHED_GET_GROUP_ID_RCU_LOCK_BL_WORD = 0x9400A1C3
+SCHED_GET_GROUP_ID_GROUP_PTR_LOAD_WORD = 0xF941EE68
+SCHED_GET_GROUP_ID_GROUP_NULL_BRANCH_WORD = 0xB4000068
+SCHED_GET_GROUP_ID_GROUP_ID_LOAD_WORD = 0xB9400113
+SCHED_GET_GROUP_ID_ZERO_RESULT_WORD = 0x2A1F03F3
+SCHED_GET_GROUP_ID_RCU_UNLOCK_BL_WORD = 0x9400A1C3
+SCHED_GET_GROUP_ID_RETURN_WORD = 0x2A1303E0
+SCHED_GET_GROUP_ID_EXIT_WORD = 0xCA11021E
+SCHED_GET_GROUP_ID_RET_WORD = 0xD65F03C0
+SCHED_GET_GROUP_ID_NEXT_GUARD_WORD = 0x00BE7BAD
 GET_BOOT_STAT_TIME_STACK_ALLOC_WORD = 0xA9BE43FD
 GET_BOOT_STAT_TIME_SAVE_X19_WORD = 0xF9000BF3
 GET_BOOT_STAT_TIME_ADRP_COUNTER_BASE_WORD = 0xD0015088
@@ -21911,6 +21974,415 @@ def _run_call_proof_get_current_napi_context(
     return summary, private
 
 
+def _require_init_task_link(symbols: dict[str, Symbol]) -> int:
+    symbol = symbols.get("init_task")
+    if symbol is None:
+        raise ReplError("init_task is missing from System.map")
+    if symbol.kind not in "DdBb":
+        raise ReplError(f"init_task is not a data symbol: kind={symbol.kind!r}")
+    return symbol.vaddr
+
+
+def _kernel_vaddr_sane(value: int) -> bool:
+    return value != 0 and value >= stage_c.KERNEL_FILE_VADDR_BASE and (value & 0x3) == 0
+
+
+def _run_call_proof___task_pid_nr_ns(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    source = lookup_source_signature("__task_pid_nr_ns", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "__task_pid_nr_ns",
+        ("@init_task", TASK_PID_NR_NS_PIDTYPE_PID, 0),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["__task_pid_nr_ns"]["expected_tier"]:
+        raise ReplError("__task_pid_nr_ns call-safety tier is not the expected valid-pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0, 2]:
+        raise ReplError("__task_pid_nr_ns source signature must declare x0 task and x2 namespace pointers")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS["__task_pid_nr_ns"]["source_signature"]:
+        raise ReplError("__task_pid_nr_ns source signature did not select the sched.h declaration")
+
+    resolutions = {
+        "__task_pid_nr_ns": resolve_verified(
+            symbols,
+            image,
+            "__task_pid_nr_ns",
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(
+        resolutions["__task_pid_nr_ns"],
+        "call-proof target",
+    )
+    init_task_link = _require_init_task_link(symbols)
+    next_symbol = symbols.get("find_ge_pid")
+    if next_symbol is None or next_symbol.vaddr - target_link != 0xC8:
+        raise ReplError("__task_pid_nr_ns next-symbol boundary is not the expected 0xc8")
+    words = image.u32_words_at_vaddr(target_link, 50)
+    static_word_checks = (
+        ("static-entry", 0, TASK_PID_NR_NS_ENTRY_WORD),
+        ("static-stack", 1, TASK_PID_NR_NS_STACK_WORD),
+        ("static-save-ns", 5, TASK_PID_NR_NS_SAVE_NS_WORD),
+        ("static-save-type", 6, TASK_PID_NR_NS_SAVE_TYPE_WORD),
+        ("static-save-task", 7, TASK_PID_NR_NS_SAVE_TASK_WORD),
+        ("static-rcu-read-lock-call", 8, TASK_PID_NR_NS_RCU_LOCK_BL_WORD),
+        ("static-null-namespace-branch", 9, TASK_PID_NR_NS_NULL_NS_BRANCH_WORD),
+        ("static-current-load", 10, TASK_PID_NR_NS_CURRENT_LOAD_WORD),
+        ("static-task-pids-load", 16, TASK_PID_NR_NS_TASK_PIDS_LOAD_WORD),
+        ("static-task-pid-load", 20, TASK_PID_NR_NS_TASK_PID_LOAD_WORD),
+        ("static-rcu-read-unlock-call", 35, TASK_PID_NR_NS_RCU_UNLOCK_BL_WORD),
+        ("static-return-w0", 36, TASK_PID_NR_NS_RETURN_WORD),
+        ("static-exit", 40, TASK_PID_NR_NS_EXIT_WORD),
+        ("static-ret", 41, TASK_PID_NR_NS_RET_WORD),
+        ("static-padding-nop", 48, TASK_PID_NR_NS_PADDING_NOP_WORD),
+        ("static-next-guard", 49, TASK_PID_NR_NS_NEXT_GUARD_WORD),
+    )
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "__task_pid_nr_ns",
+            "resolution_method": resolutions["__task_pid_nr_ns"].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": "find_ge_pid",
+            "byte_size": "0xc8",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+        {
+            "check": "static-init-task-data-symbol",
+            "ok": True,
+            "symbol": "init_task",
+            "kind": symbols["init_task"].kind,
+        },
+    ]
+    for name, index, expected in static_word_checks:
+        observed = words[index]
+        ok = observed == expected
+        checks.append({
+            "check": name,
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"__task_pid_nr_ns {name} word mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    case_results: list[dict[str, object]] = []
+    returns: list[int] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        init_task_runtime = (init_task_link + slide) & MASK64
+        for index in range(TASK_PID_NR_NS_REPEAT_COUNT):
+            observed = session.call_runtime(
+                target_runtime,
+                (init_task_runtime, TASK_PID_NR_NS_PIDTYPE_PID, 0),
+            )
+            observed &= 0xFFFFFFFF
+            returns.append(observed)
+            ok = observed == TASK_PID_NR_NS_EXPECTED_INIT_TASK_PID
+            case_results.append({
+                "case": f"init-task-pidtype-pid-null-ns-{index + 1}",
+                "expected_return_value": f"0x{TASK_PID_NR_NS_EXPECTED_INIT_TASK_PID:x}",
+                "observed_return_value": f"0x{observed:x}",
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(
+                    "__task_pid_nr_ns(init_task, PIDTYPE_PID, NULL) returned "
+                    f"0x{observed:x}, expected pid 0"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "task-pid-nr-ns-init-task-pid0-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-__task_pid_nr_ns-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "__task_pid_nr_ns",
+        "proof_status": "trusted-under-init-task-read-only-pid0-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["__task_pid_nr_ns"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["__task_pid_nr_ns"]["return_contract"],
+        "case_results": case_results,
+        "observed_pid": "0x0" if returns else "n/a",
+        "all_returns_expected": bool(returns) and all(
+            value == TASK_PID_NR_NS_EXPECTED_INIT_TASK_PID for value in returns
+        ),
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "borrowed_pointer_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "__task_pid_nr_ns",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["__task_pid_nr_ns"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["__task_pid_nr_ns"]["return_contract"],
+            "observed_return_value": "repeated init_task PIDTYPE_PID/NULL namespace calls returned pid 0",
+            "cleanup": "n/a-global-borrowed-pointer-not-owned",
+            "auto_call_policy": "batched-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "__task_pid_nr_ns_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "init_task_runtime": f"0x{((init_task_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
+def _run_call_proof_sched_get_group_id(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    source = lookup_source_signature("sched_get_group_id", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "sched_get_group_id",
+        ("@init_task",),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["sched_get_group_id"]["expected_tier"]:
+        raise ReplError("sched_get_group_id call-safety tier is not the expected valid-pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError("sched_get_group_id source signature must declare x0 as a task_struct pointer")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS["sched_get_group_id"]["source_signature"]:
+        raise ReplError("sched_get_group_id source signature did not select the sched.h declaration")
+
+    resolutions = {
+        "sched_get_group_id": resolve_verified(
+            symbols,
+            image,
+            "sched_get_group_id",
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(
+        resolutions["sched_get_group_id"],
+        "call-proof target",
+    )
+    init_task_link = _require_init_task_link(symbols)
+    next_symbol = symbols.get("sync_cgroup_colocation")
+    if next_symbol is None or next_symbol.vaddr - target_link != 0x48:
+        raise ReplError("sched_get_group_id next-symbol boundary is not the expected 0x48")
+    words = image.u32_words_at_vaddr(target_link, 18)
+    static_word_checks = (
+        ("static-entry", 0, SCHED_GET_GROUP_ID_ENTRY_WORD),
+        ("static-stack", 1, SCHED_GET_GROUP_ID_STACK_WORD),
+        ("static-save-task", 4, SCHED_GET_GROUP_ID_SAVE_TASK_WORD),
+        ("static-rcu-read-lock-call", 5, SCHED_GET_GROUP_ID_RCU_LOCK_BL_WORD),
+        ("static-group-pointer-load", 6, SCHED_GET_GROUP_ID_GROUP_PTR_LOAD_WORD),
+        ("static-null-group-branch", 7, SCHED_GET_GROUP_ID_GROUP_NULL_BRANCH_WORD),
+        ("static-group-id-load", 8, SCHED_GET_GROUP_ID_GROUP_ID_LOAD_WORD),
+        ("static-zero-result", 10, SCHED_GET_GROUP_ID_ZERO_RESULT_WORD),
+        ("static-rcu-read-unlock-call", 11, SCHED_GET_GROUP_ID_RCU_UNLOCK_BL_WORD),
+        ("static-return-w0", 12, SCHED_GET_GROUP_ID_RETURN_WORD),
+        ("static-exit", 15, SCHED_GET_GROUP_ID_EXIT_WORD),
+        ("static-ret", 16, SCHED_GET_GROUP_ID_RET_WORD),
+        ("static-next-guard", 17, SCHED_GET_GROUP_ID_NEXT_GUARD_WORD),
+    )
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "sched_get_group_id",
+            "resolution_method": resolutions["sched_get_group_id"].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": "sync_cgroup_colocation",
+            "byte_size": "0x48",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+        {
+            "check": "static-init-task-data-symbol",
+            "ok": True,
+            "symbol": "init_task",
+            "kind": symbols["init_task"].kind,
+        },
+    ]
+    for name, index, expected in static_word_checks:
+        observed = words[index]
+        ok = observed == expected
+        checks.append({
+            "check": name,
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"sched_get_group_id {name} word mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    group_ptr = 0
+    expected_group_id = 0
+    case_results: list[dict[str, object]] = []
+    returns: list[int] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        init_task_runtime = (init_task_link + slide) & MASK64
+        group_ptr = session.peek_runtime(
+            init_task_runtime + SCHED_GET_GROUP_ID_TASK_GROUP_OFFSET,
+            8,
+        )
+        if group_ptr == 0:
+            expected_group_id = 0
+        else:
+            if not _kernel_vaddr_sane(group_ptr):
+                raise ReplError(
+                    "init_task->sched_task_group is not a sane kernel pointer: "
+                    f"0x{group_ptr:x}"
+                )
+            expected_group_id = session.peek_runtime(group_ptr, 4) & 0xFFFFFFFF
+        for index in range(SCHED_GET_GROUP_ID_REPEAT_COUNT):
+            observed = session.call_runtime(target_runtime, (init_task_runtime,)) & 0xFFFFFFFF
+            returns.append(observed)
+            ok = observed == expected_group_id
+            case_results.append({
+                "case": f"init-task-sched-group-id-{index + 1}",
+                "expected_return_value": f"0x{expected_group_id:x}",
+                "observed_return_value": f"0x{observed:x}",
+                "group_pointer": "redacted-borrowed-pointer" if group_ptr else "0x0",
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(
+                    "sched_get_group_id(init_task) returned "
+                    f"0x{observed:x}, expected 0x{expected_group_id:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "sched-get-group-id-direct-field-observation-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-sched_get_group_id-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "sched_get_group_id",
+        "proof_status": "trusted-under-init-task-read-only-group-id-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["sched_get_group_id"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["sched_get_group_id"]["return_contract"],
+        "case_results": case_results,
+        "observed_group_id": f"0x{expected_group_id:x}" if returns else "n/a",
+        "all_returns_match_direct_observation": bool(returns) and all(
+            value == expected_group_id for value in returns
+        ),
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "borrowed_pointer_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "sched_get_group_id",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["sched_get_group_id"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["sched_get_group_id"]["return_contract"],
+            "observed_return_value": (
+                "repeated init_task calls matched direct read-only sched_task_group group-id "
+                f"0x{expected_group_id:x}"
+            ),
+            "cleanup": "n/a-global-borrowed-pointer-not-owned",
+            "auto_call_policy": "batched-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "sched_get_group_id_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "init_task_runtime": f"0x{((init_task_link + slide) & MASK64):x}",
+        "sched_task_group_pointer": f"0x{group_ptr:x}",
+        "expected_group_id": f"0x{expected_group_id:x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _decode_printable_c_string(raw: bytes, *, label: str) -> str:
     nul = raw.find(b"\x00")
     if nul < 0:
@@ -28845,6 +29317,20 @@ def run_call_proof(session: ReplSession,
         )
     if target == "get_current_napi_context":
         return _run_call_proof_get_current_napi_context(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "__task_pid_nr_ns":
+        return _run_call_proof___task_pid_nr_ns(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "sched_get_group_id":
+        return _run_call_proof_sched_get_group_id(
             session,
             symbols,
             image,

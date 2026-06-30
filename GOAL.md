@@ -806,6 +806,47 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic batch live-call proof — `task_struct *` read-only kernel-state contracts
+
+> ### ✅ STATUS (2026-07-01 live pass) — first same-session batch proof after operator BATCH correction
+>
+> Codex corrected the previous single-candidate framing and promoted a same-shape batch in one
+> `v1-repl` boot session. The batch targeted read-only `task_struct *` state queries using the global
+> `init_task` pointer only: `__task_pid_nr_ns(init_task, PIDTYPE_PID, NULL)` and
+> `sched_get_group_id(init_task)`. Static C1/source/call-safety validation passed for both targets:
+> `__task_pid_nr_ns=0xffffff80080d846c`, `export-recovery`, direct-BL xrefs `114`, source declaration
+> `pid_t __task_pid_nr_ns(struct task_struct *task, enum pid_type type, struct pid_namespace *ns)` from
+> `include/linux/sched.h:1426`; and `sched_get_group_id=0xffffff8008122e64`,
+> `disasm-signature+xref+map`, direct-BL xrefs `1`, source declaration
+> `extern unsigned int sched_get_group_id(struct task_struct *p)` from `include/linux/sched.h:552`.
+> Both entries are `SAFE-WITH-VALID-PTR`, not scalar-safe, and retain the expected RCU
+> `context-sensitive-locking-or-sleep-call-in-scan` warning. Neighbor candidates `task_prio`,
+> `task_curr`, and `sched_get_init_task_load` stayed `DENY` due current C1 rejection.
+>
+> Host validation passed: `py_compile` for `a90_repl.py` and `tests/test_a90_repl.py`; focused
+> classifier/source/fake-batch tests; full `tests/test_a90_repl.py` (`Ran 160 tests`, `OK`);
+> and CLI `call-safety-classify` over the batch plus parked neighbors (`SAFE-WITH-VALID-PTR=2`,
+> `DENY=3`). The fake integration test runs both targets through one `ReplSession`, matching the live
+> batch cadence.
+>
+> Live validation obeyed the flash gate: rollback/fallback/TWRP artifacts were confirmed, bridge
+> healthy, baseline v2321 `version/status/selftest` passed, v1-repl candidate
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65` flashed through
+> `native_init_flash.py` with matching readback SHA, helper `version/status` passed, and candidate
+> selftest stayed `pass=11 warn=1 fail=0`. A first candidate flash invocation with
+> `--expect-version v1-repl` stopped before flash because that marker is absent from the local image;
+> the retried SHA/readback-gated flash did the actual device write.
+>
+> Result: both same-session proofs passed. `__task_pid_nr_ns` returned pid `0x0` twice for
+> `init_task/PIDTYPE_PID/NULL`; `sched_get_group_id` first directly observed
+> `init_task->sched_task_group == NULL` and then returned group id `0x0` twice. Raw runtime address,
+> slide, and borrowed-pointer evidence stayed private under
+> `workspace/private/runs/kernel/live-call-proof-task-struct-batch-20260701/`. Codex rolled back to
+> clean v2321 through `native_init_flash.py`; v2321 readback SHA matched. The rollback helper's
+> post-verify wait was interrupted only after v2321 `version` output was visible; manual final
+> `status` and `selftest` then confirmed `pass=11 warn=1 fail=0`. Final resident is v2321. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_TASK_STRUCT_BATCH_2026-07-01.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `get_ddr_vendor_name` borrowed DDR vendor string contract
 
 > ### ✅ STATUS (2026-07-01 live pass) — `get_ddr_vendor_name` promoted under no-arg SMEM borrowed-string contract

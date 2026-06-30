@@ -1192,6 +1192,80 @@ class CallSafetyClassificationTests(unittest.TestCase):
             ],
         )
 
+        task_pid_nr_ns = self._row("__task_pid_nr_ns")
+        self.assertEqual(task_pid_nr_ns["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            task_pid_nr_ns["required_valid_pointer_args"],
+            {"0": "global-init_task-task_struct", "2": "struct-pid-namespace-or-NULL"},
+        )
+        self.assertTrue(task_pid_nr_ns["resolution"]["verified"])
+        self.assertEqual(task_pid_nr_ns["resolution"]["method"], "export-recovery")
+        self.assertEqual(
+            task_pid_nr_ns["resolution"]["link_vaddr"],
+            "0xffffff80080d846c",
+        )
+        self.assertGreaterEqual(task_pid_nr_ns["signals"]["direct_bl_xref_count"], 100)
+        self.assertEqual(
+            task_pid_nr_ns["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertEqual(task_pid_nr_ns["signals"]["context_call_count"], 2)
+        self.assertIn("context-sensitive-locking-or-sleep-call-in-scan", task_pid_nr_ns["warnings"])
+        self.assertEqual(
+            task_pid_nr_ns["signals"]["first_words"][:12],
+            [
+                "0xca1103d0",
+                "0xa9bd43fd",
+                "0xf9000bf5",
+                "0x910003fd",
+                "0xa9024ff4",
+                "0xaa0203f3",
+                "0x2a0103f4",
+                "0xaa0003f5",
+                "0x9401cc3e",
+                "0xb50000f3",
+                "0xd5384108",
+                "0xf9439108",
+            ],
+        )
+
+        sched_get_group_id = self._row("sched_get_group_id")
+        self.assertEqual(sched_get_group_id["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            sched_get_group_id["required_valid_pointer_args"],
+            {"0": "global-init_task-task_struct"},
+        )
+        self.assertTrue(sched_get_group_id["resolution"]["verified"])
+        self.assertEqual(sched_get_group_id["resolution"]["method"], "disasm-signature+xref+map")
+        self.assertEqual(
+            sched_get_group_id["resolution"]["link_vaddr"],
+            "0xffffff8008122e64",
+        )
+        self.assertGreaterEqual(sched_get_group_id["signals"]["direct_bl_xref_count"], 1)
+        self.assertEqual(
+            sched_get_group_id["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertEqual(sched_get_group_id["signals"]["context_call_count"], 2)
+        self.assertIn("context-sensitive-locking-or-sleep-call-in-scan", sched_get_group_id["warnings"])
+        self.assertEqual(
+            sched_get_group_id["signals"]["first_words"][:12],
+            [
+                "0xca1103d0",
+                "0xa9be43fd",
+                "0xf9000bf3",
+                "0x910003fd",
+                "0xaa0003f3",
+                "0x9400a1c3",
+                "0xf941ee68",
+                "0xb4000068",
+                "0xb9400113",
+                "0x14000002",
+                "0x2a1f03f3",
+                "0x9400a1c3",
+            ],
+        )
+
         get_ddr_vendor_name = self._row("get_ddr_vendor_name")
         self.assertEqual(get_ddr_vendor_name["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
         self.assertEqual(get_ddr_vendor_name["required_valid_pointer_args"], {})
@@ -2552,6 +2626,32 @@ class CallSafetyClassificationTests(unittest.TestCase):
             get_current_napi_context["selected"]["path"].endswith("include/linux/netdevice.h")
         )
 
+        task_pid_nr_ns = repl.lookup_source_signature(
+            "__task_pid_nr_ns",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(task_pid_nr_ns["status"], "found", task_pid_nr_ns)
+        self.assertEqual(task_pid_nr_ns["selected"]["pointer_arg_indices"], [0, 2])
+        self.assertEqual(
+            task_pid_nr_ns["selected"]["signature"],
+            "pid_t __task_pid_nr_ns(struct task_struct *task, enum pid_type type, struct pid_namespace *ns)",
+        )
+        self.assertEqual(task_pid_nr_ns["selected"]["line"], 1426)
+        self.assertTrue(task_pid_nr_ns["selected"]["path"].endswith("include/linux/sched.h"))
+
+        sched_get_group_id = repl.lookup_source_signature(
+            "sched_get_group_id",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(sched_get_group_id["status"], "found", sched_get_group_id)
+        self.assertEqual(sched_get_group_id["selected"]["pointer_arg_indices"], [0])
+        self.assertEqual(
+            sched_get_group_id["selected"]["signature"],
+            "extern unsigned int sched_get_group_id(struct task_struct *p)",
+        )
+        self.assertEqual(sched_get_group_id["selected"]["line"], 552)
+        self.assertTrue(sched_get_group_id["selected"]["path"].endswith("include/linux/sched.h"))
+
         get_boot_stat_time = repl.lookup_source_signature(
             "get_boot_stat_time",
             source_root=KERNEL_SOURCE_ROOT,
@@ -3221,12 +3321,28 @@ class FaithfulFakeTransport:
             "get_current_napi_context",
             purpose="call",
         ).link_vaddr
+        self.task_pid_nr_ns_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "__task_pid_nr_ns",
+            purpose="call",
+        ).link_vaddr
+        self.sched_get_group_id_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "sched_get_group_id",
+            purpose="call",
+        ).link_vaddr
         self.get_ddr_vendor_name_link = repl.resolve_verified(
             self.symbols,
             self.image,
             "get_ddr_vendor_name",
             purpose="call",
         ).link_vaddr
+        self.init_task_link = self.symbols["init_task"].vaddr
+        self.init_task_runtime = self.init_task_link + self.slide
+        self.init_task_sched_group_ptr = 0xFFFFFFC012360000
+        self.init_task_sched_group_id = 0x2A
         self.get_boot_stat_time_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -3857,6 +3973,14 @@ class FaithfulFakeTransport:
             if self.borrowed_ddr_vendor_ptr <= arg0 < self.borrowed_ddr_vendor_ptr + repl.GET_DDR_VENDOR_NAME_READ_LEN:
                 value = int.from_bytes(self._heap_bytes(arg0, length), "little")
                 lines.append(f"A90R{value:x}")
+            elif arg0 == self.init_task_runtime + repl.SCHED_GET_GROUP_ID_TASK_GROUP_OFFSET:
+                data = self.init_task_sched_group_ptr.to_bytes(8, "little")[:length]
+                value = int.from_bytes(data, "little")
+                lines.append(f"A90R{value:x}")
+            elif arg0 == self.init_task_sched_group_ptr:
+                data = self.init_task_sched_group_id.to_bytes(4, "little")[:length]
+                value = int.from_bytes(data, "little")
+                lines.append(f"A90R{value:x}")
             else:
                 base = self._allocated_base_for(arg0, length)
                 if base is not None:
@@ -3906,6 +4030,10 @@ class FaithfulFakeTransport:
             get_cpu_device = self.get_cpu_device_link + self.slide
             assert self.get_current_napi_context_link is not None
             get_current_napi_context = self.get_current_napi_context_link + self.slide
+            assert self.task_pid_nr_ns_link is not None
+            task_pid_nr_ns = self.task_pid_nr_ns_link + self.slide
+            assert self.sched_get_group_id_link is not None
+            sched_get_group_id = self.sched_get_group_id_link + self.slide
             assert self.get_ddr_vendor_name_link is not None
             get_ddr_vendor_name = self.get_ddr_vendor_name_link + self.slide
             assert self.get_boot_stat_time_link is not None
@@ -4465,6 +4593,19 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("get_current_napi_context proof must pass no arguments")
                 lines.append("A90R0")
+            elif arg0 == task_pid_nr_ns:
+                if (arg1, arg2, arg3, arg4) != (
+                    self.init_task_runtime,
+                    repl.TASK_PID_NR_NS_PIDTYPE_PID,
+                    0,
+                    0,
+                ):
+                    raise AssertionError("__task_pid_nr_ns proof must pass init_task, PIDTYPE_PID, NULL")
+                lines.append(f"A90R{repl.TASK_PID_NR_NS_EXPECTED_INIT_TASK_PID:x}")
+            elif arg0 == sched_get_group_id:
+                if (arg1, arg2, arg3, arg4) != (self.init_task_runtime, 0, 0, 0):
+                    raise AssertionError("sched_get_group_id proof must pass init_task only")
+                lines.append(f"A90R{self.init_task_sched_group_id:x}")
             elif arg0 == get_ddr_vendor_name:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("get_ddr_vendor_name proof must pass no arguments")
@@ -5801,6 +5942,82 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(private["case_returns"]["process-context-null-1"], "0x0")
         self.assertEqual(private["case_returns"]["process-context-null-2"], "0x0")
         self.assertEqual(fake.op_count, 3)  # slide + 2 no-arg proof calls
+
+    def test_call_proof_task_struct_batch_candidates_pass_in_one_fake_session(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        pid_summary, pid_private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "__task_pid_nr_ns",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        group_summary, group_private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "sched_get_group_id",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(pid_summary["ok"], pid_summary)
+        self.assertEqual(
+            pid_summary["decision"],
+            "a90-repl-live-call-proof-__task_pid_nr_ns-pass",
+        )
+        self.assertEqual(pid_summary["proof_status"], "trusted-under-init-task-read-only-pid0-contract")
+        self.assertEqual(pid_summary["function_map_entry"]["symbol"], "__task_pid_nr_ns")
+        self.assertEqual(
+            pid_summary["source_evidence"]["signature"],
+            "pid_t __task_pid_nr_ns(struct task_struct *task, enum pid_type type, struct pid_namespace *ns)",
+        )
+        self.assertEqual(pid_summary["source_evidence"]["pointer_arg_indices"], [0, 2])
+        self.assertEqual(pid_summary["observed_pid"], "0x0")
+        self.assertTrue(pid_summary["all_returns_expected"])
+        self.assertEqual(pid_summary["repeat_count"], 2)
+        self.assertTrue(pid_summary["raw_runtime_values_redacted"])
+        self.assertTrue(pid_summary["borrowed_pointer_redacted"])
+        self.assertNotIn("__task_pid_nr_ns_runtime", pid_summary)
+        self.assertIn("__task_pid_nr_ns_runtime", pid_private)
+        self.assertIn("init_task_runtime", pid_private)
+
+        self.assertTrue(group_summary["ok"], group_summary)
+        self.assertEqual(
+            group_summary["decision"],
+            "a90-repl-live-call-proof-sched_get_group_id-pass",
+        )
+        self.assertEqual(
+            group_summary["proof_status"],
+            "trusted-under-init-task-read-only-group-id-contract",
+        )
+        self.assertEqual(group_summary["function_map_entry"]["symbol"], "sched_get_group_id")
+        self.assertEqual(
+            group_summary["source_evidence"]["signature"],
+            "extern unsigned int sched_get_group_id(struct task_struct *p)",
+        )
+        self.assertEqual(group_summary["source_evidence"]["pointer_arg_indices"], [0])
+        self.assertEqual(group_summary["observed_group_id"], f"0x{fake.init_task_sched_group_id:x}")
+        self.assertTrue(group_summary["all_returns_match_direct_observation"])
+        self.assertEqual(group_summary["repeat_count"], 2)
+        self.assertTrue(group_summary["raw_runtime_values_redacted"])
+        self.assertTrue(group_summary["borrowed_pointer_redacted"])
+        self.assertNotIn("sched_get_group_id_runtime", group_summary)
+        self.assertIn("sched_get_group_id_runtime", group_private)
+        self.assertEqual(
+            group_private["sched_task_group_pointer"],
+            f"0x{fake.init_task_sched_group_ptr:x}",
+        )
+        self.assertEqual(group_private["expected_group_id"], f"0x{fake.init_task_sched_group_id:x}")
+        self.assertEqual(fake.op_count, 8)  # 2 slides + pid calls + direct field peeks + group calls
 
     def test_call_proof_get_ddr_vendor_name_passes_with_borrowed_string_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
