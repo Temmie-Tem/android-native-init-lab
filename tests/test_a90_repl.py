@@ -1042,6 +1042,54 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(bitmap_subset["signals"]["direct_bl_xref_count"], 3)
         self.assertTrue(bitmap_subset["signals"]["leaf"])
 
+        bitmap_alloc = self._row("bitmap_alloc")
+        self.assertEqual(bitmap_alloc["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(bitmap_alloc["required_valid_pointer_args"], {})
+        self.assertTrue(bitmap_alloc["resolution"]["verified"])
+        self.assertEqual(bitmap_alloc["resolution"]["method"], "export-recovery")
+        self.assertEqual(bitmap_alloc["resolution"]["link_vaddr"], "0xffffff800855e0dc")
+        self.assertGreaterEqual(bitmap_alloc["signals"]["direct_bl_xref_count"], 3)
+        self.assertFalse(bitmap_alloc["signals"]["leaf"])
+        self.assertEqual(bitmap_alloc["signals"]["arg_pointer_derefs_before_first_bl_or_ret"], [])
+        self.assertTrue(
+            bitmap_alloc["signals"]["arg_taint_flow"]["safe_scalar_positive_no_arg_memory_base_flow"]
+        )
+        self.assertEqual(
+            bitmap_alloc["signals"]["first_words"][:12],
+            [f"0x{word:08x}" for word in repl.BITMAP_ALLOC_EXPECTED_WORDS],
+        )
+
+        bitmap_zalloc = self._row("bitmap_zalloc")
+        self.assertEqual(bitmap_zalloc["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(bitmap_zalloc["required_valid_pointer_args"], {})
+        self.assertTrue(bitmap_zalloc["resolution"]["verified"])
+        self.assertEqual(bitmap_zalloc["resolution"]["method"], "export-recovery")
+        self.assertEqual(bitmap_zalloc["resolution"]["link_vaddr"], "0xffffff800855e10c")
+        self.assertGreaterEqual(bitmap_zalloc["signals"]["direct_bl_xref_count"], 1)
+        self.assertFalse(bitmap_zalloc["signals"]["leaf"])
+        self.assertEqual(bitmap_zalloc["signals"]["arg_pointer_derefs_before_first_bl_or_ret"], [])
+        self.assertTrue(
+            bitmap_zalloc["signals"]["arg_taint_flow"]["safe_scalar_positive_no_arg_memory_base_flow"]
+        )
+        self.assertEqual(
+            bitmap_zalloc["signals"]["first_words"][:10],
+            [f"0x{word:08x}" for word in repl.BITMAP_ZALLOC_EXPECTED_WORDS],
+        )
+
+        bitmap_free = self._row("bitmap_free")
+        self.assertEqual(bitmap_free["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(bitmap_free["required_valid_pointer_args"], {"0": "bitmap_alloc-object-or-NULL"})
+        self.assertTrue(bitmap_free["resolution"]["verified"])
+        self.assertEqual(bitmap_free["resolution"]["method"], "export-recovery")
+        self.assertEqual(bitmap_free["resolution"]["link_vaddr"], "0xffffff800855e134")
+        self.assertGreaterEqual(bitmap_free["signals"]["direct_bl_xref_count"], 1)
+        self.assertFalse(bitmap_free["signals"]["leaf"])
+        self.assertEqual(bitmap_free["signals"]["arg_pointer_derefs_before_first_bl_or_ret"], [])
+        self.assertEqual(
+            bitmap_free["signals"]["first_words"][:8],
+            [f"0x{word:08x}" for word in repl.BITMAP_FREE_EXPECTED_WORDS],
+        )
+
         cpumask_next = self._row("cpumask_next")
         self.assertEqual(cpumask_next["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(cpumask_next["required_valid_pointer_args"], {"1": "cpumask-buffer"})
@@ -2062,7 +2110,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 26)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 28)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 8)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -2563,6 +2611,36 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertEqual(bitmap_subset["selected"]["line"], 121)
         self.assertTrue(bitmap_subset["selected"]["path"].endswith("include/linux/bitmap.h"))
+
+        bitmap_alloc = repl.lookup_source_signature("bitmap_alloc", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(bitmap_alloc["status"], "found", bitmap_alloc)
+        self.assertEqual(bitmap_alloc["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            bitmap_alloc["selected"]["signature"],
+            "extern unsigned long * bitmap_alloc(unsigned int nbits, gfp_t flags)",
+        )
+        self.assertEqual(bitmap_alloc["selected"]["line"], 93)
+        self.assertTrue(bitmap_alloc["selected"]["path"].endswith("include/linux/bitmap.h"))
+
+        bitmap_zalloc = repl.lookup_source_signature("bitmap_zalloc", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(bitmap_zalloc["status"], "found", bitmap_zalloc)
+        self.assertEqual(bitmap_zalloc["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            bitmap_zalloc["selected"]["signature"],
+            "extern unsigned long * bitmap_zalloc(unsigned int nbits, gfp_t flags)",
+        )
+        self.assertEqual(bitmap_zalloc["selected"]["line"], 94)
+        self.assertTrue(bitmap_zalloc["selected"]["path"].endswith("include/linux/bitmap.h"))
+
+        bitmap_free = repl.lookup_source_signature("bitmap_free", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(bitmap_free["status"], "found", bitmap_free)
+        self.assertEqual(bitmap_free["selected"]["pointer_arg_indices"], [0])
+        self.assertEqual(
+            bitmap_free["selected"]["signature"],
+            "extern void bitmap_free(const unsigned long *bitmap)",
+        )
+        self.assertEqual(bitmap_free["selected"]["line"], 95)
+        self.assertTrue(bitmap_free["selected"]["path"].endswith("include/linux/bitmap.h"))
 
         cpumask_next = repl.lookup_source_signature("cpumask_next", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(cpumask_next["status"], "found", cpumask_next)
@@ -3923,6 +4001,24 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.bitmap_alloc_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "bitmap_alloc",
+            purpose="call",
+        ).link_vaddr
+        self.bitmap_zalloc_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "bitmap_zalloc",
+            purpose="call",
+        ).link_vaddr
+        self.bitmap_free_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "bitmap_free",
+            purpose="call",
+        ).link_vaddr
         self.cpumask_next_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -4288,6 +4384,12 @@ class FaithfulFakeTransport:
             bitmap_andnot = self.bitmap_andnot_link + self.slide
             assert self.bitmap_subset_link is not None
             bitmap_subset = self.bitmap_subset_link + self.slide
+            assert self.bitmap_alloc_link is not None
+            bitmap_alloc = self.bitmap_alloc_link + self.slide
+            assert self.bitmap_zalloc_link is not None
+            bitmap_zalloc = self.bitmap_zalloc_link + self.slide
+            assert self.bitmap_free_link is not None
+            bitmap_free = self.bitmap_free_link + self.slide
             assert self.cpumask_next_link is not None
             cpumask_next = self.cpumask_next_link + self.slide
             assert self.cpumask_next_wrap_link is not None
@@ -5634,6 +5736,27 @@ class FaithfulFakeTransport:
                         result = 0
                         break
                 lines.append(f"A90R{result:x}")
+            elif arg0 == bitmap_alloc:
+                if arg1 != repl.BITMAP_ALLOC_PROOF_SIZE_BITS:
+                    raise AssertionError(f"unexpected bitmap_alloc nbits: {arg1:#x}")
+                ptr = self.next_heap_ptr
+                self.next_heap_ptr += 0x1000
+                self.allocated.add(ptr)
+                lines.append(f"A90R{ptr:x}")
+            elif arg0 == bitmap_zalloc:
+                if arg1 != repl.BITMAP_ALLOC_PROOF_SIZE_BITS:
+                    raise AssertionError(f"unexpected bitmap_zalloc nbits: {arg1:#x}")
+                ptr = self.next_heap_ptr
+                self.next_heap_ptr += 0x1000
+                self.allocated.add(ptr)
+                self._set_heap_bytes(ptr, b"\x00" * repl.BITMAP_ALLOC_PROOF_BYTES)
+                lines.append(f"A90R{ptr:x}")
+            elif arg0 == bitmap_free:
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"bitmap_free arg is not an allocated pointer: {arg1:#x}")
+                self.freed.append(arg1)
+                self.allocated.discard(arg1)
+                lines.append("A90R0")
             elif arg0 == cpumask_next:
                 if arg2 not in self.allocated:
                     raise AssertionError(f"cpumask_next mask is not an allocated pointer: {arg2:#x}")
@@ -9540,6 +9663,100 @@ class SelftestIntegrationTests(unittest.TestCase):
                 fake.heap_ptr + fake.ksize_return,
                 fake.heap_ptr + (2 * fake.ksize_return),
                 fake.heap_ptr + (3 * fake.ksize_return),
+            ],
+        )
+
+    def test_call_proof_bitmap_allocation_batch_passes_with_bitmap_free_cleanup(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        alloc_summary, alloc_private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "bitmap_alloc",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        zalloc_summary, zalloc_private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "bitmap_zalloc",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        for target, summary in (
+            ("bitmap_alloc", alloc_summary),
+            ("bitmap_zalloc", zalloc_summary),
+        ):
+            self.assertTrue(summary["ok"], summary)
+            self.assertEqual(summary["decision"], f"a90-repl-live-call-proof-{target}-pass")
+            self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+            self.assertEqual(summary["function_map_entry"]["symbol"], target)
+            self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+            self.assertEqual(
+                summary["function_map_entry"]["auto_call_policy"],
+                "same-session-batch-proof-only-not-mass-call",
+            )
+            self.assertEqual(
+                summary["function_map_entry"]["cleanup"],
+                "bitmap_free-owned-bitmap-ok",
+            )
+            self.assertEqual(summary["paired_cleanup_function_map_entry"]["symbol"], "bitmap_free")
+            self.assertEqual(summary["paired_cleanup_function_map_entry"]["status"], "live-used-cleanup")
+            self.assertEqual(summary["bitmap_size_bits"], repl.BITMAP_ALLOC_PROOF_SIZE_BITS)
+            self.assertEqual(summary["expected_alloc_bytes"], repl.BITMAP_ALLOC_PROOF_BYTES)
+            self.assertTrue(summary["writable_pattern_roundtrip"])
+            self.assertTrue(summary["raw_runtime_values_redacted"])
+            self.assertTrue(summary["owned_pointer_redacted"])
+            self.assertTrue(summary["observed_bytes_redacted"])
+            self.assertNotIn("bitmap_ptr", summary)
+            self.assertNotIn(f"{target}_runtime", summary)
+            self.assertNotIn("observed_pattern_hex", summary)
+            self.assertEqual(
+                summary["bitmap_free_source_evidence"]["signature"],
+                "extern void bitmap_free(const unsigned long *bitmap)",
+            )
+            self.assertEqual(summary["bitmap_free_source_evidence"]["pointer_arg_indices"], [0])
+
+        self.assertEqual(
+            alloc_summary["source_evidence"]["signature"],
+            "extern unsigned long * bitmap_alloc(unsigned int nbits, gfp_t flags)",
+        )
+        self.assertEqual(
+            zalloc_summary["source_evidence"]["signature"],
+            "extern unsigned long * bitmap_zalloc(unsigned int nbits, gfp_t flags)",
+        )
+        self.assertFalse(alloc_summary["zero_initialized_before_write"])
+        self.assertTrue(zalloc_summary["zero_initialized_before_write"])
+
+        self.assertEqual(alloc_private["bitmap_ptr"], f"0x{fake.heap_ptr:x}")
+        self.assertEqual(zalloc_private["bitmap_ptr"], f"0x{fake.heap_ptr + fake.ksize_return:x}")
+        self.assertEqual(alloc_private["observed_zero_hex"], "")
+        self.assertEqual(
+            zalloc_private["observed_zero_hex"],
+            (b"\x00" * repl.BITMAP_ALLOC_PROOF_BYTES).hex(),
+        )
+        self.assertEqual(
+            alloc_private["observed_pattern_hex"],
+            repl.BITMAP_ALLOC_PROOF_PATTERN_BYTES.hex(),
+        )
+        self.assertEqual(
+            zalloc_private["observed_pattern_hex"],
+            repl.BITMAP_ALLOC_PROOF_PATTERN_BYTES.hex(),
+        )
+        self.assertEqual(
+            fake.freed,
+            [
+                fake.heap_ptr,
+                fake.heap_ptr + fake.ksize_return,
             ],
         )
 

@@ -806,6 +806,44 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic batch live-call proof — bitmap allocation wrappers + paired cleanup
+
+> ### ✅ STATUS (2026-07-01 live pass) — adjacent bitmap allocation batch after saturation pivot
+>
+> Codex continued the corrected BATCH cadence with a new capability shape: scalar allocation
+> wrappers that return owned kernel pointers. One `v1-repl` boot session proved adjacent
+> `bitmap_alloc(nbits, gfp)` and `bitmap_zalloc(nbits, gfp)`, both with fixed bounded
+> `nbits=130`, `GFP_KERNEL`, 24 expected bytes, and paired `bitmap_free` cleanup. Static
+> validation pinned `bitmap_alloc=0xffffff800855e0dc`, `bitmap_zalloc=0xffffff800855e10c`,
+> and `bitmap_free=0xffffff800855e134`, all `export-recovery`; source declarations came from
+> `include/linux/bitmap.h:93-95`. `bitmap_zalloc` additionally proved zero initialization
+> before the write pattern.
+>
+> Adjacent region helpers stayed parked: `bitmap_allocate_region`, `bitmap_find_free_region`,
+> and `bitmap_release_region` remain `DENY` because they mutate caller-provided bitmap
+> pointers and need a separate owned-buffer mutation contract.
+>
+> Host validation passed: `py_compile`; focused classifier/source/fake-batch tests; full
+> `tests.test_a90_repl` (`Ran 162 tests`, `OK`); and host call-safety sweep over the bitmap
+> allocation/region cluster (`bitmap_alloc`, `bitmap_zalloc`, `bitmap_free` candidate-safe;
+> the three region helpers denied). Live validation obeyed the flash gate: baseline v2321
+> `version/selftest/status` passed, v1-repl candidate
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65` flashed through
+> `native_init_flash.py` with matching readback SHA, explicit candidate health passed after
+> bridge restart + settle, the two proof calls passed in one `ReplSession`, and rollback to
+> v2321 completed with matching readback SHA plus final `selftest pass=11 warn=1 fail=0`.
+>
+> Timing was recorded per the 2026-07-01 timing rule: candidate flash helper `68.329s`,
+> candidate bridge/health-to-ready `25.418s`, live proof session `16.703s`, rollback flash
+> helper `65.220s`, rollback bridge/health-to-ready `26.478s`, total candidate-start to
+> rollback-ready `202.149s`. Operational note: three pre-proof attempts exposed a host-side
+> serial/cmdv1 cadence issue after flash/restart; each rolled back cleanly. The passing
+> wrapper restarts the serial bridge, waits for settle, then runs `version -> selftest ->
+> status`.
+>
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_BITMAP_ALLOCATION_BATCH_2026-07-01.md`.
+
 ## ✅ DONE — REPL post-epic batch live-call proof — current task state / credential read-only contracts
 
 > ### ✅ STATUS (2026-07-01 live pass) — same-session current-state batch after batch correction

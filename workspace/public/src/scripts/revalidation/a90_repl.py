@@ -288,6 +288,24 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "size_t",
         "reason": "allocator-family helper; x0 must be a verified kmalloc object pointer",
     },
+    "bitmap_alloc": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "owned-bitmap-pointer-or-null",
+        "reason": "bitmap allocation helper; scalar nbits/gfp ABI and return must be freed with bitmap_free",
+    },
+    "bitmap_zalloc": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "owned-zeroed-bitmap-pointer-or-null",
+        "reason": "bitmap zero-allocation helper; scalar nbits/gfp ABI and return must be freed with bitmap_free",
+    },
+    "bitmap_free": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "bitmap_alloc-object-or-NULL"},
+        "return_kind": "void",
+        "reason": "bitmap allocation cleanup; x0 must be a verified bitmap_alloc/bitmap_zalloc pointer or NULL",
+    },
     "hex_to_bin": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -3461,6 +3479,9 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "__bitmap_clear": ("include/linux/bitmap.h",),
     "__bitmap_andnot": ("include/linux/bitmap.h",),
     "__bitmap_subset": ("include/linux/bitmap.h",),
+    "bitmap_alloc": ("include/linux/bitmap.h",),
+    "bitmap_zalloc": ("include/linux/bitmap.h",),
+    "bitmap_free": ("include/linux/bitmap.h",),
     "find_last_bit": ("include/linux/bitops.h", "include/asm-generic/bitops/find.h"),
     "find_next_bit": ("include/asm-generic/bitops/find.h", "include/linux/bitops.h"),
     "find_next_zero_bit": ("include/asm-generic/bitops/find.h", "include/linux/bitops.h"),
@@ -5394,6 +5415,18 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern int __bitmap_subset(const unsigned long *bitmap1, const unsigned long *bitmap2, unsigned int nbits)",
     },
+    "bitmap_alloc": {
+        "input_contract": "scalar nbits fixed to 130 and scalar GFP_KERNEL flags; returned pointer is owned by the proof",
+        "return_contract": "unsigned long * is non-NULL kernel lowmem, writable for BITS_TO_LONGS(130) bytes, and cleanup through bitmap_free succeeds",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern unsigned long * bitmap_alloc(unsigned int nbits, gfp_t flags)",
+    },
+    "bitmap_zalloc": {
+        "input_contract": "scalar nbits fixed to 130 and scalar GFP_KERNEL flags; returned pointer is owned by the proof",
+        "return_contract": "unsigned long * is non-NULL kernel lowmem, first BITS_TO_LONGS(130) bytes are zero, writable, and cleanup through bitmap_free succeeds",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern unsigned long * bitmap_zalloc(unsigned int nbits, gfp_t flags)",
+    },
     "find_next_bit": {
         "input_contract": "owned unsigned-long bitmap buffer + scalar bit size + scalar offset inside that bitmap",
         "return_contract": "unsigned long == first set bit index >= offset, or size when no set bit exists",
@@ -6738,6 +6771,25 @@ BITMAP_WEIGHT_CASES = (
     ("include-third-second-word-bit", 91, 8),
     ("exclude-last-bit-boundary", 127, 8),
     ("full-size", BITMAP_WEIGHT_PROOF_SIZE_BITS, 9),
+)
+BITMAP_ALLOC_PROOF_SIZE_BITS = 130
+BITMAP_ALLOC_PROOF_BYTES = ((BITMAP_ALLOC_PROOF_SIZE_BITS + 63) // 64) * 8
+BITMAP_ALLOC_PROOF_PATTERN_BYTES = bytes(
+    ((index * 17 + 0x35) & 0xFF) for index in range(BITMAP_ALLOC_PROOF_BYTES)
+)
+BITMAP_ALLOC_EXPECTED_WORDS = (
+    0xCA1103D0, 0xA9BF43FD, 0x910003FD, 0x2A0003E8,
+    0x9100FD08, 0xD343FD08, 0x927D6900, 0x97F4334F,
+    0xA8C143FD, 0xCA11021E, 0xD65F03C0, 0x00BE7BAD,
+)
+BITMAP_ZALLOC_EXPECTED_WORDS = (
+    0xCA1103D0, 0xA9BF43FD, 0x910003FD, 0x32110021,
+    0x97FFFFF0, 0xA8C143FD, 0xCA11021E, 0xD65F03C0,
+    0xD503201F, 0x00BE7BAD,
+)
+BITMAP_FREE_EXPECTED_WORDS = (
+    0xCA1103D0, 0xA9BF43FD, 0x910003FD, 0x97F43485,
+    0xA8C143FD, 0xCA11021E, 0xD65F03C0, 0x00BE7BAD,
 )
 BITMAP_COMPLEMENT_PROOF_SIZE_BITS = 128
 BITMAP_COMPLEMENT_SRC_BITS = BITMAP_WEIGHT_ONE_BITS
@@ -9771,6 +9823,274 @@ def _run_call_proof___bitmap_subset(session: ReplSession,
             str(case["case"]): str(case["observed_return_value"])
             for case in case_results
         },
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
+def _run_call_proof_bitmap_alloc_like(session: ReplSession,
+                                      symbols: dict[str, Symbol],
+                                      image: StaticImage,
+                                      *,
+                                      target: str,
+                                      source_root: Path,
+                                      gfp: int,
+                                      gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    if target not in ("bitmap_alloc", "bitmap_zalloc"):
+        raise ReplError(f"unsupported bitmap allocation proof target: {target}")
+
+    target_words = {
+        "bitmap_alloc": BITMAP_ALLOC_EXPECTED_WORDS,
+        "bitmap_zalloc": BITMAP_ZALLOC_EXPECTED_WORDS,
+    }[target]
+    next_symbol_name = {
+        "bitmap_alloc": "bitmap_zalloc",
+        "bitmap_zalloc": "bitmap_free",
+    }[target]
+    expected_boundary = {
+        "bitmap_alloc": 0x30,
+        "bitmap_zalloc": 0x28,
+    }[target]
+
+    source = lookup_source_signature(target, source_root=source_root)
+    source_free = lookup_source_signature("bitmap_free", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        (BITMAP_ALLOC_PROOF_SIZE_BITS, gfp),
+    )
+    free_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "bitmap_free",
+        ("@bitmap_alloc_owned_bitmap",),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected scalar tier")
+    if free_safety.get("tier") != CALL_SAFETY_SAFE_WITH_VALID_PTR:
+        raise ReplError("bitmap_free call-safety tier is not the expected vetted pointer tier")
+
+    selected = source.get("selected")
+    selected_signature = selected.get("signature") if isinstance(selected, dict) else None
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError(f"{target} source signature does not declare scalar-only arguments")
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the exported bitmap declaration")
+
+    selected_free = source_free.get("selected")
+    selected_free_signature = selected_free.get("signature") if isinstance(selected_free, dict) else None
+    if (
+        not source_free.get("found")
+        or source_free.get("pointer_arg_indices") != [0]
+        or selected_free_signature != "extern void bitmap_free(const unsigned long *bitmap)"
+    ):
+        raise ReplError("bitmap_free source signature does not declare x0 as the bitmap pointer")
+
+    resolutions = {
+        target: resolve_verified(symbols, image, target, purpose="call"),
+        "bitmap_free": resolve_verified(symbols, image, "bitmap_free", purpose="call"),
+    }
+    target_link = require_verified_resolution(resolutions[target], "call-proof target")
+    bitmap_free_link = require_verified_resolution(resolutions["bitmap_free"], "call-proof bitmap cleanup")
+
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+    free_next_symbol = symbols.get("sg_next")
+    if free_next_symbol is None or free_next_symbol.vaddr - bitmap_free_link != 0x20:
+        raise ReplError("bitmap_free next-symbol boundary is not the expected 0x20")
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+            "bitmap_size_bits": BITMAP_ALLOC_PROOF_SIZE_BITS,
+        },
+        {
+            "check": "static-bitmap-free-source-contract",
+            "ok": True,
+            "signature": selected_free_signature,
+            "pointer_arg_indices": source_free.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-bitmap-free-call-safety-contract",
+            "ok": True,
+            "tier": free_safety.get("tier"),
+            "required_valid_pointer_args": free_safety.get("required_valid_pointer_args", {}),
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "delta": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-bitmap-free-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": "sg_next",
+            "delta": "0x20",
+        },
+    ]
+    for index, expected_word in enumerate(target_words):
+        observed_word = image.u32_at_vaddr(target_link + index * 4)
+        ok = observed_word == expected_word
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected_word:08x}",
+            "observed_word": f"0x{observed_word:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} static word {index} mismatch: "
+                f"observed 0x{observed_word:08x}, expected 0x{expected_word:08x}"
+            )
+    for index, expected_word in enumerate(BITMAP_FREE_EXPECTED_WORDS):
+        observed_word = image.u32_at_vaddr(bitmap_free_link + index * 4)
+        ok = observed_word == expected_word
+        checks.append({
+            "check": f"static-bitmap_free-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected_word:08x}",
+            "observed_word": f"0x{observed_word:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"bitmap_free static word {index} mismatch: "
+                f"observed 0x{observed_word:08x}, expected 0x{expected_word:08x}"
+            )
+
+    private: dict[str, object] = {}
+    ptr = 0
+    slide = 0
+    bitmap_free_runtime = 0
+    observed_zero_scan = b""
+    observed_pattern_scan = b""
+    free_ok = False
+    free_error = ""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        bitmap_free_runtime = (bitmap_free_link + slide) & MASK64
+
+        ptr = session.call_runtime(target_runtime, (BITMAP_ALLOC_PROOF_SIZE_BITS, gfp))
+        ptr_ok = is_kernel_lowmem_pointer(ptr)
+        checks.append({
+            "check": f"{target}-owned-pointer",
+            "ok": ptr_ok,
+            "bitmap_size_bits": BITMAP_ALLOC_PROOF_SIZE_BITS,
+            "expected_alloc_bytes": BITMAP_ALLOC_PROOF_BYTES,
+            "kernel_lowmem": ptr_ok,
+        })
+        if not ptr_ok:
+            raise ReplError(f"{target} did not return a sane owned bitmap pointer")
+
+        if target == "bitmap_zalloc":
+            observed_zero_scan = _peek_bytes(session, ptr, BITMAP_ALLOC_PROOF_BYTES)
+            zero_ok = observed_zero_scan == (b"\x00" * BITMAP_ALLOC_PROOF_BYTES)
+            checks.append({
+                "check": "bitmap-zalloc-zero-init",
+                "ok": zero_ok,
+                "observed_zero_bytes": BITMAP_ALLOC_PROOF_BYTES,
+            })
+            if not zero_ok:
+                raise ReplError("bitmap_zalloc did not return a zero-initialized bitmap")
+
+        _poke_bytes(session, ptr, BITMAP_ALLOC_PROOF_PATTERN_BYTES)
+        observed_pattern_scan = _peek_bytes(session, ptr, BITMAP_ALLOC_PROOF_BYTES)
+        pattern_ok = observed_pattern_scan == BITMAP_ALLOC_PROOF_PATTERN_BYTES
+        checks.append({
+            "check": f"{target}-owned-bitmap-poke-peek",
+            "ok": pattern_ok,
+            "written_bytes": BITMAP_ALLOC_PROOF_BYTES,
+        })
+        if not pattern_ok:
+            raise ReplError(f"{target} returned bitmap was not writable through poke/peek")
+    finally:
+        if ptr and is_kernel_lowmem_pointer(ptr) and bitmap_free_runtime:
+            try:
+                session.call_runtime(bitmap_free_runtime, (ptr,))
+                free_ok = True
+            except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                free_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "bitmap-free-owned-allocation",
+        "ok": free_ok,
+        "free_attempted": bool(ptr and is_kernel_lowmem_pointer(ptr)),
+    })
+    if free_error:
+        raise ReplError(f"bitmap_free cleanup failed after {target} proof: {free_error}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "bitmap_size_bits": BITMAP_ALLOC_PROOF_SIZE_BITS,
+        "expected_alloc_bytes": BITMAP_ALLOC_PROOF_BYTES,
+        "zero_initialized_before_write": target == "bitmap_zalloc",
+        "writable_pattern_roundtrip": True,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "bitmap_free_source_evidence": _source_row_evidence(source_free),
+        "call_safety": call_safety,
+        "bitmap_free_call_safety": free_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": "owned-bitmap-pointer-redacted",
+            "cleanup": "bitmap_free-owned-bitmap-ok" if free_ok else "cleanup-failed",
+            "auto_call_policy": "same-session-batch-proof-only-not-mass-call",
+        },
+        "paired_cleanup_function_map_entry": {
+            "symbol": "bitmap_free",
+            "status": "live-used-cleanup",
+            "trusted_input_contract": "owned bitmap_alloc/bitmap_zalloc pointer or NULL",
+            "return_contract": "void; call completed without oops under the owned bitmap pointer contract",
+            "observed_return_value": "void-return-ignored",
+            "auto_call_policy": "paired-cleanup-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "bitmap_free_runtime": f"0x{((bitmap_free_link + slide) & MASK64):x}",
+        "bitmap_ptr": f"0x{ptr:x}",
+        "observed_zero_hex": observed_zero_scan.hex(),
+        "observed_pattern_hex": observed_pattern_scan.hex(),
+        "expected_pattern_hex": BITMAP_ALLOC_PROOF_PATTERN_BYTES.hex(),
         "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
     })
     return summary, private
@@ -29702,6 +30022,16 @@ def run_call_proof(session: ReplSession,
             symbols,
             image,
             alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target in ("bitmap_alloc", "bitmap_zalloc"):
+        return _run_call_proof_bitmap_alloc_like(
+            session,
+            symbols,
+            image,
+            target=target,
             source_root=source_root,
             gfp=gfp,
             gfp_components=gfp_components,
