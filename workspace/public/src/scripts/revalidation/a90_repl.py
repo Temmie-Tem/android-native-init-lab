@@ -366,6 +366,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "borrowed-kernel-pointer-or-null",
         "reason": "no-argument NAPI context lookup; proof calls from REPL process context and expects NULL, any non-NULL return is borrowed and must not be dereferenced or freed",
     },
+    "get_ddr_vendor_name": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "borrowed-kernel-string-pointer-or-null",
+        "reason": "no-argument Samsung SMEM DDR vendor getter; proof only bounded-reads the borrowed char pointer as a stable NUL-terminated printable string",
+    },
     "get_boot_stat_time": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -3438,6 +3444,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "get_boot_stat_time": ("include/soc/qcom/boot_stats.h",),
     "get_cpu_device": ("include/linux/cpu.h",),
     "get_current_napi_context": ("include/linux/netdevice.h",),
+    "get_ddr_vendor_name": ("include/linux/samsung/sec_smem.h",),
     "get_ddr_DSF_version": ("include/linux/samsung/sec_smem.h",),
     "get_ddr_total_density": ("include/linux/samsung/sec_smem.h",),
     "is_sde_rsc_available": ("include/linux/sde_rsc.h",),
@@ -5226,6 +5233,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern struct napi_struct * get_current_napi_context(void)",
     },
+    "get_ddr_vendor_name": {
+        "input_contract": "no arguments; Samsung SMEM DDR vendor info is read-only; returned char pointer is borrowed/read-only and is not freed",
+        "return_contract": "char * is non-NULL, stable across repeated calls, and points to a bounded NUL-terminated printable DDR vendor string",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern char* get_ddr_vendor_name(void)",
+    },
     "get_boot_stat_time": {
         "input_contract": "no arguments; Qualcomm boot-stat timer MMIO is read-only; no returned pointer is dereferenced or freed",
         "return_contract": "unsigned int boot-stat timer value is nonzero uint32_t and advances by a bounded short-run delta across repeated proof calls",
@@ -6465,6 +6478,22 @@ IS_SDE_RSC_AVAILABLE_FALSE_RETURN_WORD = 0x2A1F03E0
 IS_SDE_RSC_AVAILABLE_RET_WORD = 0xD65F03C0
 IS_SDE_RSC_AVAILABLE_PADDING_NOP_WORD = 0xD503201F
 IS_SDE_RSC_AVAILABLE_NEXT_GUARD_WORD = 0x00BE7BAD
+GET_DDR_VENDOR_NAME_STACK_ALLOC_WORD = 0xD100C3FF
+GET_DDR_VENDOR_NAME_SMEM_ID_WORD = 0x528010C1
+GET_DDR_VENDOR_NAME_ARG_BUFFER_WORD = 0x910003E2
+GET_DDR_VENDOR_NAME_QCOM_SMEM_GET_BL_WORD = 0x97FE8984
+GET_DDR_VENDOR_NAME_SIZE_LOAD_WORD = 0xF94003E8
+GET_DDR_VENDOR_NAME_RET_PTR_SAVE_WORD = 0xAA0003F3
+GET_DDR_VENDOR_NAME_DDR_WORD_LOAD = 0xB9401268
+GET_DDR_VENDOR_NAME_TABLE_ADRP_WORD = 0x9000A449
+GET_DDR_VENDOR_NAME_TABLE_ADD_WORD = 0x913C2129
+GET_DDR_VENDOR_NAME_INDEX_MASK_WORD = 0x92400D08
+GET_DDR_VENDOR_NAME_TABLE_LOAD_WORD = 0xF8687920
+GET_DDR_VENDOR_NAME_NULL_RETURN_WORD = 0xAA1F03E0
+GET_DDR_VENDOR_NAME_RET_WORD = 0xD65F03C0
+GET_DDR_VENDOR_NAME_NEXT_GUARD_WORD = 0x00BE7BAD
+GET_DDR_VENDOR_NAME_READ_LEN = 32
+GET_DDR_VENDOR_NAME_REPEAT_COUNT = 2
 GET_DDR_DSF_VERSION_STACK_ALLOC_WORD = 0xD100C3FF
 GET_DDR_DSF_VERSION_SMEM_ID_WORD = 0x528010E1
 GET_DDR_DSF_VERSION_ARG_BUFFER_WORD = 0x910003E2
@@ -21882,6 +21911,219 @@ def _run_call_proof_get_current_napi_context(
     return summary, private
 
 
+def _decode_printable_c_string(raw: bytes, *, label: str) -> str:
+    nul = raw.find(b"\x00")
+    if nul < 0:
+        raise ReplError(f"{label} did not contain a NUL terminator in the bounded proof read")
+    value = raw[:nul]
+    if not value:
+        raise ReplError(f"{label} returned an empty string")
+    if any(byte < 0x20 or byte >= 0x7F for byte in value):
+        raise ReplError(f"{label} returned a non-printable ASCII byte sequence: {value!r}")
+    return value.decode("ascii")
+
+
+def _run_call_proof_get_ddr_vendor_name(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    source = lookup_source_signature("get_ddr_vendor_name", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "get_ddr_vendor_name",
+        (),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["get_ddr_vendor_name"]["expected_tier"]:
+        raise ReplError("get_ddr_vendor_name call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError("get_ddr_vendor_name source signature must be no-arg scalar-safe")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS["get_ddr_vendor_name"]["source_signature"]:
+        raise ReplError("get_ddr_vendor_name source signature did not select the exported declaration")
+
+    resolutions = {
+        "get_ddr_vendor_name": resolve_verified(
+            symbols,
+            image,
+            "get_ddr_vendor_name",
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(
+        resolutions["get_ddr_vendor_name"],
+        "call-proof target",
+    )
+    next_symbol = symbols.get("get_ddr_DSF_version")
+    if next_symbol is None or next_symbol.vaddr - target_link != 0xC8:
+        raise ReplError("get_ddr_vendor_name next-symbol boundary is not the expected 0xc8")
+    words = image.u32_words_at_vaddr(target_link, 50)
+    static_word_checks = (
+        ("static-stack-alloc", 0, GET_DDR_VENDOR_NAME_STACK_ALLOC_WORD),
+        ("static-smem-id-vendor0", 7, GET_DDR_VENDOR_NAME_SMEM_ID_WORD),
+        ("static-smem-size-buffer", 8, GET_DDR_VENDOR_NAME_ARG_BUFFER_WORD),
+        ("static-qcom-smem-get-call", 12, GET_DDR_VENDOR_NAME_QCOM_SMEM_GET_BL_WORD),
+        ("static-smem-size-load", 13, GET_DDR_VENDOR_NAME_SIZE_LOAD_WORD),
+        ("static-return-pointer-save", 14, GET_DDR_VENDOR_NAME_RET_PTR_SAVE_WORD),
+        ("static-ddr-vendor-word-load", 26, GET_DDR_VENDOR_NAME_DDR_WORD_LOAD),
+        ("static-vendor-table-adrp", 27, GET_DDR_VENDOR_NAME_TABLE_ADRP_WORD),
+        ("static-vendor-table-add", 28, GET_DDR_VENDOR_NAME_TABLE_ADD_WORD),
+        ("static-vendor-index-mask", 29, GET_DDR_VENDOR_NAME_INDEX_MASK_WORD),
+        ("static-vendor-table-load", 30, GET_DDR_VENDOR_NAME_TABLE_LOAD_WORD),
+        ("static-error-null-return", 37, GET_DDR_VENDOR_NAME_NULL_RETURN_WORD),
+        ("static-ret", 47, GET_DDR_VENDOR_NAME_RET_WORD),
+        ("static-next-guard", 49, GET_DDR_VENDOR_NAME_NEXT_GUARD_WORD),
+    )
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "get_ddr_vendor_name",
+            "resolution_method": resolutions["get_ddr_vendor_name"].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": "get_ddr_DSF_version",
+            "byte_size": "0xc8",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for name, index, expected in static_word_checks:
+        observed = words[index]
+        ok = observed == expected
+        checks.append({
+            "check": name,
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"get_ddr_vendor_name {name} word mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    returns: list[int] = []
+    strings: list[str] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for index in range(GET_DDR_VENDOR_NAME_REPEAT_COUNT):
+            observed = session.call_runtime(target_runtime, ())
+            returns.append(observed)
+            nonnull_ok = observed != 0
+            pointer_stable_ok = index == 0 or observed == returns[0]
+            if not nonnull_ok:
+                raise ReplError(f"get_ddr_vendor_name() returned NULL in proof call {index + 1}")
+            raw = read_runtime_bytes(
+                session,
+                observed,
+                GET_DDR_VENDOR_NAME_READ_LEN,
+                chunk_size=PEEK_MAX_LEN,
+            )
+            vendor = _decode_printable_c_string(raw, label="get_ddr_vendor_name")
+            strings.append(vendor)
+            string_stable_ok = index == 0 or vendor == strings[0]
+            ok = nonnull_ok and pointer_stable_ok and string_stable_ok
+            case_results.append({
+                "case": f"ddr-vendor-name-stable-{index + 1}",
+                "expected_return": "non-null-borrowed-printable-c-string-pointer",
+                "observed_return_value": "redacted-borrowed-pointer",
+                "observed_vendor_string": vendor,
+                "nonnull_pointer": nonnull_ok,
+                "matches_first_pointer": pointer_stable_ok,
+                "matches_first_string": string_stable_ok,
+                "ok": ok,
+            })
+            if not pointer_stable_ok:
+                raise ReplError("get_ddr_vendor_name() returned a different borrowed pointer across proof calls")
+            if not string_stable_ok:
+                raise ReplError(
+                    "get_ddr_vendor_name() returned a different vendor string across proof calls: "
+                    f"first={strings[0]!r}, call{index + 1}={vendor!r}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "get-ddr-vendor-name-borrowed-printable-string-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = strings[0] if strings else "n/a"
+    summary = {
+        "decision": f"a90-repl-live-call-proof-get_ddr_vendor_name-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "get_ddr_vendor_name",
+        "proof_status": "trusted-under-smem-borrowed-printable-vendor-string-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["get_ddr_vendor_name"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["get_ddr_vendor_name"]["return_contract"],
+        "case_results": case_results,
+        "observed_vendor_string": observed_public,
+        "all_return_pointers_stable": bool(returns) and all(value == returns[0] for value in returns),
+        "all_strings_stable": bool(strings) and all(value == strings[0] for value in strings),
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "borrowed_pointer_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "get_ddr_vendor_name",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["get_ddr_vendor_name"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["get_ddr_vendor_name"]["return_contract"],
+            "observed_return_value": f"repeated calls returned a stable borrowed DDR vendor string {observed_public!r}",
+            "cleanup": "n/a-borrowed-pointer-not-owned",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "get_ddr_vendor_name_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "borrowed_vendor_pointer": f"0x{returns[0]:x}" if returns else None,
+        "case_returns": {
+            case["case"]: "redacted-borrowed-pointer"
+            for case in case_results
+        },
+        "case_vendor_strings": {
+            case["case"]: case["observed_vendor_string"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_get_boot_stat_time(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -28603,6 +28845,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "get_current_napi_context":
         return _run_call_proof_get_current_napi_context(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "get_ddr_vendor_name":
+        return _run_call_proof_get_ddr_vendor_name(
             session,
             symbols,
             image,

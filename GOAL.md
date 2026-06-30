@@ -791,6 +791,51 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `get_ddr_vendor_name` borrowed DDR vendor string contract
+
+> ### ✅ STATUS (2026-07-01 live pass) — `get_ddr_vendor_name` promoted under no-arg SMEM borrowed-string contract
+>
+> Ninety-seventh one-target live-call proof after the REPL epic close, and the first follow-on proof
+> after the operator's saturation-stop/pivot steer to prefer read-only kernel-state observation over
+> more saturated scalar/lib variants. Codex selected `get_ddr_vendor_name`, a Samsung SMEM DDR
+> identity query, because it extends the function map as a measurement instrument: no arguments,
+> read-only SMEM access, and a borrowed `char *` result that can be bounded-read without ownership
+> transfer. Static C1 verified `get_ddr_vendor_name=0xffffff80086ef6ac`,
+> `disasm-signature+xref+map`, direct-BL xrefs `2`, source declaration
+> `extern char* get_ddr_vendor_name(void)` from `include/linux/samsung/sec_smem.h:194`, and next
+> boundary `get_ddr_DSF_version` at `+0xc8`. The proof gates the current-image body: stack setup,
+> SMEM vendor-info ID, `qcom_smem_get` call, SMEM vendor-word load, vendor-table address
+> materialization, 4-bit vendor-index mask, vendor string table load, NULL error return, RET, and
+> next-entry guard.
+>
+> Host validation passed: `py_compile` for `a90_repl.py` and `tests/test_a90_repl.py`; focused tests
+> (`Ran 4 tests`, `OK`); full `tests.test_a90_repl` (`Ran 159 tests`, `OK`);
+> CLI `call-safety-classify get_ddr_vendor_name` (`SAFE-SCALAR`, no required pointer args,
+> `disasm-signature+xref+map`, first words matching the SMEM getter body); and focused
+> `call-safety-sweep` (`SAFE-SCALAR`, scalar-only source declaration, gate seeded).
+>
+> Live validation obeyed the flash gate: rollback/fallback/TWRP SHAs confirmed, bridge healthy,
+> baseline v2321 `version/status/selftest` passed, v1-repl candidate flashed through
+> `native_init_flash.py` with matching readback SHA, helper `version/status` passed, candidate
+> selftest stayed `pass=11 warn=1 fail=0`, and REPL selftest retry returned
+> `a90-repl-v2a1-selftest-pass`. The first REPL selftest attempt hit known host-side serial framing
+> loss on a `cmdv1x` shell command before any REPL op completed; short resync plus a minimal
+> `cmdv1x` run check passed, then the retry completed cleanly.
+>
+> Result: `a90-repl-live-call-proof-get_ddr_vendor_name-pass`; checks covered C1 identity, next
+> symbol boundary, no-arg source contract, `SAFE-SCALAR` call-safety, static SMEM getter words, and
+> two bounded runtime calls. Both calls returned a stable non-NULL borrowed pointer, and the bounded
+> 32-byte string read decoded to the same printable NUL-terminated vendor string `SEC`. Raw runtime
+> address/slide/borrowed-pointer evidence stayed private under
+> `workspace/private/runs/kernel/live-call-proof-get-ddr-vendor-name-20260701/proof/`; the public
+> summary redacts the pointer and exposes only the stable vendor string. Post-proof candidate
+> selftest stayed `pass=11 warn=1 fail=0`; Codex rolled back to clean v2321 through
+> `native_init_flash.py`, readback SHA matched, helper `version/status` passed, and final standalone
+> selftest confirmed `pass=11 warn=1 fail=0`. Function map records `get_ddr_vendor_name` only under
+> the no-argument SMEM borrowed-string contract: call, bounded-read printable C string, never free.
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_GET_DDR_VENDOR_NAME_2026-07-01.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `__usecs_to_jiffies` HZ=100 round-up contract
 
 > ### ✅ STATUS (2026-07-01 live pass) — `__usecs_to_jiffies` promoted under current-image HZ=100 round-up/saturation contract

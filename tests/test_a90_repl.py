@@ -1192,6 +1192,43 @@ class CallSafetyClassificationTests(unittest.TestCase):
             ],
         )
 
+        get_ddr_vendor_name = self._row("get_ddr_vendor_name")
+        self.assertEqual(get_ddr_vendor_name["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(get_ddr_vendor_name["required_valid_pointer_args"], {})
+        self.assertTrue(get_ddr_vendor_name["resolution"]["verified"])
+        self.assertEqual(get_ddr_vendor_name["resolution"]["method"], "disasm-signature+xref+map")
+        self.assertEqual(
+            get_ddr_vendor_name["resolution"]["link_vaddr"],
+            "0xffffff80086ef6ac",
+        )
+        self.assertGreaterEqual(get_ddr_vendor_name["signals"]["direct_bl_xref_count"], 2)
+        self.assertEqual(
+            get_ddr_vendor_name["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertTrue(
+            get_ddr_vendor_name["signals"]["arg_taint_flow"][
+                "safe_scalar_positive_no_arg_memory_base_flow"
+            ]
+        )
+        self.assertEqual(
+            get_ddr_vendor_name["signals"]["first_words"][:12],
+            [
+                "0xd100c3ff",
+                "0xca1103d0",
+                "0xa90143fd",
+                "0x910043fd",
+                "0xf90013f3",
+                "0xd0012948",
+                "0x12800000",
+                "0x528010c1",
+                "0x910003e2",
+                "0xf9478508",
+                "0xf90007e8",
+                "0xf90003ff",
+            ],
+        )
+
         jiffies_64_to_clock_t = self._row("jiffies_64_to_clock_t")
         self.assertEqual(jiffies_64_to_clock_t["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
         self.assertEqual(jiffies_64_to_clock_t["required_valid_pointer_args"], {})
@@ -1885,7 +1922,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 22)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 23)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 8)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -2700,6 +2737,21 @@ class CallSafetyClassificationTests(unittest.TestCase):
             jiffies_to_usecs["selected"]["path"].endswith("include/linux/jiffies.h")
         )
 
+        get_ddr_vendor_name = repl.lookup_source_signature(
+            "get_ddr_vendor_name",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(get_ddr_vendor_name["status"], "found", get_ddr_vendor_name)
+        self.assertEqual(get_ddr_vendor_name["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            get_ddr_vendor_name["selected"]["signature"],
+            "extern char* get_ddr_vendor_name(void)",
+        )
+        self.assertEqual(get_ddr_vendor_name["selected"]["line"], 194)
+        self.assertTrue(
+            get_ddr_vendor_name["selected"]["path"].endswith("include/linux/samsung/sec_smem.h")
+        )
+
         get_ddr_DSF_version = repl.lookup_source_signature(
             "get_ddr_DSF_version",
             source_root=KERNEL_SOURCE_ROOT,
@@ -3169,6 +3221,12 @@ class FaithfulFakeTransport:
             "get_current_napi_context",
             purpose="call",
         ).link_vaddr
+        self.get_ddr_vendor_name_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "get_ddr_vendor_name",
+            purpose="call",
+        ).link_vaddr
         self.get_boot_stat_time_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -3194,6 +3252,8 @@ class FaithfulFakeTransport:
             purpose="call",
         ).link_vaddr
         self.borrowed_cpu0_device_ptr = 0xFFFFFFC012340000
+        self.borrowed_ddr_vendor_ptr = 0xFFFFFFC012350000
+        self.borrowed_ddr_vendor_string = b"Samsung\x00"
         self.boot_stat_time_values = [0x00100000, 0x00101000, 0x00102000]
         self.boot_stat_time_index = 0
         self.sde_rsc_available_value = 1
@@ -3744,6 +3804,9 @@ class FaithfulFakeTransport:
         self.op_count = 0
 
     def _heap_bytes(self, addr: int, length: int) -> bytes:
+        if self.borrowed_ddr_vendor_ptr <= addr < self.borrowed_ddr_vendor_ptr + repl.GET_DDR_VENDOR_NAME_READ_LEN:
+            offset = addr - self.borrowed_ddr_vendor_ptr
+            return self.borrowed_ddr_vendor_string[offset:offset + length].ljust(length, b"\x00")
         out = bytearray()
         for offset in range(length):
             byte_addr = addr + offset
@@ -3791,14 +3854,18 @@ class FaithfulFakeTransport:
             lines.append(f"A90R{(repl.ADR_SELF_LINK_VADDR + self.slide):x}")
         elif op == repl.OP_PEEK:
             length = arg1
-            base = self._allocated_base_for(arg0, length)
-            if base is not None:
+            if self.borrowed_ddr_vendor_ptr <= arg0 < self.borrowed_ddr_vendor_ptr + repl.GET_DDR_VENDOR_NAME_READ_LEN:
                 value = int.from_bytes(self._heap_bytes(arg0, length), "little")
                 lines.append(f"A90R{value:x}")
             else:
-                link = arg0 - self.slide
-                value = int.from_bytes(self.image.bytes_at_vaddr(link, length), "little")
-                lines.append(f"A90R{value:x}")
+                base = self._allocated_base_for(arg0, length)
+                if base is not None:
+                    value = int.from_bytes(self._heap_bytes(arg0, length), "little")
+                    lines.append(f"A90R{value:x}")
+                else:
+                    link = arg0 - self.slide
+                    value = int.from_bytes(self.image.bytes_at_vaddr(link, length), "little")
+                    lines.append(f"A90R{value:x}")
         elif op == repl.OP_POKE:
             if arg2 == 8:
                 self.heap[arg0] = arg1 & repl.MASK64
@@ -3839,6 +3906,8 @@ class FaithfulFakeTransport:
             get_cpu_device = self.get_cpu_device_link + self.slide
             assert self.get_current_napi_context_link is not None
             get_current_napi_context = self.get_current_napi_context_link + self.slide
+            assert self.get_ddr_vendor_name_link is not None
+            get_ddr_vendor_name = self.get_ddr_vendor_name_link + self.slide
             assert self.get_boot_stat_time_link is not None
             get_boot_stat_time = self.get_boot_stat_time_link + self.slide
             assert self.is_sde_rsc_available_link is not None
@@ -4396,6 +4465,10 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("get_current_napi_context proof must pass no arguments")
                 lines.append("A90R0")
+            elif arg0 == get_ddr_vendor_name:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("get_ddr_vendor_name proof must pass no arguments")
+                lines.append(f"A90R{self.borrowed_ddr_vendor_ptr:x}")
             elif arg0 == jiffies_to_clock_t:
                 if (arg2, arg3, arg4) != (0, 0, 0):
                     raise AssertionError("jiffies_to_clock_t proof must pass one scalar argument")
@@ -5728,6 +5801,72 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(private["case_returns"]["process-context-null-1"], "0x0")
         self.assertEqual(private["case_returns"]["process-context-null-2"], "0x0")
         self.assertEqual(fake.op_count, 3)  # slide + 2 no-arg proof calls
+
+    def test_call_proof_get_ddr_vendor_name_passes_with_borrowed_string_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "get_ddr_vendor_name",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(
+            summary["decision"],
+            "a90-repl-live-call-proof-get_ddr_vendor_name-pass",
+        )
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-smem-borrowed-printable-vendor-string-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "get_ddr_vendor_name")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern char* get_ddr_vendor_name(void)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(summary["observed_vendor_string"], "Samsung")
+        self.assertTrue(summary["all_return_pointers_stable"])
+        self.assertTrue(summary["all_strings_stable"])
+        self.assertEqual(summary["repeat_count"], 2)
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["borrowed_pointer_redacted"])
+        self.assertNotIn("get_ddr_vendor_name_runtime", summary)
+        self.assertNotIn("borrowed_vendor_pointer", summary)
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertEqual(cases["ddr-vendor-name-stable-1"]["observed_return_value"], "redacted-borrowed-pointer")
+        self.assertEqual(cases["ddr-vendor-name-stable-2"]["observed_return_value"], "redacted-borrowed-pointer")
+        self.assertEqual(cases["ddr-vendor-name-stable-1"]["observed_vendor_string"], "Samsung")
+        self.assertEqual(cases["ddr-vendor-name-stable-2"]["observed_vendor_string"], "Samsung")
+        self.assertTrue(cases["ddr-vendor-name-stable-1"]["ok"])
+        self.assertTrue(cases["ddr-vendor-name-stable-2"]["ok"])
+        self.assertIn("get_ddr_vendor_name_runtime", private)
+        self.assertEqual(private["borrowed_vendor_pointer"], f"0x{fake.borrowed_ddr_vendor_ptr:x}")
+        self.assertEqual(
+            private["case_vendor_strings"],
+            {
+                "ddr-vendor-name-stable-1": "Samsung",
+                "ddr-vendor-name-stable-2": "Samsung",
+            },
+        )
+        expected_peeks_per_call = (
+            repl.GET_DDR_VENDOR_NAME_READ_LEN + repl.PEEK_MAX_LEN - 1
+        ) // repl.PEEK_MAX_LEN
+        self.assertEqual(
+            fake.op_count,
+            1 + repl.GET_DDR_VENDOR_NAME_REPEAT_COUNT * (1 + expected_peeks_per_call),
+        )
 
     def test_call_proof_get_boot_stat_time_passes_with_bounded_counter_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
