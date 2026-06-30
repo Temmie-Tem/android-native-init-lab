@@ -558,6 +558,16 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
   --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
   --evidence-dir workspace/private/runs/kernel/<unit>/ \
+  __sysfs_match_string
+```
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/a90_repl.py call-proof \
+  --map workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map \
+  --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
+  --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
+  --evidence-dir workspace/private/runs/kernel/<unit>/ \
   match_token
 ```
 
@@ -907,7 +917,12 @@ one owned layout containing a bounded `const char *` array and owned NUL-termina
 requires the search string to return the expected array index, rewrites the search string to a missing
 value and requires 32-bit `-EINVAL`, verifies zero-count also returns 32-bit `-EINVAL`, verifies the
 pointer table, strings, search string, and canaries stay unchanged, frees the layout, and redacts the
-owned pointer and observed raw bytes from public output. The `match_token` proof builds one owned
+owned pointer and observed raw bytes from public output. The `__sysfs_match_string` proof builds the
+same owned array/search layout shape but uses a search string with one trailing newline, requires the
+sysfs newline-tolerant hit to return index `1`, rewrites the search string to a missing value and
+requires 32-bit `-EINVAL`, verifies zero-count also returns 32-bit `-EINVAL`, verifies the table,
+items, search string, and canaries stay unchanged, frees the layout, and redacts runtime pointers and
+observed raw bytes from public output. The `match_token` proof builds one owned
 layout containing a mutable option string, one 16-byte-entry `match_token` table with an exact
 no-`%` pattern plus NULL-pattern terminator, and an owned `substring_t args[MAX_OPT_ARGS]` region,
 calls `match_token`, requires the exact-pattern token `0x4a90`, verifies the table, args, input

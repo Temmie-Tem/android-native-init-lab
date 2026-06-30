@@ -51,6 +51,7 @@ and the C1 fail-closed identity gate.
 | `strstr` | `0xffffff80099b9ebc`, `export-recovery`, direct BL xrefs `50`, calls `__pi_strlen`/`__pi_memcmp` | owned NUL-terminated haystack and needle kernel string buffers | `strstr("A90STRSTR-HEAD-NEEDLE-TAIL", "NEEDLE")` returned the owned haystack pointer at offset `15` (redacted); missing needle `ABSENT` returned `0x0`; both strings stayed unchanged | `kfree-owned-strstr-strings-ok` | `a90-repl-live-call-proof-strstr-pass` |
 | `strnstr` | `0xffffff80099b9f44`, `export-recovery`, direct BL xrefs `268`, calls `__pi_strlen`/`__pi_memcmp` | owned NUL-terminated haystack and needle kernel string buffers plus scalar bounded length inside haystack | `strnstr("A90STRNSTR-HEAD-NEEDLE-TAIL", "NEEDLE", 27)` returned the owned haystack pointer at offset `16` (redacted); boundary length `21` returned `0x0`; missing needle `ABSENT` returned `0x0`; both strings stayed unchanged | `kfree-owned-strnstr-strings-ok` | `a90-repl-live-call-proof-strnstr-pass` |
 | `match_string` | `0xffffff80099b9c9c`, `export-recovery`, direct BL xrefs `5`, calls `__pi_strcmp` | owned `const char *` array containing owned NUL-terminated kernel strings plus owned search string and scalar bounded count inside array | `match_string(["A90MATCH-ALPHA","A90MATCH-BRAVO","A90MATCH-CHARLIE"], 3, "A90MATCH-BRAVO") == 1`; missing search `A90MATCH-MISSING` returned `0xffffffea`; zero count returned `0xffffffea`; layout stayed unchanged | `kfree-owned-match-string-layout-ok` | `a90-repl-live-call-proof-match_string-pass` |
+| `__sysfs_match_string` | `0xffffff80099b9d1c`, `export-recovery`, direct BL xrefs `11`, leaf/no-BL sysfs matcher | owned `const char *` array containing owned NUL-terminated kernel strings plus owned search string and scalar bounded count inside array | `__sysfs_match_string(["A90SYSFSMATCH-ALPHA","A90SYSFSMATCH-BRAVO","A90SYSFSMATCH-CHARLIE"], 3, "A90SYSFSMATCH-BRAVO\n") == 1`; missing search `A90SYSFSMATCH-MISSING` returned `0xffffffea`; zero count returned `0xffffffea`; layout stayed unchanged | `kfree-owned-sysfs-match-string-layout-ok` | `a90-repl-live-call-proof-__sysfs_match_string-pass` |
 | `match_token` | `0xffffff800855b404`, `export-recovery`, direct BL xrefs `23`, calls `__pi_strcmp`/`strchr` plus parser helpers on `%` paths | owned mutable option string, owned `match_token` table with one exact no-`%` pattern plus NULL-pattern terminator, and owned `substring_t args[MAX_OPT_ARGS]` array | `match_token("A90MATCH-TOKEN", [{0x4a90,"A90MATCH-TOKEN"},{0,NULL}], args) == 0x4a90`; table, args, input string, pattern string, and canaries stayed unchanged | `kfree-owned-match-token-layout-ok` | `a90-repl-live-call-proof-match_token-pass` |
 | `match_int` | `0xffffff800855b65c`, `export-recovery`, direct BL xrefs `54`, wrapper calls `match_number` with base `0` | owned `substring_t` pointing at owned bounded decimal text plus owned `int *` result slot | `match_int({from,to="12345"}, &res) == 0`; result slot stored signed `12345` with raw `0x00003039`; `substring_t`, input text, and result-slot canary stayed unchanged | `kfree-owned-match-int-layout-ok` | `a90-repl-live-call-proof-match_int-pass` |
 | `match_octal` | `0xffffff800855b83c`, `export-recovery`, direct BL xrefs `14`, wrapper calls `match_number` with base `8` | owned `substring_t` pointing at owned bounded octal text plus owned `int *` result slot | `match_octal({from,to="755"}, &res) == 0`; result slot stored signed `493` with raw `0x000001ed`; `substring_t`, input text, and result-slot canary stayed unchanged | `kfree-owned-match-octal-layout-ok` | `a90-repl-live-call-proof-match_octal-pass` |
@@ -165,7 +166,12 @@ and the C1 fail-closed identity gate.
   proof gate only under their paired owned `/init` file/buffer/position contracts. Broader read paths,
   arbitrary file pointers, and arbitrary destination buffers remain parked until separate contracts are
   proven.
-- String sweep: `strlen`, `strnchr`, `skip_spaces`, `strim`, `strreplace`, `strchr`, `strchrnul`, `strstr`, `strnstr`, `match_string`, `sysfs_streq`, `kstrdup`, `kstrndup`, `strsep`, `strpbrk`, `strcmp`, `strcasecmp`, `strncasecmp`, `strncmp`, `strnlen`, `strrchr`,
+- Sysfs array matcher sweep: `__sysfs_match_string` has crossed the live proof gate only under an
+  owned `const char *` array plus owned NUL-terminated string entries, an owned search string, and
+  bounded `n` inside the array. The proof covers a newline-tolerant hit, missing search, zero-count
+  `-EINVAL`, layout immutability, and cleanup. It does not authorize arbitrary arrays, user pointers,
+  unterminated strings, unbounded counts, output aliases, or mass calling.
+- String sweep: `strlen`, `strnchr`, `skip_spaces`, `strim`, `strreplace`, `strchr`, `strchrnul`, `strstr`, `strnstr`, `match_string`, `__sysfs_match_string`, `sysfs_streq`, `kstrdup`, `kstrndup`, `strsep`, `strpbrk`, `strcmp`, `strcasecmp`, `strncasecmp`, `strncmp`, `strnlen`, `strrchr`,
   `strscpy`, `strlcpy`, `strcpy`, `strlcat`, `strncat`, `strcat`, and
   `strncpy` have crossed the live proof gate only under owned NUL-terminated kernel string/buffer
   contracts. `strnchr` additionally requires scalar bounded count/search-byte args and only proves
@@ -184,7 +190,10 @@ and the C1 fail-closed identity gate.
   length, one boundary-length NULL case, and one missing-needle NULL case; `match_string` additionally
   requires an owned string-pointer array, owned NUL-terminated string entries, an owned search string,
   and a scalar count inside the array, and only proves one hit-index case plus missing/zero-count
-  `-EINVAL` cases; `sysfs_streq` additionally requires two owned terminated strings and only proves
+  `-EINVAL` cases; `__sysfs_match_string` additionally requires an owned string-pointer array, owned
+  NUL-terminated string entries, an owned search string, and a scalar count inside the array, and only
+  proves one newline-tolerant hit-index case plus missing/zero-count `-EINVAL` cases; `sysfs_streq`
+  additionally requires two owned terminated strings and only proves
   exact equality, one left-trailing-newline sysfs equality case, and one mismatch false case; `kstrdup`
   additionally allocates a new owned duplicate string and only proves one owned source string plus
   `GFP_KERNEL` case; `kstrndup` additionally allocates a new owned duplicate string and only proves

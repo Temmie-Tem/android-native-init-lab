@@ -637,6 +637,18 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(match_string["signals"]["direct_bl_xref_count"], 5)
         self.assertFalse(match_string["signals"]["leaf"])
 
+        sysfs_match_string = self._row("__sysfs_match_string")
+        self.assertEqual(sysfs_match_string["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            sysfs_match_string["required_valid_pointer_args"],
+            {"0": "string-pointer-array", "2": "search-string-buffer"},
+        )
+        self.assertTrue(sysfs_match_string["resolution"]["verified"])
+        self.assertEqual(sysfs_match_string["resolution"]["method"], "export-recovery")
+        self.assertEqual(sysfs_match_string["resolution"]["link_vaddr"], "0xffffff80099b9d1c")
+        self.assertGreaterEqual(sysfs_match_string["signals"]["direct_bl_xref_count"], 11)
+        self.assertTrue(sysfs_match_string["signals"]["leaf"])
+
         match_token = self._row("match_token")
         self.assertEqual(match_token["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -1372,6 +1384,15 @@ class CallSafetyClassificationTests(unittest.TestCase):
             "int match_string(const char * const *array, size_t n, const char *string)",
         )
         self.assertTrue(match_string["selected"]["path"].endswith("include/linux/string.h"))
+
+        sysfs_match_string = repl.lookup_source_signature("__sysfs_match_string", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(sysfs_match_string["status"], "found", sysfs_match_string)
+        self.assertEqual(sysfs_match_string["selected"]["pointer_arg_indices"], [0, 2])
+        self.assertEqual(
+            sysfs_match_string["selected"]["signature"],
+            "int __sysfs_match_string(const char * const *array, size_t n, const char *s)",
+        )
+        self.assertTrue(sysfs_match_string["selected"]["path"].endswith("include/linux/string.h"))
 
         match_token = repl.lookup_source_signature("match_token", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(match_token["status"], "found", match_token)
@@ -2143,6 +2164,13 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.sysfs_match_string_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "__sysfs_match_string",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.match_token_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -2506,6 +2534,8 @@ class FaithfulFakeTransport:
             strnstr = self.strnstr_link + self.slide
             assert self.match_string_link is not None
             match_string = self.match_string_link + self.slide
+            assert self.sysfs_match_string_link is not None
+            sysfs_match_string = self.sysfs_match_string_link + self.slide
             assert self.match_token_link is not None
             match_token = self.match_token_link + self.slide
             assert self.match_int_link is not None
@@ -3127,6 +3157,40 @@ class FaithfulFakeTransport:
                     if item_nul < 0:
                         raise AssertionError("match_string item is not NUL-terminated in scan window")
                     if item_data[:item_nul] == search:
+                        result = index
+                        break
+                lines.append(f"A90R{result:x}")
+            elif arg0 == sysfs_match_string:
+                count = arg2
+                table_base = self._allocated_base_for(arg1, max(8, count * 8))
+                if table_base is None:
+                    raise AssertionError(f"__sysfs_match_string array is not in an allocated buffer: {arg1:#x}")
+                search_base = self._allocated_base_for(arg3, repl.SYSFS_MATCH_STRING_MAX_STRING_SCAN_LEN)
+                if search_base is None:
+                    raise AssertionError(f"__sysfs_match_string search is not in an allocated buffer: {arg3:#x}")
+                search_data = self._heap_bytes(arg3, repl.SYSFS_MATCH_STRING_MAX_STRING_SCAN_LEN)
+                search_nul = search_data.find(b"\x00")
+                if search_nul < 0:
+                    raise AssertionError("__sysfs_match_string search is not NUL-terminated in scan window")
+                search = search_data[:search_nul]
+                result = repl.SYSFS_MATCH_STRING_EINVAL_RETURN
+                for index in range(count):
+                    entry = int.from_bytes(self._heap_bytes(arg1 + (index * 8), 8), "little")
+                    if entry == 0:
+                        break
+                    item_base = self._allocated_base_for(entry, repl.SYSFS_MATCH_STRING_MAX_STRING_SCAN_LEN)
+                    if item_base is None:
+                        raise AssertionError(f"__sysfs_match_string item is not in an allocated buffer: {entry:#x}")
+                    item_data = self._heap_bytes(entry, repl.SYSFS_MATCH_STRING_MAX_STRING_SCAN_LEN)
+                    item_nul = item_data.find(b"\x00")
+                    if item_nul < 0:
+                        raise AssertionError("__sysfs_match_string item is not NUL-terminated in scan window")
+                    item = item_data[:item_nul]
+                    if (
+                        item == search
+                        or (item.endswith(b"\n") and item[:-1] == search)
+                        or (search.endswith(b"\n") and search[:-1] == item)
+                    ):
                         result = index
                         break
                 lines.append(f"A90R{result:x}")
@@ -5962,6 +6026,83 @@ class SelftestIntegrationTests(unittest.TestCase):
         ).hex()
         expected_missing = (
             repl.MATCH_STRING_MISSING_BYTES + (b"\xcc" * repl.MATCH_STRING_CANARY_LEN)
+        ).hex()
+        self.assertEqual(private["expected_table_hex"], expected_table.hex())
+        self.assertEqual(private["table_bytes_hex"], expected_table.hex())
+        self.assertEqual(private["expected_item_hex"], expected_items)
+        self.assertEqual(private["item_bytes_hex"], expected_items)
+        self.assertEqual(private["expected_search_hex"], expected_search)
+        self.assertEqual(private["expected_missing_search_hex"], expected_missing)
+        self.assertEqual(private["missing_search_bytes_hex"], expected_missing)
+        self.assertEqual(fake.freed, [fake.heap_ptr])
+
+    def test_call_proof_sysfs_match_string_passes_with_owned_array_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "__sysfs_match_string",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-__sysfs_match_string-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "__sysfs_match_string")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "int __sysfs_match_string(const char * const *array, size_t n, const char *s)",
+        )
+        self.assertEqual(summary["array_count"], repl.SYSFS_MATCH_STRING_ARRAY_COUNT)
+        self.assertEqual(summary["array_items"], list(repl.SYSFS_MATCH_STRING_ITEM_LABELS))
+        self.assertEqual(summary["search"], repl.SYSFS_MATCH_STRING_SEARCH_DISPLAY)
+        self.assertEqual(summary["missing_search"], repl.SYSFS_MATCH_STRING_MISSING_LABEL)
+        self.assertEqual(summary["expected_hit_index"], repl.SYSFS_MATCH_STRING_EXPECTED_INDEX)
+        self.assertEqual(summary["hit_expected_return_value"], f"0x{repl.SYSFS_MATCH_STRING_EXPECTED_INDEX:x}")
+        self.assertEqual(summary["hit_observed_return_value"], f"0x{repl.SYSFS_MATCH_STRING_EXPECTED_INDEX:x}")
+        self.assertTrue(summary["hit_return_matches_expected_index"])
+        self.assertTrue(summary["newline_tolerant_match_proven"])
+        self.assertEqual(summary["missing_expected_return_value"], f"0x{repl.SYSFS_MATCH_STRING_EINVAL_RETURN:x}")
+        self.assertEqual(summary["missing_observed_return_value"], f"0x{repl.SYSFS_MATCH_STRING_EINVAL_RETURN:x}")
+        self.assertEqual(summary["zero_count_expected_return_value"], f"0x{repl.SYSFS_MATCH_STRING_EINVAL_RETURN:x}")
+        self.assertEqual(summary["zero_count_observed_return_value"], f"0x{repl.SYSFS_MATCH_STRING_EINVAL_RETURN:x}")
+        self.assertTrue(summary["layout_unchanged_after_calls"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("layout_ptr", summary)
+        self.assertNotIn("search_ptr", summary)
+        self.assertEqual(private["layout_ptr"], f"0x{fake.heap_ptr:x}")
+        expected_item_ptrs = [
+            f"0x{fake.heap_ptr + offset:x}"
+            for offset in repl.SYSFS_MATCH_STRING_ITEM_OFFSETS
+        ]
+        self.assertEqual(private["item_ptrs"], expected_item_ptrs)
+        self.assertEqual(private["search_ptr"], f"0x{fake.heap_ptr + repl.SYSFS_MATCH_STRING_SEARCH_OFFSET:x}")
+        expected_table = struct.pack(
+            "<" + ("Q" * repl.SYSFS_MATCH_STRING_TABLE_ENTRY_COUNT),
+            *(fake.heap_ptr + offset for offset in repl.SYSFS_MATCH_STRING_ITEM_OFFSETS),
+            0,
+        ) + (b"\xcc" * repl.SYSFS_MATCH_STRING_CANARY_LEN)
+        expected_items = [
+            (item + (b"\xcc" * repl.SYSFS_MATCH_STRING_CANARY_LEN)).hex()
+            for item in repl.SYSFS_MATCH_STRING_ITEMS_BYTES
+        ]
+        expected_search = (
+            repl.SYSFS_MATCH_STRING_SEARCH_BYTES + (b"\xcc" * repl.SYSFS_MATCH_STRING_CANARY_LEN)
+        ).hex()
+        expected_missing = (
+            repl.SYSFS_MATCH_STRING_MISSING_BYTES + (b"\xcc" * repl.SYSFS_MATCH_STRING_CANARY_LEN)
         ).hex()
         self.assertEqual(private["expected_table_hex"], expected_table.hex())
         self.assertEqual(private["table_bytes_hex"], expected_table.hex())

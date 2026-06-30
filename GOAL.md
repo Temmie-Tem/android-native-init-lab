@@ -767,6 +767,40 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `__sysfs_match_string` owned sysfs array contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `__sysfs_match_string` promoted under owned array/search contract only
+>
+> Sixty-first one-target live-call proof after the REPL epic close. Codex extended
+> `a90_repl.py` `call-proof` with `__sysfs_match_string`, using one tool-owned layout containing
+> an owned `const char *` array, owned NUL-terminated string entries, an owned search string
+> `A90SYSFSMATCH-BRAVO\n`, and canaries around all controlled regions. Static gate:
+> `__sysfs_match_string=0xffffff80099b9d1c`, `export-recovery`, direct-BL xrefs `11`, JOPP
+> entry true, leaf/no-BL. Source contract:
+> `int __sysfs_match_string(const char * const *array, size_t n, const char *s)` from
+> `include/linux/string.h`; x0 and x2 are pointer args and x1 is scalar bounded count.
+> Call-safety tier: `SAFE-WITH-VALID-PTR`.
+>
+> Live path: baseline v2321 `version/status/selftest` passed, flashed the existing v1-repl image
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65` through
+> `native_init_flash.py`, confirmed readback SHA, then ran REPL selftest. The first REPL
+> selftest attempt hit a transient serial END-marker timeout while setting `panic_on_oops`;
+> immediate device health stayed `selftest pass=11 warn=1 fail=0`, and a retry returned
+> `a90-repl-v2a1-selftest-pass`. Then Codex ran `call-proof __sysfs_match_string` with the
+> C2B verified map.
+>
+> Result: `a90-repl-live-call-proof-__sysfs_match_string-pass`; checks covered C1 identity,
+> source signature, call-safety contract, owned layout allocation/poke/peek, newline-tolerant
+> hit returning index `1`, missing search returning `0xffffffea`, zero count returning
+> `0xffffffea`, unchanged table/items/search regions, and `kfree-owned-sysfs-match-string-layout-ok`.
+>
+> Candidate selftest after proof stayed `pass=11 warn=1 fail=0`. Rolled back to clean v2321
+> (`ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`) with final resident
+> `v2321-usb-clean-identity-rodata`, rollback helper health passed, and final standalone
+> `selftest pass=11 warn=1 fail=0`. Function map records `__sysfs_match_string` only under
+> the owned array plus owned search string and bounded-count contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_SYSFS_MATCH_STRING_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `match_token` owned exact table contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `match_token` promoted under owned exact `match_token` table only
