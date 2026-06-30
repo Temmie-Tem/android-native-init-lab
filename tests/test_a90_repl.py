@@ -1192,6 +1192,43 @@ class CallSafetyClassificationTests(unittest.TestCase):
             ],
         )
 
+        get_ddr_total_density = self._row("get_ddr_total_density")
+        self.assertEqual(get_ddr_total_density["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(get_ddr_total_density["required_valid_pointer_args"], {})
+        self.assertTrue(get_ddr_total_density["resolution"]["verified"])
+        self.assertEqual(get_ddr_total_density["resolution"]["method"], "disasm-signature+xref+map")
+        self.assertEqual(
+            get_ddr_total_density["resolution"]["link_vaddr"],
+            "0xffffff80086ef9a4",
+        )
+        self.assertGreaterEqual(get_ddr_total_density["signals"]["direct_bl_xref_count"], 1)
+        self.assertEqual(
+            get_ddr_total_density["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertTrue(
+            get_ddr_total_density["signals"]["arg_taint_flow"][
+                "safe_scalar_positive_no_arg_memory_base_flow"
+            ]
+        )
+        self.assertEqual(
+            get_ddr_total_density["signals"]["first_words"][:12],
+            [
+                "0xd100c3ff",
+                "0xca1103d0",
+                "0xa90143fd",
+                "0x910043fd",
+                "0xf90013f3",
+                "0xd0012948",
+                "0x12800000",
+                "0x528010c1",
+                "0x910003e2",
+                "0xf9478508",
+                "0xf90007e8",
+                "0xf90003ff",
+            ],
+        )
+
         sw_hweight32 = self._row("__sw_hweight32")
         self.assertEqual(sw_hweight32["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
         self.assertEqual(sw_hweight32["required_valid_pointer_args"], {})
@@ -1429,7 +1466,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 8)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 9)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 8)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -2059,6 +2096,21 @@ class CallSafetyClassificationTests(unittest.TestCase):
             get_current_napi_context["selected"]["path"].endswith("include/linux/netdevice.h")
         )
 
+        get_ddr_total_density = repl.lookup_source_signature(
+            "get_ddr_total_density",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(get_ddr_total_density["status"], "found", get_ddr_total_density)
+        self.assertEqual(get_ddr_total_density["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            get_ddr_total_density["selected"]["signature"],
+            "extern uint8_t get_ddr_total_density(void)",
+        )
+        self.assertEqual(get_ddr_total_density["selected"]["line"], 198)
+        self.assertTrue(
+            get_ddr_total_density["selected"]["path"].endswith("include/linux/samsung/sec_smem.h")
+        )
+
         sw_hweight32 = repl.lookup_source_signature("__sw_hweight32", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(sw_hweight32["status"], "found", sw_hweight32)
         self.assertEqual(sw_hweight32["selected"]["pointer_arg_indices"], [])
@@ -2438,7 +2490,14 @@ class FaithfulFakeTransport:
             "get_current_napi_context",
             purpose="call",
         ).link_vaddr
+        self.get_ddr_total_density_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "get_ddr_total_density",
+            purpose="call",
+        ).link_vaddr
         self.borrowed_cpu0_device_ptr = 0xFFFFFFC012340000
+        self.ddr_total_density_value = 0x06
         self.sw_hweight32_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -3059,6 +3118,8 @@ class FaithfulFakeTransport:
             get_cpu_device = self.get_cpu_device_link + self.slide
             assert self.get_current_napi_context_link is not None
             get_current_napi_context = self.get_current_napi_context_link + self.slide
+            assert self.get_ddr_total_density_link is not None
+            get_ddr_total_density = self.get_ddr_total_density_link + self.slide
             assert self.sw_hweight32_link is not None
             sw_hweight32 = self.sw_hweight32_link + self.slide
             assert self.sw_hweight64_link is not None
@@ -3608,6 +3669,10 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("get_current_napi_context proof must pass no arguments")
                 lines.append("A90R0")
+            elif arg0 == get_ddr_total_density:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("get_ddr_total_density proof must pass no arguments")
+                lines.append(f"A90R{self.ddr_total_density_value:x}")
             elif arg0 == sw_hweight32:
                 lines.append(f"A90R{(arg1 & 0xFFFFFFFF).bit_count():x}")
             elif arg0 == sw_hweight64:
@@ -4872,6 +4937,53 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertIn("get_current_napi_context_runtime", private)
         self.assertEqual(private["case_returns"]["process-context-null-1"], "0x0")
         self.assertEqual(private["case_returns"]["process-context-null-2"], "0x0")
+        self.assertEqual(fake.op_count, 3)  # slide + 2 no-arg proof calls
+
+    def test_call_proof_get_ddr_total_density_passes_with_stable_uint8_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "get_ddr_total_density",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(
+            summary["decision"],
+            "a90-repl-live-call-proof-get_ddr_total_density-pass",
+        )
+        self.assertEqual(summary["proof_status"], "trusted-under-smem-uint8-density-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "get_ddr_total_density")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern uint8_t get_ddr_total_density(void)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+        self.assertTrue(summary["all_returns_stable"])
+        self.assertTrue(summary["all_returns_nonzero_uint8"])
+        self.assertEqual(summary["repeat_count"], 2)
+        self.assertEqual(summary["observed_return_value"], f"0x{fake.ddr_total_density_value:x}")
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertNotIn("get_ddr_total_density_runtime", summary)
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertEqual(cases["ddr-total-density-stable-1"]["observed_return_value"], "0x6")
+        self.assertTrue(cases["ddr-total-density-stable-1"]["uint8_nonzero"])
+        self.assertEqual(cases["ddr-total-density-stable-2"]["observed_return_value"], "0x6")
+        self.assertTrue(cases["ddr-total-density-stable-2"]["matches_first_call"])
+        self.assertIn("get_ddr_total_density_runtime", private)
+        self.assertEqual(private["case_returns"]["ddr-total-density-stable-1"], "0x6")
+        self.assertEqual(private["case_returns"]["ddr-total-density-stable-2"], "0x6")
         self.assertEqual(fake.op_count, 3)  # slide + 2 no-arg proof calls
 
     def test_call_proof_sw_hweight32_passes_with_scalar_contract(self) -> None:

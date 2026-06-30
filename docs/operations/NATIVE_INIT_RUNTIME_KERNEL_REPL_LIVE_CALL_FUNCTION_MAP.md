@@ -25,6 +25,7 @@ and the C1 fail-closed identity gate.
 | `hex_to_bin` | `0xffffff800856a9dc`, `export-recovery`, direct BL xrefs `80`, leaf/no-BL | scalar ASCII character | case table: `'0' -> 0`, `'9' -> 9`, `'a'/'A' -> 10`, `'f'/'F' -> 15`, invalid `'g' -> 0xffffffff` | n/a-scalar-only | `a90-repl-live-call-proof-hex_to_bin-pass` |
 | `get_cpu_device` | `0xffffff8008992a5c`, `export-recovery`, direct BL xrefs `38`, leaf/no-BL | scalar CPU index; returned pointer is borrowed/read-only and is not dereferenced or freed | `cpu=0` returned a non-NULL sane kernel lowmem borrowed pointer (redacted); `cpu=0xffffffff` returned NULL | `n/a-borrowed-pointer-not-owned` | `a90-repl-live-call-proof-get_cpu_device-pass` |
 | `get_current_napi_context` | `0xffffff800971f284`, `export-recovery`, direct BL xrefs `10`, `0x20`-byte per-CPU-read body before `netdev_has_upper_dev` | no arguments; called from REPL process context outside NAPI poll/softirq; any non-NULL return is borrowed/read-only and is not dereferenced or freed | two process-context calls returned NULL | `n/a-null-return-no-owned-resource` | `a90-repl-live-call-proof-get_current_napi_context-pass` |
+| `get_ddr_total_density` | `0xffffff80086ef9a4`, `disasm-signature+xref+map`, direct BL xrefs `1`, `0xb8`-byte SMEM getter body before `get_ddr_rcw_tDQSCK` | no arguments; Samsung SMEM DDR info is read-only; no returned pointer is dereferenced or freed | repeated calls returned stable nonzero uint8_t `0x6` | `n/a-scalar-smem-read-only` | `a90-repl-live-call-proof-get_ddr_total_density-pass` |
 | `__sw_hweight32` | `0xffffff800856d844`, `export-recovery`, direct BL xrefs `36`, leaf/no-BL | scalar unsigned 32-bit word | case table: `0x00000000 -> 0`, `0xffffffff -> 32`, `0xaaaaaaaa -> 16`, `0x80000000 -> 1`, `0xa90f00dc -> 13` | n/a-scalar-only | `a90-repl-live-call-proof-__sw_hweight32-pass` |
 | `__sw_hweight64` | `0xffffff800856d8e4`, `export-recovery`, direct BL xrefs `228`, leaf/no-BL | scalar unsigned 64-bit word | case table: `0x0000000000000000 -> 0`, `0xffffffffffffffff -> 64`, `0xaaaaaaaaaaaaaaaa -> 32`, `0x8000000000000000 -> 1`, `0xa90f00dca90f00dc -> 26` | n/a-scalar-only | `a90-repl-live-call-proof-__sw_hweight64-pass` |
 | `__sw_hweight16` | `0xffffff800856d87c`, `export-recovery`, direct BL xrefs `19`, leaf/no-BL | scalar unsigned 16-bit word in the low x0 bits | case table: `0x0000 -> 0`, `0xffff -> 16`, `0xaaaa -> 8`, `0x8000 -> 1`, `0xa90d -> 7` | n/a-scalar-only | `a90-repl-live-call-proof-__sw_hweight16-pass` |
@@ -130,6 +131,10 @@ and the C1 fail-closed identity gate.
   no-argument REPL process-context contract outside NAPI poll/softirq. The proof covers two repeated
   NULL returns. Any future non-NULL return would be a borrowed pointer and is not authorized for
   dereference, free, network-state mutation, or reuse as a general pointer capability.
+- DDR SMEM getter proof: `get_ddr_total_density` has crossed the live proof gate only under a
+  no-argument Samsung SMEM read-only contract. The proof covers two repeated calls returning the
+  stable nonzero uint8 value `0x6`; it does not authorize arbitrary SMEM reads, logging-heavy debug
+  getters, changing boot/stat state, or mass calling.
 - Bitmap helper sweep: `__bitmap_weight`, `__bitmap_complement`, `__bitmap_or`, `__bitmap_set`, `__bitmap_clear`, `__bitmap_andnot`, `__bitmap_subset`, `find_next_bit`, `find_next_zero_bit`, and
   `find_last_bit` have crossed the live proof gate only under owned unsigned-long bitmap buffers plus
   scalar count/size/offset/start/len bounded inside those bitmaps. `__bitmap_weight` covers zero count, low-tail

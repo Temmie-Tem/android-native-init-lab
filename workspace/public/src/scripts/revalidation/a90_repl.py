@@ -306,6 +306,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "borrowed-kernel-pointer-or-null",
         "reason": "no-argument NAPI context lookup; proof calls from REPL process context and expects NULL, any non-NULL return is borrowed and must not be dereferenced or freed",
     },
+    "get_ddr_total_density": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "uint8_t",
+        "reason": "no-argument Samsung SMEM DDR-density getter; proof expects a stable nonzero uint8_t field value and does not dereference or free any returned pointer",
+    },
     "__sw_hweight32": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -3343,6 +3349,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "find_next_zero_bit": ("include/asm-generic/bitops/find.h", "include/linux/bitops.h"),
     "get_cpu_device": ("include/linux/cpu.h",),
     "get_current_napi_context": ("include/linux/netdevice.h",),
+    "get_ddr_total_density": ("include/linux/samsung/sec_smem.h",),
     "cpumask_next": ("include/linux/cpumask.h",),
     "cpumask_next_wrap": ("include/linux/cpumask.h",),
     "cpumask_next_and": ("include/linux/cpumask.h",),
@@ -5061,6 +5068,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern struct napi_struct * get_current_napi_context(void)",
     },
+    "get_ddr_total_density": {
+        "input_contract": "no arguments; Samsung SMEM DDR info is read-only; no returned pointer is dereferenced or freed",
+        "return_contract": "uint8_t DDR total-density field is nonzero, <= 0xff, and stable across repeated proof calls",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern uint8_t get_ddr_total_density(void)",
+    },
     "__sw_hweight32": {
         "input_contract": "scalar unsigned 32-bit word",
         "return_contract": "unsigned int == population count of the low 32 input bits",
@@ -6096,6 +6109,16 @@ GET_CURRENT_NAPI_CONTEXT_LOAD_CURRENT_NAPI_WORD = 0xF9400900
 GET_CURRENT_NAPI_CONTEXT_RET_WORD = 0xD65F03C0
 GET_CURRENT_NAPI_CONTEXT_PADDING_NOP_WORD = 0xD503201F
 GET_CURRENT_NAPI_CONTEXT_NEXT_GUARD_WORD = 0x00BE7BAD
+GET_DDR_TOTAL_DENSITY_STACK_ALLOC_WORD = 0xD100C3FF
+GET_DDR_TOTAL_DENSITY_SMEM_ID_WORD = 0x528010C1
+GET_DDR_TOTAL_DENSITY_ARG_BUFFER_WORD = 0x910003E2
+GET_DDR_TOTAL_DENSITY_QCOM_SMEM_GET_BL_WORD = 0x97FE88C6
+GET_DDR_TOTAL_DENSITY_SIZE_LOAD_WORD = 0xF94003E8
+GET_DDR_TOTAL_DENSITY_RET_PTR_SAVE_WORD = 0xAA0003F3
+GET_DDR_TOTAL_DENSITY_FIELD_LOAD_WORD = 0x39404E60
+GET_DDR_TOTAL_DENSITY_NULL_RETURN_WORD = 0x2A1F03E0
+GET_DDR_TOTAL_DENSITY_RET_WORD = 0xD65F03C0
+GET_DDR_TOTAL_DENSITY_NEXT_GUARD_WORD = 0x00BE7BAD
 FIND_NEXT_BIT_PROOF_SIZE_BITS = 128
 FIND_NEXT_BIT_TAIL_SIZE_BITS = 88
 FIND_NEXT_BIT_ONE_BITS = (9, 73, 90)
@@ -21493,6 +21516,186 @@ def _run_call_proof_get_current_napi_context(
     return summary, private
 
 
+def _run_call_proof_get_ddr_total_density(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    source = lookup_source_signature("get_ddr_total_density", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "get_ddr_total_density",
+        (),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["get_ddr_total_density"]["expected_tier"]:
+        raise ReplError("get_ddr_total_density call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError("get_ddr_total_density source signature must be no-arg scalar-safe")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS["get_ddr_total_density"]["source_signature"]:
+        raise ReplError("get_ddr_total_density source signature did not select the exported declaration")
+
+    resolutions = {
+        "get_ddr_total_density": resolve_verified(
+            symbols,
+            image,
+            "get_ddr_total_density",
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(
+        resolutions["get_ddr_total_density"],
+        "call-proof target",
+    )
+    next_symbol = symbols.get("get_ddr_rcw_tDQSCK")
+    if next_symbol is None or next_symbol.vaddr - target_link != 0xB8:
+        raise ReplError("get_ddr_total_density next-symbol boundary is not the expected 0xb8")
+    words = image.u32_words_at_vaddr(target_link, 46)
+    static_word_checks = (
+        ("static-stack-alloc", 0, GET_DDR_TOTAL_DENSITY_STACK_ALLOC_WORD),
+        ("static-smem-id-vendor1", 7, GET_DDR_TOTAL_DENSITY_SMEM_ID_WORD),
+        ("static-smem-size-buffer", 8, GET_DDR_TOTAL_DENSITY_ARG_BUFFER_WORD),
+        ("static-qcom-smem-get-call", 12, GET_DDR_TOTAL_DENSITY_QCOM_SMEM_GET_BL_WORD),
+        ("static-smem-size-load", 13, GET_DDR_TOTAL_DENSITY_SIZE_LOAD_WORD),
+        ("static-return-pointer-save", 14, GET_DDR_TOTAL_DENSITY_RET_PTR_SAVE_WORD),
+        ("static-total-density-field-load", 26, GET_DDR_TOTAL_DENSITY_FIELD_LOAD_WORD),
+        ("static-error-null-return", 33, GET_DDR_TOTAL_DENSITY_NULL_RETURN_WORD),
+        ("static-ret", 43, GET_DDR_TOTAL_DENSITY_RET_WORD),
+        ("static-next-guard", 45, GET_DDR_TOTAL_DENSITY_NEXT_GUARD_WORD),
+    )
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "get_ddr_total_density",
+            "resolution_method": resolutions["get_ddr_total_density"].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": "get_ddr_rcw_tDQSCK",
+            "byte_size": "0xb8",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for name, index, expected in static_word_checks:
+        observed = words[index]
+        ok = observed == expected
+        checks.append({
+            "check": name,
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"get_ddr_total_density {name} word mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for index in range(2):
+            observed = session.call_runtime(target_runtime, ())
+            returns.append(observed)
+            uint8_ok = 0 < observed <= 0xFF
+            stable_ok = index == 0 or observed == returns[0]
+            ok = uint8_ok and stable_ok
+            case_results.append({
+                "case": f"ddr-total-density-stable-{index + 1}",
+                "expected_return": "nonzero-uint8-stable",
+                "observed_return_value": f"0x{observed:x}",
+                "uint8_nonzero": uint8_ok,
+                "matches_first_call": stable_ok,
+                "ok": ok,
+            })
+            if not uint8_ok:
+                raise ReplError(
+                    "get_ddr_total_density() did not return a nonzero uint8_t DDR density "
+                    f"field in proof call {index + 1}: 0x{observed:x}"
+                )
+            if not stable_ok:
+                raise ReplError(
+                    "get_ddr_total_density() was not stable across repeated proof calls: "
+                    f"first=0x{returns[0]:x}, call{index + 1}=0x{observed:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "get-ddr-total-density-nonzero-uint8-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = f"0x{returns[0]:x}" if returns else "n/a"
+    summary = {
+        "decision": f"a90-repl-live-call-proof-get_ddr_total_density-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "get_ddr_total_density",
+        "proof_status": "trusted-under-smem-uint8-density-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["get_ddr_total_density"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["get_ddr_total_density"]["return_contract"],
+        "case_results": case_results,
+        "observed_return_value": observed_public,
+        "all_returns_stable": bool(returns) and all(value == returns[0] for value in returns),
+        "all_returns_nonzero_uint8": bool(returns) and all(0 < value <= 0xFF for value in returns),
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "get_ddr_total_density",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["get_ddr_total_density"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["get_ddr_total_density"]["return_contract"],
+            "observed_return_value": f"repeated calls returned stable nonzero uint8_t {observed_public}",
+            "cleanup": "n/a-scalar-smem-read-only",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "get_ddr_total_density_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_scalar_hweight(session: ReplSession,
                                    symbols: dict[str, Symbol],
                                    image: StaticImage,
@@ -25778,6 +25981,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "get_current_napi_context":
         return _run_call_proof_get_current_napi_context(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "get_ddr_total_density":
+        return _run_call_proof_get_ddr_total_density(
             session,
             symbols,
             image,
