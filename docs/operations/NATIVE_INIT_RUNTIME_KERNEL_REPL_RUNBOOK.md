@@ -218,6 +218,16 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
   --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
   --evidence-dir workspace/private/runs/kernel/<unit>/ \
+  parse_option_str
+```
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/a90_repl.py call-proof \
+  --map workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map \
+  --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
+  --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
+  --evidence-dir workspace/private/runs/kernel/<unit>/ \
   ksize
 ```
 
@@ -625,7 +635,10 @@ allocates owned destination and source buffers, writes fixed binary source bytes
 `bin2hex(dst, src, count)`, requires the returned pointer to equal the destination plus `count*2`,
 verifies lower-case ASCII hex output, verifies the destination canary and source buffer stay
 unchanged, frees both buffers, and redacts the owned pointers and observed raw bytes from public
-output. The
+output. The `parse_option_str` proof allocates owned NUL-terminated comma-separated option and option
+string buffers, requires an exact comma-delimited token hit to return `1`, requires a prefix-only token
+and a missing token to return `0`, verifies both strings and canaries stay unchanged, frees both
+buffers, and redacts the owned pointers and observed raw bytes from public output. The
 `kernel_read` proof opens `/init`, reads 16 bytes into an owned buffer with an owned `loff_t *`
 position, requires ELF magic plus position advancement, closes the file, and frees all owned buffers.
 The `strlen` proof writes an owned NUL-terminated string buffer, requires exact length return, and

@@ -959,6 +959,18 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(bin2hex["signals"]["direct_bl_xref_count"], 5)
         self.assertTrue(bin2hex["signals"]["leaf"])
 
+        parse_option_str = self._row("parse_option_str")
+        self.assertEqual(parse_option_str["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            parse_option_str["required_valid_pointer_args"],
+            {"0": "comma-separated-option-string", "1": "option-string"},
+        )
+        self.assertTrue(parse_option_str["resolution"]["verified"])
+        self.assertEqual(parse_option_str["resolution"]["method"], "disasm-signature+xref+map")
+        self.assertEqual(parse_option_str["resolution"]["link_vaddr"], "0xffffff80099a9c44")
+        self.assertGreaterEqual(parse_option_str["signals"]["direct_bl_xref_count"], 3)
+        self.assertFalse(parse_option_str["signals"]["leaf"])
+
     def test_non_seeded_targets_are_denied_by_default(self) -> None:
         row = self._row("kgsl_pwrctrl_force_no_nap_store")
         self.assertEqual(row["tier"], repl.CALL_SAFETY_DENY)
@@ -1417,6 +1429,15 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertTrue(bin2hex["selected"]["path"].endswith("include/linux/kernel.h"))
 
+        parse_option_str = repl.lookup_source_signature("parse_option_str", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(parse_option_str["status"], "found", parse_option_str)
+        self.assertEqual(parse_option_str["selected"]["pointer_arg_indices"], [0, 1])
+        self.assertEqual(
+            parse_option_str["selected"]["signature"],
+            "extern bool parse_option_str(const char *str, const char *option)",
+        )
+        self.assertTrue(parse_option_str["selected"]["path"].endswith("include/linux/kernel.h"))
+
     def test_call_safety_sweep_is_advisory_and_does_not_promote_gate(self) -> None:
         if not KERNEL_SOURCE_ROOT.is_dir():
             self.skipTest("kernel source tree not present")
@@ -1636,6 +1657,13 @@ class FaithfulFakeTransport:
             self.image,
             "bin2hex",
             purpose="call",
+        ).link_vaddr
+        self.parse_option_str_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "parse_option_str",
+            purpose="call",
+            allow_pre_arg_deref=True,
         ).link_vaddr
         self.ksize_link = repl.resolve_verified(
             self.symbols,
@@ -1941,6 +1969,13 @@ class FaithfulFakeTransport:
             out.append((self.heap.get(qaddr, 0) >> shift) & 0xFF)
         return bytes(out)
 
+    def _c_string(self, addr: int, max_len: int = 4096) -> bytes:
+        data = self._heap_bytes(addr, max_len)
+        end = data.find(b"\x00")
+        if end < 0:
+            raise AssertionError(f"NUL terminator not found at {addr:#x}")
+        return data[:end]
+
     def _set_heap_bytes(self, addr: int, data: bytes) -> None:
         for offset, byte in enumerate(data):
             byte_addr = addr + offset
@@ -1997,6 +2032,8 @@ class FaithfulFakeTransport:
             hex2bin = self.hex2bin_link + self.slide
             assert self.bin2hex_link is not None
             bin2hex = self.bin2hex_link + self.slide
+            assert self.parse_option_str_link is not None
+            parse_option_str = self.parse_option_str_link + self.slide
             assert self.ksize_link is not None
             ksize = self.ksize_link + self.slide
             assert self.strnlen_link is not None
@@ -2088,6 +2125,15 @@ class FaithfulFakeTransport:
                 encoded = src.hex().encode("ascii")
                 self._set_heap_bytes(arg1, encoded)
                 lines.append(f"A90R{arg1 + len(encoded):x}")
+            elif arg0 == parse_option_str:
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"parse_option_str str is not an allocated pointer: {arg1:#x}")
+                if arg2 not in self.allocated:
+                    raise AssertionError(f"parse_option_str option is not an allocated pointer: {arg2:#x}")
+                option = self._c_string(arg2)
+                haystack = self._c_string(arg1)
+                tokens = haystack.split(b",") if haystack else []
+                lines.append("A90R1" if option in tokens else "A90R0")
             elif arg0 == hex2bin:
                 if arg1 not in self.allocated:
                     raise AssertionError(f"hex2bin dst is not an allocated pointer: {arg1:#x}")
@@ -3000,6 +3046,62 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(
             private["src_after_hex"],
             (repl.BIN2HEX_SOURCE_BYTES + (b"\xcc" * repl.BIN2HEX_SRC_CANARY_LEN)).hex(),
+        )
+        self.assertEqual(fake.freed, [fake.heap_ptr, fake.heap_ptr + 0x1000])
+
+    def test_call_proof_parse_option_str_passes_with_owned_string_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "parse_option_str",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-parse_option_str-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "parse_option_str")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern bool parse_option_str(const char *str, const char *option)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [0, 1])
+        self.assertEqual(summary["option"], repl.PARSE_OPTION_STR_OPTION_LABEL)
+        cases = summary["cases"]
+        self.assertEqual(cases["exact-token-hit"]["observed_return"], 1)
+        self.assertEqual(cases["prefix-token-miss"]["observed_return"], 0)
+        self.assertEqual(cases["missing-token"]["observed_return"], 0)
+        for case in cases.values():
+            self.assertTrue(case["ok"])
+            self.assertTrue(case["return_ok"])
+            self.assertTrue(case["list_unchanged"])
+            self.assertTrue(case["option_unchanged"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("parse_option_str_runtime", summary)
+        self.assertNotIn("list_ptr", summary)
+        self.assertNotIn("option_ptr", summary)
+        self.assertIn("parse_option_str_runtime", private)
+        self.assertIn("list_ptr", private)
+        self.assertIn("option_ptr", private)
+        self.assertEqual(private["case_returns"]["exact-token-hit"], "0x1")
+        self.assertEqual(private["case_returns"]["prefix-token-miss"], "0x0")
+        self.assertEqual(private["case_returns"]["missing-token"], "0x0")
+        self.assertEqual(
+            private["option_after_hex"],
+            (repl.PARSE_OPTION_STR_OPTION_BYTES + (b"\xcc" * repl.PARSE_OPTION_STR_CANARY_LEN)).hex(),
         )
         self.assertEqual(fake.freed, [fake.heap_ptr, fake.heap_ptr + 0x1000])
 

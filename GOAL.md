@@ -767,6 +767,37 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `parse_option_str` owned-string option parser contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `parse_option_str` promoted under owned comma-option/source strings only
+>
+> Forty-fourth one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py`
+> `call-proof` with `parse_option_str`, using one tool-owned NUL-terminated comma-separated option
+> string and one tool-owned NUL-terminated option string. Static gate:
+> `parse_option_str=0xffffff80099a9c44`, `disasm-signature+xref+map`, direct-BL xrefs `3`, JOPP
+> entry true, calls `__pi_strlen`/`__pi_strncmp`, early x0 byte read allowed only under the owned
+> string contract, and source contract `extern bool parse_option_str(const char *str, const char *option)`
+> from `include/linux/kernel.h` with x0/x1 as the pointer arguments. Call-safety tier is
+> `SAFE-WITH-VALID-PTR`.
+>
+> Live path: baseline v2321 `version/status/selftest` passed, flashed the existing v1-repl image
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65` through
+> `native_init_flash.py`, confirmed readback SHA, retried through one transient serial `AT` capture
+> noise event, got `a90-repl-v2a1-selftest-pass`, then ran `call-proof parse_option_str` with the
+> C2B verified map.
+>
+> Result: `a90-repl-live-call-proof-parse_option_str-pass`; checks covered C1 identity, source
+> signature, call-safety contract, owned buffer allocation/poke/peek, exact token hit returning `1`,
+> prefix-only token miss returning `0`, missing token returning `0`, list/option immutability, and
+> `kfree-owned-parse-option-str-buffers`.
+>
+> Candidate selftest after proof stayed `fail=0`. Rolled back to clean v2321
+> (`ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`) with final resident
+> `v2321-usb-clean-identity-rodata` and final `selftest pass=11 warn=1 fail=0`. Function map records
+> `parse_option_str` only under the owned comma-separated option string plus owned option string
+> contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_PARSE_OPTION_STR_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `bin2hex` owned-buffer hex encoder contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `bin2hex` promoted under owned destination/source buffers + scalar count only

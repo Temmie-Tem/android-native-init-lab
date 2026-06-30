@@ -301,6 +301,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "string-pointer",
         "reason": "binary-to-hex encoder; x0/x1 must be owned buffers and x2 count must stay inside both",
     },
+    "parse_option_str": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "comma-separated-option-string", 1: "option-string"},
+        "return_kind": "bool",
+        "reason": "comma-separated option matcher; x0/x1 must be owned NUL-terminated strings",
+    },
     "strnlen": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "required_valid_pointer_args": {0: "string-buffer"},
@@ -4764,6 +4770,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern char * bin2hex(char *dst, const void *src, size_t count)",
     },
+    "parse_option_str": {
+        "input_contract": "owned NUL-terminated comma-separated option string + owned NUL-terminated option string",
+        "return_contract": "bool true for an exact comma-delimited option match, false for prefix-only and missing options",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern bool parse_option_str(const char *str, const char *option)",
+    },
     "strnlen": {
         "input_contract": "owned NUL-terminated kernel string buffer + scalar maxlen",
         "return_contract": "size_t == expected string length and <= maxlen",
@@ -5110,6 +5122,18 @@ BIN2HEX_EXPECTED_LABEL = BIN2HEX_EXPECTED_BYTES.decode("ascii")
 BIN2HEX_DST_INITIAL_BYTE = 0x11
 BIN2HEX_DST_CANARY_LEN = 8
 BIN2HEX_SRC_CANARY_LEN = 8
+PARSE_OPTION_STR_OPTION_BYTES = b"A90PARSE-OPTION\x00"
+PARSE_OPTION_STR_OPTION_LABEL = PARSE_OPTION_STR_OPTION_BYTES[:-1].decode("ascii")
+PARSE_OPTION_STR_CASES = (
+    ("exact-token-hit", b"alpha,A90PARSE-OPTION,beta\x00", 1),
+    ("prefix-token-miss", b"alpha,A90PARSE-OPTION-SUFFIX,beta\x00", 0),
+    ("missing-token", b"alpha,beta,gamma\x00", 0),
+)
+PARSE_OPTION_STR_CANARY_LEN = 8
+PARSE_OPTION_STR_LIST_SCAN_LEN = (
+    max(len(case_bytes) for _, case_bytes, _ in PARSE_OPTION_STR_CASES) + PARSE_OPTION_STR_CANARY_LEN
+)
+PARSE_OPTION_STR_OPTION_SCAN_LEN = len(PARSE_OPTION_STR_OPTION_BYTES) + PARSE_OPTION_STR_CANARY_LEN
 SYSFS_STREQ_LEFT_NEWLINE_BYTES = b"A90SYSFS-VALUE\n\x00"
 SYSFS_STREQ_LEFT_EQUAL_BYTES = b"A90SYSFS-VALUE\x00"
 SYSFS_STREQ_RIGHT_EQUAL_BYTES = b"A90SYSFS-VALUE\x00"
@@ -15255,6 +15279,222 @@ def _run_call_proof_bin2hex(session: ReplSession,
     return summary, private
 
 
+def _run_call_proof_parse_option_str(session: ReplSession,
+                                     symbols: dict[str, Symbol],
+                                     image: StaticImage,
+                                     *,
+                                     alloc_size: int,
+                                     source_root: Path,
+                                     gfp: int,
+                                     gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    required_alloc = max(PARSE_OPTION_STR_LIST_SCAN_LEN, PARSE_OPTION_STR_OPTION_SCAN_LEN)
+    if alloc_size < required_alloc:
+        raise ReplError(f"parse_option_str call-proof alloc_size must be at least {required_alloc} bytes")
+
+    source = lookup_source_signature("parse_option_str", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "parse_option_str",
+        ("@owned_comma_separated_option_string", "@owned_option_string"),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["parse_option_str"]["expected_tier"]:
+        raise ReplError("parse_option_str call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0, 1]:
+        raise ReplError("parse_option_str source signature does not declare x0/x1 as pointer arguments")
+
+    resolutions = {
+        "parse_option_str": resolve_verified(
+            symbols,
+            image,
+            "parse_option_str",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    parse_option_str_link = require_verified_resolution(resolutions["parse_option_str"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof buffer allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof buffer cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    expected_option_scan = PARSE_OPTION_STR_OPTION_BYTES + (b"\xcc" * PARSE_OPTION_STR_CANARY_LEN)
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "parse_option_str",
+            "resolution_method": resolutions["parse_option_str"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    private: dict[str, object] = {}
+    list_ptr = 0
+    option_ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_attempted: list[str] = []
+    free_ok: dict[str, bool] = {"list": False, "option": False}
+    free_errors: list[str] = []
+    case_results: dict[str, dict[str, object]] = {}
+    private_case_returns: dict[str, str] = {}
+    private_case_list_after_hex: dict[str, str] = {}
+    option_after_hex = ""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        parse_option_str_runtime = (parse_option_str_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        list_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        option_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        list_ok = is_kernel_lowmem_pointer(list_ptr)
+        option_ok = is_kernel_lowmem_pointer(option_ptr)
+        distinct_ok = list_ptr != option_ptr
+        checks.append({
+            "check": "kmalloc-owned-parse-option-str-buffers",
+            "ok": list_ok and option_ok and distinct_ok,
+            "alloc_size": alloc_size,
+            "list_kernel_lowmem": list_ok,
+            "option_kernel_lowmem": option_ok,
+            "distinct_buffers": distinct_ok,
+        })
+        if not (list_ok and option_ok and distinct_ok):
+            raise ReplError("__kmalloc did not return sane distinct parse_option_str buffers")
+
+        _poke_bytes(session, option_ptr, expected_option_scan)
+        observed_option_before = _peek_bytes(session, option_ptr, PARSE_OPTION_STR_OPTION_SCAN_LEN)
+        option_setup_ok = observed_option_before == expected_option_scan
+        checks.append({
+            "check": "owned-parse-option-str-option-poke-peek",
+            "ok": option_setup_ok,
+            "option": PARSE_OPTION_STR_OPTION_LABEL,
+            "option_canary_len": PARSE_OPTION_STR_CANARY_LEN,
+        })
+        if not option_setup_ok:
+            raise ReplError("owned parse_option_str option buffer poke/peek mismatch")
+
+        for label, list_bytes, expected_return in PARSE_OPTION_STR_CASES:
+            expected_list_scan = list_bytes + (b"\xcc" * PARSE_OPTION_STR_CANARY_LEN)
+            scan_len = len(expected_list_scan)
+            _poke_bytes(session, list_ptr, expected_list_scan)
+            observed_list_before = _peek_bytes(session, list_ptr, scan_len)
+            setup_ok = observed_list_before == expected_list_scan
+            if not setup_ok:
+                raise ReplError(f"owned parse_option_str list buffer poke/peek mismatch for {label}")
+
+            proof_return = session.call_runtime(parse_option_str_runtime, (list_ptr, option_ptr))
+            observed_list_after = _peek_bytes(session, list_ptr, scan_len)
+            observed_option_after = _peek_bytes(session, option_ptr, PARSE_OPTION_STR_OPTION_SCAN_LEN)
+            return_ok = proof_return == expected_return
+            list_unchanged = observed_list_after == expected_list_scan
+            option_unchanged = observed_option_after == expected_option_scan
+            case_ok = return_ok and list_unchanged and option_unchanged
+            case_results[label] = {
+                "input_ascii": list_bytes[:-1].decode("ascii"),
+                "expected_return": expected_return,
+                "observed_return": proof_return,
+                "return_ok": return_ok,
+                "list_unchanged": list_unchanged,
+                "option_unchanged": option_unchanged,
+                "ok": case_ok,
+            }
+            private_case_returns[label] = f"0x{proof_return:x}"
+            private_case_list_after_hex[label] = observed_list_after.hex()
+            option_after_hex = observed_option_after.hex()
+            checks.append({
+                "check": f"parse-option-str-case-{label}",
+                "ok": case_ok,
+                "expected_return": expected_return,
+                "observed_return": proof_return,
+                "list_unchanged": list_unchanged,
+                "option_unchanged": option_unchanged,
+            })
+            if not case_ok:
+                raise ReplError(f"parse_option_str case {label} contract failed")
+    finally:
+        if kfree_runtime:
+            for label, ptr in (("list", list_ptr), ("option", option_ptr)):
+                if ptr and is_kernel_lowmem_pointer(ptr):
+                    free_attempted.append(label)
+                    try:
+                        session.call_runtime(kfree_runtime, (ptr,))
+                        free_ok[label] = True
+                    except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                        free_errors.append(f"{label}:{exc}")
+        session.set_panic_on_oops(1)
+
+    cleanup_ok = bool(free_ok["list"] and free_ok["option"])
+    checks.append({
+        "check": "kfree-owned-parse-option-str-buffers",
+        "ok": cleanup_ok,
+        "free_attempted": free_attempted,
+        "list_free_ok": free_ok["list"],
+        "option_free_ok": free_ok["option"],
+    })
+    if free_errors:
+        raise ReplError(f"kfree failed after parse_option_str proof: {free_errors}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-parse_option_str-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "parse_option_str",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["parse_option_str"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["parse_option_str"]["return_contract"],
+        "alloc_size": alloc_size,
+        "option": PARSE_OPTION_STR_OPTION_LABEL,
+        "cases": case_results,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "parse_option_str",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["parse_option_str"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["parse_option_str"]["return_contract"],
+            "observed_return_value": "exact token hit returned 1; prefix-only and missing options returned 0",
+            "cleanup": "kfree-owned-parse-option-str-buffers-ok" if cleanup_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "parse_option_str_runtime": f"0x{((parse_option_str_link + slide) & MASK64):x}",
+        "list_ptr": f"0x{list_ptr:x}",
+        "option_ptr": f"0x{option_ptr:x}",
+        "case_returns": private_case_returns,
+        "case_list_after_hex": private_case_list_after_hex,
+        "option_after_hex": option_after_hex,
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
 def run_call_proof(session: ReplSession,
                    symbols: dict[str, Symbol],
                    image: StaticImage,
@@ -15298,6 +15538,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "bin2hex":
         return _run_call_proof_bin2hex(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "parse_option_str":
+        return _run_call_proof_parse_option_str(
             session,
             symbols,
             image,
