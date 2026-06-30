@@ -806,6 +806,43 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic batch live-call proof — memory state observation getters
+
+> ### ✅ STATUS (2026-07-01 live pass) — same-session memory-state observation batch
+>
+> Codex continued the corrected BATCH cadence with a read-only memory-state
+> observation unit. One `v1-repl` boot session proved `si_mem_available()` and
+> `si_meminfo(struct sysinfo *val)` under separate per-target contracts:
+> `si_mem_available` is trusted only as a no-argument scalar available-page
+> getter, and `si_meminfo` is trusted only with a kmalloc-owned `struct sysinfo`
+> result slot plus trailing canary and paired `kfree` cleanup.
+>
+> Static gates passed: both targets use C1 `export-recovery`; exact current-image
+> word checks and next-symbol boundaries matched (`si_mem_available -> si_meminfo`
+> `0xd8`, `si_meminfo -> show_free_areas` `0x78`); source signatures came from
+> `include/linux/mm.h:2207-2208`; and the call-safety classifier reported
+> `SAFE-SCALAR=1`, `SAFE-WITH-VALID-PTR=1`, `DENY=8` over the memory/scheduler
+> neighbor set. Parked neighbors include `get_avenrun`, `si_swapinfo`,
+> `total_swapcache_pages`, `nr_processes`, `nr_running`, `nr_iowait`,
+> `vm_commit_limit`, and `vm_memory_committed`.
+>
+> Host validation passed: `py_compile`; focused classifier/source/fake-batch
+> tests; full `tests/test_a90_repl.py` (`Ran 164 tests`, `OK`); and
+> `git diff --check`. Live validation obeyed the timing rule:
+> candidate flash helper `63.695s`, candidate boot/health `19.923s`, live proof
+> session `29.024s`, rollback flash helper `64.159s`, rollback boot/health
+> `22.415s`, total candidate-start to rollback-ready `200.735s`.
+>
+> Live results: `si_mem_available()` returned `0x129e22` then `0x129d8c`
+> (bounded drift `0x96`). `si_meminfo()` wrote sane fields into the owned result
+> slot: totalram `0x14ffea`, freeram `0x126ee3`, sharedram `0x1528`,
+> bufferram `0x34d`, highmem `0`, mem_unit `0x1000`; canary and `kfree`
+> cleanup both passed. Candidate post-live `selftest fail=0`; rollback to
+> v2321 completed with final `selftest pass=11 warn=1 fail=0`.
+>
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_MEMORY_STATE_BATCH_2026-07-01.md`.
+
 ## ✅ DONE — REPL post-epic batch live-call proof — SDE RSC scalar state getters
 
 > ### ✅ STATUS (2026-07-01 live pass) — same-session SDE RSC state-observation batch

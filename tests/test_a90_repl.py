@@ -1822,6 +1822,40 @@ class CallSafetyClassificationTests(unittest.TestCase):
                 [f"0x{word:08x}" for word in repl.SDE_RSC_SCALAR_STATE_EXPECTED_WORDS[symbol][:12]],
             )
 
+        si_mem_available = self._row("si_mem_available")
+        self.assertEqual(si_mem_available["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(si_mem_available["required_valid_pointer_args"], {})
+        self.assertTrue(si_mem_available["resolution"]["verified"])
+        self.assertEqual(si_mem_available["resolution"]["method"], "export-recovery")
+        self.assertEqual(si_mem_available["resolution"]["link_vaddr"], "0xffffff800820dddc")
+        self.assertGreaterEqual(si_mem_available["signals"]["direct_bl_xref_count"], 2)
+        self.assertFalse(si_mem_available["signals"]["leaf"])
+        self.assertEqual(si_mem_available["signals"]["arg_pointer_derefs_before_first_bl_or_ret"], [])
+        self.assertTrue(
+            si_mem_available["signals"]["arg_taint_flow"]["safe_scalar_positive_no_arg_memory_base_flow"]
+        )
+        self.assertEqual(
+            si_mem_available["signals"]["first_words"][:12],
+            [f"0x{word:08x}" for word in repl.SI_MEM_AVAILABLE_EXPECTED_WORDS[:12]],
+        )
+
+        si_meminfo = self._row("si_meminfo")
+        self.assertEqual(si_meminfo["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            si_meminfo["required_valid_pointer_args"],
+            {"0": "owned-sysinfo-result-slot"},
+        )
+        self.assertTrue(si_meminfo["resolution"]["verified"])
+        self.assertEqual(si_meminfo["resolution"]["method"], "export-recovery")
+        self.assertEqual(si_meminfo["resolution"]["link_vaddr"], "0xffffff800820deb4")
+        self.assertGreaterEqual(si_meminfo["signals"]["direct_bl_xref_count"], 8)
+        self.assertFalse(si_meminfo["signals"]["leaf"])
+        self.assertEqual(si_meminfo["signals"]["arg_pointer_derefs_before_first_bl_or_ret"], [])
+        self.assertEqual(
+            si_meminfo["signals"]["first_words"][:12],
+            [f"0x{word:08x}" for word in repl.SI_MEMINFO_EXPECTED_WORDS[:12]],
+        )
+
         get_ddr_DSF_version = self._row("get_ddr_DSF_version")
         self.assertEqual(get_ddr_DSF_version["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
         self.assertEqual(get_ddr_DSF_version["required_valid_pointer_args"], {})
@@ -2133,8 +2167,8 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 31)
-        self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 8)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 32)
+        self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 9)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
 
@@ -2897,6 +2931,26 @@ class CallSafetyClassificationTests(unittest.TestCase):
             self.assertEqual(row["selected"]["line"], line)
             self.assertTrue(row["selected"]["path"].endswith("include/linux/sde_rsc.h"))
 
+        memory_state_source = {
+            "si_mem_available": (
+                "extern long si_mem_available(void)",
+                [],
+                2207,
+            ),
+            "si_meminfo": (
+                "extern void si_meminfo(struct sysinfo * val)",
+                [0],
+                2208,
+            ),
+        }
+        for symbol, (signature, pointer_args, line) in memory_state_source.items():
+            row = repl.lookup_source_signature(symbol, source_root=KERNEL_SOURCE_ROOT)
+            self.assertEqual(row["status"], "found", row)
+            self.assertEqual(row["selected"]["pointer_arg_indices"], pointer_args)
+            self.assertEqual(row["selected"]["signature"], signature)
+            self.assertEqual(row["selected"]["line"], line)
+            self.assertTrue(row["selected"]["path"].endswith("include/linux/mm.h"))
+
         jiffies_64_to_clock_t = repl.lookup_source_signature(
             "jiffies_64_to_clock_t",
             source_root=KERNEL_SOURCE_ROOT,
@@ -3602,6 +3656,19 @@ class FaithfulFakeTransport:
             "get_sde_rsc_version",
             purpose="call",
         ).link_vaddr
+        self.si_mem_available_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "si_mem_available",
+            purpose="call",
+        ).link_vaddr
+        self.si_meminfo_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "si_meminfo",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.get_ddr_DSF_version_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -3623,6 +3690,17 @@ class FaithfulFakeTransport:
         self.sde_rsc_current_state_value = 2
         self.sde_rsc_primary_crtc_value = 133
         self.sde_rsc_version_value = 3
+        self.si_mem_available_values = [0x6F000, 0x6F020]
+        self.si_meminfo_fields = {
+            "totalram_pages": 0x180000,
+            "freeram_pages": 0x78000,
+            "sharedram_pages": 0x1200,
+            "bufferram_pages": 0x3400,
+            "totalhigh_pages": 0,
+            "freehigh_pages": 0,
+            "mem_unit": repl.SI_MEMINFO_EXPECTED_MEM_UNIT,
+        }
+        self.si_mem_available_index = 0
         self.ddr_dsf_version_value = 0x00010002
         self.ddr_total_density_value = 0x06
         self.sw_hweight32_link = repl.resolve_verified(
@@ -4320,6 +4398,10 @@ class FaithfulFakeTransport:
             get_sde_rsc_primary_crtc = self.get_sde_rsc_primary_crtc_link + self.slide
             assert self.get_sde_rsc_version_link is not None
             get_sde_rsc_version = self.get_sde_rsc_version_link + self.slide
+            assert self.si_mem_available_link is not None
+            si_mem_available = self.si_mem_available_link + self.slide
+            assert self.si_meminfo_link is not None
+            si_meminfo = self.si_meminfo_link + self.slide
             assert self.get_ddr_DSF_version_link is not None
             get_ddr_DSF_version = self.get_ddr_DSF_version_link + self.slide
             assert self.get_ddr_total_density_link is not None
@@ -4976,6 +5058,43 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (repl.IS_SDE_RSC_AVAILABLE_INDEX, 0, 0, 0):
                     raise AssertionError("get_sde_rsc_version proof must pass only SDE_RSC_INDEX 0")
                 lines.append(f"A90R{self.sde_rsc_version_value:x}")
+            elif arg0 == si_mem_available:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("si_mem_available proof must pass no arguments")
+                value = self.si_mem_available_values[
+                    min(self.si_mem_available_index, len(self.si_mem_available_values) - 1)
+                ]
+                self.si_mem_available_index += 1
+                lines.append(f"A90R{value:x}")
+            elif arg0 == si_meminfo:
+                if (arg2, arg3, arg4) != (0, 0, 0):
+                    raise AssertionError("si_meminfo proof must pass one result-slot pointer argument")
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"si_meminfo result slot is not an allocated pointer: {arg1:#x}")
+                data = bytearray(repl.SI_MEMINFO_STRUCT_SIZE)
+                data[repl.SI_MEMINFO_TOTALRAM_OFFSET:repl.SI_MEMINFO_TOTALRAM_OFFSET + 8] = (
+                    self.si_meminfo_fields["totalram_pages"].to_bytes(8, "little")
+                )
+                data[repl.SI_MEMINFO_FREERAM_OFFSET:repl.SI_MEMINFO_FREERAM_OFFSET + 8] = (
+                    self.si_meminfo_fields["freeram_pages"].to_bytes(8, "little")
+                )
+                data[repl.SI_MEMINFO_SHAREDRAM_OFFSET:repl.SI_MEMINFO_SHAREDRAM_OFFSET + 8] = (
+                    self.si_meminfo_fields["sharedram_pages"].to_bytes(8, "little")
+                )
+                data[repl.SI_MEMINFO_BUFFERRAM_OFFSET:repl.SI_MEMINFO_BUFFERRAM_OFFSET + 8] = (
+                    self.si_meminfo_fields["bufferram_pages"].to_bytes(8, "little")
+                )
+                data[repl.SI_MEMINFO_TOTALHIGH_OFFSET:repl.SI_MEMINFO_TOTALHIGH_OFFSET + 8] = (
+                    self.si_meminfo_fields["totalhigh_pages"].to_bytes(8, "little")
+                )
+                data[repl.SI_MEMINFO_FREEHIGH_OFFSET:repl.SI_MEMINFO_FREEHIGH_OFFSET + 8] = (
+                    self.si_meminfo_fields["freehigh_pages"].to_bytes(8, "little")
+                )
+                data[repl.SI_MEMINFO_MEM_UNIT_OFFSET:repl.SI_MEMINFO_MEM_UNIT_OFFSET + 4] = (
+                    self.si_meminfo_fields["mem_unit"].to_bytes(4, "little")
+                )
+                self._set_heap_bytes(arg1, bytes(data))
+                lines.append("A90R0")
             elif arg0 == get_ddr_DSF_version:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("get_ddr_DSF_version proof must pass no arguments")
@@ -6675,6 +6794,87 @@ class SelftestIntegrationTests(unittest.TestCase):
                 expected[target],
             )
         self.assertEqual(fake.op_count, 9)  # 3 targets * (slide + 2 scalar proof calls)
+
+    def test_call_proof_memory_state_batch_passes_with_owned_sysinfo_slot(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        summaries = {}
+        privates = {}
+        for target in ("si_mem_available", "si_meminfo"):
+            summary, private = repl.run_call_proof(
+                session,
+                symbols,
+                self.image,
+                target,
+                source_root=KERNEL_SOURCE_ROOT,
+            )
+            summaries[target] = summary
+            privates[target] = private
+
+        available = summaries["si_mem_available"]
+        self.assertTrue(available["ok"], available)
+        self.assertEqual(available["decision"], "a90-repl-live-call-proof-si_mem_available-pass")
+        self.assertEqual(
+            available["proof_status"],
+            "trusted-under-memory-availability-read-only-contract",
+        )
+        self.assertEqual(available["function_map_entry"]["symbol"], "si_mem_available")
+        self.assertEqual(
+            available["function_map_entry"]["auto_call_policy"],
+            "same-session-batch-proof-only-not-mass-call",
+        )
+        self.assertEqual(
+            available["source_evidence"]["signature"],
+            "extern long si_mem_available(void)",
+        )
+        self.assertEqual(available["source_evidence"]["pointer_arg_indices"], [])
+        self.assertTrue(available["all_returns_in_sane_range"])
+        self.assertEqual(available["repeat_count"], 2)
+        self.assertEqual(available["observed_return_value"], "0x6f000")
+        self.assertNotIn("si_mem_available_runtime", available)
+        self.assertIn("si_mem_available_runtime", privates["si_mem_available"])
+        self.assertEqual(
+            privates["si_mem_available"]["case_returns"]["si-mem-available-read-1"],
+            "0x6f000",
+        )
+
+        meminfo = summaries["si_meminfo"]
+        self.assertTrue(meminfo["ok"], meminfo)
+        self.assertEqual(meminfo["decision"], "a90-repl-live-call-proof-si_meminfo-pass")
+        self.assertEqual(
+            meminfo["proof_status"],
+            "trusted-under-owned-sysinfo-result-slot-contract",
+        )
+        self.assertEqual(meminfo["function_map_entry"]["symbol"], "si_meminfo")
+        self.assertEqual(
+            meminfo["function_map_entry"]["auto_call_policy"],
+            "same-session-batch-proof-only-not-mass-call",
+        )
+        self.assertEqual(
+            meminfo["source_evidence"]["signature"],
+            "extern void si_meminfo(struct sysinfo * val)",
+        )
+        self.assertEqual(meminfo["source_evidence"]["pointer_arg_indices"], [0])
+        self.assertTrue(meminfo["canary_preserved"])
+        self.assertTrue(meminfo["cleanup_ok"])
+        self.assertTrue(meminfo["raw_runtime_values_redacted"])
+        self.assertTrue(meminfo["owned_pointer_redacted"])
+        self.assertNotIn("si_meminfo_runtime", meminfo)
+        self.assertIn("si_meminfo_runtime", privates["si_meminfo"])
+        self.assertEqual(meminfo["observed_fields"]["totalram_pages"], "0x180000")
+        self.assertEqual(meminfo["observed_fields"]["freeram_pages"], "0x78000")
+        self.assertEqual(meminfo["observed_fields"]["mem_unit"], "0x1000")
+        self.assertEqual(privates["si_meminfo"]["canary_after_hex"], repl.SI_MEMINFO_CANARY_BYTES.hex())
+        self.assertIn(fake.heap_ptr, fake.freed)
+        self.assertGreater(fake.op_count, 10)
 
     def test_call_proof_jiffies_to_clock_t_passes_with_positive_identity_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

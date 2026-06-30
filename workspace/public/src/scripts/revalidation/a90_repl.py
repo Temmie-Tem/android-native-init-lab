@@ -421,6 +421,18 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "uint32_t",
         "reason": "scalar display-RSC version getter; proof calls only SDE_RSC_INDEX 0 and expects a stable bounded revision value without dereferencing or freeing any returned pointer",
     },
+    "si_mem_available": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "long-pages",
+        "reason": "no-argument memory availability state getter; proof expects a bounded nonnegative page count and does not dereference or free any returned pointer",
+    },
+    "si_meminfo": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "owned-sysinfo-result-slot"},
+        "return_kind": "void",
+        "reason": "read-only memory state vector writer; x0 must be an owned kmalloc sysinfo result slot with canary",
+    },
     "get_ddr_DSF_version": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -3526,6 +3538,8 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "get_sde_rsc_current_state": ("include/linux/sde_rsc.h",),
     "get_sde_rsc_primary_crtc": ("include/linux/sde_rsc.h",),
     "get_sde_rsc_version": ("include/linux/sde_rsc.h",),
+    "si_mem_available": ("include/linux/mm.h",),
+    "si_meminfo": ("include/linux/mm.h",),
     "cpumask_next": ("include/linux/cpumask.h",),
     "cpumask_next_wrap": ("include/linux/cpumask.h",),
     "cpumask_next_and": ("include/linux/cpumask.h",),
@@ -5377,6 +5391,18 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "u32 get_sde_rsc_version(int rsc_index)",
     },
+    "si_mem_available": {
+        "input_contract": "no arguments; global memory accounting state is read-only and no returned pointer is dereferenced or freed",
+        "return_contract": "long available-page count is nonnegative, nonzero, and below the proof's conservative sane page-count bound; short-repeat drift is allowed but bounded",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern long si_mem_available(void)",
+    },
+    "si_meminfo": {
+        "input_contract": "owned kmalloc struct sysinfo result slot with trailing canary; result slot is prefilled by the proof and freed with kfree after the call",
+        "return_contract": "struct sysinfo memory fields are sane, mem_unit is 4096, highmem fields are zero on this arm64 image, and trailing canary is preserved",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern void si_meminfo(struct sysinfo * val)",
+    },
     "get_ddr_DSF_version": {
         "input_contract": "no arguments; Samsung SMEM DDR DSF info is read-only; no returned pointer is dereferenced or freed",
         "return_contract": "uint32_t DDR DSF-version field is nonzero, <= 0xffffffff, and stable across repeated proof calls",
@@ -6722,6 +6748,48 @@ SDE_RSC_SCALAR_STATE_NEXT_SYMBOL = {
     "get_sde_rsc_current_state": ("get_sde_rsc_version", 0x78),
     "get_sde_rsc_version": ("sde_rsc_client_get_vsync_refcount", 0x78),
 }
+SI_MEM_AVAILABLE_REPEAT_COUNT = 2
+SI_MEM_AVAILABLE_MAX_PAGES = 1 << 40
+SI_MEM_AVAILABLE_MAX_REPEAT_DELTA = 1 << 30
+SI_MEM_AVAILABLE_EXPECTED_WORDS = (
+    0xCA1103D0, 0xA9BD43FD, 0xA90157F6, 0x910003FD,
+    0xA9024FF4, 0xF0014FD3, 0x91160273, 0xF940027F,
+    0xF940067F, 0xF9400A68, 0xF9400E69, 0xF940127F,
+    0x8AA8FD15, 0x8AA9FD36, 0x94007588, 0xAA1F03F4,
+    0xB40000A0, 0xF9400408, 0x8B140114, 0x9400758B,
+    0xB5FFFFA0, 0xF0014FC8, 0xB0015069, 0xF0016ACC,
+    0x8B1502CA, 0xD341FD4E, 0xEB1401DF, 0xF9428108,
+    0xF9434129, 0xF940166B, 0xF940726D, 0xB9847D8C,
+    0x8AA8FD08, 0xCB090149, 0x9A9431CA, 0x8AABFD6B,
+    0xCB0A0129, 0x8AADFDAD, 0x8B080128, 0x8B0B01AB,
+    0x8B0C0108, 0xD341FD6A, 0xEB14015F, 0x9A943149,
+    0x8B0B0108, 0xA9424FF4, 0xA94157F6, 0xCB090108,
+    0x8AA8FD00, 0xA8C343FD, 0xCA11021E, 0xD65F03C0,
+    0xD503201F, 0x00BE7BAD,
+)
+SI_MEMINFO_EXPECTED_WORDS = (
+    0xCA1103D0, 0xA9BE43FD, 0xF9000BF3, 0x910003FD,
+    0xB0015068, 0xB0015069, 0xAA0003F3, 0xF9433908,
+    0xF944DD29, 0x8B080128, 0xF0014FC9, 0xF9001008,
+    0xF0014FC8, 0x91160108, 0xF9404D08, 0x8AA8FD08,
+    0xF9001808, 0xF9428128, 0x8AA8FD08, 0xF9001408,
+    0x94033B20, 0x52820008, 0xA905FE7F, 0xF9001E60,
+    0xB9006A68, 0xF9400BF3, 0xA8C243FD, 0xCA11021E,
+    0xD65F03C0, 0x00BE7BAD,
+)
+SI_MEMINFO_STRUCT_SIZE = 112
+SI_MEMINFO_CANARY_LEN = 16
+SI_MEMINFO_PROOF_ALLOC_SIZE = 0x100
+SI_MEMINFO_TOTALRAM_OFFSET = 32
+SI_MEMINFO_FREERAM_OFFSET = 40
+SI_MEMINFO_SHAREDRAM_OFFSET = 48
+SI_MEMINFO_BUFFERRAM_OFFSET = 56
+SI_MEMINFO_TOTALHIGH_OFFSET = 88
+SI_MEMINFO_FREEHIGH_OFFSET = 96
+SI_MEMINFO_MEM_UNIT_OFFSET = 104
+SI_MEMINFO_EXPECTED_MEM_UNIT = 4096
+SI_MEMINFO_FILL_BYTE = 0xA5
+SI_MEMINFO_CANARY_BYTES = bytes.fromhex("a90f00d1cafefeed1122334455667788")
 GET_DDR_VENDOR_NAME_STACK_ALLOC_WORD = 0xD100C3FF
 GET_DDR_VENDOR_NAME_SMEM_ID_WORD = 0x528010C1
 GET_DDR_VENDOR_NAME_ARG_BUFFER_WORD = 0x910003E2
@@ -25656,6 +25724,397 @@ def _run_call_proof_sde_rsc_scalar_state(
     return summary, private
 
 
+def _run_call_proof_si_mem_available(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    source = lookup_source_signature("si_mem_available", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "si_mem_available",
+        (),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["si_mem_available"]["expected_tier"]:
+        raise ReplError("si_mem_available call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError("si_mem_available source signature must be scalar-only")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS["si_mem_available"]["source_signature"]:
+        raise ReplError("si_mem_available source signature did not select the mm.h declaration")
+
+    resolutions = {
+        "si_mem_available": resolve_verified(
+            symbols,
+            image,
+            "si_mem_available",
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(
+        resolutions["si_mem_available"],
+        "call-proof target",
+    )
+    next_symbol = symbols.get("si_meminfo")
+    if next_symbol is None or next_symbol.vaddr - target_link != 0xD8:
+        raise ReplError("si_mem_available next-symbol boundary is not the expected 0xd8")
+
+    observed_words = image.u32_words_at_vaddr(target_link, len(SI_MEM_AVAILABLE_EXPECTED_WORDS))
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "si_mem_available",
+            "resolution_method": resolutions["si_mem_available"].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": "si_meminfo",
+            "byte_size": "0xd8",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for index, expected in enumerate(SI_MEM_AVAILABLE_EXPECTED_WORDS):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-si_mem_available-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"si_mem_available word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for index in range(SI_MEM_AVAILABLE_REPEAT_COUNT):
+            observed = session.call_runtime(target_runtime, ()) & MASK64
+            returns.append(observed)
+            in_range = 0 < observed < SI_MEM_AVAILABLE_MAX_PAGES
+            drift_ok = index == 0 or abs(int(observed) - int(returns[0])) <= SI_MEM_AVAILABLE_MAX_REPEAT_DELTA
+            ok = in_range and drift_ok
+            case_results.append({
+                "case": f"si-mem-available-read-{index + 1}",
+                "expected_range": f"0x1..0x{SI_MEM_AVAILABLE_MAX_PAGES - 1:x}",
+                "observed_return_value": f"0x{observed:x}",
+                "delta_from_first": "n/a" if index == 0 else f"0x{abs(int(observed) - int(returns[0])):x}",
+                "in_sane_page_count_range": in_range,
+                "bounded_short_repeat_drift": drift_ok,
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(
+                    "si_mem_available() returned an out-of-contract value: "
+                    f"0x{observed:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "si-mem-available-sane-pages-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = f"0x{returns[0]:x}" if returns else "n/a"
+    summary = {
+        "decision": f"a90-repl-live-call-proof-si_mem_available-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "si_mem_available",
+        "proof_status": "trusted-under-memory-availability-read-only-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["si_mem_available"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["si_mem_available"]["return_contract"],
+        "case_results": case_results,
+        "observed_return_value": observed_public,
+        "all_returns_in_sane_range": bool(returns) and all(0 < value < SI_MEM_AVAILABLE_MAX_PAGES for value in returns),
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "si_mem_available",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["si_mem_available"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["si_mem_available"]["return_contract"],
+            "observed_return_value": "repeated no-argument calls returned sane positive available-page counts",
+            "cleanup": "n/a-scalar-read-only",
+            "auto_call_policy": "same-session-batch-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "si_mem_available_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
+def _u64_from_le(raw: bytes, offset: int) -> int:
+    return int.from_bytes(raw[offset:offset + 8], "little")
+
+
+def _u32_from_le(raw: bytes, offset: int) -> int:
+    return int.from_bytes(raw[offset:offset + 4], "little")
+
+
+def _run_call_proof_si_meminfo(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+    gfp: int,
+    gfp_components: dict[str, int],
+) -> tuple[dict[str, object], dict[str, object]]:
+    source = lookup_source_signature("si_meminfo", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "si_meminfo",
+        ("@owned-sysinfo-result-slot",),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["si_meminfo"]["expected_tier"]:
+        raise ReplError("si_meminfo call-safety tier is not the expected valid-pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError("si_meminfo source signature must declare x0 as a struct sysinfo pointer")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS["si_meminfo"]["source_signature"]:
+        raise ReplError("si_meminfo source signature did not select the mm.h declaration")
+
+    resolutions = {
+        "si_meminfo": resolve_verified(
+            symbols,
+            image,
+            "si_meminfo",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(
+            symbols,
+            image,
+            "kfree",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ),
+    }
+    target_link = require_verified_resolution(resolutions["si_meminfo"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof result-slot allocation")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof result-slot cleanup")
+    next_symbol = symbols.get("show_free_areas")
+    if next_symbol is None or next_symbol.vaddr - target_link != 0x78:
+        raise ReplError("si_meminfo next-symbol boundary is not the expected 0x78")
+
+    observed_words = image.u32_words_at_vaddr(target_link, len(SI_MEMINFO_EXPECTED_WORDS))
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "si_meminfo",
+            "resolution_method": resolutions["si_meminfo"].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": "show_free_areas",
+            "byte_size": "0x78",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for index, expected in enumerate(SI_MEMINFO_EXPECTED_WORDS):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-si_meminfo-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"si_meminfo word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    ptr = 0
+    free_ok = False
+    free_error = ""
+    observed_call_return = 0
+    observed_after = b""
+    fields: dict[str, int] = {}
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+        ptr = session.call_runtime(kmalloc_runtime, (SI_MEMINFO_PROOF_ALLOC_SIZE, gfp))
+        if not is_kernel_lowmem_pointer(ptr) or _is_kernel_err_ptr(ptr):
+            raise ReplError(f"__kmalloc returned invalid si_meminfo result-slot pointer: 0x{ptr:x}")
+        initial = (
+            bytes([SI_MEMINFO_FILL_BYTE]) * SI_MEMINFO_STRUCT_SIZE
+            + SI_MEMINFO_CANARY_BYTES
+        )
+        _poke_bytes(session, ptr, initial)
+        observed_call_return = session.call_runtime(target_runtime, (ptr,)) & MASK64
+        observed_after = _peek_bytes(
+            session,
+            ptr,
+            SI_MEMINFO_STRUCT_SIZE + SI_MEMINFO_CANARY_LEN,
+        )
+        fields = {
+            "totalram_pages": _u64_from_le(observed_after, SI_MEMINFO_TOTALRAM_OFFSET),
+            "freeram_pages": _u64_from_le(observed_after, SI_MEMINFO_FREERAM_OFFSET),
+            "sharedram_pages": _u64_from_le(observed_after, SI_MEMINFO_SHAREDRAM_OFFSET),
+            "bufferram_pages": _u64_from_le(observed_after, SI_MEMINFO_BUFFERRAM_OFFSET),
+            "totalhigh_pages": _u64_from_le(observed_after, SI_MEMINFO_TOTALHIGH_OFFSET),
+            "freehigh_pages": _u64_from_le(observed_after, SI_MEMINFO_FREEHIGH_OFFSET),
+            "mem_unit": _u32_from_le(observed_after, SI_MEMINFO_MEM_UNIT_OFFSET),
+        }
+    finally:
+        if ptr and is_kernel_lowmem_pointer(ptr):
+            try:
+                session.call_runtime((kfree_link + slide) & MASK64, (ptr,))
+                free_ok = True
+            except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                free_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    canary_after = observed_after[SI_MEMINFO_STRUCT_SIZE:SI_MEMINFO_STRUCT_SIZE + SI_MEMINFO_CANARY_LEN]
+    totalram = fields.get("totalram_pages", 0)
+    freeram = fields.get("freeram_pages", 0)
+    sharedram = fields.get("sharedram_pages", 0)
+    bufferram = fields.get("bufferram_pages", 0)
+    totalhigh = fields.get("totalhigh_pages", 0)
+    freehigh = fields.get("freehigh_pages", 0)
+    mem_unit = fields.get("mem_unit", 0)
+    field_checks = [
+        ("totalram-positive", totalram > 0),
+        ("freeram-not-above-totalram", freeram <= totalram),
+        ("sharedram-not-above-totalram", sharedram <= totalram),
+        ("bufferram-not-above-totalram", bufferram <= totalram),
+        ("highmem-zero-on-arm64-image", totalhigh == 0 and freehigh == 0),
+        ("mem-unit-4096", mem_unit == SI_MEMINFO_EXPECTED_MEM_UNIT),
+        ("trailing-canary-preserved", canary_after == SI_MEMINFO_CANARY_BYTES),
+        ("kfree-cleanup-ok", free_ok),
+    ]
+    for name, ok in field_checks:
+        checks.append({
+            "check": name,
+            "ok": bool(ok),
+        })
+    if not free_ok:
+        raise ReplError(f"kfree cleanup failed after si_meminfo proof: {free_error or 'unknown error'}")
+    failed_fields = [name for name, ok in field_checks if not ok]
+    if failed_fields:
+        raise ReplError(f"si_meminfo result slot failed contract checks: {failed_fields}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    public_fields = {
+        "totalram_pages": f"0x{totalram:x}",
+        "freeram_pages": f"0x{freeram:x}",
+        "sharedram_pages": f"0x{sharedram:x}",
+        "bufferram_pages": f"0x{bufferram:x}",
+        "totalhigh_pages": f"0x{totalhigh:x}",
+        "freehigh_pages": f"0x{freehigh:x}",
+        "mem_unit": f"0x{mem_unit:x}",
+    }
+    summary = {
+        "decision": f"a90-repl-live-call-proof-si_meminfo-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "si_meminfo",
+        "proof_status": "trusted-under-owned-sysinfo-result-slot-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["si_meminfo"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["si_meminfo"]["return_contract"],
+        "observed_fields": public_fields,
+        "canary_preserved": canary_after == SI_MEMINFO_CANARY_BYTES,
+        "cleanup_ok": free_ok,
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "si_meminfo",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["si_meminfo"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["si_meminfo"]["return_contract"],
+            "observed_return_value": "owned struct sysinfo result slot contained sane memory fields with mem_unit 4096",
+            "cleanup": "kfree-owned-sysinfo-result-slot-ok",
+            "auto_call_policy": "same-session-batch-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "si_meminfo_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "result_slot_ptr": f"0x{ptr:x}",
+        "void_call_raw_x0": f"0x{observed_call_return:x}",
+        "observed_fields": public_fields,
+        "canary_after_hex": canary_after.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
 def _run_call_proof_get_ddr_DSF_version(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -30447,6 +30906,22 @@ def run_call_proof(session: ReplSession,
             image,
             target=target,
             source_root=source_root,
+        )
+    if target == "si_mem_available":
+        return _run_call_proof_si_mem_available(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "si_meminfo":
+        return _run_call_proof_si_meminfo(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
         )
     if target == "get_ddr_DSF_version":
         return _run_call_proof_get_ddr_DSF_version(
