@@ -346,6 +346,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "void",
         "reason": "bitmap range-set helper; x0 must be an owned unsigned-long bitmap and scalar start/len must stay inside that bitmap",
     },
+    "__bitmap_clear": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "bitmap-buffer"},
+        "return_kind": "void",
+        "reason": "bitmap range-clear helper; x0 must be an owned unsigned-long bitmap and scalar start/len must stay inside that bitmap",
+    },
     "__bitmap_andnot": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "required_valid_pointer_args": {0: "bitmap-dst-buffer", 1: "bitmap-src-buffer", 2: "bitmap-mask-buffer"},
@@ -3317,6 +3323,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "__bitmap_complement": ("include/linux/bitmap.h",),
     "__bitmap_or": ("include/linux/bitmap.h",),
     "__bitmap_set": ("include/linux/bitmap.h",),
+    "__bitmap_clear": ("include/linux/bitmap.h",),
     "__bitmap_andnot": ("include/linux/bitmap.h",),
     "__bitmap_subset": ("include/linux/bitmap.h",),
     "find_last_bit": ("include/linux/bitops.h", "include/asm-generic/bitops/find.h"),
@@ -5076,6 +5083,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern void __bitmap_set(unsigned long *map, unsigned int start, int len)",
     },
+    "__bitmap_clear": {
+        "input_contract": "owned unsigned-long bitmap buffer + scalar start/len bounded inside that bitmap",
+        "return_contract": "void; bits in the bounded range [start,start+len) are cleared, other bits and canary stay unchanged",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern void __bitmap_clear(unsigned long *map, unsigned int start, int len)",
+    },
     "__bitmap_andnot": {
         "input_contract": "owned destination unsigned-long bitmap buffer + owned source unsigned-long bitmap buffer + owned mask unsigned-long bitmap buffer + scalar bit count bounded inside all three bitmaps",
         "return_contract": "int bool == 1 when (source & ~mask) below nbits is nonzero, else 0; destination receives the bounded and-not result",
@@ -6322,6 +6335,31 @@ BITMAP_SET_CASES = (
     ("second-word-range", 80, 8),
     ("full-size", 0, BITMAP_SET_PROOF_SIZE_BITS),
 )
+BITMAP_CLEAR_PROOF_SIZE_BITS = 128
+BITMAP_CLEAR_INITIAL_WORD0 = MASK64
+BITMAP_CLEAR_INITIAL_WORD1 = MASK64
+BITMAP_CLEAR_INITIAL_BYTES = (
+    BITMAP_CLEAR_INITIAL_WORD0.to_bytes(8, "little")
+    + BITMAP_CLEAR_INITIAL_WORD1.to_bytes(8, "little")
+)
+BITMAP_CLEAR_CANARY_BYTES = b"\xcc" * 8
+BITMAP_CLEAR_CANARY_LEN = len(BITMAP_CLEAR_CANARY_BYTES)
+BITMAP_CLEAR_LSR_START_WORD = 0x53067C2C
+BITMAP_CLEAR_FIRST_LOAD_WORD = 0xF940012E
+BITMAP_CLEAR_FIRST_BIC_WORD = 0x8A2B01CE
+BITMAP_CLEAR_FIRST_STORE_WORD = 0xF900012E
+BITMAP_CLEAR_MIDDLE_ZERO_STORE_WORD = 0xF800859F
+BITMAP_CLEAR_TAIL_LOAD_WORD = 0xF940012C
+BITMAP_CLEAR_TAIL_BIC_WORD = 0x8A280188
+BITMAP_CLEAR_TAIL_STORE_WORD = 0xF9000128
+BITMAP_CLEAR_CASES = (
+    ("zero-len-noop", 5, 0),
+    ("low-single-bit", 1, 1),
+    ("low-range", 4, 6),
+    ("cross-word-range", 62, 5),
+    ("second-word-range", 80, 8),
+    ("full-size", 0, BITMAP_CLEAR_PROOF_SIZE_BITS),
+)
 CPUMASK_NEXT_NR_BITS = 8
 CPUMASK_NEXT_SET_BITS = (2, 6)
 CPUMASK_NEXT_WORD0 = (1 << CPUMASK_NEXT_SET_BITS[0]) | (1 << CPUMASK_NEXT_SET_BITS[1])
@@ -7324,6 +7362,20 @@ def _bitmap_set_expected(start: int, length: int) -> bytes:
     out_words = [BITMAP_SET_INITIAL_WORD0, BITMAP_SET_INITIAL_WORD1]
     for bit in range(start, start + length):
         out_words[bit // 64] |= 1 << (bit % 64)
+    return b"".join(word.to_bytes(8, "little") for word in out_words)
+
+
+def _bitmap_clear_expected(start: int, length: int) -> bytes:
+    if not (0 <= start <= BITMAP_CLEAR_PROOF_SIZE_BITS):
+        raise ReplError(f"invalid __bitmap_clear start {start}")
+    if not (0 <= length <= BITMAP_CLEAR_PROOF_SIZE_BITS):
+        raise ReplError(f"invalid __bitmap_clear length {length}")
+    if start + length > BITMAP_CLEAR_PROOF_SIZE_BITS:
+        raise ReplError(f"invalid __bitmap_clear range {start}+{length}")
+
+    out_words = [BITMAP_CLEAR_INITIAL_WORD0, BITMAP_CLEAR_INITIAL_WORD1]
+    for bit in range(start, start + length):
+        out_words[bit // 64] &= ~(1 << (bit % 64)) & MASK64
     return b"".join(word.to_bytes(8, "little") for word in out_words)
 
 
@@ -8631,6 +8683,241 @@ def _run_call_proof___bitmap_set(session: ReplSession,
     private.update({
         "slide": f"0x{slide:x}",
         "__bitmap_set_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "alloc_ptr": f"0x{ptr:x}",
+        "observed_bytes_hex": {
+            "initial": initial_scan.hex(),
+            "bitmap_by_case": {label: data.hex() for label, data in observed_by_case.items()},
+        },
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
+def _run_call_proof___bitmap_clear(session: ReplSession,
+                                   symbols: dict[str, Symbol],
+                                   image: StaticImage,
+                                   *,
+                                   alloc_size: int,
+                                   source_root: Path,
+                                   gfp: int,
+                                   gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    initial_scan = BITMAP_CLEAR_INITIAL_BYTES + BITMAP_CLEAR_CANARY_BYTES
+    scan_len = len(initial_scan)
+    if alloc_size < scan_len:
+        raise ReplError(f"__bitmap_clear call-proof alloc_size must be at least {scan_len} bytes")
+    if BITMAP_CLEAR_PROOF_SIZE_BITS != len(BITMAP_CLEAR_INITIAL_BYTES) * 8:
+        raise ReplError("__bitmap_clear proof bit size does not match bitmap byte length")
+    for label, start, length in BITMAP_CLEAR_CASES:
+        if start < 0 or length < 0 or start + length > BITMAP_CLEAR_PROOF_SIZE_BITS:
+            raise ReplError(f"__bitmap_clear case {label!r} has an invalid start/len")
+
+    source = lookup_source_signature("__bitmap_clear", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "__bitmap_clear",
+        ("@owned_bitmap", 0, BITMAP_CLEAR_PROOF_SIZE_BITS),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["__bitmap_clear"]["expected_tier"]:
+        raise ReplError("__bitmap_clear call-safety tier is not the expected vetted pointer tier")
+    selected = source.get("selected")
+    selected_signature = selected.get("signature") if isinstance(selected, dict) else None
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError("__bitmap_clear source signature does not declare x0 as the bitmap pointer argument")
+    if selected_signature != CALL_PROOF_TARGETS["__bitmap_clear"]["source_signature"]:
+        raise ReplError("__bitmap_clear source signature did not select the exported declaration")
+
+    resolutions = {
+        "__bitmap_clear": resolve_verified(
+            symbols,
+            image,
+            "__bitmap_clear",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    target_link = require_verified_resolution(resolutions["__bitmap_clear"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof bitmap allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof bitmap cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    static_words = {
+        "lsr-start": (target_link + 0x00, BITMAP_CLEAR_LSR_START_WORD),
+        "first-load": (target_link + 0x1C, BITMAP_CLEAR_FIRST_LOAD_WORD),
+        "first-bic": (target_link + 0x28, BITMAP_CLEAR_FIRST_BIC_WORD),
+        "first-store": (target_link + 0x30, BITMAP_CLEAR_FIRST_STORE_WORD),
+        "middle-zero-store": (target_link + 0x50, BITMAP_CLEAR_MIDDLE_ZERO_STORE_WORD),
+        "tail-load": (target_link + 0x6C, BITMAP_CLEAR_TAIL_LOAD_WORD),
+        "tail-bic": (target_link + 0x7C, BITMAP_CLEAR_TAIL_BIC_WORD),
+        "tail-store": (target_link + 0x80, BITMAP_CLEAR_TAIL_STORE_WORD),
+    }
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "__bitmap_clear",
+            "resolution_method": resolutions["__bitmap_clear"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+            "bounded_size_bits": BITMAP_CLEAR_PROOF_SIZE_BITS,
+        },
+    ]
+    for label, (vaddr, expected_word) in static_words.items():
+        observed_word = image.u32_at_vaddr(vaddr)
+        ok = observed_word == expected_word
+        checks.append({
+            "check": f"static-{label}",
+            "ok": ok,
+            "expected_word": f"0x{expected_word:08x}",
+            "observed_word": f"0x{observed_word:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                "__bitmap_clear static word mismatch for "
+                f"{label}: observed 0x{observed_word:08x}, expected 0x{expected_word:08x}"
+            )
+
+    private: dict[str, object] = {}
+    ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_attempted = False
+    free_ok = False
+    free_error = ""
+    case_results: list[dict[str, object]] = []
+    observed_by_case: dict[str, bytes] = {}
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        ptr_ok = is_kernel_lowmem_pointer(ptr)
+        checks.append({
+            "check": "kmalloc-owned-bitmap-clear-buffer",
+            "ok": ptr_ok,
+            "alloc_size": alloc_size,
+            "kernel_lowmem": ptr_ok,
+        })
+        if not ptr_ok:
+            raise ReplError("__kmalloc did not return a sane __bitmap_clear buffer")
+
+        _poke_bytes(session, ptr, initial_scan)
+        observed_initial = _peek_bytes(session, ptr, scan_len)
+        setup_ok = observed_initial == initial_scan
+        checks.append({
+            "check": "owned-bitmap-clear-poke-peek",
+            "ok": setup_ok,
+            "bitmap_size_bits": BITMAP_CLEAR_PROOF_SIZE_BITS,
+            "canary_len": BITMAP_CLEAR_CANARY_LEN,
+        })
+        if not setup_ok:
+            raise ReplError("owned __bitmap_clear bitmap poke/peek mismatch")
+
+        for label, start, length in BITMAP_CLEAR_CASES:
+            _poke_bytes(session, ptr, initial_scan)
+            reset_scan = _peek_bytes(session, ptr, scan_len)
+            if reset_scan != initial_scan:
+                raise ReplError(f"owned __bitmap_clear bitmap reset mismatch before {label}")
+
+            observed_return = session.call_runtime(target_runtime, (ptr, start, length))
+            expected_scan = _bitmap_clear_expected(start, length) + BITMAP_CLEAR_CANARY_BYTES
+            observed = _peek_bytes(session, ptr, scan_len)
+            bitmap_ok = observed[:len(BITMAP_CLEAR_INITIAL_BYTES)] == expected_scan[:len(BITMAP_CLEAR_INITIAL_BYTES)]
+            canary_ok = observed[-BITMAP_CLEAR_CANARY_LEN:] == BITMAP_CLEAR_CANARY_BYTES
+            observed_by_case[label] = observed
+            case_results.append({
+                "case": label,
+                "start": start,
+                "len": length,
+                "return_value_ignored": True,
+                "observed_return_value_redacted": True,
+                "bitmap_matches_expected": bitmap_ok,
+                "canary_preserved": canary_ok,
+                "ok": bitmap_ok and canary_ok,
+            })
+            if not bitmap_ok:
+                raise ReplError(f"__bitmap_clear {label} bitmap bytes did not match expected clear range")
+            if not canary_ok:
+                raise ReplError(f"__bitmap_clear {label} modified the canary")
+            _ = observed_return
+    finally:
+        if ptr and is_kernel_lowmem_pointer(ptr) and kfree_runtime:
+            free_attempted = True
+            try:
+                session.call_runtime(kfree_runtime, (ptr,))
+                free_ok = True
+            except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                free_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "bitmap-clear-case-table",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    checks.append({
+        "check": "kfree-owned-bitmap-clear-buffer",
+        "ok": free_ok,
+        "free_attempted": free_attempted,
+    })
+    if free_error:
+        raise ReplError(f"kfree failed after __bitmap_clear proof: {free_error}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-__bitmap_clear-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "__bitmap_clear",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["__bitmap_clear"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["__bitmap_clear"]["return_contract"],
+        "alloc_size": alloc_size,
+        "bitmap_size_bits": BITMAP_CLEAR_PROOF_SIZE_BITS,
+        "initial_pattern": "all-bits-set",
+        "case_results": case_results,
+        "bitmap_matches_expected_after_each_case": True,
+        "bitmap_canary_preserved_after_each_case": True,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "__bitmap_clear",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["__bitmap_clear"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["__bitmap_clear"]["return_contract"],
+            "observed_return_value": "void-return-ignored; bitmap-clear-range-case-table-matched",
+            "cleanup": "kfree-owned-bitmap-clear-buffer-ok" if free_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "__bitmap_clear_runtime": f"0x{((target_link + slide) & MASK64):x}",
         "alloc_ptr": f"0x{ptr:x}",
         "observed_bytes_hex": {
             "initial": initial_scan.hex(),
@@ -25087,6 +25374,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "__bitmap_set":
         return _run_call_proof___bitmap_set(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "__bitmap_clear":
+        return _run_call_proof___bitmap_clear(
             session,
             symbols,
             image,
