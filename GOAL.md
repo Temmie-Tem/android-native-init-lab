@@ -806,6 +806,42 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ⚠️ STOPPED — REPL scheduler counter batch live-call proof attempt aborted before live proof
+
+> ### ⚠️ STATUS (2026-07-01 attempted, rolled back cleanly) — host wrapper post-flash settle/timeout issue, no target promoted
+>
+> Codex prepared the next BATCH unit for adjacent read-only scheduler counters:
+> `nr_processes`, `nr_running`, `nr_iowait`, and `nr_context_switches`. Static
+> host gates passed (`py_compile`, focused tests, full `tests.test_a90_repl`
+> `Ran 165 tests`, `OK`, `git diff --check`, and classifier CLI showing the four
+> selected targets as `SAFE-SCALAR` while `nr_iowait_cpu`, `single_task_running`,
+> `get_avenrun`, and `si_swapinfo` stayed `DENY`/parked).
+>
+> The live attempt flashed the exact v1-repl candidate through
+> `native_init_flash.py`; recovery/TWRP was reached before the boot write, the
+> candidate SHA/readback matched, and the helper's built-in native-init
+> `version/status` verification passed. The wrapper then restarted the host
+> bridge, waited only a short settle, and its explicit `a90ctl version` check
+> failed with an END-marker timeout before any REPL proof call ran. The wrapper
+> rolled back to v2321; rollback SHA/readback matched and the rollback helper's
+> built-in native-init verification passed. A later manual bridge restart,
+> longer settle, and `a90ctl --timeout 30 version/selftest/status` confirmed
+> final resident v2321 with `selftest pass=11 warn=1 fail=0`.
+>
+> Timing was recorded per the 2026-07-01 timing rule: candidate flash helper
+> `63.706s`, candidate explicit bridge restart to health failure `15.056s`,
+> live proof session `0.000s` (not reached), rollback flash helper `75.140s`,
+> rollback explicit bridge restart to first health failure `15.059s`, manual
+> final bridge settle/health pass `13.370s`, total candidate-start to rollback
+> ready `196.183s`.
+>
+> **No scheduler counter function-map entry is promoted from this attempt.**
+> Next safe action is host-only: fix the wrapper cadence to wait longer after
+> bridge restart and use `a90ctl --timeout 30 version -> selftest -> status`
+> before live REPL proof. Any new flash should be an explicit new attempt, not
+> an automatic retry loop. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_SCHEDULER_COUNTER_BATCH_ABORTED_2026-07-01.md`.
+
 ## ✅ DONE — REPL post-epic batch live-call proof — memory state observation getters
 
 > ### ✅ STATUS (2026-07-01 live pass) — same-session memory-state observation batch

@@ -1856,6 +1856,31 @@ class CallSafetyClassificationTests(unittest.TestCase):
             [f"0x{word:08x}" for word in repl.SI_MEMINFO_EXPECTED_WORDS[:12]],
         )
 
+        scheduler_counter_targets = {
+            "nr_processes": ("0xffffff80080ae02c", 1),
+            "nr_running": ("0xffffff80080edebc", 4),
+            "nr_iowait": ("0xffffff80080ee024", 2),
+            "nr_context_switches": ("0xffffff80080edf84", 4),
+        }
+        for symbol, (link_vaddr, min_xrefs) in scheduler_counter_targets.items():
+            row = self._row(symbol)
+            self.assertEqual(row["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+            self.assertEqual(row["required_valid_pointer_args"], {})
+            self.assertTrue(row["resolution"]["verified"])
+            self.assertEqual(row["resolution"]["method"], "disasm-signature+xref+map")
+            self.assertEqual(row["resolution"]["link_vaddr"], link_vaddr)
+            self.assertGreaterEqual(row["signals"]["direct_bl_xref_count"], min_xrefs)
+            self.assertFalse(row["signals"]["leaf"])
+            self.assertEqual(row["signals"]["arg_pointer_derefs_before_first_bl_or_ret"], [])
+            self.assertEqual(row["signals"]["context_call_count"], 0)
+            self.assertTrue(
+                row["signals"]["arg_taint_flow"]["safe_scalar_positive_no_arg_memory_base_flow"]
+            )
+            self.assertEqual(
+                row["signals"]["first_words"][:12],
+                [f"0x{word:08x}" for word in repl.SCHED_COUNTER_EXPECTED_WORDS[symbol][:12]],
+            )
+
         get_ddr_DSF_version = self._row("get_ddr_DSF_version")
         self.assertEqual(get_ddr_DSF_version["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
         self.assertEqual(get_ddr_DSF_version["required_valid_pointer_args"], {})
@@ -2167,7 +2192,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 32)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 36)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 9)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -2951,6 +2976,36 @@ class CallSafetyClassificationTests(unittest.TestCase):
             self.assertEqual(row["selected"]["line"], line)
             self.assertTrue(row["selected"]["path"].endswith("include/linux/mm.h"))
 
+        scheduler_state_source = {
+            "nr_processes": (
+                "extern int nr_processes(void)",
+                "include/linux/sched/stat.h",
+                18,
+            ),
+            "nr_running": (
+                "extern unsigned long nr_running(void)",
+                "include/linux/sched/stat.h",
+                19,
+            ),
+            "nr_iowait": (
+                "extern unsigned long nr_iowait(void)",
+                "include/linux/sched/stat.h",
+                21,
+            ),
+            "nr_context_switches": (
+                "extern unsigned long long nr_context_switches(void)",
+                "include/linux/kernel_stat.h",
+                52,
+            ),
+        }
+        for symbol, (signature, suffix, line) in scheduler_state_source.items():
+            row = repl.lookup_source_signature(symbol, source_root=KERNEL_SOURCE_ROOT)
+            self.assertEqual(row["status"], "found", row)
+            self.assertEqual(row["selected"]["pointer_arg_indices"], [])
+            self.assertEqual(row["selected"]["signature"], signature)
+            self.assertEqual(row["selected"]["line"], line)
+            self.assertTrue(row["selected"]["path"].endswith(suffix))
+
         jiffies_64_to_clock_t = repl.lookup_source_signature(
             "jiffies_64_to_clock_t",
             source_root=KERNEL_SOURCE_ROOT,
@@ -3669,6 +3724,30 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.nr_processes_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "nr_processes",
+            purpose="call",
+        ).link_vaddr
+        self.nr_running_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "nr_running",
+            purpose="call",
+        ).link_vaddr
+        self.nr_iowait_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "nr_iowait",
+            purpose="call",
+        ).link_vaddr
+        self.nr_context_switches_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "nr_context_switches",
+            purpose="call",
+        ).link_vaddr
         self.get_ddr_DSF_version_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -3701,6 +3780,18 @@ class FaithfulFakeTransport:
             "mem_unit": repl.SI_MEMINFO_EXPECTED_MEM_UNIT,
         }
         self.si_mem_available_index = 0
+        self.scheduler_counter_values = {
+            "nr_processes": [0x72, 0x73],
+            "nr_running": [0x3, 0x4],
+            "nr_iowait": [0x0, 0x1],
+            "nr_context_switches": [0x123456, 0x1234AA],
+        }
+        self.scheduler_counter_index = {
+            "nr_processes": 0,
+            "nr_running": 0,
+            "nr_iowait": 0,
+            "nr_context_switches": 0,
+        }
         self.ddr_dsf_version_value = 0x00010002
         self.ddr_total_density_value = 0x06
         self.sw_hweight32_link = repl.resolve_verified(
@@ -4298,6 +4389,12 @@ class FaithfulFakeTransport:
                 return base
         return None
 
+    def _next_scheduler_counter(self, name: str) -> int:
+        values = self.scheduler_counter_values[name]
+        index = self.scheduler_counter_index[name]
+        self.scheduler_counter_index[name] = index + 1
+        return values[min(index, len(values) - 1)]
+
     def run_serial_command(self, argv, *, host, port, timeout):
         sh_str = argv[-1]
         if "grep -a A90R" not in sh_str:
@@ -4402,6 +4499,14 @@ class FaithfulFakeTransport:
             si_mem_available = self.si_mem_available_link + self.slide
             assert self.si_meminfo_link is not None
             si_meminfo = self.si_meminfo_link + self.slide
+            assert self.nr_processes_link is not None
+            nr_processes = self.nr_processes_link + self.slide
+            assert self.nr_running_link is not None
+            nr_running = self.nr_running_link + self.slide
+            assert self.nr_iowait_link is not None
+            nr_iowait = self.nr_iowait_link + self.slide
+            assert self.nr_context_switches_link is not None
+            nr_context_switches = self.nr_context_switches_link + self.slide
             assert self.get_ddr_DSF_version_link is not None
             get_ddr_DSF_version = self.get_ddr_DSF_version_link + self.slide
             assert self.get_ddr_total_density_link is not None
@@ -5095,6 +5200,22 @@ class FaithfulFakeTransport:
                 )
                 self._set_heap_bytes(arg1, bytes(data))
                 lines.append("A90R0")
+            elif arg0 == nr_processes:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("nr_processes proof must pass no arguments")
+                lines.append(f"A90R{self._next_scheduler_counter('nr_processes'):x}")
+            elif arg0 == nr_running:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("nr_running proof must pass no arguments")
+                lines.append(f"A90R{self._next_scheduler_counter('nr_running'):x}")
+            elif arg0 == nr_iowait:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("nr_iowait proof must pass no arguments")
+                lines.append(f"A90R{self._next_scheduler_counter('nr_iowait'):x}")
+            elif arg0 == nr_context_switches:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("nr_context_switches proof must pass no arguments")
+                lines.append(f"A90R{self._next_scheduler_counter('nr_context_switches'):x}")
             elif arg0 == get_ddr_DSF_version:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("get_ddr_DSF_version proof must pass no arguments")
@@ -6875,6 +6996,77 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(privates["si_meminfo"]["canary_after_hex"], repl.SI_MEMINFO_CANARY_BYTES.hex())
         self.assertIn(fake.heap_ptr, fake.freed)
         self.assertGreater(fake.op_count, 10)
+
+    def test_call_proof_scheduler_counter_batch_passes_with_no_arg_contracts(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        targets = (
+            "nr_processes",
+            "nr_running",
+            "nr_iowait",
+            "nr_context_switches",
+        )
+        summaries = {}
+        privates = {}
+        for target in targets:
+            summary, private = repl.run_call_proof(
+                session,
+                symbols,
+                self.image,
+                target,
+                source_root=KERNEL_SOURCE_ROOT,
+            )
+            summaries[target] = summary
+            privates[target] = private
+
+        source_signatures = {
+            "nr_processes": "extern int nr_processes(void)",
+            "nr_running": "extern unsigned long nr_running(void)",
+            "nr_iowait": "extern unsigned long nr_iowait(void)",
+            "nr_context_switches": "extern unsigned long long nr_context_switches(void)",
+        }
+        expected_first = {
+            "nr_processes": "0x72",
+            "nr_running": "0x3",
+            "nr_iowait": "0x0",
+            "nr_context_switches": "0x123456",
+        }
+        for target in targets:
+            summary = summaries[target]
+            self.assertTrue(summary["ok"], summary)
+            self.assertEqual(summary["decision"], f"a90-repl-live-call-proof-{target}-pass")
+            self.assertEqual(summary["function_map_entry"]["symbol"], target)
+            self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+            self.assertEqual(
+                summary["function_map_entry"]["auto_call_policy"],
+                "same-session-batch-proof-only-not-mass-call",
+            )
+            self.assertEqual(summary["source_evidence"]["signature"], source_signatures[target])
+            self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+            self.assertTrue(summary["all_returns_in_contract"])
+            self.assertEqual(summary["repeat_count"], 2)
+            self.assertEqual(summary["observed_return_value"], expected_first[target])
+            self.assertTrue(summary["raw_runtime_values_redacted"])
+            self.assertNotIn(f"{target}_runtime", summary)
+            cases = {case["case"]: case for case in summary["case_results"]}
+            self.assertEqual(cases[f"{target}-read-1"]["observed_return_value"], expected_first[target])
+            self.assertTrue(cases[f"{target}-read-1"]["ok"])
+            self.assertTrue(cases[f"{target}-read-2"]["ok"])
+            if target == "nr_context_switches":
+                self.assertTrue(cases[f"{target}-read-2"]["nondecreasing_from_first"])
+            else:
+                self.assertTrue(cases[f"{target}-read-2"]["bounded_short_repeat_drift"])
+            self.assertIn(f"{target}_runtime", privates[target])
+            self.assertEqual(privates[target]["case_returns"][f"{target}-read-1"], expected_first[target])
+        self.assertEqual(fake.op_count, 12)  # 4 targets * (slide + 2 scalar proof calls)
 
     def test_call_proof_jiffies_to_clock_t_passes_with_positive_identity_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

@@ -433,6 +433,30 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "void",
         "reason": "read-only memory state vector writer; x0 must be an owned kmalloc sysinfo result slot with canary",
     },
+    "nr_processes": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "int",
+        "reason": "no-argument scheduler process-count getter; proof expects a sane nonnegative count and no pointer arguments",
+    },
+    "nr_running": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "unsigned-long",
+        "reason": "no-argument scheduler runnable-count getter; proof expects a sane bounded count and no pointer arguments",
+    },
+    "nr_iowait": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "unsigned-long",
+        "reason": "no-argument scheduler IO-wait count getter; proof expects a sane bounded count and no pointer arguments",
+    },
+    "nr_context_switches": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "unsigned-long-long",
+        "reason": "no-argument scheduler context-switch counter getter; proof expects a sane nondecreasing counter and no pointer arguments",
+    },
     "get_ddr_DSF_version": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -3540,6 +3564,10 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "get_sde_rsc_version": ("include/linux/sde_rsc.h",),
     "si_mem_available": ("include/linux/mm.h",),
     "si_meminfo": ("include/linux/mm.h",),
+    "nr_processes": ("include/linux/sched/stat.h",),
+    "nr_running": ("include/linux/sched/stat.h",),
+    "nr_iowait": ("include/linux/sched/stat.h",),
+    "nr_context_switches": ("include/linux/kernel_stat.h",),
     "cpumask_next": ("include/linux/cpumask.h",),
     "cpumask_next_wrap": ("include/linux/cpumask.h",),
     "cpumask_next_and": ("include/linux/cpumask.h",),
@@ -5403,6 +5431,30 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern void si_meminfo(struct sysinfo * val)",
     },
+    "nr_processes": {
+        "input_contract": "no arguments; scheduler process counters are read without locking and no returned pointer is dereferenced or freed",
+        "return_contract": "int process count is nonnegative, positive in the live native-init proof, below the conservative sane bound, and short-repeat drift is bounded",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern int nr_processes(void)",
+    },
+    "nr_running": {
+        "input_contract": "no arguments; scheduler runnable counters are read without locking and no returned pointer is dereferenced or freed",
+        "return_contract": "unsigned long runnable count is below the conservative sane bound and short-repeat drift is bounded",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern unsigned long nr_running(void)",
+    },
+    "nr_iowait": {
+        "input_contract": "no arguments; scheduler IO-wait counters are read without locking and no returned pointer is dereferenced or freed",
+        "return_contract": "unsigned long IO-wait count is below the conservative sane bound and short-repeat drift is bounded",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern unsigned long nr_iowait(void)",
+    },
+    "nr_context_switches": {
+        "input_contract": "no arguments; per-CPU context-switch counters are read without locking and no returned pointer is dereferenced or freed",
+        "return_contract": "unsigned long long context-switch count is sane and nondecreasing across short-repeat proof calls",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern unsigned long long nr_context_switches(void)",
+    },
     "get_ddr_DSF_version": {
         "input_contract": "no arguments; Samsung SMEM DDR DSF info is read-only; no returned pointer is dereferenced or freed",
         "return_contract": "uint32_t DDR DSF-version field is nonzero, <= 0xffffffff, and stable across repeated proof calls",
@@ -6790,6 +6842,66 @@ SI_MEMINFO_MEM_UNIT_OFFSET = 104
 SI_MEMINFO_EXPECTED_MEM_UNIT = 4096
 SI_MEMINFO_FILL_BYTE = 0xA5
 SI_MEMINFO_CANARY_BYTES = bytes.fromhex("a90f00d1cafefeed1122334455667788")
+SCHED_COUNTER_REPEAT_COUNT = 2
+SCHED_COUNTER_MAX_COUNT = 1 << 32
+SCHED_COUNTER_MAX_REPEAT_DELTA = 1 << 20
+SCHED_COUNTER_CONTEXT_SWITCH_MAX = 1 << 60
+SCHED_COUNTER_EXPECTED_WORDS = {
+    "nr_processes": (
+        0xCA1103D0, 0xA9BC43FD, 0xF9000BF7, 0x910003FD,
+        0xA90257F6, 0xA9034FF4, 0xF0015B41, 0x12800000,
+        0x913D4021, 0x9463EF71, 0x90015B75, 0xB940FAA8,
+        0x6B08001F, 0x54000222, 0x90015B77, 0xF0015B54,
+        0x2A1F03F3, 0x911B02F7, 0x913D4294, 0x90013316,
+        0x911CE2D6, 0xF860DAE8, 0xAA1403E1, 0xB8766908,
+        0x0B080273, 0x9463EF61, 0xB940FAA8, 0x6B08001F,
+        0x54FFFF23, 0x14000002, 0x2A1F03F3, 0x2A1303E0,
+        0xF9400BF7, 0xA9434FF4, 0xA94257F6, 0xA8C443FD,
+        0xCA11021E, 0xD65F03C0, 0xD503201F, 0x00BE7BAD,
+    ),
+    "nr_running": (
+        0xCA1103D0, 0xA9BC43FD, 0xF9000BF7, 0x910003FD,
+        0xA90257F6, 0xA9034FF4, 0x90015961, 0x12800000,
+        0x913D0021, 0x9462EFCD, 0xB0015975, 0xB940FAA8,
+        0x6B08001F, 0x54000242, 0xB0015977, 0x90015974,
+        0xAA1F03F3, 0x911B02F7, 0x913D0294, 0xD0013156,
+        0x912402D6, 0xF8605AE8, 0xAA1403E1, 0x8B160108,
+        0xB9400508, 0x8B080273, 0x9462EFBC, 0xB940FAA8,
+        0x6B08001F, 0x54FFFF03, 0x14000002, 0xAA1F03F3,
+        0xAA1303E0, 0xF9400BF7, 0xA9434FF4, 0xA94257F6,
+        0xA8C443FD, 0xCA11021E, 0xD65F03C0, 0x00BE7BAD,
+    ),
+    "nr_iowait": (
+        0xCA1103D0, 0xA9BC43FD, 0xF9000BF7, 0x910003FD,
+        0xA90257F6, 0xA9034FF4, 0xF0015941, 0x12800000,
+        0x913D4021, 0x9462EF73, 0x90015975, 0xB940FAA8,
+        0x6B08001F, 0x54000242, 0x90015977, 0xF0015954,
+        0xAA1F03F3, 0x911B02F7, 0x913D4294, 0xB0013156,
+        0x912402D6, 0xF8605AE8, 0xAA1403E1, 0x8B160108,
+        0xB9893908, 0x8B080273, 0x9462EF62, 0xB940FAA8,
+        0x6B08001F, 0x54FFFF03, 0x14000002, 0xAA1F03F3,
+        0xAA1303E0, 0xF9400BF7, 0xA9434FF4, 0xA94257F6,
+        0xA8C443FD, 0xCA11021E, 0xD65F03C0, 0x00BE7BAD,
+    ),
+    "nr_context_switches": (
+        0xCA1103D0, 0xA9BC43FD, 0xF9000BF7, 0x910003FD,
+        0xA90257F6, 0xA9034FF4, 0x90015961, 0x12800000,
+        0x913D4021, 0x9462EF9B, 0xB0015975, 0xB940FAA8,
+        0x6B08001F, 0x54000242, 0xB0015977, 0x90015974,
+        0xAA1F03F3, 0x911B02F7, 0x913D4294, 0xD0013156,
+        0x912402D6, 0xF860DAE8, 0xAA1403E1, 0x8B160108,
+        0xF9403108, 0x8B130113, 0x9462EF8A, 0xB940FAA8,
+        0x6B08001F, 0x54FFFF03, 0x14000002, 0xAA1F03F3,
+        0xAA1303E0, 0xF9400BF7, 0xA9434FF4, 0xA94257F6,
+        0xA8C443FD, 0xCA11021E, 0xD65F03C0, 0x00BE7BAD,
+    ),
+}
+SCHED_COUNTER_NEXT_SYMBOL = {
+    "nr_processes": ("arch_release_task_struct", 0xA0),
+    "nr_running": ("single_task_running", 0xA0),
+    "nr_iowait": ("nr_iowait_cpu", 0xA0),
+    "nr_context_switches": ("nr_iowait", 0xA0),
+}
 GET_DDR_VENDOR_NAME_STACK_ALLOC_WORD = 0xD100C3FF
 GET_DDR_VENDOR_NAME_SMEM_ID_WORD = 0x528010C1
 GET_DDR_VENDOR_NAME_ARG_BUFFER_WORD = 0x910003E2
@@ -26115,6 +26227,199 @@ def _run_call_proof_si_meminfo(
     return summary, private
 
 
+def _sched_counter_return_ok(target: str, value: int, first_value: int | None) -> tuple[bool, dict[str, object]]:
+    if target == "nr_context_switches":
+        in_range = 0 <= value < SCHED_COUNTER_CONTEXT_SWITCH_MAX
+        nondecreasing = first_value is None or value >= first_value
+        return in_range and nondecreasing, {
+            "expected_range": f"0x0..0x{SCHED_COUNTER_CONTEXT_SWITCH_MAX - 1:x}",
+            "in_sane_counter_range": in_range,
+            "nondecreasing_from_first": nondecreasing,
+        }
+
+    in_range = 0 <= value < SCHED_COUNTER_MAX_COUNT
+    positive_ok = target != "nr_processes" or value > 0
+    drift_ok = first_value is None or abs(int(value) - int(first_value)) <= SCHED_COUNTER_MAX_REPEAT_DELTA
+    return in_range and positive_ok and drift_ok, {
+        "expected_range": f"0x0..0x{SCHED_COUNTER_MAX_COUNT - 1:x}",
+        "in_sane_count_range": in_range,
+        "positive_when_required": positive_ok,
+        "bounded_short_repeat_drift": drift_ok,
+    }
+
+
+def _run_call_proof_scheduler_counter(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    target: str,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    if target not in SCHED_COUNTER_EXPECTED_WORDS:
+        raise ReplError(f"unsupported scheduler counter proof target: {target}")
+
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        (),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError(f"{target} source signature must be scalar-only")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the expected declaration")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(
+        resolutions[target],
+        "call-proof target",
+    )
+    next_symbol_name, expected_boundary = SCHED_COUNTER_NEXT_SYMBOL[target]
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    expected_words = SCHED_COUNTER_EXPECTED_WORDS[target]
+    observed_words = image.u32_words_at_vaddr(target_link, len(expected_words))
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for index, expected in enumerate(expected_words):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for index in range(SCHED_COUNTER_REPEAT_COUNT):
+            observed = session.call_runtime(target_runtime, ()) & MASK64
+            first = returns[0] if returns else None
+            returns.append(observed)
+            ok, details = _sched_counter_return_ok(target, observed, first)
+            case = {
+                "case": f"{target}-read-{index + 1}",
+                "observed_return_value": f"0x{observed:x}",
+                "delta_from_first": "n/a" if first is None else f"0x{abs(int(observed) - int(first)):x}",
+                "ok": ok,
+            }
+            case.update(details)
+            case_results.append(case)
+            if not ok:
+                raise ReplError(
+                    f"{target}() returned an out-of-contract value in proof call "
+                    f"{index + 1}: 0x{observed:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": f"{target}-sane-counter-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = f"0x{returns[0]:x}" if returns else "n/a"
+    proof_status = (
+        "trusted-under-scheduler-context-switch-read-only-contract"
+        if target == "nr_context_switches"
+        else "trusted-under-scheduler-count-read-only-contract"
+    )
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": proof_status if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "observed_return_value": observed_public,
+        "all_returns_in_contract": bool(returns) and all(bool(case.get("ok")) for case in case_results),
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": "repeated no-argument calls returned sane scheduler counter values",
+            "cleanup": "n/a-scalar-read-only",
+            "auto_call_policy": "same-session-batch-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_get_ddr_DSF_version(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -30922,6 +31227,19 @@ def run_call_proof(session: ReplSession,
             source_root=source_root,
             gfp=gfp,
             gfp_components=gfp_components,
+        )
+    if target in (
+        "nr_processes",
+        "nr_running",
+        "nr_iowait",
+        "nr_context_switches",
+    ):
+        return _run_call_proof_scheduler_counter(
+            session,
+            symbols,
+            image,
+            target=target,
+            source_root=source_root,
         )
     if target == "get_ddr_DSF_version":
         return _run_call_proof_get_ddr_DSF_version(
