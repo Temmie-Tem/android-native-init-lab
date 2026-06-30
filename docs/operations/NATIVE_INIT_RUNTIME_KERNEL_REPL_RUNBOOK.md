@@ -238,6 +238,16 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
   --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
   --evidence-dir workspace/private/runs/kernel/<unit>/ \
+  kstrtouint
+```
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/a90_repl.py call-proof \
+  --map workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map \
+  --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
+  --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
+  --evidence-dir workspace/private/runs/kernel/<unit>/ \
   ksize
 ```
 
@@ -653,6 +663,10 @@ buffers, and redacts the owned pointers and observed raw bytes from public outpu
 slot, calls `simple_strtoull("1234abcdZ", &endp, 16)`, requires return `0x1234abcd`, requires `endp`
 to equal the owned input pointer plus offset `8`, verifies input immutability and end-slot canary
 preservation, frees both buffers, and redacts runtime/allocation pointer values and observed raw bytes.
+The `kstrtouint` proof allocates an owned NUL-terminated numeric string and an owned `unsigned int *`
+result slot, calls `kstrtouint("123456789", 10, &res)`, requires return `0`, requires `res` to equal
+`123456789`, verifies input immutability and result-slot canary preservation, frees both buffers, and
+redacts runtime/allocation pointer values and observed raw bytes.
 The `kernel_read` proof opens `/init`, reads 16 bytes into an owned buffer with an owned `loff_t *`
 position, requires ELF magic plus position advancement, closes the file, and frees all owned buffers.
 The `strlen` proof writes an owned NUL-terminated string buffer, requires exact length return, and

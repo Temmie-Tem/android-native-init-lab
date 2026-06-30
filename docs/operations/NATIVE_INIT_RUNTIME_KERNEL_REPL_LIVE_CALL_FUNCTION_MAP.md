@@ -27,6 +27,7 @@ and the C1 fail-closed identity gate.
 | `bin2hex` | `0xffffff800856aaf4`, `export-recovery`, direct BL xrefs `5`, leaf/no-BL | owned destination ASCII hex buffer plus owned source byte buffer plus scalar byte count | `bin2hex(dst, a90f00dc0ffee1, 7)` returned the owned destination pointer plus offset `14` (redacted), destination encoded to `a90f00dc0ffee1`, destination canary preserved, source stayed unchanged | `kfree-owned-bin2hex-buffers-ok` | `a90-repl-live-call-proof-bin2hex-pass` |
 | `parse_option_str` | `0xffffff80099a9c44`, `disasm-signature+xref+map`, direct BL xrefs `3`, calls `__pi_strlen`/`__pi_strncmp` | owned NUL-terminated comma-separated option string plus owned NUL-terminated option string | exact token case returned `1`; prefix-only token and missing token returned `0`; list and option buffers stayed unchanged | `kfree-owned-parse-option-str-buffers-ok` | `a90-repl-live-call-proof-parse_option_str-pass` |
 | `simple_strtoull` | `0xffffff80099ba314`, `export-recovery`, direct BL xrefs `9`, calls `_parse_integer_fixup_radix`/`_parse_integer` | owned NUL-terminated numeric string plus owned `char **` endp slot plus scalar base | `simple_strtoull("1234abcdZ", &endp, 16) == 0x1234abcd`; `endp` pointed to the owned input pointer plus offset `8` (redacted); input and end-slot canary stayed unchanged | `kfree-owned-simple-strtoull-buffers-ok` | `a90-repl-live-call-proof-simple_strtoull-pass` |
+| `kstrtouint` | `0xffffff800856b7a4`, `export-recovery`, direct BL xrefs `217`, calls `kstrtoull` | owned NUL-terminated numeric string plus scalar base plus owned `unsigned int *` result slot | `kstrtouint("123456789", 10, &res) == 0`; result slot stored `123456789`; input stayed unchanged; result-slot canary stayed unchanged | `kfree-owned-kstrtouint-buffers-ok` | `a90-repl-live-call-proof-kstrtouint-pass` |
 | `ksize` | `0xffffff800826b27c`, `export-recovery`, direct BL xrefs `39` | owned `__kmalloc` pointer generated inside `call-proof` | `ksize(0x1000 allocation) == 0x1000`, within `[0x1000, 0x2000]` | `kfree-owned-buffer-ok` | `a90-repl-live-call-proof-ksize-pass` |
 | `filp_open` | `0xffffff800828a664`, `export-recovery`, direct BL xrefs `48` | owned kernel pathname buffer containing `/init`, `O_RDONLY`, mode `0` | sane `struct file *`, not NULL and not ERR_PTR | `filp_close` returned `0` | `a90-repl-live-call-proof-filp_open-pass` |
 | `filp_close` | `0xffffff800828ac14`, `export-recovery`, direct BL xrefs `67` | cleanup only: `struct file *` returned by the paired `filp_open` proof | returned `0` | closed opened file | paired cleanup evidence from `a90-repl-live-call-proof-filp_open-pass` |
@@ -88,11 +89,15 @@ and the C1 fail-closed identity gate.
   only because x0 is an owned string buffer. This proof covers one exact-token hit, one prefix-only
   miss, and one missing-token miss; it does not authorize arbitrary parser state, user pointers,
   unterminated strings, unbounded scans, or mass calling.
-- Integer parser sweep: `simple_strtoull` has crossed the live proof gate only under an owned
-  NUL-terminated numeric string, owned `char **` endp output slot, and scalar base. This proof covers
-  one bounded hexadecimal parse with a non-numeric terminator and validates the returned value,
-  end-pointer offset, input immutability, and end-slot canary. It does not authorize arbitrary parser
-  state, user pointers, unterminated strings, invalid bases, overflows, NULL `endp`, or mass calling.
+- Integer parser sweep: `simple_strtoull` and `kstrtouint` have crossed the live proof gate only under
+  owned NUL-terminated numeric strings plus their specific owned output-slot contracts.
+  `simple_strtoull` additionally requires an owned `char **` endp output slot and scalar base; its
+  proof covers one bounded hexadecimal parse with a non-numeric terminator and validates returned
+  value, end-pointer offset, input immutability, and end-slot canary. `kstrtouint` additionally
+  requires an owned `unsigned int *` result slot and scalar base; its proof covers one bounded decimal
+  success case and validates return code `0`, result-slot value, input immutability, and result-slot
+  canary. These rows do not authorize arbitrary parser state, user pointers, unterminated strings,
+  invalid bases, overflows, NULL output slots, failure paths, or mass calling.
 - Read-I/O sweep: `filp_open`, cleanup-only `filp_close`, and `kernel_read` have crossed the live
   proof gate only under their paired owned `/init` file/buffer/position contracts. Broader read paths,
   arbitrary file pointers, and arbitrary destination buffers remain parked until separate contracts are
