@@ -980,6 +980,15 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertFalse(cpumask_next["signals"]["leaf"])
         self.assertIn("0x52800101", cpumask_next["signals"]["first_words"])
 
+        cpumask_next_wrap = self._row("cpumask_next_wrap")
+        self.assertEqual(cpumask_next_wrap["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(cpumask_next_wrap["required_valid_pointer_args"], {"1": "cpumask-buffer"})
+        self.assertTrue(cpumask_next_wrap["resolution"]["verified"])
+        self.assertEqual(cpumask_next_wrap["resolution"]["method"], "export-recovery")
+        self.assertEqual(cpumask_next_wrap["resolution"]["link_vaddr"], "0xffffff80099a9f1c")
+        self.assertGreaterEqual(cpumask_next_wrap["signals"]["direct_bl_xref_count"], 6)
+        self.assertFalse(cpumask_next_wrap["signals"]["leaf"])
+
         cpumask_any_but = self._row("cpumask_any_but")
         self.assertEqual(cpumask_any_but["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(cpumask_any_but["required_valid_pointer_args"], {"0": "cpumask-buffer"})
@@ -1733,6 +1742,16 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertEqual(cpumask_next["selected"]["line"], 199)
         self.assertTrue(cpumask_next["selected"]["path"].endswith("include/linux/cpumask.h"))
+
+        cpumask_next_wrap = repl.lookup_source_signature("cpumask_next_wrap", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(cpumask_next_wrap["status"], "found", cpumask_next_wrap)
+        self.assertEqual(cpumask_next_wrap["selected"]["pointer_arg_indices"], [1])
+        self.assertEqual(
+            cpumask_next_wrap["selected"]["signature"],
+            "extern int cpumask_next_wrap(int n, const struct cpumask *mask, int start, bool wrap)",
+        )
+        self.assertEqual(cpumask_next_wrap["selected"]["line"], 244)
+        self.assertTrue(cpumask_next_wrap["selected"]["path"].endswith("include/linux/cpumask.h"))
 
         cpumask_any_but = repl.lookup_source_signature("cpumask_any_but", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(cpumask_any_but["status"], "found", cpumask_any_but)
@@ -2574,6 +2593,13 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.cpumask_next_wrap_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "cpumask_next_wrap",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.cpumask_any_but_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -2847,6 +2873,8 @@ class FaithfulFakeTransport:
             find_last_bit = self.find_last_bit_link + self.slide
             assert self.cpumask_next_link is not None
             cpumask_next = self.cpumask_next_link + self.slide
+            assert self.cpumask_next_wrap_link is not None
+            cpumask_next_wrap = self.cpumask_next_wrap_link + self.slide
             assert self.cpumask_any_but_link is not None
             cpumask_any_but = self.cpumask_any_but_link + self.slide
             assert self.find_next_zero_bit_link is not None
@@ -3965,6 +3993,34 @@ class FaithfulFakeTransport:
                         if (byte >> (bit % 8)) & 1:
                             result = bit
                             break
+                lines.append(f"A90R{result:x}")
+            elif arg0 == cpumask_next_wrap:
+                if arg2 not in self.allocated:
+                    raise AssertionError(f"cpumask_next_wrap mask is not an allocated pointer: {arg2:#x}")
+                data = self._heap_bytes(arg2, 8)
+                n = arg1 & 0xFFFFFFFF
+                start = arg3 & 0xFFFFFFFF
+                wrap_state = bool(arg4 & 1)
+                result = repl.CPUMASK_NEXT_WRAP_NR_BITS
+                while True:
+                    offset = (n + 1) & 0xFFFFFFFF
+                    signed_n = n - (1 << 32) if n & 0x80000000 else n
+                    found = repl.CPUMASK_NEXT_WRAP_NR_BITS
+                    if offset <= repl.CPUMASK_NEXT_WRAP_NR_BITS:
+                        for bit in range(offset, repl.CPUMASK_NEXT_WRAP_NR_BITS):
+                            byte = data[bit // 8]
+                            if (byte >> (bit % 8)) & 1:
+                                found = bit
+                                break
+                    reset_to_low_scan = (not wrap_state) or signed_n >= start or found < start
+                    if not reset_to_low_scan:
+                        result = repl.CPUMASK_NEXT_WRAP_NR_BITS
+                        break
+                    if found < repl.CPUMASK_NEXT_WRAP_NR_BITS:
+                        result = found
+                        break
+                    wrap_state = True
+                    n = 0xFFFFFFFF
                 lines.append(f"A90R{result:x}")
             elif arg0 == cpumask_any_but:
                 if arg1 not in self.allocated:
@@ -6258,6 +6314,65 @@ class SelftestIntegrationTests(unittest.TestCase):
             + repl.CPUMASK_NEXT_CANARY_BYTES
         ).hex()
         self.assertEqual(private["observed_bytes_hex"], expected_hex)
+        self.assertEqual(fake.freed, [fake.heap_ptr])
+
+    def test_call_proof_cpumask_next_wrap_passes_with_owned_cpumask_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "cpumask_next_wrap",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-cpumask_next_wrap-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "cpumask_next_wrap")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern int cpumask_next_wrap(int n, const struct cpumask *mask, int start, bool wrap)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [1])
+        self.assertEqual(summary["nr_cpumask_bits"], repl.CPUMASK_NEXT_WRAP_NR_BITS)
+        self.assertTrue(summary["cpumask_unchanged_after_calls"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("alloc_ptr", summary)
+        self.assertNotIn("cpumask_next_wrap_runtime", summary)
+        self.assertNotIn("observed_bytes_by_case_hex", summary)
+
+        expected_returns = {
+            "initial-forward-hit": "0x6",
+            "initial-wrap-low-hit": "0x2",
+            "wrapped-low-next": "0x2",
+            "wrapped-tail-wrap-low-hit": "0x2",
+            "wrapped-crosses-start-stop": "0x8",
+            "empty-mask": "0x8",
+        }
+        observed_returns = {
+            case["case"]: case["observed_return_value"]
+            for case in summary["case_results"]
+        }
+        self.assertEqual(observed_returns, expected_returns)
+        self.assertTrue(all(case["buffer_unchanged"] for case in summary["case_results"]))
+        self.assertEqual(private["case_returns"], expected_returns)
+        self.assertEqual(private["alloc_ptr"], f"0x{fake.heap_ptr:x}")
+        self.assertEqual(
+            private["observed_bytes_by_case_hex"]["initial-forward-hit"],
+            (repl.CPUMASK_NEXT_WRAP_DUAL_MASK_BYTES + repl.CPUMASK_NEXT_WRAP_CANARY_BYTES).hex(),
+        )
         self.assertEqual(fake.freed, [fake.heap_ptr])
 
     def test_call_proof_cpumask_any_but_passes_with_owned_cpumask_contract(self) -> None:

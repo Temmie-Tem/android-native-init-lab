@@ -342,6 +342,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "unsigned-int-cpu-index",
         "reason": "cpumask scanner; x1 must be an owned cpumask and scalar n is bounded by the compiled nr_cpumask_bits",
     },
+    "cpumask_next_wrap": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {1: "cpumask-buffer"},
+        "return_kind": "int-cpu-index",
+        "reason": "cpumask wrap scanner; x1 must be an owned cpumask and scalar n/start/wrap are bounded by the compiled nr_cpumask_bits",
+    },
     "cpumask_any_but": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "required_valid_pointer_args": {0: "cpumask-buffer"},
@@ -3265,6 +3271,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "find_next_bit": ("include/asm-generic/bitops/find.h", "include/linux/bitops.h"),
     "find_next_zero_bit": ("include/asm-generic/bitops/find.h", "include/linux/bitops.h"),
     "cpumask_next": ("include/linux/cpumask.h",),
+    "cpumask_next_wrap": ("include/linux/cpumask.h",),
     "cpumask_any_but": ("include/linux/cpumask.h",),
     "__sysfs_match_string": ("include/linux/string.h",),
     "filp_clone_open": ("fs/internal.h", "include/linux/fs.h"),
@@ -3304,6 +3311,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
 }
 _SOURCE_PREFERRED_SIGNATURE_BY_EXACT_SYMBOL = {
     "cpumask_next": "unsigned int cpumask_next(int n, const struct cpumask *srcp)",
+    "cpumask_next_wrap": "extern int cpumask_next_wrap(int n, const struct cpumask *mask, int start, bool wrap)",
     "cpumask_any_but": "int cpumask_any_but(const struct cpumask *mask, unsigned int cpu)",
 }
 _SOURCE_HEADER_HINTS_BY_PREFIX = (
@@ -5008,6 +5016,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "unsigned int cpumask_next(int n, const struct cpumask *srcp)",
     },
+    "cpumask_next_wrap": {
+        "input_contract": "scalar int n + owned cpumask buffer with compiled nr_cpumask_bits=8 + scalar start + scalar wrap-state",
+        "return_contract": "int == next set CPU in wrap iterator order, or 8 when the iterator reaches the start boundary/no set CPU exists",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern int cpumask_next_wrap(int n, const struct cpumask *mask, int start, bool wrap)",
+    },
     "cpumask_any_but": {
         "input_contract": "owned cpumask buffer with compiled nr_cpumask_bits=8 + scalar excluded CPU inside runtime nr_cpu_ids",
         "return_contract": "int == first set CPU not equal to excluded CPU, or runtime nr_cpu_ids when no other CPU is set",
@@ -6004,6 +6018,27 @@ CPUMASK_NEXT_CASES = (
     ("from-first-hit", 2, 6),
     ("from-second-hit", 6, 8),
     ("from-last-valid", 7, 8),
+)
+CPUMASK_NEXT_WRAP_NR_BITS = 8
+CPUMASK_NEXT_WRAP_DUAL_BITS = (2, 6)
+CPUMASK_NEXT_WRAP_LOW_BITS = (2,)
+CPUMASK_NEXT_WRAP_EMPTY_BITS: tuple[int, ...] = ()
+CPUMASK_NEXT_WRAP_DUAL_MASK_BYTES = (
+    (1 << CPUMASK_NEXT_WRAP_DUAL_BITS[0]) | (1 << CPUMASK_NEXT_WRAP_DUAL_BITS[1])
+).to_bytes(8, "little")
+CPUMASK_NEXT_WRAP_LOW_MASK_BYTES = (1 << CPUMASK_NEXT_WRAP_LOW_BITS[0]).to_bytes(8, "little")
+CPUMASK_NEXT_WRAP_EMPTY_MASK_BYTES = (0).to_bytes(8, "little")
+CPUMASK_NEXT_WRAP_CANARY_BYTES = b"\xcc" * 8
+CPUMASK_NEXT_WRAP_CANARY_LEN = len(CPUMASK_NEXT_WRAP_CANARY_BYTES)
+CPUMASK_NEXT_WRAP_MOV_W1_NR_CPUS_WORD = 0x52800101
+CPUMASK_NEXT_WRAP_MOV_W23_NR_CPUS_WORD = 0x52800117
+CPUMASK_NEXT_WRAP_CASES = (
+    ("initial-forward-hit", CPUMASK_NEXT_WRAP_DUAL_MASK_BYTES, CPUMASK_NEXT_WRAP_DUAL_BITS, 3, 4, 0, 6),
+    ("initial-wrap-low-hit", CPUMASK_NEXT_WRAP_LOW_MASK_BYTES, CPUMASK_NEXT_WRAP_LOW_BITS, 3, 4, 0, 2),
+    ("wrapped-low-next", CPUMASK_NEXT_WRAP_DUAL_MASK_BYTES, CPUMASK_NEXT_WRAP_DUAL_BITS, 1, 4, 1, 2),
+    ("wrapped-tail-wrap-low-hit", CPUMASK_NEXT_WRAP_DUAL_MASK_BYTES, CPUMASK_NEXT_WRAP_DUAL_BITS, 6, 4, 1, 2),
+    ("wrapped-crosses-start-stop", CPUMASK_NEXT_WRAP_DUAL_MASK_BYTES, CPUMASK_NEXT_WRAP_DUAL_BITS, 2, 4, 1, 8),
+    ("empty-mask", CPUMASK_NEXT_WRAP_EMPTY_MASK_BYTES, CPUMASK_NEXT_WRAP_EMPTY_BITS, 3, 4, 0, 8),
 )
 CPUMASK_ANY_BUT_NR_BITS = 8
 CPUMASK_ANY_BUT_NR_CPU_IDS_EXPECTED = 8
@@ -7660,6 +7695,245 @@ def _run_call_proof_cpumask_next(session: ReplSession,
         "cpumask_next_runtime": f"0x{((target_link + slide) & MASK64):x}",
         "alloc_ptr": f"0x{ptr:x}",
         "observed_bytes_hex": observed.hex(),
+        "case_returns": {
+            str(case["case"]): str(case["observed_return_value"])
+            for case in case_results
+        },
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
+def _run_call_proof_cpumask_next_wrap(session: ReplSession,
+                                      symbols: dict[str, Symbol],
+                                      image: StaticImage,
+                                      *,
+                                      alloc_size: int,
+                                      source_root: Path,
+                                      gfp: int,
+                                      gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    scan_len = len(CPUMASK_NEXT_WRAP_DUAL_MASK_BYTES) + CPUMASK_NEXT_WRAP_CANARY_LEN
+    if alloc_size < scan_len:
+        raise ReplError(f"cpumask_next_wrap call-proof alloc_size must be at least {scan_len} bytes")
+    if CPUMASK_NEXT_WRAP_NR_BITS > len(CPUMASK_NEXT_WRAP_DUAL_MASK_BYTES) * 8:
+        raise ReplError("cpumask_next_wrap proof nr bits does not fit in the owned mask bytes")
+    for label, mask_bytes, set_bits, n_arg, start, wrap_state, expected in CPUMASK_NEXT_WRAP_CASES:
+        if len(mask_bytes) != len(CPUMASK_NEXT_WRAP_DUAL_MASK_BYTES):
+            raise ReplError(f"cpumask_next_wrap case {label!r} has an invalid mask length")
+        if any(bit < 0 or bit >= CPUMASK_NEXT_WRAP_NR_BITS for bit in set_bits):
+            raise ReplError(f"cpumask_next_wrap case {label!r} has a set CPU outside nr_cpumask_bits")
+        if not (0 <= n_arg < CPUMASK_NEXT_WRAP_NR_BITS):
+            raise ReplError(f"cpumask_next_wrap case {label!r} has an invalid n argument")
+        if not (0 <= start < CPUMASK_NEXT_WRAP_NR_BITS):
+            raise ReplError(f"cpumask_next_wrap case {label!r} has an invalid start argument")
+        if wrap_state not in (0, 1):
+            raise ReplError(f"cpumask_next_wrap case {label!r} has an invalid wrap argument")
+        if not (0 <= expected <= CPUMASK_NEXT_WRAP_NR_BITS):
+            raise ReplError(f"cpumask_next_wrap case {label!r} has an invalid expected return")
+
+    source = lookup_source_signature("cpumask_next_wrap", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "cpumask_next_wrap",
+        (0, "@owned_cpumask_buffer", 0, 0),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["cpumask_next_wrap"]["expected_tier"]:
+        raise ReplError("cpumask_next_wrap call-safety tier is not the expected vetted pointer tier")
+    selected = source.get("selected")
+    selected_signature = selected.get("signature") if isinstance(selected, dict) else None
+    if not source.get("found") or source.get("pointer_arg_indices") != [1]:
+        raise ReplError("cpumask_next_wrap source signature does not declare x1 as the cpumask pointer argument")
+    if selected_signature != CALL_PROOF_TARGETS["cpumask_next_wrap"]["source_signature"]:
+        raise ReplError("cpumask_next_wrap source signature did not select the exported declaration")
+
+    resolutions = {
+        "cpumask_next_wrap": resolve_verified(
+            symbols,
+            image,
+            "cpumask_next_wrap",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    target_link = require_verified_resolution(resolutions["cpumask_next_wrap"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof cpumask allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof cpumask cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    nr_bits_word = image.u32_at_vaddr(target_link + 0x48)
+    sentinel_word = image.u32_at_vaddr(target_link + 0x50)
+    nr_bits_word_ok = nr_bits_word == CPUMASK_NEXT_WRAP_MOV_W1_NR_CPUS_WORD
+    sentinel_word_ok = sentinel_word == CPUMASK_NEXT_WRAP_MOV_W23_NR_CPUS_WORD
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "cpumask_next_wrap",
+            "resolution_method": resolutions["cpumask_next_wrap"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+            "bounded_nr_cpumask_bits": CPUMASK_NEXT_WRAP_NR_BITS,
+        },
+        {
+            "check": "static-compiled-nr-cpumask-bits",
+            "ok": nr_bits_word_ok,
+            "expected_word": f"0x{CPUMASK_NEXT_WRAP_MOV_W1_NR_CPUS_WORD:08x}",
+            "observed_word": f"0x{nr_bits_word:08x}",
+            "nr_cpumask_bits": CPUMASK_NEXT_WRAP_NR_BITS,
+        },
+        {
+            "check": "static-sentinel-nr-cpumask-bits",
+            "ok": sentinel_word_ok,
+            "expected_word": f"0x{CPUMASK_NEXT_WRAP_MOV_W23_NR_CPUS_WORD:08x}",
+            "observed_word": f"0x{sentinel_word:08x}",
+            "nr_cpumask_bits": CPUMASK_NEXT_WRAP_NR_BITS,
+        },
+    ]
+    if not nr_bits_word_ok:
+        raise ReplError(
+            "cpumask_next_wrap wrapper does not pass compiled nr_cpumask_bits=8 "
+            f"to find_next_bit (word=0x{nr_bits_word:08x})"
+        )
+    if not sentinel_word_ok:
+        raise ReplError(
+            "cpumask_next_wrap wrapper does not initialize the 8-CPU sentinel "
+            f"(word=0x{sentinel_word:08x})"
+        )
+
+    private: dict[str, object] = {}
+    ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_ok = False
+    free_error: str | None = None
+    case_results: list[dict[str, object]] = []
+    observed_by_case: dict[str, str] = {}
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        ptr_ok = is_kernel_lowmem_pointer(ptr)
+        checks.append({
+            "check": "kmalloc-owned-cpumask-next-wrap-mask",
+            "ok": ptr_ok,
+            "alloc_size": alloc_size,
+            "kernel_lowmem": ptr_ok,
+        })
+        if not ptr_ok:
+            raise ReplError("__kmalloc did not return a sane cpumask_next_wrap mask buffer")
+
+        for label, mask_bytes, set_bits, n_arg, start, wrap_state, expected in CPUMASK_NEXT_WRAP_CASES:
+            expected_scan = mask_bytes + CPUMASK_NEXT_WRAP_CANARY_BYTES
+            _poke_bytes(session, ptr, expected_scan)
+            observed = _peek_bytes(session, ptr, scan_len)
+            setup_ok = observed == expected_scan
+            if not setup_ok:
+                raise ReplError(f"owned cpumask_next_wrap mask poke/peek mismatch for {label}")
+
+            observed_return = session.call_runtime(target_runtime, (n_arg, ptr, start, wrap_state))
+            observed = _peek_bytes(session, ptr, scan_len)
+            unchanged = observed == expected_scan
+            observed_by_case[label] = observed.hex()
+            ok = observed_return == expected and unchanged
+            case_results.append({
+                "case": label,
+                "set_cpu_bits": list(set_bits),
+                "n_argument_value": f"0x{n_arg:x}",
+                "start": start,
+                "wrap_state": wrap_state,
+                "expected_return_value": f"0x{expected:x}",
+                "observed_return_value": f"0x{observed_return:x}",
+                "buffer_unchanged": unchanged,
+                "canary_preserved": observed[-CPUMASK_NEXT_WRAP_CANARY_LEN:] == CPUMASK_NEXT_WRAP_CANARY_BYTES,
+                "ok": ok,
+            })
+            if observed_return != expected:
+                raise ReplError(
+                    "cpumask_next_wrap "
+                    f"{label} returned 0x{observed_return:x}, expected 0x{expected:x}"
+                )
+            if not unchanged:
+                raise ReplError(f"cpumask_next_wrap modified the owned mask buffer for {label}")
+    finally:
+        if kfree_runtime and ptr and is_kernel_lowmem_pointer(ptr):
+            try:
+                session.call_runtime(kfree_runtime, (ptr,))
+                free_ok = True
+            except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                free_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "cpumask-next-wrap-case-table",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    checks.append({
+        "check": "kfree-owned-cpumask-next-wrap-mask",
+        "ok": free_ok,
+        "free_attempted": bool(kfree_runtime and ptr),
+    })
+    if free_error:
+        raise ReplError(f"kfree failed after cpumask_next_wrap proof: {free_error}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-cpumask_next_wrap-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "cpumask_next_wrap",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["cpumask_next_wrap"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["cpumask_next_wrap"]["return_contract"],
+        "alloc_size": alloc_size,
+        "nr_cpumask_bits": CPUMASK_NEXT_WRAP_NR_BITS,
+        "case_results": case_results,
+        "cpumask_unchanged_after_calls": True,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "cpumask_next_wrap",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["cpumask_next_wrap"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["cpumask_next_wrap"]["return_contract"],
+            "observed_return_value": "case-table-forward-wrap-boundary-sentinel",
+            "cleanup": "kfree-owned-cpumask-next-wrap-mask-ok" if free_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "cpumask_next_wrap_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "alloc_ptr": f"0x{ptr:x}",
+        "observed_bytes_by_case_hex": observed_by_case,
         "case_returns": {
             str(case["case"]): str(case["observed_return_value"])
             for case in case_results
@@ -22428,6 +22702,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "cpumask_next":
         return _run_call_proof_cpumask_next(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "cpumask_next_wrap":
+        return _run_call_proof_cpumask_next_wrap(
             session,
             symbols,
             image,
