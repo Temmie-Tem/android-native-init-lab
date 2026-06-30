@@ -970,6 +970,15 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(find_last_bit["signals"]["direct_bl_xref_count"], 9)
         self.assertTrue(find_last_bit["signals"]["leaf"])
 
+        bitmap_weight = self._row("__bitmap_weight")
+        self.assertEqual(bitmap_weight["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(bitmap_weight["required_valid_pointer_args"], {"0": "bitmap-buffer"})
+        self.assertTrue(bitmap_weight["resolution"]["verified"])
+        self.assertEqual(bitmap_weight["resolution"]["method"], "export-recovery")
+        self.assertEqual(bitmap_weight["resolution"]["link_vaddr"], "0xffffff800855cdd4")
+        self.assertGreaterEqual(bitmap_weight["signals"]["direct_bl_xref_count"], 19)
+        self.assertFalse(bitmap_weight["signals"]["leaf"])
+
         cpumask_next = self._row("cpumask_next")
         self.assertEqual(cpumask_next["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(cpumask_next["required_valid_pointer_args"], {"1": "cpumask-buffer"})
@@ -1742,6 +1751,16 @@ class CallSafetyClassificationTests(unittest.TestCase):
             "extern unsigned long find_last_bit(const unsigned long *addr, unsigned long size)",
         )
         self.assertTrue(find_last_bit["selected"]["path"].endswith("include/linux/bitops.h"))
+
+        bitmap_weight = repl.lookup_source_signature("__bitmap_weight", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(bitmap_weight["status"], "found", bitmap_weight)
+        self.assertEqual(bitmap_weight["selected"]["pointer_arg_indices"], [0])
+        self.assertEqual(
+            bitmap_weight["selected"]["signature"],
+            "extern int __bitmap_weight(const unsigned long *bitmap, unsigned int nbits)",
+        )
+        self.assertEqual(bitmap_weight["selected"]["line"], 123)
+        self.assertTrue(bitmap_weight["selected"]["path"].endswith("include/linux/bitmap.h"))
 
         cpumask_next = repl.lookup_source_signature("cpumask_next", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(cpumask_next["status"], "found", cpumask_next)
@@ -2606,6 +2625,13 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.bitmap_weight_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "__bitmap_weight",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.cpumask_next_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -2898,6 +2924,8 @@ class FaithfulFakeTransport:
             find_next_bit = self.find_next_bit_link + self.slide
             assert self.find_last_bit_link is not None
             find_last_bit = self.find_last_bit_link + self.slide
+            assert self.bitmap_weight_link is not None
+            bitmap_weight = self.bitmap_weight_link + self.slide
             assert self.cpumask_next_link is not None
             cpumask_next = self.cpumask_next_link + self.slide
             assert self.cpumask_next_wrap_link is not None
@@ -4007,6 +4035,16 @@ class FaithfulFakeTransport:
                     if (byte >> (bit % 8)) & 1:
                         result = bit
                         break
+                lines.append(f"A90R{result:x}")
+            elif arg0 == bitmap_weight:
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"__bitmap_weight bitmap is not an allocated pointer: {arg1:#x}")
+                word_bytes = ((arg2 + 63) // 64) * 8
+                data = self._heap_bytes(arg1, word_bytes)
+                result = 0
+                for bit in range(arg2):
+                    byte = data[bit // 8]
+                    result += (byte >> (bit % 8)) & 1
                 lines.append(f"A90R{result:x}")
             elif arg0 == cpumask_next:
                 if arg2 not in self.allocated:
@@ -6301,6 +6339,67 @@ class SelftestIntegrationTests(unittest.TestCase):
         expected_hex = (
             repl.FIND_LAST_BIT_BITMAP_BYTES
             + repl.FIND_LAST_BIT_CANARY_BYTES
+        ).hex()
+        self.assertEqual(private["observed_bytes_hex"], expected_hex)
+        self.assertEqual(fake.freed, [fake.heap_ptr])
+
+    def test_call_proof___bitmap_weight_passes_with_owned_bitmap_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "__bitmap_weight",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-__bitmap_weight-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "__bitmap_weight")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern int __bitmap_weight(const unsigned long *bitmap, unsigned int nbits)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [0])
+        self.assertEqual(summary["bitmap_size_bits"], repl.BITMAP_WEIGHT_PROOF_SIZE_BITS)
+        self.assertEqual(summary["one_bits"], list(repl.BITMAP_WEIGHT_ONE_BITS))
+        self.assertTrue(summary["bitmap_unchanged_after_calls"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("alloc_ptr", summary)
+        self.assertNotIn("__bitmap_weight_runtime", summary)
+        self.assertNotIn("observed_bytes_hex", summary)
+
+        expected_returns = {
+            "zero-size": "0x0",
+            "low-tail": "0x3",
+            "first-word-boundary": "0x5",
+            "second-word-tail": "0x7",
+            "include-third-second-word-bit": "0x8",
+            "exclude-last-bit-boundary": "0x8",
+            "full-size": "0x9",
+        }
+        observed_returns = {
+            case["case"]: case["observed_return_value"]
+            for case in summary["case_results"]
+        }
+        self.assertEqual(observed_returns, expected_returns)
+        self.assertEqual(private["case_returns"], expected_returns)
+        self.assertEqual(private["alloc_ptr"], f"0x{fake.heap_ptr:x}")
+        expected_hex = (
+            repl.BITMAP_WEIGHT_BITMAP_BYTES
+            + repl.BITMAP_WEIGHT_CANARY_BYTES
         ).hex()
         self.assertEqual(private["observed_bytes_hex"], expected_hex)
         self.assertEqual(fake.freed, [fake.heap_ptr])
