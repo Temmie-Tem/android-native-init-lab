@@ -283,6 +283,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "size_t",
         "reason": "allocator-family helper; x0 must be a verified kmalloc object pointer",
     },
+    "hex_to_bin": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "int",
+        "reason": "scalar hex-nibble decoder; x0 is one scalar character and no pointer arguments are dereferenced",
+    },
     "strnlen": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "required_valid_pointer_args": {0: "string-buffer"},
@@ -4728,6 +4734,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern ssize_t kernel_read(struct file *, void *, size_t, loff_t *)",
     },
+    "hex_to_bin": {
+        "input_contract": "scalar ASCII character",
+        "return_contract": "int == decoded hex nibble for 0-9/a-f/A-F; invalid character returns 32-bit -1",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern int hex_to_bin(char ch)",
+    },
     "strnlen": {
         "input_contract": "owned NUL-terminated kernel string buffer + scalar maxlen",
         "return_contract": "size_t == expected string length and <= maxlen",
@@ -5050,6 +5062,16 @@ MATCH_STRING_MAX_STRING_SCAN_LEN = max(
     len(MATCH_STRING_SEARCH_BYTES),
     len(MATCH_STRING_MISSING_BYTES),
 ) + MATCH_STRING_CANARY_LEN
+HEX_TO_BIN_INVALID_RETURN = 0xFFFFFFFF
+HEX_TO_BIN_CASES = (
+    ("digit-zero", "0", 0),
+    ("digit-nine", "9", 9),
+    ("lower-a", "a", 10),
+    ("upper-a", "A", 10),
+    ("lower-f", "f", 15),
+    ("upper-f", "F", 15),
+    ("invalid-g", "g", HEX_TO_BIN_INVALID_RETURN),
+)
 SYSFS_STREQ_LEFT_NEWLINE_BYTES = b"A90SYSFS-VALUE\n\x00"
 SYSFS_STREQ_LEFT_EQUAL_BYTES = b"A90SYSFS-VALUE\x00"
 SYSFS_STREQ_RIGHT_EQUAL_BYTES = b"A90SYSFS-VALUE\x00"
@@ -14620,6 +14642,122 @@ def _run_call_proof_kernel_read(session: ReplSession,
     return summary, private
 
 
+def _run_call_proof_hex_to_bin(session: ReplSession,
+                               symbols: dict[str, Symbol],
+                               image: StaticImage,
+                               *,
+                               source_root: Path) -> tuple[dict[str, object], dict[str, object]]:
+    source = lookup_source_signature("hex_to_bin", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "hex_to_bin",
+        (ord("0"),),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["hex_to_bin"]["expected_tier"]:
+        raise ReplError("hex_to_bin call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError("hex_to_bin source signature must be scalar-only")
+
+    resolutions = {
+        "hex_to_bin": resolve_verified(symbols, image, "hex_to_bin", purpose="call"),
+    }
+    target_link = require_verified_resolution(resolutions["hex_to_bin"], "call-proof target")
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "hex_to_bin",
+            "resolution_method": resolutions["hex_to_bin"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    private: dict[str, object] = {}
+    slide = 0
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+
+        for label, char, expected in HEX_TO_BIN_CASES:
+            arg = ord(char)
+            observed = session.call_runtime(target_runtime, (arg,))
+            ok = observed == expected
+            case_results.append({
+                "case": label,
+                "char": char,
+                "input_value": f"0x{arg:02x}",
+                "expected_return_value": f"0x{expected:x}",
+                "observed_return_value": f"0x{observed:x}",
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(
+                    f"hex_to_bin({char!r}) returned 0x{observed:x}, expected 0x{expected:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "hex-to-bin-scalar-case-table",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-hex_to_bin-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "hex_to_bin",
+        "proof_status": "trusted-under-scalar-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["hex_to_bin"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["hex_to_bin"]["return_contract"],
+        "case_results": case_results,
+        "invalid_expected_return_value": f"0x{HEX_TO_BIN_INVALID_RETURN:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "hex_to_bin",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["hex_to_bin"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["hex_to_bin"]["return_contract"],
+            "observed_return_value": "case-table-0-9-a-f-A-F-invalid",
+            "cleanup": "n/a-scalar-only",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "hex_to_bin_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            str(case["case"]): str(case["observed_return_value"])
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def run_call_proof(session: ReplSession,
                    symbols: dict[str, Symbol],
                    image: StaticImage,
@@ -14644,6 +14782,13 @@ def run_call_proof(session: ReplSession,
     if gfp is None:
         raise ReplError("GFP_KERNEL derivation returned no value")
 
+    if target == "hex_to_bin":
+        return _run_call_proof_hex_to_bin(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
     if target == "filp_open":
         return _run_call_proof_filp_open(
             session,

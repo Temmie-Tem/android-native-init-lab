@@ -926,6 +926,15 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(memset["signals"]["direct_bl_xref_count"], 5000)
         self.assertTrue(memset["signals"]["leaf"])
 
+        hex_to_bin = self._row("hex_to_bin")
+        self.assertEqual(hex_to_bin["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(hex_to_bin["required_valid_pointer_args"], {})
+        self.assertTrue(hex_to_bin["resolution"]["verified"])
+        self.assertEqual(hex_to_bin["resolution"]["method"], "export-recovery")
+        self.assertEqual(hex_to_bin["resolution"]["link_vaddr"], "0xffffff800856a9dc")
+        self.assertGreaterEqual(hex_to_bin["signals"]["direct_bl_xref_count"], 80)
+        self.assertTrue(hex_to_bin["signals"]["leaf"])
+
     def test_non_seeded_targets_are_denied_by_default(self) -> None:
         row = self._row("kgsl_pwrctrl_force_no_nap_store")
         self.assertEqual(row["tier"], repl.CALL_SAFETY_DENY)
@@ -943,7 +952,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 1)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 2)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 8)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -1357,6 +1366,15 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertTrue(memset["selected"]["path"].endswith("include/linux/string.h"))
 
+        hex_to_bin = repl.lookup_source_signature("hex_to_bin", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(hex_to_bin["status"], "found", hex_to_bin)
+        self.assertEqual(hex_to_bin["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            hex_to_bin["selected"]["signature"],
+            "extern int hex_to_bin(char ch)",
+        )
+        self.assertTrue(hex_to_bin["selected"]["path"].endswith("include/linux/kernel.h"))
+
     def test_call_safety_sweep_is_advisory_and_does_not_promote_gate(self) -> None:
         if not KERNEL_SOURCE_ROOT.is_dir():
             self.skipTest("kernel source tree not present")
@@ -1557,6 +1575,12 @@ class FaithfulFakeTransport:
             self.symbols,
             self.image,
             "printk",
+            purpose="call",
+        ).link_vaddr
+        self.hex_to_bin_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "hex_to_bin",
             purpose="call",
         ).link_vaddr
         self.ksize_link = repl.resolve_verified(
@@ -1913,6 +1937,8 @@ class FaithfulFakeTransport:
             kfree = self.kfree_link + self.slide
             assert self.printk_link is not None
             printk = self.printk_link + self.slide
+            assert self.hex_to_bin_link is not None
+            hex_to_bin = self.hex_to_bin_link + self.slide
             assert self.ksize_link is not None
             ksize = self.ksize_link + self.slide
             assert self.strnlen_link is not None
@@ -1995,7 +2021,18 @@ class FaithfulFakeTransport:
             filp_close = self.filp_close_link + self.slide
             assert self.kernel_read_link is not None
             kernel_read = self.kernel_read_link + self.slide
-            if arg0 == kmalloc:
+            if arg0 == hex_to_bin:
+                ch = arg1 & 0xFF
+                if 0x30 <= ch <= 0x39:
+                    result = ch - 0x30
+                else:
+                    lower = ch | 0x20
+                    if 0x61 <= lower <= 0x66:
+                        result = lower - 0x57
+                    else:
+                        result = repl.HEX_TO_BIN_INVALID_RETURN
+                lines.append(f"A90R{result:x}")
+            elif arg0 == kmalloc:
                 ptr = self.next_heap_ptr
                 self.next_heap_ptr += 0x1000
                 self.allocated.add(ptr)
@@ -2732,6 +2769,46 @@ class SelftestIntegrationTests(unittest.TestCase):
                 "kfree": "0xffffff800826b354",
             },
         )
+
+    def test_call_proof_hex_to_bin_passes_with_scalar_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "hex_to_bin",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-hex_to_bin-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-scalar-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "hex_to_bin")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(summary["source_evidence"]["signature"], "extern int hex_to_bin(char ch)")
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(summary["invalid_expected_return_value"], "0xffffffff")
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertEqual(cases["digit-zero"]["observed_return_value"], "0x0")
+        self.assertEqual(cases["digit-nine"]["observed_return_value"], "0x9")
+        self.assertEqual(cases["lower-a"]["observed_return_value"], "0xa")
+        self.assertEqual(cases["upper-a"]["observed_return_value"], "0xa")
+        self.assertEqual(cases["lower-f"]["observed_return_value"], "0xf")
+        self.assertEqual(cases["upper-f"]["observed_return_value"], "0xf")
+        self.assertEqual(cases["invalid-g"]["observed_return_value"], "0xffffffff")
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertNotIn("hex_to_bin_runtime", summary)
+        self.assertIn("hex_to_bin_runtime", private)
+        self.assertEqual(private["case_returns"]["invalid-g"], "0xffffffff")
+        self.assertEqual(fake.op_count, 8)  # slide + 7 scalar case calls
 
     def test_call_proof_ksize_passes_with_owned_pointer_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
