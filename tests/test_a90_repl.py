@@ -1219,6 +1219,33 @@ class CallSafetyClassificationTests(unittest.TestCase):
             ],
         )
 
+        jiffies_to_clock_t = self._row("jiffies_to_clock_t")
+        self.assertEqual(jiffies_to_clock_t["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(jiffies_to_clock_t["required_valid_pointer_args"], {})
+        self.assertTrue(jiffies_to_clock_t["resolution"]["verified"])
+        self.assertEqual(jiffies_to_clock_t["resolution"]["method"], "export-recovery")
+        self.assertEqual(
+            jiffies_to_clock_t["resolution"]["link_vaddr"],
+            "0xffffff800815857c",
+        )
+        self.assertGreaterEqual(jiffies_to_clock_t["signals"]["direct_bl_xref_count"], 72)
+        self.assertEqual(
+            jiffies_to_clock_t["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertTrue(
+            jiffies_to_clock_t["signals"]["arg_taint_flow"][
+                "safe_scalar_positive_no_arg_memory_base_flow"
+            ]
+        )
+        self.assertEqual(
+            jiffies_to_clock_t["signals"]["first_words"][:2],
+            [
+                "0xd65f03c0",
+                "0x00be7bad",
+            ],
+        )
+
         get_boot_stat_time = self._row("get_boot_stat_time")
         self.assertEqual(get_boot_stat_time["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
         self.assertEqual(get_boot_stat_time["required_valid_pointer_args"], {})
@@ -1604,7 +1631,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 13)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 14)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 8)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -2284,6 +2311,21 @@ class CallSafetyClassificationTests(unittest.TestCase):
             jiffies_64_to_clock_t["selected"]["path"].endswith("include/linux/jiffies.h")
         )
 
+        jiffies_to_clock_t = repl.lookup_source_signature(
+            "jiffies_to_clock_t",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(jiffies_to_clock_t["status"], "found", jiffies_to_clock_t)
+        self.assertEqual(jiffies_to_clock_t["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            jiffies_to_clock_t["selected"]["signature"],
+            "extern clock_t jiffies_to_clock_t(unsigned long x)",
+        )
+        self.assertEqual(jiffies_to_clock_t["selected"]["line"], 444)
+        self.assertTrue(
+            jiffies_to_clock_t["selected"]["path"].endswith("include/linux/jiffies.h")
+        )
+
         get_ddr_DSF_version = repl.lookup_source_signature(
             "get_ddr_DSF_version",
             source_root=KERNEL_SOURCE_ROOT,
@@ -2679,6 +2721,12 @@ class FaithfulFakeTransport:
             self.symbols,
             self.image,
             "hex_to_bin",
+            purpose="call",
+        ).link_vaddr
+        self.jiffies_to_clock_t_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "jiffies_to_clock_t",
             purpose="call",
         ).link_vaddr
         self.jiffies_64_to_clock_t_link = repl.resolve_verified(
@@ -3345,6 +3393,8 @@ class FaithfulFakeTransport:
             printk = self.printk_link + self.slide
             assert self.hex_to_bin_link is not None
             hex_to_bin = self.hex_to_bin_link + self.slide
+            assert self.jiffies_to_clock_t_link is not None
+            jiffies_to_clock_t = self.jiffies_to_clock_t_link + self.slide
             assert self.jiffies_64_to_clock_t_link is not None
             jiffies_64_to_clock_t = self.jiffies_64_to_clock_t_link + self.slide
             assert self.get_cpu_device_link is not None
@@ -3908,6 +3958,10 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("get_current_napi_context proof must pass no arguments")
                 lines.append("A90R0")
+            elif arg0 == jiffies_to_clock_t:
+                if (arg2, arg3, arg4) != (0, 0, 0):
+                    raise AssertionError("jiffies_to_clock_t proof must pass one scalar argument")
+                lines.append(f"A90R{arg1 & repl.MASK64:x}")
             elif arg0 == jiffies_64_to_clock_t:
                 if (arg2, arg3, arg4) != (0, 0, 0):
                     raise AssertionError("jiffies_64_to_clock_t proof must pass one scalar argument")
@@ -5306,6 +5360,62 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(private["case_returns"]["sde-rsc-index0-available-1"], "0x1")
         self.assertEqual(private["case_returns"]["sde-rsc-index0-available-2"], "0x1")
         self.assertEqual(fake.op_count, 3)  # slide + 2 scalar proof calls
+
+    def test_call_proof_jiffies_to_clock_t_passes_with_positive_identity_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "jiffies_to_clock_t",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(
+            summary["decision"],
+            "a90-repl-live-call-proof-jiffies_to_clock_t-pass",
+        )
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-fixed-positive-unsigned-long-identity-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "jiffies_to_clock_t")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern clock_t jiffies_to_clock_t(unsigned long x)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+        self.assertTrue(summary["all_returns_match_input"])
+        self.assertEqual(summary["case_count"], len(repl.JIFFIES_TO_CLOCK_T_CASES))
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertNotIn("jiffies_to_clock_t_runtime", summary)
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertEqual(cases["jiffies-to-clock-identity-zero"]["observed_return_value"], "0x0")
+        self.assertEqual(cases["jiffies-to-clock-identity-one"]["observed_return_value"], "0x1")
+        self.assertEqual(
+            cases["jiffies-to-clock-identity-mixed-small"]["observed_return_value"],
+            "0x12345678",
+        )
+        self.assertEqual(
+            cases["jiffies-to-clock-identity-positive-boundary"]["observed_return_value"],
+            "0x7fffffff",
+        )
+        self.assertIn("jiffies_to_clock_t_runtime", private)
+        self.assertEqual(
+            private["case_returns"]["jiffies-to-clock-identity-positive-boundary"],
+            "0x7fffffff",
+        )
+        self.assertEqual(fake.op_count, 5)  # slide + 4 scalar proof calls
 
     def test_call_proof_jiffies_64_to_clock_t_passes_with_identity_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

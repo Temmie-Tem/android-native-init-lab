@@ -294,6 +294,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "int",
         "reason": "scalar hex-nibble decoder; x0 is one scalar character and no pointer arguments are dereferenced",
     },
+    "jiffies_to_clock_t": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "clock_t",
+        "reason": "scalar jiffies-to-clock conversion helper; current image compiles it to an identity leaf and proof expects fixed positive unsigned long inputs to return unchanged",
+    },
     "jiffies_64_to_clock_t": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -3371,6 +3377,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "find_last_bit": ("include/linux/bitops.h", "include/asm-generic/bitops/find.h"),
     "find_next_bit": ("include/asm-generic/bitops/find.h", "include/linux/bitops.h"),
     "find_next_zero_bit": ("include/asm-generic/bitops/find.h", "include/linux/bitops.h"),
+    "jiffies_to_clock_t": ("include/linux/jiffies.h",),
     "jiffies_64_to_clock_t": ("include/linux/jiffies.h",),
     "get_boot_stat_time": ("include/soc/qcom/boot_stats.h",),
     "get_cpu_device": ("include/linux/cpu.h",),
@@ -5084,6 +5091,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern int hex_to_bin(char ch)",
     },
+    "jiffies_to_clock_t": {
+        "input_contract": "scalar positive unsigned long jiffies value; no pointer args; current image leaf body is identity conversion",
+        "return_contract": "clock_t value equals the scalar input for fixed positive proof cases",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern clock_t jiffies_to_clock_t(unsigned long x)",
+    },
     "jiffies_64_to_clock_t": {
         "input_contract": "scalar u64 jiffies value; no pointer args; current image leaf body is identity conversion",
         "return_contract": "u64 clock_t value equals the scalar input for fixed proof cases",
@@ -6177,6 +6190,14 @@ GET_BOOT_STAT_TIME_RET_WORD = 0xD65F03C0
 GET_BOOT_STAT_TIME_NEXT_GUARD_WORD = 0x00BE7BAD
 GET_BOOT_STAT_TIME_REPEAT_COUNT = 3
 GET_BOOT_STAT_TIME_MAX_SHORT_DELTA_TICKS = 10_000_000
+JIFFIES_TO_CLOCK_T_RET_WORD = 0xD65F03C0
+JIFFIES_TO_CLOCK_T_NEXT_GUARD_WORD = 0x00BE7BAD
+JIFFIES_TO_CLOCK_T_CASES = (
+    ("zero", 0x00000000),
+    ("one", 0x00000001),
+    ("mixed-small", 0x12345678),
+    ("positive-boundary", 0x7FFFFFFF),
+)
 JIFFIES_64_TO_CLOCK_T_RET_WORD = 0xD65F03C0
 JIFFIES_64_TO_CLOCK_T_NEXT_GUARD_WORD = 0x00BE7BAD
 JIFFIES_64_TO_CLOCK_T_CASES = (
@@ -21851,6 +21872,167 @@ def _run_call_proof_get_boot_stat_time(
     return summary, private
 
 
+def _run_call_proof_jiffies_to_clock_t(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    source = lookup_source_signature("jiffies_to_clock_t", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "jiffies_to_clock_t",
+        (0,),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["jiffies_to_clock_t"]["expected_tier"]:
+        raise ReplError("jiffies_to_clock_t call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError("jiffies_to_clock_t source signature must be scalar-only")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS["jiffies_to_clock_t"]["source_signature"]:
+        raise ReplError("jiffies_to_clock_t source signature did not select the exported declaration")
+
+    resolutions = {
+        "jiffies_to_clock_t": resolve_verified(
+            symbols,
+            image,
+            "jiffies_to_clock_t",
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(
+        resolutions["jiffies_to_clock_t"],
+        "call-proof target",
+    )
+    next_symbol = symbols.get("clock_t_to_jiffies")
+    if next_symbol is None or next_symbol.vaddr - target_link != 0x8:
+        raise ReplError("jiffies_to_clock_t next-symbol boundary is not the expected 0x8")
+    words = image.u32_words_at_vaddr(target_link, 2)
+    static_word_checks = (
+        ("static-identity-ret", 0, JIFFIES_TO_CLOCK_T_RET_WORD),
+        ("static-next-guard", 1, JIFFIES_TO_CLOCK_T_NEXT_GUARD_WORD),
+    )
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "jiffies_to_clock_t",
+            "resolution_method": resolutions["jiffies_to_clock_t"].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": "clock_t_to_jiffies",
+            "byte_size": "0x8",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for name, index, expected in static_word_checks:
+        observed = words[index]
+        ok = observed == expected
+        checks.append({
+            "check": name,
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"jiffies_to_clock_t {name} word mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for label, value in JIFFIES_TO_CLOCK_T_CASES:
+            observed = session.call_runtime(target_runtime, (value,))
+            expected = value & MASK64
+            ok = observed == expected
+            case_results.append({
+                "case": f"jiffies-to-clock-identity-{label}",
+                "input_value": f"0x{value:x}",
+                "expected_return": f"0x{expected:x}",
+                "observed_return_value": f"0x{observed:x}",
+                "matches_input": ok,
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(
+                    "jiffies_to_clock_t identity proof failed for "
+                    f"{label}: observed 0x{observed:x}, expected 0x{expected:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "jiffies-to-clock-fixed-positive-identity-cases",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-jiffies_to_clock_t-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "jiffies_to_clock_t",
+        "proof_status": "trusted-under-fixed-positive-unsigned-long-identity-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["jiffies_to_clock_t"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["jiffies_to_clock_t"]["return_contract"],
+        "case_results": case_results,
+        "all_returns_match_input": all(bool(case.get("matches_input")) for case in case_results),
+        "case_count": len(case_results),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "jiffies_to_clock_t",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["jiffies_to_clock_t"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["jiffies_to_clock_t"]["return_contract"],
+            "observed_return_value": "fixed positive proof cases returned their scalar input unchanged",
+            "cleanup": "n/a-scalar-only",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "jiffies_to_clock_t_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_jiffies_64_to_clock_t(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -26852,6 +27034,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "get_boot_stat_time":
         return _run_call_proof_get_boot_stat_time(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "jiffies_to_clock_t":
+        return _run_call_proof_jiffies_to_clock_t(
             session,
             symbols,
             image,
