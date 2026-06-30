@@ -767,6 +767,41 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `find_next_bit` owned-bitmap contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `find_next_bit` promoted under owned bitmap + bounded scalar size/offset contract only
+>
+> Sixty-seventh one-target live-call proof after the REPL epic close. After the
+> `find_next_zero_bit` proof, Codex selected the adjacent positive bitmap scanner for a separate
+> target-specific proof instead of generalizing trust across the bit-search family. Static C1 verified
+> `find_next_bit=0xffffff8008564e2c`, `export-recovery`, direct-BL xrefs `564`, JOPP entry true,
+> leaf/no-BL, no tainted-argument calls, and source contract
+> `extern unsigned long find_next_bit(const unsigned long *addr, unsigned long size, unsigned long offset)`
+> from `include/asm-generic/bitops/find.h` with pointer arg x0 only. The analyzer still reports
+> conservative size/offset address-flow through x1/x2, so the proof contract explicitly bounds both
+> scalar size and scalar offset inside the owned bitmap allocation.
+>
+> Host validation passed: `py_compile` for `a90_repl.py` and `tests/test_a90_repl.py`; CLI
+> `call-safety-classify find_next_bit` (`SAFE-WITH-VALID-PTR`, required x0 `bitmap-buffer`);
+> focused unittest coverage for static classification, seed inventory, source signature, and the
+> new fake-transport proof; and full `tests.test_a90_repl` (`Ran 130 tests`, `OK`). Live validation
+> obeyed the flash gate: rollback/fallback/TWRP SHAs confirmed, bridge healthy, baseline v2321
+> `version/status/selftest` passed, v1-repl candidate flashed through `native_init_flash.py` with
+> matching readback SHA, and `a90-repl-v2a1-selftest-pass` confirmed the REPL path before the target
+> call.
+>
+> Result: `a90-repl-live-call-proof-find_next_bit-pass`; checks covered C1 identity, source pointer
+> contract, `SAFE-WITH-VALID-PTR` call-safety, owned 128-bit bitmap poke/peek, six-case return table
+> (`size=128,offset=0 -> 9`, `size=128,offset=10 -> 73`, `size=128,offset=74 -> 90`,
+> `size=80,offset=64 -> 73`, `size=88,offset=74 -> 88`, `size=128,offset=91 -> 128`),
+> bitmap/canary immutability, and `kfree` cleanup. Raw runtime address/slide/allocation evidence
+> stayed private under `workspace/private/runs/kernel/live-call-proof-find-next-bit-20260630/proof/`.
+> Post-proof selftest stayed `pass=11 warn=1 fail=0`; Codex rolled back to clean v2321 through
+> `native_init_flash.py`, readback SHA matched, `version/status` passed, and final standalone
+> selftest retry confirmed `pass=11 warn=1 fail=0` after one serial-noise read. Function map records
+> `find_next_bit` only under the owned bitmap + bounded scalar size/offset contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_FIND_NEXT_BIT_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `find_next_zero_bit` owned-bitmap contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `find_next_zero_bit` promoted under owned bitmap + bounded scalar size/offset contract only

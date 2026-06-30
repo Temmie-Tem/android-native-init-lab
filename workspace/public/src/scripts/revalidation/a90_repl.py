@@ -318,6 +318,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "unsigned-int",
         "reason": "scalar 8-bit hamming-weight helper; x0 is one unsigned int and no pointer arguments are dereferenced",
     },
+    "find_next_bit": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "bitmap-buffer"},
+        "return_kind": "unsigned-long-bit-index",
+        "reason": "bitmap scanner; x0 must be an owned unsigned-long bitmap and size/offset must stay inside that bitmap",
+    },
     "find_next_zero_bit": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "required_valid_pointer_args": {0: "bitmap-buffer"},
@@ -3237,6 +3243,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "__sw_hweight16": ("include/linux/bitops.h",),
     "__sw_hweight32": ("include/linux/bitops.h",),
     "__sw_hweight64": ("include/linux/bitops.h",),
+    "find_next_bit": ("include/asm-generic/bitops/find.h", "include/linux/bitops.h"),
     "find_next_zero_bit": ("include/asm-generic/bitops/find.h", "include/linux/bitops.h"),
     "__sysfs_match_string": ("include/linux/string.h",),
     "filp_clone_open": ("fs/internal.h", "include/linux/fs.h"),
@@ -4955,6 +4962,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern unsigned int __sw_hweight8(unsigned int w)",
     },
+    "find_next_bit": {
+        "input_contract": "owned unsigned-long bitmap buffer + scalar bit size + scalar offset inside that bitmap",
+        "return_contract": "unsigned long == first set bit index >= offset, or size when no set bit exists",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern unsigned long find_next_bit(const unsigned long *addr, unsigned long size, unsigned long offset)",
+    },
     "find_next_zero_bit": {
         "input_contract": "owned unsigned-long bitmap buffer + scalar bit size + scalar offset inside that bitmap",
         "return_contract": "unsigned long == first zero bit index >= offset, or size when no zero bit exists",
@@ -5869,6 +5882,28 @@ MEMCHR_INV_HIT_BYTES = (
 MEMCHR_INV_EQUAL_BYTES = bytes([MEMCHR_INV_FILL_BYTE]) * MEMCHR_INV_PROOF_SIZE
 MEMCHR_INV_CANARY_BYTES = bytes([MEMCHR_INV_MISMATCH_BYTE]) * 8
 MEMCHR_INV_CANARY_LEN = len(MEMCHR_INV_CANARY_BYTES)
+FIND_NEXT_BIT_PROOF_SIZE_BITS = 128
+FIND_NEXT_BIT_TAIL_SIZE_BITS = 88
+FIND_NEXT_BIT_ONE_BITS = (9, 73, 90)
+FIND_NEXT_BIT_WORD0 = 1 << FIND_NEXT_BIT_ONE_BITS[0]
+FIND_NEXT_BIT_WORD1 = (
+    (1 << (FIND_NEXT_BIT_ONE_BITS[1] - 64))
+    | (1 << (FIND_NEXT_BIT_ONE_BITS[2] - 64))
+)
+FIND_NEXT_BIT_BITMAP_BYTES = (
+    FIND_NEXT_BIT_WORD0.to_bytes(8, "little")
+    + FIND_NEXT_BIT_WORD1.to_bytes(8, "little")
+)
+FIND_NEXT_BIT_CANARY_BYTES = b"\xcc" * 8
+FIND_NEXT_BIT_CANARY_LEN = len(FIND_NEXT_BIT_CANARY_BYTES)
+FIND_NEXT_BIT_CASES = (
+    ("first-one-low-word", FIND_NEXT_BIT_PROOF_SIZE_BITS, 0, 9),
+    ("skip-low-one", FIND_NEXT_BIT_PROOF_SIZE_BITS, 10, 73),
+    ("full-size-third-one", FIND_NEXT_BIT_PROOF_SIZE_BITS, 74, 90),
+    ("bounded-second-word-hit", 80, 64, 73),
+    ("bounded-tail-miss-before-third", FIND_NEXT_BIT_TAIL_SIZE_BITS, 74, 88),
+    ("no-one-after-third", FIND_NEXT_BIT_PROOF_SIZE_BITS, 91, 128),
+)
 FIND_NEXT_ZERO_BIT_PROOF_SIZE_BITS = 128
 FIND_NEXT_ZERO_BIT_TAIL_SIZE_BITS = 80
 FIND_NEXT_ZERO_BIT_ZERO_BITS = (9, 73)
@@ -6667,6 +6702,217 @@ def _run_call_proof_memchr_inv(session: ReplSession,
         "all_fill_return_ptr": f"0x{equal_return:x}",
         "observed_hit_bytes_hex": observed_hit.hex(),
         "observed_equal_bytes_hex": observed_equal.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
+def _run_call_proof_find_next_bit(session: ReplSession,
+                                  symbols: dict[str, Symbol],
+                                  image: StaticImage,
+                                  *,
+                                  alloc_size: int,
+                                  source_root: Path,
+                                  gfp: int,
+                                  gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    expected_scan = FIND_NEXT_BIT_BITMAP_BYTES + FIND_NEXT_BIT_CANARY_BYTES
+    scan_len = len(expected_scan)
+    if alloc_size < scan_len:
+        raise ReplError(f"find_next_bit call-proof alloc_size must be at least {scan_len} bytes")
+    if FIND_NEXT_BIT_PROOF_SIZE_BITS != len(FIND_NEXT_BIT_BITMAP_BYTES) * 8:
+        raise ReplError("find_next_bit proof bit size does not match bitmap byte length")
+    if any(bit < 0 or bit >= FIND_NEXT_BIT_PROOF_SIZE_BITS for bit in FIND_NEXT_BIT_ONE_BITS):
+        raise ReplError("find_next_bit proof set bit is outside the bitmap")
+    for label, size_bits, offset_bits, expected in FIND_NEXT_BIT_CASES:
+        if not (0 <= offset_bits <= size_bits <= FIND_NEXT_BIT_PROOF_SIZE_BITS):
+            raise ReplError(f"find_next_bit case {label!r} has an invalid size/offset")
+        if not (0 <= expected <= size_bits):
+            raise ReplError(f"find_next_bit case {label!r} has an invalid expected return")
+
+    source = lookup_source_signature("find_next_bit", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "find_next_bit",
+        ("@owned_bitmap_buffer", FIND_NEXT_BIT_PROOF_SIZE_BITS, 0),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["find_next_bit"]["expected_tier"]:
+        raise ReplError("find_next_bit call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError("find_next_bit source signature does not declare x0 as the bitmap pointer argument")
+
+    resolutions = {
+        "find_next_bit": resolve_verified(
+            symbols,
+            image,
+            "find_next_bit",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    target_link = require_verified_resolution(resolutions["find_next_bit"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof bitmap allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof bitmap cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "find_next_bit",
+            "resolution_method": resolutions["find_next_bit"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+            "bounded_size_bits": FIND_NEXT_BIT_PROOF_SIZE_BITS,
+        },
+    ]
+    private: dict[str, object] = {}
+    ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_ok = False
+    free_error: str | None = None
+    observed = b""
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        ptr_ok = is_kernel_lowmem_pointer(ptr)
+        checks.append({
+            "check": "kmalloc-owned-find-next-bit-bitmap",
+            "ok": ptr_ok,
+            "alloc_size": alloc_size,
+            "kernel_lowmem": ptr_ok,
+        })
+        if not ptr_ok:
+            raise ReplError("__kmalloc did not return a sane find_next_bit bitmap buffer")
+
+        _poke_bytes(session, ptr, expected_scan)
+        observed = _peek_bytes(session, ptr, scan_len)
+        setup_ok = observed == expected_scan
+        checks.append({
+            "check": "owned-find-next-bit-bitmap-poke-peek",
+            "ok": setup_ok,
+            "bitmap_size_bits": FIND_NEXT_BIT_PROOF_SIZE_BITS,
+            "one_bits": list(FIND_NEXT_BIT_ONE_BITS),
+            "canary_len": FIND_NEXT_BIT_CANARY_LEN,
+        })
+        if not setup_ok:
+            raise ReplError("owned find_next_bit bitmap poke/peek mismatch")
+
+        for label, size_bits, offset_bits, expected in FIND_NEXT_BIT_CASES:
+            observed_return = session.call_runtime(target_runtime, (ptr, size_bits, offset_bits))
+            ok = observed_return == expected
+            case_results.append({
+                "case": label,
+                "size_bits": size_bits,
+                "offset_bits": offset_bits,
+                "expected_return_value": f"0x{expected:x}",
+                "observed_return_value": f"0x{observed_return:x}",
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(
+                    "find_next_bit "
+                    f"{label} returned 0x{observed_return:x}, expected 0x{expected:x}"
+                )
+
+        observed = _peek_bytes(session, ptr, scan_len)
+        unchanged = observed == expected_scan
+        checks.append({
+            "check": "find-next-bit-bitmap-immutability",
+            "ok": unchanged,
+            "buffer_unchanged": unchanged,
+            "canary_preserved": observed[-FIND_NEXT_BIT_CANARY_LEN:] == FIND_NEXT_BIT_CANARY_BYTES,
+        })
+        if not unchanged:
+            raise ReplError("find_next_bit modified the owned bitmap buffer")
+    finally:
+        if kfree_runtime and ptr and is_kernel_lowmem_pointer(ptr):
+            try:
+                session.call_runtime(kfree_runtime, (ptr,))
+                free_ok = True
+            except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                free_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "find-next-bit-case-table",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    checks.append({
+        "check": "kfree-owned-find-next-bit-bitmap",
+        "ok": free_ok,
+        "free_attempted": bool(kfree_runtime and ptr),
+    })
+    if free_error:
+        raise ReplError(f"kfree failed after find_next_bit proof: {free_error}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-find_next_bit-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "find_next_bit",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["find_next_bit"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["find_next_bit"]["return_contract"],
+        "alloc_size": alloc_size,
+        "bitmap_size_bits": FIND_NEXT_BIT_PROOF_SIZE_BITS,
+        "tail_case_size_bits": FIND_NEXT_BIT_TAIL_SIZE_BITS,
+        "one_bits": list(FIND_NEXT_BIT_ONE_BITS),
+        "case_results": case_results,
+        "bitmap_unchanged_after_calls": True,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "find_next_bit",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["find_next_bit"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["find_next_bit"]["return_contract"],
+            "observed_return_value": "case-table-low-one-high-one-tail-boundary-no-one",
+            "cleanup": "kfree-owned-find-next-bit-bitmap-ok" if free_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "find_next_bit_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "alloc_ptr": f"0x{ptr:x}",
+        "observed_bytes_hex": observed.hex(),
+        "case_returns": {
+            str(case["case"]): str(case["observed_return_value"])
+            for case in case_results
+        },
         "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
     })
     return summary, private
@@ -21367,6 +21613,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "memchr_inv":
         return _run_call_proof_memchr_inv(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "find_next_bit":
+        return _run_call_proof_find_next_bit(
             session,
             symbols,
             image,
