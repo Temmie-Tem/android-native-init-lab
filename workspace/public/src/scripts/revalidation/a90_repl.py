@@ -289,6 +289,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "int",
         "reason": "scalar hex-nibble decoder; x0 is one scalar character and no pointer arguments are dereferenced",
     },
+    "hex2bin": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "destination-buffer", 1: "source-hex-buffer"},
+        "return_kind": "int",
+        "reason": "hex string decoder; x0/x1 must be owned buffers and x2 count must stay inside both",
+    },
     "strnlen": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "required_valid_pointer_args": {0: "string-buffer"},
@@ -4740,6 +4746,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern int hex_to_bin(char ch)",
     },
+    "hex2bin": {
+        "input_contract": "owned destination byte buffer + owned ASCII hex source buffer + scalar byte count",
+        "return_contract": "int == 0 and destination bytes equal decoded source bytes",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern int __must_check hex2bin(u8 *dst, const char *src, size_t count)",
+    },
     "strnlen": {
         "input_contract": "owned NUL-terminated kernel string buffer + scalar maxlen",
         "return_contract": "size_t == expected string length and <= maxlen",
@@ -5072,6 +5084,13 @@ HEX_TO_BIN_CASES = (
     ("upper-f", "F", 15),
     ("invalid-g", "g", HEX_TO_BIN_INVALID_RETURN),
 )
+HEX2BIN_SOURCE_BYTES = b"A90f00dC0ffEe1"
+HEX2BIN_SOURCE_LABEL = HEX2BIN_SOURCE_BYTES.decode("ascii")
+HEX2BIN_EXPECTED_BYTES = bytes.fromhex(HEX2BIN_SOURCE_LABEL)
+HEX2BIN_COUNT = len(HEX2BIN_EXPECTED_BYTES)
+HEX2BIN_DST_INITIAL_BYTE = 0x11
+HEX2BIN_DST_CANARY_LEN = 8
+HEX2BIN_SRC_CANARY_LEN = 8
 SYSFS_STREQ_LEFT_NEWLINE_BYTES = b"A90SYSFS-VALUE\n\x00"
 SYSFS_STREQ_LEFT_EQUAL_BYTES = b"A90SYSFS-VALUE\x00"
 SYSFS_STREQ_RIGHT_EQUAL_BYTES = b"A90SYSFS-VALUE\x00"
@@ -14758,6 +14777,231 @@ def _run_call_proof_hex_to_bin(session: ReplSession,
     return summary, private
 
 
+def _run_call_proof_hex2bin(session: ReplSession,
+                            symbols: dict[str, Symbol],
+                            image: StaticImage,
+                            *,
+                            alloc_size: int,
+                            source_root: Path,
+                            gfp: int,
+                            gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    dst_scan_len = HEX2BIN_COUNT + HEX2BIN_DST_CANARY_LEN
+    src_scan_len = len(HEX2BIN_SOURCE_BYTES) + HEX2BIN_SRC_CANARY_LEN
+    required_alloc = max(dst_scan_len, src_scan_len)
+    if alloc_size < required_alloc:
+        raise ReplError(f"hex2bin call-proof alloc_size must be at least {required_alloc} bytes")
+    if len(HEX2BIN_SOURCE_BYTES) != HEX2BIN_COUNT * 2:
+        raise ReplError("hex2bin source length must be exactly count*2")
+
+    source = lookup_source_signature("hex2bin", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "hex2bin",
+        ("@owned_destination_buffer", "@owned_source_hex_buffer", HEX2BIN_COUNT),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["hex2bin"]["expected_tier"]:
+        raise ReplError("hex2bin call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0, 1]:
+        raise ReplError("hex2bin source signature does not declare x0/x1 as pointer arguments")
+
+    resolutions = {
+        "hex2bin": resolve_verified(symbols, image, "hex2bin", purpose="call"),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    hex2bin_link = require_verified_resolution(resolutions["hex2bin"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof buffer allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof buffer cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    expected_dst_before = bytes([HEX2BIN_DST_INITIAL_BYTE]) * HEX2BIN_COUNT + (b"\xcc" * HEX2BIN_DST_CANARY_LEN)
+    expected_dst_after = HEX2BIN_EXPECTED_BYTES + (b"\xcc" * HEX2BIN_DST_CANARY_LEN)
+    expected_src_scan = HEX2BIN_SOURCE_BYTES + (b"\xcc" * HEX2BIN_SRC_CANARY_LEN)
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "hex2bin",
+            "resolution_method": resolutions["hex2bin"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+            "count": HEX2BIN_COUNT,
+        },
+    ]
+    private: dict[str, object] = {}
+    dst_ptr = 0
+    src_ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_attempted: list[str] = []
+    free_ok: dict[str, bool] = {"dst": False, "src": False}
+    free_errors: list[str] = []
+    proof_return = 0
+    observed_dst_before = b""
+    observed_dst_after = b""
+    observed_src_before = b""
+    observed_src_after = b""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        hex2bin_runtime = (hex2bin_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        dst_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        src_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        dst_ok = is_kernel_lowmem_pointer(dst_ptr)
+        src_ok = is_kernel_lowmem_pointer(src_ptr)
+        distinct_ok = dst_ptr != src_ptr
+        checks.append({
+            "check": "kmalloc-owned-hex2bin-buffers",
+            "ok": dst_ok and src_ok and distinct_ok,
+            "alloc_size": alloc_size,
+            "dst_kernel_lowmem": dst_ok,
+            "src_kernel_lowmem": src_ok,
+            "distinct_buffers": distinct_ok,
+        })
+        if not (dst_ok and src_ok and distinct_ok):
+            raise ReplError("__kmalloc did not return sane distinct hex2bin buffers")
+
+        _poke_bytes(session, dst_ptr, expected_dst_before)
+        _poke_bytes(session, src_ptr, expected_src_scan)
+        observed_dst_before = _peek_bytes(session, dst_ptr, dst_scan_len)
+        observed_src_before = _peek_bytes(session, src_ptr, src_scan_len)
+        setup_ok = observed_dst_before == expected_dst_before and observed_src_before == expected_src_scan
+        checks.append({
+            "check": "owned-hex2bin-buffer-poke-peek",
+            "ok": setup_ok,
+            "source_ascii": HEX2BIN_SOURCE_LABEL,
+            "count": HEX2BIN_COUNT,
+            "dst_canary_len": HEX2BIN_DST_CANARY_LEN,
+            "src_canary_len": HEX2BIN_SRC_CANARY_LEN,
+        })
+        if not setup_ok:
+            raise ReplError("owned hex2bin buffer poke/peek mismatch")
+
+        proof_return = session.call_runtime(hex2bin_runtime, (dst_ptr, src_ptr, HEX2BIN_COUNT))
+        return_ok = proof_return == 0
+        checks.append({
+            "check": "hex2bin-return-contract",
+            "ok": return_ok,
+            "return_kind": "int",
+            "expected_return": "0x0",
+            "observed_return": f"0x{proof_return:x}",
+            "count": HEX2BIN_COUNT,
+        })
+        if not return_ok:
+            raise ReplError(f"hex2bin returned 0x{proof_return:x}, expected 0")
+
+        observed_dst_after = _peek_bytes(session, dst_ptr, dst_scan_len)
+        observed_src_after = _peek_bytes(session, src_ptr, src_scan_len)
+        decoded_ok = observed_dst_after == expected_dst_after
+        source_unchanged = observed_src_after == expected_src_scan
+        checks.append({
+            "check": "hex2bin-destination-decode-contract",
+            "ok": decoded_ok,
+            "expected_output_hex": HEX2BIN_EXPECTED_BYTES.hex(),
+            "observed_output_hex": observed_dst_after[:HEX2BIN_COUNT].hex(),
+            "dst_canary_after_count_ok": observed_dst_after[HEX2BIN_COUNT:] == (b"\xcc" * HEX2BIN_DST_CANARY_LEN),
+        })
+        if not decoded_ok:
+            raise ReplError("hex2bin destination decode/canary contract failed")
+        checks.append({
+            "check": "hex2bin-source-immutability",
+            "ok": source_unchanged,
+            "source_unchanged": source_unchanged,
+            "src_canary_ok": observed_src_after[len(HEX2BIN_SOURCE_BYTES):] == (b"\xcc" * HEX2BIN_SRC_CANARY_LEN),
+        })
+        if not source_unchanged:
+            raise ReplError("hex2bin modified the source buffer")
+    finally:
+        if kfree_runtime:
+            for label, ptr in (("dst", dst_ptr), ("src", src_ptr)):
+                if ptr and is_kernel_lowmem_pointer(ptr):
+                    free_attempted.append(label)
+                    try:
+                        session.call_runtime(kfree_runtime, (ptr,))
+                        free_ok[label] = True
+                    except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                        free_errors.append(f"{label}:{exc}")
+        session.set_panic_on_oops(1)
+
+    cleanup_ok = bool(free_ok["dst"] and free_ok["src"])
+    checks.append({
+        "check": "kfree-owned-hex2bin-buffers",
+        "ok": cleanup_ok,
+        "free_attempted": free_attempted,
+        "dst_free_ok": free_ok["dst"],
+        "src_free_ok": free_ok["src"],
+    })
+    if free_errors:
+        raise ReplError(f"kfree failed after hex2bin proof: {free_errors}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-hex2bin-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "hex2bin",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["hex2bin"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["hex2bin"]["return_contract"],
+        "alloc_size": alloc_size,
+        "source_ascii": HEX2BIN_SOURCE_LABEL,
+        "count": HEX2BIN_COUNT,
+        "expected_output_hex": HEX2BIN_EXPECTED_BYTES.hex(),
+        "observed_output_hex": observed_dst_after[:HEX2BIN_COUNT].hex(),
+        "expected_return_value": "0x0",
+        "observed_return_value": f"0x{proof_return:x}",
+        "destination_canary_preserved": observed_dst_after[HEX2BIN_COUNT:] == (b"\xcc" * HEX2BIN_DST_CANARY_LEN),
+        "source_unchanged_after_call": observed_src_after == expected_src_scan,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "hex2bin",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["hex2bin"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["hex2bin"]["return_contract"],
+            "observed_return_value": "0x0",
+            "cleanup": "kfree-owned-hex2bin-buffers-ok" if cleanup_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "hex2bin_runtime": f"0x{((hex2bin_link + slide) & MASK64):x}",
+        "dst_ptr": f"0x{dst_ptr:x}",
+        "src_ptr": f"0x{src_ptr:x}",
+        "dst_before_hex": observed_dst_before.hex(),
+        "dst_after_hex": observed_dst_after.hex(),
+        "src_before_hex": observed_src_before.hex(),
+        "src_after_hex": observed_src_after.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
 def run_call_proof(session: ReplSession,
                    symbols: dict[str, Symbol],
                    image: StaticImage,
@@ -14788,6 +15032,16 @@ def run_call_proof(session: ReplSession,
             symbols,
             image,
             source_root=source_root,
+        )
+    if target == "hex2bin":
+        return _run_call_proof_hex2bin(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
         )
     if target == "filp_open":
         return _run_call_proof_filp_open(

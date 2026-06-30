@@ -767,6 +767,36 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `hex2bin` owned-buffer hex decoder contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `hex2bin` promoted under owned destination/source buffers + scalar count only
+>
+> Forty-second one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py`
+> `call-proof` with `hex2bin`, using one tool-owned destination byte buffer, one tool-owned ASCII
+> hex source buffer, and scalar byte count `7`. Static gate: `hex2bin=0xffffff800856aa3c`,
+> `export-recovery`, direct-BL xrefs `15`, JOPP entry true, leaf/no-BL, no pre-call x0 deref, and
+> source contract `extern int __must_check hex2bin(u8 *dst, const char *src, size_t count)` from
+> `include/linux/kernel.h` with x0/x1 as the only pointer arguments. Call-safety tier is
+> `SAFE-WITH-VALID-PTR`.
+>
+> Live path: baseline v2321 `version/status/selftest` passed, flashed the existing v1-repl image
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65` through
+> `native_init_flash.py`, confirmed readback SHA, candidate `selftest pass=11 warn=1 fail=0`,
+> and `a90-repl-v2a1-selftest-pass`, then ran `call-proof hex2bin` with the C2B verified map.
+>
+> Result: `a90-repl-live-call-proof-hex2bin-pass`; checks covered C1 identity, source signature,
+> call-safety contract, owned buffer allocation/poke/peek, `hex2bin(dst, "A90f00dC0ffEe1", 7)`
+> returning `0`, destination bytes decoding to `a90f00dc0ffee1`, destination canary preservation,
+> source/canary immutability, and `kfree-owned-hex2bin-buffers`.
+>
+> Candidate selftest after proof stayed `fail=0`. Rolled back to clean v2321
+> (`ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`) with final resident
+> `v2321-usb-clean-identity-rodata` and final `selftest pass=11 warn=1 fail=0`. One final
+> health read hit transient serial `AT` capture noise and passed on sequential retry. Function map
+> records `hex2bin` only under the owned destination/source buffer plus scalar count contract.
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_HEX2BIN_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `hex_to_bin` scalar hex decoder contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `hex_to_bin` promoted under scalar ASCII character only

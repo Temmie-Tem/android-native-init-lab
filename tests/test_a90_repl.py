@@ -935,6 +935,18 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(hex_to_bin["signals"]["direct_bl_xref_count"], 80)
         self.assertTrue(hex_to_bin["signals"]["leaf"])
 
+        hex2bin = self._row("hex2bin")
+        self.assertEqual(hex2bin["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            hex2bin["required_valid_pointer_args"],
+            {"0": "destination-buffer", "1": "source-hex-buffer"},
+        )
+        self.assertTrue(hex2bin["resolution"]["verified"])
+        self.assertEqual(hex2bin["resolution"]["method"], "export-recovery")
+        self.assertEqual(hex2bin["resolution"]["link_vaddr"], "0xffffff800856aa3c")
+        self.assertGreaterEqual(hex2bin["signals"]["direct_bl_xref_count"], 15)
+        self.assertTrue(hex2bin["signals"]["leaf"])
+
     def test_non_seeded_targets_are_denied_by_default(self) -> None:
         row = self._row("kgsl_pwrctrl_force_no_nap_store")
         self.assertEqual(row["tier"], repl.CALL_SAFETY_DENY)
@@ -1375,6 +1387,15 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertTrue(hex_to_bin["selected"]["path"].endswith("include/linux/kernel.h"))
 
+        hex2bin = repl.lookup_source_signature("hex2bin", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(hex2bin["status"], "found", hex2bin)
+        self.assertEqual(hex2bin["selected"]["pointer_arg_indices"], [0, 1])
+        self.assertEqual(
+            hex2bin["selected"]["signature"],
+            "extern int __must_check hex2bin(u8 *dst, const char *src, size_t count)",
+        )
+        self.assertTrue(hex2bin["selected"]["path"].endswith("include/linux/kernel.h"))
+
     def test_call_safety_sweep_is_advisory_and_does_not_promote_gate(self) -> None:
         if not KERNEL_SOURCE_ROOT.is_dir():
             self.skipTest("kernel source tree not present")
@@ -1581,6 +1602,12 @@ class FaithfulFakeTransport:
             self.symbols,
             self.image,
             "hex_to_bin",
+            purpose="call",
+        ).link_vaddr
+        self.hex2bin_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "hex2bin",
             purpose="call",
         ).link_vaddr
         self.ksize_link = repl.resolve_verified(
@@ -1939,6 +1966,8 @@ class FaithfulFakeTransport:
             printk = self.printk_link + self.slide
             assert self.hex_to_bin_link is not None
             hex_to_bin = self.hex_to_bin_link + self.slide
+            assert self.hex2bin_link is not None
+            hex2bin = self.hex2bin_link + self.slide
             assert self.ksize_link is not None
             ksize = self.ksize_link + self.slide
             assert self.strnlen_link is not None
@@ -2021,7 +2050,22 @@ class FaithfulFakeTransport:
             filp_close = self.filp_close_link + self.slide
             assert self.kernel_read_link is not None
             kernel_read = self.kernel_read_link + self.slide
-            if arg0 == hex_to_bin:
+            if arg0 == hex2bin:
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"hex2bin dst is not an allocated pointer: {arg1:#x}")
+                if arg2 not in self.allocated:
+                    raise AssertionError(f"hex2bin src is not an allocated pointer: {arg2:#x}")
+                src = self._heap_bytes(arg2, arg3 * 2)
+                try:
+                    decoded = bytes.fromhex(src.decode("ascii"))
+                except ValueError:
+                    lines.append("A90Rffffffea")
+                else:
+                    if len(decoded) != arg3:
+                        raise AssertionError(f"hex2bin decoded length mismatch: {len(decoded)} != {arg3}")
+                    self._set_heap_bytes(arg1, decoded)
+                    lines.append("A90R0")
+            elif arg0 == hex_to_bin:
                 ch = arg1 & 0xFF
                 if 0x30 <= ch <= 0x39:
                     result = ch - 0x30
@@ -2809,6 +2853,60 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertIn("hex_to_bin_runtime", private)
         self.assertEqual(private["case_returns"]["invalid-g"], "0xffffffff")
         self.assertEqual(fake.op_count, 8)  # slide + 7 scalar case calls
+
+    def test_call_proof_hex2bin_passes_with_owned_buffer_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "hex2bin",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-hex2bin-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "hex2bin")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern int __must_check hex2bin(u8 *dst, const char *src, size_t count)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [0, 1])
+        self.assertEqual(summary["source_ascii"], repl.HEX2BIN_SOURCE_LABEL)
+        self.assertEqual(summary["count"], repl.HEX2BIN_COUNT)
+        self.assertEqual(summary["expected_output_hex"], repl.HEX2BIN_EXPECTED_BYTES.hex())
+        self.assertEqual(summary["observed_output_hex"], repl.HEX2BIN_EXPECTED_BYTES.hex())
+        self.assertEqual(summary["observed_return_value"], "0x0")
+        self.assertTrue(summary["destination_canary_preserved"])
+        self.assertTrue(summary["source_unchanged_after_call"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("hex2bin_runtime", summary)
+        self.assertNotIn("dst_ptr", summary)
+        self.assertNotIn("src_ptr", summary)
+        self.assertIn("hex2bin_runtime", private)
+        self.assertIn("dst_ptr", private)
+        self.assertIn("src_ptr", private)
+        self.assertEqual(
+            private["dst_after_hex"],
+            (repl.HEX2BIN_EXPECTED_BYTES + (b"\xcc" * repl.HEX2BIN_DST_CANARY_LEN)).hex(),
+        )
+        self.assertEqual(
+            private["src_after_hex"],
+            (repl.HEX2BIN_SOURCE_BYTES + (b"\xcc" * repl.HEX2BIN_SRC_CANARY_LEN)).hex(),
+        )
+        self.assertEqual(fake.freed, [fake.heap_ptr, fake.heap_ptr + 0x1000])
 
     def test_call_proof_ksize_passes_with_owned_pointer_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

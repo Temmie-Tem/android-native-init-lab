@@ -198,6 +198,16 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
   --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
   --evidence-dir workspace/private/runs/kernel/<unit>/ \
+  hex2bin
+```
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/a90_repl.py call-proof \
+  --map workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map \
+  --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
+  --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
+  --evidence-dir workspace/private/runs/kernel/<unit>/ \
   ksize
 ```
 
@@ -596,7 +606,11 @@ C1/source/call-safety checks, calls only the selected target, checks the return 
 owned allocations, and redacts the runtime slide/allocation pointers from public output. The
 `hex_to_bin` is the scalar-only proof case: it calls the verified helper with fixed ASCII character
 inputs, requires the expected decoded nibble for `0`, `9`, `a`/`A`, `f`/`F`, requires invalid `g` to
-return 32-bit `-1`, and has no owned pointer setup or cleanup. The
+return 32-bit `-1`, and has no owned pointer setup or cleanup. The `hex2bin` proof allocates owned
+destination and source buffers, writes a fixed even-length ASCII hex source, calls
+`hex2bin(dst, src, count)`, requires return `0`, verifies the destination bytes match the decoded
+source bytes, verifies the destination canary and source buffer stay unchanged, frees both buffers,
+and redacts the owned pointers and observed raw bytes from public output. The
 `kernel_read` proof opens `/init`, reads 16 bytes into an owned buffer with an owned `loff_t *`
 position, requires ELF magic plus position advancement, closes the file, and frees all owned buffers.
 The `strlen` proof writes an owned NUL-terminated string buffer, requires exact length return, and
