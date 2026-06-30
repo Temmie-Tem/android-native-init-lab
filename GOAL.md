@@ -767,6 +767,44 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `jiffies64_to_nsecs` bounded multiply contract
+
+> ### ✅ STATUS (2026-07-01 live pass) — `jiffies64_to_nsecs` promoted under current-image bounded multiply-by-10000000 contract
+>
+> Ninety-fourth one-target live-call proof after the REPL epic close. Codex selected
+> `jiffies64_to_nsecs` after the adjacent jiffies/time scalar helpers were live-proven.
+> `nsec_to_clock_t` stayed parked because C1 identity remains unresolved for that symbol in the
+> current map/image pair. Static C1 verified `jiffies64_to_nsecs=0xffffff80081585b4`,
+> `export-recovery`, direct-BL xrefs `1`, scalar-only source declaration
+> `extern u64 jiffies64_to_nsecs(u64 j)` from `include/linux/jiffies.h:299`, and next boundary
+> `nsecs_to_jiffies64` at `+0x18`. The current image body loads multiplier `0x989680`, performs a
+> 64-bit multiply, returns, then hits the next-entry guard. The proof contract is current-image
+> scalar `u64` jiffies input bounded so `j * 10000000` fits in `u64`.
+>
+> Host validation passed: `py_compile` for `a90_repl.py` and `tests/test_a90_repl.py`; focused tests
+> (`Ran 4 tests`, `OK`); full `tests.test_a90_repl` (`Ran 156 tests`, `OK`);
+> CLI `call-safety-classify jiffies64_to_nsecs` (`SAFE-SCALAR`, no required pointer args,
+> `export-recovery`, first words matching the multiply-by-10000000 body); and focused
+> `call-safety-sweep` (`SAFE-SCALAR`, scalar-only source declaration, gate seeded).
+>
+> Live validation obeyed the flash gate: rollback/fallback/TWRP SHAs confirmed, bridge healthy,
+> baseline v2321 `version/status/selftest` passed, v1-repl candidate flashed through
+> `native_init_flash.py` with matching readback SHA, helper `version/status` passed, and slow-mode
+> REPL selftest returned `a90-repl-v2a1-selftest-pass`.
+>
+> Result: `a90-repl-live-call-proof-jiffies64_to_nsecs-pass`; checks covered C1 identity, next
+> symbol boundary, scalar-only source contract, `SAFE-SCALAR` call-safety, multiplier construction,
+> multiply, RET, alignment NOP, next-entry guard, and four fixed cases: `0x0 -> 0x0`,
+> `0x1 -> 0x989680`, `0x64 -> 0x3b9aca00`, and
+> `0x1ad7f29abca -> 0xffffffffff6e4100`. No owned resource was created and no returned pointer
+> exists; raw runtime address/slide evidence stayed private under
+> `workspace/private/runs/kernel/live-call-proof-jiffies64-to-nsecs-20260701/proof/`. Post-proof
+> candidate selftest stayed `pass=11 warn=1 fail=0`; Codex rolled back to clean v2321 through
+> `native_init_flash.py`, readback SHA matched, helper `version/status` passed, and final standalone
+> selftest confirmed `pass=11 warn=1 fail=0`. Function map records `jiffies64_to_nsecs` only under
+> the current-image bounded multiply-by-10000000 contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_JIFFIES64_TO_NSECS_2026-07-01.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `jiffies_to_msecs` bounded multiply contract
 
 > ### ✅ STATUS (2026-07-01 live pass) — `jiffies_to_msecs` promoted under current-image bounded multiply-by-10 contract
