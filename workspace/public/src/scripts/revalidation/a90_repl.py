@@ -318,6 +318,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "u64",
         "reason": "scalar jiffies-to-clock conversion helper; current image compiles it to an identity leaf and proof expects fixed u64 inputs to return unchanged",
     },
+    "nsecs_to_jiffies64": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "u64",
+        "reason": "scalar nsecs-to-jiffies64 conversion helper; current image compiles it to a fixed-point divide-by-10000000 leaf",
+    },
     "get_cpu_device": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -3393,6 +3399,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "clock_t_to_jiffies": ("include/linux/jiffies.h",),
     "jiffies_to_usecs": ("include/linux/jiffies.h",),
     "jiffies_64_to_clock_t": ("include/linux/jiffies.h",),
+    "nsecs_to_jiffies64": ("include/linux/jiffies.h",),
     "get_boot_stat_time": ("include/soc/qcom/boot_stats.h",),
     "get_cpu_device": ("include/linux/cpu.h",),
     "get_current_napi_context": ("include/linux/netdevice.h",),
@@ -5129,6 +5136,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern u64 jiffies_64_to_clock_t(u64 x)",
     },
+    "nsecs_to_jiffies64": {
+        "input_contract": "scalar u64 nanosecond value; no pointer args; current image leaf body is fixed-point divide-by-10000000",
+        "return_contract": "u64 jiffies value equals (n * 0xd6bf94d5e57a42bd) >> 87 for fixed proof cases",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern u64 nsecs_to_jiffies64(u64 n)",
+    },
     "get_cpu_device": {
         "input_contract": "scalar CPU index; returned pointer is borrowed/read-only and is not dereferenced or freed",
         "return_contract": "struct device * is non-NULL for CPU0 and NULL for an out-of-range unsigned CPU index",
@@ -6249,6 +6262,26 @@ JIFFIES_64_TO_CLOCK_T_CASES = (
     ("zero", 0x0000000000000000),
     ("one", 0x0000000000000001),
     ("mixed-u64", 0x123456789ABCDEF0),
+)
+NSECS_TO_JIFFIES64_MAGIC_WORDS = (
+    0xD28857A8,
+    0xF2BCAF48,
+    0xF2D29AA8,
+    0xF2FAD7E8,
+)
+NSECS_TO_JIFFIES64_UMULH_WORD = 0x9BC87C08
+NSECS_TO_JIFFIES64_LSR23_WORD = 0xD357FD00
+NSECS_TO_JIFFIES64_RET_WORD = 0xD65F03C0
+NSECS_TO_JIFFIES64_NEXT_GUARD_WORD = 0x00BE7BAD
+NSECS_TO_JIFFIES64_MAGIC = 0xD6BF94D5E57A42BD
+NSECS_TO_JIFFIES64_SHIFT = 87
+NSECS_TO_JIFFIES64_CASES = (
+    ("zero", 0x0000000000000000),
+    ("sub-tick", 0x000000000098967F),
+    ("one-tick", 0x0000000000989680),
+    ("mixed-123456789", 0x00000000075BCD15),
+    ("one-second", 0x000000003B9ACA00),
+    ("max-u64", 0xFFFFFFFFFFFFFFFF),
 )
 IS_SDE_RSC_AVAILABLE_INDEX = 0
 IS_SDE_RSC_AVAILABLE_JOPP_WORD = 0xCA1103D0
@@ -22563,6 +22596,175 @@ def _run_call_proof_jiffies_64_to_clock_t(
     return summary, private
 
 
+def _run_call_proof_nsecs_to_jiffies64(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    source = lookup_source_signature("nsecs_to_jiffies64", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "nsecs_to_jiffies64",
+        (0,),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["nsecs_to_jiffies64"]["expected_tier"]:
+        raise ReplError("nsecs_to_jiffies64 call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError("nsecs_to_jiffies64 source signature must be scalar-only")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS["nsecs_to_jiffies64"]["source_signature"]:
+        raise ReplError("nsecs_to_jiffies64 source signature did not select the exported declaration")
+
+    resolutions = {
+        "nsecs_to_jiffies64": resolve_verified(
+            symbols,
+            image,
+            "nsecs_to_jiffies64",
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(
+        resolutions["nsecs_to_jiffies64"],
+        "call-proof target",
+    )
+    next_symbol = symbols.get("nsecs_to_jiffies")
+    if next_symbol is None or next_symbol.vaddr - target_link != 0x20:
+        raise ReplError("nsecs_to_jiffies64 next-symbol boundary is not the expected 0x20")
+    words = image.u32_words_at_vaddr(target_link, 8)
+    static_word_checks = (
+        ("static-magic-movz", 0, NSECS_TO_JIFFIES64_MAGIC_WORDS[0]),
+        ("static-magic-movk16", 1, NSECS_TO_JIFFIES64_MAGIC_WORDS[1]),
+        ("static-magic-movk32", 2, NSECS_TO_JIFFIES64_MAGIC_WORDS[2]),
+        ("static-magic-movk48", 3, NSECS_TO_JIFFIES64_MAGIC_WORDS[3]),
+        ("static-umulh", 4, NSECS_TO_JIFFIES64_UMULH_WORD),
+        ("static-lsr23", 5, NSECS_TO_JIFFIES64_LSR23_WORD),
+        ("static-ret", 6, NSECS_TO_JIFFIES64_RET_WORD),
+        ("static-next-guard", 7, NSECS_TO_JIFFIES64_NEXT_GUARD_WORD),
+    )
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "nsecs_to_jiffies64",
+            "resolution_method": resolutions["nsecs_to_jiffies64"].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": "nsecs_to_jiffies",
+            "byte_size": "0x20",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for name, index, expected in static_word_checks:
+        observed = words[index]
+        ok = observed == expected
+        checks.append({
+            "check": name,
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"nsecs_to_jiffies64 {name} word mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for label, value in NSECS_TO_JIFFIES64_CASES:
+            observed = session.call_runtime(target_runtime, (value,))
+            expected = ((value * NSECS_TO_JIFFIES64_MAGIC) >> NSECS_TO_JIFFIES64_SHIFT) & MASK64
+            ok = observed == expected
+            case_results.append({
+                "case": f"nsecs-to-jiffies64-div10000000-{label}",
+                "input_value": f"0x{value:x}",
+                "expected_return": f"0x{expected:x}",
+                "observed_return_value": f"0x{observed:x}",
+                "matches_expected": ok,
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(
+                    "nsecs_to_jiffies64 fixed-point proof failed for "
+                    f"{label}: observed 0x{observed:x}, expected 0x{expected:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "nsecs-to-jiffies64-fixed-point-div10000000-cases",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+        "magic": f"0x{NSECS_TO_JIFFIES64_MAGIC:x}",
+        "shift": NSECS_TO_JIFFIES64_SHIFT,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-nsecs_to_jiffies64-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "nsecs_to_jiffies64",
+        "proof_status": "trusted-under-current-image-fixed-point-divide-by-10000000-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["nsecs_to_jiffies64"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["nsecs_to_jiffies64"]["return_contract"],
+        "case_results": case_results,
+        "all_returns_match_expected": all(bool(case.get("matches_expected")) for case in case_results),
+        "case_count": len(case_results),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "nsecs_to_jiffies64",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["nsecs_to_jiffies64"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["nsecs_to_jiffies64"]["return_contract"],
+            "observed_return_value": "fixed proof cases matched current-image fixed-point divide-by-10000000",
+            "cleanup": "n/a-scalar-only",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "nsecs_to_jiffies64_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_is_sde_rsc_available(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -27431,6 +27633,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "jiffies_64_to_clock_t":
         return _run_call_proof_jiffies_64_to_clock_t(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "nsecs_to_jiffies64":
+        return _run_call_proof_nsecs_to_jiffies64(
             session,
             symbols,
             image,
