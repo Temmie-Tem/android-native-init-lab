@@ -767,6 +767,46 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `get_ddr_DSF_version` SMEM uint32 DSF-version contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `get_ddr_DSF_version` promoted under no-arg SMEM read-only contract
+>
+> Eighty-fourth one-target live-call proof after the REPL epic close. Codex continued the Samsung
+> SMEM DDR getter sweep after `get_ddr_total_density` passed and `get_ddr_revision_id_1` was parked.
+> The new target was `get_ddr_DSF_version` because C1 verified
+> `get_ddr_DSF_version=0xffffff80086ef774`, `disasm-signature+xref+map`, direct-BL xrefs `4`, JOPP
+> entry true, source contract `extern uint32_t get_ddr_DSF_version(void)` from
+> `include/linux/samsung/sec_smem.h:195`, and no arguments. The actual function body is bounded by
+> `get_ddr_revision_id_1` at `+0xb8`; the proof gates static words `0xd100c3ff`, `0x528010e1`,
+> `0x910003e2`, `0x97fe8952`, `0xf94003e8`, `0xaa0003f3`, `0xb9406a60`, `0x2a1f03e0`,
+> `0xd65f03c0`, and `0x00be7bad`.
+>
+> Host validation passed: `py_compile` for `a90_repl.py` and `tests/test_a90_repl.py`; focused tests
+> (`Ran 4 tests`, `OK`); full `tests.test_a90_repl` (`Ran 146 tests`, `OK`); `git diff --check`; and
+> CLI `call-safety-classify get_ddr_DSF_version` (`SAFE-SCALAR`, no required pointer args, first BL
+> resolved to `qcom_smem_get`). The selection explicitly avoided re-promoting `get_ddr_revision_id_1`
+> because its previous live result proved the raw return was a shifted SMEM word, not the
+> source-level byte-sized contract.
+>
+> Live validation obeyed the flash gate: rollback/fallback/TWRP SHAs confirmed, bridge healthy,
+> baseline v2321 `version/status/selftest` passed, v1-repl candidate flashed through
+> `native_init_flash.py` with matching readback SHA, helper `version/status` passed, candidate
+> selftest returned `pass=11 warn=1 fail=0`, and `a90-repl-v2a1-selftest-pass` confirmed the REPL path
+> before the target call.
+>
+> Result: `a90-repl-live-call-proof-get_ddr_DSF_version-pass`; checks covered C1 identity, next
+> symbol boundary, no-arg source contract, `SAFE-SCALAR` call-safety, SMEM ID/buffer setup,
+> `qcom_smem_get`, DSF-version field load, NULL/error return, and two repeated calls returning the
+> stable nonzero uint32 value `0x650000`. No owned resource was created and no returned pointer
+> exists; raw runtime address/slide evidence stayed private under
+> `workspace/private/runs/kernel/live-call-proof-get-ddr-dsf-version-20260630/proof/`. Post-proof
+> candidate selftest stayed `pass=11 warn=1 fail=0`; Codex rolled back to clean v2321 through
+> `native_init_flash.py`, readback SHA matched, helper `version/status` passed, a transient final
+> serial parse fragment was cleared by restarting the serial bridge, and final standalone
+> `version/status/selftest` confirmed v2321 with `pass=11 warn=1 fail=0`. Function map records
+> `get_ddr_DSF_version` only under the no-arg SMEM read-only uint32 contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_GET_DDR_DSF_VERSION_2026-06-30.md`.
+
 ## ⚠️ PARKED — REPL post-epic one-target live-call proof attempt — `get_ddr_revision_id_1` raw return mismatch
 
 > ### ⚠️ STATUS (2026-06-30 live fail, rolled back cleanly) — `get_ddr_revision_id_1` not promoted
