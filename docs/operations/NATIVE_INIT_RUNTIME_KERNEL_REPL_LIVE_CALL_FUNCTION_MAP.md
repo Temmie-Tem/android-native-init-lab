@@ -51,6 +51,7 @@ and the C1 fail-closed identity gate.
 | `strstr` | `0xffffff80099b9ebc`, `export-recovery`, direct BL xrefs `50`, calls `__pi_strlen`/`__pi_memcmp` | owned NUL-terminated haystack and needle kernel string buffers | `strstr("A90STRSTR-HEAD-NEEDLE-TAIL", "NEEDLE")` returned the owned haystack pointer at offset `15` (redacted); missing needle `ABSENT` returned `0x0`; both strings stayed unchanged | `kfree-owned-strstr-strings-ok` | `a90-repl-live-call-proof-strstr-pass` |
 | `strnstr` | `0xffffff80099b9f44`, `export-recovery`, direct BL xrefs `268`, calls `__pi_strlen`/`__pi_memcmp` | owned NUL-terminated haystack and needle kernel string buffers plus scalar bounded length inside haystack | `strnstr("A90STRNSTR-HEAD-NEEDLE-TAIL", "NEEDLE", 27)` returned the owned haystack pointer at offset `16` (redacted); boundary length `21` returned `0x0`; missing needle `ABSENT` returned `0x0`; both strings stayed unchanged | `kfree-owned-strnstr-strings-ok` | `a90-repl-live-call-proof-strnstr-pass` |
 | `match_string` | `0xffffff80099b9c9c`, `export-recovery`, direct BL xrefs `5`, calls `__pi_strcmp` | owned `const char *` array containing owned NUL-terminated kernel strings plus owned search string and scalar bounded count inside array | `match_string(["A90MATCH-ALPHA","A90MATCH-BRAVO","A90MATCH-CHARLIE"], 3, "A90MATCH-BRAVO") == 1`; missing search `A90MATCH-MISSING` returned `0xffffffea`; zero count returned `0xffffffea`; layout stayed unchanged | `kfree-owned-match-string-layout-ok` | `a90-repl-live-call-proof-match_string-pass` |
+| `match_int` | `0xffffff800855b65c`, `export-recovery`, direct BL xrefs `54`, wrapper calls `match_number` with base `0` | owned `substring_t` pointing at owned bounded decimal text plus owned `int *` result slot | `match_int({from,to="12345"}, &res) == 0`; result slot stored signed `12345` with raw `0x00003039`; `substring_t`, input text, and result-slot canary stayed unchanged | `kfree-owned-match-int-layout-ok` | `a90-repl-live-call-proof-match_int-pass` |
 | `sysfs_streq` | `0xffffff80099b9c14`, `export-recovery`, direct BL xrefs `68`, leaf/no-BL | two owned NUL-terminated kernel string buffers | `sysfs_streq("A90SYSFS-VALUE\n", "A90SYSFS-VALUE") == 1`; exact equal strings returned `1`; mismatch `A90SYSFS-OTHER` returned `0`; both strings stayed unchanged | `kfree-owned-sysfs-streq-strings-ok` | `a90-repl-live-call-proof-sysfs_streq-pass` |
 | `kstrdup` | `0xffffff800822a664`, `export-recovery`, direct BL xrefs `160`, calls `__pi_strlen`/`__kmalloc_track_caller`/`__memcpy` | owned NUL-terminated kernel source string buffer plus scalar `GFP_KERNEL` | `kstrdup("A90KSTRDUP-SOURCE-Q-END", GFP_KERNEL)` returned a distinct owned kernel duplicate pointer (redacted); duplicate bytes matched the source including NUL; source string and canary stayed unchanged | `kfree-owned-kstrdup-source-and-duplicate-ok` | `a90-repl-live-call-proof-kstrdup-pass` |
 | `kstrndup` | `0xffffff800822a77c`, `export-recovery`, direct BL xrefs `26`, calls `__pi_strnlen`/`__kmalloc_track_caller`/`__memcpy` | owned NUL-terminated kernel source string buffer plus scalar bounded length and scalar `GFP_KERNEL` | `kstrndup("A90KSTRNDUP-HEAD-Q-TAIL", 16, GFP_KERNEL)` returned a distinct owned kernel duplicate pointer (redacted); duplicate bytes matched `A90KSTRNDUP-HEAD\0`; source string and canary stayed unchanged | `kfree-owned-kstrndup-source-and-duplicate-ok` | `a90-repl-live-call-proof-kstrndup-pass` |
@@ -100,9 +101,10 @@ and the C1 fail-closed identity gate.
   miss, and one missing-token miss; it does not authorize arbitrary parser state, user pointers,
   unterminated strings, unbounded scans, or mass calling.
 - Integer parser sweep: `simple_strtoull`, `kstrtoull`, `kstrtoll`, `kstrtouint`, `kstrtou16`, `kstrtou8`,
-  `kstrtos8`, `kstrtoint`, and `kstrtos16`
+  `kstrtos8`, `kstrtoint`, `kstrtos16`, and `match_int`
   have crossed the live proof gate only under owned NUL-terminated numeric strings plus their
-  specific owned output-slot contracts.
+  specific owned output-slot contracts, or for `match_int`, an owned `substring_t` range plus an
+  owned `int *` result slot.
   `simple_strtoull` additionally requires an owned `char **` endp output slot and scalar base; its
   proof covers one bounded hexadecimal parse with a non-numeric terminator and validates returned
   value, end-pointer offset, input immutability, and end-slot canary. `kstrtoull` additionally
@@ -128,7 +130,11 @@ and the C1 fail-closed identity gate.
   two's-complement representation, input immutability, and result-slot canary. `kstrtos16`
   additionally requires an owned `s16 *` result slot and scalar base; its proof covers one bounded
   signed 16-bit decimal success case and validates return code `0`, signed result-slot value, raw
-  two's-complement representation, input immutability, and 2-byte result-slot canary. These rows do
+  two's-complement representation, input immutability, and 2-byte result-slot canary. `match_int`
+  additionally requires an owned `substring_t {from,to}` slot whose range points at owned bounded
+  decimal text plus an owned `int *` result slot; its proof covers one bounded decimal success case
+  and validates return code `0`, signed result-slot value `12345`, raw representation `0x00003039`,
+  substring immutability, input immutability, and result-slot canary. These rows do
   not authorize arbitrary parser state, user pointers, unterminated strings, invalid bases, overflows,
   NULL output slots, failure paths, or mass calling.
 - Bool parser sweep: `kstrtobool` has crossed the live proof gate only under an owned

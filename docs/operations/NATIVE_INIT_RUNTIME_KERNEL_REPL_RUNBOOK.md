@@ -558,6 +558,16 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
   --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
   --evidence-dir workspace/private/runs/kernel/<unit>/ \
+  match_int
+```
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/a90_repl.py call-proof \
+  --map workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map \
+  --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
+  --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
+  --evidence-dir workspace/private/runs/kernel/<unit>/ \
   sysfs_streq
 ```
 
@@ -867,7 +877,12 @@ one owned layout containing a bounded `const char *` array and owned NUL-termina
 requires the search string to return the expected array index, rewrites the search string to a missing
 value and requires 32-bit `-EINVAL`, verifies zero-count also returns 32-bit `-EINVAL`, verifies the
 pointer table, strings, search string, and canaries stay unchanged, frees the layout, and redacts the
-owned pointer and observed raw bytes from public output. The `sysfs_streq` proof allocates two owned
+owned pointer and observed raw bytes from public output. The `match_int` proof builds one owned layout
+containing a `substring_t {from,to}` slot pointing at bounded decimal text `12345` and an owned
+4-byte `int` result slot, calls `match_int`, requires return `0`, requires the result slot to contain
+signed `12345` with raw `0x00003039`, verifies the substring slot, input text, and result-slot canary
+stay unchanged, frees the layout, and redacts runtime pointers and observed raw bytes from public
+output. The `sysfs_streq` proof allocates two owned
 NUL-terminated string buffers, requires a left-trailing-newline sysfs match and an exact match to
 return `1`, rewrites the right string to a mismatch and requires `0`, verifies both strings and
 canaries stay unchanged, frees both buffers, and redacts the owned pointers and observed raw bytes

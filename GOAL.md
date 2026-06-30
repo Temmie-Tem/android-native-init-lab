@@ -767,6 +767,36 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `match_int` owned substring result-slot contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `match_int` promoted under owned `substring_t` + owned `int *result` only
+>
+> Fifty-seventh one-target live-call proof after the REPL epic close. Codex extended
+> `a90_repl.py` `call-proof` with `match_int`, using one tool-owned layout containing a
+> `substring_t {from,to}` slot, bounded decimal text `12345`, an owned 4-byte result slot, and
+> canaries around the controlled regions. Static gate: `match_int=0xffffff800855b65c`,
+> `export-recovery`, direct-BL xrefs `54`, JOPP entry true, non-leaf wrapper calling
+> `match_number` after setting `w2=0` for auto-base decimal parsing, source contract
+> `int match_int(substring_t *, int *result)` from `include/linux/parser.h`, x0 as the
+> substring pointer and x1 as the result pointer, and call-safety tier
+> `SAFE-WITH-VALID-PTR`.
+>
+> Live path: baseline v2321 `version/status/selftest` passed, flashed the existing v1-repl image
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65` through
+> `native_init_flash.py`, confirmed readback SHA, got `a90-repl-v2a1-selftest-pass`, then ran
+> `call-proof match_int` with the C2B verified map.
+>
+> Result: `a90-repl-live-call-proof-match_int-pass`; checks covered C1 identity, source
+> signature, call-safety contract, owned layout allocation/poke/peek, return `0`, result slot
+> value `12345` with raw `0x00003039`, unchanged `substring_t`, unchanged input text, preserved
+> result-slot canary, and `kfree-owned-match-int-layout`.
+>
+> Candidate selftest after proof stayed `pass=11 warn=1 fail=0`. Rolled back to clean v2321
+> (`ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`) with final resident
+> `v2321-usb-clean-identity-rodata` and final `selftest pass=11 warn=1 fail=0`. Function map
+> records `match_int` only under the owned substring plus owned int-result contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_MATCH_INT_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `memzero_explicit` owned zeroing contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `memzero_explicit` promoted under owned destination + bounded count only

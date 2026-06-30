@@ -444,6 +444,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "int-index-or-negative-errno",
         "reason": "bounded string-array matcher; x0 must be an owned const char* array, x2 must be an owned NUL-terminated search string, and n must stay inside the array",
     },
+    "match_int": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "substring-slot", 1: "int-result-output-slot"},
+        "return_kind": "int-errno",
+        "reason": "parser integer helper; x0 must be an owned substring_t slot and x1 an owned int output slot",
+    },
     "sysfs_streq": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "required_valid_pointer_args": {0: "left-string-buffer", 1: "right-string-buffer"},
@@ -3192,6 +3198,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "kfree": ("include/linux/slab.h",),
     "ksize": ("include/linux/slab.h",),
     "memzero_explicit": ("include/linux/string.h",),
+    "match_int": ("include/linux/parser.h",),
     "strsep": ("include/linux/string.h",),
     "vfs_getxattr": ("include/linux/xattr.h",),
     "vfs_getxattr_alloc": ("include/linux/xattr.h",),
@@ -4996,6 +5003,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "int match_string(const char * const *array, size_t n, const char *string)",
     },
+    "match_int": {
+        "input_contract": "owned substring_t pointing at owned bounded decimal text plus owned int result slot",
+        "return_contract": "int == 0 and *result == expected parsed signed int",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "int match_int(substring_t *, int *result)",
+    },
     "sysfs_streq": {
         "input_contract": "two owned NUL-terminated kernel string buffers",
         "return_contract": "bool true for exact match or one trailing-newline sysfs match; false for mismatch",
@@ -5258,6 +5271,21 @@ MATCH_STRING_MAX_STRING_SCAN_LEN = max(
     len(MATCH_STRING_SEARCH_BYTES),
     len(MATCH_STRING_MISSING_BYTES),
 ) + MATCH_STRING_CANARY_LEN
+MATCH_INT_INPUT_BYTES = b"12345"
+MATCH_INT_INPUT_LABEL = MATCH_INT_INPUT_BYTES.decode("ascii")
+MATCH_INT_EXPECTED_VALUE = 12345
+MATCH_INT_EXPECTED_RETURN = 0
+MATCH_INT_RESULT_INITIAL_RAW = b"\x55\x55\x55\x55"
+MATCH_INT_SUBSTRING_OFFSET = 0x00
+MATCH_INT_SUBSTRING_LEN = 16
+MATCH_INT_INPUT_OFFSET = 0x40
+MATCH_INT_RESULT_OFFSET = 0x80
+MATCH_INT_CANARY_LEN = 8
+MATCH_INT_LAYOUT_MIN_LEN = max(
+    MATCH_INT_SUBSTRING_OFFSET + MATCH_INT_SUBSTRING_LEN + MATCH_INT_CANARY_LEN,
+    MATCH_INT_INPUT_OFFSET + len(MATCH_INT_INPUT_BYTES) + 1 + MATCH_INT_CANARY_LEN,
+    MATCH_INT_RESULT_OFFSET + len(MATCH_INT_RESULT_INITIAL_RAW) + MATCH_INT_CANARY_LEN,
+)
 HEX_TO_BIN_INVALID_RETURN = 0xFFFFFFFF
 HEX_TO_BIN_CASES = (
     ("digit-zero", "0", 0),
@@ -8919,6 +8947,250 @@ def _run_call_proof_match_string(session: ReplSession,
         "expected_item_hex": [item.hex() for item in expected_item_scans],
         "expected_search_hex": expected_search_scan.hex(),
         "expected_missing_search_hex": expected_missing_scan.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
+def _run_call_proof_match_int(session: ReplSession,
+                              symbols: dict[str, Symbol],
+                              image: StaticImage,
+                              *,
+                              alloc_size: int,
+                              source_root: Path,
+                              gfp: int,
+                              gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    if alloc_size < MATCH_INT_LAYOUT_MIN_LEN:
+        raise ReplError(f"match_int call-proof alloc_size must be at least {MATCH_INT_LAYOUT_MIN_LEN} bytes")
+    if not MATCH_INT_INPUT_BYTES.isdigit():
+        raise ReplError("match_int proof input must be a positive decimal byte string")
+    if MATCH_INT_EXPECTED_VALUE != int(MATCH_INT_INPUT_BYTES.decode("ascii"), 10):
+        raise ReplError("match_int expected value does not match the proof input")
+
+    source = lookup_source_signature("match_int", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "match_int",
+        ("@owned_substring_slot", "@owned_int_result_slot"),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["match_int"]["expected_tier"]:
+        raise ReplError("match_int call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0, 1]:
+        raise ReplError("match_int source signature does not declare substring and int-result pointer arguments")
+
+    resolutions = {
+        "match_int": resolve_verified(symbols, image, "match_int", purpose="call"),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    match_int_link = require_verified_resolution(resolutions["match_int"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof layout allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof layout cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "match_int",
+            "resolution_method": resolutions["match_int"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    private: dict[str, object] = {}
+    layout_ptr = 0
+    substring_ptr = 0
+    input_ptr = 0
+    result_ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    cleanup_ok = False
+    cleanup_error = ""
+    proof_return = 0
+    observed_substring_before = b""
+    observed_substring_after = b""
+    observed_input_before = b""
+    observed_input_after = b""
+    observed_result_before = b""
+    observed_result_after = b""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        match_int_runtime = (match_int_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        layout_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        ptr_ok = is_kernel_lowmem_pointer(layout_ptr)
+        checks.append({
+            "check": "kmalloc-owned-match-int-layout",
+            "ok": ptr_ok,
+            "alloc_size": alloc_size,
+            "kernel_lowmem": ptr_ok,
+        })
+        if not ptr_ok:
+            raise ReplError("__kmalloc did not return a sane match_int layout pointer")
+
+        substring_ptr = (layout_ptr + MATCH_INT_SUBSTRING_OFFSET) & MASK64
+        input_ptr = (layout_ptr + MATCH_INT_INPUT_OFFSET) & MASK64
+        result_ptr = (layout_ptr + MATCH_INT_RESULT_OFFSET) & MASK64
+        expected_substring = struct.pack(
+            "<QQ",
+            input_ptr,
+            (input_ptr + len(MATCH_INT_INPUT_BYTES)) & MASK64,
+        )
+        expected_substring_scan = expected_substring + (b"\xcc" * MATCH_INT_CANARY_LEN)
+        expected_input_scan = MATCH_INT_INPUT_BYTES + b"\x00" + (b"\xcc" * MATCH_INT_CANARY_LEN)
+        expected_result_before = MATCH_INT_RESULT_INITIAL_RAW + (b"\xcc" * MATCH_INT_CANARY_LEN)
+        expected_result_after = (
+            int(MATCH_INT_EXPECTED_VALUE & 0xFFFFFFFF).to_bytes(4, "little")
+            + (b"\xcc" * MATCH_INT_CANARY_LEN)
+        )
+
+        _poke_bytes(session, substring_ptr, expected_substring_scan)
+        _poke_bytes(session, input_ptr, expected_input_scan)
+        _poke_bytes(session, result_ptr, expected_result_before)
+        observed_substring_before = _peek_bytes(session, substring_ptr, len(expected_substring_scan))
+        observed_input_before = _peek_bytes(session, input_ptr, len(expected_input_scan))
+        observed_result_before = _peek_bytes(session, result_ptr, len(expected_result_before))
+        setup_ok = (
+            observed_substring_before == expected_substring_scan
+            and observed_input_before == expected_input_scan
+            and observed_result_before == expected_result_before
+        )
+        checks.append({
+            "check": "owned-match-int-layout-poke-peek",
+            "ok": setup_ok,
+            "substring_len": MATCH_INT_SUBSTRING_LEN,
+            "input_len": len(MATCH_INT_INPUT_BYTES),
+            "result_slot_len": len(MATCH_INT_RESULT_INITIAL_RAW),
+            "canary_len": MATCH_INT_CANARY_LEN,
+        })
+        if not setup_ok:
+            raise ReplError("owned match_int layout poke/peek mismatch")
+
+        proof_return = session.call_runtime(match_int_runtime, (substring_ptr, result_ptr))
+        return_ok = proof_return == MATCH_INT_EXPECTED_RETURN
+        checks.append({
+            "check": "match-int-return-contract",
+            "ok": return_ok,
+            "expected_return": MATCH_INT_EXPECTED_RETURN,
+            "observed_return": proof_return,
+        })
+        if not return_ok:
+            raise ReplError(f"match_int returned 0x{proof_return:x}, expected 0")
+
+        observed_substring_after = _peek_bytes(session, substring_ptr, len(expected_substring_scan))
+        observed_input_after = _peek_bytes(session, input_ptr, len(expected_input_scan))
+        observed_result_after = _peek_bytes(session, result_ptr, len(expected_result_after))
+        result_raw = observed_result_after[:4]
+        result_value = int.from_bytes(result_raw, "little", signed=True)
+        result_ok = result_value == MATCH_INT_EXPECTED_VALUE
+        substring_ok = observed_substring_after == expected_substring_scan
+        input_ok = observed_input_after == expected_input_scan
+        canary_ok = observed_result_after[4:] == b"\xcc" * MATCH_INT_CANARY_LEN
+        checks.append({
+            "check": "match-int-result-layout-contract",
+            "ok": result_ok and substring_ok and input_ok and canary_ok,
+            "result_matches_expected": result_ok,
+            "substring_unchanged": substring_ok,
+            "input_unchanged": input_ok,
+            "result_slot_canary_preserved": canary_ok,
+        })
+        if not (result_ok and substring_ok and input_ok and canary_ok):
+            raise ReplError("match_int result, input layout, or canary did not match contract")
+    finally:
+        try:
+            if kfree_runtime and layout_ptr and is_kernel_lowmem_pointer(layout_ptr):
+                session.call_runtime(kfree_runtime, (layout_ptr,))
+                cleanup_ok = True
+        except Exception as exc:  # noqa: BLE001 - cleanup failures must be reported after restoring panic policy
+            cleanup_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "kfree-owned-match-int-layout",
+        "ok": cleanup_ok,
+        "layout_free_ok": cleanup_ok,
+    })
+    if cleanup_error:
+        raise ReplError(f"kfree failed after match_int proof: {cleanup_error}")
+
+    observed_result_value = int.from_bytes(observed_result_after[:4], "little", signed=True)
+    result_slot_canary_preserved = observed_result_after[4:] == b"\xcc" * MATCH_INT_CANARY_LEN
+    substring_unchanged = observed_substring_after == observed_substring_before
+    input_unchanged = observed_input_after == observed_input_before
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-match_int-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "match_int",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["match_int"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["match_int"]["return_contract"],
+        "alloc_size": alloc_size,
+        "input_ascii": MATCH_INT_INPUT_LABEL,
+        "expected_return": MATCH_INT_EXPECTED_RETURN,
+        "observed_return": proof_return,
+        "expected_result": MATCH_INT_EXPECTED_VALUE,
+        "observed_result": observed_result_value,
+        "expected_result_raw_hex": f"0x{MATCH_INT_EXPECTED_VALUE & 0xFFFFFFFF:08x}",
+        "observed_result_raw_hex": f"0x{int.from_bytes(observed_result_after[:4], 'little'):08x}",
+        "substring_unchanged_after_call": substring_unchanged,
+        "input_unchanged_after_call": input_unchanged,
+        "result_slot_canary_preserved": result_slot_canary_preserved,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "match_int",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["match_int"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["match_int"]["return_contract"],
+            "observed_return_value": "returned 0 and stored 12345 in the owned int result slot",
+            "cleanup": "kfree-owned-match-int-layout-ok" if cleanup_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "match_int_runtime": f"0x{((match_int_link + slide) & MASK64):x}",
+        "layout_ptr": f"0x{layout_ptr:x}",
+        "substring_ptr": f"0x{substring_ptr:x}",
+        "input_ptr": f"0x{input_ptr:x}",
+        "result_ptr": f"0x{result_ptr:x}",
+        "substring_before_hex": observed_substring_before.hex(),
+        "substring_after_hex": observed_substring_after.hex(),
+        "input_before_hex": observed_input_before.hex(),
+        "input_after_hex": observed_input_after.hex(),
+        "result_slot_before_hex": observed_result_before.hex(),
+        "result_slot_after_hex": observed_result_after.hex(),
+        "expected_result_slot_after_hex": (
+            (MATCH_INT_EXPECTED_VALUE & 0xFFFFFFFF).to_bytes(4, "little")
+            + (b"\xcc" * MATCH_INT_CANARY_LEN)
+        ).hex(),
         "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
     })
     return summary, private
@@ -19114,6 +19386,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "match_string":
         return _run_call_proof_match_string(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "match_int":
+        return _run_call_proof_match_int(
             session,
             symbols,
             image,
