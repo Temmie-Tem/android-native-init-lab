@@ -1266,6 +1266,72 @@ class CallSafetyClassificationTests(unittest.TestCase):
             ],
         )
 
+        current_umask = self._row("current_umask")
+        self.assertEqual(current_umask["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(current_umask["required_valid_pointer_args"], {})
+        self.assertTrue(current_umask["resolution"]["verified"])
+        self.assertEqual(current_umask["resolution"]["method"], "export-recovery")
+        self.assertEqual(current_umask["resolution"]["link_vaddr"], "0xffffff80082d3a24")
+        self.assertGreaterEqual(current_umask["signals"]["direct_bl_xref_count"], 10)
+        self.assertTrue(current_umask["signals"]["leaf"])
+        self.assertEqual(current_umask["signals"]["arg_pointer_derefs_before_first_bl_or_ret"], [])
+        self.assertTrue(
+            current_umask["signals"]["arg_taint_flow"]["safe_scalar_positive_no_arg_memory_base_flow"]
+        )
+        self.assertEqual(
+            current_umask["signals"]["first_words"][:6],
+            [
+                "0xd5384108",
+                "0xf9443d08",
+                "0xb9400d00",
+                "0xd65f03c0",
+                "0x00000000",
+                "0x00be7bad",
+            ],
+        )
+
+        in_group_p = self._row("in_group_p")
+        self.assertEqual(in_group_p["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(in_group_p["required_valid_pointer_args"], {})
+        self.assertTrue(in_group_p["resolution"]["verified"])
+        self.assertEqual(in_group_p["resolution"]["method"], "export-recovery")
+        self.assertEqual(in_group_p["resolution"]["link_vaddr"], "0xffffff80080e211c")
+        self.assertGreaterEqual(in_group_p["signals"]["direct_bl_xref_count"], 20)
+        self.assertTrue(in_group_p["signals"]["leaf"])
+        self.assertEqual(in_group_p["signals"]["arg_pointer_derefs_before_first_bl_or_ret"], [])
+        self.assertTrue(
+            in_group_p["signals"]["arg_taint_flow"]["safe_scalar_positive_no_arg_memory_base_flow"]
+        )
+        self.assertEqual(in_group_p["signals"]["first_words"][:6], [
+            "0xd5384108",
+            "0xf9442d08",
+            "0xb9402109",
+            "0x6b00013f",
+            "0x54000061",
+            "0x52800020",
+        ])
+
+        in_egroup_p = self._row("in_egroup_p")
+        self.assertEqual(in_egroup_p["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(in_egroup_p["required_valid_pointer_args"], {})
+        self.assertTrue(in_egroup_p["resolution"]["verified"])
+        self.assertEqual(in_egroup_p["resolution"]["method"], "export-recovery")
+        self.assertEqual(in_egroup_p["resolution"]["link_vaddr"], "0xffffff80080e218c")
+        self.assertGreaterEqual(in_egroup_p["signals"]["direct_bl_xref_count"], 8)
+        self.assertTrue(in_egroup_p["signals"]["leaf"])
+        self.assertEqual(in_egroup_p["signals"]["arg_pointer_derefs_before_first_bl_or_ret"], [])
+        self.assertTrue(
+            in_egroup_p["signals"]["arg_taint_flow"]["safe_scalar_positive_no_arg_memory_base_flow"]
+        )
+        self.assertEqual(in_egroup_p["signals"]["first_words"][:6], [
+            "0xd5384108",
+            "0xf9442d08",
+            "0xb9401909",
+            "0x6b00013f",
+            "0x54000061",
+            "0x52800020",
+        ])
+
         get_ddr_vendor_name = self._row("get_ddr_vendor_name")
         self.assertEqual(get_ddr_vendor_name["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
         self.assertEqual(get_ddr_vendor_name["required_valid_pointer_args"], {})
@@ -1996,7 +2062,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 23)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 26)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 8)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -2651,6 +2717,27 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertEqual(sched_get_group_id["selected"]["line"], 552)
         self.assertTrue(sched_get_group_id["selected"]["path"].endswith("include/linux/sched.h"))
+
+        current_umask = repl.lookup_source_signature("current_umask", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(current_umask["status"], "found", current_umask)
+        self.assertEqual(current_umask["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(current_umask["selected"]["signature"], "extern int current_umask(void)")
+        self.assertEqual(current_umask["selected"]["line"], 2257)
+        self.assertTrue(current_umask["selected"]["path"].endswith("include/linux/fs.h"))
+
+        in_group_p = repl.lookup_source_signature("in_group_p", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(in_group_p["status"], "found", in_group_p)
+        self.assertEqual(in_group_p["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(in_group_p["selected"]["signature"], "extern int in_group_p(kgid_t)")
+        self.assertEqual(in_group_p["selected"]["line"], 67)
+        self.assertTrue(in_group_p["selected"]["path"].endswith("include/linux/cred.h"))
+
+        in_egroup_p = repl.lookup_source_signature("in_egroup_p", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(in_egroup_p["status"], "found", in_egroup_p)
+        self.assertEqual(in_egroup_p["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(in_egroup_p["selected"]["signature"], "extern int in_egroup_p(kgid_t)")
+        self.assertEqual(in_egroup_p["selected"]["line"], 68)
+        self.assertTrue(in_egroup_p["selected"]["path"].endswith("include/linux/cred.h"))
 
         get_boot_stat_time = repl.lookup_source_signature(
             "get_boot_stat_time",
@@ -3333,6 +3420,24 @@ class FaithfulFakeTransport:
             "sched_get_group_id",
             purpose="call",
         ).link_vaddr
+        self.current_umask_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "current_umask",
+            purpose="call",
+        ).link_vaddr
+        self.in_group_p_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "in_group_p",
+            purpose="call",
+        ).link_vaddr
+        self.in_egroup_p_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "in_egroup_p",
+            purpose="call",
+        ).link_vaddr
         self.get_ddr_vendor_name_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -3343,6 +3448,7 @@ class FaithfulFakeTransport:
         self.init_task_runtime = self.init_task_link + self.slide
         self.init_task_sched_group_ptr = 0xFFFFFFC012360000
         self.init_task_sched_group_id = 0x2A
+        self.current_umask_value = 0o022
         self.get_boot_stat_time_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -4034,6 +4140,12 @@ class FaithfulFakeTransport:
             task_pid_nr_ns = self.task_pid_nr_ns_link + self.slide
             assert self.sched_get_group_id_link is not None
             sched_get_group_id = self.sched_get_group_id_link + self.slide
+            assert self.current_umask_link is not None
+            current_umask = self.current_umask_link + self.slide
+            assert self.in_group_p_link is not None
+            in_group_p = self.in_group_p_link + self.slide
+            assert self.in_egroup_p_link is not None
+            in_egroup_p = self.in_egroup_p_link + self.slide
             assert self.get_ddr_vendor_name_link is not None
             get_ddr_vendor_name = self.get_ddr_vendor_name_link + self.slide
             assert self.get_boot_stat_time_link is not None
@@ -4606,6 +4718,15 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (self.init_task_runtime, 0, 0, 0):
                     raise AssertionError("sched_get_group_id proof must pass init_task only")
                 lines.append(f"A90R{self.init_task_sched_group_id:x}")
+            elif arg0 == current_umask:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("current_umask proof must pass no arguments")
+                lines.append(f"A90R{self.current_umask_value:x}")
+            elif arg0 in (in_group_p, in_egroup_p):
+                if (arg2, arg3, arg4) != (0, 0, 0):
+                    raise AssertionError("group membership proof must pass one scalar gid argument")
+                result = 1 if arg1 == repl.GROUP_MEMBERSHIP_ROOT_GID else 0
+                lines.append(f"A90R{result:x}")
             elif arg0 == get_ddr_vendor_name:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("get_ddr_vendor_name proof must pass no arguments")
@@ -6018,6 +6139,82 @@ class SelftestIntegrationTests(unittest.TestCase):
         )
         self.assertEqual(group_private["expected_group_id"], f"0x{fake.init_task_sched_group_id:x}")
         self.assertEqual(fake.op_count, 8)  # 2 slides + pid calls + direct field peeks + group calls
+
+    def test_call_proof_current_state_batch_candidates_pass_in_one_fake_session(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        umask_summary, umask_private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "current_umask",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        group_summary, group_private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "in_group_p",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        egroup_summary, egroup_private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "in_egroup_p",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(umask_summary["ok"], umask_summary)
+        self.assertEqual(
+            umask_summary["decision"],
+            "a90-repl-live-call-proof-current_umask-pass",
+        )
+        self.assertEqual(
+            umask_summary["proof_status"],
+            "trusted-under-current-fs-read-only-umask-contract",
+        )
+        self.assertEqual(umask_summary["function_map_entry"]["symbol"], "current_umask")
+        self.assertEqual(umask_summary["observed_umask"], f"0x{fake.current_umask_value:x}")
+        self.assertTrue(umask_summary["all_returns_stable_and_in_range"])
+        self.assertEqual(umask_summary["source_evidence"]["signature"], "extern int current_umask(void)")
+        self.assertNotIn("current_umask_runtime", umask_summary)
+        self.assertIn("current_umask_runtime", umask_private)
+
+        for summary, private, symbol in (
+            (group_summary, group_private, "in_group_p"),
+            (egroup_summary, egroup_private, "in_egroup_p"),
+        ):
+            self.assertTrue(summary["ok"], summary)
+            self.assertEqual(summary["decision"], f"a90-repl-live-call-proof-{symbol}-pass")
+            self.assertEqual(
+                summary["proof_status"],
+                "trusted-under-current-cred-read-only-group-contract",
+            )
+            self.assertEqual(summary["function_map_entry"]["symbol"], symbol)
+            self.assertTrue(summary["all_returns_match_expected"])
+            self.assertEqual(summary["case_count"], 4)
+            self.assertEqual(
+                summary["source_evidence"]["signature"],
+                f"extern int {symbol}(kgid_t)",
+            )
+            cases = {case["case"]: case for case in summary["case_results"]}
+            self.assertEqual(cases["root-gid-0-1"]["observed_return_value"], "0x1")
+            self.assertEqual(cases["root-gid-0-2"]["observed_return_value"], "0x1")
+            self.assertEqual(cases["unlikely-gid-0x7fff-1"]["observed_return_value"], "0x0")
+            self.assertEqual(cases["unlikely-gid-0x7fff-2"]["observed_return_value"], "0x0")
+            self.assertNotIn(f"{symbol}_runtime", summary)
+            self.assertIn(f"{symbol}_runtime", private)
+
+        self.assertEqual(fake.op_count, 13)  # 3 slides + 2 umask calls + 8 group calls
 
     def test_call_proof_get_ddr_vendor_name_passes_with_borrowed_string_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

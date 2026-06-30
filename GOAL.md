@@ -806,6 +806,41 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic batch live-call proof — current task state / credential read-only contracts
+
+> ### ✅ STATUS (2026-07-01 live pass) — same-session current-state batch after batch correction
+>
+> Codex continued the corrected BATCH cadence: one `v1-repl` boot session proved three adjacent
+> `SAFE-SCALAR` read-only current-state targets instead of one candidate per flash. Batch targets:
+> `current_umask()`, `in_group_p(kgid_t)`, and `in_egroup_p(kgid_t)`. Static C1/source/call-safety
+> validation passed for all three: `current_umask=0xffffff80082d3a24`, `export-recovery`, direct-BL
+> xrefs `14`, source declaration `extern int current_umask(void)` from `include/linux/fs.h:2257`;
+> `in_group_p=0xffffff80080e211c`, `export-recovery`, xrefs `30`, source declaration
+> `extern int in_group_p(kgid_t)` from `include/linux/cred.h:67`; and
+> `in_egroup_p=0xffffff80080e218c`, `export-recovery`, xrefs `8`, source declaration
+> `extern int in_egroup_p(kgid_t)` from `include/linux/cred.h:68`. All three bodies are leaf,
+> no early arg-pointer deref, and exact current-image word gates were pinned.
+>
+> Adjacent candidates were intentionally parked: `current_chrooted` stayed `DENY` due weak C1 and
+> path/spinlock helper calls; `capable`/`ns_capable` stayed out because disassembly shows a current
+> task flag store after `security_capable` (not read-only); `has_capability*` stayed context-sensitive;
+> `task_active_pid_ns`/`pid_nr_ns`/`pid_vnr` need a new valid-pointer contract.
+>
+> Host validation passed: `py_compile`; focused classifier/source/fake-batch tests; full
+> `tests/test_a90_repl.py` (`Ran 161 tests`, `OK`); and CLI `call-safety-classify` over the batch
+> plus parked neighbors (`SAFE-SCALAR=3`, `DENY=8`). Live validation obeyed the flash gate:
+> baseline v2321 `version/status/selftest` passed, v1-repl candidate
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65` flashed through
+> `native_init_flash.py` with matching readback SHA, helper `version/status` passed, candidate
+> `selftest` passed after one serial `AT` desync resync, the three proof calls passed in one
+> `ReplSession`, and rollback to v2321 completed with matching readback SHA and final
+> `selftest pass=11 warn=1 fail=0` after one final serial resync.
+>
+> Live result: `current_umask()` returned stable `0x12`; `in_group_p(0)` and `in_egroup_p(0)`
+> returned `1` twice; `in_group_p(0x7fff)` and `in_egroup_p(0x7fff)` returned `0` twice.
+> Candidate flash total `63.377s`; rollback total `64.311s`. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_CURRENT_STATE_BATCH_2026-07-01.md`.
+
 ## ✅ DONE — REPL post-epic batch live-call proof — `task_struct *` read-only kernel-state contracts
 
 > ### ✅ STATUS (2026-07-01 live pass) — first same-session batch proof after operator BATCH correction

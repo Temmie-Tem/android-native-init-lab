@@ -899,6 +899,24 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "unsigned-int",
         "reason": "read-only scheduler group-id query; proof passes only the global init_task task_struct pointer and validates against bounded direct field observation",
     },
+    "current_umask": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "umode_t",
+        "reason": "read-only current fs umask query; no arguments, leaf body reads current->fs->umask and proof bounds the value to permission bits",
+    },
+    "in_group_p": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "bool-int",
+        "reason": "read-only current credential group-membership query; x0 is a scalar kgid_t value and the leaf body only compares current cred fields/group list",
+    },
+    "in_egroup_p": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "bool-int",
+        "reason": "read-only current credential effective-group query; x0 is a scalar kgid_t value and the leaf body only compares current cred fields/group list",
+    },
     "kallsyms_lookup_name": {
         "tier": CALL_SAFETY_DENY,
         "required_valid_pointer_args": {},
@@ -5262,6 +5280,24 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern unsigned int sched_get_group_id(struct task_struct *p)",
     },
+    "current_umask": {
+        "input_contract": "no arguments; current task fs pointer is read-only and obtained internally through sp_el0",
+        "return_contract": "umode_t value is stable across repeated proof calls and only uses permission bits 0..0777",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern int current_umask(void)",
+    },
+    "in_group_p": {
+        "input_contract": "scalar kgid_t raw value; no pointer arguments; proof uses gid 0 and an unlikely non-member gid",
+        "return_contract": "bool-int is stable; gid 0 is a member for the native-init REPL process and the unlikely gid is not",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern int in_group_p(kgid_t)",
+    },
+    "in_egroup_p": {
+        "input_contract": "scalar kgid_t raw value; no pointer arguments; proof uses gid 0 and an unlikely non-member gid",
+        "return_contract": "bool-int is stable; gid 0 is an effective-group member for the native-init REPL process and the unlikely gid is not",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern int in_egroup_p(kgid_t)",
+    },
     "get_ddr_vendor_name": {
         "input_contract": "no arguments; Samsung SMEM DDR vendor info is read-only; returned char pointer is borrowed/read-only and is not freed",
         "return_contract": "char * is non-NULL, stable across repeated calls, and points to a bounded NUL-terminated printable DDR vendor string",
@@ -6361,6 +6397,38 @@ SCHED_GET_GROUP_ID_RETURN_WORD = 0x2A1303E0
 SCHED_GET_GROUP_ID_EXIT_WORD = 0xCA11021E
 SCHED_GET_GROUP_ID_RET_WORD = 0xD65F03C0
 SCHED_GET_GROUP_ID_NEXT_GUARD_WORD = 0x00BE7BAD
+CURRENT_STATE_REPEAT_COUNT = 2
+CURRENT_UMASK_MAX = 0o777
+CURRENT_UMASK_MRS_CURRENT_WORD = 0xD5384108
+CURRENT_UMASK_LOAD_FS_WORD = 0xF9443D08
+CURRENT_UMASK_LOAD_UMASK_WORD = 0xB9400D00
+CURRENT_UMASK_RET_WORD = 0xD65F03C0
+CURRENT_UMASK_UDF_WORD = 0x00000000
+CURRENT_UMASK_NEXT_GUARD_WORD = 0x00BE7BAD
+GROUP_MEMBERSHIP_ROOT_GID = 0
+GROUP_MEMBERSHIP_UNLIKELY_GID = 0x7FFF
+GROUP_MEMBERSHIP_CASES = (
+    ("root-gid-0", GROUP_MEMBERSHIP_ROOT_GID, 1),
+    ("unlikely-gid-0x7fff", GROUP_MEMBERSHIP_UNLIKELY_GID, 0),
+)
+IN_GROUP_P_WORDS = (
+    0xD5384108, 0xF9442D08, 0xB9402109, 0x6B00013F,
+    0x54000061, 0x52800020, 0xD65F03C0, 0xF9404908,
+    0xB4000228, 0xB9400509, 0x340001E9, 0x2A1F03EA,
+    0x14000004, 0x1100056A, 0x6B09015F, 0x54000142,
+    0x0B09014B, 0x53017D6B, 0x8B2B490C, 0xB940098C,
+    0x6B00019F, 0x54FFFF03, 0x2A0B03E9, 0x54FFFEE8,
+    0x17FFFFED, 0x2A1F03E0, 0xD65F03C0, 0x00BE7BAD,
+)
+IN_EGROUP_P_WORDS = (
+    0xD5384108, 0xF9442D08, 0xB9401909, 0x6B00013F,
+    0x54000061, 0x52800020, 0xD65F03C0, 0xF9404908,
+    0xB4000228, 0xB9400509, 0x340001E9, 0x2A1F03EA,
+    0x14000004, 0x1100056A, 0x6B09015F, 0x54000142,
+    0x0B09014B, 0x53017D6B, 0x8B2B490C, 0xB940098C,
+    0x6B00019F, 0x54FFFF03, 0x2A0B03E9, 0x54FFFEE8,
+    0x17FFFFED, 0x2A1F03E0, 0xD65F03C0, 0x00BE7BAD,
+)
 GET_BOOT_STAT_TIME_STACK_ALLOC_WORD = 0xA9BE43FD
 GET_BOOT_STAT_TIME_SAVE_X19_WORD = 0xF9000BF3
 GET_BOOT_STAT_TIME_ADRP_COUNTER_BASE_WORD = 0xD0015088
@@ -22383,6 +22451,336 @@ def _run_call_proof_sched_get_group_id(
     return summary, private
 
 
+def _run_call_proof_current_umask(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    source = lookup_source_signature("current_umask", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "current_umask",
+        (),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["current_umask"]["expected_tier"]:
+        raise ReplError("current_umask call-safety tier is not the expected vetted scalar tier")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS["current_umask"]["source_signature"]:
+        raise ReplError("current_umask source signature did not select the exported declaration")
+
+    resolutions = {
+        "current_umask": resolve_verified(
+            symbols,
+            image,
+            "current_umask",
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(
+        resolutions["current_umask"],
+        "call-proof target",
+    )
+    next_symbol = symbols.get("vfs_statfs")
+    if next_symbol is None or next_symbol.vaddr - target_link != 0x18:
+        raise ReplError("current_umask next-symbol boundary is not the expected 0x18")
+    words = image.u32_words_at_vaddr(target_link, 6)
+    static_word_checks = (
+        ("static-mrs-current", 0, CURRENT_UMASK_MRS_CURRENT_WORD),
+        ("static-load-fs", 1, CURRENT_UMASK_LOAD_FS_WORD),
+        ("static-load-umask", 2, CURRENT_UMASK_LOAD_UMASK_WORD),
+        ("static-ret", 3, CURRENT_UMASK_RET_WORD),
+        ("static-udf-padding", 4, CURRENT_UMASK_UDF_WORD),
+        ("static-next-guard", 5, CURRENT_UMASK_NEXT_GUARD_WORD),
+    )
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "current_umask",
+            "resolution_method": resolutions["current_umask"].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": "vfs_statfs",
+            "byte_size": "0x18",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for name, index, expected in static_word_checks:
+        observed = words[index]
+        ok = observed == expected
+        checks.append({
+            "check": name,
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"current_umask {name} word mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for index in range(CURRENT_STATE_REPEAT_COUNT):
+            observed = session.call_runtime(target_runtime, ()) & 0xFFFFFFFF
+            returns.append(observed)
+            in_range = 0 <= observed <= CURRENT_UMASK_MAX
+            stable = observed == returns[0]
+            ok = in_range and stable
+            case_results.append({
+                "case": f"current-umask-read-{index + 1}",
+                "expected_range": "0x0..0x1ff",
+                "observed_return_value": f"0x{observed:x}",
+                "in_umask_range": in_range,
+                "matches_first_read": stable,
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(
+                    "current_umask() returned an out-of-range or unstable value: "
+                    f"0x{observed:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "current-umask-range-and-repeat-stability",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_umask = returns[0] if returns else 0
+    summary = {
+        "decision": f"a90-repl-live-call-proof-current_umask-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "current_umask",
+        "proof_status": "trusted-under-current-fs-read-only-umask-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["current_umask"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["current_umask"]["return_contract"],
+        "case_results": case_results,
+        "observed_umask": f"0x{observed_umask:x}" if returns else "n/a",
+        "all_returns_stable_and_in_range": bool(returns) and all(
+            value == observed_umask and 0 <= value <= CURRENT_UMASK_MAX for value in returns
+        ),
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "current_umask",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["current_umask"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["current_umask"]["return_contract"],
+            "observed_return_value": "repeated calls returned one stable umask value within 0..0777",
+            "cleanup": "n/a-scalar-current-state-read-only",
+            "auto_call_policy": "batched-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "current_umask_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
+def _run_call_proof_group_membership(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    target: str,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    if target not in ("in_group_p", "in_egroup_p"):
+        raise ReplError(f"unsupported group membership target {target!r}")
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        (GROUP_MEMBERSHIP_ROOT_GID,),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected vetted scalar tier")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the exported declaration")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(
+        resolutions[target],
+        "call-proof target",
+    )
+    next_name = "in_egroup_p" if target == "in_group_p" else "__window_print"
+    next_symbol = symbols.get(next_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != 0x70:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x70")
+    expected_words = IN_GROUP_P_WORDS if target == "in_group_p" else IN_EGROUP_P_WORDS
+    words = image.u32_words_at_vaddr(target_link, len(expected_words))
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_name,
+            "byte_size": "0x70",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for index, expected in enumerate(expected_words):
+        observed = words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} static word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for label, gid, expected in GROUP_MEMBERSHIP_CASES:
+            for repeat in range(CURRENT_STATE_REPEAT_COUNT):
+                observed = session.call_runtime(target_runtime, (gid,)) & 0xFFFFFFFF
+                returns.append(observed)
+                ok = observed == expected
+                case_results.append({
+                    "case": f"{label}-{repeat + 1}",
+                    "input_gid": f"0x{gid:x}",
+                    "expected_return": f"0x{expected:x}",
+                    "observed_return_value": f"0x{observed:x}",
+                    "ok": ok,
+                })
+                if not ok:
+                    raise ReplError(
+                        f"{target}({gid:#x}) returned 0x{observed:x}, expected 0x{expected:x}"
+                    )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": f"{target}-root-and-unlikely-gid-boolean-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-current-cred-read-only-group-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "all_returns_match_expected": bool(returns) and all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": "gid 0 returned true and unlikely gid returned false across repeated calls",
+            "cleanup": "n/a-scalar-current-state-read-only",
+            "auto_call_policy": "batched-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _decode_printable_c_string(raw: bytes, *, label: str) -> str:
     nul = raw.find(b"\x00")
     if nul < 0:
@@ -29334,6 +29732,21 @@ def run_call_proof(session: ReplSession,
             session,
             symbols,
             image,
+            source_root=source_root,
+        )
+    if target == "current_umask":
+        return _run_call_proof_current_umask(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target in ("in_group_p", "in_egroup_p"):
+        return _run_call_proof_group_membership(
+            session,
+            symbols,
+            image,
+            target=target,
             source_root=source_root,
         )
     if target == "get_ddr_vendor_name":
