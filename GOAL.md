@@ -767,6 +767,38 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `strsep` owned tokenizer mutation contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `strsep` promoted under owned char** slot + owned mutable string + owned delimiter only
+>
+> Fifty-fifth one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py`
+> `call-proof` with `strsep`, using one tool-owned `char **` cursor slot pointing to one tool-owned
+> mutable NUL-terminated string and one tool-owned NUL-terminated delimiter string. Static gate:
+> `strsep=0xffffff80099b9b94`, `export-recovery`, direct-BL xrefs `230`, JOPP entry true,
+> leaf/no-BL tokenizer, source contract `extern char * strsep(char **,const char *)` from
+> `include/linux/string.h`, x0/x1 pointer args, and call-safety tier `SAFE-WITH-VALID-PTR`.
+> Disasm confirmed the early x0 `char **` dereference, delimiter/string byte reads, delimiter NUL
+> write into the owned mutable string, and next-cursor write back through the owned slot. The
+> pre-arg-deref allowance is scoped only to the owned cursor-slot layout.
+>
+> Live path: baseline v2321 `version/status/selftest` passed, flashed the existing v1-repl image
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65` through
+> `native_init_flash.py`, confirmed readback SHA, confirmed post-flash selftest fail=0, got
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof strsep` with the C2B verified map.
+>
+> Result: `a90-repl-live-call-proof-strsep-pass`; checks covered C1 identity, source signature,
+> call-safety contract, owned buffer allocation/poke/peek,
+> `strsep(&cursor, ",")` over `A90STRSEP-HEAD,Q-TAIL`, return offset `0`, delimiter offset `14`
+> replaced with NUL, cursor slot advanced to offset `15`, delimiter immutability, slot/string/
+> delimiter canary preservation, and `kfree-owned-strsep-buffers`.
+>
+> Candidate selftest after proof stayed `fail=0`. Rolled back to clean v2321
+> (`ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`) with final resident
+> `v2321-usb-clean-identity-rodata` and final sequential retry `selftest pass=11 warn=1 fail=0` after
+> one final serial framing-noise read. Function map records `strsep` only under the owned slot/string/
+> delimiter contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_STRSEP_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `kstrtoll` signed long long result-slot contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `kstrtoll` promoted under owned signed numeric string + owned ll result slot only

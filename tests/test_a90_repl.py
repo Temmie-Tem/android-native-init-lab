@@ -971,6 +971,18 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(parse_option_str["signals"]["direct_bl_xref_count"], 3)
         self.assertFalse(parse_option_str["signals"]["leaf"])
 
+        strsep = self._row("strsep")
+        self.assertEqual(strsep["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            strsep["required_valid_pointer_args"],
+            {"0": "string-pointer-slot", "1": "delimiter-string"},
+        )
+        self.assertTrue(strsep["resolution"]["verified"])
+        self.assertEqual(strsep["resolution"]["method"], "export-recovery")
+        self.assertEqual(strsep["resolution"]["link_vaddr"], "0xffffff80099b9b94")
+        self.assertGreaterEqual(strsep["signals"]["direct_bl_xref_count"], 230)
+        self.assertTrue(strsep["signals"]["leaf"])
+
         simple_strtoull = self._row("simple_strtoull")
         self.assertEqual(simple_strtoull["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -1558,6 +1570,12 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertTrue(parse_option_str["selected"]["path"].endswith("include/linux/kernel.h"))
 
+        strsep = repl.lookup_source_signature("strsep", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(strsep["status"], "found", strsep)
+        self.assertEqual(strsep["selected"]["pointer_arg_indices"], [0, 1])
+        self.assertEqual(strsep["selected"]["signature"], "extern char * strsep(char **,const char *)")
+        self.assertTrue(strsep["selected"]["path"].endswith("include/linux/string.h"))
+
         simple_strtoull = repl.lookup_source_signature("simple_strtoull", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(simple_strtoull["status"], "found", simple_strtoull)
         self.assertEqual(simple_strtoull["selected"]["pointer_arg_indices"], [0, 1])
@@ -1872,6 +1890,13 @@ class FaithfulFakeTransport:
             self.symbols,
             self.image,
             "parse_option_str",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
+        self.strsep_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "strsep",
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
@@ -2306,6 +2331,8 @@ class FaithfulFakeTransport:
             bin2hex = self.bin2hex_link + self.slide
             assert self.parse_option_str_link is not None
             parse_option_str = self.parse_option_str_link + self.slide
+            assert self.strsep_link is not None
+            strsep = self.strsep_link + self.slide
             assert self.simple_strtoull_link is not None
             simple_strtoull = self.simple_strtoull_link + self.slide
             assert self.kstrtoull_link is not None
@@ -2426,6 +2453,26 @@ class FaithfulFakeTransport:
                 haystack = self._c_string(arg1)
                 tokens = haystack.split(b",") if haystack else []
                 lines.append("A90R1" if option in tokens else "A90R0")
+            elif arg0 == strsep:
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"strsep slot is not an allocated pointer: {arg1:#x}")
+                if arg2 not in self.allocated:
+                    raise AssertionError(f"strsep delimiter is not an allocated pointer: {arg2:#x}")
+                cursor = int.from_bytes(self._heap_bytes(arg1, 8), "little")
+                if cursor == 0:
+                    lines.append("A90R0")
+                else:
+                    if cursor not in self.allocated:
+                        raise AssertionError(f"strsep cursor is not an allocated pointer: {cursor:#x}")
+                    data = self._c_string(cursor)
+                    delims = self._c_string(arg2)
+                    hit = next((index for index, byte in enumerate(data) if byte in delims), None)
+                    if hit is None:
+                        self._set_heap_bytes(arg1, (0).to_bytes(8, "little"))
+                    else:
+                        self._set_heap_bytes(cursor + hit, b"\x00")
+                        self._set_heap_bytes(arg1, (cursor + hit + 1).to_bytes(8, "little"))
+                    lines.append(f"A90R{cursor:x}")
             elif arg0 == simple_strtoull:
                 if arg1 not in self.allocated:
                     raise AssertionError(f"simple_strtoull input is not an allocated pointer: {arg1:#x}")
@@ -3712,6 +3759,63 @@ class SelftestIntegrationTests(unittest.TestCase):
             (repl.PARSE_OPTION_STR_OPTION_BYTES + (b"\xcc" * repl.PARSE_OPTION_STR_CANARY_LEN)).hex(),
         )
         self.assertEqual(fake.freed, [fake.heap_ptr, fake.heap_ptr + 0x1000])
+
+    def test_call_proof_strsep_passes_with_owned_slot_string_and_delimiter_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "strsep",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-strsep-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "strsep")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(summary["source_evidence"]["signature"], "extern char * strsep(char **,const char *)")
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [0, 1])
+        self.assertEqual(summary["input_ascii"], repl.STRSEP_STRING_LABEL)
+        self.assertEqual(summary["delimiter_ascii"], repl.STRSEP_DELIM_LABEL)
+        self.assertEqual(summary["expected_return_offset"], 0)
+        self.assertEqual(summary["observed_return_offset"], 0)
+        self.assertEqual(summary["expected_delimiter_offset"], repl.STRSEP_EXPECTED_DELIM_OFFSET)
+        self.assertEqual(summary["expected_next_offset"], repl.STRSEP_EXPECTED_NEXT_OFFSET)
+        self.assertTrue(summary["slot_updated_to_expected_next_offset"])
+        self.assertTrue(summary["delimiter_replaced_with_nul"])
+        self.assertTrue(summary["string_after_matches_expected"])
+        self.assertTrue(summary["delimiter_unchanged_after_call"])
+        self.assertTrue(summary["slot_canary_preserved"])
+        self.assertTrue(summary["string_canary_preserved"])
+        self.assertTrue(summary["delimiter_canary_preserved"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("strsep_runtime", summary)
+        self.assertNotIn("slot_ptr", summary)
+        self.assertNotIn("string_ptr", summary)
+        self.assertNotIn("delim_ptr", summary)
+        self.assertIn("strsep_runtime", private)
+        self.assertIn("slot_ptr", private)
+        self.assertIn("string_ptr", private)
+        self.assertIn("delim_ptr", private)
+        self.assertEqual(private["slot_after_hex"], private["expected_slot_after_hex"])
+        self.assertEqual(private["string_after_hex"], private["expected_string_after_hex"])
+        self.assertEqual(
+            private["delim_after_hex"],
+            (repl.STRSEP_DELIM_BYTES + (b"\xcc" * repl.STRSEP_CANARY_LEN)).hex(),
+        )
+        self.assertEqual(fake.freed, [fake.heap_ptr, fake.heap_ptr + 0x1000, fake.heap_ptr + 0x2000])
 
     def test_call_proof_simple_strtoull_passes_with_owned_string_and_endp_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

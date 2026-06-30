@@ -155,6 +155,11 @@ LEAF_MAP_GROUND_TRUTH_SYMBOLS = {
         "expected_pointer_args": (0, 1),
         "note": "non-JOPP arm64 leaf overlap-safe memory move helper; identity rests on map label, xref count, and leaf shape",
     },
+    "strsep": {
+        "min_direct_bl_xrefs": 200,
+        "expected_pointer_args": (0, 1),
+        "note": "non-JOPP arm64 leaf string tokenizer helper; identity rests on map label, xref count, and leaf shape",
+    },
     "strrchr": {
         "min_direct_bl_xrefs": 1000,
         "expected_pointer_args": (0,),
@@ -306,6 +311,12 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {0: "comma-separated-option-string", 1: "option-string"},
         "return_kind": "bool",
         "reason": "comma-separated option matcher; x0/x1 must be owned NUL-terminated strings",
+    },
+    "strsep": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "string-pointer-slot", 1: "delimiter-string"},
+        "return_kind": "string-pointer-or-null",
+        "reason": "string tokenizer; x0 must be an owned char** slot pointing to an owned mutable string and x1 an owned delimiter string",
     },
     "simple_strtoull": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
@@ -3174,6 +3185,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "kstrtos16": ("include/linux/kernel.h",),
     "kfree": ("include/linux/slab.h",),
     "ksize": ("include/linux/slab.h",),
+    "strsep": ("include/linux/string.h",),
     "vfs_getxattr": ("include/linux/xattr.h",),
     "vfs_getxattr_alloc": ("include/linux/xattr.h",),
     "vfs_ioctl": ("fs/internal.h", "include/linux/fs.h"),
@@ -4845,6 +4857,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern bool parse_option_str(const char *str, const char *option)",
     },
+    "strsep": {
+        "input_contract": "owned char** cursor slot pointing at owned mutable NUL-terminated string + owned delimiter string",
+        "return_contract": "char * == original owned string pointer; delimiter byte is replaced with NUL and *slot advances past it",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern char * strsep(char **,const char *)",
+    },
     "simple_strtoull": {
         "input_contract": "owned NUL-terminated numeric string + owned char** endp slot + scalar base",
         "return_contract": "unsigned long long == expected parsed value and *endp == numeric string pointer plus parsed length",
@@ -5263,6 +5281,22 @@ PARSE_OPTION_STR_LIST_SCAN_LEN = (
     max(len(case_bytes) for _, case_bytes, _ in PARSE_OPTION_STR_CASES) + PARSE_OPTION_STR_CANARY_LEN
 )
 PARSE_OPTION_STR_OPTION_SCAN_LEN = len(PARSE_OPTION_STR_OPTION_BYTES) + PARSE_OPTION_STR_CANARY_LEN
+STRSEP_STRING_BYTES = b"A90STRSEP-HEAD,Q-TAIL\x00"
+STRSEP_STRING_LABEL = STRSEP_STRING_BYTES[:-1].decode("ascii")
+STRSEP_DELIM_BYTES = b",\x00"
+STRSEP_DELIM_LABEL = STRSEP_DELIM_BYTES[:-1].decode("ascii")
+STRSEP_EXPECTED_DELIM_OFFSET = STRSEP_STRING_BYTES[:-1].index(STRSEP_DELIM_BYTES[0])
+STRSEP_EXPECTED_NEXT_OFFSET = STRSEP_EXPECTED_DELIM_OFFSET + 1
+STRSEP_EXPECTED_STRING_AFTER_BYTES = (
+    STRSEP_STRING_BYTES[:STRSEP_EXPECTED_DELIM_OFFSET]
+    + b"\x00"
+    + STRSEP_STRING_BYTES[STRSEP_EXPECTED_DELIM_OFFSET + 1:]
+)
+STRSEP_CANARY_LEN = 8
+STRSEP_SLOT_CANARY_LEN = 8
+STRSEP_SLOT_SCAN_LEN = 8 + STRSEP_SLOT_CANARY_LEN
+STRSEP_STRING_SCAN_LEN = len(STRSEP_STRING_BYTES) + STRSEP_CANARY_LEN
+STRSEP_DELIM_SCAN_LEN = len(STRSEP_DELIM_BYTES) + STRSEP_CANARY_LEN
 SIMPLE_STRTOULL_INPUT_BYTES = b"1234abcdZ\x00"
 SIMPLE_STRTOULL_INPUT_LABEL = SIMPLE_STRTOULL_INPUT_BYTES[:-1].decode("ascii")
 SIMPLE_STRTOULL_BASE = 16
@@ -15730,6 +15764,272 @@ def _run_call_proof_parse_option_str(session: ReplSession,
     return summary, private
 
 
+def _run_call_proof_strsep(session: ReplSession,
+                           symbols: dict[str, Symbol],
+                           image: StaticImage,
+                           *,
+                           alloc_size: int,
+                           source_root: Path,
+                           gfp: int,
+                           gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    required_alloc = max(STRSEP_SLOT_SCAN_LEN, STRSEP_STRING_SCAN_LEN, STRSEP_DELIM_SCAN_LEN)
+    if alloc_size < required_alloc:
+        raise ReplError(f"strsep call-proof alloc_size must be at least {required_alloc} bytes")
+
+    source = lookup_source_signature("strsep", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "strsep",
+        ("@owned_char_pointer_slot", "@owned_delimiter_string"),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["strsep"]["expected_tier"]:
+        raise ReplError("strsep call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0, 1]:
+        raise ReplError("strsep source signature does not declare x0/x1 as pointer arguments")
+
+    resolutions = {
+        "strsep": resolve_verified(
+            symbols,
+            image,
+            "strsep",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    strsep_link = require_verified_resolution(resolutions["strsep"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof buffer allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof buffer cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    expected_string_scan = STRSEP_STRING_BYTES + (b"\xcc" * STRSEP_CANARY_LEN)
+    expected_delim_scan = STRSEP_DELIM_BYTES + (b"\xcc" * STRSEP_CANARY_LEN)
+    expected_string_after_scan = STRSEP_EXPECTED_STRING_AFTER_BYTES + (b"\xcc" * STRSEP_CANARY_LEN)
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "strsep",
+            "resolution_method": resolutions["strsep"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    private: dict[str, object] = {}
+    slot_ptr = 0
+    string_ptr = 0
+    delim_ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_attempted: list[str] = []
+    free_ok: dict[str, bool] = {"slot": False, "string": False, "delim": False}
+    free_errors: list[str] = []
+    proof_return = 0
+    observed_slot_after = b""
+    observed_string_after = b""
+    observed_delim_after = b""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        strsep_runtime = (strsep_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        slot_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        string_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        delim_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        slot_ok = is_kernel_lowmem_pointer(slot_ptr)
+        string_ok = is_kernel_lowmem_pointer(string_ptr)
+        delim_ok = is_kernel_lowmem_pointer(delim_ptr)
+        distinct_ok = len({slot_ptr, string_ptr, delim_ptr}) == 3
+        checks.append({
+            "check": "kmalloc-owned-strsep-buffers",
+            "ok": slot_ok and string_ok and delim_ok and distinct_ok,
+            "alloc_size": alloc_size,
+            "slot_kernel_lowmem": slot_ok,
+            "string_kernel_lowmem": string_ok,
+            "delim_kernel_lowmem": delim_ok,
+            "distinct_buffers": distinct_ok,
+        })
+        if not (slot_ok and string_ok and delim_ok and distinct_ok):
+            raise ReplError("__kmalloc did not return sane distinct strsep buffers")
+
+        expected_slot_before = string_ptr.to_bytes(8, "little") + (b"\xcc" * STRSEP_SLOT_CANARY_LEN)
+        expected_slot_after = (
+            (string_ptr + STRSEP_EXPECTED_NEXT_OFFSET).to_bytes(8, "little")
+            + (b"\xcc" * STRSEP_SLOT_CANARY_LEN)
+        )
+        _poke_bytes(session, slot_ptr, expected_slot_before)
+        _poke_bytes(session, string_ptr, expected_string_scan)
+        _poke_bytes(session, delim_ptr, expected_delim_scan)
+        observed_slot_before = _peek_bytes(session, slot_ptr, STRSEP_SLOT_SCAN_LEN)
+        observed_string_before = _peek_bytes(session, string_ptr, STRSEP_STRING_SCAN_LEN)
+        observed_delim_before = _peek_bytes(session, delim_ptr, STRSEP_DELIM_SCAN_LEN)
+        setup_ok = (
+            observed_slot_before == expected_slot_before
+            and observed_string_before == expected_string_scan
+            and observed_delim_before == expected_delim_scan
+        )
+        checks.append({
+            "check": "owned-strsep-buffer-poke-peek",
+            "ok": setup_ok,
+            "input_ascii": STRSEP_STRING_LABEL,
+            "delimiter_ascii": STRSEP_DELIM_LABEL,
+            "slot_canary_len": STRSEP_SLOT_CANARY_LEN,
+            "string_canary_len": STRSEP_CANARY_LEN,
+            "delim_canary_len": STRSEP_CANARY_LEN,
+        })
+        if not setup_ok:
+            raise ReplError("owned strsep buffer poke/peek mismatch")
+
+        proof_return = session.call_runtime(strsep_runtime, (slot_ptr, delim_ptr))
+        observed_slot_after = _peek_bytes(session, slot_ptr, STRSEP_SLOT_SCAN_LEN)
+        observed_string_after = _peek_bytes(session, string_ptr, STRSEP_STRING_SCAN_LEN)
+        observed_delim_after = _peek_bytes(session, delim_ptr, STRSEP_DELIM_SCAN_LEN)
+
+        return_ok = proof_return == string_ptr
+        slot_update_ok = observed_slot_after == expected_slot_after
+        string_mutation_ok = observed_string_after == expected_string_after_scan
+        delim_unchanged = observed_delim_after == expected_delim_scan
+        checks.append({
+            "check": "strsep-return-contract",
+            "ok": return_ok,
+            "expected_return_offset": 0,
+            "observed_return_offset": 0 if return_ok else None,
+        })
+        checks.append({
+            "check": "strsep-slot-update-contract",
+            "ok": slot_update_ok,
+            "expected_next_offset": STRSEP_EXPECTED_NEXT_OFFSET,
+        })
+        checks.append({
+            "check": "strsep-string-mutation-contract",
+            "ok": string_mutation_ok,
+            "delimiter_offset": STRSEP_EXPECTED_DELIM_OFFSET,
+            "delimiter_replaced_with_nul": (
+                len(observed_string_after) > STRSEP_EXPECTED_DELIM_OFFSET
+                and observed_string_after[STRSEP_EXPECTED_DELIM_OFFSET] == 0
+            ),
+        })
+        checks.append({
+            "check": "strsep-delimiter-immutability",
+            "ok": delim_unchanged,
+        })
+        if not (return_ok and slot_update_ok and string_mutation_ok and delim_unchanged):
+            raise ReplError("strsep owned-buffer contract failed")
+    finally:
+        if kfree_runtime:
+            for label, ptr in (("slot", slot_ptr), ("string", string_ptr), ("delim", delim_ptr)):
+                if ptr and is_kernel_lowmem_pointer(ptr):
+                    free_attempted.append(label)
+                    try:
+                        session.call_runtime(kfree_runtime, (ptr,))
+                        free_ok[label] = True
+                    except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                        free_errors.append(f"{label}:{exc}")
+        session.set_panic_on_oops(1)
+
+    cleanup_ok = bool(free_ok["slot"] and free_ok["string"] and free_ok["delim"])
+    checks.append({
+        "check": "kfree-owned-strsep-buffers",
+        "ok": cleanup_ok,
+        "free_attempted": free_attempted,
+        "slot_free_ok": free_ok["slot"],
+        "string_free_ok": free_ok["string"],
+        "delim_free_ok": free_ok["delim"],
+    })
+    if free_errors:
+        raise ReplError(f"kfree failed after strsep proof: {free_errors}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-strsep-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "strsep",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["strsep"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["strsep"]["return_contract"],
+        "alloc_size": alloc_size,
+        "input_ascii": STRSEP_STRING_LABEL,
+        "delimiter_ascii": STRSEP_DELIM_LABEL,
+        "expected_return_offset": 0,
+        "observed_return_offset": 0 if proof_return == string_ptr else None,
+        "expected_delimiter_offset": STRSEP_EXPECTED_DELIM_OFFSET,
+        "expected_next_offset": STRSEP_EXPECTED_NEXT_OFFSET,
+        "slot_updated_to_expected_next_offset": observed_slot_after == (
+            (string_ptr + STRSEP_EXPECTED_NEXT_OFFSET).to_bytes(8, "little")
+            + (b"\xcc" * STRSEP_SLOT_CANARY_LEN)
+        ),
+        "delimiter_replaced_with_nul": (
+            len(observed_string_after) > STRSEP_EXPECTED_DELIM_OFFSET
+            and observed_string_after[STRSEP_EXPECTED_DELIM_OFFSET] == 0
+        ),
+        "string_after_matches_expected": observed_string_after == expected_string_after_scan,
+        "delimiter_unchanged_after_call": observed_delim_after == expected_delim_scan,
+        "slot_canary_preserved": observed_slot_after[8:] == (b"\xcc" * STRSEP_SLOT_CANARY_LEN),
+        "string_canary_preserved": observed_string_after[len(STRSEP_STRING_BYTES):] == (b"\xcc" * STRSEP_CANARY_LEN),
+        "delimiter_canary_preserved": observed_delim_after[len(STRSEP_DELIM_BYTES):] == (b"\xcc" * STRSEP_CANARY_LEN),
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "strsep",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["strsep"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["strsep"]["return_contract"],
+            "observed_return_value": (
+                f"return-offset=0,next-offset={STRSEP_EXPECTED_NEXT_OFFSET},"
+                f"delimiter-offset={STRSEP_EXPECTED_DELIM_OFFSET}"
+            ),
+            "cleanup": "kfree-owned-strsep-buffers-ok" if cleanup_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "strsep_runtime": f"0x{((strsep_link + slide) & MASK64):x}",
+        "slot_ptr": f"0x{slot_ptr:x}",
+        "string_ptr": f"0x{string_ptr:x}",
+        "delim_ptr": f"0x{delim_ptr:x}",
+        "slot_before_hex": expected_slot_before.hex() if string_ptr else "",
+        "slot_after_hex": observed_slot_after.hex(),
+        "expected_slot_after_hex": (
+            (
+                (string_ptr + STRSEP_EXPECTED_NEXT_OFFSET).to_bytes(8, "little")
+                + (b"\xcc" * STRSEP_SLOT_CANARY_LEN)
+            ).hex()
+            if string_ptr else ""
+        ),
+        "string_after_hex": observed_string_after.hex(),
+        "expected_string_after_hex": expected_string_after_scan.hex(),
+        "delim_after_hex": observed_delim_after.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
 def _run_call_proof_simple_strtoull(session: ReplSession,
                                     symbols: dict[str, Symbol],
                                     image: StaticImage,
@@ -18281,6 +18581,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "parse_option_str":
         return _run_call_proof_parse_option_str(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "strsep":
+        return _run_call_proof_strsep(
             session,
             symbols,
             image,

@@ -26,6 +26,7 @@ and the C1 fail-closed identity gate.
 | `hex2bin` | `0xffffff800856aa3c`, `export-recovery`, direct BL xrefs `15`, leaf/no-BL | owned destination byte buffer plus owned ASCII hex source buffer plus scalar byte count | `hex2bin(dst, "A90f00dC0ffEe1", 7) == 0x0`, destination decoded to `a90f00dc0ffee1`, destination canary preserved, source stayed unchanged | `kfree-owned-hex2bin-buffers-ok` | `a90-repl-live-call-proof-hex2bin-pass` |
 | `bin2hex` | `0xffffff800856aaf4`, `export-recovery`, direct BL xrefs `5`, leaf/no-BL | owned destination ASCII hex buffer plus owned source byte buffer plus scalar byte count | `bin2hex(dst, a90f00dc0ffee1, 7)` returned the owned destination pointer plus offset `14` (redacted), destination encoded to `a90f00dc0ffee1`, destination canary preserved, source stayed unchanged | `kfree-owned-bin2hex-buffers-ok` | `a90-repl-live-call-proof-bin2hex-pass` |
 | `parse_option_str` | `0xffffff80099a9c44`, `disasm-signature+xref+map`, direct BL xrefs `3`, calls `__pi_strlen`/`__pi_strncmp` | owned NUL-terminated comma-separated option string plus owned NUL-terminated option string | exact token case returned `1`; prefix-only token and missing token returned `0`; list and option buffers stayed unchanged | `kfree-owned-parse-option-str-buffers-ok` | `a90-repl-live-call-proof-parse_option_str-pass` |
+| `strsep` | `0xffffff80099b9b94`, `export-recovery`, direct BL xrefs `230`, leaf/no-BL | owned `char **` cursor slot pointing at owned mutable NUL-terminated string plus owned delimiter string | `strsep(&cursor, ",")` over `A90STRSEP-HEAD,Q-TAIL` returned the original string pointer at offset `0` (redacted), replaced delimiter offset `14` with NUL, advanced cursor slot to offset `15`, delimiter stayed unchanged, slot/string/delimiter canaries stayed unchanged | `kfree-owned-strsep-buffers-ok` | `a90-repl-live-call-proof-strsep-pass` |
 | `simple_strtoull` | `0xffffff80099ba314`, `export-recovery`, direct BL xrefs `9`, calls `_parse_integer_fixup_radix`/`_parse_integer` | owned NUL-terminated numeric string plus owned `char **` endp slot plus scalar base | `simple_strtoull("1234abcdZ", &endp, 16) == 0x1234abcd`; `endp` pointed to the owned input pointer plus offset `8` (redacted); input and end-slot canary stayed unchanged | `kfree-owned-simple-strtoull-buffers-ok` | `a90-repl-live-call-proof-simple_strtoull-pass` |
 | `kstrtoull` | `0xffffff800856b3f4`, `export-recovery`, direct BL xrefs `196`, leaf/no-BL | owned NUL-terminated unsigned long long numeric string plus scalar base plus owned `unsigned long long *` result slot | `kstrtoull("1234567890abcdef", 16, &res) == 0`; result slot stored `0x1234567890abcdef`; input stayed unchanged; 8-byte result-slot canary stayed unchanged | `kfree-owned-kstrtoull-buffers-ok` | `a90-repl-live-call-proof-kstrtoull-pass` |
 | `kstrtoll` | `0xffffff800856b524`, `export-recovery`, direct BL xrefs `42`, calls `kstrtoull` | owned NUL-terminated signed long long numeric string plus scalar base plus owned `long long *` result slot | `kstrtoll("-1234567890abcdef", 16, &res) == 0`; result slot stored signed `-1311768467294899695` with raw `0xedcba9876f543211`; input stayed unchanged; 8-byte result-slot canary stayed unchanged | `kfree-owned-kstrtoll-buffers-ok` | `a90-repl-live-call-proof-kstrtoll-pass` |
@@ -138,7 +139,7 @@ and the C1 fail-closed identity gate.
   proof gate only under their paired owned `/init` file/buffer/position contracts. Broader read paths,
   arbitrary file pointers, and arbitrary destination buffers remain parked until separate contracts are
   proven.
-- String sweep: `strlen`, `strnchr`, `skip_spaces`, `strim`, `strreplace`, `strchr`, `strchrnul`, `strstr`, `strnstr`, `match_string`, `sysfs_streq`, `kstrdup`, `kstrndup`, `strpbrk`, `strcmp`, `strcasecmp`, `strncasecmp`, `strncmp`, `strnlen`, `strrchr`,
+- String sweep: `strlen`, `strnchr`, `skip_spaces`, `strim`, `strreplace`, `strchr`, `strchrnul`, `strstr`, `strnstr`, `match_string`, `sysfs_streq`, `kstrdup`, `kstrndup`, `strsep`, `strpbrk`, `strcmp`, `strcasecmp`, `strncasecmp`, `strncmp`, `strnlen`, `strrchr`,
   `strscpy`, `strlcpy`, `strcpy`, `strlcat`, `strncat`, `strcat`, and
   `strncpy` have crossed the live proof gate only under owned NUL-terminated kernel string/buffer
   contracts. `strnchr` additionally requires scalar bounded count/search-byte args and only proves
@@ -161,7 +162,11 @@ and the C1 fail-closed identity gate.
   exact equality, one left-trailing-newline sysfs equality case, and one mismatch false case; `kstrdup`
   additionally allocates a new owned duplicate string and only proves one owned source string plus
   `GFP_KERNEL` case; `kstrndup` additionally allocates a new owned duplicate string and only proves
-  one owned source string, one truncating bounded length, and `GFP_KERNEL` case; `strpbrk` additionally requires owned haystack and accept-set strings
+  one owned source string, one truncating bounded length, and `GFP_KERNEL` case; `strsep` additionally
+  requires an owned `char **` cursor slot pointing at an owned mutable string plus an owned delimiter
+  string, and only proves one delimiter-hit mutation case with return offset `0`, delimiter offset
+  `14` replaced with NUL, cursor update to offset `15`, delimiter immutability, and canary
+  preservation; `strpbrk` additionally requires owned haystack and accept-set strings
   and only proves one present accept-set hit plus one missing accept-set NULL case; `strcmp`
   additionally requires two owned terminated strings and only proves equal/positive-sign compare
   cases; `strcasecmp` additionally requires two owned terminated strings and only proves case-fold

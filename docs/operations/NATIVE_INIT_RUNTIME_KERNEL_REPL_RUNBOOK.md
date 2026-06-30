@@ -228,6 +228,16 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
   --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
   --evidence-dir workspace/private/runs/kernel/<unit>/ \
+  strsep
+```
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/a90_repl.py call-proof \
+  --map workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map \
+  --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
+  --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
+  --evidence-dir workspace/private/runs/kernel/<unit>/ \
   simple_strtoull
 ```
 
@@ -739,6 +749,12 @@ output. The `parse_option_str` proof allocates owned NUL-terminated comma-separa
 string buffers, requires an exact comma-delimited token hit to return `1`, requires a prefix-only token
 and a missing token to return `0`, verifies both strings and canaries stay unchanged, frees both
 buffers, and redacts the owned pointers and observed raw bytes from public output. The
+`strsep` proof allocates an owned `char **` cursor slot, an owned mutable NUL-terminated string, and
+an owned delimiter string, calls `strsep(&cursor, ",")` over `A90STRSEP-HEAD,Q-TAIL`, requires the
+return to be the original string pointer at public offset `0`, requires the delimiter at offset `14`
+to be replaced with NUL, requires the cursor slot to advance to offset `15`, verifies delimiter
+immutability plus slot/string/delimiter canary preservation, frees all three buffers, and redacts
+runtime/allocation pointer values and observed raw bytes. The
 `simple_strtoull` proof allocates an owned NUL-terminated numeric string and an owned `char **` output
 slot, calls `simple_strtoull("1234abcdZ", &endp, 16)`, requires return `0x1234abcd`, requires `endp`
 to equal the owned input pointer plus offset `8`, verifies input immutability and end-slot canary
