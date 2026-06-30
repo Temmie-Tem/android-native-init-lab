@@ -980,6 +980,16 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertFalse(cpumask_next["signals"]["leaf"])
         self.assertIn("0x52800101", cpumask_next["signals"]["first_words"])
 
+        cpumask_any_but = self._row("cpumask_any_but")
+        self.assertEqual(cpumask_any_but["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(cpumask_any_but["required_valid_pointer_args"], {"0": "cpumask-buffer"})
+        self.assertTrue(cpumask_any_but["resolution"]["verified"])
+        self.assertEqual(cpumask_any_but["resolution"]["method"], "export-recovery")
+        self.assertEqual(cpumask_any_but["resolution"]["link_vaddr"], "0xffffff80099a9ebc")
+        self.assertGreaterEqual(cpumask_any_but["signals"]["direct_bl_xref_count"], 1)
+        self.assertFalse(cpumask_any_but["signals"]["leaf"])
+        self.assertIn("0x52800101", cpumask_any_but["signals"]["first_words"])
+
         find_next_zero_bit = self._row("find_next_zero_bit")
         self.assertEqual(find_next_zero_bit["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(find_next_zero_bit["required_valid_pointer_args"], {"0": "bitmap-buffer"})
@@ -1723,6 +1733,16 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertEqual(cpumask_next["selected"]["line"], 199)
         self.assertTrue(cpumask_next["selected"]["path"].endswith("include/linux/cpumask.h"))
+
+        cpumask_any_but = repl.lookup_source_signature("cpumask_any_but", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(cpumask_any_but["status"], "found", cpumask_any_but)
+        self.assertEqual(cpumask_any_but["selected"]["pointer_arg_indices"], [0])
+        self.assertEqual(
+            cpumask_any_but["selected"]["signature"],
+            "int cpumask_any_but(const struct cpumask *mask, unsigned int cpu)",
+        )
+        self.assertGreaterEqual(cpumask_any_but["selected"]["line"], 200)
+        self.assertTrue(cpumask_any_but["selected"]["path"].endswith("include/linux/cpumask.h"))
 
         find_next_zero_bit = repl.lookup_source_signature("find_next_zero_bit", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(find_next_zero_bit["status"], "found", find_next_zero_bit)
@@ -2554,6 +2574,13 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.cpumask_any_but_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "cpumask_any_but",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.find_next_zero_bit_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -2675,11 +2702,15 @@ class FaithfulFakeTransport:
         if op == repl.OP_SLIDE:
             lines.append(f"A90R{(repl.ADR_SELF_LINK_VADDR + self.slide):x}")
         elif op == repl.OP_PEEK:
-            if arg0 in self.heap:
-                lines.append(f"A90R{self.heap[arg0]:x}")
+            length = arg1
+            base = self._allocated_base_for(arg0, length)
+            if base is not None:
+                value = int.from_bytes(self._heap_bytes(arg0, length), "little")
+                lines.append(f"A90R{value:x}")
             else:
                 link = arg0 - self.slide
-                lines.append(f"A90R{self.image.u64_at_vaddr(link):x}")
+                value = int.from_bytes(self.image.bytes_at_vaddr(link, length), "little")
+                lines.append(f"A90R{value:x}")
         elif op == repl.OP_POKE:
             if arg2 == 8:
                 self.heap[arg0] = arg1 & repl.MASK64
@@ -2816,6 +2847,8 @@ class FaithfulFakeTransport:
             find_last_bit = self.find_last_bit_link + self.slide
             assert self.cpumask_next_link is not None
             cpumask_next = self.cpumask_next_link + self.slide
+            assert self.cpumask_any_but_link is not None
+            cpumask_any_but = self.cpumask_any_but_link + self.slide
             assert self.find_next_zero_bit_link is not None
             find_next_zero_bit = self.find_next_zero_bit_link + self.slide
             assert self.memcpy_link is not None
@@ -3932,6 +3965,25 @@ class FaithfulFakeTransport:
                         if (byte >> (bit % 8)) & 1:
                             result = bit
                             break
+                lines.append(f"A90R{result:x}")
+            elif arg0 == cpumask_any_but:
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"cpumask_any_but mask is not an allocated pointer: {arg1:#x}")
+                data = self._heap_bytes(arg1, 8)
+                excluded_cpu = arg2 & 0xFFFFFFFF
+                result = repl.CPUMASK_ANY_BUT_NR_CPU_IDS_EXPECTED
+                start = 0
+                while start < repl.CPUMASK_ANY_BUT_NR_BITS:
+                    found = repl.CPUMASK_ANY_BUT_NR_BITS
+                    for bit in range(start, repl.CPUMASK_ANY_BUT_NR_BITS):
+                        byte = data[bit // 8]
+                        if (byte >> (bit % 8)) & 1:
+                            found = bit
+                            break
+                    result = found
+                    if found >= repl.CPUMASK_ANY_BUT_NR_CPU_IDS_EXPECTED or found != excluded_cpu:
+                        break
+                    start = found + 1
                 lines.append(f"A90R{result:x}")
             elif arg0 == find_next_zero_bit:
                 if arg1 not in self.allocated:
@@ -6206,6 +6258,65 @@ class SelftestIntegrationTests(unittest.TestCase):
             + repl.CPUMASK_NEXT_CANARY_BYTES
         ).hex()
         self.assertEqual(private["observed_bytes_hex"], expected_hex)
+        self.assertEqual(fake.freed, [fake.heap_ptr])
+
+    def test_call_proof_cpumask_any_but_passes_with_owned_cpumask_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "cpumask_any_but",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-cpumask_any_but-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "cpumask_any_but")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "int cpumask_any_but(const struct cpumask *mask, unsigned int cpu)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [0])
+        self.assertEqual(summary["nr_cpumask_bits"], repl.CPUMASK_ANY_BUT_NR_BITS)
+        self.assertEqual(summary["runtime_nr_cpu_ids"], repl.CPUMASK_ANY_BUT_NR_CPU_IDS_EXPECTED)
+        self.assertTrue(summary["cpumask_unchanged_after_calls"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("alloc_ptr", summary)
+        self.assertNotIn("cpumask_any_but_runtime", summary)
+        self.assertNotIn("observed_bytes_by_case_hex", summary)
+
+        expected_returns = {
+            "first-set-not-excluded": "0x2",
+            "exclude-first-set": "0x6",
+            "exclude-later-set-keeps-first": "0x2",
+            "only-excluded-set": "0x8",
+            "empty-mask": "0x8",
+        }
+        observed_returns = {
+            case["case"]: case["observed_return_value"]
+            for case in summary["case_results"]
+        }
+        self.assertEqual(observed_returns, expected_returns)
+        self.assertTrue(all(case["buffer_unchanged"] for case in summary["case_results"]))
+        self.assertEqual(private["case_returns"], expected_returns)
+        self.assertEqual(private["alloc_ptr"], f"0x{fake.heap_ptr:x}")
+        self.assertEqual(
+            private["observed_bytes_by_case_hex"]["exclude-first-set"],
+            (repl.CPUMASK_ANY_BUT_DUAL_MASK_BYTES + repl.CPUMASK_ANY_BUT_CANARY_BYTES).hex(),
+        )
         self.assertEqual(fake.freed, [fake.heap_ptr])
 
     def test_call_proof_find_next_zero_bit_passes_with_owned_bitmap_contract(self) -> None:

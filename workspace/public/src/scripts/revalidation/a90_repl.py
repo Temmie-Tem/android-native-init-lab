@@ -342,6 +342,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "unsigned-int-cpu-index",
         "reason": "cpumask scanner; x1 must be an owned cpumask and scalar n is bounded by the compiled nr_cpumask_bits",
     },
+    "cpumask_any_but": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "cpumask-buffer"},
+        "return_kind": "unsigned-int-cpu-index",
+        "reason": "cpumask scanner excluding one CPU; x0 must be an owned cpumask and scalar cpu is bounded by runtime nr_cpu_ids",
+    },
     "hex2bin": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "required_valid_pointer_args": {0: "destination-buffer", 1: "source-hex-buffer"},
@@ -3259,6 +3265,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "find_next_bit": ("include/asm-generic/bitops/find.h", "include/linux/bitops.h"),
     "find_next_zero_bit": ("include/asm-generic/bitops/find.h", "include/linux/bitops.h"),
     "cpumask_next": ("include/linux/cpumask.h",),
+    "cpumask_any_but": ("include/linux/cpumask.h",),
     "__sysfs_match_string": ("include/linux/string.h",),
     "filp_clone_open": ("fs/internal.h", "include/linux/fs.h"),
     "filp_close": ("include/linux/fs.h",),
@@ -3297,6 +3304,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
 }
 _SOURCE_PREFERRED_SIGNATURE_BY_EXACT_SYMBOL = {
     "cpumask_next": "unsigned int cpumask_next(int n, const struct cpumask *srcp)",
+    "cpumask_any_but": "int cpumask_any_but(const struct cpumask *mask, unsigned int cpu)",
 }
 _SOURCE_HEADER_HINTS_BY_PREFIX = (
     ("__kmalloc", ("include/linux/slab.h",)),
@@ -5000,6 +5008,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "unsigned int cpumask_next(int n, const struct cpumask *srcp)",
     },
+    "cpumask_any_but": {
+        "input_contract": "owned cpumask buffer with compiled nr_cpumask_bits=8 + scalar excluded CPU inside runtime nr_cpu_ids",
+        "return_contract": "int == first set CPU not equal to excluded CPU, or runtime nr_cpu_ids when no other CPU is set",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "int cpumask_any_but(const struct cpumask *mask, unsigned int cpu)",
+    },
     "find_next_zero_bit": {
         "input_contract": "owned unsigned-long bitmap buffer + scalar bit size + scalar offset inside that bitmap",
         "return_contract": "unsigned long == first zero bit index >= offset, or size when no zero bit exists",
@@ -5990,6 +6004,25 @@ CPUMASK_NEXT_CASES = (
     ("from-first-hit", 2, 6),
     ("from-second-hit", 6, 8),
     ("from-last-valid", 7, 8),
+)
+CPUMASK_ANY_BUT_NR_BITS = 8
+CPUMASK_ANY_BUT_NR_CPU_IDS_EXPECTED = 8
+CPUMASK_ANY_BUT_DUAL_BITS = (2, 6)
+CPUMASK_ANY_BUT_SINGLE_BITS = (2,)
+CPUMASK_ANY_BUT_DUAL_MASK_BYTES = (
+    (1 << CPUMASK_ANY_BUT_DUAL_BITS[0]) | (1 << CPUMASK_ANY_BUT_DUAL_BITS[1])
+).to_bytes(8, "little")
+CPUMASK_ANY_BUT_SINGLE_MASK_BYTES = (1 << CPUMASK_ANY_BUT_SINGLE_BITS[0]).to_bytes(8, "little")
+CPUMASK_ANY_BUT_EMPTY_MASK_BYTES = (0).to_bytes(8, "little")
+CPUMASK_ANY_BUT_CANARY_BYTES = b"\xcc" * 8
+CPUMASK_ANY_BUT_CANARY_LEN = len(CPUMASK_ANY_BUT_CANARY_BYTES)
+CPUMASK_ANY_BUT_MOV_W1_NR_CPUS_WORD = 0x52800101
+CPUMASK_ANY_BUT_CASES = (
+    ("first-set-not-excluded", CPUMASK_ANY_BUT_DUAL_MASK_BYTES, CPUMASK_ANY_BUT_DUAL_BITS, 1, 2),
+    ("exclude-first-set", CPUMASK_ANY_BUT_DUAL_MASK_BYTES, CPUMASK_ANY_BUT_DUAL_BITS, 2, 6),
+    ("exclude-later-set-keeps-first", CPUMASK_ANY_BUT_DUAL_MASK_BYTES, CPUMASK_ANY_BUT_DUAL_BITS, 6, 2),
+    ("only-excluded-set", CPUMASK_ANY_BUT_SINGLE_MASK_BYTES, CPUMASK_ANY_BUT_SINGLE_BITS, 2, 8),
+    ("empty-mask", CPUMASK_ANY_BUT_EMPTY_MASK_BYTES, (), 2, 8),
 )
 MEMCPY_PROOF_BYTES = b"A90MEMCPY-SRC-0123456789ABCDEF"
 MEMCPY_PROOF_SIZE = len(MEMCPY_PROOF_BYTES)
@@ -7627,6 +7660,251 @@ def _run_call_proof_cpumask_next(session: ReplSession,
         "cpumask_next_runtime": f"0x{((target_link + slide) & MASK64):x}",
         "alloc_ptr": f"0x{ptr:x}",
         "observed_bytes_hex": observed.hex(),
+        "case_returns": {
+            str(case["case"]): str(case["observed_return_value"])
+            for case in case_results
+        },
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
+def _run_call_proof_cpumask_any_but(session: ReplSession,
+                                    symbols: dict[str, Symbol],
+                                    image: StaticImage,
+                                    *,
+                                    alloc_size: int,
+                                    source_root: Path,
+                                    gfp: int,
+                                    gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    scan_len = len(CPUMASK_ANY_BUT_DUAL_MASK_BYTES) + CPUMASK_ANY_BUT_CANARY_LEN
+    if alloc_size < scan_len:
+        raise ReplError(f"cpumask_any_but call-proof alloc_size must be at least {scan_len} bytes")
+    if CPUMASK_ANY_BUT_NR_BITS > len(CPUMASK_ANY_BUT_DUAL_MASK_BYTES) * 8:
+        raise ReplError("cpumask_any_but proof nr bits does not fit in the owned mask bytes")
+    for label, mask_bytes, set_bits, excluded_cpu, expected in CPUMASK_ANY_BUT_CASES:
+        if len(mask_bytes) != len(CPUMASK_ANY_BUT_DUAL_MASK_BYTES):
+            raise ReplError(f"cpumask_any_but case {label!r} has an invalid mask length")
+        if any(bit < 0 or bit >= CPUMASK_ANY_BUT_NR_BITS for bit in set_bits):
+            raise ReplError(f"cpumask_any_but case {label!r} has a set CPU outside nr_cpumask_bits")
+        if not (0 <= excluded_cpu < CPUMASK_ANY_BUT_NR_CPU_IDS_EXPECTED):
+            raise ReplError(f"cpumask_any_but case {label!r} has an invalid excluded CPU")
+        if not (0 <= expected <= CPUMASK_ANY_BUT_NR_CPU_IDS_EXPECTED):
+            raise ReplError(f"cpumask_any_but case {label!r} has an invalid expected return")
+
+    source = lookup_source_signature("cpumask_any_but", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "cpumask_any_but",
+        ("@owned_cpumask_buffer", 0),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["cpumask_any_but"]["expected_tier"]:
+        raise ReplError("cpumask_any_but call-safety tier is not the expected vetted pointer tier")
+    selected = source.get("selected")
+    selected_signature = selected.get("signature") if isinstance(selected, dict) else None
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError("cpumask_any_but source signature does not declare x0 as the cpumask pointer argument")
+    if selected_signature != CALL_PROOF_TARGETS["cpumask_any_but"]["source_signature"]:
+        raise ReplError("cpumask_any_but source signature did not select the exported declaration")
+
+    resolutions = {
+        "cpumask_any_but": resolve_verified(
+            symbols,
+            image,
+            "cpumask_any_but",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    target_link = require_verified_resolution(resolutions["cpumask_any_but"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof cpumask allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof cpumask cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    nr_cpu_ids_symbol = symbols.get("nr_cpu_ids")
+    if nr_cpu_ids_symbol is None:
+        raise ReplError("nr_cpu_ids is missing from System.map")
+    nr_cpu_ids_link = nr_cpu_ids_symbol.vaddr
+    static_nr_cpu_ids = image.u32_at_vaddr(nr_cpu_ids_link)
+    nr_bits_word = image.u32_at_vaddr(target_link + 0x2C)
+    nr_bits_word_ok = nr_bits_word == CPUMASK_ANY_BUT_MOV_W1_NR_CPUS_WORD
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "cpumask_any_but",
+            "resolution_method": resolutions["cpumask_any_but"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+            "bounded_nr_cpumask_bits": CPUMASK_ANY_BUT_NR_BITS,
+        },
+        {
+            "check": "static-compiled-nr-cpumask-bits",
+            "ok": nr_bits_word_ok,
+            "expected_word": f"0x{CPUMASK_ANY_BUT_MOV_W1_NR_CPUS_WORD:08x}",
+            "observed_word": f"0x{nr_bits_word:08x}",
+            "nr_cpumask_bits": CPUMASK_ANY_BUT_NR_BITS,
+        },
+        {
+            "check": "static-nr-cpu-ids-initial-value",
+            "ok": static_nr_cpu_ids == CPUMASK_ANY_BUT_NR_CPU_IDS_EXPECTED,
+            "expected_nr_cpu_ids": CPUMASK_ANY_BUT_NR_CPU_IDS_EXPECTED,
+            "observed_static_nr_cpu_ids": static_nr_cpu_ids,
+        },
+    ]
+    if not nr_bits_word_ok:
+        raise ReplError(
+            "cpumask_any_but wrapper does not load compiled nr_cpumask_bits=8 "
+            f"(word=0x{nr_bits_word:08x})"
+        )
+    if static_nr_cpu_ids != CPUMASK_ANY_BUT_NR_CPU_IDS_EXPECTED:
+        raise ReplError(f"static nr_cpu_ids is {static_nr_cpu_ids}, expected 8")
+
+    private: dict[str, object] = {}
+    ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_ok = False
+    free_error: str | None = None
+    case_results: list[dict[str, object]] = []
+    observed_by_case: dict[str, str] = {}
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+        nr_cpu_ids_runtime = (nr_cpu_ids_link + slide) & MASK64
+        runtime_nr_cpu_ids = session.peek_runtime(nr_cpu_ids_runtime, 4) & 0xFFFFFFFF
+        runtime_nr_cpu_ids_ok = runtime_nr_cpu_ids == CPUMASK_ANY_BUT_NR_CPU_IDS_EXPECTED
+        checks.append({
+            "check": "runtime-nr-cpu-ids",
+            "ok": runtime_nr_cpu_ids_ok,
+            "expected_nr_cpu_ids": CPUMASK_ANY_BUT_NR_CPU_IDS_EXPECTED,
+            "observed_runtime_nr_cpu_ids": runtime_nr_cpu_ids,
+        })
+        if not runtime_nr_cpu_ids_ok:
+            raise ReplError(f"runtime nr_cpu_ids is {runtime_nr_cpu_ids}, expected 8")
+
+        ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        ptr_ok = is_kernel_lowmem_pointer(ptr)
+        checks.append({
+            "check": "kmalloc-owned-cpumask-any-but-mask",
+            "ok": ptr_ok,
+            "alloc_size": alloc_size,
+            "kernel_lowmem": ptr_ok,
+        })
+        if not ptr_ok:
+            raise ReplError("__kmalloc did not return a sane cpumask_any_but mask buffer")
+
+        for label, mask_bytes, set_bits, excluded_cpu, expected in CPUMASK_ANY_BUT_CASES:
+            expected_scan = mask_bytes + CPUMASK_ANY_BUT_CANARY_BYTES
+            _poke_bytes(session, ptr, expected_scan)
+            observed = _peek_bytes(session, ptr, scan_len)
+            setup_ok = observed == expected_scan
+            if not setup_ok:
+                raise ReplError(f"owned cpumask_any_but mask poke/peek mismatch for {label}")
+
+            observed_return = session.call_runtime(target_runtime, (ptr, excluded_cpu))
+            observed = _peek_bytes(session, ptr, scan_len)
+            unchanged = observed == expected_scan
+            observed_by_case[label] = observed.hex()
+            ok = observed_return == expected and unchanged
+            case_results.append({
+                "case": label,
+                "set_cpu_bits": list(set_bits),
+                "excluded_cpu": excluded_cpu,
+                "expected_return_value": f"0x{expected:x}",
+                "observed_return_value": f"0x{observed_return:x}",
+                "buffer_unchanged": unchanged,
+                "canary_preserved": observed[-CPUMASK_ANY_BUT_CANARY_LEN:] == CPUMASK_ANY_BUT_CANARY_BYTES,
+                "ok": ok,
+            })
+            if observed_return != expected:
+                raise ReplError(
+                    "cpumask_any_but "
+                    f"{label} returned 0x{observed_return:x}, expected 0x{expected:x}"
+                )
+            if not unchanged:
+                raise ReplError(f"cpumask_any_but modified the owned mask buffer for {label}")
+    finally:
+        if kfree_runtime and ptr and is_kernel_lowmem_pointer(ptr):
+            try:
+                session.call_runtime(kfree_runtime, (ptr,))
+                free_ok = True
+            except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                free_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "cpumask-any-but-case-table",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    checks.append({
+        "check": "kfree-owned-cpumask-any-but-mask",
+        "ok": free_ok,
+        "free_attempted": bool(kfree_runtime and ptr),
+    })
+    if free_error:
+        raise ReplError(f"kfree failed after cpumask_any_but proof: {free_error}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-cpumask_any_but-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "cpumask_any_but",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["cpumask_any_but"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["cpumask_any_but"]["return_contract"],
+        "alloc_size": alloc_size,
+        "nr_cpumask_bits": CPUMASK_ANY_BUT_NR_BITS,
+        "runtime_nr_cpu_ids": CPUMASK_ANY_BUT_NR_CPU_IDS_EXPECTED,
+        "case_results": case_results,
+        "cpumask_unchanged_after_calls": True,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "cpumask_any_but",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["cpumask_any_but"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["cpumask_any_but"]["return_contract"],
+            "observed_return_value": "case-table-first-set-skip-excluded-sentinel",
+            "cleanup": "kfree-owned-cpumask-any-but-mask-ok" if free_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "cpumask_any_but_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "nr_cpu_ids_runtime": f"0x{((nr_cpu_ids_link + slide) & MASK64):x}",
+        "alloc_ptr": f"0x{ptr:x}",
+        "observed_bytes_by_case_hex": observed_by_case,
         "case_returns": {
             str(case["case"]): str(case["observed_return_value"])
             for case in case_results
@@ -22150,6 +22428,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "cpumask_next":
         return _run_call_proof_cpumask_next(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "cpumask_any_but":
+        return _run_call_proof_cpumask_any_but(
             session,
             symbols,
             image,
