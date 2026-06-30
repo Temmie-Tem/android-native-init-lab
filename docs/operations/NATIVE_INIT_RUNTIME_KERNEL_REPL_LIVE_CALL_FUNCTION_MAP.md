@@ -28,6 +28,7 @@ and the C1 fail-closed identity gate.
 | `__sw_hweight16` | `0xffffff800856d87c`, `export-recovery`, direct BL xrefs `19`, leaf/no-BL | scalar unsigned 16-bit word in the low x0 bits | case table: `0x0000 -> 0`, `0xffff -> 16`, `0xaaaa -> 8`, `0x8000 -> 1`, `0xa90d -> 7` | n/a-scalar-only | `a90-repl-live-call-proof-__sw_hweight16-pass` |
 | `__sw_hweight8` | `0xffffff800856d8b4`, `export-recovery`, direct BL xrefs `23`, leaf/no-BL | scalar unsigned 8-bit byte in the low x0 bits | case table: `0x00 -> 0`, `0xff -> 8`, `0xaa -> 4`, `0x80 -> 1`, `0xa9 -> 4` | n/a-scalar-only | `a90-repl-live-call-proof-__sw_hweight8-pass` |
 | `__bitmap_weight` | `0xffffff800855cdd4`, `export-recovery`, direct BL xrefs `19`, non-leaf wrapper calls `__sw_hweight64` | owned unsigned-long bitmap buffer plus scalar bit count bounded inside that bitmap | case table: `nbits=0 -> 0`, `nbits=10 -> 3`, `nbits=64 -> 5`, `nbits=80 -> 7`, `nbits=91 -> 8`, `nbits=127 -> 8`, `nbits=128 -> 9`; bitmap and canary stayed unchanged | `kfree-owned-bitmap-weight-bitmap-ok` | `a90-repl-live-call-proof-__bitmap_weight-pass` |
+| `__bitmap_subset` | `0xffffff800855cd3c`, `export-recovery`, direct BL xrefs `3`, leaf/no-BL | two owned unsigned-long bitmap buffers plus scalar bit count bounded inside both bitmaps | case table: zero-size nonempty source -> `1`, empty source full-size -> `1`, low-tail/first-word/second-word-before-missing positives -> `1`, include missing bit 90 -> `0`, full-size partial mask -> `0`, full-size full mask -> `1`; all bitmaps and canaries stayed unchanged | `kfree-owned-bitmap-subset-buffers-ok` | `a90-repl-live-call-proof-__bitmap_subset-pass` |
 | `find_next_bit` | `0xffffff8008564e2c`, `export-recovery`, direct BL xrefs `564`, leaf/no-BL | owned unsigned-long bitmap buffer plus scalar bit size and scalar offset inside that bitmap | case table: `size=128,offset=0 -> 9`, `size=128,offset=10 -> 73`, `size=128,offset=74 -> 90`, `size=80,offset=64 -> 73`, `size=88,offset=74 -> 88`, `size=128,offset=91 -> 128`; bitmap and canary stayed unchanged | `kfree-owned-find-next-bit-bitmap-ok` | `a90-repl-live-call-proof-find_next_bit-pass` |
 | `find_next_zero_bit` | `0xffffff8008564e94`, `export-recovery`, direct BL xrefs `120`, leaf/no-BL | owned unsigned-long bitmap buffer plus scalar bit size and scalar offset inside that bitmap | case table: `size=128,offset=0 -> 9`, `size=128,offset=10 -> 73`, `size=128,offset=74 -> 128`, `size=80,offset=64 -> 73`, `size=80,offset=74 -> 80`; bitmap and canary stayed unchanged | `kfree-owned-find-next-zero-bit-bitmap-ok` | `a90-repl-live-call-proof-find_next_zero_bit-pass` |
 | `find_last_bit` | `0xffffff8008564f0c`, `export-recovery`, direct BL xrefs `9`, leaf/no-BL | owned unsigned-long bitmap buffer plus scalar bit size bounded inside that bitmap | case table: `size=128 -> 90`, `size=88 -> 73`, `size=64 -> 9`, `size=10 -> 9`, `size=9 -> 9`, `size=0 -> 0`; bitmap and canary stayed unchanged | `kfree-owned-find-last-bit-bitmap-ok` | `a90-repl-live-call-proof-find_last_bit-pass` |
@@ -114,15 +115,18 @@ and the C1 fail-closed identity gate.
   have crossed the live proof gate only under scalar unsigned word contracts for their respective widths. The proofs cover zero,
   all-ones, alternating, single-high-bit, and mixed A90 marker words; they do not authorize arbitrary
   target calls, broader bitops state, high-bit widening outside the stated contract, or mass calling.
-- Bitmap helper sweep: `__bitmap_weight`, `find_next_bit`, `find_next_zero_bit`, and `find_last_bit` have crossed the live
-  proof gate only under an owned unsigned-long bitmap buffer plus scalar count/size/offset bounded
-  inside that bitmap. `__bitmap_weight` covers zero count, low-tail popcount, first-word boundary,
-  second-word tail, third-set-bit inclusion, last-bit exclusion boundary, and full-size popcount
-  cases. `find_next_bit` covers low-word set hit, high-word set hit, full-size third set hit,
+- Bitmap helper sweep: `__bitmap_weight`, `__bitmap_subset`, `find_next_bit`, `find_next_zero_bit`, and
+  `find_last_bit` have crossed the live proof gate only under owned unsigned-long bitmap buffers plus
+  scalar count/size/offset bounded inside those bitmaps. `__bitmap_weight` covers zero count, low-tail
+  popcount, first-word boundary, second-word tail, third-set-bit inclusion, last-bit exclusion
+  boundary, and full-size popcount cases. `__bitmap_subset` covers zero-size true, empty-source true,
+  low-tail/first-word/second-word positive subset cases, a missing bit-90 negative case, full-size
+  partial-mask negative, and full-size full-mask positive. `find_next_bit` covers low-word set hit,
+  high-word set hit, full-size third set hit,
   bounded-tail miss before bit 90, and post-third miss cases. `find_next_zero_bit` covers low-word
   zero hit, high-word zero hit, full-size miss, and bounded-tail miss cases. `find_last_bit` covers
   full-size third set hit, bounded size before the third set bit, first-word hit, boundary inclusion,
-  no-set-before-bound, and zero-size miss cases. All four proofs validated bitmap and canary
+  no-set-before-bound, and zero-size miss cases. All five proofs validated bitmap and canary
   immutability and do not authorize arbitrary bitmap pointers, unbounded sizes, or mass calling.
 - Cpumask scanner sweep: `cpumask_next`, `cpumask_next_wrap`, `cpumask_next_and`, and
   `cpumask_any_but` have crossed the live proof gate only under owned cpumask buffers, compiled

@@ -767,6 +767,43 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `__bitmap_subset` two-owned-bitmap contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `__bitmap_subset` promoted under two owned bitmaps + bounded `nbits` only
+>
+> Seventy-fourth one-target live-call proof after the REPL epic close. Codex continued the bitmap
+> helper sweep after `__bitmap_weight`. Non-underscored `bitmap_empty/full/equal/intersects/subset`
+> names were absent from the verified System.map, and `__bitmap_equal`/`__bitmap_intersects` stayed
+> parked because their direct BL xref count is `0` under the current C1 rules. `__bitmap_subset` was
+> selected because C1 verified `__bitmap_subset=0xffffff800855cd3c`, `export-recovery`, direct-BL
+> xrefs `3`, JOPP entry true, leaf/no-BL shape, source contract
+> `extern int __bitmap_subset(const unsigned long *bitmap1, const unsigned long *bitmap2, unsigned int nbits)`
+> from `include/linux/bitmap.h:121`, and pointer args x0/x1 only. The proof gates static words
+> `0x53067c49`, `0xf940014c`, `0xf940016d`, `0xf869680a`, and `0xf8696829`.
+>
+> Host validation passed: `py_compile` for `a90_repl.py` and `tests/test_a90_repl.py`; CLI
+> `call-safety-classify __bitmap_subset` (`SAFE-WITH-VALID-PTR`, required x0/x1
+> `bitmap-buffer`); focused unittest coverage for static classification, source signature, and the
+> new fake-transport proof; and full `tests.test_a90_repl` (`Ran 137 tests`, `OK`). Live validation
+> obeyed the flash gate: rollback/fallback/TWRP SHAs confirmed, bridge healthy, baseline v2321
+> `version/status/selftest` passed, v1-repl candidate flashed through `native_init_flash.py` with
+> matching readback SHA, candidate selftest stayed `pass=11 warn=1 fail=0`, and
+> `a90-repl-v2a1-selftest-pass` confirmed the REPL path before the target call.
+>
+> Result: `a90-repl-live-call-proof-__bitmap_subset-pass`; checks covered C1 identity, source
+> pointer contract, `SAFE-WITH-VALID-PTR` call-safety, four owned 128-bit unsigned-long bitmaps
+> (`src`, `full`, `partial`, `empty`) plus canaries, eight-case return table
+> (`0-bit nonempty -> 1`, `empty/full-size -> 1`, `nbits=10/64/80 positives -> 1`,
+> `missing bit90 at nbits=91 -> 0`, `full-size partial -> 0`, `full-size full -> 1`),
+> all bitmap/canary immutability, and `kfree` cleanup for every buffer. Raw runtime
+> address/slide/allocation evidence stayed private under
+> `workspace/private/runs/kernel/live-call-proof-bitmap-subset-20260630/proof/`. Post-proof
+> candidate selftest stayed `pass=11 warn=1 fail=0`; Codex rolled back to clean v2321 through
+> `native_init_flash.py`, readback SHA matched, `version/status` passed, and final standalone
+> selftest confirmed `pass=11 warn=1 fail=0`. Function map records `__bitmap_subset` only under the
+> two-owned-bitmap + scalar bounded `nbits` contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_BITMAP_SUBSET_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `__bitmap_weight` owned-bitmap popcount contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `__bitmap_weight` promoted under owned bitmap + bounded `nbits` only
