@@ -767,6 +767,39 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `kstrtoll` signed long long result-slot contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `kstrtoll` promoted under owned signed numeric string + owned ll result slot only
+>
+> Fifty-fourth one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py`
+> `call-proof` with `kstrtoll`, using one tool-owned NUL-terminated signed numeric string, scalar
+> base `16`, and one tool-owned `long long *` result slot. Static gate:
+> `kstrtoll=0xffffff800856b524`, `export-recovery`, direct-BL xrefs `42`, JOPP entry true,
+> non-leaf signed parser calling `kstrtoull`, source contract
+> `int __must_check kstrtoll(const char *s, unsigned int base, long long *res)` from
+> `include/linux/kernel.h`, x0/x2 pointer args, and call-safety tier `SAFE-WITH-VALID-PTR`.
+> Disasm confirmed direct x0 sign/prefix reads before first BL, the bounded unsigned parse call into
+> `kstrtoull`, and one 8-byte success write to x2/result slot. The pre-arg-deref allowance is scoped
+> only to the owned signed string buffer.
+>
+> Live path: baseline v2321 `version/status/selftest` passed, flashed the existing v1-repl image
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65` through
+> `native_init_flash.py`, confirmed readback SHA, confirmed post-flash selftest fail=0, got
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof kstrtoll` with the C2B verified map.
+>
+> Result: `a90-repl-live-call-proof-kstrtoll-pass`; checks covered C1 identity, source signature,
+> call-safety contract, owned buffer allocation/poke/peek,
+> `kstrtoll("-1234567890abcdef", 16, &res) == 0`, result slot storing signed
+> `-1311768467294899695` with raw two's-complement `0xedcba9876f543211`, input immutability,
+> 8-byte result-slot canary preservation, and `kfree-owned-kstrtoll-buffers`.
+>
+> Candidate selftest after proof stayed `fail=0`. Rolled back to clean v2321
+> (`ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`) with final resident
+> `v2321-usb-clean-identity-rodata` and final sequential retry `selftest pass=11 warn=1 fail=0` after
+> one final serial framing-noise read. Function map records `kstrtoll` only under the owned signed
+> numeric string plus scalar base plus owned signed-long-long result slot contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_KSTRTOLL_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `kstrtoull` unsigned long long result-slot contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `kstrtoull` promoted under owned unsigned numeric string + owned ull result slot only
