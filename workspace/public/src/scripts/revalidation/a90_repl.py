@@ -318,6 +318,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "unsigned-long",
         "reason": "scalar msecs-to-jiffies conversion helper; current image compiles it to a HZ=100 round-up divide-by-10 leaf with signed-negative input saturation",
     },
+    "__usecs_to_jiffies": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "unsigned-long",
+        "reason": "scalar usecs-to-jiffies conversion helper; current image compiles it to a HZ=100 round-up divide-by-10000 leaf with too-large input saturation",
+    },
     "jiffies_to_usecs": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -3423,6 +3429,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "clock_t_to_jiffies": ("include/linux/jiffies.h",),
     "jiffies_to_msecs": ("include/linux/jiffies.h",),
     "__msecs_to_jiffies": ("include/linux/jiffies.h",),
+    "__usecs_to_jiffies": ("include/linux/jiffies.h",),
     "jiffies_to_usecs": ("include/linux/jiffies.h",),
     "jiffies_64_to_clock_t": ("include/linux/jiffies.h",),
     "jiffies64_to_nsecs": ("include/linux/jiffies.h",),
@@ -5171,6 +5178,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern unsigned long __msecs_to_jiffies(const unsigned int m)",
     },
+    "__usecs_to_jiffies": {
+        "input_contract": "scalar unsigned int microsecond value; inputs above the current-image saturation threshold return MAX_JIFFY_OFFSET; no pointer args",
+        "return_contract": "unsigned long jiffies value equals MAX_JIFFY_OFFSET for too-large inputs, otherwise the current-image HZ=100 round-up divide-by-10000 result for fixed proof cases",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern unsigned long __usecs_to_jiffies(const unsigned int u)",
+    },
     "jiffies_to_usecs": {
         "input_contract": "scalar unsigned long jiffies value bounded so j * 10000 fits in unsigned int; no pointer args",
         "return_contract": "unsigned int usec value equals j * 10000 for fixed proof cases",
@@ -6345,6 +6358,44 @@ def expected_msecs_to_jiffies(value: int) -> int:
         return MSECS_TO_JIFFIES_MAX
     rounded = (value + MSECS_TO_JIFFIES_ROUND_ADD) & 0xFFFFFFFF
     return ((rounded * MSECS_TO_JIFFIES_MAGIC) >> MSECS_TO_JIFFIES_SHIFT) & MASK64
+
+
+USECS_TO_JIFFIES_MOV_THRESHOLD_WORD = 0x1289C3E8
+USECS_TO_JIFFIES_CMP_THRESHOLD_WORD = 0x6B08001F
+USECS_TO_JIFFIES_BLS_WORD = 0x54000069
+USECS_TO_JIFFIES_MOV_MAX_WORD = 0xB27FF3E0
+USECS_TO_JIFFIES_EARLY_RET_WORD = 0xD65F03C0
+USECS_TO_JIFFIES_MOV_ROUND_WORD = 0x5284E1E8
+USECS_TO_JIFFIES_MOV_MAGIC_LO_WORD = 0x5282EB29
+USECS_TO_JIFFIES_ADD_ROUND_WORD = 0x0B080008
+USECS_TO_JIFFIES_MOVK_MAGIC_HI_WORD = 0x72BA36E9
+USECS_TO_JIFFIES_UMULL_WORD = 0x9BA97D08
+USECS_TO_JIFFIES_LSR45_WORD = 0xD36DFD00
+USECS_TO_JIFFIES_RET_WORD = 0xD65F03C0
+USECS_TO_JIFFIES_NOP_WORD = 0xD503201F
+USECS_TO_JIFFIES_NEXT_GUARD_WORD = 0x00BE7BAD
+USECS_TO_JIFFIES_THRESHOLD = 0xFFFFB1E0
+USECS_TO_JIFFIES_ROUND_ADD = 9_999
+USECS_TO_JIFFIES_MAGIC = 0xD1B71759
+USECS_TO_JIFFIES_SHIFT = 45
+USECS_TO_JIFFIES_MAX = MSECS_TO_JIFFIES_MAX
+USECS_TO_JIFFIES_CASES = (
+    ("zero", 0x00000000),
+    ("one", 0x00000001),
+    ("sub-tick-9999", 0x0000270F),
+    ("one-tick-10000", 0x00002710),
+    ("tick-plus-one-10001", 0x00002711),
+    ("positive-boundary", 0x7FFFFFFF),
+    ("saturating-over-threshold", USECS_TO_JIFFIES_THRESHOLD + 1),
+)
+
+
+def expected_usecs_to_jiffies(value: int) -> int:
+    value &= 0xFFFFFFFF
+    if value > USECS_TO_JIFFIES_THRESHOLD:
+        return USECS_TO_JIFFIES_MAX
+    rounded = (value + USECS_TO_JIFFIES_ROUND_ADD) & 0xFFFFFFFF
+    return ((rounded * USECS_TO_JIFFIES_MAGIC) >> USECS_TO_JIFFIES_SHIFT) & MASK64
 
 
 JIFFIES_TO_USECS_MOV_10000_WORD = 0x5284E208
@@ -22719,6 +22770,179 @@ def _run_call_proof___msecs_to_jiffies(
     return summary, private
 
 
+def _run_call_proof___usecs_to_jiffies(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    source = lookup_source_signature("__usecs_to_jiffies", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "__usecs_to_jiffies",
+        (0,),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["__usecs_to_jiffies"]["expected_tier"]:
+        raise ReplError("__usecs_to_jiffies call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError("__usecs_to_jiffies source signature must be scalar-only")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS["__usecs_to_jiffies"]["source_signature"]:
+        raise ReplError("__usecs_to_jiffies source signature did not select the exported declaration")
+
+    resolutions = {
+        "__usecs_to_jiffies": resolve_verified(
+            symbols,
+            image,
+            "__usecs_to_jiffies",
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(
+        resolutions["__usecs_to_jiffies"],
+        "call-proof target",
+    )
+    next_symbol = symbols.get("timespec64_to_jiffies")
+    if next_symbol is None or next_symbol.vaddr - target_link != 0x38:
+        raise ReplError("__usecs_to_jiffies next-symbol boundary is not the expected 0x38")
+    words = image.u32_words_at_vaddr(target_link, 14)
+    static_word_checks = (
+        ("static-load-saturation-threshold", 0, USECS_TO_JIFFIES_MOV_THRESHOLD_WORD),
+        ("static-compare-threshold", 1, USECS_TO_JIFFIES_CMP_THRESHOLD_WORD),
+        ("static-branch-to-roundup-path", 2, USECS_TO_JIFFIES_BLS_WORD),
+        ("static-load-max-jiffy-offset", 3, USECS_TO_JIFFIES_MOV_MAX_WORD),
+        ("static-early-ret", 4, USECS_TO_JIFFIES_EARLY_RET_WORD),
+        ("static-load-rounding-9999", 5, USECS_TO_JIFFIES_MOV_ROUND_WORD),
+        ("static-load-div10000-magic-low", 6, USECS_TO_JIFFIES_MOV_MAGIC_LO_WORD),
+        ("static-add-rounding-9999", 7, USECS_TO_JIFFIES_ADD_ROUND_WORD),
+        ("static-load-div10000-magic-high", 8, USECS_TO_JIFFIES_MOVK_MAGIC_HI_WORD),
+        ("static-umull", 9, USECS_TO_JIFFIES_UMULL_WORD),
+        ("static-lsr45", 10, USECS_TO_JIFFIES_LSR45_WORD),
+        ("static-ret", 11, USECS_TO_JIFFIES_RET_WORD),
+        ("static-align-nop", 12, USECS_TO_JIFFIES_NOP_WORD),
+        ("static-next-guard", 13, USECS_TO_JIFFIES_NEXT_GUARD_WORD),
+    )
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "__usecs_to_jiffies",
+            "resolution_method": resolutions["__usecs_to_jiffies"].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": "timespec64_to_jiffies",
+            "byte_size": "0x38",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for name, index, expected in static_word_checks:
+        observed = words[index]
+        ok = observed == expected
+        checks.append({
+            "check": name,
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"__usecs_to_jiffies {name} word mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for label, value in USECS_TO_JIFFIES_CASES:
+            observed = session.call_runtime(target_runtime, (value,))
+            expected = expected_usecs_to_jiffies(value)
+            ok = observed == expected
+            case_results.append({
+                "case": f"usecs-to-jiffies-hz100-{label}",
+                "input_value": f"0x{value:x}",
+                "expected_return": f"0x{expected:x}",
+                "observed_return_value": f"0x{observed:x}",
+                "matches_expected": ok,
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(
+                    "__usecs_to_jiffies proof failed for "
+                    f"{label}: observed 0x{observed:x}, expected 0x{expected:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "usecs-to-jiffies-fixed-hz100-roundup-and-saturation-cases",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-__usecs_to_jiffies-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "__usecs_to_jiffies",
+        "proof_status": "trusted-under-hz100-round-up-divide-by-10000-and-too-large-saturation-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["__usecs_to_jiffies"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["__usecs_to_jiffies"]["return_contract"],
+        "case_results": case_results,
+        "all_returns_match_expected": all(bool(case.get("matches_expected")) for case in case_results),
+        "case_count": len(case_results),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "__usecs_to_jiffies",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["__usecs_to_jiffies"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["__usecs_to_jiffies"]["return_contract"],
+            "observed_return_value": "fixed HZ=100 proof cases returned ceil(u / 10000) or MAX_JIFFY_OFFSET above the current-image saturation threshold",
+            "cleanup": "n/a-scalar-only",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "__usecs_to_jiffies_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_jiffies_to_usecs(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -28414,6 +28638,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "__msecs_to_jiffies":
         return _run_call_proof___msecs_to_jiffies(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "__usecs_to_jiffies":
+        return _run_call_proof___usecs_to_jiffies(
             session,
             symbols,
             image,
