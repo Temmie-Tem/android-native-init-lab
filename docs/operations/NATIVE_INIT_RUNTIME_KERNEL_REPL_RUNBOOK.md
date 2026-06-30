@@ -198,6 +198,16 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
   --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
   --evidence-dir workspace/private/runs/kernel/<unit>/ \
+  __sw_hweight8
+```
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/a90_repl.py call-proof \
+  --map workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map \
+  --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
+  --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
+  --evidence-dir workspace/private/runs/kernel/<unit>/ \
   __sw_hweight16
 ```
 
@@ -819,9 +829,9 @@ inputs, requires the expected decoded nibble for `0`, `9`, `a`/`A`, `f`/`F`, req
 return 32-bit `-1`, and has no owned pointer setup or cleanup. The `__sw_hweight32` proof is also
 scalar-only: it calls the verified helper with fixed 32-bit words, requires the expected population
 count for zero, all-ones, alternating, single-high-bit, and mixed marker cases, and has no owned
-pointer setup or cleanup. The `__sw_hweight16` proof is the same scalar-only pattern for fixed
-16-bit low-word inputs, requiring the expected population count for zero, all-ones, alternating,
-single-high-bit, and mixed marker cases. The `hex2bin` proof allocates owned
+pointer setup or cleanup. The `__sw_hweight16` and `__sw_hweight8` proofs are the same scalar-only
+pattern for fixed 16-bit and 8-bit low-word inputs, requiring the expected population count for zero,
+all-ones, alternating, single-high-bit, and mixed marker cases. The `hex2bin` proof allocates owned
 destination and source buffers, writes a fixed even-length ASCII hex source, calls
 `hex2bin(dst, src, count)`, requires return `0`, verifies the destination bytes match the decoded
 source bytes, verifies the destination canary and source buffer stay unchanged, frees both buffers,

@@ -306,6 +306,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "unsigned-int",
         "reason": "scalar 16-bit hamming-weight helper; x0 is one unsigned int and no pointer arguments are dereferenced",
     },
+    "__sw_hweight8": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "unsigned-int",
+        "reason": "scalar 8-bit hamming-weight helper; x0 is one unsigned int and no pointer arguments are dereferenced",
+    },
     "hex2bin": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "required_valid_pointer_args": {0: "destination-buffer", 1: "source-hex-buffer"},
@@ -3215,6 +3221,7 @@ _SOURCE_HINT_FILE_CACHE: dict[tuple[str, str], tuple[Path, ...]] = {}
 _SOURCE_FILE_TEXT_CACHE: dict[Path, str | None] = {}
 _SOURCE_C_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
+    "__sw_hweight8": ("include/linux/bitops.h",),
     "__sw_hweight16": ("include/linux/bitops.h",),
     "__sw_hweight32": ("include/linux/bitops.h",),
     "__sysfs_match_string": ("include/linux/string.h",),
@@ -4918,6 +4925,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern unsigned int __sw_hweight16(unsigned int w)",
     },
+    "__sw_hweight8": {
+        "input_contract": "scalar unsigned 8-bit byte in the low x0 bits",
+        "return_contract": "unsigned int == population count of the low 8 input bits",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern unsigned int __sw_hweight8(unsigned int w)",
+    },
     "hex2bin": {
         "input_contract": "owned destination byte buffer + owned ASCII hex source buffer + scalar byte count",
         "return_contract": "int == 0 and destination bytes equal decoded source bytes",
@@ -5476,6 +5489,13 @@ SW_HWEIGHT16_CASES = (
     ("alternating-a", 0xAAAA, 8),
     ("single-high-bit", 0x8000, 1),
     ("a90d", 0xA90D, 7),
+)
+SW_HWEIGHT8_CASES = (
+    ("zero", 0x00, 0),
+    ("all-ones", 0xFF, 8),
+    ("alternating-a", 0xAA, 4),
+    ("single-high-bit", 0x80, 1),
+    ("a9", 0xA9, 4),
 )
 HEX2BIN_SOURCE_BYTES = b"A90f00dC0ffEe1"
 HEX2BIN_SOURCE_LABEL = HEX2BIN_SOURCE_BYTES.decode("ascii")
@@ -17019,6 +17039,22 @@ def _run_call_proof___sw_hweight16(session: ReplSession,
     )
 
 
+def _run_call_proof___sw_hweight8(session: ReplSession,
+                                  symbols: dict[str, Symbol],
+                                  image: StaticImage,
+                                  *,
+                                  source_root: Path) -> tuple[dict[str, object], dict[str, object]]:
+    return _run_call_proof_scalar_hweight(
+        session,
+        symbols,
+        image,
+        target="__sw_hweight8",
+        cases=SW_HWEIGHT8_CASES,
+        input_width_bits=8,
+        source_root=source_root,
+    )
+
+
 def _run_call_proof_hex2bin(session: ReplSession,
                             symbols: dict[str, Symbol],
                             image: StaticImage,
@@ -20498,6 +20534,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "__sw_hweight16":
         return _run_call_proof___sw_hweight16(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "__sw_hweight8":
+        return _run_call_proof___sw_hweight8(
             session,
             symbols,
             image,
