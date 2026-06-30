@@ -331,6 +331,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "int-errno",
         "reason": "modern unsigned 8-bit integer parser; x0 must be an owned NUL-terminated string and x2 an owned u8 output slot",
     },
+    "kstrtos8": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "numeric-string-buffer", 2: "s8-result-output-slot"},
+        "return_kind": "int-errno",
+        "reason": "modern signed 8-bit integer parser; x0 must be an owned NUL-terminated string and x2 an owned s8 output slot",
+    },
     "kstrtoint": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "required_valid_pointer_args": {0: "numeric-string-buffer", 2: "int-result-output-slot"},
@@ -3142,6 +3148,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "kstrtouint": ("include/linux/kernel.h",),
     "kstrtou16": ("include/linux/kernel.h",),
     "kstrtou8": ("include/linux/kernel.h",),
+    "kstrtos8": ("include/linux/kernel.h",),
     "kstrtoint": ("include/linux/kernel.h",),
     "kstrtos16": ("include/linux/kernel.h",),
     "kfree": ("include/linux/slab.h",),
@@ -4841,6 +4848,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "int __must_check kstrtou8(const char *s, unsigned int base, u8 *res)",
     },
+    "kstrtos8": {
+        "input_contract": "owned NUL-terminated signed 8-bit numeric string + scalar base + owned s8 result slot",
+        "return_contract": "int == 0 and *res == expected parsed signed 8-bit int",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "int __must_check kstrtos8(const char *s, unsigned int base, s8 *res)",
+    },
     "kstrtoint": {
         "input_contract": "owned NUL-terminated signed numeric string + scalar base + owned int result slot",
         "return_contract": "int == 0 and *res == expected parsed signed int",
@@ -5253,6 +5266,17 @@ KSTRTOU8_INPUT_SCAN_LEN = len(KSTRTOU8_INPUT_BYTES) + KSTRTOU8_CANARY_LEN
 KSTRTOU8_RESULT_SLOT_INITIAL = 0x11
 KSTRTOU8_RESULT_SLOT_CANARY_LEN = 15
 KSTRTOU8_RESULT_SLOT_SCAN_LEN = 1 + KSTRTOU8_RESULT_SLOT_CANARY_LEN
+KSTRTOS8_INPUT_BYTES = b"-85\x00"
+KSTRTOS8_INPUT_LABEL = KSTRTOS8_INPUT_BYTES[:-1].decode("ascii")
+KSTRTOS8_BASE = 10
+KSTRTOS8_EXPECTED_RETURN = 0
+KSTRTOS8_EXPECTED_VALUE = -85
+KSTRTOS8_EXPECTED_RAW_U8 = KSTRTOS8_EXPECTED_VALUE & 0xFF
+KSTRTOS8_CANARY_LEN = 8
+KSTRTOS8_INPUT_SCAN_LEN = len(KSTRTOS8_INPUT_BYTES) + KSTRTOS8_CANARY_LEN
+KSTRTOS8_RESULT_SLOT_INITIAL = 0x11
+KSTRTOS8_RESULT_SLOT_CANARY_LEN = 15
+KSTRTOS8_RESULT_SLOT_SCAN_LEN = 1 + KSTRTOS8_RESULT_SLOT_CANARY_LEN
 KSTRTOINT_INPUT_BYTES = b"-12345\x00"
 KSTRTOINT_INPUT_LABEL = KSTRTOINT_INPUT_BYTES[:-1].decode("ascii")
 KSTRTOINT_BASE = 10
@@ -16617,6 +16641,259 @@ def _run_call_proof_kstrtou8(session: ReplSession,
     return summary, private
 
 
+def _run_call_proof_kstrtos8(session: ReplSession,
+                             symbols: dict[str, Symbol],
+                             image: StaticImage,
+                             *,
+                             alloc_size: int,
+                             source_root: Path,
+                             gfp: int,
+                             gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    required_alloc = max(KSTRTOS8_INPUT_SCAN_LEN, KSTRTOS8_RESULT_SLOT_SCAN_LEN)
+    if alloc_size < required_alloc:
+        raise ReplError(f"kstrtos8 call-proof alloc_size must be at least {required_alloc} bytes")
+
+    source = lookup_source_signature("kstrtos8", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "kstrtos8",
+        ("@owned_signed_numeric_string_buffer", KSTRTOS8_BASE, "@owned_s8_result_output_slot"),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["kstrtos8"]["expected_tier"]:
+        raise ReplError("kstrtos8 call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0, 2]:
+        raise ReplError("kstrtos8 source signature does not declare x0/x2 as pointer arguments")
+
+    resolutions = {
+        "kstrtos8": resolve_verified(symbols, image, "kstrtos8", purpose="call"),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    kstrtos8_link = require_verified_resolution(resolutions["kstrtos8"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof buffer allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof buffer cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    expected_input_scan = KSTRTOS8_INPUT_BYTES + (b"\xcc" * KSTRTOS8_CANARY_LEN)
+    expected_result_slot_before = (
+        KSTRTOS8_RESULT_SLOT_INITIAL.to_bytes(1, "little")
+        + (b"\xcc" * KSTRTOS8_RESULT_SLOT_CANARY_LEN)
+    )
+    expected_result_slot_after = (
+        KSTRTOS8_EXPECTED_RAW_U8.to_bytes(1, "little")
+        + (b"\xcc" * KSTRTOS8_RESULT_SLOT_CANARY_LEN)
+    )
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "kstrtos8",
+            "resolution_method": resolutions["kstrtos8"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+            "base": KSTRTOS8_BASE,
+        },
+    ]
+    private: dict[str, object] = {}
+    input_ptr = 0
+    result_slot_ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_attempted: list[str] = []
+    free_ok: dict[str, bool] = {"input": False, "result_slot": False}
+    free_errors: list[str] = []
+    proof_return = 0
+    observed_input_before = b""
+    observed_input_after = b""
+    observed_result_slot_before = b""
+    observed_result_slot_after = b""
+    observed_result_raw = 0
+    observed_result_value = 0
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        kstrtos8_runtime = (kstrtos8_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        input_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        result_slot_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        input_ok = is_kernel_lowmem_pointer(input_ptr)
+        result_slot_ok = is_kernel_lowmem_pointer(result_slot_ptr)
+        distinct_ok = input_ptr != result_slot_ptr
+        checks.append({
+            "check": "kmalloc-owned-kstrtos8-buffers",
+            "ok": input_ok and result_slot_ok and distinct_ok,
+            "alloc_size": alloc_size,
+            "input_kernel_lowmem": input_ok,
+            "result_slot_kernel_lowmem": result_slot_ok,
+            "distinct_buffers": distinct_ok,
+        })
+        if not (input_ok and result_slot_ok and distinct_ok):
+            raise ReplError("__kmalloc did not return sane distinct kstrtos8 buffers")
+
+        _poke_bytes(session, input_ptr, expected_input_scan)
+        _poke_bytes(session, result_slot_ptr, expected_result_slot_before)
+        observed_input_before = _peek_bytes(session, input_ptr, KSTRTOS8_INPUT_SCAN_LEN)
+        observed_result_slot_before = _peek_bytes(session, result_slot_ptr, KSTRTOS8_RESULT_SLOT_SCAN_LEN)
+        setup_ok = (
+            observed_input_before == expected_input_scan
+            and observed_result_slot_before == expected_result_slot_before
+        )
+        checks.append({
+            "check": "owned-kstrtos8-buffer-poke-peek",
+            "ok": setup_ok,
+            "input_ascii": KSTRTOS8_INPUT_LABEL,
+            "base": KSTRTOS8_BASE,
+            "input_canary_len": KSTRTOS8_CANARY_LEN,
+            "result_slot_canary_len": KSTRTOS8_RESULT_SLOT_CANARY_LEN,
+        })
+        if not setup_ok:
+            raise ReplError("owned kstrtos8 buffer poke/peek mismatch")
+
+        proof_return = session.call_runtime(
+            kstrtos8_runtime,
+            (input_ptr, KSTRTOS8_BASE, result_slot_ptr),
+        )
+        observed_input_after = _peek_bytes(session, input_ptr, KSTRTOS8_INPUT_SCAN_LEN)
+        observed_result_slot_after = _peek_bytes(session, result_slot_ptr, KSTRTOS8_RESULT_SLOT_SCAN_LEN)
+        observed_result_raw = int.from_bytes(observed_result_slot_after[:1], "little")
+        observed_result_value = (
+            observed_result_raw - 0x100
+            if observed_result_raw & 0x80 else observed_result_raw
+        )
+        return_ok = proof_return == KSTRTOS8_EXPECTED_RETURN
+        result_ok = (
+            observed_result_value == KSTRTOS8_EXPECTED_VALUE
+            and observed_result_raw == KSTRTOS8_EXPECTED_RAW_U8
+        )
+        input_unchanged = observed_input_after == expected_input_scan
+        result_canary_ok = observed_result_slot_after[1:] == (b"\xcc" * KSTRTOS8_RESULT_SLOT_CANARY_LEN)
+        checks.append({
+            "check": "kstrtos8-return-contract",
+            "ok": return_ok,
+            "input_ascii": KSTRTOS8_INPUT_LABEL,
+            "base": KSTRTOS8_BASE,
+            "expected_return": KSTRTOS8_EXPECTED_RETURN,
+            "observed_return": proof_return,
+        })
+        if not return_ok:
+            raise ReplError("kstrtos8 return code did not match")
+        checks.append({
+            "check": "kstrtos8-result-contract",
+            "ok": result_ok,
+            "expected_result": KSTRTOS8_EXPECTED_VALUE,
+            "observed_result": observed_result_value,
+            "expected_result_raw_hex": f"0x{KSTRTOS8_EXPECTED_RAW_U8:02x}",
+            "observed_result_raw_hex": f"0x{observed_result_raw:02x}",
+        })
+        if not result_ok:
+            raise ReplError("kstrtos8 parsed result value did not match")
+        checks.append({
+            "check": "kstrtos8-input-immutability",
+            "ok": input_unchanged,
+            "input_unchanged": input_unchanged,
+        })
+        if not input_unchanged:
+            raise ReplError("kstrtos8 modified the input buffer")
+        checks.append({
+            "check": "kstrtos8-result-slot-canary",
+            "ok": result_canary_ok,
+            "result_slot_canary_ok": result_canary_ok,
+        })
+        if not result_canary_ok:
+            raise ReplError("kstrtos8 wrote past the owned result slot")
+    finally:
+        if kfree_runtime:
+            for label, ptr in (("input", input_ptr), ("result_slot", result_slot_ptr)):
+                if ptr and is_kernel_lowmem_pointer(ptr):
+                    free_attempted.append(label)
+                    try:
+                        session.call_runtime(kfree_runtime, (ptr,))
+                        free_ok[label] = True
+                    except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                        free_errors.append(f"{label}:{exc}")
+        session.set_panic_on_oops(1)
+
+    cleanup_ok = bool(free_ok["input"] and free_ok["result_slot"])
+    checks.append({
+        "check": "kfree-owned-kstrtos8-buffers",
+        "ok": cleanup_ok,
+        "free_attempted": free_attempted,
+        "input_free_ok": free_ok["input"],
+        "result_slot_free_ok": free_ok["result_slot"],
+    })
+    if free_errors:
+        raise ReplError(f"kfree failed after kstrtos8 proof: {free_errors}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-kstrtos8-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "kstrtos8",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["kstrtos8"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["kstrtos8"]["return_contract"],
+        "alloc_size": alloc_size,
+        "input_ascii": KSTRTOS8_INPUT_LABEL,
+        "base": KSTRTOS8_BASE,
+        "expected_return": KSTRTOS8_EXPECTED_RETURN,
+        "observed_return": proof_return,
+        "expected_result": KSTRTOS8_EXPECTED_VALUE,
+        "observed_result": observed_result_value,
+        "expected_result_raw_hex": f"0x{KSTRTOS8_EXPECTED_RAW_U8:02x}",
+        "observed_result_raw_hex": f"0x{observed_result_raw:02x}",
+        "input_unchanged_after_call": observed_input_after == expected_input_scan,
+        "result_slot_canary_preserved": observed_result_slot_after[1:] == (b"\xcc" * KSTRTOS8_RESULT_SLOT_CANARY_LEN),
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "kstrtos8",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["kstrtos8"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["kstrtos8"]["return_contract"],
+            "observed_return_value": "returned 0 and stored -85 in the owned signed-8 result slot",
+            "cleanup": "kfree-owned-kstrtos8-buffers-ok" if cleanup_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "kstrtos8_runtime": f"0x{((kstrtos8_link + slide) & MASK64):x}",
+        "input_ptr": f"0x{input_ptr:x}",
+        "result_slot_ptr": f"0x{result_slot_ptr:x}",
+        "input_before_hex": observed_input_before.hex(),
+        "input_after_hex": observed_input_after.hex(),
+        "result_slot_before_hex": observed_result_slot_before.hex(),
+        "result_slot_after_hex": observed_result_slot_after.hex(),
+        "expected_result_slot_after_hex": expected_result_slot_after.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
 def _run_call_proof_kstrtoint(session: ReplSession,
                               symbols: dict[str, Symbol],
                               image: StaticImage,
@@ -17216,6 +17493,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "kstrtou8":
         return _run_call_proof_kstrtou8(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "kstrtos8":
+        return _run_call_proof_kstrtos8(
             session,
             symbols,
             image,
