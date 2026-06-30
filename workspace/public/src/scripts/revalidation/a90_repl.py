@@ -31747,6 +31747,80 @@ def cmd_call_proof(args: argparse.Namespace) -> int:
     return 0 if summary["ok"] else 1
 
 
+def run_call_proof_batch(session: ReplSession,
+                         symbols: dict[str, Symbol],
+                         image: StaticImage,
+                         targets: tuple[str, ...],
+                         *,
+                         alloc_size: int = KMALLOC_ROUNDTRIP_SIZE,
+                         max_expected_return: int | None = None,
+                         source_root: Path = DEFAULT_KERNEL_SOURCE_ROOT,
+                         gfp_header: Path = DEFAULT_GFP_HEADER,
+                         gfp_value: int | None = None) -> tuple[dict[str, object], dict[str, object]]:
+    if not targets:
+        raise ReplError("call-proof-batch requires at least one target")
+
+    summaries: list[dict[str, object]] = []
+    private_by_target: dict[str, object] = {}
+    stopped_after_failure = False
+    for target in targets:
+        summary, private = run_call_proof(
+            session,
+            symbols,
+            image,
+            target,
+            alloc_size=alloc_size,
+            max_expected_return=max_expected_return,
+            source_root=source_root,
+            gfp_header=gfp_header,
+            gfp_value=gfp_value,
+        )
+        summaries.append(summary)
+        private_by_target[target] = private
+        if not summary.get("ok"):
+            stopped_after_failure = True
+            break
+
+    ok = len(summaries) == len(targets) and all(bool(row.get("ok")) for row in summaries)
+    summary = {
+        "ok": ok,
+        "decision": f"a90-repl-live-call-proof-batch-{'pass' if ok else 'fail'}",
+        "target_count": len(targets),
+        "targets": list(targets),
+        "completed_target_count": len(summaries),
+        "completed_targets": list(targets[:len(summaries)]),
+        "host_batch_single_repl_session": True,
+        "stopped_after_failure": stopped_after_failure,
+        "raw_runtime_values_redacted": True,
+        "summaries": summaries,
+    }
+    private = {
+        "target_privates": private_by_target,
+        "raw_runtime_values_redacted_from_summary": True,
+    }
+    return summary, private
+
+
+def cmd_call_proof_batch(args: argparse.Namespace) -> int:
+    symbols = load_system_map(args.map)
+    image = load_static_image(args.image)
+    session = make_session(args)
+    summary, private = run_call_proof_batch(
+        session,
+        symbols,
+        image,
+        tuple(args.targets),
+        alloc_size=args.alloc_size,
+        max_expected_return=args.max_expected_return,
+        source_root=args.source_root,
+        gfp_header=args.gfp_header,
+        gfp_value=args.gfp,
+    )
+    write_evidence(args, {**summary, "_private": private})
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0 if summary["ok"] else 1
+
+
 def cmd_poke_roundtrip(args: argparse.Namespace) -> int:
     symbols = load_system_map(args.map)
     image = load_static_image(args.image)
@@ -31971,6 +32045,22 @@ def main(argv: list[str] | None = None) -> int:
     p_call_proof.add_argument("--gfp", type=parse_int_auto, default=None,
                               help="override GFP value; default derives GFP_KERNEL from --gfp-header")
     p_call_proof.set_defaults(func=cmd_call_proof)
+
+    p_call_proof_batch = sub.add_parser(
+        "call-proof-batch",
+        help="run several live-call proofs in one ReplSession",
+    )
+    add_common(p_call_proof_batch)
+    p_call_proof_batch.add_argument("targets", nargs="+", choices=sorted(CALL_PROOF_TARGETS))
+    p_call_proof_batch.add_argument("--alloc-size", type=parse_int_auto, default=KMALLOC_ROUNDTRIP_SIZE)
+    p_call_proof_batch.add_argument("--max-expected-return", type=parse_int_auto, default=None,
+                                    help="upper bound for target return contract; default is alloc_size*2")
+    p_call_proof_batch.add_argument("--source-root", type=Path, default=DEFAULT_KERNEL_SOURCE_ROOT,
+                                    help="offline kernel source tree for signature xref")
+    p_call_proof_batch.add_argument("--gfp-header", type=Path, default=DEFAULT_GFP_HEADER)
+    p_call_proof_batch.add_argument("--gfp", type=parse_int_auto, default=None,
+                                    help="override GFP value; default derives GFP_KERNEL from --gfp-header")
+    p_call_proof_batch.set_defaults(func=cmd_call_proof_batch)
 
     p_round = sub.add_parser("poke-roundtrip", help="v2a2 kmalloc-backed poke/peek/kfree proof")
     add_common(p_round)

@@ -10,6 +10,11 @@ from __future__ import annotations
 import struct
 import unittest
 import hashlib
+import argparse
+import contextlib
+import io
+import json
+import tempfile
 from pathlib import Path
 
 from _loader import load_script
@@ -7066,6 +7071,61 @@ class SelftestIntegrationTests(unittest.TestCase):
                 self.assertTrue(cases[f"{target}-read-2"]["bounded_short_repeat_drift"])
             self.assertIn(f"{target}_runtime", privates[target])
             self.assertEqual(privates[target]["case_returns"][f"{target}-read-1"], expected_first[target])
+        self.assertEqual(fake.op_count, 12)  # 4 targets * (slide + 2 scalar proof calls)
+
+    def test_call_proof_batch_cli_runs_scheduler_targets_in_one_session(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+
+        targets = (
+            "nr_processes",
+            "nr_running",
+            "nr_iowait",
+            "nr_context_switches",
+        )
+        with tempfile.TemporaryDirectory() as td:
+            args = argparse.Namespace(
+                map=C2B_PADDING_MAP_PATH,
+                image=IMAGE_PATH,
+                host="127.0.0.1",
+                port=54321,
+                busybox=repl.DEFAULT_BUSYBOX,
+                timeout=25.0,
+                dmesg_tail=repl.DEFAULT_DMESG_TAIL,
+                safe_op_retries=2,
+                retry_delay_sec=0.2,
+                evidence_dir=Path(td),
+                targets=list(targets),
+                alloc_size=repl.KMALLOC_ROUNDTRIP_SIZE,
+                max_expected_return=None,
+                source_root=KERNEL_SOURCE_ROOT,
+                gfp_header=repl.DEFAULT_GFP_HEADER,
+                gfp=None,
+            )
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                rc = repl.cmd_call_proof_batch(args)
+
+            self.assertEqual(rc, 0)
+            summary = json.loads(out.getvalue())
+            self.assertTrue(summary["ok"], summary)
+            self.assertEqual(summary["decision"], "a90-repl-live-call-proof-batch-pass")
+            self.assertEqual(summary["target_count"], 4)
+            self.assertEqual(summary["completed_targets"], list(targets))
+            self.assertTrue(summary["host_batch_single_repl_session"])
+            self.assertEqual(len(summary["summaries"]), 4)
+            self.assertTrue(summary["raw_runtime_values_redacted"])
+
+            evidence = json.loads((Path(td) / "a90_repl_evidence.json").read_text())
+            self.assertTrue(evidence["ok"])
+            self.assertIn("_private", evidence)
+            self.assertEqual(sorted(evidence["_private"]["target_privates"]), sorted(targets))
         self.assertEqual(fake.op_count, 12)  # 4 targets * (slide + 2 scalar proof calls)
 
     def test_call_proof_jiffies_to_clock_t_passes_with_positive_identity_contract(self) -> None:

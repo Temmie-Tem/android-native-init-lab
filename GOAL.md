@@ -806,6 +806,46 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ⚠️ STOPPED — REPL scheduler counter batch second live-call proof attempt aborted before live proof
+
+> ### ⚠️ STATUS (2026-07-01 attempted, rolled back cleanly) — corrected bridge cadence passed, ad-hoc import wrapper failed before target calls
+>
+> Codex retried the scheduler-counter batch only after host-validating the
+> corrected bridge cadence on resident v2321 (`a90_bridge.py restart`, `12s`
+> settle, `a90ctl --timeout 30 version/selftest/status`). Static gates still
+> passed for `nr_processes`, `nr_running`, `nr_iowait`, and
+> `nr_context_switches`; parked neighbors (`nr_iowait_cpu`,
+> `single_task_running`, `get_avenrun`, `si_swapinfo`) stayed denied.
+>
+> The live attempt flashed the same v1-repl candidate through
+> `native_init_flash.py`; candidate SHA/readback matched, the helper's built-in
+> native-init verify passed, and explicit candidate `version/selftest/status`
+> passed after bridge restart + `12s` settle. The run then stopped before any
+> REPL proof call because the ad-hoc Python wrapper loaded `a90_repl.py` via
+> `importlib` without the script directory on `sys.path`, so
+> `_workspace_bootstrap` was not importable. No scheduler counter was called.
+> Rollback to v2321 completed with matching readback SHA, and explicit final
+> `version/selftest/status` passed after bridge restart + `12s` settle
+> (`selftest pass=11 warn=1 fail=0`).
+>
+> Timing was recorded per the 2026-07-01 timing rule: candidate flash helper
+> `63.794s`, candidate flash start to boot ready `85.885s`, live proof session
+> not reached, rollback flash helper `68.237s`, rollback flash start to boot
+> ready `89.049s`, candidate-start to rollback-ready `174.946s`.
+>
+> Host-only fix now added: `a90_repl.py call-proof-batch target...` runs
+> multiple proof targets in one `ReplSession` through the normal script entrypoint
+> and writes combined private evidence via `--evidence-dir`. Validation passed:
+> `py_compile`, `call-proof-batch --help`, focused fake batch CLI test, and
+> `git diff --check`.
+>
+> **No scheduler counter function-map entry is promoted from this attempt.**
+> Because this is the second aborted scheduler-counter device attempt, stop
+> flashing this sub-goal under the active `fails-twice -> stop` rule. Any new
+> flash needs explicit operator approval and should use the new batch CLI rather
+> than an ad-hoc import wrapper. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_SCHEDULER_COUNTER_BATCH_ATTEMPT2_ABORTED_2026-07-01.md`.
+
 ## ⚠️ STOPPED — REPL scheduler counter batch live-call proof attempt aborted before live proof
 
 > ### ⚠️ STATUS (2026-07-01 attempted, rolled back cleanly) — host wrapper post-flash settle/timeout issue, no target promoted
