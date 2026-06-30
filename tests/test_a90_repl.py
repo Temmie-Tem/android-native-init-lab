@@ -1798,6 +1798,43 @@ class CallSafetyClassificationTests(unittest.TestCase):
             ],
         )
 
+        is_scm_armv8 = self._row("is_scm_armv8")
+        self.assertEqual(is_scm_armv8["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(is_scm_armv8["required_valid_pointer_args"], {})
+        self.assertTrue(is_scm_armv8["resolution"]["verified"])
+        self.assertEqual(is_scm_armv8["resolution"]["method"], "export-recovery")
+        self.assertEqual(
+            is_scm_armv8["resolution"]["link_vaddr"],
+            "0xffffff800869493c",
+        )
+        self.assertGreaterEqual(is_scm_armv8["signals"]["direct_bl_xref_count"], 20)
+        self.assertEqual(
+            is_scm_armv8["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertTrue(
+            is_scm_armv8["signals"]["arg_taint_flow"][
+                "safe_scalar_positive_no_arg_memory_base_flow"
+            ]
+        )
+        self.assertEqual(
+            is_scm_armv8["signals"]["first_words"][:12],
+            [
+                "0xf81e0ff5",
+                "0xa9014ff4",
+                "0xf0015092",
+                "0xb948fa48",
+                "0x340000e8",
+                "0xa9414ff4",
+                "0x32000108",
+                "0x71000d1f",
+                "0x1a9f17e0",
+                "0xf84207f5",
+                "0xd65f03c0",
+                "0x52800068",
+            ],
+        )
+
         is_sde_rsc_available = self._row("is_sde_rsc_available")
         self.assertEqual(is_sde_rsc_available["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
         self.assertEqual(is_sde_rsc_available["required_valid_pointer_args"], {})
@@ -3121,6 +3158,21 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertEqual(get_seconds["selected"]["line"], 26)
         self.assertTrue(get_seconds["selected"]["path"].endswith("include/linux/timekeeping.h"))
 
+        is_scm_armv8 = repl.lookup_source_signature("is_scm_armv8", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(is_scm_armv8["status"], "found", is_scm_armv8)
+        self.assertEqual(is_scm_armv8["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            is_scm_armv8["selected"]["signature"],
+            "extern bool is_scm_armv8(void)",
+        )
+        self.assertEqual(is_scm_armv8["selected"]["line"], 112)
+        self.assertTrue(is_scm_armv8["selected"]["path"].endswith("include/soc/qcom/scm.h"))
+        impl_text = (
+            KERNEL_SOURCE_ROOT / "drivers/soc/qcom/scm.c"
+        ).read_text(encoding="utf-8", errors="replace")
+        self.assertIn("bool is_scm_armv8(void)", impl_text)
+        self.assertIn("if (likely(scm_version != SCM_UNKNOWN))", impl_text)
+
         is_sde_rsc_available = repl.lookup_source_signature(
             "is_sde_rsc_available",
             source_root=KERNEL_SOURCE_ROOT,
@@ -3942,6 +3994,12 @@ class FaithfulFakeTransport:
             "get_seconds",
             purpose="call",
         ).link_vaddr
+        self.is_scm_armv8_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "is_scm_armv8",
+            purpose="call",
+        ).link_vaddr
         self.is_sde_rsc_available_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -4052,6 +4110,7 @@ class FaithfulFakeTransport:
         self.boot_stat_time_index = 0
         self.get_seconds_values = [0x69000000, 0x69000001]
         self.get_seconds_index = 0
+        self.scm_version_value = repl.SCM_ARMV8_64
         self.sde_rsc_available_value = 1
         self.sde_rsc_current_state_value = 2
         self.sde_rsc_primary_crtc_value = 133
@@ -4709,6 +4768,10 @@ class FaithfulFakeTransport:
             if self.borrowed_ddr_vendor_ptr <= arg0 < self.borrowed_ddr_vendor_ptr + repl.GET_DDR_VENDOR_NAME_READ_LEN:
                 value = int.from_bytes(self._heap_bytes(arg0, length), "little")
                 lines.append(f"A90R{value:x}")
+            elif arg0 == repl.IS_SCM_ARMV8_SCM_VERSION_LINK + self.slide:
+                data = self.scm_version_value.to_bytes(4, "little")[:length]
+                value = int.from_bytes(data, "little")
+                lines.append(f"A90R{value:x}")
             elif arg0 == self.init_task_runtime + repl.SCHED_GET_GROUP_ID_TASK_GROUP_OFFSET:
                 data = self.init_task_sched_group_ptr.to_bytes(8, "little")[:length]
                 value = int.from_bytes(data, "little")
@@ -4782,6 +4845,8 @@ class FaithfulFakeTransport:
             get_boot_stat_time = self.get_boot_stat_time_link + self.slide
             assert self.get_seconds_link is not None
             get_seconds = self.get_seconds_link + self.slide
+            assert self.is_scm_armv8_link is not None
+            is_scm_armv8 = self.is_scm_armv8_link + self.slide
             assert self.is_sde_rsc_available_link is not None
             is_sde_rsc_available = self.is_sde_rsc_available_link + self.slide
             assert self.get_sde_rsc_current_state_link is not None
@@ -5459,6 +5524,11 @@ class FaithfulFakeTransport:
                     min(self.get_seconds_index, len(self.get_seconds_values) - 1)
                 ]
                 self.get_seconds_index += 1
+                lines.append(f"A90R{value:x}")
+            elif arg0 == is_scm_armv8:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("is_scm_armv8 proof must pass no arguments")
+                value = 1 if self.scm_version_value in (repl.SCM_ARMV8_32, repl.SCM_ARMV8_64) else 0
                 lines.append(f"A90R{value:x}")
             elif arg0 == is_sde_rsc_available:
                 if (arg1, arg2, arg3, arg4) != (repl.IS_SDE_RSC_AVAILABLE_INDEX, 0, 0, 0):
@@ -7178,6 +7248,90 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(private["case_returns"]["get_seconds-read-2"], "0x69000001")
         self.assertEqual(private["case_deltas"]["get_seconds-read-2"], "0x1")
         self.assertEqual(fake.op_count, 3)  # slide + 2 no-arg proof calls
+
+    def test_call_proof_is_scm_armv8_passes_with_cached_scm_version_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        fake.scm_version_value = repl.SCM_ARMV8_64
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "is_scm_armv8",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(
+            summary["decision"],
+            "a90-repl-live-call-proof-is_scm_armv8-pass",
+        )
+        self.assertEqual(summary["proof_status"], "trusted-under-cached-scm-version-bool-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "is_scm_armv8")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["function_map_entry"]["auto_call_policy"],
+            "cached-path-proof-only-not-mass-call",
+        )
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern bool is_scm_armv8(void)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(summary["source_implementation_evidence"]["path"], "drivers/soc/qcom/scm.c")
+        self.assertEqual(summary["cached_scm_version_value"], "0x3")
+        self.assertEqual(summary["cached_scm_version_class"], "SCM_ARMV8")
+        self.assertEqual(summary["expected_return_from_cached_scm_version"], "0x1")
+        self.assertEqual(summary["observed_return_value"], "0x1")
+        self.assertTrue(summary["all_returns_bool"])
+        self.assertTrue(summary["all_returns_match_cached_scm_version"])
+        self.assertTrue(summary["all_returns_stable"])
+        self.assertTrue(summary["scm_version_unchanged"])
+        self.assertEqual(summary["repeat_count"], 2)
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertNotIn("is_scm_armv8_runtime", summary)
+        self.assertIn("is_scm_armv8_runtime", private)
+        self.assertIn("scm_version_runtime", private)
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertEqual(cases["is_scm_armv8-cached-read-1"]["cached_scm_version"], "0x3")
+        self.assertEqual(cases["is_scm_armv8-cached-read-1"]["observed_return_value"], "0x1")
+        self.assertTrue(cases["is_scm_armv8-cached-read-1"]["matches_cached_scm_version"])
+        self.assertEqual(cases["is_scm_armv8-cached-read-2"]["observed_return_value"], "0x1")
+        self.assertTrue(cases["is_scm_armv8-cached-read-2"]["matches_first_call"])
+        self.assertEqual(private["pre_scm_version_raw"], "0x3")
+        self.assertEqual(private["post_scm_version_raw"], "0x3")
+        self.assertEqual(private["case_returns"]["is_scm_armv8-cached-read-1"], "0x1")
+        self.assertEqual(private["case_returns"]["is_scm_armv8-cached-read-2"], "0x1")
+        self.assertEqual(fake.op_count, 5)  # slide + pre-peek + 2 calls + post-peek
+
+    def test_call_proof_is_scm_armv8_refuses_uncached_scm_version(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        fake.scm_version_value = repl.SCM_UNKNOWN
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        with self.assertRaisesRegex(repl.ReplError, "SCM_UNKNOWN"):
+            repl.run_call_proof(
+                session,
+                symbols,
+                self.image,
+                "is_scm_armv8",
+                source_root=KERNEL_SOURCE_ROOT,
+            )
+        self.assertEqual(fake.op_count, 2)  # slide + pre-peek; no call when cache is unknown
 
     def test_call_proof_is_sde_rsc_available_passes_with_index0_bool_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

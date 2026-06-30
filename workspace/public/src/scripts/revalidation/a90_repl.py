@@ -403,6 +403,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "unsigned-long-seconds",
         "reason": "no-argument kernel wall-clock seconds getter; proof expects nondecreasing short-repeat seconds and no pointer arguments",
     },
+    "is_scm_armv8": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "bool-from-cached-scm-version",
+        "reason": "no-argument Qualcomm SCM convention query; proof pre-peeks scm_version and calls only when the cached nonzero path prevents SMC initialization",
+    },
     "is_sde_rsc_available": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -3587,6 +3593,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "nsecs_to_jiffies64": ("include/linux/jiffies.h",),
     "nsecs_to_jiffies": ("include/linux/jiffies.h",),
     "get_boot_stat_time": ("include/soc/qcom/boot_stats.h",),
+    "is_scm_armv8": ("include/soc/qcom/scm.h", "drivers/soc/qcom/scm.c"),
     "get_cpu_device": ("include/linux/cpu.h",),
     "get_current_napi_context": ("include/linux/netdevice.h",),
     "__task_pid_nr_ns": ("include/linux/sched.h",),
@@ -5442,6 +5449,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "unsigned long get_seconds(void)",
     },
+    "is_scm_armv8": {
+        "input_contract": "no arguments; proof first verifies scm_version is already cached nonzero so the function takes only the cached read-only return path and does not execute SMC initialization",
+        "return_contract": "bool equals cached scm_version armv8 classification: SCM_LEGACY returns 0, SCM_ARMV8_32/64 returns 1, repeated calls stable and scm_version unchanged",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern bool is_scm_armv8(void)",
+    },
     "is_sde_rsc_available": {
         "input_contract": "scalar rsc_index fixed to SDE_RSC_INDEX 0; display RSC table is read-only; no returned pointer is dereferenced or freed",
         "return_contract": "bool availability value is either 0 or 1 and stable across repeated proof calls",
@@ -6680,6 +6693,49 @@ GET_SECONDS_EXPECTED_WORDS = (
 GET_SECONDS_NEXT_SYMBOL = ("__current_kernel_time", 0x18)
 GET_SECONDS_REPEAT_COUNT = 2
 GET_SECONDS_MAX_SHORT_DELTA = 2
+IS_SCM_ARMV8_SCM_VERSION_LINK = 0xFFFFFF800B0A78F8
+IS_SCM_ARMV8_REPEAT_COUNT = 2
+SCM_UNKNOWN = 0
+SCM_LEGACY = 1
+SCM_ARMV8_32 = 2
+SCM_ARMV8_64 = 3
+IS_SCM_ARMV8_KNOWN_VERSIONS = (SCM_LEGACY, SCM_ARMV8_32, SCM_ARMV8_64)
+IS_SCM_ARMV8_EXPECTED_WORDS = (
+    0xF81E0FF5, 0xA9014FF4, 0xF0015092, 0xB948FA48,
+    0x340000E8, 0xA9414FF4, 0x32000108, 0x71000D1F,
+    0x1A9F17E0, 0xF84207F5, 0xD65F03C0, 0x52800068,
+    0x5280C020, 0x5280C022, 0x72B84000, 0x72B04002,
+    0x52800021, 0xAA1F03E3, 0xAA1F03E4, 0xAA1F03E5,
+    0xAA1F03E6, 0xB908FA48, 0xD4000003, 0xF100041F,
+    0x540000A1, 0x52800020, 0xD4000003, 0xF100041F,
+    0x54FFFFA0, 0x350000E0, 0xB40000C1, 0xB948FA48,
+    0xF0015089, 0x5280002A, 0x3923F12A, 0x17FFFFE2,
+    0x5280C020, 0x2A1F03E3, 0x72B04000, 0x2A1F03E4,
+    0x2A1F03E5, 0x2A1F03E6, 0x52800021, 0x2A0003E2,
+    0x52800035, 0xD4000003, 0x7100041F, 0x540000A1,
+    0x52800020, 0xD4000003, 0x7100041F, 0x54FFFFA0,
+    0x7100003F, 0x7A401800, 0x1A9516A8, 0xB908FA48,
+    0x17FFFFCD, 0x00BE7BAD,
+)
+IS_SCM_ARMV8_STATIC_CHECKS = (
+    ("static-stack-save", 0, 0xF81E0FF5),
+    ("static-pair-save", 1, 0xA9014FF4),
+    ("static-scm-version-adrp", 2, 0xF0015092),
+    ("static-scm-version-load", 3, 0xB948FA48),
+    ("static-branch-to-smc-init-if-unknown", 4, 0x340000E8),
+    ("static-cached-restore", 5, 0xA9414FF4),
+    ("static-cached-or-armv8-bit", 6, 0x32000108),
+    ("static-cached-cmp-armv8", 7, 0x71000D1F),
+    ("static-cached-bool-cset", 8, 0x1A9F17E0),
+    ("static-cached-ret", 10, 0xD65F03C0),
+    ("static-init-version-store", 21, 0xB908FA48),
+    ("static-init-smc64-call", 22, 0xD4000003),
+    ("static-init-smc32-call", 45, 0xD4000003),
+    ("static-final-version-store", 55, 0xB908FA48),
+    ("static-loop-to-cached-return", 56, 0x17FFFFCD),
+    ("static-next-guard", 57, 0x00BE7BAD),
+)
+IS_SCM_ARMV8_NEXT_SYMBOL = ("scm_call2", 0xE8)
 JIFFIES_TO_CLOCK_T_RET_WORD = 0xD65F03C0
 JIFFIES_TO_CLOCK_T_NEXT_GUARD_WORD = 0x00BE7BAD
 JIFFIES_TO_CLOCK_T_CASES = (
@@ -24191,6 +24247,247 @@ def _run_call_proof_get_seconds(
     return summary, private
 
 
+def _run_call_proof_is_scm_armv8(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "is_scm_armv8"
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        (),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError(f"{target} source signature must be scalar-only")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the exported declaration")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(
+        resolutions[target],
+        "call-proof target",
+    )
+    next_symbol_name, expected_boundary = IS_SCM_ARMV8_NEXT_SYMBOL
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    observed_words = image.u32_words_at_vaddr(target_link, len(IS_SCM_ARMV8_EXPECTED_WORDS))
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for name, index, expected in IS_SCM_ARMV8_STATIC_CHECKS:
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": name,
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} {name} word mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+    pre_scm_version = 0
+    post_scm_version = 0
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        scm_version_runtime = (IS_SCM_ARMV8_SCM_VERSION_LINK + slide) & MASK64
+        pre_scm_version = session.peek_runtime(scm_version_runtime, 4) & 0xFFFFFFFF
+        if pre_scm_version == SCM_UNKNOWN:
+            raise ReplError(
+                "is_scm_armv8 proof refused to call: scm_version cache is SCM_UNKNOWN, "
+                "which would enter the SMC initialization path"
+            )
+        if pre_scm_version not in IS_SCM_ARMV8_KNOWN_VERSIONS:
+            raise ReplError(
+                f"is_scm_armv8 proof refused to call: scm_version cache has unknown "
+                f"value 0x{pre_scm_version:x}"
+            )
+        expected_return = 1 if pre_scm_version in (SCM_ARMV8_32, SCM_ARMV8_64) else 0
+        for index in range(IS_SCM_ARMV8_REPEAT_COUNT):
+            observed = session.call_runtime(target_runtime, ()) & MASK64
+            returns.append(observed)
+            bool_ok = observed in (0, 1)
+            expected_ok = observed == expected_return
+            stable_ok = index == 0 or observed == returns[0]
+            ok = bool_ok and expected_ok and stable_ok
+            case_results.append({
+                "case": f"{target}-cached-read-{index + 1}",
+                "cached_scm_version": f"0x{pre_scm_version:x}",
+                "expected_return": f"0x{expected_return:x}",
+                "observed_return_value": f"0x{observed:x}",
+                "bool_return": bool_ok,
+                "matches_cached_scm_version": expected_ok,
+                "matches_first_call": stable_ok,
+                "ok": ok,
+            })
+            if not bool_ok:
+                raise ReplError(
+                    f"{target}() did not return a bool value in proof call "
+                    f"{index + 1}: 0x{observed:x}"
+                )
+            if not expected_ok:
+                raise ReplError(
+                    f"{target}() return did not match cached scm_version "
+                    f"0x{pre_scm_version:x}: observed 0x{observed:x}, "
+                    f"expected 0x{expected_return:x}"
+                )
+            if not stable_ok:
+                raise ReplError(
+                    f"{target}() was not stable across repeated proof calls: "
+                    f"first=0x{returns[0]:x}, call{index + 1}=0x{observed:x}"
+                )
+        post_scm_version = session.peek_runtime(scm_version_runtime, 4) & 0xFFFFFFFF
+        if post_scm_version != pre_scm_version:
+            raise ReplError(
+                f"{target} changed scm_version during cached-path proof: "
+                f"before=0x{pre_scm_version:x}, after=0x{post_scm_version:x}"
+            )
+    finally:
+        session.set_panic_on_oops(1)
+
+    expected_public = (
+        "SCM_ARMV8" if pre_scm_version in (SCM_ARMV8_32, SCM_ARMV8_64) else "SCM_LEGACY"
+    )
+    checks.append({
+        "check": "runtime-scm-version-cache-preflight",
+        "ok": pre_scm_version in IS_SCM_ARMV8_KNOWN_VERSIONS,
+        "cached_scm_version": f"0x{pre_scm_version:x}",
+        "cache_state": expected_public,
+        "smc_init_path_refused_when_unknown": True,
+    })
+    checks.append({
+        "check": "is-scm-armv8-cached-bool-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    checks.append({
+        "check": "runtime-scm-version-cache-unchanged",
+        "ok": post_scm_version == pre_scm_version,
+        "pre_scm_version": f"0x{pre_scm_version:x}",
+        "post_scm_version": f"0x{post_scm_version:x}",
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = f"0x{returns[0]:x}" if returns else "n/a"
+    expected_return_public = (
+        f"0x{(1 if pre_scm_version in (SCM_ARMV8_32, SCM_ARMV8_64) else 0):x}"
+        if pre_scm_version in IS_SCM_ARMV8_KNOWN_VERSIONS else "n/a"
+    )
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-cached-scm-version-bool-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "observed_return_value": observed_public,
+        "expected_return_from_cached_scm_version": expected_return_public,
+        "cached_scm_version_value": f"0x{pre_scm_version:x}",
+        "cached_scm_version_class": expected_public,
+        "all_returns_bool": bool(returns) and all(value in (0, 1) for value in returns),
+        "all_returns_match_cached_scm_version": bool(returns) and all(
+            value == (1 if pre_scm_version in (SCM_ARMV8_32, SCM_ARMV8_64) else 0)
+            for value in returns
+        ),
+        "all_returns_stable": bool(returns) and all(value == returns[0] for value in returns),
+        "scm_version_unchanged": post_scm_version == pre_scm_version,
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "source_implementation_evidence": {
+            "path": "drivers/soc/qcom/scm.c",
+            "signature": "bool is_scm_armv8(void)",
+            "cached_path": "if (likely(scm_version != SCM_UNKNOWN)) return armv8-bool",
+            "runtime_guard": "proof refuses to call when scm_version == SCM_UNKNOWN",
+        },
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": (
+                f"repeated cached-path calls returned stable bool {observed_public} "
+                f"for cached scm_version 0x{pre_scm_version:x}"
+            ),
+            "cleanup": "n/a-scalar-cached-read-only",
+            "auto_call_policy": "cached-path-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "scm_version_link": f"0x{IS_SCM_ARMV8_SCM_VERSION_LINK:x}",
+        "scm_version_runtime": f"0x{((IS_SCM_ARMV8_SCM_VERSION_LINK + slide) & MASK64):x}",
+        "pre_scm_version_raw": f"0x{pre_scm_version:x}",
+        "post_scm_version_raw": f"0x{post_scm_version:x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_jiffies_to_clock_t(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -32081,6 +32378,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "get_seconds":
         return _run_call_proof_get_seconds(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "is_scm_armv8":
+        return _run_call_proof_is_scm_armv8(
             session,
             symbols,
             image,

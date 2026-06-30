@@ -806,6 +806,48 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic guarded live-call proof — `is_scm_armv8` cached SCM convention bool
+
+> ### ✅ STATUS (2026-07-01 live pass) — `is_scm_armv8` promoted only under cached-path guard
+>
+> Codex revisited the previously rejected Qualcomm SCM convention query without loosening the safety
+> gate. The old rejection remains correct for the cold path: if `scm_version == SCM_UNKNOWN`,
+> `is_scm_armv8()` executes SMC probing and writes SCM convention state. The new proof makes that
+> hazard load-bearing: it pre-peeks the cached `scm_version` word and refuses to call unless the value
+> is already a known nonzero enum, so the function can only take the cached read-only bool path.
+>
+> Static validation pinned `is_scm_armv8=0xffffff800869493c` by `export-recovery`, direct BL xrefs
+> `29`, source declaration `extern bool is_scm_armv8(void)` from `include/soc/qcom/scm.h:112`,
+> implementation `drivers/soc/qcom/scm.c:566`, and next boundary `scm_call2 +0xe8`. Body gates cover
+> the cached `scm_version` load/branch/compare/cset/ret and SMC-path sentinel words so the runtime
+> guard protects the exact branch it is avoiding.
+>
+> Host validation passed: `py_compile`; focused classifier/source/fake-proof tests (`Ran 4 tests`,
+> `OK`); full fake `SelftestIntegrationTests` (`Ran 124 tests`, `OK`); classifier CLI over
+> `is_scm_armv8` (`SAFE-SCALAR=1`, seed count `131`). Live validation obeyed the flash gate:
+> rollback/fallback/TWRP artifacts were confirmed, baseline v2321 `version/status/selftest` passed,
+> the exact v1-repl candidate (`b846ae9f...`) flashed through `native_init_flash.py` with matching
+> readback SHA, candidate `version/selftest/status` passed, REPL selftest passed, guarded call-proof
+> passed, and rollback to v2321 completed with final `version/selftest/status` passing
+> (`selftest pass=11 warn=1 fail=0`).
+>
+> Live result: runtime preflight observed cached `scm_version=0x3` (`SCM_ARMV8`), expected return
+> `0x1`, and `is_scm_armv8()` returned stable bool `0x1` twice. Post-call peek confirmed
+> `scm_version` stayed `0x3`. The proof would abort before call if the cache were `SCM_UNKNOWN`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-is-scm-armv8-20260630T230729Z/timeline.json`:
+> candidate preflash marker-fail attempt `0.097s`, candidate flash helper `63.752s`, candidate flash
+> start to explicit boot ready `73.642s`, candidate explicit health `1.38s`, REPL selftest `5.68s`,
+> live proof `6.54s`, live session total `28.268s`, rollback flash helper `63.684s`, rollback flash
+> start to helper boot ready `71.936s`, final explicit health `20.68s`, final standalone version retry
+> `0.46s`, and candidate start to final health done `249.686s`.
+>
+> Function-map entry is promoted only under
+> `auto_call_policy=cached-path-proof-only-not-mass-call`, no arguments, cached SCM convention read,
+> cleanup `n/a-scalar-cached-read-only`. Raw slide/runtime values stayed private. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_IS_SCM_ARMV8_2026-07-01.md`.
+
 ## ✅ DONE — REPL post-epic batch live-call proof — Samsung SMEM DDR revision getters
 
 > ### ✅ STATUS (2026-07-01 live pass) — `get_ddr_revision_id_1/2` promoted under corrected raw/low8 contract
