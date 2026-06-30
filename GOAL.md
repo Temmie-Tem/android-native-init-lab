@@ -767,6 +767,46 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `get_cpu_device` scalar CPU lookup contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `get_cpu_device` promoted under scalar CPU index only
+>
+> Eightieth one-target live-call proof after the REPL epic close. Codex pivoted from the completed
+> bitmap mutation-helper sweep to the scalar `get_*` family and selected `get_cpu_device` because C1
+> verified `get_cpu_device=0xffffff8008992a5c`, `export-recovery`, direct-BL xrefs `38`, JOPP entry
+> true, leaf/no-BL shape, no arg-derived memory bases, source contract
+> `extern struct device * get_cpu_device(unsigned cpu)` from `include/linux/cpu.h:38`, and no pointer
+> arguments. The proof gates static words `0x90011448`, `0xb940f908`, `0x6b00011f`, `0x54000229`,
+> `0xf868d928`, `0x36000108`, `0xf8605908`, `0xf8696900`, and `0xaa1f03e0`.
+>
+> Host validation passed: `py_compile` for `a90_repl.py` and `tests/test_a90_repl.py`; CLI
+> `call-safety-classify get_cpu_device` (`SAFE-SCALAR`, no required pointer args); focused unittest
+> coverage for static classification, source signature, and the new fake-transport scalar proof; and
+> full `tests.test_a90_repl` (`Ran 143 tests`, `OK`). Candidate selection deliberately skipped
+> `__bitmap_equal`/`__bitmap_intersects` because current C1 policy leaves them unverified at zero
+> direct-BL xrefs, and skipped `get_boot_stat_time` because it calls logging machinery and has a
+> weaker externally checkable return contract.
+>
+> Live validation obeyed the flash gate: rollback/fallback/TWRP SHAs confirmed, bridge healthy,
+> baseline v2321 `version/selftest` passed, v1-repl candidate flashed through `native_init_flash.py`
+> with matching readback SHA, and helper `version/status` passed. A transient candidate standalone
+> selftest parse miss was cleared by restarting the serial bridge; candidate selftest then returned
+> `pass=11 warn=1 fail=0`, and `a90-repl-v2a1-selftest-pass` confirmed the REPL path before the
+> target call.
+>
+> Result: `a90-repl-live-call-proof-get_cpu_device-pass`; checks covered C1 identity, scalar source
+> contract, `SAFE-SCALAR` call-safety, static range/possible/per-CPU/null-return words, `cpu=0`
+> returning a non-NULL sane kernel lowmem borrowed pointer, and `cpu=0xffffffff` returning NULL. The
+> returned CPU0 pointer is borrowed, not owned; it was not dereferenced or freed, and raw runtime
+> address/slide/return-pointer evidence stayed private under
+> `workspace/private/runs/kernel/live-call-proof-get-cpu-device-20260630/proof/`. Post-proof candidate
+> selftest stayed `pass=11 warn=1 fail=0`; Codex rolled back to clean v2321 through
+> `native_init_flash.py`, readback SHA matched, helper `version/status` passed, a transient final
+> standalone `version` parse miss was cleared by restarting the serial bridge, and final standalone
+> `version` plus selftest confirmed v2321 with `pass=11 warn=1 fail=0`. Function map records
+> `get_cpu_device` only under the scalar CPU index + borrowed return contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_GET_CPU_DEVICE_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `__bitmap_clear` owned bitmap range-clear contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `__bitmap_clear` promoted under owned bitmap + bounded `start/len` only

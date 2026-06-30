@@ -1146,6 +1146,19 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(hex_to_bin["signals"]["direct_bl_xref_count"], 80)
         self.assertTrue(hex_to_bin["signals"]["leaf"])
 
+        get_cpu_device = self._row("get_cpu_device")
+        self.assertEqual(get_cpu_device["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(get_cpu_device["required_valid_pointer_args"], {})
+        self.assertTrue(get_cpu_device["resolution"]["verified"])
+        self.assertEqual(get_cpu_device["resolution"]["method"], "export-recovery")
+        self.assertEqual(get_cpu_device["resolution"]["link_vaddr"], "0xffffff8008992a5c")
+        self.assertGreaterEqual(get_cpu_device["signals"]["direct_bl_xref_count"], 38)
+        self.assertTrue(get_cpu_device["signals"]["leaf"])
+        self.assertEqual(get_cpu_device["signals"]["arg_pointer_derefs_before_first_bl_or_ret"], [])
+        self.assertTrue(
+            get_cpu_device["signals"]["arg_taint_flow"]["safe_scalar_positive_no_arg_memory_base_flow"]
+        )
+
         sw_hweight32 = self._row("__sw_hweight32")
         self.assertEqual(sw_hweight32["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
         self.assertEqual(sw_hweight32["required_valid_pointer_args"], {})
@@ -1383,7 +1396,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 6)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 7)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 8)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -1988,6 +2001,16 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertTrue(hex_to_bin["selected"]["path"].endswith("include/linux/kernel.h"))
 
+        get_cpu_device = repl.lookup_source_signature("get_cpu_device", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(get_cpu_device["status"], "found", get_cpu_device)
+        self.assertEqual(get_cpu_device["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            get_cpu_device["selected"]["signature"],
+            "extern struct device * get_cpu_device(unsigned cpu)",
+        )
+        self.assertEqual(get_cpu_device["selected"]["line"], 38)
+        self.assertTrue(get_cpu_device["selected"]["path"].endswith("include/linux/cpu.h"))
+
         sw_hweight32 = repl.lookup_source_signature("__sw_hweight32", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(sw_hweight32["status"], "found", sw_hweight32)
         self.assertEqual(sw_hweight32["selected"]["pointer_arg_indices"], [])
@@ -2355,6 +2378,13 @@ class FaithfulFakeTransport:
             "hex_to_bin",
             purpose="call",
         ).link_vaddr
+        self.get_cpu_device_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "get_cpu_device",
+            purpose="call",
+        ).link_vaddr
+        self.borrowed_cpu0_device_ptr = 0xFFFFFFC012340000
         self.sw_hweight32_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -2971,6 +3001,8 @@ class FaithfulFakeTransport:
             printk = self.printk_link + self.slide
             assert self.hex_to_bin_link is not None
             hex_to_bin = self.hex_to_bin_link + self.slide
+            assert self.get_cpu_device_link is not None
+            get_cpu_device = self.get_cpu_device_link + self.slide
             assert self.sw_hweight32_link is not None
             sw_hweight32 = self.sw_hweight32_link + self.slide
             assert self.sw_hweight64_link is not None
@@ -3509,6 +3541,13 @@ class FaithfulFakeTransport:
                     else:
                         result = repl.HEX_TO_BIN_INVALID_RETURN
                 lines.append(f"A90R{result:x}")
+            elif arg0 == get_cpu_device:
+                if arg1 == repl.GET_CPU_DEVICE_VALID_CPU:
+                    lines.append(f"A90R{self.borrowed_cpu0_device_ptr:x}")
+                elif arg1 == repl.GET_CPU_DEVICE_INVALID_CPU:
+                    lines.append("A90R0")
+                else:
+                    raise AssertionError(f"unexpected get_cpu_device CPU index: {arg1:#x}")
             elif arg0 == sw_hweight32:
                 lines.append(f"A90R{(arg1 & 0xFFFFFFFF).bit_count():x}")
             elif arg0 == sw_hweight64:
@@ -4681,6 +4720,55 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertIn("hex_to_bin_runtime", private)
         self.assertEqual(private["case_returns"]["invalid-g"], "0xffffffff")
         self.assertEqual(fake.op_count, 8)  # slide + 7 scalar case calls
+
+    def test_call_proof_get_cpu_device_passes_with_scalar_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "get_cpu_device",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-get_cpu_device-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-scalar-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "get_cpu_device")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern struct device * get_cpu_device(unsigned cpu)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(summary["valid_cpu"], repl.GET_CPU_DEVICE_VALID_CPU)
+        self.assertEqual(summary["invalid_cpu"], f"0x{repl.GET_CPU_DEVICE_INVALID_CPU:x}")
+        self.assertTrue(summary["valid_cpu_return_nonzero"])
+        self.assertTrue(summary["valid_cpu_return_kernel_lowmem"])
+        self.assertTrue(summary["invalid_cpu_return_null"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["borrowed_pointer_redacted"])
+        self.assertNotIn("get_cpu_device_runtime", summary)
+        self.assertNotIn("cpu0-valid-device", summary)
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertTrue(cases["cpu0-valid-device"]["observed_return_value_redacted"])
+        self.assertTrue(cases["cpu0-valid-device"]["kernel_lowmem"])
+        self.assertEqual(cases["uint-max-out-of-range"]["observed_return_value"], "0x0")
+        self.assertIn("get_cpu_device_runtime", private)
+        self.assertEqual(
+            private["case_returns"]["cpu0-valid-device"],
+            f"0x{fake.borrowed_cpu0_device_ptr:x}",
+        )
+        self.assertEqual(private["case_returns"]["uint-max-out-of-range"], "0x0")
+        self.assertEqual(fake.op_count, 3)  # slide + 2 scalar case calls
 
     def test_call_proof_sw_hweight32_passes_with_scalar_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

@@ -23,6 +23,7 @@ and the C1 fail-closed identity gate.
 | `__kmalloc` | `0xffffff800826ae34`, `export-recovery`, direct BL xrefs `1765` | scalar `size`, scalar `gfp` | returned sane kernel lowmem owned pointer | caller-owned cleanup required | v2a2 recovered-export poke round-trip |
 | `kfree` | `0xffffff800826b354`, `export-recovery`, direct BL xrefs `10596` | owned `kmalloc` object pointer or NULL | cleanup call returned through REPL | freed owned allocation | v2a2 recovered-export poke round-trip |
 | `hex_to_bin` | `0xffffff800856a9dc`, `export-recovery`, direct BL xrefs `80`, leaf/no-BL | scalar ASCII character | case table: `'0' -> 0`, `'9' -> 9`, `'a'/'A' -> 10`, `'f'/'F' -> 15`, invalid `'g' -> 0xffffffff` | n/a-scalar-only | `a90-repl-live-call-proof-hex_to_bin-pass` |
+| `get_cpu_device` | `0xffffff8008992a5c`, `export-recovery`, direct BL xrefs `38`, leaf/no-BL | scalar CPU index; returned pointer is borrowed/read-only and is not dereferenced or freed | `cpu=0` returned a non-NULL sane kernel lowmem borrowed pointer (redacted); `cpu=0xffffffff` returned NULL | `n/a-borrowed-pointer-not-owned` | `a90-repl-live-call-proof-get_cpu_device-pass` |
 | `__sw_hweight32` | `0xffffff800856d844`, `export-recovery`, direct BL xrefs `36`, leaf/no-BL | scalar unsigned 32-bit word | case table: `0x00000000 -> 0`, `0xffffffff -> 32`, `0xaaaaaaaa -> 16`, `0x80000000 -> 1`, `0xa90f00dc -> 13` | n/a-scalar-only | `a90-repl-live-call-proof-__sw_hweight32-pass` |
 | `__sw_hweight64` | `0xffffff800856d8e4`, `export-recovery`, direct BL xrefs `228`, leaf/no-BL | scalar unsigned 64-bit word | case table: `0x0000000000000000 -> 0`, `0xffffffffffffffff -> 64`, `0xaaaaaaaaaaaaaaaa -> 32`, `0x8000000000000000 -> 1`, `0xa90f00dca90f00dc -> 26` | n/a-scalar-only | `a90-repl-live-call-proof-__sw_hweight64-pass` |
 | `__sw_hweight16` | `0xffffff800856d87c`, `export-recovery`, direct BL xrefs `19`, leaf/no-BL | scalar unsigned 16-bit word in the low x0 bits | case table: `0x0000 -> 0`, `0xffff -> 16`, `0xaaaa -> 8`, `0x8000 -> 1`, `0xa90d -> 7` | n/a-scalar-only | `a90-repl-live-call-proof-__sw_hweight16-pass` |
@@ -120,6 +121,10 @@ and the C1 fail-closed identity gate.
   have crossed the live proof gate only under scalar unsigned word contracts for their respective widths. The proofs cover zero,
   all-ones, alternating, single-high-bit, and mixed A90 marker words; they do not authorize arbitrary
   target calls, broader bitops state, high-bit widening outside the stated contract, or mass calling.
+- CPU device lookup proof: `get_cpu_device` has crossed the live proof gate only under a scalar CPU
+  index contract. The proof covers CPU0 returning a non-NULL borrowed kernel lowmem pointer and
+  `UINT_MAX` returning NULL. The returned pointer is not owned, was not dereferenced, and must not be
+  freed or reused as a general pointer capability.
 - Bitmap helper sweep: `__bitmap_weight`, `__bitmap_complement`, `__bitmap_or`, `__bitmap_set`, `__bitmap_clear`, `__bitmap_andnot`, `__bitmap_subset`, `find_next_bit`, `find_next_zero_bit`, and
   `find_last_bit` have crossed the live proof gate only under owned unsigned-long bitmap buffers plus
   scalar count/size/offset/start/len bounded inside those bitmaps. `__bitmap_weight` covers zero count, low-tail

@@ -294,6 +294,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "int",
         "reason": "scalar hex-nibble decoder; x0 is one scalar character and no pointer arguments are dereferenced",
     },
+    "get_cpu_device": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "borrowed-kernel-pointer-or-null",
+        "reason": "CPU device lookup helper; x0 is one scalar CPU index, return is borrowed and must not be dereferenced or freed by the proof",
+    },
     "__sw_hweight32": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -3329,6 +3335,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "find_last_bit": ("include/linux/bitops.h", "include/asm-generic/bitops/find.h"),
     "find_next_bit": ("include/asm-generic/bitops/find.h", "include/linux/bitops.h"),
     "find_next_zero_bit": ("include/asm-generic/bitops/find.h", "include/linux/bitops.h"),
+    "get_cpu_device": ("include/linux/cpu.h",),
     "cpumask_next": ("include/linux/cpumask.h",),
     "cpumask_next_wrap": ("include/linux/cpumask.h",),
     "cpumask_next_and": ("include/linux/cpumask.h",),
@@ -5035,6 +5042,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern int hex_to_bin(char ch)",
     },
+    "get_cpu_device": {
+        "input_contract": "scalar CPU index; returned pointer is borrowed/read-only and is not dereferenced or freed",
+        "return_contract": "struct device * is non-NULL for CPU0 and NULL for an out-of-range unsigned CPU index",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern struct device * get_cpu_device(unsigned cpu)",
+    },
     "__sw_hweight32": {
         "input_contract": "scalar unsigned 32-bit word",
         "return_contract": "unsigned int == population count of the low 32 input bits",
@@ -6051,6 +6064,17 @@ MEMCHR_INV_HIT_BYTES = (
 MEMCHR_INV_EQUAL_BYTES = bytes([MEMCHR_INV_FILL_BYTE]) * MEMCHR_INV_PROOF_SIZE
 MEMCHR_INV_CANARY_BYTES = bytes([MEMCHR_INV_MISMATCH_BYTE]) * 8
 MEMCHR_INV_CANARY_LEN = len(MEMCHR_INV_CANARY_BYTES)
+GET_CPU_DEVICE_VALID_CPU = 0
+GET_CPU_DEVICE_INVALID_CPU = 0xFFFFFFFF
+GET_CPU_DEVICE_ADRP_NR_CPU_IDS_WORD = 0x90011448
+GET_CPU_DEVICE_LOAD_NR_CPU_IDS_WORD = 0xB940F908
+GET_CPU_DEVICE_CMP_NR_CPU_IDS_WORD = 0x6B00011F
+GET_CPU_DEVICE_INVALID_RANGE_BRANCH_WORD = 0x54000229
+GET_CPU_DEVICE_POSSIBLE_MASK_LOAD_WORD = 0xF868D928
+GET_CPU_DEVICE_POSSIBLE_TBZ_WORD = 0x36000108
+GET_CPU_DEVICE_PERCPU_BASE_LOAD_WORD = 0xF8605908
+GET_CPU_DEVICE_DEVICE_LOAD_WORD = 0xF8696900
+GET_CPU_DEVICE_NULL_RETURN_WORD = 0xAA1F03E0
 FIND_NEXT_BIT_PROOF_SIZE_BITS = 128
 FIND_NEXT_BIT_TAIL_SIZE_BITS = 88
 FIND_NEXT_BIT_ONE_BITS = (9, 73, 90)
@@ -21116,6 +21140,171 @@ def _run_call_proof_hex_to_bin(session: ReplSession,
     return summary, private
 
 
+def _run_call_proof_get_cpu_device(session: ReplSession,
+                                   symbols: dict[str, Symbol],
+                                   image: StaticImage,
+                                   *,
+                                   source_root: Path) -> tuple[dict[str, object], dict[str, object]]:
+    source = lookup_source_signature("get_cpu_device", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "get_cpu_device",
+        (GET_CPU_DEVICE_VALID_CPU,),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["get_cpu_device"]["expected_tier"]:
+        raise ReplError("get_cpu_device call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError("get_cpu_device source signature must be scalar-only")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS["get_cpu_device"]["source_signature"]:
+        raise ReplError("get_cpu_device source signature did not select the exported declaration")
+
+    resolutions = {
+        "get_cpu_device": resolve_verified(symbols, image, "get_cpu_device", purpose="call"),
+    }
+    target_link = require_verified_resolution(resolutions["get_cpu_device"], "call-proof target")
+    words = image.u32_words_at_vaddr(target_link, 22)
+    static_word_checks = (
+        ("static-entry-adrp-nr-cpu-ids", 0, GET_CPU_DEVICE_ADRP_NR_CPU_IDS_WORD),
+        ("static-load-nr-cpu-ids", 1, GET_CPU_DEVICE_LOAD_NR_CPU_IDS_WORD),
+        ("static-cmp-nr-cpu-ids", 2, GET_CPU_DEVICE_CMP_NR_CPU_IDS_WORD),
+        ("static-invalid-range-branch", 3, GET_CPU_DEVICE_INVALID_RANGE_BRANCH_WORD),
+        ("static-possible-mask-load", 10, GET_CPU_DEVICE_POSSIBLE_MASK_LOAD_WORD),
+        ("static-possible-bit-test", 12, GET_CPU_DEVICE_POSSIBLE_TBZ_WORD),
+        ("static-percpu-base-load", 17, GET_CPU_DEVICE_PERCPU_BASE_LOAD_WORD),
+        ("static-device-pointer-load", 18, GET_CPU_DEVICE_DEVICE_LOAD_WORD),
+        ("static-null-return", 20, GET_CPU_DEVICE_NULL_RETURN_WORD),
+    )
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "get_cpu_device",
+            "resolution_method": resolutions["get_cpu_device"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for name, index, expected in static_word_checks:
+        observed = words[index]
+        ok = observed == expected
+        checks.append({
+            "check": name,
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"get_cpu_device {name} word mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    case_results: list[dict[str, object]] = []
+    valid_return = 0
+    invalid_return = 0
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+
+        valid_return = session.call_runtime(target_runtime, (GET_CPU_DEVICE_VALID_CPU,))
+        valid_ok = is_kernel_lowmem_pointer(valid_return)
+        case_results.append({
+            "case": "cpu0-valid-device",
+            "cpu": GET_CPU_DEVICE_VALID_CPU,
+            "expected_return": "non-null-borrowed-kernel-lowmem-pointer",
+            "observed_return_value_redacted": True,
+            "kernel_lowmem": valid_ok,
+            "ok": valid_ok,
+        })
+        if not valid_ok:
+            raise ReplError("get_cpu_device(0) did not return a sane borrowed kernel lowmem pointer")
+
+        invalid_return = session.call_runtime(target_runtime, (GET_CPU_DEVICE_INVALID_CPU,))
+        invalid_ok = invalid_return == 0
+        case_results.append({
+            "case": "uint-max-out-of-range",
+            "cpu": f"0x{GET_CPU_DEVICE_INVALID_CPU:x}",
+            "expected_return_value": "0x0",
+            "observed_return_value": f"0x{invalid_return:x}",
+            "ok": invalid_ok,
+        })
+        if not invalid_ok:
+            raise ReplError(
+                f"get_cpu_device(UINT_MAX) returned 0x{invalid_return:x}, expected NULL"
+            )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "get-cpu-device-case-table",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-get_cpu_device-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "get_cpu_device",
+        "proof_status": "trusted-under-scalar-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["get_cpu_device"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["get_cpu_device"]["return_contract"],
+        "case_results": case_results,
+        "valid_cpu": GET_CPU_DEVICE_VALID_CPU,
+        "invalid_cpu": f"0x{GET_CPU_DEVICE_INVALID_CPU:x}",
+        "valid_cpu_return_nonzero": valid_return != 0,
+        "valid_cpu_return_kernel_lowmem": is_kernel_lowmem_pointer(valid_return),
+        "invalid_cpu_return_null": invalid_return == 0,
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "borrowed_pointer_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "get_cpu_device",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["get_cpu_device"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["get_cpu_device"]["return_contract"],
+            "observed_return_value": "CPU0 returned non-NULL borrowed kernel pointer; UINT_MAX returned NULL",
+            "cleanup": "n/a-borrowed-pointer-not-owned",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "get_cpu_device_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            "cpu0-valid-device": f"0x{valid_return:x}",
+            "uint-max-out-of-range": f"0x{invalid_return:x}",
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_scalar_hweight(session: ReplSession,
                                    symbols: dict[str, Symbol],
                                    image: StaticImage,
@@ -25391,6 +25580,13 @@ def run_call_proof(session: ReplSession,
             source_root=source_root,
             gfp=gfp,
             gfp_components=gfp_components,
+        )
+    if target == "get_cpu_device":
+        return _run_call_proof_get_cpu_device(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
         )
     if target == "__bitmap_andnot":
         return _run_call_proof___bitmap_andnot(
