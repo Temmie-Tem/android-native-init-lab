@@ -29,6 +29,7 @@ and the C1 fail-closed identity gate.
 | `simple_strtoull` | `0xffffff80099ba314`, `export-recovery`, direct BL xrefs `9`, calls `_parse_integer_fixup_radix`/`_parse_integer` | owned NUL-terminated numeric string plus owned `char **` endp slot plus scalar base | `simple_strtoull("1234abcdZ", &endp, 16) == 0x1234abcd`; `endp` pointed to the owned input pointer plus offset `8` (redacted); input and end-slot canary stayed unchanged | `kfree-owned-simple-strtoull-buffers-ok` | `a90-repl-live-call-proof-simple_strtoull-pass` |
 | `kstrtouint` | `0xffffff800856b7a4`, `export-recovery`, direct BL xrefs `217`, calls `kstrtoull` | owned NUL-terminated numeric string plus scalar base plus owned `unsigned int *` result slot | `kstrtouint("123456789", 10, &res) == 0`; result slot stored `123456789`; input stayed unchanged; result-slot canary stayed unchanged | `kfree-owned-kstrtouint-buffers-ok` | `a90-repl-live-call-proof-kstrtouint-pass` |
 | `kstrtou16` | `0xffffff800856b8a4`, `export-recovery`, direct BL xrefs `17`, calls `kstrtoull` | owned NUL-terminated unsigned 16-bit numeric string plus scalar base plus owned `u16 *` result slot | `kstrtou16("54321", 10, &res) == 0`; result slot stored unsigned `54321` with raw `0xd431`; input stayed unchanged; 2-byte result-slot canary stayed unchanged | `kfree-owned-kstrtou16-buffers-ok` | `a90-repl-live-call-proof-kstrtou16-pass` |
+| `kstrtou8` | `0xffffff800856b9a4`, `export-recovery`, direct BL xrefs `59`, calls `kstrtoull` | owned NUL-terminated unsigned 8-bit numeric string plus scalar base plus owned `u8 *` result slot | `kstrtou8("213", 10, &res) == 0`; result slot stored unsigned `213` with raw `0xd5`; input stayed unchanged; 1-byte result-slot canary stayed unchanged | `kfree-owned-kstrtou8-buffers-ok` | `a90-repl-live-call-proof-kstrtou8-pass` |
 | `kstrtoint` | `0xffffff800856b824`, `export-recovery`, direct BL xrefs `167`, calls `kstrtoll` | owned NUL-terminated signed numeric string plus scalar base plus owned `int *` result slot | `kstrtoint("-12345", 10, &res) == 0`; result slot stored signed `-12345` with raw `0xffffcfc7`; input stayed unchanged; result-slot canary stayed unchanged | `kfree-owned-kstrtoint-buffers-ok` | `a90-repl-live-call-proof-kstrtoint-pass` |
 | `kstrtos16` | `0xffffff800856b924`, `export-recovery`, direct BL xrefs `1`, calls `kstrtoll` | owned NUL-terminated signed 16-bit numeric string plus scalar base plus owned `s16 *` result slot | `kstrtos16("-1234", 10, &res) == 0`; result slot stored signed `-1234` with raw `0xfb2e`; input stayed unchanged; 2-byte result-slot canary stayed unchanged | `kfree-owned-kstrtos16-buffers-ok` | `a90-repl-live-call-proof-kstrtos16-pass` |
 | `ksize` | `0xffffff800826b27c`, `export-recovery`, direct BL xrefs `39` | owned `__kmalloc` pointer generated inside `call-proof` | `ksize(0x1000 allocation) == 0x1000`, within `[0x1000, 0x2000]` | `kfree-owned-buffer-ok` | `a90-repl-live-call-proof-ksize-pass` |
@@ -92,7 +93,7 @@ and the C1 fail-closed identity gate.
   only because x0 is an owned string buffer. This proof covers one exact-token hit, one prefix-only
   miss, and one missing-token miss; it does not authorize arbitrary parser state, user pointers,
   unterminated strings, unbounded scans, or mass calling.
-- Integer parser sweep: `simple_strtoull`, `kstrtouint`, `kstrtou16`, `kstrtoint`, and `kstrtos16`
+- Integer parser sweep: `simple_strtoull`, `kstrtouint`, `kstrtou16`, `kstrtou8`, `kstrtoint`, and `kstrtos16`
   have crossed the live proof gate only under owned NUL-terminated numeric strings plus their
   specific owned output-slot contracts.
   `simple_strtoull` additionally requires an owned `char **` endp output slot and scalar base; its
@@ -103,6 +104,9 @@ and the C1 fail-closed identity gate.
   canary. `kstrtou16` additionally requires an owned `u16 *` result slot and scalar base; its proof
   covers one bounded unsigned 16-bit decimal success case and validates return code `0`, unsigned
   result-slot value, raw representation, input immutability, and 2-byte result-slot canary.
+  `kstrtou8` additionally requires an owned `u8 *` result slot and scalar base; its proof covers one
+  bounded unsigned 8-bit decimal success case and validates return code `0`, unsigned result-slot
+  value, raw representation, input immutability, and 1-byte result-slot canary.
   `kstrtoint` additionally requires an owned `int *` result slot and scalar base; its proof covers one
   bounded signed decimal success case and validates return code `0`, signed result-slot value, raw
   two's-complement representation, input immutability, and result-slot canary. `kstrtos16`
