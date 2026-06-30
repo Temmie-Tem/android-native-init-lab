@@ -806,6 +806,49 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic batch live-call proof — FS/VFS scalar state getters
+
+> ### ✅ STATUS (2026-07-01 live pass) — same-session FS state batch after BATCH correction
+>
+> Codex followed the corrected "adjacent/similar candidates in one batch" rule and selected two
+> no-argument FS/VFS state getters with the same read-only scalar shape: `get_max_files` and
+> `get_nr_dirty_inodes`. `get_ddr_revision_id_1` stayed parked because its prior raw return violated
+> the proposed `uint8_t` contract; raw-spinlock/blockdev neighbors stayed out of this batch.
+>
+> Static validation pinned `get_max_files=0xffffff800829005c` by `export-recovery`, direct BL xrefs
+> `1`, next symbol `proc_nr_files` at `+0x18`, source declaration
+> `extern unsigned long get_max_files(void)`, and exact 6-word body match. `get_nr_dirty_inodes` is
+> pinned at `0xffffff80082b1234` by `disasm-signature+xref+map`, direct BL xrefs `4`, next symbol
+> `proc_nr_inodes` at `+0xf8`, source declaration `extern long get_nr_dirty_inodes(void)`, and exact
+> 62-word body match. Both targets are `SAFE-SCALAR`, no pointer args, no early arg-pointer derefs,
+> and no context calls.
+>
+> Host validation passed: `py_compile`; focused classifier/fake-batch/batch-CLI/seed-inventory tests;
+> full `tests/test_a90_repl.py` (`Ran 169 tests`, `OK`); and classifier CLI over the two targets
+> (`SAFE-SCALAR=2`). Live validation obeyed the flash gate. Attempt 1 flashed the exact v1-repl
+> candidate and rolled back cleanly but stopped before target calls after a redundant candidate
+> `a90ctl selftest` hit serial `AT` echo and missed the `A90P1 END` marker. Attempt 2 flashed the same
+> candidate, passed helper selftest, passed REPL selftest, proved both targets in one
+> `call-proof-batch` session, and rolled back to v2321 with final sequential
+> `version/status/selftest` passing (`selftest pass=11 warn=1 fail=0`) after host-side bridge resync.
+>
+> Live result: `get_max_files()` returned stable `0x71c6a` twice. `get_nr_dirty_inodes()` returned
+> sane nonnegative dirty-inode approximations `0x6c2a` then `0x6c29`; short-repeat drift is allowed by
+> the contract.
+>
+> Timing was recorded per the 2026-07-01 timing rule. Attempt 1: candidate flash helper `64.297s`,
+> explicit health before serial parse failure `11.002s`, live proof not reached, rollback flash helper
+> `80.313s`, rollback explicit health `1.125s`. Attempt 2: candidate flash helper `67.083s`,
+> candidate status `0.336s`, REPL selftest `171.114s`, live batch proof `8.819s`, rollback flash
+> helper `63.646s`, final bridge resync plus explicit health `2.918s`. Attempt 2 timeline is
+> reconstructed from helper timestamps plus command wall time because it was continued manually rather
+> than through a single wrapper-owned monotonic timeline.
+>
+> Function-map entries are promoted only under the same-session batch contract:
+> `auto_call_policy=same-session-batch-proof-only-not-mass-call`, no arguments, read-only FS/VFS scalar
+> state, cleanup `n/a-fs-vfs-read-only`. Raw slide/runtime values stayed private. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_FS_STATE_BATCH_2026-07-01.md`.
+
 ## ✅ DONE — REPL one-target live-call proof — kernel wall-clock seconds getter
 
 > ### ✅ STATUS (2026-07-01 live pass) — `get_seconds` one-target proof

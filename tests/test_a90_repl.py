@@ -2020,6 +2020,59 @@ class CallSafetyClassificationTests(unittest.TestCase):
             ],
         )
 
+        get_max_files = self._row("get_max_files")
+        self.assertEqual(get_max_files["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(get_max_files["required_valid_pointer_args"], {})
+        self.assertTrue(get_max_files["resolution"]["verified"])
+        self.assertEqual(get_max_files["resolution"]["method"], "export-recovery")
+        self.assertEqual(
+            get_max_files["resolution"]["link_vaddr"],
+            "0xffffff800829005c",
+        )
+        self.assertGreaterEqual(get_max_files["signals"]["direct_bl_xref_count"], 1)
+        self.assertEqual(
+            get_max_files["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertEqual(get_max_files["signals"]["context_call_count"], 0)
+        self.assertTrue(
+            get_max_files["signals"]["arg_taint_flow"][
+                "safe_scalar_positive_no_arg_memory_base_flow"
+            ]
+        )
+        self.assertEqual(
+            get_max_files["signals"]["first_words"][:6],
+            [f"0x{word:08x}" for word in repl.GET_MAX_FILES_EXPECTED_WORDS],
+        )
+
+        get_nr_dirty_inodes = self._row("get_nr_dirty_inodes")
+        self.assertEqual(get_nr_dirty_inodes["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(get_nr_dirty_inodes["required_valid_pointer_args"], {})
+        self.assertTrue(get_nr_dirty_inodes["resolution"]["verified"])
+        self.assertEqual(
+            get_nr_dirty_inodes["resolution"]["method"],
+            "disasm-signature+xref+map",
+        )
+        self.assertEqual(
+            get_nr_dirty_inodes["resolution"]["link_vaddr"],
+            "0xffffff80082b1234",
+        )
+        self.assertGreaterEqual(get_nr_dirty_inodes["signals"]["direct_bl_xref_count"], 4)
+        self.assertEqual(
+            get_nr_dirty_inodes["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertEqual(get_nr_dirty_inodes["signals"]["context_call_count"], 0)
+        self.assertTrue(
+            get_nr_dirty_inodes["signals"]["arg_taint_flow"][
+                "safe_scalar_positive_no_arg_memory_base_flow"
+            ]
+        )
+        self.assertEqual(
+            get_nr_dirty_inodes["signals"]["first_words"][:12],
+            [f"0x{word:08x}" for word in repl.GET_NR_DIRTY_INODES_EXPECTED_WORDS[:12]],
+        )
+
         sw_hweight32 = self._row("__sw_hweight32")
         self.assertEqual(sw_hweight32["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
         self.assertEqual(sw_hweight32["required_valid_pointer_args"], {})
@@ -2257,7 +2310,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 38)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 40)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 9)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -3846,6 +3899,18 @@ class FaithfulFakeTransport:
             "nr_context_switches",
             purpose="call",
         ).link_vaddr
+        self.get_max_files_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "get_max_files",
+            purpose="call",
+        ).link_vaddr
+        self.get_nr_dirty_inodes_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "get_nr_dirty_inodes",
+            purpose="call",
+        ).link_vaddr
         self.get_diplayport_status_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -3898,6 +3963,9 @@ class FaithfulFakeTransport:
             "nr_iowait": 0,
             "nr_context_switches": 0,
         }
+        self.get_max_files_value = 0x3DD05
+        self.get_nr_dirty_inodes_values = [0x40, 0x41]
+        self.get_nr_dirty_inodes_index = 0
         self.diplayport_status_value = 0
         self.ddr_dsf_version_value = 0x00010002
         self.ddr_total_density_value = 0x06
@@ -4616,6 +4684,10 @@ class FaithfulFakeTransport:
             nr_iowait = self.nr_iowait_link + self.slide
             assert self.nr_context_switches_link is not None
             nr_context_switches = self.nr_context_switches_link + self.slide
+            assert self.get_max_files_link is not None
+            get_max_files = self.get_max_files_link + self.slide
+            assert self.get_nr_dirty_inodes_link is not None
+            get_nr_dirty_inodes = self.get_nr_dirty_inodes_link + self.slide
             assert self.get_diplayport_status_link is not None
             get_diplayport_status = self.get_diplayport_status_link + self.slide
             assert self.get_ddr_DSF_version_link is not None
@@ -5335,6 +5407,18 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("nr_context_switches proof must pass no arguments")
                 lines.append(f"A90R{self._next_scheduler_counter('nr_context_switches'):x}")
+            elif arg0 == get_max_files:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("get_max_files proof must pass no arguments")
+                lines.append(f"A90R{self.get_max_files_value:x}")
+            elif arg0 == get_nr_dirty_inodes:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("get_nr_dirty_inodes proof must pass no arguments")
+                value = self.get_nr_dirty_inodes_values[
+                    min(self.get_nr_dirty_inodes_index, len(self.get_nr_dirty_inodes_values) - 1)
+                ]
+                self.get_nr_dirty_inodes_index += 1
+                lines.append(f"A90R{value:x}")
             elif arg0 == get_diplayport_status:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("get_diplayport_status proof must pass no arguments")
@@ -7350,6 +7434,67 @@ class SelftestIntegrationTests(unittest.TestCase):
             self.assertIn("_private", evidence)
             self.assertEqual(sorted(evidence["_private"]["target_privates"]), sorted(targets))
         self.assertEqual(fake.op_count, 12)  # 4 targets * (slide + 2 scalar proof calls)
+
+    def test_call_proof_fs_state_batch_passes_with_no_arg_contracts(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        targets = ("get_max_files", "get_nr_dirty_inodes")
+        summary, private = repl.run_call_proof_batch(
+            session,
+            symbols,
+            self.image,
+            targets,
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-batch-pass")
+        self.assertEqual(summary["target_count"], 2)
+        self.assertEqual(summary["completed_targets"], list(targets))
+        self.assertTrue(summary["host_batch_single_repl_session"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertEqual(sorted(private["target_privates"]), sorted(targets))
+
+        by_target = {row["target"]: row for row in summary["summaries"]}
+        max_files = by_target["get_max_files"]
+        self.assertEqual(max_files["decision"], "a90-repl-live-call-proof-get_max_files-pass")
+        self.assertEqual(max_files["function_map_entry"]["symbol"], "get_max_files")
+        self.assertEqual(
+            max_files["function_map_entry"]["auto_call_policy"],
+            "same-session-batch-proof-only-not-mass-call",
+        )
+        self.assertEqual(max_files["source_evidence"]["signature"], "extern unsigned long get_max_files(void)")
+        self.assertEqual(max_files["source_evidence"]["pointer_arg_indices"], [])
+        self.assertTrue(max_files["all_returns_in_sane_range"])
+        self.assertTrue(max_files["all_returns_stable"])
+        self.assertTrue(max_files["stable_required"])
+        self.assertEqual(max_files["observed_return_value"], f"0x{fake.get_max_files_value:x}")
+
+        dirty = by_target["get_nr_dirty_inodes"]
+        self.assertEqual(dirty["decision"], "a90-repl-live-call-proof-get_nr_dirty_inodes-pass")
+        self.assertEqual(dirty["function_map_entry"]["symbol"], "get_nr_dirty_inodes")
+        self.assertEqual(
+            dirty["function_map_entry"]["auto_call_policy"],
+            "same-session-batch-proof-only-not-mass-call",
+        )
+        self.assertEqual(dirty["source_evidence"]["signature"], "extern long get_nr_dirty_inodes(void)")
+        self.assertEqual(dirty["source_evidence"]["pointer_arg_indices"], [])
+        self.assertTrue(dirty["all_returns_in_sane_range"])
+        self.assertFalse(dirty["all_returns_stable"])
+        self.assertFalse(dirty["stable_required"])
+        self.assertEqual(dirty["observed_return_value"], "0x40")
+        cases = {case["case"]: case for case in dirty["case_results"]}
+        self.assertEqual(cases["get_nr_dirty_inodes-read-1"]["observed_return_value"], "0x40")
+        self.assertEqual(cases["get_nr_dirty_inodes-read-2"]["observed_return_value"], "0x41")
+        self.assertEqual(fake.op_count, 6)  # 2 targets * (slide + 2 scalar proof calls)
 
     def test_call_proof_jiffies_to_clock_t_passes_with_positive_identity_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

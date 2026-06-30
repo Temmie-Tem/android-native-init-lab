@@ -463,6 +463,18 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "unsigned-long-long",
         "reason": "no-argument scheduler context-switch counter getter; proof expects a sane nondecreasing counter and no pointer arguments",
     },
+    "get_max_files": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "unsigned-long",
+        "reason": "no-argument VFS file limit getter; proof expects a sane positive open-file limit and no pointer arguments",
+    },
+    "get_nr_dirty_inodes": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "long",
+        "reason": "no-argument VFS dirty-inode approximation getter; proof expects a sane nonnegative inode count and no pointer arguments",
+    },
     "get_diplayport_status": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -3580,6 +3592,8 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "nr_running": ("include/linux/sched/stat.h",),
     "nr_iowait": ("include/linux/sched/stat.h",),
     "nr_context_switches": ("include/linux/kernel_stat.h",),
+    "get_max_files": ("include/linux/fs.h", "fs/file_table.c"),
+    "get_nr_dirty_inodes": ("fs/internal.h", "fs/inode.c"),
     "get_diplayport_status": ("include/linux/ccic/s2mm005_ext.h",),
     "cpumask_next": ("include/linux/cpumask.h",),
     "cpumask_next_wrap": ("include/linux/cpumask.h",),
@@ -5474,6 +5488,18 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern unsigned long long nr_context_switches(void)",
     },
+    "get_max_files": {
+        "input_contract": "no arguments; VFS files_stat.max_files is read-only and no returned pointer is dereferenced or freed",
+        "return_contract": "unsigned long open-file limit is positive, below the conservative sane count bound, and stable across short-repeat proof calls",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern unsigned long get_max_files(void)",
+    },
+    "get_nr_dirty_inodes": {
+        "input_contract": "no arguments; VFS inode counters are read-only per-CPU aggregates and no returned pointer is dereferenced or freed",
+        "return_contract": "long dirty-inode approximation is clamped nonnegative and below the conservative sane count bound; short-repeat drift is allowed",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern long get_nr_dirty_inodes(void)",
+    },
     "get_diplayport_status": {
         "input_contract": "no arguments; CCIC/DisplayPort status state is read-only; function may emit its built-in printk status line; no returned pointer is dereferenced or freed",
         "return_contract": "int status value is stable across repeated proof calls and in 0..0xff",
@@ -6933,6 +6959,61 @@ SCHED_COUNTER_NEXT_SYMBOL = {
     "nr_running": ("single_task_running", 0xA0),
     "nr_iowait": ("nr_iowait_cpu", 0xA0),
     "nr_context_switches": ("nr_iowait", 0xA0),
+}
+FS_STATE_REPEAT_COUNT = 2
+FS_STATE_MAX_SANE_COUNT = 1 << 48
+GET_MAX_FILES_EXPECTED_WORDS = (
+    0xF0014E68, 0x912BC108, 0xF9400900, 0xD65F03C0,
+    0xD503201F, 0x00BE7BAD,
+)
+GET_NR_DIRTY_INODES_EXPECTED_WORDS = (
+    0xCA1103D0, 0xA9BC43FD, 0xA9015FF8, 0x910003FD,
+    0xA90257F6, 0xA9034FF4, 0x90014B41, 0x12800000,
+    0x913D4021, 0x945BE2EF, 0xB0014B54, 0xB0014B55,
+    0x911B02B5, 0xAA1F03F6, 0xB940FA88, 0x6B08001F,
+    0x540001C2, 0x90014B53, 0x90012337, 0x913D4273,
+    0x9126E2F7, 0xF860DAA8, 0xAA1303E1, 0xF8776908,
+    0x8B160116, 0x945BE2DF, 0xB940FA88, 0x6B08001F,
+    0x54FFFF23, 0x8AB6FED6, 0x90014B41, 0x12800000,
+    0x913D4021, 0x945BE2D7, 0xB940FA88, 0x6B08001F,
+    0x54000202, 0x90014B53, 0xAA1F03F7, 0x913D4273,
+    0x90012338, 0x91272318, 0xF860DAA8, 0xAA1303E1,
+    0xF8786908, 0x8B170117, 0x945BE2CA, 0xB940FA88,
+    0x6B08001F, 0x54FFFF23, 0x8AB7FEE8, 0x14000002,
+    0xAA1F03E8, 0xCB0802C8, 0xA9434FF4, 0xA94257F6,
+    0xA9415FF8, 0x8AA8FD00, 0xA8C443FD, 0xCA11021E,
+    0xD65F03C0, 0x00BE7BAD,
+)
+FS_STATE_NO_ARG_PROOFS = {
+    "get_max_files": {
+        "next_symbol": "proc_nr_files",
+        "next_delta": 0x18,
+        "expected_words": GET_MAX_FILES_EXPECTED_WORDS,
+        "implementation_path": "fs/file_table.c",
+        "implementation_fragments": (
+            "unsigned long get_max_files(void)",
+            "return files_stat.max_files;",
+        ),
+        "proof_status": "trusted-under-vfs-open-file-limit-read-only-contract",
+        "value_label": "vfs-open-file-limit",
+        "min_value": 1,
+        "stable_required": True,
+    },
+    "get_nr_dirty_inodes": {
+        "next_symbol": "proc_nr_inodes",
+        "next_delta": 0xF8,
+        "expected_words": GET_NR_DIRTY_INODES_EXPECTED_WORDS,
+        "implementation_path": "fs/inode.c",
+        "implementation_fragments": (
+            "long get_nr_dirty_inodes(void)",
+            "long nr_dirty = get_nr_inodes() - get_nr_inodes_unused();",
+            "return nr_dirty > 0 ? nr_dirty : 0;",
+        ),
+        "proof_status": "trusted-under-vfs-dirty-inode-approximation-read-only-contract",
+        "value_label": "vfs-dirty-inode-approximation",
+        "min_value": 0,
+        "stable_required": False,
+    },
 }
 GET_DIPLAYPORT_STATUS_REPEAT_COUNT = 2
 GET_DIPLAYPORT_STATUS_MAX = 0xFF
@@ -26816,6 +26897,203 @@ def _run_call_proof_get_diplayport_status(
     return summary, private
 
 
+def _run_call_proof_fs_state_no_arg(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    target: str,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    if target not in FS_STATE_NO_ARG_PROOFS:
+        raise ReplError(f"unsupported FS state proof target {target!r}")
+    cfg = FS_STATE_NO_ARG_PROOFS[target]
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        (),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError(f"{target} source signature must be no-arg scalar-safe")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the expected declaration")
+
+    impl_rel = str(cfg["implementation_path"])
+    impl_path = source_root / impl_rel
+    try:
+        impl_normalized = " ".join(impl_path.read_text(encoding="utf-8", errors="replace").split())
+    except OSError as exc:
+        raise ReplError(f"{target} source implementation is not readable: {impl_path}") from exc
+    missing_fragments = [
+        fragment
+        for fragment in cfg["implementation_fragments"]
+        if str(fragment) not in impl_normalized
+    ]
+    if missing_fragments:
+        raise ReplError(f"{target} implementation fragments missing: {missing_fragments}")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(resolutions[target], "call-proof target")
+    next_symbol_name = str(cfg["next_symbol"])
+    expected_boundary = int(cfg["next_delta"])
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    expected_words = tuple(int(word) for word in cfg["expected_words"])
+    observed_words = image.u32_words_at_vaddr(target_link, len(expected_words))
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-source-implementation",
+            "ok": True,
+            "path": impl_rel,
+            "fragments": list(cfg["implementation_fragments"]),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for index, expected in enumerate(expected_words):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    min_value = int(cfg["min_value"])
+    max_value = FS_STATE_MAX_SANE_COUNT
+    stable_required = bool(cfg["stable_required"])
+    private: dict[str, object] = {}
+    slide = 0
+    returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for index in range(FS_STATE_REPEAT_COUNT):
+            observed = session.call_runtime(target_runtime, ()) & MASK64
+            returns.append(observed)
+            in_range = min_value <= observed <= max_value
+            stable_ok = (not stable_required) or index == 0 or observed == returns[0]
+            ok = in_range and stable_ok
+            case_results.append({
+                "case": f"{target}-read-{index + 1}",
+                "expected_return": str(cfg["value_label"]),
+                "expected_range": f"0x{min_value:x}..0x{max_value:x}",
+                "observed_return_value": f"0x{observed:x}",
+                "in_sane_range": in_range,
+                "matches_first_call": stable_ok,
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(
+                    f"{target}() returned an out-of-contract value in proof call "
+                    f"{index + 1}: 0x{observed:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": f"{target}-short-repeat-sane-fs-state",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "stable_required": stable_required,
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = f"0x{returns[0]:x}" if returns else "n/a"
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": str(cfg["proof_status"]) if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "observed_return_value": observed_public,
+        "all_returns_in_sane_range": bool(returns) and all(min_value <= value <= max_value for value in returns),
+        "all_returns_stable": bool(returns) and all(value == returns[0] for value in returns),
+        "stable_required": stable_required,
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "source_implementation_evidence": {
+            "path": impl_rel,
+            "fragments": list(cfg["implementation_fragments"]),
+        },
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": f"short-repeat no-argument calls started at {observed_public}",
+            "cleanup": "n/a-fs-vfs-read-only",
+            "auto_call_policy": "same-session-batch-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_get_ddr_DSF_version(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -31649,6 +31927,14 @@ def run_call_proof(session: ReplSession,
             session,
             symbols,
             image,
+            source_root=source_root,
+        )
+    if target in FS_STATE_NO_ARG_PROOFS:
+        return _run_call_proof_fs_state_no_arg(
+            session,
+            symbols,
+            image,
+            target=target,
             source_root=source_root,
         )
     if target == "get_ddr_DSF_version":
