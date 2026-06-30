@@ -767,6 +767,36 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ⚠️ PARKED — REPL post-epic one-target live-call proof attempt — `get_ddr_revision_id_1` raw return mismatch
+
+> ### ⚠️ STATUS (2026-06-30 live fail, rolled back cleanly) — `get_ddr_revision_id_1` not promoted
+>
+> Eighty-third one-target live-call proof attempt after the REPL epic close. Codex selected
+> `get_ddr_revision_id_1` as the next Samsung SMEM DDR getter after `get_ddr_total_density` because
+> C1 verified `get_ddr_revision_id_1=0xffffff80086ef82c`, `disasm-signature+xref+map`, direct-BL
+> xrefs `1`, JOPP entry true, source contract `extern uint8_t get_ddr_revision_id_1(void)` from
+> `include/linux/samsung/sec_smem.h:196`, and no arguments. Static gating covered `qcom_smem_get`,
+> next boundary `get_ddr_revision_id_2` at `+0xc0`, revision source word load `0xb9401268`, return
+> transform `0x53087d00`, return, padding NOP, and next guard.
+>
+> The temporary uncommitted harness passed `py_compile`, focused tests, full `tests.test_a90_repl`
+> (`Ran 146 tests`, `OK`), and temporary CLI classify as `SAFE-SCALAR`. Live validation obeyed the
+> flash gate: rollback/fallback/TWRP SHAs confirmed, baseline v2321 health passed, v1-repl candidate
+> flashed through `native_init_flash.py` with matching readback SHA, candidate selftest returned
+> `pass=11 warn=1 fail=0`, and `a90-repl-v2a1-selftest-pass` confirmed the REPL path.
+>
+> Result: live call reached the target and returned, but failed the predeclared raw `uint8_t` contract:
+> raw REPL return was `0x60106`. Disassembly explains the mismatch: the return path is `ldr w8,
+> [x19,#16]` followed by `lsr w0, w8, #8`, not a byte mask. This means the raw x0 value is a shifted
+> SMEM word, not the intended byte-sized source-level value. The target was **not promoted**, no
+> function map row was added, and the temporary seed/proof target was removed; current
+> `call-safety-classify get_ddr_revision_id_1` is back to `DENY`/not seeded. Candidate post-fail
+> selftest stayed `pass=11 warn=1 fail=0`; Codex rolled back to clean v2321 through
+> `native_init_flash.py`, readback SHA matched, helper `version/status` passed, serial bridge was
+> restarted, and final standalone `version/selftest` confirmed v2321 with `pass=11 warn=1 fail=0`.
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_GET_DDR_REVISION_ID_1_FAILED_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `get_ddr_total_density` SMEM uint8 density contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `get_ddr_total_density` promoted under no-arg SMEM read-only contract
