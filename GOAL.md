@@ -767,6 +767,41 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `cpumask_next` owned-cpumask contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `cpumask_next` promoted under owned cpumask + compiled `nr_cpumask_bits=8` contract only
+>
+> Sixty-ninth one-target live-call proof after the REPL epic close. After the bitmap scanner trio
+> landed, Codex selected the smallest wrapper extension, `cpumask_next`, rather than widening trust
+> across `cpumask_next_and`, `cpumask_any_but`, `cpumask_next_wrap`, or `bitmap_ord_to_pos`. Static C1
+> verified `cpumask_next=0xffffff80099a9e14`, `export-recovery`, direct-BL xrefs `1563`, JOPP entry
+> true, non-leaf wrapper shape, internal BL to already proven `find_next_bit`, source contract
+> `unsigned int cpumask_next(int n, const struct cpumask *srcp)` from `include/linux/cpumask.h`, and
+> pointer arg x1 only. The proof additionally gates the wrapper instruction word `0x52800101`
+> (`mov w1,#8`) so the compiled `nr_cpumask_bits=8` contract cannot silently drift.
+>
+> Host validation passed: `py_compile` for `a90_repl.py` and `tests/test_a90_repl.py`; CLI
+> `call-safety-classify cpumask_next` (`SAFE-WITH-VALID-PTR`, required x1 `cpumask-buffer`);
+> focused unittest coverage for static classification, seed inventory, source signature, and the
+> new fake-transport proof; and full `tests.test_a90_repl` (`Ran 132 tests`, `OK`). Live validation
+> obeyed the flash gate: rollback/fallback/TWRP SHAs confirmed, bridge healthy, baseline v2321
+> `version/status/selftest` passed, v1-repl candidate flashed through `native_init_flash.py` with
+> matching readback SHA, candidate selftest stayed `pass=11 warn=1 fail=0`, and
+> `a90-repl-v2a1-selftest-pass` confirmed the REPL path before the target call.
+>
+> Result: `a90-repl-live-call-proof-cpumask_next-pass`; checks covered C1 identity, source pointer
+> contract, `SAFE-WITH-VALID-PTR` call-safety, compiled `nr_cpumask_bits=8`, owned cpumask
+> poke/peek with set CPU bits `2` and `6`, five-case return table (`n=-1 -> 2`, `n=1 -> 2`,
+> `n=2 -> 6`, `n=6 -> 8`, `n=7 -> 8`), cpumask/canary immutability, and `kfree` cleanup. Raw
+> runtime address/slide/allocation evidence stayed private under
+> `workspace/private/runs/kernel/live-call-proof-cpumask-next-20260630/proof/`. Post-proof candidate
+> selftest stayed `pass=11 warn=1 fail=0`; Codex rolled back to clean v2321 through
+> `native_init_flash.py`, readback SHA matched, `version/status` passed, a first standalone final
+> `version` read hit serial sync noise (`A90P1 END marker not found`) while bridge stayed connected,
+> and retry plus final standalone selftest confirmed v2321 with `pass=11 warn=1 fail=0`. Function map
+> records `cpumask_next` only under the owned cpumask + compiled 8-CPU mask contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_CPUMASK_NEXT_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `find_last_bit` owned-bitmap contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `find_last_bit` promoted under owned bitmap + bounded scalar size contract only
@@ -3095,7 +3130,7 @@ the loop owns host build + tests + commits and does NOT touch the device for U3.
 > — would have dropped out of SAFE-SCALAR on the taint proof alone, defense-in-depth ✓), `__kmalloc=SAFE-SCALAR`
 > (`arg_memory_base_use_count=0`, disasm = `cmp x0,#0x2000` + arithmetic, no deref ✓). Gate fails closed:
 > `require_call_safety_for_call("kfree", ("0x1234",))` RAISES "SAFE-WITH-VALID-PTR requires"; only NULL (`0x0`) and an
-> explicit caller-vouched pointer token (`@owned_kmalloc_ptr`) pass — you cannot *accidentally* `call kfree <scalar>`.
+> explicit caller-vouched owned kmalloc pointer token passes — you cannot *accidentally* `call kfree <scalar>`.
 > Invariants intact: printk = real `0xffffff800813adfc` (not the twin) valid-ptr; kallsyms_lookup_name = DENY;
 > commit_creds / prepare_kernel_cred / set_memory_x / call_usermodehelper_exec = BEHAVIOR-CHANGING, never auto-callable.
 > 59/59 + 24/24 tests pass. Host-only, no device action, no boot image. **U2 DoD met.**
