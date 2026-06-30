@@ -72,6 +72,30 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > this bit v2a2). v2b "show-buf" bulk peek is superseded by v2c U1's host-side looped `read`. The text below
 > is retained as reference history only.
 
+> **🟣 OPERATOR STEER (2026-07-01) — REPL post-epic call-proof: BATCH + SATURATION-STOP + PIVOT.**
+> The 95 one-target call-proofs have matured the REPL into a precise, versatile read-only kernel
+> instrument on two axes: (a) **ABI-shape coverage** (scalar / result-slot ptr / owned-buffer /
+> bounded-string / substring+tokenizer / time-conversion / bitmap+cpumask all proven) and (b)
+> **read-only state classes** (time bases, bitmap/cpu topology, SoC/DDR identity, napi/boot-stat).
+> That diversity is real but is approaching **shape-saturation** — pure `lib/`/`kernel/time`/
+> `kernel/string` helpers are a finite libc-like catalog, and the Nth same-shape variant (e.g. the
+> next `kstrtoX`) adds ~0 new capability. Therefore change the selection + cadence policy:
+> 1. **BATCH same-shape proofs into ONE `v1-repl` boot session.** The costly/risky step is the
+>    flash + rollback, NOT the call (REPL is interactive). Prove several same-session targets per
+>    boot, then a single rollback to `v2321`. Keep a per-target proof record; just amortize the
+>    flash. This raises throughput and CUTS boot-partition flash cycles.
+> 2. **SATURATION-STOP per ABI shape.** Once a shape has a representative proof, STOP enumerating
+>    more of that shape (anti-churn applies — same-shape breadth is low-information plumbing).
+> 3. **PIVOT selection to UNPROVEN capability:** (a) ABI shapes not yet covered — **struct-pointer
+>    arg / struct return** marshalling; (b) read-only **kernel-STATE observation** queries
+>    (identity/status/`show`-style) that extend the REPL as a measurement instrument AND feed the
+>    server-distro **D-harden** surface-measurement need (which built-in paths to measure / later
+>    hard-disable). See `docs/plans/NATIVE_INIT_SERVER_DISTRO_ENDGAME_DESIGN_2026-06-30.md` §6 E.3.
+> **HARD — unchanged, do NOT loosen:** the fail-closed C1 resolution, the **call-safety classifier**
+> (DENY / BEHAVIOR-CHANGING tiers stay DENY — never relax a tier to reach a struct/state target),
+> the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
+> needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
+
 > **(history)** Audio CORE is device-proven + promoted (`0.10.0`); its Tier-C polish is optional background.
 >
 > **⚠️ KEY RE-SCOPE (operator, 2026-06-19): the DISPLAY IS ALREADY PROVEN — do NOT treat "can native init draw to the screen" as an
