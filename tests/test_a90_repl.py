@@ -952,6 +952,15 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(memchr_inv["signals"]["direct_bl_xref_count"], 30)
         self.assertTrue(memchr_inv["signals"]["leaf"])
 
+        find_next_zero_bit = self._row("find_next_zero_bit")
+        self.assertEqual(find_next_zero_bit["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(find_next_zero_bit["required_valid_pointer_args"], {"0": "bitmap-buffer"})
+        self.assertTrue(find_next_zero_bit["resolution"]["verified"])
+        self.assertEqual(find_next_zero_bit["resolution"]["method"], "export-recovery")
+        self.assertEqual(find_next_zero_bit["resolution"]["link_vaddr"], "0xffffff8008564e94")
+        self.assertGreaterEqual(find_next_zero_bit["signals"]["direct_bl_xref_count"], 120)
+        self.assertTrue(find_next_zero_bit["signals"]["leaf"])
+
         memcpy = self._row("memcpy")
         self.assertEqual(memcpy["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -1658,6 +1667,15 @@ class CallSafetyClassificationTests(unittest.TestCase):
             "void * memchr_inv(const void *s, int c, size_t n)",
         )
         self.assertTrue(memchr_inv["selected"]["path"].endswith("include/linux/string.h"))
+
+        find_next_zero_bit = repl.lookup_source_signature("find_next_zero_bit", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(find_next_zero_bit["status"], "found", find_next_zero_bit)
+        self.assertEqual(find_next_zero_bit["selected"]["pointer_arg_indices"], [0])
+        self.assertEqual(
+            find_next_zero_bit["selected"]["signature"],
+            "extern unsigned long find_next_zero_bit(const unsigned long *addr, unsigned long size, unsigned long offset)",
+        )
+        self.assertTrue(find_next_zero_bit["selected"]["path"].endswith("include/asm-generic/bitops/find.h"))
 
         memcpy = repl.lookup_source_signature("memcpy", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(memcpy["status"], "found", memcpy)
@@ -2459,6 +2477,13 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.find_next_zero_bit_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "find_next_zero_bit",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.memcpy_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -2708,6 +2733,8 @@ class FaithfulFakeTransport:
             memchr = self.memchr_link + self.slide
             assert self.memchr_inv_link is not None
             memchr_inv = self.memchr_inv_link + self.slide
+            assert self.find_next_zero_bit_link is not None
+            find_next_zero_bit = self.find_next_zero_bit_link + self.slide
             assert self.memcpy_link is not None
             memcpy = self.memcpy_link + self.slide
             assert self.memmove_link is not None
@@ -3784,6 +3811,18 @@ class FaithfulFakeTransport:
                         offset = index
                         break
                 lines.append("A90R0" if offset < 0 else f"A90R{arg1 + offset:x}")
+            elif arg0 == find_next_zero_bit:
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"find_next_zero_bit bitmap is not an allocated pointer: {arg1:#x}")
+                word_bytes = ((arg2 + 63) // 64) * 8
+                data = self._heap_bytes(arg1, word_bytes)
+                result = arg2
+                for bit in range(arg3, arg2):
+                    byte = data[bit // 8]
+                    if not ((byte >> (bit % 8)) & 1):
+                        result = bit
+                        break
+                lines.append(f"A90R{result:x}")
             elif arg0 == memcpy:
                 if arg1 not in self.allocated:
                     raise AssertionError(f"memcpy dst is not an allocated pointer: {arg1:#x}")
@@ -5864,6 +5903,66 @@ class SelftestIntegrationTests(unittest.TestCase):
         expected_equal_hex = (repl.MEMCHR_INV_EQUAL_BYTES + repl.MEMCHR_INV_CANARY_BYTES).hex()
         self.assertEqual(private["observed_hit_bytes_hex"], expected_hit_hex)
         self.assertEqual(private["observed_equal_bytes_hex"], expected_equal_hex)
+        self.assertEqual(fake.freed, [fake.heap_ptr])
+
+    def test_call_proof_find_next_zero_bit_passes_with_owned_bitmap_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "find_next_zero_bit",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-find_next_zero_bit-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "find_next_zero_bit")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern unsigned long find_next_zero_bit(const unsigned long *addr, unsigned long size, unsigned long offset)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [0])
+        self.assertEqual(summary["bitmap_size_bits"], repl.FIND_NEXT_ZERO_BIT_PROOF_SIZE_BITS)
+        self.assertEqual(summary["tail_case_size_bits"], repl.FIND_NEXT_ZERO_BIT_TAIL_SIZE_BITS)
+        self.assertEqual(summary["zero_bits"], list(repl.FIND_NEXT_ZERO_BIT_ZERO_BITS))
+        self.assertTrue(summary["bitmap_unchanged_after_calls"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("alloc_ptr", summary)
+        self.assertNotIn("find_next_zero_bit_runtime", summary)
+        self.assertNotIn("observed_bytes_hex", summary)
+
+        expected_returns = {
+            "first-zero-low-word": "0x9",
+            "skip-low-zero": "0x49",
+            "no-zero-after-second": "0x80",
+            "bounded-second-word-hit": "0x49",
+            "bounded-tail-miss": "0x50",
+        }
+        observed_returns = {
+            case["case"]: case["observed_return_value"]
+            for case in summary["case_results"]
+        }
+        self.assertEqual(observed_returns, expected_returns)
+        self.assertEqual(private["case_returns"], expected_returns)
+        self.assertEqual(private["alloc_ptr"], f"0x{fake.heap_ptr:x}")
+        expected_hex = (
+            repl.FIND_NEXT_ZERO_BIT_BITMAP_BYTES
+            + repl.FIND_NEXT_ZERO_BIT_CANARY_BYTES
+        ).hex()
+        self.assertEqual(private["observed_bytes_hex"], expected_hex)
         self.assertEqual(fake.freed, [fake.heap_ptr])
 
     def test_call_proof_memcpy_passes_with_owned_buffers_contract(self) -> None:

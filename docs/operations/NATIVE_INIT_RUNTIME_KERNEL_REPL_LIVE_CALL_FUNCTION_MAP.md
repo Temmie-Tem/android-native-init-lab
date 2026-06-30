@@ -27,6 +27,7 @@ and the C1 fail-closed identity gate.
 | `__sw_hweight64` | `0xffffff800856d8e4`, `export-recovery`, direct BL xrefs `228`, leaf/no-BL | scalar unsigned 64-bit word | case table: `0x0000000000000000 -> 0`, `0xffffffffffffffff -> 64`, `0xaaaaaaaaaaaaaaaa -> 32`, `0x8000000000000000 -> 1`, `0xa90f00dca90f00dc -> 26` | n/a-scalar-only | `a90-repl-live-call-proof-__sw_hweight64-pass` |
 | `__sw_hweight16` | `0xffffff800856d87c`, `export-recovery`, direct BL xrefs `19`, leaf/no-BL | scalar unsigned 16-bit word in the low x0 bits | case table: `0x0000 -> 0`, `0xffff -> 16`, `0xaaaa -> 8`, `0x8000 -> 1`, `0xa90d -> 7` | n/a-scalar-only | `a90-repl-live-call-proof-__sw_hweight16-pass` |
 | `__sw_hweight8` | `0xffffff800856d8b4`, `export-recovery`, direct BL xrefs `23`, leaf/no-BL | scalar unsigned 8-bit byte in the low x0 bits | case table: `0x00 -> 0`, `0xff -> 8`, `0xaa -> 4`, `0x80 -> 1`, `0xa9 -> 4` | n/a-scalar-only | `a90-repl-live-call-proof-__sw_hweight8-pass` |
+| `find_next_zero_bit` | `0xffffff8008564e94`, `export-recovery`, direct BL xrefs `120`, leaf/no-BL | owned unsigned-long bitmap buffer plus scalar bit size and scalar offset inside that bitmap | case table: `size=128,offset=0 -> 9`, `size=128,offset=10 -> 73`, `size=128,offset=74 -> 128`, `size=80,offset=64 -> 73`, `size=80,offset=74 -> 80`; bitmap and canary stayed unchanged | `kfree-owned-find-next-zero-bit-bitmap-ok` | `a90-repl-live-call-proof-find_next_zero_bit-pass` |
 | `hex2bin` | `0xffffff800856aa3c`, `export-recovery`, direct BL xrefs `15`, leaf/no-BL | owned destination byte buffer plus owned ASCII hex source buffer plus scalar byte count | `hex2bin(dst, "A90f00dC0ffEe1", 7) == 0x0`, destination decoded to `a90f00dc0ffee1`, destination canary preserved, source stayed unchanged | `kfree-owned-hex2bin-buffers-ok` | `a90-repl-live-call-proof-hex2bin-pass` |
 | `bin2hex` | `0xffffff800856aaf4`, `export-recovery`, direct BL xrefs `5`, leaf/no-BL | owned destination ASCII hex buffer plus owned source byte buffer plus scalar byte count | `bin2hex(dst, a90f00dc0ffee1, 7)` returned the owned destination pointer plus offset `14` (redacted), destination encoded to `a90f00dc0ffee1`, destination canary preserved, source stayed unchanged | `kfree-owned-bin2hex-buffers-ok` | `a90-repl-live-call-proof-bin2hex-pass` |
 | `parse_option_str` | `0xffffff80099a9c44`, `disasm-signature+xref+map`, direct BL xrefs `3`, calls `__pi_strlen`/`__pi_strncmp` | owned NUL-terminated comma-separated option string plus owned NUL-terminated option string | exact token case returned `1`; prefix-only token and missing token returned `0`; list and option buffers stayed unchanged | `kfree-owned-parse-option-str-buffers-ok` | `a90-repl-live-call-proof-parse_option_str-pass` |
@@ -106,6 +107,11 @@ and the C1 fail-closed identity gate.
   have crossed the live proof gate only under scalar unsigned word contracts for their respective widths. The proofs cover zero,
   all-ones, alternating, single-high-bit, and mixed A90 marker words; they do not authorize arbitrary
   target calls, broader bitops state, high-bit widening outside the stated contract, or mass calling.
+- Bitmap bit-search helper sweep: `find_next_zero_bit` has crossed the live proof gate only under an
+  owned unsigned-long bitmap buffer plus scalar size/offset bounded inside that bitmap. The proof
+  covers low-word hit, high-word hit, full-size miss, and bounded-tail miss cases, with bitmap and
+  canary immutability. `find_next_bit` remains parked because the current analyzer still reports
+  size/offset address-flow conservatively and needs a separate target-specific proof before trust.
 - Option parser sweep: `parse_option_str` has crossed the live proof gate only under owned
   NUL-terminated comma-separated option and option strings. Its C1 identity is the
   `disasm-signature+xref+map` path, not export recovery; the target's early x0 byte read is allowed
