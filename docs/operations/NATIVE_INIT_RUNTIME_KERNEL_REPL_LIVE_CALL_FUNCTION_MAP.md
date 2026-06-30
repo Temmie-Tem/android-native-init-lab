@@ -24,6 +24,7 @@ and the C1 fail-closed identity gate.
 | `kfree` | `0xffffff800826b354`, `export-recovery`, direct BL xrefs `10596` | owned `kmalloc` object pointer or NULL | cleanup call returned through REPL | freed owned allocation | v2a2 recovered-export poke round-trip |
 | `hex_to_bin` | `0xffffff800856a9dc`, `export-recovery`, direct BL xrefs `80`, leaf/no-BL | scalar ASCII character | case table: `'0' -> 0`, `'9' -> 9`, `'a'/'A' -> 10`, `'f'/'F' -> 15`, invalid `'g' -> 0xffffffff` | n/a-scalar-only | `a90-repl-live-call-proof-hex_to_bin-pass` |
 | `__sw_hweight32` | `0xffffff800856d844`, `export-recovery`, direct BL xrefs `36`, leaf/no-BL | scalar unsigned 32-bit word | case table: `0x00000000 -> 0`, `0xffffffff -> 32`, `0xaaaaaaaa -> 16`, `0x80000000 -> 1`, `0xa90f00dc -> 13` | n/a-scalar-only | `a90-repl-live-call-proof-__sw_hweight32-pass` |
+| `__sw_hweight64` | `0xffffff800856d8e4`, `export-recovery`, direct BL xrefs `228`, leaf/no-BL | scalar unsigned 64-bit word | case table: `0x0000000000000000 -> 0`, `0xffffffffffffffff -> 64`, `0xaaaaaaaaaaaaaaaa -> 32`, `0x8000000000000000 -> 1`, `0xa90f00dca90f00dc -> 26` | n/a-scalar-only | `a90-repl-live-call-proof-__sw_hweight64-pass` |
 | `__sw_hweight16` | `0xffffff800856d87c`, `export-recovery`, direct BL xrefs `19`, leaf/no-BL | scalar unsigned 16-bit word in the low x0 bits | case table: `0x0000 -> 0`, `0xffff -> 16`, `0xaaaa -> 8`, `0x8000 -> 1`, `0xa90d -> 7` | n/a-scalar-only | `a90-repl-live-call-proof-__sw_hweight16-pass` |
 | `__sw_hweight8` | `0xffffff800856d8b4`, `export-recovery`, direct BL xrefs `23`, leaf/no-BL | scalar unsigned 8-bit byte in the low x0 bits | case table: `0x00 -> 0`, `0xff -> 8`, `0xaa -> 4`, `0x80 -> 1`, `0xa9 -> 4` | n/a-scalar-only | `a90-repl-live-call-proof-__sw_hweight8-pass` |
 | `hex2bin` | `0xffffff800856aa3c`, `export-recovery`, direct BL xrefs `15`, leaf/no-BL | owned destination byte buffer plus owned ASCII hex source buffer plus scalar byte count | `hex2bin(dst, "A90f00dC0ffEe1", 7) == 0x0`, destination decoded to `a90f00dc0ffee1`, destination canary preserved, source stayed unchanged | `kfree-owned-hex2bin-buffers-ok` | `a90-repl-live-call-proof-hex2bin-pass` |
@@ -101,8 +102,8 @@ and the C1 fail-closed identity gate.
   scalar byte count contract. These proofs cover one bounded decoder/encoder table input path each;
   they do not authorize arbitrary parser state, arbitrary pointers, unbounded counts, output aliases,
   or mass calling.
-- Scalar bit helper sweep: `__sw_hweight32`, `__sw_hweight16`, and `__sw_hweight8` have crossed the
-  live proof gate only under scalar unsigned word contracts for their respective widths. The proofs cover zero,
+- Scalar bit helper sweep: `__sw_hweight64`, `__sw_hweight32`, `__sw_hweight16`, and `__sw_hweight8`
+  have crossed the live proof gate only under scalar unsigned word contracts for their respective widths. The proofs cover zero,
   all-ones, alternating, single-high-bit, and mixed A90 marker words; they do not authorize arbitrary
   target calls, broader bitops state, high-bit widening outside the stated contract, or mass calling.
 - Option parser sweep: `parse_option_str` has crossed the live proof gate only under owned

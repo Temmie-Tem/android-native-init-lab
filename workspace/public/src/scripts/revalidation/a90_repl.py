@@ -300,6 +300,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "unsigned-int",
         "reason": "scalar 32-bit hamming-weight helper; x0 is one unsigned int and no pointer arguments are dereferenced",
     },
+    "__sw_hweight64": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "unsigned-long",
+        "reason": "scalar 64-bit hamming-weight helper; x0 is one unsigned long and no pointer arguments are dereferenced",
+    },
     "__sw_hweight16": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -3224,6 +3230,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "__sw_hweight8": ("include/linux/bitops.h",),
     "__sw_hweight16": ("include/linux/bitops.h",),
     "__sw_hweight32": ("include/linux/bitops.h",),
+    "__sw_hweight64": ("include/linux/bitops.h",),
     "__sysfs_match_string": ("include/linux/string.h",),
     "filp_clone_open": ("fs/internal.h", "include/linux/fs.h"),
     "filp_close": ("include/linux/fs.h",),
@@ -3373,6 +3380,10 @@ _SOURCE_ARG_TYPE_WORDS = frozenset((
     "size_t",
     "ssize_t",
     "struct",
+    "__u8",
+    "__u16",
+    "__u32",
+    "__u64",
     "u8",
     "u16",
     "u32",
@@ -4919,6 +4930,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern unsigned int __sw_hweight32(unsigned int w)",
     },
+    "__sw_hweight64": {
+        "input_contract": "scalar unsigned 64-bit word",
+        "return_contract": "unsigned long == population count of the 64 input bits",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern unsigned long __sw_hweight64(__u64 w)",
+    },
     "__sw_hweight16": {
         "input_contract": "scalar unsigned 16-bit word in the low x0 bits",
         "return_contract": "unsigned int == population count of the low 16 input bits",
@@ -5482,6 +5499,13 @@ SW_HWEIGHT32_CASES = (
     ("alternating-a", 0xAAAAAAAA, 16),
     ("single-high-bit", 0x80000000, 1),
     ("a90f00dc", 0xA90F00DC, 13),
+)
+SW_HWEIGHT64_CASES = (
+    ("zero", 0x0000000000000000, 0),
+    ("all-ones", 0xFFFFFFFFFFFFFFFF, 64),
+    ("alternating-a", 0xAAAAAAAAAAAAAAAA, 32),
+    ("single-high-bit", 0x8000000000000000, 1),
+    ("a90f00dc-pair", 0xA90F00DCA90F00DC, 26),
 )
 SW_HWEIGHT16_CASES = (
     ("zero", 0x0000, 0),
@@ -17023,6 +17047,22 @@ def _run_call_proof___sw_hweight32(session: ReplSession,
     )
 
 
+def _run_call_proof___sw_hweight64(session: ReplSession,
+                                   symbols: dict[str, Symbol],
+                                   image: StaticImage,
+                                   *,
+                                   source_root: Path) -> tuple[dict[str, object], dict[str, object]]:
+    return _run_call_proof_scalar_hweight(
+        session,
+        symbols,
+        image,
+        target="__sw_hweight64",
+        cases=SW_HWEIGHT64_CASES,
+        input_width_bits=64,
+        source_root=source_root,
+    )
+
+
 def _run_call_proof___sw_hweight16(session: ReplSession,
                                    symbols: dict[str, Symbol],
                                    image: StaticImage,
@@ -20527,6 +20567,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "__sw_hweight32":
         return _run_call_proof___sw_hweight32(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "__sw_hweight64":
+        return _run_call_proof___sw_hweight64(
             session,
             symbols,
             image,

@@ -767,6 +767,41 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `__sw_hweight64` scalar popcount contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `__sw_hweight64` promoted under scalar unsigned-64 contract only
+>
+> Sixty-fifth one-target live-call proof after the REPL epic close. Candidate selection revisited the
+> previously parked adjacent bit helper: static C1 already verified `__sw_hweight64` by
+> `export-recovery`, but the source oracle failed closed because the parser did not recognize kernel
+> typedef spellings such as `__u64`. Codex fixed the source parser narrowly by adding kernel
+> `__u8`, `__u16`, `__u32`, and `__u64` to typed-argument recognition, added the `include/linux/bitops.h` hint, and then
+> selected only `__sw_hweight64` for proof. Static gate: `__sw_hweight64=0xffffff800856d8e4`,
+> `export-recovery`, direct-BL xrefs `228`, JOPP entry true, leaf/no-BL, no argument memory
+> dereference, no tainted-argument call, and scalar arg-taint stayed out of memory-base use. Source
+> contract: `extern unsigned long __sw_hweight64(__u64 w)` from `include/linux/bitops.h`, no pointer
+> args.
+>
+> Host validation passed: `py_compile` for `a90_repl.py` and `tests/test_a90_repl.py`; focused
+> unittest set covering static classification, seed inventory, source signature lookup, and fake
+> call-proof (`Ran 4 tests`, `OK`); full `tests.test_a90_repl` (`Ran 128 tests`, `OK`); and CLI
+> `call-safety-classify __sw_hweight64` (`SAFE-SCALAR`). Live validation obeyed the flash gate:
+> rollback/fallback/TWRP SHAs confirmed, bridge healthy, baseline v2321 health checked, v1-repl
+> candidate flashed through `native_init_flash.py` with matching readback SHA, and
+> `a90-repl-v2a1-selftest-pass` confirmed the REPL path was resident. Codex then ran
+> `call-proof __sw_hweight64` with the C2B verified map.
+>
+> Result: `a90-repl-live-call-proof-__sw_hweight64-pass`; checks covered C1 identity, source
+> scalar-only contract, `SAFE-SCALAR` call-safety, and a five-case table:
+> `0x0000000000000000 -> 0`, `0xffffffffffffffff -> 64`, `0xaaaaaaaaaaaaaaaa -> 32`,
+> `0x8000000000000000 -> 1`, and `0xa90f00dca90f00dc -> 26`. Raw runtime address/slide evidence
+> stayed private under `workspace/private/runs/kernel/live-call-proof-sw-hweight64-20260630/proof/`.
+> Post-proof selftest stayed `pass=11 warn=1 fail=0`; Codex rolled back to clean v2321 through
+> `native_init_flash.py`, readback SHA matched, `version/status` passed, and final standalone
+> selftest stayed `pass=11 warn=1 fail=0`. Function map records `__sw_hweight64` only under the
+> scalar unsigned-64 input contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_SW_HWEIGHT64_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `__sw_hweight8` scalar popcount contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `__sw_hweight8` promoted under scalar unsigned-8 contract only
