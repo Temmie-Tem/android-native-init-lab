@@ -808,6 +808,46 @@ epic is DONE.** Reports:
 
 ## ⚠️ STOPPED — REPL scheduler counter batch second live-call proof attempt aborted before live proof
 
+## ✅ DONE — REPL one-target live-call proof — CCIC DisplayPort status getter
+
+> ### ✅ STATUS (2026-07-01 live pass) — `get_diplayport_status` one-target proof
+>
+> Codex selected one new read-only state getter outside the stopped scheduler-counter sub-goal:
+> `get_diplayport_status` (symbol/source spelling is `diplayport`). Host static gates passed before
+> live call: `py_compile`; focused `tests.test_a90_repl` classifier/source/fake-proof tests
+> (`Ran 14 tests`, `OK`); and classifier CLI over the selected/parked set showed
+> `get_diplayport_status` as the only `SAFE-SCALAR` target while `get_ddr_revision_id_2`,
+> `get_debug_reset_header`, `get_empty_filp`, and `get_dump_page` stayed `DENY`/parked.
+>
+> Static identity is pinned to `get_diplayport_status=0xffffff80095a5f14` by
+> `disasm-signature+xref+map`, direct BL xrefs `1`, next symbol `process_check_accessory` at
+> `+0x58`, exact 22-word current-image body match, no pointer args, no pre-call argument pointer
+> derefs, and source declaration `extern int get_diplayport_status(void)` from
+> `include/linux/ccic/s2mm005_ext.h:98`. The body reads the global CCIC status pointer, returns
+> `0` if absent, or reads the status field and may emit its built-in `printk` line before returning
+> the same bounded status field.
+>
+> Live validation obeyed the flash gate: rollback/fallback/TWRP SHAs were confirmed, bridge
+> healthy, baseline v2321 `version/status/selftest` passed, the exact v1-repl candidate
+> (`b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`) flashed through
+> `native_init_flash.py` with matching readback SHA, candidate `version/selftest/status` passed
+> after bridge restart + settle, and `a90_repl.py call-proof get_diplayport_status` returned
+> stable `0x0` twice under the fixed no-argument read-only status contract (`0..0xff`). Candidate
+> post-proof selftest stayed `fail=0`.
+>
+> Timing was recorded per the 2026-07-01 timing rule: candidate flash helper `64.665s`,
+> candidate flash start to boot ready `85.473s`, live proof session `5.280s`, rollback flash
+> helper `64.272s`, rollback flash start to boot ready `84.964s`, total candidate-start to
+> rollback-ready `176.173s`.
+>
+> Rollback to clean v2321 completed through `native_init_flash.py` with matching readback SHA.
+> Final explicit `version/selftest/status` passed (`selftest pass=11 warn=1 fail=0`). Function-map
+> entry is promoted only under the one-target contract:
+> `auto_call_policy=one-target-proof-only-not-mass-call`, no arguments, return stable status
+> `0x0` in `0..0xff`, cleanup `n/a-scalar-read-only`. Raw slide/runtime values stayed private.
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_GET_DIPLAYPORT_STATUS_2026-07-01.md`.
+
 > ### ⚠️ STATUS (2026-07-01 attempted, rolled back cleanly) — corrected bridge cadence passed, ad-hoc import wrapper failed before target calls
 >
 > Codex retried the scheduler-counter batch only after host-validating the

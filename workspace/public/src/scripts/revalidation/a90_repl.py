@@ -457,6 +457,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "unsigned-long-long",
         "reason": "no-argument scheduler context-switch counter getter; proof expects a sane nondecreasing counter and no pointer arguments",
     },
+    "get_diplayport_status": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "ccic-displayport-status-int",
+        "reason": "no-argument CCIC DisplayPort status getter; proof expects a stable bounded enum-like value and no pointer arguments",
+    },
     "get_ddr_DSF_version": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -3568,6 +3574,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "nr_running": ("include/linux/sched/stat.h",),
     "nr_iowait": ("include/linux/sched/stat.h",),
     "nr_context_switches": ("include/linux/kernel_stat.h",),
+    "get_diplayport_status": ("include/linux/ccic/s2mm005_ext.h",),
     "cpumask_next": ("include/linux/cpumask.h",),
     "cpumask_next_wrap": ("include/linux/cpumask.h",),
     "cpumask_next_and": ("include/linux/cpumask.h",),
@@ -5455,6 +5462,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern unsigned long long nr_context_switches(void)",
     },
+    "get_diplayport_status": {
+        "input_contract": "no arguments; CCIC/DisplayPort status state is read-only; function may emit its built-in printk status line; no returned pointer is dereferenced or freed",
+        "return_contract": "int status value is stable across repeated proof calls and in 0..0xff",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern int get_diplayport_status(void)",
+    },
     "get_ddr_DSF_version": {
         "input_contract": "no arguments; Samsung SMEM DDR DSF info is read-only; no returned pointer is dereferenced or freed",
         "return_contract": "uint32_t DDR DSF-version field is nonzero, <= 0xffffffff, and stable across repeated proof calls",
@@ -6902,6 +6915,17 @@ SCHED_COUNTER_NEXT_SYMBOL = {
     "nr_iowait": ("nr_iowait_cpu", 0xA0),
     "nr_context_switches": ("nr_iowait", 0xA0),
 }
+GET_DIPLAYPORT_STATUS_REPEAT_COUNT = 2
+GET_DIPLAYPORT_STATUS_MAX = 0xFF
+GET_DIPLAYPORT_STATUS_EXPECTED_WORDS = (
+    0xCA1103D0, 0xA9BE43FD, 0xF9000BF3, 0x910003FD,
+    0xB0011388, 0xF9425D13, 0xB4000133, 0xB941EA62,
+    0xB0007A00, 0xD0007A21, 0x913C3400, 0x913EE021,
+    0x97AE53AE, 0xB941EA60, 0x14000002, 0x2A1F03E0,
+    0xF9400BF3, 0xA8C243FD, 0xCA11021E, 0xD65F03C0,
+    0xD503201F, 0x00BE7BAD,
+)
+GET_DIPLAYPORT_STATUS_NEXT_SYMBOL = ("process_check_accessory", 0x58)
 GET_DDR_VENDOR_NAME_STACK_ALLOC_WORD = 0xD100C3FF
 GET_DDR_VENDOR_NAME_SMEM_ID_WORD = 0x528010C1
 GET_DDR_VENDOR_NAME_ARG_BUFFER_WORD = 0x910003E2
@@ -26420,6 +26444,171 @@ def _run_call_proof_scheduler_counter(
     return summary, private
 
 
+def _run_call_proof_get_diplayport_status(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "get_diplayport_status"
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        (),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError(f"{target} source signature must be scalar-only")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the expected declaration")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(
+        resolutions[target],
+        "call-proof target",
+    )
+    next_symbol_name, expected_boundary = GET_DIPLAYPORT_STATUS_NEXT_SYMBOL
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    observed_words = image.u32_words_at_vaddr(target_link, len(GET_DIPLAYPORT_STATUS_EXPECTED_WORDS))
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for index, expected in enumerate(GET_DIPLAYPORT_STATUS_EXPECTED_WORDS):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for index in range(GET_DIPLAYPORT_STATUS_REPEAT_COUNT):
+            observed = session.call_runtime(target_runtime, ()) & MASK64
+            returns.append(observed)
+            in_range = 0 <= observed <= GET_DIPLAYPORT_STATUS_MAX
+            stable_ok = index == 0 or observed == returns[0]
+            ok = in_range and stable_ok
+            case_results.append({
+                "case": f"{target}-read-{index + 1}",
+                "expected_range": f"0x0..0x{GET_DIPLAYPORT_STATUS_MAX:x}",
+                "observed_return_value": f"0x{observed:x}",
+                "in_status_range": in_range,
+                "matches_first_call": stable_ok,
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(
+                    f"{target}() returned an out-of-contract value in proof call "
+                    f"{index + 1}: 0x{observed:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": f"{target}-stable-status-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = f"0x{returns[0]:x}" if returns else "n/a"
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-ccic-displayport-status-read-only-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "observed_return_value": observed_public,
+        "all_returns_in_range": bool(returns) and all(0 <= value <= GET_DIPLAYPORT_STATUS_MAX for value in returns),
+        "all_returns_stable": bool(returns) and all(value == returns[0] for value in returns),
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": f"repeated no-argument calls returned stable CCIC DisplayPort status {observed_public}",
+            "cleanup": "n/a-scalar-read-only",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_get_ddr_DSF_version(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -31239,6 +31428,13 @@ def run_call_proof(session: ReplSession,
             symbols,
             image,
             target=target,
+            source_root=source_root,
+        )
+    if target == "get_diplayport_status":
+        return _run_call_proof_get_diplayport_status(
+            session,
+            symbols,
+            image,
             source_root=source_root,
         )
     if target == "get_ddr_DSF_version":

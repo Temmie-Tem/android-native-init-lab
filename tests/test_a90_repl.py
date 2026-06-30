@@ -1886,6 +1886,35 @@ class CallSafetyClassificationTests(unittest.TestCase):
                 [f"0x{word:08x}" for word in repl.SCHED_COUNTER_EXPECTED_WORDS[symbol][:12]],
             )
 
+        get_diplayport_status = self._row("get_diplayport_status")
+        self.assertEqual(get_diplayport_status["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(get_diplayport_status["required_valid_pointer_args"], {})
+        self.assertTrue(get_diplayport_status["resolution"]["verified"])
+        self.assertEqual(
+            get_diplayport_status["resolution"]["method"],
+            "disasm-signature+xref+map",
+        )
+        self.assertEqual(
+            get_diplayport_status["resolution"]["link_vaddr"],
+            "0xffffff80095a5f14",
+        )
+        self.assertGreaterEqual(get_diplayport_status["signals"]["direct_bl_xref_count"], 1)
+        self.assertFalse(get_diplayport_status["signals"]["leaf"])
+        self.assertEqual(
+            get_diplayport_status["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertEqual(get_diplayport_status["signals"]["context_call_count"], 0)
+        self.assertTrue(
+            get_diplayport_status["signals"]["arg_taint_flow"][
+                "safe_scalar_positive_no_arg_memory_base_flow"
+            ]
+        )
+        self.assertEqual(
+            get_diplayport_status["signals"]["first_words"][:12],
+            [f"0x{word:08x}" for word in repl.GET_DIPLAYPORT_STATUS_EXPECTED_WORDS[:12]],
+        )
+
         get_ddr_DSF_version = self._row("get_ddr_DSF_version")
         self.assertEqual(get_ddr_DSF_version["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
         self.assertEqual(get_ddr_DSF_version["required_valid_pointer_args"], {})
@@ -2197,7 +2226,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 36)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 37)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 9)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -3011,6 +3040,23 @@ class CallSafetyClassificationTests(unittest.TestCase):
             self.assertEqual(row["selected"]["line"], line)
             self.assertTrue(row["selected"]["path"].endswith(suffix))
 
+        get_diplayport_status = repl.lookup_source_signature(
+            "get_diplayport_status",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(get_diplayport_status["status"], "found", get_diplayport_status)
+        self.assertEqual(get_diplayport_status["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            get_diplayport_status["selected"]["signature"],
+            "extern int get_diplayport_status(void)",
+        )
+        self.assertEqual(get_diplayport_status["selected"]["line"], 98)
+        self.assertTrue(
+            get_diplayport_status["selected"]["path"].endswith(
+                "include/linux/ccic/s2mm005_ext.h"
+            )
+        )
+
         jiffies_64_to_clock_t = repl.lookup_source_signature(
             "jiffies_64_to_clock_t",
             source_root=KERNEL_SOURCE_ROOT,
@@ -3753,6 +3799,12 @@ class FaithfulFakeTransport:
             "nr_context_switches",
             purpose="call",
         ).link_vaddr
+        self.get_diplayport_status_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "get_diplayport_status",
+            purpose="call",
+        ).link_vaddr
         self.get_ddr_DSF_version_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -3797,6 +3849,7 @@ class FaithfulFakeTransport:
             "nr_iowait": 0,
             "nr_context_switches": 0,
         }
+        self.diplayport_status_value = 0
         self.ddr_dsf_version_value = 0x00010002
         self.ddr_total_density_value = 0x06
         self.sw_hweight32_link = repl.resolve_verified(
@@ -4512,6 +4565,8 @@ class FaithfulFakeTransport:
             nr_iowait = self.nr_iowait_link + self.slide
             assert self.nr_context_switches_link is not None
             nr_context_switches = self.nr_context_switches_link + self.slide
+            assert self.get_diplayport_status_link is not None
+            get_diplayport_status = self.get_diplayport_status_link + self.slide
             assert self.get_ddr_DSF_version_link is not None
             get_ddr_DSF_version = self.get_ddr_DSF_version_link + self.slide
             assert self.get_ddr_total_density_link is not None
@@ -5221,6 +5276,10 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("nr_context_switches proof must pass no arguments")
                 lines.append(f"A90R{self._next_scheduler_counter('nr_context_switches'):x}")
+            elif arg0 == get_diplayport_status:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("get_diplayport_status proof must pass no arguments")
+                lines.append(f"A90R{self.diplayport_status_value:x}")
             elif arg0 == get_ddr_DSF_version:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("get_ddr_DSF_version proof must pass no arguments")
@@ -7072,6 +7131,59 @@ class SelftestIntegrationTests(unittest.TestCase):
             self.assertIn(f"{target}_runtime", privates[target])
             self.assertEqual(privates[target]["case_returns"][f"{target}-read-1"], expected_first[target])
         self.assertEqual(fake.op_count, 12)  # 4 targets * (slide + 2 scalar proof calls)
+
+    def test_call_proof_get_diplayport_status_passes_with_no_arg_status_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "get_diplayport_status",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(
+            summary["decision"],
+            "a90-repl-live-call-proof-get_diplayport_status-pass",
+        )
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-ccic-displayport-status-read-only-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "get_diplayport_status")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["function_map_entry"]["auto_call_policy"],
+            "one-target-proof-only-not-mass-call",
+        )
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern int get_diplayport_status(void)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(summary["observed_return_value"], "0x0")
+        self.assertTrue(summary["all_returns_in_range"])
+        self.assertTrue(summary["all_returns_stable"])
+        self.assertEqual(summary["repeat_count"], 2)
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertNotIn("get_diplayport_status_runtime", summary)
+        self.assertIn("get_diplayport_status_runtime", private)
+        self.assertEqual(private["case_returns"]["get_diplayport_status-read-1"], "0x0")
+        self.assertEqual(private["case_returns"]["get_diplayport_status-read-2"], "0x0")
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertTrue(cases["get_diplayport_status-read-1"]["ok"])
+        self.assertTrue(cases["get_diplayport_status-read-2"]["ok"])
+        self.assertEqual(fake.op_count, 3)  # slide + 2 no-arg proof calls
 
     def test_call_proof_batch_cli_runs_scheduler_targets_in_one_session(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
