@@ -330,6 +330,16 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "void",
         "reason": "bitmap complement helper; x0/x1 must be owned unsigned-long bitmaps and scalar nbits must stay inside both bitmaps",
     },
+    "__bitmap_or": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {
+            0: "bitmap-dst-buffer",
+            1: "bitmap-left-buffer",
+            2: "bitmap-right-buffer",
+        },
+        "return_kind": "void",
+        "reason": "bitmap OR helper; x0/x1/x2 must be owned unsigned-long bitmaps and scalar nbits must stay inside all three bitmaps",
+    },
     "__bitmap_andnot": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "required_valid_pointer_args": {0: "bitmap-dst-buffer", 1: "bitmap-src-buffer", 2: "bitmap-mask-buffer"},
@@ -3299,6 +3309,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "__sw_hweight64": ("include/linux/bitops.h",),
     "__bitmap_weight": ("include/linux/bitmap.h",),
     "__bitmap_complement": ("include/linux/bitmap.h",),
+    "__bitmap_or": ("include/linux/bitmap.h",),
     "__bitmap_andnot": ("include/linux/bitmap.h",),
     "__bitmap_subset": ("include/linux/bitmap.h",),
     "find_last_bit": ("include/linux/bitops.h", "include/asm-generic/bitops/find.h"),
@@ -5046,6 +5057,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern void __bitmap_complement(unsigned long *dst, const unsigned long *src, unsigned int nbits)",
     },
+    "__bitmap_or": {
+        "input_contract": "owned destination unsigned-long bitmap buffer + two owned source unsigned-long bitmap buffers + scalar bit count bounded inside all three bitmaps",
+        "return_contract": "void; destination receives source1 | source2 for the covered unsigned-long words, source bitmaps and canaries stay unchanged",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern void __bitmap_or(unsigned long *dst, const unsigned long *bitmap1, const unsigned long *bitmap2, unsigned int nbits)",
+    },
     "__bitmap_andnot": {
         "input_contract": "owned destination unsigned-long bitmap buffer + owned source unsigned-long bitmap buffer + owned mask unsigned-long bitmap buffer + scalar bit count bounded inside all three bitmaps",
         "return_contract": "int bool == 1 when (source & ~mask) below nbits is nonzero, else 0; destination receives the bounded and-not result",
@@ -6231,6 +6248,42 @@ BITMAP_SUBSET_CASES = (
     ("full-size-negative-partial", "src", "partial", BITMAP_SUBSET_PROOF_SIZE_BITS, 0),
     ("full-size-positive-full", "src", "full", BITMAP_SUBSET_PROOF_SIZE_BITS, 1),
 )
+BITMAP_OR_PROOF_SIZE_BITS = 128
+BITMAP_OR_LEFT_BITS = BITMAP_WEIGHT_ONE_BITS
+BITMAP_OR_RIGHT_PARTIAL_EXTRA_BITS = BITMAP_SUBSET_PARTIAL_EXTRA_BITS
+BITMAP_OR_RIGHT_FULL_EXTRA_BITS = BITMAP_SUBSET_FULL_EXTRA_BITS
+BITMAP_OR_LEFT_WORD0 = BITMAP_WEIGHT_WORD0
+BITMAP_OR_LEFT_WORD1 = BITMAP_WEIGHT_WORD1
+BITMAP_OR_LEFT_BYTES = BITMAP_WEIGHT_BITMAP_BYTES
+BITMAP_OR_RIGHT_PARTIAL_WORD0 = BITMAP_SUBSET_PARTIAL_WORD0
+BITMAP_OR_RIGHT_PARTIAL_WORD1 = BITMAP_SUBSET_PARTIAL_WORD1
+BITMAP_OR_RIGHT_PARTIAL_BYTES = BITMAP_SUBSET_PARTIAL_BYTES
+BITMAP_OR_RIGHT_FULL_WORD0 = BITMAP_SUBSET_FULL_WORD0
+BITMAP_OR_RIGHT_FULL_WORD1 = BITMAP_SUBSET_FULL_WORD1
+BITMAP_OR_RIGHT_FULL_BYTES = BITMAP_SUBSET_FULL_BYTES
+BITMAP_OR_DST_INITIAL_WORD0 = 0x8877665544332211
+BITMAP_OR_DST_INITIAL_WORD1 = 0x00FFEEDDCCBBAA99
+BITMAP_OR_DST_INITIAL_BYTES = (
+    BITMAP_OR_DST_INITIAL_WORD0.to_bytes(8, "little")
+    + BITMAP_OR_DST_INITIAL_WORD1.to_bytes(8, "little")
+)
+BITMAP_OR_CANARY_BYTES = b"\xcc" * 8
+BITMAP_OR_CANARY_LEN = len(BITMAP_OR_CANARY_BYTES)
+BITMAP_OR_NLONGS_MOV_WORD = 0x2A0303E8
+BITMAP_OR_NLONGS_ADD_WORD = 0x9100FD08
+BITMAP_OR_NLONGS_LSR_WORD = 0xD346FD08
+BITMAP_OR_FIRST_LEFT_LOAD_WORD = 0xF840842A
+BITMAP_OR_FIRST_RIGHT_LOAD_WORD = 0xF840844B
+BITMAP_OR_FIRST_ORR_WORD = 0xAA0A016A
+BITMAP_OR_FIRST_DST_STORE_WORD = 0xF800840A
+BITMAP_OR_CASES = (
+    ("zero-size-partial", "partial", 0),
+    ("low-tail-partial", "partial", 10),
+    ("first-word-boundary-partial", "partial", 64),
+    ("second-word-tail-partial", "partial", 80),
+    ("full-size-partial", "partial", BITMAP_OR_PROOF_SIZE_BITS),
+    ("full-size-full", "full", BITMAP_OR_PROOF_SIZE_BITS),
+)
 CPUMASK_NEXT_NR_BITS = 8
 CPUMASK_NEXT_SET_BITS = (2, 6)
 CPUMASK_NEXT_WORD0 = (1 << CPUMASK_NEXT_SET_BITS[0]) | (1 << CPUMASK_NEXT_SET_BITS[1])
@@ -7203,6 +7256,25 @@ def _bitmap_andnot_expected(mask_name: str, nbits: int) -> tuple[bytes, int]:
     return b"".join(word.to_bytes(8, "little") for word in out_words), int(accumulated != 0)
 
 
+def _bitmap_or_expected(right_name: str, nbits: int) -> bytes:
+    if not (0 <= nbits <= BITMAP_OR_PROOF_SIZE_BITS):
+        raise ReplError(f"invalid __bitmap_or nbits {nbits}")
+    right_words_by_name = {
+        "partial": [BITMAP_OR_RIGHT_PARTIAL_WORD0, BITMAP_OR_RIGHT_PARTIAL_WORD1],
+        "full": [BITMAP_OR_RIGHT_FULL_WORD0, BITMAP_OR_RIGHT_FULL_WORD1],
+    }
+    if right_name not in right_words_by_name:
+        raise ReplError(f"unknown __bitmap_or right bitmap {right_name!r}")
+
+    left_words = [BITMAP_OR_LEFT_WORD0, BITMAP_OR_LEFT_WORD1]
+    right_words = right_words_by_name[right_name]
+    out_words = [BITMAP_OR_DST_INITIAL_WORD0, BITMAP_OR_DST_INITIAL_WORD1]
+    nlongs = (nbits + 63) // 64
+    for index in range(nlongs):
+        out_words[index] = (left_words[index] | right_words[index]) & MASK64
+    return b"".join(word.to_bytes(8, "little") for word in out_words)
+
+
 def _run_call_proof___bitmap_weight(session: ReplSession,
                                     symbols: dict[str, Symbol],
                                     image: StaticImage,
@@ -7987,6 +8059,294 @@ def _run_call_proof___bitmap_andnot(session: ReplSession,
         "case_returns": {
             str(case["case"]): str(case["observed_return_value"])
             for case in case_results
+        },
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
+def _run_call_proof___bitmap_or(session: ReplSession,
+                                symbols: dict[str, Symbol],
+                                image: StaticImage,
+                                *,
+                                alloc_size: int,
+                                source_root: Path,
+                                gfp: int,
+                                gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    bitmap_payloads = {
+        "left": BITMAP_OR_LEFT_BYTES,
+        "partial": BITMAP_OR_RIGHT_PARTIAL_BYTES,
+        "full": BITMAP_OR_RIGHT_FULL_BYTES,
+    }
+    expected_scans = {
+        name: payload + BITMAP_OR_CANARY_BYTES
+        for name, payload in bitmap_payloads.items()
+    }
+    dst_initial_scan = BITMAP_OR_DST_INITIAL_BYTES + BITMAP_OR_CANARY_BYTES
+    scan_len = len(dst_initial_scan)
+    if alloc_size < scan_len:
+        raise ReplError(f"__bitmap_or call-proof alloc_size must be at least {scan_len} bytes")
+    if BITMAP_OR_PROOF_SIZE_BITS != len(BITMAP_OR_LEFT_BYTES) * 8:
+        raise ReplError("__bitmap_or proof bit size does not match bitmap byte length")
+    if any(bit < 0 or bit >= BITMAP_OR_PROOF_SIZE_BITS for bit in BITMAP_OR_LEFT_BITS):
+        raise ReplError("__bitmap_or proof set bit is outside the bitmap")
+    for label, right_name, nbits in BITMAP_OR_CASES:
+        if right_name not in ("partial", "full"):
+            raise ReplError(f"__bitmap_or case {label!r} references an unknown right bitmap")
+        if not (0 <= nbits <= BITMAP_OR_PROOF_SIZE_BITS):
+            raise ReplError(f"__bitmap_or case {label!r} has an invalid nbits")
+
+    source = lookup_source_signature("__bitmap_or", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "__bitmap_or",
+        ("@owned_dst_bitmap", "@owned_left_bitmap", "@owned_right_bitmap", BITMAP_OR_PROOF_SIZE_BITS),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["__bitmap_or"]["expected_tier"]:
+        raise ReplError("__bitmap_or call-safety tier is not the expected vetted pointer tier")
+    selected = source.get("selected")
+    selected_signature = selected.get("signature") if isinstance(selected, dict) else None
+    if not source.get("found") or source.get("pointer_arg_indices") != [0, 1, 2]:
+        raise ReplError("__bitmap_or source signature does not declare x0/x1/x2 as bitmap pointer arguments")
+    if selected_signature != CALL_PROOF_TARGETS["__bitmap_or"]["source_signature"]:
+        raise ReplError("__bitmap_or source signature did not select the exported declaration")
+
+    resolutions = {
+        "__bitmap_or": resolve_verified(
+            symbols,
+            image,
+            "__bitmap_or",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    target_link = require_verified_resolution(resolutions["__bitmap_or"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof bitmap allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof bitmap cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    static_words = {
+        "nlongs-mov": (target_link + 0x00, BITMAP_OR_NLONGS_MOV_WORD),
+        "nlongs-add": (target_link + 0x04, BITMAP_OR_NLONGS_ADD_WORD),
+        "nlongs-lsr": (target_link + 0x08, BITMAP_OR_NLONGS_LSR_WORD),
+        "first-left-load": (target_link + 0x14, BITMAP_OR_FIRST_LEFT_LOAD_WORD),
+        "first-right-load": (target_link + 0x18, BITMAP_OR_FIRST_RIGHT_LOAD_WORD),
+        "first-orr": (target_link + 0x1C, BITMAP_OR_FIRST_ORR_WORD),
+        "first-dst-store": (target_link + 0x28, BITMAP_OR_FIRST_DST_STORE_WORD),
+    }
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "__bitmap_or",
+            "resolution_method": resolutions["__bitmap_or"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+            "bounded_size_bits": BITMAP_OR_PROOF_SIZE_BITS,
+        },
+    ]
+    for label, (vaddr, expected_word) in static_words.items():
+        observed_word = image.u32_at_vaddr(vaddr)
+        ok = observed_word == expected_word
+        checks.append({
+            "check": f"static-{label}",
+            "ok": ok,
+            "expected_word": f"0x{expected_word:08x}",
+            "observed_word": f"0x{observed_word:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                "__bitmap_or static word mismatch for "
+                f"{label}: observed 0x{observed_word:08x}, expected 0x{expected_word:08x}"
+            )
+
+    private: dict[str, object] = {}
+    ptrs: dict[str, int] = {}
+    slide = 0
+    kfree_runtime = 0
+    free_results: dict[str, bool] = {}
+    free_errors: dict[str, str] = {}
+    case_results: list[dict[str, object]] = []
+    observed_dst_by_case: dict[str, bytes] = {}
+    observed_after: dict[str, bytes] = {}
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        for name, expected_scan in (
+            ("left", expected_scans["left"]),
+            ("partial", expected_scans["partial"]),
+            ("full", expected_scans["full"]),
+            ("dst", dst_initial_scan),
+        ):
+            ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+            ptr_ok = is_kernel_lowmem_pointer(ptr)
+            checks.append({
+                "check": f"kmalloc-owned-bitmap-or-{name}",
+                "ok": ptr_ok,
+                "alloc_size": alloc_size,
+                "kernel_lowmem": ptr_ok,
+            })
+            if not ptr_ok:
+                raise ReplError(f"__kmalloc did not return a sane __bitmap_or {name} buffer")
+            ptrs[name] = ptr
+            _poke_bytes(session, ptr, expected_scan)
+            observed = _peek_bytes(session, ptr, scan_len)
+            setup_ok = observed == expected_scan
+            checks.append({
+                "check": f"owned-bitmap-or-{name}-poke-peek",
+                "ok": setup_ok,
+                "bitmap_size_bits": BITMAP_OR_PROOF_SIZE_BITS,
+                "canary_len": BITMAP_OR_CANARY_LEN,
+            })
+            if not setup_ok:
+                raise ReplError(f"owned __bitmap_or {name} bitmap poke/peek mismatch")
+
+        for label, right_name, nbits in BITMAP_OR_CASES:
+            _poke_bytes(session, ptrs["dst"], dst_initial_scan)
+            reset_dst = _peek_bytes(session, ptrs["dst"], scan_len)
+            if reset_dst != dst_initial_scan:
+                raise ReplError(f"owned __bitmap_or dst reset mismatch before {label}")
+
+            expected_dst_scan = _bitmap_or_expected(right_name, nbits) + BITMAP_OR_CANARY_BYTES
+            _ignored_return = session.call_runtime(
+                target_runtime,
+                (ptrs["dst"], ptrs["left"], ptrs[right_name], nbits),
+            )
+            observed_dst = _peek_bytes(session, ptrs["dst"], scan_len)
+            observed_left = _peek_bytes(session, ptrs["left"], scan_len)
+            observed_right = _peek_bytes(session, ptrs[right_name], scan_len)
+            dst_ok = observed_dst == expected_dst_scan
+            left_ok = observed_left == expected_scans["left"]
+            right_ok = observed_right == expected_scans[right_name]
+            canary_ok = (
+                observed_dst[-BITMAP_OR_CANARY_LEN:] == BITMAP_OR_CANARY_BYTES
+                and observed_left[-BITMAP_OR_CANARY_LEN:] == BITMAP_OR_CANARY_BYTES
+                and observed_right[-BITMAP_OR_CANARY_LEN:] == BITMAP_OR_CANARY_BYTES
+            )
+            observed_dst_by_case[label] = observed_dst
+            case_results.append({
+                "case": label,
+                "right": right_name,
+                "nbits": nbits,
+                "return_value_ignored": True,
+                "observed_return_value_redacted": True,
+                "dst_matches_expected": dst_ok,
+                "left_unchanged": left_ok,
+                "right_unchanged": right_ok,
+                "canary_preserved": canary_ok,
+                "ok": dst_ok and left_ok and right_ok and canary_ok,
+            })
+            if not dst_ok:
+                raise ReplError(f"__bitmap_or {label} dst bytes did not match expected OR result")
+            if not left_ok:
+                raise ReplError(f"__bitmap_or {label} modified the left bitmap")
+            if not right_ok:
+                raise ReplError(f"__bitmap_or {label} modified the right bitmap")
+            if not canary_ok:
+                raise ReplError(f"__bitmap_or {label} modified a canary")
+
+        for name, expected_scan in expected_scans.items():
+            observed = _peek_bytes(session, ptrs[name], scan_len)
+            observed_after[name] = observed
+            unchanged = observed == expected_scan
+            checks.append({
+                "check": f"bitmap-or-{name}-immutability",
+                "ok": unchanged,
+                "buffer_unchanged": unchanged,
+                "canary_preserved": observed[-BITMAP_OR_CANARY_LEN:] == BITMAP_OR_CANARY_BYTES,
+            })
+            if not unchanged:
+                raise ReplError(f"__bitmap_or modified the owned {name} bitmap buffer")
+    finally:
+        if kfree_runtime:
+            for name, ptr in list(ptrs.items()):
+                if ptr and is_kernel_lowmem_pointer(ptr):
+                    try:
+                        session.call_runtime(kfree_runtime, (ptr,))
+                        free_results[name] = True
+                    except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                        free_results[name] = False
+                        free_errors[name] = str(exc)
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "bitmap-or-case-table",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    for name in ("left", "partial", "full", "dst"):
+        checks.append({
+            "check": f"kfree-owned-bitmap-or-{name}",
+            "ok": free_results.get(name) is True,
+            "free_attempted": name in ptrs,
+        })
+    if free_errors:
+        detail = "; ".join(f"{name}: {msg}" for name, msg in sorted(free_errors.items()))
+        raise ReplError(f"kfree failed after __bitmap_or proof: {detail}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-__bitmap_or-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "__bitmap_or",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["__bitmap_or"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["__bitmap_or"]["return_contract"],
+        "alloc_size": alloc_size,
+        "bitmap_size_bits": BITMAP_OR_PROOF_SIZE_BITS,
+        "left_bits": list(BITMAP_OR_LEFT_BITS),
+        "partial_right_extra_bits": list(BITMAP_OR_RIGHT_PARTIAL_EXTRA_BITS),
+        "full_right_extra_bits": list(BITMAP_OR_RIGHT_FULL_EXTRA_BITS),
+        "case_results": case_results,
+        "dst_matches_expected_after_each_case": True,
+        "left_and_right_bitmaps_unchanged_after_calls": True,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "__bitmap_or",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["__bitmap_or"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["__bitmap_or"]["return_contract"],
+            "observed_return_value": "void-return-ignored; destination-matched-source1-or-source2-word-coverage",
+            "cleanup": "kfree-owned-bitmap-or-buffers-ok" if all(free_results.get(name) for name in ("left", "partial", "full", "dst")) else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "__bitmap_or_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "alloc_ptrs": {name: f"0x{ptr:x}" for name, ptr in ptrs.items()},
+        "observed_bytes_hex": {
+            **{name: observed.hex() for name, observed in observed_after.items()},
+            "dst_by_case": {label: data.hex() for label, data in observed_dst_by_case.items()},
         },
         "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
     })
@@ -24419,6 +24779,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "__bitmap_complement":
         return _run_call_proof___bitmap_complement(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "__bitmap_or":
+        return _run_call_proof___bitmap_or(
             session,
             symbols,
             image,
