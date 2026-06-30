@@ -464,6 +464,21 @@ the Audio section above). Full detail: `CLAUDE.md` + `docs/reports/`. No active 
    report; never `-A`. Message per project convention; end with the Co-Authored-By line.
 9. **REPEAT** → back to STATE.
 
+## Timing instrumentation (every device-touching V-iteration, all tracks)
+
+**Step 6 (DEVICE) must record phase-level timestamps, not just pass/fail**, whenever a sub-goal
+flashes/reboots the device — this applies to every track (REPL, GPU, audio, SoftAP,
+server-distro, etc.), not just one epic. Capture at minimum: `candidate_flash_start`,
+`candidate_flash_done`, `candidate_boot_ready` (device/helper first responds),
+`live_session_start`, `live_session_end` (the actual work — calls/commands/validation),
+`rollback_flash_start`, `rollback_flash_done`, `rollback_boot_ready` (final selftest pass).
+Store these as a `"timeline"` object (UTC ISO8601 or epoch seconds) in the run's private
+evidence JSON, and surface a short "## Timing" section (per-phase elapsed + total) in the
+`docs/reports/...` writeup (step 7). This is cheap (a few timestamp calls around existing phase
+boundaries) and lets future analysis separate **flash/reboot overhead from actual work time** —
+e.g. to size a batching win (see the 2026-07-01 OPERATOR STEER above) instead of guessing from
+commit cadence alone.
+
 ## 🟢 GPU epic — first-light G0→G5 ✅, triangle H0→H5 ✅, compute C0→C3 ✅, accel-2D D0→D3 ✅, monitor M0→M3 ✅, zero-copy scanout Z0→Z3 ✅ (all eye-confirmed; GPU epic CLOSED), next = SoftAP server-endgame pivot
 
 **Persistent HARD FRAMING (inherited by every GPU rung, do not deviate):**
