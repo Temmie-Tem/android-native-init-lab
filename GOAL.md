@@ -806,6 +806,48 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic batch live-call proof — SDE RSC scalar state getters
+
+> ### ✅ STATUS (2026-07-01 live pass) — same-session SDE RSC state-observation batch
+>
+> Codex continued the corrected BATCH cadence with a new read-only state-observation shape:
+> one `v1-repl` boot session proved three adjacent SDE RSC scalar getters with fixed
+> `SDE_RSC_INDEX=0`: `get_sde_rsc_current_state`, `get_sde_rsc_primary_crtc`, and
+> `get_sde_rsc_version`. Static validation pinned `get_sde_rsc_current_state=0xffffff8008861bec`
+> (xrefs `4`), `get_sde_rsc_primary_crtc=0xffffff8008861b7c` (xrefs `1`), and
+> `get_sde_rsc_version=0xffffff8008861c64` (xrefs `1`), all `export-recovery`. Source
+> declarations came from `include/linux/sde_rsc.h:291`, `:299`, and `:319`; all three
+> signatures are scalar-only, exact current-image word gates passed, and returns are bounded
+> by the predeclared contracts.
+>
+> Adjacent client-pointer helpers stayed parked: `sde_rsc_client_get_vsync_refcount`,
+> `sde_rsc_client_reset_vsync_refcount`, `sde_rsc_client_is_state_update_complete`, and
+> `sde_rsc_client_trigger_vote` remain `DENY` because they need a separate valid
+> `struct sde_rsc_client *` and side-effect contract.
+>
+> Host validation passed: `py_compile`; focused classifier/source/fake-batch tests; full
+> `tests.test_a90_repl` (`Ran 163 tests`, `OK`); and CLI `call-safety-classify` over the
+> SDE RSC scalar/client cluster (`SAFE-SCALAR=4`, `DENY=4`). Live validation obeyed the
+> flash gate: baseline v2321 `version/selftest/status` passed, v1-repl candidate
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65` flashed through
+> `native_init_flash.py` with matching readback SHA, explicit candidate health passed after
+> bridge restart + settle, all three proof calls passed in one `ReplSession`, and rollback to
+> v2321 completed with matching readback SHA plus final `selftest pass=11 warn=1 fail=0`.
+>
+> Live result: `get_sde_rsc_current_state(0)` returned stable `0x1`;
+> `get_sde_rsc_primary_crtc(0)` returned stable `0x85`; `get_sde_rsc_version(0)` returned
+> stable `0x2`.
+>
+> Timing was recorded per the 2026-07-01 timing rule: candidate flash helper `68.319s`,
+> candidate bridge/health-to-ready `24.486s`, live proof session `10.887s`, rollback flash
+> helper `64.204s`, rollback bridge/health-to-ready `24.482s`, total candidate-start to
+> rollback-ready `194.786s`. Operational note: one pre-proof wrapper attempt used a wrong
+> private source-root path and stopped before any live call; it rolled back cleanly before the
+> corrected pass.
+>
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_SDE_RSC_STATE_BATCH_2026-07-01.md`.
+
 ## ✅ DONE — REPL post-epic batch live-call proof — bitmap allocation wrappers + paired cleanup
 
 > ### ✅ STATUS (2026-07-01 live pass) — adjacent bitmap allocation batch after saturation pivot

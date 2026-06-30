@@ -1799,6 +1799,29 @@ class CallSafetyClassificationTests(unittest.TestCase):
             ],
         )
 
+        sde_state_targets = {
+            "get_sde_rsc_primary_crtc": ("0xffffff8008861b7c", 1),
+            "get_sde_rsc_current_state": ("0xffffff8008861bec", 4),
+            "get_sde_rsc_version": ("0xffffff8008861c64", 1),
+        }
+        for symbol, (link_vaddr, min_xrefs) in sde_state_targets.items():
+            row = self._row(symbol)
+            self.assertEqual(row["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+            self.assertEqual(row["required_valid_pointer_args"], {})
+            self.assertTrue(row["resolution"]["verified"])
+            self.assertEqual(row["resolution"]["method"], "export-recovery")
+            self.assertEqual(row["resolution"]["link_vaddr"], link_vaddr)
+            self.assertGreaterEqual(row["signals"]["direct_bl_xref_count"], min_xrefs)
+            self.assertFalse(row["signals"]["leaf"])
+            self.assertEqual(row["signals"]["arg_pointer_derefs_before_first_bl_or_ret"], [])
+            self.assertTrue(
+                row["signals"]["arg_taint_flow"]["safe_scalar_positive_no_arg_memory_base_flow"]
+            )
+            self.assertEqual(
+                row["signals"]["first_words"][:12],
+                [f"0x{word:08x}" for word in repl.SDE_RSC_SCALAR_STATE_EXPECTED_WORDS[symbol][:12]],
+            )
+
         get_ddr_DSF_version = self._row("get_ddr_DSF_version")
         self.assertEqual(get_ddr_DSF_version["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
         self.assertEqual(get_ddr_DSF_version["required_valid_pointer_args"], {})
@@ -2110,7 +2133,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 28)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 31)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 8)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -2852,6 +2875,28 @@ class CallSafetyClassificationTests(unittest.TestCase):
             is_sde_rsc_available["selected"]["path"].endswith("include/linux/sde_rsc.h")
         )
 
+        sde_state_source = {
+            "get_sde_rsc_current_state": (
+                "enum sde_rsc_state get_sde_rsc_current_state(int rsc_index)",
+                291,
+            ),
+            "get_sde_rsc_primary_crtc": (
+                "int get_sde_rsc_primary_crtc(int rsc_index)",
+                299,
+            ),
+            "get_sde_rsc_version": (
+                "u32 get_sde_rsc_version(int rsc_index)",
+                319,
+            ),
+        }
+        for symbol, (signature, line) in sde_state_source.items():
+            row = repl.lookup_source_signature(symbol, source_root=KERNEL_SOURCE_ROOT)
+            self.assertEqual(row["status"], "found", row)
+            self.assertEqual(row["selected"]["pointer_arg_indices"], [])
+            self.assertEqual(row["selected"]["signature"], signature)
+            self.assertEqual(row["selected"]["line"], line)
+            self.assertTrue(row["selected"]["path"].endswith("include/linux/sde_rsc.h"))
+
         jiffies_64_to_clock_t = repl.lookup_source_signature(
             "jiffies_64_to_clock_t",
             source_root=KERNEL_SOURCE_ROOT,
@@ -3539,6 +3584,24 @@ class FaithfulFakeTransport:
             "is_sde_rsc_available",
             purpose="call",
         ).link_vaddr
+        self.get_sde_rsc_current_state_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "get_sde_rsc_current_state",
+            purpose="call",
+        ).link_vaddr
+        self.get_sde_rsc_primary_crtc_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "get_sde_rsc_primary_crtc",
+            purpose="call",
+        ).link_vaddr
+        self.get_sde_rsc_version_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "get_sde_rsc_version",
+            purpose="call",
+        ).link_vaddr
         self.get_ddr_DSF_version_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -3557,6 +3620,9 @@ class FaithfulFakeTransport:
         self.boot_stat_time_values = [0x00100000, 0x00101000, 0x00102000]
         self.boot_stat_time_index = 0
         self.sde_rsc_available_value = 1
+        self.sde_rsc_current_state_value = 2
+        self.sde_rsc_primary_crtc_value = 133
+        self.sde_rsc_version_value = 3
         self.ddr_dsf_version_value = 0x00010002
         self.ddr_total_density_value = 0x06
         self.sw_hweight32_link = repl.resolve_verified(
@@ -4248,6 +4314,12 @@ class FaithfulFakeTransport:
             get_boot_stat_time = self.get_boot_stat_time_link + self.slide
             assert self.is_sde_rsc_available_link is not None
             is_sde_rsc_available = self.is_sde_rsc_available_link + self.slide
+            assert self.get_sde_rsc_current_state_link is not None
+            get_sde_rsc_current_state = self.get_sde_rsc_current_state_link + self.slide
+            assert self.get_sde_rsc_primary_crtc_link is not None
+            get_sde_rsc_primary_crtc = self.get_sde_rsc_primary_crtc_link + self.slide
+            assert self.get_sde_rsc_version_link is not None
+            get_sde_rsc_version = self.get_sde_rsc_version_link + self.slide
             assert self.get_ddr_DSF_version_link is not None
             get_ddr_DSF_version = self.get_ddr_DSF_version_link + self.slide
             assert self.get_ddr_total_density_link is not None
@@ -4892,6 +4964,18 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (repl.IS_SDE_RSC_AVAILABLE_INDEX, 0, 0, 0):
                     raise AssertionError("is_sde_rsc_available proof must pass only SDE_RSC_INDEX 0")
                 lines.append(f"A90R{self.sde_rsc_available_value:x}")
+            elif arg0 == get_sde_rsc_current_state:
+                if (arg1, arg2, arg3, arg4) != (repl.IS_SDE_RSC_AVAILABLE_INDEX, 0, 0, 0):
+                    raise AssertionError("get_sde_rsc_current_state proof must pass only SDE_RSC_INDEX 0")
+                lines.append(f"A90R{self.sde_rsc_current_state_value:x}")
+            elif arg0 == get_sde_rsc_primary_crtc:
+                if (arg1, arg2, arg3, arg4) != (repl.IS_SDE_RSC_AVAILABLE_INDEX, 0, 0, 0):
+                    raise AssertionError("get_sde_rsc_primary_crtc proof must pass only SDE_RSC_INDEX 0")
+                lines.append(f"A90R{self.sde_rsc_primary_crtc_value:x}")
+            elif arg0 == get_sde_rsc_version:
+                if (arg1, arg2, arg3, arg4) != (repl.IS_SDE_RSC_AVAILABLE_INDEX, 0, 0, 0):
+                    raise AssertionError("get_sde_rsc_version proof must pass only SDE_RSC_INDEX 0")
+                lines.append(f"A90R{self.sde_rsc_version_value:x}")
             elif arg0 == get_ddr_DSF_version:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("get_ddr_DSF_version proof must pass no arguments")
@@ -6513,6 +6597,84 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(private["case_returns"]["sde-rsc-index0-available-1"], "0x1")
         self.assertEqual(private["case_returns"]["sde-rsc-index0-available-2"], "0x1")
         self.assertEqual(fake.op_count, 3)  # slide + 2 scalar proof calls
+
+    def test_call_proof_sde_rsc_state_batch_passes_with_index0_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        expected = {
+            "get_sde_rsc_current_state": "0x2",
+            "get_sde_rsc_primary_crtc": "0x85",
+            "get_sde_rsc_version": "0x3",
+        }
+        summaries = {}
+        privates = {}
+        for target in (
+            "get_sde_rsc_current_state",
+            "get_sde_rsc_primary_crtc",
+            "get_sde_rsc_version",
+        ):
+            summary, private = repl.run_call_proof(
+                session,
+                symbols,
+                self.image,
+                target,
+                source_root=KERNEL_SOURCE_ROOT,
+            )
+            summaries[target] = summary
+            privates[target] = private
+
+        source_signatures = {
+            "get_sde_rsc_current_state": "enum sde_rsc_state get_sde_rsc_current_state(int rsc_index)",
+            "get_sde_rsc_primary_crtc": "int get_sde_rsc_primary_crtc(int rsc_index)",
+            "get_sde_rsc_version": "u32 get_sde_rsc_version(int rsc_index)",
+        }
+        for target, summary in summaries.items():
+            self.assertTrue(summary["ok"], summary)
+            self.assertEqual(summary["decision"], f"a90-repl-live-call-proof-{target}-pass")
+            self.assertEqual(
+                summary["proof_status"],
+                "trusted-under-sde-rsc-index0-scalar-state-contract",
+            )
+            self.assertEqual(summary["function_map_entry"]["symbol"], target)
+            self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+            self.assertEqual(
+                summary["function_map_entry"]["auto_call_policy"],
+                "same-session-batch-proof-only-not-mass-call",
+            )
+            self.assertEqual(summary["source_evidence"]["signature"], source_signatures[target])
+            self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+            self.assertTrue(summary["all_returns_in_range"])
+            self.assertTrue(summary["all_returns_stable"])
+            self.assertEqual(summary["repeat_count"], 2)
+            self.assertEqual(summary["observed_return_value"], expected[target])
+            self.assertTrue(summary["raw_runtime_values_redacted"])
+            self.assertNotIn(f"{target}_runtime", summary)
+            cases = {case["case"]: case for case in summary["case_results"]}
+            self.assertEqual(cases[f"{target}-sde-rsc-index0-1"]["input_index"], 0)
+            self.assertEqual(
+                cases[f"{target}-sde-rsc-index0-1"]["observed_return_value"],
+                expected[target],
+            )
+            self.assertTrue(cases[f"{target}-sde-rsc-index0-1"]["range_ok"])
+            self.assertTrue(cases[f"{target}-sde-rsc-index0-2"]["matches_first_call"])
+            self.assertIn(f"{target}_runtime", privates[target])
+            self.assertEqual(
+                privates[target]["case_returns"][f"{target}-sde-rsc-index0-1"],
+                expected[target],
+            )
+            self.assertEqual(
+                privates[target]["case_returns"][f"{target}-sde-rsc-index0-2"],
+                expected[target],
+            )
+        self.assertEqual(fake.op_count, 9)  # 3 targets * (slide + 2 scalar proof calls)
 
     def test_call_proof_jiffies_to_clock_t_passes_with_positive_identity_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

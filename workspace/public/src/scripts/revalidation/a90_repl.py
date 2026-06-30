@@ -80,6 +80,7 @@ REPLAY_SAFE_OPS = frozenset((OP_SLIDE, OP_PEEK))
 CMD_BUF_LEN = 0x58  # magic + op + arg0..arg8
 ARG_BASE = 0x10
 MASK64 = (1 << 64) - 1
+UINT32_MAX = (1 << 32) - 1
 
 DEFAULT_BUSYBOX = "/bin/busybox"
 DEFAULT_IMAGE = "workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img"
@@ -401,6 +402,24 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {},
         "return_kind": "bool",
         "reason": "scalar display-RSC availability getter; proof calls only SDE_RSC_INDEX 0 and expects a stable bool return without dereferencing or freeing any returned pointer",
+    },
+    "get_sde_rsc_current_state": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "enum-sde-rsc-state",
+        "reason": "scalar display-RSC current-state getter; proof calls only SDE_RSC_INDEX 0 and expects a stable enum value without dereferencing or freeing any returned pointer",
+    },
+    "get_sde_rsc_primary_crtc": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "int",
+        "reason": "scalar display-RSC primary-CRTC getter; proof calls only SDE_RSC_INDEX 0 and expects a stable u32/int CRTC id without dereferencing or freeing any returned pointer",
+    },
+    "get_sde_rsc_version": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "uint32_t",
+        "reason": "scalar display-RSC version getter; proof calls only SDE_RSC_INDEX 0 and expects a stable bounded revision value without dereferencing or freeing any returned pointer",
     },
     "get_ddr_DSF_version": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
@@ -3504,6 +3523,9 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "get_ddr_DSF_version": ("include/linux/samsung/sec_smem.h",),
     "get_ddr_total_density": ("include/linux/samsung/sec_smem.h",),
     "is_sde_rsc_available": ("include/linux/sde_rsc.h",),
+    "get_sde_rsc_current_state": ("include/linux/sde_rsc.h",),
+    "get_sde_rsc_primary_crtc": ("include/linux/sde_rsc.h",),
+    "get_sde_rsc_version": ("include/linux/sde_rsc.h",),
     "cpumask_next": ("include/linux/cpumask.h",),
     "cpumask_next_wrap": ("include/linux/cpumask.h",),
     "cpumask_next_and": ("include/linux/cpumask.h",),
@@ -5337,6 +5359,24 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "bool is_sde_rsc_available(int rsc_index)",
     },
+    "get_sde_rsc_current_state": {
+        "input_contract": "scalar rsc_index fixed to SDE_RSC_INDEX 0; display RSC table is read-only; no returned pointer is dereferenced or freed",
+        "return_contract": "enum sde_rsc_state value is one of IDLE/CLK/CMD/VID (0..3) and stable across repeated proof calls",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "enum sde_rsc_state get_sde_rsc_current_state(int rsc_index)",
+    },
+    "get_sde_rsc_primary_crtc": {
+        "input_contract": "scalar rsc_index fixed to SDE_RSC_INDEX 0; display RSC table is read-only; no returned pointer is dereferenced or freed",
+        "return_contract": "u32/int primary CRTC object id is stable across repeated proof calls; 0 means invalid/unavailable",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "int get_sde_rsc_primary_crtc(int rsc_index)",
+    },
+    "get_sde_rsc_version": {
+        "input_contract": "scalar rsc_index fixed to SDE_RSC_INDEX 0; display RSC table is read-only; no returned pointer is dereferenced or freed",
+        "return_contract": "u32 RSC revision is 0 when unavailable or one of supported revisions 1..3, and stable across repeated proof calls",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "u32 get_sde_rsc_version(int rsc_index)",
+    },
     "get_ddr_DSF_version": {
         "input_contract": "no arguments; Samsung SMEM DDR DSF info is read-only; no returned pointer is dereferenced or freed",
         "return_contract": "uint32_t DDR DSF-version field is nonzero, <= 0xffffffff, and stable across repeated proof calls",
@@ -6642,6 +6682,46 @@ IS_SDE_RSC_AVAILABLE_FALSE_RETURN_WORD = 0x2A1F03E0
 IS_SDE_RSC_AVAILABLE_RET_WORD = 0xD65F03C0
 IS_SDE_RSC_AVAILABLE_PADDING_NOP_WORD = 0xD503201F
 IS_SDE_RSC_AVAILABLE_NEXT_GUARD_WORD = 0x00BE7BAD
+SDE_RSC_STATE_MIN = 0
+SDE_RSC_STATE_MAX = 3
+SDE_RSC_REV_MIN = 0
+SDE_RSC_REV_MAX = 3
+SDE_RSC_SCALAR_STATE_EXPECTED_WORDS = {
+    "get_sde_rsc_primary_crtc": (
+        0xCA1103D0, 0xA9BF43FD, 0x910003FD, 0x2A0003E3,
+        0x7100141F, 0x5400010B, 0xF000CFA0, 0xF000CFA1,
+        0x910D8000, 0x52802282, 0x9110D421, 0x97E36495,
+        0x1400000B, 0x90014348, 0x91014108, 0xF863D908,
+        0xB40000E8, 0xF9417508, 0xB40000A8, 0xB9408500,
+        0xA8C143FD, 0xCA11021E, 0xD65F03C0, 0x2A1F03E0,
+        0xA8C143FD, 0xCA11021E, 0xD65F03C0, 0x00BE7BAD,
+    ),
+    "get_sde_rsc_current_state": (
+        0xCA1103D0, 0xA9BF43FD, 0x910003FD, 0x2A0003E3,
+        0x7100141F, 0x540000AB, 0xF000CFA0, 0x528024C2,
+        0x910D8000, 0x1400000C, 0x90014348, 0x91014108,
+        0xF863D908, 0xB40000A8, 0xB9425100, 0xA8C143FD,
+        0xCA11021E, 0xD65F03C0, 0xF000CFA0, 0x52802542,
+        0x910E8000, 0xF000CFA1, 0x91113821, 0x97E3646D,
+        0x2A1F03E0, 0xA8C143FD, 0xCA11021E, 0xD65F03C0,
+        0xD503201F, 0x00BE7BAD,
+    ),
+    "get_sde_rsc_version": (
+        0xCA1103D0, 0xA9BF43FD, 0x910003FD, 0x2A0003E3,
+        0x7100141F, 0x540000AB, 0xF000CFA0, 0x52802702,
+        0x910D8000, 0x1400000C, 0x90014348, 0x91014108,
+        0xF863D908, 0xB40000A8, 0xB9400100, 0xA8C143FD,
+        0xCA11021E, 0xD65F03C0, 0xF000CFA0, 0x52802782,
+        0x910E8000, 0xF000CFA1, 0x9111A021, 0x97E3644F,
+        0x2A1F03E0, 0xA8C143FD, 0xCA11021E, 0xD65F03C0,
+        0xD503201F, 0x00BE7BAD,
+    ),
+}
+SDE_RSC_SCALAR_STATE_NEXT_SYMBOL = {
+    "get_sde_rsc_primary_crtc": ("get_sde_rsc_current_state", 0x70),
+    "get_sde_rsc_current_state": ("get_sde_rsc_version", 0x78),
+    "get_sde_rsc_version": ("sde_rsc_client_get_vsync_refcount", 0x78),
+}
 GET_DDR_VENDOR_NAME_STACK_ALLOC_WORD = 0xD100C3FF
 GET_DDR_VENDOR_NAME_SMEM_ID_WORD = 0x528010C1
 GET_DDR_VENDOR_NAME_ARG_BUFFER_WORD = 0x910003E2
@@ -25390,6 +25470,192 @@ def _run_call_proof_is_sde_rsc_available(
     return summary, private
 
 
+def _sde_rsc_scalar_state_return_ok(target: str, value: int) -> bool:
+    if target == "get_sde_rsc_current_state":
+        return SDE_RSC_STATE_MIN <= value <= SDE_RSC_STATE_MAX
+    if target == "get_sde_rsc_primary_crtc":
+        return 0 <= value <= UINT32_MAX
+    if target == "get_sde_rsc_version":
+        return SDE_RSC_REV_MIN <= value <= SDE_RSC_REV_MAX
+    return False
+
+
+def _run_call_proof_sde_rsc_scalar_state(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    target: str,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    if target not in SDE_RSC_SCALAR_STATE_EXPECTED_WORDS:
+        raise ReplError(f"unsupported SDE RSC scalar state proof target: {target}")
+
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        (IS_SDE_RSC_AVAILABLE_INDEX,),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError(f"{target} source signature must be scalar-only")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the exported declaration")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(
+        resolutions[target],
+        "call-proof target",
+    )
+    next_symbol_name, expected_boundary = SDE_RSC_SCALAR_STATE_NEXT_SYMBOL[target]
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    expected_words = SDE_RSC_SCALAR_STATE_EXPECTED_WORDS[target]
+    observed_words = image.u32_words_at_vaddr(target_link, len(expected_words))
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+            "fixed_index": IS_SDE_RSC_AVAILABLE_INDEX,
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for index, expected in enumerate(expected_words):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for index in range(2):
+            observed = session.call_runtime(target_runtime, (IS_SDE_RSC_AVAILABLE_INDEX,))
+            returns.append(observed)
+            range_ok = _sde_rsc_scalar_state_return_ok(target, observed)
+            stable_ok = index == 0 or observed == returns[0]
+            ok = range_ok and stable_ok
+            case_results.append({
+                "case": f"{target}-sde-rsc-index0-{index + 1}",
+                "input_index": IS_SDE_RSC_AVAILABLE_INDEX,
+                "expected_return": CALL_PROOF_TARGETS[target]["return_contract"],
+                "observed_return_value": f"0x{observed:x}",
+                "range_ok": range_ok,
+                "matches_first_call": stable_ok,
+                "ok": ok,
+            })
+            if not range_ok:
+                raise ReplError(
+                    f"{target}(0) returned out-of-contract value "
+                    f"in proof call {index + 1}: 0x{observed:x}"
+                )
+            if not stable_ok:
+                raise ReplError(
+                    f"{target}(0) was not stable across repeated proof calls: "
+                    f"first=0x{returns[0]:x}, call{index + 1}=0x{observed:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": f"{target}-index0-stable-range-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = f"0x{returns[0]:x}" if returns else "n/a"
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-sde-rsc-index0-scalar-state-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "observed_return_value": observed_public,
+        "all_returns_in_range": bool(returns) and all(_sde_rsc_scalar_state_return_ok(target, value) for value in returns),
+        "all_returns_stable": bool(returns) and all(value == returns[0] for value in returns),
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": f"repeated SDE_RSC_INDEX 0 calls returned stable value {observed_public}",
+            "cleanup": "n/a-scalar-read-only",
+            "auto_call_policy": "same-session-batch-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_get_ddr_DSF_version(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -30168,6 +30434,18 @@ def run_call_proof(session: ReplSession,
             session,
             symbols,
             image,
+            source_root=source_root,
+        )
+    if target in (
+        "get_sde_rsc_current_state",
+        "get_sde_rsc_primary_crtc",
+        "get_sde_rsc_version",
+    ):
+        return _run_call_proof_sde_rsc_scalar_state(
+            session,
+            symbols,
+            image,
+            target=target,
             source_root=source_root,
         )
     if target == "get_ddr_DSF_version":
