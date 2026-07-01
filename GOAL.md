@@ -103,6 +103,24 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >    the classifier/live-fault analysis cheaper, so spend freed effort only on genuinely new
 >    shapes/surfaces. As proven primitives accumulate, prefer assembling **observation bundles**
 >    (kernel-vitals, procfs/sysfs reader, SoC-fingerprint, hardening-posture) over lone-function breadth.
+> 5. **RESIDENT-SESSION MODE (2026-07-01 follow-on — the flash-cost lever the timing data exposed).**
+>    Measured bottleneck is the **boot-partition flash write (~130s/iteration = candidate flash +
+>    rollback flash, ~78%), NOT boot (~9-16s) and NOT the calls.** The current harness reflashes
+>    v1-repl AND rolls back to v2321 *every unit* = 2 flashes/unit. Restructure to a resident session:
+>    **flash v1-repl ONCE → [warm-reboot the resident v1-repl (NO reflash, ~15s) → run one bounded
+>    batch → flush each target's result to disk immediately] × N → roll back to v2321 ONCE at session
+>    end.** Flash count drops 2N→2. The **warm reboot between batches is MANDATORY** — it resets kernel
+>    RAM state so leaked/cumulative allocations (kstrdup/kmemdup etc.) can't accumulate ACROSS batches;
+>    a pure no-reboot mega-session (feeding batch after batch to the *same* running kernel) is
+>    **FORBIDDEN** (unbounded cumulative-state regime, never validated). Keep per-batch health-check,
+>    per-call result flush (so a mid-batch fault loses only the in-flight target + un-run remainder,
+>    never completed results, and the faulting call stays attributable/fenceable), and a bounded batch
+>    size (~10-30; flash-amortization is steeply diminishing past ~10, risk grows with size). This
+>    stays inside the recoverable envelope: v2321 is always available, v1-repl reboots clean, and a
+>    batch crash → warm reboot → still-recoverable. The only relaxed convention is "rollback to v2321
+>    after every unit" → "rollback at session end"; optionally keep a mid-session v2321 checkpoint every
+>    M batches. Re-measure with the run-timing aggregator to confirm the win (expect ~8x+ vs the ~3.5x
+>    from in-boot batching alone, since intermediate flashes vanish).
 > **HARD — unchanged, do NOT loosen:** the fail-closed C1 resolution, the **call-safety classifier**
 > (DENY / BEHAVIOR-CHANGING tiers stay DENY — never relax a tier to reach a struct/state target),
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
@@ -2474,12 +2492,15 @@ server-distro, etc.), not just one epic. Capture at minimum: `candidate_flash_st
 `candidate_flash_done`, `candidate_boot_ready` (device/helper first responds),
 `live_session_start`, `live_session_end` (the actual work — calls/commands/validation),
 `rollback_flash_start`, `rollback_flash_done`, `rollback_boot_ready` (final selftest pass).
-Store these as a `"timeline"` object (UTC ISO8601 or epoch seconds) in the run's private
-evidence JSON, and surface a short "## Timing" section (per-phase elapsed + total) in the
-`docs/reports/...` writeup (step 7). This is cheap (a few timestamp calls around existing phase
-boundaries) and lets future analysis separate **flash/reboot overhead from actual work time** —
-e.g. to size a batching win (see the 2026-07-01 OPERATOR STEER above) instead of guessing from
-commit cadence alone.
+Store `timeline.json` with a single canonical top-level schema only:
+`{"events":[{"name":"candidate_flash_start","timestamp_utc":"..."}, ...]}`. The top-level
+object must contain only `events`; ad-hoc `phases_elapsed_sec`, `steps`, `commands`,
+`phases`, or nested `timeline` subobjects are forbidden. Each event item must contain only
+`name` and UTC ISO8601 `timestamp_utc`. Surface a short "## Timing" section (per-phase
+elapsed + total) in the `docs/reports/...` writeup (step 7). This is cheap (a few timestamp
+calls around existing phase boundaries) and lets future analysis separate **flash/reboot
+overhead from actual work time** — e.g. to size a batching win (see the 2026-07-01 OPERATOR
+STEER above) instead of guessing from commit cadence alone.
 
 ## 🟢 GPU epic — first-light G0→G5 ✅, triangle H0→H5 ✅, compute C0→C3 ✅, accel-2D D0→D3 ✅, monitor M0→M3 ✅, zero-copy scanout Z0→Z3 ✅ (all eye-confirmed; GPU epic CLOSED), next = SoftAP server-endgame pivot
 
