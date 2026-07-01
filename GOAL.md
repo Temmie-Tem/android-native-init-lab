@@ -545,6 +545,61 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > bool. Report:
 > `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_DEBUGFS_INITIALIZED_2026-07-01.md`.
 
+## ✅ DONE — REPL tracefs registration-state live-call proof — `tracefs_initialized()` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg tracefs registration bool getter
+>
+> Codex selected `tracefs_initialized()` as the next kernel-state observation
+> target after `debugfs_initialized()`: it reads the sibling tracefs
+> registration flag, but is not exported in this image. That made it a bounded
+> test of target-limited non-export identity recovery without relaxing the
+> global resolver.
+>
+> Static selection pinned `tracefs_initialized=0xffffff800841b9bc` via
+> `exact-leaf-map+xref+word-boundary`: export candidate count `0`, direct BL
+> xrefs `2`, JOPP entry, source implementation
+> `bool tracefs_initialized(void)` at `fs/tracefs/inode.c:619`, and
+> `SAFE-SCALAR` call-safety. The next-symbol boundary is `trace_mount` at
+> `+0x10`. The proof pinned the complete body plus guard:
+> `0xf0015ea8 0x397eb100 0xd65f03c0 0x00be7bad`. The generic 64-byte
+> classifier scan includes `trace_mount` after the boundary, so this proof
+> treats the explicit 0x10 body/guard as the function-body authority.
+>
+> The live proof obeyed the flash gate: rollback/fallback/TWRP artifacts were
+> confirmed, baseline v2321 `version/status/selftest` passed, the exact
+> v1-repl candidate (`b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`)
+> flashed through `native_init_flash.py` with matching pushed-image and
+> readback SHA, candidate helper `version/status` verification passed,
+> explicit candidate `selftest` passed with `pass=11 warn=1 fail=0`, and REPL
+> selftest returned `a90-repl-v2a1-selftest-pass`.
+>
+> The proof called `tracefs_initialized()` twice with no arguments. Returns
+> were bool and stable: `0x1`, `0x1`. No runtime pointer was dereferenced by
+> the host, no cleanup was required, and raw runtime values plus the KASLR
+> slide stayed private/redacted.
+>
+> Post-proof candidate `selftest` passed with `pass=11 warn=1 fail=0`.
+> Rollback to v2321 completed with matching readback SHA, rollback helper
+> `version/status` passed, final v2321 `version` reported
+> `v2321-usb-clean-identity-rodata`, final standalone `selftest` passed with
+> `pass=11 warn=1 fail=0`, and final bridge status was
+> `connected-no-immediate-error`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-tracefs-initialized-20260701T085755Z/timeline.json`
+> at `2026-07-01T09:02:04Z`: candidate flash helper `63.700s`,
+> candidate selftest passed, REPL selftest `30.001s` host-observed, live proof
+> `5.102s` host-observed, post-proof candidate selftest passed, rollback flash
+> helper `64.460s`, and final v2321 selftest passed. The helper total rows are
+> not additive; all serial bridge operations in the accepted live path were
+> sequential.
+>
+> Function-map outcome: `tracefs_initialized` is promoted as live-proven only
+> under the no-argument read-only tracefs registration contract: the pinned
+> body performs a global-byte registration-state read and returns a stable
+> bool. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_TRACEFS_INITIALIZED_2026-07-01.md`.
+
 ## ✅ DONE — REPL CPU mitigation policy live-call proof — `cpu_mitigations_off()` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg CPU mitigation policy bool getter

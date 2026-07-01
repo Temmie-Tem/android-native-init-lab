@@ -1568,6 +1568,28 @@ class CallSafetyClassificationTests(unittest.TestCase):
             [f"0x{word:08x}" for word in repl.DEBUGFS_INITIALIZED_EXPECTED_WORDS],
         )
 
+        tracefs_initialized = self._row("tracefs_initialized")
+        self.assertEqual(tracefs_initialized["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(tracefs_initialized["required_valid_pointer_args"], {})
+        self.assertTrue(tracefs_initialized["resolution"]["verified"])
+        self.assertEqual(
+            tracefs_initialized["resolution"]["method"],
+            "exact-leaf-map+xref+word-boundary",
+        )
+        self.assertEqual(
+            tracefs_initialized["resolution"]["link_vaddr"],
+            "0xffffff800841b9bc",
+        )
+        self.assertGreaterEqual(tracefs_initialized["signals"]["direct_bl_xref_count"], 2)
+        self.assertEqual(
+            tracefs_initialized["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertEqual(
+            tracefs_initialized["signals"]["first_words"][:4],
+            [f"0x{word:08x}" for word in repl.TRACEFS_INITIALIZED_EXPECTED_WORDS],
+        )
+
         task_pid_nr_ns = self._row("__task_pid_nr_ns")
         self.assertEqual(task_pid_nr_ns["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -3077,7 +3099,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 56)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 57)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 10)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -3853,6 +3875,19 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertEqual(debugfs_initialized["selected"]["line"], 849)
         self.assertTrue(debugfs_initialized["selected"]["path"].endswith("fs/debugfs/inode.c"))
+
+        tracefs_initialized = repl.lookup_source_signature(
+            "tracefs_initialized",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(tracefs_initialized["status"], "found", tracefs_initialized)
+        self.assertEqual(tracefs_initialized["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            tracefs_initialized["selected"]["signature"],
+            "bool tracefs_initialized(void)",
+        )
+        self.assertEqual(tracefs_initialized["selected"]["line"], 619)
+        self.assertTrue(tracefs_initialized["selected"]["path"].endswith("fs/tracefs/inode.c"))
 
         task_pid_nr_ns = repl.lookup_source_signature(
             "__task_pid_nr_ns",
@@ -4975,6 +5010,12 @@ class FaithfulFakeTransport:
             "debugfs_initialized",
             purpose="call",
         ).link_vaddr
+        self.tracefs_initialized_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "tracefs_initialized",
+            purpose="call",
+        ).link_vaddr
         self.task_pid_nr_ns_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -5253,6 +5294,7 @@ class FaithfulFakeTransport:
         self.rcu_state_index = 0
         self.cpu_mitigations_off_value = 0
         self.debugfs_initialized_value = 1
+        self.tracefs_initialized_value = 1
         self.boot_stat_time_values = [0x00100000, 0x00101000, 0x00102000]
         self.boot_stat_time_index = 0
         self.get_seconds_values = [0x69000000, 0x69000001]
@@ -6046,6 +6088,8 @@ class FaithfulFakeTransport:
             cpu_mitigations_off = self.cpu_mitigations_off_link + self.slide
             assert self.debugfs_initialized_link is not None
             debugfs_initialized = self.debugfs_initialized_link + self.slide
+            assert self.tracefs_initialized_link is not None
+            tracefs_initialized = self.tracefs_initialized_link + self.slide
             assert self.task_pid_nr_ns_link is not None
             task_pid_nr_ns = self.task_pid_nr_ns_link + self.slide
             assert self.sched_get_group_id_link is not None
@@ -6741,6 +6785,10 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("debugfs_initialized proof must pass no arguments")
                 lines.append(f"A90R{self.debugfs_initialized_value:x}")
+            elif arg0 == tracefs_initialized:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("tracefs_initialized proof must pass no arguments")
+                lines.append(f"A90R{self.tracefs_initialized_value:x}")
             elif arg0 == task_pid_nr_ns:
                 if (arg1, arg2, arg3, arg4) != (
                     self.init_task_runtime,
@@ -8837,6 +8885,54 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertIn("debugfs_initialized_runtime", private)
         self.assertNotIn("debugfs_initialized_runtime", summary)
         self.assertEqual(fake.op_count, 1 + repl.DEBUGFS_INITIALIZED_REPEAT_COUNT)
+
+    def test_call_proof_tracefs_initialized_passes_with_registration_bool_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "tracefs_initialized",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(
+            summary["decision"],
+            "a90-repl-live-call-proof-tracefs_initialized-pass",
+        )
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-tracefs-registration-read-only-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "tracefs_initialized")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "bool tracefs_initialized(void)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(summary["observed_return_value"], f"0x{fake.tracefs_initialized_value:x}")
+        self.assertTrue(summary["all_returns_bool"])
+        self.assertTrue(summary["all_returns_stable"])
+        self.assertEqual(summary["repeat_count"], repl.TRACEFS_INITIALIZED_REPEAT_COUNT)
+        cases = {case["case"]: case for case in summary["case_results"]}
+        for index in range(1, repl.TRACEFS_INITIALIZED_REPEAT_COUNT + 1):
+            key = f"tracefs_initialized-read-{index}"
+            self.assertEqual(cases[key]["observed_return_value"], f"0x{fake.tracefs_initialized_value:x}")
+            self.assertTrue(cases[key]["ok"])
+            self.assertEqual(private["case_returns"][key], f"0x{fake.tracefs_initialized_value:x}")
+        self.assertIn("tracefs_initialized_runtime", private)
+        self.assertNotIn("tracefs_initialized_runtime", summary)
+        self.assertEqual(fake.op_count, 1 + repl.TRACEFS_INITIALIZED_REPEAT_COUNT)
 
     def test_call_proof_task_struct_batch_candidates_pass_in_one_fake_session(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
