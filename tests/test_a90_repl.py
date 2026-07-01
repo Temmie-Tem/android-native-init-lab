@@ -6132,6 +6132,12 @@ class FaithfulFakeTransport:
             b"/proc/sys/kernel/modules_disabled": b"0\n",
             b"/proc/sys/kernel/randomize_va_space": b"2\n",
             b"/proc/sys/kernel/unprivileged_bpf_disabled": b"1\n",
+            b"/proc/uptime": b"123.45 67.89\n",
+            b"/proc/loadavg": b"0.12 0.34 0.56 1/123 456\n",
+            b"/proc/meminfo": b"MemTotal:        5500000 kB\nMemFree:         4200000 kB\n",
+            b"/proc/stat": b"cpu  1 2 3 4 5 6 7 8 9 10\nctxt 123456\n",
+            b"/proc/vmstat": b"nr_free_pages 12345\npgfault 67890\n",
+            b"/proc/version": b"Linux version 4.14.190-test (builder@example) #1 SMP PREEMPT\n",
         }
         self.op_count = 0
 
@@ -16570,6 +16576,42 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(
             private["path_privates"]["/proc/sys/kernel/kptr_restrict"]["read_data_hex"],
             b"2\n".hex(),
+        )
+        self.assertEqual(fake.closed_files, [fake.file_ptr] * 6)
+        self.assertEqual(fake.opened_files, set())
+
+    def test_vfs_read_kernel_vitals_bundle_uses_named_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_vfs_read_bundle(
+            session,
+            symbols,
+            self.image,
+            "kernel-vitals",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-vfs-read-kernel-vitals-bundle-pass")
+        self.assertEqual(summary["bundle"], "kernel-vitals")
+        self.assertEqual(summary["bundle_read_len"], 512)
+        self.assertEqual(tuple(summary["bundle_paths"]), repl.VFS_READ_BUNDLES["kernel-vitals"]["paths"])
+        self.assertEqual(summary["path_count"], 6)
+        self.assertTrue(summary["read_data_redacted"])
+        self.assertNotIn("read_data_hex", summary["results"][0])
+        self.assertTrue(all(row["classification"]["ascii_printable_prefix"] for row in summary["results"]))
+        self.assertTrue(any(row["path"] == "/proc/meminfo" for row in summary["results"]))
+        self.assertIn("/proc/meminfo", private["path_privates"])
+        self.assertEqual(
+            private["path_privates"]["/proc/uptime"]["read_data_hex"],
+            b"123.45 67.89\n".hex(),
         )
         self.assertEqual(fake.closed_files, [fake.file_ptr] * 6)
         self.assertEqual(fake.opened_files, set())

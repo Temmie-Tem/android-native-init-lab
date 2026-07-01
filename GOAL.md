@@ -121,6 +121,13 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >    after every unit" → "rollback at session end"; optionally keep a mid-session v2321 checkpoint every
 >    M batches. Re-measure with the run-timing aggregator to confirm the win (expect ~8x+ vs the ~3.5x
 >    from in-boot batching alone, since intermediate flashes vanish).
+>    Tooling status: `workspace/public/src/scripts/analysis/analyze_repl_run_timing.py` now models this
+>    resident-session projection from canonical `events` timelines. With current private evidence
+>    (10/52 canonical timelines, `batch_size=10`, `resident_batches=10`, `warm_reboot=15s`) it reports
+>    flash count `20→2`, old in-boot batch `28.7s/target`, resident session `15.3s/target`, `18.8x`
+>    versus per-unit flash, and `1.9x` versus per-unit in-boot batch. The current mean is conservatively
+>    dragged by the intentionally heavy `kernel-vitals` live session (`449.8s`); smaller call-proof
+>    batches should move the projection toward the expected `~8x+` practical regime.
 > **HARD — unchanged, do NOT loosen:** the fail-closed C1 resolution, the **call-safety classifier**
 > (DENY / BEHAVIOR-CHANGING tiers stay DENY — never relax a tier to reach a struct/state target),
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
@@ -259,6 +266,53 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > call-proofs for the same state unless a future target has no file-node
 > equivalent or requires a genuinely new ABI shape. Report:
 > `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_VFS_READ_HARDENING_POSTURE_BUNDLE_2026-07-01.md`.
+
+## ✅ DONE — REPL VFS-read kernel-vitals observation bundle promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — named `/proc` kernel vital signs bundle
+>
+> Codex added `a90_repl.py vfs-bundle kernel-vitals` on top of the live-proven
+> VFS-read primitive. The bundle reads `/proc/uptime`, `/proc/loadavg`,
+> `/proc/meminfo`, `/proc/stat`, `/proc/vmstat`, and `/proc/version` through
+> `filp_open + kernel_read + filp_close`, with owned pathname/read/`loff_t`
+> buffers and per-path `kfree` cleanup. Raw file bytes, runtime pointers, and
+> KASLR slide stay private-only.
+>
+> Static gate remains the existing VFS-read gate: `filp_open`, `kernel_read`,
+> `filp_close`, `__kmalloc`, and `kfree` retain their promoted C2B
+> map/export-recovery resolution and source/call-safety contracts. No DENY tier
+> was relaxed. The bundle is the preferred observation surface for standard
+> `/proc` kernel vital signs; do not add lone getter proofs for equivalent
+> counters.
+>
+> Live validation passed in
+> `workspace/private/runs/kernel/vfs-read-kernel-vitals-bundle-20260701T105200Z/`.
+> Candidate flash matched the v1-repl SHA
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`.
+> Candidate health first attempt hit known serial marker/input fragmentation;
+> bridge restart + retry passed. REPL selftest passed. The `kernel-vitals`
+> bundle then read all six paths successfully in one REPL session with
+> `read_data_redacted=true`. Post-proof candidate health passed. Rollback to
+> v2321 matched SHA
+> `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`;
+> final v2321 health passed with `selftest pass=11 warn=1 fail=0`, and final
+> bridge status was `connected-no-immediate-error`.
+>
+> Timing is recorded in the canonical events-only schema at
+> `workspace/private/runs/kernel/vfs-read-kernel-vitals-bundle-20260701T105200Z/timeline.json`.
+> The file has a single top-level `events` array and the required eight events:
+> `candidate_flash_start`, `candidate_flash_done`, `candidate_boot_ready`,
+> `live_session_start`, `live_session_end`, `rollback_flash_start`,
+> `rollback_flash_done`, and `rollback_boot_ready`. Phase timings:
+> candidate flash `63.623s`, candidate boot/health `21.015s`, live session
+> `449.778s`, rollback flash `64.713s`, rollback boot/health `20.895s`, total
+> candidate-flash-start to rollback-boot-ready `628.457s`.
+>
+> The proof passed, but the live session is too slow for routine use. Next
+> optimization should split heavy `/proc` reads into smaller named bundles or
+> add per-path timeout/continue behavior so one slow path cannot dominate the
+> whole session. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_VFS_READ_KERNEL_VITALS_BUNDLE_2026-07-01.md`.
 
 ## ✅ DONE — REPL kernel taint-state live-call proof batch — `get_taint()` + `test_taint()` promoted
 

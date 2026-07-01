@@ -6690,6 +6690,22 @@ VFS_READ_BUNDLES: dict[str, dict[str, object]] = {
             "kernel hardening state when a /proc/sys file-node equivalent exists."
         ),
     },
+    "kernel-vitals": {
+        "description": "read-only kernel load, uptime, memory, scheduler, VM, and version vitals",
+        "read_len": 512,
+        "paths": (
+            "/proc/uptime",
+            "/proc/loadavg",
+            "/proc/meminfo",
+            "/proc/stat",
+            "/proc/vmstat",
+            "/proc/version",
+        ),
+        "retire_subsumed": (
+            "Use this bundle for standard /proc kernel vital signs instead of "
+            "adding lone no-arg state getter proofs for equivalent counters."
+        ),
+    },
 }
 STRNLEN_PROOF_BYTES = b"A90STRNLEN\x00"
 STRNLEN_PROOF_EXPECTED = len(STRNLEN_PROOF_BYTES) - 1
