@@ -130,9 +130,12 @@ class WriteAuthorizationTests(unittest.TestCase):
         good = boot_identity()
         self.assertTrue(authorize_write(good, good, CONFIRMED_PIN).ok)
 
-    def test_auditor_mode_may_bypass_confirmed_pin(self):
+    def test_no_confirmed_pin_bypass_parameter_exists(self):
+        # The require_confirmed_pin override was removed entirely (Codex review 3, P2). Passing it
+        # must raise rather than silently authorize an unconfirmed write.
         good = boot_identity()
-        self.assertTrue(authorize_write(good, good, require_confirmed_pin=False).ok)
+        with self.assertRaises(TypeError):
+            authorize_write(good, good, require_confirmed_pin=False)  # type: ignore[call-arg]
 
 
 class ToctouTests(unittest.TestCase):

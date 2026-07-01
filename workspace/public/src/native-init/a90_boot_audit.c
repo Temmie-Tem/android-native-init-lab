@@ -15,6 +15,7 @@
 #include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
@@ -30,6 +31,9 @@
 
 /* Extract PARTNAME=... from a sysfs uevent blob into out (lowercased trim left to the host guard). */
 static void parse_partname(const char *uevent, char *out, size_t out_size) {
+    if (out_size == 0) {
+        return;
+    }
     out[0] = '\0';
     const char *p = uevent;
     while (p && *p) {
@@ -53,29 +57,35 @@ static void parse_partname(const char *uevent, char *out, size_t out_size) {
 
 int a90_boot_audit_cmd(char **argv, int argc) {
     const char *target = BOOT_AUDIT_DEFAULT_TARGET;
+    int authoritative = 1; /* only the default boot target may propose a write-authorizing pin */
     if (argc > 2) {
         a90_console_printf("usage: boot-audit [target-path]\r\n");
         return -EINVAL;
     }
     if (argc == 2) {
         target = argv[1]; /* read-only inspection of any partition is permitted; no write happens */
+        authoritative = (strcmp(target, BOOT_AUDIT_DEFAULT_TARGET) == 0) ? 1 : 0;
     }
 
     a90_console_printf("A90BOOTAUDIT begin\r\n");
     a90_console_printf("A90BOOTAUDIT target=%s\r\n", target);
+    /* Non-default targets are diagnostic-only and MUST NOT become a write-authorizing pin.
+     * The host wrapper refuses to propose a pin unless authoritative=1. */
+    a90_console_printf("A90BOOTAUDIT authoritative=%d\r\n", authoritative);
 
-    /* Canonical path (resolve symlink for by-name entries). */
+    /* Canonical path via realpath: absolute, symlink/./.. fully resolved. We never emit the raw
+     * target or a diagnostic suffix as canonical — a corrupted canonical must never reach the pin.
+     * If it cannot be resolved to an absolute path, we say so explicitly (host treats as unusable). */
     char canonical[PATH_MAX];
-    ssize_t clen = readlink(target, canonical, sizeof(canonical) - 1);
-    if (clen >= 0) {
-        canonical[clen] = '\0';
+    if (realpath(target, canonical) != NULL && canonical[0] == '/') {
         a90_console_printf("A90BOOTAUDIT canonical=%s\r\n", canonical);
     } else {
-        a90_console_printf("A90BOOTAUDIT canonical=%s (not-a-symlink errno=%d)\r\n", target, errno);
+        a90_console_printf("A90BOOTAUDIT canonical=unresolved errno=%d\r\n", errno);
     }
 
-    /* Open READ-ONLY. This is the §0.1 feasibility probe. */
-    int fd = open(target, O_RDONLY | O_CLOEXEC);
+    /* Open READ-ONLY. This is the §0.1 feasibility probe. O_NONBLOCK avoids blocking forever if an
+     * arbitrary target argument is a FIFO/socket with no writer; block devices ignore it. */
+    int fd = open(target, O_RDONLY | O_CLOEXEC | O_NONBLOCK);
     if (fd < 0) {
         int e = errno;
         a90_console_printf("A90BOOTAUDIT open=fail errno=%d (%s)\r\n", e, strerror(e));
@@ -109,6 +119,20 @@ int a90_boot_audit_cmd(char **argv, int argc) {
     }
     if (ioctl(fd, BLKPBSZGET, &pbs) == 0) {
         a90_console_printf("A90BOOTAUDIT physical_sector=%d\r\n", pbs);
+    }
+
+    /* §0.1 feasibility: actually READ the first block. Open success alone does not prove RKP allows
+     * reading the boot partition from native-init. We read up to 4096 bytes at offset 0 (never
+     * printing the contents) and report only the byte count / errno. This is the real answer to
+     * "can native-init read sda24 under RKP". */
+    {
+        unsigned char probe[4096];
+        ssize_t rn = pread(fd, probe, sizeof(probe), 0);
+        if (rn >= 0) {
+            a90_console_printf("A90BOOTAUDIT read=ok bytes=%ld\r\n", (long)rn);
+        } else {
+            a90_console_printf("A90BOOTAUDIT read=fail errno=%d (%s)\r\n", errno, strerror(errno));
+        }
     }
 
     /* sysfs facts resolved from the fd's rdev (not the path string). */

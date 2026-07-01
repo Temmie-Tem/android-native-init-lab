@@ -132,19 +132,18 @@ def evaluate_boot_target(identity: BlockIdentity, pin: BootTargetPin = BootTarge
 
 def authorize_write(open_identity: BlockIdentity,
                     write_identity: BlockIdentity,
-                    pin: BootTargetPin = BootTargetPin(),
-                    *,
-                    require_confirmed_pin: bool = True) -> GuardResult:
+                    pin: BootTargetPin = BootTargetPin()) -> GuardResult:
     """TOCTOU-safe WRITE authorization: the identity at write time must be byte-identical to the
     identity verified at open. Models "verify and write through the SAME fd". Both must
-    independently pass, AND (by default) the pin must be auditor-confirmed.
+    independently pass, AND the pin MUST be auditor-confirmed — always, with no bypass.
 
-    `require_confirmed_pin=True` (default) refuses unless pin_is_confirmed(pin) — this closes the
-    Codex-flagged gap where a fake PARTNAME=boot/64MiB node on any disk (e.g. /dev/block/dm-0)
-    would pass on attributes alone under a default/unconfirmed pin. Only the read-only auditor
-    (which is discovering the identity) may bypass this via require_confirmed_pin=False.
+    A confirmed pin (rdev + canonical path, see pin_is_confirmed) is an unconditional precondition:
+    this closes the Codex-flagged gap where a fake PARTNAME=boot/64MiB node on any disk (e.g.
+    /dev/block/dm-0) would pass on attributes alone under a default/unconfirmed pin. There is
+    deliberately NO override parameter — the read-only auditor never authorizes a write, it only
+    evaluates via evaluate_boot_target(), so no caller has a legitimate reason to bypass this.
     """
-    if require_confirmed_pin and not pin_is_confirmed(pin):
+    if not pin_is_confirmed(pin):
         return _refuse("write authorization requires an auditor-confirmed pin (rdev + canonical path)")
     verified = evaluate_boot_target(open_identity, pin)
     if not verified.ok:

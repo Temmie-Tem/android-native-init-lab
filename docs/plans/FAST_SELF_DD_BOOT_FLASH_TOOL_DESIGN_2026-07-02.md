@@ -25,8 +25,26 @@
 These are UNPROVEN and could invalidate the whole approach; the §7 read-only auditor exists largely
 to answer them cheaply, before any write path is built:
 
-1. **Can native-init even open/read `sda24` at runtime under Samsung RKP/KDP?** No repo evidence that
-   live native-init (normal boot, PID1) can access the boot block. The auditor tests read access.
+1. **Can native-init even open/read `sda24` at runtime under Samsung RKP/KDP?** — **ANSWERED YES
+   (2026-07-02, live, V3345 `boot-audit`, init 0.11.109).** Findings:
+   - The Android `/dev/block/by-name/boot` symlink does **not** exist under native-init (ueventd/vold
+     populate it on Android; native-init does not). Auditing the default target returns
+     `open=fail errno=2` — a real design finding, not a read failure.
+   - native-init's `/dev/block` holds only the 5 nodes it created (`sda20/21/28/31`, `mmcblk0p1`);
+     there is **no boot devnode**, because native-init never mounts boot (it *is* the boot ramdisk).
+   - sysfs still knows the partition: `/sys/class/block/sda24/uevent` → `MAJOR=259 MINOR=8
+     DEVNAME=sda24 PARTNAME=boot`. Materializing the node with the existing `mknodb /dev/block/sda24
+     259 8` command, then `boot-audit /dev/block/sda24`, yields: `open=ok`, **`read=ok bytes=4096`**
+     (the definitive answer — RKP permits native-init to read the boot block), `is_block=1`,
+     `rdev=259:8`, `size_bytes=67108864` (exactly 64 MiB), `logical/physical_sector=4096`,
+     `partname=boot`, `sysfs_sectors=131072`, `canonical=/dev/block/sda24`, `diskseq=absent`
+     (kernel 4.14 does not expose diskseq — the pin enforces rdev+canonical, not diskseq).
+   - **Design consequence for the write path:** the auditor/writer must resolve the authoritative boot
+     node from **sysfs `PARTNAME=boot`** (not the absent by-name symlink) and materialize it via
+     `mknodb 259:8` before open. The current auditor flags a manually-materialized `sda24` path as
+     `authoritative=0`, so the host wrapper correctly refuses to propose a write pin from it; the next
+     unit must add sysfs-`PARTNAME=boot` resolution so an `authoritative=1` confirmed pin can be
+     produced. Rolled back to v2321 with `selftest fail=0` after the probe.
 2. **Will RKP/KDP treat a boot-partition WRITE from normal-boot/PID1 differently from a write in
    TWRP?** If it denies cleanly → fine (fall back to TWRP). If it **panics PID1 or the kernel
    mid-write**, the partial-write residual (§1) becomes much sharper. Unknown until the gated
