@@ -191,6 +191,13 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >     `30/30` targets PASS, `2` flashes total (`0.0667` flash/target actual), measured
 >     `437.139s` total (`14.57s/target`), and v2321 rollback clean. This is the first measured
 >     max30 run that matches the resident-session projection rather than the old one-target cadence.
+>     Additional packed refresh (2026-07-02): a ten-target state/time/memory refresh batch ran under
+>     the same `dmesg -c` path:
+>     `workspace/private/runs/kernel/repl-resident-session-state-refresh-batch-20260701T184431Z/`,
+>     `10/10` targets PASS, `2` flashes total (`0.2` flash/target actual), measured `307.035s`
+>     total (`30.70s/target`), and v2321 rollback clean. This was deliberately not a one-target
+>     resident session; it confirms the corrected packed cadence while also showing why future
+>     live sessions should keep filling toward `max_batch_size=30` when safe targets are queued.
 > **HARD — unchanged, do NOT loosen:** the fail-closed C1 resolution, the **call-safety classifier**
 > (DENY / BEHAVIOR-CHANGING tiers stay DENY — never relax a tier to reach a struct/state target),
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
@@ -305,6 +312,48 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >
 > Follow-up report:
 > `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_DMESG_CLEAR_MAX30_RESIDENT_SESSION_2026-07-02.md`.
+
+## ✅ DONE — REPL dmesg-clear packed state/time/memory refresh batch
+
+> ### ✅ STATUS (2026-07-02 live-proven, packed resident-session mode, rolled back cleanly)
+>
+> Codex refreshed ten already handler-backed state/time/memory targets under the repaired
+> `dmesg -c` result channel and the corrected packed resident-session cadence. No one-target
+> resident session was used. The queued targets were:
+> `can_do_mlock`, `get_avenrun`, `get_ddr_revision_id_1`, `get_ddr_revision_id_2`,
+> `is_current_pgrp_orphaned`, `ktime_get_real_seconds`, `ktime_get_seconds`,
+> `ktime_get_ts64`, `total_swapcache_pages`, and `vm_commit_limit`.
+>
+> Static gate: `SAFE-SCALAR=8`, `SAFE-WITH-VALID-PTR=2`, with owned result slots for the
+> two pointer-output targets. Dry-run used `target_count=10`, `max_batch_size=30`, existing
+> v1-repl candidate SHA
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`, and v2321 rollback
+> SHA `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`.
+>
+> Live packed resident-session run:
+> `workspace/private/runs/kernel/repl-resident-session-state-refresh-batch-20260701T184431Z/`.
+> Result: `a90-repl-resident-session-pass`, completed targets `10/10`, completed batches
+> `1/1`, flash count `2`, actual flash amortization `0.2 flash/target`, timeline errors `[]`,
+> warm reboot before batch, and rollback flashed once at session end.
+>
+> Target outcomes: all ten targets passed their repeat/read-only contracts. The scalar getters
+> returned bool, sane bounded page-count, DDR-revision, or nondecreasing time values in contract.
+> `get_avenrun` and `ktime_get_ts64` wrote owned result slots with canaries intact. Raw runtime
+> pointers, KASLR slide, and private payloads stayed private.
+>
+> Timing: canonical timeline had the required event schema. Candidate flash `53.074s`, candidate
+> boot/health `42.970s`, warm reboot `19.893s`, live batch `44.934s`, rollback flash `64.213s`,
+> rollback boot/health `48.219s`, candidate-start to rollback-ready total `307.035s`
+> (`30.70s/target`). Aggregate now uses `35/84` canonical timelines and projects resident-session
+> `14.0s/target`, `21.3x` vs per-unit flash and `2.1x` vs per-unit in-boot batching for the modeled
+> `batch_size=10`, `resident_batches=10`; this run's measured per-target cost is higher than max30
+> because the real queued batch had ten targets.
+>
+> Final rollback health independently confirmed resident `v2321-usb-clean-identity-rodata`,
+> `status` BOOT OK, and `selftest pass=11 warn=1 fail=0`.
+>
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_STATE_REFRESH_PACKED_RESIDENT_SESSION_2026-07-02.md`.
 
 ## ✅ DONE — REPL resident-session scalar pid lookup proof — `find_vpid`
 
