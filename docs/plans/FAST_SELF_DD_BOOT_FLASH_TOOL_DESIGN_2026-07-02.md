@@ -488,3 +488,15 @@ Post-probe `selftest fail=0`, pstore entries=0, and rollback to v2321 completed 
 fail=0`. This is a **clean refusal**, not an E2 write proof; do not advance to E3. Next E2 revision
 should select multiple all-zero sectors from the available tail-slack zero population without
 requiring every quarter-band to contain one.
+
+V3351 (`0.11.115`, `v3351-boot-write-e2-zero-population`) implemented that revision: scan the full
+tail-slack window, collect all all-zero 4096B sectors, and select four spread indices from that zero
+population. Live result (2026-07-02): V3351 flashed through `native_init_flash.py`, booted cleanly,
+and E2 passed. The command found `zero_candidates=26`, selected offsets `63631360`, `63717376`,
+`63750144`, and `66048000`, verified `slack_zero=1` for each, executed four identity `pwrite` calls
+(`pwrite_count=4`), read back all four regions with `region_match_all=1`, and preserved the
+O_DIRECT full-partition SHA (`full_match=1`). Post-probe `selftest fail=0`, pstore entries=0, and
+rollback to v2321 completed with final explicit `selftest fail=0`. Public live report:
+`docs/reports/NATIVE_INIT_V3351_BOOT_WRITE_E2_ZERO_POPULATION_LIVE_2026-07-02.md`. This is the E2
+multi-offset identity-write proof; the next rung may be E3 (larger identity write in confirmed-zero
+slack) after retaining the same checked-helper flash, recovery, rollback, full-SHA, and pstore gates.
