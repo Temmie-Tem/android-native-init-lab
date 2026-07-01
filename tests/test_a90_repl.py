@@ -1860,6 +1860,35 @@ class CallSafetyClassificationTests(unittest.TestCase):
             [f"0x{word:08x}" for word in repl.SCHED_CLOCK_CPU_EXPECTED_WORDS[:12]],
         )
 
+        get_iowait_load = self._row("get_iowait_load")
+        self.assertEqual(get_iowait_load["tier"], repl.CALL_SAFETY_DENY)
+        self.assertFalse(get_iowait_load["auto_call_allowed"])
+        self.assertFalse(get_iowait_load["vetted_seed_whitelist"])
+        self.assertFalse(get_iowait_load["resolution"]["verified"])
+        self.assertEqual(get_iowait_load["resolution"]["method"], "unverified")
+        self.assertEqual(
+            get_iowait_load["resolution"]["link_vaddr"],
+            "0xffffff80080ee0ec",
+        )
+        self.assertIn(
+            "map-target-no-helper-call-before-return-or-scan-limit",
+            get_iowait_load["blocked_reasons"],
+        )
+        self.assertTrue(get_iowait_load["signals"]["leaf"])
+        self.assertEqual(get_iowait_load["signals"]["bl_count_in_scan"], 0)
+        self.assertEqual(
+            get_iowait_load["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertEqual(
+            get_iowait_load["signals"]["arg_taint_flow"]["arg_memory_base_use_count"],
+            2,
+        )
+        self.assertEqual(
+            get_iowait_load["signals"]["first_words"][:10],
+            [f"0x{word:08x}" for word in repl.GET_IOWAIT_LOAD_EXPECTED_WORDS],
+        )
+
         task_pid_nr_ns = self._row("__task_pid_nr_ns")
         self.assertEqual(task_pid_nr_ns["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -4677,27 +4706,37 @@ class CallSafetyClassificationTests(unittest.TestCase):
                 "extern int nr_processes(void)",
                 "include/linux/sched/stat.h",
                 18,
+                [],
             ),
             "nr_running": (
                 "extern unsigned long nr_running(void)",
                 "include/linux/sched/stat.h",
                 19,
+                [],
             ),
             "nr_iowait": (
                 "extern unsigned long nr_iowait(void)",
                 "include/linux/sched/stat.h",
                 21,
+                [],
+            ),
+            "get_iowait_load": (
+                "extern void get_iowait_load(unsigned long *nr_waiters, unsigned long *load)",
+                "include/linux/sched/stat.h",
+                23,
+                [0, 1],
             ),
             "nr_context_switches": (
                 "extern unsigned long long nr_context_switches(void)",
                 "include/linux/kernel_stat.h",
                 52,
+                [],
             ),
         }
-        for symbol, (signature, suffix, line) in scheduler_state_source.items():
+        for symbol, (signature, suffix, line, pointer_args) in scheduler_state_source.items():
             row = repl.lookup_source_signature(symbol, source_root=KERNEL_SOURCE_ROOT)
             self.assertEqual(row["status"], "found", row)
-            self.assertEqual(row["selected"]["pointer_arg_indices"], [])
+            self.assertEqual(row["selected"]["pointer_arg_indices"], pointer_args)
             self.assertEqual(row["selected"]["signature"], signature)
             self.assertEqual(row["selected"]["line"], line)
             self.assertTrue(row["selected"]["path"].endswith(suffix))
@@ -5757,6 +5796,7 @@ class FaithfulFakeTransport:
             "nr_iowait",
             purpose="call",
         ).link_vaddr
+        self.get_iowait_load_link = self.symbols["get_iowait_load"].vaddr
         self.nr_context_switches_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -5841,6 +5881,8 @@ class FaithfulFakeTransport:
         self.sched_clock_cpu_index = 0
         self.get_seconds_values = [0x69000000, 0x69000001]
         self.get_seconds_index = 0
+        self.iowait_load_values = [(0x2, 0x180), (0x3, 0x1A0)]
+        self.iowait_load_index = 0
         self.scm_version_value = repl.SCM_ARMV8_64
         self.sde_rsc_available_value = 1
         self.sde_rsc_current_state_value = 2
@@ -6751,6 +6793,8 @@ class FaithfulFakeTransport:
             nr_running = self.nr_running_link + self.slide
             assert self.nr_iowait_link is not None
             nr_iowait = self.nr_iowait_link + self.slide
+            assert self.get_iowait_load_link is not None
+            get_iowait_load = self.get_iowait_load_link + self.slide
             assert self.nr_context_switches_link is not None
             nr_context_switches = self.nr_context_switches_link + self.slide
             assert self.get_max_files_link is not None
@@ -7723,6 +7767,22 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("nr_iowait proof must pass no arguments")
                 lines.append(f"A90R{self._next_scheduler_counter('nr_iowait'):x}")
+            elif arg0 == get_iowait_load:
+                if (arg3, arg4) != (0, 0):
+                    raise AssertionError("get_iowait_load proof must pass only x0/x1 result slots")
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"get_iowait_load nr_waiters slot is not allocated: {arg1:#x}")
+                if arg2 != arg1 + repl.GET_IOWAIT_LOAD_LOAD_OFFSET:
+                    raise AssertionError("get_iowait_load load slot must be the second owned u64")
+                waiters, load = self.iowait_load_values[
+                    min(self.iowait_load_index, len(self.iowait_load_values) - 1)
+                ]
+                self.iowait_load_index += 1
+                self._set_heap_bytes(
+                    arg1,
+                    waiters.to_bytes(8, "little") + load.to_bytes(8, "little"),
+                )
+                lines.append(f"A90R{arg1:x}")
             elif arg0 == nr_context_switches:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("nr_context_switches proof must pass no arguments")
@@ -10054,6 +10114,75 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertIn("sched_clock_cpu_runtime", private)
         self.assertNotIn("sched_clock_cpu_runtime", summary)
         self.assertEqual(fake.op_count, 4)
+
+    def test_call_proof_get_iowait_load_passes_with_dual_owned_slot_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "get_iowait_load",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(
+            summary["decision"],
+            "a90-repl-live-call-proof-get_iowait_load-pass",
+        )
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-owned-dual-iowait-load-result-slot-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "get_iowait_load")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["function_map_entry"]["auto_call_policy"],
+            "target-specific-proof-only-not-global-auto-call",
+        )
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern void get_iowait_load(unsigned long *nr_waiters, unsigned long *load)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [0, 1])
+        self.assertEqual(summary["call_safety_gate"]["tier"], repl.CALL_SAFETY_DENY)
+        self.assertFalse(summary["call_safety_gate"]["auto_call_allowed"])
+        self.assertEqual(
+            summary["target_specific_call_safety"]["tier"],
+            repl.CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        )
+        self.assertTrue(summary["target_specific_call_safety"]["candidate_safe"])
+        self.assertTrue(summary["all_result_slots_in_contract"])
+        self.assertTrue(summary["canary_preserved"])
+        self.assertTrue(summary["cleanup_ok"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertNotIn("get_iowait_load_runtime", summary)
+        self.assertNotIn("result_slot_ptr", summary)
+        self.assertIn("get_iowait_load_runtime", private)
+        self.assertIn("result_slot_ptr", private)
+        cases = {case["case"]: case for case in summary["case_results"]}
+        for index, (waiters, load) in enumerate(fake.iowait_load_values, start=1):
+            key = f"get_iowait_load-dual-slot-read-{index}"
+            self.assertEqual(cases[key]["nr_waiters"], f"0x{waiters:x}")
+            self.assertEqual(cases[key]["load"], f"0x{load:x}")
+            self.assertTrue(cases[key]["slots_changed_from_prefill"])
+            self.assertTrue(cases[key]["canary_preserved"])
+            self.assertEqual(private["case_results"][key]["nr_waiters"], f"0x{waiters:x}")
+            self.assertEqual(private["case_results"][key]["load"], f"0x{load:x}")
+        self.assertEqual(fake.iowait_load_index, repl.GET_IOWAIT_LOAD_REPEAT_COUNT)
+        self.assertEqual(fake.freed, [int(private["result_slot_ptr"], 16)])
+        self.assertFalse(fake.allocated)
+        self.assertGreater(fake.op_count, 0)
 
     def test_call_proof_is_boot_recovery_passes_with_boot_flag_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

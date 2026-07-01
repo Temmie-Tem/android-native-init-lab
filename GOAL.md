@@ -141,12 +141,54 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >    `resident_batches=10`. The first promoted target under the harness is now `sched_clock_cpu`:
 >    v1-repl flash once, mandatory warm reboot, one bounded batch, per-target flush, and v2321
 >    rollback once all passed. Final resident was rolled back to v2321 with `selftest fail=0`.
+>    The next target, `get_iowait_load`, extended this path to an owned dual-result-slot ABI and
+>    updated the aggregate to `18` canonical timelines out of `66`; projection is now
+>    resident-session `13.085s/target`, `21.06x` vs per-unit flash and `2.11x` vs per-unit
+>    in-boot batching for the same `batch_size=10`, `resident_batches=10` model.
 >    Harness report:
 >    `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_RESIDENT_SESSION_HARNESS_2026-07-01.md`.
 > **HARD — unchanged, do NOT loosen:** the fail-closed C1 resolution, the **call-safety classifier**
 > (DENY / BEHAVIOR-CHANGING tiers stay DENY — never relax a tier to reach a struct/state target),
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
+
+## ✅ DONE — REPL resident-session owned dual-slot proof — `get_iowait_load`
+
+> ### ✅ STATUS (2026-07-01 live-proven, resident-session mode, rolled back cleanly)
+>
+> Codex promoted `get_iowait_load(unsigned long *nr_waiters, unsigned long *load)` under a
+> target-specific owned dual-result-slot contract, not as a global auto-call seed. Static identity is
+> pinned by map address `0xffffff80080ee0ec`, direct BL xref `1`, next symbol `sched_exec` at `+0x28`,
+> source signature `extern void get_iowait_load(unsigned long *nr_waiters, unsigned long *load)` at
+> `include/linux/sched/stat.h:23`, pointer arg indices `[0, 1]`, BL-free leaf body, and two
+> caller-provided memory-base stores only: `str x9, [x0]` and `str x8, [x1]`. Body words:
+> `b0013149 d538d088 91240129 8b090108 b9893909 f9000009 f9402508 f9000028 d65f03c0 00be7bad`.
+>
+> The global classifier remains fail-closed for this non-seeded target: `DENY`,
+> `auto_call_allowed=false`, generic resolution `unverified` with
+> `map-target-no-helper-call-before-return-or-scan-limit`. The proof records a separate
+> target-specific advisory `SAFE-WITH-VALID-PTR` only because the harness supplies owned output slots
+> and validates canary preservation plus cleanup.
+>
+> Live resident-session run:
+> `workspace/private/runs/kernel/repl-resident-session-get-iowait-load-20260701T141901Z/`.
+> Result: `a90-repl-live-call-proof-get_iowait_load-pass`; two repeated calls wrote
+> `nr_waiters=0x0`, `load=0x100000`, preserved the trailing canary, and freed the owned buffer via
+> `kfree`.
+>
+> Session used v1-repl flash once, mandatory warm reboot before the batch, per-target result flush,
+> and v2321 rollback once. Final resident is `v2321-usb-clean-identity-rodata`; standalone
+> `selftest fail=0`.
+>
+> Canonical timing is present in `timeline.json` with the single top-level `events` schema and all
+> required eight phase events. This run measured `candidate_flash=64.163958s`,
+> `warm_reboot=32.635658s`, one-target live batch `13.821801s`, `rollback_flash=65.799174s`,
+> total `309.495289s`. The timing aggregator now uses `18` canonical timelines and projects resident
+> session `20->2` flashes, `13.085s/target`, `21.06x` versus unbatched per-unit flash, and `2.11x`
+> versus per-unit in-boot batching for `batch_size=10`, `resident_batches=10`.
+>
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_GET_IOWAIT_LOAD_RESIDENT_SESSION_2026-07-01.md`.
 
 ## ✅ DONE — REPL resident-session one-target proof — `sched_clock_cpu`
 

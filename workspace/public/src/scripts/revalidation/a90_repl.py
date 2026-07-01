@@ -4182,6 +4182,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "nr_processes": ("include/linux/sched/stat.h",),
     "nr_running": ("include/linux/sched/stat.h",),
     "nr_iowait": ("include/linux/sched/stat.h",),
+    "get_iowait_load": ("include/linux/sched/stat.h",),
     "nr_context_switches": ("include/linux/kernel_stat.h",),
     "get_max_files": ("include/linux/fs.h", "fs/file_table.c"),
     "get_nr_dirty_inodes": ("fs/internal.h", "fs/inode.c"),
@@ -6307,6 +6308,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern unsigned long nr_iowait(void)",
     },
+    "get_iowait_load": {
+        "input_contract": "two owned unsigned long result slots in one kmalloc buffer: x0=&nr_waiters, x1=&load; proof pre-fills both slots plus trailing canary and frees the buffer after validation",
+        "return_contract": "void call writes sane unsigned long nr_waiters and load values into the two owned slots on each short-repeat call and preserves the trailing canary",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern void get_iowait_load(unsigned long *nr_waiters, unsigned long *load)",
+    },
     "nr_context_switches": {
         "input_contract": "no arguments; per-CPU context-switch counters are read without locking and no returned pointer is dereferenced or freed",
         "return_contract": "unsigned long long context-switch count is sane and nondecreasing across short-repeat proof calls",
@@ -7782,6 +7789,21 @@ SCHED_CLOCK_CPU_NEXT_SYMBOL = ("running_clock", 0x40)
 SCHED_CLOCK_CPU_PROOF_CPU = 0
 SCHED_CLOCK_CPU_REPEAT_COUNT = 3
 SCHED_CLOCK_CPU_MAX_SHORT_DELTA_NS = 10_000_000_000
+GET_IOWAIT_LOAD_EXPECTED_WORDS = (
+    0xB0013149, 0xD538D088, 0x91240129, 0x8B090108,
+    0xB9893909, 0xF9000009, 0xF9402508, 0xF9000028,
+    0xD65F03C0, 0x00BE7BAD,
+)
+GET_IOWAIT_LOAD_NEXT_SYMBOL = ("sched_exec", 0x28)
+GET_IOWAIT_LOAD_REPEAT_COUNT = 2
+GET_IOWAIT_LOAD_SLOT_SIZE = 16
+GET_IOWAIT_LOAD_NR_WAITERS_OFFSET = 0
+GET_IOWAIT_LOAD_LOAD_OFFSET = 8
+GET_IOWAIT_LOAD_CANARY_BYTES = bytes.fromhex("a90f10ad1cad1cad0102030405060708")
+GET_IOWAIT_LOAD_PROOF_ALLOC_SIZE = 0x80
+GET_IOWAIT_LOAD_FILL_BYTE = 0xA9
+GET_IOWAIT_LOAD_MAX_SANE_NR_WAITERS = 1_000_000
+GET_IOWAIT_LOAD_MAX_SANE_LOAD = 1 << 60
 GET_SECONDS_EXPECTED_WORDS = (
     0xB0016FE8, 0x912C0108, 0xF9403500, 0xD65F03C0,
     0xD503201F, 0x00BE7BAD,
@@ -30741,6 +30763,324 @@ def _run_call_proof_sched_clock_cpu(
     return summary, private
 
 
+def _run_call_proof_get_iowait_load(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+    gfp: int,
+    gfp_components: dict[str, int],
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "get_iowait_load"
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety_gate = classify_call_safety(
+        symbols,
+        image,
+        target,
+        include_objdump=False,
+    )
+    if call_safety_gate.get("tier") != CALL_SAFETY_DENY:
+        raise ReplError(f"{target} must stay outside the global auto-call gate")
+    if call_safety_gate.get("vetted_seed_whitelist"):
+        raise ReplError(f"{target} unexpectedly entered CALL_SAFETY_SEEDS")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0, 1]:
+        raise ReplError(f"{target} source signature must declare x0/x1 as unsigned long pointers")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the sched/stat.h declaration")
+
+    source_path = source_root / "include/linux/sched/stat.h"
+    try:
+        source_normalized = " ".join(
+            source_path.read_text(encoding="utf-8", errors="replace").split()
+        )
+    except OSError as exc:
+        raise ReplError(f"{target} source file is not readable: {source_path}") from exc
+    source_fragments = (
+        "extern unsigned long nr_iowait(void);",
+        "extern unsigned long nr_iowait_cpu(int cpu);",
+        "extern void get_iowait_load(unsigned long *nr_waiters, unsigned long *load);",
+    )
+    missing_fragments = [
+        fragment for fragment in source_fragments
+        if fragment not in source_normalized
+    ]
+    if missing_fragments:
+        raise ReplError(f"{target} source fragments missing: {missing_fragments}")
+
+    target_symbol = symbols.get(target)
+    if target_symbol is None:
+        raise ReplError(f"{target} missing from System.map")
+    target_link = target_symbol.vaddr
+    gate_resolution = call_safety_gate.get("resolution", {})
+    if (
+        not isinstance(gate_resolution, dict)
+        or gate_resolution.get("link_vaddr") != f"0x{target_link:x}"
+    ):
+        raise ReplError(f"{target} classifier link address does not match System.map")
+    next_symbol_name, expected_boundary = GET_IOWAIT_LOAD_NEXT_SYMBOL
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    signals = call_safety_gate.get("signals", {})
+    if not isinstance(signals, dict):
+        raise ReplError(f"{target} classifier signals missing")
+    taint_flow = signals.get("arg_taint_flow", {})
+    arg_memory_sources: set[int] = set()
+    if isinstance(taint_flow, dict):
+        for use in taint_flow.get("arg_memory_base_uses", []) or []:
+            if not isinstance(use, dict):
+                continue
+            for source_arg in use.get("source_args", []) or []:
+                parsed = _arg_source_index_from_text(str(source_arg))
+                if parsed is not None:
+                    arg_memory_sources.add(parsed)
+    target_resolution = VerifiedResolution(
+        symbol=target,
+        link_vaddr=target_link,
+        verified=True,
+        method="target-specific-leaf-map+xref+word-boundary",
+        evidence={
+            "global_gate_tier": call_safety_gate.get("tier"),
+            "global_gate_auto_call_allowed": call_safety_gate.get("auto_call_allowed"),
+            "map_direct_bl_xref_count": signals.get("direct_bl_xref_count"),
+            "map_direct_bl_xref_sample_sites": signals.get("direct_bl_xref_sample_sites", []),
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+            "leaf": signals.get("leaf"),
+            "bl_count_in_scan": signals.get("bl_count_in_scan"),
+            "arg_memory_source_indices": sorted(arg_memory_sources),
+            "note": (
+                "target-specific identity accepts this BL-free leaf writer despite generic "
+                "resolve_verified requiring a helper call before return"
+            ),
+        },
+    )
+    resolutions = {
+        target: target_resolution,
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(
+            symbols,
+            image,
+            "kfree",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ),
+    }
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof result-slot allocation")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof result-slot cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    observed_words = image.u32_words_at_vaddr(target_link, len(GET_IOWAIT_LOAD_EXPECTED_WORDS))
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-target-specific-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": target_resolution.method,
+            "global_gate_tier": call_safety_gate.get("tier"),
+            "global_gate_auto_call_allowed": call_safety_gate.get("auto_call_allowed"),
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+            "source_note": "sched/stat.h declares two owned unsigned long output slots for this proof",
+        },
+        {
+            "check": "static-leaf-no-helper-call",
+            "ok": bool(signals.get("leaf") is True and signals.get("bl_count_in_scan") == 0),
+            "leaf": signals.get("leaf"),
+            "bl_count_in_scan": signals.get("bl_count_in_scan"),
+        },
+        {
+            "check": "static-owned-output-args-only",
+            "ok": arg_memory_sources == {0, 1},
+            "arg_memory_source_indices": sorted(arg_memory_sources),
+            "arg_memory_base_use_count": (
+                taint_flow.get("arg_memory_base_use_count")
+                if isinstance(taint_flow, dict) else None
+            ),
+        },
+        {
+            "check": "static-direct-xref-present",
+            "ok": int(signals.get("direct_bl_xref_count", 0) or 0) >= 1,
+            "direct_bl_xref_count": signals.get("direct_bl_xref_count"),
+        },
+    ]
+    for index, expected in enumerate(GET_IOWAIT_LOAD_EXPECTED_WORDS):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+    if not all(bool(check.get("ok")) for check in checks):
+        raise ReplError(f"{target} static target-specific gate failed")
+
+    private: dict[str, object] = {}
+    slide = 0
+    ptr = 0
+    kfree_runtime = 0
+    free_ok = False
+    free_error = ""
+    raw_returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+    canary_after = b""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+        ptr = session.call_runtime(kmalloc_runtime, (GET_IOWAIT_LOAD_PROOF_ALLOC_SIZE, gfp))
+        if not is_kernel_lowmem_pointer(ptr) or _is_kernel_err_ptr(ptr):
+            raise ReplError(f"__kmalloc returned invalid {target} result-slot pointer: 0x{ptr:x}")
+
+        for index in range(GET_IOWAIT_LOAD_REPEAT_COUNT):
+            initial = (
+                bytes([GET_IOWAIT_LOAD_FILL_BYTE]) * GET_IOWAIT_LOAD_SLOT_SIZE
+                + GET_IOWAIT_LOAD_CANARY_BYTES
+            )
+            _poke_bytes(session, ptr, initial)
+            raw_return = session.call_runtime_values(
+                target_runtime,
+                (ptr + GET_IOWAIT_LOAD_NR_WAITERS_OFFSET, ptr + GET_IOWAIT_LOAD_LOAD_OFFSET),
+                replay_safe=True,
+            )[-1] & MASK64
+            raw_returns.append(raw_return)
+            observed = _peek_bytes(
+                session,
+                ptr,
+                GET_IOWAIT_LOAD_SLOT_SIZE + len(GET_IOWAIT_LOAD_CANARY_BYTES),
+            )
+            nr_waiters = _u64_from_le(observed, GET_IOWAIT_LOAD_NR_WAITERS_OFFSET)
+            load_value = _u64_from_le(observed, GET_IOWAIT_LOAD_LOAD_OFFSET)
+            canary_after = observed[
+                GET_IOWAIT_LOAD_SLOT_SIZE:
+                GET_IOWAIT_LOAD_SLOT_SIZE + len(GET_IOWAIT_LOAD_CANARY_BYTES)
+            ]
+            slots_changed = observed[:GET_IOWAIT_LOAD_SLOT_SIZE] != initial[:GET_IOWAIT_LOAD_SLOT_SIZE]
+            nr_waiters_sane = nr_waiters <= GET_IOWAIT_LOAD_MAX_SANE_NR_WAITERS
+            load_sane = load_value < GET_IOWAIT_LOAD_MAX_SANE_LOAD
+            canary_ok = canary_after == GET_IOWAIT_LOAD_CANARY_BYTES
+            ok = slots_changed and nr_waiters_sane and load_sane and canary_ok
+            case_results.append({
+                "case": f"{target}-dual-slot-read-{index + 1}",
+                "nr_waiters": f"0x{nr_waiters:x}",
+                "load": f"0x{load_value:x}",
+                "slots_changed_from_prefill": slots_changed,
+                "nr_waiters_sane": nr_waiters_sane,
+                "load_sane": load_sane,
+                "canary_preserved": canary_ok,
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(f"{target} result-slot contract failed in proof call {index + 1}")
+    finally:
+        if ptr and is_kernel_lowmem_pointer(ptr) and kfree_runtime:
+            try:
+                session.call_runtime(kfree_runtime, (ptr,))
+                free_ok = True
+            except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                free_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": f"{target}-dual-owned-result-slot-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    checks.append({
+        "check": "kfree-owned-iowait-load-result-slot",
+        "ok": free_ok,
+        "free_attempted": bool(ptr and is_kernel_lowmem_pointer(ptr)),
+    })
+    if free_error:
+        raise ReplError(f"kfree cleanup failed after {target} proof: {free_error}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-owned-dual-iowait-load-result-slot-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "all_result_slots_in_contract": bool(case_results) and all(bool(case.get("ok")) for case in case_results),
+        "canary_preserved": bool(case_results) and all(bool(case.get("canary_preserved")) for case in case_results),
+        "cleanup_ok": free_ok,
+        "source_evidence": _source_row_evidence(source),
+        "call_safety_gate": call_safety_gate,
+        "target_specific_call_safety": {
+            "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+            "safe_group": True,
+            "candidate_safe": True,
+            "candidate_tag": "target-specific-owned-result-slot-only",
+            "required_valid_pointer_args_from_source": {"0": "unsigned long *nr_waiters", "1": "unsigned long *load"},
+            "reasons": [
+                "global gate remains DENY",
+                "target-specific proof supplies owned x0/x1 result slots",
+                "static body is a BL-free leaf with only two owned-slot stores before ret",
+            ],
+        },
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": "owned dual unsigned-long result slots contained sane nr_waiters/load values",
+            "cleanup": "kfree-owned-iowait-load-result-slot-ok",
+            "auto_call_policy": "target-specific-proof-only-not-global-auto-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "result_slot_ptr": f"0x{ptr:x}",
+        "void_call_raw_x0_values": [f"0x{value:x}" for value in raw_returns],
+        "case_results": {
+            case["case"]: {
+                "nr_waiters": case["nr_waiters"],
+                "load": case["load"],
+            }
+            for case in case_results
+        },
+        "canary_after_hex": canary_after.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
 def _run_call_proof_get_seconds(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -41411,6 +41751,15 @@ def run_call_proof(session: ReplSession,
             symbols,
             image,
             source_root=source_root,
+        )
+    if target == "get_iowait_load":
+        return _run_call_proof_get_iowait_load(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
         )
     if target == "get_seconds":
         return _run_call_proof_get_seconds(
