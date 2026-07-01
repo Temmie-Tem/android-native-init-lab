@@ -96,6 +96,57 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL VFS dirty-inode live-call proof — `get_nr_dirty_inodes()` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg VFS inode-state getter
+>
+> Codex selected `get_nr_dirty_inodes` as a VFS kernel-state observation target
+> paired with, but distinct from, the already-proven `get_max_files`. It
+> extends the function map with a read-only approximation of dirty inode count:
+> `extern long get_nr_dirty_inodes(void)` from `fs/internal.h:146`.
+>
+> Static selection pinned `get_nr_dirty_inodes=0xffffff80082b1234` via
+> `disasm-signature+xref+map` with direct BL xrefs `4` and JOPP entry. The C1
+> gate classifies it as `SAFE-SCALAR`; source/ABI contract is no pointer args.
+> The static implementation check verified `fs/inode.c` computes
+> `get_nr_inodes() - get_nr_inodes_unused()` and clamps negative values to
+> zero. The next-symbol boundary is `proc_nr_inodes` at `+0xf8`; the 62-word
+> body, `cpumask_next` loop call sites, and final `0x00be7bad` boundary guard
+> were pinned.
+>
+> The live proof obeyed the flash gate: rollback/fallback/TWRP artifacts were
+> confirmed, baseline v2321 `version/status/selftest` passed, the exact
+> v1-repl candidate (`b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`)
+> flashed through `native_init_flash.py` with matching pushed-image and
+> readback SHA, and candidate helper health passed. The first explicit
+> candidate health attempt hit serial framing noise after `hide`; the
+> sequential retry passed `hide/version/status/selftest`.
+>
+> Two no-argument live calls returned `0x69d9` and `0x69d9`, nonnegative and
+> below the conservative sane bound. The contract allows short-repeat drift;
+> this run happened to be stable. Raw runtime pointers and the slide stayed
+> private/redacted.
+>
+> Post-proof `hide/status/selftest` passed with `selftest pass=11 warn=1
+> fail=0` and `pstore entries=0`. Rollback to v2321 completed with matching
+> readback SHA. Final explicit `hide/version/status/selftest` passed on the
+> first attempt and confirmed resident `v2321-usb-clean-identity-rodata`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-get-nr-dirty-inodes-20260701T054957Z/timeline.json`:
+> candidate flash helper `64.623s`, candidate flash start to boot ready `65s`,
+> candidate explicit health initial `12.529s`, candidate explicit health retry
+> `6.734s`, live proof `4.824s`, post-proof health `1.236s`, rollback flash
+> helper `63.669s`, rollback flash start to boot ready `64s`, final health
+> `3.671s`, and candidate start to final health done approximately `187s`.
+> The helper/start-to-boot rows are not additive; all serial bridge commands in
+> this unit were sequential.
+>
+> Function-map outcome: `get_nr_dirty_inodes` is promoted as live-proven only
+> under the no-argument read-only VFS dirty-inode approximation contract.
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_GET_NR_DIRTY_INODES_2026-07-01.md`.
+
 ## ✅ DONE — REPL VFS open-file-limit live-call proof — `get_max_files()` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg VFS state getter
