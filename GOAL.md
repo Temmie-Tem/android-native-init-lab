@@ -484,6 +484,67 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > matching the fixed vmalloc boundary table. Report:
 > `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_IS_VMALLOC_ADDR_2026-07-01.md`.
 
+## ✅ DONE — REPL RCU state live-call proof — `get_state_synchronize_rcu()` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg RCU grace-period state getter
+>
+> Codex selected `get_state_synchronize_rcu` from the state-observation sweep
+> as a new no-argument RCU state getter. The adjacent advisory-safe
+> `get_net_ns_by_fd(int fd)` candidate stayed parked because it reaches
+> fd-backed namespace lookup and `fput`, so it needs a stronger fd/refcount
+> contract before being a clean one-target proof.
+>
+> Static selection pinned `get_state_synchronize_rcu=0xffffff8008150a74` via
+> `export-recovery` with map agreement, one export candidate, direct BL xrefs
+> `1`, JOPP entry, leaf body, no in-body BL, and no argument dereference.
+> Source declaration was `unsigned long get_state_synchronize_rcu(void)` at
+> `include/linux/rcutree.h:77`. The Samsung source drop also contains the
+> `rcutiny.h` inline fallback but not the RCU implementation source file, so
+> this proof pins the live rcutree implementation with static words:
+> `0xf0015788 0xd5033bbf 0x91300108 0x910c2108 0xc8dffd00 0xd65f03c0 0xd503201f 0x00be7bad`.
+> The next-symbol boundary is `cond_synchronize_rcu` at `+0x20`.
+>
+> The live proof obeyed the flash gate: rollback/fallback/TWRP artifacts were
+> confirmed, baseline v2321 `version/status/selftest` passed, the exact
+> v1-repl candidate (`b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`)
+> flashed through `native_init_flash.py` with matching pushed-image and
+> readback SHA, and candidate helper health passed. The first explicit
+> candidate `selftest` capture timed out after serial `AT` marker loss and no
+> complete body; after bridge restart, explicit candidate selftest passed
+> cleanly with `pass=11 warn=1 fail=0`.
+>
+> The proof called `get_state_synchronize_rcu()` three times with no
+> arguments. Returns were nondecreasing and stayed inside the bounded
+> short-run delta contract: `0xe4a`, `0xe67`, `0xe7f`, max delta `0x35`.
+> No runtime pointer was dereferenced by the host, no cleanup was required,
+> and raw runtime values plus the KASLR slide stayed private/redacted.
+>
+> Post-proof candidate `selftest` passed with `selftest pass=11 warn=1
+> fail=0`. Rollback to v2321 completed with matching readback SHA, rollback
+> helper `version/status` passed, and final v2321 `version` reported
+> `v2321-usb-clean-identity-rodata`. The first final v2321 `selftest` capture
+> included `pass=11 warn=1 fail=0` but missed the END marker after serial
+> `AT` echo; after bridge restart, final standalone `selftest` passed cleanly.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-get-state-synchronize-rcu-20260701T080141Z/timeline.json`
+> at `2026-07-01T08:09:48Z`: baseline version `0.449s`, baseline status
+> `1.051s`, baseline selftest `0.453s`, candidate flash helper `63.767s`,
+> candidate explicit selftest first capture `120.194s` with marker-loss
+> timeout, candidate selftest retry after bridge restart `0.455s`, live proof
+> `5.893s`, post-proof candidate selftest `0.448s`, rollback flash helper
+> `63.795s`, final v2321 version `0.451s`, final v2321 selftest first capture
+> `120.143s` with missing END marker, and final v2321 selftest retry
+> `0.459s`. The helper total rows are not additive; all serial bridge
+> commands in this unit were sequential.
+>
+> Function-map outcome: `get_state_synchronize_rcu` is promoted as
+> live-proven only under the no-argument read-only RCU state contract: the
+> pinned leaf body performs the barrier/acquire-load path, returns an unsigned
+> long state value, and the short repeated proof must be nondecreasing within
+> the bounded delta. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_GET_STATE_SYNCHRONIZE_RCU_2026-07-01.md`.
+
 ## ✅ DONE — REPL current fs-state live-call proof — `current_umask()` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg current-task umask getter

@@ -1508,6 +1508,26 @@ class CallSafetyClassificationTests(unittest.TestCase):
             [f"0x{word:08x}" for word in repl.IS_VMALLOC_ADDR_WORDS],
         )
 
+        get_state_synchronize_rcu = self._row("get_state_synchronize_rcu")
+        self.assertEqual(get_state_synchronize_rcu["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(get_state_synchronize_rcu["required_valid_pointer_args"], {})
+        self.assertTrue(get_state_synchronize_rcu["resolution"]["verified"])
+        self.assertEqual(get_state_synchronize_rcu["resolution"]["method"], "export-recovery")
+        self.assertEqual(
+            get_state_synchronize_rcu["resolution"]["link_vaddr"],
+            "0xffffff8008150a74",
+        )
+        self.assertGreaterEqual(
+            get_state_synchronize_rcu["signals"]["direct_bl_xref_count"],
+            1,
+        )
+        self.assertTrue(get_state_synchronize_rcu["signals"]["leaf"])
+        self.assertEqual(get_state_synchronize_rcu["signals"]["bl_count_in_scan"], 0)
+        self.assertEqual(
+            get_state_synchronize_rcu["signals"]["first_words"][:8],
+            [f"0x{word:08x}" for word in repl.GET_STATE_SYNCHRONIZE_RCU_EXPECTED_WORDS],
+        )
+
         task_pid_nr_ns = self._row("__task_pid_nr_ns")
         self.assertEqual(task_pid_nr_ns["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -3017,7 +3037,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 53)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 54)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 10)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -3754,6 +3774,19 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertEqual(is_vmalloc_addr["selected"]["line"], 535)
         self.assertTrue(is_vmalloc_addr["selected"]["path"].endswith("include/linux/mm.h"))
+
+        get_state_synchronize_rcu = repl.lookup_source_signature(
+            "get_state_synchronize_rcu",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(get_state_synchronize_rcu["status"], "found", get_state_synchronize_rcu)
+        self.assertEqual(get_state_synchronize_rcu["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            get_state_synchronize_rcu["selected"]["signature"],
+            "unsigned long get_state_synchronize_rcu(void)",
+        )
+        self.assertEqual(get_state_synchronize_rcu["selected"]["line"], 77)
+        self.assertTrue(get_state_synchronize_rcu["selected"]["path"].endswith("include/linux/rcutree.h"))
 
         task_pid_nr_ns = repl.lookup_source_signature(
             "__task_pid_nr_ns",
@@ -4858,6 +4891,12 @@ class FaithfulFakeTransport:
             "is_vmalloc_addr",
             purpose="call",
         ).link_vaddr
+        self.get_state_synchronize_rcu_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "get_state_synchronize_rcu",
+            purpose="call",
+        ).link_vaddr
         self.task_pid_nr_ns_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -5132,6 +5171,8 @@ class FaithfulFakeTransport:
         self.is_blocked_value = 0
         self.borrowed_ddr_vendor_string = b"Samsung\x00"
         self.intermediate_timeout_value = 0x7530
+        self.rcu_state_values = [0x420000, 0x420000, 0x420002]
+        self.rcu_state_index = 0
         self.boot_stat_time_values = [0x00100000, 0x00101000, 0x00102000]
         self.boot_stat_time_index = 0
         self.get_seconds_values = [0x69000000, 0x69000001]
@@ -5919,6 +5960,8 @@ class FaithfulFakeTransport:
             get_intermediate_timeout = self.get_intermediate_timeout_link + self.slide
             assert self.is_vmalloc_addr_link is not None
             is_vmalloc_addr = self.is_vmalloc_addr_link + self.slide
+            assert self.get_state_synchronize_rcu_link is not None
+            get_state_synchronize_rcu = self.get_state_synchronize_rcu_link + self.slide
             assert self.task_pid_nr_ns_link is not None
             task_pid_nr_ns = self.task_pid_nr_ns_link + self.slide
             assert self.sched_get_group_id_link is not None
@@ -6600,6 +6643,12 @@ class FaithfulFakeTransport:
                 if arg1 not in expected_by_addr:
                     raise AssertionError(f"unexpected is_vmalloc_addr proof address: {arg1:#x}")
                 lines.append(f"A90R{expected_by_addr[arg1]:x}")
+            elif arg0 == get_state_synchronize_rcu:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("get_state_synchronize_rcu proof must pass no arguments")
+                value = self.rcu_state_values[min(self.rcu_state_index, len(self.rcu_state_values) - 1)]
+                self.rcu_state_index += 1
+                lines.append(f"A90R{value:x}")
             elif arg0 == task_pid_nr_ns:
                 if (arg1, arg2, arg3, arg4) != (
                     self.init_task_runtime,
@@ -8552,6 +8601,54 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertIn("is_vmalloc_addr_runtime", private)
         self.assertNotIn("is_vmalloc_addr_runtime", summary)
         self.assertEqual(fake.op_count, 1 + len(repl.IS_VMALLOC_ADDR_CASES))
+
+    def test_call_proof_get_state_synchronize_rcu_passes_with_read_only_state_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "get_state_synchronize_rcu",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(
+            summary["decision"],
+            "a90-repl-live-call-proof-get_state_synchronize_rcu-pass",
+        )
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-rcu-state-read-only-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "get_state_synchronize_rcu")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "unsigned long get_state_synchronize_rcu(void)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(summary["observed_return_value"], f"0x{fake.rcu_state_values[0]:x}")
+        self.assertTrue(summary["all_returns_nondecreasing"])
+        self.assertEqual(summary["max_delta_from_first"], "0x2")
+        self.assertEqual(summary["repeat_count"], repl.GET_STATE_SYNCHRONIZE_RCU_REPEAT_COUNT)
+        cases = {case["case"]: case for case in summary["case_results"]}
+        for index, value in enumerate(fake.rcu_state_values, start=1):
+            key = f"get_state_synchronize_rcu-read-{index}"
+            self.assertEqual(cases[key]["observed_return_value"], f"0x{value:x}")
+            self.assertTrue(cases[key]["ok"])
+            self.assertEqual(private["case_returns"][key], f"0x{value:x}")
+        self.assertIn("get_state_synchronize_rcu_runtime", private)
+        self.assertNotIn("get_state_synchronize_rcu_runtime", summary)
+        self.assertEqual(fake.op_count, 1 + repl.GET_STATE_SYNCHRONIZE_RCU_REPEAT_COUNT)
 
     def test_call_proof_task_struct_batch_candidates_pass_in_one_fake_session(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
