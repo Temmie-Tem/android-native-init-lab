@@ -152,13 +152,60 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >    `task_cputime_adjusted`, proved the sibling borrowed-`init_task` plus owned dual-slot ABI where
 >    the body performs pinned pre-call `init_task` field reads; the aggregate now uses `20`
 >    canonical timelines out of `68` and projects resident-session `12.945s/target`, `21.46x` vs
->    per-unit flash and `2.15x` vs per-unit in-boot batching.
+>    per-unit flash and `2.15x` vs per-unit in-boot batching. The next target, `task_curr`,
+>    proved a borrowed-`init_task` leaf boolean current-state reader with a pinned pre-call
+>    `task->cpu` field read; the aggregate now uses `21` canonical timelines out of `69` and
+>    projects resident-session `12.852s/target`, `21.49x` vs per-unit flash and `2.15x` vs
+>    per-unit in-boot batching.
 >    Harness report:
 >    `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_RESIDENT_SESSION_HARNESS_2026-07-01.md`.
 > **HARD — unchanged, do NOT loosen:** the fail-closed C1 resolution, the **call-safety classifier**
 > (DENY / BEHAVIOR-CHANGING tiers stay DENY — never relax a tier to reach a struct/state target),
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
+
+## ✅ DONE — REPL resident-session borrowed task leaf boolean proof — `task_curr`
+
+> ### ✅ STATUS (2026-07-02 live-proven, resident-session mode, rolled back cleanly)
+>
+> Codex promoted `task_curr(const struct task_struct *p)` under a target-specific borrowed
+> `init_task` leaf-reader contract, not as a global auto-call seed. Static identity is pinned by
+> map address `0xffffff80080eb9fc`, next symbol `check_preempt_curr` at `+0x30`, direct BL xrefs
+> `5`, fixed current-image body words, source signature
+> `extern int task_curr(const struct task_struct *p)` at `include/linux/sched.h:1734`, pointer arg
+> indices `[0]`, leaf body, no BL instructions, no context-sensitive calls, and one pinned pre-call
+> borrowed field read `x0+132` (`task->cpu`).
+>
+> The global classifier remains fail-closed for this non-seeded target: `DENY`,
+> `auto_call_allowed=false`, not seed-whitelisted. Generic resolution remains `unverified` because
+> the default gate correctly rejects the pinned pre-call `x0` field read
+> `map-target-precall-x0-deref:+0x0/imm=0x84/word=0xb9408408` and the leaf has no helper call
+> before return. The proof records a separate target-specific `SAFE-WITH-VALID-PTR` contract only
+> because the harness supplies borrowed `init_task`, accepts exactly the pinned field read, and
+> validates the return as boolean `0`/`1`.
+>
+> Live resident-session run:
+> `workspace/private/runs/kernel/repl-resident-session-task-curr-20260701T151106Z/`.
+> Result: `a90-repl-live-call-proof-task_curr-pass`; three repeated calls returned `0x1`, `0x1`,
+> `0x1`. Raw runtime pointer, slide, and borrowed-pointer evidence stayed private; public summaries
+> contain only redacted state and boolean return values.
+>
+> Session used v1-repl flash once, mandatory warm reboot before the batch, per-target result flush,
+> and v2321 rollback once. Final resident is `v2321-usb-clean-identity-rodata`; standalone
+> `version/status/selftest` passed after rollback with `selftest pass=11 warn=1 fail=0`.
+> Live validation obeyed the timing rule: candidate flash `64.317s`, candidate boot/health
+> `35.941s`, warm reboot `33.273s`, batch target call window `3.626s`, rollback flash `63.792s`,
+> rollback boot-ready marker `1.023s`, total candidate-start to rollback-ready `243.512s`.
+>
+> Host validation passed: `py_compile`; focused classifier/source/fake proof tests plus
+> `tests.test_a90_repl_resident_session` (`Ran 13 tests`, `OK`); host-only `call-safety-sweep`
+> for `task_curr`; resident-session dry-run; run-timing aggregator; and `git diff --check`.
+> Timing aggregate after this run: `21/69` canonical timelines, resident-session projection
+> `20 -> 2` flashes, `12.852s/target`, `21.49x` vs per-unit flash, and `2.15x` vs per-unit
+> in-boot batching.
+>
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_TASK_CURR_RESIDENT_SESSION_2026-07-02.md`.
 
 ## ✅ DONE — REPL resident-session borrowed task + pre-call field-read + owned dual-slot proof — `task_cputime_adjusted`
 

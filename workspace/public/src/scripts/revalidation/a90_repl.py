@@ -4160,6 +4160,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "__task_pid_nr_ns": ("include/linux/sched.h",),
     "sched_get_group_id": ("include/linux/sched.h",),
     "task_prio": ("include/linux/sched.h",),
+    "task_curr": ("include/linux/sched.h",),
     "task_cputime_adjusted": ("include/linux/sched/cputime.h",),
     "thread_group_cputime_adjusted": ("include/linux/sched/cputime.h",),
     "task_active_pid_ns": ("include/linux/pid_namespace.h",),
@@ -6124,6 +6125,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern int task_prio(const struct task_struct *p)",
     },
+    "task_curr": {
+        "input_contract": "global init_task task_struct pointer; global pointer is borrowed/read-only and is not freed; proof permits the pinned leaf body's one task->cpu field read",
+        "return_contract": "int return is exactly a boolean 0/1 task-current state observation for init_task; repeated proof calls may legitimately differ if scheduler state changes",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern int task_curr(const struct task_struct *p)",
+    },
     "task_cputime_adjusted": {
         "input_contract": "borrowed global init_task task_struct pointer plus two owned u64 result slots in one kmalloc buffer: x0=&init_task, x1=&utime, x2=&stime; proof permits the pinned function's pre-call init_task field reads, pre-fills both slots plus trailing canary, and frees the buffer after validation",
         "return_contract": "void call writes sane adjusted user/system cputime values for init_task into the owned utime/stime slots on each short-repeat call, preserves the trailing canary, and leaves the borrowed init_task pointer unowned",
@@ -7708,6 +7715,25 @@ TASK_PRIO_EXPECTED_WORDS = (
     TASK_PRIO_NEXT_GUARD_WORD,
 )
 TASK_PRIO_NEXT_SYMBOL = ("idle_task", 0x10)
+TASK_CURR_EXPECTED_WORDS = (
+    0xB9408408,
+    0xF0015969,
+    0x911B0129,
+    0xF8687928,
+    0x90013169,
+    0x91240129,
+    0x8B090108,
+    0xF9447D08,
+    0xEB00011F,
+    0x1A9F17E0,
+    0xD65F03C0,
+    0x00BE7BAD,
+)
+TASK_CURR_NEXT_SYMBOL = ("check_preempt_curr", 0x30)
+TASK_CURR_REPEAT_COUNT = 3
+TASK_CURR_EXPECTED_PRECALL_DEREFS = (
+    {"offset": 0, "arg_reg": 0, "imm": 132, "word": "0xb9408408"},
+)
 TASK_CPUTIME_ADJUSTED_EXPECTED_WORDS = (
     0xD100C3FF,
     0xCA1103D0,
@@ -31184,6 +31210,334 @@ def _run_call_proof_get_iowait_load(
     return summary, private
 
 
+def _run_call_proof_task_curr(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "task_curr"
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety_gate = classify_call_safety(
+        symbols,
+        image,
+        target,
+        include_objdump=False,
+    )
+    advisory = _call_safety_advisory_from_source(call_safety_gate, source)
+    if call_safety_gate.get("tier") != CALL_SAFETY_DENY:
+        raise ReplError(f"{target} must stay outside the global auto-call gate")
+    if call_safety_gate.get("vetted_seed_whitelist"):
+        raise ReplError(f"{target} unexpectedly entered CALL_SAFETY_SEEDS")
+    blocking_flags = set(advisory.get("blocking_danger_flags", []))
+    if "identity-not-c1-verified" not in blocking_flags:
+        raise ReplError(f"{target} generic advisory did not preserve the C1 identity block")
+    if "unseeded-arg-memory-flow-without-gate-pointer-contract" not in blocking_flags:
+        raise ReplError(f"{target} generic advisory did not preserve the unseeded pointer-contract block")
+    if advisory.get("candidate_safe"):
+        raise ReplError(f"{target} generic advisory unexpectedly became candidate_safe")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError(f"{target} source signature must declare one borrowed task_struct pointer")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the sched.h declaration")
+
+    source_path = source_root / "include/linux/sched.h"
+    try:
+        source_normalized = " ".join(
+            source_path.read_text(encoding="utf-8", errors="replace").split()
+        )
+    except OSError as exc:
+        raise ReplError(f"{target} source file is not readable: {source_path}") from exc
+    source_fragments = (
+        "extern int task_prio(const struct task_struct *p);",
+        "extern int task_curr(const struct task_struct *p);",
+        "extern struct task_struct *idle_task(int cpu);",
+    )
+    missing_fragments = [
+        fragment for fragment in source_fragments
+        if fragment not in source_normalized
+    ]
+    if missing_fragments:
+        raise ReplError(f"{target} source fragments missing: {missing_fragments}")
+
+    target_symbol = symbols.get(target)
+    if target_symbol is None:
+        raise ReplError(f"{target} missing from System.map")
+    target_link = target_symbol.vaddr
+    gate_resolution = call_safety_gate.get("resolution", {})
+    if (
+        not isinstance(gate_resolution, dict)
+        or gate_resolution.get("link_vaddr") != f"0x{target_link:x}"
+    ):
+        raise ReplError(f"{target} classifier link address does not match System.map")
+    next_symbol_name, expected_boundary = TASK_CURR_NEXT_SYMBOL
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    signals = call_safety_gate.get("signals", {})
+    if not isinstance(signals, dict):
+        raise ReplError(f"{target} classifier signals missing")
+    taint_flow = signals.get("arg_taint_flow", {})
+    precall_derefs = signals.get("arg_pointer_derefs_before_first_bl_or_ret", [])
+    observed_precall_derefs = [
+        {
+            "offset": item.get("offset"),
+            "arg_reg": item.get("arg_reg"),
+            "imm": item.get("imm"),
+            "word": item.get("word"),
+        }
+        for item in precall_derefs
+        if isinstance(item, dict)
+    ]
+    arg_memory_sources: set[int] = set()
+    if isinstance(taint_flow, dict):
+        for use in taint_flow.get("arg_memory_base_uses", []) or []:
+            if not isinstance(use, dict):
+                continue
+            for source_arg in use.get("source_args", []) or []:
+                parsed = _arg_source_index_from_text(str(source_arg))
+                if parsed is not None:
+                    arg_memory_sources.add(parsed)
+    target_resolution = VerifiedResolution(
+        symbol=target,
+        link_vaddr=target_link,
+        verified=True,
+        method="target-specific-leaf-map+xref+word-boundary+borrowed-precall-deref",
+        evidence={
+            "global_gate_tier": call_safety_gate.get("tier"),
+            "global_gate_auto_call_allowed": call_safety_gate.get("auto_call_allowed"),
+            "map_direct_bl_xref_count": signals.get("direct_bl_xref_count"),
+            "map_direct_bl_xref_sample_sites": signals.get("direct_bl_xref_sample_sites", []),
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+            "leaf": signals.get("leaf"),
+            "bl_count_in_scan": signals.get("bl_count_in_scan"),
+            "arg_memory_source_indices": sorted(arg_memory_sources),
+            "precall_derefs": observed_precall_derefs,
+            "note": (
+                "target-specific identity accepts this BL-free leaf reader despite generic "
+                "resolve_verified requiring a helper call before return and rejecting pre-call "
+                "borrowed x0 derefs"
+            ),
+        },
+    )
+    resolutions = {
+        target: target_resolution,
+    }
+    init_task_link = _require_init_task_link(symbols)
+
+    observed_words = image.u32_words_at_vaddr(
+        target_link,
+        len(TASK_CURR_EXPECTED_WORDS),
+    )
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-target-specific-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": target_resolution.method,
+            "global_gate_tier": call_safety_gate.get("tier"),
+            "global_gate_auto_call_allowed": call_safety_gate.get("auto_call_allowed"),
+            "global_gate_resolution_verified": (
+                gate_resolution.get("verified") if isinstance(gate_resolution, dict) else None
+            ),
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+            "source_note": "sched.h declares borrowed const task_struct pointer for this proof",
+        },
+        {
+            "check": "static-generic-advisory-stays-deny",
+            "ok": (
+                advisory.get("tier") == CALL_SAFETY_DENY
+                and not advisory.get("candidate_safe")
+                and "identity-not-c1-verified" in blocking_flags
+                and "unseeded-arg-memory-flow-without-gate-pointer-contract" in blocking_flags
+            ),
+            "advisory_tier": advisory.get("tier"),
+            "advisory_safe_group": advisory.get("safe_group"),
+            "advisory_candidate_safe": advisory.get("candidate_safe"),
+            "advisory_blocking_flags": advisory.get("blocking_danger_flags", []),
+        },
+        {
+            "check": "static-init-task-borrowed-data-symbol",
+            "ok": True,
+            "symbol": "init_task",
+            "link_vaddr": f"0x{init_task_link:x}",
+        },
+        {
+            "check": "static-leaf-no-helper-call",
+            "ok": bool(signals.get("leaf") is True and signals.get("bl_count_in_scan") == 0),
+            "leaf": signals.get("leaf"),
+            "bl_count_in_scan": signals.get("bl_count_in_scan"),
+        },
+        {
+            "check": "static-no-context-sensitive-calls",
+            "ok": int(signals.get("context_call_count", 0) or 0) == 0,
+            "context_call_count": signals.get("context_call_count"),
+        },
+        {
+            "check": "static-borrowed-init-task-precall-deref-pinned",
+            "ok": observed_precall_derefs == list(TASK_CURR_EXPECTED_PRECALL_DEREFS),
+            "arg_pointer_derefs_before_first_bl_or_ret": precall_derefs,
+        },
+        {
+            "check": "static-direct-xref-count",
+            "ok": int(signals.get("direct_bl_xref_count", 0) or 0) >= 5,
+            "direct_bl_xref_count": signals.get("direct_bl_xref_count"),
+        },
+        {
+            "check": "static-taint-flow-read-only-borrowed-task",
+            "ok": (
+                isinstance(taint_flow, dict)
+                and arg_memory_sources == {0}
+                and int(taint_flow.get("arg_memory_base_use_count", 0) or 0) == 1
+                and int(taint_flow.get("tainted_arg_call_count", 0) or 0) == 0
+            ),
+            "arg_memory_source_indices": sorted(arg_memory_sources),
+            "arg_memory_base_use_count": (
+                taint_flow.get("arg_memory_base_use_count")
+                if isinstance(taint_flow, dict) else None
+            ),
+            "tainted_arg_call_count": (
+                taint_flow.get("tainted_arg_call_count")
+                if isinstance(taint_flow, dict) else None
+            ),
+        },
+    ]
+    for index, expected in enumerate(TASK_CURR_EXPECTED_WORDS):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+    if not all(bool(check.get("ok")) for check in checks):
+        raise ReplError(f"{target} static target-specific gate failed")
+
+    private: dict[str, object] = {}
+    slide = 0
+    returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        init_task_runtime = (init_task_link + slide) & MASK64
+        call_args = (init_task_runtime,)
+        for index in range(TASK_CURR_REPEAT_COUNT):
+            observed = session.call_runtime_values(
+                target_runtime,
+                call_args,
+                replay_safe=True,
+            )[-1] & MASK64
+            returns.append(observed)
+            bool_ok = observed in (0, 1)
+            case_results.append({
+                "case": f"{target}-init-task-current-read-{index + 1}",
+                "expected_return": "boolean-0-or-1",
+                "observed_return_value": f"0x{observed:x}",
+                "boolean_return": bool_ok,
+                "ok": bool_ok,
+            })
+            if not bool_ok:
+                raise ReplError(f"{target} returned non-boolean value in proof call {index + 1}: 0x{observed:x}")
+    finally:
+        session.set_panic_on_oops(1)
+
+    all_boolean = bool(case_results) and all(bool(case.get("ok")) for case in case_results)
+    stable = bool(returns) and all(value == returns[0] for value in returns)
+    checks.append({
+        "check": f"{target}-borrowed-init-task-boolean-repeat",
+        "ok": all_boolean,
+        "case_count": len(case_results),
+        "stable_across_repeats": stable,
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = ",".join(f"0x{value:x}" for value in returns) if returns else "n/a"
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-borrowed-init-task-leaf-current-state-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "all_returns_boolean": all_boolean,
+        "stable_across_repeats": stable,
+        "observed_return_values": [f"0x{value:x}" for value in returns],
+        "source_evidence": _source_row_evidence(source),
+        "call_safety_gate": call_safety_gate,
+        "generic_advisory": advisory,
+        "target_specific_call_safety": {
+            "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+            "safe_group": True,
+            "candidate_safe": True,
+            "candidate_tag": "target-specific-borrowed-init-task-leaf-bool-only",
+            "required_valid_pointer_args_from_source": {
+                "0": "borrowed-global-init_task-task_struct",
+            },
+            "reasons": [
+                "global gate remains DENY",
+                "target-specific identity accepts the pinned BL-free leaf body only",
+                "target-specific proof supplies borrowed init_task as x0",
+                "pre-call x0 field read is pinned to task->cpu and is not generalized to global auto-call",
+                "live return is validated as a boolean scheduler current-state observation",
+            ],
+        },
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "borrowed_pointer_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": f"repeated borrowed-init_task calls returned boolean values {observed_public}",
+            "cleanup": "n/a-borrowed-pointer-read-only",
+            "auto_call_policy": "target-specific-proof-only-not-global-auto-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "init_task_runtime": f"0x{((init_task_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_task_cputime_adjusted(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -42620,6 +42974,13 @@ def run_call_proof(session: ReplSession,
             source_root=source_root,
             gfp=gfp,
             gfp_components=gfp_components,
+        )
+    if target == "task_curr":
+        return _run_call_proof_task_curr(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
         )
     if target == "task_cputime_adjusted":
         return _run_call_proof_task_cputime_adjusted(

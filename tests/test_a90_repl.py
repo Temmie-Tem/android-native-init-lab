@@ -1889,6 +1889,53 @@ class CallSafetyClassificationTests(unittest.TestCase):
             [f"0x{word:08x}" for word in repl.GET_IOWAIT_LOAD_EXPECTED_WORDS],
         )
 
+        task_curr = self._row("task_curr")
+        self.assertEqual(task_curr["tier"], repl.CALL_SAFETY_DENY)
+        self.assertFalse(task_curr["auto_call_allowed"])
+        self.assertFalse(task_curr["vetted_seed_whitelist"])
+        self.assertFalse(task_curr["resolution"]["verified"])
+        self.assertEqual(task_curr["resolution"]["method"], "unverified")
+        self.assertEqual(
+            task_curr["resolution"]["link_vaddr"],
+            "0xffffff80080eb9fc",
+        )
+        self.assertIn(
+            "map-target-precall-x0-deref:+0x0/imm=0x84/word=0xb9408408",
+            task_curr["blocked_reasons"],
+        )
+        self.assertIn(
+            "map-target-no-helper-call-before-return-or-scan-limit",
+            task_curr["blocked_reasons"],
+        )
+        self.assertGreaterEqual(task_curr["signals"]["direct_bl_xref_count"], 5)
+        self.assertTrue(task_curr["signals"]["leaf"])
+        self.assertEqual(task_curr["signals"]["bl_count_in_scan"], 0)
+        self.assertEqual(task_curr["signals"]["context_call_count"], 0)
+        self.assertEqual(
+            [
+                {
+                    "offset": item["offset"],
+                    "arg_reg": item["arg_reg"],
+                    "imm": item["imm"],
+                    "word": item["word"],
+                }
+                for item in task_curr["signals"]["arg_pointer_derefs_before_first_bl_or_ret"]
+            ],
+            list(repl.TASK_CURR_EXPECTED_PRECALL_DEREFS),
+        )
+        self.assertEqual(
+            task_curr["signals"]["arg_taint_flow"]["arg_memory_base_use_count"],
+            1,
+        )
+        self.assertEqual(
+            task_curr["signals"]["arg_taint_flow"]["tainted_arg_call_count"],
+            0,
+        )
+        self.assertEqual(
+            task_curr["signals"]["first_words"][:12],
+            [f"0x{word:08x}" for word in repl.TASK_CURR_EXPECTED_WORDS],
+        )
+
         task_cputime = self._row("task_cputime_adjusted")
         self.assertEqual(task_cputime["tier"], repl.CALL_SAFETY_DENY)
         self.assertFalse(task_cputime["auto_call_allowed"])
@@ -4494,6 +4541,19 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertEqual(task_prio["selected"]["line"], 1720)
         self.assertTrue(task_prio["selected"]["path"].endswith("include/linux/sched.h"))
 
+        task_curr = repl.lookup_source_signature(
+            "task_curr",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(task_curr["status"], "found", task_curr)
+        self.assertEqual(task_curr["selected"]["pointer_arg_indices"], [0])
+        self.assertEqual(
+            task_curr["selected"]["signature"],
+            "extern int task_curr(const struct task_struct *p)",
+        )
+        self.assertEqual(task_curr["selected"]["line"], 1734)
+        self.assertTrue(task_curr["selected"]["path"].endswith("include/linux/sched.h"))
+
         task_cputime = repl.lookup_source_signature(
             "task_cputime_adjusted",
             source_root=KERNEL_SOURCE_ROOT,
@@ -5707,6 +5767,7 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.task_curr_link = self.symbols["task_curr"].vaddr
         self.task_active_pid_ns_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -5761,6 +5822,8 @@ class FaithfulFakeTransport:
         self.init_task_pid_level = 0
         self.init_task_pid_ns_ptr = 0xFFFFFFC012380000
         self.init_task_pid_nr = 0
+        self.task_curr_values = [0, 1, 0]
+        self.task_curr_index = 0
         self.current_umask_value = 0o022
         self.get_boot_stat_time_link = repl.resolve_verified(
             self.symbols,
@@ -6863,6 +6926,8 @@ class FaithfulFakeTransport:
             sched_get_group_id = self.sched_get_group_id_link + self.slide
             assert self.task_prio_link is not None
             task_prio = self.task_prio_link + self.slide
+            assert self.task_curr_link is not None
+            task_curr = self.task_curr_link + self.slide
             assert self.task_active_pid_ns_link is not None
             task_active_pid_ns = self.task_active_pid_ns_link + self.slide
             assert self.pid_nr_ns_link is not None
@@ -7637,6 +7702,14 @@ class FaithfulFakeTransport:
                     raise AssertionError("task_prio proof must pass init_task only")
                 result = (self.init_task_prio_raw - repl.TASK_PRIO_MAX_RT_PRIO) & 0xFFFFFFFF
                 lines.append(f"A90R{result:x}")
+            elif arg0 == task_curr:
+                if (arg1, arg2, arg3, arg4) != (self.init_task_runtime, 0, 0, 0):
+                    raise AssertionError("task_curr proof must pass init_task only")
+                value = self.task_curr_values[
+                    min(self.task_curr_index, len(self.task_curr_values) - 1)
+                ]
+                self.task_curr_index += 1
+                lines.append(f"A90R{value:x}")
             elif arg0 == task_active_pid_ns:
                 if (arg1, arg2, arg3, arg4) != (self.init_task_runtime, 0, 0, 0):
                     raise AssertionError("task_active_pid_ns proof must pass init_task only")
@@ -10717,6 +10790,81 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(cases["init-task-priority-1"]["observed_signed_priority"], expected)
         self.assertEqual(cases["init-task-priority-2"]["observed_signed_priority"], expected)
         self.assertEqual(fake.op_count, 4)  # slide + direct field peek + 2 task_prio calls
+
+    def test_call_proof_task_curr_passes_with_init_task_leaf_boolean_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "task_curr",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-task_curr-pass")
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-borrowed-init-task-leaf-current-state-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "task_curr")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["function_map_entry"]["auto_call_policy"],
+            "target-specific-proof-only-not-global-auto-call",
+        )
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern int task_curr(const struct task_struct *p)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [0])
+        self.assertEqual(summary["call_safety_gate"]["tier"], repl.CALL_SAFETY_DENY)
+        self.assertFalse(summary["call_safety_gate"]["auto_call_allowed"])
+        self.assertFalse(summary["call_safety_gate"]["resolution"]["verified"])
+        self.assertIn(
+            "map-target-precall-x0-deref:+0x0/imm=0x84/word=0xb9408408",
+            summary["call_safety_gate"]["resolution"]["evidence"]["blocked_reasons"],
+        )
+        self.assertEqual(summary["generic_advisory"]["tier"], repl.CALL_SAFETY_DENY)
+        self.assertFalse(summary["generic_advisory"]["candidate_safe"])
+        self.assertIn(
+            "identity-not-c1-verified",
+            summary["generic_advisory"]["blocking_danger_flags"],
+        )
+        self.assertIn(
+            "unseeded-arg-memory-flow-without-gate-pointer-contract",
+            summary["generic_advisory"]["blocking_danger_flags"],
+        )
+        self.assertEqual(
+            summary["target_specific_call_safety"]["tier"],
+            repl.CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        )
+        self.assertTrue(summary["target_specific_call_safety"]["candidate_safe"])
+        self.assertTrue(summary["all_returns_boolean"])
+        self.assertFalse(summary["stable_across_repeats"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["borrowed_pointer_redacted"])
+        self.assertNotIn("task_curr_runtime", summary)
+        self.assertNotIn("init_task_runtime", summary)
+        self.assertIn("task_curr_runtime", private)
+        self.assertIn("init_task_runtime", private)
+        cases = {case["case"]: case for case in summary["case_results"]}
+        for index, value in enumerate(fake.task_curr_values, start=1):
+            key = f"task_curr-init-task-current-read-{index}"
+            self.assertEqual(cases[key]["observed_return_value"], f"0x{value:x}")
+            self.assertTrue(cases[key]["boolean_return"])
+            self.assertEqual(private["case_returns"][key], f"0x{value:x}")
+        self.assertEqual(fake.task_curr_index, repl.TASK_CURR_REPEAT_COUNT)
+        self.assertGreater(fake.op_count, 0)
 
     def test_call_proof_task_active_pid_ns_passes_with_init_task_direct_pointer_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
