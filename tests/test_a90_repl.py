@@ -1488,6 +1488,26 @@ class CallSafetyClassificationTests(unittest.TestCase):
             [f"0x{word:08x}" for word in repl.GET_INTERMEDIATE_TIMEOUT_EXPECTED_WORDS],
         )
 
+        is_vmalloc_addr = self._row("is_vmalloc_addr")
+        self.assertEqual(is_vmalloc_addr["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(is_vmalloc_addr["required_valid_pointer_args"], {})
+        self.assertTrue(is_vmalloc_addr["resolution"]["verified"])
+        self.assertEqual(is_vmalloc_addr["resolution"]["method"], "export-recovery")
+        self.assertEqual(
+            is_vmalloc_addr["resolution"]["link_vaddr"],
+            "0xffffff800825699c",
+        )
+        self.assertGreaterEqual(is_vmalloc_addr["signals"]["direct_bl_xref_count"], 40)
+        self.assertTrue(is_vmalloc_addr["signals"]["leaf"])
+        self.assertEqual(
+            is_vmalloc_addr["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertEqual(
+            is_vmalloc_addr["signals"]["first_words"][:12],
+            [f"0x{word:08x}" for word in repl.IS_VMALLOC_ADDR_WORDS],
+        )
+
         task_pid_nr_ns = self._row("__task_pid_nr_ns")
         self.assertEqual(task_pid_nr_ns["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -2997,7 +3017,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 52)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 53)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 10)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -3721,6 +3741,19 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertEqual(is_blocked["selected"]["line"], 178)
         self.assertTrue(is_blocked["selected"]["path"].endswith("include/linux/usb_notify.h"))
+
+        is_vmalloc_addr = repl.lookup_source_signature(
+            "is_vmalloc_addr",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(is_vmalloc_addr["status"], "found", is_vmalloc_addr)
+        self.assertEqual(is_vmalloc_addr["selected"]["pointer_arg_indices"], [0])
+        self.assertEqual(
+            is_vmalloc_addr["selected"]["signature"],
+            "extern int is_vmalloc_addr(const void *x)",
+        )
+        self.assertEqual(is_vmalloc_addr["selected"]["line"], 535)
+        self.assertTrue(is_vmalloc_addr["selected"]["path"].endswith("include/linux/mm.h"))
 
         task_pid_nr_ns = repl.lookup_source_signature(
             "__task_pid_nr_ns",
@@ -4819,6 +4852,12 @@ class FaithfulFakeTransport:
             "get_intermediate_timeout",
             purpose="call",
         ).link_vaddr
+        self.is_vmalloc_addr_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "is_vmalloc_addr",
+            purpose="call",
+        ).link_vaddr
         self.task_pid_nr_ns_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -5878,6 +5917,8 @@ class FaithfulFakeTransport:
             is_blocked = self.is_blocked_link + self.slide
             assert self.get_intermediate_timeout_link is not None
             get_intermediate_timeout = self.get_intermediate_timeout_link + self.slide
+            assert self.is_vmalloc_addr_link is not None
+            is_vmalloc_addr = self.is_vmalloc_addr_link + self.slide
             assert self.task_pid_nr_ns_link is not None
             task_pid_nr_ns = self.task_pid_nr_ns_link + self.slide
             assert self.sched_get_group_id_link is not None
@@ -6549,6 +6590,16 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("get_intermediate_timeout proof must pass no arguments")
                 lines.append(f"A90R{self.intermediate_timeout_value:x}")
+            elif arg0 == is_vmalloc_addr:
+                if (arg2, arg3, arg4) != (0, 0, 0):
+                    raise AssertionError("is_vmalloc_addr proof must pass one scalar address only")
+                expected_by_addr = {
+                    address: expected
+                    for _, address, expected in repl.IS_VMALLOC_ADDR_CASES
+                }
+                if arg1 not in expected_by_addr:
+                    raise AssertionError(f"unexpected is_vmalloc_addr proof address: {arg1:#x}")
+                lines.append(f"A90R{expected_by_addr[arg1]:x}")
             elif arg0 == task_pid_nr_ns:
                 if (arg1, arg2, arg3, arg4) != (
                     self.init_task_runtime,
@@ -8455,6 +8506,52 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(private["case_returns"]["usb-block-host-bool-1"], "0x0")
         self.assertEqual(private["case_returns"]["usb-block-host-bool-2"], "0x0")
         self.assertEqual(fake.op_count, 4)  # slide + get_otg_notify + 2 is_blocked calls
+
+    def test_call_proof_is_vmalloc_addr_passes_with_boundary_table_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "is_vmalloc_addr",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-is_vmalloc_addr-pass")
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-vmalloc-address-range-classifier-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "is_vmalloc_addr")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern int is_vmalloc_addr(const void *x)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [0])
+        self.assertEqual(summary["lower_exclusive"], f"0x{repl.IS_VMALLOC_ADDR_LOWER_EXCLUSIVE:x}")
+        self.assertEqual(summary["upper_exclusive"], f"0x{repl.IS_VMALLOC_ADDR_UPPER_EXCLUSIVE:x}")
+        self.assertTrue(summary["all_returns_match_expected"])
+        self.assertEqual(summary["case_count"], len(repl.IS_VMALLOC_ADDR_CASES))
+        cases = {case["case"]: case for case in summary["case_results"]}
+        for label, address, expected in repl.IS_VMALLOC_ADDR_CASES:
+            self.assertEqual(cases[label]["input_address"], f"0x{address:x}")
+            self.assertEqual(cases[label]["expected_return"], f"0x{expected:x}")
+            self.assertEqual(cases[label]["observed_return_value"], f"0x{expected:x}")
+            self.assertTrue(cases[label]["ok"])
+            self.assertEqual(private["case_returns"][label], f"0x{expected:x}")
+        self.assertIn("is_vmalloc_addr_runtime", private)
+        self.assertNotIn("is_vmalloc_addr_runtime", summary)
+        self.assertEqual(fake.op_count, 1 + len(repl.IS_VMALLOC_ADDR_CASES))
 
     def test_call_proof_task_struct_batch_candidates_pass_in_one_fake_session(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

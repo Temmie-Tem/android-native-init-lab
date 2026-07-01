@@ -422,6 +422,68 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > `1`. Report:
 > `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_IS_BLOCKED_2026-07-01.md`.
 
+## ✅ DONE — REPL vmalloc address-classifier live-call proof — `is_vmalloc_addr()` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — scalar address-value classifier
+>
+> Codex selected `is_vmalloc_addr` as a scalar address-classifier target
+> after nearby state candidates were parked: USB leftover helpers such as
+> `get_usb_mode`, `get_cable_type`, and `get_booster` stayed denied by the
+> current C1 gate; `get_debug_reset_header` was parked because it allocates
+> and reads the debug partition; and `is_subsystem_online` was parked because
+> its `find_subsys_device()` / `bus_find_device()` path did not yet have a
+> proven put/refcount contract.
+>
+> Static selection pinned `is_vmalloc_addr=0xffffff800825699c` via
+> `export-recovery` with map agreement, one export candidate, direct BL xrefs
+> `42`, JOPP entry, leaf body, no in-body BL, and no argument dereference
+> before return. Source declaration was
+> `extern int is_vmalloc_addr(const void *x)` at `include/linux/mm.h:535`.
+> The next-symbol boundary is `vmalloc_to_page` at `+0x30`. The proof pinned
+> the full leaf classifier body and guard:
+> `0xb259cfe8 0xeb08001f 0xd2b7ffe8 0xf2dff7c8 0x1a9f97e9 0xf2ffffe8 0xeb08001f 0x1a9f27e8 0x0a080120 0xd65f03c0 0xd503201f 0x00be7bad`.
+>
+> The live proof obeyed the flash gate: rollback/fallback/TWRP artifacts were
+> confirmed, baseline v2321 `version/status/selftest` passed, the exact
+> v1-repl candidate (`b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`)
+> flashed through `native_init_flash.py` with matching pushed-image and
+> readback SHA, and candidate helper health passed. The first explicit
+> candidate `selftest` command missed the END marker after serial `AT` echo
+> but its body showed `pass=11 warn=1 fail=0`; after bridge restart, the
+> explicit candidate selftest passed cleanly.
+>
+> The proof called `is_vmalloc_addr()` on six fixed scalar address values:
+> `0x0 -> 0`, lower boundary `0xffffff8007ffffff -> 0`,
+> vmalloc start `0xffffff8008000000 -> 1`,
+> mid-range `0xffffff9000000000 -> 1`,
+> upper-minus-one `0xffffffbebffeffff -> 1`, and upper boundary
+> `0xffffffbebfff0000 -> 0`. All observed returns matched the expected
+> boundary table. No runtime pointer was dereferenced by the host, no cleanup
+> was required, and raw runtime values plus the KASLR slide stayed
+> private/redacted.
+>
+> Post-proof candidate `selftest` passed with `selftest pass=11 warn=1
+> fail=0`. Rollback to v2321 completed with matching readback SHA, rollback
+> helper `version/status` passed, final v2321 `version` reported
+> `v2321-usb-clean-identity-rodata`, and final standalone `selftest` passed
+> with `pass=11 warn=1 fail=0`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-is-vmalloc-addr-20260701T074339Z/timeline.json`
+> at `2026-07-01T07:49:02Z`: candidate flash helper `64.810s`,
+> candidate explicit selftest first capture `10.127s` with missing END
+> marker but `fail=0` body, candidate selftest retry after bridge restart
+> `0.453s`, live proof `7.613s`, post-proof candidate selftest `0.451s`,
+> rollback flash helper `63.736s`, final v2321 version `0.312s`, and final
+> v2321 selftest `0.200s`. The helper total rows are not additive; all
+> serial bridge commands in this unit were sequential.
+>
+> Function-map outcome: `is_vmalloc_addr` is promoted as live-proven only
+> under the scalar-address classifier contract: `x0` is an address value, the
+> pinned leaf body must not dereference it, and the return is a bool-int
+> matching the fixed vmalloc boundary table. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_IS_VMALLOC_ADDR_2026-07-01.md`.
+
 ## ✅ DONE — REPL current fs-state live-call proof — `current_umask()` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg current-task umask getter

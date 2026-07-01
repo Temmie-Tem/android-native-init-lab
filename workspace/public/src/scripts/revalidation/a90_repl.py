@@ -455,6 +455,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "uint32_t",
         "reason": "no-argument NCM intermediate-timeout state getter; current image is a leaf global-load and proof expects a stable uint32_t value",
     },
+    "is_vmalloc_addr": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "int",
+        "reason": "leaf vmalloc-range address classifier; x0 is a scalar address value, the current image does not dereference it, and proof uses only fixed boundary-case addresses",
+    },
     "get_ddr_vendor_name": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -3847,6 +3853,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "get_sde_rsc_primary_crtc": ("include/linux/sde_rsc.h",),
     "get_sde_rsc_version": ("include/linux/sde_rsc.h",),
     "si_mem_available": ("include/linux/mm.h",),
+    "is_vmalloc_addr": ("include/linux/mm.h", "arch/arm64/include/asm/pgtable.h"),
     "vm_commit_limit": ("include/linux/mman.h",),
     "total_swapcache_pages": ("include/linux/swap.h",),
     "can_do_mlock": ("include/linux/mm.h",),
@@ -5680,6 +5687,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern unsigned int get_intermediate_timeout(void)",
     },
+    "is_vmalloc_addr": {
+        "input_contract": "x0 is a scalar address value only; target is a leaf vmalloc range classifier and must not dereference x0",
+        "return_contract": "int bool value matches the fixed vmalloc boundary table: below/lower-boundary/upper-boundary return 0 and inside-range addresses return 1",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern int is_vmalloc_addr(const void *x)",
+    },
     "__task_pid_nr_ns": {
         "input_contract": "global init_task task_struct pointer + PIDTYPE_PID + NULL namespace; global pointer is borrowed/read-only and is not freed",
         "return_contract": "pid_t for init_task in the init namespace path is exactly 0 and stable across repeated calls",
@@ -7030,6 +7043,22 @@ IS_BLOCKED_RETURN_TAIL_WORDS = (
 )
 IS_BLOCKED_NEXT_SYMBOL = ("send_usb_audio_uevent", 0x118)
 IS_BLOCKED_REPEAT_COUNT = 2
+IS_VMALLOC_ADDR_WORDS = (
+    0xB259CFE8, 0xEB08001F, 0xD2B7FFE8, 0xF2DFF7C8,
+    0x1A9F97E9, 0xF2FFFFE8, 0xEB08001F, 0x1A9F27E8,
+    0x0A080120, 0xD65F03C0, 0xD503201F, 0x00BE7BAD,
+)
+IS_VMALLOC_ADDR_NEXT_SYMBOL = ("vmalloc_to_page", 0x30)
+IS_VMALLOC_ADDR_LOWER_EXCLUSIVE = 0xFFFFFF8007FFFFFF
+IS_VMALLOC_ADDR_UPPER_EXCLUSIVE = 0xFFFFFFBEBFFF0000
+IS_VMALLOC_ADDR_CASES = (
+    ("null-address", 0x0, 0),
+    ("lower-boundary", IS_VMALLOC_ADDR_LOWER_EXCLUSIVE, 0),
+    ("vmalloc-start", IS_VMALLOC_ADDR_LOWER_EXCLUSIVE + 1, 1),
+    ("vmalloc-mid", 0xFFFFFF9000000000, 1),
+    ("upper-minus-one", IS_VMALLOC_ADDR_UPPER_EXCLUSIVE - 1, 1),
+    ("upper-boundary", IS_VMALLOC_ADDR_UPPER_EXCLUSIVE, 0),
+)
 TASK_PID_NR_NS_PIDTYPE_PID = 0
 TASK_PID_NR_NS_EXPECTED_INIT_TASK_PID = 0
 TASK_PID_NR_NS_REPEAT_COUNT = 2
@@ -24810,6 +24839,176 @@ def _run_call_proof_is_blocked(
     return summary, private
 
 
+def _run_call_proof_is_vmalloc_addr(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "is_vmalloc_addr"
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        (IS_VMALLOC_ADDR_LOWER_EXCLUSIVE + 1,),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError(f"{target} source signature must declare x0 as the address argument")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the expected mm.h declaration")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(resolutions[target], "call-proof target")
+    next_symbol_name, expected_boundary = IS_VMALLOC_ADDR_NEXT_SYMBOL
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    observed_words = image.u32_words_at_vaddr(target_link, len(IS_VMALLOC_ADDR_WORDS))
+    signal_derefs = call_safety.get("signals", {}).get("arg_pointer_derefs_before_first_bl_or_ret", [])
+    if signal_derefs:
+        raise ReplError(f"{target} unexpectedly dereferences x0 before return: {signal_derefs!r}")
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+            "address_argument_not_dereferenced": True,
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+        {
+            "check": "static-no-arg-deref",
+            "ok": True,
+            "arg_pointer_derefs_before_first_bl_or_ret": signal_derefs,
+        },
+        {
+            "check": "static-vmalloc-boundary-constants",
+            "ok": True,
+            "lower_exclusive": f"0x{IS_VMALLOC_ADDR_LOWER_EXCLUSIVE:x}",
+            "upper_exclusive": f"0x{IS_VMALLOC_ADDR_UPPER_EXCLUSIVE:x}",
+        },
+    ]
+    for index, expected in enumerate(IS_VMALLOC_ADDR_WORDS):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for label, address, expected in IS_VMALLOC_ADDR_CASES:
+            observed = session.call_runtime(target_runtime, (address,)) & 0xFFFFFFFF
+            ok = observed == expected
+            case_results.append({
+                "case": label,
+                "input_address": f"0x{address:x}",
+                "expected_return": f"0x{expected:x}",
+                "observed_return_value": f"0x{observed:x}",
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(
+                    f"{target}({address:#x}) returned 0x{observed:x}, expected 0x{expected:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "is-vmalloc-addr-boundary-table",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-vmalloc-address-range-classifier-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "all_returns_match_expected": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "lower_exclusive": f"0x{IS_VMALLOC_ADDR_LOWER_EXCLUSIVE:x}",
+        "upper_exclusive": f"0x{IS_VMALLOC_ADDR_UPPER_EXCLUSIVE:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": "fixed vmalloc boundary table matched expected bool-int results",
+            "cleanup": "n/a-leaf-address-classifier-no-deref",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_get_intermediate_timeout(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -37611,6 +37810,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "is_blocked":
         return _run_call_proof_is_blocked(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "is_vmalloc_addr":
+        return _run_call_proof_is_vmalloc_addr(
             session,
             symbols,
             image,
