@@ -413,6 +413,20 @@ operator-gated**; do not advance past any anomaly:
   the *current boot session* (open↔write TOCTOU consistency, §2) and **must be re-derived each boot** —
   never persisted/cached across a reboot. The host wrapper's `proposed_pin` is therefore a
   per-session artifact; the write path must run the auditor in the same boot it writes.
+- **E1 (V3349, init 0.11.113, live 2026-07-02): `§0.2 = ALLOWED` — the first-ever boot-partition
+  write SUCCEEDED and was RKP-permitted.** V3348 first fired the safety net (the fixed tail offset
+  held stale non-zero data → `slack_zero=0 stop=slack-not-zero`, **no write**), confirming the
+  all-zero gate refuses non-padding. V3349 added a tail-slack zero-sector scan: it parsed the boot
+  header (`version=1 page_size=4096 used_len=62644224`, exactly the image size), scanned the slack
+  window `[62644224, 66060288)`, found a zero sector at `63631360` after 242 sectors, and performed
+  the read-then-write-identical probe: **`pwrite_rc=4096`**, `fsync=ok`, O_DIRECT `region_match=1`,
+  and the **full-partition SHA was identical before and after** (`full_match=1`,
+  `fc908de2…c732e4`) — a true no-op with zero cross-LBA change. No `EROFS`/`EPERM`/oops/panic. Rolled
+  back to v2321 with `selftest fail=0`. **Conclusion: a normal-boot PID1 `pwrite` to the boot
+  partition is permitted by RKP; the self-dd write path is feasible.** Next rungs (E2 multi-offset,
+  E3 1 MiB, E4 header sector, E5 full-partition identity, then real new-image self-write) remain
+  separately gated; each still carries the irreducible UFS-tear residual (§11.1) and needs the
+  recovery-drill gate.
 
 ### 11.8 E1 implementation (built, Codex-reviewed 2026-07-02 — pre-live)
 

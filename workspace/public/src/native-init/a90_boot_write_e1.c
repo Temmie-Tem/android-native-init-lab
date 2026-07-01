@@ -344,41 +344,53 @@ int a90_boot_write_e1_cmd(char **argv, int argc) {
         a90_console_printf("A90BWE1 boot_header=ok version=%u page_size=%u used_len=%llu\r\n",
                            hver, page_size, (unsigned long long)used_len);
 
-        target_off = E1_BOOT_SIZE_BYTES - E1_FOOTER_GUARD - E1_SECTOR;
-        a90_console_printf("A90BWE1 target_off=%llu len=%u footer_guard=%llu\r\n",
-                           (unsigned long long)target_off, E1_SECTOR,
+        /* Slack window: past the parsed content, and >= FOOTER_GUARD before the partition end. */
+        uint64_t slack_start = e1_round_up(used_len, E1_SECTOR);
+        uint64_t slack_end = E1_BOOT_SIZE_BYTES - E1_FOOTER_GUARD; /* exclusive */
+        a90_console_printf("A90BWE1 slack_start=%llu slack_end=%llu footer_guard=%llu\r\n",
+                           (unsigned long long)slack_start, (unsigned long long)slack_end,
                            (unsigned long long)E1_FOOTER_GUARD);
-        if (target_off < e1_round_up(used_len, E1_SECTOR)) {
-            a90_console_printf("A90BWE1 stop=no-slack-past-content\r\n");
+        if (slack_start + E1_SECTOR > slack_end) {
+            a90_console_printf("A90BWE1 stop=no-slack-window\r\n");
             stop = "no-slack";
             rc = -ENOSPC;
             close(rfd);
             goto cleanup;
         }
-    }
-
-    /* Read the target sector; REQUIRE all-zero (confirmed padding) before any write is reachable. */
-    if (pread(rfd, tbuf, sizeof(tbuf), (off_t)target_off) != (ssize_t)sizeof(tbuf)) {
-        a90_console_printf("A90BWE1 target_read=fail errno=%d\r\n", errno);
-        stop = "target-read";
-        rc = -EIO;
-        close(rfd);
-        goto cleanup;
-    }
-    {
-        int all_zero = 1;
-        for (size_t i = 0; i < sizeof(tbuf); ++i) {
-            if (tbuf[i] != 0) { all_zero = 0; break; }
+        /* Scan the slack window for the FIRST all-zero 4096B sector. This keeps BOTH safety layers:
+         * the target is past parsed content AND confirmed-zero padding, so a torn write can only
+         * disturb bytes the bootloader already ignores. tbuf holds the found zero sector. */
+        uint64_t scanned = 0;
+        int have_target = 0;
+        for (uint64_t off = slack_start; off + E1_SECTOR <= slack_end; off += E1_SECTOR) {
+            if (pread(rfd, tbuf, sizeof(tbuf), (off_t)off) != (ssize_t)sizeof(tbuf)) {
+                a90_console_printf("A90BWE1 scan_read=fail off=%llu errno=%d\r\n",
+                                   (unsigned long long)off, errno);
+                stop = "scan-read";
+                rc = -EIO;
+                close(rfd);
+                goto cleanup;
+            }
+            scanned++;
+            int zero = 1;
+            for (size_t i = 0; i < sizeof(tbuf); ++i) {
+                if (tbuf[i] != 0) { zero = 0; break; }
+            }
+            if (zero) { target_off = off; have_target = 1; break; }
         }
-        a90_console_printf("A90BWE1 slack_zero=%d\r\n", all_zero);
-        if (!all_zero) {
-            a90_console_printf("A90BWE1 stop=slack-not-zero\r\n");
-            stop = "slack-not-zero";
-            rc = -EPERM;
+        a90_console_printf("A90BWE1 slack_scanned=%llu have_zero_sector=%d\r\n",
+                           (unsigned long long)scanned, have_target);
+        if (!have_target) {
+            a90_console_printf("A90BWE1 stop=no-zero-slack\r\n");
+            stop = "no-zero-slack";
+            rc = -ENOSPC;
             close(rfd);
             goto cleanup;
         }
+        a90_console_printf("A90BWE1 target_off=%llu len=%u slack_zero=1\r\n",
+                           (unsigned long long)target_off, E1_SECTOR);
     }
+    /* tbuf holds the confirmed-zero target sector we will write back unchanged. */
     close(rfd);
 
     /* Full-partition SHA BEFORE (O_DIRECT, re-confirmed fd, cache-bypassed). */
