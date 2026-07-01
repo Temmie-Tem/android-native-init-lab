@@ -96,6 +96,42 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL result-slot state-writer live-call proof — `get_avenrun` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — scheduler load-average result-slot writer
+>
+> Codex proved `get_avenrun` as another result-slot state-writer, but this time against kernel
+> scheduler load-average state rather than timekeeping. Static selection pinned
+> `get_avenrun=0xffffff80080f6da4` via `leaf-map-disasm+xref`, source declaration
+> `extern void get_avenrun(unsigned long *loads, unsigned long offset, int shift)`
+> (`include/linux/sched/loadavg.h:16`), direct BL xrefs `3`, JOPP leaf shape, and next-symbol
+> boundary `calc_load_fold_active` at `+0x40`. The proof pins all 16 identity words, including
+> the three stores into `[x0]`, `[x0,#8]`, and `[x0,#16]`, the final `ret`, and the next-entry
+> sentinel. The C1 call gate classifies it as `SAFE-WITH-VALID-PTR` only with x0 bound to an
+> owned `unsigned long[3]` load-average result slot and x1/x2 fixed to zero.
+>
+> The live proof obeyed the flash gate: preflight v2321 health passed, rollback images were present
+> with expected SHA values, the v1-repl candidate (`b846ae9f...`) flashed with matching readback SHA,
+> candidate health passed after a safe observation retry for one serial END-marker truncation, and
+> the proof allocated an owned result slot, called `get_avenrun(ptr, 0, 0)`, read back three sane
+> fixed-point load-average values, verified the canary, and freed the slot with `kfree`. Observed
+> values were `load[0]=0x1499`, `load[1]=0x6cc`, and `load[2]=0x26b`; `cleanup_ok=true`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-get-avenrun-20260701T002458Z/timeline.json`:
+> candidate flash helper `63.660s`, candidate explicit health initial attempt `30.0s`, candidate
+> health retry `1.0s`, live proof `11.0s`, rollback flash helper `64.726s`, final explicit health
+> initial attempt `61.0s`, final health retry `2.0s`, and candidate start to final health retry
+> done `291.0s`. The candidate and final initial `status` observations both hit serial END-marker
+> truncation; `version` and `selftest fail=0` were visible, and safe retries passed cleanly.
+>
+> Function-map outcome: `get_avenrun` is promoted as live-proven only under the owned load-average
+> result-slot contract (`offset=0`, `shift=0`). Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_GET_AVENRUN_2026-07-01.md`.
+> Next selection should keep the operator's policy intact: adjacent/similar candidates may be
+> batched when they share one shape, but do not loosen DENY/behavior-changing gates just to reach a
+> target.
+
 ## ✅ DONE — REPL result-slot state-writer live-call proof — `ktime_get_ts64` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — timekeeping result-slot writer

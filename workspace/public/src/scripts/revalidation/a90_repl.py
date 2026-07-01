@@ -146,6 +146,11 @@ LEAF_MAP_GROUND_TRUTH_SYMBOLS = {
         "expected_pointer_args": (0,),
         "note": "non-JOPP arm64 leaf bounded memory search helper; identity rests on map label, xref count, and leaf shape",
     },
+    "get_avenrun": {
+        "min_direct_bl_xrefs": 3,
+        "expected_pointer_args": (0,),
+        "note": "JOPP leaf load-average vector writer; identity rests on map label, xref count, leaf shape, and per-proof exact word pinning",
+    },
     "memcpy": {
         "min_direct_bl_xrefs": 5000,
         "expected_pointer_args": (0, 1),
@@ -412,6 +417,12 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {0: "owned-timespec64-result-slot"},
         "return_kind": "void",
         "reason": "monotonic timekeeping state writer; x0 must be an owned kmalloc struct timespec64 result slot with canary",
+    },
+    "get_avenrun": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "owned-loadavg-result-slot"},
+        "return_kind": "void",
+        "reason": "load-average state vector writer; x0 must be an owned three-unsigned-long result slot with canary, x1/x2 fixed to zero",
     },
     "is_scm_armv8": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
@@ -3605,6 +3616,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "ktime_get_ts64": ("include/linux/timekeeping.h",),
     "get_boot_stat_time": ("include/soc/qcom/boot_stats.h",),
     "is_scm_armv8": ("include/soc/qcom/scm.h", "drivers/soc/qcom/scm.c"),
+    "get_avenrun": ("include/linux/sched/loadavg.h",),
     "get_cpu_device": ("include/linux/cpu.h",),
     "get_current_napi_context": ("include/linux/netdevice.h",),
     "__task_pid_nr_ns": ("include/linux/sched.h",),
@@ -5466,6 +5478,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern void ktime_get_ts64(struct timespec64 *ts)",
     },
+    "get_avenrun": {
+        "input_contract": "owned unsigned long[3] load-average result slot in kmalloc memory; offset=0 and shift=0; proof initializes the 24-byte slot plus trailing canary before the call and frees the slot after validation",
+        "return_contract": "void call writes three sane nonnegative fixed-point load-average values into the owned slot, changes the slot from fill bytes, preserves the trailing canary, and returns through kfree cleanup",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern void get_avenrun(unsigned long *loads, unsigned long offset, int shift)",
+    },
     "is_scm_armv8": {
         "input_contract": "no arguments; proof first verifies scm_version is already cached nonzero so the function takes only the cached read-only return path and does not execute SMC initialization",
         "return_contract": "bool equals cached scm_version armv8 classification: SCM_LEGACY returns 0, SCM_ARMV8_32/64 returns 1, repeated calls stable and scm_version unchanged",
@@ -6727,6 +6745,21 @@ KTIME_GET_TS64_REPEAT_COUNT = 2
 KTIME_GET_TS64_NSEC_PER_SEC = 1_000_000_000
 KTIME_GET_TS64_MAX_SECONDS = 10 * 365 * 24 * 60 * 60
 KTIME_GET_TS64_MAX_SHORT_DELTA_NS = 30 * KTIME_GET_TS64_NSEC_PER_SEC
+GET_AVENRUN_EXPECTED_WORDS = (
+    0x90017108, 0x91032108, 0xF9400109, 0x8B010129,
+    0x9AC22129, 0xF9000009, 0xF9400509, 0x8B010129,
+    0x9AC22129, 0xF9000409, 0xF9400908, 0x8B010108,
+    0x9AC22108, 0xF9000808, 0xD65F03C0, 0x00BE7BAD,
+)
+GET_AVENRUN_NEXT_SYMBOL = ("calc_load_fold_active", 0x40)
+GET_AVENRUN_LOAD_COUNT = 3
+GET_AVENRUN_SLOT_SIZE = GET_AVENRUN_LOAD_COUNT * 8
+GET_AVENRUN_CANARY_BYTES = bytes.fromhex("a90f1cad1cad1cad1020304050607080")
+GET_AVENRUN_PROOF_ALLOC_SIZE = 0x80
+GET_AVENRUN_FILL_BYTE = 0xA7
+GET_AVENRUN_OFFSET = 0
+GET_AVENRUN_SHIFT = 0
+GET_AVENRUN_MAX_FIXED_POINT = 1 << 40
 IS_SCM_ARMV8_SCM_VERSION_LINK = 0xFFFFFF800B0A78F8
 IS_SCM_ARMV8_REPEAT_COUNT = 2
 SCM_UNKNOWN = 0
@@ -26973,6 +27006,246 @@ def _run_call_proof_ktime_get_ts64(
     return summary, private
 
 
+def _run_call_proof_get_avenrun(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+    gfp: int,
+    gfp_components: dict[str, int],
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "get_avenrun"
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        ("@owned-loadavg-result-slot", GET_AVENRUN_OFFSET, GET_AVENRUN_SHIFT),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected valid-pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError(f"{target} source signature must declare x0 as an unsigned long pointer")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the loadavg.h declaration")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(
+            symbols,
+            image,
+            "kfree",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ),
+    }
+    target_link = require_verified_resolution(resolutions[target], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof result-slot allocation")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof result-slot cleanup")
+    next_symbol_name, expected_boundary = GET_AVENRUN_NEXT_SYMBOL
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    observed_words = image.u32_words_at_vaddr(target_link, len(GET_AVENRUN_EXPECTED_WORDS))
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for index, expected in enumerate(GET_AVENRUN_EXPECTED_WORDS):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    ptr = 0
+    free_ok = False
+    free_error = ""
+    raw_return = 0
+    loads: list[int] = []
+    canary_after = b""
+    failure_reason = ""
+    slot_changed = False
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+        ptr = session.call_runtime(kmalloc_runtime, (GET_AVENRUN_PROOF_ALLOC_SIZE, gfp))
+        if not is_kernel_lowmem_pointer(ptr) or _is_kernel_err_ptr(ptr):
+            raise ReplError(f"__kmalloc returned invalid {target} result-slot pointer: 0x{ptr:x}")
+        initial = (
+            bytes([GET_AVENRUN_FILL_BYTE]) * GET_AVENRUN_SLOT_SIZE
+            + GET_AVENRUN_CANARY_BYTES
+        )
+        _poke_bytes(session, ptr, initial)
+        raw_return = session.call_runtime(
+            target_runtime,
+            (ptr, GET_AVENRUN_OFFSET, GET_AVENRUN_SHIFT),
+        ) & MASK64
+        observed = _peek_bytes(
+            session,
+            ptr,
+            GET_AVENRUN_SLOT_SIZE + len(GET_AVENRUN_CANARY_BYTES),
+        )
+        loads = [
+            _u64_from_le(observed, index * 8)
+            for index in range(GET_AVENRUN_LOAD_COUNT)
+        ]
+        canary_after = observed[
+            GET_AVENRUN_SLOT_SIZE:
+            GET_AVENRUN_SLOT_SIZE + len(GET_AVENRUN_CANARY_BYTES)
+        ]
+        slot_changed = observed[:GET_AVENRUN_SLOT_SIZE] != initial[:GET_AVENRUN_SLOT_SIZE]
+        values_in_range = all(0 <= value < GET_AVENRUN_MAX_FIXED_POINT for value in loads)
+        canary_ok = canary_after == GET_AVENRUN_CANARY_BYTES
+        if not slot_changed or not values_in_range or not canary_ok:
+            failed_terms = [
+                name
+                for name, passed_term in (
+                    ("result_slot_changed", slot_changed),
+                    ("values_in_sane_fixed_point_range", values_in_range),
+                    ("canary_preserved", canary_ok),
+                )
+                if not passed_term
+            ]
+            failure_reason = f"{target} result slot failed contract: " + ",".join(failed_terms)
+    finally:
+        if ptr and is_kernel_lowmem_pointer(ptr):
+            try:
+                session.call_runtime((kfree_link + slide) & MASK64, (ptr,))
+                free_ok = True
+            except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                free_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    if not free_ok:
+        failure_reason = f"kfree cleanup failed after {target} proof: {free_error or 'unknown error'}"
+
+    case_results = [
+        {
+            "case": f"{target}-offset0-shift0",
+            "offset": f"0x{GET_AVENRUN_OFFSET:x}",
+            "shift": f"0x{GET_AVENRUN_SHIFT:x}",
+            "loads": [f"0x{value:x}" for value in loads],
+            "values_in_sane_fixed_point_range": all(
+                0 <= value < GET_AVENRUN_MAX_FIXED_POINT
+                for value in loads
+            ),
+            "result_slot_changed": slot_changed,
+            "canary_preserved": canary_after == GET_AVENRUN_CANARY_BYTES,
+            "ok": (
+                bool(loads)
+                and slot_changed
+                and all(0 <= value < GET_AVENRUN_MAX_FIXED_POINT for value in loads)
+                and canary_after == GET_AVENRUN_CANARY_BYTES
+            ),
+        }
+    ]
+    checks.append({
+        "check": "get-avenrun-result-slot-loadavg-vector",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    checks.append({
+        "check": "kfree-owned-loadavg-result-slot",
+        "ok": free_ok,
+    })
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = [f"0x{value:x}" for value in loads]
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-owned-loadavg-result-slot-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "observed_loads": observed_public,
+        "all_loads_in_contract": bool(loads) and all(bool(case.get("ok")) for case in case_results),
+        "failure_reason": failure_reason,
+        "canary_preserved": canary_after == GET_AVENRUN_CANARY_BYTES,
+        "cleanup_ok": free_ok,
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": "owned unsigned long[3] slot contained sane fixed-point load-average values",
+            "cleanup": "kfree-owned-loadavg-result-slot-ok",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "result_slot_ptr": f"0x{ptr:x}",
+        "void_call_raw_x0": f"0x{raw_return:x}",
+        "loads": observed_public,
+        "canary_after_hex": canary_after.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
 def _run_call_proof_si_meminfo(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -32774,6 +33047,15 @@ def run_call_proof(session: ReplSession,
         )
     if target == "ktime_get_ts64":
         return _run_call_proof_ktime_get_ts64(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "get_avenrun":
+        return _run_call_proof_get_avenrun(
             session,
             symbols,
             image,
