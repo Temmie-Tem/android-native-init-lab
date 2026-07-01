@@ -183,6 +183,14 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >     resident plans with fewer than 2 total targets before any device action. The first promoted
 >     packed correction run batched `pid_task` + `find_pid_ns` in one resident session, completing
 >     `2/2` targets with `2` flashes (`1.0` flash/target actual) and rolling back to v2321 cleanly.
+>     Follow-up correction (2026-07-02): the host REPL result channel now uses `dmesg -c` for both
+>     pre-write drain and post-write read, with optional kmsg markers kept off by default after a
+>     marker-enabled candidate selftest failed before any batch target ran. The repaired path then
+>     completed a real `max_batch_size=30` packed resident session:
+>     `workspace/private/runs/kernel/repl-resident-session-dmesg-clear-max30-batch-20260701T183207Z/`,
+>     `30/30` targets PASS, `2` flashes total (`0.0667` flash/target actual), measured
+>     `437.139s` total (`14.57s/target`), and v2321 rollback clean. This is the first measured
+>     max30 run that matches the resident-session projection rather than the old one-target cadence.
 > **HARD — unchanged, do NOT loosen:** the fail-closed C1 resolution, the **call-safety classifier**
 > (DENY / BEHAVIOR-CHANGING tiers stay DENY — never relax a tier to reach a struct/state target),
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
@@ -230,9 +238,9 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > Report:
 > `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_PID_BORROWED_BATCH_RESIDENT_SESSION_2026-07-02.md`.
 
-## ✅ DONE/PARTIAL — REPL packed resident-session task lookup proofs — `find_task_by_pid_ns` + `find_task_by_vpid`
+## ✅ DONE — REPL packed resident-session task lookup proofs + max30 result-channel repair
 
-> ### ✅/⚠️ STATUS (2026-07-02 live-proven per-target, packed batch not promoted, rolled back cleanly)
+> ### ✅ STATUS (2026-07-02 live-proven per-target and max30 packed-session pass, rolled back cleanly)
 >
 > Codex extended the PID borrowed-pointer proof family to task lookup helpers:
 > `find_task_by_pid_ns` and `find_task_by_vpid`. Both stay global `DENY` and are only trusted
@@ -281,6 +289,22 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >
 > Report:
 > `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_TASK_LOOKUP_PACKED_RESIDENT_SESSION_2026-07-02.md`.
+>
+> Follow-up result-channel repair: Codex first tried an opt-in kmsg marker window. The live kernel
+> accepts markers only in `6,0,0,-;message` format, but a marker-enabled candidate selftest captured
+> marker records without `A90R`, so that attempt ran no batch targets, rolled back cleanly, and was
+> not promoted. The default REPL op path was then changed to use `dmesg -c` read-and-clear windows
+> without markers.
+>
+> The repaired default path completed a real max30 packed resident session:
+> `workspace/private/runs/kernel/repl-resident-session-dmesg-clear-max30-batch-20260701T183207Z/`.
+> Result: `a90-repl-resident-session-pass`, `30/30` targets, `1/1` batch, flash count `2`,
+> actual flash amortization `0.0667 flash/target`, timeline errors `[]`, rollback clean. The run
+> crossed the previous failure points: `find_vpid`, `find_pid_ns`, and all 30 targets passed.
+> Measured total was `437.139s` (`14.57s/target`), close to the resident-session timing model.
+>
+> Follow-up report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_DMESG_CLEAR_MAX30_RESIDENT_SESSION_2026-07-02.md`.
 
 ## ✅ DONE — REPL resident-session scalar pid lookup proof — `find_vpid`
 

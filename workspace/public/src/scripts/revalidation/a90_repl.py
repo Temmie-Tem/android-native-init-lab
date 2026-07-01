@@ -1706,31 +1706,61 @@ def dmesg_tail_sh(lines: int) -> str:
 
 
 def op_sh(buf: bytes, busybox: str = DEFAULT_BUSYBOX, *, tail_lines: int = 60,
-          node: str = NODE) -> str:
+          node: str = NODE, marker: str | None = None) -> str:
     """Single on-device invocation: write the command buffer, then read back the
     op's `A90R` line *in the same shell* so the kernel-log ring cannot drain
     between the write and the read.
 
     Notes pinned from live A90 behaviour:
-    - busybox `dmesg` here is read-and-CLEAR (consuming), so drain stale records
-      before the write, then read a fresh ring that contains the record our write
-      just produced.
+    - busybox `dmesg -c` here is read-and-CLEAR (consuming). Use it both for
+      the pre-write drain and post-write read when available, with plain
+      `dmesg` fallback for older residents.
+    - the optional `A90M*` marker brackets the sysfs write in the kernel log.
+      If `/dev/kmsg` is writable, host parsing takes only the `A90R` lines
+      inside the matching marker window and ignores stale/drifting records from
+      previous ops. If marker writes are unavailable, parsing falls back to the
+      unmarked `A90R` records.
     - the read is bounded with `tail -n N` because the native-init `run` console
       capture truncates long output; a raw unbounded `dmesg` loses the trailing
       `A90R` line in the boot-log flood.
     The newest `A90R` line is ours: the write we just issued is the most recent
     producer."""
-    drain = "dmesg >/dev/null 2>/dev/null"
+    drain = "dmesg -c >/dev/null 2>/dev/null || dmesg >/dev/null 2>/dev/null"
     write = f"printf '{printf_octal(buf)}' > {node}"
+    mark_start = ""
+    mark_end = ""
+    marker_filter = "A90R"
+    if marker:
+        # Keep marker writes best-effort. Some historical resident images did
+        # not expose /dev/kmsg writes; those runs still fall back to unmarked
+        # A90R parsing instead of failing every op before the proof body runs.
+        mark_start = f"echo '6,0,0,-;{marker}S' > /dev/kmsg 2>/dev/null || true; "
+        mark_end = f"; echo '6,0,0,-;{marker}E' > /dev/kmsg 2>/dev/null || true"
+        marker_filter = "A90[MR]"
     # No trailing `tail -1`: a `call` prints two A90R lines (the called function's
     # output and the stub's return value), and the call proof must see both.
     # Single-output ops just take the newest value host-side.
-    read = f"dmesg | tail -n {int(tail_lines)} | grep -a A90R"
-    return f"{drain}; {write}; {read}"
+    read = f"(dmesg -c 2>/dev/null || dmesg) | tail -n {int(tail_lines)} | grep -a '{marker_filter}'"
+    return f"{drain}; {mark_start}{write}{mark_end}; {read}"
 
 
 def parse_a90r_values(text: str) -> list[int]:
     return [int(hexval, 16) for hexval in A90R_RE.findall(text)]
+
+
+def parse_a90r_values_for_marker(text: str, marker: str | None) -> list[int]:
+    if not marker:
+        return parse_a90r_values(text)
+    start_token = f"{marker}S"
+    end_token = f"{marker}E"
+    start_index = text.rfind(start_token)
+    if start_index < 0:
+        return parse_a90r_values(text)
+    window = text[start_index + len(start_token):]
+    end_index = window.find(end_token)
+    if end_index >= 0:
+        window = window[:end_index]
+    return parse_a90r_values(window)
 
 
 def parse_define_u32(text: str, name: str) -> int:
@@ -3188,6 +3218,7 @@ class ReplConfig:
     settle_sec: float = 0.4
     safe_op_retries: int = 2
     retry_delay_sec: float = 0.2
+    use_kmsg_markers: bool = False
 
 
 class ReplSession:
@@ -3196,6 +3227,11 @@ class ReplSession:
 
     def __init__(self, config: ReplConfig):
         self.config = config
+        self._op_marker_seq = 0
+
+    def _next_op_marker(self, op: int) -> str:
+        self._op_marker_seq += 1
+        return f"A90M{self._op_marker_seq:08x}{op & 0xFF:02x}"
 
     def _run_sh(self, sh_str: str, *, allow_error: bool = False) -> str:
         argv = ["run", self.config.busybox, "sh", "-c", sh_str]
@@ -3242,17 +3278,20 @@ class ReplSession:
         attempts = 1 + (max(0, self.config.safe_op_retries) if replay_safe else 0)
         samples: list[str] = []
         for attempt in range(attempts):
+            marker = self._next_op_marker(op) if self.config.use_kmsg_markers else None
             # Write + read in a single shell so the kernel-log ring cannot drain
-            # between the two; the newest A90R line is this op's result.
+            # between the two; the marker window keeps stale A90R lines out when
+            # /dev/kmsg accepts best-effort user markers.
             text = self._run_sh(
                 op_sh(
                     buf,
                     self.config.busybox,
                     tail_lines=self.config.dmesg_tail,
+                    marker=marker,
                 ),
                 allow_error=True,
             )
-            values = parse_a90r_values(text)
+            values = parse_a90r_values_for_marker(text, marker)
             if values:
                 return values
             samples.append(text[-160:].replace("\n", "\\n"))

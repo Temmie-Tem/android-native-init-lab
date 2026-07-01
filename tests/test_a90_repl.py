@@ -85,6 +85,45 @@ class CommandBufferTests(unittest.TestCase):
         self.assertEqual(repl.parse_a90r_values(text), [0x108000, 0xCAFE1234])
         self.assertEqual(repl.parse_a90r_values("nothing here"), [])
 
+    def test_parse_a90r_values_for_marker_uses_latest_marker_window(self) -> None:
+        text = (
+            "A90R111\n"
+            "A90M0000000101S\n"
+            "A90R222\n"
+            "A90M0000000101E\n"
+            "A90R333\n"
+            "A90M0000000201S\n"
+            "A90R444\n"
+            "A90M0000000201E\n"
+        )
+        self.assertEqual(
+            repl.parse_a90r_values_for_marker(text, "A90M0000000201"),
+            [0x444],
+        )
+
+    def test_parse_a90r_values_for_marker_falls_back_when_marker_absent(self) -> None:
+        text = "stale\nA90R111\nA90R222\n"
+        self.assertEqual(
+            repl.parse_a90r_values_for_marker(text, "A90M0000009901"),
+            [0x111, 0x222],
+        )
+
+    def test_op_sh_marks_result_window_when_marker_supplied(self) -> None:
+        sh = repl.op_sh(b"\x00\x01", marker="A90M0000000101")
+        self.assertIn("dmesg -c >/dev/null", sh)
+        self.assertIn("6,0,0,-;A90M0000000101S", sh)
+        self.assertIn("A90M0000000101S", sh)
+        self.assertIn("A90M0000000101E", sh)
+        self.assertIn("grep -a 'A90[MR]'", sh)
+        self.assertIn(repl.NODE, sh)
+
+    def test_op_sh_defaults_to_dmesg_clear_without_markers(self) -> None:
+        sh = repl.op_sh(b"\x00\x01")
+        self.assertIn("dmesg -c >/dev/null", sh)
+        self.assertIn("(dmesg -c 2>/dev/null || dmesg)", sh)
+        self.assertIn("grep -a 'A90R'", sh)
+        self.assertNotIn("A90M", sh)
+
 
 class ConstantTests(unittest.TestCase):
     def test_entry_and_slide_anchors(self) -> None:
@@ -128,7 +167,7 @@ class FakeTransport:
         sh_str = argv[-1]
         self.sent.append(sh_str)
         # An op invocation writes the node and reads A90R back in one shell.
-        if "grep -a A90R" in sh_str:
+        if "grep -a" in sh_str and ("A90R" in sh_str or "A90[MR]" in sh_str):
             out = self.responses.pop(0) if self.responses else ""
             return {"ok": True, "rc": 0, "stdout": out, "stderr": ""}
         # write-only / panic_on_oops / echo: no captured output
@@ -165,6 +204,17 @@ class LiveMathTests(unittest.TestCase):
         self.assertEqual(buf[0x08], repl.OP_PEEK)
         self.assertEqual(struct.unpack_from("<Q", buf, 0x10)[0], 0xFFFFFF8008080000)
         self.assertEqual(struct.unpack_from("<Q", buf, 0x18)[0], 8)
+
+    def test_peek_uses_marker_window_when_available(self) -> None:
+        session, _ = self._session([
+            "A90R111\n"
+            "A90M0000000101S\n"
+            "A90Rdeadbeef\n"
+            "A90M0000000101E\n"
+            "A90R222\n"
+        ], use_kmsg_markers=True)
+        got = session.peek_runtime(0xFFFFFF8008080000, 8)
+        self.assertEqual(got, 0xDEADBEEF)
 
     def test_peek_len_bounds(self) -> None:
         session, _ = self._session([])
@@ -7158,7 +7208,7 @@ class FaithfulFakeTransport:
 
     def run_serial_command(self, argv, *, host, port, timeout):
         sh_str = argv[-1]
-        if "grep -a A90R" not in sh_str:
+        if "grep -a" not in sh_str or ("A90R" not in sh_str and "A90[MR]" not in sh_str):
             return {"ok": True, "rc": 0, "stdout": "", "stderr": ""}
         self.op_count += 1
         buf = _buf_from_op_sh(sh_str)
