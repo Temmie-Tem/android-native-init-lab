@@ -480,3 +480,11 @@ Source build PASS report:
 `docs/reports/NATIVE_INIT_V3350_BOOT_WRITE_E2_MULTI_SOURCE_BUILD_2026-07-02.md`. No live E2 write is
 claimed here; live validation still requires the recovery drill, checked-helper flash, post-flash
 `selftest fail=0`, E2 token run, and rollback to v2321 with `selftest fail=0`.
+
+Live result (2026-07-02): V3350 flashed and booted cleanly, but E2 stopped before any `pwrite`:
+band 0 (`scan0_start=62644224`, `scan0_end=63496192`) had no all-zero 4096B sector, so the command
+reported `slack_scanned=208 have_zero_sector=0 target_count=4 stop=no-zero-slack end rc=-28`.
+Post-probe `selftest fail=0`, pstore entries=0, and rollback to v2321 completed with `selftest
+fail=0`. This is a **clean refusal**, not an E2 write proof; do not advance to E3. Next E2 revision
+should select multiple all-zero sectors from the available tail-slack zero population without
+requiring every quarter-band to contain one.
