@@ -96,6 +96,65 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL memory-state result-slot live-call proof — `si_meminfo()` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — owned `struct sysinfo` result slot
+>
+> Codex selected `si_meminfo` as a post-saturation kernel-state observation
+> target rather than another scalar lib/time helper. It extends the function
+> map with an owned result-slot memory-state vector: `extern void
+> si_meminfo(struct sysinfo * val)` from `include/linux/mm.h:2208`.
+>
+> Static selection pinned `si_meminfo=0xffffff800820deb4` via
+> `export-recovery` with map agreement, a single export candidate, direct BL
+> xrefs `8`, and JOPP entry. The C1 gate classifies it as
+> `SAFE-WITH-VALID-PTR` only when x0 is an owned `struct sysinfo` result slot;
+> the next-symbol boundary is `show_free_areas` at `+0x78`. The body was
+> pinned with 30 static words, including the entry guard and final
+> `0x00be7bad` boundary guard.
+>
+> The live proof obeyed the flash gate: rollback/fallback/TWRP artifacts were
+> confirmed, baseline v2321 `version/status/selftest` passed, the exact
+> v1-repl candidate (`b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`)
+> flashed through `native_init_flash.py` with matching pushed-image and
+> readback SHA, candidate helper health passed, and the target proof passed.
+> The proof allocated an owned result slot with `__kmalloc`, prefilled it and
+> a trailing canary, called `si_meminfo(result_slot)`, peeked the slot, then
+> freed it with `kfree`.
+>
+> Public observed fields were `totalram_pages=0x14ffeb`,
+> `freeram_pages=0x126e83`, `sharedram_pages=0x1528`,
+> `bufferram_pages=0x352`, `totalhigh_pages=0x0`,
+> `freehigh_pages=0x0`, and `mem_unit=0x1000`. The proof verified positive
+> total RAM, free/shared/buffer pages not above total RAM, zero highmem fields
+> on this arm64 image, `mem_unit=4096`, trailing canary preservation, and
+> `kfree` cleanup OK. Raw runtime pointers, the slide, and owned result-slot
+> pointer stayed private/redacted.
+>
+> Candidate explicit health first hit serial `ATATAT` framing noise on
+> `version`, then a sequential `hide/version/status/selftest` retry passed.
+> Post-proof `hide/status/selftest` passed with `selftest pass=11 warn=1
+> fail=0` and `pstore entries=0`. Rollback to v2321 completed with matching
+> readback SHA. Final explicit health first passed `version` and then hit
+> serial `ATAT` framing noise on `status`; a later sequential
+> `hide/version/status/selftest` retry passed and confirmed resident
+> `v2321-usb-clean-identity-rodata`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-si-meminfo-20260701T053520Z/timeline.json`:
+> candidate flash helper `63.651s`, candidate flash start to boot ready `64s`,
+> candidate explicit health initial `10.031s`, candidate explicit health retry
+> `3.680s`, live proof `24.898s`, post-proof health `1.232s`, rollback flash
+> helper `64.509s`, rollback flash start to boot ready `65s`, final health
+> initial `10.845s`, final health retry `5.689s`, and candidate start to final
+> health done approximately `216s`. The helper/start-to-boot rows are not
+> additive; all serial bridge commands in this unit were sequential.
+>
+> Function-map outcome: `si_meminfo` is promoted as live-proven only under the
+> owned kmalloc `struct sysinfo` result-slot contract with trailing canary and
+> `kfree` cleanup. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_SI_MEMINFO_2026-07-01.md`.
+
 ## ✅ DONE — REPL NCM intermediate-timeout live-call proof — `get_intermediate_timeout()` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg NCM timeout state
