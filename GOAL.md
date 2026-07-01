@@ -96,6 +96,53 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL scheduler process-count live-call proof — `nr_processes()` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg scheduler process-count state
+>
+> Codex selected `nr_processes` as the next one-target recovery from the earlier
+> scheduler-counter batch attempts, which had stopped before any target call.
+> This run used the checked `call-proof` CLI directly and called only
+> `nr_processes()`.
+>
+> Static selection pinned `nr_processes=0xffffff80080ae02c` via
+> `disasm-signature+xref+map`, source declaration `extern int nr_processes(void)`
+> at `include/linux/sched/stat.h:18`, no pointer args, direct BL xrefs `1`,
+> next-symbol boundary `arch_release_task_struct` at `+0xa0`, and `SAFE-SCALAR`
+> C1 gate. The static word checks pinned the 40-word body, including the
+> `cpumask_next` loop over possible CPUs and per-CPU process-count load/add
+> sequence. Neighboring `nr_iowait_cpu`, `single_task_running`, and
+> `si_swapinfo` stayed `DENY`.
+>
+> The live proof obeyed the flash gate: candidate/rollback/fallback SHA values
+> and TWRP were confirmed; baseline v2321 `version/status/selftest` passed; the
+> v1-repl candidate (`b846ae9f...`) flashed with matching readback SHA; candidate
+> helper health passed; and `nr_processes()` passed. The first explicit
+> post-flash `hide/selftest` hit `ATAT` serial framing noise, then a `12s` settle
+> plus bridge status check and explicit `selftest` passed. Two target reads both
+> returned `0x1c1` (`delta=0x0`), positive, inside the sane count range, and
+> stable across the short repeat. Raw runtime pointers and the slide stayed
+> private/redacted.
+>
+> Post-proof `status/selftest` stayed `fail=0`, with `pstore entries=0` in the
+> status inventory. Rollback to v2321 completed with matching readback SHA. Final
+> resident `version/selftest/status` passed after one settled `hide` serial
+> resync retry, with `selftest pass=11 warn=1 fail=0` and `version` confirming
+> `v2321-usb-clean-identity-rodata`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-nr-processes-20260701T044817Z/timeline.json`:
+> candidate flash helper `72s`, candidate flash start to boot ready `72s`, live
+> proof `6s`, post-proof health `2s`, rollback flash helper `73s`, rollback flash
+> start to boot ready `73s`, final health total `66s`, final health retry `1`,
+> and candidate start to final health done `300s`.
+>
+> Function-map outcome: `nr_processes` is promoted as live-proven only under the
+> no-argument read-only scheduler process-count contract: return value must be a
+> sane positive `int` in this native-init proof environment and stable or
+> bounded-drift across a short repeated call. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_NR_PROCESSES_2026-07-01.md`.
+
 ## ✅ DONE — REPL scheduler context-switch counter live-call proof — `nr_context_switches()` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg scheduler counter state
