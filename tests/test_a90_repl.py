@@ -1425,6 +1425,49 @@ class CallSafetyClassificationTests(unittest.TestCase):
             ],
         )
 
+        is_blocked = self._row("is_blocked")
+        self.assertEqual(is_blocked["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            is_blocked["required_valid_pointer_args"],
+            {"0": "borrowed-otg-notify-pointer-from-get_otg_notify"},
+        )
+        self.assertTrue(is_blocked["resolution"]["verified"])
+        self.assertEqual(is_blocked["resolution"]["method"], "export-recovery")
+        self.assertEqual(
+            is_blocked["resolution"]["link_vaddr"],
+            "0xffffff800901ef44",
+        )
+        self.assertEqual(is_blocked["signals"]["direct_bl_xref_count"], 5)
+        self.assertFalse(is_blocked["signals"]["leaf"])
+        self.assertEqual(
+            is_blocked["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [
+                {
+                    "offset": 24,
+                    "arg_reg": 0,
+                    "rt": 20,
+                    "rn": 0,
+                    "width": 8,
+                    "imm": 168,
+                    "word": "0xf9405414",
+                    "arg": "x0",
+                }
+            ],
+        )
+        self.assertEqual(
+            is_blocked["signals"]["first_words"][:8],
+            [
+                "0xca1103d0",
+                "0xa9bd43fd",
+                "0xf9000bf5",
+                "0x910003fd",
+                "0xa9024ff4",
+                "0xb40002e0",
+                "0xf9405414",
+                "0xb4000314",
+            ],
+        )
+
         get_intermediate_timeout = self._row("get_intermediate_timeout")
         self.assertEqual(get_intermediate_timeout["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
         self.assertEqual(get_intermediate_timeout["required_valid_pointer_args"], {})
@@ -3666,6 +3709,19 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertEqual(get_hw_param["selected"]["line"], 182)
         self.assertTrue(get_hw_param["selected"]["path"].endswith("include/linux/usb_notify.h"))
 
+        is_blocked = repl.lookup_source_signature(
+            "is_blocked",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(is_blocked["status"], "found", is_blocked)
+        self.assertEqual(is_blocked["selected"]["pointer_arg_indices"], [0])
+        self.assertEqual(
+            is_blocked["selected"]["signature"],
+            "extern bool is_blocked(struct otg_notify *n, int type)",
+        )
+        self.assertEqual(is_blocked["selected"]["line"], 178)
+        self.assertTrue(is_blocked["selected"]["path"].endswith("include/linux/usb_notify.h"))
+
         task_pid_nr_ns = repl.lookup_source_signature(
             "__task_pid_nr_ns",
             source_root=KERNEL_SOURCE_ROOT,
@@ -4750,6 +4806,13 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.is_blocked_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "is_blocked",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.get_intermediate_timeout_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -5025,8 +5088,9 @@ class FaithfulFakeTransport:
         self.borrowed_ddr_vendor_ptr = 0xFFFFFFC012350000
         self.borrowed_otg_notify_ptr = 0xFFFFFFC012360000
         self.borrowed_notify_data_ptr = 0xFFFFFFC012370000
-        self.borrowed_hw_param_ptr = 0xFFFFFFC012380000
+        self.borrowed_hw_param_ptr = 0xFFFFFFC012390000
         self.is_usb_host_value = 1
+        self.is_blocked_value = 0
         self.borrowed_ddr_vendor_string = b"Samsung\x00"
         self.intermediate_timeout_value = 0x7530
         self.boot_stat_time_values = [0x00100000, 0x00101000, 0x00102000]
@@ -5810,6 +5874,8 @@ class FaithfulFakeTransport:
             is_usb_host = self.is_usb_host_link + self.slide
             assert self.get_hw_param_link is not None
             get_hw_param = self.get_hw_param_link + self.slide
+            assert self.is_blocked_link is not None
+            is_blocked = self.is_blocked_link + self.slide
             assert self.get_intermediate_timeout_link is not None
             get_intermediate_timeout = self.get_intermediate_timeout_link + self.slide
             assert self.task_pid_nr_ns_link is not None
@@ -6470,6 +6536,15 @@ class FaithfulFakeTransport:
                 ):
                     raise AssertionError("get_hw_param proof must pass borrowed otg_notify and index 0 only")
                 lines.append(f"A90R{self.borrowed_hw_param_ptr:x}")
+            elif arg0 == is_blocked:
+                if (arg1, arg2, arg3, arg4) != (
+                    self.borrowed_otg_notify_ptr,
+                    repl.IS_BLOCKED_TYPE,
+                    0,
+                    0,
+                ):
+                    raise AssertionError("is_blocked proof must pass borrowed otg_notify and HOST type only")
+                lines.append(f"A90R{self.is_blocked_value:x}")
             elif arg0 == get_intermediate_timeout:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("get_intermediate_timeout proof must pass no arguments")
@@ -8321,6 +8396,65 @@ class SelftestIntegrationTests(unittest.TestCase):
             f"0x{fake.borrowed_hw_param_ptr:x}",
         )
         self.assertEqual(fake.op_count, 4)  # slide + get_otg_notify + 2 get_hw_param calls
+
+    def test_call_proof_is_blocked_passes_with_otg_notify_pointer_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "is_blocked",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-is_blocked-pass")
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-usb-notify-block-host-bool-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "is_blocked")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern bool is_blocked(struct otg_notify *n, int type)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [0])
+        self.assertEqual(summary["source_enum_evidence"]["type_name"], "NOTIFY_BLOCK_TYPE_HOST")
+        self.assertEqual(summary["source_enum_evidence"]["type_value"], 1)
+        self.assertEqual(summary["source_enum_evidence"]["all_name"], "NOTIFY_BLOCK_TYPE_ALL")
+        self.assertEqual(summary["source_enum_evidence"]["all_value"], 3)
+        self.assertEqual(
+            summary["source_implementation_evidence"]["path"],
+            "drivers/usb/notify/usb_notify.c",
+        )
+        self.assertEqual(summary["input_anchor"]["symbol"], "get_otg_notify")
+        self.assertEqual(summary["observed_return_value"], "0x0")
+        self.assertTrue(summary["all_returns_stable"])
+        self.assertEqual(summary["repeat_count"], 2)
+        self.assertEqual(summary["block_type"], repl.IS_BLOCKED_TYPE)
+        self.assertEqual(summary["block_type_name"], "NOTIFY_BLOCK_TYPE_HOST")
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["borrowed_pointer_redacted"])
+        self.assertNotIn("is_blocked_runtime", summary)
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertEqual(cases["usb-block-host-bool-1"]["observed_return_value"], "0x0")
+        self.assertTrue(cases["usb-block-host-bool-1"]["bool_int"])
+        self.assertTrue(cases["usb-block-host-bool-2"]["matches_first_call"])
+        self.assertIn("get_otg_notify_runtime", private)
+        self.assertIn("is_blocked_runtime", private)
+        self.assertEqual(private["otg_notify_ptr"], f"0x{fake.borrowed_otg_notify_ptr:x}")
+        self.assertEqual(private["case_returns"]["usb-block-host-bool-1"], "0x0")
+        self.assertEqual(private["case_returns"]["usb-block-host-bool-2"], "0x0")
+        self.assertEqual(fake.op_count, 4)  # slide + get_otg_notify + 2 is_blocked calls
 
     def test_call_proof_task_struct_batch_candidates_pass_in_one_fake_session(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

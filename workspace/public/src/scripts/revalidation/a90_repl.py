@@ -443,6 +443,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "borrowed-kernel-pointer-or-null",
         "reason": "USB HW-param slot lookup; x0 must be a non-NULL borrowed struct otg_notify pointer returned by get_otg_notify in the same proof, x1 must be a valid enum usb_hw_param index, and any non-NULL return is borrowed",
     },
+    "is_blocked": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "borrowed-otg-notify-pointer-from-get_otg_notify"},
+        "return_kind": "bool",
+        "reason": "USB notify block-state lookup; x0 must be a non-NULL borrowed struct otg_notify pointer returned by get_otg_notify in the same proof, x1 must be a valid otg_notify_block_type, and the return is limited to bool 0/1",
+    },
     "get_intermediate_timeout": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -3823,6 +3829,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
         "include/linux/usb_hw_param.h",
         "drivers/usb/notify/usb_notify.c",
     ),
+    "is_blocked": ("include/linux/usb_notify.h", "drivers/usb/notify/usb_notify.c"),
     "get_intermediate_timeout": ("include/net/ncm.h",),
     "__task_pid_nr_ns": ("include/linux/sched.h",),
     "sched_get_group_id": ("include/linux/sched.h",),
@@ -5661,6 +5668,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern unsigned long long * get_hw_param(struct otg_notify *n, enum usb_hw_param index)",
     },
+    "is_blocked": {
+        "input_contract": "x0 is a non-NULL borrowed struct otg_notify * returned by get_otg_notify() in the same proof; x1 is enum otg_notify_block_type NOTIFY_BLOCK_TYPE_HOST (1), verified from include/linux/usb_notify.h; target reads u_notify->udev.disable_state and does not take ownership",
+        "return_contract": "bool block-state value is stable across repeated proof calls and must be exactly 0 or 1",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern bool is_blocked(struct otg_notify *n, int type)",
+    },
     "get_intermediate_timeout": {
         "input_contract": "no arguments; NCM intermediate-timeout global state is read-only and no returned pointer is dereferenced or freed",
         "return_contract": "unsigned int timeout value is stable across repeated proof calls and in 0..0xffffffff",
@@ -6998,6 +7011,25 @@ GET_HW_PARAM_EXPECTED_PREFIX_WORDS = (
 GET_HW_PARAM_RETURN_TAIL_WORDS = (0xD503201F, 0x00BE7BAD)
 GET_HW_PARAM_NEXT_SYMBOL = ("inc_hw_param_host", 0xD0)
 GET_HW_PARAM_REPEAT_COUNT = 2
+IS_BLOCKED_TYPE = 1
+IS_BLOCKED_TYPE_NAME = "NOTIFY_BLOCK_TYPE_HOST"
+IS_BLOCKED_ALL_NAME = "NOTIFY_BLOCK_TYPE_ALL"
+IS_BLOCKED_EXPECTED_ALL_VALUE = 3
+IS_BLOCKED_EXPECTED_PREFIX_WORDS = (
+    0xCA1103D0, 0xA9BD43FD, 0xF9000BF5, 0x910003FD,
+    0xA9024FF4, 0xB40002E0, 0xF9405414, 0xB4000314,
+    0xD0011655, 0x2A0103F3, 0xF944AEA8, 0xB40003E8,
+    0xF9407283, 0x90009D40, 0x90009D41, 0x91023400,
+    0x91020821, 0x2A1303E2, 0x97C46F9C, 0x71000E7F,
+    0x54000540, 0x71000A7F, 0x54000540, 0x7100067F,
+    0x54000181, 0xF9407288, 0x36080148, 0x14000027,
+)
+IS_BLOCKED_RETURN_TAIL_WORDS = (
+    0xF9407288, 0x360FFCA8, 0xF9407288, 0x3617FC68,
+    0x52800020, 0x17FFFFE2, 0xD503201F, 0x00BE7BAD,
+)
+IS_BLOCKED_NEXT_SYMBOL = ("send_usb_audio_uevent", 0x118)
+IS_BLOCKED_REPEAT_COUNT = 2
 TASK_PID_NR_NS_PIDTYPE_PID = 0
 TASK_PID_NR_NS_EXPECTED_INIT_TASK_PID = 0
 TASK_PID_NR_NS_REPEAT_COUNT = 2
@@ -24459,6 +24491,325 @@ def _run_call_proof_get_hw_param(
     return summary, private
 
 
+def _eval_simple_c_int_expr(expr: str) -> int:
+    if not re.fullmatch(r"[0-9xa-fA-F()|<\s]+", expr):
+        raise ReplError(f"unsupported integer expression: {expr!r}")
+    try:
+        return int(eval(expr, {"__builtins__": {}}, {}))
+    except Exception as exc:  # noqa: BLE001 - malformed source expression is a proof blocker
+        raise ReplError(f"failed to evaluate integer expression {expr!r}") from exc
+
+
+def _usb_notify_block_type_evidence(source_root: Path) -> dict[str, object]:
+    header = source_root / "include/linux/usb_notify.h"
+    try:
+        text = header.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        raise ReplError(f"usb_notify block-type enum header is not readable: {header}") from exc
+    match = re.search(r"enum\s+otg_notify_block_type\s*\{(?P<body>.*?)\};", text, re.S)
+    if not match:
+        raise ReplError("enum otg_notify_block_type was not found in include/linux/usb_notify.h")
+    body = re.sub(r"/\*.*?\*/", "", match.group("body"), flags=re.S)
+    values: dict[str, int] = {}
+    next_value = 0
+    for raw_entry in body.split(","):
+        entry = raw_entry.strip()
+        if not entry:
+            continue
+        if "=" in entry:
+            name, expr = entry.split("=", 1)
+            name = name.strip()
+            value = _eval_simple_c_int_expr(expr.strip())
+        else:
+            name = entry.strip()
+            value = next_value
+        if not re.match(r"^[A-Z0-9_]+$", name):
+            raise ReplError(f"unexpected enum otg_notify_block_type entry syntax: {raw_entry!r}")
+        values[name] = value
+        next_value = value + 1
+    if IS_BLOCKED_TYPE_NAME not in values:
+        raise ReplError(f"{IS_BLOCKED_TYPE_NAME} is missing from enum otg_notify_block_type")
+    if IS_BLOCKED_ALL_NAME not in values:
+        raise ReplError(f"{IS_BLOCKED_ALL_NAME} is missing from enum otg_notify_block_type")
+    return {
+        "path": "include/linux/usb_notify.h",
+        "type_name": IS_BLOCKED_TYPE_NAME,
+        "type_value": values[IS_BLOCKED_TYPE_NAME],
+        "all_name": IS_BLOCKED_ALL_NAME,
+        "all_value": values[IS_BLOCKED_ALL_NAME],
+        "known_values": {name: values[name] for name in sorted(values)},
+    }
+
+
+def _run_call_proof_is_blocked(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "is_blocked"
+    anchor = "get_otg_notify"
+    source = lookup_source_signature(target, source_root=source_root)
+    enum_evidence = _usb_notify_block_type_evidence(source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        ("@borrowed_otg_notify_ptr", IS_BLOCKED_TYPE),
+    )
+    anchor_call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        anchor,
+        (),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected vetted pointer tier")
+    if anchor_call_safety.get("tier") != CALL_PROOF_TARGETS[anchor]["expected_tier"]:
+        raise ReplError(f"{anchor} call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError(f"{target} source signature must declare x0 as the struct otg_notify pointer")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the exported declaration")
+    if enum_evidence["type_value"] != IS_BLOCKED_TYPE:
+        raise ReplError(f"{IS_BLOCKED_TYPE_NAME} enum value is not {IS_BLOCKED_TYPE}")
+    if enum_evidence["all_value"] != IS_BLOCKED_EXPECTED_ALL_VALUE:
+        raise ReplError(
+            f"{IS_BLOCKED_ALL_NAME} enum value changed: "
+            f"{enum_evidence['all_value']} != {IS_BLOCKED_EXPECTED_ALL_VALUE}"
+        )
+
+    impl_path = source_root / "drivers/usb/notify/usb_notify.c"
+    try:
+        impl_text = impl_path.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        raise ReplError(f"{target} source implementation is not readable: {impl_path}") from exc
+    impl_normalized = " ".join(impl_text.split())
+    expected_impl = (
+        "bool is_blocked(struct otg_notify *n, int type) { struct usb_notify *u_notify = NULL; "
+        "int ret = 0; if (!n) { pr_err(\"%s otg_notify is null\\n\", __func__); goto end; } "
+        "u_notify = (struct usb_notify *)(n->u_notify); if (!u_notify) { "
+        "pr_err(\"%s u_notify structure is null\\n\", __func__); goto end; } "
+        "if (!u_notify_core) { ret = create_usb_notify(); if (ret) { "
+        "pr_err(\"unable create_usb_notify\\n\"); goto end; } } "
+        "pr_info(\"%s type=%d, disable_state=%lu\\n\", __func__, type, u_notify->udev.disable_state); "
+        "if (type == NOTIFY_BLOCK_TYPE_HOST) { if (test_bit(NOTIFY_BLOCK_TYPE_HOST, "
+        "&u_notify->udev.disable_state)) goto end2; } else if (type == NOTIFY_BLOCK_TYPE_CLIENT) { "
+        "if (test_bit(NOTIFY_BLOCK_TYPE_CLIENT, &u_notify->udev.disable_state)) goto end2; } "
+        "else if (type == NOTIFY_BLOCK_TYPE_ALL) { if (test_bit(NOTIFY_BLOCK_TYPE_HOST, "
+        "&u_notify->udev.disable_state) && test_bit(NOTIFY_BLOCK_TYPE_CLIENT, "
+        "&u_notify->udev.disable_state)) goto end2; } end: return false; end2: return true; }"
+    )
+    if expected_impl not in impl_normalized:
+        raise ReplError(f"{target} implementation is not the expected USB block-state getter")
+
+    resolutions = {
+        target: resolve_verified(symbols, image, target, purpose="call", allow_pre_arg_deref=True),
+        anchor: resolve_verified(symbols, image, anchor, purpose="call"),
+    }
+    target_link = require_verified_resolution(resolutions[target], "call-proof target")
+    anchor_link = require_verified_resolution(resolutions[anchor], "call-proof input anchor")
+    next_symbol_name, expected_boundary = IS_BLOCKED_NEXT_SYMBOL
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    prefix_words = image.u32_words_at_vaddr(target_link, len(IS_BLOCKED_EXPECTED_PREFIX_WORDS))
+    tail_start = target_link + expected_boundary - len(IS_BLOCKED_RETURN_TAIL_WORDS) * 4
+    tail_words = image.u32_words_at_vaddr(tail_start, len(IS_BLOCKED_RETURN_TAIL_WORDS))
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-anchor-c1-identity",
+            "ok": True,
+            "anchor": anchor,
+            "resolution_method": resolutions[anchor].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-source-enum-contract",
+            "ok": True,
+            **enum_evidence,
+        },
+        {
+            "check": "static-source-implementation",
+            "ok": True,
+            "path": "drivers/usb/notify/usb_notify.c",
+            "body": "borrowed n->u_notify read, disable_state test_bit only, bool return, no ownership transfer",
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+            "type": IS_BLOCKED_TYPE,
+        },
+    ]
+    for index, expected in enumerate(IS_BLOCKED_EXPECTED_PREFIX_WORDS):
+        observed = prefix_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-prefix-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} prefix word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+    for index, expected in enumerate(IS_BLOCKED_RETURN_TAIL_WORDS):
+        observed = tail_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-tail-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} tail word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    otg_ptr = 0
+    returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        anchor_runtime = (anchor_link + slide) & MASK64
+        target_runtime = (target_link + slide) & MASK64
+        otg_ptr = session.call_runtime(anchor_runtime, ()) & MASK64
+        otg_ptr_ok = is_kernel_canonical_pointer(otg_ptr)
+        checks.append({
+            "check": "get-otg-notify-input-pointer",
+            "ok": otg_ptr_ok,
+            "observed_return_value": "redacted-borrowed-pointer" if otg_ptr else "0x0",
+            "returned_null": otg_ptr == 0,
+            "kernel_pointer": otg_ptr_ok,
+        })
+        if not otg_ptr_ok:
+            raise ReplError(
+                f"{anchor}() did not return the non-NULL borrowed kernel pointer required "
+                f"for {target}: 0x{otg_ptr:x}"
+            )
+        for index in range(IS_BLOCKED_REPEAT_COUNT):
+            observed = session.call_runtime(target_runtime, (otg_ptr, IS_BLOCKED_TYPE)) & MASK64
+            returns.append(observed)
+            bool_int = observed in (0, 1)
+            stable = index == 0 or observed == returns[0]
+            ok = bool_int and stable
+            case_results.append({
+                "case": f"usb-block-host-bool-{index + 1}",
+                "expected_return": "stable-bool-0-or-1",
+                "type": IS_BLOCKED_TYPE,
+                "type_name": IS_BLOCKED_TYPE_NAME,
+                "observed_return_value": f"0x{observed:x}",
+                "bool_int": bool_int,
+                "matches_first_call": stable,
+                "ok": ok,
+            })
+            if not bool_int:
+                raise ReplError(f"{target}() returned non-bool value: 0x{observed:x}")
+            if not stable:
+                raise ReplError(
+                    f"{target}() returned a different bool across proof calls: "
+                    f"first=0x{returns[0]:x}, call{index + 1}=0x{observed:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "is-blocked-host-bool-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = f"0x{returns[0]:x}" if returns else "missing"
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-usb-notify-block-host-bool-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "observed_return_value": observed_public,
+        "all_returns_stable": bool(returns) and all(value == returns[0] for value in returns),
+        "repeat_count": len(returns),
+        "block_type": IS_BLOCKED_TYPE,
+        "block_type_name": IS_BLOCKED_TYPE_NAME,
+        "source_evidence": _source_row_evidence(source),
+        "source_enum_evidence": enum_evidence,
+        "source_implementation_evidence": {
+            "path": "drivers/usb/notify/usb_notify.c",
+            "body": "read-only USB notify disable_state bool getter under live notify-core contract",
+        },
+        "input_anchor": {
+            "symbol": anchor,
+            "observed_return_value": "redacted-borrowed-pointer",
+            "kernel_pointer": True,
+        },
+        "call_safety": call_safety,
+        "anchor_call_safety": anchor_call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "borrowed_pointer_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": f"repeated calls returned stable bool {observed_public}",
+            "cleanup": "n/a-borrowed-pointer-not-owned",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{anchor}_runtime": f"0x{((anchor_link + slide) & MASK64):x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "otg_notify_ptr": f"0x{otg_ptr:x}",
+        "case_returns": {
+            case["case"]: f"0x{returns[index]:x}"
+            for index, case in enumerate(case_results)
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_get_intermediate_timeout(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -37253,6 +37604,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "get_hw_param":
         return _run_call_proof_get_hw_param(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "is_blocked":
+        return _run_call_proof_is_blocked(
             session,
             symbols,
             image,

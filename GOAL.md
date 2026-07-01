@@ -354,6 +354,74 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > NULL-or-borrowed `unsigned long long *`. Report:
 > `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_GET_HW_PARAM_2026-07-01.md`.
 
+## ✅ DONE — REPL USB/OTG block-state live-call proof — `is_blocked()` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — borrowed `struct otg_notify *` + block-type bool getter
+>
+> Codex selected `is_blocked` as the next adjacent USB notify
+> state-observation target after `get_otg_notify`, `get_notify_data`,
+> `is_usb_host`, and `get_hw_param`. It extends the function map to a
+> borrowed-pointer bool-state query: the proof first uses `get_otg_notify()`
+> as an input anchor, then passes that live borrowed `struct otg_notify *`
+> plus fixed block type `NOTIFY_BLOCK_TYPE_HOST=1` to
+> `is_blocked(struct otg_notify *n, int type)`.
+>
+> Static selection pinned `is_blocked=0xffffff800901ef44` via
+> `export-recovery` with one export candidate, map/export agreement, JOPP
+> entry, direct BL xrefs `5`, target-limited pre-call `x0` deref allowed only
+> under the borrowed-pointer contract, and next-symbol boundary
+> `send_usb_audio_uevent` at `+0x118`. Source declaration was
+> `extern bool is_blocked(struct otg_notify *n, int type)` from
+> `include/linux/usb_notify.h:178`; enum parsing in the same header confirmed
+> `NOTIFY_BLOCK_TYPE_HOST=1` and `NOTIFY_BLOCK_TYPE_ALL=3`. Prefix/tail word
+> pins covered the NULL guards, `n->u_notify` load from `[x0,#168]`,
+> `u_notify->udev.disable_state` access, type comparisons, host/client/all
+> bit-test return tail, epilogue, `ret`, and final `0x00be7bad` guard. The
+> implementation in `drivers/usb/notify/usb_notify.c` matched the non-owning
+> block-state getter pattern.
+>
+> The input anchor remained `get_otg_notify=0xffffff800901d8d4`,
+> `export-recovery`, direct BL xrefs `41`, no-argument `SAFE-SCALAR`.
+>
+> The live proof obeyed the flash gate: rollback/fallback images were
+> confirmed, baseline v2321 `version/status/selftest` passed, the exact
+> v1-repl candidate (`b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`)
+> flashed through `native_init_flash.py` with matching pushed-image and
+> readback SHA, and candidate helper health passed. The first explicit
+> candidate `selftest` capture hit serial `AT` echo and lacked the END marker;
+> after bridge restart, explicit candidate `selftest` passed with
+> `pass=11 warn=1 fail=0`.
+>
+> The successful proof called `get_otg_notify()` once; it returned a non-NULL
+> borrowed kernel pointer. The proof then called
+> `is_blocked(otg_notify_ptr, 1)` twice. Both calls returned stable bool
+> `0x0`. The borrowed input pointer was not dereferenced by the host, freed,
+> or retained. Raw runtime pointer values and the KASLR slide stayed
+> private/redacted.
+>
+> Post-proof candidate `selftest` passed with `selftest pass=11 warn=1
+> fail=0`. Rollback to v2321 completed with matching readback SHA. The first
+> final v2321 `selftest` capture contained `pass=11 warn=1 fail=0` text but
+> missed the END marker after serial `AT` echo; after bridge restart, final
+> v2321 `selftest` passed with `pass=11 warn=1 fail=0`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-is-blocked-20260701T072405Z/timeline.json`
+> at `2026-07-01T07:28:30Z`: candidate flash helper `63.730s`,
+> candidate explicit selftest first capture `10.187s`, candidate explicit
+> selftest retry `0.452s`, live proof `5.922s`, post-proof candidate
+> selftest `0.448s`, rollback flash helper `64.746s`, final v2321 selftest
+> first capture `10.301s`, and final v2321 selftest retry `0.450s`. The
+> helper total rows are not additive; all serial bridge commands in this unit
+> were sequential.
+>
+> Function-map outcome: `is_blocked` is promoted as live-proven only under the
+> borrowed `struct otg_notify *` input contract sourced from
+> `get_otg_notify()` in the same proof, plus enum block type
+> `NOTIFY_BLOCK_TYPE_HOST=1`, with return constrained to stable bool `0` or
+> `1`. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_IS_BLOCKED_2026-07-01.md`.
+
 ## ✅ DONE — REPL current fs-state live-call proof — `current_umask()` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg current-task umask getter
