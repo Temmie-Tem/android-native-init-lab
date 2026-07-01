@@ -6673,6 +6673,24 @@ KERNEL_READ_PROOF_LEN = 16
 KERNEL_READ_EXPECTED_PREFIX = b"\x7fELF"
 VFS_READ_MAX_PATH_BYTES = 192
 VFS_READ_MAX_LEN = 4096
+VFS_READ_BUNDLES: dict[str, dict[str, object]] = {
+    "hardening-posture": {
+        "description": "read-only kernel hardening sysctl posture via file-node equivalents",
+        "read_len": 64,
+        "paths": (
+            "/proc/sys/kernel/kptr_restrict",
+            "/proc/sys/kernel/dmesg_restrict",
+            "/proc/sys/kernel/perf_event_paranoid",
+            "/proc/sys/kernel/modules_disabled",
+            "/proc/sys/kernel/randomize_va_space",
+            "/proc/sys/kernel/unprivileged_bpf_disabled",
+        ),
+        "retire_subsumed": (
+            "Use this bundle instead of proving lone getters for the same "
+            "kernel hardening state when a /proc/sys file-node equivalent exists."
+        ),
+    },
+}
 STRNLEN_PROOF_BYTES = b"A90STRNLEN\x00"
 STRNLEN_PROOF_EXPECTED = len(STRNLEN_PROOF_BYTES) - 1
 STRNLEN_PROOF_MAXLEN = 64
@@ -23808,6 +23826,48 @@ def run_vfs_read_files(session: ReplSession,
     return summary, private
 
 
+def run_vfs_read_bundle(session: ReplSession,
+                        symbols: dict[str, Symbol],
+                        image: StaticImage,
+                        bundle_name: str,
+                        *,
+                        read_len: int | None = None,
+                        alloc_size: int = KMALLOC_ROUNDTRIP_SIZE,
+                        source_root: Path = DEFAULT_KERNEL_SOURCE_ROOT,
+                        gfp_header: Path = DEFAULT_GFP_HEADER,
+                        gfp_value: int | None = None) -> tuple[dict[str, object], dict[str, object]]:
+    if bundle_name not in VFS_READ_BUNDLES:
+        raise ReplError(f"unsupported vfs-read bundle {bundle_name!r}; supported={sorted(VFS_READ_BUNDLES)}")
+    cfg = VFS_READ_BUNDLES[bundle_name]
+    paths = tuple(str(path) for path in cfg["paths"])
+    selected_read_len = int(read_len if read_len is not None else cfg["read_len"])
+    summary, private = run_vfs_read_files(
+        session,
+        symbols,
+        image,
+        paths,
+        read_len=selected_read_len,
+        alloc_size=alloc_size,
+        source_root=source_root,
+        gfp_header=gfp_header,
+        gfp_value=gfp_value,
+    )
+    ok = bool(summary.get("ok"))
+    summary.update({
+        "decision": f"a90-repl-vfs-read-{bundle_name}-bundle-{'pass' if ok else 'fail'}",
+        "bundle": bundle_name,
+        "bundle_description": cfg["description"],
+        "bundle_read_len": selected_read_len,
+        "bundle_paths": paths,
+        "bundle_retire_subsumed": cfg.get("retire_subsumed", ""),
+    })
+    private.update({
+        "bundle": bundle_name,
+        "bundle_paths": paths,
+    })
+    return summary, private
+
+
 def _run_call_proof_hex_to_bin(session: ReplSession,
                                symbols: dict[str, Symbol],
                                image: StaticImage,
@@ -40772,6 +40832,26 @@ def cmd_vfs_read(args: argparse.Namespace) -> int:
     return 0 if summary["ok"] else 1
 
 
+def cmd_vfs_bundle(args: argparse.Namespace) -> int:
+    symbols = load_system_map(args.map)
+    image = load_static_image(args.image)
+    session = make_session(args)
+    summary, private = run_vfs_read_bundle(
+        session,
+        symbols,
+        image,
+        args.bundle,
+        read_len=args.read_len,
+        alloc_size=args.alloc_size,
+        source_root=args.source_root,
+        gfp_header=args.gfp_header,
+        gfp_value=args.gfp,
+    )
+    write_evidence(args, {**summary, "_private": private})
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0 if summary["ok"] else 1
+
+
 def cmd_poke_roundtrip(args: argparse.Namespace) -> int:
     symbols = load_system_map(args.map)
     image = load_static_image(args.image)
@@ -41028,6 +41108,22 @@ def main(argv: list[str] | None = None) -> int:
     p_vfs_read.add_argument("--gfp", type=parse_int_auto, default=None,
                             help="override GFP value; default derives GFP_KERNEL from --gfp-header")
     p_vfs_read.set_defaults(func=cmd_vfs_read)
+
+    p_vfs_bundle = sub.add_parser(
+        "vfs-bundle",
+        help="run a named read-only observation bundle through the VFS-read primitive",
+    )
+    add_common(p_vfs_bundle)
+    p_vfs_bundle.add_argument("bundle", choices=sorted(VFS_READ_BUNDLES))
+    p_vfs_bundle.add_argument("--read-len", type=parse_int_auto, default=None,
+                              help="override the bundle default bounded read length")
+    p_vfs_bundle.add_argument("--alloc-size", type=parse_int_auto, default=KMALLOC_ROUNDTRIP_SIZE)
+    p_vfs_bundle.add_argument("--source-root", type=Path, default=DEFAULT_KERNEL_SOURCE_ROOT,
+                              help="offline kernel source tree for signature xref")
+    p_vfs_bundle.add_argument("--gfp-header", type=Path, default=DEFAULT_GFP_HEADER)
+    p_vfs_bundle.add_argument("--gfp", type=parse_int_auto, default=None,
+                              help="override GFP value; default derives GFP_KERNEL from --gfp-header")
+    p_vfs_bundle.set_defaults(func=cmd_vfs_bundle)
 
     p_round = sub.add_parser("poke-roundtrip", help="v2a2 kmalloc-backed poke/peek/kfree proof")
     add_common(p_round)

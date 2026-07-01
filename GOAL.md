@@ -180,6 +180,68 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > no-file-node functions or genuinely new ABI shapes. Report:
 > `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_VFS_READ_OBSERVATION_BUNDLE_2026-07-01.md`.
 
+## ✅ DONE — REPL VFS-read hardening-posture observation bundle promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — named `/proc/sys/kernel` hardening bundle
+>
+> Codex added the first named observation bundle on top of the live-proven
+> VFS-read primitive: `a90_repl.py vfs-bundle hardening-posture`. The bundle
+> reads fixed `/proc/sys/kernel` file-node equivalents through
+> `filp_open + kernel_read + filp_close`, with owned pathname/read/`loff_t`
+> buffers and per-path `kfree` cleanup. This directly implements the
+> RETIRE-SUBSUMED policy: use file nodes for equivalent state instead of adding
+> more lone getter call-proofs.
+>
+> Baseline path preflight found these nodes readable and fixed them as the
+> bundle contract: `/proc/sys/kernel/kptr_restrict`,
+> `/proc/sys/kernel/dmesg_restrict`,
+> `/proc/sys/kernel/perf_event_paranoid`,
+> `/proc/sys/kernel/modules_disabled`,
+> `/proc/sys/kernel/randomize_va_space`, and
+> `/proc/sys/kernel/unprivileged_bpf_disabled`. The bundle deliberately
+> excludes `panic_on_oops` because the REPL proof temporarily changes that
+> sysctl as a runtime guard; including it would self-contaminate the
+> observation. `kexec_load_disabled` and `yama/ptrace_scope` are absent on this
+> image.
+>
+> Static gate remains the VFS-read gate: `filp_open`, `kernel_read`,
+> `filp_close`, `__kmalloc`, and `kfree` all resolve through the promoted C2B
+> map/export-recovery path and retain their existing C1/source/call-safety
+> contracts. No DENY tier was relaxed. `filp_close` is cleanup-only for the
+> `struct file *` returned by the same path's `filp_open`.
+>
+> Live validation passed in
+> `workspace/private/runs/kernel/vfs-read-hardening-posture-bundle-20260701T102654Z/`.
+> Candidate flash matched the v1-repl SHA
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`.
+> Candidate health first attempt hit known serial input/END-marker
+> fragmentation; bridge restart + retry passed. REPL selftest passed. The
+> `hardening-posture` bundle then read all six paths successfully in one REPL
+> session. Each result was a short text decimal value; exact raw values,
+> runtime pointers, and KASLR slide are private-only. Post-proof candidate
+> health passed. Rollback to v2321 matched SHA
+> `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`;
+> final health retry passed with `selftest pass=11 warn=1 fail=0`, and final
+> bridge status was `connected-no-immediate-error`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/vfs-read-hardening-posture-bundle-20260701T102654Z/timeline.json`
+> at `2026-07-01T10:26:54Z`: rollback/fallback/recovery precondition `0.642s`,
+> baseline bridge status `0.320s`, baseline health `2.099s`, candidate flash
+> `64.571s`, candidate bridge restart `1.657s`, candidate health first attempt
+> marker/input fragmentation `10.151s`, candidate bridge restart `1.645s`,
+> candidate health retry `7.105s`, REPL selftest `5.893s`, live hardening
+> bundle `117.420s`, post-proof candidate health `1.455s`, rollback flash
+> `65.706s`, rollback bridge restart `0.885s`, rollback health first attempt
+> marker/input fragmentation `10.139s`, rollback bridge restart `1.637s`,
+> rollback health retry `8.089s`, and final bridge status `0.322s`.
+>
+> Bundle-map outcome: `hardening-posture` is now the preferred observation
+> surface for these `/proc/sys/kernel` state nodes. Do not add individual
+> call-proofs for the same state unless a future target has no file-node
+> equivalent or requires a genuinely new ABI shape. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_VFS_READ_HARDENING_POSTURE_BUNDLE_2026-07-01.md`.
+
 ## ✅ DONE — REPL kernel taint-state live-call proof batch — `get_taint()` + `test_taint()` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — same-shape kernel taint health/state getters

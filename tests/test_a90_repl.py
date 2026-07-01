@@ -6126,6 +6126,12 @@ class FaithfulFakeTransport:
             b"/init": self.kernel_read_payload,
             b"/proc/sys/fs/file-max": b"253189\n",
             b"/proc/cmdline": b"console=tty0 androidboot.serialno=REDACTED\n",
+            b"/proc/sys/kernel/kptr_restrict": b"2\n",
+            b"/proc/sys/kernel/dmesg_restrict": b"1\n",
+            b"/proc/sys/kernel/perf_event_paranoid": b"3\n",
+            b"/proc/sys/kernel/modules_disabled": b"0\n",
+            b"/proc/sys/kernel/randomize_va_space": b"2\n",
+            b"/proc/sys/kernel/unprivileged_bpf_disabled": b"1\n",
         }
         self.op_count = 0
 
@@ -16531,6 +16537,41 @@ class SelftestIntegrationTests(unittest.TestCase):
             b"253189\n".hex(),
         )
         self.assertEqual(fake.closed_files, [fake.file_ptr, fake.file_ptr])
+        self.assertEqual(fake.opened_files, set())
+
+    def test_vfs_read_hardening_posture_bundle_uses_named_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_vfs_read_bundle(
+            session,
+            symbols,
+            self.image,
+            "hardening-posture",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-vfs-read-hardening-posture-bundle-pass")
+        self.assertEqual(summary["bundle"], "hardening-posture")
+        self.assertEqual(summary["bundle_read_len"], 64)
+        self.assertEqual(tuple(summary["bundle_paths"]), repl.VFS_READ_BUNDLES["hardening-posture"]["paths"])
+        self.assertEqual(summary["path_count"], 6)
+        self.assertTrue(summary["read_data_redacted"])
+        self.assertNotIn("read_data_hex", summary["results"][0])
+        self.assertTrue(all(row["classification"]["looks_decimal"] for row in summary["results"]))
+        self.assertIn("/proc/sys/kernel/kptr_restrict", private["path_privates"])
+        self.assertEqual(
+            private["path_privates"]["/proc/sys/kernel/kptr_restrict"]["read_data_hex"],
+            b"2\n".hex(),
+        )
+        self.assertEqual(fake.closed_files, [fake.file_ptr] * 6)
         self.assertEqual(fake.opened_files, set())
 
     def test_poke_roundtrip_rejects_non_lowmem_alloc(self) -> None:
