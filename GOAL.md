@@ -227,6 +227,70 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > `get_otg_notify()` in the same proof. Report:
 > `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_GET_NOTIFY_DATA_2026-07-01.md`.
 
+## ✅ DONE — REPL USB/OTG host-capability live-call proof — `is_usb_host()` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — borrowed `struct otg_notify *` bool-state getter
+>
+> Codex selected `is_usb_host` from the adjacent USB notify state-observation
+> neighborhood after considering `get_booster`, `get_usb_mode`,
+> `get_cable_type`, `is_blocked`, and `get_hw_param` as a batch. The selected
+> target extends the USB notify function map beyond pointer getters: the proof
+> first uses `get_otg_notify()` as an input anchor, then passes that live
+> borrowed `struct otg_notify *` to `is_usb_host(struct otg_notify *n)` and
+> expects a bounded bool-int result.
+>
+> Static selection pinned `is_usb_host=0xffffff800901e344` via
+> `export-recovery` with one export candidate, map/export agreement, JOPP
+> entry, direct BL xrefs `1`, target-limited pre-call `x0` deref allowed only
+> under the borrowed-pointer contract, and next-symbol boundary
+> `set_otg_notify` at `+0xd0`. Prefix/tail word pins covered the JOPP entry,
+> early `n->u_notify` load from `[x0,#168]`, bool return path, epilogue, `ret`,
+> and final `0x00be7bad` guard. Source declaration was
+> `extern int is_usb_host(struct otg_notify *n)` from
+> `include/linux/usb_notify.h:169`; implementation in
+> `drivers/usb/notify/usb_notify.c` matched the non-owning host-capability
+> pattern.
+>
+> The input anchor remained `get_otg_notify=0xffffff800901d8d4`,
+> `export-recovery`, direct BL xrefs `41`, no-argument `SAFE-SCALAR`.
+>
+> The live proof obeyed the flash gate. A first helper attempt used the wrong
+> local marker `v1-repl` and failed before reboot/flash; the v1-repl image
+> intentionally preserves the `v2321-usb-clean-identity-rodata` native-init
+> identity string, so the corrected retry flashed the exact candidate
+> (`b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`)
+> through `native_init_flash.py` with matching pushed-image and readback SHA.
+> Candidate helper health plus explicit candidate `selftest` passed.
+>
+> The successful proof called `get_otg_notify()` once; it returned a non-NULL
+> borrowed kernel pointer. The proof then called `is_usb_host(otg_notify_ptr)`
+> twice. Both calls returned stable bool-int `0x1`. The borrowed input pointer
+> was not dereferenced by the host, freed, or retained. Raw runtime pointer
+> values and the KASLR slide stayed private/redacted.
+>
+> Post-proof candidate `selftest` passed with `selftest pass=11 warn=1
+> fail=0`. Rollback to v2321 completed with matching readback SHA. The first
+> final health bundle hit known serial marker-loss / AT echo noise after
+> rollback helper verification; a host-side bridge restart restored clean
+> framing, and final v2321 `version/status/selftest` retry passed with
+> `selftest fail=0`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-is-usb-host-20260701T065518Z/timeline.json`
+> at `2026-07-01T06:59:40Z`: local marker preflight failure before flash
+> `0.084s`, candidate flash retry helper `63.770s`, candidate explicit
+> selftest `0.201s`, live proof `13.572s`, post-proof candidate selftest
+> `0.457s`, rollback flash helper `64.191s`, final health marker-loss attempt
+> `10.302s`, final bridge restart `2.153s`, and final v2321 health retry
+> `1.388s`. The helper total rows are not additive; all serial bridge commands
+> in this unit were sequential.
+>
+> Function-map outcome: `is_usb_host` is promoted as live-proven only under the
+> borrowed `struct otg_notify *` input contract sourced from `get_otg_notify()`
+> in the same proof, with return constrained to stable bool-int `0` or `1`.
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_IS_USB_HOST_2026-07-01.md`.
+
 ## ✅ DONE — REPL current fs-state live-call proof — `current_umask()` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg current-task umask getter

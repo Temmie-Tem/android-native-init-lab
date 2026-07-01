@@ -431,6 +431,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "borrowed-kernel-pointer-or-null",
         "reason": "USB OTG notify data lookup; x0 must be a non-NULL borrowed struct otg_notify pointer returned by get_otg_notify in the same proof, and any non-NULL return is borrowed",
     },
+    "is_usb_host": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "borrowed-otg-notify-pointer-from-get_otg_notify"},
+        "return_kind": "bool-int",
+        "reason": "USB OTG host-capability state lookup; x0 must be a non-NULL borrowed struct otg_notify pointer returned by get_otg_notify in the same proof, and the return is limited to bool-int 0/1",
+    },
     "get_intermediate_timeout": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -3805,6 +3811,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "get_current_napi_context": ("include/linux/netdevice.h",),
     "get_otg_notify": ("include/linux/usb_notify.h", "drivers/usb/notify/usb_notify.c"),
     "get_notify_data": ("include/linux/usb_notify.h", "drivers/usb/notify/usb_notify.c"),
+    "is_usb_host": ("include/linux/usb_notify.h", "drivers/usb/notify/usb_notify.c"),
     "get_intermediate_timeout": ("include/net/ncm.h",),
     "__task_pid_nr_ns": ("include/linux/sched.h",),
     "sched_get_group_id": ("include/linux/sched.h",),
@@ -5631,6 +5638,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern void * get_notify_data(struct otg_notify *n)",
     },
+    "is_usb_host": {
+        "input_contract": "x0 is a non-NULL borrowed struct otg_notify * returned by get_otg_notify() in the same proof; target reads n->u_notify and n->unsupport_host only, does not take ownership, and is valid only while the notify core remains present",
+        "return_contract": "int host-capability bool value is stable across repeated proof calls and must be exactly 0 or 1",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern int is_usb_host(struct otg_notify *n)",
+    },
     "get_intermediate_timeout": {
         "input_contract": "no arguments; NCM intermediate-timeout global state is read-only and no returned pointer is dereferenced or freed",
         "return_contract": "unsigned int timeout value is stable across repeated proof calls and in 0..0xffffffff",
@@ -6941,6 +6954,16 @@ GET_NOTIFY_DATA_EXPECTED_WORDS = (
 )
 GET_NOTIFY_DATA_NEXT_SYMBOL = ("set_notify_data", 0x10)
 GET_NOTIFY_DATA_REPEAT_COUNT = 2
+IS_USB_HOST_EXPECTED_PREFIX_WORDS = (
+    0xCA1103D0, 0xA9BE43FD, 0xA9014FF4, 0x910003FD,
+    0xF9405408, 0xB40001E8, 0xD0011654, 0xAA0003F3,
+)
+IS_USB_HOST_RETURN_TAIL_WORDS = (
+    0x2A1F03F3, 0x2A1303E0, 0xA9414FF4, 0xA8C243FD,
+    0xCA11021E, 0xD65F03C0, 0x00BE7BAD,
+)
+IS_USB_HOST_NEXT_SYMBOL = ("set_otg_notify", 0xD0)
+IS_USB_HOST_REPEAT_COUNT = 2
 TASK_PID_NR_NS_PIDTYPE_PID = 0
 TASK_PID_NR_NS_EXPECTED_INIT_TASK_PID = 0
 TASK_PID_NR_NS_REPEAT_COUNT = 2
@@ -23848,6 +23871,251 @@ def _run_call_proof_get_notify_data(
     return summary, private
 
 
+def _run_call_proof_is_usb_host(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "is_usb_host"
+    anchor = "get_otg_notify"
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        ("@borrowed_otg_notify_ptr",),
+    )
+    anchor_call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        anchor,
+        (),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected vetted pointer tier")
+    if anchor_call_safety.get("tier") != CALL_PROOF_TARGETS[anchor]["expected_tier"]:
+        raise ReplError(f"{anchor} call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError(f"{target} source signature must declare x0 as the struct otg_notify pointer")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the exported declaration")
+
+    impl_path = source_root / "drivers/usb/notify/usb_notify.c"
+    try:
+        impl_text = impl_path.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        raise ReplError(f"{target} source implementation is not readable: {impl_path}") from exc
+    impl_normalized = " ".join(impl_text.split())
+    expected_impl = (
+        "int is_usb_host(struct otg_notify *n) { struct usb_notify *u_notify = "
+        "(struct usb_notify *)(n->u_notify); int ret = 0; int noti_ret = 0; "
+        "if (!u_notify) { pr_err(\"%s u_notify structure is null\\n\", __func__); "
+        "return NOTIFY_EVENT_NONE; } if (!u_notify_core) { noti_ret = "
+        "create_usb_notify(); if (noti_ret) { pr_err(\"unable create_usb_notify\\n\"); "
+        "return NOTIFY_EVENT_NONE; } } if (n->unsupport_host || "
+        "!IS_ENABLED(CONFIG_USB_HOST_NOTIFY)) ret = 0; else ret = 1; "
+        "pr_info(\"%s %d\\n\", __func__, ret); return ret; }"
+    )
+    if expected_impl not in impl_normalized:
+        raise ReplError(f"{target} implementation is not the expected USB host bool getter")
+
+    resolutions = {
+        target: resolve_verified(symbols, image, target, purpose="call", allow_pre_arg_deref=True),
+        anchor: resolve_verified(symbols, image, anchor, purpose="call"),
+    }
+    target_link = require_verified_resolution(resolutions[target], "call-proof target")
+    anchor_link = require_verified_resolution(resolutions[anchor], "call-proof input anchor")
+    next_symbol_name, expected_boundary = IS_USB_HOST_NEXT_SYMBOL
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    prefix_words = image.u32_words_at_vaddr(target_link, len(IS_USB_HOST_EXPECTED_PREFIX_WORDS))
+    tail_start = target_link + expected_boundary - len(IS_USB_HOST_RETURN_TAIL_WORDS) * 4
+    tail_words = image.u32_words_at_vaddr(tail_start, len(IS_USB_HOST_RETURN_TAIL_WORDS))
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-anchor-c1-identity",
+            "ok": True,
+            "anchor": anchor,
+            "resolution_method": resolutions[anchor].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-source-implementation",
+            "ok": True,
+            "path": "drivers/usb/notify/usb_notify.c",
+            "body": "borrowed n->u_notify and n->unsupport_host read, bool return, no ownership transfer",
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for index, expected in enumerate(IS_USB_HOST_EXPECTED_PREFIX_WORDS):
+        observed = prefix_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-prefix-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} prefix word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+    for index, expected in enumerate(IS_USB_HOST_RETURN_TAIL_WORDS):
+        observed = tail_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-tail-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} tail word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    otg_ptr = 0
+    returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        anchor_runtime = (anchor_link + slide) & MASK64
+        target_runtime = (target_link + slide) & MASK64
+        otg_ptr = session.call_runtime(anchor_runtime, ()) & MASK64
+        otg_ptr_ok = is_kernel_canonical_pointer(otg_ptr)
+        checks.append({
+            "check": "get-otg-notify-input-pointer",
+            "ok": otg_ptr_ok,
+            "observed_return_value": "redacted-borrowed-pointer" if otg_ptr else "0x0",
+            "returned_null": otg_ptr == 0,
+            "kernel_pointer": otg_ptr_ok,
+        })
+        if not otg_ptr_ok:
+            raise ReplError(
+                f"{anchor}() did not return the non-NULL borrowed kernel pointer required "
+                f"for {target}: 0x{otg_ptr:x}"
+            )
+        for index in range(IS_USB_HOST_REPEAT_COUNT):
+            observed = session.call_runtime(target_runtime, (otg_ptr,)) & MASK64
+            returns.append(observed)
+            bool_int = observed in (0, 1)
+            stable = index == 0 or observed == returns[0]
+            ok = bool_int and stable
+            case_results.append({
+                "case": f"usb-host-bool-{index + 1}",
+                "expected_return": "stable-bool-int-0-or-1",
+                "observed_return_value": f"0x{observed:x}",
+                "bool_int": bool_int,
+                "matches_first_call": stable,
+                "ok": ok,
+            })
+            if not bool_int:
+                raise ReplError(f"{target}() returned non-bool value: 0x{observed:x}")
+            if not stable:
+                raise ReplError(
+                    f"{target}() returned a different bool across proof calls: "
+                    f"first=0x{returns[0]:x}, call{index + 1}=0x{observed:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "is-usb-host-bool-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = f"0x{returns[0]:x}" if returns else "missing"
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-usb-otg-notify-host-bool-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "observed_return_value": observed_public,
+        "all_returns_stable": bool(returns) and all(value == returns[0] for value in returns),
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "source_implementation_evidence": {
+            "path": "drivers/usb/notify/usb_notify.c",
+            "body": "read-only USB host-capability bool getter under live notify-core contract",
+        },
+        "input_anchor": {
+            "symbol": anchor,
+            "observed_return_value": "redacted-borrowed-pointer",
+            "kernel_pointer": True,
+        },
+        "call_safety": call_safety,
+        "anchor_call_safety": anchor_call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "borrowed_pointer_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": f"repeated calls returned stable bool-int {observed_public}",
+            "cleanup": "n/a-borrowed-pointer-not-owned",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{anchor}_runtime": f"0x{((anchor_link + slide) & MASK64):x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "otg_notify_ptr": f"0x{otg_ptr:x}",
+        "case_returns": {
+            case["case"]: f"0x{returns[index]:x}"
+            for index, case in enumerate(case_results)
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_get_intermediate_timeout(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -36628,6 +36896,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "get_notify_data":
         return _run_call_proof_get_notify_data(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "is_usb_host":
+        return _run_call_proof_is_usb_host(
             session,
             symbols,
             image,
