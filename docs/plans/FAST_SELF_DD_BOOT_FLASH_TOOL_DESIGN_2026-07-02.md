@@ -394,3 +394,22 @@ operator-gated**; do not advance past any anomaly:
 | readback open/read fails, or region SHA mismatch, or **full-partition SHA changed** | cross-LBA / FTL-metadata change | **UNKNOWN/STOP**; recover; do not advance |
 | oops in dmesg (no reboot) | RKP traps the write | **STOP the ladder**; analyze; keep TWRP; do not advance even if readback matched |
 | panic / hang / reboot | fatal reaction; boot bytes possibly torn | **STOP**; verify next-boot `selftest`, recover via TWRP/Odin if needed; §0.2 = hostile |
+
+### 11.7 Live results
+
+- **E-open (V3347, init 0.11.111, live 2026-07-02): `open_wronly=ok`.** The token-gated
+  `boot-write-open-probe BOOT-WRITE-OPEN-PROBE-E-OPEN` resolved the boot partition from sysfs
+  `PARTNAME=boot`, materialized `/dev/block/sda24`, and **`open(O_WRONLY)` SUCCEEDED** — `is_block=1`,
+  `partname=boot`, `size_bytes=67108864`, `identity_confirmed=1`, `no_write_performed=1`, `cleaned=1`,
+  `rc=0`. No `write()`/`pwrite()` was compiled in or called. **This refutes the "RKP forces the boot
+  block read-only at open" outcome**: a writable open from normal-boot PID1 is *permitted*. The
+  remaining half of §0.2 — whether an actual `pwrite` is permitted vs refused vs faults — is E1
+  (tail-slack identity write), still gated and unbuilt. Rolled back to v2321 with `selftest fail=0`.
+- **rdev is NOT stable across boots (design correction).** The V3346 auditor saw `sda24` as rdev
+  `259:8`; the V3347 E-open probe saw the same `sda24`/`PARTNAME=boot`/64 MiB as rdev **`259:24`**.
+  Major 259 is the extended-block major, whose **minor is dynamically allocated per boot**. The
+  stable cross-boot anchors are **`PARTNAME=boot` + size (+ canonical name `sda24`)**; the rdev minor
+  is a **within-session** value only. Consequence: the auditor-confirmed pin's `rdev` is valid for
+  the *current boot session* (open↔write TOCTOU consistency, §2) and **must be re-derived each boot** —
+  never persisted/cached across a reboot. The host wrapper's `proposed_pin` is therefore a
+  per-session artifact; the write path must run the auditor in the same boot it writes.

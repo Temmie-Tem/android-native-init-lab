@@ -254,6 +254,10 @@ static bool command_allowed_during_menu_ex(const char *name, int argc, char **ar
         /* read-only auditor: no-arg (default boot target) or one optional read-only target path */
         return argc <= 2;
     }
+    if (strcmp(name, "boot-write-open-probe") == 0) {
+        /* §0.2 E-open rung: exactly one arg (the approval token); no write is performed */
+        return argc == 2;
+    }
     if (strcmp(name, "diag") == 0 ||
         strcmp(name, "wifiinv") == 0) {
         return subcmd_absent_or_one_of(argc, argv, diag_safe, sizeof(diag_safe) / sizeof(diag_safe[0]));

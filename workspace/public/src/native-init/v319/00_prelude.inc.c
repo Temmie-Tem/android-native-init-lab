@@ -51,6 +51,7 @@
 #include "../a90_input_cmd.h"
 #include "../a90_kernelinv.h"
 #include "../a90_boot_audit.h"
+#include "../a90_boot_write_probe.h"
 #include "../a90_kms.h"
 #include "../a90_longsoak.h"
 #include "../a90_log.h"

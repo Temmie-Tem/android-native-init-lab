@@ -892,6 +892,10 @@ static int handle_boot_audit(char **argv, int argc) {
     return a90_boot_audit_cmd(argv, argc);
 }
 
+static int handle_boot_write_open_probe(char **argv, int argc) {
+    return a90_boot_write_open_probe_cmd(argv, argc);
+}
+
 static int handle_sensormap(char **argv, int argc) {
     return a90_sensormap_cmd(argv, argc);
 }
@@ -19560,6 +19564,7 @@ static const struct shell_command command_table[] = {
     { "usb", handle_usb, "usb [status|mass-storage add|mass-storage expose|mass-storage remove]", CMD_NONE, A90_CMD_GROUP_SERVICE },
     { "kernelinv", handle_kernelinv, "kernelinv [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "boot-audit", handle_boot_audit, "boot-audit [target-path]", CMD_NONE, A90_CMD_GROUP_CORE },
+    { "boot-write-open-probe", handle_boot_write_open_probe, "boot-write-open-probe <token>", CMD_NONE, A90_CMD_GROUP_CORE },
     { "sensormap", handle_sensormap, "sensormap [summary|thermal|power|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "pstore", handle_pstore, "pstore [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "watchdoginv", handle_watchdoginv, "watchdoginv [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
