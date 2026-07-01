@@ -96,6 +96,57 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL boot-time result-slot live-call proof — `getboottime64(struct timespec64 *ts)` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — owned boot-time `timespec64` result slot
+>
+> Codex selected `getboottime64` as the next timekeeping result-slot proof after
+> `getnstimeofday64`: instead of realtime wall-clock time, this target writes boot
+> wall-clock state. The trusted contract is narrow: x0 must be an owned `kmalloc`
+> result slot for `struct timespec64` plus trailing canary, each call is bracketed
+> by same-session `ktime_get_real_seconds()` and `ktime_get_seconds()` anchors, and
+> the slot is freed with `kfree`.
+>
+> Static selection pinned `getboottime64=0xffffff800816181c` via `export-recovery`
+> with map agreement, source declaration `extern void getboottime64(struct timespec64 *ts)`
+> at `include/linux/timekeeping.h:49`, direct BL xrefs `3`, no pre-call x0 deref rows,
+> result-slot access accepted only under `SAFE-WITH-VALID-PTR`, and next-symbol
+> boundary `get_seconds` at `+0x40`. The static word checks pinned the full 16-word
+> body through the guard, including `ns_to_timespec` and final `stp x0, x1, [x19]`.
+> Anchors `ktime_get_real_seconds=0xffffff800815f694` and
+> `ktime_get_seconds=0xffffff800815f66c` stayed previously proven `SAFE-SCALAR`.
+>
+> The live proof obeyed the flash gate: candidate/rollback/fallback SHA values and
+> TWRP were confirmed; baseline v2321 `version/status/selftest` passed; the v1-repl
+> candidate (`b846ae9f...`) flashed with matching readback SHA; candidate health
+> passed; and `getboottime64()` passed. Read 1 used realtime anchors
+> `0x5a524417..0x5a52441b` and monotonic anchors `0x6c..0x70`, wrote
+> `tv_sec=0x5a5243ab`, `tv_nsec=0x0ec384f8`, and matched boot anchor range
+> `0x5a5243a4..0x5a5243b2`. Read 2 used realtime anchors
+> `0x5a52441e..0x5a524423` and monotonic anchors `0x74..0x77`, wrote the same
+> `tv_sec/tv_nsec`, and matched the same boot anchor range. Both reads had valid
+> nsec range, stable repeated total nsec, changed result-slot bytes, preserved
+> canary, and successful `kfree` cleanup. Raw runtime pointers and the slide stayed
+> private/redacted.
+>
+> Post-proof `status/selftest` stayed `fail=0`. Rollback to v2321 completed with
+> matching readback SHA. Final resident `version/selftest` passed after one `hide`
+> serial resync retry, with `selftest pass=11 warn=1 fail=0` and `version`
+> confirming `v2321-usb-clean-identity-rodata`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-getboottime64-20260701T042618Z/timeline.json`:
+> candidate flash helper `63s`, candidate flash start to boot ready `70s`, live
+> proof `21s`, post-proof health `1s`, rollback flash helper `64s`, rollback flash
+> start to boot ready `64s`, final health total `23s`, final health retry `1`, and
+> candidate start to final health done `285s`.
+>
+> Function-map outcome: `getboottime64` is promoted as live-proven only under the
+> owned-boot-time-`timespec64` result-slot contract, with
+> `ktime_get_real_seconds() - ktime_get_seconds()` used as same-session anchor and
+> `kfree` cleanup required. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_GETBOOTTIME64_2026-07-01.md`.
+
 ## ✅ DONE — REPL realtime result-slot live-call proof — `getnstimeofday64(struct timespec64 *tv)` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — owned realtime `timespec64` result slot

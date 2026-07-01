@@ -2107,6 +2107,23 @@ class CallSafetyClassificationTests(unittest.TestCase):
             [f"0x{word:08x}" for word in repl.GETNSTIMEOFDAY64_EXPECTED_PREFIX_WORDS],
         )
 
+        getboottime64 = self._row("getboottime64")
+        self.assertEqual(getboottime64["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            getboottime64["required_valid_pointer_args"],
+            {"0": "owned-timespec64-result-slot"},
+        )
+        self.assertTrue(getboottime64["resolution"]["verified"])
+        self.assertEqual(getboottime64["resolution"]["method"], "export-recovery")
+        self.assertEqual(getboottime64["resolution"]["link_vaddr"], "0xffffff800816181c")
+        self.assertEqual(getboottime64["signals"]["direct_bl_xref_count"], 3)
+        self.assertFalse(getboottime64["signals"]["leaf"])
+        self.assertEqual(getboottime64["signals"]["arg_pointer_derefs_before_first_bl_or_ret"], [])
+        self.assertEqual(
+            getboottime64["signals"]["first_words"][:12],
+            [f"0x{word:08x}" for word in repl.GETBOOTTIME64_EXPECTED_WORDS[:12]],
+        )
+
         get_avenrun = self._row("get_avenrun")
         self.assertEqual(get_avenrun["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -3559,6 +3576,16 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertEqual(getnstimeofday64["selected"]["line"], 48)
         self.assertTrue(getnstimeofday64["selected"]["path"].endswith("include/linux/timekeeping.h"))
 
+        getboottime64 = repl.lookup_source_signature("getboottime64", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(getboottime64["status"], "found", getboottime64)
+        self.assertEqual(getboottime64["selected"]["pointer_arg_indices"], [0])
+        self.assertEqual(
+            getboottime64["selected"]["signature"],
+            "extern void getboottime64(struct timespec64 *ts)",
+        )
+        self.assertEqual(getboottime64["selected"]["line"], 49)
+        self.assertTrue(getboottime64["selected"]["path"].endswith("include/linux/timekeeping.h"))
+
         get_avenrun = repl.lookup_source_signature("get_avenrun", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(get_avenrun["status"], "found", get_avenrun)
         self.assertEqual(get_avenrun["selected"]["pointer_arg_indices"], [0])
@@ -4625,6 +4652,13 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.getboottime64_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "getboottime64",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.get_avenrun_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -4736,6 +4770,8 @@ class FaithfulFakeTransport:
         self.ktime_get_ts64_index = 0
         self.getnstimeofday64_values = [(0x69000000, 0x01020304), (0x69000001, 0x02030405)]
         self.getnstimeofday64_index = 0
+        self.getboottime64_values = [(0x68FFFCBB, 0x01020304), (0x68FFFCBB, 0x01020305)]
+        self.getboottime64_index = 0
         self.get_avenrun_values = (0x20, 0x10, 0x8)
         self.scheduler_counter_values = {
             "nr_processes": [0x72, 0x73],
@@ -5528,6 +5564,8 @@ class FaithfulFakeTransport:
             ktime_get_ts64 = self.ktime_get_ts64_link + self.slide
             assert self.getnstimeofday64_link is not None
             getnstimeofday64 = self.getnstimeofday64_link + self.slide
+            assert self.getboottime64_link is not None
+            getboottime64 = self.getboottime64_link + self.slide
             assert self.get_avenrun_link is not None
             get_avenrun = self.get_avenrun_link + self.slide
             assert self.nr_processes_link is not None
@@ -6346,6 +6384,18 @@ class FaithfulFakeTransport:
                     min(self.getnstimeofday64_index, len(self.getnstimeofday64_values) - 1)
                 ]
                 self.getnstimeofday64_index += 1
+                data = tv_sec.to_bytes(8, "little") + tv_nsec.to_bytes(8, "little")
+                self._set_heap_bytes(arg1, data)
+                lines.append("A90R0")
+            elif arg0 == getboottime64:
+                if (arg2, arg3, arg4) != (0, 0, 0):
+                    raise AssertionError("getboottime64 proof must pass one result-slot pointer argument")
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"getboottime64 result slot is not an allocated pointer: {arg1:#x}")
+                tv_sec, tv_nsec = self.getboottime64_values[
+                    min(self.getboottime64_index, len(self.getboottime64_values) - 1)
+                ]
+                self.getboottime64_index += 1
                 data = tv_sec.to_bytes(8, "little") + tv_nsec.to_bytes(8, "little")
                 self._set_heap_bytes(arg1, data)
                 lines.append("A90R0")
@@ -8708,6 +8758,65 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertTrue(cases["getnstimeofday64-read-1"]["tv_sec_in_anchor_range"])
         self.assertEqual(cases["getnstimeofday64-read-2"]["tv_nsec"], "0x2030405")
         self.assertTrue(cases["getnstimeofday64-read-2"]["nondecreasing"])
+        self.assertIn(fake.heap_ptr, fake.freed)
+
+    def test_call_proof_getboottime64_passes_with_owned_boottime_timespec64_slot(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "getboottime64",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-getboottime64-pass")
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-owned-boottime-timespec64-result-slot-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "getboottime64")
+        self.assertEqual(
+            summary["function_map_entry"]["auto_call_policy"],
+            "one-target-proof-only-not-mass-call",
+        )
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern void getboottime64(struct timespec64 *ts)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [0])
+        self.assertEqual(summary["call_safety"]["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(summary["realtime_anchor_call_safety"]["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(summary["monotonic_anchor_call_safety"]["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(
+            summary["call_safety"]["required_valid_pointer_args"],
+            {"0": "owned-timespec64-result-slot"},
+        )
+        self.assertEqual(summary["observed_tv_sec"], "0x68fffcbb")
+        self.assertEqual(summary["observed_tv_nsec"], "0x1020304")
+        self.assertTrue(summary["all_readings_in_contract"])
+        self.assertTrue(summary["canary_preserved"])
+        self.assertTrue(summary["cleanup_ok"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertNotIn("getboottime64_runtime", summary)
+        self.assertIn("getboottime64_runtime", private)
+        self.assertEqual(private["canary_after_hex"], repl.GETBOOTTIME64_CANARY_BYTES.hex())
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertEqual(cases["getboottime64-read-1"]["tv_sec"], "0x68fffcbb")
+        self.assertTrue(cases["getboottime64-read-1"]["tv_sec_in_boot_anchor_range"])
+        self.assertEqual(cases["getboottime64-read-2"]["tv_nsec"], "0x1020305")
+        self.assertTrue(cases["getboottime64-read-2"]["stable_short_delta"])
         self.assertIn(fake.heap_ptr, fake.freed)
 
     def test_call_proof_get_avenrun_passes_with_owned_loadavg_slot(self) -> None:
