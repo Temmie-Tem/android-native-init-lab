@@ -96,6 +96,55 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL current fs-state live-call proof — `current_umask()` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg current-task umask getter
+>
+> Codex selected `current_umask` as a current-task fs-state observation target,
+> distinct from the global VFS counters proven in previous units. It extends
+> the function map with a read-only getter for the calling task's `fs->umask`:
+> `extern int current_umask(void)` from `include/linux/fs.h:2257`.
+>
+> Static selection pinned `current_umask=0xffffff80082d3a24` via
+> `export-recovery` with map agreement, a single export candidate, direct BL
+> xrefs `14`, JOPP entry, and a leaf body. The C1 gate classifies it as
+> `SAFE-SCALAR`; source/ABI contract is no pointer args. The next-symbol
+> boundary is `vfs_statfs` at `+0x18`; the static words pinned `mrs current`,
+> `load fs`, `load umask`, `ret`, padding, and the final `0x00be7bad`
+> boundary guard.
+>
+> The live proof obeyed the flash gate: rollback/fallback/TWRP artifacts were
+> confirmed, baseline v2321 `version/status/selftest` passed, the exact
+> v1-repl candidate (`b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`)
+> flashed through `native_init_flash.py` with matching pushed-image and
+> readback SHA, and candidate helper health passed. The first explicit
+> candidate health attempt hit serial capture noise after valid `hide/version`
+> content; the sequential retry passed `hide/version/status/selftest`.
+>
+> Two no-argument live calls returned `0x12` and `0x12`, within permission-bit
+> range `0..0777` and stable across the short repeat. Raw runtime pointers and
+> the slide stayed private/redacted.
+>
+> Post-proof `hide/status/selftest` passed with `selftest pass=11 warn=1
+> fail=0` and `pstore entries=0`. Rollback to v2321 completed with matching
+> readback SHA. Final explicit health first hit serial capture noise after the
+> rollback helper verification; a later sequential `hide/version/status/selftest`
+> retry passed and confirmed resident `v2321-usb-clean-identity-rodata`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-current-umask-20260701T055733Z/timeline.json`:
+> candidate flash helper `64.553s`, candidate flash start to boot ready `65s`,
+> candidate explicit health initial `12.990s`, candidate explicit health retry
+> `6.720s`, live proof `5.658s`, post-proof health `1.220s`, rollback flash
+> helper `64.686s`, rollback flash start to boot ready `65s`, final health
+> initial `16.308s`, final health retry `6.678s`, and candidate start to final
+> health done approximately `218s`. The helper/start-to-boot rows are not
+> additive; all serial bridge commands in this unit were sequential.
+>
+> Function-map outcome: `current_umask` is promoted as live-proven only under
+> the no-argument current-fs read-only umask contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_CURRENT_UMASK_2026-07-01.md`.
+
 ## ✅ DONE — REPL VFS dirty-inode live-call proof — `get_nr_dirty_inodes()` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg VFS inode-state getter
