@@ -461,5 +461,22 @@ Built + adversarially reviewed **before** any build/flash/run; Codex returned NO
 Control flow (verified): the single `pwrite` is reachable only after token, single-match sysfs boot
 resolution, `rfd` identity, header parse (fail-closed), target-in-tail-slack bound, `slack_zero==1`,
 before-SHA, and `wfd` identity; it writes exactly the bytes it read; `result=ok` is emitted only when
-no `stop` was set. **Not yet built into an image or run** — the next step is a v3348 build, an
-operator recovery drill, `hide`, and the token-gated live E1, then rollback to v2321.
+no `stop` was set. V3348/V3349 subsequently built and ran this rung live; V3348 proved the non-zero
+slack refusal path, and V3349 proved the first successful tail-slack identity `pwrite` with unchanged
+full-partition SHA (§11.7).
+
+### 11.9 E2 implementation (source-built 2026-07-02 — pre-live)
+
+V3350 (`0.11.114`, `v3350-boot-write-e2-multi`) prepares the next gated rung after E1's live
+`§0.2 = ALLOWED` result. `boot-write-e2 BOOT-WRITE-PROBE-E2-MULTI-TAILSLACK` reuses the same guarded
+identity-write path but selects **four** spread 4096B targets in confirmed-zero tail slack (one from
+each quarter of `[roundup(used_len), size - 1 MiB)`). Each target is read first and must be all-zero;
+the command writes only those same bytes back to the same offsets, fsyncs once, verifies every target
+with O_DIRECT readback, and compares O_DIRECT full-partition SHA before/after. The command is
+`CMD_DANGEROUS`, is not allowed during the auto-menu, and requires explicit `hide`/menu-settle before
+dispatch.
+
+Source build PASS report:
+`docs/reports/NATIVE_INIT_V3350_BOOT_WRITE_E2_MULTI_SOURCE_BUILD_2026-07-02.md`. No live E2 write is
+claimed here; live validation still requires the recovery drill, checked-helper flash, post-flash
+`selftest fail=0`, E2 token run, and rollback to v2321 with `selftest fail=0`.
