@@ -129,6 +129,60 @@ Prior art (mechanism is established, not novel): Magisk's on-device boot patchin
 backup). This corroborates the review's "normally feasible, Magisk-class" assessment — the residual
 risk is the platform-specific RKP reaction (§0.2), not the dd mechanism itself.
 
+### 4a. TWRP reference — proven-in-the-wild flash sequence (host-RE 2026-07-02)
+
+We cross-checked our design against how TWRP actually flashes `boot` on **this** device (local
+teardown `tmp/twrp-unpack/`; source: TeamWin `android_bootable_recovery` `partition.cpp`
+`Raw_Read_Write`). Odin is **not** an imitation target — it hands the image to the *bootloader* over
+the download-mode protocol (pre-kernel, no RKP), which PID1 cannot drive; Odin's only role for us is
+the recovery net of last resort. The working assumption is that a corrupt `boot` stays recoverable
+by an Odin/download-mode reflash of a `boot`-only `.tar` (bootloader intact) — but that is the
+*standard* Samsung-flashing assumption, **not independently verified in this repo**: it holds only
+if anti-rollback fuses, RPMB state, and the vbmeta/AVB chain do not refuse the reflashed `boot`.
+Treat it as "conditionally recoverable," and confirm with a Samsung/Odin primary source before
+relying on it as a hard guarantee (TODO). This is the §1/§5 residual assumption, now explicitly
+conditional.
+
+TWRP *is* the right reference — it does a userspace block-write of `boot`, the same layer as us:
+- **Partition resolution (A90 `twrp.flags`):** `/boot  emmc  /dev/block/bootdevice/by-name/boot
+  flags=backup=1;flashimg=1`. `bootdevice` is symlinked from `ro.boot.bootdevice` (kernel cmdline)
+  and TWRP's own ueventd builds `by-name/*` **from the GPT partition labels** (uevent `PARTNAME`).
+  → This *confirms* our live finding: the authoritative source is the GPT `PARTNAME=boot`, and our
+  sysfs `PARTNAME=boot` resolution (§0.1) reads the **same ground truth** TWRP's ueventd does, minus
+  the convenience symlink native-init never creates. **Equivalence caveat:** the by-name symlink and
+  our sysfs read are only equivalent once both resolve to the *identical* `st_rdev` + sysfs
+  `PARTNAME` + size — ueventd derives the link name purely from `PARTNAME`, so a **duplicate label**
+  could leave a `by-name/boot` symlink pointing at the wrong node. Our guard therefore must not trust
+  the name alone: it pins the exact `rdev` (259:8) + `PARTNAME=boot` + `size==64MiB` together (§2),
+  which is precisely what defends against a duplicate-label alias. `flashimg=1`/fstype `emmc` = raw
+  image write path.
+- **Write sequence (`Raw_Read_Write`, verbatim, `partition.cpp` android-12.1 L2800-2882 /
+  android-9.0 L2735-2814):** dest `open(O_WRONLY | O_CREAT | O_TRUNC | O_LARGEFILE)` (on a block node
+  `O_CREAT`/`O_TRUNC` are no-ops), **1 MiB chunks** read/write loop, a single **`fsync(dest_fd)` at
+  the end**, then close. We adopt exactly this (§4: O_WRONLY, 1 MiB chunks, final fsync).
+- **Size preflight — clarified (per review):** `Raw_Read_Write` itself has **no internal size
+  bound** (it copies until the source EOF). But the *entry point* for a direct flash,
+  `TWPartition::Flash_Image`, **does** reject `image_size > Size` before dispatching to the raw write
+  (android-12.1 L3299-3333) — so TWRP is not size-blind at the flash level. The "erase first 2 KB"
+  trick is **`Flash_Image_FI` / `BM_FLASH_UTILS` (MTD/BML) only**, *not* the `emmc` / `BM_DD` path,
+  so it does **not** apply to A90 `/boot`. Our pin is *stricter still*: exact `size == 64 MiB`
+  equality, not TWRP's `image <= partition` inequality.
+- **Where we deliberately EXCEED TWRP (keep these):** TWRP's `BM_DD` path has **no read-back
+  verification** and **no target-identity guard** (it trusts the fstab/by-name mapping). Our design
+  adds both — the O_DIRECT cache-bypassed readback SHA (§4) and the single-fd rdev/PARTNAME/size
+  guard (§2) — plus the anti-mixup SHA (§3) and exact-size pin above. Imitating TWRP validates the
+  *mechanism*; our extra checks are the safety margin TWRP lacks. (`Flash_Image` for `BM_DD` also
+  does no AVB/vbmeta handling — vbmeta is a separate flashable entry — so there is no boot-side AVB
+  step for us to inherit or drop.)
+- **Caveat imitation cannot remove:** TWRP runs its **own recovery kernel**, so its successful
+  `boot` write does **not** prove RKP-under-normal-boot allows a PID1 partition write (§0.2). That
+  remains the one unproven risk, answerable only by the gated v2321-over-v2321 experiment (§7.4) — a
+  different kernel's success is not evidence here.
+
+Sources: [TeamWin android_bootable_recovery partition.cpp](https://github.com/TeamWin/android_bootable_recovery/blob/android-12.1/partition.cpp),
+device `twrp.flags` (`tmp/twrp-unpack/rd/system/etc/twrp.flags`),
+[TWRP teardown reference](../reports/TWRP_RECOVERY_TEARDOWN_DEVICE_REFERENCE_2026-06-13.md).
+
 ## 5. Rollback-safety ordering (the most safety-critical path)
 
 Rollback to v2321 is where a self-brick would strand the device (no native-init to retry after a bad
