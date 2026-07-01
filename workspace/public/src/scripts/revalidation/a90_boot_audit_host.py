@@ -133,6 +133,9 @@ def pin_allowed(parsed: dict, evaluate_ok: bool) -> tuple[bool, str]:
     """Decide whether a write-authorizing pin may be proposed from this audit. Fail-closed."""
     if parsed.get("authoritative") != "1":
         return False, "non-authoritative target (only the default boot device may propose a pin)"
+    # Belt check: the device downgrades authoritative on an rdev mismatch, but refuse explicitly too.
+    if parsed.get("rdev_mismatch") == "1":
+        return False, "rdev mismatch against the sysfs-resolved boot node"
     if parsed.get("_end_rc") != 0:
         return False, f"audit end rc != 0 (rc={parsed.get('_end_rc')})"
     if not str(parsed.get("read", "")).startswith("ok"):
@@ -169,6 +172,13 @@ def assess(text: str) -> dict:
     return report
 
 
+def json_default(o):
+    """json.dumps default: BootTargetPin.forbidden_rdevs is a frozenset — serialize sets as lists."""
+    if isinstance(o, (set, frozenset)):
+        return sorted(o)
+    raise TypeError(f"Object of type {o.__class__.__name__} is not JSON serializable")
+
+
 def _run_live(args) -> str:
     """Send `boot-audit` over the serial bridge and return raw output."""
     from a90ctl import run_cmdv1_command  # local import; live-only. Defined in a90ctl, not a90_transport.
@@ -196,7 +206,7 @@ def main() -> int:
 
     import json
     report = assess(text)
-    print(json.dumps(report, indent=2))
+    print(json.dumps(report, indent=2, default=json_default))
     return 0 if report.get("ok") else 1
 
 

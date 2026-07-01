@@ -41,10 +41,17 @@ to answer them cheaply, before any write path is built:
      (kernel 4.14 does not expose diskseq — the pin enforces rdev+canonical, not diskseq).
    - **Design consequence for the write path:** the auditor/writer must resolve the authoritative boot
      node from **sysfs `PARTNAME=boot`** (not the absent by-name symlink) and materialize it via
-     `mknodb 259:8` before open. The current auditor flags a manually-materialized `sda24` path as
-     `authoritative=0`, so the host wrapper correctly refuses to propose a write pin from it; the next
-     unit must add sysfs-`PARTNAME=boot` resolution so an `authoritative=1` confirmed pin can be
-     produced. Rolled back to v2321 with `selftest fail=0` after the probe.
+     `mknod 259:8` before open. **DONE (V3346, init 0.11.110, live 2026-07-02):** no-arg `boot-audit`
+     now scans `/sys/class/block/*/uevent` for the single `PARTNAME=boot` partition, materializes
+     `/dev/block/sda24`, audits it O_RDONLY, cross-checks the fd rdev against the sysfs major:minor,
+     and unlinks the node — emitting `resolve=sysfs-partname materialized=1 open=ok read=ok
+     authoritative=1 partname=boot size_bytes=67108864 cleaned=1`. The host wrapper consumed that
+     live output and **proposed a confirmed `BootTargetPin`** (`canonical=/dev/block/sda24`,
+     rdev 259:8, size 64 MiB, diskseq null, `forbidden_rdevs=[]`). A duplicate `PARTNAME=boot` is
+     refused fail-closed (`resolve=ambiguous`); an rdev mismatch on a pre-existing node downgrades to
+     `authoritative=0`. Rolled back to v2321 with `selftest fail=0` after each probe. **This closes
+     the last read-only precondition** — the write-path design (§2–§6) can now start from a real
+     auditor-confirmed pin. §0.2 (RKP write reaction) remains the only unproven gate.
 2. **Will RKP/KDP treat a boot-partition WRITE from normal-boot/PID1 differently from a write in
    TWRP?** If it denies cleanly → fine (fall back to TWRP). If it **panics PID1 or the kernel
    mid-write**, the partial-write residual (§1) becomes much sharper. Unknown until the gated
