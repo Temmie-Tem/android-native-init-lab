@@ -1456,6 +1456,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "owned-struct-pid-ref-or-null",
         "reason": "refcount-changing helper; not globally auto-callable, only target-specific get/put balanced proofs may call it",
     },
+    "find_get_pid": {
+        "tier": CALL_SAFETY_DENY,
+        "required_valid_pointer_args": {},
+        "return_kind": "owned-struct-pid-ref-or-null",
+        "reason": "refcount-changing scalar pid lookup; not globally auto-callable, only target-specific find/put balanced proofs may call it",
+    },
     "current_umask": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -4195,6 +4201,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "pid_nr_ns": ("include/linux/pid.h",),
     "pid_vnr": ("include/linux/pid.h",),
     "get_task_pid": ("include/linux/pid.h",),
+    "find_get_pid": ("include/linux/pid.h",),
     "put_pid": ("include/linux/pid.h",),
     "get_ddr_vendor_name": ("include/linux/samsung/sec_smem.h",),
     "get_ddr_DSF_version": ("include/linux/samsung/sec_smem.h",),
@@ -6203,6 +6210,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern struct pid * get_task_pid(struct task_struct *task, enum pid_type type)",
     },
+    "find_get_pid": {
+        "input_contract": "scalar PID number 1 only; two consecutive lookups must return the same sane struct pid pointer, and both returned references are always balanced with put_pid before proof exit",
+        "return_contract": "struct pid * return has embedded pid number 1, second find_get_pid call raises the observed refcount by one, and two put_pid cleanups step the refcount back down",
+        "expected_tier": CALL_SAFETY_CONTEXT_SENSITIVE,
+        "source_signature": "extern struct pid * find_get_pid(int nr)",
+    },
     "current_umask": {
         "input_contract": "no arguments; current task fs pointer is read-only and obtained internally through sp_el0",
         "return_contract": "umode_t value is stable across repeated proof calls and only uses permission bits 0..0777",
@@ -7961,6 +7974,31 @@ GET_TASK_PID_EXPECTED_WORDS = (
 )
 GET_TASK_PID_NEXT_SYMBOL = ("get_pid_task", 0x68)
 GET_TASK_PID_EXPECTED_BL_TARGETS = ("__rcu_read_lock", "__rcu_read_unlock")
+FIND_GET_PID_PROOF_NR = 1
+FIND_GET_PID_EXPECTED_PID_NR = 1
+FIND_GET_PID_PID_COUNT_OFFSET = GET_TASK_PID_PID_COUNT_OFFSET
+FIND_GET_PID_PID_LEVEL_OFFSET = GET_TASK_PID_PID_LEVEL_OFFSET
+FIND_GET_PID_PID_NUMBERS_NR_OFFSET = GET_TASK_PID_PID_NUMBERS_NR_OFFSET
+FIND_GET_PID_PID_NUMBERS_LEVEL_SHIFT = GET_TASK_PID_PID_NUMBERS_LEVEL_SHIFT
+FIND_GET_PID_EXPECTED_WORDS = (
+    0xCA1103D0, 0xA9BE43FD, 0xF9000BF3, 0x910003FD,
+    0x2A0003F3, 0x9401CCA1, 0xD5384108, 0xF9439108,
+    0xB4000088, 0xB9400509, 0x8B091508, 0xF9402908,
+    0x90015B09, 0xD2907D6C, 0xF2B016AC, 0xF00171CA,
+    0xF2D0C8CC, 0x8B33C10B, 0xB94C5D29, 0xF2EC390C,
+    0xF945554A, 0x9B0C7D6B, 0x4B0903E9, 0x9AC92569,
+    0xF869594A, 0xD1004149, 0xF100015F, 0xFA401924,
+    0x540001A1, 0xAA1F03F3, 0x9401CC8E, 0xAA1303E0,
+    0xF9400BF3, 0xA8C243FD, 0xCA11021E, 0xD65F03C0,
+    0xF9400929, 0xD100412A, 0xF100013F, 0x9A8A03E9,
+    0xB4FFFEA9, 0xB940012A, 0x6B13015F, 0x54FFFF21,
+    0xF940052A, 0xEB08015F, 0x54FFFEC1, 0xB9483108,
+    0xCB081528, 0xF1012113, 0x54FFFD80, 0xF9800271,
+    0x885F7E68, 0x11000508, 0x88097E68, 0x35FFFFA9,
+    0x17FFFFE6, 0x00BE7BAD,
+)
+FIND_GET_PID_NEXT_SYMBOL = ("pid_nr_ns", 0xE8)
+FIND_GET_PID_EXPECTED_BL_TARGETS = GET_TASK_PID_EXPECTED_BL_TARGETS
 PUT_PID_EXPECTED_WORDS = (
     0xCA1103D0, 0xA9BF43FD, 0x910003FD, 0xB40001E0,
     0xB9400408, 0xAA0003E1, 0x8B081408, 0xF9402908,
@@ -30538,6 +30576,431 @@ def _run_call_proof_get_task_pid(
     return summary, private
 
 
+def _run_call_proof_find_get_pid(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "find_get_pid"
+    cleanup_symbol = "put_pid"
+    source = lookup_source_signature(target, source_root=source_root)
+    cleanup_source = lookup_source_signature(cleanup_symbol, source_root=source_root)
+    call_safety_gate = classify_call_safety(
+        symbols,
+        image,
+        target,
+        include_objdump=False,
+    )
+    advisory = _call_safety_advisory_from_source(call_safety_gate, source)
+    if call_safety_gate.get("tier") != CALL_SAFETY_DENY:
+        raise ReplError(f"{target} must stay outside the global auto-call gate")
+    if call_safety_gate.get("auto_call_allowed"):
+        raise ReplError(f"{target} unexpectedly became globally auto-callable")
+    if not call_safety_gate.get("vetted_seed_whitelist"):
+        raise ReplError(f"{target} must remain explicitly fenced by a DENY seed")
+    if advisory.get("tier") != CALL_SAFETY_CONTEXT_SENSITIVE:
+        raise ReplError(f"{target} target-specific advisory tier must remain CONTEXT-SENSITIVE")
+    if "context-sensitive-disasm-call" not in advisory.get("blocking_danger_flags", []):
+        raise ReplError(f"{target} advisory did not retain the RCU/context-sensitive block")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError(f"{target} source signature must declare only scalar pid number input")
+    if not cleanup_source.get("found") or cleanup_source.get("pointer_arg_indices") != [0]:
+        raise ReplError(f"{cleanup_symbol} source signature must declare x0 as a pid* pointer")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the pid.h declaration")
+    cleanup_signature = (
+        cleanup_source.get("selected", {}).get("signature")
+        if isinstance(cleanup_source.get("selected"), dict) else None
+    )
+    if cleanup_signature != "extern void put_pid(struct pid *pid)":
+        raise ReplError(f"{cleanup_symbol} source signature did not select the pid.h declaration")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+        ),
+        cleanup_symbol: resolve_verified(
+            symbols,
+            image,
+            cleanup_symbol,
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ),
+    }
+    target_link = require_verified_resolution(resolutions[target], "call-proof target")
+    cleanup_link = require_verified_resolution(resolutions[cleanup_symbol], "call-proof cleanup")
+    next_symbol_name, expected_boundary = FIND_GET_PID_NEXT_SYMBOL
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+    cleanup_next_symbol_name, cleanup_expected_boundary = PUT_PID_NEXT_SYMBOL
+    cleanup_next_symbol = symbols.get(cleanup_next_symbol_name)
+    if cleanup_next_symbol is None or cleanup_next_symbol.vaddr - cleanup_link != cleanup_expected_boundary:
+        raise ReplError(
+            f"{cleanup_symbol} next-symbol boundary is not the expected "
+            f"0x{cleanup_expected_boundary:x}"
+        )
+
+    target_words = image.u32_words_at_vaddr(target_link, len(FIND_GET_PID_EXPECTED_WORDS))
+    cleanup_words = image.u32_words_at_vaddr(cleanup_link, len(PUT_PID_EXPECTED_WORDS))
+    signals = call_safety_gate.get("signals", {})
+    if not isinstance(signals, dict):
+        raise ReplError(f"{target} classifier signals missing")
+    bl_targets = signals.get("bl_targets_sample", [])
+    bl_target_symbols = [
+        str(
+            item.get("nearest_symbol", {}).get("symbol")
+            if isinstance(item, dict) and isinstance(item.get("nearest_symbol"), dict)
+            else ""
+        )
+        for item in bl_targets
+    ]
+    taint_flow = signals.get("arg_taint_flow", {})
+    arg_memory_sources = set(advisory.get("arg_memory_source_indices", []))
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-cleanup-c1-identity",
+            "ok": True,
+            "target": cleanup_symbol,
+            "resolution_method": resolutions[cleanup_symbol].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-cleanup-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": cleanup_next_symbol_name,
+            "byte_size": f"0x{cleanup_expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+            "cleanup_signature": cleanup_signature,
+            "cleanup_pointer_arg_indices": cleanup_source.get("pointer_arg_indices", []),
+            "source_note": (
+                "pid.h declares find_get_pid/put_pid; proof fixes nr=1 and "
+                "balances the returned pid ref"
+            ),
+        },
+        {
+            "check": "static-target-specific-call-safety-contract",
+            "ok": True,
+            "global_gate_tier": call_safety_gate.get("tier"),
+            "global_gate_auto_call_allowed": call_safety_gate.get("auto_call_allowed"),
+            "global_gate_seeded": call_safety_gate.get("seeded"),
+            "advisory_tier": advisory.get("tier"),
+            "advisory_blocking_flags": advisory.get("blocking_danger_flags", []),
+        },
+        {
+            "check": "static-rcu-callee-pair",
+            "ok": tuple(bl_target_symbols[:2]) == FIND_GET_PID_EXPECTED_BL_TARGETS,
+            "expected_callees": list(FIND_GET_PID_EXPECTED_BL_TARGETS),
+            "observed_callees": bl_target_symbols[:2],
+        },
+        {
+            "check": "static-scalar-pid-memory-flow",
+            "ok": arg_memory_sources == set(),
+            "arg_memory_source_indices": sorted(arg_memory_sources),
+            "arg_memory_base_use_count": (
+                taint_flow.get("arg_memory_base_use_count")
+                if isinstance(taint_flow, dict) else None
+            ),
+        },
+    ]
+    for index, expected in enumerate(FIND_GET_PID_EXPECTED_WORDS):
+        observed = target_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+    for index, expected in enumerate(PUT_PID_EXPECTED_WORDS):
+        observed = cleanup_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{cleanup_symbol}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{cleanup_symbol} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+    if not all(bool(check.get("ok")) for check in checks):
+        raise ReplError(f"{target} static target-specific gate failed")
+
+    private: dict[str, object] = {}
+    slide = 0
+    pid_level = 0
+    expected_pid_nr = 0
+    returned_pid = 0
+    returned_pid_second = 0
+    after_first_get_count = 0
+    after_second_get_count = 0
+    after_put_second_ref_count = 0
+    after_put_first_ref_count = 0
+    cleanup_attempted_count = 0
+    cleanup_ok_count = 0
+    cleanup_error = ""
+    case_results: list[dict[str, object]] = []
+    acquired_pids: list[int] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        cleanup_runtime = (cleanup_link + slide) & MASK64
+
+        returned_pid = session.call_runtime(
+            target_runtime,
+            (FIND_GET_PID_PROOF_NR,),
+        ) & MASK64
+        returned_sane = _kernel_vaddr_sane(returned_pid)
+        if returned_pid and returned_sane:
+            acquired_pids.append(returned_pid)
+        validation_error = ""
+        if not returned_sane:
+            validation_error = f"{target}({FIND_GET_PID_PROOF_NR}) returned 0x{returned_pid:x}"
+        if not validation_error:
+            pid_level = session.peek_runtime(
+                returned_pid + FIND_GET_PID_PID_LEVEL_OFFSET,
+                4,
+            ) & 0xFFFFFFFF
+            if pid_level > PID_NR_NS_MAX_LEVEL:
+                validation_error = (
+                    f"{target} returned pid level outside proof bound: 0x{pid_level:x}"
+                )
+        if not validation_error:
+            expected_pid_nr = session.peek_runtime(
+                returned_pid
+                + FIND_GET_PID_PID_NUMBERS_NR_OFFSET
+                + (pid_level << FIND_GET_PID_PID_NUMBERS_LEVEL_SHIFT),
+                4,
+            ) & 0xFFFFFFFF
+            if expected_pid_nr != FIND_GET_PID_EXPECTED_PID_NR:
+                validation_error = (
+                    f"{target} returned pid number 0x{expected_pid_nr:x}, "
+                    f"expected 0x{FIND_GET_PID_EXPECTED_PID_NR:x}"
+                )
+        if not validation_error:
+            after_first_get_count = session.peek_runtime(
+                returned_pid + FIND_GET_PID_PID_COUNT_OFFSET,
+                4,
+            ) & 0xFFFFFFFF
+            if after_first_get_count == 0:
+                validation_error = f"{target} returned pid refcount is zero after first lookup"
+        checks.append({
+            "check": "find-get-pid-first-return-contract",
+            "ok": not validation_error,
+            "proof_pid_nr": FIND_GET_PID_PROOF_NR,
+            "observed_return_value": (
+                "redacted-owned-pid-ref-pointer" if returned_sane else f"0x{returned_pid:x}"
+            ),
+            "returned_sane_kernel_pointer": returned_sane,
+            "pid_level": pid_level,
+            "embedded_pid_nr": f"0x{expected_pid_nr:x}",
+            "after_first_get_refcount": after_first_get_count,
+        })
+
+        if not validation_error:
+            returned_pid_second = session.call_runtime(
+                target_runtime,
+                (FIND_GET_PID_PROOF_NR,),
+            ) & MASK64
+            returned_second_sane = _kernel_vaddr_sane(returned_pid_second)
+            if returned_pid_second and returned_second_sane:
+                acquired_pids.append(returned_pid_second)
+            same_pointer = returned_pid_second == returned_pid
+            if not (returned_second_sane and same_pointer):
+                validation_error = (
+                    f"{target}({FIND_GET_PID_PROOF_NR}) second call returned "
+                    f"0x{returned_pid_second:x}, expected same first pid pointer"
+                )
+            else:
+                after_second_get_count = session.peek_runtime(
+                    returned_pid + FIND_GET_PID_PID_COUNT_OFFSET,
+                    4,
+                ) & 0xFFFFFFFF
+                if after_second_get_count != after_first_get_count + 1:
+                    validation_error = (
+                        f"{target} second call did not increase pid refcount by one: "
+                        f"first={after_first_get_count} second={after_second_get_count}"
+                    )
+            checks.append({
+                "check": "find-get-pid-second-return-contract",
+                "ok": not validation_error,
+                "observed_return_value": (
+                    "redacted-owned-pid-ref-pointer"
+                    if returned_second_sane else f"0x{returned_pid_second:x}"
+                ),
+                "second_return_sane_kernel_pointer": returned_second_sane,
+                "second_return_matches_first": same_pointer,
+                "after_first_get_refcount": after_first_get_count,
+                "after_second_get_refcount": after_second_get_count,
+            })
+
+        for cleanup_index, pid_ref in enumerate(reversed(acquired_pids), 1):
+            cleanup_attempted_count += 1
+            try:
+                session.call_runtime(cleanup_runtime, (pid_ref,))
+                cleanup_ok_count += 1
+                if pid_ref == returned_pid and _kernel_vaddr_sane(pid_ref):
+                    observed_count = session.peek_runtime(
+                        returned_pid + FIND_GET_PID_PID_COUNT_OFFSET,
+                        4,
+                    ) & 0xFFFFFFFF
+                    if cleanup_index == 1:
+                        after_put_second_ref_count = observed_count
+                    elif cleanup_index == 2:
+                        after_put_first_ref_count = observed_count
+            except Exception as exc:  # noqa: BLE001 - cleanup failure must fail the proof
+                cleanup_error = str(exc)
+                break
+
+        if cleanup_error:
+            raise ReplError(f"{cleanup_symbol} cleanup failed after {target}: {cleanup_error}")
+        cleanup_restored = (
+            cleanup_attempted_count == 2
+            and cleanup_ok_count == 2
+            and after_put_second_ref_count == after_first_get_count
+            and after_put_first_ref_count + 1 == after_put_second_ref_count
+        )
+        checks.append({
+            "check": "put-pid-two-refcount-stepdown",
+            "ok": cleanup_restored,
+            "cleanup_attempted_count": cleanup_attempted_count,
+            "cleanup_ok_count": cleanup_ok_count,
+            "after_first_get_refcount": after_first_get_count,
+            "after_second_get_refcount": after_second_get_count,
+            "after_put_second_refcount": after_put_second_ref_count,
+            "after_put_first_refcount": after_put_first_ref_count,
+        })
+        if validation_error:
+            raise ReplError(validation_error)
+        if not cleanup_restored:
+            raise ReplError(
+                f"{cleanup_symbol} did not step down both pid refs cleanly: "
+                f"first_get={after_first_get_count} second_get={after_second_get_count} "
+                f"put_second={after_put_second_ref_count} put_first={after_put_first_ref_count}"
+            )
+        case_results.append({
+            "case": "pid-1-double-lookup-balanced-refs",
+            "expected_return_value": "same-sane-pid-pointer-redacted",
+            "observed_return_value": "redacted-owned-pid-ref-pointer",
+            "expected_pid_nr": f"0x{expected_pid_nr:x}",
+            "after_first_get_refcount": after_first_get_count,
+            "after_second_get_refcount": after_second_get_count,
+            "after_put_second_refcount": after_put_second_ref_count,
+            "after_put_first_refcount": after_put_first_ref_count,
+            "cleanup_attempted_count": cleanup_attempted_count,
+            "cleanup_ok_count": cleanup_ok_count,
+            "ok": cleanup_restored,
+        })
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "find-get-pid-balanced-refcount-contract",
+        "ok": bool(case_results) and all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-scalar-pid-lookup-balanced-refcount-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "proof_pid_nr": FIND_GET_PID_PROOF_NR,
+        "observed_embedded_pid_nr": f"0x{expected_pid_nr:x}",
+        "observed_return_value": "redacted-owned-pid-ref-pointer",
+        "second_return_matches_first": returned_pid_second == returned_pid,
+        "pid_level": pid_level,
+        "refcount_after_first_get": after_first_get_count,
+        "refcount_after_second_get": after_second_get_count,
+        "refcount_after_put_second_ref": after_put_second_ref_count,
+        "refcount_after_put_first_ref": after_put_first_ref_count,
+        "refcount_rose_after_second_get": after_second_get_count == after_first_get_count + 1,
+        "refcount_restored_after_put_second_ref": after_put_second_ref_count == after_first_get_count,
+        "refcount_decremented_after_final_put": after_put_first_ref_count + 1 == after_put_second_ref_count,
+        "cleanup_attempted_count": cleanup_attempted_count,
+        "cleanup_ok_count": cleanup_ok_count,
+        "source_evidence": _source_row_evidence(source),
+        "cleanup_source_evidence": _source_row_evidence(cleanup_source),
+        "call_safety_gate": call_safety_gate,
+        "target_specific_call_safety": advisory,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "borrowed_pointer_redacted": True,
+        "owned_pointer_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": (
+                "find_get_pid(1) returned the same pid pointer twice; the second call "
+                "raised refcount by one and two put_pid cleanups stepped it back down"
+            ),
+            "cleanup": "put_pid-two-refs-balanced-ok" if cleanup_restored else "cleanup-failed",
+            "auto_call_policy": "target-specific-proof-only-not-global-auto-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        f"{cleanup_symbol}_runtime": f"0x{((cleanup_link + slide) & MASK64):x}",
+        "returned_pid_pointer": f"0x{returned_pid:x}",
+        "returned_pid_second_pointer": f"0x{returned_pid_second:x}",
+        "pid_level": pid_level,
+        "expected_pid_nr": f"0x{expected_pid_nr:x}",
+        "refcounts": {
+            "after_first_get": after_first_get_count,
+            "after_second_get": after_second_get_count,
+            "after_put_second_ref": after_put_second_ref_count,
+            "after_put_first_ref": after_put_first_ref_count,
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_current_umask(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -43633,6 +44096,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "get_task_pid":
         return _run_call_proof_get_task_pid(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "find_get_pid":
+        return _run_call_proof_find_get_pid(
             session,
             symbols,
             image,

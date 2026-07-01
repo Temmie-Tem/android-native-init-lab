@@ -169,6 +169,55 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL resident-session scalar pid lookup proof — `find_get_pid`
+
+> ### ✅ STATUS (2026-07-02 live-proven, resident-session mode, rolled back cleanly)
+>
+> Codex promoted `find_get_pid(1)` as a target-specific scalar PID lookup -> owned `struct pid *`
+> ref proof. This is not a `/proc` or `/sys` getter replacement: it proves a scalar lookup ABI plus
+> mandatory `put_pid()` cleanup, while keeping the global call gate closed.
+>
+> Static identity is pinned by export recovery and exact body checks: `find_get_pid`
+> link `0xffffff80080d82ec`, one export candidate, map/export agreement, JOPP entry,
+> direct BL xrefs `19`, in-body callees `__rcu_read_lock` and `__rcu_read_unlock`,
+> no pre-call pointer deref, next symbol `pid_nr_ns` at `+0xe8`, source declaration
+> `extern struct pid * find_get_pid(int nr)` at `include/linux/pid.h:124`, and exact pinned words.
+> Cleanup `put_pid` is separately verified at `0xffffff80080d753c`, next symbol `free_pid`
+> at `+0x70`, declaration `extern void put_pid(struct pid *pid)` at `include/linux/pid.h:90`.
+>
+> The generic gate stays closed: `find_get_pid` is an explicit DENY seed with
+> `auto_call_allowed=false`, and target-specific advisory remains `CONTEXT-SENSITIVE`
+> due to the RCU call pair. `put_pid` remains generic `DENY`; it is only used as cleanup for
+> returned pid refs.
+>
+> Live resident-session run:
+> `workspace/private/runs/kernel/repl-resident-session-find-get-pid-pid1-20260701T170346Z/`.
+> Result: `a90-repl-live-call-proof-find_get_pid-pass`; `find_get_pid(1)` returned the same pid
+> pointer twice, embedded pid number was `0x1`, refcount moved `6 -> 7 -> 6 -> 5`, and two
+> `put_pid` cleanups were attempted and OK. Raw runtime pointers and KASLR slide stayed
+> private-only.
+>
+> The first attempt
+> `workspace/private/runs/kernel/repl-resident-session-find-get-pid-20260701T165432Z/`
+> failed the host contract because `find_get_pid(0)` returned `0x0`. That is now classified as a
+> host/operator contract error: `init_task->thread_pid` has PID number 0, but PID 0 is not a useful
+> hash lookup proof target. The harness rolled back cleanly before the corrected PID 1 run.
+>
+> Session used v1-repl flash once, mandatory warm reboot before the batch, per-target result flush,
+> and v2321 rollback once. Harness summary was `a90-repl-resident-session-pass`, flash count `2`,
+> completed targets `1/1`, timeline errors `[]`. Final rollback health confirmed
+> `v2321-usb-clean-identity-rodata` and `selftest pass=11 warn=1 fail=0`.
+>
+> Canonical timing is present in `timeline.json` with the single top-level `events` schema and all
+> required phase events. This run measured candidate flash `64.312s`, candidate boot/health
+> `54.987s`, warm reboot `32.671s`, live target batch `7.952s`, rollback flash `63.906s`, and total
+> candidate-start to rollback-ready `258.466s`. The timing aggregator now parses `28/76` canonical
+> timelines and projects resident-session `13.970s/target`, `21.22x` vs per-unit flash and `2.12x`
+> vs per-unit in-boot batching for `batch_size=10`, `resident_batches=10`.
+>
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_FIND_GET_PID_RESIDENT_SESSION_2026-07-02.md`.
+
 ## ✅ DONE — REPL resident-session balanced pid ref proof — `get_task_pid`
 
 > ### ✅ STATUS (2026-07-02 live-proven, resident-session mode, rolled back cleanly)
