@@ -49,6 +49,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -40763,7 +40764,10 @@ def run_call_proof_batch(session: ReplSession,
                          max_expected_return: int | None = None,
                          source_root: Path = DEFAULT_KERNEL_SOURCE_ROOT,
                          gfp_header: Path = DEFAULT_GFP_HEADER,
-                         gfp_value: int | None = None) -> tuple[dict[str, object], dict[str, object]]:
+                         gfp_value: int | None = None,
+                         target_result_callback: Callable[
+                             [str, dict[str, object], dict[str, object]], None
+                         ] | None = None) -> tuple[dict[str, object], dict[str, object]]:
     if not targets:
         raise ReplError("call-proof-batch requires at least one target")
 
@@ -40784,6 +40788,8 @@ def run_call_proof_batch(session: ReplSession,
         )
         summaries.append(summary)
         private_by_target[target] = private
+        if target_result_callback is not None:
+            target_result_callback(target, summary, private)
         if not summary.get("ok"):
             stopped_after_failure = True
             break

@@ -11045,6 +11045,49 @@ class SelftestIntegrationTests(unittest.TestCase):
             self.assertEqual(sorted(evidence["_private"]["target_privates"]), sorted(targets))
         self.assertEqual(fake.op_count, 12)  # 4 targets * (slide + 2 scalar proof calls)
 
+    def test_call_proof_batch_flush_callback_runs_after_each_target(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        targets = ("nr_processes", "nr_running")
+        with tempfile.TemporaryDirectory() as td:
+            out_dir = Path(td)
+            flushed: list[str] = []
+
+            def flush_target(target: str, summary: dict, private: dict) -> None:
+                flushed.append(target)
+                payload = {**summary, "_private": private}
+                (out_dir / f"{len(flushed):02d}-{target}.json").write_text(
+                    json.dumps(payload, indent=2, sort_keys=True) + "\n"
+                )
+
+            summary, private = repl.run_call_proof_batch(
+                session,
+                symbols,
+                self.image,
+                targets,
+                source_root=KERNEL_SOURCE_ROOT,
+                target_result_callback=flush_target,
+            )
+
+            self.assertTrue(summary["ok"], summary)
+            self.assertEqual(flushed, list(targets))
+            first = json.loads((out_dir / "01-nr_processes.json").read_text())
+            second = json.loads((out_dir / "02-nr_running.json").read_text())
+            self.assertEqual(first["target"], "nr_processes")
+            self.assertIn("_private", first)
+            self.assertEqual(second["target"], "nr_running")
+            self.assertIn("_private", second)
+            self.assertEqual(sorted(private["target_privates"]), sorted(targets))
+        self.assertEqual(fake.op_count, 6)  # 2 targets * (slide + 2 scalar proof calls)
+
     def test_call_proof_fs_state_batch_passes_with_no_arg_contracts(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
             self.skipTest("promoted v2c System.map or kernel source tree not present")

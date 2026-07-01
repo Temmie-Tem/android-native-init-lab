@@ -128,6 +128,19 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >    versus per-unit flash, and `1.9x` versus per-unit in-boot batch. The current mean is conservatively
 >    dragged by the intentionally heavy `kernel-vitals` live session (`449.8s`); smaller call-proof
 >    batches should move the projection toward the expected `~8x+` practical regime.
+>
+>    **Implementation status (2026-07-01):** resident-session tooling is now in-tree as
+>    `workspace/public/src/scripts/revalidation/a90_repl_resident_session.py`, with
+>    per-target flush support added to `a90_repl.py run_call_proof_batch`. The harness uses the
+>    checked flash helper only, writes canonical top-level `events` timelines, warm-reboots before
+>    each batch, rejects no-reboot `[busy]` warm-reboot paths, and has recovery-direct rollback
+>    fallback if native `recovery` disconnects after successfully entering recovery. Host validation
+>    passed, and the timing aggregator still projects flash `20→2` and `18.8x` vs per-unit flash
+>    on current canonical timelines. Live smoke reached `v1 flash -> candidate REPL selftest ->
+>    warm reboot -> post-warm health -> batch live_start`, then stopped before target promotion on
+>    transient serial/ring capture loss (`A90R` missing for a non-replay-safe call). Final resident
+>    was rolled back to v2321 with `selftest fail=0`. Report:
+>    `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_RESIDENT_SESSION_HARNESS_2026-07-01.md`.
 > **HARD — unchanged, do NOT loosen:** the fail-closed C1 resolution, the **call-safety classifier**
 > (DENY / BEHAVIOR-CHANGING tiers stay DENY — never relax a tier to reach a struct/state target),
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
