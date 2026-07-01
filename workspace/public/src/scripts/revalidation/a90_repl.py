@@ -3333,6 +3333,22 @@ class ReplSession:
             raise ValueError("poke width must be 4 or 8")
         return self._op(OP_POKE, (runtime_vaddr & MASK64, value & MASK64, width))
 
+    def poke_runtime_idempotent(self, runtime_vaddr: int, value: int, width: int = 8) -> int:
+        """Retry an exact same-value poke into an owned scratch buffer.
+
+        Generic poke remains non-replayable because a missed result can hide an
+        arbitrary side effect. Call-proof buffer fills use this narrower helper:
+        repeating the same aligned word write into proof-owned kmalloc memory is
+        idempotent and is verified later by peeks/canaries.
+        """
+        if width not in (4, 8):
+            raise ValueError("poke width must be 4 or 8")
+        return self._op_values(
+            OP_POKE,
+            (runtime_vaddr & MASK64, value & MASK64, width),
+            replay_safe=True,
+        )[-1]
+
 
 # ----------------------------------------------------------------------------
 # v2a1 selftest: named peek/call proofs over the live image, cross-checked
@@ -9464,7 +9480,7 @@ def _poke_bytes(session: ReplSession, runtime_vaddr: int, data: bytes) -> None:
     for offset in range(0, len(data), 8):
         chunk = data[offset:offset + 8]
         value = int.from_bytes(chunk.ljust(8, b"\x00"), "little")
-        session.poke_runtime((runtime_vaddr + offset) & MASK64, value, 8)
+        session.poke_runtime_idempotent((runtime_vaddr + offset) & MASK64, value, 8)
 
 
 def _peek_bytes(session: ReplSession, runtime_vaddr: int, length: int) -> bytes:

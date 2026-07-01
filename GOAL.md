@@ -198,6 +198,18 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >     total (`30.70s/target`), and v2321 rollback clean. This was deliberately not a one-target
 >     resident session; it confirms the corrected packed cadence while also showing why future
 >     live sessions should keep filling toward `max_batch_size=30` when safe targets are queued.
+>     Additional packed ABI-family proof (2026-07-02): a 16-target bitmap/cpumask/bit-scan batch
+>     proved owned-buffer ABI forms under the repaired path:
+>     `workspace/private/runs/kernel/repl-resident-session-bitmap-cpumask-idempotent-poke-batch-20260701T190243Z/`.
+>     All `16/16` targets flushed PASS. During the preceding attempt, owned-buffer setup found a
+>     host-side reliability gap: `_poke_bytes()` used generic non-replayable `op=2` despite writing
+>     deterministic same-value words into proof-owned scratch buffers. Codex added a narrow
+>     `poke_runtime_idempotent()` path for `_poke_bytes()` only; arbitrary `poke_runtime()` remains
+>     non-replayable. The second attempt proved the batch and rollback flash completed; the pre-fix
+>     harness missed `rollback_boot_ready` because rollback `selftest` body fragmented, but a bridge
+>     restart plus independent `version/status/selftest` confirmed clean v2321 (`selftest fail=0`).
+>     Therefore promote the 16 target-specific proofs and host reliability fixes, but do not count
+>     that run as a canonical timing sample.
 > **HARD — unchanged, do NOT loosen:** the fail-closed C1 resolution, the **call-safety classifier**
 > (DENY / BEHAVIOR-CHANGING tiers stay DENY — never relax a tier to reach a struct/state target),
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
@@ -354,6 +366,49 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >
 > Report:
 > `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_STATE_REFRESH_PACKED_RESIDENT_SESSION_2026-07-02.md`.
+
+## ✅ DONE — REPL bitmap/cpumask owned-buffer packed resident-session batch
+
+> ### ✅ STATUS (2026-07-02 live-proven target batch, rollback independently verified clean)
+>
+> Codex promoted a 16-target bitmap/cpumask/bit-scan packed batch. This is not a `/proc` or
+> `/sys` getter batch; it proves owned-buffer ABI forms for the function map:
+> `__bitmap_weight`, `__bitmap_complement`, `__bitmap_andnot`, `__bitmap_or`, `__bitmap_set`,
+> `__bitmap_clear`, `__bitmap_subset`, `bitmap_alloc`, `bitmap_zalloc`, `find_next_bit`,
+> `find_last_bit`, `find_next_zero_bit`, `cpumask_next`, `cpumask_next_wrap`,
+> `cpumask_next_and`, and `cpumask_any_but`.
+>
+> Static gate: `SAFE-SCALAR=2`, `SAFE-WITH-VALID-PTR=14`. Dry-run used `target_count=16`,
+> `max_batch_size=30`, existing v1-repl candidate SHA
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`, and v2321 rollback
+> SHA `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`.
+>
+> First live attempt:
+> `workspace/private/runs/kernel/repl-resident-session-bitmap-cpumask-packed-batch-20260701T185601Z/`.
+> `__bitmap_weight` flushed PASS, then `__bitmap_complement` stopped before its target call on a
+> transient `op=2` result-capture loss while `_poke_bytes()` was filling an owned scratch buffer.
+> Rollback-finally returned clean v2321.
+>
+> Host fix: `_poke_bytes()` now uses `poke_runtime_idempotent()` for deterministic same-value writes
+> into proof-owned kmalloc buffers; generic `poke_runtime()` remains non-replayable. Resident health
+> checks now retry validation failures such as fragmented `selftest` bodies after a bridge restart.
+>
+> Second live attempt:
+> `workspace/private/runs/kernel/repl-resident-session-bitmap-cpumask-idempotent-poke-batch-20260701T190243Z/`.
+> Batch result was `a90-repl-resident-session-batch-pass`, `16/16` targets flushed PASS, all raw
+> runtime values private. Rollback flash completed. The pre-fix harness exited nonzero before writing
+> `rollback_boot_ready` because rollback `selftest` returned `rc=0 status=ok` with a fragmented body;
+> independent bridge restart plus `version/status/selftest` confirmed resident
+> `v2321-usb-clean-identity-rodata`, BOOT OK, and `selftest pass=11 warn=1 fail=0`.
+>
+> Timing for the second attempt until rollback flash done: candidate flash `63.147s`, candidate
+> boot/health `43.188s`, warm reboot `33.230s`, batch REPL selftest `32.222s`, live batch
+> `465.868s`, rollback flash `65.270s`, candidate-start to rollback-flash-done `704.820s`.
+> Because the timeline is missing `rollback_boot_ready`, it is not counted as a canonical timing
+> sample. Aggregate after this unit parses `36/86` canonical timelines.
+>
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_BITMAP_CPUMASK_PACKED_RESIDENT_SESSION_2026-07-02.md`.
 
 ## ✅ DONE — REPL resident-session scalar pid lookup proof — `find_vpid`
 

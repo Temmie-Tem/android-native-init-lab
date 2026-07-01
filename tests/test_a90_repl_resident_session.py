@@ -115,6 +115,60 @@ class A90ReplResidentSessionTests(unittest.TestCase):
             self.assertEqual(index["path"], "target-results/001-nr_processes.json")
             self.assertTrue(index["ok"])
 
+    def test_run_health_check_retries_selftest_body_fragmentation(self) -> None:
+        args = argparse.Namespace(
+            host="127.0.0.1",
+            port=54321,
+            health_timeout=1.0,
+            health_retries=1,
+            bridge_restart_timeout=1.0,
+        )
+        calls: list[tuple[str, object]] = []
+        original_run = resident.a90ctl.run_cmdv1_command
+        original_restart = resident.run_subprocess
+
+        def ok_result(command: str, text: str) -> object:
+            return resident.a90ctl.ProtocolResult(
+                begin={"cmd": command},
+                end={"cmd": command, "rc": "0", "status": "ok"},
+                text=text,
+            )
+
+        selftest_attempts = 0
+
+        def fake_run_cmdv1(host, port, timeout, command):  # noqa: ANN001
+            nonlocal selftest_attempts
+            del host, port, timeout
+            name = command[0]
+            calls.append(("cmd", name))
+            if name == "selftest":
+                selftest_attempts += 1
+                if selftest_attempts == 1:
+                    return ok_result("selftest", "A90P1 END seq=1 cmd=selftest rc=0 status=ok")
+                return ok_result("selftest", "selftest: pass=11 warn=1 fail=0\nA90P1 END")
+            return ok_result(name, f"{name}: ok\nA90P1 END")
+
+        def fake_run_subprocess(command, *, cwd, timeout, output_path):  # noqa: ANN001
+            del cwd, timeout
+            calls.append(("restart", Path(output_path).name))
+            Path(output_path).write_text(json.dumps({"ok": True, "command": command}), encoding="utf-8")
+
+        resident.a90ctl.run_cmdv1_command = fake_run_cmdv1
+        resident.run_subprocess = fake_run_subprocess
+        self.addCleanup(lambda: setattr(resident.a90ctl, "run_cmdv1_command", original_run))
+        self.addCleanup(lambda: setattr(resident, "run_subprocess", original_restart))
+
+        with tempfile.TemporaryDirectory() as td:
+            payload = resident.run_health_check(args, Path(td), "rollback")
+            self.assertIn("fail=0", payload["commands"]["selftest"]["text"])
+            saved = json.loads((Path(td) / "rollback-health.json").read_text())
+            self.assertEqual(len(saved["retry_errors"]["selftest"]), 1)
+            self.assertEqual(
+                saved["retry_errors"]["selftest"][0]["exception"],
+                "rollback selftest did not report fail=0",
+            )
+        self.assertIn(("restart", "rollback-selftest-health-bridge-restart-01.json"), calls)
+
     def test_validate_timeline_requires_eight_session_phase_events(self) -> None:
         events = [{"name": name, "timestamp_utc": "2026-07-01T00:00:00+00:00"}
                   for name in resident.REQUIRED_TIMELINE_EVENTS]

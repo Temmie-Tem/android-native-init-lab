@@ -387,6 +387,7 @@ def run_health_check(args: argparse.Namespace, out_dir: Path, label: str) -> dic
     out: dict[str, object] = {"label": label, "commands": {}, "retry_errors": {}}
     for command in ("version", "status", "selftest"):
         result = None
+        last_error = ""
         for attempt in range(1, args.health_retries + 2):
             try:
                 result = a90ctl.run_cmdv1_command(
@@ -395,12 +396,12 @@ def run_health_check(args: argparse.Namespace, out_dir: Path, label: str) -> dic
                     args.health_timeout,
                     [command],
                 )
-                break
             except Exception as exc:  # noqa: BLE001 - safe health commands may retry after serial noise
+                last_error = str(exc)
                 out["retry_errors"].setdefault(command, []).append({
                     "attempt": attempt,
                     "exception_type": type(exc).__name__,
-                    "exception": str(exc),
+                    "exception": last_error,
                 })
                 if attempt > args.health_retries:
                     atomic_write_json(out_dir / f"{label}-health.json", out)
@@ -411,6 +412,34 @@ def run_health_check(args: argparse.Namespace, out_dir: Path, label: str) -> dic
                     timeout=max(5.0, args.bridge_restart_timeout + 5.0),
                     output_path=out_dir / f"{label}-{command}-health-bridge-restart-{attempt:02d}.json",
                 )
+                continue
+            if result.rc == 0 and result.status == "ok" and (
+                command != "selftest" or "fail=0" in result.text
+            ):
+                break
+            if result.rc != 0 or result.status != "ok":
+                last_error = (
+                    f"{label} health command {command} failed "
+                    f"rc={result.rc} status={result.status}"
+                )
+            else:
+                last_error = f"{label} selftest did not report fail=0"
+            out["retry_errors"].setdefault(command, []).append({
+                "attempt": attempt,
+                "exception_type": "ResidentSessionError",
+                "exception": last_error,
+                "rc": result.rc,
+                "status": result.status,
+                "text_tail": result.text[-240:],
+            })
+            if attempt > args.health_retries:
+                break
+            run_subprocess(
+                bridge_restart_command(args),
+                cwd=REPO_ROOT,
+                timeout=max(5.0, args.bridge_restart_timeout + 5.0),
+                output_path=out_dir / f"{label}-{command}-health-bridge-restart-{attempt:02d}.json",
+            )
         if result is None:
             raise ResidentSessionError(f"{label} health command {command} produced no result")
         out["commands"][command] = {
@@ -418,14 +447,9 @@ def run_health_check(args: argparse.Namespace, out_dir: Path, label: str) -> dic
             "status": result.status,
             "text": result.text,
         }
-        if result.rc != 0 or result.status != "ok":
+        if result.rc != 0 or result.status != "ok" or (command == "selftest" and "fail=0" not in result.text):
             atomic_write_json(out_dir / f"{label}-health.json", out)
-            raise ResidentSessionError(
-                f"{label} health command {command} failed rc={result.rc} status={result.status}"
-            )
-        if command == "selftest" and "fail=0" not in result.text:
-            atomic_write_json(out_dir / f"{label}-health.json", out)
-            raise ResidentSessionError(f"{label} selftest did not report fail=0")
+            raise ResidentSessionError(last_error)
     atomic_write_json(out_dir / f"{label}-health.json", out)
     return out
 

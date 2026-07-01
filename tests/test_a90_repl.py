@@ -270,6 +270,32 @@ class LiveMathTests(unittest.TestCase):
         )
         self.assertEqual(len(fake.sent), 2)
 
+    def test_generic_poke_noise_is_not_replayed_by_default(self) -> None:
+        session, fake = self._session(
+            ["ATAT\n", "A90R8\n"],
+            safe_op_retries=3,
+            retry_delay_sec=0.0,
+        )
+        with self.assertRaises(repl.ReplTransientNoiseError):
+            session.poke_runtime(0xFFFFFFC012300000, 0xAABBCCDD, 8)
+        self.assertEqual(len(fake.sent), 1)
+
+    def test_owned_buffer_poke_bytes_retries_same_value_setup(self) -> None:
+        session, fake = self._session(
+            ["ATAT\n", "A90R8\n"],
+            safe_op_retries=1,
+            retry_delay_sec=0.0,
+        )
+        repl._poke_bytes(session, 0xFFFFFFC012300000, b"ABCDEFGH")
+        self.assertEqual(len(fake.sent), 2)
+        first = _buf_from_op_sh(fake.sent[0])
+        second = _buf_from_op_sh(fake.sent[1])
+        self.assertEqual(first, second)
+        self.assertEqual(first[0x08], repl.OP_POKE)
+        self.assertEqual(struct.unpack_from("<Q", first, 0x10)[0], 0xFFFFFFC012300000)
+        self.assertEqual(struct.unpack_from("<Q", first, 0x18)[0], 0x4847464544434241)
+        self.assertEqual(struct.unpack_from("<Q", first, 0x20)[0], 8)
+
 
 @unittest.skipUnless(MAP_PATH.is_file(), "v2a1 System.map not generated")
 class SystemMapTests(unittest.TestCase):
