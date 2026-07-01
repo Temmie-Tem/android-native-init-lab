@@ -1256,6 +1256,26 @@ class CallSafetyClassificationTests(unittest.TestCase):
             ],
         )
 
+        get_intermediate_timeout = self._row("get_intermediate_timeout")
+        self.assertEqual(get_intermediate_timeout["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(get_intermediate_timeout["required_valid_pointer_args"], {})
+        self.assertTrue(get_intermediate_timeout["resolution"]["verified"])
+        self.assertEqual(get_intermediate_timeout["resolution"]["method"], "export-recovery")
+        self.assertEqual(
+            get_intermediate_timeout["resolution"]["link_vaddr"],
+            "0xffffff80099a5ff4",
+        )
+        self.assertGreaterEqual(get_intermediate_timeout["signals"]["direct_bl_xref_count"], 4)
+        self.assertTrue(get_intermediate_timeout["signals"]["leaf"])
+        self.assertEqual(
+            get_intermediate_timeout["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertEqual(
+            get_intermediate_timeout["signals"]["first_words"][:4],
+            [f"0x{word:08x}" for word in repl.GET_INTERMEDIATE_TIMEOUT_EXPECTED_WORDS],
+        )
+
         task_pid_nr_ns = self._row("__task_pid_nr_ns")
         self.assertEqual(task_pid_nr_ns["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -2765,7 +2785,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 50)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 51)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 9)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -3803,6 +3823,21 @@ class CallSafetyClassificationTests(unittest.TestCase):
             )
         )
 
+        get_intermediate_timeout = repl.lookup_source_signature(
+            "get_intermediate_timeout",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(get_intermediate_timeout["status"], "found", get_intermediate_timeout)
+        self.assertEqual(get_intermediate_timeout["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            get_intermediate_timeout["selected"]["signature"],
+            "extern unsigned int get_intermediate_timeout(void)",
+        )
+        self.assertEqual(get_intermediate_timeout["selected"]["line"], 140)
+        self.assertTrue(
+            get_intermediate_timeout["selected"]["path"].endswith("include/net/ncm.h")
+        )
+
         jiffies_64_to_clock_t = repl.lookup_source_signature(
             "jiffies_64_to_clock_t",
             source_root=KERNEL_SOURCE_ROOT,
@@ -4467,6 +4502,12 @@ class FaithfulFakeTransport:
             "get_current_napi_context",
             purpose="call",
         ).link_vaddr
+        self.get_intermediate_timeout_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "get_intermediate_timeout",
+            purpose="call",
+        ).link_vaddr
         self.task_pid_nr_ns_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -4735,6 +4776,7 @@ class FaithfulFakeTransport:
         self.borrowed_cpu0_device_ptr = 0xFFFFFFC012340000
         self.borrowed_ddr_vendor_ptr = 0xFFFFFFC012350000
         self.borrowed_ddr_vendor_string = b"Samsung\x00"
+        self.intermediate_timeout_value = 0x7530
         self.boot_stat_time_values = [0x00100000, 0x00101000, 0x00102000]
         self.boot_stat_time_index = 0
         self.get_seconds_values = [0x69000000, 0x69000001]
@@ -5508,6 +5550,8 @@ class FaithfulFakeTransport:
             get_cpu_device = self.get_cpu_device_link + self.slide
             assert self.get_current_napi_context_link is not None
             get_current_napi_context = self.get_current_napi_context_link + self.slide
+            assert self.get_intermediate_timeout_link is not None
+            get_intermediate_timeout = self.get_intermediate_timeout_link + self.slide
             assert self.task_pid_nr_ns_link is not None
             task_pid_nr_ns = self.task_pid_nr_ns_link + self.slide
             assert self.sched_get_group_id_link is not None
@@ -6145,6 +6189,10 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("get_current_napi_context proof must pass no arguments")
                 lines.append("A90R0")
+            elif arg0 == get_intermediate_timeout:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("get_intermediate_timeout proof must pass no arguments")
+                lines.append(f"A90R{self.intermediate_timeout_value:x}")
             elif arg0 == task_pid_nr_ns:
                 if (arg1, arg2, arg3, arg4) != (
                     self.init_task_runtime,
@@ -9308,6 +9356,65 @@ class SelftestIntegrationTests(unittest.TestCase):
         cases = {case["case"]: case for case in summary["case_results"]}
         self.assertTrue(cases["get_diplayport_status-read-1"]["ok"])
         self.assertTrue(cases["get_diplayport_status-read-2"]["ok"])
+        self.assertEqual(fake.op_count, 3)  # slide + 2 no-arg proof calls
+
+    def test_call_proof_get_intermediate_timeout_passes_with_no_arg_timeout_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "get_intermediate_timeout",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(
+            summary["decision"],
+            "a90-repl-live-call-proof-get_intermediate_timeout-pass",
+        )
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-ncm-intermediate-timeout-read-only-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "get_intermediate_timeout")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["function_map_entry"]["auto_call_policy"],
+            "one-target-proof-only-not-mass-call",
+        )
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern unsigned int get_intermediate_timeout(void)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(summary["observed_return_value"], f"0x{fake.intermediate_timeout_value:x}")
+        self.assertTrue(summary["all_returns_in_range"])
+        self.assertTrue(summary["all_returns_stable"])
+        self.assertEqual(summary["repeat_count"], 2)
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertNotIn("get_intermediate_timeout_runtime", summary)
+        self.assertIn("get_intermediate_timeout_runtime", private)
+        self.assertEqual(
+            private["case_returns"]["get_intermediate_timeout-read-1"],
+            f"0x{fake.intermediate_timeout_value:x}",
+        )
+        self.assertEqual(
+            private["case_returns"]["get_intermediate_timeout-read-2"],
+            f"0x{fake.intermediate_timeout_value:x}",
+        )
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertTrue(cases["get_intermediate_timeout-read-1"]["ok"])
+        self.assertTrue(cases["get_intermediate_timeout-read-2"]["ok"])
         self.assertEqual(fake.op_count, 3)  # slide + 2 no-arg proof calls
 
     def test_call_proof_batch_cli_runs_scheduler_targets_in_one_session(self) -> None:

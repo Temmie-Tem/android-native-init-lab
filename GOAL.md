@@ -96,6 +96,58 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL NCM intermediate-timeout live-call proof — `get_intermediate_timeout()` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg NCM timeout state
+>
+> Codex selected `get_intermediate_timeout` as a post-saturation state getter
+> rather than another generic lib/time helper. A source-backed advisory sweep
+> found `extern unsigned int get_intermediate_timeout(void)` in
+> `include/net/ncm.h:140`; nearby apparent candidates stayed parked because
+> `get_debug_reset_header` allocates/reads/prints/frees, `get_empty_filp`
+> reaches file allocation plus credential/security/RCU paths, and
+> `get_dump_page` reaches `__get_user_pages`.
+>
+> Static selection pinned `get_intermediate_timeout=0xffffff80099a5ff4` via
+> `export-recovery` with map agreement, direct BL xrefs `4`, no pointer args,
+> and `SAFE-SCALAR` C1 gate after seeding. The next-symbol boundary is
+> `knox_collect_conntrack_data` at `+0x10`; static word checks pinned the full
+> leaf body and guard: `0x90010268`, `0xb9495100`, `0xd65f03c0`,
+> `0x00be7bad`.
+>
+> The live proof obeyed the flash gate: rollback/fallback/TWRP artifacts were
+> confirmed, baseline v2321 `version/status/selftest` passed, the exact
+> v1-repl candidate (`b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`)
+> flashed through `native_init_flash.py` with matching pushed-image and
+> readback SHA, candidate helper health passed, and the target proof passed.
+> Two no-argument calls both returned `0x0`, stable and inside the
+> `unsigned int` timeout range. Raw runtime pointers and the slide stayed
+> private/redacted.
+>
+> A host-side mistake launched the initial candidate explicit `hide/selftest`
+> health command in parallel with the live proof; `hide` hit serial `AT`
+> framing noise while `selftest` passed. The trusted health gate is the later
+> sequential post-proof rerun, which passed `hide/selftest/status` with
+> `selftest pass=11 warn=1 fail=0` and `pstore entries=0`. Rollback to v2321
+> completed with matching readback SHA. Final explicit health first hit serial
+> `ATAT` framing noise on `version`, then `hide` plus a short settle retry
+> passed `version/selftest/status`, confirming resident
+> `v2321-usb-clean-identity-rodata`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-get-intermediate-timeout-20260701T052423Z/timeline.json`:
+> candidate flash helper `65.532s`, candidate flash start to boot ready `66s`,
+> candidate explicit health initial `14s`, live proof `14s`, post-proof health
+> `4s`, rollback flash helper `64.278s`, rollback flash start to boot ready
+> `64s`, final health initial `11s`, final health retry `4s`, and candidate
+> start to final health done `211s`.
+>
+> Function-map outcome: `get_intermediate_timeout` is promoted as live-proven
+> only under the no-argument read-only NCM intermediate-timeout contract: the
+> current image body is the pinned `adrp; ldr w0; ret` leaf global-load, and
+> return values must be stable `unsigned int` values in `0..0xffffffff`. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_GET_INTERMEDIATE_TIMEOUT_2026-07-01.md`.
+
 ## ✅ DONE — REPL scheduler IO-wait live-call proof — `nr_iowait()` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg scheduler IO-wait state

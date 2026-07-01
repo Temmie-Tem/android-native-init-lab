@@ -404,6 +404,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "borrowed-kernel-pointer-or-null",
         "reason": "no-argument NAPI context lookup; proof calls from REPL process context and expects NULL, any non-NULL return is borrowed and must not be dereferenced or freed",
     },
+    "get_intermediate_timeout": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "uint32_t",
+        "reason": "no-argument NCM intermediate-timeout state getter; current image is a leaf global-load and proof expects a stable uint32_t value",
+    },
     "get_ddr_vendor_name": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -3715,6 +3721,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "get_avenrun": ("include/linux/sched/loadavg.h",),
     "get_cpu_device": ("include/linux/cpu.h",),
     "get_current_napi_context": ("include/linux/netdevice.h",),
+    "get_intermediate_timeout": ("include/net/ncm.h",),
     "__task_pid_nr_ns": ("include/linux/sched.h",),
     "sched_get_group_id": ("include/linux/sched.h",),
     "task_prio": ("include/linux/sched.h",),
@@ -5527,6 +5534,12 @@ CALL_PROOF_TARGETS = {
         "return_contract": "struct napi_struct * == NULL for the REPL process-context proof call",
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern struct napi_struct * get_current_napi_context(void)",
+    },
+    "get_intermediate_timeout": {
+        "input_contract": "no arguments; NCM intermediate-timeout global state is read-only and no returned pointer is dereferenced or freed",
+        "return_contract": "unsigned int timeout value is stable across repeated proof calls and in 0..0xffffffff",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern unsigned int get_intermediate_timeout(void)",
     },
     "__task_pid_nr_ns": {
         "input_contract": "global init_task task_struct pointer + PIDTYPE_PID + NULL namespace; global pointer is borrowed/read-only and is not freed",
@@ -7535,6 +7548,12 @@ GET_DIPLAYPORT_STATUS_EXPECTED_WORDS = (
     0xD503201F, 0x00BE7BAD,
 )
 GET_DIPLAYPORT_STATUS_NEXT_SYMBOL = ("process_check_accessory", 0x58)
+GET_INTERMEDIATE_TIMEOUT_REPEAT_COUNT = 2
+GET_INTERMEDIATE_TIMEOUT_MAX = 0xFFFFFFFF
+GET_INTERMEDIATE_TIMEOUT_EXPECTED_WORDS = (
+    0x90010268, 0xB9495100, 0xD65F03C0, 0x00BE7BAD,
+)
+GET_INTERMEDIATE_TIMEOUT_NEXT_SYMBOL = ("knox_collect_conntrack_data", 0x10)
 GET_DDR_VENDOR_NAME_STACK_ALLOC_WORD = 0xD100C3FF
 GET_DDR_VENDOR_NAME_SMEM_ID_WORD = 0x528010C1
 GET_DDR_VENDOR_NAME_ARG_BUFFER_WORD = 0x910003E2
@@ -23300,6 +23319,168 @@ def _run_call_proof_get_current_napi_context(
     return summary, private
 
 
+def _run_call_proof_get_intermediate_timeout(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "get_intermediate_timeout"
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        (),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError(f"{target} source signature must be no-arg scalar-safe")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the expected declaration")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(resolutions[target], "call-proof target")
+    next_symbol_name, expected_boundary = GET_INTERMEDIATE_TIMEOUT_NEXT_SYMBOL
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    observed_words = image.u32_words_at_vaddr(target_link, len(GET_INTERMEDIATE_TIMEOUT_EXPECTED_WORDS))
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for index, expected in enumerate(GET_INTERMEDIATE_TIMEOUT_EXPECTED_WORDS):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for index in range(GET_INTERMEDIATE_TIMEOUT_REPEAT_COUNT):
+            observed = session.call_runtime(target_runtime, ()) & MASK64
+            returns.append(observed)
+            in_range = 0 <= observed <= GET_INTERMEDIATE_TIMEOUT_MAX
+            stable_ok = index == 0 or observed == returns[0]
+            ok = in_range and stable_ok
+            case_results.append({
+                "case": f"{target}-read-{index + 1}",
+                "expected_range": f"0x0..0x{GET_INTERMEDIATE_TIMEOUT_MAX:x}",
+                "observed_return_value": f"0x{observed:x}",
+                "in_timeout_range": in_range,
+                "matches_first_call": stable_ok,
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(
+                    f"{target}() returned an out-of-contract value in proof call "
+                    f"{index + 1}: 0x{observed:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": f"{target}-stable-timeout-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = f"0x{returns[0]:x}" if returns else "n/a"
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-ncm-intermediate-timeout-read-only-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "observed_return_value": observed_public,
+        "all_returns_in_range": bool(returns) and all(0 <= value <= GET_INTERMEDIATE_TIMEOUT_MAX for value in returns),
+        "all_returns_stable": bool(returns) and all(value == returns[0] for value in returns),
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": f"repeated no-argument calls returned stable NCM intermediate timeout {observed_public}",
+            "cleanup": "n/a-scalar-read-only",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _require_init_task_link(symbols: dict[str, Symbol]) -> int:
     symbol = symbols.get("init_task")
     if symbol is None:
@@ -35904,6 +36085,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "get_current_napi_context":
         return _run_call_proof_get_current_napi_context(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "get_intermediate_timeout":
+        return _run_call_proof_get_intermediate_timeout(
             session,
             symbols,
             image,
