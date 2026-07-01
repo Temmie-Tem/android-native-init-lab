@@ -407,6 +407,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "unsigned-long-seconds",
         "reason": "no-argument kernel wall-clock seconds getter; proof expects nondecreasing short-repeat seconds and no pointer arguments",
     },
+    "ktime_get_ts64": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "owned-timespec64-result-slot"},
+        "return_kind": "void",
+        "reason": "monotonic timekeeping state writer; x0 must be an owned kmalloc struct timespec64 result slot with canary",
+    },
     "is_scm_armv8": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -3596,6 +3602,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "jiffies64_to_nsecs": ("include/linux/jiffies.h",),
     "nsecs_to_jiffies64": ("include/linux/jiffies.h",),
     "nsecs_to_jiffies": ("include/linux/jiffies.h",),
+    "ktime_get_ts64": ("include/linux/timekeeping.h",),
     "get_boot_stat_time": ("include/soc/qcom/boot_stats.h",),
     "is_scm_armv8": ("include/soc/qcom/scm.h", "drivers/soc/qcom/scm.c"),
     "get_cpu_device": ("include/linux/cpu.h",),
@@ -5453,6 +5460,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "unsigned long get_seconds(void)",
     },
+    "ktime_get_ts64": {
+        "input_contract": "owned struct timespec64 result slot in kmalloc memory; proof initializes the 16-byte slot plus trailing canary before each call and frees the slot after validation",
+        "return_contract": "void call writes sane monotonic time: tv_sec is nonnegative/bounded, tv_nsec is 0..999999999, repeated readings are nondecreasing with delta bounded by the serial REPL proof budget, and trailing canary is preserved",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern void ktime_get_ts64(struct timespec64 *ts)",
+    },
     "is_scm_armv8": {
         "input_contract": "no arguments; proof first verifies scm_version is already cached nonzero so the function takes only the cached read-only return path and does not execute SMC initialization",
         "return_contract": "bool equals cached scm_version armv8 classification: SCM_LEGACY returns 0, SCM_ARMV8_32/64 returns 1, repeated calls stable and scm_version unchanged",
@@ -6697,6 +6710,23 @@ GET_SECONDS_EXPECTED_WORDS = (
 GET_SECONDS_NEXT_SYMBOL = ("__current_kernel_time", 0x18)
 GET_SECONDS_REPEAT_COUNT = 2
 GET_SECONDS_MAX_SHORT_DELTA = 2
+KTIME_GET_TS64_EXPECTED_WORDS = (
+    0xD10103FF, 0xCA1103D0, 0xA90143FD, 0x910043FD,
+    0xA90257F6, 0xA9034FF4, 0xD00155C8, 0xF00155C9,
+    0xAA0003F3, 0xF9478508, 0xF90007E8, 0xB940AD28,
+    0x350007A8, 0xF0016FF5, 0xF0016FF4, 0x912C02B5,
+    0xB94B0296, 0x37000216, 0xD50339BF, 0xF94036A8,
+    0xF9000268, 0xF94006A0, 0xF9400008, 0x9461BFFF,
+)
+KTIME_GET_TS64_NEXT_SYMBOL = ("ktime_get_seconds", 0x138)
+KTIME_GET_TS64_STRUCT_SIZE = 16
+KTIME_GET_TS64_CANARY_BYTES = bytes.fromhex("a90f6464c001d00d1122334455667788")
+KTIME_GET_TS64_PROOF_ALLOC_SIZE = 0x40
+KTIME_GET_TS64_FILL_BYTE = 0xA6
+KTIME_GET_TS64_REPEAT_COUNT = 2
+KTIME_GET_TS64_NSEC_PER_SEC = 1_000_000_000
+KTIME_GET_TS64_MAX_SECONDS = 10 * 365 * 24 * 60 * 60
+KTIME_GET_TS64_MAX_SHORT_DELTA_NS = 30 * KTIME_GET_TS64_NSEC_PER_SEC
 IS_SCM_ARMV8_SCM_VERSION_LINK = 0xFFFFFF800B0A78F8
 IS_SCM_ARMV8_REPEAT_COUNT = 2
 SCM_UNKNOWN = 0
@@ -26691,6 +26721,258 @@ def _u32_from_le(raw: bytes, offset: int) -> int:
     return int.from_bytes(raw[offset:offset + 4], "little")
 
 
+def _run_call_proof_ktime_get_ts64(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+    gfp: int,
+    gfp_components: dict[str, int],
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "ktime_get_ts64"
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        ("@owned-timespec64-result-slot",),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected valid-pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError(f"{target} source signature must declare x0 as a struct timespec64 pointer")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the timekeeping.h declaration")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(
+            symbols,
+            image,
+            "kfree",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ),
+    }
+    target_link = require_verified_resolution(resolutions[target], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof result-slot allocation")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof result-slot cleanup")
+    next_symbol_name, expected_boundary = KTIME_GET_TS64_NEXT_SYMBOL
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    observed_words = image.u32_words_at_vaddr(target_link, len(KTIME_GET_TS64_EXPECTED_WORDS))
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for index, expected in enumerate(KTIME_GET_TS64_EXPECTED_WORDS):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    ptr = 0
+    free_ok = False
+    free_error = ""
+    raw_returns: list[int] = []
+    readings: list[dict[str, object]] = []
+    previous_total_ns: int | None = None
+    canary_after = b""
+    failure_reason = ""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+        ptr = session.call_runtime(kmalloc_runtime, (KTIME_GET_TS64_PROOF_ALLOC_SIZE, gfp))
+        if not is_kernel_lowmem_pointer(ptr) or _is_kernel_err_ptr(ptr):
+            raise ReplError(f"__kmalloc returned invalid {target} result-slot pointer: 0x{ptr:x}")
+        initial = (
+            bytes([KTIME_GET_TS64_FILL_BYTE]) * KTIME_GET_TS64_STRUCT_SIZE
+            + KTIME_GET_TS64_CANARY_BYTES
+        )
+        for index in range(KTIME_GET_TS64_REPEAT_COUNT):
+            _poke_bytes(session, ptr, initial)
+            raw_return = session.call_runtime(target_runtime, (ptr,)) & MASK64
+            raw_returns.append(raw_return)
+            observed = _peek_bytes(
+                session,
+                ptr,
+                KTIME_GET_TS64_STRUCT_SIZE + len(KTIME_GET_TS64_CANARY_BYTES),
+            )
+            tv_sec = _u64_from_le(observed, 0)
+            tv_nsec = _u64_from_le(observed, 8)
+            total_ns = tv_sec * KTIME_GET_TS64_NSEC_PER_SEC + tv_nsec
+            canary_after = observed[
+                KTIME_GET_TS64_STRUCT_SIZE:
+                KTIME_GET_TS64_STRUCT_SIZE + len(KTIME_GET_TS64_CANARY_BYTES)
+            ]
+            nsec_ok = 0 <= tv_nsec < KTIME_GET_TS64_NSEC_PER_SEC
+            sec_ok = 0 <= tv_sec < KTIME_GET_TS64_MAX_SECONDS
+            nondecreasing = previous_total_ns is None or total_ns >= previous_total_ns
+            delta_ns = None if previous_total_ns is None else total_ns - previous_total_ns
+            bounded_delta = delta_ns is None or delta_ns <= KTIME_GET_TS64_MAX_SHORT_DELTA_NS
+            canary_ok = canary_after == KTIME_GET_TS64_CANARY_BYTES
+            changed = observed[:KTIME_GET_TS64_STRUCT_SIZE] != initial[:KTIME_GET_TS64_STRUCT_SIZE]
+            ok = nsec_ok and sec_ok and nondecreasing and bounded_delta and canary_ok and changed
+            readings.append({
+                "case": f"{target}-read-{index + 1}",
+                "tv_sec": f"0x{tv_sec:x}",
+                "tv_nsec": f"0x{tv_nsec:x}",
+                "total_nsec": f"0x{total_ns:x}",
+                "delta_nsec_from_previous": "n/a" if delta_ns is None else f"0x{delta_ns:x}",
+                "nsec_in_range": nsec_ok,
+                "seconds_in_sane_range": sec_ok,
+                "nondecreasing": nondecreasing,
+                "bounded_short_delta": bounded_delta,
+                "result_slot_changed": changed,
+                "canary_preserved": canary_ok,
+                "ok": ok,
+            })
+            if not ok:
+                failed_terms = [
+                    name
+                    for name, passed_term in (
+                        ("nsec_in_range", nsec_ok),
+                        ("seconds_in_sane_range", sec_ok),
+                        ("nondecreasing", nondecreasing),
+                        ("bounded_short_delta", bounded_delta),
+                        ("result_slot_changed", changed),
+                        ("canary_preserved", canary_ok),
+                    )
+                    if not passed_term
+                ]
+                failure_reason = (
+                    f"{target} result slot failed contract in proof read {index + 1}: "
+                    + ",".join(failed_terms)
+                )
+                break
+            previous_total_ns = total_ns
+    finally:
+        if ptr and is_kernel_lowmem_pointer(ptr):
+            try:
+                session.call_runtime((kfree_link + slide) & MASK64, (ptr,))
+                free_ok = True
+            except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                free_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "ktime-get-ts64-result-slot-readings",
+        "ok": all(bool(reading.get("ok")) for reading in readings),
+        "case_count": len(readings),
+        "cases": readings,
+    })
+    checks.append({
+        "check": "kfree-owned-timespec64-result-slot",
+        "ok": free_ok,
+    })
+    if not free_ok:
+        failure_reason = f"kfree cleanup failed after {target} proof: {free_error or 'unknown error'}"
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    first_reading = readings[0] if readings else {}
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-owned-timespec64-result-slot-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": readings,
+        "observed_tv_sec": first_reading.get("tv_sec", "n/a"),
+        "observed_tv_nsec": first_reading.get("tv_nsec", "n/a"),
+        "all_readings_in_contract": bool(readings) and all(bool(reading.get("ok")) for reading in readings),
+        "failure_reason": failure_reason,
+        "canary_preserved": canary_after == KTIME_GET_TS64_CANARY_BYTES,
+        "cleanup_ok": free_ok,
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": "owned struct timespec64 result slot contained sane nondecreasing monotonic time",
+            "cleanup": "kfree-owned-timespec64-result-slot-ok",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "result_slot_ptr": f"0x{ptr:x}",
+        "void_call_raw_x0_values": [f"0x{value:x}" for value in raw_returns],
+        "case_readings": {
+            reading["case"]: {
+                "tv_sec": reading["tv_sec"],
+                "tv_nsec": reading["tv_nsec"],
+                "total_nsec": reading["total_nsec"],
+            }
+            for reading in readings
+        },
+        "canary_after_hex": canary_after.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
 def _run_call_proof_si_meminfo(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -32489,6 +32771,15 @@ def run_call_proof(session: ReplSession,
             symbols,
             image,
             source_root=source_root,
+        )
+    if target == "ktime_get_ts64":
+        return _run_call_proof_ktime_get_ts64(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
         )
     if target == "si_meminfo":
         return _run_call_proof_si_meminfo(

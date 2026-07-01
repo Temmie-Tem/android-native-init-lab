@@ -1940,6 +1940,26 @@ class CallSafetyClassificationTests(unittest.TestCase):
             [f"0x{word:08x}" for word in repl.SI_MEMINFO_EXPECTED_WORDS[:12]],
         )
 
+        ktime_get_ts64 = self._row("ktime_get_ts64")
+        self.assertEqual(ktime_get_ts64["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            ktime_get_ts64["required_valid_pointer_args"],
+            {"0": "owned-timespec64-result-slot"},
+        )
+        self.assertTrue(ktime_get_ts64["resolution"]["verified"])
+        self.assertEqual(ktime_get_ts64["resolution"]["method"], "export-recovery")
+        self.assertEqual(ktime_get_ts64["resolution"]["link_vaddr"], "0xffffff800815f534")
+        self.assertGreaterEqual(ktime_get_ts64["signals"]["direct_bl_xref_count"], 30)
+        self.assertFalse(ktime_get_ts64["signals"]["leaf"])
+        self.assertEqual(
+            {row["arg"] for row in ktime_get_ts64["signals"]["arg_pointer_derefs_before_first_bl_or_ret"]},
+            {"x0"},
+        )
+        self.assertEqual(
+            ktime_get_ts64["signals"]["first_words"][:12],
+            [f"0x{word:08x}" for word in repl.KTIME_GET_TS64_EXPECTED_WORDS[:12]],
+        )
+
         scheduler_counter_targets = {
             "nr_processes": ("0xffffff80080ae02c", 1),
             "nr_running": ("0xffffff80080edebc", 4),
@@ -3169,6 +3189,16 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertEqual(get_seconds["selected"]["line"], 26)
         self.assertTrue(get_seconds["selected"]["path"].endswith("include/linux/timekeeping.h"))
 
+        ktime_get_ts64 = repl.lookup_source_signature("ktime_get_ts64", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(ktime_get_ts64["status"], "found", ktime_get_ts64)
+        self.assertEqual(ktime_get_ts64["selected"]["pointer_arg_indices"], [0])
+        self.assertEqual(
+            ktime_get_ts64["selected"]["signature"],
+            "extern void ktime_get_ts64(struct timespec64 *ts)",
+        )
+        self.assertEqual(ktime_get_ts64["selected"]["line"], 43)
+        self.assertTrue(ktime_get_ts64["selected"]["path"].endswith("include/linux/timekeeping.h"))
+
         is_scm_armv8 = repl.lookup_source_signature("is_scm_armv8", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(is_scm_armv8["status"], "found", is_scm_armv8)
         self.assertEqual(is_scm_armv8["selected"]["pointer_arg_indices"], [])
@@ -4048,6 +4078,13 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.ktime_get_ts64_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "ktime_get_ts64",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.nr_processes_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -4137,6 +4174,8 @@ class FaithfulFakeTransport:
             "mem_unit": repl.SI_MEMINFO_EXPECTED_MEM_UNIT,
         }
         self.si_mem_available_index = 0
+        self.ktime_get_ts64_values = [(0x1234, 0x01020304), (0x1234, 0x02030405)]
+        self.ktime_get_ts64_index = 0
         self.scheduler_counter_values = {
             "nr_processes": [0x72, 0x73],
             "nr_running": [0x3, 0x4],
@@ -4870,6 +4909,8 @@ class FaithfulFakeTransport:
             si_mem_available = self.si_mem_available_link + self.slide
             assert self.si_meminfo_link is not None
             si_meminfo = self.si_meminfo_link + self.slide
+            assert self.ktime_get_ts64_link is not None
+            ktime_get_ts64 = self.ktime_get_ts64_link + self.slide
             assert self.nr_processes_link is not None
             nr_processes = self.nr_processes_link + self.slide
             assert self.nr_running_link is not None
@@ -5593,6 +5634,18 @@ class FaithfulFakeTransport:
                     self.si_meminfo_fields["mem_unit"].to_bytes(4, "little")
                 )
                 self._set_heap_bytes(arg1, bytes(data))
+                lines.append("A90R0")
+            elif arg0 == ktime_get_ts64:
+                if (arg2, arg3, arg4) != (0, 0, 0):
+                    raise AssertionError("ktime_get_ts64 proof must pass one result-slot pointer argument")
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"ktime_get_ts64 result slot is not an allocated pointer: {arg1:#x}")
+                tv_sec, tv_nsec = self.ktime_get_ts64_values[
+                    min(self.ktime_get_ts64_index, len(self.ktime_get_ts64_values) - 1)
+                ]
+                self.ktime_get_ts64_index += 1
+                data = tv_sec.to_bytes(8, "little") + tv_nsec.to_bytes(8, "little")
+                self._set_heap_bytes(arg1, data)
                 lines.append("A90R0")
             elif arg0 == nr_processes:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
@@ -7550,6 +7603,94 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(privates["si_meminfo"]["canary_after_hex"], repl.SI_MEMINFO_CANARY_BYTES.hex())
         self.assertIn(fake.heap_ptr, fake.freed)
         self.assertGreater(fake.op_count, 10)
+
+    def test_call_proof_ktime_get_ts64_passes_with_owned_timespec64_slot(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "ktime_get_ts64",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-ktime_get_ts64-pass")
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-owned-timespec64-result-slot-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "ktime_get_ts64")
+        self.assertEqual(
+            summary["function_map_entry"]["auto_call_policy"],
+            "one-target-proof-only-not-mass-call",
+        )
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern void ktime_get_ts64(struct timespec64 *ts)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [0])
+        self.assertEqual(summary["call_safety"]["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            summary["call_safety"]["required_valid_pointer_args"],
+            {"0": "owned-timespec64-result-slot"},
+        )
+        self.assertEqual(summary["observed_tv_sec"], "0x1234")
+        self.assertEqual(summary["observed_tv_nsec"], "0x1020304")
+        self.assertTrue(summary["all_readings_in_contract"])
+        self.assertTrue(summary["canary_preserved"])
+        self.assertTrue(summary["cleanup_ok"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertNotIn("ktime_get_ts64_runtime", summary)
+        self.assertIn("ktime_get_ts64_runtime", private)
+        self.assertEqual(private["canary_after_hex"], repl.KTIME_GET_TS64_CANARY_BYTES.hex())
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertEqual(cases["ktime_get_ts64-read-1"]["tv_sec"], "0x1234")
+        self.assertEqual(cases["ktime_get_ts64-read-1"]["tv_nsec"], "0x1020304")
+        self.assertEqual(cases["ktime_get_ts64-read-2"]["tv_nsec"], "0x2030405")
+        self.assertTrue(cases["ktime_get_ts64-read-2"]["nondecreasing"])
+        self.assertIn(fake.heap_ptr, fake.freed)
+
+    def test_call_proof_ktime_get_ts64_reports_failed_read_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        fake.ktime_get_ts64_values = [(0x1234, 0x01020304), (0x1, 0x0)]
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "ktime_get_ts64",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertFalse(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-ktime_get_ts64-fail")
+        self.assertIn("nondecreasing", summary["failure_reason"])
+        self.assertTrue(summary["cleanup_ok"])
+        self.assertIn(fake.heap_ptr, fake.freed)
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertTrue(cases["ktime_get_ts64-read-1"]["ok"])
+        self.assertFalse(cases["ktime_get_ts64-read-2"]["ok"])
+        self.assertFalse(cases["ktime_get_ts64-read-2"]["nondecreasing"])
+        self.assertIn("ktime_get_ts64-read-2", private["case_readings"])
 
     def test_call_proof_scheduler_counter_batch_passes_with_no_arg_contracts(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

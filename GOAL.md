@@ -96,6 +96,44 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL result-slot state-writer live-call proof — `ktime_get_ts64` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — timekeeping result-slot writer
+>
+> Codex proved `ktime_get_ts64` as a result-slot state-writer target rather than another saturated
+> scalar/string helper. Static selection pinned `ktime_get_ts64=0xffffff800815f534` via
+> `export-recovery`, source declaration `extern void ktime_get_ts64(struct timespec64 *ts)`
+> (`include/linux/timekeeping.h:43`), direct BL xrefs `39`, and next-symbol boundary
+> `ktime_get_seconds` at `+0x138`. The C1 call gate classifies it as `SAFE-WITH-VALID-PTR` only
+> with x0 bound to an owned kmalloc `struct timespec64` result slot plus trailing canary.
+>
+> The live proof obeyed the flash gate: preflight v2321 health passed, rollback images were present
+> with expected SHA values, the v1-repl candidate (`b846ae9f...`) flashed with matching readback SHA,
+> candidate health passed, and the proof allocated an owned result slot, called `ktime_get_ts64`, read
+> back two sane/nondecreasing `tv_sec/tv_nsec` values, verified the canary, and freed the slot with
+> `kfree`. Final observed pass cases were `tv_sec=0x8e tv_nsec=0x28eb0361` and
+> `tv_sec=0x94 tv_nsec=0x0a5c1823`; `cleanup_ok=true`.
+>
+> One useful correction landed during the unit: the first instrumented proof failed only the old
+> `5s` `bounded_short_delta` contract (`delta=0x14d8b7572`, about `5.596s`) while every semantic
+> field was good. The proof now uses a `30s` serial-REPL proof budget and, more importantly, returns
+> structured fail evidence (`case_results` + `failure_reason`) instead of throwing before JSON is
+> written.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-ktime-get-ts64-retry-20260701T000637Z/timeline.json`:
+> candidate flash `65.0s`, candidate flash to explicit health `102.0s`, first instrumented proof
+> `16.0s`, relaxed proof `16.0s`, live session total `92.0s`, rollback flash `65.0s`, rollback to
+> final explicit health `103.0s`, rollback to final version retry `112.0s`, and candidate start to
+> final version retry `325.0s`.
+>
+> Function-map outcome: `ktime_get_ts64` is promoted as live-proven under the owned-timespec64
+> result-slot contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_KTIME_GET_TS64_2026-07-01.md`.
+> Next selection should continue the operator's batch/saturation policy: group adjacent same-shape
+> candidates when useful, but pivot toward unproven ABI/state-observation shapes rather than
+> enumerating another low-information scalar variant.
+
 ## ⚠️ STOPPED — REPL state-observation live-call proof attempt — `of_flat_dt_is_compatible` live faulted, fenced known-unsafe
 
 > ### ⚠️ STATUS (2026-07-01 attempted, rolled back cleanly) — flat-DT compatibility helper not promoted
