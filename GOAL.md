@@ -96,6 +96,45 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL borrowed namespace-pointer live-call proof — `task_active_pid_ns(init_task)` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — borrowed global `task_struct *` to borrowed `pid_namespace *`
+>
+> Codex selected `task_active_pid_ns` to extend the REPL proof map beyond scalar field getters:
+> the proof calls only `task_active_pid_ns(init_task)`, where `init_task` is the verified global
+> data symbol, borrowed/read-only, never freed, and not a general arbitrary task pointer. The
+> returned `struct pid_namespace *` is also borrowed: it is compared for identity only, not
+> dereferenced or freed in the public proof.
+>
+> Static selection pinned `task_active_pid_ns=0xffffff80080d7e84` via `export-recovery` with map
+> agreement, source declaration
+> `extern struct pid_namespace * task_active_pid_ns(struct task_struct *tsk)` at
+> `include/linux/pid_namespace.h:107`, direct BL xrefs `31`, JOPP entry, leaf shape, and
+> next-symbol boundary `attach_pid` at `+0x28`. The pinned instruction path is
+> `ldr x8,[x0,#1824]`, `cbz x8`, `ldr w9,[x8,#4]`, `add x8,x8,x9,lsl #5`,
+> `ldr x0,[x8,#80]`, `ret`. The call-safety gate classifies it as `SAFE-WITH-VALID-PTR`
+> only when x0 is `global-init_task-task_struct`.
+>
+> The live proof obeyed the flash gate: preflight confirmed candidate/rollback/fallback SHA values
+> and baseline v2321 health, the v1-repl candidate (`b846ae9f...`) flashed with matching readback
+> SHA, candidate health passed, and `task_active_pid_ns(init_task)` passed. The proof first read
+> `init_task->thread_pid` at offset `0x720`, read `pid->level` at `0x4` (`pid_level=0`), then
+> read the expected namespace pointer through `thread_pid + 0x50 + (level << 5)`, matching the
+> verified disassembly. Two calls returned the same borrowed pointer as the direct observation;
+> raw pointer values and the slide stayed private/redacted. Post-proof selftest stayed `fail=0`;
+> rollback to v2321 completed with matching readback SHA; final `version/status/selftest` passed
+> with `selftest pass=11 warn=1 fail=0`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-task-active-pid-ns-20260701T025649Z/timeline.json`:
+> candidate flash helper `63.727s`, candidate explicit health `1.0s`, live proof `7.0s`,
+> post-proof candidate health `1.0s`, rollback flash helper `65.324s`, final explicit health
+> `1.0s`, and candidate start to final health done `178.0s`.
+>
+> Function-map outcome: `task_active_pid_ns` is promoted as live-proven only under the
+> `task_active_pid_ns(init_task)` borrowed-global-task / borrowed-pid-namespace contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_TASK_ACTIVE_PID_NS_2026-07-01.md`.
+
 ## ✅ DONE — REPL struct-pointer live-call proof — `task_prio(init_task)` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — borrowed global `task_struct *` getter
