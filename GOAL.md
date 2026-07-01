@@ -148,13 +148,58 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >    `thread_group_cputime_adjusted`, extended the same resident-session path to a borrowed
 >    `init_task` plus owned dual-`u64` result-slot ABI; the aggregate now uses `19` canonical
 >    timelines out of `67` and projects resident-session `13.004s/target`, `21.22x` vs per-unit
->    flash and `2.12x` vs per-unit in-boot batching.
+>    flash and `2.12x` vs per-unit in-boot batching. The next target,
+>    `task_cputime_adjusted`, proved the sibling borrowed-`init_task` plus owned dual-slot ABI where
+>    the body performs pinned pre-call `init_task` field reads; the aggregate now uses `20`
+>    canonical timelines out of `68` and projects resident-session `12.945s/target`, `21.46x` vs
+>    per-unit flash and `2.15x` vs per-unit in-boot batching.
 >    Harness report:
 >    `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_RESIDENT_SESSION_HARNESS_2026-07-01.md`.
 > **HARD — unchanged, do NOT loosen:** the fail-closed C1 resolution, the **call-safety classifier**
 > (DENY / BEHAVIOR-CHANGING tiers stay DENY — never relax a tier to reach a struct/state target),
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
+
+## ✅ DONE — REPL resident-session borrowed task + pre-call field-read + owned dual-slot proof — `task_cputime_adjusted`
+
+> ### ✅ STATUS (2026-07-01 live-proven, resident-session mode, rolled back cleanly)
+>
+> Codex promoted `task_cputime_adjusted(struct task_struct *p, u64 *ut, u64 *st)` under a
+> target-specific borrowed `init_task` plus owned dual-result-slot contract, not as a global auto-call
+> seed. Static identity is pinned by map/export address `0xffffff80080f7f2c`, target-specific
+> `export-recovery` C1 verification with `allow_pre_arg_deref=true`, direct BL xrefs `4`, next symbol
+> `cputime_adjust` at `+0x70`, source signature
+> `extern void task_cputime_adjusted(struct task_struct *p, u64 *ut, u64 *st)` at
+> `include/linux/sched/cputime.h:55`, pointer arg indices `[0, 1, 2]`, no context-sensitive calls,
+> and fixed callees `cputime_adjust` and `__stack_chk_fail`.
+>
+> The global classifier remains fail-closed for this non-seeded target: `DENY`,
+> `auto_call_allowed=false`, not seed-whitelisted. Generic resolution remains `unverified` because
+> the default gate correctly rejects the pinned pre-call `x0` field read
+> `map-target-precall-x0-deref:+0x28/imm=0x148/word=0xf940a408`. The proof records a separate
+> target-specific `SAFE-WITH-VALID-PTR` contract only because the harness supplies borrowed
+> `init_task`, accepts exactly the pinned `x0+328`, `x0+1936`, `x0+1944` field reads, supplies owned
+> `utime`/`stime` slots, and validates canary preservation plus `kfree` cleanup.
+>
+> Live resident-session run:
+> `workspace/private/runs/kernel/repl-resident-session-task-cputime-adjusted-20260701T145629Z/`.
+> Result: `a90-repl-live-call-proof-task_cputime_adjusted-pass`; two repeated calls wrote
+> `utime=0x0`, `stime=0x0`, preserved the trailing canary, and freed the owned buffer via `kfree`.
+>
+> Session used v1-repl flash once, mandatory warm reboot before the batch, per-target result flush,
+> and v2321 rollback once. Final resident is `v2321-usb-clean-identity-rodata`; standalone
+> `selftest fail=0`.
+>
+> Canonical timing is present in `timeline.json` with the single top-level `events` schema and all
+> required eight phase events. This run measured `candidate_flash=64.240308s`,
+> `warm_reboot=33.011283s`, one-target live batch `13.616407s`, `rollback_flash=64.834542s`,
+> total `311.223365s`. The timing aggregator now uses `20` canonical timelines out of `68` and
+> projects resident session `20->2` flashes, `12.945s/target`, `21.46x` versus unbatched per-unit
+> flash, and `2.15x` versus per-unit in-boot batching for `batch_size=10`,
+> `resident_batches=10`.
+>
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_TASK_CPUTIME_ADJUSTED_RESIDENT_SESSION_2026-07-01.md`.
 
 ## ✅ DONE — REPL resident-session borrowed task + owned dual-slot proof — `thread_group_cputime_adjusted`
 
