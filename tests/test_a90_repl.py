@@ -1297,6 +1297,48 @@ class CallSafetyClassificationTests(unittest.TestCase):
             ],
         )
 
+        get_notify_data = self._row("get_notify_data")
+        self.assertEqual(get_notify_data["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            get_notify_data["required_valid_pointer_args"],
+            {"0": "borrowed-otg-notify-pointer-from-get_otg_notify"},
+        )
+        self.assertTrue(get_notify_data["resolution"]["verified"])
+        self.assertEqual(
+            get_notify_data["resolution"]["method"],
+            "exact-leaf-export+word-boundary",
+        )
+        self.assertEqual(
+            get_notify_data["resolution"]["link_vaddr"],
+            "0xffffff800901def4",
+        )
+        self.assertEqual(get_notify_data["signals"]["direct_bl_xref_count"], 0)
+        self.assertTrue(get_notify_data["signals"]["leaf"])
+        self.assertEqual(
+            get_notify_data["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [
+                {
+                    "offset": 4,
+                    "arg_reg": 0,
+                    "rt": 0,
+                    "rn": 0,
+                    "width": 8,
+                    "imm": 160,
+                    "word": "0xf9405000",
+                    "arg": "x0",
+                }
+            ],
+        )
+        self.assertEqual(
+            get_notify_data["signals"]["first_words"][:4],
+            [
+                "0xb4000040",
+                "0xf9405000",
+                "0xd65f03c0",
+                "0x00be7bad",
+            ],
+        )
+
         get_intermediate_timeout = self._row("get_intermediate_timeout")
         self.assertEqual(get_intermediate_timeout["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
         self.assertEqual(get_intermediate_timeout["required_valid_pointer_args"], {})
@@ -2827,7 +2869,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 52)
-        self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 9)
+        self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 10)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
 
@@ -3498,6 +3540,19 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertEqual(get_otg_notify["selected"]["line"], 175)
         self.assertTrue(get_otg_notify["selected"]["path"].endswith("include/linux/usb_notify.h"))
+
+        get_notify_data = repl.lookup_source_signature(
+            "get_notify_data",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(get_notify_data["status"], "found", get_notify_data)
+        self.assertEqual(get_notify_data["selected"]["pointer_arg_indices"], [0])
+        self.assertEqual(
+            get_notify_data["selected"]["signature"],
+            "extern void * get_notify_data(struct otg_notify *n)",
+        )
+        self.assertEqual(get_notify_data["selected"]["line"], 173)
+        self.assertTrue(get_notify_data["selected"]["path"].endswith("include/linux/usb_notify.h"))
 
         task_pid_nr_ns = repl.lookup_source_signature(
             "__task_pid_nr_ns",
@@ -4562,6 +4617,13 @@ class FaithfulFakeTransport:
             "get_otg_notify",
             purpose="call",
         ).link_vaddr
+        self.get_notify_data_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "get_notify_data",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.get_intermediate_timeout_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -4836,6 +4898,7 @@ class FaithfulFakeTransport:
         self.borrowed_cpu0_device_ptr = 0xFFFFFFC012340000
         self.borrowed_ddr_vendor_ptr = 0xFFFFFFC012350000
         self.borrowed_otg_notify_ptr = 0xFFFFFFC012360000
+        self.borrowed_notify_data_ptr = 0xFFFFFFC012370000
         self.borrowed_ddr_vendor_string = b"Samsung\x00"
         self.intermediate_timeout_value = 0x7530
         self.boot_stat_time_values = [0x00100000, 0x00101000, 0x00102000]
@@ -5613,6 +5676,8 @@ class FaithfulFakeTransport:
             get_current_napi_context = self.get_current_napi_context_link + self.slide
             assert self.get_otg_notify_link is not None
             get_otg_notify = self.get_otg_notify_link + self.slide
+            assert self.get_notify_data_link is not None
+            get_notify_data = self.get_notify_data_link + self.slide
             assert self.get_intermediate_timeout_link is not None
             get_intermediate_timeout = self.get_intermediate_timeout_link + self.slide
             assert self.task_pid_nr_ns_link is not None
@@ -6256,6 +6321,10 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("get_otg_notify proof must pass no arguments")
                 lines.append(f"A90R{self.borrowed_otg_notify_ptr:x}")
+            elif arg0 == get_notify_data:
+                if (arg1, arg2, arg3, arg4) != (self.borrowed_otg_notify_ptr, 0, 0, 0):
+                    raise AssertionError("get_notify_data proof must pass borrowed otg_notify only")
+                lines.append(f"A90R{self.borrowed_notify_data_ptr:x}")
             elif arg0 == get_intermediate_timeout:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("get_intermediate_timeout proof must pass no arguments")
@@ -7919,6 +7988,70 @@ class SelftestIntegrationTests(unittest.TestCase):
             f"0x{fake.borrowed_otg_notify_ptr:x}",
         )
         self.assertEqual(fake.op_count, 3)  # slide + 2 no-arg proof calls
+
+    def test_call_proof_get_notify_data_passes_with_otg_notify_pointer_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "get_notify_data",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-get_notify_data-pass")
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-usb-otg-notify-data-borrowed-pointer-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "get_notify_data")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern void * get_notify_data(struct otg_notify *n)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [0])
+        self.assertEqual(
+            summary["source_implementation_evidence"]["path"],
+            "drivers/usb/notify/usb_notify.c",
+        )
+        self.assertEqual(summary["input_anchor"]["symbol"], "get_otg_notify")
+        self.assertEqual(summary["observed_return_value"], "non-null-borrowed-kernel-pointer")
+        self.assertTrue(summary["all_returns_stable"])
+        self.assertTrue(summary["returned_nonnull"])
+        self.assertEqual(summary["repeat_count"], 2)
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["borrowed_pointer_redacted"])
+        self.assertNotIn("get_notify_data_runtime", summary)
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertEqual(
+            cases["notify-data-borrowed-pointer-1"]["observed_return_value"],
+            "redacted-borrowed-pointer",
+        )
+        self.assertTrue(cases["notify-data-borrowed-pointer-1"]["observed_return_value_redacted"])
+        self.assertTrue(cases["notify-data-borrowed-pointer-1"]["kernel_pointer_if_nonnull"])
+        self.assertTrue(cases["notify-data-borrowed-pointer-2"]["matches_first_call"])
+        self.assertIn("get_otg_notify_runtime", private)
+        self.assertIn("get_notify_data_runtime", private)
+        self.assertEqual(private["otg_notify_ptr"], f"0x{fake.borrowed_otg_notify_ptr:x}")
+        self.assertEqual(
+            private["case_returns"]["notify-data-borrowed-pointer-1"],
+            f"0x{fake.borrowed_notify_data_ptr:x}",
+        )
+        self.assertEqual(
+            private["case_returns"]["notify-data-borrowed-pointer-2"],
+            f"0x{fake.borrowed_notify_data_ptr:x}",
+        )
+        self.assertEqual(fake.op_count, 4)  # slide + get_otg_notify + 2 get_notify_data calls
 
     def test_call_proof_task_struct_batch_candidates_pass_in_one_fake_session(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

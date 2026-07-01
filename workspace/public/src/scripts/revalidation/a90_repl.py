@@ -189,6 +189,19 @@ LEAF_MAP_GROUND_TRUTH_SYMBOLS = {
         "note": "non-JOPP arm64 leaf memory fill helper; identity rests on map label, high xref count, and leaf shape",
     },
 }
+EXACT_LEAF_EXPORT_GROUND_TRUTH_SYMBOLS = {
+    "get_notify_data": {
+        "expected_words": (
+            0xB4000040,
+            0xF9405000,
+            0xD65F03C0,
+            0x00BE7BAD,
+        ),
+        "next_symbol": "set_notify_data",
+        "byte_size": 0x10,
+        "note": "single-export JOPP leaf USB notify data getter; identity rests on export row, map agreement, exact words, and next-symbol boundary because the helper has no in-image BL xrefs",
+    },
+}
 MIN_VERIFIED_DIRECT_BL_XREFS = 1
 KNOWN_UNSAFE_CALL_TARGETS = {
     "kallsyms_lookup_name": (
@@ -411,6 +424,12 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {},
         "return_kind": "borrowed-kernel-pointer-or-null",
         "reason": "no-argument USB OTG notify lookup; current image is a leaf global-pointer read and any non-NULL return is borrowed and must not be dereferenced or freed",
+    },
+    "get_notify_data": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "borrowed-otg-notify-pointer-from-get_otg_notify"},
+        "return_kind": "borrowed-kernel-pointer-or-null",
+        "reason": "USB OTG notify data lookup; x0 must be a non-NULL borrowed struct otg_notify pointer returned by get_otg_notify in the same proof, and any non-NULL return is borrowed",
     },
     "get_intermediate_timeout": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
@@ -3114,6 +3133,53 @@ def resolve_verified(symbols: dict[str, Symbol],
     if export_candidates:
         evidence["export_candidate_sample"] = export_candidates[:3]
 
+    exact_leaf = EXACT_LEAF_EXPORT_GROUND_TRUTH_SYMBOLS.get(name)
+    if purpose == "call" and exact_leaf is not None:
+        exact_blocked: list[str] = []
+        if not _map_kind_is_function(map_symbol.kind if map_symbol else None):
+            exact_blocked.append("exact-leaf-map-target-not-function-kind")
+        if len(export_candidates) != 1:
+            exact_blocked.append(f"exact-leaf-export-candidate-count:{len(export_candidates)}")
+        selected_link = None
+        selected_direct_bl_xrefs = None
+        if len(export_candidates) == 1:
+            selected = export_candidates[0]
+            selected_link = int(str(selected["link_vaddr"]), 16)
+            selected_direct_bl_xrefs = selected.get("direct_bl_xref_count")
+            if selected_link != map_link:
+                exact_blocked.append("exact-leaf-export-disagrees-with-map")
+            if not selected.get("jopp_entry"):
+                exact_blocked.append("exact-leaf-export-not-jopp-entry")
+        expected_words = tuple(int(word) for word in exact_leaf["expected_words"])
+        try:
+            words = tuple(image.u32_words_at_vaddr(map_link, len(expected_words)))
+        except Exception as exc:  # noqa: BLE001 - malformed map/image pairing is unverified
+            exact_blocked.append(f"exact-leaf-word-read-failed:{exc}")
+            words = ()
+        if words != expected_words:
+            exact_blocked.append("exact-leaf-expected-words-mismatch")
+        next_symbol = symbols.get(str(exact_leaf["next_symbol"]))
+        expected_boundary = int(exact_leaf["byte_size"])
+        if next_symbol is None:
+            exact_blocked.append("exact-leaf-next-symbol-missing")
+        elif next_symbol.vaddr - map_link != expected_boundary:
+            exact_blocked.append(
+                f"exact-leaf-next-symbol-boundary:{next_symbol.vaddr - map_link:#x}!={expected_boundary:#x}"
+            )
+        if not exact_blocked:
+            evidence["export_selected_link_vaddr"] = f"0x{selected_link:x}" if selected_link is not None else None
+            evidence["export_selected_direct_bl_xref_count"] = selected_direct_bl_xrefs
+            evidence["map_agrees_with_export"] = True
+            evidence["exact_leaf_export_ground_truth"] = {
+                "accepted": True,
+                "expected_words": [f"0x{word:08x}" for word in expected_words],
+                "next_symbol": exact_leaf["next_symbol"],
+                "byte_size": f"0x{expected_boundary:x}",
+                "note": exact_leaf["note"],
+            }
+            return VerifiedResolution(name, map_link, True, "exact-leaf-export+word-boundary", evidence)
+        evidence["exact_leaf_export_rejected_reasons"] = exact_blocked
+
     if len(passing_exports) == 1:
         selected = passing_exports[0]
         selected_link = int(str(selected["link_vaddr"]), 16)
@@ -3738,6 +3804,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "get_cpu_device": ("include/linux/cpu.h",),
     "get_current_napi_context": ("include/linux/netdevice.h",),
     "get_otg_notify": ("include/linux/usb_notify.h", "drivers/usb/notify/usb_notify.c"),
+    "get_notify_data": ("include/linux/usb_notify.h", "drivers/usb/notify/usb_notify.c"),
     "get_intermediate_timeout": ("include/net/ncm.h",),
     "__task_pid_nr_ns": ("include/linux/sched.h",),
     "sched_get_group_id": ("include/linux/sched.h",),
@@ -5558,6 +5625,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern struct otg_notify * get_otg_notify(void)",
     },
+    "get_notify_data": {
+        "input_contract": "x0 is a non-NULL borrowed struct otg_notify * returned by get_otg_notify() in the same proof; target only reads n->o_data and does not take ownership",
+        "return_contract": "void * o_data is either NULL or a sane borrowed kernel pointer, and the raw returned value is stable across repeated proof calls",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern void * get_notify_data(struct otg_notify *n)",
+    },
     "get_intermediate_timeout": {
         "input_contract": "no arguments; NCM intermediate-timeout global state is read-only and no returned pointer is dereferenced or freed",
         "return_contract": "unsigned int timeout value is stable across repeated proof calls and in 0..0xffffffff",
@@ -6863,6 +6936,11 @@ GET_OTG_NOTIFY_EXPECTED_WORDS = (
 )
 GET_OTG_NOTIFY_NEXT_SYMBOL = ("inc_hw_param", 0x20)
 GET_OTG_NOTIFY_REPEAT_COUNT = 2
+GET_NOTIFY_DATA_EXPECTED_WORDS = (
+    0xB4000040, 0xF9405000, 0xD65F03C0, 0x00BE7BAD,
+)
+GET_NOTIFY_DATA_NEXT_SYMBOL = ("set_notify_data", 0x10)
+GET_NOTIFY_DATA_REPEAT_COUNT = 2
 TASK_PID_NR_NS_PIDTYPE_PID = 0
 TASK_PID_NR_NS_EXPECTED_INIT_TASK_PID = 0
 TASK_PID_NR_NS_REPEAT_COUNT = 2
@@ -23539,6 +23617,237 @@ def _run_call_proof_get_otg_notify(
     return summary, private
 
 
+def _run_call_proof_get_notify_data(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "get_notify_data"
+    anchor = "get_otg_notify"
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        ("@borrowed_otg_notify_ptr",),
+    )
+    anchor_call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        anchor,
+        (),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected vetted pointer tier")
+    if anchor_call_safety.get("tier") != CALL_PROOF_TARGETS[anchor]["expected_tier"]:
+        raise ReplError(f"{anchor} call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError(f"{target} source signature must declare x0 as the struct otg_notify pointer")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the exported declaration")
+
+    impl_path = source_root / "drivers/usb/notify/usb_notify.c"
+    try:
+        impl_text = impl_path.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        raise ReplError(f"{target} source implementation is not readable: {impl_path}") from exc
+    impl_normalized = " ".join(impl_text.split())
+    expected_impl = (
+        "void *get_notify_data(struct otg_notify *n) { if (n) "
+        "return n->o_data; else return NULL; }"
+    )
+    if expected_impl not in impl_normalized:
+        raise ReplError(f"{target} implementation is not the expected read-only o_data getter")
+
+    resolutions = {
+        target: resolve_verified(symbols, image, target, purpose="call", allow_pre_arg_deref=True),
+        anchor: resolve_verified(symbols, image, anchor, purpose="call"),
+    }
+    target_link = require_verified_resolution(resolutions[target], "call-proof target")
+    anchor_link = require_verified_resolution(resolutions[anchor], "call-proof input anchor")
+    next_symbol_name, expected_boundary = GET_NOTIFY_DATA_NEXT_SYMBOL
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    words = image.u32_words_at_vaddr(target_link, len(GET_NOTIFY_DATA_EXPECTED_WORDS))
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-anchor-c1-identity",
+            "ok": True,
+            "anchor": anchor,
+            "resolution_method": resolutions[anchor].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-source-implementation",
+            "ok": True,
+            "path": "drivers/usb/notify/usb_notify.c",
+            "body": "NULL-if-no-otg-notify, otherwise return borrowed n->o_data",
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for index, expected in enumerate(GET_NOTIFY_DATA_EXPECTED_WORDS):
+        observed = words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    otg_ptr = 0
+    returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        anchor_runtime = (anchor_link + slide) & MASK64
+        target_runtime = (target_link + slide) & MASK64
+        otg_ptr = session.call_runtime(anchor_runtime, ()) & MASK64
+        otg_ptr_ok = is_kernel_canonical_pointer(otg_ptr)
+        checks.append({
+            "check": "get-otg-notify-input-pointer",
+            "ok": otg_ptr_ok,
+            "observed_return_value": "redacted-borrowed-pointer" if otg_ptr else "0x0",
+            "returned_null": otg_ptr == 0,
+            "kernel_pointer": otg_ptr_ok,
+        })
+        if not otg_ptr_ok:
+            raise ReplError(
+                f"{anchor}() did not return the non-NULL borrowed kernel pointer required "
+                f"for {target}: 0x{otg_ptr:x}"
+            )
+        for index in range(GET_NOTIFY_DATA_REPEAT_COUNT):
+            observed = session.call_runtime(target_runtime, (otg_ptr,)) & MASK64
+            returns.append(observed)
+            null_or_kernel_pointer = observed == 0 or is_kernel_canonical_pointer(observed)
+            stable = index == 0 or observed == returns[0]
+            ok = null_or_kernel_pointer and stable
+            case_results.append({
+                "case": f"notify-data-borrowed-pointer-{index + 1}",
+                "expected_return": "null-or-borrowed-kernel-pointer-stable",
+                "observed_return_value_redacted": observed != 0,
+                "observed_return_value": "redacted-borrowed-pointer" if observed else "0x0",
+                "returned_null": observed == 0,
+                "kernel_pointer_if_nonnull": observed == 0 or is_kernel_canonical_pointer(observed),
+                "matches_first_call": stable,
+                "ok": ok,
+            })
+            if not null_or_kernel_pointer:
+                raise ReplError(f"{target}() returned a non-NULL non-kernel pointer: 0x{observed:x}")
+            if not stable:
+                raise ReplError(
+                    f"{target}() returned a different borrowed pointer across proof calls: "
+                    f"first=0x{returns[0]:x}, call{index + 1}=0x{observed:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    returned_nonnull = bool(returns) and returns[0] != 0
+    checks.append({
+        "check": "get-notify-data-null-or-borrowed-pointer-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "returned_nonnull": returned_nonnull,
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = "non-null-borrowed-kernel-pointer" if returned_nonnull else "0x0"
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-usb-otg-notify-data-borrowed-pointer-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "observed_return_value": observed_public,
+        "all_returns_stable": bool(returns) and all(value == returns[0] for value in returns),
+        "returned_nonnull": returned_nonnull,
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "source_implementation_evidence": {
+            "path": "drivers/usb/notify/usb_notify.c",
+            "body": "read-only n->o_data borrowed-pointer getter",
+        },
+        "input_anchor": {
+            "symbol": anchor,
+            "observed_return_value": "redacted-borrowed-pointer",
+            "kernel_pointer": True,
+        },
+        "call_safety": call_safety,
+        "anchor_call_safety": anchor_call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "borrowed_pointer_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": (
+                "repeated calls returned a stable "
+                + ("non-NULL borrowed notify data pointer" if returned_nonnull else "NULL")
+            ),
+            "cleanup": "n/a-borrowed-pointers-not-owned",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{anchor}_runtime": f"0x{((anchor_link + slide) & MASK64):x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "otg_notify_ptr": f"0x{otg_ptr:x}",
+        "case_returns": {
+            case["case"]: f"0x{returns[index]:x}"
+            for index, case in enumerate(case_results)
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_get_intermediate_timeout(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -36312,6 +36621,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "get_otg_notify":
         return _run_call_proof_get_otg_notify(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "get_notify_data":
+        return _run_call_proof_get_notify_data(
             session,
             symbols,
             image,

@@ -160,6 +160,73 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the no-argument USB/OTG notify borrowed-pointer contract. Report:
 > `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_GET_OTG_NOTIFY_2026-07-01.md`.
 
+## ✅ DONE — REPL USB/OTG notify-data live-call proof — `get_notify_data()` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — borrowed `struct otg_notify *` input getter
+>
+> Codex selected `get_notify_data` as the next USB/OTG read-only state target
+> because it moves beyond another no-argument getter: the proof first uses
+> `get_otg_notify()` as an input anchor, then passes that live borrowed
+> `struct otg_notify *` to `get_notify_data(struct otg_notify *n)`.
+>
+> Static selection pinned `get_notify_data=0xffffff800901def4` via the new
+> target-limited `exact-leaf-export+word-boundary` gate: one export candidate,
+> map/export agreement, JOPP entry, leaf body, direct BL xrefs `0` by design,
+> no in-body BL, exact words `cbz x0`, `ldr x0,[x0,#160]`, `ret`, final
+> `0x00be7bad`, and next-symbol boundary `set_notify_data` at `+0x10`. The C1
+> gate classifies it as `SAFE-WITH-VALID-PTR`; required input is
+> `x0=borrowed-otg-notify-pointer-from-get_otg_notify`. Source declaration was
+> `extern void * get_notify_data(struct otg_notify *n)` from
+> `include/linux/usb_notify.h:173`; implementation in
+> `drivers/usb/notify/usb_notify.c` matched the read-only pattern: return NULL
+> if `n` is NULL, otherwise return borrowed `n->o_data`.
+>
+> The input anchor remained `get_otg_notify=0xffffff800901d8d4`,
+> `export-recovery`, direct BL xrefs `41`, no-argument `SAFE-SCALAR`.
+>
+> The live proof obeyed the flash gate: rollback/fallback/TWRP artifacts were
+> confirmed, baseline v2321 `version/status/selftest` passed, the exact
+> v1-repl candidate (`b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`)
+> flashed through `native_init_flash.py` with matching pushed-image and
+> readback SHA, and candidate helper health plus explicit candidate `selftest`
+> passed.
+>
+> The first proof attempt stopped before target calls because serial framing
+> missed the END marker for the `panic_on_oops` shell command. Candidate health
+> stayed clean. Codex restarted the bridge, restored `panic_on_oops=1`, and
+> candidate `selftest` passed. One retry then hit a host CLI option-position
+> error before any device action.
+>
+> The successful retry called `get_otg_notify()` once; it returned a non-NULL
+> borrowed kernel pointer. The proof then called
+> `get_notify_data(otg_notify_ptr)` twice. Both calls returned the same
+> non-NULL borrowed kernel pointer. Neither the input anchor pointer nor the
+> returned notify-data pointer was dereferenced or freed. Raw runtime pointer
+> values and the KASLR slide stayed private/redacted.
+>
+> Post-proof candidate `selftest` passed with `selftest pass=11 warn=1
+> fail=0`. Rollback to v2321 completed with matching readback SHA. Final
+> `hide` hit known marker-loss noise after rollback helper verification; a
+> host-side bridge restart restored clean framing, and the final standalone
+> `selftest` retry passed with `pass=11 warn=1 fail=0`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-get-notify-data-20260701T064344Z/timeline.json`
+> at `2026-07-01T06:45:51Z`: candidate flash helper `63.554s`,
+> candidate explicit selftest `0.298s`, initial live proof marker loss before
+> target call `27.427s`, post-failure candidate selftest `0.295s`, bridge
+> restart after marker loss `1.984s`, `panic_on_oops` restore and candidate
+> selftest `1.317s`, host CLI option-position error `0.139s`, live proof retry
+> pass `5.948s`, post-proof candidate selftest `0.291s`, rollback flash helper
+> `64.709s`, final hide marker-loss attempt `9.959s`, and final bridge restart
+> plus selftest retry `2.452s`. The helper total rows are not additive; all
+> serial bridge commands in this unit were sequential.
+>
+> Function-map outcome: `get_notify_data` is promoted as live-proven only under
+> the borrowed `struct otg_notify *` input contract sourced from
+> `get_otg_notify()` in the same proof. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_GET_NOTIFY_DATA_2026-07-01.md`.
+
 ## ✅ DONE — REPL current fs-state live-call proof — `current_umask()` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg current-task umask getter
