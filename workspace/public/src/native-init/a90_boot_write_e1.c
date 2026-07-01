@@ -8,9 +8,9 @@
  * harmless. This rung is only LOW-RISK-BY-CONSTRUCTION and its failure class is EXTERNALLY
  * RECOVERABLE (boot-only): it writes to a 4096-byte sector that is (a) past the parsed boot-image
  * content, (b) >= 1 MiB before the partition end, and (c) CONFIRMED all-zero at write time — writing
- * the exact zero bytes it just read. E1 writes one sector; E2 writes four spread tail-slack sectors.
- * A completed write is a no-op; a torn write is a recover-via-Odin/TWRP event that the operator MUST
- * have drilled before running this. All fds are
+ * the exact zero bytes it just read. E1 writes one sector; E2 writes four sectors spread across the
+ * observed zero-sector population in tail slack. A completed write is a no-op; a torn write is a
+ * recover-via-Odin/TWRP event that the operator MUST have drilled before running this. All fds are
  * identity-guarded (block + rdev==sysfs + PARTNAME=boot + size==64MiB) and opened O_NOFOLLOW; the
  * write is verified by an O_DIRECT cache-bypassed region readback and an O_DIRECT full-partition SHA
  * before/after (to catch any cross-LBA change). Any anomaly is reported as A90BWE* stop=... .
@@ -48,6 +48,7 @@
 #define E1_STREAM_CHUNK (1024u * 1024u)
 #define E2_TARGET_COUNT 4u
 #define E_MAX_TARGETS E2_TARGET_COUNT
+#define E2_MAX_ZERO_CANDIDATES 1024u
 
 struct e1_probe_spec {
     const char *tag;
@@ -79,7 +80,7 @@ static const struct e1_probe_spec E2_SPEC = {
     "boot-write-e2",
     E2_TOKEN,
     "E2",
-    "tail-slack-4x4096-spread",
+    "tail-slack-4x4096-zero-population",
     E2_TARGET_COUNT,
     1,
 };
@@ -309,6 +310,24 @@ static int e1_find_zero_sector(const char *tag, int rfd, uint64_t start, uint64_
     return 0;
 }
 
+static unsigned e2_select_spread_index(unsigned zero_count, unsigned target_count, unsigned target_index,
+                                       unsigned previous_index) {
+    unsigned remaining = target_count - target_index;
+    unsigned min_index = (target_index == 0) ? 0 : previous_index + 1u;
+    unsigned max_index = zero_count - remaining;
+    unsigned desired = (target_count <= 1u || zero_count <= 1u)
+                     ? 0u
+                     : (unsigned)(((uint64_t)target_index * (uint64_t)(zero_count - 1u)) /
+                                  (uint64_t)(target_count - 1u));
+    if (desired < min_index) {
+        desired = min_index;
+    }
+    if (desired > max_index) {
+        desired = max_index;
+    }
+    return desired;
+}
+
 static int a90_boot_write_identity_cmd(const struct e1_probe_spec *spec, char **argv, int argc) {
     const char *tag = spec->tag;
     if (argc != 2 || strcmp(argv[1], spec->token) != 0) {
@@ -434,9 +453,10 @@ static int a90_boot_write_identity_cmd(const struct e1_probe_spec *spec, char **
             goto cleanup;
         }
 
-        /* Scan only tail slack and require every selected sector to be confirmed all-zero. E2 spreads
-         * the probes across the slack window so offset-dependent behaviour cannot hide behind E1's
-         * single successful LBA. */
+        /* Scan only tail slack and require every selected sector to be confirmed all-zero. E2 builds
+         * a zero-sector population across the whole slack window, then picks spread indices from that
+         * population. This avoids the V3350 failure mode where a fixed quarter-band had no zeros even
+         * though later slack did. */
         uint64_t scanned = 0;
         unsigned found = 0;
         if (!spec->spread_targets) {
@@ -451,36 +471,67 @@ static int a90_boot_write_identity_cmd(const struct e1_probe_spec *spec, char **
                 found = 1;
             }
         } else {
-            uint64_t window = slack_end - slack_start;
-            for (unsigned i = 0; i < spec->target_count; ++i) {
-                uint64_t band_start = slack_start + (window * (uint64_t)i) / spec->target_count;
-                uint64_t band_end = slack_start + (window * (uint64_t)(i + 1u)) / spec->target_count;
-                band_start = e1_round_up(band_start, E1_SECTOR);
-                if (i + 1u == spec->target_count) {
-                    band_end = slack_end;
-                }
-                band_end = (band_end / E1_SECTOR) * E1_SECTOR;
-                a90_console_printf("%s scan%u_start=%llu scan%u_end=%llu\r\n",
-                                   tag, i, (unsigned long long)band_start, i,
-                                   (unsigned long long)band_end);
-                if (band_start + E1_SECTOR > band_end) {
-                    stop = "band-too-small";
-                    rc = -ENOSPC;
-                    close(rfd);
-                    goto cleanup;
-                }
-                int fr = e1_find_zero_sector(tag, rfd, band_start, band_end, &targets[i], &scanned);
-                if (fr < 0) {
+            uint64_t zero_offsets[E2_MAX_ZERO_CANDIDATES];
+            unsigned zero_stored = 0;
+            uint64_t zero_total = 0;
+            unsigned char scan_buf[E1_SECTOR];
+            for (uint64_t off = slack_start; off + E1_SECTOR <= slack_end; off += E1_SECTOR) {
+                if (pread(rfd, scan_buf, sizeof(scan_buf), (off_t)off) !=
+                    (ssize_t)sizeof(scan_buf)) {
+                    a90_console_printf("%s scan_read=fail off=%llu errno=%d\r\n",
+                                       tag, (unsigned long long)off, errno);
                     stop = "scan-read";
-                    rc = fr;
+                    rc = -EIO;
                     close(rfd);
                     goto cleanup;
                 }
-                if (fr == 0) {
-                    a90_console_printf("%s no_zero_in_band=%u\r\n", tag, i);
-                    break;
+                scanned++;
+                if (!e1_is_zero_sector(scan_buf, sizeof(scan_buf))) {
+                    continue;
                 }
-                found++;
+                zero_total++;
+                if (zero_stored >= E2_MAX_ZERO_CANDIDATES) {
+                    a90_console_printf("%s zero_candidate_overflow limit=%u\r\n",
+                                       tag, E2_MAX_ZERO_CANDIDATES);
+                    stop = "zero-candidate-overflow";
+                    rc = -E2BIG;
+                    close(rfd);
+                    goto cleanup;
+                }
+                zero_offsets[zero_stored++] = off;
+            }
+            a90_console_printf("%s zero_candidates=%llu zero_stored=%u target_count=%u\r\n",
+                               tag, (unsigned long long)zero_total, zero_stored, spec->target_count);
+            if (zero_stored < spec->target_count) {
+                found = zero_stored;
+            } else {
+                unsigned previous_index = 0;
+                for (unsigned i = 0; i < spec->target_count; ++i) {
+                    unsigned idx = e2_select_spread_index(zero_stored, spec->target_count, i,
+                                                          previous_index);
+                    previous_index = idx;
+                    targets[i].off = zero_offsets[idx];
+                    if (pread(rfd, targets[i].bytes, sizeof(targets[i].bytes),
+                              (off_t)targets[i].off) != (ssize_t)sizeof(targets[i].bytes)) {
+                        a90_console_printf("%s selected%u_read=fail off=%llu errno=%d\r\n",
+                                           tag, i, (unsigned long long)targets[i].off, errno);
+                        stop = "selected-read";
+                        rc = -EIO;
+                        close(rfd);
+                        goto cleanup;
+                    }
+                    if (!e1_is_zero_sector(targets[i].bytes, sizeof(targets[i].bytes))) {
+                        a90_console_printf("%s selected%u_zero_recheck=0 off=%llu\r\n",
+                                           tag, i, (unsigned long long)targets[i].off);
+                        stop = "selected-zero-recheck";
+                        rc = -EIO;
+                        close(rfd);
+                        goto cleanup;
+                    }
+                    a90_console_printf("%s selected%u_index=%u selected%u_off=%llu\r\n",
+                                       tag, i, idx, i, (unsigned long long)targets[i].off);
+                    found++;
+                }
             }
         }
         a90_console_printf("%s slack_scanned=%llu have_zero_sector=%d target_count=%u\r\n",
