@@ -484,6 +484,67 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > matching the fixed vmalloc boundary table. Report:
 > `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_IS_VMALLOC_ADDR_2026-07-01.md`.
 
+## ✅ DONE — REPL debugfs registration-state live-call proof — `debugfs_initialized()` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg debugfs registration bool getter
+>
+> Codex first considered nearby no-argument state candidates
+> `cpu_mitigations_auto_nosmt()` and `slab_is_available()`, but parked both
+> because the current fail-closed C1 identity gate did not verify them in this
+> tooling run. `debugfs_initialized()` was selected instead as a no-argument
+> read-only kernel-state observation getter with recovered export identity and
+> source implementation evidence.
+>
+> Static selection pinned `debugfs_initialized=0xffffff800841904c` via
+> `export-recovery` with map agreement, one export candidate, direct BL xrefs
+> `2`, and JOPP entry. The source implementation is
+> `bool debugfs_initialized(void)` at `fs/debugfs/inode.c:849`, returning the
+> global `debugfs_registered` byte. The C1 gate classifies it as
+> `SAFE-SCALAR`; required pointer args are none. The next-symbol boundary is
+> `debug_mount` at `+0x10`. The proof pinned the complete 0x10-byte body plus
+> guard: `0xb0015ec8 0x397e7100 0xd65f03c0 0x00be7bad`. The generic 64-byte
+> classifier scan includes the next local function after the boundary, so this
+> proof treats the explicit 0x10 body/guard as the function-body authority.
+>
+> The live proof obeyed the flash gate: rollback/fallback/TWRP artifacts were
+> confirmed, baseline v2321 `version/status/selftest` passed, the exact
+> v1-repl candidate (`b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`)
+> flashed through `native_init_flash.py` with matching pushed-image and
+> readback SHA, and candidate helper `version/status` verification passed.
+> The first explicit candidate `selftest` and REPL selftest were accidentally
+> run in parallel by the host, causing serial contention / missing END marker;
+> the device stayed healthy, and sequential retries passed with candidate
+> `selftest pass=11 warn=1 fail=0` plus `a90-repl-v2a1-selftest-pass`.
+>
+> The proof called `debugfs_initialized()` twice with no arguments. Returns
+> were bool and stable: `0x1`, `0x1`. No runtime pointer was dereferenced by
+> the host, no cleanup was required, and raw runtime values plus the KASLR
+> slide stayed private/redacted.
+>
+> Post-proof candidate `selftest` passed with `pass=11 warn=1 fail=0`.
+> Rollback to v2321 completed with matching readback SHA, rollback helper
+> `version/status` passed, final v2321 `version` reported
+> `v2321-usb-clean-identity-rodata`, and final standalone `selftest` passed
+> with `pass=11 warn=1 fail=0`. The first combined final health capture had
+> host-side serial contention during `selftest`; the independent sequential
+> retry is the authoritative final health gate.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-debugfs-initialized-20260701T083812Z/timeline.json`
+> at `2026-07-01T08:42:46Z`: candidate flash helper `63.771s`,
+> candidate selftest first capture hit host serial contention, REPL selftest
+> first attempt `10.679s` with host serial contention, REPL selftest retry
+> `5.790s`, live proof `5.399s`, rollback flash helper `63.972s`, and final
+> v2321 selftest retry passed. The helper total rows are not additive; accepted
+> proof and health commands were rerun sequentially after the host-side
+> contention mistake.
+>
+> Function-map outcome: `debugfs_initialized` is promoted as live-proven only
+> under the no-argument read-only debugfs registration contract: the pinned
+> body performs a global-byte registration-state read and returns a stable
+> bool. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_DEBUGFS_INITIALIZED_2026-07-01.md`.
+
 ## ✅ DONE — REPL CPU mitigation policy live-call proof — `cpu_mitigations_off()` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg CPU mitigation policy bool getter
