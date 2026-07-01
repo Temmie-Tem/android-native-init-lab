@@ -96,6 +96,52 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL scheduler context-switch counter live-call proof — `nr_context_switches()` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg scheduler counter state
+>
+> Codex selected `nr_context_switches` as a fresh one-target recovery from the
+> earlier scheduler-counter batch attempts, which had both stopped before any
+> target call due host-side wrapper/bridge issues. This run used the checked
+> `call-proof` CLI directly and called only `nr_context_switches()`.
+>
+> Static selection pinned `nr_context_switches=0xffffff80080edf84` via
+> `disasm-signature+xref+map`, source declaration
+> `extern unsigned long long nr_context_switches(void)` at
+> `include/linux/kernel_stat.h:52`, no pointer args, direct BL xrefs `4`,
+> next-symbol boundary `nr_iowait` at `+0xa0`, and `SAFE-SCALAR` C1 gate. The
+> static word checks pinned the 40-word body, including the `cpumask_next` loop
+> over possible CPUs and per-CPU counter load/add sequence. Neighboring
+> `nr_iowait_cpu`, `single_task_running`, and `si_swapinfo` stayed `DENY`.
+>
+> The live proof obeyed the flash gate: candidate/rollback/fallback SHA values
+> and TWRP were confirmed; baseline v2321 `version/status/selftest` passed; the
+> v1-repl candidate (`b846ae9f...`) flashed with matching readback SHA; candidate
+> helper health passed; and `nr_context_switches()` passed. The first explicit
+> post-flash `hide` hit serial framing noise, then a `12s` settle plus bridge
+> status check and explicit `selftest` passed. Two target reads returned
+> `0x1ff6a` then `0x201b9` (`delta=0x24f`), both inside the sane counter range
+> and nondecreasing. Raw runtime pointers and the slide stayed private/redacted.
+>
+> Post-proof `status/selftest` stayed `fail=0`, with `pstore entries=0` in the
+> status inventory. Rollback to v2321 completed with matching readback SHA. Final
+> resident `version/selftest/status` passed after one `hide` serial resync retry,
+> with `selftest pass=11 warn=1 fail=0` and `version` confirming
+> `v2321-usb-clean-identity-rodata`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-nr-context-switches-20260701T043820Z/timeline.json`:
+> candidate flash helper `65s`, candidate flash start to boot ready `72s`, live
+> proof `6s`, post-proof health `1s`, rollback flash helper `64s`, rollback
+> flash start to boot ready `64s`, final health total `19s`, final health retry
+> `1`, and candidate start to final health done `446s`.
+>
+> Function-map outcome: `nr_context_switches` is promoted as live-proven only
+> under the no-argument read-only scheduler context-switch counter contract:
+> return value must be a sane `unsigned long long` and nondecreasing across a
+> short repeated call. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_NR_CONTEXT_SWITCHES_2026-07-01.md`.
+
 ## ✅ DONE — REPL boot-time result-slot live-call proof — `getboottime64(struct timespec64 *ts)` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — owned boot-time `timespec64` result slot
