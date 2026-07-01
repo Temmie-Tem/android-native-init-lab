@@ -1392,6 +1392,40 @@ class CallSafetyClassificationTests(unittest.TestCase):
             [f"0x{word:08x}" for word in repl.TASK_ACTIVE_PID_NS_EXPECTED_WORDS],
         )
 
+        pid_nr_ns = self._row("pid_nr_ns")
+        self.assertEqual(pid_nr_ns["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            pid_nr_ns["required_valid_pointer_args"],
+            {
+                "0": "init-task-thread_pid-struct-pid",
+                "1": "init-task-active-pid-namespace",
+            },
+        )
+        self.assertTrue(pid_nr_ns["resolution"]["verified"])
+        self.assertEqual(pid_nr_ns["resolution"]["method"], "export-recovery")
+        self.assertEqual(pid_nr_ns["resolution"]["link_vaddr"], "0xffffff80080d83d4")
+        self.assertGreaterEqual(pid_nr_ns["signals"]["direct_bl_xref_count"], 16)
+        self.assertTrue(pid_nr_ns["signals"]["leaf"])
+        self.assertEqual(
+            pid_nr_ns["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [
+                {
+                    "offset": 8,
+                    "arg_reg": 0,
+                    "rt": 9,
+                    "rn": 0,
+                    "width": 4,
+                    "imm": repl.PID_NR_NS_PID_LEVEL_OFFSET,
+                    "word": "0xb9400409",
+                    "arg": "x0",
+                }
+            ],
+        )
+        self.assertEqual(
+            pid_nr_ns["signals"]["first_words"][:12],
+            [f"0x{word:08x}" for word in repl.PID_NR_NS_EXPECTED_WORDS[:12]],
+        )
+
         current_umask = self._row("current_umask")
         self.assertEqual(current_umask["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
         self.assertEqual(current_umask["required_valid_pointer_args"], {})
@@ -3355,6 +3389,19 @@ class CallSafetyClassificationTests(unittest.TestCase):
             task_active_pid_ns["selected"]["path"].endswith("include/linux/pid_namespace.h")
         )
 
+        pid_nr_ns = repl.lookup_source_signature(
+            "pid_nr_ns",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(pid_nr_ns["status"], "found", pid_nr_ns)
+        self.assertEqual(pid_nr_ns["selected"]["pointer_arg_indices"], [0, 1])
+        self.assertEqual(
+            pid_nr_ns["selected"]["signature"],
+            "pid_t pid_nr_ns(struct pid *pid, struct pid_namespace *ns)",
+        )
+        self.assertEqual(pid_nr_ns["selected"]["line"], 180)
+        self.assertTrue(pid_nr_ns["selected"]["path"].endswith("include/linux/pid.h"))
+
         current_umask = repl.lookup_source_signature("current_umask", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(current_umask["status"], "found", current_umask)
         self.assertEqual(current_umask["selected"]["pointer_arg_indices"], [])
@@ -4308,6 +4355,13 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.pid_nr_ns_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "pid_nr_ns",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.current_umask_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -4340,6 +4394,7 @@ class FaithfulFakeTransport:
         self.init_task_thread_pid_ptr = 0xFFFFFFC012370000
         self.init_task_pid_level = 0
         self.init_task_pid_ns_ptr = 0xFFFFFFC012380000
+        self.init_task_pid_nr = 0
         self.current_umask_value = 0o022
         self.get_boot_stat_time_link = repl.resolve_verified(
             self.symbols,
@@ -5217,6 +5272,18 @@ class FaithfulFakeTransport:
                 data = self.init_task_pid_ns_ptr.to_bytes(8, "little")[:length]
                 value = int.from_bytes(data, "little")
                 lines.append(f"A90R{value:x}")
+            elif arg0 == self.init_task_pid_ns_ptr + repl.PID_NR_NS_NAMESPACE_LEVEL_OFFSET:
+                data = self.init_task_pid_level.to_bytes(4, "little")[:length]
+                value = int.from_bytes(data, "little")
+                lines.append(f"A90R{value:x}")
+            elif arg0 == (
+                self.init_task_thread_pid_ptr
+                + repl.PID_NR_NS_PID_NUMBERS_NR_OFFSET
+                + (self.init_task_pid_level << repl.PID_NR_NS_PID_NUMBERS_LEVEL_SHIFT)
+            ):
+                data = self.init_task_pid_nr.to_bytes(4, "little")[:length]
+                value = int.from_bytes(data, "little")
+                lines.append(f"A90R{value:x}")
             elif arg0 == self.init_task_sched_group_ptr:
                 data = self.init_task_sched_group_id.to_bytes(4, "little")[:length]
                 value = int.from_bytes(data, "little")
@@ -5278,6 +5345,8 @@ class FaithfulFakeTransport:
             task_prio = self.task_prio_link + self.slide
             assert self.task_active_pid_ns_link is not None
             task_active_pid_ns = self.task_active_pid_ns_link + self.slide
+            assert self.pid_nr_ns_link is not None
+            pid_nr_ns = self.pid_nr_ns_link + self.slide
             assert self.current_umask_link is not None
             current_umask = self.current_umask_link + self.slide
             assert self.in_group_p_link is not None
@@ -5919,6 +5988,15 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (self.init_task_runtime, 0, 0, 0):
                     raise AssertionError("task_active_pid_ns proof must pass init_task only")
                 lines.append(f"A90R{self.init_task_pid_ns_ptr:x}")
+            elif arg0 == pid_nr_ns:
+                if (arg1, arg2, arg3, arg4) != (
+                    self.init_task_thread_pid_ptr,
+                    self.init_task_pid_ns_ptr,
+                    0,
+                    0,
+                ):
+                    raise AssertionError("pid_nr_ns proof must pass init_task thread_pid and active namespace only")
+                lines.append(f"A90R{self.init_task_pid_nr:x}")
             elif arg0 == current_umask:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("current_umask proof must pass no arguments")
@@ -7634,6 +7712,71 @@ class SelftestIntegrationTests(unittest.TestCase):
             "redacted-borrowed-pointer",
         )
         self.assertEqual(fake.op_count, 6)  # slide + 3 direct peeks + 2 calls
+
+    def test_call_proof_pid_nr_ns_passes_with_init_task_thread_pid_active_namespace_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "pid_nr_ns",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-pid_nr_ns-pass")
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-init-task-thread-pid-active-namespace-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "pid_nr_ns")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "pid_t pid_nr_ns(struct pid *pid, struct pid_namespace *ns)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [0, 1])
+        self.assertEqual(summary["call_safety"]["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertTrue(summary["thread_pid_nonzero"])
+        self.assertTrue(summary["active_namespace_nonzero"])
+        self.assertEqual(summary["pid_level"], fake.init_task_pid_level)
+        self.assertEqual(summary["namespace_level"], fake.init_task_pid_level)
+        self.assertEqual(summary["observed_pid_nr"], f"0x{fake.init_task_pid_nr:x}")
+        self.assertEqual(
+            summary["expected_pid_nr_from_direct_observation"],
+            f"0x{fake.init_task_pid_nr:x}",
+        )
+        self.assertTrue(summary["all_returns_match_direct_observation"])
+        self.assertEqual(summary["repeat_count"], 2)
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["borrowed_pointer_redacted"])
+        self.assertNotIn("pid_nr_ns_runtime", summary)
+        self.assertIn("pid_nr_ns_runtime", private)
+        self.assertIn("thread_pid_pointer", private)
+        self.assertIn("active_namespace_pointer", private)
+        self.assertEqual(private["thread_pid_pointer"], f"0x{fake.init_task_thread_pid_ptr:x}")
+        self.assertEqual(
+            private["active_namespace_pointer"],
+            f"0x{fake.init_task_pid_ns_ptr:x}",
+        )
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertEqual(
+            cases["init-task-thread-pid-active-ns-1"]["observed_return_value"],
+            f"0x{fake.init_task_pid_nr:x}",
+        )
+        self.assertEqual(
+            cases["init-task-thread-pid-active-ns-2"]["observed_return_value"],
+            f"0x{fake.init_task_pid_nr:x}",
+        )
+        self.assertEqual(fake.op_count, 8)  # slide + 5 direct peeks + 2 pid_nr_ns calls
 
     def test_call_proof_current_state_batch_candidates_pass_in_one_fake_session(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

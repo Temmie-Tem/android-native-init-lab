@@ -1093,6 +1093,15 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "borrowed-pid-namespace-pointer-or-null",
         "reason": "read-only task active pid namespace query; proof passes only the global init_task task_struct pointer and validates against direct pid namespace pointer observation",
     },
+    "pid_nr_ns": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {
+            0: "init-task-thread_pid-struct-pid",
+            1: "init-task-active-pid-namespace",
+        },
+        "return_kind": "pid_t",
+        "reason": "read-only pid namespace number query; proof passes only init_task->thread_pid plus the directly observed active pid namespace",
+    },
     "current_umask": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -3683,6 +3692,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "sched_get_group_id": ("include/linux/sched.h",),
     "task_prio": ("include/linux/sched.h",),
     "task_active_pid_ns": ("include/linux/pid_namespace.h",),
+    "pid_nr_ns": ("include/linux/pid.h",),
     "get_ddr_vendor_name": ("include/linux/samsung/sec_smem.h",),
     "get_ddr_DSF_version": ("include/linux/samsung/sec_smem.h",),
     "get_ddr_revision_id_1": ("include/linux/samsung/sec_smem.h",),
@@ -5514,6 +5524,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern struct pid_namespace * task_active_pid_ns(struct task_struct *tsk)",
     },
+    "pid_nr_ns": {
+        "input_contract": "borrowed init_task->thread_pid struct pid pointer + borrowed active pid namespace pointer directly observed from that pid; neither pointer is freed or dereferenced after return",
+        "return_contract": "pid_t equals direct read-only observation of pid->numbers[active_ns->level].nr, stable across repeated calls",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "pid_t pid_nr_ns(struct pid *pid, struct pid_namespace *ns)",
+    },
     "current_umask": {
         "input_contract": "no arguments; current task fs pointer is read-only and obtained internally through sp_el0",
         "return_contract": "umode_t value is stable across repeated proof calls and only uses permission bits 0..0777",
@@ -6815,6 +6831,21 @@ TASK_ACTIVE_PID_NS_EXPECTED_WORDS = (
     0xD503201F, 0x00BE7BAD,
 )
 TASK_ACTIVE_PID_NS_NEXT_SYMBOL = ("attach_pid", 0x28)
+PID_NR_NS_REPEAT_COUNT = 2
+PID_NR_NS_PID_LEVEL_OFFSET = 4
+PID_NR_NS_NAMESPACE_LEVEL_OFFSET = 2096
+PID_NR_NS_PID_NUMBERS_NR_OFFSET = 72
+PID_NR_NS_PID_NUMBERS_NS_OFFSET = 80
+PID_NR_NS_PID_NUMBERS_LEVEL_SHIFT = 5
+PID_NR_NS_MAX_LEVEL = 32
+PID_NR_NS_MAX_PID = 0x400000
+PID_NR_NS_EXPECTED_WORDS = (
+    0xB40001C0, 0xB9483028, 0xB9400409, 0x6B09011F,
+    0x54000069, 0x2A1F03E0, 0xD65F03C0, 0x8B081408,
+    0xF9402909, 0xEB01013F, 0x54000060, 0x2A1F03E0,
+    0xD65F03C0, 0xB9404900, 0xD65F03C0, 0x00BE7BAD,
+)
+PID_NR_NS_NEXT_SYMBOL = ("pid_vnr", 0x40)
 CURRENT_STATE_REPEAT_COUNT = 2
 CURRENT_UMASK_MAX = 0o777
 CURRENT_UMASK_MRS_CURRENT_WORD = 0xD5384108
@@ -23996,6 +24027,264 @@ def _run_call_proof_task_active_pid_ns(
     return summary, private
 
 
+def _run_call_proof_pid_nr_ns(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "pid_nr_ns"
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        ("@init_task_thread_pid", "@init_task_active_pid_namespace"),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected valid-pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0, 1]:
+        raise ReplError(f"{target} source signature must declare x0 as pid* and x1 as pid_namespace*")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the pid.h declaration")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ),
+    }
+    target_link = require_verified_resolution(
+        resolutions[target],
+        "call-proof target",
+    )
+    init_task_link = _require_init_task_link(symbols)
+    next_symbol_name, expected_boundary = PID_NR_NS_NEXT_SYMBOL
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    observed_words = image.u32_words_at_vaddr(target_link, len(PID_NR_NS_EXPECTED_WORDS))
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+        {
+            "check": "static-init-task-data-symbol",
+            "ok": True,
+            "symbol": "init_task",
+            "kind": symbols["init_task"].kind,
+        },
+    ]
+    for index, expected in enumerate(PID_NR_NS_EXPECTED_WORDS):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    thread_pid = 0
+    pid_level = 0
+    active_ns = 0
+    ns_level = 0
+    expected_pid_nr = 0
+    returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        init_task_runtime = (init_task_link + slide) & MASK64
+        thread_pid = session.peek_runtime(
+            init_task_runtime + TASK_ACTIVE_PID_NS_THREAD_PID_OFFSET,
+            8,
+        )
+        if thread_pid == 0 or not _kernel_vaddr_sane(thread_pid):
+            raise ReplError(
+                "init_task->thread_pid is not a nonzero sane kernel pointer: "
+                f"0x{thread_pid:x}"
+            )
+        pid_level = session.peek_runtime(
+            thread_pid + PID_NR_NS_PID_LEVEL_OFFSET,
+            4,
+        ) & 0xFFFFFFFF
+        if pid_level > PID_NR_NS_MAX_LEVEL:
+            raise ReplError(
+                "init_task->thread_pid level is outside the proof bound: "
+                f"0x{pid_level:x}"
+            )
+        active_ns = session.peek_runtime(
+            thread_pid
+            + PID_NR_NS_PID_NUMBERS_NS_OFFSET
+            + (pid_level << PID_NR_NS_PID_NUMBERS_LEVEL_SHIFT),
+            8,
+        )
+        if active_ns == 0 or not _kernel_vaddr_sane(active_ns):
+            raise ReplError(
+                "init_task active namespace is not a nonzero sane kernel pointer: "
+                f"0x{active_ns:x}"
+            )
+        ns_level = session.peek_runtime(
+            active_ns + PID_NR_NS_NAMESPACE_LEVEL_OFFSET,
+            4,
+        ) & 0xFFFFFFFF
+        if ns_level > PID_NR_NS_MAX_LEVEL:
+            raise ReplError(
+                "active pid namespace level is outside the proof bound: "
+                f"0x{ns_level:x}"
+            )
+        if ns_level != pid_level:
+            raise ReplError(
+                "active pid namespace level does not match init_task->thread_pid level: "
+                f"pid_level=0x{pid_level:x} ns_level=0x{ns_level:x}"
+            )
+        expected_pid_nr = session.peek_runtime(
+            thread_pid
+            + PID_NR_NS_PID_NUMBERS_NR_OFFSET
+            + (ns_level << PID_NR_NS_PID_NUMBERS_LEVEL_SHIFT),
+            4,
+        ) & 0xFFFFFFFF
+        expected_pid_nr_signed = (
+            expected_pid_nr - (1 << 32)
+            if expected_pid_nr & (1 << 31) else expected_pid_nr
+        )
+        if not (0 <= expected_pid_nr_signed <= PID_NR_NS_MAX_PID):
+            raise ReplError(
+                "directly observed pid namespace number is outside the proof bound: "
+                f"0x{expected_pid_nr:x}"
+            )
+        checks.append({
+            "check": "init-task-pid-nr-ns-direct-observation",
+            "ok": True,
+            "thread_pid_pointer": "redacted-borrowed-pointer",
+            "active_namespace": "redacted-borrowed-pointer",
+            "pid_level": pid_level,
+            "namespace_level": ns_level,
+            "expected_pid_nr": f"0x{expected_pid_nr:x}",
+        })
+
+        for index in range(PID_NR_NS_REPEAT_COUNT):
+            observed = session.call_runtime(target_runtime, (thread_pid, active_ns)) & 0xFFFFFFFF
+            returns.append(observed)
+            ok = observed == expected_pid_nr
+            case_results.append({
+                "case": f"init-task-thread-pid-active-ns-{index + 1}",
+                "expected_return_value": f"0x{expected_pid_nr:x}",
+                "observed_return_value": f"0x{observed:x}",
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(
+                    f"{target}(init_task->thread_pid, active_ns) returned 0x{observed:x}, "
+                    f"expected 0x{expected_pid_nr:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "pid-nr-ns-direct-observation-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-init-task-thread-pid-active-namespace-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "observed_pid_nr": f"0x{returns[0]:x}" if returns else "n/a",
+        "expected_pid_nr_from_direct_observation": f"0x{expected_pid_nr:x}" if returns else "n/a",
+        "thread_pid_nonzero": thread_pid != 0,
+        "active_namespace_nonzero": active_ns != 0,
+        "pid_level": pid_level,
+        "namespace_level": ns_level,
+        "all_returns_match_direct_observation": bool(returns) and all(
+            value == expected_pid_nr for value in returns
+        ),
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "borrowed_pointer_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": (
+                "repeated calls matched direct read-only pid namespace number observation "
+                f"0x{expected_pid_nr:x}"
+            ),
+            "cleanup": "n/a-borrowed-pid-and-namespace-pointers-not-owned",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "init_task_runtime": f"0x{((init_task_link + slide) & MASK64):x}",
+        "thread_pid_pointer": f"0x{thread_pid:x}",
+        "active_namespace_pointer": f"0x{active_ns:x}",
+        "pid_level": pid_level,
+        "namespace_level": ns_level,
+        "expected_pid_nr": f"0x{expected_pid_nr:x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_current_umask(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -34415,6 +34704,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "task_active_pid_ns":
         return _run_call_proof_task_active_pid_ns(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "pid_nr_ns":
+        return _run_call_proof_pid_nr_ns(
             session,
             symbols,
             image,
