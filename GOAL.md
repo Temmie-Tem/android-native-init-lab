@@ -248,6 +248,55 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > Report:
 > `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_SEC_DEBUG_GET_RESET_WRITE_CNT_RESIDENT_SESSION_2026-07-01.md`.
 
+## ✅ DONE — REPL resident-session one-target proof — `sec_debug_get_reset_reason_str`
+
+> ### ✅ STATUS (2026-07-01 live-proven, resident-session mode, rolled back cleanly)
+>
+> Codex promoted the adjacent Samsung reset-reason string lookup
+> `sec_debug_get_reset_reason_str(unsigned int reason)`. Static identity is
+> pinned by `exact-leaf-map+xref+word-boundary`: link `0xffffff80086ed4a4`,
+> JOPP entry, direct BL xrefs `6`, body words
+> `51000409 52800188 7100313f f0012ec9 1a883008 91134129 8b284508 8b080120 d65f03c0 00be7bad`,
+> next symbol `sec_debug_store_extc_idx` at `+0x28`, and source declaration
+> `extern char * sec_debug_get_reset_reason_str(unsigned int reason)` at
+> `include/linux/samsung/debug/sec_debug_user_reset.h:28`.
+>
+> The global classifier now treats this exact pinned leaf as `SAFE-SCALAR`
+> with no required pointer args and return kind `borrowed-kernel-string-pointer`.
+> The proof called bounded scalar reasons `1`, `12`, and out-of-range `13`,
+> repeated twice each, bounded-read the borrowed NUL-terminated string, and
+> never freed the returned pointer. Live run:
+> `workspace/private/runs/kernel/repl-resident-session-sec-debug-get-reset-reason-str-retry-20260701T125452Z/`.
+> Result: `a90-repl-live-call-proof-sec_debug_get_reset_reason_str-pass`;
+> reason `1 -> "SP"`, reason `12 -> "NP"`, and reason `13 -> "NP"`.
+> Reason `13` returned the same borrowed pointer/string as reason `12`,
+> confirming the out-of-range clamp. Runtime pointers and slide stayed private.
+>
+> Attempt 1
+> (`workspace/private/runs/kernel/repl-resident-session-sec-debug-get-reset-reason-str-20260701T124848Z/`)
+> stopped before target completion on transient REPL marker capture loss
+> (`A90R` missing for a non-replay-safe `OP_CALL`); it rolled back to v2321
+> cleanly. The proof was tightened to mark this read-only target call
+> `replay_safe=True`, and the resident-session harness now writes
+> `live_session_end` on exception paths after `live_session_start`.
+>
+> Session used v1-repl flash once, mandatory warm reboot before the batch,
+> per-target result flush, and v2321 rollback once. Final resident is
+> `v2321-usb-clean-identity-rodata`; post-bridge-restart standalone
+> `selftest fail=0`.
+>
+> Canonical timing is present in `timeline.json` with the single top-level
+> `events` schema and all required eight phase events. This run measured
+> `candidate_flash=64.248881s`, `warm_reboot=32.987989s`, one-target live
+> batch `11.870893s`, `rollback_flash=63.767765s`, total `234.747757s`.
+> The timing aggregator now uses `14` canonical timelines and projects
+> resident session `20->2` flashes, `13.785s/target`, `20.10x` versus
+> unbatched per-unit flash, and `2.01x` versus per-unit in-boot batching for
+> `batch_size=10`, `resident_batches=10`.
+>
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_SEC_DEBUG_GET_RESET_REASON_STR_RESIDENT_SESSION_2026-07-01.md`.
+
 ## ✅ DONE — REPL VFS-read observation bundle — `/proc`/`/sys` file-node keystone promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — `filp_open` + `kernel_read` assembled into bounded file observation

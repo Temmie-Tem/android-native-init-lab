@@ -309,6 +309,25 @@ EXACT_LEAF_MAP_GROUND_TRUTH_SYMBOLS = {
         "min_direct_bl_xrefs": 7,
         "note": "non-export JOPP leaf Samsung reset-header write-count getter; identity rests on map label, direct callsite xrefs, exact words, source declaration, and next-symbol boundary",
     },
+    "sec_debug_get_reset_reason_str": {
+        "expected_words": (
+            0x51000409,
+            0x52800188,
+            0x7100313F,
+            0xF0012EC9,
+            0x1A883008,
+            0x91134129,
+            0x8B284508,
+            0x8B080120,
+            0xD65F03C0,
+            0x00BE7BAD,
+        ),
+        "next_symbol": "sec_debug_store_extc_idx",
+        "byte_size": 0x28,
+        "ret_offset": 0x20,
+        "min_direct_bl_xrefs": 6,
+        "note": "non-export JOPP leaf Samsung reset-reason string lookup; identity rests on map label, direct callsite xrefs, exact words, source declaration, and next-symbol boundary",
+    },
     "slab_is_available": {
         "expected_words": (
             0xB0016968,
@@ -662,6 +681,12 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {},
         "return_kind": "int",
         "reason": "no-argument Samsung reset-header write-count getter; current image is a pinned leaf global read and proof expects a stable scalar int value",
+    },
+    "sec_debug_get_reset_reason_str": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "borrowed-kernel-string-pointer",
+        "reason": "scalar Samsung reset-reason string lookup; current image is a pinned leaf and proof only bounded-reads the borrowed char pointer as a stable NUL-terminated printable string",
     },
     "get_ddr_vendor_name": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
@@ -4105,6 +4130,10 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
         "include/linux/samsung/debug/sec_debug_user_reset.h",
         "include/linux/samsung/debug/sec_debug.h",
     ),
+    "sec_debug_get_reset_reason_str": (
+        "include/linux/samsung/debug/sec_debug_user_reset.h",
+        "include/linux/samsung/debug/sec_debug.h",
+    ),
     "sec_abc_get_enabled": ("include/linux/sti/abc_common.h",),
     "__task_pid_nr_ns": ("include/linux/sched.h",),
     "sched_get_group_id": ("include/linux/sched.h",),
@@ -6028,6 +6057,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern int sec_debug_get_reset_write_cnt(void)",
     },
+    "sec_debug_get_reset_reason_str": {
+        "input_contract": "one bounded scalar reset reason code; proof uses reason codes 1, 12, and out-of-range 13 only; returned char pointer is borrowed/read-only and is never freed",
+        "return_contract": "borrowed char pointer is non-NULL and yields a stable bounded NUL-terminated printable ASCII string; out-of-range reason 13 clamps to the same pointer/string as reason 12",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern char * sec_debug_get_reset_reason_str(unsigned int reason)",
+    },
     "sec_abc_get_enabled": {
         "input_contract": "no arguments; Samsung ABC enabled mode is read-only through the pinned leaf global-load body and no returned pointer is dereferenced or freed",
         "return_contract": "int ABC mode value is exactly one of ABC_DISABLED/ABC_TYPE1_ENABLED/ABC_TYPE2_ENABLED (0..2) and stable across immediate repeated proof calls",
@@ -7492,6 +7527,14 @@ SEC_DEBUG_GET_RESET_REASON_EXPECTED_WORDS = (
 SEC_DEBUG_GET_RESET_WRITE_CNT_EXPECTED_WORDS = (
     0xF0012EC8, 0xB944CD00, 0xD65F03C0, 0x00BE7BAD,
 )
+SEC_DEBUG_GET_RESET_REASON_STR_EXPECTED_WORDS = (
+    0x51000409, 0x52800188, 0x7100313F, 0xF0012EC9,
+    0x1A883008, 0x91134129, 0x8B284508, 0x8B080120,
+    0xD65F03C0, 0x00BE7BAD,
+)
+SEC_DEBUG_GET_RESET_REASON_STR_CASES = (1, 12, 13)
+SEC_DEBUG_GET_RESET_REASON_STR_REPEAT_COUNT = 2
+SEC_DEBUG_GET_RESET_REASON_STR_READ_LEN = 16
 SEC_DEBUG_STATE_REPEAT_COUNT = 2
 SEC_DEBUG_STATE_PROOFS: dict[str, dict[str, object]] = {
     "sec_debug_is_enabled": {
@@ -27186,6 +27229,239 @@ def _run_call_proof_sec_debug_state(
     return summary, private
 
 
+def _run_call_proof_sec_debug_get_reset_reason_str(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "sec_debug_get_reset_reason_str"
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        (SEC_DEBUG_GET_RESET_REASON_STR_CASES[0],),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError(f"{target} source signature must have one scalar reason argument and no pointer args")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the sec_debug_user_reset declaration")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(resolutions[target], "call-proof target")
+    next_symbol = symbols.get("sec_debug_store_extc_idx")
+    if next_symbol is None or next_symbol.vaddr - target_link != 0x28:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x28")
+
+    observed_words = image.u32_words_at_vaddr(
+        target_link,
+        len(SEC_DEBUG_GET_RESET_REASON_STR_EXPECTED_WORDS),
+    )
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": "sec_debug_store_extc_idx",
+            "byte_size": "0x28",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+            "source_note": (
+                "include/linux/samsung/debug/sec_debug_user_reset.h declares the "
+                "scalar reset-reason string lookup; current image body is pinned "
+                "as a read-only leaf that returns a borrowed static string pointer"
+            ),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for index, expected in enumerate(SEC_DEBUG_GET_RESET_REASON_STR_EXPECTED_WORDS):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    returns_by_reason: dict[int, list[int]] = {reason: [] for reason in SEC_DEBUG_GET_RESET_REASON_STR_CASES}
+    strings_by_reason: dict[int, list[str]] = {reason: [] for reason in SEC_DEBUG_GET_RESET_REASON_STR_CASES}
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for reason in SEC_DEBUG_GET_RESET_REASON_STR_CASES:
+            for repeat in range(SEC_DEBUG_GET_RESET_REASON_STR_REPEAT_COUNT):
+                observed_ptr = session.call_runtime_values(
+                    target_runtime,
+                    (reason,),
+                    replay_safe=True,
+                )[-1] & MASK64
+                if observed_ptr == 0:
+                    raise ReplError(f"{target}({reason}) returned NULL in proof call {repeat + 1}")
+                raw = read_runtime_bytes(
+                    session,
+                    observed_ptr,
+                    SEC_DEBUG_GET_RESET_REASON_STR_READ_LEN,
+                    chunk_size=PEEK_MAX_LEN,
+                )
+                observed_string = _decode_printable_c_string(raw, label=f"{target}({reason})")
+                pointer_stable = (
+                    observed_ptr == returns_by_reason[reason][0]
+                    if returns_by_reason[reason] else True
+                )
+                string_stable = (
+                    observed_string == strings_by_reason[reason][0]
+                    if strings_by_reason[reason] else True
+                )
+                returns_by_reason[reason].append(observed_ptr)
+                strings_by_reason[reason].append(observed_string)
+                ok = pointer_stable and string_stable
+                case_results.append({
+                    "case": f"{target}-reason-{reason}-read-{repeat + 1}",
+                    "reason": reason,
+                    "expected_return": "non-null-borrowed-printable-c-string-pointer",
+                    "observed_return_value": "redacted-borrowed-pointer",
+                    "observed_reason_string": observed_string,
+                    "nonnull_pointer": True,
+                    "matches_first_pointer_for_reason": pointer_stable,
+                    "matches_first_string_for_reason": string_stable,
+                    "ok": ok,
+                })
+                if not pointer_stable:
+                    raise ReplError(f"{target}({reason}) returned a different borrowed pointer across proof calls")
+                if not string_stable:
+                    raise ReplError(f"{target}({reason}) returned a different string across proof calls")
+    finally:
+        session.set_panic_on_oops(1)
+
+    reason12_ptr = returns_by_reason[12][0] if returns_by_reason.get(12) else None
+    reason13_ptr = returns_by_reason[13][0] if returns_by_reason.get(13) else None
+    reason12_str = strings_by_reason[12][0] if strings_by_reason.get(12) else None
+    reason13_str = strings_by_reason[13][0] if strings_by_reason.get(13) else None
+    clamp_ok = (
+        reason12_ptr is not None
+        and reason13_ptr is not None
+        and reason12_ptr == reason13_ptr
+        and reason12_str == reason13_str
+    )
+    if not clamp_ok:
+        raise ReplError(
+            f"{target}(13) did not clamp to reason 12: "
+            f"reason12={reason12_str!r}, reason13={reason13_str!r}"
+        )
+    checks.append({
+        "check": "sec-debug-reset-reason-str-repeat-and-clamp",
+        "ok": all(bool(case.get("ok")) for case in case_results) and clamp_ok,
+        "case_count": len(case_results),
+        "clamp_reason_13_matches_reason_12": clamp_ok,
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_strings = {
+        str(reason): strings[0]
+        for reason, strings in strings_by_reason.items()
+        if strings
+    }
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-sec-debug-reset-reason-string-read-only-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "observed_reason_strings": observed_strings,
+        "all_return_pointers_stable_per_reason": all(
+            pointers and all(value == pointers[0] for value in pointers)
+            for pointers in returns_by_reason.values()
+        ),
+        "all_strings_stable_per_reason": all(
+            strings and all(value == strings[0] for value in strings)
+            for strings in strings_by_reason.values()
+        ),
+        "out_of_range_reason_13_clamped_to_reason_12": clamp_ok,
+        "repeat_count_per_reason": SEC_DEBUG_GET_RESET_REASON_STR_REPEAT_COUNT,
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "borrowed_pointer_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": (
+                "bounded scalar reason calls returned stable borrowed reset-reason strings "
+                f"{observed_strings}"
+            ),
+            "cleanup": "n/a-borrowed-pointer-not-owned",
+            "auto_call_policy": "same-session-batch-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: "redacted-borrowed-pointer"
+            for case in case_results
+        },
+        "borrowed_reason_string_pointers": {
+            str(reason): f"0x{pointers[0]:x}"
+            for reason, pointers in returns_by_reason.items()
+            if pointers
+        },
+        "case_reason_strings": {
+            case["case"]: case["observed_reason_string"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_sec_abc_get_enabled(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -40268,6 +40544,13 @@ def run_call_proof(session: ReplSession,
             symbols,
             image,
             target=target,
+            source_root=source_root,
+        )
+    if target == "sec_debug_get_reset_reason_str":
+        return _run_call_proof_sec_debug_get_reset_reason_str(
+            session,
+            symbols,
+            image,
             source_root=source_root,
         )
     if target == "sec_abc_get_enabled":

@@ -126,6 +126,23 @@ def validate_timeline(events: list[dict[str, str]]) -> list[str]:
     return errors
 
 
+def has_event(events: list[dict[str, str]], name: str) -> bool:
+    return any(item.get("name") == name for item in events)
+
+
+def mark_live_end_on_exception(run_dir: Path, events: list[dict[str, str]]) -> None:
+    if not has_event(events, "live_session_start") or has_event(events, "live_session_end"):
+        return
+    for item in reversed(events):
+        name = item.get("name", "")
+        if name.startswith("batch_") and name.endswith("_live_start"):
+            batch_end = name[:-len("_live_start")] + "_live_end"
+            if not has_event(events, batch_end):
+                mark_event(run_dir, events, batch_end)
+            break
+    mark_event(run_dir, events, "live_session_end")
+
+
 def flash_command(args: argparse.Namespace,
                   image: Path,
                   sha256: str,
@@ -697,14 +714,15 @@ def run_resident_session(args: argparse.Namespace, batches: tuple[tuple[str, ...
     finally:
         if candidate_flashed and not rolled_back:
             try:
-                if not any(item.get("name") == "rollback_flash_start" for item in events):
+                mark_live_end_on_exception(run_dir, events)
+                if not has_event(events, "rollback_flash_start"):
                     mark_event(run_dir, events, "rollback_flash_start")
                 run_rollback_flash(args, run_dir, "rollback-flash-finally")
                 rolled_back = True
-                if not any(item.get("name") == "rollback_flash_done" for item in events):
+                if not has_event(events, "rollback_flash_done"):
                     mark_event(run_dir, events, "rollback_flash_done")
                 run_health_check(args, run_dir, "rollback-finally")
-                if not any(item.get("name") == "rollback_boot_ready" for item in events):
+                if not has_event(events, "rollback_boot_ready"):
                     mark_event(run_dir, events, "rollback_boot_ready")
             except Exception as exc:  # noqa: BLE001 - leave an incident artifact before bubbling
                 atomic_write_json(

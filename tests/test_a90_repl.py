@@ -1741,6 +1741,29 @@ class CallSafetyClassificationTests(unittest.TestCase):
             [f"0x{word:08x}" for word in repl.SEC_DEBUG_GET_RESET_WRITE_CNT_EXPECTED_WORDS],
         )
 
+        sec_debug_get_reset_reason_str = self._row("sec_debug_get_reset_reason_str")
+        self.assertEqual(sec_debug_get_reset_reason_str["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(sec_debug_get_reset_reason_str["required_valid_pointer_args"], {})
+        self.assertTrue(sec_debug_get_reset_reason_str["resolution"]["verified"])
+        self.assertEqual(
+            sec_debug_get_reset_reason_str["resolution"]["method"],
+            "exact-leaf-map+xref+word-boundary",
+        )
+        self.assertEqual(
+            sec_debug_get_reset_reason_str["resolution"]["link_vaddr"],
+            "0xffffff80086ed4a4",
+        )
+        self.assertGreaterEqual(sec_debug_get_reset_reason_str["signals"]["direct_bl_xref_count"], 6)
+        self.assertTrue(sec_debug_get_reset_reason_str["signals"]["leaf"])
+        self.assertEqual(
+            sec_debug_get_reset_reason_str["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertEqual(
+            sec_debug_get_reset_reason_str["signals"]["first_words"][:10],
+            [f"0x{word:08x}" for word in repl.SEC_DEBUG_GET_RESET_REASON_STR_EXPECTED_WORDS],
+        )
+
         sec_abc_get_enabled = self._row("sec_abc_get_enabled")
         self.assertEqual(sec_abc_get_enabled["tier"], repl.CALL_SAFETY_DENY)
         self.assertFalse(sec_abc_get_enabled["auto_call_allowed"])
@@ -3273,7 +3296,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 64)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 65)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 10)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -4162,6 +4185,23 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertEqual(sec_debug_get_reset_write_cnt["selected"]["line"], 25)
         self.assertTrue(
             sec_debug_get_reset_write_cnt["selected"]["path"].endswith(
+                "include/linux/samsung/debug/sec_debug_user_reset.h"
+            )
+        )
+
+        sec_debug_get_reset_reason_str = repl.lookup_source_signature(
+            "sec_debug_get_reset_reason_str",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(sec_debug_get_reset_reason_str["status"], "found", sec_debug_get_reset_reason_str)
+        self.assertEqual(sec_debug_get_reset_reason_str["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            sec_debug_get_reset_reason_str["selected"]["signature"],
+            "extern char * sec_debug_get_reset_reason_str(unsigned int reason)",
+        )
+        self.assertEqual(sec_debug_get_reset_reason_str["selected"]["line"], 28)
+        self.assertTrue(
+            sec_debug_get_reset_reason_str["selected"]["path"].endswith(
                 "include/linux/samsung/debug/sec_debug_user_reset.h"
             )
         )
@@ -5350,6 +5390,12 @@ class FaithfulFakeTransport:
             "sec_debug_get_reset_write_cnt",
             purpose="call",
         ).link_vaddr
+        self.sec_debug_get_reset_reason_str_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "sec_debug_get_reset_reason_str",
+            purpose="call",
+        ).link_vaddr
         self.sec_abc_get_enabled_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -5626,9 +5672,14 @@ class FaithfulFakeTransport:
         self.borrowed_otg_notify_ptr = 0xFFFFFFC012360000
         self.borrowed_notify_data_ptr = 0xFFFFFFC012370000
         self.borrowed_hw_param_ptr = 0xFFFFFFC012390000
+        self.borrowed_reset_reason_str_base = 0xFFFFFFC0123A0000
         self.is_usb_host_value = 1
         self.is_blocked_value = 0
         self.borrowed_ddr_vendor_string = b"Samsung\x00"
+        self.borrowed_reset_reason_str_table = {
+            1: b"SP\x00",
+            12: b"??\x00",
+        }
         self.intermediate_timeout_value = 0x7530
         self.rcu_state_values = [0x420000, 0x420000, 0x420002]
         self.rcu_state_index = 0
@@ -6284,6 +6335,14 @@ class FaithfulFakeTransport:
         if self.borrowed_ddr_vendor_ptr <= addr < self.borrowed_ddr_vendor_ptr + repl.GET_DDR_VENDOR_NAME_READ_LEN:
             offset = addr - self.borrowed_ddr_vendor_ptr
             return self.borrowed_ddr_vendor_string[offset:offset + length].ljust(length, b"\x00")
+        table_len = (12 + 1) * 3
+        if self.borrowed_reset_reason_str_base <= addr < self.borrowed_reset_reason_str_base + table_len:
+            table = bytearray(b"\x00" * table_len)
+            for reason, data in self.borrowed_reset_reason_str_table.items():
+                start = reason * 3
+                table[start:start + 3] = data[:3]
+            offset = addr - self.borrowed_reset_reason_str_base
+            return bytes(table[offset:offset + length]).ljust(length, b"\x00")
         out = bytearray()
         for offset in range(length):
             byte_addr = addr + offset
@@ -6338,6 +6397,13 @@ class FaithfulFakeTransport:
         elif op == repl.OP_PEEK:
             length = arg1
             if self.borrowed_ddr_vendor_ptr <= arg0 < self.borrowed_ddr_vendor_ptr + repl.GET_DDR_VENDOR_NAME_READ_LEN:
+                value = int.from_bytes(self._heap_bytes(arg0, length), "little")
+                lines.append(f"A90R{value:x}")
+            elif self.borrowed_reset_reason_str_base <= arg0 < (
+                self.borrowed_reset_reason_str_base
+                + ((12 + 1) * 3)
+                + repl.SEC_DEBUG_GET_RESET_REASON_STR_READ_LEN
+            ):
                 value = int.from_bytes(self._heap_bytes(arg0, length), "little")
                 lines.append(f"A90R{value:x}")
             elif arg0 == repl.IS_SCM_ARMV8_SCM_VERSION_LINK + self.slide:
@@ -6465,6 +6531,8 @@ class FaithfulFakeTransport:
             sec_debug_is_enabled = self.sec_debug_is_enabled_link + self.slide
             assert self.sec_debug_level_link is not None
             sec_debug_level = self.sec_debug_level_link + self.slide
+            assert self.sec_debug_get_reset_reason_str_link is not None
+            sec_debug_get_reset_reason_str = self.sec_debug_get_reset_reason_str_link + self.slide
             assert self.sec_abc_get_enabled_link is not None
             sec_abc_get_enabled = self.sec_abc_get_enabled_link + self.slide
             assert self.task_pid_nr_ns_link is not None
@@ -7196,6 +7264,14 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("sec_debug_get_reset_write_cnt proof must pass no arguments")
                 lines.append(f"A90R{self.sec_debug_get_reset_write_cnt_value:x}")
+            elif arg0 == sec_debug_get_reset_reason_str:
+                if (arg2, arg3, arg4) != (0, 0, 0):
+                    raise AssertionError("sec_debug_get_reset_reason_str proof must pass one scalar reason only")
+                reason = arg1 if 1 <= arg1 <= 12 else 12
+                if reason not in self.borrowed_reset_reason_str_table:
+                    raise AssertionError(f"unexpected sec_debug_get_reset_reason_str reason: {arg1:#x}")
+                ptr = self.borrowed_reset_reason_str_base + (reason * 3)
+                lines.append(f"A90R{ptr:x}")
             elif arg0 == sec_abc_get_enabled:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("sec_abc_get_enabled proof must pass no arguments")
@@ -9578,6 +9654,70 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertTrue(reset_write_cnt["all_returns_stable"])
         self.assertIsNone(reset_write_cnt["all_returns_bool"])
         self.assertEqual(fake.op_count, 12)  # 4 targets * (slide + 2 scalar proof calls)
+
+    def test_call_proof_sec_debug_get_reset_reason_str_passes_with_borrowed_string_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "sec_debug_get_reset_reason_str",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(
+            summary["decision"],
+            "a90-repl-live-call-proof-sec_debug_get_reset_reason_str-pass",
+        )
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-sec-debug-reset-reason-string-read-only-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "sec_debug_get_reset_reason_str")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern char * sec_debug_get_reset_reason_str(unsigned int reason)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(summary["call_safety"]["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(summary["observed_reason_strings"], {"1": "SP", "12": "??", "13": "??"})
+        self.assertTrue(summary["all_return_pointers_stable_per_reason"])
+        self.assertTrue(summary["all_strings_stable_per_reason"])
+        self.assertTrue(summary["out_of_range_reason_13_clamped_to_reason_12"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["borrowed_pointer_redacted"])
+        self.assertNotIn("sec_debug_get_reset_reason_str_runtime", summary)
+        self.assertIn("sec_debug_get_reset_reason_str_runtime", private)
+        self.assertEqual(
+            private["borrowed_reason_string_pointers"]["12"],
+            private["borrowed_reason_string_pointers"]["13"],
+        )
+        cases = {case["case"]: case for case in summary["case_results"]}
+        for reason in repl.SEC_DEBUG_GET_RESET_REASON_STR_CASES:
+            for repeat in range(1, repl.SEC_DEBUG_GET_RESET_REASON_STR_REPEAT_COUNT + 1):
+                key = f"sec_debug_get_reset_reason_str-reason-{reason}-read-{repeat}"
+                self.assertEqual(cases[key]["observed_return_value"], "redacted-borrowed-pointer")
+                self.assertTrue(cases[key]["nonnull_pointer"])
+                self.assertTrue(cases[key]["ok"])
+        self.assertEqual(cases["sec_debug_get_reset_reason_str-reason-1-read-1"]["observed_reason_string"], "SP")
+        self.assertEqual(cases["sec_debug_get_reset_reason_str-reason-12-read-1"]["observed_reason_string"], "??")
+        self.assertEqual(cases["sec_debug_get_reset_reason_str-reason-13-read-1"]["observed_reason_string"], "??")
+        expected_peeks_per_call = (
+            repl.SEC_DEBUG_GET_RESET_REASON_STR_READ_LEN + repl.PEEK_MAX_LEN - 1
+        ) // repl.PEEK_MAX_LEN
+        expected_calls = len(repl.SEC_DEBUG_GET_RESET_REASON_STR_CASES) * repl.SEC_DEBUG_GET_RESET_REASON_STR_REPEAT_COUNT
+        self.assertEqual(fake.op_count, 1 + expected_calls * (1 + expected_peeks_per_call))
 
     def test_call_proof_sec_abc_get_enabled_passes_with_target_specific_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
