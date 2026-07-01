@@ -428,6 +428,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "void",
         "reason": "monotonic timekeeping state writer; x0 must be an owned kmalloc struct timespec64 result slot with canary",
     },
+    "getnstimeofday64": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "owned-timespec64-result-slot"},
+        "return_kind": "void",
+        "reason": "realtime wall-clock state writer; x0 must be an owned kmalloc struct timespec64 result slot with canary",
+    },
     "get_avenrun": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "required_valid_pointer_args": {0: "owned-loadavg-result-slot"},
@@ -3693,6 +3699,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "nsecs_to_jiffies64": ("include/linux/jiffies.h",),
     "nsecs_to_jiffies": ("include/linux/jiffies.h",),
     "ktime_get_ts64": ("include/linux/timekeeping.h",),
+    "getnstimeofday64": ("include/linux/timekeeping.h",),
     "ktime_get_seconds": ("include/linux/timekeeping.h",),
     "ktime_get_real_seconds": ("include/linux/timekeeping.h",),
     "current_kernel_time64": ("include/linux/timekeeping.h",),
@@ -5610,6 +5617,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern void ktime_get_ts64(struct timespec64 *ts)",
     },
+    "getnstimeofday64": {
+        "input_contract": "owned struct timespec64 result slot in kmalloc memory; proof initializes the 16-byte slot plus trailing canary before each call, brackets each call with ktime_get_real_seconds() anchors, and frees the slot after validation",
+        "return_contract": "void call writes sane realtime wall-clock time: tv_sec lies between same-session realtime-second anchor calls, tv_nsec is 0..999999999, repeated readings are nondecreasing with delta bounded by the serial REPL proof budget, and trailing canary is preserved",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern void getnstimeofday64(struct timespec64 *tv)",
+    },
     "get_avenrun": {
         "input_contract": "owned unsigned long[3] load-average result slot in kmalloc memory; offset=0 and shift=0; proof initializes the 24-byte slot plus trailing canary before the call and frees the slot after validation",
         "return_contract": "void call writes three sane nonnegative fixed-point load-average values into the owned slot, changes the slot from fill bytes, preserves the trailing canary, and returns through kfree cleanup",
@@ -6981,6 +6994,40 @@ KTIME_GET_TS64_REPEAT_COUNT = 2
 KTIME_GET_TS64_NSEC_PER_SEC = 1_000_000_000
 KTIME_GET_TS64_MAX_SECONDS = 10 * 365 * 24 * 60 * 60
 KTIME_GET_TS64_MAX_SHORT_DELTA_NS = 30 * KTIME_GET_TS64_NSEC_PER_SEC
+GETNSTIMEOFDAY64_EXPECTED_PREFIX_WORDS = (
+    0xD10103FF, 0xCA1103D0, 0xA90143FD, 0x910043FD,
+    0xA90257F6, 0xA9034FF4, 0xD00155C8, 0xF0016FF5,
+    0xAA0003F3, 0xF0016FF4, 0x912C02B5, 0xF9478508,
+)
+GETNSTIMEOFDAY64_STATIC_WORD_CHECKS = (
+    (16, 0xF94036A8),  # ldr x8, [x21,#104] source seconds
+    (17, 0xF9000268),  # str x8, [x19] result->tv_sec early path
+    (18, 0xF94006A0),  # ldr x0, [x21,#8] clocksource path
+    (19, 0xF9400008),  # ldr x8, [x0] early x0-derived clocksource deref
+    (20, 0x9461C0F2),  # direct BL into clocksource read springboard
+    (31, 0xCB080008),  # sub x8, x0, x8
+    (32, 0xF900067F),  # str xzr, [x19,#8] initial nsec clear
+    (33, 0x8A0A0108),  # mask cycle delta
+    (36, 0x9B0D3108),  # madd scaled nsec
+    (37, 0x9ACB2508),  # lsr scaled nsec
+    (39, 0xF90003E8),  # spill normalized nsec candidate
+    (45, 0x8B0B0108),  # add seconds carry adjustment
+    (47, 0xF90003E8),  # spill adjusted nsec
+    (52, 0xF940026A),  # reload seconds base
+    (55, 0x8B090149),  # add seconds adjustment
+    (56, 0xA9002269),  # stp x9, x8, [x19] final tv_sec/tv_nsec
+    (68, 0xD65F03C0),  # ret
+    (69, 0xD4210000),  # brk on stack-check failure path
+    (71, 0x97FD4E39),  # __stack_chk_fail
+    (73, 0x00BE7BAD),  # next guard
+)
+GETNSTIMEOFDAY64_NEXT_SYMBOL = ("ktime_get", 0x128)
+GETNSTIMEOFDAY64_CANARY_BYTES = bytes.fromhex("a90f77616c6c74696d6521102233445566")
+GETNSTIMEOFDAY64_PROOF_ALLOC_SIZE = 0x40
+GETNSTIMEOFDAY64_FILL_BYTE = 0xA8
+GETNSTIMEOFDAY64_REPEAT_COUNT = 2
+GETNSTIMEOFDAY64_ANCHOR_SLOP_SECONDS = 1
+GETNSTIMEOFDAY64_MAX_SHORT_DELTA_NS = 30 * KTIME_GET_TS64_NSEC_PER_SEC
 GET_AVENRUN_EXPECTED_WORDS = (
     0x90017108, 0x91032108, 0xF9400109, 0x8B010129,
     0x9AC22129, 0xF9000009, 0xF9400509, 0x8B010129,
@@ -29333,6 +29380,304 @@ def _run_call_proof_ktime_get_ts64(
     return summary, private
 
 
+def _run_call_proof_getnstimeofday64(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+    gfp: int,
+    gfp_components: dict[str, int],
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "getnstimeofday64"
+    anchor = "ktime_get_real_seconds"
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        ("@owned-timespec64-result-slot",),
+    )
+    anchor_call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        anchor,
+        (),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected valid-pointer tier")
+    if anchor_call_safety.get("tier") != CALL_PROOF_TARGETS[anchor]["expected_tier"]:
+        raise ReplError(f"{anchor} call-safety tier is not the expected scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError(f"{target} source signature must declare x0 as a struct timespec64 pointer")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the timekeeping.h declaration")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ),
+        anchor: resolve_verified(symbols, image, anchor, purpose="call"),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(
+            symbols,
+            image,
+            "kfree",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ),
+    }
+    target_link = require_verified_resolution(resolutions[target], "call-proof target")
+    anchor_link = require_verified_resolution(resolutions[anchor], "call-proof realtime anchor")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof result-slot allocation")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof result-slot cleanup")
+    next_symbol_name, expected_boundary = GETNSTIMEOFDAY64_NEXT_SYMBOL
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    observed_prefix = image.u32_words_at_vaddr(target_link, len(GETNSTIMEOFDAY64_EXPECTED_PREFIX_WORDS))
+    max_check_index = max(index for index, _word in GETNSTIMEOFDAY64_STATIC_WORD_CHECKS)
+    observed_check_words = image.u32_words_at_vaddr(target_link, max_check_index + 1)
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+        {
+            "check": "static-anchor-call-safety-contract",
+            "ok": True,
+            "anchor": anchor,
+            "tier": anchor_call_safety.get("tier"),
+        },
+    ]
+    for index, expected in enumerate(GETNSTIMEOFDAY64_EXPECTED_PREFIX_WORDS):
+        observed = observed_prefix[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-prefix-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} prefix word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+    for index, expected in GETNSTIMEOFDAY64_STATIC_WORD_CHECKS:
+        observed = observed_check_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    ptr = 0
+    free_ok = False
+    free_error = ""
+    raw_returns: list[int] = []
+    readings: list[dict[str, object]] = []
+    previous_total_ns: int | None = None
+    canary_after = b""
+    failure_reason = ""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        anchor_runtime = (anchor_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+        ptr = session.call_runtime(kmalloc_runtime, (GETNSTIMEOFDAY64_PROOF_ALLOC_SIZE, gfp))
+        if not is_kernel_lowmem_pointer(ptr) or _is_kernel_err_ptr(ptr):
+            raise ReplError(f"__kmalloc returned invalid {target} result-slot pointer: 0x{ptr:x}")
+        initial = (
+            bytes([GETNSTIMEOFDAY64_FILL_BYTE]) * KTIME_GET_TS64_STRUCT_SIZE
+            + GETNSTIMEOFDAY64_CANARY_BYTES
+        )
+        for index in range(GETNSTIMEOFDAY64_REPEAT_COUNT):
+            _poke_bytes(session, ptr, initial)
+            anchor_before = session.call_runtime(anchor_runtime, ()) & MASK64
+            raw_return = session.call_runtime(target_runtime, (ptr,)) & MASK64
+            raw_returns.append(raw_return)
+            observed = _peek_bytes(
+                session,
+                ptr,
+                KTIME_GET_TS64_STRUCT_SIZE + len(GETNSTIMEOFDAY64_CANARY_BYTES),
+            )
+            anchor_after = session.call_runtime(anchor_runtime, ()) & MASK64
+            tv_sec = _u64_from_le(observed, 0)
+            tv_nsec = _u64_from_le(observed, 8)
+            total_ns = tv_sec * KTIME_GET_TS64_NSEC_PER_SEC + tv_nsec
+            canary_after = observed[
+                KTIME_GET_TS64_STRUCT_SIZE:
+                KTIME_GET_TS64_STRUCT_SIZE + len(GETNSTIMEOFDAY64_CANARY_BYTES)
+            ]
+            nsec_ok = 0 <= tv_nsec < KTIME_GET_TS64_NSEC_PER_SEC
+            anchor_low = max(0, min(anchor_before, anchor_after) - GETNSTIMEOFDAY64_ANCHOR_SLOP_SECONDS)
+            anchor_high = max(anchor_before, anchor_after) + GETNSTIMEOFDAY64_ANCHOR_SLOP_SECONDS
+            anchor_ok = anchor_low <= tv_sec <= anchor_high
+            nondecreasing = previous_total_ns is None or total_ns >= previous_total_ns
+            delta_ns = None if previous_total_ns is None else total_ns - previous_total_ns
+            bounded_delta = delta_ns is None or delta_ns <= GETNSTIMEOFDAY64_MAX_SHORT_DELTA_NS
+            canary_ok = canary_after == GETNSTIMEOFDAY64_CANARY_BYTES
+            changed = observed[:KTIME_GET_TS64_STRUCT_SIZE] != initial[:KTIME_GET_TS64_STRUCT_SIZE]
+            ok = nsec_ok and anchor_ok and nondecreasing and bounded_delta and canary_ok and changed
+            readings.append({
+                "case": f"{target}-read-{index + 1}",
+                "anchor_before": f"0x{anchor_before:x}",
+                "anchor_after": f"0x{anchor_after:x}",
+                "tv_sec": f"0x{tv_sec:x}",
+                "tv_nsec": f"0x{tv_nsec:x}",
+                "total_nsec": f"0x{total_ns:x}",
+                "delta_nsec_from_previous": "n/a" if delta_ns is None else f"0x{delta_ns:x}",
+                "nsec_in_range": nsec_ok,
+                "tv_sec_in_anchor_range": anchor_ok,
+                "anchor_range": f"0x{anchor_low:x}..0x{anchor_high:x}",
+                "nondecreasing": nondecreasing,
+                "bounded_short_delta": bounded_delta,
+                "result_slot_changed": changed,
+                "canary_preserved": canary_ok,
+                "ok": ok,
+            })
+            if not ok:
+                failed_terms = [
+                    name
+                    for name, passed_term in (
+                        ("nsec_in_range", nsec_ok),
+                        ("tv_sec_in_anchor_range", anchor_ok),
+                        ("nondecreasing", nondecreasing),
+                        ("bounded_short_delta", bounded_delta),
+                        ("result_slot_changed", changed),
+                        ("canary_preserved", canary_ok),
+                    )
+                    if not passed_term
+                ]
+                failure_reason = (
+                    f"{target} result slot failed contract in proof read {index + 1}: "
+                    + ",".join(failed_terms)
+                )
+                break
+            previous_total_ns = total_ns
+    finally:
+        if ptr and is_kernel_lowmem_pointer(ptr):
+            try:
+                session.call_runtime((kfree_link + slide) & MASK64, (ptr,))
+                free_ok = True
+            except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                free_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "getnstimeofday64-result-slot-readings",
+        "ok": all(bool(reading.get("ok")) for reading in readings),
+        "case_count": len(readings),
+        "cases": readings,
+    })
+    checks.append({
+        "check": "kfree-owned-realtime-timespec64-result-slot",
+        "ok": free_ok,
+    })
+    if not free_ok:
+        failure_reason = f"kfree cleanup failed after {target} proof: {free_error or 'unknown error'}"
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    first_reading = readings[0] if readings else {}
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-owned-realtime-timespec64-result-slot-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": readings,
+        "observed_tv_sec": first_reading.get("tv_sec", "n/a"),
+        "observed_tv_nsec": first_reading.get("tv_nsec", "n/a"),
+        "all_readings_in_contract": bool(readings) and all(bool(reading.get("ok")) for reading in readings),
+        "failure_reason": failure_reason,
+        "canary_preserved": canary_after == GETNSTIMEOFDAY64_CANARY_BYTES,
+        "cleanup_ok": free_ok,
+        "anchor_symbol": anchor,
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "anchor_call_safety": anchor_call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": "owned struct timespec64 result slot contained sane realtime wall-clock time bracketed by ktime_get_real_seconds anchors",
+            "cleanup": "kfree-owned-realtime-timespec64-result-slot-ok",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        f"{anchor}_runtime": f"0x{((anchor_link + slide) & MASK64):x}",
+        "result_slot_ptr": f"0x{ptr:x}",
+        "void_call_raw_x0_values": [f"0x{value:x}" for value in raw_returns],
+        "case_readings": {
+            reading["case"]: {
+                "anchor_before": reading["anchor_before"],
+                "anchor_after": reading["anchor_after"],
+                "tv_sec": reading["tv_sec"],
+                "tv_nsec": reading["tv_nsec"],
+                "total_nsec": reading["total_nsec"],
+            }
+            for reading in readings
+        },
+        "canary_after_hex": canary_after.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
 def _run_call_proof_get_avenrun(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -35445,6 +35790,15 @@ def run_call_proof(session: ReplSession,
         )
     if target == "ktime_get_ts64":
         return _run_call_proof_ktime_get_ts64(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "getnstimeofday64":
+        return _run_call_proof_getnstimeofday64(
             session,
             symbols,
             image,

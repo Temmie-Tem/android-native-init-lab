@@ -96,6 +96,55 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL realtime result-slot live-call proof — `getnstimeofday64(struct timespec64 *tv)` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — owned realtime `timespec64` result slot
+>
+> Codex selected `getnstimeofday64` as a one-target post-saturation proof that expands the
+> timekeeping map from scalar seconds and monotonic result-slot reads into realtime wall-clock
+> `struct timespec64` writes. The trusted contract is narrow: x0 must be an owned `kmalloc`
+> result slot for `struct timespec64` plus trailing canary, each target call is bracketed by
+> same-session `ktime_get_real_seconds()` anchors, and the slot is freed with `kfree`.
+>
+> Static selection pinned `getnstimeofday64=0xffffff800815f174` via `export-recovery`
+> with map agreement, source declaration `extern void getnstimeofday64(struct timespec64 *tv)`
+> at `include/linux/timekeeping.h:48`, direct BL xrefs `88`, JOPP entry, early x0-derived
+> result-slot access accepted only under `SAFE-WITH-VALID-PTR`, and next-symbol boundary
+> `ktime_get` at `+0x128`. The static word checks pinned the prologue, clocksource read
+> springboard, result-slot stores including final `stp x9, x8, [x19]`, return, stack-check
+> path, and guard. Anchor `ktime_get_real_seconds=0xffffff800815f694` stayed the previously
+> proven `SAFE-SCALAR`.
+>
+> The live proof obeyed the flash gate: candidate/rollback/fallback SHA values and TWRP were
+> confirmed; baseline v2321 `version/status/selftest` passed; the v1-repl candidate
+> (`b846ae9f...`) flashed with matching readback SHA; candidate health passed after one
+> serial resync; and `getnstimeofday64()` passed. Read 1 was bracketed by anchors
+> `0x5a524059..0x5a52405d` and wrote `tv_sec=0x5a524059`, `tv_nsec=0x232e4641`.
+> Read 2 was bracketed by anchors `0x5a524060..0x5a524064` and wrote
+> `tv_sec=0x5a524061`, `tv_nsec=0x0e3e62b1`. Both reads had valid nsec range,
+> anchor-range seconds, nondecreasing total ns, changed result-slot bytes, preserved canary,
+> and successful `kfree` cleanup. Raw runtime pointers and the slide stayed private/redacted.
+>
+> Post-proof `status/selftest` stayed `fail=0`. A post-proof `busybox dmesg` log probe exposed
+> an `a90_android_exe` `subsystem_put()` WARN on the `esoc0` close path during log collection;
+> follow-up selftest still passed and the trace was outside the REPL target path, so this is
+> recorded as a residual native-exec/log-probe warning rather than a `getnstimeofday64`
+> contract failure. Rollback to v2321 completed with matching readback SHA. Final resident
+> `selftest/version` passed after `hide` serial resync, with `selftest pass=11 warn=1 fail=0`
+> and `version` confirming `v2321-usb-clean-identity-rodata`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-getnstimeofday64-20260701T040907Z/timeline.json`:
+> candidate flash helper `64s`, candidate flash start to boot ready `71s`, live proof `21s`,
+> post-proof health/log probe `7s`, rollback flash helper `64s`, rollback flash start to boot
+> ready `75s`, final health total `75s`, final health retry `2s`, and candidate start to
+> final health done `433s`.
+>
+> Function-map outcome: `getnstimeofday64` is promoted as live-proven only under the
+> owned-realtime-`timespec64` result-slot contract, with `ktime_get_real_seconds()` used as
+> same-session anchor and `kfree` cleanup required. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_GETNSTIMEOFDAY64_2026-07-01.md`.
+
 ## ✅ DONE — REPL timekeeping aggregate-return live-call proof — `current_kernel_time64()` x0 tv_sec promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg `timespec64` seconds field
