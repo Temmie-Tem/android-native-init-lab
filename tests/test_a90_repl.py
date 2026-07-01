@@ -1612,6 +1612,45 @@ class CallSafetyClassificationTests(unittest.TestCase):
             [f"0x{word:08x}" for word in repl.SLAB_IS_AVAILABLE_EXPECTED_WORDS],
         )
 
+        get_taint = self._row("get_taint")
+        self.assertEqual(get_taint["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(get_taint["required_valid_pointer_args"], {})
+        self.assertTrue(get_taint["resolution"]["verified"])
+        self.assertEqual(
+            get_taint["resolution"]["method"],
+            "exact-leaf-map+xref+word-boundary",
+        )
+        self.assertEqual(get_taint["resolution"]["link_vaddr"], "0xffffff80080b271c")
+        self.assertGreaterEqual(get_taint["signals"]["direct_bl_xref_count"], 1)
+        self.assertEqual(
+            get_taint["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertTrue(get_taint["signals"]["leaf"])
+        self.assertEqual(
+            get_taint["signals"]["first_words"][:4],
+            [f"0x{word:08x}" for word in repl.GET_TAINT_EXPECTED_WORDS],
+        )
+
+        test_taint = self._row("test_taint")
+        self.assertEqual(test_taint["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(test_taint["required_valid_pointer_args"], {})
+        self.assertTrue(test_taint["resolution"]["verified"])
+        self.assertEqual(
+            test_taint["resolution"]["method"],
+            "exact-leaf-export+word-boundary",
+        )
+        self.assertEqual(test_taint["resolution"]["link_vaddr"], "0xffffff80080b261c")
+        self.assertEqual(
+            test_taint["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertTrue(test_taint["signals"]["leaf"])
+        self.assertEqual(
+            test_taint["signals"]["first_words"][:12],
+            [f"0x{word:08x}" for word in repl.TEST_TAINT_EXPECTED_WORDS],
+        )
+
         sec_debug_is_enabled = self._row("sec_debug_is_enabled")
         self.assertEqual(sec_debug_is_enabled["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
         self.assertEqual(sec_debug_is_enabled["required_valid_pointer_args"], {})
@@ -3165,7 +3204,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 60)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 62)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 10)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -3967,6 +4006,32 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertEqual(slab_is_available["selected"]["line"], 122)
         self.assertTrue(slab_is_available["selected"]["path"].endswith("include/linux/slab.h"))
+
+        get_taint = repl.lookup_source_signature(
+            "get_taint",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(get_taint["status"], "found", get_taint)
+        self.assertEqual(get_taint["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            get_taint["selected"]["signature"],
+            "extern unsigned long get_taint(void)",
+        )
+        self.assertEqual(get_taint["selected"]["line"], 519)
+        self.assertTrue(get_taint["selected"]["path"].endswith("include/linux/kernel.h"))
+
+        test_taint = repl.lookup_source_signature(
+            "test_taint",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(test_taint["status"], "found", test_taint)
+        self.assertEqual(test_taint["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            test_taint["selected"]["signature"],
+            "extern int test_taint(unsigned flag)",
+        )
+        self.assertEqual(test_taint["selected"]["line"], 518)
+        self.assertTrue(test_taint["selected"]["path"].endswith("include/linux/kernel.h"))
 
         sec_debug_is_enabled = repl.lookup_source_signature(
             "sec_debug_is_enabled",
@@ -5131,6 +5196,18 @@ class FaithfulFakeTransport:
             "slab_is_available",
             purpose="call",
         ).link_vaddr
+        self.get_taint_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "get_taint",
+            purpose="call",
+        ).link_vaddr
+        self.test_taint_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "test_taint",
+            purpose="call",
+        ).link_vaddr
         self.sec_debug_is_enabled_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -5423,6 +5500,7 @@ class FaithfulFakeTransport:
         self.debugfs_initialized_value = 1
         self.tracefs_initialized_value = 1
         self.slab_is_available_value = 1
+        self.taint_mask_value = 0x8003
         self.sec_debug_is_enabled_value = 1
         self.sec_debug_level_value = 0x4F4C
         self.boot_stat_time_values = [0x00100000, 0x00101000, 0x00102000]
@@ -6222,6 +6300,10 @@ class FaithfulFakeTransport:
             tracefs_initialized = self.tracefs_initialized_link + self.slide
             assert self.slab_is_available_link is not None
             slab_is_available = self.slab_is_available_link + self.slide
+            assert self.get_taint_link is not None
+            get_taint = self.get_taint_link + self.slide
+            assert self.test_taint_link is not None
+            test_taint = self.test_taint_link + self.slide
             assert self.sec_debug_is_enabled_link is not None
             sec_debug_is_enabled = self.sec_debug_is_enabled_link + self.slide
             assert self.sec_debug_level_link is not None
@@ -6929,6 +7011,16 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("slab_is_available proof must pass no arguments")
                 lines.append(f"A90R{self.slab_is_available_value:x}")
+            elif arg0 == get_taint:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("get_taint proof must pass no arguments")
+                lines.append(f"A90R{self.taint_mask_value:x}")
+            elif arg0 == test_taint:
+                if (arg2, arg3, arg4) != (0, 0, 0):
+                    raise AssertionError("test_taint proof must pass one scalar flag only")
+                if arg1 not in repl.TAINT_TEST_FLAGS:
+                    raise AssertionError(f"unexpected test_taint flag: {arg1:#x}")
+                lines.append(f"A90R{(self.taint_mask_value >> arg1) & 1:x}")
             elif arg0 == sec_debug_is_enabled:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("sec_debug_is_enabled proof must pass no arguments")
@@ -9133,6 +9225,65 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertIn("slab_is_available_runtime", private)
         self.assertNotIn("slab_is_available_runtime", summary)
         self.assertEqual(fake.op_count, 1 + repl.SLAB_IS_AVAILABLE_REPEAT_COUNT)
+
+    def test_call_proof_taint_state_batch_passes_with_mask_anchor_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        targets = ("get_taint", "test_taint")
+        summary, private = repl.run_call_proof_batch(
+            session,
+            symbols,
+            self.image,
+            targets,
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-batch-pass")
+        self.assertEqual(summary["target_count"], 2)
+        self.assertEqual(summary["completed_targets"], list(targets))
+        self.assertTrue(summary["host_batch_single_repl_session"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertEqual(sorted(private["target_privates"]), sorted(targets))
+
+        by_target = {row["target"]: row for row in summary["summaries"]}
+        get_taint = by_target["get_taint"]
+        self.assertEqual(get_taint["decision"], "a90-repl-live-call-proof-get_taint-pass")
+        self.assertEqual(get_taint["proof_status"], "trusted-under-kernel-taint-read-only-get_taint-contract")
+        self.assertEqual(get_taint["function_map_entry"]["symbol"], "get_taint")
+        self.assertEqual(get_taint["source_evidence"]["signature"], "extern unsigned long get_taint(void)")
+        self.assertEqual(get_taint["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(get_taint["call_safety"]["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(get_taint["observed_taint_mask"], f"0x{fake.taint_mask_value:x}")
+        self.assertTrue(get_taint["all_returns_match_contract"])
+
+        test_taint = by_target["test_taint"]
+        self.assertEqual(test_taint["decision"], "a90-repl-live-call-proof-test_taint-pass")
+        self.assertEqual(test_taint["proof_status"], "trusted-under-kernel-taint-read-only-test_taint-contract")
+        self.assertEqual(test_taint["function_map_entry"]["symbol"], "test_taint")
+        self.assertEqual(test_taint["source_evidence"]["signature"], "extern int test_taint(unsigned flag)")
+        self.assertEqual(test_taint["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(test_taint["call_safety"]["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(test_taint["observed_taint_mask"], f"0x{fake.taint_mask_value:x}")
+        self.assertTrue(test_taint["all_returns_match_contract"])
+        cases = {case["case"]: case for case in test_taint["case_results"]}
+        for flag in repl.TAINT_TEST_FLAGS:
+            expected = (fake.taint_mask_value >> flag) & 1
+            for repeat in range(1, repl.TAINT_REPEAT_COUNT + 1):
+                row = cases[f"test_taint-flag-{flag}-read-{repeat}"]
+                self.assertEqual(row["expected_return"], f"0x{expected:x}")
+                self.assertEqual(row["observed_return_value"], f"0x{expected:x}")
+                self.assertTrue(row["matches_get_taint_bit"])
+        self.assertTrue(cases["get_taint-anchor-after"]["stable_from_first"])
+        self.assertEqual(fake.op_count, 16)
 
     def test_call_proof_sec_debug_state_batch_passes_with_no_arg_contracts(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

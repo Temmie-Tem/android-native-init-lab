@@ -190,6 +190,25 @@ LEAF_MAP_GROUND_TRUTH_SYMBOLS = {
     },
 }
 EXACT_LEAF_EXPORT_GROUND_TRUTH_SYMBOLS = {
+    "test_taint": {
+        "expected_words": (
+            0x1100FC08,
+            0x7100001F,
+            0x90017309,
+            0x1A80B108,
+            0x91386129,
+            0x13067D08,
+            0xF868D928,
+            0x9AC02508,
+            0x12000100,
+            0xD65F03C0,
+            0xD503201F,
+            0x00BE7BAD,
+        ),
+        "next_symbol": "no_blink",
+        "byte_size": 0x30,
+        "note": "single-export JOPP leaf kernel taint-bit tester; identity rests on export row, map agreement, exact words, source declaration, and next-symbol boundary because the helper has no in-image BL xrefs",
+    },
     "get_notify_data": {
         "expected_words": (
             0xB4000040,
@@ -203,6 +222,19 @@ EXACT_LEAF_EXPORT_GROUND_TRUTH_SYMBOLS = {
     },
 }
 EXACT_LEAF_MAP_GROUND_TRUTH_SYMBOLS = {
+    "get_taint": {
+        "expected_words": (
+            0x90017308,
+            0xF9470D00,
+            0xD65F03C0,
+            0x00BE7BAD,
+        ),
+        "next_symbol": "add_taint",
+        "byte_size": 0x10,
+        "ret_offset": 0x8,
+        "min_direct_bl_xrefs": 1,
+        "note": "non-export JOPP leaf kernel taint-mask getter; identity rests on map label, direct callsite xref, exact words, source declaration, and next-symbol boundary",
+    },
     "sec_debug_is_enabled": {
         "expected_words": (
             0xB0014E48,
@@ -556,6 +588,18 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {},
         "return_kind": "bool",
         "reason": "no-argument slab allocator availability getter; current image is a pinned global int comparison leaf and proof expects a stable bool value",
+    },
+    "get_taint": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "unsigned long",
+        "reason": "no-argument kernel taint-mask getter; current image is a pinned leaf global read and proof expects a stable unsigned long mask",
+    },
+    "test_taint": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "bool-int",
+        "reason": "scalar kernel taint-bit tester; current image is a pinned leaf global bit read and proof bounds the flag inside the low unsigned long mask",
     },
     "sec_debug_is_enabled": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
@@ -3999,6 +4043,8 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "debugfs_initialized": ("fs/debugfs/inode.c", "include/linux/debugfs.h"),
     "tracefs_initialized": ("fs/tracefs/inode.c", "include/linux/tracefs.h"),
     "slab_is_available": ("include/linux/slab.h",),
+    "get_taint": ("include/linux/kernel.h",),
+    "test_taint": ("include/linux/kernel.h",),
     "sec_debug_is_enabled": ("include/linux/samsung/debug/sec_debug.h",),
     "sec_debug_level": ("include/linux/samsung/debug/sec_debug.h",),
     "__task_pid_nr_ns": ("include/linux/sched.h",),
@@ -5887,6 +5933,18 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "bool slab_is_available(void)",
     },
+    "get_taint": {
+        "input_contract": "no arguments; kernel tainted_mask state is read-only through the pinned global-load leaf and no returned pointer is dereferenced or freed",
+        "return_contract": "unsigned long taint mask is stable across immediate repeated proof calls and is used as the same-session anchor for test_taint",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern unsigned long get_taint(void)",
+    },
+    "test_taint": {
+        "input_contract": "scalar unsigned taint flag bounded to the low unsigned long word; no pointer args; proof compares each return against same-session get_taint() mask bits",
+        "return_contract": "int bool value exactly matches (get_taint_mask >> flag) & 1 for each bounded proof flag",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern int test_taint(unsigned flag)",
+    },
     "sec_debug_is_enabled": {
         "input_contract": "no arguments; Samsung sec_debug enabled state is read-only through the pinned leaf body and no returned pointer is dereferenced or freed",
         "return_contract": "bool value is exactly 0 or 1 and stable across immediate repeated proof calls",
@@ -7294,6 +7352,18 @@ SLAB_IS_AVAILABLE_EXPECTED_WORDS = (
 )
 SLAB_IS_AVAILABLE_NEXT_SYMBOL = ("kmalloc_slab", 0x18)
 SLAB_IS_AVAILABLE_REPEAT_COUNT = 2
+GET_TAINT_EXPECTED_WORDS = (
+    0x90017308, 0xF9470D00, 0xD65F03C0, 0x00BE7BAD,
+)
+TEST_TAINT_EXPECTED_WORDS = (
+    0x1100FC08, 0x7100001F, 0x90017309, 0x1A80B108,
+    0x91386129, 0x13067D08, 0xF868D928, 0x9AC02508,
+    0x12000100, 0xD65F03C0, 0xD503201F, 0x00BE7BAD,
+)
+GET_TAINT_NEXT_SYMBOL = ("add_taint", 0x10)
+TEST_TAINT_NEXT_SYMBOL = ("no_blink", 0x30)
+TAINT_REPEAT_COUNT = 2
+TAINT_TEST_FLAGS = (0, 1, 15, 31, 63)
 SEC_DEBUG_IS_ENABLED_EXPECTED_WORDS = (
     0xB0014E48, 0xB0014E49, 0x90012F2A, 0x5289E98B,
     0x91075129, 0x9116414A, 0xB941D108, 0x6B0B011F,
@@ -26135,6 +26205,241 @@ def _run_call_proof_slab_is_available(
     return summary, private
 
 
+def _taint_expected_words(target: str) -> tuple[int, ...]:
+    if target == "get_taint":
+        return GET_TAINT_EXPECTED_WORDS
+    if target == "test_taint":
+        return TEST_TAINT_EXPECTED_WORDS
+    raise ReplError(f"unsupported taint state proof target {target!r}")
+
+
+def _taint_next_symbol(target: str) -> tuple[str, int]:
+    if target == "get_taint":
+        return GET_TAINT_NEXT_SYMBOL
+    if target == "test_taint":
+        return TEST_TAINT_NEXT_SYMBOL
+    raise ReplError(f"unsupported taint state proof target {target!r}")
+
+
+def _run_call_proof_taint_state(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    target: str,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    if target not in ("get_taint", "test_taint"):
+        raise ReplError(f"unsupported taint state proof target {target!r}")
+    source = lookup_source_signature(target, source_root=source_root)
+    call_args = () if target == "get_taint" else (TAINT_TEST_FLAGS[0],)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        call_args,
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError(f"{target} source signature must have no pointer args")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the kernel taint declaration")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+        ),
+    }
+    if target == "test_taint":
+        resolutions["get_taint"] = resolve_verified(
+            symbols,
+            image,
+            "get_taint",
+            purpose="call",
+        )
+    target_link = require_verified_resolution(resolutions[target], "call-proof target")
+    get_taint_link = (
+        require_verified_resolution(resolutions["get_taint"], "call-proof get_taint anchor")
+        if target == "test_taint" else target_link
+    )
+
+    next_symbol_name, expected_boundary = _taint_next_symbol(target)
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    expected_words = _taint_expected_words(target)
+    observed_words = image.u32_words_at_vaddr(target_link, len(expected_words))
+    ret_word_index = 2 if target == "get_taint" else 9
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+            "source_note": "include/linux/kernel.h declares the kernel taint state helpers; current image body is pinned as a read-only leaf",
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+        {
+            "check": "static-body-ret-before-next-symbol",
+            "ok": True,
+            "ret_word_index": ret_word_index,
+            "note": "proof pins the exact leaf body plus the next-symbol boundary so low/no-xref taint helpers do not rely on broad scan heuristics",
+        },
+    ]
+    for index, expected in enumerate(expected_words):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    case_results: list[dict[str, object]] = []
+    taint_masks: list[int] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        get_taint_runtime = (get_taint_link + slide) & MASK64
+        if target == "get_taint":
+            for index in range(TAINT_REPEAT_COUNT):
+                observed = session.call_runtime(target_runtime, ()) & MASK64
+                stable = observed == taint_masks[0] if taint_masks else True
+                taint_masks.append(observed)
+                case_results.append({
+                    "case": f"get_taint-read-{index + 1}",
+                    "observed_return_value": f"0x{observed:x}",
+                    "stable_from_first": stable,
+                    "ok": stable,
+                })
+                if not stable:
+                    raise ReplError(f"get_taint() changed within proof window: 0x{taint_masks[0]:x}->0x{observed:x}")
+        else:
+            before = session.call_runtime(get_taint_runtime, ()) & MASK64
+            taint_masks.append(before)
+            for flag in TAINT_TEST_FLAGS:
+                expected_bit = (before >> flag) & 1
+                for repeat in range(TAINT_REPEAT_COUNT):
+                    observed = session.call_runtime(target_runtime, (flag,)) & 0xFFFFFFFF
+                    is_bool = observed in (0, 1)
+                    matches = observed == expected_bit
+                    ok = is_bool and matches
+                    case_results.append({
+                        "case": f"test_taint-flag-{flag}-read-{repeat + 1}",
+                        "input_flag": flag,
+                        "anchor_mask": f"0x{before:x}",
+                        "expected_return": f"0x{expected_bit:x}",
+                        "observed_return_value": f"0x{observed:x}",
+                        "is_bool": is_bool,
+                        "matches_get_taint_bit": matches,
+                        "ok": ok,
+                    })
+                    if not ok:
+                        raise ReplError(
+                            f"test_taint({flag}) returned 0x{observed:x}, expected bit 0x{expected_bit:x} "
+                            f"from get_taint mask 0x{before:x}"
+                        )
+            after = session.call_runtime(get_taint_runtime, ()) & MASK64
+            taint_masks.append(after)
+            stable_mask = after == before
+            case_results.append({
+                "case": "get_taint-anchor-after",
+                "observed_return_value": f"0x{after:x}",
+                "expected_return": f"0x{before:x}",
+                "stable_from_first": stable_mask,
+                "ok": stable_mask,
+            })
+            if not stable_mask:
+                raise ReplError(f"get_taint anchor changed within test_taint proof: 0x{before:x}->0x{after:x}")
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": f"{target}-taint-state-contract",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_mask_public = f"0x{taint_masks[0]:x}" if taint_masks else "n/a"
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": f"trusted-under-kernel-taint-read-only-{target}-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "observed_taint_mask": observed_mask_public,
+        "all_returns_match_contract": bool(case_results) and all(bool(case.get("ok")) for case in case_results),
+        "repeat_count": len(case_results),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": "taint mask read" if target == "get_taint" else "test_taint bits matched same-session get_taint mask",
+            "cleanup": "n/a-taint-scalar-read-only",
+            "auto_call_policy": "same-session-batch-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "get_taint_runtime": f"0x{((get_taint_link + slide) & MASK64):x}",
+        "taint_masks": [f"0x{mask:x}" for mask in taint_masks],
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_sec_debug_state(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -39160,6 +39465,14 @@ def run_call_proof(session: ReplSession,
             session,
             symbols,
             image,
+            source_root=source_root,
+        )
+    if target in ("get_taint", "test_taint"):
+        return _run_call_proof_taint_state(
+            session,
+            symbols,
+            image,
+            target=target,
             source_root=source_root,
         )
     if target in SEC_DEBUG_STATE_PROOFS:

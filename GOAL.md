@@ -96,6 +96,75 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL kernel taint-state live-call proof batch — `get_taint()` + `test_taint()` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — same-shape kernel taint health/state getters
+>
+> Codex added a new function-map target batch rather than repeating existing
+> inventory: `get_taint()` reads the kernel tainted-mask state and
+> `test_taint(flag)` validates bounded taint-bit queries against that same
+> mask. This extends REPL measurement toward kernel health/status observation.
+>
+> Static selection pinned `get_taint=0xffffff80080b271c` via
+> `exact-leaf-map+xref+word-boundary`: export candidate count `0`, direct BL
+> xrefs `1`, JOPP entry, source declaration
+> `extern unsigned long get_taint(void)` at `include/linux/kernel.h:519`,
+> `SAFE-SCALAR` call-safety, and next-symbol boundary `add_taint` at `+0x10`.
+> The proof pinned the complete body plus guard:
+> `0x90017308 0xf9470d00 0xd65f03c0 0x00be7bad`.
+>
+> Static selection pinned `test_taint=0xffffff80080b261c` via
+> `exact-leaf-export+word-boundary`: export candidate count `1`, direct BL
+> xrefs `0`, JOPP entry, source declaration
+> `extern int test_taint(unsigned flag)` at `include/linux/kernel.h:518`,
+> `SAFE-SCALAR` call-safety, and next-symbol boundary `no_blink` at `+0x30`.
+> This low-xref helper is accepted only under the stricter export row + map
+> agreement + exact words + source declaration + boundary contract. The proof
+> pinned the complete body plus guard:
+> `0x1100fc08 0x7100001f 0x90017309 0x1a80b108 0x91386129 0x13067d08 0xf868d928 0x9ac02508 0x12000100 0xd65f03c0 0xd503201f 0x00be7bad`.
+>
+> The live proof obeyed the flash gate: rollback/fallback/TWRP artifacts were
+> confirmed, baseline v2321 `version/status/selftest` passed, the exact
+> v1-repl candidate
+> (`b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`)
+> flashed through `native_init_flash.py` with matching pushed-image and
+> readback SHA, candidate helper `version/status` verification passed,
+> explicit candidate `selftest` passed after bridge restart from serial marker
+> loss, and REPL selftest returned `a90-repl-v2a1-selftest-pass`.
+>
+> The proof called both targets in one `call-proof-batch` session.
+> `get_taint()` returned stable mask `0x204`, `0x204`. `test_taint()` tested
+> flags `0`, `1`, `15`, `31`, and `63` twice each, and every result matched
+> `(0x204 >> flag) & 1`; all tested flags returned `0x0`. A final
+> `get_taint()` anchor after the bit tests still returned `0x204`. No runtime
+> pointer was dereferenced by the host, no cleanup was required, and raw
+> runtime values plus the KASLR slide stayed private/redacted.
+>
+> Post-proof candidate `version/status/selftest` passed with
+> `pass=11 warn=1 fail=0`. Rollback to v2321 completed with matching readback
+> SHA, rollback helper `version/status` passed, final v2321 standalone
+> `selftest` passed after bridge restart from serial marker loss, and final
+> bridge status was `connected-no-immediate-error`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-taint-state-batch-20260701T095007Z/timeline.json`
+> at `2026-07-01T09:50:07Z`: baseline bridge/version/status/selftest preflight
+> `1.950s`, candidate flash helper `65.707s`, candidate selftest first attempt
+> marker loss `10.220s`, candidate bridge restart `2.130s`, candidate
+> selftest retry `0.440s`, REPL selftest `5.810s`, live proof batch `14.890s`,
+> post-proof candidate version/status/selftest `1.390s`, rollback flash helper
+> `64.675s`, final selftest first attempt marker loss `10.110s`, final bridge
+> status after marker loss `0.320s`, final bridge restart `2.130s`, final
+> selftest retry `0.440s`, and final bridge status retry `0.320s`. The helper
+> total rows are not additive; all serial bridge operations in the accepted
+> live path were sequential.
+>
+> Function-map outcome: `get_taint` is promoted as live-proven only under the
+> no-argument read-only kernel taint-mask contract, and `test_taint` is
+> promoted as live-proven only under the bounded scalar taint-flag contract
+> anchored to same-session `get_taint()`. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_TAINT_STATE_BATCH_2026-07-01.md`.
+
 ## ✅ DONE — REPL Samsung sec_debug state live-call proof batch — `sec_debug_is_enabled()` + `sec_debug_level()` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — same-shape no-arg Samsung sec_debug state getters
