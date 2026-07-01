@@ -1462,6 +1462,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "owned-struct-pid-ref-or-null",
         "reason": "refcount-changing scalar pid lookup; not globally auto-callable, only target-specific find/put balanced proofs may call it",
     },
+    "find_vpid": {
+        "tier": CALL_SAFETY_DENY,
+        "required_valid_pointer_args": {},
+        "return_kind": "borrowed-struct-pid-pointer-or-null",
+        "reason": "borrowed scalar pid lookup; not globally auto-callable, only target-specific cross-check proofs may call it",
+    },
     "current_umask": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -4202,6 +4208,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "pid_vnr": ("include/linux/pid.h",),
     "get_task_pid": ("include/linux/pid.h",),
     "find_get_pid": ("include/linux/pid.h",),
+    "find_vpid": ("include/linux/pid.h",),
     "put_pid": ("include/linux/pid.h",),
     "get_ddr_vendor_name": ("include/linux/samsung/sec_smem.h",),
     "get_ddr_DSF_version": ("include/linux/samsung/sec_smem.h",),
@@ -6216,6 +6223,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_CONTEXT_SENSITIVE,
         "source_signature": "extern struct pid * find_get_pid(int nr)",
     },
+    "find_vpid": {
+        "input_contract": "scalar PID number 1 only; proof first obtains an owned find_get_pid(1) reference as a stable cross-check pointer, then calls find_vpid(1) and treats the return as borrowed",
+        "return_contract": "struct pid * return equals the owned find_get_pid(1) pointer, embedded pid number is 1, find_vpid does not change the observed pid refcount, and the helper-owned ref is balanced with put_pid",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern struct pid * find_vpid(int nr)",
+    },
     "current_umask": {
         "input_contract": "no arguments; current task fs pointer is read-only and obtained internally through sp_el0",
         "return_contract": "umode_t value is stable across repeated proof calls and only uses permission bits 0..0777",
@@ -7956,6 +7969,26 @@ PID_VNR_EXPECTED_WORDS = (
     0xD65F03C0, 0x00BE7BAD,
 )
 PID_VNR_NEXT_SYMBOL = ("__task_pid_nr_ns", 0x58)
+FIND_VPID_PROOF_NR = 1
+FIND_VPID_EXPECTED_PID_NR = 1
+FIND_VPID_PID_COUNT_OFFSET = 0
+FIND_VPID_PID_LEVEL_OFFSET = TASK_ACTIVE_PID_NS_PID_LEVEL_OFFSET
+FIND_VPID_PID_NUMBERS_NR_OFFSET = PID_NR_NS_PID_NUMBERS_NR_OFFSET
+FIND_VPID_PID_NUMBERS_LEVEL_SHIFT = PID_NR_NS_PID_NUMBERS_LEVEL_SHIFT
+FIND_VPID_EXPECTED_WORDS = (
+    0xD5384108, 0xF9439108, 0xB4000088, 0xB9400509,
+    0x8B091508, 0xF9402908, 0xB0015B09, 0xD2907D6C,
+    0xF2B016AC, 0x900171EA, 0xF2D0C8CC, 0x8B20C10B,
+    0xB94C5D29, 0xF2EC390C, 0xF945554A, 0x9B0C7D6B,
+    0x4B0903E9, 0x9AC92569, 0xF869594A, 0xD1004149,
+    0xF100015F, 0xFA401924, 0x54000101, 0xAA1F03E0,
+    0xD65F03C0, 0xF9400929, 0xD100412A, 0xF100013F,
+    0x9A8A03E9, 0xB4FFFF49, 0xB940012A, 0x6B00015F,
+    0x54FFFF21, 0xF940052A, 0xEB08015F, 0x54FFFEC1,
+    0xB9483108, 0xCB081528, 0xD1012100, 0xD65F03C0,
+    0xD503201F, 0x00BE7BAD,
+)
+FIND_VPID_NEXT_SYMBOL = ("task_active_pid_ns", 0xA8)
 GET_TASK_PID_REPEAT_COUNT = 1
 GET_TASK_PID_PIDTYPE_PID = 0
 GET_TASK_PID_PID_COUNT_OFFSET = 0
@@ -30576,6 +30609,461 @@ def _run_call_proof_get_task_pid(
     return summary, private
 
 
+def _run_call_proof_find_vpid(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "find_vpid"
+    anchor_symbol = "find_get_pid"
+    cleanup_symbol = "put_pid"
+    source = lookup_source_signature(target, source_root=source_root)
+    anchor_source = lookup_source_signature(anchor_symbol, source_root=source_root)
+    cleanup_source = lookup_source_signature(cleanup_symbol, source_root=source_root)
+    call_safety_gate = classify_call_safety(
+        symbols,
+        image,
+        target,
+        include_objdump=False,
+    )
+    advisory = _call_safety_advisory_from_source(call_safety_gate, source)
+    anchor_gate = classify_call_safety(
+        symbols,
+        image,
+        anchor_symbol,
+        include_objdump=False,
+    )
+    anchor_advisory = _call_safety_advisory_from_source(anchor_gate, anchor_source)
+    if call_safety_gate.get("tier") != CALL_SAFETY_DENY:
+        raise ReplError(f"{target} must stay outside the global auto-call gate")
+    if call_safety_gate.get("auto_call_allowed"):
+        raise ReplError(f"{target} unexpectedly became globally auto-callable")
+    if not call_safety_gate.get("vetted_seed_whitelist"):
+        raise ReplError(f"{target} must remain explicitly fenced by a DENY seed")
+    if advisory.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} target-specific advisory tier must remain SAFE-SCALAR")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError(f"{target} source signature must declare only scalar pid number input")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the pid.h declaration")
+    if anchor_gate.get("tier") != CALL_SAFETY_DENY or not anchor_gate.get("vetted_seed_whitelist"):
+        raise ReplError(f"{anchor_symbol} anchor must remain explicitly fenced by a DENY seed")
+    if anchor_advisory.get("tier") != CALL_SAFETY_CONTEXT_SENSITIVE:
+        raise ReplError(f"{anchor_symbol} anchor advisory must remain CONTEXT-SENSITIVE")
+    if "context-sensitive-disasm-call" not in anchor_advisory.get("blocking_danger_flags", []):
+        raise ReplError(f"{anchor_symbol} anchor advisory did not retain the RCU/context-sensitive block")
+    anchor_signature = (
+        anchor_source.get("selected", {}).get("signature")
+        if isinstance(anchor_source.get("selected"), dict) else None
+    )
+    if anchor_signature != CALL_PROOF_TARGETS[anchor_symbol]["source_signature"]:
+        raise ReplError(f"{anchor_symbol} source signature did not select the pid.h declaration")
+    cleanup_signature = (
+        cleanup_source.get("selected", {}).get("signature")
+        if isinstance(cleanup_source.get("selected"), dict) else None
+    )
+    if not cleanup_source.get("found") or cleanup_source.get("pointer_arg_indices") != [0]:
+        raise ReplError(f"{cleanup_symbol} source signature must declare x0 as a pid* pointer")
+    if cleanup_signature != "extern void put_pid(struct pid *pid)":
+        raise ReplError(f"{cleanup_symbol} source signature did not select the pid.h declaration")
+
+    resolutions = {
+        target: resolve_verified(symbols, image, target, purpose="call"),
+        anchor_symbol: resolve_verified(symbols, image, anchor_symbol, purpose="call"),
+        cleanup_symbol: resolve_verified(
+            symbols,
+            image,
+            cleanup_symbol,
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ),
+    }
+    target_link = require_verified_resolution(resolutions[target], "call-proof target")
+    anchor_link = require_verified_resolution(resolutions[anchor_symbol], "call-proof anchor")
+    cleanup_link = require_verified_resolution(resolutions[cleanup_symbol], "call-proof cleanup")
+
+    next_symbol_name, expected_boundary = FIND_VPID_NEXT_SYMBOL
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+    anchor_next_symbol_name, anchor_expected_boundary = FIND_GET_PID_NEXT_SYMBOL
+    anchor_next_symbol = symbols.get(anchor_next_symbol_name)
+    if anchor_next_symbol is None or anchor_next_symbol.vaddr - anchor_link != anchor_expected_boundary:
+        raise ReplError(
+            f"{anchor_symbol} next-symbol boundary is not the expected 0x{anchor_expected_boundary:x}"
+        )
+    cleanup_next_symbol_name, cleanup_expected_boundary = PUT_PID_NEXT_SYMBOL
+    cleanup_next_symbol = symbols.get(cleanup_next_symbol_name)
+    if cleanup_next_symbol is None or cleanup_next_symbol.vaddr - cleanup_link != cleanup_expected_boundary:
+        raise ReplError(
+            f"{cleanup_symbol} next-symbol boundary is not the expected "
+            f"0x{cleanup_expected_boundary:x}"
+        )
+
+    target_words = image.u32_words_at_vaddr(target_link, len(FIND_VPID_EXPECTED_WORDS))
+    anchor_words = image.u32_words_at_vaddr(anchor_link, len(FIND_GET_PID_EXPECTED_WORDS))
+    cleanup_words = image.u32_words_at_vaddr(cleanup_link, len(PUT_PID_EXPECTED_WORDS))
+    signals = call_safety_gate.get("signals", {})
+    anchor_signals = anchor_gate.get("signals", {})
+    if not isinstance(signals, dict) or not isinstance(anchor_signals, dict):
+        raise ReplError(f"{target} classifier signals missing")
+    anchor_bl_targets = anchor_signals.get("bl_targets_sample", [])
+    anchor_bl_target_symbols = [
+        str(
+            item.get("nearest_symbol", {}).get("symbol")
+            if isinstance(item, dict) and isinstance(item.get("nearest_symbol"), dict)
+            else ""
+        )
+        for item in anchor_bl_targets
+    ]
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-anchor-c1-identity",
+            "ok": True,
+            "target": anchor_symbol,
+            "resolution_method": resolutions[anchor_symbol].method,
+        },
+        {
+            "check": "static-cleanup-c1-identity",
+            "ok": True,
+            "target": cleanup_symbol,
+            "resolution_method": resolutions[cleanup_symbol].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-anchor-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": anchor_next_symbol_name,
+            "byte_size": f"0x{anchor_expected_boundary:x}",
+        },
+        {
+            "check": "static-cleanup-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": cleanup_next_symbol_name,
+            "byte_size": f"0x{cleanup_expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+            "anchor_signature": anchor_signature,
+            "cleanup_signature": cleanup_signature,
+            "cleanup_pointer_arg_indices": cleanup_source.get("pointer_arg_indices", []),
+            "source_note": (
+                "pid.h declares find_vpid/find_get_pid/put_pid; proof fixes nr=1, "
+                "uses find_get_pid as the owned cross-check anchor, and treats find_vpid return as borrowed"
+            ),
+        },
+        {
+            "check": "static-target-specific-call-safety-contract",
+            "ok": True,
+            "global_gate_tier": call_safety_gate.get("tier"),
+            "global_gate_auto_call_allowed": call_safety_gate.get("auto_call_allowed"),
+            "global_gate_seeded": call_safety_gate.get("seeded"),
+            "advisory_tier": advisory.get("tier"),
+            "anchor_gate_tier": anchor_gate.get("tier"),
+            "anchor_advisory_tier": anchor_advisory.get("tier"),
+        },
+        {
+            "check": "static-target-leaf-no-callee",
+            "ok": signals.get("leaf") is True and signals.get("bl_count_in_scan") == 0,
+            "leaf": signals.get("leaf"),
+            "bl_count_in_scan": signals.get("bl_count_in_scan"),
+        },
+        {
+            "check": "static-anchor-rcu-callee-pair",
+            "ok": tuple(anchor_bl_target_symbols[:2]) == FIND_GET_PID_EXPECTED_BL_TARGETS,
+            "expected_callees": list(FIND_GET_PID_EXPECTED_BL_TARGETS),
+            "observed_callees": anchor_bl_target_symbols[:2],
+        },
+    ]
+    for index, expected in enumerate(FIND_VPID_EXPECTED_WORDS):
+        observed = target_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+    for index, expected in enumerate(FIND_GET_PID_EXPECTED_WORDS):
+        observed = anchor_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{anchor_symbol}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{anchor_symbol} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+    for index, expected in enumerate(PUT_PID_EXPECTED_WORDS):
+        observed = cleanup_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{cleanup_symbol}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{cleanup_symbol} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+    if not all(bool(check.get("ok")) for check in checks):
+        raise ReplError(f"{target} static target-specific gate failed")
+
+    private: dict[str, object] = {}
+    slide = 0
+    anchor_pid = 0
+    returned_pid = 0
+    pid_level = 0
+    embedded_pid_nr = 0
+    refcount_after_anchor = 0
+    refcount_after_find_vpid = 0
+    refcount_after_put = 0
+    cleanup_attempted = False
+    cleanup_ok = False
+    cleanup_error = ""
+    validation_error = ""
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        anchor_runtime = (anchor_link + slide) & MASK64
+        cleanup_runtime = (cleanup_link + slide) & MASK64
+
+        anchor_pid = session.call_runtime(
+            anchor_runtime,
+            (FIND_VPID_PROOF_NR,),
+        ) & MASK64
+        anchor_sane = _kernel_vaddr_sane(anchor_pid)
+        if not anchor_sane:
+            validation_error = f"{anchor_symbol}({FIND_VPID_PROOF_NR}) returned 0x{anchor_pid:x}"
+        if not validation_error:
+            pid_level = session.peek_runtime(
+                anchor_pid + FIND_VPID_PID_LEVEL_OFFSET,
+                4,
+            ) & 0xFFFFFFFF
+            if pid_level > PID_NR_NS_MAX_LEVEL:
+                validation_error = f"{anchor_symbol} returned pid level outside proof bound: 0x{pid_level:x}"
+        if not validation_error:
+            embedded_pid_nr = session.peek_runtime(
+                anchor_pid
+                + FIND_VPID_PID_NUMBERS_NR_OFFSET
+                + (pid_level << FIND_VPID_PID_NUMBERS_LEVEL_SHIFT),
+                4,
+            ) & 0xFFFFFFFF
+            if embedded_pid_nr != FIND_VPID_EXPECTED_PID_NR:
+                validation_error = (
+                    f"{anchor_symbol} returned pid number 0x{embedded_pid_nr:x}, "
+                    f"expected 0x{FIND_VPID_EXPECTED_PID_NR:x}"
+                )
+        if not validation_error:
+            refcount_after_anchor = session.peek_runtime(
+                anchor_pid + FIND_VPID_PID_COUNT_OFFSET,
+                4,
+            ) & 0xFFFFFFFF
+            if refcount_after_anchor <= 1:
+                validation_error = (
+                    f"{anchor_symbol} returned pid refcount is too low for post-cleanup observation: "
+                    f"{refcount_after_anchor}"
+                )
+        checks.append({
+            "check": "find-get-pid-anchor-contract",
+            "ok": not validation_error,
+            "proof_pid_nr": FIND_VPID_PROOF_NR,
+            "observed_return_value": (
+                "redacted-owned-pid-ref-pointer" if anchor_sane else f"0x{anchor_pid:x}"
+            ),
+            "anchor_sane_kernel_pointer": anchor_sane,
+            "pid_level": pid_level,
+            "embedded_pid_nr": f"0x{embedded_pid_nr:x}",
+            "refcount_after_anchor": refcount_after_anchor,
+        })
+
+        if not validation_error:
+            returned_pid = session.call_runtime(
+                target_runtime,
+                (FIND_VPID_PROOF_NR,),
+            ) & MASK64
+            returned_sane = _kernel_vaddr_sane(returned_pid)
+            return_matches_anchor = returned_pid == anchor_pid
+            if not (returned_sane and return_matches_anchor):
+                validation_error = (
+                    f"{target}({FIND_VPID_PROOF_NR}) returned 0x{returned_pid:x}, "
+                    "expected same pid pointer as find_get_pid anchor"
+                )
+            else:
+                refcount_after_find_vpid = session.peek_runtime(
+                    anchor_pid + FIND_VPID_PID_COUNT_OFFSET,
+                    4,
+                ) & 0xFFFFFFFF
+                if refcount_after_find_vpid != refcount_after_anchor:
+                    validation_error = (
+                        f"{target} changed pid refcount: "
+                        f"anchor={refcount_after_anchor} after={refcount_after_find_vpid}"
+                    )
+            checks.append({
+                "check": "find-vpid-borrowed-return-contract",
+                "ok": not validation_error,
+                "observed_return_value": (
+                    "redacted-borrowed-pid-pointer" if returned_sane else f"0x{returned_pid:x}"
+                ),
+                "returned_sane_kernel_pointer": returned_sane,
+                "return_matches_anchor": return_matches_anchor,
+                "refcount_after_anchor": refcount_after_anchor,
+                "refcount_after_find_vpid": refcount_after_find_vpid,
+            })
+
+        if anchor_pid and _kernel_vaddr_sane(anchor_pid):
+            cleanup_attempted = True
+            try:
+                session.call_runtime(cleanup_runtime, (anchor_pid,))
+                cleanup_ok = True
+                if refcount_after_anchor > 1:
+                    refcount_after_put = session.peek_runtime(
+                        anchor_pid + FIND_VPID_PID_COUNT_OFFSET,
+                        4,
+                    ) & 0xFFFFFFFF
+            except Exception as exc:  # noqa: BLE001 - cleanup failure must fail the proof
+                cleanup_error = str(exc)
+        if cleanup_error:
+            raise ReplError(f"{cleanup_symbol} cleanup failed after {anchor_symbol}: {cleanup_error}")
+        cleanup_restored = cleanup_ok and refcount_after_put + 1 == refcount_after_anchor
+        checks.append({
+            "check": "put-pid-anchor-refcount-restore",
+            "ok": cleanup_restored,
+            "cleanup_attempted": cleanup_attempted,
+            "cleanup_ok": cleanup_ok,
+            "refcount_after_anchor": refcount_after_anchor,
+            "refcount_after_find_vpid": refcount_after_find_vpid,
+            "refcount_after_put": refcount_after_put,
+        })
+        if validation_error:
+            raise ReplError(validation_error)
+        if not cleanup_restored:
+            raise ReplError(
+                f"{cleanup_symbol} did not restore anchor pid refcount: "
+                f"anchor={refcount_after_anchor} after_find_vpid={refcount_after_find_vpid} "
+                f"after_put={refcount_after_put}"
+            )
+        case_results.append({
+            "case": "pid-1-borrowed-vpid-lookup-cross-check",
+            "expected_return_value": "same-as-owned-find-get-pid-anchor-redacted",
+            "observed_return_value": "redacted-borrowed-pid-pointer",
+            "embedded_pid_nr": f"0x{embedded_pid_nr:x}",
+            "refcount_after_anchor": refcount_after_anchor,
+            "refcount_after_find_vpid": refcount_after_find_vpid,
+            "refcount_after_put": refcount_after_put,
+            "cleanup_attempted": cleanup_attempted,
+            "cleanup_ok": cleanup_ok,
+            "ok": cleanup_restored,
+        })
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "find-vpid-borrowed-lookup-contract",
+        "ok": bool(case_results) and all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-scalar-vpid-borrowed-pointer-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "proof_pid_nr": FIND_VPID_PROOF_NR,
+        "observed_embedded_pid_nr": f"0x{embedded_pid_nr:x}",
+        "observed_return_value": "redacted-borrowed-pid-pointer",
+        "return_matches_find_get_pid_anchor": returned_pid == anchor_pid,
+        "refcount_after_anchor": refcount_after_anchor,
+        "refcount_after_find_vpid": refcount_after_find_vpid,
+        "refcount_after_put_pid": refcount_after_put,
+        "refcount_unchanged_by_find_vpid": refcount_after_find_vpid == refcount_after_anchor,
+        "refcount_restored_after_put_pid": refcount_after_put + 1 == refcount_after_anchor,
+        "cleanup_attempted": cleanup_attempted,
+        "cleanup_ok": cleanup_ok,
+        "source_evidence": _source_row_evidence(source),
+        "anchor_source_evidence": _source_row_evidence(anchor_source),
+        "cleanup_source_evidence": _source_row_evidence(cleanup_source),
+        "call_safety_gate": call_safety_gate,
+        "target_specific_call_safety": advisory,
+        "anchor_call_safety_gate": anchor_gate,
+        "anchor_target_specific_call_safety": anchor_advisory,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "borrowed_pointer_redacted": True,
+        "owned_pointer_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": (
+                "find_vpid(1) returned the same pid pointer as an owned find_get_pid(1) "
+                "anchor without changing the observed pid refcount"
+            ),
+            "cleanup": "put_pid-anchor-ref-balanced-ok" if cleanup_ok else "cleanup-failed",
+            "auto_call_policy": "target-specific-proof-only-not-global-auto-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        f"{anchor_symbol}_runtime": f"0x{((anchor_link + slide) & MASK64):x}",
+        f"{cleanup_symbol}_runtime": f"0x{((cleanup_link + slide) & MASK64):x}",
+        "anchor_pid_pointer": f"0x{anchor_pid:x}",
+        "returned_pid_pointer": f"0x{returned_pid:x}",
+        "pid_level": pid_level,
+        "embedded_pid_nr": f"0x{embedded_pid_nr:x}",
+        "refcounts": {
+            "after_anchor": refcount_after_anchor,
+            "after_find_vpid": refcount_after_find_vpid,
+            "after_put_pid": refcount_after_put,
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_find_get_pid(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -44103,6 +44591,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "find_get_pid":
         return _run_call_proof_find_get_pid(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "find_vpid":
+        return _run_call_proof_find_vpid(
             session,
             symbols,
             image,

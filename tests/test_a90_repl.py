@@ -2311,6 +2311,26 @@ class CallSafetyClassificationTests(unittest.TestCase):
             " ".join(find_get_pid["reasons"]),
         )
 
+        find_vpid = self._row("find_vpid")
+        self.assertEqual(find_vpid["tier"], repl.CALL_SAFETY_DENY)
+        self.assertFalse(find_vpid["safe_group"])
+        self.assertFalse(find_vpid["auto_call_allowed"])
+        self.assertTrue(find_vpid["seeded"])
+        self.assertTrue(find_vpid["resolution"]["verified"])
+        self.assertEqual(find_vpid["resolution"]["method"], "export-recovery")
+        self.assertEqual(find_vpid["resolution"]["link_vaddr"], "0xffffff80080d7ddc")
+        self.assertGreaterEqual(find_vpid["signals"]["direct_bl_xref_count"], 14)
+        self.assertTrue(find_vpid["signals"]["leaf"])
+        self.assertEqual(find_vpid["signals"]["arg_pointer_derefs_before_first_bl_or_ret"], [])
+        self.assertEqual(
+            find_vpid["signals"]["first_words"][:12],
+            [f"0x{word:08x}" for word in repl.FIND_VPID_EXPECTED_WORDS[:12]],
+        )
+        self.assertIn(
+            "borrowed scalar pid lookup",
+            " ".join(find_vpid["reasons"]),
+        )
+
         current_umask = self._row("current_umask")
         self.assertEqual(current_umask["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
         self.assertEqual(current_umask["required_valid_pointer_args"], {})
@@ -3622,7 +3642,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 67)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 10)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 3)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 4)
 
     def test_call_safety_gate_requires_pointer_tokens_for_safe_with_valid_ptr(self) -> None:
         with self.assertRaisesRegex(repl.ReplError, "SAFE-WITH-VALID-PTR requires"):
@@ -4752,6 +4772,19 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertEqual(find_get_pid["selected"]["line"], 124)
         self.assertTrue(find_get_pid["selected"]["path"].endswith("include/linux/pid.h"))
+
+        find_vpid = repl.lookup_source_signature(
+            "find_vpid",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(find_vpid["status"], "found", find_vpid)
+        self.assertEqual(find_vpid["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            find_vpid["selected"]["signature"],
+            "extern struct pid * find_vpid(int nr)",
+        )
+        self.assertEqual(find_vpid["selected"]["line"], 119)
+        self.assertTrue(find_vpid["selected"]["path"].endswith("include/linux/pid.h"))
 
         put_pid = repl.lookup_source_signature(
             "put_pid",
@@ -5946,6 +5979,12 @@ class FaithfulFakeTransport:
             self.symbols,
             self.image,
             "find_get_pid",
+            purpose="call",
+        ).link_vaddr
+        self.find_vpid_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "find_vpid",
             purpose="call",
         ).link_vaddr
         self.put_pid_link = repl.resolve_verified(
@@ -7146,6 +7185,8 @@ class FaithfulFakeTransport:
             get_task_pid = self.get_task_pid_link + self.slide
             assert self.find_get_pid_link is not None
             find_get_pid = self.find_get_pid_link + self.slide
+            assert self.find_vpid_link is not None
+            find_vpid = self.find_vpid_link + self.slide
             assert self.put_pid_link is not None
             put_pid = self.put_pid_link + self.slide
             assert self.current_umask_link is not None
@@ -7973,6 +8014,15 @@ class FaithfulFakeTransport:
                 ):
                     raise AssertionError("find_get_pid proof must pass scalar pid 1 only")
                 self.pid1_refcount += 1
+                lines.append(f"A90R{self.pid1_ptr:x}")
+            elif arg0 == find_vpid:
+                if (arg1, arg2, arg3, arg4) != (
+                    repl.FIND_VPID_PROOF_NR,
+                    0,
+                    0,
+                    0,
+                ):
+                    raise AssertionError("find_vpid proof must pass scalar pid 1 only")
                 lines.append(f"A90R{self.pid1_ptr:x}")
             elif arg0 == put_pid:
                 if (arg2, arg3, arg4) != (0, 0, 0):
@@ -11516,6 +11566,93 @@ class SelftestIntegrationTests(unittest.TestCase):
             "redacted-owned-pid-ref-pointer",
         )
         self.assertEqual(fake.op_count, 11)
+
+    def test_call_proof_find_vpid_passes_with_borrowed_pid_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        initial_refcount = fake.pid1_refcount
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "find_vpid",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-find_vpid-pass")
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-scalar-vpid-borrowed-pointer-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "find_vpid")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern struct pid * find_vpid(int nr)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            summary["anchor_source_evidence"]["signature"],
+            "extern struct pid * find_get_pid(int nr)",
+        )
+        self.assertEqual(summary["anchor_source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            summary["cleanup_source_evidence"]["signature"],
+            "extern void put_pid(struct pid *pid)",
+        )
+        self.assertEqual(summary["cleanup_source_evidence"]["pointer_arg_indices"], [0])
+        self.assertEqual(summary["call_safety_gate"]["tier"], repl.CALL_SAFETY_DENY)
+        self.assertFalse(summary["call_safety_gate"]["auto_call_allowed"])
+        self.assertTrue(summary["call_safety_gate"]["seeded"])
+        self.assertEqual(summary["target_specific_call_safety"]["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(summary["anchor_call_safety_gate"]["tier"], repl.CALL_SAFETY_DENY)
+        self.assertFalse(summary["anchor_call_safety_gate"]["auto_call_allowed"])
+        self.assertTrue(summary["anchor_call_safety_gate"]["seeded"])
+        self.assertEqual(
+            summary["anchor_target_specific_call_safety"]["tier"],
+            repl.CALL_SAFETY_CONTEXT_SENSITIVE,
+        )
+        self.assertIn(
+            "context-sensitive-disasm-call",
+            summary["anchor_target_specific_call_safety"]["blocking_danger_flags"],
+        )
+        self.assertEqual(summary["proof_pid_nr"], repl.FIND_VPID_PROOF_NR)
+        self.assertEqual(summary["observed_embedded_pid_nr"], "0x1")
+        self.assertTrue(summary["return_matches_find_get_pid_anchor"])
+        self.assertEqual(summary["refcount_after_anchor"], initial_refcount + 1)
+        self.assertEqual(summary["refcount_after_find_vpid"], initial_refcount + 1)
+        self.assertEqual(summary["refcount_after_put_pid"], initial_refcount)
+        self.assertTrue(summary["refcount_unchanged_by_find_vpid"])
+        self.assertTrue(summary["refcount_restored_after_put_pid"])
+        self.assertTrue(summary["cleanup_attempted"])
+        self.assertTrue(summary["cleanup_ok"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["borrowed_pointer_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertNotIn("find_vpid_runtime", summary)
+        self.assertIn("find_vpid_runtime", private)
+        self.assertIn("find_get_pid_runtime", private)
+        self.assertIn("put_pid_runtime", private)
+        self.assertEqual(private["anchor_pid_pointer"], f"0x{fake.pid1_ptr:x}")
+        self.assertEqual(private["returned_pid_pointer"], f"0x{fake.pid1_ptr:x}")
+        self.assertEqual(private["refcounts"]["after_anchor"], initial_refcount + 1)
+        self.assertEqual(private["refcounts"]["after_find_vpid"], initial_refcount + 1)
+        self.assertEqual(private["refcounts"]["after_put_pid"], initial_refcount)
+        self.assertEqual(fake.pid1_refcount, initial_refcount)
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertEqual(
+            cases["pid-1-borrowed-vpid-lookup-cross-check"]["observed_return_value"],
+            "redacted-borrowed-pid-pointer",
+        )
+        self.assertEqual(fake.op_count, 9)
 
     def test_call_proof_current_state_batch_candidates_pass_in_one_fake_session(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

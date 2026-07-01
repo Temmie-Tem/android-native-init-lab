@@ -169,6 +169,51 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL resident-session scalar pid lookup proof — `find_vpid`
+
+> ### ✅ STATUS (2026-07-02 live-proven, resident-session mode, rolled back cleanly)
+>
+> Codex promoted `find_vpid(1)` as a target-specific scalar PID lookup -> borrowed `struct pid *`
+> proof. It composes with the already proven `find_get_pid(1)` owned-ref proof: first obtain an
+> owned PID 1 anchor, then prove `find_vpid(1)` returns the same pid pointer without changing the
+> observed refcount. This is not a `/proc` or `/sys` getter replacement; it proves a borrowed
+> scalar lookup ABI and its refcount behavior.
+>
+> Static identity is pinned by export recovery and exact body checks: `find_vpid`
+> link `0xffffff80080d7ddc`, one export candidate, map/export agreement, JOPP entry,
+> direct BL xrefs `14`, leaf/no in-body BL, no pre-call pointer deref, next symbol
+> `task_active_pid_ns` at `+0xa8`, source declaration
+> `extern struct pid * find_vpid(int nr)` at `include/linux/pid.h:119`, and exact pinned words.
+> The anchor `find_get_pid` remains separately pinned at `0xffffff80080d82ec`; cleanup `put_pid`
+> remains separately verified at `0xffffff80080d753c`, next symbol `free_pid` at `+0x70`.
+>
+> The generic gate stays closed: `find_vpid` is an explicit DENY seed with
+> `auto_call_allowed=false`, while the target-specific advisory is `SAFE-SCALAR` because the
+> function is scalar-only and leaf. `find_get_pid` and `put_pid` remain generic `DENY`; they are
+> used only as anchor/cleanup inside the bounded proof.
+>
+> Live resident-session run:
+> `workspace/private/runs/kernel/repl-resident-session-find-vpid-20260701T171834Z/`.
+> Result: `a90-repl-live-call-proof-find_vpid-pass`; `find_get_pid(1)` established an owned PID 1
+> anchor, `find_vpid(1)` returned the same pid pointer, embedded pid number was `0x1`, refcount
+> moved `6 -> 6 -> 5`, and the single anchor `put_pid` cleanup was attempted and OK. Raw runtime
+> pointers and KASLR slide stayed private-only.
+>
+> Session used v1-repl flash once, mandatory warm reboot before the batch, per-target result flush,
+> and v2321 rollback once. Harness summary was `a90-repl-resident-session-pass`, flash count `2`,
+> completed targets `1/1`, timeline errors `[]`. Final rollback health independently confirmed
+> `v2321-usb-clean-identity-rodata` and `selftest pass=11 warn=1 fail=0`.
+>
+> Canonical timing is present in `timeline.json` with the single top-level `events` schema and all
+> required phase events. This run measured candidate flash `65.037s`, candidate boot/health
+> `42.969s`, warm reboot `33.309s`, live target batch `6.831s`, rollback flash `65.917s`, and total
+> candidate-start to rollback-ready `303.855s`. The timing aggregator now parses `29/77` canonical
+> timelines and projects resident-session `13.898s/target`, `21.35x` vs per-unit flash and `2.13x`
+> vs per-unit in-boot batching for `batch_size=10`, `resident_batches=10`.
+>
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_FIND_VPID_RESIDENT_SESSION_2026-07-02.md`.
+
 ## ✅ DONE — REPL resident-session scalar pid lookup proof — `find_get_pid`
 
 > ### ✅ STATUS (2026-07-02 live-proven, resident-session mode, rolled back cleanly)
