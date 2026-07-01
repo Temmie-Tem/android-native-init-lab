@@ -164,6 +164,21 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >    `20.9x` vs per-unit flash and `2.1x` vs per-unit in-boot batching.
 >    Harness report:
 >    `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_RESIDENT_SESSION_HARNESS_2026-07-01.md`.
+> 5b. **CORRECTION (2026-07-02 operator, from measured adoption) — PACK THE SESSION; the projection is
+>     NOT the measurement.** Adoption check across the private evidence: **30 of 36 resident-session
+>     targets ran as `target_count=1, batch_count=1`** single-target sessions; measured **flashes/target
+>     = 1.36** (vs the 2.0 per-unit baseline) = only **~1.47x** actual flash reduction — NOT the `~21x`
+>     figures quoted above, which are a `batch_size=10, resident_batches=10` MODEL projection, not
+>     achieved. A **1-target resident session is STRICTLY WORSE than a plain per-unit flash** (it pays
+>     the 2 flashes AND adds a warm reboot for ZERO amortization). Therefore: (a) **do NOT run 1-target
+>     (or tiny) resident sessions** — accumulate a queue of eligible proven-safe candidate targets and
+>     fill each session toward `max_batch_size` (aim for several batches of ~10-30 per session) so
+>     flash-once actually amortizes; if fewer than ~8 targets are queued, keep accumulating rather than
+>     spending a flash pair on one. (b) In reports, quote the **MEASURED flashes/target and per-target
+>     wall time from the actual session sizes**, and label the `batch_size×resident_batches` numbers
+>     explicitly as PROJECTION until real packed sessions match them. The win is real but only
+>     materializes when sessions are packed; running the new harness on the old one-target cadence
+>     realizes none of it.
 > **HARD — unchanged, do NOT loosen:** the fail-closed C1 resolution, the **call-safety classifier**
 > (DENY / BEHAVIOR-CHANGING tiers stay DENY — never relax a tier to reach a struct/state target),
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
