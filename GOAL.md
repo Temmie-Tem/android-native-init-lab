@@ -96,6 +96,36 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL read-only memory-state live-call proof — `vm_commit_limit` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — memory commit-limit scalar getter
+>
+> Codex proved `vm_commit_limit` as a no-argument read-only memory overcommit accounting getter.
+> Static selection pinned `vm_commit_limit=0xffffff800822b0e4` via `leaf-map-disasm+xref`,
+> source declaration `unsigned long vm_commit_limit(void)` (`include/linux/mman.h:94`),
+> direct BL xrefs `1`, leaf shape, and next-symbol boundary `vm_memory_committed` at `+0x50`.
+> The proof pins all 20 identity words, including the final `ret` and the next-entry sentinel.
+> The C1 call gate classifies it as `SAFE-SCALAR` with no required pointer arguments.
+>
+> The live proof obeyed the flash gate: preflight v2321 health passed, rollback images were present
+> with expected SHA values, the v1-repl candidate (`b846ae9f...`) flashed with matching readback SHA,
+> candidate health passed after a safe observation retry for one serial END-marker truncation, and
+> the proof called `vm_commit_limit()` twice with no arguments. Both calls returned the same sane
+> nonzero page count, `0x9dff5`, and no returned value was dereferenced or freed.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-vm-commit-limit-20260701T004333Z/timeline.json`:
+> candidate flash helper `63.775s`, candidate explicit health initial attempt `61.0s`, candidate
+> health retry `1.0s`, live proof `5.0s`, rollback flash helper `63.675s`, final explicit health
+> `1.0s`, and candidate start to final health done `302.0s`. The candidate initial `version`
+> observation hit serial END-marker truncation; `selftest fail=0` and `status=ok` were visible,
+> and a safe retry passed cleanly.
+>
+> Function-map outcome: `vm_commit_limit` is promoted as live-proven only under the no-argument
+> read-only memory commit-limit scalar contract. The scheduler-counter batch remains stopped under
+> the fails-twice rule unless explicitly reopened. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_VM_COMMIT_LIMIT_2026-07-01.md`.
+
 ## ✅ DONE — REPL result-slot state-writer live-call proof — `get_avenrun` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — scheduler load-average result-slot writer

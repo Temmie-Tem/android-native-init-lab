@@ -1976,6 +1976,20 @@ class CallSafetyClassificationTests(unittest.TestCase):
             [f"0x{word:08x}" for word in repl.GET_AVENRUN_EXPECTED_WORDS[:12]],
         )
 
+        vm_commit_limit = self._row("vm_commit_limit")
+        self.assertEqual(vm_commit_limit["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(vm_commit_limit["required_valid_pointer_args"], {})
+        self.assertTrue(vm_commit_limit["resolution"]["verified"])
+        self.assertEqual(vm_commit_limit["resolution"]["method"], "leaf-map-disasm+xref")
+        self.assertEqual(vm_commit_limit["resolution"]["link_vaddr"], "0xffffff800822b0e4")
+        self.assertEqual(vm_commit_limit["signals"]["direct_bl_xref_count"], 1)
+        self.assertTrue(vm_commit_limit["signals"]["leaf"])
+        self.assertEqual(vm_commit_limit["signals"]["arg_pointer_derefs_before_first_bl_or_ret"], [])
+        self.assertEqual(
+            vm_commit_limit["signals"]["first_words"][:12],
+            [f"0x{word:08x}" for word in repl.VM_COMMIT_LIMIT_EXPECTED_WORDS[:12]],
+        )
+
         scheduler_counter_targets = {
             "nr_processes": ("0xffffff80080ae02c", 1),
             "nr_running": ("0xffffff80080edebc", 4),
@@ -2468,7 +2482,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 43)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 44)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 9)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -3223,6 +3237,16 @@ class CallSafetyClassificationTests(unittest.TestCase):
             "extern void get_avenrun(unsigned long *loads, unsigned long offset, int shift)",
         )
         self.assertTrue(get_avenrun["selected"]["path"].endswith("include/linux/sched/loadavg.h"))
+
+        vm_commit_limit = repl.lookup_source_signature("vm_commit_limit", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(vm_commit_limit["status"], "found", vm_commit_limit)
+        self.assertEqual(vm_commit_limit["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            vm_commit_limit["selected"]["signature"],
+            "unsigned long vm_commit_limit(void)",
+        )
+        self.assertEqual(vm_commit_limit["selected"]["line"], 94)
+        self.assertTrue(vm_commit_limit["selected"]["path"].endswith("include/linux/mman.h"))
 
         is_scm_armv8 = repl.lookup_source_signature("is_scm_armv8", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(is_scm_armv8["status"], "found", is_scm_armv8)
@@ -4096,6 +4120,12 @@ class FaithfulFakeTransport:
             "si_mem_available",
             purpose="call",
         ).link_vaddr
+        self.vm_commit_limit_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "vm_commit_limit",
+            purpose="call",
+        ).link_vaddr
         self.si_meminfo_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -4196,6 +4226,7 @@ class FaithfulFakeTransport:
         self.sde_rsc_primary_crtc_value = 133
         self.sde_rsc_version_value = 3
         self.si_mem_available_values = [0x6F000, 0x6F020]
+        self.vm_commit_limit_value = 0x1A2B30
         self.si_meminfo_fields = {
             "totalram_pages": 0x180000,
             "freeram_pages": 0x78000,
@@ -4940,6 +4971,8 @@ class FaithfulFakeTransport:
             get_sde_rsc_version = self.get_sde_rsc_version_link + self.slide
             assert self.si_mem_available_link is not None
             si_mem_available = self.si_mem_available_link + self.slide
+            assert self.vm_commit_limit_link is not None
+            vm_commit_limit = self.vm_commit_limit_link + self.slide
             assert self.si_meminfo_link is not None
             si_meminfo = self.si_meminfo_link + self.slide
             assert self.ktime_get_ts64_link is not None
@@ -5641,6 +5674,10 @@ class FaithfulFakeTransport:
                 ]
                 self.si_mem_available_index += 1
                 lines.append(f"A90R{value:x}")
+            elif arg0 == vm_commit_limit:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("vm_commit_limit proof must pass no arguments")
+                lines.append(f"A90R{self.vm_commit_limit_value:x}")
             elif arg0 == si_meminfo:
                 if (arg2, arg3, arg4) != (0, 0, 0):
                     raise AssertionError("si_meminfo proof must pass one result-slot pointer argument")
@@ -7790,6 +7827,53 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(cases["get_avenrun-offset0-shift0"]["loads"], ["0x20", "0x10", "0x8"])
         self.assertTrue(cases["get_avenrun-offset0-shift0"]["result_slot_changed"])
         self.assertIn(fake.heap_ptr, fake.freed)
+
+    def test_call_proof_vm_commit_limit_passes_with_no_arg_memory_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "vm_commit_limit",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-vm_commit_limit-pass")
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-memory-commit-limit-read-only-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "vm_commit_limit")
+        self.assertEqual(
+            summary["function_map_entry"]["auto_call_policy"],
+            "one-target-proof-only-not-mass-call",
+        )
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "unsigned long vm_commit_limit(void)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(summary["call_safety"]["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(summary["observed_return_value"], "0x1a2b30")
+        self.assertTrue(summary["all_returns_in_sane_range"])
+        self.assertEqual(summary["repeat_count"], 2)
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertNotIn("vm_commit_limit_runtime", summary)
+        self.assertIn("vm_commit_limit_runtime", private)
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertEqual(cases["vm_commit_limit-read-1"]["observed_return_value"], "0x1a2b30")
+        self.assertEqual(cases["vm_commit_limit-read-2"]["observed_return_value"], "0x1a2b30")
+        self.assertTrue(cases["vm_commit_limit-read-2"]["stable_from_first"])
 
     def test_call_proof_scheduler_counter_batch_passes_with_no_arg_contracts(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
