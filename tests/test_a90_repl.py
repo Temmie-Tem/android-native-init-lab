@@ -1330,6 +1330,37 @@ class CallSafetyClassificationTests(unittest.TestCase):
             ],
         )
 
+        task_prio = self._row("task_prio")
+        self.assertEqual(task_prio["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            task_prio["required_valid_pointer_args"],
+            {"0": "global-init_task-task_struct"},
+        )
+        self.assertTrue(task_prio["resolution"]["verified"])
+        self.assertEqual(task_prio["resolution"]["method"], "leaf-map-disasm+xref")
+        self.assertEqual(task_prio["resolution"]["link_vaddr"], "0xffffff80080ef394")
+        self.assertEqual(task_prio["signals"]["direct_bl_xref_count"], 1)
+        self.assertTrue(task_prio["signals"]["leaf"])
+        self.assertEqual(
+            task_prio["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [
+                {
+                    "offset": 0,
+                    "arg_reg": 0,
+                    "rt": 8,
+                    "rn": 0,
+                    "width": 4,
+                    "imm": repl.TASK_PRIO_FIELD_OFFSET,
+                    "word": "0xb940a808",
+                    "arg": "x0",
+                }
+            ],
+        )
+        self.assertEqual(
+            task_prio["signals"]["first_words"][:4],
+            [f"0x{word:08x}" for word in repl.TASK_PRIO_EXPECTED_WORDS],
+        )
+
         current_umask = self._row("current_umask")
         self.assertEqual(current_umask["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
         self.assertEqual(current_umask["required_valid_pointer_args"], {})
@@ -3265,6 +3296,19 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertEqual(sched_get_group_id["selected"]["line"], 552)
         self.assertTrue(sched_get_group_id["selected"]["path"].endswith("include/linux/sched.h"))
 
+        task_prio = repl.lookup_source_signature(
+            "task_prio",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(task_prio["status"], "found", task_prio)
+        self.assertEqual(task_prio["selected"]["pointer_arg_indices"], [0])
+        self.assertEqual(
+            task_prio["selected"]["signature"],
+            "extern int task_prio(const struct task_struct *p)",
+        )
+        self.assertEqual(task_prio["selected"]["line"], 1720)
+        self.assertTrue(task_prio["selected"]["path"].endswith("include/linux/sched.h"))
+
         current_umask = repl.lookup_source_signature("current_umask", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(current_umask["status"], "found", current_umask)
         self.assertEqual(current_umask["selected"]["pointer_arg_indices"], [])
@@ -4204,6 +4248,13 @@ class FaithfulFakeTransport:
             "sched_get_group_id",
             purpose="call",
         ).link_vaddr
+        self.task_prio_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "task_prio",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.current_umask_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -4232,6 +4283,7 @@ class FaithfulFakeTransport:
         self.init_task_runtime = self.init_task_link + self.slide
         self.init_task_sched_group_ptr = 0xFFFFFFC012360000
         self.init_task_sched_group_id = 0x2A
+        self.init_task_prio_raw = 120
         self.current_umask_value = 0o022
         self.get_boot_stat_time_link = repl.resolve_verified(
             self.symbols,
@@ -5089,6 +5141,10 @@ class FaithfulFakeTransport:
                 data = self.init_task_sched_group_ptr.to_bytes(8, "little")[:length]
                 value = int.from_bytes(data, "little")
                 lines.append(f"A90R{value:x}")
+            elif arg0 == self.init_task_runtime + repl.TASK_PRIO_FIELD_OFFSET:
+                data = self.init_task_prio_raw.to_bytes(4, "little")[:length]
+                value = int.from_bytes(data, "little")
+                lines.append(f"A90R{value:x}")
             elif arg0 == self.init_task_sched_group_ptr:
                 data = self.init_task_sched_group_id.to_bytes(4, "little")[:length]
                 value = int.from_bytes(data, "little")
@@ -5146,6 +5202,8 @@ class FaithfulFakeTransport:
             task_pid_nr_ns = self.task_pid_nr_ns_link + self.slide
             assert self.sched_get_group_id_link is not None
             sched_get_group_id = self.sched_get_group_id_link + self.slide
+            assert self.task_prio_link is not None
+            task_prio = self.task_prio_link + self.slide
             assert self.current_umask_link is not None
             current_umask = self.current_umask_link + self.slide
             assert self.in_group_p_link is not None
@@ -5778,6 +5836,11 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (self.init_task_runtime, 0, 0, 0):
                     raise AssertionError("sched_get_group_id proof must pass init_task only")
                 lines.append(f"A90R{self.init_task_sched_group_id:x}")
+            elif arg0 == task_prio:
+                if (arg1, arg2, arg3, arg4) != (self.init_task_runtime, 0, 0, 0):
+                    raise AssertionError("task_prio proof must pass init_task only")
+                result = (self.init_task_prio_raw - repl.TASK_PRIO_MAX_RT_PRIO) & 0xFFFFFFFF
+                lines.append(f"A90R{result:x}")
             elif arg0 == current_umask:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("current_umask proof must pass no arguments")
@@ -7380,6 +7443,56 @@ class SelftestIntegrationTests(unittest.TestCase):
         )
         self.assertEqual(group_private["expected_group_id"], f"0x{fake.init_task_sched_group_id:x}")
         self.assertEqual(fake.op_count, 8)  # 2 slides + pid calls + direct field peeks + group calls
+
+    def test_call_proof_task_prio_passes_with_init_task_direct_field_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "task_prio",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        expected = fake.init_task_prio_raw - repl.TASK_PRIO_MAX_RT_PRIO
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-task_prio-pass")
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-init-task-read-only-priority-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "task_prio")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern int task_prio(const struct task_struct *p)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [0])
+        self.assertEqual(summary["call_safety"]["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(summary["raw_prio_field_observed"], f"0x{fake.init_task_prio_raw:x}")
+        self.assertEqual(summary["expected_signed_priority"], expected)
+        self.assertEqual(summary["observed_return_value"], f"0x{expected & 0xFFFFFFFF:x}")
+        self.assertTrue(summary["all_returns_match_direct_observation"])
+        self.assertEqual(summary["repeat_count"], 2)
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["borrowed_pointer_redacted"])
+        self.assertNotIn("task_prio_runtime", summary)
+        self.assertIn("task_prio_runtime", private)
+        self.assertIn("init_task_runtime", private)
+        self.assertIn("task_prio_field_runtime", private)
+        self.assertEqual(private["raw_prio_field"], f"0x{fake.init_task_prio_raw:x}")
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertEqual(cases["init-task-priority-1"]["observed_signed_priority"], expected)
+        self.assertEqual(cases["init-task-priority-2"]["observed_signed_priority"], expected)
+        self.assertEqual(fake.op_count, 4)  # slide + direct field peek + 2 task_prio calls
 
     def test_call_proof_current_state_batch_candidates_pass_in_one_fake_session(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

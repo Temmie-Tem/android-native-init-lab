@@ -156,6 +156,11 @@ LEAF_MAP_GROUND_TRUTH_SYMBOLS = {
         "expected_pointer_args": (),
         "note": "JOPP leaf memory commit-limit getter; identity rests on map label, xref count, leaf shape, and per-proof exact word pinning",
     },
+    "task_prio": {
+        "min_direct_bl_xrefs": 1,
+        "expected_pointer_args": (0,),
+        "note": "JOPP leaf task_struct priority getter; identity rests on map label, xref count, leaf shape, and per-proof exact word pinning",
+    },
     "memcpy": {
         "min_direct_bl_xrefs": 5000,
         "expected_pointer_args": (0, 1),
@@ -1075,6 +1080,12 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {0: "global-init_task-task_struct"},
         "return_kind": "unsigned-int",
         "reason": "read-only scheduler group-id query; proof passes only the global init_task task_struct pointer and validates against bounded direct field observation",
+    },
+    "task_prio": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "global-init_task-task_struct"},
+        "return_kind": "int-priority",
+        "reason": "read-only task priority query; proof passes only the global init_task task_struct pointer and validates against direct prio-field observation",
     },
     "current_umask": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
@@ -3664,6 +3675,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "get_current_napi_context": ("include/linux/netdevice.h",),
     "__task_pid_nr_ns": ("include/linux/sched.h",),
     "sched_get_group_id": ("include/linux/sched.h",),
+    "task_prio": ("include/linux/sched.h",),
     "get_ddr_vendor_name": ("include/linux/samsung/sec_smem.h",),
     "get_ddr_DSF_version": ("include/linux/samsung/sec_smem.h",),
     "get_ddr_revision_id_1": ("include/linux/samsung/sec_smem.h",),
@@ -5483,6 +5495,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern unsigned int sched_get_group_id(struct task_struct *p)",
     },
+    "task_prio": {
+        "input_contract": "global init_task task_struct pointer; global pointer is borrowed/read-only and is not freed",
+        "return_contract": "int priority equals a direct read-only observation of init_task->prio minus MAX_RT_PRIO(100), stable across repeated calls",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern int task_prio(const struct task_struct *p)",
+    },
     "current_umask": {
         "input_contract": "no arguments; current task fs pointer is read-only and obtained internally through sp_el0",
         "return_contract": "umode_t value is stable across repeated proof calls and only uses permission bits 0..0777",
@@ -6756,6 +6774,22 @@ SCHED_GET_GROUP_ID_RETURN_WORD = 0x2A1303E0
 SCHED_GET_GROUP_ID_EXIT_WORD = 0xCA11021E
 SCHED_GET_GROUP_ID_RET_WORD = 0xD65F03C0
 SCHED_GET_GROUP_ID_NEXT_GUARD_WORD = 0x00BE7BAD
+TASK_PRIO_REPEAT_COUNT = 2
+TASK_PRIO_FIELD_OFFSET = 168
+TASK_PRIO_MAX_RT_PRIO = 100
+TASK_PRIO_MIN = -100
+TASK_PRIO_MAX = 39
+TASK_PRIO_LOAD_WORD = 0xB940A808
+TASK_PRIO_SUB_WORD = 0x51019100
+TASK_PRIO_RET_WORD = 0xD65F03C0
+TASK_PRIO_NEXT_GUARD_WORD = 0x00BE7BAD
+TASK_PRIO_EXPECTED_WORDS = (
+    TASK_PRIO_LOAD_WORD,
+    TASK_PRIO_SUB_WORD,
+    TASK_PRIO_RET_WORD,
+    TASK_PRIO_NEXT_GUARD_WORD,
+)
+TASK_PRIO_NEXT_SYMBOL = ("idle_task", 0x10)
 CURRENT_STATE_REPEAT_COUNT = 2
 CURRENT_UMASK_MAX = 0o777
 CURRENT_UMASK_MRS_CURRENT_WORD = 0xD5384108
@@ -23500,6 +23534,215 @@ def _run_call_proof_sched_get_group_id(
     return summary, private
 
 
+def _run_call_proof_task_prio(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "task_prio"
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        ("@init_task",),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected valid-pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError(f"{target} source signature must declare x0 as a task_struct pointer")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the sched.h declaration")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ),
+    }
+    target_link = require_verified_resolution(
+        resolutions[target],
+        "call-proof target",
+    )
+    init_task_link = _require_init_task_link(symbols)
+    next_symbol_name, expected_boundary = TASK_PRIO_NEXT_SYMBOL
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    observed_words = image.u32_words_at_vaddr(target_link, len(TASK_PRIO_EXPECTED_WORDS))
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+        {
+            "check": "static-init-task-data-symbol",
+            "ok": True,
+            "symbol": "init_task",
+            "kind": symbols["init_task"].kind,
+        },
+    ]
+    for index, expected in enumerate(TASK_PRIO_EXPECTED_WORDS):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    raw_prio = 0
+    expected_signed = 0
+    returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        init_task_runtime = (init_task_link + slide) & MASK64
+        raw_prio = session.peek_runtime(
+            init_task_runtime + TASK_PRIO_FIELD_OFFSET,
+            4,
+        ) & 0xFFFFFFFF
+        expected_signed = int(raw_prio) - TASK_PRIO_MAX_RT_PRIO
+        expected_u32 = expected_signed & 0xFFFFFFFF
+        expected_in_range = TASK_PRIO_MIN <= expected_signed <= TASK_PRIO_MAX
+        checks.append({
+            "check": "init-task-prio-direct-field-observation",
+            "ok": expected_in_range,
+            "task_prio_field_offset": f"0x{TASK_PRIO_FIELD_OFFSET:x}",
+            "raw_prio": f"0x{raw_prio:x}",
+            "expected_signed_priority": expected_signed,
+            "expected_range": f"{TASK_PRIO_MIN}..{TASK_PRIO_MAX}",
+        })
+        if not expected_in_range:
+            raise ReplError(
+                "init_task->prio direct observation is outside the expected task_prio range: "
+                f"raw=0x{raw_prio:x} expected={expected_signed}"
+            )
+        for index in range(TASK_PRIO_REPEAT_COUNT):
+            observed = session.call_runtime(target_runtime, (init_task_runtime,)) & 0xFFFFFFFF
+            returns.append(observed)
+            observed_signed = observed if observed < (1 << 31) else observed - (1 << 32)
+            ok = observed == expected_u32
+            case_results.append({
+                "case": f"init-task-priority-{index + 1}",
+                "expected_return_value": f"0x{expected_u32:x}",
+                "expected_signed_priority": expected_signed,
+                "observed_return_value": f"0x{observed:x}",
+                "observed_signed_priority": observed_signed,
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(
+                    f"{target}(init_task) returned 0x{observed:x}, "
+                    f"expected 0x{expected_u32:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "task-prio-direct-field-observation-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = f"0x{returns[0]:x}" if returns else "n/a"
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-init-task-read-only-priority-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "observed_return_value": observed_public,
+        "expected_return_value_from_direct_field": (
+            f"0x{(expected_signed & 0xFFFFFFFF):x}" if returns else "n/a"
+        ),
+        "expected_signed_priority": expected_signed if returns else "n/a",
+        "raw_prio_field_observed": f"0x{raw_prio:x}" if returns else "n/a",
+        "all_returns_match_direct_observation": bool(returns) and all(
+            value == (expected_signed & 0xFFFFFFFF) for value in returns
+        ),
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "borrowed_pointer_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": (
+                "repeated init_task calls matched direct read-only prio-field observation "
+                f"0x{(expected_signed & 0xFFFFFFFF):x}"
+            ),
+            "cleanup": "n/a-global-borrowed-pointer-not-owned",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "init_task_runtime": f"0x{((init_task_link + slide) & MASK64):x}",
+        "task_prio_field_runtime": f"0x{((init_task_link + slide + TASK_PRIO_FIELD_OFFSET) & MASK64):x}",
+        "raw_prio_field": f"0x{raw_prio:x}",
+        "expected_signed_priority": expected_signed,
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_current_umask(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -33905,6 +34148,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "sched_get_group_id":
         return _run_call_proof_sched_get_group_id(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "task_prio":
+        return _run_call_proof_task_prio(
             session,
             symbols,
             image,

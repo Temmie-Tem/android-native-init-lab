@@ -96,6 +96,43 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL struct-pointer live-call proof — `task_prio(init_task)` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — borrowed global `task_struct *` getter
+>
+> Codex selected `task_prio` to extend the REPL proof map beyond saturated no-argument scalar
+> helpers. The proof is intentionally narrow: it calls only `task_prio(init_task)`, where
+> `init_task` is the verified global data symbol, borrowed/read-only, never freed, and not a
+> general arbitrary task pointer.
+>
+> Static selection pinned `task_prio=0xffffff80080ef394` via `leaf-map-disasm+xref`, source
+> declaration `extern int task_prio(const struct task_struct *p)` at `include/linux/sched.h:1720`,
+> one direct BL xref, JOPP entry, leaf shape, next-symbol boundary `idle_task` at `+0x10`, and
+> exact identity words `ldr w8,[x0,#168]`, `sub w0,w8,#100`, `ret`, next sentinel. The generic C1
+> resolver originally kept this shape unverified because it is a leaf with an early x0 dereference
+> and no helper call; the fix did not loosen C1 globally. It added only a target-specific
+> leaf-map ground-truth row plus proof-pinned exact words. The call-safety gate classifies it as
+> `SAFE-WITH-VALID-PTR` only when x0 is `global-init_task-task_struct`.
+>
+> The live proof obeyed the flash gate: preflight confirmed candidate/rollback/fallback SHA values
+> and baseline v2321 health, the v1-repl candidate (`b846ae9f...`) flashed with matching readback
+> SHA, candidate health passed after a bridge restart/retry for serial framing noise, and
+> `task_prio(init_task)` passed. The proof first read `init_task->prio` at offset `0xa8` as `0x78`,
+> fixed the expected return as `0x78 - 100 = 0x14` (`20` signed), then called `task_prio(init_task)`
+> twice; both calls returned `0x14`. Post-proof selftest stayed `fail=0`; rollback to v2321
+> completed with matching readback SHA; final `version/status/selftest` passed with
+> `selftest pass=11 warn=1 fail=0`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-task-prio-20260701T023649Z/timeline.json`:
+> candidate flash helper `64.715s`, candidate boot ready after retry `64.0s`, live proof `6.0s`,
+> post-proof candidate health `7.0s`, rollback flash helper `63.634s`, rollback boot ready final
+> health `21.0s`, and candidate start to final health done `252.0s`.
+>
+> Function-map outcome: `task_prio` is promoted as live-proven only under the
+> `task_prio(init_task)` borrowed-global-task direct-field contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_TASK_PRIO_2026-07-01.md`.
+
 ## ✅ DONE — REPL swapcache memory-state live-call proof — `total_swapcache_pages` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — swapcache page-count getter
