@@ -221,6 +221,21 @@ EXACT_LEAF_EXPORT_GROUND_TRUTH_SYMBOLS = {
         "byte_size": 0x10,
         "note": "single-export JOPP leaf USB notify data getter; identity rests on export row, map agreement, exact words, and next-symbol boundary because the helper has no in-image BL xrefs",
     },
+    "get_state_synchronize_sched": {
+        "expected_words": (
+            0xF0015788,
+            0xD5033BBF,
+            0x91040108,
+            0x910C2108,
+            0xC8DFFD00,
+            0xD65F03C0,
+            0xD503201F,
+            0x00BE7BAD,
+        ),
+        "next_symbol": "cond_synchronize_sched",
+        "byte_size": 0x20,
+        "note": "single-export JOPP leaf RCU-sched state getter; identity rests on export row, map agreement, exact words, source declaration, and next-symbol boundary because the helper has no in-image BL xrefs",
+    },
     "sec_abc_get_enabled": {
         "expected_words": (
             0xD0011708,
@@ -634,6 +649,12 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {},
         "return_kind": "unsigned-long-rcu-state",
         "reason": "no-argument RCU grace-period state getter; current image is a leaf acquire-load of rcu_state.gp_seq and proof expects a nondecreasing bounded short-repeat unsigned long value",
+    },
+    "get_state_synchronize_sched": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "unsigned-long-rcu-sched-state",
+        "reason": "no-argument RCU-sched grace-period state getter; current image is an exact pinned leaf acquire-load and proof expects a nondecreasing bounded short-repeat unsigned long value",
     },
     "cpu_mitigations_off": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
@@ -4134,6 +4155,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "is_blocked": ("include/linux/usb_notify.h", "drivers/usb/notify/usb_notify.c"),
     "get_intermediate_timeout": ("include/net/ncm.h",),
     "get_state_synchronize_rcu": ("include/linux/rcutree.h", "include/linux/rcutiny.h"),
+    "get_state_synchronize_sched": ("include/linux/rcutree.h", "include/linux/rcutiny.h"),
     "cpu_mitigations_off": ("include/linux/cpu.h",),
     "debugfs_initialized": ("fs/debugfs/inode.c", "include/linux/debugfs.h"),
     "tracefs_initialized": ("fs/tracefs/inode.c", "include/linux/tracefs.h"),
@@ -6023,6 +6045,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "unsigned long get_state_synchronize_rcu(void)",
     },
+    "get_state_synchronize_sched": {
+        "input_contract": "no arguments; RCU-sched grace-period state is read-only through the pinned leaf acquire-load and no returned pointer is dereferenced or freed",
+        "return_contract": "unsigned long RCU-sched state value is nondecreasing across immediate repeated proof calls and the short-run delta is conservatively bounded",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "unsigned long get_state_synchronize_sched(void)",
+    },
     "cpu_mitigations_off": {
         "input_contract": "no arguments; CPU mitigation policy enum is read-only through the pinned leaf global-load and no returned pointer is dereferenced or freed",
         "return_contract": "bool value is exactly 0 or 1 and stable across immediate repeated proof calls",
@@ -7580,6 +7608,13 @@ GET_STATE_SYNCHRONIZE_RCU_EXPECTED_WORDS = (
 GET_STATE_SYNCHRONIZE_RCU_NEXT_SYMBOL = ("cond_synchronize_rcu", 0x20)
 GET_STATE_SYNCHRONIZE_RCU_REPEAT_COUNT = 3
 GET_STATE_SYNCHRONIZE_RCU_MAX_DELTA = 0x100000
+GET_STATE_SYNCHRONIZE_SCHED_EXPECTED_WORDS = (
+    0xF0015788, 0xD5033BBF, 0x91040108, 0x910C2108,
+    0xC8DFFD00, 0xD65F03C0, 0xD503201F, 0x00BE7BAD,
+)
+GET_STATE_SYNCHRONIZE_SCHED_NEXT_SYMBOL = ("cond_synchronize_sched", 0x20)
+GET_STATE_SYNCHRONIZE_SCHED_REPEAT_COUNT = 3
+GET_STATE_SYNCHRONIZE_SCHED_MAX_DELTA = 0x100000
 CPU_MITIGATIONS_OFF_EXPECTED_WORDS = (
     0xB0012468, 0xB9453108, 0x7100011F, 0x1A9F17E0,
     0xD65F03C0, 0x00BE7BAD,
@@ -26377,6 +26412,184 @@ def _run_call_proof_get_state_synchronize_rcu(
     return summary, private
 
 
+def _run_call_proof_get_state_synchronize_sched(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "get_state_synchronize_sched"
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        (),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError(f"{target} source signature must be no-arg scalar-safe")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the rcutree declaration")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(resolutions[target], "call-proof target")
+    next_symbol_name, expected_boundary = GET_STATE_SYNCHRONIZE_SCHED_NEXT_SYMBOL
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    observed_words = image.u32_words_at_vaddr(
+        target_link,
+        len(GET_STATE_SYNCHRONIZE_SCHED_EXPECTED_WORDS),
+    )
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+            "source_note": "implementation source is absent from the Samsung drop; static words pin the live rcutree_sched leaf",
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+        {
+            "check": "static-leaf-no-bl",
+            "ok": bool(call_safety.get("signals", {}).get("leaf")),
+            "bl_count": call_safety.get("signals", {}).get("bl_count_in_scan"),
+        },
+    ]
+    for index, expected in enumerate(GET_STATE_SYNCHRONIZE_SCHED_EXPECTED_WORDS):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for index in range(GET_STATE_SYNCHRONIZE_SCHED_REPEAT_COUNT):
+            observed = session.call_runtime(target_runtime, ()) & MASK64
+            previous = returns[-1] if returns else observed
+            first = returns[0] if returns else observed
+            nondecreasing = observed >= previous
+            delta_from_first = observed - first if observed >= first else MASK64
+            delta_ok = delta_from_first <= GET_STATE_SYNCHRONIZE_SCHED_MAX_DELTA
+            returns.append(observed)
+            ok = nondecreasing and delta_ok
+            case_results.append({
+                "case": f"{target}-read-{index + 1}",
+                "observed_return_value": f"0x{observed:x}",
+                "nondecreasing_from_previous": nondecreasing,
+                "delta_from_first": f"0x{delta_from_first:x}",
+                "delta_within_bound": delta_ok,
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(
+                    f"{target}() returned an out-of-contract value in proof call "
+                    f"{index + 1}: 0x{observed:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": f"{target}-nondecreasing-bounded-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = f"0x{returns[0]:x}" if returns else "n/a"
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-rcu-sched-state-read-only-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "observed_return_value": observed_public,
+        "all_returns_nondecreasing": bool(returns) and all(
+            returns[index] >= returns[index - 1] for index in range(1, len(returns))
+        ),
+        "max_delta_from_first": (
+            f"0x{max((value - returns[0]) for value in returns):x}" if returns else "n/a"
+        ),
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": f"repeated no-argument calls returned nondecreasing RCU-sched state from {observed_public}",
+            "cleanup": "n/a-scalar-read-only",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_cpu_mitigations_off(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -42838,6 +43051,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "get_state_synchronize_rcu":
         return _run_call_proof_get_state_synchronize_rcu(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "get_state_synchronize_sched":
+        return _run_call_proof_get_state_synchronize_sched(
             session,
             symbols,
             image,

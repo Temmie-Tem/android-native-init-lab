@@ -1528,6 +1528,29 @@ class CallSafetyClassificationTests(unittest.TestCase):
             [f"0x{word:08x}" for word in repl.GET_STATE_SYNCHRONIZE_RCU_EXPECTED_WORDS],
         )
 
+        get_state_synchronize_sched = self._row("get_state_synchronize_sched")
+        self.assertEqual(get_state_synchronize_sched["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(get_state_synchronize_sched["required_valid_pointer_args"], {})
+        self.assertTrue(get_state_synchronize_sched["resolution"]["verified"])
+        self.assertEqual(
+            get_state_synchronize_sched["resolution"]["method"],
+            "exact-leaf-export+word-boundary",
+        )
+        self.assertEqual(
+            get_state_synchronize_sched["resolution"]["link_vaddr"],
+            "0xffffff8008150bfc",
+        )
+        self.assertEqual(
+            get_state_synchronize_sched["signals"]["direct_bl_xref_count"],
+            0,
+        )
+        self.assertTrue(get_state_synchronize_sched["signals"]["leaf"])
+        self.assertEqual(get_state_synchronize_sched["signals"]["bl_count_in_scan"], 0)
+        self.assertEqual(
+            get_state_synchronize_sched["signals"]["first_words"][:8],
+            [f"0x{word:08x}" for word in repl.GET_STATE_SYNCHRONIZE_SCHED_EXPECTED_WORDS],
+        )
+
         cpu_mitigations_off = self._row("cpu_mitigations_off")
         self.assertEqual(cpu_mitigations_off["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
         self.assertEqual(cpu_mitigations_off["required_valid_pointer_args"], {})
@@ -4281,6 +4304,19 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertEqual(get_state_synchronize_rcu["selected"]["line"], 77)
         self.assertTrue(get_state_synchronize_rcu["selected"]["path"].endswith("include/linux/rcutree.h"))
 
+        get_state_synchronize_sched = repl.lookup_source_signature(
+            "get_state_synchronize_sched",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(get_state_synchronize_sched["status"], "found", get_state_synchronize_sched)
+        self.assertEqual(get_state_synchronize_sched["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            get_state_synchronize_sched["selected"]["signature"],
+            "unsigned long get_state_synchronize_sched(void)",
+        )
+        self.assertEqual(get_state_synchronize_sched["selected"]["line"], 79)
+        self.assertTrue(get_state_synchronize_sched["selected"]["path"].endswith("include/linux/rcutree.h"))
+
         cpu_mitigations_off = repl.lookup_source_signature(
             "cpu_mitigations_off",
             source_root=KERNEL_SOURCE_ROOT,
@@ -5664,6 +5700,12 @@ class FaithfulFakeTransport:
             "get_state_synchronize_rcu",
             purpose="call",
         ).link_vaddr
+        self.get_state_synchronize_sched_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "get_state_synchronize_sched",
+            purpose="call",
+        ).link_vaddr
         self.cpu_mitigations_off_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -6052,6 +6094,8 @@ class FaithfulFakeTransport:
         self.intermediate_timeout_value = 0x7530
         self.rcu_state_values = [0x420000, 0x420000, 0x420002]
         self.rcu_state_index = 0
+        self.rcu_sched_state_values = [0x240000, 0x240001, 0x240003]
+        self.rcu_sched_state_index = 0
         self.cpu_mitigations_off_value = 0
         self.debugfs_initialized_value = 1
         self.tracefs_initialized_value = 1
@@ -6909,6 +6953,8 @@ class FaithfulFakeTransport:
             is_vmalloc_addr = self.is_vmalloc_addr_link + self.slide
             assert self.get_state_synchronize_rcu_link is not None
             get_state_synchronize_rcu = self.get_state_synchronize_rcu_link + self.slide
+            assert self.get_state_synchronize_sched_link is not None
+            get_state_synchronize_sched = self.get_state_synchronize_sched_link + self.slide
             assert self.cpu_mitigations_off_link is not None
             cpu_mitigations_off = self.cpu_mitigations_off_link + self.slide
             assert self.debugfs_initialized_link is not None
@@ -7629,6 +7675,14 @@ class FaithfulFakeTransport:
                     raise AssertionError("get_state_synchronize_rcu proof must pass no arguments")
                 value = self.rcu_state_values[min(self.rcu_state_index, len(self.rcu_state_values) - 1)]
                 self.rcu_state_index += 1
+                lines.append(f"A90R{value:x}")
+            elif arg0 == get_state_synchronize_sched:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("get_state_synchronize_sched proof must pass no arguments")
+                value = self.rcu_sched_state_values[
+                    min(self.rcu_sched_state_index, len(self.rcu_sched_state_values) - 1)
+                ]
+                self.rcu_sched_state_index += 1
                 lines.append(f"A90R{value:x}")
             elif arg0 == cpu_mitigations_off:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
@@ -9780,6 +9834,54 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertIn("get_state_synchronize_rcu_runtime", private)
         self.assertNotIn("get_state_synchronize_rcu_runtime", summary)
         self.assertEqual(fake.op_count, 1 + repl.GET_STATE_SYNCHRONIZE_RCU_REPEAT_COUNT)
+
+    def test_call_proof_get_state_synchronize_sched_passes_with_read_only_state_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "get_state_synchronize_sched",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(
+            summary["decision"],
+            "a90-repl-live-call-proof-get_state_synchronize_sched-pass",
+        )
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-rcu-sched-state-read-only-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "get_state_synchronize_sched")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "unsigned long get_state_synchronize_sched(void)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(summary["observed_return_value"], f"0x{fake.rcu_sched_state_values[0]:x}")
+        self.assertTrue(summary["all_returns_nondecreasing"])
+        self.assertEqual(summary["max_delta_from_first"], "0x3")
+        self.assertEqual(summary["repeat_count"], repl.GET_STATE_SYNCHRONIZE_SCHED_REPEAT_COUNT)
+        cases = {case["case"]: case for case in summary["case_results"]}
+        for index, value in enumerate(fake.rcu_sched_state_values, start=1):
+            key = f"get_state_synchronize_sched-read-{index}"
+            self.assertEqual(cases[key]["observed_return_value"], f"0x{value:x}")
+            self.assertTrue(cases[key]["ok"])
+            self.assertEqual(private["case_returns"][key], f"0x{value:x}")
+        self.assertIn("get_state_synchronize_sched_runtime", private)
+        self.assertNotIn("get_state_synchronize_sched_runtime", summary)
+        self.assertEqual(fake.op_count, 1 + repl.GET_STATE_SYNCHRONIZE_SCHED_REPEAT_COUNT)
 
     def test_call_proof_cpu_mitigations_off_passes_with_policy_bool_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

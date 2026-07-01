@@ -157,12 +157,53 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >    `task->cpu` field read; the aggregate now uses `21` canonical timelines out of `69` and
 >    projects resident-session `12.852s/target`, `21.49x` vs per-unit flash and `2.15x` vs
 >    per-unit in-boot batching.
+>    The next scalar state target, `get_state_synchronize_sched`, proved a file-node-free
+>    RCU-sched state reader with `exact-leaf-export+word-boundary` identity despite zero direct
+>    BL xrefs; after the boot-config and SoC-fingerprint VFS bundles, the aggregate now uses
+>    `24` canonical timelines out of `72` and projects resident-session `14.5s/target`,
+>    `20.9x` vs per-unit flash and `2.1x` vs per-unit in-boot batching.
 >    Harness report:
 >    `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_RESIDENT_SESSION_HARNESS_2026-07-01.md`.
 > **HARD — unchanged, do NOT loosen:** the fail-closed C1 resolution, the **call-safety classifier**
 > (DENY / BEHAVIOR-CHANGING tiers stay DENY — never relax a tier to reach a struct/state target),
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
+
+## ✅ DONE — REPL resident-session one-target proof — `get_state_synchronize_sched`
+
+> ### ✅ STATUS (2026-07-02 live-proven, resident-session mode, rolled back cleanly)
+>
+> Codex promoted `get_state_synchronize_sched()` as a no-argument RCU-sched state reader. This target
+> has no `/proc` or `/sys` file-node equivalent and is not the behavior-changing
+> `cond_synchronize_sched()` path.
+>
+> Static identity is pinned by a target-specific `exact-leaf-export+word-boundary` gate:
+> link `0xffffff8008150bfc`, one export candidate, map/export agreement, JOPP entry, direct BL xrefs
+> `0`, no in-body BL, no pre-call pointer deref, next symbol `cond_synchronize_sched` at `+0x20`,
+> source declaration `unsigned long get_state_synchronize_sched(void)` at `include/linux/rcutree.h:79`,
+> and exact words
+> `f0015788 d5033bbf 91040108 910c2108 c8dffd00 d65f03c0 d503201f 00be7bad`.
+>
+> Live resident-session run:
+> `workspace/private/runs/kernel/repl-resident-session-get-state-synchronize-sched-20260701T161101Z/`.
+> Result: `a90-repl-live-call-proof-get_state_synchronize_sched-pass`; three no-argument calls
+> returned nondecreasing RCU-sched state values with max delta `0xe`, inside the proof bound.
+> Raw runtime pointers and KASLR slide stayed private-only.
+>
+> Session used v1-repl flash once, mandatory warm reboot before the batch, per-target result flush,
+> and v2321 rollback once. Harness summary was `a90-repl-resident-session-pass`, flash count `2`,
+> completed targets `1/1`, timeline errors `[]`. Final independent health confirmed
+> `v2321-usb-clean-identity-rodata` and standalone `selftest pass=11 warn=1 fail=0`.
+>
+> Canonical timing is present in `timeline.json` with the single top-level `events` schema and all
+> required phase events. This run measured candidate flash `63.240s`, candidate boot/health
+> `43.831s`, warm reboot `33.233s`, live target batch `3.632s`, rollback flash `64.805s`, and total
+> candidate-start to rollback-ready `243.131s`. The timing aggregator now parses `24/72` canonical
+> timelines and projects resident-session `14.5s/target`, `20.9x` vs per-unit flash and `2.1x` vs
+> per-unit in-boot batching for `batch_size=10`, `resident_batches=10`.
+>
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_GET_STATE_SYNCHRONIZE_SCHED_RESIDENT_SESSION_2026-07-02.md`.
 
 ## ✅ DONE — REPL VFS-read boot-config observation bundle promoted
 
