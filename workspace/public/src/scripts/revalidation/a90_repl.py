@@ -203,6 +203,42 @@ EXACT_LEAF_EXPORT_GROUND_TRUTH_SYMBOLS = {
     },
 }
 EXACT_LEAF_MAP_GROUND_TRUTH_SYMBOLS = {
+    "sec_debug_is_enabled": {
+        "expected_words": (
+            0xB0014E48,
+            0xB0014E49,
+            0x90012F2A,
+            0x5289E98B,
+            0x91075129,
+            0x9116414A,
+            0xB941D108,
+            0x6B0B011F,
+            0x9A8A0128,
+            0xB9400108,
+            0x7100011F,
+            0x1A9F07E0,
+            0xD65F03C0,
+            0x00BE7BAD,
+        ),
+        "next_symbol": "sec_modem_loading_fail_to_bootloader",
+        "byte_size": 0x38,
+        "ret_offset": 0x30,
+        "min_direct_bl_xrefs": 26,
+        "note": "non-export JOPP leaf Samsung sec_debug enabled-state getter; identity rests on map label, direct callsite xrefs, exact words, source declaration, and next-symbol boundary",
+    },
+    "sec_debug_level": {
+        "expected_words": (
+            0xB0014E48,
+            0xB941D100,
+            0xD65F03C0,
+            0x00BE7BAD,
+        ),
+        "next_symbol": "sec_debug_is_enabled_for_ssr",
+        "byte_size": 0x10,
+        "ret_offset": 0x8,
+        "min_direct_bl_xrefs": 1,
+        "note": "non-export JOPP leaf Samsung sec_debug level getter; identity rests on map label, direct callsite xref, exact words, source declaration, and next-symbol boundary",
+    },
     "slab_is_available": {
         "expected_words": (
             0xB0016968,
@@ -520,6 +556,18 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {},
         "return_kind": "bool",
         "reason": "no-argument slab allocator availability getter; current image is a pinned global int comparison leaf and proof expects a stable bool value",
+    },
+    "sec_debug_is_enabled": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "bool",
+        "reason": "no-argument Samsung sec_debug enabled-state getter; current image is a pinned leaf and proof expects a stable bool value",
+    },
+    "sec_debug_level": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "uint32_t",
+        "reason": "no-argument Samsung sec_debug level getter; current image is a pinned leaf global read and proof expects a stable uint32_t value",
     },
     "get_ddr_vendor_name": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
@@ -3951,6 +3999,8 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "debugfs_initialized": ("fs/debugfs/inode.c", "include/linux/debugfs.h"),
     "tracefs_initialized": ("fs/tracefs/inode.c", "include/linux/tracefs.h"),
     "slab_is_available": ("include/linux/slab.h",),
+    "sec_debug_is_enabled": ("include/linux/samsung/debug/sec_debug.h",),
+    "sec_debug_level": ("include/linux/samsung/debug/sec_debug.h",),
     "__task_pid_nr_ns": ("include/linux/sched.h",),
     "sched_get_group_id": ("include/linux/sched.h",),
     "task_prio": ("include/linux/sched.h",),
@@ -5837,6 +5887,18 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "bool slab_is_available(void)",
     },
+    "sec_debug_is_enabled": {
+        "input_contract": "no arguments; Samsung sec_debug enabled state is read-only through the pinned leaf body and no returned pointer is dereferenced or freed",
+        "return_contract": "bool value is exactly 0 or 1 and stable across immediate repeated proof calls",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern bool sec_debug_is_enabled(void)",
+    },
+    "sec_debug_level": {
+        "input_contract": "no arguments; Samsung sec_debug level state is read-only through the pinned leaf body and no returned pointer is dereferenced or freed",
+        "return_contract": "uint32_t level value in 0..0xffffffff and stable across immediate repeated proof calls",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern unsigned int sec_debug_level(void)",
+    },
     "__task_pid_nr_ns": {
         "input_contract": "global init_task task_struct pointer + PIDTYPE_PID + NULL namespace; global pointer is borrowed/read-only and is not freed",
         "return_contract": "pid_t for init_task in the init namespace path is exactly 0 and stable across repeated calls",
@@ -7232,6 +7294,36 @@ SLAB_IS_AVAILABLE_EXPECTED_WORDS = (
 )
 SLAB_IS_AVAILABLE_NEXT_SYMBOL = ("kmalloc_slab", 0x18)
 SLAB_IS_AVAILABLE_REPEAT_COUNT = 2
+SEC_DEBUG_IS_ENABLED_EXPECTED_WORDS = (
+    0xB0014E48, 0xB0014E49, 0x90012F2A, 0x5289E98B,
+    0x91075129, 0x9116414A, 0xB941D108, 0x6B0B011F,
+    0x9A8A0128, 0xB9400108, 0x7100011F, 0x1A9F07E0,
+    0xD65F03C0, 0x00BE7BAD,
+)
+SEC_DEBUG_LEVEL_EXPECTED_WORDS = (
+    0xB0014E48, 0xB941D100, 0xD65F03C0, 0x00BE7BAD,
+)
+SEC_DEBUG_STATE_REPEAT_COUNT = 2
+SEC_DEBUG_STATE_PROOFS: dict[str, dict[str, object]] = {
+    "sec_debug_is_enabled": {
+        "expected_words": SEC_DEBUG_IS_ENABLED_EXPECTED_WORDS,
+        "next_symbol": "sec_modem_loading_fail_to_bootloader",
+        "next_delta": 0x38,
+        "ret_word_index": 12,
+        "max_value": 1,
+        "value_label": "stable bool enabled-state",
+        "proof_status": "trusted-under-sec-debug-enabled-read-only-contract",
+    },
+    "sec_debug_level": {
+        "expected_words": SEC_DEBUG_LEVEL_EXPECTED_WORDS,
+        "next_symbol": "sec_debug_is_enabled_for_ssr",
+        "next_delta": 0x10,
+        "ret_word_index": 2,
+        "max_value": 0xFFFFFFFF,
+        "value_label": "stable uint32 level",
+        "proof_status": "trusted-under-sec-debug-level-read-only-contract",
+    },
+}
 TASK_PID_NR_NS_PIDTYPE_PID = 0
 TASK_PID_NR_NS_EXPECTED_INIT_TASK_PID = 0
 TASK_PID_NR_NS_REPEAT_COUNT = 2
@@ -26043,6 +26135,185 @@ def _run_call_proof_slab_is_available(
     return summary, private
 
 
+def _run_call_proof_sec_debug_state(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    target: str,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    if target not in SEC_DEBUG_STATE_PROOFS:
+        raise ReplError(f"unsupported sec_debug state proof target {target!r}")
+    cfg = SEC_DEBUG_STATE_PROOFS[target]
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        (),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError(f"{target} source signature must be no-arg scalar-safe")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the sec_debug declaration")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(resolutions[target], "call-proof target")
+    next_symbol_name = str(cfg["next_symbol"])
+    expected_boundary = int(cfg["next_delta"])
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    expected_words = tuple(int(word) for word in cfg["expected_words"])
+    observed_words = image.u32_words_at_vaddr(target_link, len(expected_words))
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+            "source_note": "include/linux/samsung/debug/sec_debug.h declares the no-argument Samsung sec_debug state getter; current image body is pinned as a read-only leaf",
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+        {
+            "check": "static-body-ret-before-next-symbol",
+            "ok": True,
+            "ret_word_index": int(cfg["ret_word_index"]),
+            "note": "generic 64-byte classifier scan may include following sec_debug code; proof pins the exact body through the next-symbol boundary",
+        },
+    ]
+    for index, expected in enumerate(expected_words):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    max_value = int(cfg["max_value"])
+    private: dict[str, object] = {}
+    slide = 0
+    returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for index in range(SEC_DEBUG_STATE_REPEAT_COUNT):
+            observed = session.call_runtime(target_runtime, ()) & MASK64
+            in_range = 0 <= observed <= max_value
+            stable = observed == returns[0] if returns else True
+            returns.append(observed)
+            ok = in_range and stable
+            case_results.append({
+                "case": f"{target}-read-{index + 1}",
+                "expected_return": str(cfg["value_label"]),
+                "expected_range": f"0x0..0x{max_value:x}",
+                "observed_return_value": f"0x{observed:x}",
+                "in_contract_range": in_range,
+                "stable_from_first": stable,
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(
+                    f"{target}() returned an out-of-contract value in proof call "
+                    f"{index + 1}: 0x{observed:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": f"{target}-stable-sec-debug-state-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = f"0x{returns[0]:x}" if returns else "n/a"
+    all_in_range = bool(returns) and all(0 <= value <= max_value for value in returns)
+    all_stable = bool(returns) and all(value == returns[0] for value in returns)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": str(cfg["proof_status"]) if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "observed_return_value": observed_public,
+        "all_returns_in_contract_range": all_in_range,
+        "all_returns_stable": all_stable,
+        "all_returns_bool": all_in_range if max_value == 1 else None,
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": f"repeated no-argument calls returned stable sec_debug state {observed_public}",
+            "cleanup": "n/a-sec-debug-scalar-read-only",
+            "auto_call_policy": "same-session-batch-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_get_intermediate_timeout(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -38889,6 +39160,14 @@ def run_call_proof(session: ReplSession,
             session,
             symbols,
             image,
+            source_root=source_root,
+        )
+    if target in SEC_DEBUG_STATE_PROOFS:
+        return _run_call_proof_sec_debug_state(
+            session,
+            symbols,
+            image,
+            target=target,
             source_root=source_root,
         )
     if target == "get_intermediate_timeout":

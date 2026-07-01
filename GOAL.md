@@ -96,6 +96,80 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL Samsung sec_debug state live-call proof batch — `sec_debug_is_enabled()` + `sec_debug_level()` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — same-shape no-arg Samsung sec_debug state getters
+>
+> Codex followed the corrected batch cadence: same-shape read-only state
+> getters were grouped into one `v1-repl` boot session and one rollback.
+> `sec_debug_is_enabled()` and `sec_debug_level()` were selected from the
+> Samsung `sec_debug` header as adjacent no-argument state-observation
+> queries. `sec_debug_is_enabled_for_ssr()` stayed parked because its source
+> type is `int`, it has only one direct xref, and it was not needed to prove
+> this bounded same-shape state batch.
+>
+> Static selection pinned `sec_debug_is_enabled=0xffffff80086e37cc` via
+> `exact-leaf-map+xref+word-boundary`: export candidate count `0`, direct BL
+> xrefs `26`, JOPP entry, source declaration
+> `extern bool sec_debug_is_enabled(void)` at
+> `include/linux/samsung/debug/sec_debug.h:305`, `SAFE-SCALAR` call-safety,
+> and next-symbol boundary `sec_modem_loading_fail_to_bootloader` at `+0x38`.
+> The proof pinned the complete body plus guard:
+> `0xb0014e48 0xb0014e49 0x90012f2a 0x5289e98b 0x91075129 0x9116414a 0xb941d108 0x6b0b011f 0x9a8a0128 0xb9400108 0x7100011f 0x1a9f07e0 0xd65f03c0 0x00be7bad`.
+>
+> Static selection pinned `sec_debug_level=0xffffff80086e3bb4` via
+> `exact-leaf-map+xref+word-boundary`: export candidate count `0`, direct BL
+> xrefs `1`, JOPP entry, source declaration
+> `extern unsigned int sec_debug_level(void)` at
+> `include/linux/samsung/debug/sec_debug.h:306`, `SAFE-SCALAR` call-safety,
+> and next-symbol boundary `sec_debug_is_enabled_for_ssr` at `+0x10`. The
+> proof pinned the complete body plus guard:
+> `0xb0014e48 0xb941d100 0xd65f03c0 0x00be7bad`.
+> For both targets, the generic 64-byte classifier scan can include following
+> `sec_debug` code after the exact next-symbol boundary, so this proof treats
+> the explicit body/guard as the function-body authority.
+>
+> The live proof obeyed the flash gate: rollback/fallback/TWRP artifacts were
+> confirmed, baseline v2321 `version/status/selftest` passed, the exact
+> v1-repl candidate
+> (`b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`)
+> flashed through `native_init_flash.py` with matching pushed-image and
+> readback SHA, candidate helper `version/status` verification passed,
+> explicit candidate `selftest` passed after bridge restart from serial marker
+> loss, and REPL selftest returned `a90-repl-v2a1-selftest-pass`.
+>
+> The proof called both targets twice with no arguments in one
+> `call-proof-batch` session. `sec_debug_is_enabled()` returned bool and
+> stable values: `0x0`, `0x0`. `sec_debug_level()` returned stable `uint32_t`
+> values: `0x4f4c`, `0x4f4c`. No runtime pointer was dereferenced by the host,
+> no cleanup was required, and raw runtime values plus the KASLR slide stayed
+> private/redacted.
+>
+> Post-proof candidate `version/status/selftest` passed with
+> `pass=11 warn=1 fail=0`. Rollback to v2321 completed with matching readback
+> SHA, rollback helper `version/status` passed, final v2321 standalone
+> `selftest` passed after bridge restart from serial marker loss, and final
+> bridge status was `connected-no-immediate-error`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-sec-debug-state-batch-20260701T093249Z/timeline.json`
+> at `2026-07-01T09:32:49Z`: baseline bridge/version/status/selftest preflight
+> `2.144s`, candidate flash helper `65.703s`, candidate selftest first attempt
+> marker loss `10.129s`, candidate bridge restart + selftest retry + REPL
+> selftest `8.038s`, live proof batch `8.128s`, post-proof candidate
+> version/status/selftest `1.233s`, rollback flash helper `64.381s`, final
+> selftest first attempt marker loss `10.200s`, final bridge status after
+> marker loss `0.330s`, final bridge restart `2.130s`, final selftest retry
+> `0.440s`, and final bridge status retry `0.330s`. The helper total rows are
+> not additive; all serial bridge operations in the accepted live path were
+> sequential.
+>
+> Function-map outcome: `sec_debug_is_enabled` is promoted as live-proven only
+> under the no-argument read-only Samsung sec_debug enabled-state contract, and
+> `sec_debug_level` is promoted as live-proven only under the no-argument
+> read-only Samsung sec_debug level contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_SEC_DEBUG_STATE_BATCH_2026-07-01.md`.
+
 ## ✅ DONE — REPL slab allocator availability live-call proof — `slab_is_available()` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg slab allocator availability bool getter

@@ -1612,6 +1612,50 @@ class CallSafetyClassificationTests(unittest.TestCase):
             [f"0x{word:08x}" for word in repl.SLAB_IS_AVAILABLE_EXPECTED_WORDS],
         )
 
+        sec_debug_is_enabled = self._row("sec_debug_is_enabled")
+        self.assertEqual(sec_debug_is_enabled["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(sec_debug_is_enabled["required_valid_pointer_args"], {})
+        self.assertTrue(sec_debug_is_enabled["resolution"]["verified"])
+        self.assertEqual(
+            sec_debug_is_enabled["resolution"]["method"],
+            "exact-leaf-map+xref+word-boundary",
+        )
+        self.assertEqual(
+            sec_debug_is_enabled["resolution"]["link_vaddr"],
+            "0xffffff80086e37cc",
+        )
+        self.assertGreaterEqual(sec_debug_is_enabled["signals"]["direct_bl_xref_count"], 26)
+        self.assertEqual(
+            sec_debug_is_enabled["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertEqual(
+            sec_debug_is_enabled["signals"]["first_words"][:12],
+            [f"0x{word:08x}" for word in repl.SEC_DEBUG_IS_ENABLED_EXPECTED_WORDS[:12]],
+        )
+
+        sec_debug_level = self._row("sec_debug_level")
+        self.assertEqual(sec_debug_level["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(sec_debug_level["required_valid_pointer_args"], {})
+        self.assertTrue(sec_debug_level["resolution"]["verified"])
+        self.assertEqual(
+            sec_debug_level["resolution"]["method"],
+            "exact-leaf-map+xref+word-boundary",
+        )
+        self.assertEqual(
+            sec_debug_level["resolution"]["link_vaddr"],
+            "0xffffff80086e3bb4",
+        )
+        self.assertGreaterEqual(sec_debug_level["signals"]["direct_bl_xref_count"], 1)
+        self.assertEqual(
+            sec_debug_level["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertEqual(
+            sec_debug_level["signals"]["first_words"][:4],
+            [f"0x{word:08x}" for word in repl.SEC_DEBUG_LEVEL_EXPECTED_WORDS],
+        )
+
         task_pid_nr_ns = self._row("__task_pid_nr_ns")
         self.assertEqual(task_pid_nr_ns["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -3121,7 +3165,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 58)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 60)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 10)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -3923,6 +3967,36 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertEqual(slab_is_available["selected"]["line"], 122)
         self.assertTrue(slab_is_available["selected"]["path"].endswith("include/linux/slab.h"))
+
+        sec_debug_is_enabled = repl.lookup_source_signature(
+            "sec_debug_is_enabled",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(sec_debug_is_enabled["status"], "found", sec_debug_is_enabled)
+        self.assertEqual(sec_debug_is_enabled["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            sec_debug_is_enabled["selected"]["signature"],
+            "extern bool sec_debug_is_enabled(void)",
+        )
+        self.assertEqual(sec_debug_is_enabled["selected"]["line"], 305)
+        self.assertTrue(
+            sec_debug_is_enabled["selected"]["path"].endswith("include/linux/samsung/debug/sec_debug.h")
+        )
+
+        sec_debug_level = repl.lookup_source_signature(
+            "sec_debug_level",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(sec_debug_level["status"], "found", sec_debug_level)
+        self.assertEqual(sec_debug_level["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            sec_debug_level["selected"]["signature"],
+            "extern unsigned int sec_debug_level(void)",
+        )
+        self.assertEqual(sec_debug_level["selected"]["line"], 306)
+        self.assertTrue(
+            sec_debug_level["selected"]["path"].endswith("include/linux/samsung/debug/sec_debug.h")
+        )
 
         task_pid_nr_ns = repl.lookup_source_signature(
             "__task_pid_nr_ns",
@@ -5057,6 +5131,18 @@ class FaithfulFakeTransport:
             "slab_is_available",
             purpose="call",
         ).link_vaddr
+        self.sec_debug_is_enabled_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "sec_debug_is_enabled",
+            purpose="call",
+        ).link_vaddr
+        self.sec_debug_level_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "sec_debug_level",
+            purpose="call",
+        ).link_vaddr
         self.task_pid_nr_ns_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -5337,6 +5423,8 @@ class FaithfulFakeTransport:
         self.debugfs_initialized_value = 1
         self.tracefs_initialized_value = 1
         self.slab_is_available_value = 1
+        self.sec_debug_is_enabled_value = 1
+        self.sec_debug_level_value = 0x4F4C
         self.boot_stat_time_values = [0x00100000, 0x00101000, 0x00102000]
         self.boot_stat_time_index = 0
         self.get_seconds_values = [0x69000000, 0x69000001]
@@ -6134,6 +6222,10 @@ class FaithfulFakeTransport:
             tracefs_initialized = self.tracefs_initialized_link + self.slide
             assert self.slab_is_available_link is not None
             slab_is_available = self.slab_is_available_link + self.slide
+            assert self.sec_debug_is_enabled_link is not None
+            sec_debug_is_enabled = self.sec_debug_is_enabled_link + self.slide
+            assert self.sec_debug_level_link is not None
+            sec_debug_level = self.sec_debug_level_link + self.slide
             assert self.task_pid_nr_ns_link is not None
             task_pid_nr_ns = self.task_pid_nr_ns_link + self.slide
             assert self.sched_get_group_id_link is not None
@@ -6837,6 +6929,14 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("slab_is_available proof must pass no arguments")
                 lines.append(f"A90R{self.slab_is_available_value:x}")
+            elif arg0 == sec_debug_is_enabled:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("sec_debug_is_enabled proof must pass no arguments")
+                lines.append(f"A90R{self.sec_debug_is_enabled_value:x}")
+            elif arg0 == sec_debug_level:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("sec_debug_level proof must pass no arguments")
+                lines.append(f"A90R{self.sec_debug_level_value:x}")
             elif arg0 == task_pid_nr_ns:
                 if (arg1, arg2, arg3, arg4) != (
                     self.init_task_runtime,
@@ -9033,6 +9133,67 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertIn("slab_is_available_runtime", private)
         self.assertNotIn("slab_is_available_runtime", summary)
         self.assertEqual(fake.op_count, 1 + repl.SLAB_IS_AVAILABLE_REPEAT_COUNT)
+
+    def test_call_proof_sec_debug_state_batch_passes_with_no_arg_contracts(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        targets = ("sec_debug_is_enabled", "sec_debug_level")
+        summary, private = repl.run_call_proof_batch(
+            session,
+            symbols,
+            self.image,
+            targets,
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-batch-pass")
+        self.assertEqual(summary["target_count"], 2)
+        self.assertEqual(summary["completed_targets"], list(targets))
+        self.assertTrue(summary["host_batch_single_repl_session"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertEqual(sorted(private["target_privates"]), sorted(targets))
+
+        by_target = {row["target"]: row for row in summary["summaries"]}
+        enabled = by_target["sec_debug_is_enabled"]
+        self.assertEqual(enabled["decision"], "a90-repl-live-call-proof-sec_debug_is_enabled-pass")
+        self.assertEqual(enabled["proof_status"], "trusted-under-sec-debug-enabled-read-only-contract")
+        self.assertEqual(enabled["function_map_entry"]["symbol"], "sec_debug_is_enabled")
+        self.assertEqual(
+            enabled["function_map_entry"]["auto_call_policy"],
+            "same-session-batch-proof-only-not-mass-call",
+        )
+        self.assertEqual(enabled["source_evidence"]["signature"], "extern bool sec_debug_is_enabled(void)")
+        self.assertEqual(enabled["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(enabled["call_safety"]["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(enabled["observed_return_value"], f"0x{fake.sec_debug_is_enabled_value:x}")
+        self.assertTrue(enabled["all_returns_bool"])
+        self.assertTrue(enabled["all_returns_stable"])
+
+        level = by_target["sec_debug_level"]
+        self.assertEqual(level["decision"], "a90-repl-live-call-proof-sec_debug_level-pass")
+        self.assertEqual(level["proof_status"], "trusted-under-sec-debug-level-read-only-contract")
+        self.assertEqual(level["function_map_entry"]["symbol"], "sec_debug_level")
+        self.assertEqual(
+            level["function_map_entry"]["auto_call_policy"],
+            "same-session-batch-proof-only-not-mass-call",
+        )
+        self.assertEqual(level["source_evidence"]["signature"], "extern unsigned int sec_debug_level(void)")
+        self.assertEqual(level["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(level["call_safety"]["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(level["observed_return_value"], f"0x{fake.sec_debug_level_value:x}")
+        self.assertTrue(level["all_returns_in_contract_range"])
+        self.assertTrue(level["all_returns_stable"])
+        self.assertIsNone(level["all_returns_bool"])
+        self.assertEqual(fake.op_count, 6)  # 2 targets * (slide + 2 scalar proof calls)
 
     def test_call_proof_task_struct_batch_candidates_pass_in_one_fake_session(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
