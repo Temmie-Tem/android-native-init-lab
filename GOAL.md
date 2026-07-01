@@ -291,6 +291,69 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > Report:
 > `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_IS_USB_HOST_2026-07-01.md`.
 
+## ✅ DONE — REPL USB/OTG HW-param live-call proof — `get_hw_param()` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — borrowed `struct otg_notify *` + enum-index slot getter
+>
+> Codex selected `get_hw_param` as the next adjacent USB notify
+> state-observation target after `get_otg_notify`, `get_notify_data`, and
+> `is_usb_host`. It extends the function map to a two-argument read-only
+> getter: the proof first uses `get_otg_notify()` as an input anchor, then
+> passes that live borrowed `struct otg_notify *` plus fixed enum index `0`
+> (`USB_CCIC_WATER_INT_COUNT`) to
+> `get_hw_param(struct otg_notify *n, enum usb_hw_param index)`.
+>
+> Static selection pinned `get_hw_param=0xffffff800901f1e4` via
+> `export-recovery` with one export candidate, map/export agreement, JOPP
+> entry, direct BL xrefs `26`, target-limited pre-call `x0` deref allowed only
+> under the borrowed-pointer contract, and next-symbol boundary
+> `inc_hw_param_host` at `+0xd0`. Source declaration was
+> `extern unsigned long long * get_hw_param(struct otg_notify *n, enum usb_hw_param index)`
+> from `include/linux/usb_notify.h:182`; enum parsing in
+> `include/linux/usb_hw_param.h` confirmed `USB_CCIC_WATER_INT_COUNT=0` and
+> `USB_CCIC_HW_PARAM_MAX=49`. Prefix/tail word pins covered the enum bounds
+> check, `n->u_notify` load from `[x0,#168]`, `u_notify->hw_param[index]`
+> address calculation, NULL return path, epilogue, `ret`, and final
+> `0x00be7bad` guard. The implementation in
+> `drivers/usb/notify/usb_notify.c` matched the non-owning slot-getter
+> pattern.
+>
+> The input anchor remained `get_otg_notify=0xffffff800901d8d4`,
+> `export-recovery`, direct BL xrefs `41`, no-argument `SAFE-SCALAR`.
+>
+> The live proof obeyed the flash gate: rollback/fallback images were
+> confirmed, baseline v2321 `version/status/selftest` passed, the exact
+> v1-repl candidate (`b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`)
+> flashed through `native_init_flash.py` with matching pushed-image and
+> readback SHA, and candidate helper health plus explicit candidate
+> `selftest` passed.
+>
+> The successful proof called `get_otg_notify()` once; it returned a non-NULL
+> borrowed kernel pointer. The proof then called
+> `get_hw_param(otg_notify_ptr, 0)` twice. Both calls returned the same
+> non-NULL borrowed kernel pointer. The borrowed input pointer and returned
+> slot pointer were not dereferenced by the host, freed, or retained. Raw
+> runtime pointer values and the KASLR slide stayed private/redacted.
+>
+> Post-proof candidate `selftest` passed with `selftest pass=11 warn=1
+> fail=0`. Rollback to v2321 completed with matching readback SHA. Final v2321
+> `selftest` passed with `pass=11 warn=1 fail=0`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-get-hw-param-20260701T071300Z/timeline.json`
+> at `2026-07-01T07:14:45Z`: candidate flash helper `64.846s`,
+> candidate explicit selftest `0.447s`, live proof `13.733s`,
+> post-proof candidate selftest `0.452s`, rollback flash helper `65.250s`,
+> and final v2321 selftest `0.448s`. The helper total rows are not additive;
+> all serial bridge commands in this unit were sequential.
+>
+> Function-map outcome: `get_hw_param` is promoted as live-proven only under
+> the borrowed `struct otg_notify *` input contract sourced from
+> `get_otg_notify()` in the same proof, plus enum index `0`
+> (`USB_CCIC_WATER_INT_COUNT`), with return constrained to stable
+> NULL-or-borrowed `unsigned long long *`. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_GET_HW_PARAM_2026-07-01.md`.
+
 ## ✅ DONE — REPL current fs-state live-call proof — `current_umask()` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg current-task umask getter

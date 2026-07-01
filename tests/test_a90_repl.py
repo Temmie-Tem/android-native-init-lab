@@ -1382,6 +1382,49 @@ class CallSafetyClassificationTests(unittest.TestCase):
             ],
         )
 
+        get_hw_param = self._row("get_hw_param")
+        self.assertEqual(get_hw_param["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            get_hw_param["required_valid_pointer_args"],
+            {"0": "borrowed-otg-notify-pointer-from-get_otg_notify"},
+        )
+        self.assertTrue(get_hw_param["resolution"]["verified"])
+        self.assertEqual(get_hw_param["resolution"]["method"], "export-recovery")
+        self.assertEqual(
+            get_hw_param["resolution"]["link_vaddr"],
+            "0xffffff800901f1e4",
+        )
+        self.assertEqual(get_hw_param["signals"]["direct_bl_xref_count"], 26)
+        self.assertFalse(get_hw_param["signals"]["leaf"])
+        self.assertEqual(
+            get_hw_param["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [
+                {
+                    "offset": 40,
+                    "arg_reg": 0,
+                    "rt": 20,
+                    "rn": 0,
+                    "width": 8,
+                    "imm": 168,
+                    "word": "0xf9405414",
+                    "arg": "x0",
+                }
+            ],
+        )
+        self.assertEqual(
+            get_hw_param["signals"]["first_words"][:8],
+            [
+                "0xca1103d0",
+                "0xa9bd43fd",
+                "0xf9000bf5",
+                "0x910003fd",
+                "0xa9024ff4",
+                "0x7100c43f",
+                "0x54000083",
+                "0xf0009d20",
+            ],
+        )
+
         get_intermediate_timeout = self._row("get_intermediate_timeout")
         self.assertEqual(get_intermediate_timeout["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
         self.assertEqual(get_intermediate_timeout["required_valid_pointer_args"], {})
@@ -3610,6 +3653,19 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertEqual(is_usb_host["selected"]["line"], 169)
         self.assertTrue(is_usb_host["selected"]["path"].endswith("include/linux/usb_notify.h"))
 
+        get_hw_param = repl.lookup_source_signature(
+            "get_hw_param",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(get_hw_param["status"], "found", get_hw_param)
+        self.assertEqual(get_hw_param["selected"]["pointer_arg_indices"], [0])
+        self.assertEqual(
+            get_hw_param["selected"]["signature"],
+            "extern unsigned long long * get_hw_param(struct otg_notify *n, enum usb_hw_param index)",
+        )
+        self.assertEqual(get_hw_param["selected"]["line"], 182)
+        self.assertTrue(get_hw_param["selected"]["path"].endswith("include/linux/usb_notify.h"))
+
         task_pid_nr_ns = repl.lookup_source_signature(
             "__task_pid_nr_ns",
             source_root=KERNEL_SOURCE_ROOT,
@@ -4687,6 +4743,13 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.get_hw_param_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "get_hw_param",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.get_intermediate_timeout_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -4962,6 +5025,7 @@ class FaithfulFakeTransport:
         self.borrowed_ddr_vendor_ptr = 0xFFFFFFC012350000
         self.borrowed_otg_notify_ptr = 0xFFFFFFC012360000
         self.borrowed_notify_data_ptr = 0xFFFFFFC012370000
+        self.borrowed_hw_param_ptr = 0xFFFFFFC012380000
         self.is_usb_host_value = 1
         self.borrowed_ddr_vendor_string = b"Samsung\x00"
         self.intermediate_timeout_value = 0x7530
@@ -5744,6 +5808,8 @@ class FaithfulFakeTransport:
             get_notify_data = self.get_notify_data_link + self.slide
             assert self.is_usb_host_link is not None
             is_usb_host = self.is_usb_host_link + self.slide
+            assert self.get_hw_param_link is not None
+            get_hw_param = self.get_hw_param_link + self.slide
             assert self.get_intermediate_timeout_link is not None
             get_intermediate_timeout = self.get_intermediate_timeout_link + self.slide
             assert self.task_pid_nr_ns_link is not None
@@ -6395,6 +6461,15 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (self.borrowed_otg_notify_ptr, 0, 0, 0):
                     raise AssertionError("is_usb_host proof must pass borrowed otg_notify only")
                 lines.append(f"A90R{self.is_usb_host_value:x}")
+            elif arg0 == get_hw_param:
+                if (arg1, arg2, arg3, arg4) != (
+                    self.borrowed_otg_notify_ptr,
+                    repl.GET_HW_PARAM_INDEX,
+                    0,
+                    0,
+                ):
+                    raise AssertionError("get_hw_param proof must pass borrowed otg_notify and index 0 only")
+                lines.append(f"A90R{self.borrowed_hw_param_ptr:x}")
             elif arg0 == get_intermediate_timeout:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("get_intermediate_timeout proof must pass no arguments")
@@ -8175,6 +8250,77 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(private["case_returns"]["usb-host-bool-1"], "0x1")
         self.assertEqual(private["case_returns"]["usb-host-bool-2"], "0x1")
         self.assertEqual(fake.op_count, 4)  # slide + get_otg_notify + 2 is_usb_host calls
+
+    def test_call_proof_get_hw_param_passes_with_otg_notify_pointer_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "get_hw_param",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-get_hw_param-pass")
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-usb-hw-param-borrowed-slot-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "get_hw_param")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern unsigned long long * get_hw_param(struct otg_notify *n, enum usb_hw_param index)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [0])
+        self.assertEqual(summary["source_enum_evidence"]["index_name"], "USB_CCIC_WATER_INT_COUNT")
+        self.assertEqual(summary["source_enum_evidence"]["index_value"], 0)
+        self.assertEqual(summary["source_enum_evidence"]["max_name"], "USB_CCIC_HW_PARAM_MAX")
+        self.assertEqual(summary["source_enum_evidence"]["max_value"], 49)
+        self.assertTrue(summary["source_enum_evidence"]["index_in_bounds"])
+        self.assertEqual(
+            summary["source_implementation_evidence"]["path"],
+            "drivers/usb/notify/usb_notify.c",
+        )
+        self.assertEqual(summary["input_anchor"]["symbol"], "get_otg_notify")
+        self.assertEqual(summary["observed_return_value"], "non-null-borrowed-kernel-pointer")
+        self.assertTrue(summary["all_returns_stable"])
+        self.assertTrue(summary["returned_nonnull"])
+        self.assertEqual(summary["repeat_count"], 2)
+        self.assertEqual(summary["hw_param_index"], repl.GET_HW_PARAM_INDEX)
+        self.assertEqual(summary["hw_param_index_name"], "USB_CCIC_WATER_INT_COUNT")
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["borrowed_pointer_redacted"])
+        self.assertNotIn("get_hw_param_runtime", summary)
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertEqual(
+            cases["hw-param-index0-slot-pointer-1"]["observed_return_value"],
+            "redacted-borrowed-pointer",
+        )
+        self.assertTrue(cases["hw-param-index0-slot-pointer-1"]["observed_return_value_redacted"])
+        self.assertTrue(cases["hw-param-index0-slot-pointer-1"]["kernel_pointer_if_nonnull"])
+        self.assertTrue(cases["hw-param-index0-slot-pointer-2"]["matches_first_call"])
+        self.assertIn("get_otg_notify_runtime", private)
+        self.assertIn("get_hw_param_runtime", private)
+        self.assertEqual(private["otg_notify_ptr"], f"0x{fake.borrowed_otg_notify_ptr:x}")
+        self.assertEqual(
+            private["case_returns"]["hw-param-index0-slot-pointer-1"],
+            f"0x{fake.borrowed_hw_param_ptr:x}",
+        )
+        self.assertEqual(
+            private["case_returns"]["hw-param-index0-slot-pointer-2"],
+            f"0x{fake.borrowed_hw_param_ptr:x}",
+        )
+        self.assertEqual(fake.op_count, 4)  # slide + get_otg_notify + 2 get_hw_param calls
 
     def test_call_proof_task_struct_batch_candidates_pass_in_one_fake_session(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
