@@ -135,16 +135,54 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >    checked flash helper only, writes canonical top-level `events` timelines, warm-reboots before
 >    each batch, rejects no-reboot `[busy]` warm-reboot paths, and has recovery-direct rollback
 >    fallback if native `recovery` disconnects after successfully entering recovery. Host validation
->    passed, and the timing aggregator still projects flash `20→2` and `18.8x` vs per-unit flash
->    on current canonical timelines. Live smoke reached `v1 flash -> candidate REPL selftest ->
->    warm reboot -> post-warm health -> batch live_start`, then stopped before target promotion on
->    transient serial/ring capture loss (`A90R` missing for a non-replay-safe call). Final resident
->    was rolled back to v2321 with `selftest fail=0`. Report:
+>    passed, and the timing aggregator projects flash `20→2`; after the `sched_clock_cpu` live proof
+>    it uses `17` canonical timelines and reports resident-session `13.160s/target`, `20.79x` vs
+>    per-unit flash and `2.08x` vs per-unit in-boot batching for `batch_size=10`,
+>    `resident_batches=10`. The first promoted target under the harness is now `sched_clock_cpu`:
+>    v1-repl flash once, mandatory warm reboot, one bounded batch, per-target flush, and v2321
+>    rollback once all passed. Final resident was rolled back to v2321 with `selftest fail=0`.
+>    Harness report:
 >    `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_RESIDENT_SESSION_HARNESS_2026-07-01.md`.
 > **HARD — unchanged, do NOT loosen:** the fail-closed C1 resolution, the **call-safety classifier**
 > (DENY / BEHAVIOR-CHANGING tiers stay DENY — never relax a tier to reach a struct/state target),
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
+
+## ✅ DONE — REPL resident-session one-target proof — `sched_clock_cpu`
+
+> ### ✅ STATUS (2026-07-01 live-proven, resident-session mode, rolled back cleanly)
+>
+> Codex promoted `sched_clock_cpu(int cpu)` under a target-specific scalar CPU0 read contract,
+> not as a global auto-call seed. Static identity is pinned by `disasm-signature+xref+map`:
+> link `0xffffff80080f72d4`, direct BL xrefs `16`, next symbol `running_clock` at `+0x40`,
+> one internal BL to `sched_clock`, source signature `extern u64 sched_clock_cpu(int cpu)` at
+> `include/linux/sched/clock.h:21`, and body words
+> `ca1103d0 a9bf43fd 910003fd d0015908 b94fc908 340000a8 9401de62 a8c143fd ca11021e d65f03c0 aa1f03e0 a8c143fd ca11021e d65f03c0 d503201f 00be7bad`.
+>
+> The global classifier remains fail-closed for this non-seeded target: `DENY`,
+> `auto_call_allowed=false`. The proof records a separate target-specific advisory
+> `SAFE-SCALAR` and calls only `cpu=0`. Live resident-session run:
+> `workspace/private/runs/kernel/repl-resident-session-sched-clock-cpu-20260701T135937Z/`.
+> Result: `a90-repl-live-call-proof-sched_clock_cpu-pass`; three repeated calls returned
+> nonzero, nondecreasing values starting at `0xa115db8ff`, max short-run delta `0x24ee361f`,
+> below the `10,000,000,000ns` proof bound.
+>
+> Session used v1-repl flash once, mandatory warm reboot before the batch, per-target result
+> flush, and v2321 rollback once. Final resident is `v2321-usb-clean-identity-rodata`; standalone
+> `selftest fail=0`.
+>
+> Canonical timing is present in `timeline.json` with the single top-level `events` schema and all
+> required eight phase events. This run measured `candidate_flash=65.090659s`,
+> `warm_reboot=32.650446s`, one-target live batch `3.575183s`,
+> `rollback_flash=64.381883s`, total `250.367856s`. The timing aggregator now uses `17`
+> canonical timelines and projects resident session `20->2` flashes, `13.160s/target`,
+> `20.79x` versus unbatched per-unit flash, and `2.08x` versus per-unit in-boot batching for
+> `batch_size=10`, `resident_batches=10`.
+>
+> `find_vpid(int nr)` was rejected before implementation because the source header requires
+> `tasklist_lock` or `rcu_read_lock` around PID hash lookup, which the current v1-repl call
+> primitive cannot bracket. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_SCHED_CLOCK_CPU_RESIDENT_SESSION_2026-07-01.md`.
 
 ## ✅ DONE — REPL resident-session one-target proof — `sec_bat_convert_adc_to_temp`
 

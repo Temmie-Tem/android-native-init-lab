@@ -1836,6 +1836,30 @@ class CallSafetyClassificationTests(unittest.TestCase):
             [f"0x{word:08x}" for word in repl.SEC_BAT_CONVERT_ADC_TO_TEMP_EXPECTED_PREFIX_WORDS],
         )
 
+        sched_clock_cpu = self._row("sched_clock_cpu")
+        self.assertEqual(sched_clock_cpu["tier"], repl.CALL_SAFETY_DENY)
+        self.assertFalse(sched_clock_cpu["auto_call_allowed"])
+        self.assertFalse(sched_clock_cpu["vetted_seed_whitelist"])
+        self.assertTrue(sched_clock_cpu["resolution"]["verified"])
+        self.assertEqual(sched_clock_cpu["resolution"]["method"], "disasm-signature+xref+map")
+        self.assertEqual(
+            sched_clock_cpu["resolution"]["link_vaddr"],
+            "0xffffff80080f72d4",
+        )
+        self.assertGreaterEqual(sched_clock_cpu["signals"]["direct_bl_xref_count"], 16)
+        self.assertFalse(sched_clock_cpu["signals"]["leaf"])
+        self.assertEqual(
+            sched_clock_cpu["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertTrue(
+            sched_clock_cpu["signals"]["arg_taint_flow"]["safe_scalar_positive_no_arg_memory_base_flow"]
+        )
+        self.assertEqual(
+            sched_clock_cpu["signals"]["first_words"][:12],
+            [f"0x{word:08x}" for word in repl.SCHED_CLOCK_CPU_EXPECTED_WORDS[:12]],
+        )
+
         task_pid_nr_ns = self._row("__task_pid_nr_ns")
         self.assertEqual(task_pid_nr_ns["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -4302,6 +4326,21 @@ class CallSafetyClassificationTests(unittest.TestCase):
             sec_bat_convert["selected"]["path"].endswith("drivers/battery_v2/sec_adc.c")
         )
 
+        sched_clock_cpu = repl.lookup_source_signature(
+            "sched_clock_cpu",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(sched_clock_cpu["status"], "found", sched_clock_cpu)
+        self.assertEqual(sched_clock_cpu["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            sched_clock_cpu["selected"]["signature"],
+            "extern u64 sched_clock_cpu(int cpu)",
+        )
+        self.assertEqual(sched_clock_cpu["selected"]["line"], 21)
+        self.assertTrue(
+            sched_clock_cpu["selected"]["path"].endswith("include/linux/sched/clock.h")
+        )
+
         task_pid_nr_ns = repl.lookup_source_signature(
             "__task_pid_nr_ns",
             source_root=KERNEL_SOURCE_ROOT,
@@ -5575,6 +5614,12 @@ class FaithfulFakeTransport:
             "get_boot_stat_time",
             purpose="call",
         ).link_vaddr
+        self.sched_clock_cpu_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "sched_clock_cpu",
+            purpose="call",
+        ).link_vaddr
         self.get_seconds_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -5792,6 +5837,8 @@ class FaithfulFakeTransport:
         self.is_boot_recovery_value = 0
         self.boot_stat_time_values = [0x00100000, 0x00101000, 0x00102000]
         self.boot_stat_time_index = 0
+        self.sched_clock_cpu_values = [0x100000000, 0x100000800, 0x100001400]
+        self.sched_clock_cpu_index = 0
         self.get_seconds_values = [0x69000000, 0x69000001]
         self.get_seconds_index = 0
         self.scm_version_value = repl.SCM_ARMV8_64
@@ -6658,6 +6705,8 @@ class FaithfulFakeTransport:
             get_ddr_vendor_name = self.get_ddr_vendor_name_link + self.slide
             assert self.get_boot_stat_time_link is not None
             get_boot_stat_time = self.get_boot_stat_time_link + self.slide
+            assert self.sched_clock_cpu_link is not None
+            sched_clock_cpu = self.sched_clock_cpu_link + self.slide
             assert self.get_seconds_link is not None
             get_seconds = self.get_seconds_link + self.slide
             assert self.is_scm_armv8_link is not None
@@ -7497,6 +7546,14 @@ class FaithfulFakeTransport:
                     min(self.boot_stat_time_index, len(self.boot_stat_time_values) - 1)
                 ]
                 self.boot_stat_time_index += 1
+                lines.append(f"A90R{value:x}")
+            elif arg0 == sched_clock_cpu:
+                if (arg1, arg2, arg3, arg4) != (repl.SCHED_CLOCK_CPU_PROOF_CPU, 0, 0, 0):
+                    raise AssertionError("sched_clock_cpu proof must pass CPU0 scalar arg only")
+                value = self.sched_clock_cpu_values[
+                    min(self.sched_clock_cpu_index, len(self.sched_clock_cpu_values) - 1)
+                ]
+                self.sched_clock_cpu_index += 1
                 lines.append(f"A90R{value:x}")
             elif arg0 == get_seconds:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
@@ -9937,6 +9994,66 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertIn("sec_bat_convert_adc_to_temp_runtime", private)
         self.assertNotIn("sec_bat_convert_adc_to_temp_runtime", summary)
         self.assertEqual(fake.op_count, 3)
+
+    def test_call_proof_sched_clock_cpu_passes_with_bounded_counter_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "sched_clock_cpu",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-sched_clock_cpu-pass")
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-sched-clock-cpu0-read-only-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "sched_clock_cpu")
+        self.assertEqual(
+            summary["function_map_entry"]["auto_call_policy"],
+            "target-specific-proof-only-not-global-auto-call",
+        )
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern u64 sched_clock_cpu(int cpu)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(summary["call_safety_gate"]["tier"], repl.CALL_SAFETY_DENY)
+        self.assertFalse(summary["call_safety_gate"]["auto_call_allowed"])
+        self.assertEqual(summary["target_specific_call_safety"]["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertTrue(summary["target_specific_call_safety"]["candidate_safe"])
+        self.assertFalse(summary["all_returns_zero"])
+        self.assertTrue(summary["all_returns_nondecreasing"])
+        self.assertTrue(summary["bounded_forward_deltas"])
+        cases = {case["case"]: case for case in summary["case_results"]}
+        for index, expected in enumerate(fake.sched_clock_cpu_values, start=1):
+            key = f"sched_clock_cpu-cpu0-read-{index}"
+            self.assertEqual(cases[key]["input_cpu"], repl.SCHED_CLOCK_CPU_PROOF_CPU)
+            self.assertEqual(cases[key]["observed_return_value"], f"0x{expected:x}")
+            self.assertEqual(private["case_returns"][key], f"0x{expected:x}")
+        self.assertEqual(
+            private["case_deltas"]["sched_clock_cpu-cpu0-read-2"],
+            "0x800",
+        )
+        self.assertEqual(
+            private["case_deltas"]["sched_clock_cpu-cpu0-read-3"],
+            "0xc00",
+        )
+        self.assertIn("sched_clock_cpu_runtime", private)
+        self.assertNotIn("sched_clock_cpu_runtime", summary)
+        self.assertEqual(fake.op_count, 4)
 
     def test_call_proof_is_boot_recovery_passes_with_boot_flag_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

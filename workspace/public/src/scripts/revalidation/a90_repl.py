@@ -4118,6 +4118,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "ktime_get_real_seconds": ("include/linux/timekeeping.h",),
     "current_kernel_time64": ("include/linux/timekeeping.h",),
     "get_boot_stat_time": ("include/soc/qcom/boot_stats.h",),
+    "sched_clock_cpu": ("include/linux/sched/clock.h",),
     "is_scm_armv8": ("include/soc/qcom/scm.h", "drivers/soc/qcom/scm.c"),
     "get_avenrun": ("include/linux/sched/loadavg.h",),
     "get_cpu_device": ("include/linux/cpu.h",),
@@ -6168,6 +6169,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern unsigned int get_boot_stat_time(void)",
     },
+    "sched_clock_cpu": {
+        "input_contract": "scalar CPU id fixed to 0; current image body is pinned as sched_clock_running check plus sched_clock-or-zero return path; no caller-provided pointer arguments",
+        "return_contract": "u64 sched-clock value is either stable zero when not running or nondecreasing across short repeated CPU0 proof calls with a conservative bounded delta",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern u64 sched_clock_cpu(int cpu)",
+    },
     "get_seconds": {
         "input_contract": "no arguments; kernel timekeeping wall-clock seconds are read-only; no returned pointer is dereferenced or freed",
         "return_contract": "unsigned long seconds value is nondecreasing across immediate repeated proof calls and advances by at most 2 seconds",
@@ -7765,6 +7772,16 @@ GET_BOOT_STAT_TIME_RET_WORD = 0xD65F03C0
 GET_BOOT_STAT_TIME_NEXT_GUARD_WORD = 0x00BE7BAD
 GET_BOOT_STAT_TIME_REPEAT_COUNT = 3
 GET_BOOT_STAT_TIME_MAX_SHORT_DELTA_TICKS = 10_000_000
+SCHED_CLOCK_CPU_EXPECTED_WORDS = (
+    0xCA1103D0, 0xA9BF43FD, 0x910003FD, 0xD0015908,
+    0xB94FC908, 0x340000A8, 0x9401DE62, 0xA8C143FD,
+    0xCA11021E, 0xD65F03C0, 0xAA1F03E0, 0xA8C143FD,
+    0xCA11021E, 0xD65F03C0, 0xD503201F, 0x00BE7BAD,
+)
+SCHED_CLOCK_CPU_NEXT_SYMBOL = ("running_clock", 0x40)
+SCHED_CLOCK_CPU_PROOF_CPU = 0
+SCHED_CLOCK_CPU_REPEAT_COUNT = 3
+SCHED_CLOCK_CPU_MAX_SHORT_DELTA_NS = 10_000_000_000
 GET_SECONDS_EXPECTED_WORDS = (
     0xB0016FE8, 0x912C0108, 0xF9403500, 0xD65F03C0,
     0xD503201F, 0x00BE7BAD,
@@ -30453,6 +30470,277 @@ def _run_call_proof_get_boot_stat_time(
     return summary, private
 
 
+def _run_call_proof_sched_clock_cpu(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "sched_clock_cpu"
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety_gate = classify_call_safety(
+        symbols,
+        image,
+        target,
+        include_objdump=False,
+    )
+    advisory = _call_safety_advisory_from_source(call_safety_gate, source)
+    if call_safety_gate.get("tier") != CALL_SAFETY_DENY:
+        raise ReplError(f"{target} must stay outside the global auto-call gate")
+    if call_safety_gate.get("vetted_seed_whitelist"):
+        raise ReplError(f"{target} unexpectedly entered CALL_SAFETY_SEEDS")
+    if advisory.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} target-specific advisory tier is not SAFE-SCALAR")
+    if not advisory.get("candidate_safe"):
+        raise ReplError(f"{target} target-specific advisory gate did not classify candidate_safe")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError(f"{target} source signature must be scalar-only")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the sched/clock.h declaration")
+
+    source_path = source_root / "include/linux/sched/clock.h"
+    try:
+        source_normalized = " ".join(
+            source_path.read_text(encoding="utf-8", errors="replace").split()
+        )
+    except OSError as exc:
+        raise ReplError(f"{target} source file is not readable: {source_path}") from exc
+    source_fragments = (
+        "extern u64 running_clock(void);",
+        "extern u64 sched_clock_cpu(int cpu);",
+        "return sched_clock_cpu(cpu);",
+    )
+    missing_fragments = [
+        fragment for fragment in source_fragments
+        if fragment not in source_normalized
+    ]
+    if missing_fragments:
+        raise ReplError(f"{target} source fragments missing: {missing_fragments}")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+        ),
+        "sched_clock": resolve_verified(
+            symbols,
+            image,
+            "sched_clock",
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(resolutions[target], "call-proof target")
+    sched_clock_link = require_verified_resolution(resolutions["sched_clock"], "sched_clock callee")
+    next_symbol_name, expected_boundary = SCHED_CLOCK_CPU_NEXT_SYMBOL
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    observed_words = image.u32_words_at_vaddr(target_link, len(SCHED_CLOCK_CPU_EXPECTED_WORDS))
+    signals = call_safety_gate.get("signals", {})
+    taint_flow = signals.get("arg_taint_flow", {}) if isinstance(signals, dict) else {}
+    bl_targets = signals.get("bl_targets_sample", []) if isinstance(signals, dict) else []
+    reaches_sched_clock = any(
+        isinstance(item, dict)
+        and int(str(item.get("target", "0")), 16) == sched_clock_link
+        for item in bl_targets
+    )
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+            "source_note": "sched/clock.h declares a scalar CPU-id sched clock reader; proof fixes cpu=0",
+        },
+        {
+            "check": "static-target-specific-call-safety-contract",
+            "ok": True,
+            "global_gate_tier": call_safety_gate.get("tier"),
+            "global_gate_auto_call_allowed": call_safety_gate.get("auto_call_allowed"),
+            "advisory_tier": advisory.get("tier"),
+            "advisory_candidate_safe": advisory.get("candidate_safe"),
+        },
+        {
+            "check": "static-scalar-args-no-arg-memory-base-flow",
+            "ok": bool(
+                isinstance(taint_flow, dict)
+                and taint_flow.get("safe_scalar_positive_no_arg_memory_base_flow")
+            ),
+            "arg_memory_base_use_count": (
+                taint_flow.get("arg_memory_base_use_count")
+                if isinstance(taint_flow, dict) else None
+            ),
+        },
+        {
+            "check": "static-single-sched-clock-callee",
+            "ok": bool(signals.get("bl_count_in_scan") == 1 and reaches_sched_clock)
+            if isinstance(signals, dict) else False,
+            "sched_clock_link": f"0x{sched_clock_link:x}",
+        },
+        {
+            "check": "static-cpu0-input-contract",
+            "ok": True,
+            "cpu": SCHED_CLOCK_CPU_PROOF_CPU,
+        },
+    ]
+    for index, expected in enumerate(SCHED_CLOCK_CPU_EXPECTED_WORDS):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    if not all(bool(check.get("ok")) for check in checks):
+        raise ReplError(f"{target} static target-specific gate failed")
+
+    private: dict[str, object] = {}
+    slide = 0
+    returns: list[int] = []
+    deltas: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        call_args = (SCHED_CLOCK_CPU_PROOF_CPU,)
+        for index in range(SCHED_CLOCK_CPU_REPEAT_COUNT):
+            observed = session.call_runtime_values(
+                target_runtime,
+                call_args,
+                replay_safe=True,
+            )[-1] & MASK64
+            returns.append(observed)
+            nondecreasing = True
+            delta_value: int | None = None
+            delta_ok = True
+            if index > 0:
+                previous = returns[index - 1]
+                nondecreasing = observed >= previous
+                delta_value = observed - previous if nondecreasing else previous - observed
+                deltas.append(delta_value)
+                delta_ok = nondecreasing and delta_value <= SCHED_CLOCK_CPU_MAX_SHORT_DELTA_NS
+            ok = nondecreasing and delta_ok
+            case_results.append({
+                "case": f"{target}-cpu0-read-{index + 1}",
+                "input_cpu": SCHED_CLOCK_CPU_PROOF_CPU,
+                "expected_return": "zero-or-nondecreasing-u64-sched-clock-nanoseconds",
+                "observed_return_value": f"0x{observed:x}",
+                "nondecreasing": nondecreasing,
+                "delta_from_previous": f"0x{delta_value:x}" if delta_value is not None else "n/a",
+                "delta_within_bound": delta_ok,
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(
+                    f"{target}(0) returned an out-of-contract value in proof call "
+                    f"{index + 1}: previous=0x{returns[index - 1]:x}, current=0x{observed:x}, "
+                    f"delta=0x{delta_value:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    all_zero = bool(returns) and all(value == 0 for value in returns)
+    all_nondecreasing = bool(returns) and all(
+        returns[index] >= returns[index - 1] for index in range(1, len(returns))
+    )
+    bounded_forward_deltas = bool(deltas) and all(
+        delta <= SCHED_CLOCK_CPU_MAX_SHORT_DELTA_NS for delta in deltas
+    )
+    checks.append({
+        "check": f"{target}-cpu0-zero-or-nondecreasing-short-repeat",
+        "ok": bool(all_zero or (all_nondecreasing and bounded_forward_deltas)),
+        "case_count": len(case_results),
+        "max_short_delta_ns": SCHED_CLOCK_CPU_MAX_SHORT_DELTA_NS,
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = f"0x{returns[0]:x}" if returns else "n/a"
+    max_delta_public = max(deltas) if deltas else 0
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-sched-clock-cpu0-read-only-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "observed_return_value": observed_public,
+        "all_returns_zero": all_zero,
+        "all_returns_nondecreasing": all_nondecreasing,
+        "bounded_forward_deltas": bounded_forward_deltas,
+        "max_observed_delta": f"0x{max_delta_public:x}",
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety_gate": call_safety_gate,
+        "target_specific_call_safety": advisory,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": (
+                "repeated scalar CPU0 calls returned "
+                f"{'zero path' if all_zero else 'nondecreasing sched-clock values'} "
+                f"starting at {observed_public} with max short-run delta 0x{max_delta_public:x}"
+            ),
+            "cleanup": "n/a-sched-clock-scalar-read-only",
+            "auto_call_policy": "target-specific-proof-only-not-global-auto-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "call_args": {
+            "cpu": SCHED_CLOCK_CPU_PROOF_CPU,
+        },
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+        "case_deltas": {
+            case["case"]: case["delta_from_previous"]
+            for case in case_results
+            if case["delta_from_previous"] != "n/a"
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_get_seconds(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -41112,6 +41400,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "get_boot_stat_time":
         return _run_call_proof_get_boot_stat_time(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "sched_clock_cpu":
+        return _run_call_proof_sched_clock_cpu(
             session,
             symbols,
             image,
