@@ -1816,6 +1816,26 @@ class CallSafetyClassificationTests(unittest.TestCase):
             [f"0x{word:08x}" for word in repl.SEC_ABC_GET_ENABLED_EXPECTED_WORDS],
         )
 
+        sec_bat_convert = self._row("sec_bat_convert_adc_to_temp")
+        self.assertEqual(sec_bat_convert["tier"], repl.CALL_SAFETY_DENY)
+        self.assertFalse(sec_bat_convert["auto_call_allowed"])
+        self.assertFalse(sec_bat_convert["vetted_seed_whitelist"])
+        self.assertTrue(sec_bat_convert["resolution"]["verified"])
+        self.assertEqual(sec_bat_convert["resolution"]["method"], "export-recovery")
+        self.assertEqual(
+            sec_bat_convert["resolution"]["link_vaddr"],
+            "0xffffff8009573654",
+        )
+        self.assertEqual(
+            sec_bat_convert["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertFalse(sec_bat_convert["signals"]["leaf"])
+        self.assertEqual(
+            sec_bat_convert["signals"]["first_words"][:12],
+            [f"0x{word:08x}" for word in repl.SEC_BAT_CONVERT_ADC_TO_TEMP_EXPECTED_PREFIX_WORDS],
+        )
+
         task_pid_nr_ns = self._row("__task_pid_nr_ns")
         self.assertEqual(task_pid_nr_ns["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -4267,6 +4287,21 @@ class CallSafetyClassificationTests(unittest.TestCase):
             sec_abc_get_enabled["selected"]["path"].endswith("include/linux/sti/abc_common.h")
         )
 
+        sec_bat_convert = repl.lookup_source_signature(
+            "sec_bat_convert_adc_to_temp",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(sec_bat_convert["status"], "found", sec_bat_convert)
+        self.assertEqual(sec_bat_convert["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            sec_bat_convert["selected"]["signature"],
+            "int sec_bat_convert_adc_to_temp(unsigned int adc_ch, int temp_adc)",
+        )
+        self.assertEqual(sec_bat_convert["selected"]["line"], 376)
+        self.assertTrue(
+            sec_bat_convert["selected"]["path"].endswith("drivers/battery_v2/sec_adc.c")
+        )
+
         task_pid_nr_ns = repl.lookup_source_signature(
             "__task_pid_nr_ns",
             source_root=KERNEL_SOURCE_ROOT,
@@ -5448,6 +5483,12 @@ class FaithfulFakeTransport:
             "sec_abc_get_enabled",
             purpose="call",
         ).link_vaddr
+        self.sec_bat_convert_adc_to_temp_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "sec_bat_convert_adc_to_temp",
+            purpose="call",
+        ).link_vaddr
         self.is_boot_recovery_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -5745,6 +5786,9 @@ class FaithfulFakeTransport:
         self.sec_debug_get_reset_reason_value = 0x77665544
         self.sec_debug_get_reset_write_cnt_value = 0x2
         self.sec_abc_get_enabled_value = 2
+        self.sec_bat_convert_adc_to_temp_value = (
+            repl.SEC_BAT_CONVERT_ADC_TO_TEMP_EXPECTED_INVALID_CHANNEL_RETURN
+        )
         self.is_boot_recovery_value = 0
         self.boot_stat_time_values = [0x00100000, 0x00101000, 0x00102000]
         self.boot_stat_time_index = 0
@@ -6588,6 +6632,8 @@ class FaithfulFakeTransport:
             sec_debug_get_reset_reason_str = self.sec_debug_get_reset_reason_str_link + self.slide
             assert self.sec_abc_get_enabled_link is not None
             sec_abc_get_enabled = self.sec_abc_get_enabled_link + self.slide
+            assert self.sec_bat_convert_adc_to_temp_link is not None
+            sec_bat_convert_adc_to_temp = self.sec_bat_convert_adc_to_temp_link + self.slide
             assert self.is_boot_recovery_link is not None
             is_boot_recovery = self.is_boot_recovery_link + self.slide
             assert self.task_pid_nr_ns_link is not None
@@ -7331,6 +7377,15 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("sec_abc_get_enabled proof must pass no arguments")
                 lines.append(f"A90R{self.sec_abc_get_enabled_value:x}")
+            elif arg0 == sec_bat_convert_adc_to_temp:
+                if (arg1, arg2, arg3, arg4) != (
+                    repl.SEC_BAT_CONVERT_ADC_TO_TEMP_INVALID_ADC_CH,
+                    repl.SEC_BAT_CONVERT_ADC_TO_TEMP_PROOF_TEMP_ADC,
+                    0,
+                    0,
+                ):
+                    raise AssertionError("sec_bat_convert_adc_to_temp proof must pass invalid channel scalar args only")
+                lines.append(f"A90R{self.sec_bat_convert_adc_to_temp_value:x}")
             elif arg0 == is_boot_recovery:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("is_boot_recovery proof must pass no arguments")
@@ -9824,6 +9879,63 @@ class SelftestIntegrationTests(unittest.TestCase):
             self.assertEqual(private["case_returns"][key], f"0x{fake.sec_abc_get_enabled_value:x}")
         self.assertIn("sec_abc_get_enabled_runtime", private)
         self.assertNotIn("sec_abc_get_enabled_runtime", summary)
+        self.assertEqual(fake.op_count, 3)
+
+    def test_call_proof_sec_bat_convert_adc_to_temp_passes_with_invalid_channel_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "sec_bat_convert_adc_to_temp",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(
+            summary["decision"],
+            "a90-repl-live-call-proof-sec_bat_convert_adc_to_temp-pass",
+        )
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-sec-bat-invalid-channel-conversion-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "sec_bat_convert_adc_to_temp")
+        self.assertEqual(
+            summary["function_map_entry"]["auto_call_policy"],
+            "target-specific-proof-only-not-global-auto-call",
+        )
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "int sec_bat_convert_adc_to_temp(unsigned int adc_ch, int temp_adc)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(summary["call_safety_gate"]["tier"], repl.CALL_SAFETY_DENY)
+        self.assertFalse(summary["call_safety_gate"]["auto_call_allowed"])
+        self.assertEqual(summary["target_specific_call_safety"]["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertTrue(summary["target_specific_call_safety"]["candidate_safe"])
+        expected = repl.SEC_BAT_CONVERT_ADC_TO_TEMP_EXPECTED_INVALID_CHANNEL_RETURN
+        self.assertEqual(summary["observed_return_value"], f"0x{expected:x}")
+        self.assertTrue(summary["all_returns_match_expected"])
+        self.assertTrue(summary["all_returns_stable"])
+        cases = {case["case"]: case for case in summary["case_results"]}
+        for index in range(1, repl.SEC_BAT_CONVERT_ADC_TO_TEMP_REPEAT_COUNT + 1):
+            key = f"sec_bat_convert_adc_to_temp-invalid-channel-read-{index}"
+            self.assertEqual(cases[key]["input_adc_ch"], repl.SEC_BAT_CONVERT_ADC_TO_TEMP_INVALID_ADC_CH)
+            self.assertEqual(cases[key]["input_temp_adc"], repl.SEC_BAT_CONVERT_ADC_TO_TEMP_PROOF_TEMP_ADC)
+            self.assertEqual(cases[key]["observed_return_value"], f"0x{expected:x}")
+            self.assertEqual(private["case_returns"][key], f"0x{expected:x}")
+        self.assertIn("sec_bat_convert_adc_to_temp_runtime", private)
+        self.assertNotIn("sec_bat_convert_adc_to_temp_runtime", summary)
         self.assertEqual(fake.op_count, 3)
 
     def test_call_proof_is_boot_recovery_passes_with_boot_flag_contract(self) -> None:

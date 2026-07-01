@@ -4155,6 +4155,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     ),
     "is_boot_recovery": ("drivers/battery_v2/include/sec_battery.h",),
     "sec_abc_get_enabled": ("include/linux/sti/abc_common.h",),
+    "sec_bat_convert_adc_to_temp": ("drivers/battery_v2/sec_adc.c",),
     "__task_pid_nr_ns": ("include/linux/sched.h",),
     "sched_get_group_id": ("include/linux/sched.h",),
     "task_prio": ("include/linux/sched.h",),
@@ -6095,6 +6096,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern int sec_abc_get_enabled(void)",
     },
+    "sec_bat_convert_adc_to_temp": {
+        "input_contract": "two scalar arguments only: adc_ch=0 unsupported channel and temp_adc=12345; this source path never selects local_battery ADC tables and dereferences no caller-provided pointer",
+        "return_contract": "int return is the source-defined invalid-channel/default sentinel 25000 and stable across immediate repeated proof calls",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "int sec_bat_convert_adc_to_temp(unsigned int adc_ch, int temp_adc)",
+    },
     "__task_pid_nr_ns": {
         "input_contract": "global init_task task_struct pointer + PIDTYPE_PID + NULL namespace; global pointer is borrowed/read-only and is not freed",
         "return_contract": "pid_t for init_task in the init namespace path is exactly 0 and stable across repeated calls",
@@ -7608,6 +7615,16 @@ SEC_ABC_GET_ENABLED_EXPECTED_WORDS = (
 SEC_ABC_GET_ENABLED_NEXT_SYMBOL = ("sec_abc_send_event", 0x10)
 SEC_ABC_GET_ENABLED_REPEAT_COUNT = 2
 SEC_ABC_GET_ENABLED_MAX = 2
+SEC_BAT_CONVERT_ADC_TO_TEMP_EXPECTED_PREFIX_WORDS = (
+    0xCA1103D0, 0xA9BF43FD, 0x910003FD, 0xD0011448,
+    0xF9434108, 0xB4000128, 0x7101481F, 0x540001A0,
+    0x7101341F, 0x540007A1, 0xF9400509, 0x910AE128,
+)
+SEC_BAT_CONVERT_ADC_TO_TEMP_NEXT_SYMBOL = ("sec_bat_get_thr_voltage", 0x148)
+SEC_BAT_CONVERT_ADC_TO_TEMP_REPEAT_COUNT = 2
+SEC_BAT_CONVERT_ADC_TO_TEMP_INVALID_ADC_CH = 0
+SEC_BAT_CONVERT_ADC_TO_TEMP_PROOF_TEMP_ADC = 12345
+SEC_BAT_CONVERT_ADC_TO_TEMP_EXPECTED_INVALID_CHANNEL_RETURN = 25000
 IS_BOOT_RECOVERY_EXPECTED_WORDS = (
     0x90014E08, 0xB949D900, 0xD65F03C0, 0x00BE7BAD,
 )
@@ -27713,6 +27730,245 @@ def _run_call_proof_sec_abc_get_enabled(
     return summary, private
 
 
+def _run_call_proof_sec_bat_convert_adc_to_temp(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "sec_bat_convert_adc_to_temp"
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety_gate = classify_call_safety(
+        symbols,
+        image,
+        target,
+        include_objdump=False,
+    )
+    advisory = _call_safety_advisory_from_source(call_safety_gate, source)
+    if call_safety_gate.get("tier") != CALL_SAFETY_DENY:
+        raise ReplError(f"{target} must stay outside the global auto-call gate")
+    if call_safety_gate.get("vetted_seed_whitelist"):
+        raise ReplError(f"{target} unexpectedly entered CALL_SAFETY_SEEDS")
+    if advisory.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} target-specific advisory tier is not SAFE-SCALAR")
+    if not advisory.get("candidate_safe"):
+        raise ReplError(f"{target} target-specific advisory gate did not classify candidate_safe")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError(f"{target} source signature must be scalar-only")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the sec_adc.c declaration")
+
+    source_path = source_root / "drivers/battery_v2/sec_adc.c"
+    try:
+        source_normalized = " ".join(
+            source_path.read_text(encoding="utf-8", errors="replace").split()
+        )
+    except OSError as exc:
+        raise ReplError(f"{target} source file is not readable: {source_path}") from exc
+    source_fragments = (
+        "int sec_bat_convert_adc_to_temp(unsigned int adc_ch, int temp_adc)",
+        "else goto temp_to_adc_goto;",
+        "return (temp == 25000 ? temp : temp * 100);",
+        "EXPORT_SYMBOL(sec_bat_convert_adc_to_temp);",
+    )
+    missing_fragments = [
+        fragment for fragment in source_fragments
+        if fragment not in source_normalized
+    ]
+    if missing_fragments:
+        raise ReplError(f"{target} invalid-channel source fragments missing: {missing_fragments}")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(resolutions[target], "call-proof target")
+    next_symbol_name, expected_boundary = SEC_BAT_CONVERT_ADC_TO_TEMP_NEXT_SYMBOL
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    expected_words = tuple(int(word) for word in SEC_BAT_CONVERT_ADC_TO_TEMP_EXPECTED_PREFIX_WORDS)
+    observed_words = image.u32_words_at_vaddr(target_link, len(expected_words))
+    signals = call_safety_gate.get("signals", {})
+    taint_flow = signals.get("arg_taint_flow", {}) if isinstance(signals, dict) else {}
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+            "source_note": (
+                "sec_adc.c invalid-channel path leaves temp at 25000 and returns "
+                "before selecting local_battery ADC tables"
+            ),
+        },
+        {
+            "check": "static-target-specific-call-safety-contract",
+            "ok": True,
+            "global_gate_tier": call_safety_gate.get("tier"),
+            "global_gate_auto_call_allowed": call_safety_gate.get("auto_call_allowed"),
+            "advisory_tier": advisory.get("tier"),
+            "advisory_candidate_safe": advisory.get("candidate_safe"),
+        },
+        {
+            "check": "static-scalar-args-no-arg-memory-base-flow",
+            "ok": bool(
+                isinstance(taint_flow, dict)
+                and taint_flow.get("safe_scalar_positive_no_arg_memory_base_flow")
+            ),
+            "arg_memory_base_use_count": (
+                taint_flow.get("arg_memory_base_use_count")
+                if isinstance(taint_flow, dict) else None
+            ),
+        },
+        {
+            "check": "static-invalid-channel-input-contract",
+            "ok": True,
+            "adc_ch": SEC_BAT_CONVERT_ADC_TO_TEMP_INVALID_ADC_CH,
+            "temp_adc": SEC_BAT_CONVERT_ADC_TO_TEMP_PROOF_TEMP_ADC,
+            "expected_return": SEC_BAT_CONVERT_ADC_TO_TEMP_EXPECTED_INVALID_CHANNEL_RETURN,
+        },
+    ]
+    for index, expected in enumerate(expected_words):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-prefix-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} prefix word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    if not all(bool(check.get("ok")) for check in checks):
+        raise ReplError(f"{target} static target-specific gate failed")
+
+    private: dict[str, object] = {}
+    slide = 0
+    returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        call_args = (
+            SEC_BAT_CONVERT_ADC_TO_TEMP_INVALID_ADC_CH,
+            SEC_BAT_CONVERT_ADC_TO_TEMP_PROOF_TEMP_ADC,
+        )
+        for index in range(SEC_BAT_CONVERT_ADC_TO_TEMP_REPEAT_COUNT):
+            observed = session.call_runtime(target_runtime, call_args) & MASK64
+            expected = SEC_BAT_CONVERT_ADC_TO_TEMP_EXPECTED_INVALID_CHANNEL_RETURN
+            matches = observed == expected
+            stable = observed == returns[0] if returns else True
+            returns.append(observed)
+            ok = matches and stable
+            case_results.append({
+                "case": f"{target}-invalid-channel-read-{index + 1}",
+                "input_adc_ch": SEC_BAT_CONVERT_ADC_TO_TEMP_INVALID_ADC_CH,
+                "input_temp_adc": SEC_BAT_CONVERT_ADC_TO_TEMP_PROOF_TEMP_ADC,
+                "expected_return": f"0x{expected:x}",
+                "observed_return_value": f"0x{observed:x}",
+                "matches_expected_default": matches,
+                "stable_from_first": stable,
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(
+                    f"{target} invalid-channel proof call {index + 1} returned "
+                    f"0x{observed:x}, expected 0x{expected:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": f"{target}-invalid-channel-default-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = f"0x{returns[0]:x}" if returns else "n/a"
+    all_expected = bool(returns) and all(
+        value == SEC_BAT_CONVERT_ADC_TO_TEMP_EXPECTED_INVALID_CHANNEL_RETURN
+        for value in returns
+    )
+    all_stable = bool(returns) and all(value == returns[0] for value in returns)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-sec-bat-invalid-channel-conversion-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "observed_return_value": observed_public,
+        "all_returns_match_expected": all_expected,
+        "all_returns_stable": all_stable,
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety_gate": call_safety_gate,
+        "target_specific_call_safety": advisory,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": (
+                "repeated invalid-channel scalar calls returned the source-defined "
+                f"default sentinel {observed_public}"
+            ),
+            "cleanup": "n/a-sec-bat-scalar-invalid-channel-no-owned-allocation",
+            "auto_call_policy": "target-specific-proof-only-not-global-auto-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "call_args": {
+            "adc_ch": f"0x{SEC_BAT_CONVERT_ADC_TO_TEMP_INVALID_ADC_CH:x}",
+            "temp_adc": f"0x{SEC_BAT_CONVERT_ADC_TO_TEMP_PROOF_TEMP_ADC:x}",
+        },
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_is_boot_recovery(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -40764,6 +41020,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "sec_abc_get_enabled":
         return _run_call_proof_sec_abc_get_enabled(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "sec_bat_convert_adc_to_temp":
+        return _run_call_proof_sec_bat_convert_adc_to_temp(
             session,
             symbols,
             image,

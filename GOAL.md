@@ -146,6 +146,44 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL resident-session one-target proof — `sec_bat_convert_adc_to_temp`
+
+> ### ✅ STATUS (2026-07-01 live-proven, resident-session mode, rolled back cleanly)
+>
+> Codex promoted `sec_bat_convert_adc_to_temp(unsigned int adc_ch, int temp_adc)` under a
+> target-specific invalid-channel scalar contract, not as a global auto-call seed. Static identity is
+> pinned by relocated export recovery plus map agreement: link `0xffffff8009573654`, direct BL xrefs
+> `2`, next symbol `sec_bat_get_thr_voltage` at `+0x148`, source signature
+> `int sec_bat_convert_adc_to_temp(unsigned int adc_ch, int temp_adc)` at
+> `drivers/battery_v2/sec_adc.c:376`, and prefix words
+> `ca1103d0 a9bf43fd 910003fd d0011448 f9434108 b4000128 7101481f 540001a0 7101341f 540007a1 f9400509 910ae128`.
+>
+> The global classifier remains fail-closed for this non-seeded target: `DENY`,
+> `auto_call_allowed=false`. The proof route records a separate target-specific advisory
+> `SAFE-SCALAR` and calls only the source-defined unsupported-channel path:
+> `adc_ch=0`, `temp_adc=12345`. That path never selects the `local_battery` ADC tables and returns the
+> sentinel default `25000` (`0x61a8`) regardless of table state. Live resident-session run:
+> `workspace/private/runs/kernel/repl-resident-session-sec-bat-convert-adc-to-temp-20260701T133219Z/`.
+> Result: `a90-repl-live-call-proof-sec_bat_convert_adc_to_temp-pass`; observed return `0x61a8`,
+> repeated twice, stable, and matching the fixed return contract.
+>
+> Session used v1-repl flash once, mandatory warm reboot before the batch, per-target result flush,
+> and v2321 rollback once. Final resident is `v2321-usb-clean-identity-rodata`; standalone
+> `selftest fail=0`.
+>
+> Canonical timing is present in `timeline.json` with the single top-level `events` schema and all
+> required eight phase events. This run measured `candidate_flash=64.205967s`,
+> `warm_reboot=33.253096s`, one-target live batch `2.952422s`, `rollback_flash=64.992606s`, total
+> `279.388792s`. The timing aggregator now uses `16` canonical timelines and projects resident
+> session `20->2` flashes, `13.4s/target`, `20.6x` versus unbatched per-unit flash, and `2.1x`
+> versus per-unit in-boot batching for `batch_size=10`, `resident_batches=10`.
+>
+> `sec_abc_wait_enabled()` was rejected before implementation because disassembly showed non-leaf
+> `printk` and `wait_for_completion_timeout` paths, so it is not a read-only getter proof target.
+>
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_SEC_BAT_CONVERT_ADC_TO_TEMP_RESIDENT_SESSION_2026-07-01.md`.
+
 ## ✅ DONE — REPL resident-session one-target proof — `is_boot_recovery`
 
 > ### ✅ STATUS (2026-07-01 live-proven, resident-session mode, rolled back cleanly)
