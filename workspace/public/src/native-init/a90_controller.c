@@ -258,6 +258,9 @@ static bool command_allowed_during_menu_ex(const char *name, int argc, char **ar
         /* §0.2 E-open rung: exactly one arg (the approval token); no write is performed */
         return argc == 2;
     }
+    /* boot-write-e1 (§0.2 E1) is intentionally NOT allowed during the auto-menu: it is CMD_DANGEROUS
+     * and must require an explicit hide/menu-settle before dispatch (design §11.5). Do not add it
+     * here — falling through lets the CMD_DANGEROUS gate return BUSY_DANGEROUS while the menu is up. */
     if (strcmp(name, "diag") == 0 ||
         strcmp(name, "wifiinv") == 0) {
         return subcmd_absent_or_one_of(argc, argv, diag_safe, sizeof(diag_safe) / sizeof(diag_safe[0]));

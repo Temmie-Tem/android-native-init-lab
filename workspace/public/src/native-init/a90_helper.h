@@ -3,9 +3,24 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <limits.h>
 
 #define A90_HELPER_MAX_ENTRIES 16
+
+/* Streaming SHA-256 (same core as a90_helper_sha256_file), exposed so callers can hash a stream
+ * they control (e.g. an O_DIRECT cache-bypassed block-device read). Layout matches the internal
+ * context; the public wrappers forward to the internal implementation. */
+struct a90_sha256_ctx {
+    uint32_t state[8];
+    uint64_t bit_count;
+    unsigned char buffer[64];
+    size_t buffer_len;
+};
+
+void a90_helper_sha256_init(struct a90_sha256_ctx *ctx);
+void a90_helper_sha256_update(struct a90_sha256_ctx *ctx, const unsigned char *data, size_t len);
+void a90_helper_sha256_final(struct a90_sha256_ctx *ctx, unsigned char digest[32]);
 
 struct a90_helper_entry {
     char name[64];

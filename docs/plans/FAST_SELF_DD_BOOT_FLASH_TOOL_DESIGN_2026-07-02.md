@@ -413,3 +413,39 @@ operator-gated**; do not advance past any anomaly:
   the *current boot session* (open↔write TOCTOU consistency, §2) and **must be re-derived each boot** —
   never persisted/cached across a reboot. The host wrapper's `proposed_pin` is therefore a
   per-session artifact; the write path must run the auditor in the same boot it writes.
+
+### 11.8 E1 implementation (built, Codex-reviewed 2026-07-02 — pre-live)
+
+`a90_boot_write_e1.c` (`boot-write-e1 <token>`), the only self-dd file with a `pwrite` (exactly one).
+Built + adversarially reviewed **before** any build/flash/run; Codex returned NO-GO with 5 MUST-FIX +
+2 WARN, all folded in:
+- **UFS FTL residual (MUST-FIX 1):** removed the over-claim that a torn identity write "can only
+  disturb padding". The source/comments now state plainly that on UFS a tear can corrupt the target
+  LBA *and* neighbouring FTL mapping metadata (other LBAs), so the rung is only low-risk-by-
+  construction with an **externally-recoverable (boot-only)** failure class — the operator must have
+  drilled Odin/TWRP recovery first.
+- **Header fail-closed + v1/v2 (MUST-FIX 2):** the Android boot-header parse now **fails closed** if
+  the `ANDROID!` magic is absent, `page_size` is out of range, or `header_version > 2`; `used_len`
+  now includes v1 `recovery_dtbo_size` and v2 `dtb_size` (offsets 1632/1648) so the slack floor is a
+  true content upper-bound. The all-zero gate remains the independent safety net.
+- **O_DIRECT full-partition SHA (MUST-FIX 3):** the before/after full-partition hash is now a
+  cache-bypassed **O_DIRECT streaming** SHA-256 (`a90_helper_sha256_{init,update,final}` exposed for
+  this) through a freshly-opened, re-confirmed fd — not `BLKFLSBUF` + buffered read — so a cross-LBA
+  change cannot be masked by cache. The region readback stays O_DIRECT + `memcmp`.
+- **All fds re-guarded + O_NOFOLLOW (MUST-FIX 4):** every open of the boot node (`rfd`, `wfd`, the
+  O_DIRECT readback fd, and both O_DIRECT full-SHA fds) is `O_NOFOLLOW` and runs `e1_confirm`
+  (block + rdev==sysfs + PARTNAME=boot + size==64 MiB) before use.
+- **Menu-danger gate (MUST-FIX 7):** `boot-write-e1` is now `CMD_DANGEROUS` and is **removed** from
+  `command_allowed_during_menu_ex`, so it returns `BUSY_DANGEROUS` while the auto-menu is up — it
+  cannot run without an explicit `hide`/menu-settle, as §11.5 requires.
+- **fsync log (WARN 5):** an `fsync` failure now prints `fsync=fail` and stops, instead of the
+  previous misleading `pwrite=ok fsync=ok`.
+- **Recovery drill (WARN 6):** the recovery drill + `panic_on_oops` + dmesg/pstore capture remain
+  operator-side; a live E1 run is valid **only** if the operator drills Odin/TWRP recovery before
+  dispatch. The C token alone is not proof of recovery readiness.
+
+Control flow (verified): the single `pwrite` is reachable only after token, single-match sysfs boot
+resolution, `rfd` identity, header parse (fail-closed), target-in-tail-slack bound, `slack_zero==1`,
+before-SHA, and `wfd` identity; it writes exactly the bytes it read; `result=ok` is emitted only when
+no `stop` was set. **Not yet built into an image or run** — the next step is a v3348 build, an
+operator recovery drill, `hide`, and the token-gated live E1, then rollback to v2321.

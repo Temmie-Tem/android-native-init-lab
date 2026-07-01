@@ -301,6 +301,21 @@ int a90_helper_sha256_file(const char *path, char *out, size_t out_size) {
     return helper_sha256_file(path, out, out_size);
 }
 
+/* Public streaming SHA-256 wrappers. struct a90_sha256_ctx has the same layout as the internal
+ * struct helper_sha256_ctx; forward through a pointer cast so external callers (e.g. E1's O_DIRECT
+ * full-partition hash) can stream their own data. */
+void a90_helper_sha256_init(struct a90_sha256_ctx *ctx) {
+    helper_sha256_init((struct helper_sha256_ctx *)ctx);
+}
+
+void a90_helper_sha256_update(struct a90_sha256_ctx *ctx, const unsigned char *data, size_t len) {
+    helper_sha256_update((struct helper_sha256_ctx *)ctx, data, len);
+}
+
+void a90_helper_sha256_final(struct a90_sha256_ctx *ctx, unsigned char digest[32]) {
+    helper_sha256_final((struct helper_sha256_ctx *)ctx, digest);
+}
+
 static bool helper_path_has_prefix(const char *path, const char *prefix) {
     size_t prefix_len;
 
