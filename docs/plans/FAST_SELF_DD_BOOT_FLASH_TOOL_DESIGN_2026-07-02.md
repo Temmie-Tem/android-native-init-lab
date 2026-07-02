@@ -802,3 +802,36 @@ Live result summary: V3357 booted cleanly, SD staging under
 `result=ok source-plan-only`. Post-probe `selftest fail=0`, pstore entries `0`, and final v2321
 rollback `selftest fail=0` were confirmed. `/cache` was full during staging, so the approved SD
 staging root is the practical source path for the next F1 design.
+
+### 12.10 F1 implementation (source-built 2026-07-02, live policy-blocked)
+
+V3358 (`0.11.121`, `v3358-self-dd-f1-roundtrip`) implements the F1 paired content-changing
+roundtrip command:
+`boot-flash-f1 BOOT-FLASH-F1-PAIRED-ROUNDTRIP <candidate-path> <expected-sha256> <expected-version>`.
+It is registered as `CMD_DANGEROUS`, requires the explicit token, repeats the F0 candidate/path/
+SHA/version/header/current-snapshot/target-full-SHA checks, requires `changed_bytes != 0`,
+captures the current full boot partition to
+`/mnt/sdext/a90/flash-staging/boot-flash-f1-before.full`, reopens and SHA-verifies that snapshot,
+writes the full target image in bounded 1MiB chunks, verifies `target_full_sha_after`, immediately
+restores the snapshot in bounded 1MiB chunks, verifies `restore_full_sha_after`, then removes the
+snapshot only on full success. If the command fails before any target pwrite starts, it reports
+`restore_skipped=no-target-pwrite-started`; otherwise it attempts restore and preserves the
+snapshot path on failure. If that retained snapshot path already exists at the start of a later run,
+F1 refuses to overwrite it and stops before any target pwrite.
+
+Expected live PASS output, when separately authorized, includes `token=accepted`,
+`mode=paired-content-roundtrip`, `target_full_match=1`, `restore_full_match=1`, and
+`result=ok paired-roundtrip-restored`, followed by pstore entries `0`, post-probe
+`selftest fail=0`, and final v2321 rollback `selftest fail=0`. The command does not intentionally
+reboot into the changed target image; that remains the F2 rung.
+
+Source build PASS artifact:
+`workspace/private/inputs/boot_images/boot_linux_v3358_self_dd_f1_roundtrip.img`
+with SHA256 `106f797df52bc1c1ca887069dee0d01d3b0a20e00439711f6854520efce7723e`.
+
+Source build PASS report:
+`docs/reports/NATIVE_INIT_V3358_SELF_DD_F1_ROUNDTRIP_SOURCE_BUILD_2026-07-02.md`.
+
+No live F1 content-changing boot write has been executed. Section 12.1 and `AGENTS.md` still block
+execution until the repository policy is deliberately amended to allow exactly this self-owned boot
+partition write path.
