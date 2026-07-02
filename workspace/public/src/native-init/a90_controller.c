@@ -258,7 +258,7 @@ static bool command_allowed_during_menu_ex(const char *name, int argc, char **ar
         /* §0.2 E-open rung: exactly one arg (the approval token); no write is performed */
         return argc == 2;
     }
-    /* boot-write-e1/e2/e3a/e3b (§0.2 write rungs) are intentionally NOT allowed during the auto-menu: they
+    /* boot-write-e1/e2/e3a/e3b/e4 (§0.2 write rungs) are intentionally NOT allowed during the auto-menu: they
      * are CMD_DANGEROUS and must require an explicit hide/menu-settle before dispatch (design
      * §11.5). Do not add them here — falling through lets the CMD_DANGEROUS gate return
      * BUSY_DANGEROUS while the menu is up. */

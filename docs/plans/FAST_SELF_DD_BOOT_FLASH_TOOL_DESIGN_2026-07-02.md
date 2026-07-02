@@ -563,3 +563,24 @@ pstore both passed. Public live report:
 contiguous non-zero identity write in boot tail slack from normal-boot PID1. Remaining fast-flash
 rungs are still separate: header-sector identity (E4), full-partition identity (E5), and only then a
 real new-image self-write with content change.
+
+### 11.12 E4 header-sector identity implementation (source-built 2026-07-02 — pre-live)
+
+V3354 (`0.11.118`, `v3354-boot-write-e4-header`) prepares the first non-slack write rung after
+V3353's 1MiB non-zero slack pass. `boot-write-e4 BOOT-WRITE-PROBE-E4-HEADER-SECTOR` targets offset
+0, length 4096: the Android boot-header sector. The command reads that sector first, requires
+`ANDROID!` magic and a valid boot-header parse, computes a source sector SHA, performs one identity
+`pwrite` of exactly those same bytes back to offset 0, fsyncs once, verifies the sector with O_DIRECT
+readback plus sector SHA comparison, and compares O_DIRECT full-partition SHA before/after.
+
+This rung intentionally raises consequence: a torn write can corrupt the boot header. The risk remains
+boot-only and externally recoverable, but it is no longer tail-slack-only. Therefore E4 keeps the same
+strict gates: checked-helper candidate flash, post-flash `selftest fail=0`, explicit `hide`/
+menu-settle, E4 token run, pstore check, and rollback to v2321 with final `selftest fail=0`. The
+self-dd source still has exactly one `pwrite()` call site, reused by E1..E4.
+
+Source build PASS report:
+`docs/reports/NATIVE_INIT_V3354_BOOT_WRITE_E4_HEADER_SOURCE_BUILD_2026-07-02.md`. No live E4 write
+is claimed here; live validation requires `target_off=0`, `len=4096`, `header_magic=ANDROID`,
+`pwrite_count=1`, `sector_sha_match=1`, `region_match_all=1`, `full_match=1`, pstore entries=0, and
+clean v2321 rollback.

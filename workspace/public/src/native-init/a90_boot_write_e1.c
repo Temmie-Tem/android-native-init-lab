@@ -1,5 +1,5 @@
 /*
- * a90_boot_write_e1.c — §0.2 write-probe rungs E1/E2 (design §11.2): boot-block identity pwrite.
+ * a90_boot_write_e1.c — §0.2 write-probe rungs E1..E4 (design §11.2): boot-block identity pwrite.
  *
  * SAFETY MODEL (design §11, Codex-reviewed, UFS). Storage is UFS: an INTERRUPTED write is NOT
  * guaranteed safe even for identical bytes — the FTL erases/programs at a large internal granularity
@@ -10,7 +10,7 @@
  * partition end. E1/E2/E3a require confirmed-zero sectors; E3b requires a contiguous 1 MiB slack
  * block that contains non-zero bytes. Every rung writes the exact bytes it just read. E1 writes one
  * zero sector; E2 writes four zero sectors; E3a writes sixteen zero sectors; E3b writes one 1 MiB
- * non-zero slack block.
+ * non-zero slack block. E4 writes the 4 KiB Android boot-header sector at offset 0.
  * A completed write is a no-op; a torn write is a recover-via-Odin/TWRP event that the operator MUST
  * have drilled before running this. All fds are
  * identity-guarded (block + rdev==sysfs + PARTNAME=boot + size==64MiB) and opened O_NOFOLLOW; the
@@ -44,6 +44,7 @@
 #define E2_TOKEN "BOOT-WRITE-PROBE-E2-MULTI-TAILSLACK"
 #define E3A_TOKEN "BOOT-WRITE-PROBE-E3A-SPARSE-TAILSLACK"
 #define E3B_TOKEN "BOOT-WRITE-PROBE-E3B-1MIB-SLACK"
+#define E4_TOKEN "BOOT-WRITE-PROBE-E4-HEADER-SECTOR"
 #define E1_PARTNAME "boot"
 #define E1_BOOT_SIZE_BYTES (64ULL * 1024ULL * 1024ULL)
 #define E1_SECTOR 4096u
@@ -79,6 +80,17 @@ struct e3b_probe_spec {
     const char *scope;
     uint32_t len;
     int require_nonzero;
+};
+
+struct e_fixed_probe_spec {
+    const char *tag;
+    const char *command;
+    const char *token;
+    const char *rung;
+    const char *scope;
+    uint64_t off;
+    uint32_t len;
+    int require_android_magic;
 };
 
 static const struct e1_probe_spec E1_SPEC = {
@@ -118,6 +130,17 @@ static const struct e3b_probe_spec E3B_SPEC = {
     "E3B",
     "tail-slack-contiguous-1mib-nonzero-identity",
     E3B_BYTES,
+    1,
+};
+
+static const struct e_fixed_probe_spec E4_SPEC = {
+    "A90BWE4",
+    "boot-write-e4",
+    E4_TOKEN,
+    "E4",
+    "header-sector-4096-identity",
+    0,
+    E1_SECTOR,
     1,
 };
 
@@ -224,6 +247,15 @@ static void e1_hex(const unsigned char *digest, char *out) {
         out[i * 2 + 1] = hexd[digest[i] & 0xf];
     }
     out[64] = '\0';
+}
+
+static void e1_sha256_bytes(const unsigned char *buf, size_t len, char *out) {
+    struct a90_sha256_ctx ctx;
+    unsigned char digest[32];
+    a90_helper_sha256_init(&ctx);
+    a90_helper_sha256_update(&ctx, buf, len);
+    a90_helper_sha256_final(&ctx, digest);
+    e1_hex(digest, out);
 }
 
 /* Confirm fd is the boot partition: block, rdev==exp, PARTNAME=boot, size==64MiB. 1 pass / 0 refuse. */
@@ -1004,6 +1036,241 @@ cleanup:
     return rc;
 }
 
+static int a90_boot_write_fixed_cmd(const struct e_fixed_probe_spec *spec, char **argv, int argc) {
+    const char *tag = spec->tag;
+    if (argc != 2 || strcmp(argv[1], spec->token) != 0) {
+        a90_console_printf("usage: %s %s\r\n", spec->command, spec->token);
+        a90_console_printf("%s refused=missing-or-wrong-token\r\n", tag);
+        return -EPERM;
+    }
+    if (spec->len == 0 || (spec->len % E1_SECTOR) != 0 || (spec->off % E1_SECTOR) != 0 ||
+        spec->off + spec->len > E1_BOOT_SIZE_BYTES) {
+        a90_console_printf("%s refused=bad-range off=%llu len=%u\r\n",
+                           tag, (unsigned long long)spec->off, spec->len);
+        return -EINVAL;
+    }
+
+    a90_console_printf("%s begin\r\n", tag);
+    a90_console_printf("%s rung=%s mode=read-then-write-identical scope=%s\r\n",
+                       tag, spec->rung, spec->scope);
+
+    char name[256];
+    unsigned maj = 0, min = 0;
+    int n = e1_resolve_boot(name, sizeof(name), &maj, &min);
+    if (n != 1) {
+        a90_console_printf("%s resolve=%s\r\n", tag, (n <= 0) ? "none" : "ambiguous");
+        a90_console_printf("%s stop=resolve\r\n", tag);
+        a90_console_printf("%s end rc=%d\r\n", tag, -ENODEV);
+        return -ENODEV;
+    }
+    char node[PATH_MAX];
+    snprintf(node, sizeof(node), "/dev/block/%s", name);
+    a90_console_printf("%s target_node=%s resolve=sysfs-partname\r\n", tag, node);
+
+    int created = 0;
+    int mrc = mknod(node, S_IFBLK | 0600, makedev(maj, min));
+    if (mrc == 0) {
+        created = 1;
+    } else if (errno != EEXIST) {
+        int e = errno;
+        a90_console_printf("%s mknod=fail errno=%d (%s)\r\n", tag, e, strerror(e));
+        a90_console_printf("%s stop=mknod\r\n", tag);
+        a90_console_printf("%s end rc=%d\r\n", tag, -e);
+        return -e;
+    }
+
+    int rc = 0;
+    const char *stop = NULL;
+    char sha_before[E1_SHA_HEX];
+    char source_sha[E1_SHA_HEX];
+    void *src_buf = NULL;
+
+    if (posix_memalign(&src_buf, E1_SECTOR, spec->len) != 0 || src_buf == NULL) {
+        a90_console_printf("%s source_align=fail\r\n", tag);
+        stop = "source-align";
+        rc = -ENOMEM;
+        goto cleanup;
+    }
+
+    int rfd = open(node, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (rfd < 0) {
+        int e = errno;
+        a90_console_printf("%s open_rdonly=fail errno=%d (%s)\r\n", tag, e, strerror(e));
+        stop = "open-rdonly";
+        rc = -e;
+        goto cleanup;
+    }
+    if (!e1_confirm(tag, rfd, maj, min, 1)) {
+        stop = "identity-rfd";
+        rc = -EPERM;
+        close(rfd);
+        goto cleanup;
+    }
+    ssize_t rd = pread(rfd, src_buf, spec->len, (off_t)spec->off);
+    if (rd != (ssize_t)spec->len) {
+        a90_console_printf("%s source_read_rc=%ld errno=%d\r\n", tag, (long)rd, errno);
+        stop = "source-read";
+        rc = (rd < 0) ? -errno : -EIO;
+        close(rfd);
+        goto cleanup;
+    }
+    const unsigned char *bytes = (const unsigned char *)src_buf;
+    if (spec->require_android_magic && memcmp(bytes, "ANDROID!", 8) != 0) {
+        a90_console_printf("%s boot_header=absent stop=no-boot-magic\r\n", tag);
+        stop = "no-boot-magic";
+        rc = -EINVAL;
+        close(rfd);
+        goto cleanup;
+    }
+    if (spec->require_android_magic) {
+        uint32_t page_size = e1_rd_u32le(bytes, AH_PAGE_SIZE);
+        if (page_size < 512 || page_size > (1u << 20)) {
+            a90_console_printf("%s boot_header=bad-page-size=%u stop=bad-page-size\r\n",
+                               tag, page_size);
+            stop = "bad-page-size";
+            rc = -EINVAL;
+            close(rfd);
+            goto cleanup;
+        }
+        uint32_t hver = e1_rd_u32le(bytes, AH_HEADER_VERSION);
+        if (hver > 2) {
+            a90_console_printf("%s boot_header=unsupported-version=%u stop=unsupported-header\r\n",
+                               tag, hver);
+            stop = "unsupported-header";
+            rc = -EINVAL;
+            close(rfd);
+            goto cleanup;
+        }
+        uint64_t used_len = (uint64_t)page_size
+                          + e1_round_up(e1_rd_u32le(bytes, AH_KERNEL_SIZE), page_size)
+                          + e1_round_up(e1_rd_u32le(bytes, AH_RAMDISK_SIZE), page_size)
+                          + e1_round_up(e1_rd_u32le(bytes, AH_SECOND_SIZE), page_size);
+        if (hver >= 1) {
+            used_len += e1_round_up(e1_rd_u32le(bytes, AH_RECOVERY_DTBO_SIZE), page_size);
+        }
+        if (hver >= 2) {
+            used_len += e1_round_up(e1_rd_u32le(bytes, AH_DTB_SIZE), page_size);
+        }
+        a90_console_printf("%s boot_header=ok version=%u page_size=%u used_len=%llu\r\n",
+                           tag, hver, page_size, (unsigned long long)used_len);
+    }
+    close(rfd);
+
+    e1_sha256_bytes(bytes, spec->len, source_sha);
+    a90_console_printf("%s target_off=%llu len=%u header_magic=%s source_sha=%s\r\n",
+                       tag, (unsigned long long)spec->off, spec->len,
+                       spec->require_android_magic ? "ANDROID" : "unchecked", source_sha);
+
+    {
+        int sr = e1_full_sha_odirect(tag, node, maj, min, E1_BOOT_SIZE_BYTES, sha_before);
+        if (sr != 0) {
+            a90_console_printf("%s sha_before=fail rc=%d\r\n", tag, sr);
+            stop = "sha-before";
+            rc = sr;
+            goto cleanup;
+        }
+        a90_console_printf("%s full_sha_before=%s\r\n", tag, sha_before);
+    }
+
+    {
+        int wfd = open(node, O_WRONLY | O_CLOEXEC | O_NOFOLLOW);
+        if (wfd < 0) {
+            int e = errno;
+            a90_console_printf("%s open_wronly=fail errno=%d (%s)\r\n", tag, e, strerror(e));
+            stop = "open-wronly";
+            rc = -e;
+            goto verify_full;
+        }
+        if (!e1_confirm(tag, wfd, maj, min, 0)) {
+            a90_console_printf("%s stop=identity-wfd\r\n", tag);
+            stop = "identity-wfd";
+            rc = -EPERM;
+            close(wfd);
+            goto verify_full;
+        }
+        if (!e_pwrite_exact(tag, wfd, src_buf, spec->len, spec->off, 0, 0, &stop, &rc)) {
+            close(wfd);
+            goto verify_full;
+        }
+        if (fsync(wfd) != 0) {
+            a90_console_printf("%s fsync=fail errno=%d\r\n", tag, errno);
+            stop = "fsync";
+            rc = -EIO;
+            close(wfd);
+            goto verify_full;
+        }
+        close(wfd);
+        a90_console_printf("%s pwrite_count=1 pwrite=ok fsync=ok\r\n", tag);
+    }
+
+    {
+        int dfd = open(node, O_RDONLY | O_DIRECT | O_CLOEXEC | O_NOFOLLOW);
+        if (dfd < 0) {
+            a90_console_printf("%s odirect_open=fail errno=%d\r\n", tag, errno);
+            if (!stop) { stop = "odirect-open"; rc = -EIO; }
+        } else if (!e1_confirm(tag, dfd, maj, min, 0)) {
+            a90_console_printf("%s stop=identity-dfd\r\n", tag);
+            if (!stop) { stop = "identity-dfd"; rc = -EPERM; }
+            close(dfd);
+        } else {
+            void *readback = NULL;
+            if (posix_memalign(&readback, E1_SECTOR, spec->len) != 0 || readback == NULL) {
+                a90_console_printf("%s odirect_align=fail\r\n", tag);
+                if (!stop) { stop = "odirect-align"; rc = -ENOMEM; }
+            } else {
+                char readback_sha[E1_SHA_HEX];
+                ssize_t rr = pread(dfd, readback, spec->len, (off_t)spec->off);
+                int region_match = (rr == (ssize_t)spec->len) &&
+                                   memcmp(readback, src_buf, spec->len) == 0;
+                if (rr == (ssize_t)spec->len) {
+                    e1_sha256_bytes((const unsigned char *)readback, spec->len, readback_sha);
+                } else {
+                    snprintf(readback_sha, sizeof(readback_sha), "unavailable");
+                }
+                a90_console_printf("%s readback_rc=%ld region_match=%d readback_sha=%s\r\n",
+                                   tag, (long)rr, region_match, readback_sha);
+                a90_console_printf("%s sector_sha_match=%d\r\n",
+                                   tag, strcmp(source_sha, readback_sha) == 0);
+                a90_console_printf("%s region_match_all=%d\r\n", tag, region_match);
+                if (!region_match && !stop) { stop = "region-mismatch"; rc = -EIO; }
+                free(readback);
+            }
+            close(dfd);
+        }
+    }
+
+verify_full:;
+    {
+        char sha_after[E1_SHA_HEX];
+        int sr = e1_full_sha_odirect(tag, node, maj, min, E1_BOOT_SIZE_BYTES, sha_after);
+        if (sr != 0) {
+            a90_console_printf("%s sha_after=fail rc=%d\r\n", tag, sr);
+            if (!stop) { stop = "sha-after"; rc = sr; }
+        } else {
+            int full_match = strcmp(sha_before, sha_after) == 0;
+            a90_console_printf("%s full_sha_after=%s\r\n", tag, sha_after);
+            a90_console_printf("%s full_match=%d\r\n", tag, full_match);
+            if (!full_match && !stop) { stop = "full-partition-changed"; rc = -EIO; }
+        }
+    }
+
+cleanup:
+    if (src_buf != NULL) {
+        free(src_buf);
+    }
+    if (created) {
+        unlink(node);
+        a90_console_printf("%s cleaned=1\r\n", tag);
+    }
+    if (stop) {
+        a90_console_printf("%s stop=%s\r\n", tag, stop);
+    } else {
+        a90_console_printf("%s result=ok pwrite-permitted-identity-verified\r\n", tag);
+    }
+    a90_console_printf("%s end rc=%d\r\n", tag, rc);
+    return rc;
+}
+
 int a90_boot_write_e1_cmd(char **argv, int argc) {
     return a90_boot_write_identity_cmd(&E1_SPEC, argv, argc);
 }
@@ -1018,4 +1285,8 @@ int a90_boot_write_e3a_cmd(char **argv, int argc) {
 
 int a90_boot_write_e3b_cmd(char **argv, int argc) {
     return a90_boot_write_contiguous_cmd(&E3B_SPEC, argv, argc);
+}
+
+int a90_boot_write_e4_cmd(char **argv, int argc) {
+    return a90_boot_write_fixed_cmd(&E4_SPEC, argv, argc);
 }
