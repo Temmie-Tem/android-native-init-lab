@@ -459,6 +459,9 @@ def run_self_write_live(args: argparse.Namespace,
     }
 
     emit("preflight_start")
+    # the auto-menu (autohud) can re-assert on idle and returns rc=-16 status=busy for commands
+    # that are not menu-allowed (e.g. pstore, boot-flash-plan); hide/settle before each such group.
+    selfwrite_hide_settle(args, settle_sec=args.menu_settle_sec)
     for name in ("version", "status", "selftest"):
         r = selfwrite_cmdv1(args, [name])
         verify_cmdv1_result(r, name)
@@ -472,9 +475,18 @@ def run_self_write_live(args: argparse.Namespace,
 
     emit("candidate_stage_start")
     stage_start = time.monotonic()
-    run_command([str(part) for part in plan["stage_command"]])
+    if getattr(args, "self_write_skip_stage", False):
+        # transport-independent path: the candidate is already present in the approved staging
+        # root; the device-side boot-flash-plan below re-verifies its SHA/version/header and fails
+        # closed on any mismatch before any write, so skipping the tcpctl push is safe.
+        log("skip-stage: assuming candidate already staged; boot-flash-plan will verify SHA/version")
+        result["staged"] = "skipped-preexisting"
+    else:
+        run_command([str(part) for part in plan["stage_command"]])
+        result["staged"] = "tcpctl"
     emit("candidate_stage_done")
 
+    selfwrite_hide_settle(args, settle_sec=args.menu_settle_sec)
     emit("source_plan_start")
     source = selfwrite_cmdv1(
         args,
@@ -1001,6 +1013,12 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="explicit opt-in for the design section 12.1 F4-live validation; live self-write "
              "stays fail-closed without this flag and is restricted to the v2321 rollback image",
+    )
+    parser.add_argument(
+        "--self-write-skip-stage",
+        action="store_true",
+        help="skip the tcpctl candidate staging step and rely on the device-side boot-flash-plan "
+             "SHA/version/header re-verification of an already-staged candidate",
     )
     parser.add_argument(
         "--self-write-timeout",

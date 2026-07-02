@@ -1113,3 +1113,30 @@ the policy block before any recovery transition, staging transfer, or boot write
 Host validation proved the plan-only mode against the V3360 image and kept the live path blocked.
 No device command, flash, reboot, or rollback occurred in this V3361 host-only unit. Report:
 `docs/reports/NATIVE_INIT_V3361_SELF_DD_F4_HOST_INTEGRATION_SOURCE_2026-07-02.md`.
+
+### 12.18 V3362 F4-live host self-flash (live pass)
+
+After the §12.1 F4-live amendment and a Codex NO-GO→GO pre-live review (the one MUST-FIX tightened the
+post-reboot check to an exact `version:` field parse), the live path was implemented in
+`native_init_flash.py` (`run_self_write_live`): preflight (hide/settle, `version`/`status`/`selftest
+fail=0`, `pstore entries=0`), optional tcpctl staging, `boot-flash-plan`, hide/settle,
+`boot-flash-f3` (requires rc=0 + success marker + `target_full_match=1` + `reboot_required=1`),
+hide/settle, host `reboot`, then an exact post-reboot `0.9.285` version wait plus `selftest fail=0`.
+Mode and candidate guards raise before any device I/O; the live path stays fail-closed without
+`--self-write-live-authorized`.
+
+Two host-only fixes landed during the live session: hide/settle before the preflight `pstore` group
+and before `boot-flash-plan` (the auto-menu returns `rc=-16 status=busy` for non-menu-allowed
+commands), and `--self-write-skip-stage` to rely on the device-side `boot-flash-plan`
+SHA/version/header re-verification of an already-staged candidate (attempt 1's tcpctl staging hit a
+device netcat-listener `ConnectionRefused` race and stopped before any boot write).
+
+Live result: bootstrap TWRP flash of V3360 took `65.3 s` (baseline). The F4-live host self-flash of
+v2321 completed with `expected_sha_match=1`, `target_full_sha_after=b4abab92…`, `target_full_match=1`,
+`result=ok rollback-written-ready-to-reboot`, then the host rebooted and verified exact
+`version 0.9.285` with `selftest pass=11 fail=0`. Measured `self_flash_elapsed_sec=18.0`,
+`reboot_boot_elapsed_sec=32.4`, total host command `59.0 s`. The reboot floor dominates, so the
+self-flash total is only modestly under the TWRP baseline; the structural win is avoiding the
+recovery round-trip and second reboot. The device landed on a clean self-written v2321. F4-live
+passes; production/default adoption, prefix-only optimization, and non-v2321 candidates remain gated.
+Report: `docs/reports/NATIVE_INIT_V3362_SELF_DD_F4_LIVE_2026-07-02.md`.
