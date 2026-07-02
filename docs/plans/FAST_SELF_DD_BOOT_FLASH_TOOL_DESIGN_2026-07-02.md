@@ -1008,3 +1008,54 @@ The source-build report is
 self-rollback write or reboot into v2321 is claimed by this source-build report. Section 12.1 and
 `AGENTS.md` now authorize only the next bounded V3360 F3 live validation; F4 remains blocked until a
 future explicit policy amendment.
+
+### 12.16 V3360 F3 live pass (self-rollback from a self-written candidate)
+
+After the F3-only policy amendment in `AGENTS.md` / §12.1, the live run used the already-proven V3359
+F2 helper as the parent writer. V3359 was flashed through `native_init_flash.py`, booted cleanly, and
+passed `version/status/selftest` plus pstore summary. The approved SD staging root contained both the
+V3360 F3 image and the v2321 rollback image, and device-side SHA checks matched:
+
+- V3360: `2989c292d1a7ae7cd5f9eb78906b2451d717e4221b9c9b76114ddc9054b52a29`
+- v2321: `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`
+
+V3359 first ran F0 and F2 against the staged V3360 image. F2 verified the target full SHA
+`3c2718d819880bd3a554e28632f4ffa54b6829dc412d9bb4b1684170efb6b617`, returned
+`result=ok target-written-ready-to-reboot`, and the host rebooted into the self-written V3360 image:
+`0.11.123 build=v3360-self-dd-f3-self-rollback`.
+
+V3360 then ran F0 against the staged v2321 rollback image and returned:
+
+```text
+A90BWF0 before_full_sha=3c2718d819880bd3a554e28632f4ffa54b6829dc412d9bb4b1684170efb6b617
+A90BWF0 candidate_sha=ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb expected_sha_match=1
+A90BWF0 expected_version=0.9.285 version_marker_found=1
+A90BWF0 target_full_sha=b4abab92a80674dbcccc410f089da77b303200c42c2c3f6a9e56a585348cc456
+A90BWF0 changed_chunks=13 changed_bytes=10077930 chunk_len=1048576
+A90BWF0 result=ok source-plan-only
+```
+
+Then `boot-flash-f3 BOOT-FLASH-F3-SELF-ROLLBACK ...` ran once and returned:
+
+```text
+A90BWF3 token=accepted mode=self-rollback-write reboot_candidate=host-controlled
+A90BWF3 before_full_sha=3c2718d819880bd3a554e28632f4ffa54b6829dc412d9bb4b1684170efb6b617
+A90BWF3 candidate_sha=ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb expected_sha_match=1
+A90BWF3 expected_version=0.9.285 version_marker_found=1
+A90BWF3 target_full_sha=b4abab92a80674dbcccc410f089da77b303200c42c2c3f6a9e56a585348cc456
+A90BWF3 snapshot_sha=3c2718d819880bd3a554e28632f4ffa54b6829dc412d9bb4b1684170efb6b617 snapshot_match_before=1
+A90BWF3 target_pwrite_count=64 target_fsync=ok
+A90BWF3 target_full_sha_after=b4abab92a80674dbcccc410f089da77b303200c42c2c3f6a9e56a585348cc456 target_full_match=1
+A90BWF3 restore_skipped=rollback-verified-host-reboot-required
+A90BWF3 result=ok rollback-written-ready-to-reboot
+```
+
+The host immediately sent `reboot`, and the device booted v2321:
+`0.9.285 build=v2321-usb-clean-identity-rodata`. Final status and independent selftest both passed
+with `selftest fail=0`; pstore entries stayed `0`. The retained F2 and F3 `before.full` snapshots
+were deleted only after final v2321 health passed.
+
+This closes F3: a self-written candidate can write the v2321 rollback target from normal boot,
+verify the full partition SHA, reboot, and return to the clean rollback baseline. F4 and production
+self-write integration remain blocked until a future explicit policy amendment. Report:
+`docs/reports/NATIVE_INIT_V3360_SELF_DD_F3_SELF_ROLLBACK_LIVE_2026-07-02.md`.
