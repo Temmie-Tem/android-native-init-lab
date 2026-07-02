@@ -81,6 +81,19 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > fails-twice→STOP, **PACKED resident sessions only (reject <2-target sessions)**, and raw
 > pointers/slide out of commits.
 
+> **🟣 OPERATOR STEER (2026-07-03) — REPL FINISH-LINE CLOSED.**
+> The remaining ABI-shape gap is now closed by the live `current_kernel_time64()` return-pair proof:
+> a narrow call-pair v1-repl companion image captured same-call x0/x1 and proved the arm64
+> `struct timespec64` aggregate-return contract (`x0=tv_sec`, `x1=tv_nsec`) against
+> `ktime_get_real_seconds()` anchors. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_CURRENT_KERNEL_TIME64_RETURN_PAIR_2026-07-03.md`.
+> The finite observation bundle set required above is also already present as first-class VFS-read
+> surfaces: `kernel-vitals`, generic `/proc`/`/sys` reader, `soc-fingerprint`, `boot-config`, and
+> `hardening-posture`. Therefore the REPL epic's close criteria are met. **STOP adding REPL
+> same-shape breadth or new observation bundles.** Optional work is limited to the already-chartered U2
+> ergonomics / one-page runbook if it directly improves operator usability; otherwise the next major
+> work requires an operator re-charter, with the server-distro endgame remaining the standing next epic.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.
@@ -2747,6 +2760,41 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > no-argument `timespec64.tv_sec` x0 contract, with `ktime_get_real_seconds()` used as a
 > same-session anchor. Report:
 > `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_CURRENT_KERNEL_TIME64_2026-07-01.md`.
+
+## ✅ DONE — REPL aggregate-return pair live-call proof — `current_kernel_time64()` x0/x1 promoted
+
+> ### ✅ STATUS (2026-07-03 live-proven, rolled back cleanly) — same-call `timespec64` return pair
+>
+> Codex closed the REPL ABI-shape gap by adding a deliberately narrow call-pair
+> v1-repl companion image. The normal v1-repl image remains the resident default;
+> this image keeps the same magic/op layout but prints `R%llx:%llx` after `op3`
+> so a small arm64 aggregate return can be captured as post-call x0:x1.
+>
+> Static gate pinned `current_kernel_time64=0xffffff8008161894` via
+> `export-recovery` with map agreement, source declaration
+> `struct timespec64 current_kernel_time64(void)`, no pointer args, `SAFE-SCALAR`
+> callability, 20-word body match, and next-symbol boundary
+> `get_monotonic_coarse64` at `+0x50`. The anchor
+> `ktime_get_real_seconds=0xffffff800815f694` remained the same-session realtime
+> seconds bound.
+>
+> The candidate call-pair image
+> (`boot_linux_tier2_repl_v1_call_pair.img`,
+> SHA256 `2c9c3a1638a98fc134158f49de80d1501f0d1eab50e59e828dc8d4b853e3c495`)
+> flashed through `native_init_flash.py` with matching readback SHA. Live proof
+> returned two valid pairs: x0 values `0x5a545b2f` and `0x5a545b30`, x1 values
+> `0x389fd96d` and `0x1c03a16d`, with `tv_nsec <= 999999999`, nondecreasing
+> total time, and x0 bounded by `ktime_get_real_seconds()` anchors
+> `0x5a545b2f..0x5a545b30`. Post-proof health stayed `fail=0`; rollback to
+> v2321 completed through the checked helper with matching readback SHA; final
+> v2321 `version/status/selftest` passed after one serial-noise selftest retry
+> (`selftest pass=11 warn=1 fail=0`).
+>
+> Function-map outcome: `current_kernel_time64` is now promoted under the full
+> no-argument `timespec64` return contract: x0=`tv_sec`, x1=`tv_nsec`, captured
+> from the same call by the call-pair REPL variant. This closes the struct-return
+> ABI representative required by the 2026-07-03 REPL finish-line steer. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_CURRENT_KERNEL_TIME64_RETURN_PAIR_2026-07-03.md`.
 
 ## ✅ DONE — REPL pid current-namespace live-call proof — `pid_vnr(init_task->thread_pid)` promoted
 
