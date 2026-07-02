@@ -6171,7 +6171,17 @@ int main(void) {
         .draw_frame = selftest_boot_draw_frame,
     };
 
-    a90_timeline_record(0, 0, "init-start", "%s", INIT_BANNER);
+    /* Hot-reload fast path: when this init was started by `reload` (execve of PID1 in place, no
+       reboot), the USB gadget, NCM, and DRM/HUD state from the previous init are still live in the
+       kernel. Re-initializing them errors (autohud SETCRTC EACCES, netservice NCM EIO) and is slow.
+       When A90_RELOADED is set we skip the boot splash delay and skip re-init of already-live
+       services, going straight back to the serial control shell. A normal (kernel-spawned) boot has
+       A90_RELOADED unset, so every guard below is a no-op and normal boot behavior is unchanged. */
+    int a90_reloaded = (getenv("A90_RELOADED") != NULL);
+    a90_timeline_record(0, 0, a90_reloaded ? "init-start-reloaded" : "init-start", "%s", INIT_BANNER);
+    if (a90_reloaded) {
+        klogf("<6>A90v724: hot-reload fast-path (A90_RELOADED set)\n");
+    }
     setup_base_mounts();
     a90_log_select_or_fallback(NATIVE_LOG_FALLBACK);
     a90_logf("boot", "%s start", INIT_BANNER);
@@ -6340,7 +6350,9 @@ int main(void) {
         a90_timeline_record(0, 0, "ttyGS0", "/dev/ttyGS0 ready");
         klogf("<6>A90v724: ttyGS0 ready\n");
         boot_auto_frame();
-        sleep(BOOT_SPLASH_SECONDS);
+        if (!a90_reloaded) {
+            sleep(BOOT_SPLASH_SECONDS);
+        }
     } else {
         int saved_errno = errno;
 
@@ -6367,6 +6379,10 @@ int main(void) {
         a90_console_drain_input(250, 1500);
         a90_console_printf("\r\n# %s\r\n", INIT_BANNER);
         a90_console_printf("# USB ACM serial console ready.\r\n");
+        if (a90_reloaded) {
+            a90_console_printf("# Hot-reload: skipping autohud/netservice/rshell re-init (already live).\r\n");
+            a90_logf("boot", "reloaded fast-path: skip autohud/netservice/rshell re-init");
+        } else {
         v724_run_qrtr_servloc_boot_once();
         v641_run_sibling_ssctl_once();
         if (start_auto_hud(BOOT_HUD_REFRESH_SECONDS, false) == 0) {
@@ -6456,6 +6472,7 @@ int main(void) {
         }
         (void)a90_wifi_start_boot_autoconnect_once();
         (void)a90_audio_boot_chime_start_once();
+        }  /* end !a90_reloaded live-service re-init guard */
         a90_logf("boot", "entering shell");
         a90_timeline_record(0, 0, "shell", "interactive shell ready");
         shell_loop();
