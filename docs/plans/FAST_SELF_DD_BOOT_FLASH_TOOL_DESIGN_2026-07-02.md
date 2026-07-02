@@ -584,3 +584,14 @@ Source build PASS report:
 is claimed here; live validation requires `target_off=0`, `len=4096`, `header_magic=ANDROID`,
 `pwrite_count=1`, `sector_sha_match=1`, `region_match_all=1`, `full_match=1`, pstore entries=0, and
 clean v2321 rollback.
+
+Live result (2026-07-02): V3354 flashed through `native_init_flash.py`, booted cleanly, and E4
+passed. The command targeted the Android boot-header sector (`target_off=0`, `len=4096`,
+`header_magic=ANDROID`), executed one 4096B identity `pwrite` (`pwrite_rc=4096`,
+`pwrite_count=1`), read the sector back with `region_match_all=1`, matched the sector SHA
+(`sector_sha_match=1`), and preserved the O_DIRECT full-partition SHA (`full_match=1`). Post-probe
+`selftest fail=0`, pstore entries=0, rollback to v2321 completed, and final explicit selftest plus
+pstore both passed. Public live report:
+`docs/reports/NATIVE_INIT_V3354_BOOT_WRITE_E4_HEADER_LIVE_2026-07-02.md`. This proves the late
+header-sector identity rung. Remaining fast-flash rungs are full-partition identity (E5), then a
+separate real new-image self-write with content change.
