@@ -673,8 +673,35 @@ command remains token-gated, boot-identity-guarded, full-SHA verified, and retur
 `reboot_required=1` transcript for a host-controlled immediate reboot into v2321. On any F3
 target-write/readback failure, F3 must not reboot and must attempt the designed `before.full` failure
 restore if any target pwrite started. `native_init_flash.py` remains the recovery-grade fallback.
-This amendment does not authorize F4, production fast-flash integration, raw host `dd`, fastboot, or
-any non-boot partition write; those remain gated by a future explicit amendment.
+The F1/F2/F3 amendment did not authorize F4, production fast-flash integration, raw host `dd`,
+fastboot, or any non-boot partition write.
+
+Operator policy amendment (2026-07-02, F4-live): exactly one bounded F4-class host-orchestrated
+self-flash validation through `native_init_flash.py --experimental-self-write` is now authorized,
+under all of these constraints:
+
+- The self-flash candidate must be the **v2321 rollback image**
+  (`boot_linux_v2321_usb_clean_identity_rodata.img`, SHA256 `ca978551...`, version `0.9.285`),
+  driven with `boot-flash-f3 BOOT-FLASH-F3-SELF-ROLLBACK` self-rollback semantics, so both the
+  success path and any restore path converge on the clean rollback checkpoint.
+- The live path is fail-closed by default. `--experimental-self-write` without
+  `--self-write-plan-only` and without the explicit `--self-write-live-authorized` opt-in must still
+  refuse. Plan-only remains unchanged.
+- It may run only after an F-capable build (V3359 or later) was flashed through the checked helper
+  and is resident and healthy, rollback images v2321/v2237/v48 and recovery/TWRP are confirmed, the
+  approved staged v2321 candidate passes SHA/version/header/size checks, and no pstore entries are
+  present before the attempt.
+- The host must hide/settle any active menu before the DANGEROUS `boot-flash-f3` command, must not
+  reboot unless that command returns `result=ok ... rollback-written-ready-to-reboot` with
+  `target_full_match=1` and `reboot_required=1`, and after the host-controlled reboot must verify
+  resident v2321 `version 0.9.285` and `selftest fail=0`.
+- On any preflight/plan/write/readback failure the host must not reboot; the device command attempts
+  its `before.full` restore, and the host recovers to v2321 through the checked helper/TWRP.
+
+This amendment authorizes only this bounded F4-live validation. It does not make self-write the
+default flash path, and it does not authorize prefix-only production optimization, arbitrary
+non-v2321 self-flash candidates, raw host `dd`, fastboot, or any non-boot partition write; those
+remain gated by a future explicit amendment.
 
 ### 12.2 Staging model: partition image, not naked dd
 

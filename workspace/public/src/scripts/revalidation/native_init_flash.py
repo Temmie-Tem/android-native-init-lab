@@ -38,6 +38,26 @@ SELF_WRITE_POLICY_BLOCK = (
     "authorized by AGENTS.md or design section 12.1"
 )
 
+# design section 12.1 F4-live amendment (2026-07-02): the only authorized live self-write
+# candidate is the v2321 rollback image driven with boot-flash-f3 self-rollback semantics, so
+# both the success path and any restore path converge on the clean rollback checkpoint.
+SELF_WRITE_F4_LIVE_SHA256 = (
+    "ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb"
+)
+SELF_WRITE_F4_LIVE_VERSION = "0.9.285"
+SELF_WRITE_MODES = {
+    "f2": {
+        "command": "boot-flash-f2",
+        "token": "BOOT-FLASH-F2-BOOT-CANDIDATE",
+        "success_marker": "result=ok target-written-ready-to-reboot",
+    },
+    "f3": {
+        "command": "boot-flash-f3",
+        "token": "BOOT-FLASH-F3-SELF-ROLLBACK",
+        "success_marker": "result=ok rollback-written-ready-to-reboot",
+    },
+}
+
 
 def log(message: str) -> None:
     timestamp = time.strftime("%H:%M:%S")
@@ -262,11 +282,19 @@ def build_experimental_self_write_plan(args: argparse.Namespace,
     if not args.expect_android_magic:
         raise RuntimeError("experimental self-write requires --expect-android-magic")
 
+    mode = getattr(args, "self_write_mode", "f2") or "f2"
+    if mode not in SELF_WRITE_MODES:
+        raise RuntimeError(f"unknown --self-write-mode: {mode!r}")
+    mode_spec = SELF_WRITE_MODES[mode]
+    live_authorized = bool(getattr(args, "self_write_live_authorized", False))
     remote_image = self_write_remote_image_path(args, image_path)
     tcpctl_script = "workspace/public/src/scripts/revalidation/tcpctl_host.py"
     return {
         "mode": "experimental-self-write",
-        "policy_state": "plan-only-live-blocked",
+        "self_write_mode": mode,
+        "policy_state": (
+            "f4-live-authorized" if live_authorized else "plan-only-live-blocked"
+        ),
         "policy_block": SELF_WRITE_POLICY_BLOCK,
         "local_image": str(image_path),
         "local_sha256": local_hash,
@@ -302,12 +330,13 @@ def build_experimental_self_write_plan(args: argparse.Namespace,
             args.expect_version,
         ],
         "self_write_command": [
-            "boot-flash-f2",
-            "BOOT-FLASH-F2-BOOT-CANDIDATE",
+            mode_spec["command"],
+            mode_spec["token"],
             remote_image,
             local_hash,
             args.expect_version,
         ],
+        "self_write_success_marker": mode_spec["success_marker"],
         "system_reboot_command": ["reboot"],
         "required_timeline_events": [
             "candidate_flash_start",
@@ -323,6 +352,200 @@ def build_experimental_self_write_plan(args: argparse.Namespace,
     }
 
 
+def selfwrite_cmdv1(args: argparse.Namespace,
+                    command: list[str],
+                    timeout_sec: float | None = None) -> ProtocolResult:
+    result = run_cmdv1_command(
+        args.bridge_host,
+        args.bridge_port,
+        timeout_sec if timeout_sec is not None else args.bridge_timeout,
+        command,
+    )
+    print(result.text, end="" if result.text.endswith("\n") else "\n")
+    return result
+
+
+def selfwrite_hide_settle(args: argparse.Namespace, settle_sec: float) -> None:
+    output = bridge_command(
+        args.bridge_host,
+        args.bridge_port,
+        "hide",
+        args.bridge_timeout,
+        markers=(b"[busy]", b"[done]", b"[err]"),
+    )
+    print(output, end="")
+    time.sleep(settle_sec)
+
+
+VERSION_FIELD_RE = re.compile(r"(?m)^version:\s*(\S+)")
+
+
+def parse_native_version_field(text: str) -> str | None:
+    match = VERSION_FIELD_RE.search(text)
+    return match.group(1) if match else None
+
+
+def wait_for_native_version(args: argparse.Namespace,
+                            expect_version: str,
+                            overall_timeout: float,
+                            poll_interval: float = 3.0) -> str:
+    deadline = time.monotonic() + overall_timeout
+    last = ""
+    while time.monotonic() < deadline:
+        remaining = deadline - time.monotonic()
+        try:
+            result = run_cmdv1_command(
+                args.bridge_host,
+                args.bridge_port,
+                min(20.0, max(2.0, remaining)),
+                ["version"],
+            )
+            # require a clean cmdv1 result AND an exact-field version match so a partial
+            # reconnect, an error frame, or the pre-reboot image is never mistaken for the
+            # self-written target.
+            if result.rc == 0 and result.status == "ok":
+                observed = parse_native_version_field(result.text)
+                if observed == expect_version:
+                    print(result.text, end="" if result.text.endswith("\n") else "\n")
+                    return result.text
+                last = f"observed version field={observed!r}"
+            else:
+                last = f"rc={result.rc} status={result.status}"
+        except Exception as exc:  # noqa: BLE001 - device is re-enumerating; keep polling
+            last = str(exc)
+        time.sleep(poll_interval)
+    raise RuntimeError(
+        f"native init did not report exact version {expect_version} within {overall_timeout:.0f}s; "
+        f"last={last!r}"
+    )
+
+
+def run_self_write_live(args: argparse.Namespace,
+                        plan: dict[str, object],
+                        image_path: Path,
+                        local_hash: str,
+                        image_size: int) -> int:
+    # design section 12.1 F4-live amendment: only the v2321 rollback image with f3 semantics.
+    if args.self_write_mode != "f3":
+        raise RuntimeError(
+            "F4-live is authorized only for --self-write-mode f3 (self-rollback to v2321)"
+        )
+    if (local_hash.lower() != SELF_WRITE_F4_LIVE_SHA256
+            or args.expect_version != SELF_WRITE_F4_LIVE_VERSION):
+        raise RuntimeError(
+            "F4-live candidate must be the v2321 rollback image "
+            f"(sha256 {SELF_WRITE_F4_LIVE_SHA256}, version {SELF_WRITE_F4_LIVE_VERSION})"
+        )
+
+    success_marker = str(plan["self_write_success_marker"])
+    events: list[dict[str, object]] = []
+
+    def emit(name: str) -> None:
+        events.append({
+            "event": name,
+            "monotonic": round(time.monotonic(), 3),
+            "wallclock": time.strftime("%H:%M:%S"),
+        })
+        log(f"self-write event: {name}")
+
+    result: dict[str, object] = {
+        "mode": "experimental-self-write-live",
+        "self_write_mode": args.self_write_mode,
+        "policy_state": "f4-live-authorized",
+        "candidate": str(image_path),
+        "candidate_sha256": local_hash,
+        "candidate_version": args.expect_version,
+        "events": events,
+    }
+
+    emit("preflight_start")
+    for name in ("version", "status", "selftest"):
+        r = selfwrite_cmdv1(args, [name])
+        verify_cmdv1_result(r, name)
+        if name == "selftest" and "fail=0" not in r.text:
+            raise RuntimeError("preflight selftest did not report fail=0")
+    pstore = selfwrite_cmdv1(args, ["pstore", "summary"])
+    verify_cmdv1_result(pstore, "pstore summary")
+    if "entries=0" not in pstore.text:
+        raise RuntimeError("preflight pstore summary did not report entries=0")
+    emit("preflight_ok")
+
+    emit("candidate_stage_start")
+    stage_start = time.monotonic()
+    run_command([str(part) for part in plan["stage_command"]])
+    emit("candidate_stage_done")
+
+    emit("source_plan_start")
+    source = selfwrite_cmdv1(
+        args,
+        [str(part) for part in plan["source_plan_command"]],
+        timeout_sec=max(args.bridge_timeout, 300.0),
+    )
+    verify_cmdv1_result(source, "boot-flash-plan")
+    for needle in ("result=ok source-plan-only", "expected_sha_match=1", "version_marker_found=1"):
+        if needle not in source.text:
+            raise RuntimeError(f"source-plan did not report {needle!r}")
+    emit("source_plan_done")
+
+    # boot-flash-f3 is CMD_DANGEROUS; hide/settle any active menu before dispatch.
+    selfwrite_hide_settle(args, settle_sec=args.menu_settle_sec)
+    emit("self_write_start")
+    self_write = selfwrite_cmdv1(
+        args,
+        [str(part) for part in plan["self_write_command"]],
+        timeout_sec=max(args.self_write_timeout, args.bridge_timeout),
+    )
+    verify_cmdv1_result(self_write, "boot-flash-f3")
+    for needle in (success_marker, "target_full_match=1", "reboot_required=1"):
+        if needle not in self_write.text:
+            raise RuntimeError(f"self-write did not report {needle!r}")
+    self_flash_elapsed = time.monotonic() - stage_start
+    result["self_flash_elapsed_sec"] = round(self_flash_elapsed, 3)
+    emit("self_write_done")
+
+    # host-controlled reboot into the self-written v2321 (reboot is CMD_DANGEROUS|CMD_NO_DONE).
+    selfwrite_hide_settle(args, settle_sec=args.menu_settle_sec)
+    emit("system_reboot_requested")
+    try:
+        reboot_out = bridge_command(
+            args.bridge_host,
+            args.bridge_port,
+            "reboot",
+            30.0,
+            markers=(b"[busy]", b"[err]", b"reboot"),
+        )
+        print(reboot_out, end="")
+    except RuntimeError as exc:
+        # CMD_NO_DONE: the device drops the link instead of returning a marker.
+        log(f"reboot returned no clean marker (expected for CMD_NO_DONE): {exc}")
+
+    emit("rollback_boot_wait")
+    verify_start = time.monotonic()
+    wait_for_native_version(args, SELF_WRITE_F4_LIVE_VERSION, overall_timeout=args.reboot_timeout)
+    final_selftest = run_cmdv1_command(
+        args.bridge_host, args.bridge_port, args.bridge_timeout, ["selftest"]
+    )
+    print(final_selftest.text, end="" if final_selftest.text.endswith("\n") else "\n")
+    verify_cmdv1_result(final_selftest, "selftest")
+    if "fail=0" not in final_selftest.text:
+        raise RuntimeError("post-reboot v2321 selftest did not report fail=0")
+    result["reboot_boot_elapsed_sec"] = round(time.monotonic() - verify_start, 3)
+    emit("rollback_boot_ready")
+
+    result["status"] = "ok"
+    print(json.dumps(result, indent=2, sort_keys=True))
+
+    runs_dir = Path("workspace/private/runs/self-dd")
+    try:
+        runs_dir.mkdir(parents=True, exist_ok=True)
+        out_path = runs_dir / f"f4-live-{time.strftime('%Y%m%d-%H%M%S')}.json"
+        out_path.write_text(json.dumps(result, indent=2, sort_keys=True))
+        log(f"self-write result written to {out_path}")
+    except OSError as exc:
+        log(f"could not write self-write result json: {exc}")
+    return 0
+
+
 def run_experimental_self_write(args: argparse.Namespace,
                                 image_path: Path,
                                 local_hash: str,
@@ -331,7 +554,9 @@ def run_experimental_self_write(args: argparse.Namespace,
     print(json.dumps(plan, indent=2, sort_keys=True))
     if args.self_write_plan_only:
         return 0
-    raise RuntimeError(SELF_WRITE_POLICY_BLOCK)
+    if not getattr(args, "self_write_live_authorized", False):
+        raise RuntimeError(SELF_WRITE_POLICY_BLOCK)
+    return run_self_write_live(args, plan, image_path, local_hash, image_size)
 
 
 @contextmanager
@@ -764,6 +989,36 @@ def parse_args() -> argparse.Namespace:
         "--self-write-staging-dir",
         default=DEFAULT_SELF_WRITE_STAGING_DIR,
         help="approved device staging directory for the experimental self-write path",
+    )
+    parser.add_argument(
+        "--self-write-mode",
+        choices=("f2", "f3"),
+        default="f2",
+        help="self-write device command: f2 boot-candidate or f3 self-rollback (F4-live requires f3)",
+    )
+    parser.add_argument(
+        "--self-write-live-authorized",
+        action="store_true",
+        help="explicit opt-in for the design section 12.1 F4-live validation; live self-write "
+             "stays fail-closed without this flag and is restricted to the v2321 rollback image",
+    )
+    parser.add_argument(
+        "--self-write-timeout",
+        type=float,
+        default=600.0,
+        help="cmdv1 timeout for the long boot-flash-f2/f3 full-partition self-write command",
+    )
+    parser.add_argument(
+        "--reboot-timeout",
+        type=float,
+        default=240.0,
+        help="timeout to wait for native init to re-enumerate and report the expected version",
+    )
+    parser.add_argument(
+        "--menu-settle-sec",
+        type=float,
+        default=3.0,
+        help="settle delay after hide before dispatching a DANGEROUS self-write/reboot command",
     )
     return parser.parse_args()
 

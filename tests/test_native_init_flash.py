@@ -386,6 +386,121 @@ recovery-serial recovery
             with self.assertRaisesRegex(RuntimeError, "F4/production fast-flash is not authorized"):
                 flash.run_experimental_self_write(args, Path("/tmp/boot.img"), "a" * 64, 4096)
 
+    def test_self_write_plan_f3_mode_sets_rollback_command_and_live_policy(self) -> None:
+        args = types.SimpleNamespace(
+            bridge_host="127.0.0.1",
+            bridge_port=54321,
+            expect_sha256=flash.SELF_WRITE_F4_LIVE_SHA256,
+            expect_version=flash.SELF_WRITE_F4_LIVE_VERSION,
+            expect_android_magic=True,
+            allow_unpinned_image=False,
+            self_write_staging_dir="/mnt/sdext/a90/flash-staging",
+            self_write_mode="f3",
+            self_write_live_authorized=True,
+        )
+        plan = flash.build_experimental_self_write_plan(
+            args,
+            Path("/tmp/boot_linux_v2321.img"),
+            flash.SELF_WRITE_F4_LIVE_SHA256,
+            4096,
+        )
+        self.assertEqual(plan["self_write_mode"], "f3")
+        self.assertEqual(plan["policy_state"], "f4-live-authorized")
+        self.assertEqual(
+            plan["self_write_command"][0:2],
+            ["boot-flash-f3", "BOOT-FLASH-F3-SELF-ROLLBACK"],
+        )
+        self.assertEqual(plan["self_write_success_marker"], "result=ok rollback-written-ready-to-reboot")
+
+    def test_self_write_live_still_blocked_without_authorization_flag(self) -> None:
+        # mode f3 + valid candidate but no --self-write-live-authorized must stay fail-closed.
+        args = types.SimpleNamespace(
+            bridge_host="127.0.0.1",
+            bridge_port=54321,
+            expect_sha256=flash.SELF_WRITE_F4_LIVE_SHA256,
+            expect_version=flash.SELF_WRITE_F4_LIVE_VERSION,
+            expect_android_magic=True,
+            allow_unpinned_image=False,
+            self_write_staging_dir="/mnt/sdext/a90/flash-staging",
+            self_write_mode="f3",
+            self_write_plan_only=False,
+            self_write_live_authorized=False,
+        )
+        with mock.patch("sys.stdout", io.StringIO()):
+            with self.assertRaisesRegex(RuntimeError, "F4/production fast-flash is not authorized"):
+                flash.run_experimental_self_write(
+                    args,
+                    Path("/tmp/boot_linux_v2321.img"),
+                    flash.SELF_WRITE_F4_LIVE_SHA256,
+                    4096,
+                )
+
+    def test_self_write_live_guards_reject_non_f3_mode(self) -> None:
+        args = types.SimpleNamespace(self_write_mode="f2", expect_version=flash.SELF_WRITE_F4_LIVE_VERSION)
+        with self.assertRaisesRegex(RuntimeError, "only for --self-write-mode f3"):
+            flash.run_self_write_live(args, {"self_write_success_marker": "x"},
+                                      Path("/tmp/boot.img"), flash.SELF_WRITE_F4_LIVE_SHA256, 4096)
+
+    def test_self_write_live_guards_reject_non_v2321_candidate(self) -> None:
+        args = types.SimpleNamespace(self_write_mode="f3", expect_version=flash.SELF_WRITE_F4_LIVE_VERSION)
+        with self.assertRaisesRegex(RuntimeError, "must be the v2321 rollback image"):
+            flash.run_self_write_live(args, {"self_write_success_marker": "x"},
+                                      Path("/tmp/boot.img"), "b" * 64, 4096)
+
+    def test_parse_native_version_field_is_exact(self) -> None:
+        self.assertEqual(
+            flash.parse_native_version_field("version: 0.9.285 build=v2321-x\r\n"),
+            "0.9.285",
+        )
+        # a longer string that merely contains the target as a substring must not match exactly
+        self.assertEqual(
+            flash.parse_native_version_field("version: 10.9.2850 build=other\r\n"),
+            "10.9.2850",
+        )
+        self.assertNotEqual(
+            flash.parse_native_version_field("version: 10.9.2850 build=other\r\n"),
+            "0.9.285",
+        )
+        self.assertIsNone(flash.parse_native_version_field("status: ok\r\n"))
+
+    def test_wait_for_native_version_requires_exact_field_and_clean_result(self) -> None:
+        args = types.SimpleNamespace(bridge_host="127.0.0.1", bridge_port=54321)
+        good = types.SimpleNamespace(rc=0, status="ok", text="version: 0.9.285 build=v2321\r\n")
+        wrong = types.SimpleNamespace(rc=0, status="ok", text="version: 0.11.123 build=v3360\r\n")
+        errframe = types.SimpleNamespace(rc=1, status="err", text="version: 0.9.285 build=x\r\n")
+
+        # wrong version, then error frame, then good -> must keep polling and return only on exact match
+        seq = [wrong, errframe, good]
+        with mock.patch.object(flash, "run_cmdv1_command", side_effect=seq), \
+                mock.patch.object(flash.time, "sleep"), \
+                mock.patch("sys.stdout", io.StringIO()):
+            out = flash.wait_for_native_version(args, "0.9.285", overall_timeout=30.0, poll_interval=0.0)
+        self.assertIn("0.9.285", out)
+
+        # never-correct version must raise, not false-succeed
+        with mock.patch.object(flash, "run_cmdv1_command", return_value=wrong), \
+                mock.patch.object(flash.time, "sleep"), \
+                mock.patch("sys.stdout", io.StringIO()):
+            with self.assertRaisesRegex(RuntimeError, "did not report exact version 0.9.285"):
+                flash.wait_for_native_version(args, "0.9.285", overall_timeout=0.05, poll_interval=0.0)
+
+    def test_parse_args_exposes_f4_live_options(self) -> None:
+        with mock.patch("sys.argv", [
+            "native_init_flash.py",
+            "boot.img",
+            "--experimental-self-write",
+            "--self-write-mode", "f3",
+            "--self-write-live-authorized",
+        ]):
+            args = flash.parse_args()
+        self.assertEqual(args.self_write_mode, "f3")
+        self.assertTrue(args.self_write_live_authorized)
+
+        with mock.patch("sys.argv", ["native_init_flash.py", "boot.img"]):
+            defaults = flash.parse_args()
+        self.assertEqual(defaults.self_write_mode, "f2")
+        self.assertFalse(defaults.self_write_live_authorized)
+
 
 if __name__ == "__main__":
     unittest.main()
