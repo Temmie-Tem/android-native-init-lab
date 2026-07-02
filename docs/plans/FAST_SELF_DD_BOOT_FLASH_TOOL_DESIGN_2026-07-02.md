@@ -771,7 +771,7 @@ The content-changing ladder stops on any of these:
 Stopping means: recover to v2321 through `native_init_flash.py` if possible, write the report, and
 do not advance to the next rung in the same iteration.
 
-### 12.9 F0 implementation (source-built 2026-07-02 — pre-live)
+### 12.9 F0 implementation (source-built 2026-07-02, live-proven)
 
 V3357 (`0.11.120`, `v3357-self-dd-f0-plan`) implements the F0 read-only source-plan command:
 `boot-flash-plan <candidate-path> <expected-sha256> <expected-version>`. It performs no boot-
@@ -788,5 +788,17 @@ Expected PASS output includes `candidate_sha=... expected_sha_match=1`, `version
 candidate only and does not resolve the content-changing write policy gate.
 
 Source build PASS report:
-`docs/reports/NATIVE_INIT_V3357_SELF_DD_F0_PLAN_SOURCE_BUILD_2026-07-02.md`. No live F0 source-plan
-result is claimed here.
+`docs/reports/NATIVE_INIT_V3357_SELF_DD_F0_PLAN_SOURCE_BUILD_2026-07-02.md`.
+
+Live F0 PASS report:
+`docs/reports/NATIVE_INIT_V3357_SELF_DD_F0_PLAN_LIVE_2026-07-02.md`.
+
+Live result summary: V3357 booted cleanly, SD staging under
+`/mnt/sdext/a90/flash-staging/` produced the expected V3355 candidate SHA256
+`ed7aa46f9abc3d1a34c1d0eede247e58219b77375028b2f8bacd070454b1362c`, and
+`boot-flash-plan` returned `expected_sha_match=1`, `version_marker_found=1`,
+`candidate_header=ok`, `target_full_sha=fa1deeae1ff724c44d6102c5685764e01863ec5a163ca97b4aba6e397f4d4eea`,
+`changed_chunks=5`, `changed_bytes=1416607`, `would_write=0`, and
+`result=ok source-plan-only`. Post-probe `selftest fail=0`, pstore entries `0`, and final v2321
+rollback `selftest fail=0` were confirmed. `/cache` was full during staging, so the approved SD
+staging root is the practical source path for the next F1 design.
