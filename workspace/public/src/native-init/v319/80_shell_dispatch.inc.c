@@ -19577,11 +19577,9 @@ static int handle_recovery(char **argv, int argc) {
 }
 
 static int handle_init_reload(char **argv, int argc) {
-    /* Hot-reload replaces PID1 via execve without a reboot. Stop the auto-hud drawing thread first
-       so it is not mid-frame when the image is replaced; a90_init_reload_cmd validates the staged
-       candidate (approved path + SHA + ELF) and only then execve()s. A failed validation returns an
-       error and the current init keeps running. */
-    stop_auto_hud(false);
+    /* H5 preserves the already-running auto-hud child so its existing DRM master/fb state survives
+       PID1 execve. The reloaded init adopts the pidfile instead of re-running SETCRTC. */
+    a90_console_printf("reload: preserving autohud for DRM-master handoff\r\n");
     return a90_init_reload_cmd(argv, argc);
 }
 

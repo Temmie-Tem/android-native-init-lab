@@ -895,6 +895,9 @@ static int cmd_clear_display(void) {
 }
 
 static void boot_auto_frame(void) {
+    if (getenv("A90_RELOADED") != NULL) {
+        return;
+    }
     if (a90_kms_begin_frame(0x000000) == 0) {
         a90_hud_draw_boot_splash(a90_kms_framebuffer());
         if (a90_kms_present("bootframe", true) == 0) {

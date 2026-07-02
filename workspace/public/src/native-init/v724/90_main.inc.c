@@ -6380,8 +6380,22 @@ int main(void) {
         a90_console_printf("\r\n# %s\r\n", INIT_BANNER);
         a90_console_printf("# USB ACM serial console ready.\r\n");
         if (a90_reloaded) {
-            a90_console_printf("# Hot-reload: skipping autohud/rshell re-init; refreshing tcpctl only.\r\n");
-            a90_logf("boot", "reloaded fast-path: skip autohud/rshell re-init; refresh tcpctl only");
+            pid_t hud_pid;
+
+            a90_console_printf("# Hot-reload: adopting autohud, refreshing tcpctl, restarting rshell.\r\n");
+            a90_logf("boot", "reloaded fast-path: adopt autohud; refresh tcpctl; restart rshell");
+            hud_pid = auto_hud_adopt_pidfile();
+            if (hud_pid > 0) {
+                a90_controller_set_menu_active(true);
+                a90_console_printf("# Hot-reload: autohud adopted pid=%ld.\r\n", (long)hud_pid);
+                a90_timeline_record(0, 0, "hotreload-autohud", "adopted pid=%ld", (long)hud_pid);
+                a90_logf("boot", "hot-reload autohud adopted pid=%ld", (long)hud_pid);
+            } else {
+                a90_controller_set_menu_active(false);
+                a90_console_printf("# Hot-reload: autohud adopt missing; SETCRTC retry blocked by H5 guard.\r\n");
+                a90_timeline_record(-ENODEV, ENODEV, "hotreload-autohud", "adopt missing; setcrtc retry blocked");
+                a90_logf("boot", "hot-reload autohud adopt missing; setcrtc retry blocked");
+            }
             if (a90_netservice_enabled()) {
                 int net_rc;
 
@@ -6418,6 +6432,43 @@ int main(void) {
             } else {
                 a90_console_printf("# Hot-reload: netservice disabled; tcpctl refresh skipped.\r\n");
                 a90_logf("boot", "hot-reload tcpctl skipped: netservice disabled");
+            }
+            if (rshell_enabled()) {
+                int rshell_rc;
+
+                a90_console_printf("# Hot-reload: rshell enabled; starting token TCP shell.\r\n");
+                rshell_rc = rshell_start_service(false);
+                if (rshell_rc == 0) {
+                    a90_console_printf("# Hot-reload: rshell ready on %s:%s.\r\n",
+                            A90_RSHELL_BIND_ADDR,
+                            A90_RSHELL_PORT);
+                    a90_timeline_record(0, 0, "hotreload-rshell", "ready %s:%s",
+                                    A90_RSHELL_BIND_ADDR,
+                                    A90_RSHELL_PORT);
+                    a90_logf("boot", "hot-reload rshell ready %s:%s",
+                                A90_RSHELL_BIND_ADDR,
+                                A90_RSHELL_PORT);
+                } else {
+                    int rshell_errno = -rshell_rc;
+
+                    if (rshell_errno <= 0) {
+                        rshell_errno = EIO;
+                    }
+                    a90_console_printf("# Hot-reload: rshell refresh failed rc=%d errno=%d (%s).\r\n",
+                            rshell_rc,
+                            rshell_errno,
+                            strerror(rshell_errno));
+                    a90_timeline_record(rshell_rc,
+                                    rshell_errno,
+                                    "hotreload-rshell",
+                                    "refresh failed: %s",
+                                    strerror(rshell_errno));
+                    a90_logf("boot", "hot-reload rshell refresh failed rc=%d errno=%d error=%s",
+                                rshell_rc, rshell_errno, strerror(rshell_errno));
+                }
+            } else {
+                a90_console_printf("# Hot-reload: rshell disabled; refresh skipped.\r\n");
+                a90_logf("boot", "hot-reload rshell skipped: disabled");
             }
         } else {
         v724_run_qrtr_servloc_boot_once();
