@@ -94,6 +94,28 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > ergonomics / one-page runbook if it directly improves operator usability; otherwise the next major
 > work requires an operator re-charter, with the server-distro endgame remaining the standing next epic.
 
+> **✅ OPERATOR GATE-2 SIGN-OFF (2026-07-03) — REPL epic CLOSE accepted; 2 residuals deferred.**
+> Independently verified. **DoD #1 (struct-return) is genuinely met:** `current_kernel_time64` returns a
+> 16-byte `struct timespec64` in x0/x1 per the arm64 PCS — a real aggregate-register-return mechanism,
+> distinct from a scalar-x0 return AND from the already-proven caller-provided pointer-out result slots;
+> the call-pair image flashed with matching readback SHA, captured same-call `x0=tv_sec`/`x1=tv_nsec`
+> inside the `ktime_get_real_seconds` anchor window, rolled back to v2321 `fail=0`. **DoD #2 bundles are
+> REAL implemented `vfs-bundle` surfaces** (confirmed in `a90_repl.py` `VFS_READ_BUNDLES`: `boot-config`,
+> `hardening-posture`, `kernel-vitals`, `soc-fingerprint`), not claims. **The Tier-2 kernel-instrument
+> (REPL) epic is CLOSED.** Two residuals — both correctly DEFERRED, neither a reason to reopen REPL:
+> - **ABI residual (minor/known):** the x0/x1 ≤16-byte aggregate return is proven; the **>16-byte x8
+>   indirect-sret** return and a **struct-pointer ARG the callee fills** remain unproven. Most kernel
+>   functions use pointer-out params (already covered), so this is a known small gap — reopen only on
+>   demand, do NOT grind it now.
+> - **D-harden residual → belongs to the server-distro epic:** the `hardening-posture` bundle reads 6
+>   `/proc/sys/kernel/*` hardening sysctl *values* (`kptr_restrict`, `dmesg_restrict`,
+>   `perf_event_paranoid`, `modules_disabled`, `randomize_va_space`, `unprivileged_bpf_disabled`). The
+>   fuller D-harden **attack-surface enumeration** (which built-in kernel interfaces/paths to hard-disable
+>   for deny-by-default containment) is a server-distro containment-design task done against the real
+>   threat model there — NOT open-ended REPL bundle breadth.
+> **Standing next epic = the server-distro endgame** (`docs/plans/NATIVE_INIT_SERVER_DISTRO_ENDGAME_DESIGN_2026-06-30.md`;
+> design A–E locked, D0 host-staging done, device-live inventory pending). Loop halts pending operator re-charter.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.
