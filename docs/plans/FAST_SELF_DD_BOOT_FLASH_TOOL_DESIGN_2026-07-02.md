@@ -642,12 +642,19 @@ fast path. Prove the new risk class in rungs that separate four properties:
 
 ### 12.1 Policy gate
 
-`AGENTS.md` still states that flashes use `native_init_flash.py`. E-open through E5 were explicitly
-framed as gated write probes in this design, not a general replacement for the checked helper. Before
-any content-changing rung is executed, the policy must be amended deliberately to allow exactly this
-boot-partition-only experiment, with the same forbidden-partition bright lines and with
-`native_init_flash.py` retained as the recovery-grade fallback. Until that amendment, this section is
-an implementation plan, not an execution authorization.
+`AGENTS.md` states that flashes use `native_init_flash.py` by default. E-open through E5 were
+explicitly framed as gated write probes in this design, not a general replacement for the checked
+helper.
+
+Operator policy amendment (2026-07-02): V3358 F1 only is authorized as a narrow
+boot-partition-only experiment:
+`boot-flash-f1 BOOT-FLASH-F1-PAIRED-ROUNDTRIP <candidate-path> <expected-sha256> <expected-version>`.
+The command may run only after V3358 was flashed through `native_init_flash.py`, rollback images and
+recovery/TWRP are confirmed, the approved staged candidate passes SHA/version/header checks, and the
+F1 command remains token-gated, boot-identity-guarded, full-SHA verified, and immediately restored
+before any reboot. `native_init_flash.py` remains the recovery-grade fallback. This amendment does
+not authorize F2/F3/F4, production fast-flash integration, raw host `dd`, fastboot, or any non-boot
+partition write; those remain gated by a future explicit amendment.
 
 ### 12.2 Staging model: partition image, not naked dd
 
@@ -832,9 +839,9 @@ with SHA256 `106f797df52bc1c1ca887069dee0d01d3b0a20e00439711f6854520efce7723e`.
 Source build PASS report:
 `docs/reports/NATIVE_INIT_V3358_SELF_DD_F1_ROUNDTRIP_SOURCE_BUILD_2026-07-02.md`.
 
-No live F1 content-changing boot write has been executed. Section 12.1 and `AGENTS.md` still block
-execution until the repository policy is deliberately amended to allow exactly this self-owned boot
-partition write path.
+No live F1 content-changing boot write had been executed at V3358 source-build time. Section 12.1
+and `AGENTS.md` now authorize only the V3358 F1 paired roundtrip; F2 and later remain blocked until
+a future deliberate policy amendment.
 
 ### 12.11 V3358 live preflight (boot + F0 only, F1 not executed)
 

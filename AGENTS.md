@@ -13,8 +13,18 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    bootloader, or any partition other than **boot**. Device changes touch the boot image
    only. These forbidden partitions are **NOT** TWRP/download-mode recoverable = permanent
    brick; the operator's acceptance of boot-flash risk does NOT extend to them. Absolute.
-2. **Flash only via the checked helper:** `workspace/public/src/scripts/revalidation/native_init_flash.py`.
+2. **Flash only via the checked helper by default:** `workspace/public/src/scripts/revalidation/native_init_flash.py`.
    Never `dd`/`fastboot`/raw-write a partition. Never invent a new flash path.
+   **Narrow operator-authorized exception (2026-07-02, F1 only):** the V3358
+   `boot-flash-f1 BOOT-FLASH-F1-PAIRED-ROUNDTRIP ...` command may perform the
+   design §12.4 paired content-changing roundtrip on the **boot** partition only, and
+   only after V3358 was itself flashed through `native_init_flash.py`, rollback images
+   and recovery/TWRP were confirmed, the approved staged candidate SHA/version/header
+   passed F0-equivalent checks, and the command remains token-gated, guarded by boot
+   identity, full-SHA verified, and immediately restored before any reboot. This
+   exception does **not** authorize F2/F3/F4, production fast-flash integration, raw
+   host `dd`, fastboot, or any non-boot partition write. `native_init_flash.py` remains
+   the recovery-grade rollback path.
 3. **Rollback precondition:** before ANY flash, confirm the known-good rollback image
    `workspace/private/inputs/boot_images/boot_linux_v2321_usb_clean_identity_rodata.img`
    (SHA256 `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`, the resident
