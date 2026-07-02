@@ -286,6 +286,66 @@ static void storage_hook_line(const struct a90_storage_boot_hooks *hooks,
                               void *ctx,
                               int line,
                               const char *fmt,
+                              ...);
+static void storage_hook_frame(const struct a90_storage_boot_hooks *hooks, void *ctx);
+static void storage_use_cache(const struct a90_storage_boot_hooks *hooks,
+                              void *ctx,
+                              const char *reason,
+                              int rc,
+                              int saved_errno);
+static void storage_use_sd(const struct a90_storage_boot_hooks *hooks, void *ctx);
+
+static int storage_finish_sd_rw_ready(const struct a90_storage_boot_hooks *hooks,
+                                      void *ctx,
+                                      bool owns_mount) {
+    if (ensure_sd_workspace() < 0) {
+        int saved_errno = errno;
+
+        storage_hook_line(hooks, ctx, 2, "[ SD     ] WARN WORKSPACE FAIL");
+        storage_hook_frame(hooks, ctx);
+        if (owns_mount) {
+            umount(SD_MOUNT_POINT);
+            storage_state.sd_mounted = false;
+        }
+        storage_use_cache(hooks, ctx, "sd workspace failed", -saved_errno, saved_errno);
+        return -saved_errno;
+    }
+    if (ensure_sd_identity_marker(storage_state.sd_uuid) < 0) {
+        int saved_errno = errno;
+
+        storage_hook_line(hooks, ctx, 2, "[ SD     ] WARN ID MARKER FAIL");
+        storage_hook_frame(hooks, ctx);
+        if (owns_mount) {
+            umount(SD_MOUNT_POINT);
+            storage_state.sd_mounted = false;
+        }
+        storage_use_cache(hooks, ctx, "sd identity marker failed", -saved_errno, saved_errno);
+        return -saved_errno;
+    }
+    if (sd_write_read_probe() < 0) {
+        int saved_errno = errno;
+
+        storage_hook_line(hooks, ctx, 2, "[ SD     ] WARN RW TEST FAIL");
+        storage_hook_frame(hooks, ctx);
+        if (owns_mount) {
+            umount(SD_MOUNT_POINT);
+            storage_state.sd_mounted = false;
+        }
+        storage_use_cache(hooks, ctx, "sd rw test failed", -saved_errno, saved_errno);
+        return -saved_errno;
+    }
+    storage_state.sd_rw_ok = true;
+    storage_hook_line(hooks, ctx, 2, "[ SD     ] RW TEST OK");
+    storage_hook_frame(hooks, ctx);
+    storage_use_sd(hooks, ctx);
+    storage_hook_frame(hooks, ctx);
+    return 0;
+}
+
+static void storage_hook_line(const struct a90_storage_boot_hooks *hooks,
+                              void *ctx,
+                              int line,
+                              const char *fmt,
                               ...) {
     char text[BOOT_SPLASH_LINE_MAX];
     va_list ap;
@@ -369,6 +429,9 @@ static void storage_use_sd(const struct a90_storage_boot_hooks *hooks, void *ctx
 
 int a90_storage_mount_cache(void) {
     char node_path[PATH_MAX];
+    char line[512];
+    bool read_only = false;
+    int saved_errno;
 
     cache_ready = false;
     if (storage_get_block_device_path("sda31", node_path, sizeof(node_path)) < 0) {
@@ -378,6 +441,15 @@ int a90_storage_mount_cache(void) {
         cache_ready = true;
         return 0;
     }
+    saved_errno = errno;
+    if (saved_errno == EBUSY &&
+        mount_line_for_path(CACHE_STORAGE_ROOT, line, sizeof(line), &read_only) &&
+        !read_only) {
+        cache_ready = true;
+        a90_timeline_record(0, 0, "cache-adopt", "/cache already mounted rw");
+        return 0;
+    }
+    errno = saved_errno;
     return -1;
 }
 
@@ -429,6 +501,14 @@ int a90_storage_probe_boot(const struct a90_storage_boot_hooks *hooks, void *ctx
     ensure_dir("/mnt", 0755);
     ensure_dir(SD_MOUNT_POINT, 0755);
     if (mount_line_for_path(SD_MOUNT_POINT, line, sizeof(line), &read_only)) {
+        if (!read_only) {
+            storage_state.sd_mounted = true;
+            storage_hook_line(hooks, ctx, 2, "[ SD     ] ADOPT RW MOUNT");
+            storage_hook_frame(hooks, ctx);
+            a90_logf("storage", "adopt existing sd mount line=%s", line);
+            a90_timeline_record(0, 0, "storage-adopt", "sd already mounted rw");
+            return storage_finish_sd_rw_ready(hooks, ctx, false);
+        }
         if (umount(SD_MOUNT_POINT) < 0) {
             int saved_errno = errno;
 
@@ -450,42 +530,7 @@ int a90_storage_probe_boot(const struct a90_storage_boot_hooks *hooks, void *ctx
     storage_hook_line(hooks, ctx, 2, "[ SD     ] MOUNT RW OK");
     storage_hook_frame(hooks, ctx);
 
-    if (ensure_sd_workspace() < 0) {
-        int saved_errno = errno;
-
-        storage_hook_line(hooks, ctx, 2, "[ SD     ] WARN WORKSPACE FAIL");
-        storage_hook_frame(hooks, ctx);
-        umount(SD_MOUNT_POINT);
-        storage_state.sd_mounted = false;
-        storage_use_cache(hooks, ctx, "sd workspace failed", -saved_errno, saved_errno);
-        return -saved_errno;
-    }
-    if (ensure_sd_identity_marker(storage_state.sd_uuid) < 0) {
-        int saved_errno = errno;
-
-        storage_hook_line(hooks, ctx, 2, "[ SD     ] WARN ID MARKER FAIL");
-        storage_hook_frame(hooks, ctx);
-        umount(SD_MOUNT_POINT);
-        storage_state.sd_mounted = false;
-        storage_use_cache(hooks, ctx, "sd identity marker failed", -saved_errno, saved_errno);
-        return -saved_errno;
-    }
-    if (sd_write_read_probe() < 0) {
-        int saved_errno = errno;
-
-        storage_hook_line(hooks, ctx, 2, "[ SD     ] WARN RW TEST FAIL");
-        storage_hook_frame(hooks, ctx);
-        umount(SD_MOUNT_POINT);
-        storage_state.sd_mounted = false;
-        storage_use_cache(hooks, ctx, "sd rw test failed", -saved_errno, saved_errno);
-        return -saved_errno;
-    }
-    storage_state.sd_rw_ok = true;
-    storage_hook_line(hooks, ctx, 2, "[ SD     ] RW TEST OK");
-    storage_hook_frame(hooks, ctx);
-    storage_use_sd(hooks, ctx);
-    storage_hook_frame(hooks, ctx);
-    return 0;
+    return storage_finish_sd_rw_ready(hooks, ctx, true);
 }
 
 int a90_storage_get_status(struct a90_storage_status *out) {
