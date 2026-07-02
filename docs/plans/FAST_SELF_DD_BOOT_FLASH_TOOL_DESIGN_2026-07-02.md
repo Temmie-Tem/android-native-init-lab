@@ -516,3 +516,14 @@ Source build PASS report:
 write is claimed here; live validation still requires checked-helper flash, post-flash
 `selftest fail=0`, explicit `hide`/menu-settle, E3a token run, pstore check, and rollback to v2321
 with `selftest fail=0`.
+
+Live result (2026-07-02): V3352 flashed through `native_init_flash.py`, booted cleanly, and E3a
+passed. The command again found `zero_candidates=26`, selected 16 spread confirmed-zero offsets,
+executed sixteen identity `pwrite` calls (`pwrite_count=16`), read back all 16 regions with
+`region_match_all=1`, and preserved the O_DIRECT full-partition SHA (`full_match=1`). Post-probe
+`selftest fail=0`, pstore entries=0, rollback to v2321 completed, and final explicit selftest plus
+pstore both passed. Public live report:
+`docs/reports/NATIVE_INIT_V3352_BOOT_WRITE_E3A_SPARSE16_LIVE_2026-07-02.md`. This proves the sparse
+confirmed-zero expansion rung. The original contiguous 1MiB E3 remains separate because the observed
+zero population is only 26 sectors; next design should choose between another sparse ramp using the
+remaining all-zero population or a higher-risk non-zero/contiguous identity rung with a stricter gate.
