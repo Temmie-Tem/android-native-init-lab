@@ -1,7 +1,7 @@
 /*
  * a90_boot_write_e1.c — §0.2 write-probe rungs E1..E5 (design §11.2): boot-block identity pwrite,
- * plus F0/F1/F2 (design §12): read-only content-changing source-plan, gated paired roundtrip,
- * and gated self-written candidate boot preparation.
+ * plus F0/F1/F2/F3 (design §12): read-only content-changing source-plan, gated paired roundtrip,
+ * gated self-written candidate boot preparation, and gated self-rollback preparation.
  *
  * SAFETY MODEL (design §11, Codex-reviewed, UFS). Storage is UFS: an INTERRUPTED write is NOT
  * guaranteed safe even for identical bytes — the FTL erases/programs at a large internal granularity
@@ -20,9 +20,9 @@
  * write is verified by an O_DIRECT cache-bypassed region readback and an O_DIRECT full-partition SHA
  * before/after (to catch any cross-LBA change). Any anomaly is reported as A90BWE* stop=... .
  * Token-gated for write rungs. F0 performs no write and reports A90BWF0 would_write=0. F1 writes a
- * content-changing target.full, verifies it, then restores before.full before any reboot. F2 writes
- * and verifies target.full, returns cleanly for a host-controlled reboot into the self-written
- * candidate, and restores before.full only on a target-write failure.
+ * content-changing target.full, verifies it, then restores before.full before any reboot. F2/F3
+ * write and verify target.full, return cleanly for a host-controlled reboot into the written target,
+ * and restore before.full only on a target-write failure.
  * This is the only self-dd source file with a pwrite call site.
  */
 #ifndef _GNU_SOURCE
@@ -81,6 +81,11 @@
 #define F2_TOKEN "BOOT-FLASH-F2-BOOT-CANDIDATE"
 #define F2_SNAPSHOT_PATH F0_STAGE_SD_ROOT "boot-flash-f2-before.full"
 #define F2_SNAPSHOT_TMP F0_STAGE_SD_ROOT ".boot-flash-f2-before.full.tmp"
+#define F3_TAG "A90BWF3"
+#define F3_COMMAND "boot-flash-f3"
+#define F3_TOKEN "BOOT-FLASH-F3-SELF-ROLLBACK"
+#define F3_SNAPSHOT_PATH F0_STAGE_SD_ROOT "boot-flash-f3-before.full"
+#define F3_SNAPSHOT_TMP F0_STAGE_SD_ROOT ".boot-flash-f3-before.full.tmp"
 
 struct e1_probe_spec {
     const char *tag;
@@ -127,6 +132,17 @@ struct e_stream_probe_spec {
     uint64_t len;
     uint32_t chunk_len;
     int require_android_magic;
+};
+
+struct f_leave_target_spec {
+    const char *tag;
+    const char *command;
+    const char *token;
+    const char *mode;
+    const char *snapshot_path;
+    const char *snapshot_tmp;
+    const char *success_restore_skipped_line;
+    const char *success_result_line;
 };
 
 static const struct e1_probe_spec E1_SPEC = {
@@ -189,6 +205,28 @@ static const struct e_stream_probe_spec E5_SPEC = {
     E1_BOOT_SIZE_BYTES,
     E1_STREAM_CHUNK,
     1,
+};
+
+static const struct f_leave_target_spec F2_LEAVE_TARGET_SPEC = {
+    F2_TAG,
+    F2_COMMAND,
+    F2_TOKEN,
+    "boot-candidate-write",
+    F2_SNAPSHOT_PATH,
+    F2_SNAPSHOT_TMP,
+    "restore_skipped=target-verified-host-reboot-required",
+    "result=ok target-written-ready-to-reboot",
+};
+
+static const struct f_leave_target_spec F3_LEAVE_TARGET_SPEC = {
+    F3_TAG,
+    F3_COMMAND,
+    F3_TOKEN,
+    "self-rollback-write",
+    F3_SNAPSHOT_PATH,
+    F3_SNAPSHOT_TMP,
+    "restore_skipped=rollback-verified-host-reboot-required",
+    "result=ok rollback-written-ready-to-reboot",
 };
 
 /* Android boot header field offsets (bootimg.h v0/v1/v2). */
@@ -2700,11 +2738,12 @@ cleanup:
     return rc;
 }
 
-int a90_boot_flash_f2_cmd(char **argv, int argc) {
-    const char *tag = F2_TAG;
-    if (argc != 5 || strcmp(argv[1], F2_TOKEN) != 0) {
+static int a90_boot_flash_leave_target_cmd(const struct f_leave_target_spec *spec,
+                                           char **argv, int argc) {
+    const char *tag = spec->tag;
+    if (argc != 5 || strcmp(argv[1], spec->token) != 0) {
         a90_console_printf("usage: %s %s <candidate-path> <expected-sha256> <expected-version>\r\n",
-                           F2_COMMAND, F2_TOKEN);
+                           spec->command, spec->token);
         a90_console_printf("%s refused=missing-or-wrong-token-or-argc argc=%d\r\n", tag, argc);
         return -EPERM;
     }
@@ -2728,7 +2767,8 @@ int a90_boot_flash_f2_cmd(char **argv, int argc) {
     }
 
     a90_console_printf("%s begin\r\n", tag);
-    a90_console_printf("%s token=accepted mode=boot-candidate-write reboot_candidate=host-controlled\r\n", tag);
+    a90_console_printf("%s token=accepted mode=%s reboot_candidate=host-controlled\r\n",
+                       tag, spec->mode);
 
     char name[256];
     unsigned maj = 0, min = 0;
@@ -2989,8 +3029,8 @@ int a90_boot_flash_f2_cmd(char **argv, int argc) {
     }
 
     {
-        int sr = f1_capture_before_snapshot(tag, rfd, before_sha, F2_SNAPSHOT_PATH,
-                                            F2_SNAPSHOT_TMP, snapshot_sha);
+        int sr = f1_capture_before_snapshot(tag, rfd, before_sha, spec->snapshot_path,
+                                            spec->snapshot_tmp, snapshot_sha);
         if (sr != 0) {
             a90_console_printf("%s snapshot_capture=fail rc=%d\r\n", tag, sr);
             stop = "snapshot-capture";
@@ -2999,7 +3039,7 @@ int a90_boot_flash_f2_cmd(char **argv, int argc) {
         }
     }
 
-    sfd = open(F2_SNAPSHOT_PATH, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    sfd = open(spec->snapshot_path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
     if (sfd < 0) {
         int e = errno;
         a90_console_printf("%s snapshot_reopen=fail errno=%d (%s)\r\n", tag, e, strerror(e));
@@ -3086,7 +3126,7 @@ int a90_boot_flash_f2_cmd(char **argv, int argc) {
     } else if (!target_write_started) {
         a90_console_printf("%s restore_skipped=no-target-pwrite-started\r\n", tag);
     } else {
-        a90_console_printf("%s restore_skipped=target-verified-host-reboot-required\r\n", tag);
+        a90_console_printf("%s %s\r\n", tag, spec->success_restore_skipped_line);
     }
     a90_console_printf("%s target_written=%d restore_attempted=%d\r\n",
                        tag, target_written, restore_attempted);
@@ -3113,16 +3153,24 @@ cleanup:
         unlink(node);
         a90_console_printf("%s cleaned=1\r\n", tag);
     }
-    unlink(F2_SNAPSHOT_TMP);
-    a90_console_printf("%s snapshot_retained=%s\r\n", tag, F2_SNAPSHOT_PATH);
+    unlink(spec->snapshot_tmp);
+    a90_console_printf("%s snapshot_retained=%s\r\n", tag, spec->snapshot_path);
     if (stop) {
         a90_console_printf("%s stop=%s\r\n", tag, stop);
     } else {
         a90_console_printf("%s reboot_required=1 host_must_reboot_now=1\r\n", tag);
-        a90_console_printf("%s result=ok target-written-ready-to-reboot\r\n", tag);
+        a90_console_printf("%s %s\r\n", tag, spec->success_result_line);
     }
     a90_console_printf("%s end rc=%d\r\n", tag, rc);
     return rc;
+}
+
+int a90_boot_flash_f2_cmd(char **argv, int argc) {
+    return a90_boot_flash_leave_target_cmd(&F2_LEAVE_TARGET_SPEC, argv, argc);
+}
+
+int a90_boot_flash_f3_cmd(char **argv, int argc) {
+    return a90_boot_flash_leave_target_cmd(&F3_LEAVE_TARGET_SPEC, argv, argc);
 }
 
 int a90_boot_write_e1_cmd(char **argv, int argc) {

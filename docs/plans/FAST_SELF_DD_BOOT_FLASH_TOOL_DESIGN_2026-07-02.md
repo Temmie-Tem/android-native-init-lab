@@ -974,3 +974,27 @@ This proves F2: normal-boot native-init can write a verified content-changing fu
 the device can reboot into that self-written boot image. F3/F4 and production self-write integration
 remain blocked until a future explicit policy amendment. Report:
 `docs/reports/NATIVE_INIT_V3359_SELF_DD_F2_BOOT_CANDIDATE_LIVE_2026-07-02.md`.
+
+### 12.15 V3360 F3 implementation (source-built 2026-07-02, live policy-blocked)
+
+V3360 (`0.11.123`, `v3360-self-dd-f3-self-rollback`) implements the F3 self-rollback source rung:
+
+`boot-flash-f3 BOOT-FLASH-F3-SELF-ROLLBACK <candidate-path> <expected-sha256> <expected-version>`.
+
+F3 reuses the F2 leave-target primitive with a separate token, tag, and snapshot path. It is intended
+to run from a candidate that was itself booted through F2. The staged target for the live proof is
+the v2321 rollback image in the approved SD/cache staging root. The command repeats the same source
+gates: approved staging path, expected SHA, expected version marker, Android boot header, current
+full-partition SHA, deterministic `target.full` SHA, non-zero content change, and guarded
+boot-partition identity.
+
+On success, F3 does **not** restore `before.full`. It prints
+`reboot_required=1 host_must_reboot_now=1` and `result=ok rollback-written-ready-to-reboot`, then
+returns a clean command END so the host can reboot and verify v2321. On target-write/readback failure
+after any target pwrite starts, F3 attempts the same failure-path `before.full` restore used by F2.
+
+The source-build report is
+`docs/reports/NATIVE_INIT_V3360_SELF_DD_F3_SELF_ROLLBACK_SOURCE_BUILD_2026-07-02.md`. No live F3
+self-rollback write or reboot into v2321 is claimed by this source-build report. Section 12.1 and
+`AGENTS.md` still authorize only the completed V3359 F2 live validation; F3 remains blocked until a
+future explicit policy amendment.

@@ -3,7 +3,7 @@
 
 /*
  * §0.2 write-probe rungs E1/E2/E3a/E3b/E4/E5 (self-dd fast-flash tool design §11.2)
- * plus the F0/F1/F2 content-changing ladder preparation commands (design §12).
+ * plus the F0/F1/F2/F3 content-changing ladder preparation commands (design §12).
  *
  * THIS FILE CARRIES A WRITE PRIMITIVE (pwrite to the boot block). It is a read-then-write-IDENTITY
  * probe confined to boot partition identity writes: it resolves boot from sysfs PARTNAME=boot, picks
@@ -18,8 +18,9 @@
  * a paired content-changing roundtrip: write the planned target full image, verify it, then restore
  * the captured before.full image before any reboot. F2 is token-gated and writes/verifies the
  * planned target full image for a host-controlled reboot into the candidate, restoring before.full
- * only if the target write fails. Any anomaly is reported as a STOP. E/F rungs are token-gated.
- * Output lines are "A90BWE*" / "A90BWF*" key=value.
+ * only if the target write fails. F3 uses the same guarded leave-target primitive for a staged
+ * rollback image. Any anomaly is reported as a STOP. E/F rungs are token-gated. Output lines are
+ * "A90BWE*" / "A90BWF*" key=value.
  * NOTE (design §11): on UFS an interrupted write is NOT guaranteed identity-safe; these rungs stay
  * in boot-only externally-recoverable slack and require an external recovery drill first.
  */
@@ -32,5 +33,6 @@ int a90_boot_write_e5_cmd(char **argv, int argc);
 int a90_boot_flash_plan_cmd(char **argv, int argc);
 int a90_boot_flash_f1_cmd(char **argv, int argc);
 int a90_boot_flash_f2_cmd(char **argv, int argc);
+int a90_boot_flash_f3_cmd(char **argv, int argc);
 
 #endif /* A90_BOOT_WRITE_E1_H */

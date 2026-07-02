@@ -932,6 +932,10 @@ static int handle_boot_flash_f2(char **argv, int argc) {
     return a90_boot_flash_f2_cmd(argv, argc);
 }
 
+static int handle_boot_flash_f3(char **argv, int argc) {
+    return a90_boot_flash_f3_cmd(argv, argc);
+}
+
 static int handle_sensormap(char **argv, int argc) {
     return a90_sensormap_cmd(argv, argc);
 }
@@ -19610,6 +19614,7 @@ static const struct shell_command command_table[] = {
     { "boot-flash-plan", handle_boot_flash_plan, "boot-flash-plan <candidate-path> <expected-sha256> <expected-version>", CMD_NONE, A90_CMD_GROUP_CORE },
     { "boot-flash-f1", handle_boot_flash_f1, "boot-flash-f1 <token> <candidate-path> <expected-sha256> <expected-version>", CMD_DANGEROUS, A90_CMD_GROUP_CORE },
     { "boot-flash-f2", handle_boot_flash_f2, "boot-flash-f2 <token> <candidate-path> <expected-sha256> <expected-version>", CMD_DANGEROUS, A90_CMD_GROUP_CORE },
+    { "boot-flash-f3", handle_boot_flash_f3, "boot-flash-f3 <token> <candidate-path> <expected-sha256> <expected-version>", CMD_DANGEROUS, A90_CMD_GROUP_CORE },
     { "sensormap", handle_sensormap, "sensormap [summary|thermal|power|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "pstore", handle_pstore, "pstore [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "watchdoginv", handle_watchdoginv, "watchdoginv [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
