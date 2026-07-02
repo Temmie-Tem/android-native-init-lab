@@ -627,3 +627,146 @@ partition, including the entire 64MiB region, when every byte is written back id
 rung is no longer "can PID1 pwrite boot?" but a separate content-changing fast-flash proof: source
 selection, image staging, interrupted-write recovery semantics, and rollback/fallback policy for an
 actual new boot image.
+
+## 12. Content-changing self-write ladder (post-E5 design)
+
+**Status:** design only. E5 closed the write-permission question for identity writes, but it did not
+prove a real fast-flash update. A content-changing write is a different risk class because the boot
+partition is intentionally left in a new byte state. Do not jump directly from E5 to a production
+fast path. Prove the new risk class in rungs that separate four properties:
+
+1. source-image staging and anti-mixup validation;
+2. content-changing write/readback correctness without rebooting into the changed image;
+3. rebooting into a self-written candidate;
+4. self-rollback from that candidate, with TWRP/native-init-flash as the recovery fallback.
+
+### 12.1 Policy gate
+
+`AGENTS.md` still states that flashes use `native_init_flash.py`. E-open through E5 were explicitly
+framed as gated write probes in this design, not a general replacement for the checked helper. Before
+any content-changing rung is executed, the policy must be amended deliberately to allow exactly this
+boot-partition-only experiment, with the same forbidden-partition bright lines and with
+`native_init_flash.py` retained as the recovery-grade fallback. Until that amendment, this section is
+an implementation plan, not an execution authorization.
+
+### 12.2 Staging model: partition image, not naked dd
+
+The safe device-side abstraction for the first content-changing rungs is a **64MiB partition image**
+with explicit expected hashes:
+
+- `before.full`: device-captured snapshot of the currently resident boot partition, read through the
+  guarded boot fd and hashed with O_DIRECT full-partition SHA.
+- `candidate.boot`: host-staged Android boot image, opened from an approved staging directory on SD
+  or tcpctl upload output, with caller-asserted expected SHA and expected build/version marker.
+- `target.full`: `before.full` copied byte-for-byte, then `candidate.boot` overlaid at offset 0.
+  Bytes after `candidate.boot` are preserved from `before.full`, matching the practical TWRP/native
+  flash model where a shorter image does not erase the partition tail.
+
+For proof rungs, write `target.full` as the full 64MiB partition image and verify its full SHA. This
+is slower than a prefix-only production flash, but it makes the proof crisp: the device can compare
+the whole boot partition to one expected target digest after the content-changing write. Production
+can later optimize to prefix-only writes only after the full-image proof has passed.
+
+### 12.3 F0: source-plan, read-only
+
+`boot-flash-plan <candidate-path> <expected-sha> <expected-version>` performs no writes. It should:
+
+- resolve and guard the boot partition exactly as E5 did;
+- read `before.full` SHA and current Android boot header;
+- open `candidate.boot` with `O_NOFOLLOW`, reject non-regular files, reject paths outside the
+  approved staging root, and hash the exact staged bytes;
+- require the staged SHA to equal the caller's expected SHA;
+- require Android boot magic, supported header version, sane page size, and `image_size <= 64MiB`;
+- require the expected version/build marker to be present in the staged image, mirroring
+  `native_init_flash.py --expect-version`;
+- compute `target.full` SHA by overlaying the staged image on the current full-partition snapshot;
+- report `changed_chunks`, `changed_bytes`, `candidate_size`, `before_full_sha`,
+  `candidate_sha`, `target_full_sha`, and `would_write=0`.
+
+F0 answers whether source staging and hash planning are deterministic without increasing write risk.
+It is the next lowest-risk implementation unit.
+
+### 12.4 F1: paired content-change roundtrip, no reboot into candidate
+
+F1 is the first real content-changing write, but it never intentionally boots the changed image:
+
+1. Boot the F1-capable native-init candidate through `native_init_flash.py`.
+2. Health-check `version/status/selftest`, hide the auto-menu, and run F0 against the staged
+   candidate image.
+3. Capture `before.full` from the current boot partition and fsync it to SD.
+4. Build or stream `target.full = before.full + candidate.boot overlay`.
+5. Write `target.full` to boot in 1MiB chunks through the guarded write fd, fsync, and verify
+   O_DIRECT full SHA equals `target_full_sha`.
+6. Without rebooting to system, immediately write `before.full` back to boot in 1MiB chunks, fsync,
+   and verify O_DIRECT full SHA equals `before_full_sha`.
+7. Run post-probe `selftest`, pstore summary, and then roll back to v2321 via
+   `native_init_flash.py` as usual.
+
+PASS requires both writes to complete, both full-partition SHAs to match their expected values, no
+oops/pstore entry, post-probe selftest `fail=0`, and clean v2321 rollback. If the candidate write
+verifies but the restore write fails or mismatches, do **not** reboot to system; attempt immediate
+TWRP/native-init-flash rollback while the current kernel is still alive, then stop the ladder and
+write an incident report.
+
+F1 proves that the platform accepts a real byte-changing boot write and that the same running
+native-init can restore the exact previous 64MiB boot image before any reboot. It still does not
+prove the candidate boots.
+
+### 12.5 F2: boot into a self-written candidate
+
+Only after F1 passes, F2 writes `target.full`, verifies `target_full_sha`, and then reboots to
+system instead of restoring `before.full` in the same boot. The self-written candidate must have a
+distinct init version/build marker so success is unambiguous. The host then verifies:
+
+- new candidate `version/status/selftest fail=0`;
+- pstore entries `0`;
+- expected build marker matches the image written by F2;
+- rollback to v2321 through `native_init_flash.py` still succeeds.
+
+If the write/readback verification fails, F2 must not reboot to system. If reboot fails or the
+candidate health check fails, the host uses the checked helper/TWRP rollback path and stops the
+ladder.
+
+### 12.6 F3: self-rollback from a self-written candidate
+
+F3 starts from an F2-booted candidate and tests the second half of the fast path: writing the
+known-good rollback image from native-init itself. It stages v2321 as a 64MiB `target.full` built
+from the current full partition plus v2321 overlaid at offset 0, writes it, verifies full SHA, then
+reboots to system and expects v2321. TWRP/native-init-flash remains armed as the fallback if the
+self-rollback write or boot health fails.
+
+F3 is what converts self-write from "candidate boot proof" into a practical iteration primitive. Do
+not make self-write the default until F3 has passed and the fallback path has been exercised in the
+same report.
+
+### 12.7 F4: opt-in host integration
+
+Only after F0..F3 pass should the host helper grow an explicit opt-in mode, for example
+`native_init_flash.py --experimental-self-write`. The default path stays TWRP. The self-write path
+is eligible only when all of the following are true:
+
+- current native-init is healthy and exposes the self-write capability;
+- SD/tcpctl staging is writable and has enough space for `before.full`, `target.full`, and logs;
+- rollback images v2321/v2237/v48 are present on the host and recovery/TWRP reachability was
+  recently confirmed;
+- candidate image SHA, expected version marker, Android boot header, and size checks pass;
+- the device reports battery/power/thermal status inside normal ranges;
+- no pstore entries are present before the flash attempt.
+
+The host must write canonical `events` timelines with the same eight phase names, plus optional
+self-write subevents (`source_plan_done`, `self_write_done`, `readback_verified`,
+`system_reboot_requested`). Reports must label measured timing separately from projected savings.
+
+### 12.8 Stop conditions
+
+The content-changing ladder stops on any of these:
+
+- any source-plan mismatch or ambiguous staging path;
+- short write, fsync failure, readback mismatch, or unexpected full SHA;
+- pstore entry, oops, panic, spontaneous reboot, or selftest regression;
+- restore/rollback mismatch;
+- host/bridge ambiguity that prevents attributing a failure to a specific command;
+- any need to touch vbmeta, bootloader, modem, EFS, RPMB, keymaster, or any non-boot partition.
+
+Stopping means: recover to v2321 through `native_init_flash.py` if possible, write the report, and
+do not advance to the next rung in the same iteration.
