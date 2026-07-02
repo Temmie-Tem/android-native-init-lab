@@ -263,6 +263,37 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > whether D2-style dropbear survives the handoff or distro init starts it, then build a checked
 > non-destructive handoff unit that can emit a Debian-side marker and recover/reboot to v2321.
 
+> **✅ OPERATOR GATE-2 (D2 accepted) + ▶ D3 DESIGN DECISION + CHARTER (2026-07-03).** D1 and D2 verified
+> Gate-2 clean (non-destructive/SD-only, `userdata` untouched, resident v2321 `selftest fail=0`, keys/creds
+> kept out of commits; D2 proved key-only SSH into the chrooted Debian over the NCM path). The D3 static-gate
+> STOP was the correct call — a real design ambiguity. **Operator resolves it:**
+> - **① Init system = `sysvinit-core`** (NOT systemd for this first handoff): lowest-friction PID1 on the
+>   stock Android 4.14 kernel (no cgroup2/logind/dbus friction); systemd is a deferred later-optional upgrade.
+> - **② Observation/control path = `dropbear` started EARLY by sysvinit** (an rc/inittab entry), reachable
+>   over the **persisted native-init NCM path**; the rc script must (re)assert the NCM interface IP/route so
+>   the host can SSH in AFTER the handoff and read the D3 marker (`/proc/1/comm`=`init`, `debian_version`),
+>   proving distro-init-as-PID1.
+> - **③ Recovery backstop = a MANDATORY bounded UNCONDITIONAL auto-reboot** scheduled by the D3 rootfs init
+>   as its FIRST action (background `sleep <90-180s>; reboot -f` or equivalent). The device MUST self-return
+>   to resident **v2321** within that window regardless of whether SSH/observation succeeds; the boot
+>   partition stays v2321 (untouched), so a manual power-cycle is the ultimate backstop. This mandatory
+>   auto-reboot is what keeps D3 inside the recoverable envelope.
+> - **④ Handoff mechanism = a checked native-init helper / hot-reloadable PID1 path** that SHA/path-verifies
+>   the SD Debian image, prepares/moves the `/proc` `/sys` `/dev` mounts, then `switch_root <distro-root>
+>   /sbin/init`. SHA-check BEFORE the pivot.
+>
+> **▶ NEXT BOUNDED UNIT = D3 switch_root PID1 handoff, in two parts:** (a) HOST-ONLY rootfs update — install
+> `sysvinit-core` into the Debian image + add the early-`dropbear` rc entry, the NCM-IP reassert, the
+> mandatory bounded auto-reboot, and a Debian-side D3 marker; rebuild/re-stage the SD image (new SHA, keep
+> it out of commits). (b) LIVE handoff — perform the checked `switch_root`, observe the D3 marker over SSH
+> (distro init = PID1), let the mandatory auto-reboot return the device to v2321, confirm resident v2321 +
+> `selftest fail=0`. **DoD:** Debian `sysvinit` observed as PID1 post-`switch_root` via the NCM SSH marker,
+> then automatic recovery to v2321 `fail=0`. **Guardrails:** non-destructive/SD-only, NO flash, `userdata`
+> NEVER touched, no forbidden partitions, no PMIC/panel writes; the mandatory bounded auto-reboot is
+> REQUIRED (D3 is the riskiest non-destructive rung — PID1 replacement — and must self-recover); keys/creds/
+> rootfs/binaries out of commits; fails-twice on the same handoff approach → STOP + report. **After D3, D4
+> (userdata reformat) is the HARD operator gate — HALT and get explicit authorization; never self-authorize.**
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.
