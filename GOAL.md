@@ -250,6 +250,19 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > exact PID1/control-preservation design is ambiguous, STOP and write the design note instead of
 > improvising.
 
+> **🟡 D3 STATIC GATE STOP (2026-07-03) — design decision required before live `switch_root`.**
+> Static gate found the staged Debian rootfs has no real PID1 candidate: no `/sbin/init`, no
+> `/usr/sbin/init`, no `/lib/systemd/systemd`, no `/etc/inittab`; installed packages include
+> `init-system-helpers` and `sysvinit-utils`, but not `sysvinit-core`, `systemd-sysv`, `openrc`, or
+> `runit`. This matches the design's deferred init-system sub-decision at A.2. A live D3 attempt would
+> either improvise `/bin/sh`/ad-hoc PID1 (not the promised "distro init = PID1") or replace native-init
+> PID1 without an explicit observation/recovery control path. Per the D-ladder steer, this is a real
+> design ambiguity, so the loop STOPS before live D3. Report:
+> `docs/reports/SERVER_DISTRO_D3_SWITCH_ROOT_STATIC_GATE_2026-07-03.md`. Recommended next charter:
+> choose the D3 init system (likely `sysvinit-core` over systemd for the stock 4.14 kernel), choose
+> whether D2-style dropbear survives the handoff or distro init starts it, then build a checked
+> non-destructive handoff unit that can emit a Debian-side marker and recover/reboot to v2321.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.
