@@ -300,6 +300,9 @@ static void cmd_status(void) {
                 kms_info.connector_id,
                 kms_info.crtc_id,
                 kms_info.current_buffer);
+    } else if (getenv("A90_RELOADED") != NULL && auto_hud_current_pid() > 0) {
+        a90_console_printf("display: adopted-autohud pid=%ld\r\n",
+                (long)auto_hud_current_pid());
     } else {
         a90_console_printf("display: not initialized\r\n");
     }

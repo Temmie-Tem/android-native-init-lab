@@ -25,6 +25,9 @@ class BuildNativeInitBootV3368HotReloadAutohudTests(unittest.TestCase):
         self.assertIn(b"SETCRTC retry blocked by H5 guard", required)
         self.assertIn(b"Hot-reload: rshell ready", required)
         self.assertIn(b"hotreload-rshell", required)
+        self.assertIn(b"Hot-reload: selftest/guard refreshed", required)
+        self.assertIn(b"kms adopted by autohud", required)
+        self.assertIn(b"display: adopted-autohud", required)
         self.assertNotIn(b"skipping autohud/rshell re-init", required)
         self.assertNotIn(b"skip autohud/rshell re-init", required)
 
@@ -78,7 +81,23 @@ class BuildNativeInitBootV3368HotReloadAutohudTests(unittest.TestCase):
         self.assertIn("SETCRTC retry blocked by H5 guard", block)
         self.assertIn("rshell_rc = rshell_start_service(false);", block)
         self.assertIn('"hotreload-rshell"', block)
+        self.assertIn("a90_selftest_run_boot(&selftest_hooks, NULL);", block)
+        self.assertIn("Hot-reload: selftest/guard refreshed", block)
         self.assertNotIn("skipping autohud/rshell re-init", block)
+
+    def test_reloaded_selftest_accepts_adopted_hud_display(self) -> None:
+        selftest = Path("workspace/public/src/native-init/a90_selftest.c").read_text(
+            encoding="utf-8"
+        )
+        status = builder._rewrite_v3368_text(
+            Path("workspace/public/src/native-init/v319/60_shell_basic_commands.inc.c").read_text(
+                encoding="utf-8"
+            )
+        )
+
+        self.assertIn('getenv("A90_RELOADED") != NULL && hud_pid > 0', selftest)
+        self.assertIn("kms adopted by autohud pid=%ld", selftest)
+        self.assertIn("display: adopted-autohud pid=%ld", status)
 
 
 if __name__ == "__main__":

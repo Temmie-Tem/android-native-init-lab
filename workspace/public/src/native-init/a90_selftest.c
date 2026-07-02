@@ -19,7 +19,9 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -338,10 +340,17 @@ static void selftest_kms(void) {
     struct a90_fb *fb = a90_kms_framebuffer();
     char detail[128];
     bool ok;
+    bool adopted_hud_ok = false;
+    pid_t hud_pid = a90_service_pid(A90_SERVICE_HUD);
 
     a90_kms_info(&info);
     ok = info.initialized && fb != NULL && fb->pixels != NULL &&
          fb->width > 0 && fb->height > 0;
+    if (!ok && getenv("A90_RELOADED") != NULL && hud_pid > 0) {
+        if (kill(hud_pid, 0) == 0 || errno == EPERM) {
+            adopted_hud_ok = true;
+        }
+    }
     if (ok) {
         snprintf(detail,
                  sizeof(detail),
@@ -350,13 +359,18 @@ static void selftest_kms(void) {
                  info.height,
                  info.fb_id,
                  info.crtc_id);
+    } else if (adopted_hud_ok) {
+        snprintf(detail,
+                 sizeof(detail),
+                 "kms adopted by autohud pid=%ld",
+                 (long)hud_pid);
     } else {
         snprintf(detail, sizeof(detail), "kms not initialized");
     }
     selftest_record_elapsed("kms",
-                            ok ? A90_SELFTEST_PASS : A90_SELFTEST_FAIL,
-                            ok ? 0 : -ENODEV,
-                            ok ? 0 : ENODEV,
+                            (ok || adopted_hud_ok) ? A90_SELFTEST_PASS : A90_SELFTEST_FAIL,
+                            (ok || adopted_hud_ok) ? 0 : -ENODEV,
+                            (ok || adopted_hud_ok) ? 0 : ENODEV,
                             started_ms,
                             detail);
 }

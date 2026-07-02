@@ -241,6 +241,9 @@ REQUIRED_STRINGS = PREVIOUS_REQUIRED_STRINGS + (
     b"SETCRTC retry blocked by H5 guard",
     b"Hot-reload: rshell ready",
     b"hotreload-rshell",
+    b"Hot-reload: selftest/guard refreshed",
+    b"kms adopted by autohud",
+    b"display: adopted-autohud",
 )
 
 
@@ -259,6 +262,7 @@ def _boot_audit_manifest() -> dict[str, Any]:
         "autohud_fix": "reload preserves the existing HUD child and reloaded PID1 adopts its pidfile instead of re-running SETCRTC",
         "tcpctl_fix": "hot-reload still refreshes tcpctl on the existing NCM",
         "rshell_fix": "hot-reload starts rshell after tcpctl refresh when the rshell opt-in flag is enabled",
+        "selftest_fix": "reload defers early guard checks until service adoption, then treats the live adopted HUD pid as the display liveness proof",
         "bright_line": "no panel re-init, no backlight/PMIC/regulator/GDSC/GPIO writes, no SETCRTC retry in reload branch",
         "safety": "no new boot-write primitive; live H5 stages only an init ELF under the approved SD root",
         "risk": "source build only; live H5 reload is separately gated",
@@ -294,6 +298,8 @@ def render_report(
         "- The reloaded PID1 calls `auto_hud_adopt_pidfile()` and records `hotreload-autohud` instead of "
         "running a new modeset or SETCRTC retry.",
         "- After tcpctl refresh, rshell is started when its opt-in flag is enabled.",
+        "- Reload mode defers the early selftest/pid1guard until service adoption is complete, and the "
+        "KMS selftest accepts the adopted HUD child as the display liveness proof.",
         "- Bright line retained: no panel re-init, no backlight/PMIC/regulator/GDSC/GPIO writes, no reload "
         "SETCRTC retry.",
         "",
@@ -301,7 +307,8 @@ def render_report(
         "",
         "- Static PASS requires the V3368 version strings, reload markers, retained storage/tcpctl markers, "
         "and H5 markers (`reload: preserving autohud`, `Hot-reload: autohud adopted`, "
-        "`hotreload-autohud`, `Hot-reload: rshell ready`, `hotreload-rshell`).",
+        "`hotreload-autohud`, `Hot-reload: rshell ready`, `hotreload-rshell`, "
+        "`Hot-reload: selftest/guard refreshed`, `display: adopted-autohud`).",
         "- Live H5 PASS, separately gated, requires: staged V3368 init SHA matches; `reload` returns "
         "through the new V3368 shell; `status` reports `BOOT OK`, `storage backend=sd`, runtime SD "
         "root, `autohud=running`, `tcpctl=running`, `transport.tcpctl=ready`, `rshell=running` when "

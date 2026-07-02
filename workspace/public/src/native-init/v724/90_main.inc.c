@@ -6305,24 +6305,30 @@ int main(void) {
         a90_logf("boot", "ACM gadget configured");
         a90_timeline_record(0, 0, "usb-gadget", "ACM gadget configured");
         klogf("<6>A90v724: ACM gadget configured\n");
-        (void)a90_selftest_run_boot(&selftest_hooks, NULL);
-        {
-            char guard_summary[96];
+        if (!a90_reloaded) {
+            (void)a90_selftest_run_boot(&selftest_hooks, NULL);
+            {
+                char guard_summary[96];
 
-            refresh_pid1_guard();
-            a90_pid1_guard_summary(guard_summary, sizeof(guard_summary));
-            boot_splash_set_line(5,
-                    a90_pid1_guard_has_failures() ?
-                    "[ GUARD ] WARN SEE STATUS" :
-                    "[ GUARD ] PID1 CHECK OK");
-            boot_auto_frame();
-            a90_logf("boot", "pid1 guard %s", guard_summary);
-            a90_timeline_record(a90_pid1_guard_has_failures() ? -EIO : 0,
-                            a90_pid1_guard_has_failures() ? EIO : 0,
-                            "pid1-guard",
-                            "%s",
-                            guard_summary);
-            klogf("<6>A90v724: pid1 guard %s\n", guard_summary);
+                refresh_pid1_guard();
+                a90_pid1_guard_summary(guard_summary, sizeof(guard_summary));
+                boot_splash_set_line(5,
+                        a90_pid1_guard_has_failures() ?
+                        "[ GUARD ] WARN SEE STATUS" :
+                        "[ GUARD ] PID1 CHECK OK");
+                boot_auto_frame();
+                a90_logf("boot", "pid1 guard %s", guard_summary);
+                a90_timeline_record(a90_pid1_guard_has_failures() ? -EIO : 0,
+                                a90_pid1_guard_has_failures() ? EIO : 0,
+                                "pid1-guard",
+                                "%s",
+                                guard_summary);
+                klogf("<6>A90v724: pid1 guard %s\n", guard_summary);
+            }
+        } else {
+            boot_splash_set_line(5, "[ GUARD ] DEFER RELOAD");
+            a90_logf("boot", "reloaded fast-path: defer selftest/pid1 guard until services are adopted");
+            a90_timeline_record(0, 0, "pid1-guard", "deferred until hot-reload services adopted");
         }
     } else {
         int saved_errno = errno;
@@ -6470,96 +6476,111 @@ int main(void) {
                 a90_console_printf("# Hot-reload: rshell disabled; refresh skipped.\r\n");
                 a90_logf("boot", "hot-reload rshell skipped: disabled");
             }
-        } else {
-        v724_run_qrtr_servloc_boot_once();
-        v641_run_sibling_ssctl_once();
-        if (start_auto_hud(BOOT_HUD_REFRESH_SECONDS, false) == 0) {
-            a90_logf("boot", "autohud started refresh=%d", BOOT_HUD_REFRESH_SECONDS);
-            a90_timeline_record(0, 0, "autohud", "started refresh=%d", BOOT_HUD_REFRESH_SECONDS);
-            a90_console_printf("# Boot display: splash %ds -> autohud %ds.\r\n",
-                    BOOT_SPLASH_SECONDS,
-                    BOOT_HUD_REFRESH_SECONDS);
-        } else {
-            int saved_errno = errno;
+            (void)a90_selftest_run_boot(&selftest_hooks, NULL);
+            {
+                char guard_summary[96];
 
-            a90_logf("boot", "autohud start failed errno=%d error=%s",
-                        saved_errno, strerror(saved_errno));
-            a90_timeline_record(-saved_errno,
-                            saved_errno,
-                            "autohud",
-                            "start failed: %s",
-                            strerror(saved_errno));
-            a90_console_printf("# Boot display: autohud start failed.\r\n");
-        }
-        if (a90_netservice_enabled()) {
-            int net_rc;
-
-            a90_console_printf("# Netservice: enabled, starting NCM/tcpctl.\r\n");
-            net_rc = a90_netservice_start();
-            if (net_rc == 0) {
-                mark_step("5_netservice_ok_v724\n");
-                a90_console_printf("# Netservice: NCM %s %s, tcpctl port %s.\r\n",
-                        NETSERVICE_IFNAME,
-                        NETSERVICE_DEVICE_IP,
-                        NETSERVICE_TCP_PORT);
-                klogf("<6>A90v724: netservice started\n");
-            } else {
-                int net_errno = -net_rc;
-
-                if (net_errno < 0) {
-                    net_errno = EIO;
-                }
-                a90_console_printf("# Netservice: start failed rc=%d errno=%d (%s).\r\n",
-                        net_rc,
-                        net_errno,
-                        strerror(net_errno));
-                a90_logf("boot", "netservice failed rc=%d errno=%d error=%s",
-                            net_rc, net_errno, strerror(net_errno));
-                a90_timeline_record(net_rc,
-                                net_errno,
-                                "netservice",
-                                "start failed: %s",
-                                strerror(net_errno));
-                klogf("<6>A90v724: netservice failed (%d)\n", net_errno);
+                refresh_pid1_guard();
+                a90_pid1_guard_summary(guard_summary, sizeof(guard_summary));
+                a90_timeline_record(a90_pid1_guard_has_failures() ? -EIO : 0,
+                                a90_pid1_guard_has_failures() ? EIO : 0,
+                                "hotreload-guard",
+                                "%s",
+                                guard_summary);
+                a90_console_printf("# Hot-reload: selftest/guard refreshed: %s.\r\n",
+                        guard_summary);
+                a90_logf("boot", "hot-reload selftest/guard refreshed %s", guard_summary);
             }
         } else {
-            a90_logf("boot", "netservice disabled flag=%s", NETSERVICE_FLAG_PATH);
-        }
-        if (rshell_enabled()) {
-            int rshell_rc;
-
-            a90_console_printf("# Remote shell: enabled, starting token TCP shell.\r\n");
-            rshell_rc = rshell_start_service(false);
-            if (rshell_rc == 0) {
-                mark_step("6_rshell_ok_v724\n");
-                a90_console_printf("# Remote shell: %s:%s ready.\r\n",
-                        A90_RSHELL_BIND_ADDR,
-                        A90_RSHELL_PORT);
-                klogf("<6>A90v724: rshell started\n");
+            v724_run_qrtr_servloc_boot_once();
+            v641_run_sibling_ssctl_once();
+            if (start_auto_hud(BOOT_HUD_REFRESH_SECONDS, false) == 0) {
+                a90_logf("boot", "autohud started refresh=%d", BOOT_HUD_REFRESH_SECONDS);
+                a90_timeline_record(0, 0, "autohud", "started refresh=%d", BOOT_HUD_REFRESH_SECONDS);
+                a90_console_printf("# Boot display: splash %ds -> autohud %ds.\r\n",
+                        BOOT_SPLASH_SECONDS,
+                        BOOT_HUD_REFRESH_SECONDS);
             } else {
-                int rshell_errno = -rshell_rc;
+                int saved_errno = errno;
 
-                if (rshell_errno <= 0) {
-                    rshell_errno = EIO;
-                }
-                a90_console_printf("# Remote shell: start failed rc=%d errno=%d (%s).\r\n",
-                        rshell_rc,
-                        rshell_errno,
-                        strerror(rshell_errno));
-                a90_logf("boot", "rshell failed rc=%d errno=%d error=%s",
-                            rshell_rc, rshell_errno, strerror(rshell_errno));
-                a90_timeline_record(rshell_rc,
-                                rshell_errno,
-                                "rshell",
+                a90_logf("boot", "autohud start failed errno=%d error=%s",
+                            saved_errno, strerror(saved_errno));
+                a90_timeline_record(-saved_errno,
+                                saved_errno,
+                                "autohud",
                                 "start failed: %s",
-                                strerror(rshell_errno));
-                klogf("<6>A90v724: rshell failed (%d)\n", rshell_errno);
+                                strerror(saved_errno));
+                a90_console_printf("# Boot display: autohud start failed.\r\n");
             }
-        } else {
-            a90_logf("boot", "rshell disabled");
-        }
-        (void)a90_wifi_start_boot_autoconnect_once();
-        (void)a90_audio_boot_chime_start_once();
+            if (a90_netservice_enabled()) {
+                int net_rc;
+
+                a90_console_printf("# Netservice: enabled, starting NCM/tcpctl.\r\n");
+                net_rc = a90_netservice_start();
+                if (net_rc == 0) {
+                    mark_step("5_netservice_ok_v724\n");
+                    a90_console_printf("# Netservice: NCM %s %s, tcpctl port %s.\r\n",
+                            NETSERVICE_IFNAME,
+                            NETSERVICE_DEVICE_IP,
+                            NETSERVICE_TCP_PORT);
+                    klogf("<6>A90v724: netservice started\n");
+                } else {
+                    int net_errno = -net_rc;
+
+                    if (net_errno < 0) {
+                        net_errno = EIO;
+                    }
+                    a90_console_printf("# Netservice: start failed rc=%d errno=%d (%s).\r\n",
+                            net_rc,
+                            net_errno,
+                            strerror(net_errno));
+                    a90_logf("boot", "netservice failed rc=%d errno=%d error=%s",
+                                net_rc, net_errno, strerror(net_errno));
+                    a90_timeline_record(net_rc,
+                                    net_errno,
+                                    "netservice",
+                                    "start failed: %s",
+                                    strerror(net_errno));
+                    klogf("<6>A90v724: netservice failed (%d)\n", net_errno);
+                }
+            } else {
+                a90_logf("boot", "netservice disabled flag=%s", NETSERVICE_FLAG_PATH);
+            }
+            if (rshell_enabled()) {
+                int rshell_rc;
+
+                a90_console_printf("# Remote shell: enabled, starting token TCP shell.\r\n");
+                rshell_rc = rshell_start_service(false);
+                if (rshell_rc == 0) {
+                    mark_step("6_rshell_ok_v724\n");
+                    a90_console_printf("# Remote shell: %s:%s ready.\r\n",
+                            A90_RSHELL_BIND_ADDR,
+                            A90_RSHELL_PORT);
+                    klogf("<6>A90v724: rshell started\n");
+                } else {
+                    int rshell_errno = -rshell_rc;
+
+                    if (rshell_errno <= 0) {
+                        rshell_errno = EIO;
+                    }
+                    a90_console_printf("# Remote shell: start failed rc=%d errno=%d (%s).\r\n",
+                            rshell_rc,
+                            rshell_errno,
+                            strerror(rshell_errno));
+                    a90_logf("boot", "rshell failed rc=%d errno=%d error=%s",
+                                rshell_rc, rshell_errno, strerror(rshell_errno));
+                    a90_timeline_record(rshell_rc,
+                                    rshell_errno,
+                                    "rshell",
+                                    "start failed: %s",
+                                    strerror(rshell_errno));
+                    klogf("<6>A90v724: rshell failed (%d)\n", rshell_errno);
+                }
+            } else {
+                a90_logf("boot", "rshell disabled");
+            }
+            (void)a90_wifi_start_boot_autoconnect_once();
+            (void)a90_audio_boot_chime_start_once();
         }  /* end !a90_reloaded live-service re-init guard */
         a90_logf("boot", "entering shell");
         a90_timeline_record(0, 0, "shell", "interactive shell ready");
