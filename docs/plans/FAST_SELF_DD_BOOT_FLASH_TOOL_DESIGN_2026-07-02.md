@@ -551,3 +551,15 @@ is claimed here; live validation still requires checked-helper flash, post-flash
 explicit `hide`/menu-settle, E3b token run with positive `nonzero_bytes`, `pwrite_count=1`,
 `region_match_all=1`, `full_match=1`, pstore check, and rollback to v2321 with final
 `selftest fail=0`.
+
+Live result (2026-07-02): V3353 flashed through `native_init_flash.py`, booted cleanly, and E3b
+passed. The command targeted `target_off=62644224`, `len=1048576`, found a non-zero source block
+(`nonzero_bytes=833364`, `nonzero_sectors=252`, `zero_sectors=4`), executed one 1MiB identity
+`pwrite` (`pwrite_rc=1048576`, `pwrite_count=1`), read the whole 1MiB region back with
+`region_match_all=1`, and preserved the O_DIRECT full-partition SHA (`full_match=1`). Post-probe
+`selftest fail=0`, pstore entries=0, rollback to v2321 completed, and final explicit selftest plus
+pstore both passed. Public live report:
+`docs/reports/NATIVE_INIT_V3353_BOOT_WRITE_E3B_1MIB_LIVE_2026-07-02.md`. This proves a TWRP-sized
+contiguous non-zero identity write in boot tail slack from normal-boot PID1. Remaining fast-flash
+rungs are still separate: header-sector identity (E4), full-partition identity (E5), and only then a
+real new-image self-write with content change.
