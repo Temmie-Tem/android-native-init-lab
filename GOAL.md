@@ -206,6 +206,28 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > rung ASYNCHRONOUSLY via periodic nudge-checks and intervenes only if a rung drifts or goes off-spec — you
 > do NOT wait for that verification to proceed to the next non-destructive rung.
 
+> **✅ STATUS (2026-07-03) — D1 chroot MVP DONE.**
+> Codex staged the prebuilt Debian Bookworm arm64 ext4 image on SD at
+> `/mnt/sdext/a90/runtime/debian-bookworm-arm64-20260701-024412.img` (SHA-256
+> `210fc1f92d4eb8bf291fb5b362154a29ca2b579a22a0a41cb1aaa89b5b6cb0dc`), materialized runtime
+> `/dev/loop0` from loop major `7`, mounted the image at `/mnt/sdext/a90/runtime/distro-root`,
+> entered the chroot, and executed known Debian binaries. Live proof reported Debian `12.14`,
+> `stage_marker=present`, `A90D1_CHROOT_DONE`, cleanup mount absent, cleanup loop node absent,
+> final v2321, and final selftest `fail=0`. Report:
+> `docs/reports/SERVER_DISTRO_D1_CHROOT_MVP_2026-07-03.md`. No flash, no format, no forbidden
+> partition write, and `userdata=/dev/block/sda33` stayed untouched. Persistent D1 residue is limited
+> to the inert SD image.
+>
+> **▶ NEXT BOUNDED UNIT = D2 SSH-in-chroot (non-destructive, SD-only, NO flash):** reuse the same
+> SD-backed Debian image, mount/chroot it, start `dropbear` directly inside the chroot, and prove SSH
+> login over the native-init USB/NCM path. Use temporary key-only credentials under
+> `workspace/private/runs/server-distro/`; do not commit keys, host keys, raw transcripts, or
+> credentials. Bind/listen only on the local native-init/NCM path for this proof; do NOT expose a
+> public tunnel (D-public remains an explicit later gate). Cleanup must stop `dropbear`, unmount,
+> detach/remove runtime loop nodes, leave no dangling mount/process, keep resident v2321
+> `selftest fail=0`, and keep `userdata` untouched. **DoD:** a host SSH command authenticates with
+> the temporary key to the chrooted dropbear and returns a bounded marker command from Debian.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.
