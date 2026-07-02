@@ -721,8 +721,11 @@ prove the candidate boots.
 
 ### 12.5 F2: boot into a self-written candidate
 
-Only after F1 passes, F2 writes `target.full`, verifies `target_full_sha`, and then reboots to
-system instead of restoring `before.full` in the same boot. The self-written candidate must have a
+Only after F1 passes, F2 writes `target.full`, verifies `target_full_sha`, returns a clean command
+END with `reboot_required=1`, and the host immediately reboots to system instead of restoring
+`before.full` in the same boot. Keeping the reboot host-controlled preserves the command transcript:
+if the F2 command itself rebooted before returning, the host could lose the final `END` marker and
+turn a successful write into an ambiguous transport timeout. The self-written candidate must have a
 distinct init version/build marker so success is unambiguous. The host then verifies:
 
 - new candidate `version/status/selftest fail=0`;
@@ -730,9 +733,10 @@ distinct init version/build marker so success is unambiguous. The host then veri
 - expected build marker matches the image written by F2;
 - rollback to v2321 through `native_init_flash.py` still succeeds.
 
-If the write/readback verification fails, F2 must not reboot to system. If reboot fails or the
-candidate health check fails, the host uses the checked helper/TWRP rollback path and stops the
-ladder.
+If the write/readback verification fails, F2 must not reboot to system; if any target pwrite already
+started, F2 should attempt an immediate `before.full` restore before returning failure. If reboot
+fails or the candidate health check fails, the host uses the checked helper/TWRP rollback path and
+stops the ladder.
 
 ### 12.6 F3: self-rollback from a self-written candidate
 
@@ -891,3 +895,33 @@ the platform accepts a content-changing boot self-write and the same normal-boot
 restore the exact previous full boot image before any reboot into the changed target. F2/F3/F4 remain
 blocked by the policy gate until a future explicit amendment. Report:
 `docs/reports/NATIVE_INIT_V3358_SELF_DD_F1_ROUNDTRIP_LIVE_2026-07-02.md`.
+
+### 12.13 V3359 F2 implementation (source-built 2026-07-02, live policy-blocked)
+
+V3359 (`0.11.122`, `v3359-self-dd-f2-boot-candidate`) implements the F2 boot-candidate
+source rung:
+
+`boot-flash-f2 BOOT-FLASH-F2-BOOT-CANDIDATE <candidate-path> <expected-sha256> <expected-version>`.
+
+The command repeats the F0/F1 gates: approved staging path, expected SHA, expected version marker,
+Android boot header, current full-partition SHA, deterministic `target.full` SHA, non-zero content
+change, and guarded boot-partition identity. It captures `before.full` to
+`/mnt/sdext/a90/flash-staging/boot-flash-f2-before.full`, writes the full 64MiB target image in
+1MiB chunks through the existing single `pwrite()` wrapper, fsyncs, and verifies
+`target_full_sha_after == target_full_sha`.
+
+On success, F2 deliberately does **not** restore `before.full`. It prints
+`reboot_required=1 host_must_reboot_now=1` and `result=ok target-written-ready-to-reboot`, then
+returns a clean command END so the host can issue the reboot and keep an unambiguous transcript. The
+F2 snapshot is retained even on success until the host has verified the candidate and rolled back via
+`native_init_flash.py`.
+
+On a target-write/readback failure after any target pwrite starts, F2 attempts a failure-path
+`before.full` restore and reports `failure_restore_full_match`. If the restore also fails, the
+ladder stops and the host must use the checked helper/TWRP rollback path.
+
+The source-build report is
+`docs/reports/NATIVE_INIT_V3359_SELF_DD_F2_BOOT_CANDIDATE_SOURCE_BUILD_2026-07-02.md`. No live F2
+content-changing write or reboot into a self-written candidate has been executed at source-build
+time. Section 12.1 and `AGENTS.md` still authorize only the completed V3358 F1 paired roundtrip;
+F2 and later remain blocked until a future explicit policy amendment.
