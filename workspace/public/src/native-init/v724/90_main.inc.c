@@ -6380,8 +6380,45 @@ int main(void) {
         a90_console_printf("\r\n# %s\r\n", INIT_BANNER);
         a90_console_printf("# USB ACM serial console ready.\r\n");
         if (a90_reloaded) {
-            a90_console_printf("# Hot-reload: skipping autohud/netservice/rshell re-init (already live).\r\n");
-            a90_logf("boot", "reloaded fast-path: skip autohud/netservice/rshell re-init");
+            a90_console_printf("# Hot-reload: skipping autohud/rshell re-init; refreshing tcpctl only.\r\n");
+            a90_logf("boot", "reloaded fast-path: skip autohud/rshell re-init; refresh tcpctl only");
+            if (a90_netservice_enabled()) {
+                int net_rc;
+
+                a90_console_printf("# Hot-reload: netservice enabled; refreshing tcpctl on existing NCM.\r\n");
+                net_rc = a90_netservice_start();
+                if (net_rc == 0) {
+                    a90_console_printf("# Hot-reload: tcpctl ready on %s:%s.\r\n",
+                            NETSERVICE_DEVICE_IP,
+                            NETSERVICE_TCP_PORT);
+                    a90_timeline_record(0, 0, "hotreload-tcpctl", "ready %s:%s",
+                                    NETSERVICE_DEVICE_IP,
+                                    NETSERVICE_TCP_PORT);
+                    a90_logf("boot", "hot-reload tcpctl ready %s:%s",
+                                NETSERVICE_DEVICE_IP,
+                                NETSERVICE_TCP_PORT);
+                } else {
+                    int net_errno = -net_rc;
+
+                    if (net_errno <= 0) {
+                        net_errno = EIO;
+                    }
+                    a90_console_printf("# Hot-reload: tcpctl refresh failed rc=%d errno=%d (%s).\r\n",
+                            net_rc,
+                            net_errno,
+                            strerror(net_errno));
+                    a90_timeline_record(net_rc,
+                                    net_errno,
+                                    "hotreload-tcpctl",
+                                    "refresh failed: %s",
+                                    strerror(net_errno));
+                    a90_logf("boot", "hot-reload tcpctl refresh failed rc=%d errno=%d error=%s",
+                                net_rc, net_errno, strerror(net_errno));
+                }
+            } else {
+                a90_console_printf("# Hot-reload: netservice disabled; tcpctl refresh skipped.\r\n");
+                a90_logf("boot", "hot-reload tcpctl skipped: netservice disabled");
+            }
         } else {
         v724_run_qrtr_servloc_boot_once();
         v641_run_sibling_ssctl_once();

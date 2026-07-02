@@ -8,11 +8,13 @@
 #include "a90_timeline.h"
 #include "a90_util.h"
 
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/random.h>
 #include <sys/stat.h>
@@ -269,6 +271,82 @@ static bool netservice_tcpctl_requested(void) {
     return strcmp(state, "ncm") != 0;
 }
 
+static bool netservice_parse_pid_dir(const char *name, pid_t *out) {
+    char *end = NULL;
+    long value;
+
+    if (name == NULL || *name == '\0' || out == NULL) {
+        return false;
+    }
+    value = strtol(name, &end, 10);
+    if (end == name || *end != '\0' || value <= 1 || value > INT_MAX) {
+        return false;
+    }
+    *out = (pid_t)value;
+    return true;
+}
+
+static bool netservice_read_cmdline(pid_t pid, char *out, size_t out_size) {
+    char path[PATH_MAX];
+    ssize_t rd;
+    int fd;
+
+    if (out == NULL || out_size == 0) {
+        return false;
+    }
+    out[0] = '\0';
+    if (snprintf(path, sizeof(path), "/proc/%ld/cmdline", (long)pid) >= (int)sizeof(path)) {
+        return false;
+    }
+    fd = open(path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        return false;
+    }
+    rd = read(fd, out, out_size - 1);
+    close(fd);
+    if (rd <= 0) {
+        out[0] = '\0';
+        return false;
+    }
+    for (ssize_t index = 0; index < rd; ++index) {
+        if (out[index] == '\0') {
+            out[index] = ' ';
+        }
+    }
+    out[rd] = '\0';
+    return true;
+}
+
+static pid_t netservice_find_existing_tcpctl_listener(void) {
+    DIR *dir;
+    struct dirent *entry;
+    char cmdline[512];
+    pid_t pid;
+
+    dir = opendir("/proc");
+    if (dir == NULL) {
+        return -1;
+    }
+    while ((entry = readdir(dir)) != NULL) {
+        if (!netservice_parse_pid_dir(entry->d_name, &pid) || pid == getpid()) {
+            continue;
+        }
+        if (!netservice_read_cmdline(pid, cmdline, sizeof(cmdline))) {
+            continue;
+        }
+        if (strstr(cmdline, NETSERVICE_TCPCTL_HELPER) != NULL &&
+            strstr(cmdline, " listen ") != NULL &&
+            strstr(cmdline, NETSERVICE_TCP_BIND_ADDR) != NULL &&
+            strstr(cmdline, NETSERVICE_TCP_PORT) != NULL &&
+            strstr(cmdline, NETSERVICE_TCP_TOKEN_PATH) != NULL) {
+            closedir(dir);
+            return pid;
+        }
+    }
+    closedir(dir);
+    return -1;
+}
+
 int a90_netservice_set_enabled(bool enabled) {
     int fd;
 
@@ -346,6 +424,14 @@ static int netservice_spawn_tcpctl(void) {
     if (a90_service_pid(A90_SERVICE_TCPCTL) > 0) {
         a90_logf("netservice", "tcpctl already running pid=%ld",
                     (long)a90_service_pid(A90_SERVICE_TCPCTL));
+        return 0;
+    }
+    pid = netservice_find_existing_tcpctl_listener();
+    if (pid > 0) {
+        a90_service_set_pid(A90_SERVICE_TCPCTL, pid);
+        a90_timeline_record(0, 0, "tcpctl-adopt", "pid=%ld", (long)pid);
+        a90_logf("netservice", "adopt existing tcpctl pid=%ld bind=%s port=%s",
+                    (long)pid, NETSERVICE_TCP_BIND_ADDR, NETSERVICE_TCP_PORT);
         return 0;
     }
 
