@@ -160,6 +160,36 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT bounded unit = D1 chroot MVP**: use the staged Debian ext4 image on SD, do the first
 > non-destructive loop/mount/chroot/static-binary proof, and keep `userdata` untouched.
 
+> **✅ OPERATOR GATE-2 + ▶ D1 CHARTER (2026-07-03) — D0 accepted; next unit = D1 chroot MVP.**
+> D0 verified by operator: read-only throughout (no flash / mount change / format / `userdata` write),
+> resident stayed v2321 `selftest fail=0`, inventory complete and informative. Pinned facts carried into
+> D1: rootfs target = **`/mnt/sdext`** (SD, ext4, rw, ~50 GiB free — the 2 GiB Debian image fits);
+> **`userdata=/dev/block/sda33` stays UNTOUCHED**; busybox has `losetup`/`mount`/`chroot`/`switch_root`/
+> `tar`/`unshare`; ext4 + loop kernel support present BUT **`/dev/loop*` nodes are ABSENT**; `mkfs.ext4`
+> absent (not needed — image is pre-built); `VETH=n`/`OVERLAY_FS=n` (noted for D-harden later).
+>
+> **▶ NEXT BOUNDED UNIT = D1 chroot MVP (non-destructive, SD-only, NO flash):** on the resident
+> native-init device —
+> 1. Stage the pre-built Debian ext4 image
+>    (`workspace/private/builds/server-distro/debian-bookworm-arm64-20260701-024412.img`, SHA
+>    `210fc1f9…`, 2 GiB) onto **`/mnt/sdext`** via the established device push channel.
+> 2. **Materialize a runtime loop node** (the D0-identified gap): `mknod /dev/loop0 b <loop-major> 0`
+>    with the loop major from `/proc/devices`, or prove `losetup -f` / `mount -o loop` auto-handles it.
+> 3. `losetup` + `mount` the image ext4 rw (or `mount -o loop`) at an SD-backed mountpoint.
+> 4. `chroot` in and run a known Debian binary (e.g. `/bin/busybox` / `/bin/ls` / `cat /etc/debian_version`
+>    / `uname -a`) to prove the portable Debian userspace EXECUTES on the stock 4.14 kernel, live.
+> 5. Clean up: exit chroot, `umount`, `losetup -d`, remove materialized loop nodes.
+> **DoD:** a known Debian binary runs inside the loop-mounted chroot; cleanup leaves no dangling
+> mount/loop; device recoverable to v2321 (a reboot clears all D1 runtime state, the SD image is inert).
+> Unblocks D2 (dropbear SSH inside the chroot).
+>
+> **Guardrails:** all runtime / SD-only (no boot flash, no partition write, no forbidden partitions);
+> **`userdata` NEVER touched** — the D4 reformat is the only sanctioned `/data` destruction and is a
+> separate, later, explicitly-gated unit; no PMIC/regulator/GDSC/GPIO/backlight/panel writes; recoverable
+> to v2321; **fails-twice on the same loop/mount/chroot approach → STOP + report** (do not force
+> loop-node/mount hacks); keep the rootfs image / binaries / credentials out of commits; scoped
+> `git add` + a `docs/reports/` report.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.
