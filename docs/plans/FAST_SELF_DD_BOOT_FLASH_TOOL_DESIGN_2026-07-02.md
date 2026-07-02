@@ -939,8 +939,9 @@ A90BWF1 result=ok paired-roundtrip-restored
 Post-F1 health stayed clean (`selftest fail=0`, pstore entries `0`), and rollback to v2321 through
 `native_init_flash.py` passed with final `selftest fail=0` and pstore `entries=0`. This closes F1:
 the platform accepts a content-changing boot self-write and the same normal-boot native-init can
-restore the exact previous full boot image before any reboot into the changed target. F2/F3/F4 remain
-blocked by the policy gate until a future explicit amendment. Report:
+restore the exact previous full boot image before any reboot into the changed target. At that time,
+F2/F3/F4 remained blocked by the policy gate; later sections record the subsequent bounded
+amendments and live passes. Report:
 `docs/reports/NATIVE_INIT_V3358_SELF_DD_F1_ROUNDTRIP_LIVE_2026-07-02.md`.
 
 ### 12.13 V3359 F2 implementation (source-built 2026-07-02, live policy-blocked)
@@ -970,8 +971,8 @@ ladder stops and the host must use the checked helper/TWRP rollback path.
 The source-build report is
 `docs/reports/NATIVE_INIT_V3359_SELF_DD_F2_BOOT_CANDIDATE_SOURCE_BUILD_2026-07-02.md`. No live F2
 content-changing write or reboot into a self-written candidate has been executed at source-build
-time. Section 12.1 and `AGENTS.md` now authorize only the next bounded V3359 F2 live validation;
-F3 and later remain blocked until a future explicit policy amendment.
+time. At source-build time, section 12.1 and `AGENTS.md` authorized only the next bounded V3359 F2
+live validation; later sections record the subsequent F3 and F4-live amendments.
 
 ### 12.14 V3359 F2 live pass (boot into self-written candidate)
 
@@ -1008,8 +1009,9 @@ with final `0.9.285 build=v2321-usb-clean-identity-rodata`, `selftest fail=0`, p
 and the retained F2 snapshot removed from SD after rollback.
 
 This proves F2: normal-boot native-init can write a verified content-changing full boot target and
-the device can reboot into that self-written boot image. F3/F4 and production self-write integration
-remain blocked until a future explicit policy amendment. Report:
+the device can reboot into that self-written boot image. At that time, F3/F4 and production
+self-write integration remained blocked; later sections record the subsequent F3 and F4-live
+amendments. Report:
 `docs/reports/NATIVE_INIT_V3359_SELF_DD_F2_BOOT_CANDIDATE_LIVE_2026-07-02.md`.
 
 ### 12.15 V3360 F3 implementation (source-built 2026-07-02, live policy-blocked)
@@ -1033,8 +1035,8 @@ after any target pwrite starts, F3 attempts the same failure-path `before.full` 
 The source-build report is
 `docs/reports/NATIVE_INIT_V3360_SELF_DD_F3_SELF_ROLLBACK_SOURCE_BUILD_2026-07-02.md`. No live F3
 self-rollback write or reboot into v2321 is claimed by this source-build report. Section 12.1 and
-`AGENTS.md` now authorize only the next bounded V3360 F3 live validation; F4 remains blocked until a
-future explicit policy amendment.
+`AGENTS.md` authorized only the next bounded V3360 F3 live validation; a later bounded F4-live
+amendment is recorded in §12.18.
 
 ### 12.16 V3360 F3 live pass (self-rollback from a self-written candidate)
 
@@ -1083,8 +1085,9 @@ with `selftest fail=0`; pstore entries stayed `0`. The retained F2 and F3 `befor
 were deleted only after final v2321 health passed.
 
 This closes F3: a self-written candidate can write the v2321 rollback target from normal boot,
-verify the full partition SHA, reboot, and return to the clean rollback baseline. F4 and production
-self-write integration remain blocked until a future explicit policy amendment. Report:
+verify the full partition SHA, reboot, and return to the clean rollback baseline. At that time, F4
+and production self-write integration remained blocked; the bounded F4-live amendment and pass are
+recorded in §12.18. Report:
 `docs/reports/NATIVE_INIT_V3360_SELF_DD_F3_SELF_ROLLBACK_LIVE_2026-07-02.md`.
 
 ### 12.17 V3361 F4 host integration scaffold (host-only, live-blocked)
@@ -1107,11 +1110,14 @@ canonical timeline events, and checked-helper rollback fallback. It requires cal
 remote basename.
 
 `--experimental-self-write` without `--self-write-plan-only` is deliberately fail-closed and raises
-the policy block before any recovery transition, staging transfer, or boot write:
-`F4/production fast-flash is not authorized by AGENTS.md or design section 12.1`.
+the policy block before any recovery transition, staging transfer, or boot write. At V3361 time that
+block still treated F4-live as unauthorized; after the §12.1 F4-live amendment, the current block
+means: no live self-write without `--self-write-live-authorized`, and production/default fast-flash
+remains gated.
 
-Host validation proved the plan-only mode against the V3360 image and kept the live path blocked.
-No device command, flash, reboot, or rollback occurred in this V3361 host-only unit. Report:
+Host validation proved the plan-only mode against the V3360 image and kept the live path blocked at
+V3361 time. No device command, flash, reboot, or rollback occurred in this V3361 host-only unit. A
+later bounded F4-live amendment and pass are recorded in §12.18. Report:
 `docs/reports/NATIVE_INIT_V3361_SELF_DD_F4_HOST_INTEGRATION_SOURCE_2026-07-02.md`.
 
 ### 12.18 V3362 F4-live host self-flash (live pass)

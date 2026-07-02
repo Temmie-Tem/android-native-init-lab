@@ -191,6 +191,11 @@ python3 workspace/public/src/scripts/revalidation/native_init_flash.py \
   workspace/private/inputs/boot_images/boot_linux_v2174_wifi_urandom_connect.img --from-native
 ```
 
+The self-dd ladder is a narrow boot-partition-only exception, not a replacement for the helper:
+F1/F2/F3 and the one bounded V3362 F4-live validation are documented in
+`docs/plans/FAST_SELF_DD_BOOT_FLASH_TOOL_DESIGN_2026-07-02.md`; production/default self-write,
+non-v2321 self-flash candidates, raw host `dd`, fastboot, and non-boot writes remain gated.
+
 Boot image pack/unpack tools live under:
 
 ```bash

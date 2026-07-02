@@ -24,8 +24,9 @@
   - required canonical timeline events
   - checked-helper/TWRP rollback fallback
 - The live self-write path remains blocked. `--experimental-self-write` without
-  `--self-write-plan-only` raises:
-  `F4/production fast-flash is not authorized by AGENTS.md or design section 12.1`.
+  `--self-write-plan-only` raised the then-current policy block before any device action. Later
+  V3362 narrowed that block to allow exactly one `--self-write-live-authorized` v2321 F4-live
+  validation; production/default fast-flash remains gated.
 
 ## Safety Gate
 

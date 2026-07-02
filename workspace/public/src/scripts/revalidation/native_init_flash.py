@@ -34,8 +34,9 @@ SELF_WRITE_ALLOWED_STAGING_DIRS = (
 )
 SELF_WRITE_SAFE_BASENAME_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 SELF_WRITE_POLICY_BLOCK = (
-    "experimental self-write live path is blocked: F4/production fast-flash is not "
-    "authorized by AGENTS.md or design section 12.1"
+    "experimental self-write live path is blocked unless --self-write-live-authorized "
+    "selects the bounded v2321 F4-live mode; production/default fast-flash remains "
+    "gated by AGENTS.md and design section 12.1"
 )
 
 # design section 12.1 F4-live amendment (2026-07-02): the only authorized live self-write

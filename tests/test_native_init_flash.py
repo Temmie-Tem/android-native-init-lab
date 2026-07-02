@@ -289,7 +289,7 @@ recovery-serial recovery
         )
 
         self.assertEqual(plan["policy_state"], "plan-only-live-blocked")
-        self.assertIn("F4/production fast-flash is not authorized", plan["policy_block"])
+        self.assertIn("production/default fast-flash remains gated", plan["policy_block"])
         self.assertEqual(plan["remote_image"], "/mnt/sdext/a90/flash-staging/boot_linux_v3361.img")
         self.assertEqual(
             plan["source_plan_command"],
@@ -383,7 +383,7 @@ recovery-serial recovery
         )
 
         with mock.patch("sys.stdout", io.StringIO()):
-            with self.assertRaisesRegex(RuntimeError, "F4/production fast-flash is not authorized"):
+            with self.assertRaisesRegex(RuntimeError, "production/default fast-flash remains gated"):
                 flash.run_experimental_self_write(args, Path("/tmp/boot.img"), "a" * 64, 4096)
 
     def test_self_write_plan_f3_mode_sets_rollback_command_and_live_policy(self) -> None:
@@ -427,7 +427,7 @@ recovery-serial recovery
             self_write_live_authorized=False,
         )
         with mock.patch("sys.stdout", io.StringIO()):
-            with self.assertRaisesRegex(RuntimeError, "F4/production fast-flash is not authorized"):
+            with self.assertRaisesRegex(RuntimeError, "production/default fast-flash remains gated"):
                 flash.run_experimental_self_write(
                     args,
                     Path("/tmp/boot_linux_v2321.img"),
