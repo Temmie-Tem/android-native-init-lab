@@ -45,10 +45,13 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > tcpctl, restarts rshell from the opt-in flag, and refreshes selftest/pid1guard after service adoption.
 > Live result/report: `docs/reports/NATIVE_INIT_V3368_HOT_RELOAD_AUTOHUD_H5_LIVE_2026-07-03.md`.
 > Hard bright-line held: **no panel re-init, no PMIC/regulator/GDSC/backlight/GPIO power write**.
-> **Fast-build is proven a byte-identical drop-in**
-> (12.78→5.03 s parallel, 0.11 s incremental-module) but is a **separate host-only follow-up — do NOT
-> bundle it into H5.** The flash-cycle infra epic is complete; resume the REPL v2c active epic below
-> (or operator re-charter).
+> **Fast-build is now the PRODUCTIZED DEFAULT** (commit `5f14cd49`): the V1393 build base splits the
+> one-shot gcc into cached per-source `.o` (depfile `-MMD` + `source_sha256` + compiler/flags signature
+> invalidation; `--init-build-mode one-shot` fallback; `--init-fast-verify-one-shot` SHA-parity guard),
+> proven byte-identical (12.78→5.03 s parallel, 0.11 s incremental-module). **The flash-cycle infra epic
+> is COMPLETE** (self-dd F0–F4 + hot-reload H0–H5 + fast-build default, all live-proven); resume the
+> REPL v2c active epic below (or operator re-charter). Two complementary tools stand: hot-reload
+> (init-code, ~2–5 s, ephemeral) + self-dd/TWRP (persistent/kernel, ~50–65 s, reboot-bound).
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
