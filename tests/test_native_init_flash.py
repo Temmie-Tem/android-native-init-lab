@@ -302,6 +302,10 @@ recovery-serial recovery
         )
         self.assertEqual(plan["self_write_command"][0:2], ["boot-flash-f2", "BOOT-FLASH-F2-BOOT-CANDIDATE"])
         self.assertEqual(plan["required_timeline_events"][0], "candidate_flash_start")
+        self.assertLess(
+            plan["stage_command"].index("--device-binary"),
+            plan["stage_command"].index("install"),
+        )
 
     def test_experimental_self_write_rejects_unapproved_inputs(self) -> None:
         base = dict(
