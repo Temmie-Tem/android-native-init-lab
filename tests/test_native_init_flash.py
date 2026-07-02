@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import io
+import json
 import tempfile
 import types
 import unittest
@@ -249,6 +251,136 @@ recovery-serial recovery
         self.assertEqual(args.android_timeout, 42.0)
         self.assertTrue(args.android_root_check)
         self.assertTrue(args.expect_android_magic)
+
+    def test_parse_args_exposes_experimental_self_write_options(self) -> None:
+        with mock.patch(
+            "sys.argv",
+            [
+                "native_init_flash.py",
+                "boot.img",
+                "--experimental-self-write",
+                "--self-write-plan-only",
+                "--self-write-staging-dir",
+                "/cache/a90-runtime/flash-staging",
+            ],
+        ):
+            args = flash.parse_args()
+
+        self.assertTrue(args.experimental_self_write)
+        self.assertTrue(args.self_write_plan_only)
+        self.assertEqual(args.self_write_staging_dir, "/cache/a90-runtime/flash-staging")
+
+    def test_build_experimental_self_write_plan_is_fail_closed_and_bounded(self) -> None:
+        args = types.SimpleNamespace(
+            bridge_host="127.0.0.1",
+            bridge_port=54321,
+            expect_sha256="a" * 64,
+            expect_version="0.11.124",
+            expect_android_magic=True,
+            allow_unpinned_image=False,
+            self_write_staging_dir="/mnt/sdext/a90/flash-staging",
+        )
+
+        plan = flash.build_experimental_self_write_plan(
+            args,
+            Path("/tmp/boot_linux_v3361.img"),
+            "a" * 64,
+            4096,
+        )
+
+        self.assertEqual(plan["policy_state"], "plan-only-live-blocked")
+        self.assertIn("F4/production fast-flash is not authorized", plan["policy_block"])
+        self.assertEqual(plan["remote_image"], "/mnt/sdext/a90/flash-staging/boot_linux_v3361.img")
+        self.assertEqual(
+            plan["source_plan_command"],
+            [
+                "boot-flash-plan",
+                "/mnt/sdext/a90/flash-staging/boot_linux_v3361.img",
+                "a" * 64,
+                "0.11.124",
+            ],
+        )
+        self.assertEqual(plan["self_write_command"][0:2], ["boot-flash-f2", "BOOT-FLASH-F2-BOOT-CANDIDATE"])
+        self.assertEqual(plan["required_timeline_events"][0], "candidate_flash_start")
+
+    def test_experimental_self_write_rejects_unapproved_inputs(self) -> None:
+        base = dict(
+            bridge_host="127.0.0.1",
+            bridge_port=54321,
+            expect_sha256="a" * 64,
+            expect_version="0.11.124",
+            expect_android_magic=True,
+            allow_unpinned_image=False,
+            self_write_staging_dir="/mnt/sdext/a90/flash-staging",
+        )
+
+        cases = [
+            ("expect_sha256", None, "requires --expect-sha256"),
+            ("expect_version", None, "requires --expect-version"),
+            ("expect_android_magic", False, "requires --expect-android-magic"),
+            ("allow_unpinned_image", True, "does not allow --allow-unpinned-image"),
+            ("self_write_staging_dir", "/tmp", "must be one of"),
+        ]
+        for key, value, pattern in cases:
+            values = dict(base)
+            values[key] = value
+            with self.subTest(key=key):
+                with self.assertRaisesRegex(RuntimeError, pattern):
+                    flash.build_experimental_self_write_plan(
+                        types.SimpleNamespace(**values),
+                        Path("/tmp/boot.img"),
+                        "a" * 64,
+                        4096,
+                    )
+
+    def test_main_experimental_self_write_plan_only_prints_json_without_device_action(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            image = Path(temp_dir) / "boot.img"
+            marker = b"0.11.124"
+            image.write_bytes(flash.ANDROID_BOOT_MAGIC + marker + b"\0" * (
+                flash.BOOT_READBACK_BLOCK_SIZE - len(flash.ANDROID_BOOT_MAGIC) - len(marker)
+            ))
+            image.chmod(0o600)
+            digest = flash.local_sha256(image)
+
+            argv = [
+                "native_init_flash.py",
+                str(image),
+                "--expect-sha256",
+                digest,
+                "--expect-version",
+                marker.decode(),
+                "--expect-android-magic",
+                "--experimental-self-write",
+                "--self-write-plan-only",
+            ]
+            stdout = io.StringIO()
+            with mock.patch("sys.argv", argv), \
+                    mock.patch("sys.stdout", stdout), \
+                    mock.patch.object(flash, "wait_for_adb_state") as wait_mock:
+                self.assertEqual(flash.main(), 0)
+
+        wait_mock.assert_not_called()
+        plan = json.loads(stdout.getvalue())
+        self.assertEqual(plan["mode"], "experimental-self-write")
+        self.assertEqual(plan["policy_state"], "plan-only-live-blocked")
+        self.assertEqual(plan["local_sha256"], digest)
+
+    def test_experimental_self_write_without_plan_only_is_policy_blocked(self) -> None:
+        args = types.SimpleNamespace(
+            bridge_host="127.0.0.1",
+            bridge_port=54321,
+            expect_sha256="a" * 64,
+            expect_version="0.11.124",
+            expect_android_magic=True,
+            allow_unpinned_image=False,
+            self_write_staging_dir="/mnt/sdext/a90/flash-staging",
+            self_write_plan_only=False,
+        )
+
+        with mock.patch("sys.stdout", io.StringIO()):
+            with self.assertRaisesRegex(RuntimeError, "F4/production fast-flash is not authorized"):
+                flash.run_experimental_self_write(args, Path("/tmp/boot.img"), "a" * 64, 4096)
 
 
 if __name__ == "__main__":

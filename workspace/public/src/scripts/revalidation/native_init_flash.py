@@ -2,7 +2,10 @@
 
 import argparse
 import hashlib
+import json
 import os
+import posixpath
+import re
 import shutil
 import shlex
 import socket
@@ -24,6 +27,16 @@ BOOT_READBACK_BLOCK_SIZE = 4096
 ANDROID_BOOT_MAGIC = b"ANDROID!"
 INPUT_MODE_ENV = "A90CTL_INPUT_MODE"
 INPUT_CHAR_DELAY_ENV = "A90CTL_INPUT_CHAR_DELAY_SEC"
+DEFAULT_SELF_WRITE_STAGING_DIR = "/mnt/sdext/a90/flash-staging"
+SELF_WRITE_ALLOWED_STAGING_DIRS = (
+    "/mnt/sdext/a90/flash-staging",
+    "/cache/a90-runtime/flash-staging",
+)
+SELF_WRITE_SAFE_BASENAME_RE = re.compile(r"^[A-Za-z0-9._-]+$")
+SELF_WRITE_POLICY_BLOCK = (
+    "experimental self-write live path is blocked: F4/production fast-flash is not "
+    "authorized by AGENTS.md or design section 12.1"
+)
 
 
 def log(message: str) -> None:
@@ -214,6 +227,111 @@ def inspect_local_image(args: argparse.Namespace) -> tuple[Path, str, int]:
     log(f"local image size: {image_size}")
     log(f"local image sha256: {local_hash}")
     return image_path, local_hash, image_size
+
+
+def validate_self_write_staging_dir(path: str) -> str:
+    if "\x00" in path or not path.startswith("/"):
+        raise RuntimeError("--self-write-staging-dir must be an absolute device path")
+    normalized = posixpath.normpath(path)
+    if normalized != path.rstrip("/"):
+        raise RuntimeError("--self-write-staging-dir must be normalized")
+    if normalized not in SELF_WRITE_ALLOWED_STAGING_DIRS:
+        allowed = ", ".join(SELF_WRITE_ALLOWED_STAGING_DIRS)
+        raise RuntimeError(f"--self-write-staging-dir must be one of: {allowed}")
+    return normalized
+
+
+def self_write_remote_image_path(args: argparse.Namespace, image_path: Path) -> str:
+    staging_dir = validate_self_write_staging_dir(args.self_write_staging_dir)
+    basename = image_path.name
+    if not basename or not SELF_WRITE_SAFE_BASENAME_RE.fullmatch(basename):
+        raise RuntimeError(f"unsafe self-write remote image basename: {basename!r}")
+    return posixpath.join(staging_dir, basename)
+
+
+def build_experimental_self_write_plan(args: argparse.Namespace,
+                                       image_path: Path,
+                                       local_hash: str,
+                                       image_size: int) -> dict[str, object]:
+    if not args.expect_sha256:
+        raise RuntimeError("experimental self-write requires --expect-sha256")
+    if not args.expect_version:
+        raise RuntimeError("experimental self-write requires --expect-version")
+    if args.allow_unpinned_image:
+        raise RuntimeError("experimental self-write does not allow --allow-unpinned-image")
+    if not args.expect_android_magic:
+        raise RuntimeError("experimental self-write requires --expect-android-magic")
+
+    remote_image = self_write_remote_image_path(args, image_path)
+    tcpctl_script = "workspace/public/src/scripts/revalidation/tcpctl_host.py"
+    return {
+        "mode": "experimental-self-write",
+        "policy_state": "plan-only-live-blocked",
+        "policy_block": SELF_WRITE_POLICY_BLOCK,
+        "local_image": str(image_path),
+        "local_sha256": local_hash,
+        "image_size": image_size,
+        "expected_version": args.expect_version,
+        "remote_image": remote_image,
+        "staging_dir": posixpath.dirname(remote_image),
+        "preflight_commands": [
+            "version",
+            "status",
+            "selftest",
+            "pstore summary",
+        ],
+        "stage_command": [
+            "python3",
+            tcpctl_script,
+            "--bridge-host",
+            args.bridge_host,
+            "--bridge-port",
+            str(args.bridge_port),
+            "install",
+            "--install-control-channel",
+            "tcpctl",
+            "--local-binary",
+            str(image_path),
+            "--device-binary",
+            remote_image,
+        ],
+        "source_plan_command": [
+            "boot-flash-plan",
+            remote_image,
+            local_hash,
+            args.expect_version,
+        ],
+        "self_write_command": [
+            "boot-flash-f2",
+            "BOOT-FLASH-F2-BOOT-CANDIDATE",
+            remote_image,
+            local_hash,
+            args.expect_version,
+        ],
+        "system_reboot_command": ["reboot"],
+        "required_timeline_events": [
+            "candidate_flash_start",
+            "candidate_flash_done",
+            "candidate_boot_ready",
+            "live_session_start",
+            "live_session_end",
+            "rollback_flash_start",
+            "rollback_flash_done",
+            "rollback_boot_ready",
+        ],
+        "fallback_path": "native_init_flash.py rollback to v2321 through checked helper/TWRP",
+    }
+
+
+def run_experimental_self_write(args: argparse.Namespace,
+                                image_path: Path,
+                                local_hash: str,
+                                image_size: int) -> int:
+    plan = build_experimental_self_write_plan(args, image_path, local_hash, image_size)
+    print(json.dumps(plan, indent=2, sort_keys=True))
+    if args.self_write_plan_only:
+        return 0
+    raise RuntimeError(SELF_WRITE_POLICY_BLOCK)
 
 
 @contextmanager
@@ -632,6 +750,21 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="require the local image to start with the Android boot image magic before flashing",
     )
+    parser.add_argument(
+        "--experimental-self-write",
+        action="store_true",
+        help="prepare the post-F3 self-write host path; live writes are fail-closed until F4 is authorized",
+    )
+    parser.add_argument(
+        "--self-write-plan-only",
+        action="store_true",
+        help="with --experimental-self-write, print the self-write plan and perform no device action",
+    )
+    parser.add_argument(
+        "--self-write-staging-dir",
+        default=DEFAULT_SELF_WRITE_STAGING_DIR,
+        help="approved device staging directory for the experimental self-write path",
+    )
     return parser.parse_args()
 
 
@@ -658,6 +791,10 @@ def main() -> int:
 
         with phase_timer("inspect_local_image"):
             image_path, local_hash, image_size = inspect_local_image(args)
+
+        if args.experimental_self_write:
+            with phase_timer("experimental_self_write"):
+                return run_experimental_self_write(args, image_path, local_hash, image_size)
 
         if args.from_native:
             with phase_timer("native_to_recovery"):

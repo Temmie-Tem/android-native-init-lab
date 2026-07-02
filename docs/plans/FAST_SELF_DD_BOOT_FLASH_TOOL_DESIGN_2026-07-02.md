@@ -1059,3 +1059,30 @@ This closes F3: a self-written candidate can write the v2321 rollback target fro
 verify the full partition SHA, reboot, and return to the clean rollback baseline. F4 and production
 self-write integration remain blocked until a future explicit policy amendment. Report:
 `docs/reports/NATIVE_INIT_V3360_SELF_DD_F3_SELF_ROLLBACK_LIVE_2026-07-02.md`.
+
+### 12.17 V3361 F4 host integration scaffold (host-only, live-blocked)
+
+V3361 prepares the host side of §12.7 without changing the default `native_init_flash.py` behavior.
+The checked TWRP path remains the default. The new opt-in flags are:
+
+```text
+--experimental-self-write
+--self-write-plan-only
+--self-write-staging-dir /mnt/sdext/a90/flash-staging
+```
+
+`--experimental-self-write --self-write-plan-only` performs only local image inspection and emits a
+JSON plan containing the approved staging path, preflight commands, tcpctl staging command,
+`boot-flash-plan`, `boot-flash-f2 BOOT-FLASH-F2-BOOT-CANDIDATE`, host-controlled `reboot`, required
+canonical timeline events, and checked-helper rollback fallback. It requires caller-pinned
+`--expect-sha256`, `--expect-version`, and `--expect-android-magic`, refuses
+`--allow-unpinned-image`, restricts staging to the approved SD/cache roots, and accepts only a safe
+remote basename.
+
+`--experimental-self-write` without `--self-write-plan-only` is deliberately fail-closed and raises
+the policy block before any recovery transition, staging transfer, or boot write:
+`F4/production fast-flash is not authorized by AGENTS.md or design section 12.1`.
+
+Host validation proved the plan-only mode against the V3360 image and kept the live path blocked.
+No device command, flash, reboot, or rollback occurred in this V3361 host-only unit. Report:
+`docs/reports/NATIVE_INIT_V3361_SELF_DD_F4_HOST_INTEGRATION_SOURCE_2026-07-02.md`.
