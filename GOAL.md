@@ -37,6 +37,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > partition ONLY.** When an action would cross the bright line or leave the recoverable envelope, STOP
 > and report — never guess.
 
+> **🟣 OPERATOR STEER (2026-07-03) — NEXT BOUNDED UNIT = hot-reload H5, then resume.**
+> The dev-velocity infra side-quest (self-dd fast-flash + PID1 hot-reload) is the current thread:
+> self-dd F0→F4-live DONE, hot-reload **H0→H4 DONE** (live-proven, all rolled back to `v2321`
+> `fail=0`). The **single next bounded unit is H5** — make a hot-reloaded init a full-service refresh
+> (restore on-panel autohud/HUD + rshell across `reload`) via a **DRM-master handoff** (adopt existing
+> KMS state / `DROP_MASTER`→`SET_MASTER`), **NOT** a panel re-init. Full scope, guardrails, and the
+> two acceptable outcomes (PASS, or **CLEAN-CLOSE at H4** if it would need a panel re-init — bright-line)
+> are in `docs/plans/NATIVE_INIT_HOT_RELOAD_H5_CHARTER_2026-07-03.md`. Hard bright-line: **no panel
+> re-init, no PMIC/regulator/GDSC/backlight/GPIO power write** — HUD refresh must stay on the
+> already-lit panel or the epic closes cleanly at H4. **Fast-build is proven a byte-identical drop-in**
+> (12.78→5.03 s parallel, 0.11 s incremental-module) but is a **separate host-only follow-up — do NOT
+> bundle it into H5.** After H5 (PASS or clean-close), the flash-cycle infra epic is complete; resume
+> the REPL v2c active epic below (or operator re-charter).
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.
