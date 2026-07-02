@@ -190,6 +190,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > loop-node/mount hacks); keep the rootfs image / binaries / credentials out of commits; scoped
 > `git add` + a `docs/reports/` report.
 
+> **🟣 OPERATOR STEER (2026-07-03) — server-distro non-destructive D-ladder: PROCEED CONTINUOUSLY, do NOT
+> halt per-rung.** D0→D3 are all non-destructive, SD-based, and fully recoverable to v2321, and their
+> designs are already fixed in the design doc — so do NOT stop at each rung boundary to wait for an operator
+> re-charter (that cadence is too slow, and it is what kept stalling the loop). **Run the non-destructive
+> ladder continuously:** when a rung passes (commit + `docs/reports/` report + device recoverable to v2321),
+> **self-charter and immediately begin the next rung per the design doc** — D1 chroot MVP → D2 dropbear SSH
+> in chroot → D3 `switch_root` PID1 handoff — keeping each rung individually bounded (its own commit/report,
+> its own clean recoverable state). Every non-destructive rung is inside the recoverable envelope and is
+> already self-authorized by the top-of-file pre-authorization. **HALT and wait for the operator ONLY at:**
+> (1) **D4** (userdata reformat = destructive `/data` disposal — HARD gate; needs explicit operator
+> authorization; NEVER self-authorize); (2) a genuine **fails-twice** blocker on the same approach; (3) a
+> real **design ambiguity/decision** not resolvable from the design doc; (4) **D-public** first live tunnel
+> exposure (external-facing — operator confirms before publishing). The operator Gate-2-verifies each passed
+> rung ASYNCHRONOUSLY via periodic nudge-checks and intervenes only if a rung drifts or goes off-spec — you
+> do NOT wait for that verification to proceed to the next non-destructive rung.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.
