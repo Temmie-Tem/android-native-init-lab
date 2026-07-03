@@ -929,6 +929,26 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** D-public tunnel over Debian STA: boot native, run WSTA2 materialization, switch into WSTA3
 > userdata, confirm `wifi-sta-pass`, then start the Debian-owned tunnel path.
 
+> **🟡 STATUS (2026-07-04 04:07 KST host clock) — WSTA4 D-public over STA BLOCKED at STA L3/ARP.**
+> Codex reproduced the clean no-flash handoff path from native V3384: WSTA2 materialization passed,
+> `switch_root` reached the WSTA3 userdata appliance, Debian firstboot again returned
+> `wifi_sta_decision=wifi-sta-pass`, the default route was moved to `wlan0`, USB/NCM recovery stayed
+> preserved, and the local D-public smoke endpoint returned `A90_DPUBLIC_SMOKE_OK`.  However, public
+> tunnel over STA did **not** pass.  The tunnel path first exposed the appliance clock being stale after
+> reboot; after manual clock correction, `cloudflared` still timed out because actual STA upstream L3 was
+> absent: gateway ping failed, DNS failed, TCP 443 failed, and neighbor resolution for the STA gateway
+> remained incomplete despite WPA completion and DHCP success.  Native V3384 corroborated this with
+> `wifi connect-event` timing out with no CONNECT event, `carrier_up=0`, and `rc=-107`.
+>
+> Source hardening landed for the next D-public boot: firstboot now records bounded tunnel readiness as
+> `tunnel_process_alive`, `tunnel_url_observed`, and `tunnel_decision`, while any observed quick Tunnel
+> URL is stored only in a root-readable `/run` sidecar and never appended to the public marker.  Final
+> device state was native V3384 with `selftest fail=0`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA4_DPUBLIC_STA_BLOCKED_2026-07-04.md`.
+> **NEXT:** WSTA5 STA L3/ARP root cause.  Add a true L3 gate to the Debian STA helper, compare the
+> V2237/V2312 Wi-Fi-proven lineage against V3384 native client behavior, and only retry D-public tunnel
+> after gateway ARP/TCP reachability is proven.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.

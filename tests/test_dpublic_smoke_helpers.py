@@ -79,9 +79,25 @@ class DpublicSmokeHelperTests(unittest.TestCase):
         cleanup_idx = source.index("cleanup_cloudflared_runtime enabled-prestart", branch_idx)
         start_idx = source.index("/usr/local/bin/cloudflared tunnel --no-autoupdate", branch_idx)
         pid_idx = source.index("echo $! > /run/a90-dpublic/cloudflared-live.pid", start_idx)
+        observe_idx = source.index("observe_cloudflared_start", pid_idx)
         self.assertLess(cleanup_idx, start_idx)
         self.assertLess(start_idx, pid_idx)
+        self.assertLess(pid_idx, observe_idx)
         self.assertNotIn('kill "$(cat /run/a90-dpublic/cloudflared-live.pid)"', source)
+
+    def test_firstboot_records_tunnel_readiness_without_public_url_in_marker(self) -> None:
+        source = FIRSTBOOT.read_text(encoding="utf-8")
+        self.assertIn("observe_cloudflared_start()", source)
+        self.assertIn("cloudflared-live.url", source)
+        self.assertIn("chmod 600 \"$urlfile\"", source)
+        self.assertIn("tunnel_process_alive=$alive", source)
+        self.assertIn("tunnel_url_observed=$url_observed", source)
+        self.assertIn("tunnel_decision=quick-url-ready", source)
+        self.assertIn("tunnel_decision=quick-url-pending", source)
+        self.assertIn("tunnel_decision=quick-process-exited", source)
+        self.assertIn("tunnel_decision=manual", source)
+        self.assertNotIn('echo "$url"', source)
+        self.assertNotIn(">> /run/a90-d3-marker \"$url\"", source)
 
     def test_firstboot_runs_wifi_sta_only_before_tunnel_when_enabled(self) -> None:
         source = FIRSTBOOT.read_text(encoding="utf-8")

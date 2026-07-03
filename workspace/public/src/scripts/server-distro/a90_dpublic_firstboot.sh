@@ -62,6 +62,47 @@ wait_no_tcp_listen() {
   return 1
 }
 
+observe_cloudflared_start() {
+  pidfile=/run/a90-dpublic/cloudflared-live.pid
+  logfile=/run/a90-dpublic/cloudflared-live.log
+  urlfile=/run/a90-dpublic/cloudflared-live.url
+  pid=$(cat "$pidfile" 2>/dev/null || true)
+  alive=0
+  url_observed=0
+
+  case "$pid" in
+    ''|*[!0-9]*) pid= ;;
+  esac
+
+  for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+      alive=1
+    else
+      alive=0
+      break
+    fi
+
+    url=$(grep -Eo 'https://[^ ]+trycloudflare.com' "$logfile" 2>/dev/null | tail -1)
+    if [ -n "$url" ]; then
+      printf '%s\n' "$url" > "$urlfile"
+      chmod 600 "$urlfile" 2>/dev/null || true
+      url_observed=1
+      break
+    fi
+    sleep 1
+  done
+
+  echo tunnel_process_alive=$alive >> /run/a90-d3-marker
+  echo tunnel_url_observed=$url_observed >> /run/a90-d3-marker
+  if [ "$url_observed" = "1" ]; then
+    echo tunnel_decision=quick-url-ready >> /run/a90-d3-marker
+  elif [ "$alive" = "1" ]; then
+    echo tunnel_decision=quick-url-pending >> /run/a90-d3-marker
+  else
+    echo tunnel_decision=quick-process-exited >> /run/a90-d3-marker
+  fi
+}
+
 mkdir -p /run /tmp /root/.ssh /etc/dropbear /run/a90-dpublic /etc/a90-dpublic
 chmod 700 /root/.ssh 2>/dev/null || true
 
@@ -203,9 +244,13 @@ if [ -s /etc/a90-dpublic/cloudflared-quick-enable ] &&
     >/run/a90-dpublic/cloudflared-live.log 2>&1 &
   echo $! > /run/a90-dpublic/cloudflared-live.pid
   echo tunnel_started=1 >> /run/a90-d3-marker
+  observe_cloudflared_start
 else
   cleanup_cloudflared_runtime manual
   echo tunnel_started=manual >> /run/a90-d3-marker
+  echo tunnel_process_alive=0 >> /run/a90-d3-marker
+  echo tunnel_url_observed=0 >> /run/a90-d3-marker
+  echo tunnel_decision=manual >> /run/a90-d3-marker
 fi
 
 exit 0
