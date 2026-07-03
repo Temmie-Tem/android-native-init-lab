@@ -316,6 +316,18 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `A90D3_MARKER` over SSH after handoff (`/proc/1/comm` should be `init`), then wait for the mandatory
 > auto-reboot and confirm resident v2321 `selftest fail=0`. NO flash, NO `userdata`, NO D-public.
 
+> **🟡 D3B FEASIBILITY STOP (2026-07-03) — current `NO flash` charter contradicts PID1 handoff.**
+> Static/live command-surface gate showed resident `v2321-usb-clean-identity-rodata` has no
+> `reload INIT-RELOAD-EXECVE` command (`reload` returns unknown), and existing `run /bin/busybox
+> switch_root` cannot satisfy D3 because BusyBox requires `switch_root` to run as PID1. Therefore the
+> current resident cannot execute a real `switch_root <distro-root> /sbin/init` handoff without first
+> adding a PID1 command surface, and adding that surface requires either a checked native-init flash or
+> first moving to a hot-reload-capable resident — both contradict the current D3B **NO flash** guardrail.
+> Report: `docs/reports/SERVER_DISTRO_D3B_SWITCH_ROOT_FEASIBILITY_STOP_2026-07-03.md`. Next charter must
+> explicitly choose: (1) allow one checked `native_init_flash.py` boot flash to a D3-capable candidate
+> with normal rollback gates and no `userdata`, (2) allow one checked flash to a hot-reload-capable
+> resident and then hot-reload D3 glue, or (3) downgrade to a non-PID1 lower rung that is not D3.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.
