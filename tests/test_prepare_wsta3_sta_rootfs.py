@@ -119,6 +119,7 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
         self.assertEqual(result["reason"], "sta-tools-missing-install-disabled")
         self.assertFalse(result["before"]["tools"]["wpa_supplicant"]["present"])
         self.assertFalse(result["before"]["tools"]["dhclient"]["present"])
+        self.assertFalse(result["before"]["tools"]["nc"]["present"])
 
     def test_ensure_sta_tools_restores_usrmerge_when_tools_present(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -130,6 +131,9 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             (rootfs / "sbin/wpa_supplicant").write_text("", encoding="utf-8")
             (rootfs / "sbin/dhclient").write_text("", encoding="utf-8")
             (rootfs / "usr/sbin/ip").write_text("", encoding="utf-8")
+            (rootfs / "usr/bin/ping").write_text("", encoding="utf-8")
+            (rootfs / "usr/bin/getent").write_text("", encoding="utf-8")
+            (rootfs / "usr/bin/nc").write_text("", encoding="utf-8")
             args = make_args(Path(tmp))
 
             result = wsta3.ensure_sta_tools(rootfs, args)
@@ -185,11 +189,15 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             source = tmp_path / "source"
             (source / "usr/local/bin").mkdir(parents=True)
             (source / "usr/sbin").mkdir(parents=True)
+            (source / "usr/bin").mkdir(parents=True)
             (source / "etc/a90-dpublic").mkdir(parents=True)
             (source / "usr/local/bin/a90-dpublic-wifi-sta").write_text("#!/bin/sh\n", encoding="utf-8")
             (source / "usr/sbin/ip").write_text("", encoding="utf-8")
             (source / "usr/sbin/wpa_supplicant").write_text("", encoding="utf-8")
             (source / "usr/sbin/dhclient").write_text("", encoding="utf-8")
+            (source / "usr/bin/ping").write_text("", encoding="utf-8")
+            (source / "usr/bin/getent").write_text("", encoding="utf-8")
+            (source / "usr/bin/nc").write_text("", encoding="utf-8")
             env = tmp_path / "wifi.env"
             write_private(env, "A90_WIFI_SSID='Test Net'\nA90_WIFI_PSK='12345678'\n")
 

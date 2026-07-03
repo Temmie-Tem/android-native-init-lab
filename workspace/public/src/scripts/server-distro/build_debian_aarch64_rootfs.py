@@ -46,6 +46,7 @@ INCLUDE_PKGS = ",".join((
     "iputils-ping",
     "wpasupplicant",
     "isc-dhcp-client",
+    "netcat-openbsd",
     "nano",
     "less",
     "procps",

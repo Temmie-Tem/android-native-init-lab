@@ -57,6 +57,8 @@ Debian STA client stack. The STA rung should add, source-side first:
 
 - `wpasupplicant` for the long-lived Debian station process;
 - one DHCP client path, preferably `isc-dhcp-client` for a conventional Debian userspace;
+- one outbound TCP probe path, currently `netcat-openbsd`, so DHCP/default-route success
+  cannot masquerade as real upstream reachability;
 - a firstboot opt-in script path under `/etc/a90-dpublic/` that starts STA only when the
   operator has staged private config;
 - marker fields in `/run/a90-d3-marker` for route ownership and redacted status.
@@ -106,7 +108,8 @@ With private operator-provided config staged into the userdata appliance:
   public artifacts;
 - default route for outbound internet becomes Wi-Fi while USB NCM remains reachable for
   local admin/recovery;
-- marker/status proves `wifi_sta_default_route_iface=wlan0` and `ncm_recovery_preserved=1`.
+- marker/status proves `wifi_sta_default_route_iface=wlan0`, `ncm_recovery_preserved=1`,
+  gateway ARP resolution, DNS resolution, and outbound TCP/443 reachability.
 
 This gate is blocked, not failed, when credentials are absent.
 
@@ -146,5 +149,5 @@ Implement WSTA1 as a source-only rootfs/firstboot change:
 
 1. add the Debian STA packages to `build_debian_aarch64_rootfs.py`;
 2. add an opt-in D-public STA helper called from firstboot;
-3. add tests proving default boot remains non-Wi-Fi and non-public by default;
+3. add a real L3 reachability gate so DHCP/default-route alone cannot return `wifi-sta-pass`;
 4. update GOAL/report with no device action.

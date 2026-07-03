@@ -45,10 +45,13 @@ TARGET_HELPER = Path("usr/local/bin/a90-dpublic-wifi-sta")
 TARGET_FIRSTBOOT = Path("etc/a90-d3-firstboot")
 DPUBLIC_FIRSTBOOT = SCRIPT_DIR / "a90_dpublic_firstboot.sh"
 PRIVATE_FILE_MODE = 0o600
-STA_TOOL_PACKAGES = ("wpasupplicant", "isc-dhcp-client")
+STA_TOOL_PACKAGES = ("wpasupplicant", "isc-dhcp-client", "netcat-openbsd")
 USR_MERGE_LINKS = (("bin", "usr/bin"), ("sbin", "usr/sbin"), ("lib", "usr/lib"))
 STA_TOOL_CANDIDATES = {
     "ip": (Path("usr/sbin/ip"), Path("sbin/ip"), Path("bin/ip")),
+    "ping": (Path("usr/bin/ping"), Path("bin/ping")),
+    "getent": (Path("usr/bin/getent"), Path("bin/getent")),
+    "nc": (Path("usr/bin/nc"), Path("bin/nc"), Path("usr/bin/nc.openbsd"), Path("bin/nc.openbsd")),
     "wpa_supplicant": (Path("usr/sbin/wpa_supplicant"), Path("sbin/wpa_supplicant")),
     "dhclient": (Path("usr/sbin/dhclient"), Path("sbin/dhclient")),
 }

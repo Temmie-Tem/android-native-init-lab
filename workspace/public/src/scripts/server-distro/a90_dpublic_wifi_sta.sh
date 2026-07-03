@@ -17,6 +17,8 @@ WPA_LOG=$RUN_DIR/wifi-sta-wpa.log
 DHCP_PID=$RUN_DIR/wifi-sta-dhclient.pid
 DHCP_LEASES=$RUN_DIR/wifi-sta-dhclient.leases
 DHCP_LOG=$RUN_DIR/wifi-sta-dhclient.log
+L3_HOST=cloudflare.com
+L3_PORT=443
 
 append_marker() {
   [ -f "$MARKER" ] && echo "$1" >> "$MARKER"
@@ -73,6 +75,52 @@ ncm_recovery_preserved() {
   ip route show 192.168.7.1 2>/dev/null | grep -q ' dev ncm0'
 }
 
+neigh_state_for_router() {
+  ip neigh show "$1" dev "$IFACE" 2>/dev/null |
+    awk '{ state = $NF } END { if (state != "") print state }'
+}
+
+arp_state_is_resolved() {
+  case "$1" in
+    REACHABLE|STALE|DELAY|PROBE|PERMANENT) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+probe_l3_reachability() {
+  router=$1
+  gateway_ping_rc=99
+  gateway_arp_state=none
+  gateway_arp_resolved=0
+  dns_probe_rc=99
+  tcp_probe_rc=99
+
+  if [ -n "$router" ]; then
+    ping -I "$IFACE" -c 1 -W 2 "$router" >/dev/null 2>&1
+    gateway_ping_rc=$?
+    gateway_arp_state=$(neigh_state_for_router "$router")
+    [ -n "$gateway_arp_state" ] || gateway_arp_state=none
+    if arp_state_is_resolved "$gateway_arp_state"; then
+      gateway_arp_resolved=1
+    fi
+  fi
+
+  getent hosts "$L3_HOST" >/dev/null 2>&1
+  dns_probe_rc=$?
+  if [ "$dns_probe_rc" = "0" ]; then
+    nc -z -w 5 "$L3_HOST" "$L3_PORT" >/dev/null 2>&1
+    tcp_probe_rc=$?
+  fi
+
+  append_marker "wifi_sta_l3_attempted=1"
+  append_marker "wifi_sta_l3_probe=cloudflare-443"
+  append_marker "wifi_sta_gateway_ping_rc=$gateway_ping_rc"
+  append_marker "wifi_sta_gateway_arp_state=$gateway_arp_state"
+  append_marker "wifi_sta_gateway_arp_resolved=$gateway_arp_resolved"
+  append_marker "wifi_sta_dns_probe_rc=$dns_probe_rc"
+  append_marker "wifi_sta_tcp443_probe_rc=$tcp_probe_rc"
+}
+
 finish() {
   decision=$1
   append_marker "wifi_sta_decision=$decision"
@@ -99,7 +147,10 @@ append_marker "wifi_sta_config_present=1"
 
 if ! command -v wpa_supplicant >/dev/null 2>&1 ||
    ! command -v dhclient >/dev/null 2>&1 ||
-   ! command -v ip >/dev/null 2>&1; then
+   ! command -v ip >/dev/null 2>&1 ||
+   ! command -v ping >/dev/null 2>&1 ||
+   ! command -v getent >/dev/null 2>&1 ||
+   ! command -v nc >/dev/null 2>&1; then
   append_marker "wifi_sta_started=0"
   finish "wifi-sta-missing-tools"
 fi
@@ -171,6 +222,16 @@ else
 fi
 
 if [ "$dhcp_rc" = "0" ] && [ "$route_iface" = "$IFACE" ]; then
+  probe_l3_reachability "$router"
+  if [ "$gateway_arp_resolved" != "1" ]; then
+    finish "wifi-sta-l3-gateway-unreachable"
+  fi
+  if [ "$dns_probe_rc" != "0" ]; then
+    finish "wifi-sta-l3-dns-failed"
+  fi
+  if [ "$tcp_probe_rc" != "0" ]; then
+    finish "wifi-sta-l3-tcp-failed"
+  fi
   finish "wifi-sta-pass"
 fi
 if [ "$dhcp_rc" = "0" ]; then

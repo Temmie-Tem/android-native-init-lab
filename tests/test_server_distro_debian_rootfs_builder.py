@@ -17,6 +17,8 @@ class ServerDistroDebianRootfsBuilderTests(unittest.TestCase):
         self.assertIn("wpasupplicant", packages)
         self.assertIn("isc-dhcp-client", packages)
         self.assertIn("iproute2", packages)
+        self.assertIn("iputils-ping", packages)
+        self.assertIn("netcat-openbsd", packages)
         self.assertIn("ca-certificates", packages)
         self.assertNotIn("network-manager", packages)
 

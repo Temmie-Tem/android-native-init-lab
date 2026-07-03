@@ -949,6 +949,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > V2237/V2312 Wi-Fi-proven lineage against V3384 native client behavior, and only retry D-public tunnel
 > after gateway ARP/TCP reachability is proven.
 
+> **✅ STATUS (2026-07-04 04:14 KST host clock) — WSTA5 source L3 gate DONE; live check next.**
+> Codex changed the Debian STA helper so DHCP/default-route success alone can no longer return
+> `wifi-sta-pass`.  The helper now records bounded L3 markers for gateway ping rc, gateway ARP state,
+> gateway ARP resolution, DNS lookup rc, and outbound TCP/443 rc.  Pass now requires `dhclient rc=0`,
+> default route on `wlan0`, resolved gateway ARP, successful DNS, and successful outbound TCP/443.
+> Failures are split as `wifi-sta-l3-gateway-unreachable`, `wifi-sta-l3-dns-failed`, or
+> `wifi-sta-l3-tcp-failed`.  The Debian rootfs builder and private WSTA preparer now include/verify
+> `netcat-openbsd` for the TCP probe, and the WSTA plan is updated so WSTA3-style success means true
+> upstream reachability rather than DHCP-only routing.  No device action or flash was performed.
+> Report: `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA5_L3_GATE_SOURCE_2026-07-04.md`.
+> **NEXT:** prepare a fresh private WSTA5 userdata rootfs, run the no-flash WSTA2 materialization gate,
+> switch into Debian, and collect the new L3 markers.  Do not retry D-public tunnel until those markers
+> prove upstream TCP/443 over `wlan0`.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.
