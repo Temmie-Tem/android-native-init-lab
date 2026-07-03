@@ -131,7 +131,13 @@ class DpublicSmokeHelperTests(unittest.TestCase):
         self.assertIn("wifi_sta_ctrl_driver_country_rc", source)
         self.assertIn("wifi_sta_ctrl_status_wpa_state", source)
         self.assertIn("wait_wpa_completed()", source)
+        self.assertIn("WPA_COMPLETE_ATTEMPTS=3", source)
+        self.assertIn("wifi_sta_assoc_attempts_max=$WPA_COMPLETE_ATTEMPTS", source)
+        self.assertIn("wifi_sta_assoc_attempt_${attempt}_scan_results_count=$scan_count", source)
+        self.assertIn("wifi_sta_assoc_attempt_${attempt}_retry_scan_rc=$?", source)
+        self.assertIn("wifi_sta_assoc_attempt_${attempt}_retry_reassociate_rc=$?", source)
         self.assertIn("wifi_sta_wpa_completed=$wpa_completed", source)
+        self.assertIn("wifi_sta_wpa_completed_attempts=$wpa_completed_attempts", source)
         self.assertIn("wifi-sta-assoc-failed", source)
         self.assertIn("wifi_sta_run_id=$RUN_ID", source)
         self.assertIn("wifi_sta_event=$RUN_ID:$PHASE_SEQ:$phase:$now_ms", source)
@@ -148,6 +154,15 @@ class DpublicSmokeHelperTests(unittest.TestCase):
         self.assertIn("wifi_sta_l3_probe=cloudflare-443", source)
         self.assertIn("wifi_sta_tcp_probe_tool=$(basename \"$NC_BIN\")", source)
         self.assertIn("wifi_sta_gateway_arp_resolved=$gateway_arp_resolved", source)
+        self.assertIn("wifi_sta_gateway_ping_attempts=$gateway_ping_attempts", source)
+        self.assertIn("wifi_sta_gateway_ping_successes=$gateway_ping_successes", source)
+        self.assertIn("wifi_sta_gateway_neigh_state_before=$gateway_neigh_state_before", source)
+        self.assertIn("wifi_sta_gateway_neigh_state_after_get=$gateway_neigh_state_after_get", source)
+        self.assertIn("wifi_sta_lease_router_matches_initial=$lease_router_matches_initial", source)
+        self.assertIn(
+            "wifi_sta_default_route_gateway_matches_initial=$default_route_gateway_matches_initial",
+            source,
+        )
         self.assertIn("wifi_sta_dns_probe_rc=$dns_probe_rc", source)
         self.assertIn("wifi_sta_tcp443_probe_rc=$tcp_probe_rc", source)
         self.assertIn("wifi-sta-l3-gateway-unreachable", source)
@@ -164,7 +179,35 @@ class DpublicSmokeHelperTests(unittest.TestCase):
         self.assertIn("wifi_sta_dwell_sample_${sample}_signal_rssi_dbm=$signal_rssi_dbm", source)
         self.assertIn("wifi_sta_dwell_sample_${sample}_signal_linkspeed_mbps=$signal_linkspeed_mbps", source)
         self.assertIn("wifi_sta_dwell_sample_${sample}_signal_frequency_mhz=$signal_frequency_mhz", source)
+        self.assertIn("wifi_sta_dwell_sample_${sample}_gateway_ping_attempts=$gateway_ping_attempts", source)
+        self.assertIn("wifi_sta_dwell_sample_${sample}_gateway_ping_successes=$gateway_ping_successes", source)
+        self.assertIn(
+            "wifi_sta_dwell_sample_${sample}_gateway_ping_first_success_ms=$gateway_ping_first_success_ms",
+            source,
+        )
+        self.assertIn("wifi_sta_dwell_sample_${sample}_gateway_ping_total_ms=$gateway_ping_total_ms", source)
+        self.assertIn(
+            "wifi_sta_dwell_sample_${sample}_gateway_neigh_state_before=$gateway_neigh_state_before",
+            source,
+        )
+        self.assertIn(
+            "wifi_sta_dwell_sample_${sample}_gateway_neigh_get_rc=$gateway_neigh_get_rc",
+            source,
+        )
+        self.assertIn(
+            "wifi_sta_dwell_sample_${sample}_gateway_neigh_state_after_get=$gateway_neigh_state_after_get",
+            source,
+        )
         self.assertIn("wifi_sta_dwell_sample_${sample}_gateway_arp_resolved=$gateway_arp_resolved", source)
+        self.assertIn(
+            "wifi_sta_dwell_sample_${sample}_lease_router_matches_initial=$lease_router_matches_initial",
+            source,
+        )
+        self.assertIn(
+            "wifi_sta_dwell_sample_${sample}_default_route_gateway_matches_lease="
+            "$default_route_gateway_matches_lease",
+            source,
+        )
         self.assertIn("wifi_sta_dwell_sample_${sample}_tcp443_rc=$tcp_probe_rc", source)
         self.assertIn("wifi_sta_dwell_sample_${sample}_failure=$sample_failure", source)
         self.assertIn("wifi_sta_dwell_pass=$dwell_pass", source)

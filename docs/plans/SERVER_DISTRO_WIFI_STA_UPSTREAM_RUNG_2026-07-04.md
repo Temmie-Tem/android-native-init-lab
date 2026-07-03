@@ -1,7 +1,7 @@
 # Server-Distro Wi-Fi STA Upstream Rung
 
 - Date: 2026-07-04
-- Status: WSTA11 blocked at associated-but-gateway-degraded dwell before D-public tunnel retry
+- Status: WSTA12 blocked before gateway dwell at Debian scan visibility/association
 - Scope: next hardware rung after the Stage0 server-distro hardware contract.
 - Device action in this doc: none.
 
@@ -184,11 +184,30 @@ Report:
 
 ### WSTA12: gateway reachability diagnostic
 
-The next unit should keep WSTA11's markers and add explicit gateway ping count/timing,
-neighbor refresh observations, and DHCP lease/router-state comparison around the first
-gateway-ping failure.  Only after that trace proves the boundary should a bounded ARP or
-gateway keepalive candidate be tested.  Do not retry the manual API probe or cloudflared
-until the dwell window passes.
+Source result: implemented.  The Debian STA helper now records gateway ping attempt count,
+success count, first-success timing, total ping timing, neighbor state before/after bounded
+`ip neigh get`, DHCP lease-router booleans, and default-route gateway match booleans.  It
+also records bounded association retry diagnostics so a later association regression cannot
+hide as a gateway problem.
+
+Live result: blocked before gateway dwell.  Native WSTA2 materialization passed with
+`wlan0_present=1`, `link_up_rc=0`, and `decision=softap-iftype-probe-pass` after the
+default materialization window.  D4 guarded format/populate passed, and `switch_root` reached
+Debian on retry after display-owner cleanup.  Debian then failed at association before any
+gateway dwell sample.  A hot-patched helper with three bounded association attempts showed
+`wpa_state=DISCONNECTED`, carrier down, and `SCAN_RESULTS` count `0` for all three attempts.
+The final decision remained `wifi-sta-assoc-failed`.
+
+Report:
+`docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA12_GATEWAY_DIAG_ASSOC_BLOCKED_2026-07-04.md`.
+
+### WSTA13: Debian scan visibility boundary
+
+The next unit should compare native materialization/scan readiness with Debian
+`wpa_cli SCAN_RESULTS` after handoff.  Capture redacted country/regulatory state, scan trigger
+return codes, scan-result counts, and timing after WSTA2 iftype cleanup.  Do not return to
+gateway keepalive or D-public tunnel work until Debian can reliably see scan results and
+associate again.
 
 ### WSTA7: Debian association/control fix
 
@@ -233,11 +252,12 @@ Stop before mutation or public exposure if any condition appears:
 
 ## 7. Next Implementation Unit
 
-Run WSTA12 as a gateway reachability diagnostic gate:
+Run WSTA13 as a Debian scan visibility diagnostic gate:
 
 1. keep the fresh native boot -> WSTA2 `--probe-iftype` -> no-clock Debian `switch_root` sequence;
-2. require WSTA11-style run/phase/dwell/signal markers;
-3. collect gateway ping timing/count and neighbor refresh observations at each sample;
-4. compare DHCP lease/router state before and after the first gateway-ping failure;
-5. only add a bounded ARP or gateway keepalive behavior if the trace proves the failure mode;
+2. require WSTA12 association retry markers;
+3. collect redacted `wpa_cli STATUS`, `SCAN`, `SCAN_RESULTS` count, country/regulatory state,
+   and scan timing after handoff;
+4. compare native `wlan0` materialization success against Debian scan visibility;
+5. only return to gateway keepalive work after Debian scan results and association are stable;
 6. do not retry the manual API probe or cloudflared until the dwell window passes.

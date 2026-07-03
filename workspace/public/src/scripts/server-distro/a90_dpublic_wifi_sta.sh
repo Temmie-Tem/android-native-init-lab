@@ -22,6 +22,8 @@ L3_HOST=cloudflare.com
 L3_PORT=443
 DWELL_SAMPLES=6
 DWELL_INTERVAL_SEC=5
+WPA_COMPLETE_ATTEMPTS=3
+WPA_COMPLETE_WAIT_SEC=20
 NC_BIN=
 RUN_ID=
 PHASE_SEQ=0
@@ -79,6 +81,11 @@ default_route_iface() {
     awk '/^default / { for (i = 1; i <= NF; i++) if ($i == "dev") { print $(i + 1); exit } }'
 }
 
+default_route_gateway() {
+  ip route show default 2>/dev/null |
+    awk '/^default / { for (i = 1; i <= NF; i++) if ($i == "via") { print $(i + 1); exit } }'
+}
+
 lease_default_router() {
   awk '
     /option routers/ {
@@ -105,17 +112,83 @@ arp_state_is_resolved() {
   esac
 }
 
+sample_gateway_ping() {
+  router=$1
+  gateway_ping_attempts=3
+  gateway_ping_successes=0
+  gateway_ping_first_success_ms=-
+  gateway_ping_total_ms=-
+  gateway_ping_rc=1
+
+  ping_start_ms=$(uptime_ms)
+  attempt=1
+  while [ "$attempt" -le "$gateway_ping_attempts" ]; do
+    attempt_start_ms=$(uptime_ms)
+    ping -I "$IFACE" -c 1 -W 1 "$router" >/dev/null 2>&1
+    ping_rc=$?
+    attempt_end_ms=$(uptime_ms)
+    if [ "$ping_rc" = "0" ]; then
+      gateway_ping_successes=$((gateway_ping_successes + 1))
+      if [ "$gateway_ping_first_success_ms" = "-" ]; then
+        gateway_ping_first_success_ms=$((attempt_end_ms - attempt_start_ms))
+      fi
+    fi
+    attempt=$((attempt + 1))
+  done
+  ping_end_ms=$(uptime_ms)
+  gateway_ping_total_ms=$((ping_end_ms - ping_start_ms))
+  if [ "$gateway_ping_successes" -gt 0 ]; then
+    gateway_ping_rc=0
+  fi
+}
+
 sample_l3_reachability() {
   router=$1
   gateway_ping_rc=99
+  gateway_ping_attempts=0
+  gateway_ping_successes=0
+  gateway_ping_first_success_ms=-
+  gateway_ping_total_ms=-
+  gateway_neigh_state_before=none
+  gateway_neigh_get_rc=99
+  gateway_neigh_state_after_get=none
   gateway_arp_state=none
   gateway_arp_resolved=0
+  lease_router_present=0
+  lease_router_matches_initial=0
+  default_route_gateway_present=0
+  default_route_gateway_matches_initial=0
+  default_route_gateway_matches_lease=0
   dns_probe_rc=99
   tcp_probe_rc=99
 
+  lease_router=$(lease_default_router)
+  if [ -n "$lease_router" ]; then
+    lease_router_present=1
+  fi
+  route_gateway=$(default_route_gateway)
+  if [ -n "$route_gateway" ]; then
+    default_route_gateway_present=1
+  fi
+
   if [ -n "$router" ]; then
-    ping -I "$IFACE" -c 1 -W 2 "$router" >/dev/null 2>&1
-    gateway_ping_rc=$?
+    if [ "$lease_router" = "$router" ]; then
+      lease_router_matches_initial=1
+    fi
+    if [ "$route_gateway" = "$router" ]; then
+      default_route_gateway_matches_initial=1
+    fi
+    if [ -n "$lease_router" ] && [ "$route_gateway" = "$lease_router" ]; then
+      default_route_gateway_matches_lease=1
+    fi
+
+    gateway_neigh_state_before=$(neigh_state_for_router "$router")
+    [ -n "$gateway_neigh_state_before" ] || gateway_neigh_state_before=none
+    ip neigh get "$router" dev "$IFACE" >/dev/null 2>&1
+    gateway_neigh_get_rc=$?
+    gateway_neigh_state_after_get=$(neigh_state_for_router "$router")
+    [ -n "$gateway_neigh_state_after_get" ] || gateway_neigh_state_after_get=none
+    sample_gateway_ping "$router"
     gateway_arp_state=$(neigh_state_for_router "$router")
     [ -n "$gateway_arp_state" ] || gateway_arp_state=none
     if arp_state_is_resolved "$gateway_arp_state"; then
@@ -137,8 +210,20 @@ probe_l3_reachability() {
   append_marker "wifi_sta_l3_probe=cloudflare-443"
   append_marker "wifi_sta_tcp_probe_tool=$(basename "$NC_BIN")"
   append_marker "wifi_sta_gateway_ping_rc=$gateway_ping_rc"
+  append_marker "wifi_sta_gateway_ping_attempts=$gateway_ping_attempts"
+  append_marker "wifi_sta_gateway_ping_successes=$gateway_ping_successes"
+  append_marker "wifi_sta_gateway_ping_first_success_ms=$gateway_ping_first_success_ms"
+  append_marker "wifi_sta_gateway_ping_total_ms=$gateway_ping_total_ms"
+  append_marker "wifi_sta_gateway_neigh_state_before=$gateway_neigh_state_before"
+  append_marker "wifi_sta_gateway_neigh_get_rc=$gateway_neigh_get_rc"
+  append_marker "wifi_sta_gateway_neigh_state_after_get=$gateway_neigh_state_after_get"
   append_marker "wifi_sta_gateway_arp_state=$gateway_arp_state"
   append_marker "wifi_sta_gateway_arp_resolved=$gateway_arp_resolved"
+  append_marker "wifi_sta_lease_router_present=$lease_router_present"
+  append_marker "wifi_sta_lease_router_matches_initial=$lease_router_matches_initial"
+  append_marker "wifi_sta_default_route_gateway_present=$default_route_gateway_present"
+  append_marker "wifi_sta_default_route_gateway_matches_initial=$default_route_gateway_matches_initial"
+  append_marker "wifi_sta_default_route_gateway_matches_lease=$default_route_gateway_matches_lease"
   append_marker "wifi_sta_dns_probe_rc=$dns_probe_rc"
   append_marker "wifi_sta_tcp443_probe_rc=$tcp_probe_rc"
 }
@@ -188,6 +273,11 @@ wpa_state_value() {
     awk -F= '$1 == "wpa_state" { print $2; exit }'
 }
 
+wpa_scan_results_count() {
+  wpa_cli -p "$WPA_CTRL_DIR" -i "$IFACE" SCAN_RESULTS 2>/dev/null |
+    awk 'NR > 2 { count++ } END { print count + 0 }'
+}
+
 sample_wpa_signal() {
   wpa_cli -p "$WPA_CTRL_DIR" -i "$IFACE" PING 2>/dev/null | grep -q '^PONG'
   wpa_ping_rc=$?
@@ -204,18 +294,52 @@ sample_wpa_signal() {
 wait_wpa_completed() {
   wpa_completed=0
   wpa_completed_wait_sec=0
-  for sec in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
-    state=$(wpa_cli -p "$WPA_CTRL_DIR" -i "$IFACE" STATUS 2>/dev/null |
-      awk -F= '$1 == "wpa_state" { print $2; exit }')
-    if [ "$state" = "COMPLETED" ]; then
-      wpa_completed=1
+  wpa_completed_attempts=0
+  append_marker "wifi_sta_assoc_attempts_max=$WPA_COMPLETE_ATTEMPTS"
+  append_marker "wifi_sta_assoc_attempt_wait_sec=$WPA_COMPLETE_WAIT_SEC"
+
+  attempt=1
+  while [ "$attempt" -le "$WPA_COMPLETE_ATTEMPTS" ]; do
+    wpa_completed_attempts=$attempt
+    append_marker "wifi_sta_assoc_attempt_${attempt}_started=1"
+    sec=1
+    while [ "$sec" -le "$WPA_COMPLETE_WAIT_SEC" ]; do
+      state=$(wpa_state_value)
+      if [ "$state" = "COMPLETED" ]; then
+        wpa_completed=1
+        break
+      fi
+      wpa_completed_wait_sec=$((wpa_completed_wait_sec + 1))
+      sleep 1
+      sec=$((sec + 1))
+    done
+    state=$(wpa_state_value)
+    [ -n "$state" ] || state=-
+    scan_count=$(wpa_scan_results_count)
+    append_marker "wifi_sta_assoc_attempt_${attempt}_wpa_state=$state"
+    append_marker "wifi_sta_assoc_attempt_${attempt}_scan_results_count=$scan_count"
+    if [ "$wpa_completed" = "1" ]; then
+      append_marker "wifi_sta_assoc_attempt_${attempt}_completed=1"
       break
     fi
-    wpa_completed_wait_sec=$sec
-    sleep 1
+    append_marker "wifi_sta_assoc_attempt_${attempt}_completed=0"
+    if [ "$attempt" -lt "$WPA_COMPLETE_ATTEMPTS" ]; then
+      wpa_cli_quiet SCAN
+      append_marker "wifi_sta_assoc_attempt_${attempt}_retry_scan_rc=$?"
+      wpa_cli_quiet ENABLE_NETWORK 0
+      append_marker "wifi_sta_assoc_attempt_${attempt}_retry_enable_network_rc=$?"
+      wpa_cli_quiet SELECT_NETWORK 0
+      append_marker "wifi_sta_assoc_attempt_${attempt}_retry_select_network_rc=$?"
+      wpa_cli_quiet REASSOCIATE
+      append_marker "wifi_sta_assoc_attempt_${attempt}_retry_reassociate_rc=$?"
+      mark_phase "assoc-retry-$attempt"
+      sleep 2
+    fi
+    attempt=$((attempt + 1))
   done
   append_marker "wifi_sta_wpa_completed=$wpa_completed"
   append_marker "wifi_sta_wpa_completed_wait_sec=$wpa_completed_wait_sec"
+  append_marker "wifi_sta_wpa_completed_attempts=$wpa_completed_attempts"
   [ "$wpa_completed" = "1" ]
 }
 
@@ -289,8 +413,20 @@ dwell_stability_probe() {
     append_marker "wifi_sta_dwell_sample_${sample}_carrier=$carrier_now"
     append_marker "wifi_sta_dwell_sample_${sample}_default_route_iface=$route_iface"
     append_marker "wifi_sta_dwell_sample_${sample}_gateway_ping_rc=$gateway_ping_rc"
+    append_marker "wifi_sta_dwell_sample_${sample}_gateway_ping_attempts=$gateway_ping_attempts"
+    append_marker "wifi_sta_dwell_sample_${sample}_gateway_ping_successes=$gateway_ping_successes"
+    append_marker "wifi_sta_dwell_sample_${sample}_gateway_ping_first_success_ms=$gateway_ping_first_success_ms"
+    append_marker "wifi_sta_dwell_sample_${sample}_gateway_ping_total_ms=$gateway_ping_total_ms"
+    append_marker "wifi_sta_dwell_sample_${sample}_gateway_neigh_state_before=$gateway_neigh_state_before"
+    append_marker "wifi_sta_dwell_sample_${sample}_gateway_neigh_get_rc=$gateway_neigh_get_rc"
+    append_marker "wifi_sta_dwell_sample_${sample}_gateway_neigh_state_after_get=$gateway_neigh_state_after_get"
     append_marker "wifi_sta_dwell_sample_${sample}_gateway_arp_state=$gateway_arp_state"
     append_marker "wifi_sta_dwell_sample_${sample}_gateway_arp_resolved=$gateway_arp_resolved"
+    append_marker "wifi_sta_dwell_sample_${sample}_lease_router_present=$lease_router_present"
+    append_marker "wifi_sta_dwell_sample_${sample}_lease_router_matches_initial=$lease_router_matches_initial"
+    append_marker "wifi_sta_dwell_sample_${sample}_default_route_gateway_present=$default_route_gateway_present"
+    append_marker "wifi_sta_dwell_sample_${sample}_default_route_gateway_matches_initial=$default_route_gateway_matches_initial"
+    append_marker "wifi_sta_dwell_sample_${sample}_default_route_gateway_matches_lease=$default_route_gateway_matches_lease"
     append_marker "wifi_sta_dwell_sample_${sample}_dns_rc=$dns_probe_rc"
     append_marker "wifi_sta_dwell_sample_${sample}_tcp443_rc=$tcp_probe_rc"
     append_marker "wifi_sta_dwell_sample_${sample}_failure=$sample_failure"

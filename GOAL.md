@@ -1116,6 +1116,30 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > gateway-ping failure, and only then test a bounded ARP/gateway keepalive candidate if justified.
 > Do not retry API probe or cloudflared until the dwell window passes.
 
+> **🟡 STATUS (2026-07-04 07:22 KST host clock) — WSTA12 gateway diagnostics SOURCE DONE; live blocked earlier at Debian scan visibility.**
+> Codex added gateway-boundary diagnostics to the Debian STA helper: per-sample gateway ping attempt
+> count/success/timing, neighbor state before/after bounded `ip neigh get`, DHCP lease-router match
+> booleans, and default-route gateway match booleans.  It also added bounded association retry
+> diagnostics so association regressions do not masquerade as gateway failures.  Static validation
+> passed (`sh -n`, `py_compile`, 29 focused tests).  Live WSTA12 used native V3384, a fresh WSTA2
+> materialization gate, a private WSTA12 rootfs, D4 guarded format/populate, and Debian handoff.  WSTA2
+> passed after the default materialization window (`wlan0_wait_elapsed_ms=54634`, `wlan0_present=1`,
+> `link_up_rc=0`, `decision=softap-iftype-probe-pass`).  D4 format/populate passed with journaled ext4
+> and `userdata=appliance-root`; switch_root reached Debian on retry after display-owner cleanup.
+> Debian did not reach the WSTA11 gateway-dwell state: firstboot and a manual rerun both ended at
+> `wifi-sta-assoc-failed`.  A hot-patched helper with three bounded association attempts then showed
+> `wifi_sta_assoc_attempt_1_scan_results_count=0`,
+> `wifi_sta_assoc_attempt_2_scan_results_count=0`,
+> `wifi_sta_assoc_attempt_3_scan_results_count=0`,
+> `wifi_sta_wpa_completed=0`, `wifi_sta_wpa_completed_attempts=3`, carrier down, and
+> `wifi_sta_decision=wifi-sta-assoc-failed`.  No API probe or cloudflared was started, and the device
+> ended back on native V3384 with `selftest fail=0`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA12_GATEWAY_DIAG_ASSOC_BLOCKED_2026-07-04.md`.
+> **NEXT:** WSTA13 Debian scan visibility boundary: compare native `wlan0` materialization/scan
+> readiness against Debian `wpa_cli SCAN_RESULTS` after handoff, capture redacted country/regulatory
+> and scan-trigger timing/counts, and do not return to gateway keepalive/API/cloudflared work until
+> Debian can reliably see scan results and associate again.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.
