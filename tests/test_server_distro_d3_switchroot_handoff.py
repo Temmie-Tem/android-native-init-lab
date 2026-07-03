@@ -47,20 +47,20 @@ class ServerDistroD3SwitchrootHandoffTests(unittest.TestCase):
         self.assertIn("--expect-sha256", rendered)
         self.assertIn("a" * 64, rendered)
         self.assertIn("--expect-version", rendered)
-        self.assertIn("0.11.131", rendered)
+        self.assertIn("0.11.132", rendered)
         self.assertIn("--verify-protocol", rendered)
         self.assertIn("selftest", rendered)
 
-    def test_default_candidate_is_pinned_v3370_loopfix_image(self) -> None:
+    def test_default_candidate_is_pinned_v3371_devprep_image(self) -> None:
         self.assertTrue(str(d3b.DEFAULT_CANDIDATE_BOOT).endswith(
-            "boot_linux_v3370_server_distro_switchroot_loopfix.img"
+            "boot_linux_v3371_server_distro_switchroot_devprep.img"
         ))
         self.assertEqual(
             d3b.EXPECTED_CANDIDATE_SHA256,
-            "df30ac45b5dbb7c8ba05f663c394e5ad31d49aab046a5128e3e663e89d33a6f2",
+            "29cc5eda5df385f70b6bb5e10adf8a3f7969152dc7a80b881c1f5f52c57727ff",
         )
-        self.assertEqual(d3b.EXPECTED_CANDIDATE_VERSION, "0.11.131")
-        self.assertEqual(d3b.EXPECTED_CANDIDATE_BUILD, "v3370-server-distro-switchroot-loopfix")
+        self.assertEqual(d3b.EXPECTED_CANDIDATE_VERSION, "0.11.132")
+        self.assertEqual(d3b.EXPECTED_CANDIDATE_BUILD, "v3371-server-distro-switchroot-devprep")
 
     def test_runner_contract_uses_switchroot_token_and_avoids_raw_flash_paths(self) -> None:
         source = Path("workspace/public/src/scripts/server-distro/run_d3_switchroot_handoff.py").read_text(
@@ -104,6 +104,13 @@ class ServerDistroD3SwitchrootHandoffTests(unittest.TestCase):
         self.assertIn('record.get("status") != "busy"', source)
         self.assertIn("expected in text.lower()", source)
         self.assertIn('remote_image_sha_with_hide_retry(args, str(keyed["keyed_sha256"]))', source)
+
+    def test_error_path_closes_live_session_before_rollback(self) -> None:
+        source = Path("workspace/public/src/scripts/server-distro/run_d3_switchroot_handoff.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('if "live_session_start" in event_names and "live_session_end" not in event_names:', source)
+        self.assertIn('add_event(events, run_dir, "live_session_end")', source)
 
 
 if __name__ == "__main__":

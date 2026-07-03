@@ -3,7 +3,7 @@
 
 D3B is non-destructive and SD-backed, but unlike D1/D2 it requires one checked boot
 flash because switch_root must run from PID1.  This runner:
-  * verifies and flashes the V3370 D3-capable native-init candidate via native_init_flash.py,
+  * verifies and flashes the V3371 D3-capable native-init candidate via native_init_flash.py,
   * copies the D3A sysvinit image, injects one per-run SSH public key, and stages that copy on SD,
   * invokes the gated PID1 switch-root-to-distro command,
   * observes A90D3_MARKER and /proc/1/comm=init over NCM SSH,
@@ -48,15 +48,15 @@ DEFAULT_D3_SOURCE_IMAGE = (
 )
 DEFAULT_REMOTE_IMAGE = "/mnt/sdext/a90/runtime/debian-bookworm-arm64-d3-sysvinit-keyed.img"
 DEFAULT_CANDIDATE_BOOT = (
-    REPO_ROOT / "workspace/private/inputs/boot_images/boot_linux_v3370_server_distro_switchroot_loopfix.img"
+    REPO_ROOT / "workspace/private/inputs/boot_images/boot_linux_v3371_server_distro_switchroot_devprep.img"
 )
 DEFAULT_ROLLBACK_BOOT = (
     REPO_ROOT / "workspace/private/inputs/boot_images/boot_linux_v2321_usb_clean_identity_rodata.img"
 )
 EXPECTED_D3_SOURCE_SHA256 = "2ee61172116be7578fddbfcbe491c1c29e3e4c7cf485376191019417c69880c3"
-EXPECTED_CANDIDATE_SHA256 = "df30ac45b5dbb7c8ba05f663c394e5ad31d49aab046a5128e3e663e89d33a6f2"
-EXPECTED_CANDIDATE_VERSION = "0.11.131"
-EXPECTED_CANDIDATE_BUILD = "v3370-server-distro-switchroot-loopfix"
+EXPECTED_CANDIDATE_SHA256 = "29cc5eda5df385f70b6bb5e10adf8a3f7969152dc7a80b881c1f5f52c57727ff"
+EXPECTED_CANDIDATE_VERSION = "0.11.132"
+EXPECTED_CANDIDATE_BUILD = "v3371-server-distro-switchroot-devprep"
 EXPECTED_ROLLBACK_SHA256 = "ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb"
 EXPECTED_ROLLBACK_VERSION = "0.9.285"
 SWITCH_ROOT_TOKEN = "SERVER-DISTRO-D3B-SWITCHROOT"
@@ -444,11 +444,12 @@ def run_live(args: argparse.Namespace) -> int:
         if staging_started and not staging_done and not handoff_started:
             save_step("cancel_foreground_run_after_stage_error", cancel_foreground_run(args))
         if rollback_needed:
+            event_names = [event.get("name") for event in events]
+            if "live_session_start" in event_names and "live_session_end" not in event_names:
+                add_event(events, run_dir, "live_session_end")
             if handoff_started:
                 try:
                     save_step("candidate_return_after_error", wait_for_candidate_return(args))
-                    if "live_session_end" not in [event.get("name") for event in events]:
-                        add_event(events, run_dir, "live_session_end")
                 except Exception as return_exc:  # noqa: BLE001
                     save_step(
                         "candidate_return_after_error_failed",
