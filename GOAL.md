@@ -459,6 +459,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `/mnt/sdext/a90/runtime/`, then re-enter V3373 and run fresh same-session preflight before the
 > destructive format. D-public remains a separate later gate.
 
+> **✅ STATUS (2026-07-03) — D4C entry formatter-probe source/build DONE; live still pending.**
+> Codex added `userdata-appliance-formatter-probe` and built `V3375`:
+> `A90 Linux init 0.11.135 (v3375-server-distro-userdata-formatter-probe)`, boot SHA
+> `460fbbc137478695c9271a80fd9e0e5dedb96975ee9e69bd6b67c9a72db1ecdb`.
+> The probe is non-destructive: it accepts only an approved `/mnt/sdext/a90/runtime/` regular-file path,
+> creates a bounded 4-64 MiB probe file, runs the same BusyBox `mke2fs -t ext4 -F -L A90D4PROBE`
+> formatter path, verifies the ext4 superblock magic, unlinks the probe file, and reports
+> `userdata_touched=0`. Mutating userdata commands are unchanged and still require fresh same-session
+> `PARTNAME=userdata` preflight identity. Static validation passed, but this unit performed **NO FLASH /
+> NO FORMAT / NO USERDATA TOUCH**. Report:
+> `docs/reports/NATIVE_INIT_V3375_SERVER_DISTRO_D4C_FORMATTER_PROBE_SOURCE_BUILD_2026-07-03.md`.
+> **NEXT bounded unit = D4C entry live prep**: prepare/stage the rootfs tarball under SD runtime, flash
+> exact V3375 through `native_init_flash.py`, run candidate health, run read-only preflight plus
+> formatter-probe only, then roll back to v2321 unless the destructive D4C format starts immediately.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.

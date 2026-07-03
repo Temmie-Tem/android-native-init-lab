@@ -19594,6 +19594,10 @@ static int handle_userdata_appliance_preflight(char **argv, int argc) {
     return a90_server_distro_userdata_preflight_cmd(argv, argc);
 }
 
+static int handle_userdata_appliance_formatter_probe(char **argv, int argc) {
+    return a90_server_distro_userdata_formatter_probe_cmd(argv, argc);
+}
+
 static int handle_userdata_appliance_format(char **argv, int argc) {
     return a90_server_distro_userdata_format_cmd(argv, argc);
 }
@@ -19740,6 +19744,9 @@ static const struct shell_command command_table[] = {
       CMD_DANGEROUS | CMD_NO_DONE, A90_CMD_GROUP_POWER },
     { "userdata-appliance-preflight", handle_userdata_appliance_preflight,
       "userdata-appliance-preflight <token>",
+      CMD_NONE, A90_CMD_GROUP_STORAGE },
+    { "userdata-appliance-formatter-probe", handle_userdata_appliance_formatter_probe,
+      "userdata-appliance-formatter-probe <token> <probe-image> <size-bytes>",
       CMD_NONE, A90_CMD_GROUP_STORAGE },
     { "userdata-appliance-format", handle_userdata_appliance_format,
       "userdata-appliance-format <token> <expected-devname> <expected-dev> <expected-sectors>",

@@ -19,7 +19,7 @@ Completed:
 
 Pending:
 
-- D4B candidate-health live gate.
+- D4C entry live prep: rootfs tarball staging plus V3375 formatter-probe live proof.
 - D4C format and populate.
 - D4D appliance handoff proof.
 
@@ -46,6 +46,15 @@ sha256=78e3297063b1957626075bc8c22223ef7a195d0de684fdbd7f51deb824a49f6d
 token=SERVER-DISTRO-D4-USERDATA-APPLIANCE
 ```
 
+D4C formatter-probe candidate:
+
+```text
+init=A90 Linux init 0.11.135 (v3375-server-distro-userdata-formatter-probe)
+boot=workspace/private/inputs/boot_images/boot_linux_v3375_server_distro_userdata_formatter_probe.img
+sha256=460fbbc137478695c9271a80fd9e0e5dedb96975ee9e69bd6b67c9a72db1ecdb
+probe=userdata-appliance-formatter-probe SERVER-DISTRO-D4-USERDATA-APPLIANCE <sd-runtime-image> <size-bytes>
+```
+
 Rollback images that must be confirmed before any D4 flash:
 
 ```text
@@ -65,6 +74,11 @@ D4B candidate-health
   rollback to v2321 unless D4C starts immediately
 
 D4C format+populate
+  first close D4C entry prep:
+    stage SHA-pinned rootfs tarball under /mnt/sdext/a90/runtime/
+    flash V3375 by checked helper
+    run preflight plus formatter-probe only
+    rollback unless destructive D4C starts immediately
   restage or keep V3373 live under the same gated run
   prove formatter path on device
   verify SD rootfs tarball path and SHA-256
@@ -121,8 +135,9 @@ D4C may start only after all of these are true:
 
 - D4B candidate-health passed and was reported.
 - Device-side preflight agrees with the D4A target identity.
-- The formatter path is device-proven, not assumed. Current V3373 path is
-  `busybox mke2fs -t ext4 -F -L A90D4ROOT`.
+- The formatter path is device-proven, not assumed. V3375 proves it non-destructively by formatting a
+  bounded SD-runtime regular file with BusyBox `mke2fs -t ext4 -F -L A90D4PROBE`, checking ext4 magic,
+  unlinking the file, and reporting `userdata_touched=0`.
 - A rootfs tarball exists under `/mnt/sdext/a90/runtime/` and its SHA-256 is pinned in the run record.
 - Recovery envelope is re-confirmed immediately before the destructive format.
 

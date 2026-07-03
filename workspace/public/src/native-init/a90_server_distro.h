@@ -24,6 +24,7 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc);
  * identity before materializing or touching the block node.
  */
 int a90_server_distro_userdata_preflight_cmd(char **argv, int argc);
+int a90_server_distro_userdata_formatter_probe_cmd(char **argv, int argc);
 int a90_server_distro_userdata_format_cmd(char **argv, int argc);
 int a90_server_distro_userdata_populate_cmd(char **argv, int argc);
 int a90_server_distro_switch_root_userdata_cmd(char **argv, int argc);

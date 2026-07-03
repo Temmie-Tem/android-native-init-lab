@@ -720,6 +720,9 @@ fail_before_move:
 #define A90_D4_FORMAT_TIMEOUT_MS 120000
 #define A90_D4_POPULATE_TIMEOUT_MS 300000
 #define A90_D4_SWITCH_TIMEOUT_MS 30000
+#define A90_D4_FORMATTER_PROBE_MIN_BYTES 4194304ULL
+#define A90_D4_FORMATTER_PROBE_MAX_BYTES 67108864ULL
+#define A90_D4_EXT4_MAGIC_OFFSET 1080
 
 struct d4_userdata_target {
     char sysname[64];
@@ -889,6 +892,61 @@ static int d4_regular_file_ok(const char *path) {
         a90_console_printf("%s stop=not-regular-or-empty path=%s\r\n", A90_D4_TAG, path);
         return -EINVAL;
     }
+    return 0;
+}
+
+static int d4_create_probe_file(const char *path, unsigned long long size_bytes) {
+    int fd;
+    int saved_errno;
+
+    fd = open(path, O_RDWR | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW, 0600);
+    if (fd < 0) {
+        saved_errno = errno;
+        a90_console_printf("%s formatter-probe=create-fail path=%s errno=%d (%s)\r\n",
+                           A90_D4_TAG, path, saved_errno, strerror(saved_errno));
+        return -saved_errno;
+    }
+    if (ftruncate(fd, (off_t)size_bytes) < 0) {
+        saved_errno = errno;
+        close(fd);
+        return -saved_errno;
+    }
+    if (fsync(fd) < 0) {
+        saved_errno = errno;
+        close(fd);
+        return -saved_errno;
+    }
+    close(fd);
+    a90_console_printf("%s formatter-probe=file-created path=%s size_bytes=%llu\r\n",
+                       A90_D4_TAG, path, size_bytes);
+    return 0;
+}
+
+static int d4_check_ext4_magic(const char *path) {
+    unsigned char magic[2] = { 0, 0 };
+    int fd;
+    int saved_errno;
+    ssize_t n;
+
+    fd = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        saved_errno = errno;
+        return -saved_errno;
+    }
+    n = pread(fd, magic, sizeof(magic), A90_D4_EXT4_MAGIC_OFFSET);
+    if (n < 0) {
+        saved_errno = errno;
+        close(fd);
+        return -saved_errno;
+    }
+    close(fd);
+    if (n != (ssize_t)sizeof(magic) || magic[0] != 0x53 || magic[1] != 0xef) {
+        a90_console_printf("%s formatter-probe=bad-ext4-magic read=%zd magic=%02x%02x\r\n",
+                           A90_D4_TAG, n, magic[0], magic[1]);
+        return -EINVAL;
+    }
+    a90_console_printf("%s formatter-probe=ext4-magic-ok magic=53ef offset=%d\r\n",
+                       A90_D4_TAG, A90_D4_EXT4_MAGIC_OFFSET);
     return 0;
 }
 
@@ -1653,6 +1711,78 @@ int a90_server_distro_userdata_preflight_cmd(char **argv, int argc) {
     }
     d4_print_target(&target, "preflight");
     a90_console_printf("%s preflight=ok format_allowed=0 node_materialized=0\r\n", A90_D4_TAG);
+    return 0;
+}
+
+int a90_server_distro_userdata_formatter_probe_cmd(char **argv, int argc) {
+    const char *probe_path;
+    unsigned long long size_bytes = 0;
+    char *probe_argv[] = {
+        (char *)A90_D4_BUSYBOX,
+        (char *)"mke2fs",
+        (char *)"-t",
+        (char *)"ext4",
+        (char *)"-F",
+        (char *)"-L",
+        (char *)"A90D4PROBE",
+        NULL,
+        NULL,
+    };
+    int rc;
+    int cleanup_rc;
+
+    if (argc != 4 || strcmp(argv[1], A90_D4_TOKEN) != 0) {
+        a90_console_printf("usage: userdata-appliance-formatter-probe %s <probe-image> <size-bytes>\r\n",
+                           A90_D4_TOKEN);
+        a90_console_printf("%s refused=missing-or-wrong-token-or-argc argc=%d\r\n",
+                           A90_D4_TAG, argc);
+        return -EPERM;
+    }
+    probe_path = argv[2];
+    if (!d4_source_path_clean(probe_path)) {
+        a90_console_printf("%s refused=probe-path-outside-approved-sd-runtime path=%s\r\n",
+                           A90_D4_TAG, probe_path);
+        return -EPERM;
+    }
+    rc = d4_parse_u64(argv[3], &size_bytes);
+    if (rc < 0 ||
+        size_bytes < A90_D4_FORMATTER_PROBE_MIN_BYTES ||
+        size_bytes > A90_D4_FORMATTER_PROBE_MAX_BYTES) {
+        a90_console_printf("%s refused=bad-probe-size size=%s min=%llu max=%llu\r\n",
+                           A90_D4_TAG, argv[3],
+                           A90_D4_FORMATTER_PROBE_MIN_BYTES,
+                           A90_D4_FORMATTER_PROBE_MAX_BYTES);
+        return -EINVAL;
+    }
+
+    rc = d4_create_probe_file(probe_path, size_bytes);
+    if (rc < 0) {
+        return rc;
+    }
+    probe_argv[7] = (char *)probe_path;
+    a90_console_printf("%s formatter-probe=begin formatter=busybox-mke2fs-ext4 path=%s size_bytes=%llu\r\n",
+                       A90_D4_TAG, probe_path, size_bytes);
+    rc = d4_run_busybox(probe_argv, A90_D4_FORMAT_TIMEOUT_MS);
+    if (rc != 0) {
+        a90_console_printf("%s formatter-probe=fail stage=mke2fs rc=%d\r\n", A90_D4_TAG, rc);
+        (void)unlink(probe_path);
+        return rc > 0 ? -EIO : rc;
+    }
+    rc = d4_check_ext4_magic(probe_path);
+    if (rc < 0) {
+        (void)unlink(probe_path);
+        return rc;
+    }
+    cleanup_rc = unlink(probe_path);
+    if (cleanup_rc < 0) {
+        rc = -errno;
+        a90_console_printf("%s formatter-probe=cleanup-fail path=%s rc=%d\r\n",
+                           A90_D4_TAG, probe_path, rc);
+        return rc;
+    }
+    sync();
+    a90_console_printf("%s formatter-probe=done formatter=busybox-mke2fs-ext4 path=%s cleanup=ok userdata_touched=0\r\n",
+                       A90_D4_TAG, probe_path);
     return 0;
 }
 
