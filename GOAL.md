@@ -1031,6 +1031,26 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > local smoke and the Debian-owned outbound tunnel only after `wifi-sta-pass`; prove the tunnel route is
 > `wlan0`, keep NCM admin reachable, and keep the public URL/private network details out of git.
 
+> **🟡 STATUS (2026-07-04 05:50 KST host clock) — WSTA8 Wi-Fi PASS, D-public tunnel BLOCKED at quick API/DNS.**
+> Codex staged D-public binaries into a private WSTA rootfs, refreshed `userdata` only through the D4
+> guarded formatter/populator, and reran the required fresh native boot -> WSTA2 `iftype-probe` ->
+> Debian handoff sequence.  The no-clock Debian appliance reached local D-public readiness and true
+> STA L3 pass: `wpa_state=COMPLETED`, carrier up, DHCP rc=0, default route on `wlan0`, gateway ARP
+> resolved, DNS rc=0, TCP/443 rc=0, `smoke_started=1`, `hud_started=1`, and
+> `wifi_sta_decision=wifi-sta-pass`.  Public tunnel publication did not pass: strict quick URL
+> detection saw no generated public URL, `cloudflared` exited on quick-tunnel API POST timeout, and
+> device-side OpenSSL showed DNS lookup failure for the API while a host control POST to the same API
+> returned HTTP 200.  A transient clock-seeded rootfs attempt was rejected as a regression path because
+> it produced empty scans/`DISCONNECTED` and then `wifi-sta-link-up-failed`; do not seed/jump wall clock
+> before Wi-Fi.  Source now fixes the quick URL detector so `api.trycloudflare.com` cannot be mistaken
+> for a public URL and records `quick-url-dead` if a URL is seen after process exit.  Device ended back
+> on native V3384 with `selftest fail=0`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA8_DPUBLIC_TUNNEL_BLOCKED_2026-07-04.md`.
+> **NEXT:** WSTA9 device-side DNS/HTTPS/cloudflared diagnostic: keep the WSTA7/WSTA8 no-clock handoff
+> sequence, add a small static HTTPS/API POST probe or a pinned curl/wget tool, compare resolver
+> behavior for `cloudflare.com` vs `api.trycloudflare.com` before any wall-clock mutation, then retry
+> cloudflared only after the API POST is independently proven from the device.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.

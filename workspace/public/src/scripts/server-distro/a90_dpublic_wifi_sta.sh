@@ -164,6 +164,24 @@ append_wpa_status_markers() {
   esac
 }
 
+wait_wpa_completed() {
+  wpa_completed=0
+  wpa_completed_wait_sec=0
+  for sec in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+    state=$(wpa_cli -p "$WPA_CTRL_DIR" -i "$IFACE" STATUS 2>/dev/null |
+      awk -F= '$1 == "wpa_state" { print $2; exit }')
+    if [ "$state" = "COMPLETED" ]; then
+      wpa_completed=1
+      break
+    fi
+    wpa_completed_wait_sec=$sec
+    sleep 1
+  done
+  append_marker "wifi_sta_wpa_completed=$wpa_completed"
+  append_marker "wifi_sta_wpa_completed_wait_sec=$wpa_completed_wait_sec"
+  [ "$wpa_completed" = "1" ]
+}
+
 finish() {
   decision=$1
   append_marker "wifi_sta_decision=$decision"
@@ -253,12 +271,21 @@ if wpa_ctrl_wait; then
   wpa_cli_quiet REASSOCIATE
   append_marker "wifi_sta_ctrl_reassociate_rc=$?"
   append_wpa_status_markers
+  if ! wait_wpa_completed; then
+    append_wpa_status_markers
+    append_marker "wifi_sta_carrier_up=0"
+    finish "wifi-sta-assoc-failed"
+  fi
 else
   append_marker "wifi_sta_ctrl_driver_country_rc=99"
   append_marker "wifi_sta_ctrl_scan_rc=99"
   append_marker "wifi_sta_ctrl_enable_network_rc=99"
   append_marker "wifi_sta_ctrl_select_network_rc=99"
   append_marker "wifi_sta_ctrl_reassociate_rc=99"
+  append_marker "wifi_sta_wpa_completed=0"
+  append_marker "wifi_sta_wpa_completed_wait_sec=0"
+  append_marker "wifi_sta_carrier_up=0"
+  finish "wifi-sta-ctrl-unavailable"
 fi
 carrier=0
 for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do

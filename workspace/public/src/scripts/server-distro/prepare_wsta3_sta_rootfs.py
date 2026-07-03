@@ -9,7 +9,6 @@ PSK, raw supplicant config text, or a secret-derived archive digest.
 from __future__ import annotations
 
 import argparse
-import datetime as _dt
 import json
 import os
 import re
@@ -36,13 +35,24 @@ DEFAULT_SOURCE_ROOTFS = (
 )
 DEFAULT_WIFI_ENV = REPO_ROOT / "workspace/private/secrets/a90-wifi-test.env"
 DEFAULT_APT_WORK = REPO_ROOT / "workspace/private/builds/server-distro/wsta3-apt-arm64"
+DEFAULT_CLOUDFLARED = REPO_ROOT / "workspace/private/builds/server-distro/tunnel/cloudflared-linux-arm64"
+DEFAULT_SMOKE_HTTPD = REPO_ROOT / "workspace/private/runs/server-distro/dpublic-live-20260703T150145Z/a90-dpublic-smoke-httpd"
+DEFAULT_HTTP_GET = REPO_ROOT / "workspace/private/runs/server-distro/dpublic-live-20260703T150145Z/a90-dpublic-http-get"
+DEFAULT_HUD = REPO_ROOT / "workspace/private/runs/server-distro/dpublic-hud-20260703T153322Z/a90-dpublic-hud"
 DEFAULT_SUITE = "bookworm"
 DEFAULT_ARCH = "arm64"
 DEFAULT_MIRROR = "http://deb.debian.org/debian"
 TARGET_CONFIG = Path("etc/a90-dpublic/wpa_supplicant-wlan0.conf")
 TARGET_ENABLE = Path("etc/a90-dpublic/wifi-sta-enable")
+TARGET_QUICK_TUNNEL_ENABLE = Path("etc/a90-dpublic/cloudflared-quick-enable")
 TARGET_HELPER = Path("usr/local/bin/a90-dpublic-wifi-sta")
 TARGET_FIRSTBOOT = Path("etc/a90-d3-firstboot")
+DPUBLIC_BINARY_TARGETS = {
+    "cloudflared": Path("usr/local/bin/cloudflared"),
+    "smoke_httpd": Path("usr/local/bin/a90-dpublic-smoke-httpd"),
+    "http_get": Path("usr/local/bin/a90-dpublic-http-get"),
+    "hud": Path("usr/local/bin/a90-dpublic-hud"),
+}
 DPUBLIC_WIFI_STA_HELPER = SCRIPT_DIR / "a90_dpublic_wifi_sta.sh"
 DPUBLIC_FIRSTBOOT = SCRIPT_DIR / "a90_dpublic_firstboot.sh"
 PRIVATE_FILE_MODE = 0o600
@@ -393,6 +403,52 @@ def stage_dpublic_firstboot(rootfs: Path) -> dict[str, Any]:
     }
 
 
+def stage_dpublic_binaries(rootfs: Path, args: argparse.Namespace) -> dict[str, Any]:
+    sources = {
+        "cloudflared": args.cloudflared,
+        "smoke_httpd": args.smoke_httpd,
+        "http_get": args.http_get,
+        "hud": args.hud,
+    }
+    staged: dict[str, dict[str, Any]] = {}
+    for name, source in sources.items():
+        source = Path(source)
+        if not source.is_file():
+            raise FileNotFoundError(source)
+        target = rootfs / DPUBLIC_BINARY_TARGETS[name]
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        target.chmod(0o755)
+        staged[name] = {
+            "target": str(DPUBLIC_BINARY_TARGETS[name]),
+            "mode": oct(target.stat().st_mode & 0o777),
+            "size_bytes": target.stat().st_size,
+        }
+    return {
+        "staged": True,
+        "binaries": staged,
+        "secret_values_logged": 0,
+    }
+
+
+def stage_quick_tunnel_enable(rootfs: Path, enabled: bool) -> dict[str, Any]:
+    target = rootfs / TARGET_QUICK_TUNNEL_ENABLE
+    if not enabled:
+        return {"enabled": False, "target": str(TARGET_QUICK_TUNNEL_ENABLE), "secret_values_logged": 0}
+    cloudflared = rootfs / DPUBLIC_BINARY_TARGETS["cloudflared"]
+    if not cloudflared.is_file():
+        raise FileNotFoundError(cloudflared)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("1\n", encoding="utf-8")
+    target.chmod(PRIVATE_FILE_MODE)
+    return {
+        "enabled": True,
+        "target": str(TARGET_QUICK_TUNNEL_ENABLE),
+        "mode": oct(target.stat().st_mode & 0o777),
+        "secret_values_logged": 0,
+    }
+
+
 def create_private_tarball(rootfs: Path, tarball: Path, timeout: float) -> dict[str, Any]:
     tar = d4c.create_tarball(rootfs, tarball, timeout)
     tarball.chmod(PRIVATE_FILE_MODE)
@@ -466,6 +522,12 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
     result["wifi_sta_helper"] = stage_dpublic_wifi_sta_helper(target_rootfs)
     result["stage"] = stage_config(target_rootfs, source_config)
     result["firstboot"] = stage_dpublic_firstboot(target_rootfs)
+    result["dpublic_binaries"] = (
+        stage_dpublic_binaries(target_rootfs, args)
+        if args.stage_dpublic_binaries
+        else {"staged": False, "secret_values_logged": 0}
+    )
+    result["quick_tunnel_enable"] = stage_quick_tunnel_enable(target_rootfs, args.enable_quick_tunnel)
     d4c.verify_rootfs(target_rootfs)
     if not args.no_tarball:
         result["tarball_result"] = create_private_tarball(
@@ -501,6 +563,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--mirror", default=DEFAULT_MIRROR)
     parser.add_argument("--apt-timeout", type=float, default=180.0)
     parser.add_argument("--no-sta-tool-install", action="store_true")
+    parser.add_argument("--stage-dpublic-binaries", action="store_true")
+    parser.add_argument("--enable-quick-tunnel", action="store_true")
+    parser.add_argument("--cloudflared", type=Path, default=DEFAULT_CLOUDFLARED)
+    parser.add_argument("--smoke-httpd", type=Path, default=DEFAULT_SMOKE_HTTPD)
+    parser.add_argument("--http-get", type=Path, default=DEFAULT_HTTP_GET)
+    parser.add_argument("--hud", type=Path, default=DEFAULT_HUD)
     return parser
 
 
@@ -509,6 +577,10 @@ def main(argv: list[str] | None = None) -> int:
     args.source_rootfs = args.source_rootfs.resolve()
     args.wifi_env = args.wifi_env.resolve()
     args.apt_work = args.apt_work.resolve()
+    args.cloudflared = args.cloudflared.resolve()
+    args.smoke_httpd = args.smoke_httpd.resolve()
+    args.http_get = args.http_get.resolve()
+    args.hud = args.hud.resolve()
     if args.wpa_conf:
         args.wpa_conf = args.wpa_conf.resolve()
     try:

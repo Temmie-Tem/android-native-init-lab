@@ -29,6 +29,12 @@ def make_args(tmp: Path, **overrides) -> argparse.Namespace:
         "mirror": "http://deb.debian.org/debian",
         "apt_timeout": 10.0,
         "no_sta_tool_install": True,
+        "stage_dpublic_binaries": False,
+        "enable_quick_tunnel": False,
+        "cloudflared": tmp / "cloudflared",
+        "smoke_httpd": tmp / "a90-dpublic-smoke-httpd",
+        "http_get": tmp / "a90-dpublic-http-get",
+        "hud": tmp / "a90-dpublic-hud",
     }
     defaults.update(overrides)
     return argparse.Namespace(**defaults)
@@ -123,6 +129,34 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertIn("probe_l3_reachability", text)
             self.assertIn("nc.openbsd", text)
             self.assertNotIn("old-helper", text)
+
+    def test_stage_dpublic_binaries_and_quick_tunnel_enable_are_private(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            rootfs = tmp_path / "rootfs"
+            rootfs.mkdir()
+            for name in ("cloudflared", "a90-dpublic-smoke-httpd", "a90-dpublic-http-get", "a90-dpublic-hud"):
+                (tmp_path / name).write_bytes((name + "\n").encode("utf-8"))
+            args = make_args(
+                tmp_path,
+                cloudflared=tmp_path / "cloudflared",
+                smoke_httpd=tmp_path / "a90-dpublic-smoke-httpd",
+                http_get=tmp_path / "a90-dpublic-http-get",
+                hud=tmp_path / "a90-dpublic-hud",
+            )
+
+            binaries = wsta3.stage_dpublic_binaries(rootfs, args)
+            enable = wsta3.stage_quick_tunnel_enable(rootfs, True)
+
+            self.assertTrue(binaries["staged"])
+            self.assertEqual(binaries["binaries"]["cloudflared"]["mode"], "0o755")
+            self.assertTrue((rootfs / "usr/local/bin/cloudflared").is_file())
+            self.assertTrue((rootfs / "usr/local/bin/a90-dpublic-smoke-httpd").is_file())
+            quick = rootfs / wsta3.TARGET_QUICK_TUNNEL_ENABLE
+            self.assertEqual(quick.read_text(encoding="utf-8"), "1\n")
+            self.assertEqual(quick.stat().st_mode & 0o777, 0o600)
+            self.assertTrue(enable["enabled"])
+            self.assertEqual(enable["mode"], "0o600")
 
     def test_sta_tools_missing_blocks_when_install_disabled(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -237,6 +271,8 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertTrue(result["wifi_sta_helper"]["l3_gate_present"])
             self.assertTrue(result["firstboot"]["wifi_sta_helper_invoked"])
             self.assertTrue(result["firstboot"]["autoreboot_disabled_marker"])
+            self.assertFalse(result["dpublic_binaries"]["staged"])
+            self.assertFalse(result["quick_tunnel_enable"]["enabled"])
             self.assertEqual(verify.call_count, 2)
             summary = (tmp_path / "run" / "summary.json").read_text(encoding="utf-8")
             self.assertNotIn("Test Net", summary)

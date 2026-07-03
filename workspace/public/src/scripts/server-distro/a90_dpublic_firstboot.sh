@@ -82,7 +82,11 @@ observe_cloudflared_start() {
       break
     fi
 
-    url=$(grep -Eo 'https://[^ ]+trycloudflare.com' "$logfile" 2>/dev/null | tail -1)
+    url=$(
+      grep -Eo 'https://[A-Za-z0-9-]+\.trycloudflare\.com' "$logfile" 2>/dev/null |
+        grep -v '^https://api\.trycloudflare\.com$' |
+        tail -1
+    )
     if [ -n "$url" ]; then
       printf '%s\n' "$url" > "$urlfile"
       chmod 600 "$urlfile" 2>/dev/null || true
@@ -94,8 +98,10 @@ observe_cloudflared_start() {
 
   echo tunnel_process_alive=$alive >> /run/a90-d3-marker
   echo tunnel_url_observed=$url_observed >> /run/a90-d3-marker
-  if [ "$url_observed" = "1" ]; then
+  if [ "$url_observed" = "1" ] && [ "$alive" = "1" ]; then
     echo tunnel_decision=quick-url-ready >> /run/a90-d3-marker
+  elif [ "$url_observed" = "1" ]; then
+    echo tunnel_decision=quick-url-dead >> /run/a90-d3-marker
   elif [ "$alive" = "1" ]; then
     echo tunnel_decision=quick-url-pending >> /run/a90-d3-marker
   else

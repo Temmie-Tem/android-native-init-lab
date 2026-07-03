@@ -1,7 +1,7 @@
 # Server-Distro Wi-Fi STA Upstream Rung
 
 - Date: 2026-07-04
-- Status: WSTA7 LIVE PASS; WSTA8 D-public-over-Wi-Fi pending
+- Status: WSTA8 Wi-Fi PASS; D-public quick tunnel blocked at device API/DNS
 - Scope: next hardware rung after the Stage0 server-distro hardware contract.
 - Device action in this doc: none.
 
@@ -125,6 +125,18 @@ Only after WSTA3/WSTA7 passes:
 - confirm smoke response through the tunnel;
 - cleanup/disable leaves no stale tunnel runtime and no secret/public URL in git.
 
+Live result: blocked above Wi-Fi.  WSTA8 proved the no-clock Debian appliance can reach
+local D-public readiness and true STA L3 pass (`wifi_sta_decision=wifi-sta-pass`, default
+route on `wlan0`, gateway/DNS/TCP443 probes OK), but `cloudflared` did not obtain a
+generated public quick URL.  The failure point is the device quick-tunnel API path:
+`cloudflared` exits on API POST timeout, strict URL detection sees no generated public URL,
+and device OpenSSL reports DNS lookup failure for `api.trycloudflare.com` while a host
+control POST to the same API succeeds.  A clock-seeded attempt regressed Wi-Fi scan/association,
+so do not seed or jump wall clock before Wi-Fi in this rung.
+
+Report:
+`docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA8_DPUBLIC_TUNNEL_BLOCKED_2026-07-04.md`.
+
 ### WSTA7: Debian association/control fix
 
 Live result: pass.  The Debian STA helper now waits for the `wpa_supplicant` control
@@ -168,13 +180,14 @@ Stop before mutation or public exposure if any condition appears:
 
 ## 7. Next Implementation Unit
 
-Run WSTA8 as a live D-public-over-Wi-Fi gate:
+Run WSTA9 as a device-side DNS/HTTPS/cloudflared diagnostic gate:
 
-1. boot native fresh and run the WSTA2 materialization gate with `--probe-iftype`;
-2. require `wlan0_admin_up=true` before `switch_root`;
-3. confirm Debian `wifi_sta_decision=wifi-sta-pass`;
-4. start the local smoke service and Debian-owned outbound tunnel only after the Wi-Fi pass;
-5. prove the tunnel route is `wlan0`, USB/NCM recovery remains reachable, and the public smoke marker
-   is reachable through the tunnel;
-6. keep tunnel URL, SSID, PSK, BSSID, MAC, private IP, gateway, and DHCP lease details in private run
-   artifacts only.
+1. keep the fresh native boot -> WSTA2 `--probe-iftype` -> no-clock Debian `switch_root` sequence;
+2. require `wifi_sta_decision=wifi-sta-pass` before any tunnel attempt;
+3. add a small static HTTPS/API POST probe or stage a pinned curl/wget tool so
+   `api.trycloudflare.com/tunnel` can be tested independently of `cloudflared`;
+4. compare resolver behavior for `cloudflare.com` vs `api.trycloudflare.com` before any wall-clock
+   mutation;
+5. only retry `cloudflared` after device-side API POST is independently proven;
+6. keep tunnel URL, SSID, PSK, BSSID, MAC, private IP, gateway, DHCP lease, generated hostname, and
+   tunnel secret details in private run artifacts only.
