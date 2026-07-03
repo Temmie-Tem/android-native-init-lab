@@ -353,8 +353,30 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > resident v2321 `fail=0`. **Guardrails:** exactly ONE D3-candidate boot flash + ONE v2321 rollback flash
 > (both checked, boot-only); **`userdata` NEVER touched**; the mandatory auto-reboot is REQUIRED;
 > keys/rootfs/binaries/credentials out of commits; fails-twice on the same handoff → STOP + report.
-> **D4 (userdata reformat) remains the HARD operator gate — unchanged; a boot flash is NOT D4.** After D3B
-> passes, continue the non-destructive ladder; halt at D4 / D-public for the user.
+> After D3B passes, continue the ladder toward D4 (now operator-pre-approved, see below); D-public
+> remains a separate user gate.
+
+> **✅ OPERATOR APPROVAL — D4 userdata reformat PRE-AUTHORIZED (device owner, 2026-07-03).** The operator
+> has explicitly approved D4. The loop **no longer HALTS for a separate human approval at D4** — it may
+> reformat `userdata` and stand up the persistent appliance as part of the continuous ladder. This is a
+> deliberate, irreversible disposal of Android `/data` on this dedicated research device, accepted by the
+> owner. **The safety machinery around D4 stays FULLY ON — approval removes only the human-gate stop, not
+> the guards:**
+> 1. **Precondition — D0→D3 must have PASSED first.** Do NOT reformat `userdata` until the distro stack is
+>    proven working (D1 chroot, D2 SSH, **D3 switch_root PID1 handoff live-proven**) on the SD image. No
+>    jumping straight to D4.
+> 2. **`userdata` (`/dev/block/sda33`) ONLY.** Re-derive the target by `PARTNAME=userdata` at run time
+>    (rdev is not stable across boots) and hard-verify it before any `mkfs`. NEVER touch any other
+>    partition — `efs`/`sec_efs`/`modem`/RPMB/keymaster/`vbmeta`/`dsp`/`keydata`/`keyrefuge`/bootloader/
+>    `persist` stay forbidden; the GPT table stays intact (Odin-recoverable).
+> 3. **Recovery preconditions present before the reformat:** v2321 + v2237 + v48 boot images and TWRP
+>    available, and the Debian rootfs staged so it can be re-placed onto the new ext4 `userdata`. Verify
+>    these in a D4 preflight; abort if any is missing.
+> 4. **Bounded + reported:** D4 is still a bounded unit with its own commit/report and a preflight that
+>    prints the exact target device/PARTNAME/size before `mkfs`. fails-twice → STOP + report.
+> 5. **D-public is a SEPARATE gate, NOT covered by this approval** — first external/tunnel exposure still
+>    HALTS for the user. So the loop may now flow D3B → D4 (appliance on `userdata`) and then STOP at
+>    D-public.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
