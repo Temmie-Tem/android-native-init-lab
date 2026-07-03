@@ -1203,10 +1203,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `wifi-sta-immediate-snapshot-scan-failed`; tunnel gate stayed closed; device rebooted back to native
 > V3384 with `selftest fail=0`.  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA16_IMMEDIATE_HANDOFF_SCAN_BLOCKED_2026-07-04.md`.
-> **NEXT:** WSTA17 Debian post-handoff WLAN reset/materialization gate below credentials:
-> inspect rfkill/phy/netdev/nl80211 state, test bounded link-down/link-up and safe managed/phy
-> reassertion branches, then rescan.  Do not return to gateway/API/cloudflared until Debian can scan
-> and associate reliably.
+> **🟠 STATUS (2026-07-04 08:48 KST host clock) — WSTA17 handoff materialization BLOCKED.**
+> Codex extended snapshot-only mode with redacted rfkill/phy/proc-wireless state and bounded
+> materialization branches (`link-cycle`, `managed-reassert`, `rfkill-unblock`).  Focused tests pass.
+> Live WSTA17 used SD-backed rootfs only (no boot flash, no userdata format/populate).  Native
+> STA-only scan gate passed on attempt 11 with `scan_result_count=11`; handoff reached Debian PID1.
+> Debian had `wlan0_present=1`, WLAN rfkill unblocked, `phy_count=1`, and `/proc/net/wireless` row
+> present, but immediate direct `iw` scan still returned rc `234`.  The link-cycle branch changed
+> flags to down but then `ip link set wlan0 up` returned rc `2`; manual stderr confirmed
+> `RTNETLINK answers: Invalid argument`.  Subsequent direct scans returned rc `156` /
+> `Network is down (-100)`.  Managed type reassertion returned rc `0` but did not restore link-up;
+> rfkill CLI was absent and sysfs rfkill was already unblocked.  Final decision:
+> `wifi-sta-handoff-materialization-scan-failed`; tunnel gate stayed closed; device rebooted back to
+> native V3384 with `selftest fail=0`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA17_HANDOFF_MATERIALIZATION_BLOCKED_2026-07-04.md`.
+> **NEXT:** WSTA18 handoff control-plane diagnostic: compare native pre-handoff vs Debian post-handoff
+> WLAN companion processes and focused dmesg around the first scan/up failures.  Do not keep toggling
+> link down/up as a recovery strategy, and do not return to credentials/API/cloudflared yet.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

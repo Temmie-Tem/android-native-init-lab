@@ -396,6 +396,123 @@ sample_regulatory_state() {
   append_marker "wifi_sta_reg_${reg_label}_iw_scan_bss_count=$iw_scan_bss_count"
 }
 
+sample_handoff_state() {
+  handoff_label=$1
+  rfkill_total=0
+  rfkill_wifi=0
+  rfkill_wifi_unblocked=0
+  rfkill_wifi_blocked=0
+  for rfkill_node in /sys/class/rfkill/rfkill*; do
+    [ -e "$rfkill_node" ] || continue
+    rfkill_total=$((rfkill_total + 1))
+    rfkill_type=$(cat "$rfkill_node/type" 2>/dev/null)
+    case "$rfkill_type" in
+      wlan|wifi)
+        rfkill_wifi=$((rfkill_wifi + 1))
+        rfkill_state=$(cat "$rfkill_node/state" 2>/dev/null)
+        case "$rfkill_state" in
+          1) rfkill_wifi_unblocked=$((rfkill_wifi_unblocked + 1)) ;;
+          0) rfkill_wifi_blocked=$((rfkill_wifi_blocked + 1)) ;;
+        esac
+        ;;
+    esac
+  done
+
+  phy_count=0
+  for phy_node in /sys/class/ieee80211/*; do
+    [ -e "$phy_node" ] || continue
+    phy_count=$((phy_count + 1))
+  done
+
+  proc_wireless_row_present=0
+  if awk -v iface="$IFACE" -F: '$1 ~ iface { found = 1 } END { exit found ? 0 : 1 }' /proc/net/wireless 2>/dev/null; then
+    proc_wireless_row_present=1
+  fi
+
+  rfkill_cmd_present=0
+  if command -v rfkill >/dev/null 2>&1; then
+    rfkill_cmd_present=1
+  fi
+
+  append_marker "wifi_sta_handoff_${handoff_label}_rfkill_total=$rfkill_total"
+  append_marker "wifi_sta_handoff_${handoff_label}_rfkill_wifi=$rfkill_wifi"
+  append_marker "wifi_sta_handoff_${handoff_label}_rfkill_wifi_unblocked=$rfkill_wifi_unblocked"
+  append_marker "wifi_sta_handoff_${handoff_label}_rfkill_wifi_blocked=$rfkill_wifi_blocked"
+  append_marker "wifi_sta_handoff_${handoff_label}_rfkill_cmd_present=$rfkill_cmd_present"
+  append_marker "wifi_sta_handoff_${handoff_label}_phy_count=$phy_count"
+  append_marker "wifi_sta_handoff_${handoff_label}_proc_wireless_row_present=$proc_wireless_row_present"
+}
+
+direct_iw_probe() {
+  direct_label=$1
+  link_snapshot "$direct_label"
+  sample_handoff_state "$direct_label"
+  sample_regulatory_state "$direct_label"
+  append_marker "wifi_sta_direct_${direct_label}_iw_scan_rc=$iw_scan_rc"
+  append_marker "wifi_sta_direct_${direct_label}_iw_scan_bss_count=$iw_scan_bss_count"
+  if [ "$iw_scan_rc" = "0" ] && [ "$iw_scan_bss_count" -gt 0 ]; then
+    append_marker "wifi_sta_direct_${direct_label}_scan_pass=1"
+    return 0
+  fi
+  append_marker "wifi_sta_direct_${direct_label}_scan_pass=0"
+  return 1
+}
+
+try_handoff_materialization() {
+  append_marker "wifi_sta_handoff_materialization_started=1"
+  append_marker "wifi_sta_handoff_materialization_branch_order=link-cycle,managed-reassert,rfkill-unblock"
+
+  mark_phase "handoff-link-cycle"
+  ip link set "$IFACE" down >/dev/null 2>&1
+  link_cycle_down_rc=$?
+  append_marker "wifi_sta_handoff_link_cycle_down_rc=$link_cycle_down_rc"
+  sleep 1
+  direct_iw_probe "handoff_link_cycle_after_down"
+  ip link set "$IFACE" up >/dev/null 2>&1
+  link_cycle_up_rc=$?
+  append_marker "wifi_sta_handoff_link_cycle_up_rc=$link_cycle_up_rc"
+  sleep "$LINK_REASSERT_SETTLE_SEC"
+  if direct_iw_probe "handoff_link_cycle_after_up"; then
+    append_marker "wifi_sta_handoff_materialization_pass_branch=link-cycle"
+    return 0
+  fi
+
+  mark_phase "handoff-managed-reassert"
+  ip link set "$IFACE" down >/dev/null 2>&1
+  managed_down_rc=$?
+  append_marker "wifi_sta_handoff_managed_down_rc=$managed_down_rc"
+  iw dev "$IFACE" set type managed >/dev/null 2>&1
+  managed_set_type_rc=$?
+  append_marker "wifi_sta_handoff_managed_set_type_rc=$managed_set_type_rc"
+  ip link set "$IFACE" up >/dev/null 2>&1
+  managed_up_rc=$?
+  append_marker "wifi_sta_handoff_managed_up_rc=$managed_up_rc"
+  sleep "$LINK_REASSERT_SETTLE_SEC"
+  if direct_iw_probe "handoff_managed_after_up"; then
+    append_marker "wifi_sta_handoff_materialization_pass_branch=managed-reassert"
+    return 0
+  fi
+
+  mark_phase "handoff-rfkill-unblock"
+  rfkill_unblock_rc=127
+  if command -v rfkill >/dev/null 2>&1; then
+    rfkill unblock wifi >/dev/null 2>&1
+    rfkill_unblock_rc=$?
+  fi
+  append_marker "wifi_sta_handoff_rfkill_unblock_rc=$rfkill_unblock_rc"
+  ip link set "$IFACE" up >/dev/null 2>&1
+  rfkill_link_up_rc=$?
+  append_marker "wifi_sta_handoff_rfkill_link_up_rc=$rfkill_link_up_rc"
+  sleep "$LINK_REASSERT_SETTLE_SEC"
+  if direct_iw_probe "handoff_rfkill_after_up"; then
+    append_marker "wifi_sta_handoff_materialization_pass_branch=rfkill-unblock"
+    return 0
+  fi
+
+  append_marker "wifi_sta_handoff_materialization_pass_branch=none"
+  return 1
+}
+
 scan_visibility_probe() {
   label=$1
   scan_visibility_found=0
@@ -698,20 +815,24 @@ fi
 
 if [ "$immediate_snapshot_only" = "1" ]; then
   mark_phase "immediate-snapshot-before-link"
-  link_snapshot "immediate_before_link_up"
-  sample_regulatory_state "immediate_before_link_up"
+  if direct_iw_probe "immediate_before_link_up"; then
+    append_marker "wifi_sta_started=0"
+    finish "wifi-sta-immediate-snapshot-pass"
+  fi
   ip link set "$IFACE" up >/dev/null 2>&1
   immediate_link_set_up_rc=$?
   append_marker "wifi_sta_immediate_link_set_up_rc=$immediate_link_set_up_rc"
-  link_snapshot "immediate_after_link_up"
-  sample_regulatory_state "immediate_after_link_up"
+  direct_iw_probe "immediate_after_link_up"
   append_marker "wifi_sta_immediate_iw_scan_rc=$iw_scan_rc"
   append_marker "wifi_sta_immediate_iw_scan_bss_count=$iw_scan_bss_count"
   append_marker "wifi_sta_started=0"
-  if [ "$iw_scan_rc" = "0" ]; then
+  if [ "$iw_scan_rc" = "0" ] && [ "$iw_scan_bss_count" -gt 0 ]; then
     finish "wifi-sta-immediate-snapshot-pass"
   fi
-  finish "wifi-sta-immediate-snapshot-scan-failed"
+  if try_handoff_materialization; then
+    finish "wifi-sta-handoff-materialization-pass"
+  fi
+  finish "wifi-sta-handoff-materialization-scan-failed"
 fi
 
 kill_pidfile_if_matching "$DHCP_PID" "dhclient"

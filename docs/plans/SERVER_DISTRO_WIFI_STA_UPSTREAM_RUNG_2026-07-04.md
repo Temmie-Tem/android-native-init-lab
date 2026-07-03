@@ -288,6 +288,32 @@ is below credentials, supplicant association, DHCP, gateway, API, and tunnel wor
 Report:
 `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA16_IMMEDIATE_HANDOFF_SCAN_BLOCKED_2026-07-04.md`.
 
+### WSTA17: Debian post-handoff materialization boundary
+
+Source result: implemented.  Snapshot-only mode now records redacted rfkill/phy/proc-wireless
+state and runs bounded materialization branches below credentials: `link-cycle`,
+`managed-reassert`, and `rfkill-unblock`.  A scan pass requires direct `iw` scan rc `0` and
+BSS count `>0`.
+
+Live result: blocked.  Native STA-only scan passed on attempt 11 with `scan_result_count=11`,
+and `switch_root` reached Debian PID1.  Debian immediate state had `wlan0_present=1`, WLAN
+rfkill unblocked, one phy, and a `/proc/net/wireless` row, but direct `iw` scan returned rc
+`234`.  The link-cycle branch brought the interface down but could not bring it back up:
+`ip link set wlan0 up` returned rc `2`, manually confirmed as `RTNETLINK answers: Invalid
+argument`.  Direct scan then returned rc `156` / `Network is down (-100)`.  Reasserting
+managed type succeeded but did not restore link-up; rfkill CLI was absent and sysfs rfkill
+was already unblocked.  Final decision: `wifi-sta-handoff-materialization-scan-failed`;
+device returned to native V3384 with `selftest fail=0`.
+
+Interpretation: this is below credentials and below supplicant.  The preserved netdev/phy is
+visible, but direct Debian ownership cannot produce a usable scan state, and toggling the link
+down loses the ability to bring it up again.  The next boundary is the handoff control plane:
+which WLAN companion processes/state survive `switch_root`, and what kernel error appears at
+the first scan/up failure.
+
+Report:
+`docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA17_HANDOFF_MATERIALIZATION_BLOCKED_2026-07-04.md`.
+
 ### WSTA7: Debian association/control fix
 
 Live result: pass.  The Debian STA helper now waits for the `wpa_supplicant` control
@@ -331,14 +357,18 @@ Stop before mutation or public exposure if any condition appears:
 
 ## 7. Next Implementation Unit
 
-Run WSTA17 as a Debian post-handoff WLAN reset/materialization gate below credentials:
+Run WSTA18 as a handoff control-plane diagnostic:
 
 1. keep the fresh native boot -> extended STA-only native scan gate -> SD-backed Debian `switch_root`
-   sequence from WSTA16;
-2. require native visible BSS before handoff;
-3. collect redacted post-handoff rfkill, phy, netdev, nl80211, and link-state snapshots before
-   supplicant starts;
-4. test bounded Debian-side materialization branches, such as link down/up, managed-type reassertion
-   if available, and safe phy/netdev rescan triggers;
-5. run direct `iw` scan after each bounded branch and stop as soon as one branch gets visible BSS;
-6. do not run credentials, association, DHCP, API, or cloudflared until direct Debian scan works.
+   sequence from WSTA17;
+2. collect a redacted native pre-handoff process/control-plane snapshot for WLAN companion processes
+   and a focused dmesg baseline after native scan pass;
+3. collect the same redacted Debian post-handoff process/control-plane snapshot before any link
+   down/up branch;
+4. capture focused dmesg around the first direct `iw scan` rc `234` and first `ip link set up`
+   behavior, without dumping raw BSSID/MAC/SSID scan data into public reports;
+5. decide whether the next implementation should preserve/relaunch a vendor WLAN companion
+   process set, keep Wi-Fi owned by native init and expose it to Debian as a service boundary, or
+   abandon direct Debian netdev ownership for this device;
+6. do not run credentials, association, DHCP, API, or cloudflared until the handoff control-plane
+   boundary is understood.

@@ -149,6 +149,7 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertTrue(result["linkstate_diag_present"])
             self.assertTrue(result["iw_diag_present"])
             self.assertTrue(result["immediate_snapshot_present"])
+            self.assertTrue(result["handoff_materialization_present"])
             self.assertTrue(result["tcp_probe_fallback_present"])
             self.assertIn("probe_l3_reachability", text)
             self.assertIn("dwell_stability_probe", text)
@@ -159,6 +160,7 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertIn("link_snapshot", text)
             self.assertIn("iw_scan_bss_count", text)
             self.assertIn("wifi-sta-immediate-snapshot-pass", text)
+            self.assertIn("wifi-sta-handoff-materialization-scan-failed", text)
             self.assertIn("nc.openbsd", text)
             self.assertNotIn("old-helper", text)
 
@@ -360,6 +362,7 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertTrue(result["wifi_sta_helper"]["linkstate_diag_present"])
             self.assertTrue(result["wifi_sta_helper"]["iw_diag_present"])
             self.assertTrue(result["wifi_sta_helper"]["immediate_snapshot_present"])
+            self.assertTrue(result["wifi_sta_helper"]["handoff_materialization_present"])
             self.assertTrue(result["api_probe_helper"]["api_post_present"])
             self.assertFalse(result["api_probe_tools"]["requested"])
             self.assertTrue(result["firstboot"]["wifi_sta_helper_invoked"])

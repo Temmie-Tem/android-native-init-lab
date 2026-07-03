@@ -488,6 +488,8 @@ def stage_dpublic_wifi_sta_helper(rootfs: Path) -> dict[str, Any]:
         and "wifi_sta_reg_${reg_label}_iw_scan_bss_count" in text,
         "immediate_snapshot_present": "wifi_sta_immediate_snapshot_only=$immediate_snapshot_only" in text
         and "wifi-sta-immediate-snapshot-pass" in text,
+        "handoff_materialization_present": "try_handoff_materialization()" in text
+        and "wifi-sta-handoff-materialization-scan-failed" in text,
         "tcp_probe_fallback_present": "nc.openbsd" in text,
         "secret_values_logged": 0,
     }
