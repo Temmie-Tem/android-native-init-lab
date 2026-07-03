@@ -23,6 +23,7 @@ from typing import Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
+SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_BASE_ROOTFS = (
     REPO_ROOT / "workspace" / "private" / "builds" / "server-distro"
     / "debian-bookworm-arm64-rootfs"
@@ -39,6 +40,8 @@ DEFAULT_NCM_IP = "192.168.7.2"
 DEFAULT_NCM_PEER = "192.168.7.1"
 SYSV_PACKAGES = ("insserv", "startpar", "initscripts", "sysv-rc", "sysvinit-core")
 USR_MERGE_LINKS = (("bin", "usr/bin"), ("sbin", "usr/sbin"), ("lib", "usr/lib"))
+DPUBLIC_WIFI_STA_HELPER = SCRIPT_DIR / "a90_dpublic_wifi_sta.sh"
+DPUBLIC_WIFI_STA_TARGET = Path("usr/local/bin/a90-dpublic-wifi-sta")
 
 
 def run(cmd: list[str], *, cwd: Path | None = None, timeout: float | None = None) -> subprocess.CompletedProcess[str]:
@@ -181,6 +184,14 @@ def restore_usrmerge_links(rootfs: Path) -> None:
         link.symlink_to(target_name)
 
 
+def stage_dpublic_wifi_sta_helper(rootfs: Path) -> None:
+    helper_target = rootfs / DPUBLIC_WIFI_STA_TARGET
+    helper_target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(DPUBLIC_WIFI_STA_HELPER, helper_target)
+    helper_target.chmod(0o755)
+    (rootfs / "etc" / "a90-dpublic").mkdir(parents=True, exist_ok=True)
+
+
 def firstboot_script(ncm_ip: str, ncm_peer: str, autoreboot_sec: int, ssh_port: int) -> str:
     return f"""#!/bin/sh
 set +e
@@ -253,12 +264,15 @@ def install_d3_contract(args: argparse.Namespace, d3_rootfs: Path) -> None:
     )
     firstboot.chmod(0o755)
     (d3_rootfs / "root" / ".ssh").chmod(0o700)
+    stage_dpublic_wifi_sta_helper(d3_rootfs)
     stage = d3_rootfs / "etc" / "a90-server-distro-stage"
     stage.write_text(
         "\n".join([
             "stage=D3 sysvinit switch_root prepared",
             "init=sysvinit-core",
             "ssh=dropbear early by inittab sysinit, key-only, NO keys installed in artifact",
+            "wifi-sta=opt-in via /etc/a90-dpublic/wifi-sta-enable, private config not included",
+            "wifi-sta-helper=/usr/local/bin/a90-dpublic-wifi-sta",
             f"ncm_ip={args.ncm_ip}",
             f"autoreboot_sec={args.autoreboot_sec}",
             "userdata=untouched",
@@ -284,6 +298,8 @@ def collect_stat(rootfs: Path) -> dict[str, Any]:
         "ip": rootfs / "bin" / "ip",
         "usr_bin_ip": rootfs / "usr" / "bin" / "ip",
         "stage_marker": rootfs / "etc" / "a90-server-distro-stage",
+        "wifi_sta_helper": rootfs / DPUBLIC_WIFI_STA_TARGET,
+        "wifi_sta_config_dir": rootfs / "etc" / "a90-dpublic",
     }
     stats = {name: {"exists": path.exists(), "mode": oct(path.stat().st_mode & 0o777) if path.exists() else None}
              for name, path in checks.items()}

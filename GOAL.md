@@ -855,6 +855,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT WSTA2 live gate:** get native cmdv1 or recovery ADB back under the checked recovery envelope, then run
 > `run_wsta2_native_materialization.py --flash-v3384 --probe-iftype`.  Only after that passes should WSTA3
 > consume private Debian STA credentials.
+>
+> **✅ STATUS (2026-07-04 02:26 KST host clock) — WSTA3 rootfs pipeline SOURCE/HOST DONE.**
+> Codex closed the gap where WSTA1 helper support existed in the generic Debian builder but could be skipped by
+> the actual D3/D4 userdata appliance rootfs path.  `prepare_d3_sysvinit_rootfs.py` now stages
+> `/usr/local/bin/a90-dpublic-wifi-sta` and `/etc/a90-dpublic`, records Wi-Fi STA as private opt-in in the D3
+> stage marker, and leaves `wifi-sta-enable` absent by default.  `prepare_d4c_userdata_rootfs_tarball.py` now
+> rejects a rootfs/tarball that lacks the executable STA helper or config directory.  Host validation confirmed
+> the older fixed D4C rootfs lacks the helper, then built a new private WSTA-ready image
+> `workspace/private/builds/server-distro/d3-sysvinit-usrmerge-wsta-20260704T0225Z.img`
+> (`sha256=7adbdcc2f0fd15d4d860532761c767773abcd13d8febf37a7312047adc9f637e`) with
+> `wifi_sta_helper.exists=true` and D4C `verify_rootfs=ok`.  No flash, reboot, userdata staging/format,
+> Wi-Fi association, DHCP, ping, or public tunnel action was performed.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA3_ROOTFS_PIPELINE_2026-07-04.md`.
+> **NEXT:** WSTA2 live still gates WSTA3.  Once native cmdv1/recovery ADB is available and WSTA2 passes, use the
+> WSTA-ready private rootfs/image for D4C/D4D and stage private Wi-Fi credentials outside git.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

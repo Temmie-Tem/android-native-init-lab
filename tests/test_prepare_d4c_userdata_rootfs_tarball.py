@@ -16,6 +16,8 @@ class PrepareD4CUserdataRootfsTarballTests(unittest.TestCase):
         self.assertIn("d3-sysvinit-usrmerge", str(d4c.DEFAULT_ROOTFS))
         self.assertEqual(d4c.DEFAULT_REMOTE_TARBALL, "/mnt/sdext/a90/runtime/a90-d4c-userdata-rootfs.tar")
         self.assertEqual(d4c.EXPECTED_STAGE_FILE, "etc/a90-server-distro-stage")
+        self.assertEqual(d4c.EXPECTED_WIFI_STA_HELPER, "usr/local/bin/a90-dpublic-wifi-sta")
+        self.assertEqual(d4c.EXPECTED_WIFI_STA_CONFIG_DIR, "etc/a90-dpublic")
 
     def test_tar_command_forces_root_owner_without_touching_userdata(self) -> None:
         source = Path("workspace/public/src/scripts/server-distro/prepare_d4c_userdata_rootfs_tarball.py").read_text(
@@ -43,8 +45,17 @@ class PrepareD4CUserdataRootfsTarballTests(unittest.TestCase):
         ):
             self.assertIn(marker, source)
         self.assertIn('"./" + EXPECTED_STAGE_FILE', source)
+        self.assertIn('"./" + EXPECTED_WIFI_STA_HELPER', source)
         self.assertIn("remote_tarball_sha", source)
         self.assertIn("stage_tarball", source)
+
+    def test_rootfs_verification_requires_wifi_sta_helper(self) -> None:
+        source = Path("workspace/public/src/scripts/server-distro/prepare_d4c_userdata_rootfs_tarball.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('"wifi_sta_helper": rootfs / EXPECTED_WIFI_STA_HELPER', source)
+        self.assertIn('"wifi_sta_config_dir": rootfs / EXPECTED_WIFI_STA_CONFIG_DIR', source)
+        self.assertIn("Wi-Fi STA helper is not executable", source)
 
 
 if __name__ == "__main__":

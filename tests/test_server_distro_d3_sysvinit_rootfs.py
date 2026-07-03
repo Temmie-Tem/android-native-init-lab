@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import argparse
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -54,6 +56,25 @@ class ServerDistroD3SysvinitRootfsTests(unittest.TestCase):
         self.assertIn("def restore_usrmerge_links", source)
         self.assertIn("merge_tree_contents(link, target)", source)
         self.assertIn("restore_usrmerge_links(d3_rootfs)", source)
+
+    def test_d3_contract_stages_dpublic_wifi_sta_helper_without_enabling_it(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp)
+            (rootfs / "etc").mkdir()
+            (rootfs / "run").mkdir()
+            (rootfs / "root" / ".ssh").mkdir(parents=True)
+            args = argparse.Namespace(ncm_ip="192.168.7.2", ncm_peer="192.168.7.1", autoreboot_sec=120, ssh_port=2222)
+
+            d3a.install_d3_contract(args, rootfs)
+
+            helper = rootfs / d3a.DPUBLIC_WIFI_STA_TARGET
+            self.assertTrue(helper.is_file())
+            self.assertEqual(helper.stat().st_mode & 0o777, 0o755)
+            self.assertTrue((rootfs / "etc/a90-dpublic").is_dir())
+            self.assertFalse((rootfs / "etc/a90-dpublic/wifi-sta-enable").exists())
+            marker = (rootfs / "etc/a90-server-distro-stage").read_text(encoding="utf-8")
+            self.assertIn("wifi-sta=opt-in via /etc/a90-dpublic/wifi-sta-enable", marker)
+            self.assertIn("wifi-sta-helper=/usr/local/bin/a90-dpublic-wifi-sta", marker)
 
 
 if __name__ == "__main__":

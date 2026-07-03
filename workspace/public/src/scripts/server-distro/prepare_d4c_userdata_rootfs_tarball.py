@@ -37,6 +37,8 @@ DEFAULT_ROOTFS = (
 DEFAULT_REMOTE_TARBALL = "/mnt/sdext/a90/runtime/a90-d4c-userdata-rootfs.tar"
 EXPECTED_STAGE_FILE = "etc/a90-server-distro-stage"
 EXPECTED_DEBIAN_VERSION = "12.14"
+EXPECTED_WIFI_STA_HELPER = "usr/local/bin/a90-dpublic-wifi-sta"
+EXPECTED_WIFI_STA_CONFIG_DIR = "etc/a90-dpublic"
 
 
 def utc_now() -> str:
@@ -75,12 +77,16 @@ def verify_rootfs(rootfs: Path) -> dict[str, Any]:
         "debian_version": rootfs / "etc/debian_version",
         "stage": rootfs / EXPECTED_STAGE_FILE,
         "inittab": rootfs / "etc/inittab",
+        "wifi_sta_helper": rootfs / EXPECTED_WIFI_STA_HELPER,
+        "wifi_sta_config_dir": rootfs / EXPECTED_WIFI_STA_CONFIG_DIR,
     }
     for path in required.values():
         if not path.exists():
             raise FileNotFoundError(path)
     if not os.access(required["init"], os.X_OK):
         raise RuntimeError(f"init is not executable: {required['init']}")
+    if not os.access(required["wifi_sta_helper"], os.X_OK):
+        raise RuntimeError(f"Wi-Fi STA helper is not executable: {required['wifi_sta_helper']}")
     debian_version = required["debian_version"].read_text(encoding="utf-8").strip()
     if debian_version != EXPECTED_DEBIAN_VERSION:
         raise RuntimeError(f"unexpected Debian version: {debian_version}")
@@ -127,6 +133,7 @@ def verify_tarball(tarball: Path, timeout: float) -> dict[str, Any]:
         "./usr/sbin/init",
         "./etc/debian_version",
         "./" + EXPECTED_STAGE_FILE,
+        "./" + EXPECTED_WIFI_STA_HELPER,
         "./etc/inittab",
     }
     missing = sorted(required_entries - entries)
