@@ -553,6 +553,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `userdata-appliance-formatter-probe` only, then roll back to v2321 unless destructive D4C starts
 > immediately.
 
+> **🟡 STATUS (2026-07-03) — V3377 formatter-fix LIVE FAILED SAFELY; rollback clean.**
+> Exact V3377 flashed through `native_init_flash.py` with remote SHA and boot readback SHA matching
+> `65575d4166896d9ffd4e38594ac1776583b6087c5ff79c8eebb140ea07a15dfd`. Candidate booted as
+> `A90 Linux init 0.11.136 (v3377-server-distro-userdata-formatter-fix)` and status showed
+> `selftest fail=0`; read-only `userdata-appliance-preflight` passed for `sda33`, same-session
+> `target.dev=259:30`, `target.sectors=231577432`, `target.mounted=0`, `node_materialized=0`.
+> The corrected formatter-probe reached `formatter=busybox-mke2fs ... kbytes=16384` but failed with
+> `execve(/bin/busybox): Bad address` because `probe_argv` did not reserve a final NULL terminator after
+> adding the KBYTES argument. The SD probe file was removed, no format/populate/switch-root ran, no
+> userdata node was materialized, and rollback to v2321 completed with valid final status
+> `selftest fail=0`. Report:
+> `docs/reports/NATIVE_INIT_V3378_SERVER_DISTRO_D4C_FORMATTER_FIX_LIVE_FAIL_2026-07-03.md`.
+> **NEXT bounded unit = formatter argv fix candidate**: extend `probe_argv` for
+> `<probe-path>, <KBYTES>, NULL`, rebuild, and re-run only preflight plus formatter-probe before any
+> destructive D4C format/populate.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.
