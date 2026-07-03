@@ -215,6 +215,37 @@ def cancel_foreground_run(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def hide_auto_menu(args: argparse.Namespace) -> dict[str, Any]:
+    try:
+        text = a90ctl.bridge_exchange(
+            args.host,
+            args.port,
+            "hide",
+            min(args.timeout, 8.0),
+            markers=(b"[busy]", b"[done]", b"[err]"),
+            require_prompt_after_end=False,
+        )
+    except Exception as exc:  # noqa: BLE001 - caller records best-effort retry context
+        return {"ok": False, "error": type(exc).__name__, "message": str(exc)}
+    return {"ok": True, "text": text}
+
+
+def remote_image_sha_with_hide_retry(args: argparse.Namespace) -> tuple[str | None, dict[str, Any]]:
+    attempts: list[dict[str, Any]] = []
+    for attempt in range(1, 4):
+        sha, record = d1.remote_image_sha(args.host, args.port, args.timeout, args.remote_image)
+        item: dict[str, Any] = {"attempt": attempt, "sha256": sha, "record": record}
+        attempts.append(item)
+        if sha is not None:
+            return sha, {"attempts": attempts}
+        text = str(record.get("text") or "")
+        if record.get("status") != "busy" and "[busy] auto menu active" not in text:
+            break
+        item["hide"] = hide_auto_menu(args)
+        time.sleep(3.0)
+    return None, {"attempts": attempts}
+
+
 def run_switch_root_command(args: argparse.Namespace, image_sha: str) -> dict[str, Any]:
     command = [
         "switch-root-to-distro",
@@ -364,7 +395,7 @@ def run_live(args: argparse.Namespace) -> int:
         add_event(events, run_dir, "candidate_boot_ready")
 
         add_event(events, run_dir, "live_session_start")
-        remote_sha, remote_sha_record = d1.remote_image_sha(args.host, args.port, args.timeout, args.remote_image)
+        remote_sha, remote_sha_record = remote_image_sha_with_hide_retry(args)
         save_step("remote_image_sha", {"sha256": remote_sha, "record": remote_sha_record})
         if remote_sha != keyed["keyed_sha256"]:
             raise RuntimeError(f"remote D3 image sha mismatch: remote={remote_sha} local={keyed['keyed_sha256']}")

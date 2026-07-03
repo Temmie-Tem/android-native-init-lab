@@ -83,6 +83,16 @@ class ServerDistroD3SwitchrootHandoffTests(unittest.TestCase):
         self.assertLess(run_live_source.index('save_step("prestage_keyed_image"'), run_live_source.index('"candidate_flash"'))
         self.assertLess(run_live_source.index('save_step("remote_image_sha"'), run_live_source.index('run_switch_root_command'))
 
+    def test_post_flash_remote_sha_hides_auto_menu_and_retries(self) -> None:
+        source = Path("workspace/public/src/scripts/server-distro/run_d3_switchroot_handoff.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("def hide_auto_menu", source)
+        self.assertIn("def remote_image_sha_with_hide_retry", source)
+        self.assertIn('"hide"', source)
+        self.assertIn('record.get("status") != "busy"', source)
+        self.assertIn("remote_image_sha_with_hide_retry(args)", source)
+
 
 if __name__ == "__main__":
     unittest.main()
