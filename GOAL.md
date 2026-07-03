@@ -419,7 +419,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT bounded unit = implement/build D4B native-init fail-closed surface**; D4C remains disallowed until
 > D4B static validation and candidate health pass, and D-public remains a separate later gate.
 
-> **✅ STATUS (2026-07-03) — D4B native-init source/build DONE; candidate health still pending.**
+> **✅ STATUS (2026-07-03) — D4B native-init source/build DONE.**
 > Codex implemented the D4B command surface in native-init and built `V3373`:
 > `A90 Linux init 0.11.134 (v3373-server-distro-userdata-appliance)`, boot SHA
 > `78e3297063b1957626075bc8c22223ef7a195d0de684fdbd7f51deb824a49f6d`.
@@ -436,6 +436,28 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > device-side `userdata-appliance-preflight`, and roll back to v2321 unless D4C starts immediately under
 > the destructive runbook. D4C remains disallowed until this candidate-health gate passes and the formatter
 > path is device-proven.
+
+> **✅ STATUS (2026-07-03) — D4B candidate-health LIVE PASS, rolled back cleanly.**
+> Codex flashed the exact V3373 artifact through `native_init_flash.py`, TWRP/recovery ADB came up,
+> remote SHA and boot readback SHA both matched
+> `78e3297063b1957626075bc8c22223ef7a195d0de684fdbd7f51deb824a49f6d`, and the candidate booted as
+> `A90 Linux init 0.11.134 (v3373-server-distro-userdata-appliance)` with `selftest fail=0`.
+> The only D4B live command executed was read-only `userdata-appliance-preflight`, after auto-menu
+> hide/retry. It passed with `target.source=partname-scan`, `target.devname=sda33`,
+> `target.dev=259:17`, `target.sectors=231577432`, `target.size_bytes=118567645184`, `target.ro=0`,
+> `target.mounted=0`, `target.node_exists=0`, and `node_materialized=0`.
+> No format, no populate, no `switch-root-to-userdata`, and no userdata node materialization occurred.
+> v2321 rollback then used the checked helper; boot readback SHA matched
+> `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`, final version was
+> `0.9.285 (v2321-usb-clean-identity-rodata)`, and final `selftest fail=0`.
+> Report:
+> `docs/reports/NATIVE_INIT_V3374_SERVER_DISTRO_D4B_CANDIDATE_HEALTH_LIVE_2026-07-03.md`.
+> D4A saw the same `sda33` target as `dev=259:27`, while V3373 saw it as `259:17`; therefore D4C must
+> treat `target.dev` as a **same-session guard only** and must parse/pass the live preflight major:minor
+> from the same candidate session before any mutating command. **NEXT bounded unit = D4C entry prep**:
+> prove or add a non-destructive formatter probe, prepare/stage a SHA-pinned rootfs tarball under
+> `/mnt/sdext/a90/runtime/`, then re-enter V3373 and run fresh same-session preflight before the
+> destructive format. D-public remains a separate later gate.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

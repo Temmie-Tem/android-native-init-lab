@@ -30,7 +30,7 @@ Authoritative D4A userdata identity:
 ```text
 source=sysfs PARTNAME=userdata scan
 devname=sda33
-dev=259:27
+dev=259:27  (D4A boot; same-session only, not a cross-boot constant)
 sectors=231577432
 size_bytes=118567645184
 ro=0
@@ -102,7 +102,7 @@ candidate version == A90 Linux init 0.11.134 (v3373-server-distro-userdata-appli
 candidate selftest fail=0
 A90D4 preflight=ok
 target.devname=sda33
-target.dev=259:27
+target.dev=<live-major>:<live-minor>
 target.sectors=231577432
 target.size_bytes=118567645184
 target.mounted=0
@@ -110,6 +110,10 @@ node_materialized=0
 final rollback version == v2321-usb-clean-identity-rodata
 final selftest fail=0
 ```
+
+Use the live `target.dev` value only within the same D4C session. The stable cross-checks are
+`PARTNAME=userdata`, `devname=sda33`, sector count, size, `ro=0`, and `mounted=0`; the major:minor value
+guards against in-session target substitution but may drift across boots.
 
 ## 5. D4C Entry Gate
 

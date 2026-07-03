@@ -168,12 +168,14 @@ Sequence:
 2. Flash the D4-capable candidate through `native_init_flash.py`.
 3. Verify candidate boot and `selftest fail=0`.
 4. Run device-side `userdata-appliance-preflight`.
-5. Run `userdata-appliance-format` only if host and device preflight agree on the same target.
-6. Mount the new ext4 `userdata`.
-7. Populate Debian rootfs from a SHA-pinned SD-staged tarball derived from the clean D3 rootfs source.
-8. Install per-run/admin SSH material, host keys, and minimal service config.
-9. Write an appliance marker under the rootfs, for example `/etc/a90-appliance-stage`.
-10. Leave the system in native-init with userdata mounted and proof files collected, or immediately run D4D
+5. Parse the same-session `target.devname`, `target.dev`, and `target.sectors` from the live preflight.
+6. Run `userdata-appliance-format` only with those same-session values and only if host and device
+   preflight agree on the same `PARTNAME=userdata` target.
+7. Mount the new ext4 `userdata`.
+8. Populate Debian rootfs from a SHA-pinned SD-staged tarball derived from the clean D3 rootfs source.
+9. Install per-run/admin SSH material, host keys, and minimal service config.
+10. Write an appliance marker under the rootfs, for example `/etc/a90-appliance-stage`.
+11. Leave the system in native-init with userdata mounted and proof files collected, or immediately run D4D
     if the switch-root surface is ready.
 
 If any write/readback/check fails after formatting starts, stop and report. Do not retry-loop formatting.

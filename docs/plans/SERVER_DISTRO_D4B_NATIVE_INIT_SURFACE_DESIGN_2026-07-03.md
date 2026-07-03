@@ -91,12 +91,17 @@ Required markers:
 ```text
 A90D4 preflight=ok
 target.devname=sda33
-target.dev=259:27
+target.dev=<live-major>:<live-minor>
 target.sectors=231577432
 target.size_bytes=118567645184
 target.mounted=0
 target.node_exists=<0|1>
 ```
+
+The `target.dev` value is a same-session guard, not a cross-boot constant. D4A saw `259:27`, while the
+D4B candidate-health boot later saw the same `sda33`/sector/size target as `259:17`. D4C must parse the
+live preflight result and pass that same-session value to mutating commands; it must not reuse an older
+major:minor literal from a prior boot.
 
 ### `userdata-appliance-format <token> <expected-devname> <expected-dev> <expected-sectors>`
 
