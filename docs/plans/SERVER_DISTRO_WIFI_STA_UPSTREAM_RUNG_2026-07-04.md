@@ -265,16 +265,28 @@ Report:
 
 ### WSTA16: immediate Debian post-handoff scan boundary
 
-Next work should stay below association:
+Source result: implemented.  The Debian STA helper now has an
+`/etc/a90-dpublic/wifi-sta-immediate-snapshot-only` mode that records link and direct `iw`
+state before starting `wpa_supplicant`, DHCP, ping, API probes, or cloudflared.  The WSTA
+private rootfs preparer has `--immediate-snapshot-only`, which stages the enable flag plus
+snapshot-only flag without requiring or copying Wi-Fi credentials.
 
-- fresh native reboot;
-- repeated native STA-only `wifi scan` until scan engine pass / visible BSS;
-- `switch_root`;
-- immediate Debian sysfs/ip-link/`iw` scan snapshot before starting `wpa_supplicant`;
-- if Debian still cannot scan, design a bounded Debian post-handoff WLAN reset/materialization
-  step that does not leave native Wi-Fi workers alive across handoff;
-- keep public tunnel, API, DNS, and gateway dwell work parked until Debian can scan and
-  associate reliably.
+Live result: blocked at the immediate Debian scan boundary.  A first short native STA-only
+gate was too early after boot and failed six times with `wifi-scan-link-up-failed` /
+`link_up_errno=19`; the extended same-boot gate passed on attempt 5 with
+`scan_result_count=11`.  `switch_root` then reached Debian PID1 with `dropbear_started=1`.
+In Debian snapshot-only mode, `wlan0` was present and `ip link set wlan0 up` returned rc
+`0`, but direct `iw` scan returned rc `234` and BSS count `0` both before and after link-up.
+Two delayed manual Debian scans returned the same `Invalid argument (-22)` error and BSS
+count `0`.  Final decision: `wifi-sta-immediate-snapshot-scan-failed`; the tunnel gate
+stayed closed; device returned to native V3384 with `selftest fail=0`.
+
+Interpretation: native can materialize `wlan0` and visible BSS before handoff, but the
+Debian image loses or lacks scan-usable WLAN state immediately after handoff.  The blocker
+is below credentials, supplicant association, DHCP, gateway, API, and tunnel work.
+
+Report:
+`docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA16_IMMEDIATE_HANDOFF_SCAN_BLOCKED_2026-07-04.md`.
 
 ### WSTA7: Debian association/control fix
 
@@ -319,11 +331,14 @@ Stop before mutation or public exposure if any condition appears:
 
 ## 7. Next Implementation Unit
 
-Run WSTA14 as a Debian link-state / scan-engine diagnostic gate:
+Run WSTA17 as a Debian post-handoff WLAN reset/materialization gate below credentials:
 
-1. keep the fresh native boot -> WSTA2 `--probe-iftype` -> no-clock Debian `switch_root` sequence;
-2. require WSTA13 scan visibility markers;
-3. collect redacted `ip link`/sysfs state before and after `wpa_supplicant` starts;
-4. add optional `iw`/regulatory diagnostics if the private rootfs can stage the tool safely;
-5. test whether a bounded post-supplicant link-up reassertion changes operstate or scan results;
-6. do not retry the manual API probe or cloudflared until the dwell window passes.
+1. keep the fresh native boot -> extended STA-only native scan gate -> SD-backed Debian `switch_root`
+   sequence from WSTA16;
+2. require native visible BSS before handoff;
+3. collect redacted post-handoff rfkill, phy, netdev, nl80211, and link-state snapshots before
+   supplicant starts;
+4. test bounded Debian-side materialization branches, such as link down/up, managed-type reassertion
+   if available, and safe phy/netdev rescan triggers;
+5. run direct `iw` scan after each bounded branch and stop as soon as one branch gets visible BSS;
+6. do not run credentials, association, DHCP, API, or cloudflared until direct Debian scan works.

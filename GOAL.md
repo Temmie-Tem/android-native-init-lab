@@ -1189,10 +1189,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `wsta15-native-scan-engine-survives-iftype`; forbidden native Wi-Fi/tunnel workers were absent,
 > no association/DHCP/ping/tunnel ran, and post-run `selftest fail=0`.  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA15_HANDOFF_SCAN_BOUNDARY_2026-07-04.md`.
-> **NEXT:** WSTA16 handoff-specific boundary: fresh native boot -> STA-only native scan gate
-> until visible BSS -> switch_root -> immediate Debian sysfs/ip-link/`iw` scan snapshot before
-> `wpa_supplicant`.  Do not return to gateway/API/cloudflared until Debian can scan and
-> associate reliably.
+> **🟠 STATUS (2026-07-04 08:32 KST host clock) — WSTA16 immediate Debian handoff scan BLOCKED.**
+> Codex added a credential-free `--immediate-snapshot-only` rootfs mode and a Debian helper path
+> that records link/`iw` state before starting `wpa_supplicant`, DHCP, API probing, or cloudflared.
+> Focused tests pass.  Live WSTA16 used the same V3384 resident and an SD-backed image only
+> (no boot flash, no userdata format/populate).  A first short native STA-only gate was too early
+> after boot and failed six times with `wifi-scan-link-up-failed` / `link_up_errno=19`; the extended
+> same-boot gate then passed on attempt 5 with `decision=wifi-scan-pass` and `scan_result_count=11`.
+> `switch_root` reached Debian PID1 (`pid1_comm=init`, `dropbear_started=1`).  In Debian snapshot-only
+> mode, `wlan0` was present and `ip link set wlan0 up` returned rc `0`, but direct `iw` scan returned
+> rc `234` with BSS count `0` both before and after link-up; a delayed manual scan probe also returned
+> `Invalid argument (-22)` twice.  Final Debian decision:
+> `wifi-sta-immediate-snapshot-scan-failed`; tunnel gate stayed closed; device rebooted back to native
+> V3384 with `selftest fail=0`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA16_IMMEDIATE_HANDOFF_SCAN_BLOCKED_2026-07-04.md`.
+> **NEXT:** WSTA17 Debian post-handoff WLAN reset/materialization gate below credentials:
+> inspect rfkill/phy/netdev/nl80211 state, test bounded link-down/link-up and safe managed/phy
+> reassertion branches, then rescan.  Do not return to gateway/API/cloudflared until Debian can scan
+> and associate reliably.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

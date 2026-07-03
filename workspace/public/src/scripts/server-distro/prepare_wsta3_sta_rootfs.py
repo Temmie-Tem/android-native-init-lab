@@ -45,6 +45,7 @@ DEFAULT_ARCH = "arm64"
 DEFAULT_MIRROR = "http://deb.debian.org/debian"
 TARGET_CONFIG = Path("etc/a90-dpublic/wpa_supplicant-wlan0.conf")
 TARGET_ENABLE = Path("etc/a90-dpublic/wifi-sta-enable")
+TARGET_IMMEDIATE_SNAPSHOT_ONLY = Path("etc/a90-dpublic/wifi-sta-immediate-snapshot-only")
 TARGET_QUICK_TUNNEL_ENABLE = Path("etc/a90-dpublic/cloudflared-quick-enable")
 TARGET_HELPER = Path("usr/local/bin/a90-dpublic-wifi-sta")
 TARGET_API_PROBE = Path("usr/local/bin/a90-dpublic-api-probe")
@@ -440,6 +441,26 @@ def stage_config(rootfs: Path, config: Path) -> dict[str, Any]:
     }
 
 
+def stage_immediate_snapshot_only(rootfs: Path) -> dict[str, Any]:
+    enable_target = rootfs / TARGET_ENABLE
+    snapshot_target = rootfs / TARGET_IMMEDIATE_SNAPSHOT_ONLY
+    enable_target.parent.mkdir(parents=True, exist_ok=True)
+    enable_target.write_text("1\n", encoding="utf-8")
+    snapshot_target.write_text("1\n", encoding="utf-8")
+    enable_target.chmod(PRIVATE_FILE_MODE)
+    snapshot_target.chmod(PRIVATE_FILE_MODE)
+    return {
+        "enable_target": str(TARGET_ENABLE),
+        "snapshot_only_target": str(TARGET_IMMEDIATE_SNAPSHOT_ONLY),
+        "enable_mode": oct(enable_target.stat().st_mode & 0o777),
+        "snapshot_only_mode": oct(snapshot_target.stat().st_mode & 0o777),
+        "config_required": False,
+        "config_target_present": (rootfs / TARGET_CONFIG).is_file(),
+        "helper_present": (rootfs / TARGET_HELPER).is_file(),
+        "secret_values_logged": 0,
+    }
+
+
 def stage_dpublic_wifi_sta_helper(rootfs: Path) -> dict[str, Any]:
     helper_target = rootfs / TARGET_HELPER
     if not DPUBLIC_WIFI_STA_HELPER.is_file():
@@ -465,6 +486,8 @@ def stage_dpublic_wifi_sta_helper(rootfs: Path) -> dict[str, Any]:
         and "wifi_sta_link_${snapshot_label}_operstate" in text,
         "iw_diag_present": "iw dev \"$IFACE\" scan" in text
         and "wifi_sta_reg_${reg_label}_iw_scan_bss_count" in text,
+        "immediate_snapshot_present": "wifi_sta_immediate_snapshot_only=$immediate_snapshot_only" in text
+        and "wifi-sta-immediate-snapshot-pass" in text,
         "tcp_probe_fallback_present": "nc.openbsd" in text,
         "secret_values_logged": 0,
     }
@@ -582,7 +605,15 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
         "secret_values_logged": 0,
     }
 
-    if args.wpa_conf:
+    if args.immediate_snapshot_only:
+        source_config = None
+        result["config_source"] = {
+            "type": "immediate-snapshot-only",
+            "ok": True,
+            "config_required": False,
+            "secret_values_logged": 0,
+        }
+    elif args.wpa_conf:
         source_config = args.wpa_conf
         config_meta = supplicant_config_metadata(source_config)
         result["config_source"] = {"type": "wpa-conf", **{k: v for k, v in config_meta.items() if k != "path"}}
@@ -629,7 +660,11 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
         return result
     result["wifi_sta_helper"] = stage_dpublic_wifi_sta_helper(target_rootfs)
     result["api_probe_helper"] = stage_dpublic_api_probe_helper(target_rootfs)
-    result["stage"] = stage_config(target_rootfs, source_config)
+    if args.immediate_snapshot_only:
+        result["stage"] = stage_immediate_snapshot_only(target_rootfs)
+    else:
+        assert source_config is not None
+        result["stage"] = stage_config(target_rootfs, source_config)
     result["firstboot"] = stage_dpublic_firstboot(target_rootfs)
     result["dpublic_binaries"] = (
         stage_dpublic_binaries(target_rootfs, args)
@@ -664,6 +699,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--run-id")
     parser.add_argument("--wifi-env", type=Path, default=DEFAULT_WIFI_ENV)
     parser.add_argument("--wpa-conf", type=Path)
+    parser.add_argument("--immediate-snapshot-only", action="store_true")
     parser.add_argument("--no-tarball", action="store_true")
     parser.add_argument("--tar-timeout", type=float, default=900.0)
     parser.add_argument("--apt-work", type=Path, default=DEFAULT_APT_WORK)

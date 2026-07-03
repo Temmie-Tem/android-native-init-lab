@@ -11,6 +11,7 @@ IFACE=wlan0
 RUN_DIR=/run/a90-dpublic
 MARKER=/run/a90-d3-marker
 ENABLE=/etc/a90-dpublic/wifi-sta-enable
+IMMEDIATE_SNAPSHOT_ONLY=/etc/a90-dpublic/wifi-sta-immediate-snapshot-only
 CONFIG=/etc/a90-dpublic/wpa_supplicant-wlan0.conf
 WPA_CTRL_DIR=/run/wpa_supplicant
 WPA_PID=$RUN_DIR/wifi-sta-wpa.pid
@@ -628,6 +629,11 @@ mark_phase "start"
 append_marker "wifi_sta_requested=1"
 append_marker "wifi_sta_iface=$IFACE"
 append_marker "wifi_sta_config_path=$CONFIG"
+immediate_snapshot_only=0
+if [ -s "$IMMEDIATE_SNAPSHOT_ONLY" ]; then
+  immediate_snapshot_only=1
+fi
+append_marker "wifi_sta_immediate_snapshot_only=$immediate_snapshot_only"
 
 if [ ! -s "$ENABLE" ]; then
   mark_phase "manual-disabled"
@@ -635,29 +641,41 @@ if [ ! -s "$ENABLE" ]; then
   finish "wifi-sta-manual"
 fi
 
-if [ ! -s "$CONFIG" ]; then
-  mark_phase "config-missing"
+if [ "$immediate_snapshot_only" = "1" ]; then
+  append_marker "wifi_sta_config_required=0"
   append_marker "wifi_sta_config_present=0"
-  append_marker "wifi_sta_started=0"
-  finish "wifi-sta-config-missing"
-fi
-append_marker "wifi_sta_config_present=1"
+  if ! command -v ip >/dev/null 2>&1 ||
+     ! command -v iw >/dev/null 2>&1; then
+    mark_phase "immediate-missing-tools"
+    append_marker "wifi_sta_started=0"
+    finish "wifi-sta-immediate-snapshot-missing-tools"
+  fi
+else
+  append_marker "wifi_sta_config_required=1"
+  if [ ! -s "$CONFIG" ]; then
+    mark_phase "config-missing"
+    append_marker "wifi_sta_config_present=0"
+    append_marker "wifi_sta_started=0"
+    finish "wifi-sta-config-missing"
+  fi
+  append_marker "wifi_sta_config_present=1"
 
-if ! command -v wpa_supplicant >/dev/null 2>&1 ||
-   ! command -v wpa_cli >/dev/null 2>&1 ||
-   ! command -v dhclient >/dev/null 2>&1 ||
-   ! command -v ip >/dev/null 2>&1 ||
-   ! command -v ping >/dev/null 2>&1 ||
-   ! command -v getent >/dev/null 2>&1; then
-  mark_phase "missing-tools"
-  append_marker "wifi_sta_started=0"
-  finish "wifi-sta-missing-tools"
-fi
-NC_BIN=$(command -v nc 2>/dev/null || command -v nc.openbsd 2>/dev/null || true)
-if [ -z "$NC_BIN" ]; then
-  mark_phase "missing-nc"
-  append_marker "wifi_sta_started=0"
-  finish "wifi-sta-missing-tools"
+  if ! command -v wpa_supplicant >/dev/null 2>&1 ||
+     ! command -v wpa_cli >/dev/null 2>&1 ||
+     ! command -v dhclient >/dev/null 2>&1 ||
+     ! command -v ip >/dev/null 2>&1 ||
+     ! command -v ping >/dev/null 2>&1 ||
+     ! command -v getent >/dev/null 2>&1; then
+    mark_phase "missing-tools"
+    append_marker "wifi_sta_started=0"
+    finish "wifi-sta-missing-tools"
+  fi
+  NC_BIN=$(command -v nc 2>/dev/null || command -v nc.openbsd 2>/dev/null || true)
+  if [ -z "$NC_BIN" ]; then
+    mark_phase "missing-nc"
+    append_marker "wifi_sta_started=0"
+    finish "wifi-sta-missing-tools"
+  fi
 fi
 mark_phase "tools-ok"
 
@@ -676,6 +694,24 @@ if ncm_recovery_preserved; then
   append_marker "ncm_recovery_preserved=1"
 else
   append_marker "ncm_recovery_preserved=0"
+fi
+
+if [ "$immediate_snapshot_only" = "1" ]; then
+  mark_phase "immediate-snapshot-before-link"
+  link_snapshot "immediate_before_link_up"
+  sample_regulatory_state "immediate_before_link_up"
+  ip link set "$IFACE" up >/dev/null 2>&1
+  immediate_link_set_up_rc=$?
+  append_marker "wifi_sta_immediate_link_set_up_rc=$immediate_link_set_up_rc"
+  link_snapshot "immediate_after_link_up"
+  sample_regulatory_state "immediate_after_link_up"
+  append_marker "wifi_sta_immediate_iw_scan_rc=$iw_scan_rc"
+  append_marker "wifi_sta_immediate_iw_scan_bss_count=$iw_scan_bss_count"
+  append_marker "wifi_sta_started=0"
+  if [ "$iw_scan_rc" = "0" ]; then
+    finish "wifi-sta-immediate-snapshot-pass"
+  fi
+  finish "wifi-sta-immediate-snapshot-scan-failed"
 fi
 
 kill_pidfile_if_matching "$DHCP_PID" "dhclient"

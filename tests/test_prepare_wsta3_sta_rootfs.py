@@ -21,6 +21,7 @@ def make_args(tmp: Path, **overrides) -> argparse.Namespace:
         "run_id": "test-run",
         "wifi_env": tmp / "wifi.env",
         "wpa_conf": None,
+        "immediate_snapshot_only": False,
         "no_tarball": True,
         "tar_timeout": 10.0,
         "apt_work": tmp / "apt",
@@ -99,6 +100,20 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertEqual((rootfs / wsta3.TARGET_ENABLE).read_text(encoding="utf-8"), "1\n")
             self.assertTrue(result["helper_present"])
 
+    def test_stage_immediate_snapshot_only_avoids_supplicant_config(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp) / "rootfs"
+
+            result = wsta3.stage_immediate_snapshot_only(rootfs)
+
+            self.assertEqual(result["enable_mode"], "0o600")
+            self.assertEqual(result["snapshot_only_mode"], "0o600")
+            self.assertFalse(result["config_required"])
+            self.assertFalse(result["config_target_present"])
+            self.assertTrue((rootfs / wsta3.TARGET_ENABLE).is_file())
+            self.assertTrue((rootfs / wsta3.TARGET_IMMEDIATE_SNAPSHOT_ONLY).is_file())
+            self.assertFalse((rootfs / wsta3.TARGET_CONFIG).exists())
+
     def test_stage_dpublic_firstboot_installs_autostart_hook(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             rootfs = Path(tmp) / "rootfs"
@@ -133,6 +148,7 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertTrue(result["scan_visibility_present"])
             self.assertTrue(result["linkstate_diag_present"])
             self.assertTrue(result["iw_diag_present"])
+            self.assertTrue(result["immediate_snapshot_present"])
             self.assertTrue(result["tcp_probe_fallback_present"])
             self.assertIn("probe_l3_reachability", text)
             self.assertIn("dwell_stability_probe", text)
@@ -142,6 +158,7 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertIn("scan_visibility_probe", text)
             self.assertIn("link_snapshot", text)
             self.assertIn("iw_scan_bss_count", text)
+            self.assertIn("wifi-sta-immediate-snapshot-pass", text)
             self.assertIn("nc.openbsd", text)
             self.assertNotIn("old-helper", text)
 
@@ -342,6 +359,7 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertTrue(result["wifi_sta_helper"]["scan_visibility_present"])
             self.assertTrue(result["wifi_sta_helper"]["linkstate_diag_present"])
             self.assertTrue(result["wifi_sta_helper"]["iw_diag_present"])
+            self.assertTrue(result["wifi_sta_helper"]["immediate_snapshot_present"])
             self.assertTrue(result["api_probe_helper"]["api_post_present"])
             self.assertFalse(result["api_probe_tools"]["requested"])
             self.assertTrue(result["firstboot"]["wifi_sta_helper_invoked"])
@@ -353,6 +371,41 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertNotIn("Test Net", summary)
             self.assertNotIn("12345678", summary)
             self.assertIn('"sha256_redacted"', summary) if "tarball_result" in result else None
+
+    def test_prepare_immediate_snapshot_only_skips_credentials(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            source = tmp_path / "source"
+            (source / "usr/local/bin").mkdir(parents=True)
+            (source / "usr/sbin").mkdir(parents=True)
+            (source / "usr/bin").mkdir(parents=True)
+            (source / "etc/a90-dpublic").mkdir(parents=True)
+            (source / "usr/local/bin/a90-dpublic-wifi-sta").write_text("#!/bin/sh\n", encoding="utf-8")
+            (source / "usr/sbin/ip").write_text("", encoding="utf-8")
+            (source / "usr/sbin/wpa_supplicant").write_text("", encoding="utf-8")
+            (source / "usr/sbin/wpa_cli").write_text("", encoding="utf-8")
+            (source / "usr/sbin/dhclient").write_text("", encoding="utf-8")
+            (source / "usr/sbin/iw").write_text("", encoding="utf-8")
+            (source / "usr/bin/ping").write_text("", encoding="utf-8")
+            (source / "usr/bin/getent").write_text("", encoding="utf-8")
+            (source / "usr/bin/nc").write_text("", encoding="utf-8")
+
+            with mock.patch.object(wsta3.d4c, "verify_rootfs", return_value={"ok": True}):
+                result = wsta3.prepare(
+                    make_args(
+                        tmp_path,
+                        source_rootfs=source,
+                        immediate_snapshot_only=True,
+                    )
+                )
+
+            target = tmp_path / "run" / "rootfs"
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["config_source"]["type"], "immediate-snapshot-only")
+            self.assertFalse(result["stage"]["config_required"])
+            self.assertTrue((target / wsta3.TARGET_ENABLE).is_file())
+            self.assertTrue((target / wsta3.TARGET_IMMEDIATE_SNAPSHOT_ONLY).is_file())
+            self.assertFalse((target / wsta3.TARGET_CONFIG).exists())
 
     def test_source_does_not_default_to_live_network_actions(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")
