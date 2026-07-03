@@ -24,10 +24,10 @@ Completed:
 - V3377 formatter syntax fix source/build passed; live proof still pending.
 - V3377 formatter-fix live failed safely: `probe_argv` lacked a final NULL after adding KBYTES; v2321 rollback clean.
 - V3379 formatter argv fix source/build passed; live proof still pending.
+- V3379 formatter argv fix live proof passed; v2321 rollback clean.
 
 Pending:
 
-- D4C entry live prep: flash V3379 and prove the formatter argv NULL-terminator fix live.
 - D4C format and populate.
 - D4D appliance handoff proof.
 
@@ -84,8 +84,9 @@ init=A90 Linux init 0.11.137 (v3379-server-distro-userdata-formatter-argv-fix)
 boot=workspace/private/inputs/boot_images/boot_linux_v3379_server_distro_userdata_formatter_argv_fix.img
 sha256=a58c07bca01c74ba97653a7cd3d3681788674fa8a6eb912a4fe64a84fb42112e
 probe=userdata-appliance-formatter-probe SERVER-DISTRO-D4-USERDATA-APPLIANCE <sd-runtime-image> <size-bytes>
-status=source-built-live-pending
+status=live-pass; rollback-clean
 source-report=docs/reports/NATIVE_INIT_V3379_SERVER_DISTRO_D4C_FORMATTER_ARGV_FIX_SOURCE_BUILD_2026-07-03.md
+live-report=docs/reports/NATIVE_INIT_V3380_SERVER_DISTRO_D4C_FORMATTER_ARGV_FIX_LIVE_PASS_2026-07-03.md
 ```
 
 D4C rootfs tarball staging runner:

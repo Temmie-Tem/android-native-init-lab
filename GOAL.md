@@ -583,6 +583,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `userdata-appliance-formatter-probe` only, then roll back to v2321 unless destructive D4C starts
 > immediately.
 
+> **✅ STATUS (2026-07-03) — V3379 formatter argv-fix LIVE PASS; rollback clean.**
+> Exact V3379 flashed through `native_init_flash.py` with remote SHA and boot readback SHA matching
+> `a58c07bca01c74ba97653a7cd3d3681788674fa8a6eb912a4fe64a84fb42112e`. Candidate booted as
+> `A90 Linux init 0.11.137 (v3379-server-distro-userdata-formatter-argv-fix)` and status showed
+> `selftest fail=0`. Slow-input read-only preflight passed for `sda33`, same-session `target.dev=259:36`,
+> `target.sectors=231577432`, `target.mounted=0`, `node_materialized=0`. The non-destructive
+> formatter-probe passed with `formatter=busybox-mke2fs`, `kbytes=16384`, ext magic `53ef`, `cleanup=ok`,
+> and `userdata_touched=0`. No format/populate/switch-root ran, no userdata node was materialized, and
+> rollback to v2321 completed with final status `selftest fail=0`. Report:
+> `docs/reports/NATIVE_INIT_V3380_SERVER_DISTRO_D4C_FORMATTER_ARGV_FIX_LIVE_PASS_2026-07-03.md`.
+> **NEXT bounded unit = destructive D4C format+populate**: re-confirm rollback/health, flash exact V3379,
+> run same-session preflight, parse live `target.devname/dev/sectors`, verify staged rootfs tarball SHA
+> `0875b8bd6e58298f644735e5d7ee12c0286e3057a7744b05064fc34829412603`, then run
+> `userdata-appliance-format` and `userdata-appliance-populate` under the D4 runbook.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.
