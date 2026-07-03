@@ -489,6 +489,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `userdata-appliance-formatter-probe` only, then roll back to v2321 unless destructive D4C starts
 > immediately under the D4 runbook.
 
+> **✅ STATUS (2026-07-03) — D4C rootfs tarball LIVE STAGED; no flash/userdata touch.**
+> `prepare_d4c_userdata_rootfs_tarball.py` ran on clean resident v2321 and ended on v2321 with
+> `selftest fail=0`. It created
+> `workspace/private/runs/server-distro/d4c-rootfs-tarball-20260703T121035Z/a90-d4c-userdata-rootfs.tar`
+> from the clean D3 sysvinit rootfs, verified required entries (`/sbin`, `/usr/sbin/init`,
+> `/etc/debian_version`, `/etc/inittab`, `/etc/a90-server-distro-stage`), and staged it to
+> `/mnt/sdext/a90/runtime/a90-d4c-userdata-rootfs.tar`. Host and remote SHA both equal
+> `0875b8bd6e58298f644735e5d7ee12c0286e3057a7744b05064fc34829412603`; size is `268349440` bytes.
+> The unit performed **NO FLASH / NO FORMAT / NO USERDATA TOUCH**. Report:
+> `docs/reports/SERVER_DISTRO_D4C_ROOTFS_TARBALL_STAGING_LIVE_2026-07-03.md`.
+> **NEXT bounded unit = V3375 formatter-probe live proof**: confirm rollback/TWRP preconditions, flash
+> exact V3375 through `native_init_flash.py`, verify candidate health, run read-only
+> `userdata-appliance-preflight` plus `userdata-appliance-formatter-probe` only, then roll back to v2321
+> unless destructive D4C starts immediately.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.

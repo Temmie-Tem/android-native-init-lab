@@ -19,10 +19,11 @@ Completed:
 - D4B candidate-health passed live and rolled back cleanly.
 - D4C formatter-probe source/build passed and produced V3375.
 - D4C rootfs tarball staging runner passed static validation.
+- D4C rootfs tarball was staged live under SD runtime and SHA-verified.
 
 Pending:
 
-- D4C entry live prep: run the rootfs tarball staging runner, then V3375 formatter-probe live proof.
+- D4C entry live prep: V3375 formatter-probe live proof.
 - D4C format and populate.
 - D4D appliance handoff proof.
 
@@ -67,6 +68,15 @@ remote-tarball=/mnt/sdext/a90/runtime/a90-d4c-userdata-rootfs.tar
 report=docs/reports/SERVER_DISTRO_D4C_ROOTFS_TARBALL_STAGING_RUNNER_2026-07-03.md
 ```
 
+D4C staged rootfs tarball:
+
+```text
+remote-tarball=/mnt/sdext/a90/runtime/a90-d4c-userdata-rootfs.tar
+sha256=0875b8bd6e58298f644735e5d7ee12c0286e3057a7744b05064fc34829412603
+size_bytes=268349440
+source-report=docs/reports/SERVER_DISTRO_D4C_ROOTFS_TARBALL_STAGING_LIVE_2026-07-03.md
+```
+
 Rollback images that must be confirmed before any D4 flash:
 
 ```text
@@ -87,8 +97,7 @@ D4B candidate-health
 
 D4C format+populate
   first close D4C entry prep:
-    run prepare_d4c_userdata_rootfs_tarball.py on clean v2321
-    stage SHA-pinned rootfs tarball under /mnt/sdext/a90/runtime/
+    rootfs tarball is already staged under /mnt/sdext/a90/runtime/
     flash V3375 by checked helper
     run preflight plus formatter-probe only
     rollback unless destructive D4C starts immediately
