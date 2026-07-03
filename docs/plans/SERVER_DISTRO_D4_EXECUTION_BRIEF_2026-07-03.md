@@ -25,9 +25,11 @@ Completed:
 - V3377 formatter-fix live failed safely: `probe_argv` lacked a final NULL after adding KBYTES; v2321 rollback clean.
 - V3379 formatter argv fix source/build passed; live proof still pending.
 - V3379 formatter argv fix live proof passed; v2321 rollback clean.
+- D4C e2fsprogs formatter toolroot was extracted under SD runtime and SHA-verified on-device.
 
 Pending:
 
+- V3381 journaled formatter native-init surface and non-destructive `has_journal` proof.
 - D4C format and populate.
 - D4D appliance handoff proof.
 
@@ -107,6 +109,20 @@ size_bytes=268349440
 source-report=docs/reports/SERVER_DISTRO_D4C_ROOTFS_TARBALL_STAGING_LIVE_2026-07-03.md
 ```
 
+D4C journaled formatter toolroot:
+
+```text
+toolroot=/mnt/sdext/a90/runtime/d4c-format-toolroot
+source-tarball=/mnt/sdext/a90/runtime/a90-d4c-userdata-rootfs.tar
+mke2fs_sha256=92721c9a402ba8015ec6321acffaac187ce32fd2772a54690b46dfe94b8f6589
+dumpe2fs_sha256=6e22ed6668e336a891621de3e18b8915e56545351c20c06bafb6682ac1de9aae
+tune2fs_sha256=f4bd3a7e56772236ec0dd8f6a4c5fa2b9dfa52cf70d2af0fa1eb50cfeafa34ad
+mkfs.ext4=symlink-to-mke2fs
+debian_version=12.14
+stage_marker=present
+report=docs/reports/SERVER_DISTRO_D4C_E2FSPROGS_TOOLROOT_STAGING_2026-07-03.md
+```
+
 Rollback images that must be confirmed before any D4 flash:
 
 ```text
@@ -128,13 +144,17 @@ D4B candidate-health
 D4C format+populate
   first close D4C entry prep:
     rootfs tarball is already staged under /mnt/sdext/a90/runtime/
-    flash V3379 by checked helper
-    run preflight plus formatter-probe only
+    e2fsprogs formatter toolroot is already staged under /mnt/sdext/a90/runtime/
+    implement V3381 journaled formatter command surface
+    flash V3381 by checked helper
+    run preflight plus e2fsprogs formatter-probe only
+    prove has_journal on an SD regular file via dumpe2fs
     rollback unless destructive D4C starts immediately
-  restage or keep V3373 live under the same gated run
-  prove formatter path on device
+  restage or keep the proven D4C-capable candidate live under the same gated run
+  prove journaled formatter path on device
   verify SD rootfs tarball path and SHA-256
   run userdata-appliance-format with pinned devname/dev/sectors
+  verify userdata has_journal with dumpe2fs
   run userdata-appliance-populate with pinned tarball SHA
   verify marker: userdata=appliance-root
 
@@ -188,8 +208,8 @@ D4C may start only after all of these are true:
 - D4B candidate-health passed and was reported.
 - Device-side preflight agrees with the D4A target identity.
 - The formatter path is device-proven, not assumed. V3375 failed because BusyBox `mke2fs` rejected
-  `-t ext4`; the next candidate must prove the corrected syntax non-destructively by formatting a bounded
-  SD-runtime regular file, checking ext magic, unlinking the file, and reporting `userdata_touched=0`.
+  `-t ext4`; V3379 proved the corrected BusyBox argv on an SD regular file, but that path proves only
+  ext-family magic and not an ext4 journal. It is no longer sufficient for destructive D4C.
 - **OPERATOR GATE-2 NOTE (2026-07-03): filesystem-TYPE divergence must be resolved before D4C live
   format.** V3377 "fixed" the V3375 syntax failure by *dropping* `-t ext4` from the busybox `mke2fs`
   argv. BusyBox `mke2fs` with no `-t` produces **ext2 (no journal)**, not ext4. That still mounts (the
@@ -204,6 +224,10 @@ D4C may start only after all of these are true:
   ext2/no-journal is knowingly accepted, record the power-loss/fsck tradeoff explicitly and do NOT label
   the result "ext4". D4C DoD must verify the *actual* on-disk feature set (e.g. `has_journal`) of the
   formatted userdata, not just that it mounts.
+- A SHA-pinned e2fsprogs toolroot now exists under
+  `/mnt/sdext/a90/runtime/d4c-format-toolroot`. The next D4C candidate must use that toolroot or an
+  equivalently pinned journaled formatter, prove `has_journal` non-destructively on an SD regular file,
+  and then verify `has_journal` on the real userdata filesystem after destructive format.
 - A rootfs tarball exists under `/mnt/sdext/a90/runtime/` and its SHA-256 is pinned in the run record.
 - The rootfs tarball was produced by `prepare_d4c_userdata_rootfs_tarball.py`, which checks the D3
   sysvinit rootfs markers, forces numeric root ownership in the tar stream, uploads to SD runtime, and

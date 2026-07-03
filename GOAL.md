@@ -593,10 +593,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > and `userdata_touched=0`. No format/populate/switch-root ran, no userdata node was materialized, and
 > rollback to v2321 completed with final status `selftest fail=0`. Report:
 > `docs/reports/NATIVE_INIT_V3380_SERVER_DISTRO_D4C_FORMATTER_ARGV_FIX_LIVE_PASS_2026-07-03.md`.
-> **NEXT bounded unit = destructive D4C format+populate**: re-confirm rollback/health, flash exact V3379,
-> run same-session preflight, parse live `target.devname/dev/sectors`, verify staged rootfs tarball SHA
-> `0875b8bd6e58298f644735e5d7ee12c0286e3057a7744b05064fc34829412603`, then run
-> `userdata-appliance-format` and `userdata-appliance-populate` under the D4 runbook.
+> **SUPERSEDED NEXT (operator steer, 2026-07-03): do not enter destructive D4C with this BusyBox
+> formatter path.** It proves ext-family magic only; it does not prove a journaled ext4 filesystem.
+
+> **✅ STATUS (2026-07-03) — D4C e2fsprogs toolroot staged for journaled formatter path; no flash/userdata touch.**
+> On clean v2321, Codex extracted the staged D3 rootfs tarball into
+> `/mnt/sdext/a90/runtime/d4c-format-toolroot` and verified the journaled formatter toolchain on-device:
+> `mke2fs` SHA `92721c9a402ba8015ec6321acffaac187ce32fd2772a54690b46dfe94b8f6589`,
+> `dumpe2fs` SHA `6e22ed6668e336a891621de3e18b8915e56545351c20c06bafb6682ac1de9aae`,
+> `tune2fs` SHA `f4bd3a7e56772236ec0dd8f6a4c5fa2b9dfa52cf70d2af0fa1eb50cfeafa34ad`;
+> `mkfs.ext4 -> mke2fs`, Debian `12.14`, and the D3 stage marker are present. Final v2321 status still
+> shows `selftest fail=0`. Report:
+> `docs/reports/SERVER_DISTRO_D4C_E2FSPROGS_TOOLROOT_STAGING_2026-07-03.md`.
+> **NEXT bounded unit = V3381 journaled formatter surface**: add a native-init e2fsprogs formatter-probe
+> and format command that require SHA-pinned `/mnt/sdext/a90/runtime/d4c-format-toolroot`, prove
+> `mkfs.ext4`/`mke2fs` plus `dumpe2fs` non-destructively on an SD regular file, and make D4C DoD verify
+> actual on-disk `has_journal` before any destructive format/populate.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
