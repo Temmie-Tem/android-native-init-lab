@@ -12,6 +12,7 @@ RUN_DIR=/run/a90-dpublic
 MARKER=/run/a90-d3-marker
 ENABLE=/etc/a90-dpublic/wifi-sta-enable
 CONFIG=/etc/a90-dpublic/wpa_supplicant-wlan0.conf
+WPA_CTRL_DIR=/run/wpa_supplicant
 WPA_PID=$RUN_DIR/wifi-sta-wpa.pid
 WPA_LOG=$RUN_DIR/wifi-sta-wpa.log
 DHCP_PID=$RUN_DIR/wifi-sta-dhclient.pid
@@ -123,6 +124,46 @@ probe_l3_reachability() {
   append_marker "wifi_sta_tcp443_probe_rc=$tcp_probe_rc"
 }
 
+wpa_cli_quiet() {
+  wpa_cli -p "$WPA_CTRL_DIR" -i "$IFACE" "$@" >/dev/null 2>&1
+  return $?
+}
+
+wpa_ctrl_wait() {
+  ctrl_ready=0
+  ctrl_wait_sec=0
+  for sec in 1 2 3 4 5 6 7 8 9 10; do
+    if wpa_cli -p "$WPA_CTRL_DIR" -i "$IFACE" PING 2>/dev/null | grep -q '^PONG'; then
+      ctrl_ready=1
+      break
+    fi
+    ctrl_wait_sec=$sec
+    sleep 1
+  done
+  append_marker "wifi_sta_ctrl_ready=$ctrl_ready"
+  append_marker "wifi_sta_ctrl_wait_sec=$ctrl_wait_sec"
+  [ "$ctrl_ready" = "1" ]
+}
+
+append_wpa_status_markers() {
+  status=$(wpa_cli -p "$WPA_CTRL_DIR" -i "$IFACE" STATUS 2>/dev/null)
+  status_rc=$?
+  append_marker "wifi_sta_ctrl_status_rc=$status_rc"
+  wpa_state=$(printf '%s\n' "$status" | awk -F= '$1 == "wpa_state" { print $2; exit }')
+  wpa_freq=$(printf '%s\n' "$status" | awk -F= '$1 == "freq" { print $2; exit }')
+  wpa_key_mgmt=$(printf '%s\n' "$status" | awk -F= '$1 == "key_mgmt" { print $2; exit }')
+  [ -n "$wpa_state" ] || wpa_state=-
+  [ -n "$wpa_freq" ] || wpa_freq=-
+  [ -n "$wpa_key_mgmt" ] || wpa_key_mgmt=-
+  append_marker "wifi_sta_ctrl_status_wpa_state=$wpa_state"
+  append_marker "wifi_sta_ctrl_status_freq=$wpa_freq"
+  append_marker "wifi_sta_ctrl_status_key_mgmt=$wpa_key_mgmt"
+  case "$wpa_state" in
+    COMPLETED) append_marker "wifi_sta_ctrl_status_completed=1" ;;
+    *) append_marker "wifi_sta_ctrl_status_completed=0" ;;
+  esac
+}
+
 finish() {
   decision=$1
   append_marker "wifi_sta_decision=$decision"
@@ -148,6 +189,7 @@ fi
 append_marker "wifi_sta_config_present=1"
 
 if ! command -v wpa_supplicant >/dev/null 2>&1 ||
+   ! command -v wpa_cli >/dev/null 2>&1 ||
    ! command -v dhclient >/dev/null 2>&1 ||
    ! command -v ip >/dev/null 2>&1 ||
    ! command -v ping >/dev/null 2>&1 ||
@@ -180,6 +222,7 @@ kill_pidfile_if_matching "$DHCP_PID" "dhclient"
 kill_pidfile_if_matching "$WPA_PID" "wpa_supplicant"
 kill_matching_cmdline "$CONFIG"
 rm -f "$WPA_LOG" "$DHCP_LOG" "$DHCP_LEASES" 2>/dev/null || true
+mkdir -p "$WPA_CTRL_DIR"
 
 ip link set "$IFACE" up >/dev/null 2>&1
 link_set_up_rc=$?
@@ -198,6 +241,25 @@ if [ "$wpa_rc" != "0" ]; then
 fi
 
 append_marker "wifi_sta_started=1"
+if wpa_ctrl_wait; then
+  wpa_cli_quiet DRIVER COUNTRY KR
+  append_marker "wifi_sta_ctrl_driver_country_rc=$?"
+  wpa_cli_quiet SCAN
+  append_marker "wifi_sta_ctrl_scan_rc=$?"
+  wpa_cli_quiet ENABLE_NETWORK 0
+  append_marker "wifi_sta_ctrl_enable_network_rc=$?"
+  wpa_cli_quiet SELECT_NETWORK 0
+  append_marker "wifi_sta_ctrl_select_network_rc=$?"
+  wpa_cli_quiet REASSOCIATE
+  append_marker "wifi_sta_ctrl_reassociate_rc=$?"
+  append_wpa_status_markers
+else
+  append_marker "wifi_sta_ctrl_driver_country_rc=99"
+  append_marker "wifi_sta_ctrl_scan_rc=99"
+  append_marker "wifi_sta_ctrl_enable_network_rc=99"
+  append_marker "wifi_sta_ctrl_select_network_rc=99"
+  append_marker "wifi_sta_ctrl_reassociate_rc=99"
+fi
 carrier=0
 for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do
   if [ "$(cat /sys/class/net/$IFACE/carrier 2>/dev/null)" = "1" ]; then
@@ -207,6 +269,9 @@ for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do
   sleep 1
 done
 append_marker "wifi_sta_carrier_up=$carrier"
+if [ "$ctrl_ready" = "1" ]; then
+  append_wpa_status_markers
+fi
 
 dhclient -1 -q -4 -pf "$DHCP_PID" -lf "$DHCP_LEASES" "$IFACE" > "$DHCP_LOG" 2>&1
 dhcp_rc=$?

@@ -135,6 +135,7 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertEqual(result["reason"], "sta-tools-missing-install-disabled")
         self.assertFalse(result["before"]["tools"]["wpa_supplicant"]["present"])
+        self.assertFalse(result["before"]["tools"]["wpa_cli"]["present"])
         self.assertFalse(result["before"]["tools"]["dhclient"]["present"])
         self.assertFalse(result["before"]["tools"]["nc"]["present"])
 
@@ -146,6 +147,7 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             (rootfs / "usr/lib").mkdir(parents=True)
             (rootfs / "sbin").mkdir()
             (rootfs / "sbin/wpa_supplicant").write_text("", encoding="utf-8")
+            (rootfs / "sbin/wpa_cli").write_text("", encoding="utf-8")
             (rootfs / "sbin/dhclient").write_text("", encoding="utf-8")
             (rootfs / "usr/sbin/ip").write_text("", encoding="utf-8")
             (rootfs / "usr/bin/ping").write_text("", encoding="utf-8")
@@ -160,6 +162,7 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertTrue((rootfs / "sbin").is_symlink())
             self.assertEqual((rootfs / "sbin").readlink(), Path("usr/sbin"))
             self.assertTrue((rootfs / "usr/sbin/wpa_supplicant").is_file())
+            self.assertTrue((rootfs / "usr/sbin/wpa_cli").is_file())
             self.assertTrue((rootfs / "usr/sbin/dhclient").is_file())
 
     def test_create_private_tarball_forces_owner_private_mode(self) -> None:
@@ -211,6 +214,7 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             (source / "usr/local/bin/a90-dpublic-wifi-sta").write_text("#!/bin/sh\n", encoding="utf-8")
             (source / "usr/sbin/ip").write_text("", encoding="utf-8")
             (source / "usr/sbin/wpa_supplicant").write_text("", encoding="utf-8")
+            (source / "usr/sbin/wpa_cli").write_text("", encoding="utf-8")
             (source / "usr/sbin/dhclient").write_text("", encoding="utf-8")
             (source / "usr/bin/ping").write_text("", encoding="utf-8")
             (source / "usr/bin/getent").write_text("", encoding="utf-8")

@@ -1,7 +1,7 @@
 # Server-Distro Wi-Fi STA Upstream Rung
 
 - Date: 2026-07-04
-- Status: HOST-SIDE DESIGN
+- Status: WSTA7 LIVE PASS; WSTA8 D-public-over-Wi-Fi pending
 - Scope: next hardware rung after the Stage0 server-distro hardware contract.
 - Device action in this doc: none.
 
@@ -115,15 +115,34 @@ With private operator-provided config staged into the userdata appliance:
 
 This gate is blocked, not failed, when credentials are absent.
 
-### WSTA4: D-public over Wi-Fi
+### WSTA4/WSTA8: D-public over Wi-Fi
 
-Only after WSTA3 passes:
+Only after WSTA3/WSTA7 passes:
 
 - start the D-public smoke service locally;
 - start `cloudflared` only from Debian and only when explicitly enabled;
 - confirm the tunnel's outbound route is `wlan0`;
 - confirm smoke response through the tunnel;
 - cleanup/disable leaves no stale tunnel runtime and no secret/public URL in git.
+
+### WSTA7: Debian association/control fix
+
+Live result: pass.  The Debian STA helper now waits for the `wpa_supplicant` control
+socket and sends the native-good control sequence (`DRIVER COUNTRY KR`, scan,
+enable/select network, reassociate) before waiting for carrier and DHCP.  A fresh
+WSTA7 userdata appliance reached carrier, DHCP, default route on `wlan0`, gateway ARP,
+DNS, and TCP/443 with `wifi_sta_decision=wifi-sta-pass`.
+
+Operational constraint discovered live: after a stale `flags=0x1002` state, `wifi cleanup`
+alone did not recover Debian handoff readiness.  A fresh native reboot followed by the
+WSTA2 iftype-probe gate did.  Therefore WSTA8 must start from:
+
+```text
+fresh native boot -> WSTA2 materialization gate -> require wlan0_admin_up=true -> switch_root
+```
+
+Report:
+`docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA7_WPA_CLI_ASSOC_PASS_2026-07-04.md`.
 
 ## 5. Stop Conditions
 
@@ -149,9 +168,13 @@ Stop before mutation or public exposure if any condition appears:
 
 ## 7. Next Implementation Unit
 
-Implement WSTA1 as a source-only rootfs/firstboot change:
+Run WSTA8 as a live D-public-over-Wi-Fi gate:
 
-1. add the Debian STA packages to `build_debian_aarch64_rootfs.py`;
-2. add an opt-in D-public STA helper called from firstboot;
-3. add a real L3 reachability gate so DHCP/default-route alone cannot return `wifi-sta-pass`;
-4. update GOAL/report with no device action.
+1. boot native fresh and run the WSTA2 materialization gate with `--probe-iftype`;
+2. require `wlan0_admin_up=true` before `switch_root`;
+3. confirm Debian `wifi_sta_decision=wifi-sta-pass`;
+4. start the local smoke service and Debian-owned outbound tunnel only after the Wi-Fi pass;
+5. prove the tunnel route is `wlan0`, USB/NCM recovery remains reachable, and the public smoke marker
+   is reachable through the tunnel;
+6. keep tunnel URL, SSID, PSK, BSSID, MAC, private IP, gateway, and DHCP lease details in private run
+   artifacts only.

@@ -1014,6 +1014,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA7 association/carrier boundary: collect redacted Debian `wpa_supplicant` state/events
 > and compare against the native-good STA path.  Do not retry L3/D-public until carrier is up.
 
+> **✅ STATUS (2026-07-04 05:01 KST host clock) — WSTA7 Debian STA association + L3 LIVE PASS.**
+> Codex added a Debian `wpa_cli` control sequence to the opt-in D-public STA helper, matching the
+> native-good association path (`DRIVER COUNTRY KR`, scan, enable/select network, reassociate, status)
+> and recording only redacted `wifi_sta_ctrl_*` markers.  A freshly prepared WSTA7 userdata appliance
+> was formatted/populated through the D4 guarded path, SSH key was injected from private runtime state,
+> and the no-flash WSTA2 materialization gate was rerun.  Cleanup alone did not recover a stale
+> `flags=0x1002` / `EINVAL` link-up state, but a native reboot followed by WSTA2 iftype-probe
+> materialized `wlan0` after ~90s and passed with `wlan0_admin_up=true`.  Debian then reached
+> `wpa_state=COMPLETED`, carrier up, DHCP rc=0, default route on `wlan0`, gateway ARP reachable, DNS
+> rc=0, TCP/443 rc=0, and `wifi_sta_decision=wifi-sta-pass`; USB/NCM recovery stayed preserved.  No
+> public tunnel was started and no public URL was observed.  Device ended back on native V3384 with
+> `selftest fail=0`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA7_WPA_CLI_ASSOC_PASS_2026-07-04.md`.
+> **NEXT:** WSTA8 D-public over Wi-Fi: use fresh native boot -> WSTA2 gate -> Debian handoff, then start
+> local smoke and the Debian-owned outbound tunnel only after `wifi-sta-pass`; prove the tunnel route is
+> `wlan0`, keep NCM admin reachable, and keep the public URL/private network details out of git.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.

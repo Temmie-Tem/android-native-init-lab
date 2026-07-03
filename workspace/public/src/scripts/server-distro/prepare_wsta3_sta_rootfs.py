@@ -54,6 +54,7 @@ STA_TOOL_CANDIDATES = {
     "getent": (Path("usr/bin/getent"), Path("bin/getent")),
     "nc": (Path("usr/bin/nc"), Path("bin/nc"), Path("usr/bin/nc.openbsd"), Path("bin/nc.openbsd")),
     "wpa_supplicant": (Path("usr/sbin/wpa_supplicant"), Path("sbin/wpa_supplicant")),
+    "wpa_cli": (Path("usr/sbin/wpa_cli"), Path("sbin/wpa_cli")),
     "dhclient": (Path("usr/sbin/dhclient"), Path("sbin/dhclient")),
 }
 KEY_SSID = "ssid"
