@@ -328,6 +328,34 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > with normal rollback gates and no `userdata`, (2) allow one checked flash to a hot-reload-capable
 > resident and then hot-reload D3 glue, or (3) downgrade to a non-PID1 lower rung that is not D3.
 
+> **✅ OPERATOR DECISION + D3B CHARTER AMENDMENT (2026-07-03) — choose OPTION 1: allow ONE checked boot
+> flash.** The D3B feasibility stop was correct — the "NO flash" line in the earlier D3 charter was an
+> operator over-constraint, not a safety rule, and it made a real `switch_root`→PID1 handoff impossible
+> (`switch_root` must run as PID1; resident v2321 PID1 has no such command and no `reload`). **Resolution:
+> D3B MAY perform exactly ONE checked boot flash** of a D3-capable native-init candidate via
+> `native_init_flash.py`. This is a **boot-partition-only, pinned + readback-SHA, auto-rollback-to-v2321
+> flash — already inside the top-of-file recoverable envelope** (identical in kind to every audio/GPU/Wi-Fi
+> test-build flash); it is NOT the D4 gate and needs no further approval. **Amended D3B unit:**
+> 1. Build a **D3-capable native-init candidate** (next `vNNNN-server-distro-switchroot`, bump init
+>    version) that adds a **gated PID1 handoff command** (e.g. `switch-root-to-distro <image> <sha>`):
+>    from PID1 it SHA/path-verifies the D3 sysvinit image, loop-mounts it, moves `/proc` `/sys` `/dev`,
+>    then `switch_root <distro-root> /sbin/init`. (This same command is the seed of the future D4+
+>    appliance auto-handoff, so build it as a real feature, not a throwaway.)
+> 2. **ONE checked boot flash** of that candidate (rollback target stays **v2321**).
+> 3. Boot it; native-init wakes HW (NCM); stage the D3 image to
+>    `/mnt/sdext/a90/runtime/…-d3-sysvinit.img` + a per-run key; run the handoff command → PID1
+>    `switch_root` → Debian **sysvinit = PID1**.
+> 4. Observe `A90D3_MARKER` / `/proc/1/comm=init` over the NCM SSH path (early key-only dropbear from the
+>    D3A firstboot script).
+> 5. The D3A **mandatory bounded auto-reboot** returns the device to the flashed candidate; then
+>    **rollback-flash to v2321** and confirm `selftest fail=0`.
+> **DoD:** Debian sysvinit observed as PID1 after a PID1-driven `switch_root`, then clean recovery to
+> resident v2321 `fail=0`. **Guardrails:** exactly ONE D3-candidate boot flash + ONE v2321 rollback flash
+> (both checked, boot-only); **`userdata` NEVER touched**; the mandatory auto-reboot is REQUIRED;
+> keys/rootfs/binaries/credentials out of commits; fails-twice on the same handoff → STOP + report.
+> **D4 (userdata reformat) remains the HARD operator gate — unchanged; a boot flash is NOT D4.** After D3B
+> passes, continue the non-destructive ladder; halt at D4 / D-public for the user.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.
