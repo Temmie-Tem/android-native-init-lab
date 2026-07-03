@@ -1051,6 +1051,29 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > behavior for `cloudflare.com` vs `api.trycloudflare.com` before any wall-clock mutation, then retry
 > cloudflared only after the API POST is independently proven from the device.
 
+> **🟡 STATUS (2026-07-04 06:25 KST host clock) — WSTA9 API probe BLOCKED at STA/L3 persistence.**
+> Codex added a manual Debian-side `/usr/local/bin/a90-dpublic-api-probe` plus opt-in `wget`
+> staging for the WSTA rootfs.  The helper does not start `cloudflared`; it records only marker
+> booleans/return codes, keeps raw API response files private under `/run/a90-dpublic` with mode
+> `0600`, and writes `api_probe_secret_values_logged=0`.  Live WSTA9 refreshed `userdata` through
+> the D4 guard, uploaded the SHA-pinned rootfs tarball, injected the private runtime SSH public key,
+> rebooted native V3384, reran WSTA2, and switched into the no-clock Debian appliance.  Firstboot again
+> reached D-public local readiness and initial Wi-Fi L3 pass: `smoke_started=1`, `hud_started=1`,
+> default route on `wlan0`, gateway ARP resolved, DNS rc=0, TCP/443 rc=0, and
+> `wifi_sta_decision=wifi-sta-pass`; cloudflared remained manual.  The independent API probe then
+> failed before any tunnel retry with `api_probe_dns_control_rc=2`, `api_probe_dns_api_rc=2`,
+> `api_probe_tcp_tool=nc.openbsd`, TCP rc=1, wget POST rc=4, OpenSSL POST rc=1, and
+> `api_probe_decision=api-dns-failed`.  Follow-up diagnostics showed gateway neighbor degradation and
+> numeric external TCP failure; a no-clock manual STA refresh ended with latest markers showing
+> `wpa_state=DISCONNECTED`, carrier down, and `wifi_sta_decision=wifi-sta-assoc-failed`.  Therefore
+> the current blocker is Debian STA/L3 persistence after the initial pass, not quick URL parsing,
+> cloudflared invocation, or wall-clock mutation.  No public tunnel was started.  Device ended back on
+> native V3384 with `selftest fail=0`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA9_API_PROBE_BLOCKED_2026-07-04.md`.
+> **NEXT:** WSTA10 STA/L3 persistence: add timestamped marker phases so stale pass markers cannot hide
+> later disconnects, collect redacted `wpa_cli`/association transitions after firstboot, prove a dwell
+> window with stable gateway/DNS/TCP, and only then retry the API probe/cloudflared.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.

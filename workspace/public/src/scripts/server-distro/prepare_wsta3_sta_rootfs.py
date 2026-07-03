@@ -9,6 +9,7 @@ PSK, raw supplicant config text, or a secret-derived archive digest.
 from __future__ import annotations
 
 import argparse
+import datetime as _dt
 import json
 import os
 import re
@@ -46,6 +47,7 @@ TARGET_CONFIG = Path("etc/a90-dpublic/wpa_supplicant-wlan0.conf")
 TARGET_ENABLE = Path("etc/a90-dpublic/wifi-sta-enable")
 TARGET_QUICK_TUNNEL_ENABLE = Path("etc/a90-dpublic/cloudflared-quick-enable")
 TARGET_HELPER = Path("usr/local/bin/a90-dpublic-wifi-sta")
+TARGET_API_PROBE = Path("usr/local/bin/a90-dpublic-api-probe")
 TARGET_FIRSTBOOT = Path("etc/a90-d3-firstboot")
 DPUBLIC_BINARY_TARGETS = {
     "cloudflared": Path("usr/local/bin/cloudflared"),
@@ -54,9 +56,11 @@ DPUBLIC_BINARY_TARGETS = {
     "hud": Path("usr/local/bin/a90-dpublic-hud"),
 }
 DPUBLIC_WIFI_STA_HELPER = SCRIPT_DIR / "a90_dpublic_wifi_sta.sh"
+DPUBLIC_API_PROBE = SCRIPT_DIR / "a90_dpublic_api_probe.sh"
 DPUBLIC_FIRSTBOOT = SCRIPT_DIR / "a90_dpublic_firstboot.sh"
 PRIVATE_FILE_MODE = 0o600
 STA_TOOL_PACKAGES = ("wpasupplicant", "isc-dhcp-client", "netcat-openbsd")
+API_PROBE_TOOL_PACKAGES = ("wget",)
 USR_MERGE_LINKS = (("bin", "usr/bin"), ("sbin", "usr/sbin"), ("lib", "usr/lib"))
 STA_TOOL_CANDIDATES = {
     "ip": (Path("usr/sbin/ip"), Path("sbin/ip"), Path("bin/ip")),
@@ -66,6 +70,9 @@ STA_TOOL_CANDIDATES = {
     "wpa_supplicant": (Path("usr/sbin/wpa_supplicant"), Path("sbin/wpa_supplicant")),
     "wpa_cli": (Path("usr/sbin/wpa_cli"), Path("sbin/wpa_cli")),
     "dhclient": (Path("usr/sbin/dhclient"), Path("sbin/dhclient")),
+}
+API_PROBE_TOOL_CANDIDATES = {
+    "wget": (Path("usr/bin/wget"), Path("bin/wget")),
 }
 KEY_SSID = "ssid"
 KEY_PSK = "psk"
@@ -235,6 +242,26 @@ def sta_tool_metadata(rootfs: Path) -> dict[str, Any]:
     }
 
 
+def tool_metadata(rootfs: Path, candidates_by_name: dict[str, tuple[Path, ...]]) -> dict[str, Any]:
+    tools: dict[str, dict[str, Any]] = {}
+    for name, candidates in candidates_by_name.items():
+        found = next((candidate for candidate in candidates if (rootfs / candidate).exists()), None)
+        tools[name] = {
+            "present": found is not None,
+            "path": str(found) if found else None,
+        }
+    ok = all(item["present"] for item in tools.values())
+    return {
+        "ok": ok,
+        "tools": tools,
+        "secret_values_logged": 0,
+    }
+
+
+def api_probe_tool_metadata(rootfs: Path) -> dict[str, Any]:
+    return tool_metadata(rootfs, API_PROBE_TOOL_CANDIDATES)
+
+
 def merge_tree_contents(src: Path, dst: Path) -> None:
     dst.mkdir(parents=True, exist_ok=True)
     for item in sorted(src.iterdir(), key=lambda p: p.name):
@@ -290,7 +317,7 @@ def apt_common_args(args: argparse.Namespace, rootfs: Path) -> list[object]:
     ]
 
 
-def download_sta_tool_packages(rootfs: Path, args: argparse.Namespace) -> list[Path]:
+def download_packages(rootfs: Path, args: argparse.Namespace, packages_requested: tuple[str, ...]) -> list[Path]:
     apt_root = args.apt_work.resolve()
     for rel in ("etc/apt", "state/lists/partial", "cache/archives/partial"):
         (apt_root / rel).mkdir(parents=True, exist_ok=True)
@@ -303,14 +330,18 @@ def download_sta_tool_packages(rootfs: Path, args: argparse.Namespace) -> list[P
     common = apt_common_args(args, rootfs)
     run_host(["apt-get", *common, "update"], timeout=args.apt_timeout)
     run_host(
-        ["apt-get", *common, "--download-only", "-y", "install", *STA_TOOL_PACKAGES],
+        ["apt-get", *common, "--download-only", "-y", "install", *packages_requested],
         timeout=args.apt_timeout,
     )
     packages = sorted((apt_root / "cache" / "archives").glob("*.deb"))
-    missing = [pkg for pkg in STA_TOOL_PACKAGES if not any(path.name.startswith(pkg + "_") for path in packages)]
+    missing = [pkg for pkg in packages_requested if not any(path.name.startswith(pkg + "_") for path in packages)]
     if missing:
-        raise RuntimeError(f"missing downloaded STA tool packages: {missing}")
+        raise RuntimeError(f"missing downloaded packages: {missing}")
     return packages
+
+
+def download_sta_tool_packages(rootfs: Path, args: argparse.Namespace) -> list[Path]:
+    return download_packages(rootfs, args, STA_TOOL_PACKAGES)
 
 
 def ensure_sta_tools(rootfs: Path, args: argparse.Namespace) -> dict[str, Any]:
@@ -339,6 +370,46 @@ def ensure_sta_tools(rootfs: Path, args: argparse.Namespace) -> dict[str, Any]:
     usrmerge = restore_usrmerge_links(rootfs)
     after = sta_tool_metadata(rootfs)
     return {
+        "ok": bool(after["ok"]),
+        "installed": True,
+        "deb_count": len(packages),
+        "packages": [path.name for path in packages],
+        "before": before,
+        "after": after,
+        "usrmerge": usrmerge,
+        "secret_values_logged": 0,
+    }
+
+
+def ensure_api_probe_tools(rootfs: Path, args: argparse.Namespace) -> dict[str, Any]:
+    before = api_probe_tool_metadata(rootfs)
+    if not args.stage_api_probe_tools:
+        return {
+            "requested": False,
+            "ok": True,
+            "installed": False,
+            "before": before,
+            "after": before,
+            "secret_values_logged": 0,
+        }
+    if before["ok"]:
+        usrmerge = restore_usrmerge_links(rootfs)
+        return {
+            "requested": True,
+            "ok": True,
+            "installed": False,
+            "before": before,
+            "after": api_probe_tool_metadata(rootfs),
+            "usrmerge": usrmerge,
+            "secret_values_logged": 0,
+        }
+    packages = download_packages(rootfs, args, API_PROBE_TOOL_PACKAGES)
+    for package in packages:
+        run_host(["dpkg-deb", "-x", package, rootfs], timeout=args.apt_timeout)
+    usrmerge = restore_usrmerge_links(rootfs)
+    after = api_probe_tool_metadata(rootfs)
+    return {
+        "requested": True,
         "ok": bool(after["ok"]),
         "installed": True,
         "deb_count": len(packages),
@@ -382,6 +453,25 @@ def stage_dpublic_wifi_sta_helper(rootfs: Path) -> dict[str, Any]:
         "latest_helper_staged": True,
         "l3_gate_present": "probe_l3_reachability" in text,
         "tcp_probe_fallback_present": "nc.openbsd" in text,
+        "secret_values_logged": 0,
+    }
+
+
+def stage_dpublic_api_probe_helper(rootfs: Path) -> dict[str, Any]:
+    helper_target = rootfs / TARGET_API_PROBE
+    if not DPUBLIC_API_PROBE.is_file():
+        raise FileNotFoundError(DPUBLIC_API_PROBE)
+    helper_target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(DPUBLIC_API_PROBE, helper_target)
+    helper_target.chmod(0o755)
+    text = helper_target.read_text(encoding="utf-8")
+    return {
+        "helper_target": str(TARGET_API_PROBE),
+        "helper_mode": oct(helper_target.stat().st_mode & 0o777),
+        "latest_helper_staged": True,
+        "api_post_present": "POST /tunnel HTTP/1.1" in text,
+        "secret_hygiene_marker": "api_probe_secret_values_logged=0" in text,
+        "cloudflared_not_started": "/usr/local/bin/cloudflared" not in text,
         "secret_values_logged": 0,
     }
 
@@ -519,7 +609,13 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
         result.update({"ok": False, "decision": "wsta3-private-rootfs-blocked-" + str(result["sta_tools"].get("reason", "sta-tools-missing"))})
         write_json(run_dir / "summary.json", result)
         return result
+    result["api_probe_tools"] = ensure_api_probe_tools(target_rootfs, args)
+    if not result["api_probe_tools"].get("ok"):
+        result.update({"ok": False, "decision": "wsta3-private-rootfs-blocked-api-probe-tools-missing"})
+        write_json(run_dir / "summary.json", result)
+        return result
     result["wifi_sta_helper"] = stage_dpublic_wifi_sta_helper(target_rootfs)
+    result["api_probe_helper"] = stage_dpublic_api_probe_helper(target_rootfs)
     result["stage"] = stage_config(target_rootfs, source_config)
     result["firstboot"] = stage_dpublic_firstboot(target_rootfs)
     result["dpublic_binaries"] = (
@@ -564,6 +660,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--apt-timeout", type=float, default=180.0)
     parser.add_argument("--no-sta-tool-install", action="store_true")
     parser.add_argument("--stage-dpublic-binaries", action="store_true")
+    parser.add_argument("--stage-api-probe-tools", action="store_true")
     parser.add_argument("--enable-quick-tunnel", action="store_true")
     parser.add_argument("--cloudflared", type=Path, default=DEFAULT_CLOUDFLARED)
     parser.add_argument("--smoke-httpd", type=Path, default=DEFAULT_SMOKE_HTTPD)

@@ -11,6 +11,7 @@ HTTP_GET = Path("workspace/public/src/scripts/server-distro/a90_dpublic_http_get
 HUD = Path("workspace/public/src/scripts/server-distro/a90_dpublic_hud.c")
 FIRSTBOOT = Path("workspace/public/src/scripts/server-distro/a90_dpublic_firstboot.sh")
 WIFI_STA = Path("workspace/public/src/scripts/server-distro/a90_dpublic_wifi_sta.sh")
+API_PROBE = Path("workspace/public/src/scripts/server-distro/a90_dpublic_api_probe.sh")
 
 
 class DpublicSmokeHelperTests(unittest.TestCase):
@@ -150,6 +151,20 @@ class DpublicSmokeHelperTests(unittest.TestCase):
         self.assertIn("wifi_sta_secret_values_logged=0", source)
         self.assertNotIn("ssid=", source)
         self.assertNotIn("psk=", source)
+
+    def test_api_probe_is_cloudflared_free_and_marker_safe(self) -> None:
+        source = API_PROBE.read_text(encoding="utf-8")
+        self.assertIn("POST /tunnel HTTP/1.1", source)
+        self.assertIn("api.trycloudflare.com", source)
+        self.assertIn("api_probe_dns_api_rc=$api_dns_rc", source)
+        self.assertIn("api_probe_wget_success_json=$wget_success_json", source)
+        self.assertIn("api_probe_openssl_success_json=$openssl_success_json", source)
+        self.assertIn("api_probe_decision=$decision", source)
+        self.assertIn("api_probe_secret_values_logged=0", source)
+        self.assertIn("chmod 600 \"$WGET_RESPONSE\"", source)
+        self.assertNotIn("/usr/local/bin/cloudflared", source)
+        self.assertNotIn("cloudflared tunnel", source)
+        self.assertNotIn("echo $url", source)
 
 
 if __name__ == "__main__":

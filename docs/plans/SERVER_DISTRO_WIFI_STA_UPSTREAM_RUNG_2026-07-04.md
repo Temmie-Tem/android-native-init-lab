@@ -1,7 +1,7 @@
 # Server-Distro Wi-Fi STA Upstream Rung
 
 - Date: 2026-07-04
-- Status: WSTA8 Wi-Fi PASS; D-public quick tunnel blocked at device API/DNS
+- Status: WSTA9 blocked at Debian STA/L3 persistence before D-public tunnel retry
 - Scope: next hardware rung after the Stage0 server-distro hardware contract.
 - Device action in this doc: none.
 
@@ -115,7 +115,7 @@ With private operator-provided config staged into the userdata appliance:
 
 This gate is blocked, not failed, when credentials are absent.
 
-### WSTA4/WSTA8: D-public over Wi-Fi
+### WSTA4/WSTA9: D-public over Wi-Fi
 
 Only after WSTA3/WSTA7 passes:
 
@@ -136,6 +136,27 @@ so do not seed or jump wall clock before Wi-Fi in this rung.
 
 Report:
 `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA8_DPUBLIC_TUNNEL_BLOCKED_2026-07-04.md`.
+
+WSTA9 added a manual device-side API probe and did not start cloudflared. The probe
+recorded default route on `wlan0` and two nameservers, but both the control hostname and
+quick API hostname failed DNS, TCP/443 failed through `nc.openbsd`, wget POST returned
+rc=4, OpenSSL POST returned rc=1, and `api_probe_decision=api-dns-failed`. A follow-up
+L3 diagnostic showed the gateway neighbor had degraded and numeric external TCP failed,
+so the failure is upstream STA/L3 persistence, not yet a Cloudflare-specific API bug. A
+manual STA refresh then produced a latest marker segment ending in `wpa_state=DISCONNECTED`,
+carrier down, and `wifi_sta_decision=wifi-sta-assoc-failed`. Device ended back on native
+V3384 with `selftest fail=0`.
+
+Report:
+`docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA9_API_PROBE_BLOCKED_2026-07-04.md`.
+
+### WSTA10: STA/L3 persistence before tunnel retry
+
+Do not retry cloudflared until a same-boot dwell window proves gateway, DNS, and TCP/443
+remain stable after the initial `wifi-sta-pass`. Next work should add timestamped marker
+phases so stale pass markers cannot mask a later disconnect, collect redacted association
+state/events after firstboot, and only then decide whether a keepalive/reassociate policy
+belongs in the Debian STA helper.
 
 ### WSTA7: Debian association/control fix
 
@@ -180,14 +201,13 @@ Stop before mutation or public exposure if any condition appears:
 
 ## 7. Next Implementation Unit
 
-Run WSTA9 as a device-side DNS/HTTPS/cloudflared diagnostic gate:
+Run WSTA10 as a Debian STA/L3 persistence gate:
 
 1. keep the fresh native boot -> WSTA2 `--probe-iftype` -> no-clock Debian `switch_root` sequence;
-2. require `wifi_sta_decision=wifi-sta-pass` before any tunnel attempt;
-3. add a small static HTTPS/API POST probe or stage a pinned curl/wget tool so
-   `api.trycloudflare.com/tunnel` can be tested independently of `cloudflared`;
-4. compare resolver behavior for `cloudflare.com` vs `api.trycloudflare.com` before any wall-clock
-   mutation;
-5. only retry `cloudflared` after device-side API POST is independently proven;
-6. keep tunnel URL, SSID, PSK, BSSID, MAC, private IP, gateway, DHCP lease, generated hostname, and
-   tunnel secret details in private run artifacts only.
+2. require an initial `wifi_sta_decision=wifi-sta-pass`;
+3. add timestamped or sequence-tagged marker phases so the latest association/L3 state is unambiguous;
+4. collect redacted `wpa_cli` status/events plus gateway/DNS/TCP dwell samples after firstboot;
+5. only add keepalive or reassociation behavior if the trace proves link drop, gateway ARP loss, or
+   resolver loss after the initial pass;
+6. retry the manual API probe only after a same-boot dwell window proves stable gateway, DNS, and
+   TCP/443. Do not retry `cloudflared` until the manual API probe passes.

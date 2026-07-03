@@ -30,6 +30,7 @@ def make_args(tmp: Path, **overrides) -> argparse.Namespace:
         "apt_timeout": 10.0,
         "no_sta_tool_install": True,
         "stage_dpublic_binaries": False,
+        "stage_api_probe_tools": False,
         "enable_quick_tunnel": False,
         "cloudflared": tmp / "cloudflared",
         "smoke_httpd": tmp / "a90-dpublic-smoke-httpd",
@@ -130,6 +131,23 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertIn("nc.openbsd", text)
             self.assertNotIn("old-helper", text)
 
+    def test_stage_dpublic_api_probe_helper_is_manual_and_secret_free(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp)
+
+            result = wsta3.stage_dpublic_api_probe_helper(rootfs)
+
+            target = rootfs / wsta3.TARGET_API_PROBE
+            text = target.read_text(encoding="utf-8")
+            self.assertTrue(result["latest_helper_staged"])
+            self.assertTrue(result["api_post_present"])
+            self.assertTrue(result["secret_hygiene_marker"])
+            self.assertTrue(result["cloudflared_not_started"])
+            self.assertEqual(target.stat().st_mode & 0o777, 0o755)
+            self.assertIn("api_probe_secret_values_logged=0", text)
+            self.assertIn("api_probe_decision=", text)
+            self.assertNotIn("/usr/local/bin/cloudflared", text)
+
     def test_stage_dpublic_binaries_and_quick_tunnel_enable_are_private(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
@@ -157,6 +175,36 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertEqual(quick.stat().st_mode & 0o777, 0o600)
             self.assertTrue(enable["enabled"])
             self.assertEqual(enable["mode"], "0o600")
+
+    def test_api_probe_tools_are_opt_in(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp) / "rootfs"
+            rootfs.mkdir()
+            args = make_args(Path(tmp), stage_api_probe_tools=False)
+
+            result = wsta3.ensure_api_probe_tools(rootfs, args)
+
+            self.assertTrue(result["ok"])
+            self.assertFalse(result["requested"])
+            self.assertFalse(result["installed"])
+            self.assertFalse(result["before"]["tools"]["wget"]["present"])
+
+    def test_api_probe_tools_restore_usrmerge_when_wget_present(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp) / "rootfs"
+            (rootfs / "usr/bin").mkdir(parents=True)
+            (rootfs / "usr/lib").mkdir(parents=True)
+            (rootfs / "bin").mkdir()
+            (rootfs / "bin/wget").write_text("", encoding="utf-8")
+            args = make_args(Path(tmp), stage_api_probe_tools=True)
+
+            result = wsta3.ensure_api_probe_tools(rootfs, args)
+
+            self.assertTrue(result["ok"])
+            self.assertTrue(result["requested"])
+            self.assertFalse(result["installed"])
+            self.assertTrue((rootfs / "bin").is_symlink())
+            self.assertTrue((rootfs / "usr/bin/wget").is_file())
 
     def test_sta_tools_missing_blocks_when_install_disabled(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -269,6 +317,8 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertTrue(result["sta_tools"]["ok"])
             self.assertTrue(result["wifi_sta_helper"]["latest_helper_staged"])
             self.assertTrue(result["wifi_sta_helper"]["l3_gate_present"])
+            self.assertTrue(result["api_probe_helper"]["api_post_present"])
+            self.assertFalse(result["api_probe_tools"]["requested"])
             self.assertTrue(result["firstboot"]["wifi_sta_helper_invoked"])
             self.assertTrue(result["firstboot"]["autoreboot_disabled_marker"])
             self.assertFalse(result["dpublic_binaries"]["staged"])
