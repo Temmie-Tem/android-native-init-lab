@@ -742,6 +742,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `A90_DPUBLIC_SMOKE_OK`; the URL remains private-only.  Report:
 > `docs/reports/SERVER_DISTRO_DPUBLIC_BOOT_VISUAL_HUD_2026-07-04.md`.  No flash or rollback was performed
 > in this unit; the live Debian appliance/HUD/tunnel were left running for operator inspection.
+>
+> **✅ STATUS (2026-07-04 01:35 KST) — native switch_root display-owner cleanup SOURCE GATE DONE.**
+> Codex implemented the native-side cleanup that should replace the Debian firstboot DRM workaround as
+> the primary path: `workspace/public/src/native-init/a90_server_distro.c` now stops tracked
+> `A90_SERVICE_HUD`, scans `/proc` for non-self `/init` processes holding DRM fds, terminates those
+> owners with bounded `SIGTERM`→`SIGKILL`, and fails closed with `stop=handoff-display-owner` if a
+> DRM-owning native child cannot be stopped.  The cleanup runs in both D3 and D4 after root/init
+> validation and before `/proc`/`/sys`/`/dev` are moved into the new root.  Static validation passed:
+> AArch64 object compile of `a90_server_distro.c` and focused unittest (`12` tests).  Report:
+> `docs/reports/SERVER_DISTRO_NATIVE_HANDOFF_DISPLAY_CLEANUP_SOURCE_2026-07-04.md`.  No boot image was
+> built/flashed in this unit, and the live Debian appliance/HUD/quick Tunnel were not interrupted.  Next
+> live gate, if desired: build a new native candidate identity, flash/hot-reload under normal rollback
+> gates, run `switch-root-to-userdata`, and verify Debian no longer has to kill a native `/init` DRM
+> holder.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

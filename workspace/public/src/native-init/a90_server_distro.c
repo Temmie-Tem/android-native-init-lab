@@ -4,6 +4,7 @@
 #include "a90_helper.h"
 #include "a90_log.h"
 #include "a90_run.h"
+#include "a90_service.h"
 #include "a90_util.h"
 
 #include <dirent.h>
@@ -11,12 +12,14 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #ifndef O_CLOEXEC
@@ -35,6 +38,189 @@
 #define A90_D3_BUSYBOX "/bin/busybox"
 #define A90_D3_INIT "/sbin/init"
 #define A90_D3_SWITCH_TIMEOUT_MS 30000
+#define A90_D_HANDOFF_HUD_TIMEOUT_MS 3000
+#define A90_D_HANDOFF_DRM_OWNER_TIMEOUT_MS 1000
+
+static int d_handoff_parse_pid(const char *name, pid_t *pid_out) {
+    char *end = NULL;
+    long value;
+
+    if (name == NULL || name[0] == '\0' || pid_out == NULL) {
+        return -EINVAL;
+    }
+    errno = 0;
+    value = strtol(name, &end, 10);
+    if (errno != 0 || end == name || end == NULL || *end != '\0' || value <= 0) {
+        return -EINVAL;
+    }
+    *pid_out = (pid_t)value;
+    return 0;
+}
+
+static int d_handoff_readlink(const char *path, char *out, size_t out_size) {
+    ssize_t nread;
+
+    if (path == NULL || out == NULL || out_size == 0) {
+        return -EINVAL;
+    }
+    nread = readlink(path, out, out_size - 1);
+    if (nread < 0) {
+        return -errno;
+    }
+    out[nread] = '\0';
+    return 0;
+}
+
+static bool d_handoff_path_is_drm_target(const char *target) {
+    return target != NULL &&
+           (strstr(target, "/dri/") != NULL ||
+            strstr(target, "card0") != NULL ||
+            strstr(target, "drm") != NULL);
+}
+
+static bool d_handoff_pid_is_native_init(pid_t pid) {
+    char path[64];
+    char target[PATH_MAX];
+
+    if (pid <= 1 || pid == getpid()) {
+        return false;
+    }
+    snprintf(path, sizeof(path), "/proc/%ld/exe", (long)pid);
+    if (d_handoff_readlink(path, target, sizeof(target)) < 0) {
+        return false;
+    }
+    return strcmp(target, "/init") == 0;
+}
+
+static bool d_handoff_pid_has_drm_fd(pid_t pid) {
+    char dir_path[64];
+    DIR *dir;
+    struct dirent *entry;
+    bool found = false;
+
+    snprintf(dir_path, sizeof(dir_path), "/proc/%ld/fd", (long)pid);
+    dir = opendir(dir_path);
+    if (dir == NULL) {
+        return false;
+    }
+    while ((entry = readdir(dir)) != NULL) {
+        char fd_path[PATH_MAX];
+        char target[PATH_MAX];
+
+        if (entry->d_name[0] == '.') {
+            continue;
+        }
+        snprintf(fd_path, sizeof(fd_path), "%s/%s", dir_path, entry->d_name);
+        if (d_handoff_readlink(fd_path, target, sizeof(target)) == 0 &&
+            d_handoff_path_is_drm_target(target)) {
+            found = true;
+            break;
+        }
+    }
+    closedir(dir);
+    return found;
+}
+
+static bool d_handoff_pid_alive(pid_t pid) {
+    if (pid <= 0) {
+        return false;
+    }
+    if (kill(pid, 0) == 0) {
+        return true;
+    }
+    return errno == EPERM;
+}
+
+static int d_handoff_wait_pid_gone(pid_t pid, int timeout_ms) {
+    long deadline = monotonic_millis() + timeout_ms;
+
+    while (monotonic_millis() < deadline) {
+        int status = 0;
+        pid_t got = waitpid(pid, &status, WNOHANG);
+
+        if (got == pid) {
+            return 0;
+        }
+        if (!d_handoff_pid_alive(pid)) {
+            return 0;
+        }
+        usleep(100000);
+    }
+    return d_handoff_pid_alive(pid) ? -EBUSY : 0;
+}
+
+static int d_handoff_stop_drm_owner(const char *tag, pid_t pid) {
+    int rc;
+
+    a90_console_printf("%s handoff_display drm_owner_pid=%ld action=term\r\n", tag, (long)pid);
+    if (kill(pid, SIGTERM) < 0 && errno != ESRCH) {
+        rc = -errno;
+        a90_console_printf("%s handoff_display drm_owner_pid=%ld term_rc=%d\r\n",
+                           tag, (long)pid, rc);
+        return rc;
+    }
+    rc = d_handoff_wait_pid_gone(pid, A90_D_HANDOFF_DRM_OWNER_TIMEOUT_MS);
+    if (rc == 0) {
+        return 0;
+    }
+
+    a90_console_printf("%s handoff_display drm_owner_pid=%ld action=kill\r\n", tag, (long)pid);
+    if (kill(pid, SIGKILL) < 0 && errno != ESRCH) {
+        rc = -errno;
+        a90_console_printf("%s handoff_display drm_owner_pid=%ld kill_rc=%d\r\n",
+                           tag, (long)pid, rc);
+        return rc;
+    }
+    rc = d_handoff_wait_pid_gone(pid, A90_D_HANDOFF_DRM_OWNER_TIMEOUT_MS);
+    if (rc < 0) {
+        a90_console_printf("%s handoff_display drm_owner_pid=%ld stop_rc=%d\r\n",
+                           tag, (long)pid, rc);
+    }
+    return rc;
+}
+
+static int d_handoff_stop_display_owners(const char *tag) {
+    DIR *proc;
+    struct dirent *entry;
+    unsigned int killed = 0;
+    int final_rc = 0;
+    int service_rc;
+
+    service_rc = a90_service_stop(A90_SERVICE_HUD, A90_D_HANDOFF_HUD_TIMEOUT_MS);
+    a90_console_printf("%s handoff_display service=autohud stop_rc=%d\r\n", tag, service_rc);
+    if (service_rc < 0) {
+        final_rc = service_rc;
+    }
+
+    proc = opendir("/proc");
+    if (proc == NULL) {
+        final_rc = final_rc < 0 ? final_rc : -errno;
+        a90_console_printf("%s handoff_display scan=fail rc=%d\r\n", tag, final_rc);
+        return final_rc;
+    }
+    while ((entry = readdir(proc)) != NULL) {
+        pid_t pid;
+        int rc;
+
+        if (d_handoff_parse_pid(entry->d_name, &pid) < 0) {
+            continue;
+        }
+        if (!d_handoff_pid_is_native_init(pid) || !d_handoff_pid_has_drm_fd(pid)) {
+            continue;
+        }
+        rc = d_handoff_stop_drm_owner(tag, pid);
+        if (rc < 0) {
+            final_rc = rc;
+        } else {
+            killed++;
+        }
+    }
+    closedir(proc);
+
+    a90_console_printf("%s handoff_display=done killed=%u rc=%d\r\n",
+                       tag, killed, final_rc);
+    return final_rc;
+}
 
 static int d3_hex64_valid(const char *s) {
     size_t n = 0;
@@ -668,6 +854,11 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
     rc = d3_check_distro_init();
     if (rc < 0) {
         a90_console_printf("%s stop=distro-init-invalid rc=%d\r\n", A90_D3_TAG, rc);
+        goto fail_before_move;
+    }
+    rc = d_handoff_stop_display_owners(A90_D3_TAG);
+    if (rc < 0) {
+        a90_console_printf("%s stop=handoff-display-owner rc=%d\r\n", A90_D3_TAG, rc);
         goto fail_before_move;
     }
     rc = d3_move_core_mounts(&moved_proc, &moved_sys, &moved_dev, &mounted_devpts);
@@ -2311,6 +2502,11 @@ int a90_server_distro_switch_root_userdata_cmd(char **argv, int argc) {
     rc = d4_check_userdata_init();
     if (rc < 0) {
         a90_console_printf("%s stop=appliance-init-invalid rc=%d\r\n", A90_D4_TAG, rc);
+        return rc;
+    }
+    rc = d_handoff_stop_display_owners(A90_D4_TAG);
+    if (rc < 0) {
+        a90_console_printf("%s stop=handoff-display-owner rc=%d\r\n", A90_D4_TAG, rc);
         return rc;
     }
     rc = d4_move_core_mounts(&moved_proc, &moved_sys, &moved_dev, &mounted_devpts);
