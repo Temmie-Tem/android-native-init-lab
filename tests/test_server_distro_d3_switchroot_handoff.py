@@ -62,6 +62,15 @@ class ServerDistroD3SwitchrootHandoffTests(unittest.TestCase):
         self.assertEqual(d3b.EXPECTED_CANDIDATE_VERSION, "0.11.133")
         self.assertEqual(d3b.EXPECTED_CANDIDATE_BUILD, "v3372-server-distro-switchroot-stdio")
 
+    def test_default_d3_source_is_usrmerge_fixed_image(self) -> None:
+        self.assertTrue(str(d3b.DEFAULT_D3_SOURCE_IMAGE).endswith(
+            "d3-sysvinit-usrmerge-20260703T101657Z.img"
+        ))
+        self.assertEqual(
+            d3b.EXPECTED_D3_SOURCE_SHA256,
+            "6f1960eb4332e1a22d5da1c98e990352c58d80157fbe6286b53ec9fe8ebe59f7",
+        )
+
     def test_runner_contract_uses_switchroot_token_and_avoids_raw_flash_paths(self) -> None:
         source = Path("workspace/public/src/scripts/server-distro/run_d3_switchroot_handoff.py").read_text(
             encoding="utf-8"

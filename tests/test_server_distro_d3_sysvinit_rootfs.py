@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 
 from _loader import load_script
 
@@ -41,6 +42,18 @@ class ServerDistroD3SysvinitRootfsTests(unittest.TestCase):
             d3a.SYSV_PACKAGES,
             ("insserv", "startpar", "initscripts", "sysv-rc", "sysvinit-core"),
         )
+
+    def test_usrmerge_links_are_restored_after_package_extract(self) -> None:
+        self.assertEqual(
+            d3a.USR_MERGE_LINKS,
+            (("bin", "usr/bin"), ("sbin", "usr/sbin"), ("lib", "usr/lib")),
+        )
+        source = Path("workspace/public/src/scripts/server-distro/prepare_d3_sysvinit_rootfs.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("def restore_usrmerge_links", source)
+        self.assertIn("merge_tree_contents(link, target)", source)
+        self.assertIn("restore_usrmerge_links(d3_rootfs)", source)
 
 
 if __name__ == "__main__":

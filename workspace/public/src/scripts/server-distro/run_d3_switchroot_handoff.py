@@ -44,7 +44,7 @@ import run_d2_ssh_in_chroot as d2  # noqa: E402
 
 DEFAULT_RUN_BASE = REPO_ROOT / "workspace" / "private" / "runs" / "server-distro"
 DEFAULT_D3_SOURCE_IMAGE = (
-    REPO_ROOT / "workspace/private/builds/server-distro/d3-sysvinit-20260703T080236Z.img"
+    REPO_ROOT / "workspace/private/builds/server-distro/d3-sysvinit-usrmerge-20260703T101657Z.img"
 )
 DEFAULT_REMOTE_IMAGE = "/mnt/sdext/a90/runtime/debian-bookworm-arm64-d3-sysvinit-keyed.img"
 DEFAULT_CANDIDATE_BOOT = (
@@ -53,7 +53,7 @@ DEFAULT_CANDIDATE_BOOT = (
 DEFAULT_ROLLBACK_BOOT = (
     REPO_ROOT / "workspace/private/inputs/boot_images/boot_linux_v2321_usb_clean_identity_rodata.img"
 )
-EXPECTED_D3_SOURCE_SHA256 = "2ee61172116be7578fddbfcbe491c1c29e3e4c7cf485376191019417c69880c3"
+EXPECTED_D3_SOURCE_SHA256 = "6f1960eb4332e1a22d5da1c98e990352c58d80157fbe6286b53ec9fe8ebe59f7"
 EXPECTED_CANDIDATE_SHA256 = "09db071ae6bebe538d0f9c6c62f6e86b28a4b1a2a6954f1910f8d189675cc653"
 EXPECTED_CANDIDATE_VERSION = "0.11.133"
 EXPECTED_CANDIDATE_BUILD = "v3372-server-distro-switchroot-stdio"

@@ -38,6 +38,7 @@ DEFAULT_AUTOREBOOT_SEC = 120
 DEFAULT_NCM_IP = "192.168.7.2"
 DEFAULT_NCM_PEER = "192.168.7.1"
 SYSV_PACKAGES = ("insserv", "startpar", "initscripts", "sysv-rc", "sysvinit-core")
+USR_MERGE_LINKS = (("bin", "usr/bin"), ("sbin", "usr/sbin"), ("lib", "usr/lib"))
 
 
 def run(cmd: list[str], *, cwd: Path | None = None, timeout: float | None = None) -> subprocess.CompletedProcess[str]:
@@ -145,6 +146,41 @@ def extract_packages(d3_rootfs: Path, packages: list[Path]) -> None:
         run(["dpkg-deb", "-x", str(pkg), str(d3_rootfs)])
 
 
+def merge_tree_contents(src: Path, dst: Path) -> None:
+    dst.mkdir(parents=True, exist_ok=True)
+    for item in sorted(src.iterdir(), key=lambda p: p.name):
+        target = dst / item.name
+        if target.exists() or target.is_symlink():
+            if item.is_dir() and not item.is_symlink() and target.is_dir() and not target.is_symlink():
+                merge_tree_contents(item, target)
+                item.rmdir()
+                continue
+            if target.is_dir() and not target.is_symlink():
+                shutil.rmtree(target)
+            else:
+                target.unlink()
+        shutil.move(str(item), str(target))
+
+
+def restore_usrmerge_links(rootfs: Path) -> None:
+    for link_name, target_name in USR_MERGE_LINKS:
+        link = rootfs / link_name
+        target = rootfs / target_name
+        if link.is_symlink():
+            if os.readlink(link) != target_name:
+                link.unlink()
+                link.symlink_to(target_name)
+            continue
+        if link.exists():
+            if not link.is_dir():
+                link.unlink()
+            else:
+                merge_tree_contents(link, target)
+                link.rmdir()
+        target.mkdir(parents=True, exist_ok=True)
+        link.symlink_to(target_name)
+
+
 def firstboot_script(ncm_ip: str, ncm_peer: str, autoreboot_sec: int, ssh_port: int) -> str:
     return f"""#!/bin/sh
 set +e
@@ -249,8 +285,16 @@ def collect_stat(rootfs: Path) -> dict[str, Any]:
         "usr_bin_ip": rootfs / "usr" / "bin" / "ip",
         "stage_marker": rootfs / "etc" / "a90-server-distro-stage",
     }
-    return {name: {"exists": path.exists(), "mode": oct(path.stat().st_mode & 0o777) if path.exists() else None}
-            for name, path in checks.items()}
+    stats = {name: {"exists": path.exists(), "mode": oct(path.stat().st_mode & 0o777) if path.exists() else None}
+             for name, path in checks.items()}
+    stats["usrmerge_links"] = {
+        link: {
+            "is_symlink": (rootfs / link).is_symlink(),
+            "target": os.readlink(rootfs / link) if (rootfs / link).is_symlink() else None,
+        }
+        for link, _target in USR_MERGE_LINKS
+    }
+    return stats
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -295,6 +339,7 @@ def main(argv: list[str] | None = None) -> int:
 
     copy_base_rootfs(args.base_rootfs, d3_rootfs)
     extract_packages(d3_rootfs, packages)
+    restore_usrmerge_links(d3_rootfs)
     install_d3_contract(args, d3_rootfs)
     build_image(d3_rootfs, image, args.image_size)
 
