@@ -761,10 +761,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Static validation passed: builder `py_compile`, focused V3383/V3381/native-handoff tests, and marker
 > audit.  Report:
 > `docs/reports/NATIVE_INIT_V3383_SERVER_DISTRO_HANDOFF_CLEANUP_SOURCE_BUILD_2026-07-04.md`.
-> **NEXT live gate:** checked-helper flash exact V3383, health-check native-init, run
-> `switch-root-to-userdata SERVER-DISTRO-D4-USERDATA-APPLIANCE userdata=appliance-root`, verify
-> `handoff_display` markers and Debian PID1/HUD/smoke, then decide whether to leave D-public live or
-> rollback to v2321.
+>
+> **✅ STATUS (2026-07-04 02:20 KST) — V3383 handoff-cleanup LIVE PASS.**
+> Codex flashed exact V3383 through `native_init_flash.py`; pushed/readback SHA matched
+> `c2cb74e014c7a3e2121ef50d818e6225d7ab8d042eba75166c77e133f3fd012c`, post-boot cmdv1 verify passed,
+> and native health was `selftest pass=12 warn=1 fail=0`.  The D4 userdata handoff reached
+> `exec_switch_root_now` and proved the new display cleanup path:
+> `handoff_display service=autohud stop_rc=0`, three native DRM-owner PIDs terminated, and
+> `handoff_display=done killed=3 rc=0`.  Debian came up as PID1 (`/usr/sbin/init`) on
+> `/dev/block/a90-userdata` ext4, loopback smoke returned `A90_DPUBLIC_SMOKE_OK`, and the Debian HUD
+> reported `display=1080x2400 connector=28 crtc=133 refresh=2s`.  No native `/init` process remained
+> after handoff.  Public tunnel was not started in this unit; stale tunnel runtime files from earlier
+> runs were ignored and no public URL was committed.  Report:
+> `docs/reports/NATIVE_INIT_V3383_SERVER_DISTRO_HANDOFF_CLEANUP_LIVE_2026-07-04.md`.  Device was left in
+> the live Debian userdata appliance for operator inspection.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
