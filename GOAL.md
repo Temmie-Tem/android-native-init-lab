@@ -750,6 +750,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > live gate, if desired: build a new native candidate identity, flash/hot-reload under normal rollback
 > gates, run `switch-root-to-userdata`, and verify Debian no longer has to kill a native `/init` DRM
 > holder.
+>
+> **✅ STATUS (2026-07-04 01:50 KST) — V3383 handoff-cleanup candidate SOURCE BUILD DONE.**
+> Codex added `workspace/public/src/scripts/revalidation/build_native_init_boot_v3383_server_distro_handoff_cleanup.py`
+> and generated `A90 Linux init 0.11.139 (v3383-server-distro-handoff-cleanup)` at
+> `workspace/private/inputs/boot_images/boot_linux_v3383_server_distro_handoff_cleanup.img`, SHA256
+> `c2cb74e014c7a3e2121ef50d818e6225d7ab8d042eba75166c77e133f3fd012c`.  Required-string audit confirmed
+> the V3383 identity plus `handoff_display service=autohud stop_rc=%d`,
+> `handoff_display=done killed=%u rc=%d`, and `stop=handoff-display-owner` are present in the boot image.
+> Static validation passed: builder `py_compile`, focused V3383/V3381/native-handoff tests, and marker
+> audit.  Report:
+> `docs/reports/NATIVE_INIT_V3383_SERVER_DISTRO_HANDOFF_CLEANUP_SOURCE_BUILD_2026-07-04.md`.
+> **NEXT live gate:** checked-helper flash exact V3383, health-check native-init, run
+> `switch-root-to-userdata SERVER-DISTRO-D4-USERDATA-APPLIANCE userdata=appliance-root`, verify
+> `handoff_display` markers and Debian PID1/HUD/smoke, then decide whether to leave D-public live or
+> rollback to v2321.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
