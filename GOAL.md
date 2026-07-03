@@ -504,6 +504,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `userdata-appliance-preflight` plus `userdata-appliance-formatter-probe` only, then roll back to v2321
 > unless destructive D4C starts immediately.
 
+> **🟡 STATUS (2026-07-03) — V3375 formatter-probe LIVE FAILED SAFELY; rollback clean.**
+> Exact V3375 flashed through `native_init_flash.py` with remote SHA and boot readback SHA matching
+> `460fbbc137478695c9271a80fd9e0e5dedb96975ee9e69bd6b67c9a72db1ecdb`. Candidate booted as
+> `A90 Linux init 0.11.135 (v3375-server-distro-userdata-formatter-probe)` with `selftest fail=0`, and
+> read-only `userdata-appliance-preflight` passed for `sda33`, same-session `target.dev=259:17`,
+> `target.sectors=231577432`, `target.mounted=0`, `node_materialized=0`. The SD regular-file
+> formatter probe then failed before any userdata action because device BusyBox `mke2fs` rejects
+> `-t ext4` (`mke2fs: invalid option -- 't'`). A same-session SD syntax probe proved
+> `/bin/busybox mke2fs -F -L A90D4PROBE <file> 16384` writes ext superblock magic `53 ef`; loop mount
+> probing failed due missing loop setup and is not proof for the real block-partition path. All SD probe
+> files were removed, no `userdata-appliance-format`/populate/switch-root ran, no userdata node was
+> materialized, and rollback to v2321 completed with final `selftest fail=0`.
+> Report:
+> `docs/reports/NATIVE_INIT_V3376_SERVER_DISTRO_D4C_FORMATTER_PROBE_LIVE_FAIL_2026-07-03.md`.
+> **NEXT bounded unit = formatter syntax fix candidate**: update the D4 formatter/probe command surface
+> away from BusyBox `-t ext4`, build a new candidate, and re-run only preflight plus formatter-probe
+> before any destructive D4C format/populate.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.
