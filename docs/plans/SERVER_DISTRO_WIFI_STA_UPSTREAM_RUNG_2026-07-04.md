@@ -103,6 +103,7 @@ Debian STA or public tunnel checks.
 With private operator-provided config staged into the userdata appliance:
 
 - boot into Debian PID1;
+- Debian can bring the materialized `wlan0` administratively UP;
 - firstboot starts Debian `wpa_supplicant` for `wlan0`;
 - DHCP obtains an address and DNS without logging concrete private network identifiers in
   public artifacts;
@@ -129,6 +130,7 @@ Stop before mutation or public exposure if any condition appears:
 
 - rollback images or recovery/TWRP preconditions are missing before a flash;
 - `wlan0` does not materialize in the bounded native gate;
+- Debian cannot bring the materialized `wlan0` link UP after handoff;
 - Debian STA tooling is missing from the rootfs;
 - private credentials are absent for an association gate;
 - USB NCM admin/recovery is lost;

@@ -980,6 +980,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Report: `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA5_PREPARER_GAP_2026-07-04.md`.
 > **NEXT:** rerun WSTA5 with a newly prepared rootfs; only that run can answer the L3/ARP question.
 
+> **🟡 STATUS (2026-07-04 04:33 KST host clock) — WSTA5 current-helper live BLOCKED at Debian `wlan0` link-up.**
+> Codex rebuilt a fresh WSTA5 private rootfs after the preparer fix; the summary confirmed the current
+> helper was staged with `latest_helper_staged=true`, `l3_gate_present=true`, and the `nc.openbsd`
+> TCP fallback present.  The no-flash device path then formatted/populated `userdata`, injected the
+> temporary SSH key, passed WSTA2 native materialization, switched into Debian, and reached SSH over
+> USB/NCM.  The current helper ran, but it never reached DHCP/L3: markers ended at
+> `wifi_sta_wpa_supplicant_rc=255`, `wifi_sta_started=0`, and
+> `wifi_sta_decision=wifi-sta-wpa-start-failed`.  Direct Debian diagnostics showed the real earlier
+> failure: `ip link set wlan0 up` / nl80211 returned `Invalid argument`, leaving `wlan0` down before
+> `wpa_supplicant` could initialize.  Source is now hardened so the next boot records
+> `wifi_sta_link_set_up_rc=<rc>` and fails as `wifi-sta-link-up-failed` instead of obscuring it as a
+> generic wpa start failure.  No boot flash or public tunnel was performed; the device is back on
+> native V3384 with `selftest fail=0`.
+> Report: `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA5_LINK_UP_BLOCKED_2026-07-04.md`.
+> **NEXT:** WSTA6 link-up boundary: compare the native materialized interface state against the
+> Debian handoff state and find the minimal native cleanup/materialization step that lets Debian run
+> `ip link set wlan0 up` successfully, before retrying DHCP/L3 or D-public tunnel.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.

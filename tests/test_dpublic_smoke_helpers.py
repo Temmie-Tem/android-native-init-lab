@@ -117,6 +117,8 @@ class DpublicSmokeHelperTests(unittest.TestCase):
         self.assertIn("/etc/a90-dpublic/wpa_supplicant-wlan0.conf", source)
         self.assertIn("wpa_supplicant -B -q -i \"$IFACE\" -D nl80211", source)
         self.assertIn("dhclient -1 -q -4", source)
+        self.assertIn("wifi_sta_link_set_up_rc=$link_set_up_rc", source)
+        self.assertIn("wifi-sta-link-up-failed", source)
         self.assertIn("L3_HOST=cloudflare.com", source)
         self.assertIn("L3_PORT=443", source)
         self.assertIn("NC_BIN=$(command -v nc", source)

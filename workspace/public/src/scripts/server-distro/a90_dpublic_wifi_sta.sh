@@ -181,7 +181,13 @@ kill_pidfile_if_matching "$WPA_PID" "wpa_supplicant"
 kill_matching_cmdline "$CONFIG"
 rm -f "$WPA_LOG" "$DHCP_LOG" "$DHCP_LEASES" 2>/dev/null || true
 
-ip link set "$IFACE" up >/dev/null 2>&1 || true
+ip link set "$IFACE" up >/dev/null 2>&1
+link_set_up_rc=$?
+append_marker "wifi_sta_link_set_up_rc=$link_set_up_rc"
+if [ "$link_set_up_rc" != "0" ]; then
+  append_marker "wifi_sta_started=0"
+  finish "wifi-sta-link-up-failed"
+fi
 wpa_supplicant -B -q -i "$IFACE" -D nl80211 -c "$CONFIG" \
   -P "$WPA_PID" -f "$WPA_LOG" >/dev/null 2>&1
 wpa_rc=$?
