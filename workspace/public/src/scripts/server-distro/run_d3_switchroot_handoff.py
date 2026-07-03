@@ -3,7 +3,7 @@
 
 D3B is non-destructive and SD-backed, but unlike D1/D2 it requires one checked boot
 flash because switch_root must run from PID1.  This runner:
-  * verifies and flashes the V3371 D3-capable native-init candidate via native_init_flash.py,
+  * verifies and flashes the V3372 D3-capable native-init candidate via native_init_flash.py,
   * copies the D3A sysvinit image, injects one per-run SSH public key, and stages that copy on SD,
   * invokes the gated PID1 switch-root-to-distro command,
   * observes A90D3_MARKER and /proc/1/comm=init over NCM SSH,
@@ -48,15 +48,15 @@ DEFAULT_D3_SOURCE_IMAGE = (
 )
 DEFAULT_REMOTE_IMAGE = "/mnt/sdext/a90/runtime/debian-bookworm-arm64-d3-sysvinit-keyed.img"
 DEFAULT_CANDIDATE_BOOT = (
-    REPO_ROOT / "workspace/private/inputs/boot_images/boot_linux_v3371_server_distro_switchroot_devprep.img"
+    REPO_ROOT / "workspace/private/inputs/boot_images/boot_linux_v3372_server_distro_switchroot_stdio.img"
 )
 DEFAULT_ROLLBACK_BOOT = (
     REPO_ROOT / "workspace/private/inputs/boot_images/boot_linux_v2321_usb_clean_identity_rodata.img"
 )
 EXPECTED_D3_SOURCE_SHA256 = "2ee61172116be7578fddbfcbe491c1c29e3e4c7cf485376191019417c69880c3"
-EXPECTED_CANDIDATE_SHA256 = "29cc5eda5df385f70b6bb5e10adf8a3f7969152dc7a80b881c1f5f52c57727ff"
-EXPECTED_CANDIDATE_VERSION = "0.11.132"
-EXPECTED_CANDIDATE_BUILD = "v3371-server-distro-switchroot-devprep"
+EXPECTED_CANDIDATE_SHA256 = "09db071ae6bebe538d0f9c6c62f6e86b28a4b1a2a6954f1910f8d189675cc653"
+EXPECTED_CANDIDATE_VERSION = "0.11.133"
+EXPECTED_CANDIDATE_BUILD = "v3372-server-distro-switchroot-stdio"
 EXPECTED_ROLLBACK_SHA256 = "ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb"
 EXPECTED_ROLLBACK_VERSION = "0.9.285"
 SWITCH_ROOT_TOKEN = "SERVER-DISTRO-D3B-SWITCHROOT"

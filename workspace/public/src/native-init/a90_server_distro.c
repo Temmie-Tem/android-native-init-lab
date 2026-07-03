@@ -597,8 +597,6 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
     char *const switch_argv[] = {
         (char *)A90_D3_BUSYBOX,
         (char *)"switch_root",
-        (char *)"-c",
-        (char *)"/dev/console",
         (char *)A90_D3_ROOT,
         (char *)A90_D3_INIT,
         NULL,
@@ -677,7 +675,7 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
         goto fail_before_move;
     }
 
-    a90_console_printf("%s exec_switch_root_now busybox=%s root=%s init=%s\r\n",
+    a90_console_printf("%s exec_switch_root_now busybox=%s root=%s init=%s console=reuse-stdio\r\n",
                        A90_D3_TAG, A90_D3_BUSYBOX, A90_D3_ROOT, A90_D3_INIT);
     a90_logf("server-distro", "D3 switch_root exec image=%s root=%s", image, A90_D3_ROOT);
     sync();

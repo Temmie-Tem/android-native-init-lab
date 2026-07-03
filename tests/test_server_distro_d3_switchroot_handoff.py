@@ -47,20 +47,20 @@ class ServerDistroD3SwitchrootHandoffTests(unittest.TestCase):
         self.assertIn("--expect-sha256", rendered)
         self.assertIn("a" * 64, rendered)
         self.assertIn("--expect-version", rendered)
-        self.assertIn("0.11.132", rendered)
+        self.assertIn("0.11.133", rendered)
         self.assertIn("--verify-protocol", rendered)
         self.assertIn("selftest", rendered)
 
-    def test_default_candidate_is_pinned_v3371_devprep_image(self) -> None:
+    def test_default_candidate_is_pinned_v3372_stdio_image(self) -> None:
         self.assertTrue(str(d3b.DEFAULT_CANDIDATE_BOOT).endswith(
-            "boot_linux_v3371_server_distro_switchroot_devprep.img"
+            "boot_linux_v3372_server_distro_switchroot_stdio.img"
         ))
         self.assertEqual(
             d3b.EXPECTED_CANDIDATE_SHA256,
-            "29cc5eda5df385f70b6bb5e10adf8a3f7969152dc7a80b881c1f5f52c57727ff",
+            "09db071ae6bebe538d0f9c6c62f6e86b28a4b1a2a6954f1910f8d189675cc653",
         )
-        self.assertEqual(d3b.EXPECTED_CANDIDATE_VERSION, "0.11.132")
-        self.assertEqual(d3b.EXPECTED_CANDIDATE_BUILD, "v3371-server-distro-switchroot-devprep")
+        self.assertEqual(d3b.EXPECTED_CANDIDATE_VERSION, "0.11.133")
+        self.assertEqual(d3b.EXPECTED_CANDIDATE_BUILD, "v3372-server-distro-switchroot-stdio")
 
     def test_runner_contract_uses_switchroot_token_and_avoids_raw_flash_paths(self) -> None:
         source = Path("workspace/public/src/scripts/server-distro/run_d3_switchroot_handoff.py").read_text(
