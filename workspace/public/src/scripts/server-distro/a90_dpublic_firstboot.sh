@@ -179,6 +179,22 @@ else
   echo hud_started=0 >> /run/a90-d3-marker
 fi
 
+if [ -s /etc/a90-dpublic/wifi-sta-enable ]; then
+  if [ -x /usr/local/bin/a90-dpublic-wifi-sta ]; then
+    /usr/local/bin/a90-dpublic-wifi-sta >/run/a90-dpublic/wifi-sta-firstboot.log 2>&1
+  else
+    echo wifi_sta_requested=1 >> /run/a90-d3-marker
+    echo wifi_sta_started=0 >> /run/a90-d3-marker
+    echo wifi_sta_decision=wifi-sta-helper-missing >> /run/a90-d3-marker
+    echo wifi_sta_secret_values_logged=0 >> /run/a90-d3-marker
+  fi
+else
+  echo wifi_sta_requested=0 >> /run/a90-d3-marker
+  echo wifi_sta_started=0 >> /run/a90-d3-marker
+  echo wifi_sta_decision=wifi-sta-manual >> /run/a90-d3-marker
+  echo wifi_sta_secret_values_logged=0 >> /run/a90-d3-marker
+fi
+
 if [ -s /etc/a90-dpublic/cloudflared-quick-enable ] &&
    [ -x /usr/local/bin/cloudflared ]; then
   cleanup_cloudflared_runtime enabled-prestart

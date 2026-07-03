@@ -825,6 +825,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT implementation unit:** WSTA1 source-only rootfs/firstboot support: add Debian STA client
 > packages, add an opt-in `/etc/a90-dpublic/wifi-sta-enable` firstboot helper, and prove the default
 > D-public boot still starts no STA and no public tunnel.
+>
+> **✅ STATUS (2026-07-04 04:10 KST) — WSTA1 Debian STA client SOURCE DONE.**
+> Codex added source-only Debian STA upstream support for the D-public appliance.  The rootfs builder now
+> includes `wpasupplicant` and `isc-dhcp-client`, stages `/usr/local/bin/a90-dpublic-wifi-sta`, and records
+> Wi-Fi STA as private opt-in in `/etc/a90-server-distro-stage`.  The D-public firstboot profile runs the
+> helper only when `/etc/a90-dpublic/wifi-sta-enable` exists; otherwise it records
+> `wifi_sta_requested=0`, `wifi_sta_started=0`, `wifi_sta_decision=wifi-sta-manual`, and
+> `wifi_sta_secret_values_logged=0`.  The helper consumes `/etc/a90-dpublic/wpa_supplicant-wlan0.conf`
+> without printing SSID/PSK, starts Debian-owned `wpa_supplicant` + `dhclient`, preserves the USB NCM peer
+> route, and records only redacted marker fields.  No device action, flash, Wi-Fi association, DHCP, ping,
+> or public tunnel action was performed.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA1_SOURCE_2026-07-04.md`.
+> **NEXT gate:** WSTA2 native `wlan0` materialization live check below association, then WSTA3 Debian STA
+> association/DHCP/default-route over private credentials only.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

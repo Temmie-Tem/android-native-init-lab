@@ -10,6 +10,7 @@ SMOKE_HTTPD = Path("workspace/public/src/scripts/server-distro/a90_dpublic_smoke
 HTTP_GET = Path("workspace/public/src/scripts/server-distro/a90_dpublic_http_get.c")
 HUD = Path("workspace/public/src/scripts/server-distro/a90_dpublic_hud.c")
 FIRSTBOOT = Path("workspace/public/src/scripts/server-distro/a90_dpublic_firstboot.sh")
+WIFI_STA = Path("workspace/public/src/scripts/server-distro/a90_dpublic_wifi_sta.sh")
 
 
 class DpublicSmokeHelperTests(unittest.TestCase):
@@ -81,6 +82,30 @@ class DpublicSmokeHelperTests(unittest.TestCase):
         self.assertLess(cleanup_idx, start_idx)
         self.assertLess(start_idx, pid_idx)
         self.assertNotIn('kill "$(cat /run/a90-dpublic/cloudflared-live.pid)"', source)
+
+    def test_firstboot_runs_wifi_sta_only_before_tunnel_when_enabled(self) -> None:
+        source = FIRSTBOOT.read_text(encoding="utf-8")
+        wifi_idx = source.index("if [ -s /etc/a90-dpublic/wifi-sta-enable ]")
+        helper_idx = source.index("/usr/local/bin/a90-dpublic-wifi-sta", wifi_idx)
+        manual_idx = source.index("wifi_sta_decision=wifi-sta-manual", helper_idx)
+        tunnel_idx = source.index("if [ -s /etc/a90-dpublic/cloudflared-quick-enable ]")
+        self.assertLess(helper_idx, tunnel_idx)
+        self.assertLess(manual_idx, tunnel_idx)
+        self.assertIn("wifi_sta_requested=0", source)
+        self.assertIn("wifi_sta_started=0", source)
+        self.assertIn("wifi_sta_secret_values_logged=0", source)
+
+    def test_wifi_sta_helper_is_opt_in_and_redacted(self) -> None:
+        source = WIFI_STA.read_text(encoding="utf-8")
+        self.assertIn("/etc/a90-dpublic/wifi-sta-enable", source)
+        self.assertIn("/etc/a90-dpublic/wpa_supplicant-wlan0.conf", source)
+        self.assertIn("wpa_supplicant -B -q -i \"$IFACE\" -D nl80211", source)
+        self.assertIn("dhclient -1 -q -4", source)
+        self.assertIn("wifi_sta_default_route_iface=$route_iface", source)
+        self.assertIn("ncm_recovery_preserved_after_dhcp=1", source)
+        self.assertIn("wifi_sta_secret_values_logged=0", source)
+        self.assertNotIn("ssid=", source)
+        self.assertNotIn("psk=", source)
 
 
 if __name__ == "__main__":
