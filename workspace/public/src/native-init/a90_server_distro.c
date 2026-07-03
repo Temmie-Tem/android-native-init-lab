@@ -1717,11 +1717,10 @@ int a90_server_distro_userdata_preflight_cmd(char **argv, int argc) {
 int a90_server_distro_userdata_formatter_probe_cmd(char **argv, int argc) {
     const char *probe_path;
     unsigned long long size_bytes = 0;
+    char size_kb_arg[32];
     char *probe_argv[] = {
         (char *)A90_D4_BUSYBOX,
         (char *)"mke2fs",
-        (char *)"-t",
-        (char *)"ext4",
         (char *)"-F",
         (char *)"-L",
         (char *)"A90D4PROBE",
@@ -1754,14 +1753,21 @@ int a90_server_distro_userdata_formatter_probe_cmd(char **argv, int argc) {
                            A90_D4_FORMATTER_PROBE_MAX_BYTES);
         return -EINVAL;
     }
+    if ((size_bytes % 1024ULL) != 0) {
+        a90_console_printf("%s refused=bad-probe-size-alignment size=%llu alignment=1024\r\n",
+                           A90_D4_TAG, size_bytes);
+        return -EINVAL;
+    }
+    snprintf(size_kb_arg, sizeof(size_kb_arg), "%llu", size_bytes / 1024ULL);
 
     rc = d4_create_probe_file(probe_path, size_bytes);
     if (rc < 0) {
         return rc;
     }
-    probe_argv[7] = (char *)probe_path;
-    a90_console_printf("%s formatter-probe=begin formatter=busybox-mke2fs-ext4 path=%s size_bytes=%llu\r\n",
-                       A90_D4_TAG, probe_path, size_bytes);
+    probe_argv[5] = (char *)probe_path;
+    probe_argv[6] = size_kb_arg;
+    a90_console_printf("%s formatter-probe=begin formatter=busybox-mke2fs path=%s size_bytes=%llu kbytes=%s\r\n",
+                       A90_D4_TAG, probe_path, size_bytes, size_kb_arg);
     rc = d4_run_busybox(probe_argv, A90_D4_FORMAT_TIMEOUT_MS);
     if (rc != 0) {
         a90_console_printf("%s formatter-probe=fail stage=mke2fs rc=%d\r\n", A90_D4_TAG, rc);
@@ -1781,7 +1787,7 @@ int a90_server_distro_userdata_formatter_probe_cmd(char **argv, int argc) {
         return rc;
     }
     sync();
-    a90_console_printf("%s formatter-probe=done formatter=busybox-mke2fs-ext4 path=%s cleanup=ok userdata_touched=0\r\n",
+    a90_console_printf("%s formatter-probe=done formatter=busybox-mke2fs path=%s cleanup=ok userdata_touched=0\r\n",
                        A90_D4_TAG, probe_path);
     return 0;
 }
@@ -1791,8 +1797,6 @@ int a90_server_distro_userdata_format_cmd(char **argv, int argc) {
     char *const format_argv[] = {
         (char *)A90_D4_BUSYBOX,
         (char *)"mke2fs",
-        (char *)"-t",
-        (char *)"ext4",
         (char *)"-F",
         (char *)"-L",
         (char *)"A90D4ROOT",
@@ -1827,16 +1831,16 @@ int a90_server_distro_userdata_format_cmd(char **argv, int argc) {
         a90_console_printf("%s format=fail stage=node rc=%d\r\n", A90_D4_TAG, rc);
         return rc;
     }
-    a90_console_printf("%s format=begin formatter=busybox-mke2fs-ext4 node=%s\r\n",
+    a90_console_printf("%s format=begin formatter=busybox-mke2fs node=%s\r\n",
                        A90_D4_TAG, A90_D4_NODE);
     rc = d4_run_busybox(format_argv, A90_D4_FORMAT_TIMEOUT_MS);
     if (rc != 0) {
-        a90_console_printf("%s format=fail formatter=busybox-mke2fs-ext4 rc=%d\r\n",
+        a90_console_printf("%s format=fail formatter=busybox-mke2fs rc=%d\r\n",
                            A90_D4_TAG, rc);
         return rc > 0 ? -EIO : rc;
     }
     sync();
-    a90_console_printf("%s format=done formatter=busybox-mke2fs-ext4 node=%s label=A90D4ROOT\r\n",
+    a90_console_printf("%s format=done formatter=busybox-mke2fs node=%s label=A90D4ROOT\r\n",
                        A90_D4_TAG, A90_D4_NODE);
     return 0;
 }

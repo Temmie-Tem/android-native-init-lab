@@ -522,6 +522,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > away from BusyBox `-t ext4`, build a new candidate, and re-run only preflight plus formatter-probe
 > before any destructive D4C format/populate.
 
+> **✅ STATUS (2026-07-03) — V3377 formatter syntax fix source/build DONE; live pending.**
+> Codex updated the D4 formatter/probe surface to stop using unsupported BusyBox `-t ext4`. The
+> non-destructive probe now runs `mke2fs -F -L A90D4PROBE <probe-image> <KBYTES>` and logs `kbytes=...`;
+> the destructive format path now runs `busybox mke2fs -F -L A90D4ROOT /dev/block/a90-userdata`, still
+> behind same-session `PARTNAME=userdata` identity checks. Built artifact:
+> `A90 Linux init 0.11.136 (v3377-server-distro-userdata-formatter-fix)`, boot SHA
+> `65575d4166896d9ffd4e38594ac1776583b6087c5ff79c8eebb140ea07a15dfd`, init SHA
+> `5af53b0b2c2352768457604c6f65445ca8a12674445573bb6725e6f702dfbe26`.
+> Static validation passed: `py_compile`, 12 relevant unittest cases, V3377 build, `file`, `sha256sum`,
+> and image string checks. This unit performed **NO FLASH / NO FORMAT / NO USERDATA TOUCH**. Report:
+> `docs/reports/NATIVE_INIT_V3377_SERVER_DISTRO_D4C_FORMATTER_FIX_SOURCE_BUILD_2026-07-03.md`.
+> **NEXT bounded unit = V3377 formatter-fix live proof**: confirm rollback/TWRP preconditions, flash exact
+> V3377 through `native_init_flash.py`, verify candidate health, run read-only preflight plus
+> `userdata-appliance-formatter-probe` only, then roll back to v2321 unless destructive D4C starts
+> immediately.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.

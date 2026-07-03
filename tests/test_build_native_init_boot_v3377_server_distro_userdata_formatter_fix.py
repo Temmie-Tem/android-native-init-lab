@@ -1,4 +1,4 @@
-"""Regression tests for V3375 server-distro D4C userdata formatter probe source build."""
+"""Regression tests for V3377 server-distro D4C userdata formatter fix source build."""
 
 from __future__ import annotations
 
@@ -9,15 +9,15 @@ from _loader import load_script
 
 
 builder = load_script(
-    "workspace/public/src/scripts/revalidation/build_native_init_boot_v3375_server_distro_userdata_formatter_probe.py"
+    "workspace/public/src/scripts/revalidation/build_native_init_boot_v3377_server_distro_userdata_formatter_fix.py"
 )
 
 
-class BuildNativeInitBootV3375ServerDistroFormatterProbeTests(unittest.TestCase):
+class BuildNativeInitBootV3377ServerDistroFormatterFixTests(unittest.TestCase):
     def test_builder_identity_and_required_markers(self) -> None:
-        self.assertEqual(builder.CYCLE, "V3375")
-        self.assertEqual(builder.INIT_VERSION, "0.11.135")
-        self.assertEqual(builder.INIT_BUILD, "v3375-server-distro-userdata-formatter-probe")
+        self.assertEqual(builder.CYCLE, "V3377")
+        self.assertEqual(builder.INIT_VERSION, "0.11.136")
+        self.assertEqual(builder.INIT_BUILD, "v3377-server-distro-userdata-formatter-fix")
         required = b"\n".join(builder.REQUIRED_STRINGS)
         for marker in (
             b"userdata-appliance-preflight",
@@ -31,7 +31,8 @@ class BuildNativeInitBootV3375ServerDistroFormatterProbeTests(unittest.TestCase)
             b"PARTNAME=",
             b"/dev/block/a90-userdata",
             b"/mnt/a90-userdata-root",
-            b"busybox-mke2fs-ext4",
+            b"busybox-mke2fs",
+            b"kbytes=",
             b"A90D4PROBE",
             b"formatter-probe=done",
             b"ext4-magic-ok",
@@ -61,6 +62,9 @@ class BuildNativeInitBootV3375ServerDistroFormatterProbeTests(unittest.TestCase)
         self.assertIn("a90_server_distro_userdata_formatter_probe_cmd", source)
         self.assertIn("d4_create_probe_file(probe_path, size_bytes)", source)
         self.assertIn("d4_check_ext4_magic(probe_path)", source)
+        self.assertIn("bad-probe-size-alignment", source)
+        self.assertIn("snprintf(size_kb_arg", source)
+        self.assertIn("probe_argv[6] = size_kb_arg", source)
         self.assertIn('(char *)"A90D4PROBE"', source)
         self.assertIn("userdata_touched=0", source)
         self.assertIn("formatter=busybox-mke2fs", source)

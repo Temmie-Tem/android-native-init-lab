@@ -21,10 +21,11 @@ Completed:
 - D4C rootfs tarball staging runner passed static validation.
 - D4C rootfs tarball was staged live under SD runtime and SHA-verified.
 - V3375 formatter-probe live failed safely: BusyBox `mke2fs` rejected `-t ext4`; v2321 rollback clean.
+- V3377 formatter syntax fix source/build passed; live proof still pending.
 
 Pending:
 
-- D4C entry live prep: build and prove a formatter syntax fix candidate.
+- D4C entry live prep: flash V3377 and prove formatter syntax fix live.
 - D4C format and populate.
 - D4D appliance handoff proof.
 
@@ -60,6 +61,17 @@ sha256=460fbbc137478695c9271a80fd9e0e5dedb96975ee9e69bd6b67c9a72db1ecdb
 probe=userdata-appliance-formatter-probe SERVER-DISTRO-D4-USERDATA-APPLIANCE <sd-runtime-image> <size-bytes>
 status=live-failed; BusyBox mke2fs rejects -t ext4
 live-fail-report=docs/reports/NATIVE_INIT_V3376_SERVER_DISTRO_D4C_FORMATTER_PROBE_LIVE_FAIL_2026-07-03.md
+```
+
+D4C formatter-fix candidate:
+
+```text
+init=A90 Linux init 0.11.136 (v3377-server-distro-userdata-formatter-fix)
+boot=workspace/private/inputs/boot_images/boot_linux_v3377_server_distro_userdata_formatter_fix.img
+sha256=65575d4166896d9ffd4e38594ac1776583b6087c5ff79c8eebb140ea07a15dfd
+probe=userdata-appliance-formatter-probe SERVER-DISTRO-D4-USERDATA-APPLIANCE <sd-runtime-image> <size-bytes>
+status=source-built-live-pending
+source-report=docs/reports/NATIVE_INIT_V3377_SERVER_DISTRO_D4C_FORMATTER_FIX_SOURCE_BUILD_2026-07-03.md
 ```
 
 D4C rootfs tarball staging runner:
@@ -101,7 +113,7 @@ D4B candidate-health
 D4C format+populate
   first close D4C entry prep:
     rootfs tarball is already staged under /mnt/sdext/a90/runtime/
-    build/flash formatter-fix candidate by checked helper
+    flash V3377 by checked helper
     run preflight plus formatter-probe only
     rollback unless destructive D4C starts immediately
   restage or keep V3373 live under the same gated run
