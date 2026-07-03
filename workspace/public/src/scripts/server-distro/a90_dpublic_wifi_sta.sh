@@ -59,6 +59,16 @@ default_route_iface() {
     awk '/^default / { for (i = 1; i <= NF; i++) if ($i == "dev") { print $(i + 1); exit } }'
 }
 
+lease_default_router() {
+  awk '
+    /option routers/ {
+      gsub(";", "", $3)
+      print $3
+      exit
+    }
+  ' "$DHCP_LEASES" 2>/dev/null
+}
+
 ncm_recovery_preserved() {
   ip route show 192.168.7.1 2>/dev/null | grep -q ' dev ncm0'
 }
@@ -137,10 +147,21 @@ append_marker "wifi_sta_carrier_up=$carrier"
 
 dhclient -1 -q -4 -pf "$DHCP_PID" -lf "$DHCP_LEASES" "$IFACE" > "$DHCP_LOG" 2>&1
 dhcp_rc=$?
-route_iface=$(default_route_iface)
-[ -n "$route_iface" ] || route_iface=none
 append_marker "wifi_sta_dhcp_attempted=1"
 append_marker "wifi_sta_dhcp_rc=$dhcp_rc"
+if [ "$dhcp_rc" = "0" ]; then
+  router=$(lease_default_router)
+  if [ -n "$router" ]; then
+    append_marker "wifi_sta_default_route_router_present=1"
+    ip route replace default via "$router" dev "$IFACE" >/dev/null 2>&1
+    append_marker "wifi_sta_default_route_set_rc=$?"
+  else
+    append_marker "wifi_sta_default_route_router_present=0"
+    append_marker "wifi_sta_default_route_set_rc=99"
+  fi
+fi
+route_iface=$(default_route_iface)
+[ -n "$route_iface" ] || route_iface=none
 append_marker "wifi_sta_default_route_iface=$route_iface"
 
 if ncm_recovery_preserved; then

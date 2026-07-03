@@ -23,6 +23,12 @@ def make_args(tmp: Path, **overrides) -> argparse.Namespace:
         "wpa_conf": None,
         "no_tarball": True,
         "tar_timeout": 10.0,
+        "apt_work": tmp / "apt",
+        "suite": "bookworm",
+        "arch": "arm64",
+        "mirror": "http://deb.debian.org/debian",
+        "apt_timeout": 10.0,
+        "no_sta_tool_install": True,
     }
     defaults.update(overrides)
     return argparse.Namespace(**defaults)
@@ -86,6 +92,55 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertEqual((rootfs / wsta3.TARGET_ENABLE).read_text(encoding="utf-8"), "1\n")
             self.assertTrue(result["helper_present"])
 
+    def test_stage_dpublic_firstboot_installs_autostart_hook(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp) / "rootfs"
+
+            result = wsta3.stage_dpublic_firstboot(rootfs)
+
+            firstboot = rootfs / wsta3.TARGET_FIRSTBOOT
+            self.assertTrue(firstboot.is_file())
+            self.assertEqual(firstboot.stat().st_mode & 0o777, 0o755)
+            text = firstboot.read_text(encoding="utf-8")
+            self.assertIn("autoreboot_sec=disabled", text)
+            self.assertIn("/usr/local/bin/a90-dpublic-wifi-sta", text)
+            self.assertTrue(result["autoreboot_disabled_marker"])
+            self.assertTrue(result["wifi_sta_helper_invoked"])
+
+    def test_sta_tools_missing_blocks_when_install_disabled(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp) / "rootfs"
+            rootfs.mkdir()
+            args = make_args(Path(tmp), no_sta_tool_install=True)
+
+            result = wsta3.ensure_sta_tools(rootfs, args)
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["reason"], "sta-tools-missing-install-disabled")
+        self.assertFalse(result["before"]["tools"]["wpa_supplicant"]["present"])
+        self.assertFalse(result["before"]["tools"]["dhclient"]["present"])
+
+    def test_ensure_sta_tools_restores_usrmerge_when_tools_present(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp) / "rootfs"
+            (rootfs / "usr/sbin").mkdir(parents=True)
+            (rootfs / "usr/bin").mkdir(parents=True)
+            (rootfs / "usr/lib").mkdir(parents=True)
+            (rootfs / "sbin").mkdir()
+            (rootfs / "sbin/wpa_supplicant").write_text("", encoding="utf-8")
+            (rootfs / "sbin/dhclient").write_text("", encoding="utf-8")
+            (rootfs / "usr/sbin/ip").write_text("", encoding="utf-8")
+            args = make_args(Path(tmp))
+
+            result = wsta3.ensure_sta_tools(rootfs, args)
+
+            self.assertTrue(result["ok"])
+            self.assertFalse(result["installed"])
+            self.assertTrue((rootfs / "sbin").is_symlink())
+            self.assertEqual((rootfs / "sbin").readlink(), Path("usr/sbin"))
+            self.assertTrue((rootfs / "usr/sbin/wpa_supplicant").is_file())
+            self.assertTrue((rootfs / "usr/sbin/dhclient").is_file())
+
     def test_create_private_tarball_forces_owner_private_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
@@ -129,8 +184,12 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             tmp_path = Path(tmp)
             source = tmp_path / "source"
             (source / "usr/local/bin").mkdir(parents=True)
+            (source / "usr/sbin").mkdir(parents=True)
             (source / "etc/a90-dpublic").mkdir(parents=True)
             (source / "usr/local/bin/a90-dpublic-wifi-sta").write_text("#!/bin/sh\n", encoding="utf-8")
+            (source / "usr/sbin/ip").write_text("", encoding="utf-8")
+            (source / "usr/sbin/wpa_supplicant").write_text("", encoding="utf-8")
+            (source / "usr/sbin/dhclient").write_text("", encoding="utf-8")
             env = tmp_path / "wifi.env"
             write_private(env, "A90_WIFI_SSID='Test Net'\nA90_WIFI_PSK='12345678'\n")
 
@@ -143,6 +202,10 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertEqual((tmp_path / "run").stat().st_mode & 0o777, 0o700)
             self.assertTrue((target / wsta3.TARGET_CONFIG).is_file())
             self.assertTrue((target / wsta3.TARGET_ENABLE).is_file())
+            self.assertTrue((target / wsta3.TARGET_FIRSTBOOT).is_file())
+            self.assertTrue(result["sta_tools"]["ok"])
+            self.assertTrue(result["firstboot"]["wifi_sta_helper_invoked"])
+            self.assertTrue(result["firstboot"]["autoreboot_disabled_marker"])
             self.assertEqual(verify.call_count, 2)
             summary = (tmp_path / "run" / "summary.json").read_text(encoding="utf-8")
             self.assertNotIn("Test Net", summary)
@@ -152,9 +215,6 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
     def test_source_does_not_default_to_live_network_actions(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")
         for forbidden in (
-            "subprocess.run",
-            "subprocess.check_call",
-            "subprocess.check_output",
             "os.system",
             "dhclient ",
             "wpa_supplicant -B",

@@ -15,6 +15,7 @@ import os
 import re
 import shlex
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -34,10 +35,23 @@ DEFAULT_SOURCE_ROOTFS = (
     / "workspace/private/builds/server-distro/d3-sysvinit-usrmerge-wsta-20260704T0225Z-rootfs"
 )
 DEFAULT_WIFI_ENV = REPO_ROOT / "workspace/private/secrets/a90-wifi-test.env"
+DEFAULT_APT_WORK = REPO_ROOT / "workspace/private/builds/server-distro/wsta3-apt-arm64"
+DEFAULT_SUITE = "bookworm"
+DEFAULT_ARCH = "arm64"
+DEFAULT_MIRROR = "http://deb.debian.org/debian"
 TARGET_CONFIG = Path("etc/a90-dpublic/wpa_supplicant-wlan0.conf")
 TARGET_ENABLE = Path("etc/a90-dpublic/wifi-sta-enable")
 TARGET_HELPER = Path("usr/local/bin/a90-dpublic-wifi-sta")
+TARGET_FIRSTBOOT = Path("etc/a90-d3-firstboot")
+DPUBLIC_FIRSTBOOT = SCRIPT_DIR / "a90_dpublic_firstboot.sh"
 PRIVATE_FILE_MODE = 0o600
+STA_TOOL_PACKAGES = ("wpasupplicant", "isc-dhcp-client")
+USR_MERGE_LINKS = (("bin", "usr/bin"), ("sbin", "usr/sbin"), ("lib", "usr/lib"))
+STA_TOOL_CANDIDATES = {
+    "ip": (Path("usr/sbin/ip"), Path("sbin/ip"), Path("bin/ip")),
+    "wpa_supplicant": (Path("usr/sbin/wpa_supplicant"), Path("sbin/wpa_supplicant")),
+    "dhclient": (Path("usr/sbin/dhclient"), Path("sbin/dhclient")),
+}
 KEY_SSID = "ssid"
 KEY_PSK = "psk"
 KEY_MGMT = "key_mgmt"
@@ -63,6 +77,30 @@ def write_json(path: Path, payload: Any) -> None:
         fp.flush()
         os.fsync(fp.fileno())
     tmp.replace(path)
+
+
+def run_host(command: list[object], *, timeout: float, cwd: Path = REPO_ROOT) -> dict[str, Any]:
+    result = subprocess.run(
+        [str(item) for item in command],
+        cwd=cwd,
+        text=True,
+        capture_output=True,
+        timeout=timeout,
+        check=False,
+    )
+    payload = {
+        "command": [str(item) for item in command],
+        "returncode": result.returncode,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+    }
+    if result.returncode != 0:
+        raise RuntimeError(
+            "host command failed rc="
+            f"{result.returncode}: {' '.join(str(item) for item in command)}\n"
+            f"{result.stdout}\n{result.stderr}"
+        )
+    return payload
 
 
 def is_owner_private(path: Path) -> bool:
@@ -166,6 +204,137 @@ def copy_rootfs(source: Path, dest: Path) -> None:
     shutil.copytree(source, dest, symlinks=True, copy_function=shutil.copy2)
 
 
+def sta_tool_metadata(rootfs: Path) -> dict[str, Any]:
+    tools: dict[str, dict[str, Any]] = {}
+    for name, candidates in STA_TOOL_CANDIDATES.items():
+        found = next((candidate for candidate in candidates if (rootfs / candidate).exists()), None)
+        tools[name] = {
+            "present": found is not None,
+            "path": str(found) if found else None,
+        }
+    ok = all(item["present"] for item in tools.values())
+    return {
+        "ok": ok,
+        "tools": tools,
+        "secret_values_logged": 0,
+    }
+
+
+def merge_tree_contents(src: Path, dst: Path) -> None:
+    dst.mkdir(parents=True, exist_ok=True)
+    for item in sorted(src.iterdir(), key=lambda p: p.name):
+        target = dst / item.name
+        if target.exists() or target.is_symlink():
+            if item.is_dir() and not item.is_symlink() and target.is_dir() and not target.is_symlink():
+                merge_tree_contents(item, target)
+                item.rmdir()
+                continue
+            if target.is_dir() and not target.is_symlink():
+                shutil.rmtree(target)
+            else:
+                target.unlink()
+        shutil.move(str(item), str(target))
+
+
+def restore_usrmerge_links(rootfs: Path) -> dict[str, Any]:
+    restored: dict[str, dict[str, Any]] = {}
+    for link_name, target_name in USR_MERGE_LINKS:
+        link = rootfs / link_name
+        target = rootfs / target_name
+        if link.is_symlink():
+            if os.readlink(link) != target_name:
+                link.unlink()
+                link.symlink_to(target_name)
+            restored[link_name] = {"is_symlink": True, "target": os.readlink(link)}
+            continue
+        if link.exists():
+            if not link.is_dir():
+                link.unlink()
+            else:
+                merge_tree_contents(link, target)
+                link.rmdir()
+        target.mkdir(parents=True, exist_ok=True)
+        link.symlink_to(target_name)
+        restored[link_name] = {"is_symlink": True, "target": target_name}
+    return restored
+
+
+def apt_common_args(args: argparse.Namespace, rootfs: Path) -> list[object]:
+    apt_root = args.apt_work.resolve()
+    sources = apt_root / "etc" / "apt" / "sources.list"
+    return [
+        "-o", f"APT::Architecture={args.arch}",
+        "-o", f"APT::Architectures={args.arch}",
+        "-o", f"Dir::Etc::sourcelist={sources}",
+        "-o", "Dir::Etc::sourceparts=-",
+        "-o", f"Dir::Etc::trustedparts={rootfs.resolve() / 'etc' / 'apt' / 'trusted.gpg.d'}",
+        "-o", f"Dir::State={apt_root / 'state'}",
+        "-o", f"Dir::State::status={rootfs.resolve() / 'var' / 'lib' / 'dpkg' / 'status'}",
+        "-o", f"Dir::Cache={apt_root / 'cache'}",
+        "-o", "Debug::NoLocking=1",
+    ]
+
+
+def download_sta_tool_packages(rootfs: Path, args: argparse.Namespace) -> list[Path]:
+    apt_root = args.apt_work.resolve()
+    for rel in ("etc/apt", "state/lists/partial", "cache/archives/partial"):
+        (apt_root / rel).mkdir(parents=True, exist_ok=True)
+    (apt_root / "etc" / "apt" / "sources.list").write_text(
+        f"deb [arch={args.arch}] {args.mirror} {args.suite} main\n",
+        encoding="utf-8",
+    )
+    for old in (apt_root / "cache" / "archives").glob("*.deb"):
+        old.unlink()
+    common = apt_common_args(args, rootfs)
+    run_host(["apt-get", *common, "update"], timeout=args.apt_timeout)
+    run_host(
+        ["apt-get", *common, "--download-only", "-y", "install", *STA_TOOL_PACKAGES],
+        timeout=args.apt_timeout,
+    )
+    packages = sorted((apt_root / "cache" / "archives").glob("*.deb"))
+    missing = [pkg for pkg in STA_TOOL_PACKAGES if not any(path.name.startswith(pkg + "_") for path in packages)]
+    if missing:
+        raise RuntimeError(f"missing downloaded STA tool packages: {missing}")
+    return packages
+
+
+def ensure_sta_tools(rootfs: Path, args: argparse.Namespace) -> dict[str, Any]:
+    before = sta_tool_metadata(rootfs)
+    if before["ok"]:
+        usrmerge = restore_usrmerge_links(rootfs)
+        return {
+            "ok": True,
+            "installed": False,
+            "before": before,
+            "after": sta_tool_metadata(rootfs),
+            "usrmerge": usrmerge,
+            "secret_values_logged": 0,
+        }
+    if args.no_sta_tool_install:
+        return {
+            "ok": False,
+            "installed": False,
+            "reason": "sta-tools-missing-install-disabled",
+            "before": before,
+            "secret_values_logged": 0,
+        }
+    packages = download_sta_tool_packages(rootfs, args)
+    for package in packages:
+        run_host(["dpkg-deb", "-x", package, rootfs], timeout=args.apt_timeout)
+    usrmerge = restore_usrmerge_links(rootfs)
+    after = sta_tool_metadata(rootfs)
+    return {
+        "ok": bool(after["ok"]),
+        "installed": True,
+        "deb_count": len(packages),
+        "packages": [path.name for path in packages],
+        "before": before,
+        "after": after,
+        "usrmerge": usrmerge,
+        "secret_values_logged": 0,
+    }
+
+
 def stage_config(rootfs: Path, config: Path) -> dict[str, Any]:
     config_target = rootfs / TARGET_CONFIG
     enable_target = rootfs / TARGET_ENABLE
@@ -180,6 +349,23 @@ def stage_config(rootfs: Path, config: Path) -> dict[str, Any]:
         "config_mode": oct(config_target.stat().st_mode & 0o777),
         "enable_mode": oct(enable_target.stat().st_mode & 0o777),
         "helper_present": (rootfs / TARGET_HELPER).is_file(),
+        "secret_values_logged": 0,
+    }
+
+
+def stage_dpublic_firstboot(rootfs: Path) -> dict[str, Any]:
+    firstboot_target = rootfs / TARGET_FIRSTBOOT
+    if not DPUBLIC_FIRSTBOOT.is_file():
+        raise FileNotFoundError(DPUBLIC_FIRSTBOOT)
+    firstboot_target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(DPUBLIC_FIRSTBOOT, firstboot_target)
+    firstboot_target.chmod(0o755)
+    text = firstboot_target.read_text(encoding="utf-8")
+    return {
+        "firstboot_target": str(TARGET_FIRSTBOOT),
+        "firstboot_mode": oct(firstboot_target.stat().st_mode & 0o777),
+        "autoreboot_disabled_marker": "autoreboot_sec=disabled" in text,
+        "wifi_sta_helper_invoked": "/usr/local/bin/a90-dpublic-wifi-sta" in text,
         "secret_values_logged": 0,
     }
 
@@ -249,7 +435,13 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
     d4c.verify_rootfs(args.source_rootfs)
     target_rootfs = run_dir / "rootfs"
     copy_rootfs(args.source_rootfs, target_rootfs)
+    result["sta_tools"] = ensure_sta_tools(target_rootfs, args)
+    if not result["sta_tools"].get("ok"):
+        result.update({"ok": False, "decision": "wsta3-private-rootfs-blocked-" + str(result["sta_tools"].get("reason", "sta-tools-missing"))})
+        write_json(run_dir / "summary.json", result)
+        return result
     result["stage"] = stage_config(target_rootfs, source_config)
+    result["firstboot"] = stage_dpublic_firstboot(target_rootfs)
     d4c.verify_rootfs(target_rootfs)
     if not args.no_tarball:
         result["tarball_result"] = create_private_tarball(
@@ -279,6 +471,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--wpa-conf", type=Path)
     parser.add_argument("--no-tarball", action="store_true")
     parser.add_argument("--tar-timeout", type=float, default=900.0)
+    parser.add_argument("--apt-work", type=Path, default=DEFAULT_APT_WORK)
+    parser.add_argument("--suite", default=DEFAULT_SUITE)
+    parser.add_argument("--arch", default=DEFAULT_ARCH)
+    parser.add_argument("--mirror", default=DEFAULT_MIRROR)
+    parser.add_argument("--apt-timeout", type=float, default=180.0)
+    parser.add_argument("--no-sta-tool-install", action="store_true")
     return parser
 
 
@@ -286,6 +484,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_arg_parser().parse_args(argv)
     args.source_rootfs = args.source_rootfs.resolve()
     args.wifi_env = args.wifi_env.resolve()
+    args.apt_work = args.apt_work.resolve()
     if args.wpa_conf:
         args.wpa_conf = args.wpa_conf.resolve()
     try:

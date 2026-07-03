@@ -908,6 +908,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > refresh/populate userdata with the WSTA3 tarball, switch into Debian, and run Debian-owned STA
 > association/DHCP/default-route validation using private credentials only.
 
+> **✅ STATUS (2026-07-04 03:36 KST host clock) — WSTA3 Debian-owned STA LIVE PASS.**
+> Codex completed the bounded WSTA3 live unit from resident V3384 without a boot flash.  The live run
+> staged a private WSTA3 tarball to SD with secret-derived SHA redacted, formatted/refreshed `userdata`,
+> switched into Debian, and iterated until Debian firstboot returned `wifi_sta_decision=wifi-sta-pass`.
+> Final redacted markers proved `wifi_sta_wlan0_present=1`, `wifi_sta_wpa_supplicant_rc=0`,
+> `wifi_sta_dhcp_rc=0`, `wifi_sta_default_route_router_present=1`, `wifi_sta_default_route_set_rc=0`,
+> `wifi_sta_default_route_iface=wlan0`, `ncm_recovery_preserved_after_dhcp=1`, and
+> `wifi_sta_secret_values_logged=0`.  Runtime state showed `wlan0` up with a dynamic lease, default
+> route via `wlan0`, USB/NCM host route preserved, and `wpa_supplicant`/`dhclient` running.  No public
+> tunnel or external ping was used.
+>
+> Source fixes from the live gaps are now in-tree: `prepare_wsta3_sta_rootfs.py` installs the D-public
+> firstboot hook, host-installs or fail-closes missing STA tools, and restores usrmerge links after
+> package extraction; `a90_dpublic_wifi_sta.sh` reads the DHCP lease router and explicitly moves
+> default route to `wlan0`.  Operational finding: after a native reboot, WSTA3 still needs the WSTA2
+> native materialization gate immediately before `switch_root`; otherwise Debian can see
+> `wifi_sta_wlan0_present=0`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA3_LIVE_PASS_2026-07-04.md`.
+> **NEXT:** D-public tunnel over Debian STA: boot native, run WSTA2 materialization, switch into WSTA3
+> userdata, confirm `wifi-sta-pass`, then start the Debian-owned tunnel path.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.
