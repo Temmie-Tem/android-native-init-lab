@@ -419,6 +419,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT bounded unit = implement/build D4B native-init fail-closed surface**; D4C remains disallowed until
 > D4B static validation and candidate health pass, and D-public remains a separate later gate.
 
+> **✅ STATUS (2026-07-03) — D4B native-init source/build DONE; candidate health still pending.**
+> Codex implemented the D4B command surface in native-init and built `V3373`:
+> `A90 Linux init 0.11.134 (v3373-server-distro-userdata-appliance)`, boot SHA
+> `78e3297063b1957626075bc8c22223ef7a195d0de684fdbd7f51deb824a49f6d`.
+> Added commands: `userdata-appliance-preflight`, `userdata-appliance-format`,
+> `userdata-appliance-populate`, and `switch-root-to-userdata`. All require
+> `SERVER-DISTRO-D4-USERDATA-APPLIANCE`; mutating commands re-derive sysfs
+> `PARTNAME=userdata`, compare caller-pinned `devname/dev/sectors`, and materialize
+> `/dev/block/a90-userdata` from verified `MAJOR:MINOR` only after identity passes.
+> Source/build validation passed, but this unit performed **NO FLASH / NO REBOOT / NO FORMAT / NO MOUNT**.
+> Report: `docs/reports/NATIVE_INIT_V3373_SERVER_DISTRO_D4B_USERDATA_APPLIANCE_SOURCE_BUILD_2026-07-03.md`.
+> **NEXT bounded unit = D4B candidate-health validation**: confirm rollback/TWRP preconditions, flash the
+> exact V3373 artifact only through `native_init_flash.py`, verify `version`/`status`/`selftest`, run only
+> device-side `userdata-appliance-preflight`, and roll back to v2321 unless D4C starts immediately under
+> the destructive runbook. D4C remains disallowed until this candidate-health gate passes and the formatter
+> path is device-proven.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.

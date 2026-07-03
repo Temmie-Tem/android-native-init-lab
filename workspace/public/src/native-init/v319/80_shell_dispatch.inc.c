@@ -19590,6 +19590,23 @@ static int handle_switch_root_to_distro(char **argv, int argc) {
     return a90_server_distro_switch_root_cmd(argv, argc);
 }
 
+static int handle_userdata_appliance_preflight(char **argv, int argc) {
+    return a90_server_distro_userdata_preflight_cmd(argv, argc);
+}
+
+static int handle_userdata_appliance_format(char **argv, int argc) {
+    return a90_server_distro_userdata_format_cmd(argv, argc);
+}
+
+static int handle_userdata_appliance_populate(char **argv, int argc) {
+    return a90_server_distro_userdata_populate_cmd(argv, argc);
+}
+
+static int handle_switch_root_to_userdata(char **argv, int argc) {
+    stop_auto_hud(false);
+    return a90_server_distro_switch_root_userdata_cmd(argv, argc);
+}
+
 static int handle_poweroff(char **argv, int argc) {
     (void)argv;
     (void)argc;
@@ -19720,6 +19737,18 @@ static const struct shell_command command_table[] = {
       CMD_DANGEROUS | CMD_NO_DONE, A90_CMD_GROUP_POWER },
     { "switch-root-to-distro", handle_switch_root_to_distro,
       "switch-root-to-distro <token> <image> <sha256>",
+      CMD_DANGEROUS | CMD_NO_DONE, A90_CMD_GROUP_POWER },
+    { "userdata-appliance-preflight", handle_userdata_appliance_preflight,
+      "userdata-appliance-preflight <token>",
+      CMD_NONE, A90_CMD_GROUP_STORAGE },
+    { "userdata-appliance-format", handle_userdata_appliance_format,
+      "userdata-appliance-format <token> <expected-devname> <expected-dev> <expected-sectors>",
+      CMD_DANGEROUS, A90_CMD_GROUP_STORAGE },
+    { "userdata-appliance-populate", handle_userdata_appliance_populate,
+      "userdata-appliance-populate <token> <source-tar> <sha256>",
+      CMD_DANGEROUS, A90_CMD_GROUP_STORAGE },
+    { "switch-root-to-userdata", handle_switch_root_to_userdata,
+      "switch-root-to-userdata <token> <expected-marker>",
       CMD_DANGEROUS | CMD_NO_DONE, A90_CMD_GROUP_POWER },
 };
 

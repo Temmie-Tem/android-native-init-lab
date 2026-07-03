@@ -55,8 +55,9 @@ class BuildNativeInitBootV3372ServerDistroSwitchrootTests(unittest.TestCase):
         self.assertNotIn('(char *)"/dev/console",', source)
         self.assertIn('execve(A90_D3_BUSYBOX, switch_argv, newenv);', source)
         self.assertIn("MS_MOVE", source)
+        d3_source = source.split("#define A90_D4_TAG", 1)[0]
         for forbidden in ("/data", "userdata", "/dev/block/by-name/userdata"):
-            self.assertNotIn(forbidden, source)
+            self.assertNotIn(forbidden, d3_source)
 
     def test_command_table_registers_no_done_dangerous_handoff(self) -> None:
         dispatch = Path("workspace/public/src/native-init/v319/80_shell_dispatch.inc.c").read_text(

@@ -16,4 +16,16 @@
  */
 int a90_server_distro_switch_root_cmd(char **argv, int argc);
 
+/*
+ * Server-distro D4 userdata appliance surfaces.
+ *
+ * D4 mutates Android userdata, so every command is token gated.  Mutating
+ * commands re-derive PARTNAME=userdata from sysfs and compare host-pinned
+ * identity before materializing or touching the block node.
+ */
+int a90_server_distro_userdata_preflight_cmd(char **argv, int argc);
+int a90_server_distro_userdata_format_cmd(char **argv, int argc);
+int a90_server_distro_userdata_populate_cmd(char **argv, int argc);
+int a90_server_distro_switch_root_userdata_cmd(char **argv, int argc);
+
 #endif /* A90_SERVER_DISTRO_H */
