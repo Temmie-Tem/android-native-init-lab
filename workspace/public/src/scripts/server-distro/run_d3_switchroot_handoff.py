@@ -22,6 +22,7 @@ import os
 import re
 import shutil
 import shlex
+import socket
 import subprocess
 import sys
 import time
@@ -59,6 +60,7 @@ EXPECTED_CANDIDATE_BUILD = "v3369-server-distro-switchroot"
 EXPECTED_ROLLBACK_SHA256 = "ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb"
 EXPECTED_ROLLBACK_VERSION = "0.9.285"
 SWITCH_ROOT_TOKEN = "SERVER-DISTRO-D3B-SWITCHROOT"
+DEFAULT_TRANSFER_DELAY = 2.0
 REQUIRED_TIMELINE_EVENTS = (
     "candidate_flash_start",
     "candidate_flash_done",
@@ -185,6 +187,34 @@ def install_keyed_image(args: argparse.Namespace, keyed_image: Path, keyed_sha: 
         args.local_image = local_image
 
 
+def cancel_foreground_run(args: argparse.Namespace) -> dict[str, Any]:
+    """Best-effort cancel for a foreground native-init `run` before rollback."""
+    data = bytearray()
+    try:
+        with socket.create_connection((args.host, args.port), timeout=2.0) as sock:
+            sock.settimeout(0.5)
+            sock.sendall(b"q\n")
+            deadline = time.monotonic() + 5.0
+            while time.monotonic() < deadline:
+                try:
+                    chunk = sock.recv(8192)
+                except socket.timeout:
+                    continue
+                if not chunk:
+                    break
+                data.extend(chunk)
+                if b"cancelled by q" in data or b"a90:/#" in data:
+                    break
+    except Exception as exc:  # noqa: BLE001 - rollback path records best-effort failure
+        return {"ok": False, "error": type(exc).__name__, "message": str(exc)}
+
+    text = data.decode("utf-8", errors="replace")
+    return {
+        "ok": "cancelled by q" in text or "a90:/#" in text,
+        "text": text,
+    }
+
+
 def run_switch_root_command(args: argparse.Namespace, image_sha: str) -> dict[str, Any]:
     command = [
         "switch-root-to-distro",
@@ -296,6 +326,8 @@ def run_live(args: argparse.Namespace) -> int:
     steps: dict[str, Any] = {"run_id": run_id}
     rollback_needed = False
     handoff_started = False
+    staging_started = False
+    staging_done = False
 
     def save_step(name: str, payload: Any) -> None:
         steps[name] = payload
@@ -324,7 +356,9 @@ def run_live(args: argparse.Namespace) -> int:
 
         add_event(events, run_dir, "live_session_start")
         keyed_path = run_dir / "d3-sysvinit-keyed.img"
+        staging_started = True
         save_step("stage_keyed_image", install_keyed_image(args, keyed_path, str(keyed["keyed_sha256"])))
+        staging_done = True
         remote_sha, remote_sha_record = d1.remote_image_sha(args.host, args.port, args.timeout, args.remote_image)
         save_step("remote_image_sha", {"sha256": remote_sha, "record": remote_sha_record})
         if remote_sha != keyed["keyed_sha256"]:
@@ -368,6 +402,8 @@ def run_live(args: argparse.Namespace) -> int:
     except Exception as exc:
         save_step("error", {"type": type(exc).__name__, "message": str(exc)})
         if rollback_needed:
+            if staging_started and not staging_done and not handoff_started:
+                save_step("cancel_foreground_run_after_stage_error", cancel_foreground_run(args))
             if handoff_started:
                 try:
                     save_step("candidate_return_after_error", wait_for_candidate_return(args))
@@ -423,7 +459,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--connect-timeout", type=float, default=10.0)
     parser.add_argument("--tcp-timeout", type=float, default=60.0)
     parser.add_argument("--transfer-timeout", type=float, default=900.0)
-    parser.add_argument("--transfer-delay", type=float, default=0.0)
+    parser.add_argument("--transfer-delay", type=float, default=DEFAULT_TRANSFER_DELAY)
     parser.add_argument("--toybox", default="/bin/toybox")
     parser.add_argument("--ssh-connect-timeout", type=float, default=8.0)
     parser.add_argument("--ssh-wait-timeout", type=float, default=90.0)

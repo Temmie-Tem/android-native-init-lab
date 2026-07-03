@@ -62,6 +62,16 @@ class ServerDistroD3SwitchrootHandoffTests(unittest.TestCase):
         for forbidden in (" fastboot ", " of=/dev/block", " by-name/userdata", "mkfs.ext4"):
             self.assertNotIn(forbidden, source)
 
+    def test_staging_defaults_match_d1_d2_and_cancel_foreground_run_before_rollback(self) -> None:
+        source = Path("workspace/public/src/scripts/server-distro/run_d3_switchroot_handoff.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertEqual(d3b.DEFAULT_TRANSFER_DELAY, 2.0)
+        self.assertIn("default=DEFAULT_TRANSFER_DELAY", source)
+        self.assertIn("def cancel_foreground_run", source)
+        self.assertIn("cancel_foreground_run_after_stage_error", source)
+        self.assertIn('sock.sendall(b"q\\n")', source)
+
 
 if __name__ == "__main__":
     unittest.main()
