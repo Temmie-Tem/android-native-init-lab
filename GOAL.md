@@ -784,6 +784,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > native, IP/route/tunnel ownership in Debian).  Audio, KGSL/GPU, video/Doom, touch/game input, and stress
 > tools are explicit opt-in only; modem/camera/GNSS/NFC/Bluetooth/sensor hubs/Android HAL services are
 > not default appliance boot targets.  No device action was performed in this unit.
+>
+> **✅ STATUS (2026-07-04 03:05 KST) — V3384 Stage0 hardware-contract SOURCE BUILD DONE.**
+> Codex added a read-only native command surface: `server-distro [status|hardware-contract]`.  It prints
+> `A90DHW` lines for the default active surfaces, Wi-Fi STA next rung, opt-in demo hardware, default-off
+> hardware, Debian-owned public tunnel, and safety no-go policy.  V3384 source-build generated
+> `A90 Linux init 0.11.140 (v3384-server-distro-hardware-contract)` at
+> `workspace/private/inputs/boot_images/boot_linux_v3384_server_distro_hardware_contract.img`, SHA256
+> `47890d04219837af3acb96ad8e281ad4eab0ea3a73ae2641e05633d014979178`; `strings` audit confirmed the
+> `A90DHW` contract lines are present in the boot image.  Static validation passed: builder/test
+> `py_compile`, focused hardware-contract and V3383 handoff tests, AArch64 fast-build compile, required
+> string audit, and boot image SHA capture.  Report:
+> `docs/reports/NATIVE_INIT_V3384_SERVER_DISTRO_HARDWARE_CONTRACT_SOURCE_BUILD_2026-07-04.md`.
+> **NEXT live gate:** checked-helper flash exact V3384, health-check native-init, run
+> `server-distro hardware-contract`, verify all expected `A90DHW` lines over cmdv1, then continue to
+> D-public runtime cleanup.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

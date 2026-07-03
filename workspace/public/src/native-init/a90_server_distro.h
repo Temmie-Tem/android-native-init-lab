@@ -23,6 +23,7 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc);
  * commands re-derive PARTNAME=userdata from sysfs and compare host-pinned
  * identity before materializing or touching the block node.
  */
+int a90_server_distro_cmd(char **argv, int argc);
 int a90_server_distro_userdata_preflight_cmd(char **argv, int argc);
 int a90_server_distro_userdata_formatter_probe_cmd(char **argv, int argc);
 int a90_server_distro_userdata_format_cmd(char **argv, int argc);

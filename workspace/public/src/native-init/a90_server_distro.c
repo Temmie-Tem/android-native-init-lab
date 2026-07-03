@@ -40,6 +40,47 @@
 #define A90_D3_SWITCH_TIMEOUT_MS 30000
 #define A90_D_HANDOFF_HUD_TIMEOUT_MS 3000
 #define A90_D_HANDOFF_DRM_OWNER_TIMEOUT_MS 1000
+#define A90_D_HW_TAG "A90DHW"
+
+static void d_hw_print_contract(void) {
+    a90_console_printf("A90DHW contract.version=1\r\n");
+    a90_console_printf("A90DHW contract.document=docs/plans/SERVER_DISTRO_STAGE0_HARDWARE_CONTRACT_2026-07-04.md\r\n");
+    a90_console_printf("A90DHW default.active=boot-control,usb-acm-ncm,storage-rootfs-handoff,drm-kms-boot-hud-release,health-status\r\n");
+    a90_console_printf("A90DHW default.boot_control=active owner=native-until-switch_root\r\n");
+    a90_console_printf("A90DHW default.usb_acm_ncm=active owner=kernel-gadget recovery=preserve\r\n");
+    a90_console_printf("A90DHW default.storage_rootfs=active owner=native-validate-mount-before-switch_root debian_owns_after=1\r\n");
+    a90_console_printf("A90DHW default.drm_kms=optional-boot-hud release_rule=stop-autohud-and-native-init-drm-owners-before-switch_root\r\n");
+    a90_console_printf("A90DHW default.health_status=active owner=native-before-handoff\r\n");
+    a90_console_printf("A90DHW next.required=wifi-sta-upstream\r\n");
+    a90_console_printf("A90DHW next.wifi_sta=native-wlan0-materialization,debian-ip-route-tunnel\r\n");
+    a90_console_printf("A90DHW optin=audio-adsp-acdb,kgsl-gpu,video-doom,touch-game-input,stress-longsoak\r\n");
+    a90_console_printf("A90DHW denied.default_off=modem-cellular,camera,gnss,nfc,bluetooth,sensor-hubs,android-hal-services\r\n");
+    a90_console_printf("A90DHW public_tunnel.owner=debian native=off inbound_public_ports=0\r\n");
+    a90_console_printf("A90DHW safety.no=forbidden-partitions,raw-nonboot-flash,pmic-regulator-gdsc-gpio-backlight,panel-reinit\r\n");
+    a90_console_printf("A90DHW end=1\r\n");
+}
+
+int a90_server_distro_cmd(char **argv, int argc) {
+    const char *mode;
+
+    if (argc == 1) {
+        mode = "status";
+    } else if (argc == 2) {
+        mode = argv[1];
+    } else {
+        a90_console_printf("usage: server-distro [status|hardware-contract]\r\n");
+        return -EINVAL;
+    }
+
+    if (strcmp(mode, "status") == 0 || strcmp(mode, "hardware-contract") == 0) {
+        d_hw_print_contract();
+        return 0;
+    }
+
+    a90_console_printf("usage: server-distro [status|hardware-contract]\r\n");
+    a90_console_printf("%s refused=unknown-mode mode=%s\r\n", A90_D_HW_TAG, mode);
+    return -EINVAL;
+}
 
 static int d_handoff_parse_pid(const char *name, pid_t *pid_out) {
     char *end = NULL;

@@ -19590,6 +19590,10 @@ static int handle_switch_root_to_distro(char **argv, int argc) {
     return a90_server_distro_switch_root_cmd(argv, argc);
 }
 
+static int handle_server_distro(char **argv, int argc) {
+    return a90_server_distro_cmd(argv, argc);
+}
+
 static int handle_userdata_appliance_preflight(char **argv, int argc) {
     return a90_server_distro_userdata_preflight_cmd(argv, argc);
 }
@@ -19739,6 +19743,9 @@ static const struct shell_command command_table[] = {
     { "poweroff", handle_poweroff, "poweroff", CMD_DANGEROUS | CMD_NO_DONE, A90_CMD_GROUP_POWER },
     { "reload", handle_init_reload, "reload <token> <staged-init-path> <expected-sha256>",
       CMD_DANGEROUS | CMD_NO_DONE, A90_CMD_GROUP_POWER },
+    { "server-distro", handle_server_distro,
+      "server-distro [status|hardware-contract]",
+      CMD_NONE, A90_CMD_GROUP_STORAGE },
     { "switch-root-to-distro", handle_switch_root_to_distro,
       "switch-root-to-distro <token> <image> <sha256>",
       CMD_DANGEROUS | CMD_NO_DONE, A90_CMD_GROUP_POWER },
