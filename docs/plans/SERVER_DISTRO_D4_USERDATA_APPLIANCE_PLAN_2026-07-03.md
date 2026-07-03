@@ -5,7 +5,7 @@
 - Device action in this document: none
 - Parent spec: `docs/plans/NATIVE_INIT_SERVER_DISTRO_ENDGAME_DESIGN_2026-06-30.md`
 - Current prerequisite: D3B live `switch_root` proof is complete, D4A read-only preflight passed,
-  and v2321 resident health is clean
+  D4B source/build is complete, and D4B candidate-health is the next gate
 
 ## 1. Objective
 
@@ -142,6 +142,22 @@ D4B must also provide one of these formatter paths before D4C:
 
 Do not enter D4C on an unproven formatter assumption.
 
+Status: source/build done. Report:
+`docs/reports/NATIVE_INIT_V3373_SERVER_DISTRO_D4B_USERDATA_APPLIANCE_SOURCE_BUILD_2026-07-03.md`.
+
+D4B artifact to validate:
+
+```text
+init=A90 Linux init 0.11.134 (v3373-server-distro-userdata-appliance)
+boot=workspace/private/inputs/boot_images/boot_linux_v3373_server_distro_userdata_appliance.img
+sha256=78e3297063b1957626075bc8c22223ef7a195d0de684fdbd7f51deb824a49f6d
+```
+
+The candidate-health gate is still pending. It must flash this exact artifact through
+`native_init_flash.py`, prove candidate `version`/`status`/`selftest`, run only
+`userdata-appliance-preflight`, and roll back to v2321 unless D4C starts immediately under this
+destructive runbook.
+
 ### D4C - Format and Populate
 
 This is the irreversible Android `/data` disposal step.
@@ -222,12 +238,22 @@ Commit public code, tests, GOAL updates, and metadata reports only. Keep these p
 
 ## 7. Immediate Next Step
 
-D4A is complete. Implement D4B next as a source/build plus candidate-health unit:
+D4B source/build is complete. The immediate next bounded unit is D4B candidate-health:
 
 ```text
-Can native-init expose fail-closed userdata preflight, format, populate, and switch_root commands
-without relying on by-name nodes or unproven formatter behavior?
+Can the V3373 D4-capable candidate boot cleanly, expose the D4 preflight surface, and agree with the
+host-pinned userdata identity without performing any format, mount, populate, or switch_root action?
 ```
 
-D4C must not run until D4B has a statically validated D4-capable native-init surface and the candidate
-boots cleanly under the normal rollback gates.
+Run sequence:
+
+1. Confirm v2321/v2237/v48/TWRP recovery preconditions.
+2. Flash only the exact V3373 artifact through `native_init_flash.py`.
+3. Verify candidate `version`, `status`, and `selftest`.
+4. Run only `userdata-appliance-preflight SERVER-DISTRO-D4-USERDATA-APPLIANCE`.
+5. Record target identity and `node_materialized=0`.
+6. Roll back to v2321 and verify `selftest fail=0`, unless D4C starts immediately under this runbook.
+
+D4C must not run until D4B candidate-health has passed, device-side preflight agrees with the host target
+identity, the formatter path is device-proven, and the SD-staged rootfs tarball exists with a host-pinned
+SHA-256.

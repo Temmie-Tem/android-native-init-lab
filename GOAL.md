@@ -430,6 +430,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `/dev/block/a90-userdata` from verified `MAJOR:MINOR` only after identity passes.
 > Source/build validation passed, but this unit performed **NO FLASH / NO REBOOT / NO FORMAT / NO MOUNT**.
 > Report: `docs/reports/NATIVE_INIT_V3373_SERVER_DISTRO_D4B_USERDATA_APPLIANCE_SOURCE_BUILD_2026-07-03.md`.
+> Execution brief: `docs/plans/SERVER_DISTRO_D4_EXECUTION_BRIEF_2026-07-03.md`.
 > **NEXT bounded unit = D4B candidate-health validation**: confirm rollback/TWRP preconditions, flash the
 > exact V3373 artifact only through `native_init_flash.py`, verify `version`/`status`/`selftest`, run only
 > device-side `userdata-appliance-preflight`, and roll back to v2321 unless D4C starts immediately under
