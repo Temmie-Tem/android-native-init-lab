@@ -72,6 +72,17 @@ class ServerDistroD3SwitchrootHandoffTests(unittest.TestCase):
         self.assertIn("cancel_foreground_run_after_stage_error", source)
         self.assertIn('sock.sendall(b"q\\n")', source)
 
+    def test_runner_prestages_sd_image_before_candidate_flash(self) -> None:
+        source = Path("workspace/public/src/scripts/server-distro/run_d3_switchroot_handoff.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('save_step("prestage_keyed_image"', source)
+        self.assertIn('save_step("prestage_remote_image_sha"', source)
+        self.assertIn("pre-staged D3 image sha mismatch", source)
+        run_live_source = source[source.index("def run_live"):]
+        self.assertLess(run_live_source.index('save_step("prestage_keyed_image"'), run_live_source.index('"candidate_flash"'))
+        self.assertLess(run_live_source.index('save_step("remote_image_sha"'), run_live_source.index('run_switch_root_command'))
+
 
 if __name__ == "__main__":
     unittest.main()

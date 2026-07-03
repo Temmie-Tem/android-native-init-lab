@@ -342,6 +342,15 @@ def run_live(args: argparse.Namespace) -> int:
         keyed = prepare_keyed_image(args, run_dir, public_key)
         save_step("keyed_image", keyed)
 
+        staging_started = True
+        keyed_path = run_dir / "d3-sysvinit-keyed.img"
+        save_step("prestage_keyed_image", install_keyed_image(args, keyed_path, str(keyed["keyed_sha256"])))
+        staging_done = True
+        prestage_sha, prestage_sha_record = d1.remote_image_sha(args.host, args.port, args.timeout, args.remote_image)
+        save_step("prestage_remote_image_sha", {"sha256": prestage_sha, "record": prestage_sha_record})
+        if prestage_sha != keyed["keyed_sha256"]:
+            raise RuntimeError(f"pre-staged D3 image sha mismatch: remote={prestage_sha} local={keyed['keyed_sha256']}")
+
         add_event(events, run_dir, "candidate_flash_start")
         save_step(
             "candidate_flash",
@@ -355,10 +364,6 @@ def run_live(args: argparse.Namespace) -> int:
         add_event(events, run_dir, "candidate_boot_ready")
 
         add_event(events, run_dir, "live_session_start")
-        keyed_path = run_dir / "d3-sysvinit-keyed.img"
-        staging_started = True
-        save_step("stage_keyed_image", install_keyed_image(args, keyed_path, str(keyed["keyed_sha256"])))
-        staging_done = True
         remote_sha, remote_sha_record = d1.remote_image_sha(args.host, args.port, args.timeout, args.remote_image)
         save_step("remote_image_sha", {"sha256": remote_sha, "record": remote_sha_record})
         if remote_sha != keyed["keyed_sha256"]:
@@ -401,9 +406,9 @@ def run_live(args: argparse.Namespace) -> int:
         return 0
     except Exception as exc:
         save_step("error", {"type": type(exc).__name__, "message": str(exc)})
+        if staging_started and not staging_done and not handoff_started:
+            save_step("cancel_foreground_run_after_stage_error", cancel_foreground_run(args))
         if rollback_needed:
-            if staging_started and not staging_done and not handoff_started:
-                save_step("cancel_foreground_run_after_stage_error", cancel_foreground_run(args))
             if handoff_started:
                 try:
                     save_step("candidate_return_after_error", wait_for_candidate_return(args))
