@@ -180,6 +180,7 @@ static int d3_read_loop_major(unsigned int *major_out) {
     FILE *fp;
     unsigned int major_num = 0;
     char name[64];
+    char line[256];
 
     if (major_out == NULL) {
         return -EINVAL;
@@ -188,7 +189,10 @@ static int d3_read_loop_major(unsigned int *major_out) {
     if (fp == NULL) {
         return -errno;
     }
-    while (fscanf(fp, " %u %63s", &major_num, name) == 2) {
+    while (fgets(line, sizeof(line), fp) != NULL) {
+        if (sscanf(line, " %u %63s", &major_num, name) != 2) {
+            continue;
+        }
         if (strcmp(name, "loop") == 0) {
             *major_out = major_num;
             fclose(fp);

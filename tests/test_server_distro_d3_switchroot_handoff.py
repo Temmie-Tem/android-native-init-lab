@@ -38,7 +38,7 @@ class ServerDistroD3SwitchrootHandoffTests(unittest.TestCase):
         command = d3b.flash_command(
             Path("candidate.img"),
             "a" * 64,
-            "0.11.130",
+            d3b.EXPECTED_CANDIDATE_VERSION,
             args,
         )
         rendered = [str(item) for item in command]
@@ -47,9 +47,20 @@ class ServerDistroD3SwitchrootHandoffTests(unittest.TestCase):
         self.assertIn("--expect-sha256", rendered)
         self.assertIn("a" * 64, rendered)
         self.assertIn("--expect-version", rendered)
-        self.assertIn("0.11.130", rendered)
+        self.assertIn("0.11.131", rendered)
         self.assertIn("--verify-protocol", rendered)
         self.assertIn("selftest", rendered)
+
+    def test_default_candidate_is_pinned_v3370_loopfix_image(self) -> None:
+        self.assertTrue(str(d3b.DEFAULT_CANDIDATE_BOOT).endswith(
+            "boot_linux_v3370_server_distro_switchroot_loopfix.img"
+        ))
+        self.assertEqual(
+            d3b.EXPECTED_CANDIDATE_SHA256,
+            "df30ac45b5dbb7c8ba05f663c394e5ad31d49aab046a5128e3e663e89d33a6f2",
+        )
+        self.assertEqual(d3b.EXPECTED_CANDIDATE_VERSION, "0.11.131")
+        self.assertEqual(d3b.EXPECTED_CANDIDATE_BUILD, "v3370-server-distro-switchroot-loopfix")
 
     def test_runner_contract_uses_switchroot_token_and_avoids_raw_flash_paths(self) -> None:
         source = Path("workspace/public/src/scripts/server-distro/run_d3_switchroot_handoff.py").read_text(
