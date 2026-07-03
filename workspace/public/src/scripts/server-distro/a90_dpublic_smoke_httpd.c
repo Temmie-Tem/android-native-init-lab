@@ -69,6 +69,7 @@ int main(int argc, char **argv) {
 
     signal(SIGTERM, on_signal);
     signal(SIGINT, on_signal);
+    signal(SIGPIPE, SIG_IGN);
 
     server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0) {

@@ -706,6 +706,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Report: `docs/reports/SERVER_DISTRO_DPUBLIC_LIVE_PUBLISH_2026-07-04.md`. The live tunnel was left
 > running for operator inspection; the actual URL is stored only in
 > `workspace/private/runs/server-distro/dpublic-live-20260703T150145Z/public-url.txt`.
+>
+> **✅ STATUS (2026-07-04 01:10 KST) — D-public Debian-owned visual HUD LIVE PASS; tunnel still live.**
+> Codex added a Debian-side KMS HUD helper
+> `workspace/public/src/scripts/server-distro/a90_dpublic_hud.c` and a D-public firstboot profile
+> `workspace/public/src/scripts/server-distro/a90_dpublic_firstboot.sh`.  Live state is Debian PID1
+> (`/usr/sbin/init`, Debian `12.14`) with autoreboot disabled, loopback smoke on `127.0.0.1:8080`,
+> key-only dropbear on `192.168.7.2:2222`, the existing quick Tunnel still running, and the Debian HUD
+> presenting through KMS (`display=1080x2400 connector=28 crtc=133 refresh=2s`).  The firstboot profile
+> now recovers DRM ownership from any non-PID1 native `/init` child holding `/dev/dri/card0`, clears stale
+> D-public smoke/HUD processes by command line before restart, waits for port/DRM release, ignores smoke
+> `SIGPIPE`, and prefixes inherited D3 proof-stage marker fields as `base_*` to avoid status ambiguity.
+> Local loopback smoke passed 3/3 and the public quick Tunnel path passed 5/5 with
+> `A90_DPUBLIC_SMOKE_OK`; the URL remains private-only.  Report:
+> `docs/reports/SERVER_DISTRO_DPUBLIC_BOOT_VISUAL_HUD_2026-07-04.md`.  No flash or rollback was performed
+> in this unit; the live Debian appliance/HUD/tunnel were left running for operator inspection.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
