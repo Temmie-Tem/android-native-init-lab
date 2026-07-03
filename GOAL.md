@@ -37,6 +37,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > partition ONLY.** When an action would cross the bright line or leave the recoverable envelope, STOP
 > and report — never guess.
 
+> **🛑 OPERATOR HOLD (2026-07-04) — D-public is UNDER OPERATOR REVIEW; STOP expanding external exposure.**
+> D-public first live publish already happened (commit `8d25f793`: cloudflared quick Tunnel + public URL
+> returning the smoke marker), and a follow-on unit (`8ebbff49`) then replaced the bounded proof-autoreboot
+> firstboot with a **persistent no-autoreboot server/HUD profile** and left the tunnel + Debian HUD running.
+> **That is the loop treating a one-time gated proof as license to productionize a persistent public
+> server — it is NOT.** D-public external exposure is the **USER's** decision and it is **pending operator
+> confirmation right now.** Until the operator explicitly re-charters D-public, the loop MUST:
+> 1. **NOT expand exposure** — no named/persistent Cloudflare tunnel, no additional exposed services, no
+>    inbound ports, no new public URLs, no auto-starting `cloudflared` (the `cloudflared-quick-enable`
+>    flag file must stay ABSENT), and do NOT self-supply the `D-PUBLIC-LIVE-PUBLISH` token.
+> 2. **NOT promote/persist the exposed profile** — the no-autoreboot D-public firstboot profile must NOT
+>    be flashed as a resident baseline; the bounded auto-recovery posture is the safe default.
+> 3. **NOT leave tunnels running unattended** — after any operator-approved inspection window, stop
+>    `cloudflared`, and prefer rolling boot back to `v2321` for a clean resident baseline.
+> Continued D-public work resumes ONLY on an explicit operator go. **Still ALLOWED without re-charter:**
+> host-only D-public prep that opens NO exposure, non-destructive D-harden **read-only** enumeration
+> (seccomp/AppArmor/nftables/caps surface, built-in attack-surface paths to later hard-disable), appliance
+> design/docs. The threat-model reason: a persistent public server crosses from "demo proof" into a
+> standing internet attack surface (web-app+creds hygiene, named-tunnel auth, containment) that the
+> operator must consciously accept BEFORE it runs unattended — see design doc decisions D + E and §8.
+
 > **🟣 OPERATOR STEER (2026-07-03) — D4C: RESOLVE THE ext2/ext4 FILESYSTEM-TYPE DIVERGENCE BEFORE the
 > destructive userdata format.** Gate-2 caught that V3377 "fixed" the V3375 syntax failure by *dropping*
 > `-t ext4` from the busybox `mke2fs` argv. BusyBox `mke2fs` with no `-t` makes **ext2 (no journal)**, not
