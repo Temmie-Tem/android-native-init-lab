@@ -812,6 +812,19 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT D-public live check:** on the next appliance boot, confirm manual mode has no cloudflared process,
 > marker order includes `cloudflared_runtime_cleanup=manual` before `tunnel_started=manual`, and stale
 > `/run/a90-dpublic/cloudflared-*` pid/log/url files are absent.
+>
+> **✅ STATUS (2026-07-04 03:45 KST) — Wi-Fi STA upstream rung DESIGN LOCKED.**
+> Codex added `docs/plans/SERVER_DISTRO_WIFI_STA_UPSTREAM_RUNG_2026-07-04.md` to split the next
+> server-appliance hardware rung into ownership-safe steps.  The target is STA-only upstream:
+> native init materializes `wlan0` through the already-proven QCACLD/vendor-firmware route, then
+> Debian owns long-lived `wpa_supplicant`, DHCP/DNS/default route, and `cloudflared`; USB NCM remains
+> the recovery/admin path.  The design explicitly parks SoftAP+STA concurrency, modem/cellular, NAT,
+> inbound public ports, and native-owned public tunnel work.  Credentials remain private-only, and
+> association gates are blocked rather than failed when credentials are absent.  Static plan tests were
+> added under `tests/test_server_distro_wifi_sta_upstream_plan.py`.
+> **NEXT implementation unit:** WSTA1 source-only rootfs/firstboot support: add Debian STA client
+> packages, add an opt-in `/etc/a90-dpublic/wifi-sta-enable` firstboot helper, and prove the default
+> D-public boot still starts no STA and no public tunnel.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
