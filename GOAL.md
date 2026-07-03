@@ -1161,6 +1161,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > post-supplicant link-up reassertion only as a diagnostic.  Do not return to gateway keepalive/API/
 > cloudflared work until Debian can see scan results and associate again.
 
+> **🟡 STATUS (2026-07-04 08:00 KST host clock) — WSTA14 link-state / scan-engine BLOCKED at Debian WLAN driver state.**
+> Codex added WSTA14 diagnostics to the Debian STA helper: `link_snapshot()` sysfs/ip-link markers,
+> count-only `iw` probes, and bounded post-supplicant retry relink markers.  The private rootfs
+> preparer now installs `iw` and records `linkstate_diag_present` plus `iw_diag_present`; focused
+> tests pass.  Live WSTA14 used native V3384, WSTA2 materialization, a fixed WSTA14 private rootfs,
+> D4 guarded format/populate, and Debian handoff.  WSTA2 passed with `wlan0_wait_elapsed_ms=93659`,
+> `wlan0_present=1`, `link_up_rc=0`, and `decision=softap-iftype-probe-pass`.  Debian then showed
+> `iw_present=1`, `iw_dev_info_rc=0`, `iw_phy_present=1`, and `iw_type_managed=1`, but direct
+> `iw` scan returned `wifi_sta_reg_after_country_iw_scan_rc=234` and
+> `wifi_sta_reg_after_country_iw_scan_bss_count=0`.  `wlan0` stayed administratively UP but not
+> running/lower-up (`flags_hex=0x1003`, `flags_up=1`, `flags_running=0`, `flags_lower_up=0`) after
+> link-up, after supplicant start, after reassociation, and after both bounded relink attempts.
+> Initial and retry scan windows all ended at `final_results_count=0`; final decision was
+> `wifi_sta_decision=wifi-sta-assoc-failed`.  No API probe or cloudflared was started, and the
+> device ended back on native V3384 with `selftest fail=0`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA14_LINKSTATE_SCAN_BLOCKED_2026-07-04.md`.
+> **NEXT:** WSTA15 handoff/WLAN driver-state boundary: compare native pre-handoff scan/readiness
+> against immediate Debian post-handoff state, test whether the WSTA2 AP-iftype add/delete probe
+> poisons Debian scanning, and design a bounded STA-only or post-handoff reset/materialization path.
+> Do not return to gateway/API/cloudflared until Debian can scan and associate reliably.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.

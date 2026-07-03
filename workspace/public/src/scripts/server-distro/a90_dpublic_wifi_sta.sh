@@ -26,6 +26,7 @@ WPA_COMPLETE_ATTEMPTS=3
 WPA_COMPLETE_WAIT_SEC=20
 SCAN_VIS_SAMPLES=6
 SCAN_VIS_INTERVAL_SEC=2
+LINK_REASSERT_SETTLE_SEC=2
 NC_BIN=
 RUN_ID=
 PHASE_SEQ=0
@@ -44,6 +45,51 @@ mark_phase() {
   now_ms=$(uptime_ms)
   [ -n "$now_ms" ] || now_ms=0
   append_marker "wifi_sta_event=$RUN_ID:$PHASE_SEQ:$phase:$now_ms"
+}
+
+link_snapshot() {
+  snapshot_label=$1
+  link_operstate=$(cat /sys/class/net/$IFACE/operstate 2>/dev/null)
+  [ -n "$link_operstate" ] || link_operstate=-
+  link_carrier=$(cat /sys/class/net/$IFACE/carrier 2>/dev/null)
+  [ -n "$link_carrier" ] || link_carrier=0
+  link_flags_hex=$(cat /sys/class/net/$IFACE/flags 2>/dev/null)
+  [ -n "$link_flags_hex" ] || link_flags_hex=0x0
+  case "$link_flags_hex" in
+    0x*|0X*|[0-9]*) link_flags_num=$((link_flags_hex + 0)) ;;
+    *) link_flags_num=0 ;;
+  esac
+  link_flags_up=0
+  link_flags_running=0
+  link_flags_lower_up=0
+  link_flags_dormant=0
+  [ $((link_flags_num & 1)) -ne 0 ] && link_flags_up=1
+  [ $((link_flags_num & 64)) -ne 0 ] && link_flags_running=1
+  [ $((link_flags_num & 65536)) -ne 0 ] && link_flags_lower_up=1
+  [ $((link_flags_num & 131072)) -ne 0 ] && link_flags_dormant=1
+  link_addr_assign_type=$(cat /sys/class/net/$IFACE/addr_assign_type 2>/dev/null)
+  [ -n "$link_addr_assign_type" ] || link_addr_assign_type=-
+  link_tx_queue_len=$(cat /sys/class/net/$IFACE/tx_queue_len 2>/dev/null)
+  [ -n "$link_tx_queue_len" ] || link_tx_queue_len=-
+  link_line=$(ip -o link show dev "$IFACE" 2>/dev/null)
+  link_qdisc=$(printf '%s\n' "$link_line" | awk '{ for (i = 1; i <= NF; i++) if ($i == "qdisc") { print $(i + 1); exit } }')
+  [ -n "$link_qdisc" ] || link_qdisc=-
+  link_wireless_present=0
+  if [ -d /sys/class/net/$IFACE/wireless ] || awk -v iface="$IFACE" -F: '$1 ~ iface { found = 1 } END { exit found ? 0 : 1 }' /proc/net/wireless 2>/dev/null; then
+    link_wireless_present=1
+  fi
+
+  append_marker "wifi_sta_link_${snapshot_label}_operstate=$link_operstate"
+  append_marker "wifi_sta_link_${snapshot_label}_carrier=$link_carrier"
+  append_marker "wifi_sta_link_${snapshot_label}_flags_hex=$link_flags_hex"
+  append_marker "wifi_sta_link_${snapshot_label}_flags_up=$link_flags_up"
+  append_marker "wifi_sta_link_${snapshot_label}_flags_running=$link_flags_running"
+  append_marker "wifi_sta_link_${snapshot_label}_flags_lower_up=$link_flags_lower_up"
+  append_marker "wifi_sta_link_${snapshot_label}_flags_dormant=$link_flags_dormant"
+  append_marker "wifi_sta_link_${snapshot_label}_addr_assign_type=$link_addr_assign_type"
+  append_marker "wifi_sta_link_${snapshot_label}_qdisc=$link_qdisc"
+  append_marker "wifi_sta_link_${snapshot_label}_tx_queue_len=$link_tx_queue_len"
+  append_marker "wifi_sta_link_${snapshot_label}_wireless_present=$link_wireless_present"
 }
 
 kill_pidfile_if_matching() {
@@ -281,7 +327,7 @@ wpa_scan_results_count() {
 }
 
 sample_regulatory_state() {
-  label=$1
+  reg_label=$1
   country=$(wpa_cli -p "$WPA_CTRL_DIR" -i "$IFACE" GET country 2>/dev/null)
   country_get_rc=$?
   country_present=0
@@ -297,6 +343,13 @@ sample_regulatory_state() {
   iw_present=0
   iw_reg_get_rc=127
   iw_reg_country_present=0
+  iw_dev_info_rc=127
+  iw_phy_present=0
+  iw_type_managed=0
+  iw_link_rc=127
+  iw_link_connected=0
+  iw_scan_rc=127
+  iw_scan_bss_count=0
   if command -v iw >/dev/null 2>&1; then
     iw_present=1
     iw_reg=$(iw reg get 2>/dev/null)
@@ -304,14 +357,42 @@ sample_regulatory_state() {
     if printf '%s\n' "$iw_reg" | grep -q '^country '; then
       iw_reg_country_present=1
     fi
+    iw_dev_info=$(iw dev "$IFACE" info 2>/dev/null)
+    iw_dev_info_rc=$?
+    if printf '%s\n' "$iw_dev_info" | grep -q '^[[:space:]]*wiphy '; then
+      iw_phy_present=1
+    fi
+    if printf '%s\n' "$iw_dev_info" | grep -q '^[[:space:]]*type managed'; then
+      iw_type_managed=1
+    fi
+    iw_link=$(iw dev "$IFACE" link 2>/dev/null)
+    iw_link_rc=$?
+    if printf '%s\n' "$iw_link" | grep -q '^Connected to '; then
+      iw_link_connected=1
+    fi
+    if command -v timeout >/dev/null 2>&1; then
+      iw_scan=$(timeout 10s iw dev "$IFACE" scan 2>/dev/null)
+      iw_scan_rc=$?
+    else
+      iw_scan=$(iw dev "$IFACE" scan 2>/dev/null)
+      iw_scan_rc=$?
+    fi
+    iw_scan_bss_count=$(printf '%s\n' "$iw_scan" | grep -c '^BSS ')
   fi
 
-  append_marker "wifi_sta_reg_${label}_country_get_rc=$country_get_rc"
-  append_marker "wifi_sta_reg_${label}_country_present=$country_present"
-  append_marker "wifi_sta_reg_${label}_country_kr=$country_is_kr"
-  append_marker "wifi_sta_reg_${label}_iw_present=$iw_present"
-  append_marker "wifi_sta_reg_${label}_iw_reg_get_rc=$iw_reg_get_rc"
-  append_marker "wifi_sta_reg_${label}_iw_reg_country_present=$iw_reg_country_present"
+  append_marker "wifi_sta_reg_${reg_label}_country_get_rc=$country_get_rc"
+  append_marker "wifi_sta_reg_${reg_label}_country_present=$country_present"
+  append_marker "wifi_sta_reg_${reg_label}_country_kr=$country_is_kr"
+  append_marker "wifi_sta_reg_${reg_label}_iw_present=$iw_present"
+  append_marker "wifi_sta_reg_${reg_label}_iw_reg_get_rc=$iw_reg_get_rc"
+  append_marker "wifi_sta_reg_${reg_label}_iw_reg_country_present=$iw_reg_country_present"
+  append_marker "wifi_sta_reg_${reg_label}_iw_dev_info_rc=$iw_dev_info_rc"
+  append_marker "wifi_sta_reg_${reg_label}_iw_phy_present=$iw_phy_present"
+  append_marker "wifi_sta_reg_${reg_label}_iw_type_managed=$iw_type_managed"
+  append_marker "wifi_sta_reg_${reg_label}_iw_link_rc=$iw_link_rc"
+  append_marker "wifi_sta_reg_${reg_label}_iw_link_connected=$iw_link_connected"
+  append_marker "wifi_sta_reg_${reg_label}_iw_scan_rc=$iw_scan_rc"
+  append_marker "wifi_sta_reg_${reg_label}_iw_scan_bss_count=$iw_scan_bss_count"
 }
 
 scan_visibility_probe() {
@@ -344,6 +425,7 @@ scan_visibility_probe() {
     append_marker "wifi_sta_scan_${label}_sample_${sample}_wpa_state=$state"
     append_marker "wifi_sta_scan_${label}_sample_${sample}_operstate=$operstate"
     append_marker "wifi_sta_scan_${label}_sample_${sample}_carrier=$carrier_now"
+    link_snapshot "scan_${label}_sample_${sample}"
     sample=$((sample + 1))
   done
   scan_visibility_end_ms=$(uptime_ms)
@@ -403,6 +485,12 @@ wait_wpa_completed() {
       scan_visibility_probe "retry_${attempt}"
       append_marker "wifi_sta_assoc_attempt_${attempt}_retry_scan_rc=$scan_visibility_trigger_rc"
       append_marker "wifi_sta_assoc_attempt_${attempt}_retry_scan_found=$scan_visibility_found"
+      link_snapshot "assoc_retry_${attempt}_before_relink"
+      ip link set "$IFACE" up >/dev/null 2>&1
+      retry_link_up_rc=$?
+      append_marker "wifi_sta_assoc_attempt_${attempt}_retry_link_up_rc=$retry_link_up_rc"
+      sleep "$LINK_REASSERT_SETTLE_SEC"
+      link_snapshot "assoc_retry_${attempt}_after_relink"
       wpa_cli_quiet ENABLE_NETWORK 0
       append_marker "wifi_sta_assoc_attempt_${attempt}_retry_enable_network_rc=$?"
       wpa_cli_quiet SELECT_NETWORK 0
@@ -581,6 +669,7 @@ if [ "$?" != "0" ]; then
   finish "wifi-sta-wlan0-missing"
 fi
 append_marker "wifi_sta_wlan0_present=1"
+link_snapshot "before_link_up"
 
 ip route replace 192.168.7.1 dev ncm0 >/dev/null 2>&1 || true
 if ncm_recovery_preserved; then
@@ -598,6 +687,7 @@ mkdir -p "$WPA_CTRL_DIR"
 ip link set "$IFACE" up >/dev/null 2>&1
 link_set_up_rc=$?
 append_marker "wifi_sta_link_set_up_rc=$link_set_up_rc"
+link_snapshot "after_link_up"
 if [ "$link_set_up_rc" != "0" ]; then
   mark_phase "link-up-failed"
   append_marker "wifi_sta_started=0"
@@ -608,6 +698,7 @@ wpa_supplicant -B -q -i "$IFACE" -D nl80211 -c "$CONFIG" \
   -P "$WPA_PID" -f "$WPA_LOG" >/dev/null 2>&1
 wpa_rc=$?
 append_marker "wifi_sta_wpa_supplicant_rc=$wpa_rc"
+link_snapshot "after_wpa_start"
 if [ "$wpa_rc" != "0" ]; then
   mark_phase "wpa-start-failed"
   append_marker "wifi_sta_started=0"
@@ -618,18 +709,22 @@ append_marker "wifi_sta_started=1"
 mark_phase "wpa-started"
 if wpa_ctrl_wait; then
   mark_phase "ctrl-ready"
+  link_snapshot "ctrl_ready_before_country"
   wpa_cli_quiet DRIVER COUNTRY KR
   append_marker "wifi_sta_ctrl_driver_country_rc=$?"
   sample_regulatory_state "after_country"
+  link_snapshot "after_country"
   scan_visibility_probe "initial"
   append_marker "wifi_sta_ctrl_scan_rc=$scan_visibility_trigger_rc"
   append_marker "wifi_sta_ctrl_scan_found=$scan_visibility_found"
+  link_snapshot "after_initial_scan"
   wpa_cli_quiet ENABLE_NETWORK 0
   append_marker "wifi_sta_ctrl_enable_network_rc=$?"
   wpa_cli_quiet SELECT_NETWORK 0
   append_marker "wifi_sta_ctrl_select_network_rc=$?"
   wpa_cli_quiet REASSOCIATE
   append_marker "wifi_sta_ctrl_reassociate_rc=$?"
+  link_snapshot "after_reassociate"
   append_wpa_status_markers
   if ! wait_wpa_completed; then
     mark_phase "assoc-failed"

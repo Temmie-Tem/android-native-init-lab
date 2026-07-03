@@ -131,6 +131,8 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertTrue(result["gateway_dwell_present"])
             self.assertTrue(result["assoc_retry_present"])
             self.assertTrue(result["scan_visibility_present"])
+            self.assertTrue(result["linkstate_diag_present"])
+            self.assertTrue(result["iw_diag_present"])
             self.assertTrue(result["tcp_probe_fallback_present"])
             self.assertIn("probe_l3_reachability", text)
             self.assertIn("dwell_stability_probe", text)
@@ -138,6 +140,8 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertIn("gateway_ping_attempts", text)
             self.assertIn("wifi_sta_assoc_attempts_max", text)
             self.assertIn("scan_visibility_probe", text)
+            self.assertIn("link_snapshot", text)
+            self.assertIn("iw_scan_bss_count", text)
             self.assertIn("nc.openbsd", text)
             self.assertNotIn("old-helper", text)
 
@@ -230,6 +234,7 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
         self.assertFalse(result["before"]["tools"]["wpa_cli"]["present"])
         self.assertFalse(result["before"]["tools"]["dhclient"]["present"])
         self.assertFalse(result["before"]["tools"]["nc"]["present"])
+        self.assertFalse(result["before"]["tools"]["iw"]["present"])
 
     def test_ensure_sta_tools_restores_usrmerge_when_tools_present(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -241,6 +246,7 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             (rootfs / "sbin/wpa_supplicant").write_text("", encoding="utf-8")
             (rootfs / "sbin/wpa_cli").write_text("", encoding="utf-8")
             (rootfs / "sbin/dhclient").write_text("", encoding="utf-8")
+            (rootfs / "sbin/iw").write_text("", encoding="utf-8")
             (rootfs / "usr/sbin/ip").write_text("", encoding="utf-8")
             (rootfs / "usr/bin/ping").write_text("", encoding="utf-8")
             (rootfs / "usr/bin/getent").write_text("", encoding="utf-8")
@@ -256,6 +262,7 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertTrue((rootfs / "usr/sbin/wpa_supplicant").is_file())
             self.assertTrue((rootfs / "usr/sbin/wpa_cli").is_file())
             self.assertTrue((rootfs / "usr/sbin/dhclient").is_file())
+            self.assertTrue((rootfs / "usr/sbin/iw").is_file())
 
     def test_create_private_tarball_forces_owner_private_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -308,6 +315,7 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             (source / "usr/sbin/wpa_supplicant").write_text("", encoding="utf-8")
             (source / "usr/sbin/wpa_cli").write_text("", encoding="utf-8")
             (source / "usr/sbin/dhclient").write_text("", encoding="utf-8")
+            (source / "usr/sbin/iw").write_text("", encoding="utf-8")
             (source / "usr/bin/ping").write_text("", encoding="utf-8")
             (source / "usr/bin/getent").write_text("", encoding="utf-8")
             (source / "usr/bin/nc").write_text("", encoding="utf-8")
@@ -332,6 +340,8 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertTrue(result["wifi_sta_helper"]["gateway_dwell_present"])
             self.assertTrue(result["wifi_sta_helper"]["assoc_retry_present"])
             self.assertTrue(result["wifi_sta_helper"]["scan_visibility_present"])
+            self.assertTrue(result["wifi_sta_helper"]["linkstate_diag_present"])
+            self.assertTrue(result["wifi_sta_helper"]["iw_diag_present"])
             self.assertTrue(result["api_probe_helper"]["api_post_present"])
             self.assertFalse(result["api_probe_tools"]["requested"])
             self.assertTrue(result["firstboot"]["wifi_sta_helper_invoked"])

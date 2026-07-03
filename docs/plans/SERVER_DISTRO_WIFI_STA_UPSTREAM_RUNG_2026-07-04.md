@@ -1,7 +1,7 @@
 # Server-Distro Wi-Fi STA Upstream Rung
 
 - Date: 2026-07-04
-- Status: WSTA13 blocked at Debian link-state/scan visibility before association
+- Status: WSTA14 blocked at Debian WLAN driver state before association
 - Scope: next hardware rung after the Stage0 server-distro hardware contract.
 - Device action in this doc: none.
 
@@ -221,12 +221,37 @@ Report:
 
 ### WSTA14: Debian link-state / scan-engine boundary
 
-The next unit should inspect why Debian's scan engine accepts `SCAN` while `wlan0`
-operstate remains down and no BSS results appear.  Add optional `iw` diagnostics if
-available, compare sysfs/ip-link state immediately before and after `wpa_supplicant`, and
-test a bounded post-supplicant link-up reassertion only as a diagnostic.  Do not return to
-gateway keepalive or D-public tunnel work until Debian scan results and association are
-stable.
+Source result: implemented.  The Debian STA helper now records redacted `link_snapshot()`
+state around link-up, supplicant start, country handling, scanning, reassociation, and retry
+relink attempts.  The WSTA private rootfs preparer installs `iw` and records
+`linkstate_diag_present` plus `iw_diag_present`.
+
+Live result: blocked at Debian WLAN driver state.  Native WSTA2 materialization passed
+(`wlan0_wait_elapsed_ms=93659`, `wlan0_present=1`, `link_up_rc=0`,
+`decision=softap-iftype-probe-pass`).  In Debian, `iw` is present and sees a managed phy
+(`iw_present=1`, `iw_dev_info_rc=0`, `iw_phy_present=1`, `iw_type_managed=1`), but direct
+`iw` scan returns rc `234` and BSS count `0`.  `wlan0` remains administratively UP but not
+RUNNING/LOWER_UP (`flags_hex=0x1003`, `flags_up=1`, `flags_running=0`,
+`flags_lower_up=0`) after supplicant start, reassociation, and two bounded relink attempts.
+All `wpa_cli` scan windows also end at `final_results_count=0`; final decision is
+`wifi-sta-assoc-failed`.
+
+Report:
+`docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA14_LINKSTATE_SCAN_BLOCKED_2026-07-04.md`.
+
+### WSTA15: handoff / WLAN driver-state boundary
+
+Next work should stay below association and answer whether the bad scan state is caused by
+handoff, by the native WSTA2 AP-iftype add/delete probe, or by missing post-handoff driver
+materialization:
+
+- compare native pre-handoff scan/readiness state against immediate Debian post-handoff
+  link and scan state;
+- test a STA-only native materialization path that avoids AP-iftype add/delete if available;
+- if needed, design a bounded Debian post-handoff WLAN reset/materialization step that does
+  not leave native Wi-Fi workers alive across `switch_root`;
+- keep public tunnel, API, DNS, and gateway dwell work parked until Debian can scan and
+  associate reliably.
 
 ### WSTA7: Debian association/control fix
 

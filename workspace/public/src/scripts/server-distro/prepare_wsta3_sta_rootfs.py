@@ -59,7 +59,7 @@ DPUBLIC_WIFI_STA_HELPER = SCRIPT_DIR / "a90_dpublic_wifi_sta.sh"
 DPUBLIC_API_PROBE = SCRIPT_DIR / "a90_dpublic_api_probe.sh"
 DPUBLIC_FIRSTBOOT = SCRIPT_DIR / "a90_dpublic_firstboot.sh"
 PRIVATE_FILE_MODE = 0o600
-STA_TOOL_PACKAGES = ("wpasupplicant", "isc-dhcp-client", "netcat-openbsd")
+STA_TOOL_PACKAGES = ("wpasupplicant", "isc-dhcp-client", "netcat-openbsd", "iw")
 API_PROBE_TOOL_PACKAGES = ("wget",)
 USR_MERGE_LINKS = (("bin", "usr/bin"), ("sbin", "usr/sbin"), ("lib", "usr/lib"))
 STA_TOOL_CANDIDATES = {
@@ -67,6 +67,7 @@ STA_TOOL_CANDIDATES = {
     "ping": (Path("usr/bin/ping"), Path("bin/ping")),
     "getent": (Path("usr/bin/getent"), Path("bin/getent")),
     "nc": (Path("usr/bin/nc"), Path("bin/nc"), Path("usr/bin/nc.openbsd"), Path("bin/nc.openbsd")),
+    "iw": (Path("usr/sbin/iw"), Path("sbin/iw")),
     "wpa_supplicant": (Path("usr/sbin/wpa_supplicant"), Path("sbin/wpa_supplicant")),
     "wpa_cli": (Path("usr/sbin/wpa_cli"), Path("sbin/wpa_cli")),
     "dhclient": (Path("usr/sbin/dhclient"), Path("sbin/dhclient")),
@@ -460,6 +461,10 @@ def stage_dpublic_wifi_sta_helper(rootfs: Path) -> dict[str, Any]:
         and "wifi_sta_assoc_attempt_${attempt}_retry_reassociate_rc" in text,
         "scan_visibility_present": "scan_visibility_probe()" in text
         and "wifi_sta_scan_${label}_final_results_count" in text,
+        "linkstate_diag_present": "link_snapshot()" in text
+        and "wifi_sta_link_${snapshot_label}_operstate" in text,
+        "iw_diag_present": "iw dev \"$IFACE\" scan" in text
+        and "wifi_sta_reg_${reg_label}_iw_scan_bss_count" in text,
         "tcp_probe_fallback_present": "nc.openbsd" in text,
         "secret_values_logged": 0,
     }
