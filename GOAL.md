@@ -393,6 +393,14 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > 5. **D-public is a SEPARATE gate, NOT covered by this approval** — first external/tunnel exposure still
 >    HALTS for the user. So the loop may now flow D3B → D4 (appliance on `userdata`) and then STOP at
 >    D-public.
+>
+> **🟣 D4 EXECUTION PLAN LOCKED (2026-07-03).** Use
+> `docs/plans/SERVER_DISTRO_D4_USERDATA_APPLIANCE_PLAN_2026-07-03.md` as the D4 runbook. D4 is split
+> into bounded units: **D4A read-only preflight** (no writes/mounts/format), D4B D4-capable native-init
+> surface, D4C `userdata` format+populate, and D4D appliance `switch_root` proof. **Immediate next
+> bounded unit = D4A only:** re-derive `PARTNAME=userdata`, print exact target device/PARTNAME/size,
+> verify v2321/v2237/v48/TWRP, verify the clean rootfs source, and emit a report with `NO FORMAT
+> PERFORMED`. D4C must not run until D4A passes and D4B has a statically validated fail-closed surface.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
