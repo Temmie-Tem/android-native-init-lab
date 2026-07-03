@@ -27,10 +27,10 @@ Completed:
 - V3379 formatter argv fix live proof passed; v2321 rollback clean.
 - D4C e2fsprogs formatter toolroot was extracted under SD runtime and SHA-verified on-device.
 - V3381 journaled formatter source/build passed and produced an e2fsprogs-backed D4C candidate.
+- V3381 journaled formatter live proof passed; v2321 rollback clean.
 
 Pending:
 
-- V3381 journaled formatter live proof.
 - D4C format and populate.
 - D4D appliance handoff proof.
 
@@ -134,8 +134,9 @@ probe=userdata-appliance-formatter-probe SERVER-DISTRO-D4-USERDATA-APPLIANCE /mn
 format=userdata-appliance-format SERVER-DISTRO-D4-USERDATA-APPLIANCE <expected-devname> <expected-dev> <expected-sectors>
 formatter=e2fsprogs mkfs.ext4 from SHA-pinned toolroot
 dod=ext magic plus has_journal feature bit verified
-status=source-built-live-pending
+status=live-pass; rollback-clean
 source-report=docs/reports/NATIVE_INIT_V3381_SERVER_DISTRO_D4C_JOURNALED_FORMATTER_SOURCE_BUILD_2026-07-03.md
+live-report=docs/reports/NATIVE_INIT_V3382_SERVER_DISTRO_D4C_JOURNALED_FORMATTER_LIVE_PASS_2026-07-03.md
 ```
 
 Rollback images that must be confirmed before any D4 flash:
@@ -161,12 +162,10 @@ D4C format+populate
     rootfs tarball is already staged under /mnt/sdext/a90/runtime/
     e2fsprogs formatter toolroot is already staged under /mnt/sdext/a90/runtime/
     V3381 journaled formatter command surface is source-built
-    flash V3381 by checked helper
-    run preflight plus e2fsprogs formatter-probe only
-    prove has_journal on an SD regular file via dumpe2fs
-    rollback unless destructive D4C starts immediately
-  restage or keep the proven D4C-capable candidate live under the same gated run
-  prove journaled formatter path on device
+    V3381 journaled formatter live proof passed and rolled back cleanly
+  flash V3381-or-later by checked helper
+  run fresh same-session preflight
+  prove journaled formatter path on device if the candidate changed
   verify SD rootfs tarball path and SHA-256
   run userdata-appliance-format with pinned devname/dev/sectors
   verify userdata has_journal with dumpe2fs

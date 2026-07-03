@@ -629,6 +629,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `/mnt/sdext/a90/runtime/d4c-format-toolroot/tmp/<probe>.img`, then roll back to v2321 unless
 > destructive D4C starts immediately under the runbook.
 
+> **✅ STATUS (2026-07-03) — V3381 journaled formatter LIVE PASS; rollback clean.**
+> Exact V3381 flashed through `native_init_flash.py` with remote SHA and boot readback SHA matching
+> `c99be26deb3ca872de444e1f34ab602938a68381fe84c338bf29ead7ed9f1c4f`. Candidate booted as
+> `A90 Linux init 0.11.138 (v3381-server-distro-journaled-formatter)` and candidate
+> `version/status/selftest` showed `selftest fail=0`. Read-only preflight passed for `sda33`,
+> same-session `target.dev=259:17`, `target.sectors=231577432`, `target.mounted=0`,
+> `node_materialized=0`. The non-destructive formatter-probe ran only on
+> `/mnt/sdext/a90/runtime/d4c-format-toolroot/tmp/a90-v3381-live-probe.img`, verified pinned
+> `mke2fs`/`dumpe2fs`/`tune2fs` hashes, used `mkfs.ext4 -> mke2fs`, printed `Creating journal`,
+> had `dumpe2fs -h` report `Filesystem features: has_journal ...`, and native-init verified
+> `formatter-probe=has-journal-ok ... has_journal=1`, `cleanup=ok`, `userdata_touched=0`. No
+> format/populate/switch-root ran, no userdata node was materialized, and rollback to v2321 completed
+> with final `version/status/selftest` passing and `selftest fail=0`. Report:
+> `docs/reports/NATIVE_INIT_V3382_SERVER_DISTRO_D4C_JOURNALED_FORMATTER_LIVE_PASS_2026-07-03.md`.
+> **NEXT bounded unit = destructive D4C format+populate** under a fresh same-session preflight:
+> flash V3381-or-later by checked helper, re-derive `PARTNAME=userdata`, pass the exact
+> `target.devname/dev/sectors` from that session into `userdata-appliance-format`, verify
+> `has_journal=1` on real userdata, then populate with the pinned SD rootfs tarball SHA.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.
