@@ -26,10 +26,11 @@ Completed:
 - V3379 formatter argv fix source/build passed; live proof still pending.
 - V3379 formatter argv fix live proof passed; v2321 rollback clean.
 - D4C e2fsprogs formatter toolroot was extracted under SD runtime and SHA-verified on-device.
+- V3381 journaled formatter source/build passed and produced an e2fsprogs-backed D4C candidate.
 
 Pending:
 
-- V3381 journaled formatter native-init surface and non-destructive `has_journal` proof.
+- V3381 journaled formatter live proof.
 - D4C format and populate.
 - D4D appliance handoff proof.
 
@@ -123,6 +124,20 @@ stage_marker=present
 report=docs/reports/SERVER_DISTRO_D4C_E2FSPROGS_TOOLROOT_STAGING_2026-07-03.md
 ```
 
+D4C journaled formatter candidate:
+
+```text
+init=A90 Linux init 0.11.138 (v3381-server-distro-journaled-formatter)
+boot=workspace/private/inputs/boot_images/boot_linux_v3381_server_distro_journaled_formatter.img
+sha256=c99be26deb3ca872de444e1f34ab602938a68381fe84c338bf29ead7ed9f1c4f
+probe=userdata-appliance-formatter-probe SERVER-DISTRO-D4-USERDATA-APPLIANCE /mnt/sdext/a90/runtime/d4c-format-toolroot/tmp/<probe-image> <size-bytes>
+format=userdata-appliance-format SERVER-DISTRO-D4-USERDATA-APPLIANCE <expected-devname> <expected-dev> <expected-sectors>
+formatter=e2fsprogs mkfs.ext4 from SHA-pinned toolroot
+dod=ext magic plus has_journal feature bit verified
+status=source-built-live-pending
+source-report=docs/reports/NATIVE_INIT_V3381_SERVER_DISTRO_D4C_JOURNALED_FORMATTER_SOURCE_BUILD_2026-07-03.md
+```
+
 Rollback images that must be confirmed before any D4 flash:
 
 ```text
@@ -145,7 +160,7 @@ D4C format+populate
   first close D4C entry prep:
     rootfs tarball is already staged under /mnt/sdext/a90/runtime/
     e2fsprogs formatter toolroot is already staged under /mnt/sdext/a90/runtime/
-    implement V3381 journaled formatter command surface
+    V3381 journaled formatter command surface is source-built
     flash V3381 by checked helper
     run preflight plus e2fsprogs formatter-probe only
     prove has_journal on an SD regular file via dumpe2fs

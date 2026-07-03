@@ -610,6 +610,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `mkfs.ext4`/`mke2fs` plus `dumpe2fs` non-destructively on an SD regular file, and make D4C DoD verify
 > actual on-disk `has_journal` before any destructive format/populate.
 
+> **✅ STATUS (2026-07-03) — V3381 journaled formatter source/build DONE; live pending.**
+> Codex replaced the D4 formatter implementation behind the existing command names with the staged
+> e2fsprogs toolroot: `userdata-appliance-formatter-probe` now requires probe images under
+> `/mnt/sdext/a90/runtime/d4c-format-toolroot`, verifies pinned `mke2fs`/`dumpe2fs`/`tune2fs` hashes,
+> runs chrooted `mkfs.ext4`, runs `dumpe2fs -h`, checks ext magic, and verifies the `has_journal`
+> feature bit before cleanup. `userdata-appliance-format` uses the same journaled formatter path after
+> the existing sysfs `PARTNAME=userdata` and same-session `devname/dev/sectors` guards, then verifies
+> `has_journal=1` on the real block device before `format=done`. Built candidate:
+> `A90 Linux init 0.11.138 (v3381-server-distro-journaled-formatter)`, boot SHA
+> `c99be26deb3ca872de444e1f34ab602938a68381fe84c338bf29ead7ed9f1c4f`. Static validation passed:
+> `py_compile`, 20 D4 unittest cases, AArch64 build, required-string audit, `file`, and `sha256sum`.
+> Report:
+> `docs/reports/NATIVE_INIT_V3381_SERVER_DISTRO_D4C_JOURNALED_FORMATTER_SOURCE_BUILD_2026-07-03.md`.
+> **NEXT bounded unit = V3381 journaled formatter live proof**: confirm rollback/TWRP preconditions,
+> flash exact V3381 through `native_init_flash.py`, verify candidate health, run read-only preflight
+> plus non-destructive `userdata-appliance-formatter-probe` against
+> `/mnt/sdext/a90/runtime/d4c-format-toolroot/tmp/<probe>.img`, then roll back to v2321 unless
+> destructive D4C starts immediately under the runbook.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.

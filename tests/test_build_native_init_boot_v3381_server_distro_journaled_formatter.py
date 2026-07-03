@@ -1,4 +1,4 @@
-"""Regression tests for V3377 server-distro D4C userdata formatter fix source build."""
+"""Regression tests for V3381 server-distro D4C userdata journaled formatter source build."""
 
 from __future__ import annotations
 
@@ -9,15 +9,15 @@ from _loader import load_script
 
 
 builder = load_script(
-    "workspace/public/src/scripts/revalidation/build_native_init_boot_v3377_server_distro_userdata_formatter_fix.py"
+    "workspace/public/src/scripts/revalidation/build_native_init_boot_v3381_server_distro_journaled_formatter.py"
 )
 
 
-class BuildNativeInitBootV3377ServerDistroFormatterFixTests(unittest.TestCase):
+class BuildNativeInitBootV3381ServerDistroJournaledFormatterTests(unittest.TestCase):
     def test_builder_identity_and_required_markers(self) -> None:
-        self.assertEqual(builder.CYCLE, "V3377")
-        self.assertEqual(builder.INIT_VERSION, "0.11.136")
-        self.assertEqual(builder.INIT_BUILD, "v3377-server-distro-userdata-formatter-fix")
+        self.assertEqual(builder.CYCLE, "V3381")
+        self.assertEqual(builder.INIT_VERSION, "0.11.138")
+        self.assertEqual(builder.INIT_BUILD, "v3381-server-distro-journaled-formatter")
         required = b"\n".join(builder.REQUIRED_STRINGS)
         for marker in (
             b"userdata-appliance-preflight",
@@ -31,8 +31,15 @@ class BuildNativeInitBootV3377ServerDistroFormatterFixTests(unittest.TestCase):
             b"PARTNAME=",
             b"/dev/block/a90-userdata",
             b"/mnt/a90-userdata-root",
-            b"busybox-mke2fs",
-            b"kbytes=",
+            b"/mnt/sdext/a90/runtime/d4c-format-toolroot",
+            b"e2fsprogs-mkfs.ext4",
+            b"e2fs-toolroot=ok",
+            b"mkfs.ext4=mke2fs",
+            b"_sha=%s expected_sha_match=1 path=%s",
+            b"dumpe2fs-header-ok",
+            b"has-journal-ok",
+            b"has_journal=1",
+            b"feature_compat=",
             b"A90D4PROBE",
             b"formatter-probe=done",
             b"ext4-magic-ok",
@@ -62,16 +69,24 @@ class BuildNativeInitBootV3377ServerDistroFormatterFixTests(unittest.TestCase):
         self.assertIn("a90_server_distro_userdata_formatter_probe_cmd", source)
         self.assertIn("d4_create_probe_file(probe_path, size_bytes)", source)
         self.assertIn("d4_check_ext4_magic_phase(probe_path, \"formatter-probe\")", source)
+        self.assertIn("d4_check_ext4_magic_phase(A90_D4_NODE, \"format\")", source)
         self.assertIn("bad-probe-size-alignment", source)
-        self.assertNotIn("snprintf(size_kb_arg", source)
-        self.assertNotIn("probe_argv[6] = size_kb_arg", source)
         self.assertIn('"A90D4PROBE"', source)
         self.assertIn("userdata_touched=0", source)
         self.assertIn("formatter=e2fsprogs-mkfs.ext4", source)
         self.assertNotIn("formatter=busybox-mke2fs", source)
+        self.assertNotIn("kbytes=", source)
+        self.assertIn('#define A90_D4_E2FS_TOOLROOT "/mnt/sdext/a90/runtime/d4c-format-toolroot"', source)
+        self.assertIn("A90_D4_E2FS_MKE2FS_SHA", source)
+        self.assertIn("A90_D4_E2FS_DUMPE2FS_SHA", source)
+        self.assertIn("A90_D4_E2FS_TUNE2FS_SHA", source)
         self.assertIn("d4_verify_e2fs_toolroot()", source)
         self.assertIn("d4_run_e2fs_mkfs_ext4(\"A90D4PROBE\"", source)
+        self.assertIn("d4_run_e2fs_mkfs_ext4(\"A90D4ROOT\"", source)
+        self.assertIn("d4_run_e2fs_dumpe2fs_header", source)
         self.assertIn("d4_check_ext_has_journal(probe_path, \"formatter-probe\")", source)
+        self.assertIn("d4_check_ext_has_journal(A90_D4_NODE, \"format\")", source)
+        self.assertIn("d4_ensure_toolroot_userdata_node(&target)", source)
         self.assertIn("a90_helper_sha256_file(source_tar, actual_sha", source)
         self.assertIn("d4_source_path_clean(source_tar)", source)
         self.assertIn("d4_regular_file_ok(source_tar)", source)

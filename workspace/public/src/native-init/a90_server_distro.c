@@ -714,6 +714,16 @@ fail_before_move:
 #define A90_D4_INIT "/sbin/init"
 #define A90_D4_MARKER_LEAF "etc/a90-appliance-stage"
 #define A90_D4_MARKER_VALUE "userdata=appliance-root"
+#define A90_D4_E2FS_TOOLROOT "/mnt/sdext/a90/runtime/d4c-format-toolroot"
+#define A90_D4_E2FS_MKE2FS_HOST A90_D4_E2FS_TOOLROOT "/usr/sbin/mke2fs"
+#define A90_D4_E2FS_MKFS_EXT4_HOST A90_D4_E2FS_TOOLROOT "/usr/sbin/mkfs.ext4"
+#define A90_D4_E2FS_DUMPE2FS_HOST A90_D4_E2FS_TOOLROOT "/usr/sbin/dumpe2fs"
+#define A90_D4_E2FS_TUNE2FS_HOST A90_D4_E2FS_TOOLROOT "/usr/sbin/tune2fs"
+#define A90_D4_E2FS_MKE2FS_SHA "92721c9a402ba8015ec6321acffaac187ce32fd2772a54690b46dfe94b8f6589"
+#define A90_D4_E2FS_DUMPE2FS_SHA "6e22ed6668e336a891621de3e18b8915e56545351c20c06bafb6682ac1de9aae"
+#define A90_D4_E2FS_TUNE2FS_SHA "f4bd3a7e56772236ec0dd8f6a4c5fa2b9dfa52cf70d2af0fa1eb50cfeafa34ad"
+#define A90_D4_E2FS_MKFS_EXT4_CHROOT "/usr/sbin/mkfs.ext4"
+#define A90_D4_E2FS_DUMPE2FS_CHROOT "/usr/sbin/dumpe2fs"
 #define A90_D4_MIN_BYTES 100000000000ULL
 #define A90_D4_MAX_BYTES 140000000000ULL
 #define A90_D4_EXPECTED_PARTNAME "userdata"
@@ -723,6 +733,8 @@ fail_before_move:
 #define A90_D4_FORMATTER_PROBE_MIN_BYTES 4194304ULL
 #define A90_D4_FORMATTER_PROBE_MAX_BYTES 67108864ULL
 #define A90_D4_EXT4_MAGIC_OFFSET 1080
+#define A90_D4_EXT_FEATURE_COMPAT_OFFSET 1116
+#define A90_D4_EXT_COMPAT_HAS_JOURNAL 0x00000004U
 
 struct d4_userdata_target {
     char sysname[64];
@@ -870,6 +882,137 @@ static int d4_source_path_clean(const char *path) {
     return 1;
 }
 
+static int d4_join_path(char *out, size_t out_size, const char *left, const char *right) {
+    int n;
+
+    if (out == NULL || out_size == 0 || left == NULL || right == NULL ||
+        left[0] == '\0' || right[0] == '\0') {
+        return -EINVAL;
+    }
+    n = snprintf(out, out_size, "%s/%s", left, right);
+    if (n < 0 || (size_t)n >= out_size) {
+        return -ENAMETOOLONG;
+    }
+    return 0;
+}
+
+static int d4_exact_dir_ok(const char *path) {
+    struct stat st;
+
+    if (path == NULL || path[0] == '\0') {
+        return -EINVAL;
+    }
+    if (lstat(path, &st) < 0) {
+        return -errno;
+    }
+    if (!S_ISDIR(st.st_mode)) {
+        return -EINVAL;
+    }
+    return 0;
+}
+
+static int d4_symlink_target_ok(const char *path, const char *expected) {
+    char target[PATH_MAX];
+    ssize_t n;
+
+    if (path == NULL || expected == NULL) {
+        return -EINVAL;
+    }
+    n = readlink(path, target, sizeof(target) - 1);
+    if (n < 0) {
+        return -errno;
+    }
+    target[n] = '\0';
+    if (strcmp(target, expected) != 0) {
+        a90_console_printf("%s stop=bad-symlink path=%s target=%s expected=%s\r\n",
+                           A90_D4_TAG, path, target, expected);
+        return -EPERM;
+    }
+    return 0;
+}
+
+static int d4_sha256_file_matches(const char *path, const char *expected_sha, const char *label) {
+    char actual[65];
+
+    if (path == NULL || expected_sha == NULL || label == NULL) {
+        return -EINVAL;
+    }
+    if (a90_helper_sha256_file(path, actual, sizeof(actual)) != 0) {
+        a90_console_printf("%s %s_sha=compute-fail path=%s\r\n", A90_D4_TAG, label, path);
+        return -EIO;
+    }
+    if (!d3_sha_equal_ci(actual, expected_sha)) {
+        a90_console_printf("%s %s_sha=%s expected_sha_match=0 path=%s\r\n",
+                           A90_D4_TAG, label, actual, path);
+        return -EPERM;
+    }
+    a90_console_printf("%s %s_sha=%s expected_sha_match=1 path=%s\r\n",
+                       A90_D4_TAG, label, actual, path);
+    return 0;
+}
+
+static int d4_verify_e2fs_toolroot(void) {
+    int rc;
+
+    rc = d4_exact_dir_ok(A90_D4_E2FS_TOOLROOT);
+    if (rc < 0) {
+        a90_console_printf("%s e2fs-toolroot=fail stage=dir root=%s rc=%d\r\n",
+                           A90_D4_TAG, A90_D4_E2FS_TOOLROOT, rc);
+        return rc;
+    }
+    rc = d4_sha256_file_matches(A90_D4_E2FS_MKE2FS_HOST,
+                                A90_D4_E2FS_MKE2FS_SHA,
+                                "mke2fs");
+    if (rc < 0) {
+        return rc;
+    }
+    rc = d4_sha256_file_matches(A90_D4_E2FS_DUMPE2FS_HOST,
+                                A90_D4_E2FS_DUMPE2FS_SHA,
+                                "dumpe2fs");
+    if (rc < 0) {
+        return rc;
+    }
+    rc = d4_sha256_file_matches(A90_D4_E2FS_TUNE2FS_HOST,
+                                A90_D4_E2FS_TUNE2FS_SHA,
+                                "tune2fs");
+    if (rc < 0) {
+        return rc;
+    }
+    rc = d4_symlink_target_ok(A90_D4_E2FS_MKFS_EXT4_HOST, "mke2fs");
+    if (rc < 0) {
+        return rc;
+    }
+    a90_console_printf("%s e2fs-toolroot=ok root=%s mkfs.ext4=mke2fs\r\n",
+                       A90_D4_TAG, A90_D4_E2FS_TOOLROOT);
+    return 0;
+}
+
+static int d4_chroot_path_for_toolroot_file(const char *host_path,
+                                            char *out,
+                                            size_t out_size) {
+    size_t root_len = strlen(A90_D4_E2FS_TOOLROOT);
+    const char *suffix;
+
+    if (host_path == NULL || out == NULL || out_size == 0) {
+        return -EINVAL;
+    }
+    if (strncmp(host_path, A90_D4_E2FS_TOOLROOT, root_len) != 0 ||
+        host_path[root_len] != '/') {
+        a90_console_printf("%s refused=probe-path-outside-e2fs-toolroot path=%s root=%s\r\n",
+                           A90_D4_TAG, host_path, A90_D4_E2FS_TOOLROOT);
+        return -EPERM;
+    }
+    suffix = host_path + root_len;
+    if (suffix[1] == '\0') {
+        return -EINVAL;
+    }
+    if (strlen(suffix) >= out_size) {
+        return -ENAMETOOLONG;
+    }
+    memcpy(out, suffix, strlen(suffix) + 1);
+    return 0;
+}
+
 static int d4_regular_file_ok(const char *path) {
     int fd;
     struct stat st;
@@ -922,7 +1065,7 @@ static int d4_create_probe_file(const char *path, unsigned long long size_bytes)
     return 0;
 }
 
-static int d4_check_ext4_magic(const char *path) {
+static int d4_check_ext4_magic_phase(const char *path, const char *phase) {
     unsigned char magic[2] = { 0, 0 };
     int fd;
     int saved_errno;
@@ -941,12 +1084,50 @@ static int d4_check_ext4_magic(const char *path) {
     }
     close(fd);
     if (n != (ssize_t)sizeof(magic) || magic[0] != 0x53 || magic[1] != 0xef) {
-        a90_console_printf("%s formatter-probe=bad-ext4-magic read=%zd magic=%02x%02x\r\n",
-                           A90_D4_TAG, n, magic[0], magic[1]);
+        a90_console_printf("%s %s=bad-ext4-magic read=%zd magic=%02x%02x\r\n",
+                           A90_D4_TAG, phase != NULL ? phase : "ext4-check",
+                           n, magic[0], magic[1]);
         return -EINVAL;
     }
-    a90_console_printf("%s formatter-probe=ext4-magic-ok magic=53ef offset=%d\r\n",
-                       A90_D4_TAG, A90_D4_EXT4_MAGIC_OFFSET);
+    a90_console_printf("%s %s=ext4-magic-ok magic=53ef offset=%d\r\n",
+                       A90_D4_TAG, phase != NULL ? phase : "ext4-check",
+                       A90_D4_EXT4_MAGIC_OFFSET);
+    return 0;
+}
+
+static int d4_check_ext_has_journal(const char *path, const char *phase) {
+    unsigned char raw[4] = { 0, 0, 0, 0 };
+    unsigned int features;
+    int fd;
+    int saved_errno;
+    ssize_t n;
+
+    fd = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        saved_errno = errno;
+        return -saved_errno;
+    }
+    n = pread(fd, raw, sizeof(raw), A90_D4_EXT_FEATURE_COMPAT_OFFSET);
+    if (n < 0) {
+        saved_errno = errno;
+        close(fd);
+        return -saved_errno;
+    }
+    close(fd);
+    if (n != (ssize_t)sizeof(raw)) {
+        return -EIO;
+    }
+    features = ((unsigned int)raw[0]) |
+               ((unsigned int)raw[1] << 8) |
+               ((unsigned int)raw[2] << 16) |
+               ((unsigned int)raw[3] << 24);
+    if ((features & A90_D4_EXT_COMPAT_HAS_JOURNAL) == 0) {
+        a90_console_printf("%s %s=missing-has-journal feature_compat=0x%08x\r\n",
+                           A90_D4_TAG, phase != NULL ? phase : "journal-check", features);
+        return -EINVAL;
+    }
+    a90_console_printf("%s %s=has-journal-ok feature_compat=0x%08x has_journal=1\r\n",
+                       A90_D4_TAG, phase != NULL ? phase : "journal-check", features);
     return 0;
 }
 
@@ -986,6 +1167,83 @@ static int d4_run_busybox(char *const argv[], int timeout_ms) {
         return rc;
     }
     return a90_run_result_to_rc(&result);
+}
+
+static int d4_run_e2fs_chroot(char *const chroot_argv[], int timeout_ms) {
+    char *argv[12];
+    size_t count = 0;
+    size_t i = 0;
+
+    if (chroot_argv == NULL || chroot_argv[0] == NULL) {
+        return -EINVAL;
+    }
+    argv[count++] = (char *)A90_D4_BUSYBOX;
+    argv[count++] = (char *)"chroot";
+    argv[count++] = (char *)A90_D4_E2FS_TOOLROOT;
+    while (chroot_argv[i] != NULL) {
+        if (count + 1 >= sizeof(argv) / sizeof(argv[0])) {
+            return -E2BIG;
+        }
+        argv[count++] = chroot_argv[i++];
+    }
+    argv[count] = NULL;
+    return d4_run_busybox(argv, timeout_ms);
+}
+
+static int d4_run_e2fs_mkfs_ext4(const char *label,
+                                 const char *chroot_target,
+                                 const char *phase) {
+    char *mkfs_argv[] = {
+        (char *)A90_D4_E2FS_MKFS_EXT4_CHROOT,
+        (char *)"-F",
+        (char *)"-L",
+        NULL,
+        NULL,
+        NULL,
+    };
+    int rc;
+
+    if (label == NULL || chroot_target == NULL) {
+        return -EINVAL;
+    }
+    mkfs_argv[3] = (char *)label;
+    mkfs_argv[4] = (char *)chroot_target;
+    a90_console_printf("%s %s=begin formatter=e2fsprogs-mkfs.ext4 target=%s label=%s root=%s\r\n",
+                       A90_D4_TAG, phase != NULL ? phase : "mkfs", chroot_target,
+                       label, A90_D4_E2FS_TOOLROOT);
+    rc = d4_run_e2fs_chroot(mkfs_argv, A90_D4_FORMAT_TIMEOUT_MS);
+    if (rc != 0) {
+        a90_console_printf("%s %s=fail formatter=e2fsprogs-mkfs.ext4 rc=%d\r\n",
+                           A90_D4_TAG, phase != NULL ? phase : "mkfs", rc);
+        return rc > 0 ? -EIO : rc;
+    }
+    return 0;
+}
+
+static int d4_run_e2fs_dumpe2fs_header(const char *chroot_target, const char *phase) {
+    char *dump_argv[] = {
+        (char *)A90_D4_E2FS_DUMPE2FS_CHROOT,
+        (char *)"-h",
+        NULL,
+        NULL,
+    };
+    int rc;
+
+    if (chroot_target == NULL) {
+        return -EINVAL;
+    }
+    dump_argv[2] = (char *)chroot_target;
+    a90_console_printf("%s %s=dumpe2fs-header-begin target=%s\r\n",
+                       A90_D4_TAG, phase != NULL ? phase : "journal-check", chroot_target);
+    rc = d4_run_e2fs_chroot(dump_argv, A90_D4_FORMAT_TIMEOUT_MS);
+    if (rc != 0) {
+        a90_console_printf("%s %s=dumpe2fs-header-fail rc=%d\r\n",
+                           A90_D4_TAG, phase != NULL ? phase : "journal-check", rc);
+        return rc > 0 ? -EIO : rc;
+    }
+    a90_console_printf("%s %s=dumpe2fs-header-ok\r\n",
+                       A90_D4_TAG, phase != NULL ? phase : "journal-check");
+    return 0;
 }
 
 static int d4_parse_uevent(const char *path,
@@ -1389,6 +1647,53 @@ static int d4_ensure_userdata_node(const struct d4_userdata_target *target) {
     return 0;
 }
 
+static int d4_ensure_toolroot_userdata_node(const struct d4_userdata_target *target) {
+    char dev_dir[PATH_MAX];
+    char node_path[PATH_MAX];
+    struct stat st;
+    dev_t wanted;
+    int rc;
+
+    if (target == NULL) {
+        return -EINVAL;
+    }
+    rc = d4_join_path(dev_dir, sizeof(dev_dir), A90_D4_E2FS_TOOLROOT, "dev/block");
+    if (rc < 0) {
+        return rc;
+    }
+    rc = d4_join_path(node_path, sizeof(node_path), A90_D4_E2FS_TOOLROOT, "dev/block/a90-userdata");
+    if (rc < 0) {
+        return rc;
+    }
+    rc = d3_mkdir_p(dev_dir, 0755);
+    if (rc < 0) {
+        return rc;
+    }
+    wanted = makedev(target->major_num, target->minor_num);
+    if (lstat(node_path, &st) == 0) {
+        if (S_ISBLK(st.st_mode) && st.st_rdev == wanted) {
+            (void)chmod(node_path, 0600);
+            a90_console_printf("%s e2fs-toolroot-node=exists-ok path=%s dev=%u:%u\r\n",
+                               A90_D4_TAG, node_path,
+                               target->major_num, target->minor_num);
+            return 0;
+        }
+        a90_console_printf("%s stop=e2fs-toolroot-node-exists-wrong path=%s\r\n",
+                           A90_D4_TAG, node_path);
+        return -EPERM;
+    }
+    if (errno != ENOENT) {
+        return -errno;
+    }
+    if (mknod(node_path, S_IFBLK | 0600, wanted) < 0) {
+        return -errno;
+    }
+    a90_console_printf("%s e2fs-toolroot-node=created path=%s dev=%u:%u\r\n",
+                       A90_D4_TAG, node_path,
+                       target->major_num, target->minor_num);
+    return 0;
+}
+
 static int d4_mount_userdata_root(void) {
     char *const argv[] = {
         (char *)A90_D4_BUSYBOX,
@@ -1717,17 +2022,7 @@ int a90_server_distro_userdata_preflight_cmd(char **argv, int argc) {
 int a90_server_distro_userdata_formatter_probe_cmd(char **argv, int argc) {
     const char *probe_path;
     unsigned long long size_bytes = 0;
-    char size_kb_arg[32];
-    char *probe_argv[] = {
-        (char *)A90_D4_BUSYBOX,
-        (char *)"mke2fs",
-        (char *)"-F",
-        (char *)"-L",
-        (char *)"A90D4PROBE",
-        NULL,
-        NULL,
-        NULL,
-    };
+    char chroot_probe_path[PATH_MAX];
     int rc;
     int cleanup_rc;
 
@@ -1744,6 +2039,12 @@ int a90_server_distro_userdata_formatter_probe_cmd(char **argv, int argc) {
                            A90_D4_TAG, probe_path);
         return -EPERM;
     }
+    rc = d4_chroot_path_for_toolroot_file(probe_path,
+                                          chroot_probe_path,
+                                          sizeof(chroot_probe_path));
+    if (rc < 0) {
+        return rc;
+    }
     rc = d4_parse_u64(argv[3], &size_bytes);
     if (rc < 0 ||
         size_bytes < A90_D4_FORMATTER_PROBE_MIN_BYTES ||
@@ -1759,23 +2060,31 @@ int a90_server_distro_userdata_formatter_probe_cmd(char **argv, int argc) {
                            A90_D4_TAG, size_bytes);
         return -EINVAL;
     }
-    snprintf(size_kb_arg, sizeof(size_kb_arg), "%llu", size_bytes / 1024ULL);
 
+    rc = d4_verify_e2fs_toolroot();
+    if (rc < 0) {
+        return rc;
+    }
     rc = d4_create_probe_file(probe_path, size_bytes);
     if (rc < 0) {
         return rc;
     }
-    probe_argv[5] = (char *)probe_path;
-    probe_argv[6] = size_kb_arg;
-    a90_console_printf("%s formatter-probe=begin formatter=busybox-mke2fs path=%s size_bytes=%llu kbytes=%s\r\n",
-                       A90_D4_TAG, probe_path, size_bytes, size_kb_arg);
-    rc = d4_run_busybox(probe_argv, A90_D4_FORMAT_TIMEOUT_MS);
-    if (rc != 0) {
-        a90_console_printf("%s formatter-probe=fail stage=mke2fs rc=%d\r\n", A90_D4_TAG, rc);
+    rc = d4_run_e2fs_mkfs_ext4("A90D4PROBE", chroot_probe_path, "formatter-probe");
+    if (rc < 0) {
         (void)unlink(probe_path);
-        return rc > 0 ? -EIO : rc;
+        return rc;
     }
-    rc = d4_check_ext4_magic(probe_path);
+    rc = d4_check_ext4_magic_phase(probe_path, "formatter-probe");
+    if (rc < 0) {
+        (void)unlink(probe_path);
+        return rc;
+    }
+    rc = d4_run_e2fs_dumpe2fs_header(chroot_probe_path, "formatter-probe");
+    if (rc < 0) {
+        (void)unlink(probe_path);
+        return rc;
+    }
+    rc = d4_check_ext_has_journal(probe_path, "formatter-probe");
     if (rc < 0) {
         (void)unlink(probe_path);
         return rc;
@@ -1788,22 +2097,13 @@ int a90_server_distro_userdata_formatter_probe_cmd(char **argv, int argc) {
         return rc;
     }
     sync();
-    a90_console_printf("%s formatter-probe=done formatter=busybox-mke2fs path=%s cleanup=ok userdata_touched=0\r\n",
+    a90_console_printf("%s formatter-probe=done formatter=e2fsprogs-mkfs.ext4 path=%s cleanup=ok userdata_touched=0 has_journal=1\r\n",
                        A90_D4_TAG, probe_path);
     return 0;
 }
 
 int a90_server_distro_userdata_format_cmd(char **argv, int argc) {
     struct d4_userdata_target target;
-    char *const format_argv[] = {
-        (char *)A90_D4_BUSYBOX,
-        (char *)"mke2fs",
-        (char *)"-F",
-        (char *)"-L",
-        (char *)"A90D4ROOT",
-        (char *)A90_D4_NODE,
-        NULL,
-    };
     int rc;
 
     if (argc != 5 || strcmp(argv[1], A90_D4_TOKEN) != 0) {
@@ -1827,21 +2127,41 @@ int a90_server_distro_userdata_format_cmd(char **argv, int argc) {
     if (rc < 0) {
         return rc;
     }
+    rc = d4_verify_e2fs_toolroot();
+    if (rc < 0) {
+        a90_console_printf("%s format=fail stage=e2fs-toolroot rc=%d\r\n", A90_D4_TAG, rc);
+        return rc;
+    }
     rc = d4_ensure_userdata_node(&target);
     if (rc < 0) {
         a90_console_printf("%s format=fail stage=node rc=%d\r\n", A90_D4_TAG, rc);
         return rc;
     }
-    a90_console_printf("%s format=begin formatter=busybox-mke2fs node=%s\r\n",
-                       A90_D4_TAG, A90_D4_NODE);
-    rc = d4_run_busybox(format_argv, A90_D4_FORMAT_TIMEOUT_MS);
-    if (rc != 0) {
-        a90_console_printf("%s format=fail formatter=busybox-mke2fs rc=%d\r\n",
-                           A90_D4_TAG, rc);
-        return rc > 0 ? -EIO : rc;
+    rc = d4_ensure_toolroot_userdata_node(&target);
+    if (rc < 0) {
+        a90_console_printf("%s format=fail stage=e2fs-toolroot-node rc=%d\r\n", A90_D4_TAG, rc);
+        return rc;
+    }
+    rc = d4_run_e2fs_mkfs_ext4("A90D4ROOT", A90_D4_NODE, "format");
+    if (rc < 0) {
+        return rc;
+    }
+    rc = d4_check_ext4_magic_phase(A90_D4_NODE, "format");
+    if (rc < 0) {
+        a90_console_printf("%s format=fail stage=ext-magic rc=%d\r\n", A90_D4_TAG, rc);
+        return rc;
+    }
+    rc = d4_run_e2fs_dumpe2fs_header(A90_D4_NODE, "format");
+    if (rc < 0) {
+        return rc;
+    }
+    rc = d4_check_ext_has_journal(A90_D4_NODE, "format");
+    if (rc < 0) {
+        a90_console_printf("%s format=fail stage=has-journal rc=%d\r\n", A90_D4_TAG, rc);
+        return rc;
     }
     sync();
-    a90_console_printf("%s format=done formatter=busybox-mke2fs node=%s label=A90D4ROOT\r\n",
+    a90_console_printf("%s format=done formatter=e2fsprogs-mkfs.ext4 node=%s label=A90D4ROOT has_journal=1\r\n",
                        A90_D4_TAG, A90_D4_NODE);
     return 0;
 }
