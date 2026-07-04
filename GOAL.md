@@ -2339,6 +2339,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** default-off persistent exposure now has one-command prepare-to-arm plus a fresh arming packet; continue
 > only with explicit operator-selected WSTA58 live proof, or further default-off operator UX/reporting without starting
 > public exposure.
+> **🟢 STATUS (2026-07-04 19:56 KST host clock) — WSTA74 persistent arming status
+> SOURCE/PREFLIGHT PASS.**  Codex added
+> `workspace/public/src/scripts/server-distro/run_wsta74_persistent_arming_status.py`, a host-only status layer that
+> consumes a private WSTA73 arming packet, reruns WSTA73 against the original WSTA72 prepare-to-arm path, and reports
+> whether the packet is currently `READY_TO_EXECUTE_DEFAULT_OFF`, `STALE_OR_NOT_READY`, or
+> `DRIFT_RECHECK_REQUIRED`.  Private smoke
+> `workspace/private/runs/server-distro/wsta74-arming-status-smoke-20260704T105643Z` returned
+> `wsta74-persistent-arming-status-pass`, `state=READY_TO_EXECUTE_DEFAULT_OFF`, `ready_for_live=true`,
+> `wsta73_recheck_decision=wsta73-persistent-arming-packet-pass`, `template_match=true`,
+> `initial_seconds_remaining=298`, `recommended_next_action=operator-may-run-explicit-wsta58-live-gate`, and
+> `live_execution_requested=false`.  Validation passed 128 focused
+> WSTA52/WSTA53/WSTA54/WSTA55/WSTA58/WSTA63/WSTA64/WSTA65/WSTA66/WSTA67/WSTA68/WSTA69/WSTA70/WSTA71/WSTA72/WSTA73/
+> WSTA74 tests plus `py_compile`.  No boot image, flash, device command, native reboot, Wi-Fi association, DHCP,
+> public tunnel, public smoke, userdata action, switch-root, or external service action ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA74_ARMING_STATUS_SOURCE_2026-07-04.md`.
+> **NEXT:** default-off persistent exposure now has prepare-to-arm, arming packet, and packet status surfaces; continue
+> only with explicit operator-selected WSTA58 live proof, or further default-off operator UX/reporting without starting
+> public exposure.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
