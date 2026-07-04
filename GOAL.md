@@ -2540,6 +2540,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA83_WSTA80_WSTA58_LIVE_2026-07-04.md`.
 > **NEXT:** WSTA80/WSTA58 is end-to-end live-proven.  Continue with default-off operator UX around the proven
 > flow, or a targeted unit to eliminate the repeated rootfs mutation/reinstall cost.
+> **🟢 STATUS (2026-07-04 21:24 KST host clock) — WSTA84 rootfs clean-image cache
+> SOURCE PASS.**  Codex addressed the WSTA83 performance/cleanliness observation without live exposure:
+> WSTA42 now keeps a separate SD/runtime clean image (`--remote-clean-image`, default
+> `remote_image + ".clean"`), uploads that clean image only when missing/drifted, restores a drifted work
+> image by device-side copy from the clean image, verifies the restored work SHA before mounting, and keeps the
+> legacy direct upload path available by passing an empty clean-image path.  WSTA43 now accepts and propagates
+> custom `--remote-clean-image` so custom `--remote-image` users do not accidentally restore from the default
+> image.  Added fail-closed decisions for clean-image SHA mismatch and restore failure.  Validation passed
+> `py_compile`, 55 focused WSTA42/WSTA43/WSTA45/WSTA55/WSTA58/WSTA80 tests, and `git diff --check`.  No boot
+> image, flash, device command, native reboot, Wi-Fi association, DHCP, public tunnel, public smoke, userdata
+> action, switch-root, or non-boot partition write ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA84_ROOTFS_CLEAN_IMAGE_CACHE_SOURCE_2026-07-04.md`.
+> **NEXT:** run a bounded WSTA42/WSTA58 live measurement to prove the second leg now restores from the clean
+> image without host-side rootfs upload, or continue default-off operator UX around the proven WSTA80/WSTA58 flow.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

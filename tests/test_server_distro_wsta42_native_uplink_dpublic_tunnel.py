@@ -204,6 +204,123 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
             self.assertIn("/etc/a90-dpublic/native-uplink-enable", script)
             self.assertTrue(record["profile_used"])
 
+    def test_restore_work_image_from_clean_copies_on_device_and_verifies_sha(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            expected_sha = "a" * 64
+            args = SimpleNamespace(
+                remote_clean_image="/mnt/sdext/a90/runtime/debian.img.clean",
+                remote_image="/mnt/sdext/a90/runtime/debian.img",
+                setup_timeout=5.0,
+            )
+            bridge_text = (
+                "A90WSTA42_IMAGE_RESTORE_BEGIN\n"
+                "restore_clean_present=1\n"
+                "A90WSTA42_IMAGE_RESTORE_DONE\n"
+                f"{expected_sha}  /mnt/sdext/a90/runtime/debian.img\n"
+            )
+
+            with mock.patch.object(runner.wsta19, "bridge_shell", return_value={
+                "rc": 0,
+                "text": bridge_text,
+            }) as bridge:
+                record = runner.restore_work_image_from_clean(
+                    args,
+                    Path(tmp),
+                    local_sha=expected_sha,
+                )
+
+            script = bridge.call_args.args[1]
+            self.assertIn("A90WSTA42_IMAGE_RESTORE_BEGIN", script)
+            self.assertIn('/bin/busybox cp "$CLEAN" "$TMP"', script)
+            self.assertTrue(record["restored"])
+            self.assertEqual(record["restored_sha256"], expected_sha)
+
+    def test_prepare_remote_work_image_restores_drifted_work_from_clean_without_host_reupload(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            local_sha = "b" * 64
+            run_dir = Path(tmp)
+            out_path = run_dir / "result.json"
+            args = SimpleNamespace(
+                remote_image="/mnt/sdext/a90/runtime/debian.img",
+                remote_clean_image="/mnt/sdext/a90/runtime/debian.img.clean",
+            )
+            remote_calls: list[str] = []
+
+            def remote_sha(_args, path):
+                remote_calls.append(path)
+                if path == args.remote_image and remote_calls.count(path) == 1:
+                    return "drifted", {"path": path}
+                return local_sha, {"path": path}
+
+            with mock.patch.object(runner.wsta19, "remote_sha", side_effect=remote_sha), \
+                 mock.patch.object(runner, "install_image_to_remote", side_effect=AssertionError("unexpected upload")), \
+                 mock.patch.object(runner, "restore_work_image_from_clean", return_value={"restored": True}) as restore:
+                result: dict = {}
+                ok = runner.prepare_remote_work_image(args, result, out_path, run_dir, local_sha=local_sha)
+
+            self.assertTrue(ok)
+            self.assertEqual(remote_calls, [
+                args.remote_image,
+                args.remote_clean_image,
+                args.remote_clean_image,
+                args.remote_image,
+            ])
+            self.assertEqual(restore.call_count, 1)
+            self.assertTrue(result["remote_clean_image_enabled"])
+            self.assertEqual(result["remote_sha_after_value"], local_sha)
+
+    def test_prepare_remote_work_image_uploads_clean_once_then_restores_work(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            local_sha = "c" * 64
+            run_dir = Path(tmp)
+            out_path = run_dir / "result.json"
+            args = SimpleNamespace(
+                remote_image="/mnt/sdext/a90/runtime/debian.img",
+                remote_clean_image="/mnt/sdext/a90/runtime/debian.img.clean",
+            )
+            remote_values = iter([
+                (None, {"path": args.remote_image}),
+                (None, {"path": args.remote_clean_image}),
+                (local_sha, {"path": args.remote_clean_image}),
+                (local_sha, {"path": args.remote_image}),
+            ])
+
+            with mock.patch.object(runner.wsta19, "remote_sha", side_effect=lambda _args, _path: next(remote_values)), \
+                 mock.patch.object(runner, "install_image_to_remote", return_value={"returncode": 0}) as install, \
+                 mock.patch.object(runner, "restore_work_image_from_clean", return_value={"restored": True}) as restore:
+                result: dict = {}
+                ok = runner.prepare_remote_work_image(args, result, out_path, run_dir, local_sha=local_sha)
+
+            self.assertTrue(ok)
+            install.assert_called_once_with(args, local_sha, args.remote_clean_image)
+            self.assertEqual(restore.call_count, 1)
+            self.assertEqual(result["remote_clean_sha_after_value"], local_sha)
+
+    def test_prepare_remote_work_image_can_fall_back_to_legacy_direct_upload_when_clean_disabled(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            local_sha = "d" * 64
+            run_dir = Path(tmp)
+            out_path = run_dir / "result.json"
+            args = SimpleNamespace(
+                remote_image="/mnt/sdext/a90/runtime/debian.img",
+                remote_clean_image="",
+            )
+            remote_values = iter([
+                ("drifted", {"path": args.remote_image}),
+                (local_sha, {"path": args.remote_image}),
+            ])
+
+            with mock.patch.object(runner.wsta19, "remote_sha", side_effect=lambda _args, _path: next(remote_values)), \
+                 mock.patch.object(runner.wsta19, "install_image", return_value={"returncode": 0}) as install, \
+                 mock.patch.object(runner, "restore_work_image_from_clean", side_effect=AssertionError("unexpected restore")):
+                result: dict = {}
+                ok = runner.prepare_remote_work_image(args, result, out_path, run_dir, local_sha=local_sha)
+
+            self.assertTrue(ok)
+            self.assertFalse(result["remote_clean_image_enabled"])
+            self.assertIsNone(result["remote_clean_image"])
+            self.assertEqual(install.call_count, 1)
+
     def test_finish_result_persists_ended_timestamp(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "wsta42_result.json"
@@ -227,6 +344,8 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
         self.assertIn("--public-confirm-token", source)
         self.assertIn("--host-resolver-conf", source)
         self.assertIn("--use-native-uplink-profile", source)
+        self.assertIn("--remote-clean-image", source)
+        self.assertIn("remote_work_restore_from_clean", source)
         self.assertIn("a90_dpublic_native_uplink_profile.sh", source)
         self.assertIn("wsta42-native-uplink-profile-confirmed-autoconnect", source)
         self.assertIn("content_redacted", source)

@@ -116,6 +116,7 @@ def wsta42_args(args: argparse.Namespace, run_dir: Path) -> Namespace:
     nested.toybox = args.toybox
     nested.local_image = args.local_image
     nested.remote_image = args.remote_image
+    nested.remote_clean_image = args.remote_clean_image
     nested.mountpoint = args.mountpoint
     nested.cloudflared = args.cloudflared
     nested.cloudflared_stage_timeout = args.cloudflared_stage_timeout
@@ -339,6 +340,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--toybox", default="/bin/toybox")
     parser.add_argument("--local-image", type=Path, default=wsta42.d1.DEFAULT_LOCAL_IMAGE)
     parser.add_argument("--remote-image", default=wsta42.d1.DEFAULT_REMOTE_IMAGE)
+    parser.add_argument("--remote-clean-image", default=wsta42.DEFAULT_REMOTE_CLEAN_IMAGE)
     parser.add_argument("--mountpoint", default=wsta42.d1.DEFAULT_MOUNTPOINT)
     parser.add_argument("--cloudflared", type=Path, default=dpublic.DEFAULT_CLOUDFLARED)
     parser.add_argument("--cloudflared-stage-timeout", type=float, default=180.0)

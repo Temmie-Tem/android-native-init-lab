@@ -68,6 +68,7 @@ DEFAULT_HOST_RESOLVER_CANDIDATES = (
     Path("/run/systemd/resolve/resolv.conf"),
     Path("/etc/resolv.conf"),
 )
+DEFAULT_REMOTE_CLEAN_IMAGE = d1.DEFAULT_REMOTE_IMAGE + ".clean"
 
 
 def rel(path: Path) -> str:
@@ -90,6 +91,117 @@ def finish_result(out_path: Path, result: dict[str, Any]) -> dict[str, Any]:
 
 def sha256_file(path: Path) -> str:
     return d1.sha256_file(path)
+
+
+def remote_clean_image_enabled(args: argparse.Namespace) -> bool:
+    return bool(args.remote_clean_image) and args.remote_clean_image != args.remote_image
+
+
+def install_image_to_remote(args: argparse.Namespace, local_sha: str, remote_image: str) -> dict[str, Any]:
+    original_remote_image = args.remote_image
+    args.remote_image = remote_image
+    try:
+        return wsta19.install_image(args, local_sha)
+    finally:
+        args.remote_image = original_remote_image
+
+
+def restore_work_image_from_clean(args: argparse.Namespace,
+                                  run_dir: Path,
+                                  *,
+                                  local_sha: str) -> dict[str, Any]:
+    script = f"""
+set -eu
+CLEAN={shlex.quote(args.remote_clean_image)}
+WORK={shlex.quote(args.remote_image)}
+TMP="${{WORK}}.restore-tmp"
+echo A90WSTA42_IMAGE_RESTORE_BEGIN
+if [ "$CLEAN" = "$WORK" ]; then echo restore_same_path=1; exit 40; fi
+if [ ! -f "$CLEAN" ]; then echo restore_clean_present=0; exit 41; fi
+/bin/busybox rm -f "$TMP"
+/bin/busybox cp "$CLEAN" "$TMP"
+/bin/busybox sync
+/bin/busybox mv -f "$TMP" "$WORK"
+/bin/busybox sync
+echo restore_clean_present=1
+echo A90WSTA42_IMAGE_RESTORE_DONE
+/bin/busybox sha256sum "$WORK"
+""".strip()
+    record = wsta19.bridge_shell(
+        args,
+        script,
+        timeout=args.setup_timeout,
+        allow_error=True,
+    )
+    text = str(record.get("text") or "")
+    restored_sha = d1.parse_sha256(text)
+    record["expected_sha256"] = local_sha
+    record["restored_sha256"] = restored_sha
+    record["restored"] = (
+        record.get("rc") == 0
+        and "A90WSTA42_IMAGE_RESTORE_DONE" in text
+        and restored_sha == local_sha
+    )
+    record["run_dir"] = rel(run_dir)
+    return record
+
+
+def prepare_remote_work_image(args: argparse.Namespace,
+                              result: dict[str, Any],
+                              out_path: Path,
+                              run_dir: Path,
+                              *,
+                              local_sha: str) -> bool:
+    clean_enabled = remote_clean_image_enabled(args)
+    result["remote_clean_image"] = args.remote_clean_image if clean_enabled else None
+    result["remote_clean_image_enabled"] = clean_enabled
+
+    before_sha, before_record = wsta19.remote_sha(args, args.remote_image)
+    result["remote_sha_before"] = before_record
+    result["remote_sha_before_value"] = before_sha
+    write_json(out_path, result)
+
+    if clean_enabled:
+        clean_before_sha, clean_before_record = wsta19.remote_sha(args, args.remote_clean_image)
+        result["remote_clean_sha_before"] = clean_before_record
+        result["remote_clean_sha_before_value"] = clean_before_sha
+        write_json(out_path, result)
+        if clean_before_sha != local_sha:
+            result["remote_clean_install"] = install_image_to_remote(args, local_sha, args.remote_clean_image)
+            write_json(out_path, result)
+        clean_after_sha, clean_after_record = wsta19.remote_sha(args, args.remote_clean_image)
+        result["remote_clean_sha_after"] = clean_after_record
+        result["remote_clean_sha_after_value"] = clean_after_sha
+        if clean_after_sha != local_sha:
+            result["decision"] = "wsta42-blocked-remote-clean-image-sha"
+            write_json(out_path, result)
+            return False
+        if before_sha != local_sha:
+            result["remote_work_restore_from_clean"] = restore_work_image_from_clean(
+                args,
+                run_dir,
+                local_sha=local_sha,
+            )
+            write_json(out_path, result)
+            if not result["remote_work_restore_from_clean"].get("restored"):
+                result["decision"] = "wsta42-blocked-clean-image-restore"
+                write_json(out_path, result)
+                return False
+        else:
+            result["remote_work_restore_from_clean"] = {"skipped": True, "reason": "work-image-already-clean"}
+    elif before_sha != local_sha:
+        result["install"] = wsta19.install_image(args, local_sha)
+        write_json(out_path, result)
+
+    after_sha, after_record = wsta19.remote_sha(args, args.remote_image)
+    result["remote_sha_after"] = after_record
+    result["remote_sha_after_value"] = after_sha
+    if after_sha != local_sha:
+        result["decision"] = "wsta42-blocked-remote-image-sha"
+        write_json(out_path, result)
+        return False
+    write_json(out_path, result)
+    return True
 
 
 def explicit_live_gate(args: argparse.Namespace) -> tuple[bool, str]:
@@ -834,6 +946,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "gate_decision": gate_decision,
         "resident_required": {"supported": wsta24.SUPPORTED_UPLINK_NATIVE_BUILDS},
         "remote_image": args.remote_image,
+        "remote_clean_image": args.remote_clean_image if remote_clean_image_enabled(args) else None,
         "mountpoint": args.mountpoint,
         "service_dir": args.service_dir,
         "service_dir_native": args.mountpoint.rstrip("/") + "/" + args.service_dir.lstrip("/"),
@@ -914,19 +1027,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             autoconnect_enabled_by_runner = "wifi-autoconnect-enabled" in result["autoconnect_enable"].get("text", "")
             write_json(out_path, result)
 
-        before_sha, before_record = wsta19.remote_sha(args, args.remote_image)
-        result["remote_sha_before"] = before_record
-        result["remote_sha_before_value"] = before_sha
-        if before_sha != local_sha:
-            result["install"] = wsta19.install_image(args, local_sha)
-        after_sha, after_record = wsta19.remote_sha(args, args.remote_image)
-        result["remote_sha_after"] = after_record
-        result["remote_sha_after_value"] = after_sha
-        if after_sha != local_sha:
-            result["decision"] = "wsta42-blocked-remote-image-sha"
-            write_json(out_path, result)
+        if not prepare_remote_work_image(args, result, out_path, run_dir, local_sha=local_sha):
             return result
-        write_json(out_path, result)
 
         result["keygen"] = d2.generate_ssh_key(run_dir, run_id)
         public_key = d2.read_public_key(run_dir)
@@ -1197,6 +1299,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     elif result.get("decision") not in {
         "wsta42-blocked-local-image-sha",
         "wsta42-blocked-helper-build",
+        "wsta42-blocked-remote-clean-image-sha",
+        "wsta42-blocked-clean-image-restore",
         "wsta42-blocked-remote-image-sha",
         "wsta42-blocked-chroot-mount",
         "wsta42-blocked-dropbear-start",
@@ -1236,6 +1340,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--toybox", default="/bin/toybox")
     parser.add_argument("--local-image", type=Path, default=d1.DEFAULT_LOCAL_IMAGE)
     parser.add_argument("--remote-image", default=d1.DEFAULT_REMOTE_IMAGE)
+    parser.add_argument("--remote-clean-image", default=DEFAULT_REMOTE_CLEAN_IMAGE)
     parser.add_argument("--mountpoint", default=d1.DEFAULT_MOUNTPOINT)
     parser.add_argument("--cloudflared", type=Path, default=dpublic.DEFAULT_CLOUDFLARED)
     parser.add_argument("--cloudflared-stage-timeout", type=float, default=180.0)

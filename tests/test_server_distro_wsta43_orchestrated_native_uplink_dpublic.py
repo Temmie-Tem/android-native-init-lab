@@ -114,6 +114,10 @@ class ServerDistroWsta43OrchestratedNativeUplinkDpublicTests(unittest.TestCase):
             "workspace/private/runs/server-distro/example",
             "--host-resolver-conf",
             "/tmp/resolv.example",
+            "--remote-image",
+            "/mnt/sdext/a90/runtime/custom.img",
+            "--remote-clean-image",
+            "/mnt/sdext/a90/runtime/custom.img.clean",
         ])
         run_dir = Path("workspace/private/runs/server-distro/example")
 
@@ -127,6 +131,8 @@ class ServerDistroWsta43OrchestratedNativeUplinkDpublicTests(unittest.TestCase):
         self.assertTrue(w42.ack_public_exposure)
         self.assertTrue(w42.enable_autoconnect)
         self.assertTrue(w42.use_native_uplink_profile)
+        self.assertEqual(w42.remote_image, "/mnt/sdext/a90/runtime/custom.img")
+        self.assertEqual(w42.remote_clean_image, "/mnt/sdext/a90/runtime/custom.img.clean")
         self.assertEqual(w42.native_confirm_token, runner.wsta25.NATIVE_CONFIRM_TOKEN)
         self.assertEqual(w42.public_confirm_token, runner.PUBLIC_CONFIRM_TOKEN)
         self.assertEqual(w42.host_resolver_conf, [Path("/tmp/resolv.example")])
