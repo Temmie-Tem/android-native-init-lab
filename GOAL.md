@@ -2624,6 +2624,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA89_HARDENING_READINESS_AUDIT_2026-07-04.md`.
 > **NEXT:** WSTA90 should define the per-service seccomp/capability manifest skeleton; run netfilter inventory as
 > a separate read-only live unit before choosing iptables/nftables default-drop.
+> **🟢 STATUS (2026-07-04 22:11 KST host clock) — WSTA90 service
+> hardening manifest SOURCE/HOST PASS.**  Codex added `run_wsta90_service_hardening_manifest.py`, a host-only
+> manifest generator that consumes the WSTA89 readiness audit and emits the first structured D-public service
+> hardening contract.  The manifest covers `dpublic-smoke-httpd`, `cloudflared-quick-tunnel`,
+> `dropbear-admin-usb`, `dpublic-hud`, and `wsta-native-uplink-helper`; every entry starts with
+> `no_new_privs=true`, empty ambient capabilities, and empty bounding capabilities.  It fails closed unless WSTA89
+> passed and seccomp is ready for profile-source work.  Current blockers before enforcement are non-root
+> users/groups not staged, syscall traces not captured, packet-filter backend not inventoried, and the dropbear
+> admin user model not finalized.  Validation passed WSTA90 tests, `py_compile`, a real host-only WSTA90 run
+> against the WSTA89 private audit, and `git diff --check`.  No boot image, flash, device command, native reboot,
+> Wi-Fi association, DHCP, public tunnel, public smoke, userdata action, switch-root, or non-boot partition write
+> ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA90_SERVICE_HARDENING_MANIFEST_2026-07-04.md`.
+> **NEXT:** WSTA91 should run a read-only live netfilter/iptables/nftables inventory before choosing the
+> packet-filter default-drop backend; WSTA92 can then turn the manifest into a rootfs user/group + no-new-privs
+> launcher plan.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
