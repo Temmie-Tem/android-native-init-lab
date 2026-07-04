@@ -1261,6 +1261,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA20 live gate — flash V3385 via `native_init_flash.py`, health-check it, run WSTA2
 > materialization, mount the SD-backed Debian chroot, write status/scan requests from Debian, verify
 > native-owned responses, then cleanup and leave the device health-checked.
+> **🟢 STATUS (2026-07-04 09:53 KST host clock) — WSTA20 native Wi-Fi service boundary LIVE PASS.**
+> Codex added `run_wsta20_native_wifi_service_boundary.py` and flashed V3385 through the checked helper
+> (candidate SHA `33fabe5b90cab57c9e538236e2ad8abef28822807de4051cd8b7027053218710`, readback matched,
+> flash elapsed `62.086s`).  Post-flash V3385 health passed (`selftest fail=0`).  The runner then used
+> WSTA2 materialization (`wlan0_wait_elapsed_ms=102064`, `link_up_rc=0`), mounted the SD-backed Debian
+> image as a chroot, started temporary key-only dropbear, wrote `status` and `scan` request files from
+> Debian, and verified native-owned response files from `wifi service`: status decision
+> `wifi-service-status-pass`, scan decision `wifi-scan-pass`, `scan_result_count=9`, `owner=native-init`,
+> and redaction/safety fields for credentials/connect/DHCP/public tunnel.  The service stopped cleanly,
+> the service dir was removed, chroot/loop/dropbear postcheck was clean, and V3385 remains resident with
+> `selftest fail=0`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA20_NATIVE_SERVICE_BOUNDARY_PASS_2026-07-04.md`.
+> **NEXT:** factor a small Debian-side client/helper for this file protocol and decide whether to keep
+> D-public over Wi-Fi limited to native-owned status/scan, or add a separate gated native-owned
+> connect/association service rung.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
