@@ -1880,6 +1880,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** The source/productization path now has the core operator surfaces.  Continue WSTA only with a
 > concrete appliance-level operator runbook/HUD/menu integration or a deliberately gated persistent
 > exposure design; avoid another metadata-only cleanup.
+> **🟢 STATUS (2026-07-04 16:47 KST host clock) — WSTA49 appliance operator runbook
+> SOURCE PASS.**  Codex added
+> `docs/operations/A90_WSTA_NATIVE_UPLINK_DPUBLIC_OPERATOR_RUNBOOK.md`, a committed runbook that stitches
+> the proven WSTA45/WSTA43/WSTA42/WSTA48 surfaces into one operator procedure: bridge/resident/selftest
+> prechecks, WSTA45 host-only preflight, redacted publish-template printing, explicit WSTA45 live publish
+> with native-reboot/credentialed-Wi-Fi/public-exposure/confirm-token gates, WSTA48 redacted aggregation,
+> independent post-run `status`/`selftest`/`wifi status`, stop conditions, and non-goals.  All live
+> examples use `<native-confirm-token>` and `<public-confirm-token>` placeholders and keep private
+> aggregate outputs under `workspace/private/`.  Host validation passed: 8 focused WSTA49/WSTA48 tests and
+> `git diff --check`; tests verify required command surfaces, placeholder-only live values, absence of
+> actual confirm-token constants/public tunnel domain strings/obvious Wi-Fi credential assignments, and
+> explicit non-authorization of flashing or always-on public exposure.  No device action, no flash, no
+> native reboot, no Wi-Fi association, and no public tunnel ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA49_OPERATOR_RUNBOOK_SOURCE_2026-07-04.md`.
+> **NEXT:** WSTA source/productization is now saturated unless the work moves into native/HUD/menu
+> integration or a deliberately gated persistent exposure design.  Do not spend another unit on metadata
+> cleanup.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
