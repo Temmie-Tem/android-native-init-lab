@@ -1950,6 +1950,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA display/productization is now live-proven.  The next meaningful WSTA unit should be either
 > a deliberately gated persistent exposure design or a WSTA45 operator publish live run via the WSTA49
 > runbook; do not spend another unit on menu/display-only polish.
+> **🟢 STATUS (2026-07-04 17:08 KST host clock) — WSTA52 persistent exposure
+> DESIGN PASS.**  Codex added
+> `docs/operations/A90_WSTA_PERSISTENT_EXPOSURE_DESIGN.md`, a fail-closed design contract for a future
+> persistent D-public mode.  The design explicitly defines persistent as a supervised renewable public
+> lease, not always-on exposure: `default_state=public-off`, bounded lease TTL, host-gated renewal,
+> no boot autostart without a valid private lease, and no committed raw public URL.  It preserves the
+> proven flow WSTA45 -> WSTA43 -> WSTA28 -> WSTA42 -> WSTA48, keeps native init as Wi-Fi owner and
+> Debian as the service surface, requires explicit credentialed-Wi-Fi/public-exposure acknowledgements
+> and private confirm-token sources, and makes success depend on D-public cleanup, tunnel absence,
+> smoke absence, native-uplink profile cleanup, helper/chroot/Wi-Fi cleanup, post selftest, and WSTA48
+> redaction.  Validation passed: 17 focused WSTA52/WSTA49/WSTA45 tests and `git diff --check`.  No live
+> command, flash, native reboot, Wi-Fi association, DHCP, public tunnel, public smoke, userdata action,
+> or switch-root ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA52_PERSISTENT_EXPOSURE_DESIGN_2026-07-04.md`.
+> **NEXT:** implement WSTA53 source-only: a persistent lease parser and redacted plan generator that is
+> fail-closed by default and performs no live action; it should prepare WSTA54 host-only private lease
+> artifact generation.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
