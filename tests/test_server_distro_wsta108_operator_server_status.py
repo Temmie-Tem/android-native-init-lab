@@ -183,6 +183,65 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
             "secret_values_logged": 0,
         }
 
+    def syscall_trace_proof(self) -> dict:
+        return {
+            "decision": runner.wsta114.PASS_DECISION,
+            "run_dir": "workspace/private/runs/server-distro/wsta117-server-only-wsta114-live-test",
+            "checks": {
+                "public_default_off": True,
+                "strace_present": True,
+                "trace_started": True,
+                "loopback_get_ok": True,
+                "trace_file_nonempty": True,
+                "syscall_profile_nonempty": True,
+                "syscall_core_observed": True,
+                "trace_artifact_saved": True,
+                "chroot_cleanup_ok": True,
+                "final_selftest_fail_zero": True,
+            },
+            "syscall_profile": {
+                "schema": "a90-wsta114-syscall-profile-v1",
+                "service": "dpublic-smoke-httpd",
+                "scope": "smoke-service-only",
+                "command_shape": (
+                    "a90-service-launch dpublic-smoke-httpd strace -f "
+                    "a90-dpublic-smoke-httpd 127.0.0.1 8080"
+                ),
+                "public_default_off": True,
+                "loopback_get_ok": True,
+                "no_new_privs": True,
+                "cap_eff_zero": True,
+                "core_syscalls": ["execve", "socket", "bind", "listen"],
+                "core_syscalls_observed": True,
+                "syscall_count": 18,
+                "syscall_names": [
+                    "accept",
+                    "bind",
+                    "brk",
+                    "close",
+                    "execve",
+                    "getrandom",
+                    "listen",
+                    "mprotect",
+                    "prlimit64",
+                    "readlinkat",
+                    "rseq",
+                    "rt_sigaction",
+                    "rt_sigreturn",
+                    "set_robust_list",
+                    "set_tid_address",
+                    "setsockopt",
+                    "socket",
+                    "write",
+                ],
+                "trace_artifacts": {"all_saved": True, "private_artifact": True},
+                "public_url_value_logged": False,
+                "secret_values_logged": 0,
+            },
+            "public_url_value_logged": False,
+            "secret_values_logged": 0,
+        }
+
     def valid_args(self, root: Path, wsta88_json: Path, *extra: str):
         return runner.build_arg_parser().parse_args([
             "--run-dir",
@@ -266,6 +325,8 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertFalse(result["checks"]["packet_filter_loopback_live_proven"])
         self.assertFalse(result["checks"]["service_launcher_proof_supplied"])
         self.assertFalse(result["checks"]["service_launcher_smoke_live_proven"])
+        self.assertFalse(result["checks"]["syscall_trace_proof_supplied"])
+        self.assertFalse(result["checks"]["smoke_syscall_trace_live_proven"])
 
     def test_valid_wsta94_packet_filter_proofs_update_hardening_summary(self) -> None:
         with self.private_tmp() as tmp:
@@ -356,6 +417,44 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertTrue(result["checks"]["service_launcher_smoke_live_proven"])
         self.assertIn("Smoke launcher proof: `true`", markdown)
         self.assertIn("Smoke launcher user: `a90www`", markdown)
+
+    def test_valid_wsta88_manifest_and_wsta114_trace_proof_updates_hardening_summary(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            manifest_path = root / "inputs" / "wsta90_service_hardening_manifest.json"
+            proof_path = root / "inputs" / "wsta114_result.json"
+            self.write_json(manifest_path, self.hardening_manifest())
+            self.write_json(proof_path, self.syscall_trace_proof())
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta90-service-hardening-manifest-json",
+                str(manifest_path),
+                "--wsta114-syscall-trace-proof-json",
+                str(proof_path),
+            ))
+            markdown = (root / "wsta108" / "wsta108_operator_server_status.md").read_text(encoding="utf-8")
+
+        self.assertEqual(result["decision"], runner.PASS_DECISION)
+        hardening = result["server_status"]["hardening"]
+        proof = hardening["syscall_trace_proof"]
+        self.assertEqual(proof["state"], "SMOKE_SERVICE_SYSCALL_TRACE_LIVE_PROVEN")
+        self.assertTrue(proof["smoke_syscall_trace_live_proven"])
+        self.assertEqual(proof["service"], "dpublic-smoke-httpd")
+        self.assertEqual(proof["syscall_count"], 18)
+        self.assertIn("bind", proof["syscall_names"])
+        self.assertTrue(proof["trace_artifacts_saved"])
+        self.assertNotIn("syscall traces not captured", hardening["blocking_before_enforcement"])
+        self.assertIn(
+            "remaining syscall traces not captured beyond dpublic-smoke-httpd",
+            hardening["blocking_before_enforcement"],
+        )
+        self.assertTrue(result["checks"]["syscall_trace_proof_supplied"])
+        self.assertTrue(result["checks"]["smoke_syscall_trace_live_proven"])
+        self.assertIn("Smoke syscall trace proof: `true`", markdown)
+        self.assertIn("Smoke syscall count: `18`", markdown)
+        self.assertIn("Remaining syscall profiles: `cloudflared-quick-tunnel, dropbear-admin-usb, dpublic-hud`", markdown)
 
     def test_nonpass_wsta88_blocks(self) -> None:
         with self.private_tmp() as tmp:
@@ -456,6 +555,23 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
 
         self.assertEqual(result["decision"], "wsta108-blocked-wsta110-launcher-proof-not-pass")
 
+    def test_nonpass_wsta114_syscall_trace_proof_blocks(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            proof_path = root / "inputs" / "wsta114_result.json"
+            proof = self.syscall_trace_proof()
+            proof["decision"] = "wsta114-blocked"
+            self.write_json(proof_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta114-syscall-trace-proof-json",
+                str(proof_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta114-syscall-trace-proof-not-pass")
+
     def test_incomplete_wsta110_launcher_proof_blocks_even_with_pass_decision(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -476,6 +592,24 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
 
         self.assertEqual(result["decision"], "wsta108-blocked-wsta110-launcher-proof-incomplete")
         self.assertFalse(result["checks"]["service_launcher_smoke_live_proven"])
+
+    def test_incomplete_wsta114_syscall_trace_proof_blocks_even_with_pass_decision(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            proof_path = root / "inputs" / "wsta114_result.json"
+            proof = self.syscall_trace_proof()
+            proof["syscall_profile"]["syscall_names"].remove("listen")
+            self.write_json(proof_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta114-syscall-trace-proof-json",
+                str(proof_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta114-syscall-trace-proof-incomplete")
+        self.assertFalse(result["checks"]["smoke_syscall_trace_live_proven"])
 
     def test_public_summary_markdown_and_template_are_redacted(self) -> None:
         with self.private_tmp() as tmp:
@@ -511,6 +645,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("--wsta94-packet-filter-proof-json", payload)
         self.assertIn("--packet-filter-control-summary-json", payload)
         self.assertIn("--wsta110-service-launcher-proof-json", payload)
+        self.assertIn("--wsta114-syscall-trace-proof-json", payload)
 
     def test_source_is_host_only_and_names_server_model(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")
@@ -521,6 +656,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("wsta88-status-hud", source)
         self.assertIn("PACKET_FILTER_LOOPBACK_DEFAULT_DROP_LIVE_PROVEN", source)
         self.assertIn("SMOKE_SERVICE_LAUNCHER_LIVE_PROVEN", source)
+        self.assertIn("SMOKE_SERVICE_SYSCALL_TRACE_LIVE_PROVEN", source)
         self.assertIn('"boot_flash": False', source)
         self.assertIn('"public_url_value_logged": False', source)
         self.assertNotIn("native_init_flash.py", source)

@@ -2979,6 +2979,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA117_SERVER_ONLY_SYSCALL_TRACE_LIVE_2026-07-05.md`.
 > **NEXT:** WSTA118 should fold the WSTA114 private pass proof into WSTA108/WSTA90 operator status, retiring only the
 > `dpublic-smoke-httpd` syscall-trace blocker and not generalizing to Dropbear/tunnel/HUD profiles.
+>
+> **🟢 STATUS (2026-07-05 04:15 KST host clock) — WSTA118 OPERATOR STATUS
+> SYSCALL-TRACE PROOF SOURCE PASS.**  Codex folded the private WSTA117/WSTA114 pass proof into WSTA108 operator
+> status.  WSTA108 now accepts optional `--wsta114-syscall-trace-proof-json`, requires the private proof to carry
+> `wsta114-syscall-trace-smoke-chroot-live-pass`, and fail-closes if the proof decision is non-pass or the pass is
+> missing required runtime evidence.  The compact status now records
+> `hardening.syscall_trace_proof.state=SMOKE_SERVICE_SYSCALL_TRACE_LIVE_PROVEN`, service `dpublic-smoke-httpd`,
+> scope `smoke-service-only`, public default-off, loopback GET OK, no-new-privs, zero effective caps, saved private
+> trace artifacts, syscall count `18`, and core syscalls `execve/socket/bind/listen`.  Regenerated operator status:
+> `SERVER_PROFILE_READY_DEFAULT_OFF`, public state `PUBLIC_OFF`, `smoke_syscall_trace_live_proven=true`.  The broad
+> `syscall traces not captured` blocker is retired only for the smoke service and replaced with
+> `remaining syscall traces not captured beyond dpublic-smoke-httpd`; Dropbear/tunnel/HUD syscall profiles remain
+> unproven.  No device action, boot flash, native reboot, Wi-Fi association, DHCP, public tunnel, public smoke,
+> packet-filter mutation, userdata action, or switch-root ran.  Focused WSTA108 validation passed (`18 tests`).
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA118_OPERATOR_STATUS_SYSCALL_TRACE_PROOF_SOURCE_2026-07-05.md`.
+> **NEXT:** extend the same launcher/syscall proof bundle beyond `dpublic-smoke-httpd`, with priority on the
+> Dropbear admin user model before any always-on server profile.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
