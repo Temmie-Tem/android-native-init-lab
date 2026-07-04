@@ -71,7 +71,15 @@ class NativeWifiUplinkServiceSourceTests(unittest.TestCase):
         self.assertIn("connect_wpa_complete_last_state=%s", uplink_service)
         self.assertIn("connect_wpa_monitor_event_count=%s", uplink_service)
         self.assertIn("connect_wpa_monitor_last_event=%s", uplink_service)
+        self.assertIn("connect_wpa_monitor_disconnect_reason_class=%s", uplink_service)
+        self.assertIn("connect_wpa_monitor_temp_disabled_reason_class=%s", uplink_service)
+        self.assertIn("connect_wpa_monitor_assoc_reject_status_class=%s", uplink_service)
         self.assertIn("connect_ctrl_status_wpa_state=%s", uplink_service)
+        self.assertIn("connect_ctrl_status_network_selected=%s", uplink_service)
+        self.assertIn("connect_ctrl_status_key_mgmt=%s", uplink_service)
+        self.assertIn("connect_ctrl_status_pairwise_cipher=%s", uplink_service)
+        self.assertIn("connect_ctrl_status_group_cipher=%s", uplink_service)
+        self.assertIn("connect_ctrl_status_mode=%s", uplink_service)
         self.assertIn("connect_ctrl_status_completed=%s", uplink_service)
         self.assertNotIn("profile=%s\\n", uplink_service)
         self.assertNotIn("requested_profile=%s", uplink_service)
@@ -103,6 +111,9 @@ class NativeWifiUplinkServiceSourceTests(unittest.TestCase):
         self.assertIn("wifi_wait_wpa_completed", source)
         self.assertIn("wifi_ctrl_next_local_seq", source)
         self.assertIn('"a90-wifi-%ld-%ld-%lu"', source)
+        self.assertIn("wifi_event_value_class", source)
+        self.assertIn("connect_wpa_monitor_temp_disabled_reason_class=%s", source)
+        self.assertIn("connect_ctrl_status_key_mgmt=%s", source)
         self.assertIn("connect_wpa_complete_wait_rc=%d", source)
         self.assertIn("connect_wpa_monitor_last_event=%s", source)
         self.assertIn("wifi-connect-status-not-completed", source)
@@ -119,6 +130,8 @@ class NativeWifiUplinkServiceSourceTests(unittest.TestCase):
             "connect_wpa_complete_last_state",
             "connect_wpa_monitor_event_count",
             "connect_wpa_monitor_last_event",
+            "connect_wpa_monitor_temp_disabled_reason_class",
+            "connect_ctrl_status_key_mgmt",
             "connect_supplicant_left_running",
         ):
             self.assertIn(field, helper)

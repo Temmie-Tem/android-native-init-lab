@@ -202,10 +202,20 @@ struct wifi_autoconnect_connect_diag_state {
     int wpa_monitor_temp_disabled_seen;
     int wpa_monitor_eap_failure_seen;
     char wpa_monitor_last_event[48];
+    char wpa_monitor_disconnect_reason_class[64];
+    char wpa_monitor_temp_disabled_reason_class[64];
+    char wpa_monitor_assoc_reject_status_class[32];
     int ctrl_status_rc;
     int ctrl_status_errno;
     int ctrl_status_completed;
     char ctrl_status_wpa_state[32];
+    char ctrl_status_network_id[16];
+    int ctrl_status_network_selected;
+    char ctrl_status_key_mgmt[64];
+    char ctrl_status_pairwise_cipher[64];
+    char ctrl_status_group_cipher[64];
+    char ctrl_status_mode[32];
+    char ctrl_status_freq_mhz[32];
     int ctrl_signal_rc;
     int ctrl_signal_errno;
     int supplicant_spawned;
@@ -266,12 +276,48 @@ static void wifi_autoconnect_reset_connect_diag(void) {
              sizeof(g_autoconnect_connect_diag.wpa_monitor_last_event),
              "%s",
              "-");
+    snprintf(g_autoconnect_connect_diag.wpa_monitor_disconnect_reason_class,
+             sizeof(g_autoconnect_connect_diag.wpa_monitor_disconnect_reason_class),
+             "%s",
+             "-");
+    snprintf(g_autoconnect_connect_diag.wpa_monitor_temp_disabled_reason_class,
+             sizeof(g_autoconnect_connect_diag.wpa_monitor_temp_disabled_reason_class),
+             "%s",
+             "-");
+    snprintf(g_autoconnect_connect_diag.wpa_monitor_assoc_reject_status_class,
+             sizeof(g_autoconnect_connect_diag.wpa_monitor_assoc_reject_status_class),
+             "%s",
+             "-");
     g_autoconnect_connect_diag.ctrl_status_rc = -ENOENT;
     g_autoconnect_connect_diag.ctrl_status_errno = 0;
     g_autoconnect_connect_diag.ctrl_signal_rc = -ENOENT;
     g_autoconnect_connect_diag.ctrl_signal_errno = 0;
     snprintf(g_autoconnect_connect_diag.ctrl_status_wpa_state,
              sizeof(g_autoconnect_connect_diag.ctrl_status_wpa_state),
+             "%s",
+             "-");
+    snprintf(g_autoconnect_connect_diag.ctrl_status_network_id,
+             sizeof(g_autoconnect_connect_diag.ctrl_status_network_id),
+             "%s",
+             "-");
+    snprintf(g_autoconnect_connect_diag.ctrl_status_key_mgmt,
+             sizeof(g_autoconnect_connect_diag.ctrl_status_key_mgmt),
+             "%s",
+             "-");
+    snprintf(g_autoconnect_connect_diag.ctrl_status_pairwise_cipher,
+             sizeof(g_autoconnect_connect_diag.ctrl_status_pairwise_cipher),
+             "%s",
+             "-");
+    snprintf(g_autoconnect_connect_diag.ctrl_status_group_cipher,
+             sizeof(g_autoconnect_connect_diag.ctrl_status_group_cipher),
+             "%s",
+             "-");
+    snprintf(g_autoconnect_connect_diag.ctrl_status_mode,
+             sizeof(g_autoconnect_connect_diag.ctrl_status_mode),
+             "%s",
+             "-");
+    snprintf(g_autoconnect_connect_diag.ctrl_status_freq_mhz,
+             sizeof(g_autoconnect_connect_diag.ctrl_status_freq_mhz),
              "%s",
              "-");
     snprintf(g_autoconnect_connect_diag.decision,
@@ -1369,6 +1415,8 @@ struct wifi_ctrl_monitor {
     bool attached;
 };
 
+static char wifi_safe_metric_char(char value);
+
 static void wifi_ctrl_monitor_reset(struct wifi_ctrl_monitor *monitor) {
     if (monitor == NULL) {
         return;
@@ -1412,7 +1460,50 @@ static const char *wifi_wpa_event_category(const char *event) {
     return "other";
 }
 
-static void wifi_record_wpa_event_category(const char *category) {
+static void wifi_event_value_class(const char *event,
+                                   const char *key,
+                                   const char *fallback,
+                                   char *out,
+                                   size_t out_size) {
+    char pattern[48];
+    const char *cursor;
+    const char *value;
+    size_t index = 0;
+
+    if (out == NULL || out_size == 0) {
+        return;
+    }
+    snprintf(out, out_size, "%s", fallback != NULL && fallback[0] != '\0' ? fallback : "not-present");
+    if (event == NULL || key == NULL || key[0] == '\0') {
+        return;
+    }
+    if (snprintf(pattern, sizeof(pattern), "%s=", key) >= (int)sizeof(pattern)) {
+        return;
+    }
+    cursor = strstr(event, pattern);
+    if (cursor == NULL) {
+        return;
+    }
+    value = cursor + strlen(pattern);
+    if (*value == '"') {
+        value++;
+    }
+    while (*value != '\0' &&
+           *value != '"' &&
+           *value != ' ' &&
+           *value != '\n' &&
+           *value != '\r' &&
+           index + 1 < out_size) {
+        out[index++] = wifi_safe_metric_char(*value);
+        value++;
+    }
+    out[index] = '\0';
+    if (index == 0) {
+        snprintf(out, out_size, "%s", fallback != NULL && fallback[0] != '\0' ? fallback : "not-present");
+    }
+}
+
+static void wifi_record_wpa_event_category(const char *category, const char *event) {
     const char *selected = category != NULL && category[0] != '\0' ? category : "other";
 
     g_autoconnect_connect_diag.wpa_monitor_event_count++;
@@ -1424,14 +1515,29 @@ static void wifi_record_wpa_event_category(const char *category) {
         g_autoconnect_connect_diag.wpa_monitor_connected_seen = 1;
     } else if (strcmp(selected, "disconnected") == 0) {
         g_autoconnect_connect_diag.wpa_monitor_disconnected_seen = 1;
+        wifi_event_value_class(event,
+                               "reason",
+                               "not-present",
+                               g_autoconnect_connect_diag.wpa_monitor_disconnect_reason_class,
+                               sizeof(g_autoconnect_connect_diag.wpa_monitor_disconnect_reason_class));
     } else if (strcmp(selected, "scan-results") == 0) {
         g_autoconnect_connect_diag.wpa_monitor_scan_results_seen = 1;
     } else if (strcmp(selected, "assoc-reject") == 0) {
         g_autoconnect_connect_diag.wpa_monitor_assoc_reject_seen = 1;
+        wifi_event_value_class(event,
+                               "status_code",
+                               "not-present",
+                               g_autoconnect_connect_diag.wpa_monitor_assoc_reject_status_class,
+                               sizeof(g_autoconnect_connect_diag.wpa_monitor_assoc_reject_status_class));
     } else if (strcmp(selected, "auth-reject") == 0) {
         g_autoconnect_connect_diag.wpa_monitor_auth_reject_seen = 1;
     } else if (strcmp(selected, "ssid-temp-disabled") == 0) {
         g_autoconnect_connect_diag.wpa_monitor_temp_disabled_seen = 1;
+        wifi_event_value_class(event,
+                               "reason",
+                               "not-present",
+                               g_autoconnect_connect_diag.wpa_monitor_temp_disabled_reason_class,
+                               sizeof(g_autoconnect_connect_diag.wpa_monitor_temp_disabled_reason_class));
     } else if (strcmp(selected, "eap-failure") == 0) {
         g_autoconnect_connect_diag.wpa_monitor_eap_failure_seen = 1;
     }
@@ -1477,7 +1583,7 @@ static void wifi_ctrl_monitor_drain(struct wifi_ctrl_monitor *monitor, int timeo
             return;
         }
         event[received] = '\0';
-        wifi_record_wpa_event_category(wifi_wpa_event_category(event));
+        wifi_record_wpa_event_category(wifi_wpa_event_category(event), event);
     } while (monotonic_millis() < deadline_ms);
 }
 
@@ -1961,6 +2067,12 @@ struct wifi_ctrl_link_info {
     int signal_errno;
     char ssid_label[32];
     char wpa_state[32];
+    char network_id[16];
+    int network_selected;
+    char key_mgmt[64];
+    char pairwise_cipher[64];
+    char group_cipher[64];
+    char mode[32];
     char rssi_dbm[32];
     char linkspeed_mbps[32];
     char freq_mhz[32];
@@ -2097,7 +2209,13 @@ static void wifi_collect_ctrl_link_info(struct wifi_ctrl_link_info *info) {
     (void)reply_len;
     if (info->status_rc == 0) {
         (void)wifi_ctrl_reply_value(reply, "wpa_state", info->wpa_state, sizeof(info->wpa_state));
+        (void)wifi_ctrl_reply_value(reply, "id", info->network_id, sizeof(info->network_id));
+        (void)wifi_ctrl_reply_value(reply, "key_mgmt", info->key_mgmt, sizeof(info->key_mgmt));
+        (void)wifi_ctrl_reply_value(reply, "pairwise_cipher", info->pairwise_cipher, sizeof(info->pairwise_cipher));
+        (void)wifi_ctrl_reply_value(reply, "group_cipher", info->group_cipher, sizeof(info->group_cipher));
+        (void)wifi_ctrl_reply_value(reply, "mode", info->mode, sizeof(info->mode));
         (void)wifi_ctrl_reply_value(reply, "freq", info->freq_mhz, sizeof(info->freq_mhz));
+        info->network_selected = wifi_value_missing(info->network_id) ? 0 : 1;
         if (wifi_ctrl_reply_has_key(reply, "ssid") &&
             strcmp(info->wpa_state, "COMPLETED") == 0) {
             snprintf(info->ssid_label, sizeof(info->ssid_label), "%s", "connected");
@@ -3986,6 +4104,12 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
                        g_autoconnect_connect_diag.wpa_monitor_eap_failure_seen);
     a90_console_printf("wpa_monitor_last_event=%s\r\n",
                        g_autoconnect_connect_diag.wpa_monitor_last_event);
+    a90_console_printf("wpa_monitor_disconnect_reason_class=%s\r\n",
+                       g_autoconnect_connect_diag.wpa_monitor_disconnect_reason_class);
+    a90_console_printf("wpa_monitor_temp_disabled_reason_class=%s\r\n",
+                       g_autoconnect_connect_diag.wpa_monitor_temp_disabled_reason_class);
+    a90_console_printf("wpa_monitor_assoc_reject_status_class=%s\r\n",
+                       g_autoconnect_connect_diag.wpa_monitor_assoc_reject_status_class);
     status_rc = wifi_print_ctrl_result("ctrl.status", "STATUS");
     wifi_collect_ctrl_link_info(&status_info);
     (void)status_rc;
@@ -3997,6 +4121,31 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
              sizeof(g_autoconnect_connect_diag.ctrl_status_wpa_state),
              "%s",
              status_info.wpa_state[0] != '\0' ? status_info.wpa_state : "-");
+    snprintf(g_autoconnect_connect_diag.ctrl_status_network_id,
+             sizeof(g_autoconnect_connect_diag.ctrl_status_network_id),
+             "%s",
+             status_info.network_id[0] != '\0' ? status_info.network_id : "-");
+    g_autoconnect_connect_diag.ctrl_status_network_selected = status_info.network_selected;
+    snprintf(g_autoconnect_connect_diag.ctrl_status_key_mgmt,
+             sizeof(g_autoconnect_connect_diag.ctrl_status_key_mgmt),
+             "%s",
+             status_info.key_mgmt[0] != '\0' ? status_info.key_mgmt : "-");
+    snprintf(g_autoconnect_connect_diag.ctrl_status_pairwise_cipher,
+             sizeof(g_autoconnect_connect_diag.ctrl_status_pairwise_cipher),
+             "%s",
+             status_info.pairwise_cipher[0] != '\0' ? status_info.pairwise_cipher : "-");
+    snprintf(g_autoconnect_connect_diag.ctrl_status_group_cipher,
+             sizeof(g_autoconnect_connect_diag.ctrl_status_group_cipher),
+             "%s",
+             status_info.group_cipher[0] != '\0' ? status_info.group_cipher : "-");
+    snprintf(g_autoconnect_connect_diag.ctrl_status_mode,
+             sizeof(g_autoconnect_connect_diag.ctrl_status_mode),
+             "%s",
+             status_info.mode[0] != '\0' ? status_info.mode : "-");
+    snprintf(g_autoconnect_connect_diag.ctrl_status_freq_mhz,
+             sizeof(g_autoconnect_connect_diag.ctrl_status_freq_mhz),
+             "%s",
+             status_info.freq_mhz[0] != '\0' ? status_info.freq_mhz : "-");
     g_autoconnect_connect_diag.ctrl_status_completed =
         strcmp(status_info.wpa_state, "COMPLETED") == 0 ? 1 : 0;
     a90_console_printf("ctrl.status_confirm.rc=%d\r\n", status_info.status_rc);
@@ -4005,6 +4154,18 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
                        status_info.wpa_state[0] != '\0' ? status_info.wpa_state : "-");
     a90_console_printf("ctrl.status_confirm.field.freq=%s\r\n",
                        status_info.freq_mhz[0] != '\0' ? status_info.freq_mhz : "-");
+    a90_console_printf("ctrl.status_confirm.field.id=%s\r\n",
+                       status_info.network_id[0] != '\0' ? status_info.network_id : "-");
+    a90_console_printf("ctrl.status_confirm.network_selected=%d\r\n",
+                       status_info.network_selected);
+    a90_console_printf("ctrl.status_confirm.field.key_mgmt=%s\r\n",
+                       status_info.key_mgmt[0] != '\0' ? status_info.key_mgmt : "-");
+    a90_console_printf("ctrl.status_confirm.field.pairwise_cipher=%s\r\n",
+                       status_info.pairwise_cipher[0] != '\0' ? status_info.pairwise_cipher : "-");
+    a90_console_printf("ctrl.status_confirm.field.group_cipher=%s\r\n",
+                       status_info.group_cipher[0] != '\0' ? status_info.group_cipher : "-");
+    a90_console_printf("ctrl.status_confirm.field.mode=%s\r\n",
+                       status_info.mode[0] != '\0' ? status_info.mode : "-");
     a90_console_printf("ctrl.status_confirm.completed=%d\r\n",
                        strcmp(status_info.wpa_state, "COMPLETED") == 0 ? 1 : 0);
     a90_console_printf("supplicant.reused=%d\r\n", reusing_supplicant ? 1 : 0);
@@ -4083,7 +4244,7 @@ static int wifi_write_autoconnect_result(const char *decision,
                                          int connect_rc,
                                          int dhcp_rc,
                                          int final_rc) {
-    char text[8192];
+    char text[12288];
     int len;
 
     len = snprintf(text,
@@ -4144,9 +4305,19 @@ static int wifi_write_autoconnect_result(const char *decision,
                    "connect_wpa_monitor_temp_disabled_seen=%d\n"
                    "connect_wpa_monitor_eap_failure_seen=%d\n"
                    "connect_wpa_monitor_last_event=%s\n"
+                   "connect_wpa_monitor_disconnect_reason_class=%s\n"
+                   "connect_wpa_monitor_temp_disabled_reason_class=%s\n"
+                   "connect_wpa_monitor_assoc_reject_status_class=%s\n"
                    "connect_ctrl_status_rc=%d\n"
                    "connect_ctrl_status_errno=%d\n"
                    "connect_ctrl_status_wpa_state=%s\n"
+                   "connect_ctrl_status_network_id=%s\n"
+                   "connect_ctrl_status_network_selected=%d\n"
+                   "connect_ctrl_status_key_mgmt=%s\n"
+                   "connect_ctrl_status_pairwise_cipher=%s\n"
+                   "connect_ctrl_status_group_cipher=%s\n"
+                   "connect_ctrl_status_mode=%s\n"
+                   "connect_ctrl_status_freq_mhz=%s\n"
                    "connect_ctrl_status_completed=%d\n"
                    "connect_ctrl_signal_rc=%d\n"
                    "connect_ctrl_signal_errno=%d\n"
@@ -4209,9 +4380,19 @@ static int wifi_write_autoconnect_result(const char *decision,
                    g_autoconnect_connect_diag.wpa_monitor_temp_disabled_seen,
                    g_autoconnect_connect_diag.wpa_monitor_eap_failure_seen,
                    g_autoconnect_connect_diag.wpa_monitor_last_event,
+                   g_autoconnect_connect_diag.wpa_monitor_disconnect_reason_class,
+                   g_autoconnect_connect_diag.wpa_monitor_temp_disabled_reason_class,
+                   g_autoconnect_connect_diag.wpa_monitor_assoc_reject_status_class,
                    g_autoconnect_connect_diag.ctrl_status_rc,
                    g_autoconnect_connect_diag.ctrl_status_errno,
                    g_autoconnect_connect_diag.ctrl_status_wpa_state,
+                   g_autoconnect_connect_diag.ctrl_status_network_id,
+                   g_autoconnect_connect_diag.ctrl_status_network_selected,
+                   g_autoconnect_connect_diag.ctrl_status_key_mgmt,
+                   g_autoconnect_connect_diag.ctrl_status_pairwise_cipher,
+                   g_autoconnect_connect_diag.ctrl_status_group_cipher,
+                   g_autoconnect_connect_diag.ctrl_status_mode,
+                   g_autoconnect_connect_diag.ctrl_status_freq_mhz,
                    g_autoconnect_connect_diag.ctrl_status_completed,
                    g_autoconnect_connect_diag.ctrl_signal_rc,
                    g_autoconnect_connect_diag.ctrl_signal_errno,
@@ -6846,6 +7027,15 @@ static void wifi_uplink_service_append_autoconnect_result(char *response,
     if (wifi_service_request_value(result, "connect_wpa_monitor_last_event", value, sizeof(value)) == 0) {
         wifi_service_append(response, response_size, offset, "connect_wpa_monitor_last_event=%s\n", value);
     }
+    if (wifi_service_request_value(result, "connect_wpa_monitor_disconnect_reason_class", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_wpa_monitor_disconnect_reason_class=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_wpa_monitor_temp_disabled_reason_class", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_wpa_monitor_temp_disabled_reason_class=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_wpa_monitor_assoc_reject_status_class", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_wpa_monitor_assoc_reject_status_class=%s\n", value);
+    }
     if (wifi_service_request_value(result, "connect_ctrl_status_rc", value, sizeof(value)) == 0) {
         wifi_service_append(response, response_size, offset, "connect_ctrl_status_rc=%s\n", value);
     }
@@ -6854,6 +7044,27 @@ static void wifi_uplink_service_append_autoconnect_result(char *response,
     }
     if (wifi_service_request_value(result, "connect_ctrl_status_wpa_state", value, sizeof(value)) == 0) {
         wifi_service_append(response, response_size, offset, "connect_ctrl_status_wpa_state=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_ctrl_status_network_id", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_ctrl_status_network_id=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_ctrl_status_network_selected", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_ctrl_status_network_selected=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_ctrl_status_key_mgmt", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_ctrl_status_key_mgmt=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_ctrl_status_pairwise_cipher", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_ctrl_status_pairwise_cipher=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_ctrl_status_group_cipher", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_ctrl_status_group_cipher=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_ctrl_status_mode", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_ctrl_status_mode=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_ctrl_status_freq_mhz", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_ctrl_status_freq_mhz=%s\n", value);
     }
     if (wifi_service_request_value(result, "connect_ctrl_status_completed", value, sizeof(value)) == 0) {
         wifi_service_append(response, response_size, offset, "connect_ctrl_status_completed=%s\n", value);

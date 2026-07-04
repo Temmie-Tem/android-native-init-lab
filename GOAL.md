@@ -1689,6 +1689,35 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > 4-way-handshake stall: temp-disabled/disconnect reason class, selected-network state,
 > key-management/pairwise/group/country summary without SSID/PSK/BSSID, and a same-run comparison
 > against the known-good Debian WSTA7 association shape where possible.
+> **🟡 STATUS (2026-07-04 14:19 KST host clock) — WSTA37 V3394 WPA failure-detail
+> SOURCE+BUILD+FLASH+LIVE PASS; confirmed autoconnect now classified as `WRONG_KEY`, not native
+> control-plane failure.**  V3394 carries forward the V3393 ctrl socket uniqueness fix and adds
+> redacted WPA failure-detail classifications plus safe ctrl `STATUS` fields.  It built as
+> `A90 Linux init 0.11.150 (v3394-wifi-wpa-failure-detail)` with boot SHA
+> `471ac301103e27e02bfac7faae3fee850e759218a05ffede1b596c10e5a240a7`, flashed cleanly through the
+> checked helper (`62.763s`, readback SHA matched, post-boot `selftest fail=0`), and final cleanup
+> again left autoconnect disabled, no IPv4/default route, no supplicant process, and
+> `selftest fail=0`.  Live WSTA37 kept the WSTA36 ctrl fix intact:
+> `connect_ctrl_driver_country_rc=0`, `connect_ctrl_scan_rc=0`,
+> `connect_ctrl_enable_network_rc=0`, `connect_ctrl_select_network_rc=0`, and
+> `connect_ctrl_reassociate_rc=0`.  The WPA path still does not complete:
+> `connect_diag_decision=wifi-connect-status-not-completed`, `connect_rc=-107`, `final_rc=-107`,
+> `connect_carrier_wait_rc=0`, `connect_carrier_up_at_wait=1`,
+> `connect_wpa_complete_first_state=4WAY_HANDSHAKE`,
+> `connect_wpa_complete_last_state=4WAY_HANDSHAKE`, `connect_wpa_complete_completed=0`, and
+> `connect_ctrl_status_completed=0`; public tunnel and external ping stayed disabled and
+> `secret_values_logged=0`.  The new fields now classify the reason:
+> `connect_wpa_monitor_temp_disabled_reason_class=WRONG_KEY`,
+> `connect_wpa_monitor_disconnect_reason_class=15`,
+> `connect_ctrl_status_network_selected=1`, `connect_ctrl_status_key_mgmt=WPA2-PSK`,
+> `connect_ctrl_status_pairwise_cipher=CCMP`, `connect_ctrl_status_group_cipher=CCMP`,
+> `connect_ctrl_status_mode=station`, and `connect_ctrl_status_freq_mhz=5745`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA37_WPA_FAILURE_DETAIL_V3394_LIVE_2026-07-04.md`.
+> **NEXT:** WSTA38 should stop probing native transport/control mechanics and reconcile
+> credential/AP-side authentication material against the earlier known-good Debian WSTA7 association
+> path without logging secrets.  Either refresh/prove the native profile material or identify the AP
+> compatibility/security-mode delta; only after `WRONG_KEY` is cleared should DHCP/default-route and
+> public uplink exposure be retried.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
