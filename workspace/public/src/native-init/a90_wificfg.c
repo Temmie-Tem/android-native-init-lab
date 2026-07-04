@@ -42,6 +42,7 @@
 #define WIFICFG_RUNTIME_ROOT "/cache/a90-wifi"
 #define WIFICFG_SUPPLICANT_TMP "/cache/a90-wifi/wpa_supplicant.conf.tmp"
 #define WIFICFG_SUPPLICANT_CTRL_DIR "/cache/a90-wifi/sockets"
+#define WIFICFG_ENOSPC_INPLACE_FALLBACK_MARKER "wifi-config-enospc-inplace-fallback"
 #define WIFICFG_WIFI_UID 1010
 #define WIFICFG_WIFI_GID 1010
 
@@ -1158,6 +1159,64 @@ static int wificfg_build_psk_hex(const char *ssid,
     return 0;
 }
 
+static bool wificfg_storage_pressure_rc(int rc) {
+    return rc == -ENOSPC || rc == -EDQUOT;
+}
+
+static int wificfg_write_supplicant_text_inplace(const char *text, size_t text_len) {
+    struct stat st;
+    int fd;
+    int rc = 0;
+
+    fd = open(A90_WIFICFG_SUPPLICANT_CONF, O_WRONLY | O_TRUNC | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        return negative_errno_or(EIO);
+    }
+    if (fstat(fd, &st) < 0 || !S_ISREG(st.st_mode)) {
+        int saved_errno = errno == 0 ? EACCES : errno;
+
+        close(fd);
+        errno = saved_errno;
+        return -saved_errno;
+    }
+    if (fchown(fd, 0, 0) < 0 || fchmod(fd, 0600) < 0) {
+        int saved_errno = errno;
+
+        close(fd);
+        errno = saved_errno;
+        return negative_errno_or(EIO);
+    }
+    if (write_all_checked(fd, text, text_len) < 0) {
+        int saved_errno = errno;
+
+        close(fd);
+        errno = saved_errno;
+        return negative_errno_or(EIO);
+    }
+    (void)fsync(fd);
+    if (close(fd) < 0) {
+        rc = negative_errno_or(EIO);
+    }
+    return rc;
+}
+
+static int wificfg_write_supplicant_text_storage_fallback(char *text,
+                                                          size_t text_len,
+                                                          size_t *bytes_out,
+                                                          int original_rc) {
+    int rc;
+
+    rc = wificfg_write_supplicant_text_inplace(text, text_len);
+    a90_console_printf("wifi_config_cache_fallback=%s original_rc=%d rc=%d\r\n",
+                       WIFICFG_ENOSPC_INPLACE_FALLBACK_MARKER,
+                       original_rc,
+                       rc);
+    if (rc == 0 && bytes_out != NULL) {
+        *bytes_out = text_len;
+    }
+    return rc;
+}
+
 static int wificfg_write_supplicant_text(const char *ssid_hex,
                                          const char *psk_hex,
                                          const char *key_mgmt,
@@ -1204,7 +1263,15 @@ static int wificfg_write_supplicant_text(const char *ssid_hex,
               O_WRONLY | O_CREAT | O_EXCL | O_TRUNC | O_CLOEXEC | O_NOFOLLOW,
               0600);
     if (fd < 0) {
-        return negative_errno_or(EIO);
+        rc = negative_errno_or(EIO);
+        if (wificfg_storage_pressure_rc(rc)) {
+            rc = wificfg_write_supplicant_text_storage_fallback(text,
+                                                                (size_t)text_len,
+                                                                bytes_out,
+                                                                rc);
+        }
+        wificfg_secure_zero(text, sizeof(text));
+        return rc;
     }
     if (write_all_checked(fd, text, (size_t)text_len) < 0) {
         int saved_errno = errno;
@@ -1212,7 +1279,15 @@ static int wificfg_write_supplicant_text(const char *ssid_hex,
         close(fd);
         (void)unlink(WIFICFG_SUPPLICANT_TMP);
         errno = saved_errno;
-        return negative_errno_or(EIO);
+        rc = negative_errno_or(EIO);
+        if (wificfg_storage_pressure_rc(rc)) {
+            rc = wificfg_write_supplicant_text_storage_fallback(text,
+                                                                (size_t)text_len,
+                                                                bytes_out,
+                                                                rc);
+        }
+        wificfg_secure_zero(text, sizeof(text));
+        return rc;
     }
     if (fchown(fd, 0, 0) < 0 ||
         fchmod(fd, 0600) < 0) {
@@ -1226,11 +1301,30 @@ static int wificfg_write_supplicant_text(const char *ssid_hex,
     (void)fsync(fd);
     if (close(fd) < 0) {
         (void)unlink(WIFICFG_SUPPLICANT_TMP);
-        return negative_errno_or(EIO);
+        rc = negative_errno_or(EIO);
+        if (wificfg_storage_pressure_rc(rc)) {
+            rc = wificfg_write_supplicant_text_storage_fallback(text,
+                                                                (size_t)text_len,
+                                                                bytes_out,
+                                                                rc);
+        }
+        wificfg_secure_zero(text, sizeof(text));
+        return rc;
     }
     if (rename(WIFICFG_SUPPLICANT_TMP, A90_WIFICFG_SUPPLICANT_CONF) < 0) {
+        int saved_errno = errno;
+
         (void)unlink(WIFICFG_SUPPLICANT_TMP);
-        return negative_errno_or(EIO);
+        errno = saved_errno;
+        rc = negative_errno_or(EIO);
+        if (wificfg_storage_pressure_rc(rc)) {
+            rc = wificfg_write_supplicant_text_storage_fallback(text,
+                                                                (size_t)text_len,
+                                                                bytes_out,
+                                                                rc);
+        }
+        wificfg_secure_zero(text, sizeof(text));
+        return rc;
     }
     (void)chmod(A90_WIFICFG_SUPPLICANT_CONF, 0600);
     if (bytes_out != NULL) {

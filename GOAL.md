@@ -1616,6 +1616,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA33 should remove the `/cache` ENOSPC blocker before another carrier run.  Prefer
 > SD-backed Wi-Fi runtime placement or bounded native Wi-Fi runtime cleanup that never removes
 > credential/config sources and only reports redacted metadata.
+> **🟡 STATUS (2026-07-04 13:02 KST host clock) — WSTA33 V3390 cache-ENOSPC fallback
+> SOURCE+BUILD+FLASH PASS; live now BLOCKED at WPA 4-way handshake completion.**  Codex added a
+> bounded native supplicant-config fallback in `a90_wificfg.c`: if the atomic tmp rewrite fails with
+> storage pressure, native init rewrites only the existing generated supplicant config in place via
+> `O_NOFOLLOW`, with no broad `/cache` deletion.  V3390 built as
+> `A90 Linux init 0.11.146 (v3390-wifi-cache-enospc-fallback)` with boot SHA
+> `6c9101fa1e5c835e9d3ec0f828bf924089589fc7d56eff9398257f4f29ee2dbf`; checked-helper flash wrote
+> only boot, readback SHA matched, V3390 booted, and health stayed `selftest fail=0`.  Confirmed
+> live proved WSTA33 moved past the WSTA32 blocker: `connect_prepare_rc=0`,
+> `connect_supplicant_start_rc=0`, `connect_ctrl_wait_category=pong`, control scan/enable/select/
+> reassociate all returned `0`, `connect_carrier_wait_rc=0`, and
+> `connect_carrier_up_at_wait=1`.  The remaining blocker is downstream:
+> `connect_diag_decision=wifi-connect-status-not-completed`,
+> `connect_ctrl_status_wpa_state=4WAY_HANDSHAKE`, `connect_ctrl_status_completed=0`,
+> `connect_rc=-107`, `final_rc=-107`, `external_ping_execution=0`, `public_tunnel=0`, and
+> `secret_values_logged=0`.  Cleanup restored autoconnect disabled state, ran Wi-Fi cleanup,
+> verified no IPv4/default route/supplicant, and final `selftest fail=0`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA33_CACHE_ENOSPC_FALLBACK_V3390_LIVE_2026-07-04.md`.
+> **NEXT:** WSTA34 should diagnose the WPA 4-way-handshake stall with redacted native wpa-control
+> event/status capture and compare it against the earlier known-good Debian WSTA7 association flow.
+> Do not log credentials, do not enable public exposure, and keep external ping/tunnel gated off.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
