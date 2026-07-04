@@ -2211,6 +2211,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** persistent exposure is prepared, freshness-audited, lifecycle-visible, and explicitly retireable while
 > remaining default-off; continue only with explicit operator-selected WSTA58 live proof, or further default-off
 > operator UX/reporting without starting public exposure.
+> **🟢 STATUS (2026-07-04 19:16 KST host clock) — WSTA67 persistent session inventory
+> SOURCE/PREFLIGHT PASS.**  Codex added
+> `workspace/public/src/scripts/server-distro/run_wsta67_persistent_session_inventory.py`, a host-only inventory runner
+> that scans a private run tree for WSTA64 readiness results and WSTA66 retire markers, then recalculates each session's
+> current lifecycle state through WSTA65.  Retire markers take precedence; otherwise initial leases are re-read at
+> inventory time so old readiness results cannot stay green after ageing out.  Private smoke
+> `workspace/private/runs/server-distro/wsta67-inventory-smoke-20260704T1024Z` built one READY session and one RETIRED
+> session, then inventory returned `wsta67-persistent-session-inventory-pass`, `session_count=2`, `ready_count=1`,
+> `retired_count=1`, `invalid_session_count=0`, `state_counts.READY=1`, `state_counts.RETIRED=1`,
+> `live_execution_requested=false`, `public_url_value_logged=false`, and `secret_values_logged=0`.  Validation passed
+> 77 focused WSTA52/WSTA53/WSTA54/WSTA55/WSTA58/WSTA63/WSTA64/WSTA65/WSTA66/WSTA67 tests plus `py_compile`.  No boot
+> image, flash, device command, native reboot, Wi-Fi association, DHCP, public tunnel, public smoke, userdata action,
+> switch-root, or external service action ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA67_SESSION_INVENTORY_SOURCE_2026-07-04.md`.
+> **NEXT:** default-off persistent exposure now has prepare, readiness, status, retire, and inventory layers; continue
+> only with explicit operator-selected WSTA58 live proof, or further default-off operator UX/reporting without starting
+> public exposure.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
