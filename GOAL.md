@@ -1828,6 +1828,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA45_APPLIANCE_OPERATOR_WRAPPER_SOURCE_2026-07-04.md`.
 > **NEXT:** WSTA46 can be the explicit WSTA45 publish live gate, but only with the same deliberate
 > native-reboot, credentialed-Wi-Fi, public-exposure, and confirm-token acknowledgements used by WSTA43.
+> **🟢 STATUS (2026-07-04 16:33 KST host clock) — WSTA46 WSTA45 profile publish
+> LIVE PASS.**  Codex ran the new WSTA45 operator wrapper in `publish` mode with explicit
+> `--use-native-uplink-profile`, operator-live, native-reboot, public-live, credentialed-Wi-Fi,
+> public-exposure, native confirm-token, and public confirm-token gates.  No boot image was built or
+> flashed.  WSTA45 passed with decision `wsta45-appliance-operator-wsta43-profile-pass`; nested WSTA43
+> passed; nested WSTA28 scan-green passed; nested WSTA42 passed with
+> `use_native_uplink_profile=true`, `native_uplink_profile_staged=true`,
+> `native_uplink_profile_confirmed=true`, and `native_uplink_profile_cleanup_ok=true`.  Profile confirmed
+> markers included `native-uplink-profile-autoconnect-pass`, `native_uplink_profile_public_default=off`,
+> native client pass, native service `wifi-uplink-service-autoconnect-pass`, and `public_tunnel=0` at the
+> native service boundary.  D-public over native STA also passed: default route via `wlan0`, resolver ready
+> with `nameserver_count=2` redacted, local smoke pass, quick Tunnel URL observed but not committed, and
+> host public smoke passed on attempt 4 with `http_status=200`, `marker_ok=true`, `service_ok=true`,
+> `public_exposure_marker_ok=true`, and `url_redacted=true`.  Cleanup removed D-public processes, staged
+> profile/enable file, helper, service dir, chroot/dropbear/loop state; independent post-run checks showed
+> resident v3394 with `selftest fail=0`, `wifi status` down/no IPv4/no default route/no supplicant process,
+> and autoconnect disabled.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA46_WSTA45_PROFILE_PUBLISH_LIVE_PASS_2026-07-04.md`.
+> **NEXT:** WSTA47 should productize this now-proven profile publish path: tighten run metadata/ended
+> timestamps or add a reusable documented operator alias.  Persistent always-on public exposure remains a
+> separate gate.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
