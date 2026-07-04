@@ -1775,6 +1775,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > automate the WSTA28 scan-green precondition inside the WSTA42 runner, then integrate the native-owned
 > uplink + Debian service/HUD path without default public exposure.  Persistent always-on public mode
 > remains a separate gate.
+> **🟢 STATUS (2026-07-04 17:55 KST host clock) — WSTA43 orchestrated WSTA28→WSTA42
+> LIVE PASS.**  Codex added
+> `workspace/public/src/scripts/server-distro/run_wsta43_orchestrated_native_uplink_dpublic.py` and
+> focused tests.  The runner requires explicit orchestrated-live, native-reboot, public-live,
+> credentialed-Wi-Fi, public-exposure, native confirm-token, and public confirm-token gates before any
+> device work.  It first runs WSTA28 and stops before public exposure unless scan-green is proven.  Live
+> WSTA43 passed: nested WSTA28 returned `wsta28-reboot-materialization-scan-gate-pass`; nested WSTA27
+> returned `wsta27-materialization-scan-gate-pass` with `scan_result_count=12`, `scan_engine_ok=true`,
+> `scan_has_bss=true`, `trigger_rc=0`, and `trigger_errno=0`.  Then nested WSTA42 passed:
+> native uplink confirmed, default route via `wlan0`, resolver ready from native DHCP
+> (`nameserver_count=2`, values redacted), local smoke passed, quick Tunnel URL was observed with value
+> redacted, and host public HTTPS smoke passed on attempt 2 with `http_status=200`, `marker_ok=true`,
+> `service_ok=true`, and `public_exposure_marker_ok=true`.  Cleanup stopped D-public processes,
+> native service/helper, chroot/dropbear/loop; final Wi-Fi status was down/no IPv4/no default route/
+> autoconnect disabled and final `selftest fail=0`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA43_ORCHESTRATED_NATIVE_UPLINK_DPUBLIC_PASS_2026-07-04.md`.
+> **NEXT:** WSTA44 should move from proof gate to appliance workflow: boot/native init should keep default
+> public exposure off, then a controlled operator command/profile should bring up native-owned STA,
+> Debian service/HUD, and optional quick Tunnel using the WSTA43 sequence.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
