@@ -1755,6 +1755,26 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > reboot/materialization scan-green precondition.  The next rung can retry D-public/public tunnel
 > exposure over STA, but only behind the existing explicit public-live gates, with no raw
 > SSID/PSK/BSSID/IP/gateway/DNS/token/public URL in committed artifacts.
+> **🟢 STATUS (2026-07-04 17:35 KST host clock) — WSTA42 native-owned STA uplink + D-public
+> quick Tunnel LIVE PASS.**  Codex added
+> `workspace/public/src/scripts/server-distro/run_wsta42_native_uplink_dpublic_tunnel.py` and focused
+> tests.  The runner keeps native init as Wi-Fi owner, mounts Debian only as the chroot service
+> surface, requires explicit credentialed Wi-Fi and public-exposure gates, and keeps confirm tokens,
+> DNS values, credentials, and the generated public URL out of public artifacts.  After a WSTA28
+> reboot/materialization precondition (`scan_result_count=12`, `scan_engine_ok=true`,
+> `scan_has_bss=true`), WSTA42 passed on resident V3394: native confirmed uplink passed, default
+> route was via `wlan0`, resolver fallback staged usable host resolver entries with values redacted
+> (`source=host-resolver`, `nameserver_count=2`), local D-public smoke passed after bringing `lo` up,
+> `cloudflared` quick Tunnel produced a redacted URL, and host public HTTPS smoke passed on attempt 3
+> with `http_status=200`, `marker_ok=true`, `service_ok=true`, and
+> `public_exposure_marker_ok=true`.  Cleanup stopped D-public processes, native service/helper,
+> chroot/dropbear/loop; final Wi-Fi status was down/no IPv4/no default route/autoconnect disabled and
+> final `selftest fail=0`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA42_NATIVE_UPLINK_DPUBLIC_TUNNEL_PASS_2026-07-04.md`.
+> **NEXT:** promote this from a live proof to an appliance workflow: decide whether WSTA43 should
+> automate the WSTA28 scan-green precondition inside the WSTA42 runner, then integrate the native-owned
+> uplink + Debian service/HUD path without default public exposure.  Persistent always-on public mode
+> remains a separate gate.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
