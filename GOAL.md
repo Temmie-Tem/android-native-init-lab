@@ -2066,6 +2066,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA57_SHORT_LIVED_PUBLIC_LIVE_PASS_2026-07-04.md`.
 > **NEXT:** keep persistent exposure default-off; if continuing the WSTA52 persistent lease ladder, implement the
 > renewal/manual-stop proof with the WSTA55 cleanup gates and WSTA48 redaction aggregate as non-optional preconditions.
+> **🟢 STATUS (2026-07-04 18:10 KST host clock) — WSTA58 renewal/manual-stop
+> SOURCE/PREFLIGHT PASS.**  Codex added
+> `workspace/public/src/scripts/server-distro/run_wsta58_renewal_manual_stop_proof.py`, a fail-closed runner for the
+> WSTA52 renewal/manual-stop rung.  It requires two distinct private WSTA54 short-lease artifacts, validates them
+> through WSTA55's short-lease gate, redacts lease ids, and defaults to no live/device action.  The gated live path
+> requires explicit renewal/manual-stop, operator/native/public live, credentialed-Wi-Fi/public-exposure, TTL-expiry,
+> manual-stop, and private confirm-token gates before it calls WSTA55 twice; final pass requires both WSTA55 runs,
+> manual public-off cleanup, and WSTA48 redaction.  Private preflight smoke produced
+> `wsta58-renewal-manual-stop-preflight-pass` with distinct leases, `public_url_value_logged=false`, and
+> `secret_values_logged=0`; no device command, flash, native reboot, Wi-Fi association, DHCP, public tunnel, public
+> smoke, userdata action, switch-root, or external service action ran.  Validation passed 8 focused WSTA58 tests and
+> `py_compile`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA58_RENEWAL_MANUAL_STOP_SOURCE_2026-07-04.md`.
+> **NEXT:** run WSTA58 live only with two fresh `ttl_sec <= 300` WSTA54 artifacts and the explicit WSTA58 live gate;
+> stop on the first WSTA55 failure, cleanup miss, WSTA48 redaction miss, or post-run health regression.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
