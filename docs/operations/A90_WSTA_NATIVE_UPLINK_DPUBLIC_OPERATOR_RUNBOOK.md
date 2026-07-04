@@ -124,6 +124,50 @@ decisions include wsta42-native-uplink-dpublic-tunnel-pass
 The aggregate output belongs under `workspace/private/runs/` unless a report copies only
 redacted counts/decisions.
 
+## Persistent Workflow Status
+
+For the lease-bound WSTA88 workflow, generate a default-off preflight and compact server
+status bundle before any attended live run:
+
+```text
+WSTA88_RUN="workspace/private/runs/server-distro/wsta88-persistent-operator-<utc-run-id>"
+WSTA108_RUN="workspace/private/runs/server-distro/wsta108-server-status-<utc-run-id>"
+
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/server-distro/run_wsta88_persistent_operator_workflow.py \
+  --run-dir "${WSTA88_RUN}" \
+  --prepare-to-execute \
+  --ttl-sec 300 \
+  --ack-credentialed-wifi \
+  --ack-public-exposure \
+  --native-confirm-token-source private \
+  --public-confirm-token-source private
+
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/server-distro/run_wsta108_operator_server_status.py \
+  --run-dir "${WSTA108_RUN}" \
+  --emit-server-status \
+  --wsta88-operator-workflow-json "${WSTA88_RUN}/wsta88_operator_workflow.json"
+```
+
+Expected status:
+
+```text
+server_status.state=SERVER_PROFILE_READY_DEFAULT_OFF
+public_state=PUBLIC_OFF
+live_execution_requested=false
+wifi_owner=native-init
+debian_role=service-surface-consumer
+handoff_required_for_wsta88=false
+packet_filter.ready=true
+```
+
+If a WSTA90 service hardening manifest exists, pass it with
+`--wsta90-service-hardening-manifest-json` so WSTA108 also shows service-count,
+no-new-privs, capability-drop, and seccomp readiness.  This is still host-only status
+generation; it does not run WSTA58, connect Wi-Fi, open a public tunnel, mutate packet
+filters, reboot, switch-root, or flash.
+
 ## Post-Run Health
 
 Run independent post-checks:

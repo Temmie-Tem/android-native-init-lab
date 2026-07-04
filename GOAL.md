@@ -2808,6 +2808,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA107_COMPACT_STATUS_HUD_SOURCE_2026-07-05.md`.
 > **NEXT:** move to Debian handoff/server polish while preserving default-off public exposure behind explicit
 > WSTA80/WSTA88 gates; rerun attended WSTA88 live only if another end-to-end proof is explicitly useful.
+> **🟢 STATUS (2026-07-05 02:08 KST host clock) — WSTA108 OPERATOR SERVER
+> STATUS SOURCE PASS.**  Codex added `run_wsta108_operator_server_status.py`, a host-only default-fail-closed status
+> bundler that consumes private WSTA88 workflow output and optionally WSTA90 service hardening manifest output.  It
+> emits a compact `server_status` JSON/Markdown view covering exposure state, WSTA80/WSTA88 decisions, native-owned
+> Wi-Fi / Debian service-surface model, lease state, packet-filter state, image-prep/manual-stop state, hardening
+> service count and policy booleans, and next actions.  The WSTA operator runbook now includes the WSTA88 preflight +
+> WSTA108 server-status flow.  No device action, native reboot, Wi-Fi, DHCP, public tunnel, public smoke, packet-filter
+> mutation, userdata action, switch-root, or boot flash ran.  Validation passed WSTA script `py_compile`, the full
+> `test_server_distro_wsta*.py` suite (`326 tests`), WSTA90 manifest generation from existing WSTA89 audit evidence,
+> and WSTA108 private status
+> generation from the WSTA107 preflight artifact plus WSTA90 manifest (`SERVER_PROFILE_READY_DEFAULT_OFF`,
+> `PUBLIC_OFF`, packet filter ready, 5 hardening services).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA108_OPERATOR_SERVER_STATUS_SOURCE_2026-07-05.md`.
+> **NEXT:** convert the WSTA90 blocking items into one bounded source unit: rootfs user/group staging plus a
+> no-new-privs launcher plan, keeping public exposure default-off and live gates unchanged.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

@@ -25,6 +25,10 @@ class ServerDistroWsta49OperatorRunbookTests(unittest.TestCase):
         self.assertIn("--ack-credentialed-wifi", text)
         self.assertIn("--ack-public-exposure", text)
         self.assertIn("run_wsta48_redacted_result_aggregate.py", text)
+        self.assertIn("run_wsta88_persistent_operator_workflow.py", text)
+        self.assertIn("run_wsta108_operator_server_status.py", text)
+        self.assertIn("--emit-server-status", text)
+        self.assertIn("SERVER_PROFILE_READY_DEFAULT_OFF", text)
         self.assertIn("redaction_guard.ok=true", text)
         self.assertIn("all_pass=true", text)
 
