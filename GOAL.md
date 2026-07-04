@@ -3245,6 +3245,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** do not fold WSTA129 as a HUD live pass into WSTA108.  WSTA130 should revise the display architecture:
 > either a tiny root-owned KMS broker/presenter with a narrow command surface, or native-init-owned display
 > presentation fed by Debian HUD status/render intent.
+>
+> **🟢 STATUS (2026-07-05 07:34 KST host clock) — WSTA130 DPUBLIC HUD
+> PRESENTER MODEL SOURCE PASS.**  Codex added
+> `run_wsta130_dpublic_hud_presenter_model.py` and tests.  WSTA130 records the WSTA129
+> `setcrtc: Permission denied` live boundary, rejects the WSTA127 direct non-root KMS model for the live path, and
+> defines the replacement split architecture: Debian `a90hud` becomes a non-root/no-network intent producer with no
+> DRM fd and no KMS `SETCRTC`, while a native-init/root-owned presenter keeps DRM master and owns KMS presentation.
+> The boundary is `/run/a90-dpublic/hud-intent.json`, a bounded atomic JSON intent file (`4096` bytes max,
+> `2000ms` stale limit, `write-fsync-rename`) whose schema forbids command/path/shell/url/ssid/psk/token/secret
+> fields.  The source artifact was generated under
+> `workspace/private/runs/server-distro/wsta130-dpublic-hud-presenter-model-20260705T0735KST/` with decision
+> `wsta130-dpublic-hud-presenter-model-source-pass` and all checks true.  No device action, boot flash, native
+> reboot, Wi-Fi association, DHCP, public tunnel, packet-filter mutation, userdata mutation, DRM open, KMS SETCRTC,
+> or switch-root ran.  Validation passed `py_compile`, WSTA130 focused tests (`8 tests`), and full server-distro
+> WSTA regression (`439 tests`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA130_DPUBLIC_HUD_PRESENTER_MODEL_SOURCE_2026-07-05.md`.
+> **NEXT:** WSTA131 should fold this replacement HUD presenter architecture into WSTA108 operator status, superseding
+> the WSTA127 direct non-root KMS overlay in operator-facing output before any live presenter prototype.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
