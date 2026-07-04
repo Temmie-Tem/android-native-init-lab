@@ -2284,6 +2284,26 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** default-off persistent exposure now has prepare, readiness, status, retire, inventory, bulk-retire cleanup,
 > operator snapshot, and selected launch-manifest layers; continue only with explicit operator-selected WSTA58 live
 > proof, or further default-off operator UX/reporting without starting public exposure.
+> **🟢 STATUS (2026-07-04 19:40 KST host clock) — WSTA71 persistent launch-readiness audit
+> SOURCE/PREFLIGHT PASS.**  Codex added
+> `workspace/public/src/scripts/server-distro/run_wsta71_persistent_launch_readiness_audit.py`, a host-only
+> last-moment audit that consumes a private WSTA70 launch manifest, reruns WSTA65 over the selected WSTA64 result, and
+> verifies the manifest still matches the original WSTA63 command template before reporting `READY_TO_ARM_DEFAULT_OFF`.
+> It blocks if the launch manifest is not WSTA70-pass, if the selected session has aged into STALE/EXPIRED/NOT_READY,
+> or if the command template drifted after WSTA70 emitted the manifest.  Private smoke
+> `workspace/private/runs/server-distro/wsta71-launch-readiness-smoke-20260704T103945Z` built one READY session,
+> emitted WSTA70, then WSTA71 returned `wsta71-persistent-launch-readiness-audit-pass`,
+> `state=READY_TO_ARM_DEFAULT_OFF`, `wsta65_session_state=READY`, `ready_for_live=true`,
+> `initial_seconds_remaining=296`, `template_contains_placeholder=true`, and `live_execution_requested=false`.
+> Validation passed 107 focused WSTA52/WSTA53/WSTA54/WSTA55/WSTA58/WSTA63/WSTA64/WSTA65/WSTA66/WSTA67/WSTA68/
+> WSTA69/WSTA70/WSTA71 tests plus `py_compile`.  No boot image, flash, device command, native reboot, Wi-Fi
+> association, DHCP, public tunnel, public smoke, userdata action, switch-root, or external service action ran.
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA71_LAUNCH_READINESS_AUDIT_SOURCE_2026-07-04.md`.
+> **NEXT:** default-off persistent exposure now has prepare, readiness, status, retire, inventory, bulk-retire cleanup,
+> operator snapshot, selected launch-manifest, and last-moment launch-readiness audit layers; continue only with
+> explicit operator-selected WSTA58 live proof, or further default-off operator UX/reporting without starting public
+> exposure.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
