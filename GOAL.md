@@ -1450,6 +1450,29 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA25_LIVE_GATE_PREFLIGHT_2026-07-04.md`.
 > **NEXT:** the explicit WSTA25 credentialed live run is now the next gated step.  Public exposure
 > remains separate.
+> **🟡 STATUS (2026-07-04 11:33 KST host clock) — WSTA25 credentialed live REACHED confirmed request,
+> BLOCKED at native scan.**  Codex ran the WSTA25 live runner twice against resident
+> `A90 Linux init 0.11.143 (v3387-wifi-uplink-service-redacted)`.  The first run was correctly
+> stopped by the readiness gate: native redacted status reported valid config/profile but
+> `autoconnect_enabled=0` / `autoconnect_ready=0`, so the confirmed helper was skipped and no
+> request was sent.  Codex then ran `wifi autoconnect enable`, which returned
+> `wifi-autoconnect-enabled`; follow-up status returned `wifi-autoconnect-ready`.  The second run
+> passed the redacted readiness gate and sent `autoconnect-confirmed` through the stdin redaction
+> executor (`input_redacted=True`, no token in the command vector), but native init returned
+> `wifi-uplink-service-autoconnect-failed` with
+> `autoconnect_decision=wifi-autoconnect-scan-failed`, `rc=-22`, `connect_rc=-22`, `dhcp_rc=0`,
+> `final_rc=-22`, `carrier_up=0`, `default_route_present=0`, `external_ping_execution=0`,
+> `public_tunnel=0`, and `secret_values_logged=0`.  Service stop, helper cleanup,
+> chroot/dropbear/loop cleanup, final V3387 check, and final `selftest fail=0` passed.  Codex then
+> restored the persistent autoconnect config with `wifi autoconnect disable`
+> (`decision=wifi-autoconnect-disabled`) and rechecked `selftest fail=0`.  No boot flash,
+> switch-root, userdata formatter action, successful association, DHCP lease, default route,
+> external ping, public tunnel, raw credential logging, or confirm-token logging occurred.  Reports:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA25_CONFIRMED_LIVE_SCAN_BLOCKED_2026-07-04.md`.
+> **NEXT:** WSTA26 should diagnose the scan failure before reattempting confirmed autoconnect.  Keep
+> it bounded to scan/link-state evidence: compare direct native `wifi scan` with the
+> uplink-service autoconnect path, capture redacted `wpa_supplicant`/`wlan0` state, and do not run
+> confirmed connect, DHCP, external ping, or public exposure until the scan blocker is explained.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
