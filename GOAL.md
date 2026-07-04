@@ -1416,6 +1416,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA25 live confirmed-autoconnect gate remains separate.  It must be explicitly selected,
 > supply both helper env gates, collect only redacted native response metadata, and keep DHCP/routing
 > plus public exposure as separate gates unless explicitly authorized.
+> **🟢 STATUS (2026-07-04 11:17 KST host clock) — WSTA25 confirmed-autoconnect LIVE RUNNER SOURCE/PREFLIGHT PASS.**
+> Codex added `workspace/public/src/scripts/server-distro/run_wsta25_confirmed_autoconnect_live.py`
+> as a fail-closed live runner.  By default it exits before bridge/device/chroot work with
+> `decision=wsta25-blocked-explicit-live-allow-required`.  A credentialed run now requires
+> `--allow-confirmed-live`, `--ack-credentialed-wifi`, and a matching `--confirm-token`; even then,
+> the runner starts with a redacted status request and requires native autoconnect readiness
+> (`config_profile_present=1`, `profile_valid=1`, `autoconnect_ready=1`, `autoconnect_enabled=1`)
+> before sending `autoconnect-confirmed`.  The confirmed helper command is sent through SSH stdin via
+> a redacted script executor, so result JSON records `input_redacted=1` and does not store the token in
+> the command vector.  Host validation passed: `py_compile`, focused WSTA/helper/rootfs tests
+> (`38 tests`, `OK`), `git diff --check`, and a fail-closed dry run (`rc=2`,
+> `wsta25-blocked-explicit-live-allow-required`).  No live confirmed autoconnect, association, DHCP,
+> routing, ping, public tunnel, boot flash, switch-root, userdata, or credential-value logging ran.
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA25_LIVE_RUNNER_SOURCE_2026-07-04.md`.
+> **NEXT:** WSTA25 credentialed live can now be executed only by explicitly selecting the live gate and
+> providing all runner gates.  Public exposure remains a later separate gate.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

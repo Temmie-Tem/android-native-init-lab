@@ -609,3 +609,29 @@ WSTA25 live confirmed-autoconnect gate, only if explicitly selected:
 6. Stop service, cleanup helper/chroot/dropbear/loop state, and finish with `selftest fail=0`.
 7. Keep DHCP/routing and public exposure as separate gates unless the live unit explicitly expands to
    cover them.
+
+WSTA25 live runner source/preflight result: pass.  The new
+`workspace/public/src/scripts/server-distro/run_wsta25_confirmed_autoconnect_live.py` runner is
+fail-closed by default and stops before bridge/device/chroot work unless all live gates are supplied:
+
+- `--allow-confirmed-live`
+- `--ack-credentialed-wifi`
+- matching `--confirm-token`
+
+If those gates are supplied, the runner still performs a redacted status request first and requires
+native readiness (`config_profile_present=1`, `profile_valid=1`, `autoconnect_ready=1`,
+`autoconnect_enabled=1`) before invoking `autoconnect-confirmed`.  The confirmed helper command is
+sent through SSH stdin with `input_redacted=1`, so the result command vector does not store the token.
+Fail-closed dry run produced `wsta25-blocked-explicit-live-allow-required` with no device work.
+Validation passed with `py_compile`, focused WSTA/helper/rootfs tests (`38 tests`, `OK`), and
+`git diff --check`.  Report:
+`docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA25_LIVE_RUNNER_SOURCE_2026-07-04.md`.
+
+## 12. Next Implementation Unit
+
+Credentialed WSTA25 live execution is now mechanically ready but still explicitly gated.  If selected:
+
+1. Run the WSTA25 live runner with all live gates.
+2. Let the runner block if native status says autoconnect is not ready.
+3. If ready, collect only redacted confirmed-autoconnect metadata and final native health.
+4. Keep public exposure and any public tunnel startup out of this unit unless explicitly re-scoped.
