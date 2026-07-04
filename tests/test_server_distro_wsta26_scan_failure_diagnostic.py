@@ -21,6 +21,7 @@ class ServerDistroWsta26ScanFailureDiagnosticTests(unittest.TestCase):
         self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.148 (v3392-wifi-tmp-ctrl-dir)"))
         self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.149 (v3393-wifi-ctrl-socket-unique)"))
         self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.150 (v3394-wifi-wpa-failure-detail)"))
+        self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.151 (v3395-wsta-screenapp-live)"))
         self.assertFalse(runner.native_is_v3387("A90 Linux init 0.11.143"))
 
     def test_status_summaries_keep_redacted_operational_fields(self) -> None:

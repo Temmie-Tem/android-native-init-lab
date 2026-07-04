@@ -2040,6 +2040,18 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** run the actual WSTA55 live short-lived proof only with a fresh `ttl_sec <= 300` WSTA54 artifact and the
 > explicit WSTA55 live gate; stop on any WSTA45/WSTA43/WSTA42 failure, cleanup miss, WSTA48 redaction miss, or post-run
 > `selftest` regression.
+> **🟡 STATUS (2026-07-04 17:46 KST host clock) — WSTA56 V3395 lineage gate
+> SOURCE PASS after first WSTA55 live block.**  Codex attempted WSTA55 live with a fresh 300-second private
+> WSTA53/WSTA54 artifact and explicit WSTA55 live gate.  It stopped safely before WSTA42/public tunnel work:
+> WSTA55 -> WSTA45 -> WSTA43 reached WSTA28, then WSTA28 blocked at post-reboot/materialization health because
+> shared host lineage detection accepted V3387 through V3394 but not the current V3395 resident.  No public URL
+> was obtained and no public smoke ran; independent post-attempt health showed V3395 with `selftest fail=0`.
+> Codex updated `run_wsta24_native_wifi_uplink_client.py` so the supported native Wi-Fi uplink lineage includes
+> `0.11.151` / `v3395-wsta-screenapp-live`, and updated WSTA24/WSTA26 tests.  Validation passed 30 focused
+> WSTA24/WSTA26/WSTA27/WSTA28/WSTA55 tests and `py_compile`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA56_V3395_LINEAGE_GATE_SOURCE_2026-07-04.md`.
+> **NEXT:** retry WSTA55 live with a fresh `ttl_sec <= 300` WSTA54 artifact; expect WSTA28/WSTA27 to proceed past
+> the V3395 lineage gate and exercise the bounded materialization scan before any WSTA42 public tunnel work.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

@@ -63,6 +63,8 @@ V3393_VERSION = "0.11.149"
 V3393_BUILD = "v3393-wifi-ctrl-socket-unique"
 V3394_VERSION = "0.11.150"
 V3394_BUILD = "v3394-wifi-wpa-failure-detail"
+V3395_VERSION = "0.11.151"
+V3395_BUILD = "v3395-wsta-screenapp-live"
 SUPPORTED_UPLINK_NATIVE_BUILDS = (
     {"version": V3387_VERSION, "build": V3387_BUILD},
     {"version": V3388_VERSION, "build": V3388_BUILD},
@@ -72,6 +74,7 @@ SUPPORTED_UPLINK_NATIVE_BUILDS = (
     {"version": V3392_VERSION, "build": V3392_BUILD},
     {"version": V3393_VERSION, "build": V3393_BUILD},
     {"version": V3394_VERSION, "build": V3394_BUILD},
+    {"version": V3395_VERSION, "build": V3395_BUILD},
 )
 PASS_DECISION = "wsta24-native-wifi-uplink-client-pass"
 DEFAULT_DEVICE_IP = os.environ.get("A90_DEVICE_IP") or ".".join(("192", "168", "7", "2"))
