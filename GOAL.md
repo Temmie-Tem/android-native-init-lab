@@ -2394,6 +2394,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** default-off persistent exposure now has prepare-to-arm, arming packet, per-packet status, multi-packet
 > inventory, and a final host-only launch brief.  Continue only with explicit operator-selected WSTA58 live proof, or
 > further default-off operator UX/reporting without starting public exposure.
+> **🟢 STATUS (2026-07-04 20:16 KST host clock) — WSTA77 persistent launch brief summary
+> SOURCE/PREFLIGHT PASS.**  Codex added
+> `workspace/public/src/scripts/server-distro/run_wsta77_persistent_launch_brief_summary.py`, a host-only operator
+> summary layer that scans a private run tree for WSTA76 launch briefs, reruns WSTA76 for each brief's source WSTA75
+> inventory, and classifies each brief as `READY_TO_EXECUTE_DEFAULT_OFF`, `STALE_OR_NOT_READY`,
+> `DRIFT_RECHECK_REQUIRED`, or `INVALID_OR_BLOCKED`.  It ignores WSTA77-generated nested `wsta76-recheck` artifacts so
+> repeated summary runs do not inflate operator-ready brief counts.  Private smoke
+> `workspace/private/runs/server-distro/wsta77-launch-brief-summary-smoke-20260704T111625Z` returned
+> `wsta77-persistent-launch-brief-summary-pass`, `overall_state=READY_BRIEF_PRESENT_DEFAULT_OFF`, `brief_count=1`,
+> `ready_count=1`, `selected_ready_brief=workspace/private/runs/server-distro/wsta77-launch-brief-summary-smoke-20260704T111625Z/brief/wsta76_launch_brief.json`,
+> `selected_state=READY_TO_EXECUTE_DEFAULT_OFF`, `initial_seconds_remaining=299`,
+> `recommended_next_action=operator-may-run-explicit-wsta58-live-gate-from-selected-brief`,
+> `live_execution_requested=false`, `public_url_value_logged=false`, and `secret_values_logged=0`.  Validation passed
+> 152 focused WSTA52/WSTA53/WSTA54/WSTA55/WSTA58/WSTA63/WSTA64/WSTA65/WSTA66/WSTA67/WSTA68/WSTA69/WSTA70/WSTA71/
+> WSTA72/WSTA73/WSTA74/WSTA75/WSTA76/WSTA77 tests plus `py_compile`.  No boot image, flash, device command, native
+> reboot, Wi-Fi association, DHCP, public tunnel, public smoke, userdata action, switch-root, or external service
+> action ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA77_LAUNCH_BRIEF_SUMMARY_SOURCE_2026-07-04.md`.
+> **NEXT:** default-off persistent exposure now has prepare-to-arm, arming packet, per-packet status, multi-packet
+> inventory, launch brief, and multi-brief operator summary.  Continue only with explicit operator-selected WSTA58
+> live proof, or further default-off operator UX/reporting without starting public exposure.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
