@@ -544,3 +544,38 @@ WSTA24 live gate on resident V3387:
    and finish with `selftest fail=0`.
 
 Do not run confirmed autoconnect, association, DHCP, ping, or public tunnel work in WSTA24.
+
+WSTA24 live result: pass on resident V3387.  The live runner
+`workspace/public/src/scripts/server-distro/run_wsta24_native_wifi_uplink_client.py` verified
+resident `A90 Linux init 0.11.143 (v3387-wifi-uplink-service-redacted)`, baseline
+`selftest fail=0`, and the hardware contract.  The SD-backed Debian rootfs image was refreshed to
+expected SHA `210fc1f92d4eb8bf291fb5b362154a29ca2b579a22a0a41cb1aaa89b5b6cb0dc`, then mounted as
+a chroot with temporary key-only dropbear.  The runner staged
+`/usr/local/bin/a90-native-wifi-uplink-client`, started native `wifi uplink-service`, and proved:
+
+- helper `status`: `native-wifi-uplink-client-pass` plus
+  `wifi-uplink-service-status-pass`, `owner=native-init`, `credentials=0`, `connect=0`,
+  `dhcp_routing=observed-only`, `public_tunnel=0`, and `secret_values_logged=0`;
+- helper `autoconnect-no-confirm`: `native-wifi-uplink-client-pass`, native `rc=-13`,
+  `wifi-uplink-service-confirm-required`, `connect=confirm-gated`, `dhcp_routing=config-gated`,
+  `external_ping_execution=0`, and `public_tunnel=0`.
+
+Service stop, helper cleanup, chroot/dropbear/loop cleanup, and final V3387 `selftest fail=0`
+passed.  No boot flash, switch-root, userdata touch, association, confirm-token supply, DHCP, ping,
+or public tunnel action ran.  Report:
+`docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA24_UPLINK_CLIENT_LIVE_PASS_2026-07-04.md`.
+
+## 10. Next Implementation Unit
+
+WSTA25 should be a separate credential-gated confirmed autoconnect/DHCP design or preflight unit:
+
+1. Keep the default path no-confirm and denied.
+2. Require an explicit confirm token and private credential-policy check before any association.
+3. Keep DHCP/routing and public exposure as separate gates; do not couple public tunnel startup to
+   confirmed Wi-Fi association.
+4. Preserve redacted output: no SSID, PSK, BSSID, MAC, DHCP lease, concrete private IP, or public URL
+   in committed reports.
+5. Include cleanup and native health checks before/after any live credentialed run.
+
+Until that unit is explicitly selected, confirmed association, DHCP, ping, and public tunnel execution
+remain parked.

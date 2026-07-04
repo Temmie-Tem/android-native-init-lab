@@ -1374,6 +1374,28 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA24 live gate on resident V3387 — mount Debian chroot, start native
 > `wifi uplink-service`, run the helper from Debian for `status` and `autoconnect-no-confirm`, verify
 > redaction/denial, cleanup, and finish with `selftest fail=0`.
+> **🟢 STATUS (2026-07-04 11:03 KST host clock) — WSTA24 Debian uplink-service client LIVE PASS on resident V3387.**
+> Codex added and live-gated
+> `workspace/public/src/scripts/server-distro/run_wsta24_native_wifi_uplink_client.py`.  The runner
+> required resident `A90 Linux init 0.11.143 (v3387-wifi-uplink-service-redacted)`, verified baseline
+> `selftest fail=0`, refreshed the SD-backed Debian rootfs image to expected SHA
+> `210fc1f92d4eb8bf291fb5b362154a29ca2b579a22a0a41cb1aaa89b5b6cb0dc`, mounted the Debian chroot,
+> started temporary key-only dropbear, staged `/usr/local/bin/a90-native-wifi-uplink-client`, and
+> started native `wifi uplink-service` in a chroot-visible service directory.  From Debian, helper
+> `status` returned `native-wifi-uplink-client-pass` / `wifi-uplink-service-status-pass` with
+> `owner=native-init`, `credentials=0`, `connect=0`, `dhcp_routing=observed-only`,
+> `public_tunnel=0`, and `secret_values_logged=0`.  Helper `autoconnect-no-confirm` returned
+> `native-wifi-uplink-client-pass`, native `rc=-13`, and
+> `decision=wifi-uplink-service-confirm-required` with `connect=confirm-gated`,
+> `dhcp_routing=config-gated`, `external_ping_execution=0`, and `public_tunnel=0`.  Native service
+> stop, helper cleanup, chroot/dropbear/loop cleanup, and final V3387 `selftest fail=0` passed.  No
+> boot flash, switch-root, userdata touch, association, confirm-token supply, DHCP, ping, or public
+> tunnel action ran.  Host validation passed: `py_compile`, focused WSTA24 unit tests (`4 tests`),
+> and `git diff --check`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA24_UPLINK_CLIENT_LIVE_PASS_2026-07-04.md`.
+> **NEXT:** WSTA25 should be an explicit credential-gated confirmed autoconnect/DHCP design or
+> preflight unit.  Keep confirmed association, DHCP, ping, and public tunnel execution parked until
+> that unit supplies the confirm token and private credential/public-exposure policy explicitly.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
