@@ -283,6 +283,8 @@ def live_checks(initial: dict[str, Any],
     return {
         "initial_wsta55_pass": initial.get("decision") == wsta55.PASS_DECISION,
         "renewal_wsta55_pass": renewal.get("decision") == wsta55.PASS_DECISION,
+        "initial_packet_filter_restore_ok": bool(initial.get("checks", {}).get("packet_filter_restore_ok")),
+        "renewal_packet_filter_restore_ok": bool(renewal.get("checks", {}).get("packet_filter_restore_ok")),
         "renewal_requires_second_gate": True,
         "manual_stop_cleanup_ok": bool(stop_cleanup.get("ok")),
         "manual_stop_public_state_off": stop_cleanup.get("manual_stop_public_state") == "PUBLIC_OFF",
@@ -298,6 +300,8 @@ def classify_live(checks: dict[str, Any]) -> str:
         return "wsta58-blocked-initial-wsta55"
     if not checks.get("renewal_wsta55_pass"):
         return "wsta58-blocked-renewal-wsta55"
+    if not checks.get("initial_packet_filter_restore_ok") or not checks.get("renewal_packet_filter_restore_ok"):
+        return "wsta58-blocked-packet-filter-restore"
     if not checks.get("manual_stop_cleanup_ok") or not checks.get("manual_stop_public_state_off"):
         return "wsta58-blocked-manual-stop-cleanup"
     if not checks.get("wsta48_redaction_ok") or not checks.get("wsta48_all_pass"):

@@ -65,15 +65,18 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
             "helpers_built": True,
             "debian_ssh_marker": True,
             "dpublic_binaries_staged": True,
+            "packet_filter_preflight_ok": True,
             "use_native_uplink_profile": False,
             "native_uplink_profile_staged": True,
             "native_uplink_confirmed": True,
             "default_route_wlan0": True,
             "resolver_ready": True,
             "local_smoke_ok": True,
+            "packet_filter_apply_ok": True,
             "tunnel_url_observed": True,
             "public_smoke_ok": True,
             "dpublic_cleanup_ok": True,
+            "packet_filter_restore_ok": True,
             "native_uplink_profile_cleanup_ok": True,
             "chroot_cleanup_ok": True,
         }
@@ -82,13 +85,16 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
         for key, decision in (
             ("explicit_live_gate", "wsta42-blocked-explicit-live-gate"),
             ("native_supported", "wsta42-blocked-supported-native-not-resident"),
+            ("packet_filter_preflight_ok", "wsta42-blocked-packet-filter-preflight"),
             ("native_uplink_confirmed", "wsta42-blocked-native-uplink-confirmed"),
             ("default_route_wlan0", "wsta42-blocked-default-route-not-wlan0"),
             ("resolver_ready", "wsta42-blocked-resolver-sync"),
             ("local_smoke_ok", "wsta42-blocked-local-smoke"),
+            ("packet_filter_apply_ok", "wsta42-blocked-packet-filter-apply"),
             ("tunnel_url_observed", "wsta42-blocked-tunnel-url"),
             ("public_smoke_ok", "wsta42-blocked-public-smoke"),
             ("dpublic_cleanup_ok", "wsta42-blocked-dpublic-cleanup"),
+            ("packet_filter_restore_ok", "wsta42-blocked-packet-filter-restore"),
             ("chroot_cleanup_ok", "wsta42-blocked-chroot-cleanup"),
         ):
             variant = {"checks": {**checks, key: False}}
@@ -157,6 +163,34 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
             self.assertTrue(record["listen"])
             self.assertEqual(record["http_get_rc"], 0)
             self.assertEqual(record["loopback_up_rc"], 0)
+
+    def test_packet_filter_output_parsing_and_gates(self) -> None:
+        stdout = "\n".join([
+            "packet_filter_helper_version=2",
+            "packet_filter_backend=legacy-iptables",
+            "packet_filter_apply_autostart=0",
+            "packet_filter_secret_values_logged=0",
+            "packet_filter_decision=packet-filter-preflight-pass",
+        ])
+        preflight = {"returncode": 0, "parsed": runner.parse_packet_filter_output(stdout)}
+        self.assertTrue(runner.packet_filter_preflight_ok(preflight))
+
+        apply = {"returncode": 0, "parsed": runner.parse_packet_filter_output("\n".join([
+            "packet_filter_decision=packet-filter-loopback-default-drop-applied",
+            "packet_filter_saved_before=1",
+            "packet_filter_loopback_accept=1",
+            "packet_filter_input_default=DROP",
+            "packet_filter_forward_default=DROP",
+            "packet_filter_output_default=ACCEPT",
+            "packet_filter_secret_values_logged=0",
+        ]))}
+        self.assertTrue(runner.packet_filter_apply_ok(apply))
+
+        restore = {"returncode": 0, "parsed": runner.parse_packet_filter_output("\n".join([
+            "packet_filter_decision=packet-filter-restored",
+            "packet_filter_secret_values_logged=0",
+        ]))}
+        self.assertTrue(runner.packet_filter_restore_ok(restore))
 
     def test_profile_confirmed_requires_profile_and_native_client_success(self) -> None:
         parsed = {
@@ -345,6 +379,8 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
         self.assertIn("--host-resolver-conf", source)
         self.assertIn("--use-native-uplink-profile", source)
         self.assertIn("--remote-clean-image", source)
+        self.assertIn("a90_dpublic_packet_filter.sh", source)
+        self.assertIn("packet_filter_restore_ok", source)
         self.assertIn("remote_work_restore_from_clean", source)
         self.assertIn("a90_dpublic_native_uplink_profile.sh", source)
         self.assertIn("wsta42-native-uplink-profile-confirmed-autoconnect", source)

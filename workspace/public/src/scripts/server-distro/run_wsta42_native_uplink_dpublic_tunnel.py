@@ -53,9 +53,11 @@ PASS_DECISION = "wsta42-native-uplink-dpublic-tunnel-pass"
 SMOKE_SOURCE = SCRIPT_DIR / "a90_dpublic_smoke_httpd.c"
 HTTP_GET_SOURCE = SCRIPT_DIR / "a90_dpublic_http_get.c"
 NATIVE_UPLINK_PROFILE_SOURCE = SCRIPT_DIR / "a90_dpublic_native_uplink_profile.sh"
+PACKET_FILTER_SOURCE = SCRIPT_DIR / "a90_dpublic_packet_filter.sh"
 REMOTE_CLOUDFLARED = "/usr/local/bin/cloudflared"
 REMOTE_SMOKE = "/usr/local/bin/a90-dpublic-smoke-httpd"
 REMOTE_HTTP_GET = "/usr/local/bin/a90-dpublic-http-get"
+REMOTE_PACKET_FILTER = "/usr/local/bin/a90-dpublic-packet-filter"
 REMOTE_NATIVE_UPLINK_PROFILE = "/usr/local/bin/a90-dpublic-native-uplink-profile"
 REMOTE_NATIVE_UPLINK_ENABLE = "/etc/a90-dpublic/native-uplink-enable"
 REMOTE_RUN_DIR = "/run/a90-dpublic"
@@ -384,6 +386,13 @@ def stage_dpublic_binaries(args: argparse.Namespace, run_dir: Path) -> dict[str,
             REMOTE_HTTP_GET,
             timeout=args.ssh_timeout,
         ),
+        "packet_filter": ssh_write_file(
+            args,
+            run_dir,
+            PACKET_FILTER_SOURCE,
+            REMOTE_PACKET_FILTER,
+            timeout=args.ssh_timeout,
+        ),
     }
 
 
@@ -435,7 +444,7 @@ def cleanup_native_uplink_profile(args: argparse.Namespace, run_dir: Path) -> di
 
 
 def stage_binaries_ok(record: dict[str, Any]) -> bool:
-    return all(record.get(key, {}).get("staged") for key in ("cloudflared", "smoke_httpd", "http_get"))
+    return all(record.get(key, {}).get("staged") for key in ("cloudflared", "smoke_httpd", "http_get", "packet_filter"))
 
 
 def sync_time(args: argparse.Namespace) -> dict[str, Any]:
@@ -689,6 +698,66 @@ def start_smoke(args: argparse.Namespace, run_dir: Path) -> dict[str, Any]:
     return record
 
 
+def parse_packet_filter_output(stdout: str) -> dict[str, str]:
+    parsed: dict[str, str] = {}
+    for raw_line in stdout.splitlines():
+        line = raw_line.strip()
+        if not line or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        if re.fullmatch(r"[A-Za-z0-9_.:-]+", key):
+            parsed[key] = value
+    return parsed
+
+
+def run_packet_filter(args: argparse.Namespace, run_dir: Path, op: str) -> dict[str, Any]:
+    record = ssh_exec(
+        args,
+        run_dir,
+        f"set +e; {shlex.quote(REMOTE_PACKET_FILTER)} {shlex.quote(op)}",
+        timeout=args.ssh_timeout,
+    )
+    parsed = parse_packet_filter_output(record.get("stdout", ""))
+    record["parsed"] = parsed
+    record["op"] = op
+    record["secret_values_logged"] = parsed.get("packet_filter_secret_values_logged")
+    return record
+
+
+def packet_filter_preflight_ok(record: dict[str, Any]) -> bool:
+    parsed = record.get("parsed") or {}
+    return (
+        record.get("returncode") == 0
+        and parsed.get("packet_filter_decision") == "packet-filter-preflight-pass"
+        and parsed.get("packet_filter_backend") == "legacy-iptables"
+        and parsed.get("packet_filter_apply_autostart") == "0"
+        and parsed.get("packet_filter_secret_values_logged") == "0"
+    )
+
+
+def packet_filter_apply_ok(record: dict[str, Any]) -> bool:
+    parsed = record.get("parsed") or {}
+    return (
+        record.get("returncode") == 0
+        and parsed.get("packet_filter_decision") == "packet-filter-loopback-default-drop-applied"
+        and parsed.get("packet_filter_saved_before") == "1"
+        and parsed.get("packet_filter_loopback_accept") == "1"
+        and parsed.get("packet_filter_input_default") == "DROP"
+        and parsed.get("packet_filter_forward_default") == "DROP"
+        and parsed.get("packet_filter_output_default") == "ACCEPT"
+        and parsed.get("packet_filter_secret_values_logged") == "0"
+    )
+
+
+def packet_filter_restore_ok(record: dict[str, Any]) -> bool:
+    parsed = record.get("parsed") or {}
+    return (
+        record.get("returncode") == 0
+        and parsed.get("packet_filter_decision") == "packet-filter-restored"
+        and parsed.get("packet_filter_secret_values_logged") == "0"
+    )
+
+
 def start_cloudflared(args: argparse.Namespace, run_dir: Path) -> dict[str, Any]:
     command = f"""
 set +e
@@ -906,6 +975,8 @@ def classify(result: dict[str, Any]) -> str:
         return "wsta42-blocked-debian-chroot-ssh"
     if not checks.get("dpublic_binaries_staged"):
         return "wsta42-blocked-dpublic-binary-stage"
+    if not checks.get("packet_filter_preflight_ok"):
+        return "wsta42-blocked-packet-filter-preflight"
     if checks.get("use_native_uplink_profile") and not checks.get("native_uplink_profile_staged"):
         return "wsta42-blocked-native-uplink-profile-stage"
     if not checks.get("native_uplink_confirmed"):
@@ -916,12 +987,16 @@ def classify(result: dict[str, Any]) -> str:
         return "wsta42-blocked-resolver-sync"
     if not checks.get("local_smoke_ok"):
         return "wsta42-blocked-local-smoke"
+    if not checks.get("packet_filter_apply_ok"):
+        return "wsta42-blocked-packet-filter-apply"
     if not checks.get("tunnel_url_observed"):
         return "wsta42-blocked-tunnel-url"
     if not checks.get("public_smoke_ok"):
         return "wsta42-blocked-public-smoke"
     if not checks.get("dpublic_cleanup_ok"):
         return "wsta42-blocked-dpublic-cleanup"
+    if not checks.get("packet_filter_restore_ok"):
+        return "wsta42-blocked-packet-filter-restore"
     if checks.get("use_native_uplink_profile") and not checks.get("native_uplink_profile_cleanup_ok"):
         return "wsta42-blocked-native-uplink-profile-cleanup"
     if not checks.get("chroot_cleanup_ok"):
@@ -959,6 +1034,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "dhcp_routing": "native-config-gated-after-confirmed-live",
             "native_uplink_profile": "enabled" if args.use_native_uplink_profile else "not-requested",
             "public_tunnel": "explicit-public-live-gated",
+            "packet_filter_mutation": "explicit-public-live-gated",
+            "packet_filter_restore_required": True,
             "external_ping": False,
             "native_confirm_token_value_logged": False,
             "public_confirm_token_value_logged": False,
@@ -1005,6 +1082,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     mounted = False
     helper_staged = False
     profile_staged = False
+    packet_filter_apply_attempted = False
+    packet_filter_applied = False
     try:
         result["bridge_status"] = wsta2.run_host([sys.executable, str(wsta2.BRIDGE), "status", "--json"], timeout=10.0)
         version = wsta19.try_cmdv1_retry(args, ["version"], timeout=args.timeout)
@@ -1067,6 +1146,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         write_json(out_path, result)
         if not stage_binaries_ok(result["dpublic_stage"]):
             result["decision"] = "wsta42-blocked-dpublic-binary-stage"
+            return result
+
+        result["packet_filter_preflight"] = run_packet_filter(args, run_dir, "preflight")
+        write_json(out_path, result)
+        if not packet_filter_preflight_ok(result["packet_filter_preflight"]):
+            result["decision"] = "wsta42-blocked-packet-filter-preflight"
             return result
 
         result["helper_stage"] = wsta24.stage_helper(args, run_dir)
@@ -1150,6 +1235,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             result["decision"] = "wsta42-blocked-local-smoke"
             return result
 
+        packet_filter_apply_attempted = True
+        result["packet_filter_apply"] = run_packet_filter(args, run_dir, "apply-loopback-default-drop")
+        packet_filter_applied = packet_filter_apply_ok(result["packet_filter_apply"])
+        write_json(out_path, result)
+        if not packet_filter_applied:
+            result["decision"] = "wsta42-blocked-packet-filter-apply"
+            return result
+
         result["cloudflared_start"] = start_cloudflared(args, run_dir)
         write_json(out_path, result)
         if not result["cloudflared_start"].get("url_observed"):
@@ -1167,6 +1260,16 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 result["dpublic_cleanup"] = {"error": str(exc), "cleaned": False}
         else:
             result["dpublic_cleanup"] = {"skipped": True, "reason": "chroot-not-mounted"}
+
+        if mounted and packet_filter_apply_attempted:
+            try:
+                result["packet_filter_restore"] = run_packet_filter(args, run_dir, "restore")
+            except Exception as exc:  # noqa: BLE001
+                result["packet_filter_restore"] = {"error": str(exc), "returncode": None}
+        elif mounted:
+            result["packet_filter_restore"] = {"skipped": True, "reason": "packet-filter-not-applied"}
+        else:
+            result["packet_filter_restore"] = {"skipped": True, "reason": "chroot-not-mounted"}
 
         if service_started:
             result["service_stop"] = wsta19.try_cmdv1_retry(
@@ -1246,6 +1349,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "debian_ssh_marker": bool(result.get("ssh_parse", {}).get("marker")),
         "debian_stage_marker_present": bool(result.get("ssh_parse", {}).get("stage_marker_present")),
         "dpublic_binaries_staged": stage_binaries_ok(result.get("dpublic_stage", {})),
+        "packet_filter_staged": bool(result.get("dpublic_stage", {}).get("packet_filter", {}).get("staged")),
+        "packet_filter_preflight_ok": packet_filter_preflight_ok(result.get("packet_filter_preflight", {})),
+        "packet_filter_apply_ok": packet_filter_apply_ok(result.get("packet_filter_apply", {})),
         "use_native_uplink_profile": bool(args.use_native_uplink_profile),
         "native_uplink_profile_staged": (
             not args.use_native_uplink_profile
@@ -1273,6 +1379,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             and public.get("public_exposure_marker_ok")
         ),
         "dpublic_cleanup_ok": bool(result.get("dpublic_cleanup", {}).get("cleaned")),
+        "packet_filter_restore_ok": packet_filter_restore_ok(result.get("packet_filter_restore", {})),
         "service_stop_pass": "wifi-uplink-service-stop-pass" in str(result.get("service_stop", {}).get("text", "")),
         "helper_cleanup_ok": bool(result.get("helper_cleanup", {}).get("cleaned")),
         "native_uplink_profile_cleanup_ok": (

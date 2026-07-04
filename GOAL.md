@@ -2722,6 +2722,19 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA96 should do the bounded live lifecycle integration: call the packet-filter helper inside the explicit
 > public-live path, apply before tunnel start, and prove exact restore on stop/retire/failure cleanup while preserving
 > WSTA94 restore gates and WSTA80 explicit-live acknowledgements.
+> **🟢 STATUS (2026-07-04 23:50 KST host clock) — WSTA96 packet-filter
+> LIFECYCLE INTEGRATION SOURCE PASS.**  Codex wired the packet-filter helper into the actual WSTA42 public-live path:
+> stage helper with D-public binaries, run `preflight`, prove local loopback smoke, apply `loopback-default-drop`
+> before `cloudflared`, then restore from `finally` cleanup after any apply attempt.  WSTA42 classify now blocks on
+> missing preflight/apply/restore; WSTA55 requires nested WSTA42 packet-filter restore and includes it in TTL/public-off
+> proof; WSTA58 requires both initial and renewal WSTA55 runs to carry restore proof.  No boot image, flash, device
+> command, native reboot, Wi-Fi association, DHCP, public tunnel, public smoke, userdata action, switch-root, or
+> packet-filter mutation ran.  Validation passed `py_compile` and focused WSTA42/55/58/80/88 tests (`52 tests`).
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA96_PACKET_FILTER_LIFECYCLE_INTEGRATION_SOURCE_2026-07-04.md`.
+> **NEXT:** WSTA97 should run the bounded live proof through the explicit WSTA80/WSTA58 public-live gate and verify the
+> full on-device sequence: preflight, apply before tunnel start, public smoke, D-public cleanup, exact packet-filter
+> restore, and final resident health.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

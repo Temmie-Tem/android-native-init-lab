@@ -98,6 +98,7 @@ class ServerDistroWsta55ShortLivedPublicProofTests(unittest.TestCase):
                         "native_uplink_profile_confirmed": True,
                         "public_smoke_ok": True,
                         "dpublic_cleanup_ok": True,
+                        "packet_filter_restore_ok": True,
                         "native_uplink_profile_cleanup_ok": True,
                         "chroot_cleanup_ok": True,
                         "final_selftest_fail_zero": True,
@@ -195,6 +196,7 @@ class ServerDistroWsta55ShortLivedPublicProofTests(unittest.TestCase):
         self.assertTrue(result["checks"]["wsta48_redaction_ok"])
         self.assertTrue(result["checks"]["public_smoke_ok"])
         self.assertTrue(result["checks"]["dpublic_cleanup_ok"])
+        self.assertTrue(result["checks"]["packet_filter_restore_ok"])
         self.assertTrue(result["checks"]["final_selftest_fail_zero"])
         self.assertTrue(result["checks"]["ttl_expiry_stops_public"])
         self.assertEqual(result["ttl_expiry"]["public_state_after_expiry"], "PUBLIC_OFF")
@@ -211,6 +213,19 @@ class ServerDistroWsta55ShortLivedPublicProofTests(unittest.TestCase):
                 result = runner.run(args)
 
         self.assertEqual(result["decision"], "wsta55-blocked-dpublic-cleanup")
+        self.assertFalse(result["checks"]["ttl_expiry_stops_public"])
+
+    def test_live_result_blocks_if_packet_filter_restore_missing(self) -> None:
+        with self.private_tmp() as tmp:
+            args = self.live_args(Path(tmp))
+            nested = self.nested_wsta45_pass()
+            nested["wsta43"]["wsta42"]["checks"]["packet_filter_restore_ok"] = False
+            with mock.patch.object(runner, "pre_live_cleanup", return_value={"ok": True}), \
+                    mock.patch.object(runner.wsta45, "run", return_value=nested), \
+                    mock.patch.object(runner.wsta48, "build_aggregate", return_value=self.aggregate_pass()):
+                result = runner.run(args)
+
+        self.assertEqual(result["decision"], "wsta55-blocked-packet-filter-restore")
         self.assertFalse(result["checks"]["ttl_expiry_stops_public"])
 
     def test_live_blocks_before_wsta45_when_pre_live_cleanup_fails(self) -> None:
@@ -265,6 +280,7 @@ class ServerDistroWsta55ShortLivedPublicProofTests(unittest.TestCase):
         self.assertIn('"wifi", "cleanup"', source)
         self.assertIn("wsta48.build_aggregate", source)
         self.assertIn("wsta45.run", source)
+        self.assertIn("packet_filter_restore_ok", source)
         self.assertIn('"boot_flash": False', source)
         self.assertIn('"public_url_value_logged": False', source)
         self.assertNotIn("native_init_flash.py", source)

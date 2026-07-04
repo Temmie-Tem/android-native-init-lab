@@ -106,6 +106,7 @@ class ServerDistroWsta58RenewalManualStopProofTests(unittest.TestCase):
                 "wsta48_all_pass": True,
                 "public_smoke_ok": True,
                 "dpublic_cleanup_ok": True,
+                "packet_filter_restore_ok": True,
                 "native_uplink_profile_cleanup_ok": True,
                 "chroot_cleanup_ok": True,
                 "final_selftest_fail_zero": True,
@@ -219,6 +220,8 @@ class ServerDistroWsta58RenewalManualStopProofTests(unittest.TestCase):
         self.assertEqual(result["decision"], runner.PASS_DECISION)
         self.assertTrue(result["checks"]["initial_wsta55_pass"])
         self.assertTrue(result["checks"]["renewal_wsta55_pass"])
+        self.assertTrue(result["checks"]["initial_packet_filter_restore_ok"])
+        self.assertTrue(result["checks"]["renewal_packet_filter_restore_ok"])
         self.assertTrue(result["checks"]["manual_stop_cleanup_ok"])
         self.assertTrue(result["checks"]["wsta48_redaction_ok"])
         self.assertNotIn("wsta54-", json.dumps(runner.public_summary(result), sort_keys=True).lower())
@@ -268,6 +271,26 @@ class ServerDistroWsta58RenewalManualStopProofTests(unittest.TestCase):
 
         self.assertEqual(result["decision"], "wsta58-blocked-manual-stop-cleanup")
 
+    def test_live_blocks_when_any_wsta55_packet_filter_restore_missing(self) -> None:
+        with self.private_tmp() as tmp:
+            args = self.live_args(Path(tmp))
+            initial = self.wsta55_pass("initial")
+            renewal = self.wsta55_pass("renewal")
+            renewal["checks"]["packet_filter_restore_ok"] = False
+            with mock.patch.object(runner.wsta55, "run", side_effect=[initial, renewal]), \
+                    mock.patch.object(runner, "manual_stop_cleanup", return_value={
+                        "ok": True,
+                        "manual_stop_public_state": "PUBLIC_OFF",
+                        "public_url_value_logged": False,
+                        "secret_values_logged": 0,
+                    }), \
+                    mock.patch.object(runner.wsta48, "build_aggregate", return_value=self.aggregate_pass()):
+                result = runner.run(args)
+
+        self.assertEqual(result["decision"], "wsta58-blocked-packet-filter-restore")
+        self.assertTrue(result["checks"]["initial_packet_filter_restore_ok"])
+        self.assertFalse(result["checks"]["renewal_packet_filter_restore_ok"])
+
     def test_template_is_redacted_and_does_not_run(self) -> None:
         with mock.patch.object(runner.wsta55, "run", side_effect=AssertionError("unexpected live call")):
             with mock.patch("builtins.print") as printed:
@@ -291,6 +314,7 @@ class ServerDistroWsta58RenewalManualStopProofTests(unittest.TestCase):
         self.assertIn("wsta45-short-lived-publish", source)
         self.assertIn("wsta48.build_aggregate", source)
         self.assertIn("manual_stop_cleanup", source)
+        self.assertIn("packet_filter_restore_ok", source)
         self.assertIn('"boot_flash": False', source)
         self.assertIn('"public_url_value_logged": False', source)
         self.assertNotIn("native_init_flash.py", source)

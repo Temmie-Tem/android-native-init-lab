@@ -307,6 +307,7 @@ def live_checks(wsta45_result: dict[str, Any], aggregate: dict[str, Any], ttl_ex
         "wsta48_all_pass": bool(aggregate.get("all_pass")),
         "public_smoke_ok": bool(checks.get("public_smoke_ok")),
         "dpublic_cleanup_ok": bool(checks.get("dpublic_cleanup_ok")),
+        "packet_filter_restore_ok": bool(checks.get("packet_filter_restore_ok")),
         "native_uplink_profile_cleanup_ok": bool(checks.get("native_uplink_profile_cleanup_ok")),
         "chroot_cleanup_ok": bool(checks.get("chroot_cleanup_ok")),
         "final_selftest_fail_zero": bool(checks.get("final_selftest_fail_zero")),
@@ -323,6 +324,8 @@ def classify_live(checks: dict[str, Any]) -> str:
         return "wsta55-blocked-public-smoke"
     if not checks.get("dpublic_cleanup_ok"):
         return "wsta55-blocked-dpublic-cleanup"
+    if not checks.get("packet_filter_restore_ok"):
+        return "wsta55-blocked-packet-filter-restore"
     if not checks.get("native_uplink_profile_cleanup_ok"):
         return "wsta55-blocked-native-uplink-profile-cleanup"
     if not checks.get("chroot_cleanup_ok"):
@@ -465,6 +468,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     wsta42_result = nested_wsta42(nested)
     cleanup_ok = bool(
         wsta42_result.get("checks", {}).get("dpublic_cleanup_ok")
+        and wsta42_result.get("checks", {}).get("packet_filter_restore_ok")
         and wsta42_result.get("checks", {}).get("native_uplink_profile_cleanup_ok")
         and wsta42_result.get("checks", {}).get("chroot_cleanup_ok")
     )
