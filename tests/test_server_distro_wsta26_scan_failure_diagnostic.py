@@ -17,6 +17,8 @@ class ServerDistroWsta26ScanFailureDiagnosticTests(unittest.TestCase):
         self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.144 (v3388-wifi-autoconnect-scan-recovery)"))
         self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.145 (v3389-wifi-connect-carrier-diagnostics)"))
         self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.146 (v3390-wifi-cache-enospc-fallback)"))
+        self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.147 (v3391-wifi-wpa-handshake-diagnostics)"))
+        self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.148 (v3392-wifi-tmp-ctrl-dir)"))
         self.assertFalse(runner.native_is_v3387("A90 Linux init 0.11.143"))
 
     def test_status_summaries_keep_redacted_operational_fields(self) -> None:

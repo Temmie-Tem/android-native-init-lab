@@ -67,6 +67,10 @@ class NativeWifiUplinkServiceSourceTests(unittest.TestCase):
         self.assertIn("connect_ctrl_reassociate_rc=%s", uplink_service)
         self.assertIn("connect_carrier_wait_rc=%s", uplink_service)
         self.assertIn("connect_carrier_up_at_wait=%s", uplink_service)
+        self.assertIn("connect_wpa_complete_wait_rc=%s", uplink_service)
+        self.assertIn("connect_wpa_complete_last_state=%s", uplink_service)
+        self.assertIn("connect_wpa_monitor_event_count=%s", uplink_service)
+        self.assertIn("connect_wpa_monitor_last_event=%s", uplink_service)
         self.assertIn("connect_ctrl_status_wpa_state=%s", uplink_service)
         self.assertIn("connect_ctrl_status_completed=%s", uplink_service)
         self.assertNotIn("profile=%s\\n", uplink_service)
@@ -95,6 +99,10 @@ class NativeWifiUplinkServiceSourceTests(unittest.TestCase):
         self.assertIn("connect_ctrl_status_wpa_state=%s", source)
         self.assertIn("connect_carrier_wait_rc=%d", source)
         self.assertIn("connect_ctrl_reassociate_rc=%d", source)
+        self.assertIn("wifi_ctrl_monitor_attach", source)
+        self.assertIn("wifi_wait_wpa_completed", source)
+        self.assertIn("connect_wpa_complete_wait_rc=%d", source)
+        self.assertIn("connect_wpa_monitor_last_event=%s", source)
         self.assertIn("wifi-connect-status-not-completed", source)
         self.assertIn("wifi-connect-no-carrier", source)
         self.assertIn("secret_values_logged=0", source)
@@ -105,6 +113,10 @@ class NativeWifiUplinkServiceSourceTests(unittest.TestCase):
             "connect_ctrl_status_wpa_state",
             "connect_carrier_wait_rc",
             "connect_ctrl_reassociate_rc",
+            "connect_wpa_complete_wait_rc",
+            "connect_wpa_complete_last_state",
+            "connect_wpa_monitor_event_count",
+            "connect_wpa_monitor_last_event",
             "connect_supplicant_left_running",
         ):
             self.assertIn(field, helper)

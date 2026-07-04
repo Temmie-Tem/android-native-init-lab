@@ -38,6 +38,19 @@ class NativeWifiCacheEnospcFallbackSourceTests(unittest.TestCase):
         self.assertNotIn("/cache/a90-runtime", fallback)
         self.assertNotIn("/mnt/sdext/a90/secrets", fallback)
 
+    def test_supplicant_ctrl_socket_dir_is_tmp_backed(self) -> None:
+        wificfg_source = SOURCE.read_text(encoding="utf-8")
+        wifi_source = Path("workspace/public/src/native-init/a90_wifi.c").read_text(encoding="utf-8")
+
+        self.assertIn('#define WIFICFG_SUPPLICANT_CTRL_ROOT "/tmp/a90-wifi"', wificfg_source)
+        self.assertIn('#define WIFICFG_SUPPLICANT_CTRL_DIR WIFICFG_SUPPLICANT_CTRL_ROOT "/sockets"', wificfg_source)
+        self.assertIn("wificfg_prepare_dir_owned(WIFICFG_SUPPLICANT_CTRL_ROOT, 0755, 0, 0)", wificfg_source)
+        self.assertIn('#define A90_WIFI_CTRL_ROOT "/tmp/a90-wifi"', wifi_source)
+        self.assertIn('#define A90_WIFI_CTRL_DIR A90_WIFI_CTRL_ROOT "/sockets"', wifi_source)
+        self.assertIn("wifi_prepare_dir_owned(A90_WIFI_CTRL_ROOT, 0755, 0, 0)", wifi_source)
+        self.assertNotIn('#define WIFICFG_SUPPLICANT_CTRL_DIR "/cache/a90-wifi/sockets"', wificfg_source)
+        self.assertNotIn('#define A90_WIFI_CTRL_DIR "/cache/a90-wifi/sockets"', wifi_source)
+
 
 if __name__ == "__main__":
     unittest.main()

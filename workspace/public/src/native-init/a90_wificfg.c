@@ -41,7 +41,8 @@
 #define WIFICFG_CACHE_PROFILES WIFICFG_CACHE_ROOT "/profiles"
 #define WIFICFG_RUNTIME_ROOT "/cache/a90-wifi"
 #define WIFICFG_SUPPLICANT_TMP "/cache/a90-wifi/wpa_supplicant.conf.tmp"
-#define WIFICFG_SUPPLICANT_CTRL_DIR "/cache/a90-wifi/sockets"
+#define WIFICFG_SUPPLICANT_CTRL_ROOT "/tmp/a90-wifi"
+#define WIFICFG_SUPPLICANT_CTRL_DIR WIFICFG_SUPPLICANT_CTRL_ROOT "/sockets"
 #define WIFICFG_ENOSPC_INPLACE_FALLBACK_MARKER "wifi-config-enospc-inplace-fallback"
 #define WIFICFG_WIFI_UID 1010
 #define WIFICFG_WIFI_GID 1010
@@ -1227,6 +1228,10 @@ static int wificfg_write_supplicant_text(const char *ssid_hex,
     int rc;
 
     rc = wificfg_prepare_dir_owned(WIFICFG_RUNTIME_ROOT, 0755, 0, 0);
+    if (rc < 0) {
+        return rc;
+    }
+    rc = wificfg_prepare_dir_owned(WIFICFG_SUPPLICANT_CTRL_ROOT, 0755, 0, 0);
     if (rc < 0) {
         return rc;
     }

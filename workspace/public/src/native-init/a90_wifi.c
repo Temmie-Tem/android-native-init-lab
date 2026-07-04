@@ -64,8 +64,9 @@
 #define A90_WIFI_RUNTIME_INPUT "/cache/native-init-wifi-runtime-input.summary"
 #define A90_WIFI_STANDALONE_SUPPLICANT "/cache/a90-wifi/wpa-standalone/wpa_supplicant-a90.sh"
 #define A90_WIFI_RUNTIME_ROOT "/cache/a90-wifi"
-#define A90_WIFI_CTRL_DIR "/cache/a90-wifi/sockets"
-#define A90_WIFI_CTRL_SOCKET "/cache/a90-wifi/sockets/wlan0"
+#define A90_WIFI_CTRL_ROOT "/tmp/a90-wifi"
+#define A90_WIFI_CTRL_DIR A90_WIFI_CTRL_ROOT "/sockets"
+#define A90_WIFI_CTRL_SOCKET A90_WIFI_CTRL_DIR "/wlan0"
 #define A90_WIFI_SUPPLICANT_LOG "/cache/a90-wifi/wpa_supplicant-connect.log"
 #define A90_WIFI_UDHCPC_SCRIPT "/cache/a90-wifi/udhcpc-wlan0.script"
 #define A90_WIFI_UDHCPC_LOG "/cache/a90-wifi/udhcpc-wlan0.log"
@@ -84,6 +85,9 @@
 #define A90_WIFI_CONNECT_WLAN0_WAIT_MS 180000
 #define A90_WIFI_CONNECT_CTRL_WAIT_MS 15000
 #define A90_WIFI_CONNECT_CARRIER_WAIT_MS 35000
+#define A90_WIFI_CONNECT_WPA_COMPLETE_WAIT_MS 25000
+#define A90_WIFI_CONNECT_WPA_SAMPLE_MS 1000
+#define A90_WIFI_CONNECT_WPA_RETRY_MS 5000
 #define A90_WIFI_SUPPLICANT_TERMINATE_WAIT_MS 3000
 #define A90_WIFI_SUPPLICANT_KILL_WAIT_MS 1500
 #define A90_WIFI_DHCP_TIMEOUT_MS 30000
@@ -180,6 +184,24 @@ struct wifi_autoconnect_connect_diag_state {
     int carrier_wait_rc;
     int carrier_wait_elapsed_ms;
     int carrier_up_at_wait;
+    int wpa_complete_wait_rc;
+    int wpa_complete_wait_elapsed_ms;
+    int wpa_complete_samples;
+    int wpa_complete_completed;
+    int wpa_complete_retry_count;
+    char wpa_complete_first_state[32];
+    char wpa_complete_last_state[32];
+    int wpa_monitor_attach_rc;
+    int wpa_monitor_attach_errno;
+    int wpa_monitor_event_count;
+    int wpa_monitor_connected_seen;
+    int wpa_monitor_disconnected_seen;
+    int wpa_monitor_scan_results_seen;
+    int wpa_monitor_assoc_reject_seen;
+    int wpa_monitor_auth_reject_seen;
+    int wpa_monitor_temp_disabled_seen;
+    int wpa_monitor_eap_failure_seen;
+    char wpa_monitor_last_event[48];
     int ctrl_status_rc;
     int ctrl_status_errno;
     int ctrl_status_completed;
@@ -225,6 +247,25 @@ static void wifi_autoconnect_reset_connect_diag(void) {
     g_autoconnect_connect_diag.ctrl_select_network_rc = 0;
     g_autoconnect_connect_diag.ctrl_reassociate_rc = 0;
     g_autoconnect_connect_diag.carrier_wait_rc = 0;
+    g_autoconnect_connect_diag.wpa_complete_wait_rc = 0;
+    g_autoconnect_connect_diag.wpa_complete_wait_elapsed_ms = 0;
+    g_autoconnect_connect_diag.wpa_complete_samples = 0;
+    g_autoconnect_connect_diag.wpa_complete_completed = 0;
+    g_autoconnect_connect_diag.wpa_complete_retry_count = 0;
+    snprintf(g_autoconnect_connect_diag.wpa_complete_first_state,
+             sizeof(g_autoconnect_connect_diag.wpa_complete_first_state),
+             "%s",
+             "-");
+    snprintf(g_autoconnect_connect_diag.wpa_complete_last_state,
+             sizeof(g_autoconnect_connect_diag.wpa_complete_last_state),
+             "%s",
+             "-");
+    g_autoconnect_connect_diag.wpa_monitor_attach_rc = -ENOENT;
+    g_autoconnect_connect_diag.wpa_monitor_attach_errno = 0;
+    snprintf(g_autoconnect_connect_diag.wpa_monitor_last_event,
+             sizeof(g_autoconnect_connect_diag.wpa_monitor_last_event),
+             "%s",
+             "-");
     g_autoconnect_connect_diag.ctrl_status_rc = -ENOENT;
     g_autoconnect_connect_diag.ctrl_status_errno = 0;
     g_autoconnect_connect_diag.ctrl_signal_rc = -ENOENT;
@@ -1314,6 +1355,223 @@ static int wifi_ctrl_request(const char *command,
                                 reply_out_size);
 }
 
+struct wifi_ctrl_monitor {
+    int socket_fd;
+    bool attached;
+};
+
+static void wifi_ctrl_monitor_reset(struct wifi_ctrl_monitor *monitor) {
+    if (monitor == NULL) {
+        return;
+    }
+    monitor->socket_fd = -1;
+    monitor->attached = false;
+}
+
+static const char *wifi_wpa_event_category(const char *event) {
+    if (event == NULL || event[0] == '\0') {
+        return "empty";
+    }
+    if (strstr(event, "CTRL-EVENT-CONNECTED") != NULL) {
+        return "connected";
+    }
+    if (strstr(event, "CTRL-EVENT-DISCONNECTED") != NULL) {
+        return "disconnected";
+    }
+    if (strstr(event, "CTRL-EVENT-SCAN-RESULTS") != NULL) {
+        return "scan-results";
+    }
+    if (strstr(event, "CTRL-EVENT-ASSOC-REJECT") != NULL) {
+        return "assoc-reject";
+    }
+    if (strstr(event, "CTRL-EVENT-AUTH-REJECT") != NULL) {
+        return "auth-reject";
+    }
+    if (strstr(event, "CTRL-EVENT-SSID-TEMP-DISABLED") != NULL) {
+        return "ssid-temp-disabled";
+    }
+    if (strstr(event, "CTRL-EVENT-EAP-FAILURE") != NULL ||
+        strstr(event, "Authentication with") != NULL) {
+        return "eap-failure";
+    }
+    if (strstr(event, "CTRL-EVENT-REGDOM-CHANGE") != NULL) {
+        return "regdom-change";
+    }
+    if (strstr(event, "CTRL-EVENT-SCAN-STARTED") != NULL) {
+        return "scan-started";
+    }
+    return "other";
+}
+
+static void wifi_record_wpa_event_category(const char *category) {
+    const char *selected = category != NULL && category[0] != '\0' ? category : "other";
+
+    g_autoconnect_connect_diag.wpa_monitor_event_count++;
+    snprintf(g_autoconnect_connect_diag.wpa_monitor_last_event,
+             sizeof(g_autoconnect_connect_diag.wpa_monitor_last_event),
+             "%s",
+             selected);
+    if (strcmp(selected, "connected") == 0) {
+        g_autoconnect_connect_diag.wpa_monitor_connected_seen = 1;
+    } else if (strcmp(selected, "disconnected") == 0) {
+        g_autoconnect_connect_diag.wpa_monitor_disconnected_seen = 1;
+    } else if (strcmp(selected, "scan-results") == 0) {
+        g_autoconnect_connect_diag.wpa_monitor_scan_results_seen = 1;
+    } else if (strcmp(selected, "assoc-reject") == 0) {
+        g_autoconnect_connect_diag.wpa_monitor_assoc_reject_seen = 1;
+    } else if (strcmp(selected, "auth-reject") == 0) {
+        g_autoconnect_connect_diag.wpa_monitor_auth_reject_seen = 1;
+    } else if (strcmp(selected, "ssid-temp-disabled") == 0) {
+        g_autoconnect_connect_diag.wpa_monitor_temp_disabled_seen = 1;
+    } else if (strcmp(selected, "eap-failure") == 0) {
+        g_autoconnect_connect_diag.wpa_monitor_eap_failure_seen = 1;
+    }
+}
+
+static void wifi_ctrl_monitor_drain(struct wifi_ctrl_monitor *monitor, int timeout_ms) {
+    char event[1024];
+    struct pollfd poll_fd;
+    long deadline_ms;
+
+    if (monitor == NULL || monitor->socket_fd < 0 || !monitor->attached) {
+        return;
+    }
+    if (timeout_ms < 0) {
+        timeout_ms = 0;
+    }
+    deadline_ms = monotonic_millis() + timeout_ms;
+    do {
+        int wait_ms = 0;
+        int poll_rc;
+        ssize_t received;
+
+        if (timeout_ms > 0) {
+            long remaining_ms = deadline_ms - monotonic_millis();
+
+            if (remaining_ms <= 0) {
+                wait_ms = 0;
+            } else if (remaining_ms > 250) {
+                wait_ms = 250;
+            } else {
+                wait_ms = (int)remaining_ms;
+            }
+        }
+        memset(&poll_fd, 0, sizeof(poll_fd));
+        poll_fd.fd = monitor->socket_fd;
+        poll_fd.events = POLLIN;
+        poll_rc = poll(&poll_fd, 1, wait_ms);
+        if (poll_rc <= 0) {
+            return;
+        }
+        received = recv(monitor->socket_fd, event, sizeof(event) - 1, 0);
+        if (received <= 0) {
+            return;
+        }
+        event[received] = '\0';
+        wifi_record_wpa_event_category(wifi_wpa_event_category(event));
+    } while (monotonic_millis() < deadline_ms);
+}
+
+static int wifi_ctrl_monitor_attach(struct wifi_ctrl_monitor *monitor,
+                                    const char *remote_path,
+                                    int *saved_errno_out) {
+    char reply[128];
+    struct pollfd poll_fd;
+    ssize_t received;
+    int saved_errno = 0;
+    int socket_fd;
+    static const char attach_cmd[] = "ATTACH";
+
+    if (saved_errno_out != NULL) {
+        *saved_errno_out = 0;
+    }
+    if (monitor == NULL) {
+        if (saved_errno_out != NULL) {
+            *saved_errno_out = EINVAL;
+        }
+        return -EINVAL;
+    }
+    wifi_ctrl_monitor_reset(monitor);
+    socket_fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+    if (socket_fd < 0) {
+        saved_errno = errno;
+        if (saved_errno_out != NULL) {
+            *saved_errno_out = saved_errno;
+        }
+        return -saved_errno;
+    }
+    if (wifi_ctrl_bind_local_abstract(socket_fd) < 0 ||
+        wifi_ctrl_connect_remote(socket_fd, remote_path) < 0) {
+        saved_errno = errno;
+        close(socket_fd);
+        if (saved_errno_out != NULL) {
+            *saved_errno_out = saved_errno;
+        }
+        return -saved_errno;
+    }
+    monitor->socket_fd = socket_fd;
+    if (send(socket_fd, attach_cmd, strlen(attach_cmd), 0) != (ssize_t)strlen(attach_cmd)) {
+        saved_errno = errno == 0 ? EIO : errno;
+        close(socket_fd);
+        wifi_ctrl_monitor_reset(monitor);
+        if (saved_errno_out != NULL) {
+            *saved_errno_out = saved_errno;
+        }
+        return -saved_errno;
+    }
+    memset(&poll_fd, 0, sizeof(poll_fd));
+    poll_fd.fd = socket_fd;
+    poll_fd.events = POLLIN;
+    if (poll(&poll_fd, 1, 2500) <= 0) {
+        saved_errno = errno == 0 ? ETIMEDOUT : errno;
+        close(socket_fd);
+        wifi_ctrl_monitor_reset(monitor);
+        if (saved_errno_out != NULL) {
+            *saved_errno_out = saved_errno;
+        }
+        return -saved_errno;
+    }
+    received = recv(socket_fd, reply, sizeof(reply) - 1, 0);
+    if (received < 0) {
+        saved_errno = errno == 0 ? EIO : errno;
+        close(socket_fd);
+        wifi_ctrl_monitor_reset(monitor);
+        if (saved_errno_out != NULL) {
+            *saved_errno_out = saved_errno;
+        }
+        return -saved_errno;
+    }
+    reply[received] = '\0';
+    while (received > 0 && (reply[received - 1] == '\n' || reply[received - 1] == '\r')) {
+        reply[received - 1] = '\0';
+        --received;
+    }
+    if (strncmp(reply, "OK", 2) != 0) {
+        close(socket_fd);
+        wifi_ctrl_monitor_reset(monitor);
+        return -EIO;
+    }
+    monitor->attached = true;
+    if (saved_errno_out != NULL) {
+        *saved_errno_out = saved_errno;
+    }
+    return 0;
+}
+
+static void wifi_ctrl_monitor_close(struct wifi_ctrl_monitor *monitor) {
+    static const char detach_cmd[] = "DETACH";
+
+    if (monitor == NULL || monitor->socket_fd < 0) {
+        return;
+    }
+    if (monitor->attached) {
+        wifi_ctrl_monitor_drain(monitor, 100);
+        (void)send(monitor->socket_fd, detach_cmd, strlen(detach_cmd), 0);
+    }
+    close(monitor->socket_fd);
+    wifi_ctrl_monitor_reset(monitor);
+}
+
 static bool wifi_process_alive(pid_t pid) {
     return pid > 0 && (kill(pid, 0) == 0 || errno == EPERM);
 }
@@ -1322,6 +1580,10 @@ static int wifi_prepare_runtime_dirs(void) {
     int rc;
 
     rc = wifi_prepare_dir_owned(A90_WIFI_RUNTIME_ROOT, 0755, 0, 0);
+    if (rc < 0) {
+        return rc;
+    }
+    rc = wifi_prepare_dir_owned(A90_WIFI_CTRL_ROOT, 0755, 0, 0);
     if (rc < 0) {
         return rc;
     }
@@ -1848,6 +2110,70 @@ static void wifi_collect_ctrl_link_info(struct wifi_ctrl_link_info *info) {
             (void)wifi_ctrl_reply_value(reply, "FREQUENCY", info->freq_mhz, sizeof(info->freq_mhz));
         }
     }
+}
+
+static void wifi_autoconnect_record_wpa_state_sample(const char *state) {
+    const char *selected = state != NULL && state[0] != '\0' ? state : "-";
+
+    if (g_autoconnect_connect_diag.wpa_complete_samples == 0) {
+        snprintf(g_autoconnect_connect_diag.wpa_complete_first_state,
+                 sizeof(g_autoconnect_connect_diag.wpa_complete_first_state),
+                 "%s",
+                 selected);
+    }
+    g_autoconnect_connect_diag.wpa_complete_samples++;
+    snprintf(g_autoconnect_connect_diag.wpa_complete_last_state,
+             sizeof(g_autoconnect_connect_diag.wpa_complete_last_state),
+             "%s",
+             selected);
+    if (strcmp(selected, "COMPLETED") == 0) {
+        g_autoconnect_connect_diag.wpa_complete_completed = 1;
+    }
+}
+
+static int wifi_wait_wpa_completed(struct wifi_ctrl_monitor *monitor,
+                                   int timeout_ms,
+                                   int *elapsed_ms_out) {
+    long started_ms = monotonic_millis();
+    long deadline_ms = started_ms + timeout_ms;
+    long next_retry_ms = started_ms + A90_WIFI_CONNECT_WPA_RETRY_MS;
+
+    if (elapsed_ms_out != NULL) {
+        *elapsed_ms_out = 0;
+    }
+    if (timeout_ms <= 0) {
+        return -ETIMEDOUT;
+    }
+    while (monotonic_millis() <= deadline_ms) {
+        struct wifi_ctrl_link_info info;
+        long now_ms;
+
+        wifi_ctrl_monitor_drain(monitor, 0);
+        wifi_collect_ctrl_link_info(&info);
+        wifi_autoconnect_record_wpa_state_sample(info.wpa_state);
+        if (strcmp(info.wpa_state, "COMPLETED") == 0) {
+            if (elapsed_ms_out != NULL) {
+                *elapsed_ms_out = (int)(monotonic_millis() - started_ms);
+            }
+            wifi_ctrl_monitor_drain(monitor, 0);
+            return 0;
+        }
+
+        now_ms = monotonic_millis();
+        if (now_ms >= next_retry_ms) {
+            g_autoconnect_connect_diag.wpa_complete_retry_count++;
+            (void)wifi_print_ctrl_result("ctrl.wpa_retry.enable_network", "ENABLE_NETWORK 0");
+            (void)wifi_print_ctrl_result("ctrl.wpa_retry.select_network", "SELECT_NETWORK 0");
+            (void)wifi_print_ctrl_result("ctrl.wpa_retry.reassociate", "REASSOCIATE");
+            next_retry_ms = now_ms + A90_WIFI_CONNECT_WPA_RETRY_MS;
+        }
+
+        wifi_ctrl_monitor_drain(monitor, A90_WIFI_CONNECT_WPA_SAMPLE_MS);
+    }
+    if (elapsed_ms_out != NULL) {
+        *elapsed_ms_out = timeout_ms;
+    }
+    return -ETIMEDOUT;
 }
 
 static int wifi_write_runtime_summary(const char *decision) {
@@ -3366,6 +3692,9 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
     int wlan0_wait_elapsed_ms = 0;
     int ctrl_wait_elapsed_ms = 0;
     int carrier_wait_elapsed_ms = 0;
+    int wpa_complete_wait_elapsed_ms = 0;
+    int wpa_complete_wait_rc = -ENOENT;
+    int monitor_errno = 0;
     int ctrl_errno = 0;
     int wlan0_wait_rc;
     int link_up_errno = 0;
@@ -3388,7 +3717,9 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
     int existing_kill_wait_elapsed_ms = 0;
     bool spawned_supplicant = false;
     bool reusing_supplicant = false;
+    struct wifi_ctrl_monitor monitor;
 
+    wifi_ctrl_monitor_reset(&monitor);
     wifi_autoconnect_reset_connect_diag();
     g_autoconnect_connect_diag.attempted = 1;
     wifi_autoconnect_set_connect_decision("wifi-connect-running");
@@ -3576,6 +3907,13 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
         return ctrl_ready_rc;
     }
 
+    g_autoconnect_connect_diag.wpa_monitor_attach_rc =
+        wifi_ctrl_monitor_attach(&monitor, A90_WIFI_CTRL_SOCKET, &monitor_errno);
+    g_autoconnect_connect_diag.wpa_monitor_attach_errno = monitor_errno;
+    a90_console_printf("ctrl.monitor_attach_rc=%d\r\n",
+                       g_autoconnect_connect_diag.wpa_monitor_attach_rc);
+    a90_console_printf("ctrl.monitor_attach_errno=%d\r\n", monitor_errno);
+
     g_autoconnect_connect_diag.ctrl_driver_country_rc =
         wifi_print_ctrl_result("ctrl.driver_country", "DRIVER COUNTRY KR");
     g_autoconnect_connect_diag.ctrl_scan_rc = wifi_print_ctrl_result("ctrl.scan", "SCAN");
@@ -3597,6 +3935,48 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
     a90_console_printf("carrier_wait_rc=%d\r\n", carrier_rc);
     a90_console_printf("carrier_wait_elapsed_ms=%d\r\n", carrier_wait_elapsed_ms);
     a90_console_printf("carrier_up=%d\r\n", carrier_rc == 0 ? 1 : 0);
+    if (carrier_rc == 0) {
+        wpa_complete_wait_rc = wifi_wait_wpa_completed(&monitor,
+                                                       A90_WIFI_CONNECT_WPA_COMPLETE_WAIT_MS,
+                                                       &wpa_complete_wait_elapsed_ms);
+    } else {
+        wpa_complete_wait_rc = carrier_rc;
+        wpa_complete_wait_elapsed_ms = carrier_wait_elapsed_ms;
+    }
+    g_autoconnect_connect_diag.wpa_complete_wait_rc = wpa_complete_wait_rc;
+    g_autoconnect_connect_diag.wpa_complete_wait_elapsed_ms = wpa_complete_wait_elapsed_ms;
+    a90_console_printf("wpa_complete_wait_timeout_ms=%d\r\n",
+                       A90_WIFI_CONNECT_WPA_COMPLETE_WAIT_MS);
+    a90_console_printf("wpa_complete_wait_rc=%d\r\n", wpa_complete_wait_rc);
+    a90_console_printf("wpa_complete_wait_elapsed_ms=%d\r\n", wpa_complete_wait_elapsed_ms);
+    a90_console_printf("wpa_complete_samples=%d\r\n",
+                       g_autoconnect_connect_diag.wpa_complete_samples);
+    a90_console_printf("wpa_complete_first_state=%s\r\n",
+                       g_autoconnect_connect_diag.wpa_complete_first_state);
+    a90_console_printf("wpa_complete_last_state=%s\r\n",
+                       g_autoconnect_connect_diag.wpa_complete_last_state);
+    a90_console_printf("wpa_complete_completed=%d\r\n",
+                       g_autoconnect_connect_diag.wpa_complete_completed);
+    a90_console_printf("wpa_complete_retry_count=%d\r\n",
+                       g_autoconnect_connect_diag.wpa_complete_retry_count);
+    a90_console_printf("wpa_monitor_event_count=%d\r\n",
+                       g_autoconnect_connect_diag.wpa_monitor_event_count);
+    a90_console_printf("wpa_monitor_connected_seen=%d\r\n",
+                       g_autoconnect_connect_diag.wpa_monitor_connected_seen);
+    a90_console_printf("wpa_monitor_disconnected_seen=%d\r\n",
+                       g_autoconnect_connect_diag.wpa_monitor_disconnected_seen);
+    a90_console_printf("wpa_monitor_scan_results_seen=%d\r\n",
+                       g_autoconnect_connect_diag.wpa_monitor_scan_results_seen);
+    a90_console_printf("wpa_monitor_assoc_reject_seen=%d\r\n",
+                       g_autoconnect_connect_diag.wpa_monitor_assoc_reject_seen);
+    a90_console_printf("wpa_monitor_auth_reject_seen=%d\r\n",
+                       g_autoconnect_connect_diag.wpa_monitor_auth_reject_seen);
+    a90_console_printf("wpa_monitor_temp_disabled_seen=%d\r\n",
+                       g_autoconnect_connect_diag.wpa_monitor_temp_disabled_seen);
+    a90_console_printf("wpa_monitor_eap_failure_seen=%d\r\n",
+                       g_autoconnect_connect_diag.wpa_monitor_eap_failure_seen);
+    a90_console_printf("wpa_monitor_last_event=%s\r\n",
+                       g_autoconnect_connect_diag.wpa_monitor_last_event);
     status_rc = wifi_print_ctrl_result("ctrl.status", "STATUS");
     wifi_collect_ctrl_link_info(&status_info);
     (void)status_rc;
@@ -3631,6 +4011,7 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
     a90_console_printf("secret_values_logged=0\r\n");
 
     if (carrier_rc == 0 && strcmp(status_info.wpa_state, "COMPLETED") == 0) {
+        wifi_ctrl_monitor_close(&monitor);
         a90_logf("wifi",
                  "connect profile=%s carrier=1 wpa_state=COMPLETED reused=%d spawned=%d secret_values_logged=0",
                  profile_name != NULL && profile_name[0] != '\0' ? profile_name : "default",
@@ -3642,6 +4023,7 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
     }
 
     if (carrier_rc == 0) {
+        wifi_ctrl_monitor_close(&monitor);
         (void)wifi_print_ctrl_result("ctrl.terminate", "TERMINATE");
         (void)a90_run_stop_pid_ex(supplicant_pid,
                                   "wifi-supplicant",
@@ -3662,6 +4044,7 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
     }
 
     if (spawned_supplicant) {
+        wifi_ctrl_monitor_close(&monitor);
         (void)wifi_print_ctrl_result("ctrl.terminate", "TERMINATE");
         (void)a90_run_stop_pid_ex(supplicant_pid,
                                   "wifi-supplicant",
@@ -3671,6 +4054,7 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
         g_autoconnect_connect_diag.cleanup_status = terminate_status;
         a90_console_printf("supplicant_cleanup_status=%d\r\n", terminate_status);
     }
+    wifi_ctrl_monitor_close(&monitor);
     a90_logf("wifi",
              "connect profile=%s carrier=0 reused=%d spawned=%d secret_values_logged=0",
              profile_name != NULL && profile_name[0] != '\0' ? profile_name : "default",
@@ -3690,7 +4074,7 @@ static int wifi_write_autoconnect_result(const char *decision,
                                          int connect_rc,
                                          int dhcp_rc,
                                          int final_rc) {
-    char text[4096];
+    char text[8192];
     int len;
 
     len = snprintf(text,
@@ -3733,6 +4117,24 @@ static int wifi_write_autoconnect_result(const char *decision,
                    "connect_carrier_wait_rc=%d\n"
                    "connect_carrier_wait_elapsed_ms=%d\n"
                    "connect_carrier_up_at_wait=%d\n"
+                   "connect_wpa_complete_wait_rc=%d\n"
+                   "connect_wpa_complete_wait_elapsed_ms=%d\n"
+                   "connect_wpa_complete_samples=%d\n"
+                   "connect_wpa_complete_completed=%d\n"
+                   "connect_wpa_complete_retry_count=%d\n"
+                   "connect_wpa_complete_first_state=%s\n"
+                   "connect_wpa_complete_last_state=%s\n"
+                   "connect_wpa_monitor_attach_rc=%d\n"
+                   "connect_wpa_monitor_attach_errno=%d\n"
+                   "connect_wpa_monitor_event_count=%d\n"
+                   "connect_wpa_monitor_connected_seen=%d\n"
+                   "connect_wpa_monitor_disconnected_seen=%d\n"
+                   "connect_wpa_monitor_scan_results_seen=%d\n"
+                   "connect_wpa_monitor_assoc_reject_seen=%d\n"
+                   "connect_wpa_monitor_auth_reject_seen=%d\n"
+                   "connect_wpa_monitor_temp_disabled_seen=%d\n"
+                   "connect_wpa_monitor_eap_failure_seen=%d\n"
+                   "connect_wpa_monitor_last_event=%s\n"
                    "connect_ctrl_status_rc=%d\n"
                    "connect_ctrl_status_errno=%d\n"
                    "connect_ctrl_status_wpa_state=%s\n"
@@ -3780,6 +4182,24 @@ static int wifi_write_autoconnect_result(const char *decision,
                    g_autoconnect_connect_diag.carrier_wait_rc,
                    g_autoconnect_connect_diag.carrier_wait_elapsed_ms,
                    g_autoconnect_connect_diag.carrier_up_at_wait,
+                   g_autoconnect_connect_diag.wpa_complete_wait_rc,
+                   g_autoconnect_connect_diag.wpa_complete_wait_elapsed_ms,
+                   g_autoconnect_connect_diag.wpa_complete_samples,
+                   g_autoconnect_connect_diag.wpa_complete_completed,
+                   g_autoconnect_connect_diag.wpa_complete_retry_count,
+                   g_autoconnect_connect_diag.wpa_complete_first_state,
+                   g_autoconnect_connect_diag.wpa_complete_last_state,
+                   g_autoconnect_connect_diag.wpa_monitor_attach_rc,
+                   g_autoconnect_connect_diag.wpa_monitor_attach_errno,
+                   g_autoconnect_connect_diag.wpa_monitor_event_count,
+                   g_autoconnect_connect_diag.wpa_monitor_connected_seen,
+                   g_autoconnect_connect_diag.wpa_monitor_disconnected_seen,
+                   g_autoconnect_connect_diag.wpa_monitor_scan_results_seen,
+                   g_autoconnect_connect_diag.wpa_monitor_assoc_reject_seen,
+                   g_autoconnect_connect_diag.wpa_monitor_auth_reject_seen,
+                   g_autoconnect_connect_diag.wpa_monitor_temp_disabled_seen,
+                   g_autoconnect_connect_diag.wpa_monitor_eap_failure_seen,
+                   g_autoconnect_connect_diag.wpa_monitor_last_event,
                    g_autoconnect_connect_diag.ctrl_status_rc,
                    g_autoconnect_connect_diag.ctrl_status_errno,
                    g_autoconnect_connect_diag.ctrl_status_wpa_state,
@@ -6234,7 +6654,7 @@ static int wifi_service_cmd(char **argv, int argc) {
 static void wifi_uplink_service_append_autoconnect_result(char *response,
                                                           size_t response_size,
                                                           size_t *offset) {
-    char result[4096];
+    char result[8192];
     char value[128];
     int rc = wifi_service_read_file_no_follow(A90_WIFI_AUTOCONNECT_RESULT,
                                               result,
@@ -6362,6 +6782,60 @@ static void wifi_uplink_service_append_autoconnect_result(char *response,
     }
     if (wifi_service_request_value(result, "connect_carrier_up_at_wait", value, sizeof(value)) == 0) {
         wifi_service_append(response, response_size, offset, "connect_carrier_up_at_wait=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_wpa_complete_wait_rc", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_wpa_complete_wait_rc=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_wpa_complete_wait_elapsed_ms", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_wpa_complete_wait_elapsed_ms=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_wpa_complete_samples", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_wpa_complete_samples=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_wpa_complete_completed", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_wpa_complete_completed=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_wpa_complete_retry_count", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_wpa_complete_retry_count=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_wpa_complete_first_state", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_wpa_complete_first_state=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_wpa_complete_last_state", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_wpa_complete_last_state=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_wpa_monitor_attach_rc", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_wpa_monitor_attach_rc=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_wpa_monitor_attach_errno", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_wpa_monitor_attach_errno=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_wpa_monitor_event_count", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_wpa_monitor_event_count=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_wpa_monitor_connected_seen", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_wpa_monitor_connected_seen=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_wpa_monitor_disconnected_seen", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_wpa_monitor_disconnected_seen=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_wpa_monitor_scan_results_seen", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_wpa_monitor_scan_results_seen=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_wpa_monitor_assoc_reject_seen", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_wpa_monitor_assoc_reject_seen=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_wpa_monitor_auth_reject_seen", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_wpa_monitor_auth_reject_seen=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_wpa_monitor_temp_disabled_seen", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_wpa_monitor_temp_disabled_seen=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_wpa_monitor_eap_failure_seen", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_wpa_monitor_eap_failure_seen=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_wpa_monitor_last_event", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_wpa_monitor_last_event=%s\n", value);
     }
     if (wifi_service_request_value(result, "connect_ctrl_status_rc", value, sizeof(value)) == 0) {
         wifi_service_append(response, response_size, offset, "connect_ctrl_status_rc=%s\n", value);
@@ -6517,7 +6991,7 @@ static int wifi_uplink_service_format_autoconnect_response(char *response,
 static int wifi_uplink_service_process_once(const char *root, long skip_seq, long *seq_out) {
     char request_path[A90_WIFI_SERVICE_MAX_PATH];
     char request[A90_WIFI_SERVICE_MAX_REQUEST];
-    char response[8192];
+    char response[12288];
     char seq[64] = "";
     char op[32] = "";
     char profile[96] = "";

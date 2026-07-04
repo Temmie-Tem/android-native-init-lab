@@ -1637,6 +1637,37 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA34 should diagnose the WPA 4-way-handshake stall with redacted native wpa-control
 > event/status capture and compare it against the earlier known-good Debian WSTA7 association flow.
 > Do not log credentials, do not enable public exposure, and keep external ping/tunnel gated off.
+> **🟡 STATUS (2026-07-04 13:45 KST host clock) — WSTA34/WSTA35 V3391/V3392 WPA diagnostics
+> SOURCE+BUILD+FLASH+LIVE progressed; current blocker is ctrl local abstract socket collision before
+> final WPA interpretation.**  V3391 added bounded WPA completion wait plus redacted WPA monitor
+> counters/categories, built as `A90 Linux init 0.11.147 (v3391-wifi-wpa-handshake-diagnostics)` with
+> boot SHA `11a2685964a93271bac9d2ef34348f2a74a2aa079a3ca46941b731d5f4ed76b3`, and flashed cleanly
+> through the checked helper.  Live WSTA34 did not reach WPA diagnostics because `/cache` was still
+> full and control socket directory preparation failed: `connect_prepare_rc=-28`,
+> `connect_diag_decision=wifi-connect-config-prepare-failed`, `connect_supplicant_spawned=0`,
+> `external_ping_execution=0`, `public_tunnel=0`, `secret_values_logged=0`; cleanup restored
+> autoconnect disabled, no supplicant/default route, and `selftest fail=0`.  V3392 moved the
+> supplicant control directory to `/tmp/a90-wifi/sockets`, built as
+> `A90 Linux init 0.11.148 (v3392-wifi-tmp-ctrl-dir)` with boot SHA
+> `da2f39b60300497d8957abff77a97764864fd8a6d3de3018bb8e837837c9861c`, and flashed cleanly through
+> the checked helper.  Direct `wifi config prepare` then passed with
+> `ctrl_interface.dir=/tmp/a90-wifi/sockets`.  Live WSTA35 reached supplicant/control/carrier/WPA
+> monitor and bounded WPA wait: `connect_prepare_rc=0`, `connect_ctrl_wait_category=pong`,
+> `connect_carrier_wait_rc=0`, `connect_wpa_monitor_attach_rc=0`,
+> `connect_wpa_monitor_event_count=56`, `connect_wpa_complete_wait_rc=-110`,
+> `connect_wpa_complete_first_state=4WAY_HANDSHAKE`, `connect_wpa_complete_last_state=4WAY_HANDSHAKE`,
+> `connect_wpa_monitor_temp_disabled_seen=1`, no connected/auth-reject/assoc-reject/EAP-failure
+> category, and final `selftest fail=0`.  However the immediate post-monitor ctrl commands all
+> returned `-98`; source inspection shows the likely cause is local abstract ctrl socket names based
+> only on `pid + monotonic_millis`, so the persistent monitor socket can collide with one-shot request
+> sockets in the same millisecond.  Reports:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA34_WPA_HANDSHAKE_DIAGNOSTICS_V3391_LIVE_2026-07-04.md`
+> and
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA35_TMP_CTRL_DIR_V3392_LIVE_2026-07-04.md`.
+> **NEXT:** WSTA36 should make native ctrl local abstract socket names monotonic-unique, then rebuild,
+> flash, and rerun the same confirmed-autoconnect gate.  Only after `DRIVER COUNTRY`, `SCAN`,
+> `ENABLE_NETWORK`, `SELECT_NETWORK`, and `REASSOCIATE` no longer fail with `-98` should the remaining
+> 4-way-handshake stall be interpreted as a true WPA/AP/credential/driver condition.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
