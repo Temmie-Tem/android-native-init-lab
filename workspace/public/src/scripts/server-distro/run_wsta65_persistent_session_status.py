@@ -32,6 +32,8 @@ PRIVATE_ROOT = wsta64.PRIVATE_ROOT
 DEFAULT_RUN_BASE = wsta64.DEFAULT_RUN_BASE
 PASS_DECISION = "wsta65-persistent-session-status-pass"
 DEFAULT_MIN_INITIAL_SECONDS_REMAINING = wsta64.DEFAULT_MIN_INITIAL_SECONDS_REMAINING
+RETIRE_MARKER_SCHEMA = "a90-wsta-persistent-session-retire-v1"
+RETIRE_PASS_DECISION = "wsta66-persistent-session-retire-pass"
 
 
 def rel(path: Path) -> str:
@@ -98,6 +100,7 @@ def template() -> dict[str, Any]:
             "--min-initial-seconds-remaining",
             str(DEFAULT_MIN_INITIAL_SECONDS_REMAINING),
         ],
+        "optional_retire_marker": "workspace/private/runs/server-distro/<wsta66-run>/wsta66_retire_marker.json",
         "live_execution": "not-run-by-wsta65",
         "public_url_value_logged": False,
         "secret_values_logged": 0,
@@ -125,6 +128,61 @@ def classify_from_wsta64_decision(decision: str) -> tuple[str, str, str]:
     if "near-expiry" in decision:
         return "STALE", "initial-lease-near-expiry", "rerun-wsta63-then-wsta64"
     return "NOT_READY", decision or "wsta64-not-pass", "inspect-wsta64-result"
+
+
+def validate_retire_marker(path: Path, wsta64_path: Path) -> tuple[bool, str, dict[str, Any]]:
+    marker_path = resolve_path(path)
+    if not is_under(marker_path, PRIVATE_ROOT):
+        return False, "wsta65-blocked-retire-marker-nonprivate", {}
+    if not marker_path.exists():
+        return False, "wsta65-blocked-retire-marker-missing", {}
+    try:
+        marker = load_json(marker_path)
+    except Exception as exc:  # noqa: BLE001
+        return False, "wsta65-blocked-retire-marker-unreadable", {"error": str(exc)}
+    if marker.get("schema") != RETIRE_MARKER_SCHEMA:
+        return False, "wsta65-blocked-retire-marker-schema", {"schema": marker.get("schema")}
+    if marker.get("decision") != RETIRE_PASS_DECISION:
+        return False, "wsta65-blocked-retire-marker-not-pass", {"decision": marker.get("decision")}
+    if marker.get("retired") is not True or marker.get("session_state") != "RETIRED":
+        return False, "wsta65-blocked-retire-marker-state", {"session_state": marker.get("session_state")}
+    if marker.get("wsta64_result") != rel(wsta64_path):
+        return False, "wsta65-blocked-retire-marker-source-mismatch", {
+            "marker_wsta64_result": marker.get("wsta64_result"),
+            "expected_wsta64_result": rel(wsta64_path),
+        }
+    if marker.get("public_url_value_logged") is not False:
+        return False, "wsta65-blocked-retire-marker-public-url-logged", {}
+    if marker.get("secret_values_logged") not in (0, "0", None):
+        return False, "wsta65-blocked-retire-marker-secret-values-logged", {}
+    return True, "ok", {"marker": marker, "path": marker_path}
+
+
+def retired_status(marker: dict[str, Any], marker_path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
+    status = {
+        "source_wsta64_decision": marker.get("source_wsta64_decision"),
+        "state": "PUBLIC_OFF",
+        "session_state": "RETIRED",
+        "ready_for_live": False,
+        "reason": marker.get("reason") or "operator-retired",
+        "recommended_next_action": "rerun-wsta63-then-wsta64-if-live-is-needed",
+        "retire_marker": rel(marker_path),
+        "retired_utc": marker.get("retired_utc"),
+        "wsta64_result": marker.get("wsta64_result"),
+        "wsta65_result": marker.get("wsta65_result"),
+        "public_url_value_logged": False,
+        "secret_values_logged": 0,
+    }
+    checks = {
+        "wsta64_result_private": True,
+        "retire_marker_valid": True,
+        "default_public_off": True,
+        "ready_for_live": False,
+        "live_execution_requested": False,
+        "public_url_value_logged": False,
+        "secret_values_logged": 0,
+    }
+    return status, checks
 
 
 def status_from_readiness(wsta64_result: dict[str, Any],
@@ -270,11 +328,22 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         return result
 
     wsta64_result = load_json(wsta64_path)
-    status, checks = status_from_readiness(
-        wsta64_result,
-        now,
-        int(args.min_initial_seconds_remaining),
-    )
+    if args.retire_marker_json is not None:
+        retire_ok, retire_decision, retire_detail = validate_retire_marker(args.retire_marker_json, wsta64_path)
+        if not retire_ok:
+            result["decision"] = retire_decision
+            result["gate_decision"] = retire_decision
+            result["gate_detail"] = retire_detail
+            result["ended_utc"] = utc_stamp()
+            write_json(out_path, result)
+            return result
+        status, checks = retired_status(retire_detail["marker"], retire_detail["path"])
+    else:
+        status, checks = status_from_readiness(
+            wsta64_result,
+            now,
+            int(args.min_initial_seconds_remaining),
+        )
     status["wsta64_result"] = rel(wsta64_path)
     result["session_status"] = status
     result["checks"] = checks
@@ -295,6 +364,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--run-id")
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--wsta64-result-json", type=Path)
+    parser.add_argument("--retire-marker-json", type=Path)
     parser.add_argument("--min-initial-seconds-remaining", type=int, default=DEFAULT_MIN_INITIAL_SECONDS_REMAINING)
     parser.add_argument("--now-utc")
     parser.add_argument("--print-template", action="store_true")

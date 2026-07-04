@@ -2193,6 +2193,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA live persistent exposure is now prepared, freshness-audited, and lifecycle-visible but still not
 > selected; proceed only with explicit operator live proof, or continue default-off lifecycle cleanup/retire
 > productization without starting public exposure.
+> **🟢 STATUS (2026-07-04 19:11 KST host clock) — WSTA66 persistent session retire
+> SOURCE/PREFLIGHT PASS.**  Codex added
+> `workspace/public/src/scripts/server-distro/run_wsta66_persistent_session_retire.py`, a host-only retire-marker
+> runner, and updated WSTA65 to consume private retire markers.  WSTA66 is fail-closed until `--retire-session`,
+> `--ack-retire-session`, and a private WSTA65 result are supplied.  It writes `wsta66_retire_marker.json`; WSTA65
+> accepts that marker only if it is private, schema-valid, pass-marked, tied to the same WSTA64 result being queried,
+> and redaction-clean.  Fresh smoke
+> `workspace/private/runs/server-distro/wsta66-retire-smoke-20260704T1015Z` proved:
+> WSTA63 prepare pass -> WSTA64 readiness pass -> WSTA65 `READY` -> WSTA66 retire pass -> WSTA65 `RETIRED`.
+> Final status returned `session_state=RETIRED`, `ready_for_live=false`, `reason=operator-retired`,
+> `recommended_next_action=rerun-wsta63-then-wsta64-if-live-is-needed`, `public_url_value_logged=false`, and
+> `secret_values_logged=0`.  Validation passed 70 focused WSTA52/WSTA53/WSTA54/WSTA55/WSTA58/WSTA63/WSTA64/WSTA65/
+> WSTA66 tests plus `py_compile`.  No boot image, flash, device command, native reboot, Wi-Fi association, DHCP,
+> public tunnel, public smoke, userdata action, switch-root, or external service action ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA66_SESSION_RETIRE_SOURCE_2026-07-04.md`.
+> **NEXT:** persistent exposure is prepared, freshness-audited, lifecycle-visible, and explicitly retireable while
+> remaining default-off; continue only with explicit operator-selected WSTA58 live proof, or further default-off
+> operator UX/reporting without starting public exposure.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
