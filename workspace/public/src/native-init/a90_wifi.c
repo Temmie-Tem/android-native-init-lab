@@ -157,6 +157,43 @@ struct wifi_autoconnect_scan_recovery_state {
 
 static struct wifi_autoconnect_scan_recovery_state g_autoconnect_scan_recovery;
 
+struct wifi_autoconnect_connect_diag_state {
+    int attempted;
+    int wlan0_wait_rc;
+    int wlan0_wait_elapsed_ms;
+    int link_up_rc;
+    int link_up_errno;
+    int prepare_rc;
+    int runtime_prepare_rc;
+    int supplicant_root_exec_rc;
+    int supplicant_process_count_before;
+    int supplicant_start_rc;
+    int ctrl_wait_rc;
+    int ctrl_wait_errno;
+    int ctrl_wait_elapsed_ms;
+    char ctrl_wait_category[32];
+    int ctrl_driver_country_rc;
+    int ctrl_scan_rc;
+    int ctrl_enable_network_rc;
+    int ctrl_select_network_rc;
+    int ctrl_reassociate_rc;
+    int carrier_wait_rc;
+    int carrier_wait_elapsed_ms;
+    int carrier_up_at_wait;
+    int ctrl_status_rc;
+    int ctrl_status_errno;
+    int ctrl_status_completed;
+    char ctrl_status_wpa_state[32];
+    int ctrl_signal_rc;
+    int ctrl_signal_errno;
+    int supplicant_spawned;
+    int supplicant_left_running;
+    int cleanup_status;
+    char decision[64];
+};
+
+static struct wifi_autoconnect_connect_diag_state g_autoconnect_connect_diag;
+
 static int wifi_softap_iftype_probe(int wait_timeout_ms);
 
 static void wifi_autoconnect_reset_scan_recovery(void) {
@@ -165,6 +202,48 @@ static void wifi_autoconnect_reset_scan_recovery(void) {
              sizeof(g_autoconnect_scan_recovery.decision),
              "%s",
              "wifi-autoconnect-scan-recovery-not-attempted");
+}
+
+static void wifi_autoconnect_reset_connect_diag(void) {
+    memset(&g_autoconnect_connect_diag, 0, sizeof(g_autoconnect_connect_diag));
+    g_autoconnect_connect_diag.wlan0_wait_rc = 0;
+    g_autoconnect_connect_diag.link_up_errno = 0;
+    g_autoconnect_connect_diag.prepare_rc = 0;
+    g_autoconnect_connect_diag.runtime_prepare_rc = 0;
+    g_autoconnect_connect_diag.supplicant_root_exec_rc = 0;
+    g_autoconnect_connect_diag.supplicant_process_count_before = -1;
+    g_autoconnect_connect_diag.supplicant_start_rc = 0;
+    g_autoconnect_connect_diag.ctrl_wait_rc = 0;
+    g_autoconnect_connect_diag.ctrl_wait_errno = 0;
+    snprintf(g_autoconnect_connect_diag.ctrl_wait_category,
+             sizeof(g_autoconnect_connect_diag.ctrl_wait_category),
+             "%s",
+             "not-run");
+    g_autoconnect_connect_diag.ctrl_driver_country_rc = 0;
+    g_autoconnect_connect_diag.ctrl_scan_rc = 0;
+    g_autoconnect_connect_diag.ctrl_enable_network_rc = 0;
+    g_autoconnect_connect_diag.ctrl_select_network_rc = 0;
+    g_autoconnect_connect_diag.ctrl_reassociate_rc = 0;
+    g_autoconnect_connect_diag.carrier_wait_rc = 0;
+    g_autoconnect_connect_diag.ctrl_status_rc = -ENOENT;
+    g_autoconnect_connect_diag.ctrl_status_errno = 0;
+    g_autoconnect_connect_diag.ctrl_signal_rc = -ENOENT;
+    g_autoconnect_connect_diag.ctrl_signal_errno = 0;
+    snprintf(g_autoconnect_connect_diag.ctrl_status_wpa_state,
+             sizeof(g_autoconnect_connect_diag.ctrl_status_wpa_state),
+             "%s",
+             "-");
+    snprintf(g_autoconnect_connect_diag.decision,
+             sizeof(g_autoconnect_connect_diag.decision),
+             "%s",
+             "wifi-connect-not-attempted");
+}
+
+static void wifi_autoconnect_set_connect_decision(const char *decision) {
+    snprintf(g_autoconnect_connect_diag.decision,
+             sizeof(g_autoconnect_connect_diag.decision),
+             "%s",
+             decision != NULL && decision[0] != '\0' ? decision : "wifi-connect-unknown");
 }
 
 static int wifi_open_dir_no_follow(const char *path) {
@@ -3288,6 +3367,7 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
     int ctrl_wait_elapsed_ms = 0;
     int carrier_wait_elapsed_ms = 0;
     int ctrl_errno = 0;
+    int wlan0_wait_rc;
     int link_up_errno = 0;
     int link_up_rc;
     int prepare_rc;
@@ -3309,6 +3389,10 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
     bool spawned_supplicant = false;
     bool reusing_supplicant = false;
 
+    wifi_autoconnect_reset_connect_diag();
+    g_autoconnect_connect_diag.attempted = 1;
+    wifi_autoconnect_set_connect_decision("wifi-connect-running");
+
     a90_console_printf("[wifi connect]\r\n");
     a90_console_printf("version=%s\r\n", A90_WIFI_CONNECT_VERSION);
     a90_console_printf("iface=%s\r\n", A90_WIFI_IFACE);
@@ -3321,28 +3405,36 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
     a90_console_printf("external_ping=0\r\n");
     a90_console_printf("wlan0_wait_timeout_ms=%d\r\n", A90_WIFI_CONNECT_WLAN0_WAIT_MS);
 
-    if (wifi_wait_wlan0(A90_WIFI_CONNECT_WLAN0_WAIT_MS, &wlan0_wait_elapsed_ms) < 0) {
+    wlan0_wait_rc = wifi_wait_wlan0(A90_WIFI_CONNECT_WLAN0_WAIT_MS, &wlan0_wait_elapsed_ms);
+    g_autoconnect_connect_diag.wlan0_wait_rc = wlan0_wait_rc;
+    g_autoconnect_connect_diag.wlan0_wait_elapsed_ms = wlan0_wait_elapsed_ms;
+    if (wlan0_wait_rc < 0) {
         a90_console_printf("wlan0_present=0\r\n");
         a90_console_printf("wlan0_wait_elapsed_ms=%d\r\n", wlan0_wait_elapsed_ms);
         a90_console_printf("secret_values_logged=0\r\n");
         a90_console_printf("decision=wifi-connect-wlan0-timeout\r\n");
+        wifi_autoconnect_set_connect_decision("wifi-connect-wlan0-timeout");
         return -ETIMEDOUT;
     }
     a90_console_printf("wlan0_present=1\r\n");
     a90_console_printf("wlan0_wait_elapsed_ms=%d\r\n", wlan0_wait_elapsed_ms);
 
     link_up_rc = wifi_link_set_up(A90_WIFI_IFACE, &link_up_errno);
+    g_autoconnect_connect_diag.link_up_rc = link_up_rc;
+    g_autoconnect_connect_diag.link_up_errno = link_up_errno;
     a90_console_printf("link_up_rc=%d\r\n", link_up_rc);
     a90_console_printf("link_up_errno=%d\r\n", link_up_errno);
     if (link_up_rc < 0) {
         a90_console_printf("secret_values_logged=0\r\n");
         a90_console_printf("decision=wifi-connect-link-up-failed\r\n");
+        wifi_autoconnect_set_connect_decision("wifi-connect-link-up-failed");
         return -link_up_errno;
     }
 
     prepare_rc = a90_wificfg_prepare_supplicant_config(profile_name,
                                                        supplicant_config,
                                                        sizeof(supplicant_config));
+    g_autoconnect_connect_diag.prepare_rc = prepare_rc;
     a90_console_printf("prepare_rc=%d\r\n", prepare_rc);
     a90_console_printf("supplicant_config.path=%s\r\n", A90_WIFICFG_SUPPLICANT_CONF);
     a90_console_printf("supplicant_config.present=%d\r\n",
@@ -3350,15 +3442,18 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
     if (prepare_rc < 0) {
         a90_console_printf("secret_values_logged=0\r\n");
         a90_console_printf("decision=wifi-connect-config-prepare-failed\r\n");
+        wifi_autoconnect_set_connect_decision("wifi-connect-config-prepare-failed");
         return prepare_rc;
     }
 
     runtime_rc = wifi_prepare_runtime_dirs();
+    g_autoconnect_connect_diag.runtime_prepare_rc = runtime_rc;
     a90_console_printf("runtime_prepare_rc=%d\r\n", runtime_rc);
     a90_console_printf("ctrl_socket.dir=%s\r\n", A90_WIFI_CTRL_DIR);
     if (runtime_rc < 0) {
         a90_console_printf("secret_values_logged=0\r\n");
         a90_console_printf("decision=wifi-connect-runtime-prepare-failed\r\n");
+        wifi_autoconnect_set_connect_decision("wifi-connect-runtime-prepare-failed");
         return runtime_rc;
     }
 
@@ -3366,6 +3461,7 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
     a90_console_printf("supplicant.executable=%d\r\n",
                        access(A90_WIFI_STANDALONE_SUPPLICANT, X_OK) == 0 ? 1 : 0);
     supplicant_root_exec_rc = wifi_verify_root_exec_file(A90_WIFI_STANDALONE_SUPPLICANT, true);
+    g_autoconnect_connect_diag.supplicant_root_exec_rc = supplicant_root_exec_rc;
     a90_console_printf("supplicant.root_exec_rc=%d\r\n", supplicant_root_exec_rc);
     a90_console_printf("supplicant.root_exec_ok=%d\r\n", supplicant_root_exec_rc == 0 ? 1 : 0);
     a90_console_printf("supplicant_log.path=%s\r\n", A90_WIFI_SUPPLICANT_LOG);
@@ -3375,15 +3471,18 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
         a90_console_printf("supplicant_errno=%d\r\n", saved_errno);
         a90_console_printf("secret_values_logged=0\r\n");
         a90_console_printf("decision=wifi-connect-supplicant-missing\r\n");
+        wifi_autoconnect_set_connect_decision("wifi-connect-supplicant-missing");
         return -saved_errno;
     }
     if (supplicant_root_exec_rc < 0) {
         a90_console_printf("secret_values_logged=0\r\n");
         a90_console_printf("decision=wifi-connect-supplicant-unsafe\r\n");
+        wifi_autoconnect_set_connect_decision("wifi-connect-supplicant-unsafe");
         return supplicant_root_exec_rc;
     }
 
     supplicant_process_count = wifi_count_processes_with_token("wpa_supplicant");
+    g_autoconnect_connect_diag.supplicant_process_count_before = supplicant_process_count;
     a90_console_printf("supplicant.process_count_before=%d\r\n", supplicant_process_count);
     if (supplicant_process_count > 0) {
         a90_console_printf("supplicant.reuse_attempted=0\r\n");
@@ -3418,6 +3517,7 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
             if (existing_kill_rc < 0 || existing_kill_wait_rc < 0) {
                 a90_console_printf("secret_values_logged=0\r\n");
                 a90_console_printf("decision=wifi-connect-supplicant-terminate-timeout\r\n");
+                wifi_autoconnect_set_connect_decision("wifi-connect-supplicant-terminate-timeout");
                 return existing_kill_rc < 0 ? existing_kill_rc : -EBUSY;
             }
         } else {
@@ -3431,14 +3531,17 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
     (void)unlink(A90_WIFI_CTRL_SOCKET);
     (void)unlink(A90_WIFI_SUPPLICANT_LOG);
     supplicant_start_rc = wifi_start_supplicant(&supplicant_pid);
+    g_autoconnect_connect_diag.supplicant_start_rc = supplicant_start_rc;
     a90_console_printf("supplicant_start_rc=%d\r\n", supplicant_start_rc);
     a90_console_printf("supplicant_pid=%ld\r\n", supplicant_start_rc == 0 ? (long)supplicant_pid : -1L);
     if (supplicant_start_rc < 0) {
         a90_console_printf("secret_values_logged=0\r\n");
         a90_console_printf("decision=wifi-connect-supplicant-start-failed\r\n");
+        wifi_autoconnect_set_connect_decision("wifi-connect-supplicant-start-failed");
         return supplicant_start_rc;
     }
     spawned_supplicant = true;
+    g_autoconnect_connect_diag.supplicant_spawned = 1;
     ctrl_ready_rc = wifi_wait_ctrl_ready(supplicant_pid,
                                          true,
                                          A90_WIFI_CONNECT_CTRL_WAIT_MS,
@@ -3446,6 +3549,13 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
                                          ctrl_category,
                                          sizeof(ctrl_category),
                                          &ctrl_errno);
+    g_autoconnect_connect_diag.ctrl_wait_rc = ctrl_ready_rc;
+    g_autoconnect_connect_diag.ctrl_wait_errno = ctrl_errno;
+    g_autoconnect_connect_diag.ctrl_wait_elapsed_ms = ctrl_wait_elapsed_ms;
+    snprintf(g_autoconnect_connect_diag.ctrl_wait_category,
+             sizeof(g_autoconnect_connect_diag.ctrl_wait_category),
+             "%s",
+             ctrl_ready_rc == 0 ? ctrl_category : "error");
     a90_console_printf("ctrl_wait_timeout_ms=%d\r\n", A90_WIFI_CONNECT_CTRL_WAIT_MS);
     a90_console_printf("ctrl_wait_elapsed_ms=%d\r\n", ctrl_wait_elapsed_ms);
     a90_console_printf("ctrl_ping_rc=%d\r\n", ctrl_ready_rc);
@@ -3461,25 +3571,45 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
         a90_console_printf("supplicant_cleanup_status=%d\r\n", terminate_status);
         a90_console_printf("secret_values_logged=0\r\n");
         a90_console_printf("decision=wifi-connect-ctrl-timeout\r\n");
+        g_autoconnect_connect_diag.cleanup_status = terminate_status;
+        wifi_autoconnect_set_connect_decision("wifi-connect-ctrl-timeout");
         return ctrl_ready_rc;
     }
 
-    (void)wifi_print_ctrl_result("ctrl.driver_country", "DRIVER COUNTRY KR");
-    (void)wifi_print_ctrl_result("ctrl.scan", "SCAN");
-    (void)wifi_print_ctrl_result("ctrl.enable_network", "ENABLE_NETWORK 0");
-    (void)wifi_print_ctrl_result("ctrl.select_network", "SELECT_NETWORK 0");
-    (void)wifi_print_ctrl_result("ctrl.reassociate", "REASSOCIATE");
+    g_autoconnect_connect_diag.ctrl_driver_country_rc =
+        wifi_print_ctrl_result("ctrl.driver_country", "DRIVER COUNTRY KR");
+    g_autoconnect_connect_diag.ctrl_scan_rc = wifi_print_ctrl_result("ctrl.scan", "SCAN");
+    g_autoconnect_connect_diag.ctrl_enable_network_rc =
+        wifi_print_ctrl_result("ctrl.enable_network", "ENABLE_NETWORK 0");
+    g_autoconnect_connect_diag.ctrl_select_network_rc =
+        wifi_print_ctrl_result("ctrl.select_network", "SELECT_NETWORK 0");
+    g_autoconnect_connect_diag.ctrl_reassociate_rc =
+        wifi_print_ctrl_result("ctrl.reassociate", "REASSOCIATE");
 
     if (carrier_wait_timeout_ms <= 0) {
         carrier_wait_timeout_ms = A90_WIFI_CONNECT_CARRIER_WAIT_MS;
     }
     a90_console_printf("carrier_wait_timeout_ms=%d\r\n", carrier_wait_timeout_ms);
     carrier_rc = wifi_wait_carrier(carrier_wait_timeout_ms, &carrier_wait_elapsed_ms);
+    g_autoconnect_connect_diag.carrier_wait_rc = carrier_rc;
+    g_autoconnect_connect_diag.carrier_wait_elapsed_ms = carrier_wait_elapsed_ms;
+    g_autoconnect_connect_diag.carrier_up_at_wait = carrier_rc == 0 ? 1 : 0;
     a90_console_printf("carrier_wait_rc=%d\r\n", carrier_rc);
     a90_console_printf("carrier_wait_elapsed_ms=%d\r\n", carrier_wait_elapsed_ms);
     a90_console_printf("carrier_up=%d\r\n", carrier_rc == 0 ? 1 : 0);
     status_rc = wifi_print_ctrl_result("ctrl.status", "STATUS");
     wifi_collect_ctrl_link_info(&status_info);
+    (void)status_rc;
+    g_autoconnect_connect_diag.ctrl_status_rc = status_info.status_rc;
+    g_autoconnect_connect_diag.ctrl_status_errno = status_info.status_errno;
+    g_autoconnect_connect_diag.ctrl_signal_rc = status_info.signal_rc;
+    g_autoconnect_connect_diag.ctrl_signal_errno = status_info.signal_errno;
+    snprintf(g_autoconnect_connect_diag.ctrl_status_wpa_state,
+             sizeof(g_autoconnect_connect_diag.ctrl_status_wpa_state),
+             "%s",
+             status_info.wpa_state[0] != '\0' ? status_info.wpa_state : "-");
+    g_autoconnect_connect_diag.ctrl_status_completed =
+        strcmp(status_info.wpa_state, "COMPLETED") == 0 ? 1 : 0;
     a90_console_printf("ctrl.status_confirm.rc=%d\r\n", status_info.status_rc);
     a90_console_printf("ctrl.status_confirm.errno=%d\r\n", status_info.status_errno);
     a90_console_printf("ctrl.status_confirm.field.wpa_state=%s\r\n",
@@ -3492,6 +3622,8 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
     a90_console_printf("supplicant.spawned=%d\r\n", spawned_supplicant ? 1 : 0);
     a90_console_printf("supplicant.left_running=%d\r\n",
                        carrier_rc == 0 && strcmp(status_info.wpa_state, "COMPLETED") == 0 ? 1 : 0);
+    g_autoconnect_connect_diag.supplicant_left_running =
+        carrier_rc == 0 && strcmp(status_info.wpa_state, "COMPLETED") == 0 ? 1 : 0;
     a90_console_printf("status_request_rc=%d\r\n", status_rc);
     a90_console_printf("credentials_logged=0\r\n");
     a90_console_printf("dhcp_routing=0\r\n");
@@ -3505,6 +3637,7 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
                  reusing_supplicant ? 1 : 0,
                  spawned_supplicant ? 1 : 0);
         a90_console_printf("decision=wifi-connect-carrier-up\r\n");
+        wifi_autoconnect_set_connect_decision("wifi-connect-carrier-up");
         return 0;
     }
 
@@ -3515,6 +3648,7 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
                                   3000,
                                   true,
                                   &terminate_status);
+        g_autoconnect_connect_diag.cleanup_status = terminate_status;
         a90_console_printf("supplicant_cleanup_status=%d\r\n", terminate_status);
         a90_logf("wifi",
                  "connect profile=%s carrier=1 wpa_state=%s reused=%d spawned=%d secret_values_logged=0",
@@ -3523,6 +3657,7 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
                  reusing_supplicant ? 1 : 0,
                  spawned_supplicant ? 1 : 0);
         a90_console_printf("decision=wifi-connect-status-not-completed\r\n");
+        wifi_autoconnect_set_connect_decision("wifi-connect-status-not-completed");
         return -ENOTCONN;
     }
 
@@ -3533,6 +3668,7 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
                                   3000,
                                   true,
                                   &terminate_status);
+        g_autoconnect_connect_diag.cleanup_status = terminate_status;
         a90_console_printf("supplicant_cleanup_status=%d\r\n", terminate_status);
     }
     a90_logf("wifi",
@@ -3541,6 +3677,7 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
              reusing_supplicant ? 1 : 0,
              spawned_supplicant ? 1 : 0);
     a90_console_printf("decision=wifi-connect-no-carrier\r\n");
+    wifi_autoconnect_set_connect_decision("wifi-connect-no-carrier");
     return carrier_rc;
 }
 
@@ -3553,7 +3690,7 @@ static int wifi_write_autoconnect_result(const char *decision,
                                          int connect_rc,
                                          int dhcp_rc,
                                          int final_rc) {
-    char text[1024];
+    char text[4096];
     int len;
 
     len = snprintf(text,
@@ -3573,6 +3710,38 @@ static int wifi_write_autoconnect_result(const char *decision,
                    "scan_recovery_rescan_rc=%d\n"
                    "scan_recovery_success=%d\n"
                    "scan_recovery_decision=%s\n"
+                   "connect_diag_attempted=%d\n"
+                   "connect_diag_decision=%s\n"
+                   "connect_wlan0_wait_rc=%d\n"
+                   "connect_wlan0_wait_elapsed_ms=%d\n"
+                   "connect_link_up_rc=%d\n"
+                   "connect_link_up_errno=%d\n"
+                   "connect_prepare_rc=%d\n"
+                   "connect_runtime_prepare_rc=%d\n"
+                   "connect_supplicant_root_exec_rc=%d\n"
+                   "connect_supplicant_process_count_before=%d\n"
+                   "connect_supplicant_start_rc=%d\n"
+                   "connect_ctrl_wait_rc=%d\n"
+                   "connect_ctrl_wait_errno=%d\n"
+                   "connect_ctrl_wait_elapsed_ms=%d\n"
+                   "connect_ctrl_wait_category=%s\n"
+                   "connect_ctrl_driver_country_rc=%d\n"
+                   "connect_ctrl_scan_rc=%d\n"
+                   "connect_ctrl_enable_network_rc=%d\n"
+                   "connect_ctrl_select_network_rc=%d\n"
+                   "connect_ctrl_reassociate_rc=%d\n"
+                   "connect_carrier_wait_rc=%d\n"
+                   "connect_carrier_wait_elapsed_ms=%d\n"
+                   "connect_carrier_up_at_wait=%d\n"
+                   "connect_ctrl_status_rc=%d\n"
+                   "connect_ctrl_status_errno=%d\n"
+                   "connect_ctrl_status_wpa_state=%s\n"
+                   "connect_ctrl_status_completed=%d\n"
+                   "connect_ctrl_signal_rc=%d\n"
+                   "connect_ctrl_signal_errno=%d\n"
+                   "connect_supplicant_spawned=%d\n"
+                   "connect_supplicant_left_running=%d\n"
+                   "connect_cleanup_status=%d\n"
                    "secret_values_logged=0\n",
                    decision != NULL ? decision : "wifi-autoconnect-unknown",
                    profile != NULL && profile[0] != '\0' ? profile : "default",
@@ -3587,7 +3756,39 @@ static int wifi_write_autoconnect_result(const char *decision,
                    g_autoconnect_scan_recovery.rc,
                    g_autoconnect_scan_recovery.rescan_rc,
                    g_autoconnect_scan_recovery.success,
-                   g_autoconnect_scan_recovery.decision);
+                   g_autoconnect_scan_recovery.decision,
+                   g_autoconnect_connect_diag.attempted,
+                   g_autoconnect_connect_diag.decision,
+                   g_autoconnect_connect_diag.wlan0_wait_rc,
+                   g_autoconnect_connect_diag.wlan0_wait_elapsed_ms,
+                   g_autoconnect_connect_diag.link_up_rc,
+                   g_autoconnect_connect_diag.link_up_errno,
+                   g_autoconnect_connect_diag.prepare_rc,
+                   g_autoconnect_connect_diag.runtime_prepare_rc,
+                   g_autoconnect_connect_diag.supplicant_root_exec_rc,
+                   g_autoconnect_connect_diag.supplicant_process_count_before,
+                   g_autoconnect_connect_diag.supplicant_start_rc,
+                   g_autoconnect_connect_diag.ctrl_wait_rc,
+                   g_autoconnect_connect_diag.ctrl_wait_errno,
+                   g_autoconnect_connect_diag.ctrl_wait_elapsed_ms,
+                   g_autoconnect_connect_diag.ctrl_wait_category,
+                   g_autoconnect_connect_diag.ctrl_driver_country_rc,
+                   g_autoconnect_connect_diag.ctrl_scan_rc,
+                   g_autoconnect_connect_diag.ctrl_enable_network_rc,
+                   g_autoconnect_connect_diag.ctrl_select_network_rc,
+                   g_autoconnect_connect_diag.ctrl_reassociate_rc,
+                   g_autoconnect_connect_diag.carrier_wait_rc,
+                   g_autoconnect_connect_diag.carrier_wait_elapsed_ms,
+                   g_autoconnect_connect_diag.carrier_up_at_wait,
+                   g_autoconnect_connect_diag.ctrl_status_rc,
+                   g_autoconnect_connect_diag.ctrl_status_errno,
+                   g_autoconnect_connect_diag.ctrl_status_wpa_state,
+                   g_autoconnect_connect_diag.ctrl_status_completed,
+                   g_autoconnect_connect_diag.ctrl_signal_rc,
+                   g_autoconnect_connect_diag.ctrl_signal_errno,
+                   g_autoconnect_connect_diag.supplicant_spawned,
+                   g_autoconnect_connect_diag.supplicant_left_running,
+                   g_autoconnect_connect_diag.cleanup_status);
     if (len < 0 || (size_t)len >= sizeof(text)) {
         return -ENOSPC;
     }
@@ -3603,6 +3804,7 @@ static void wifi_write_autoconnect_inactive_state(const char *decision,
 
     (void)wifi_prepare_runtime_dirs();
     wifi_autoconnect_reset_scan_recovery();
+    wifi_autoconnect_reset_connect_diag();
     wifi_reset_autoconnect_log(profile, boot_background);
     (void)wifi_write_autoconnect_result(selected_decision, profile, 0, 0, final_rc);
     (void)wifi_write_runtime_summary(selected_decision);
@@ -3703,6 +3905,7 @@ static int wifi_run_autoconnect_sequence(const char *profile_name, bool boot_bac
     carrier_wait_timeout_ms = config.connect_timeout_sec > 0 ?
         config.connect_timeout_sec * 1000 : A90_WIFI_CONNECT_CARRIER_WAIT_MS;
     wifi_autoconnect_reset_scan_recovery();
+    wifi_autoconnect_reset_connect_diag();
     wifi_reset_autoconnect_log(selected_profile, boot_background);
     if (!boot_background) {
         a90_console_printf("[wifi autoconnect once]\r\n");
@@ -6031,7 +6234,7 @@ static int wifi_service_cmd(char **argv, int argc) {
 static void wifi_uplink_service_append_autoconnect_result(char *response,
                                                           size_t response_size,
                                                           size_t *offset) {
-    char result[1024];
+    char result[4096];
     char value[128];
     int rc = wifi_service_read_file_no_follow(A90_WIFI_AUTOCONNECT_RESULT,
                                               result,
@@ -6090,6 +6293,102 @@ static void wifi_uplink_service_append_autoconnect_result(char *response,
     }
     if (wifi_service_request_value(result, "scan_recovery_decision", value, sizeof(value)) == 0) {
         wifi_service_append(response, response_size, offset, "scan_recovery_decision=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_diag_attempted", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_diag_attempted=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_diag_decision", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_diag_decision=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_wlan0_wait_rc", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_wlan0_wait_rc=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_wlan0_wait_elapsed_ms", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_wlan0_wait_elapsed_ms=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_link_up_rc", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_link_up_rc=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_link_up_errno", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_link_up_errno=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_prepare_rc", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_prepare_rc=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_runtime_prepare_rc", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_runtime_prepare_rc=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_supplicant_root_exec_rc", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_supplicant_root_exec_rc=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_supplicant_process_count_before", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_supplicant_process_count_before=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_supplicant_start_rc", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_supplicant_start_rc=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_ctrl_wait_rc", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_ctrl_wait_rc=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_ctrl_wait_errno", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_ctrl_wait_errno=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_ctrl_wait_elapsed_ms", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_ctrl_wait_elapsed_ms=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_ctrl_wait_category", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_ctrl_wait_category=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_ctrl_driver_country_rc", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_ctrl_driver_country_rc=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_ctrl_scan_rc", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_ctrl_scan_rc=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_ctrl_enable_network_rc", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_ctrl_enable_network_rc=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_ctrl_select_network_rc", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_ctrl_select_network_rc=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_ctrl_reassociate_rc", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_ctrl_reassociate_rc=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_carrier_wait_rc", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_carrier_wait_rc=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_carrier_wait_elapsed_ms", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_carrier_wait_elapsed_ms=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_carrier_up_at_wait", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_carrier_up_at_wait=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_ctrl_status_rc", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_ctrl_status_rc=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_ctrl_status_errno", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_ctrl_status_errno=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_ctrl_status_wpa_state", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_ctrl_status_wpa_state=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_ctrl_status_completed", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_ctrl_status_completed=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_ctrl_signal_rc", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_ctrl_signal_rc=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_ctrl_signal_errno", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_ctrl_signal_errno=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_supplicant_spawned", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_supplicant_spawned=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_supplicant_left_running", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_supplicant_left_running=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_cleanup_status", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_cleanup_status=%s\n", value);
     }
     if (wifi_service_request_value(result, "secret_values_logged", value, sizeof(value)) == 0) {
         wifi_service_append(response, response_size, offset, "secret_values_logged=%s\n", value);
@@ -6218,7 +6517,7 @@ static int wifi_uplink_service_format_autoconnect_response(char *response,
 static int wifi_uplink_service_process_once(const char *root, long skip_seq, long *seq_out) {
     char request_path[A90_WIFI_SERVICE_MAX_PATH];
     char request[A90_WIFI_SERVICE_MAX_REQUEST];
-    char response[4096];
+    char response[8192];
     char seq[64] = "";
     char op[32] = "";
     char profile[96] = "";

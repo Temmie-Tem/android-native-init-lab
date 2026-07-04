@@ -15,6 +15,7 @@ class ServerDistroWsta26ScanFailureDiagnosticTests(unittest.TestCase):
         text = "A90 Linux init 0.11.143 (v3387-wifi-uplink-service-redacted)"
         self.assertTrue(runner.native_is_v3387(text))
         self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.144 (v3388-wifi-autoconnect-scan-recovery)"))
+        self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.145 (v3389-wifi-connect-carrier-diagnostics)"))
         self.assertFalse(runner.native_is_v3387("A90 Linux init 0.11.143"))
 
     def test_status_summaries_keep_redacted_operational_fields(self) -> None:

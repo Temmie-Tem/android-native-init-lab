@@ -7,6 +7,7 @@ from pathlib import Path
 
 
 SOURCE = Path("workspace/public/src/native-init/a90_wifi.c")
+HELPER_SOURCE = Path("workspace/public/src/scripts/server-distro/a90_native_wifi_uplink_client.sh")
 
 
 class NativeWifiUplinkServiceSourceTests(unittest.TestCase):
@@ -58,6 +59,16 @@ class NativeWifiUplinkServiceSourceTests(unittest.TestCase):
         self.assertIn("scan_recovery_rescan_rc=%s", uplink_service)
         self.assertIn("scan_recovery_success=%s", uplink_service)
         self.assertIn("scan_recovery_decision=%s", uplink_service)
+        self.assertIn("connect_diag_attempted=%s", uplink_service)
+        self.assertIn("connect_diag_decision=%s", uplink_service)
+        self.assertIn("connect_wlan0_wait_rc=%s", uplink_service)
+        self.assertIn("connect_ctrl_wait_rc=%s", uplink_service)
+        self.assertIn("connect_ctrl_scan_rc=%s", uplink_service)
+        self.assertIn("connect_ctrl_reassociate_rc=%s", uplink_service)
+        self.assertIn("connect_carrier_wait_rc=%s", uplink_service)
+        self.assertIn("connect_carrier_up_at_wait=%s", uplink_service)
+        self.assertIn("connect_ctrl_status_wpa_state=%s", uplink_service)
+        self.assertIn("connect_ctrl_status_completed=%s", uplink_service)
         self.assertNotIn("profile=%s\\n", uplink_service)
         self.assertNotIn("requested_profile=%s", uplink_service)
 
@@ -72,6 +83,31 @@ class NativeWifiUplinkServiceSourceTests(unittest.TestCase):
         self.assertIn("wifi-autoconnect-scan-recovery-rescan-failed", source)
         self.assertIn("scan_recovery_decision=%s", source)
         self.assertIn("secret_values_logged=0", source)
+
+    def test_autoconnect_connect_diagnostics_are_bounded_and_redacted(self) -> None:
+        source = SOURCE.read_text(encoding="utf-8")
+        helper = HELPER_SOURCE.read_text(encoding="utf-8")
+
+        self.assertIn("struct wifi_autoconnect_connect_diag_state", source)
+        self.assertIn("wifi_autoconnect_reset_connect_diag", source)
+        self.assertIn("wifi_autoconnect_set_connect_decision", source)
+        self.assertIn("connect_diag_decision=%s", source)
+        self.assertIn("connect_ctrl_status_wpa_state=%s", source)
+        self.assertIn("connect_carrier_wait_rc=%d", source)
+        self.assertIn("connect_ctrl_reassociate_rc=%d", source)
+        self.assertIn("wifi-connect-status-not-completed", source)
+        self.assertIn("wifi-connect-no-carrier", source)
+        self.assertIn("secret_values_logged=0", source)
+
+        for field in (
+            "connect_diag_attempted",
+            "connect_diag_decision",
+            "connect_ctrl_status_wpa_state",
+            "connect_carrier_wait_rc",
+            "connect_ctrl_reassociate_rc",
+            "connect_supplicant_left_running",
+        ):
+            self.assertIn(field, helper)
 
     def test_status_scan_service_still_denies_connection_ops(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")

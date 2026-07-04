@@ -51,9 +51,12 @@ V3387_VERSION = "0.11.143"
 V3387_BUILD = "v3387-wifi-uplink-service-redacted"
 V3388_VERSION = "0.11.144"
 V3388_BUILD = "v3388-wifi-autoconnect-scan-recovery"
+V3389_VERSION = "0.11.145"
+V3389_BUILD = "v3389-wifi-connect-carrier-diagnostics"
 SUPPORTED_UPLINK_NATIVE_BUILDS = (
     {"version": V3387_VERSION, "build": V3387_BUILD},
     {"version": V3388_VERSION, "build": V3388_BUILD},
+    {"version": V3389_VERSION, "build": V3389_BUILD},
 )
 PASS_DECISION = "wsta24-native-wifi-uplink-client-pass"
 DEFAULT_DEVICE_IP = os.environ.get("A90_DEVICE_IP") or ".".join(("192", "168", "7", "2"))

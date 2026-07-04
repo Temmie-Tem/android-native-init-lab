@@ -94,9 +94,10 @@ class ServerDistroWsta24NativeWifiUplinkClientTests(unittest.TestCase):
         self.assertEqual(parsed["decision"], "wifi-uplink-service-status-pass")
         self.assertNotIn("A90WSTA24_HELPER_STAGED", parsed)
 
-    def test_native_lineage_accepts_v3387_and_v3388(self) -> None:
+    def test_native_lineage_accepts_v3387_v3388_and_v3389(self) -> None:
         self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.143 (v3387-wifi-uplink-service-redacted)"))
         self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.144 (v3388-wifi-autoconnect-scan-recovery)"))
+        self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.145 (v3389-wifi-connect-carrier-diagnostics)"))
         self.assertFalse(runner.native_is_v3387("A90 Linux init 0.11.144"))
 
     def test_runner_surface_stages_helper_and_keeps_network_actions_denied(self) -> None:

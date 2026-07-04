@@ -1597,6 +1597,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > uplink-service result fields (`wpa_state`, carrier wait rc/elapsed, ctrl socket status, scan/connect
 > event summaries) and diagnose the new `connect_rc=-107` blocker.  Recovery branch execution proof
 > remains desirable if scan-stale reappears, but the active live frontier has moved downstream.
+> **🟡 STATUS (2026-07-04 12:44 KST host clock) — WSTA32 V3389 connect/carrier diagnostics
+> SOURCE+BUILD+FLASH PASS; live now BLOCKED at `/cache` ENOSPC before carrier.**  Codex added redacted
+> native connect diagnostics to `a90_wifi.c`, carried them through `autoconnect.result`, the native
+> uplink-service response, the Debian helper allowlist, and the WSTA live JSON.  V3389 built as
+> `A90 Linux init 0.11.145 (v3389-wifi-connect-carrier-diagnostics)` with boot SHA
+> `e9eca0744848f51a44690768c4c6335e2867d718acb2cd1afc010c4cb1dc5b4c`; `native_init_flash.py
+> --from-native` wrote only boot, verified readback SHA, booted V3389, and health stayed
+> `selftest fail=0`.  Confirmed live reached native autoconnect and proved the new diagnostic fields
+> end-to-end, but it did not reach carrier: `connect_diag_attempted=1`,
+> `connect_diag_decision=wifi-connect-config-prepare-failed`, `connect_prepare_rc=-28`,
+> `connect_ctrl_wait_category=not-run`, `connect_ctrl_status_wpa_state=-`, `connect_carrier_wait_rc=0`,
+> `external_ping_execution=0`, `public_tunnel=0`, `secret_values_logged=0`.  A metadata-only device
+> check showed `/cache` at `Use%=100%`, explaining `-ENOSPC`.  Cleanup restored autoconnect disabled
+> state, ran Wi-Fi cleanup, verified no IPv4/default route/supplicant, and final `selftest fail=0`.
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA32_CONNECT_CARRIER_DIAGNOSTICS_V3389_LIVE_2026-07-04.md`.
+> **NEXT:** WSTA33 should remove the `/cache` ENOSPC blocker before another carrier run.  Prefer
+> SD-backed Wi-Fi runtime placement or bounded native Wi-Fi runtime cleanup that never removes
+> credential/config sources and only reports redacted metadata.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
