@@ -34,6 +34,7 @@ def make_args(tmp: Path, **overrides) -> argparse.Namespace:
         "no_packet_filter_tool_install": True,
         "stage_dpublic_binaries": False,
         "stage_api_probe_tools": False,
+        "stage_syscall_trace_tools": False,
         "enable_quick_tunnel": False,
         "cloudflared": tmp / "cloudflared",
         "smoke_httpd": tmp / "a90-dpublic-smoke-httpd",
@@ -61,6 +62,11 @@ def stage_packet_filter_test_tools(rootfs: Path) -> None:
         "ip6tables-legacy-save",
     ):
         (rootfs / "usr/sbin" / name).write_text("", encoding="utf-8")
+
+
+def stage_syscall_trace_test_tools(rootfs: Path) -> None:
+    (rootfs / "usr/bin").mkdir(parents=True, exist_ok=True)
+    (rootfs / "usr/bin/strace").write_text("", encoding="utf-8")
 
 
 class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
@@ -485,6 +491,60 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertIn("packet-filter-policy=not-enforced", text)
             self.assertIn("packet-filter-default-drop=deferred-WSTA93", text)
 
+    def test_syscall_trace_tools_are_opt_in(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp) / "rootfs"
+            rootfs.mkdir()
+            args = make_args(Path(tmp), stage_syscall_trace_tools=False)
+
+            result = wsta3.ensure_syscall_trace_tools(rootfs, args)
+
+        self.assertTrue(result["ok"])
+        self.assertFalse(result["requested"])
+        self.assertFalse(result["installed"])
+        self.assertFalse(result["profile_capture_ready_for_source"])
+        self.assertFalse(result["before"]["tools"]["strace"]["present"])
+        self.assertFalse(result["after"]["tools"]["strace"]["present"])
+
+    def test_syscall_trace_tools_restore_usrmerge_when_strace_present(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp) / "rootfs"
+            (rootfs / "usr/lib").mkdir(parents=True)
+            (rootfs / "bin").mkdir()
+            stage_syscall_trace_test_tools(rootfs)
+            args = make_args(Path(tmp), stage_syscall_trace_tools=True)
+
+            result = wsta3.ensure_syscall_trace_tools(rootfs, args)
+
+            self.assertTrue(result["ok"])
+            self.assertTrue(result["requested"])
+            self.assertFalse(result["installed"])
+            self.assertTrue(result["profile_capture_ready_for_source"])
+            self.assertTrue((rootfs / "bin").is_symlink())
+            self.assertEqual((rootfs / "bin").readlink(), Path("usr/bin"))
+            self.assertTrue((rootfs / "usr/bin/strace").is_file())
+
+    def test_syscall_trace_stage_marker_merges_without_capture(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp)
+            marker = rootfs / wsta3.TARGET_STAGE_MARKER
+            marker.parent.mkdir(parents=True)
+            marker.write_text("stage=old\nsyscall-trace-tool=old\n", encoding="utf-8")
+
+            result = wsta3.stage_syscall_trace_stage_marker(rootfs)
+
+            text = marker.read_text(encoding="utf-8")
+            self.assertIn("stage=old", text)
+            self.assertNotIn("syscall-trace-tool=old", text)
+            self.assertTrue(result["tool_marker_present"])
+            self.assertTrue(result["target_marker_present"])
+            self.assertTrue(result["profile_deferred_marker_present"])
+            self.assertTrue(result["public_default_off_marker"])
+            self.assertIn("syscall-trace-tool=/usr/bin/strace", text)
+            self.assertIn("syscall-trace-target=dpublic-smoke-httpd", text)
+            self.assertIn("syscall-trace-profile-source=deferred-WSTA114", text)
+            self.assertIn("syscall-trace-public-default=off", text)
+
     def test_stage_service_identities_adds_nonroot_service_accounts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             rootfs = Path(tmp)
@@ -658,6 +718,12 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertTrue(result["packet_filter_stage_marker"]["backend_marker_present"])
             self.assertTrue(result["packet_filter_stage_marker"]["helper_marker_present"])
             self.assertTrue(result["packet_filter_stage_marker"]["default_drop_deferred_marker_present"])
+            self.assertFalse(result["syscall_trace_tools"]["requested"])
+            self.assertFalse(result["syscall_trace_tools"]["profile_capture_ready_for_source"])
+            self.assertTrue(result["syscall_trace_stage_marker"]["tool_marker_present"])
+            self.assertTrue(result["syscall_trace_stage_marker"]["target_marker_present"])
+            self.assertTrue(result["syscall_trace_stage_marker"]["profile_deferred_marker_present"])
+            self.assertTrue(result["syscall_trace_stage_marker"]["public_default_off_marker"])
             self.assertIn("a90www", result["service_identities"]["users"])
             self.assertIn("a90tunnel", result["service_identities"]["users"])
             self.assertTrue(result["service_launcher"]["no_new_privs_present"])
@@ -685,6 +751,10 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             )
             self.assertIn(
                 "packet-filter-helper=/usr/local/bin/a90-dpublic-packet-filter",
+                (target / wsta3.TARGET_STAGE_MARKER).read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                "syscall-trace-profile-source=deferred-WSTA114",
                 (target / wsta3.TARGET_STAGE_MARKER).read_text(encoding="utf-8"),
             )
             self.assertFalse(result["api_probe_tools"]["requested"])

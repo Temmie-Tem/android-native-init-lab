@@ -74,6 +74,7 @@ PRIVATE_FILE_MODE = 0o600
 STA_TOOL_PACKAGES = ("wpasupplicant", "isc-dhcp-client", "netcat-openbsd", "iw")
 API_PROBE_TOOL_PACKAGES = ("wget",)
 PACKET_FILTER_TOOL_PACKAGES = ("iptables",)
+SYSCALL_TRACE_TOOL_PACKAGES = ("strace",)
 USR_MERGE_LINKS = (("bin", "usr/bin"), ("sbin", "usr/sbin"), ("lib", "usr/lib"))
 STA_TOOL_CANDIDATES = {
     "ip": (Path("usr/sbin/ip"), Path("sbin/ip"), Path("bin/ip")),
@@ -108,6 +109,9 @@ PACKET_FILTER_TOOL_CANDIDATES = {
         Path("sbin/ip6tables-legacy-save"),
     ),
 }
+SYSCALL_TRACE_TOOL_CANDIDATES = {
+    "strace": (Path("usr/bin/strace"), Path("bin/strace")),
+}
 KEY_SSID = "ssid"
 KEY_PSK = "psk"
 KEY_MGMT = "key_mgmt"
@@ -122,6 +126,12 @@ PACKET_FILTER_STAGE_MARKERS = (
     "packet-filter-tools=/usr/sbin/iptables-legacy /usr/sbin/ip6tables-legacy",
     "packet-filter-policy=not-enforced; WSTA93 helper staged for manual bounded prototype",
     "packet-filter-default-drop=deferred-WSTA93",
+)
+SYSCALL_TRACE_STAGE_MARKERS = (
+    "syscall-trace-tool=/usr/bin/strace",
+    "syscall-trace-target=dpublic-smoke-httpd",
+    "syscall-trace-profile-source=deferred-WSTA114",
+    "syscall-trace-public-default=off",
 )
 SERVICE_IDENTITIES = {
     "dpublic-smoke-httpd": {
@@ -354,6 +364,14 @@ def packet_filter_tool_metadata(rootfs: Path) -> dict[str, Any]:
     return meta
 
 
+def syscall_trace_tool_metadata(rootfs: Path) -> dict[str, Any]:
+    meta = tool_metadata(rootfs, SYSCALL_TRACE_TOOL_CANDIDATES)
+    meta["target_profile"] = "dpublic-smoke-httpd"
+    meta["profile_capture_ready_for_source"] = bool(meta["ok"])
+    meta["public_default"] = "off"
+    return meta
+
+
 def merge_tree_contents(src: Path, dst: Path) -> None:
     dst.mkdir(parents=True, exist_ok=True)
     for item in sorted(src.iterdir(), key=lambda p: p.name):
@@ -438,6 +456,10 @@ def download_sta_tool_packages(rootfs: Path, args: argparse.Namespace) -> list[P
 
 def download_packet_filter_tool_packages(rootfs: Path, args: argparse.Namespace) -> list[Path]:
     return download_packages(rootfs, args, PACKET_FILTER_TOOL_PACKAGES)
+
+
+def download_syscall_trace_tool_packages(rootfs: Path, args: argparse.Namespace) -> list[Path]:
+    return download_packages(rootfs, args, SYSCALL_TRACE_TOOL_PACKAGES)
 
 
 def ensure_sta_tools(rootfs: Path, args: argparse.Namespace) -> dict[str, Any]:
@@ -556,6 +578,50 @@ def ensure_packet_filter_tools(rootfs: Path, args: argparse.Namespace) -> dict[s
         "before": before,
         "after": after,
         "usrmerge": usrmerge,
+        "secret_values_logged": 0,
+    }
+
+
+def ensure_syscall_trace_tools(rootfs: Path, args: argparse.Namespace) -> dict[str, Any]:
+    before = syscall_trace_tool_metadata(rootfs)
+    if not args.stage_syscall_trace_tools:
+        return {
+            "requested": False,
+            "ok": True,
+            "installed": False,
+            "before": before,
+            "after": before,
+            "profile_capture_ready_for_source": False,
+            "secret_values_logged": 0,
+        }
+    if before["ok"]:
+        usrmerge = restore_usrmerge_links(rootfs)
+        after = syscall_trace_tool_metadata(rootfs)
+        return {
+            "requested": True,
+            "ok": True,
+            "installed": False,
+            "before": before,
+            "after": after,
+            "usrmerge": usrmerge,
+            "profile_capture_ready_for_source": bool(after["profile_capture_ready_for_source"]),
+            "secret_values_logged": 0,
+        }
+    packages = download_syscall_trace_tool_packages(rootfs, args)
+    for package in packages:
+        run_host(["dpkg-deb", "-x", package, rootfs], timeout=args.apt_timeout)
+    usrmerge = restore_usrmerge_links(rootfs)
+    after = syscall_trace_tool_metadata(rootfs)
+    return {
+        "requested": True,
+        "ok": bool(after["ok"]),
+        "installed": True,
+        "deb_count": len(packages),
+        "packages": [path.name for path in packages],
+        "before": before,
+        "after": after,
+        "usrmerge": usrmerge,
+        "profile_capture_ready_for_source": bool(after["profile_capture_ready_for_source"]),
         "secret_values_logged": 0,
     }
 
@@ -805,6 +871,29 @@ def stage_packet_filter_stage_marker(rootfs: Path) -> dict[str, Any]:
         "tools_marker_present": PACKET_FILTER_STAGE_MARKERS[2] in lines,
         "policy_not_enforced_marker_present": PACKET_FILTER_STAGE_MARKERS[3] in lines,
         "default_drop_deferred_marker_present": PACKET_FILTER_STAGE_MARKERS[4] in lines,
+        "secret_values_logged": 0,
+    }
+
+
+def stage_syscall_trace_stage_marker(rootfs: Path) -> dict[str, Any]:
+    marker = rootfs / TARGET_STAGE_MARKER
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    existing = marker.read_text(encoding="utf-8") if marker.exists() else ""
+    marker_keys = {item.split("=", 1)[0] for item in SYSCALL_TRACE_STAGE_MARKERS}
+    lines = [
+        line
+        for line in existing.splitlines()
+        if not any(line.startswith(key + "=") for key in marker_keys)
+    ]
+    for item in SYSCALL_TRACE_STAGE_MARKERS:
+        lines.append(item)
+    marker.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
+    return {
+        "marker_target": str(TARGET_STAGE_MARKER),
+        "tool_marker_present": SYSCALL_TRACE_STAGE_MARKERS[0] in lines,
+        "target_marker_present": SYSCALL_TRACE_STAGE_MARKERS[1] in lines,
+        "profile_deferred_marker_present": SYSCALL_TRACE_STAGE_MARKERS[2] in lines,
+        "public_default_off_marker": SYSCALL_TRACE_STAGE_MARKERS[3] in lines,
         "secret_values_logged": 0,
     }
 
@@ -1142,6 +1231,14 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
         })
         write_json(run_dir / "summary.json", result)
         return result
+    result["syscall_trace_tools"] = ensure_syscall_trace_tools(target_rootfs, args)
+    if not result["syscall_trace_tools"].get("ok"):
+        result.update({
+            "ok": False,
+            "decision": "wsta3-private-rootfs-blocked-syscall-trace-tools-missing",
+        })
+        write_json(run_dir / "summary.json", result)
+        return result
     result["wifi_sta_helper"] = stage_dpublic_wifi_sta_helper(target_rootfs)
     result["api_probe_helper"] = stage_dpublic_api_probe_helper(target_rootfs)
     result["native_wifi_service_client"] = stage_native_wifi_service_client(target_rootfs)
@@ -1150,6 +1247,7 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
     result["packet_filter_helper"] = stage_packet_filter_helper(target_rootfs)
     result["native_uplink_stage_marker"] = stage_native_uplink_stage_marker(target_rootfs)
     result["packet_filter_stage_marker"] = stage_packet_filter_stage_marker(target_rootfs)
+    result["syscall_trace_stage_marker"] = stage_syscall_trace_stage_marker(target_rootfs)
     result["service_identities"] = stage_service_identities(target_rootfs)
     result["service_launcher"] = stage_no_new_privs_launcher(target_rootfs)
     result["service_hardening_policy"] = stage_service_hardening_policy(target_rootfs)
@@ -1205,6 +1303,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-packet-filter-tool-install", action="store_true")
     parser.add_argument("--stage-dpublic-binaries", action="store_true")
     parser.add_argument("--stage-api-probe-tools", action="store_true")
+    parser.add_argument("--stage-syscall-trace-tools", action="store_true")
     parser.add_argument("--enable-quick-tunnel", action="store_true")
     parser.add_argument("--cloudflared", type=Path, default=DEFAULT_CLOUDFLARED)
     parser.add_argument("--smoke-httpd", type=Path, default=DEFAULT_SMOKE_HTTPD)

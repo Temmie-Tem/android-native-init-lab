@@ -2894,6 +2894,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** pick the next hardening proof frontier: syscall trace profile capture for `dpublic-smoke-httpd`, or a bounded
 > runtime proof for the next service profile.  Do not claim always-on readiness until Dropbear admin model and per-service
 > proof gaps are closed.
+>
+> **🟢 STATUS (2026-07-05 02:58 KST host clock) — WSTA113 SYSCALL TRACE
+> TOOLING SOURCE PASS.**  Codex added opt-in syscall trace tooling to `prepare_wsta3_sta_rootfs.py` with
+> `--stage-syscall-trace-tools`, `strace` package extraction when requested, usrmerge restoration when `strace` is
+> already present, and summary metadata for the `dpublic-smoke-httpd` trace target.  The default remains off, so ordinary
+> WSTA3 prep does not install or run trace tooling.  `/etc/a90-server-distro-stage` now records deferred trace markers:
+> `/usr/bin/strace`, target `dpublic-smoke-httpd`, `deferred-WSTA114`, and public default off.  This is source tooling
+> only: no syscall profile was captured, and the `syscall traces not captured` blocker is not retired.  No device action,
+> boot flash, native reboot, Wi-Fi, DHCP, public tunnel, public smoke, packet-filter mutation, userdata action, or
+> switch-root ran.  Validation passed `py_compile`, WSTA3 focused tests (`31 tests`), and the full server-distro WSTA
+> regression (`375 tests`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA113_SYSCALL_TRACE_TOOLING_SOURCE_2026-07-05.md`.
+> **NEXT:** WSTA114 should run a bounded private `strace` capture for `a90-service-launch dpublic-smoke-httpd ...`, keep
+> public exposure off, and convert only that smoke-service syscall set into a private profile summary.  Do not generalize
+> that profile to Dropbear or other services.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
