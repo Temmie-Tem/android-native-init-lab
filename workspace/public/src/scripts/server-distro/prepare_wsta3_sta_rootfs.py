@@ -40,6 +40,16 @@ DEFAULT_CLOUDFLARED = REPO_ROOT / "workspace/private/builds/server-distro/tunnel
 DEFAULT_SMOKE_HTTPD = REPO_ROOT / "workspace/private/runs/server-distro/dpublic-live-20260703T150145Z/a90-dpublic-smoke-httpd"
 DEFAULT_HTTP_GET = REPO_ROOT / "workspace/private/runs/server-distro/dpublic-live-20260703T150145Z/a90-dpublic-http-get"
 DEFAULT_HUD = REPO_ROOT / "workspace/private/runs/server-distro/dpublic-hud-20260703T153322Z/a90-dpublic-hud"
+DEFAULT_HUD_INTENT = (
+    REPO_ROOT
+    / "workspace/private/runs/server-distro/wsta132-dpublic-hud-split-prototype-20260705T0750KST"
+    / "arm64/a90-dpublic-hud-intent"
+)
+DEFAULT_HUD_PRESENTER = (
+    REPO_ROOT
+    / "workspace/private/runs/server-distro/wsta132-dpublic-hud-split-prototype-20260705T0750KST"
+    / "arm64/a90-dpublic-hud-presenter"
+)
 DEFAULT_SUITE = "bookworm"
 DEFAULT_ARCH = "arm64"
 DEFAULT_MIRROR = "http://deb.debian.org/debian"
@@ -55,6 +65,8 @@ TARGET_NATIVE_UPLINK_PROFILE = Path("usr/local/bin/a90-dpublic-native-uplink-pro
 TARGET_PACKET_FILTER = Path("usr/local/bin/a90-dpublic-packet-filter")
 TARGET_SERVICE_LAUNCHER = Path("usr/local/bin/a90-service-launch")
 TARGET_SERVICE_HARDENING_POLICY = Path("etc/a90-dpublic/service-hardening.json")
+TARGET_HUD_INTENT = Path("usr/local/bin/a90-dpublic-hud-intent")
+TARGET_HUD_PRESENTER = Path("usr/local/bin/a90-dpublic-hud-presenter")
 TARGET_FIRSTBOOT = Path("etc/a90-d3-firstboot")
 TARGET_STAGE_MARKER = Path("etc/a90-server-distro-stage")
 DPUBLIC_BINARY_TARGETS = {
@@ -62,6 +74,8 @@ DPUBLIC_BINARY_TARGETS = {
     "smoke_httpd": Path("usr/local/bin/a90-dpublic-smoke-httpd"),
     "http_get": Path("usr/local/bin/a90-dpublic-http-get"),
     "hud": Path("usr/local/bin/a90-dpublic-hud"),
+    "hud_intent": TARGET_HUD_INTENT,
+    "hud_presenter": TARGET_HUD_PRESENTER,
 }
 DPUBLIC_WIFI_STA_HELPER = SCRIPT_DIR / "a90_dpublic_wifi_sta.sh"
 DPUBLIC_API_PROBE = SCRIPT_DIR / "a90_dpublic_api_probe.sh"
@@ -160,7 +174,7 @@ SERVICE_IDENTITIES = {
         "group": "a90hud",
         "uid": 3904,
         "gid": 3904,
-        "network_intent": "no-network-drm-output-only",
+        "network_intent": "no-network-intent-producer-only",
     },
 }
 ROOT_BOUNDARY_SERVICES = ("wsta-native-uplink-helper",)
@@ -170,6 +184,14 @@ SERVICE_HARDENING_STAGE_MARKERS = (
     "service-hardening-no-new-privs=setpriv-required",
     "service-hardening-root-boundary=wsta-native-uplink-helper",
     "service-hardening-public-default=off",
+)
+HUD_SPLIT_STAGE_MARKERS = (
+    "hud-split-intent-producer=/usr/local/bin/a90-dpublic-hud-intent",
+    "hud-split-presenter=/usr/local/bin/a90-dpublic-hud-presenter",
+    "hud-split-boundary=/run/a90-dpublic/hud-intent.json",
+    "hud-split-direct-kms-for-a90hud=disabled",
+    "hud-split-presenter-owner=native-init",
+    "hud-split-public-default=off",
 )
 
 
@@ -1075,6 +1097,31 @@ def stage_service_hardening_stage_marker(rootfs: Path) -> dict[str, Any]:
     }
 
 
+def stage_hud_split_stage_marker(rootfs: Path) -> dict[str, Any]:
+    marker = rootfs / TARGET_STAGE_MARKER
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    existing = marker.read_text(encoding="utf-8") if marker.exists() else ""
+    marker_keys = {item.split("=", 1)[0] for item in HUD_SPLIT_STAGE_MARKERS}
+    lines = [
+        line
+        for line in existing.splitlines()
+        if not any(line.startswith(key + "=") for key in marker_keys)
+    ]
+    for item in HUD_SPLIT_STAGE_MARKERS:
+        lines.append(item)
+    marker.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
+    return {
+        "marker_target": str(TARGET_STAGE_MARKER),
+        "intent_producer_marker_present": HUD_SPLIT_STAGE_MARKERS[0] in lines,
+        "presenter_marker_present": HUD_SPLIT_STAGE_MARKERS[1] in lines,
+        "boundary_marker_present": HUD_SPLIT_STAGE_MARKERS[2] in lines,
+        "direct_kms_disabled_marker_present": HUD_SPLIT_STAGE_MARKERS[3] in lines,
+        "presenter_owner_marker_present": HUD_SPLIT_STAGE_MARKERS[4] in lines,
+        "public_default_off_marker": HUD_SPLIT_STAGE_MARKERS[5] in lines,
+        "secret_values_logged": 0,
+    }
+
+
 def stage_dpublic_firstboot(rootfs: Path) -> dict[str, Any]:
     firstboot_target = rootfs / TARGET_FIRSTBOOT
     if not DPUBLIC_FIRSTBOOT.is_file():
@@ -1088,6 +1135,9 @@ def stage_dpublic_firstboot(rootfs: Path) -> dict[str, Any]:
         "firstboot_mode": oct(firstboot_target.stat().st_mode & 0o777),
         "autoreboot_disabled_marker": "autoreboot_sec=disabled" in text,
         "wifi_sta_helper_invoked": "/usr/local/bin/a90-dpublic-wifi-sta" in text,
+        "hud_split_intent_invoked": "/usr/local/bin/a90-dpublic-hud-intent" in text,
+        "hud_split_presenter_not_started_by_debian": "hud_presenter_started=0" in text,
+        "legacy_direct_hud_fallback_only": "hud_legacy_direct_kms_fallback=1" in text,
         "native_uplink_profile_marker": "native_uplink_profile_command=/usr/local/bin/a90-dpublic-native-uplink-profile" in text,
         "public_default_off_marker": "native_uplink_public_default=off" in text,
         "secret_values_logged": 0,
@@ -1100,6 +1150,8 @@ def stage_dpublic_binaries(rootfs: Path, args: argparse.Namespace) -> dict[str, 
         "smoke_httpd": args.smoke_httpd,
         "http_get": args.http_get,
         "hud": args.hud,
+        "hud_intent": args.hud_intent,
+        "hud_presenter": args.hud_presenter,
     }
     staged: dict[str, dict[str, Any]] = {}
     for name, source in sources.items():
@@ -1252,6 +1304,7 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
     result["service_launcher"] = stage_no_new_privs_launcher(target_rootfs)
     result["service_hardening_policy"] = stage_service_hardening_policy(target_rootfs)
     result["service_hardening_stage_marker"] = stage_service_hardening_stage_marker(target_rootfs)
+    result["hud_split_stage_marker"] = stage_hud_split_stage_marker(target_rootfs)
     if args.immediate_snapshot_only:
         result["stage"] = stage_immediate_snapshot_only(target_rootfs)
     else:
@@ -1309,6 +1362,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--smoke-httpd", type=Path, default=DEFAULT_SMOKE_HTTPD)
     parser.add_argument("--http-get", type=Path, default=DEFAULT_HTTP_GET)
     parser.add_argument("--hud", type=Path, default=DEFAULT_HUD)
+    parser.add_argument("--hud-intent", type=Path, default=DEFAULT_HUD_INTENT)
+    parser.add_argument("--hud-presenter", type=Path, default=DEFAULT_HUD_PRESENTER)
     return parser
 
 
@@ -1321,6 +1376,8 @@ def main(argv: list[str] | None = None) -> int:
     args.smoke_httpd = args.smoke_httpd.resolve()
     args.http_get = args.http_get.resolve()
     args.hud = args.hud.resolve()
+    args.hud_intent = args.hud_intent.resolve()
+    args.hud_presenter = args.hud_presenter.resolve()
     if args.wpa_conf:
         args.wpa_conf = args.wpa_conf.resolve()
     try:

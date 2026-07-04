@@ -3309,6 +3309,35 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > the D-public rootfs preparation and firstboot/profile wiring, still default-off
 > and no-public, before a live proof where Debian only writes the bounded intent
 > and native/root owns display presentation.
+>
+> **🟢 STATUS (2026-07-05 07:57 KST host clock) — WSTA133 DPUBLIC HUD SPLIT
+> ROOTFS WIRING SOURCE PASS.**  Codex integrated the WSTA132 split HUD binaries into
+> D-public rootfs preparation and firstboot/profile wiring.  `prepare_wsta3_sta_rootfs.py`
+> now stages `usr/local/bin/a90-dpublic-hud-intent` and
+> `usr/local/bin/a90-dpublic-hud-presenter` when D-public binaries are staged, records
+> `hud-split-*` stage markers for the intent boundary, native-init presenter owner,
+> and disabled direct KMS for `a90hud`, and changes the `dpublic-hud` service hardening
+> network intent to `no-network-intent-producer-only`.  `a90_dpublic_firstboot.sh` now
+> prefers the split producer when present: it runs
+> `a90-service-launch dpublic-hud /usr/local/bin/a90-dpublic-hud-intent --output
+> /run/a90-dpublic/hud-intent.json --sequence 1`, records the intent result, does not
+> start the native/root presenter from Debian firstboot, and leaves the old direct HUD
+> only as a fallback when the split producer is absent.  A private WSTA133 wiring proof
+> produced decision `wsta133-dpublic-hud-split-rootfs-wiring-source-pass` with
+> `intent_staged=true`, `presenter_staged=true`, `dpublic_hud_network_intent_split=true`,
+> `launcher_maps_dpublic_hud_to_a90hud=true`, `firstboot_invokes_intent_producer=true`,
+> `firstboot_does_not_start_presenter=true`, `stage_marker_direct_kms_disabled=true`,
+> `stage_marker_presenter_owner_native=true`, `public_default_off=true`, and
+> `secret_values_logged_zero=true`.  No device action, boot flash, native reboot,
+> Wi-Fi association, DHCP, public tunnel, public smoke, packet-filter mutation, userdata
+> mutation, DRM open, KMS SETCRTC, or switch-root ran.  Validation passed `sh -n`,
+> `py_compile`, prepare focused tests (`32 tests`), D-public smoke helper tests
+> (`15 tests`), WSTA110 launcher tests (`10 tests`), and full server-distro WSTA regression
+> (`447 tests`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA133_DPUBLIC_HUD_SPLIT_ROOTFS_WIRING_SOURCE_2026-07-05.md`.
+> **NEXT:** WSTA134 should build a private D-public rootfs/tarball with the WSTA133 split
+> HUD wiring enabled and prove the staged files/markers in the real prepared rootfs before
+> the live gate verifies Debian-only intent writing plus native/root display presentation.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

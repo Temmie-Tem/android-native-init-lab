@@ -71,7 +71,7 @@ class ServerDistroWsta110ServiceLauncherChrootProofTests(unittest.TestCase):
         self.assertEqual(payload["services"]["dpublic-smoke-httpd"]["user"], "a90www")
         self.assertEqual(payload["services"]["dpublic-smoke-httpd"]["uid"], 3901)
         self.assertEqual(payload["services"]["cloudflared-quick-tunnel"]["user"], "a90tunnel")
-        self.assertEqual(payload["services"]["dpublic-hud"]["network_intent"], "no-network-drm-output-only")
+        self.assertEqual(payload["services"]["dpublic-hud"]["network_intent"], "no-network-intent-producer-only")
         self.assertEqual(payload["services"]["dpublic-smoke-httpd"]["ambient_capabilities"], [])
         self.assertEqual(payload["services"]["dpublic-smoke-httpd"]["bounding_capabilities"], [])
         self.assertIn("wsta-native-uplink-helper", payload["root_boundary_services"])

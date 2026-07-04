@@ -3,7 +3,7 @@
 #
 # Runs after native-init switch_root into the userdata Debian root.  This is the
 # visual/server demo profile: no proof-only autoreboot, USB/NCM admin path,
-# loopback smoke service, optional tunnel service, and Debian-owned KMS HUD.
+# loopback smoke service, optional tunnel service, and a split HUD intent path.
 set +e
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
@@ -213,7 +213,41 @@ for status in /proc/[0-9]*/status; do
   done
 done
 
-if [ -x /usr/local/bin/a90-dpublic-hud ]; then
+if [ -x /usr/local/bin/a90-dpublic-hud-intent ]; then
+  rm -f /run/a90-dpublic/hud-intent.json /run/a90-dpublic/hud-intent.log 2>/dev/null || true
+  if [ -x /usr/local/bin/a90-service-launch ]; then
+    /usr/local/bin/a90-service-launch dpublic-hud \
+      /usr/local/bin/a90-dpublic-hud-intent \
+      --output /run/a90-dpublic/hud-intent.json \
+      --sequence 1 >/run/a90-dpublic/hud-intent.log 2>&1
+    hud_intent_rc=$?
+  else
+    /usr/local/bin/a90-dpublic-hud-intent \
+      --output /run/a90-dpublic/hud-intent.json \
+      --sequence 1 >/run/a90-dpublic/hud-intent.log 2>&1
+    hud_intent_rc=$?
+    echo hud_intent_launcher_missing=1 >> /run/a90-d3-marker
+  fi
+  echo hud_split_mode=1 >> /run/a90-d3-marker
+  echo hud_intent_producer=/usr/local/bin/a90-dpublic-hud-intent >> /run/a90-d3-marker
+  echo hud_intent_rc=$hud_intent_rc >> /run/a90-d3-marker
+  if [ -s /run/a90-dpublic/hud-intent.json ]; then
+    echo hud_intent_written=1 >> /run/a90-d3-marker
+  else
+    echo hud_intent_written=0 >> /run/a90-d3-marker
+  fi
+  if [ -x /usr/local/bin/a90-dpublic-hud-presenter ]; then
+    echo hud_presenter_staged=1 >> /run/a90-d3-marker
+  else
+    echo hud_presenter_staged=0 >> /run/a90-d3-marker
+  fi
+  echo hud_presenter_owner=native-init >> /run/a90-d3-marker
+  echo hud_presenter_started=0 >> /run/a90-d3-marker
+  echo hud_legacy_direct_kms_started=0 >> /run/a90-d3-marker
+  echo hud_started=0 >> /run/a90-d3-marker
+elif [ -x /usr/local/bin/a90-dpublic-hud ]; then
+  echo hud_split_mode=0 >> /run/a90-d3-marker
+  echo hud_legacy_direct_kms_fallback=1 >> /run/a90-d3-marker
   if [ -s /run/a90-dpublic/hud.pid ]; then
     kill "$(cat /run/a90-dpublic/hud.pid)" 2>/dev/null || true
   fi

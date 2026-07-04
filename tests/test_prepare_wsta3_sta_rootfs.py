@@ -40,6 +40,8 @@ def make_args(tmp: Path, **overrides) -> argparse.Namespace:
         "smoke_httpd": tmp / "a90-dpublic-smoke-httpd",
         "http_get": tmp / "a90-dpublic-http-get",
         "hud": tmp / "a90-dpublic-hud",
+        "hud_intent": tmp / "a90-dpublic-hud-intent",
+        "hud_presenter": tmp / "a90-dpublic-hud-presenter",
     }
     defaults.update(overrides)
     return argparse.Namespace(**defaults)
@@ -338,7 +340,14 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             tmp_path = Path(tmp)
             rootfs = tmp_path / "rootfs"
             rootfs.mkdir()
-            for name in ("cloudflared", "a90-dpublic-smoke-httpd", "a90-dpublic-http-get", "a90-dpublic-hud"):
+            for name in (
+                "cloudflared",
+                "a90-dpublic-smoke-httpd",
+                "a90-dpublic-http-get",
+                "a90-dpublic-hud",
+                "a90-dpublic-hud-intent",
+                "a90-dpublic-hud-presenter",
+            ):
                 (tmp_path / name).write_bytes((name + "\n").encode("utf-8"))
             args = make_args(
                 tmp_path,
@@ -346,6 +355,8 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
                 smoke_httpd=tmp_path / "a90-dpublic-smoke-httpd",
                 http_get=tmp_path / "a90-dpublic-http-get",
                 hud=tmp_path / "a90-dpublic-hud",
+                hud_intent=tmp_path / "a90-dpublic-hud-intent",
+                hud_presenter=tmp_path / "a90-dpublic-hud-presenter",
             )
 
             binaries = wsta3.stage_dpublic_binaries(rootfs, args)
@@ -355,6 +366,10 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertEqual(binaries["binaries"]["cloudflared"]["mode"], "0o755")
             self.assertTrue((rootfs / "usr/local/bin/cloudflared").is_file())
             self.assertTrue((rootfs / "usr/local/bin/a90-dpublic-smoke-httpd").is_file())
+            self.assertTrue((rootfs / "usr/local/bin/a90-dpublic-hud-intent").is_file())
+            self.assertTrue((rootfs / "usr/local/bin/a90-dpublic-hud-presenter").is_file())
+            self.assertEqual(binaries["binaries"]["hud_intent"]["target"], "usr/local/bin/a90-dpublic-hud-intent")
+            self.assertEqual(binaries["binaries"]["hud_presenter"]["mode"], "0o755")
             quick = rootfs / wsta3.TARGET_QUICK_TUNNEL_ENABLE
             self.assertEqual(quick.read_text(encoding="utf-8"), "1\n")
             self.assertEqual(quick.stat().st_mode & 0o777, 0o600)
@@ -604,18 +619,45 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertIn("A90_USER=a90www", launcher_text)
             self.assertIn("cloudflared-quick-tunnel)", launcher_text)
             self.assertIn("A90_USER=a90tunnel", launcher_text)
+            self.assertIn("dpublic-hud)", launcher_text)
+            self.assertIn("A90_USER=a90hud", launcher_text)
+            self.assertIn("no-network-intent-producer-only", launcher_text)
             self.assertNotIn("cloudflared tunnel", launcher_text)
             self.assertNotIn("ssid=", launcher_text.lower())
             self.assertNotIn("psk=", launcher_text.lower())
             self.assertEqual(policy["service_count"], 4)
             self.assertTrue(policy_payload["default_public_off"])
             self.assertEqual(policy_payload["services"]["dpublic-hud"]["user"], "a90hud")
+            self.assertEqual(policy_payload["services"]["dpublic-hud"]["network_intent"], "no-network-intent-producer-only")
             self.assertEqual(policy_payload["services"]["cloudflared-quick-tunnel"]["ambient_capabilities"], [])
             self.assertIn("setpriv", policy_payload["launcher_requires"])
             self.assertTrue(marker["users_marker_present"])
             self.assertTrue(marker["no_new_privs_marker_present"])
             self.assertTrue(marker["public_default_off_marker"])
             self.assertIn("service-hardening-no-new-privs=setpriv-required", marker_text)
+
+    def test_stage_hud_split_stage_marker_records_native_presenter_boundary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp)
+            marker = rootfs / wsta3.TARGET_STAGE_MARKER
+            marker.parent.mkdir(parents=True)
+            marker.write_text("stage=old\nhud-split-boundary=old\n", encoding="utf-8")
+
+            result = wsta3.stage_hud_split_stage_marker(rootfs)
+
+            marker_text = marker.read_text(encoding="utf-8")
+            self.assertTrue(result["intent_producer_marker_present"])
+            self.assertTrue(result["presenter_marker_present"])
+            self.assertTrue(result["boundary_marker_present"])
+            self.assertTrue(result["direct_kms_disabled_marker_present"])
+            self.assertTrue(result["presenter_owner_marker_present"])
+            self.assertTrue(result["public_default_off_marker"])
+            self.assertIn("stage=old", marker_text)
+            self.assertIn("hud-split-intent-producer=/usr/local/bin/a90-dpublic-hud-intent", marker_text)
+            self.assertIn("hud-split-presenter=/usr/local/bin/a90-dpublic-hud-presenter", marker_text)
+            self.assertIn("hud-split-boundary=/run/a90-dpublic/hud-intent.json", marker_text)
+            self.assertIn("hud-split-direct-kms-for-a90hud=disabled", marker_text)
+            self.assertNotIn("hud-split-boundary=old", marker_text)
 
     def test_create_private_tarball_forces_owner_private_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -731,6 +773,9 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertEqual(result["service_hardening_policy"]["service_count"], 4)
             self.assertTrue(result["service_hardening_policy"]["default_public_off"])
             self.assertTrue(result["service_hardening_stage_marker"]["launcher_marker_present"])
+            self.assertTrue(result["hud_split_stage_marker"]["intent_producer_marker_present"])
+            self.assertTrue(result["hud_split_stage_marker"]["presenter_marker_present"])
+            self.assertTrue(result["hud_split_stage_marker"]["direct_kms_disabled_marker_present"])
             self.assertTrue((target / wsta3.TARGET_SERVICE_LAUNCHER).is_file())
             self.assertTrue((target / wsta3.TARGET_SERVICE_HARDENING_POLICY).is_file())
             self.assertTrue((target / wsta3.TARGET_NATIVE_WIFI_SERVICE_CLIENT).is_file())
@@ -757,8 +802,19 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
                 "syscall-trace-profile-source=deferred-WSTA114",
                 (target / wsta3.TARGET_STAGE_MARKER).read_text(encoding="utf-8"),
             )
+            self.assertIn(
+                "hud-split-intent-producer=/usr/local/bin/a90-dpublic-hud-intent",
+                (target / wsta3.TARGET_STAGE_MARKER).read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                "hud-split-direct-kms-for-a90hud=disabled",
+                (target / wsta3.TARGET_STAGE_MARKER).read_text(encoding="utf-8"),
+            )
             self.assertFalse(result["api_probe_tools"]["requested"])
             self.assertTrue(result["firstboot"]["wifi_sta_helper_invoked"])
+            self.assertTrue(result["firstboot"]["hud_split_intent_invoked"])
+            self.assertTrue(result["firstboot"]["hud_split_presenter_not_started_by_debian"])
+            self.assertTrue(result["firstboot"]["legacy_direct_hud_fallback_only"])
             self.assertTrue(result["firstboot"]["autoreboot_disabled_marker"])
             self.assertTrue(result["firstboot"]["native_uplink_profile_marker"])
             self.assertTrue(result["firstboot"]["public_default_off_marker"])
