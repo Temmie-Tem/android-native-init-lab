@@ -635,3 +635,25 @@ Credentialed WSTA25 live execution is now mechanically ready but still explicitl
 2. Let the runner block if native status says autoconnect is not ready.
 3. If ready, collect only redacted confirmed-autoconnect metadata and final native health.
 4. Keep public exposure and any public tunnel startup out of this unit unless explicitly re-scoped.
+
+WSTA25 host preflight result: pass.  The new
+`workspace/public/src/scripts/server-distro/prepare_wsta25_live_gate_preflight.py` preflight validates
+the private Wi-Fi env and live-runner gate surface without contacting the device.  Current local
+metadata shows the Wi-Fi env exists, owner-private mode is true, SSID/PSK are present, SSID byte
+length is `8`, PSK length is `11`, PSK format is `passphrase`, and `secret_values_logged=0`.
+The WSTA25 live runner surface has explicit live gates, confirm-token arg, status readiness gate,
+redacted SSH stdin executor, no direct `wifi connect`/`dhcp`/`ping`, and no public tunnel path.  The
+default runner dry run still blocks before device access with
+`wsta25-blocked-explicit-live-allow-required`.  The preflight emits only a redacted command template:
+`--confirm-token <redacted:A90_NATIVE_WIFI_UPLINK_CONFIRM_TOKEN>`.  Report:
+`docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA25_LIVE_GATE_PREFLIGHT_2026-07-04.md`.
+
+## 13. Next Implementation Unit
+
+The explicit WSTA25 credentialed live run is now the next gated step:
+
+1. Invoke `run_wsta25_confirmed_autoconnect_live.py` with all live gates.
+2. Require resident V3387 or later and final native `selftest fail=0`.
+3. Let runner status readiness decide whether confirmed request is sent.
+4. If confirmed request is sent, record only redacted response metadata and cleanup evidence.
+5. Keep public exposure/tunnel startup out of the unit.

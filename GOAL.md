@@ -1433,6 +1433,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA25_LIVE_RUNNER_SOURCE_2026-07-04.md`.
 > **NEXT:** WSTA25 credentialed live can now be executed only by explicitly selecting the live gate and
 > providing all runner gates.  Public exposure remains a later separate gate.
+> **🟢 STATUS (2026-07-04 11:22 KST host clock) — WSTA25 credentialed live HOST PREFLIGHT PASS.**
+> Codex added `workspace/public/src/scripts/server-distro/prepare_wsta25_live_gate_preflight.py` to
+> validate the private Wi-Fi env and WSTA25 live runner without contacting the device.  The preflight
+> read only redacted credential metadata: env file exists, owner-private mode is true, SSID/PSK are
+> present, SSID byte length is `8`, PSK length is `11`, PSK format is `passphrase`, and
+> `secret_values_logged=0`.  It verified the live runner has explicit gates, confirm-token arg,
+> redacted SSH stdin executor, status readiness gate, and no direct `wifi connect`/`dhcp`/`ping` or
+> public tunnel path.  The runner default dry run still returned `rc=2` /
+> `wsta25-blocked-explicit-live-allow-required`, and the generated live command template uses
+> `--confirm-token <redacted:A90_NATIVE_WIFI_UPLINK_CONFIRM_TOKEN>`.  Host validation passed:
+> `py_compile`, focused preflight tests (`6 tests`, `OK`), broader WSTA/helper/rootfs regression
+> (`44 tests`, `OK`), live-gate preflight PASS, and `git diff --check`.  No device contact,
+> association, DHCP, routing, ping, public tunnel, boot flash, switch-root, userdata touch, or
+> credential-value logging ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA25_LIVE_GATE_PREFLIGHT_2026-07-04.md`.
+> **NEXT:** the explicit WSTA25 credentialed live run is now the next gated step.  Public exposure
+> remains separate.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
