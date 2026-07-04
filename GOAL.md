@@ -3033,6 +3033,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA120_DROPBEAR_ADMIN_LIVE_2026-07-05.md`.
 > **NEXT:** WSTA121 should fold the private WSTA120 pass proof into WSTA108/WSTA90 operator status, retiring the
 > Dropbear admin model/runtime blocker without generalizing to tunnel or HUD service profiles.
+>
+> **🟢 STATUS (2026-07-05 04:52 KST host clock) — WSTA121 OPERATOR
+> STATUS DROPBEAR ADMIN PROOF SOURCE PASS.**  Codex updated WSTA108 operator status to accept
+> `--wsta120-dropbear-admin-proof-json` and fail-close unless the supplied private WSTA120 proof has the pass
+> decision plus explicit live gate, baseline/final selftest fail-zero, SD work image readiness, chroot mount,
+> admin stage, `a90admin` SSH UID/GID `3903/3903`, root SSH rejection, admin key cleanup, final chroot cleanup,
+> and final Dropbear/mount/loop absence.  A private WSTA121 status was regenerated from the existing WSTA88,
+> WSTA90, WSTA94, packet-filter control, WSTA110, WSTA117/WSTA114, and WSTA120 proofs.  It stayed
+> `SERVER_PROFILE_READY_DEFAULT_OFF` / `PUBLIC_OFF`, recorded
+> `hardening.dropbear_admin_proof.state=DROPBEAR_ADMIN_LIVE_PROVEN`, removed
+> `dropbear admin user model not finalized` from `blocking_before_enforcement`, and kept tunnel/HUD/syscall
+> proof gaps separate.  No device action, boot flash, native reboot, Wi-Fi association, DHCP, public tunnel,
+> public smoke, packet-filter mutation, userdata action, or switch-root ran.  Focused WSTA108 validation passed
+> (`22 tests`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA121_OPERATOR_STATUS_DROPBEAR_ADMIN_PROOF_SOURCE_2026-07-05.md`.
+> **NEXT:** target the remaining hardening gaps without enabling public exposure by default: choose the next
+> cloudflared/HUD/uplink service profile proof, or fold the Dropbear proof into a refreshed WSTA90 manifest
+> source if the operator wants the skeleton itself updated.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

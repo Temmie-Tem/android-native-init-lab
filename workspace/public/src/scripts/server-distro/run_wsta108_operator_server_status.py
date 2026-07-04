@@ -28,6 +28,7 @@ import run_wsta90_service_hardening_manifest as wsta90  # noqa: E402
 import run_wsta94_packet_filter_live_gate as wsta94  # noqa: E402
 import run_wsta110_service_launcher_chroot_proof as wsta110  # noqa: E402
 import run_wsta114_syscall_trace_chroot_profile as wsta114  # noqa: E402
+import run_wsta120_dropbear_admin_live_gate as wsta120  # noqa: E402
 
 
 REPO_ROOT = wsta88.REPO_ROOT
@@ -107,6 +108,8 @@ def template() -> dict[str, Any]:
             "workspace/private/runs/server-distro/<wsta110-run>/wsta110_result.json",
             "--wsta114-syscall-trace-proof-json",
             "workspace/private/runs/server-distro/<wsta114-run>/wsta114_result.json",
+            "--wsta120-dropbear-admin-proof-json",
+            "workspace/private/runs/server-distro/<wsta120-run>/wsta120_result.json",
         ],
         "device_action": False,
         "public_url_value_logged": False,
@@ -405,6 +408,100 @@ def compact_syscall_trace_proof(proof_result: dict[str, Any] | None) -> dict[str
     }
 
 
+def compact_dropbear_admin_proof(proof_result: dict[str, Any] | None) -> dict[str, Any]:
+    if not proof_result:
+        return {
+            "state": "NOT_SUPPLIED",
+            "dropbear_admin_live_proven": False,
+            "scope": "not-supplied",
+        }
+
+    checks = proof_result.get("checks") if isinstance(proof_result.get("checks"), dict) else {}
+    stage = (
+        proof_result.get("admin_stage_parse")
+        if isinstance(proof_result.get("admin_stage_parse"), dict)
+        else {}
+    )
+    admin_ssh = (
+        proof_result.get("admin_ssh_parse")
+        if isinstance(proof_result.get("admin_ssh_parse"), dict)
+        else {}
+    )
+    cleanup = (
+        proof_result.get("admin_key_cleanup_parse")
+        if isinstance(proof_result.get("admin_key_cleanup_parse"), dict)
+        else {}
+    )
+    postcheck = (
+        proof_result.get("postcheck_parse")
+        if isinstance(proof_result.get("postcheck_parse"), dict)
+        else {}
+    )
+    root_ssh = proof_result.get("root_ssh") if isinstance(proof_result.get("root_ssh"), dict) else {}
+    dropbear_admin_live_proven = bool(
+        proof_result.get("decision") == wsta120.PASS_DECISION
+        and checks.get("explicit_live_gate")
+        and checks.get("baseline_selftest_fail_zero")
+        and checks.get("remote_image_ready")
+        and checks.get("chroot_mount_ready")
+        and checks.get("admin_stage_pass")
+        and checks.get("admin_ssh_pass")
+        and checks.get("root_ssh_rejected")
+        and checks.get("admin_key_cleanup_ok")
+        and checks.get("chroot_cleanup_ok")
+        and checks.get("final_selftest_fail_zero")
+        and stage.get("root_authorized_keys_absent")
+        and stage.get("admin_passwd_line")
+        and stage.get("admin_group_line")
+        and stage.get("admin_shadow_line")
+        and stage.get("admin_authorized_keys")
+        and stage.get("dropbear_present")
+        and stage.get("dropbear_command_safe")
+        and stage.get("dropbear_alive")
+        and stage.get("dropbear_listen")
+        and admin_ssh.get("ssh_ok")
+        and admin_ssh.get("uid_3903")
+        and admin_ssh.get("gid_3903")
+        and admin_ssh.get("user_a90admin")
+        and admin_ssh.get("group_a90admin")
+        and root_ssh.get("returncode") != 0
+        and cleanup.get("cleanup_done")
+        and cleanup.get("admin_keys_absent")
+        and postcheck.get("dropbear_absent")
+        and postcheck.get("mount_absent")
+        and postcheck.get("loop_node_absent")
+    )
+    return {
+        "state": "DROPBEAR_ADMIN_LIVE_PROVEN" if dropbear_admin_live_proven else "SUPPLIED_NOT_PROVEN",
+        "decision": proof_result.get("decision"),
+        "proof_run_dir": proof_result.get("run_dir"),
+        "scope": "dropbear-admin-usb-only",
+        "dropbear_admin_live_proven": dropbear_admin_live_proven,
+        "service": "dropbear-admin-usb",
+        "daemon_privilege_model": "root-boundary-auth-daemon",
+        "user": "a90admin",
+        "group": "a90admin",
+        "uid": 3903,
+        "gid": 3903,
+        "bind": "192.168.7.2:2222",
+        "root_authorized_keys_absent": bool(stage.get("root_authorized_keys_absent")),
+        "root_ssh_rejected": bool(checks.get("root_ssh_rejected") and root_ssh.get("returncode") != 0),
+        "password_login_disabled": bool(stage.get("dropbear_command_safe")),
+        "root_login_disabled": bool(stage.get("dropbear_command_safe")),
+        "forwarding_disabled": bool(stage.get("dropbear_command_safe")),
+        "admin_key_cleanup_ok": bool(cleanup.get("cleanup_done") and cleanup.get("admin_keys_absent")),
+        "final_dropbear_absent": bool(postcheck.get("dropbear_absent")),
+        "cleanup_ok": bool(checks.get("chroot_cleanup_ok")),
+        "final_selftest_fail_zero": bool(checks.get("final_selftest_fail_zero")),
+        "remaining_profiles": [
+            "cloudflared-quick-tunnel",
+            "dpublic-hud",
+        ],
+        "public_url_value_logged": False,
+        "secret_values_logged": 0,
+    }
+
+
 def launcher_proof_is_smoke_live_proven(launcher_proof: dict[str, Any]) -> bool:
     return bool(launcher_proof.get("smoke_live_proven"))
 
@@ -417,29 +514,40 @@ def syscall_trace_proof_is_smoke_live_proven(syscall_trace_proof: dict[str, Any]
     return bool(syscall_trace_proof.get("smoke_syscall_trace_live_proven"))
 
 
+def dropbear_admin_proof_is_live_proven(dropbear_admin_proof: dict[str, Any]) -> bool:
+    return bool(dropbear_admin_proof.get("dropbear_admin_live_proven"))
+
+
 def refine_blocking_before_enforcement(
     items: list[Any],
     launcher_proof: dict[str, Any],
     packet_filter_proof: dict[str, Any],
     syscall_trace_proof: dict[str, Any],
+    dropbear_admin_proof: dict[str, Any],
 ) -> list[str]:
     refined: list[str] = []
     smoke_live_proven = launcher_proof_is_smoke_live_proven(launcher_proof)
     packet_filter_live_proven = packet_filter_proof_is_live_proven(packet_filter_proof)
     smoke_syscall_trace_live_proven = syscall_trace_proof_is_smoke_live_proven(syscall_trace_proof)
+    dropbear_admin_live_proven = dropbear_admin_proof_is_live_proven(dropbear_admin_proof)
     for item in items:
         text = str(item)
         if smoke_live_proven and text in {
             "staged service users/groups not live-proven",
             "non-root users/groups not staged",
         }:
-            text = "remaining service users/groups not live-proven beyond dpublic-smoke-httpd"
+            if dropbear_admin_live_proven:
+                text = "remaining service users/groups not live-proven beyond dpublic-smoke-httpd/dropbear-admin-usb"
+            else:
+                text = "remaining service users/groups not live-proven beyond dpublic-smoke-httpd"
         elif smoke_live_proven and text == "no-new-privs launcher not live-proven":
             text = "remaining service launchers not live-proven beyond dpublic-smoke-httpd"
         elif packet_filter_live_proven and text == "packet-filter backend not inventoried":
             continue
         elif smoke_syscall_trace_live_proven and text == "syscall traces not captured":
             text = "remaining syscall traces not captured beyond dpublic-smoke-httpd"
+        elif dropbear_admin_live_proven and text == "dropbear admin user model not finalized":
+            continue
         if text not in refined:
             refined.append(text)
     return refined
@@ -451,10 +559,18 @@ def compact_hardening(
     packet_filter_control_summary: dict[str, Any] | None,
     launcher_proof_result: dict[str, Any] | None,
     syscall_trace_proof_result: dict[str, Any] | None,
+    dropbear_admin_proof_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     packet_filter_proof = compact_packet_filter_proof(packet_filter_proof_result, packet_filter_control_summary)
     launcher_proof = compact_launcher_proof(launcher_proof_result)
     syscall_trace_proof = compact_syscall_trace_proof(syscall_trace_proof_result)
+    dropbear_admin_proof = compact_dropbear_admin_proof(dropbear_admin_proof_result)
+    if dropbear_admin_proof.get("dropbear_admin_live_proven"):
+        launcher_proof["remaining_profiles"] = [
+            item
+            for item in launcher_proof.get("remaining_profiles", [])
+            if item != "dropbear-admin-usb"
+        ]
     if not manifest_result:
         return {
             "state": "NOT_SUPPLIED",
@@ -464,6 +580,7 @@ def compact_hardening(
             "packet_filter_proof": packet_filter_proof,
             "launcher_proof": launcher_proof,
             "syscall_trace_proof": syscall_trace_proof,
+            "dropbear_admin_proof": dropbear_admin_proof,
         }
     manifest = manifest_result.get("manifest") if isinstance(manifest_result.get("manifest"), dict) else {}
     services = manifest.get("services") if isinstance(manifest.get("services"), list) else []
@@ -484,10 +601,12 @@ def compact_hardening(
             launcher_proof,
             packet_filter_proof,
             syscall_trace_proof,
+            dropbear_admin_proof,
         ),
         "packet_filter_proof": packet_filter_proof,
         "launcher_proof": launcher_proof,
         "syscall_trace_proof": syscall_trace_proof,
+        "dropbear_admin_proof": dropbear_admin_proof,
     }
 
 
@@ -509,6 +628,7 @@ def build_server_status(
     packet_filter_control_summary: dict[str, Any] | None,
     launcher_proof_result: dict[str, Any] | None,
     syscall_trace_proof_result: dict[str, Any] | None,
+    dropbear_admin_proof_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     status_hud = wsta88_result.get("status_hud") if isinstance(wsta88_result.get("status_hud"), dict) else {}
     if not status_hud:
@@ -521,6 +641,7 @@ def build_server_status(
         packet_filter_control_summary,
         launcher_proof_result,
         syscall_trace_proof_result,
+        dropbear_admin_proof_result,
     )
     public_off = (status_hud.get("public_state") or "PUBLIC_OFF") == "PUBLIC_OFF"
     ready_default_off = public_off and bool(packet_filter.get("ready"))
@@ -529,11 +650,18 @@ def build_server_status(
         if isinstance(hardening.get("syscall_trace_proof"), dict)
         else {}
     )
+    dropbear_admin_proof = (
+        hardening.get("dropbear_admin_proof")
+        if isinstance(hardening.get("dropbear_admin_proof"), dict)
+        else {}
+    )
     operator_next_actions = [
         "keep-public-exposure-default-off",
         "use-explicit-wsta88-live-gate-only-when-attended",
         "extend-service-launcher-proof-beyond-dpublic-smoke-httpd-before-always-on-profile",
     ]
+    if not dropbear_admin_proof.get("dropbear_admin_live_proven"):
+        operator_next_actions.append("prove-dropbear-admin-nonroot-login-before-always-on-profile")
     if syscall_trace_proof.get("smoke_syscall_trace_live_proven"):
         operator_next_actions.append(
             "extend-syscall-trace-proof-beyond-dpublic-smoke-httpd-before-seccomp-enforcement"
@@ -603,6 +731,11 @@ def markdown(server_status: dict[str, Any]) -> str:
         if isinstance(hardening.get("syscall_trace_proof"), dict)
         else {}
     )
+    dropbear_admin_proof = (
+        hardening.get("dropbear_admin_proof")
+        if isinstance(hardening.get("dropbear_admin_proof"), dict)
+        else {}
+    )
     lines = [
         "# WSTA Operator Server Status",
         "",
@@ -643,6 +776,9 @@ def markdown(server_status: dict[str, Any]) -> str:
         f"- Smoke launcher caps zero: `{str(bool(launcher_proof.get('cap_eff_zero'))).lower()}`",
         f"- Smoke syscall trace proof: `{str(bool(syscall_trace_proof.get('smoke_syscall_trace_live_proven'))).lower()}`",
         f"- Smoke syscall count: `{syscall_trace_proof.get('syscall_count')}`",
+        f"- Dropbear admin proof: `{str(bool(dropbear_admin_proof.get('dropbear_admin_live_proven'))).lower()}`",
+        f"- Dropbear admin user: `{dropbear_admin_proof.get('user')}`",
+        f"- Dropbear root SSH rejected: `{str(bool(dropbear_admin_proof.get('root_ssh_rejected'))).lower()}`",
         f"- Remaining launcher profiles: `{', '.join(launcher_proof.get('remaining_profiles') or [])}`",
         f"- Remaining syscall profiles: `{', '.join(syscall_trace_proof.get('remaining_profiles') or [])}`",
         "",
@@ -792,6 +928,26 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             write_json(out_json, result)
             return result
 
+    dropbear_admin_proof_result: dict[str, Any] | None = None
+    if args.wsta120_dropbear_admin_proof_json is not None:
+        dropbear_admin_proof_path, dropbear_admin_proof_error = require_private_file(
+            args.wsta120_dropbear_admin_proof_json,
+            "wsta120-dropbear-admin-proof",
+        )
+        if dropbear_admin_proof_error or dropbear_admin_proof_path is None:
+            result["decision"] = dropbear_admin_proof_error or "wsta108-blocked-wsta120-dropbear-admin-proof"
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+        dropbear_admin_proof_result = load_json(dropbear_admin_proof_path)
+        if dropbear_admin_proof_result.get("decision") != wsta120.PASS_DECISION:
+            result["decision"] = "wsta108-blocked-wsta120-dropbear-admin-proof-not-pass"
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+
     server_status = build_server_status(
         wsta88_result,
         hardening_result,
@@ -799,6 +955,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         packet_filter_control_summary,
         launcher_proof_result,
         syscall_trace_proof_result,
+        dropbear_admin_proof_result,
     )
     packet_filter_proof = server_status["hardening"].get("packet_filter_proof", {})
     packet_filter_control_proof = (
@@ -808,6 +965,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
     launcher_proof = server_status["hardening"].get("launcher_proof", {})
     syscall_trace_proof = server_status["hardening"].get("syscall_trace_proof", {})
+    dropbear_admin_proof = server_status["hardening"].get("dropbear_admin_proof", {})
     result["server_status"] = server_status
     result["checks"] = {
         "wsta88_workflow_pass": True,
@@ -826,6 +984,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "syscall_trace_proof_supplied": syscall_trace_proof_result is not None,
         "smoke_syscall_trace_live_proven": bool(
             syscall_trace_proof.get("smoke_syscall_trace_live_proven")
+        ),
+        "dropbear_admin_proof_supplied": dropbear_admin_proof_result is not None,
+        "dropbear_admin_live_proven": bool(
+            dropbear_admin_proof.get("dropbear_admin_live_proven")
         ),
         "default_public_off": True,
         "public_url_value_logged": False,
@@ -861,6 +1023,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         result["ended_utc"] = utc_stamp()
         write_json(out_json, result)
         return result
+    if (
+        dropbear_admin_proof_result is not None
+        and not result["checks"]["dropbear_admin_live_proven"]
+    ):
+        result["decision"] = "wsta108-blocked-wsta120-dropbear-admin-proof-incomplete"
+        result["gate_decision"] = result["decision"]
+        result["ended_utc"] = utc_stamp()
+        write_json(out_json, result)
+        return result
 
     result["decision"] = PASS_DECISION
     result["gate_decision"] = "ok"
@@ -892,6 +1063,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--packet-filter-control-summary-json", type=Path)
     parser.add_argument("--wsta110-service-launcher-proof-json", type=Path)
     parser.add_argument("--wsta114-syscall-trace-proof-json", type=Path)
+    parser.add_argument("--wsta120-dropbear-admin-proof-json", type=Path)
     parser.add_argument("--print-template", action="store_true")
     parser.add_argument("--print-full-json", action="store_true")
     return parser

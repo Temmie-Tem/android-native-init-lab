@@ -242,6 +242,58 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
             "secret_values_logged": 0,
         }
 
+    def dropbear_admin_proof(self) -> dict:
+        return {
+            "decision": runner.wsta120.PASS_DECISION,
+            "run_dir": "workspace/private/runs/server-distro/wsta120-dropbear-admin-live-test",
+            "checks": {
+                "explicit_live_gate": True,
+                "baseline_selftest_fail_zero": True,
+                "remote_image_ready": True,
+                "chroot_mount_ready": True,
+                "admin_stage_pass": True,
+                "admin_ssh_pass": True,
+                "root_ssh_rejected": True,
+                "admin_key_cleanup_ok": True,
+                "chroot_cleanup_ok": True,
+                "final_selftest_fail_zero": True,
+            },
+            "admin_stage_parse": {
+                "root_authorized_keys_absent": True,
+                "admin_passwd_line": True,
+                "admin_group_line": True,
+                "admin_shadow_line": True,
+                "admin_authorized_keys": True,
+                "dropbear_present": True,
+                "dropbear_command_safe": True,
+                "dropbear_alive": True,
+                "dropbear_listen": True,
+            },
+            "admin_ssh_parse": {
+                "ssh_ok": True,
+                "uid_3903": True,
+                "gid_3903": True,
+                "user_a90admin": True,
+                "group_a90admin": True,
+            },
+            "admin_key_cleanup_parse": {
+                "cleanup_done": True,
+                "admin_keys_absent": True,
+                "dropbear_absent": False,
+            },
+            "postcheck_parse": {
+                "done": True,
+                "dropbear_absent": True,
+                "mount_absent": True,
+                "loop_node_absent": True,
+            },
+            "root_ssh": {
+                "returncode": 255,
+            },
+            "public_url_value_logged": False,
+            "secret_values_logged": 0,
+        }
+
     def valid_args(self, root: Path, wsta88_json: Path, *extra: str):
         return runner.build_arg_parser().parse_args([
             "--run-dir",
@@ -456,6 +508,80 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("Smoke syscall count: `18`", markdown)
         self.assertIn("Remaining syscall profiles: `cloudflared-quick-tunnel, dropbear-admin-usb, dpublic-hud`", markdown)
 
+    def test_valid_wsta88_manifest_and_wsta120_admin_proof_updates_hardening_summary(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            manifest_path = root / "inputs" / "wsta90_service_hardening_manifest.json"
+            proof_path = root / "inputs" / "wsta120_result.json"
+            manifest = self.hardening_manifest()
+            manifest["manifest"]["blocking_before_enforcement"].insert(0, "non-root users/groups not staged")
+            self.write_json(manifest_path, manifest)
+            self.write_json(proof_path, self.dropbear_admin_proof())
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta90-service-hardening-manifest-json",
+                str(manifest_path),
+                "--wsta120-dropbear-admin-proof-json",
+                str(proof_path),
+            ))
+            markdown = (root / "wsta108" / "wsta108_operator_server_status.md").read_text(encoding="utf-8")
+
+        self.assertEqual(result["decision"], runner.PASS_DECISION)
+        hardening = result["server_status"]["hardening"]
+        proof = hardening["dropbear_admin_proof"]
+        self.assertEqual(proof["state"], "DROPBEAR_ADMIN_LIVE_PROVEN")
+        self.assertTrue(proof["dropbear_admin_live_proven"])
+        self.assertEqual(proof["service"], "dropbear-admin-usb")
+        self.assertEqual(proof["daemon_privilege_model"], "root-boundary-auth-daemon")
+        self.assertEqual(proof["user"], "a90admin")
+        self.assertEqual(proof["uid"], 3903)
+        self.assertTrue(proof["root_authorized_keys_absent"])
+        self.assertTrue(proof["root_ssh_rejected"])
+        self.assertTrue(proof["password_login_disabled"])
+        self.assertTrue(proof["root_login_disabled"])
+        self.assertTrue(proof["forwarding_disabled"])
+        self.assertTrue(proof["admin_key_cleanup_ok"])
+        self.assertTrue(proof["final_dropbear_absent"])
+        self.assertNotIn("dropbear admin user model not finalized", hardening["blocking_before_enforcement"])
+        self.assertIn("non-root users/groups not staged", hardening["blocking_before_enforcement"])
+        self.assertTrue(result["checks"]["dropbear_admin_proof_supplied"])
+        self.assertTrue(result["checks"]["dropbear_admin_live_proven"])
+        self.assertIn("Dropbear admin proof: `true`", markdown)
+        self.assertIn("Dropbear admin user: `a90admin`", markdown)
+        self.assertIn("Dropbear root SSH rejected: `true`", markdown)
+
+    def test_wsta120_and_smoke_launcher_proofs_refine_shared_user_group_blocker(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            manifest_path = root / "inputs" / "wsta90_service_hardening_manifest.json"
+            launcher_path = root / "inputs" / "wsta110_result.json"
+            admin_path = root / "inputs" / "wsta120_result.json"
+            manifest = self.hardening_manifest()
+            self.write_json(manifest_path, manifest)
+            self.write_json(launcher_path, self.launcher_proof())
+            self.write_json(admin_path, self.dropbear_admin_proof())
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta90-service-hardening-manifest-json",
+                str(manifest_path),
+                "--wsta110-service-launcher-proof-json",
+                str(launcher_path),
+                "--wsta120-dropbear-admin-proof-json",
+                str(admin_path),
+            ))
+
+        self.assertEqual(result["decision"], runner.PASS_DECISION)
+        hardening = result["server_status"]["hardening"]
+        self.assertNotIn("dropbear-admin-usb", hardening["launcher_proof"]["remaining_profiles"])
+        self.assertIn(
+            "remaining service users/groups not live-proven beyond dpublic-smoke-httpd/dropbear-admin-usb",
+            hardening["blocking_before_enforcement"],
+        )
+
     def test_nonpass_wsta88_blocks(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -572,6 +698,23 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
 
         self.assertEqual(result["decision"], "wsta108-blocked-wsta114-syscall-trace-proof-not-pass")
 
+    def test_nonpass_wsta120_dropbear_admin_proof_blocks(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            proof_path = root / "inputs" / "wsta120_result.json"
+            proof = self.dropbear_admin_proof()
+            proof["decision"] = "wsta120-blocked"
+            self.write_json(proof_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta120-dropbear-admin-proof-json",
+                str(proof_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta120-dropbear-admin-proof-not-pass")
+
     def test_incomplete_wsta110_launcher_proof_blocks_even_with_pass_decision(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -611,6 +754,24 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertEqual(result["decision"], "wsta108-blocked-wsta114-syscall-trace-proof-incomplete")
         self.assertFalse(result["checks"]["smoke_syscall_trace_live_proven"])
 
+    def test_incomplete_wsta120_dropbear_admin_proof_blocks_even_with_pass_decision(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            proof_path = root / "inputs" / "wsta120_result.json"
+            proof = self.dropbear_admin_proof()
+            proof["admin_ssh_parse"]["uid_3903"] = False
+            self.write_json(proof_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta120-dropbear-admin-proof-json",
+                str(proof_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta120-dropbear-admin-proof-incomplete")
+        self.assertFalse(result["checks"]["dropbear_admin_live_proven"])
+
     def test_public_summary_markdown_and_template_are_redacted(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -646,6 +807,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("--packet-filter-control-summary-json", payload)
         self.assertIn("--wsta110-service-launcher-proof-json", payload)
         self.assertIn("--wsta114-syscall-trace-proof-json", payload)
+        self.assertIn("--wsta120-dropbear-admin-proof-json", payload)
 
     def test_source_is_host_only_and_names_server_model(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")
@@ -657,6 +819,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("PACKET_FILTER_LOOPBACK_DEFAULT_DROP_LIVE_PROVEN", source)
         self.assertIn("SMOKE_SERVICE_LAUNCHER_LIVE_PROVEN", source)
         self.assertIn("SMOKE_SERVICE_SYSCALL_TRACE_LIVE_PROVEN", source)
+        self.assertIn("DROPBEAR_ADMIN_LIVE_PROVEN", source)
         self.assertIn('"boot_flash": False', source)
         self.assertIn('"public_url_value_logged": False', source)
         self.assertNotIn("native_init_flash.py", source)
