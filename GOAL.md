@@ -2094,6 +2094,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA59_RENEWAL_LEASE_REFRESH_SOURCE_2026-07-04.md`.
 > **NEXT:** retry WSTA58 live using an initial WSTA54 private lease plus a renewal WSTA53 source; stop on any repeated
 > renewal failure, cleanup miss, WSTA48 redaction miss, or post-run health regression.
+> **🟢 STATUS (2026-07-04 18:42 KST host clock) — WSTA60 WSTA58 aggregate scope
+> SOURCE PASS, existing live evidence host-reaggregates clean.**  The WSTA58 renewal-refresh live retry proved both
+> live legs and manual stop (`initial_decision=wsta55-short-lived-public-proof-live-pass`,
+> `renewal_decision=wsta55-short-lived-public-proof-live-pass`, manual stop `PUBLIC_OFF`, final health clean), but the
+> top-level runner returned `wsta58-blocked-wsta48-redaction` because it aggregated whole WSTA55 run directories; WSTA48
+> recursively included each WSTA55 run's internal `wsta48_result.json`, whose lack of a `decision` field produced two
+> `missing` entries and `all_pass=false`.  Codex fixed WSTA58 to aggregate only each WSTA55 leg's
+> `wsta45-short-lived-publish` root while still checking WSTA55 top-level decisions separately.  Host-only corrected
+> reaggregation of the existing private live evidence returned `all_pass=true`, `result_count=10`,
+> `redaction_guard.ok=true`, `public_url_value_logged=false`, and `secret_values_logged=0`.  No additional live action
+> ran for this fix.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA60_WSTA58_AGGREGATE_SCOPE_SOURCE_2026-07-04.md`.
+> **NEXT:** do not spin a third WSTA58 live retry solely for a green top-level decision unless explicitly needed; the
+> live behavior is already proven and the remaining delta was source-side aggregation.  Continue the persistent exposure
+> ladder from the fixed WSTA58 runner, or do a single pristine fixed-run proof later if the operator wants that artifact.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

@@ -209,11 +209,13 @@ class ServerDistroWsta58RenewalManualStopProofTests(unittest.TestCase):
                         "public_url_value_logged": False,
                         "secret_values_logged": 0,
                     }) as stop_call, \
-                    mock.patch.object(runner.wsta48, "build_aggregate", return_value=self.aggregate_pass()):
+                    mock.patch.object(runner.wsta48, "build_aggregate", return_value=self.aggregate_pass()) as aggregate_call:
                 result = runner.run(args)
 
         self.assertEqual(live_call.call_count, 2)
         self.assertTrue(stop_call.called)
+        aggregate_inputs = [str(path) for path in aggregate_call.call_args.args[0]]
+        self.assertTrue(all("wsta45-short-lived-publish" in path for path in aggregate_inputs))
         self.assertEqual(result["decision"], runner.PASS_DECISION)
         self.assertTrue(result["checks"]["initial_wsta55_pass"])
         self.assertTrue(result["checks"]["renewal_wsta55_pass"])
@@ -286,6 +288,7 @@ class ServerDistroWsta58RenewalManualStopProofTests(unittest.TestCase):
         self.assertIn("--renewal-wsta53-result-json", source)
         self.assertIn("mint_renewal_lease", source)
         self.assertIn("wsta55.run", source)
+        self.assertIn("wsta45-short-lived-publish", source)
         self.assertIn("wsta48.build_aggregate", source)
         self.assertIn("manual_stop_cleanup", source)
         self.assertIn('"boot_flash": False', source)

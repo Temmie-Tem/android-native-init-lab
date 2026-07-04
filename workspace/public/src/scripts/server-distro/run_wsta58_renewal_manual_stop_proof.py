@@ -457,7 +457,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
     stop_cleanup = manual_stop_cleanup(args)
     result["manual_stop"] = stop_cleanup
-    aggregate = wsta48.build_aggregate([run_dir / "initial-wsta55", run_dir / "renewal-wsta55"])
+    aggregate = wsta48.build_aggregate([
+        run_dir / "initial-wsta55" / "wsta45-short-lived-publish",
+        run_dir / "renewal-wsta55" / "wsta45-short-lived-publish",
+    ])
     aggregate_path = run_dir / "wsta48_result.json"
     write_json(aggregate_path, aggregate)
     result["wsta48_redacted"] = {
