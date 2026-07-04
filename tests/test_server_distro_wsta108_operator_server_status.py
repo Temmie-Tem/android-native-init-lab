@@ -62,8 +62,83 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
                     "staged service users/groups not live-proven",
                     "no-new-privs launcher not live-proven",
                     "syscall traces not captured",
+                    "packet-filter backend not inventoried",
                 ],
             },
+        }
+
+    def packet_filter_proof(self) -> dict:
+        return {
+            "decision": runner.wsta94.PASS_DECISION,
+            "run_dir": "workspace/private/runs/server-distro/wsta94-packet-filter-live-test",
+            "checks": {
+                "packet_filter_preflight_pass": True,
+                "packet_filter_apply_pass": True,
+                "packet_filter_default_drop_observed": True,
+                "loopback_before_ok": True,
+                "loopback_after_ok": True,
+                "packet_filter_restore_pass": True,
+                "packet_filter_restore_exact": True,
+                "chroot_cleanup_ok": True,
+                "final_selftest_fail_zero": True,
+            },
+            "packet_filter_probe": {
+                "parsed": {
+                    "preflight_pass": True,
+                    "apply_pass": True,
+                    "v4_input_drop": True,
+                    "v6_input_drop": True,
+                    "v4_loopback_accept": True,
+                    "v6_loopback_accept": True,
+                    "restore_exact_v4": True,
+                    "restore_exact_v6": True,
+                    "probe_pass": True,
+                },
+                "stdout": "\n".join([
+                    "packet_filter_backend=legacy-iptables",
+                    "packet_filter_policy_class=loopback-default-drop",
+                    "packet_filter_decision=packet-filter-preflight-pass",
+                    "packet_filter_decision=packet-filter-loopback-default-drop-applied",
+                    "A90WSTA94_POLICY_V4_INPUT_DROP=1",
+                    "A90WSTA94_POLICY_V6_INPUT_DROP=1",
+                    "A90WSTA94_RULE_V4_LOOPBACK_ACCEPT=1",
+                    "A90WSTA94_RULE_V6_LOOPBACK_ACCEPT=1",
+                    "A90WSTA94_LOOPBACK_AFTER_OK=1",
+                    "packet_filter_decision=packet-filter-restored",
+                    "A90WSTA94_RESTORE_EXACT_V4=1",
+                    "A90WSTA94_RESTORE_EXACT_V6=1",
+                    "A90WSTA94_PACKET_FILTER_PROBE_PASS",
+                ]),
+            },
+            "public_url_value_logged": False,
+            "secret_values_logged": 0,
+        }
+
+    def packet_filter_control_summary(self) -> dict:
+        return {
+            "run_dir": "workspace/private/runs/server-distro/packet-filter-control-live-test",
+            "packet_filter_preflight_rc": 0,
+            "packet_filter_preflight_parsed": {
+                "packet_filter_backend": "legacy-iptables",
+                "packet_filter_helper_version": "3",
+                "packet_filter_secret_values_logged": "0",
+            },
+            "packet_filter_apply_loopback_default_drop_rc": 0,
+            "packet_filter_apply_loopback_default_drop_parsed": {
+                "packet_filter_backend": "legacy-iptables",
+                "packet_filter_helper_version": "3",
+                "packet_filter_policy_class": "loopback-default-drop",
+                "packet_filter_control_ssh_accept": "1",
+                "packet_filter_secret_values_logged": "0",
+            },
+            "packet_filter_restore_ok": True,
+            "ssh_before_marker": True,
+            "ssh_after_apply_marker": True,
+            "post_mount_absent": True,
+            "post_loop_absent": True,
+            "post_dropbear_absent": True,
+            "public_url_value_logged": False,
+            "secret_values_logged": 0,
         }
 
     def launcher_proof(self) -> dict:
@@ -184,10 +259,54 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertEqual(hardening["service_count"], 5)
         self.assertTrue(hardening["global_policy"]["no_new_privs_default"])
         self.assertTrue(hardening["global_policy"]["capability_drop_required"])
+        self.assertEqual(hardening["packet_filter_proof"]["state"], "NOT_SUPPLIED")
         self.assertEqual(hardening["launcher_proof"]["state"], "NOT_SUPPLIED")
         self.assertTrue(result["checks"]["hardening_manifest_supplied"])
+        self.assertFalse(result["checks"]["packet_filter_proof_supplied"])
+        self.assertFalse(result["checks"]["packet_filter_loopback_live_proven"])
         self.assertFalse(result["checks"]["service_launcher_proof_supplied"])
         self.assertFalse(result["checks"]["service_launcher_smoke_live_proven"])
+
+    def test_valid_wsta94_packet_filter_proofs_update_hardening_summary(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            manifest_path = root / "inputs" / "wsta90_service_hardening_manifest.json"
+            proof_path = root / "inputs" / "wsta94_result.json"
+            control_path = root / "inputs" / "packet_filter_control_summary.json"
+            self.write_json(manifest_path, self.hardening_manifest())
+            self.write_json(proof_path, self.packet_filter_proof())
+            self.write_json(control_path, self.packet_filter_control_summary())
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta90-service-hardening-manifest-json",
+                str(manifest_path),
+                "--wsta94-packet-filter-proof-json",
+                str(proof_path),
+                "--packet-filter-control-summary-json",
+                str(control_path),
+            ))
+            markdown = (root / "wsta108" / "wsta108_operator_server_status.md").read_text(encoding="utf-8")
+
+        self.assertEqual(result["decision"], runner.PASS_DECISION)
+        hardening = result["server_status"]["hardening"]
+        proof = hardening["packet_filter_proof"]
+        self.assertEqual(proof["state"], "PACKET_FILTER_LOOPBACK_AND_CONTROL_PLANE_LIVE_PROVEN")
+        self.assertTrue(proof["loopback_live_proven"])
+        self.assertEqual(proof["backend"], "legacy-iptables")
+        self.assertEqual(proof["policy"], "loopback-default-drop")
+        self.assertTrue(proof["default_drop_observed"])
+        self.assertTrue(proof["restore_exact"])
+        self.assertTrue(proof["control_proof"]["control_plane_live_proven"])
+        self.assertEqual(proof["control_proof"]["helper_version"], "3")
+        self.assertNotIn("packet-filter backend not inventoried", hardening["blocking_before_enforcement"])
+        self.assertTrue(result["checks"]["packet_filter_proof_supplied"])
+        self.assertTrue(result["checks"]["packet_filter_loopback_live_proven"])
+        self.assertTrue(result["checks"]["packet_filter_control_summary_supplied"])
+        self.assertTrue(result["checks"]["packet_filter_control_plane_live_proven"])
+        self.assertIn("Loopback default-drop proof: `true`", markdown)
+        self.assertIn("Control plane proof: `true`", markdown)
 
     def test_valid_wsta88_manifest_and_wsta110_proof_updates_hardening_summary(self) -> None:
         with self.private_tmp() as tmp:
@@ -264,6 +383,62 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
 
         self.assertEqual(result["decision"], "wsta108-blocked-wsta90-manifest-not-pass")
 
+    def test_nonpass_wsta94_packet_filter_proof_blocks(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            proof_path = root / "inputs" / "wsta94_result.json"
+            proof = self.packet_filter_proof()
+            proof["decision"] = "wsta94-blocked"
+            self.write_json(proof_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta94-packet-filter-proof-json",
+                str(proof_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta94-packet-filter-proof-not-pass")
+
+    def test_incomplete_wsta94_packet_filter_proof_blocks_even_with_pass_decision(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            proof_path = root / "inputs" / "wsta94_result.json"
+            proof = self.packet_filter_proof()
+            proof["packet_filter_probe"]["stdout"] = proof["packet_filter_probe"]["stdout"].replace(
+                "packet_filter_backend=legacy-iptables",
+                "",
+            )
+            self.write_json(proof_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta94-packet-filter-proof-json",
+                str(proof_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta94-packet-filter-proof-incomplete")
+        self.assertFalse(result["checks"]["packet_filter_loopback_live_proven"])
+
+    def test_incomplete_packet_filter_control_summary_blocks_when_supplied(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            control_path = root / "inputs" / "packet_filter_control_summary.json"
+            summary = self.packet_filter_control_summary()
+            summary["ssh_after_apply_marker"] = False
+            self.write_json(control_path, summary)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--packet-filter-control-summary-json",
+                str(control_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-packet-filter-control-summary-incomplete")
+        self.assertFalse(result["checks"]["packet_filter_control_plane_live_proven"])
+
     def test_nonpass_wsta110_launcher_proof_blocks(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -333,6 +508,8 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("WSTA108 host-only", payload)
         self.assertIn("--emit-server-status", payload)
         self.assertIn("--wsta88-operator-workflow-json", payload)
+        self.assertIn("--wsta94-packet-filter-proof-json", payload)
+        self.assertIn("--packet-filter-control-summary-json", payload)
         self.assertIn("--wsta110-service-launcher-proof-json", payload)
 
     def test_source_is_host_only_and_names_server_model(self) -> None:
@@ -342,6 +519,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("native-init", source)
         self.assertIn("service-surface-consumer", source)
         self.assertIn("wsta88-status-hud", source)
+        self.assertIn("PACKET_FILTER_LOOPBACK_DEFAULT_DROP_LIVE_PROVEN", source)
         self.assertIn("SMOKE_SERVICE_LAUNCHER_LIVE_PROVEN", source)
         self.assertIn('"boot_flash": False', source)
         self.assertIn('"public_url_value_logged": False', source)

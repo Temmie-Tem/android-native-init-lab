@@ -2874,6 +2874,26 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA111_OPERATOR_STATUS_LAUNCHER_PROOF_SOURCE_2026-07-05.md`.
 > **NEXT:** either refresh hardening status overlays from already-proven packet-filter evidence, or extend the WSTA110
 > proof shape to the next concrete service profile.  Do not mark all profiles proven without bounded runtime proof.
+> **🟢 STATUS (2026-07-05 02:52 KST host clock) — WSTA112 OPERATOR
+> STATUS PACKET-FILTER PROOF SOURCE PASS.**  Codex extended `run_wsta108_operator_server_status.py` with optional
+> `--wsta94-packet-filter-proof-json` and `--packet-filter-control-summary-json`.  WSTA108 now consumes private WSTA94
+> packet-filter live proof plus the later control-plane summary, failing closed on non-pass WSTA94 proof or incomplete
+> runtime markers.  The hardening summary now adds `hardening.packet_filter_proof`: `legacy-iptables`,
+> `loopback-default-drop`, loopback before/after true, default-drop observed true, exact restore true, final selftest
+> fail-zero, and optional control-plane proof from the helper v3 summary.  A private WSTA112 status was regenerated from
+> the WSTA107 WSTA88 preflight artifact, WSTA108/WSTA90 manifest input, WSTA94 live proof, packet-filter control summary,
+> and WSTA110 launcher proof.  It stayed `SERVER_PROFILE_READY_DEFAULT_OFF` / `PUBLIC_OFF` with
+> `PACKET_FILTER_LOOPBACK_AND_CONTROL_PLANE_LIVE_PROVEN`, `SMOKE_SERVICE_LAUNCHER_LIVE_PROVEN`,
+> `packet_filter_loopback_live_proven=true`, and `packet_filter_control_plane_live_proven=true`.  The stale
+> `packet-filter backend not inventoried` blocker is retired when this proof is supplied; remaining blockers are service
+> users/groups beyond `dpublic-smoke-httpd`, syscall traces, and Dropbear admin user model.  No device action, boot flash,
+> native reboot, Wi-Fi, DHCP, public tunnel, public smoke, packet-filter mutation, userdata action, or switch-root ran.
+> Validation passed `py_compile`, WSTA108 focused tests (`15 tests`), and the full server-distro WSTA regression
+> (`372 tests`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA112_OPERATOR_STATUS_PACKET_FILTER_PROOF_SOURCE_2026-07-05.md`.
+> **NEXT:** pick the next hardening proof frontier: syscall trace profile capture for `dpublic-smoke-httpd`, or a bounded
+> runtime proof for the next service profile.  Do not claim always-on readiness until Dropbear admin model and per-service
+> proof gaps are closed.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
