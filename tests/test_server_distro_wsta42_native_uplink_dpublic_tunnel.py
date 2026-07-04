@@ -385,7 +385,11 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
 
             with mock.patch.object(runner.wsta19, "remote_sha", side_effect=remote_sha), \
                  mock.patch.object(runner, "install_image_to_remote", side_effect=AssertionError("unexpected upload")), \
-                 mock.patch.object(runner, "restore_work_image_from_clean", return_value={"restored": True}) as restore:
+                 mock.patch.object(
+                     runner,
+                     "restore_work_image_from_clean",
+                     return_value={"restored": True, "restored_sha256": local_sha},
+                 ) as restore:
                 result: dict = {}
                 ok = runner.prepare_remote_work_image(args, result, out_path, run_dir, local_sha=local_sha)
 
@@ -393,12 +397,14 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
             self.assertEqual(remote_calls, [
                 args.remote_image,
                 args.remote_clean_image,
-                args.remote_clean_image,
-                args.remote_image,
             ])
             self.assertEqual(restore.call_count, 1)
             self.assertTrue(result["remote_clean_image_enabled"])
             self.assertEqual(result["remote_sha_after_value"], local_sha)
+            self.assertEqual(
+                result["remote_sha_after"]["source"],
+                "remote_work_restore_from_clean.restored_sha256",
+            )
 
     def test_prepare_remote_work_image_uploads_clean_once_then_restores_work(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -413,12 +419,15 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
                 (None, {"path": args.remote_image}),
                 (None, {"path": args.remote_clean_image}),
                 (local_sha, {"path": args.remote_clean_image}),
-                (local_sha, {"path": args.remote_image}),
             ])
 
             with mock.patch.object(runner.wsta19, "remote_sha", side_effect=lambda _args, _path: next(remote_values)), \
                  mock.patch.object(runner, "install_image_to_remote", return_value={"returncode": 0}) as install, \
-                 mock.patch.object(runner, "restore_work_image_from_clean", return_value={"restored": True}) as restore:
+                 mock.patch.object(
+                     runner,
+                     "restore_work_image_from_clean",
+                     return_value={"restored": True, "restored_sha256": local_sha},
+                 ) as restore:
                 result: dict = {}
                 ok = runner.prepare_remote_work_image(args, result, out_path, run_dir, local_sha=local_sha)
 
@@ -426,6 +435,39 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
             install.assert_called_once_with(args, local_sha, args.remote_clean_image)
             self.assertEqual(restore.call_count, 1)
             self.assertEqual(result["remote_clean_sha_after_value"], local_sha)
+            self.assertEqual(
+                result["remote_sha_after"]["source"],
+                "remote_work_restore_from_clean.restored_sha256",
+            )
+
+    def test_prepare_remote_work_image_reuses_verified_clean_work_without_duplicate_hashes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            local_sha = "e" * 64
+            run_dir = Path(tmp)
+            out_path = run_dir / "result.json"
+            args = SimpleNamespace(
+                remote_image="/mnt/sdext/a90/runtime/debian.img",
+                remote_clean_image="/mnt/sdext/a90/runtime/debian.img.clean",
+            )
+            remote_calls: list[str] = []
+
+            def remote_sha(_args, path):
+                remote_calls.append(path)
+                return local_sha, {"path": path}
+
+            with mock.patch.object(runner.wsta19, "remote_sha", side_effect=remote_sha), \
+                 mock.patch.object(runner, "install_image_to_remote", side_effect=AssertionError("unexpected upload")), \
+                 mock.patch.object(runner, "restore_work_image_from_clean", side_effect=AssertionError("unexpected restore")):
+                result: dict = {}
+                ok = runner.prepare_remote_work_image(args, result, out_path, run_dir, local_sha=local_sha)
+
+            self.assertTrue(ok)
+            self.assertEqual(remote_calls, [args.remote_image, args.remote_clean_image])
+            self.assertEqual(result["remote_clean_sha_after"]["source"], "remote_clean_sha_before")
+            self.assertEqual(result["remote_clean_sha_after_value"], local_sha)
+            self.assertEqual(result["remote_work_restore_from_clean"]["reason"], "work-image-already-clean")
+            self.assertEqual(result["remote_sha_after"]["source"], "remote_sha_before")
+            self.assertEqual(result["remote_sha_after_value"], local_sha)
 
     def test_prepare_remote_work_image_can_fall_back_to_legacy_direct_upload_when_clean_disabled(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

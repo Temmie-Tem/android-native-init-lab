@@ -149,6 +149,16 @@ echo A90WSTA42_IMAGE_RESTORE_DONE
     return record
 
 
+def skipped_remote_sha(path: str, *, source: str, sha256: str) -> dict[str, Any]:
+    return {
+        "skipped": True,
+        "reason": "already-verified",
+        "source": source,
+        "path": path,
+        "sha256": sha256,
+    }
+
+
 def prepare_remote_work_image(args: argparse.Namespace,
                               result: dict[str, Any],
                               out_path: Path,
@@ -164,6 +174,8 @@ def prepare_remote_work_image(args: argparse.Namespace,
     result["remote_sha_before_value"] = before_sha
     write_json(out_path, result)
 
+    after_sha: str | None = None
+    after_record: dict[str, Any] | None = None
     if clean_enabled:
         clean_before_sha, clean_before_record = wsta19.remote_sha(args, args.remote_clean_image)
         result["remote_clean_sha_before"] = clean_before_record
@@ -172,7 +184,14 @@ def prepare_remote_work_image(args: argparse.Namespace,
         if clean_before_sha != local_sha:
             result["remote_clean_install"] = install_image_to_remote(args, local_sha, args.remote_clean_image)
             write_json(out_path, result)
-        clean_after_sha, clean_after_record = wsta19.remote_sha(args, args.remote_clean_image)
+            clean_after_sha, clean_after_record = wsta19.remote_sha(args, args.remote_clean_image)
+        else:
+            clean_after_sha = clean_before_sha
+            clean_after_record = skipped_remote_sha(
+                args.remote_clean_image,
+                source="remote_clean_sha_before",
+                sha256=clean_before_sha,
+            )
         result["remote_clean_sha_after"] = clean_after_record
         result["remote_clean_sha_after_value"] = clean_after_sha
         if clean_after_sha != local_sha:
@@ -190,13 +209,26 @@ def prepare_remote_work_image(args: argparse.Namespace,
                 result["decision"] = "wsta42-blocked-clean-image-restore"
                 write_json(out_path, result)
                 return False
+            after_sha = result["remote_work_restore_from_clean"].get("restored_sha256")
+            after_record = skipped_remote_sha(
+                args.remote_image,
+                source="remote_work_restore_from_clean.restored_sha256",
+                sha256=after_sha or "",
+            )
         else:
             result["remote_work_restore_from_clean"] = {"skipped": True, "reason": "work-image-already-clean"}
+            after_sha = before_sha
+            after_record = skipped_remote_sha(
+                args.remote_image,
+                source="remote_sha_before",
+                sha256=before_sha,
+            )
     elif before_sha != local_sha:
         result["install"] = wsta19.install_image(args, local_sha)
         write_json(out_path, result)
 
-    after_sha, after_record = wsta19.remote_sha(args, args.remote_image)
+    if after_sha is None or after_record is None:
+        after_sha, after_record = wsta19.remote_sha(args, args.remote_image)
     result["remote_sha_after"] = after_record
     result["remote_sha_after_value"] = after_sha
     if after_sha != local_sha:

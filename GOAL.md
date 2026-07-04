@@ -2771,6 +2771,19 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** treat the D-public persistent operator path as live-proven.  Next useful work should be operator/server
 > polish: concise public-state/HUD status, less repeated 2GiB image hash/restore work where safely cacheable, and
 > keeping public exposure default-off behind explicit WSTA80/WSTA88 live gates.
+> **🟢 STATUS (2026-07-05 01:47 KST host clock) — WSTA105 REMOTE IMAGE REUSE
+> SOURCE PASS.**  Codex reduced repeated WSTA42/WSTA88 image-prep cost without changing live gates or the clean-image
+> safety model.  When remote clean/work images are already SHA-verified in the same `prepare_remote_work_image()` run,
+> WSTA42 now records skipped post-hashes with explicit evidence sources (`remote_clean_sha_before`,
+> `remote_sha_before`, or `remote_work_restore_from_clean.restored_sha256`) instead of re-reading the same 2GiB image
+> again.  Drifted/missing clean still installs and re-hashes clean; drifted/missing work still restores from clean; the
+> clean-disabled legacy path still runs the final remote work SHA.  Common WSTA88 initial+renewal no-op image prep can
+> avoid up to four redundant remote 2GiB reads.  No device action, native reboot, Wi-Fi, DHCP, public tunnel, public
+> smoke, packet-filter mutation, or boot flash ran.  Validation passed `py_compile` and focused WSTA42/43/55/58/80/88/94
+> tests (`78 tests`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA105_REMOTE_IMAGE_REUSE_SOURCE_2026-07-05.md`.
+> **NEXT:** expose an operator-facing image-prep/public-state summary in the persistent workflow so WSTA88 output shows
+> whether image prep uploaded, restored, or reused verified images.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
