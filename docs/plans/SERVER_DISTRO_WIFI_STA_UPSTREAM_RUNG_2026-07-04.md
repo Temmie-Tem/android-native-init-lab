@@ -396,6 +396,24 @@ Reports:
 `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA20_NATIVE_SERVICE_BOUNDARY_PASS_2026-07-04.md`,
 `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA21_NATIVE_SERVICE_CLIENT_SOURCE_2026-07-04.md`.
 
+### WSTA22: Debian Client Live Gate
+
+Live result: pass.  The WSTA21 helper now works from inside the Debian chroot against the
+native-owned WSTA20 service.  The passing run used resident V3385 without a boot flash, verified
+native scan readiness first, mounted the SD-backed Debian chroot, temporarily staged
+`/usr/local/bin/a90-native-wifi-service-client`, started native `wifi service`, and executed helper
+`status` and `scan` from Debian.  Status and scan both returned
+`native-wifi-service-client-pass`; scan returned `wifi-scan-pass` with redacted results and BSS
+visibility.  Helper staging, service, chroot, loop, and dropbear cleanup passed; final V3385
+`selftest fail=0`.
+
+Operational finding: stale same-boot WLAN state can leave `wlan0` admin-up but make native scan and
+iftype add fail with `EINVAL`.  WSTA22 now gates on native scan readiness and can perform one bounded
+native reboot recovery before chroot/service work.
+
+Report:
+`docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA22_NATIVE_SERVICE_CLIENT_LIVE_PASS_2026-07-04.md`.
+
 ### WSTA7: Debian association/control fix
 
 Live result: pass.  The Debian STA helper now waits for the `wpa_supplicant` control
@@ -439,13 +457,12 @@ Stop before mutation or public exposure if any condition appears:
 
 ## 7. Next Implementation Unit
 
-WSTA22 should live-prove the Debian helper against the resident V3385 native service:
+WSTA22 closes the status/scan service-consumer path.  The next implementation unit is a design
+choice, not a mechanical extension:
 
-1. Health-check the current resident and run WSTA2 materialization if needed.
-2. Mount the SD-backed Debian image as a chroot and start temporary key-only SSH.
-3. Start native `wifi service` on the shared chroot-visible service directory.
-4. Execute `/usr/local/bin/a90-native-wifi-service-client status` and `scan` from Debian.
-5. Verify helper decisions, native ownership, redaction, cleanup, and final `selftest fail=0`.
+1. Keep D-public Wi-Fi limited to native-owned status/scan observability for now; or
+2. Add a separate gated native-owned connect/association/DHCP service rung with credential and
+   public-exposure gates.
 
-Connect/association/DHCP/public tunnel remain a separate gated native-owned service rung.  Do not
-spend more rungs on direct Debian `iw` or link toggles.
+Do not fold connect/DHCP/public tunnel into the status/scan helper, and do not spend more rungs on
+direct Debian `iw` or link toggles.

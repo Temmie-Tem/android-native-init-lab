@@ -1291,6 +1291,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > run the new helper from Debian for `status` and `scan`, verify helper decisions/redaction, cleanup,
 > and finish with `selftest fail=0`.  Keep connect/association/DHCP/public tunnel as a separate gated
 > native-owned service rung.
+> **🟢 STATUS (2026-07-04 10:19 KST host clock) — WSTA22 native Wi-Fi service client LIVE PASS.**
+> Codex added `run_wsta22_native_wifi_service_client.py` and proved the WSTA21 Debian helper against
+> the WSTA20 native-owned service boundary.  No boot flash ran in the passing gate.  The runner
+> health-checked resident V3385, verified native pre-service scan (`scan_result_count=8`), mounted the
+> SD-backed Debian chroot, temporarily staged `/usr/local/bin/a90-native-wifi-service-client`, started
+> native `wifi service`, and executed the helper from Debian.  Helper `status` returned
+> `native-wifi-service-client-pass` / `wifi-service-status-pass`; helper `scan` returned
+> `native-wifi-service-client-pass` / `wifi-scan-pass` with `scan_result_count=9`,
+> `raw_results_redacted=1`, `credentials=0`, and `connect=0`.  Helper staging was removed, service
+> stopped, chroot/dropbear/loop cleanup passed, and final V3385 `selftest fail=0`.  Earlier attempts
+> also captured the stale WLAN `EINVAL` mode (`trigger_errno=22`, iftype add `errno=22`), and the
+> runner now gates on native scan readiness with a bounded native reboot recovery path.
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA22_NATIVE_SERVICE_CLIENT_LIVE_PASS_2026-07-04.md`.
+> **NEXT:** choose the next rung: either keep D-public Wi-Fi as native-owned status/scan observability,
+> or design a separate gated native-owned connect/association/DHCP service with credential/public
+> exposure gates.  Do not fold connect/DHCP/public tunnel into the status/scan helper.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
