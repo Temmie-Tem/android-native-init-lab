@@ -389,6 +389,17 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
             "secret_values_logged": 0,
         }
 
+    def hud_presenter_model_proof(self) -> dict:
+        model = runner.wsta130.presenter_architecture_model()
+        return {
+            "decision": runner.wsta130.PASS_DECISION,
+            "run_dir": "workspace/private/runs/server-distro/wsta130-dpublic-hud-presenter-model-test",
+            "presenter_architecture_model": model,
+            "checks": runner.wsta130.validate_model(model),
+            "public_url_value_logged": False,
+            "secret_values_logged": 0,
+        }
+
     def valid_args(self, root: Path, wsta88_json: Path, *extra: str):
         return runner.build_arg_parser().parse_args([
             "--run-dir",
@@ -859,7 +870,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertTrue(result["checks"]["hud_launcher_hardening_required"])
         self.assertFalse(result["checks"]["hud_live_proven"])
         self.assertIn(
-            "prove-dpublic-hud-runtime-drm-boundary-before-always-on-profile",
+            "replace-direct-kms-hud-with-presenter-model-before-live-hud-profile",
             result["server_status"]["operator_next_actions"],
         )
         self.assertIn("dpublic-hud", hardening["launcher_proof"]["remaining_profiles"])
@@ -869,6 +880,72 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("D-public HUD no-network: `true`", markdown)
         self.assertIn("D-public HUD DRM node policy: `true`", markdown)
         self.assertIn("D-public HUD live proof: `false`", markdown)
+        self.assertNotIn("http://", summary_text)
+        self.assertNotIn("https://", summary_text)
+        self.assertNotIn("http://", markdown)
+        self.assertNotIn("https://", markdown)
+
+    def test_valid_wsta130_hud_presenter_model_supersedes_direct_kms_status(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            manifest_path = root / "inputs" / "wsta90_service_hardening_manifest.json"
+            hud_path = root / "inputs" / "wsta127_dpublic_hud_service_model.json"
+            presenter_path = root / "inputs" / "wsta130_dpublic_hud_presenter_model.json"
+            self.write_json(manifest_path, self.hardening_manifest())
+            self.write_json(hud_path, self.hud_model_proof())
+            self.write_json(presenter_path, self.hud_presenter_model_proof())
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta90-service-hardening-manifest-json",
+                str(manifest_path),
+                "--wsta127-hud-model-json",
+                str(hud_path),
+                "--wsta130-hud-presenter-model-json",
+                str(presenter_path),
+            ))
+            markdown = (root / "wsta108" / "wsta108_operator_server_status.md").read_text(encoding="utf-8")
+            summary_text = json.dumps(runner.public_summary(result), sort_keys=True)
+
+        self.assertEqual(result["decision"], runner.PASS_DECISION)
+        hardening = result["server_status"]["hardening"]
+        hud = hardening["hud_model"]
+        presenter = hardening["hud_presenter_model"]
+        self.assertTrue(hud["superseded_by_presenter_model"])
+        self.assertEqual(hud["superseded_reason"], "wsta129-setcrtc-permission-denied")
+        self.assertEqual(presenter["state"], "DPUBLIC_HUD_PRESENTER_MODEL_SOURCE_DEFINED")
+        self.assertTrue(presenter["model_defined"])
+        self.assertTrue(presenter["supersedes_wsta127_direct_kms"])
+        self.assertEqual(presenter["wsta129_boundary"], "setcrtc-permission-denied")
+        self.assertEqual(presenter["display_architecture"], "split-intent-native-presenter")
+        self.assertEqual(presenter["producer_user"], "a90hud")
+        self.assertTrue(presenter["producer_no_drm_or_kms"])
+        self.assertTrue(presenter["producer_no_network"])
+        self.assertEqual(presenter["presenter_owner"], "native-init")
+        self.assertTrue(presenter["presenter_kms_master_owner"])
+        self.assertEqual(presenter["intent_file"], "/run/a90-dpublic/hud-intent.json")
+        self.assertTrue(presenter["intent_parser_fail_closed"])
+        self.assertTrue(result["checks"]["hud_presenter_model_supplied"])
+        self.assertTrue(result["checks"]["hud_presenter_model_defined"])
+        self.assertTrue(result["checks"]["hud_direct_nonroot_kms_rejected"])
+        self.assertTrue(result["checks"]["hud_intent_producer_no_drm"])
+        self.assertTrue(result["checks"]["hud_intent_producer_no_network"])
+        self.assertTrue(result["checks"]["hud_native_presenter_owner"])
+        self.assertTrue(result["checks"]["hud_intent_schema_fail_closed"])
+        self.assertIn(
+            "prototype-dpublic-hud-intent-presenter-boundary-before-live-hud-profile",
+            result["server_status"]["operator_next_actions"],
+        )
+        self.assertNotIn(
+            "prove-dpublic-hud-runtime-drm-boundary-before-always-on-profile",
+            result["server_status"]["operator_next_actions"],
+        )
+        self.assertIn("D-public HUD direct KMS superseded: `true`", markdown)
+        self.assertIn("D-public HUD presenter model: `true`", markdown)
+        self.assertIn("D-public HUD display architecture: `split-intent-native-presenter`", markdown)
+        self.assertIn("D-public HUD intent producer no DRM: `true`", markdown)
+        self.assertIn("D-public HUD presenter owner: `native-init`", markdown)
         self.assertNotIn("http://", summary_text)
         self.assertNotIn("https://", summary_text)
         self.assertNotIn("http://", markdown)
@@ -1088,6 +1165,23 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
 
         self.assertEqual(result["decision"], "wsta108-blocked-wsta127-hud-model-not-pass")
 
+    def test_nonpass_wsta130_hud_presenter_model_blocks(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            presenter_path = root / "inputs" / "wsta130_dpublic_hud_presenter_model.json"
+            proof = self.hud_presenter_model_proof()
+            proof["decision"] = "wsta130-blocked"
+            self.write_json(presenter_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta130-hud-presenter-model-json",
+                str(presenter_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta130-hud-presenter-model-not-pass")
+
     def test_incomplete_wsta110_launcher_proof_blocks_even_with_pass_decision(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -1201,6 +1295,25 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertFalse(result["checks"]["hud_model_defined"])
         self.assertFalse(result["checks"]["hud_drm_node_policy_defined"])
 
+    def test_incomplete_wsta130_hud_presenter_model_blocks_even_with_pass_decision(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            presenter_path = root / "inputs" / "wsta130_dpublic_hud_presenter_model.json"
+            proof = self.hud_presenter_model_proof()
+            proof["presenter_architecture_model"]["boundary"]["parser_policy"]["reject_unknown_fields"] = False
+            self.write_json(presenter_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta130-hud-presenter-model-json",
+                str(presenter_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta130-hud-presenter-model-incomplete")
+        self.assertFalse(result["checks"]["hud_presenter_model_defined"])
+        self.assertFalse(result["checks"]["hud_intent_schema_fail_closed"])
+
     def test_public_summary_markdown_and_template_are_redacted(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -1240,6 +1353,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("--wsta122-cloudflared-model-json", payload)
         self.assertIn("--wsta125-cloudflared-runtime-proof-json", payload)
         self.assertIn("--wsta127-hud-model-json", payload)
+        self.assertIn("--wsta130-hud-presenter-model-json", payload)
 
     def test_source_is_host_only_and_names_server_model(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")
@@ -1255,6 +1369,9 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("CLOUDFLARED_SERVICE_MODEL_SOURCE_DEFINED", source)
         self.assertIn("CLOUDFLARED_RUNTIME_LIVE_PROVEN", source)
         self.assertIn("DPUBLIC_HUD_SERVICE_MODEL_SOURCE_DEFINED", source)
+        self.assertIn("DPUBLIC_HUD_PRESENTER_MODEL_SOURCE_DEFINED", source)
+        self.assertIn("split-intent-native-presenter", source)
+        self.assertIn("prototype-dpublic-hud-intent-presenter-boundary-before-live-hud-profile", source)
         self.assertIn('"boot_flash": False', source)
         self.assertIn('"public_url_value_logged": False', source)
         self.assertNotIn("native_init_flash.py", source)

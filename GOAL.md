@@ -3263,6 +3263,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA130_DPUBLIC_HUD_PRESENTER_MODEL_SOURCE_2026-07-05.md`.
 > **NEXT:** WSTA131 should fold this replacement HUD presenter architecture into WSTA108 operator status, superseding
 > the WSTA127 direct non-root KMS overlay in operator-facing output before any live presenter prototype.
+>
+> **🟢 STATUS (2026-07-05 07:40 KST host clock) — WSTA131 OPERATOR STATUS
+> HUD PRESENTER SOURCE PASS.**  Codex folded WSTA130 into
+> `run_wsta108_operator_server_status.py` via `--wsta130-hud-presenter-model-json`.  WSTA108 now fail-closes on
+> non-private/non-pass/recomputed-invalid WSTA130 input, emits `hardening.hud_presenter_model`, marks the legacy
+> WSTA127 HUD overlay as `superseded_by_presenter_model=true` with reason
+> `wsta129-setcrtc-permission-denied`, and changes operator next action from direct-KMS proof to
+> `prototype-dpublic-hud-intent-presenter-boundary-before-live-hud-profile`.  A private WSTA131 source proof generated
+> fresh WSTA88/WSTA127/WSTA130 inputs and produced WSTA108 decision `wsta108-operator-server-status-source-pass`,
+> `SERVER_PROFILE_READY_DEFAULT_OFF`, `PUBLIC_OFF`, `hud_direct_nonroot_kms_rejected=true`,
+> `hud_intent_producer_no_drm=true`, `hud_intent_producer_no_network=true`, `hud_native_presenter_owner=true`, and
+> `hud_intent_schema_fail_closed=true`.  No device action, boot flash, native reboot, Wi-Fi association, DHCP, public
+> tunnel, public smoke, packet-filter mutation, userdata mutation, DRM open, KMS SETCRTC, or switch-root ran.
+> Validation passed `py_compile`, WSTA108 focused tests (`34 tests`), and full server-distro WSTA regression
+> (`442 tests`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA131_OPERATOR_STATUS_HUD_PRESENTER_SOURCE_2026-07-05.md`.
+> **NEXT:** WSTA132 can start the implementation ladder for the split display path: stage a minimal Debian intent
+> producer and root/native presenter prototype, still default-off/no-public, then prove the live boundary without
+> giving Debian `a90hud` direct KMS ownership.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

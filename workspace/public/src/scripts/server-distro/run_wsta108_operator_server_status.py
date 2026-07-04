@@ -6,10 +6,11 @@ hardening contract.  WSTA94 proves the loopback default-drop packet filter.
 WSTA110 proves the smoke service launcher inside the Debian chroot.  WSTA120
 proves the Dropbear admin live gate.  WSTA122 defines the cloudflared
 quick-Tunnel service hardening target.  WSTA125 proves that cloudflared runtime
-profile behind a native-owned upstream.  WSTA127 defines the D-public HUD
-service hardening target.  WSTA108 combines those public surfaces into one
-operator-facing server status bundle without opening a tunnel, touching the
-device, or weakening any live gate.
+profile behind a native-owned upstream.  WSTA127 defines the original D-public
+HUD service hardening target.  WSTA130 supersedes that direct non-root KMS HUD
+target with a split intent-producer/native-presenter display contract.  WSTA108
+combines those public surfaces into one operator-facing server status bundle
+without opening a tunnel, touching the device, or weakening any live gate.
 """
 
 from __future__ import annotations
@@ -35,6 +36,7 @@ import run_wsta120_dropbear_admin_live_gate as wsta120  # noqa: E402
 import run_wsta122_cloudflared_service_model as wsta122  # noqa: E402
 import run_wsta125_native_upstream_cloudflared_runtime as wsta125  # noqa: E402
 import run_wsta127_dpublic_hud_service_model as wsta127  # noqa: E402
+import run_wsta130_dpublic_hud_presenter_model as wsta130  # noqa: E402
 
 
 REPO_ROOT = wsta88.REPO_ROOT
@@ -45,6 +47,7 @@ PASS_DECISION = "wsta108-operator-server-status-source-pass"
 CLOUDFLARED_MODEL_STATE = "CLOUDFLARED_SERVICE_MODEL_SOURCE_DEFINED"
 CLOUDFLARED_RUNTIME_STATE = "CLOUDFLARED_RUNTIME_LIVE_PROVEN"
 DPUBLIC_HUD_MODEL_STATE = "DPUBLIC_HUD_SERVICE_MODEL_SOURCE_DEFINED"
+DPUBLIC_HUD_PRESENTER_MODEL_STATE = "DPUBLIC_HUD_PRESENTER_MODEL_SOURCE_DEFINED"
 
 CLOUDFLARED_RUNTIME_REQUIRED_CHECKS = (
     "wsta28_precondition_pass",
@@ -154,6 +157,8 @@ def template() -> dict[str, Any]:
             "workspace/private/runs/server-distro/<wsta125-run>/wsta125_result.json",
             "--wsta127-hud-model-json",
             "workspace/private/runs/server-distro/<wsta127-run>/wsta127_dpublic_hud_service_model.json",
+            "--wsta130-hud-presenter-model-json",
+            "workspace/private/runs/server-distro/<wsta130-run>/wsta130_dpublic_hud_presenter_model.json",
         ],
         "device_action": False,
         "public_url_value_logged": False,
@@ -826,6 +831,127 @@ def compact_hud_model(model_result: dict[str, Any] | None) -> dict[str, Any]:
     }
 
 
+def compact_hud_presenter_model(model_result: dict[str, Any] | None) -> dict[str, Any]:
+    if not model_result:
+        return {
+            "state": "NOT_SUPPLIED",
+            "model_defined": False,
+            "scope": "not-supplied",
+            "hud_live_proven": False,
+        }
+
+    model = (
+        model_result.get("presenter_architecture_model")
+        if isinstance(model_result.get("presenter_architecture_model"), dict)
+        else {}
+    )
+    supplied_checks = model_result.get("checks") if isinstance(model_result.get("checks"), dict) else {}
+    recomputed_checks = wsta130.validate_model(model)
+    model_defined = bool(
+        model_result.get("decision") == wsta130.PASS_DECISION
+        and bool(supplied_checks)
+        and all(value is True for value in supplied_checks.values())
+        and all(value is True for value in recomputed_checks.values())
+    )
+    supersedes = model.get("supersedes") if isinstance(model.get("supersedes"), dict) else {}
+    producer = (
+        model.get("debian_intent_producer")
+        if isinstance(model.get("debian_intent_producer"), dict)
+        else {}
+    )
+    identity = (
+        producer.get("target_identity")
+        if isinstance(producer.get("target_identity"), dict)
+        else {}
+    )
+    producer_display = (
+        producer.get("display_access")
+        if isinstance(producer.get("display_access"), dict)
+        else {}
+    )
+    producer_network = producer.get("network") if isinstance(producer.get("network"), dict) else {}
+    producer_launcher = (
+        producer.get("launcher_policy")
+        if isinstance(producer.get("launcher_policy"), dict)
+        else {}
+    )
+    presenter = model.get("presenter") if isinstance(model.get("presenter"), dict) else {}
+    boundary = model.get("boundary") if isinstance(model.get("boundary"), dict) else {}
+    intent = (
+        boundary.get("intent_schema")
+        if isinstance(boundary.get("intent_schema"), dict)
+        else {}
+    )
+    parser = (
+        boundary.get("parser_policy")
+        if isinstance(boundary.get("parser_policy"), dict)
+        else {}
+    )
+    atomic = intent.get("atomic_update") if isinstance(intent.get("atomic_update"), dict) else {}
+    forbidden_fields = intent.get("forbidden_fields") if isinstance(intent.get("forbidden_fields"), list) else []
+    exposure = model.get("default_exposure") if isinstance(model.get("default_exposure"), dict) else {}
+    return {
+        "state": DPUBLIC_HUD_PRESENTER_MODEL_STATE if model_defined else "SUPPLIED_NOT_PROVEN",
+        "decision": model_result.get("decision"),
+        "proof_run_dir": model_result.get("run_dir"),
+        "scope": "dpublic-hud-presenter-model",
+        "model_defined": model_defined,
+        "hud_live_proven": False,
+        "supersedes_wsta127_direct_kms": supersedes.get("direct_nonroot_kms") == "rejected-for-live-path",
+        "wsta129_boundary": supersedes.get("wsta129_live_boundary"),
+        "display_architecture": "split-intent-native-presenter",
+        "service": wsta130.SERVICE,
+        "producer_user": identity.get("user"),
+        "producer_uid": identity.get("uid"),
+        "producer_gid": identity.get("gid"),
+        "producer_no_drm_or_kms": bool(
+            producer_display.get("opens_drm") is False
+            and producer_display.get("kms_setcrtc_allowed") is False
+            and producer_display.get("drm_fd_expected") is False
+        ),
+        "producer_no_network": bool(
+            producer_network.get("opens_tcp_listener") is False
+            and producer_network.get("opens_udp_socket") is False
+            and producer_network.get("public_inbound_listener") is False
+        ),
+        "producer_launcher_required": producer_launcher.get("required_launcher") == "/usr/local/bin/a90-service-launch",
+        "producer_launcher_no_new_privs_required": producer_launcher.get("no_new_privs") is True,
+        "producer_launcher_caps_zero_required": producer_launcher.get("effective_capabilities") == "zero",
+        "presenter_owner": presenter.get("owner"),
+        "presenter_privilege_model": presenter.get("privilege_model"),
+        "presenter_kms_master_owner": presenter.get("kms_master_owner") is True,
+        "drm_node": presenter.get("device_node"),
+        "intent_transport": boundary.get("transport"),
+        "intent_file": boundary.get("intent_file"),
+        "intent_max_bytes": intent.get("max_bytes"),
+        "intent_stale_after_ms": intent.get("stale_after_ms"),
+        "intent_atomic_update": bool(
+            atomic.get("operation") == "write-fsync-rename"
+            and atomic.get("final_path") == wsta130.INTENT_FILE
+        ),
+        "intent_secret_fields_forbidden": all(
+            name in forbidden_fields for name in ("url", "ssid", "psk", "token", "secret")
+        ),
+        "intent_parser_fail_closed": bool(
+            parser.get("reject_unknown_fields") is True
+            and parser.get("ignore_stale_intent") is True
+            and parser.get("no_shell_expansion") is True
+            and parser.get("no_path_open_from_intent") is True
+            and parser.get("no_public_url_rendering") is True
+        ),
+        "default_public_off": exposure.get("public_default") == "off",
+        "operator_gate_required": exposure.get("start_requires_operator_live_gate") is True,
+        "public_url_value_logged": False,
+        "secret_values_logged": 0,
+        "remaining_live_proofs": [
+            "intent producer uid/gid/no-new-privs/cap-zero/no-drm/no-network",
+            "presenter is sole DRM fd holder during HUD display",
+            "presenter owns SETCRTC/PAGE_FLIP and releases DRM on cleanup",
+            "intent parser rejects forbidden fields and stale updates",
+        ],
+    }
+
+
 def launcher_proof_is_smoke_live_proven(launcher_proof: dict[str, Any]) -> bool:
     return bool(launcher_proof.get("smoke_live_proven"))
 
@@ -915,6 +1041,7 @@ def compact_hardening(
     cloudflared_model_result: dict[str, Any] | None,
     cloudflared_runtime_proof_result: dict[str, Any] | None,
     hud_model_result: dict[str, Any] | None,
+    hud_presenter_model_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     packet_filter_proof = compact_packet_filter_proof(packet_filter_proof_result, packet_filter_control_summary)
     launcher_proof = compact_launcher_proof(launcher_proof_result)
@@ -923,6 +1050,10 @@ def compact_hardening(
     cloudflared_model = compact_cloudflared_model(cloudflared_model_result)
     cloudflared_runtime = compact_cloudflared_runtime_proof(cloudflared_runtime_proof_result)
     hud_model = compact_hud_model(hud_model_result)
+    hud_presenter_model = compact_hud_presenter_model(hud_presenter_model_result)
+    if hud_presenter_model.get("model_defined"):
+        hud_model["superseded_by_presenter_model"] = True
+        hud_model["superseded_reason"] = "wsta129-setcrtc-permission-denied"
     if dropbear_admin_proof.get("dropbear_admin_live_proven"):
         launcher_proof["remaining_profiles"] = [
             item
@@ -955,6 +1086,7 @@ def compact_hardening(
             "cloudflared_model": cloudflared_model,
             "cloudflared_runtime": cloudflared_runtime,
             "hud_model": hud_model,
+            "hud_presenter_model": hud_presenter_model,
         }
     manifest = manifest_result.get("manifest") if isinstance(manifest_result.get("manifest"), dict) else {}
     services = manifest.get("services") if isinstance(manifest.get("services"), list) else []
@@ -986,6 +1118,7 @@ def compact_hardening(
         "cloudflared_model": cloudflared_model,
         "cloudflared_runtime": cloudflared_runtime,
         "hud_model": hud_model,
+        "hud_presenter_model": hud_presenter_model,
     }
 
 
@@ -1011,6 +1144,7 @@ def build_server_status(
     cloudflared_model_result: dict[str, Any] | None,
     cloudflared_runtime_proof_result: dict[str, Any] | None,
     hud_model_result: dict[str, Any] | None,
+    hud_presenter_model_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     status_hud = wsta88_result.get("status_hud") if isinstance(wsta88_result.get("status_hud"), dict) else {}
     if not status_hud:
@@ -1027,6 +1161,7 @@ def build_server_status(
         cloudflared_model_result,
         cloudflared_runtime_proof_result,
         hud_model_result,
+        hud_presenter_model_result,
     )
     public_off = (status_hud.get("public_state") or "PUBLIC_OFF") == "PUBLIC_OFF"
     ready_default_off = public_off and bool(packet_filter.get("ready"))
@@ -1055,6 +1190,11 @@ def build_server_status(
         if isinstance(hardening.get("hud_model"), dict)
         else {}
     )
+    hud_presenter_model = (
+        hardening.get("hud_presenter_model")
+        if isinstance(hardening.get("hud_presenter_model"), dict)
+        else {}
+    )
     operator_next_actions = [
         "keep-public-exposure-default-off",
         "use-explicit-wsta88-live-gate-only-when-attended",
@@ -1066,10 +1206,12 @@ def build_server_status(
         operator_next_actions.append("define-cloudflared-service-model-before-public-profile")
     elif not cloudflared_runtime.get("cloudflared_live_proven"):
         operator_next_actions.append("prove-cloudflared-runtime-through-launcher-before-public-profile")
-    if not hud_model.get("model_defined"):
-        operator_next_actions.append("define-dpublic-hud-service-model-before-hud-live-proof")
+    if hud_presenter_model.get("model_defined"):
+        operator_next_actions.append("prototype-dpublic-hud-intent-presenter-boundary-before-live-hud-profile")
+    elif hud_model.get("model_defined"):
+        operator_next_actions.append("replace-direct-kms-hud-with-presenter-model-before-live-hud-profile")
     else:
-        operator_next_actions.append("prove-dpublic-hud-runtime-drm-boundary-before-always-on-profile")
+        operator_next_actions.append("define-dpublic-hud-service-model-before-hud-live-proof")
     if syscall_trace_proof.get("smoke_syscall_trace_live_proven"):
         operator_next_actions.append(
             "extend-syscall-trace-proof-beyond-dpublic-smoke-httpd-before-seccomp-enforcement"
@@ -1159,6 +1301,11 @@ def markdown(server_status: dict[str, Any]) -> str:
         if isinstance(hardening.get("hud_model"), dict)
         else {}
     )
+    hud_presenter_model = (
+        hardening.get("hud_presenter_model")
+        if isinstance(hardening.get("hud_presenter_model"), dict)
+        else {}
+    )
     lines = [
         "# WSTA Operator Server Status",
         "",
@@ -1215,6 +1362,12 @@ def markdown(server_status: dict[str, Any]) -> str:
         f"- D-public HUD user: `{hud_model.get('user')}`",
         f"- D-public HUD no-network: `{str(bool(hud_model.get('no_network_listener'))).lower()}`",
         f"- D-public HUD DRM node policy: `{str(bool(hud_model.get('drm_node_policy_defined'))).lower()}`",
+        f"- D-public HUD direct KMS superseded: `{str(bool(hud_model.get('superseded_by_presenter_model'))).lower()}`",
+        f"- D-public HUD presenter model: `{str(bool(hud_presenter_model.get('model_defined'))).lower()}`",
+        f"- D-public HUD display architecture: `{hud_presenter_model.get('display_architecture')}`",
+        f"- D-public HUD intent producer no DRM: `{str(bool(hud_presenter_model.get('producer_no_drm_or_kms'))).lower()}`",
+        f"- D-public HUD presenter owner: `{hud_presenter_model.get('presenter_owner')}`",
+        f"- D-public HUD intent file: `{hud_presenter_model.get('intent_file')}`",
         f"- D-public HUD live proof: `{str(bool(hud_model.get('hud_live_proven'))).lower()}`",
         f"- Remaining launcher profiles: `{', '.join(launcher_proof.get('remaining_profiles') or [])}`",
         f"- Remaining syscall profiles: `{', '.join(syscall_trace_proof.get('remaining_profiles') or [])}`",
@@ -1447,6 +1600,28 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             write_json(out_json, result)
             return result
 
+    hud_presenter_model_result: dict[str, Any] | None = None
+    if args.wsta130_hud_presenter_model_json is not None:
+        hud_presenter_model_path, hud_presenter_model_error = require_private_file(
+            args.wsta130_hud_presenter_model_json,
+            "wsta130-hud-presenter-model",
+        )
+        if hud_presenter_model_error or hud_presenter_model_path is None:
+            result["decision"] = (
+                hud_presenter_model_error or "wsta108-blocked-wsta130-hud-presenter-model"
+            )
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+        hud_presenter_model_result = load_json(hud_presenter_model_path)
+        if hud_presenter_model_result.get("decision") != wsta130.PASS_DECISION:
+            result["decision"] = "wsta108-blocked-wsta130-hud-presenter-model-not-pass"
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+
     server_status = build_server_status(
         wsta88_result,
         hardening_result,
@@ -1458,6 +1633,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         cloudflared_model_result,
         cloudflared_runtime_proof_result,
         hud_model_result,
+        hud_presenter_model_result,
     )
     packet_filter_proof = server_status["hardening"].get("packet_filter_proof", {})
     packet_filter_control_proof = (
@@ -1471,6 +1647,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     cloudflared_model = server_status["hardening"].get("cloudflared_model", {})
     cloudflared_runtime = server_status["hardening"].get("cloudflared_runtime", {})
     hud_model = server_status["hardening"].get("hud_model", {})
+    hud_presenter_model = server_status["hardening"].get("hud_presenter_model", {})
     result["server_status"] = server_status
     result["checks"] = {
         "wsta88_workflow_pass": True,
@@ -1520,6 +1697,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             and hud_model.get("launcher_caps_zero_required")
         ),
         "hud_live_proven": bool(hud_model.get("hud_live_proven")),
+        "hud_presenter_model_supplied": hud_presenter_model_result is not None,
+        "hud_presenter_model_defined": bool(hud_presenter_model.get("model_defined")),
+        "hud_direct_nonroot_kms_rejected": bool(
+            hud_presenter_model.get("supersedes_wsta127_direct_kms")
+        ),
+        "hud_intent_producer_no_drm": bool(hud_presenter_model.get("producer_no_drm_or_kms")),
+        "hud_intent_producer_no_network": bool(hud_presenter_model.get("producer_no_network")),
+        "hud_native_presenter_owner": hud_presenter_model.get("presenter_owner") == "native-init",
+        "hud_intent_schema_fail_closed": bool(
+            hud_presenter_model.get("intent_parser_fail_closed")
+            and hud_presenter_model.get("intent_secret_fields_forbidden")
+        ),
         "default_public_off": True,
         "public_url_value_logged": False,
         "secret_values_logged": 0,
@@ -1587,6 +1776,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         result["ended_utc"] = utc_stamp()
         write_json(out_json, result)
         return result
+    if (
+        hud_presenter_model_result is not None
+        and not result["checks"]["hud_presenter_model_defined"]
+    ):
+        result["decision"] = "wsta108-blocked-wsta130-hud-presenter-model-incomplete"
+        result["gate_decision"] = result["decision"]
+        result["ended_utc"] = utc_stamp()
+        write_json(out_json, result)
+        return result
 
     result["decision"] = PASS_DECISION
     result["gate_decision"] = "ok"
@@ -1622,6 +1820,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--wsta122-cloudflared-model-json", type=Path)
     parser.add_argument("--wsta125-cloudflared-runtime-proof-json", type=Path)
     parser.add_argument("--wsta127-hud-model-json", type=Path)
+    parser.add_argument("--wsta130-hud-presenter-model-json", type=Path)
     parser.add_argument("--print-template", action="store_true")
     parser.add_argument("--print-full-json", action="store_true")
     return parser
