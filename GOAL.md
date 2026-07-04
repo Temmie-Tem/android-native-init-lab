@@ -2640,6 +2640,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA91 should run a read-only live netfilter/iptables/nftables inventory before choosing the
 > packet-filter default-drop backend; WSTA92 can then turn the manifest into a rootfs user/group + no-new-privs
 > launcher plan.
+> **🟡 STATUS (2026-07-04 22:17 KST host clock) — WSTA91 netfilter
+> inventory READ-ONLY LIVE PASS, backend still NOT PROVEN.**  Codex added
+> `run_wsta91_netfilter_inventory.py`, a live read-only inventory runner that observes `/proc/config.gz`,
+> `/proc/net` netfilter surfaces, and userspace tool presence without executing any `iptables`/`ip6tables`/`nft`
+> rule-management command.  Preflight resident was `v3397-wsta-execute-gate-screen`; status and selftest were clean
+> before the run, and the runner's pre/post selftests both stayed `fail=0`.  Kernel config shows legacy netfilter is
+> present (`CONFIG_NETFILTER=y`, `CONFIG_NF_CONNTRACK=y`, `CONFIG_IP_NF_IPTABLES=y`,
+> `CONFIG_IP6_NF_IPTABLES=y`, `CONFIG_NETFILTER_XTABLES=y`) while nftables is disabled
+> (`CONFIG_NF_TABLES=n`).  Runtime procfs surfaces are present for iptables names, ip6tables names, conntrack, and
+> netfilter sysctl.  However, native userspace currently exposes no `iptables`, no `ip6tables`, and no `nft`, so
+> `backend_recommendation=not-proven` and `default_drop_ready_for_source=false`.  Validation passed WSTA91 tests,
+> WSTA89/WSTA90/WSTA91 regression tests, `py_compile`, live read-only inventory, and `git diff --check`.  No boot
+> image, flash, native reboot, Wi-Fi association, DHCP, public tunnel, public smoke, userdata action, switch-root, or
+> packet-filter mutation ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA91_NETFILTER_INVENTORY_2026-07-04.md`.
+> **NEXT:** do not enforce packet-filter policy yet.  WSTA92 should stage or select a legacy iptables userspace
+> backend for the D-public environment, then a later live unit can prototype bounded loopback-only default-drop.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
