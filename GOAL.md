@@ -2609,6 +2609,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA88_OPERATOR_WORKFLOW_SOURCE_2026-07-04.md`.
 > **NEXT:** WSTA publish/proof UX is now source-productized around the live-proven path.  Continue with
 > containment/hardening or the next server-distro persistence rung instead of repeating the same WSTA live proof.
+> **🟢 STATUS (2026-07-04 22:07 KST host clock) — WSTA89 D-harden
+> readiness audit SOURCE/HOST PASS.**  Codex added `run_wsta89_hardening_readiness_audit.py`, a host-only
+> readiness audit that consumes the existing redacted D0 and Debian-eye inventory summaries and emits a private
+> D-harden control matrix.  Current evidence says seccomp is ready for profile-source work
+> (`CONFIG_SECCOMP=y`, `CONFIG_SECCOMP_FILTER=y`), network namespaces are partial because `CONFIG_VETH=n`,
+> TUN is partial because `/dev/net/tun` is absent, AppArmor still needs proof, overlayfs is absent so persistence
+> must stay plain ext4, and Tier-2 hard-disable needs target selection after service requirements are fixed.
+> Always-on public posture blockers are now explicit: `capability-drop-nonroot-services` and
+> `packet-filter-default-drop`.  Validation passed WSTA89 tests, `py_compile`, a real host-only WSTA89 run against
+> current private summaries, and `git diff --check`.  No boot image, flash, device command, native reboot,
+> Wi-Fi association, DHCP, public tunnel, public smoke, userdata action, switch-root, or non-boot partition write
+> ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA89_HARDENING_READINESS_AUDIT_2026-07-04.md`.
+> **NEXT:** WSTA90 should define the per-service seccomp/capability manifest skeleton; run netfilter inventory as
+> a separate read-only live unit before choosing iptables/nftables default-drop.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
