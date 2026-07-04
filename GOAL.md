@@ -1359,6 +1359,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA23_UPLINK_SERVICE_LIVE_PASS_2026-07-04.md`.
 > **NEXT:** WSTA24 Debian-side uplink-service client/helper for `status` and no-confirm denial proofs.
 > Full confirmed autoconnect/DHCP remains parked until a separate credential-gated live unit.
+> **🟢 STATUS (2026-07-04 10:56 KST host clock) — WSTA24 Debian uplink-service client SOURCE/HOST PASS.**
+> Codex added `/usr/local/bin/a90-native-wifi-uplink-client` as a Debian-side helper distinct from
+> the WSTA21 status/scan helper.  It allows only `status` and `autoconnect-no-confirm`; the latter
+> writes `op=autoconnect` without a confirm token and expects
+> `wifi-uplink-service-confirm-required`.  Confirmed autoconnect, connect, association, DHCP, ping,
+> and public tunnel operations are denied before any request file is written.  Output is allowlisted,
+> omits profile label values, and always records `native_wifi_uplink_client_secret_values_logged=0`.
+> The WSTA3 private rootfs preparer and base Debian rootfs builder now stage the helper at
+> `usr/local/bin/a90-native-wifi-uplink-client`.  Host validation passed: shell syntax, `py_compile`,
+> and 25 unit tests.  No flash, association, DHCP, ping, public tunnel, userdata, or switch-root ran.
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA24_UPLINK_CLIENT_SOURCE_2026-07-04.md`.
+> **NEXT:** WSTA24 live gate on resident V3387 — mount Debian chroot, start native
+> `wifi uplink-service`, run the helper from Debian for `status` and `autoconnect-no-confirm`, verify
+> redaction/denial, cleanup, and finish with `selftest fail=0`.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

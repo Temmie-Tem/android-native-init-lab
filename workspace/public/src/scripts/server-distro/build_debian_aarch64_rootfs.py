@@ -55,6 +55,8 @@ DPUBLIC_WIFI_STA_HELPER = SCRIPT_DIR / "a90_dpublic_wifi_sta.sh"
 DPUBLIC_WIFI_STA_TARGET = Path("usr/local/bin/a90-dpublic-wifi-sta")
 NATIVE_WIFI_SERVICE_CLIENT = SCRIPT_DIR / "a90_native_wifi_service_client.sh"
 NATIVE_WIFI_SERVICE_CLIENT_TARGET = Path("usr/local/bin/a90-native-wifi-service-client")
+NATIVE_WIFI_UPLINK_CLIENT = SCRIPT_DIR / "a90_native_wifi_uplink_client.sh"
+NATIVE_WIFI_UPLINK_CLIENT_TARGET = Path("usr/local/bin/a90-native-wifi-uplink-client")
 
 
 def run(cmd: list[str], **kw) -> None:
@@ -90,6 +92,7 @@ def stage_server_distro_helpers(rootfs: Path) -> None:
     helper_targets = (
         (DPUBLIC_WIFI_STA_HELPER, rootfs / DPUBLIC_WIFI_STA_TARGET),
         (NATIVE_WIFI_SERVICE_CLIENT, rootfs / NATIVE_WIFI_SERVICE_CLIENT_TARGET),
+        (NATIVE_WIFI_UPLINK_CLIENT, rootfs / NATIVE_WIFI_UPLINK_CLIENT_TARGET),
     )
     for source, helper_target in helper_targets:
         helper_target.parent.mkdir(parents=True, exist_ok=True)
@@ -116,6 +119,7 @@ def stage_customize(rootfs: Path, hostname: str) -> None:
         "wifi-sta=opt-in via /etc/a90-dpublic/wifi-sta-enable, private config not included\n"
         "wifi-sta-helper=/usr/local/bin/a90-dpublic-wifi-sta\n"
         "native-wifi-service-client=/usr/local/bin/a90-native-wifi-service-client\n"
+        "native-wifi-uplink-client=/usr/local/bin/a90-native-wifi-uplink-client\n"
         "WARNING: configure credentials/keys before any network/public exposure (design E.6)\n"
     )
     resolv.unlink(missing_ok=True)

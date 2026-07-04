@@ -522,3 +522,25 @@ WSTA24 Debian-side uplink-service client/helper:
    unless a future credential-gated unit explicitly authorizes them.
 4. Stage the helper through the SD-backed Debian rootfs preparation path.
 5. Live-gate helper behavior against resident V3387 without running association/DHCP.
+
+WSTA24 source result: pass.  `/usr/local/bin/a90-native-wifi-uplink-client` now supports only
+`status` and `autoconnect-no-confirm`, deny-lists confirmed autoconnect/connect/DHCP/ping/public
+tunnel before request write, filters response output to redacted allowlisted keys, and is staged by
+both the WSTA3 private rootfs preparer and base Debian rootfs builder.  Host validation passed with
+shell syntax, `py_compile`, and 25 unit tests.  Report:
+`docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA24_UPLINK_CLIENT_SOURCE_2026-07-04.md`.
+
+## 9. Next Implementation Unit
+
+WSTA24 live gate on resident V3387:
+
+1. Confirm resident V3387 health and `selftest fail=0`.
+2. Mount the SD-backed Debian chroot and start temporary key-only dropbear as in WSTA22.
+3. Start native `wifi uplink-service` in a chroot-visible service directory.
+4. Run `/usr/local/bin/a90-native-wifi-uplink-client status` from Debian and verify pass/redaction.
+5. Run `/usr/local/bin/a90-native-wifi-uplink-client autoconnect-no-confirm` from Debian and verify
+   `wifi-uplink-service-confirm-required`.
+6. Stop native service, remove temporary helper staging if used, cleanup chroot/dropbear/loop state,
+   and finish with `selftest fail=0`.
+
+Do not run confirmed autoconnect, association, DHCP, ping, or public tunnel work in WSTA24.
