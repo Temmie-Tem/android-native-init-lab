@@ -3089,6 +3089,30 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > prove process UID/GID `3902/3902`, no-new-privs, CapEff zero, outbound-only behavior, private URL artifact
 > capture without committed URL value, cleanup of process/runtime sidecars, and cloudflared syscall trace before
 > any always-on/seccomp claim.
+>
+> **🟡 STATUS (2026-07-05 05:46 KST host clock) — WSTA124 CLOUDFLARED RUNTIME LIVE GATE
+> SOURCE+LIVE BLOCKED CLEANLY AT UPSTREAM EGRESS.**  Codex added
+> `workspace/public/src/scripts/server-distro/run_wsta124_cloudflared_runtime_live_gate.py` and focused tests.
+> The runner is inert by default, requires explicit cloudflared-runtime/public-exposure/private-URL/cleanup
+> acknowledgements, uses the SD-backed Debian work image as a temporary chroot service surface, stages
+> `cloudflared` plus the D-public smoke/packet-filter helpers, launches through `a90-service-launch`, and keeps
+> public URL values out of JSON/commits.  Live development found and fixed three runner-side issues: smoke PID
+> detection now uses the background launch PID instead of fragile `pidof`, the large runtime probe is staged as a
+> remote script instead of a long inline SSH command, and the trace file is pre-created writable before non-root
+> `a90tunnel` runs `strace`.  The runner also now skips packet-filter apply on failed preflight, rejects loopback/
+> link-local resolvers, stages a redacted host resolver fallback, and adds a redacted resolver-target egress-route
+> preflight.  Final WSTA124 v7 used the WSTA115 strace/packet-filter rootfs, restored it from the clean cache, mounted
+> chroot, started temporary key-only Dropbear, staged service hardening and D-public binaries, synced resolver from
+> host fallback with values redacted, then stopped before packet-filter apply/runtime with
+> `decision=wsta124-blocked-egress-route`: `default_route_dev=ncm0`, `resolver_ready=true`, but
+> `A90WSTA124_EGRESS_ROUTE target_present=1 route_ok=0 target_redacted=1`.  Packet filter and cloudflared were not
+> started in the final v7 run; no public URL was observed or saved.  Cleanup/postcheck proved mount/loop/Dropbear
+> absent and final resident health stayed `selftest pass=12 warn=1 fail=0`.  Focused WSTA124 tests passed (`9 tests`);
+> full WSTA regression passed (`403 tests`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA124_CLOUDFLARED_RUNTIME_LIVE_GATE_2026-07-05.md`.
+> **NEXT:** establish a known-good upstream route before retrying cloudflared runtime: either reuse the proven
+> WSTA43/WSTA45 native-owned STA publish precondition, or add an explicitly gated NCM-egress/NAT preflight.  After
+> egress is proven, rerun WSTA124 and fold the resulting private runtime proof into WSTA108 operator status.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
