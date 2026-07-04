@@ -3113,6 +3113,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** establish a known-good upstream route before retrying cloudflared runtime: either reuse the proven
 > WSTA43/WSTA45 native-owned STA publish precondition, or add an explicitly gated NCM-egress/NAT preflight.  After
 > egress is proven, rerun WSTA124 and fold the resulting private runtime proof into WSTA108 operator status.
+>
+> **🟢 STATUS (2026-07-05 05:56 KST host clock) — WSTA125 NATIVE-UPSTREAM +
+> CLOUDFLARED RUNTIME SOURCE GATE.**  Codex added
+> `workspace/public/src/scripts/server-distro/run_wsta125_native_upstream_cloudflared_runtime.py` as the narrow
+> integration runner for WSTA124's upstream blocker.  WSTA125 is inert by default and requires explicit gates for
+> credentialed Wi-Fi, cloudflared runtime, public exposure, private URL artifact handling, cleanup, optional WSTA28
+> native reboot precondition, and the native uplink confirm token.  Its live path holds the native-owned STA uplink
+> service active, keeps the SD-backed Debian chroot/Dropbear session open, then reuses WSTA124 resolver sync,
+> redacted egress-route preflight, packet-filter apply/restore, `a90-service-launch` cloudflared runtime probe,
+> private URL artifact capture, syscall trace capture, and cleanup in the same session.  A mocked live-path test
+> proves that native uplink start/confirm happens before egress classification and that packet-filter/runtime are
+> skipped if egress still fails.  No boot image, flash, native reboot, Wi-Fi connect, public tunnel, packet-filter
+> mutation, userdata action, or switch-root ran in this source unit.  Validation passed `py_compile`, WSTA125 focused
+> tests (`6 tests`), default inert/template smoke, and full server-distro WSTA regression (`409 tests`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA125_NATIVE_UPSTREAM_CLOUDFLARED_RUNTIME_SOURCE_2026-07-05.md`.
+> **NEXT:** run WSTA125 live with `--run-wsta28-precondition --allow-native-reboot --use-native-uplink-profile` plus
+> the explicit native/cloudflared gates.  If WSTA125 passes, fold its private runtime proof into WSTA108/WSTA90 and
+> retire the WSTA124 egress-route blocker.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
