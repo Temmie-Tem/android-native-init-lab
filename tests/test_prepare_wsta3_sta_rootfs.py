@@ -273,6 +273,33 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertNotIn("ssid=", text.lower())
             self.assertNotIn("psk=", text.lower())
 
+    def test_stage_packet_filter_helper_is_manual_and_restorable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp)
+
+            result = wsta3.stage_packet_filter_helper(rootfs)
+
+            target = rootfs / wsta3.TARGET_PACKET_FILTER
+            text = target.read_text(encoding="utf-8")
+            self.assertTrue(result["latest_helper_staged"])
+            self.assertTrue(result["preflight_op_present"])
+            self.assertTrue(result["apply_op_present"])
+            self.assertTrue(result["restore_op_present"])
+            self.assertTrue(result["save_before_apply_present"])
+            self.assertTrue(result["failure_restore_present"])
+            self.assertTrue(result["loopback_accept_present"])
+            self.assertTrue(result["default_drop_present"])
+            self.assertTrue(result["output_accept_present"])
+            self.assertTrue(result["auto_apply_absent"])
+            self.assertTrue(result["secret_hygiene_marker"])
+            self.assertEqual(target.stat().st_mode & 0o777, 0o755)
+            self.assertIn("apply-loopback-default-drop)", text)
+            self.assertIn("restore_saved_rules", text)
+            self.assertIn("packet_filter_apply_autostart=0", text)
+            self.assertNotIn("cloudflared tunnel", text)
+            self.assertNotIn("ssid=", text.lower())
+            self.assertNotIn("psk=", text.lower())
+
     def test_stage_native_uplink_marker_merges_without_overwriting_existing_stage(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             rootfs = Path(tmp)
@@ -441,10 +468,12 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertIn("stage=old", text)
             self.assertNotIn("packet-filter-backend=old", text)
             self.assertTrue(result["backend_marker_present"])
+            self.assertTrue(result["helper_marker_present"])
             self.assertTrue(result["tools_marker_present"])
             self.assertTrue(result["policy_not_enforced_marker_present"])
             self.assertTrue(result["default_drop_deferred_marker_present"])
             self.assertIn("packet-filter-backend=legacy-iptables", text)
+            self.assertIn("packet-filter-helper=/usr/local/bin/a90-dpublic-packet-filter", text)
             self.assertIn("packet-filter-policy=not-enforced", text)
             self.assertIn("packet-filter-default-drop=deferred-WSTA93", text)
 
@@ -538,22 +567,31 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertTrue(result["native_uplink_profile"]["latest_helper_staged"])
             self.assertTrue(result["native_uplink_profile"]["operator_enable_gate_present"])
             self.assertTrue(result["native_uplink_profile"]["public_default_off_marker"])
+            self.assertTrue(result["packet_filter_helper"]["latest_helper_staged"])
+            self.assertTrue(result["packet_filter_helper"]["restore_op_present"])
+            self.assertTrue(result["packet_filter_helper"]["auto_apply_absent"])
             self.assertTrue(result["native_uplink_stage_marker"]["profile_marker_present"])
             self.assertTrue(result["native_uplink_stage_marker"]["public_default_off_marker"])
             self.assertTrue(result["packet_filter_tools"]["ok"])
             self.assertEqual(result["packet_filter_tools"]["backend"], "legacy-iptables")
             self.assertFalse(result["packet_filter_tools"]["policy_enforced"])
             self.assertTrue(result["packet_filter_stage_marker"]["backend_marker_present"])
+            self.assertTrue(result["packet_filter_stage_marker"]["helper_marker_present"])
             self.assertTrue(result["packet_filter_stage_marker"]["default_drop_deferred_marker_present"])
             self.assertTrue((target / wsta3.TARGET_NATIVE_WIFI_SERVICE_CLIENT).is_file())
             self.assertTrue((target / wsta3.TARGET_NATIVE_WIFI_UPLINK_CLIENT).is_file())
             self.assertTrue((target / wsta3.TARGET_NATIVE_UPLINK_PROFILE).is_file())
+            self.assertTrue((target / wsta3.TARGET_PACKET_FILTER).is_file())
             self.assertIn(
                 "native-uplink-profile=/usr/local/bin/a90-dpublic-native-uplink-profile",
                 (target / wsta3.TARGET_STAGE_MARKER).read_text(encoding="utf-8"),
             )
             self.assertIn(
                 "packet-filter-backend=legacy-iptables",
+                (target / wsta3.TARGET_STAGE_MARKER).read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                "packet-filter-helper=/usr/local/bin/a90-dpublic-packet-filter",
                 (target / wsta3.TARGET_STAGE_MARKER).read_text(encoding="utf-8"),
             )
             self.assertFalse(result["api_probe_tools"]["requested"])

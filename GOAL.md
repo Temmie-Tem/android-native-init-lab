@@ -2675,6 +2675,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA92_PACKET_FILTER_BACKEND_SOURCE_2026-07-04.md`.
 > **NEXT:** WSTA93 should prototype a bounded loopback-only default-drop policy using the legacy iptables backend,
 > with an explicit restore path before any persistent/always-on claim.
+> **🟢 STATUS (2026-07-04 22:45 KST host clock) — WSTA93 packet-filter
+> helper SOURCE/HOST PASS.**  Codex added `a90_dpublic_packet_filter.sh` and stages it into the Debian D-public
+> rootfs at `/usr/local/bin/a90-dpublic-packet-filter`; firstboot does not invoke it.  The helper exposes
+> `preflight`, `apply-loopback-default-drop`, `restore`, and `status`.  The apply path uses the WSTA92
+> `legacy-iptables` backend, saves current IPv4/IPv6 filter tables first, applies a loopback-only default-drop
+> prototype (`INPUT DROP`, `FORWARD DROP`, `OUTPUT ACCEPT`, loopback plus established/related input accepted), and
+> attempts restore if apply fails.  The host-only private rootfs run staged the helper with
+> `preflight_op_present=true`, `apply_op_present=true`, `restore_op_present=true`,
+> `save_before_apply_present=true`, `failure_restore_present=true`, `auto_apply_absent=true`,
+> `secret_values_logged=0`, and no tarball.  Validation passed shell syntax, focused WSTA3/builder tests
+> (`28 tests`), `py_compile`, host-only WSTA93 private rootfs run, and `git diff --check`.  No boot image, flash,
+> device command, native reboot, Wi-Fi association, DHCP, public tunnel, public smoke, userdata action, switch-root,
+> or packet-filter mutation ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA93_PACKET_FILTER_HELPER_SOURCE_2026-07-04.md`.
+> **NEXT:** WSTA94 can be a live bounded prototype: fresh private rootfs with helper -> `preflight` -> apply
+> loopback-only default-drop -> verify loopback smoke and blocked unexpected inbound -> `restore` -> cleanup.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

@@ -60,6 +60,8 @@ NATIVE_WIFI_UPLINK_CLIENT = SCRIPT_DIR / "a90_native_wifi_uplink_client.sh"
 NATIVE_WIFI_UPLINK_CLIENT_TARGET = Path("usr/local/bin/a90-native-wifi-uplink-client")
 DPUBLIC_NATIVE_UPLINK_PROFILE = SCRIPT_DIR / "a90_dpublic_native_uplink_profile.sh"
 DPUBLIC_NATIVE_UPLINK_PROFILE_TARGET = Path("usr/local/bin/a90-dpublic-native-uplink-profile")
+DPUBLIC_PACKET_FILTER = SCRIPT_DIR / "a90_dpublic_packet_filter.sh"
+DPUBLIC_PACKET_FILTER_TARGET = Path("usr/local/bin/a90-dpublic-packet-filter")
 
 
 def run(cmd: list[str], **kw) -> None:
@@ -97,6 +99,7 @@ def stage_server_distro_helpers(rootfs: Path) -> None:
         (NATIVE_WIFI_SERVICE_CLIENT, rootfs / NATIVE_WIFI_SERVICE_CLIENT_TARGET),
         (NATIVE_WIFI_UPLINK_CLIENT, rootfs / NATIVE_WIFI_UPLINK_CLIENT_TARGET),
         (DPUBLIC_NATIVE_UPLINK_PROFILE, rootfs / DPUBLIC_NATIVE_UPLINK_PROFILE_TARGET),
+        (DPUBLIC_PACKET_FILTER, rootfs / DPUBLIC_PACKET_FILTER_TARGET),
     )
     for source, helper_target in helper_targets:
         helper_target.parent.mkdir(parents=True, exist_ok=True)
@@ -127,6 +130,7 @@ def stage_customize(rootfs: Path, hostname: str) -> None:
         "native-uplink-profile=/usr/local/bin/a90-dpublic-native-uplink-profile\n"
         "native-uplink=operator-controlled via /etc/a90-dpublic/native-uplink-enable\n"
         "packet-filter-backend=legacy-iptables\n"
+        "packet-filter-helper=/usr/local/bin/a90-dpublic-packet-filter\n"
         "packet-filter-policy=not-enforced; WSTA92 stages tools only\n"
         "public-exposure-default=off; quick-tunnel requires /etc/a90-dpublic/cloudflared-quick-enable\n"
         "WARNING: configure credentials/keys before any network/public exposure (design E.6)\n"

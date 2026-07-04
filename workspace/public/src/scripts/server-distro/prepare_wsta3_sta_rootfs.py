@@ -52,6 +52,7 @@ TARGET_API_PROBE = Path("usr/local/bin/a90-dpublic-api-probe")
 TARGET_NATIVE_WIFI_SERVICE_CLIENT = Path("usr/local/bin/a90-native-wifi-service-client")
 TARGET_NATIVE_WIFI_UPLINK_CLIENT = Path("usr/local/bin/a90-native-wifi-uplink-client")
 TARGET_NATIVE_UPLINK_PROFILE = Path("usr/local/bin/a90-dpublic-native-uplink-profile")
+TARGET_PACKET_FILTER = Path("usr/local/bin/a90-dpublic-packet-filter")
 TARGET_FIRSTBOOT = Path("etc/a90-d3-firstboot")
 TARGET_STAGE_MARKER = Path("etc/a90-server-distro-stage")
 DPUBLIC_BINARY_TARGETS = {
@@ -65,6 +66,7 @@ DPUBLIC_API_PROBE = SCRIPT_DIR / "a90_dpublic_api_probe.sh"
 DPUBLIC_NATIVE_WIFI_SERVICE_CLIENT = SCRIPT_DIR / "a90_native_wifi_service_client.sh"
 DPUBLIC_NATIVE_WIFI_UPLINK_CLIENT = SCRIPT_DIR / "a90_native_wifi_uplink_client.sh"
 DPUBLIC_NATIVE_UPLINK_PROFILE = SCRIPT_DIR / "a90_dpublic_native_uplink_profile.sh"
+DPUBLIC_PACKET_FILTER = SCRIPT_DIR / "a90_dpublic_packet_filter.sh"
 DPUBLIC_FIRSTBOOT = SCRIPT_DIR / "a90_dpublic_firstboot.sh"
 PRIVATE_FILE_MODE = 0o600
 STA_TOOL_PACKAGES = ("wpasupplicant", "isc-dhcp-client", "netcat-openbsd", "iw")
@@ -114,8 +116,9 @@ NATIVE_UPLINK_STAGE_MARKERS = (
 )
 PACKET_FILTER_STAGE_MARKERS = (
     "packet-filter-backend=legacy-iptables",
+    "packet-filter-helper=/usr/local/bin/a90-dpublic-packet-filter",
     "packet-filter-tools=/usr/sbin/iptables-legacy /usr/sbin/ip6tables-legacy",
-    "packet-filter-policy=not-enforced; WSTA92 stages tools only",
+    "packet-filter-policy=not-enforced; WSTA93 helper staged for manual bounded prototype",
     "packet-filter-default-drop=deferred-WSTA93",
 )
 
@@ -693,6 +696,33 @@ def stage_native_uplink_profile(rootfs: Path) -> dict[str, Any]:
     }
 
 
+def stage_packet_filter_helper(rootfs: Path) -> dict[str, Any]:
+    helper_target = rootfs / TARGET_PACKET_FILTER
+    if not DPUBLIC_PACKET_FILTER.is_file():
+        raise FileNotFoundError(DPUBLIC_PACKET_FILTER)
+    helper_target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(DPUBLIC_PACKET_FILTER, helper_target)
+    helper_target.chmod(0o755)
+    text = helper_target.read_text(encoding="utf-8")
+    return {
+        "helper_target": str(TARGET_PACKET_FILTER),
+        "helper_mode": oct(helper_target.stat().st_mode & 0o777),
+        "latest_helper_staged": True,
+        "preflight_op_present": "preflight)" in text and "packet-filter-preflight-pass" in text,
+        "apply_op_present": "apply-loopback-default-drop)" in text
+        and "packet-filter-loopback-default-drop-applied" in text,
+        "restore_op_present": "restore)" in text and "packet-filter-restored" in text,
+        "save_before_apply_present": "save_current_rules" in text and "packet_filter_saved_before=1" in text,
+        "failure_restore_present": "packet-filter-apply-failed-restored" in text,
+        "loopback_accept_present": "-A INPUT -i lo -j ACCEPT" in text,
+        "default_drop_present": ":INPUT DROP" in text and ":FORWARD DROP" in text,
+        "output_accept_present": ":OUTPUT ACCEPT" in text,
+        "auto_apply_absent": "packet_filter_apply_autostart=0" in text,
+        "secret_hygiene_marker": "packet_filter_secret_values_logged=0" in text,
+        "secret_values_logged": 0,
+    }
+
+
 def stage_native_uplink_stage_marker(rootfs: Path) -> dict[str, Any]:
     marker = rootfs / TARGET_STAGE_MARKER
     marker.parent.mkdir(parents=True, exist_ok=True)
@@ -731,9 +761,10 @@ def stage_packet_filter_stage_marker(rootfs: Path) -> dict[str, Any]:
     return {
         "marker_target": str(TARGET_STAGE_MARKER),
         "backend_marker_present": PACKET_FILTER_STAGE_MARKERS[0] in lines,
-        "tools_marker_present": PACKET_FILTER_STAGE_MARKERS[1] in lines,
-        "policy_not_enforced_marker_present": PACKET_FILTER_STAGE_MARKERS[2] in lines,
-        "default_drop_deferred_marker_present": PACKET_FILTER_STAGE_MARKERS[3] in lines,
+        "helper_marker_present": PACKET_FILTER_STAGE_MARKERS[1] in lines,
+        "tools_marker_present": PACKET_FILTER_STAGE_MARKERS[2] in lines,
+        "policy_not_enforced_marker_present": PACKET_FILTER_STAGE_MARKERS[3] in lines,
+        "default_drop_deferred_marker_present": PACKET_FILTER_STAGE_MARKERS[4] in lines,
         "secret_values_logged": 0,
     }
 
@@ -899,6 +930,7 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
     result["native_wifi_service_client"] = stage_native_wifi_service_client(target_rootfs)
     result["native_wifi_uplink_client"] = stage_native_wifi_uplink_client(target_rootfs)
     result["native_uplink_profile"] = stage_native_uplink_profile(target_rootfs)
+    result["packet_filter_helper"] = stage_packet_filter_helper(target_rootfs)
     result["native_uplink_stage_marker"] = stage_native_uplink_stage_marker(target_rootfs)
     result["packet_filter_stage_marker"] = stage_packet_filter_stage_marker(target_rootfs)
     if args.immediate_snapshot_only:
