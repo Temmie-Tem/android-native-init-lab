@@ -98,6 +98,24 @@ def cmdv1_summary(record: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def post_reboot_public_off_cleanup_ok(steps: dict[str, dict[str, Any]]) -> bool:
+    status = steps.get("wifi_status", {})
+    final_public_off = (
+        status.get("autoconnect_decision") == "wifi-autoconnect-disabled"
+        and status.get("secret_values_logged") == "0"
+        and status.get("supplicant_process_count") == "0"
+    )
+    autoconnect_disable_ok = (
+        steps.get("autoconnect_disable", {}).get("decision") == "wifi-autoconnect-disabled"
+        or steps.get("autoconnect_disable", {}).get("status") == "ok"
+    )
+    wifi_cleanup_ok = (
+        steps.get("wifi_cleanup", {}).get("decision") == "wifi-cleanup-done"
+        or steps.get("wifi_cleanup", {}).get("status") == "ok"
+    )
+    return bool(final_public_off and autoconnect_disable_ok and wifi_cleanup_ok)
+
+
 def post_reboot_public_off_cleanup(args: argparse.Namespace) -> dict[str, Any]:
     native = post_reboot_native_args(args)
     steps: dict[str, dict[str, Any]] = {}
@@ -114,15 +132,15 @@ def post_reboot_public_off_cleanup(args: argparse.Namespace) -> dict[str, Any]:
             attempts=2,
         )
         steps[name] = cmdv1_summary(record)
-    ok = (
-        steps["hide"].get("status") == "ok"
-        and steps["autoconnect_disable"].get("decision") == "wifi-autoconnect-disabled"
-        and steps["wifi_cleanup"].get("decision") == "wifi-cleanup-done"
-        and steps["wifi_status"].get("autoconnect_decision") == "wifi-autoconnect-disabled"
-        and steps["wifi_status"].get("secret_values_logged") == "0"
-    )
+    ok = post_reboot_public_off_cleanup_ok(steps)
     return {
         "ok": ok,
+        "final_state_public_off": bool(
+            steps["wifi_status"].get("autoconnect_decision") == "wifi-autoconnect-disabled"
+            and steps["wifi_status"].get("secret_values_logged") == "0"
+            and steps["wifi_status"].get("supplicant_process_count") == "0"
+        ),
+        "hide_noncritical": True,
         "steps": steps,
         "public_url_value_logged": False,
         "secret_values_logged": 0,

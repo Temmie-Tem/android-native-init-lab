@@ -51,6 +51,41 @@ class ServerDistroWsta28RebootMaterializationGateTests(unittest.TestCase):
         self.assertEqual(runner.classify(blocked), "wsta28-reboot-materialization-still-blocked")
         self.assertEqual(runner.classify(cleanup_blocked), "wsta28-blocked-post-reboot-public-off-cleanup")
 
+    def test_post_reboot_public_off_cleanup_accepts_final_safe_state_when_decision_parse_is_sparse(self) -> None:
+        steps = {
+            "hide": {"transport_ok": False},
+            "autoconnect_disable": {"status": "ok", "decision": None},
+            "wifi_cleanup": {"status": "ok", "decision": None},
+            "wifi_status": {
+                "autoconnect_decision": "wifi-autoconnect-disabled",
+                "secret_values_logged": "0",
+                "supplicant_process_count": "0",
+            },
+        }
+        self.assertTrue(runner.post_reboot_public_off_cleanup_ok(steps))
+
+    def test_post_reboot_public_off_cleanup_still_blocks_when_final_state_is_not_public_off(self) -> None:
+        base = {
+            "hide": {"status": "ok"},
+            "autoconnect_disable": {"status": "ok"},
+            "wifi_cleanup": {"status": "ok"},
+            "wifi_status": {
+                "autoconnect_decision": "wifi-autoconnect-disabled",
+                "secret_values_logged": "0",
+                "supplicant_process_count": "0",
+            },
+        }
+        for variant in (
+            {"autoconnect_decision": "wifi-autoconnect-enabled"},
+            {"secret_values_logged": "1"},
+            {"supplicant_process_count": "1"},
+        ):
+            steps = {
+                **base,
+                "wifi_status": {**base["wifi_status"], **variant},
+            }
+            self.assertFalse(runner.post_reboot_public_off_cleanup_ok(steps))
+
     def test_public_summary_omits_health_transcripts(self) -> None:
         result = {
             "decision": "wsta28-reboot-materialization-scan-gate-pass",

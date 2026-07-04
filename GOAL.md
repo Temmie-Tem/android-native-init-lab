@@ -2568,6 +2568,18 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA85_CLEAN_IMAGE_CACHE_LIVE_BLOCKED_2026-07-04.md`.
 > **NEXT:** fix WSTA28 to key on final public-off state while still failing closed on enabled autoconnect,
 > live supplicant, or secret logging, then rerun the WSTA58 measurement.
+> **🟢 STATUS (2026-07-04 21:36 KST host clock) — WSTA86 WSTA28
+> public-off cleanup tolerance SOURCE PASS.**  Codex fixed the WSTA85 blocker by making WSTA28 accept sparse
+> intermediate cleanup command parses when the final `wifi status` proves public-off: autoconnect disabled,
+> `supplicant.process_count=0`, and `secret_values_logged=0`.  The gate still fails closed if the final state
+> has autoconnect enabled, a live supplicant, or nonzero secret logging.  The public cleanup summary now records
+> `final_state_public_off` and marks `hide` as noncritical metadata.  Validation passed `py_compile`, 41 focused
+> WSTA28/WSTA43/WSTA55/WSTA58/WSTA80 tests, and `git diff --check`.  No boot image, flash, device command,
+> native reboot, Wi-Fi association, DHCP, public tunnel, public smoke, userdata action, switch-root, or
+> non-boot partition write ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA86_WSTA28_PUBLIC_OFF_CLEANUP_TOLERANCE_SOURCE_2026-07-04.md`.
+> **NEXT:** rerun the WSTA80→WSTA58 live measurement and inspect the nested WSTA42 results for
+> clean-image install/restore behavior.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
