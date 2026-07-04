@@ -1931,6 +1931,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA now has host wrapper/template/aggregate/runbook plus native menu visibility.  The next
 > meaningful WSTA unit should be either a deliberately gated persistent exposure design or live validation
 > of the new `screenapp wsta` surface in a boot artifact; avoid another host-only productization-only pass.
+> **🟢 STATUS (2026-07-04 17:03 KST host clock) — WSTA51 native menu screenapp LIVE
+> PASS.**  Codex built and checked-helper flashed V3395
+> (`A90 Linux init 0.11.151 (v3395-wsta-screenapp-live)`,
+> boot SHA256 `4d3eb72f20d8a2cf6186b81b7cdcf86c01b68bbc34d9007cc573d0bb19fb0605`) to validate the
+> WSTA50 native visual surface in a real boot artifact.  Pre-flash gates passed: current resident
+> `status`/`selftest` were clean, v2321/v2237/v48 rollback images were present, and the TWRP recovery
+> image/path was confirmed.  `native_init_flash.py --from-native` verified Android boot magic, local
+> version marker, local SHA, remote pushed SHA, and boot-prefix readback SHA, then V3395 booted with
+> `status=ok` and `selftest fail=0`.  After the expected auto-menu `busy` response, `hide` + settle made
+> both `screenapp wsta` and `screenapp dpublic` pass with `screenapp.safety=display-only-explicit`,
+> `screenapp.title=WSTA D-PUBLIC`, `screenapp.rc=0`, and `screenapp.presented=1`; post-screenapp
+> `status`/`selftest` stayed clean.  No credentialed Wi-Fi association, DHCP, public tunnel, public smoke
+> request, userdata format/populate, switch-root, persistent exposure, or non-boot partition write ran.
+> Reports:
+> `docs/reports/NATIVE_INIT_V3395_WSTA_SCREENAPP_SOURCE_BUILD_2026-07-04.md` and
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA51_NATIVE_MENU_SCREENAPP_LIVE_2026-07-04.md`.
+> **NEXT:** WSTA display/productization is now live-proven.  The next meaningful WSTA unit should be either
+> a deliberately gated persistent exposure design or a WSTA45 operator publish live run via the WSTA49
+> runbook; do not spend another unit on menu/display-only polish.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
