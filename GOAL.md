@@ -1511,6 +1511,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > native init, wait for bridge/version/selftest, confirm autoconnect remains disabled, rerun WSTA27,
 > and stop unless direct native scan passes.  Confirmed autoconnect remains parked until that scan
 > gate is green.
+> **🟢 STATUS (2026-07-04 11:53 KST host clock) — WSTA28 no-flash reboot/materialization gate
+> PASS.**  Codex added `workspace/public/src/scripts/server-distro/run_wsta28_reboot_materialization_gate.py`
+> and focused tests.  The runner is explicit-reboot-gated (`--allow-native-reboot`), blocks by
+> default with `wsta28-blocked-explicit-native-reboot-allow-required`, reuses the resident-session
+> reboot/bridge-health helpers, adds a post-reboot settle + nested WSTA27 retry for transient native
+> health reads, prints a public-safe summary by default, and never flashes / switch-roots / sends a
+> service connect request / DHCP / ping / public tunnel path.  Static validation passed
+> (`py_compile`, focused WSTA28 unit tests: `5 tests`, `OK`, `git diff --check`).  Live run against
+> V3387 rebooted native init without flashing, reacquired bridge health (`version` V3387, `status`
+> ok, `selftest fail=0`), then nested WSTA27 passed: before materialization `wlan0_present=0`,
+> iftype probe `softap-iftype-probe-pass` with `wlan0_wait_elapsed_ms=106866`, `link_up_rc=0`,
+> `link_up_errno=0`, `ap_iftype_add_rc=0`, `ap_iftype_cleanup_ok=1`; direct native scan returned
+> `wifi-scan-pass`, `scan_result_count=11`, `scan_engine_ok=true`, `scan_has_bss=true`,
+> `trigger_rc=0`, `trigger_errno=0`.  Post-live selftest stayed `fail=0` and autoconnect remained
+> disabled.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA28_REBOOT_MATERIALIZATION_GATE_PASS_2026-07-04.md`.
+> **NEXT:** retry the WSTA25 confirmed live path only while preserving this scan-green precondition:
+> explicitly enable autoconnect, run the existing confirmed live runner, and restore autoconnect
+> disabled afterward.  Public exposure remains separate.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
