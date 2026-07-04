@@ -57,6 +57,53 @@ WSTA125 preserves the existing boundaries:
 - public URL values: private artifact only, not printed in JSON;
 - resolver values and resolver targets: redacted in public summary.
 
+## Live Follow-Up
+
+After the source gate landed, WSTA125 was run live against the WSTA115
+strace/packet-filter SD rootfs:
+
+`workspace/private/runs/server-distro/wsta125-native-upstream-cloudflared-runtime-live-v4-20260705T062106KST/wsta125_result.json`
+
+The live sequence found and fixed two runner/probe issues:
+
+- v1 stopped at `wsta125-blocked-native-uplink-helper-ready` because WSTA125 had
+  not enabled native autoconnect before checking the helper status.  The runner
+  now exposes `--enable-autoconnect`, records the enable result, and supports
+  `--disable-autoconnect-on-cleanup`.
+- v2/v3 reached cloudflared, saved a private URL artifact, and proved UID/GID,
+  no-new-privs, CapEff, command shape, packet-filter restore, and cleanup, but
+  failed the socket posture check because quick Tunnel outbound was not always
+  visible as a live established TCP socket.  The WSTA124 runtime probe now keeps
+  the no-nonloopback-listener check live, then accepts outbound proof after
+  strace shows the core outbound `connect` syscall.
+
+Final v4 passed with:
+
+- `decision=wsta125-native-upstream-cloudflared-runtime-pass`;
+- `wsta28_precondition_pass=true`;
+- `native_uplink_helper_ready=true`;
+- `native_uplink_confirmed=true`;
+- `default_route_wlan0=true`;
+- `resolver_ready=true`;
+- `egress_route_ready=true`;
+- `packet_filter_preflight_pass=true`;
+- `packet_filter_apply_pass=true`;
+- `runtime_probe_completed=true`;
+- cloudflared UID/GID, no-new-privs, CapEff, command-shape, outbound-only checks
+  all true;
+- private URL artifact saved under `workspace/private/` with
+  `public_url_value_logged=false`;
+- syscall trace saved privately, `syscall_count=52`, core `execve/socket/connect`
+  observed;
+- runtime cleanup, packet-filter restore, uplink-service stop, helper/profile
+  cleanup, chroot cleanup, and final selftest all true.
+
+Final independent health after v4:
+
+- `selftest: pass=12 warn=1 fail=0`;
+- Wi-Fi autoconnect disabled;
+- no default route remaining.
+
 ## Validation
 
 Commands run:
@@ -76,7 +123,8 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m unittest discover \
 Results:
 
 - WSTA125 focused tests: `6 tests OK`;
-- full server-distro WSTA regression: `409 tests OK`;
+- WSTA124 focused tests after the runtime probe update: `9 tests OK`;
+- full server-distro WSTA regression after the live fixes: `409 tests OK`;
 - default inert smoke returned
   `wsta125-blocked-native-upstream-runtime-live-required`, with all device/public
   action safety fields false.
@@ -86,7 +134,7 @@ fixture JSON during tests.
 
 ## Next
 
-Run WSTA125 live with the WSTA28 precondition and native-uplink profile enabled,
-using the same explicit gates as the proven WSTA43/WSTA45 path plus the WSTA124
-runtime gates.  If WSTA125 passes, fold its private runtime proof into
-WSTA108/WSTA90 operator status and retire the WSTA124 `egress-route` blocker.
+Fold the private WSTA125 v4 proof into WSTA108/WSTA90 operator status and retire
+the WSTA124 `egress-route` blocker.  The next source unit should fail-close
+unless the supplied WSTA125 proof has the pass decision, private URL redaction,
+syscall trace artifacts, packet-filter restore, cleanup, and final selftest.

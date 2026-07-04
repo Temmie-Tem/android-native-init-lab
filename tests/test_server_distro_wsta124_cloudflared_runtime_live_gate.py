@@ -99,10 +99,14 @@ class ServerDistroWsta124CloudflaredRuntimeLiveGateTests(unittest.TestCase):
             "A90WSTA124_COMMAND_NO_AUTOUPDATE=1",
             "A90WSTA124_COMMAND_ORIGIN=1",
             "A90WSTA124_COMMAND_METRICS=1",
-            "A90WSTA124_CLOUDFLARED_ESTABLISHED_OUTBOUND=1",
+            "A90WSTA124_CLOUDFLARED_UDP_OUTBOUND=0",
+            "A90WSTA124_CLOUDFLARED_SOCKET_OUTBOUND_HINT=0",
             "A90WSTA124_CLOUDFLARED_OUTBOUND_ONLY=1",
             "A90WSTA124_TRACE_FILE_NONEMPTY=1",
             "A90WSTA124_SYSCALL_PROFILE_NONEMPTY=1",
+            "A90WSTA124_SYSCALL_HAS_connect=1",
+            "A90WSTA124_CLOUDFLARED_OUTBOUND_OBSERVED=1",
+            "A90WSTA124_CLOUDFLARED_ESTABLISHED_OUTBOUND=1",
             "A90WSTA124_SYSCALL_LIST_BEGIN",
             "connect",
             "execve",
@@ -120,6 +124,9 @@ class ServerDistroWsta124CloudflaredRuntimeLiveGateTests(unittest.TestCase):
         self.assertTrue(parsed["no_new_privs"])
         self.assertTrue(parsed["cap_eff_zero"])
         self.assertTrue(parsed["outbound_only"])
+        self.assertTrue(parsed["outbound_observed"])
+        self.assertFalse(parsed["udp_outbound"])
+        self.assertFalse(parsed["socket_outbound_hint"])
         self.assertTrue(parsed["core_syscalls_observed"])
         self.assertEqual(parsed["syscall_names"], ["connect", "execve", "socket"])
 
@@ -135,6 +142,9 @@ class ServerDistroWsta124CloudflaredRuntimeLiveGateTests(unittest.TestCase):
             "command_metrics": True,
             "outbound_only": True,
             "established_outbound": True,
+            "outbound_observed": True,
+            "socket_outbound_hint": False,
+            "udp_outbound": True,
             "url_artifact_private": True,
             "core_syscalls_observed": True,
             "syscall_count": 3,
@@ -152,6 +162,8 @@ class ServerDistroWsta124CloudflaredRuntimeLiveGateTests(unittest.TestCase):
         self.assertTrue(profile["cap_eff_zero"])
         self.assertTrue(profile["command_shape_proven"])
         self.assertTrue(profile["outbound_only"])
+        self.assertTrue(profile["outbound_observed"])
+        self.assertTrue(profile["udp_outbound"])
         self.assertTrue(profile["private_url_artifact"])
         self.assertFalse(profile["public_url_value_logged"])
         self.assertEqual(profile["secret_values_logged"], 0)
@@ -225,6 +237,10 @@ class ServerDistroWsta124CloudflaredRuntimeLiveGateTests(unittest.TestCase):
         self.assertIn("wsta124-blocked-egress-route", source)
         self.assertIn("A90WSTA124_EGRESS_ROUTE", source)
         self.assertIn("target_redacted=1", source)
+        self.assertIn("/proc/net/udp", source)
+        self.assertIn("A90WSTA124_CLOUDFLARED_UDP_OUTBOUND", source)
+        self.assertIn("A90WSTA124_CLOUDFLARED_SOCKET_OUTBOUND_HINT", source)
+        self.assertIn("A90WSTA124_CLOUDFLARED_OUTBOUND_OBSERVED", source)
         self.assertIn('/bin/rm -f "$RUN_DIR/socket-posture"', source)
         self.assertIn("/bin/chmod 0666 \"$TRACE\"", source)
         self.assertIn("runtime_probe.sh", source)

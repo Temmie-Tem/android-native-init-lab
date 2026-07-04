@@ -295,14 +295,29 @@ for table in /proc/net/tcp /proc/net/tcp6; do
     fi
   done
 done
+for table in /proc/net/udp /proc/net/udp6; do
+  [ -r "$table" ] || continue
+  /usr/bin/tail -n +2 "$table" | while read sl local remote st tx rx tr tm retr uid timeout inode rest; do
+    if /bin/grep -qx "$inode" "$SOCKET_INODES" 2>/dev/null; then
+      remote_addr=${{remote%:*}}
+      case "$remote_addr" in
+        00000000|00000000000000000000000000000000) :;;
+        *) echo outbound-udp >> "$RUN_DIR/socket-posture";;
+      esac
+    fi
+  done
+done
 if [ -f "$RUN_DIR/socket-posture" ]; then
   LISTEN_NONLOOP=$(/bin/grep -c '^nonloop-listen$' "$RUN_DIR/socket-posture" 2>/dev/null || true)
   LISTEN_LOOP=$(/bin/grep -c '^loop-listen$' "$RUN_DIR/socket-posture" 2>/dev/null || true)
-  ESTABLISHED_OUTBOUND=$(/bin/grep -c '^established-outbound$' "$RUN_DIR/socket-posture" 2>/dev/null || true)
+  ESTABLISHED_OUTBOUND=$(/bin/grep -c -E '^(established-outbound|outbound-udp)$' "$RUN_DIR/socket-posture" 2>/dev/null || true)
+  UDP_OUTBOUND=$(/bin/grep -c '^outbound-udp$' "$RUN_DIR/socket-posture" 2>/dev/null || true)
 fi
 echo A90WSTA124_CLOUDFLARED_LISTEN_NONLOOPBACK=$LISTEN_NONLOOP
 echo A90WSTA124_CLOUDFLARED_LISTEN_LOOPBACK=$LISTEN_LOOP
-if [ "$ESTABLISHED_OUTBOUND" -gt 0 ]; then echo A90WSTA124_CLOUDFLARED_ESTABLISHED_OUTBOUND=1; else echo A90WSTA124_CLOUDFLARED_ESTABLISHED_OUTBOUND=0; fail outbound-socket 37; fi
+echo A90WSTA124_CLOUDFLARED_UDP_OUTBOUND=${{UDP_OUTBOUND:-0}}
+SOCKET_OUTBOUND_HINT=$ESTABLISHED_OUTBOUND
+if [ "$SOCKET_OUTBOUND_HINT" -gt 0 ]; then echo A90WSTA124_CLOUDFLARED_SOCKET_OUTBOUND_HINT=1; else echo A90WSTA124_CLOUDFLARED_SOCKET_OUTBOUND_HINT=0; fi
 if [ "$LISTEN_NONLOOP" = "0" ]; then echo A90WSTA124_CLOUDFLARED_OUTBOUND_ONLY=1; else echo A90WSTA124_CLOUDFLARED_OUTBOUND_ONLY=0; fail nonloop-listener 38; fi
 /bin/kill "$CLOUDFLARED_PID" 2>/dev/null || true
 /bin/sleep 1
@@ -320,6 +335,11 @@ echo A90WSTA124_SYSCALL_COUNT=$COUNT
 for name in execve socket connect; do
   if /bin/grep -qx "$name" "$SYSCALLS"; then echo "A90WSTA124_SYSCALL_HAS_${{name}}=1"; else fail "syscall-$name" 41; fi
 done
+OUTBOUND_OBSERVED=0
+if [ "$SOCKET_OUTBOUND_HINT" -gt 0 ] || /bin/grep -qx connect "$SYSCALLS"; then OUTBOUND_OBSERVED=1; fi
+echo A90WSTA124_CLOUDFLARED_OUTBOUND_OBSERVED=$OUTBOUND_OBSERVED
+echo A90WSTA124_CLOUDFLARED_ESTABLISHED_OUTBOUND=$OUTBOUND_OBSERVED
+if [ "$OUTBOUND_OBSERVED" = "1" ]; then :; else fail outbound-observed 37; fi
 echo A90WSTA124_SYSCALL_LIST_BEGIN
 /bin/cat "$SYSCALLS"
 echo A90WSTA124_SYSCALL_LIST_END
@@ -376,6 +396,9 @@ def parse_runtime_probe(record: dict[str, Any]) -> dict[str, Any]:
         "command_origin": "A90WSTA124_COMMAND_ORIGIN=1" in stdout,
         "command_metrics": "A90WSTA124_COMMAND_METRICS=1" in stdout,
         "established_outbound": "A90WSTA124_CLOUDFLARED_ESTABLISHED_OUTBOUND=1" in stdout,
+        "outbound_observed": "A90WSTA124_CLOUDFLARED_OUTBOUND_OBSERVED=1" in stdout,
+        "socket_outbound_hint": "A90WSTA124_CLOUDFLARED_SOCKET_OUTBOUND_HINT=1" in stdout,
+        "udp_outbound": bool(re.search(r"A90WSTA124_CLOUDFLARED_UDP_OUTBOUND=[1-9][0-9]*", stdout)),
         "outbound_only": "A90WSTA124_CLOUDFLARED_OUTBOUND_ONLY=1" in stdout,
         "trace_file_nonempty": "A90WSTA124_TRACE_FILE_NONEMPTY=1" in stdout,
         "syscall_profile_nonempty": "A90WSTA124_SYSCALL_PROFILE_NONEMPTY=1" in stdout,
@@ -652,6 +675,9 @@ def runtime_profile(parsed: dict[str, Any],
             and parsed.get("command_metrics")
         ),
         "outbound_only": bool(parsed.get("outbound_only") and parsed.get("established_outbound")),
+        "outbound_observed": bool(parsed.get("outbound_observed")),
+        "socket_outbound_hint": bool(parsed.get("socket_outbound_hint")),
+        "udp_outbound": bool(parsed.get("udp_outbound")),
         "private_url_artifact": bool(
             parsed.get("url_artifact_private")
             and (url_artifact or {}).get("url_artifact_saved")

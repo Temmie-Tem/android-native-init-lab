@@ -35,6 +35,8 @@ class ServerDistroWsta125NativeUpstreamCloudflaredRuntimeTests(unittest.TestCase
             runner.sha256_file(local_image),
             "--cloudflared",
             str(cloudflared),
+            "--enable-autoconnect",
+            "--disable-autoconnect-on-cleanup",
             "--execute-native-upstream-runtime-live",
             "--allow-credentialed-wifi",
             "--allow-cloudflared-runtime-live",
@@ -120,6 +122,8 @@ class ServerDistroWsta125NativeUpstreamCloudflaredRuntimeTests(unittest.TestCase
         self.assertIn("--execute-native-upstream-runtime-live", template["command"])
         self.assertIn("--allow-credentialed-wifi", template["command"])
         self.assertIn("--allow-cloudflared-runtime-live", template["command"])
+        self.assertIn("--enable-autoconnect", template["command"])
+        self.assertIn("--disable-autoconnect-on-cleanup", template["command"])
         self.assertIn("--ack-runtime-cleanup", template["command"])
         self.assertFalse(template["boot_flash"])
         self.assertFalse(template["public_url_value_logged"])
@@ -184,6 +188,10 @@ class ServerDistroWsta125NativeUpstreamCloudflaredRuntimeTests(unittest.TestCase
                     text = "wifi-uplink-service-start-pass"
                 elif command[:3] == ["wifi", "uplink-service", "stop"]:
                     text = "wifi-uplink-service-stop-pass"
+                elif command == ["wifi", "autoconnect", "enable"]:
+                    text = "wifi-autoconnect-enabled"
+                elif command == ["wifi", "autoconnect", "disable"]:
+                    text = "wifi-autoconnect-disabled"
                 elif command == ["selftest"]:
                     text = "selftest: pass=12 warn=1 fail=0"
                 return {"text": text}
@@ -241,8 +249,10 @@ class ServerDistroWsta125NativeUpstreamCloudflaredRuntimeTests(unittest.TestCase
         self.assertTrue(result["checks"]["native_uplink_confirmed"])
         self.assertFalse(result["checks"]["egress_route_ready"])
         self.assertEqual(packet_filter.call_count, 0)
+        self.assertIn(["wifi", "autoconnect", "enable"], cmdv1_commands)
         self.assertIn(["wifi", "uplink-service", "start", result["service_dir_native"], "360000", "100"], cmdv1_commands)
         self.assertIn(["wifi", "uplink-service", "stop", result["service_dir_native"]], cmdv1_commands)
+        self.assertIn(["wifi", "autoconnect", "disable"], cmdv1_commands)
 
     def test_print_template_exits_without_live_work(self) -> None:
         with mock.patch.object(runner, "run", side_effect=AssertionError("unexpected run")):

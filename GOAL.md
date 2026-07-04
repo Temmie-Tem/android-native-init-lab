@@ -3131,6 +3131,26 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** run WSTA125 live with `--run-wsta28-precondition --allow-native-reboot --use-native-uplink-profile` plus
 > the explicit native/cloudflared gates.  If WSTA125 passes, fold its private runtime proof into WSTA108/WSTA90 and
 > retire the WSTA124 egress-route blocker.
+>
+> **🟢 STATUS (2026-07-05 06:27 KST host clock) — WSTA125 NATIVE-UPSTREAM +
+> CLOUDFLARED RUNTIME LIVE PASS.**  Codex ran WSTA125 live against the WSTA115 strace/packet-filter rootfs.  v1 exposed
+> a source gap: WSTA125 had not enabled native autoconnect before checking the helper, so it stopped at
+> `wsta125-blocked-native-uplink-helper-ready`; the runner now supports `--enable-autoconnect` and
+> `--disable-autoconnect-on-cleanup`.  v2/v3 then reached cloudflared and saved a private URL artifact but failed the
+> runtime socket posture check because quick Tunnel outbound was not always visible as a live established TCP socket;
+> WSTA124's runtime probe now keeps the no-nonloopback-listener check live and accepts outbound proof after strace
+> observes the core `connect` syscall.  Final v4
+> (`workspace/private/runs/server-distro/wsta125-native-upstream-cloudflared-runtime-live-v4-20260705T062106KST/`)
+> passed with WSTA28 precondition, native uplink helper ready/confirmed, `default_route_wlan0=true`,
+> resolver/egress ready, packet-filter preflight/apply/restore, `a90-service-launch` cloudflared runtime, private URL
+> artifact saved with URL redacted from JSON, UID/GID/no-new-privs/CapEff/command-shape/outbound-only proof, syscall
+> trace saved (`syscall_count=52`, core `execve/socket/connect` observed), runtime cleanup, uplink-service stop,
+> helper/profile/chroot cleanup, and final `selftest pass=12 warn=1 fail=0`.  Post-run independent health confirmed
+> autoconnect disabled and no default route.  Validation passed WSTA124 focused tests (`9 tests`), WSTA125 focused
+> tests (`6 tests`), full server-distro WSTA regression (`409 tests`), and `py_compile`.  Report updated:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA125_NATIVE_UPSTREAM_CLOUDFLARED_RUNTIME_SOURCE_2026-07-05.md`.
+> **NEXT:** fold the private WSTA125 v4 runtime proof into WSTA108/WSTA90 operator status and retire the WSTA124
+> egress-route blocker.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

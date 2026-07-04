@@ -123,6 +123,8 @@ def template() -> dict[str, Any]:
             "--allow-cloudflared-runtime-live",
             "--run-wsta28-precondition",
             "--allow-native-reboot",
+            "--enable-autoconnect",
+            "--disable-autoconnect-on-cleanup",
             "--use-native-uplink-profile",
             "--ack-credentialed-wifi",
             "--ack-public-exposure",
@@ -251,6 +253,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mountpoint": args.mountpoint,
         "service_dir": args.service_dir,
         "service_dir_native": service_dir_native,
+        "enable_autoconnect": bool(args.enable_autoconnect),
         "use_native_uplink_profile": bool(args.use_native_uplink_profile),
         "run_wsta28_precondition": bool(args.run_wsta28_precondition),
         "safety": safety(gate_ok, args),
@@ -312,6 +315,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     helper_staged = False
     profile_staged = False
     service_started = False
+    autoconnect_enabled_by_runner = False
     packet_filter_applied = False
     runtime_probe_started = False
     try:
@@ -328,6 +332,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         if not result["checks"]["native_stale_cleanup_ok"]:
             result["decision"] = classify(result)
             return finish_result(out_path, result)
+
+        if args.enable_autoconnect:
+            command = ["wifi", "autoconnect", "enable"]
+            if args.autoconnect_profile:
+                command.append(args.autoconnect_profile)
+            result["autoconnect_enable"] = wsta19.try_cmdv1_retry(args, command, timeout=args.timeout, attempts=1)
+            autoconnect_enabled_by_runner = "wifi-autoconnect-enabled" in result["autoconnect_enable"].get("text", "")
+            result["checks"]["autoconnect_enabled_by_runner"] = autoconnect_enabled_by_runner
+            write_json(out_path, result)
 
         image_ready = wsta42.prepare_remote_work_image(args, result, out_path, run_dir, local_sha=local_sha)
         result["checks"]["remote_image_ready"] = bool(image_ready)
@@ -566,6 +579,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         else:
             result["service_stop"] = {"skipped": True, "reason": "service-not-started"}
             result["checks"]["uplink_service_stop_pass"] = not service_started
+        if autoconnect_enabled_by_runner or args.disable_autoconnect_on_cleanup:
+            result["autoconnect_disable"] = wsta19.try_cmdv1_retry(
+                args,
+                ["wifi", "autoconnect", "disable"],
+                timeout=args.timeout,
+                attempts=1,
+            )
         if helper_staged:
             result["native_uplink_helper_cleanup"] = wsta24.cleanup_helper(args, run_dir)
             result["checks"]["native_uplink_helper_cleanup_ok"] = bool(
@@ -692,6 +712,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--service-poll-ms", type=int, default=100)
     parser.add_argument("--response-timeout-sec", type=int, default=30)
     parser.add_argument("--confirmed-timeout-sec", type=int, default=300)
+    parser.add_argument("--enable-autoconnect", action="store_true")
+    parser.add_argument("--autoconnect-profile", default="")
+    parser.add_argument("--disable-autoconnect-on-cleanup", action="store_true")
     parser.add_argument("--use-native-uplink-profile", action="store_true")
     parser.add_argument("--no-sync-time", dest="sync_time", action="store_false", default=True)
     parser.add_argument("--run-wsta28-precondition", action="store_true")
