@@ -215,6 +215,14 @@ done
 
 if [ -x /usr/local/bin/a90-dpublic-hud-intent ]; then
   rm -f /run/a90-dpublic/hud-intent.json /run/a90-dpublic/hud-intent.log 2>/dev/null || true
+  if getent group a90hud >/dev/null 2>&1; then
+    chgrp a90hud /run/a90-dpublic 2>/dev/null || true
+    chmod 1770 /run/a90-dpublic 2>/dev/null || true
+    echo hud_intent_run_dir_group=a90hud >> /run/a90-d3-marker
+    echo hud_intent_run_dir_mode=1770 >> /run/a90-d3-marker
+  else
+    echo hud_intent_run_dir_group=missing-a90hud >> /run/a90-d3-marker
+  fi
   if [ -x /usr/local/bin/a90-service-launch ]; then
     /usr/local/bin/a90-service-launch dpublic-hud \
       /usr/local/bin/a90-dpublic-hud-intent \

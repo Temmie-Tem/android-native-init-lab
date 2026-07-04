@@ -3363,6 +3363,28 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > stage the WSTA134 tarball through the existing userdata/rootfs gate, boot it, and verify firstboot
 > writes only the bounded HUD intent while native/root owns display presentation.  Keep D-public
 > exposure default-off unless a separate operator gate explicitly enables it.
+>
+> **🟢 STATUS (2026-07-05 08:19 KST host clock) — WSTA135 DPUBLIC HUD SPLIT
+> LIVE PASS.**  Codex ran the guarded D4 userdata path live for the split HUD appliance.  The first
+> WSTA134-artifact live attempt correctly exposed a boundary bug: `a90-service-launch dpublic-hud`
+> dropped to `a90hud`, but `/run/a90-dpublic` was `root:root 0755`, so the atomic intent tmp file
+> failed with `write intent: Permission denied` and `hud_intent_rc=1`.  Codex fixed firstboot to
+> prepare `/run/a90-dpublic` as `root:a90hud` mode `1770` before launching the intent producer, rebuilt
+> a corrected private rootfs/tarball, rebooted back to native V3397 with `selftest fail=0`, and reran
+> guarded D4 `preflight` → journaled e2fsprogs `format` (`has_journal=1`) → corrected tarball `populate`
+> → SSH-key install → `switch-root-to-userdata`.  SSH proof from the Debian userdata appliance showed
+> `pid1_comm=init`, `proc1_exe=/usr/sbin/init`, `/` on `/dev/block/a90-userdata` ext4,
+> `hud_intent_run_dir_group=a90hud`, `hud_intent_run_dir_mode=1770`, `hud_intent_rc=0`,
+> `hud_intent_written=1`, intent schema `a90-dpublic-hud-intent-v1`, `PUBLIC_OFF`,
+> `/run/a90-dpublic` stat `root a90hud 1770`, intent file stat `a90hud a90hud 640`,
+> `hud_presenter_staged=1`, `hud_presenter_owner=native-init`, `hud_presenter_started=0`,
+> `hud_legacy_direct_kms_started=0`, and public tunnel still off (`tunnel_started=manual`,
+> `tunnel_process_alive=0`, `tunnel_url_observed=0`).  No boot flash or public exposure ran.  The
+> appliance is left running on USB-NCM/SSH for operator inspection.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA135_DPUBLIC_HUD_SPLIT_LIVE_2026-07-05.md`.
+> **NEXT:** WSTA136 should implement/prove the native/root-owned presenter consumption path: parse
+> `/run/a90-dpublic/hud-intent.json`, reject stale/forbidden fields, and present a minimal native KMS HUD
+> without giving Debian direct DRM/KMS ownership.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

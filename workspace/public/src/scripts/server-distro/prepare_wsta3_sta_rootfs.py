@@ -1136,6 +1136,8 @@ def stage_dpublic_firstboot(rootfs: Path) -> dict[str, Any]:
         "autoreboot_disabled_marker": "autoreboot_sec=disabled" in text,
         "wifi_sta_helper_invoked": "/usr/local/bin/a90-dpublic-wifi-sta" in text,
         "hud_split_intent_invoked": "/usr/local/bin/a90-dpublic-hud-intent" in text,
+        "hud_split_intent_run_dir_group_prepared": "chgrp a90hud /run/a90-dpublic" in text,
+        "hud_split_intent_run_dir_sticky_group_write": "chmod 1770 /run/a90-dpublic" in text,
         "hud_split_presenter_not_started_by_debian": "hud_presenter_started=0" in text,
         "legacy_direct_hud_fallback_only": "hud_legacy_direct_kms_fallback=1" in text,
         "native_uplink_profile_marker": "native_uplink_profile_command=/usr/local/bin/a90-dpublic-native-uplink-profile" in text,
