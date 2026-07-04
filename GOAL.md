@@ -1473,6 +1473,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > it bounded to scan/link-state evidence: compare direct native `wifi scan` with the
 > uplink-service autoconnect path, capture redacted `wpa_supplicant`/`wlan0` state, and do not run
 > confirmed connect, DHCP, external ping, or public exposure until the scan blocker is explained.
+> **🟡 STATUS (2026-07-04 11:39 KST host clock) — WSTA26 scan-failure diagnostic SOURCE+LIVE
+> BLOCKED at native link-up.**  Codex added
+> `workspace/public/src/scripts/server-distro/run_wsta26_scan_failure_diagnostic.py` and focused tests
+> to diagnose WSTA25's scan failure below association.  The runner prints a public-safe summary by
+> default while keeping raw command transcripts private.  Static validation passed (`py_compile`,
+> focused WSTA26 unit tests: `5 tests`, `OK`, and `git diff --check`).  Live run against V3387 first
+> confirmed fail-closed state (`autoconnect=0`, `decision=wifi-autoconnect-disabled`) and redacted
+> Wi-Fi status (`wlan0_present=1`, `operstate=down`, `ipv4=none`, `default_route_present=0`,
+> `supplicant.process_count=0`, `ctrl_socket.kind=missing`).  Four direct native `wifi scan` attempts
+> all failed before nl80211 trigger with `decision=wifi-scan-link-up-failed`, `link_up_rc=-1`,
+> `link_up_errno=22`, `scan_engine_ok=false`, and `scan_has_bss=false`; final `selftest fail=0`
+> passed.  This narrows WSTA25's blocker away from Debian helper plumbing / confirm-token delivery and
+> back to the stale WLAN materialization state previously seen in WSTA7/WSTA19 (`wlan0` present but
+> not administratively bring-up-able).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA26_SCAN_FAILURE_DIAGNOSTIC_2026-07-04.md`.
+> **NEXT:** WSTA27 should restore the known-good materialization precondition on V3387 before
+> reattempting confirmed autoconnect: run a safe native materialization/scan gate, require direct
+> native scan success, and only then permit the existing WSTA25 confirmed live runner.  Do not send
+> another confirmed request until that scan gate passes.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
