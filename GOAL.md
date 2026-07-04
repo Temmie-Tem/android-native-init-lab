@@ -2125,6 +2125,19 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** if live visual confirmation is desired, flash exact V3396 through `native_init_flash.py`, health-check,
 > run `screenapp wsta`/`screenapp dpublic`, verify the redacted state markers, and keep public exposure off; otherwise
 > continue the persistent exposure ladder from the fixed WSTA58/WSTA61 source state.
+> **🟢 STATUS (2026-07-04 18:50 KST host clock) — WSTA62 native persistent-state
+> screen LIVE PASS.**  Codex rollback-gated the V3396 candidate, confirmed v2321/v2237/v48 rollback images and TWRP
+> recovery artifacts, flashed exact boot SHA256
+> `499f2b348d5d6ed9a5d219043d4fbef25dc4c158f542a4eec014b293c5e9872f` through
+> `native_init_flash.py --from-native`, and verified boot readback SHA match.  V3396 booted as
+> `A90 Linux init 0.11.152 (v3396-wsta-persistent-state-screen)` with `selftest fail=0`.  After `hide` + settle,
+> serialized `screenapp wsta` and `screenapp dpublic` both returned `screenapp.safety=display-only-explicit`,
+> `screenapp.title=WSTA D-PUBLIC`, `screenapp.rc=0`, and `screenapp.presented=1`; post-screenapp `status` and
+> `selftest` remained clean.  The live unit ran no Wi-Fi association, DHCP, public tunnel, public smoke, credentialed
+> network action, userdata action, switch-root, or persistent public exposure.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA62_NATIVE_PERSISTENT_STATE_SCREEN_LIVE_2026-07-04.md`.
+> **NEXT:** continue the persistent exposure ladder itself, default-off: reuse fixed WSTA58 cleanup/redaction gates,
+> require fresh short-lived private lease artifacts and explicit operator gates, and keep the native screen display-only.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
