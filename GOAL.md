@@ -2554,6 +2554,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA84_ROOTFS_CLEAN_IMAGE_CACHE_SOURCE_2026-07-04.md`.
 > **NEXT:** run a bounded WSTA42/WSTA58 live measurement to prove the second leg now restores from the clean
 > image without host-side rootfs upload, or continue default-off operator UX around the proven WSTA80/WSTA58 flow.
+> **🟡 STATUS (2026-07-04 21:34 KST host clock) — WSTA85 clean-image cache
+> LIVE MEASUREMENT BLOCKED BEFORE WSTA42.**  Codex ran a fresh WSTA72→WSTA80
+> execute-gate sequence and WSTA80 preflight reached `READY_FOR_EXPLICIT_WSTA58_LIVE_GATE`, then live-delegated
+> to WSTA58 with the explicit acknowledgement stack.  The run stopped before rootfs preparation:
+> WSTA80 returned `wsta80-blocked-wsta58-delegation`, WSTA58 returned
+> `wsta58-blocked-initial-wsta55`, both WSTA55 legs blocked at WSTA45, both WSTA43 legs blocked at
+> WSTA28, and both WSTA28 runs returned `wsta28-blocked-post-reboot-public-off-cleanup`.  No
+> `wsta42_result.json` was produced, so WSTA85 does not prove or disprove the WSTA84 clean-image cache.  Root
+> cause: WSTA28 required individual cleanup command `decision=` parses even though final `wifi status` showed
+> public-off (`autoconnect disabled`, `supplicant.process_count=0`, `secret_values_logged=0`).  Post-run V3397
+> health stayed `selftest fail=0`, and manual cleanup/status confirmed public-off.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA85_CLEAN_IMAGE_CACHE_LIVE_BLOCKED_2026-07-04.md`.
+> **NEXT:** fix WSTA28 to key on final public-off state while still failing closed on enabled autoconnect,
+> live supplicant, or secret logging, then rerun the WSTA58 measurement.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
