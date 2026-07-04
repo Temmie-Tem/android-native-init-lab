@@ -2304,6 +2304,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > operator snapshot, selected launch-manifest, and last-moment launch-readiness audit layers; continue only with
 > explicit operator-selected WSTA58 live proof, or further default-off operator UX/reporting without starting public
 > exposure.
+> **🟢 STATUS (2026-07-04 19:45 KST host clock) — WSTA72 persistent prepare-to-arm orchestrator
+> SOURCE/PREFLIGHT PASS.**  Codex added
+> `workspace/public/src/scripts/server-distro/run_wsta72_persistent_prepare_to_arm.py`, a host-only one-command
+> orchestrator that runs WSTA63 prepare-session, WSTA64 readiness, WSTA67 inventory, WSTA69 snapshot, WSTA70
+> selected launch manifest, and WSTA71 launch-readiness audit inside one private run tree.  It remains fail-closed
+> until `--prepare-to-arm`, short TTL, credentialed-Wi-Fi/public-exposure acknowledgements, and private token-source
+> selectors are provided; it still does not replace tokens or start live exposure.  Private smoke
+> `workspace/private/runs/server-distro/wsta72-prepare-to-arm-smoke-20260704T104514Z` returned
+> `wsta72-persistent-prepare-to-arm-pass`, `state=READY_TO_ARM_DEFAULT_OFF`, WSTA63/WSTA64/WSTA67/WSTA69/WSTA70/
+> WSTA71 all pass, `initial_seconds_remaining=299`, `template_contains_placeholder=true`, and
+> `live_execution_requested=false`.  Validation passed 114 focused
+> WSTA52/WSTA53/WSTA54/WSTA55/WSTA58/WSTA63/WSTA64/WSTA65/WSTA66/WSTA67/WSTA68/WSTA69/WSTA70/WSTA71/WSTA72 tests
+> plus `py_compile`.  No boot image, flash, device command, native reboot, Wi-Fi association, DHCP, public tunnel,
+> public smoke, userdata action, switch-root, or external service action ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA72_PREPARE_TO_ARM_SOURCE_2026-07-04.md`.
+> **NEXT:** default-off persistent exposure now has a one-command host-only prepare-to-arm path through WSTA71;
+> continue only with explicit operator-selected WSTA58 live proof, or further default-off operator UX/reporting without
+> starting public exposure.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
