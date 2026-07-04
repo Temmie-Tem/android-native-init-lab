@@ -2175,6 +2175,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** live WSTA58 is now mechanically prepared and freshness-audited, but still requires an explicit operator
 > decision plus fresh private confirm tokens; absent that, continue default-off productization around session lifecycle
 > visibility and cleanup without starting public exposure.
+> **🟢 STATUS (2026-07-04 19:06 KST host clock) — WSTA65 persistent session lifecycle
+> status SOURCE/PREFLIGHT PASS.**  Codex added
+> `workspace/public/src/scripts/server-distro/run_wsta65_persistent_session_status.py`, a host-only status layer that
+> consumes a private WSTA64 result and re-reads the initial WSTA54 lease at status time.  It classifies the session as
+> `READY`, `STALE`, `EXPIRED`, or `NOT_READY`, so a WSTA64 result that was green at audit time cannot stay live-ready
+> after the lease ages out.  Fresh smoke
+> `workspace/private/runs/server-distro/wsta65-status-smoke-20260704T1008Z` returned
+> `wsta65-persistent-session-status-pass`, `session_state=READY`, `ready_for_live=true`,
+> `initial_seconds_remaining=297`, `recommended_next_action=operator-may-run-explicit-wsta58-live-gate`,
+> `live_execution_requested=false`, `public_url_value_logged=false`, and `secret_values_logged=0`.  Tests also prove
+> formerly ready WSTA64 results reclassify to `STALE` near expiry and `EXPIRED` at expiry.  Validation passed 63 focused
+> WSTA52/WSTA53/WSTA54/WSTA55/WSTA58/WSTA63/WSTA64/WSTA65 tests plus `py_compile`.  No boot image, flash, device
+> command, native reboot, Wi-Fi association, DHCP, public tunnel, public smoke, userdata action, switch-root, or external
+> service action ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA65_SESSION_LIFECYCLE_STATUS_SOURCE_2026-07-04.md`.
+> **NEXT:** WSTA live persistent exposure is now prepared, freshness-audited, and lifecycle-visible but still not
+> selected; proceed only with explicit operator live proof, or continue default-off lifecycle cleanup/retire
+> productization without starting public exposure.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
