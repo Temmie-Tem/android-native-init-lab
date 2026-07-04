@@ -1718,6 +1718,43 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > path without logging secrets.  Either refresh/prove the native profile material or identify the AP
 > compatibility/security-mode delta; only after `WRONG_KEY` is cleared should DHCP/default-route and
 > public uplink exposure be retried.
+> **🟢 STATUS (2026-07-04 14:46 KST host clock) — WSTA38 auth-material reconcile PASS;
+> stale resident native PSK secret found, restaged, and re-proved with redacted output.**  Codex
+> added `workspace/public/src/scripts/server-distro/run_wsta38_auth_material_reconcile.py` and
+> focused tests.  The first WSTA38 run classified the WSTA37 `WRONG_KEY` as
+> `wsta38-device-psk-secret-mismatch`: host env and the known-good WSTA7 Debian config both had
+> SSID length `8` and PSK length `11`, while the resident native device PSK secret length was `10`;
+> the native generated PSK matched the device-secret reference, not the host/WSTA7 reference.
+> Codex then restaged the native Wi-Fi profile from the current private env with the existing
+> profile staging helper (`decision=wifi-profile-stage-pass`, `secret_values_logged=0`) and reran
+> WSTA38 after tightening path/profile redaction.  Final result:
+> `decision=wsta38-credential-material-consistent`,
+> `credential_material_consistent=true`, `device_psk_secret_matches_env=true`,
+> `native_psk_hex_matches_python_reference=true`, `native_psk_hex_matches_device_secret_reference=true`,
+> no association/DHCP/ping/public tunnel, and `secret_values_logged=0`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA38_AUTH_MATERIAL_RECONCILE_2026-07-04.md`.
+> **🟢 STATUS (2026-07-04 14:46 KST host clock) — WSTA40/WSTA41 V3394
+> reboot-materialization + confirmed native autoconnect LIVE PASS.**  Codex updated the WSTA28
+> reboot materialization gate to accept the supported native uplink build list instead of only
+> V3387, then ran it against resident V3394.  WSTA40 passed:
+> `decision=wsta28-reboot-materialization-scan-gate-pass`,
+> `checks.post_reboot_health=true`, nested
+> `decision=wsta27-materialization-scan-gate-pass`, `wlan0_wait_elapsed_ms=106870`,
+> `scan_result_count=12`, `scan_engine_ok=true`, `scan_has_bss=true`, `trigger_rc=0`, and
+> `trigger_errno=0`.  After this scan-green state, WSTA41 explicitly enabled autoconnect and reran
+> the credential-gated confirmed helper with the confirm token redacted.  It passed:
+> top-level `decision=wsta25-confirmed-autoconnect-live-pass`,
+> helper `decision=wifi-uplink-service-autoconnect-pass`,
+> `connect_rc=0`, `dhcp_rc=0`, `final_rc=0`, `carrier_up=1`,
+> `connect_ctrl_status_wpa_state=COMPLETED`, `default_route_present=1`, `nameserver_count=2`,
+> `external_ping_execution=0`, `public_tunnel=0`, and `secret_values_logged=0`.  Cleanup restored
+> `wifi-autoconnect-disabled`, stopped supplicant, removed IPv4/default route state, and final
+> `selftest` returned `fail=0`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA40_WSTA41_MATERIALIZATION_CONFIRMED_AUTOCONNECT_PASS_2026-07-04.md`.
+> **NEXT:** native Wi-Fi STA uplink is now proven through DHCP on V3394 when starting from the
+> reboot/materialization scan-green precondition.  The next rung can retry D-public/public tunnel
+> exposure over STA, but only behind the existing explicit public-live gates, with no raw
+> SSID/PSK/BSSID/IP/gateway/DNS/token/public URL in committed artifacts.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

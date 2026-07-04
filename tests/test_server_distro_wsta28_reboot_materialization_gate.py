@@ -52,7 +52,7 @@ class ServerDistroWsta28RebootMaterializationGateTests(unittest.TestCase):
             "checks": {"post_reboot_health": True},
             "reboot_send": {"accepted_no_end_marker": True, "transport_error": "drop"},
             "post_reboot_health": {"commands": {"version": {"text": "raw version transcript"}}},
-            "post_reboot_health_summary": {"version": {"contains_v3387": True}},
+            "post_reboot_health_summary": {"version": {"contains_supported_native": True}},
             "wsta27_after_reboot": {
                 "decision": "wsta27-materialization-scan-gate-pass",
                 "materialized_scan_window": {"best": {"decision": "wifi-scan-pass"}},
@@ -68,6 +68,7 @@ class ServerDistroWsta28RebootMaterializationGateTests(unittest.TestCase):
         self.assertIn("resident.send_warm_reboot", source)
         self.assertIn("resident.restart_bridge_and_wait_health", source)
         self.assertIn("run_nested_wsta27", source)
+        self.assertIn("contains_supported_native", source)
         self.assertIn("post_reboot_settle_sec", source)
         self.assertIn('"native_reboot": gate_ok', source)
         self.assertIn('"service_connect_request": False', source)

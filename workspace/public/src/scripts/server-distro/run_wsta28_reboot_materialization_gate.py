@@ -28,6 +28,7 @@ for _path in (SCRIPT_DIR, REVAL_DIR):
 import a90_repl_resident_session as resident  # noqa: E402
 import run_wsta2_native_materialization as wsta2  # noqa: E402
 import run_wsta24_native_wifi_uplink_client as wsta24  # noqa: E402
+import run_wsta26_scan_failure_diagnostic as wsta26  # noqa: E402
 import run_wsta27_materialization_preflight as wsta27  # noqa: E402
 
 
@@ -142,8 +143,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "started_utc": ts,
         "run_dir": wsta2.rel(run_dir),
         "resident_required": {
-            "version": wsta24.V3387_VERSION,
-            "build": wsta24.V3387_BUILD,
+            "supported": wsta24.SUPPORTED_UPLINK_NATIVE_BUILDS,
         },
         "gate_decision": gate_decision,
         "safety": {
@@ -177,14 +177,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         key: {
             "rc": value.get("rc"),
             "status": value.get("status"),
-            "contains_v3387": wsta24.V3387_VERSION in str(value.get("text", ""))
-            and wsta24.V3387_BUILD in str(value.get("text", "")),
+            "contains_supported_native": wsta26.native_is_v3387(str(value.get("text", ""))),
             "selftest_fail_zero": "fail=0" in str(value.get("text", "")),
         }
         for key, value in health.get("commands", {}).items()
     }
     result["checks"]["post_reboot_health"] = (
-        result["post_reboot_health_summary"].get("version", {}).get("contains_v3387") is True
+        result["post_reboot_health_summary"].get("version", {}).get("contains_supported_native") is True
         and result["post_reboot_health_summary"].get("selftest", {}).get("selftest_fail_zero") is True
     )
     write_json(out_path, result)
