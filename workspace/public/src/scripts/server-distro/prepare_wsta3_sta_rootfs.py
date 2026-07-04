@@ -556,8 +556,14 @@ def stage_native_wifi_uplink_client(rootfs: Path) -> dict[str, Any]:
         "latest_helper_staged": True,
         "file_protocol_present": "seq=%s\\n" in text and "op=%s\\n" in text,
         "atomic_request_present": "request.tmp.$$" in text and "mv \"$request_tmp\" \"$request\"" in text,
-        "status_no_confirm_only": "status|autoconnect-no-confirm" in text,
-        "confirmed_autoconnect_denied": "confirmed-autoconnect" in text and "native-wifi-uplink-client-op-denied" in text,
+        "status_no_confirm_and_confirmed_gate": "status|autoconnect-no-confirm|autoconnect-confirmed" in text,
+        "confirmed_autoconnect_env_gated": (
+            "A90_NATIVE_WIFI_UPLINK_ALLOW_CONFIRMED" in text
+            and "A90_NATIVE_WIFI_UPLINK_CONFIRM_TOKEN" in text
+            and "native-wifi-uplink-client-confirmed-disabled" in text
+            and "native-wifi-uplink-client-confirm-token-missing" in text
+        ),
+        "confirmed_autoconnect_fail_closed": "confirmed-autoconnect" in text and "native-wifi-uplink-client-op-denied" in text,
         "dangerous_ops_denied": "connect|associate|association|dhcp|ping|public-tunnel|tunnel" in text,
         "owner_check_present": "owner\" != \"native-init\"" in text,
         "version_check_present": "a90-native-wifi-uplink-service-v1" in text,

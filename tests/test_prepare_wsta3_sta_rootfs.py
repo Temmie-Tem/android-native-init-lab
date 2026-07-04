@@ -205,7 +205,7 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertNotIn("ssid=", text.lower())
             self.assertNotIn("psk=", text.lower())
 
-    def test_stage_native_wifi_uplink_client_is_status_and_no_confirm_only(self) -> None:
+    def test_stage_native_wifi_uplink_client_has_confirmed_autoconnect_gate(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             rootfs = Path(tmp)
 
@@ -216,8 +216,9 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertTrue(result["latest_helper_staged"])
             self.assertTrue(result["file_protocol_present"])
             self.assertTrue(result["atomic_request_present"])
-            self.assertTrue(result["status_no_confirm_only"])
-            self.assertTrue(result["confirmed_autoconnect_denied"])
+            self.assertTrue(result["status_no_confirm_and_confirmed_gate"])
+            self.assertTrue(result["confirmed_autoconnect_env_gated"])
+            self.assertTrue(result["confirmed_autoconnect_fail_closed"])
             self.assertTrue(result["dangerous_ops_denied"])
             self.assertTrue(result["owner_check_present"])
             self.assertTrue(result["version_check_present"])
@@ -226,6 +227,8 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertEqual(target.stat().st_mode & 0o777, 0o755)
             self.assertIn("/tmp/a90-native-wifi-uplink-service", text)
             self.assertIn("native-wifi-uplink-client-op-denied", text)
+            self.assertIn("native-wifi-uplink-client-confirmed-disabled", text)
+            self.assertIn("native-wifi-uplink-client-confirm-token-missing", text)
             self.assertIn("owner\" != \"native-init\"", text)
             self.assertNotIn("ssid=", text.lower())
             self.assertNotIn("psk=", text.lower())
@@ -416,7 +419,8 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertTrue(result["native_wifi_service_client"]["latest_helper_staged"])
             self.assertTrue(result["native_wifi_service_client"]["dangerous_ops_denied"])
             self.assertTrue(result["native_wifi_uplink_client"]["latest_helper_staged"])
-            self.assertTrue(result["native_wifi_uplink_client"]["confirmed_autoconnect_denied"])
+            self.assertTrue(result["native_wifi_uplink_client"]["confirmed_autoconnect_env_gated"])
+            self.assertTrue(result["native_wifi_uplink_client"]["confirmed_autoconnect_fail_closed"])
             self.assertTrue((target / wsta3.TARGET_NATIVE_WIFI_SERVICE_CLIENT).is_file())
             self.assertTrue((target / wsta3.TARGET_NATIVE_WIFI_UPLINK_CLIENT).is_file())
             self.assertFalse(result["api_probe_tools"]["requested"])

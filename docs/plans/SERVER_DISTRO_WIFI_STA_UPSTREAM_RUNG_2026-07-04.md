@@ -579,3 +579,33 @@ WSTA25 should be a separate credential-gated confirmed autoconnect/DHCP design o
 
 Until that unit is explicitly selected, confirmed association, DHCP, ping, and public tunnel execution
 remain parked.
+
+WSTA25 source/preflight result: pass.  The Debian-side
+`/usr/local/bin/a90-native-wifi-uplink-client` now includes `autoconnect-confirmed`, but the path is
+fail-closed by default and requires both environment gates before request write:
+
+- `A90_NATIVE_WIFI_UPLINK_ALLOW_CONFIRMED=1`
+- exact `A90_NATIVE_WIFI_UPLINK_CONFIRM_TOKEN`
+
+Without both gates, the helper exits before creating `request`.  With both gates, it writes
+`op=autoconnect` plus the native confirm field and accepts a redacted
+`wifi-uplink-service-autoconnect-pass` response without echoing the token.  Direct `autoconnect`,
+`connect`, `dhcp`, `ping`, public tunnel, and ambiguous `confirmed-autoconnect` operations remain
+denied before request write.  No live confirmed autoconnect, association, DHCP, ping, routing, public
+tunnel, boot flash, switch-root, userdata touch, or credential-value logging ran.  Validation passed:
+shell syntax, `py_compile`, and focused helper/rootfs/WSTA tests (`32 tests`, `OK`).  Report:
+`docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA25_CONFIRMED_GATE_SOURCE_2026-07-04.md`.
+
+## 11. Next Implementation Unit
+
+WSTA25 live confirmed-autoconnect gate, only if explicitly selected:
+
+1. Require resident V3387 or later and native health `selftest fail=0`.
+2. Mount the SD-backed Debian chroot and start temporary key-only dropbear.
+3. Start native `wifi uplink-service` in a chroot-visible service directory.
+4. Run the Debian helper `autoconnect-confirmed` with both WSTA25 environment gates.
+5. Collect only redacted response metadata: owner, decision, rc, carrier/default-route booleans,
+   autoconnect result fields, and secret hygiene markers.
+6. Stop service, cleanup helper/chroot/dropbear/loop state, and finish with `selftest fail=0`.
+7. Keep DHCP/routing and public exposure as separate gates unless the live unit explicitly expands to
+   cover them.

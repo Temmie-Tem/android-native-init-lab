@@ -1396,6 +1396,26 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA25 should be an explicit credential-gated confirmed autoconnect/DHCP design or
 > preflight unit.  Keep confirmed association, DHCP, ping, and public tunnel execution parked until
 > that unit supplies the confirm token and private credential/public-exposure policy explicitly.
+> **🟢 STATUS (2026-07-04 11:10 KST host clock) — WSTA25 confirmed autoconnect gate SOURCE/PREFLIGHT PASS.**
+> Codex extended the Debian-side
+> `/usr/local/bin/a90-native-wifi-uplink-client` with a WSTA25 `autoconnect-confirmed` operation while
+> keeping the default path fail-closed.  The helper now requires both
+> `A90_NATIVE_WIFI_UPLINK_ALLOW_CONFIRMED=1` and the exact
+> `A90_NATIVE_WIFI_UPLINK_CONFIRM_TOKEN` before it writes any request file.  Without the allow gate it
+> returns `native-wifi-uplink-client-confirmed-disabled`; with allow but no exact token it returns
+> `native-wifi-uplink-client-confirm-token-missing`; both cases write no request.  With both gates,
+> the helper writes `op=autoconnect` plus the native confirm field and accepts a redacted
+> `wifi-uplink-service-autoconnect-pass` response without echoing the token.  Direct
+> `autoconnect`, `connect`, `dhcp`, `ping`, public tunnel, and ambiguous `confirmed-autoconnect`
+> operations remain denied before request write.  Rootfs staging metadata now records the
+> confirmed-autoconnect env gate and fail-closed policy.  Host validation passed: shell syntax,
+> `py_compile`, and focused WSTA/native helper/rootfs tests (`32 tests`, `OK`).  No live confirmed
+> autoconnect, association, DHCP, ping, routing, public tunnel, boot flash, switch-root, userdata, or
+> credential-value logging ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA25_CONFIRMED_GATE_SOURCE_2026-07-04.md`.
+> **NEXT:** WSTA25 live confirmed-autoconnect gate remains separate.  It must be explicitly selected,
+> supply both helper env gates, collect only redacted native response metadata, and keep DHCP/routing
+> plus public exposure as separate gates unless explicitly authorized.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

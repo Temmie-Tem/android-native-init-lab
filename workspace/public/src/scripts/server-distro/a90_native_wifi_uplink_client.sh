@@ -1,18 +1,23 @@
 #!/bin/sh
 # Debian-side client for the native-owned Wi-Fi uplink service boundary.
 #
-# This helper only requests redacted status and the no-confirm denial probe. It
-# never supplies the autoconnect confirm token and never starts association,
-# DHCP, ping, routing, or public tunnel work.
+# This helper requests redacted status, the no-confirm denial probe, and a
+# future WSTA25 confirmed autoconnect path.  Confirmed autoconnect is fail-closed
+# by default and requires both explicit environment gates before it writes a
+# request file.  The helper never starts DHCP, ping, routing, or public tunnel
+# work itself.
 
 set -u
 
 SERVICE_VERSION="a90-native-wifi-uplink-service-v1"
 SERVICE_DIR="${A90_NATIVE_WIFI_UPLINK_SERVICE_DIR:-/tmp/a90-native-wifi-uplink-service}"
 TIMEOUT_SEC="${A90_NATIVE_WIFI_UPLINK_SERVICE_TIMEOUT_SEC:-30}"
+CONFIRM_VALUE="A90_NATIVE_UPLINK_AUTOCONNECT_V1"
+ALLOW_CONFIRMED="${A90_NATIVE_WIFI_UPLINK_ALLOW_CONFIRMED:-0}"
+CONFIRM_TOKEN="${A90_NATIVE_WIFI_UPLINK_CONFIRM_TOKEN:-}"
 
 usage() {
-    echo "usage: a90-native-wifi-uplink-client [status|autoconnect-no-confirm] [service-dir]" >&2
+    echo "usage: a90-native-wifi-uplink-client [status|autoconnect-no-confirm|autoconnect-confirmed] [service-dir]" >&2
 }
 
 fail() {
@@ -29,6 +34,7 @@ fail() {
 }
 
 requested_op="${1:-}"
+confirmed_autoconnect=0
 case "$requested_op" in
     status)
         service_op="status"
@@ -37,6 +43,11 @@ case "$requested_op" in
     autoconnect-no-confirm)
         service_op="autoconnect"
         expected_decision="wifi-uplink-service-confirm-required"
+        ;;
+    autoconnect-confirmed)
+        service_op="autoconnect"
+        expected_decision="wifi-uplink-service-autoconnect-pass"
+        confirmed_autoconnect=1
         ;;
     autoconnect|connect|associate|association|dhcp|ping|public-tunnel|tunnel|confirmed-autoconnect)
         fail 64 "native-wifi-uplink-client-op-denied" "requested_op=$requested_op"
@@ -53,6 +64,15 @@ esac
 
 if [ "${2:-}" ]; then
     SERVICE_DIR="$2"
+fi
+
+if [ "$confirmed_autoconnect" = "1" ]; then
+    if [ "$ALLOW_CONFIRMED" != "1" ]; then
+        fail 77 "native-wifi-uplink-client-confirmed-disabled" "requested_op=$requested_op"
+    fi
+    if [ "$CONFIRM_TOKEN" != "$CONFIRM_VALUE" ]; then
+        fail 77 "native-wifi-uplink-client-confirm-token-missing" "requested_op=$requested_op"
+    fi
 fi
 
 case "$TIMEOUT_SEC" in
@@ -74,6 +94,9 @@ rm -f "$response" "$SERVICE_DIR/response.tmp" "$request_tmp"
 if ! {
     printf 'seq=%s\n' "$seq_value"
     printf 'op=%s\n' "$service_op"
+    if [ "$confirmed_autoconnect" = "1" ]; then
+        printf 'confirm=%s\n' "$CONFIRM_VALUE"
+    fi
 } > "$request_tmp"; then
     rm -f "$request_tmp"
     fail 70 "native-wifi-uplink-client-request-write-failed"
@@ -126,6 +149,9 @@ while IFS= read -r line; do
     esac
     case "$key" in
         version|seq|op|owner|rc|credentials|connect|dhcp_routing|external_ping_execution|public_tunnel|raw_values_redacted|secret_values_logged|wlan0_present|default_route_present|nameserver_count|autoconnect_ready|autoconnect_enabled|config_profile_present|profile_valid|dhcp|scan_before_connect|retry_count|external_ping_blocked|autoconnect_config_decision|autoconnect_result_present|autoconnect_decision|autoconnect_profile_present|connect_rc|dhcp_rc|final_rc|carrier_up|decision)
+            printf '%s=%s\n' "$key" "$value"
+            ;;
+        requested_profile_present)
             printf '%s=%s\n' "$key" "$value"
             ;;
     esac
