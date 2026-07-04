@@ -336,6 +336,47 @@ PID1 handoff.
 Report:
 `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA18_CONTROL_PLANE_BLOCKED_2026-07-04.md`.
 
+### WSTA19: native-owned chroot Wi-Fi boundary
+
+Source result: added `run_wsta19_native_owned_chroot_wifi.py` plus focused tests.  The
+runner keeps native PID1 alive, uses the WSTA2 materialization preflight when `wlan0` is not
+admin-up, mounts the SD-backed Debian image as a chroot, starts temporary key-only `dropbear`,
+proves SSH into Debian over USB/NCM, and runs native `wifi scan` while the chroot is active.
+
+Live result: pass after a fresh native reboot.  A first same-boot attempt blocked before the
+chroot at the known stale `flags=0x1002` / `SIOCSIFFLAGS EINVAL` state, and a same-boot
+WSTA2 iftype-probe also failed.  The final pass used the reliable sequence:
+
+```text
+fresh native V3384 boot
+  -> WSTA2 materialization preflight
+  -> native scan
+  -> SD image SHA restage if needed
+  -> Debian chroot dropbear SSH
+  -> native scan while chroot is active
+  -> cleanup and final selftest
+```
+
+Key live markers:
+
+```text
+materialization: wlan0_wait_elapsed_ms=69042 link_up_rc=0 decision=softap-iftype-probe-pass
+native_pre_chroot_scan: decision=wifi-scan-pass scan_result_count=9
+ssh: A90D2_SSH_MARKER debian_version=12.14 stage_marker=present
+native_during_chroot_scan: decision=wifi-scan-pass scan_result_count=11
+cleanup_postcheck: mount_absent=1 loop_node_absent=1 dropbear_absent=1
+final: V3384 selftest fail=0
+```
+
+Interpretation: the chroot ownership model preserves the vendor WLAN control plane that full
+`switch_root` lost in WSTA18.  Debian can run as a service consumer while native init keeps
+Wi-Fi ownership.  This validates the practical direction for a Wi-Fi-enabled appliance:
+native-owned scan/connect/status service boundary first; direct Debian raw WLAN ownership only
+after a separate control-plane preservation/relaunch design.
+
+Report:
+`docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA19_NATIVE_OWNED_CHROOT_WIFI_PASS_2026-07-04.md`.
+
 ### WSTA7: Debian association/control fix
 
 Live result: pass.  The Debian STA helper now waits for the `wpa_supplicant` control
@@ -379,14 +420,14 @@ Stop before mutation or public exposure if any condition appears:
 
 ## 7. Next Implementation Unit
 
-Choose the next ownership-model prototype:
+WSTA19 selects and validates the low-risk ownership model.  The next implementation unit is the
+native-owned service boundary:
 
-1. **Preferred low-risk path:** keep Wi-Fi owned by native init and expose a bounded local service
-   boundary to Debian for scan/connect/status, so the Android/vendor WLAN control plane stays alive.
-2. **Alternative:** preserve/relaunch the minimal vendor WLAN userspace/control-plane set across
-   `switch_root` and prove the WCNSS/WMI path stays up.
-3. **Fallback:** run Debian as chroot/container under native PID1 for the Wi-Fi-enabled appliance
-   path, and reserve full `switch_root` for USB-local/server-only use.
+1. Define the native command/API surface for bounded Wi-Fi operations that Debian/chroot consumers
+   can request: scan/status first, then connect/DHCP only under the existing credential and public
+   exposure gates.
+2. Keep native init as the raw WLAN owner so the Android/vendor WCNSS/WMI control plane stays alive.
+3. Keep full `switch_root` as USB-local/server-only unless a separate design preserves or relaunches
+   the minimal vendor WLAN userspace/control-plane set across handoff.
 
-Do not spend more rungs on direct Debian `iw` or link toggles until one of those ownership models
-is selected.
+Do not spend more rungs on direct Debian `iw` or link toggles.

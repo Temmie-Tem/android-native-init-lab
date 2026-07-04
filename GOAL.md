@@ -1233,6 +1233,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** choose and prototype the ownership model: preserve/relaunch the minimal vendor WLAN
 > control-plane set across handoff, or keep Wi-Fi owned by native init and expose it to Debian as a
 > bounded service boundary.  Do not spend more rungs on direct Debian `iw`/link toggles.
+> **🟢 STATUS (2026-07-04 09:23 KST host clock) — WSTA19 native-owned chroot Wi-Fi boundary PASS.**
+> Codex added `run_wsta19_native_owned_chroot_wifi.py`, a no-flash/no-userdata runner that keeps
+> native PID1 alive, runs a WSTA2 materialization preflight, mounts the SD-backed Debian image as a
+> chroot, starts temporary key-only dropbear, proves host SSH reaches Debian over USB/NCM, and checks
+> that native `wifi scan` still works while the Debian chroot is active.  The first same-boot attempt
+> correctly exposed the known stale `flags=0x1002` / `SIOCSIFFLAGS EINVAL` state; a fresh native reboot
+> plus WSTA2 preflight then passed (`wlan0_wait_elapsed_ms=69042`, `link_up_rc=0`).  Native pre-chroot
+> scan passed on attempt 1 with `scan_result_count=9`; Debian chroot SSH returned `debian_version=12.14`
+> and the stage marker; native scan during chroot passed on attempt 1 with `scan_result_count=11`;
+> cleanup postcheck confirmed mount/loop/dropbear absent; final V3384 `selftest fail=0`.  No association,
+> DHCP, ping, API, public tunnel, `switch_root`, boot flash, or userdata path ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA19_NATIVE_OWNED_CHROOT_WIFI_PASS_2026-07-04.md`.
+> **NEXT:** build the native-owned service boundary deliberately: keep native init as Wi-Fi owner and
+> expose bounded scan/connect/status operations to Debian/chroot consumers.  Full `switch_root` remains
+> USB-local/server-only unless the vendor WLAN control plane is explicitly preserved or relaunched.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
