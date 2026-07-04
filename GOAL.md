@@ -1492,6 +1492,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > reattempting confirmed autoconnect: run a safe native materialization/scan gate, require direct
 > native scan success, and only then permit the existing WSTA25 confirmed live runner.  Do not send
 > another confirmed request until that scan gate passes.
+> **🟡 STATUS (2026-07-04 11:43 KST host clock) — WSTA27 materialization preflight SOURCE+LIVE
+> BLOCKED; same-boot recovery fails at link-up.**  Codex added
+> `workspace/public/src/scripts/server-distro/run_wsta27_materialization_preflight.py` and focused
+> tests.  The runner is explicit-live-gated (`--allow-materialization-live`), blocks by default with
+> `wsta27-blocked-explicit-materialization-live-allow-required`, prints a public-safe summary by
+> default, and never sends a service connect request / DHCP / ping / public tunnel / flash path.
+> Static validation passed (`py_compile`, focused WSTA27 unit tests: `6 tests`, `OK`,
+> `git diff --check`).  The live run against V3387 confirmed autoconnect remained disabled and
+> selftest stayed clean, but the materialization probe returned
+> `decision=softap-iftype-probe-link-up-failed`, `wlan0_present=1`, `wlan0_wait_elapsed_ms=0`,
+> `link_up_rc=-1`, and `link_up_errno=22`; before/after status stayed `operstate=down`,
+> `ipv4=none`, `default_route_present=0`, `supplicant.process_count=0`, and
+> `ctrl_socket.kind=missing`.  The runner did not run the scan gate and did not send any confirmed
+> request.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA27_MATERIALIZATION_PREFLIGHT_BLOCKED_2026-07-04.md`.
+> **NEXT:** WSTA28 should be a no-flash controlled reboot/materialization gate for V3387: reboot
+> native init, wait for bridge/version/selftest, confirm autoconnect remains disabled, rerun WSTA27,
+> and stop unless direct native scan passes.  Confirmed autoconnect remains parked until that scan
+> gate is green.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
