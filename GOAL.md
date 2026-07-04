@@ -2997,6 +2997,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA118_OPERATOR_STATUS_SYSCALL_TRACE_PROOF_SOURCE_2026-07-05.md`.
 > **NEXT:** extend the same launcher/syscall proof bundle beyond `dpublic-smoke-httpd`, with priority on the
 > Dropbear admin user model before any always-on server profile.
+>
+> **🟢 STATUS (2026-07-05 04:25 KST host clock) — WSTA119 DROPBEAR
+> ADMIN MODEL SOURCE PASS.**  Codex added `run_wsta119_dropbear_admin_model.py`, a host-only source/model unit for the
+> admin SSH path that must replace the temporary D2 root-authorized-keys model before always-on server use.  Default
+> invocation is inert and requires `--emit-admin-model`.  The model keeps Dropbear as an explicitly justified
+> `root-boundary-auth-daemon` for SSH authentication/session setup, but disables root login and targets non-root
+> `a90admin` only: UID/GID `3903/3903`, home `/home/a90admin`, shell `/bin/sh`, authorized keys at
+> `/home/a90admin/.ssh/authorized_keys` mode `0600`, and `/root/.ssh/authorized_keys` absent-required.  Dropbear
+> command policy is key-only/root-denied/forwarding-denied and bound to USB/NCM only:
+> `-s -w -j -k -p 192.168.7.2:2222`.  The stage-script generator may replace only the known WSTA109 placeholder
+> `a90admin` nologin line; any other existing `a90admin` entry is a fail-closed conflict.  Private source proof
+> output passed with all model checks true.  No device action, boot flash, native reboot, Wi-Fi association, DHCP,
+> public tunnel, public smoke, packet-filter mutation, userdata action, or switch-root ran.  Focused WSTA119
+> validation passed (`7 tests`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA119_DROPBEAR_ADMIN_MODEL_SOURCE_2026-07-05.md`.
+> **NEXT:** WSTA120 should run the bounded private live gate on the SD work image: stage this admin model, start
+> Dropbear with `-s -w -j -k` on `192.168.7.2:2222`, prove SSH as `a90admin` returns UID/GID `3903/3903`, prove root
+> SSH is rejected and root authorized keys are absent, then clean Dropbear/admin key material and postcheck
+> chroot/loop state.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
