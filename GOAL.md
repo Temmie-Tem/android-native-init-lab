@@ -72,6 +72,17 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > match the shared-kernel facts; note any divergence. Safety machinery unchanged (recoverable envelope → `v2321`,
 > forbidden-partition/power bright lines, no committed secrets, D4 userdata guards). DoD = a committed redacted
 > Debian-eye hardware inventory report + `selftest fail=0`.
+>
+> **✅ STATUS (2026-07-04 17:24 KST host clock) — DEBIAN-EYE HARDWARE INVENTORY LIVE PASS.**  Codex ran the
+> operator-requested Debian-side inventory against the staged Debian rootfs under native PID1 control, using a
+> read-only loop mount and no switch-root.  No flash, Wi-Fi association, DHCP, public tunnel, public smoke request,
+> persistent exposure, userdata action, or non-boot partition write ran.  Cleanup confirmed the temporary mount,
+> loop node, and uploaded helper script were absent after the run.  The redacted Debian view reported Debian 12.14
+> on `Linux 4.14.190-25818860-abA908NKSU5EWA3` `aarch64`, 8 processors, `MemTotal=5504940 kB`, 110 block-class
+> entries, 78 partitions, 12 network interfaces with address values redacted, `ext4=true`, and `overlay=false`.
+> Native D0 cross-check matched CPU count, memory within 4 kB, ext4 support, and missing overlay support.  Final
+> resident health stayed clean on V3395 with `selftest fail=0`.  Report:
+> `docs/reports/SERVER_DISTRO_DEBIAN_EYE_HARDWARE_INVENTORY_LIVE_2026-07-04.md`.
 
 > **🟣 OPERATOR STEER (2026-07-03) — D4C: RESOLVE THE ext2/ext4 FILESYSTEM-TYPE DIVERGENCE BEFORE the
 > destructive userdata format.** Gate-2 caught that V3377 "fixed" the V3375 syntax failure by *dropping*
@@ -1984,8 +1995,17 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > No device command, flash, native reboot, Wi-Fi association, DHCP, public tunnel, public smoke, userdata
 > action, switch-root, or external service action ran.  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA53_PERSISTENT_EXPOSURE_PLAN_SOURCE_2026-07-04.md`.
+> **🟢 STATUS (2026-07-04 17:24 KST host clock) — Debian-eye hardware inventory
+> LIVE PASS.**  Codex satisfied the operator charter that must land before any WSTA55+ persistent-exposure live
+> rung.  The existing staged Debian rootfs was mounted read-only, inventoried from the Debian view, and cleaned up
+> without flash, Wi-Fi association, DHCP, public tunnel, public smoke, userdata action, switch-root, or public
+> exposure.  Redacted results matched native D0 shared-kernel facts for CPU count, memory, ext4 support, and
+> missing overlay support.  Final V3395 health remained clean with `selftest fail=0`.  Report:
+> `docs/reports/SERVER_DISTRO_DEBIAN_EYE_HARDWARE_INVENTORY_LIVE_2026-07-04.md`.
 > **NEXT:** implement WSTA54 host-only private lease artifact generation: consume the WSTA53 redacted plan,
-> materialize the private lease under `workspace/private/`, and still perform no device action.
+> materialize the private lease under `workspace/private/`, and still perform no device action.  WSTA55+ live
+> persistent exposure remains gated behind the completed inventory, WSTA52/WSTA53 fail-closed contract, and an
+> explicit live gate.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
