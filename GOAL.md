@@ -52,7 +52,10 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > boot back to `v2321`; before a *persistent, always-on public* posture (named tunnel, resident exposed
 > profile), fold in D-harden (seccomp/AppArmor/nftables/caps + named-tunnel auth) per design doc D + E §8.
 
-> **🟢 OPERATOR CHARTER (2026-07-04) — next bounded unit = read-only DEBIAN-EYE HARDWARE INVENTORY (user-requested).**
+> **🟢 OPERATOR CHARTER (2026-07-04) — read-only DEBIAN-EYE HARDWARE INVENTORY (user-requested). ⏫ DO THIS NEXT,
+> BEFORE any further persistent-exposure LIVE rung (WSTA55+).** The user explicitly asked for this; it was not
+> picked up while the loop had persistent-exposure-design momentum. Persistent-exposure DESIGN/source (WSTA52/53,
+> no live action) may finish, but land the Debian hardware inventory before starting WSTA55+ live leased exposure.
 > Capture what the Debian appliance actually sees for hardware, from inside the distro (chroot-under-native-PID1
 > is fine — no switch_root needed, no Wi-Fi association needed). NON-DESTRUCTIVE / READ-ONLY: mount the staged
 > Debian rootfs (SD image), start no exposure, collect and persist a hardware inventory, cleanup, roll back /
@@ -1967,6 +1970,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** implement WSTA53 source-only: a persistent lease parser and redacted plan generator that is
 > fail-closed by default and performs no live action; it should prepare WSTA54 host-only private lease
 > artifact generation.
+> **🟢 STATUS (2026-07-04 17:12 KST host clock) — WSTA53 persistent exposure plan
+> SOURCE PASS.**  Codex added
+> `workspace/public/src/scripts/server-distro/run_wsta53_persistent_exposure_plan.py`, a host-only lease
+> parser/redacted-plan generator for the WSTA52 persistent exposure design.  It defaults fail-closed,
+> performs no live/device action, rejects forbidden nested fields (`raw_public_url`, Wi-Fi identifiers,
+> IP/routing/DNS fields, and confirm-token values), enforces `ttl_sec <= 14400`, requires explicit
+> credentialed-Wi-Fi/public-exposure acknowledgements and `private` confirm-token source markers, and emits
+> a redacted plan with `future_live_allowed=false` plus `wsta54_private_artifact_ready=true` only when the
+> source-only lease request is valid.  CLI smoke passed for `--print-template` and a valid redacted plan
+> under `workspace/private/runs/server-distro/wsta53-smoke`; no raw public URL or secret value was printed
+> or committed.  Validation passed: 13 focused WSTA53/WSTA52 tests, `py_compile`, and `git diff --check`.
+> No device command, flash, native reboot, Wi-Fi association, DHCP, public tunnel, public smoke, userdata
+> action, switch-root, or external service action ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA53_PERSISTENT_EXPOSURE_PLAN_SOURCE_2026-07-04.md`.
+> **NEXT:** implement WSTA54 host-only private lease artifact generation: consume the WSTA53 redacted plan,
+> materialize the private lease under `workspace/private/`, and still perform no device action.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
