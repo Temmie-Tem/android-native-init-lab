@@ -2138,6 +2138,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA62_NATIVE_PERSISTENT_STATE_SCREEN_LIVE_2026-07-04.md`.
 > **NEXT:** continue the persistent exposure ladder itself, default-off: reuse fixed WSTA58 cleanup/redaction gates,
 > require fresh short-lived private lease artifacts and explicit operator gates, and keep the native screen display-only.
+> **🟢 STATUS (2026-07-04 18:55 KST host clock) — WSTA63 persistent session controller
+> SOURCE/PREFLIGHT PASS.**  Codex added
+> `workspace/public/src/scripts/server-distro/run_wsta63_persistent_session_controller.py`, a host-only controller that
+> prepares the next WSTA58 persistent exposure session without running live exposure.  WSTA63 creates an initial WSTA53
+> short plan, initial WSTA54 private lease artifact, renewal WSTA53 source, and WSTA58 preflight result, then emits a
+> redacted WSTA58 live command template with `<native-confirm-token>` / `<public-confirm-token>` placeholders.  It keeps
+> the WSTA59 freshness fix by deferring renewal WSTA54 lease minting until after the initial live leg.  Default execution
+> is fail-closed; a prepared session requires `--prepare-session`, TTL `<=300`, credentialed-Wi-Fi/public-exposure
+> acknowledgements, and private confirm-token source markers.  Private smoke
+> `workspace/private/runs/server-distro/wsta63-preflight-smoke-20260704T0951Z` returned
+> `wsta63-persistent-session-preflight-pass`, `wsta58_preflight_pass=true`, `renewal_lease_minted_after_initial=true`,
+> `live_execution_requested=false`, `public_url_value_logged=false`, and `secret_values_logged=0`.  Validation passed
+> 47 focused WSTA52/WSTA53/WSTA54/WSTA55/WSTA58/WSTA63 tests plus `py_compile`.  No boot image, flash, device command,
+> native reboot, Wi-Fi association, DHCP, public tunnel, public smoke, userdata action, switch-root, or external service
+> action ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA63_PERSISTENT_SESSION_CONTROLLER_SOURCE_2026-07-04.md`.
+> **NEXT:** only if the operator explicitly selects live persistent exposure, run the WSTA63-generated WSTA58 template
+> with fresh private confirm tokens and the existing WSTA58 live gates; otherwise continue productizing the default-off
+> session workflow without starting public exposure.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
