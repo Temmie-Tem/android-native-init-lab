@@ -2909,6 +2909,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA114 should run a bounded private `strace` capture for `a90-service-launch dpublic-smoke-httpd ...`, keep
 > public exposure off, and convert only that smoke-service syscall set into a private profile summary.  Do not generalize
 > that profile to Dropbear or other services.
+>
+> **🟢 STATUS (2026-07-05 03:07 KST host clock) — WSTA114 SYSCALL TRACE
+> CHROOT PROFILE SOURCE PASS.**  Codex added `run_wsta114_syscall_trace_chroot_profile.py`, an explicit-gated runner for
+> the private smoke-service syscall trace.  Default invocation is inert and blocks until
+> `--execute-syscall-trace-chroot-live`, `--allow-syscall-trace-live`, and
+> `--ack-private-trace-artifact` are supplied.  The runner reuses the WSTA110 chroot/dropbear/service-hardening path,
+> stages D-public smoke helpers, requires public default-off, runs `strace -f` around
+> `a90-service-launch dpublic-smoke-httpd a90-dpublic-smoke-httpd 127.0.0.1 8080`, drives one loopback GET, requires
+> `NoNewPrivs=1`, zero effective capabilities, non-empty raw trace/profile output, and core syscall evidence
+> `execve/socket/bind/listen`, then saves raw trace and syscall-list artifacts under the private run dir.  This is a
+> source/harness pass only: no live trace was run, `strace` presence in the current SD image is unproven, and the
+> `syscall traces not captured` blocker is not retired.  No device action, boot flash, native reboot, Wi-Fi, DHCP,
+> public tunnel, public smoke, packet-filter mutation, userdata action, or switch-root ran.  Validation passed
+> `py_compile`, WSTA114 focused tests (`9 tests`), and the full server-distro WSTA regression (`384 tests`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA114_SYSCALL_TRACE_CHROOT_PROFILE_SOURCE_2026-07-05.md`.
+> **NEXT:** confirm or prepare a strace-enabled SD work image, run the WSTA114 live gate, keep the raw/profile artifacts
+> private, then fold the pass proof into WSTA108 without generalizing beyond `dpublic-smoke-httpd`.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
