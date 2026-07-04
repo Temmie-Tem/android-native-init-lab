@@ -2596,6 +2596,19 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA87_CLEAN_IMAGE_CACHE_LIVE_PASS_2026-07-04.md`.
 > **NEXT:** WSTA80/WSTA58 plus the WSTA84 clean-image cache are live-proven.  Continue with default-off operator UX
 > or the next server-distro hardening/persistence rung; do not repeat this live proof unless testing a new change.
+> **🟢 STATUS (2026-07-04 22:00 KST host clock) — WSTA88 one-command
+> persistent operator workflow SOURCE PASS.**  Codex productized the WSTA87 inline orchestration into
+> `run_wsta88_persistent_operator_workflow.py`: a default-off host wrapper that builds a fresh WSTA72→WSTA80
+> private run tree in one command and stops at `READY_FOR_EXPLICIT_WSTA58_LIVE_GATE` / `PUBLIC_OFF`.  Optional
+> live execution exists only by passing the existing full WSTA80/WSTA58 acknowledgement stack; WSTA88 delegates to
+> WSTA80 and does not introduce a new public-exposure mechanism.  A bug caught during tests was fixed: WSTA88 now
+> forwards `--allow-*` and proof flags to WSTA80 only if the operator supplied them, so WSTA80's fail-closed live
+> gate remains intact.  Validation passed `py_compile`, 77 focused WSTA72→WSTA80/WSTA88 tests, and
+> `git diff --check`.  No boot image, flash, device command, native reboot, Wi-Fi association, DHCP, public tunnel,
+> public smoke, userdata action, switch-root, or non-boot partition write ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA88_OPERATOR_WORKFLOW_SOURCE_2026-07-04.md`.
+> **NEXT:** WSTA publish/proof UX is now source-productized around the live-proven path.  Continue with
+> containment/hardening or the next server-distro persistence rung instead of repeating the same WSTA live proof.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
