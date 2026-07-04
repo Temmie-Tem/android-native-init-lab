@@ -2022,6 +2022,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** design WSTA55 live short-lease proof: reuse the WSTA54 private artifact, run the existing
 > WSTA45/WSTA43/WSTA42 path with explicit live gates, prove public smoke, force TTL expiry, prove cleanup and WSTA48
 > redaction, then independently confirm `selftest fail=0`.
+> **🟢 STATUS (2026-07-04 17:40 KST host clock) — WSTA55 short-lived public proof
+> SOURCE/PREFLIGHT PASS.**  Codex added
+> `workspace/public/src/scripts/server-distro/run_wsta55_short_lived_public_proof.py`, a gated runner for the first
+> live persistent-lease proof.  Default execution is host-only preflight: it validates a WSTA54 private artifact
+> under `workspace/private`, requires `ttl_sec <= 300`, rejects expired/non-private artifacts, redacts the private
+> lease id, and performs no live action.  The live path requires `--execute-live-short-lease`, operator/native/public
+> live allows, credentialed-Wi-Fi and public-exposure acknowledgements, private native/public confirm tokens, and
+> `--force-ttl-expiry-proof`; only then does it delegate to WSTA45 -> WSTA43 -> WSTA42.  Live pass classification
+> additionally requires WSTA48 redaction, public smoke, D-public cleanup, native-uplink-profile cleanup, chroot
+> cleanup, final selftest fail-zero, and TTL-expiry-to-PUBLIC_OFF proof.  CLI smoke passed with a 60-second private
+> WSTA53/WSTA54 artifact and returned `wsta55-short-lived-public-proof-preflight-pass`; template output used token
+> placeholders.  Validation passed 30 focused WSTA55/WSTA54/WSTA48/WSTA45 tests, `py_compile`, and `git diff --check`.
+> No device command, flash, native reboot, Wi-Fi association, DHCP, public tunnel, public smoke, userdata action,
+> switch-root, or external service action ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA55_SHORT_LIVED_PUBLIC_PROOF_SOURCE_2026-07-04.md`.
+> **NEXT:** run the actual WSTA55 live short-lived proof only with a fresh `ttl_sec <= 300` WSTA54 artifact and the
+> explicit WSTA55 live gate; stop on any WSTA45/WSTA43/WSTA42 failure, cleanup miss, WSTA48 redaction miss, or post-run
+> `selftest` regression.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
