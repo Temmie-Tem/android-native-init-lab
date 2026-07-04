@@ -66,6 +66,48 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
             },
         }
 
+    def launcher_proof(self) -> dict:
+        return {
+            "decision": runner.wsta110.PASS_DECISION,
+            "run_dir": "workspace/private/runs/server-distro/wsta110-service-launcher-live-test",
+            "checks": {
+                "public_default_off": True,
+                "launcher_fail_closed_blocks": True,
+                "launcher_exec_pass": True,
+                "launcher_uid_gid_pass": True,
+                "launcher_no_new_privs_pass": True,
+                "chroot_cleanup_ok": True,
+                "final_selftest_fail_zero": True,
+            },
+            "launcher_probe": {
+                "parsed": {
+                    "public_enable_absent": True,
+                    "unknown_service_blocks": True,
+                    "command_required_blocks": True,
+                    "child_no_new_privs": True,
+                },
+                "stdout": "\n".join([
+                    "A90WSTA110_PUBLIC_ENABLE_ABSENT=1",
+                    "A90WSTA110_UNKNOWN_BLOCKED=1",
+                    "A90WSTA110_COMMAND_REQUIRED_BLOCKED=1",
+                    "a90_service_launcher_decision=exec",
+                    "a90_service_launcher_service=dpublic-smoke-httpd",
+                    "a90_service_launcher_user=a90www",
+                    "a90_service_launcher_no_new_privs=1",
+                    "child_uid=3901",
+                    "child_gid=3901",
+                    "child_user=a90www",
+                    "child_group=a90www",
+                    "child_no_new_privs=1",
+                    "child_cap_eff=0000000000000000",
+                    "A90WSTA110_PROC_UNMOUNTED=1",
+                    "A90WSTA110_PROOF_DONE",
+                ]),
+            },
+            "public_url_value_logged": False,
+            "secret_values_logged": 0,
+        }
+
     def valid_args(self, root: Path, wsta88_json: Path, *extra: str):
         return runner.build_arg_parser().parse_args([
             "--run-dir",
@@ -142,7 +184,59 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertEqual(hardening["service_count"], 5)
         self.assertTrue(hardening["global_policy"]["no_new_privs_default"])
         self.assertTrue(hardening["global_policy"]["capability_drop_required"])
+        self.assertEqual(hardening["launcher_proof"]["state"], "NOT_SUPPLIED")
         self.assertTrue(result["checks"]["hardening_manifest_supplied"])
+        self.assertFalse(result["checks"]["service_launcher_proof_supplied"])
+        self.assertFalse(result["checks"]["service_launcher_smoke_live_proven"])
+
+    def test_valid_wsta88_manifest_and_wsta110_proof_updates_hardening_summary(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            manifest_path = root / "inputs" / "wsta90_service_hardening_manifest.json"
+            proof_path = root / "inputs" / "wsta110_result.json"
+            manifest = self.hardening_manifest()
+            manifest["manifest"]["blocking_before_enforcement"].insert(0, "non-root users/groups not staged")
+            self.write_json(manifest_path, manifest)
+            self.write_json(proof_path, self.launcher_proof())
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta90-service-hardening-manifest-json",
+                str(manifest_path),
+                "--wsta110-service-launcher-proof-json",
+                str(proof_path),
+            ))
+            markdown = (root / "wsta108" / "wsta108_operator_server_status.md").read_text(encoding="utf-8")
+
+        self.assertEqual(result["decision"], runner.PASS_DECISION)
+        hardening = result["server_status"]["hardening"]
+        proof = hardening["launcher_proof"]
+        self.assertEqual(proof["state"], "SMOKE_SERVICE_LAUNCHER_LIVE_PROVEN")
+        self.assertTrue(proof["smoke_live_proven"])
+        self.assertEqual(proof["service"], "dpublic-smoke-httpd")
+        self.assertEqual(proof["user"], "a90www")
+        self.assertEqual(proof["uid"], 3901)
+        self.assertTrue(proof["no_new_privs"])
+        self.assertTrue(proof["cap_eff_zero"])
+        self.assertTrue(proof["public_default_off"])
+        self.assertTrue(proof["fail_closed_branches"]["unknown_service"])
+        self.assertTrue(proof["fail_closed_branches"]["command_required"])
+        self.assertIn("cloudflared-quick-tunnel", proof["remaining_profiles"])
+        self.assertNotIn("non-root users/groups not staged", hardening["blocking_before_enforcement"])
+        self.assertNotIn("no-new-privs launcher not live-proven", hardening["blocking_before_enforcement"])
+        self.assertIn(
+            "remaining service users/groups not live-proven beyond dpublic-smoke-httpd",
+            hardening["blocking_before_enforcement"],
+        )
+        self.assertIn(
+            "remaining service launchers not live-proven beyond dpublic-smoke-httpd",
+            hardening["blocking_before_enforcement"],
+        )
+        self.assertTrue(result["checks"]["service_launcher_proof_supplied"])
+        self.assertTrue(result["checks"]["service_launcher_smoke_live_proven"])
+        self.assertIn("Smoke launcher proof: `true`", markdown)
+        self.assertIn("Smoke launcher user: `a90www`", markdown)
 
     def test_nonpass_wsta88_blocks(self) -> None:
         with self.private_tmp() as tmp:
@@ -169,6 +263,44 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
             ))
 
         self.assertEqual(result["decision"], "wsta108-blocked-wsta90-manifest-not-pass")
+
+    def test_nonpass_wsta110_launcher_proof_blocks(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            proof_path = root / "inputs" / "wsta110_result.json"
+            proof = self.launcher_proof()
+            proof["decision"] = "wsta110-blocked"
+            self.write_json(proof_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta110-service-launcher-proof-json",
+                str(proof_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta110-launcher-proof-not-pass")
+
+    def test_incomplete_wsta110_launcher_proof_blocks_even_with_pass_decision(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            proof_path = root / "inputs" / "wsta110_result.json"
+            proof = self.launcher_proof()
+            proof["launcher_probe"]["stdout"] = proof["launcher_probe"]["stdout"].replace(
+                "child_cap_eff=0000000000000000",
+                "",
+            )
+            self.write_json(proof_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta110-service-launcher-proof-json",
+                str(proof_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta110-launcher-proof-incomplete")
+        self.assertFalse(result["checks"]["service_launcher_smoke_live_proven"])
 
     def test_public_summary_markdown_and_template_are_redacted(self) -> None:
         with self.private_tmp() as tmp:
@@ -201,6 +333,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("WSTA108 host-only", payload)
         self.assertIn("--emit-server-status", payload)
         self.assertIn("--wsta88-operator-workflow-json", payload)
+        self.assertIn("--wsta110-service-launcher-proof-json", payload)
 
     def test_source_is_host_only_and_names_server_model(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")
@@ -209,6 +342,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("native-init", source)
         self.assertIn("service-surface-consumer", source)
         self.assertIn("wsta88-status-hud", source)
+        self.assertIn("SMOKE_SERVICE_LAUNCHER_LIVE_PROVEN", source)
         self.assertIn('"boot_flash": False', source)
         self.assertIn('"public_url_value_logged": False', source)
         self.assertNotIn("native_init_flash.py", source)

@@ -2856,6 +2856,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA110_SERVICE_LAUNCHER_CHROOT_LIVE_2026-07-05.md`.
 > **NEXT:** fold WSTA110 proof into WSTA90/WSTA108 operator status so the smoke launcher is no longer reported as
 > wholly unproven, then expand the same proof shape to the remaining service profiles.
+> **🟢 STATUS (2026-07-05 02:44 KST host clock) — WSTA111 OPERATOR
+> STATUS LAUNCHER-PROOF SOURCE PASS.**  Codex extended `run_wsta108_operator_server_status.py` with optional
+> `--wsta110-service-launcher-proof-json`, requiring a private WSTA110 pass JSON and failing closed on non-pass proof.
+> The WSTA108 hardening summary now adds `hardening.launcher_proof` for the live-proven smoke service launcher:
+> `SMOKE_SERVICE_LAUNCHER_LIVE_PROVEN`, `dpublic-smoke-httpd`, `a90www/a90www`, UID/GID `3901/3901`,
+> no-new-privs true, effective caps zero, public default-off true, fail-closed unknown-service/missing-command branches,
+> cleanup ok, and final selftest fail-zero.  Broad WSTA90 blockers are refined only for the proven smoke scope:
+> old user/group or launcher-wholly-unproven wording becomes remaining-service wording beyond `dpublic-smoke-httpd`;
+> `cloudflared-quick-tunnel`, `dropbear-admin-usb`, `dpublic-hud`, and `wsta-native-uplink-helper` remain unproven
+> service profiles.  No device action, boot flash, native reboot, Wi-Fi, DHCP, public tunnel, public smoke, packet-filter
+> mutation, userdata action, or switch-root ran.  A private WSTA111 status was regenerated from the WSTA107 WSTA88
+> preflight artifact, WSTA108/WSTA90 manifest input, and WSTA110 live proof with `SERVER_PROFILE_READY_DEFAULT_OFF`,
+> `PUBLIC_OFF`, `service_launcher_proof_supplied=true`, and `service_launcher_smoke_live_proven=true`.  Validation
+> passed `py_compile`, WSTA108 focused tests (`11 tests`), and the full server-distro WSTA regression (`368 tests`).
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA111_OPERATOR_STATUS_LAUNCHER_PROOF_SOURCE_2026-07-05.md`.
+> **NEXT:** either refresh hardening status overlays from already-proven packet-filter evidence, or extend the WSTA110
+> proof shape to the next concrete service profile.  Do not mark all profiles proven without bounded runtime proof.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

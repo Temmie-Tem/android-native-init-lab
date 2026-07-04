@@ -2,7 +2,8 @@
 """WSTA108 host-only operator server status bundle.
 
 WSTA88 proves the default-off public workflow.  WSTA90 sketches the service
-hardening contract.  WSTA108 combines those two public surfaces into one
+hardening contract.  WSTA110 proves the smoke service launcher inside the
+Debian chroot.  WSTA108 combines those public surfaces into one
 operator-facing server status bundle without opening a tunnel, touching the
 device, or weakening any live gate.
 """
@@ -23,6 +24,7 @@ if str(SCRIPT_DIR) not in sys.path:
 
 import run_wsta88_persistent_operator_workflow as wsta88  # noqa: E402
 import run_wsta90_service_hardening_manifest as wsta90  # noqa: E402
+import run_wsta110_service_launcher_chroot_proof as wsta110  # noqa: E402
 
 
 REPO_ROOT = wsta88.REPO_ROOT
@@ -94,6 +96,8 @@ def template() -> dict[str, Any]:
             "workspace/private/runs/server-distro/<wsta88-run>/wsta88_operator_workflow.json",
             "--wsta90-service-hardening-manifest-json",
             "workspace/private/runs/server-distro/<wsta90-run>/wsta90_service_hardening_manifest.json",
+            "--wsta110-service-launcher-proof-json",
+            "workspace/private/runs/server-distro/<wsta110-run>/wsta110_result.json",
         ],
         "device_action": False,
         "public_url_value_logged": False,
@@ -127,13 +131,100 @@ def require_private_file(value: Path | None, label: str) -> tuple[Path | None, s
     return path, None
 
 
-def compact_hardening(manifest_result: dict[str, Any] | None) -> dict[str, Any]:
+def marker_present(proof_result: dict[str, Any], marker: str) -> bool:
+    probe = proof_result.get("launcher_probe") if isinstance(proof_result.get("launcher_probe"), dict) else {}
+    return marker in str(probe.get("stdout") or "")
+
+
+def compact_launcher_proof(proof_result: dict[str, Any] | None) -> dict[str, Any]:
+    if not proof_result:
+        return {
+            "state": "NOT_SUPPLIED",
+            "smoke_live_proven": False,
+            "scope": "not-supplied",
+        }
+
+    checks = proof_result.get("checks") if isinstance(proof_result.get("checks"), dict) else {}
+    probe = proof_result.get("launcher_probe") if isinstance(proof_result.get("launcher_probe"), dict) else {}
+    parsed = probe.get("parsed") if isinstance(probe.get("parsed"), dict) else {}
+    smoke_identity = wsta110.wsta3.SERVICE_IDENTITIES["dpublic-smoke-httpd"]
+    remaining_profiles = [
+        "cloudflared-quick-tunnel",
+        "dropbear-admin-usb",
+        "dpublic-hud",
+        "wsta-native-uplink-helper",
+    ]
+    smoke_live_proven = bool(
+        proof_result.get("decision") == wsta110.PASS_DECISION
+        and checks.get("public_default_off")
+        and checks.get("launcher_fail_closed_blocks")
+        and checks.get("launcher_exec_pass")
+        and checks.get("launcher_uid_gid_pass")
+        and checks.get("launcher_no_new_privs_pass")
+        and checks.get("chroot_cleanup_ok")
+        and checks.get("final_selftest_fail_zero")
+        and marker_present(proof_result, "child_cap_eff=0000000000000000")
+    )
+    return {
+        "state": "SMOKE_SERVICE_LAUNCHER_LIVE_PROVEN" if smoke_live_proven else "SUPPLIED_NOT_PROVEN",
+        "decision": proof_result.get("decision"),
+        "proof_run_dir": proof_result.get("run_dir"),
+        "scope": "smoke-service-only",
+        "smoke_live_proven": smoke_live_proven,
+        "service": "dpublic-smoke-httpd",
+        "user": smoke_identity["user"],
+        "group": smoke_identity["group"],
+        "uid": smoke_identity["uid"],
+        "gid": smoke_identity["gid"],
+        "network_intent": smoke_identity["network_intent"],
+        "no_new_privs": bool(checks.get("launcher_no_new_privs_pass") and parsed.get("child_no_new_privs")),
+        "cap_eff_zero": marker_present(proof_result, "child_cap_eff=0000000000000000"),
+        "public_default_off": bool(checks.get("public_default_off") and parsed.get("public_enable_absent")),
+        "fail_closed_branches": {
+            "unknown_service": bool(parsed.get("unknown_service_blocks")),
+            "command_required": bool(parsed.get("command_required_blocks")),
+        },
+        "cleanup_ok": bool(checks.get("chroot_cleanup_ok")),
+        "final_selftest_fail_zero": bool(checks.get("final_selftest_fail_zero")),
+        "remaining_profiles": remaining_profiles,
+        "public_url_value_logged": False,
+        "secret_values_logged": 0,
+    }
+
+
+def launcher_proof_is_smoke_live_proven(launcher_proof: dict[str, Any]) -> bool:
+    return bool(launcher_proof.get("smoke_live_proven"))
+
+
+def refine_blocking_before_enforcement(items: list[Any], launcher_proof: dict[str, Any]) -> list[str]:
+    refined: list[str] = []
+    smoke_live_proven = launcher_proof_is_smoke_live_proven(launcher_proof)
+    for item in items:
+        text = str(item)
+        if smoke_live_proven and text in {
+            "staged service users/groups not live-proven",
+            "non-root users/groups not staged",
+        }:
+            text = "remaining service users/groups not live-proven beyond dpublic-smoke-httpd"
+        elif smoke_live_proven and text == "no-new-privs launcher not live-proven":
+            text = "remaining service launchers not live-proven beyond dpublic-smoke-httpd"
+        if text not in refined:
+            refined.append(text)
+    return refined
+
+
+def compact_hardening(
+    manifest_result: dict[str, Any] | None,
+    launcher_proof_result: dict[str, Any] | None,
+) -> dict[str, Any]:
+    launcher_proof = compact_launcher_proof(launcher_proof_result)
     if not manifest_result:
         return {
             "state": "NOT_SUPPLIED",
             "service_count": 0,
             "global_policy": {},
             "blocking_before_enforcement": [],
+            "launcher_proof": launcher_proof,
         }
     manifest = manifest_result.get("manifest") if isinstance(manifest_result.get("manifest"), dict) else {}
     services = manifest.get("services") if isinstance(manifest.get("services"), list) else []
@@ -149,7 +240,11 @@ def compact_hardening(manifest_result: dict[str, Any] | None) -> dict[str, Any]:
             "packet_filter_backend_required": bool(global_policy.get("packet_filter_backend_required")),
             "root_login_policy": global_policy.get("root_login_policy"),
         },
-        "blocking_before_enforcement": list(manifest.get("blocking_before_enforcement") or []),
+        "blocking_before_enforcement": refine_blocking_before_enforcement(
+            list(manifest.get("blocking_before_enforcement") or []),
+            launcher_proof,
+        ),
+        "launcher_proof": launcher_proof,
     }
 
 
@@ -164,13 +259,17 @@ def exposure_state(status_hud: dict[str, Any], wsta88_result: dict[str, Any]) ->
     }
 
 
-def build_server_status(wsta88_result: dict[str, Any], hardening_result: dict[str, Any] | None) -> dict[str, Any]:
+def build_server_status(
+    wsta88_result: dict[str, Any],
+    hardening_result: dict[str, Any] | None,
+    launcher_proof_result: dict[str, Any] | None,
+) -> dict[str, Any]:
     status_hud = wsta88_result.get("status_hud") if isinstance(wsta88_result.get("status_hud"), dict) else {}
     if not status_hud:
         workflow = wsta88_result.get("workflow") if isinstance(wsta88_result.get("workflow"), dict) else {}
         status_hud = workflow.get("status_hud") if isinstance(workflow.get("status_hud"), dict) else {}
     packet_filter = status_hud.get("packet_filter") if isinstance(status_hud.get("packet_filter"), dict) else {}
-    hardening = compact_hardening(hardening_result)
+    hardening = compact_hardening(hardening_result, launcher_proof_result)
     public_off = (status_hud.get("public_state") or "PUBLIC_OFF") == "PUBLIC_OFF"
     ready_default_off = public_off and bool(packet_filter.get("ready"))
     return {
@@ -196,7 +295,8 @@ def build_server_status(wsta88_result: dict[str, Any], hardening_result: dict[st
         "operator_next_actions": [
             "keep-public-exposure-default-off",
             "use-explicit-wsta88-live-gate-only-when-attended",
-            "apply-service-hardening-before-any-always-on-public-profile",
+            "extend-service-launcher-proof-beyond-dpublic-smoke-httpd-before-always-on-profile",
+            "trace-service-syscalls-before-seccomp-enforcement",
         ],
         "redaction": {
             "public_url_value_logged": False,
@@ -218,6 +318,11 @@ def markdown(server_status: dict[str, Any]) -> str:
     hardening_policy = (
         hardening.get("global_policy")
         if isinstance(hardening.get("global_policy"), dict)
+        else {}
+    )
+    launcher_proof = (
+        hardening.get("launcher_proof")
+        if isinstance(hardening.get("launcher_proof"), dict)
         else {}
     )
     lines = [
@@ -252,6 +357,10 @@ def markdown(server_status: dict[str, Any]) -> str:
         f"- No-new-privs default: `{str(bool(hardening_policy.get('no_new_privs_default'))).lower()}`",
         f"- Capability drop required: `{str(bool(hardening_policy.get('capability_drop_required'))).lower()}`",
         f"- Seccomp ready for profile source: `{str(bool(hardening_policy.get('seccomp_ready_for_profile_source'))).lower()}`",
+        f"- Smoke launcher proof: `{str(bool(launcher_proof.get('smoke_live_proven'))).lower()}`",
+        f"- Smoke launcher user: `{launcher_proof.get('user')}`",
+        f"- Smoke launcher caps zero: `{str(bool(launcher_proof.get('cap_eff_zero'))).lower()}`",
+        f"- Remaining launcher profiles: `{', '.join(launcher_proof.get('remaining_profiles') or [])}`",
         "",
         "## Operator Next Actions",
         "",
@@ -325,7 +434,28 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             write_json(out_json, result)
             return result
 
-    server_status = build_server_status(wsta88_result, hardening_result)
+    launcher_proof_result: dict[str, Any] | None = None
+    if args.wsta110_service_launcher_proof_json is not None:
+        launcher_proof_path, launcher_proof_error = require_private_file(
+            args.wsta110_service_launcher_proof_json,
+            "wsta110-launcher-proof",
+        )
+        if launcher_proof_error or launcher_proof_path is None:
+            result["decision"] = launcher_proof_error or "wsta108-blocked-wsta110-launcher-proof"
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+        launcher_proof_result = load_json(launcher_proof_path)
+        if launcher_proof_result.get("decision") != wsta110.PASS_DECISION:
+            result["decision"] = "wsta108-blocked-wsta110-launcher-proof-not-pass"
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+
+    server_status = build_server_status(wsta88_result, hardening_result, launcher_proof_result)
+    launcher_proof = server_status["hardening"].get("launcher_proof", {})
     result["server_status"] = server_status
     result["checks"] = {
         "wsta88_workflow_pass": True,
@@ -333,10 +463,19 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "public_state_off": server_status["exposure"].get("public_state") == "PUBLIC_OFF",
         "packet_filter_ready": bool(server_status["packet_filter"].get("ready")),
         "hardening_manifest_supplied": hardening_result is not None,
+        "service_launcher_proof_supplied": launcher_proof_result is not None,
+        "service_launcher_smoke_live_proven": bool(launcher_proof.get("smoke_live_proven")),
         "default_public_off": True,
         "public_url_value_logged": False,
         "secret_values_logged": 0,
     }
+    if launcher_proof_result is not None and not result["checks"]["service_launcher_smoke_live_proven"]:
+        result["decision"] = "wsta108-blocked-wsta110-launcher-proof-incomplete"
+        result["gate_decision"] = result["decision"]
+        result["ended_utc"] = utc_stamp()
+        write_json(out_json, result)
+        return result
+
     result["decision"] = PASS_DECISION
     result["gate_decision"] = "ok"
 
@@ -363,6 +502,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--emit-server-status", action="store_true")
     parser.add_argument("--wsta88-operator-workflow-json", type=Path)
     parser.add_argument("--wsta90-service-hardening-manifest-json", type=Path)
+    parser.add_argument("--wsta110-service-launcher-proof-json", type=Path)
     parser.add_argument("--print-template", action="store_true")
     parser.add_argument("--print-full-json", action="store_true")
     return parser
