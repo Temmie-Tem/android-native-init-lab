@@ -154,12 +154,8 @@ HTTP_GET={shlex.quote(wsta42.REMOTE_HTTP_GET)}
 PROC_MOUNTED=0
 cleanup() {{
   set +e
-  /usr/bin/pkill -f '[a]90-dpublic-smoke-httpd' >/dev/null 2>&1 || true
-  /bin/sleep 1
-  /usr/bin/pkill -9 -f '[a]90-dpublic-smoke-httpd' >/dev/null 2>&1 || true
   if [ "$PROC_MOUNTED" = "1" ]; then
-    /bin/umount /proc
-    echo A90WSTA114_PROC_UNMOUNTED=1
+    echo A90WSTA114_PROC_UNMOUNT_DEFERRED=1
     PROC_MOUNTED=0
   fi
 }}
@@ -213,6 +209,8 @@ wait "$SMOKE_PID" >/dev/null 2>&1 || true
 echo A90WSTA114_SERVICE_CHILD_DONE
 A90WSTA114_CHILD
 /bin/chmod 0755 "$RUN_DIR/service-child.sh"
+: > "$RUN_DIR/smoke-server.log"
+/bin/chmod 0666 "$RUN_DIR/smoke-server.log"
 /usr/bin/timeout -k 3s 30s "$STRACE" -qq -f -s 96 -o "$TRACE" "$LAUNCHER" dpublic-smoke-httpd /bin/sh "$RUN_DIR/service-child.sh" >"$SMOKE_LOG" 2>&1
 TRACE_RC=$?
 /bin/cat "$SMOKE_LOG"
@@ -264,6 +262,7 @@ def parse_trace_probe(record: dict[str, Any]) -> dict[str, Any]:
         "proof_done": "A90WSTA114_TRACE_DONE" in stdout,
         "proc_mounted": "A90WSTA114_PROC_MOUNTED=1" in stdout,
         "proc_unmounted": "A90WSTA114_PROC_UNMOUNTED=1" in stdout,
+        "proc_unmount_deferred": "A90WSTA114_PROC_UNMOUNT_DEFERRED=1" in stdout,
         "public_enable_absent": "A90WSTA114_PUBLIC_ENABLE_ABSENT=1" in stdout,
         "launcher_present": "A90WSTA114_LAUNCHER_PRESENT=1" in stdout,
         "policy_present": "A90WSTA114_POLICY_PRESENT=1" in stdout,

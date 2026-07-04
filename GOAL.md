@@ -2945,6 +2945,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA116 should isolate the timeout with a smaller ptrace ladder: `strace /bin/true` in the same chroot,
 > `strace a90-service-launch ... /bin/true`, then smoke tracing via remote background execution plus file polling so
 > SSH foreground wait behavior is not conflated with ptrace or launcher behavior.
+>
+> **🟡 STATUS (2026-07-05 03:55 KST host clock) — WSTA116 STRACE ISOLATION
+> LIVE PARTIAL PASS / SMOKE SHAPE BLOCKED.**  Codex added and live-ran a bounded WSTA116 isolation ladder using the
+> same strace-enabled private SD work image and WSTA114 chroot/Dropbear/service-hardening setup path.  Default runner
+> invocation is inert and requires `--execute-strace-isolation-live`, `--allow-strace-isolation-live`, and
+> `--ack-private-trace-artifact`.  Live evidence: `strace /bin/true` passed (`execve` observed, 15 syscalls);
+> `strace a90-service-launch dpublic-smoke-httpd /bin/true` passed (launcher exec logged, `execve` observed,
+> 39 syscalls); background `strace -f` around the full smoke orchestration spawned and traced the service child with
+> no-new-privs and zero effective capabilities, observed core smoke server syscalls `execve/socket/bind/listen`, and
+> saved all private diagnostic artifacts, but the loopback HTTP GET did not complete while the orchestration shell and
+> HTTP client were inside the traced process tree.  Decision: `wsta116-blocked-smoke-background-strace`.  Cleanup
+> postcheck was clean and final selftest stayed `fail=0`.  No boot flash, native reboot, Wi-Fi association, DHCP,
+> public tunnel, public smoke, packet-filter mutation, userdata action, or switch-root ran.  Focused WSTA114/WSTA116
+> validation passed (`18 tests`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA116_STRACE_ISOLATION_LIVE_2026-07-05.md`.
+> **NEXT:** WSTA117 should trace only the smoke server under the service launcher and keep the HTTP client outside the
+> traced process tree; if that passes, fold that server-only shape back into WSTA114 for the actual private syscall
+> profile capture.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
