@@ -27,6 +27,10 @@ INIT_BUILD = "v3339-softap-s2-status-plan"
 BUILD_TAG = INIT_BUILD
 DECISION = "v3339-softap-s2-status-plan-source-build-pass"
 BOOT_PARTITION_MAX_BYTES = 64 * 1024 * 1024
+OBSOLETE_ENGINE_NAMES = (
+    "a90_doomgeneric_private_engine_v3334",
+    "a90_doomgeneric_private_engine_v3335",
+)
 
 OUT_DIR = workspace_private_build_path("native-init", BUILD_TAG)
 OBJ_DIR = OUT_DIR / "obj"
@@ -224,11 +228,6 @@ def _overlay_preserved_v3339_ramdisk() -> dict[str, Any]:
     if not ENGINE_BINARY.exists():
         raise FileNotFoundError(f"missing V3339 DOOM engine binary: {ENGINE_BINARY}")
 
-    removed_obsolete_engines = [
-        "a90_doomgeneric_private_engine_v3334",
-        "a90_doomgeneric_private_engine_v3335",
-    ]
-
     with tempfile.TemporaryDirectory(prefix="a90-v3339-overlay-") as temp_name:
         temp_dir = Path(temp_name)
         unpack_dir = temp_dir / "unpack"
@@ -268,7 +267,7 @@ def _overlay_preserved_v3339_ramdisk() -> dict[str, Any]:
         bin_dir.mkdir(parents=True, exist_ok=True)
         shutil.copy2(HELPER_BINARY, bin_dir / "a90_android_execns_probe")
         (bin_dir / "a90_android_execns_probe").chmod(0o755)
-        for old_engine in removed_obsolete_engines:
+        for old_engine in OBSOLETE_ENGINE_NAMES:
             (bin_dir / old_engine).unlink(missing_ok=True)
         engine_dest = bin_dir / ENGINE_RAMDISK_PATH.split("/", 1)[1]
         shutil.copy2(ENGINE_BINARY, engine_dest)
@@ -347,7 +346,7 @@ def _overlay_preserved_v3339_ramdisk() -> dict[str, Any]:
             ENGINE_RAMDISK_PATH,
         ],
         "removed_obsolete_engines": [
-            "bin/" + name for name in removed_obsolete_engines
+            "bin/" + name for name in OBSOLETE_ENGINE_NAMES
         ],
     }
 

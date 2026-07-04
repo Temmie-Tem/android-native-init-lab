@@ -129,6 +129,20 @@
 #define A90_WIFI_SOFTAP_UPLOAD_MAX_BYTES (1024U * 1024U)
 #define A90_WIFI_SOFTAP_UPLOAD_ACCEPT_TIMEOUT_MS 180000
 #define A90_WIFI_SOFTAP_UPLOAD_IDLE_TIMEOUT_MS 30000
+#define A90_WIFI_SERVICE_VERSION "a90-native-wifi-service-v1"
+#define A90_WIFI_SERVICE_REQUEST_FILE "request"
+#define A90_WIFI_SERVICE_RESPONSE_FILE "response"
+#define A90_WIFI_SERVICE_PID_FILE "pid"
+#define A90_WIFI_SERVICE_STATE_FILE "state"
+#define A90_WIFI_SERVICE_MAX_ROOT 192
+#define A90_WIFI_SERVICE_MAX_PATH 256
+#define A90_WIFI_SERVICE_MAX_REQUEST 1024
+#define A90_WIFI_SERVICE_DEFAULT_SCAN_DELAY_MS 5000
+#define A90_WIFI_SERVICE_DEFAULT_LIFETIME_MS 120000
+#define A90_WIFI_SERVICE_MAX_LIFETIME_MS 600000
+#define A90_WIFI_SERVICE_DEFAULT_POLL_MS 250
+#define A90_WIFI_SERVICE_MIN_POLL_MS 50
+#define A90_WIFI_SERVICE_MAX_POLL_MS 5000
 
 static int wifi_open_dir_no_follow(const char *path) {
     return open(path, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
@@ -299,6 +313,451 @@ static void wifi_append_text_file(const char *path, const char *format, ...) {
     }
     (void)write_all_checked(fd, buffer, (size_t)len);
     (void)close(fd);
+}
+
+static int wifi_service_join_path(const char *root,
+                                  const char *leaf,
+                                  char *out,
+                                  size_t out_size) {
+    if (root == NULL || root[0] != '/' || leaf == NULL || leaf[0] == '\0' ||
+        strchr(leaf, '/') != NULL || out == NULL || out_size == 0) {
+        return -EINVAL;
+    }
+    if (snprintf(out, out_size, "%s/%s", root, leaf) >= (int)out_size) {
+        return -ENAMETOOLONG;
+    }
+    return 0;
+}
+
+static int wifi_service_read_file_no_follow(const char *path, char *out, size_t out_size) {
+    int fd;
+    ssize_t rd;
+
+    if (path == NULL || out == NULL || out_size == 0) {
+        return -EINVAL;
+    }
+    fd = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        return -errno;
+    }
+    rd = read(fd, out, out_size - 1);
+    if (close(fd) < 0 && rd >= 0) {
+        return -errno;
+    }
+    if (rd < 0) {
+        return -errno;
+    }
+    out[rd] = '\0';
+    return 0;
+}
+
+static int wifi_service_write_file_no_follow(const char *path,
+                                             const char *text,
+                                             mode_t mode) {
+    int fd;
+    int rc;
+
+    if (path == NULL || text == NULL) {
+        return -EINVAL;
+    }
+    fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW, mode);
+    if (fd < 0) {
+        return -errno;
+    }
+    rc = write_all_checked(fd, text, strlen(text));
+    if (rc == 0 && fchown(fd, 0, 0) < 0) {
+        rc = -errno;
+    }
+    if (rc == 0 && fchmod(fd, mode) < 0) {
+        rc = -errno;
+    }
+    if (rc == 0 && fsync(fd) < 0) {
+        rc = -errno;
+    }
+    if (close(fd) < 0 && rc == 0) {
+        rc = -errno;
+    }
+    return rc;
+}
+
+static int wifi_service_append(char *out, size_t out_size, size_t *offset, const char *format, ...) {
+    va_list ap;
+    int written;
+
+    if (out == NULL || offset == NULL || *offset >= out_size || format == NULL) {
+        return -EINVAL;
+    }
+    va_start(ap, format);
+    written = vsnprintf(out + *offset, out_size - *offset, format, ap);
+    va_end(ap);
+    if (written < 0) {
+        return -EINVAL;
+    }
+    if ((size_t)written >= out_size - *offset) {
+        *offset = out_size - 1;
+        out[*offset] = '\0';
+        return -ENOSPC;
+    }
+    *offset += (size_t)written;
+    return 0;
+}
+
+static int wifi_service_request_value(const char *request,
+                                      const char *key,
+                                      char *out,
+                                      size_t out_size) {
+    size_t key_len;
+    const char *cursor;
+
+    if (request == NULL || key == NULL || out == NULL || out_size == 0) {
+        return -EINVAL;
+    }
+    out[0] = '\0';
+    key_len = strlen(key);
+    cursor = request;
+    while (*cursor != '\0') {
+        const char *line_end = strchr(cursor, '\n');
+        size_t line_len = line_end == NULL ? strlen(cursor) : (size_t)(line_end - cursor);
+
+        if (line_len >= key_len &&
+            strncmp(cursor, key, key_len) == 0 &&
+            cursor[key_len] == '=') {
+            size_t value_len = line_len - key_len - 1;
+
+            if (value_len >= out_size) {
+                value_len = out_size - 1;
+            }
+            memcpy(out, cursor + key_len + 1, value_len);
+            out[value_len] = '\0';
+            trim_newline(out);
+            return 0;
+        }
+        if (line_end == NULL) {
+            break;
+        }
+        cursor = line_end + 1;
+    }
+    return -ENOENT;
+}
+
+static int wifi_service_parse_long(const char *text, long *out) {
+    char *end = NULL;
+    long value;
+
+    if (text == NULL || text[0] == '\0' || out == NULL) {
+        return -EINVAL;
+    }
+    errno = 0;
+    value = strtol(text, &end, 10);
+    if (errno != 0 || end == text || (end != NULL && *end != '\0')) {
+        return -EINVAL;
+    }
+    *out = value;
+    return 0;
+}
+
+static int wifi_service_write_response(const char *root, const char *response) {
+    char tmp_path[A90_WIFI_SERVICE_MAX_PATH];
+    char response_path[A90_WIFI_SERVICE_MAX_PATH];
+    int rc;
+
+    rc = wifi_service_join_path(root, "response.tmp", tmp_path, sizeof(tmp_path));
+    if (rc < 0) {
+        return rc;
+    }
+    rc = wifi_service_join_path(root, A90_WIFI_SERVICE_RESPONSE_FILE, response_path, sizeof(response_path));
+    if (rc < 0) {
+        return rc;
+    }
+    rc = wifi_service_write_file_no_follow(tmp_path, response, 0644);
+    if (rc < 0) {
+        unlink(tmp_path);
+        return rc;
+    }
+    if (rename(tmp_path, response_path) < 0) {
+        rc = -errno;
+        unlink(tmp_path);
+        return rc;
+    }
+    return 0;
+}
+
+static int wifi_service_format_status_response(char *response,
+                                               size_t response_size,
+                                               size_t *offset,
+                                               const char *seq,
+                                               const char *op) {
+    struct a90_wifi_status_snapshot status;
+    int rc = a90_wifi_status_snapshot(&status);
+
+    wifi_service_append(response, response_size, offset, "version=%s\n", A90_WIFI_SERVICE_VERSION);
+    wifi_service_append(response, response_size, offset, "seq=%s\n", seq);
+    wifi_service_append(response, response_size, offset, "op=%s\n", op);
+    wifi_service_append(response, response_size, offset, "owner=native-init\n");
+    wifi_service_append(response, response_size, offset, "credentials=0\n");
+    wifi_service_append(response, response_size, offset, "dhcp_routing=0\n");
+    wifi_service_append(response, response_size, offset, "public_tunnel=0\n");
+    wifi_service_append(response, response_size, offset, "raw_values_redacted=1\n");
+    wifi_service_append(response, response_size, offset, "rc=%d\n", rc);
+    wifi_service_append(response,
+                        response_size,
+                        offset,
+                        "wlan0_present=%d\n",
+                        status.wlan0_present ? 1 : 0);
+    wifi_service_append(response, response_size, offset, "operstate=%s\n", status.operstate);
+    wifi_service_append(response, response_size, offset, "carrier=%s\n", status.carrier);
+    wifi_service_append(response, response_size, offset, "flags=%s\n", status.flags);
+    wifi_service_append(response,
+                        response_size,
+                        offset,
+                        "default_route_present=%d\n",
+                        status.route_default_present ? 1 : 0);
+    wifi_service_append(response,
+                        response_size,
+                        offset,
+                        "supplicant_process_count=%d\n",
+                        status.supplicant_process_count);
+    wifi_service_append(response,
+                        response_size,
+                        offset,
+                        "decision=%s\n",
+                        status.wlan0_present ? "wifi-service-status-pass" : "wifi-service-status-wlan0-missing");
+    return rc;
+}
+
+static int wifi_service_format_scan_response(char *response,
+                                             size_t response_size,
+                                             size_t *offset,
+                                             const char *seq,
+                                             const char *op,
+                                             int scan_delay_ms) {
+    struct a90_wifi_scan_snapshot scan;
+    int rc;
+
+    if (scan_delay_ms < 0) {
+        scan_delay_ms = A90_WIFI_SERVICE_DEFAULT_SCAN_DELAY_MS;
+    }
+    if (scan_delay_ms > 30000) {
+        scan_delay_ms = 30000;
+    }
+    rc = a90_wifi_scan_collect(scan_delay_ms, &scan);
+
+    wifi_service_append(response, response_size, offset, "version=%s\n", A90_WIFI_SERVICE_VERSION);
+    wifi_service_append(response, response_size, offset, "seq=%s\n", seq);
+    wifi_service_append(response, response_size, offset, "op=%s\n", op);
+    wifi_service_append(response, response_size, offset, "owner=native-init\n");
+    wifi_service_append(response, response_size, offset, "credentials=0\n");
+    wifi_service_append(response, response_size, offset, "connect=0\n");
+    wifi_service_append(response, response_size, offset, "dhcp_routing=0\n");
+    wifi_service_append(response, response_size, offset, "public_tunnel=0\n");
+    wifi_service_append(response, response_size, offset, "raw_results_redacted=1\n");
+    wifi_service_append(response, response_size, offset, "rc=%d\n", rc);
+    wifi_service_append(response, response_size, offset, "link_up_rc=%d\n", scan.link_up_rc);
+    wifi_service_append(response, response_size, offset, "link_up_errno=%d\n", scan.link_up_errno);
+    wifi_service_append(response, response_size, offset, "ifindex=%u\n", scan.ifindex);
+    wifi_service_append(response, response_size, offset, "netlink_open=%d\n", scan.netlink_open);
+    wifi_service_append(response,
+                        response_size,
+                        offset,
+                        "family_id=%d\n",
+                        scan.family_id < 0 ? 0 : scan.family_id);
+    wifi_service_append(response, response_size, offset, "trigger_rc=%d\n", scan.trigger_rc);
+    wifi_service_append(response, response_size, offset, "trigger_errno=%d\n", scan.trigger_errno);
+    wifi_service_append(response, response_size, offset, "delay_ms=%d\n", scan.delay_ms);
+    wifi_service_append(response, response_size, offset, "scan_result_count=%d\n", scan.scan_result_count);
+    wifi_service_append(response, response_size, offset, "decision=%s\n", scan.decision);
+    return rc;
+}
+
+static int wifi_service_process_once(const char *root,
+                                     int default_scan_delay_ms,
+                                     long skip_seq,
+                                     long *seq_out) {
+    char request_path[A90_WIFI_SERVICE_MAX_PATH];
+    char request[A90_WIFI_SERVICE_MAX_REQUEST];
+    char response[4096];
+    char seq[64] = "";
+    char op[32] = "";
+    char delay_text[32] = "";
+    long seq_value = -1;
+    long parsed_delay = default_scan_delay_ms;
+    size_t offset = 0;
+    int rc;
+
+    rc = wifi_service_join_path(root, A90_WIFI_SERVICE_REQUEST_FILE, request_path, sizeof(request_path));
+    if (rc < 0) {
+        return rc;
+    }
+    rc = wifi_service_read_file_no_follow(request_path, request, sizeof(request));
+    if (rc < 0) {
+        return rc;
+    }
+    if (wifi_service_request_value(request, "seq", seq, sizeof(seq)) < 0 ||
+        wifi_service_parse_long(seq, &seq_value) < 0 ||
+        wifi_service_request_value(request, "op", op, sizeof(op)) < 0) {
+        snprintf(response,
+                 sizeof(response),
+                 "version=%s\nseq=-1\nop=invalid\nowner=native-init\nrc=-22\ndecision=wifi-service-request-invalid\n",
+                 A90_WIFI_SERVICE_VERSION);
+        (void)wifi_service_write_response(root, response);
+        return -EINVAL;
+    }
+    if (seq_value == skip_seq) {
+        if (seq_out != NULL) {
+            *seq_out = seq_value;
+        }
+        return 1;
+    }
+    if (wifi_service_request_value(request, "scan_delay_ms", delay_text, sizeof(delay_text)) == 0) {
+        (void)wifi_service_parse_long(delay_text, &parsed_delay);
+    }
+
+    if (strcmp(op, "status") == 0) {
+        rc = wifi_service_format_status_response(response, sizeof(response), &offset, seq, op);
+    } else if (strcmp(op, "scan") == 0) {
+        rc = wifi_service_format_scan_response(response,
+                                               sizeof(response),
+                                               &offset,
+                                               seq,
+                                               op,
+                                               (int)parsed_delay);
+    } else {
+        wifi_service_append(response,
+                            sizeof(response),
+                            &offset,
+                            "version=%s\nseq=%s\nop=%s\nowner=native-init\nrc=-22\ndecision=wifi-service-op-denied\n",
+                            A90_WIFI_SERVICE_VERSION,
+                            seq,
+                            op);
+        rc = -EINVAL;
+    }
+    if (wifi_service_write_response(root, response) < 0 && rc == 0) {
+        rc = -EIO;
+    }
+    if (seq_out != NULL) {
+        *seq_out = seq_value;
+    }
+    return rc;
+}
+
+static void wifi_service_daemon_run(const char *root,
+                                    int lifetime_ms,
+                                    int poll_ms,
+                                    int scan_delay_ms) {
+    char state_path[A90_WIFI_SERVICE_MAX_PATH] = "";
+    long deadline_ms = monotonic_millis() + lifetime_ms;
+    long last_seq = -1;
+
+    if (wifi_service_join_path(root, A90_WIFI_SERVICE_STATE_FILE, state_path, sizeof(state_path)) == 0) {
+        (void)wifi_service_write_file_no_follow(state_path,
+                                                "version=" A90_WIFI_SERVICE_VERSION "\nstate=running\n",
+                                                0644);
+    }
+    while (monotonic_millis() <= deadline_ms) {
+        long seq = -1;
+        int rc = wifi_service_process_once(root, scan_delay_ms, last_seq, &seq);
+
+        if (rc != -ENOENT && rc != 1 && seq >= 0 && seq != last_seq) {
+            last_seq = seq;
+        }
+        usleep((useconds_t)poll_ms * 1000U);
+    }
+    if (state_path[0] != '\0') {
+        (void)wifi_service_write_file_no_follow(state_path,
+                                                "version=" A90_WIFI_SERVICE_VERSION "\nstate=stopped\n",
+                                                0644);
+    }
+    _exit(0);
+}
+
+static int wifi_service_start(const char *root,
+                              int lifetime_ms,
+                              int poll_ms,
+                              int scan_delay_ms) {
+    char pid_path[A90_WIFI_SERVICE_MAX_PATH];
+    char pid_text[64];
+    pid_t pid;
+    int rc;
+
+    if (root == NULL || root[0] != '/') {
+        return -EINVAL;
+    }
+    if (strlen(root) >= A90_WIFI_SERVICE_MAX_ROOT) {
+        return -ENAMETOOLONG;
+    }
+    rc = ensure_dir(root, 0755);
+    if (rc < 0) {
+        return negative_errno_or(EIO);
+    }
+    rc = wifi_service_join_path(root, A90_WIFI_SERVICE_PID_FILE, pid_path, sizeof(pid_path));
+    if (rc < 0) {
+        return rc;
+    }
+    if (lifetime_ms <= 0) {
+        lifetime_ms = A90_WIFI_SERVICE_DEFAULT_LIFETIME_MS;
+    }
+    if (lifetime_ms > A90_WIFI_SERVICE_MAX_LIFETIME_MS) {
+        lifetime_ms = A90_WIFI_SERVICE_MAX_LIFETIME_MS;
+    }
+    if (poll_ms < A90_WIFI_SERVICE_MIN_POLL_MS) {
+        poll_ms = A90_WIFI_SERVICE_MIN_POLL_MS;
+    }
+    if (poll_ms > A90_WIFI_SERVICE_MAX_POLL_MS) {
+        poll_ms = A90_WIFI_SERVICE_MAX_POLL_MS;
+    }
+    if (scan_delay_ms < 0) {
+        scan_delay_ms = A90_WIFI_SERVICE_DEFAULT_SCAN_DELAY_MS;
+    }
+    if (scan_delay_ms > 30000) {
+        scan_delay_ms = 30000;
+    }
+
+    pid = fork();
+    if (pid < 0) {
+        return -errno;
+    }
+    if (pid == 0) {
+        (void)setsid();
+        wifi_service_daemon_run(root, lifetime_ms, poll_ms, scan_delay_ms);
+    }
+    snprintf(pid_text,
+             sizeof(pid_text),
+             "version=%s\npid=%ld\n",
+             A90_WIFI_SERVICE_VERSION,
+             (long)pid);
+    rc = wifi_service_write_file_no_follow(pid_path, pid_text, 0644);
+    if (rc < 0) {
+        (void)kill(pid, SIGTERM);
+        return rc;
+    }
+    return (int)pid;
+}
+
+static int wifi_service_stop(const char *root) {
+    char pid_path[A90_WIFI_SERVICE_MAX_PATH];
+    char text[128];
+    char pid_text[32];
+    long pid_value;
+    int rc;
+
+    rc = wifi_service_join_path(root, A90_WIFI_SERVICE_PID_FILE, pid_path, sizeof(pid_path));
+    if (rc < 0) {
+        return rc;
+    }
+    rc = wifi_service_read_file_no_follow(pid_path, text, sizeof(text));
+    if (rc < 0) {
+        return rc;
+    }
+    if (wifi_service_request_value(text, "pid", pid_text, sizeof(pid_text)) < 0 ||
+        wifi_service_parse_long(pid_text, &pid_value) < 0 ||
+        pid_value <= 1) {
+        return -EINVAL;
+    }
+    if (kill((pid_t)pid_value, SIGTERM) < 0 && errno != ESRCH) {
+        return -errno;
+    }
+    unlink(pid_path);
+    return 0;
 }
 
 static void wifi_reset_autoconnect_log(const char *profile, bool boot_background) {
@@ -5289,6 +5748,154 @@ static int wifi_softap_cmd(char **argv, int argc) {
     return -EINVAL;
 }
 
+static int wifi_service_status_command(const char *root) {
+    char pid_path[A90_WIFI_SERVICE_MAX_PATH];
+    char state_path[A90_WIFI_SERVICE_MAX_PATH];
+    char pid_file[128] = "";
+    char state_file[256] = "";
+    char pid_text[32] = "";
+    long pid_value = -1;
+    int pid_rc;
+    int state_rc;
+    int alive = 0;
+    int rc;
+
+    a90_console_printf("[wifi service status]\r\n");
+    a90_console_printf("version=%s\r\n", A90_WIFI_SERVICE_VERSION);
+    a90_console_printf("root=%s\r\n", root != NULL ? root : "-");
+    rc = wifi_service_join_path(root, A90_WIFI_SERVICE_PID_FILE, pid_path, sizeof(pid_path));
+    if (rc < 0) {
+        a90_console_printf("pidfile_present=0\r\n");
+        a90_console_printf("alive=0\r\n");
+        a90_console_printf("decision=wifi-service-status-invalid-root\r\n");
+        return rc;
+    }
+    pid_rc = wifi_service_read_file_no_follow(pid_path, pid_file, sizeof(pid_file));
+    if (pid_rc == 0 &&
+        wifi_service_request_value(pid_file, "pid", pid_text, sizeof(pid_text)) == 0 &&
+        wifi_service_parse_long(pid_text, &pid_value) == 0 &&
+        pid_value > 1) {
+        alive = (kill((pid_t)pid_value, 0) == 0 || errno == EPERM) ? 1 : 0;
+    }
+    a90_console_printf("pidfile_present=%d\r\n", pid_rc == 0 ? 1 : 0);
+    a90_console_printf("pid=%ld\r\n", pid_value);
+    a90_console_printf("alive=%d\r\n", alive);
+
+    rc = wifi_service_join_path(root, A90_WIFI_SERVICE_STATE_FILE, state_path, sizeof(state_path));
+    state_rc = rc == 0 ? wifi_service_read_file_no_follow(state_path, state_file, sizeof(state_file)) : rc;
+    a90_console_printf("statefile_present=%d\r\n", state_rc == 0 ? 1 : 0);
+    if (state_rc == 0) {
+        flatten_inline_text(state_file);
+        a90_console_printf("state_inline=%s\r\n", state_file);
+    }
+    a90_console_printf("decision=%s\r\n", alive ? "wifi-service-status-running" : "wifi-service-status-stopped");
+    return 0;
+}
+
+static int wifi_service_cmd(char **argv, int argc) {
+    const char *subcommand;
+
+    if (argv == NULL || argc < 3 || argv[2] == NULL) {
+        a90_console_printf("usage: wifi service [status|start|stop|once] <dir> [lifetime_ms poll_ms scan_delay_ms]\r\n");
+        return -EINVAL;
+    }
+    subcommand = argv[2];
+
+    if (strcmp(subcommand, "status") == 0) {
+        if (argc != 4) {
+            a90_console_printf("usage: wifi service status <dir>\r\n");
+            return -EINVAL;
+        }
+        return wifi_service_status_command(argv[3]);
+    }
+    if (strcmp(subcommand, "stop") == 0) {
+        int rc;
+
+        if (argc != 4) {
+            a90_console_printf("usage: wifi service stop <dir>\r\n");
+            return -EINVAL;
+        }
+        a90_console_printf("[wifi service stop]\r\n");
+        a90_console_printf("version=%s\r\n", A90_WIFI_SERVICE_VERSION);
+        a90_console_printf("root=%s\r\n", argv[3]);
+        rc = wifi_service_stop(argv[3]);
+        a90_console_printf("stop_rc=%d\r\n", rc);
+        a90_console_printf("decision=%s\r\n",
+                           rc == 0 ? "wifi-service-stop-pass" : "wifi-service-stop-failed");
+        return rc;
+    }
+    if (strcmp(subcommand, "once") == 0) {
+        int scan_delay_ms = A90_WIFI_SERVICE_DEFAULT_SCAN_DELAY_MS;
+        long seq = -1;
+        int rc;
+
+        if (argc != 4 && argc != 5) {
+            a90_console_printf("usage: wifi service once <dir> [scan_delay_ms]\r\n");
+            return -EINVAL;
+        }
+        if (argc == 5 && wifi_parse_delay_ms(argv[4], &scan_delay_ms) < 0) {
+            a90_console_printf("usage: wifi service once <dir> [scan_delay_ms]\r\n");
+            return -EINVAL;
+        }
+        a90_console_printf("[wifi service once]\r\n");
+        a90_console_printf("version=%s\r\n", A90_WIFI_SERVICE_VERSION);
+        a90_console_printf("root=%s\r\n", argv[3]);
+        rc = wifi_service_process_once(argv[3], scan_delay_ms, -1, &seq);
+        a90_console_printf("request_seq=%ld\r\n", seq);
+        a90_console_printf("process_rc=%d\r\n", rc);
+        a90_console_printf("response_file=%s/%s\r\n", argv[3], A90_WIFI_SERVICE_RESPONSE_FILE);
+        a90_console_printf("decision=%s\r\n",
+                           rc == 0 ? "wifi-service-once-pass" : "wifi-service-once-failed");
+        return rc;
+    }
+    if (strcmp(subcommand, "start") == 0) {
+        int lifetime_ms = A90_WIFI_SERVICE_DEFAULT_LIFETIME_MS;
+        int poll_ms = A90_WIFI_SERVICE_DEFAULT_POLL_MS;
+        int scan_delay_ms = A90_WIFI_SERVICE_DEFAULT_SCAN_DELAY_MS;
+        int pid_or_rc;
+
+        if (argc < 4 || argc > 7) {
+            a90_console_printf("usage: wifi service start <dir> [lifetime_ms poll_ms scan_delay_ms]\r\n");
+            return -EINVAL;
+        }
+        if (argc >= 5 &&
+            wifi_parse_delay_ms_max(argv[4], &lifetime_ms, A90_WIFI_SERVICE_MAX_LIFETIME_MS) < 0) {
+            a90_console_printf("usage: wifi service start <dir> [lifetime_ms poll_ms scan_delay_ms]\r\n");
+            return -EINVAL;
+        }
+        if (argc >= 6 &&
+            wifi_parse_delay_ms_max(argv[5], &poll_ms, A90_WIFI_SERVICE_MAX_POLL_MS) < 0) {
+            a90_console_printf("usage: wifi service start <dir> [lifetime_ms poll_ms scan_delay_ms]\r\n");
+            return -EINVAL;
+        }
+        if (argc >= 7 && wifi_parse_delay_ms(argv[6], &scan_delay_ms) < 0) {
+            a90_console_printf("usage: wifi service start <dir> [lifetime_ms poll_ms scan_delay_ms]\r\n");
+            return -EINVAL;
+        }
+        a90_console_printf("[wifi service start]\r\n");
+        a90_console_printf("version=%s\r\n", A90_WIFI_SERVICE_VERSION);
+        a90_console_printf("root=%s\r\n", argv[3]);
+        a90_console_printf("lifetime_ms=%d\r\n", lifetime_ms);
+        a90_console_printf("poll_ms=%d\r\n", poll_ms);
+        a90_console_printf("scan_delay_ms=%d\r\n", scan_delay_ms);
+        a90_console_printf("credentials=0\r\n");
+        a90_console_printf("connect=0\r\n");
+        a90_console_printf("dhcp_routing=0\r\n");
+        a90_console_printf("public_tunnel=0\r\n");
+        pid_or_rc = wifi_service_start(argv[3], lifetime_ms, poll_ms, scan_delay_ms);
+        a90_console_printf("pid=%d\r\n", pid_or_rc > 0 ? pid_or_rc : -1);
+        a90_console_printf("start_rc=%d\r\n", pid_or_rc > 0 ? 0 : pid_or_rc);
+        a90_console_printf("request_file=%s/%s\r\n", argv[3], A90_WIFI_SERVICE_REQUEST_FILE);
+        a90_console_printf("response_file=%s/%s\r\n", argv[3], A90_WIFI_SERVICE_RESPONSE_FILE);
+        a90_console_printf("decision=%s\r\n",
+                           pid_or_rc > 0 ? "wifi-service-start-pass" : "wifi-service-start-failed");
+        return pid_or_rc > 0 ? 0 : pid_or_rc;
+    }
+
+    a90_console_printf("usage: wifi service [status|start|stop|once] <dir> [lifetime_ms poll_ms scan_delay_ms]\r\n");
+    return -EINVAL;
+}
+
 int a90_wifi_cmd(char **argv, int argc) {
     if (argc == 1 ||
         (argc == 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "status") == 0)) {
@@ -5299,6 +5906,12 @@ int a90_wifi_cmd(char **argv, int argc) {
         argv[1] != NULL &&
         strcmp(argv[1], "softap") == 0) {
         return wifi_softap_cmd(argv, argc);
+    }
+    if (argc >= 2 &&
+        argv != NULL &&
+        argv[1] != NULL &&
+        strcmp(argv[1], "service") == 0) {
+        return wifi_service_cmd(argv, argc);
     }
     if ((argc == 2 || argc == 3) &&
         argv != NULL &&

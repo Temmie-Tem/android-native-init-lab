@@ -1248,6 +1248,19 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** build the native-owned service boundary deliberately: keep native init as Wi-Fi owner and
 > expose bounded scan/connect/status operations to Debian/chroot consumers.  Full `switch_root` remains
 > USB-local/server-only unless the vendor WLAN control plane is explicitly preserved or relaunched.
+> **🟢 STATUS (2026-07-04 09:42 KST host clock) — WSTA20 native Wi-Fi service boundary SOURCE/BUILD PASS.**
+> Codex added the native-owned `wifi service [status|start|stop|once] <dir>` command surface in
+> `a90_wifi.c`: Debian/chroot consumers write a shared `request` file with `seq` + `op=status|scan`,
+> and native init writes an atomic redacted `response` file as the WLAN owner.  This rung deliberately
+> denies connect/DHCP/ping/public-tunnel operations and records `owner=native-init`.  The V3385 builder
+> produced `A90 Linux init 0.11.141 (v3385-wifi-service-boundary)`, boot SHA
+> `33fabe5b90cab57c9e538236e2ad8abef28822807de4051cd8b7027053218710`, and fixed the ramdisk overlay
+> to drop the immediate previous DOOM engine so the boot image stays within the 64 MiB boot-partition
+> limit.  Static source/builder tests pass.  Report:
+> `docs/reports/NATIVE_INIT_V3385_WIFI_SERVICE_BOUNDARY_SOURCE_BUILD_2026-07-04.md`.
+> **NEXT:** WSTA20 live gate — flash V3385 via `native_init_flash.py`, health-check it, run WSTA2
+> materialization, mount the SD-backed Debian chroot, write status/scan requests from Debian, verify
+> native-owned responses, then cleanup and leave the device health-checked.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
