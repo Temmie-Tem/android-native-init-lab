@@ -8,17 +8,17 @@
 set -u
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-HELPER_VERSION=1
+HELPER_VERSION=2
 IPT4="${A90_DPUBLIC_IPTABLES4:-/usr/sbin/iptables-legacy}"
 IPT6="${A90_DPUBLIC_IPTABLES6:-/usr/sbin/ip6tables-legacy}"
-SAVE4="${A90_DPUBLIC_IPTABLES_SAVE4:-/usr/sbin/iptables-legacy-save}"
-SAVE6="${A90_DPUBLIC_IPTABLES_SAVE6:-/usr/sbin/ip6tables-legacy-save}"
 RESTORE4="${A90_DPUBLIC_IPTABLES_RESTORE4:-/usr/sbin/iptables-legacy-restore}"
 RESTORE6="${A90_DPUBLIC_IPTABLES_RESTORE6:-/usr/sbin/ip6tables-legacy-restore}"
 RUN_DIR="${A90_DPUBLIC_PACKET_FILTER_RUN_DIR:-/run/a90-dpublic/packet-filter}"
 MARKER="${A90_DPUBLIC_PACKET_FILTER_MARKER:-/run/a90-dpublic/packet-filter.marker}"
-BEFORE4="$RUN_DIR/before.v4"
-BEFORE6="$RUN_DIR/before.v6"
+BEFORE_RULES4="$RUN_DIR/before.rules.v4"
+BEFORE_RULES6="$RUN_DIR/before.rules.v6"
+BEFORE_RESTORE4="$RUN_DIR/before.restore.v4"
+BEFORE_RESTORE6="$RUN_DIR/before.restore.v6"
 
 mkdir -p "$RUN_DIR" "$(dirname "$MARKER")" 2>/dev/null || true
 
@@ -47,17 +47,51 @@ fail() {
 }
 
 require_tools() {
-    for tool in "$IPT4" "$IPT6" "$SAVE4" "$SAVE6" "$RESTORE4" "$RESTORE6"; do
-        [ -x "$tool" ] || return 1
+    missing=0
+    for tool in "$IPT4" "$IPT6" "$RESTORE4" "$RESTORE6"; do
+        if [ ! -x "$tool" ]; then
+            emit "packet_filter_tool_missing=$tool"
+            missing=1
+        fi
     done
+    [ "$missing" = "0" ] || return 1
     return 0
+}
+
+rules_to_restore() {
+    src=$1
+    dst=$2
+    {
+        printf '*filter\n'
+        while IFS= read -r line; do
+            set -- $line
+            case "${1:-}" in
+                -P)
+                    [ "$#" -ge 3 ] || return 1
+                    printf ':%s %s [0:0]\n' "$2" "$3"
+                    ;;
+                -N)
+                    [ "$#" -ge 2 ] || return 1
+                    printf ':%s - [0:0]\n' "$2"
+                    ;;
+                -A)
+                    printf '%s\n' "$line"
+                    ;;
+            esac
+        done < "$src"
+        printf 'COMMIT\n'
+    } > "$dst"
 }
 
 save_current_rules() {
     umask 077
-    "$SAVE4" > "$BEFORE4" || return 1
-    "$SAVE6" > "$BEFORE6" || return 1
-    chmod 600 "$BEFORE4" "$BEFORE6" 2>/dev/null || true
+    "$IPT4" -S > "$BEFORE_RULES4" || return 1
+    "$IPT6" -S > "$BEFORE_RULES6" || return 1
+    [ -s "$BEFORE_RULES4" ] || return 1
+    [ -s "$BEFORE_RULES6" ] || return 1
+    rules_to_restore "$BEFORE_RULES4" "$BEFORE_RESTORE4" || return 1
+    rules_to_restore "$BEFORE_RULES6" "$BEFORE_RESTORE6" || return 1
+    chmod 600 "$BEFORE_RULES4" "$BEFORE_RULES6" "$BEFORE_RESTORE4" "$BEFORE_RESTORE6" 2>/dev/null || true
     return 0
 }
 
@@ -86,10 +120,10 @@ EOF
 }
 
 restore_saved_rules() {
-    [ -s "$BEFORE4" ] || return 1
-    [ -s "$BEFORE6" ] || return 1
-    "$RESTORE4" < "$BEFORE4" || return 1
-    "$RESTORE6" < "$BEFORE6" || return 1
+    [ -s "$BEFORE_RESTORE4" ] || return 1
+    [ -s "$BEFORE_RESTORE6" ] || return 1
+    "$RESTORE4" < "$BEFORE_RESTORE4" || return 1
+    "$RESTORE6" < "$BEFORE_RESTORE6" || return 1
     return 0
 }
 
@@ -99,7 +133,7 @@ case "$op" in
         require_tools || fail 70 "packet-filter-tools-missing" "$op"
         emit_common "$op"
         emit "packet_filter_apply_autostart=0"
-        emit "packet_filter_restore_available=$([ -s "$BEFORE4" ] && [ -s "$BEFORE6" ] && echo 1 || echo 0)"
+        emit "packet_filter_restore_available=$([ -s "$BEFORE_RESTORE4" ] && [ -s "$BEFORE_RESTORE6" ] && echo 1 || echo 0)"
         emit "packet_filter_decision=packet-filter-preflight-pass"
         exit 0
         ;;

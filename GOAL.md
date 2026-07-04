@@ -2679,7 +2679,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > helper SOURCE/HOST PASS.**  Codex added `a90_dpublic_packet_filter.sh` and stages it into the Debian D-public
 > rootfs at `/usr/local/bin/a90-dpublic-packet-filter`; firstboot does not invoke it.  The helper exposes
 > `preflight`, `apply-loopback-default-drop`, `restore`, and `status`.  The apply path uses the WSTA92
-> `legacy-iptables` backend, saves current IPv4/IPv6 filter tables first, applies a loopback-only default-drop
+> `legacy-iptables` backend, snapshots current IPv4/IPv6 filter rules first, applies a loopback-only default-drop
 > prototype (`INPUT DROP`, `FORWARD DROP`, `OUTPUT ACCEPT`, loopback plus established/related input accepted), and
 > attempts restore if apply fails.  The host-only private rootfs run staged the helper with
 > `preflight_op_present=true`, `apply_op_present=true`, `restore_op_present=true`,
@@ -2691,6 +2691,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA93_PACKET_FILTER_HELPER_SOURCE_2026-07-04.md`.
 > **NEXT:** WSTA94 can be a live bounded prototype: fresh private rootfs with helper -> `preflight` -> apply
 > loopback-only default-drop -> verify loopback smoke and blocked unexpected inbound -> `restore` -> cleanup.
+> **🟢 STATUS (2026-07-04 23:33 KST host clock) — WSTA94 packet-filter
+> LOOPBACK LIVE PASS.**  Codex added the explicit-gated live runner
+> `run_wsta94_packet_filter_live_gate.py` and focused tests, then ran the bounded live prototype on resident
+> `A90 Linux init 0.11.153 (v3397-wsta-execute-gate-screen)` without flash/reboot/Wi-Fi/DHCP/public tunnel/userdata/
+> switch-root.  Final private run:
+> `workspace/private/runs/server-distro/wsta94-packet-filter-live-20260704T143227Z/`; decision
+> `wsta94-packet-filter-loopback-live-pass`.  The run used image SHA
+> `63bb69b47b888a7fdcce69607251c51c9b2c867314ad2ee0280b2ca33e610ba7`, mounted Debian `12.14`, staged loopback
+> smoke + packet-filter helper, proved `preflight`, proved loopback smoke before/after default-drop, observed
+> IPv4/IPv6 `INPUT DROP` + loopback accept and IPv4 `FORWARD DROP` / `OUTPUT ACCEPT`, restored exactly
+> (`A90WSTA94_RESTORE_EXACT_V4=1`, `A90WSTA94_RESTORE_EXACT_V6=1`), cleaned up, postchecked mount/loop/dropbear
+> absence, and ended with `selftest fail=0`.  Live gaps fixed in-tree: helper v2 no longer trusts empty-success
+> `iptables-legacy-save`; it snapshots `iptables -S`, converts to restore input, rejects empty snapshots, and the
+> live runner uses postcheck as authoritative for transient loop-detach timing.  Validation passed `py_compile`,
+> focused WSTA94/WSTA3 tests (`39 tests`), and the live gate.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA94_PACKET_FILTER_LIVE_GATE_2026-07-04.md`.
+> **NEXT:** WSTA95 should wire this proven packet-filter into the D-public lifecycle as an explicit operator-gated
+> default-off hardening layer: apply before public exposure starts, prove restore on stop/retire/failure paths, and
+> keep no-public/no-credential defaults inert.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
