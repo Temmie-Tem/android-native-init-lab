@@ -31,6 +31,7 @@ class ServerDistroDebianRootfsBuilderTests(unittest.TestCase):
             helper = rootfs / builder.DPUBLIC_WIFI_STA_TARGET
             native_client = rootfs / builder.NATIVE_WIFI_SERVICE_CLIENT_TARGET
             uplink_client = rootfs / builder.NATIVE_WIFI_UPLINK_CLIENT_TARGET
+            uplink_profile = rootfs / builder.DPUBLIC_NATIVE_UPLINK_PROFILE_TARGET
             self.assertTrue(helper.is_file())
             self.assertEqual(helper.stat().st_mode & 0o777, 0o755)
             self.assertIn("wifi_sta_secret_values_logged=0", helper.read_text(encoding="utf-8"))
@@ -45,6 +46,12 @@ class ServerDistroDebianRootfsBuilderTests(unittest.TestCase):
             self.assertIn(
                 "native_wifi_uplink_client_secret_values_logged=0",
                 uplink_client.read_text(encoding="utf-8"),
+            )
+            self.assertTrue(uplink_profile.is_file())
+            self.assertEqual(uplink_profile.stat().st_mode & 0o777, 0o755)
+            self.assertIn(
+                "native_uplink_profile_public_default=off",
+                uplink_profile.read_text(encoding="utf-8"),
             )
             self.assertTrue((rootfs / "etc/a90-dpublic").is_dir())
 
@@ -69,6 +76,9 @@ class ServerDistroDebianRootfsBuilderTests(unittest.TestCase):
             self.assertIn("wifi-sta-helper=/usr/local/bin/a90-dpublic-wifi-sta", marker)
             self.assertIn("native-wifi-service-client=/usr/local/bin/a90-native-wifi-service-client", marker)
             self.assertIn("native-wifi-uplink-client=/usr/local/bin/a90-native-wifi-uplink-client", marker)
+            self.assertIn("native-uplink-profile=/usr/local/bin/a90-dpublic-native-uplink-profile", marker)
+            self.assertIn("native-uplink=operator-controlled via /etc/a90-dpublic/native-uplink-enable", marker)
+            self.assertIn("public-exposure-default=off", marker)
             self.assertIn("WARNING: configure credentials/keys before any network/public exposure", marker)
 
 

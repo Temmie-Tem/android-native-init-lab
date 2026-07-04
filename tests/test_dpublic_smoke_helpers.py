@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -12,6 +14,7 @@ HUD = Path("workspace/public/src/scripts/server-distro/a90_dpublic_hud.c")
 FIRSTBOOT = Path("workspace/public/src/scripts/server-distro/a90_dpublic_firstboot.sh")
 WIFI_STA = Path("workspace/public/src/scripts/server-distro/a90_dpublic_wifi_sta.sh")
 API_PROBE = Path("workspace/public/src/scripts/server-distro/a90_dpublic_api_probe.sh")
+NATIVE_UPLINK_PROFILE = Path("workspace/public/src/scripts/server-distro/a90_dpublic_native_uplink_profile.sh")
 
 
 class DpublicSmokeHelperTests(unittest.TestCase):
@@ -59,6 +62,9 @@ class DpublicSmokeHelperTests(unittest.TestCase):
         self.assertIn('target=$(readlink "$fd"', source)
         self.assertIn("base_\"$line\"", source)
         self.assertIn("stage=*|autoreboot_sec=*", source)
+        self.assertIn("native_uplink_profile_command=/usr/local/bin/a90-dpublic-native-uplink-profile", source)
+        self.assertIn("native_uplink_decision=operator-profile-manual", source)
+        self.assertIn("native_uplink_public_default=off", source)
 
     def test_firstboot_cleans_stale_cloudflared_runtime_in_manual_mode(self) -> None:
         source = FIRSTBOOT.read_text(encoding="utf-8")
@@ -281,6 +287,44 @@ class DpublicSmokeHelperTests(unittest.TestCase):
         self.assertNotIn("/usr/local/bin/cloudflared", source)
         self.assertNotIn("cloudflared tunnel", source)
         self.assertNotIn("echo $url", source)
+
+    def test_native_uplink_profile_is_operator_gated_and_public_off(self) -> None:
+        source = NATIVE_UPLINK_PROFILE.read_text(encoding="utf-8")
+        self.assertIn("/usr/local/bin/a90-native-wifi-uplink-client", source)
+        self.assertIn("/etc/a90-dpublic/native-uplink-enable", source)
+        self.assertIn("native_uplink_profile_public_default=off", source)
+        self.assertIn("A90_NATIVE_WIFI_UPLINK_ALLOW_CONFIRMED", source)
+        self.assertIn("A90_NATIVE_WIFI_UPLINK_CONFIRM_TOKEN", source)
+        self.assertIn("native-uplink-profile-confirmed-disabled", source)
+        self.assertIn("native-uplink-profile-confirm-token-missing", source)
+        self.assertIn("native_uplink_profile_public_runner=wsta43", source)
+        self.assertIn("native_uplink_profile_secret_values_logged=0", source)
+        self.assertNotIn("cloudflared tunnel", source)
+        self.assertNotIn("ssid=", source.lower())
+        self.assertNotIn("psk=", source.lower())
+
+    def test_native_uplink_profile_preflight_writes_marker_without_network(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            marker = Path(tmp) / "profile.marker"
+            completed = subprocess.run(
+                ["sh", str(NATIVE_UPLINK_PROFILE), "profile"],
+                text=True,
+                capture_output=True,
+                check=False,
+                env={
+                    "PATH": "/usr/bin:/bin",
+                    "A90_DPUBLIC_NATIVE_UPLINK_PROFILE_MARKER": str(marker),
+                    "A90_DPUBLIC_NATIVE_UPLINK_CLIENT": str(Path(tmp) / "missing-client"),
+                },
+            )
+
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertIn("native_uplink_profile_decision=native-uplink-profile-ready", completed.stdout)
+            self.assertIn("native_uplink_profile_public_default=off", completed.stdout)
+            self.assertIn("native_uplink_profile_secret_values_logged=0", completed.stdout)
+            marker_text = marker.read_text(encoding="utf-8")
+            self.assertIn("native_uplink_profile_client_present=0", marker_text)
+            self.assertIn("native_uplink_profile_decision=native-uplink-profile-ready", marker_text)
 
 
 if __name__ == "__main__":

@@ -151,6 +151,17 @@ printf 'nameserver 1.1.1.1\n' > /etc/resolv.conf
   test -f /etc/a90-appliance-stage && echo appliance_marker=$(cat /etc/a90-appliance-stage)
 } > /run/a90-d3-marker
 
+if [ -x /usr/local/bin/a90-dpublic-native-uplink-profile ]; then
+  echo native_uplink_profile_present=1 >> /run/a90-d3-marker
+  echo native_uplink_profile_command=/usr/local/bin/a90-dpublic-native-uplink-profile >> /run/a90-d3-marker
+else
+  echo native_uplink_profile_present=0 >> /run/a90-d3-marker
+fi
+echo native_uplink_requested=0 >> /run/a90-d3-marker
+echo native_uplink_decision=operator-profile-manual >> /run/a90-d3-marker
+echo native_uplink_public_default=off >> /run/a90-d3-marker
+echo native_uplink_secret_values_logged=0 >> /run/a90-d3-marker
+
 if [ ! -s /etc/dropbear/dropbear_ed25519_host_key ]; then
   /usr/bin/dropbearkey -t ed25519 -f /etc/dropbear/dropbear_ed25519_host_key \
     >/run/a90-d3-dropbearkey.log 2>&1

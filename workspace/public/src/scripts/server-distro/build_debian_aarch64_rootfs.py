@@ -7,7 +7,7 @@ suitable for SD-card loop staging in D1 (chroot MVP). NO device action; NO Andro
 Pipeline (single sudo invocation):
   1. debootstrap --arch=arm64 <suite> into the rootfs dir (qemu-aarch64 binfmt handles arm64).
   2. customize inside the rootfs (chroot, via binfmt): install dropbear (MVP SSH) + minimal tools,
-     install the opt-in D-public Wi-Fi STA helper and native Wi-Fi service client, set hostname,
+     install the opt-in D-public Wi-Fi STA helpers and native Wi-Fi service client, set hostname,
      LOCK the root password, and disable password SSH defaults.
   3. pack the rootfs into an ext4 image with `mke2fs -d` (no loop mount / no root-mount needed).
   4. report image size + SHA-256; chown outputs back to the invoking user.
@@ -57,6 +57,8 @@ NATIVE_WIFI_SERVICE_CLIENT = SCRIPT_DIR / "a90_native_wifi_service_client.sh"
 NATIVE_WIFI_SERVICE_CLIENT_TARGET = Path("usr/local/bin/a90-native-wifi-service-client")
 NATIVE_WIFI_UPLINK_CLIENT = SCRIPT_DIR / "a90_native_wifi_uplink_client.sh"
 NATIVE_WIFI_UPLINK_CLIENT_TARGET = Path("usr/local/bin/a90-native-wifi-uplink-client")
+DPUBLIC_NATIVE_UPLINK_PROFILE = SCRIPT_DIR / "a90_dpublic_native_uplink_profile.sh"
+DPUBLIC_NATIVE_UPLINK_PROFILE_TARGET = Path("usr/local/bin/a90-dpublic-native-uplink-profile")
 
 
 def run(cmd: list[str], **kw) -> None:
@@ -93,6 +95,7 @@ def stage_server_distro_helpers(rootfs: Path) -> None:
         (DPUBLIC_WIFI_STA_HELPER, rootfs / DPUBLIC_WIFI_STA_TARGET),
         (NATIVE_WIFI_SERVICE_CLIENT, rootfs / NATIVE_WIFI_SERVICE_CLIENT_TARGET),
         (NATIVE_WIFI_UPLINK_CLIENT, rootfs / NATIVE_WIFI_UPLINK_CLIENT_TARGET),
+        (DPUBLIC_NATIVE_UPLINK_PROFILE, rootfs / DPUBLIC_NATIVE_UPLINK_PROFILE_TARGET),
     )
     for source, helper_target in helper_targets:
         helper_target.parent.mkdir(parents=True, exist_ok=True)
@@ -120,6 +123,9 @@ def stage_customize(rootfs: Path, hostname: str) -> None:
         "wifi-sta-helper=/usr/local/bin/a90-dpublic-wifi-sta\n"
         "native-wifi-service-client=/usr/local/bin/a90-native-wifi-service-client\n"
         "native-wifi-uplink-client=/usr/local/bin/a90-native-wifi-uplink-client\n"
+        "native-uplink-profile=/usr/local/bin/a90-dpublic-native-uplink-profile\n"
+        "native-uplink=operator-controlled via /etc/a90-dpublic/native-uplink-enable\n"
+        "public-exposure-default=off; quick-tunnel requires /etc/a90-dpublic/cloudflared-quick-enable\n"
         "WARNING: configure credentials/keys before any network/public exposure (design E.6)\n"
     )
     resolv.unlink(missing_ok=True)

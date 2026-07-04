@@ -51,7 +51,9 @@ TARGET_HELPER = Path("usr/local/bin/a90-dpublic-wifi-sta")
 TARGET_API_PROBE = Path("usr/local/bin/a90-dpublic-api-probe")
 TARGET_NATIVE_WIFI_SERVICE_CLIENT = Path("usr/local/bin/a90-native-wifi-service-client")
 TARGET_NATIVE_WIFI_UPLINK_CLIENT = Path("usr/local/bin/a90-native-wifi-uplink-client")
+TARGET_NATIVE_UPLINK_PROFILE = Path("usr/local/bin/a90-dpublic-native-uplink-profile")
 TARGET_FIRSTBOOT = Path("etc/a90-d3-firstboot")
+TARGET_STAGE_MARKER = Path("etc/a90-server-distro-stage")
 DPUBLIC_BINARY_TARGETS = {
     "cloudflared": Path("usr/local/bin/cloudflared"),
     "smoke_httpd": Path("usr/local/bin/a90-dpublic-smoke-httpd"),
@@ -62,6 +64,7 @@ DPUBLIC_WIFI_STA_HELPER = SCRIPT_DIR / "a90_dpublic_wifi_sta.sh"
 DPUBLIC_API_PROBE = SCRIPT_DIR / "a90_dpublic_api_probe.sh"
 DPUBLIC_NATIVE_WIFI_SERVICE_CLIENT = SCRIPT_DIR / "a90_native_wifi_service_client.sh"
 DPUBLIC_NATIVE_WIFI_UPLINK_CLIENT = SCRIPT_DIR / "a90_native_wifi_uplink_client.sh"
+DPUBLIC_NATIVE_UPLINK_PROFILE = SCRIPT_DIR / "a90_dpublic_native_uplink_profile.sh"
 DPUBLIC_FIRSTBOOT = SCRIPT_DIR / "a90_dpublic_firstboot.sh"
 PRIVATE_FILE_MODE = 0o600
 STA_TOOL_PACKAGES = ("wpasupplicant", "isc-dhcp-client", "netcat-openbsd", "iw")
@@ -83,6 +86,11 @@ API_PROBE_TOOL_CANDIDATES = {
 KEY_SSID = "ssid"
 KEY_PSK = "psk"
 KEY_MGMT = "key_mgmt"
+NATIVE_UPLINK_STAGE_MARKERS = (
+    "native-uplink-profile=/usr/local/bin/a90-dpublic-native-uplink-profile",
+    "native-uplink=operator-controlled via /etc/a90-dpublic/native-uplink-enable",
+    "public-exposure-default=off; quick-tunnel requires /etc/a90-dpublic/cloudflared-quick-enable",
+)
 
 
 def utc_stamp() -> str:
@@ -573,6 +581,58 @@ def stage_native_wifi_uplink_client(rootfs: Path) -> dict[str, Any]:
     }
 
 
+def stage_native_uplink_profile(rootfs: Path) -> dict[str, Any]:
+    helper_target = rootfs / TARGET_NATIVE_UPLINK_PROFILE
+    if not DPUBLIC_NATIVE_UPLINK_PROFILE.is_file():
+        raise FileNotFoundError(DPUBLIC_NATIVE_UPLINK_PROFILE)
+    helper_target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(DPUBLIC_NATIVE_UPLINK_PROFILE, helper_target)
+    helper_target.chmod(0o755)
+    text = helper_target.read_text(encoding="utf-8")
+    tunnel_phrase = "cloudflared" + " tunnel"
+    return {
+        "helper_target": str(TARGET_NATIVE_UPLINK_PROFILE),
+        "helper_mode": oct(helper_target.stat().st_mode & 0o777),
+        "latest_helper_staged": True,
+        "native_client_delegation_present": ' "$CLIENT" autoconnect-confirmed "$SERVICE_DIR"' in text,
+        "operator_enable_gate_present": "/etc/a90-dpublic/native-uplink-enable" in text
+        and "native-uplink-profile-enable-missing" in text,
+        "confirmed_autoconnect_env_gated": (
+            "A90_NATIVE_WIFI_UPLINK_ALLOW_CONFIRMED" in text
+            and "A90_NATIVE_WIFI_UPLINK_CONFIRM_TOKEN" in text
+            and "native-uplink-profile-confirmed-disabled" in text
+            and "native-uplink-profile-confirm-token-missing" in text
+        ),
+        "public_default_off_marker": "native_uplink_profile_public_default=off" in text,
+        "public_tunnel_not_started": tunnel_phrase not in text and "native-uplink-profile-public-tunnel" in text,
+        "wsta43_sequence_marker": "native_uplink_profile_public_runner=wsta43" in text,
+        "secret_hygiene_marker": "native_uplink_profile_secret_values_logged=0" in text,
+        "secret_values_logged": 0,
+    }
+
+
+def stage_native_uplink_stage_marker(rootfs: Path) -> dict[str, Any]:
+    marker = rootfs / TARGET_STAGE_MARKER
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    existing = marker.read_text(encoding="utf-8") if marker.exists() else ""
+    marker_keys = {item.split("=", 1)[0] for item in NATIVE_UPLINK_STAGE_MARKERS}
+    lines = [
+        line
+        for line in existing.splitlines()
+        if not any(line.startswith(key + "=") for key in marker_keys)
+    ]
+    for item in NATIVE_UPLINK_STAGE_MARKERS:
+        lines.append(item)
+    marker.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
+    return {
+        "marker_target": str(TARGET_STAGE_MARKER),
+        "profile_marker_present": NATIVE_UPLINK_STAGE_MARKERS[0] in lines,
+        "operator_control_marker_present": NATIVE_UPLINK_STAGE_MARKERS[1] in lines,
+        "public_default_off_marker": any(line.startswith("public-exposure-default=off") for line in lines),
+        "secret_values_logged": 0,
+    }
+
+
 def stage_dpublic_firstboot(rootfs: Path) -> dict[str, Any]:
     firstboot_target = rootfs / TARGET_FIRSTBOOT
     if not DPUBLIC_FIRSTBOOT.is_file():
@@ -586,6 +646,8 @@ def stage_dpublic_firstboot(rootfs: Path) -> dict[str, Any]:
         "firstboot_mode": oct(firstboot_target.stat().st_mode & 0o777),
         "autoreboot_disabled_marker": "autoreboot_sec=disabled" in text,
         "wifi_sta_helper_invoked": "/usr/local/bin/a90-dpublic-wifi-sta" in text,
+        "native_uplink_profile_marker": "native_uplink_profile_command=/usr/local/bin/a90-dpublic-native-uplink-profile" in text,
+        "public_default_off_marker": "native_uplink_public_default=off" in text,
         "secret_values_logged": 0,
     }
 
@@ -723,6 +785,8 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
     result["api_probe_helper"] = stage_dpublic_api_probe_helper(target_rootfs)
     result["native_wifi_service_client"] = stage_native_wifi_service_client(target_rootfs)
     result["native_wifi_uplink_client"] = stage_native_wifi_uplink_client(target_rootfs)
+    result["native_uplink_profile"] = stage_native_uplink_profile(target_rootfs)
+    result["native_uplink_stage_marker"] = stage_native_uplink_stage_marker(target_rootfs)
     if args.immediate_snapshot_only:
         result["stage"] = stage_immediate_snapshot_only(target_rootfs)
     else:

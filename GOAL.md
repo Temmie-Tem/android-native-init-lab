@@ -1794,6 +1794,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA44 should move from proof gate to appliance workflow: boot/native init should keep default
 > public exposure off, then a controlled operator command/profile should bring up native-owned STA,
 > Debian service/HUD, and optional quick Tunnel using the WSTA43 sequence.
+> **🟢 STATUS (2026-07-04 16:15 KST host clock) — WSTA44 appliance native-uplink profile
+> SOURCE PASS.**  Codex added the Debian-side
+> `/usr/local/bin/a90-dpublic-native-uplink-profile` source and stages it through both
+> `build_debian_aarch64_rootfs.py` and `prepare_wsta3_sta_rootfs.py`.  The profile is default-off:
+> `profile`/`preflight` only records readiness, `autoconnect-confirmed` requires
+> `/etc/a90-dpublic/native-uplink-enable` plus the native uplink env confirm gates, and
+> `quick-tunnel`/`public-tunnel` does not start `cloudflared`; it records that the WSTA43
+> host-orchestrated public sequence is required.  Firstboot now records
+> `native_uplink_decision=operator-profile-manual` and `native_uplink_public_default=off` without
+> auto-running native uplink or public exposure.  Host validation passed: 37 focused tests,
+> `py_compile`, `sh -n`, and `git diff --check`.  No device action, no flash, no Wi-Fi association,
+> and no public tunnel ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA44_APPLIANCE_NATIVE_UPLINK_PROFILE_SOURCE_2026-07-04.md`.
+> **NEXT:** WSTA45 should add an operator-facing wrapper/menu entry for the WSTA43 sequence that consumes
+> this default-off profile, preserving the explicit native-reboot, credentialed-Wi-Fi, and public-exposure
+> gates.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

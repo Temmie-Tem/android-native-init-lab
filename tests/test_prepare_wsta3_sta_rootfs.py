@@ -128,6 +128,8 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertIn("/usr/local/bin/a90-dpublic-wifi-sta", text)
             self.assertTrue(result["autoreboot_disabled_marker"])
             self.assertTrue(result["wifi_sta_helper_invoked"])
+            self.assertTrue(result["native_uplink_profile_marker"])
+            self.assertTrue(result["public_default_off_marker"])
 
     def test_stage_dpublic_wifi_sta_helper_overwrites_with_current_l3_helper(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -232,6 +234,49 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertIn("owner\" != \"native-init\"", text)
             self.assertNotIn("ssid=", text.lower())
             self.assertNotIn("psk=", text.lower())
+
+    def test_stage_native_uplink_profile_is_operator_gated_and_public_off(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp)
+
+            result = wsta3.stage_native_uplink_profile(rootfs)
+
+            target = rootfs / wsta3.TARGET_NATIVE_UPLINK_PROFILE
+            text = target.read_text(encoding="utf-8")
+            self.assertTrue(result["latest_helper_staged"])
+            self.assertTrue(result["native_client_delegation_present"])
+            self.assertTrue(result["operator_enable_gate_present"])
+            self.assertTrue(result["confirmed_autoconnect_env_gated"])
+            self.assertTrue(result["public_default_off_marker"])
+            self.assertTrue(result["public_tunnel_not_started"])
+            self.assertTrue(result["wsta43_sequence_marker"])
+            self.assertTrue(result["secret_hygiene_marker"])
+            self.assertEqual(target.stat().st_mode & 0o777, 0o755)
+            self.assertIn("/usr/local/bin/a90-native-wifi-uplink-client", text)
+            self.assertIn("/etc/a90-dpublic/native-uplink-enable", text)
+            self.assertIn("native_uplink_profile_public_default=off", text)
+            self.assertNotIn("cloudflared tunnel", text)
+            self.assertNotIn("ssid=", text.lower())
+            self.assertNotIn("psk=", text.lower())
+
+    def test_stage_native_uplink_marker_merges_without_overwriting_existing_stage(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp)
+            marker = rootfs / wsta3.TARGET_STAGE_MARKER
+            marker.parent.mkdir(parents=True)
+            marker.write_text("stage=old\nwifi-sta=old\n", encoding="utf-8")
+
+            result = wsta3.stage_native_uplink_stage_marker(rootfs)
+
+            text = marker.read_text(encoding="utf-8")
+            self.assertIn("stage=old", text)
+            self.assertIn("wifi-sta=old", text)
+            self.assertTrue(result["profile_marker_present"])
+            self.assertTrue(result["operator_control_marker_present"])
+            self.assertTrue(result["public_default_off_marker"])
+            self.assertIn("native-uplink-profile=/usr/local/bin/a90-dpublic-native-uplink-profile", text)
+            self.assertIn("native-uplink=operator-controlled via /etc/a90-dpublic/native-uplink-enable", text)
+            self.assertIn("public-exposure-default=off", text)
 
     def test_stage_dpublic_binaries_and_quick_tunnel_enable_are_private(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -421,11 +466,23 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertTrue(result["native_wifi_uplink_client"]["latest_helper_staged"])
             self.assertTrue(result["native_wifi_uplink_client"]["confirmed_autoconnect_env_gated"])
             self.assertTrue(result["native_wifi_uplink_client"]["confirmed_autoconnect_fail_closed"])
+            self.assertTrue(result["native_uplink_profile"]["latest_helper_staged"])
+            self.assertTrue(result["native_uplink_profile"]["operator_enable_gate_present"])
+            self.assertTrue(result["native_uplink_profile"]["public_default_off_marker"])
+            self.assertTrue(result["native_uplink_stage_marker"]["profile_marker_present"])
+            self.assertTrue(result["native_uplink_stage_marker"]["public_default_off_marker"])
             self.assertTrue((target / wsta3.TARGET_NATIVE_WIFI_SERVICE_CLIENT).is_file())
             self.assertTrue((target / wsta3.TARGET_NATIVE_WIFI_UPLINK_CLIENT).is_file())
+            self.assertTrue((target / wsta3.TARGET_NATIVE_UPLINK_PROFILE).is_file())
+            self.assertIn(
+                "native-uplink-profile=/usr/local/bin/a90-dpublic-native-uplink-profile",
+                (target / wsta3.TARGET_STAGE_MARKER).read_text(encoding="utf-8"),
+            )
             self.assertFalse(result["api_probe_tools"]["requested"])
             self.assertTrue(result["firstboot"]["wifi_sta_helper_invoked"])
             self.assertTrue(result["firstboot"]["autoreboot_disabled_marker"])
+            self.assertTrue(result["firstboot"]["native_uplink_profile_marker"])
+            self.assertTrue(result["firstboot"]["public_default_off_marker"])
             self.assertFalse(result["dpublic_binaries"]["staged"])
             self.assertFalse(result["quick_tunnel_enable"]["enabled"])
             self.assertEqual(verify.call_count, 2)
