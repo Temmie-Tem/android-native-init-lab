@@ -378,6 +378,17 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
             "secret_values_logged": 0,
         }
 
+    def hud_model_proof(self) -> dict:
+        model = runner.wsta127.hud_service_model()
+        return {
+            "decision": runner.wsta127.PASS_DECISION,
+            "run_dir": "workspace/private/runs/server-distro/wsta127-dpublic-hud-model-test",
+            "hud_service_model": model,
+            "checks": runner.wsta127.validate_model(model),
+            "public_url_value_logged": False,
+            "secret_values_logged": 0,
+        }
+
     def valid_args(self, root: Path, wsta88_json: Path, *extra: str):
         return runner.build_arg_parser().parse_args([
             "--run-dir",
@@ -793,6 +804,76 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertNotIn("http://", markdown)
         self.assertNotIn("https://", markdown)
 
+    def test_valid_wsta127_hud_model_adds_hud_status_without_live_claim(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            manifest_path = root / "inputs" / "wsta90_service_hardening_manifest.json"
+            launcher_path = root / "inputs" / "wsta110_result.json"
+            syscall_path = root / "inputs" / "wsta114_result.json"
+            hud_path = root / "inputs" / "wsta127_dpublic_hud_service_model.json"
+            self.write_json(manifest_path, self.hardening_manifest())
+            self.write_json(launcher_path, self.launcher_proof())
+            self.write_json(syscall_path, self.syscall_trace_proof())
+            self.write_json(hud_path, self.hud_model_proof())
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta90-service-hardening-manifest-json",
+                str(manifest_path),
+                "--wsta110-service-launcher-proof-json",
+                str(launcher_path),
+                "--wsta114-syscall-trace-proof-json",
+                str(syscall_path),
+                "--wsta127-hud-model-json",
+                str(hud_path),
+            ))
+            markdown = (root / "wsta108" / "wsta108_operator_server_status.md").read_text(encoding="utf-8")
+            summary_text = json.dumps(runner.public_summary(result), sort_keys=True)
+
+        self.assertEqual(result["decision"], runner.PASS_DECISION)
+        hardening = result["server_status"]["hardening"]
+        hud = hardening["hud_model"]
+        self.assertEqual(hud["state"], "DPUBLIC_HUD_SERVICE_MODEL_SOURCE_DEFINED")
+        self.assertTrue(hud["model_defined"])
+        self.assertFalse(hud["hud_live_proven"])
+        self.assertEqual(hud["service"], "dpublic-hud")
+        self.assertEqual(hud["user"], "a90hud")
+        self.assertEqual(hud["uid"], 3904)
+        self.assertTrue(hud["default_public_off"])
+        self.assertTrue(hud["operator_gate_required"])
+        self.assertTrue(hud["no_network_listener"])
+        self.assertTrue(hud["packet_filter_not_required"])
+        self.assertEqual(hud["drm_node"], "/dev/dri/card0")
+        self.assertTrue(hud["drm_node_policy_defined"])
+        self.assertTrue(hud["drm_master_required"])
+        self.assertEqual(hud["kms_surface"], "dumb-framebuffer-xbgr8888")
+        self.assertTrue(hud["launcher_required"])
+        self.assertTrue(hud["launcher_no_new_privs_required"])
+        self.assertTrue(hud["launcher_caps_zero_required"])
+        self.assertTrue(hud["direct_root_start_rejected_for_always_on"])
+        self.assertTrue(result["checks"]["hud_model_supplied"])
+        self.assertTrue(result["checks"]["hud_model_defined"])
+        self.assertTrue(result["checks"]["hud_no_network_listener"])
+        self.assertTrue(result["checks"]["hud_drm_node_policy_defined"])
+        self.assertTrue(result["checks"]["hud_launcher_hardening_required"])
+        self.assertFalse(result["checks"]["hud_live_proven"])
+        self.assertIn(
+            "prove-dpublic-hud-runtime-drm-boundary-before-always-on-profile",
+            result["server_status"]["operator_next_actions"],
+        )
+        self.assertIn("dpublic-hud", hardening["launcher_proof"]["remaining_profiles"])
+        self.assertIn("dpublic-hud", hardening["syscall_trace_proof"]["remaining_profiles"])
+        self.assertIn("D-public HUD model: `true`", markdown)
+        self.assertIn("D-public HUD user: `a90hud`", markdown)
+        self.assertIn("D-public HUD no-network: `true`", markdown)
+        self.assertIn("D-public HUD DRM node policy: `true`", markdown)
+        self.assertIn("D-public HUD live proof: `false`", markdown)
+        self.assertNotIn("http://", summary_text)
+        self.assertNotIn("https://", summary_text)
+        self.assertNotIn("http://", markdown)
+        self.assertNotIn("https://", markdown)
+
     def test_wsta120_and_smoke_launcher_proofs_refine_shared_user_group_blocker(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -990,6 +1071,23 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
 
         self.assertEqual(result["decision"], "wsta108-blocked-wsta125-cloudflared-runtime-proof-not-pass")
 
+    def test_nonpass_wsta127_hud_model_blocks(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            hud_path = root / "inputs" / "wsta127_dpublic_hud_service_model.json"
+            proof = self.hud_model_proof()
+            proof["decision"] = "wsta127-blocked"
+            self.write_json(hud_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta127-hud-model-json",
+                str(hud_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta127-hud-model-not-pass")
+
     def test_incomplete_wsta110_launcher_proof_blocks_even_with_pass_decision(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -1084,6 +1182,25 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertFalse(result["checks"]["cloudflared_runtime_live_proven"])
         self.assertFalse(result["checks"]["cloudflared_runtime_private_url_redacted"])
 
+    def test_incomplete_wsta127_hud_model_blocks_even_with_pass_decision(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            hud_path = root / "inputs" / "wsta127_dpublic_hud_service_model.json"
+            proof = self.hud_model_proof()
+            proof["hud_service_model"]["display"]["device_node_policy"] = "root-only"
+            self.write_json(hud_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta127-hud-model-json",
+                str(hud_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta127-hud-model-incomplete")
+        self.assertFalse(result["checks"]["hud_model_defined"])
+        self.assertFalse(result["checks"]["hud_drm_node_policy_defined"])
+
     def test_public_summary_markdown_and_template_are_redacted(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -1122,6 +1239,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("--wsta120-dropbear-admin-proof-json", payload)
         self.assertIn("--wsta122-cloudflared-model-json", payload)
         self.assertIn("--wsta125-cloudflared-runtime-proof-json", payload)
+        self.assertIn("--wsta127-hud-model-json", payload)
 
     def test_source_is_host_only_and_names_server_model(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")
@@ -1136,6 +1254,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("DROPBEAR_ADMIN_LIVE_PROVEN", source)
         self.assertIn("CLOUDFLARED_SERVICE_MODEL_SOURCE_DEFINED", source)
         self.assertIn("CLOUDFLARED_RUNTIME_LIVE_PROVEN", source)
+        self.assertIn("DPUBLIC_HUD_SERVICE_MODEL_SOURCE_DEFINED", source)
         self.assertIn('"boot_flash": False', source)
         self.assertIn('"public_url_value_logged": False', source)
         self.assertNotIn("native_init_flash.py", source)

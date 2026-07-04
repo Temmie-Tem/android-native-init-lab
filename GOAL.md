@@ -3190,6 +3190,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > proof on the SD work image: stage policy, launch through `a90-service-launch` as `a90hud`, prove no-new-privs/
 > CapEff-zero/no-network posture, prove `/dev/dri/card0` access without broader root, capture DRM/KMS syscalls, and
 > clean up HUD runtime sidecars.
+>
+> **🟢 STATUS (2026-07-05 06:48 KST host clock) — WSTA128 OPERATOR STATUS HUD
+> MODEL SOURCE PASS.**  Codex folded the WSTA127 private HUD model proof into WSTA108 with optional
+> `--wsta127-hud-model-json`.  WSTA108 now fail-closes unless the supplied WSTA127 result has
+> `wsta127-dpublic-hud-service-model-source-pass`, non-empty all-true checks, and a recomputed-valid HUD model.
+> The private WSTA128 status was regenerated from the existing WSTA88, WSTA90, WSTA94, packet-filter control,
+> WSTA110, WSTA117/WSTA114, WSTA120, WSTA122, WSTA125, and WSTA127 proofs.  It stayed
+> `SERVER_PROFILE_READY_DEFAULT_OFF` / `PUBLIC_OFF`, recorded
+> `hardening.hud_model.state=DPUBLIC_HUD_SERVICE_MODEL_SOURCE_DEFINED`, `hud_model_defined=true`,
+> `hud_live_proven=false`, `a90hud` UID/GID `3904/3904`, no-network listener posture true, DRM node policy true,
+> DRM master required true, KMS surface `dumb-framebuffer-xbgr8888`, launcher no-new-privs/cap-zero requirements
+> true, and direct root always-on start rejected true.  It intentionally keeps `dpublic-hud` in remaining launcher/
+> syscall proof profiles and adds the operator next action
+> `prove-dpublic-hud-runtime-drm-boundary-before-always-on-profile`.  No device action, boot flash, native reboot,
+> Wi-Fi association, DHCP, public tunnel, public smoke, packet-filter mutation, userdata action, DRM open, KMS
+> SETCRTC, or switch-root ran.  Validation passed `py_compile`, WSTA108 focused tests (`31 tests`), full
+> server-distro WSTA regression (`422 tests`), and `git diff --check`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA128_OPERATOR_STATUS_HUD_MODEL_SOURCE_2026-07-05.md`.
+> **NEXT:** run/design the bounded HUD live proof on the SD work image: stage policy, launch through
+> `a90-service-launch` as `a90hud`, prove no-new-privs/CapEff-zero/no-network posture, prove `/dev/dri/card0` access
+> without broader root, capture DRM/KMS syscalls, and clean up HUD runtime sidecars.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
