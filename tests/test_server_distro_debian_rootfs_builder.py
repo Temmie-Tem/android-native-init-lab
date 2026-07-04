@@ -19,6 +19,7 @@ class ServerDistroDebianRootfsBuilderTests(unittest.TestCase):
         self.assertIn("iproute2", packages)
         self.assertIn("iputils-ping", packages)
         self.assertIn("netcat-openbsd", packages)
+        self.assertIn("iptables", packages)
         self.assertIn("ca-certificates", packages)
         self.assertNotIn("network-manager", packages)
 
@@ -78,6 +79,8 @@ class ServerDistroDebianRootfsBuilderTests(unittest.TestCase):
             self.assertIn("native-wifi-uplink-client=/usr/local/bin/a90-native-wifi-uplink-client", marker)
             self.assertIn("native-uplink-profile=/usr/local/bin/a90-dpublic-native-uplink-profile", marker)
             self.assertIn("native-uplink=operator-controlled via /etc/a90-dpublic/native-uplink-enable", marker)
+            self.assertIn("packet-filter-backend=legacy-iptables", marker)
+            self.assertIn("packet-filter-policy=not-enforced", marker)
             self.assertIn("public-exposure-default=off", marker)
             self.assertIn("WARNING: configure credentials/keys before any network/public exposure", marker)
 

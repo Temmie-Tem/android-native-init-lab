@@ -30,6 +30,7 @@ def make_args(tmp: Path, **overrides) -> argparse.Namespace:
         "mirror": "http://deb.debian.org/debian",
         "apt_timeout": 10.0,
         "no_sta_tool_install": True,
+        "no_packet_filter_tool_install": True,
         "stage_dpublic_binaries": False,
         "stage_api_probe_tools": False,
         "enable_quick_tunnel": False,
@@ -46,6 +47,19 @@ def write_private(path: Path, text: str, mode: int = 0o600) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
     path.chmod(mode)
+
+
+def stage_packet_filter_test_tools(rootfs: Path) -> None:
+    (rootfs / "usr/sbin").mkdir(parents=True, exist_ok=True)
+    for name in (
+        "iptables-legacy",
+        "ip6tables-legacy",
+        "iptables-legacy-restore",
+        "ip6tables-legacy-restore",
+        "iptables-legacy-save",
+        "ip6tables-legacy-save",
+    ):
+        (rootfs / "usr/sbin" / name).write_text("", encoding="utf-8")
 
 
 class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
@@ -380,6 +394,60 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertTrue((rootfs / "usr/sbin/dhclient").is_file())
             self.assertTrue((rootfs / "usr/sbin/iw").is_file())
 
+    def test_packet_filter_tools_missing_blocks_when_install_disabled(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp) / "rootfs"
+            rootfs.mkdir()
+            args = make_args(Path(tmp), no_packet_filter_tool_install=True)
+
+            result = wsta3.ensure_packet_filter_tools(rootfs, args)
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["backend"], "legacy-iptables")
+        self.assertFalse(result["policy_enforced"])
+        self.assertEqual(result["reason"], "packet-filter-tools-missing-install-disabled")
+        self.assertFalse(result["before"]["tools"]["iptables_legacy"]["present"])
+        self.assertFalse(result["before"]["tools"]["ip6tables_legacy"]["present"])
+
+    def test_packet_filter_tools_restore_usrmerge_when_legacy_tools_present(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp) / "rootfs"
+            (rootfs / "usr/lib").mkdir(parents=True)
+            (rootfs / "sbin").mkdir()
+            stage_packet_filter_test_tools(rootfs)
+            args = make_args(Path(tmp))
+
+            result = wsta3.ensure_packet_filter_tools(rootfs, args)
+
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["backend"], "legacy-iptables")
+            self.assertFalse(result["installed"])
+            self.assertFalse(result["policy_enforced"])
+            self.assertTrue(result["after"]["default_drop_ready_for_source"])
+            self.assertTrue((rootfs / "sbin").is_symlink())
+            self.assertTrue((rootfs / "usr/sbin/iptables-legacy").is_file())
+            self.assertTrue((rootfs / "usr/sbin/ip6tables-legacy").is_file())
+
+    def test_packet_filter_stage_marker_merges_without_enforcing_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp)
+            marker = rootfs / wsta3.TARGET_STAGE_MARKER
+            marker.parent.mkdir(parents=True)
+            marker.write_text("stage=old\npacket-filter-backend=old\n", encoding="utf-8")
+
+            result = wsta3.stage_packet_filter_stage_marker(rootfs)
+
+            text = marker.read_text(encoding="utf-8")
+            self.assertIn("stage=old", text)
+            self.assertNotIn("packet-filter-backend=old", text)
+            self.assertTrue(result["backend_marker_present"])
+            self.assertTrue(result["tools_marker_present"])
+            self.assertTrue(result["policy_not_enforced_marker_present"])
+            self.assertTrue(result["default_drop_deferred_marker_present"])
+            self.assertIn("packet-filter-backend=legacy-iptables", text)
+            self.assertIn("packet-filter-policy=not-enforced", text)
+            self.assertIn("packet-filter-default-drop=deferred-WSTA93", text)
+
     def test_create_private_tarball_forces_owner_private_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
@@ -435,6 +503,7 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             (source / "usr/bin/ping").write_text("", encoding="utf-8")
             (source / "usr/bin/getent").write_text("", encoding="utf-8")
             (source / "usr/bin/nc").write_text("", encoding="utf-8")
+            stage_packet_filter_test_tools(source)
             env = tmp_path / "wifi.env"
             write_private(env, "A90_WIFI_SSID='Test Net'\nA90_WIFI_PSK='12345678'\n")
 
@@ -471,11 +540,20 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertTrue(result["native_uplink_profile"]["public_default_off_marker"])
             self.assertTrue(result["native_uplink_stage_marker"]["profile_marker_present"])
             self.assertTrue(result["native_uplink_stage_marker"]["public_default_off_marker"])
+            self.assertTrue(result["packet_filter_tools"]["ok"])
+            self.assertEqual(result["packet_filter_tools"]["backend"], "legacy-iptables")
+            self.assertFalse(result["packet_filter_tools"]["policy_enforced"])
+            self.assertTrue(result["packet_filter_stage_marker"]["backend_marker_present"])
+            self.assertTrue(result["packet_filter_stage_marker"]["default_drop_deferred_marker_present"])
             self.assertTrue((target / wsta3.TARGET_NATIVE_WIFI_SERVICE_CLIENT).is_file())
             self.assertTrue((target / wsta3.TARGET_NATIVE_WIFI_UPLINK_CLIENT).is_file())
             self.assertTrue((target / wsta3.TARGET_NATIVE_UPLINK_PROFILE).is_file())
             self.assertIn(
                 "native-uplink-profile=/usr/local/bin/a90-dpublic-native-uplink-profile",
+                (target / wsta3.TARGET_STAGE_MARKER).read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                "packet-filter-backend=legacy-iptables",
                 (target / wsta3.TARGET_STAGE_MARKER).read_text(encoding="utf-8"),
             )
             self.assertFalse(result["api_probe_tools"]["requested"])
@@ -508,6 +586,7 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             (source / "usr/bin/ping").write_text("", encoding="utf-8")
             (source / "usr/bin/getent").write_text("", encoding="utf-8")
             (source / "usr/bin/nc").write_text("", encoding="utf-8")
+            stage_packet_filter_test_tools(source)
 
             with mock.patch.object(wsta3.d4c, "verify_rootfs", return_value={"ok": True}):
                 result = wsta3.prepare(
@@ -525,6 +604,7 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertTrue((target / wsta3.TARGET_ENABLE).is_file())
             self.assertTrue((target / wsta3.TARGET_IMMEDIATE_SNAPSHOT_ONLY).is_file())
             self.assertFalse((target / wsta3.TARGET_CONFIG).exists())
+            self.assertTrue(result["packet_filter_tools"]["ok"])
 
     def test_source_does_not_default_to_live_network_actions(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")
@@ -533,6 +613,14 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             "dhclient ",
             "wpa_supplicant -B",
             "cloudflared tunnel",
+            "iptables -A",
+            "iptables -F",
+            "ip6tables -A",
+            "ip6tables -F",
+            "iptables-legacy -A",
+            "iptables-legacy -F",
+            "ip6tables-legacy -A",
+            "ip6tables-legacy -F",
             " ping ",
             "native_init_flash.py",
         ):

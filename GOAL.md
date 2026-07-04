@@ -2657,6 +2657,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA91_NETFILTER_INVENTORY_2026-07-04.md`.
 > **NEXT:** do not enforce packet-filter policy yet.  WSTA92 should stage or select a legacy iptables userspace
 > backend for the D-public environment, then a later live unit can prototype bounded loopback-only default-drop.
+> **🟢 STATUS (2026-07-04 22:30 KST host clock) — WSTA92 packet-filter
+> backend SOURCE/HOST PASS.**  Codex staged the selected D-public packet-filter userspace backend in the Debian
+> rootfs path, not in native init: `backend=legacy-iptables`, requested package `iptables`,
+> `policy_enforced=false`.  `prepare_wsta3_sta_rootfs.py` now verifies the required legacy command set
+> (`iptables-legacy`, `ip6tables-legacy`, and both save/restore pairs), downloads/extracts the package into the
+> private rootfs copy when absent, fails closed when installation is disabled and tools are missing, and records
+> `packet-filter-backend=legacy-iptables`, `packet-filter-policy=not-enforced`, and
+> `packet-filter-default-drop=deferred-WSTA93` in the stage marker.  The base Debian rootfs builder now includes
+> `iptables` so future clean builds have the selected backend by default.  A real host-only private rootfs run
+> started without legacy iptables tools and ended with `packet_filter_tools.ok=true`,
+> `installed=true`, `deb_count=10`, `policy_enforced=false`, and
+> `default_drop_ready_for_source=true`; no tarball was produced.  Validation passed focused WSTA3/builder plus
+> WSTA89/WSTA90/WSTA91 regression tests (`47 tests`), `py_compile`, the host-only WSTA92 private rootfs run, and
+> `git diff --check`.  No boot image, flash, device command, native reboot, Wi-Fi association, DHCP, public tunnel,
+> public smoke, userdata action, switch-root, or packet-filter mutation ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA92_PACKET_FILTER_BACKEND_SOURCE_2026-07-04.md`.
+> **NEXT:** WSTA93 should prototype a bounded loopback-only default-drop policy using the legacy iptables backend,
+> with an explicit restore path before any persistent/always-on claim.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

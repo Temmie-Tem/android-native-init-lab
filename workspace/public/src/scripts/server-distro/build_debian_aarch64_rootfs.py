@@ -47,6 +47,7 @@ INCLUDE_PKGS = ",".join((
     "wpasupplicant",
     "isc-dhcp-client",
     "netcat-openbsd",
+    "iptables",
     "nano",
     "less",
     "procps",
@@ -125,6 +126,8 @@ def stage_customize(rootfs: Path, hostname: str) -> None:
         "native-wifi-uplink-client=/usr/local/bin/a90-native-wifi-uplink-client\n"
         "native-uplink-profile=/usr/local/bin/a90-dpublic-native-uplink-profile\n"
         "native-uplink=operator-controlled via /etc/a90-dpublic/native-uplink-enable\n"
+        "packet-filter-backend=legacy-iptables\n"
+        "packet-filter-policy=not-enforced; WSTA92 stages tools only\n"
         "public-exposure-default=off; quick-tunnel requires /etc/a90-dpublic/cloudflared-quick-enable\n"
         "WARNING: configure credentials/keys before any network/public exposure (design E.6)\n"
     )

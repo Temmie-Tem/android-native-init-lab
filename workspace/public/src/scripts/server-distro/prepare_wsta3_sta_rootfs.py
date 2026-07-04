@@ -69,6 +69,7 @@ DPUBLIC_FIRSTBOOT = SCRIPT_DIR / "a90_dpublic_firstboot.sh"
 PRIVATE_FILE_MODE = 0o600
 STA_TOOL_PACKAGES = ("wpasupplicant", "isc-dhcp-client", "netcat-openbsd", "iw")
 API_PROBE_TOOL_PACKAGES = ("wget",)
+PACKET_FILTER_TOOL_PACKAGES = ("iptables",)
 USR_MERGE_LINKS = (("bin", "usr/bin"), ("sbin", "usr/sbin"), ("lib", "usr/lib"))
 STA_TOOL_CANDIDATES = {
     "ip": (Path("usr/sbin/ip"), Path("sbin/ip"), Path("bin/ip")),
@@ -83,6 +84,26 @@ STA_TOOL_CANDIDATES = {
 API_PROBE_TOOL_CANDIDATES = {
     "wget": (Path("usr/bin/wget"), Path("bin/wget")),
 }
+PACKET_FILTER_TOOL_CANDIDATES = {
+    "iptables_legacy": (Path("usr/sbin/iptables-legacy"), Path("sbin/iptables-legacy")),
+    "ip6tables_legacy": (Path("usr/sbin/ip6tables-legacy"), Path("sbin/ip6tables-legacy")),
+    "iptables_legacy_restore": (
+        Path("usr/sbin/iptables-legacy-restore"),
+        Path("sbin/iptables-legacy-restore"),
+    ),
+    "ip6tables_legacy_restore": (
+        Path("usr/sbin/ip6tables-legacy-restore"),
+        Path("sbin/ip6tables-legacy-restore"),
+    ),
+    "iptables_legacy_save": (
+        Path("usr/sbin/iptables-legacy-save"),
+        Path("sbin/iptables-legacy-save"),
+    ),
+    "ip6tables_legacy_save": (
+        Path("usr/sbin/ip6tables-legacy-save"),
+        Path("sbin/ip6tables-legacy-save"),
+    ),
+}
 KEY_SSID = "ssid"
 KEY_PSK = "psk"
 KEY_MGMT = "key_mgmt"
@@ -90,6 +111,12 @@ NATIVE_UPLINK_STAGE_MARKERS = (
     "native-uplink-profile=/usr/local/bin/a90-dpublic-native-uplink-profile",
     "native-uplink=operator-controlled via /etc/a90-dpublic/native-uplink-enable",
     "public-exposure-default=off; quick-tunnel requires /etc/a90-dpublic/cloudflared-quick-enable",
+)
+PACKET_FILTER_STAGE_MARKERS = (
+    "packet-filter-backend=legacy-iptables",
+    "packet-filter-tools=/usr/sbin/iptables-legacy /usr/sbin/ip6tables-legacy",
+    "packet-filter-policy=not-enforced; WSTA92 stages tools only",
+    "packet-filter-default-drop=deferred-WSTA93",
 )
 
 
@@ -276,6 +303,14 @@ def api_probe_tool_metadata(rootfs: Path) -> dict[str, Any]:
     return tool_metadata(rootfs, API_PROBE_TOOL_CANDIDATES)
 
 
+def packet_filter_tool_metadata(rootfs: Path) -> dict[str, Any]:
+    meta = tool_metadata(rootfs, PACKET_FILTER_TOOL_CANDIDATES)
+    meta["backend"] = "legacy-iptables"
+    meta["policy_enforced"] = False
+    meta["default_drop_ready_for_source"] = bool(meta["ok"])
+    return meta
+
+
 def merge_tree_contents(src: Path, dst: Path) -> None:
     dst.mkdir(parents=True, exist_ok=True)
     for item in sorted(src.iterdir(), key=lambda p: p.name):
@@ -358,6 +393,10 @@ def download_sta_tool_packages(rootfs: Path, args: argparse.Namespace) -> list[P
     return download_packages(rootfs, args, STA_TOOL_PACKAGES)
 
 
+def download_packet_filter_tool_packages(rootfs: Path, args: argparse.Namespace) -> list[Path]:
+    return download_packages(rootfs, args, PACKET_FILTER_TOOL_PACKAGES)
+
+
 def ensure_sta_tools(rootfs: Path, args: argparse.Namespace) -> dict[str, Any]:
     before = sta_tool_metadata(rootfs)
     if before["ok"]:
@@ -426,6 +465,49 @@ def ensure_api_probe_tools(rootfs: Path, args: argparse.Namespace) -> dict[str, 
         "requested": True,
         "ok": bool(after["ok"]),
         "installed": True,
+        "deb_count": len(packages),
+        "packages": [path.name for path in packages],
+        "before": before,
+        "after": after,
+        "usrmerge": usrmerge,
+        "secret_values_logged": 0,
+    }
+
+
+def ensure_packet_filter_tools(rootfs: Path, args: argparse.Namespace) -> dict[str, Any]:
+    before = packet_filter_tool_metadata(rootfs)
+    if before["ok"]:
+        usrmerge = restore_usrmerge_links(rootfs)
+        return {
+            "ok": True,
+            "backend": "legacy-iptables",
+            "installed": False,
+            "policy_enforced": False,
+            "before": before,
+            "after": packet_filter_tool_metadata(rootfs),
+            "usrmerge": usrmerge,
+            "secret_values_logged": 0,
+        }
+    if args.no_packet_filter_tool_install:
+        return {
+            "ok": False,
+            "backend": "legacy-iptables",
+            "installed": False,
+            "policy_enforced": False,
+            "reason": "packet-filter-tools-missing-install-disabled",
+            "before": before,
+            "secret_values_logged": 0,
+        }
+    packages = download_packet_filter_tool_packages(rootfs, args)
+    for package in packages:
+        run_host(["dpkg-deb", "-x", package, rootfs], timeout=args.apt_timeout)
+    usrmerge = restore_usrmerge_links(rootfs)
+    after = packet_filter_tool_metadata(rootfs)
+    return {
+        "ok": bool(after["ok"]),
+        "backend": "legacy-iptables",
+        "installed": True,
+        "policy_enforced": False,
         "deb_count": len(packages),
         "packages": [path.name for path in packages],
         "before": before,
@@ -633,6 +715,29 @@ def stage_native_uplink_stage_marker(rootfs: Path) -> dict[str, Any]:
     }
 
 
+def stage_packet_filter_stage_marker(rootfs: Path) -> dict[str, Any]:
+    marker = rootfs / TARGET_STAGE_MARKER
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    existing = marker.read_text(encoding="utf-8") if marker.exists() else ""
+    marker_keys = {item.split("=", 1)[0] for item in PACKET_FILTER_STAGE_MARKERS}
+    lines = [
+        line
+        for line in existing.splitlines()
+        if not any(line.startswith(key + "=") for key in marker_keys)
+    ]
+    for item in PACKET_FILTER_STAGE_MARKERS:
+        lines.append(item)
+    marker.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
+    return {
+        "marker_target": str(TARGET_STAGE_MARKER),
+        "backend_marker_present": PACKET_FILTER_STAGE_MARKERS[0] in lines,
+        "tools_marker_present": PACKET_FILTER_STAGE_MARKERS[1] in lines,
+        "policy_not_enforced_marker_present": PACKET_FILTER_STAGE_MARKERS[2] in lines,
+        "default_drop_deferred_marker_present": PACKET_FILTER_STAGE_MARKERS[3] in lines,
+        "secret_values_logged": 0,
+    }
+
+
 def stage_dpublic_firstboot(rootfs: Path) -> dict[str, Any]:
     firstboot_target = rootfs / TARGET_FIRSTBOOT
     if not DPUBLIC_FIRSTBOOT.is_file():
@@ -781,12 +886,21 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
         result.update({"ok": False, "decision": "wsta3-private-rootfs-blocked-api-probe-tools-missing"})
         write_json(run_dir / "summary.json", result)
         return result
+    result["packet_filter_tools"] = ensure_packet_filter_tools(target_rootfs, args)
+    if not result["packet_filter_tools"].get("ok"):
+        result.update({
+            "ok": False,
+            "decision": "wsta3-private-rootfs-blocked-packet-filter-tools-missing",
+        })
+        write_json(run_dir / "summary.json", result)
+        return result
     result["wifi_sta_helper"] = stage_dpublic_wifi_sta_helper(target_rootfs)
     result["api_probe_helper"] = stage_dpublic_api_probe_helper(target_rootfs)
     result["native_wifi_service_client"] = stage_native_wifi_service_client(target_rootfs)
     result["native_wifi_uplink_client"] = stage_native_wifi_uplink_client(target_rootfs)
     result["native_uplink_profile"] = stage_native_uplink_profile(target_rootfs)
     result["native_uplink_stage_marker"] = stage_native_uplink_stage_marker(target_rootfs)
+    result["packet_filter_stage_marker"] = stage_packet_filter_stage_marker(target_rootfs)
     if args.immediate_snapshot_only:
         result["stage"] = stage_immediate_snapshot_only(target_rootfs)
     else:
@@ -835,6 +949,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--mirror", default=DEFAULT_MIRROR)
     parser.add_argument("--apt-timeout", type=float, default=180.0)
     parser.add_argument("--no-sta-tool-install", action="store_true")
+    parser.add_argument("--no-packet-filter-tool-install", action="store_true")
     parser.add_argument("--stage-dpublic-binaries", action="store_true")
     parser.add_argument("--stage-api-probe-tools", action="store_true")
     parser.add_argument("--enable-quick-tunnel", action="store_true")
