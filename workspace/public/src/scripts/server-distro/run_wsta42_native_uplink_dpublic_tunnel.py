@@ -78,6 +78,16 @@ def write_json(path: Path, payload: Any) -> None:
     d1.write_json(path, payload)
 
 
+def utc_stamp() -> str:
+    return _dt.datetime.now(_dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def finish_result(out_path: Path, result: dict[str, Any]) -> dict[str, Any]:
+    result["ended_utc"] = utc_stamp()
+    write_json(out_path, result)
+    return result
+
+
 def sha256_file(path: Path) -> str:
     return d1.sha256_file(path)
 
@@ -808,7 +818,7 @@ def classify(result: dict[str, Any]) -> str:
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
-    ts = _dt.datetime.now(_dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    ts = utc_stamp()
     run_id = args.run_id or f"wsta42-native-uplink-dpublic-tunnel-{ts}"
     run_dir = args.run_dir or (DEFAULT_RUN_BASE / run_id)
     if not run_dir.is_absolute():
@@ -853,8 +863,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     write_json(out_path, result)
     if not gate_ok:
         result["decision"] = gate_decision
-        write_json(out_path, result)
-        return result
+        return finish_result(out_path, result)
     # WSTA25's helper executor is intentionally reused and expects this
     # historical argparse field name.  Keep WSTA42's public API explicit while
     # preserving the shared helper contract.
@@ -873,12 +882,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     write_json(out_path, result)
     if local_sha != d1.EXPECTED_IMAGE_SHA256:
         result["decision"] = "wsta42-blocked-local-image-sha"
-        write_json(out_path, result)
-        return result
+        return finish_result(out_path, result)
     if not result["helper_build"].get("ok"):
         result["decision"] = "wsta42-blocked-helper-build"
-        write_json(out_path, result)
-        return result
+        return finish_result(out_path, result)
 
     autoconnect_enabled_by_runner = False
     service_started = False
@@ -1122,6 +1129,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         result["final_wifi_status"] = wsta19.try_cmdv1_retry(args, ["wifi", "status"], timeout=args.timeout, attempts=1)
         result["final_version"] = wsta19.try_cmdv1_retry(args, ["version"], timeout=args.timeout)
         result["final_selftest"] = wsta19.try_cmdv1_retry(args, ["selftest"], timeout=args.timeout)
+        result["ended_utc"] = utc_stamp()
         write_json(out_path, result)
 
     cleanup = result.get("cleanup_parse", {})
@@ -1203,8 +1211,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "wsta42-blocked-tunnel-url",
     }:
         result["decision"] = classify(result)
-    write_json(out_path, result)
-    return result
+    return finish_result(out_path, result)
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -1260,7 +1267,7 @@ def main() -> int:
     try:
         result = run(args)
     except Exception as exc:  # noqa: BLE001
-        ts = _dt.datetime.now(_dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        ts = utc_stamp()
         run_dir = args.run_dir or (DEFAULT_RUN_BASE / f"wsta42-native-uplink-dpublic-tunnel-{ts}")
         if not run_dir.is_absolute():
             run_dir = REPO_ROOT / run_dir
@@ -1281,7 +1288,7 @@ def main() -> int:
             }
         result["decision"] = "wsta42-runner-error"
         result["error"] = str(exc)
-        write_json(run_dir / "wsta42_result.json", result)
+        finish_result(out_path, result)
         print(json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False))
         return 1
     print(json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False))

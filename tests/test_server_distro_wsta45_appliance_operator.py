@@ -44,6 +44,28 @@ class ServerDistroWsta45ApplianceOperatorTests(unittest.TestCase):
         self.assertTrue(contract["does_not_start_cloudflared"])
         self.assertEqual(contract["secret_values_logged"], 0)
 
+    def test_operator_publish_template_is_redacted_and_profile_enabled(self) -> None:
+        template = runner.operator_publish_template()
+        command = template["command"]
+        text = repr(template)
+
+        self.assertEqual(command[:2], ["python3", "workspace/public/src/scripts/server-distro/run_wsta45_appliance_operator.py"])
+        self.assertIn("--mode", command)
+        self.assertIn("publish", command)
+        self.assertIn("--use-native-uplink-profile", command)
+        self.assertIn("--allow-operator-live", command)
+        self.assertIn("--allow-native-reboot", command)
+        self.assertIn("--allow-public-live", command)
+        self.assertIn("--ack-credentialed-wifi", command)
+        self.assertIn("--ack-public-exposure", command)
+        self.assertIn("<native-confirm-token>", command)
+        self.assertIn("<public-confirm-token>", command)
+        self.assertEqual(template["secret_values_logged"], 0)
+        self.assertFalse(template["public_url_value_logged"])
+        self.assertNotIn(runner.wsta25.NATIVE_CONFIRM_TOKEN, text)
+        self.assertNotIn(runner.PUBLIC_CONFIRM_TOKEN, text)
+        self.assertNotIn("trycloudflare.com", text)
+
     def test_explicit_publish_gate_is_fail_closed(self) -> None:
         args = SimpleNamespace(
             mode="preflight",
@@ -115,6 +137,8 @@ class ServerDistroWsta45ApplianceOperatorTests(unittest.TestCase):
         self.assertFalse(result["safety"]["wifi_connect"])
         self.assertFalse(result["safety"]["public_tunnel"])
         self.assertTrue(result["checks"]["profile_contract_ok"])
+        self.assertIn("operator_publish_template", result)
+        self.assertIn("<native-confirm-token>", result["operator_publish_template"]["command"])
 
     def test_publish_calls_wsta43_with_profile_enabled_and_redacts_summary(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -155,6 +179,17 @@ class ServerDistroWsta45ApplianceOperatorTests(unittest.TestCase):
         self.assertNotIn(runner.PUBLIC_CONFIRM_TOKEN, summary_text)
         self.assertNotIn("trycloudflare.com", summary_text)
 
+    def test_print_publish_template_exits_without_running_live(self) -> None:
+        with mock.patch.object(runner.wsta43, "run", side_effect=AssertionError("unexpected live call")):
+            with mock.patch("builtins.print") as printed:
+                rc = runner.main_with_args(["--print-publish-template"])
+
+        self.assertEqual(rc, 0)
+        payload = printed.call_args.args[0]
+        self.assertIn("<native-confirm-token>", payload)
+        self.assertIn("<public-confirm-token>", payload)
+        self.assertNotIn(runner.wsta25.NATIVE_CONFIRM_TOKEN, payload)
+
     def test_passthrough_cannot_supply_or_override_gate_flags(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             args = runner.build_arg_parser().parse_args([
@@ -188,6 +223,8 @@ class ServerDistroWsta45ApplianceOperatorTests(unittest.TestCase):
         self.assertIn("--allow-public-live", source)
         self.assertIn("--ack-credentialed-wifi", source)
         self.assertIn("--ack-public-exposure", source)
+        self.assertIn("--print-publish-template", source)
+        self.assertIn("operator_publish_template", source)
         self.assertIn("nested.use_native_uplink_profile = True", source)
         self.assertIn('"boot_flash": False', source)
         self.assertIn('"userdata_touch": False', source)

@@ -204,6 +204,19 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
             self.assertIn("/etc/a90-dpublic/native-uplink-enable", script)
             self.assertTrue(record["profile_used"])
 
+    def test_finish_result_persists_ended_timestamp(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "wsta42_result.json"
+            result = {"decision": "example"}
+
+            returned = runner.finish_result(out, result)
+
+            self.assertIs(returned, result)
+            self.assertRegex(result["ended_utc"], r"^20[0-9]{6}T[0-9]{6}Z$")
+            text = out.read_text(encoding="utf-8")
+            self.assertIn('"ended_utc"', text)
+            self.assertIn('"decision": "example"', text)
+
     def test_runner_surface_is_fail_closed_and_url_redacted(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")
 
@@ -220,6 +233,8 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
         self.assertIn("public_url_value_logged", source)
         self.assertIn("public-url.txt", source)
         self.assertIn("stdout_redacted", source)
+        self.assertIn("finish_result(out_path, result)", source)
+        self.assertIn('"ended_utc"', source)
         self.assertIn('"boot_flash": False', source)
         self.assertIn('"switch_root": False', source)
         self.assertIn('"userdata_touch": False', source)

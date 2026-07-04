@@ -41,6 +41,12 @@ FORBIDDEN_WSTA43_PASSTHROUGH = {
     "--public-confirm-token",
     "--use-native-uplink-profile",
 }
+NATIVE_CONFIRM_TOKEN_PLACEHOLDER = "<native-confirm-token>"
+PUBLIC_CONFIRM_TOKEN_PLACEHOLDER = "<public-confirm-token>"
+
+
+def script_relpath() -> str:
+    return rel(Path(__file__).resolve())
 
 
 def rel(path: Path) -> str:
@@ -49,6 +55,37 @@ def rel(path: Path) -> str:
 
 def write_json(path: Path, payload: Any) -> None:
     wsta43.write_json(path, payload)
+
+
+def operator_publish_template() -> dict[str, Any]:
+    command = [
+        "python3",
+        script_relpath(),
+        "--mode",
+        "publish",
+        "--use-native-uplink-profile",
+        "--allow-operator-live",
+        "--allow-native-reboot",
+        "--allow-public-live",
+        "--ack-credentialed-wifi",
+        "--ack-public-exposure",
+        "--native-confirm-token",
+        NATIVE_CONFIRM_TOKEN_PLACEHOLDER,
+        "--public-confirm-token",
+        PUBLIC_CONFIRM_TOKEN_PLACEHOLDER,
+    ]
+    return {
+        "name": "publish-via-wsta43-profile",
+        "command": command,
+        "native_confirm_token_placeholder": NATIVE_CONFIRM_TOKEN_PLACEHOLDER,
+        "public_confirm_token_placeholder": PUBLIC_CONFIRM_TOKEN_PLACEHOLDER,
+        "secret_values_logged": 0,
+        "public_url_value_logged": False,
+        "notes": [
+            "Fill token placeholders from the operator-approved private source at execution time.",
+            "Optional WSTA43 passthrough args may follow a literal --, but gate flags are blocked there.",
+        ],
+    }
 
 
 def operator_menu() -> list[dict[str, Any]]:
@@ -76,6 +113,7 @@ def operator_menu() -> list[dict[str, Any]]:
                 "--native-confirm-token",
                 "--public-confirm-token",
             ],
+            "template": operator_publish_template(),
         },
     ]
 
@@ -155,6 +193,7 @@ def public_summary(result: dict[str, Any]) -> dict[str, Any]:
         "run_dir": result.get("run_dir"),
         "mode": result.get("mode"),
         "gate_decision": result.get("gate_decision"),
+        "operator_publish_template": result.get("operator_publish_template", operator_publish_template()),
         "profile_contract": result.get("profile_contract", {}),
         "operator_menu": result.get("operator_menu", []),
         "checks": result.get("checks", {}),
@@ -180,6 +219,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "run_dir": rel(run_dir),
         "mode": args.mode,
         "operator_menu": operator_menu(),
+        "operator_publish_template": operator_publish_template(),
         "profile_contract": profile,
         "gate_decision": gate_decision,
         "safety": {
@@ -262,13 +302,17 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--ack-public-exposure", action="store_true")
     parser.add_argument("--native-confirm-token", default="")
     parser.add_argument("--public-confirm-token", default="")
+    parser.add_argument("--print-publish-template", action="store_true")
     parser.add_argument("--print-full-json", action="store_true")
     parser.add_argument("wsta43_args", nargs=argparse.REMAINDER)
     return parser
 
 
-def main() -> int:
-    args = build_arg_parser().parse_args()
+def main_with_args(argv: list[str] | None = None) -> int:
+    args = build_arg_parser().parse_args(argv)
+    if args.print_publish_template:
+        print(json.dumps(operator_publish_template(), indent=2, sort_keys=True, ensure_ascii=False))
+        return 0
     try:
         result = run(args)
     except Exception as exc:  # noqa: BLE001
@@ -278,6 +322,10 @@ def main() -> int:
     payload = result if args.print_full_json else public_summary(result)
     print(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False))
     return 0 if result.get("decision") in {PREFLIGHT_DECISION, PASS_DECISION} else 2
+
+
+def main() -> int:
+    return main_with_args()
 
 
 if __name__ == "__main__":

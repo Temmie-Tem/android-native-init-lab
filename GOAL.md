@@ -1849,6 +1849,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA47 should productize this now-proven profile publish path: tighten run metadata/ended
 > timestamps or add a reusable documented operator alias.  Persistent always-on public exposure remains a
 > separate gate.
+> **🟢 STATUS (2026-07-04 16:39 KST host clock) — WSTA47 operator productization
+> SOURCE PASS.**  Codex tightened the proven WSTA45/WSTA42 publish path without another live/public
+> run.  WSTA42 now uses `utc_stamp()`/`finish_result()` so terminal gate failures, local image/helper
+> failures, final classification, cleanup-finalized results, and top-level runner errors persist
+> `ended_utc` consistently.  WSTA45 now exposes a redacted `operator_publish_template` in the menu,
+> public summary, and result JSON, and adds `--print-publish-template` for an operator-safe command
+> skeleton with `<native-confirm-token>` and `<public-confirm-token>` placeholders.  Host validation
+> passed: 17 focused WSTA42/WSTA45 tests, `py_compile`, `--print-publish-template`, and
+> `git diff --check`.  No device action, no flash, no native reboot, no Wi-Fi association, and no public
+> tunnel ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA47_OPERATOR_PRODUCTIZATION_SOURCE_2026-07-04.md`.
+> **NEXT:** WSTA48 should only continue this source/productization track if it adds a concrete operator
+> surface, such as a concise committed runbook for the WSTA45 template or a redacted result aggregation
+> helper.  Persistent always-on public exposure remains a separate explicit gate.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
