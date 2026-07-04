@@ -75,6 +75,60 @@ def nested_wsta27_summary(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def post_reboot_native_args(args: argparse.Namespace) -> Namespace:
+    return Namespace(
+        bridge_host=args.host,
+        bridge_port=args.port,
+        timeout=args.timeout,
+    )
+
+
+def cmdv1_summary(record: dict[str, Any]) -> dict[str, Any]:
+    text = str(record.get("text", ""))
+    kv = wsta2.parse_kv(text)
+    return {
+        "transport_ok": bool(record.get("transport_ok", True)),
+        "rc": record.get("rc"),
+        "status": record.get("status"),
+        "decision": kv.get("decision"),
+        "secret_values_logged": kv.get("secret_values_logged"),
+        "autoconnect_decision": kv.get("autoconnect.decision"),
+        "supplicant_process_count": kv.get("supplicant.process_count"),
+        "wlan0_present": kv.get("wlan0_present"),
+    }
+
+
+def post_reboot_public_off_cleanup(args: argparse.Namespace) -> dict[str, Any]:
+    native = post_reboot_native_args(args)
+    steps: dict[str, dict[str, Any]] = {}
+    for name, command in (
+        ("hide", ["hide"]),
+        ("autoconnect_disable", ["wifi", "autoconnect", "disable"]),
+        ("wifi_cleanup", ["wifi", "cleanup"]),
+        ("wifi_status", ["wifi", "status"]),
+    ):
+        record = wsta27.wsta15.try_cmdv1_retry(
+            native,
+            command,
+            timeout=args.timeout,
+            attempts=2,
+        )
+        steps[name] = cmdv1_summary(record)
+    ok = (
+        steps["hide"].get("status") == "ok"
+        and steps["autoconnect_disable"].get("decision") == "wifi-autoconnect-disabled"
+        and steps["wifi_cleanup"].get("decision") == "wifi-cleanup-done"
+        and steps["wifi_status"].get("autoconnect_decision") == "wifi-autoconnect-disabled"
+        and steps["wifi_status"].get("secret_values_logged") == "0"
+    )
+    return {
+        "ok": ok,
+        "steps": steps,
+        "public_url_value_logged": False,
+        "secret_values_logged": 0,
+    }
+
+
 def run_nested_wsta27(args: argparse.Namespace,
                       run_dir: Path,
                       result: dict[str, Any],
@@ -104,6 +158,8 @@ def classify(result: dict[str, Any]) -> str:
         return result.get("gate_decision", "wsta28-blocked-explicit-live-gate")
     if not checks.get("post_reboot_health"):
         return "wsta28-blocked-post-reboot-health"
+    if not checks.get("post_reboot_public_off_cleanup", True):
+        return "wsta28-blocked-post-reboot-public-off-cleanup"
     nested = result.get("wsta27_after_reboot", {})
     if nested.get("decision") == "wsta27-materialization-scan-gate-pass":
         return "wsta28-reboot-materialization-scan-gate-pass"
@@ -123,6 +179,7 @@ def public_summary(result: dict[str, Any]) -> dict[str, Any]:
             "transport_error_present": bool(result.get("reboot_send", {}).get("transport_error")),
         },
         "post_reboot_health_summary": result.get("post_reboot_health_summary", {}),
+        "post_reboot_public_off_cleanup": result.get("post_reboot_public_off_cleanup", {}),
         "wsta27_after_reboot": nested_wsta27_summary(result.get("wsta27_after_reboot", {})),
         "safety": result.get("safety", {}),
     }
@@ -187,6 +244,22 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and result["post_reboot_health_summary"].get("selftest", {}).get("selftest_fail_zero") is True
     )
     write_json(out_path, result)
+    if not result["checks"]["post_reboot_health"]:
+        result["decision"] = classify(result)
+        result["ended_utc"] = _dt.datetime.now(_dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        write_json(out_path, result)
+        return result
+
+    result["post_reboot_public_off_cleanup"] = post_reboot_public_off_cleanup(args)
+    result["checks"]["post_reboot_public_off_cleanup"] = bool(
+        result["post_reboot_public_off_cleanup"].get("ok")
+    )
+    write_json(out_path, result)
+    if not result["checks"]["post_reboot_public_off_cleanup"]:
+        result["decision"] = classify(result)
+        result["ended_utc"] = _dt.datetime.now(_dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        write_json(out_path, result)
+        return result
 
     nested = run_nested_wsta27(args, run_dir, result, out_path)
     result["wsta27_after_reboot"] = nested

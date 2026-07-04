@@ -14,6 +14,7 @@ import datetime as _dt
 import json
 import sys
 from pathlib import Path
+from argparse import Namespace
 from typing import Any
 
 
@@ -229,7 +230,68 @@ def wsta45_args(args: argparse.Namespace, run_dir: Path) -> argparse.Namespace:
         args.native_confirm_token,
         "--public-confirm-token",
         args.public_confirm_token,
+        "--",
+        "--bridge-host",
+        args.bridge_host,
+        "--bridge-port",
+        str(args.bridge_port),
+        "--timeout",
+        str(args.timeout),
     ])
+
+
+def transport_args(args: argparse.Namespace) -> Namespace:
+    return Namespace(
+        bridge_host=args.bridge_host,
+        bridge_port=args.bridge_port,
+        timeout=args.timeout,
+    )
+
+
+def cmdv1_summary(record: dict[str, Any]) -> dict[str, Any]:
+    text = str(record.get("text", ""))
+    kv = wsta45.wsta43.wsta42.wsta24.parse_kv(text)
+    return {
+        "transport_ok": bool(record.get("transport_ok", True)),
+        "rc": record.get("rc"),
+        "status": record.get("status"),
+        "decision": kv.get("decision"),
+        "secret_values_logged": kv.get("secret_values_logged"),
+        "autoconnect_decision": kv.get("autoconnect.decision"),
+        "supplicant_process_count": kv.get("supplicant.process_count"),
+        "wlan0_present": kv.get("wlan0_present"),
+    }
+
+
+def pre_live_cleanup(args: argparse.Namespace) -> dict[str, Any]:
+    native = transport_args(args)
+    steps: dict[str, dict[str, Any]] = {}
+    for name, command in (
+        ("hide", ["hide"]),
+        ("autoconnect_disable", ["wifi", "autoconnect", "disable"]),
+        ("wifi_cleanup", ["wifi", "cleanup"]),
+        ("wifi_status", ["wifi", "status"]),
+    ):
+        record = wsta45.wsta43.wsta42.wsta19.try_cmdv1_retry(
+            native,
+            command,
+            timeout=args.timeout,
+            attempts=2,
+        )
+        steps[name] = cmdv1_summary(record)
+    ok = (
+        steps["hide"].get("status") == "ok"
+        and steps["autoconnect_disable"].get("decision") == "wifi-autoconnect-disabled"
+        and steps["wifi_cleanup"].get("decision") == "wifi-cleanup-done"
+        and steps["wifi_status"].get("autoconnect_decision") == "wifi-autoconnect-disabled"
+        and steps["wifi_status"].get("secret_values_logged") == "0"
+    )
+    return {
+        "ok": ok,
+        "steps": steps,
+        "public_url_value_logged": False,
+        "secret_values_logged": 0,
+    }
 
 
 def nested_wsta42(wsta45_result: dict[str, Any]) -> dict[str, Any]:
@@ -376,6 +438,23 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         write_json(out_path, result)
         return result
 
+    cleanup = pre_live_cleanup(args)
+    result["pre_live_cleanup"] = cleanup
+    result["checks"] = {
+        "lease_artifact_ok": True,
+        "live_execution_requested": True,
+        "explicit_live_gate": True,
+        "pre_live_cleanup_ok": bool(cleanup.get("ok")),
+        "public_url_value_logged": False,
+        "secret_values_logged": 0,
+    }
+    write_json(out_path, result)
+    if not cleanup.get("ok"):
+        result["decision"] = "wsta55-blocked-pre-live-cleanup"
+        result["ended_utc"] = utc_stamp()
+        write_json(out_path, result)
+        return result
+
     nested = wsta45.run(wsta45_args(args, run_dir))
     result["wsta45"] = nested
     write_json(out_path, result)
@@ -414,6 +493,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--run-id")
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--lease-artifact-json", type=Path)
+    parser.add_argument("--bridge-host", default="127.0.0.1")
+    parser.add_argument("--bridge-port", type=int, default=54321)
+    parser.add_argument("--timeout", type=float, default=20.0)
     parser.add_argument("--execute-live-short-lease", action="store_true")
     parser.add_argument("--allow-operator-live", action="store_true")
     parser.add_argument("--allow-native-reboot", action="store_true")

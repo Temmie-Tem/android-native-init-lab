@@ -41,9 +41,15 @@ class ServerDistroWsta28RebootMaterializationGateTests(unittest.TestCase):
         passed = {**base, "wsta27_after_reboot": {"decision": "wsta27-materialization-scan-gate-pass"}}
         zero = {**base, "wsta27_after_reboot": {"decision": "wsta27-materialization-scan-engine-ok-zero-bss"}}
         blocked = {**base, "wsta27_after_reboot": {"decision": "wsta27-blocked-materialization-preflight"}}
+        cleanup_blocked = {"checks": {
+            "explicit_live_gate": True,
+            "post_reboot_health": True,
+            "post_reboot_public_off_cleanup": False,
+        }}
         self.assertEqual(runner.classify(passed), "wsta28-reboot-materialization-scan-gate-pass")
         self.assertEqual(runner.classify(zero), "wsta28-reboot-materialization-scan-engine-ok-zero-bss")
         self.assertEqual(runner.classify(blocked), "wsta28-reboot-materialization-still-blocked")
+        self.assertEqual(runner.classify(cleanup_blocked), "wsta28-blocked-post-reboot-public-off-cleanup")
 
     def test_public_summary_omits_health_transcripts(self) -> None:
         result = {
@@ -69,6 +75,9 @@ class ServerDistroWsta28RebootMaterializationGateTests(unittest.TestCase):
         self.assertIn("resident.restart_bridge_and_wait_health", source)
         self.assertIn("run_nested_wsta27", source)
         self.assertIn("contains_supported_native", source)
+        self.assertIn("post_reboot_public_off_cleanup", source)
+        self.assertIn('"wifi", "autoconnect", "disable"', source)
+        self.assertIn('"wifi", "cleanup"', source)
         self.assertIn("post_reboot_settle_sec", source)
         self.assertIn('"native_reboot": gate_ok', source)
         self.assertIn('"service_connect_request": False', source)

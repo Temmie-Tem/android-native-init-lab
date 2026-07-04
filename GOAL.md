@@ -2052,6 +2052,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA56_V3395_LINEAGE_GATE_SOURCE_2026-07-04.md`.
 > **NEXT:** retry WSTA55 live with a fresh `ttl_sec <= 300` WSTA54 artifact; expect WSTA28/WSTA27 to proceed past
 > the V3395 lineage gate and exercise the bounded materialization scan before any WSTA42 public tunnel work.
+> **🟢 STATUS (2026-07-04 18:02 KST host clock) — WSTA57 short-lived public proof
+> LIVE PASS.**  Codex added public-off cleanup gates around the WSTA55 live path: WSTA55 now hides the native menu,
+> disables Wi-Fi autoconnect, runs Wi-Fi cleanup, and checks status before delegating to WSTA45; WSTA28 repeats the
+> same cleanup after the required warm reboot and post-reboot health check before nested WSTA27.  The fresh WSTA55
+> live run used a private `ttl_sec <= 300` WSTA53/WSTA54 artifact, passed WSTA45 -> WSTA43 -> WSTA42, observed a
+> redacted quick-tunnel URL, passed host public smoke, and cleaned D-public, native-uplink-profile, and chroot state.
+> WSTA48 aggregate passed with `public_url_value_logged=false`, `secret_values_logged=0`, and `redaction_guard.ok=true`;
+> WSTA55 recorded `ttl_expiry_stops_public=true`, `public_smoke_ok=true`, `dpublic_cleanup_ok=true`, and final
+> `selftest` fail-zero.  Independent final health showed V3395, `selftest fail=0`, Wi-Fi autoconnect disabled,
+> supplicant process count `0`, no default route, and no IPv4 lease.  No boot image was built or flashed, and raw
+> public URL/token/network/credential values remain private-only.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA57_SHORT_LIVED_PUBLIC_LIVE_PASS_2026-07-04.md`.
+> **NEXT:** keep persistent exposure default-off; if continuing the WSTA52 persistent lease ladder, implement the
+> renewal/manual-stop proof with the WSTA55 cleanup gates and WSTA48 redaction aggregate as non-optional preconditions.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

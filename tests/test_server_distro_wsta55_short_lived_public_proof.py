@@ -177,14 +177,17 @@ class ServerDistroWsta55ShortLivedPublicProofTests(unittest.TestCase):
             root = Path(tmp)
             args = self.live_args(root)
             nested = self.nested_wsta45_pass()
-            with mock.patch.object(runner.wsta45, "run", return_value=nested) as live_call, \
+            with mock.patch.object(runner, "pre_live_cleanup", return_value={"ok": True}) as cleanup_call, \
+                    mock.patch.object(runner.wsta45, "run", return_value=nested) as live_call, \
                     mock.patch.object(runner.wsta48, "build_aggregate", return_value=self.aggregate_pass()):
                 result = runner.run(args)
 
+            self.assertTrue(cleanup_call.called)
             called_args = live_call.call_args.args[0]
             self.assertEqual(called_args.mode, "publish")
             self.assertTrue(called_args.use_native_uplink_profile)
             self.assertTrue(called_args.allow_operator_live)
+            self.assertIn("--bridge-host", called_args.wsta43_args)
             self.assertTrue((root / "wsta55" / "wsta48_result.json").is_file())
 
         self.assertEqual(result["decision"], runner.PASS_DECISION)
@@ -202,12 +205,24 @@ class ServerDistroWsta55ShortLivedPublicProofTests(unittest.TestCase):
             args = self.live_args(Path(tmp))
             nested = self.nested_wsta45_pass()
             nested["wsta43"]["wsta42"]["checks"]["dpublic_cleanup_ok"] = False
-            with mock.patch.object(runner.wsta45, "run", return_value=nested), \
+            with mock.patch.object(runner, "pre_live_cleanup", return_value={"ok": True}), \
+                    mock.patch.object(runner.wsta45, "run", return_value=nested), \
                     mock.patch.object(runner.wsta48, "build_aggregate", return_value=self.aggregate_pass()):
                 result = runner.run(args)
 
         self.assertEqual(result["decision"], "wsta55-blocked-dpublic-cleanup")
         self.assertFalse(result["checks"]["ttl_expiry_stops_public"])
+
+    def test_live_blocks_before_wsta45_when_pre_live_cleanup_fails(self) -> None:
+        with self.private_tmp() as tmp:
+            args = self.live_args(Path(tmp))
+            with mock.patch.object(runner, "pre_live_cleanup", return_value={"ok": False}) as cleanup_call, \
+                    mock.patch.object(runner.wsta45, "run", side_effect=AssertionError("unexpected live call")):
+                result = runner.run(args)
+
+        self.assertTrue(cleanup_call.called)
+        self.assertEqual(result["decision"], "wsta55-blocked-pre-live-cleanup")
+        self.assertFalse(result["checks"]["pre_live_cleanup_ok"])
 
     def test_rejects_expired_artifact(self) -> None:
         with self.private_tmp() as tmp:
@@ -245,6 +260,9 @@ class ServerDistroWsta55ShortLivedPublicProofTests(unittest.TestCase):
 
         self.assertIn("--execute-live-short-lease", source)
         self.assertIn("--force-ttl-expiry-proof", source)
+        self.assertIn("pre_live_cleanup", source)
+        self.assertIn('"wifi", "autoconnect", "disable"', source)
+        self.assertIn('"wifi", "cleanup"', source)
         self.assertIn("wsta48.build_aggregate", source)
         self.assertIn("wsta45.run", source)
         self.assertIn('"boot_flash": False', source)
