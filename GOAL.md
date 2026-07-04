@@ -2437,6 +2437,30 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** default-off persistent exposure now has prepare-to-arm, arming packet, per-packet status, multi-packet
 > inventory, launch brief, multi-brief operator summary, and final operator packet.  Continue only with explicit
 > operator-selected WSTA58 live proof, or further default-off operator UX/reporting without starting public exposure.
+> **🟢 STATUS (2026-07-04 20:32 KST host clock) — WSTA79 persistent operator packet status
+> SOURCE/PREFLIGHT PASS.**  Codex added
+> `workspace/public/src/scripts/server-distro/run_wsta79_persistent_operator_packet_status.py`, a host-only status
+> layer that consumes a private WSTA78 operator packet, reruns WSTA78 from the original WSTA77 summary, and classifies
+> the packet as `READY_TO_RUN_DEFAULT_OFF`, `STALE_OR_NOT_READY`, or `DRIFT_RECHECK_REQUIRED`.  WSTA79 compares the
+> logical selected WSTA76 brief, selected WSTA73 packet, and WSTA58 command template rather than volatile recheck
+> artifact paths, so an operator packet that aged out or drifted is rejected before any live command is considered.
+> Private smoke
+> `workspace/private/runs/server-distro/wsta79-operator-packet-status-smoke-20260704T113155Z` returned
+> `wsta79-persistent-operator-packet-status-pass`, `state=READY_TO_RUN_DEFAULT_OFF`, `ready_for_live=true`,
+> `wsta78_recheck_decision=wsta78-persistent-operator-packet-pass`,
+> `selected_wsta73_arming_packet=workspace/private/runs/server-distro/wsta79-operator-packet-status-smoke-20260704T113155Z/packet/wsta73_arming_packet.json`,
+> `selected_wsta76_launch_brief=workspace/private/runs/server-distro/wsta79-operator-packet-status-smoke-20260704T113155Z/brief/wsta76_launch_brief.json`,
+> `initial_seconds_remaining=294`, `packet_match=true`, `template_match=true`, `ack_count=7`, `guardrail_count=5`,
+> `live_execution_requested=false`, `public_url_value_logged=false`, and `secret_values_logged=0`.  Validation passed
+> 168 focused WSTA52/WSTA53/WSTA54/WSTA55/WSTA58/WSTA63/WSTA64/WSTA65/WSTA66/WSTA67/WSTA68/WSTA69/WSTA70/WSTA71/
+> WSTA72/WSTA73/WSTA74/WSTA75/WSTA76/WSTA77/WSTA78/WSTA79 tests plus `py_compile`.  No boot image, flash, device
+> command, native reboot, Wi-Fi association, DHCP, public tunnel, public smoke, userdata action, switch-root, or
+> external service action ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA79_OPERATOR_PACKET_STATUS_SOURCE_2026-07-04.md`.
+> **NEXT:** default-off persistent exposure now has prepare-to-arm, arming packet, per-packet status, multi-packet
+> inventory, launch brief, multi-brief operator summary, final operator packet, and a current-time operator-packet
+> status check.  Continue only with explicit operator-selected WSTA58 live proof, or with a concrete appliance-level
+> integration that does not start public exposure by default.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
