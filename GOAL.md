@@ -3172,6 +3172,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** cloudflared runtime is no longer the hardening frontier.  Continue with the remaining broad service
 > profile gaps: dpublic HUD launcher/user/syscall proof and the native uplink helper boundary before any always-on or
 > seccomp-enforcement claim.
+>
+> **🟢 STATUS (2026-07-05 06:45 KST host clock) — WSTA127 DPUBLIC HUD SERVICE MODEL
+> SOURCE PASS.**  Codex added `run_wsta127_dpublic_hud_service_model.py`, a host-only source/model unit for the
+> Debian-side `dpublic-hud` hardening target.  It is inert by default and requires `--emit-hud-model`.  The model
+> defines non-root `a90hud` UID/GID `3904/3904`, no-network/no-listener intent, launcher command
+> `a90-service-launch dpublic-hud /usr/local/bin/a90-dpublic-hud`, no-new-privs, zero effective capabilities,
+> rejection of direct root firstboot start for always-on mode, runtime pid/log sidecars as private/noncommittable,
+> and the display boundary around `/dev/dri/card0` materialized from `/sys/class/drm/card0/dev`, DRM master, and a
+> dumb framebuffer XBGR8888 KMS surface.  The model explicitly leaves live proof open: DRM node ownership/group
+> policy, `a90hud` process posture, no-network runtime observation, KMS syscall trace, and cleanup are still required.
+> No device action, boot flash, native reboot, Wi-Fi association, DHCP, public tunnel, public smoke, packet-filter
+> mutation, userdata action, DRM open, KMS SETCRTC, or switch-root ran.  Validation passed `py_compile`, WSTA127
+> focused tests (`7 tests`), and full server-distro WSTA regression (`419 tests`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA127_DPUBLIC_HUD_SERVICE_MODEL_SOURCE_2026-07-05.md`.
+> **NEXT:** either fold the WSTA127 HUD model into WSTA108 operator status, or move directly to the bounded HUD live
+> proof on the SD work image: stage policy, launch through `a90-service-launch` as `a90hud`, prove no-new-privs/
+> CapEff-zero/no-network posture, prove `/dev/dri/card0` access without broader root, capture DRM/KMS syscalls, and
+> clean up HUD runtime sidecars.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
