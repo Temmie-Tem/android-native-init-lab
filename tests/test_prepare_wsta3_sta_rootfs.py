@@ -181,6 +181,30 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertIn("api_probe_decision=", text)
             self.assertNotIn("/usr/local/bin/cloudflared", text)
 
+    def test_stage_native_wifi_service_client_is_status_scan_only(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp)
+
+            result = wsta3.stage_native_wifi_service_client(rootfs)
+
+            target = rootfs / wsta3.TARGET_NATIVE_WIFI_SERVICE_CLIENT
+            text = target.read_text(encoding="utf-8")
+            self.assertTrue(result["latest_helper_staged"])
+            self.assertTrue(result["file_protocol_present"])
+            self.assertTrue(result["atomic_request_present"])
+            self.assertTrue(result["status_scan_only"])
+            self.assertTrue(result["dangerous_ops_denied"])
+            self.assertTrue(result["owner_check_present"])
+            self.assertTrue(result["version_check_present"])
+            self.assertTrue(result["redacted_response_filter_present"])
+            self.assertTrue(result["secret_hygiene_marker"])
+            self.assertEqual(target.stat().st_mode & 0o777, 0o755)
+            self.assertIn("/tmp/a90-native-wifi-service", text)
+            self.assertIn("native-wifi-service-op-denied", text)
+            self.assertIn("owner\" != \"native-init\"", text)
+            self.assertNotIn("ssid=", text.lower())
+            self.assertNotIn("psk=", text.lower())
+
     def test_stage_dpublic_binaries_and_quick_tunnel_enable_are_private(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
@@ -364,6 +388,9 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertTrue(result["wifi_sta_helper"]["immediate_snapshot_present"])
             self.assertTrue(result["wifi_sta_helper"]["handoff_materialization_present"])
             self.assertTrue(result["api_probe_helper"]["api_post_present"])
+            self.assertTrue(result["native_wifi_service_client"]["latest_helper_staged"])
+            self.assertTrue(result["native_wifi_service_client"]["dangerous_ops_denied"])
+            self.assertTrue((target / wsta3.TARGET_NATIVE_WIFI_SERVICE_CLIENT).is_file())
             self.assertFalse(result["api_probe_tools"]["requested"])
             self.assertTrue(result["firstboot"]["wifi_sta_helper_invoked"])
             self.assertTrue(result["firstboot"]["autoreboot_disabled_marker"])

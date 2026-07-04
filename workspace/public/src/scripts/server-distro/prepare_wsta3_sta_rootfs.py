@@ -49,6 +49,7 @@ TARGET_IMMEDIATE_SNAPSHOT_ONLY = Path("etc/a90-dpublic/wifi-sta-immediate-snapsh
 TARGET_QUICK_TUNNEL_ENABLE = Path("etc/a90-dpublic/cloudflared-quick-enable")
 TARGET_HELPER = Path("usr/local/bin/a90-dpublic-wifi-sta")
 TARGET_API_PROBE = Path("usr/local/bin/a90-dpublic-api-probe")
+TARGET_NATIVE_WIFI_SERVICE_CLIENT = Path("usr/local/bin/a90-native-wifi-service-client")
 TARGET_FIRSTBOOT = Path("etc/a90-d3-firstboot")
 DPUBLIC_BINARY_TARGETS = {
     "cloudflared": Path("usr/local/bin/cloudflared"),
@@ -58,6 +59,7 @@ DPUBLIC_BINARY_TARGETS = {
 }
 DPUBLIC_WIFI_STA_HELPER = SCRIPT_DIR / "a90_dpublic_wifi_sta.sh"
 DPUBLIC_API_PROBE = SCRIPT_DIR / "a90_dpublic_api_probe.sh"
+DPUBLIC_NATIVE_WIFI_SERVICE_CLIENT = SCRIPT_DIR / "a90_native_wifi_service_client.sh"
 DPUBLIC_FIRSTBOOT = SCRIPT_DIR / "a90_dpublic_firstboot.sh"
 PRIVATE_FILE_MODE = 0o600
 STA_TOOL_PACKAGES = ("wpasupplicant", "isc-dhcp-client", "netcat-openbsd", "iw")
@@ -514,6 +516,30 @@ def stage_dpublic_api_probe_helper(rootfs: Path) -> dict[str, Any]:
     }
 
 
+def stage_native_wifi_service_client(rootfs: Path) -> dict[str, Any]:
+    helper_target = rootfs / TARGET_NATIVE_WIFI_SERVICE_CLIENT
+    if not DPUBLIC_NATIVE_WIFI_SERVICE_CLIENT.is_file():
+        raise FileNotFoundError(DPUBLIC_NATIVE_WIFI_SERVICE_CLIENT)
+    helper_target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(DPUBLIC_NATIVE_WIFI_SERVICE_CLIENT, helper_target)
+    helper_target.chmod(0o755)
+    text = helper_target.read_text(encoding="utf-8")
+    return {
+        "helper_target": str(TARGET_NATIVE_WIFI_SERVICE_CLIENT),
+        "helper_mode": oct(helper_target.stat().st_mode & 0o777),
+        "latest_helper_staged": True,
+        "file_protocol_present": "seq=%s\\n" in text and "op=%s\\n" in text,
+        "atomic_request_present": "request.tmp.$$" in text and "mv \"$request_tmp\" \"$request\"" in text,
+        "status_scan_only": "status|scan" in text,
+        "dangerous_ops_denied": "connect|associate|association|dhcp|ping|public-tunnel|tunnel" in text,
+        "owner_check_present": "owner\" != \"native-init\"" in text,
+        "version_check_present": "a90-native-wifi-service-v1" in text,
+        "redacted_response_filter_present": "raw_results_redacted" in text and "scan_result_count" in text,
+        "secret_hygiene_marker": "native_wifi_service_client_secret_values_logged=0" in text,
+        "secret_values_logged": 0,
+    }
+
+
 def stage_dpublic_firstboot(rootfs: Path) -> dict[str, Any]:
     firstboot_target = rootfs / TARGET_FIRSTBOOT
     if not DPUBLIC_FIRSTBOOT.is_file():
@@ -662,6 +688,7 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
         return result
     result["wifi_sta_helper"] = stage_dpublic_wifi_sta_helper(target_rootfs)
     result["api_probe_helper"] = stage_dpublic_api_probe_helper(target_rootfs)
+    result["native_wifi_service_client"] = stage_native_wifi_service_client(target_rootfs)
     if args.immediate_snapshot_only:
         result["stage"] = stage_immediate_snapshot_only(target_rootfs)
     else:

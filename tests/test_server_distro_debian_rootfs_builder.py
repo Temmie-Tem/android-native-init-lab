@@ -29,9 +29,16 @@ class ServerDistroDebianRootfsBuilderTests(unittest.TestCase):
             builder.stage_server_distro_helpers(rootfs)
 
             helper = rootfs / builder.DPUBLIC_WIFI_STA_TARGET
+            native_client = rootfs / builder.NATIVE_WIFI_SERVICE_CLIENT_TARGET
             self.assertTrue(helper.is_file())
             self.assertEqual(helper.stat().st_mode & 0o777, 0o755)
             self.assertIn("wifi_sta_secret_values_logged=0", helper.read_text(encoding="utf-8"))
+            self.assertTrue(native_client.is_file())
+            self.assertEqual(native_client.stat().st_mode & 0o777, 0o755)
+            self.assertIn(
+                "native_wifi_service_client_secret_values_logged=0",
+                native_client.read_text(encoding="utf-8"),
+            )
             self.assertTrue((rootfs / "etc/a90-dpublic").is_dir())
 
     def test_stage_customize_records_wifi_sta_as_private_opt_in(self) -> None:
@@ -53,6 +60,7 @@ class ServerDistroDebianRootfsBuilderTests(unittest.TestCase):
             self.assertIn("wifi-sta=opt-in via /etc/a90-dpublic/wifi-sta-enable", marker)
             self.assertIn("private config not included", marker)
             self.assertIn("wifi-sta-helper=/usr/local/bin/a90-dpublic-wifi-sta", marker)
+            self.assertIn("native-wifi-service-client=/usr/local/bin/a90-native-wifi-service-client", marker)
             self.assertIn("WARNING: configure credentials/keys before any network/public exposure", marker)
 
 

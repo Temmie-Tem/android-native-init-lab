@@ -1276,6 +1276,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** factor a small Debian-side client/helper for this file protocol and decide whether to keep
 > D-public over Wi-Fi limited to native-owned status/scan, or add a separate gated native-owned
 > connect/association service rung.
+> **🟢 STATUS (2026-07-04 10:01 KST host clock) — WSTA21 native Wi-Fi service client SOURCE/HOST PASS.**
+> Codex added `/usr/local/bin/a90-native-wifi-service-client` as a Debian-side helper for the WSTA20
+> native-owned file protocol.  The helper publishes atomic `seq + op=status|scan` requests, waits for
+> matching native responses, requires `version=a90-native-wifi-service-v1` and `owner=native-init`,
+> filters output to redacted allowlisted keys, and rejects connect/association/DHCP/ping/public-tunnel
+> operations before writing any request.  The WSTA3 private-rootfs preparer and Debian rootfs builder
+> now stage the helper alongside the existing D-public Wi-Fi STA helper.  Host validation passed:
+> shell syntax, `py_compile`, and 23 unit tests including a subprocess request/response roundtrip.
+> No flash, reboot, association, DHCP, ping, public tunnel, userdata, or switch-root action ran.
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA21_NATIVE_SERVICE_CLIENT_SOURCE_2026-07-04.md`.
+> **NEXT:** WSTA22 live gate — with V3385 resident/native-owned Wi-Fi service, mount the Debian chroot,
+> run the new helper from Debian for `status` and `scan`, verify helper decisions/redaction, cleanup,
+> and finish with `selftest fail=0`.  Keep connect/association/DHCP/public tunnel as a separate gated
+> native-owned service rung.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

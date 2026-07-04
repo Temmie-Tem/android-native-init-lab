@@ -377,6 +377,25 @@ after a separate control-plane preservation/relaunch design.
 Report:
 `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA19_NATIVE_OWNED_CHROOT_WIFI_PASS_2026-07-04.md`.
 
+### WSTA20/WSTA21: Native-Owned Service Boundary and Debian Client
+
+WSTA20 live result: pass.  Native init now exposes `wifi service [status|start|stop|once] <dir>`
+as a bounded file request/response boundary.  Debian/chroot consumers write `seq` plus
+`op=status|scan`; native init writes redacted responses with `owner=native-init`.  The live gate
+flashed V3385 through the checked helper, ran WSTA2 materialization, mounted the Debian chroot,
+wrote status/scan requests from Debian, and verified native-owned responses.  No association,
+DHCP, ping, public tunnel, userdata, or `switch_root` action ran.
+
+WSTA21 source result: pass.  `/usr/local/bin/a90-native-wifi-service-client` is now the Debian-side
+consumer for that file protocol.  It publishes atomic status/scan requests, waits for matching
+responses, checks the native service version/owner, allowlists printed response keys, and denies
+connect/association/DHCP/ping/public-tunnel operations before writing any request.  Both the WSTA3
+private-rootfs preparer and base Debian rootfs builder stage it.
+
+Reports:
+`docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA20_NATIVE_SERVICE_BOUNDARY_PASS_2026-07-04.md`,
+`docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA21_NATIVE_SERVICE_CLIENT_SOURCE_2026-07-04.md`.
+
 ### WSTA7: Debian association/control fix
 
 Live result: pass.  The Debian STA helper now waits for the `wpa_supplicant` control
@@ -420,14 +439,13 @@ Stop before mutation or public exposure if any condition appears:
 
 ## 7. Next Implementation Unit
 
-WSTA19 selects and validates the low-risk ownership model.  The next implementation unit is the
-native-owned service boundary:
+WSTA22 should live-prove the Debian helper against the resident V3385 native service:
 
-1. Define the native command/API surface for bounded Wi-Fi operations that Debian/chroot consumers
-   can request: scan/status first, then connect/DHCP only under the existing credential and public
-   exposure gates.
-2. Keep native init as the raw WLAN owner so the Android/vendor WCNSS/WMI control plane stays alive.
-3. Keep full `switch_root` as USB-local/server-only unless a separate design preserves or relaunches
-   the minimal vendor WLAN userspace/control-plane set across handoff.
+1. Health-check the current resident and run WSTA2 materialization if needed.
+2. Mount the SD-backed Debian image as a chroot and start temporary key-only SSH.
+3. Start native `wifi service` on the shared chroot-visible service directory.
+4. Execute `/usr/local/bin/a90-native-wifi-service-client status` and `scan` from Debian.
+5. Verify helper decisions, native ownership, redaction, cleanup, and final `selftest fail=0`.
 
-Do not spend more rungs on direct Debian `iw` or link toggles.
+Connect/association/DHCP/public tunnel remain a separate gated native-owned service rung.  Do not
+spend more rungs on direct Debian `iw` or link toggles.

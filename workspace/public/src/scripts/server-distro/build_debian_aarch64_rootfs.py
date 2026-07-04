@@ -7,8 +7,8 @@ suitable for SD-card loop staging in D1 (chroot MVP). NO device action; NO Andro
 Pipeline (single sudo invocation):
   1. debootstrap --arch=arm64 <suite> into the rootfs dir (qemu-aarch64 binfmt handles arm64).
   2. customize inside the rootfs (chroot, via binfmt): install dropbear (MVP SSH) + minimal tools,
-     install the opt-in D-public Wi-Fi STA helper, set hostname, LOCK the root password,
-     and disable password SSH defaults.
+     install the opt-in D-public Wi-Fi STA helper and native Wi-Fi service client, set hostname,
+     LOCK the root password, and disable password SSH defaults.
   3. pack the rootfs into an ext4 image with `mke2fs -d` (no loop mount / no root-mount needed).
   4. report image size + SHA-256; chown outputs back to the invoking user.
 
@@ -53,6 +53,8 @@ INCLUDE_PKGS = ",".join((
 ))
 DPUBLIC_WIFI_STA_HELPER = SCRIPT_DIR / "a90_dpublic_wifi_sta.sh"
 DPUBLIC_WIFI_STA_TARGET = Path("usr/local/bin/a90-dpublic-wifi-sta")
+NATIVE_WIFI_SERVICE_CLIENT = SCRIPT_DIR / "a90_native_wifi_service_client.sh"
+NATIVE_WIFI_SERVICE_CLIENT_TARGET = Path("usr/local/bin/a90-native-wifi-service-client")
 
 
 def run(cmd: list[str], **kw) -> None:
@@ -85,10 +87,14 @@ def chroot_run(rootfs: Path, script: str) -> None:
 
 
 def stage_server_distro_helpers(rootfs: Path) -> None:
-    helper_target = rootfs / DPUBLIC_WIFI_STA_TARGET
-    helper_target.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(DPUBLIC_WIFI_STA_HELPER, helper_target)
-    helper_target.chmod(0o755)
+    helper_targets = (
+        (DPUBLIC_WIFI_STA_HELPER, rootfs / DPUBLIC_WIFI_STA_TARGET),
+        (NATIVE_WIFI_SERVICE_CLIENT, rootfs / NATIVE_WIFI_SERVICE_CLIENT_TARGET),
+    )
+    for source, helper_target in helper_targets:
+        helper_target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, helper_target)
+        helper_target.chmod(0o755)
     (rootfs / "etc/a90-dpublic").mkdir(parents=True, exist_ok=True)
 
 
@@ -109,6 +115,7 @@ def stage_customize(rootfs: Path, hostname: str) -> None:
         "ssh=dropbear key-only, NO keys installed yet\n"
         "wifi-sta=opt-in via /etc/a90-dpublic/wifi-sta-enable, private config not included\n"
         "wifi-sta-helper=/usr/local/bin/a90-dpublic-wifi-sta\n"
+        "native-wifi-service-client=/usr/local/bin/a90-native-wifi-service-client\n"
         "WARNING: configure credentials/keys before any network/public exposure (design E.6)\n"
     )
     resolv.unlink(missing_ok=True)
