@@ -102,6 +102,8 @@ class ServerDistroWsta129DpublicHudLiveGateTests(unittest.TestCase):
         script = runner.hud_probe_script(5)
 
         self.assertIn("A90WSTA129_HUD_PROBE_BEGIN", script)
+        self.assertIn("A90WSTA129_SYS_MOUNTED=1", script)
+        self.assertIn("A90WSTA129_SYS_UNMOUNTED=1", script)
         self.assertIn("cloudflared-quick-enable", script)
         self.assertIn("A90WSTA129_PUBLIC_ENABLE_ABSENT=1", script)
         self.assertIn("command -v strace", script)
@@ -112,6 +114,8 @@ class ServerDistroWsta129DpublicHudLiveGateTests(unittest.TestCase):
         self.assertIn("a90-dpublic-hud", script)
         self.assertIn("A90WSTA129_SOCKET_FD_ABSENT=1", script)
         self.assertIn("A90WSTA129_DRM_FD_PRESENT=1", script)
+        self.assertIn("A90WSTA129_HUD_SETCRTC_PERMISSION_DENIED=1", script)
+        self.assertIn("A90WSTA129_HUD_PROBE_BLOCKED", script)
         self.assertIn("A90WSTA129_SYSCALL_HAS_IOCTL=1", script)
         self.assertIn("A90WSTA129_SYSCALL_NETWORK_ABSENT=1", script)
         self.assertIn("A90WSTA129_SYSCALL_LIST_BEGIN", script)
@@ -126,6 +130,7 @@ class ServerDistroWsta129DpublicHudLiveGateTests(unittest.TestCase):
         stdout = "\n".join([
             "A90WSTA129_HUD_PROBE_BEGIN",
             "A90WSTA129_PROC_MOUNTED=1",
+            "A90WSTA129_SYS_MOUNTED=1",
             "A90WSTA129_PUBLIC_ENABLE_ABSENT=1",
             "A90WSTA129_LAUNCHER_PRESENT=1",
             "A90WSTA129_POLICY_PRESENT=1",
@@ -162,6 +167,7 @@ class ServerDistroWsta129DpublicHudLiveGateTests(unittest.TestCase):
             "openat",
             "read",
             "A90WSTA129_SYSCALL_LIST_END",
+            "A90WSTA129_SYS_UNMOUNTED=1",
             "A90WSTA129_PROC_UNMOUNTED=1",
             "A90WSTA129_HUD_PROBE_DONE",
         ])
@@ -169,6 +175,8 @@ class ServerDistroWsta129DpublicHudLiveGateTests(unittest.TestCase):
         parsed = runner.parse_hud_probe({"stdout": stdout})
 
         self.assertTrue(parsed["proof_done"])
+        self.assertTrue(parsed["sys_mounted"])
+        self.assertTrue(parsed["sys_unmounted"])
         self.assertTrue(parsed["public_enable_absent"])
         self.assertTrue(parsed["drm_node_policy_applied"])
         self.assertTrue(parsed["drm_node_restored"])
@@ -222,6 +230,55 @@ class ServerDistroWsta129DpublicHudLiveGateTests(unittest.TestCase):
         self.assertFalse(profile["public_url_value_logged"])
         self.assertEqual(profile["secret_values_logged"], 0)
 
+    def test_parse_hud_probe_preserves_setcrtc_permission_boundary(self) -> None:
+        stdout = "\n".join([
+            "A90WSTA129_HUD_PROBE_BEGIN",
+            "A90WSTA129_PROC_MOUNTED=1",
+            "A90WSTA129_SYS_MOUNTED=1",
+            "A90WSTA129_PUBLIC_ENABLE_ABSENT=1",
+            "A90WSTA129_LAUNCHER_PRESENT=1",
+            "A90WSTA129_POLICY_PRESENT=1",
+            "A90WSTA129_HUD_BINARY_PRESENT=1",
+            "A90WSTA129_SETPRIV_PRESENT=1",
+            "A90WSTA129_STRACE_PRESENT=1",
+            "A90WSTA129_DRM_SYSFS_PRESENT=1",
+            "A90WSTA129_DRM_NODE_PRESENT=1",
+            "A90WSTA129_DRM_NODE_POLICY_APPLIED=1",
+            "A90WSTA129_TRACE_PROCESS_STARTED=1",
+            "A90WSTA129_HUD_EXITED_EARLY=1",
+            "a90_service_launcher_decision=exec",
+            "a90_service_launcher_service=dpublic-hud",
+            "a90_service_launcher_user=a90hud",
+            "setcrtc: Permission denied",
+            "A90WSTA129_LAUNCHER_EXEC_LOGGED=1",
+            "A90WSTA129_LAUNCHER_SERVICE_LOGGED=1",
+            "A90WSTA129_LAUNCHER_USER_LOGGED=1",
+            "A90WSTA129_HUD_SETCRTC_PERMISSION_DENIED=1",
+            "A90WSTA129_TRACE_FILE_NONEMPTY=1",
+            "A90WSTA129_SYSCALL_PROFILE_NONEMPTY=1",
+            "A90WSTA129_SYSCALL_NETWORK_ABSENT=1",
+            "A90WSTA129_SYSCALL_LIST_BEGIN",
+            "execve",
+            "ioctl",
+            "mmap",
+            "munmap",
+            "openat",
+            "A90WSTA129_SYSCALL_LIST_END",
+            "A90WSTA129_DRM_NODE_RESTORED=1",
+            "A90WSTA129_SYS_UNMOUNTED=1",
+            "A90WSTA129_PROC_UNMOUNTED=1",
+            "A90WSTA129_HUD_PROBE_BLOCKED",
+        ])
+
+        parsed = runner.parse_hud_probe({"stdout": stdout})
+        self.assertTrue(parsed["hud_exited_early"])
+        self.assertTrue(parsed["hud_setcrtc_permission_denied"])
+        self.assertTrue(parsed["proof_blocked"])
+        self.assertTrue(parsed["launcher_exec_logged"])
+        self.assertTrue(parsed["trace_file_nonempty"])
+        self.assertTrue(parsed["syscall_profile_nonempty"])
+        self.assertTrue(parsed["core_syscalls_observed"])
+
     def test_classify_requires_hud_runtime_proof_and_cleanup(self) -> None:
         checks = {
             "explicit_live_gate": True,
@@ -240,6 +297,7 @@ class ServerDistroWsta129DpublicHudLiveGateTests(unittest.TestCase):
             "strace_present": True,
             "drm_node_policy_applied": True,
             "trace_started": True,
+            "hud_setcrtc_permission_ok": True,
             "hud_uid_gid_pass": True,
             "hud_no_new_privs_pass": True,
             "hud_cap_eff_zero_pass": True,
@@ -259,6 +317,7 @@ class ServerDistroWsta129DpublicHudLiveGateTests(unittest.TestCase):
             ("explicit_live_gate", "wsta129-blocked-explicit-live-gate"),
             ("hud_binary_present_local", "wsta129-blocked-hud-binary-missing"),
             ("hud_probe_completed", "wsta129-blocked-hud-probe"),
+            ("hud_setcrtc_permission_ok", "wsta129-blocked-hud-setcrtc-permission"),
             ("hud_no_network_pass", "wsta129-blocked-hud-network"),
             ("hud_drm_node_observed", "wsta129-blocked-hud-drm-node"),
             ("trace_artifact_saved", "wsta129-blocked-trace-artifact-save"),

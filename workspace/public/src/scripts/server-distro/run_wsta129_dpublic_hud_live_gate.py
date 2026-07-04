@@ -159,6 +159,7 @@ POLICY={shlex.quote(REMOTE_SERVICE_POLICY)}
 HUD={shlex.quote(REMOTE_HUD)}
 DRM_NODE=/dev/dri/card0
 PROC_MOUNTED=0
+SYS_MOUNTED=0
 TRACE_PID=""
 HUD_PID=""
 cleanup() {{
@@ -173,6 +174,14 @@ cleanup() {{
     /bin/chown "$A90_UID:$A90_GID" "$DRM_NODE" >/dev/null 2>&1 || true
     /bin/chmod "$A90_MODE" "$DRM_NODE" >/dev/null 2>&1 || true
     echo A90WSTA129_DRM_NODE_RESTORED=1
+  fi
+  if [ "$SYS_MOUNTED" = "1" ]; then
+    if /bin/umount /sys >/dev/null 2>&1; then
+      echo A90WSTA129_SYS_UNMOUNTED=1
+    else
+      echo A90WSTA129_SYS_UNMOUNT_DEFERRED=1
+    fi
+    SYS_MOUNTED=0
   fi
   if [ "$PROC_MOUNTED" = "1" ]; then
     if /bin/umount /proc >/dev/null 2>&1; then
@@ -209,11 +218,32 @@ fd_probe() {{
   if [ "$SOCKET_COUNT" = "0" ]; then echo A90WSTA129_SOCKET_FD_ABSENT=1; else fail socket-fd 47; fi
   if [ "$DRM_PRESENT" = "1" ]; then echo A90WSTA129_DRM_FD_PRESENT=1; else fail drm-fd 48; fi
 }}
+emit_syscall_profile() {{
+  STRICT=${{1:-strict}}
+  [ -s "$TRACE" ] && echo A90WSTA129_TRACE_FILE_NONEMPTY=1 || fail trace-empty 42
+  /usr/bin/awk '{{ line=$0; sub(/^\\[pid +[0-9]+\\] +/, "", line); sub(/^[0-9]+ +/, "", line); if (match(line, /^[A-Za-z0-9_]+\\(/)) {{ name=substr(line, 1, index(line, "(")-1); seen[name]=1 }} }} END {{ for (name in seen) print name }}' "$TRACE" | /usr/bin/sort > "$SYSCALLS"
+  [ -s "$SYSCALLS" ] && echo A90WSTA129_SYSCALL_PROFILE_NONEMPTY=1 || fail syscalls-empty 43
+  COUNT=$(/usr/bin/wc -l < "$SYSCALLS" | /usr/bin/awk '{{print $1}}')
+  echo A90WSTA129_SYSCALL_COUNT=$COUNT
+  if /bin/grep -qx execve "$SYSCALLS"; then echo A90WSTA129_SYSCALL_HAS_EXECVE=1; else echo A90WSTA129_SYSCALL_HAS_EXECVE=0; [ "$STRICT" = strict ] && fail syscall-execve 44; fi
+  if /bin/grep -qx openat "$SYSCALLS"; then echo A90WSTA129_SYSCALL_HAS_OPENAT=1; else echo A90WSTA129_SYSCALL_HAS_OPENAT=0; [ "$STRICT" = strict ] && fail syscall-openat 45; fi
+  if /bin/grep -qx ioctl "$SYSCALLS"; then echo A90WSTA129_SYSCALL_HAS_IOCTL=1; else echo A90WSTA129_SYSCALL_HAS_IOCTL=0; [ "$STRICT" = strict ] && fail syscall-ioctl 46; fi
+  if /bin/grep -qx mmap "$SYSCALLS"; then echo A90WSTA129_SYSCALL_HAS_MMAP=1; else echo A90WSTA129_SYSCALL_HAS_MMAP=0; [ "$STRICT" = strict ] && fail syscall-mmap 49; fi
+  if /bin/grep -qx munmap "$SYSCALLS"; then echo A90WSTA129_SYSCALL_HAS_MUNMAP=1; else echo A90WSTA129_SYSCALL_HAS_MUNMAP=0; [ "$STRICT" = strict ] && fail syscall-munmap 50; fi
+  if /bin/grep -Eq '^(socket|bind|listen|accept|connect)$' "$SYSCALLS"; then echo A90WSTA129_SYSCALL_NETWORK_ABSENT=0; [ "$STRICT" = strict ] && fail network-syscall 51; else echo A90WSTA129_SYSCALL_NETWORK_ABSENT=1; fi
+  echo A90WSTA129_SYSCALL_LIST_BEGIN
+  /bin/cat "$SYSCALLS"
+  echo A90WSTA129_SYSCALL_LIST_END
+}}
 trap cleanup EXIT INT TERM
 /bin/mkdir -p /proc "$RUN_DIR"
 /bin/mount -t proc proc /proc
 PROC_MOUNTED=1
 echo A90WSTA129_PROC_MOUNTED=1
+/bin/mkdir -p /sys
+/bin/mount -t sysfs sysfs /sys
+SYS_MOUNTED=1
+echo A90WSTA129_SYS_MOUNTED=1
 if [ ! -e /etc/a90-dpublic/cloudflared-quick-enable ]; then echo A90WSTA129_PUBLIC_ENABLE_ABSENT=1; else echo A90WSTA129_PUBLIC_ENABLE_ABSENT=0; fail public-enabled 30; fi
 [ -x "$LAUNCHER" ] && echo A90WSTA129_LAUNCHER_PRESENT=1 || fail launcher-missing 31
 [ -f "$POLICY" ] && echo A90WSTA129_POLICY_PRESENT=1 || fail policy-missing 32
@@ -244,7 +274,22 @@ for _i in 1 2 3 4 5 6 7 8 9 10; do
   if ! /bin/kill -0 "$TRACE_PID" >/dev/null 2>&1; then break; fi
   /bin/sleep 1
 done
-if [ -n "$HUD_PID" ]; then echo A90WSTA129_HUD_PID_FOUND=1; else /bin/cat "$HUD_LOG" || true; fail hud-pid 38; fi
+if [ -n "$HUD_PID" ]; then
+  echo A90WSTA129_HUD_PID_FOUND=1
+else
+  echo A90WSTA129_HUD_EXITED_EARLY=1
+  wait "$TRACE_PID" >/dev/null 2>&1 || true
+  /bin/cat "$HUD_LOG" || true
+  if /bin/grep -q 'a90_service_launcher_decision=exec' "$HUD_LOG"; then echo A90WSTA129_LAUNCHER_EXEC_LOGGED=1; else echo A90WSTA129_LAUNCHER_EXEC_LOGGED=0; fi
+  if /bin/grep -q 'a90_service_launcher_service=dpublic-hud' "$HUD_LOG"; then echo A90WSTA129_LAUNCHER_SERVICE_LOGGED=1; else echo A90WSTA129_LAUNCHER_SERVICE_LOGGED=0; fi
+  if /bin/grep -q 'a90_service_launcher_user=a90hud' "$HUD_LOG"; then echo A90WSTA129_LAUNCHER_USER_LOGGED=1; else echo A90WSTA129_LAUNCHER_USER_LOGGED=0; fi
+  if /bin/grep -q 'setcrtc: Permission denied' "$HUD_LOG"; then echo A90WSTA129_HUD_SETCRTC_PERMISSION_DENIED=1; else echo A90WSTA129_HUD_SETCRTC_PERMISSION_DENIED=0; fi
+  emit_syscall_profile loose
+  cleanup
+  trap - EXIT
+  echo A90WSTA129_HUD_PROBE_BLOCKED
+  exit 52
+fi
 /usr/bin/awk '/^Uid:/{{print "A90WSTA129_HUD_UID_REAL=" $2; print "A90WSTA129_HUD_UID_EFFECTIVE=" $3}}' "/proc/$HUD_PID/status"
 /usr/bin/awk '/^Gid:/{{print "A90WSTA129_HUD_GID_REAL=" $2; print "A90WSTA129_HUD_GID_EFFECTIVE=" $3}}' "/proc/$HUD_PID/status"
 /usr/bin/awk '/^NoNewPrivs:/{{print "A90WSTA129_HUD_NO_NEW_PRIVS=" $2}}' "/proc/$HUD_PID/status"
@@ -261,20 +306,7 @@ wait "$TRACE_PID" >/dev/null 2>&1 || true
 if /bin/grep -q 'a90_service_launcher_decision=exec' "$HUD_LOG"; then echo A90WSTA129_LAUNCHER_EXEC_LOGGED=1; else fail launcher-exec 39; fi
 if /bin/grep -q 'a90_service_launcher_service=dpublic-hud' "$HUD_LOG"; then echo A90WSTA129_LAUNCHER_SERVICE_LOGGED=1; else fail launcher-service 40; fi
 if /bin/grep -q 'a90_service_launcher_user=a90hud' "$HUD_LOG"; then echo A90WSTA129_LAUNCHER_USER_LOGGED=1; else fail launcher-user 41; fi
-[ -s "$TRACE" ] && echo A90WSTA129_TRACE_FILE_NONEMPTY=1 || fail trace-empty 42
-/usr/bin/awk '{{ line=$0; sub(/^\\[pid +[0-9]+\\] +/, "", line); sub(/^[0-9]+ +/, "", line); if (match(line, /^[A-Za-z0-9_]+\\(/)) {{ name=substr(line, 1, index(line, "(")-1); seen[name]=1 }} }} END {{ for (name in seen) print name }}' "$TRACE" | /usr/bin/sort > "$SYSCALLS"
-[ -s "$SYSCALLS" ] && echo A90WSTA129_SYSCALL_PROFILE_NONEMPTY=1 || fail syscalls-empty 43
-COUNT=$(/usr/bin/wc -l < "$SYSCALLS" | /usr/bin/awk '{{print $1}}')
-echo A90WSTA129_SYSCALL_COUNT=$COUNT
-if /bin/grep -qx execve "$SYSCALLS"; then echo A90WSTA129_SYSCALL_HAS_EXECVE=1; else echo A90WSTA129_SYSCALL_HAS_EXECVE=0; fail syscall-execve 44; fi
-if /bin/grep -qx openat "$SYSCALLS"; then echo A90WSTA129_SYSCALL_HAS_OPENAT=1; else echo A90WSTA129_SYSCALL_HAS_OPENAT=0; fail syscall-openat 45; fi
-if /bin/grep -qx ioctl "$SYSCALLS"; then echo A90WSTA129_SYSCALL_HAS_IOCTL=1; else echo A90WSTA129_SYSCALL_HAS_IOCTL=0; fail syscall-ioctl 46; fi
-if /bin/grep -qx mmap "$SYSCALLS"; then echo A90WSTA129_SYSCALL_HAS_MMAP=1; else echo A90WSTA129_SYSCALL_HAS_MMAP=0; fail syscall-mmap 49; fi
-if /bin/grep -qx munmap "$SYSCALLS"; then echo A90WSTA129_SYSCALL_HAS_MUNMAP=1; else echo A90WSTA129_SYSCALL_HAS_MUNMAP=0; fail syscall-munmap 50; fi
-if /bin/grep -Eq '^(socket|bind|listen|accept|connect)$' "$SYSCALLS"; then echo A90WSTA129_SYSCALL_NETWORK_ABSENT=0; fail network-syscall 51; else echo A90WSTA129_SYSCALL_NETWORK_ABSENT=1; fi
-echo A90WSTA129_SYSCALL_LIST_BEGIN
-/bin/cat "$SYSCALLS"
-echo A90WSTA129_SYSCALL_LIST_END
+emit_syscall_profile strict
 cleanup
 trap - EXIT
 echo A90WSTA129_HUD_PROBE_DONE
@@ -307,6 +339,9 @@ def parse_hud_probe(record: dict[str, Any]) -> dict[str, Any]:
         "proc_mounted": "A90WSTA129_PROC_MOUNTED=1" in stdout,
         "proc_unmounted": "A90WSTA129_PROC_UNMOUNTED=1" in stdout,
         "proc_unmount_deferred": "A90WSTA129_PROC_UNMOUNT_DEFERRED=1" in stdout,
+        "sys_mounted": "A90WSTA129_SYS_MOUNTED=1" in stdout,
+        "sys_unmounted": "A90WSTA129_SYS_UNMOUNTED=1" in stdout,
+        "sys_unmount_deferred": "A90WSTA129_SYS_UNMOUNT_DEFERRED=1" in stdout,
         "public_enable_absent": "A90WSTA129_PUBLIC_ENABLE_ABSENT=1" in stdout,
         "launcher_present": "A90WSTA129_LAUNCHER_PRESENT=1" in stdout,
         "policy_present": "A90WSTA129_POLICY_PRESENT=1" in stdout,
@@ -319,6 +354,9 @@ def parse_hud_probe(record: dict[str, Any]) -> dict[str, Any]:
         "drm_node_restored": "A90WSTA129_DRM_NODE_RESTORED=1" in stdout,
         "trace_process_started": "A90WSTA129_TRACE_PROCESS_STARTED=1" in stdout,
         "hud_pid_found": "A90WSTA129_HUD_PID_FOUND=1" in stdout,
+        "hud_exited_early": "A90WSTA129_HUD_EXITED_EARLY=1" in stdout,
+        "hud_setcrtc_permission_denied": "A90WSTA129_HUD_SETCRTC_PERMISSION_DENIED=1" in stdout,
+        "proof_blocked": "A90WSTA129_HUD_PROBE_BLOCKED" in stdout,
         "hud_uid_real": "A90WSTA129_HUD_UID_REAL=3904" in stdout,
         "hud_uid_effective": "A90WSTA129_HUD_UID_EFFECTIVE=3904" in stdout,
         "hud_gid_real": "A90WSTA129_HUD_GID_REAL=3904" in stdout,
@@ -362,6 +400,8 @@ def hud_runtime_profile(parsed: dict[str, Any], trace_artifacts: dict[str, Any] 
         "drm_node_policy_applied": bool(parsed.get("drm_node_policy_applied")),
         "drm_node_restored": bool(parsed.get("drm_node_restored")),
         "drm_fd_present": bool(parsed.get("hud_drm_fd_present")),
+        "setcrtc_permission_denied": bool(parsed.get("hud_setcrtc_permission_denied")),
+        "exited_early": bool(parsed.get("hud_exited_early")),
         "core_syscalls": list(CORE_SYSCALLS),
         "forbidden_network_syscalls": list(NETWORK_SYSCALLS),
         "core_syscalls_observed": bool(parsed.get("core_syscalls_observed")),
@@ -517,6 +557,26 @@ echo A90WSTA129_RUNTIME_CLEANUP_DONE
 """.strip()
 
 
+def hud_mount_cleanup_script(mountpoint: str) -> str:
+    sys_mount = mountpoint.rstrip("/") + "/sys"
+    proc_mount = mountpoint.rstrip("/") + "/proc"
+    return f"""
+set +e
+SYS={shlex.quote(sys_mount)}
+PROC={shlex.quote(proc_mount)}
+echo A90WSTA129_MOUNT_CLEANUP_BEGIN
+if /bin/busybox grep -q " $SYS " /proc/mounts; then
+  /bin/busybox umount "$SYS" || /bin/busybox umount -l "$SYS"
+fi
+if /bin/busybox grep -q " $PROC " /proc/mounts; then
+  /bin/busybox umount "$PROC" || /bin/busybox umount -l "$PROC"
+fi
+if /bin/busybox grep -q " $SYS " /proc/mounts; then echo A90WSTA129 sys_mount_absent=0; else echo A90WSTA129 sys_mount_absent=1; fi
+if /bin/busybox grep -q " $PROC " /proc/mounts; then echo A90WSTA129 proc_mount_absent=0; else echo A90WSTA129 proc_mount_absent=1; fi
+echo A90WSTA129_MOUNT_CLEANUP_DONE
+""".strip()
+
+
 def cleanup_hud_runtime(args: argparse.Namespace, run_dir: Path) -> dict[str, Any]:
     record = wsta42.ssh_exec(args, run_dir, hud_runtime_cleanup_script(), timeout=args.cleanup_timeout)
     text = str(record.get("stdout") or "")
@@ -552,6 +612,7 @@ def classify(result: dict[str, Any]) -> str:
         ("strace_present", "wsta129-blocked-strace-missing"),
         ("drm_node_policy_applied", "wsta129-blocked-drm-node-policy"),
         ("trace_started", "wsta129-blocked-trace-start"),
+        ("hud_setcrtc_permission_ok", "wsta129-blocked-hud-setcrtc-permission"),
         ("hud_uid_gid_pass", "wsta129-blocked-hud-uid-gid"),
         ("hud_no_new_privs_pass", "wsta129-blocked-hud-no-new-privs"),
         ("hud_cap_eff_zero_pass", "wsta129-blocked-hud-cap-eff"),
@@ -738,13 +799,24 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         result["hud_runtime_profile"] = hud_runtime_profile(parsed, result.get("trace_artifacts"))
         result["checks"].update({
             "hud_probe_completed": bool(
-                result["hud_probe"].get("returncode") == 0
-                and not result["hud_probe"].get("timed_out")
+                not result["hud_probe"].get("timed_out")
+                and (
+                    result["hud_probe"].get("returncode") == 0
+                    or (
+                        parsed.get("hud_setcrtc_permission_denied")
+                        and parsed.get("trace_file_nonempty")
+                        and parsed.get("syscall_profile_nonempty")
+                    )
+                )
             ),
             "public_default_off": bool(parsed.get("public_enable_absent")),
             "strace_present": bool(parsed.get("strace_present")),
             "drm_node_policy_applied": bool(parsed.get("drm_node_policy_applied")),
-            "trace_started": bool(parsed.get("trace_process_started") and parsed.get("hud_pid_found")),
+            "trace_started": bool(
+                parsed.get("trace_process_started")
+                and (parsed.get("hud_pid_found") or parsed.get("hud_exited_early"))
+            ),
+            "hud_setcrtc_permission_ok": not bool(parsed.get("hud_setcrtc_permission_denied")),
             "hud_uid_gid_pass": bool(
                 parsed.get("hud_uid_real")
                 and parsed.get("hud_uid_effective")
@@ -769,6 +841,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         if mounted:
             result["hud_runtime_cleanup"] = cleanup_hud_runtime(args, run_dir)
             result["checks"]["runtime_cleanup_ok"] = bool(result["hud_runtime_cleanup"].get("cleaned"))
+            result["hud_mount_cleanup"] = wsta19.bridge_shell(
+                args,
+                hud_mount_cleanup_script(args.mountpoint),
+                timeout=args.cleanup_timeout,
+                allow_error=True,
+            )
             result["service_probe_cleanup"] = wsta19.bridge_shell(
                 args,
                 wsta110.service_probe_cleanup_script(args.mountpoint),

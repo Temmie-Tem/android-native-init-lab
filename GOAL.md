@@ -3229,6 +3229,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** run the explicit WSTA129 HUD live gate on the SD work image only under operator supervision; expect a
 > temporary visible HUD/KMS takeover, private syscall artifacts, and mandatory cleanup/health checks before it can
 > retire the WSTA128 `hud_live_proven=false` status gap.
+>
+> **🟡 STATUS (2026-07-05 07:27 KST host clock) — WSTA129 DPUBLIC HUD LIVE
+> SETCRTC BOUNDARY PROVEN.**  Codex ran the explicit WSTA129 no-flash SD work-image HUD live gate under the
+> operator-authorized flags.  The default image blocked on missing `strace`; the WSTA115 strace image then exposed
+> a missing chroot `/sys` mount; after adding sysfs mount/cleanup, the HUD launched through `a90-service-launch
+> dpublic-hud` as `a90hud`, logged `display=1080x2400 connector=28 crtc=133`, and exited at
+> `setcrtc: Permission denied`.  WSTA129 was tightened to preserve early-exit logs/traces and now classifies this as
+> `wsta129-blocked-hud-setcrtc-permission`, with non-empty private trace/profile artifacts, no network syscalls,
+> DRM node policy restore, `/sys`/`/proc` unmount, runtime cleanup, final `selftest fail=0`, and `tcpctl` restored
+> to `running/ready`.  No boot flash, native reboot, Wi-Fi association, DHCP, public tunnel, packet-filter mutation,
+> userdata mutation, or switch-root ran.  Validation passed `py_compile`, WSTA129 focused tests (`9 tests`), and full
+> server-distro WSTA regression (`431 tests`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA129_DPUBLIC_HUD_SETCRTC_BOUNDARY_LIVE_2026-07-05.md`.
+> **NEXT:** do not fold WSTA129 as a HUD live pass into WSTA108.  WSTA130 should revise the display architecture:
+> either a tiny root-owned KMS broker/presenter with a narrow command surface, or native-init-owned display
+> presentation fed by Debian HUD status/render intent.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
