@@ -11,6 +11,8 @@ from pathlib import Path
 SMOKE_HTTPD = Path("workspace/public/src/scripts/server-distro/a90_dpublic_smoke_httpd.c")
 HTTP_GET = Path("workspace/public/src/scripts/server-distro/a90_dpublic_http_get.c")
 HUD = Path("workspace/public/src/scripts/server-distro/a90_dpublic_hud.c")
+HUD_INTENT = Path("workspace/public/src/scripts/server-distro/a90_dpublic_hud_intent.c")
+HUD_PRESENTER = Path("workspace/public/src/scripts/server-distro/a90_dpublic_hud_presenter.c")
 FIRSTBOOT = Path("workspace/public/src/scripts/server-distro/a90_dpublic_firstboot.sh")
 WIFI_STA = Path("workspace/public/src/scripts/server-distro/a90_dpublic_wifi_sta.sh")
 API_PROBE = Path("workspace/public/src/scripts/server-distro/a90_dpublic_api_probe.sh")
@@ -47,6 +49,40 @@ class DpublicSmokeHelperTests(unittest.TestCase):
         self.assertIn("A90 DEBIAN APPLIANCE", source)
         self.assertIn("D-PUBLIC SERVER READY", source)
         self.assertIn("A90_DPUBLIC_SMOKE_OK", source)
+
+    def test_split_hud_intent_producer_is_atomic_no_drm_no_network(self) -> None:
+        source = HUD_INTENT.read_text(encoding="utf-8")
+
+        self.assertIn('DEFAULT_INTENT_PATH "/run/a90-dpublic/hud-intent.json"', source)
+        self.assertIn("write_atomic", source)
+        self.assertIn("fsync(fd)", source)
+        self.assertIn("rename(tmp, path)", source)
+        self.assertIn("fchmod(fd, 0640)", source)
+        self.assertIn("a90-dpublic-hud-intent-v1", source)
+        self.assertIn("public_state", source)
+        self.assertIn("PUBLIC_OFF", source)
+        self.assertIn("A90WSTA132_INTENT_WRITTEN=1", source)
+        self.assertIn("A90WSTA132_SECRET_VALUES_LOGGED=0", source)
+        self.assertNotIn("/dev/dri", source)
+        self.assertNotIn("DRM_IOCTL_MODE_SETCRTC", source)
+        for token in ("socket(", "bind(", "listen(", "connect("):
+            self.assertNotIn(token, source)
+
+    def test_split_hud_presenter_parser_is_bounded_and_kms_owner_only(self) -> None:
+        source = HUD_PRESENTER.read_text(encoding="utf-8")
+
+        self.assertIn("MAX_INTENT_BYTES 4096U", source)
+        self.assertIn("reject_unknown_top_level_keys", source)
+        self.assertIn("forbidden key", source)
+        self.assertIn('"command"', source)
+        self.assertIn('"ssid"', source)
+        self.assertIn('"psk"', source)
+        self.assertIn('"secret"', source)
+        self.assertIn("DRM_IOCTL_MODE_SETCRTC", source)
+        self.assertIn("A90WSTA132_PRESENTER_KMS_MASTER=1", source)
+        self.assertIn("A90WSTA132_SECRET_VALUES_LOGGED=0", source)
+        for token in ("system(", "popen(", "execve(", "socket(", "bind(", "listen(", "connect("):
+            self.assertNotIn(token, source)
 
     def test_firstboot_profile_removes_proof_autoreboot_and_starts_hud(self) -> None:
         source = FIRSTBOOT.read_text(encoding="utf-8")

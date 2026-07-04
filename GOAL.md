@@ -3282,6 +3282,33 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA132 can start the implementation ladder for the split display path: stage a minimal Debian intent
 > producer and root/native presenter prototype, still default-off/no-public, then prove the live boundary without
 > giving Debian `a90hud` direct KMS ownership.
+>
+> **🟢 STATUS (2026-07-05 07:50 KST host clock) — WSTA132 DPUBLIC HUD SPLIT
+> PROTOTYPE SOURCE PASS.**  Codex added the first implementation prototype for
+> the WSTA130/WSTA131 split display path: `a90_dpublic_hud_intent.c` is a
+> Debian-side non-root intent producer that atomically writes bounded
+> `/run/a90-dpublic/hud-intent.json` with `PUBLIC_OFF`, no `/dev/dri`, no KMS
+> ioctl, and no network API; `a90_dpublic_hud_presenter.c` is a root/native
+> presenter parser prototype that bounds the intent to `4096` bytes, requires
+> schema/sequence/monotonic fields, rejects forbidden and unknown top-level
+> fields, and records native-init as the KMS owner.  The WSTA132 runner is inert
+> unless `--emit-split-prototype`, fail-closes outside `workspace/private`, builds
+> host and arm64 variants, host-selftests producer→intent→presenter validation,
+> and stages arm64 binaries under `rootfs-stage/usr/local/bin/`.  A private WSTA132
+> proof produced decision `wsta132-dpublic-hud-split-prototype-source-pass`,
+> `source_contract_ok=true`, `host_build_ok=true`, `arm64_build_ok=true`,
+> `host_selftest_ok=true`, `rootfs_stage_ok=true`, `default_public_off=true`,
+> `public_url_value_logged=false`, and `secret_values_logged=0`.  No device action,
+> boot flash, native reboot, Wi-Fi association, DHCP, public tunnel, public smoke,
+> packet-filter mutation, userdata mutation, DRM open, KMS SETCRTC, or switch-root
+> ran.  Validation passed `py_compile`, WSTA132 focused tests (`5 tests`),
+> D-public smoke helper tests (`15 tests`), and full server-distro WSTA regression
+> (`447 tests`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA132_DPUBLIC_HUD_SPLIT_PROTOTYPE_SOURCE_2026-07-05.md`.
+> **NEXT:** WSTA133 should integrate the split HUD producer/presenter binaries into
+> the D-public rootfs preparation and firstboot/profile wiring, still default-off
+> and no-public, before a live proof where Debian only writes the bounded intent
+> and native/root owns display presentation.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
