@@ -2081,6 +2081,19 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA58_RENEWAL_MANUAL_STOP_SOURCE_2026-07-04.md`.
 > **NEXT:** run WSTA58 live only with two fresh `ttl_sec <= 300` WSTA54 artifacts and the explicit WSTA58 live gate;
 > stop on the first WSTA55 failure, cleanup miss, WSTA48 redaction miss, or post-run health regression.
+> **🟡 STATUS (2026-07-04 18:30 KST host clock) — WSTA59 renewal lease refresh
+> SOURCE PASS after first WSTA58 live block.**  Codex attempted WSTA58 live.  The initial WSTA55 leg passed and cleaned,
+> but the renewal leg blocked before public exposure because the pre-minted 300-second renewal lease expired while the
+> initial WSTA55 proof was running: `renewal_decision=wsta55-blocked-lease-already-expired`.  Manual stop cleanup still
+> returned `PUBLIC_OFF`, WSTA48 redaction stayed clean, and independent final health showed `selftest fail=0`, Wi-Fi
+> autoconnect disabled, supplicant count `0`, no default route, and no IPv4 lease.  Codex updated WSTA58 so live retry
+> can take `--renewal-wsta53-result-json`; it validates that source during preflight but mints the WSTA54 renewal lease
+> only after the initial WSTA55 leg returns, keeping the second short lease fresh.  Private refresh preflight passed
+> with `renewal_lease_refresh_ready=true`, `public_url_value_logged=false`, and `secret_values_logged=0`.  Validation
+> passed 40 focused WSTA53/WSTA54/WSTA55/WSTA58/WSTA48 tests and `py_compile`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA59_RENEWAL_LEASE_REFRESH_SOURCE_2026-07-04.md`.
+> **NEXT:** retry WSTA58 live using an initial WSTA54 private lease plus a renewal WSTA53 source; stop on any repeated
+> renewal failure, cleanup miss, WSTA48 redaction miss, or post-run health regression.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

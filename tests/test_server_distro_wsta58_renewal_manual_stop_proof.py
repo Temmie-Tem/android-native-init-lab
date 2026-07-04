@@ -22,6 +22,18 @@ class ServerDistroWsta58RenewalManualStopProofTests(unittest.TestCase):
         return tempfile.TemporaryDirectory(dir=runner.DEFAULT_RUN_BASE)
 
     def make_artifact(self, root: Path, label: str, ttl_sec: int = 60) -> Path:
+        source = self.make_wsta53_result(root, label, ttl_sec)
+        wsta54_args = wsta54.build_arg_parser().parse_args([
+            "--run-dir",
+            str(root / f"{label}-wsta54"),
+            "--wsta53-result-json",
+            str(source),
+        ])
+        result = wsta54.run(wsta54_args)
+        self.assertEqual(result["decision"], wsta54.PASS_DECISION)
+        return runner.REPO_ROOT / result["private_lease_artifact"]
+
+    def make_wsta53_result(self, root: Path, label: str, ttl_sec: int = 60) -> Path:
         wsta53_args = wsta53.build_arg_parser().parse_args([
             "--run-dir",
             str(root / f"{label}-wsta53"),
@@ -35,15 +47,7 @@ class ServerDistroWsta58RenewalManualStopProofTests(unittest.TestCase):
             "private",
         ])
         self.assertEqual(wsta53.run(wsta53_args)["decision"], wsta53.PASS_DECISION)
-        wsta54_args = wsta54.build_arg_parser().parse_args([
-            "--run-dir",
-            str(root / f"{label}-wsta54"),
-            "--wsta53-result-json",
-            str(root / f"{label}-wsta53" / "wsta53_result.json"),
-        ])
-        result = wsta54.run(wsta54_args)
-        self.assertEqual(result["decision"], wsta54.PASS_DECISION)
-        return runner.REPO_ROOT / result["private_lease_artifact"]
+        return root / f"{label}-wsta53" / "wsta53_result.json"
 
     def preflight_args(self, root: Path):
         return runner.build_arg_parser().parse_args([
@@ -57,6 +61,27 @@ class ServerDistroWsta58RenewalManualStopProofTests(unittest.TestCase):
 
     def live_args(self, root: Path):
         args = self.preflight_args(root)
+        args.execute_renewal_manual_stop = True
+        args.allow_operator_live = True
+        args.allow_native_reboot = True
+        args.allow_public_live = True
+        args.ack_credentialed_wifi = True
+        args.ack_public_exposure = True
+        args.force_ttl_expiry_proof = True
+        args.force_manual_stop_proof = True
+        args.native_confirm_token = runner.wsta55.wsta45.wsta25.NATIVE_CONFIRM_TOKEN
+        args.public_confirm_token = runner.wsta55.wsta45.PUBLIC_CONFIRM_TOKEN
+        return args
+
+    def live_refresh_args(self, root: Path):
+        args = runner.build_arg_parser().parse_args([
+            "--run-dir",
+            str(root / "wsta58"),
+            "--initial-lease-artifact-json",
+            str(self.make_artifact(root, "initial")),
+            "--renewal-wsta53-result-json",
+            str(self.make_wsta53_result(root, "renewal-source")),
+        ])
         args.execute_renewal_manual_stop = True
         args.allow_operator_live = True
         args.allow_native_reboot = True
@@ -126,6 +151,24 @@ class ServerDistroWsta58RenewalManualStopProofTests(unittest.TestCase):
         self.assertTrue(result["lease_pair_redacted"]["initial"]["lease_id_value_redacted"])
         self.assertTrue(result["lease_pair_redacted"]["renewal"]["lease_id_value_redacted"])
 
+    def test_renewal_source_preflight_defers_distinct_lease_until_live_refresh(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            args = runner.build_arg_parser().parse_args([
+                "--run-dir",
+                str(root / "wsta58"),
+                "--initial-lease-artifact-json",
+                str(self.make_artifact(root, "initial")),
+                "--renewal-wsta53-result-json",
+                str(self.make_wsta53_result(root, "renewal-source")),
+            ])
+            with mock.patch.object(runner.wsta55, "run", side_effect=AssertionError("unexpected live call")):
+                result = runner.run(args)
+
+        self.assertEqual(result["decision"], runner.PREFLIGHT_DECISION)
+        self.assertTrue(result["checks"]["renewal_lease_refresh_ready"])
+        self.assertTrue(result["checks"]["distinct_lease_ids_deferred_to_live_refresh"])
+
     def test_rejects_same_lease_for_renewal(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -178,6 +221,33 @@ class ServerDistroWsta58RenewalManualStopProofTests(unittest.TestCase):
         self.assertTrue(result["checks"]["wsta48_redaction_ok"])
         self.assertNotIn("wsta54-", json.dumps(runner.public_summary(result), sort_keys=True).lower())
 
+    def test_live_refreshes_renewal_lease_after_initial_from_wsta53_source(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            args = self.live_refresh_args(root)
+            calls: list[Path] = []
+
+            def fake_wsta55_run(call_args):
+                calls.append(Path(call_args.lease_artifact_json))
+                return self.wsta55_pass("initial" if len(calls) == 1 else "renewal")
+
+            with mock.patch.object(runner.wsta55, "run", side_effect=fake_wsta55_run), \
+                    mock.patch.object(runner, "manual_stop_cleanup", return_value={
+                        "ok": True,
+                        "manual_stop_requested": True,
+                        "manual_stop_public_state": "PUBLIC_OFF",
+                        "public_url_value_logged": False,
+                        "secret_values_logged": 0,
+                    }), \
+                    mock.patch.object(runner.wsta48, "build_aggregate", return_value=self.aggregate_pass()):
+                result = runner.run(args)
+
+        self.assertEqual(result["decision"], runner.PASS_DECISION)
+        self.assertEqual(len(calls), 2)
+        self.assertIn("renewal-wsta54-live-refresh", str(calls[1]))
+        self.assertTrue(result["lease_pair_redacted"]["distinct_lease_ids"])
+        self.assertEqual(result["renewal_lease_refresh_redacted"]["decision"], wsta54.PASS_DECISION)
+
     def test_live_blocks_when_manual_stop_cleanup_fails(self) -> None:
         with self.private_tmp() as tmp:
             args = self.live_args(Path(tmp))
@@ -213,6 +283,8 @@ class ServerDistroWsta58RenewalManualStopProofTests(unittest.TestCase):
 
         self.assertIn("--execute-renewal-manual-stop", source)
         self.assertIn("--force-manual-stop-proof", source)
+        self.assertIn("--renewal-wsta53-result-json", source)
+        self.assertIn("mint_renewal_lease", source)
         self.assertIn("wsta55.run", source)
         self.assertIn("wsta48.build_aggregate", source)
         self.assertIn("manual_stop_cleanup", source)

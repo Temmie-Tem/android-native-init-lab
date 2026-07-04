@@ -22,6 +22,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 import run_wsta48_redacted_result_aggregate as wsta48  # noqa: E402
+import run_wsta54_private_lease_artifact as wsta54  # noqa: E402
 import run_wsta55_short_lived_public_proof as wsta55  # noqa: E402
 
 
@@ -81,8 +82,8 @@ def template() -> dict[str, Any]:
         rel(Path(__file__).resolve()),
         "--initial-lease-artifact-json",
         "workspace/private/runs/server-distro/<wsta54-initial>/wsta54_private_lease.json",
-        "--renewal-lease-artifact-json",
-        "workspace/private/runs/server-distro/<wsta54-renewal>/wsta54_private_lease.json",
+        "--renewal-wsta53-result-json",
+        "workspace/private/runs/server-distro/<wsta53-renewal>/wsta53_result.json",
         "--execute-renewal-manual-stop",
         "--allow-operator-live",
         "--allow-native-reboot",
@@ -99,7 +100,8 @@ def template() -> dict[str, Any]:
     return {
         "scope": "WSTA58 renewal and manual-stop proof",
         "default_mode": "host-only-preflight",
-        "requires_two_distinct_private_short_leases": True,
+        "requires_initial_private_short_lease": True,
+        "renewal_private_short_lease_minted_after_initial": True,
         "command": command,
         "live_action_requires_execute_flag": True,
         "secret_values_logged": 0,
@@ -110,36 +112,82 @@ def template() -> dict[str, Any]:
 def validate_pair(args: argparse.Namespace, now: _dt.datetime) -> tuple[bool, str, dict[str, Any]]:
     if args.initial_lease_artifact_json is None:
         return False, "wsta58-blocked-initial-lease-artifact-required", {}
-    if args.renewal_lease_artifact_json is None:
-        return False, "wsta58-blocked-renewal-lease-artifact-required", {}
     initial_path = resolve_path(args.initial_lease_artifact_json)
-    renewal_path = resolve_path(args.renewal_lease_artifact_json)
-    if not is_under(initial_path, PRIVATE_ROOT) or not is_under(renewal_path, PRIVATE_ROOT):
-        return False, "wsta58-blocked-nonprivate-lease-artifact", {
-            "initial_path": rel(initial_path),
-            "renewal_path": rel(renewal_path),
-        }
+    renewal_path = resolve_path(args.renewal_lease_artifact_json) if args.renewal_lease_artifact_json else None
+    renewal_source_path = resolve_path(args.renewal_wsta53_result_json) if args.renewal_wsta53_result_json else None
+    if renewal_path is None and renewal_source_path is None:
+        return False, "wsta58-blocked-renewal-lease-or-source-required", {}
+    if not is_under(initial_path, PRIVATE_ROOT):
+        return False, "wsta58-blocked-nonprivate-lease-artifact", {"initial_path": rel(initial_path)}
+    if renewal_path is not None and not is_under(renewal_path, PRIVATE_ROOT):
+        return False, "wsta58-blocked-nonprivate-lease-artifact", {"renewal_path": rel(renewal_path)}
+    if renewal_source_path is not None and not is_under(renewal_source_path, PRIVATE_ROOT):
+        return False, "wsta58-blocked-nonprivate-renewal-source", {"renewal_source": rel(renewal_source_path)}
     initial_ok, initial_decision, initial_detail = wsta55.validate_artifact(initial_path, now)
-    renewal_ok, renewal_decision, renewal_detail = wsta55.validate_artifact(renewal_path, now)
     detail = {
         "initial": redacted_lease_detail(initial_path, initial_detail),
-        "renewal": redacted_lease_detail(renewal_path, renewal_detail),
+        "renewal": {},
+        "renewal_refresh_source": {},
         "distinct_lease_ids": False,
+        "renewal_lease_refresh_ready": False,
     }
     if not initial_ok:
         return False, f"wsta58-blocked-initial-{initial_decision}", detail
-    if not renewal_ok:
-        return False, f"wsta58-blocked-renewal-{renewal_decision}", detail
     initial_artifact = initial_detail.get("artifact") or {}
-    renewal_artifact = renewal_detail.get("artifact") or {}
-    if initial_artifact.get("lease_id") == renewal_artifact.get("lease_id"):
-        return False, "wsta58-blocked-renewal-lease-not-distinct", detail
-    detail["distinct_lease_ids"] = True
     detail["initial"]["lease_id_present"] = bool(initial_artifact.get("lease_id"))
-    detail["renewal"]["lease_id_present"] = bool(renewal_artifact.get("lease_id"))
     detail["initial_artifact"] = initial_artifact
-    detail["renewal_artifact"] = renewal_artifact
+
+    if renewal_path is not None:
+        renewal_ok, renewal_decision, renewal_detail = wsta55.validate_artifact(renewal_path, now)
+        detail["renewal"] = redacted_lease_detail(renewal_path, renewal_detail)
+        if not renewal_ok:
+            return False, f"wsta58-blocked-renewal-{renewal_decision}", detail
+        renewal_artifact = renewal_detail.get("artifact") or {}
+        if initial_artifact.get("lease_id") == renewal_artifact.get("lease_id"):
+            return False, "wsta58-blocked-renewal-lease-not-distinct", detail
+        detail["distinct_lease_ids"] = True
+        detail["renewal"]["lease_id_present"] = bool(renewal_artifact.get("lease_id"))
+        detail["renewal_artifact"] = renewal_artifact
+    if renewal_source_path is not None:
+        source_ok, source_decision, source_detail = validate_renewal_source(renewal_source_path)
+        detail["renewal_refresh_source"] = redacted_renewal_source_detail(renewal_source_path, source_detail)
+        if not source_ok:
+            return False, source_decision, detail
+        detail["renewal_lease_refresh_ready"] = True
+        detail["renewal_source_path"] = renewal_source_path
     return True, "ok", detail
+
+
+def validate_renewal_source(path: Path) -> tuple[bool, str, dict[str, Any]]:
+    try:
+        payload = wsta54.load_json(path)
+    except Exception as exc:  # noqa: BLE001
+        return False, "wsta58-blocked-renewal-source-unreadable", {"error": str(exc)}
+    ok, decision, detail = wsta54.validate_wsta53_result(payload)
+    if not ok:
+        return False, f"wsta58-blocked-renewal-source-{decision}", detail
+    ttl_sec = int(detail.get("ttl_sec", 0))
+    if ttl_sec <= 0 or ttl_sec > wsta55.SHORT_LEASE_MAX_TTL_SEC:
+        return False, "wsta58-blocked-renewal-source-ttl-not-short", {
+            "ttl_sec": ttl_sec,
+            "short_lease_max_ttl_sec": wsta55.SHORT_LEASE_MAX_TTL_SEC,
+        }
+    return True, "ok", {
+        "ttl_sec": ttl_sec,
+        "renewal_source_decision": payload.get("decision"),
+        "public_url_value_logged": False,
+        "secret_values_logged": 0,
+    }
+
+
+def redacted_renewal_source_detail(path: Path, detail: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "source": rel(path),
+        "ttl_sec": detail.get("ttl_sec"),
+        "lease_minted_after_initial": True,
+        "public_url_value_logged": False,
+        "secret_values_logged": 0,
+    }
 
 
 def redacted_lease_detail(path: Path, detail: dict[str, Any]) -> dict[str, Any]:
@@ -204,6 +252,21 @@ def wsta55_args(args: argparse.Namespace, run_dir: Path, lease_path: Path, label
     ])
 
 
+def mint_renewal_lease(args: argparse.Namespace, run_dir: Path) -> tuple[bool, dict[str, Any], Path | None]:
+    source_path = resolve_path(args.renewal_wsta53_result_json)
+    wsta54_args = wsta54.build_arg_parser().parse_args([
+        "--run-dir",
+        str(run_dir / "renewal-wsta54-live-refresh"),
+        "--wsta53-result-json",
+        str(source_path),
+    ])
+    result = wsta54.run(wsta54_args)
+    if result.get("decision") != wsta54.PASS_DECISION:
+        return False, result, None
+    artifact_path = REPO_ROOT / str(result["private_lease_artifact"])
+    return True, result, artifact_path
+
+
 def manual_stop_cleanup(args: argparse.Namespace) -> dict[str, Any]:
     cleanup = wsta55.pre_live_cleanup(args)
     return {
@@ -266,6 +329,7 @@ def public_summary(result: dict[str, Any]) -> dict[str, Any]:
         "checks": result.get("checks", {}),
         "initial": wsta55_public(result.get("initial_wsta55", {})) if result.get("initial_wsta55") else None,
         "renewal": wsta55_public(result.get("renewal_wsta55", {})) if result.get("renewal_wsta55") else None,
+        "renewal_lease_refresh": result.get("renewal_lease_refresh_redacted", {}),
         "manual_stop": result.get("manual_stop", {}),
         "wsta48": result.get("wsta48_redacted", {}),
         "safety": result.get("safety", {}),
@@ -299,7 +363,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     result["lease_pair_redacted"] = {
         "initial": pair_detail.get("initial", {}),
         "renewal": pair_detail.get("renewal", {}),
+        "renewal_refresh_source": pair_detail.get("renewal_refresh_source", {}),
         "distinct_lease_ids": bool(pair_detail.get("distinct_lease_ids")),
+        "renewal_lease_refresh_ready": bool(pair_detail.get("renewal_lease_refresh_ready")),
     }
     if not pair_ok:
         result["decision"] = pair_decision
@@ -311,8 +377,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         result["decision"] = PREFLIGHT_DECISION
         result["checks"] = {
             "initial_lease_artifact_ok": True,
-            "renewal_lease_artifact_ok": True,
-            "distinct_lease_ids": True,
+            "renewal_lease_artifact_ok": bool(pair_detail.get("renewal_artifact")),
+            "renewal_lease_refresh_ready": bool(pair_detail.get("renewal_lease_refresh_ready")),
+            "distinct_lease_ids": bool(pair_detail.get("distinct_lease_ids")),
+            "distinct_lease_ids_deferred_to_live_refresh": bool(pair_detail.get("renewal_lease_refresh_ready")),
             "live_execution_requested": False,
             "wsta58_live_ready": True,
             "public_url_value_logged": False,
@@ -329,8 +397,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         result["decision"] = gate_decision
         result["checks"] = {
             "initial_lease_artifact_ok": True,
-            "renewal_lease_artifact_ok": True,
-            "distinct_lease_ids": True,
+            "renewal_lease_artifact_ok": bool(pair_detail.get("renewal_artifact")),
+            "renewal_lease_refresh_ready": bool(pair_detail.get("renewal_lease_refresh_ready")),
+            "distinct_lease_ids": bool(pair_detail.get("distinct_lease_ids")),
             "live_execution_requested": True,
             "explicit_live_gate": False,
         }
@@ -339,10 +408,49 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         return result
 
     initial_path = resolve_path(args.initial_lease_artifact_json)
-    renewal_path = resolve_path(args.renewal_lease_artifact_json)
     initial = wsta55.run(wsta55_args(args, run_dir, initial_path, "initial"))
     result["initial_wsta55"] = initial
     write_json(out_path, result)
+    if args.renewal_wsta53_result_json:
+        refresh_ok, refresh_result, minted_path = mint_renewal_lease(args, run_dir)
+        result["renewal_lease_refresh_redacted"] = {
+            "decision": refresh_result.get("decision"),
+            "private_lease_artifact_present": bool(refresh_result.get("private_lease_artifact")),
+            "lease_id_value_redacted": True,
+            "public_url_value_logged": False,
+            "secret_values_logged": 0,
+        }
+        write_json(out_path, result)
+        if not refresh_ok or minted_path is None:
+            result["renewal_wsta55"] = {"decision": "wsta58-blocked-renewal-lease-refresh"}
+            result["manual_stop"] = manual_stop_cleanup(args)
+            result["checks"] = live_checks(
+                initial,
+                result["renewal_wsta55"],
+                {"redaction_guard": {"ok": True}},
+                result["manual_stop"],
+            )
+            result["decision"] = "wsta58-blocked-renewal-lease-refresh"
+            result["ended_utc"] = utc_stamp()
+            write_json(out_path, result)
+            return result
+        renewal_path = minted_path
+        renewal_artifact = wsta54.load_json(renewal_path)
+        result["lease_pair_redacted"]["renewal"] = redacted_lease_detail(
+            renewal_path,
+            {
+                "ttl_sec": renewal_artifact.get("ttl_sec"),
+                "issued_utc": renewal_artifact.get("issued_utc"),
+                "expires_utc": renewal_artifact.get("expires_utc"),
+                "lease_id_present": bool(renewal_artifact.get("lease_id")),
+            },
+        )
+        result["lease_pair_redacted"]["distinct_lease_ids"] = (
+            pair_detail["initial_artifact"].get("lease_id") != renewal_artifact.get("lease_id")
+        )
+        write_json(out_path, result)
+    else:
+        renewal_path = resolve_path(args.renewal_lease_artifact_json)
     renewal = wsta55.run(wsta55_args(args, run_dir, renewal_path, "renewal"))
     result["renewal_wsta55"] = renewal
     write_json(out_path, result)
@@ -377,6 +485,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--initial-lease-artifact-json", type=Path)
     parser.add_argument("--renewal-lease-artifact-json", type=Path)
+    parser.add_argument("--renewal-wsta53-result-json", type=Path)
     parser.add_argument("--bridge-host", default="127.0.0.1")
     parser.add_argument("--bridge-port", type=int, default=54321)
     parser.add_argument("--timeout", type=float, default=20.0)
