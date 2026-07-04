@@ -52,6 +52,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > boot back to `v2321`; before a *persistent, always-on public* posture (named tunnel, resident exposed
 > profile), fold in D-harden (seccomp/AppArmor/nftables/caps + named-tunnel auth) per design doc D + E §8.
 
+> **🟢 OPERATOR CHARTER (2026-07-04) — next bounded unit = read-only DEBIAN-EYE HARDWARE INVENTORY (user-requested).**
+> Capture what the Debian appliance actually sees for hardware, from inside the distro (chroot-under-native-PID1
+> is fine — no switch_root needed, no Wi-Fi association needed). NON-DESTRUCTIVE / READ-ONLY: mount the staged
+> Debian rootfs (SD image), start no exposure, collect and persist a hardware inventory, cleanup, roll back /
+> return to native with `selftest fail=0`. Capture (Debian-side, redacted): `uname -a` (kernel/arch), `lscpu`
+> or `/proc/cpuinfo` (core count/model/features), `free -h` + `/proc/meminfo` (MemTotal), `lsblk`/`/proc/partitions`
+> (block devices + sizes), `ip -o link` + `ip -o addr` (interface names/state/mtu), `/sys/class/net` + `/sys/class/block`
+> presence, `cat /proc/filesystems`, and a bounded `dmesg` HW-line sample. Also record which vendor userspace stacks
+> are ABSENT in Debian (audio/ACDB, GPU/KGSL userspace, sensors, modem/RIL, camera, BT) vs the raw kernel nodes that
+> exist. **REDACTION (hard):** REDACT MAC/BSSID/IP/gateway/serial/IMEI/MEID/UUID/PARTUUID/hostname/SSID/PSK and any
+> routable address from BOTH the committed report AND any public artifact — keep only shapes/counts/models/sizes/kernel-config
+> booleans (private run dir may hold fuller detail). Cross-check against the existing native-side D0 inventory
+> (`workspace/private/runs/server-distro/d0-device-live-*/inventory_public_summary.json`: cpu_count=8, mem_total≈5.375 GiB,
+> ext4/seccomp/tun=y, NET_NS/PID_NS/USER_NS/UTS_NS/IPC_NS=missing, VETH=n, OVERLAY_FS=n) — the Debian view should
+> match the shared-kernel facts; note any divergence. Safety machinery unchanged (recoverable envelope → `v2321`,
+> forbidden-partition/power bright lines, no committed secrets, D4 userdata guards). DoD = a committed redacted
+> Debian-eye hardware inventory report + `selftest fail=0`.
+
 > **🟣 OPERATOR STEER (2026-07-03) — D4C: RESOLVE THE ext2/ext4 FILESYSTEM-TYPE DIVERGENCE BEFORE the
 > destructive userdata format.** Gate-2 caught that V3377 "fixed" the V3375 syntax failure by *dropping*
 > `-t ext4` from the busybox `mke2fs` argv. BusyBox `mke2fs` with no `-t` makes **ext2 (no journal)**, not
