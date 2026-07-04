@@ -34,6 +34,9 @@ class NativeWifiUplinkServiceSourceTests(unittest.TestCase):
 
     def test_uplink_response_records_safety_boundaries(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")
+        start = source.index("static void wifi_uplink_service_append_autoconnect_result")
+        end = source.index("int a90_wifi_cmd(char **argv, int argc)")
+        uplink_service = source[start:end]
 
         for marker in (
             "owner=native-init",
@@ -46,6 +49,11 @@ class NativeWifiUplinkServiceSourceTests(unittest.TestCase):
             "secret_values_logged=0",
         ):
             self.assertIn(marker, source)
+        self.assertIn("autoconnect_profile_present=%d", uplink_service)
+        self.assertIn("config_profile_present=%d", uplink_service)
+        self.assertIn("requested_profile_present=%d", uplink_service)
+        self.assertNotIn("profile=%s\\n", uplink_service)
+        self.assertNotIn("requested_profile=%s", uplink_service)
 
     def test_status_scan_service_still_denies_connection_ops(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")

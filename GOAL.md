@@ -1327,6 +1327,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > prove `wifi uplink-service status`, prove `op=autoconnect` without confirm is denied before connect,
 > cleanup and finish with `selftest fail=0`.  Full autoconnect/DHCP remains a separate credential-gated
 > live unit; do not run connect/DHCP/public exposure in the no-confirm gate.
+> **🟡 STATUS (2026-07-04 10:42 KST host clock) — WSTA23 live gate found profile-label redaction gap; V3387 source/build fix PASS.**
+> V3386 flashed cleanly through `native_init_flash.py` (`readback_sha256=9c097e55a2cf...`, flash total
+> `62.597s`) and booted as `0.11.142` with `selftest fail=0` after one serial resync retry.  The first
+> `wifi uplink-service status` request responded with `wifi-uplink-service-status-pass`, but the response
+> exposed a profile label value.  No PSK/SSID file contents, association, DHCP, ping, or public tunnel ran,
+> but the file-service contract should be stricter because Debian/helper logs are intended to be commit-safe.
+> Codex stopped the temporary service and built V3387 to redact profile label values to booleans:
+> `autoconnect_profile_present`, `config_profile_present`, and `requested_profile_present`.  V3387 built as
+> `A90 Linux init 0.11.143 (v3387-wifi-uplink-service-redacted)`, boot SHA
+> `ebebf4384f408c5cd20630b12cfd94d56d4d484664612b692de986fdecf6da5d`, helper SHA
+> `fa395d3ecb6944a57487f3966948a634596157e4de3fdc39575a2fc502d1ceef`.  Report:
+> `docs/reports/NATIVE_INIT_V3387_WIFI_UPLINK_SERVICE_REDACTED_SOURCE_BUILD_2026-07-04.md`.
+> **NEXT:** flash V3387, then rerun the WSTA23 non-credential live gate: status response must contain only
+> profile-present booleans, no profile label values, and no-confirm `op=autoconnect` must return
+> `wifi-uplink-service-confirm-required` before connect/DHCP.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

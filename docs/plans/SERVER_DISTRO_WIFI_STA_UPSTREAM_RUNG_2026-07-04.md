@@ -479,15 +479,26 @@ V3386 built as `A90 Linux init 0.11.142 (v3386-wifi-uplink-service-boundary)`, b
 association, DHCP, ping, public exposure, userdata, or switch-root action ran in this source unit.
 Report: `docs/reports/NATIVE_INIT_V3386_WIFI_UPLINK_SERVICE_BOUNDARY_SOURCE_BUILD_2026-07-04.md`.
 
+V3386 live precheck and flash passed, but the first status response exposed a profile label value.
+No secret file contents, association, DHCP, ping, or public exposure ran, and the temporary service
+was stopped.  WSTA23 therefore adds V3387 as a redaction fix before completing the live gate:
+profile label values are replaced with `autoconnect_profile_present`, `config_profile_present`, and
+`requested_profile_present` booleans.  V3387 built as `A90 Linux init 0.11.143
+(v3387-wifi-uplink-service-redacted)`, boot SHA
+`ebebf4384f408c5cd20630b12cfd94d56d4d484664612b692de986fdecf6da5d`, helper SHA
+`fa395d3ecb6944a57487f3966948a634596157e4de3fdc39575a2fc502d1ceef`.  Report:
+`docs/reports/NATIVE_INIT_V3387_WIFI_UPLINK_SERVICE_REDACTED_SOURCE_BUILD_2026-07-04.md`.
+
 ## 7. Next Implementation Unit
 
-WSTA23 live non-credential gate:
+WSTA23 live non-credential gate, revised to use V3387:
 
-1. Flash V3386 through `native_init_flash.py` after normal rollback/recovery prechecks.
+1. Flash V3387 through `native_init_flash.py` after normal rollback/recovery prechecks.
 2. Health-check `version`, `status`, and `selftest`.
 3. Start `wifi uplink-service` in a chroot-visible temp directory.
 4. Prove `op=status` returns `owner=native-init`, `version=a90-native-wifi-uplink-service-v1`,
-   redacted status fields, and no connect/DHCP/public exposure.
+   redacted status fields, profile-present booleans rather than profile label values, and no
+   connect/DHCP/public exposure.
 5. Prove `op=autoconnect` without `confirm=A90_NATIVE_UPLINK_AUTOCONNECT_V1` returns
    `wifi-uplink-service-confirm-required` and does not create a connect/DHCP side effect.
 6. Stop service, cleanup, and finish with `selftest fail=0`.

@@ -5919,9 +5919,12 @@ static void wifi_uplink_service_append_autoconnect_result(char *response,
     if (wifi_service_request_value(result, "decision", value, sizeof(value)) == 0) {
         wifi_service_append(response, response_size, offset, "autoconnect_decision=%s\n", value);
     }
-    if (wifi_service_request_value(result, "profile", value, sizeof(value)) == 0) {
-        wifi_service_append(response, response_size, offset, "profile=%s\n", value);
-    }
+    wifi_service_append(response,
+                        response_size,
+                        offset,
+                        "autoconnect_profile_present=%d\n",
+                        wifi_service_request_value(result, "profile", value, sizeof(value)) == 0 &&
+                        value[0] != '\0' ? 1 : 0);
     if (wifi_service_request_value(result, "connect_rc", value, sizeof(value)) == 0) {
         wifi_service_append(response, response_size, offset, "connect_rc=%s\n", value);
     }
@@ -5966,9 +5969,9 @@ static void wifi_uplink_service_append_autoconnect_config(char *response,
     wifi_service_append(response,
                         response_size,
                         offset,
-                        "profile=%s\n",
-                        config.profile[0] != '\0' ? config.profile :
-                        (profile != NULL && profile[0] != '\0' ? profile : "none"));
+                        "config_profile_present=%d\n",
+                        config.profile[0] != '\0' ||
+                        (profile != NULL && profile[0] != '\0') ? 1 : 0);
     wifi_service_append(response,
                         response_size,
                         offset,
@@ -6051,8 +6054,8 @@ static int wifi_uplink_service_format_autoconnect_response(char *response,
     wifi_service_append(response,
                         response_size,
                         offset,
-                        "requested_profile=%s\n",
-                        profile != NULL && profile[0] != '\0' ? profile : "default");
+                        "requested_profile_present=%d\n",
+                        profile != NULL && profile[0] != '\0' ? 1 : 0);
     wifi_uplink_service_append_autoconnect_result(response, response_size, offset);
     wifi_service_append(response,
                         response_size,
