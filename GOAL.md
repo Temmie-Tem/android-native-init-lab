@@ -2375,6 +2375,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** default-off persistent exposure now has prepare-to-arm, arming packet, per-packet status, and multi-packet
 > inventory.  Continue only with explicit operator-selected WSTA58 live proof, or further default-off operator
 > UX/reporting without starting public exposure.
+> **🟢 STATUS (2026-07-04 20:10 KST host clock) — WSTA76 persistent launch brief
+> SOURCE/PREFLIGHT PASS.**  Codex added
+> `workspace/public/src/scripts/server-distro/run_wsta76_persistent_launch_brief.py`, a host-only final brief layer
+> that consumes a private WSTA75 arming inventory, reruns WSTA75 against the original scan root, selects a fresh READY
+> packet, loads the fresh WSTA73 recheck packet, and writes the WSTA58 command template plus required replacements,
+> acknowledgements, abort conditions, cleanup expectations, and operator preflight checks.  The supplied inventory is
+> not trusted as fresh; WSTA76 must revalidate before briefing.  Private smoke
+> `workspace/private/runs/server-distro/wsta76-launch-brief-smoke-20260704T111000Z` returned
+> `wsta76-persistent-launch-brief-pass`, `state=READY_TO_EXECUTE_DEFAULT_OFF`, `ready_for_live=true`,
+> `ready_candidate_count=1`, `selected_wsta73_arming_packet=workspace/private/runs/server-distro/wsta76-launch-brief-smoke-20260704T111000Z/packet/wsta73_arming_packet.json`,
+> `initial_seconds_remaining=299`, `ack_count=7`, `abort_condition_count=5`, `live_execution_requested=false`,
+> `public_url_value_logged=false`, and `secret_values_logged=0`.  Validation passed 143 focused
+> WSTA52/WSTA53/WSTA54/WSTA55/WSTA58/WSTA63/WSTA64/WSTA65/WSTA66/WSTA67/WSTA68/WSTA69/WSTA70/WSTA71/WSTA72/WSTA73/
+> WSTA74/WSTA75/WSTA76 tests plus `py_compile`.  No boot image, flash, device command, native reboot, Wi-Fi
+> association, DHCP, public tunnel, public smoke, userdata action, switch-root, or external service action ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA76_LAUNCH_BRIEF_SOURCE_2026-07-04.md`.
+> **NEXT:** default-off persistent exposure now has prepare-to-arm, arming packet, per-packet status, multi-packet
+> inventory, and a final host-only launch brief.  Continue only with explicit operator-selected WSTA58 live proof, or
+> further default-off operator UX/reporting without starting public exposure.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
