@@ -1668,6 +1668,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > flash, and rerun the same confirmed-autoconnect gate.  Only after `DRIVER COUNTRY`, `SCAN`,
 > `ENABLE_NETWORK`, `SELECT_NETWORK`, and `REASSOCIATE` no longer fail with `-98` should the remaining
 > 4-way-handshake stall be interpreted as a true WPA/AP/credential/driver condition.
+> **🟡 STATUS (2026-07-04 14:01 KST host clock) — WSTA36 V3393 ctrl socket uniqueness
+> SOURCE+BUILD+FLASH+LIVE PASS for the `-98` artifact; confirmed autoconnect remains BLOCKED at true
+> WPA 4-way completion.**  V3393 adds a process-local sequence to native WPA ctrl local abstract
+> socket names, built as `A90 Linux init 0.11.149 (v3393-wifi-ctrl-socket-unique)` with boot SHA
+> `ee9d185e831265c47b11939a929ce361d70efc770e746f65d7b2c65884162f79`, and flashed cleanly through
+> the checked helper (`63.135s`, readback SHA matched, post-boot `selftest fail=0`).  Live WSTA36
+> proves the V3392 collision diagnosis: `connect_ctrl_driver_country_rc=0`,
+> `connect_ctrl_scan_rc=0`, `connect_ctrl_enable_network_rc=0`,
+> `connect_ctrl_select_network_rc=0`, and `connect_ctrl_reassociate_rc=0` after monitor attach.
+> The remaining blocker is downstream and real: `connect_carrier_wait_rc=0`,
+> `connect_carrier_up_at_wait=1`, `connect_wpa_monitor_attach_rc=0`,
+> `connect_wpa_monitor_event_count=55`, `connect_wpa_monitor_temp_disabled_seen=1`,
+> `connect_wpa_complete_wait_rc=-110`, `connect_wpa_complete_first_state=4WAY_HANDSHAKE`,
+> `connect_wpa_complete_last_state=4WAY_HANDSHAKE`, `connect_wpa_complete_completed=0`,
+> no connected/auth-reject/assoc-reject/EAP-failure category, `external_ping_execution=0`,
+> `public_tunnel=0`, `secret_values_logged=0`, and final cleanup/selftest clean.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA36_CTRL_SOCKET_UNIQUE_V3393_LIVE_2026-07-04.md`.
+> **NEXT:** WSTA37 should add redacted WPA failure-detail classification around this true
+> 4-way-handshake stall: temp-disabled/disconnect reason class, selected-network state,
+> key-management/pairwise/group/country summary without SSID/PSK/BSSID, and a same-run comparison
+> against the known-good Debian WSTA7 association shape where possible.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

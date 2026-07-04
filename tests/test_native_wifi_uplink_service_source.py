@@ -101,6 +101,8 @@ class NativeWifiUplinkServiceSourceTests(unittest.TestCase):
         self.assertIn("connect_ctrl_reassociate_rc=%d", source)
         self.assertIn("wifi_ctrl_monitor_attach", source)
         self.assertIn("wifi_wait_wpa_completed", source)
+        self.assertIn("wifi_ctrl_next_local_seq", source)
+        self.assertIn('"a90-wifi-%ld-%ld-%lu"', source)
         self.assertIn("connect_wpa_complete_wait_rc=%d", source)
         self.assertIn("connect_wpa_monitor_last_event=%s", source)
         self.assertIn("wifi-connect-status-not-completed", source)

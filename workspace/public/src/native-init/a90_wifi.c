@@ -1194,16 +1194,25 @@ static const char *wifi_ctrl_reply_category(const char *reply) {
     return "other";
 }
 
+static unsigned long g_wifi_ctrl_local_seq;
+
+static unsigned long wifi_ctrl_next_local_seq(void) {
+    return __sync_add_and_fetch(&g_wifi_ctrl_local_seq, 1);
+}
+
 static int wifi_ctrl_bind_local_abstract(int socket_fd) {
     struct sockaddr_un local;
     char name[80];
+    unsigned long seq;
     size_t name_len;
 
+    seq = wifi_ctrl_next_local_seq();
     if (snprintf(name,
                  sizeof(name),
-                 "a90-wifi-%ld-%ld",
+                 "a90-wifi-%ld-%ld-%lu",
                  (long)getpid(),
-                 monotonic_millis()) >= (int)sizeof(name)) {
+                 monotonic_millis(),
+                 seq) >= (int)sizeof(name)) {
         errno = ENAMETOOLONG;
         return -1;
     }

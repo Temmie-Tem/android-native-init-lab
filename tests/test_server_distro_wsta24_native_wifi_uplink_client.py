@@ -101,6 +101,7 @@ class ServerDistroWsta24NativeWifiUplinkClientTests(unittest.TestCase):
         self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.146 (v3390-wifi-cache-enospc-fallback)"))
         self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.147 (v3391-wifi-wpa-handshake-diagnostics)"))
         self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.148 (v3392-wifi-tmp-ctrl-dir)"))
+        self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.149 (v3393-wifi-ctrl-socket-unique)"))
         self.assertFalse(runner.native_is_v3387("A90 Linux init 0.11.144"))
 
     def test_runner_surface_stages_helper_and_keeps_network_actions_denied(self) -> None:
