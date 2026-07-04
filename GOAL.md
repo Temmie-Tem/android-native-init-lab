@@ -3211,6 +3211,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** run/design the bounded HUD live proof on the SD work image: stage policy, launch through
 > `a90-service-launch` as `a90hud`, prove no-new-privs/CapEff-zero/no-network posture, prove `/dev/dri/card0` access
 > without broader root, capture DRM/KMS syscalls, and clean up HUD runtime sidecars.
+>
+> **🟢 STATUS (2026-07-05 06:56 KST host clock) — WSTA129 DPUBLIC HUD LIVE GATE
+> SOURCE PASS.**  Codex added the bounded HUD live gate runner
+> `run_wsta129_dpublic_hud_live_gate.py` and tests.  The runner is fail-closed by default and requires
+> `--execute-hud-live --allow-hud-live --ack-drm-control --ack-private-trace-artifact --ack-runtime-cleanup`
+> before touching the SD work image or DRM/KMS.  The planned live path stages WSTA110 service users/launcher/policy,
+> stages `/usr/local/bin/a90-dpublic-hud`, applies a temporary `/dev/dri/card0` group policy for `a90hud`, launches
+> through `a90-service-launch dpublic-hud`, captures a private `strace`, requires UID/GID `3904/3904`,
+> `NoNewPrivs=1`, zero CapEff, no socket fd, no network syscalls, DRM fd present, core `execve/openat/ioctl/mmap/
+> munmap` syscalls, trace artifact save, runtime cleanup, chroot cleanup, and final selftest.  The inert smoke run
+> stopped at `wsta129-blocked-hud-live-required` with `device_action=false`, `boot_flash=false`,
+> `native_reboot=false`, `public_tunnel=false`, `drm_open=false`, `kms_setcrtc=false`, and `switch_root=false`.
+> No live device HUD/DRM/KMS operation was run.  Validation passed `py_compile`, WSTA129 focused tests (`8 tests`),
+> full server-distro WSTA regression (`430 tests`), and `git diff --check`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA129_DPUBLIC_HUD_LIVE_GATE_SOURCE_2026-07-05.md`.
+> **NEXT:** run the explicit WSTA129 HUD live gate on the SD work image only under operator supervision; expect a
+> temporary visible HUD/KMS takeover, private syscall artifacts, and mandatory cleanup/health checks before it can
+> retire the WSTA128 `hud_live_proven=false` status gap.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
