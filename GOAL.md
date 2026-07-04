@@ -2505,6 +2505,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA81_NATIVE_EXECUTE_GATE_SCREEN_SOURCE_BUILD_2026-07-04.md`.
 > **NEXT:** WSTA81 is source-built but not live-displayed.  Either run a bounded V3397 flash/hot-reload display
 > proof, or continue only with an explicitly selected WSTA80/WSTA58 live proof using fresh private tokens.
+> **🟢 STATUS (2026-07-04 20:58 KST host clock) — WSTA82 native execute-gate
+> screen LIVE PASS.**  Codex first tried the lower-cost hot-reload path by staging the V3397 init ELF under
+> `/mnt/sdext/a90/flash-staging/` and verifying device-side SHA
+> `d88fef092972dcb669ca0b2550d017fa140bc5c291cd6ae6eebb3d3dd28fd9da`; reload entered V3397, but because
+> the resident autohud was not running, the reloaded PID1 could not adopt the display owner and `screenapp wsta`
+> failed SETCRTC with `Permission denied`.  That attempt was rejected as a display proof and a warm reboot
+> restored V3396 with `selftest fail=0`.  Codex then followed the WSTA62-style checked-helper path: V3397 boot
+> image SHA256 `788e907cc3ffd24a6bc377e1751fed4921b15bc9974dba21333c736de454ff92` was flashed only through
+> `native_init_flash.py --from-native`; local, pushed, and boot-readback SHA all matched, total flash elapsed
+> `65.402s`, and V3397 booted as `A90 Linux init 0.11.153 (v3397-wsta-execute-gate-screen)` with
+> `selftest fail=0`.  Serialized slow-mode `screenapp wsta` and `screenapp dpublic` both returned
+> `screenapp.safety=display-only-explicit`, `screenapp.title=WSTA D-PUBLIC`, `screeninfo: presented framebuffer
+> 1080x2400 on crtc=133`, `screenapp.rc=0`, and `screenapp.presented=1`; post-screenapp `status` and `selftest`
+> stayed clean.  The staged hot-reload init was removed.  No Wi-Fi association, DHCP, public tunnel, public smoke,
+> credentialed network action, userdata action, switch-root, persistent exposure, or non-boot partition write ran.
+> Device is intentionally left resident on healthy V3397.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA82_NATIVE_EXECUTE_GATE_SCREEN_LIVE_2026-07-04.md`.
+> **NEXT:** native WSTA execute-gate visibility is now live-proven.  Continue only with an explicitly selected
+> WSTA80/WSTA58 live proof using fresh private tokens, or default-off operator UX that does not start public exposure.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
