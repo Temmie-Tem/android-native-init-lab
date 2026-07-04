@@ -1863,6 +1863,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA48 should only continue this source/productization track if it adds a concrete operator
 > surface, such as a concise committed runbook for the WSTA45 template or a redacted result aggregation
 > helper.  Persistent always-on public exposure remains a separate explicit gate.
+> **🟢 STATUS (2026-07-04 16:44 KST host clock) — WSTA48 redacted result aggregation
+> SOURCE PASS.**  Codex added
+> `workspace/public/src/scripts/server-distro/run_wsta48_redacted_result_aggregate.py`, a host-only
+> operator helper that reads explicit WSTA result JSON files/directories, recursively discovers
+> `wsta*_result.json`, and emits an allowlisted aggregate with counts, decisions, timestamps, elapsed
+> seconds, and redacted nested summaries.  It reuses WSTA45/WSTA43 public-summary allowlists and WSTA43's
+> WSTA42 summarizer, reduces unknown WSTA files to a narrow decision/check/safety surface, and fail-closes
+> if the aggregate contains known confirm-token values, public URL/domain material, public URL scratch
+> paths, or obvious Wi-Fi credential assignment strings.  Host validation passed: 22 focused tests,
+> `py_compile`, and `git diff --check`.  A source-only smoke over the existing private WSTA46 run produced
+> `result_count=5`, `all_pass=True`, and pass decisions for WSTA27/WSTA28/WSTA42/WSTA43/WSTA45 with the
+> redaction guard clean; the aggregate output stayed under `workspace/private/runs/` and was not committed.
+> No device action, no flash, no native reboot, no Wi-Fi association, and no public tunnel ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA48_REDACTED_RESULT_AGGREGATE_SOURCE_2026-07-04.md`.
+> **NEXT:** The source/productization path now has the core operator surfaces.  Continue WSTA only with a
+> concrete appliance-level operator runbook/HUD/menu integration or a deliberately gated persistent
+> exposure design; avoid another metadata-only cleanup.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
