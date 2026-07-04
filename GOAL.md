@@ -3338,6 +3338,31 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA134 should build a private D-public rootfs/tarball with the WSTA133 split
 > HUD wiring enabled and prove the staged files/markers in the real prepared rootfs before
 > the live gate verifies Debian-only intent writing plus native/root display presentation.
+>
+> **🟢 STATUS (2026-07-05 08:00 KST host clock) — WSTA134 DPUBLIC HUD SPLIT
+> PREPARED ROOTFS PASS.**  Codex built a real private D-public rootfs/tarball with the WSTA133
+> split HUD wiring enabled using `prepare_wsta3_sta_rootfs.py --immediate-snapshot-only
+> --stage-dpublic-binaries --stage-api-probe-tools --stage-syscall-trace-tools`.
+> The preparer produced decision `wsta3-private-rootfs-prepared`, `ok=true`, `device_action=none`,
+> `no_flash=true`, `no_wifi_association=true`, `no_dhcp=true`, `no_public_tunnel=true`, and
+> `secret_values_logged=0`; the private tarball is `340019200` bytes and mode `0600`.
+> A second direct rootfs/tarball inspection proof produced decision
+> `wsta134-dpublic-hud-split-prepared-rootfs-pass` with `summary_pass=true`, `tarball_exists=true`,
+> `tarball_mode_0600=true`, `intent_exists=true`, `presenter_exists=true`, `intent_mode_0755=true`,
+> `presenter_mode_0755=true`, `policy_dpublic_hud_intent_only=true`, `policy_default_public_off=true`,
+> `marker_boundary_present=true`, `marker_direct_kms_disabled=true`, `marker_presenter_owner_native=true`,
+> `firstboot_invokes_launcher_intent=true`, `firstboot_does_not_start_presenter=true`,
+> `firstboot_legacy_fallback_only=true`, `quick_tunnel_disabled=true`, and
+> `secret_values_logged_zero=true`.  Tarball entries include `./usr/local/bin/a90-dpublic-hud-intent`,
+> `./usr/local/bin/a90-dpublic-hud-presenter`, `./etc/a90-d3-firstboot`,
+> `./etc/a90-dpublic/service-hardening.json`, and `./etc/a90-server-distro-stage`.  No device action,
+> boot flash, native reboot, Wi-Fi association, DHCP, public tunnel, public smoke, packet-filter
+> mutation, userdata mutation, DRM open, KMS SETCRTC, or switch-root ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA134_DPUBLIC_HUD_SPLIT_PREPARED_ROOTFS_2026-07-05.md`.
+> **NEXT:** WSTA135 should be the guarded live D4/preflight path for this prepared artifact:
+> stage the WSTA134 tarball through the existing userdata/rootfs gate, boot it, and verify firstboot
+> writes only the bounded HUD intent while native/root owns display presentation.  Keep D-public
+> exposure default-off unless a separate operator gate explicitly enables it.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
