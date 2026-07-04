@@ -1915,6 +1915,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA source/productization is now saturated unless the work moves into native/HUD/menu
 > integration or a deliberately gated persistent exposure design.  Do not spend another unit on metadata
 > cleanup.
+> **🟢 STATUS (2026-07-04 16:53 KST host clock) — WSTA50 native menu screenapp
+> SOURCE PASS.**  Codex moved the WSTA operator path into the native/HUD/menu surface without adding any
+> native public action.  The NETWORK menu now has a `WSTA PUBLISH` item mapped to
+> `SCREEN_MENU_WSTA_OPERATOR`/`SCREEN_APP_WSTA_OPERATOR`; `screenapp wsta` and `screenapp dpublic` present
+> the same read-only screen.  The screen is rendered by `a90_app_network_draw_wsta_operator()` and shows the
+> proven flow (`WSTA45 -> WSTA43 -> WSTA42`), that publish remains host-runbook only, that the native menu
+> is display-only/no-connect, and that WSTA48 provides redacted aggregation.  It does not call Wi-Fi command
+> handlers, scan/ping collectors, D-public runners, cloudflared, native reboot, or flash paths.  Host
+> validation passed: 13 focused WSTA/native screenapp tests, `git diff --check`, and a host-only AArch64
+> `build_init` compile/strip to `/tmp/a90_wsta50_init_compile` (warnings were pre-existing unrelated
+> native-init warnings).  No device action, no flash, no native reboot, no Wi-Fi association, and no public
+> tunnel ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA50_NATIVE_MENU_SCREENAPP_SOURCE_2026-07-04.md`.
+> **NEXT:** WSTA now has host wrapper/template/aggregate/runbook plus native menu visibility.  The next
+> meaningful WSTA unit should be either a deliberately gated persistent exposure design or live validation
+> of the new `screenapp wsta` surface in a boot artifact; avoid another host-only productization-only pass.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

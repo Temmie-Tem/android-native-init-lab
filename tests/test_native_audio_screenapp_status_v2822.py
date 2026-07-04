@@ -99,8 +99,8 @@ class NativeAudioScreenappStatusV2822Test(unittest.TestCase):
         self.assertIn('strcmp(app, "audio-chime") == 0 || strcmp(app, "chime") == 0', dispatch)
         self.assertIn('screenapp.title=AUDIO CHIME', dispatch)
         self.assertIn('a90_app_audio_draw_chime()', dispatch)
-        self.assertIn('screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|audio-status|audio-profile|audio-stages|audio-map|audio-chime|about-version|about-changelog]', dispatch)
-        self.assertIn('screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|audio-status|audio-profile|audio-stages|audio-map|audio-chime|about-version|about-changelog]', help_text)
+        self.assertIn('screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|wsta|audio-status|audio-profile|audio-stages|audio-map|audio-chime|about-version|about-changelog]', dispatch)
+        self.assertIn('screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|wsta|audio-status|audio-profile|audio-stages|audio-map|audio-chime|about-version|about-changelog]', help_text)
 
     def test_pid1_source_glob_includes_new_a90_module(self) -> None:
         text = BUILDER.read_text(encoding="utf-8")

@@ -63,7 +63,7 @@ class NativeChangelogAudioProductizationV2851Test(unittest.TestCase):
     def test_screenapp_exposes_about_changelog_directly(self) -> None:
         dispatch = DISPATCH.read_text(encoding="utf-8")
         help_text = HELP.read_text(encoding="utf-8")
-        usage = "screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|audio-status|audio-profile|audio-stages|audio-map|audio-chime|about-version|about-changelog]"
+        usage = "screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|wsta|audio-status|audio-profile|audio-stages|audio-map|audio-chime|about-version|about-changelog]"
 
         self.assertIn(usage, dispatch)
         self.assertIn(usage, help_text)

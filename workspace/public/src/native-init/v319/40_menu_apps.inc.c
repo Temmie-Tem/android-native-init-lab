@@ -247,6 +247,8 @@ static void auto_hud_draw_current_screen(struct auto_hud_state *state) {
         a90_app_wifi_draw_scan();
     } else if (state->active_app == SCREEN_APP_WIFI_PING) {
         a90_app_wifi_draw_ping();
+    } else if (state->active_app == SCREEN_APP_WSTA_OPERATOR) {
+        a90_app_network_draw_wsta_operator();
     } else if (state->active_app == SCREEN_APP_AUDIO_STATUS) {
         a90_app_audio_draw_status();
     } else if (state->active_app == SCREEN_APP_AUDIO_PROFILE) {

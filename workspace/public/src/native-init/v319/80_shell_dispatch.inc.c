@@ -393,7 +393,7 @@ static int handle_screenapp(char **argv, int argc) {
     int rc;
 
     if (argc != 2) {
-        a90_console_printf("usage: screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|audio-status|audio-profile|audio-stages|audio-map|audio-chime|about-version|about-changelog]\r\n");
+        a90_console_printf("usage: screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|wsta|audio-status|audio-profile|audio-stages|audio-map|audio-chime|about-version|about-changelog]\r\n");
         return -EINVAL;
     }
 
@@ -417,6 +417,9 @@ static int handle_screenapp(char **argv, int argc) {
         a90_console_printf("screenapp.title=WIFI PING RESULTS\r\n");
         a90_app_wifi_reset(SCREEN_APP_WIFI_PING);
         rc = a90_app_wifi_draw_ping();
+    } else if (strcmp(app, "wsta") == 0 || strcmp(app, "dpublic") == 0) {
+        a90_console_printf("screenapp.title=WSTA D-PUBLIC\r\n");
+        rc = a90_app_network_draw_wsta_operator();
     } else if (strcmp(app, "audio-status") == 0 || strcmp(app, "audio") == 0) {
         a90_console_printf("screenapp.title=AUDIO STATUS\r\n");
         rc = a90_app_audio_draw_status();
@@ -440,7 +443,7 @@ static int handle_screenapp(char **argv, int argc) {
         rc = a90_app_about_draw_changelog();
     } else {
         a90_console_printf("screenapp.valid=0\r\n");
-        a90_console_printf("usage: screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|audio-status|audio-profile|audio-stages|audio-map|audio-chime|about-version|about-changelog]\r\n");
+        a90_console_printf("usage: screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|wsta|audio-status|audio-profile|audio-stages|audio-map|audio-chime|about-version|about-changelog]\r\n");
         return -EINVAL;
     }
 
@@ -19713,7 +19716,7 @@ static const struct shell_command command_table[] = {
     { "inputmonitor", handle_inputmonitor, "inputmonitor [events]", CMD_DISPLAY | CMD_BLOCKING, A90_CMD_GROUP_INPUT },
     { "screenmenu", handle_screenmenu, "screenmenu", CMD_BACKGROUND, A90_CMD_GROUP_MENU },
     { "menu", handle_screenmenu, "menu", CMD_BACKGROUND, A90_CMD_GROUP_MENU },
-    { "screenapp", handle_screenapp, "screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|audio-status|audio-profile|audio-stages|audio-map|audio-chime|about-version|about-changelog]", CMD_DISPLAY, A90_CMD_GROUP_MENU },
+    { "screenapp", handle_screenapp, "screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|wsta|audio-status|audio-profile|audio-stages|audio-map|audio-chime|about-version|about-changelog]", CMD_DISPLAY, A90_CMD_GROUP_MENU },
     { "hide", handle_hide_menu, "hide", CMD_BACKGROUND, A90_CMD_GROUP_MENU },
     { "hidemenu", handle_hide_menu, "hidemenu", CMD_BACKGROUND, A90_CMD_GROUP_MENU },
     { "resume", handle_hide_menu, "resume", CMD_BACKGROUND, A90_CMD_GROUP_MENU },

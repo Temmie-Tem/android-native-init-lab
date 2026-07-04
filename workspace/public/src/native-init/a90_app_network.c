@@ -114,3 +114,12 @@ int a90_app_network_draw_summary(void) {
 
     return app_network_draw_info_page("NETWORK STATUS", line1, line2, line3, line4);
 }
+
+int a90_app_network_draw_wsta_operator(void) {
+    return app_network_draw_info_page(
+        "WSTA D-PUBLIC",
+        "FLOW WSTA45 -> WSTA43 -> WSTA42",
+        "PUBLISH: HOST RUNBOOK ONLY",
+        "NATIVE MENU: DISPLAY-ONLY NO CONNECT",
+        "AGGREGATE: WSTA48 REDACTED RESULT");
+}
