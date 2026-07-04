@@ -118,8 +118,8 @@ int a90_app_network_draw_summary(void) {
 int a90_app_network_draw_wsta_operator(void) {
     return app_network_draw_info_page(
         "WSTA D-PUBLIC",
-        "STATE: PUBLIC_OFF LEASE-GATED",
-        "PROOF: WSTA55 START / WSTA58 RENEW",
+        "STATE: PUBLIC_OFF EXEC-GATED",
+        "GATE: WSTA80 READY -> WSTA58",
         "URL: REDACTED PRIVATE-RUN ONLY",
-        "NATIVE: DISPLAY-ONLY NO CONNECT");
+        "NATIVE: DISPLAY-ONLY NO AUTOSTART");
 }

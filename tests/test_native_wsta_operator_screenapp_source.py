@@ -51,16 +51,16 @@ class NativeWstaOperatorScreenappSourceTests(unittest.TestCase):
 
         self.assertIn("int a90_app_network_draw_wsta_operator(void);", header)
         self.assertIn("WSTA D-PUBLIC", block)
-        self.assertIn("STATE: PUBLIC_OFF LEASE-GATED", block)
-        self.assertIn("PROOF: WSTA55 START / WSTA58 RENEW", block)
+        self.assertIn("STATE: PUBLIC_OFF EXEC-GATED", block)
+        self.assertIn("GATE: WSTA80 READY -> WSTA58", block)
         self.assertIn("URL: REDACTED PRIVATE-RUN ONLY", block)
-        self.assertIn("NATIVE: DISPLAY-ONLY NO CONNECT", block)
+        self.assertIn("NATIVE: DISPLAY-ONLY NO AUTOSTART", block)
         self.assertNotIn("a90_wifi_cmd", block)
         self.assertNotIn("a90_wifi_scan_collect", block)
         self.assertNotIn("a90_wifi_ping_collect", block)
         self.assertNotIn("cloudflared", block.lower())
         self.assertNotIn("trycloudflare", block.lower())
-        self.assertNotIn("connect", block.lower().replace("no connect", ""))
+        self.assertNotIn("connect", block.lower())
         self.assertNotIn("native_init_flash.py", block)
 
 

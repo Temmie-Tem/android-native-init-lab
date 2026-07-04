@@ -2485,6 +2485,26 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** default-off persistent exposure now reaches a concrete WSTA58 execute gate without starting public
 > exposure.  Continue with either an explicitly selected WSTA80/WSTA58 live proof using fresh private tokens, or
 > native/appliance UI integration that displays this execute-gate state without auto-starting public exposure.
+> **🟢 STATUS (2026-07-04 20:48 KST host clock) — WSTA81 native execute-gate
+> screen SOURCE/BUILD PASS.**  Codex implemented the concrete appliance-level UI integration from WSTA80:
+> the display-only `NETWORK` menu / `screenapp wsta` page now shows `STATE: PUBLIC_OFF EXEC-GATED`,
+> `GATE: WSTA80 READY -> WSTA58`, `URL: REDACTED PRIVATE-RUN ONLY`, and
+> `NATIVE: DISPLAY-ONLY NO AUTOSTART`.  It still does not call Wi-Fi connect, DHCP, cloudflared, public
+> smoke, native reboot, userdata, switch-root, or flash paths.  Added V3397 builder
+> `workspace/public/src/scripts/revalidation/build_native_init_boot_v3397_wsta_execute_gate_screen.py`;
+> build completed without flashing and produced private boot image
+> `workspace/private/inputs/boot_images/boot_linux_v3397_wsta_execute_gate_screen.img` with SHA256
+> `788e907cc3ffd24a6bc377e1751fed4921b15bc9974dba21333c736de454ff92`, init
+> `A90 Linux init 0.11.153 (v3397-wsta-execute-gate-screen)`, and helper SHA256
+> `fa395d3ecb6944a57487f3966948a634596157e4de3fdc39575a2fc502d1ceef`.  The WSTA host lineage gate now
+> accepts V3397.  Validation passed `py_compile`, 16 focused WSTA/native tests, 19 native/WSTA lineage
+> regression tests, required-string audit, preserved-ramdisk overlay, boot image pack, and SHA capture.  No
+> device command, flash, native reboot, Wi-Fi association, DHCP, public tunnel, public smoke, userdata action,
+> switch-root, or external service action ran.  Reports:
+> `docs/reports/NATIVE_INIT_V3397_WSTA_EXECUTE_GATE_SCREEN_SOURCE_BUILD_2026-07-04.md` and
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA81_NATIVE_EXECUTE_GATE_SCREEN_SOURCE_BUILD_2026-07-04.md`.
+> **NEXT:** WSTA81 is source-built but not live-displayed.  Either run a bounded V3397 flash/hot-reload display
+> proof, or continue only with an explicitly selected WSTA80/WSTA58 live proof using fresh private tokens.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

@@ -105,6 +105,7 @@ class ServerDistroWsta24NativeWifiUplinkClientTests(unittest.TestCase):
         self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.150 (v3394-wifi-wpa-failure-detail)"))
         self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.151 (v3395-wsta-screenapp-live)"))
         self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.152 (v3396-wsta-persistent-state-screen)"))
+        self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.153 (v3397-wsta-execute-gate-screen)"))
         self.assertFalse(runner.native_is_v3387("A90 Linux init 0.11.144"))
 
     def test_runner_surface_stages_helper_and_keeps_network_actions_denied(self) -> None:
