@@ -3051,6 +3051,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** target the remaining hardening gaps without enabling public exposure by default: choose the next
 > cloudflared/HUD/uplink service profile proof, or fold the Dropbear proof into a refreshed WSTA90 manifest
 > source if the operator wants the skeleton itself updated.
+>
+> **🟢 STATUS (2026-07-05 04:57 KST host clock) — WSTA122 CLOUDFLARED
+> SERVICE MODEL SOURCE PASS.**  Codex added `run_wsta122_cloudflared_service_model.py`, a host-only source/model
+> unit for the D-public `cloudflared-quick-tunnel` hardening target.  It does not start a tunnel and does not
+> rebrand prior tunnel reachability as hardening proof.  The model defines default-public-off, explicit private
+> enable marker `/etc/a90-dpublic/cloudflared-quick-enable`, explicit operator live gate, non-root `a90tunnel`
+> UID/GID `3902/3902`, loopback origin `http://127.0.0.1:8080`, loopback ephemeral metrics
+> `127.0.0.1:0`, `--no-autoupdate`, no named-tunnel credential/token in command, packet-filter-before-public-start,
+> `a90-service-launch cloudflared-quick-tunnel ...`, no-new-privs, zero effective capabilities, private-only URL
+> file, and direct root firstboot start as unacceptable for an always-on profile.  Private source proof passed
+> with all checks true and `public_url_value_logged=false` / `secret_values_logged=0`.  No device action, boot
+> flash, native reboot, Wi-Fi association, DHCP, public tunnel, public smoke, packet-filter mutation, userdata
+> action, or switch-root ran.  Focused WSTA122 validation passed (`7 tests`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA122_CLOUDFLARED_SERVICE_MODEL_SOURCE_2026-07-05.md`.
+> **NEXT:** WSTA123 should either fold this cloudflared model into WSTA90/WSTA108 operator status as a model
+> overlay, or implement the bounded private live gate that launches cloudflared through `a90-service-launch` as
+> `a90tunnel` and proves UID/GID/no-new-privs/cap-zero/outbound-only cleanup.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
