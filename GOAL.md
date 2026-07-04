@@ -2524,6 +2524,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA82_NATIVE_EXECUTE_GATE_SCREEN_LIVE_2026-07-04.md`.
 > **NEXT:** native WSTA execute-gate visibility is now live-proven.  Continue only with an explicitly selected
 > WSTA80/WSTA58 live proof using fresh private tokens, or default-off operator UX that does not start public exposure.
+> **🟢 STATUS (2026-07-04 21:17 KST host clock) — WSTA83 WSTA80→WSTA58
+> LIVE PASS.**  Codex created a fresh private WSTA72→WSTA79 packet/status tree, confirmed WSTA79
+> `READY_TO_RUN_DEFAULT_OFF`, ran WSTA80 preflight to `READY_FOR_EXPLICIT_WSTA58_LIVE_GATE` with
+> `initial_seconds_remaining=299`, then executed WSTA80's explicit WSTA58 delegation with the full live
+> acknowledgement stack.  WSTA58 returned `wsta58-renewal-manual-stop-live-pass`: both initial and renewal
+> WSTA55 legs returned `wsta55-short-lived-public-proof-live-pass`, both public smoke checks passed, both
+> D-public/native-uplink/chroot cleanup checks passed, WSTA48 redaction passed, and final manual-stop cleanup
+> returned `manual_stop_public_state=PUBLIC_OFF`.  Post-run resident health stayed V3397
+> `selftest fail=0`.  No boot flash, forbidden partition write, userdata format/populate, or switch-root ran;
+> the run did intentionally perform the explicitly gated native reboots, Wi-Fi association/DHCP, short-lived
+> public tunnel publishes, and public smoke checks.  Observation: both WSTA42 sub-runs reinstalled the rootfs
+> because the rw chroot image SHA had drifted from the clean staged image before each leg; correctness passed,
+> but this is now the main performance/cleanliness target.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA83_WSTA80_WSTA58_LIVE_2026-07-04.md`.
+> **NEXT:** WSTA80/WSTA58 is end-to-end live-proven.  Continue with default-off operator UX around the proven
+> flow, or a targeted unit to eliminate the repeated rootfs mutation/reinstall cost.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
