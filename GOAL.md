@@ -2157,6 +2157,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** only if the operator explicitly selects live persistent exposure, run the WSTA63-generated WSTA58 template
 > with fresh private confirm tokens and the existing WSTA58 live gates; otherwise continue productizing the default-off
 > session workflow without starting public exposure.
+> **🟢 STATUS (2026-07-04 19:01 KST host clock) — WSTA64 persistent session readiness
+> audit SOURCE/PREFLIGHT PASS.**  Codex added
+> `workspace/public/src/scripts/server-distro/run_wsta64_persistent_session_readiness_audit.py`, a host-only final audit
+> for WSTA63 session artifacts before any operator-selected WSTA58 live run.  WSTA64 requires the WSTA63 result to pass,
+> the initial WSTA54 private lease to be unexpired with a configurable freshness margin, renewal to remain a WSTA53
+> source so WSTA58 mints the renewal lease after the initial live leg, WSTA58 preflight to report renewal-refresh ready,
+> and the live template to contain only `<native-confirm-token>` / `<public-confirm-token>` placeholders.  Fresh smoke
+> `workspace/private/runs/server-distro/wsta64-readiness-smoke-20260704T1000Z` returned
+> `wsta64-persistent-session-readiness-pass`, `initial_seconds_remaining=298`,
+> `ready_for_explicit_wsta58_live_gate=true`, `live_template_placeholders_only=true`,
+> `live_execution_requested=false`, `public_url_value_logged=false`, and `secret_values_logged=0`.  Tests also prove
+> expired or near-expiry initial leases fail closed.  Validation passed 55 focused WSTA52/WSTA53/WSTA54/WSTA55/WSTA58/
+> WSTA63/WSTA64 tests plus `py_compile`.  No boot image, flash, device command, native reboot, Wi-Fi association, DHCP,
+> public tunnel, public smoke, userdata action, switch-root, or external service action ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA64_SESSION_READINESS_AUDIT_SOURCE_2026-07-04.md`.
+> **NEXT:** live WSTA58 is now mechanically prepared and freshness-audited, but still requires an explicit operator
+> decision plus fresh private confirm tokens; absent that, continue default-off productization around session lifecycle
+> visibility and cleanup without starting public exposure.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
