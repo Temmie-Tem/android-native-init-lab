@@ -3385,6 +3385,32 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA136 should implement/prove the native/root-owned presenter consumption path: parse
 > `/run/a90-dpublic/hud-intent.json`, reject stale/forbidden fields, and present a minimal native KMS HUD
 > without giving Debian direct DRM/KMS ownership.
+>
+> **🟢 STATUS (2026-07-05 08:32 KST host clock) — WSTA136 DPUBLIC NATIVE HUD
+> PRESENTER SOURCE PASS.**  Codex added native-init command
+> `dpublic-hud-presenter [validate|present] [intent-path]` as the native/root-owned
+> consumer for the WSTA135 Debian HUD intent.  The command defaults to
+> `/run/a90-dpublic/hud-intent.json`, accepts only schema `a90-dpublic-hud-intent-v1`,
+> bounds the file to `4096` bytes, opens with `O_NOFOLLOW` plus regular-file checks,
+> rejects stale intents after `2000ms`, rejects future monotonic timestamps, rejects
+> forbidden top-level fields (`command`/`argv`/`shell`/URL/SSID/PSK/token/secret class),
+> rejects unknown top-level fields, and records the ownership markers
+> `presenter.owner=native-init-root` and `presenter.debian_direct_kms=0`.  `validate`
+> mode parses and policy-checks without KMS; `present` draws a minimal native HUD
+> through the existing KMS path.  V3398 source-built successfully as `A90 Linux init
+> 0.11.154 (v3398-dpublic-hud-presenter)` with boot SHA256
+> `b18be6a39eb41fb71a5256db3b23d5c648631fb164061b98b35a35ffba9f3a0c`.  Host/source
+> validation passed `py_compile`, `bash -n` for firstboot, focused WSTA/D-public
+> unittest coverage (`Ran 48 tests`), the WSTA136 presenter source proof, and the V3398
+> required-string/source-build audit.  No flash, native reboot, switch-root, public
+> tunnel, Wi-Fi connect, DHCP, packet-filter mutation, DRM open, or KMS SETCRTC ran in
+> this source unit.  Reports:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA136_DPUBLIC_NATIVE_HUD_PRESENTER_SOURCE_2026-07-05.md`
+> and `docs/reports/NATIVE_INIT_V3398_DPUBLIC_HUD_PRESENTER_SOURCE_BUILD_2026-07-05.md`.
+> **NEXT:** WSTA137 should live-gate V3398 through the normal rollback/hot-reload or
+> checked flash path: feed a fresh bounded intent, run `dpublic-hud-presenter validate`,
+> then `present`, and confirm native KMS shows the HUD while Debian remains an intent
+> producer with no direct DRM/KMS presenter.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

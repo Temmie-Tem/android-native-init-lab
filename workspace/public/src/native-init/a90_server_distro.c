@@ -1,7 +1,9 @@
 #include "a90_server_distro.h"
 
 #include "a90_console.h"
+#include "a90_draw.h"
 #include "a90_helper.h"
+#include "a90_kms.h"
 #include "a90_log.h"
 #include "a90_run.h"
 #include "a90_service.h"
@@ -12,6 +14,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,6 +23,7 @@
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 
 #ifndef O_CLOEXEC
@@ -41,6 +45,15 @@
 #define A90_D_HANDOFF_HUD_TIMEOUT_MS 3000
 #define A90_D_HANDOFF_DRM_OWNER_TIMEOUT_MS 1000
 #define A90_D_HW_TAG "A90DHW"
+#define A90_DPUBLIC_HUD_TAG "A90WSTA136"
+#define A90_DPUBLIC_HUD_DEFAULT_INTENT "/run/a90-dpublic/hud-intent.json"
+#define A90_DPUBLIC_HUD_SCHEMA "a90-dpublic-hud-intent-v1"
+#define A90_DPUBLIC_HUD_MAX_INTENT_BYTES 4096U
+#define A90_DPUBLIC_HUD_STALE_AFTER_MS 2000ULL
+#define A90_DPUBLIC_HUD_TITLE_MAX 32U
+#define A90_DPUBLIC_HUD_STATE_MAX 24U
+#define A90_DPUBLIC_HUD_MAX_LINES 6U
+#define A90_DPUBLIC_HUD_LINE_MAX 48U
 
 static void d_hw_print_contract(void) {
     a90_console_printf("A90DHW contract.version=1\r\n");
@@ -58,6 +71,560 @@ static void d_hw_print_contract(void) {
     a90_console_printf("A90DHW public_tunnel.owner=debian native=off inbound_public_ports=0\r\n");
     a90_console_printf("A90DHW safety.no=forbidden-partitions,raw-nonboot-flash,pmic-regulator-gdsc-gpio-backlight,panel-reinit\r\n");
     a90_console_printf("A90DHW end=1\r\n");
+}
+
+struct dpublic_hud_intent {
+    uint64_t sequence;
+    uint64_t monotonic_ms;
+    char title[A90_DPUBLIC_HUD_TITLE_MAX + 1U];
+    char public_state[A90_DPUBLIC_HUD_STATE_MAX + 1U];
+    char upstream_state[A90_DPUBLIC_HUD_STATE_MAX + 1U];
+    char service_state[A90_DPUBLIC_HUD_STATE_MAX + 1U];
+    char packet_filter_state[A90_DPUBLIC_HUD_STATE_MAX + 1U];
+    char lines[A90_DPUBLIC_HUD_MAX_LINES][A90_DPUBLIC_HUD_LINE_MAX + 1U];
+    size_t line_count;
+    size_t bytes;
+    uint64_t age_ms;
+};
+
+struct dpublic_json_cursor {
+    const char *p;
+    const char *end;
+};
+
+static const char *const dpublic_hud_allowed_keys[] = {
+    "schema",
+    "sequence",
+    "monotonic_ms",
+    "title",
+    "public_state",
+    "upstream_state",
+    "service_state",
+    "packet_filter_state",
+    "cpu_millic",
+    "battery_percent",
+    "lines",
+};
+
+static const char *const dpublic_hud_forbidden_keys[] = {
+    "command",
+    "argv",
+    "path",
+    "shell",
+    "url",
+    "ssid",
+    "psk",
+    "token",
+    "secret",
+};
+
+static uint64_t dpublic_hud_monotonic_ms(void) {
+    struct timespec ts;
+
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) < 0) {
+        return 0;
+    }
+    return (uint64_t)ts.tv_sec * 1000ULL + (uint64_t)ts.tv_nsec / 1000000ULL;
+}
+
+static void dpublic_json_skip_ws(struct dpublic_json_cursor *cur) {
+    while (cur->p < cur->end &&
+           (*cur->p == ' ' || *cur->p == '\n' ||
+            *cur->p == '\r' || *cur->p == '\t')) {
+        cur->p++;
+    }
+}
+
+static bool dpublic_hud_key_in_table(const char *key,
+                                     const char *const *table,
+                                     size_t count) {
+    size_t i;
+
+    for (i = 0; i < count; ++i) {
+        if (strcmp(key, table[i]) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool dpublic_hud_key_allowed(const char *key) {
+    return dpublic_hud_key_in_table(key,
+                                    dpublic_hud_allowed_keys,
+                                    sizeof(dpublic_hud_allowed_keys) /
+                                        sizeof(dpublic_hud_allowed_keys[0]));
+}
+
+static bool dpublic_hud_key_forbidden(const char *key) {
+    return dpublic_hud_key_in_table(key,
+                                    dpublic_hud_forbidden_keys,
+                                    sizeof(dpublic_hud_forbidden_keys) /
+                                        sizeof(dpublic_hud_forbidden_keys[0]));
+}
+
+static int dpublic_json_read_string(struct dpublic_json_cursor *cur,
+                                    char *out,
+                                    size_t out_size) {
+    size_t used = 0;
+
+    dpublic_json_skip_ws(cur);
+    if (cur->p >= cur->end || *cur->p != '"' || out_size == 0) {
+        return -EINVAL;
+    }
+    cur->p++;
+    while (cur->p < cur->end) {
+        unsigned char ch = (unsigned char)*cur->p++;
+
+        if (ch == '"') {
+            out[used] = '\0';
+            return 0;
+        }
+        if (ch == '\\' || ch < 0x20 || ch > 0x7e) {
+            return -EINVAL;
+        }
+        if (used + 1U >= out_size) {
+            return -E2BIG;
+        }
+        out[used++] = (char)ch;
+    }
+    return -EINVAL;
+}
+
+static int dpublic_json_read_u64(struct dpublic_json_cursor *cur, uint64_t *out) {
+    uint64_t value = 0;
+    bool any = false;
+
+    dpublic_json_skip_ws(cur);
+    while (cur->p < cur->end && *cur->p >= '0' && *cur->p <= '9') {
+        uint64_t digit = (uint64_t)(*cur->p - '0');
+
+        if (value > (UINT64_MAX - digit) / 10ULL) {
+            return -ERANGE;
+        }
+        value = value * 10ULL + digit;
+        any = true;
+        cur->p++;
+    }
+    if (!any) {
+        return -EINVAL;
+    }
+    *out = value;
+    return 0;
+}
+
+static int dpublic_json_skip_string(struct dpublic_json_cursor *cur) {
+    char tmp[2];
+
+    return dpublic_json_read_string(cur, tmp, sizeof(tmp));
+}
+
+static int dpublic_json_skip_balanced(struct dpublic_json_cursor *cur,
+                                      char open_ch,
+                                      char close_ch) {
+    unsigned int depth = 0;
+    bool in_string = false;
+
+    dpublic_json_skip_ws(cur);
+    if (cur->p >= cur->end || *cur->p != open_ch) {
+        return -EINVAL;
+    }
+    while (cur->p < cur->end) {
+        char ch = *cur->p++;
+
+        if (in_string) {
+            if (ch == '\\') {
+                return -EINVAL;
+            }
+            if ((unsigned char)ch < 0x20) {
+                return -EINVAL;
+            }
+            if (ch == '"') {
+                in_string = false;
+            }
+            continue;
+        }
+        if (ch == '"') {
+            in_string = true;
+        } else if (ch == open_ch) {
+            depth++;
+        } else if (ch == close_ch) {
+            if (depth == 0) {
+                return -EINVAL;
+            }
+            depth--;
+            if (depth == 0) {
+                return 0;
+            }
+        }
+    }
+    return -EINVAL;
+}
+
+static int dpublic_json_skip_scalar(struct dpublic_json_cursor *cur) {
+    dpublic_json_skip_ws(cur);
+    while (cur->p < cur->end && *cur->p != ',' && *cur->p != '}') {
+        if (*cur->p == '"' || *cur->p == '[' || *cur->p == '{') {
+            return -EINVAL;
+        }
+        cur->p++;
+    }
+    return 0;
+}
+
+static int dpublic_json_skip_value(struct dpublic_json_cursor *cur) {
+    dpublic_json_skip_ws(cur);
+    if (cur->p >= cur->end) {
+        return -EINVAL;
+    }
+    if (*cur->p == '"') {
+        return dpublic_json_skip_string(cur);
+    }
+    if (*cur->p == '[') {
+        return dpublic_json_skip_balanced(cur, '[', ']');
+    }
+    if (*cur->p == '{') {
+        return dpublic_json_skip_balanced(cur, '{', '}');
+    }
+    return dpublic_json_skip_scalar(cur);
+}
+
+static int dpublic_json_read_lines(struct dpublic_json_cursor *cur,
+                                   struct dpublic_hud_intent *intent) {
+    dpublic_json_skip_ws(cur);
+    if (cur->p >= cur->end || *cur->p != '[') {
+        return -EINVAL;
+    }
+    cur->p++;
+    dpublic_json_skip_ws(cur);
+    if (cur->p < cur->end && *cur->p == ']') {
+        cur->p++;
+        return 0;
+    }
+    while (cur->p < cur->end) {
+        if (intent->line_count >= A90_DPUBLIC_HUD_MAX_LINES) {
+            return -E2BIG;
+        }
+        if (dpublic_json_read_string(cur,
+                                     intent->lines[intent->line_count],
+                                     sizeof(intent->lines[intent->line_count])) < 0) {
+            return -EINVAL;
+        }
+        intent->line_count++;
+        dpublic_json_skip_ws(cur);
+        if (cur->p >= cur->end) {
+            return -EINVAL;
+        }
+        if (*cur->p == ']') {
+            cur->p++;
+            return 0;
+        }
+        if (*cur->p != ',') {
+            return -EINVAL;
+        }
+        cur->p++;
+    }
+    return -EINVAL;
+}
+
+static int dpublic_hud_parse_intent(const char *json,
+                                    size_t used,
+                                    struct dpublic_hud_intent *intent) {
+    struct dpublic_json_cursor cur;
+    char schema[64] = "";
+    bool schema_seen = false;
+    bool sequence_seen = false;
+    bool monotonic_seen = false;
+    uint64_t now_ms;
+
+    memset(intent, 0, sizeof(*intent));
+    snprintf(intent->title, sizeof(intent->title), "A90 SERVER");
+    snprintf(intent->public_state, sizeof(intent->public_state), "UNKNOWN");
+    snprintf(intent->upstream_state, sizeof(intent->upstream_state), "UNKNOWN");
+    snprintf(intent->service_state, sizeof(intent->service_state), "UNKNOWN");
+    snprintf(intent->packet_filter_state, sizeof(intent->packet_filter_state), "UNKNOWN");
+    intent->bytes = used;
+
+    cur.p = json;
+    cur.end = json + used;
+    dpublic_json_skip_ws(&cur);
+    if (cur.p >= cur.end || *cur.p != '{') {
+        return -EINVAL;
+    }
+    cur.p++;
+
+    dpublic_json_skip_ws(&cur);
+    while (cur.p < cur.end && *cur.p != '}') {
+        char key[64];
+        int rc;
+
+        rc = dpublic_json_read_string(&cur, key, sizeof(key));
+        if (rc < 0) {
+            return rc;
+        }
+        if (dpublic_hud_key_forbidden(key)) {
+            a90_console_printf("%s intent.reject=forbidden-key key=%s\r\n",
+                               A90_DPUBLIC_HUD_TAG, key);
+            return -EPERM;
+        }
+        if (!dpublic_hud_key_allowed(key)) {
+            a90_console_printf("%s intent.reject=unknown-key key=%s\r\n",
+                               A90_DPUBLIC_HUD_TAG, key);
+            return -EPERM;
+        }
+        dpublic_json_skip_ws(&cur);
+        if (cur.p >= cur.end || *cur.p != ':') {
+            return -EINVAL;
+        }
+        cur.p++;
+
+        if (strcmp(key, "schema") == 0) {
+            rc = dpublic_json_read_string(&cur, schema, sizeof(schema));
+            schema_seen = rc == 0;
+        } else if (strcmp(key, "sequence") == 0) {
+            rc = dpublic_json_read_u64(&cur, &intent->sequence);
+            sequence_seen = rc == 0;
+        } else if (strcmp(key, "monotonic_ms") == 0) {
+            rc = dpublic_json_read_u64(&cur, &intent->monotonic_ms);
+            monotonic_seen = rc == 0;
+        } else if (strcmp(key, "title") == 0) {
+            rc = dpublic_json_read_string(&cur, intent->title, sizeof(intent->title));
+        } else if (strcmp(key, "public_state") == 0) {
+            rc = dpublic_json_read_string(&cur, intent->public_state, sizeof(intent->public_state));
+        } else if (strcmp(key, "upstream_state") == 0) {
+            rc = dpublic_json_read_string(&cur, intent->upstream_state, sizeof(intent->upstream_state));
+        } else if (strcmp(key, "service_state") == 0) {
+            rc = dpublic_json_read_string(&cur, intent->service_state, sizeof(intent->service_state));
+        } else if (strcmp(key, "packet_filter_state") == 0) {
+            rc = dpublic_json_read_string(&cur,
+                                          intent->packet_filter_state,
+                                          sizeof(intent->packet_filter_state));
+        } else if (strcmp(key, "lines") == 0) {
+            rc = dpublic_json_read_lines(&cur, intent);
+        } else {
+            rc = dpublic_json_skip_value(&cur);
+        }
+        if (rc < 0) {
+            return rc;
+        }
+
+        dpublic_json_skip_ws(&cur);
+        if (cur.p >= cur.end) {
+            return -EINVAL;
+        }
+        if (*cur.p == ',') {
+            cur.p++;
+            dpublic_json_skip_ws(&cur);
+            continue;
+        }
+        if (*cur.p != '}') {
+            return -EINVAL;
+        }
+    }
+    if (cur.p >= cur.end || *cur.p != '}') {
+        return -EINVAL;
+    }
+    cur.p++;
+    dpublic_json_skip_ws(&cur);
+    if (cur.p != cur.end) {
+        return -EINVAL;
+    }
+    if (!schema_seen || strcmp(schema, A90_DPUBLIC_HUD_SCHEMA) != 0 ||
+        !sequence_seen || !monotonic_seen || intent->sequence == 0) {
+        return -EINVAL;
+    }
+
+    now_ms = dpublic_hud_monotonic_ms();
+    if (now_ms == 0 || intent->monotonic_ms > now_ms) {
+        a90_console_printf("%s intent.reject=clock-domain now_ms=%llu intent_ms=%llu\r\n",
+                           A90_DPUBLIC_HUD_TAG,
+                           (unsigned long long)now_ms,
+                           (unsigned long long)intent->monotonic_ms);
+        return -ESTALE;
+    }
+    intent->age_ms = now_ms - intent->monotonic_ms;
+    if (intent->age_ms > A90_DPUBLIC_HUD_STALE_AFTER_MS) {
+        a90_console_printf("%s intent.reject=stale age_ms=%llu stale_after_ms=%llu\r\n",
+                           A90_DPUBLIC_HUD_TAG,
+                           (unsigned long long)intent->age_ms,
+                           (unsigned long long)A90_DPUBLIC_HUD_STALE_AFTER_MS);
+        return -ETIMEDOUT;
+    }
+    return 0;
+}
+
+static int dpublic_hud_read_intent_file(const char *path,
+                                        char *json,
+                                        size_t json_size,
+                                        size_t *used_out) {
+    struct stat st;
+    ssize_t nread;
+    int fd;
+
+    if (json_size <= A90_DPUBLIC_HUD_MAX_INTENT_BYTES) {
+        return -EINVAL;
+    }
+    fd = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        return -errno;
+    }
+    if (fstat(fd, &st) < 0) {
+        int saved = errno;
+        close(fd);
+        return -saved;
+    }
+    if (!S_ISREG(st.st_mode) ||
+        st.st_size <= 0 ||
+        st.st_size > (off_t)A90_DPUBLIC_HUD_MAX_INTENT_BYTES) {
+        close(fd);
+        return -E2BIG;
+    }
+    nread = read(fd, json, A90_DPUBLIC_HUD_MAX_INTENT_BYTES + 1U);
+    close(fd);
+    if (nread <= 0 || nread > (ssize_t)A90_DPUBLIC_HUD_MAX_INTENT_BYTES) {
+        return -E2BIG;
+    }
+    json[nread] = '\0';
+    *used_out = (size_t)nread;
+    return 0;
+}
+
+static void dpublic_hud_draw_presenter(const struct dpublic_hud_intent *intent) {
+    struct a90_fb *fb = a90_kms_framebuffer();
+    uint32_t margin;
+    uint32_t width;
+    uint32_t y;
+    uint32_t scale;
+    uint32_t line_h;
+    char line[160];
+    size_t i;
+
+    if (fb == NULL) {
+        return;
+    }
+    scale = fb->width >= 1000U ? 5U : 3U;
+    margin = fb->width / 18U;
+    width = fb->width > margin * 2U ? fb->width - margin * 2U : fb->width;
+    y = fb->height / 10U;
+    line_h = scale * 12U;
+
+    a90_draw_text_fit(fb, margin, y, intent->title, 0xffffff, scale + 1U, width);
+    y += line_h + scale * 5U;
+    snprintf(line, sizeof(line), "PUBLIC %s", intent->public_state);
+    a90_draw_text_fit(fb, margin, y, line, 0x80ff80, scale, width);
+    y += line_h;
+    snprintf(line, sizeof(line), "UPSTREAM %s   SERVICE %s",
+             intent->upstream_state, intent->service_state);
+    a90_draw_text_fit(fb, margin, y, line, 0xdce6f0, scale, width);
+    y += line_h;
+    snprintf(line, sizeof(line), "PACKET FILTER %s", intent->packet_filter_state);
+    a90_draw_text_fit(fb, margin, y, line, 0xdce6f0, scale, width);
+    y += line_h + scale * 5U;
+    a90_draw_text_fit(fb,
+                      margin,
+                      y,
+                      "NATIVE ROOT PRESENTER OWNS KMS",
+                      0xffcc33,
+                      scale,
+                      width);
+    y += line_h;
+    snprintf(line,
+             sizeof(line),
+             "SEQ %llu  AGE %llums",
+             (unsigned long long)intent->sequence,
+             (unsigned long long)intent->age_ms);
+    a90_draw_text_fit(fb, margin, y, line, 0x9ca8b5, scale > 1U ? scale - 1U : 1U, width);
+    y += line_h + scale * 4U;
+
+    for (i = 0; i < intent->line_count; ++i) {
+        a90_draw_text_fit(fb,
+                          margin + scale * 4U,
+                          y,
+                          intent->lines[i],
+                          0xdce6f0,
+                          scale > 1U ? scale - 1U : 1U,
+                          width - scale * 4U);
+        y += line_h;
+    }
+}
+
+int a90_server_distro_dpublic_hud_presenter_cmd(char **argv, int argc) {
+    const char *mode = "present";
+    const char *path = A90_DPUBLIC_HUD_DEFAULT_INTENT;
+    struct dpublic_hud_intent intent;
+    char json[A90_DPUBLIC_HUD_MAX_INTENT_BYTES + 1U];
+    size_t used = 0;
+    bool validate_only = false;
+    int rc;
+
+    if (argc == 2) {
+        if (strcmp(argv[1], "validate") == 0 || strcmp(argv[1], "present") == 0) {
+            mode = argv[1];
+        } else {
+            path = argv[1];
+        }
+    } else if (argc == 3) {
+        mode = argv[1];
+        path = argv[2];
+    } else if (argc != 1) {
+        a90_console_printf("usage: dpublic-hud-presenter [validate|present] [intent-path]\r\n");
+        return -EINVAL;
+    }
+    if (strcmp(mode, "validate") == 0) {
+        validate_only = true;
+    } else if (strcmp(mode, "present") != 0) {
+        a90_console_printf("usage: dpublic-hud-presenter [validate|present] [intent-path]\r\n");
+        a90_console_printf("%s refused=unknown-mode mode=%s\r\n", A90_DPUBLIC_HUD_TAG, mode);
+        return -EINVAL;
+    }
+
+    rc = dpublic_hud_read_intent_file(path, json, sizeof(json), &used);
+    if (rc < 0) {
+        a90_console_printf("%s intent.path=%s\r\n", A90_DPUBLIC_HUD_TAG, path);
+        a90_console_printf("%s intent.read_rc=%d\r\n", A90_DPUBLIC_HUD_TAG, rc);
+        return rc;
+    }
+    rc = dpublic_hud_parse_intent(json, used, &intent);
+    if (rc < 0) {
+        a90_console_printf("%s intent.path=%s\r\n", A90_DPUBLIC_HUD_TAG, path);
+        a90_console_printf("%s intent.bytes=%zu\r\n", A90_DPUBLIC_HUD_TAG, used);
+        a90_console_printf("%s intent.valid=0 rc=%d\r\n", A90_DPUBLIC_HUD_TAG, rc);
+        return rc;
+    }
+
+    a90_console_printf("%s intent.path=%s\r\n", A90_DPUBLIC_HUD_TAG, path);
+    a90_console_printf("%s intent.bytes=%zu\r\n", A90_DPUBLIC_HUD_TAG, intent.bytes);
+    a90_console_printf("%s intent.valid=1\r\n", A90_DPUBLIC_HUD_TAG);
+    a90_console_printf("%s intent.sequence=%llu\r\n",
+                       A90_DPUBLIC_HUD_TAG,
+                       (unsigned long long)intent.sequence);
+    a90_console_printf("%s intent.age_ms=%llu\r\n",
+                       A90_DPUBLIC_HUD_TAG,
+                       (unsigned long long)intent.age_ms);
+    a90_console_printf("%s policy.forbidden_fields=reject\r\n", A90_DPUBLIC_HUD_TAG);
+    a90_console_printf("%s policy.unknown_fields=reject\r\n", A90_DPUBLIC_HUD_TAG);
+    a90_console_printf("%s policy.stale_after_ms=%llu\r\n",
+                       A90_DPUBLIC_HUD_TAG,
+                       (unsigned long long)A90_DPUBLIC_HUD_STALE_AFTER_MS);
+    a90_console_printf("%s presenter.owner=native-init-root\r\n", A90_DPUBLIC_HUD_TAG);
+    a90_console_printf("%s presenter.debian_direct_kms=0\r\n", A90_DPUBLIC_HUD_TAG);
+    if (validate_only) {
+        a90_console_printf("%s present.skipped=validate-only\r\n", A90_DPUBLIC_HUD_TAG);
+        return 0;
+    }
+
+    rc = a90_kms_begin_frame(0x061018);
+    a90_console_printf("%s present.begin_frame_rc=%d\r\n", A90_DPUBLIC_HUD_TAG, rc);
+    if (rc < 0) {
+        return rc;
+    }
+    dpublic_hud_draw_presenter(&intent);
+    rc = a90_kms_present("dpublic-hud-presenter", true);
+    a90_console_printf("%s present.rc=%d\r\n", A90_DPUBLIC_HUD_TAG, rc);
+    if (rc < 0) {
+        return rc;
+    }
+    a90_console_printf("%s present.done=1\r\n", A90_DPUBLIC_HUD_TAG);
+    return 0;
 }
 
 int a90_server_distro_cmd(char **argv, int argc) {

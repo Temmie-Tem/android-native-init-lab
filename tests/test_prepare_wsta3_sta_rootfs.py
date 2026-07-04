@@ -151,6 +151,8 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertIn("/usr/local/bin/a90-dpublic-wifi-sta", text)
             self.assertTrue(result["autoreboot_disabled_marker"])
             self.assertTrue(result["wifi_sta_helper_invoked"])
+            self.assertTrue(result["hud_split_intent_run_dir_group_prepared"])
+            self.assertTrue(result["hud_split_intent_run_dir_sticky_group_write"])
             self.assertTrue(result["native_uplink_profile_marker"])
             self.assertTrue(result["public_default_off_marker"])
 

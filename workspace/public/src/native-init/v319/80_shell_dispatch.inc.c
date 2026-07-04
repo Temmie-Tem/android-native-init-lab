@@ -19618,6 +19618,10 @@ static int handle_switch_root_to_userdata(char **argv, int argc) {
     return a90_server_distro_switch_root_userdata_cmd(argv, argc);
 }
 
+static int handle_dpublic_hud_presenter(char **argv, int argc) {
+    return a90_server_distro_dpublic_hud_presenter_cmd(argv, argc);
+}
+
 static int handle_poweroff(char **argv, int argc) {
     (void)argv;
     (void)argc;
@@ -19767,6 +19771,9 @@ static const struct shell_command command_table[] = {
     { "switch-root-to-userdata", handle_switch_root_to_userdata,
       "switch-root-to-userdata <token> <expected-marker>",
       CMD_DANGEROUS | CMD_NO_DONE, A90_CMD_GROUP_POWER },
+    { "dpublic-hud-presenter", handle_dpublic_hud_presenter,
+      "dpublic-hud-presenter [validate|present] [intent-path]",
+      CMD_DISPLAY, A90_CMD_GROUP_DISPLAY },
 };
 
 static void refresh_pid1_guard(void) {

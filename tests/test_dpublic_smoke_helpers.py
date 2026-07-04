@@ -17,6 +17,8 @@ FIRSTBOOT = Path("workspace/public/src/scripts/server-distro/a90_dpublic_firstbo
 WIFI_STA = Path("workspace/public/src/scripts/server-distro/a90_dpublic_wifi_sta.sh")
 API_PROBE = Path("workspace/public/src/scripts/server-distro/a90_dpublic_api_probe.sh")
 NATIVE_UPLINK_PROFILE = Path("workspace/public/src/scripts/server-distro/a90_dpublic_native_uplink_profile.sh")
+NATIVE_SERVER_DISTRO = Path("workspace/public/src/native-init/a90_server_distro.c")
+NATIVE_DISPATCH = Path("workspace/public/src/native-init/v319/80_shell_dispatch.inc.c")
 
 
 class DpublicSmokeHelperTests(unittest.TestCase):
@@ -92,6 +94,10 @@ class DpublicSmokeHelperTests(unittest.TestCase):
         self.assertIn("/usr/local/bin/a90-dpublic-hud-intent", source)
         self.assertIn("/usr/local/bin/a90-service-launch dpublic-hud", source)
         self.assertIn("--output /run/a90-dpublic/hud-intent.json", source)
+        self.assertIn("chgrp a90hud /run/a90-dpublic", source)
+        self.assertIn("chmod 1770 /run/a90-dpublic", source)
+        self.assertIn("hud_intent_run_dir_group=a90hud", source)
+        self.assertIn("hud_intent_run_dir_mode=1770", source)
         self.assertIn("hud_split_mode=1", source)
         self.assertIn("hud_presenter_owner=native-init", source)
         self.assertIn("hud_presenter_started=0", source)
@@ -170,6 +176,28 @@ class DpublicSmokeHelperTests(unittest.TestCase):
         self.assertIn("wifi_sta_requested=0", source)
         self.assertIn("wifi_sta_started=0", source)
         self.assertIn("wifi_sta_secret_values_logged=0", source)
+
+    def test_native_dpublic_hud_presenter_consumes_intent_without_debian_kms(self) -> None:
+        source = NATIVE_SERVER_DISTRO.read_text(encoding="utf-8")
+        dispatch = NATIVE_DISPATCH.read_text(encoding="utf-8")
+
+        self.assertIn('A90_DPUBLIC_HUD_DEFAULT_INTENT "/run/a90-dpublic/hud-intent.json"', source)
+        self.assertIn('A90_DPUBLIC_HUD_SCHEMA "a90-dpublic-hud-intent-v1"', source)
+        self.assertIn("A90_DPUBLIC_HUD_MAX_INTENT_BYTES 4096U", source)
+        self.assertIn("A90_DPUBLIC_HUD_STALE_AFTER_MS 2000ULL", source)
+        self.assertIn("dpublic_hud_parse_intent", source)
+        self.assertIn("intent.reject=forbidden-key", source)
+        self.assertIn("intent.reject=unknown-key", source)
+        self.assertIn("intent.reject=stale", source)
+        self.assertIn("policy.forbidden_fields=reject", source)
+        self.assertIn("policy.unknown_fields=reject", source)
+        self.assertIn("presenter.owner=native-init-root", source)
+        self.assertIn("presenter.debian_direct_kms=0", source)
+        self.assertIn("a90_kms_begin_frame", source)
+        self.assertIn("a90_kms_present(\"dpublic-hud-presenter\"", source)
+        self.assertIn("NATIVE ROOT PRESENTER OWNS KMS", source)
+        self.assertIn('"dpublic-hud-presenter"', dispatch)
+        self.assertIn("handle_dpublic_hud_presenter", dispatch)
 
     def test_wifi_sta_helper_is_opt_in_and_redacted(self) -> None:
         source = WIFI_STA.read_text(encoding="utf-8")
