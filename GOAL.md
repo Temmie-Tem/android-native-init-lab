@@ -4235,10 +4235,39 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > (`6 tests OK`), full server-distro regression (`568 tests OK`), and WSTA166
 > source proof generation from the real WSTA165 plan JSON.  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA166_SECCOMP_LIVE_OBSERVATION_RUNNER_SOURCE_2026-07-05.md`.
-> **NEXT:** WSTA167 can implement the actual device-side live observation using
-> this remote script contract, still without the correct WSTA161 load token.
-> Actual seccomp load/enforcement remains unproven and must remain behind a
-> separate explicit design review and gate.
+>
+> **🟢 STATUS (2026-07-05 13:46 KST host clock) — WSTA167 SECCOMP
+> LIVE-OBSERVATION RUNNER SOURCE GATE PASS.**  Codex added the actual bounded
+> live-observation runner for the staged seccomp apply/load-env gates.  The
+> runner is fail-closed and device-inert by default; it proceeds to
+> bridge/device/chroot work only if all explicit live acknowledgements are
+> supplied: `--execute-seccomp-live-observation`,
+> `--allow-seccomp-live-observation`,
+> `--ack-no-correct-wsta161-token`, `--ack-no-seccomp-load`, and
+> `--ack-cleanup-required`.  The runner validates the WSTA166 contract and
+> remote script, stages the current launcher, WSTA153 policy/map, WSTA156 filter
+> manifest/object, WSTA161 gated-apply helper, and WSTA166 remote script into a
+> Debian chroot when live-gated, and its observation parser requires all three
+> no-load scenarios to return `65` while forbidding
+> `A90WSTA161_SECCOMP_LOAD_ATTEMPT=1`, launcher exec/fake setpriv, and loaded
+> markers.  The no-live-gate proof validated the real WSTA166/WSTA153/WSTA156/
+> WSTA161 inputs and stopped before device action with
+> `wsta167-blocked-seccomp-live-observation-required`; `device_action=false`,
+> `seccomp_filter_loaded=false`, `seccomp_enforced=false`, and
+> `correct_wsta161_token_supplied=false`.  Generated proof:
+> `workspace/private/runs/server-distro/wsta167-seccomp-live-observation-source-gate-20260705T1354KST/`.
+> This unit did not touch the device, flash, reboot, connect Wi-Fi, run DHCP,
+> open a public tunnel, mutate packet filters, write userdata, load BPF, load a
+> seccomp filter, enforce seccomp, chroot, switch root, or run the generated
+> remote script.  Validation passed `py_compile`, focused WSTA166+WSTA167 tests
+> (`8 tests OK`), full server-distro regression (`573 tests OK`), and WSTA167
+> no-live-gate proof with real WSTA166/WSTA153/WSTA156/WSTA161 inputs.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA167_SECCOMP_LIVE_OBSERVATION_RUNNER_SOURCE_GATE_2026-07-05.md`.
+> **NEXT:** WSTA168 can run the explicit live observation if the operator
+> supplies the WSTA167 live acknowledgements.  That live run still must not
+> provide the correct WSTA161 load token and must still expect no seccomp
+> load/enforcement.  The first real seccomp-load experiment remains a separate
+> design review and gate.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
