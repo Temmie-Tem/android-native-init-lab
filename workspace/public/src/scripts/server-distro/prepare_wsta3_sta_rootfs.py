@@ -1050,6 +1050,8 @@ seccomp_dry_run_gate() {{
   loader_helper_check_only="${{A90_SERVICE_LAUNCH_SECCOMP_HELPER_CHECK_ONLY:-1}}"
   loader_helper_mode="${{A90_SERVICE_LAUNCH_SECCOMP_HELPER_MODE:-check-only}}"
   loader_helper_apply_gate="${{A90_SERVICE_LAUNCH_SECCOMP_HELPER_APPLY_GATE:-}}"
+  loader_helper_load_gate="${{A90_SERVICE_LAUNCH_SECCOMP_LOAD_GATE:-}}"
+  loader_helper_load_token="${{A90_SERVICE_LAUNCH_SECCOMP_LOAD_TOKEN:-}}"
   enforce_flag="${{A90_SERVICE_LAUNCH_SECCOMP_ENFORCE:-0}}"
   if [ ! -r "$policy_path" ]; then
     echo "a90_service_launcher_decision=blocked-seccomp-policy-missing"
@@ -1121,11 +1123,27 @@ seccomp_dry_run_gate() {{
             echo "a90_service_launcher_decision=blocked-seccomp-helper-apply-gate-required"
             exit 65
           fi
-          if "$loader_helper_path" --service "$SERVICE" --apply; then
-            echo "A90WSTA163_SECCOMP_HELPER_APPLY_OK=1"
+          if [ "$loader_helper_load_gate" = "WSTA164-ALLOW-SECCOMP-LOAD-ENV" ]; then
+            echo "A90WSTA164_SECCOMP_LOAD_ENV_GATE=1"
+            if [ -z "$loader_helper_load_token" ]; then
+              echo "a90_service_launcher_decision=blocked-seccomp-helper-load-token-required"
+              exit 65
+            fi
+            echo "A90WSTA164_SECCOMP_LOAD_TOKEN_PRESENT=1"
+            if A90WSTA161_ALLOW_LOAD=1 A90WSTA161_LOAD_TOKEN="$loader_helper_load_token" "$loader_helper_path" --service "$SERVICE" --apply; then
+              echo "A90WSTA163_SECCOMP_HELPER_APPLY_OK=1"
+            else
+              echo "a90_service_launcher_decision=blocked-seccomp-helper-apply-failed"
+              exit 65
+            fi
           else
-            echo "a90_service_launcher_decision=blocked-seccomp-helper-apply-failed"
-            exit 65
+            echo "A90WSTA164_SECCOMP_LOAD_ENV_GATE=0"
+            if "$loader_helper_path" --service "$SERVICE" --apply; then
+              echo "A90WSTA163_SECCOMP_HELPER_APPLY_OK=1"
+            else
+              echo "a90_service_launcher_decision=blocked-seccomp-helper-apply-failed"
+              exit 65
+            fi
           fi
           ;;
         *)
@@ -1192,6 +1210,9 @@ def stage_no_new_privs_launcher(rootfs: Path) -> dict[str, Any]:
         "seccomp_helper_check_call_present": "--service \"$SERVICE\" --check-only" in text,
         "seccomp_helper_apply_call_present": "--service \"$SERVICE\" --apply" in text,
         "seccomp_helper_apply_gate_present": "WSTA163-ALLOW-HELPER-APPLY" in text,
+        "seccomp_helper_load_env_gate_present": "WSTA164-ALLOW-SECCOMP-LOAD-ENV" in text,
+        "seccomp_helper_load_env_forwarding_present": "A90WSTA161_ALLOW_LOAD=1 A90WSTA161_LOAD_TOKEN=" in text,
+        "seccomp_helper_load_token_literal_absent": "WSTA161-EXPLICIT-ALLOW-SECCOMP-LOAD" not in text,
         "unknown_service_blocks": "blocked-unknown-service" in text,
         "command_required_blocks": "blocked-command-required" in text,
         "service_count": len(SERVICE_IDENTITIES),
