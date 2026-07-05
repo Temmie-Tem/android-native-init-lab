@@ -67,10 +67,17 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > then HALT and wait for the operator's next-target charter:
 > 1. **Roll up ONE `D-HARDEN_COMPLETE` operator-status** consolidating the landed levers (host-only WSTA108
 >    fold); retire all D-harden next-actions.
-> 2. **ONE attended cold-boot PERSISTENCE SMOKE (measurement, not productization):** power-cycle the device
->    once and *measure* what survives — does native-init PID1 come back, does the chroot-Debian +
->    admin-SSH need manual re-bring-up, is `selftest fail=0` after. **Classify the persistence gap; do NOT
->    build a full auto-start supervisor here** (that is post-close productization, separately chartered).
+> 2. **ONE PERSISTENCE SMOKE (measurement, not productization):** restart the device once and *measure*
+>    what survives — does native-init PID1 come back, does the chroot-Debian + admin-SSH need manual
+>    re-bring-up, is `selftest fail=0` after. **Classify the persistence gap; do NOT build a full auto-start
+>    supervisor here** (that is post-close productization, separately chartered).
+>    **WSTA233 UPDATE (2026-07-06):** the physical cold-boot variant BLOCKED — it waits for a human to
+>    physically power-cycle (`operator_cold_boot_wait_aborted_no_disconnect`); the unattended loop cannot
+>    pull power, and it correctly did NOT fake a result (device stayed up, `selftest fail=0`). **Resolution:
+>    use a NATIVE REBOOT proxy** (in the recoverable envelope, loop-executable unattended): native-init
+>    `reboot` into the current build → measure auto-start/gap on the way back up → rollback to `v2321`. The
+>    auto-start question is identical for warm reboot vs cold boot; label the report "warm-reboot proxy; true
+>    physical cold-boot deferred to an attended follow-up." Do NOT keep parking on the physical power-cycle.
 >    DoD = a measured persistence baseline + gap classification + rollback to `v2321` with `selftest fail=0`.
 > 3. **Write the A90 server-distro EPIC CLOSE report** (`docs/reports/SERVER_DISTRO_EPIC_CLOSE_*`): the
 >    proven appliance path (chroot-under-native-PID1 + admin-SSH + outbound cloudflared tunnel + D-harden),
