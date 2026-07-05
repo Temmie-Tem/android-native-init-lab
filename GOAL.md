@@ -71,14 +71,11 @@ safety invariants and flash gates are binding and override any sub-goal.**
 >    what survives — does native-init PID1 come back, does the chroot-Debian + admin-SSH need manual
 >    re-bring-up, is `selftest fail=0` after. **Classify the persistence gap; do NOT build a full auto-start
 >    supervisor here** (that is post-close productization, separately chartered).
->    **WSTA233 UPDATE (2026-07-06):** the physical cold-boot variant BLOCKED — it waits for a human to
->    physically power-cycle (`operator_cold_boot_wait_aborted_no_disconnect`); the unattended loop cannot
->    pull power, and it correctly did NOT fake a result (device stayed up, `selftest fail=0`). **Resolution:
->    use a NATIVE REBOOT proxy** (in the recoverable envelope, loop-executable unattended): native-init
->    `reboot` into the current build → measure auto-start/gap on the way back up → rollback to `v2321`. The
->    auto-start question is identical for warm reboot vs cold boot; label the report "warm-reboot proxy; true
->    physical cold-boot deferred to an attended follow-up." Do NOT keep parking on the physical power-cycle.
->    DoD = a measured persistence baseline + gap classification + rollback to `v2321` with `selftest fail=0`.
+>    **WSTA233 UPDATE (2026-07-06): COMPLETE.** The operator performed the attended physical cold boot while
+>    the runner waited.  WSTA233 observed USB serial disconnect/reconnect plus an uptime drop, captured the
+>    post-cold-boot state, classified the gap as native PID1/USB control/SD runtime/HUD/tcpctl persisted while
+>    Debian admin services require manual re-bring-up, then rolled boot back to `v2321` with `selftest fail=0`.
+>    DoD is satisfied; do not rerun persistence smoke or build an auto-start supervisor in this close-out.
 > 3. **Write the A90 server-distro EPIC CLOSE report** (`docs/reports/SERVER_DISTRO_EPIC_CLOSE_*`): the
 >    proven appliance path (chroot-under-native-PID1 + admin-SSH + outbound cloudflared tunnel + D-harden),
 >    what is NOT done on purpose (full switch_root — kills wlan0; persistence auto-start; service payload),
@@ -651,40 +648,26 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** run exactly one attended cold-boot persistence smoke measurement;
 > do not start a new D-harden lever or server scaffold.
 
-> **🟡 STATUS (2026-07-06 00:09 KST) — WSTA233 COLD-BOOT PERSISTENCE SMOKE PRE-BASELINE CAPTURED; PHYSICAL POWER-CYCLE PENDING.**
-> Codex began the single chartered persistence-smoke measurement and captured a
-> private pre-power-cycle baseline under
-> `workspace/private/runs/server-distro/wsta233-cold-boot-persistence-smoke-20260705T150908Z/`.
-> The baseline showed native `v3402-dpublic-hud-presenter-restart-policy`,
-> `selftest fail=0`, `BOOT OK`, SD runtime writable, native autohud/tcpctl
-> running, and tcpctl reachable.  Baseline admin SSH and loopback smoke service
-> probes were closed, so the post-cold-boot classification should treat those
-> as not auto-started at baseline rather than a new post-boot regression.  The
-> observation then waited for the required USB serial disconnect/reconnect that
-> proves a physical cold boot, but no disconnect occurred; the wait was aborted
-> and no post-cold-boot comparison or v2321 rollback was run.  Codex then added
-> `workspace/public/src/scripts/server-distro/run_wsta233_cold_boot_persistence_smoke.py`,
-> a bounded runner for the same single measurement: capture pre-baseline, wait
-> for serial disconnect/reconnect, capture post state, classify persistence gap,
-> and explicitly roll back to v2321 only with `--ack-rollback-to-v2321`.  Runner
-> representative pre-baseline:
-> `workspace/private/runs/server-distro/wsta233-cold-boot-persistence-runner-prebaseline-20260706T0021KST/`;
-> decision `wsta233-cold-boot-persistence-prebaseline-pass`, uptime
-> `4121.93s`.  This was read-only observation plus passive USB presence
-> monitoring only: no boot flash, native reboot, Wi-Fi connect, DHCP, public
-> tunnel, public smoke, packet-filter mutation, userdata write, LSM load, or
-> switch-root occurred.
-> Report:
-> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA233_COLD_BOOT_PERSISTENCE_SMOKE_PREBASELINE_2026-07-06.md`.
-> Validation: py_compile pass; focused WSTA233 tests `7 OK`; full
-> server-distro regression `857 OK`.
-> A follow-up runner wait from `2026-07-06 00:25-00:33 KST` again timed out with
-> `disconnect_seen=false` / `reconnect_seen=false`; post-classify and v2321
-> rollback were correctly not run.  Read-only post-timeout health stayed clean:
-> native `v3402`, uptime still increasing, and `selftest fail=0`.
-> **NEXT:** physically power-cycle the device once, resume the runner against
-> the 20260706T0021KST WSTA233 baseline, classify the persistence gap, then roll
-> boot back to v2321 and verify `selftest fail=0`.
+> **✅ STATUS (2026-07-06 00:48 KST) — WSTA233 ATTENDED COLD-BOOT PERSISTENCE SMOKE LIVE PASS; ROLLBACK CLEAN.**
+> Codex completed the single chartered persistence-smoke measurement under
+> `workspace/private/runs/server-distro/wsta233-attended-coldboot-20260706T004455KST/`.
+> The runner captured the pre-baseline, waited for the operator's physical cold boot, observed
+> `disconnect_seen=true` / `reconnect_seen=true`, and confirmed an uptime drop from
+> `5525.80s` to `33.89s`.  Post-cold-boot state returned as native
+> `v3402-dpublic-hud-presenter-restart-policy` with `selftest fail=0`, `BOOT OK`, SD runtime
+> writable, autohud/tcpctl running, and tcpctl reachable.  Classification:
+> `native-pid1-and-usb-control-persisted-debian-admin-services-manual-rebringup-required`.
+> Admin SSH and loopback smoke were not running before the cold boot and did not auto-start after it,
+> so they remain productization/manual re-bring-up work rather than a regression in this smoke.  The
+> runner then rolled boot back through the checked helper to
+> `v2321-usb-clean-identity-rodata`; final explicit `version/status/selftest` confirmed
+> `selftest fail=0`.  Safety: rollback boot flash only through the checked helper; no native reboot,
+> Wi-Fi connect, DHCP, public tunnel, public smoke, packet-filter mutation, rootfs mutation,
+> userdata touch, LSM profile load, or switch-root.  Reports:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA233_COLD_BOOT_PERSISTENCE_SMOKE_PREBASELINE_2026-07-06.md`
+> and
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA233_COLD_BOOT_PERSISTENCE_SMOKE_LIVE_PASS_2026-07-06.md`.
+> **NEXT:** write the server-distro epic close report, then halt for the operator's next-target charter.
 
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the

@@ -5,6 +5,10 @@ Scope: attended cold-boot persistence smoke measurement pre-baseline
 
 ## Verdict
 
+SUPERSEDED BY LIVE PASS.  The later attended run completed the cold-boot
+measurement and rollback; see
+`docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA233_COLD_BOOT_PERSISTENCE_SMOKE_LIVE_PASS_2026-07-06.md`.
+
 PENDING.  WSTA233 started the chartered cold-boot persistence smoke measurement
 and captured the pre-power-cycle baseline, but the required physical cold-boot
 evidence did not occur during the observation window.  USB serial never
@@ -105,8 +109,9 @@ presence wait.
 
 It did not perform boot flash, native reboot, Wi-Fi connect, DHCP, public tunnel,
 public smoke, packet-filter mutation, rootfs mutation, userdata write, LSM
-profile load, switch-root, or v2321 rollback.  Rollback is still required after
-the actual post-cold-boot measurement completes.
+profile load, switch-root, or v2321 rollback.  At the time of this report,
+rollback was still required after the actual post-cold-boot measurement.
+That follow-up measurement and rollback later completed in the live-pass report.
 
 No raw public URL values, tunnel credentials, Wi-Fi credentials, confirm tokens,
 or route endpoints are included in this report.
@@ -135,28 +140,8 @@ PYTHONPATH=tests PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m unittest discov
 
 Result: `857 tests OK`.
 
-## Next
+## Current Status
 
-Resume WSTA233 by physically power-cycling the device once, then capture the
-same post-state baseline, classify the persistence gap, and roll boot back to
-v2321 with `selftest fail=0`.
-
-The supported resume command shape is:
-
-```text
-python3 workspace/public/src/scripts/server-distro/run_wsta233_cold_boot_persistence_smoke.py \
-  --run-dir workspace/private/runs/server-distro/wsta233-cold-boot-persistence-runner-prebaseline-20260706T0021KST \
-  --wait-serial-cold-boot
-
-python3 workspace/public/src/scripts/server-distro/run_wsta233_cold_boot_persistence_smoke.py \
-  --run-dir workspace/private/runs/server-distro/wsta233-cold-boot-persistence-runner-prebaseline-20260706T0021KST \
-  --capture-post-classify
-```
-
-After post classification, run the explicit v2321 rollback gate:
-
-```text
-python3 workspace/public/src/scripts/server-distro/run_wsta233_cold_boot_persistence_smoke.py \
-  --run-dir workspace/private/runs/server-distro/wsta233-cold-boot-persistence-runner-prebaseline-20260706T0021KST \
-  --rollback-v2321 --ack-rollback-to-v2321
-```
+Superseded.  The later attended WSTA233 live-pass run captured the cold-boot
+post-state, classified the persistence gap, and rolled boot back to v2321 with
+`selftest fail=0`.  No resume action remains from this pre-baseline report.
