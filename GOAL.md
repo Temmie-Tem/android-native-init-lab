@@ -161,6 +161,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > next-action can retire, then continue with nftables/default-drop or AppArmor
 > feasibility.
 
+> **🟢 STATUS (2026-07-05 21:45 KST) — WSTA213 OPERATOR STATUS NATIVE UPLINK BOUNDARY PASS.**
+> Codex folded the WSTA212 native uplink boundary policy into the WSTA108 operator
+> server status bundle.  Full host-only run:
+> `workspace/private/runs/server-distro/wsta213-operator-status-native-uplink-boundary-20260705T2145KST/wsta108_operator_server_status.json`;
+> decision `wsta108-operator-server-status-source-pass`.  The status now records
+> `native_uplink_boundary_policy_defined=true`, allowed Debian ops `status,scan`,
+> denied ops `connect,associate,association,dhcp,ping,public-tunnel,tunnel`, and
+> `debian_service_launcher_allowed=false` / `debian_service_seccomp_target=false`.
+> The stale remaining launcher profile for `wsta-native-uplink-helper` is retired,
+> and `continue-root-boundary-policy-for-wsta-native-uplink-helper` is gone from
+> operator next-actions.  Safety stayed host-only: no device action, boot flash,
+> reboot, Wi-Fi connect/association, DHCP, ping, public tunnel, packet-filter
+> mutation, rootfs mutation, userdata write, or switch-root.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA213_OPERATOR_STATUS_NATIVE_UPLINK_BOUNDARY_2026-07-05.md`.
+> **NEXT:** D-harden frontier is now nftables/default-drop hardening or AppArmor
+> feasibility; keep public exposure default-off.
+
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
 > `D-PUBLIC-LIVE-PUBLISH` go and is actively driving D-public. First live publish (commit `8d25f793`:

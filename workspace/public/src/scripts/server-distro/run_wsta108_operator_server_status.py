@@ -18,7 +18,8 @@ device, or weakening any live gate.  WSTA210 extends that bundle with the
 WSTA208/WSTA209 real-service seccomp enforcement proofs so seccomp can be
 retired from the immediate next-action list once those live results are
 supplied and verified.  WSTA211 promotes the already-live no-new-privs and
-CapEff=0 evidence into a first-class capability-drop status.
+CapEff=0 evidence into a first-class capability-drop status.  WSTA213 folds in
+the WSTA212 native uplink boundary policy.
 """
 
 from __future__ import annotations
@@ -68,6 +69,8 @@ DPUBLIC_HUD_PRESENTER_HANDOFF_STATE = "DPUBLIC_HUD_DURABLE_PRESENTER_HANDOFF_LIV
 DPUBLIC_HUD_PRESENTER_RESTART_STATE = "DPUBLIC_HUD_DURABLE_PRESENTER_RESTART_LIVE_PROVEN"
 DPUBLIC_HUD_INTENT_SYSCALL_TRACE_STATE = "DPUBLIC_HUD_INTENT_SYSCALL_TRACE_LIVE_PROVEN"
 DROPBEAR_ADMIN_SYSCALL_TRACE_STATE = "DROPBEAR_ADMIN_SYSCALL_TRACE_LIVE_PROVEN"
+NATIVE_UPLINK_BOUNDARY_POLICY_STATE = "NATIVE_UPLINK_ROOT_BOUNDARY_POLICY_SOURCE_DEFINED"
+NATIVE_UPLINK_BOUNDARY_POLICY_DECISION = "wsta212-native-uplink-boundary-policy-source-pass"
 
 CLOUDFLARED_RUNTIME_REQUIRED_CHECKS = (
     "wsta28_precondition_pass",
@@ -891,6 +894,95 @@ def compact_capability_drop_proof(
         "remaining_nonroot_services": remaining_nonroot_services,
         "root_boundary_services": root_boundary_services,
         "services": services,
+        "public_url_value_logged": False,
+        "secret_values_logged": 0,
+    }
+
+
+def compact_native_uplink_boundary_policy(
+    proof_result: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if not proof_result:
+        return {
+            "state": "NOT_SUPPLIED",
+            "native_uplink_boundary_policy_defined": False,
+            "service": "wsta-native-uplink-helper",
+            "allowed_debian_ops": [],
+            "denied_debian_ops": [],
+            "debian_service_launcher_allowed": None,
+            "debian_service_seccomp_target": None,
+            "connectivity_stays_native_owned": False,
+            "public_url_value_logged": False,
+            "secret_values_logged": 0,
+        }
+    policy = proof_result.get("policy") if isinstance(proof_result.get("policy"), dict) else {}
+    if not policy and proof_result.get("schema") == "a90-wsta212-native-uplink-boundary-policy-v1":
+        boundary = (
+            proof_result.get("boundary_contract")
+            if isinstance(proof_result.get("boundary_contract"), dict)
+            else {}
+        )
+        launcher = (
+            proof_result.get("launcher_policy")
+            if isinstance(proof_result.get("launcher_policy"), dict)
+            else {}
+        )
+        policy = {
+            "schema": proof_result.get("schema"),
+            "state": proof_result.get("state"),
+            "service": proof_result.get("service"),
+            "classification": proof_result.get("classification"),
+            "allowed_ops": boundary.get("debian_allowed_ops"),
+            "denied_ops": boundary.get("debian_denied_ops"),
+            "debian_service_launcher_allowed": launcher.get(
+                "launchable_under_debian_service_launcher"
+            ),
+            "debian_service_seccomp_target": launcher.get(
+                "launchable_under_debian_service_seccomp"
+            ),
+        }
+    allowed_ops = policy.get("allowed_ops") if isinstance(policy.get("allowed_ops"), list) else []
+    denied_ops = policy.get("denied_ops") if isinstance(policy.get("denied_ops"), list) else []
+    checks = proof_result.get("checks") if isinstance(proof_result.get("checks"), dict) else {}
+    checks_all_true = all(value is True for value in checks.values()) if checks else True
+    status_scan_only = allowed_ops == ["status", "scan"]
+    denied_connectivity = {
+        "connect",
+        "associate",
+        "association",
+        "dhcp",
+        "ping",
+        "public-tunnel",
+        "tunnel",
+    }.issubset(set(str(item) for item in denied_ops))
+    not_debian_launchable = (
+        policy.get("debian_service_launcher_allowed") is False
+        and policy.get("debian_service_seccomp_target") is False
+    )
+    defined = bool(
+        proof_result.get("decision") in {None, NATIVE_UPLINK_BOUNDARY_POLICY_DECISION}
+        and policy.get("state") == NATIVE_UPLINK_BOUNDARY_POLICY_STATE
+        and policy.get("service") == "wsta-native-uplink-helper"
+        and policy.get("classification") == "native-owned-root-boundary"
+        and status_scan_only
+        and denied_connectivity
+        and not_debian_launchable
+        and checks_all_true
+    )
+    return {
+        "state": NATIVE_UPLINK_BOUNDARY_POLICY_STATE if defined else "INCOMPLETE",
+        "native_uplink_boundary_policy_defined": defined,
+        "service": policy.get("service"),
+        "classification": policy.get("classification"),
+        "allowed_debian_ops": allowed_ops,
+        "denied_debian_ops": denied_ops,
+        "status_scan_only": status_scan_only,
+        "connectivity_stays_native_owned": denied_connectivity,
+        "debian_service_launcher_allowed": policy.get("debian_service_launcher_allowed"),
+        "debian_service_seccomp_target": policy.get("debian_service_seccomp_target"),
+        "not_debian_launcher_or_seccomp_target": not_debian_launchable,
+        "source_decision": proof_result.get("decision"),
+        "source_checks_all_true": checks_all_true,
         "public_url_value_logged": False,
         "secret_values_logged": 0,
     }
@@ -1838,6 +1930,7 @@ def compact_hardening(
     hud_intent_syscall_proof_result: dict[str, Any] | None,
     seccomp_smoke_proof_result: dict[str, Any] | None,
     seccomp_dropbear_proof_result: dict[str, Any] | None,
+    native_uplink_boundary_policy_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     packet_filter_proof = compact_packet_filter_proof(packet_filter_proof_result, packet_filter_control_summary)
     launcher_proof = compact_launcher_proof(launcher_proof_result)
@@ -1900,6 +1993,15 @@ def compact_hardening(
             for item in syscall_trace_proof.get("remaining_profiles", [])
             if item != "dpublic-hud"
         ]
+    native_uplink_boundary_policy = compact_native_uplink_boundary_policy(
+        native_uplink_boundary_policy_result
+    )
+    if native_uplink_boundary_policy.get("native_uplink_boundary_policy_defined"):
+        launcher_proof["remaining_profiles"] = [
+            item
+            for item in launcher_proof.get("remaining_profiles", [])
+            if item != "wsta-native-uplink-helper"
+        ]
     capability_drop_proof = compact_capability_drop_proof(
         launcher_proof,
         cloudflared_runtime,
@@ -1919,6 +2021,7 @@ def compact_hardening(
             "dropbear_admin_syscall_trace_proof": dropbear_admin_syscall_proof,
             "seccomp_enforcement_proof": seccomp_enforcement_proof,
             "capability_drop_proof": capability_drop_proof,
+            "native_uplink_boundary_policy": native_uplink_boundary_policy,
             "cloudflared_model": cloudflared_model,
             "cloudflared_runtime": cloudflared_runtime,
             "hud_model": hud_model,
@@ -1963,6 +2066,7 @@ def compact_hardening(
         "dropbear_admin_syscall_trace_proof": dropbear_admin_syscall_proof,
         "seccomp_enforcement_proof": seccomp_enforcement_proof,
         "capability_drop_proof": capability_drop_proof,
+        "native_uplink_boundary_policy": native_uplink_boundary_policy,
         "cloudflared_model": cloudflared_model,
         "cloudflared_runtime": cloudflared_runtime,
         "hud_model": hud_model,
@@ -2000,6 +2104,7 @@ def build_server_status(
     hud_intent_syscall_proof_result: dict[str, Any] | None,
     seccomp_smoke_proof_result: dict[str, Any] | None,
     seccomp_dropbear_proof_result: dict[str, Any] | None,
+    native_uplink_boundary_policy_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     status_hud = wsta88_result.get("status_hud") if isinstance(wsta88_result.get("status_hud"), dict) else {}
     if not status_hud:
@@ -2024,6 +2129,7 @@ def build_server_status(
         hud_intent_syscall_proof_result,
         seccomp_smoke_proof_result,
         seccomp_dropbear_proof_result,
+        native_uplink_boundary_policy_result,
     )
     public_off = (status_hud.get("public_state") or "PUBLIC_OFF") == "PUBLIC_OFF"
     ready_default_off = public_off and bool(packet_filter.get("ready"))
@@ -2050,6 +2156,11 @@ def build_server_status(
     capability_drop_proof = (
         hardening.get("capability_drop_proof")
         if isinstance(hardening.get("capability_drop_proof"), dict)
+        else {}
+    )
+    native_uplink_boundary_policy = (
+        hardening.get("native_uplink_boundary_policy")
+        if isinstance(hardening.get("native_uplink_boundary_policy"), dict)
         else {}
     )
     cloudflared_model = (
@@ -2105,8 +2216,12 @@ def build_server_status(
     capability_drop_live_proven = bool(
         capability_drop_proof.get("nonroot_services_capability_drop_live_proven")
     )
+    native_uplink_boundary_defined = bool(
+        native_uplink_boundary_policy.get("native_uplink_boundary_policy_defined")
+    )
     if capability_drop_live_proven:
-        operator_next_actions.append("continue-root-boundary-policy-for-wsta-native-uplink-helper")
+        if not native_uplink_boundary_defined:
+            operator_next_actions.append("continue-root-boundary-policy-for-wsta-native-uplink-helper")
     else:
         operator_next_actions.append(
             "extend-service-launcher-proof-beyond-dpublic-smoke-httpd-before-always-on-profile"
@@ -2247,6 +2362,11 @@ def markdown(server_status: dict[str, Any]) -> str:
         if isinstance(hardening.get("capability_drop_proof"), dict)
         else {}
     )
+    native_uplink_boundary = (
+        hardening.get("native_uplink_boundary_policy")
+        if isinstance(hardening.get("native_uplink_boundary_policy"), dict)
+        else {}
+    )
     cloudflared_model = (
         hardening.get("cloudflared_model")
         if isinstance(hardening.get("cloudflared_model"), dict)
@@ -2344,6 +2464,11 @@ def markdown(server_status: dict[str, Any]) -> str:
         f"- Capability-drop proven services: `{', '.join(capability_drop.get('proven_services') or [])}`",
         f"- Capability-drop remaining non-root services: `{', '.join(capability_drop.get('remaining_nonroot_services') or [])}`",
         f"- Capability-drop root-boundary services: `{', '.join(capability_drop.get('root_boundary_services') or [])}`",
+        f"- Native uplink boundary policy: `{str(bool(native_uplink_boundary.get('native_uplink_boundary_policy_defined'))).lower()}`",
+        f"- Native uplink allowed Debian ops: `{', '.join(native_uplink_boundary.get('allowed_debian_ops') or [])}`",
+        f"- Native uplink denied Debian ops: `{', '.join(native_uplink_boundary.get('denied_debian_ops') or [])}`",
+        f"- Native uplink Debian launcher target: `{str(bool(native_uplink_boundary.get('debian_service_launcher_allowed'))).lower()}`",
+        f"- Native uplink Debian seccomp target: `{str(bool(native_uplink_boundary.get('debian_service_seccomp_target'))).lower()}`",
         f"- Cloudflared model: `{str(bool(cloudflared_model.get('model_defined'))).lower()}`",
         f"- Cloudflared model user: `{cloudflared_model.get('user')}`",
         f"- Cloudflared default public off: `{str(bool(cloudflared_model.get('default_public_off'))).lower()}`",
@@ -2787,6 +2912,32 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             write_json(out_json, result)
             return result
 
+    native_uplink_boundary_policy_result: dict[str, Any] | None = None
+    if args.wsta212_native_uplink_boundary_policy_json is not None:
+        native_uplink_boundary_path, native_uplink_boundary_error = require_private_file(
+            args.wsta212_native_uplink_boundary_policy_json,
+            "wsta212-native-uplink-boundary-policy",
+        )
+        if native_uplink_boundary_error or native_uplink_boundary_path is None:
+            result["decision"] = (
+                native_uplink_boundary_error
+                or "wsta108-blocked-wsta212-native-uplink-boundary-policy"
+            )
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+        native_uplink_boundary_policy_result = load_json(native_uplink_boundary_path)
+        if (
+            native_uplink_boundary_policy_result.get("decision")
+            != NATIVE_UPLINK_BOUNDARY_POLICY_DECISION
+        ):
+            result["decision"] = "wsta108-blocked-wsta212-native-uplink-boundary-policy-not-pass"
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+
     server_status = build_server_status(
         wsta88_result,
         hardening_result,
@@ -2806,6 +2957,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         hud_intent_syscall_proof_result,
         seccomp_smoke_proof_result,
         seccomp_dropbear_proof_result,
+        native_uplink_boundary_policy_result,
     )
     packet_filter_proof = server_status["hardening"].get("packet_filter_proof", {})
     packet_filter_control_proof = (
@@ -2832,6 +2984,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         else {}
     )
     capability_drop_proof = server_status["hardening"].get("capability_drop_proof", {})
+    native_uplink_boundary_policy = server_status["hardening"].get(
+        "native_uplink_boundary_policy",
+        {},
+    )
     cloudflared_model = server_status["hardening"].get("cloudflared_model", {})
     cloudflared_runtime = server_status["hardening"].get("cloudflared_runtime", {})
     hud_model = server_status["hardening"].get("hud_model", {})
@@ -2908,6 +3064,21 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         in (capability_drop_proof.get("proven_services") or []),
         "capability_drop_hud_live_proven": "dpublic-hud"
         in (capability_drop_proof.get("proven_services") or []),
+        "wsta212_native_uplink_boundary_policy_supplied": (
+            native_uplink_boundary_policy_result is not None
+        ),
+        "native_uplink_boundary_policy_defined": bool(
+            native_uplink_boundary_policy.get("native_uplink_boundary_policy_defined")
+        ),
+        "native_uplink_debian_status_scan_only": bool(
+            native_uplink_boundary_policy.get("status_scan_only")
+        ),
+        "native_uplink_connectivity_stays_native_owned": bool(
+            native_uplink_boundary_policy.get("connectivity_stays_native_owned")
+        ),
+        "native_uplink_not_debian_launcher_or_seccomp_target": bool(
+            native_uplink_boundary_policy.get("not_debian_launcher_or_seccomp_target")
+        ),
         "cloudflared_model_supplied": cloudflared_model_result is not None,
         "cloudflared_model_defined": bool(cloudflared_model.get("model_defined")),
         "cloudflared_default_public_off": bool(cloudflared_model.get("default_public_off")),
@@ -3088,6 +3259,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         write_json(out_json, result)
         return result
     if (
+        native_uplink_boundary_policy_result is not None
+        and not result["checks"]["native_uplink_boundary_policy_defined"]
+    ):
+        result["decision"] = "wsta108-blocked-wsta212-native-uplink-boundary-policy-incomplete"
+        result["gate_decision"] = result["decision"]
+        result["ended_utc"] = utc_stamp()
+        write_json(out_json, result)
+        return result
+    if (
         cloudflared_model_result is not None
         and not result["checks"]["cloudflared_model_defined"]
     ):
@@ -3191,6 +3371,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--wsta151-dropbear-admin-syscall-proof-json", type=Path)
     parser.add_argument("--wsta208-real-service-seccomp-proof-json", type=Path)
     parser.add_argument("--wsta209-dropbear-admin-seccomp-proof-json", type=Path)
+    parser.add_argument("--wsta212-native-uplink-boundary-policy-json", type=Path)
     parser.add_argument("--wsta122-cloudflared-model-json", type=Path)
     parser.add_argument("--wsta125-cloudflared-runtime-proof-json", type=Path)
     parser.add_argument("--wsta127-hud-model-json", type=Path)

@@ -450,6 +450,54 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
             "secret_values_logged": 0,
         }
 
+    def native_uplink_boundary_policy(self) -> dict:
+        return {
+            "decision": runner.NATIVE_UPLINK_BOUNDARY_POLICY_DECISION,
+            "policy": {
+                "schema": "a90-wsta212-native-uplink-boundary-policy-v1",
+                "state": runner.NATIVE_UPLINK_BOUNDARY_POLICY_STATE,
+                "service": "wsta-native-uplink-helper",
+                "classification": "native-owned-root-boundary",
+                "allowed_ops": ["status", "scan"],
+                "denied_ops": [
+                    "connect",
+                    "associate",
+                    "association",
+                    "dhcp",
+                    "ping",
+                    "public-tunnel",
+                    "tunnel",
+                ],
+                "debian_service_launcher_allowed": False,
+                "debian_service_seccomp_target": False,
+            },
+            "checks": {
+                "manifest_service_boundary_preserve": True,
+                "wsta22_live_status_no_credentials_or_public": True,
+                "wsta22_live_scan_redacted_no_connect_or_public": True,
+                "seccomp_exclusion_native_uplink_not_launchable_under_debian_seccomp": True,
+                "helper_source_denies_before_request_write": True,
+                "policy_debian_cannot_start_connectivity": True,
+                "policy_launcher_not_debian_launchable": True,
+            },
+            "safety": {
+                "device_action": False,
+                "boot_flash": False,
+                "native_reboot": False,
+                "wifi_connect": False,
+                "wifi_association": False,
+                "dhcp": False,
+                "ping": False,
+                "public_tunnel": False,
+                "packet_filter_mutation": False,
+                "rootfs_mutation": False,
+                "userdata_touch": False,
+                "switch_root": False,
+                "public_url_value_logged": False,
+                "secret_values_logged": 0,
+            },
+        }
+
     def cloudflared_model_proof(self) -> dict:
         model = runner.wsta122.cloudflared_service_model()
         return {
@@ -1890,6 +1938,82 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
             markdown,
         )
         self.assertIn("Capability-drop remaining non-root services: ``", markdown)
+
+    def test_wsta213_native_uplink_boundary_status_retires_root_boundary_next_action(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            manifest_path = root / "inputs" / "wsta90_service_hardening_manifest.json"
+            launcher_path = root / "inputs" / "wsta110_result.json"
+            admin_path = root / "inputs" / "wsta120_result.json"
+            runtime_path = root / "inputs" / "wsta125_result.json"
+            presenter_path = root / "inputs" / "wsta130_dpublic_hud_presenter_model.json"
+            handoff_path = root / "inputs" / "wsta144_dpublic_hud_shared_run_bind_live.json"
+            hud_syscall_path = root / "inputs" / "wsta149_dpublic_hud_intent_syscall_trace_live.json"
+            smoke_seccomp_path = root / "inputs" / "wsta208_result.json"
+            dropbear_seccomp_path = root / "inputs" / "wsta209_result.json"
+            native_uplink_path = root / "inputs" / "wsta212_result.json"
+            self.write_json(manifest_path, self.hardening_manifest())
+            self.write_json(launcher_path, self.launcher_proof())
+            self.write_json(admin_path, self.dropbear_admin_proof())
+            self.write_json(runtime_path, self.cloudflared_runtime_proof())
+            self.write_json(presenter_path, self.hud_presenter_model_proof())
+            self.write_json(handoff_path, self.hud_presenter_handoff_proof())
+            self.write_json(hud_syscall_path, self.hud_intent_syscall_proof())
+            self.write_json(smoke_seccomp_path, self.seccomp_smoke_proof())
+            self.write_json(dropbear_seccomp_path, self.seccomp_dropbear_proof())
+            self.write_json(native_uplink_path, self.native_uplink_boundary_policy())
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta90-service-hardening-manifest-json",
+                str(manifest_path),
+                "--wsta110-service-launcher-proof-json",
+                str(launcher_path),
+                "--wsta120-dropbear-admin-proof-json",
+                str(admin_path),
+                "--wsta125-cloudflared-runtime-proof-json",
+                str(runtime_path),
+                "--wsta130-hud-presenter-model-json",
+                str(presenter_path),
+                "--wsta144-hud-presenter-handoff-proof-json",
+                str(handoff_path),
+                "--wsta149-hud-intent-syscall-proof-json",
+                str(hud_syscall_path),
+                "--wsta208-real-service-seccomp-proof-json",
+                str(smoke_seccomp_path),
+                "--wsta209-dropbear-admin-seccomp-proof-json",
+                str(dropbear_seccomp_path),
+                "--wsta212-native-uplink-boundary-policy-json",
+                str(native_uplink_path),
+            ))
+            markdown = (root / "wsta108" / "wsta108_operator_server_status.md").read_text(encoding="utf-8")
+
+        self.assertEqual(result["decision"], runner.PASS_DECISION)
+        proof = result["server_status"]["hardening"]["native_uplink_boundary_policy"]
+        self.assertEqual(proof["state"], runner.NATIVE_UPLINK_BOUNDARY_POLICY_STATE)
+        self.assertTrue(proof["native_uplink_boundary_policy_defined"])
+        self.assertEqual(proof["allowed_debian_ops"], ["status", "scan"])
+        self.assertIn("connect", proof["denied_debian_ops"])
+        self.assertFalse(proof["debian_service_launcher_allowed"])
+        self.assertFalse(proof["debian_service_seccomp_target"])
+        self.assertEqual(result["server_status"]["hardening"]["launcher_proof"]["remaining_profiles"], [])
+        self.assertTrue(result["checks"]["wsta212_native_uplink_boundary_policy_supplied"])
+        self.assertTrue(result["checks"]["native_uplink_boundary_policy_defined"])
+        self.assertTrue(result["checks"]["native_uplink_debian_status_scan_only"])
+        self.assertTrue(result["checks"]["native_uplink_connectivity_stays_native_owned"])
+        self.assertTrue(result["checks"]["native_uplink_not_debian_launcher_or_seccomp_target"])
+        self.assertNotIn(
+            "continue-root-boundary-policy-for-wsta-native-uplink-helper",
+            result["server_status"]["operator_next_actions"],
+        )
+        self.assertIn(
+            "move-to-nftables-default-drop-or-apparmor-hardening",
+            result["server_status"]["operator_next_actions"],
+        )
+        self.assertIn("Native uplink boundary policy: `true`", markdown)
+        self.assertIn("Native uplink allowed Debian ops: `status, scan`", markdown)
+        self.assertIn("Native uplink Debian launcher target: `false`", markdown)
 
     def test_all_syscall_profiles_retired_removes_syscall_blocker(self) -> None:
         with self.private_tmp() as tmp:
