@@ -4340,8 +4340,35 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > WSTA169/WSTA168 artifacts, and full server-distro regression (`584 tests OK`).
 > Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA170_SECCOMP_LIVE_OBSERVATION_EXECUTE_SOURCE_GATE_2026-07-05.md`.
-> **NEXT:** execute WSTA170's no-load live observation only with explicit
-> operator approval for the full WSTA170 acknowledgement set above.
+>
+> **🟢 STATUS (2026-07-05 14:11 KST host clock) — WSTA171 SECCOMP
+> LIVE-OBSERVATION EXECUTE PREFLIGHT PASS.**  Codex added a host-only WSTA171
+> preflight that consumes the WSTA170 source-gate proof plus the underlying
+> WSTA169 readiness proof and WSTA168 command artifacts, revalidates them, and
+> emits the exact WSTA170 no-load live-observation execution command without
+> running it.  The generated command artifacts are
+> `workspace/private/runs/server-distro/wsta171-seccomp-live-observation-execute-preflight-20260705T141100KST/wsta171_wsta170_execute_command.json`
+> and
+> `workspace/private/runs/server-distro/wsta171-seccomp-live-observation-execute-preflight-20260705T141100KST/wsta171_wsta170_execute_command.sh`;
+> state is `READY_TO_RUN_NOT_EXECUTED`, `executed=false`, required ack count is
+> 6, and expected outcome remains WSTA170 pass with nested WSTA167 pass,
+> `seccomp_filter_loaded=false`, `seccomp_enforced=false`, and
+> `correct_wsta161_token_supplied=false`.  Source-gate, readiness, WSTA168
+> command, and WSTA171 execution-command checks were all true.  The generated
+> command includes `--execute-wsta170-no-load-live-observation`,
+> `--allow-wsta168-command-execution`, `--ack-readiness-proof-current`,
+> `--ack-no-correct-wsta161-token`, `--ack-no-seccomp-load`, and
+> `--ack-cleanup-required`.  This unit did not flash, reboot, connect Wi-Fi,
+> run DHCP, open a public tunnel, mutate packet filters, write userdata, switch
+> root, execute WSTA170, execute WSTA168/WSTA167, load a seccomp filter, enforce
+> seccomp, or supply the correct WSTA161 token.  Validation passed
+> `py_compile`, focused WSTA170+WSTA171 tests (`7 tests OK`), WSTA171 preflight
+> generation from the real WSTA170/WSTA169/WSTA168 artifacts, and full
+> server-distro regression (`587 tests OK`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA171_SECCOMP_LIVE_OBSERVATION_EXECUTE_PREFLIGHT_2026-07-05.md`.
+> **NEXT:** the generated WSTA171 command is the exact next execution step, but
+> it must only be run with explicit operator approval for the no-load live
+> observation.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
