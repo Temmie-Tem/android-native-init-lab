@@ -36,9 +36,11 @@ import run_d2_ssh_in_chroot as d2  # noqa: E402
 import run_wsta19_native_owned_chroot_wifi as wsta19  # noqa: E402
 import run_wsta42_native_uplink_dpublic_tunnel as wsta42  # noqa: E402
 import run_wsta94_packet_filter_live_gate as wsta94  # noqa: E402
+import run_wsta110_service_launcher_chroot_proof as wsta110  # noqa: E402
 import run_wsta149_dpublic_hud_intent_syscall_trace as wsta149  # noqa: E402
 import run_wsta160_seccomp_full_rootfs_chroot_dry_run as wsta160  # noqa: E402
 import run_wsta161_seccomp_loader_gated_apply_helper as wsta161  # noqa: E402
+import run_wsta167_seccomp_live_observation as wsta167  # noqa: E402
 import run_wsta193_seccomp_correct_token_canary_source as wsta193  # noqa: E402
 import run_wsta196_seccomp_load_canary_execute as wsta196  # noqa: E402
 import run_wsta197_seccomp_load_canary_transport_gate as wsta197  # noqa: E402
@@ -54,6 +56,11 @@ DEFAULT_WSTA197_TRANSPORT_GATE = (
 )
 DEFAULT_LOCAL_IMAGE = wsta149.WSTA115_STRACE_IMAGE
 DEFAULT_REMOTE_CLEAN_IMAGE = wsta42.DEFAULT_REMOTE_CLEAN_IMAGE
+DEFAULT_WSTA153_POLICY = wsta160.DEFAULT_WSTA153_POLICY
+DEFAULT_WSTA156_MANIFEST = wsta160.DEFAULT_WSTA156_MANIFEST
+DEFAULT_WSTA156_OBJECT = wsta160.DEFAULT_WSTA156_OBJECT
+DEFAULT_WSTA161_MANIFEST = wsta167.DEFAULT_WSTA161_MANIFEST
+DEFAULT_WSTA161_HELPER = wsta167.DEFAULT_WSTA161_HELPER
 SOURCE_PASS_DECISION = "wsta198-seccomp-load-canary-ssh-adapter-source-pass"
 LIVE_PASS_DECISION = "wsta198-seccomp-load-canary-ssh-adapter-live-pass"
 SUMMARY_NAME = "wsta198_result.json"
@@ -131,6 +138,7 @@ def safety_flags(args: argparse.Namespace) -> dict[str, Any]:
         "correct_wsta161_token_supplied": False,
         "correct_wsta161_token_in_artifact": False,
         "token_passed_over_stdin_redacted": False,
+        "seccomp_assets_staged": False,
         "seccomp_filter_loaded": False,
         "seccomp_enforced": False,
         "post_run_audit_executed": False,
@@ -232,6 +240,93 @@ def private_token_status() -> dict[str, bool]:
         "private_token_env_present": value is not None,
         "private_token_matches_wsta161": value == wsta161.LOAD_TOKEN,
     }
+
+
+def seccomp_asset_paths(args: argparse.Namespace) -> dict[str, Path]:
+    return {
+        "policy": resolve_path(args.wsta153_seccomp_policy_json),
+        "filter_manifest": resolve_path(args.wsta156_filter_manifest_json),
+        "filter_object": resolve_path(args.wsta156_filter_object),
+        "loader_manifest": resolve_path(args.wsta161_loader_helper_manifest_json),
+        "loader_helper": resolve_path(args.wsta161_loader_helper),
+    }
+
+
+def validate_seccomp_asset_inputs(paths: dict[str, Path]) -> dict[str, bool]:
+    checks: dict[str, bool] = {}
+    for key, path in paths.items():
+        checks[f"{key}_private"] = wsta160.is_under(path, PRIVATE_ROOT)
+        checks[f"{key}_present"] = path.is_file()
+    return checks
+
+
+def stage_seccomp_canary_assets(
+    args: argparse.Namespace,
+    run_dir: Path,
+    paths: dict[str, Path],
+) -> dict[str, Any]:
+    policy = load_json(paths["policy"])
+    records = {
+        "launcher": wsta110.write_remote_bytes(
+            args,
+            run_dir,
+            "/" + str(wsta3.TARGET_SERVICE_LAUNCHER),
+            wsta3.launcher_script().encode("utf-8"),
+            mode="0755",
+            timeout=args.ssh_timeout,
+        ),
+        "policy": wsta110.write_remote_bytes(
+            args,
+            run_dir,
+            "/" + str(wsta3.TARGET_SECCOMP_POLICY),
+            (json.dumps(policy, indent=2, sort_keys=True) + "\n").encode("utf-8"),
+            mode="0644",
+            timeout=args.ssh_timeout,
+        ),
+        "map": wsta110.write_remote_bytes(
+            args,
+            run_dir,
+            "/" + str(wsta3.TARGET_SECCOMP_LAUNCHER_MAP),
+            wsta3.seccomp_launcher_map_text(policy).encode("utf-8"),
+            mode="0644",
+            timeout=args.ssh_timeout,
+        ),
+        "filter_manifest": wsta110.write_remote_bytes(
+            args,
+            run_dir,
+            "/" + str(wsta3.TARGET_SECCOMP_FILTER_MANIFEST),
+            paths["filter_manifest"].read_bytes(),
+            mode="0644",
+            timeout=args.ssh_timeout,
+        ),
+        "filter_object": wsta110.write_remote_bytes(
+            args,
+            run_dir,
+            "/" + str(wsta3.TARGET_SECCOMP_FILTER_OBJECT),
+            paths["filter_object"].read_bytes(),
+            mode="0644",
+            timeout=args.ssh_timeout,
+        ),
+        "loader_manifest": wsta110.write_remote_bytes(
+            args,
+            run_dir,
+            "/" + str(wsta3.TARGET_SECCOMP_LOADER_HELPER_MANIFEST),
+            paths["loader_manifest"].read_bytes(),
+            mode="0644",
+            timeout=args.ssh_timeout,
+        ),
+        "loader_helper": wsta110.write_remote_bytes(
+            args,
+            run_dir,
+            "/" + str(wsta3.TARGET_SECCOMP_LOADER_HELPER),
+            paths["loader_helper"].read_bytes(),
+            mode="0755",
+            timeout=args.ssh_timeout,
+        ),
+    }
+    records["staged"] = all(bool(item.get("staged")) for item in records.values() if isinstance(item, dict))
+    records["secret_values_logged"] = 0
+    return records
 
 
 def live_command_template(transport_gate: Path) -> list[str]:
@@ -498,6 +593,8 @@ def classify(result: dict[str, Any], *, executing: bool) -> str:
         ("chroot_mount_ready", "wsta198-blocked-chroot-mount"),
         ("dropbear_started", "wsta198-blocked-dropbear-start"),
         ("debian_ssh_marker", "wsta198-blocked-debian-ssh-marker"),
+        ("seccomp_asset_inputs_valid", "wsta198-blocked-seccomp-asset-inputs"),
+        ("seccomp_assets_staged", "wsta198-blocked-seccomp-assets-stage"),
         ("execution_returncode_bounded", "wsta198-blocked-canary-returncode"),
         ("canary_loaded", "wsta198-blocked-canary-load-not-observed"),
         ("chroot_cleanup_ok", "wsta198-blocked-chroot-cleanup"),
@@ -610,6 +707,23 @@ def execute_live(
         result["checks"]["debian_ssh_marker"] = bool(result["ssh_parse"].get("marker"))
         write_json(out_path, result)
         if not result["checks"]["debian_ssh_marker"]:
+            result["decision"] = classify(result, executing=True)
+            return finish_result(out_path, result)
+
+        asset_paths = seccomp_asset_paths(args)
+        asset_checks = validate_seccomp_asset_inputs(asset_paths)
+        result["seccomp_asset_input_checks"] = asset_checks
+        result["checks"]["seccomp_asset_inputs_valid"] = all(asset_checks.values())
+        write_json(out_path, result)
+        if not result["checks"]["seccomp_asset_inputs_valid"]:
+            result["decision"] = classify(result, executing=True)
+            return finish_result(out_path, result)
+
+        result["seccomp_assets_stage"] = stage_seccomp_canary_assets(args, run_dir, asset_paths)
+        result["checks"]["seccomp_assets_staged"] = bool(result["seccomp_assets_stage"].get("staged"))
+        result["safety"]["seccomp_assets_staged"] = result["checks"]["seccomp_assets_staged"]
+        write_json(out_path, result)
+        if not result["checks"]["seccomp_assets_staged"]:
             result["decision"] = classify(result, executing=True)
             return finish_result(out_path, result)
 
@@ -780,11 +894,22 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--execution-timeout", type=float, default=120.0)
     parser.add_argument("--ssh-timeout", type=float, default=30.0)
     parser.add_argument("--sha-timeout", type=float, default=180.0)
+    parser.add_argument("--bridge-timeout", type=float, default=60.0)
+    parser.add_argument("--connect-timeout", type=float, default=10.0)
+    parser.add_argument("--tcp-timeout", type=float, default=30.0)
+    parser.add_argument("--transfer-timeout", type=float, default=900.0)
+    parser.add_argument("--transfer-delay", type=float, default=2.0)
     parser.add_argument("--local-image", type=Path, default=DEFAULT_LOCAL_IMAGE)
     parser.add_argument("--local-image-sha256", default=wsta149.WSTA115_STRACE_IMAGE_SHA256)
     parser.add_argument("--remote-image", default=d1.DEFAULT_REMOTE_IMAGE)
     parser.add_argument("--remote-clean-image", default=DEFAULT_REMOTE_CLEAN_IMAGE)
     parser.add_argument("--mountpoint", default=d1.DEFAULT_MOUNTPOINT)
+    parser.add_argument("--wsta153-seccomp-policy-json", type=Path, default=DEFAULT_WSTA153_POLICY)
+    parser.add_argument("--wsta156-filter-manifest-json", type=Path, default=DEFAULT_WSTA156_MANIFEST)
+    parser.add_argument("--wsta156-filter-object", type=Path, default=DEFAULT_WSTA156_OBJECT)
+    parser.add_argument("--wsta161-loader-helper-manifest-json", type=Path, default=DEFAULT_WSTA161_MANIFEST)
+    parser.add_argument("--wsta161-loader-helper", type=Path, default=DEFAULT_WSTA161_HELPER)
+    parser.add_argument("--toybox", default="/bin/toybox")
     parser.add_argument("--emit-wsta198-ssh-adapter-packet", action="store_true")
     parser.add_argument("--execute-real-seccomp-load-canary-over-ssh", action="store_true")
     parser.add_argument("--allow-correct-wsta161-token", action="store_true")

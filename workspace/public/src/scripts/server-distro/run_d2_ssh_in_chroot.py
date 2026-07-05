@@ -310,6 +310,8 @@ def run_host_ssh(args: argparse.Namespace, run_dir: Path) -> dict[str, Any]:
         f"ConnectTimeout={args.ssh_connect_timeout}",
         "-o",
         "PreferredAuthentications=publickey",
+        "-o",
+        "WarnWeakCrypto=no",
         f"root@{args.device_ip}",
         remote_command,
     ]

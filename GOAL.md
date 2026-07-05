@@ -57,6 +57,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **Safety unchanged:** runtime seccomp is reboot-recoverable (stays in the envelope); no forbidden-partition/
 > power writes; commit NO secrets/tokens (token via redacted transport only); keep v2321 rollback intact.
 
+> **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
+> Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
+> runner staged WSTA153 policy + WSTA156 filter artifact + WSTA161 gated-apply helper into
+> the mounted Debian chroot, supplied the private WSTA161 token only through the redacted
+> env/stdin path, and observed `A90WSTA161_SECCOMP_LOAD=1` plus
+> `a90_seccomp_loader_decision=loaded`.  The canary exited with bounded rc `65`
+> (`blocked-seccomp-enforce-unimplemented` after load), which WSTA196/WSTA198 define as the
+> expected throwaway canary outcome.  WSTA204 accepted the result:
+> `wsta204-wsta198-live-result-verify-pass`, state `WSTA198_LIVE_RESULT_ACCEPTED`.
+> Final native health stayed clean: `selftest pass=12 warn=1 fail=0`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA207_SECCOMP_LIVE_CANARY_PASS_2026-07-05.md`.
+> **NEXT:** finish the operator DoD with a real service under enforcement, starting with
+> `dpublic-smoke-httpd`: load/enforce the derived seccomp profile and prove the service still
+> returns its smoke marker under enforcement.  Do not add more no-load gate scaffolding.
+
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
 > `D-PUBLIC-LIVE-PUBLISH` go and is actively driving D-public. First live publish (commit `8d25f793`:

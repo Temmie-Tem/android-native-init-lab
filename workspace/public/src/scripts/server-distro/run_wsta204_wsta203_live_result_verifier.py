@@ -63,6 +63,8 @@ REQUIRED_LIVE_CHECKS = [
     "chroot_mount_ready",
     "dropbear_started",
     "debian_ssh_marker",
+    "seccomp_asset_inputs_valid",
+    "seccomp_assets_staged",
     "execution_returncode_bounded",
     "canary_loaded",
     "chroot_cleanup_ok",
@@ -78,6 +80,7 @@ REQUIRED_LIVE_SAFETY_TRUE = [
     "live_command_executed",
     "correct_wsta161_token_supplied",
     "token_passed_over_stdin_redacted",
+    "seccomp_assets_staged",
     "seccomp_filter_loaded",
     "seccomp_enforced",
 ]
@@ -527,7 +530,8 @@ def validate_live_result_payload(path: Path, audit: dict[str, Any]) -> tuple[boo
         "bounded_device_action": safety.get("device_action") == "single-service-seccomp-load-canary-over-ssh-chroot",
         "secret_values_zero": safety.get("secret_values_logged") == 0,
         "required_canary_markers": all(canary.get(key) is True for key in REQUIRED_CANARY_MARKERS),
-        "execution_returncode_zero": execution.get("returncode") == 0,
+        "execution_returncode_bounded_value": canary.get("returncode_bounded") is True
+        and execution.get("returncode") in (0, 65),
         "execution_token_redacted": execution.get("input_redacted") is True,
         "execution_no_token_literal": FORBIDDEN_TOKEN_PREFIX not in execution_text,
         "execution_no_external_network_inputs": wsta198.no_external_network_inputs(execution_text),

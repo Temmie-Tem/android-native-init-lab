@@ -93,6 +93,16 @@ class ServerDistroWsta198SeccompLoadCanarySshAdapterTests(unittest.TestCase):
             str(root / "debian.img"),
             "--local-image-sha256",
             "fake-sha",
+            "--wsta153-seccomp-policy-json",
+            str(root / "inputs" / "wsta153_seccomp_policy.json"),
+            "--wsta156-filter-manifest-json",
+            str(root / "inputs" / "wsta156_seccomp_filter_manifest.json"),
+            "--wsta156-filter-object",
+            str(root / "inputs" / "wsta156_seccomp_filters.o"),
+            "--wsta161-loader-helper-manifest-json",
+            str(root / "inputs" / "wsta161_seccomp_loader_helper_manifest.json"),
+            "--wsta161-loader-helper",
+            str(root / "inputs" / "a90-seccomp-loader-gated-apply"),
             *runner.ACK_FLAGS,
         ]
 
@@ -168,11 +178,35 @@ class ServerDistroWsta198SeccompLoadCanarySshAdapterTests(unittest.TestCase):
         self.assertFalse(result["safety"]["device_action"])
         self.assertFalse(result["safety"]["live_command_executed"])
 
+    def test_live_parser_exposes_helper_timeout_contract(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            gate = self.write_transport_gate(root)
+            args = runner.build_arg_parser().parse_args(self.live_args(root, gate))
+
+        self.assertEqual(args.bridge_timeout, 60.0)
+        self.assertEqual(args.connect_timeout, 10.0)
+        self.assertEqual(args.tcp_timeout, 30.0)
+        self.assertEqual(args.transfer_timeout, 900.0)
+        self.assertEqual(args.transfer_delay, 2.0)
+        self.assertEqual(args.toybox, "/bin/toybox")
+        self.assertEqual(args.wsta153_seccomp_policy_json, root / "inputs" / "wsta153_seccomp_policy.json")
+        self.assertEqual(args.wsta161_loader_helper, root / "inputs" / "a90-seccomp-loader-gated-apply")
+
     def test_mocked_live_path_uses_ssh_stdin_token_and_redacts_output(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
             gate = self.write_transport_gate(root)
             (root / "debian.img").write_text("fake", encoding="utf-8")
+            for asset in (
+                root / "inputs" / "wsta153_seccomp_policy.json",
+                root / "inputs" / "wsta156_seccomp_filter_manifest.json",
+                root / "inputs" / "wsta156_seccomp_filters.o",
+                root / "inputs" / "wsta161_seccomp_loader_helper_manifest.json",
+                root / "inputs" / "a90-seccomp-loader-gated-apply",
+            ):
+                asset.parent.mkdir(parents=True, exist_ok=True)
+                asset.write_bytes(b"fake")
             mount_text = "A90D2_MOUNT_READY\nA90D2 mounted=1\n"
             start_text = "A90D2_DROPBEAR_STARTED\nA90D2 authorized_keys=1\nA90D2 shadow_temp_key_only=1\n"
             cleanup_text = "A90D2_CLEANUP_DONE\nA90D2 shadow_restored=1\n"
@@ -207,6 +241,10 @@ class ServerDistroWsta198SeccompLoadCanarySshAdapterTests(unittest.TestCase):
                     mock.patch.object(runner.wsta94, "native_stale_cleanup", return_value={"cleaned": True}), \
                     mock.patch.object(runner.d1, "sha256_file", return_value="fake-sha"), \
                     mock.patch.object(runner.wsta42, "prepare_remote_work_image", return_value=True), \
+                    mock.patch.object(runner, "stage_seccomp_canary_assets", return_value={
+                        "staged": True,
+                        "secret_values_logged": 0,
+                    }), \
                     mock.patch.object(runner.wsta19, "bridge_shell", side_effect=[
                         self.bridge_record(mount_text),
                         self.bridge_record(start_text),
@@ -221,6 +259,7 @@ class ServerDistroWsta198SeccompLoadCanarySshAdapterTests(unittest.TestCase):
         self.assertEqual(result["decision"], runner.LIVE_PASS_DECISION)
         self.assertTrue(result["safety"]["ssh_chroot_transport"])
         self.assertTrue(result["safety"]["token_passed_over_stdin_redacted"])
+        self.assertTrue(result["safety"]["seccomp_assets_staged"])
         self.assertTrue(result["safety"]["seccomp_filter_loaded"])
         self.assertTrue(result["checks"]["canary_loaded"])
         self.assertIn("<redacted-wsta161-token>", result["execution"]["stdout"])

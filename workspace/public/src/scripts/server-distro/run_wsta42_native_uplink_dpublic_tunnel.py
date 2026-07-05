@@ -400,6 +400,8 @@ def ssh_command(args: argparse.Namespace, run_dir: Path) -> list[str]:
         f"ConnectTimeout={args.ssh_connect_timeout}",
         "-o",
         "PreferredAuthentications=publickey",
+        "-o",
+        "WarnWeakCrypto=no",
         f"root@{args.device_ip}",
     ]
 
