@@ -214,6 +214,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > default-drop path into the next explicit/default-off server hardening policy
 > step.
 
+> **🟢 STATUS (2026-07-05 20:43 KST) — WSTA216 DEFAULT-DROP HARDENING POLICY PASS.**
+> Codex added a host-only WSTA216 policy runner that consumes the WSTA215
+> operator status, WSTA94 packet-filter loopback live proof, packet-filter
+> control-plane summary, and WSTA42/WSTA76/WSTA79/WSTA80 source wiring.  Full
+> host-only run:
+> `workspace/private/runs/server-distro/wsta216-default-drop-hardening-policy-20260705T2043KST/wsta216_result.json`;
+> decision `wsta216-default-drop-hardening-policy-source-pass`.  The emitted
+> policy records `LEGACY_IPTABLES_DEFAULT_DROP_HARDENING_POLICY_DEFINED`,
+> `hardening_lever=legacy-iptables-loopback-default-drop`,
+> `activation=explicit-operator-gated`, `default_public_off=true`,
+> `live_execution_requested=false`, and `packet_filter_mutation_by_wsta216=false`.
+> Safety stayed host-only: no device action, boot flash, reboot, Wi-Fi connect,
+> DHCP, ping, public tunnel, public smoke, packet-filter mutation, rootfs
+> mutation, userdata write, LSM profile load, or switch-root.  Validation:
+> WSTA216 unit tests `4 tests OK`; server-distro regression `800 tests OK`.
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA216_DEFAULT_DROP_HARDENING_POLICY_2026-07-05.md`.
+> **NEXT:** fold WSTA216 into the WSTA108 operator status bundle so the current
+> hardening state is visible to the operator before any attended D-public live
+> use.
+
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
 > `D-PUBLIC-LIVE-PUBLISH` go and is actively driving D-public. First live publish (commit `8d25f793`:
