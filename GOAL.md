@@ -4455,9 +4455,35 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > source-gate proof against the real WSTA174 handoff, and full server-distro
 > regression (`603 tests OK`).  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA175_SECCOMP_HANDOFF_EXECUTE_GATE_2026-07-05.md`.
-> **NEXT:** if the handoff expires, rerun WSTA174 first.  If it is still fresh,
-> WSTA175 is the exact executor surface for the no-load live observation, still
-> requiring explicit operator approval.
+>
+> **🟢 STATUS (2026-07-05 14:36 KST host clock) — WSTA176 SECCOMP HANDOFF
+> EXECUTE PREFLIGHT PASS.**  Codex added a host-only WSTA176 one-shot execution
+> preflight.  It runs WSTA174 to create a fresh expiring handoff, validates that
+> handoff through WSTA175's source gate, then emits the exact WSTA175 execution
+> command packet without executing it.  Proof run:
+> `workspace/private/runs/server-distro/wsta176-seccomp-handoff-execute-preflight-20260705T143635KST/`.
+> Nested decisions were `wsta174-seccomp-fresh-expiring-handoff-pass` and
+> `wsta175-blocked-explicit-execution-gate-required`.  Generated command:
+> `workspace/private/runs/server-distro/wsta176-seccomp-handoff-execute-preflight-20260705T143635KST/wsta176_wsta175_execute_command.json`
+> and
+> `workspace/private/runs/server-distro/wsta176-seccomp-handoff-execute-preflight-20260705T143635KST/wsta176_wsta175_execute_command.sh`;
+> state is `READY_TO_RUN_NOT_EXECUTED`, `executed=false`, required ack count is
+> 6.  The command points at fresh handoff
+> `workspace/private/runs/server-distro/wsta176-seccomp-handoff-execute-preflight-20260705T143635KST/wsta174-fresh-expiring-handoff/wsta173-expiring-handoff/wsta173_expiring_execute_handoff.json`;
+> WSTA175 source-gate freshness saw `expires_utc=20260705T055145Z` and
+> `seconds_remaining=899`.  This unit did not flash, reboot, connect Wi-Fi, run
+> DHCP, open a public tunnel, mutate packet filters, write userdata, switch
+> root, execute WSTA175, execute WSTA170, execute WSTA168/WSTA167, load a
+> seccomp filter, enforce seccomp, or supply the correct WSTA161 token.  Device
+> contact was limited to nested WSTA174/WSTA172/WSTA169 read-only
+> bridge/version/status/selftest checks.  Validation passed `py_compile`,
+> focused WSTA175+WSTA176 tests (`8 tests OK`), WSTA176 one-shot execution
+> preflight proof against the current bridge/device, and full server-distro
+> regression (`607 tests OK`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA176_SECCOMP_HANDOFF_EXECUTE_PREFLIGHT_2026-07-05.md`.
+> **NEXT:** the generated WSTA176 command is the exact WSTA175 execution
+> command.  It still requires explicit operator approval and a non-expired
+> handoff before the no-load live observation can run.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
