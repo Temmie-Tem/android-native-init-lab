@@ -4005,9 +4005,30 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `workspace/private/runs/server-distro/wsta157-seccomp-loader-contract-rootfs-proof-20260705T1236KST/`.
 > Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA157_SECCOMP_LOADER_CONTRACT_ROOTFS_PROOF_2026-07-05.md`.
-> **NEXT:** WSTA158 should choose the next enforcement-adjacent bounded step:
-> either build a separate loader helper with a default check-only mode, or run
-> the full staged rootfs in a private chroot dry-run.  Actual seccomp
+>
+> **🟢 STATUS (2026-07-05 12:43 KST host clock) — WSTA158 SECCOMP
+> LOADER CHECK-ONLY HELPER PASS.**  Codex added a host-only WSTA158 runner that
+> consumes the WSTA156 manifest/object from private paths, verifies the object
+> SHA, emits a small aarch64 C helper with WSTA156 filter symbol declarations,
+> links a static ARM64 binary, and runs it under `qemu-aarch64`.  The helper is
+> deliberately check-only: default execution enumerates all four linked filter
+> profiles with `A90WSTA158_SECCOMP_LOAD=0`, service-specific execution maps
+> launcher `dpublic-hud` to policy service `dpublic-hud-intent`, and `--apply`
+> exits `65` with `blocked-allow-load-required` before any load path.  Generated
+> proof:
+> `workspace/private/runs/server-distro/wsta158-seccomp-loader-checkonly-helper-20260705T1243KST/`
+> with helper SHA256
+> `4883eae48e85cc504b1534141a64cea15681d0c5c9cf703f5fc9814f2b1900a0`.
+> This unit did not chroot, touch the device, flash, reboot, connect Wi-Fi, run
+> DHCP, open a public tunnel, mutate packet filters, write userdata, load BPF,
+> load a seccomp filter, or enforce seccomp.  Validation passed `py_compile`,
+> focused WSTA156+WSTA157+WSTA158 tests (`8 tests OK`), full server-distro
+> regression (`549 tests OK`), and WSTA158 proof generation from the real
+> WSTA156 artifact.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA158_SECCOMP_LOADER_CHECKONLY_HELPER_2026-07-05.md`.
+> **NEXT:** WSTA159 should stage the check-only helper into the private rootfs
+> and wire the launcher enforcement flag to call the helper in check-only mode
+> first, while still blocking any actual load/enforcement path.  Actual seccomp
 > enforcement remains unproven and must stay behind a later explicit live gate.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
