@@ -4922,6 +4922,33 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** The no-load WSTA187 operator workflow is closed through the final
 > execute gate.  Any real seccomp-load/correct-token behavior must now be a
 > separately designed higher-risk rung; do not fold it into the no-load path.
+>
+> **🟢 STATUS (2026-07-05 16:34 KST host clock) — WSTA192 SECCOMP-LOAD RISK
+> CHARTER PASS.**  Codex added the host-only risk charter that separates any
+> future real seccomp-load/correct-token behavior from the closed WSTA187/WSTA190
+> no-load workflow.  WSTA192 consumed the WSTA190 live delegation pass and the
+> WSTA164 load-env contract, validated that neither input loaded/enforced
+> seccomp or supplied the correct WSTA161 token, and emitted a non-executable
+> charter.  Run:
+> `workspace/private/runs/server-distro/wsta192-seccomp-load-risk-charter-20260705T1640KST/`;
+> decision was `wsta192-seccomp-load-risk-charter-pass`.  Charter state was
+> `READY_FOR_SEPARATE_SECCOMP_LOAD_DESIGN_NOT_EXECUTABLE`, with
+> `wsta190_decision_live_pass=true`, `wsta190_top_no_mutation=true`,
+> `wsta190_delegated_no_mutation=true`, `wsta164_decision_pass=true`,
+> `wsta164_launcher_has_load_gate=true`, `wsta164_launcher_forwards_load_env=true`,
+> `wsta164_safety_no_mutation=true`, `charter_state_not_executable=true`,
+> `charter_guardrail_separate_script=true`, and
+> `charter_future_requires_correct_token_ack=true`.  This proof did not flash,
+> reboot, contact the device, connect Wi-Fi, run DHCP, open a public tunnel,
+> mutate packet filters, write userdata, switch root, generate or execute a live
+> command, load a seccomp filter, enforce seccomp, or supply the correct WSTA161
+> token.  Validation passed `py_compile`, focused WSTA192 tests (`7 tests OK`),
+> full server-distro regression (`678 tests OK`), and the WSTA192 proof run.
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA192_SECCOMP_LOAD_RISK_CHARTER_2026-07-05.md`.
+> **NEXT:** Start WSTA193 as a host-only correct-token canary source proof.  It
+> must keep the real token out of public artifacts and still must not live-load
+> seccomp.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
