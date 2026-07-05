@@ -4212,10 +4212,33 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > regression (`565 tests OK`), and WSTA165 plan generation from the real WSTA164
 > proof JSON.  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA165_SECCOMP_LIVE_OBSERVATION_PLAN_2026-07-05.md`.
-> **NEXT:** WSTA166 can either implement the bounded live-observation runner
-> from this plan without the correct WSTA161 load token, or stop for an
-> explicit design review before any first real seccomp-load experiment.  Actual
-> seccomp load/enforcement remains unproven.
+>
+> **🟢 STATUS (2026-07-05 13:38 KST host clock) — WSTA166 SECCOMP
+> LIVE-OBSERVATION RUNNER SOURCE PASS.**  Codex added a host-only WSTA166
+> runner-source proof that consumes the real WSTA165 plan JSON and emits the
+> remote shell script shape a later live unit can run inside Debian.  It does
+> not contact the device and does not execute the generated script.  The source
+> proof verifies WSTA165 schema/state, exactly three no-load scenarios,
+> correct-token absent, filter load/enforcement false, and the load-attempt
+> marker present only as a forbidden marker.  The generated remote script uses
+> `/usr/bin/env -i`, calls only
+> `/usr/local/bin/a90-service-launch dpublic-hud /bin/true`, includes WSTA163
+> apply gate + WSTA164 load-env gate + the deliberately wrong token placeholder,
+> and excludes the correct `WSTA161-EXPLICIT-ALLOW-SECCOMP-LOAD` token plus
+> external network inputs (`cloudflared`, tunnel, Wi-Fi, DHCP).  Generated
+> proof:
+> `workspace/private/runs/server-distro/wsta166-seccomp-live-observation-runner-source-20260705T1344KST/`.
+> This unit did not touch the device, flash, reboot, connect Wi-Fi, run DHCP,
+> open a public tunnel, mutate packet filters, write userdata, load BPF, load a
+> seccomp filter, enforce seccomp, chroot, switch root, or run the generated
+> remote script.  Validation passed `py_compile`, focused WSTA165+WSTA166 tests
+> (`6 tests OK`), full server-distro regression (`568 tests OK`), and WSTA166
+> source proof generation from the real WSTA165 plan JSON.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA166_SECCOMP_LIVE_OBSERVATION_RUNNER_SOURCE_2026-07-05.md`.
+> **NEXT:** WSTA167 can implement the actual device-side live observation using
+> this remote script contract, still without the correct WSTA161 load token.
+> Actual seccomp load/enforcement remains unproven and must remain behind a
+> separate explicit design review and gate.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
