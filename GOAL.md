@@ -474,6 +474,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > runtime state, then run the WSTA226 live gate only under operator supervision
 > and require restore/public-off proof before returning.
 
+> **🟢 STATUS (2026-07-05 22:59 KST) — WSTA227 CLOUDFLARED EGRESS ROUTE ARTIFACT SOURCE PASS.**
+> Codex added `run_wsta227_cloudflared_egress_route_artifact.py`, a private
+> route-artifact builder for the WSTA226 live gate.  WSTA227 consumes an
+> attended private route observation with schema
+> `a90-wsta227-cloudflared-egress-route-observation-v1` / state
+> `CLOUDFLARED_EGRESS_ROUTE_OBSERVED_PRIVATE`, requires non-empty DNS and TLS
+> IPv4/IPv4-CIDR targets plus resolver/DNS/TLS route evidence, and emits the
+> WSTA226-compatible private artifact with schema
+> `a90-wsta226-cloudflared-egress-route-v1` / state
+> `CLOUDFLARED_EGRESS_ROUTE_DERIVED_PRIVATE`.  Public output records only
+> DNS/TLS counts, source metadata, artifact path, and redaction markers; raw
+> route values remain private.  No device action, boot flash, native reboot,
+> Wi-Fi connect, DHCP, public tunnel, public smoke, packet-filter mutation,
+> userdata write, LSM load, or switch-root occurred.  Validation: WSTA227
+> focused tests `5 tests OK`, WSTA226/WSTA227 focused tests `11 tests OK`, full
+> server-distro regression `840 tests OK`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA227_CLOUDFLARED_EGRESS_ROUTE_ARTIFACT_2026-07-05.md`.
+> **NEXT:** generate the private route observation from attended runtime state,
+> run WSTA227 to produce the WSTA226 route artifact, then execute WSTA226 live
+> only under operator supervision with restore/public-off proof.
+
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
 > `D-PUBLIC-LIVE-PUBLISH` go and is actively driving D-public. First live publish (commit `8d25f793`:
