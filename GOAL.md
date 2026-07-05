@@ -5078,6 +5078,40 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA197 should decide/validate the live transport for the attended
 > WSTA196 execution path and then run only if the operator supplies the private
 > token and fresh native health checks pass.
+>
+> **🟢 STATUS (2026-07-05 17:14 KST host clock) — WSTA197 SECCOMP-LOAD
+> CANARY TRANSPORT GATE PASS.**  Codex added the host-only transport decision
+> gate for the future attended WSTA196 canary execution.  WSTA197 consumed:
+> `workspace/private/runs/server-distro/wsta196-seccomp-load-canary-source-gate-20260705T170553KST/wsta196_result.json`,
+> `workspace/private/runs/server-distro/wsta196-seccomp-load-canary-source-gate-20260705T170553KST/wsta196_seccomp_load_canary_source_gate.json`,
+> `workspace/private/runs/server-distro/wsta149-dpublic-hud-intent-syscall-trace-live-20260705T1058KST/wsta149_result.json`,
+> and
+> `workspace/private/runs/server-distro/wsta167-seccomp-live-observation-source-gate-20260705T1354KST/wsta167_result.json`;
+> run:
+> `workspace/private/runs/server-distro/wsta197-seccomp-load-canary-transport-gate-20260705T171427KST/`;
+> decision was `wsta197-seccomp-load-canary-transport-gate-pass`.  Transport
+> state was `TRANSPORT_DECIDED_WSTA196_LIVE_BLOCKED_UNTIL_ADAPTER`, selected
+> transport was `debian-chroot-dropbear-ssh-over-ncm`, with
+> `wsta196_result_valid=true`, `wsta196_source_gate_valid=true`,
+> `wsta149_live_transport_valid=true`,
+> `wsta167_seccomp_asset_gate_valid=true`, `transport_gate_valid=true`,
+> `wsta196_direct_host_subprocess_execute_allowed=false`,
+> `ready_for_wsta198_transport_adapter=true`,
+> `ready_for_wsta196_live_execute=false`, `token_literal_absent=true`, and
+> `no_external_network_inputs=true`.  WSTA197 explicitly blocks using
+> WSTA196's host-local subprocess hook as the live device transport; WSTA198
+> must execute the canary inside the Debian/chroot Dropbear-over-NCM transport
+> and keep the private token off command lines and public logs.  This proof did
+> not flash, reboot, contact the device, connect Wi-Fi, run DHCP, open a
+> public tunnel, mutate packet filters, write userdata, switch root, invoke
+> WSTA196 execution, generate or execute a live command, supply the correct
+> WSTA161 token, load a seccomp filter, or enforce seccomp.  Validation passed
+> `py_compile`, focused WSTA197 tests (`5 tests OK`), full server-distro
+> regression (`713 tests OK`), and the WSTA197 proof run.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA197_SECCOMP_LOAD_CANARY_TRANSPORT_GATE_2026-07-05.md`.
+> **NEXT:** WSTA198 should implement the SSH/chroot transport adapter for the
+> WSTA196 canary path, fail-closed by default and still no live load unless the
+> operator supplies the private token and fresh native health passes.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
