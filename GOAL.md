@@ -5251,6 +5251,39 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > deliberately supplies `A90_PRIVATE_WSTA161_LOAD_TOKEN` and re-runs WSTA202 to
 > obtain `READY_FOR_ATTENDED_WSTA200_WRAPPER_EXECUTION_DEFAULT_OFF`; then the
 > operator may manually run the existing private WSTA200 handoff wrapper.
+>
+> **🟢 STATUS (2026-07-05 18:02 KST host clock) — WSTA203 WSTA202 WRAPPER
+> MANIFEST AUDIT PASS.**  Codex added the host-only wrapper manifest audit for
+> the existing WSTA200/WSTA198 attended-live chain.  WSTA203 consumes:
+> `workspace/private/runs/server-distro/wsta202-wsta201-live-preflight-20260705T175342KST/wsta202_wsta201_live_preflight.json`;
+> run:
+> `workspace/private/runs/server-distro/wsta203-wsta202-wrapper-manifest-audit-20260705T180223KST/`;
+> decision was `wsta203-wsta202-wrapper-manifest-audit-pass`.  Audit state was
+> `WRAPPER_MANIFEST_CURRENT_TOKEN_REQUIRED_DEFAULT_OFF`, with
+> `preflight_valid=true`, `wsta202_recheck_valid=true`,
+> `preflight_stable_view_match=true`, `handoff_wrapper_audit_valid=true`,
+> `wsta198_wrapper_audit_valid=true`, `wrapper_manifest_audit_valid=true`,
+> `ready_for_attended_live_handoff=true`,
+> `ready_for_immediate_live_execute=false`,
+> `private_token_env_present=false`, and
+> `private_token_matches_wsta161=false`.  WSTA203 verifies that the WSTA200
+> wrapper still re-runs WSTA199, requires the private token env, asserts current
+> adapter status, and execs the private WSTA198 wrapper; it also verifies that
+> the WSTA198 wrapper carries the complete ACK stack, explicit execute gate,
+> full JSON output, private token env guard, redacted stdin-token transport in
+> the source, fresh/post native health hooks, cleanup gate, and no flash or
+> external-network surfaces.  WSTA203 did not flash, reboot, contact the device,
+> connect Wi-Fi, run DHCP, open a public tunnel, mutate packet filters, write
+> userdata, switch root, execute the WSTA200 handoff shell, run WSTA198 live,
+> supply the WSTA161 token to the device, run native health, load a seccomp
+> filter, or enforce seccomp.  Validation passed `py_compile`, focused WSTA203
+> tests (`7 tests OK`), the WSTA203 proof run, and full server-distro
+> regression (`748 tests OK`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA203_WSTA202_WRAPPER_MANIFEST_AUDIT_2026-07-05.md`.
+> **NEXT:** The remaining live blocker is still operator-token/default-off:
+> export the private token deliberately, re-run WSTA202 and WSTA203 to reach
+> token-ready default-off states, then manually run the existing private WSTA200
+> handoff wrapper.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
