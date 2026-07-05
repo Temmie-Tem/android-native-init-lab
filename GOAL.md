@@ -235,6 +235,29 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > hardening state is visible to the operator before any attended D-public live
 > use.
 
+> **🟢 STATUS (2026-07-05 20:54 KST) — WSTA217 OPERATOR STATUS DEFAULT-DROP HARDENING POLICY PASS.**
+> Codex folded the WSTA216 legacy-iptables loopback/default-drop policy into the
+> WSTA108 operator server status bundle.  Full host-only run:
+> `workspace/private/runs/server-distro/wsta217-operator-status-default-drop-hardening-policy-20260705T2054KST/wsta108_operator_server_status.json`;
+> decision `wsta108-operator-server-status-source-pass`.  The status records
+> `LEGACY_IPTABLES_DEFAULT_DROP_HARDENING_POLICY_DEFINED`,
+> `hardening_lever=legacy-iptables-loopback-default-drop`,
+> `activation=explicit-operator-gated`, `default_public_off=true`,
+> `live_execution_requested=false`, `packet_filter_mutation_by_wsta216=false`,
+> and `control_plane_preserved=true`.  Operator next-actions now include
+> `use-legacy-iptables-default-drop-only-through-attended-dpublic-live-gate` and
+> `move-to-attended-default-drop-live-use-or-next-hardening-layer`; the prior
+> `move-to-legacy-iptables-default-drop-hardening` action is retired when WSTA216
+> is supplied.  Safety stayed host-only: no device action, boot flash, reboot,
+> Wi-Fi connect, DHCP, ping, public tunnel, public smoke, packet-filter mutation,
+> rootfs mutation, userdata write, LSM profile load, or switch-root.  Validation:
+> WSTA108 unit tests `57 tests OK`; server-distro regression `803 tests OK`.
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA217_OPERATOR_STATUS_DEFAULT_DROP_HARDENING_POLICY_2026-07-05.md`.
+> **NEXT:** continue from the visible hardening state: either use the existing
+> attended D-public live gate with the default-drop precondition, or proceed to
+> the next hardening layer without weakening the default-off gate.
+
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
 > `D-PUBLIC-LIVE-PUBLISH` go and is actively driving D-public. First live publish (commit `8d25f793`:
