@@ -572,6 +572,30 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** continue the D-public server endgame from the WSTA108 status frontier;
 > egress policy/live proof is no longer the blocker.
 
+> **🟢 STATUS (2026-07-05 23:44 KST) — WSTA231 OPERATOR STATUS SERVER ENDGAME PRUNE PASS.**
+> Codex tightened WSTA108 hardening status refinement so stale
+> `blocking_before_enforcement` entries are retired when downstream proof bundles
+> already cover the named service identity, launcher, syscall, and packet-filter
+> gaps.  Representative host-only run:
+> `workspace/private/runs/server-distro/wsta231-server-endgame-status-prune-20260705T2348KST/wsta108_operator_server_status.json`;
+> decision `wsta108-operator-server-status-source-pass`.  The status remains
+> `SERVER_PROFILE_READY_DEFAULT_OFF` / `PUBLIC_OFF`, and now reports
+> `blocking_before_enforcement=[]`, `launcher_remaining_profiles=[]`,
+> `syscall_remaining_profiles=[]`, and
+> `cloudflared_egress_state=CLOUDFLARED_EGRESS_ALLOWLIST_ATTENDED_LIVE_PROVEN`
+> when the full WSTA proof bundle is supplied.  Operator next-actions stay
+> default-off and reduce to `keep-public-exposure-default-off`,
+> `use-explicit-wsta88-live-gate-only-when-attended`, and
+> `continue-dpublic-server-endgame-after-cloudflared-egress-live`.  This unit was
+> host-only: no device action, boot flash, native reboot, Wi-Fi connect, DHCP,
+> public tunnel, public smoke, packet-filter mutation, userdata write, LSM load,
+> or switch-root occurred.  Validation: py_compile pass; focused WSTA108/WSTA226
+> tests `73 OK`; full server-distro regression `844 OK`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA231_OPERATOR_STATUS_SERVER_ENDGAME_PRUNE_2026-07-05.md`.
+> **NEXT:** continue D-public server endgame work from the reduced WSTA108
+> blocker set; status scaffolding no longer reports stale service/packet-filter
+> gaps when the corresponding proofs are present.
+
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
 > `D-PUBLIC-LIVE-PUBLISH` go and is actively driving D-public. First live publish (commit `8d25f793`:

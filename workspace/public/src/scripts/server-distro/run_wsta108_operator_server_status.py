@@ -23,7 +23,9 @@ the WSTA212 native uplink boundary policy.  WSTA215 folds in the WSTA214
 AppArmor feasibility audit.  WSTA217 folds in the WSTA216 legacy-iptables
 default-drop hardening policy.  WSTA220 folds in the WSTA219 attended
 default-drop live proof.  WSTA230 folds in the WSTA229 attended cloudflared
-egress allowlist live proof.
+egress allowlist live proof.  WSTA231 retires stale hardening blockers when the
+downstream status proofs already cover the named service, packet-filter, and
+syscall gaps.
 """
 
 from __future__ import annotations
@@ -2422,6 +2424,11 @@ def refine_blocking_before_enforcement(
     cloudflared_model: dict[str, Any],
     cloudflared_runtime: dict[str, Any],
     hud_presenter_model: dict[str, Any],
+    capability_drop_proof: dict[str, Any],
+    native_uplink_boundary_policy: dict[str, Any],
+    default_drop_hardening_policy: dict[str, Any],
+    attended_default_drop_live: dict[str, Any],
+    cloudflared_egress_allowlist_live: dict[str, Any],
 ) -> list[str]:
     refined: list[str] = []
     smoke_live_proven = launcher_proof_is_smoke_live_proven(launcher_proof)
@@ -2434,12 +2441,33 @@ def refine_blocking_before_enforcement(
     cloudflared_model_defined = cloudflared_model_is_defined(cloudflared_model)
     cloudflared_runtime_live_proven = cloudflared_runtime_is_live_proven(cloudflared_runtime)
     hud_intent_live_proven = bool(hud_presenter_model.get("intent_syscall_trace_live_proven"))
+    capability_drop_live_proven = bool(
+        capability_drop_proof.get("nonroot_services_capability_drop_live_proven")
+    )
+    native_uplink_boundary_defined = bool(
+        native_uplink_boundary_policy.get("native_uplink_boundary_policy_defined")
+    )
+    no_remaining_launcher_profiles = not bool(launcher_proof.get("remaining_profiles"))
+    service_identity_gap_retired = bool(
+        capability_drop_live_proven
+        and dropbear_admin_live_proven
+        and native_uplink_boundary_defined
+        and no_remaining_launcher_profiles
+    )
+    packet_filter_backend_status_proven = bool(
+        packet_filter_live_proven
+        or default_drop_hardening_policy.get("default_drop_hardening_policy_defined")
+        or attended_default_drop_live.get("attended_default_drop_live_proven")
+        or cloudflared_egress_allowlist_live.get("cloudflared_egress_allowlist_live_proven")
+    )
     for item in items:
         text = str(item)
         if smoke_live_proven and text in {
             "staged service users/groups not live-proven",
             "non-root users/groups not staged",
         }:
+            if service_identity_gap_retired:
+                continue
             proven = ["dpublic-smoke-httpd"]
             if dropbear_admin_live_proven:
                 proven.append("dropbear-admin-usb")
@@ -2449,13 +2477,15 @@ def refine_blocking_before_enforcement(
                 proven.append("dpublic-hud")
             text = f"remaining service users/groups not live-proven beyond {'/'.join(proven)}"
         elif smoke_live_proven and text == "no-new-privs launcher not live-proven":
+            if service_identity_gap_retired:
+                continue
             proven = ["dpublic-smoke-httpd"]
             if cloudflared_runtime_live_proven:
                 proven.append("cloudflared-quick-tunnel")
             if hud_intent_live_proven:
                 proven.append("dpublic-hud")
             text = f"remaining service launchers not live-proven beyond {'/'.join(proven)}"
-        elif packet_filter_live_proven and text == "packet-filter backend not inventoried":
+        elif packet_filter_backend_status_proven and text == "packet-filter backend not inventoried":
             continue
         elif smoke_syscall_trace_live_proven and text == "syscall traces not captured":
             proven = ["dpublic-smoke-httpd"]
@@ -2626,6 +2656,11 @@ def compact_hardening(
         cloudflared_model,
         cloudflared_runtime,
         hud_presenter_model,
+        capability_drop_proof,
+        native_uplink_boundary_policy,
+        default_drop_hardening_policy,
+        attended_default_drop_live,
+        cloudflared_egress_allowlist_live,
     )
     if not syscall_trace_proof.get("remaining_profiles"):
         blocking_before_enforcement = [
