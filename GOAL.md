@@ -4077,10 +4077,38 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > proof generation from the real full source rootfs plus real
 > WSTA153/WSTA156/WSTA158 artifacts.  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA160_SECCOMP_FULL_ROOTFS_CHROOT_DRY_RUN_2026-07-05.md`.
-> **NEXT:** WSTA161 should decide whether the next bounded step is still
-> host-only seccomp-loader implementation work or a separately gated live/chroot
-> observation.  Actual seccomp enforcement remains unproven and must stay behind
-> an explicit later gate.
+>
+> **🟢 STATUS (2026-07-05 13:07 KST host clock) — WSTA161 SECCOMP
+> LOADER GATED-APPLY HELPER PASS.**  Codex added a host-only WSTA161 runner that
+> builds a separate ARM64 helper linked with the real WSTA156 filter object and
+> compiles a real `a90_wsta161_load_profile()` apply function using
+> `prctl(PR_SET_NO_NEW_PRIVS)` and
+> `prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, ...)`.  The helper remains
+> default check-only: `--apply` fails closed unless both
+> `A90WSTA161_ALLOW_LOAD=1` and a later explicit token are supplied.  This unit
+> never supplies the correct token, so no load attempt runs.  Static proof found
+> `PR_SET_NO_NEW_PRIVS`, `PR_SET_SECCOMP`, `A90WSTA161_ALLOW_LOAD`,
+> `A90WSTA161_LOAD_TOKEN`, and the binary symbol
+> `a90_wsta161_load_profile`.  qemu service check printed
+> `A90WSTA161_SECCOMP_LOAD=0` and `dpublic-hud`→`dpublic-hud-intent`; qemu
+> apply-block runs returned `65` with `blocked-load-gate-required` and
+> `blocked-load-token-required`, and neither printed
+> `A90WSTA161_SECCOMP_LOAD_ATTEMPT=1`.  Generated proof:
+> `workspace/private/runs/server-distro/wsta161-seccomp-loader-gated-apply-helper-20260705T1307KST/`
+> with helper SHA256
+> `daec5202255b5b95871152fd8f747c7ca60b277d359f81a6d03e54189c028992`.
+> This unit did not chroot, touch the device, flash, reboot, connect Wi-Fi, run
+> DHCP, open a public tunnel, mutate packet filters, write userdata, load BPF,
+> load a seccomp filter, or enforce seccomp.  Validation passed `py_compile`,
+> focused WSTA158+WSTA159+WSTA160+WSTA161 tests (`10 tests OK`), full
+> server-distro regression (`556 tests OK`), and WSTA161 proof generation from
+> the real WSTA156 artifact.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA161_SECCOMP_LOADER_GATED_APPLY_HELPER_2026-07-05.md`.
+> **NEXT:** WSTA162 should stage the WSTA161 gated-apply helper into the
+> private rootfs and run the full-rootfs chroot dry-run again, proving the
+> default in-rootfs helper path now uses the apply-capable helper while still
+> blocking actual load and enforcement.  Actual enforcement remains unproven
+> and must stay behind an explicit later gate.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
