@@ -95,3 +95,27 @@ the planned validations:
 
 Do not rollback solely due to `unauthorized`; rollback is reserved for no boot,
 recovery loop, or operator-confirmed failure.
+
+## Follow-Up - ADB Authorization Still Blocked
+
+Later continuation checks found the same state:
+
+```text
+adb_state=unauthorized
+usb_mode=Google/ADB-compatible interface
+git_worktree=clean
+```
+
+Host-side checks:
+
+```text
+~/.android/adbkey exists
+~/.android/adbkey.pub exists
+ADB_VENDOR_KEYS was unset initially
+ADB_VENDOR_KEYS=$HOME/.android adb start-server did not clear unauthorized
+```
+
+Conclusion: the remaining gate is the device-side USB debugging RSA approval
+dialog. There is no current host-side proof path for `sys.boot_completed`,
+`ro.boot.veritymode`, recovery boot, or vbmeta readback while ADB remains
+unauthorized.
