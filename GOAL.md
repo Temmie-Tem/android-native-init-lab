@@ -4432,9 +4432,32 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > current bridge/device, and full server-distro regression (`599 tests OK`).
 > Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA174_SECCOMP_FRESH_EXPIRING_HANDOFF_2026-07-05.md`.
-> **NEXT:** if the WSTA174 handoff expires, rerun WSTA174.  If it is still
-> fresh, it points at the exact WSTA170 execution command, which still requires
-> explicit operator approval for the no-load live observation.
+>
+> **🟢 STATUS (2026-07-05 14:31 KST host clock) — WSTA175 SECCOMP HANDOFF
+> EXECUTE GATE SOURCE PASS.**  Codex added the handoff-aware WSTA175 executor
+> gate.  It consumes a WSTA173/WSTA174 expiring handoff, validates freshness and
+> command safety, then stops before execution unless the full WSTA175
+> acknowledgement set is supplied.  Source-gate proof:
+> `workspace/private/runs/server-distro/wsta175-seccomp-handoff-execute-source-gate-20260705T143400KST/`.
+> Input handoff:
+> `workspace/private/runs/server-distro/wsta174-seccomp-fresh-expiring-handoff-20260705T142628KST/wsta173-expiring-handoff/wsta173_expiring_execute_handoff.json`.
+> Decision was `wsta175-blocked-explicit-execution-gate-required` with
+> `handoff_valid=true`, `handoff_fresh=true`, `command_artifacts_valid=true`,
+> `expires_utc=20260705T054136Z`, and `seconds_remaining=604`.  WSTA175 requires
+> `--execute-wsta175-handoff`, `--allow-wsta170-command-execution`,
+> `--ack-handoff-fresh`, `--ack-no-correct-wsta161-token`,
+> `--ack-no-seccomp-load`, and `--ack-cleanup-required` before it runs the
+> handoff-contained WSTA170 command.  This unit did not flash, reboot, connect
+> Wi-Fi, run DHCP, open a public tunnel, mutate packet filters, write userdata,
+> switch root, execute WSTA170, execute WSTA168/WSTA167, load a seccomp filter,
+> enforce seccomp, or supply the correct WSTA161 token.  Validation passed
+> `py_compile`, focused WSTA174+WSTA175 tests (`8 tests OK`), WSTA175
+> source-gate proof against the real WSTA174 handoff, and full server-distro
+> regression (`603 tests OK`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA175_SECCOMP_HANDOFF_EXECUTE_GATE_2026-07-05.md`.
+> **NEXT:** if the handoff expires, rerun WSTA174 first.  If it is still fresh,
+> WSTA175 is the exact executor surface for the no-load live observation, still
+> requiring explicit operator approval.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
