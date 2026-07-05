@@ -1462,12 +1462,23 @@ def stage_seccomp_filter_artifact(rootfs: Path,
 
 def validate_seccomp_loader_helper_manifest(manifest: dict[str, Any], helper_path: Path) -> dict[str, bool]:
     expected_sha = manifest.get("helper_sha256")
+    schema = manifest.get("schema")
+    is_wsta158 = schema == "a90-wsta158-seccomp-loader-checkonly-helper-v1"
+    is_wsta161 = schema == "a90-wsta161-seccomp-loader-gated-apply-helper-v1"
     return {
-        "schema_ok": manifest.get("schema") == "a90-wsta158-seccomp-loader-checkonly-helper-v1",
-        "state_checkonly_linked": manifest.get("state") == "SECCOMP_LOADER_HELPER_CHECK_ONLY_LINKED",
+        "schema_ok": is_wsta158 or is_wsta161,
+        "state_ok": (
+            (is_wsta158 and manifest.get("state") == "SECCOMP_LOADER_HELPER_CHECK_ONLY_LINKED")
+            or (is_wsta161 and manifest.get("state") == "SECCOMP_LOADER_GATED_APPLY_COMPILED_NOT_LOADED")
+        ),
         "default_check_only": manifest.get("default_mode") == "check-only",
-        "load_disabled": manifest.get("load_enabled") is False,
+        "load_disabled": (
+            (is_wsta158 and manifest.get("load_enabled") is False)
+            or (is_wsta161 and manifest.get("default_load_enabled") is False)
+        ),
+        "loaded_false": (not is_wsta161) or manifest.get("loaded") is False,
         "enforced_false": manifest.get("enforced") is False,
+        "gated_apply_shape_ok": (not is_wsta161) or manifest.get("apply_code_compiled") is True,
         "helper_present": helper_path.is_file(),
         "helper_sha_matches_manifest": (
             helper_path.is_file()
@@ -1532,6 +1543,8 @@ def stage_seccomp_loader_helper(rootfs: Path,
         "required": require,
         "manifest_source": rel(manifest_source),
         "helper_source": rel(helper_source),
+        "helper_schema": manifest.get("schema"),
+        "apply_code_compiled": manifest.get("apply_code_compiled") is True,
         "manifest_target": str(TARGET_SECCOMP_LOADER_HELPER_MANIFEST),
         "manifest_mode": oct(manifest_target.stat().st_mode & 0o777),
         "helper_target": str(TARGET_SECCOMP_LOADER_HELPER),

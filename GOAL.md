@@ -4104,11 +4104,37 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > server-distro regression (`556 tests OK`), and WSTA161 proof generation from
 > the real WSTA156 artifact.  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA161_SECCOMP_LOADER_GATED_APPLY_HELPER_2026-07-05.md`.
-> **NEXT:** WSTA162 should stage the WSTA161 gated-apply helper into the
-> private rootfs and run the full-rootfs chroot dry-run again, proving the
-> default in-rootfs helper path now uses the apply-capable helper while still
-> blocking actual load and enforcement.  Actual enforcement remains unproven
-> and must stay behind an explicit later gate.
+>
+> **🟢 STATUS (2026-07-05 13:12 KST host clock) — WSTA162 SECCOMP
+> GATED-APPLY FULL-ROOTFS CHROOT DRY-RUN PASS.**  Codex updated
+> `prepare_wsta3_sta_rootfs.py` so `stage_seccomp_loader_helper` accepts both
+> the WSTA158 check-only helper schema and the WSTA161 gated-apply helper
+> schema, validating WSTA161's compiled apply-code shape, default load disabled,
+> `loaded=false`, and `enforced=false`.  A host-only WSTA162 runner copied the
+> private full source rootfs, staged WSTA153/WSTA156 plus the WSTA161 helper, and
+> entered the copy with `unshare -r chroot`.  The helper still lands at the
+> default in-rootfs path
+> `/usr/lib/a90-dpublic/seccomp/a90-seccomp-loader-checkonly`, but now that path
+> points to the apply-capable WSTA161 binary.  The enforce-flag chroot run
+> printed `A90WSTA161_LOADER_GATED_APPLY=1`, `A90WSTA161_SECCOMP_LOAD=0`,
+> `dpublic-hud`→`dpublic-hud-intent`, and
+> `A90WSTA159_SECCOMP_HELPER_CHECK_ONLY_OK=1`, did not print
+> `A90WSTA161_SECCOMP_LOAD_ATTEMPT=1`, then exited `65` with
+> `blocked-seccomp-enforce-unimplemented` before exec.  Generated proof:
+> `workspace/private/runs/server-distro/wsta162-seccomp-gated-apply-full-rootfs-chroot-dry-run-20260705T1312KST/`.
+> This unit did not touch the device, flash, reboot, connect Wi-Fi, run DHCP,
+> open a public tunnel, mutate packet filters, write userdata, load BPF, load a
+> seccomp filter, or enforce seccomp.  It did run a host-private chroot only.
+> Validation passed `py_compile`, focused prepare-rootfs+WSTA161+WSTA162 tests
+> (`41 tests OK`), full server-distro regression (`558 tests OK`), and WSTA162
+> proof generation from the real full source rootfs plus real
+> WSTA153/WSTA156/WSTA161 artifacts.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA162_SECCOMP_GATED_APPLY_FULL_ROOTFS_CHROOT_DRY_RUN_2026-07-05.md`.
+> **NEXT:** WSTA163 should add an explicit live-gate design for observing the
+> staged gated-apply helper on device without enabling the real load token, or
+> continue host-only hardening by wiring a future `--apply` path that remains
+> token-gated.  Actual enforcement remains unproven and must stay behind an
+> explicit later gate.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
