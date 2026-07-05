@@ -4895,6 +4895,33 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** Either run an attended WSTA190 live delegation using the same
 > no-load acknowledgement stack, or pivot to a separately designed higher-risk
 > seccomp-load/correct-token rung.  Do not mix those risk classes.
+>
+> **🟢 STATUS (2026-07-05 16:25 KST host clock) — WSTA191 WSTA190 LIVE
+> DELEGATION PASS.**  Codex ran the final WSTA190 no-load live delegation.  The
+> WSTA190 gate consumed the READY WSTA189 status, validated the WSTA188 packet
+> and shell wrapper, accepted the explicit WSTA187 no-load acknowledgement
+> stack, delegated to the WSTA188 wrapper, and observed WSTA187 pass.  WSTA190
+> run:
+> `workspace/private/runs/server-distro/wsta190-wsta189-execute-gate-live-20260705T162249KST/`;
+> decision was `wsta190-wsta189-execute-gate-live-pass`, with
+> `status_valid=true`, `operator_packet_valid=true`, `execute_gate_valid=true`,
+> `explicit_live_gate=true`, and `wsta187_result_valid=true`.  Delegated WSTA187
+> run:
+> `workspace/private/runs/server-distro/wsta187-fresh-wsta185-orchestrator-live-20260705T162249KST/`;
+> decision was `wsta187-fresh-wsta185-orchestrator-pass`, with
+> `wsta177_source_valid=true`, `wsta178_preflight_valid=true`,
+> `wsta180_bundle_valid=true`, `wsta184_handoff_valid=true`,
+> `wsta185_source_valid=true`, and `wsta185_execution_valid=true`.  This unit
+> did not flash, reboot, connect Wi-Fi, run DHCP, open a public tunnel, mutate
+> packet filters, write userdata, switch root, load a seccomp filter, enforce
+> seccomp, or supply the correct WSTA161 token.  Final native selftest stayed
+> `fail=0`.  Validation passed focused WSTA190 tests (`9 tests OK`), full
+> server-distro regression (`671 tests OK`), and the WSTA190 live delegation
+> proof.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA191_WSTA190_LIVE_DELEGATION_2026-07-05.md`.
+> **NEXT:** The no-load WSTA187 operator workflow is closed through the final
+> execute gate.  Any real seccomp-load/correct-token behavior must now be a
+> separately designed higher-risk rung; do not fold it into the no-load path.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
