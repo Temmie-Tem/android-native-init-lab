@@ -4563,11 +4563,43 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > source-gate proof against the current WSTA178 command packet, and full
 > server-distro regression (`619 tests OK`).  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA179_SECCOMP_ONE_SHOT_RESULT_AUDIT_2026-07-05.md`.
-> **NEXT:** the no-load live observation now has an operator-facing execution
-> packet (WSTA178) and a post-run verifier (WSTA179).  The only remaining step
-> for this live observation is explicit operator approval to run the WSTA178
-> command packet, followed by WSTA179 audit of the resulting WSTA177 result
-> JSON.
+>
+> **🟢 STATUS (2026-07-05 14:59 KST host clock) — WSTA180 SECCOMP LIVE
+> HANDOFF BUNDLE PASS.**  Codex added a host-only WSTA180 operator handoff
+> bundle for the no-load live observation.  It packages the WSTA178 execution
+> packet and the WSTA179 post-run audit command into one audited artifact
+> without executing WSTA177 or the WSTA178 command packet.  Proof run:
+> `workspace/private/runs/server-distro/wsta180-seccomp-live-handoff-bundle-20260705T145906KST/`.
+> Input execution packet:
+> `workspace/private/runs/server-distro/wsta178-seccomp-one-shot-execute-preflight-20260705T144926KST/wsta178_wsta177_execute_command.json`
+> and
+> `workspace/private/runs/server-distro/wsta178-seccomp-one-shot-execute-preflight-20260705T144926KST/wsta178_wsta177_execute_command.sh`.
+> Generated bundle:
+> `workspace/private/runs/server-distro/wsta180-seccomp-live-handoff-bundle-20260705T145906KST/wsta180_operator_handoff.json`
+> and
+> `workspace/private/runs/server-distro/wsta180-seccomp-live-handoff-bundle-20260705T145906KST/wsta180_operator_handoff_commands.sh`;
+> state is `READY_FOR_OPERATOR_APPROVAL_NOT_EXECUTED`.  Expected WSTA177 result
+> path is
+> `workspace/private/runs/server-distro/wsta178-seccomp-one-shot-execute-preflight-20260705T144926KST/wsta177-live-run/wsta177_result.json`.
+> Nested pre-run WSTA179 audit remained at
+> `wsta179-blocked-wsta177-result-missing`, which is expected before WSTA177 is
+> executed.  Checks included `pre_run_audit_missing_result=true`,
+> `pre_run_command_packet_valid=true`, `pre_run_no_live_execution=true`,
+> `execution_packet_valid=true`, `post_run_audit_command_valid=true`,
+> `bundle_valid=true`, `execute_targets_wsta177=true`,
+> `post_audit_targets_wsta179=true`, `correct_token_literal_absent=true`, and
+> `no_external_network_inputs=true`.  This unit did not flash, reboot, connect
+> Wi-Fi, run DHCP, open a public tunnel, mutate packet filters, write userdata,
+> switch root, execute WSTA177, execute WSTA175, execute WSTA170, execute
+> WSTA168/WSTA167, load a seccomp filter, enforce seccomp, or supply the correct
+> WSTA161 token.  Validation passed `py_compile`, focused WSTA179+WSTA180 tests
+> (`8 tests OK`), WSTA180 handoff-bundle proof against the current WSTA178
+> command packet, and full server-distro regression (`623 tests OK`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA180_SECCOMP_LIVE_HANDOFF_BUNDLE_2026-07-05.md`.
+> **NEXT:** the live no-load observation is now packaged as an operator
+> handoff.  It still requires explicit approval to run the WSTA178 execution
+> script, then the post-run WSTA179 audit command should be run against the
+> resulting WSTA177 result JSON.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
