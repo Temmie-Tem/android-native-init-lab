@@ -5196,6 +5196,32 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA201 should be the explicit attended WSTA198 live canary only if
 > the operator deliberately supplies the private token, otherwise keep WSTA200
 > as the current default-off operator boundary.
+>
+> **🟢 STATUS (2026-07-05 17:50 KST host clock) — WSTA201 WSTA200 HANDOFF
+> STATUS PASS.**  Codex added the host-only status/revalidation layer for the
+> WSTA200 operator handoff.  WSTA201 consumes:
+> `workspace/private/runs/server-distro/wsta200-wsta199-operator-handoff-20260705T174215KST/wsta200_wsta199_operator_handoff.json`;
+> run:
+> `workspace/private/runs/server-distro/wsta201-wsta200-handoff-status-20260705T175021KST/`;
+> decision was `wsta201-wsta200-handoff-status-pass`.  Status state was
+> `HANDOFF_CURRENT_TOKEN_REQUIRED_DEFAULT_OFF`, with `handoff_valid=true`,
+> `wsta200_recheck_valid=true`, `handoff_status_valid=true`,
+> `handoff_current=true`, `handoff_match=true`, `script_match=true`,
+> `ready_for_attended_live_handoff=true`, `ready_for_immediate_live_execute=false`,
+> `private_token_env_present=false`, and `private_token_matches_wsta161=false`.
+> WSTA201 validates the default-off handoff shell, re-runs WSTA200 from the
+> same WSTA199 status, and compares a stable handoff view to detect stale or
+> drifted operator handoffs.  WSTA201 did not flash, reboot, contact the
+> device, connect Wi-Fi, run DHCP, open a public tunnel, mutate packet filters,
+> write userdata, switch root, execute the WSTA200 handoff shell, run WSTA198
+> live, supply the WSTA161 token to the device, run native health, load a
+> seccomp filter, or enforce seccomp.  Validation passed `py_compile`, focused
+> WSTA201 tests (`5 tests OK`), the WSTA201 proof run, and full server-distro
+> regression (`735 tests OK`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA201_WSTA200_HANDOFF_STATUS_2026-07-05.md`.
+> **NEXT:** Either stop at WSTA201 as the current default-off status boundary,
+> or proceed to attended WSTA200/WSTA198 live only if the operator deliberately
+> supplies the private token.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
