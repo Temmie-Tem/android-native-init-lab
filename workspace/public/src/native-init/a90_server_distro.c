@@ -51,6 +51,8 @@
 #define A90_DPUBLIC_HUD_SERVICE_DEDUP_MODE "same-content-consumed-or-rejected"
 #define A90_DPUBLIC_HUD_SERVICE_SHARED_TAG "A90WSTA144"
 #define A90_DPUBLIC_HUD_SERVICE_SHARED_MODE "shared-run-dir-bind-before-switch-root"
+#define A90_DPUBLIC_HUD_SERVICE_RESTART_TAG "A90WSTA146"
+#define A90_DPUBLIC_HUD_SERVICE_RESTART_MODE "restart-stop-start-stale-pid-cleanup"
 #define A90_DPUBLIC_HUD_RUN_DIR "/run/a90-dpublic"
 #define A90_DPUBLIC_HUD_GROUP_GID 3904
 #define A90_DPUBLIC_HUD_RUN_DIR_MODE 01770
@@ -1056,11 +1058,22 @@ static int dpublic_hud_service_start(const struct dpublic_hud_service_opts *opts
     if (rc < 0) {
         return rc;
     }
-    if (dpublic_hud_service_read_pid(opts->pid_path, &existing) == 0 &&
-        d_handoff_pid_alive(existing)) {
-        a90_console_printf("%s start.already_running=1 pid=%ld\r\n",
-                           A90_DPUBLIC_HUD_SERVICE_TAG, (long)existing);
-        return -EBUSY;
+    rc = dpublic_hud_service_read_pid(opts->pid_path, &existing);
+    if (rc == 0) {
+        if (d_handoff_pid_alive(existing)) {
+            a90_console_printf("%s start.already_running=1 pid=%ld\r\n",
+                               A90_DPUBLIC_HUD_SERVICE_TAG, (long)existing);
+            return -EBUSY;
+        }
+        a90_console_printf("%s start.stale_pid=%ld action=unlink\r\n",
+                           A90_DPUBLIC_HUD_SERVICE_RESTART_TAG,
+                           (long)existing);
+        (void)unlink(opts->pid_path);
+        (void)dpublic_hud_service_write_status(opts->status_path,
+                                               "stale-cleaned",
+                                               existing,
+                                               0,
+                                               0);
     }
 
     rc = a90_service_stop(A90_SERVICE_HUD, A90_D_HANDOFF_HUD_TIMEOUT_MS);
@@ -1120,6 +1133,9 @@ static int dpublic_hud_service_status(const struct dpublic_hud_service_opts *opt
     a90_console_printf("%s status.intent_dedupe=%s\r\n",
                        A90_DPUBLIC_HUD_SERVICE_DEDUP_TAG,
                        A90_DPUBLIC_HUD_SERVICE_DEDUP_MODE);
+    a90_console_printf("%s status.restart_policy=%s\r\n",
+                       A90_DPUBLIC_HUD_SERVICE_RESTART_TAG,
+                       A90_DPUBLIC_HUD_SERVICE_RESTART_MODE);
     return running ? 0 : -ESRCH;
 }
 
@@ -1146,19 +1162,47 @@ static int dpublic_hud_service_stop(const struct dpublic_hud_service_opts *opts)
     return rc;
 }
 
+static int dpublic_hud_service_restart(const struct dpublic_hud_service_opts *opts) {
+    int stop_rc;
+    int start_rc;
+
+    a90_console_printf("%s restart.policy=%s\r\n",
+                       A90_DPUBLIC_HUD_SERVICE_RESTART_TAG,
+                       A90_DPUBLIC_HUD_SERVICE_RESTART_MODE);
+    stop_rc = dpublic_hud_service_stop(opts);
+    a90_console_printf("%s restart.stop_rc=%d\r\n",
+                       A90_DPUBLIC_HUD_SERVICE_RESTART_TAG,
+                       stop_rc);
+    if (stop_rc < 0) {
+        a90_console_printf("%s restart.done=0 rc=%d\r\n",
+                           A90_DPUBLIC_HUD_SERVICE_RESTART_TAG,
+                           stop_rc);
+        return stop_rc;
+    }
+    start_rc = dpublic_hud_service_start(opts);
+    a90_console_printf("%s restart.start_rc=%d\r\n",
+                       A90_DPUBLIC_HUD_SERVICE_RESTART_TAG,
+                       start_rc);
+    a90_console_printf("%s restart.done=%d rc=%d\r\n",
+                       A90_DPUBLIC_HUD_SERVICE_RESTART_TAG,
+                       start_rc == 0 ? 1 : 0,
+                       start_rc);
+    return start_rc;
+}
+
 int a90_server_distro_dpublic_hud_presenter_service_cmd(char **argv, int argc) {
     const char *mode;
     struct dpublic_hud_service_opts opts;
     int rc;
 
     if (argc < 2) {
-        a90_console_printf("usage: dpublic-hud-presenter-service [start|status|stop] [options]\r\n");
+        a90_console_printf("usage: dpublic-hud-presenter-service [start|status|stop|restart] [options]\r\n");
         return -EINVAL;
     }
     mode = argv[1];
     rc = dpublic_hud_service_parse_opts(argv, argc, 2, &opts);
     if (rc < 0) {
-        a90_console_printf("usage: dpublic-hud-presenter-service [start|status|stop] [options]\r\n");
+        a90_console_printf("usage: dpublic-hud-presenter-service [start|status|stop|restart] [options]\r\n");
         a90_console_printf("%s refused=bad-options rc=%d\r\n", A90_DPUBLIC_HUD_SERVICE_TAG, rc);
         return rc;
     }
@@ -1173,6 +1217,9 @@ int a90_server_distro_dpublic_hud_presenter_service_cmd(char **argv, int argc) {
     a90_console_printf("%s shared_run_dir=%s\r\n",
                        A90_DPUBLIC_HUD_SERVICE_SHARED_TAG,
                        A90_DPUBLIC_HUD_SERVICE_SHARED_MODE);
+    a90_console_printf("%s restart_policy=%s\r\n",
+                       A90_DPUBLIC_HUD_SERVICE_RESTART_TAG,
+                       A90_DPUBLIC_HUD_SERVICE_RESTART_MODE);
     if (strcmp(mode, "start") == 0) {
         return dpublic_hud_service_start(&opts);
     }
@@ -1181,6 +1228,9 @@ int a90_server_distro_dpublic_hud_presenter_service_cmd(char **argv, int argc) {
     }
     if (strcmp(mode, "stop") == 0) {
         return dpublic_hud_service_stop(&opts);
+    }
+    if (strcmp(mode, "restart") == 0) {
+        return dpublic_hud_service_restart(&opts);
     }
 
     a90_console_printf("%s refused=unknown-mode mode=%s\r\n",

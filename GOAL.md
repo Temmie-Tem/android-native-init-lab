@@ -3694,6 +3694,34 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > likely highest-ROI units being presenter cleanup/restart policy for long-running
 > appliance mode and optional HUD syscall trace profiling before seccomp
 > enforcement.
+>
+> **🟢 STATUS (2026-07-05 10:33 KST host clock) — WSTA146 DPUBLIC HUD
+> PRESENTER RESTART POLICY SOURCE BUILD PASS.**  Codex implemented the
+> long-running appliance cleanup/restart policy in native-init source and built
+> V3402 `A90 Linux init 0.11.158
+> (v3402-dpublic-hud-presenter-restart-policy)` from the V3401 shared-run-bind
+> baseline.  The service control surface now accepts
+> `dpublic-hud-presenter-service restart`, emits live marker `A90WSTA146
+> restart-stop-start-stale-pid-cleanup`, performs stop-then-start, fails closed
+> if the stop phase cannot release the old DRM owner, and explicitly unlinks
+> stale pidfiles before a fresh start while recording `stale-cleaned` status.
+> The generated private boot image is
+> `workspace/private/inputs/boot_images/boot_linux_v3402_dpublic_hud_presenter_restart_policy.img`
+> with SHA256 `57821e94857cb58b397c737a73d5f85381329f5e9ec8a6b55dc7d5dbb6a7d3f1`.
+> This WSTA146 unit was source/build-only: no device action, flash, reboot,
+> Wi-Fi, DHCP, public tunnel, packet-filter mutation, switch-root, or live
+> display action ran.  Validation passed `py_compile`, V3400/V3401/V3402
+> focused tests (`15 tests OK`), `git diff --check`, and the V3402 source build
+> with AArch64 helper/native-init compile, required-string audit, preserved
+> ramdisk overlay, boot image pack, and SHA256 capture.  Reports:
+> `docs/reports/NATIVE_INIT_V3402_DPUBLIC_HUD_PRESENTER_RESTART_POLICY_SOURCE_BUILD_2026-07-05.md`
+> and
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA146_DPUBLIC_HUD_PRESENTER_RESTART_POLICY_SOURCE_BUILD_2026-07-05.md`.
+> **NEXT:** WSTA147 should live-gate V3402 through `native_init_flash.py` under
+> the normal rollback gates, then prove `start/status/restart/status/stop`,
+> stale-pid cleanup if safely synthesizable, and final health.  Only after that
+> should optional HUD syscall trace profiling or broader containment hardening
+> proceed.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
