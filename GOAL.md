@@ -79,7 +79,8 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > 3. **Write the A90 server-distro EPIC CLOSE report** (`docs/reports/SERVER_DISTRO_EPIC_CLOSE_*`): the
 >    proven appliance path (chroot-under-native-PID1 + admin-SSH + outbound cloudflared tunnel + D-harden),
 >    what is NOT done on purpose (full switch_root — kills wlan0; persistence auto-start; service payload),
->    and the frozen-kernel ceiling that motivates the S22+ pivot.
+>    and the frozen-kernel ceiling that motivates the S22+ pivot. **COMPLETE (2026-07-06):**
+>    `docs/reports/SERVER_DISTRO_EPIC_CLOSE_2026-07-06.md`.
 > 4. **Then HALT.** Do not start a new epic. The operator will charter the next target (expected: **S22+
 >    (SM-S906N, unlocked GKI 5.10) kernel-rebuild path** — the one thing A90's frozen kernel cannot do).
 > **Safety unchanged:** persistence smoke stays in the recoverable envelope (boot-partition + runtime,
@@ -667,7 +668,17 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA233_COLD_BOOT_PERSISTENCE_SMOKE_PREBASELINE_2026-07-06.md`
 > and
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA233_COLD_BOOT_PERSISTENCE_SMOKE_LIVE_PASS_2026-07-06.md`.
-> **NEXT:** write the server-distro epic close report, then halt for the operator's next-target charter.
+> Superseded by the 01:00 KST close report status below.
+
+> **🏁 STATUS (2026-07-06 01:00 KST) — SERVER-DISTRO EPIC CLOSE REPORT WRITTEN; HALT.**
+> Codex added `docs/reports/SERVER_DISTRO_EPIC_CLOSE_2026-07-06.md`, a public-safe close-out report
+> summarizing the proven A90 appliance path, D-harden complete/default-off posture, WSTA233 cold-boot
+> persistence classification, intentional non-goals, and the A90 frozen-kernel ceiling that motivates a
+> future S22+ GKI-class pivot only under a new operator charter.  This was host-only documentation work:
+> no device action, boot flash, native reboot, Wi-Fi connect, DHCP, public tunnel, public smoke,
+> packet-filter mutation, rootfs mutation, userdata touch, LSM profile load, or switch-root occurred.
+> **NEXT:** HALT.  Do not start another WSTA/D-harden/server-distro unit until the operator charters a
+> new target or explicitly reopens this epic.
 
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
