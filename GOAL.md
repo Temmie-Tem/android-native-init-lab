@@ -4535,10 +4535,39 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > proof against the current WSTA177 source-gate artifact, and full
 > server-distro regression (`615 tests OK`).  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA178_SECCOMP_ONE_SHOT_EXECUTE_PREFLIGHT_2026-07-05.md`.
-> **NEXT:** the generated WSTA178 command packet is the clearest current
-> operator-facing surface for the no-load live observation.  Running it still
-> requires explicit operator approval because it will execute
-> WSTA177/WSTA175/WSTA170/WSTA167.
+>
+> **🟢 STATUS (2026-07-05 14:54 KST host clock) — WSTA179 SECCOMP ONE-SHOT
+> RESULT AUDIT SOURCE GATE PASS / LIVE RESULT PENDING.**  Codex added a
+> host-only WSTA179 post-execution audit gate for the eventual WSTA177 one-shot
+> execution result.  It consumes the WSTA178 command packet, infers or accepts
+> the WSTA177 result path, then verifies nested WSTA177/WSTA175/WSTA170/WSTA167
+> pass and safety evidence without executing anything.  Source-gate proof:
+> `workspace/private/runs/server-distro/wsta179-seccomp-one-shot-result-audit-source-gate-20260705T145401KST/`.
+> Input command packet:
+> `workspace/private/runs/server-distro/wsta178-seccomp-one-shot-execute-preflight-20260705T144926KST/wsta178_wsta177_execute_command.json`
+> and
+> `workspace/private/runs/server-distro/wsta178-seccomp-one-shot-execute-preflight-20260705T144926KST/wsta178_wsta177_execute_command.sh`.
+> WSTA179 validated the command packet, inferred result path
+> `workspace/private/runs/server-distro/wsta178-seccomp-one-shot-execute-preflight-20260705T144926KST/wsta177-live-run/wsta177_result.json`,
+> then stopped with `wsta179-blocked-wsta177-result-missing`, which is expected
+> because WSTA177 has not been executed.  Checks included
+> `command_packet_valid=true`, `command_targets_wsta177=true`,
+> `all_ack_flags_present=true`, `correct_token_literal_absent=true`,
+> `no_external_network_inputs=true`, `wsta177_result_private=true`, and
+> `wsta177_result_present=false`.  This unit did not flash, reboot, connect
+> Wi-Fi, run DHCP, open a public tunnel, mutate packet filters, write userdata,
+> switch root, execute WSTA177, execute WSTA175, execute WSTA170, execute
+> WSTA168/WSTA167, load a seccomp filter, enforce seccomp, or supply the correct
+> WSTA161 token.  WSTA179 is audit-only and host-side.  Validation passed
+> `py_compile`, focused WSTA178+WSTA179 tests (`8 tests OK`), WSTA179
+> source-gate proof against the current WSTA178 command packet, and full
+> server-distro regression (`619 tests OK`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA179_SECCOMP_ONE_SHOT_RESULT_AUDIT_2026-07-05.md`.
+> **NEXT:** the no-load live observation now has an operator-facing execution
+> packet (WSTA178) and a post-run verifier (WSTA179).  The only remaining step
+> for this live observation is explicit operator approval to run the WSTA178
+> command packet, followed by WSTA179 audit of the resulting WSTA177 result
+> JSON.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
