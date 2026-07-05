@@ -4411,9 +4411,30 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > WSTA172+WSTA173 tests (`8 tests OK`), WSTA173 handoff proof against the WSTA172
 > fresh artifact, and full server-distro regression (`595 tests OK`).  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA173_SECCOMP_EXPIRING_EXECUTE_HANDOFF_2026-07-05.md`.
-> **NEXT:** if the handoff expires, rerun WSTA172 before execution.  If still
-> fresh, the handoff points at the exact WSTA170 execution command, which still
-> requires explicit operator approval for the no-load live observation.
+>
+> **🟢 STATUS (2026-07-05 14:26 KST host clock) — WSTA174 SECCOMP FRESH
+> EXPIRING HANDOFF PASS.**  Codex added a one-shot WSTA174 runner that refreshes
+> the pre-execution packet and wraps it in an expiring handoff in the same
+> private run directory: WSTA172 -> WSTA173, with no WSTA170 execution.  Proof
+> run:
+> `workspace/private/runs/server-distro/wsta174-seccomp-fresh-expiring-handoff-20260705T142628KST/`.
+> Nested decisions were `wsta172-seccomp-fresh-execute-preflight-pass` and
+> `wsta173-seccomp-expiring-execute-handoff-pass`.  Generated handoff:
+> `workspace/private/runs/server-distro/wsta174-seccomp-fresh-expiring-handoff-20260705T142628KST/wsta173-expiring-handoff/wsta173_expiring_execute_handoff.json`;
+> state is `READY_TO_RUN_NOT_EXECUTED_UNTIL_EXPIRY`, `executed=false`,
+> `age_sec=0`, `max_age_sec=900`, and `expires_utc=20260705T054136Z`.  This unit
+> did not flash, reboot, connect Wi-Fi, run DHCP, open a public tunnel, mutate
+> packet filters, write userdata, switch root, execute WSTA170, execute
+> WSTA168/WSTA167, load a seccomp filter, enforce seccomp, or supply the correct
+> WSTA161 token; device contact was limited to nested WSTA172/WSTA169 read-only
+> bridge/version/status/selftest checks.  Validation passed `py_compile`,
+> focused WSTA173+WSTA174 tests (`8 tests OK`), WSTA174 proof against the
+> current bridge/device, and full server-distro regression (`599 tests OK`).
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA174_SECCOMP_FRESH_EXPIRING_HANDOFF_2026-07-05.md`.
+> **NEXT:** if the WSTA174 handoff expires, rerun WSTA174.  If it is still
+> fresh, it points at the exact WSTA170 execution command, which still requires
+> explicit operator approval for the no-load live observation.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
