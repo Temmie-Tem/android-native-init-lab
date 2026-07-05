@@ -4508,9 +4508,37 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > (`8 tests OK`), WSTA177 one-shot source-gate proof against the current
 > bridge/device, and full server-distro regression (`611 tests OK`).  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA177_SECCOMP_ONE_SHOT_EXECUTE_GATE_2026-07-05.md`.
-> **NEXT:** WSTA177 is the freshest executor surface for the no-load live
-> observation.  It still requires explicit operator approval for the full
-> WSTA177 acknowledgement set before WSTA175/WSTA170/WSTA167 execution.
+>
+> **🟢 STATUS (2026-07-05 14:49 KST host clock) — WSTA178 SECCOMP ONE-SHOT
+> EXECUTE PREFLIGHT PASS.**  Codex added a host-only top-level WSTA178
+> execution preflight for WSTA177.  It consumes the WSTA177 source-gate proof,
+> revalidates the source-gate and WSTA168 command artifact paths, then emits the
+> exact WSTA177 one-shot execution command without executing it.  Proof run:
+> `workspace/private/runs/server-distro/wsta178-seccomp-one-shot-execute-preflight-20260705T144926KST/`.
+> Input source gate:
+> `workspace/private/runs/server-distro/wsta177-seccomp-one-shot-execute-gate-20260705T144329KST/wsta177_result.json`;
+> source decision was `wsta177-blocked-explicit-execution-gate-required`.
+> Generated command:
+> `workspace/private/runs/server-distro/wsta178-seccomp-one-shot-execute-preflight-20260705T144926KST/wsta178_wsta177_execute_command.json`
+> and
+> `workspace/private/runs/server-distro/wsta178-seccomp-one-shot-execute-preflight-20260705T144926KST/wsta178_wsta177_execute_command.sh`;
+> state is `READY_TO_RUN_NOT_EXECUTED`, `executed=false`, required ack count is
+> 7.  WSTA178 passed with `source_gate_valid=true`,
+> `execution_command_valid=true`, `command_targets_wsta177=true`,
+> `correct_token_literal_absent=true`, and `no_external_network_inputs=true`.
+> This unit did not flash, reboot, connect Wi-Fi, run DHCP, open a public
+> tunnel, mutate packet filters, write userdata, switch root, execute WSTA177,
+> execute WSTA175, execute WSTA170, execute WSTA168/WSTA167, load a seccomp
+> filter, enforce seccomp, or supply the correct WSTA161 token.  WSTA178 itself
+> was host-only and did not contact the device.  Validation passed
+> `py_compile`, focused WSTA177+WSTA178 tests (`8 tests OK`), WSTA178 preflight
+> proof against the current WSTA177 source-gate artifact, and full
+> server-distro regression (`615 tests OK`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA178_SECCOMP_ONE_SHOT_EXECUTE_PREFLIGHT_2026-07-05.md`.
+> **NEXT:** the generated WSTA178 command packet is the clearest current
+> operator-facing surface for the no-load live observation.  Running it still
+> requires explicit operator approval because it will execute
+> WSTA177/WSTA175/WSTA170/WSTA167.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
