@@ -9,7 +9,8 @@ quick-Tunnel service hardening target.  WSTA125 proves that cloudflared runtime
 profile behind a native-owned upstream.  WSTA127 defines the original D-public
 HUD service hardening target.  WSTA130 supersedes that direct non-root KMS HUD
 target with a split intent-producer/native-presenter display contract.  WSTA108
-folds WSTA137 native presenter proof and WSTA144 Debian handoff proof into that
+folds WSTA137 native presenter proof, WSTA144 Debian handoff proof, and the
+WSTA149 HUD intent syscall trace proof into that
 display contract.  WSTA108 combines those public surfaces into one
 operator-facing server status bundle without opening a tunnel, touching the
 device, or weakening any live gate.
@@ -42,6 +43,7 @@ import run_wsta130_dpublic_hud_presenter_model as wsta130  # noqa: E402
 import run_wsta137_dpublic_native_presenter_live_summary as wsta137  # noqa: E402
 import run_wsta144_dpublic_hud_shared_run_bind_summary as wsta144  # noqa: E402
 import run_wsta147_dpublic_hud_restart_live_summary as wsta147  # noqa: E402
+import run_wsta149_dpublic_hud_intent_syscall_trace_summary as wsta149  # noqa: E402
 
 
 REPO_ROOT = wsta88.REPO_ROOT
@@ -56,6 +58,7 @@ DPUBLIC_HUD_PRESENTER_MODEL_STATE = "DPUBLIC_HUD_PRESENTER_MODEL_SOURCE_DEFINED"
 DPUBLIC_HUD_PRESENTER_LIVE_STATE = "DPUBLIC_HUD_NATIVE_PRESENTER_LIVE_PROVEN"
 DPUBLIC_HUD_PRESENTER_HANDOFF_STATE = "DPUBLIC_HUD_DURABLE_PRESENTER_HANDOFF_LIVE_PROVEN"
 DPUBLIC_HUD_PRESENTER_RESTART_STATE = "DPUBLIC_HUD_DURABLE_PRESENTER_RESTART_LIVE_PROVEN"
+DPUBLIC_HUD_INTENT_SYSCALL_TRACE_STATE = "DPUBLIC_HUD_INTENT_SYSCALL_TRACE_LIVE_PROVEN"
 
 CLOUDFLARED_RUNTIME_REQUIRED_CHECKS = (
     "wsta28_precondition_pass",
@@ -173,6 +176,8 @@ def template() -> dict[str, Any]:
             "workspace/private/runs/server-distro/<wsta144-run>/wsta144_dpublic_hud_shared_run_bind_live.json",
             "--wsta147-hud-presenter-restart-proof-json",
             "workspace/private/runs/server-distro/<wsta147-run>/wsta147_dpublic_hud_restart_live.json",
+            "--wsta149-hud-intent-syscall-proof-json",
+            "workspace/private/runs/server-distro/<wsta149-run>/wsta149_dpublic_hud_intent_syscall_trace_live.json",
         ],
         "device_action": False,
         "public_url_value_logged": False,
@@ -1149,15 +1154,86 @@ def compact_hud_presenter_restart_proof(proof_result: dict[str, Any] | None) -> 
     }
 
 
+def compact_hud_intent_syscall_trace_proof(proof_result: dict[str, Any] | None) -> dict[str, Any]:
+    if not proof_result:
+        return {
+            "state": "NOT_SUPPLIED",
+            "hud_intent_syscall_trace_live_proven": False,
+            "scope": "not-supplied",
+        }
+    checks = proof_result.get("checks") if isinstance(proof_result.get("checks"), dict) else {}
+    syscalls = proof_result.get("syscall_names") if isinstance(proof_result.get("syscall_names"), list) else []
+    atomic_rename_observed = bool(
+        proof_result.get("atomic_rename_observed")
+        and "fsync" in syscalls
+        and any(name in syscalls for name in wsta149.ATOMIC_RENAME_SYSCALLS)
+    )
+    network_syscalls_absent = bool(
+        proof_result.get("network_syscalls_absent")
+        and not any(name in syscalls for name in wsta149.NETWORK_SYSCALLS)
+    )
+    ioctl_syscall_absent = bool(proof_result.get("ioctl_syscall_absent") and "ioctl" not in syscalls)
+    drm_trace_absent = bool(proof_result.get("drm_trace_absent"))
+    live_proven = bool(
+        proof_result.get("decision") == wsta149.PASS_DECISION
+        and proof_result.get("service") == "dpublic-hud"
+        and proof_result.get("scope") == "hud-intent-producer-only"
+        and proof_result.get("uid") == 3904
+        and proof_result.get("gid") == 3904
+        and proof_result.get("no_new_privs")
+        and proof_result.get("cap_eff_zero")
+        and proof_result.get("public_default_off")
+        and proof_result.get("native_presenter_owner")
+        and atomic_rename_observed
+        and network_syscalls_absent
+        and ioctl_syscall_absent
+        and drm_trace_absent
+        and proof_result.get("trace_artifacts_saved")
+        and all(value is True for value in checks.values())
+    )
+    return {
+        "state": DPUBLIC_HUD_INTENT_SYSCALL_TRACE_STATE if live_proven else "SUPPLIED_NOT_PROVEN",
+        "decision": proof_result.get("decision"),
+        "proof_run_dir": proof_result.get("source_run_dir"),
+        "scope": "hud-intent-producer-only",
+        "hud_intent_syscall_trace_live_proven": live_proven,
+        "service": "dpublic-hud",
+        "intent_path": proof_result.get("intent_path"),
+        "intent_sequence": proof_result.get("intent_sequence"),
+        "uid": proof_result.get("uid"),
+        "gid": proof_result.get("gid"),
+        "no_new_privs": bool(proof_result.get("no_new_privs")),
+        "cap_eff_zero": bool(proof_result.get("cap_eff_zero")),
+        "public_default_off": bool(proof_result.get("public_default_off")),
+        "native_presenter_owner": bool(proof_result.get("native_presenter_owner")),
+        "atomic_rename_observed": atomic_rename_observed,
+        "network_syscalls_absent": network_syscalls_absent,
+        "ioctl_syscall_absent": ioctl_syscall_absent,
+        "drm_trace_absent": drm_trace_absent,
+        "core_syscalls_observed": bool(proof_result.get("core_syscalls_observed")),
+        "core_syscalls": list(proof_result.get("core_syscalls") or []),
+        "syscall_count": int(proof_result.get("syscall_count") or 0),
+        "syscall_names": syscalls,
+        "trace_artifacts_saved": bool(proof_result.get("trace_artifacts_saved")),
+        "raw_trace_sha256": proof_result.get("raw_trace_sha256"),
+        "syscall_list_sha256": proof_result.get("syscall_list_sha256"),
+        "intent_json_sha256": proof_result.get("intent_json_sha256"),
+        "public_url_value_logged": False,
+        "secret_values_logged": 0,
+    }
+
+
 def compact_hud_presenter_model(
     model_result: dict[str, Any] | None,
     live_proof_result: dict[str, Any] | None,
     handoff_proof_result: dict[str, Any] | None,
     restart_proof_result: dict[str, Any] | None,
+    intent_syscall_proof_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     live_proof = compact_hud_presenter_live_proof(live_proof_result)
     handoff_proof = compact_hud_presenter_handoff_proof(handoff_proof_result)
     restart_proof = compact_hud_presenter_restart_proof(restart_proof_result)
+    intent_syscall_proof = compact_hud_intent_syscall_trace_proof(intent_syscall_proof_result)
     if not model_result:
         return {
             "state": "NOT_SUPPLIED",
@@ -1167,6 +1243,7 @@ def compact_hud_presenter_model(
             "live_proof": live_proof,
             "handoff_proof": handoff_proof,
             "restart_proof": restart_proof,
+            "intent_syscall_trace_proof": intent_syscall_proof,
         }
 
     model = (
@@ -1223,6 +1300,7 @@ def compact_hud_presenter_model(
     handoff_proven = bool(handoff_proof.get("handoff_live_proven"))
     restart_proven = bool(restart_proof.get("restart_live_proven"))
     durable_restart_proven = handoff_proven and restart_proven
+    intent_syscall_proven = bool(intent_syscall_proof.get("hud_intent_syscall_trace_live_proven"))
     any_live_proven = live_proven or handoff_proven or durable_restart_proven
     remaining_live_proofs = [
         "intent producer uid/gid/no-new-privs/cap-zero/no-drm/no-network",
@@ -1230,7 +1308,9 @@ def compact_hud_presenter_model(
         "presenter owns SETCRTC/PAGE_FLIP and releases DRM on cleanup",
         "intent parser rejects forbidden fields and stale updates",
     ]
-    if durable_restart_proven:
+    if durable_restart_proven and intent_syscall_proven:
+        remaining_live_proofs = []
+    elif durable_restart_proven:
         remaining_live_proofs = [
             "optional HUD syscall trace profile before seccomp enforcement",
         ]
@@ -1248,7 +1328,9 @@ def compact_hud_presenter_model(
         ]
     return {
         "state": (
-            DPUBLIC_HUD_PRESENTER_RESTART_STATE
+            DPUBLIC_HUD_INTENT_SYSCALL_TRACE_STATE
+            if durable_restart_proven and intent_syscall_proven
+            else DPUBLIC_HUD_PRESENTER_RESTART_STATE
             if durable_restart_proven
             else DPUBLIC_HUD_PRESENTER_HANDOFF_STATE
             if handoff_proven
@@ -1265,9 +1347,11 @@ def compact_hud_presenter_model(
         "handoff_live_proven": handoff_proven,
         "restart_live_proven": restart_proven,
         "durable_restart_live_proven": durable_restart_proven,
+        "intent_syscall_trace_live_proven": intent_syscall_proven,
         "live_proof": live_proof,
         "handoff_proof": handoff_proof,
         "restart_proof": restart_proof,
+        "intent_syscall_trace_proof": intent_syscall_proof,
         "supersedes_wsta127_direct_kms": supersedes.get("direct_nonroot_kms") == "rejected-for-live-path",
         "wsta129_boundary": supersedes.get("wsta129_live_boundary"),
         "display_architecture": "split-intent-native-presenter",
@@ -1411,6 +1495,7 @@ def compact_hardening(
     hud_presenter_live_proof_result: dict[str, Any] | None,
     hud_presenter_handoff_proof_result: dict[str, Any] | None,
     hud_presenter_restart_proof_result: dict[str, Any] | None,
+    hud_intent_syscall_proof_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     packet_filter_proof = compact_packet_filter_proof(packet_filter_proof_result, packet_filter_control_summary)
     launcher_proof = compact_launcher_proof(launcher_proof_result)
@@ -1424,7 +1509,9 @@ def compact_hardening(
         hud_presenter_live_proof_result,
         hud_presenter_handoff_proof_result,
         hud_presenter_restart_proof_result,
+        hud_intent_syscall_proof_result,
     )
+    hud_intent_syscall_live_proven = bool(hud_presenter_model.get("intent_syscall_trace_live_proven"))
     if hud_presenter_model.get("model_defined"):
         hud_model["superseded_by_presenter_model"] = True
         hud_model["superseded_reason"] = "wsta129-setcrtc-permission-denied"
@@ -1446,6 +1533,12 @@ def compact_hardening(
             item
             for item in syscall_trace_proof.get("remaining_profiles", [])
             if item != "cloudflared-quick-tunnel"
+        ]
+    if hud_intent_syscall_live_proven:
+        syscall_trace_proof["remaining_profiles"] = [
+            item
+            for item in syscall_trace_proof.get("remaining_profiles", [])
+            if item != "dpublic-hud"
         ]
     if not manifest_result:
         return {
@@ -1522,6 +1615,7 @@ def build_server_status(
     hud_presenter_live_proof_result: dict[str, Any] | None,
     hud_presenter_handoff_proof_result: dict[str, Any] | None,
     hud_presenter_restart_proof_result: dict[str, Any] | None,
+    hud_intent_syscall_proof_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     status_hud = wsta88_result.get("status_hud") if isinstance(wsta88_result.get("status_hud"), dict) else {}
     if not status_hud:
@@ -1542,6 +1636,7 @@ def build_server_status(
         hud_presenter_live_proof_result,
         hud_presenter_handoff_proof_result,
         hud_presenter_restart_proof_result,
+        hud_intent_syscall_proof_result,
     )
     public_off = (status_hud.get("public_state") or "PUBLIC_OFF") == "PUBLIC_OFF"
     ready_default_off = public_off and bool(packet_filter.get("ready"))
@@ -1590,6 +1685,11 @@ def build_server_status(
         if isinstance(hud_presenter_model.get("restart_proof"), dict)
         else {}
     )
+    hud_intent_syscall = (
+        hud_presenter_model.get("intent_syscall_trace_proof")
+        if isinstance(hud_presenter_model.get("intent_syscall_trace_proof"), dict)
+        else {}
+    )
     hud_live_proven = bool(
         hud_model.get("hud_live_proven") or hud_presenter_model.get("hud_live_proven")
     )
@@ -1605,7 +1705,10 @@ def build_server_status(
     elif not cloudflared_runtime.get("cloudflared_live_proven"):
         operator_next_actions.append("prove-cloudflared-runtime-through-launcher-before-public-profile")
     if hud_presenter_model.get("durable_restart_live_proven"):
-        operator_next_actions.append("profile-dpublic-hud-syscalls-or-continue-containment-hardening")
+        if hud_intent_syscall.get("hud_intent_syscall_trace_live_proven"):
+            operator_next_actions.append("continue-containment-hardening-or-derive-hud-seccomp-policy")
+        else:
+            operator_next_actions.append("profile-dpublic-hud-syscalls-or-continue-containment-hardening")
     elif hud_presenter_model.get("handoff_live_proven"):
         operator_next_actions.append("continue-dpublic-service-integration-or-containment-hardening")
     elif hud_presenter_model.get("native_presenter_live_proven"):
@@ -1617,9 +1720,12 @@ def build_server_status(
     else:
         operator_next_actions.append("define-dpublic-hud-service-model-before-hud-live-proof")
     if syscall_trace_proof.get("smoke_syscall_trace_live_proven"):
-        operator_next_actions.append(
-            "extend-syscall-trace-proof-beyond-dpublic-smoke-httpd-before-seccomp-enforcement"
-        )
+        if syscall_trace_proof.get("remaining_profiles"):
+            operator_next_actions.append(
+                "extend-syscall-trace-proof-beyond-dpublic-smoke-httpd-before-seccomp-enforcement"
+            )
+        else:
+            operator_next_actions.append("derive-seccomp-policy-from-live-syscall-baselines")
     else:
         operator_next_actions.append("trace-service-syscalls-before-seccomp-enforcement")
     return {
@@ -1725,6 +1831,11 @@ def markdown(server_status: dict[str, Any]) -> str:
         if isinstance(hud_presenter_model.get("restart_proof"), dict)
         else {}
     )
+    hud_intent_syscall = (
+        hud_presenter_model.get("intent_syscall_trace_proof")
+        if isinstance(hud_presenter_model.get("intent_syscall_trace_proof"), dict)
+        else {}
+    )
     hud_live_proven = bool(
         hud_model.get("hud_live_proven") or hud_presenter_model.get("hud_live_proven")
     )
@@ -1803,6 +1914,10 @@ def markdown(server_status: dict[str, Any]) -> str:
         f"- D-public HUD restart stop/start: `{str(bool(hud_presenter_restart.get('restart_done') and hud_presenter_restart.get('restart_stop_rc') == 0 and hud_presenter_restart.get('restart_start_rc') == 0)).lower()}`",
         f"- D-public HUD restart post-present: `{str(bool(hud_presenter_restart.get('post_restart_sequence') == wsta147.POST_RESTART_SEQUENCE and hud_presenter_restart.get('post_restart_present_rc') == 0 and hud_presenter_restart.get('post_restart_drm_fd'))).lower()}`",
         f"- D-public HUD stale pid cleanup: `{str(bool(hud_presenter_restart.get('stale_pid_cleanup_marker') and hud_presenter_restart.get('final_status_stopped'))).lower()}`",
+        f"- D-public HUD intent syscall proof: `{str(bool(hud_intent_syscall.get('hud_intent_syscall_trace_live_proven'))).lower()}`",
+        f"- D-public HUD intent syscall count: `{hud_intent_syscall.get('syscall_count')}`",
+        f"- D-public HUD intent syscall no-network: `{str(bool(hud_intent_syscall.get('network_syscalls_absent'))).lower()}`",
+        f"- D-public HUD intent syscall no-DRM: `{str(bool(hud_intent_syscall.get('ioctl_syscall_absent') and hud_intent_syscall.get('drm_trace_absent'))).lower()}`",
         f"- Remaining launcher profiles: `{', '.join(launcher_proof.get('remaining_profiles') or [])}`",
         f"- Remaining syscall profiles: `{', '.join(syscall_trace_proof.get('remaining_profiles') or [])}`",
         "",
@@ -2122,6 +2237,28 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             write_json(out_json, result)
             return result
 
+    hud_intent_syscall_proof_result: dict[str, Any] | None = None
+    if args.wsta149_hud_intent_syscall_proof_json is not None:
+        hud_intent_syscall_path, hud_intent_syscall_error = require_private_file(
+            args.wsta149_hud_intent_syscall_proof_json,
+            "wsta149-hud-intent-syscall-proof",
+        )
+        if hud_intent_syscall_error or hud_intent_syscall_path is None:
+            result["decision"] = (
+                hud_intent_syscall_error or "wsta108-blocked-wsta149-hud-intent-syscall-proof"
+            )
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+        hud_intent_syscall_proof_result = load_json(hud_intent_syscall_path)
+        if hud_intent_syscall_proof_result.get("decision") != wsta149.PASS_DECISION:
+            result["decision"] = "wsta108-blocked-wsta149-hud-intent-syscall-proof-not-pass"
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+
     server_status = build_server_status(
         wsta88_result,
         hardening_result,
@@ -2137,6 +2274,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         hud_presenter_live_proof_result,
         hud_presenter_handoff_proof_result,
         hud_presenter_restart_proof_result,
+        hud_intent_syscall_proof_result,
     )
     packet_filter_proof = server_status["hardening"].get("packet_filter_proof", {})
     packet_filter_control_proof = (
@@ -2164,6 +2302,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     hud_presenter_restart = (
         hud_presenter_model.get("restart_proof")
         if isinstance(hud_presenter_model.get("restart_proof"), dict)
+        else {}
+    )
+    hud_intent_syscall = (
+        hud_presenter_model.get("intent_syscall_trace_proof")
+        if isinstance(hud_presenter_model.get("intent_syscall_trace_proof"), dict)
         else {}
     )
     result["server_status"] = server_status
@@ -2273,6 +2416,20 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             and hud_presenter_restart.get("stale_pid_cleanup_fake_pid") == wsta147.FAKE_STALE_PID
             and hud_presenter_restart.get("stale_pid_cleanup_start_done")
             and hud_presenter_restart.get("final_status_stopped")
+        ),
+        "hud_intent_syscall_proof_supplied": hud_intent_syscall_proof_result is not None,
+        "hud_intent_syscall_trace_live_proven": bool(
+            hud_intent_syscall.get("hud_intent_syscall_trace_live_proven")
+        ),
+        "hud_intent_syscall_no_network": bool(
+            hud_intent_syscall.get("network_syscalls_absent")
+        ),
+        "hud_intent_syscall_no_drm": bool(
+            hud_intent_syscall.get("ioctl_syscall_absent")
+            and hud_intent_syscall.get("drm_trace_absent")
+        ),
+        "hud_intent_syscall_atomic_write": bool(
+            hud_intent_syscall.get("atomic_rename_observed")
         ),
         "hud_direct_nonroot_kms_rejected": bool(
             hud_presenter_model.get("supersedes_wsta127_direct_kms")
@@ -2387,6 +2544,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         result["ended_utc"] = utc_stamp()
         write_json(out_json, result)
         return result
+    if (
+        hud_intent_syscall_proof_result is not None
+        and not result["checks"]["hud_intent_syscall_trace_live_proven"]
+    ):
+        result["decision"] = "wsta108-blocked-wsta149-hud-intent-syscall-proof-incomplete"
+        result["gate_decision"] = result["decision"]
+        result["ended_utc"] = utc_stamp()
+        write_json(out_json, result)
+        return result
 
     result["decision"] = PASS_DECISION
     result["gate_decision"] = "ok"
@@ -2426,6 +2592,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--wsta137-hud-presenter-live-proof-json", type=Path)
     parser.add_argument("--wsta144-hud-presenter-handoff-proof-json", type=Path)
     parser.add_argument("--wsta147-hud-presenter-restart-proof-json", type=Path)
+    parser.add_argument("--wsta149-hud-intent-syscall-proof-json", type=Path)
     parser.add_argument("--print-template", action="store_true")
     parser.add_argument("--print-full-json", action="store_true")
     return parser

@@ -3798,6 +3798,33 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** fold the WSTA149 HUD intent syscall profile proof into WSTA108
 > operator status, then continue broader containment hardening or derive a
 > concrete seccomp policy from the live syscall baseline.
+>
+> **🟢 STATUS (2026-07-05 11:17 KST host clock) — WSTA150 OPERATOR
+> STATUS HUD INTENT SYSCALL SOURCE PASS.**  Codex added the host-only
+> `run_wsta149_dpublic_hud_intent_syscall_trace_summary.py` proof compressor,
+> extended WSTA108 with `--wsta149-hud-intent-syscall-proof-json`, and folded
+> the WSTA149 live syscall profile into the operator-facing server status.  The
+> WSTA149 summary run
+> `workspace/private/runs/server-distro/wsta150-wsta149-hud-intent-syscall-summary-20260705T1114KST/`
+> emitted decision `wsta149-dpublic-hud-intent-syscall-trace-live-pass` with
+> 22 syscalls, UID/GID `3904/3904`, `NoNewPrivs=1`, cap-zero, atomic
+> `fsync`+`renameat`, no network syscalls, no `ioctl`, and no DRM trace.
+> WSTA108 regeneration then passed at
+> `workspace/private/runs/server-distro/wsta150-operator-status-hud-intent-syscall-20260705T111516KST/`.
+> Resulting status keeps `SERVER_PROFILE_READY_DEFAULT_OFF`, lifts
+> `hardening.hud_presenter_model.state` to
+> `DPUBLIC_HUD_INTENT_SYSCALL_TRACE_LIVE_PROVEN`, removes `dpublic-hud` from
+> remaining syscall profiles, and moves the operator next action to
+> `continue-containment-hardening-or-derive-hud-seccomp-policy`.  This unit was
+> host-only: no device action, flash, reboot, Wi-Fi, DHCP, public tunnel,
+> packet-filter mutation, switch-root, or userdata touch ran.  Validation passed
+> `py_compile`, focused WSTA108+WSTA149 summary tests (`47 tests OK`), full
+> server-distro WSTA regression (`476 tests OK`), WSTA149 summary generation,
+> and WSTA108 operator status regeneration.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA150_OPERATOR_STATUS_HUD_INTENT_SYSCALL_SOURCE_2026-07-05.md`.
+> **NEXT:** continue containment hardening: either derive a HUD seccomp policy
+> from the live baseline, or capture the remaining `dropbear-admin-usb` syscall
+> profile before broader seccomp enforcement.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

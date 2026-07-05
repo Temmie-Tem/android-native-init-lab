@@ -645,6 +645,62 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         proof["checks"] = runner.wsta147.validate_proof(proof)
         return proof
 
+    def hud_intent_syscall_proof(self) -> dict:
+        return {
+            "decision": runner.wsta149.PASS_DECISION,
+            "source_run_dir": "workspace/private/runs/server-distro/wsta149-dpublic-hud-intent-syscall-test",
+            "service": "dpublic-hud",
+            "scope": "hud-intent-producer-only",
+            "intent_path": "/run/a90-dpublic/hud-intent.json",
+            "intent_sequence": 14901,
+            "command_shape": (
+                "a90-service-launch dpublic-hud strace -f "
+                "a90-dpublic-hud-intent --output /run/a90-dpublic/hud-intent.json"
+            ),
+            "uid": 3904,
+            "gid": 3904,
+            "no_new_privs": True,
+            "cap_eff_zero": True,
+            "public_default_off": True,
+            "native_presenter_owner": True,
+            "atomic_rename_observed": True,
+            "network_syscalls_absent": True,
+            "ioctl_syscall_absent": True,
+            "drm_trace_absent": True,
+            "core_syscalls_observed": True,
+            "core_syscalls": ["execve", "openat", "write", "fsync", "close"],
+            "syscall_count": 22,
+            "syscall_names": [
+                "brk",
+                "close",
+                "execve",
+                "fsync",
+                "mmap",
+                "openat",
+                "renameat",
+                "write",
+            ],
+            "trace_artifacts_saved": True,
+            "raw_trace_sha256": "raw-sha",
+            "syscall_list_sha256": "syscalls-sha",
+            "intent_json_sha256": "intent-sha",
+            "checks": {
+                "source_decision_pass": True,
+                "source_no_mutating_device_action": True,
+                "strace_image_sha_match": True,
+                "identity_and_launcher_proven": True,
+                "intent_write_proven": True,
+                "atomic_path_proven": True,
+                "no_network_syscalls": True,
+                "no_drm_or_ioctl": True,
+                "trace_artifacts_saved": True,
+                "final_health_clean": True,
+                "redaction_clean": True,
+            },
+            "public_url_value_logged": False,
+            "secret_values_logged": 0,
+        }
+
     def valid_args(self, root: Path, wsta88_json: Path, *extra: str):
         return runner.build_arg_parser().parse_args([
             "--run-dir",
@@ -1409,6 +1465,86 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertNotIn("http://", markdown)
         self.assertNotIn("https://", markdown)
 
+    def test_valid_wsta149_hud_intent_syscall_proof_retires_hud_syscall_gap(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            manifest_path = root / "inputs" / "wsta90_service_hardening_manifest.json"
+            syscall_path = root / "inputs" / "wsta114_result.json"
+            hud_path = root / "inputs" / "wsta127_dpublic_hud_service_model.json"
+            presenter_path = root / "inputs" / "wsta130_dpublic_hud_presenter_model.json"
+            live_path = root / "inputs" / "wsta137_dpublic_native_presenter_live.json"
+            handoff_path = root / "inputs" / "wsta144_dpublic_hud_shared_run_bind_live.json"
+            restart_path = root / "inputs" / "wsta147_dpublic_hud_restart_live.json"
+            hud_syscall_path = root / "inputs" / "wsta149_dpublic_hud_intent_syscall_trace_live.json"
+            self.write_json(manifest_path, self.hardening_manifest())
+            self.write_json(syscall_path, self.syscall_trace_proof())
+            self.write_json(hud_path, self.hud_model_proof())
+            self.write_json(presenter_path, self.hud_presenter_model_proof())
+            self.write_json(live_path, self.hud_presenter_live_proof())
+            self.write_json(handoff_path, self.hud_presenter_handoff_proof())
+            self.write_json(restart_path, self.hud_presenter_restart_proof())
+            self.write_json(hud_syscall_path, self.hud_intent_syscall_proof())
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta90-service-hardening-manifest-json",
+                str(manifest_path),
+                "--wsta114-syscall-trace-proof-json",
+                str(syscall_path),
+                "--wsta127-hud-model-json",
+                str(hud_path),
+                "--wsta130-hud-presenter-model-json",
+                str(presenter_path),
+                "--wsta137-hud-presenter-live-proof-json",
+                str(live_path),
+                "--wsta144-hud-presenter-handoff-proof-json",
+                str(handoff_path),
+                "--wsta147-hud-presenter-restart-proof-json",
+                str(restart_path),
+                "--wsta149-hud-intent-syscall-proof-json",
+                str(hud_syscall_path),
+            ))
+            markdown = (root / "wsta108" / "wsta108_operator_server_status.md").read_text(encoding="utf-8")
+            summary_text = json.dumps(runner.public_summary(result), sort_keys=True)
+
+        self.assertEqual(result["decision"], runner.PASS_DECISION)
+        hardening = result["server_status"]["hardening"]
+        presenter = hardening["hud_presenter_model"]
+        proof = presenter["intent_syscall_trace_proof"]
+        self.assertEqual(presenter["state"], "DPUBLIC_HUD_INTENT_SYSCALL_TRACE_LIVE_PROVEN")
+        self.assertTrue(presenter["durable_restart_live_proven"])
+        self.assertTrue(presenter["intent_syscall_trace_live_proven"])
+        self.assertTrue(proof["hud_intent_syscall_trace_live_proven"])
+        self.assertTrue(proof["no_new_privs"])
+        self.assertTrue(proof["cap_eff_zero"])
+        self.assertTrue(proof["atomic_rename_observed"])
+        self.assertTrue(proof["network_syscalls_absent"])
+        self.assertTrue(proof["ioctl_syscall_absent"])
+        self.assertTrue(proof["drm_trace_absent"])
+        self.assertTrue(result["checks"]["hud_intent_syscall_proof_supplied"])
+        self.assertTrue(result["checks"]["hud_intent_syscall_trace_live_proven"])
+        self.assertTrue(result["checks"]["hud_intent_syscall_no_network"])
+        self.assertTrue(result["checks"]["hud_intent_syscall_no_drm"])
+        self.assertTrue(result["checks"]["hud_intent_syscall_atomic_write"])
+        self.assertNotIn("dpublic-hud", hardening["syscall_trace_proof"]["remaining_profiles"])
+        self.assertNotIn(
+            "profile-dpublic-hud-syscalls-or-continue-containment-hardening",
+            result["server_status"]["operator_next_actions"],
+        )
+        self.assertIn(
+            "continue-containment-hardening-or-derive-hud-seccomp-policy",
+            result["server_status"]["operator_next_actions"],
+        )
+        self.assertIn("D-public HUD intent syscall proof: `true`", markdown)
+        self.assertIn("D-public HUD intent syscall count: `22`", markdown)
+        self.assertIn("D-public HUD intent syscall no-network: `true`", markdown)
+        self.assertIn("D-public HUD intent syscall no-DRM: `true`", markdown)
+        self.assertNotIn("http://", summary_text)
+        self.assertNotIn("https://", summary_text)
+        self.assertNotIn("http://", markdown)
+        self.assertNotIn("https://", markdown)
+
     def test_wsta120_and_smoke_launcher_proofs_refine_shared_user_group_blocker(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -1849,6 +1985,42 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertFalse(result["checks"]["hud_presenter_restart_live_proven"])
         self.assertFalse(result["checks"]["hud_presenter_restart_stop_start_proven"])
 
+    def test_nonpass_wsta149_hud_intent_syscall_proof_blocks(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            proof_path = root / "inputs" / "wsta149_dpublic_hud_intent_syscall_trace_live.json"
+            proof = self.hud_intent_syscall_proof()
+            proof["decision"] = "wsta149-blocked"
+            self.write_json(proof_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta149-hud-intent-syscall-proof-json",
+                str(proof_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta149-hud-intent-syscall-proof-not-pass")
+
+    def test_incomplete_wsta149_hud_intent_syscall_proof_blocks_even_with_pass_decision(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            proof_path = root / "inputs" / "wsta149_dpublic_hud_intent_syscall_trace_live.json"
+            proof = self.hud_intent_syscall_proof()
+            proof["syscall_names"].append("socket")
+            self.write_json(proof_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta149-hud-intent-syscall-proof-json",
+                str(proof_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta149-hud-intent-syscall-proof-incomplete")
+        self.assertFalse(result["checks"]["hud_intent_syscall_trace_live_proven"])
+        self.assertFalse(result["checks"]["hud_intent_syscall_no_network"])
+
     def test_public_summary_markdown_and_template_are_redacted(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -1890,6 +2062,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("--wsta127-hud-model-json", payload)
         self.assertIn("--wsta130-hud-presenter-model-json", payload)
         self.assertIn("--wsta137-hud-presenter-live-proof-json", payload)
+        self.assertIn("--wsta149-hud-intent-syscall-proof-json", payload)
 
     def test_source_is_host_only_and_names_server_model(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")
@@ -1909,14 +2082,17 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("DPUBLIC_HUD_NATIVE_PRESENTER_LIVE_PROVEN", source)
         self.assertIn("DPUBLIC_HUD_DURABLE_PRESENTER_HANDOFF_LIVE_PROVEN", source)
         self.assertIn("DPUBLIC_HUD_DURABLE_PRESENTER_RESTART_LIVE_PROVEN", source)
+        self.assertIn("DPUBLIC_HUD_INTENT_SYSCALL_TRACE_LIVE_PROVEN", source)
         self.assertIn("split-intent-native-presenter", source)
         self.assertIn("prototype-dpublic-hud-intent-presenter-boundary-before-live-hud-profile", source)
         self.assertIn("design-durable-dpublic-hud-presenter-service-across-debian-handoff", source)
         self.assertIn("continue-dpublic-service-integration-or-containment-hardening", source)
         self.assertIn("profile-dpublic-hud-syscalls-or-continue-containment-hardening", source)
+        self.assertIn("continue-containment-hardening-or-derive-hud-seccomp-policy", source)
         self.assertIn("--wsta137-hud-presenter-live-proof-json", source)
         self.assertIn("--wsta144-hud-presenter-handoff-proof-json", source)
         self.assertIn("--wsta147-hud-presenter-restart-proof-json", source)
+        self.assertIn("--wsta149-hud-intent-syscall-proof-json", source)
         self.assertIn('"boot_flash": False', source)
         self.assertIn('"public_url_value_logged": False', source)
         self.assertNotIn("native_init_flash.py", source)
