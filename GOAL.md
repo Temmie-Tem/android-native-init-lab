@@ -4871,6 +4871,30 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** Add a final default-off WSTA190 execute gate that consumes a READY
 > WSTA189 status and still stops before WSTA187 live execution unless the same
 > explicit no-load acknowledgement stack is supplied.
+>
+> **🟢 STATUS (2026-07-05 16:20 KST host clock) — WSTA190 WSTA189 EXECUTE
+> GATE PREFLIGHT PASS.**  Codex added the final default-off execute gate for
+> the WSTA187 no-load live operator workflow.  WSTA190 consumes a private READY
+> WSTA189 status, validates the referenced WSTA188 packet and shell wrapper,
+> and writes a preflight gate.  Optional live delegation exists only behind the
+> explicit WSTA187 no-load acknowledgement stack.  Proof run:
+> `workspace/private/runs/server-distro/wsta190-wsta189-execute-gate-preflight-20260705T161957KST/`;
+> decision was `wsta190-wsta189-execute-gate-preflight-pass`.  Input status:
+> `workspace/private/runs/server-distro/wsta189-wsta188-operator-packet-status-20260705T161330KST/wsta189_operator_packet_status.json`.
+> Gate state was `READY_FOR_EXPLICIT_WSTA187_NO_LOAD_LIVE`, with
+> `status_valid=true`, `operator_packet_valid=true`, `execute_gate_valid=true`,
+> `wsta189_status_ready=true`, `wsta188_packet_ready=true`,
+> `live_execution_requested=false`, and `explicit_live_gate=false`.  This proof
+> did not flash, reboot, connect Wi-Fi, run DHCP, open a public tunnel, mutate
+> packet filters, write userdata, switch root, execute WSTA187 live, execute
+> WSTA185/WSTA181, run post-run audit, load a seccomp filter, enforce seccomp,
+> or supply the correct WSTA161 token.  Validation passed `py_compile`,
+> focused WSTA190 tests (`9 tests OK`), full server-distro regression
+> (`671 tests OK`), and the WSTA190 preflight proof run.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA190_WSTA189_EXECUTE_GATE_2026-07-05.md`.
+> **NEXT:** Either run an attended WSTA190 live delegation using the same
+> no-load acknowledgement stack, or pivot to a separately designed higher-risk
+> seccomp-load/correct-token rung.  Do not mix those risk classes.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
