@@ -4949,6 +4949,33 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** Start WSTA193 as a host-only correct-token canary source proof.  It
 > must keep the real token out of public artifacts and still must not live-load
 > seccomp.
+>
+> **🟢 STATUS (2026-07-05 16:42 KST host clock) — WSTA193 CORRECT-TOKEN
+> CANARY SOURCE PASS.**  Codex added the host-only source proof for the first
+> future correct-token seccomp-load canary.  WSTA193 consumed the WSTA192 risk
+> charter, kept the closed WSTA187/WSTA190 no-load workflow separate, and
+> emitted a source-only single-service canary contract.  Run:
+> `workspace/private/runs/server-distro/wsta193-seccomp-correct-token-canary-source-20260705T1642KST/`;
+> decision was `wsta193-seccomp-correct-token-canary-source-pass`.  Contract
+> state was `SOURCE_ONLY_CANARY_NOT_EXECUTABLE`, with
+> `canary_service=dpublic-hud`, `policy_service=dpublic-hud-intent`,
+> `private_token_env=A90_PRIVATE_WSTA161_LOAD_TOKEN`,
+> `token_value_included=false`, `correct_wsta161_token_supplied=false`,
+> `seccomp_filter_loaded_in_this_unit=false`,
+> `seccomp_enforced_in_this_unit=false`, `wsta192_result_valid=true`,
+> `wsta192_charter_valid=true`, `contract_valid=true`, `source_valid=true`,
+> `shell_syntax_ok=true`, `token_placeholder_only=true`,
+> `token_literal_absent=true`, `does_not_call_wsta187=true`, and
+> `does_not_call_wsta190=true`.  This proof did not flash, reboot, contact the
+> device, connect Wi-Fi, run DHCP, open a public tunnel, mutate packet filters,
+> write userdata, switch root, generate or execute a live command, supply the
+> correct WSTA161 token, load a seccomp filter, or enforce seccomp.  Validation
+> passed `py_compile`, focused WSTA193 tests (`8 tests OK`), full server-distro
+> regression (`686 tests OK`), and the WSTA193 proof run.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA193_SECCOMP_CORRECT_TOKEN_CANARY_SOURCE_2026-07-05.md`.
+> **NEXT:** WSTA194 should consume the WSTA193 source contract and render a
+> private, default-off operator packet for one attended single-service
+> seccomp-load canary.  WSTA194 must still not execute the live load.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
