@@ -3747,6 +3747,31 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** fold the WSTA147 restart/stale-cleanup proof into WSTA108 operator
 > status, then move to optional HUD syscall trace profiling or broader
 > containment hardening.
+>
+> **🟢 STATUS (2026-07-05 10:47 KST host clock) — WSTA148 OPERATOR STATUS
+> HUD RESTART SOURCE PASS.**  Codex added a host-only WSTA147 live proof
+> summarizer and extended `run_wsta108_operator_server_status.py` with
+> `--wsta147-hud-presenter-restart-proof-json`.  The summarizer re-read the
+> private WSTA147 live transcripts and emitted
+> `wsta147-dpublic-hud-restart-live-pass`: checked-helper V3402 flash clean,
+> pre-restart `sequence=14701` KMS present + DRM fd, restart stop/start
+> `restart.stop_rc=0 restart.start_rc=0 restart.done=1`, post-restart
+> `sequence=14702 present_rc=0 drm_fd=1`, fake stale pidfile `999999` cleanup,
+> final stopped status, and final V3402 health clean.  WSTA108 now recomputes
+> that proof fail-closed, requires both WSTA144 handoff proof and WSTA147
+> restart proof before lifting `hardening.hud_presenter_model.state` to
+> `DPUBLIC_HUD_DURABLE_PRESENTER_RESTART_LIVE_PROVEN`, keeps server state
+> `SERVER_PROFILE_READY_DEFAULT_OFF`, and moves the operator next action to
+> `profile-dpublic-hud-syscalls-or-continue-containment-hardening`.  This
+> WSTA148 unit was host-only: no device action, flash, reboot, Wi-Fi, DHCP,
+> public tunnel, packet-filter mutation, switch-root, or userdata touch ran.
+> Validation passed `py_compile`, WSTA108 focused tests (`41 tests OK`), full
+> server-distro WSTA regression (`462 tests OK`), WSTA147 summary proof
+> generation, and WSTA108 operator status regeneration.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA148_OPERATOR_STATUS_HUD_RESTART_SOURCE_2026-07-05.md`.
+> **NEXT:** choose between optional HUD syscall trace profiling before seccomp
+> enforcement and broader containment hardening; do not repeat HUD handoff or
+> restart live proofs unless a regression appears.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

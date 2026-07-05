@@ -562,6 +562,89 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         proof["checks"] = runner.wsta144.validate_proof(proof)
         return proof
 
+    def hud_presenter_restart_proof(self) -> dict:
+        proof = {
+            "decision": runner.wsta147.PASS_DECISION,
+            "run_dir": "workspace/private/runs/server-distro/wsta147-dpublic-hud-restart-test",
+            "source_run_dir": "workspace/private/runs/server-distro/wsta147-source-live-test",
+            "candidate": {
+                "init_version": runner.wsta147.INIT_VERSION,
+                "init_build": runner.wsta147.INIT_BUILD,
+                "boot_image": runner.wsta147.BOOT_IMAGE,
+                "boot_sha256": runner.wsta147.BOOT_SHA256,
+            },
+            "checked_flash": {
+                "used_checked_helper": True,
+                "from_native": True,
+                "local_sha_match": True,
+                "remote_sha_match": True,
+                "boot_readback_sha_match": True,
+                "booted_v3402": True,
+                "boot_ok": True,
+                "selftest_fail_zero": True,
+                "verify_native_passed": True,
+            },
+            "pre_restart": {
+                "start_pid": 661,
+                "start_done": True,
+                "shared_run_mounted": True,
+                "restart_policy_marker": True,
+                "intent_sequence": runner.wsta147.PRE_RESTART_SEQUENCE,
+                "presented": True,
+                "status_running": True,
+                "status_pid": 661,
+                "status_drm_fd": True,
+                "status_restart_policy": True,
+                "status_file_sequence": runner.wsta147.PRE_RESTART_SEQUENCE,
+                "status_file_present_rc": 0,
+            },
+            "restart": {
+                "policy": runner.wsta147.RESTART_POLICY,
+                "stop_pid": 661,
+                "stop_released_drm": True,
+                "stop_term": True,
+                "stop_done": True,
+                "stop_rc": 0,
+                "start_pid": 669,
+                "start_done": True,
+                "start_rc": 0,
+                "done": True,
+            },
+            "post_restart": {
+                "intent_sequence": runner.wsta147.POST_RESTART_SEQUENCE,
+                "presented": True,
+                "status_running": True,
+                "status_pid": 669,
+                "status_drm_fd": True,
+                "status_file_sequence": runner.wsta147.POST_RESTART_SEQUENCE,
+                "status_file_present_rc": 0,
+            },
+            "stop_after_restart": {
+                "stop_pid": 669,
+                "stop_done": True,
+            },
+            "stale_pid_cleanup": {
+                "fake_pid": runner.wsta147.FAKE_STALE_PID,
+                "stale_cleanup_marker": True,
+                "start_pid": 680,
+                "start_done": True,
+                "final_stop_done": True,
+                "final_status_stopped": True,
+            },
+            "final_health": {
+                "v3402_resident": True,
+                "boot_ok": True,
+                "selftest_fail_zero": True,
+                "transport_serial_ready": True,
+                "transport_ncm_ready": True,
+                "transport_tcpctl_ready": True,
+            },
+            "public_url_value_logged": False,
+            "secret_values_logged": 0,
+        }
+        proof["checks"] = runner.wsta147.validate_proof(proof)
+        return proof
+
     def valid_args(self, root: Path, wsta88_json: Path, *extra: str):
         return runner.build_arg_parser().parse_args([
             "--run-dir",
@@ -1252,6 +1335,80 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertNotIn("http://", markdown)
         self.assertNotIn("https://", markdown)
 
+    def test_valid_wsta147_hud_restart_proof_updates_operator_status(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            manifest_path = root / "inputs" / "wsta90_service_hardening_manifest.json"
+            hud_path = root / "inputs" / "wsta127_dpublic_hud_service_model.json"
+            presenter_path = root / "inputs" / "wsta130_dpublic_hud_presenter_model.json"
+            live_path = root / "inputs" / "wsta137_dpublic_native_presenter_live.json"
+            handoff_path = root / "inputs" / "wsta144_dpublic_hud_shared_run_bind_live.json"
+            restart_path = root / "inputs" / "wsta147_dpublic_hud_restart_live.json"
+            self.write_json(manifest_path, self.hardening_manifest())
+            self.write_json(hud_path, self.hud_model_proof())
+            self.write_json(presenter_path, self.hud_presenter_model_proof())
+            self.write_json(live_path, self.hud_presenter_live_proof())
+            self.write_json(handoff_path, self.hud_presenter_handoff_proof())
+            self.write_json(restart_path, self.hud_presenter_restart_proof())
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta90-service-hardening-manifest-json",
+                str(manifest_path),
+                "--wsta127-hud-model-json",
+                str(hud_path),
+                "--wsta130-hud-presenter-model-json",
+                str(presenter_path),
+                "--wsta137-hud-presenter-live-proof-json",
+                str(live_path),
+                "--wsta144-hud-presenter-handoff-proof-json",
+                str(handoff_path),
+                "--wsta147-hud-presenter-restart-proof-json",
+                str(restart_path),
+            ))
+            markdown = (root / "wsta108" / "wsta108_operator_server_status.md").read_text(encoding="utf-8")
+            summary_text = json.dumps(runner.public_summary(result), sort_keys=True)
+
+        self.assertEqual(result["decision"], runner.PASS_DECISION)
+        presenter = result["server_status"]["hardening"]["hud_presenter_model"]
+        restart = presenter["restart_proof"]
+        self.assertEqual(presenter["state"], "DPUBLIC_HUD_DURABLE_PRESENTER_RESTART_LIVE_PROVEN")
+        self.assertTrue(presenter["handoff_live_proven"])
+        self.assertTrue(presenter["restart_live_proven"])
+        self.assertTrue(presenter["durable_restart_live_proven"])
+        self.assertEqual(restart["restart_policy"], runner.wsta147.RESTART_POLICY)
+        self.assertEqual(restart["restart_stop_rc"], 0)
+        self.assertEqual(restart["restart_start_rc"], 0)
+        self.assertTrue(restart["restart_done"])
+        self.assertEqual(restart["post_restart_sequence"], runner.wsta147.POST_RESTART_SEQUENCE)
+        self.assertEqual(restart["post_restart_present_rc"], 0)
+        self.assertTrue(restart["post_restart_drm_fd"])
+        self.assertTrue(restart["stale_pid_cleanup_marker"])
+        self.assertEqual(restart["stale_pid_cleanup_fake_pid"], runner.wsta147.FAKE_STALE_PID)
+        self.assertTrue(result["checks"]["hud_presenter_restart_proof_supplied"])
+        self.assertTrue(result["checks"]["hud_presenter_restart_live_proven"])
+        self.assertTrue(result["checks"]["hud_presenter_durable_restart_live_proven"])
+        self.assertTrue(result["checks"]["hud_presenter_restart_stop_start_proven"])
+        self.assertTrue(result["checks"]["hud_presenter_restart_post_present_proven"])
+        self.assertTrue(result["checks"]["hud_presenter_stale_pid_cleanup_proven"])
+        self.assertIn(
+            "profile-dpublic-hud-syscalls-or-continue-containment-hardening",
+            result["server_status"]["operator_next_actions"],
+        )
+        self.assertNotIn(
+            "continue-dpublic-service-integration-or-containment-hardening",
+            result["server_status"]["operator_next_actions"],
+        )
+        self.assertIn("D-public HUD restart proof: `true`", markdown)
+        self.assertIn("D-public HUD restart stop/start: `true`", markdown)
+        self.assertIn("D-public HUD restart post-present: `true`", markdown)
+        self.assertIn("D-public HUD stale pid cleanup: `true`", markdown)
+        self.assertNotIn("http://", summary_text)
+        self.assertNotIn("https://", summary_text)
+        self.assertNotIn("http://", markdown)
+        self.assertNotIn("https://", markdown)
+
     def test_wsta120_and_smoke_launcher_proofs_refine_shared_user_group_blocker(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -1672,6 +1829,26 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertFalse(result["checks"]["hud_presenter_handoff_live_proven"])
         self.assertFalse(result["checks"]["hud_presenter_handoff_fresh_debian_intent_consumed"])
 
+    def test_incomplete_wsta147_hud_restart_proof_blocks_even_with_pass_decision(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            restart_path = root / "inputs" / "wsta147_dpublic_hud_restart_live.json"
+            proof = self.hud_presenter_restart_proof()
+            proof["restart"]["done"] = False
+            proof["checks"] = runner.wsta147.validate_proof(proof)
+            self.write_json(restart_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta147-hud-presenter-restart-proof-json",
+                str(restart_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta147-hud-presenter-restart-proof-incomplete")
+        self.assertFalse(result["checks"]["hud_presenter_restart_live_proven"])
+        self.assertFalse(result["checks"]["hud_presenter_restart_stop_start_proven"])
+
     def test_public_summary_markdown_and_template_are_redacted(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -1731,12 +1908,15 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("DPUBLIC_HUD_PRESENTER_MODEL_SOURCE_DEFINED", source)
         self.assertIn("DPUBLIC_HUD_NATIVE_PRESENTER_LIVE_PROVEN", source)
         self.assertIn("DPUBLIC_HUD_DURABLE_PRESENTER_HANDOFF_LIVE_PROVEN", source)
+        self.assertIn("DPUBLIC_HUD_DURABLE_PRESENTER_RESTART_LIVE_PROVEN", source)
         self.assertIn("split-intent-native-presenter", source)
         self.assertIn("prototype-dpublic-hud-intent-presenter-boundary-before-live-hud-profile", source)
         self.assertIn("design-durable-dpublic-hud-presenter-service-across-debian-handoff", source)
         self.assertIn("continue-dpublic-service-integration-or-containment-hardening", source)
+        self.assertIn("profile-dpublic-hud-syscalls-or-continue-containment-hardening", source)
         self.assertIn("--wsta137-hud-presenter-live-proof-json", source)
         self.assertIn("--wsta144-hud-presenter-handoff-proof-json", source)
+        self.assertIn("--wsta147-hud-presenter-restart-proof-json", source)
         self.assertIn('"boot_flash": False', source)
         self.assertIn('"public_url_value_logged": False', source)
         self.assertNotIn("native_init_flash.py", source)

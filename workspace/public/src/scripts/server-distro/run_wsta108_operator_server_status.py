@@ -41,6 +41,7 @@ import run_wsta127_dpublic_hud_service_model as wsta127  # noqa: E402
 import run_wsta130_dpublic_hud_presenter_model as wsta130  # noqa: E402
 import run_wsta137_dpublic_native_presenter_live_summary as wsta137  # noqa: E402
 import run_wsta144_dpublic_hud_shared_run_bind_summary as wsta144  # noqa: E402
+import run_wsta147_dpublic_hud_restart_live_summary as wsta147  # noqa: E402
 
 
 REPO_ROOT = wsta88.REPO_ROOT
@@ -54,6 +55,7 @@ DPUBLIC_HUD_MODEL_STATE = "DPUBLIC_HUD_SERVICE_MODEL_SOURCE_DEFINED"
 DPUBLIC_HUD_PRESENTER_MODEL_STATE = "DPUBLIC_HUD_PRESENTER_MODEL_SOURCE_DEFINED"
 DPUBLIC_HUD_PRESENTER_LIVE_STATE = "DPUBLIC_HUD_NATIVE_PRESENTER_LIVE_PROVEN"
 DPUBLIC_HUD_PRESENTER_HANDOFF_STATE = "DPUBLIC_HUD_DURABLE_PRESENTER_HANDOFF_LIVE_PROVEN"
+DPUBLIC_HUD_PRESENTER_RESTART_STATE = "DPUBLIC_HUD_DURABLE_PRESENTER_RESTART_LIVE_PROVEN"
 
 CLOUDFLARED_RUNTIME_REQUIRED_CHECKS = (
     "wsta28_precondition_pass",
@@ -169,6 +171,8 @@ def template() -> dict[str, Any]:
             "workspace/private/runs/server-distro/<wsta137-run>/wsta137_dpublic_native_presenter_live.json",
             "--wsta144-hud-presenter-handoff-proof-json",
             "workspace/private/runs/server-distro/<wsta144-run>/wsta144_dpublic_hud_shared_run_bind_live.json",
+            "--wsta147-hud-presenter-restart-proof-json",
+            "workspace/private/runs/server-distro/<wsta147-run>/wsta147_dpublic_hud_restart_live.json",
         ],
         "device_action": False,
         "public_url_value_logged": False,
@@ -1054,13 +1058,106 @@ def compact_hud_presenter_handoff_proof(proof_result: dict[str, Any] | None) -> 
     }
 
 
+def compact_hud_presenter_restart_proof(proof_result: dict[str, Any] | None) -> dict[str, Any]:
+    if not proof_result:
+        return {
+            "state": "NOT_SUPPLIED",
+            "restart_live_proven": False,
+        }
+
+    supplied_checks = proof_result.get("checks") if isinstance(proof_result.get("checks"), dict) else {}
+    recomputed_checks = wsta147.validate_proof(proof_result)
+    restart_proven = bool(
+        proof_result.get("decision") == wsta147.PASS_DECISION
+        and bool(supplied_checks)
+        and all(value is True for value in supplied_checks.values())
+        and all(value is True for value in recomputed_checks.values())
+    )
+    candidate = proof_result.get("candidate") if isinstance(proof_result.get("candidate"), dict) else {}
+    checked_flash = (
+        proof_result.get("checked_flash")
+        if isinstance(proof_result.get("checked_flash"), dict)
+        else {}
+    )
+    pre = proof_result.get("pre_restart") if isinstance(proof_result.get("pre_restart"), dict) else {}
+    restart = proof_result.get("restart") if isinstance(proof_result.get("restart"), dict) else {}
+    post = proof_result.get("post_restart") if isinstance(proof_result.get("post_restart"), dict) else {}
+    stop = (
+        proof_result.get("stop_after_restart")
+        if isinstance(proof_result.get("stop_after_restart"), dict)
+        else {}
+    )
+    stale = (
+        proof_result.get("stale_pid_cleanup")
+        if isinstance(proof_result.get("stale_pid_cleanup"), dict)
+        else {}
+    )
+    final_health = (
+        proof_result.get("final_health")
+        if isinstance(proof_result.get("final_health"), dict)
+        else {}
+    )
+    return {
+        "state": DPUBLIC_HUD_PRESENTER_RESTART_STATE if restart_proven else "SUPPLIED_NOT_PROVEN",
+        "decision": proof_result.get("decision"),
+        "proof_run_dir": proof_result.get("run_dir"),
+        "source_run_dir": proof_result.get("source_run_dir"),
+        "restart_live_proven": restart_proven,
+        "candidate_init_version": candidate.get("init_version"),
+        "candidate_init_build": candidate.get("init_build"),
+        "candidate_boot_sha256": candidate.get("boot_sha256"),
+        "checked_flash_used": bool(checked_flash.get("used_checked_helper")),
+        "checked_flash_sha_matched": bool(
+            checked_flash.get("local_sha_match")
+            and checked_flash.get("remote_sha_match")
+            and checked_flash.get("boot_readback_sha_match")
+        ),
+        "checked_flash_boot_health_clean": bool(
+            checked_flash.get("booted_v3402")
+            and checked_flash.get("boot_ok")
+            and checked_flash.get("selftest_fail_zero")
+            and checked_flash.get("verify_native_passed")
+        ),
+        "pre_restart_pid": pre.get("start_pid"),
+        "pre_restart_sequence": pre.get("status_file_sequence"),
+        "pre_restart_present_rc": pre.get("status_file_present_rc"),
+        "pre_restart_drm_fd": bool(pre.get("status_drm_fd")),
+        "restart_policy": restart.get("policy"),
+        "restart_stop_pid": restart.get("stop_pid"),
+        "restart_start_pid": restart.get("start_pid"),
+        "restart_stop_rc": restart.get("stop_rc"),
+        "restart_start_rc": restart.get("start_rc"),
+        "restart_done": bool(restart.get("done")),
+        "post_restart_sequence": post.get("status_file_sequence"),
+        "post_restart_present_rc": post.get("status_file_present_rc"),
+        "post_restart_drm_fd": bool(post.get("status_drm_fd")),
+        "stop_after_restart_done": bool(stop.get("stop_done")),
+        "stale_pid_cleanup_marker": bool(stale.get("stale_cleanup_marker")),
+        "stale_pid_cleanup_fake_pid": stale.get("fake_pid"),
+        "stale_pid_cleanup_start_done": bool(stale.get("start_done")),
+        "final_status_stopped": bool(stale.get("final_status_stopped")),
+        "final_health_clean": bool(
+            final_health.get("v3402_resident")
+            and final_health.get("boot_ok")
+            and final_health.get("selftest_fail_zero")
+            and final_health.get("transport_serial_ready")
+            and final_health.get("transport_ncm_ready")
+            and final_health.get("transport_tcpctl_ready")
+        ),
+        "public_url_value_logged": False,
+        "secret_values_logged": 0,
+    }
+
+
 def compact_hud_presenter_model(
     model_result: dict[str, Any] | None,
     live_proof_result: dict[str, Any] | None,
     handoff_proof_result: dict[str, Any] | None,
+    restart_proof_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     live_proof = compact_hud_presenter_live_proof(live_proof_result)
     handoff_proof = compact_hud_presenter_handoff_proof(handoff_proof_result)
+    restart_proof = compact_hud_presenter_restart_proof(restart_proof_result)
     if not model_result:
         return {
             "state": "NOT_SUPPLIED",
@@ -1069,6 +1166,7 @@ def compact_hud_presenter_model(
             "hud_live_proven": False,
             "live_proof": live_proof,
             "handoff_proof": handoff_proof,
+            "restart_proof": restart_proof,
         }
 
     model = (
@@ -1123,14 +1221,20 @@ def compact_hud_presenter_model(
     exposure = model.get("default_exposure") if isinstance(model.get("default_exposure"), dict) else {}
     live_proven = bool(live_proof.get("native_presenter_live_proven"))
     handoff_proven = bool(handoff_proof.get("handoff_live_proven"))
-    any_live_proven = live_proven or handoff_proven
+    restart_proven = bool(restart_proof.get("restart_live_proven"))
+    durable_restart_proven = handoff_proven and restart_proven
+    any_live_proven = live_proven or handoff_proven or durable_restart_proven
     remaining_live_proofs = [
         "intent producer uid/gid/no-new-privs/cap-zero/no-drm/no-network",
         "presenter is sole DRM fd holder during HUD display",
         "presenter owns SETCRTC/PAGE_FLIP and releases DRM on cleanup",
         "intent parser rejects forbidden fields and stale updates",
     ]
-    if handoff_proven:
+    if durable_restart_proven:
+        remaining_live_proofs = [
+            "optional HUD syscall trace profile before seccomp enforcement",
+        ]
+    elif handoff_proven:
         remaining_live_proofs = [
             "presenter cleanup/restart policy for long-running appliance mode",
             "optional HUD syscall trace profile before seccomp enforcement",
@@ -1144,7 +1248,9 @@ def compact_hud_presenter_model(
         ]
     return {
         "state": (
-            DPUBLIC_HUD_PRESENTER_HANDOFF_STATE
+            DPUBLIC_HUD_PRESENTER_RESTART_STATE
+            if durable_restart_proven
+            else DPUBLIC_HUD_PRESENTER_HANDOFF_STATE
             if handoff_proven
             else DPUBLIC_HUD_PRESENTER_LIVE_STATE
             if live_proven
@@ -1157,8 +1263,11 @@ def compact_hud_presenter_model(
         "hud_live_proven": any_live_proven,
         "native_presenter_live_proven": any_live_proven,
         "handoff_live_proven": handoff_proven,
+        "restart_live_proven": restart_proven,
+        "durable_restart_live_proven": durable_restart_proven,
         "live_proof": live_proof,
         "handoff_proof": handoff_proof,
+        "restart_proof": restart_proof,
         "supersedes_wsta127_direct_kms": supersedes.get("direct_nonroot_kms") == "rejected-for-live-path",
         "wsta129_boundary": supersedes.get("wsta129_live_boundary"),
         "display_architecture": "split-intent-native-presenter",
@@ -1301,6 +1410,7 @@ def compact_hardening(
     hud_presenter_model_result: dict[str, Any] | None,
     hud_presenter_live_proof_result: dict[str, Any] | None,
     hud_presenter_handoff_proof_result: dict[str, Any] | None,
+    hud_presenter_restart_proof_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     packet_filter_proof = compact_packet_filter_proof(packet_filter_proof_result, packet_filter_control_summary)
     launcher_proof = compact_launcher_proof(launcher_proof_result)
@@ -1313,6 +1423,7 @@ def compact_hardening(
         hud_presenter_model_result,
         hud_presenter_live_proof_result,
         hud_presenter_handoff_proof_result,
+        hud_presenter_restart_proof_result,
     )
     if hud_presenter_model.get("model_defined"):
         hud_model["superseded_by_presenter_model"] = True
@@ -1410,6 +1521,7 @@ def build_server_status(
     hud_presenter_model_result: dict[str, Any] | None,
     hud_presenter_live_proof_result: dict[str, Any] | None,
     hud_presenter_handoff_proof_result: dict[str, Any] | None,
+    hud_presenter_restart_proof_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     status_hud = wsta88_result.get("status_hud") if isinstance(wsta88_result.get("status_hud"), dict) else {}
     if not status_hud:
@@ -1429,6 +1541,7 @@ def build_server_status(
         hud_presenter_model_result,
         hud_presenter_live_proof_result,
         hud_presenter_handoff_proof_result,
+        hud_presenter_restart_proof_result,
     )
     public_off = (status_hud.get("public_state") or "PUBLIC_OFF") == "PUBLIC_OFF"
     ready_default_off = public_off and bool(packet_filter.get("ready"))
@@ -1472,6 +1585,11 @@ def build_server_status(
         if isinstance(hud_presenter_model.get("handoff_proof"), dict)
         else {}
     )
+    hud_presenter_restart = (
+        hud_presenter_model.get("restart_proof")
+        if isinstance(hud_presenter_model.get("restart_proof"), dict)
+        else {}
+    )
     hud_live_proven = bool(
         hud_model.get("hud_live_proven") or hud_presenter_model.get("hud_live_proven")
     )
@@ -1486,7 +1604,9 @@ def build_server_status(
         operator_next_actions.append("define-cloudflared-service-model-before-public-profile")
     elif not cloudflared_runtime.get("cloudflared_live_proven"):
         operator_next_actions.append("prove-cloudflared-runtime-through-launcher-before-public-profile")
-    if hud_presenter_model.get("handoff_live_proven"):
+    if hud_presenter_model.get("durable_restart_live_proven"):
+        operator_next_actions.append("profile-dpublic-hud-syscalls-or-continue-containment-hardening")
+    elif hud_presenter_model.get("handoff_live_proven"):
         operator_next_actions.append("continue-dpublic-service-integration-or-containment-hardening")
     elif hud_presenter_model.get("native_presenter_live_proven"):
         operator_next_actions.append("design-durable-dpublic-hud-presenter-service-across-debian-handoff")
@@ -1600,6 +1720,11 @@ def markdown(server_status: dict[str, Any]) -> str:
         if isinstance(hud_presenter_model.get("handoff_proof"), dict)
         else {}
     )
+    hud_presenter_restart = (
+        hud_presenter_model.get("restart_proof")
+        if isinstance(hud_presenter_model.get("restart_proof"), dict)
+        else {}
+    )
     hud_live_proven = bool(
         hud_model.get("hud_live_proven") or hud_presenter_model.get("hud_live_proven")
     )
@@ -1674,6 +1799,10 @@ def markdown(server_status: dict[str, Any]) -> str:
         f"- D-public HUD shared run bind: `{str(bool(hud_presenter_handoff.get('handoff_shared_run_bind_ok') and hud_presenter_handoff.get('shared_run_same_mount_after_handoff'))).lower()}`",
         f"- D-public HUD Debian intent consumed: `{str(bool(hud_presenter_handoff.get('fresh_debian_intent_consumed'))).lower()}`",
         f"- D-public HUD handoff sole DRM owner: `{str(bool(hud_presenter_handoff.get('presenter_sole_drm_owner_after_handoff'))).lower()}`",
+        f"- D-public HUD restart proof: `{str(bool(hud_presenter_model.get('restart_live_proven'))).lower()}`",
+        f"- D-public HUD restart stop/start: `{str(bool(hud_presenter_restart.get('restart_done') and hud_presenter_restart.get('restart_stop_rc') == 0 and hud_presenter_restart.get('restart_start_rc') == 0)).lower()}`",
+        f"- D-public HUD restart post-present: `{str(bool(hud_presenter_restart.get('post_restart_sequence') == wsta147.POST_RESTART_SEQUENCE and hud_presenter_restart.get('post_restart_present_rc') == 0 and hud_presenter_restart.get('post_restart_drm_fd'))).lower()}`",
+        f"- D-public HUD stale pid cleanup: `{str(bool(hud_presenter_restart.get('stale_pid_cleanup_marker') and hud_presenter_restart.get('final_status_stopped'))).lower()}`",
         f"- Remaining launcher profiles: `{', '.join(launcher_proof.get('remaining_profiles') or [])}`",
         f"- Remaining syscall profiles: `{', '.join(syscall_trace_proof.get('remaining_profiles') or [])}`",
         "",
@@ -1971,6 +2100,28 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             write_json(out_json, result)
             return result
 
+    hud_presenter_restart_proof_result: dict[str, Any] | None = None
+    if args.wsta147_hud_presenter_restart_proof_json is not None:
+        hud_presenter_restart_path, hud_presenter_restart_error = require_private_file(
+            args.wsta147_hud_presenter_restart_proof_json,
+            "wsta147-hud-presenter-restart-proof",
+        )
+        if hud_presenter_restart_error or hud_presenter_restart_path is None:
+            result["decision"] = (
+                hud_presenter_restart_error or "wsta108-blocked-wsta147-hud-presenter-restart-proof"
+            )
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+        hud_presenter_restart_proof_result = load_json(hud_presenter_restart_path)
+        if hud_presenter_restart_proof_result.get("decision") != wsta147.PASS_DECISION:
+            result["decision"] = "wsta108-blocked-wsta147-hud-presenter-restart-proof-not-pass"
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+
     server_status = build_server_status(
         wsta88_result,
         hardening_result,
@@ -1985,6 +2136,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         hud_presenter_model_result,
         hud_presenter_live_proof_result,
         hud_presenter_handoff_proof_result,
+        hud_presenter_restart_proof_result,
     )
     packet_filter_proof = server_status["hardening"].get("packet_filter_proof", {})
     packet_filter_control_proof = (
@@ -2007,6 +2159,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     hud_presenter_handoff = (
         hud_presenter_model.get("handoff_proof")
         if isinstance(hud_presenter_model.get("handoff_proof"), dict)
+        else {}
+    )
+    hud_presenter_restart = (
+        hud_presenter_model.get("restart_proof")
+        if isinstance(hud_presenter_model.get("restart_proof"), dict)
         else {}
     )
     result["server_status"] = server_status
@@ -2093,6 +2250,29 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "hud_presenter_handoff_sole_drm_owner": bool(
             hud_presenter_handoff.get("presenter_sole_drm_owner_after_handoff")
+        ),
+        "hud_presenter_restart_proof_supplied": hud_presenter_restart_proof_result is not None,
+        "hud_presenter_restart_live_proven": bool(
+            hud_presenter_model.get("restart_live_proven")
+        ),
+        "hud_presenter_durable_restart_live_proven": bool(
+            hud_presenter_model.get("durable_restart_live_proven")
+        ),
+        "hud_presenter_restart_stop_start_proven": bool(
+            hud_presenter_restart.get("restart_done")
+            and hud_presenter_restart.get("restart_stop_rc") == 0
+            and hud_presenter_restart.get("restart_start_rc") == 0
+        ),
+        "hud_presenter_restart_post_present_proven": bool(
+            hud_presenter_restart.get("post_restart_sequence") == wsta147.POST_RESTART_SEQUENCE
+            and hud_presenter_restart.get("post_restart_present_rc") == 0
+            and hud_presenter_restart.get("post_restart_drm_fd")
+        ),
+        "hud_presenter_stale_pid_cleanup_proven": bool(
+            hud_presenter_restart.get("stale_pid_cleanup_marker")
+            and hud_presenter_restart.get("stale_pid_cleanup_fake_pid") == wsta147.FAKE_STALE_PID
+            and hud_presenter_restart.get("stale_pid_cleanup_start_done")
+            and hud_presenter_restart.get("final_status_stopped")
         ),
         "hud_direct_nonroot_kms_rejected": bool(
             hud_presenter_model.get("supersedes_wsta127_direct_kms")
@@ -2198,6 +2378,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         result["ended_utc"] = utc_stamp()
         write_json(out_json, result)
         return result
+    if (
+        hud_presenter_restart_proof_result is not None
+        and not result["checks"]["hud_presenter_restart_live_proven"]
+    ):
+        result["decision"] = "wsta108-blocked-wsta147-hud-presenter-restart-proof-incomplete"
+        result["gate_decision"] = result["decision"]
+        result["ended_utc"] = utc_stamp()
+        write_json(out_json, result)
+        return result
 
     result["decision"] = PASS_DECISION
     result["gate_decision"] = "ok"
@@ -2236,6 +2425,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--wsta130-hud-presenter-model-json", type=Path)
     parser.add_argument("--wsta137-hud-presenter-live-proof-json", type=Path)
     parser.add_argument("--wsta144-hud-presenter-handoff-proof-json", type=Path)
+    parser.add_argument("--wsta147-hud-presenter-restart-proof-json", type=Path)
     parser.add_argument("--print-template", action="store_true")
     parser.add_argument("--print-full-json", action="store_true")
     return parser
