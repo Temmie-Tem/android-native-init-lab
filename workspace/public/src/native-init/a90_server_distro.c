@@ -49,6 +49,8 @@
 #define A90_DPUBLIC_HUD_SERVICE_TAG "A90WSTA140"
 #define A90_DPUBLIC_HUD_SERVICE_DEDUP_TAG "A90WSTA142"
 #define A90_DPUBLIC_HUD_SERVICE_DEDUP_MODE "same-content-consumed-or-rejected"
+#define A90_DPUBLIC_HUD_SERVICE_SHARED_TAG "A90WSTA144"
+#define A90_DPUBLIC_HUD_SERVICE_SHARED_MODE "shared-run-dir-bind-before-switch-root"
 #define A90_DPUBLIC_HUD_RUN_DIR "/run/a90-dpublic"
 #define A90_DPUBLIC_HUD_GROUP_GID 3904
 #define A90_DPUBLIC_HUD_RUN_DIR_MODE 01770
@@ -65,6 +67,8 @@
 #define A90_DPUBLIC_HUD_LINE_MAX 48U
 #define A90_DPUBLIC_HUD_SERVICE_POLL_MS 100
 #define A90_DPUBLIC_HUD_SERVICE_STOP_TIMEOUT_MS 1000
+
+static int d3_path_is_mounted(const char *mountpoint);
 
 static void d_hw_print_contract(void) {
     a90_console_printf("A90DHW contract.version=1\r\n");
@@ -850,6 +854,40 @@ static int dpublic_hud_service_write_text(const char *path, const char *text) {
     return 0;
 }
 
+static int dpublic_hud_service_mount_shared_run_dir(void) {
+    int mounted;
+
+    mounted = d3_path_is_mounted(A90_DPUBLIC_HUD_RUN_DIR);
+    if (mounted < 0) {
+        return mounted;
+    }
+    if (mounted) {
+        a90_console_printf("%s shared_run_dir=already-mounted path=%s\r\n",
+                           A90_DPUBLIC_HUD_SERVICE_SHARED_TAG,
+                           A90_DPUBLIC_HUD_RUN_DIR);
+        return 0;
+    }
+    if (mount("a90-dpublic-hud",
+              A90_DPUBLIC_HUD_RUN_DIR,
+              "tmpfs",
+              MS_NOSUID | MS_NODEV,
+              "mode=1770,uid=0,gid=3904,size=256k") < 0) {
+        int rc = -errno;
+
+        a90_console_printf("%s shared_run_dir=mount-fail path=%s rc=%d errno=%d (%s)\r\n",
+                           A90_DPUBLIC_HUD_SERVICE_SHARED_TAG,
+                           A90_DPUBLIC_HUD_RUN_DIR,
+                           rc,
+                           -rc,
+                           strerror(-rc));
+        return rc;
+    }
+    a90_console_printf("%s shared_run_dir=mounted path=%s fstype=tmpfs mode=1770 owner=root:a90hud\r\n",
+                       A90_DPUBLIC_HUD_SERVICE_SHARED_TAG,
+                       A90_DPUBLIC_HUD_RUN_DIR);
+    return 0;
+}
+
 static int dpublic_hud_service_prepare_run_dir(void) {
     int rc = 0;
 
@@ -859,6 +897,10 @@ static int dpublic_hud_service_prepare_run_dir(void) {
     if (mkdir(A90_DPUBLIC_HUD_RUN_DIR, A90_DPUBLIC_HUD_RUN_DIR_MODE) < 0 &&
         errno != EEXIST) {
         return -errno;
+    }
+    rc = dpublic_hud_service_mount_shared_run_dir();
+    if (rc < 0) {
+        return rc;
     }
     if (chown(A90_DPUBLIC_HUD_RUN_DIR, 0, A90_DPUBLIC_HUD_GROUP_GID) < 0) {
         rc = -errno;
@@ -1128,6 +1170,9 @@ int a90_server_distro_dpublic_hud_presenter_service_cmd(char **argv, int argc) {
     a90_console_printf("%s intent_dedupe=%s\r\n",
                        A90_DPUBLIC_HUD_SERVICE_DEDUP_TAG,
                        A90_DPUBLIC_HUD_SERVICE_DEDUP_MODE);
+    a90_console_printf("%s shared_run_dir=%s\r\n",
+                       A90_DPUBLIC_HUD_SERVICE_SHARED_TAG,
+                       A90_DPUBLIC_HUD_SERVICE_SHARED_MODE);
     if (strcmp(mode, "start") == 0) {
         return dpublic_hud_service_start(&opts);
     }
@@ -2981,6 +3026,89 @@ static int d4_read_marker(char *out, size_t out_size) {
     return d4_read_trimmed_file(marker_path, out, out_size);
 }
 
+static int d4_dpublic_hud_bind_target(char *out, size_t out_size) {
+    return d4_join_root(out, out_size, "run/a90-dpublic");
+}
+
+static void d4_unbind_dpublic_hud_run_dir(void) {
+    char dst[PATH_MAX];
+
+    if (d4_dpublic_hud_bind_target(dst, sizeof(dst)) < 0) {
+        return;
+    }
+    (void)umount2(dst, MNT_DETACH);
+}
+
+static int d4_bind_dpublic_hud_run_dir(bool *bound_out) {
+    char dst[PATH_MAX];
+    struct stat src_st;
+    struct stat dst_st;
+    int mounted;
+    int rc;
+
+    if (bound_out != NULL) {
+        *bound_out = false;
+    }
+    rc = dpublic_hud_service_prepare_run_dir();
+    if (rc < 0) {
+        a90_console_printf("%s shared_run_dir=prepare-fail rc=%d\r\n",
+                           A90_DPUBLIC_HUD_SERVICE_SHARED_TAG, rc);
+        return rc;
+    }
+    rc = d4_dpublic_hud_bind_target(dst, sizeof(dst));
+    if (rc < 0) {
+        return rc;
+    }
+    rc = d3_mkdir_p(dst, A90_DPUBLIC_HUD_RUN_DIR_MODE);
+    if (rc < 0) {
+        return rc;
+    }
+    mounted = d3_path_is_mounted(dst);
+    if (mounted < 0) {
+        return mounted;
+    }
+    if (mounted && umount2(dst, MNT_DETACH) < 0) {
+        rc = -errno;
+        a90_console_printf("%s shared_run_bind=stale-unmount-fail target=%s rc=%d errno=%d (%s)\r\n",
+                           A90_DPUBLIC_HUD_SERVICE_SHARED_TAG,
+                           dst,
+                           rc,
+                           -rc,
+                           strerror(-rc));
+        return rc;
+    }
+    if (mount(A90_DPUBLIC_HUD_RUN_DIR, dst, NULL, MS_BIND, NULL) < 0) {
+        rc = -errno;
+        a90_console_printf("%s shared_run_bind=fail source=%s target=%s rc=%d errno=%d (%s)\r\n",
+                           A90_DPUBLIC_HUD_SERVICE_SHARED_TAG,
+                           A90_DPUBLIC_HUD_RUN_DIR,
+                           dst,
+                           rc,
+                           -rc,
+                           strerror(-rc));
+        return rc;
+    }
+    (void)chown(dst, 0, A90_DPUBLIC_HUD_GROUP_GID);
+    (void)chmod(dst, A90_DPUBLIC_HUD_RUN_DIR_MODE);
+    if (bound_out != NULL) {
+        *bound_out = true;
+    }
+    if (stat(A90_DPUBLIC_HUD_RUN_DIR, &src_st) == 0 && stat(dst, &dst_st) == 0) {
+        a90_console_printf("%s shared_run_bind=ok source=%s target=%s same_dev=%d same_ino=%d\r\n",
+                           A90_DPUBLIC_HUD_SERVICE_SHARED_TAG,
+                           A90_DPUBLIC_HUD_RUN_DIR,
+                           dst,
+                           src_st.st_dev == dst_st.st_dev ? 1 : 0,
+                           src_st.st_ino == dst_st.st_ino ? 1 : 0);
+    } else {
+        a90_console_printf("%s shared_run_bind=ok source=%s target=%s\r\n",
+                           A90_DPUBLIC_HUD_SERVICE_SHARED_TAG,
+                           A90_DPUBLIC_HUD_RUN_DIR,
+                           dst);
+    }
+    return 0;
+}
+
 static int d4_move_mount_one(const char *src, const char *leaf) {
     char dst[PATH_MAX];
     int rc = d4_join_root(dst, sizeof(dst), leaf);
@@ -3448,6 +3576,7 @@ int a90_server_distro_switch_root_userdata_cmd(char **argv, int argc) {
     bool moved_sys = false;
     bool moved_dev = false;
     bool mounted_devpts = false;
+    bool bound_dpublic_hud_run = false;
     int rc;
     char *const newenv[] = {
         (char *)"HOME=/root",
@@ -3508,9 +3637,17 @@ int a90_server_distro_switch_root_userdata_cmd(char **argv, int argc) {
         a90_console_printf("%s stop=handoff-display-owner rc=%d\r\n", A90_D4_TAG, rc);
         return rc;
     }
+    rc = d4_bind_dpublic_hud_run_dir(&bound_dpublic_hud_run);
+    if (rc < 0) {
+        a90_console_printf("%s stop=dpublic-hud-shared-run-bind rc=%d\r\n", A90_D4_TAG, rc);
+        return rc;
+    }
     rc = d4_move_core_mounts(&moved_proc, &moved_sys, &moved_dev, &mounted_devpts);
     if (rc < 0) {
         a90_console_printf("%s mount_move=fail rc=%d\r\n", A90_D4_TAG, rc);
+        if (bound_dpublic_hud_run) {
+            d4_unbind_dpublic_hud_run_dir();
+        }
         return rc;
     }
 
@@ -3525,5 +3662,8 @@ int a90_server_distro_switch_root_userdata_cmd(char **argv, int argc) {
     a90_console_printf("%s execve_switch_root=fail rc=%d errno=%d (%s)\r\n",
                        A90_D4_TAG, rc, -rc, strerror(-rc));
     d4_restore_core_mounts(moved_proc, moved_sys, moved_dev, mounted_devpts);
+    if (bound_dpublic_hud_run) {
+        d4_unbind_dpublic_hud_run_dir();
+    }
     return rc;
 }

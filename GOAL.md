@@ -3639,6 +3639,36 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > backing directory via an explicit shared/bind mount before `exec_switch_root_now`),
 > build V3401, and live-gate fresh Debian intent consumption by the preserved
 > native presenter.
+>
+> **🟢 STATUS (2026-07-05 10:14 KST host clock) — WSTA144 DPUBLIC HUD
+> SHARED RUN BIND SOURCE BUILD + LIVE PASS.**  Codex fixed the WSTA143
+> split-`/run/a90-dpublic` blocker by making the native HUD presenter runtime
+> directory an explicit tmpfs mount and bind-mounting that same directory into
+> the userdata Debian root before `switch_root`.  V3401
+> `A90 Linux init 0.11.157 (v3401-dpublic-hud-shared-run-bind)` built at boot
+> SHA256 `d9496d565af554f4fb30a9064c1998356b27396163b7cc67fd693db8a3a8e418`.
+> Static validation passed V3401 `py_compile`, focused V3400+V3401 builder tests
+> (`10 tests OK`), full server-distro WSTA regression (`458 tests OK`), and
+> AArch64 native-init/helper compile + required-string audit.  Checked-helper
+> flash of the exact image passed local SHA, remote pushed SHA, boot readback
+> SHA, and post-boot cmdv1 verify.  Live proof: service start emitted
+> `A90WSTA144 shared_run_dir=mounted ... fstype=tmpfs mode=1770 owner=root:a90hud`;
+> pre-handoff presenter PID 625 consumed `sequence=14400` with `present_rc=0`;
+> handoff cleanup killed stale native DRM owners PID 546/548/550 and preserved
+> PID 625; `switch-root-to-userdata` printed
+> `A90WSTA144 shared_run_bind=ok ... same_dev=1 same_ino=1`; Debian came up as
+> PID1 `/usr/sbin/init`; Debian `/run/a90-dpublic` and
+> `/proc/625/root/run/a90-dpublic` resolved to the same tmpfs dev+inode; only
+> PID 625 held `/dev/dri/card0`; `a90hud` launched with UID/GID 3904, CapEff 0,
+> pipe fds only, and wrote fresh `sequence=14401`; presenter status updated to
+> `last_sequence=14401 present_rc=0`.  Device rebooted back to V3401 native and
+> final `selftest fail=0`.  Reports:
+> `docs/reports/NATIVE_INIT_V3401_DPUBLIC_HUD_SHARED_RUN_BIND_SOURCE_BUILD_2026-07-05.md`
+> and
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA144_DPUBLIC_HUD_SHARED_RUN_BIND_LIVE_2026-07-05.md`.
+> **NEXT:** fold the live-proven durable split HUD handoff into the operator
+> status/endgame model, then continue remaining D-public service integration or
+> containment hardening.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
