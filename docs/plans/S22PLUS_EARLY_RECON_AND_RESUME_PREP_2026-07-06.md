@@ -129,18 +129,31 @@ on and take the lighter route unless a concrete capability forces the heavier on
 
 ---
 
-## 5. The one-way door — Knox trip (decide knowingly)
+## 5. Knox already tripped — one-way door is behind us (2026-07-06 correction)
 
-- The bootloader is unlocked but **Knox is not yet tripped** (`warranty_bit=0`). The **first flash of a
-  custom/patched `boot` (or any custom-signed image) trips the Knox eFuse permanently.**
-- Cost of tripping: permanent loss of **Samsung Pay / Wallet, Secure Folder, Health secure data, some
-  enterprise/DRM (Widevine L1 may drop to L3)**, and warranty. It is **irreversible** (hardware fuse).
-- This is the single meaningful one-way decision on S22+ (A90 had already crossed its equivalent). Make
-  it deliberately: if this S22+ unit is to be a lab/server device, tripping Knox is acceptable; if it is
-  also a daily driver needing Samsung Pay/Secure Folder, reconsider or use a different unit.
+- **UPDATE 2026-07-06:** the operator reports **Knox is already tripped (long ago)** on this unit — the
+  earlier `warranty_bit=0` recon read is superseded. **The one-way decision no longer exists to make;**
+  this is pure upside (flash custom `boot`/vbmeta freely, no fresh cost to weigh). Samsung Pay / Secure
+  Folder / Widevine-L1 / warranty are already forfeit on this unit → it is effectively a lab/server device.
 - Everything else stays **recoverable**: download mode + odin4 + stock firmware reflash recovers any
-  boot-partition experiment (soft-brick), provided bootloader/vbmeta_samsung/pit/efs/RPMB stay untouched
+  boot-partition experiment (soft-brick), provided bootloader/`vbmeta_samsung`/pit/efs/RPMB stay untouched
   and anti-rollback (ARB) is not bumped.
+
+### 5.1 Recovery backstop reality on Android 15 (TWRP vs odin4)
+
+Operator is bringing up TWRP + verifying normal Android boot (2026-07-06). Practical S906N notes:
+- **Primary backstop = download-mode + `odin4` + stock firmware `S906NKSS7FYG8`.** On Android 15 the
+  community **S22+ Snapdragon TWRP builds are aging/[CLOSED] (Android 12/13 era)**; they boot but
+  **`/data` FBE decryption is commonly broken** on A15, so treat TWRP as a *bonus* backup/flash tool, not
+  the guaranteed recovery path the way it is on A90. Keep stock firmware staged as the real safety net.
+- **vbmeta**: flash `vbmeta_disabled` (verity/verification off) to the USERDATA slot alongside the TWRP
+  AP tar in Odin, or a patched/custom boot bootloops on dm-verity.
+- **multidisabler**: run it in the TWRP terminal *before* rebooting to system, or stock ROM auto-restores
+  stock recovery (TWRP "disappears") and/or re-enforces encryption. This is the usual "TWRP won't stick"
+  cause.
+- Quick triage: bootloop → vbmeta_disabled missing, or FBE mismatch after multidisabler → `Format Data`
+  once (fine on a lab unit); boots but TWRP gone → multidisabler skipped; TWRP up but `/data` encrypted →
+  expected A15/TWRP-generation mismatch, still usable for boot/super backup + stock restore.
 
 ---
 
