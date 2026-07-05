@@ -5284,6 +5284,40 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > export the private token deliberately, re-run WSTA202 and WSTA203 to reach
 > token-ready default-off states, then manually run the existing private WSTA200
 > handoff wrapper.
+>
+> **🟢 STATUS (2026-07-05 18:11 KST host clock) — WSTA204 WSTA198 LIVE-RESULT
+> VERIFIER SOURCE PASS.**  Codex added the host-only post-live verifier for the
+> future WSTA198 live result.  WSTA204 consumes:
+> `workspace/private/runs/server-distro/wsta203-wsta202-wrapper-manifest-audit-20260705T180223KST/wsta203_wsta202_wrapper_manifest_audit.json`;
+> run:
+> `workspace/private/runs/server-distro/wsta204-wsta198-live-result-verifier-20260705T181121KST/`;
+> decision was `wsta204-wsta203-live-result-verifier-source-pass`.  Verifier
+> state was `POST_LIVE_RESULT_VERIFIER_READY_TOKEN_REQUIRED_DEFAULT_OFF`, with
+> `audit_valid=true`, `wsta203_recheck_valid=true`,
+> `audit_stable_view_match=true`, `live_result_verifier_valid=true`,
+> `ready_for_post_live_verification=true`,
+> `ready_for_immediate_live_execute=false`,
+> `private_token_env_present=false`, and
+> `private_token_matches_wsta161=false`.  WSTA204 emits a private verifier
+> script that will accept only a private WSTA198 live result with
+> `wsta198-seccomp-load-canary-ssh-adapter-live-pass`, all required live checks
+> true, bounded SSH/chroot/dropbear/seccomp safety flags true, flash/reboot/
+> Wi-Fi/public-tunnel/userdata/switch-root mutation flags false, canary markers
+> present, token literal absent, cleanup accepted, and fresh/post native health
+> checks true.  WSTA204 did not flash, reboot, contact the device, connect Wi-Fi,
+> run DHCP, open a public tunnel, mutate packet filters, write userdata, switch
+> root, execute the WSTA200 handoff shell, run WSTA198 live, supply the WSTA161
+> token to the device, run native health, load a seccomp filter, or enforce
+> seccomp.  Validation passed `py_compile`, focused WSTA204 tests (`7 tests OK`,
+> including synthetic accepted/rejected live-result verification), the WSTA204
+> proof run, and full server-distro regression (`755 tests OK`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA204_WSTA198_LIVE_RESULT_VERIFIER_2026-07-05.md`.
+> **NEXT:** The host-only pre/live/post gates are now prepared through
+> post-result verification.  To advance the actual live chain, deliberately
+> export the private token, re-run WSTA202/WSTA203/WSTA204 to token-ready
+> default-off states, manually run the existing private WSTA200 handoff wrapper,
+> then feed the resulting private WSTA198 `wsta198_result.json` into WSTA204
+> verify mode.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
