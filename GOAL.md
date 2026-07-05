@@ -4721,9 +4721,40 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > handoff proof against the current WSTA180 handoff bundle, and full
 > server-distro regression (`639 tests OK`).  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA184_SECCOMP_EXPIRING_EXECUTE_HANDOFF_2026-07-05.md`.
-> **NEXT:** WSTA184 is now the freshest bounded execution handoff.  Any future
-> live execution gate should consume this handoff and reject it after expiry,
-> rather than executing an unbounded WSTA182 command packet directly.
+>
+> **🟢 STATUS (2026-07-05 15:26 KST host clock) — WSTA185 SECCOMP EXPIRING
+> HANDOFF EXECUTE GATE SOURCE-GATE PASS.**  Codex added a host-only WSTA185
+> execution gate for the short-lived WSTA184 handoff.  It validates the WSTA184
+> handoff, the wrapped WSTA182/WSTA181 command artifacts, and the expiry window,
+> then stops before execution unless the full WSTA185 acknowledgement set is
+> supplied.  Fresh WSTA184 handoff run:
+> `workspace/private/runs/server-distro/wsta184-seccomp-expiring-execute-handoff-20260705T152610KST/`;
+> decision was `wsta184-seccomp-expiring-execute-handoff-pass`.  WSTA185
+> source-gate run:
+> `workspace/private/runs/server-distro/wsta185-seccomp-expiring-handoff-execute-source-gate-20260705T152619KST/`;
+> decision was `wsta185-blocked-explicit-execution-gate-required`.  Consumed
+> handoff:
+> `workspace/private/runs/server-distro/wsta184-seccomp-expiring-execute-handoff-20260705T152610KST/wsta184_expiring_wsta181_execute_handoff.json`;
+> state is `READY_TO_RUN_NOT_EXECUTED_UNTIL_EXPIRY`, `executed=false`,
+> `expires_utc=20260705T064110Z`, and `seconds_remaining=890`.  Checks included
+> `handoff_valid=true`, `command_artifacts_valid=true`,
+> `freshness_valid=true`, `explicit_execution_gate=false`,
+> `command_targets_wsta181=true`, `command_has_wsta181_ack_flags=true`,
+> `payload_command_matches_handoff=true`, `correct_token_literal_absent=true`,
+> `no_external_network_inputs=true`, and `not_expired=true`.  This unit did not
+> flash, reboot, connect Wi-Fi, run DHCP, open a public tunnel, mutate packet
+> filters, write userdata, switch root, consume the handoff, execute WSTA181,
+> execute WSTA178, execute WSTA177, execute WSTA175, execute WSTA170, execute
+> WSTA168/WSTA167, run the post-run audit, load a seccomp filter, enforce
+> seccomp, or supply the correct WSTA161 token.  Validation passed
+> `py_compile`, focused WSTA184+WSTA185 tests (`8 tests OK`), fresh WSTA184
+> handoff proof, WSTA185 source-gate proof, and full server-distro regression
+> (`643 tests OK`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA185_SECCOMP_EXPIRING_HANDOFF_EXECUTE_GATE_2026-07-05.md`.
+> **NEXT:** The execution path is now bounded by a fresh WSTA184 handoff plus
+> WSTA185's expiry-aware gate.  A future attended live run should invoke WSTA185
+> with the full acknowledgement set before the handoff expires, then inspect
+> the WSTA181 and WSTA179 post-run summaries immediately.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
