@@ -8,13 +8,18 @@
 set -u
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-HELPER_VERSION=3
+HELPER_VERSION=4
 IPT4="${A90_DPUBLIC_IPTABLES4:-/usr/sbin/iptables-legacy}"
 IPT6="${A90_DPUBLIC_IPTABLES6:-/usr/sbin/ip6tables-legacy}"
 RESTORE4="${A90_DPUBLIC_IPTABLES_RESTORE4:-/usr/sbin/iptables-legacy-restore}"
 RESTORE6="${A90_DPUBLIC_IPTABLES_RESTORE6:-/usr/sbin/ip6tables-legacy-restore}"
 CONTROL_CIDR="${A90_DPUBLIC_CONTROL_CIDR:-192.168.7.1/32}"
 CONTROL_SSH_PORT="${A90_DPUBLIC_CONTROL_SSH_PORT:-2222}"
+CLOUDFLARED_UID="${A90_DPUBLIC_CLOUDFLARED_UID:-3902}"
+CLOUDFLARED_USER="${A90_DPUBLIC_CLOUDFLARED_USER:-a90tunnel}"
+CLOUDFLARED_EGRESS_CHAIN="${A90_DPUBLIC_CLOUDFLARED_EGRESS_CHAIN:-A90_CLOUDFLARED_EGRESS}"
+CLOUDFLARED_DNS4="${A90_DPUBLIC_CLOUDFLARED_DNS4:-}"
+CLOUDFLARED_TLS4="${A90_DPUBLIC_CLOUDFLARED_TLS4:-}"
 RUN_DIR="${A90_DPUBLIC_PACKET_FILTER_RUN_DIR:-/run/a90-dpublic/packet-filter}"
 MARKER="${A90_DPUBLIC_PACKET_FILTER_MARKER:-/run/a90-dpublic/packet-filter.marker}"
 BEFORE_RULES4="$RUN_DIR/before.rules.v4"
@@ -35,8 +40,19 @@ emit_common() {
     emit "packet_filter_helper_version=$HELPER_VERSION"
     emit "packet_filter_backend=legacy-iptables"
     emit "packet_filter_requested_op=$op"
-    emit "packet_filter_policy_class=loopback-default-drop"
     emit "packet_filter_secret_values_logged=0"
+}
+
+emit_loopback_policy() {
+    emit "packet_filter_policy_class=loopback-default-drop"
+}
+
+emit_cloudflared_egress_policy() {
+    emit "packet_filter_policy_class=cloudflared-egress-allowlist"
+    emit "packet_filter_cloudflared_user=$CLOUDFLARED_USER"
+    emit "packet_filter_cloudflared_uid=$CLOUDFLARED_UID"
+    emit "packet_filter_cloudflared_egress_chain=$CLOUDFLARED_EGRESS_CHAIN"
+    emit "packet_filter_egress_targets_redacted=1"
 }
 
 fail() {
@@ -58,6 +74,22 @@ require_tools() {
     done
     [ "$missing" = "0" ] || return 1
     return 0
+}
+
+owner_match_supported() {
+    "$IPT4" -m owner -h >/dev/null 2>&1
+}
+
+normalize_list() {
+    printf '%s\n' "$1" | tr ',' ' '
+}
+
+count_items() {
+    count=0
+    for _item in $(normalize_list "$1"); do
+        count=$((count + 1))
+    done
+    printf '%s\n' "$count"
 }
 
 rules_to_restore() {
@@ -130,19 +162,59 @@ restore_saved_rules() {
     return 0
 }
 
+apply_cloudflared_egress_v4() {
+    dns_list=$(normalize_list "$CLOUDFLARED_DNS4")
+    tls_list=$(normalize_list "$CLOUDFLARED_TLS4")
+    [ -n "$dns_list" ] || return 1
+    [ -n "$tls_list" ] || return 1
+    [ -s "$BEFORE_RESTORE4" ] || return 1
+    owner_match_supported || return 1
+
+    "$IPT4" -N "$CLOUDFLARED_EGRESS_CHAIN" 2>/dev/null || "$IPT4" -F "$CLOUDFLARED_EGRESS_CHAIN" || return 1
+    "$IPT4" -C OUTPUT -m owner --uid-owner "$CLOUDFLARED_UID" -j "$CLOUDFLARED_EGRESS_CHAIN" 2>/dev/null ||
+        "$IPT4" -I OUTPUT 1 -m owner --uid-owner "$CLOUDFLARED_UID" -j "$CLOUDFLARED_EGRESS_CHAIN" || return 1
+    "$IPT4" -A "$CLOUDFLARED_EGRESS_CHAIN" -o lo -j ACCEPT || return 1
+    "$IPT4" -A "$CLOUDFLARED_EGRESS_CHAIN" -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT || return 1
+    for target in $dns_list; do
+        "$IPT4" -A "$CLOUDFLARED_EGRESS_CHAIN" -p udp -d "$target" --dport 53 -j ACCEPT || return 1
+        "$IPT4" -A "$CLOUDFLARED_EGRESS_CHAIN" -p tcp -d "$target" --dport 53 -j ACCEPT || return 1
+    done
+    for target in $tls_list; do
+        "$IPT4" -A "$CLOUDFLARED_EGRESS_CHAIN" -p tcp -d "$target" --dport 443 -j ACCEPT || return 1
+    done
+    "$IPT4" -A "$CLOUDFLARED_EGRESS_CHAIN" -j REJECT || return 1
+    return 0
+}
+
 op="${1:-preflight}"
 case "$op" in
     preflight)
         require_tools || fail 70 "packet-filter-tools-missing" "$op"
         emit_common "$op"
+        emit_loopback_policy
         emit "packet_filter_apply_autostart=0"
         emit "packet_filter_restore_available=$([ -s "$BEFORE_RESTORE4" ] && [ -s "$BEFORE_RESTORE6" ] && echo 1 || echo 0)"
         emit "packet_filter_decision=packet-filter-preflight-pass"
         exit 0
         ;;
+    preflight-cloudflared-egress-allowlist)
+        require_tools || fail 70 "packet-filter-tools-missing" "$op"
+        emit_common "$op"
+        emit_cloudflared_egress_policy
+        if owner_match_supported; then
+            emit "packet_filter_owner_match_available=1"
+        else
+            fail 73 "packet-filter-owner-match-missing" "$op"
+        fi
+        emit "packet_filter_restore_available=$([ -s "$BEFORE_RESTORE4" ] && [ -s "$BEFORE_RESTORE6" ] && echo 1 || echo 0)"
+        emit "packet_filter_apply_autostart=0"
+        emit "packet_filter_decision=packet-filter-cloudflared-egress-preflight-pass"
+        exit 0
+        ;;
     apply-loopback-default-drop)
         require_tools || fail 70 "packet-filter-tools-missing" "$op"
         emit_common "$op"
+        emit_loopback_policy
         save_current_rules || fail 71 "packet-filter-save-before-failed" "$op"
         if apply_v4 && apply_v6; then
             emit "packet_filter_saved_before=1"
@@ -159,9 +231,32 @@ case "$op" in
         restore_saved_rules >/dev/null 2>&1 || true
         fail 72 "packet-filter-apply-failed-restored" "$op"
         ;;
+    apply-cloudflared-egress-allowlist)
+        require_tools || fail 70 "packet-filter-tools-missing" "$op"
+        emit_common "$op"
+        emit_cloudflared_egress_policy
+        dns_count=$(count_items "$CLOUDFLARED_DNS4")
+        tls_count=$(count_items "$CLOUDFLARED_TLS4")
+        emit "packet_filter_cloudflared_dns4_count=$dns_count"
+        emit "packet_filter_cloudflared_tls4_count=$tls_count"
+        [ "$dns_count" -gt 0 ] || fail 74 "packet-filter-cloudflared-dns-route-missing" "$op"
+        [ "$tls_count" -gt 0 ] || fail 75 "packet-filter-cloudflared-tls-route-missing" "$op"
+        if apply_cloudflared_egress_v4; then
+            emit "packet_filter_saved_before=1"
+            emit "packet_filter_owner_match_available=1"
+            emit "packet_filter_cloudflared_output_jump=1"
+            emit "packet_filter_cloudflared_terminal=REJECT"
+            emit "packet_filter_global_output_default=unchanged"
+            emit "packet_filter_decision=packet-filter-cloudflared-egress-allowlist-applied"
+            exit 0
+        fi
+        restore_saved_rules >/dev/null 2>&1 || true
+        fail 76 "packet-filter-cloudflared-egress-apply-failed-restored" "$op"
+        ;;
     restore)
         require_tools || fail 70 "packet-filter-tools-missing" "$op"
         emit_common "$op"
+        emit_loopback_policy
         restore_saved_rules || fail 78 "packet-filter-restore-missing-or-failed" "$op"
         emit "packet_filter_decision=packet-filter-restored"
         exit 0
@@ -169,6 +264,7 @@ case "$op" in
     status)
         require_tools || fail 70 "packet-filter-tools-missing" "$op"
         emit_common "$op"
+        emit_loopback_policy
         emit "packet_filter_ipv4_rules_begin"
         "$IPT4" -S 2>/dev/null || true
         emit "packet_filter_ipv4_rules_end"
@@ -176,6 +272,23 @@ case "$op" in
         "$IPT6" -S 2>/dev/null || true
         emit "packet_filter_ipv6_rules_end"
         emit "packet_filter_decision=packet-filter-status-observed"
+        exit 0
+        ;;
+    status-cloudflared-egress-allowlist)
+        require_tools || fail 70 "packet-filter-tools-missing" "$op"
+        emit_common "$op"
+        emit_cloudflared_egress_policy
+        if "$IPT4" -S "$CLOUDFLARED_EGRESS_CHAIN" >/dev/null 2>&1; then
+            emit "packet_filter_cloudflared_chain_present=1"
+        else
+            emit "packet_filter_cloudflared_chain_present=0"
+        fi
+        if "$IPT4" -C OUTPUT -m owner --uid-owner "$CLOUDFLARED_UID" -j "$CLOUDFLARED_EGRESS_CHAIN" >/dev/null 2>&1; then
+            emit "packet_filter_cloudflared_output_jump=1"
+        else
+            emit "packet_filter_cloudflared_output_jump=0"
+        fi
+        emit "packet_filter_decision=packet-filter-cloudflared-egress-status-observed"
         exit 0
         ;;
     *)

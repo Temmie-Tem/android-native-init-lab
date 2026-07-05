@@ -72,6 +72,39 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
         args.public_confirm_token = runner.PUBLIC_CONFIRM_TOKEN
         self.assertEqual(runner.explicit_live_gate(args), (True, "ok"))
 
+    def test_cloudflared_egress_allowlist_gate_requires_proof_and_routes(self) -> None:
+        args = SimpleNamespace(
+            allow_public_live=True,
+            ack_credentialed_wifi=True,
+            ack_public_exposure=True,
+            ack_packet_filter_mutation=True,
+            force_packet_filter_restore_proof=True,
+            enable_cloudflared_egress_allowlist=True,
+            force_cloudflared_egress_allowlist_proof=False,
+            cloudflared_egress_dns4=[],
+            cloudflared_egress_tls4=[],
+            native_confirm_token=runner.wsta25.NATIVE_CONFIRM_TOKEN,
+            public_confirm_token=runner.PUBLIC_CONFIRM_TOKEN,
+        )
+        self.assertEqual(
+            runner.explicit_live_gate(args),
+            (False, "wsta42-blocked-cloudflared-egress-allowlist-proof-required"),
+        )
+
+        args.force_cloudflared_egress_allowlist_proof = True
+        self.assertEqual(
+            runner.explicit_live_gate(args),
+            (False, "wsta42-blocked-cloudflared-egress-route-required"),
+        )
+
+        args.cloudflared_egress_dns4 = ["dns-route-redacted"]
+        args.cloudflared_egress_tls4 = ["tls-route-redacted"]
+        self.assertEqual(runner.explicit_live_gate(args), (True, "ok"))
+        summary = runner.cloudflared_egress_summary(args)
+        self.assertEqual(summary["dns4_count"], 1)
+        self.assertEqual(summary["tls4_count"], 1)
+        self.assertTrue(summary["route_values_redacted"])
+
     def test_classify_requires_uplink_tunnel_public_smoke_and_cleanup(self) -> None:
         checks = {
             "explicit_live_gate": True,
@@ -133,6 +166,18 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
             }
         }
         self.assertEqual(runner.classify(cleanup_variant), "wsta42-blocked-native-uplink-profile-cleanup")
+
+        egress_variant = {
+            "checks": {
+                **checks,
+                "cloudflared_egress_allowlist_enabled": True,
+                "cloudflared_egress_preflight_ok": True,
+                "cloudflared_egress_apply_ok": False,
+                "cloudflared_egress_status_ok": True,
+            }
+        }
+        self.assertEqual(egress_variant["checks"]["packet_filter_apply_ok"], True)
+        self.assertEqual(runner.classify(egress_variant), "wsta42-blocked-cloudflared-egress-apply")
 
     def test_fetch_public_url_writes_private_file_without_returning_url(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -274,6 +319,50 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
             "packet_filter_secret_values_logged=0",
         ]))}
         self.assertTrue(runner.packet_filter_restore_ok(restore))
+
+        egress_preflight = {"returncode": 0, "parsed": runner.parse_packet_filter_output("\n".join([
+            "packet_filter_decision=packet-filter-cloudflared-egress-preflight-pass",
+            "packet_filter_policy_class=cloudflared-egress-allowlist",
+            "packet_filter_cloudflared_uid=3902",
+            "packet_filter_owner_match_available=1",
+            "packet_filter_apply_autostart=0",
+            "packet_filter_secret_values_logged=0",
+        ]))}
+        self.assertTrue(runner.packet_filter_cloudflared_egress_preflight_ok(egress_preflight))
+
+        egress_apply = {"returncode": 0, "parsed": runner.parse_packet_filter_output("\n".join([
+            "packet_filter_decision=packet-filter-cloudflared-egress-allowlist-applied",
+            "packet_filter_policy_class=cloudflared-egress-allowlist",
+            "packet_filter_cloudflared_uid=3902",
+            "packet_filter_cloudflared_dns4_count=1",
+            "packet_filter_cloudflared_tls4_count=1",
+            "packet_filter_cloudflared_output_jump=1",
+            "packet_filter_cloudflared_terminal=REJECT",
+            "packet_filter_global_output_default=unchanged",
+            "packet_filter_secret_values_logged=0",
+        ]))}
+        self.assertTrue(runner.packet_filter_cloudflared_egress_apply_ok(egress_apply))
+
+        egress_status = {"returncode": 0, "parsed": runner.parse_packet_filter_output("\n".join([
+            "packet_filter_decision=packet-filter-cloudflared-egress-status-observed",
+            "packet_filter_cloudflared_chain_present=1",
+            "packet_filter_cloudflared_output_jump=1",
+            "packet_filter_secret_values_logged=0",
+        ]))}
+        self.assertTrue(runner.packet_filter_cloudflared_egress_status_ok(egress_status))
+
+    def test_packet_filter_source_contains_cloudflared_egress_ops_without_autostart(self) -> None:
+        source = Path("workspace/public/src/scripts/server-distro/a90_dpublic_packet_filter.sh").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("HELPER_VERSION=4", source)
+        self.assertIn("preflight-cloudflared-egress-allowlist)", source)
+        self.assertIn("apply-cloudflared-egress-allowlist)", source)
+        self.assertIn("status-cloudflared-egress-allowlist)", source)
+        self.assertIn("A90_CLOUDFLARED_EGRESS", source)
+        self.assertIn("--uid-owner \"$CLOUDFLARED_UID\"", source)
+        self.assertIn("packet_filter_apply_autostart=0", source)
 
     def test_parser_defaults_to_packet_filter_ready_image(self) -> None:
         args = runner.build_arg_parser().parse_args([])

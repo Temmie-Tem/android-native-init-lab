@@ -405,6 +405,31 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** implement WSTA224 source support in the packet-filter helper and
 > runner surfaces before any live egress allowlist attempt.
 
+> **🟢 STATUS (2026-07-05 22:35 KST) — WSTA224 CLOUDFLARED EGRESS HELPER SOURCE SUPPORT PASS.**
+> Codex implemented the first WSTA223 source-support layer.  The D-public
+> packet-filter helper is now version `4` and adds
+> `preflight-cloudflared-egress-allowlist`,
+> `apply-cloudflared-egress-allowlist`, and
+> `status-cloudflared-egress-allowlist` while preserving `restore`.  The new
+> rule shape is service-scoped to `uid_owner=3902` / `a90tunnel`, enters through
+> `OUTPUT`, uses dedicated chain `A90_CLOUDFLARED_EGRESS`, keeps global OUTPUT
+> unchanged, and terminates the service chain with `REJECT`.  WSTA42 now has
+> opt-in flags `--enable-cloudflared-egress-allowlist`,
+> `--force-cloudflared-egress-allowlist-proof`,
+> `--cloudflared-egress-dns4`, and `--cloudflared-egress-tls4`; without the
+> opt-in, the existing WSTA219 default-drop public path is unchanged.  With the
+> opt-in, WSTA42 fail-closes unless the egress proof flag and redacted DNS/TLS
+> route values are supplied, then runs egress preflight/apply/status after
+> default-drop and before cloudflared start.  No device action, boot flash,
+> Wi-Fi connect, DHCP, public tunnel, public smoke, packet-filter mutation,
+> userdata write, LSM load, or switch-root occurred.  Validation: WSTA42 focused
+> tests `22 tests OK`, WSTA42/WSTA223 focused tests `27 tests OK`, full
+> server-distro regression `823 tests OK`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA224_CLOUDFLARED_EGRESS_HELPER_SOURCE_2026-07-05.md`.
+> **NEXT:** propagate the new WSTA42 opt-in flags through the higher operator
+> surfaces (WSTA43/WSTA45/WSTA55/WSTA58/WSTA80/WSTA88) before any attended live
+> egress allowlist attempt.
+
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
 > `D-PUBLIC-LIVE-PUBLISH` go and is actively driving D-public. First live publish (commit `8d25f793`:

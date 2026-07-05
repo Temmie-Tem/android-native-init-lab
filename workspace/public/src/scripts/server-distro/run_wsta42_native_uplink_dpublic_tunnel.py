@@ -332,6 +332,11 @@ def explicit_live_gate(args: argparse.Namespace) -> tuple[bool, str]:
         return False, "wsta42-blocked-packet-filter-mutation-ack-required"
     if not args.force_packet_filter_restore_proof:
         return False, "wsta42-blocked-packet-filter-restore-proof-required"
+    if cloudflared_egress_enabled(args):
+        if not getattr(args, "force_cloudflared_egress_allowlist_proof", False):
+            return False, "wsta42-blocked-cloudflared-egress-allowlist-proof-required"
+        if not cloudflared_egress_dns4_values(args) or not cloudflared_egress_tls4_values(args):
+            return False, "wsta42-blocked-cloudflared-egress-route-required"
     if args.native_confirm_token != wsta25.NATIVE_CONFIRM_TOKEN:
         return False, "wsta42-blocked-native-confirm-token-required"
     if args.public_confirm_token != PUBLIC_CONFIRM_TOKEN:
@@ -831,17 +836,30 @@ def parse_packet_filter_output(stdout: str) -> dict[str, str]:
     return parsed
 
 
-def run_packet_filter(args: argparse.Namespace, run_dir: Path, op: str) -> dict[str, Any]:
+def packet_filter_env_prefix(env: dict[str, str] | None) -> str:
+    if not env:
+        return ""
+    return " ".join(f"{shlex.quote(key)}={shlex.quote(value)}" for key, value in env.items()) + " "
+
+
+def run_packet_filter(
+    args: argparse.Namespace,
+    run_dir: Path,
+    op: str,
+    *,
+    env: dict[str, str] | None = None,
+) -> dict[str, Any]:
     record = ssh_exec(
         args,
         run_dir,
-        f"set +e; {shlex.quote(REMOTE_PACKET_FILTER)} {shlex.quote(op)}",
+        f"set +e; {packet_filter_env_prefix(env)}{shlex.quote(REMOTE_PACKET_FILTER)} {shlex.quote(op)}",
         timeout=args.ssh_timeout,
     )
     parsed = parse_packet_filter_output(record.get("stdout", ""))
     record["parsed"] = parsed
     record["op"] = op
     record["secret_values_logged"] = parsed.get("packet_filter_secret_values_logged")
+    record["env_redacted"] = bool(env)
     return record
 
 
@@ -878,6 +896,78 @@ def packet_filter_restore_ok(record: dict[str, Any]) -> bool:
     return (
         record.get("returncode") == 0
         and parsed.get("packet_filter_decision") == "packet-filter-restored"
+        and parsed.get("packet_filter_secret_values_logged") == "0"
+    )
+
+
+def cloudflared_egress_enabled(args: argparse.Namespace) -> bool:
+    return bool(getattr(args, "enable_cloudflared_egress_allowlist", False))
+
+
+def cloudflared_egress_dns4_values(args: argparse.Namespace) -> list[str]:
+    return [str(item) for item in (getattr(args, "cloudflared_egress_dns4", None) or []) if str(item)]
+
+
+def cloudflared_egress_tls4_values(args: argparse.Namespace) -> list[str]:
+    return [str(item) for item in (getattr(args, "cloudflared_egress_tls4", None) or []) if str(item)]
+
+
+def cloudflared_egress_env(args: argparse.Namespace) -> dict[str, str]:
+    return {
+        "A90_DPUBLIC_CLOUDFLARED_UID": "3902",
+        "A90_DPUBLIC_CLOUDFLARED_USER": "a90tunnel",
+        "A90_DPUBLIC_CLOUDFLARED_DNS4": " ".join(cloudflared_egress_dns4_values(args)),
+        "A90_DPUBLIC_CLOUDFLARED_TLS4": " ".join(cloudflared_egress_tls4_values(args)),
+    }
+
+
+def cloudflared_egress_summary(args: argparse.Namespace) -> dict[str, Any]:
+    return {
+        "enabled": cloudflared_egress_enabled(args),
+        "target_user": "a90tunnel",
+        "target_uid": 3902,
+        "dns4_count": len(cloudflared_egress_dns4_values(args)),
+        "tls4_count": len(cloudflared_egress_tls4_values(args)),
+        "route_values_redacted": True,
+    }
+
+
+def packet_filter_cloudflared_egress_preflight_ok(record: dict[str, Any]) -> bool:
+    parsed = record.get("parsed") or {}
+    return (
+        record.get("returncode") == 0
+        and parsed.get("packet_filter_decision") == "packet-filter-cloudflared-egress-preflight-pass"
+        and parsed.get("packet_filter_policy_class") == "cloudflared-egress-allowlist"
+        and parsed.get("packet_filter_cloudflared_uid") == "3902"
+        and parsed.get("packet_filter_owner_match_available") == "1"
+        and parsed.get("packet_filter_apply_autostart") == "0"
+        and parsed.get("packet_filter_secret_values_logged") == "0"
+    )
+
+
+def packet_filter_cloudflared_egress_apply_ok(record: dict[str, Any]) -> bool:
+    parsed = record.get("parsed") or {}
+    return (
+        record.get("returncode") == 0
+        and parsed.get("packet_filter_decision") == "packet-filter-cloudflared-egress-allowlist-applied"
+        and parsed.get("packet_filter_policy_class") == "cloudflared-egress-allowlist"
+        and parsed.get("packet_filter_cloudflared_uid") == "3902"
+        and int(parsed.get("packet_filter_cloudflared_dns4_count") or 0) > 0
+        and int(parsed.get("packet_filter_cloudflared_tls4_count") or 0) > 0
+        and parsed.get("packet_filter_cloudflared_output_jump") == "1"
+        and parsed.get("packet_filter_cloudflared_terminal") == "REJECT"
+        and parsed.get("packet_filter_global_output_default") == "unchanged"
+        and parsed.get("packet_filter_secret_values_logged") == "0"
+    )
+
+
+def packet_filter_cloudflared_egress_status_ok(record: dict[str, Any]) -> bool:
+    parsed = record.get("parsed") or {}
+    return (
+        record.get("returncode") == 0
+        and parsed.get("packet_filter_decision") == "packet-filter-cloudflared-egress-status-observed"
+        and parsed.get("packet_filter_cloudflared_chain_present") == "1"
+        and parsed.get("packet_filter_cloudflared_output_jump") == "1"
         and parsed.get("packet_filter_secret_values_logged") == "0"
     )
 
@@ -1122,6 +1212,13 @@ def classify(result: dict[str, Any]) -> str:
         return "wsta42-blocked-local-smoke"
     if not checks.get("packet_filter_apply_ok"):
         return "wsta42-blocked-packet-filter-apply"
+    if checks.get("cloudflared_egress_allowlist_enabled"):
+        if not checks.get("cloudflared_egress_preflight_ok"):
+            return "wsta42-blocked-cloudflared-egress-preflight"
+        if not checks.get("cloudflared_egress_apply_ok"):
+            return "wsta42-blocked-cloudflared-egress-apply"
+        if not checks.get("cloudflared_egress_status_ok"):
+            return "wsta42-blocked-cloudflared-egress-status"
     if not checks.get("tunnel_url_observed"):
         return "wsta42-blocked-tunnel-url"
     if not checks.get("public_smoke_ok"):
@@ -1159,6 +1256,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "service_dir": args.service_dir,
         "service_dir_native": args.mountpoint.rstrip("/") + "/" + args.service_dir.lstrip("/"),
         "use_native_uplink_profile": bool(args.use_native_uplink_profile),
+        "cloudflared_egress_allowlist": cloudflared_egress_summary(args),
         "safety": {
             "boot_flash": False,
             "switch_root": False,
@@ -1169,6 +1267,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "public_tunnel": "explicit-public-live-gated",
             "packet_filter_mutation": "explicit-public-live-gated",
             "packet_filter_restore_required": True,
+            "cloudflared_egress_allowlist": (
+                "explicit-public-live-gated" if cloudflared_egress_enabled(args) else "not-requested"
+            ),
             "external_ping": False,
             "native_confirm_token_value_logged": False,
             "public_confirm_token_value_logged": False,
@@ -1183,6 +1284,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "public_confirm_token_matches": args.public_confirm_token == PUBLIC_CONFIRM_TOKEN,
             "ack_packet_filter_mutation": bool(args.ack_packet_filter_mutation),
             "force_packet_filter_restore_proof": bool(args.force_packet_filter_restore_proof),
+            "cloudflared_egress_allowlist_enabled": cloudflared_egress_enabled(args),
+            "force_cloudflared_egress_allowlist_proof": bool(
+                getattr(args, "force_cloudflared_egress_allowlist_proof", False)
+            ),
+            "cloudflared_egress_route_values_redacted": True,
         },
     }
     write_json(out_path, result)
@@ -1293,6 +1399,19 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         if not packet_filter_preflight_ok(result["packet_filter_preflight"]):
             result["decision"] = "wsta42-blocked-packet-filter-preflight"
             return result
+        if cloudflared_egress_enabled(args):
+            result["packet_filter_cloudflared_egress_preflight"] = run_packet_filter(
+                args,
+                run_dir,
+                "preflight-cloudflared-egress-allowlist",
+                env=cloudflared_egress_env(args),
+            )
+            write_json(out_path, result)
+            if not packet_filter_cloudflared_egress_preflight_ok(
+                result["packet_filter_cloudflared_egress_preflight"]
+            ):
+                result["decision"] = "wsta42-blocked-cloudflared-egress-preflight"
+                return result
 
         result["helper_stage"] = wsta24.stage_helper(args, run_dir)
         helper_staged = bool(result["helper_stage"].get("staged"))
@@ -1382,6 +1501,31 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         if not packet_filter_applied:
             result["decision"] = "wsta42-blocked-packet-filter-apply"
             return result
+        if cloudflared_egress_enabled(args):
+            result["packet_filter_cloudflared_egress_apply"] = run_packet_filter(
+                args,
+                run_dir,
+                "apply-cloudflared-egress-allowlist",
+                env=cloudflared_egress_env(args),
+            )
+            write_json(out_path, result)
+            if not packet_filter_cloudflared_egress_apply_ok(
+                result["packet_filter_cloudflared_egress_apply"]
+            ):
+                result["decision"] = "wsta42-blocked-cloudflared-egress-apply"
+                return result
+            result["packet_filter_cloudflared_egress_status"] = run_packet_filter(
+                args,
+                run_dir,
+                "status-cloudflared-egress-allowlist",
+                env=cloudflared_egress_env(args),
+            )
+            write_json(out_path, result)
+            if not packet_filter_cloudflared_egress_status_ok(
+                result["packet_filter_cloudflared_egress_status"]
+            ):
+                result["decision"] = "wsta42-blocked-cloudflared-egress-status"
+                return result
 
         result["cloudflared_start"] = start_cloudflared(args, run_dir)
         write_json(out_path, result)
@@ -1497,6 +1641,26 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "packet_filter_staged": bool(result.get("dpublic_stage", {}).get("packet_filter", {}).get("staged")),
         "packet_filter_preflight_ok": packet_filter_preflight_ok(result.get("packet_filter_preflight", {})),
         "packet_filter_apply_ok": packet_filter_apply_ok(result.get("packet_filter_apply", {})),
+        "cloudflared_egress_allowlist_enabled": cloudflared_egress_enabled(args),
+        "cloudflared_egress_preflight_ok": (
+            not cloudflared_egress_enabled(args)
+            or packet_filter_cloudflared_egress_preflight_ok(
+                result.get("packet_filter_cloudflared_egress_preflight", {})
+            )
+        ),
+        "cloudflared_egress_apply_ok": (
+            not cloudflared_egress_enabled(args)
+            or packet_filter_cloudflared_egress_apply_ok(
+                result.get("packet_filter_cloudflared_egress_apply", {})
+            )
+        ),
+        "cloudflared_egress_status_ok": (
+            not cloudflared_egress_enabled(args)
+            or packet_filter_cloudflared_egress_status_ok(
+                result.get("packet_filter_cloudflared_egress_status", {})
+            )
+        ),
+        "cloudflared_egress_route_values_redacted": True,
         "use_native_uplink_profile": bool(args.use_native_uplink_profile),
         "native_uplink_profile_staged": (
             not args.use_native_uplink_profile
@@ -1613,6 +1777,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--ack-public-exposure", action="store_true")
     parser.add_argument("--ack-packet-filter-mutation", action="store_true")
     parser.add_argument("--force-packet-filter-restore-proof", action="store_true")
+    parser.add_argument("--enable-cloudflared-egress-allowlist", action="store_true")
+    parser.add_argument("--force-cloudflared-egress-allowlist-proof", action="store_true")
+    parser.add_argument("--cloudflared-egress-dns4", action="append", default=[])
+    parser.add_argument("--cloudflared-egress-tls4", action="append", default=[])
     parser.add_argument("--native-confirm-token", default="")
     parser.add_argument("--public-confirm-token", default="")
     parser.add_argument("--enable-autoconnect", action="store_true")
