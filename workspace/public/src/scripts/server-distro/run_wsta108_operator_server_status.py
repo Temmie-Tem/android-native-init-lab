@@ -14,7 +14,10 @@ WSTA149 HUD intent syscall trace proof into that
 display contract.  WSTA151 captures the Dropbear admin syscall profile.
 WSTA108 combines those public surfaces into one
 operator-facing server status bundle without opening a tunnel, touching the
-device, or weakening any live gate.
+device, or weakening any live gate.  WSTA210 extends that bundle with the
+WSTA208/WSTA209 real-service seccomp enforcement proofs so seccomp can be
+retired from the immediate next-action list once those live results are
+supplied and verified.
 """
 
 from __future__ import annotations
@@ -46,6 +49,8 @@ import run_wsta144_dpublic_hud_shared_run_bind_summary as wsta144  # noqa: E402
 import run_wsta147_dpublic_hud_restart_live_summary as wsta147  # noqa: E402
 import run_wsta149_dpublic_hud_intent_syscall_trace_summary as wsta149  # noqa: E402
 import run_wsta151_dropbear_admin_syscall_trace_summary as wsta151  # noqa: E402
+import run_wsta208_real_service_seccomp_smoke_live as wsta208  # noqa: E402
+import run_wsta209_dropbear_admin_seccomp_live as wsta209  # noqa: E402
 
 
 REPO_ROOT = wsta88.REPO_ROOT
@@ -183,6 +188,10 @@ def template() -> dict[str, Any]:
             "workspace/private/runs/server-distro/<wsta149-run>/wsta149_dpublic_hud_intent_syscall_trace_live.json",
             "--wsta151-dropbear-admin-syscall-proof-json",
             "workspace/private/runs/server-distro/<wsta151-run>/wsta151_dropbear_admin_syscall_trace_live.json",
+            "--wsta208-real-service-seccomp-proof-json",
+            "workspace/private/runs/server-distro/<wsta208-run>/wsta208_result.json",
+            "--wsta209-dropbear-admin-seccomp-proof-json",
+            "workspace/private/runs/server-distro/<wsta209-run>/wsta209_result.json",
         ],
         "device_action": False,
         "public_url_value_logged": False,
@@ -640,6 +649,144 @@ def compact_dropbear_admin_syscall_trace_proof(proof_result: dict[str, Any] | No
         "raw_trace_sha256": proof_result.get("raw_trace_sha256"),
         "syscall_list_sha256": proof_result.get("syscall_list_sha256"),
         "dropbear_log_sha256": proof_result.get("dropbear_log_sha256"),
+        "public_url_value_logged": False,
+        "admin_public_key_value_logged": False,
+        "secret_values_logged": 0,
+    }
+
+
+def compact_seccomp_enforcement_proof(
+    smoke_result: dict[str, Any] | None,
+    dropbear_result: dict[str, Any] | None,
+) -> dict[str, Any]:
+    smoke_checks = smoke_result.get("checks") if isinstance(smoke_result, dict) else {}
+    smoke_safety = smoke_result.get("safety") if isinstance(smoke_result, dict) else {}
+    smoke_postcheck = smoke_result.get("postcheck_parse") if isinstance(smoke_result, dict) else {}
+    smoke_live_proven = bool(
+        isinstance(smoke_result, dict)
+        and smoke_result.get("decision") == wsta208.PASS_DECISION
+        and smoke_checks.get("explicit_live_gate")
+        and smoke_checks.get("fresh_health_valid")
+        and smoke_checks.get("helper_exec_after_load_compiled")
+        and smoke_checks.get("seccomp_asset_inputs_valid")
+        and smoke_checks.get("seccomp_assets_staged")
+        and smoke_checks.get("seccomp_real_service_markers")
+        and smoke_checks.get("service_functional_under_seccomp")
+        and smoke_checks.get("chroot_cleanup_ok")
+        and smoke_checks.get("post_health_valid")
+        and smoke_safety.get("seccomp_filter_loaded")
+        and smoke_safety.get("seccomp_enforced")
+        and smoke_safety.get("service_functional_under_seccomp")
+        and smoke_postcheck.get("dropbear_absent")
+        and smoke_postcheck.get("mount_absent")
+        and smoke_postcheck.get("loop_node_absent")
+    )
+
+    dropbear_checks = dropbear_result.get("checks") if isinstance(dropbear_result, dict) else {}
+    dropbear_safety = dropbear_result.get("safety") if isinstance(dropbear_result, dict) else {}
+    dropbear_stage = (
+        dropbear_result.get("admin_seccomp_stage_parse")
+        if isinstance(dropbear_result, dict)
+        else {}
+    )
+    dropbear_ssh = (
+        dropbear_result.get("admin_ssh_parse") if isinstance(dropbear_result, dict) else {}
+    )
+    dropbear_cleanup = (
+        dropbear_result.get("cleanup_parse") if isinstance(dropbear_result, dict) else {}
+    )
+    dropbear_postcheck = (
+        dropbear_result.get("postcheck_parse") if isinstance(dropbear_result, dict) else {}
+    )
+    dropbear_live_proven = bool(
+        isinstance(dropbear_result, dict)
+        and dropbear_result.get("decision") == wsta209.PASS_DECISION
+        and dropbear_checks.get("explicit_live_gate")
+        and dropbear_checks.get("fresh_health_valid")
+        and dropbear_checks.get("helper_exec_after_load_compiled")
+        and dropbear_checks.get("seccomp_asset_inputs_valid")
+        and dropbear_checks.get("seccomp_assets_installed")
+        and dropbear_checks.get("admin_seccomp_stage_pass")
+        and dropbear_checks.get("seccomp_dropbear_markers")
+        and dropbear_checks.get("admin_ssh_pass")
+        and dropbear_checks.get("root_ssh_rejected")
+        and dropbear_checks.get("admin_seccomp_cleanup_ok")
+        and dropbear_checks.get("chroot_cleanup_ok")
+        and dropbear_checks.get("post_health_valid")
+        and dropbear_safety.get("seccomp_filter_loaded")
+        and dropbear_safety.get("seccomp_enforced")
+        and dropbear_safety.get("service_functional_under_seccomp")
+        and dropbear_safety.get("root_login_negative_test")
+        and dropbear_stage.get("seccomp_dropbear_markers")
+        and dropbear_stage.get("dropbear_command_safe")
+        and dropbear_ssh.get("ssh_ok")
+        and dropbear_ssh.get("uid_3903")
+        and dropbear_ssh.get("gid_3903")
+        and dropbear_cleanup.get("dropbear_cleanup_ok")
+        and dropbear_postcheck.get("dropbear_absent")
+        and dropbear_postcheck.get("mount_absent")
+        and dropbear_postcheck.get("loop_node_absent")
+    )
+
+    proven_services: list[str] = []
+    if smoke_live_proven:
+        proven_services.append("dpublic-smoke-httpd")
+    if dropbear_live_proven:
+        proven_services.append("dropbear-admin-usb")
+    if smoke_live_proven and dropbear_live_proven:
+        state = "REAL_SERVICE_SECCOMP_SMOKE_AND_DROPBEAR_LIVE_PROVEN"
+    elif smoke_live_proven:
+        state = "REAL_SERVICE_SECCOMP_SMOKE_LIVE_PROVEN"
+    elif dropbear_live_proven:
+        state = "REAL_SERVICE_SECCOMP_DROPBEAR_LIVE_PROVEN"
+    elif smoke_result or dropbear_result:
+        state = "SUPPLIED_NOT_PROVEN"
+    else:
+        state = "NOT_SUPPLIED"
+    return {
+        "state": state,
+        "scope": "real-service-seccomp-enforcement",
+        "smoke_service": {
+            "decision": smoke_result.get("decision") if isinstance(smoke_result, dict) else None,
+            "proof_run_dir": smoke_result.get("run_dir") if isinstance(smoke_result, dict) else None,
+            "service": "dpublic-smoke-httpd",
+            "seccomp_live_proven": smoke_live_proven,
+            "service_functional_under_seccomp": bool(
+                smoke_checks.get("service_functional_under_seccomp")
+                and smoke_safety.get("service_functional_under_seccomp")
+            ),
+            "seccomp_markers": bool(smoke_checks.get("seccomp_real_service_markers")),
+            "cleanup_ok": bool(smoke_checks.get("chroot_cleanup_ok")),
+            "final_health_clean": bool(smoke_checks.get("post_health_valid")),
+        },
+        "dropbear_admin_service": {
+            "decision": dropbear_result.get("decision") if isinstance(dropbear_result, dict) else None,
+            "proof_run_dir": dropbear_result.get("run_dir") if isinstance(dropbear_result, dict) else None,
+            "service": "dropbear-admin-usb",
+            "seccomp_live_proven": dropbear_live_proven,
+            "service_functional_under_seccomp": bool(
+                dropbear_safety.get("service_functional_under_seccomp")
+            ),
+            "root_login_negative_test": bool(dropbear_safety.get("root_login_negative_test")),
+            "seccomp_markers": bool(dropbear_checks.get("seccomp_dropbear_markers")),
+            "admin_uid_gid_proven": bool(
+                dropbear_ssh.get("uid_3903") and dropbear_ssh.get("gid_3903")
+            ),
+            "cleanup_ok": bool(
+                dropbear_checks.get("admin_seccomp_cleanup_ok")
+                and dropbear_checks.get("chroot_cleanup_ok")
+            ),
+            "final_health_clean": bool(dropbear_checks.get("post_health_valid")),
+        },
+        "proven_services": proven_services,
+        "seccomp_real_services_live_proven": bool(proven_services),
+        "all_supplied_seccomp_proofs_live_proven": bool(
+            (smoke_result is None or smoke_live_proven)
+            and (dropbear_result is None or dropbear_live_proven)
+        ),
+        "seccomp_filter_loaded": bool(smoke_live_proven or dropbear_live_proven),
+        "seccomp_enforced": bool(smoke_live_proven or dropbear_live_proven),
+        "service_functional_under_seccomp": bool(smoke_live_proven or dropbear_live_proven),
         "public_url_value_logged": False,
         "admin_public_key_value_logged": False,
         "secret_values_logged": 0,
@@ -1580,6 +1727,8 @@ def compact_hardening(
     hud_presenter_handoff_proof_result: dict[str, Any] | None,
     hud_presenter_restart_proof_result: dict[str, Any] | None,
     hud_intent_syscall_proof_result: dict[str, Any] | None,
+    seccomp_smoke_proof_result: dict[str, Any] | None,
+    seccomp_dropbear_proof_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     packet_filter_proof = compact_packet_filter_proof(packet_filter_proof_result, packet_filter_control_summary)
     launcher_proof = compact_launcher_proof(launcher_proof_result)
@@ -1587,6 +1736,10 @@ def compact_hardening(
     dropbear_admin_proof = compact_dropbear_admin_proof(dropbear_admin_proof_result)
     dropbear_admin_syscall_proof = compact_dropbear_admin_syscall_trace_proof(
         dropbear_admin_syscall_proof_result
+    )
+    seccomp_enforcement_proof = compact_seccomp_enforcement_proof(
+        seccomp_smoke_proof_result,
+        seccomp_dropbear_proof_result,
     )
     cloudflared_model = compact_cloudflared_model(cloudflared_model_result)
     cloudflared_runtime = compact_cloudflared_runtime_proof(cloudflared_runtime_proof_result)
@@ -1644,6 +1797,7 @@ def compact_hardening(
             "syscall_trace_proof": syscall_trace_proof,
             "dropbear_admin_proof": dropbear_admin_proof,
             "dropbear_admin_syscall_trace_proof": dropbear_admin_syscall_proof,
+            "seccomp_enforcement_proof": seccomp_enforcement_proof,
             "cloudflared_model": cloudflared_model,
             "cloudflared_runtime": cloudflared_runtime,
             "hud_model": hud_model,
@@ -1685,6 +1839,7 @@ def compact_hardening(
         "syscall_trace_proof": syscall_trace_proof,
         "dropbear_admin_proof": dropbear_admin_proof,
         "dropbear_admin_syscall_trace_proof": dropbear_admin_syscall_proof,
+        "seccomp_enforcement_proof": seccomp_enforcement_proof,
         "cloudflared_model": cloudflared_model,
         "cloudflared_runtime": cloudflared_runtime,
         "hud_model": hud_model,
@@ -1720,6 +1875,8 @@ def build_server_status(
     hud_presenter_handoff_proof_result: dict[str, Any] | None,
     hud_presenter_restart_proof_result: dict[str, Any] | None,
     hud_intent_syscall_proof_result: dict[str, Any] | None,
+    seccomp_smoke_proof_result: dict[str, Any] | None,
+    seccomp_dropbear_proof_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     status_hud = wsta88_result.get("status_hud") if isinstance(wsta88_result.get("status_hud"), dict) else {}
     if not status_hud:
@@ -1742,6 +1899,8 @@ def build_server_status(
         hud_presenter_handoff_proof_result,
         hud_presenter_restart_proof_result,
         hud_intent_syscall_proof_result,
+        seccomp_smoke_proof_result,
+        seccomp_dropbear_proof_result,
     )
     public_off = (status_hud.get("public_state") or "PUBLIC_OFF") == "PUBLIC_OFF"
     ready_default_off = public_off and bool(packet_filter.get("ready"))
@@ -1758,6 +1917,11 @@ def build_server_status(
     dropbear_admin_syscall_proof = (
         hardening.get("dropbear_admin_syscall_trace_proof")
         if isinstance(hardening.get("dropbear_admin_syscall_trace_proof"), dict)
+        else {}
+    )
+    seccomp_enforcement_proof = (
+        hardening.get("seccomp_enforcement_proof")
+        if isinstance(hardening.get("seccomp_enforcement_proof"), dict)
         else {}
     )
     cloudflared_model = (
@@ -1808,6 +1972,9 @@ def build_server_status(
         "use-explicit-wsta88-live-gate-only-when-attended",
         "extend-service-launcher-proof-beyond-dpublic-smoke-httpd-before-always-on-profile",
     ]
+    seccomp_real_services_live_proven = bool(
+        seccomp_enforcement_proof.get("seccomp_real_services_live_proven")
+    )
     if not dropbear_admin_proof.get("dropbear_admin_live_proven"):
         operator_next_actions.append("prove-dropbear-admin-nonroot-login-before-always-on-profile")
     if not cloudflared_model.get("model_defined"):
@@ -1816,7 +1983,12 @@ def build_server_status(
         operator_next_actions.append("prove-cloudflared-runtime-through-launcher-before-public-profile")
     if hud_presenter_model.get("durable_restart_live_proven"):
         if hud_intent_syscall.get("hud_intent_syscall_trace_live_proven"):
-            operator_next_actions.append("continue-containment-hardening-or-derive-hud-seccomp-policy")
+            if seccomp_real_services_live_proven:
+                operator_next_actions.append(
+                    "continue-containment-hardening-with-capability-drop-nftables-or-apparmor"
+                )
+            else:
+                operator_next_actions.append("continue-containment-hardening-or-derive-hud-seccomp-policy")
         else:
             operator_next_actions.append("profile-dpublic-hud-syscalls-or-continue-containment-hardening")
     elif hud_presenter_model.get("handoff_live_proven"):
@@ -1829,7 +2001,9 @@ def build_server_status(
         operator_next_actions.append("replace-direct-kms-hud-with-presenter-model-before-live-hud-profile")
     else:
         operator_next_actions.append("define-dpublic-hud-service-model-before-hud-live-proof")
-    if syscall_trace_proof.get("smoke_syscall_trace_live_proven"):
+    if seccomp_real_services_live_proven:
+        operator_next_actions.append("move-to-capability-drop-nftables-or-apparmor-hardening")
+    elif syscall_trace_proof.get("smoke_syscall_trace_live_proven"):
         if syscall_trace_proof.get("remaining_profiles"):
             operator_next_actions.append(
                 "extend-syscall-trace-proof-beyond-dpublic-smoke-httpd-before-seccomp-enforcement"
@@ -1909,6 +2083,21 @@ def markdown(server_status: dict[str, Any]) -> str:
     dropbear_admin_syscall = (
         hardening.get("dropbear_admin_syscall_trace_proof")
         if isinstance(hardening.get("dropbear_admin_syscall_trace_proof"), dict)
+        else {}
+    )
+    seccomp_enforcement = (
+        hardening.get("seccomp_enforcement_proof")
+        if isinstance(hardening.get("seccomp_enforcement_proof"), dict)
+        else {}
+    )
+    seccomp_smoke = (
+        seccomp_enforcement.get("smoke_service")
+        if isinstance(seccomp_enforcement.get("smoke_service"), dict)
+        else {}
+    )
+    seccomp_dropbear = (
+        seccomp_enforcement.get("dropbear_admin_service")
+        if isinstance(seccomp_enforcement.get("dropbear_admin_service"), dict)
         else {}
     )
     cloudflared_model = (
@@ -2000,6 +2189,10 @@ def markdown(server_status: dict[str, Any]) -> str:
         f"- Dropbear admin syscall proof: `{str(bool(dropbear_admin_syscall.get('dropbear_admin_syscall_trace_live_proven'))).lower()}`",
         f"- Dropbear admin syscall count: `{dropbear_admin_syscall.get('syscall_count')}`",
         f"- Dropbear admin syscall accept observed: `{str(bool(dropbear_admin_syscall.get('accept_observed'))).lower()}`",
+        f"- Seccomp real-service proof: `{str(bool(seccomp_enforcement.get('seccomp_real_services_live_proven'))).lower()}`",
+        f"- Seccomp proven services: `{', '.join(seccomp_enforcement.get('proven_services') or [])}`",
+        f"- Seccomp smoke service proof: `{str(bool(seccomp_smoke.get('seccomp_live_proven'))).lower()}`",
+        f"- Seccomp Dropbear admin proof: `{str(bool(seccomp_dropbear.get('seccomp_live_proven'))).lower()}`",
         f"- Cloudflared model: `{str(bool(cloudflared_model.get('model_defined'))).lower()}`",
         f"- Cloudflared model user: `{cloudflared_model.get('user')}`",
         f"- Cloudflared default public off: `{str(bool(cloudflared_model.get('default_public_off'))).lower()}`",
@@ -2227,6 +2420,50 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             write_json(out_json, result)
             return result
 
+    seccomp_smoke_proof_result: dict[str, Any] | None = None
+    if args.wsta208_real_service_seccomp_proof_json is not None:
+        seccomp_smoke_path, seccomp_smoke_error = require_private_file(
+            args.wsta208_real_service_seccomp_proof_json,
+            "wsta208-real-service-seccomp-proof",
+        )
+        if seccomp_smoke_error or seccomp_smoke_path is None:
+            result["decision"] = (
+                seccomp_smoke_error or "wsta108-blocked-wsta208-real-service-seccomp-proof"
+            )
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+        seccomp_smoke_proof_result = load_json(seccomp_smoke_path)
+        if seccomp_smoke_proof_result.get("decision") != wsta208.PASS_DECISION:
+            result["decision"] = "wsta108-blocked-wsta208-real-service-seccomp-proof-not-pass"
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+
+    seccomp_dropbear_proof_result: dict[str, Any] | None = None
+    if args.wsta209_dropbear_admin_seccomp_proof_json is not None:
+        seccomp_dropbear_path, seccomp_dropbear_error = require_private_file(
+            args.wsta209_dropbear_admin_seccomp_proof_json,
+            "wsta209-dropbear-admin-seccomp-proof",
+        )
+        if seccomp_dropbear_error or seccomp_dropbear_path is None:
+            result["decision"] = (
+                seccomp_dropbear_error or "wsta108-blocked-wsta209-dropbear-admin-seccomp-proof"
+            )
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+        seccomp_dropbear_proof_result = load_json(seccomp_dropbear_path)
+        if seccomp_dropbear_proof_result.get("decision") != wsta209.PASS_DECISION:
+            result["decision"] = "wsta108-blocked-wsta209-dropbear-admin-seccomp-proof-not-pass"
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+
     cloudflared_model_result: dict[str, Any] | None = None
     if args.wsta122_cloudflared_model_json is not None:
         cloudflared_model_path, cloudflared_model_error = require_private_file(
@@ -2416,6 +2653,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         hud_presenter_handoff_proof_result,
         hud_presenter_restart_proof_result,
         hud_intent_syscall_proof_result,
+        seccomp_smoke_proof_result,
+        seccomp_dropbear_proof_result,
     )
     packet_filter_proof = server_status["hardening"].get("packet_filter_proof", {})
     packet_filter_control_proof = (
@@ -2429,6 +2668,17 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     dropbear_admin_syscall_proof = server_status["hardening"].get(
         "dropbear_admin_syscall_trace_proof",
         {},
+    )
+    seccomp_enforcement_proof = server_status["hardening"].get("seccomp_enforcement_proof", {})
+    seccomp_smoke = (
+        seccomp_enforcement_proof.get("smoke_service")
+        if isinstance(seccomp_enforcement_proof.get("smoke_service"), dict)
+        else {}
+    )
+    seccomp_dropbear = (
+        seccomp_enforcement_proof.get("dropbear_admin_service")
+        if isinstance(seccomp_enforcement_proof.get("dropbear_admin_service"), dict)
+        else {}
     )
     cloudflared_model = server_status["hardening"].get("cloudflared_model", {})
     cloudflared_runtime = server_status["hardening"].get("cloudflared_runtime", {})
@@ -2486,6 +2736,16 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "dropbear_admin_syscall_trace_artifacts_saved": bool(
             dropbear_admin_syscall_proof.get("trace_artifacts_saved")
+        ),
+        "wsta208_seccomp_smoke_proof_supplied": seccomp_smoke_proof_result is not None,
+        "wsta209_seccomp_dropbear_proof_supplied": seccomp_dropbear_proof_result is not None,
+        "seccomp_smoke_service_live_proven": bool(seccomp_smoke.get("seccomp_live_proven")),
+        "seccomp_dropbear_admin_live_proven": bool(seccomp_dropbear.get("seccomp_live_proven")),
+        "seccomp_real_services_live_proven": bool(
+            seccomp_enforcement_proof.get("seccomp_real_services_live_proven")
+        ),
+        "seccomp_all_supplied_proofs_live_proven": bool(
+            seccomp_enforcement_proof.get("all_supplied_seccomp_proofs_live_proven")
         ),
         "cloudflared_model_supplied": cloudflared_model_result is not None,
         "cloudflared_model_defined": bool(cloudflared_model.get("model_defined")),
@@ -2649,6 +2909,24 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         write_json(out_json, result)
         return result
     if (
+        seccomp_smoke_proof_result is not None
+        and not result["checks"]["seccomp_smoke_service_live_proven"]
+    ):
+        result["decision"] = "wsta108-blocked-wsta208-real-service-seccomp-proof-incomplete"
+        result["gate_decision"] = result["decision"]
+        result["ended_utc"] = utc_stamp()
+        write_json(out_json, result)
+        return result
+    if (
+        seccomp_dropbear_proof_result is not None
+        and not result["checks"]["seccomp_dropbear_admin_live_proven"]
+    ):
+        result["decision"] = "wsta108-blocked-wsta209-dropbear-admin-seccomp-proof-incomplete"
+        result["gate_decision"] = result["decision"]
+        result["ended_utc"] = utc_stamp()
+        write_json(out_json, result)
+        return result
+    if (
         cloudflared_model_result is not None
         and not result["checks"]["cloudflared_model_defined"]
     ):
@@ -2750,6 +3028,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--wsta114-syscall-trace-proof-json", type=Path)
     parser.add_argument("--wsta120-dropbear-admin-proof-json", type=Path)
     parser.add_argument("--wsta151-dropbear-admin-syscall-proof-json", type=Path)
+    parser.add_argument("--wsta208-real-service-seccomp-proof-json", type=Path)
+    parser.add_argument("--wsta209-dropbear-admin-seccomp-proof-json", type=Path)
     parser.add_argument("--wsta122-cloudflared-model-json", type=Path)
     parser.add_argument("--wsta125-cloudflared-runtime-proof-json", type=Path)
     parser.add_argument("--wsta127-hud-model-json", type=Path)

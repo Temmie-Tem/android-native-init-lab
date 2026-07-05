@@ -350,6 +350,106 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
             "secret_values_logged": 0,
         }
 
+    def seccomp_smoke_proof(self) -> dict:
+        return {
+            "decision": runner.wsta208.PASS_DECISION,
+            "run_dir": "workspace/private/runs/server-distro/wsta208-real-service-seccomp-test",
+            "checks": {
+                "explicit_live_gate": True,
+                "fresh_health_valid": True,
+                "helper_exec_after_load_compiled": True,
+                "seccomp_asset_inputs_valid": True,
+                "seccomp_assets_staged": True,
+                "seccomp_real_service_markers": True,
+                "service_functional_under_seccomp": True,
+                "chroot_cleanup_ok": True,
+                "post_health_valid": True,
+            },
+            "safety": {
+                "seccomp_filter_loaded": True,
+                "seccomp_enforced": True,
+                "service_functional_under_seccomp": True,
+                "boot_flash": False,
+                "native_reboot": False,
+                "wifi_connect": False,
+                "dhcp": False,
+                "public_tunnel": False,
+                "public_smoke": False,
+                "packet_filter_mutation": False,
+                "userdata_touch": False,
+                "switch_root": False,
+                "public_url_value_logged": False,
+                "secret_values_logged": 0,
+            },
+            "postcheck_parse": {
+                "done": True,
+                "dropbear_absent": True,
+                "mount_absent": True,
+                "loop_node_absent": True,
+            },
+            "public_url_value_logged": False,
+            "secret_values_logged": 0,
+        }
+
+    def seccomp_dropbear_proof(self) -> dict:
+        return {
+            "decision": runner.wsta209.PASS_DECISION,
+            "run_dir": "workspace/private/runs/server-distro/wsta209-dropbear-admin-seccomp-test",
+            "checks": {
+                "explicit_live_gate": True,
+                "fresh_health_valid": True,
+                "helper_exec_after_load_compiled": True,
+                "seccomp_asset_inputs_valid": True,
+                "seccomp_assets_installed": True,
+                "admin_seccomp_stage_pass": True,
+                "seccomp_dropbear_markers": True,
+                "admin_ssh_pass": True,
+                "root_ssh_rejected": True,
+                "admin_seccomp_cleanup_ok": True,
+                "chroot_cleanup_ok": True,
+                "post_health_valid": True,
+            },
+            "safety": {
+                "seccomp_filter_loaded": True,
+                "seccomp_enforced": True,
+                "service_functional_under_seccomp": True,
+                "root_login_negative_test": True,
+                "boot_flash": False,
+                "native_reboot": False,
+                "wifi_connect": False,
+                "dhcp": False,
+                "public_tunnel": False,
+                "public_smoke": False,
+                "packet_filter_mutation": False,
+                "userdata_touch": False,
+                "switch_root": False,
+                "admin_public_key_value_logged": False,
+                "public_url_value_logged": False,
+                "secret_values_logged": 0,
+            },
+            "admin_seccomp_stage_parse": {
+                "seccomp_dropbear_markers": True,
+                "dropbear_command_safe": True,
+            },
+            "admin_ssh_parse": {
+                "ssh_ok": True,
+                "uid_3903": True,
+                "gid_3903": True,
+            },
+            "cleanup_parse": {
+                "dropbear_cleanup_ok": True,
+            },
+            "postcheck_parse": {
+                "done": True,
+                "dropbear_absent": True,
+                "mount_absent": True,
+                "loop_node_absent": True,
+            },
+            "public_url_value_logged": False,
+            "admin_public_key_value_logged": False,
+            "secret_values_logged": 0,
+        }
+
     def cloudflared_model_proof(self) -> dict:
         model = runner.wsta122.cloudflared_service_model()
         return {
@@ -1655,6 +1755,58 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertNotIn("http://", markdown)
         self.assertNotIn("https://", markdown)
 
+    def test_valid_wsta208_wsta209_seccomp_proofs_retire_seccomp_next_action(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            manifest_path = root / "inputs" / "wsta90_service_hardening_manifest.json"
+            smoke_path = root / "inputs" / "wsta208_result.json"
+            dropbear_path = root / "inputs" / "wsta209_result.json"
+            self.write_json(manifest_path, self.hardening_manifest())
+            self.write_json(smoke_path, self.seccomp_smoke_proof())
+            self.write_json(dropbear_path, self.seccomp_dropbear_proof())
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta90-service-hardening-manifest-json",
+                str(manifest_path),
+                "--wsta208-real-service-seccomp-proof-json",
+                str(smoke_path),
+                "--wsta209-dropbear-admin-seccomp-proof-json",
+                str(dropbear_path),
+            ))
+            markdown = (root / "wsta108" / "wsta108_operator_server_status.md").read_text(encoding="utf-8")
+            summary_text = json.dumps(runner.public_summary(result), sort_keys=True)
+
+        self.assertEqual(result["decision"], runner.PASS_DECISION)
+        hardening = result["server_status"]["hardening"]
+        proof = hardening["seccomp_enforcement_proof"]
+        self.assertEqual(proof["state"], "REAL_SERVICE_SECCOMP_SMOKE_AND_DROPBEAR_LIVE_PROVEN")
+        self.assertTrue(proof["seccomp_real_services_live_proven"])
+        self.assertTrue(proof["all_supplied_seccomp_proofs_live_proven"])
+        self.assertEqual(proof["proven_services"], ["dpublic-smoke-httpd", "dropbear-admin-usb"])
+        self.assertTrue(proof["smoke_service"]["seccomp_live_proven"])
+        self.assertTrue(proof["dropbear_admin_service"]["seccomp_live_proven"])
+        self.assertTrue(proof["dropbear_admin_service"]["root_login_negative_test"])
+        self.assertTrue(result["checks"]["wsta208_seccomp_smoke_proof_supplied"])
+        self.assertTrue(result["checks"]["wsta209_seccomp_dropbear_proof_supplied"])
+        self.assertTrue(result["checks"]["seccomp_smoke_service_live_proven"])
+        self.assertTrue(result["checks"]["seccomp_dropbear_admin_live_proven"])
+        self.assertTrue(result["checks"]["seccomp_real_services_live_proven"])
+        self.assertIn(
+            "move-to-capability-drop-nftables-or-apparmor-hardening",
+            result["server_status"]["operator_next_actions"],
+        )
+        self.assertNotIn("derive-seccomp-policy-from-live-syscall-baselines", result["server_status"]["operator_next_actions"])
+        self.assertIn("Seccomp real-service proof: `true`", markdown)
+        self.assertIn("Seccomp proven services: `dpublic-smoke-httpd, dropbear-admin-usb`", markdown)
+        self.assertIn("Seccomp smoke service proof: `true`", markdown)
+        self.assertIn("Seccomp Dropbear admin proof: `true`", markdown)
+        self.assertNotIn("http://", summary_text)
+        self.assertNotIn("https://", summary_text)
+        self.assertNotIn("http://", markdown)
+        self.assertNotIn("https://", markdown)
+
     def test_all_syscall_profiles_retired_removes_syscall_blocker(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -2223,6 +2375,42 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertEqual(result["decision"], "wsta108-blocked-wsta151-dropbear-admin-syscall-proof-incomplete")
         self.assertFalse(result["checks"]["dropbear_admin_syscall_trace_live_proven"])
         self.assertFalse(result["checks"]["dropbear_admin_syscall_accept_observed"])
+
+    def test_incomplete_wsta208_seccomp_proof_blocks_even_with_pass_decision(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            proof_path = root / "inputs" / "wsta208_result.json"
+            proof = self.seccomp_smoke_proof()
+            proof["checks"]["seccomp_real_service_markers"] = False
+            self.write_json(proof_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta208-real-service-seccomp-proof-json",
+                str(proof_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta208-real-service-seccomp-proof-incomplete")
+        self.assertFalse(result["checks"]["seccomp_smoke_service_live_proven"])
+        self.assertFalse(result["checks"]["seccomp_real_services_live_proven"])
+
+    def test_nonpass_wsta209_seccomp_proof_blocks(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            proof_path = root / "inputs" / "wsta209_result.json"
+            proof = self.seccomp_dropbear_proof()
+            proof["decision"] = "wsta209-blocked"
+            self.write_json(proof_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta209-dropbear-admin-seccomp-proof-json",
+                str(proof_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta209-dropbear-admin-seccomp-proof-not-pass")
 
     def test_public_summary_markdown_and_template_are_redacted(self) -> None:
         with self.private_tmp() as tmp:

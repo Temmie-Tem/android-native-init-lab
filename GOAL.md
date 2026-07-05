@@ -108,6 +108,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Move to a different D-harden lever: capability-drop verification/apply, nftables
 > default-drop apply, or AppArmor feasibility.
 
+> **🟢 STATUS (2026-07-05 20:48 KST) — WSTA210 OPERATOR STATUS SECCOMP ENFORCEMENT PASS.**
+> Codex updated the WSTA108 operator server status bundle so the WSTA208/WSTA209
+> real-service seccomp live proofs are first-class status inputs.  Full host-only
+> run:
+> `workspace/private/runs/server-distro/wsta210-operator-status-seccomp-enforcement-full-20260705T2048KST/wsta108_operator_server_status.json`;
+> decision `wsta108-operator-server-status-source-pass`.  The compacted state is
+> `REAL_SERVICE_SECCOMP_SMOKE_AND_DROPBEAR_LIVE_PROVEN` with
+> `seccomp_real_services_live_proven=true` for `dpublic-smoke-httpd` and
+> `dropbear-admin-usb`; all supplied seccomp proofs reclassified live-proven.
+> Safety stayed host-only: no device action, boot flash, reboot, Wi-Fi connect,
+> DHCP, public tunnel, public smoke, packet-filter mutation, userdata write, or
+> switch-root.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA210_OPERATOR_STATUS_SECCOMP_ENFORCEMENT_2026-07-05.md`.
+> **NEXT:** the status bundle now points away from seccomp scaffolding:
+> continue D-harden through capability-drop verification/apply, nftables
+> default-drop apply, or AppArmor feasibility.
+
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
 > `D-PUBLIC-LIVE-PUBLISH` go and is actively driving D-public. First live publish (commit `8d25f793`:
