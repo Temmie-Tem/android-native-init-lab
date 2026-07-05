@@ -57,6 +57,30 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **Safety unchanged:** runtime seccomp is reboot-recoverable (stays in the envelope); no forbidden-partition/
 > power writes; commit NO secrets/tokens (token via redacted transport only); keep v2321 rollback intact.
 
+> **🏁 OPERATOR CHARTER (2026-07-05) — CLOSE OUT THE A90 SERVER-DISTRO EPIC. D-HARDEN IS DONE; DO NOT OPEN
+> NEW LEVERS.** The user reviewed and directed this close-out. Every achievable D-harden lever has landed
+> LIVE and clean: **seccomp** enforce on real services (WSTA207-210), **capability-drop** `NoNewPrivs=1`/
+> `CapEff=0` (WSTA211), **native-uplink root boundary** (WSTA212-213), **legacy-iptables loopback
+> default-drop** (WSTA217-219), **cloudflared egress allowlist** (WSTA226-230); **AppArmor** is audited
+> *unavailable* (`CONFIG_SECURITY_APPARMOR` absent → correctly parked, WSTA214-215). **Containment is
+> sufficient — STOP inventing new levers/scaffolding.** Execute exactly this bounded close-out sequence,
+> then HALT and wait for the operator's next-target charter:
+> 1. **Roll up ONE `D-HARDEN_COMPLETE` operator-status** consolidating the landed levers (host-only WSTA108
+>    fold); retire all D-harden next-actions.
+> 2. **ONE attended cold-boot PERSISTENCE SMOKE (measurement, not productization):** power-cycle the device
+>    once and *measure* what survives — does native-init PID1 come back, does the chroot-Debian +
+>    admin-SSH need manual re-bring-up, is `selftest fail=0` after. **Classify the persistence gap; do NOT
+>    build a full auto-start supervisor here** (that is post-close productization, separately chartered).
+>    DoD = a measured persistence baseline + gap classification + rollback to `v2321` with `selftest fail=0`.
+> 3. **Write the A90 server-distro EPIC CLOSE report** (`docs/reports/SERVER_DISTRO_EPIC_CLOSE_*`): the
+>    proven appliance path (chroot-under-native-PID1 + admin-SSH + outbound cloudflared tunnel + D-harden),
+>    what is NOT done on purpose (full switch_root — kills wlan0; persistence auto-start; service payload),
+>    and the frozen-kernel ceiling that motivates the S22+ pivot.
+> 4. **Then HALT.** Do not start a new epic. The operator will charter the next target (expected: **S22+
+>    (SM-S906N, unlocked GKI 5.10) kernel-rebuild path** — the one thing A90's frozen kernel cannot do).
+> **Safety unchanged:** persistence smoke stays in the recoverable envelope (boot-partition + runtime,
+> rollback to `v2321`); no forbidden-partition/power writes; commit NO secrets/tokens/tunnel-URLs.
+
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
 > runner staged WSTA153 policy + WSTA156 filter artifact + WSTA161 gated-apply helper into
