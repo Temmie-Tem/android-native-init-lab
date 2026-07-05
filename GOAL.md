@@ -3956,10 +3956,36 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `workspace/private/runs/server-distro/wsta155-seccomp-launcher-dry-run-rootfs-proof-20260705T1220KST/`.
 > Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA155_SECCOMP_LAUNCHER_DRY_RUN_ROOTFS_PROOF_2026-07-05.md`.
-> **NEXT:** WSTA156 should choose the next bounded step: either run the same
-> dry-run path inside an actual private chroot/rootfs environment, or compile a
-> non-loaded seccomp filter artifact from the staged policy.  Seccomp
-> enforcement remains unproven and must stay behind a separate live gate.
+>
+> **🟢 STATUS (2026-07-05 12:27 KST host clock) — WSTA156 SECCOMP
+> NON-LOADED FILTER ARTIFACT PASS.**  Codex added
+> `run_wsta156_seccomp_nonloaded_filter_artifact.py` plus focused tests and
+> generated a host-only compiled seccomp artifact from the real WSTA153 policy.
+> The runner resolves WSTA153 syscall names through the host aarch64 syscall
+> table, emits classic-BPF `struct sock_filter` arrays as C, and compiles the
+> source to an aarch64 relocatable object without loading or enforcing it.  The
+> artifact manifest records `SECCOMP_FILTER_ARTIFACT_COMPILED_NOT_LOADED`,
+> `loaded=false`, and `enforced=false`.  All observed names resolved: 4 service
+> filters, 82 unique syscall names total; per-service counts are
+> `dpublic-smoke-httpd` 18 syscalls / 39 BPF instructions,
+> `cloudflared-quick-tunnel` 52 / 107, `dropbear-admin-usb` 53 / 109, and
+> `dpublic-hud-intent` 22 / 47.  Generated artifact:
+> `workspace/private/runs/server-distro/wsta156-seccomp-nonloaded-filter-artifact-20260705T1227KST/`
+> with C SHA256
+> `bb35ee4004bc2170a638e13ee4740ef0ab13c40c5e92394ae356ea2e3dfef583`
+> and object SHA256
+> `41e7cf7e6f39cf2c8fa4dc974f3456bfbe7d3959a5a2c8e85628b72c4d5ae854`.
+> This unit did not chroot, touch the device, flash, reboot, connect Wi-Fi, run
+> DHCP, open a public tunnel, mutate packet filters, write userdata, load BPF,
+> load a seccomp filter, or enforce seccomp.  Validation passed `py_compile`,
+> focused WSTA154+WSTA155+WSTA156 tests (`9 tests OK`), full server-distro
+> regression (`544 tests OK`), and WSTA156 artifact generation.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA156_SECCOMP_NONLOADED_FILTER_ARTIFACT_2026-07-05.md`.
+> **NEXT:** WSTA157 should add a loader contract without enabling it by default:
+> either wire the compiled artifact into the launcher model behind an explicit
+> future enforcement flag, or run a private chroot dry-run using the staged
+> policy and compiled artifact.  Seccomp enforcement remains unproven and must
+> stay behind a separate live gate.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
