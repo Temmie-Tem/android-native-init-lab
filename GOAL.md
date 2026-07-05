@@ -495,6 +495,28 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > run WSTA227 to produce the WSTA226 route artifact, then execute WSTA226 live
 > only under operator supervision with restore/public-off proof.
 
+> **🟢 STATUS (2026-07-05 23:02 KST) — WSTA228 CLOUDFLARED EGRESS ROUTE-READY PREFLIGHT PASS.**
+> Codex used existing private WSTA125 runtime evidence
+> (`wsta125-native-upstream-cloudflared-runtime-live-v4-20260705T062106KST`) to
+> produce a private WSTA227 route observation, convert it into the WSTA226 route
+> artifact, and run WSTA226 route-ready preflight through WSTA88 default-off
+> gate construction.  Private observation extraction found DNS/TLS route target
+> counts `30` / `2`, with `route_values_logged=false` and
+> `public_url_value_logged=false`.  WSTA227 returned
+> `wsta227-cloudflared-egress-route-artifact-source-pass` with
+> `observation_ready=true` and `artifact_ready_for_wsta226=true`.  WSTA226
+> preflight returned
+> `wsta226-cloudflared-egress-allowlist-execute-gate-preflight-pass` with
+> `route_artifact_ready=true`, `wsta223_plan_ready=true`,
+> `wsta88_preflight_pass=true`, and `live_execution_requested=false`.  No device
+> action, boot flash, native reboot, Wi-Fi connect, DHCP, public tunnel, public
+> smoke, packet-filter mutation, userdata write, LSM load, or switch-root
+> occurred.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA228_CLOUDFLARED_EGRESS_ROUTE_READY_PREFLIGHT_2026-07-05.md`.
+> **NEXT:** execute the attended WSTA226 live gate with the private route
+> artifact, private confirm tokens, full packet-filter/egress/control-plane/
+> public-off proof flags, and immediate restore/public-off verification.
+
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
 > `D-PUBLIC-LIVE-PUBLISH` go and is actively driving D-public. First live publish (commit `8d25f793`:
