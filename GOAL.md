@@ -195,6 +195,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > next-actions, and continue D-harden through the proven legacy-iptables
 > loopback/default-drop lever.
 
+> **🟢 STATUS (2026-07-05 22:20 KST) — WSTA215 OPERATOR STATUS APPARMOR FEASIBILITY PASS.**
+> Codex folded WSTA214 into the WSTA108 operator server status bundle.  Full
+> host-only run:
+> `workspace/private/runs/server-distro/wsta215-operator-status-apparmor-feasibility-20260705T2220KST/wsta108_operator_server_status.json`;
+> decision `wsta108-operator-server-status-source-pass`.  The status records
+> `APPARMOR_NOT_AVAILABLE_UNDER_CURRENT_EVIDENCE`, `apparmor_unavailable_under_current_evidence=true`,
+> `preferred_current_hardening_lever=legacy-iptables-loopback-default-drop`, and
+> keeps profile loading disabled.  Operator next-actions are now narrowed to
+> `continue-containment-hardening-with-legacy-iptables-default-drop` and
+> `move-to-legacy-iptables-default-drop-hardening`; the previous
+> `nftables-or-apparmor` ambiguity is retired.  Safety stayed host-only: no device
+> action, boot flash, reboot, Wi-Fi connect, DHCP, ping, public tunnel,
+> packet-filter mutation, rootfs mutation, userdata write, LSM profile load, or
+> switch-root.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA215_OPERATOR_STATUS_APPARMOR_FEASIBILITY_2026-07-05.md`.
+> **NEXT:** continue D-harden by turning the proven legacy-iptables loopback
+> default-drop path into the next explicit/default-off server hardening policy
+> step.
+
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
 > `D-PUBLIC-LIVE-PUBLISH` go and is actively driving D-public. First live publish (commit `8d25f793`:

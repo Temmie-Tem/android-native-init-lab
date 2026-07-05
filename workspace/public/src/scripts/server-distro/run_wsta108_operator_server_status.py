@@ -19,7 +19,8 @@ WSTA208/WSTA209 real-service seccomp enforcement proofs so seccomp can be
 retired from the immediate next-action list once those live results are
 supplied and verified.  WSTA211 promotes the already-live no-new-privs and
 CapEff=0 evidence into a first-class capability-drop status.  WSTA213 folds in
-the WSTA212 native uplink boundary policy.
+the WSTA212 native uplink boundary policy.  WSTA215 folds in the WSTA214
+AppArmor feasibility audit.
 """
 
 from __future__ import annotations
@@ -71,6 +72,8 @@ DPUBLIC_HUD_INTENT_SYSCALL_TRACE_STATE = "DPUBLIC_HUD_INTENT_SYSCALL_TRACE_LIVE_
 DROPBEAR_ADMIN_SYSCALL_TRACE_STATE = "DROPBEAR_ADMIN_SYSCALL_TRACE_LIVE_PROVEN"
 NATIVE_UPLINK_BOUNDARY_POLICY_STATE = "NATIVE_UPLINK_ROOT_BOUNDARY_POLICY_SOURCE_DEFINED"
 NATIVE_UPLINK_BOUNDARY_POLICY_DECISION = "wsta212-native-uplink-boundary-policy-source-pass"
+APPARMOR_FEASIBILITY_DECISION = "wsta214-apparmor-feasibility-source-pass"
+APPARMOR_UNAVAILABLE_STATE = "APPARMOR_NOT_AVAILABLE_UNDER_CURRENT_EVIDENCE"
 
 CLOUDFLARED_RUNTIME_REQUIRED_CHECKS = (
     "wsta28_precondition_pass",
@@ -981,6 +984,55 @@ def compact_native_uplink_boundary_policy(
         "debian_service_launcher_allowed": policy.get("debian_service_launcher_allowed"),
         "debian_service_seccomp_target": policy.get("debian_service_seccomp_target"),
         "not_debian_launcher_or_seccomp_target": not_debian_launchable,
+        "source_decision": proof_result.get("decision"),
+        "source_checks_all_true": checks_all_true,
+        "public_url_value_logged": False,
+        "secret_values_logged": 0,
+    }
+
+
+def compact_apparmor_feasibility(
+    proof_result: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if not proof_result:
+        return {
+            "state": "NOT_SUPPLIED",
+            "apparmor_feasibility_supplied": False,
+            "apparmor_immediate_lever_available": None,
+            "preferred_current_hardening_lever": None,
+            "profile_source_ready": None,
+            "profile_load_allowed": None,
+            "public_url_value_logged": False,
+            "secret_values_logged": 0,
+        }
+    apparmor = proof_result.get("apparmor") if isinstance(proof_result.get("apparmor"), dict) else {}
+    checks = proof_result.get("checks") if isinstance(proof_result.get("checks"), dict) else {}
+    checks_all_true = all(value is True for value in checks.values()) if checks else True
+    unavailable = bool(
+        proof_result.get("decision") == APPARMOR_FEASIBILITY_DECISION
+        and apparmor.get("state") == APPARMOR_UNAVAILABLE_STATE
+        and apparmor.get("profile_source_ready") is False
+        and apparmor.get("preferred_current_hardening_lever")
+        == "legacy-iptables-loopback-default-drop"
+        and checks_all_true
+    )
+    ready = bool(
+        proof_result.get("decision") == APPARMOR_FEASIBILITY_DECISION
+        and apparmor.get("profile_source_ready") is True
+        and checks_all_true
+    )
+    return {
+        "state": apparmor.get("state") or "INCOMPLETE",
+        "apparmor_feasibility_supplied": True,
+        "apparmor_immediate_lever_available": ready,
+        "apparmor_unavailable_under_current_evidence": unavailable,
+        "preferred_current_hardening_lever": apparmor.get("preferred_current_hardening_lever"),
+        "recommendation": apparmor.get("recommendation"),
+        "kernel_config_ready": apparmor.get("kernel_config_ready"),
+        "runtime_observed": apparmor.get("runtime_observed"),
+        "userspace_staged": apparmor.get("userspace_staged"),
+        "profile_source_ready": apparmor.get("profile_source_ready"),
+        "profile_load_allowed": False,
         "source_decision": proof_result.get("decision"),
         "source_checks_all_true": checks_all_true,
         "public_url_value_logged": False,
@@ -1931,6 +1983,7 @@ def compact_hardening(
     seccomp_smoke_proof_result: dict[str, Any] | None,
     seccomp_dropbear_proof_result: dict[str, Any] | None,
     native_uplink_boundary_policy_result: dict[str, Any] | None,
+    apparmor_feasibility_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     packet_filter_proof = compact_packet_filter_proof(packet_filter_proof_result, packet_filter_control_summary)
     launcher_proof = compact_launcher_proof(launcher_proof_result)
@@ -1996,6 +2049,7 @@ def compact_hardening(
     native_uplink_boundary_policy = compact_native_uplink_boundary_policy(
         native_uplink_boundary_policy_result
     )
+    apparmor_feasibility = compact_apparmor_feasibility(apparmor_feasibility_result)
     if native_uplink_boundary_policy.get("native_uplink_boundary_policy_defined"):
         launcher_proof["remaining_profiles"] = [
             item
@@ -2022,6 +2076,7 @@ def compact_hardening(
             "seccomp_enforcement_proof": seccomp_enforcement_proof,
             "capability_drop_proof": capability_drop_proof,
             "native_uplink_boundary_policy": native_uplink_boundary_policy,
+            "apparmor_feasibility": apparmor_feasibility,
             "cloudflared_model": cloudflared_model,
             "cloudflared_runtime": cloudflared_runtime,
             "hud_model": hud_model,
@@ -2067,6 +2122,7 @@ def compact_hardening(
         "seccomp_enforcement_proof": seccomp_enforcement_proof,
         "capability_drop_proof": capability_drop_proof,
         "native_uplink_boundary_policy": native_uplink_boundary_policy,
+        "apparmor_feasibility": apparmor_feasibility,
         "cloudflared_model": cloudflared_model,
         "cloudflared_runtime": cloudflared_runtime,
         "hud_model": hud_model,
@@ -2105,6 +2161,7 @@ def build_server_status(
     seccomp_smoke_proof_result: dict[str, Any] | None,
     seccomp_dropbear_proof_result: dict[str, Any] | None,
     native_uplink_boundary_policy_result: dict[str, Any] | None,
+    apparmor_feasibility_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     status_hud = wsta88_result.get("status_hud") if isinstance(wsta88_result.get("status_hud"), dict) else {}
     if not status_hud:
@@ -2130,6 +2187,7 @@ def build_server_status(
         seccomp_smoke_proof_result,
         seccomp_dropbear_proof_result,
         native_uplink_boundary_policy_result,
+        apparmor_feasibility_result,
     )
     public_off = (status_hud.get("public_state") or "PUBLIC_OFF") == "PUBLIC_OFF"
     ready_default_off = public_off and bool(packet_filter.get("ready"))
@@ -2161,6 +2219,11 @@ def build_server_status(
     native_uplink_boundary_policy = (
         hardening.get("native_uplink_boundary_policy")
         if isinstance(hardening.get("native_uplink_boundary_policy"), dict)
+        else {}
+    )
+    apparmor_feasibility = (
+        hardening.get("apparmor_feasibility")
+        if isinstance(hardening.get("apparmor_feasibility"), dict)
         else {}
     )
     cloudflared_model = (
@@ -2219,6 +2282,9 @@ def build_server_status(
     native_uplink_boundary_defined = bool(
         native_uplink_boundary_policy.get("native_uplink_boundary_policy_defined")
     )
+    apparmor_unavailable = bool(
+        apparmor_feasibility.get("apparmor_unavailable_under_current_evidence")
+    )
     if capability_drop_live_proven:
         if not native_uplink_boundary_defined:
             operator_next_actions.append("continue-root-boundary-policy-for-wsta-native-uplink-helper")
@@ -2236,7 +2302,12 @@ def build_server_status(
         if hud_intent_syscall.get("hud_intent_syscall_trace_live_proven"):
             if seccomp_real_services_live_proven:
                 if capability_drop_live_proven:
-                    operator_next_actions.append("continue-containment-hardening-with-nftables-or-apparmor")
+                    if apparmor_unavailable:
+                        operator_next_actions.append(
+                            "continue-containment-hardening-with-legacy-iptables-default-drop"
+                        )
+                    else:
+                        operator_next_actions.append("continue-containment-hardening-with-nftables-or-apparmor")
                 else:
                     operator_next_actions.append(
                         "continue-containment-hardening-with-capability-drop-nftables-or-apparmor"
@@ -2257,7 +2328,10 @@ def build_server_status(
         operator_next_actions.append("define-dpublic-hud-service-model-before-hud-live-proof")
     if seccomp_real_services_live_proven:
         if capability_drop_live_proven:
-            operator_next_actions.append("move-to-nftables-default-drop-or-apparmor-hardening")
+            if apparmor_unavailable:
+                operator_next_actions.append("move-to-legacy-iptables-default-drop-hardening")
+            else:
+                operator_next_actions.append("move-to-nftables-default-drop-or-apparmor-hardening")
         else:
             operator_next_actions.append("move-to-capability-drop-nftables-or-apparmor-hardening")
     elif syscall_trace_proof.get("smoke_syscall_trace_live_proven"):
@@ -2367,6 +2441,11 @@ def markdown(server_status: dict[str, Any]) -> str:
         if isinstance(hardening.get("native_uplink_boundary_policy"), dict)
         else {}
     )
+    apparmor_feasibility = (
+        hardening.get("apparmor_feasibility")
+        if isinstance(hardening.get("apparmor_feasibility"), dict)
+        else {}
+    )
     cloudflared_model = (
         hardening.get("cloudflared_model")
         if isinstance(hardening.get("cloudflared_model"), dict)
@@ -2469,6 +2548,10 @@ def markdown(server_status: dict[str, Any]) -> str:
         f"- Native uplink denied Debian ops: `{', '.join(native_uplink_boundary.get('denied_debian_ops') or [])}`",
         f"- Native uplink Debian launcher target: `{str(bool(native_uplink_boundary.get('debian_service_launcher_allowed'))).lower()}`",
         f"- Native uplink Debian seccomp target: `{str(bool(native_uplink_boundary.get('debian_service_seccomp_target'))).lower()}`",
+        f"- AppArmor feasibility: `{apparmor_feasibility.get('state')}`",
+        f"- AppArmor immediate lever available: `{str(bool(apparmor_feasibility.get('apparmor_immediate_lever_available'))).lower()}`",
+        f"- AppArmor unavailable under current evidence: `{str(bool(apparmor_feasibility.get('apparmor_unavailable_under_current_evidence'))).lower()}`",
+        f"- Preferred current hardening lever: `{apparmor_feasibility.get('preferred_current_hardening_lever')}`",
         f"- Cloudflared model: `{str(bool(cloudflared_model.get('model_defined'))).lower()}`",
         f"- Cloudflared model user: `{cloudflared_model.get('user')}`",
         f"- Cloudflared default public off: `{str(bool(cloudflared_model.get('default_public_off'))).lower()}`",
@@ -2938,6 +3021,28 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             write_json(out_json, result)
             return result
 
+    apparmor_feasibility_result: dict[str, Any] | None = None
+    if args.wsta214_apparmor_feasibility_json is not None:
+        apparmor_feasibility_path, apparmor_feasibility_error = require_private_file(
+            args.wsta214_apparmor_feasibility_json,
+            "wsta214-apparmor-feasibility",
+        )
+        if apparmor_feasibility_error or apparmor_feasibility_path is None:
+            result["decision"] = (
+                apparmor_feasibility_error or "wsta108-blocked-wsta214-apparmor-feasibility"
+            )
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+        apparmor_feasibility_result = load_json(apparmor_feasibility_path)
+        if apparmor_feasibility_result.get("decision") != APPARMOR_FEASIBILITY_DECISION:
+            result["decision"] = "wsta108-blocked-wsta214-apparmor-feasibility-not-pass"
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+
     server_status = build_server_status(
         wsta88_result,
         hardening_result,
@@ -2958,6 +3063,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         seccomp_smoke_proof_result,
         seccomp_dropbear_proof_result,
         native_uplink_boundary_policy_result,
+        apparmor_feasibility_result,
     )
     packet_filter_proof = server_status["hardening"].get("packet_filter_proof", {})
     packet_filter_control_proof = (
@@ -2988,6 +3094,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "native_uplink_boundary_policy",
         {},
     )
+    apparmor_feasibility = server_status["hardening"].get("apparmor_feasibility", {})
     cloudflared_model = server_status["hardening"].get("cloudflared_model", {})
     cloudflared_runtime = server_status["hardening"].get("cloudflared_runtime", {})
     hud_model = server_status["hardening"].get("hud_model", {})
@@ -3078,6 +3185,19 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "native_uplink_not_debian_launcher_or_seccomp_target": bool(
             native_uplink_boundary_policy.get("not_debian_launcher_or_seccomp_target")
+        ),
+        "wsta214_apparmor_feasibility_supplied": apparmor_feasibility_result is not None,
+        "apparmor_unavailable_under_current_evidence": bool(
+            apparmor_feasibility.get("apparmor_unavailable_under_current_evidence")
+        ),
+        "apparmor_immediate_lever_parked": bool(
+            apparmor_feasibility.get("apparmor_unavailable_under_current_evidence")
+            and not apparmor_feasibility.get("apparmor_immediate_lever_available")
+        ),
+        "apparmor_profile_load_disabled": apparmor_feasibility.get("profile_load_allowed") is False,
+        "preferred_hardening_lever_legacy_iptables": (
+            apparmor_feasibility.get("preferred_current_hardening_lever")
+            == "legacy-iptables-loopback-default-drop"
         ),
         "cloudflared_model_supplied": cloudflared_model_result is not None,
         "cloudflared_model_defined": bool(cloudflared_model.get("model_defined")),
@@ -3268,6 +3388,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         write_json(out_json, result)
         return result
     if (
+        apparmor_feasibility_result is not None
+        and not result["checks"]["apparmor_unavailable_under_current_evidence"]
+    ):
+        result["decision"] = "wsta108-blocked-wsta214-apparmor-feasibility-incomplete"
+        result["gate_decision"] = result["decision"]
+        result["ended_utc"] = utc_stamp()
+        write_json(out_json, result)
+        return result
+    if (
         cloudflared_model_result is not None
         and not result["checks"]["cloudflared_model_defined"]
     ):
@@ -3372,6 +3501,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--wsta208-real-service-seccomp-proof-json", type=Path)
     parser.add_argument("--wsta209-dropbear-admin-seccomp-proof-json", type=Path)
     parser.add_argument("--wsta212-native-uplink-boundary-policy-json", type=Path)
+    parser.add_argument("--wsta214-apparmor-feasibility-json", type=Path)
     parser.add_argument("--wsta122-cloudflared-model-json", type=Path)
     parser.add_argument("--wsta125-cloudflared-runtime-proof-json", type=Path)
     parser.add_argument("--wsta127-hud-model-json", type=Path)

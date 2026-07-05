@@ -498,6 +498,48 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
             },
         }
 
+    def apparmor_feasibility(self) -> dict:
+        return {
+            "decision": runner.APPARMOR_FEASIBILITY_DECISION,
+            "apparmor": {
+                "schema": "a90-wsta214-apparmor-feasibility-v1",
+                "state": runner.APPARMOR_UNAVAILABLE_STATE,
+                "recommendation": "do-not-use-apparmor-as-immediate-d-harden-lever",
+                "preferred_current_hardening_lever": "legacy-iptables-loopback-default-drop",
+                "kernel_config_ready": False,
+                "runtime_observed": False,
+                "userspace_staged": False,
+                "profile_source_ready": False,
+            },
+            "checks": {
+                "audit_schema_ok": True,
+                "audit_state_known": True,
+                "audit_kernel_config_recorded": True,
+                "audit_runtime_observation_recorded": True,
+                "audit_userspace_staging_recorded": True,
+                "audit_unavailable_has_blocking_evidence": True,
+                "audit_ready_requires_kernel_and_runtime_or_userspace": True,
+                "audit_profile_load_stays_disabled": True,
+                "audit_redaction_clean": True,
+            },
+            "safety": {
+                "device_action": False,
+                "boot_flash": False,
+                "native_reboot": False,
+                "wifi_connect": False,
+                "dhcp": False,
+                "public_tunnel": False,
+                "packet_filter_mutation": False,
+                "rootfs_mount": False,
+                "package_install": False,
+                "lsm_profile_load": False,
+                "userdata_touch": False,
+                "switch_root": False,
+                "public_url_value_logged": False,
+                "secret_values_logged": 0,
+            },
+        }
+
     def cloudflared_model_proof(self) -> dict:
         model = runner.wsta122.cloudflared_service_model()
         return {
@@ -2014,6 +2056,86 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("Native uplink boundary policy: `true`", markdown)
         self.assertIn("Native uplink allowed Debian ops: `status, scan`", markdown)
         self.assertIn("Native uplink Debian launcher target: `false`", markdown)
+
+    def test_wsta215_apparmor_feasibility_parks_apparmor_next_action(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            manifest_path = root / "inputs" / "wsta90_service_hardening_manifest.json"
+            launcher_path = root / "inputs" / "wsta110_result.json"
+            admin_path = root / "inputs" / "wsta120_result.json"
+            runtime_path = root / "inputs" / "wsta125_result.json"
+            presenter_path = root / "inputs" / "wsta130_dpublic_hud_presenter_model.json"
+            handoff_path = root / "inputs" / "wsta144_dpublic_hud_shared_run_bind_live.json"
+            hud_syscall_path = root / "inputs" / "wsta149_dpublic_hud_intent_syscall_trace_live.json"
+            smoke_seccomp_path = root / "inputs" / "wsta208_result.json"
+            dropbear_seccomp_path = root / "inputs" / "wsta209_result.json"
+            native_uplink_path = root / "inputs" / "wsta212_result.json"
+            apparmor_path = root / "inputs" / "wsta214_result.json"
+            self.write_json(manifest_path, self.hardening_manifest())
+            self.write_json(launcher_path, self.launcher_proof())
+            self.write_json(admin_path, self.dropbear_admin_proof())
+            self.write_json(runtime_path, self.cloudflared_runtime_proof())
+            self.write_json(presenter_path, self.hud_presenter_model_proof())
+            self.write_json(handoff_path, self.hud_presenter_handoff_proof())
+            self.write_json(hud_syscall_path, self.hud_intent_syscall_proof())
+            self.write_json(smoke_seccomp_path, self.seccomp_smoke_proof())
+            self.write_json(dropbear_seccomp_path, self.seccomp_dropbear_proof())
+            self.write_json(native_uplink_path, self.native_uplink_boundary_policy())
+            self.write_json(apparmor_path, self.apparmor_feasibility())
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta90-service-hardening-manifest-json",
+                str(manifest_path),
+                "--wsta110-service-launcher-proof-json",
+                str(launcher_path),
+                "--wsta120-dropbear-admin-proof-json",
+                str(admin_path),
+                "--wsta125-cloudflared-runtime-proof-json",
+                str(runtime_path),
+                "--wsta130-hud-presenter-model-json",
+                str(presenter_path),
+                "--wsta144-hud-presenter-handoff-proof-json",
+                str(handoff_path),
+                "--wsta149-hud-intent-syscall-proof-json",
+                str(hud_syscall_path),
+                "--wsta208-real-service-seccomp-proof-json",
+                str(smoke_seccomp_path),
+                "--wsta209-dropbear-admin-seccomp-proof-json",
+                str(dropbear_seccomp_path),
+                "--wsta212-native-uplink-boundary-policy-json",
+                str(native_uplink_path),
+                "--wsta214-apparmor-feasibility-json",
+                str(apparmor_path),
+            ))
+            markdown = (root / "wsta108" / "wsta108_operator_server_status.md").read_text(encoding="utf-8")
+
+        self.assertEqual(result["decision"], runner.PASS_DECISION)
+        proof = result["server_status"]["hardening"]["apparmor_feasibility"]
+        self.assertEqual(proof["state"], runner.APPARMOR_UNAVAILABLE_STATE)
+        self.assertTrue(proof["apparmor_unavailable_under_current_evidence"])
+        self.assertFalse(proof["apparmor_immediate_lever_available"])
+        self.assertEqual(proof["preferred_current_hardening_lever"], "legacy-iptables-loopback-default-drop")
+        self.assertTrue(result["checks"]["wsta214_apparmor_feasibility_supplied"])
+        self.assertTrue(result["checks"]["apparmor_unavailable_under_current_evidence"])
+        self.assertTrue(result["checks"]["apparmor_immediate_lever_parked"])
+        self.assertTrue(result["checks"]["apparmor_profile_load_disabled"])
+        self.assertTrue(result["checks"]["preferred_hardening_lever_legacy_iptables"])
+        self.assertNotIn(
+            "continue-containment-hardening-with-nftables-or-apparmor",
+            result["server_status"]["operator_next_actions"],
+        )
+        self.assertNotIn(
+            "move-to-nftables-default-drop-or-apparmor-hardening",
+            result["server_status"]["operator_next_actions"],
+        )
+        self.assertIn(
+            "move-to-legacy-iptables-default-drop-hardening",
+            result["server_status"]["operator_next_actions"],
+        )
+        self.assertIn("AppArmor feasibility: `APPARMOR_NOT_AVAILABLE_UNDER_CURRENT_EVIDENCE`", markdown)
+        self.assertIn("Preferred current hardening lever: `legacy-iptables-loopback-default-drop`", markdown)
 
     def test_all_syscall_profiles_retired_removes_syscall_blocker(self) -> None:
         with self.private_tmp() as tmp:
