@@ -37,6 +37,7 @@ import run_wsta122_cloudflared_service_model as wsta122  # noqa: E402
 import run_wsta125_native_upstream_cloudflared_runtime as wsta125  # noqa: E402
 import run_wsta127_dpublic_hud_service_model as wsta127  # noqa: E402
 import run_wsta130_dpublic_hud_presenter_model as wsta130  # noqa: E402
+import run_wsta137_dpublic_native_presenter_live_summary as wsta137  # noqa: E402
 
 
 REPO_ROOT = wsta88.REPO_ROOT
@@ -48,6 +49,7 @@ CLOUDFLARED_MODEL_STATE = "CLOUDFLARED_SERVICE_MODEL_SOURCE_DEFINED"
 CLOUDFLARED_RUNTIME_STATE = "CLOUDFLARED_RUNTIME_LIVE_PROVEN"
 DPUBLIC_HUD_MODEL_STATE = "DPUBLIC_HUD_SERVICE_MODEL_SOURCE_DEFINED"
 DPUBLIC_HUD_PRESENTER_MODEL_STATE = "DPUBLIC_HUD_PRESENTER_MODEL_SOURCE_DEFINED"
+DPUBLIC_HUD_PRESENTER_LIVE_STATE = "DPUBLIC_HUD_NATIVE_PRESENTER_LIVE_PROVEN"
 
 CLOUDFLARED_RUNTIME_REQUIRED_CHECKS = (
     "wsta28_precondition_pass",
@@ -159,6 +161,8 @@ def template() -> dict[str, Any]:
             "workspace/private/runs/server-distro/<wsta127-run>/wsta127_dpublic_hud_service_model.json",
             "--wsta130-hud-presenter-model-json",
             "workspace/private/runs/server-distro/<wsta130-run>/wsta130_dpublic_hud_presenter_model.json",
+            "--wsta137-hud-presenter-live-proof-json",
+            "workspace/private/runs/server-distro/<wsta137-run>/wsta137_dpublic_native_presenter_live.json",
         ],
         "device_action": False,
         "public_url_value_logged": False,
@@ -831,13 +835,114 @@ def compact_hud_model(model_result: dict[str, Any] | None) -> dict[str, Any]:
     }
 
 
-def compact_hud_presenter_model(model_result: dict[str, Any] | None) -> dict[str, Any]:
+def compact_hud_presenter_live_proof(proof_result: dict[str, Any] | None) -> dict[str, Any]:
+    if not proof_result:
+        return {
+            "state": "NOT_SUPPLIED",
+            "native_presenter_live_proven": False,
+        }
+
+    supplied_checks = proof_result.get("checks") if isinstance(proof_result.get("checks"), dict) else {}
+    recomputed_checks = wsta137.validate_proof(proof_result)
+    live_proven = bool(
+        proof_result.get("decision") == wsta137.PASS_DECISION
+        and bool(supplied_checks)
+        and all(value is True for value in supplied_checks.values())
+        and all(value is True for value in recomputed_checks.values())
+    )
+    candidate = proof_result.get("candidate") if isinstance(proof_result.get("candidate"), dict) else {}
+    checked_flash = (
+        proof_result.get("checked_flash")
+        if isinstance(proof_result.get("checked_flash"), dict)
+        else {}
+    )
+    validate = (
+        proof_result.get("validate_proof")
+        if isinstance(proof_result.get("validate_proof"), dict)
+        else {}
+    )
+    present = (
+        proof_result.get("present_proof")
+        if isinstance(proof_result.get("present_proof"), dict)
+        else {}
+    )
+    reject = (
+        proof_result.get("reject_proof")
+        if isinstance(proof_result.get("reject_proof"), dict)
+        else {}
+    )
+    final_health = (
+        proof_result.get("final_health")
+        if isinstance(proof_result.get("final_health"), dict)
+        else {}
+    )
+    return {
+        "state": DPUBLIC_HUD_PRESENTER_LIVE_STATE if live_proven else "SUPPLIED_NOT_PROVEN",
+        "decision": proof_result.get("decision"),
+        "proof_run_dir": proof_result.get("run_dir"),
+        "source_run_dir": proof_result.get("source_run_dir"),
+        "native_presenter_live_proven": live_proven,
+        "candidate_init_version": candidate.get("init_version"),
+        "candidate_init_build": candidate.get("init_build"),
+        "candidate_boot_sha256": candidate.get("boot_sha256"),
+        "checked_flash_used": bool(checked_flash.get("used_checked_helper")),
+        "checked_flash_sha_matched": bool(
+            checked_flash.get("local_sha_match")
+            and checked_flash.get("remote_sha_match")
+            and checked_flash.get("boot_readback_sha_match")
+        ),
+        "checked_flash_boot_health_clean": bool(
+            checked_flash.get("booted_v3398")
+            and checked_flash.get("boot_ok")
+            and checked_flash.get("selftest_fail_zero")
+            and checked_flash.get("transport_serial_ready")
+            and checked_flash.get("transport_tcpctl_ready")
+        ),
+        "validate_intent_sequence": validate.get("sequence"),
+        "validate_intent_age_ms": validate.get("age_ms"),
+        "validate_policy_markers": bool(
+            validate.get("forbidden_fields_reject")
+            and validate.get("unknown_fields_reject")
+            and validate.get("stale_after_marker")
+            and validate.get("presenter_owner_native_root")
+            and validate.get("debian_direct_kms_zero")
+        ),
+        "present_sequence": present.get("sequence"),
+        "present_age_ms": present.get("age_ms"),
+        "present_begin_frame_rc_zero": bool(present.get("present_begin_frame_rc_zero")),
+        "present_rc_zero": bool(present.get("present_rc_zero")),
+        "present_done": bool(present.get("present_done")),
+        "present_framebuffer": present.get("framebuffer"),
+        "present_crtc": present.get("crtc"),
+        "reject_forbidden_command": bool(
+            reject.get("forbidden_command_rejected") and reject.get("forbidden_rc") == -1
+        ),
+        "reject_stale_intent": bool(
+            reject.get("stale_rejected") and reject.get("stale_rc") == -110
+        ),
+        "final_health_clean": bool(
+            final_health.get("v3398_resident")
+            and final_health.get("selftest_fail_zero")
+            and final_health.get("transport_serial_ready")
+            and final_health.get("transport_tcpctl_ready")
+        ),
+        "public_url_value_logged": False,
+        "secret_values_logged": 0,
+    }
+
+
+def compact_hud_presenter_model(
+    model_result: dict[str, Any] | None,
+    live_proof_result: dict[str, Any] | None,
+) -> dict[str, Any]:
+    live_proof = compact_hud_presenter_live_proof(live_proof_result)
     if not model_result:
         return {
             "state": "NOT_SUPPLIED",
             "model_defined": False,
             "scope": "not-supplied",
             "hud_live_proven": False,
+            "live_proof": live_proof,
         }
 
     model = (
@@ -890,13 +995,33 @@ def compact_hud_presenter_model(model_result: dict[str, Any] | None) -> dict[str
     atomic = intent.get("atomic_update") if isinstance(intent.get("atomic_update"), dict) else {}
     forbidden_fields = intent.get("forbidden_fields") if isinstance(intent.get("forbidden_fields"), list) else []
     exposure = model.get("default_exposure") if isinstance(model.get("default_exposure"), dict) else {}
+    live_proven = bool(live_proof.get("native_presenter_live_proven"))
+    remaining_live_proofs = [
+        "intent producer uid/gid/no-new-privs/cap-zero/no-drm/no-network",
+        "presenter is sole DRM fd holder during HUD display",
+        "presenter owns SETCRTC/PAGE_FLIP and releases DRM on cleanup",
+        "intent parser rejects forbidden fields and stale updates",
+    ]
+    if live_proven:
+        remaining_live_proofs = [
+            "durable native presenter service across Debian handoff",
+            "fresh Debian-written intent consumed by native presenter during the same handoff",
+            "presenter is sole DRM fd holder during Debian handoff",
+            "presenter cleanup/restart policy for long-running appliance mode",
+        ]
     return {
-        "state": DPUBLIC_HUD_PRESENTER_MODEL_STATE if model_defined else "SUPPLIED_NOT_PROVEN",
+        "state": (
+            DPUBLIC_HUD_PRESENTER_LIVE_STATE
+            if live_proven
+            else DPUBLIC_HUD_PRESENTER_MODEL_STATE if model_defined else "SUPPLIED_NOT_PROVEN"
+        ),
         "decision": model_result.get("decision"),
         "proof_run_dir": model_result.get("run_dir"),
         "scope": "dpublic-hud-presenter-model",
         "model_defined": model_defined,
-        "hud_live_proven": False,
+        "hud_live_proven": live_proven,
+        "native_presenter_live_proven": live_proven,
+        "live_proof": live_proof,
         "supersedes_wsta127_direct_kms": supersedes.get("direct_nonroot_kms") == "rejected-for-live-path",
         "wsta129_boundary": supersedes.get("wsta129_live_boundary"),
         "display_architecture": "split-intent-native-presenter",
@@ -943,12 +1068,7 @@ def compact_hud_presenter_model(model_result: dict[str, Any] | None) -> dict[str
         "operator_gate_required": exposure.get("start_requires_operator_live_gate") is True,
         "public_url_value_logged": False,
         "secret_values_logged": 0,
-        "remaining_live_proofs": [
-            "intent producer uid/gid/no-new-privs/cap-zero/no-drm/no-network",
-            "presenter is sole DRM fd holder during HUD display",
-            "presenter owns SETCRTC/PAGE_FLIP and releases DRM on cleanup",
-            "intent parser rejects forbidden fields and stale updates",
-        ],
+        "remaining_live_proofs": remaining_live_proofs,
     }
 
 
@@ -1042,6 +1162,7 @@ def compact_hardening(
     cloudflared_runtime_proof_result: dict[str, Any] | None,
     hud_model_result: dict[str, Any] | None,
     hud_presenter_model_result: dict[str, Any] | None,
+    hud_presenter_live_proof_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     packet_filter_proof = compact_packet_filter_proof(packet_filter_proof_result, packet_filter_control_summary)
     launcher_proof = compact_launcher_proof(launcher_proof_result)
@@ -1050,7 +1171,10 @@ def compact_hardening(
     cloudflared_model = compact_cloudflared_model(cloudflared_model_result)
     cloudflared_runtime = compact_cloudflared_runtime_proof(cloudflared_runtime_proof_result)
     hud_model = compact_hud_model(hud_model_result)
-    hud_presenter_model = compact_hud_presenter_model(hud_presenter_model_result)
+    hud_presenter_model = compact_hud_presenter_model(
+        hud_presenter_model_result,
+        hud_presenter_live_proof_result,
+    )
     if hud_presenter_model.get("model_defined"):
         hud_model["superseded_by_presenter_model"] = True
         hud_model["superseded_reason"] = "wsta129-setcrtc-permission-denied"
@@ -1145,6 +1269,7 @@ def build_server_status(
     cloudflared_runtime_proof_result: dict[str, Any] | None,
     hud_model_result: dict[str, Any] | None,
     hud_presenter_model_result: dict[str, Any] | None,
+    hud_presenter_live_proof_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     status_hud = wsta88_result.get("status_hud") if isinstance(wsta88_result.get("status_hud"), dict) else {}
     if not status_hud:
@@ -1162,6 +1287,7 @@ def build_server_status(
         cloudflared_runtime_proof_result,
         hud_model_result,
         hud_presenter_model_result,
+        hud_presenter_live_proof_result,
     )
     public_off = (status_hud.get("public_state") or "PUBLIC_OFF") == "PUBLIC_OFF"
     ready_default_off = public_off and bool(packet_filter.get("ready"))
@@ -1195,6 +1321,14 @@ def build_server_status(
         if isinstance(hardening.get("hud_presenter_model"), dict)
         else {}
     )
+    hud_presenter_live = (
+        hud_presenter_model.get("live_proof")
+        if isinstance(hud_presenter_model.get("live_proof"), dict)
+        else {}
+    )
+    hud_live_proven = bool(
+        hud_model.get("hud_live_proven") or hud_presenter_model.get("hud_live_proven")
+    )
     operator_next_actions = [
         "keep-public-exposure-default-off",
         "use-explicit-wsta88-live-gate-only-when-attended",
@@ -1206,7 +1340,9 @@ def build_server_status(
         operator_next_actions.append("define-cloudflared-service-model-before-public-profile")
     elif not cloudflared_runtime.get("cloudflared_live_proven"):
         operator_next_actions.append("prove-cloudflared-runtime-through-launcher-before-public-profile")
-    if hud_presenter_model.get("model_defined"):
+    if hud_presenter_model.get("native_presenter_live_proven"):
+        operator_next_actions.append("design-durable-dpublic-hud-presenter-service-across-debian-handoff")
+    elif hud_presenter_model.get("model_defined"):
         operator_next_actions.append("prototype-dpublic-hud-intent-presenter-boundary-before-live-hud-profile")
     elif hud_model.get("model_defined"):
         operator_next_actions.append("replace-direct-kms-hud-with-presenter-model-before-live-hud-profile")
@@ -1306,6 +1442,14 @@ def markdown(server_status: dict[str, Any]) -> str:
         if isinstance(hardening.get("hud_presenter_model"), dict)
         else {}
     )
+    hud_presenter_live = (
+        hud_presenter_model.get("live_proof")
+        if isinstance(hud_presenter_model.get("live_proof"), dict)
+        else {}
+    )
+    hud_live_proven = bool(
+        hud_model.get("hud_live_proven") or hud_presenter_model.get("hud_live_proven")
+    )
     lines = [
         "# WSTA Operator Server Status",
         "",
@@ -1368,7 +1512,11 @@ def markdown(server_status: dict[str, Any]) -> str:
         f"- D-public HUD intent producer no DRM: `{str(bool(hud_presenter_model.get('producer_no_drm_or_kms'))).lower()}`",
         f"- D-public HUD presenter owner: `{hud_presenter_model.get('presenter_owner')}`",
         f"- D-public HUD intent file: `{hud_presenter_model.get('intent_file')}`",
-        f"- D-public HUD live proof: `{str(bool(hud_model.get('hud_live_proven'))).lower()}`",
+        f"- D-public HUD live proof: `{str(hud_live_proven).lower()}`",
+        f"- D-public HUD native presenter live proof: `{str(bool(hud_presenter_model.get('native_presenter_live_proven'))).lower()}`",
+        f"- D-public HUD presenter checked flash: `{str(bool(hud_presenter_live.get('checked_flash_sha_matched') and hud_presenter_live.get('checked_flash_boot_health_clean'))).lower()}`",
+        f"- D-public HUD presenter KMS present: `{str(bool(hud_presenter_live.get('present_done'))).lower()}`",
+        f"- D-public HUD presenter reject paths: `{str(bool(hud_presenter_live.get('reject_forbidden_command') and hud_presenter_live.get('reject_stale_intent'))).lower()}`",
         f"- Remaining launcher profiles: `{', '.join(launcher_proof.get('remaining_profiles') or [])}`",
         f"- Remaining syscall profiles: `{', '.join(syscall_trace_proof.get('remaining_profiles') or [])}`",
         "",
@@ -1622,6 +1770,28 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             write_json(out_json, result)
             return result
 
+    hud_presenter_live_proof_result: dict[str, Any] | None = None
+    if args.wsta137_hud_presenter_live_proof_json is not None:
+        hud_presenter_live_path, hud_presenter_live_error = require_private_file(
+            args.wsta137_hud_presenter_live_proof_json,
+            "wsta137-hud-presenter-live-proof",
+        )
+        if hud_presenter_live_error or hud_presenter_live_path is None:
+            result["decision"] = (
+                hud_presenter_live_error or "wsta108-blocked-wsta137-hud-presenter-live-proof"
+            )
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+        hud_presenter_live_proof_result = load_json(hud_presenter_live_path)
+        if hud_presenter_live_proof_result.get("decision") != wsta137.PASS_DECISION:
+            result["decision"] = "wsta108-blocked-wsta137-hud-presenter-live-proof-not-pass"
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+
     server_status = build_server_status(
         wsta88_result,
         hardening_result,
@@ -1634,6 +1804,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         cloudflared_runtime_proof_result,
         hud_model_result,
         hud_presenter_model_result,
+        hud_presenter_live_proof_result,
     )
     packet_filter_proof = server_status["hardening"].get("packet_filter_proof", {})
     packet_filter_control_proof = (
@@ -1648,6 +1819,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     cloudflared_runtime = server_status["hardening"].get("cloudflared_runtime", {})
     hud_model = server_status["hardening"].get("hud_model", {})
     hud_presenter_model = server_status["hardening"].get("hud_presenter_model", {})
+    hud_presenter_live = (
+        hud_presenter_model.get("live_proof")
+        if isinstance(hud_presenter_model.get("live_proof"), dict)
+        else {}
+    )
     result["server_status"] = server_status
     result["checks"] = {
         "wsta88_workflow_pass": True,
@@ -1696,9 +1872,29 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             hud_model.get("launcher_no_new_privs_required")
             and hud_model.get("launcher_caps_zero_required")
         ),
-        "hud_live_proven": bool(hud_model.get("hud_live_proven")),
+        "hud_live_proven": bool(hud_model.get("hud_live_proven") or hud_presenter_model.get("hud_live_proven")),
         "hud_presenter_model_supplied": hud_presenter_model_result is not None,
         "hud_presenter_model_defined": bool(hud_presenter_model.get("model_defined")),
+        "hud_presenter_live_proof_supplied": hud_presenter_live_proof_result is not None,
+        "hud_native_presenter_live_proven": bool(
+            hud_presenter_model.get("native_presenter_live_proven")
+        ),
+        "hud_presenter_checked_flash_proven": bool(
+            hud_presenter_live.get("checked_flash_sha_matched")
+            and hud_presenter_live.get("checked_flash_boot_health_clean")
+        ),
+        "hud_presenter_validate_live_proven": bool(
+            hud_presenter_live.get("validate_policy_markers")
+        ),
+        "hud_presenter_present_live_proven": bool(
+            hud_presenter_live.get("present_begin_frame_rc_zero")
+            and hud_presenter_live.get("present_rc_zero")
+            and hud_presenter_live.get("present_done")
+        ),
+        "hud_presenter_reject_paths_live_proven": bool(
+            hud_presenter_live.get("reject_forbidden_command")
+            and hud_presenter_live.get("reject_stale_intent")
+        ),
         "hud_direct_nonroot_kms_rejected": bool(
             hud_presenter_model.get("supersedes_wsta127_direct_kms")
         ),
@@ -1785,6 +1981,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         result["ended_utc"] = utc_stamp()
         write_json(out_json, result)
         return result
+    if (
+        hud_presenter_live_proof_result is not None
+        and not result["checks"]["hud_native_presenter_live_proven"]
+    ):
+        result["decision"] = "wsta108-blocked-wsta137-hud-presenter-live-proof-incomplete"
+        result["gate_decision"] = result["decision"]
+        result["ended_utc"] = utc_stamp()
+        write_json(out_json, result)
+        return result
 
     result["decision"] = PASS_DECISION
     result["gate_decision"] = "ok"
@@ -1821,6 +2026,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--wsta125-cloudflared-runtime-proof-json", type=Path)
     parser.add_argument("--wsta127-hud-model-json", type=Path)
     parser.add_argument("--wsta130-hud-presenter-model-json", type=Path)
+    parser.add_argument("--wsta137-hud-presenter-live-proof-json", type=Path)
     parser.add_argument("--print-template", action="store_true")
     parser.add_argument("--print-full-json", action="store_true")
     return parser

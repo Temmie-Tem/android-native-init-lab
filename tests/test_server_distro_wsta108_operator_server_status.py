@@ -400,6 +400,71 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
             "secret_values_logged": 0,
         }
 
+    def hud_presenter_live_proof(self) -> dict:
+        proof = {
+            "decision": runner.wsta137.PASS_DECISION,
+            "run_dir": "workspace/private/runs/server-distro/wsta137-dpublic-native-presenter-live-test",
+            "source_run_dir": "workspace/private/runs/server-distro/wsta137-source-live-test",
+            "candidate": {
+                "init_version": runner.wsta137.INIT_VERSION,
+                "init_build": runner.wsta137.INIT_BUILD,
+                "boot_image": runner.wsta137.HELPER_BOOT_IMAGE,
+                "boot_sha256": runner.wsta137.BOOT_SHA256,
+            },
+            "checked_flash": {
+                "used_checked_helper": True,
+                "local_sha_match": True,
+                "remote_sha_match": True,
+                "boot_readback_sha_match": True,
+                "booted_v3398": True,
+                "boot_ok": True,
+                "selftest_fail_zero": True,
+                "transport_serial_ready": True,
+                "transport_tcpctl_ready": True,
+            },
+            "validate_proof": {
+                "intent_schema": runner.wsta137.INTENT_SCHEMA,
+                "sequence": 13701,
+                "age_ms": 653,
+                "intent_valid": True,
+                "forbidden_fields_reject": True,
+                "unknown_fields_reject": True,
+                "stale_after_ms": runner.wsta137.STALE_AFTER_MS,
+                "stale_after_marker": True,
+                "presenter_owner_native_root": True,
+                "debian_direct_kms_zero": True,
+                "validate_only": True,
+            },
+            "present_proof": {
+                "sequence": 13702,
+                "age_ms": 556,
+                "intent_valid": True,
+                "present_begin_frame_rc_zero": True,
+                "present_rc_zero": True,
+                "present_done": True,
+                "framebuffer": "1080x2400",
+                "crtc": 133,
+            },
+            "reject_proof": {
+                "forbidden_command_rejected": True,
+                "forbidden_rc": -1,
+                "stale_rejected": True,
+                "stale_rc": -110,
+                "stale_age_ms": 102866,
+                "stale_after_ms": runner.wsta137.STALE_AFTER_MS,
+            },
+            "final_health": {
+                "v3398_resident": True,
+                "selftest_fail_zero": True,
+                "transport_serial_ready": True,
+                "transport_tcpctl_ready": True,
+            },
+            "public_url_value_logged": False,
+            "secret_values_logged": 0,
+        }
+        proof["checks"] = runner.wsta137.validate_proof(proof)
+        return proof
+
     def valid_args(self, root: Path, wsta88_json: Path, *extra: str):
         return runner.build_arg_parser().parse_args([
             "--run-dir",
@@ -951,6 +1016,75 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertNotIn("http://", markdown)
         self.assertNotIn("https://", markdown)
 
+    def test_valid_wsta137_hud_presenter_live_proof_updates_operator_status(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            manifest_path = root / "inputs" / "wsta90_service_hardening_manifest.json"
+            hud_path = root / "inputs" / "wsta127_dpublic_hud_service_model.json"
+            presenter_path = root / "inputs" / "wsta130_dpublic_hud_presenter_model.json"
+            live_path = root / "inputs" / "wsta137_dpublic_native_presenter_live.json"
+            self.write_json(manifest_path, self.hardening_manifest())
+            self.write_json(hud_path, self.hud_model_proof())
+            self.write_json(presenter_path, self.hud_presenter_model_proof())
+            self.write_json(live_path, self.hud_presenter_live_proof())
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta90-service-hardening-manifest-json",
+                str(manifest_path),
+                "--wsta127-hud-model-json",
+                str(hud_path),
+                "--wsta130-hud-presenter-model-json",
+                str(presenter_path),
+                "--wsta137-hud-presenter-live-proof-json",
+                str(live_path),
+            ))
+            markdown = (root / "wsta108" / "wsta108_operator_server_status.md").read_text(encoding="utf-8")
+            summary_text = json.dumps(runner.public_summary(result), sort_keys=True)
+
+        self.assertEqual(result["decision"], runner.PASS_DECISION)
+        presenter = result["server_status"]["hardening"]["hud_presenter_model"]
+        live = presenter["live_proof"]
+        self.assertEqual(presenter["state"], "DPUBLIC_HUD_NATIVE_PRESENTER_LIVE_PROVEN")
+        self.assertTrue(presenter["model_defined"])
+        self.assertTrue(presenter["hud_live_proven"])
+        self.assertTrue(presenter["native_presenter_live_proven"])
+        self.assertTrue(live["native_presenter_live_proven"])
+        self.assertTrue(live["checked_flash_used"])
+        self.assertTrue(live["checked_flash_sha_matched"])
+        self.assertTrue(live["checked_flash_boot_health_clean"])
+        self.assertEqual(live["validate_intent_sequence"], 13701)
+        self.assertEqual(live["present_sequence"], 13702)
+        self.assertEqual(live["present_framebuffer"], "1080x2400")
+        self.assertEqual(live["present_crtc"], 133)
+        self.assertTrue(live["reject_forbidden_command"])
+        self.assertTrue(live["reject_stale_intent"])
+        self.assertTrue(result["checks"]["hud_live_proven"])
+        self.assertTrue(result["checks"]["hud_presenter_live_proof_supplied"])
+        self.assertTrue(result["checks"]["hud_native_presenter_live_proven"])
+        self.assertTrue(result["checks"]["hud_presenter_checked_flash_proven"])
+        self.assertTrue(result["checks"]["hud_presenter_validate_live_proven"])
+        self.assertTrue(result["checks"]["hud_presenter_present_live_proven"])
+        self.assertTrue(result["checks"]["hud_presenter_reject_paths_live_proven"])
+        self.assertIn(
+            "design-durable-dpublic-hud-presenter-service-across-debian-handoff",
+            result["server_status"]["operator_next_actions"],
+        )
+        self.assertNotIn(
+            "prototype-dpublic-hud-intent-presenter-boundary-before-live-hud-profile",
+            result["server_status"]["operator_next_actions"],
+        )
+        self.assertIn("D-public HUD live proof: `true`", markdown)
+        self.assertIn("D-public HUD native presenter live proof: `true`", markdown)
+        self.assertIn("D-public HUD presenter checked flash: `true`", markdown)
+        self.assertIn("D-public HUD presenter KMS present: `true`", markdown)
+        self.assertIn("D-public HUD presenter reject paths: `true`", markdown)
+        self.assertNotIn("http://", summary_text)
+        self.assertNotIn("https://", summary_text)
+        self.assertNotIn("http://", markdown)
+        self.assertNotIn("https://", markdown)
+
     def test_wsta120_and_smoke_launcher_proofs_refine_shared_user_group_blocker(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -1182,6 +1316,23 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
 
         self.assertEqual(result["decision"], "wsta108-blocked-wsta130-hud-presenter-model-not-pass")
 
+    def test_nonpass_wsta137_hud_presenter_live_proof_blocks(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            live_path = root / "inputs" / "wsta137_dpublic_native_presenter_live.json"
+            proof = self.hud_presenter_live_proof()
+            proof["decision"] = "wsta137-blocked"
+            self.write_json(live_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta137-hud-presenter-live-proof-json",
+                str(live_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta137-hud-presenter-live-proof-not-pass")
+
     def test_incomplete_wsta110_launcher_proof_blocks_even_with_pass_decision(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -1314,6 +1465,26 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertFalse(result["checks"]["hud_presenter_model_defined"])
         self.assertFalse(result["checks"]["hud_intent_schema_fail_closed"])
 
+    def test_incomplete_wsta137_hud_presenter_live_proof_blocks_even_with_pass_decision(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            live_path = root / "inputs" / "wsta137_dpublic_native_presenter_live.json"
+            proof = self.hud_presenter_live_proof()
+            proof["present_proof"]["present_done"] = False
+            proof["checks"] = runner.wsta137.validate_proof(proof)
+            self.write_json(live_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta137-hud-presenter-live-proof-json",
+                str(live_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta137-hud-presenter-live-proof-incomplete")
+        self.assertFalse(result["checks"]["hud_native_presenter_live_proven"])
+        self.assertFalse(result["checks"]["hud_presenter_present_live_proven"])
+
     def test_public_summary_markdown_and_template_are_redacted(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -1354,6 +1525,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("--wsta125-cloudflared-runtime-proof-json", payload)
         self.assertIn("--wsta127-hud-model-json", payload)
         self.assertIn("--wsta130-hud-presenter-model-json", payload)
+        self.assertIn("--wsta137-hud-presenter-live-proof-json", payload)
 
     def test_source_is_host_only_and_names_server_model(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")
@@ -1370,8 +1542,11 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("CLOUDFLARED_RUNTIME_LIVE_PROVEN", source)
         self.assertIn("DPUBLIC_HUD_SERVICE_MODEL_SOURCE_DEFINED", source)
         self.assertIn("DPUBLIC_HUD_PRESENTER_MODEL_SOURCE_DEFINED", source)
+        self.assertIn("DPUBLIC_HUD_NATIVE_PRESENTER_LIVE_PROVEN", source)
         self.assertIn("split-intent-native-presenter", source)
         self.assertIn("prototype-dpublic-hud-intent-presenter-boundary-before-live-hud-profile", source)
+        self.assertIn("design-durable-dpublic-hud-presenter-service-across-debian-handoff", source)
+        self.assertIn("--wsta137-hud-presenter-live-proof-json", source)
         self.assertIn('"boot_flash": False', source)
         self.assertIn('"public_url_value_logged": False', source)
         self.assertNotIn("native_init_flash.py", source)

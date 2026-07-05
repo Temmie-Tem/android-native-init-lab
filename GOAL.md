@@ -3436,10 +3436,33 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > no Wi-Fi connect, DHCP, public tunnel, public smoke, packet-filter mutation, Debian
 > switch-root, or Debian direct DRM/KMS presenter ran.  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA137_DPUBLIC_NATIVE_HUD_PRESENTER_LIVE_2026-07-05.md`.
-> **NEXT:** WSTA138 should fold the WSTA137 live presenter proof into operator/server
-> status, then choose the durable handoff shape: explicit native presenter command only,
-> or a bounded native presenter service that survives Debian handoff while Debian remains
-> only the HUD intent producer.
+> **🟢 STATUS (2026-07-05 09:00 KST host clock) — WSTA138 OPERATOR STATUS
+> HUD PRESENTER LIVE SOURCE PASS.**  Codex added a host-only WSTA137 proof summarizer,
+> `workspace/public/src/scripts/server-distro/run_wsta137_dpublic_native_presenter_live_summary.py`,
+> which re-reads the private WSTA137 live transcripts and emits a compact redacted
+> `wsta137_dpublic_native_presenter_live.json`.  The summary run
+> `workspace/private/runs/server-distro/wsta137-dpublic-native-presenter-live-summary-20260705T0900KST/`
+> returned `wsta137-dpublic-native-hud-presenter-live-pass`: candidate V3398 boot SHA
+> `b18be6a39eb41fb71a5256db3b23d5c648631fb164061b98b35a35ffba9f3a0c`, checked-helper
+> flash SHA match, clean boot health, fresh validate (`sequence=13701`, `age_ms=653`),
+> fresh present (`sequence=13702`, `age_ms=556`, `1080x2400`, `crtc=133`), reject paths,
+> and final health all recomputed true.  Codex then taught
+> `run_wsta108_operator_server_status.py` to accept
+> `--wsta137-hud-presenter-live-proof-json`, fail-close on non-pass or recomputed-invalid
+> WSTA137 input, and lift `hardening.hud_presenter_model.state` to
+> `DPUBLIC_HUD_NATIVE_PRESENTER_LIVE_PROVEN`.  The WSTA138 operator status run
+> `workspace/private/runs/server-distro/wsta138-operator-status-hud-presenter-live-20260705T0900KST/`
+> returned `wsta108-operator-server-status-source-pass` with `hud_live_proven=true`,
+> `hud_native_presenter_live_proven=true`, checked flash/validate/present/reject checks
+> true, and no public URL or secret value logged.  This WSTA138 unit was host-only: no
+> device action, boot flash, reboot, Wi-Fi connect, DHCP, public tunnel/smoke,
+> packet-filter mutation, userdata mutation, DRM/KMS action, or switch-root ran.
+> Validation passed `py_compile` and WSTA108 focused tests (`37 tests`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA138_OPERATOR_STATUS_HUD_PRESENTER_LIVE_SOURCE_2026-07-05.md`.
+> **NEXT:** WSTA139 should design the durable native HUD presenter service across the
+> Debian handoff: native/root keeps sole DRM/KMS ownership, Debian writes fresh bounded
+> intent files only, and the design specifies lifetime, restart/cleanup, stale-intent
+> behavior, and proof that the presenter is the sole DRM fd holder during handoff.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
