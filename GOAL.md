@@ -4054,10 +4054,33 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > (`48 tests OK`), full server-distro regression (`551 tests OK`), and WSTA159
 > proof generation from the real WSTA153/WSTA156/WSTA158 artifacts.  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA159_SECCOMP_LOADER_CHECKONLY_ROOTFS_PROOF_2026-07-05.md`.
-> **NEXT:** WSTA160 should run a private full-rootfs launcher dry-run that uses
-> the staged helper path exactly as it will exist on ARM64, without enabling
-> actual seccomp load/enforcement.  Actual enforcement remains unproven and must
-> stay behind a later explicit live gate.
+>
+> **🟢 STATUS (2026-07-05 13:00 KST host clock) — WSTA160 SECCOMP
+> FULL-ROOTFS CHROOT DRY-RUN PASS.**  Codex added a host-only WSTA160 runner
+> that copies the private full source rootfs, stages service identities,
+> `a90-service-launch`, the WSTA153 seccomp policy, the WSTA156 filter artifact,
+> and the WSTA158 helper, then enters the copy with `unshare -r chroot`.  This
+> proof uses the helper's default in-rootfs path exactly as it will exist on
+> ARM64: `/usr/lib/a90-dpublic/seccomp/a90-seccomp-loader-checkonly`; host
+> binfmt executes the ARM64 helper inside the chroot.  Default dry-run reached
+> fake `setpriv` with helper present.  The enforce-flag run printed
+> `A90WSTA158_LOADER_CHECK_ONLY=1`, `A90WSTA158_SECCOMP_LOAD=0`,
+> `dpublic-hud`→`dpublic-hud-intent`, and
+> `A90WSTA159_SECCOMP_HELPER_CHECK_ONLY_OK=1`, then exited `65` with
+> `blocked-seccomp-enforce-unimplemented` before exec.  Generated proof:
+> `workspace/private/runs/server-distro/wsta160-seccomp-full-rootfs-chroot-dry-run-20260705T1300KST/`.
+> This unit did not touch the device, flash, reboot, connect Wi-Fi, run DHCP,
+> open a public tunnel, mutate packet filters, write userdata, load BPF, load a
+> seccomp filter, or enforce seccomp.  It did run a host-private chroot only.
+> Validation passed `py_compile`, focused WSTA158+WSTA159+WSTA160 tests
+> (`7 tests OK`), full server-distro regression (`553 tests OK`), and WSTA160
+> proof generation from the real full source rootfs plus real
+> WSTA153/WSTA156/WSTA158 artifacts.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA160_SECCOMP_FULL_ROOTFS_CHROOT_DRY_RUN_2026-07-05.md`.
+> **NEXT:** WSTA161 should decide whether the next bounded step is still
+> host-only seccomp-loader implementation work or a separately gated live/chroot
+> observation.  Actual seccomp enforcement remains unproven and must stay behind
+> an explicit later gate.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
