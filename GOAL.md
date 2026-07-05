@@ -3881,6 +3881,32 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA152_OPERATOR_STATUS_DROPBEAR_ADMIN_SYSCALL_SOURCE_2026-07-05.md`.
 > **NEXT:** derive concrete seccomp policy from the live syscall baselines, or
 > close the remaining service-launcher/user coverage residual first.
+>
+> **🟢 STATUS (2026-07-05 12:02 KST host clock) — WSTA153 SECCOMP
+> POLICY SOURCE PASS.**  Codex added
+> `run_wsta153_seccomp_policy_source.py` plus focused tests and derived a
+> concrete source-only seccomp policy draft from the WSTA108 live syscall
+> baselines.  WSTA108 was also tightened to preserve cloudflared's full runtime
+> syscall list so the policy can be generated from one operator-status artifact.
+> The regenerated WSTA108 input passed at
+> `workspace/private/runs/server-distro/wsta153-operator-status-seccomp-baseline-20260705T1205KST/`.
+> WSTA153 then emitted
+> `workspace/private/runs/server-distro/wsta153-seccomp-policy-source-20260705T1207KST/wsta153_seccomp_policy.json`
+> with state `SECCOMP_POLICY_DRAFT_FROM_LIVE_BASELINES` and
+> `SOURCE_ONLY_NOT_ENFORCED`.  It contains four default-deny, not-enforced
+> aarch64 profiles: `dpublic-smoke-httpd` (18 syscalls),
+> `cloudflared-quick-tunnel` (52), `dropbear-admin-usb` (53), and
+> `dpublic-hud-intent` (22).  It explicitly excludes
+> `wsta-native-uplink-helper` and the native HUD presenter from Debian service
+> seccomp scope.  This WSTA153 unit was host-only: no device action, flash,
+> reboot, Wi-Fi, DHCP, public tunnel, packet-filter mutation, userdata touch,
+> switch-root, or seccomp enforcement ran.  Validation passed `py_compile`,
+> focused WSTA108+WSTA153 tests (`51 tests OK`), full server-distro regression
+> (`535 tests OK`), WSTA108 status regeneration, and WSTA153 policy generation.
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA153_SECCOMP_POLICY_SOURCE_2026-07-05.md`.
+> **NEXT:** WSTA154 should design launcher-side seccomp integration/dry-run
+> gating before any filter load; enforcement remains unproven.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

@@ -1138,6 +1138,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertTrue(runtime["trace_artifacts_saved"])
         self.assertTrue(runtime["core_syscalls_observed"])
         self.assertEqual(runtime["syscall_count"], 52)
+        self.assertIn("connect", runtime["syscall_names"])
         self.assertTrue(runtime["runtime_cleanup_ok"])
         self.assertTrue(runtime["final_selftest_fail_zero"])
         self.assertTrue(model["cloudflared_live_proven"])

@@ -831,6 +831,7 @@ def compact_cloudflared_runtime_proof(proof_result: dict[str, Any] | None) -> di
         "core_syscalls": core_syscalls,
         "core_syscalls_observed": core_syscalls_observed,
         "syscall_count": int(profile.get("syscall_count") or 0),
+        "syscall_names": syscall_names,
         "runtime_cleanup_ok": bool(checks.get("runtime_cleanup_ok")),
         "uplink_service_stop_pass": bool(checks.get("uplink_service_stop_pass")),
         "native_uplink_helper_cleanup_ok": bool(checks.get("native_uplink_helper_cleanup_ok")),
