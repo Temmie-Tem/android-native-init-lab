@@ -3614,6 +3614,31 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > native presenter PID survives and remains the sole DRM owner, prove
 > Debian/`a90hud` has no DRM fd, then prove a fresh Debian-written intent is
 > consumed after handoff.
+>
+> **🟡 STATUS (2026-07-05 09:58 KST host clock) — WSTA143 DPUBLIC HUD
+> PRESENTER HANDOFF SURVIVAL HALF-PASS; INTENT PATH BLOCKED.**  Codex ran the
+> Debian handoff survival proof on resident V3400 with no new build or flash.
+> The native presenter started as PID 694, showed `status.drm_fd=1`, and
+> pre-handoff intent `sequence=14300` reached `present_rc=0`.  During
+> `switch-root-to-userdata SERVER-DISTRO-D4-USERDATA-APPLIANCE
+> userdata=appliance-root`, handoff cleanup terminated stale native DRM owners
+> PID 545/549 and explicitly preserved PID 694.  Debian came up as PID1
+> `/usr/sbin/init`; after handoff, PID 694 was alive as `/init (deleted)` and
+> was the only process with a DRM fd.  A Debian-launched `a90hud` intent writer
+> had UID/GID 3904, `CapEff=0`, pipe fds only, and wrote fresh
+> `sequence=14301` as `a90hud:a90hud 0640`.  The blocker: the preserved native
+> presenter did not consume that sequence because `/run/a90-dpublic` is split
+> after `switch_root`.  Debian `/run/a90-dpublic` lives on the userdata ext4
+> root, while `/proc/694/root/run/a90-dpublic` lives on the old rootfs ramfs;
+> probe files written through each path appeared only on that side.  Device was
+> rebooted back to V3400 native-init and final `selftest fail=0`.
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA143_DPUBLIC_HUD_PRESENTER_HANDOFF_LIVE_2026-07-05.md`.
+> **NEXT:** WSTA144 should implement a shared `/run/a90-dpublic` handoff mount
+> contract in native-init source (make the presenter and Debian see the same
+> backing directory via an explicit shared/bind mount before `exec_switch_root_now`),
+> build V3401, and live-gate fresh Debian intent consumption by the preserved
+> native presenter.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
