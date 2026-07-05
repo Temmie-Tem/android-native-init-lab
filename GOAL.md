@@ -142,6 +142,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Continue with root-boundary policy for `wsta-native-uplink-helper`, or move to
 > nftables/default-drop or AppArmor feasibility.
 
+> **🟢 STATUS (2026-07-05 21:30 KST) — WSTA212 NATIVE UPLINK BOUNDARY POLICY PASS.**
+> Codex defined the `wsta-native-uplink-helper` root/native boundary policy from
+> existing evidence: WSTA90 service manifest, WSTA22 Debian client live status/scan
+> proof, WSTA154 seccomp launcher exclusion model, and the public Debian client
+> source.  Full host-only run:
+> `workspace/private/runs/server-distro/wsta212-native-uplink-boundary-policy-20260705T2130KST/wsta212_result.json`;
+> decision `wsta212-native-uplink-boundary-policy-source-pass`.  The policy state is
+> `NATIVE_UPLINK_ROOT_BOUNDARY_POLICY_SOURCE_DEFINED`: Debian may use only
+> `status,scan` through `/usr/local/bin/a90-native-wifi-service-client`; connect,
+> association, DHCP, ping, routing, credentials, and public tunnel start remain
+> native-owned boundary operations; the helper is not a Debian service launcher or
+> Debian service seccomp target.  Safety stayed host-only: no device action, boot
+> flash, reboot, Wi-Fi connect/association, DHCP, ping, public tunnel, packet-filter
+> mutation, rootfs mutation, userdata write, or switch-root.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA212_NATIVE_UPLINK_BOUNDARY_POLICY_2026-07-05.md`.
+> **NEXT:** fold WSTA212 into the WSTA108 operator status bundle so the root-boundary
+> next-action can retire, then continue with nftables/default-drop or AppArmor
+> feasibility.
+
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
 > `D-PUBLIC-LIVE-PUBLISH` go and is actively driving D-public. First live publish (commit `8d25f793`:
