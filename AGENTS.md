@@ -30,6 +30,17 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    does not authorize A90 non-boot writes, S22 bootloader/modem/EFS/RPMB/keymaster
    writes, Magisk/root installation, multidisabler, format data, or any other S22
    partition write.
+   **Narrow operator-authorized exception (2026-07-06, S22+ Magisk root baseline
+   only):** after the S22+ TWRP recovery-infra pass above, Codex may perform one
+   bounded Magisk root-baseline install on the same Samsung S22+ `SM-S906N`/`g0q`
+   `S906NKSS7FYG8` by flashing the pinned official Magisk `v30.7` APK SHA256
+   `e0d32d2123532860f97123d927b1bb86c4e08e6fd8a48bfc6b5bee0afae9ebd5` renamed as
+   a recovery zip through TWRP, and only after full boot-partition readback equals
+   stock SHA256 `4150b962314e6136acba61b20f471d6ee1c418b83cf8c3ee4d9cf7c91a3640ae`.
+   This exception authorizes Magisk's boot-image patch and any minimal Magisk
+   installer metadata writes needed by the TWRP installer, but does not authorize
+   Magisk modules, multidisabler, format data, AP/full-firmware flashing for root,
+   non-boot partition experiments, or bootloader/modem/EFS/RPMB/keymaster writes.
 2. **Flash only via the checked helper by default:** `workspace/public/src/scripts/revalidation/native_init_flash.py`.
    Never `dd`/`fastboot`/raw-write a partition. Never invent a new flash path.
    **Narrow operator-authorized exception (2026-07-02, self-dd ladder only):** the V3358
@@ -75,6 +86,12 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    maps to the upstream guide's USERDATA-side disabled-vbmeta flow, so the transcript
    must record that residual slot-name risk. No auto-reboot option may be used for the
    TWRP install.
+   **Narrow operator-authorized exception (2026-07-06, S22+ TWRP Magisk install
+   only):** the S22+ Magisk root-baseline install above may use TWRP's
+   `twrp install /tmp/Magisk-v30.7.zip` command because official Magisk still
+   provides a deprecated custom-recovery path for devices with boot ramdisk. The
+   transcript must record that this path is deprecated and that the official Samsung
+   recommendation is AP patching via the Magisk app.
 3. **Rollback precondition:** before ANY flash, confirm the known-good rollback image
    `workspace/private/inputs/boot_images/boot_linux_v2321_usb_clean_identity_rodata.img`
    (SHA256 `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`, the resident
