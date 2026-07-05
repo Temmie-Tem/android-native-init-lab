@@ -310,6 +310,32 @@ class ServerDistroWsta55ShortLivedPublicProofTests(unittest.TestCase):
         self.assertNotIn(runner.wsta45.wsta25.NATIVE_CONFIRM_TOKEN, text)
         self.assertNotIn(runner.wsta45.PUBLIC_CONFIRM_TOKEN, text)
 
+    def test_cloudflared_egress_allowlist_gate_and_nested_args(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            args = self.live_args(root)
+            args.enable_cloudflared_egress_allowlist = True
+
+            self.assertEqual(
+                runner.explicit_live_gate(args),
+                (False, "wsta55-blocked-cloudflared-egress-allowlist-proof-required"),
+            )
+            args.force_cloudflared_egress_allowlist_proof = True
+            self.assertEqual(
+                runner.explicit_live_gate(args),
+                (False, "wsta55-blocked-cloudflared-egress-route-required"),
+            )
+            args.cloudflared_egress_dns4 = ["dns-route-redacted"]
+            args.cloudflared_egress_tls4 = ["tls-route-redacted"]
+            self.assertEqual(runner.explicit_live_gate(args), (True, "ok"))
+
+            nested = runner.wsta45_args(args, root)
+
+        self.assertTrue(nested.enable_cloudflared_egress_allowlist)
+        self.assertTrue(nested.force_cloudflared_egress_allowlist_proof)
+        self.assertEqual(nested.cloudflared_egress_dns4, ["dns-route-redacted"])
+        self.assertEqual(nested.cloudflared_egress_tls4, ["tls-route-redacted"])
+
     def test_source_keeps_flash_and_raw_public_surfaces_out(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")
 

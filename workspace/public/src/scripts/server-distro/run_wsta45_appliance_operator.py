@@ -39,6 +39,10 @@ FORBIDDEN_WSTA43_PASSTHROUGH = {
     "--ack-public-exposure",
     "--ack-packet-filter-mutation",
     "--force-packet-filter-restore-proof",
+    "--enable-cloudflared-egress-allowlist",
+    "--force-cloudflared-egress-allowlist-proof",
+    "--cloudflared-egress-dns4",
+    "--cloudflared-egress-tls4",
     "--native-confirm-token",
     "--public-confirm-token",
     "--use-native-uplink-profile",
@@ -57,6 +61,18 @@ def rel(path: Path) -> str:
 
 def write_json(path: Path, payload: Any) -> None:
     wsta43.write_json(path, payload)
+
+
+def cloudflared_egress_enabled(args: argparse.Namespace) -> bool:
+    return wsta43.cloudflared_egress_enabled(args)
+
+
+def cloudflared_egress_dns4_values(args: argparse.Namespace) -> list[str]:
+    return wsta43.cloudflared_egress_dns4_values(args)
+
+
+def cloudflared_egress_tls4_values(args: argparse.Namespace) -> list[str]:
+    return wsta43.cloudflared_egress_tls4_values(args)
 
 
 def operator_publish_template() -> dict[str, Any]:
@@ -83,6 +99,14 @@ def operator_publish_template() -> dict[str, Any]:
         "command": command,
         "native_confirm_token_placeholder": NATIVE_CONFIRM_TOKEN_PLACEHOLDER,
         "public_confirm_token_placeholder": PUBLIC_CONFIRM_TOKEN_PLACEHOLDER,
+        "optional_cloudflared_egress_allowlist": [
+            "--enable-cloudflared-egress-allowlist",
+            "--force-cloudflared-egress-allowlist-proof",
+            "--cloudflared-egress-dns4",
+            "<redacted-dns-route>",
+            "--cloudflared-egress-tls4",
+            "<redacted-tls-route>",
+        ],
         "secret_values_logged": 0,
         "public_url_value_logged": False,
         "notes": [
@@ -164,6 +188,11 @@ def explicit_publish_gate(args: argparse.Namespace) -> tuple[bool, str]:
         return False, "wsta45-blocked-packet-filter-mutation-ack-required"
     if not args.force_packet_filter_restore_proof:
         return False, "wsta45-blocked-packet-filter-restore-proof-required"
+    if cloudflared_egress_enabled(args):
+        if not args.force_cloudflared_egress_allowlist_proof:
+            return False, "wsta45-blocked-cloudflared-egress-allowlist-proof-required"
+        if not cloudflared_egress_dns4_values(args) or not cloudflared_egress_tls4_values(args):
+            return False, "wsta45-blocked-cloudflared-egress-route-required"
     if args.native_confirm_token != wsta25.NATIVE_CONFIRM_TOKEN:
         return False, "wsta45-blocked-native-confirm-token-required"
     if args.public_confirm_token != PUBLIC_CONFIRM_TOKEN:
@@ -192,6 +221,10 @@ def wsta43_args(args: argparse.Namespace, run_dir: Path) -> argparse.Namespace:
     nested.ack_public_exposure = True
     nested.ack_packet_filter_mutation = True
     nested.force_packet_filter_restore_proof = True
+    nested.enable_cloudflared_egress_allowlist = cloudflared_egress_enabled(args)
+    nested.force_cloudflared_egress_allowlist_proof = bool(args.force_cloudflared_egress_allowlist_proof)
+    nested.cloudflared_egress_dns4 = cloudflared_egress_dns4_values(args)
+    nested.cloudflared_egress_tls4 = cloudflared_egress_tls4_values(args)
     nested.native_confirm_token = args.native_confirm_token
     nested.public_confirm_token = args.public_confirm_token
     nested.use_native_uplink_profile = True
@@ -264,6 +297,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "ack_public_exposure": bool(args.ack_public_exposure),
             "ack_packet_filter_mutation": bool(args.ack_packet_filter_mutation),
             "force_packet_filter_restore_proof": bool(args.force_packet_filter_restore_proof),
+            "cloudflared_egress_allowlist_enabled": cloudflared_egress_enabled(args),
+            "force_cloudflared_egress_allowlist_proof": bool(args.force_cloudflared_egress_allowlist_proof),
+            "cloudflared_egress_dns4_count": len(cloudflared_egress_dns4_values(args)),
+            "cloudflared_egress_tls4_count": len(cloudflared_egress_tls4_values(args)),
+            "cloudflared_egress_route_values_redacted": True,
             "native_confirm_token_supplied": bool(args.native_confirm_token),
             "native_confirm_token_matches": args.native_confirm_token == wsta25.NATIVE_CONFIRM_TOKEN,
             "public_confirm_token_supplied": bool(args.public_confirm_token),
@@ -316,6 +354,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--ack-public-exposure", action="store_true")
     parser.add_argument("--ack-packet-filter-mutation", action="store_true")
     parser.add_argument("--force-packet-filter-restore-proof", action="store_true")
+    parser.add_argument("--enable-cloudflared-egress-allowlist", action="store_true")
+    parser.add_argument("--force-cloudflared-egress-allowlist-proof", action="store_true")
+    parser.add_argument("--cloudflared-egress-dns4", action="append", default=[])
+    parser.add_argument("--cloudflared-egress-tls4", action="append", default=[])
     parser.add_argument("--native-confirm-token", default="")
     parser.add_argument("--public-confirm-token", default="")
     parser.add_argument("--print-publish-template", action="store_true")

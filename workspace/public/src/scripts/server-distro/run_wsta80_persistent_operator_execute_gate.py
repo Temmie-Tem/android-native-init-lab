@@ -93,6 +93,18 @@ def safety_flags(args: argparse.Namespace, gate_ok: bool = False) -> dict[str, A
     }
 
 
+def cloudflared_egress_enabled(args: argparse.Namespace) -> bool:
+    return wsta58.cloudflared_egress_enabled(args)
+
+
+def cloudflared_egress_dns4_values(args: argparse.Namespace) -> list[str]:
+    return wsta58.cloudflared_egress_dns4_values(args)
+
+
+def cloudflared_egress_tls4_values(args: argparse.Namespace) -> list[str]:
+    return wsta58.cloudflared_egress_tls4_values(args)
+
+
 def template() -> dict[str, Any]:
     return {
         "scope": "WSTA80 host-only persistent operator execute gate",
@@ -119,6 +131,14 @@ def template() -> dict[str, Any]:
             "<native-confirm-token>",
             "--public-confirm-token",
             "<public-confirm-token>",
+        ],
+        "optional_cloudflared_egress_allowlist": [
+            "--enable-cloudflared-egress-allowlist",
+            "--force-cloudflared-egress-allowlist-proof",
+            "--cloudflared-egress-dns4",
+            "<redacted-dns-route>",
+            "--cloudflared-egress-tls4",
+            "<redacted-tls-route>",
         ],
         "live_execution": "not-run-by-default",
         "public_url_value_logged": False,
@@ -346,6 +366,11 @@ def explicit_live_gate(args: argparse.Namespace) -> tuple[bool, str]:
         return False, "wsta80-blocked-ttl-expiry-proof-required"
     if not args.force_manual_stop_proof:
         return False, "wsta80-blocked-manual-stop-proof-required"
+    if cloudflared_egress_enabled(args):
+        if not args.force_cloudflared_egress_allowlist_proof:
+            return False, "wsta80-blocked-cloudflared-egress-allowlist-proof-required"
+        if not cloudflared_egress_dns4_values(args) or not cloudflared_egress_tls4_values(args):
+            return False, "wsta80-blocked-cloudflared-egress-route-required"
     if args.native_confirm_token != wsta58.wsta55.wsta45.wsta25.NATIVE_CONFIRM_TOKEN:
         return False, "wsta80-blocked-native-confirm-token-required"
     if args.public_confirm_token != wsta58.wsta55.wsta45.PUBLIC_CONFIRM_TOKEN:
@@ -381,6 +406,17 @@ def command_with_live_tokens(command: list[Any], args: argparse.Namespace, run_d
     ):
         if enabled and flag not in replaced:
             replaced.append(flag)
+    if cloudflared_egress_enabled(args):
+        for flag in (
+            "--enable-cloudflared-egress-allowlist",
+            "--force-cloudflared-egress-allowlist-proof",
+        ):
+            if flag not in replaced:
+                replaced.append(flag)
+        for value in cloudflared_egress_dns4_values(args):
+            replaced.extend(["--cloudflared-egress-dns4", value])
+        for value in cloudflared_egress_tls4_values(args):
+            replaced.extend(["--cloudflared-egress-tls4", value])
     replaced.extend([
         "--local-image",
         str(args.local_image),
@@ -494,6 +530,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     result["checks"]["explicit_live_gate"] = gate_ok
     result["checks"]["ack_packet_filter_mutation"] = bool(args.ack_packet_filter_mutation)
     result["checks"]["force_packet_filter_restore_proof"] = bool(args.force_packet_filter_restore_proof)
+    result["checks"]["cloudflared_egress_allowlist_enabled"] = cloudflared_egress_enabled(args)
+    result["checks"]["force_cloudflared_egress_allowlist_proof"] = bool(
+        args.force_cloudflared_egress_allowlist_proof
+    )
+    result["checks"]["cloudflared_egress_dns4_count"] = len(cloudflared_egress_dns4_values(args))
+    result["checks"]["cloudflared_egress_tls4_count"] = len(cloudflared_egress_tls4_values(args))
+    result["checks"]["cloudflared_egress_route_values_redacted"] = True
     if not gate_ok:
         result["decision"] = gate_decision
         result["ended_utc"] = utc_stamp()
@@ -526,6 +569,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--force-packet-filter-restore-proof", action="store_true")
     parser.add_argument("--force-ttl-expiry-proof", action="store_true")
     parser.add_argument("--force-manual-stop-proof", action="store_true")
+    parser.add_argument("--enable-cloudflared-egress-allowlist", action="store_true")
+    parser.add_argument("--force-cloudflared-egress-allowlist-proof", action="store_true")
+    parser.add_argument("--cloudflared-egress-dns4", action="append", default=[])
+    parser.add_argument("--cloudflared-egress-tls4", action="append", default=[])
     parser.add_argument("--local-image", type=Path, default=wsta58.wsta55.wsta45.wsta43.wsta42.DEFAULT_LOCAL_IMAGE)
     parser.add_argument("--local-image-sha256", default=wsta58.wsta55.wsta45.wsta43.wsta42.DEFAULT_LOCAL_IMAGE_SHA256)
     parser.add_argument("--remote-image", default=wsta58.wsta55.wsta45.wsta43.wsta42.DEFAULT_REMOTE_IMAGE)

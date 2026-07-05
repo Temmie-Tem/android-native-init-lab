@@ -430,6 +430,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > surfaces (WSTA43/WSTA45/WSTA55/WSTA58/WSTA80/WSTA88) before any attended live
 > egress allowlist attempt.
 
+> **🟢 STATUS (2026-07-05 22:45 KST) — WSTA225 CLOUDFLARED EGRESS OPERATOR PROPAGATION PASS.**
+> Codex propagated the WSTA224 cloudflared egress allowlist opt-in flags through
+> the higher operator surfaces: WSTA43, WSTA45, WSTA55, WSTA58, WSTA80, and
+> WSTA88 now accept/forward `--enable-cloudflared-egress-allowlist`,
+> `--force-cloudflared-egress-allowlist-proof`, `--cloudflared-egress-dns4`,
+> and `--cloudflared-egress-tls4`.  Each layer fail-closes if the opt-in is
+> enabled without the explicit proof flag or without both DNS and TLS route
+> values; public outputs retain only counts/redaction markers.  Default-off
+> packet generation is intentionally unchanged: WSTA76/WSTA78 packet/status
+> matching remains stable, and WSTA80/WSTA88 append egress flags only during the
+> explicit live delegation path.  No device action, boot flash, native reboot,
+> Wi-Fi connect, DHCP, public tunnel, public smoke, packet-filter mutation,
+> userdata write, LSM load, or switch-root occurred.  Validation:
+> WSTA43/WSTA45/WSTA55/WSTA58/WSTA80/WSTA88 focused tests `62 tests OK`, full
+> server-distro regression `829 tests OK`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA225_CLOUDFLARED_EGRESS_OPERATOR_PROPAGATION_2026-07-05.md`.
+> **NEXT:** prepare the attended WSTA226 cloudflared egress allowlist dry-run/live
+> gate wrapper: derive DNS/TLS route values at runtime, keep values private, run
+> only through explicit WSTA88/WSTA80 live delegation, and prove restore/public-
+> off before returning.
+
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
 > `D-PUBLIC-LIVE-PUBLISH` go and is actively driving D-public. First live publish (commit `8d25f793`:

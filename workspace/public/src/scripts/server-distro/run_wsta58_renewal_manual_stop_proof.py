@@ -49,6 +49,18 @@ def write_json(path: Path, payload: Any) -> None:
     wsta55.write_json(path, payload)
 
 
+def cloudflared_egress_enabled(args: argparse.Namespace) -> bool:
+    return wsta55.cloudflared_egress_enabled(args)
+
+
+def cloudflared_egress_dns4_values(args: argparse.Namespace) -> list[str]:
+    return wsta55.cloudflared_egress_dns4_values(args)
+
+
+def cloudflared_egress_tls4_values(args: argparse.Namespace) -> list[str]:
+    return wsta55.cloudflared_egress_tls4_values(args)
+
+
 def resolve_path(path: Path) -> Path:
     return path if path.is_absolute() else REPO_ROOT / path
 
@@ -105,6 +117,14 @@ def template() -> dict[str, Any]:
         "requires_initial_private_short_lease": True,
         "renewal_private_short_lease_minted_after_initial": True,
         "command": command,
+        "optional_cloudflared_egress_allowlist": [
+            "--enable-cloudflared-egress-allowlist",
+            "--force-cloudflared-egress-allowlist-proof",
+            "--cloudflared-egress-dns4",
+            "<redacted-dns-route>",
+            "--cloudflared-egress-tls4",
+            "<redacted-tls-route>",
+        ],
         "live_action_requires_execute_flag": True,
         "secret_values_logged": 0,
         "public_url_value_logged": False,
@@ -225,6 +245,11 @@ def explicit_live_gate(args: argparse.Namespace) -> tuple[bool, str]:
         return False, "wsta58-blocked-ttl-expiry-proof-required"
     if not args.force_manual_stop_proof:
         return False, "wsta58-blocked-manual-stop-proof-required"
+    if cloudflared_egress_enabled(args):
+        if not args.force_cloudflared_egress_allowlist_proof:
+            return False, "wsta58-blocked-cloudflared-egress-allowlist-proof-required"
+        if not cloudflared_egress_dns4_values(args) or not cloudflared_egress_tls4_values(args):
+            return False, "wsta58-blocked-cloudflared-egress-route-required"
     if args.native_confirm_token != wsta55.wsta45.wsta25.NATIVE_CONFIRM_TOKEN:
         return False, "wsta58-blocked-native-confirm-token-required"
     if args.public_confirm_token != wsta55.wsta45.PUBLIC_CONFIRM_TOKEN:
@@ -233,7 +258,7 @@ def explicit_live_gate(args: argparse.Namespace) -> tuple[bool, str]:
 
 
 def wsta55_args(args: argparse.Namespace, run_dir: Path, lease_path: Path, label: str) -> argparse.Namespace:
-    return wsta55.build_arg_parser().parse_args([
+    argv = [
         "--run-dir",
         str(run_dir / f"{label}-wsta55"),
         "--lease-artifact-json",
@@ -265,7 +290,17 @@ def wsta55_args(args: argparse.Namespace, run_dir: Path, lease_path: Path, label
         args.native_confirm_token,
         "--public-confirm-token",
         args.public_confirm_token,
-    ])
+    ]
+    if cloudflared_egress_enabled(args):
+        argv.extend([
+            "--enable-cloudflared-egress-allowlist",
+            "--force-cloudflared-egress-allowlist-proof",
+        ])
+        for value in cloudflared_egress_dns4_values(args):
+            argv.extend(["--cloudflared-egress-dns4", value])
+        for value in cloudflared_egress_tls4_values(args):
+            argv.extend(["--cloudflared-egress-tls4", value])
+    return wsta55.build_arg_parser().parse_args(argv)
 
 
 def mint_renewal_lease(args: argparse.Namespace, run_dir: Path) -> tuple[bool, dict[str, Any], Path | None]:
@@ -547,6 +582,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--force-packet-filter-restore-proof", action="store_true")
     parser.add_argument("--force-ttl-expiry-proof", action="store_true")
     parser.add_argument("--force-manual-stop-proof", action="store_true")
+    parser.add_argument("--enable-cloudflared-egress-allowlist", action="store_true")
+    parser.add_argument("--force-cloudflared-egress-allowlist-proof", action="store_true")
+    parser.add_argument("--cloudflared-egress-dns4", action="append", default=[])
+    parser.add_argument("--cloudflared-egress-tls4", action="append", default=[])
     parser.add_argument("--native-confirm-token", default="")
     parser.add_argument("--public-confirm-token", default="")
     parser.add_argument("--print-template", action="store_true")

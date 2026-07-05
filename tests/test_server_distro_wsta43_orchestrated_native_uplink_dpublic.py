@@ -82,6 +82,35 @@ class ServerDistroWsta43OrchestratedNativeUplinkDpublicTests(unittest.TestCase):
         args.public_confirm_token = runner.PUBLIC_CONFIRM_TOKEN
         self.assertEqual(runner.explicit_live_gate(args), (True, "ok"))
 
+    def test_cloudflared_egress_allowlist_gate_requires_proof_and_routes(self) -> None:
+        args = runner.build_arg_parser().parse_args([
+            "--allow-orchestrated-live",
+            "--allow-native-reboot",
+            "--allow-public-live",
+            "--ack-credentialed-wifi",
+            "--ack-public-exposure",
+            "--ack-packet-filter-mutation",
+            "--force-packet-filter-restore-proof",
+            "--enable-cloudflared-egress-allowlist",
+            "--native-confirm-token",
+            runner.wsta25.NATIVE_CONFIRM_TOKEN,
+            "--public-confirm-token",
+            runner.PUBLIC_CONFIRM_TOKEN,
+        ])
+
+        self.assertEqual(
+            runner.explicit_live_gate(args),
+            (False, "wsta43-blocked-cloudflared-egress-allowlist-proof-required"),
+        )
+        args.force_cloudflared_egress_allowlist_proof = True
+        self.assertEqual(
+            runner.explicit_live_gate(args),
+            (False, "wsta43-blocked-cloudflared-egress-route-required"),
+        )
+        args.cloudflared_egress_dns4 = ["dns-route-redacted"]
+        args.cloudflared_egress_tls4 = ["tls-route-redacted"]
+        self.assertEqual(runner.explicit_live_gate(args), (True, "ok"))
+
     def test_classify_orders_precondition_before_public_tunnel(self) -> None:
         self.assertEqual(
             runner.classify({"gate_decision": "gate", "checks": {"explicit_live_gate": False}}),
@@ -154,6 +183,26 @@ class ServerDistroWsta43OrchestratedNativeUplinkDpublicTests(unittest.TestCase):
         self.assertEqual(w42.native_confirm_token, runner.wsta25.NATIVE_CONFIRM_TOKEN)
         self.assertEqual(w42.public_confirm_token, runner.PUBLIC_CONFIRM_TOKEN)
         self.assertEqual(w42.host_resolver_conf, [Path("/tmp/resolv.example")])
+
+    def test_nested_args_preserve_cloudflared_egress_allowlist_without_route_values_in_public(self) -> None:
+        args = runner.build_arg_parser().parse_args([
+            "--enable-cloudflared-egress-allowlist",
+            "--force-cloudflared-egress-allowlist-proof",
+            "--cloudflared-egress-dns4",
+            "dns-route-redacted",
+            "--cloudflared-egress-tls4",
+            "tls-route-redacted",
+        ])
+        w42 = runner.wsta42_args(args, Path("workspace/private/runs/server-distro/example"))
+
+        self.assertTrue(w42.enable_cloudflared_egress_allowlist)
+        self.assertTrue(w42.force_cloudflared_egress_allowlist_proof)
+        self.assertEqual(w42.cloudflared_egress_dns4, ["dns-route-redacted"])
+        self.assertEqual(w42.cloudflared_egress_tls4, ["tls-route-redacted"])
+        detail = runner.cloudflared_egress_gate_detail(args)
+        self.assertEqual(detail["dns4_count"], 1)
+        self.assertEqual(detail["tls4_count"], 1)
+        self.assertTrue(detail["route_values_redacted"])
 
     def test_public_summary_redacts_url_and_secret_material(self) -> None:
         result = {

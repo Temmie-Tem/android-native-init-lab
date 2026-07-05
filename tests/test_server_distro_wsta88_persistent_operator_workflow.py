@@ -191,6 +191,12 @@ class ServerDistroWsta88PersistentOperatorWorkflowTests(unittest.TestCase):
                     "/mnt/sdext/a90/runtime/packet-filter-ready.img",
                     "--remote-clean-image",
                     "/mnt/sdext/a90/runtime/packet-filter-ready.img.clean",
+                    "--enable-cloudflared-egress-allowlist",
+                    "--force-cloudflared-egress-allowlist-proof",
+                    "--cloudflared-egress-dns4",
+                    "dns-route-redacted",
+                    "--cloudflared-egress-tls4",
+                    "tls-route-redacted",
                 ))
 
         self.assertEqual(result["decision"], runner.PASS_DECISION)
@@ -205,6 +211,10 @@ class ServerDistroWsta88PersistentOperatorWorkflowTests(unittest.TestCase):
             delegated.call_args_list[-1].args[0].remote_clean_image,
             "/mnt/sdext/a90/runtime/packet-filter-ready.img.clean",
         )
+        self.assertTrue(delegated.call_args_list[-1].args[0].enable_cloudflared_egress_allowlist)
+        self.assertTrue(delegated.call_args_list[-1].args[0].force_cloudflared_egress_allowlist_proof)
+        self.assertEqual(delegated.call_args_list[-1].args[0].cloudflared_egress_dns4, ["dns-route-redacted"])
+        self.assertEqual(delegated.call_args_list[-1].args[0].cloudflared_egress_tls4, ["tls-route-redacted"])
         self.assertTrue(result["checks"]["explicit_live_gate"])
         self.assertTrue(result["checks"]["wsta80_live_pass"])
         self.assertTrue(result["safety"]["device_action"])

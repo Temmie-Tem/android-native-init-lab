@@ -92,6 +92,18 @@ def safety_flags(args: argparse.Namespace, live_gate_ok: bool = False) -> dict[s
     }
 
 
+def cloudflared_egress_enabled(args: argparse.Namespace) -> bool:
+    return wsta80.cloudflared_egress_enabled(args)
+
+
+def cloudflared_egress_dns4_values(args: argparse.Namespace) -> list[str]:
+    return wsta80.cloudflared_egress_dns4_values(args)
+
+
+def cloudflared_egress_tls4_values(args: argparse.Namespace) -> list[str]:
+    return wsta80.cloudflared_egress_tls4_values(args)
+
+
 def template() -> dict[str, Any]:
     return {
         "scope": "WSTA88 one-command persistent operator workflow",
@@ -122,6 +134,14 @@ def template() -> dict[str, Any]:
             "<native-confirm-token>",
             "--public-confirm-token",
             "<public-confirm-token>",
+        ],
+        "optional_cloudflared_egress_allowlist": [
+            "--enable-cloudflared-egress-allowlist",
+            "--force-cloudflared-egress-allowlist-proof",
+            "--cloudflared-egress-dns4",
+            "<redacted-dns-route>",
+            "--cloudflared-egress-tls4",
+            "<redacted-tls-route>",
         ],
         "packet_filter_hardening": "required-by-wsta80-default-off-execute-gate",
         "live_execution": "not-run-by-default",
@@ -432,6 +452,15 @@ def wsta80_args(run_dir: Path, status_path: Path, args: argparse.Namespace, *, l
             "--remote-clean-image",
             args.remote_clean_image,
         ])
+        if cloudflared_egress_enabled(args):
+            argv.extend([
+                "--enable-cloudflared-egress-allowlist",
+                "--force-cloudflared-egress-allowlist-proof",
+            ])
+            for value in cloudflared_egress_dns4_values(args):
+                argv.extend(["--cloudflared-egress-dns4", value])
+            for value in cloudflared_egress_tls4_values(args):
+                argv.extend(["--cloudflared-egress-tls4", value])
     return wsta80.build_arg_parser().parse_args(argv)
 
 
@@ -749,6 +778,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "default_public_off": True,
         "live_execution_requested": live,
         "explicit_live_gate": live_gate_ok,
+        "cloudflared_egress_allowlist_enabled": cloudflared_egress_enabled(args),
+        "force_cloudflared_egress_allowlist_proof": bool(
+            getattr(args, "force_cloudflared_egress_allowlist_proof", False)
+        ),
+        "cloudflared_egress_dns4_count": len(cloudflared_egress_dns4_values(args)),
+        "cloudflared_egress_tls4_count": len(cloudflared_egress_tls4_values(args)),
+        "cloudflared_egress_route_values_redacted": True,
         "public_url_value_logged": False,
         "secret_values_logged": 0,
     }
@@ -801,6 +837,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--force-manual-stop-proof", action="store_true")
     parser.add_argument("--ack-packet-filter-mutation", action="store_true")
     parser.add_argument("--force-packet-filter-restore-proof", action="store_true")
+    parser.add_argument("--enable-cloudflared-egress-allowlist", action="store_true")
+    parser.add_argument("--force-cloudflared-egress-allowlist-proof", action="store_true")
+    parser.add_argument("--cloudflared-egress-dns4", action="append", default=[])
+    parser.add_argument("--cloudflared-egress-tls4", action="append", default=[])
     parser.add_argument("--local-image", type=Path, default=wsta80.wsta58.wsta55.wsta45.wsta43.wsta42.DEFAULT_LOCAL_IMAGE)
     parser.add_argument("--local-image-sha256", default=wsta80.wsta58.wsta55.wsta45.wsta43.wsta42.DEFAULT_LOCAL_IMAGE_SHA256)
     parser.add_argument("--remote-image", default=wsta80.wsta58.wsta55.wsta45.wsta43.wsta42.DEFAULT_REMOTE_IMAGE)

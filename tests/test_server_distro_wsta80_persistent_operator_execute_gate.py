@@ -270,6 +270,46 @@ class ServerDistroWsta80PersistentOperatorExecuteGateTests(unittest.TestCase):
         self.assertEqual(missing_restore["decision"], "wsta80-blocked-packet-filter-restore-proof-required")
         self.assertFalse(missing_restore["checks"]["explicit_live_gate"])
 
+    def test_cloudflared_egress_allowlist_gate_requires_proof_and_routes(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            artifacts = self.prepare_status(root)
+            base = [
+                "--run-dir",
+                str(root / "gate"),
+                "--wsta79-operator-packet-status-json",
+                str(artifacts["status"]),
+                "--execute-wsta58-from-status",
+                "--allow-operator-live",
+                "--allow-native-reboot",
+                "--allow-public-live",
+                "--ack-credentialed-wifi",
+                "--ack-public-exposure",
+                "--ack-packet-filter-mutation",
+                "--force-packet-filter-restore-proof",
+                "--force-ttl-expiry-proof",
+                "--force-manual-stop-proof",
+                "--enable-cloudflared-egress-allowlist",
+                "--native-confirm-token",
+                runner.wsta58.wsta55.wsta45.wsta25.NATIVE_CONFIRM_TOKEN,
+                "--public-confirm-token",
+                runner.wsta58.wsta55.wsta45.PUBLIC_CONFIRM_TOKEN,
+            ]
+            with mock.patch.object(runner.wsta58, "run", side_effect=AssertionError("unexpected WSTA58 live")):
+                missing_proof = runner.run(runner.build_arg_parser().parse_args(base))
+                missing_route = runner.run(runner.build_arg_parser().parse_args([
+                    *base,
+                    "--force-cloudflared-egress-allowlist-proof",
+                ]))
+
+        self.assertEqual(
+            missing_proof["decision"],
+            "wsta80-blocked-cloudflared-egress-allowlist-proof-required",
+        )
+        self.assertEqual(missing_route["decision"], "wsta80-blocked-cloudflared-egress-route-required")
+        self.assertFalse(missing_proof["checks"]["explicit_live_gate"])
+        self.assertFalse(missing_route["checks"]["explicit_live_gate"])
+
     def test_live_gate_delegates_to_wsta58_only_after_explicit_ack_stack(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -302,6 +342,12 @@ class ServerDistroWsta80PersistentOperatorExecuteGateTests(unittest.TestCase):
                     "/mnt/sdext/a90/runtime/packet-filter-ready.img",
                     "--remote-clean-image",
                     "/mnt/sdext/a90/runtime/packet-filter-ready.img.clean",
+                    "--enable-cloudflared-egress-allowlist",
+                    "--force-cloudflared-egress-allowlist-proof",
+                    "--cloudflared-egress-dns4",
+                    "dns-route-redacted",
+                    "--cloudflared-egress-tls4",
+                    "tls-route-redacted",
                 ]))
 
         self.assertEqual(result["decision"], runner.PASS_DECISION)
@@ -316,6 +362,10 @@ class ServerDistroWsta80PersistentOperatorExecuteGateTests(unittest.TestCase):
         self.assertEqual(call_args.local_image_sha256, "d" * 64)
         self.assertEqual(call_args.remote_image, "/mnt/sdext/a90/runtime/packet-filter-ready.img")
         self.assertEqual(call_args.remote_clean_image, "/mnt/sdext/a90/runtime/packet-filter-ready.img.clean")
+        self.assertTrue(call_args.enable_cloudflared_egress_allowlist)
+        self.assertTrue(call_args.force_cloudflared_egress_allowlist_proof)
+        self.assertEqual(call_args.cloudflared_egress_dns4, ["dns-route-redacted"])
+        self.assertEqual(call_args.cloudflared_egress_tls4, ["tls-route-redacted"])
         public_text = json.dumps(runner.public_summary(result), sort_keys=True)
         self.assertNotIn(runner.wsta58.wsta55.wsta45.wsta25.NATIVE_CONFIRM_TOKEN, public_text)
         self.assertNotIn(runner.wsta58.wsta55.wsta45.PUBLIC_CONFIRM_TOKEN, public_text)

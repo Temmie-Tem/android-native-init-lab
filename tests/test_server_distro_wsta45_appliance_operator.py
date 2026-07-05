@@ -62,6 +62,8 @@ class ServerDistroWsta45ApplianceOperatorTests(unittest.TestCase):
         self.assertIn("--ack-public-exposure", command)
         self.assertIn("--ack-packet-filter-mutation", command)
         self.assertIn("--force-packet-filter-restore-proof", command)
+        self.assertIn("--enable-cloudflared-egress-allowlist", template["optional_cloudflared_egress_allowlist"])
+        self.assertIn("--force-cloudflared-egress-allowlist-proof", template["optional_cloudflared_egress_allowlist"])
         self.assertIn("<native-confirm-token>", command)
         self.assertIn("<public-confirm-token>", command)
         self.assertEqual(template["secret_values_logged"], 0)
@@ -140,6 +142,31 @@ class ServerDistroWsta45ApplianceOperatorTests(unittest.TestCase):
         )
         args.public_confirm_token = runner.PUBLIC_CONFIRM_TOKEN
         self.assertEqual(runner.explicit_publish_gate(args), (True, "ok"))
+
+    def test_cloudflared_egress_allowlist_gate_and_nested_args(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            args = self.publish_args(Path(tmp))
+            args.enable_cloudflared_egress_allowlist = True
+
+            self.assertEqual(
+                runner.explicit_publish_gate(args),
+                (False, "wsta45-blocked-cloudflared-egress-allowlist-proof-required"),
+            )
+            args.force_cloudflared_egress_allowlist_proof = True
+            self.assertEqual(
+                runner.explicit_publish_gate(args),
+                (False, "wsta45-blocked-cloudflared-egress-route-required"),
+            )
+            args.cloudflared_egress_dns4 = ["dns-route-redacted"]
+            args.cloudflared_egress_tls4 = ["tls-route-redacted"]
+            self.assertEqual(runner.explicit_publish_gate(args), (True, "ok"))
+
+            nested = runner.wsta43_args(args, Path(tmp) / "run")
+
+        self.assertTrue(nested.enable_cloudflared_egress_allowlist)
+        self.assertTrue(nested.force_cloudflared_egress_allowlist_proof)
+        self.assertEqual(nested.cloudflared_egress_dns4, ["dns-route-redacted"])
+        self.assertEqual(nested.cloudflared_egress_tls4, ["tls-route-redacted"])
 
     def test_preflight_does_not_call_wsta43_or_require_live_gates(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -229,6 +256,10 @@ class ServerDistroWsta45ApplianceOperatorTests(unittest.TestCase):
                 "--allow-public-live",
             ])
 
+            with self.assertRaises(ValueError):
+                runner.wsta43_args(args, Path(tmp) / "run")
+
+            args.wsta43_args = ["--", "--enable-cloudflared-egress-allowlist"]
             with self.assertRaises(ValueError):
                 runner.wsta43_args(args, Path(tmp) / "run")
 
