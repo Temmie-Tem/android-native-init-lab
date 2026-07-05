@@ -37,6 +37,26 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > partition ONLY.** When an action would cross the bright line or leave the recoverable envelope, STOP
 > and report — never guess.
 
+> **🔫 OPERATOR GO (2026-07-05) — SECCOMP: PULL THE TRIGGER. Stop building gate/canary/handoff scaffolding;
+> EXECUTE the actual seccomp load + enforce, then move on.** The user reviewed and said "pull the trigger."
+> ~50 units (WSTA153-203) have built an elaborate one-shot/canary/handoff/adapter gating apparatus and the
+> safety-proof is MORE than sufficient — but no seccomp filter has actually been loaded
+> (`seccomp_enforced=false`), and the real load is parked behind `ready_for_immediate_live_execute=false`.
+> **Additional no-load scaffolding units now add ≈0 information — STOP them.** Operator authorizes the parked
+> attended live execute. Concretely:
+> 1. **Run the attended live canary**: actually `seccomp(2)`-LOAD + ENFORCE a filter on the throwaway canary
+>    process and prove enforcement bites (a denied syscall is blocked / canary exits as designed). A canary
+>    breaking a throwaway process is the expected, correct outcome.
+> 2. **Then the REAL D-harden result**: load+enforce the derived seccomp profile on an ACTUAL service
+>    (start with `dpublic-smoke-httpd`, then `dropbear-admin`), and prove the service **still works** under
+>    enforcement (smoke marker still returned / admin SSH still logs in). THAT is the milestone this whole
+>    sub-epic was for.
+> **DoD:** `seccomp_enforced=true` on at least one real service + service verified functional under it +
+> final rollback/health `selftest fail=0`. After that, do NOT loop on more seccomp gating — advance to the
+> next D-harden lever (nftables default-drop apply, cap-drop, AppArmor) or the next operator charter.
+> **Safety unchanged:** runtime seccomp is reboot-recoverable (stays in the envelope); no forbidden-partition/
+> power writes; commit NO secrets/tokens (token via redacted transport only); keep v2321 rollback intact.
+
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
 > `D-PUBLIC-LIVE-PUBLISH` go and is actively driving D-public. First live publish (commit `8d25f793`:
