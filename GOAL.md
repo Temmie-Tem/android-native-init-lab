@@ -5143,6 +5143,32 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA199 should add a live-readiness/status gate for the WSTA198
 > adapter packet, or execute WSTA198 live only if the operator deliberately
 > supplies the private token and confirms fresh native health.
+>
+> **🟢 STATUS (2026-07-05 17:34 KST host clock) — WSTA199 WSTA198 ADAPTER
+> STATUS PASS.**  Codex added the host-only WSTA198 adapter live-readiness/status
+> gate.  WSTA199 consumes:
+> `workspace/private/runs/server-distro/wsta198-seccomp-load-canary-ssh-adapter-20260705T172612KST/wsta198_seccomp_load_canary_ssh_adapter.json`;
+> run:
+> `workspace/private/runs/server-distro/wsta199-wsta198-adapter-status-20260705T173455KST/`;
+> decision was `wsta199-wsta198-adapter-status-pass`.  Status state was
+> `ADAPTER_CURRENT_OPERATOR_TOKEN_REQUIRED_DEFAULT_OFF`: the adapter packet is
+> current and matched a fresh WSTA198 source recheck, but immediate live execute
+> remains false because the private token env was not present in this host-only
+> proof.  Key results: `adapter_valid=true`, `wsta198_recheck_valid=true`,
+> `adapter_status_valid=true`, `adapter_current=true`, `packet_match=true`,
+> `template_match=true`, `ready_for_attended_live_handoff=true`,
+> `ready_for_immediate_live_execute=false`, `private_token_env_present=false`,
+> and `private_token_matches_wsta161=false`.  WSTA199 did not flash, reboot,
+> contact the device, connect Wi-Fi, run DHCP, open a public tunnel, mutate
+> packet filters, write userdata, switch root, run WSTA198 live, supply the
+> WSTA161 token to the device, run native health, load a seccomp filter, or
+> enforce seccomp.  Validation passed `py_compile`, focused WSTA199 tests
+> (`5 tests OK`), the WSTA199 proof run, and full server-distro regression
+> (`724 tests OK`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA199_WSTA198_ADAPTER_STATUS_2026-07-05.md`.
+> **NEXT:** WSTA200 should either be the explicit attended WSTA198 live canary
+> gate only if the operator supplies the private token, or a host-only operator
+> handoff wrapper around the WSTA199 READY/token-required status.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
