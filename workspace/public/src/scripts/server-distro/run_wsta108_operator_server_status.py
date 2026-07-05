@@ -22,7 +22,8 @@ CapEff=0 evidence into a first-class capability-drop status.  WSTA213 folds in
 the WSTA212 native uplink boundary policy.  WSTA215 folds in the WSTA214
 AppArmor feasibility audit.  WSTA217 folds in the WSTA216 legacy-iptables
 default-drop hardening policy.  WSTA220 folds in the WSTA219 attended
-default-drop live proof.
+default-drop live proof.  WSTA230 folds in the WSTA229 attended cloudflared
+egress allowlist live proof.
 """
 
 from __future__ import annotations
@@ -58,6 +59,7 @@ import run_wsta208_real_service_seccomp_smoke_live as wsta208  # noqa: E402
 import run_wsta209_dropbear_admin_seccomp_live as wsta209  # noqa: E402
 import run_wsta216_default_drop_hardening_policy as wsta216  # noqa: E402
 import run_wsta221_cloudflared_egress_allowlist_policy as wsta221  # noqa: E402
+import run_wsta226_cloudflared_egress_allowlist_execute_gate as wsta226  # noqa: E402
 
 
 REPO_ROOT = wsta88.REPO_ROOT
@@ -87,6 +89,9 @@ WSTA58_LIVE_DECISION = "wsta58-renewal-manual-stop-live-pass"
 WSTA55_LIVE_DECISION = "wsta55-short-lived-public-proof-live-pass"
 CLOUDFLARED_EGRESS_ALLOWLIST_POLICY_STATE = (
     "CLOUDFLARED_EGRESS_ALLOWLIST_HARDENING_POLICY_DEFINED"
+)
+CLOUDFLARED_EGRESS_ALLOWLIST_LIVE_STATE = (
+    "CLOUDFLARED_EGRESS_ALLOWLIST_ATTENDED_LIVE_PROVEN"
 )
 
 CLOUDFLARED_RUNTIME_REQUIRED_CHECKS = (
@@ -223,6 +228,8 @@ def template() -> dict[str, Any]:
             "workspace/private/runs/server-distro/<wsta219-run>/wsta88_operator_workflow.json",
             "--wsta221-cloudflared-egress-allowlist-policy-json",
             "workspace/private/runs/server-distro/<wsta221-run>/wsta221_result.json",
+            "--wsta229-cloudflared-egress-allowlist-live-json",
+            "workspace/private/runs/server-distro/<wsta229-run>/wsta226_result.json",
         ],
         "device_action": False,
         "public_url_value_logged": False,
@@ -1370,6 +1377,180 @@ def compact_cloudflared_egress_allowlist_policy(
     }
 
 
+def _wsta55_egress_cycle_proven(cycle: dict[str, Any]) -> bool:
+    checks = cycle.get("checks") if isinstance(cycle.get("checks"), dict) else {}
+    return bool(
+        _wsta55_public_cycle_proven(cycle)
+        and checks.get("wsta45_pass")
+        and checks.get("dpublic_cleanup_ok")
+        and checks.get("native_uplink_profile_cleanup_ok")
+        and checks.get("chroot_cleanup_ok")
+        and checks.get("wsta48_all_pass")
+        and checks.get("wsta48_redaction_ok")
+        and checks.get("public_url_value_logged") is False
+        and checks.get("secret_values_logged") == 0
+    )
+
+
+def compact_cloudflared_egress_allowlist_live(
+    proof_result: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if not proof_result:
+        return {
+            "state": "NOT_SUPPLIED",
+            "cloudflared_egress_allowlist_live_proven": False,
+            "dns4_count": None,
+            "tls4_count": None,
+            "public_url_value_logged": False,
+            "secret_values_logged": 0,
+        }
+
+    checks = proof_result.get("checks") if isinstance(proof_result.get("checks"), dict) else {}
+    route = proof_result.get("route_summary") if isinstance(proof_result.get("route_summary"), dict) else {}
+    wsta88_result = (
+        proof_result.get("wsta88_redacted")
+        if isinstance(proof_result.get("wsta88_redacted"), dict)
+        else {}
+    )
+    wsta88_checks = wsta88_result.get("checks") if isinstance(wsta88_result.get("checks"), dict) else {}
+    status_hud = (
+        wsta88_result.get("status_hud")
+        if isinstance(wsta88_result.get("status_hud"), dict)
+        else {}
+    )
+    manual_stop_hud = (
+        status_hud.get("manual_stop")
+        if isinstance(status_hud.get("manual_stop"), dict)
+        else {}
+    )
+    wsta80 = (
+        wsta88_result.get("wsta80_redacted")
+        if isinstance(wsta88_result.get("wsta80_redacted"), dict)
+        else {}
+    )
+    wsta80_checks = wsta80.get("checks") if isinstance(wsta80.get("checks"), dict) else {}
+    wsta58 = (
+        wsta80.get("wsta58_redacted")
+        if isinstance(wsta80.get("wsta58_redacted"), dict)
+        else {}
+    )
+    wsta58_checks = wsta58.get("checks") if isinstance(wsta58.get("checks"), dict) else {}
+    initial = wsta58.get("initial") if isinstance(wsta58.get("initial"), dict) else {}
+    renewal = wsta58.get("renewal") if isinstance(wsta58.get("renewal"), dict) else {}
+    manual_stop = (
+        wsta58.get("manual_stop")
+        if isinstance(wsta58.get("manual_stop"), dict)
+        else {}
+    )
+    dns4_count = int(route.get("dns4_count") or 0)
+    tls4_count = int(route.get("tls4_count") or 0)
+    live_proven = bool(
+        proof_result.get("decision") == wsta226.LIVE_PASS_DECISION
+        and proof_result.get("gate_decision") == "ok"
+        and checks.get("explicit_live_gate")
+        and checks.get("live_execution_requested")
+        and checks.get("route_artifact_ready")
+        and checks.get("route_schema_ok")
+        and checks.get("route_state_ok")
+        and checks.get("route_dns4_present")
+        and checks.get("route_tls4_present")
+        and checks.get("route_route_values_private")
+        and checks.get("route_route_values_logged_false")
+        and checks.get("route_public_url_not_logged")
+        and checks.get("route_secrets_not_logged")
+        and checks.get("route_redaction_clean_public_view")
+        and checks.get("wsta88_live_pass")
+        and route.get("schema") == wsta226.ROUTE_SCHEMA
+        and route.get("state") == wsta226.ROUTE_STATE
+        and dns4_count > 0
+        and tls4_count > 0
+        and route.get("route_values_private") is True
+        and route.get("route_values_logged") is False
+        and route.get("route_values_redacted") is True
+        and route.get("public_url_value_logged") is False
+        and int(route.get("secret_values_logged") or 0) == 0
+        and wsta88_result.get("decision") == wsta88.PASS_DECISION
+        and wsta88_result.get("gate_decision") == "ok"
+        and wsta88_checks.get("cloudflared_egress_allowlist_enabled")
+        and wsta88_checks.get("force_cloudflared_egress_allowlist_proof")
+        and wsta88_checks.get("cloudflared_egress_dns4_count") == dns4_count
+        and wsta88_checks.get("cloudflared_egress_tls4_count") == tls4_count
+        and wsta88_checks.get("cloudflared_egress_route_values_redacted")
+        and wsta88_checks.get("default_public_off")
+        and wsta88_checks.get("live_execution_requested")
+        and wsta88_checks.get("wsta80_preflight_pass")
+        and wsta88_checks.get("wsta80_live_pass")
+        and wsta88_checks.get("public_url_value_logged") is False
+        and wsta88_checks.get("secret_values_logged") == 0
+        and status_hud.get("public_state") == "PUBLIC_OFF"
+        and manual_stop_hud.get("public_state_after_stop") == "PUBLIC_OFF"
+        and manual_stop_hud.get("cleanup_ok") is True
+        and wsta80.get("decision") == WSTA80_LIVE_DECISION
+        and wsta80.get("gate_decision") == "ok"
+        and wsta80_checks.get("ack_packet_filter_mutation")
+        and wsta80_checks.get("force_packet_filter_restore_proof")
+        and wsta80_checks.get("cloudflared_egress_allowlist_enabled")
+        and wsta80_checks.get("force_cloudflared_egress_allowlist_proof")
+        and wsta80_checks.get("cloudflared_egress_dns4_count") == dns4_count
+        and wsta80_checks.get("cloudflared_egress_tls4_count") == tls4_count
+        and wsta80_checks.get("cloudflared_egress_route_values_redacted")
+        and wsta80_checks.get("wsta58_pass")
+        and wsta80_checks.get("public_url_value_logged") is False
+        and wsta80_checks.get("secret_values_logged") == 0
+        and wsta58.get("decision") == WSTA58_LIVE_DECISION
+        and wsta58.get("gate_decision") == "ok"
+        and wsta58_checks.get("initial_wsta55_pass")
+        and wsta58_checks.get("renewal_wsta55_pass")
+        and wsta58_checks.get("initial_packet_filter_restore_ok")
+        and wsta58_checks.get("renewal_packet_filter_restore_ok")
+        and wsta58_checks.get("manual_stop_cleanup_ok")
+        and wsta58_checks.get("manual_stop_public_state_off")
+        and wsta58_checks.get("wsta48_all_pass")
+        and wsta58_checks.get("wsta48_redaction_ok")
+        and wsta58_checks.get("public_url_value_logged") is False
+        and wsta58_checks.get("secret_values_logged") == 0
+        and _wsta55_egress_cycle_proven(initial)
+        and _wsta55_egress_cycle_proven(renewal)
+        and manual_stop.get("ok") is True
+        and manual_stop.get("manual_stop_public_state") == "PUBLIC_OFF"
+        and manual_stop.get("public_url_value_logged") is False
+        and int(manual_stop.get("secret_values_logged") or 0) == 0
+    )
+    return {
+        "state": CLOUDFLARED_EGRESS_ALLOWLIST_LIVE_STATE if live_proven else "SUPPLIED_NOT_PROVEN",
+        "decision": proof_result.get("decision"),
+        "proof_run_dir": proof_result.get("run_dir"),
+        "cloudflared_egress_allowlist_live_proven": live_proven,
+        "dns4_count": dns4_count,
+        "tls4_count": tls4_count,
+        "route_values_redacted": bool(route.get("route_values_redacted")),
+        "route_values_logged": False,
+        "default_public_off": status_hud.get("default_public_off"),
+        "public_state_after_manual_stop": (
+            manual_stop.get("manual_stop_public_state")
+            or manual_stop_hud.get("public_state_after_stop")
+        ),
+        "ack_packet_filter_mutation": bool(wsta80_checks.get("ack_packet_filter_mutation")),
+        "force_packet_filter_restore_proof": bool(wsta80_checks.get("force_packet_filter_restore_proof")),
+        "force_cloudflared_egress_allowlist_proof": bool(
+            wsta80_checks.get("force_cloudflared_egress_allowlist_proof")
+        ),
+        "initial_public_smoke_ok": bool(
+            (initial.get("checks") if isinstance(initial.get("checks"), dict) else {}).get("public_smoke_ok")
+        ),
+        "renewal_public_smoke_ok": bool(
+            (renewal.get("checks") if isinstance(renewal.get("checks"), dict) else {}).get("public_smoke_ok")
+        ),
+        "initial_packet_filter_restore_ok": bool(wsta58_checks.get("initial_packet_filter_restore_ok")),
+        "renewal_packet_filter_restore_ok": bool(wsta58_checks.get("renewal_packet_filter_restore_ok")),
+        "manual_stop_cleanup_ok": bool(wsta58_checks.get("manual_stop_cleanup_ok")),
+        "wsta48_all_pass": bool(wsta58_checks.get("wsta48_all_pass")),
+        "wsta48_redaction_ok": bool(wsta58_checks.get("wsta48_redaction_ok")),
+        "public_url_value_logged": False,
+        "secret_values_logged": 0,
+    }
+
+
 def compact_cloudflared_model(model_result: dict[str, Any] | None) -> dict[str, Any]:
     if not model_result:
         return {
@@ -2317,6 +2498,7 @@ def compact_hardening(
     default_drop_hardening_policy_result: dict[str, Any] | None,
     attended_default_drop_live_result: dict[str, Any] | None,
     cloudflared_egress_allowlist_policy_result: dict[str, Any] | None,
+    cloudflared_egress_allowlist_live_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     packet_filter_proof = compact_packet_filter_proof(packet_filter_proof_result, packet_filter_control_summary)
     launcher_proof = compact_launcher_proof(launcher_proof_result)
@@ -2392,6 +2574,9 @@ def compact_hardening(
     cloudflared_egress_allowlist_policy = compact_cloudflared_egress_allowlist_policy(
         cloudflared_egress_allowlist_policy_result
     )
+    cloudflared_egress_allowlist_live = compact_cloudflared_egress_allowlist_live(
+        cloudflared_egress_allowlist_live_result
+    )
     if native_uplink_boundary_policy.get("native_uplink_boundary_policy_defined"):
         launcher_proof["remaining_profiles"] = [
             item
@@ -2422,6 +2607,7 @@ def compact_hardening(
             "default_drop_hardening_policy": default_drop_hardening_policy,
             "attended_default_drop_live": attended_default_drop_live,
             "cloudflared_egress_allowlist_policy": cloudflared_egress_allowlist_policy,
+            "cloudflared_egress_allowlist_live": cloudflared_egress_allowlist_live,
             "cloudflared_model": cloudflared_model,
             "cloudflared_runtime": cloudflared_runtime,
             "hud_model": hud_model,
@@ -2471,6 +2657,7 @@ def compact_hardening(
         "default_drop_hardening_policy": default_drop_hardening_policy,
         "attended_default_drop_live": attended_default_drop_live,
         "cloudflared_egress_allowlist_policy": cloudflared_egress_allowlist_policy,
+        "cloudflared_egress_allowlist_live": cloudflared_egress_allowlist_live,
         "cloudflared_model": cloudflared_model,
         "cloudflared_runtime": cloudflared_runtime,
         "hud_model": hud_model,
@@ -2513,6 +2700,7 @@ def build_server_status(
     default_drop_hardening_policy_result: dict[str, Any] | None,
     attended_default_drop_live_result: dict[str, Any] | None,
     cloudflared_egress_allowlist_policy_result: dict[str, Any] | None,
+    cloudflared_egress_allowlist_live_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     status_hud = wsta88_result.get("status_hud") if isinstance(wsta88_result.get("status_hud"), dict) else {}
     if not status_hud:
@@ -2542,6 +2730,7 @@ def build_server_status(
         default_drop_hardening_policy_result,
         attended_default_drop_live_result,
         cloudflared_egress_allowlist_policy_result,
+        cloudflared_egress_allowlist_live_result,
     )
     public_off = (status_hud.get("public_state") or "PUBLIC_OFF") == "PUBLIC_OFF"
     ready_default_off = public_off and bool(packet_filter.get("ready"))
@@ -2593,6 +2782,11 @@ def build_server_status(
     cloudflared_egress_allowlist_policy = (
         hardening.get("cloudflared_egress_allowlist_policy")
         if isinstance(hardening.get("cloudflared_egress_allowlist_policy"), dict)
+        else {}
+    )
+    cloudflared_egress_allowlist_live = (
+        hardening.get("cloudflared_egress_allowlist_live")
+        if isinstance(hardening.get("cloudflared_egress_allowlist_live"), dict)
         else {}
     )
     cloudflared_model = (
@@ -2663,6 +2857,9 @@ def build_server_status(
     cloudflared_egress_policy_defined = bool(
         cloudflared_egress_allowlist_policy.get("cloudflared_egress_allowlist_policy_defined")
     )
+    cloudflared_egress_live_proven = bool(
+        cloudflared_egress_allowlist_live.get("cloudflared_egress_allowlist_live_proven")
+    )
     if capability_drop_live_proven:
         if not native_uplink_boundary_defined:
             operator_next_actions.append("continue-root-boundary-policy-for-wsta-native-uplink-helper")
@@ -2683,9 +2880,14 @@ def build_server_status(
                     if default_drop_hardening_defined:
                         if attended_default_drop_live_proven:
                             if cloudflared_egress_policy_defined:
-                                operator_next_actions.append(
-                                    "prepare-attended-cloudflared-egress-allowlist-live-gate"
-                                )
+                                if cloudflared_egress_live_proven:
+                                    operator_next_actions.append(
+                                        "continue-dpublic-server-endgame-after-cloudflared-egress-live"
+                                    )
+                                else:
+                                    operator_next_actions.append(
+                                        "prepare-attended-cloudflared-egress-allowlist-live-gate"
+                                    )
                             else:
                                 operator_next_actions.append(
                                     "continue-next-hardening-layer-after-attended-default-drop-live"
@@ -2723,9 +2925,14 @@ def build_server_status(
             if default_drop_hardening_defined:
                 if attended_default_drop_live_proven:
                     if cloudflared_egress_policy_defined:
-                        operator_next_actions.append(
-                            "move-to-cloudflared-egress-allowlist-live-gate"
-                        )
+                        if cloudflared_egress_live_proven:
+                            operator_next_actions.append(
+                                "continue-dpublic-server-endgame-after-cloudflared-egress-live"
+                            )
+                        else:
+                            operator_next_actions.append(
+                                "move-to-cloudflared-egress-allowlist-live-gate"
+                            )
                     else:
                         operator_next_actions.append(
                             "move-to-next-hardening-layer-after-attended-default-drop-live"
@@ -2747,6 +2954,7 @@ def build_server_status(
             operator_next_actions.append("derive-seccomp-policy-from-live-syscall-baselines")
     else:
         operator_next_actions.append("trace-service-syscalls-before-seccomp-enforcement")
+    operator_next_actions = list(dict.fromkeys(operator_next_actions))
     return {
         "state": "SERVER_PROFILE_READY_DEFAULT_OFF" if ready_default_off else "SERVER_PROFILE_NOT_READY",
         "exposure": exposure_state(status_hud, wsta88_result),
@@ -2863,6 +3071,11 @@ def markdown(server_status: dict[str, Any]) -> str:
     cloudflared_egress_allowlist_policy = (
         hardening.get("cloudflared_egress_allowlist_policy")
         if isinstance(hardening.get("cloudflared_egress_allowlist_policy"), dict)
+        else {}
+    )
+    cloudflared_egress_allowlist_live = (
+        hardening.get("cloudflared_egress_allowlist_live")
+        if isinstance(hardening.get("cloudflared_egress_allowlist_live"), dict)
         else {}
     )
     cloudflared_model = (
@@ -2983,6 +3196,10 @@ def markdown(server_status: dict[str, Any]) -> str:
         f"- Cloudflared egress allowlist policy: `{str(bool(cloudflared_egress_allowlist_policy.get('cloudflared_egress_allowlist_policy_defined'))).lower()}`",
         f"- Cloudflared egress allowlist state: `{cloudflared_egress_allowlist_policy.get('state')}`",
         f"- Cloudflared egress allowlist mutates filters here: `{str(bool(cloudflared_egress_allowlist_policy.get('packet_filter_mutation_by_wsta221'))).lower()}`",
+        f"- Cloudflared egress allowlist live: `{str(bool(cloudflared_egress_allowlist_live.get('cloudflared_egress_allowlist_live_proven'))).lower()}`",
+        f"- Cloudflared egress allowlist live state: `{cloudflared_egress_allowlist_live.get('state')}`",
+        f"- Cloudflared egress allowlist route counts: `{cloudflared_egress_allowlist_live.get('dns4_count')}/{cloudflared_egress_allowlist_live.get('tls4_count')}`",
+        f"- Cloudflared egress allowlist live restore: `{str(bool(cloudflared_egress_allowlist_live.get('initial_packet_filter_restore_ok') and cloudflared_egress_allowlist_live.get('renewal_packet_filter_restore_ok'))).lower()}`",
         f"- Cloudflared model: `{str(bool(cloudflared_model.get('model_defined'))).lower()}`",
         f"- Cloudflared model user: `{cloudflared_model.get('user')}`",
         f"- Cloudflared default public off: `{str(bool(cloudflared_model.get('default_public_off'))).lower()}`",
@@ -3540,6 +3757,28 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             write_json(out_json, result)
             return result
 
+    cloudflared_egress_allowlist_live_result: dict[str, Any] | None = None
+    if args.wsta229_cloudflared_egress_allowlist_live_json is not None:
+        egress_live_path, egress_live_error = require_private_file(
+            args.wsta229_cloudflared_egress_allowlist_live_json,
+            "wsta229-cloudflared-egress-allowlist-live",
+        )
+        if egress_live_error or egress_live_path is None:
+            result["decision"] = (
+                egress_live_error or "wsta108-blocked-wsta229-cloudflared-egress-allowlist-live"
+            )
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+        cloudflared_egress_allowlist_live_result = load_json(egress_live_path)
+        if cloudflared_egress_allowlist_live_result.get("decision") != wsta226.LIVE_PASS_DECISION:
+            result["decision"] = "wsta108-blocked-wsta229-cloudflared-egress-allowlist-live-not-pass"
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+
     server_status = build_server_status(
         wsta88_result,
         hardening_result,
@@ -3564,6 +3803,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         default_drop_hardening_policy_result,
         attended_default_drop_live_result,
         cloudflared_egress_allowlist_policy_result,
+        cloudflared_egress_allowlist_live_result,
     )
     packet_filter_proof = server_status["hardening"].get("packet_filter_proof", {})
     packet_filter_control_proof = (
@@ -3605,6 +3845,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
     cloudflared_egress_allowlist_policy = server_status["hardening"].get(
         "cloudflared_egress_allowlist_policy",
+        {},
+    )
+    cloudflared_egress_allowlist_live = server_status["hardening"].get(
+        "cloudflared_egress_allowlist_live",
         {},
     )
     cloudflared_model = server_status["hardening"].get("cloudflared_model", {})
@@ -3785,6 +4029,42 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "cloudflared_egress_allowlist_preserves_default_drop": bool(
             cloudflared_egress_allowlist_policy.get("preserve_existing_default_drop")
+        ),
+        "wsta229_cloudflared_egress_allowlist_live_supplied": (
+            cloudflared_egress_allowlist_live_result is not None
+        ),
+        "cloudflared_egress_allowlist_live_proven": bool(
+            cloudflared_egress_allowlist_live.get("cloudflared_egress_allowlist_live_proven")
+        ),
+        "cloudflared_egress_allowlist_live_default_off": (
+            cloudflared_egress_allowlist_live.get("default_public_off") is True
+        ),
+        "cloudflared_egress_allowlist_live_route_values_redacted": bool(
+            cloudflared_egress_allowlist_live.get("route_values_redacted")
+        ),
+        "cloudflared_egress_allowlist_live_ack_packet_filter_mutation": bool(
+            cloudflared_egress_allowlist_live.get("ack_packet_filter_mutation")
+        ),
+        "cloudflared_egress_allowlist_live_force_restore_proof": bool(
+            cloudflared_egress_allowlist_live.get("force_packet_filter_restore_proof")
+        ),
+        "cloudflared_egress_allowlist_live_force_egress_proof": bool(
+            cloudflared_egress_allowlist_live.get("force_cloudflared_egress_allowlist_proof")
+        ),
+        "cloudflared_egress_allowlist_live_initial_public_smoke": bool(
+            cloudflared_egress_allowlist_live.get("initial_public_smoke_ok")
+        ),
+        "cloudflared_egress_allowlist_live_renewal_public_smoke": bool(
+            cloudflared_egress_allowlist_live.get("renewal_public_smoke_ok")
+        ),
+        "cloudflared_egress_allowlist_live_initial_restore": bool(
+            cloudflared_egress_allowlist_live.get("initial_packet_filter_restore_ok")
+        ),
+        "cloudflared_egress_allowlist_live_renewal_restore": bool(
+            cloudflared_egress_allowlist_live.get("renewal_packet_filter_restore_ok")
+        ),
+        "cloudflared_egress_allowlist_live_manual_stop_public_off": (
+            cloudflared_egress_allowlist_live.get("public_state_after_manual_stop") == "PUBLIC_OFF"
         ),
         "cloudflared_model_supplied": cloudflared_model_result is not None,
         "cloudflared_model_defined": bool(cloudflared_model.get("model_defined")),
@@ -4011,6 +4291,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         write_json(out_json, result)
         return result
     if (
+        cloudflared_egress_allowlist_live_result is not None
+        and not result["checks"]["cloudflared_egress_allowlist_live_proven"]
+    ):
+        result["decision"] = "wsta108-blocked-wsta229-cloudflared-egress-allowlist-live-incomplete"
+        result["gate_decision"] = result["decision"]
+        result["ended_utc"] = utc_stamp()
+        write_json(out_json, result)
+        return result
+    if (
         cloudflared_model_result is not None
         and not result["checks"]["cloudflared_model_defined"]
     ):
@@ -4119,6 +4408,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--wsta216-default-drop-hardening-policy-json", type=Path)
     parser.add_argument("--wsta219-attended-default-drop-live-json", type=Path)
     parser.add_argument("--wsta221-cloudflared-egress-allowlist-policy-json", type=Path)
+    parser.add_argument("--wsta229-cloudflared-egress-allowlist-live-json", type=Path)
     parser.add_argument("--wsta122-cloudflared-model-json", type=Path)
     parser.add_argument("--wsta125-cloudflared-runtime-proof-json", type=Path)
     parser.add_argument("--wsta127-hud-model-json", type=Path)

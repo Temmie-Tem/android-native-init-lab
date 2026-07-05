@@ -542,6 +542,36 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > egress allowlist hardening becomes first-class live-proven status, then continue
 > the D-public server endgame from that status frontier.
 
+> **🟢 STATUS (2026-07-05 23:35 KST) — WSTA230 OPERATOR STATUS CLOUDFLARED EGRESS LIVE PASS.**
+> Codex folded the WSTA229 attended cloudflared egress allowlist live proof into
+> the WSTA108 operator server status bundle.  WSTA108 now accepts
+> `--wsta229-cloudflared-egress-allowlist-live-json`, fail-closes non-pass or
+> incomplete WSTA226/WSTA88/WSTA80/WSTA58/WSTA55 proof bundles, and records
+> `server_status.hardening.cloudflared_egress_allowlist_live`.  Representative
+> host-only run:
+> `workspace/private/runs/server-distro/wsta230-operator-status-cloudflared-egress-live-20260705T2332KST/wsta108_operator_server_status.json`;
+> decision `wsta108-operator-server-status-source-pass`.  The compacted live
+> state is `CLOUDFLARED_EGRESS_ALLOWLIST_ATTENDED_LIVE_PROVEN`, with DNS/TLS
+> counts `30` / `2`, `route_values_redacted=true`, `route_values_logged=false`,
+> `default_public_off=true`, `ack_packet_filter_mutation=true`,
+> `force_packet_filter_restore_proof=true`,
+> `force_cloudflared_egress_allowlist_proof=true`,
+> `initial_public_smoke_ok=true`, `renewal_public_smoke_ok=true`,
+> `initial_packet_filter_restore_ok=true`,
+> `renewal_packet_filter_restore_ok=true`, `manual_stop_cleanup_ok=true`,
+> `public_state_after_manual_stop=PUBLIC_OFF`, `wsta48_all_pass=true`, and
+> `wsta48_redaction_ok=true`.  Operator next-actions now retire
+> `prepare-attended-cloudflared-egress-allowlist-live-gate` and
+> `move-to-cloudflared-egress-allowlist-live-gate`, leaving
+> `continue-dpublic-server-endgame-after-cloudflared-egress-live`.  This unit was
+> host-only: no device action, boot flash, native reboot, Wi-Fi connect, DHCP,
+> public tunnel, public smoke, packet-filter mutation, userdata write, LSM load,
+> or switch-root occurred.  Validation: py_compile pass; focused WSTA108/WSTA226
+> tests `72 OK`; full server-distro regression `843 OK`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA230_OPERATOR_STATUS_CLOUDFLARED_EGRESS_LIVE_2026-07-05.md`.
+> **NEXT:** continue the D-public server endgame from the WSTA108 status frontier;
+> egress policy/live proof is no longer the blocker.
+
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
 > `D-PUBLIC-LIVE-PUBLISH` go and is actively driving D-public. First live publish (commit `8d25f793`:

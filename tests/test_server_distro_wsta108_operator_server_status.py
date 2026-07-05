@@ -744,6 +744,140 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
             },
         }
 
+    def cloudflared_egress_allowlist_live_proof(self) -> dict:
+        def wsta55_cycle() -> dict:
+            return {
+                "decision": runner.WSTA55_LIVE_DECISION,
+                "gate_decision": "ok",
+                "checks": {
+                    "public_smoke_ok": True,
+                    "ttl_expiry_stops_public": True,
+                    "packet_filter_restore_ok": True,
+                    "final_selftest_fail_zero": True,
+                    "wsta45_pass": True,
+                    "dpublic_cleanup_ok": True,
+                    "native_uplink_profile_cleanup_ok": True,
+                    "chroot_cleanup_ok": True,
+                    "wsta48_all_pass": True,
+                    "wsta48_redaction_ok": True,
+                    "public_url_value_logged": False,
+                    "secret_values_logged": 0,
+                },
+                "image_prep": {
+                    "work_restore_attempted": True,
+                },
+                "ttl_expiry": {
+                    "forced_for_wsta55": True,
+                    "ttl_expiry_stops_public": True,
+                    "public_state_after_expiry": "PUBLIC_OFF",
+                    "lease_id_present": True,
+                    "lease_id_value_redacted": True,
+                    "secret_values_logged": 0,
+                },
+            }
+
+        dns4_count = 30
+        tls4_count = 2
+        return {
+            "decision": runner.wsta226.LIVE_PASS_DECISION,
+            "gate_decision": "ok",
+            "run_dir": "workspace/private/runs/server-distro/wsta229-egress-live-test",
+            "checks": {
+                "explicit_live_gate": True,
+                "live_execution_requested": True,
+                "route_artifact_ready": True,
+                "route_schema_ok": True,
+                "route_state_ok": True,
+                "route_dns4_present": True,
+                "route_tls4_present": True,
+                "route_route_values_private": True,
+                "route_route_values_logged_false": True,
+                "route_public_url_not_logged": True,
+                "route_secrets_not_logged": True,
+                "route_redaction_clean_public_view": True,
+                "wsta88_live_pass": True,
+            },
+            "route_summary": {
+                "schema": runner.wsta226.ROUTE_SCHEMA,
+                "state": runner.wsta226.ROUTE_STATE,
+                "dns4_count": dns4_count,
+                "tls4_count": tls4_count,
+                "route_values_private": True,
+                "route_values_logged": False,
+                "route_values_redacted": True,
+                "public_url_value_logged": False,
+                "secret_values_logged": 0,
+            },
+            "wsta88_redacted": {
+                "decision": runner.wsta88.PASS_DECISION,
+                "gate_decision": "ok",
+                "checks": {
+                    "cloudflared_egress_allowlist_enabled": True,
+                    "force_cloudflared_egress_allowlist_proof": True,
+                    "cloudflared_egress_dns4_count": dns4_count,
+                    "cloudflared_egress_tls4_count": tls4_count,
+                    "cloudflared_egress_route_values_redacted": True,
+                    "default_public_off": True,
+                    "live_execution_requested": True,
+                    "wsta80_preflight_pass": True,
+                    "wsta80_live_pass": True,
+                    "public_url_value_logged": False,
+                    "secret_values_logged": 0,
+                },
+                "status_hud": {
+                    "public_state": "PUBLIC_OFF",
+                    "default_public_off": True,
+                    "live_execution_requested": True,
+                    "manual_stop": {
+                        "cleanup_ok": True,
+                        "public_state_after_stop": "PUBLIC_OFF",
+                    },
+                },
+                "wsta80_redacted": {
+                    "decision": runner.WSTA80_LIVE_DECISION,
+                    "gate_decision": "ok",
+                    "checks": {
+                        "ack_packet_filter_mutation": True,
+                        "force_packet_filter_restore_proof": True,
+                        "cloudflared_egress_allowlist_enabled": True,
+                        "force_cloudflared_egress_allowlist_proof": True,
+                        "cloudflared_egress_dns4_count": dns4_count,
+                        "cloudflared_egress_tls4_count": tls4_count,
+                        "cloudflared_egress_route_values_redacted": True,
+                        "wsta58_pass": True,
+                        "public_url_value_logged": False,
+                        "secret_values_logged": 0,
+                    },
+                    "wsta58_redacted": {
+                        "decision": runner.WSTA58_LIVE_DECISION,
+                        "gate_decision": "ok",
+                        "checks": {
+                            "initial_wsta55_pass": True,
+                            "renewal_wsta55_pass": True,
+                            "initial_packet_filter_restore_ok": True,
+                            "renewal_packet_filter_restore_ok": True,
+                            "manual_stop_cleanup_ok": True,
+                            "manual_stop_public_state_off": True,
+                            "wsta48_all_pass": True,
+                            "wsta48_redaction_ok": True,
+                            "public_url_value_logged": False,
+                            "secret_values_logged": 0,
+                        },
+                        "initial": wsta55_cycle(),
+                        "renewal": wsta55_cycle(),
+                        "manual_stop": {
+                            "ok": True,
+                            "manual_stop_public_state": "PUBLIC_OFF",
+                            "public_url_value_logged": False,
+                            "secret_values_logged": 0,
+                        },
+                    },
+                },
+            },
+            "public_url_value_logged": False,
+            "secret_values_logged": 0,
+        }
+
     def cloudflared_model_proof(self) -> dict:
         model = runner.wsta122.cloudflared_service_model()
         return {
@@ -2623,6 +2757,136 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("Cloudflared egress allowlist policy: `true`", markdown)
         self.assertIn("Cloudflared egress allowlist state: `CLOUDFLARED_EGRESS_ALLOWLIST_HARDENING_POLICY_DEFINED`", markdown)
 
+    def test_wsta230_cloudflared_egress_live_retires_egress_live_next_action(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            manifest_path = root / "inputs" / "wsta90_service_hardening_manifest.json"
+            launcher_path = root / "inputs" / "wsta110_result.json"
+            admin_path = root / "inputs" / "wsta120_result.json"
+            model_path = root / "inputs" / "wsta122_cloudflared_service_model.json"
+            runtime_path = root / "inputs" / "wsta125_result.json"
+            presenter_path = root / "inputs" / "wsta130_dpublic_hud_presenter_model.json"
+            handoff_path = root / "inputs" / "wsta144_dpublic_hud_shared_run_bind_live.json"
+            restart_path = root / "inputs" / "wsta147_dpublic_hud_restart_live.json"
+            hud_syscall_path = root / "inputs" / "wsta149_dpublic_hud_intent_syscall_trace_live.json"
+            dropbear_syscall_path = root / "inputs" / "wsta151_dropbear_admin_syscall_trace_live.json"
+            smoke_seccomp_path = root / "inputs" / "wsta208_result.json"
+            dropbear_seccomp_path = root / "inputs" / "wsta209_result.json"
+            native_uplink_path = root / "inputs" / "wsta212_result.json"
+            apparmor_path = root / "inputs" / "wsta214_result.json"
+            default_drop_path = root / "inputs" / "wsta216_result.json"
+            attended_live_path = root / "inputs" / "wsta219_operator_workflow.json"
+            egress_policy_path = root / "inputs" / "wsta221_result.json"
+            egress_live_path = root / "inputs" / "wsta229_result.json"
+            self.write_json(manifest_path, self.hardening_manifest())
+            self.write_json(launcher_path, self.launcher_proof())
+            self.write_json(admin_path, self.dropbear_admin_proof())
+            self.write_json(model_path, self.cloudflared_model_proof())
+            self.write_json(runtime_path, self.cloudflared_runtime_proof())
+            self.write_json(presenter_path, self.hud_presenter_model_proof())
+            self.write_json(handoff_path, self.hud_presenter_handoff_proof())
+            self.write_json(restart_path, self.hud_presenter_restart_proof())
+            self.write_json(hud_syscall_path, self.hud_intent_syscall_proof())
+            self.write_json(dropbear_syscall_path, self.dropbear_admin_syscall_proof())
+            self.write_json(smoke_seccomp_path, self.seccomp_smoke_proof())
+            self.write_json(dropbear_seccomp_path, self.seccomp_dropbear_proof())
+            self.write_json(native_uplink_path, self.native_uplink_boundary_policy())
+            self.write_json(apparmor_path, self.apparmor_feasibility())
+            self.write_json(default_drop_path, self.default_drop_hardening_policy())
+            self.write_json(attended_live_path, self.attended_default_drop_live_proof())
+            self.write_json(egress_policy_path, self.cloudflared_egress_allowlist_policy())
+            self.write_json(egress_live_path, self.cloudflared_egress_allowlist_live_proof())
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta90-service-hardening-manifest-json",
+                str(manifest_path),
+                "--wsta110-service-launcher-proof-json",
+                str(launcher_path),
+                "--wsta120-dropbear-admin-proof-json",
+                str(admin_path),
+                "--wsta122-cloudflared-model-json",
+                str(model_path),
+                "--wsta125-cloudflared-runtime-proof-json",
+                str(runtime_path),
+                "--wsta130-hud-presenter-model-json",
+                str(presenter_path),
+                "--wsta144-hud-presenter-handoff-proof-json",
+                str(handoff_path),
+                "--wsta147-hud-presenter-restart-proof-json",
+                str(restart_path),
+                "--wsta149-hud-intent-syscall-proof-json",
+                str(hud_syscall_path),
+                "--wsta151-dropbear-admin-syscall-proof-json",
+                str(dropbear_syscall_path),
+                "--wsta208-real-service-seccomp-proof-json",
+                str(smoke_seccomp_path),
+                "--wsta209-dropbear-admin-seccomp-proof-json",
+                str(dropbear_seccomp_path),
+                "--wsta212-native-uplink-boundary-policy-json",
+                str(native_uplink_path),
+                "--wsta214-apparmor-feasibility-json",
+                str(apparmor_path),
+                "--wsta216-default-drop-hardening-policy-json",
+                str(default_drop_path),
+                "--wsta219-attended-default-drop-live-json",
+                str(attended_live_path),
+                "--wsta221-cloudflared-egress-allowlist-policy-json",
+                str(egress_policy_path),
+                "--wsta229-cloudflared-egress-allowlist-live-json",
+                str(egress_live_path),
+            ))
+            markdown = (root / "wsta108" / "wsta108_operator_server_status.md").read_text(encoding="utf-8")
+
+        self.assertEqual(result["decision"], runner.PASS_DECISION)
+        proof = result["server_status"]["hardening"]["cloudflared_egress_allowlist_live"]
+        self.assertEqual(proof["state"], runner.CLOUDFLARED_EGRESS_ALLOWLIST_LIVE_STATE)
+        self.assertTrue(proof["cloudflared_egress_allowlist_live_proven"])
+        self.assertEqual(proof["dns4_count"], 30)
+        self.assertEqual(proof["tls4_count"], 2)
+        self.assertTrue(proof["route_values_redacted"])
+        self.assertTrue(proof["ack_packet_filter_mutation"])
+        self.assertTrue(proof["force_packet_filter_restore_proof"])
+        self.assertTrue(proof["force_cloudflared_egress_allowlist_proof"])
+        self.assertTrue(proof["initial_public_smoke_ok"])
+        self.assertTrue(proof["renewal_public_smoke_ok"])
+        self.assertTrue(proof["manual_stop_cleanup_ok"])
+        self.assertTrue(result["checks"]["wsta229_cloudflared_egress_allowlist_live_supplied"])
+        self.assertTrue(result["checks"]["cloudflared_egress_allowlist_live_proven"])
+        self.assertTrue(result["checks"]["cloudflared_egress_allowlist_live_default_off"])
+        self.assertTrue(result["checks"]["cloudflared_egress_allowlist_live_route_values_redacted"])
+        self.assertTrue(result["checks"]["cloudflared_egress_allowlist_live_ack_packet_filter_mutation"])
+        self.assertTrue(result["checks"]["cloudflared_egress_allowlist_live_force_restore_proof"])
+        self.assertTrue(result["checks"]["cloudflared_egress_allowlist_live_force_egress_proof"])
+        self.assertTrue(result["checks"]["cloudflared_egress_allowlist_live_initial_public_smoke"])
+        self.assertTrue(result["checks"]["cloudflared_egress_allowlist_live_renewal_public_smoke"])
+        self.assertTrue(result["checks"]["cloudflared_egress_allowlist_live_initial_restore"])
+        self.assertTrue(result["checks"]["cloudflared_egress_allowlist_live_renewal_restore"])
+        self.assertTrue(result["checks"]["cloudflared_egress_allowlist_live_manual_stop_public_off"])
+        self.assertNotIn(
+            "prepare-attended-cloudflared-egress-allowlist-live-gate",
+            result["server_status"]["operator_next_actions"],
+        )
+        self.assertNotIn(
+            "move-to-cloudflared-egress-allowlist-live-gate",
+            result["server_status"]["operator_next_actions"],
+        )
+        self.assertIn(
+            "continue-dpublic-server-endgame-after-cloudflared-egress-live",
+            result["server_status"]["operator_next_actions"],
+        )
+        self.assertEqual(
+            result["server_status"]["operator_next_actions"].count(
+                "continue-dpublic-server-endgame-after-cloudflared-egress-live"
+            ),
+            1,
+        )
+        self.assertIn("Cloudflared egress allowlist live: `true`", markdown)
+        self.assertIn("Cloudflared egress allowlist live state: `CLOUDFLARED_EGRESS_ALLOWLIST_ATTENDED_LIVE_PROVEN`", markdown)
+        self.assertIn("Cloudflared egress allowlist route counts: `30/2`", markdown)
+        self.assertIn("Cloudflared egress allowlist live restore: `true`", markdown)
+
     def test_all_syscall_profiles_retired_removes_syscall_blocker(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -3338,6 +3602,44 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertFalse(result["checks"]["cloudflared_egress_allowlist_policy_defined"])
         self.assertFalse(result["checks"]["cloudflared_egress_allowlist_no_mutation_here"])
 
+    def test_nonpass_wsta229_cloudflared_egress_allowlist_live_blocks(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            proof_path = root / "inputs" / "wsta229_result.json"
+            proof = self.cloudflared_egress_allowlist_live_proof()
+            proof["decision"] = "wsta226-blocked"
+            self.write_json(proof_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta229-cloudflared-egress-allowlist-live-json",
+                str(proof_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta229-cloudflared-egress-allowlist-live-not-pass")
+
+    def test_incomplete_wsta229_cloudflared_egress_allowlist_live_blocks_even_with_pass_decision(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            proof_path = root / "inputs" / "wsta229_result.json"
+            proof = self.cloudflared_egress_allowlist_live_proof()
+            proof["wsta88_redacted"]["wsta80_redacted"]["checks"][
+                "force_cloudflared_egress_allowlist_proof"
+            ] = False
+            self.write_json(proof_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta229-cloudflared-egress-allowlist-live-json",
+                str(proof_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta229-cloudflared-egress-allowlist-live-incomplete")
+        self.assertFalse(result["checks"]["cloudflared_egress_allowlist_live_proven"])
+        self.assertFalse(result["checks"]["cloudflared_egress_allowlist_live_force_egress_proof"])
+
     def test_public_summary_markdown_and_template_are_redacted(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -3380,6 +3682,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("--wsta216-default-drop-hardening-policy-json", payload)
         self.assertIn("--wsta219-attended-default-drop-live-json", payload)
         self.assertIn("--wsta221-cloudflared-egress-allowlist-policy-json", payload)
+        self.assertIn("--wsta229-cloudflared-egress-allowlist-live-json", payload)
         self.assertIn("--wsta122-cloudflared-model-json", payload)
         self.assertIn("--wsta125-cloudflared-runtime-proof-json", payload)
         self.assertIn("--wsta127-hud-model-json", payload)
@@ -3409,6 +3712,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("DPUBLIC_HUD_INTENT_SYSCALL_TRACE_LIVE_PROVEN", source)
         self.assertIn("LEGACY_IPTABLES_DEFAULT_DROP_ATTENDED_LIVE_PROVEN", source)
         self.assertIn("CLOUDFLARED_EGRESS_ALLOWLIST_HARDENING_POLICY_DEFINED", source)
+        self.assertIn("CLOUDFLARED_EGRESS_ALLOWLIST_ATTENDED_LIVE_PROVEN", source)
         self.assertIn("split-intent-native-presenter", source)
         self.assertIn("prototype-dpublic-hud-intent-presenter-boundary-before-live-hud-profile", source)
         self.assertIn("design-durable-dpublic-hud-presenter-service-across-debian-handoff", source)
@@ -3422,6 +3726,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("--wsta149-hud-intent-syscall-proof-json", source)
         self.assertIn("--wsta219-attended-default-drop-live-json", source)
         self.assertIn("--wsta221-cloudflared-egress-allowlist-policy-json", source)
+        self.assertIn("--wsta229-cloudflared-egress-allowlist-live-json", source)
         self.assertIn('"boot_flash": False', source)
         self.assertIn('"public_url_value_logged": False', source)
         self.assertNotIn("native_init_flash.py", source)
