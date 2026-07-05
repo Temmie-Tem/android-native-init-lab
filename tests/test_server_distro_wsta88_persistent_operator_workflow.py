@@ -222,6 +222,54 @@ class ServerDistroWsta88PersistentOperatorWorkflowTests(unittest.TestCase):
         self.assertNotIn(runner.wsta80.wsta58.wsta55.wsta45.wsta25.NATIVE_CONFIRM_TOKEN, public_text)
         self.assertNotIn(runner.wsta80.wsta58.wsta55.wsta45.PUBLIC_CONFIRM_TOKEN, public_text)
 
+    def test_default_live_image_is_packet_filter_ready(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            original_wsta80_run = runner.wsta80.run
+
+            def fake_wsta80_run(args):
+                if getattr(args, "execute_wsta58_from_status", False):
+                    return {
+                        "decision": runner.wsta80.PASS_DECISION,
+                        "run_dir": runner.rel(root / "workflow" / "gate-live"),
+                        "gate_decision": "ok",
+                        "checks": {
+                            "wsta58_pass": True,
+                            "explicit_live_gate": True,
+                            "default_public_off": True,
+                            "public_url_value_logged": False,
+                            "secret_values_logged": 0,
+                        },
+                        "wsta58_redacted": self.fake_wsta58_pass(),
+                        "safety": {"public_url_value_logged": False, "secret_values_logged": 0},
+                    }
+                return original_wsta80_run(args)
+
+            with mock.patch.object(runner.wsta80, "run", side_effect=fake_wsta80_run) as delegated:
+                result = runner.run(self.valid_args(
+                    root,
+                    "--execute-wsta58-from-status",
+                    "--allow-operator-live",
+                    "--allow-native-reboot",
+                    "--allow-public-live",
+                    "--ack-packet-filter-mutation",
+                    "--force-packet-filter-restore-proof",
+                    "--force-ttl-expiry-proof",
+                    "--force-manual-stop-proof",
+                    "--native-confirm-token",
+                    runner.wsta80.wsta58.wsta55.wsta45.wsta25.NATIVE_CONFIRM_TOKEN,
+                    "--public-confirm-token",
+                    runner.wsta80.wsta58.wsta55.wsta45.PUBLIC_CONFIRM_TOKEN,
+                ))
+
+        self.assertEqual(result["decision"], runner.PASS_DECISION)
+        live_args = delegated.call_args_list[-1].args[0]
+        wsta42 = runner.wsta80.wsta58.wsta55.wsta45.wsta43.wsta42
+        self.assertEqual(live_args.local_image, wsta42.DEFAULT_LOCAL_IMAGE)
+        self.assertEqual(live_args.local_image_sha256, wsta42.PACKET_FILTER_READY_IMAGE_SHA256)
+        self.assertEqual(live_args.remote_image, wsta42.PACKET_FILTER_READY_REMOTE_IMAGE)
+        self.assertEqual(live_args.remote_clean_image, wsta42.PACKET_FILTER_READY_REMOTE_IMAGE + ".clean")
+
     def test_public_summary_markdown_and_template_are_redacted(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)

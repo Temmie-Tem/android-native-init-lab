@@ -69,6 +69,16 @@ V3396_VERSION = "0.11.152"
 V3396_BUILD = "v3396-wsta-persistent-state-screen"
 V3397_VERSION = "0.11.153"
 V3397_BUILD = "v3397-wsta-execute-gate-screen"
+V3398_VERSION = "0.11.154"
+V3398_BUILD = "v3398-dpublic-hud-presenter"
+V3399_VERSION = "0.11.155"
+V3399_BUILD = "v3399-dpublic-hud-presenter-service"
+V3400_VERSION = "0.11.156"
+V3400_BUILD = "v3400-dpublic-hud-presenter-service-dedupe"
+V3401_VERSION = "0.11.157"
+V3401_BUILD = "v3401-dpublic-hud-shared-run-bind"
+V3402_VERSION = "0.11.158"
+V3402_BUILD = "v3402-dpublic-hud-presenter-restart-policy"
 SUPPORTED_UPLINK_NATIVE_BUILDS = (
     {"version": V3387_VERSION, "build": V3387_BUILD},
     {"version": V3388_VERSION, "build": V3388_BUILD},
@@ -81,6 +91,11 @@ SUPPORTED_UPLINK_NATIVE_BUILDS = (
     {"version": V3395_VERSION, "build": V3395_BUILD},
     {"version": V3396_VERSION, "build": V3396_BUILD},
     {"version": V3397_VERSION, "build": V3397_BUILD},
+    {"version": V3398_VERSION, "build": V3398_BUILD},
+    {"version": V3399_VERSION, "build": V3399_BUILD},
+    {"version": V3400_VERSION, "build": V3400_BUILD},
+    {"version": V3401_VERSION, "build": V3401_BUILD},
+    {"version": V3402_VERSION, "build": V3402_BUILD},
 )
 PASS_DECISION = "wsta24-native-wifi-uplink-client-pass"
 DEFAULT_DEVICE_IP = os.environ.get("A90_DEVICE_IP") or ".".join(("192", "168", "7", "2"))

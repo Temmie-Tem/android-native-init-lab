@@ -275,6 +275,14 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
         ]))}
         self.assertTrue(runner.packet_filter_restore_ok(restore))
 
+    def test_parser_defaults_to_packet_filter_ready_image(self) -> None:
+        args = runner.build_arg_parser().parse_args([])
+
+        self.assertEqual(args.local_image, runner.DEFAULT_LOCAL_IMAGE)
+        self.assertEqual(args.local_image_sha256, runner.PACKET_FILTER_READY_IMAGE_SHA256)
+        self.assertEqual(args.remote_image, runner.PACKET_FILTER_READY_REMOTE_IMAGE)
+        self.assertEqual(args.remote_clean_image, runner.PACKET_FILTER_READY_REMOTE_IMAGE + ".clean")
+
     def test_local_image_sha_gate_uses_explicit_expected_sha(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

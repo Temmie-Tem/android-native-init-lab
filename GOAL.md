@@ -280,6 +280,29 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > consistent; proceed only through the explicit live gate, or move to the next
 > hardening layer without weakening default-off/public-off behavior.
 
+> **🟢 STATUS (2026-07-05 21:49 KST) — WSTA219 ATTENDED DEFAULT-DROP LIVE PASS.**
+> Codex ran the explicit WSTA88 live workflow through the WSTA80/WSTA58 gate
+> with `--ack-packet-filter-mutation` and `--force-packet-filter-restore-proof`.
+> Two live-found drifts were fixed first: WSTA24 supported-native detection now
+> accepts resident v3402, and WSTA42/WSTA43/WSTA55/WSTA58/WSTA80/WSTA88 default
+> to the WSTA98 packet-filter-ready rootfs
+> (SHA256 `2dae0d4dcfde1854f0d91b0fe94948720b175638261d156572e82ca7d18e928b`)
+> instead of the older D1 image.  Final live run:
+> `workspace/private/runs/server-distro/wsta219-explicit-default-drop-live-fixed-20260705T213431KST/wsta88_operator_workflow.json`;
+> decision `wsta88-persistent-operator-workflow-live-pass`.  Initial and renewal
+> WSTA55 both passed, both nested WSTA42 runs applied
+> `packet-filter-loopback-default-drop-applied`, restored
+> `packet-filter-restored`, returned public smoke HTTP 200 with marker/service
+> checks OK, and TTL/manual cleanup ended `PUBLIC_OFF`.  Final native health
+> stayed clean: `selftest pass=12 warn=1 fail=0`.  No boot flash, forbidden
+> partition write, userdata write, LSM load, or switch-root occurred; public URL
+> and secrets stayed private/redacted.  Validation: focused WSTA regression
+> passed, and full server-distro regression `806 tests OK`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA219_ATTENDED_DEFAULT_DROP_LIVE_2026-07-05.md`.
+> **NEXT:** fold WSTA219 into the WSTA108 operator status bundle so the default-
+> drop live proof is visible, then continue with the next hardening layer without
+> weakening default-off/public-off behavior.
+
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
 > `D-PUBLIC-LIVE-PUBLISH` go and is actively driving D-public. First live publish (commit `8d25f793`:

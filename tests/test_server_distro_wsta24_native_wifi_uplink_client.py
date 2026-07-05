@@ -94,7 +94,7 @@ class ServerDistroWsta24NativeWifiUplinkClientTests(unittest.TestCase):
         self.assertEqual(parsed["decision"], "wifi-uplink-service-status-pass")
         self.assertNotIn("A90WSTA24_HELPER_STAGED", parsed)
 
-    def test_native_lineage_accepts_v3387_through_v3395(self) -> None:
+    def test_native_lineage_accepts_v3387_through_v3402(self) -> None:
         self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.143 (v3387-wifi-uplink-service-redacted)"))
         self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.144 (v3388-wifi-autoconnect-scan-recovery)"))
         self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.145 (v3389-wifi-connect-carrier-diagnostics)"))
@@ -106,6 +106,11 @@ class ServerDistroWsta24NativeWifiUplinkClientTests(unittest.TestCase):
         self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.151 (v3395-wsta-screenapp-live)"))
         self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.152 (v3396-wsta-persistent-state-screen)"))
         self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.153 (v3397-wsta-execute-gate-screen)"))
+        self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.154 (v3398-dpublic-hud-presenter)"))
+        self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.155 (v3399-dpublic-hud-presenter-service)"))
+        self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.156 (v3400-dpublic-hud-presenter-service-dedupe)"))
+        self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.157 (v3401-dpublic-hud-shared-run-bind)"))
+        self.assertTrue(runner.native_is_v3387("A90 Linux init 0.11.158 (v3402-dpublic-hud-presenter-restart-policy)"))
         self.assertFalse(runner.native_is_v3387("A90 Linux init 0.11.144"))
 
     def test_runner_surface_stages_helper_and_keeps_network_actions_denied(self) -> None:

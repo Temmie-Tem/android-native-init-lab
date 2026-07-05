@@ -70,8 +70,17 @@ DEFAULT_HOST_RESOLVER_CANDIDATES = (
     Path("/run/systemd/resolve/resolv.conf"),
     Path("/etc/resolv.conf"),
 )
-DEFAULT_REMOTE_CLEAN_IMAGE = d1.DEFAULT_REMOTE_IMAGE + ".clean"
-DEFAULT_LOCAL_IMAGE_SHA256 = d1.EXPECTED_IMAGE_SHA256
+PACKET_FILTER_READY_IMAGE = (
+    REPO_ROOT
+    / "workspace/private/runs/server-distro/wsta98-packet-filter-rootfs-20260704T151226Z"
+    / "a90-wsta98-packet-filter-rootfs.img"
+)
+PACKET_FILTER_READY_IMAGE_SHA256 = "2dae0d4dcfde1854f0d91b0fe94948720b175638261d156572e82ca7d18e928b"
+PACKET_FILTER_READY_REMOTE_IMAGE = "/mnt/sdext/a90/runtime/a90-wsta98-packet-filter-rootfs.img"
+DEFAULT_LOCAL_IMAGE = PACKET_FILTER_READY_IMAGE
+DEFAULT_LOCAL_IMAGE_SHA256 = PACKET_FILTER_READY_IMAGE_SHA256
+DEFAULT_REMOTE_IMAGE = PACKET_FILTER_READY_REMOTE_IMAGE
+DEFAULT_REMOTE_CLEAN_IMAGE = DEFAULT_REMOTE_IMAGE + ".clean"
 
 
 def rel(path: Path) -> str:
@@ -1581,9 +1590,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--transfer-timeout", type=float, default=900.0)
     parser.add_argument("--transfer-delay", type=float, default=2.0)
     parser.add_argument("--toybox", default="/bin/toybox")
-    parser.add_argument("--local-image", type=Path, default=d1.DEFAULT_LOCAL_IMAGE)
+    parser.add_argument("--local-image", type=Path, default=DEFAULT_LOCAL_IMAGE)
     parser.add_argument("--local-image-sha256", default=DEFAULT_LOCAL_IMAGE_SHA256)
-    parser.add_argument("--remote-image", default=d1.DEFAULT_REMOTE_IMAGE)
+    parser.add_argument("--remote-image", default=DEFAULT_REMOTE_IMAGE)
     parser.add_argument("--remote-clean-image", default=DEFAULT_REMOTE_CLEAN_IMAGE)
     parser.add_argument("--mountpoint", default=d1.DEFAULT_MOUNTPOINT)
     parser.add_argument("--cloudflared", type=Path, default=dpublic.DEFAULT_CLOUDFLARED)
