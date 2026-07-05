@@ -3825,6 +3825,32 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** continue containment hardening: either derive a HUD seccomp policy
 > from the live baseline, or capture the remaining `dropbear-admin-usb` syscall
 > profile before broader seccomp enforcement.
+>
+> **🟢 STATUS (2026-07-05 11:45 KST host clock) — WSTA151 DROPBEAR
+> ADMIN SYSCALL TRACE LIVE PASS.**  Codex added
+> `run_wsta151_dropbear_admin_syscall_trace.py` plus focused tests and ran the
+> explicit no-flash live gate against resident
+> `A90 Linux init 0.11.158 (v3402-dpublic-hud-presenter-restart-policy)`.
+> The runner used the WSTA115 strace rootfs image
+> `40a01268ae6f77d1548dd71f9ef30f4d31fdce437d90a6edcc7721f0e26dd159`,
+> staged the WSTA119/WSTA120 `dropbear-admin-usb` model inside the SD work
+> image, launched Dropbear under `strace`, proved `a90admin` UID/GID
+> `3903/3903`, proved root SSH rejection, and captured a private syscall
+> profile with 53 syscall names including `execve`, `socket`, `bind`,
+> `listen`, and `accept`.  Dropbear flags stayed `-s -w -j -k`, public
+> exposure stayed off, password auth did not succeed, private trace artifacts
+> were saved under
+> `workspace/private/runs/server-distro/wsta151-dropbear-admin-syscall-trace-live-20260705T113918KST/`,
+> cleanup/postcheck passed, and final device health stayed
+> `selftest fail=0`.  A transient post-run tcpctl stop was recovered with
+> `netservice start`; final status is `tcpctl=ready` and
+> `transport.upload=tcpctl-ready`.  Validation passed `py_compile`, focused
+> WSTA151 tests (`10 tests OK`), and full server-distro regression
+> (`525 tests OK`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA151_DROPBEAR_ADMIN_SYSCALL_TRACE_LIVE_2026-07-05.md`.
+> **NEXT:** fold WSTA151 into WSTA108 operator status so
+> `dropbear-admin-usb` is retired from remaining syscall profiles, then derive
+> concrete seccomp policy from the live HUD and Dropbear baselines.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
