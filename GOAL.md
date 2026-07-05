@@ -3905,8 +3905,36 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > (`535 tests OK`), WSTA108 status regeneration, and WSTA153 policy generation.
 > Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA153_SECCOMP_POLICY_SOURCE_2026-07-05.md`.
-> **NEXT:** WSTA154 should design launcher-side seccomp integration/dry-run
-> gating before any filter load; enforcement remains unproven.
+>
+> **🟢 STATUS (2026-07-05 12:10 KST host clock) — WSTA154 SECCOMP
+> LAUNCHER GATE MODEL PASS.**  Codex added
+> `run_wsta154_seccomp_launcher_gate_model.py` plus focused tests and generated
+> a host-only launcher-side seccomp dry-run gate model from the real WSTA153
+> policy.  The model binds `/usr/local/bin/a90-service-launch` to four policy
+> profiles and keeps filter loading disabled: `dpublic-smoke-httpd`→same
+> profile (18 syscalls), `cloudflared-quick-tunnel`→same profile (52),
+> `dropbear-admin-usb`→same profile (53), and `dpublic-hud`→
+> `dpublic-hud-intent` (22).  It records state
+> `SECCOMP_LAUNCHER_DRY_RUN_GATE_MODEL_SOURCE_DEFINED` and
+> `MODEL_ONLY_NOT_ENFORCED`, emits dry-run markers
+> `A90WSTA154_SECCOMP_POLICY_PRESENT=1`,
+> `A90WSTA154_SECCOMP_DRY_RUN_ONLY=1`, and
+> `A90WSTA154_SECCOMP_FILTER_LOAD=0`, and fail-closes on unknown service,
+> missing policy, missing profile, empty allowlist, source policy claiming
+> enforcement, or native-boundary misuse.  It explicitly keeps
+> `wsta-native-uplink-helper` and `native-dpublic-hud-presenter` outside Debian
+> service seccomp scope.  This WSTA154 unit was host-only: no device action,
+> flash, reboot, Wi-Fi, DHCP, public tunnel, packet-filter mutation, userdata
+> touch, switch-root, seccomp filter build/load, or seccomp enforcement ran.
+> Validation passed `py_compile`, focused WSTA153+WSTA154 tests (`7 tests OK`),
+> full server-distro regression (`539 tests OK`), and WSTA154 model generation:
+> `workspace/private/runs/server-distro/wsta154-seccomp-launcher-gate-model-20260705T1210KST/`.
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA154_SECCOMP_LAUNCHER_GATE_MODEL_2026-07-05.md`.
+> **NEXT:** WSTA155 should stage launcher dry-run logging in a private
+> rootfs/chroot and prove the markers are observable before any filter load.
+> Seccomp enforcement remains unproven and must stay behind a separate live
+> gate.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
