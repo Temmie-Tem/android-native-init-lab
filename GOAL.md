@@ -4976,6 +4976,37 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA194 should consume the WSTA193 source contract and render a
 > private, default-off operator packet for one attended single-service
 > seccomp-load canary.  WSTA194 must still not execute the live load.
+>
+> **🟢 STATUS (2026-07-05 16:48 KST host clock) — WSTA194 SECCOMP-LOAD
+> CANARY OPERATOR PACKET PASS.**  Codex added the private default-off operator
+> packet for a future attended single-service seccomp-load canary.  WSTA194
+> consumed the WSTA193 source-only canary contract, rendered a private packet
+> plus fail-closed shell wrapper, and kept the actual live-load path reserved
+> for a later WSTA196 runner.  Run:
+> `workspace/private/runs/server-distro/wsta194-seccomp-load-canary-operator-packet-20260705T1648KST/`;
+> decision was `wsta194-seccomp-load-canary-operator-packet-pass`.  Packet
+> state was `READY_OPERATOR_PACKET_SINGLE_SERVICE_CANARY_DEFAULT_OFF_WSTA196_REQUIRED`,
+> with `canary_service=dpublic-hud`, `policy_service=dpublic-hud-intent`,
+> `private_token_env=A90_PRIVATE_WSTA161_LOAD_TOKEN`,
+> `ready_for_live_execution=false`, `ready_for_wsta195_readiness=true`,
+> `single_service_canary=true`, `token_value_included=false`,
+> `correct_wsta161_token_supplied=false`, `seccomp_filter_loaded=false`,
+> `seccomp_enforced=false`, `wsta193_result_valid=true`,
+> `wsta193_contract_valid=true`, `wsta193_source_valid=true`,
+> `operator_packet_valid=true`, `shell_syntax_ok=true`,
+> `future_command_targets_wsta196=true`, `future_command_has_all_ack_flags=true`,
+> `shell_fails_closed=true`, `no_wsta187_reuse=true`, `no_wsta190_reuse=true`,
+> and `token_literal_absent=true`.  This proof did not flash, reboot, contact
+> the device, connect Wi-Fi, run DHCP, open a public tunnel, mutate packet
+> filters, write userdata, switch root, execute an operator packet, generate or
+> execute a live command, supply the correct WSTA161 token, load a seccomp
+> filter, or enforce seccomp.  Validation passed `py_compile`, focused WSTA194
+> tests (`8 tests OK`), full server-distro regression (`694 tests OK`), and the
+> WSTA194 proof run.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA194_SECCOMP_LOAD_CANARY_OPERATOR_PACKET_2026-07-05.md`.
+> **NEXT:** WSTA195 should consume the WSTA194 operator packet and perform a
+> read-only readiness gate before any real seccomp-load attempt.  WSTA195 must
+> still not load seccomp.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
