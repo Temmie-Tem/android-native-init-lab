@@ -3772,6 +3772,32 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** choose between optional HUD syscall trace profiling before seccomp
 > enforcement and broader containment hardening; do not repeat HUD handoff or
 > restart live proofs unless a regression appears.
+>
+> **🟢 STATUS (2026-07-05 11:02 KST host clock) — WSTA149 DPUBLIC HUD
+> INTENT SYSCALL TRACE LIVE PASS.**  Codex added
+> `run_wsta149_dpublic_hud_intent_syscall_trace.py` plus focused tests, then
+> ran the bounded no-flash live gate on resident
+> `A90 Linux init 0.11.158 (v3402-dpublic-hud-presenter-restart-policy)`.
+> The runner used the WSTA115 strace rootfs image
+> `40a01268ae6f77d1548dd71f9ef30f4d31fdce437d90a6edcc7721f0e26dd159`,
+> built a fresh arm64 `a90-dpublic-hud-intent`, staged service-hardening and
+> HUD split markers, and traced only
+> `a90-service-launch dpublic-hud strace ... a90-dpublic-hud-intent --output
+> /run/a90-dpublic/hud-intent.json --sequence 14901`.  Live proof showed
+> launcher exec for `dpublic-hud`, UID/GID `3904/3904`, `NoNewPrivs=1`, zero
+> effective capabilities, intent schema `a90-dpublic-hud-intent-v1`,
+> `PUBLIC_OFF`, `fsync` + `renameat` atomic path, no network syscalls, no
+> `ioctl`, and no `/dev/dri`/DRM trace content.  Private artifacts were saved
+> under
+> `workspace/private/runs/server-distro/wsta149-dpublic-hud-intent-syscall-trace-live-20260705T1058KST/`;
+> final explicit cleanup confirmed dropbear absent and final device health
+> stayed `selftest fail=0`.  Validation passed `py_compile`, WSTA149 focused
+> tests (`8 tests OK`), and full server-distro WSTA regression (`470 tests OK`).
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA149_DPUBLIC_HUD_INTENT_SYSCALL_TRACE_LIVE_2026-07-05.md`.
+> **NEXT:** fold the WSTA149 HUD intent syscall profile proof into WSTA108
+> operator status, then continue broader containment hardening or derive a
+> concrete seccomp policy from the live syscall baseline.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
