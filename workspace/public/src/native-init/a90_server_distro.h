@@ -30,5 +30,6 @@ int a90_server_distro_userdata_format_cmd(char **argv, int argc);
 int a90_server_distro_userdata_populate_cmd(char **argv, int argc);
 int a90_server_distro_switch_root_userdata_cmd(char **argv, int argc);
 int a90_server_distro_dpublic_hud_presenter_cmd(char **argv, int argc);
+int a90_server_distro_dpublic_hud_presenter_service_cmd(char **argv, int argc);
 
 #endif /* A90_SERVER_DISTRO_H */

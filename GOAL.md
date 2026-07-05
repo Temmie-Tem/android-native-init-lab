@@ -3493,6 +3493,45 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `dpublic-hud-presenter-service start|status|stop`, preserve an armed durable presenter
 > through the Debian handoff cleanup path, and keep Debian as the intent producer only.
 > Keep it source/build-only first, then live-gate as a separate bounded step.
+>
+> **🟢 STATUS (2026-07-05 09:25 KST host clock) — WSTA140 DPUBLIC HUD
+> PRESENTER SERVICE SOURCE BUILD PASS.**  Codex implemented the native control
+> surface in `workspace/public/src/native-init/a90_server_distro.c`, exported it in
+> `workspace/public/src/native-init/a90_server_distro.h`, and registered the
+> `dpublic-hud-presenter-service [start|status|stop] [options]` command in
+> `workspace/public/src/native-init/v319/80_shell_dispatch.inc.c` as a display
+> command.  The service start path prepares `/run/a90-dpublic` as numeric
+> `root:a90hud` (`gid 3904`) mode `1770`, stops legacy auto-HUD, forks a
+> native/root presenter child, writes `/run/a90-dpublic/hud-presenter.pid`, and
+> reports the `forked-native-child-survives-switch-root` process model.  The child
+> watches `/run/a90-dpublic/hud-intent.json` every `100ms`, reuses the WSTA136
+> bounded/fail-closed intent parser, presents only fresh sequence changes, and
+> writes `/run/a90-dpublic/hud-presenter.status`.  `status` reports pid/path/DRM
+> ownership plus `status.debian_direct_kms=0`; `stop` terminates the presenter and
+> releases DRM by process exit.  Debian handoff cleanup now preserves the default
+> armed durable presenter while still killing legacy unexpected native DRM owners.
+> Codex added
+> `workspace/public/src/scripts/revalidation/build_native_init_boot_v3399_dpublic_hud_presenter_service.py`
+> plus focused tests and source-built V3399 `A90 Linux init 0.11.155
+> (v3399-dpublic-hud-presenter-service)`.  Boot image:
+> `workspace/private/inputs/boot_images/boot_linux_v3399_dpublic_hud_presenter_service.img`,
+> SHA256 `cd59b7a5eecc7dda464374c7fb412a60eeda7e2579ef7e2abe26d856277ff9dd`.
+> The private candidate manifest records Debian direct KMS false, runtime dir
+> `root:a90hud` mode `1770`, intent file mode `0640`, and handoff preserve policy.
+> This WSTA140 unit was source/build-only: no device action, flash, reboot, Wi-Fi,
+> DHCP, public tunnel/smoke, packet-filter mutation, userdata mutation,
+> `switch_root`, live DRM open, or live KMS action ran.  Validation passed
+> `py_compile`, WSTA140 focused tests (`5 tests`), WSTA139 model regression
+> (`8 tests`), full server-distro WSTA regression (`458 tests`), and the V3399
+> source build pipeline.  Reports:
+> `docs/reports/NATIVE_INIT_V3399_DPUBLIC_HUD_PRESENTER_SERVICE_SOURCE_BUILD_2026-07-05.md`
+> and
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA140_DPUBLIC_HUD_PRESENTER_SERVICE_SOURCE_BUILD_2026-07-05.md`.
+> **NEXT:** WSTA141 should live-gate V3399 via the checked flash helper, run
+> serial `version`/`status`/`selftest`, then prove
+> `dpublic-hud-presenter-service start|status|stop` on-device without switch-root.
+> Keep Debian handoff survival as the following bounded unit after native
+> service start/status/stop is device-proven.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

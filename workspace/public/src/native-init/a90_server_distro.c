@@ -46,7 +46,14 @@
 #define A90_D_HANDOFF_DRM_OWNER_TIMEOUT_MS 1000
 #define A90_D_HW_TAG "A90DHW"
 #define A90_DPUBLIC_HUD_TAG "A90WSTA136"
-#define A90_DPUBLIC_HUD_DEFAULT_INTENT "/run/a90-dpublic/hud-intent.json"
+#define A90_DPUBLIC_HUD_SERVICE_TAG "A90WSTA140"
+#define A90_DPUBLIC_HUD_RUN_DIR "/run/a90-dpublic"
+#define A90_DPUBLIC_HUD_GROUP_GID 3904
+#define A90_DPUBLIC_HUD_RUN_DIR_MODE 01770
+#define A90_DPUBLIC_HUD_DEFAULT_INTENT A90_DPUBLIC_HUD_RUN_DIR "/hud-intent.json"
+#define A90_DPUBLIC_HUD_SERVICE_PID A90_DPUBLIC_HUD_RUN_DIR "/hud-presenter.pid"
+#define A90_DPUBLIC_HUD_SERVICE_STATUS A90_DPUBLIC_HUD_RUN_DIR "/hud-presenter.status"
+#define A90_DPUBLIC_HUD_SERVICE_LOG A90_DPUBLIC_HUD_RUN_DIR "/hud-presenter.log"
 #define A90_DPUBLIC_HUD_SCHEMA "a90-dpublic-hud-intent-v1"
 #define A90_DPUBLIC_HUD_MAX_INTENT_BYTES 4096U
 #define A90_DPUBLIC_HUD_STALE_AFTER_MS 2000ULL
@@ -54,6 +61,8 @@
 #define A90_DPUBLIC_HUD_STATE_MAX 24U
 #define A90_DPUBLIC_HUD_MAX_LINES 6U
 #define A90_DPUBLIC_HUD_LINE_MAX 48U
+#define A90_DPUBLIC_HUD_SERVICE_POLL_MS 100
+#define A90_DPUBLIC_HUD_SERVICE_STOP_TIMEOUT_MS 1000
 
 static void d_hw_print_contract(void) {
     a90_console_printf("A90DHW contract.version=1\r\n");
@@ -757,6 +766,349 @@ static int d_handoff_wait_pid_gone(pid_t pid, int timeout_ms) {
     return d_handoff_pid_alive(pid) ? -EBUSY : 0;
 }
 
+static int d_handoff_stop_drm_owner(const char *tag, pid_t pid);
+
+struct dpublic_hud_service_opts {
+    const char *intent_path;
+    const char *pid_path;
+    const char *status_path;
+    bool release_drm;
+};
+
+static volatile sig_atomic_t dpublic_hud_service_stop_requested = 0;
+
+static void dpublic_hud_service_signal(int signo) {
+    (void)signo;
+    dpublic_hud_service_stop_requested = 1;
+}
+
+static void dpublic_hud_service_default_opts(struct dpublic_hud_service_opts *opts) {
+    opts->intent_path = A90_DPUBLIC_HUD_DEFAULT_INTENT;
+    opts->pid_path = A90_DPUBLIC_HUD_SERVICE_PID;
+    opts->status_path = A90_DPUBLIC_HUD_SERVICE_STATUS;
+    opts->release_drm = false;
+}
+
+static int dpublic_hud_service_parse_opts(char **argv,
+                                          int argc,
+                                          int start_index,
+                                          struct dpublic_hud_service_opts *opts) {
+    int i;
+
+    dpublic_hud_service_default_opts(opts);
+    for (i = start_index; i < argc; ++i) {
+        if (strcmp(argv[i], "--intent") == 0 && i + 1 < argc) {
+            opts->intent_path = argv[++i];
+        } else if (strcmp(argv[i], "--pid-file") == 0 && i + 1 < argc) {
+            opts->pid_path = argv[++i];
+        } else if (strcmp(argv[i], "--status-file") == 0 && i + 1 < argc) {
+            opts->status_path = argv[++i];
+        } else if (strcmp(argv[i], "--stale-after-ms") == 0 && i + 1 < argc) {
+            char *end = NULL;
+            long value;
+
+            errno = 0;
+            value = strtol(argv[++i], &end, 10);
+            if (errno != 0 || end == argv[i] || end == NULL || *end != '\0' ||
+                value != (long)A90_DPUBLIC_HUD_STALE_AFTER_MS) {
+                return -EINVAL;
+            }
+        } else if (strcmp(argv[i], "--release-drm") == 0) {
+            opts->release_drm = true;
+        } else {
+            return -EINVAL;
+        }
+    }
+    return 0;
+}
+
+static int dpublic_hud_service_write_text(const char *path, const char *text) {
+    int fd;
+    size_t len;
+    ssize_t written;
+
+    if (path == NULL || text == NULL) {
+        return -EINVAL;
+    }
+    fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+    if (fd < 0) {
+        return -errno;
+    }
+    len = strlen(text);
+    written = write(fd, text, len);
+    if (written < 0 || (size_t)written != len) {
+        int rc = written < 0 ? -errno : -EIO;
+
+        close(fd);
+        return rc;
+    }
+    if (close(fd) < 0) {
+        return -errno;
+    }
+    return 0;
+}
+
+static int dpublic_hud_service_prepare_run_dir(void) {
+    int rc = 0;
+
+    if (mkdir("/run", 0755) < 0 && errno != EEXIST) {
+        return -errno;
+    }
+    if (mkdir(A90_DPUBLIC_HUD_RUN_DIR, A90_DPUBLIC_HUD_RUN_DIR_MODE) < 0 &&
+        errno != EEXIST) {
+        return -errno;
+    }
+    if (chown(A90_DPUBLIC_HUD_RUN_DIR, 0, A90_DPUBLIC_HUD_GROUP_GID) < 0) {
+        rc = -errno;
+    }
+    if (chmod(A90_DPUBLIC_HUD_RUN_DIR, A90_DPUBLIC_HUD_RUN_DIR_MODE) < 0 && rc == 0) {
+        rc = -errno;
+    }
+    return rc;
+}
+
+static int dpublic_hud_service_write_pid(const char *path, pid_t pid) {
+    char text[64];
+
+    snprintf(text, sizeof(text), "%ld\n", (long)pid);
+    return dpublic_hud_service_write_text(path, text);
+}
+
+static int dpublic_hud_service_read_pid(const char *path, pid_t *pid_out) {
+    int fd;
+    char buf[64];
+    ssize_t nread;
+    char *end = NULL;
+    long value;
+
+    if (path == NULL || pid_out == NULL) {
+        return -EINVAL;
+    }
+    fd = open(path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        return -errno;
+    }
+    nread = read(fd, buf, sizeof(buf) - 1);
+    close(fd);
+    if (nread <= 0) {
+        return nread < 0 ? -errno : -EIO;
+    }
+    buf[nread] = '\0';
+    errno = 0;
+    value = strtol(buf, &end, 10);
+    if (errno != 0 || end == buf || value <= 0) {
+        return -EINVAL;
+    }
+    *pid_out = (pid_t)value;
+    return 0;
+}
+
+static int dpublic_hud_service_write_status(const char *path,
+                                            const char *state,
+                                            pid_t pid,
+                                            uint64_t sequence,
+                                            int present_rc) {
+    char text[512];
+
+    snprintf(text,
+             sizeof(text),
+             "state=%s\npid=%ld\nlast_sequence=%llu\npresent_rc=%d\n"
+             "intent=%s\nowner=native-init\nprocess_model=forked-native-child-survives-switch-root\n",
+             state,
+             (long)pid,
+             (unsigned long long)sequence,
+             present_rc,
+             A90_DPUBLIC_HUD_DEFAULT_INTENT);
+    return dpublic_hud_service_write_text(path, text);
+}
+
+static int dpublic_hud_service_child_loop(const char *intent_path,
+                                          const char *status_path) {
+    uint64_t last_sequence = 0;
+    int last_present_rc = 0;
+
+    dpublic_hud_service_stop_requested = 0;
+    signal(SIGTERM, dpublic_hud_service_signal);
+    signal(SIGINT, dpublic_hud_service_signal);
+    signal(SIGHUP, dpublic_hud_service_signal);
+    (void)dpublic_hud_service_write_status(status_path, "running", getpid(), 0, 0);
+
+    while (!dpublic_hud_service_stop_requested) {
+        struct dpublic_hud_intent intent;
+        char json[A90_DPUBLIC_HUD_MAX_INTENT_BYTES + 1U];
+        size_t used = 0;
+        int rc = dpublic_hud_read_intent_file(intent_path, json, sizeof(json), &used);
+
+        if (rc == 0) {
+            rc = dpublic_hud_parse_intent(json, used, &intent);
+            if (rc == 0 && intent.sequence != last_sequence) {
+                last_sequence = intent.sequence;
+                last_present_rc = a90_kms_begin_frame(0x061018);
+                if (last_present_rc == 0) {
+                    dpublic_hud_draw_presenter(&intent);
+                    last_present_rc = a90_kms_present("dpublic-hud-presenter-service", true);
+                }
+                (void)dpublic_hud_service_write_status(status_path,
+                                                       "running",
+                                                       getpid(),
+                                                       last_sequence,
+                                                       last_present_rc);
+            }
+        }
+        usleep(A90_DPUBLIC_HUD_SERVICE_POLL_MS * 1000U);
+    }
+
+    (void)dpublic_hud_service_write_status(status_path,
+                                           "stopped",
+                                           getpid(),
+                                           last_sequence,
+                                           last_present_rc);
+    return 0;
+}
+
+static bool dpublic_hud_service_pid_is_default(pid_t pid) {
+    pid_t service_pid;
+
+    if (dpublic_hud_service_read_pid(A90_DPUBLIC_HUD_SERVICE_PID, &service_pid) < 0) {
+        return false;
+    }
+    return service_pid == pid && d_handoff_pid_alive(pid);
+}
+
+static int dpublic_hud_service_start(const struct dpublic_hud_service_opts *opts) {
+    pid_t existing;
+    pid_t pid;
+    int rc;
+
+    rc = dpublic_hud_service_prepare_run_dir();
+    a90_console_printf("%s start.run_dir=%s owner=root:a90hud mode=1770 rc=%d\r\n",
+                       A90_DPUBLIC_HUD_SERVICE_TAG, A90_DPUBLIC_HUD_RUN_DIR, rc);
+    if (rc < 0) {
+        return rc;
+    }
+    if (dpublic_hud_service_read_pid(opts->pid_path, &existing) == 0 &&
+        d_handoff_pid_alive(existing)) {
+        a90_console_printf("%s start.already_running=1 pid=%ld\r\n",
+                           A90_DPUBLIC_HUD_SERVICE_TAG, (long)existing);
+        return -EBUSY;
+    }
+
+    rc = a90_service_stop(A90_SERVICE_HUD, A90_D_HANDOFF_HUD_TIMEOUT_MS);
+    a90_console_printf("%s start.autohud_stop_rc=%d\r\n", A90_DPUBLIC_HUD_SERVICE_TAG, rc);
+    if (rc < 0) {
+        return rc;
+    }
+
+    pid = fork();
+    if (pid < 0) {
+        rc = -errno;
+        a90_console_printf("%s start.fork_rc=%d\r\n", A90_DPUBLIC_HUD_SERVICE_TAG, rc);
+        return rc;
+    }
+    if (pid == 0) {
+        (void)setsid();
+        _exit(dpublic_hud_service_child_loop(opts->intent_path, opts->status_path) == 0 ? 0 : 1);
+    }
+
+    rc = dpublic_hud_service_write_pid(opts->pid_path, pid);
+    a90_console_printf("%s start.intent=%s\r\n", A90_DPUBLIC_HUD_SERVICE_TAG, opts->intent_path);
+    a90_console_printf("%s start.pid=%ld\r\n", A90_DPUBLIC_HUD_SERVICE_TAG, (long)pid);
+    a90_console_printf("%s start.pidfile=%s rc=%d\r\n",
+                       A90_DPUBLIC_HUD_SERVICE_TAG, opts->pid_path, rc);
+    if (rc < 0) {
+        (void)kill(pid, SIGTERM);
+        return rc;
+    }
+    a90_console_printf("%s start.process_model=forked-native-child-survives-switch-root\r\n",
+                       A90_DPUBLIC_HUD_SERVICE_TAG);
+    a90_console_printf("%s start.done=1\r\n", A90_DPUBLIC_HUD_SERVICE_TAG);
+    return 0;
+}
+
+static int dpublic_hud_service_status(const struct dpublic_hud_service_opts *opts) {
+    pid_t pid;
+    int rc = dpublic_hud_service_read_pid(opts->pid_path, &pid);
+    bool running;
+    bool drm_fd;
+
+    if (rc < 0) {
+        a90_console_printf("%s status.state=stopped rc=%d\r\n",
+                           A90_DPUBLIC_HUD_SERVICE_TAG, rc);
+        return 0;
+    }
+    running = d_handoff_pid_alive(pid);
+    drm_fd = running && d_handoff_pid_has_drm_fd(pid);
+    a90_console_printf("%s status.state=%s\r\n",
+                       A90_DPUBLIC_HUD_SERVICE_TAG, running ? "running" : "stale-pid");
+    a90_console_printf("%s status.pid=%ld\r\n", A90_DPUBLIC_HUD_SERVICE_TAG, (long)pid);
+    a90_console_printf("%s status.pidfile=%s\r\n", A90_DPUBLIC_HUD_SERVICE_TAG, opts->pid_path);
+    a90_console_printf("%s status.status_file=%s\r\n",
+                       A90_DPUBLIC_HUD_SERVICE_TAG, opts->status_path);
+    a90_console_printf("%s status.intent=%s\r\n", A90_DPUBLIC_HUD_SERVICE_TAG, opts->intent_path);
+    a90_console_printf("%s status.drm_fd=%d\r\n", A90_DPUBLIC_HUD_SERVICE_TAG, drm_fd ? 1 : 0);
+    a90_console_printf("%s status.debian_direct_kms=0\r\n", A90_DPUBLIC_HUD_SERVICE_TAG);
+    return running ? 0 : -ESRCH;
+}
+
+static int dpublic_hud_service_stop(const struct dpublic_hud_service_opts *opts) {
+    pid_t pid;
+    int rc = dpublic_hud_service_read_pid(opts->pid_path, &pid);
+
+    if (rc < 0) {
+        a90_console_printf("%s stop.not_running=1 rc=%d\r\n",
+                           A90_DPUBLIC_HUD_SERVICE_TAG, rc);
+        (void)unlink(opts->pid_path);
+        return 0;
+    }
+    a90_console_printf("%s stop.pid=%ld release_drm=%d\r\n",
+                       A90_DPUBLIC_HUD_SERVICE_TAG, (long)pid, opts->release_drm ? 1 : 0);
+    rc = d_handoff_stop_drm_owner(A90_DPUBLIC_HUD_SERVICE_TAG, pid);
+    (void)unlink(opts->pid_path);
+    if (rc == 0) {
+        (void)dpublic_hud_service_write_status(opts->status_path, "stopped", pid, 0, 0);
+        a90_console_printf("%s stop.done=1\r\n", A90_DPUBLIC_HUD_SERVICE_TAG);
+    } else {
+        a90_console_printf("%s stop.done=0 rc=%d\r\n", A90_DPUBLIC_HUD_SERVICE_TAG, rc);
+    }
+    return rc;
+}
+
+int a90_server_distro_dpublic_hud_presenter_service_cmd(char **argv, int argc) {
+    const char *mode;
+    struct dpublic_hud_service_opts opts;
+    int rc;
+
+    if (argc < 2) {
+        a90_console_printf("usage: dpublic-hud-presenter-service [start|status|stop] [options]\r\n");
+        return -EINVAL;
+    }
+    mode = argv[1];
+    rc = dpublic_hud_service_parse_opts(argv, argc, 2, &opts);
+    if (rc < 0) {
+        a90_console_printf("usage: dpublic-hud-presenter-service [start|status|stop] [options]\r\n");
+        a90_console_printf("%s refused=bad-options rc=%d\r\n", A90_DPUBLIC_HUD_SERVICE_TAG, rc);
+        return rc;
+    }
+
+    a90_console_printf("%s service=native-dpublic-hud-presenter\r\n",
+                       A90_DPUBLIC_HUD_SERVICE_TAG);
+    a90_console_printf("%s owner=native-init-root\r\n", A90_DPUBLIC_HUD_SERVICE_TAG);
+    a90_console_printf("%s survives_handoff=1\r\n", A90_DPUBLIC_HUD_SERVICE_TAG);
+    if (strcmp(mode, "start") == 0) {
+        return dpublic_hud_service_start(&opts);
+    }
+    if (strcmp(mode, "status") == 0) {
+        return dpublic_hud_service_status(&opts);
+    }
+    if (strcmp(mode, "stop") == 0) {
+        return dpublic_hud_service_stop(&opts);
+    }
+
+    a90_console_printf("%s refused=unknown-mode mode=%s\r\n",
+                       A90_DPUBLIC_HUD_SERVICE_TAG, mode);
+    return -EINVAL;
+}
+
 static int d_handoff_stop_drm_owner(const char *tag, pid_t pid) {
     int rc;
 
@@ -814,6 +1166,11 @@ static int d_handoff_stop_display_owners(const char *tag) {
             continue;
         }
         if (!d_handoff_pid_is_native_init(pid) || !d_handoff_pid_has_drm_fd(pid)) {
+            continue;
+        }
+        if (dpublic_hud_service_pid_is_default(pid)) {
+            a90_console_printf("%s handoff_display drm_owner_pid=%ld action=preserve-dpublic-hud-presenter\r\n",
+                               tag, (long)pid);
             continue;
         }
         rc = d_handoff_stop_drm_owner(tag, pid);

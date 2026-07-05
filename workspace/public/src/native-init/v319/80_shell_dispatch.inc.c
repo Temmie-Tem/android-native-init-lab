@@ -19622,6 +19622,10 @@ static int handle_dpublic_hud_presenter(char **argv, int argc) {
     return a90_server_distro_dpublic_hud_presenter_cmd(argv, argc);
 }
 
+static int handle_dpublic_hud_presenter_service(char **argv, int argc) {
+    return a90_server_distro_dpublic_hud_presenter_service_cmd(argv, argc);
+}
+
 static int handle_poweroff(char **argv, int argc) {
     (void)argv;
     (void)argc;
@@ -19774,6 +19778,9 @@ static const struct shell_command command_table[] = {
     { "dpublic-hud-presenter", handle_dpublic_hud_presenter,
       "dpublic-hud-presenter [validate|present] [intent-path]",
       CMD_DISPLAY, A90_CMD_GROUP_DISPLAY },
+    { "dpublic-hud-presenter-service", handle_dpublic_hud_presenter_service,
+      "dpublic-hud-presenter-service [start|status|stop] [options]",
+      CMD_DANGEROUS | CMD_DISPLAY, A90_CMD_GROUP_DISPLAY },
 };
 
 static void refresh_pid1_guard(void) {
