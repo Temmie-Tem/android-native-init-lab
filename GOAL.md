@@ -379,6 +379,32 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > gate; preserve default-off/public-off and avoid logging public URL values,
 > tunnel credentials, Wi-Fi credentials, or secrets.
 
+> **🟢 STATUS (2026-07-05 22:28 KST) — WSTA223 CLOUDFLARED EGRESS ALLOWLIST LIVE GATE PLAN PASS.**
+> Codex added a host-only WSTA223 live-gate plan runner that consumes the WSTA222
+> operator status and WSTA221 egress allowlist policy.  Full host-only run:
+> `workspace/private/runs/server-distro/wsta223-cloudflared-egress-allowlist-live-gate-plan-20260705T222716KST/wsta223_result.json`;
+> decision `wsta223-cloudflared-egress-allowlist-live-gate-plan-source-pass`.
+> The emitted plan records
+> `CLOUDFLARED_EGRESS_ALLOWLIST_LIVE_GATE_PLANNED`,
+> `activation=attended-explicit-live-gate-after-default-drop`,
+> `service=cloudflared-quick-tunnel`, `target_user=a90tunnel`,
+> `target_uid=3902`, `entry_chain=OUTPUT`,
+> `dedicated_chain=A90_CLOUDFLARED_EGRESS`, `default_public_off=true`,
+> `live_execution_requested=false`, `packet_filter_mutation_by_wsta223=false`,
+> and `blocked_until_source_exists=true`.  Required helper ops are
+> `preflight-cloudflared-egress-allowlist`,
+> `apply-cloudflared-egress-allowlist`,
+> `status-cloudflared-egress-allowlist`, and `restore`.  Required live phases
+> are preflight, redacted DNS/TLS route derivation, apply after default-drop,
+> cloudflared/non-widening proof, and exact restore/public-off proof.  No device
+> action, boot flash, Wi-Fi connect, DHCP, public tunnel, public smoke,
+> packet-filter mutation, userdata write, LSM load, or switch-root occurred.
+> Validation: WSTA223 focused tests `5 tests OK`, WSTA221/WSTA223 focused tests
+> `9 tests OK`, full server-distro regression `821 tests OK`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA223_CLOUDFLARED_EGRESS_ALLOWLIST_LIVE_GATE_PLAN_2026-07-05.md`.
+> **NEXT:** implement WSTA224 source support in the packet-filter helper and
+> runner surfaces before any live egress allowlist attempt.
+
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
 > `D-PUBLIC-LIVE-PUBLISH` go and is actively driving D-public. First live publish (commit `8d25f793`:
