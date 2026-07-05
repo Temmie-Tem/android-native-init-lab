@@ -3722,6 +3722,31 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > stale-pid cleanup if safely synthesizable, and final health.  Only after that
 > should optional HUD syscall trace profiling or broader containment hardening
 > proceed.
+>
+> **🟢 STATUS (2026-07-05 10:38 KST host clock) — WSTA147 DPUBLIC HUD
+> PRESENTER RESTART POLICY LIVE PASS.**  Codex live-gated V3402 through
+> `native_init_flash.py --from-native` after confirming the current V3401 health,
+> rollback images, and TWRP artifacts.  The checked helper flashed exact boot
+> SHA256 `57821e94857cb58b397c737a73d5f85381329f5e9ec8a6b55dc7d5dbb6a7d3f1`,
+> verified remote SHA and boot readback SHA, rebooted to native V3402, and
+> passed cmdv1 `version/status`.  Live proof then hid the menu, started
+> `dpublic-hud-presenter-service` as PID 661, wrote fresh intent
+> `sequence=14701`, and confirmed KMS present + `status.drm_fd=1` +
+> `last_sequence=14701 present_rc=0`.  `restart --release-drm` terminated PID
+> 661, started PID 669, emitted `A90WSTA146 restart.stop_rc=0`,
+> `restart.start_rc=0`, and `restart.done=1 rc=0`; fresh intent
+> `sequence=14702` was presented with `last_sequence=14702 present_rc=0` and
+> `status.drm_fd=1`.  Stop after restart returned `stop.done=1`.  A safely
+> synthesized fake pidfile `999999` proved stale cleanup:
+> `A90WSTA146 start.stale_pid=999999 action=unlink`, followed by a clean start
+> and final stop.  Final health stayed clean on resident V3402:
+> `selftest pass=12 warn=1 fail=0`, `transport.serial=ready`,
+> `transport.ncm=ready`, `transport.tcpctl=ready`.  No rollback was needed; the
+> device is intentionally left on live-passed V3402.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA147_DPUBLIC_HUD_PRESENTER_RESTART_POLICY_LIVE_2026-07-05.md`.
+> **NEXT:** fold the WSTA147 restart/stale-cleanup proof into WSTA108 operator
+> status, then move to optional HUD syscall trace profiling or broader
+> containment hardening.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
