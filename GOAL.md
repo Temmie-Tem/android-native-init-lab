@@ -5043,6 +5043,41 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > single-service seccomp-load canary, keeping the private token
 > operator-supplied, fresh read-only native health checks mandatory, and
 > fail-closed cleanup/audit behavior explicit.
+>
+> **🟢 STATUS (2026-07-05 17:05 KST host clock) — WSTA196 SECCOMP-LOAD
+> CANARY SOURCE-GATE PASS.**  Codex added the attended seccomp-load canary
+> runner source with a host-only source-gate mode and a separately gated future
+> execution mode.  WSTA196 consumed:
+> `workspace/private/runs/server-distro/wsta195-seccomp-load-canary-readiness-20260705T165710KST/wsta195_seccomp_load_canary_readiness.json`
+> and
+> `workspace/private/runs/server-distro/wsta194-seccomp-load-canary-operator-packet-20260705T1648KST/wsta194_seccomp_load_canary_operator_packet.json`;
+> run:
+> `workspace/private/runs/server-distro/wsta196-seccomp-load-canary-source-gate-20260705T170553KST/`;
+> decision was `wsta196-seccomp-load-canary-source-gate-pass`.  Source-gate
+> state was `LIVE_RUNNER_SOURCE_READY_DEFAULT_OFF_NOT_EXECUTED`, with
+> `canary_service=dpublic-hud`, `policy_service=dpublic-hud-intent`,
+> `private_token_env=A90_PRIVATE_WSTA161_LOAD_TOKEN`,
+> `ready_for_attended_execution=true`, `ready_for_unattended_execution=false`,
+> `single_service_canary=true`, `live_command_executed=false`,
+> `correct_wsta161_token_supplied=false`, `seccomp_filter_loaded=false`,
+> `seccomp_enforced=false`, `wsta195_readiness_valid=true`,
+> `wsta194_packet_valid=true`, `source_gate_valid=true`,
+> `fresh_health_required=true`, `post_health_required=true`,
+> `execute_flags_complete=true`, `launcher_command_single_service_hud=true`,
+> `launcher_command_canary_true=true`, `token_literal_absent=true`, and
+> `no_external_network_inputs=true`.  This proof did not flash, reboot,
+> contact the device, connect Wi-Fi, run DHCP, open a public tunnel, mutate
+> packet filters, write userdata, switch root, execute an operator packet,
+> generate or execute a live command, supply the correct WSTA161 token, load a
+> seccomp filter, or enforce seccomp.  The execution path is present but still
+> requires all attended flags, private token env, fresh pre-run native health,
+> single-service output markers, and post-run native health.  Validation passed
+> `py_compile`, focused WSTA196 tests (`6 tests OK`), full server-distro
+> regression (`708 tests OK`), and the WSTA196 source-gate proof run.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA196_SECCOMP_LOAD_CANARY_SOURCE_GATE_2026-07-05.md`.
+> **NEXT:** WSTA197 should decide/validate the live transport for the attended
+> WSTA196 execution path and then run only if the operator supplies the private
+> token and fresh native health checks pass.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
