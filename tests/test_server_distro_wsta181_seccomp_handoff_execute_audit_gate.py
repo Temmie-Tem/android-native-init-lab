@@ -104,6 +104,22 @@ class ServerDistroWsta181SeccompHandoffExecuteAuditGateTests(unittest.TestCase):
                 "wsta177_result_present": True,
                 "wsta177_result_valid": True,
             },
+            "wsta177_checks": {
+                "source_wsta175_executed": True,
+                "source_wsta170_executed": True,
+                "wsta175_decision_pass": True,
+                "wsta170_decision_pass": True,
+                "wsta167_decision_pass": True,
+                "source_no_seccomp_load": True,
+                "source_no_seccomp_enforce": True,
+                "source_no_correct_token": True,
+                "source_no_flash": True,
+                "source_no_reboot": True,
+                "source_no_wifi": True,
+                "source_no_dhcp": True,
+                "source_no_public_tunnel": True,
+                "source_no_packet_filter_mutation": True,
+            },
             "safety": {
                 "audit_only": True,
                 "boot_flash": False,
@@ -170,7 +186,10 @@ class ServerDistroWsta181SeccompHandoffExecuteAuditGateTests(unittest.TestCase):
         self.assertEqual(len(calls), 2)
         self.assertTrue(result["checks"]["post_run_audit_result_valid"])
         self.assertTrue(result["safety"]["wsta178_execute_command_executed"])
+        self.assertTrue(result["safety"]["wsta175_execute_command_executed"])
+        self.assertTrue(result["safety"]["wsta170_execute_command_executed"])
         self.assertTrue(result["safety"]["post_run_audit_executed"])
+        self.assertTrue(result["post_run_deep_audit_checks"]["wsta167_decision_pass"])
 
     def test_existing_result_blocks_source_gate_as_stale(self) -> None:
         with self.private_tmp() as tmp:

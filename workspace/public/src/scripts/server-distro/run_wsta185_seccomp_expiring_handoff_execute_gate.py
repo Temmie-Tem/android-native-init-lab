@@ -254,6 +254,7 @@ def validate_wsta181_result(result: dict[str, Any]) -> dict[str, bool]:
     checks = result.get("checks", {})
     safety = result.get("safety", {})
     audit = result.get("post_run_audit_result", {})
+    deep = result.get("post_run_deep_audit_checks", {})
     return {
         "decision_pass": result.get("decision") == wsta181.PASS_DECISION,
         "handoff_bundle_valid": checks.get("handoff_bundle_valid") is True,
@@ -266,8 +267,15 @@ def validate_wsta181_result(result: dict[str, Any]) -> dict[str, bool]:
         "wsta181_handoff_consumed": safety.get("handoff_consumed") is True,
         "wsta178_executed": safety.get("wsta178_execute_command_executed") is True,
         "wsta177_executed": safety.get("wsta177_execute_command_executed") is True,
+        "wsta175_executed": safety.get("wsta175_execute_command_executed") is True,
+        "wsta170_executed": safety.get("wsta170_execute_command_executed") is True,
         "post_run_audit_executed": safety.get("post_run_audit_executed") is True,
         "live_command_executed": safety.get("live_command_executed") is True,
+        "deep_wsta175_executed": deep.get("source_wsta175_executed") is True,
+        "deep_wsta170_executed": deep.get("source_wsta170_executed") is True,
+        "deep_wsta175_decision_pass": deep.get("wsta175_decision_pass") is True,
+        "deep_wsta170_decision_pass": deep.get("wsta170_decision_pass") is True,
+        "deep_wsta167_decision_pass": deep.get("wsta167_decision_pass") is True,
         "no_flash": safety.get("boot_flash") is False,
         "no_reboot": safety.get("native_reboot") is False,
         "no_wifi": safety.get("wifi_connect") is False,
@@ -379,11 +387,16 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         result["wsta181_result"] = {
             "decision": wsta181_result.get("decision"),
             "post_run_audit_decision": wsta181_result.get("post_run_audit_result", {}).get("decision"),
+            "deep_audit": wsta181_result.get("post_run_deep_audit_checks", {}),
         }
         result["wsta181_result_checks"] = validate_wsta181_result(wsta181_result)
         result["checks"]["wsta181_result_valid"] = all(result["wsta181_result_checks"].values())
         if wsta181_result.get("safety", {}).get("post_run_audit_executed") is True:
             result["safety"]["post_run_audit_executed"] = True
+        if wsta181_result.get("safety", {}).get("wsta175_execute_command_executed") is True:
+            result["safety"]["wsta175_execute_command_executed"] = True
+        if wsta181_result.get("safety", {}).get("wsta170_execute_command_executed") is True:
+            result["safety"]["wsta170_execute_command_executed"] = True
     else:
         result["wsta181_result"] = {}
         result["wsta181_result_checks"] = {}

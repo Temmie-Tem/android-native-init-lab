@@ -166,10 +166,14 @@ class ServerDistroWsta178SeccompOneShotExecutePreflightTests(unittest.TestCase):
                 self.preflight_args(root, source_gate, command_json, command_sh)
             ))
             payload = json.loads((root / "wsta178" / runner.COMMAND_JSON_NAME).read_text(encoding="utf-8"))
+            rebased_payload = json.loads(
+                (root / "wsta178" / runner.REBASED_WSTA168_COMMAND_JSON_NAME).read_text(encoding="utf-8")
+            )
             script = (root / "wsta178" / runner.COMMAND_SH_NAME).read_text(encoding="utf-8")
 
         self.assertEqual(result["decision"], runner.PASS_DECISION)
         self.assertTrue(result["checks"]["source_gate_valid"])
+        self.assertTrue(result["checks"]["rebased_wsta168_command_valid"])
         self.assertTrue(result["checks"]["execution_command_valid"])
         self.assertTrue(result["safety"]["wsta177_execute_command_generated"])
         self.assertFalse(result["safety"]["live_command_executed"])
@@ -179,6 +183,12 @@ class ServerDistroWsta178SeccompOneShotExecutePreflightTests(unittest.TestCase):
         self.assertIn("--execute-wsta177-one-shot", payload["command"])
         self.assertIn("--prepare-wsta177-one-shot", payload["command"])
         self.assertIn("--allow-wsta175-command-execution", payload["command"])
+        self.assertIn(runner.rel(root / "wsta178" / runner.REBASED_WSTA168_COMMAND_JSON_NAME), payload["command"])
+        self.assertIn(runner.rel(root / "wsta178" / runner.REBASED_WSTA168_COMMAND_SH_NAME), payload["command"])
+        self.assertEqual(
+            rebased_payload["command"][rebased_payload["command"].index("--run-dir") + 1],
+            runner.rel(root / "wsta178" / "rebased-wsta168-command" / "wsta167-live-run"),
+        )
         self.assertIn("--execute-wsta177-one-shot", script)
         self.assertNotIn("WSTA161-EXPLICIT-ALLOW-SECCOMP-LOAD", script)
 

@@ -103,10 +103,19 @@ class ServerDistroWsta185SeccompExpiringHandoffExecuteGateTests(unittest.TestCas
             "post_run_audit_result": {
                 "decision": runner.wsta181.wsta179.PASS_DECISION,
             },
+            "post_run_deep_audit_checks": {
+                "source_wsta175_executed": True,
+                "source_wsta170_executed": True,
+                "wsta175_decision_pass": True,
+                "wsta170_decision_pass": True,
+                "wsta167_decision_pass": True,
+            },
             "safety": {
                 "handoff_consumed": True,
                 "wsta178_execute_command_executed": True,
                 "wsta177_execute_command_executed": True,
+                "wsta175_execute_command_executed": True,
+                "wsta170_execute_command_executed": True,
                 "post_run_audit_executed": True,
                 "live_command_executed": True,
                 "boot_flash": False,
@@ -166,6 +175,9 @@ class ServerDistroWsta185SeccompExpiringHandoffExecuteGateTests(unittest.TestCas
         self.assertTrue(result["checks"]["wsta181_result_valid"])
         self.assertTrue(result["safety"]["handoff_consumed"])
         self.assertTrue(result["safety"]["wsta181_execute_command_executed"])
+        self.assertTrue(result["safety"]["wsta175_execute_command_executed"])
+        self.assertTrue(result["safety"]["wsta170_execute_command_executed"])
+        self.assertTrue(result["wsta181_result"]["deep_audit"]["wsta167_decision_pass"])
 
     def test_expired_handoff_blocks_before_execution(self) -> None:
         with self.private_tmp() as tmp:

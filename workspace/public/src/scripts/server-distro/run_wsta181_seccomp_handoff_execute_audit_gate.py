@@ -211,11 +211,26 @@ def run_generated_command(command: list[str], *, timeout: float) -> dict[str, An
 def validate_post_run_audit_result(result: dict[str, Any]) -> dict[str, bool]:
     checks = result.get("checks", {})
     safety = result.get("safety", {})
+    deep = result.get("wsta177_checks", {})
     return {
         "decision_pass": result.get("decision") == wsta179.PASS_DECISION,
         "command_packet_valid": checks.get("command_packet_valid") is True,
         "wsta177_result_present": checks.get("wsta177_result_present") is True,
         "wsta177_result_valid": checks.get("wsta177_result_valid") is True,
+        "deep_source_wsta175_executed": deep.get("source_wsta175_executed") is True,
+        "deep_source_wsta170_executed": deep.get("source_wsta170_executed") is True,
+        "deep_wsta175_decision_pass": deep.get("wsta175_decision_pass") is True,
+        "deep_wsta170_decision_pass": deep.get("wsta170_decision_pass") is True,
+        "deep_wsta167_decision_pass": deep.get("wsta167_decision_pass") is True,
+        "deep_source_no_seccomp_load": deep.get("source_no_seccomp_load") is True,
+        "deep_source_no_seccomp_enforce": deep.get("source_no_seccomp_enforce") is True,
+        "deep_source_no_correct_token": deep.get("source_no_correct_token") is True,
+        "deep_source_no_flash": deep.get("source_no_flash") is True,
+        "deep_source_no_reboot": deep.get("source_no_reboot") is True,
+        "deep_source_no_wifi": deep.get("source_no_wifi") is True,
+        "deep_source_no_dhcp": deep.get("source_no_dhcp") is True,
+        "deep_source_no_public_tunnel": deep.get("source_no_public_tunnel") is True,
+        "deep_source_no_packet_filter_mutation": deep.get("source_no_packet_filter_mutation") is True,
         "audit_only": safety.get("audit_only") is True,
         "audit_no_flash": safety.get("boot_flash") is False,
         "audit_no_reboot": safety.get("native_reboot") is False,
@@ -227,6 +242,27 @@ def validate_post_run_audit_result(result: dict[str, Any]) -> dict[str, bool]:
         "audit_no_seccomp_enforce": safety.get("seccomp_enforced") is False,
         "audit_no_correct_token": safety.get("correct_wsta161_token_supplied") is False,
     }
+
+
+def post_run_deep_audit_summary(audit_result: dict[str, Any]) -> dict[str, Any]:
+    deep = audit_result.get("wsta177_checks", {})
+    keys = (
+        "source_wsta175_executed",
+        "source_wsta170_executed",
+        "wsta175_decision_pass",
+        "wsta170_decision_pass",
+        "wsta167_decision_pass",
+        "source_no_seccomp_load",
+        "source_no_seccomp_enforce",
+        "source_no_correct_token",
+        "source_no_flash",
+        "source_no_reboot",
+        "source_no_wifi",
+        "source_no_dhcp",
+        "source_no_public_tunnel",
+        "source_no_packet_filter_mutation",
+    )
+    return {key: deep.get(key) is True for key in keys}
 
 
 def classify(result: dict[str, Any]) -> str:
@@ -339,11 +375,19 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "decision": audit_result.get("decision"),
             "wsta177_result_json": audit_result.get("wsta177_result_json"),
         }
+        result["post_run_deep_audit_checks"] = post_run_deep_audit_summary(audit_result)
+        result["safety"]["wsta175_execute_command_executed"] = (
+            result["post_run_deep_audit_checks"]["source_wsta175_executed"]
+        )
+        result["safety"]["wsta170_execute_command_executed"] = (
+            result["post_run_deep_audit_checks"]["source_wsta170_executed"]
+        )
         result["post_run_audit_checks"] = validate_post_run_audit_result(audit_result)
         result["checks"]["post_run_audit_result_valid"] = all(result["post_run_audit_checks"].values())
     else:
         result["post_run_audit_result"] = {}
         result["post_run_audit_checks"] = {}
+        result["post_run_deep_audit_checks"] = {}
         result["checks"]["post_run_audit_result_valid"] = False
     result["decision"] = classify(result)
     result["ended_utc"] = utc_stamp()

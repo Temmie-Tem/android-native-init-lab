@@ -4751,10 +4751,46 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > handoff proof, WSTA185 source-gate proof, and full server-distro regression
 > (`643 tests OK`).  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA185_SECCOMP_EXPIRING_HANDOFF_EXECUTE_GATE_2026-07-05.md`.
-> **NEXT:** The execution path is now bounded by a fresh WSTA184 handoff plus
-> WSTA185's expiry-aware gate.  A future attended live run should invoke WSTA185
-> with the full acknowledgement set before the handoff expires, then inspect
-> the WSTA181 and WSTA179 post-run summaries immediately.
+>
+> **🟢 STATUS (2026-07-05 15:44 KST host clock) — WSTA186 DEEP PROPAGATION
+> REPLAYABLE LIVE PASS.**  Codex ran the WSTA185 full no-load live path and
+> found a correctness gap: upper-level WSTA185/WSTA181 summaries did not carry
+> WSTA175/WSTA170 deep execution evidence, and a second fresh live replay hit
+> stale WSTA167 run-dir reuse (`wsta167-runner-error`, `ssh-keygen failed
+> rc=1`).  Codex fixed WSTA181 to validate/propagate WSTA179 deep audit
+> evidence, fixed WSTA185 to require that propagated evidence, and fixed WSTA178
+> to rebase the WSTA168 live command into the fresh WSTA178 run directory before
+> emitting the WSTA177 execution packet.  The first post-fix WSTA178 proof:
+> `workspace/private/runs/server-distro/wsta186b-wsta178-one-shot-preflight-20260705T154219KST/`;
+> `rebased_wsta168_command_valid=true`, with rebased WSTA167 run dir:
+> `workspace/private/runs/server-distro/wsta186b-wsta178-one-shot-preflight-20260705T154219KST/rebased-wsta168-command/wsta167-live-run`.
+> Final WSTA185 live proof:
+> `workspace/private/runs/server-distro/wsta186b-wsta185-deep-propagation-live-20260705T154252KST/`;
+> decision was `wsta185-seccomp-expiring-handoff-execute-pass`.  Deep evidence
+> now reaches the top-level result: `wsta181_result_valid=true`,
+> `wsta181_decision=wsta181-seccomp-handoff-execute-audit-pass`,
+> `post_run_audit_decision=wsta179-seccomp-one-shot-result-audit-pass`,
+> `wsta181_execute_command_executed=true`, `wsta178_execute_command_executed=true`,
+> `wsta177_execute_command_executed=true`, `wsta175_execute_command_executed=true`,
+> `wsta170_execute_command_executed=true`, `wsta167_decision_pass=true`,
+> `wsta170_decision_pass=true`, and `wsta175_decision_pass=true`.  Nested
+> WSTA167 result:
+> `workspace/private/runs/server-distro/wsta186b-wsta178-one-shot-preflight-20260705T154219KST/rebased-wsta168-command/wsta167-live-run/wsta167_result.json`;
+> decision was `wsta167-seccomp-live-observation-pass`, with
+> `observation_pass=true`, `chroot_cleanup_ok=true`, and
+> `final_selftest_fail_zero=true`.  This unit did not flash, reboot, connect
+> Wi-Fi, run DHCP, open a public tunnel, mutate packet filters, write userdata,
+> switch root, load a seccomp filter, enforce seccomp, or supply the correct
+> WSTA161 token; the no-load chroot observation used the SD work image and
+> restored it to the clean hash.  Final native selftest stayed `fail=0`.
+> Validation passed `py_compile`, focused WSTA178+WSTA181+WSTA185 tests
+> (`12 tests OK`), full server-distro regression (`643 tests OK`), and live
+> WSTA185 deep-propagation replay.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA186_DEEP_PROPAGATION_REPLAYABLE_LIVE_2026-07-05.md`.
+> **NEXT:** Collapse the manual fresh sequence (WSTA177 source gate -> WSTA178
+> packet -> WSTA180 bundle -> WSTA184 expiring handoff -> WSTA185 execute) into
+> one bounded fresh orchestrator, so future attended no-load live observations
+> do not require manual path stitching.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
