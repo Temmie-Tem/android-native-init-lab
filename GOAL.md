@@ -5112,6 +5112,37 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA198 should implement the SSH/chroot transport adapter for the
 > WSTA196 canary path, fail-closed by default and still no live load unless the
 > operator supplies the private token and fresh native health passes.
+>
+> **🟢 STATUS (2026-07-05 17:26 KST host clock) — WSTA198 SECCOMP-LOAD
+> CANARY SSH/CHROOT ADAPTER SOURCE PASS.**  Codex implemented the WSTA198
+> adapter runner for the WSTA197-selected transport.  WSTA198 consumes:
+> `workspace/private/runs/server-distro/wsta197-seccomp-load-canary-transport-gate-20260705T171427KST/wsta197_seccomp_load_canary_transport_gate.json`;
+> run:
+> `workspace/private/runs/server-distro/wsta198-seccomp-load-canary-ssh-adapter-20260705T172612KST/`;
+> decision was `wsta198-seccomp-load-canary-ssh-adapter-source-pass`.  Adapter
+> state was
+> `READY_SSH_CHROOT_ADAPTER_DEFAULT_OFF_LIVE_BLOCKED_UNTIL_TOKEN_AND_HEALTH`,
+> selected transport was `debian-chroot-dropbear-ssh-over-ncm`, with
+> `wsta197_transport_gate_valid=true`, `adapter_packet_valid=true`,
+> `ready_for_attended_live=true`, `ready_for_unattended_live=false`,
+> `live_execution_requested=false`, `correct_wsta161_token_supplied=false`,
+> `seccomp_filter_loaded=false`, `seccomp_enforced=false`,
+> `token_value_not_included=true`, `token_stdin_redacted=true`, and
+> `no_external_network_inputs=true`.  The optional live path is implemented
+> behind explicit ACK flags, private `A90_PRIVATE_WSTA161_LOAD_TOKEN`, fresh
+> native health, temporary Dropbear-over-NCM chroot transport, cleanup, and
+> post health.  It deliberately avoids WSTA196's host-local subprocess path and
+> keeps the token off command lines and public artifacts.  This proof did not
+> flash, reboot, contact the device, connect Wi-Fi, run DHCP, open a public
+> tunnel, mutate packet filters, write userdata, switch root, run the live
+> canary, supply the correct WSTA161 token, load a seccomp filter, or enforce
+> seccomp.  Validation passed `py_compile`, focused WSTA198 tests (`6 tests OK`),
+> the WSTA198 proof run, and full server-distro regression (`719 tests OK`).
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA198_SECCOMP_LOAD_CANARY_SSH_ADAPTER_2026-07-05.md`.
+> **NEXT:** WSTA199 should add a live-readiness/status gate for the WSTA198
+> adapter packet, or execute WSTA198 live only if the operator deliberately
+> supplies the private token and confirms fresh native health.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
