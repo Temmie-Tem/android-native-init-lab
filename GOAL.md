@@ -4392,9 +4392,28 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > pre-execution bundle against the current bridge/device, and full server-distro
 > regression (`591 tests OK`).  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA172_SECCOMP_FRESH_EXECUTE_PREFLIGHT_2026-07-05.md`.
-> **NEXT:** the fresh WSTA172-generated command is the exact next execution
-> step.  It must only be run with explicit operator approval for the no-load
-> live observation.
+>
+> **🟢 STATUS (2026-07-05 14:22 KST host clock) — WSTA173 SECCOMP EXPIRING
+> EXECUTE HANDOFF PASS.**  Codex added WSTA173, an expiring handoff auditor that
+> consumes the WSTA172 fresh pre-execution proof, revalidates the nested
+> WSTA169/WSTA170/WSTA171 artifacts and generated WSTA170 command, then emits a
+> private handoff packet without executing anything.  Proof run:
+> `workspace/private/runs/server-distro/wsta173-seccomp-expiring-execute-handoff-20260705T142900KST/`.
+> Generated handoff:
+> `workspace/private/runs/server-distro/wsta173-seccomp-expiring-execute-handoff-20260705T142900KST/wsta173_expiring_execute_handoff.json`.
+> Handoff state is `READY_TO_RUN_NOT_EXECUTED_UNTIL_EXPIRY`, `executed=false`,
+> `age_sec=463`, `max_age_sec=900`, and `expires_utc=20260705T052930Z`.
+> Path, freshness, WSTA172, nested-result, and command checks were all true.
+> This unit did not flash, reboot, connect Wi-Fi, run DHCP, open a public
+> tunnel, mutate packet filters, write userdata, switch root, execute WSTA170,
+> execute WSTA168/WSTA167, load a seccomp filter, enforce seccomp, or supply the
+> correct WSTA161 token.  Validation passed `py_compile`, focused
+> WSTA172+WSTA173 tests (`8 tests OK`), WSTA173 handoff proof against the WSTA172
+> fresh artifact, and full server-distro regression (`595 tests OK`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA173_SECCOMP_EXPIRING_EXECUTE_HANDOFF_2026-07-05.md`.
+> **NEXT:** if the handoff expires, rerun WSTA172 before execution.  If still
+> fresh, the handoff points at the exact WSTA170 execution command, which still
+> requires explicit operator approval for the no-load live observation.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
