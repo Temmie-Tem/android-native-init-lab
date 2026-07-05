@@ -5371,6 +5371,39 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > live consent: export the private token, re-run WSTA202/WSTA203/WSTA204/WSTA205
 > to token-ready default-off states, then run the generated private WSTA205
 > transaction script under supervision.
+>
+> **🟢 STATUS (2026-07-05 18:25 KST host clock) — WSTA206 WSTA201 FRESH
+> TRANSACTION PREPARER PASS.**  Codex added the host-only fresh transaction
+> preparer that collapses the pre-live refresh sequence into one private
+> token-gated prepare script.  WSTA206 consumes:
+> `workspace/private/runs/server-distro/wsta201-wsta200-handoff-status-20260705T175021KST/wsta201_wsta200_handoff_status.json`;
+> run:
+> `workspace/private/runs/server-distro/wsta206-wsta201-fresh-transaction-preparer-20260705T182447KST/`;
+> decision was `wsta206-wsta201-fresh-transaction-preparer-pass`.  Preparer
+> state was `FRESH_TRANSACTION_PREPARER_READY_TOKEN_REQUIRED_DEFAULT_OFF`, with
+> `wsta201_status_valid=true`, `wsta202_replay_valid=true`,
+> `wsta203_replay_valid=true`, `wsta204_replay_valid=true`,
+> `wsta205_replay_valid=true`, `fresh_transaction_preparer_valid=true`,
+> `ready_for_fresh_prepare=true`, `ready_for_immediate_live_execute=false`,
+> `private_token_env_present=false`, and
+> `private_token_matches_wsta161=false`.  WSTA206 replayed WSTA202/WSTA203/
+> WSTA204/WSTA205 from the current WSTA201 status, generated a fresh private
+> WSTA205 transaction script, and emitted a private prepare script that will
+> later require the private token, rerun WSTA206, require token-ready state, and
+> print the fresh WSTA205 transaction script path.  WSTA206 did not flash,
+> reboot, contact the device, connect Wi-Fi, run DHCP, open a public tunnel,
+> mutate packet filters, write userdata, switch root, execute the generated
+> prepare script, execute the generated WSTA205 transaction script, execute the
+> WSTA200 handoff shell, run WSTA198 live, supply the WSTA161 token to the
+> device, run native health, load a seccomp filter, or enforce seccomp.
+> Validation passed `py_compile`, focused WSTA206 tests (`6 tests OK`), the
+> WSTA206 proof run, and full server-distro regression (`768 tests OK`).
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA206_WSTA201_FRESH_TRANSACTION_PREPARER_2026-07-05.md`.
+> **NEXT:** The live path is reduced to two supervised human actions after
+> exporting the private token: run the generated WSTA206 prepare script to
+> refresh WSTA202-205 and print a fresh WSTA205 transaction script, then run
+> that WSTA205 transaction script if the token-ready state is confirmed.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
