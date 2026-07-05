@@ -655,15 +655,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > as not auto-started at baseline rather than a new post-boot regression.  The
 > observation then waited for the required USB serial disconnect/reconnect that
 > proves a physical cold boot, but no disconnect occurred; the wait was aborted
-> and no post-cold-boot comparison or v2321 rollback was run.  This was
-> read-only observation plus passive USB presence monitoring only: no boot flash,
-> native reboot, Wi-Fi connect, DHCP, public tunnel, public smoke,
-> packet-filter mutation, userdata write, LSM load, or switch-root occurred.
+> and no post-cold-boot comparison or v2321 rollback was run.  Codex then added
+> `workspace/public/src/scripts/server-distro/run_wsta233_cold_boot_persistence_smoke.py`,
+> a bounded runner for the same single measurement: capture pre-baseline, wait
+> for serial disconnect/reconnect, capture post state, classify persistence gap,
+> and explicitly roll back to v2321 only with `--ack-rollback-to-v2321`.  Runner
+> representative pre-baseline:
+> `workspace/private/runs/server-distro/wsta233-cold-boot-persistence-runner-prebaseline-20260706T0021KST/`;
+> decision `wsta233-cold-boot-persistence-prebaseline-pass`, uptime
+> `4121.93s`.  This was read-only observation plus passive USB presence
+> monitoring only: no boot flash, native reboot, Wi-Fi connect, DHCP, public
+> tunnel, public smoke, packet-filter mutation, userdata write, LSM load, or
+> switch-root occurred.
 > Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA233_COLD_BOOT_PERSISTENCE_SMOKE_PREBASELINE_2026-07-06.md`.
-> **NEXT:** physically power-cycle the device once, capture the post state from
-> the same WSTA233 baseline, classify the persistence gap, then roll boot back to
-> v2321 and verify `selftest fail=0`.
+> Validation: py_compile pass; focused WSTA233 tests `7 OK`; full
+> server-distro regression `857 OK`.
+> **NEXT:** physically power-cycle the device once, resume the runner against
+> the 20260706T0021KST WSTA233 baseline, classify the persistence gap, then roll
+> boot back to v2321 and verify `selftest fail=0`.
 
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
