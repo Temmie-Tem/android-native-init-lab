@@ -5222,6 +5222,35 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** Either stop at WSTA201 as the current default-off status boundary,
 > or proceed to attended WSTA200/WSTA198 live only if the operator deliberately
 > supplies the private token.
+>
+> **🟢 STATUS (2026-07-05 17:53 KST host clock) — WSTA202 WSTA201 LIVE
+> PREFLIGHT PASS.**  Codex added the host-only final preflight gate for the
+> WSTA201/WSTA200 attended-live handoff chain.  WSTA202 consumes:
+> `workspace/private/runs/server-distro/wsta201-wsta200-handoff-status-20260705T175021KST/wsta201_wsta200_handoff_status.json`;
+> run:
+> `workspace/private/runs/server-distro/wsta202-wsta201-live-preflight-20260705T175342KST/`;
+> decision was `wsta202-wsta201-live-preflight-pass`.  Preflight state was
+> `BLOCKED_OPERATOR_TOKEN_REQUIRED_DEFAULT_OFF`, with `status_valid=true`,
+> `wsta201_recheck_valid=true`, `status_stable_view_match=true`,
+> `live_preflight_valid=true`, `handoff_current=true`,
+> `ready_for_attended_live_handoff=true`,
+> `ready_for_immediate_live_execute=false`,
+> `private_token_env_present=false`, and
+> `private_token_matches_wsta161=false`.  WSTA202 validates the WSTA201 status,
+> re-runs WSTA201 from the current WSTA200 handoff, compares a token-independent
+> stable status view, and reports whether the private WSTA200 handoff wrapper is
+> still a default-off attended-live candidate.  WSTA202 did not flash, reboot,
+> contact the device, connect Wi-Fi, run DHCP, open a public tunnel, mutate
+> packet filters, write userdata, switch root, execute the WSTA200 handoff
+> shell, run WSTA198 live, supply the WSTA161 token to the device, run native
+> health, load a seccomp filter, or enforce seccomp.  Validation passed
+> `py_compile`, focused WSTA202 tests (`6 tests OK`), the WSTA202 proof run, and
+> full server-distro regression (`741 tests OK`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA202_WSTA201_LIVE_PREFLIGHT_2026-07-05.md`.
+> **NEXT:** Attended live remains default-off and blocked until the operator
+> deliberately supplies `A90_PRIVATE_WSTA161_LOAD_TOKEN` and re-runs WSTA202 to
+> obtain `READY_FOR_ATTENDED_WSTA200_WRAPPER_EXECUTION_DEFAULT_OFF`; then the
+> operator may manually run the existing private WSTA200 handoff wrapper.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
