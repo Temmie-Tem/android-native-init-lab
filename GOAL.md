@@ -517,6 +517,31 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > artifact, private confirm tokens, full packet-filter/egress/control-plane/
 > public-off proof flags, and immediate restore/public-off verification.
 
+> **🟢 STATUS (2026-07-05 23:24 KST) — WSTA229 CLOUDFLARED EGRESS ALLOWLIST LIVE PASS.**
+> Codex executed the attended WSTA226 live gate with the private route artifact
+> generated from WSTA227/WSTA228.  WSTA226 returned
+> `wsta226-cloudflared-egress-allowlist-execute-gate-live-pass`; delegated
+> WSTA88/WSTA80/WSTA58 returned `wsta88-persistent-operator-workflow-live-pass`,
+> `wsta80-persistent-operator-execute-gate-live-pass`, and
+> `wsta58-renewal-manual-stop-live-pass`.  The private route artifact was accepted
+> with DNS/TLS counts `30` / `2`, `route_artifact_ready=true`, and route values
+> redacted.  Both WSTA55 short public proof legs returned `public_smoke_ok=true`,
+> `packet_filter_restore_ok=true`, `dpublic_cleanup_ok=true`,
+> `native_uplink_profile_cleanup_ok=true`, `chroot_cleanup_ok=true`,
+> `final_selftest_fail_zero=true`, and `ttl_expiry_stops_public=true`.  WSTA58
+> returned `manual_stop_cleanup_ok=true`, `manual_stop_public_state_off=true`,
+> `wsta48_all_pass=true`, and `wsta48_redaction_ok=true`.  Post-live native health
+> stayed clean: `0.11.158 build=v3402-dpublic-hud-presenter-restart-policy`,
+> `selftest pass=12 warn=1 fail=0`; Wi-Fi cleanup left autoconnect disabled and
+> no supplicant process running.  The unit performed the explicitly gated
+> short-lived public tunnel/smoke and legacy-iptables egress allowlist mutation,
+> then restored public state to `PUBLIC_OFF`; no boot flash, forbidden partition
+> write, userdata write, LSM load, or switch-root occurred.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA229_CLOUDFLARED_EGRESS_ALLOWLIST_LIVE_2026-07-05.md`.
+> **NEXT:** fold WSTA229 into the WSTA108 operator status bundle so cloudflared
+> egress allowlist hardening becomes first-class live-proven status, then continue
+> the D-public server endgame from that status frontier.
+
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
 > `D-PUBLIC-LIVE-PUBLISH` go and is actively driving D-public. First live publish (commit `8d25f793`:
