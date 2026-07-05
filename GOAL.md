@@ -3571,6 +3571,49 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > validation, or by equivalent per-file/sequence error throttling, while keeping
 > fail-closed rejection for new stale/forbidden/unknown intent content.  Rebuild
 > as the next V34xx candidate before attempting the Debian handoff survival proof.
+>
+> **🟢 STATUS (2026-07-05 09:45 KST host clock) — WSTA142 DPUBLIC HUD
+> PRESENTER SERVICE DEDUPE SOURCE BUILD + LIVE PASS.**  Codex fixed the WSTA141
+> stale-intent log-spam defect by caching unchanged consumed and rejected raw
+> intent bytes in the native presenter service loop before re-running noisy
+> validation.  The fix preserves fail-closed handling for new stale, forbidden,
+> unknown, or invalid content while avoiding repeated validation/logging of the
+> exact same already-consumed or already-rejected file content.  The service now
+> emits live-visible `A90WSTA142 intent_dedupe=same-content-consumed-or-rejected`
+> and `A90WSTA142 status.intent_dedupe=same-content-consumed-or-rejected` markers.
+> Codex added
+> `workspace/public/src/scripts/revalidation/build_native_init_boot_v3400_dpublic_hud_presenter_service_dedupe.py`
+> and focused tests, source-built V3400 `A90 Linux init 0.11.156
+> (v3400-dpublic-hud-presenter-service-dedupe)`, boot image
+> `workspace/private/inputs/boot_images/boot_linux_v3400_dpublic_hud_presenter_service_dedupe.img`,
+> SHA256 `4bc7a216b4a370bae9c5d561e022d57cc2cfcfc42e0a50152ed5bd7d5a45e260`.
+> Static validation passed `py_compile`, WSTA140+WSTA142 focused tests
+> (`10 tests`), full server-distro WSTA regression (`458 tests`), and the V3400
+> source build pipeline.  Codex then flashed V3400 through checked
+> `native_init_flash.py --from-native` with pinned SHA/version: recovery ADB came
+> up before boot write, remote SHA matched, boot prefix readback SHA matched, and
+> post-boot cmdv1 verify passed.  V3400 reported `BOOT OK shell 5.1s`,
+> `selftest pass=12 warn=1 fail=0`, and serial/NCM/tcpctl ready.  Service start
+> returned `start.pid=662`, `start.done=1`, and the WSTA142 dedupe marker.  A
+> fresh sequence `14201` presented on `1080x2400 crtc=133`; status recorded
+> `last_sequence=14201` and `present_rc=0`; after waiting past the `2000ms` stale
+> window, status/readback contained no repeated `A90WSTA136 intent.reject=stale`
+> lines.  A new stale sequence `14202` with `monotonic_ms=1` emitted one
+> fail-closed stale reject, and after another stale window status again contained
+> no repeated stale reject lines.  `stop --pid-file ... --release-drm` returned
+> `stop.done=1`; final `selftest/status` stayed clean, with device resident on
+> V3400 and service stopped.  No Wi-Fi association, DHCP, public tunnel/smoke,
+> packet-filter mutation, userdata mutation, Debian `switch_root`, forbidden
+> partition write, PMIC/regulator/GDSC/GPIO/backlight, or panel re-init action ran.
+> Reports:
+> `docs/reports/NATIVE_INIT_V3400_DPUBLIC_HUD_PRESENTER_SERVICE_DEDUPE_SOURCE_BUILD_2026-07-05.md`
+> and
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA142_DPUBLIC_HUD_PRESENTER_SERVICE_DEDUPE_LIVE_2026-07-05.md`.
+> **NEXT:** WSTA143 can run the Debian handoff survival proof on V3400: start the
+> durable native presenter, perform the bounded Debian handoff, prove the same
+> native presenter PID survives and remains the sole DRM owner, prove
+> Debian/`a90hud` has no DRM fd, then prove a fresh Debian-written intent is
+> consumed after handoff.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

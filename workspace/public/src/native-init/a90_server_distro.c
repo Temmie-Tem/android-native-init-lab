@@ -47,6 +47,8 @@
 #define A90_D_HW_TAG "A90DHW"
 #define A90_DPUBLIC_HUD_TAG "A90WSTA136"
 #define A90_DPUBLIC_HUD_SERVICE_TAG "A90WSTA140"
+#define A90_DPUBLIC_HUD_SERVICE_DEDUP_TAG "A90WSTA142"
+#define A90_DPUBLIC_HUD_SERVICE_DEDUP_MODE "same-content-consumed-or-rejected"
 #define A90_DPUBLIC_HUD_RUN_DIR "/run/a90-dpublic"
 #define A90_DPUBLIC_HUD_GROUP_GID 3904
 #define A90_DPUBLIC_HUD_RUN_DIR_MODE 01770
@@ -922,10 +924,21 @@ static int dpublic_hud_service_write_status(const char *path,
     return dpublic_hud_service_write_text(path, text);
 }
 
+static bool dpublic_hud_service_same_content(const char *left,
+                                             size_t left_used,
+                                             const char *right,
+                                             size_t right_used) {
+    return left_used == right_used && left_used > 0 && memcmp(left, right, left_used) == 0;
+}
+
 static int dpublic_hud_service_child_loop(const char *intent_path,
                                           const char *status_path) {
     uint64_t last_sequence = 0;
     int last_present_rc = 0;
+    char consumed_json[A90_DPUBLIC_HUD_MAX_INTENT_BYTES + 1U];
+    size_t consumed_used = 0;
+    char rejected_json[A90_DPUBLIC_HUD_MAX_INTENT_BYTES + 1U];
+    size_t rejected_used = 0;
 
     dpublic_hud_service_stop_requested = 0;
     signal(SIGTERM, dpublic_hud_service_signal);
@@ -940,6 +953,11 @@ static int dpublic_hud_service_child_loop(const char *intent_path,
         int rc = dpublic_hud_read_intent_file(intent_path, json, sizeof(json), &used);
 
         if (rc == 0) {
+            if (dpublic_hud_service_same_content(json, used, consumed_json, consumed_used) ||
+                dpublic_hud_service_same_content(json, used, rejected_json, rejected_used)) {
+                usleep(A90_DPUBLIC_HUD_SERVICE_POLL_MS * 1000U);
+                continue;
+            }
             rc = dpublic_hud_parse_intent(json, used, &intent);
             if (rc == 0 && intent.sequence != last_sequence) {
                 last_sequence = intent.sequence;
@@ -948,11 +966,21 @@ static int dpublic_hud_service_child_loop(const char *intent_path,
                     dpublic_hud_draw_presenter(&intent);
                     last_present_rc = a90_kms_present("dpublic-hud-presenter-service", true);
                 }
+                memcpy(consumed_json, json, used);
+                consumed_used = used;
+                rejected_used = 0;
                 (void)dpublic_hud_service_write_status(status_path,
                                                        "running",
                                                        getpid(),
                                                        last_sequence,
                                                        last_present_rc);
+            } else if (rc == 0) {
+                memcpy(consumed_json, json, used);
+                consumed_used = used;
+                rejected_used = 0;
+            } else if (rc < 0) {
+                memcpy(rejected_json, json, used);
+                rejected_used = used;
             }
         }
         usleep(A90_DPUBLIC_HUD_SERVICE_POLL_MS * 1000U);
@@ -1047,6 +1075,9 @@ static int dpublic_hud_service_status(const struct dpublic_hud_service_opts *opt
     a90_console_printf("%s status.intent=%s\r\n", A90_DPUBLIC_HUD_SERVICE_TAG, opts->intent_path);
     a90_console_printf("%s status.drm_fd=%d\r\n", A90_DPUBLIC_HUD_SERVICE_TAG, drm_fd ? 1 : 0);
     a90_console_printf("%s status.debian_direct_kms=0\r\n", A90_DPUBLIC_HUD_SERVICE_TAG);
+    a90_console_printf("%s status.intent_dedupe=%s\r\n",
+                       A90_DPUBLIC_HUD_SERVICE_DEDUP_TAG,
+                       A90_DPUBLIC_HUD_SERVICE_DEDUP_MODE);
     return running ? 0 : -ESRCH;
 }
 
@@ -1094,6 +1125,9 @@ int a90_server_distro_dpublic_hud_presenter_service_cmd(char **argv, int argc) {
                        A90_DPUBLIC_HUD_SERVICE_TAG);
     a90_console_printf("%s owner=native-init-root\r\n", A90_DPUBLIC_HUD_SERVICE_TAG);
     a90_console_printf("%s survives_handoff=1\r\n", A90_DPUBLIC_HUD_SERVICE_TAG);
+    a90_console_printf("%s intent_dedupe=%s\r\n",
+                       A90_DPUBLIC_HUD_SERVICE_DEDUP_TAG,
+                       A90_DPUBLIC_HUD_SERVICE_DEDUP_MODE);
     if (strcmp(mode, "start") == 0) {
         return dpublic_hud_service_start(&opts);
     }
