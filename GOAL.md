@@ -740,6 +740,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > no auto-reboot path, the helper sends `download` over ACM after ACM proof and rolls back to the pinned Magisk
 > boot-only AP when Odin/download mode appears. If ACM never appears or command-triggered download fails, use `--rollback-from-download --ack
 > S22PLUS-M5-ROLLBACK-FROM-DOWNLOAD` after manual download-mode entry.
+>
+> **🎯 OPERATOR STEER (2026-07-07, pre-register the M5-bootloop triage — do NOT misread a loop as a USB-chain
+> failure).** M4T3 evidence reframes M4T1: raw-asm PID1 (M4T2 park, M4T3 `reboot("download")`) BOTH work, while
+> M4T1 — the ONLY glibc-static-C candidate — is the ONLY one that bootlooped. The syscall is identical between
+> M4T1 and M4T3, so M4T1 most likely died in **glibc `_start`/`__libc_start_main` before `main()` ever ran**,
+> i.e. glibc-static startup is an UNPROVEN (and suspect) PID1 runtime on this device. **M5 is glibc-static C**
+> (`int main`, stdio/dirent, `aarch64-linux-gnu-gcc -static`, no `-nostdlib`/custom `_start`). Therefore an M5
+> bootloop is CONFOUNDED: it could be a glibc-startup crash (boring, already-suspected) OR a VFS-mount crash OR
+> the 26-module insmod/configfs chain — one expensive attended flash can't tell them apart. **Triage order if
+> M5 loops (do NOT tweak the USB chain first):** (1) run a minimal **glibc + `/proc`+`/sys` mount isolation
+> probe** — same glibc-C toolchain, mount proc/sys only, then `reboot(RESTART2,"download")` as the beacon,
+> nothing else. Self-download ⇒ glibc-C startup + VFS mounts are fine on this device ⇒ any M5 failure is
+> genuinely the insmod/configfs USB chain (bisect that next). Still loops ⇒ (2) the runtime itself is the
+> problem ⇒ **adopt a freestanding init harness for M5 and everything above it: custom `_start`, `-nostdlib
+> -ffreestanding -static`, inline-asm `svc` syscall wrappers — the exact runtime shape M4T2/M4T3 already proved
+> works at PID1** — and rebuild M5 on it. **Better still (recommended): consider building M5 freestanding from
+> the start** so the USB-chain result is never confounded by glibc; the endgame stacks many init capabilities,
+> and establishing the proven raw-syscall runtime once removes glibc-at-PID1 as a recurring variable. Keep all
+> existing discipline (boot-only SHA-pinned AGENTS exception, attended ack, manual-download rollback, no
+> forbidden partitions). If M5 self-shows a host `/dev/ttyGS0` ACM device on the first try, none of this
+> applies — that is the milestone, bank it.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
