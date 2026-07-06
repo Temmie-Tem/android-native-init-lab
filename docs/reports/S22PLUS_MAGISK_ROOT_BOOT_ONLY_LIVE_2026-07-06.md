@@ -177,3 +177,44 @@ Access to `Apps and ADB` if needed, and allow `Shell`/ADB shell in Magisk.
 
 No stock boot rollback has been run because the device boots Android normally and
 the current blocker is Magisk superuser policy, not a boot failure.
+
+## Final Root Proof
+
+After the operator unlocked the device and allowed ADB shell in Magisk
+Superuser, the root proof passed:
+
+```text
+adb shell su -c id
+uid=0(root) gid=0(root) groups=0(root) context=u:r:magisk:s0
+```
+
+Final Android boot state remained normal:
+
+```text
+sys.boot_completed=1
+ro.bootloader=S906NKSS7FYG8
+ro.build.version.incremental=S906NKSS7FYG8
+ro.boot.boot_recovery=0
+```
+
+Magisk / su version evidence:
+
+```text
+/product/bin/su
+30.7:MAGISKSU
+30700
+package:com.topjohnwu.magisk
+versionCode=30700
+versionName=30.7
+```
+
+Additional root context:
+
+```text
+uid=0(root) gid=0(root) groups=0(root) context=u:r:magisk:s0
+getenforce=Enforcing
+kernel=5.10.226-android12-9-30958166-abS906NKSS7FYG8
+```
+
+Final conclusion: Magisk root is live on the FYG8 S22+ through the boot-only AP
+path. No rollback was needed.
