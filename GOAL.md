@@ -139,6 +139,36 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > is PID1 (first-light).** Every S22+ boot flash is boot-partition-only, SHA-pinned, recovery-staged,
 > stop-on-fail — per the AGENTS exceptions.
 
+> **🛑 STEER CORRECTION (2026-07-07) — STOP S22+ BLIND FIRST-LIGHT FLASHING. MEASURE FIRST (Magisk boot-
+> capture), THEN build an OBSERVABLE native init.** The P2/P3 live first-light attempts went dark / bootlooped
+> and each left the device needing physical download-mode recovery — because the approach was **blind**. Root
+> cause (confirmed against A90 history): **A90 kept the stock 4.14 kernel with drivers BUILT-IN, so its custom
+> `/init` inherited working USB + display and was observable for free; S22+ GKI makes vendor drivers LOADABLE
+> MODULES, so a bare native `/init` boots into a driverless kernel — no USB, maybe no panel → zero observation
+> channel.** Iterating flashes without an observation channel is unproductive grind that keeps darkening the
+> device. **DO NOT flash another native-init first-light candidate until observability is earned.** New order:
+> 1. **PRECONDITION:** the device is currently dark from the P3 incident — the operator physically recovers it
+>    (force download mode → pinned stock boot-only rollback AP `1ee92a86…`, + FYG8 stock vbmeta rollback if
+>    needed) to a normally-booting rooted Android. No further S22+ flash until it boots normally again.
+> 2. **MAGISK BOOT-CAPTURE MEASUREMENT UNIT (Android-side, non-destructive — the A90 ACDB/Wi-Fi
+>    "observe-the-real-vendor-sequence-then-replicate" pattern):** on the normally-booting rooted S22+, use a
+>    transient Magisk capsule + static files + `dmesg` to capture the **real vendor bring-up recipe**: module
+>    load ORDER + deps (`dmesg` timestamps, `/proc/modules` snapshots, `modules.load`/`modules.dep`), the **USB
+>    gadget bring-up sequence** (dwc3/phy modules + the configfs/sysfs pokes that expose adb/NCM), and the
+>    display/panel module sequence. This is safe (normal boot, reversible module, no bootloop risk) and fits
+>    the recoverable envelope. Note Magisk's earliest hook is post-first-stage, so fill the very-early module
+>    loads from the static `modules.load`/`dep` + `dmesg`.
+> 3. **BUILD AN OBSERVABLE NATIVE INIT from the captured recipe:** the native `/init` must `insmod` the USB
+>    (+minimal) modules FIRST to stand up an adb/NCM channel BEFORE anything else → real-time observation
+>    (replicating what A90 got free from built-in USB). Optionally also use **pstore/ramoops** (`/proc/last_kmsg`
+>    / `/sys/fs/pstore`) as a reboot-surviving marker channel so a first-light marker is collectable even before
+>    USB. **Decouple observation from init-triggered reboot-to-recovery** (that was fragile: a plain `reboot()`
+>    loops back into the same custom boot).
+> 4. **ONLY THEN** resume first-light flashing (still gated by a fresh SHA-pinned AGENTS boot exception), now
+>    with eyes open — compare native `dmesg` against the captured Android `dmesg` to see where bring-up diverges.
+> **Fails-twice→stop stays hard: no blind reflash loops.** All of steps 2–3 are host-only / Android-side and
+> require NO new boot flash. Commit no secrets/serials/images.
+
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
 > runner staged WSTA153 policy + WSTA156 filter artifact + WSTA161 gated-apply helper into
