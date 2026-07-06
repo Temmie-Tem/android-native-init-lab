@@ -274,6 +274,54 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    M4/display/distro candidates, kernel rebuild, recovery/vendor_boot/vbmeta/
    non-boot flash, raw host `dd`, fastboot, multidisabler, format data, or any
    A90 action.
+   **Narrow operator-authorized exception (2026-07-07, S22+ M4T0
+   instant-download native-init boot-only live gate):** after the M3.2
+   marker-only live incident was rolled back to the rooted Magisk boot baseline,
+   retained-evidence probing found `/proc/last_kmsg` but no reliable pstore
+   marker channel, and the operator clarified that the loop is fast, Codex may
+   perform one bounded attended boot-partition-only M4T0 live gate on the same
+   Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m4t0_instant_download_live_gate.py`
+   and ack token `S22PLUS-M4T0-INSTANT-DOWNLOAD-LIVE-GATE`. The exact candidate
+   AP.tar.md5 SHA256 must be
+   `ba445b131fddd79887a4ace357a77a42b1f49367eaeea156a3cfebfd883b1904`, the
+   contained padded `boot.img` SHA256 must be
+   `4617a8804b93435cd0b6a5307862b4d5f55ca7e25befa0c19b2e7619284979e9`, and the
+   AP must contain exactly one tar member, `boot.img.lz4`, with no recovery,
+   vendor_boot, vbmeta, vbmeta_system, dtbo, BL, CP, CSC, super, persist,
+   userdata, EFS, RPMB, keymaster, modem, or any other partition payload. The
+   M4T0 candidate may only run as direct PID1, use stock-format legacy-LZ4
+   ramdisk packaging, and its first candidate action must be
+   `reboot(..., "download")`, with no marker before the reboot syscall. If that
+   reboot syscall returns, it may only create `/dev/kmsg` and fallback
+   `/dev/pmsg0`, emit `S22_NATIVE_INIT_INSTANT_DOWNLOAD_M4T0`, and park. It
+   must not touch watchdog devices, insert modules, mount or write configfs,
+   create a USB gadget, mount persistent partitions, write block devices, start
+   Android, install Magisk modules, format data, or reboot for any reason other
+   than the first-action `download` reboot attempt. Before live flash, the
+   helper must verify normal Android identity, the exact M4T0 hashes,
+   legacy-LZ4 ramdisk manifest metadata, the exact Magisk boot-only rollback AP
+   SHA256 `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`,
+   the exact stock boot-only fallback AP SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`, and a
+   single target transport. After candidate Odin transfer, the helper must first
+   observe the original Odin download-mode device disconnect; only a later Odin
+   reappearance may be counted as M4T0 self-download proof. If the candidate
+   self-enters download mode, rollback is required immediately: primary rollback
+   is the pinned Magisk boot-only AP, with the pinned stock boot-only AP as
+   fallback if Magisk rollback transfer fails and download mode remains
+   available. If the original Odin device never disconnects, the helper may
+   attempt immediate rollback while still in download mode, but that result is
+   no-proof cleanup and must not be reported as M4T0 self-download success. If
+   candidate self-download does not appear within the bounded window, the helper
+   must stop and require operator/manual download-mode recovery before any
+   rollback attempt. After rollback, the helper must collect retained evidence
+   from both
+   `/sys/fs/pstore` and `/proc/last_kmsg`, but marker absence is expected if the
+   first-action reboot succeeded. This exception does not authorize M4A,
+   display/distro candidates, kernel rebuild, recovery/vendor_boot/vbmeta/
+   non-boot flash, raw host `dd`, fastboot, multidisabler, format data, or any
+   A90 action.
 2. **Flash only via the checked helper by default:** `workspace/public/src/scripts/revalidation/native_init_flash.py`.
    Never `dd`/`fastboot`/raw-write a partition. Never invent a new flash path.
    **Narrow operator-authorized exception (2026-07-02, self-dd ladder only):** the V3358
@@ -406,6 +454,19 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    `workspace/public/src/scripts/revalidation/s22plus_m32_marker_live_gate.py`
    for the exact single-member `boot.img.lz4` candidate AP.tar.md5 SHA256
    `6073e4988a98f741fa207df4efb8a05e144ad16b3a90f43db2ec408657936fc2`, and may
+   use `/usr/bin/odin4 --reboot -a` for rollback with the exact single-member
+   Magisk boot-only AP.tar.md5 SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` or the
+   exact single-member stock boot-only AP.tar.md5 SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`. No other
+   Odin slot, tar member, candidate hash, rollback hash, or partition is
+   authorized by this exception.
+   **Narrow operator-authorized exception (2026-07-07, S22+ M4T0
+   instant-download native-init boot-only Odin path):** the S22+ M4T0 live gate
+   above may use `/usr/bin/odin4 --reboot -a` through
+   `workspace/public/src/scripts/revalidation/s22plus_m4t0_instant_download_live_gate.py`
+   for the exact single-member `boot.img.lz4` candidate AP.tar.md5 SHA256
+   `ba445b131fddd79887a4ace357a77a42b1f49367eaeea156a3cfebfd883b1904`, and may
    use `/usr/bin/odin4 --reboot -a` for rollback with the exact single-member
    Magisk boot-only AP.tar.md5 SHA256
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` or the

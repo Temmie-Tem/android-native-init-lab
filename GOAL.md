@@ -454,6 +454,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > pinned Magisk boot-only rollback payload. `/sys/fs/pstore` remains empty and `/proc/last_kmsg` remains
 > collectable at ~2 MiB with no `S22_NATIVE_INIT` marker. Treat the device as recovered to the rooted baseline,
 > and keep the next S22+ live step blocked until the M4T0 SHA-pinned `AGENTS.md` exception/helper exists.
+>
+> **STATUS UPDATE (2026-07-07 KST, M4T0 live gate preflight ready):** Codex added the SHA-pinned
+> `AGENTS.md` M4T0 boot-only exception and guarded helper
+> `workspace/public/src/scripts/revalidation/s22plus_m4t0_instant_download_live_gate.py` with ack token
+> `S22PLUS-M4T0-INSTANT-DOWNLOAD-LIVE-GATE`. Dry-run passed against the rooted Android/Magisk baseline and
+> verified the exact M4T0 AP hash
+> `ba445b131fddd79887a4ace357a77a42b1f49367eaeea156a3cfebfd883b1904`, boot hash
+> `4617a8804b93435cd0b6a5307862b4d5f55ca7e25befa0c19b2e7619284979e9`, single `boot.img.lz4` member,
+> manifest safety (`download-first-action`, `marker_before_reboot=false`, `watchdog=not-touched`,
+> `module_insertions=false`, `configfs_runtime_gadget=false`), and Magisk/stock boot-only rollback APs.
+> Report: `docs/reports/S22PLUS_NATIVE_INIT_M4T0_LIVE_GATE_PREFLIGHT_2026-07-07.md`. **No live flash was
+> executed.** Next live command, if supervised, is this helper with
+> `--live --ack S22PLUS-M4T0-INSTANT-DOWNLOAD-LIVE-GATE`; success means candidate self-enters download mode
+> after the original Odin device first disconnects, and must be rolled back immediately to Magisk boot. If the
+> original Odin device never disconnects, helper rollback is no-proof cleanup; if self-download never appears,
+> stop for manual download-mode recovery.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
