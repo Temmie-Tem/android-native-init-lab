@@ -24,6 +24,7 @@ import json
 import os
 import shlex
 import subprocess
+import tarfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -39,6 +40,7 @@ REMOTE_POST_SCRIPT = "/data/adb/post-fs-data.d/s22plus_boot_capture_m1.sh"
 REMOTE_SERVICE_SCRIPT = "/data/adb/service.d/s22plus_boot_capture_m1.sh"
 REMOTE_TMP_POST = "/data/local/tmp/s22plus_boot_capture_m1_post.sh"
 REMOTE_TMP_SERVICE = "/data/local/tmp/s22plus_boot_capture_m1_service.sh"
+REMOTE_TMP_TAR = "/data/local/tmp/s22plus_boot_capture_m1.tar"
 
 DEFAULT_RUN_ROOT = Path("workspace/private/runs")
 
@@ -301,14 +303,45 @@ def wait_for_android(serial: str, wait_sec: int, log_path: Path) -> bool:
         time.sleep(2.0)
 
 
+def safe_extract_tar(tar_path: Path, out_dir: Path) -> None:
+    out_resolved = out_dir.resolve()
+    with tarfile.open(tar_path) as archive:
+        for member in archive.getmembers():
+            target = (out_dir / member.name).resolve()
+            if out_resolved not in target.parents and target != out_resolved:
+                raise SystemExit(f"refusing unsafe tar member path: {member.name}")
+        archive.extractall(out_dir)
+
+
 def pull_capture(serial: str, run_dir: Path, log_path: Path) -> Path:
     out_dir = run_dir / "device_capture"
     out_dir.mkdir(parents=True, exist_ok=True)
     result = adb(serial, "pull", REMOTE_DIR, str(out_dir), timeout=120.0)
     append_log(log_path, f"adb_pull_rc={result.returncode}")
     append_log(log_path, result.stdout + result.stderr)
-    if result.returncode != 0:
-        raise SystemExit("failed to pull remote capture directory")
+    if result.returncode == 0:
+        return out_dir
+
+    tar_cmd = (
+        "rm -f " + shlex.quote(REMOTE_TMP_TAR) + "; "
+        "tar -cf " + shlex.quote(REMOTE_TMP_TAR) + " -C /data/adb s22plus_boot_capture_m1 && "
+        "chmod 0644 " + shlex.quote(REMOTE_TMP_TAR) + " && "
+        "echo tar_ok"
+    )
+    tar_result = su_shell(serial, tar_cmd, timeout=60.0)
+    append_log(log_path, f"root_tar_rc={tar_result.returncode}")
+    append_log(log_path, tar_result.stdout + tar_result.stderr)
+    if tar_result.returncode != 0 or "tar_ok" not in (tar_result.stdout + tar_result.stderr):
+        raise SystemExit("failed to create root-readable remote capture tar")
+
+    local_tar = run_dir / "s22plus_boot_capture_m1.tar"
+    pull_tar = adb(serial, "pull", REMOTE_TMP_TAR, str(local_tar), timeout=120.0)
+    append_log(log_path, f"adb_pull_tar_rc={pull_tar.returncode}")
+    append_log(log_path, pull_tar.stdout + pull_tar.stderr)
+    su_shell(serial, "rm -f " + shlex.quote(REMOTE_TMP_TAR), timeout=20.0)
+    if pull_tar.returncode != 0:
+        raise SystemExit("failed to pull remote capture tar")
+    safe_extract_tar(local_tar, out_dir)
     return out_dir
 
 
@@ -361,6 +394,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--wait-sec", type=int, default=300)
     parser.add_argument("--dry-run", action="store_true", help="verify target and print generated script hashes")
     parser.add_argument("--cleanup", action="store_true", help="remove remote scripts/staging/log directory only")
+    parser.add_argument("--collect-existing", action="store_true", help="pull an already-created remote capture and cleanup")
     parser.add_argument("--live-run", action="store_true", help="install, reboot, collect, and cleanup")
     parser.add_argument("--ack", help=f"required with --live-run: {ACK_TOKEN}")
     args = parser.parse_args(argv)
@@ -383,6 +417,16 @@ def main(argv: list[str]) -> int:
         ok = cleanup_capsule(serial, log_path)
         print(f"cleanup={'ok' if ok else 'failed'} log={log_path}")
         return 0 if ok else 2
+
+    if args.collect_existing:
+        capture_root = pull_capture(serial, run_dir, log_path)
+        summary = summarize_capture(capture_root, script_hashes)
+        cleanup_ok = cleanup_capsule(serial, log_path)
+        summary["remote_cleanup_ok"] = cleanup_ok
+        (run_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        print(run_dir)
+        print(json.dumps(summary, indent=2, sort_keys=True))
+        return 0 if cleanup_ok else 4
 
     if args.dry_run or not args.live_run:
         print(f"dry-run ok: rooted target verified; script_hashes={json.dumps(script_hashes, sort_keys=True)}; log={log_path}")
