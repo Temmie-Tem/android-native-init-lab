@@ -10,8 +10,9 @@ Dry-run is the default.  Live mode requires:
 - an explicit ack token.
 
 The live path is attended by design: after the M3 candidate is flashed, the
-helper observes host-side USB/ADB/Odin state for a bounded window, then waits
-for the operator to put the phone back into download mode for rollback.
+helper observes host-side USB/ADB/Odin state for a bounded window. M3 v0.2 then
+attempts a software `download` reboot itself; if that does not appear, the
+operator must put the phone back into download mode for rollback.
 """
 
 from __future__ import annotations
@@ -37,15 +38,15 @@ EXPECTED_DEVICE = "g0q"
 EXPECTED_BUILD = "S906NKSS7FYG8"
 EXPECTED_MEMBER = "boot.img.lz4"
 
-EXPECTED_M3_AP_SHA256 = "d588b84c231a53ba8447716af2f0bee6128f738634c951b8728fed662c17807e"
-EXPECTED_M3_BOOT_SHA256 = "583a748f045c1053b808ca5b337c66336d3838f3fa240fa5de8e4dbf3f819734"
+EXPECTED_M3_AP_SHA256 = "4a07a5b24101db6e74e102498c557d457c751e13d932f9f5604125629f06ce3b"
+EXPECTED_M3_BOOT_SHA256 = "aa66602e49045de5666b390ef7b434e07cd234d59a4503f9bac021d11383f6d0"
 EXPECTED_M3_MARKER = "S22_NATIVE_INIT_OBSERVABLE_M3"
 
 EXPECTED_MAGISK_AP_SHA256 = "d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56"
 EXPECTED_STOCK_BOOT_AP_SHA256 = "1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e"
 
-DEFAULT_M3_AP = Path("workspace/private/outputs/s22plus_native_init/observable_m3_v0_1/odin4/AP.tar.md5")
-DEFAULT_M3_MANIFEST = Path("workspace/private/outputs/s22plus_native_init/observable_m3_v0_1/manifest.json")
+DEFAULT_M3_AP = Path("workspace/private/outputs/s22plus_native_init/observable_m3_v0_2/odin4/AP.tar.md5")
+DEFAULT_M3_MANIFEST = Path("workspace/private/outputs/s22plus_native_init/observable_m3_v0_2/manifest.json")
 DEFAULT_MAGISK_ROLLBACK_AP = Path("workspace/private/outputs/s22plus_magisk_root_boot_only/AP.tar.md5")
 DEFAULT_STOCK_ROLLBACK_AP = Path("workspace/private/outputs/s22plus_native_init/odin4_stock_rollback_short/AP.tar.md5")
 DEFAULT_ODIN = Path("/usr/bin/odin4")
@@ -142,6 +143,8 @@ def verify_m3_manifest(path: Path, log_path: Path) -> None:
         raise SystemExit("M3 manifest boot image hash does not match expected M3 boot image")
     if tar_members_seen != [EXPECTED_MEMBER]:
         raise SystemExit(f"M3 manifest tar members mismatch: {tar_members_seen!r}")
+    if safety.get("auto_reboot") != "download-after-observation":
+        raise SystemExit(f"M3 manifest auto_reboot mismatch: {safety.get('auto_reboot')!r}")
     module_summary = data.get("module_summary", {})
     if module_summary.get("module_count") != 26:
         raise SystemExit(f"M3 manifest module count mismatch: {module_summary.get('module_count')!r}")
@@ -156,6 +159,7 @@ def verify_agents_exception(root: Path, log_path: Path) -> None:
         EXPECTED_M3_BOOT_SHA256,
         ACK_TOKEN,
         "ncm.0 link-only",
+        "`download` reboot",
     ]
     missing = [item for item in required if item not in normalized]
     append_log(log_path, f"agents_exception_missing={missing}")
@@ -362,7 +366,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--odin", type=Path, default=DEFAULT_ODIN)
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--serial", help="ADB serial to pin before live flashing")
-    parser.add_argument("--candidate-observe-sec", type=int, default=60)
+    parser.add_argument("--candidate-observe-sec", type=int, default=110)
     parser.add_argument("--odin-wait-sec", type=int, default=90)
     parser.add_argument("--rollback-wait-sec", type=int, default=240)
     parser.add_argument("--android-wait-sec", type=int, default=300)
@@ -413,7 +417,10 @@ def main(argv: list[str]) -> int:
         return candidate_rc or 3
 
     observe_candidate(run_dir, log_path, args.candidate_observe_sec, odin)
-    print("M3 observation window ended. Put the phone into download mode for rollback; waiting...")
+    print(
+        "M3 observation window ended. Waiting for M3's software download reboot; "
+        "if it does not appear, put the phone into download mode for rollback."
+    )
     rollback_device = wait_for_odin(odin, log_path, "rollback-wait", args.rollback_wait_sec)
     if rollback_device is None:
         print(f"rollback download mode did not appear; manual recovery required. log={log_path}", file=sys.stderr)

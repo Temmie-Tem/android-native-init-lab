@@ -45,7 +45,7 @@ from build_s22plus_direct_p3_boot import (
 )
 
 
-DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/observable_m3_v0_1")
+DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/observable_m3_v0_2")
 DEFAULT_SOURCE = Path("workspace/public/src/native-init/s22plus_init_observable_m3.c")
 DEFAULT_MODULE_BUNDLE = Path("workspace/private/inputs/s22plus_module_bundles/FYG8_usb_first_m2")
 MARKER = "S22_NATIVE_INIT_OBSERVABLE_M3"
@@ -196,7 +196,7 @@ def main(argv: list[str]) -> int:
     normalize_tree_metadata(root_dir)
 
     required_init = (root_dir / "init").read_bytes()
-    for required in (MARKER, "finit_rc", "ncm.0", "pmsg", "link_only=1"):
+    for required in (MARKER, "finit_rc", "ncm.0", "pmsg", "link_only=1", "download_reboot_after_sec=90"):
         if required.encode("ascii") not in required_init:
             raise SystemExit(f"required marker missing from installed /init: {required}")
 
@@ -259,7 +259,7 @@ def main(argv: list[str]) -> int:
             "live_flash_authorized": False,
             "requires_new_sha_pinned_agents_exception_before_flash": True,
             "no_android_or_magisk_handoff": True,
-            "auto_reboot": False,
+            "auto_reboot": "download-after-observation",
             "persistent_partition_mount": False,
             "module_insertions": "USB-first vendor .ko bundle only",
             "configfs_runtime_gadget": "ncm.0 link-only",
@@ -288,7 +288,7 @@ def main(argv: list[str]) -> int:
         encoding="ascii",
     )
     (out_dir / "required_strings.txt").write_text(
-        f"{MARKER}\nfinit_rc\nncm.0\npmsg\nlink_only=1\n",
+        f"{MARKER}\nfinit_rc\nncm.0\npmsg\nlink_only=1\ndownload_reboot_after_sec=90\n",
         encoding="ascii",
     )
     print(json.dumps(manifest, indent=2, sort_keys=True))

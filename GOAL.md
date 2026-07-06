@@ -224,6 +224,17 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > executed.** Next bounded live unit: run that helper with
 > `--live --ack S22PLUS-M3-OBSERVABLE-LIVE-GATE`, observe host USB/NCM/kmsg/pstore signals, then require
 > operator download-mode rollback to the pinned Magisk boot AP before continuing.
+>
+> **STATUS UPDATE (2026-07-07 KST, M3 v0.2 software-download rollback prep):** Operator pointed out that
+> Magisk/root can enter download mode software-side. Codex clarified that this is true before M3 flash while
+> Android/Magisk is alive, but not after M3 direct PID1 replaces Android. Therefore Codex revised M3 itself:
+> v0.2 keeps the same USB-first/link-only observation design, then after ~90 seconds attempts
+> `reboot(..., "download")` so the host can rollback without requiring physical buttons in the expected case;
+> if that syscall returns, M3 parks. New built package:
+> `workspace/private/outputs/s22plus_native_init/observable_m3_v0_2/odin4/AP.tar.md5` with AP SHA256
+> `4a07a5b24101db6e74e102498c557d457c751e13d932f9f5604125629f06ce3b` and boot image SHA256
+> `aa66602e49045de5666b390ef7b434e07cd234d59a4503f9bac021d11383f6d0`. The checked live helper and
+> `AGENTS.md` M3 exception are being updated to target v0.2; v0.1 is superseded for live testing.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The

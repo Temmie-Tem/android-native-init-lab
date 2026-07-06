@@ -173,18 +173,20 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    `workspace/public/src/scripts/revalidation/s22plus_m3_observable_live_gate.py`
    and ack token `S22PLUS-M3-OBSERVABLE-LIVE-GATE`. The exact candidate
    AP.tar.md5 SHA256 must be
-   `d588b84c231a53ba8447716af2f0bee6128f738634c951b8728fed662c17807e`, the
+   `4a07a5b24101db6e74e102498c557d457c751e13d932f9f5604125629f06ce3b`, the
    contained padded `boot.img` SHA256 must be
-   `583a748f045c1053b808ca5b337c66336d3838f3fa240fa5de8e4dbf3f819734`, and the
+   `aa66602e49045de5666b390ef7b434e07cd234d59a4503f9bac021d11383f6d0`, and the
    AP must contain exactly one tar member, `boot.img.lz4`, with no recovery,
    vendor_boot, vbmeta, vbmeta_system, dtbo, BL, CP, CSC, super, persist,
    userdata, EFS, RPMB, keymaster, modem, or any other partition payload. The
    M3 candidate may only run as direct PID1, emit the
    `S22_NATIVE_INIT_OBSERVABLE_M3` kmsg/pmsg marker, insert the bundled M2
    USB-first vendor `.ko` set, create a minimal runtime configfs `ncm.0
-   link-only` gadget, and park for host observation; it must not mount
-   persistent partitions, write block devices, start Android, install Magisk
-   modules, format data, or auto-reboot. Before live flash, the helper must
+   link-only` gadget, park for bounded host observation, then attempt a
+   `download` reboot for rollback; if that reboot syscall returns, it must park.
+   It must not mount persistent partitions, write block devices, start Android,
+   install Magisk modules, format data, or reboot for any reason other than the
+   bounded post-observation `download` reboot attempt. Before live flash, the helper must
    verify normal Android identity, the exact M3 hashes, the exact Magisk
    boot-only rollback AP SHA256
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`, the
@@ -302,7 +304,7 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    `/usr/bin/odin4 --reboot -a` through
    `workspace/public/src/scripts/revalidation/s22plus_m3_observable_live_gate.py`
    for the exact single-member `boot.img.lz4` candidate AP.tar.md5 SHA256
-   `d588b84c231a53ba8447716af2f0bee6128f738634c951b8728fed662c17807e`, and may
+   `4a07a5b24101db6e74e102498c557d457c751e13d932f9f5604125629f06ce3b`, and may
    use `/usr/bin/odin4 --reboot -a` for rollback with the exact single-member
    Magisk boot-only AP.tar.md5 SHA256
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` or the

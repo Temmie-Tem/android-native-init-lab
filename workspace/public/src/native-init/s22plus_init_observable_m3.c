@@ -34,8 +34,9 @@
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 static const char k_marker[] =
-    "S22_NATIVE_INIT_OBSERVABLE_M3 version=0.1 pid1=direct "
-    "proof=kmsg-pmsg usb_first_modules=26 gadget=ncm link_only=1 park=1 no_android_handoff=1\n";
+    "S22_NATIVE_INIT_OBSERVABLE_M3 version=0.2 pid1=direct "
+    "proof=kmsg-pmsg usb_first_modules=26 gadget=ncm link_only=1 download_reboot_after_sec=90 "
+    "park_on_reboot_return=1 no_android_handoff=1\n";
 
 static const char *const k_usb_modules[] = {
     "phy-msm-ssusb-qmp.ko",
@@ -401,6 +402,24 @@ static void create_ncm_gadget(void) {
     emit("S22_NATIVE_INIT_OBSERVABLE_M3 phase=ncm_ipv4 skip=link-only-no-committed-addresses\n");
 }
 
+static void download_reboot_or_park(void) {
+    emit("S22_NATIVE_INIT_OBSERVABLE_M3 phase=download_reboot_attempt target=download\n");
+    sync();
+    errno = 0;
+    long rc = syscall(
+        SYS_reboot,
+        LINUX_REBOOT_MAGIC1,
+        LINUX_REBOOT_MAGIC2,
+        LINUX_REBOOT_CMD_RESTART2,
+        "download");
+    emitf("S22_NATIVE_INIT_OBSERVABLE_M3 phase=download_reboot_return rc=%ld errno=%d\n", rc, errno);
+
+    for (unsigned int tick = 0;; ++tick) {
+        emitf("S22_NATIVE_INIT_OBSERVABLE_M3 phase=park download_reboot_failed=1 tick=%u\n", tick);
+        sleep(10);
+    }
+}
+
 int main(int argc, char **argv, char **envp) {
     (void)argc;
     (void)argv;
@@ -411,8 +430,10 @@ int main(int argc, char **argv, char **envp) {
     load_usb_modules();
     create_ncm_gadget();
 
-    for (unsigned int tick = 0;; ++tick) {
+    for (unsigned int tick = 0; tick < 18; ++tick) {
         emitf("S22_NATIVE_INIT_OBSERVABLE_M3 phase=heartbeat tick=%u\n", tick);
         sleep(5);
     }
+
+    download_reboot_or_park();
 }
