@@ -698,6 +698,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > de-risk a specific M5 step (e.g., confirm `mount`/`insmod`/`openat` syscalls before wiring the whole chain);
 > otherwise head straight for the ACM channel.
 
+> **STATUS UPDATE (2026-07-07 KST, M5 USB-ACM host build):** Codex built the first M5 USB-ACM control-channel
+> candidate host-only and did not flash it. Source:
+> `workspace/public/src/native-init/s22plus_init_usb_acm_m5.c`; builder:
+> `workspace/public/src/scripts/revalidation/build_s22plus_inplace_m5_usb_acm.py`; report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M5_USB_ACM_HOST_BUILD_2026-07-07.md`. The builder starts from the
+> known-booting Magisk boot SHA256 `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, proves
+> no-change `magiskboot unpack/repack` is byte-identical, replaces ramdisk `/init`, injects the 26-module FYG8
+> USB-first bundle under `/lib/modules/s22plus-m5`, preserves kernel SHA256
+> `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`, and emits a boot-only AP SHA256
+> `8af4fd29a4268d30ac988ede6d32852837301ca80d3295ad41e539ae4913a170` / contained `boot.img` SHA256
+> `aeed53543fb277765ddb1657e6b8da33b27db876257b41a95e965a26f7cf1afb`. M5 mounts `/proc`/`/sys`/`/dev`/
+> `/run`/`/config`, inserts the M2 USB module chain, creates a configfs `ss_acm.0` gadget, binds a non-dummy
+> UDC if present, then polls `/dev/ttyGS0` and writes a readiness banner when it opens. It does not start
+> Android/Magisk, mount persistent partitions, write block devices, touch watchdog, or auto-reboot. Validation:
+> builder `py_compile`, standalone cross-compile, required string checks, module hash checks, MagiskBoot
+> no-change repack gate, patched-kernel hash unchanged, single-member `boot.img.lz4` AP, and Odin invalid-device
+> parse gate. **No live flash is authorized.** Next live use, if supervised, needs a fresh SHA-pinned S22+
+> boot-only `AGENTS.md` exception plus guarded dry-run/helper for exactly this AP/boot hash; because M5 has no
+> auto-reboot path, manual-download rollback remains the fallback unless the ACM channel enumerates and becomes
+> usable.
+
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
 > runner staged WSTA153 policy + WSTA156 filter artifact + WSTA161 gated-apply helper into
