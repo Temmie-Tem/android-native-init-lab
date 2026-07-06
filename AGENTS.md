@@ -109,6 +109,40 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    transport is available, then stop. This exception does not authorize
    additional S22+ boot candidates, Magisk root reinstall, kernel rebuild
    flashes, module loading, non-boot partition writes, or any A90 action.
+   **Narrow operator-authorized exception (2026-07-07, S22+ TWRP+Magisk
+   boot-capture restore window only):** after the S22+ P3 incident was rolled
+   back to normally booting stock Android with no `su`, and after `GOAL.md`
+   redirected the S22+ path away from blind native-init flashes toward rooted
+   Android boot-capture measurement, Codex may perform one bounded maintenance
+   window on the same Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8`: first
+   refresh TWRP by flashing only the exact pinned `g0q` TWRP recovery tar
+   SHA256 `0914c68a5353c367216805a3a2fdeb4982c6629368dc021c7fefc10d3d3bd034`
+   with auto-reboot disabled, then require direct manual boot to TWRP recovery
+   and read-only TWRP proof before any further write, then reboot to download
+   mode and flash only the exact pinned Magisk boot-only AP.tar.md5 SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`.
+   The Magisk AP must contain exactly one tar member, `boot.img.lz4`; its
+   unpacked boot image SHA256 must be
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e` and its
+   `boot.img.lz4` SHA256 must be
+   `b33b63d9d2c56cbe10170820e88cf136be8fe9ad621a21752da19fdd9b642d31`. The
+   primary path must not write vbmeta because Android preflight must already
+   show `ro.boot.verifiedbootstate=orange`; the previously proven disabled
+   vbmeta state is treated as a precondition, not a new write. The pinned stock
+   recovery-only rollback AP SHA256
+   `8d3647313d2e100134f77984d13c7e5dc9946510ab57d8e34dd0cd192ca8586d`, pinned
+   stock boot-only rollback AP SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`, and full
+   stock `S906NKSS7FYG8` firmware SHA256
+   `f831e5fb8abe1c7a9d8c38fe9c033a3fce7e77651776383641c385c2bb85a2c8` must be
+   present before flashing. On bad TWRP proof, restore only the pinned stock
+   recovery AP if download mode remains available, then stop before Magisk. On
+   bad Android boot after the Magisk step, restore only the pinned stock
+   boot-only AP if download mode remains available, then stop. This exception
+   does not authorize vbmeta writes, Magisk modules, multidisabler, format data,
+   native-init boot candidates, kernel rebuild flashes, non-recovery/boot
+   partition writes, or any A90 action. TWRP persistence after a subsequent
+   Android boot is not claimed unless re-verified.
 2. **Flash only via the checked helper by default:** `workspace/public/src/scripts/revalidation/native_init_flash.py`.
    Never `dd`/`fastboot`/raw-write a partition. Never invent a new flash path.
    **Narrow operator-authorized exception (2026-07-02, self-dd ladder only):** the V3358
@@ -193,6 +227,22 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e` on
    failure or after proof collection. No other Odin slot, tar member, candidate
    hash, or partition is authorized by this exception.
+   **Narrow operator-authorized exception (2026-07-07, S22+ TWRP+Magisk
+   boot-capture restore Odin path):** the S22+ TWRP+Magisk restore window above
+   may use `/usr/bin/odin4 -a` without `--reboot` for the exact single-member
+   recovery tar SHA256
+   `0914c68a5353c367216805a3a2fdeb4982c6629368dc021c7fefc10d3d3bd034`, and may
+   use `/usr/bin/odin4 --reboot -a` for the exact single-member Magisk
+   boot-only AP.tar.md5 SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`. It may
+   also use `/usr/bin/odin4 --reboot -a` for the pinned stock recovery-only
+   rollback AP SHA256
+   `8d3647313d2e100134f77984d13c7e5dc9946510ab57d8e34dd0cd192ca8586d` after a
+   TWRP recovery failure, and for the pinned stock boot-only rollback AP SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e` after a
+   Magisk boot failure. No Odin `-u`/USERDATA/vbmeta slot, other Odin slot,
+   other tar member, other candidate hash, or other partition is authorized by
+   this exception.
 3. **Rollback precondition:** before ANY flash, confirm the known-good rollback image
    `workspace/private/inputs/boot_images/boot_linux_v2321_usb_clean_identity_rodata.img`
    (SHA256 `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`, the resident
