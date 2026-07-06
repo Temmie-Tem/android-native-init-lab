@@ -347,3 +347,35 @@ Disabled packages after the normal-mode reboot:
 com.google.android.gms.supervision
 com.samsung.android.knox.zt.framework
 ```
+
+## Forced Safe Mode Note
+
+After the normal reboot, the operator observed a Samsung safe-mode dialog:
+
+```text
+Title: 안전 모드에서 휴대전화 시작하기
+Body: 문제점이 발견되어 휴대전화를 정상적으로 켤 수 없습니다.
+      안전모드에서 나가려면 휴대전화를 전체 초기화 해주세요.
+      휴대전화 초기화 전에 안전모드에서 PC나 SD 카드에 데이터를 백업할 수 있습니다.
+```
+
+Additional checks:
+
+```text
+screen watermark: 안전 모드
+sys.boot_completed=1
+/debug_ramdisk/su -c id: uid=0(root) gid=0(root) groups=0(root) context=u:r:magisk:s0
+dumpsys input: KeyDowns: 0 keys currently down
+5-second getevent watch: no volume-key events observed
+```
+
+Interpretation:
+- This is not the usual volume-down-triggered safe mode.
+- The framework is forcing a recovery/safe-mode boot because it detected a
+  normal-boot problem.
+- The device itself recommends full factory reset to leave this mode.
+- ADB and Magisk root still work while in this forced safe mode.
+
+The host also pulled a private backup under `workspace/private/` before the
+operator clarified that the large `/sdcard/Download` contents were only AP image
+and Magisk APK artifacts, not required user data. The backup was left uncommitted.
