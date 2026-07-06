@@ -426,6 +426,34 @@ safety invariants and flash gates are binding and override any sub-goal.**
 >   kernel loaded, reached/attempted `/init`, then panicked (init crash or exec-format).
 > The step 1 fast-dwell/watchdog idea is now demoted to a *layer to add after* TEST 0 confirms the floor, not
 > the first probe.
+>
+> **STATUS UPDATE (2026-07-07 KST, retained-evidence + M4T0/M4A host builds):** Codex ran a read-only
+> retained-evidence probe and built two host-only candidates. Probe helper:
+> `workspace/public/src/scripts/revalidation/s22plus_retained_evidence_probe.py`; report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M4_RETAINED_EVIDENCE_PROBE_2026-07-07.md`. Result: current Android remains
+> the clean rooted baseline; kernel config has `CONFIG_PSTORE=y`, `CONFIG_PSTORE_RAM=y`,
+> `CONFIG_PSTORE_PMSG=y`, and `CONFIG_PSTORE_CONSOLE=y`; live DT has `ramoops_region compatible="ramoops"`
+> with `size=0x200000` and `pmsg-size=0x200000`, but `status="disabled"`; `/sys/fs/pstore` is empty;
+> `/proc/last_kmsg` is collectable at ~2 MiB and has no `S22_NATIVE_INIT` marker. M4A fast-dwell was built but
+> is now demoted behind TEST 0: report `docs/reports/S22PLUS_NATIVE_INIT_M4A_FAST_DWELL_HOST_BUILD_2026-07-07.md`,
+> AP SHA256 `fe20dee1dc28910a75e7b732049b0fdda434e3cc6a81755006ba2a6236cad2dc`, boot image SHA256
+> `38901566af3b5449a245515f10bedc34090c320d871f1f055a2f84ae669d3dbb`. **Current next candidate is M4T0
+> instant-download floor probe**: source/helper
+> `workspace/public/src/native-init/s22plus_init_instant_download_m4t0.c` and
+> `workspace/public/src/scripts/revalidation/build_s22plus_instant_download_m4t0_boot.py`; report
+> `docs/reports/S22PLUS_NATIVE_INIT_M4T0_INSTANT_DOWNLOAD_HOST_BUILD_2026-07-07.md`; AP SHA256
+> `ba445b131fddd79887a4ace357a77a42b1f49367eaeea156a3cfebfd883b1904`, boot image SHA256
+> `4617a8804b93435cd0b6a5307862b4d5f55ca7e25befa0c19b2e7619284979e9`. **No live flash is authorized yet.**
+> Next live use needs a fresh SHA-pinned S22+ boot-only `AGENTS.md` exception and a guarded helper/dry-run for
+> exactly this M4T0 AP/boot hash.
+>
+> **STATUS UPDATE (2026-07-07 KST, operator bootloop confirmation + baseline check):** Operator reported that
+> manual download-mode entry was due to a confirmed bootloop. ADB later reappeared as normal Android on
+> `SM-S906N/g0q`, `sys.boot_completed=1`, `ro.boot.verifiedbootstate=orange`, Magisk root `uid=0`, and live
+> boot-partition SHA256 `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, matching the
+> pinned Magisk boot-only rollback payload. `/sys/fs/pstore` remains empty and `/proc/last_kmsg` remains
+> collectable at ~2 MiB with no `S22_NATIVE_INIT` marker. Treat the device as recovered to the rooted baseline,
+> and keep the next S22+ live step blocked until the M4T0 SHA-pinned `AGENTS.md` exception/helper exists.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
