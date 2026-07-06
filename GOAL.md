@@ -804,6 +804,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > C + VFS mounts are fine and the failure moves to module/configfs/UDC; another no-transport result means shrink
 > further to freestanding C reboot-only versus marker-only before touching the USB chain.
 
+> **STATUS UPDATE (2026-07-07 KST, M5B mount/reboot host build):** Codex built the front-split M5B candidate
+> host-only. Source: `workspace/public/src/native-init/s22plus_init_mount_reboot_m5b.c`; builder:
+> `workspace/public/src/scripts/revalidation/build_s22plus_inplace_m5b_mount_reboot.py`; report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M5B_MOUNT_REBOOT_HOST_BUILD_2026-07-07.md`. M5B starts from the
+> known-booting Magisk boot, replaces only `/init`, uses freestanding direct syscalls, mounts `/dev`/`/proc`/
+> `/sys`/`/config`, emits `S22_NATIVE_INIT_MOUNT_REBOOT_M5B`, then requests `reboot(...,"download")`.
+> It does not insert modules, create a USB gadget, mount persistent partitions, write block devices, touch
+> watchdog, or start Android/Magisk. Host-built AP.tar.md5 SHA256
+> `872de3ee417eebbe8f55c14d226eaefe5e06d5989ffe96176b1bb02994793a59`; contained boot.img SHA256
+> `21a61c84d273390a3681d029977ff6150991036568aa455a0a4879ff24590239`; M5B `/init` SHA256
+> `accfc6f5e04d7d302ee17c6e4ce93ee14240ebdbb70274424934805e542b9bac`; base boot and kernel hashes unchanged.
+> Validation passed: py_compile, freestanding AArch64 compile, MagiskBoot no-change repack, replaced `/init`
+> extraction hash, single `boot.img.lz4` AP, required/forbidden string checks, unchanged kernel hash, and Odin
+> invalid-device parse gate. **No live flash was run and no live authorization exists yet.** Next bounded unit:
+> add the SHA-pinned M5B `AGENTS.md` exception + guarded live helper, then run attended M5B live gate. If it
+> self-enters download mode, freestanding C + VFS mounts are live-proven and M5 failure moves to module/configfs/
+> UDC; if not, shrink further to freestanding C reboot-only versus marker-only.
+
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
 > runner staged WSTA153 policy + WSTA156 filter artifact + WSTA161 gated-apply helper into
