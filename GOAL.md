@@ -719,6 +719,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > auto-reboot path, manual-download rollback remains the fallback unless the ACM channel enumerates and becomes
 > usable.
 
+> **STATUS UPDATE (2026-07-07 KST, M5 live gate preflight ready):** Codex added the fresh SHA-pinned
+> `AGENTS.md` M5 boot-only exception and guarded helper
+> `workspace/public/src/scripts/revalidation/s22plus_m5_usb_acm_live_gate.py`, with live ack token
+> `S22PLUS-M5-USB-ACM-LIVE-GATE` and rollback-only ack token `S22PLUS-M5-ROLLBACK-FROM-DOWNLOAD`. Dry-run
+> passed against the rooted Android/Magisk baseline and verified exact M5 AP SHA256
+> `8af4fd29a4268d30ac988ede6d32852837301ca80d3295ad41e539ae4913a170`, contained `boot.img` SHA256
+> `aeed53543fb277765ddb1657e6b8da33b27db876257b41a95e965a26f7cf1afb`, base Magisk boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, kernel SHA256
+> `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`, M5 `/init` SHA256
+> `f677ede617bbf243686a58517260c5b025bc03efbfc012087c72f17ee5e39f41`, module-bundle manifest SHA256
+> `1c22c93496e03a7df6dd74959511797b6d033b74361d3d3733d7be8269a5fa05`, Magisk/stock rollback AP hashes,
+> manifest safety, current `SM-S906N`/`g0q`/`S906NKSS7FYG8` Android identity, orange verified boot, Magisk
+> root, and current Android ACM baseline (`04e8:6860` `SAMSUNG_Android`). The M5 live detector keys on the
+> M5-specific ACM identity (`04e8:685d`, `S22M5ACM0001`, or `S22_NATIVE_INIT_USB_ACM_M5 READY`) rather than
+> mere `/dev/ttyACM*` existence. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M5_USB_ACM_LIVE_GATE_PREFLIGHT_2026-07-07.md`. **No live flash was run.**
+> Next supervised live command is the helper with `--live --ack S22PLUS-M5-USB-ACM-LIVE-GATE`; because M5 has
+> no auto-reboot path, the helper waits for operator download-mode entry after ACM inspection and then rolls
+> back to the pinned Magisk boot-only AP. If ACM never appears, use `--rollback-from-download --ack
+> S22PLUS-M5-ROLLBACK-FROM-DOWNLOAD` after manual download-mode entry.
+
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
 > runner staged WSTA153 policy + WSTA156 filter artifact + WSTA161 gated-apply helper into
