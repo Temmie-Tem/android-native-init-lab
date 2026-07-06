@@ -195,3 +195,27 @@ The later `adb reboot recovery` check intentionally moved the device into
 stock/general recovery. Host `adb reboot` from that state is denied because ADB is
 unauthorized. The operator must select `Reboot system now` on the device to return
 to Android, after which a final Android props recapture can be appended.
+
+## Final Android Return
+
+After the operator selected `Reboot system now` from stock/general recovery, the
+device returned to Android and ADB reauthorized as `device`.
+
+Final Android props:
+
+```text
+sys.boot_completed=1
+ro.bootloader=S906NKSS7FYG8
+ro.build.version.incremental=S906NKSS7FYG8
+ro.product.model=SM-S906N
+ro.boot.verifiedbootstate=orange
+ro.boot.veritymode=
+ro.boot.boot_recovery=0
+ro.boot.flash.locked=0
+ro.boot.avb_version=1.2
+ro.config.dmverity=G
+```
+
+Final conclusion: the FYG8-derived disabled-vbmeta AP was flashed successfully
+and the device booted normal FYG8 Android afterward, including a recovery
+round-trip back to Android. No stock-vbmeta rollback was needed.
