@@ -822,6 +822,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > self-enters download mode, freestanding C + VFS mounts are live-proven and M5 failure moves to module/configfs/
 > UDC; if not, shrink further to freestanding C reboot-only versus marker-only.
 
+> **STATUS UPDATE (2026-07-07 KST, M5B live gate preflight ready):** Codex added the SHA-pinned M5B
+> `AGENTS.md` live/Odin exceptions and guarded helper
+> `workspace/public/src/scripts/revalidation/s22plus_m5b_mount_reboot_live_gate.py`, with live ack token
+> `S22PLUS-M5B-MOUNT-REBOOT-LIVE-GATE` and rollback-only ack token
+> `S22PLUS-M5B-ROLLBACK-FROM-DOWNLOAD`. Dry-run passed against the rooted Android/Magisk baseline and verified
+> exact M5B AP SHA256 `872de3ee417eebbe8f55c14d226eaefe5e06d5989ffe96176b1bb02994793a59`, contained
+> `boot.img` SHA256 `21a61c84d273390a3681d029977ff6150991036568aa455a0a4879ff24590239`, M5B `/init` SHA256
+> `accfc6f5e04d7d302ee17c6e4ce93ee14240ebdbb70274424934805e542b9bac`, Magisk/stock rollback AP hashes,
+> manifest safety, 4-sample Android stability, and current boot hash
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M5B_MOUNT_REBOOT_LIVE_GATE_PREFLIGHT_2026-07-07.md`. **No live flash was
+> run.** Next supervised live command:
+> `PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m5b_mount_reboot_live_gate.py --live --ack S22PLUS-M5B-MOUNT-REBOOT-LIVE-GATE`.
+
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
 > runner staged WSTA153 policy + WSTA156 filter artifact + WSTA161 gated-apply helper into
