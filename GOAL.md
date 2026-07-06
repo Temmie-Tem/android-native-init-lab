@@ -269,6 +269,18 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > marker before proc/sys/devtmpfs/configfs/module work, then short-delay `download` reboot. No live flash is
 > authorized by this postmortem. Report:
 > `docs/reports/S22PLUS_NATIVE_INIT_M3_POSTMORTEM_AND_M31_DIRECTION_2026-07-07.md`.
+>
+> **STATUS UPDATE (2026-07-07 KST, M3.1 marker-only host build):** Codex built the next candidate host-only
+> and did not flash it. M3.1 removes all USB modules, configfs gadget setup, display work, and Android/Magisk
+> handoff. Its first operations create `/dev/kmsg` and fallback `/dev/pmsg0` using the observed target pmsg
+> major, write `S22_NATIVE_INIT_MARKER_ONLY_M31`, dwell for 10 seconds, then attempt `download` reboot and park
+> if the reboot returns. Built package:
+> `workspace/private/outputs/s22plus_native_init/marker_m31_v0_1/odin4/AP.tar.md5` with AP SHA256
+> `999beeb67f73c39eaa0b637bc3c62fe2d8474fa707110640ae51adca0fbd2cfb` and boot image SHA256
+> `f3dea68c02be295141265820f4acdd425a12460e05957edf75c83a62c4a617c5`. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M31_MARKER_ONLY_HOST_BUILD_2026-07-07.md`. **No live flash is authorized
+> yet.** Next unit, if live is desired, must add a fresh SHA-pinned `AGENTS.md` M3.1 boot-only exception and a
+> guarded live helper/dry-run for this exact AP/boot hash.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
