@@ -259,6 +259,16 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/S22PLUS_OBSERVABLE_NATIVE_INIT_M3_V02_LIVE_RESULT_2026-07-07.md`. Per stop-on-fail/no
 > retry-loop discipline, do not flash another S22+ native-init candidate until a host-only postmortem narrows
 > why the direct PID1 path returned to download mode before marker evidence.
+>
+> **STATUS UPDATE (2026-07-07 KST, M3 postmortem direction):** Codex performed the required host-only
+> postmortem pass after the M3 v0.2 live result. The failure is now scoped above the USB bring-up layer:
+> P3 and M3 direct-PID1 candidates both failed before collectable markers, while earlier chainload variants
+> showed that boot-only repack/Odin packaging can boot but marker durability was weak. Current Android
+> confirms a `pmsg` char device exists; the next candidate design should be marker-only M3.1, not another
+> USB/module candidate: create `/dev/kmsg` and a fallback `/dev/pmsg0` as the first operations, write the
+> marker before proc/sys/devtmpfs/configfs/module work, then short-delay `download` reboot. No live flash is
+> authorized by this postmortem. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M3_POSTMORTEM_AND_M31_DIRECTION_2026-07-07.md`.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
