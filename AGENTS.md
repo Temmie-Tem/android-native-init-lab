@@ -84,6 +84,31 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    additional S22+ boot candidates, kernel rebuild flashes, Magisk module
    writes, multidisabler, format data, non-boot partition writes, or any A90
    action.
+   **Narrow operator-authorized exception (2026-07-07, S22+ P3 direct-PID1
+   first-light boot-only):** after the S22+ P2 Magisk-chainload failure was
+   rolled back to stock-boot Android, Codex may perform one bounded Odin4
+   boot-partition-only flash on the same Samsung S22+ `SM-S906N`/`g0q`
+   `S906NKSS7FYG8` using the exact P3 direct native-init PID1 candidate
+   AP.tar.md5 SHA256
+   `21838b4e64656cead9804f9034ed554bf6737a9666d07001d30ec66c01364d8b`.
+   The candidate padded `boot.img` SHA256 must be
+   `bb803901048a089b956d7657ed45496de7416a90c0a35872784b537d7167f2cb`; the
+   AP must contain exactly one tar member, `boot.img.lz4`, and must not carry
+   recovery, vendor_boot, vbmeta, vbmeta_system, dtbo, BL, CP, CSC, super,
+   persist, userdata, EFS, RPMB, keymaster, modem, or any other partition
+   payload. The expected proof path is direct `/init` PID1 kmsg marker
+   `S22_NATIVE_INIT_DIRECT_P3` followed by automatic or manual TWRP recovery
+   collection from `/proc/last_kmsg`; this is not an Android/Magisk handoff
+   candidate and rooted Android is not expected before rollback. The pinned
+   stock boot-only rollback AP SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e` and full
+   stock `S906NKSS7FYG8` firmware SHA256
+   `f831e5fb8abe1c7a9d8c38fe9c033a3fce7e77651776383641c385c2bb85a2c8` must be
+   present before flashing. After proof collection or on no boot/no marker/no
+   recovery, restore the pinned stock boot-only AP if download mode or recovery
+   transport is available, then stop. This exception does not authorize
+   additional S22+ boot candidates, Magisk root reinstall, kernel rebuild
+   flashes, module loading, non-boot partition writes, or any A90 action.
 2. **Flash only via the checked helper by default:** `workspace/public/src/scripts/revalidation/native_init_flash.py`.
    Never `dd`/`fastboot`/raw-write a partition. Never invent a new flash path.
    **Narrow operator-authorized exception (2026-07-02, self-dd ladder only):** the V3358
@@ -156,6 +181,18 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e` on
    failure. No other Odin slot, tar member, candidate hash, or partition is
    authorized by this exception.
+   **Narrow operator-authorized exception (2026-07-07, S22+ P3 direct-PID1
+   boot-only Odin path):** the S22+ P3 direct native-init first-light unit above
+   may use `/usr/bin/odin4 --reboot -a` for the exact single-member
+   `boot.img.lz4` AP.tar.md5 SHA256
+   `21838b4e64656cead9804f9034ed554bf6737a9666d07001d30ec66c01364d8b`,
+   because this is a Samsung download-mode boot-partition-only direct-PID1
+   proof gated by TWRP recovery infrastructure and the pinned stock boot-only
+   rollback AP. It may also use `/usr/bin/odin4 --reboot -a` for the pinned
+   stock boot-only rollback AP SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e` on
+   failure or after proof collection. No other Odin slot, tar member, candidate
+   hash, or partition is authorized by this exception.
 3. **Rollback precondition:** before ANY flash, confirm the known-good rollback image
    `workspace/private/inputs/boot_images/boot_linux_v2321_usb_clean_identity_rodata.img`
    (SHA256 `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`, the resident
