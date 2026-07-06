@@ -630,6 +630,26 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > to reach the infinite park loop. The next unit should be host-only M4T3 planning/build: add one raw syscall
 > at a time, still no libc, with a fresh SHA-pinned exception/helper required before any live flash.
 
+> **STATUS UPDATE (2026-07-07 KST, M4T3 raw-reboot host build):** Codex built the next host-only
+> discriminator from the M4T2 proof floor: raw AArch64 `/init`, no libc, no marker writes, no modules/configfs
+> work, first action is a single direct arm64 `reboot(0xfee1dead, 0x28121969, 0xa1b2c3d4, "download")`
+> syscall, and syscall-return falls into the same infinite park shape. Builder:
+> `workspace/public/src/scripts/revalidation/build_s22plus_inplace_m4t3_raw_reboot.py`; source:
+> `workspace/public/src/native-init/s22plus_init_raw_reboot_m4t3.S`; report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M4T3_RAW_REBOOT_HOST_BUILD_2026-07-07.md`. Built package:
+> `workspace/private/outputs/s22plus_native_init/inplace_m4t3_raw_reboot_v0_1/odin4/AP.tar.md5`,
+> AP SHA256 `f0a26bb95a091070713f8d736419cbe60974195bb59509cb1fd7cc28a0b1a907`, contained `boot.img`
+> SHA256 `d5e0371c6cb68af8990ce3ac4701ad4e0e487dbe54f4702dae29e21d86f4b92a`, raw `/init` SHA256
+> `e975a973395fd1bfe2fee0dccb9d47400e6746d62b508cd139b49c551b9aa67c`. Validation: `py_compile`, raw
+> readelf/objdump (`x8=142`, `svc #0`, park on return), MagiskBoot no-change repack byte-identical to the
+> known-good Magisk boot SHA256 `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
+> patched boot preserves kernel SHA256 `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`,
+> AP contains only `boot.img.lz4`, and Odin parse dry-run reached package checking. **No live flash was run
+> and none is authorized yet.** Next bounded unit, if live testing is desired: add a fresh SHA-pinned
+> `AGENTS.md` exception and guarded M4T3 helper/dry-run. Live interpretation is three-way: self-download means
+> raw reboot syscall works, stable no-transport park means syscall returned/was rejected, fast loop means the
+> raw reboot syscall path or immediate PID1 action is unstable.
+
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
 > runner staged WSTA153 policy + WSTA156 filter artifact + WSTA161 gated-apply helper into
