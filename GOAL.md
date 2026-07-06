@@ -246,6 +246,19 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Next bounded live unit remains the same exact v0.2 command:
 > `workspace/public/src/scripts/revalidation/s22plus_m3_observable_live_gate.py --live --ack
 > S22PLUS-M3-OBSERVABLE-LIVE-GATE`.
+>
+> **STATUS UPDATE (2026-07-07 KST, M3 v0.2 live gate):** Codex executed the attended M3 v0.2 live gate.
+> Safety result: candidate boot-only Odin flash succeeded, pinned Magisk boot-only rollback succeeded, and
+> rooted Android returned with `boot_completed=1`, orange verified boot, `boot_recovery=0`, and Magisk root.
+> Native-init result: **M3 observability failed.** During the candidate window ADB stayed absent, no new host
+> network/NCM link appeared, and Odin download mode reappeared around 33 seconds after candidate observation
+> began, far earlier than the programmed ~90 second M3 software-download reboot. Post-rollback pstore was
+> empty and `S22_NATIVE_INIT_OBSERVABLE_M3` was not found. Therefore this run does not prove that the M3
+> `/init` reached even the early marker path; treat the result as an early boot/download fallback before
+> observable native init, not as USB module bring-up failure. Report:
+> `docs/reports/S22PLUS_OBSERVABLE_NATIVE_INIT_M3_V02_LIVE_RESULT_2026-07-07.md`. Per stop-on-fail/no
+> retry-loop discipline, do not flash another S22+ native-init candidate until a host-only postmortem narrows
+> why the direct PID1 path returned to download mode before marker evidence.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
