@@ -379,3 +379,53 @@ Interpretation:
 The host also pulled a private backup under `workspace/private/` before the
 operator clarified that the large `/sdcard/Download` contents were only AP image
 and Magisk APK artifacts, not required user data. The backup was left uncommitted.
+
+## Final Factory Reset Recovery
+
+The operator completed full factory reset, setup wizard, and USB debugging setup.
+
+Post-reset validation:
+
+```text
+adb: RFCT519XWGK device usb:2-1.3 product:g0qksx model:SM_S906N device:g0q
+sys.boot_completed=1
+build=S906NKSS7FYG8
+persist.sys.safemode=
+device_provisioned=1
+user_setup_complete=1
+all user-0 packages: 467
+enabled user-0 packages: 465
+disabled user-0 packages: 2
+```
+
+Disabled packages after reset:
+
+```text
+com.google.android.gms.supervision
+com.samsung.android.knox.zt.framework
+```
+
+Core package check passed for Settings, Launcher, SystemUI, GMS, Play Store,
+WebView, GSF, PackageInstaller, PermissionController, NetworkStack,
+SamsungNetworkStack, Phone, Telecom, IMS, TelephonyProvider, and Magisk.
+
+Magisk post-reset repair:
+
+```text
+initial Magisk app state: stub versionName=1.0
+local APK installed: /home/temmie/다운로드/Magisk-v30.7.apk
+installed Magisk versionName=30.7 versionCode=30700
+Magisk additional setup prompt accepted
+Magisk Superuser entry: [SharedUID] 셸 / com.android.shell allowed
+/debug_ramdisk/su -c id:
+uid=0(root) gid=0(root) groups=0(root) context=u:r:magisk:s0
+su -c id:
+uid=0(root) gid=0(root) groups=0(root) context=u:r:magisk:s0
+```
+
+Final state:
+- Android boots normally after factory reset.
+- Forced safe mode is gone.
+- User-0 package restrictions are reset to stock-like `467` package state.
+- Magisk root is restored after reinstalling/updating the Magisk APK and allowing
+  the shell superuser entry.
