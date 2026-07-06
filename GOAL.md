@@ -617,6 +617,19 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > should not be run unattended: live success is visual/behavioral no-fast-loop, and rollback requires manual
 > download-mode entry followed by helper `--rollback-from-download --ack S22PLUS-M4T2-ROLLBACK-FROM-DOWNLOAD`.
 
+> **STATUS UPDATE (2026-07-07 KST, M4T2 raw-park live result):** Codex executed the attended M4T2 raw-park
+> live gate. The candidate AP SHA256
+> `66d7f24b348702f58efbe1945b0d2751052ed27f6ce1f6fc4e5da63f3a585b24` flashed with Odin rc=0. During the
+> 90 second observation window the host saw no ADB/Odin transport return (`m4t2_transport_seen=0`), and the
+> operator visually confirmed the discriminator behavior: the device stopped/parked and did not enter the
+> prior fast bootloop. Manual download-mode entry followed by rollback-only restored the known-good Magisk
+> boot baseline (`boot_completed=1`, `verifiedbootstate=orange`, root available, boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`). Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M4T2_LIVE_RESULT_2026-07-07.md`. Interpretation: M4T2 is the first
+> positive S22+ custom ramdisk `/init` PID1 proof. The kernel can execute the custom raw `_start` far enough
+> to reach the infinite park loop. The next unit should be host-only M4T3 planning/build: add one raw syscall
+> at a time, still no libc, with a fresh SHA-pinned exception/helper required before any live flash.
+
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
 > runner staged WSTA153 policy + WSTA156 filter artifact + WSTA161 gated-apply helper into
