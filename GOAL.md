@@ -86,6 +86,47 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **Safety unchanged:** persistence smoke stays in the recoverable envelope (boot-partition + runtime,
 > rollback to `v2321`); no forbidden-partition/power writes; commit NO secrets/tokens/tunnel-URLs.
 
+> **🆕 NEXT EPIC — S22+ (SM-S906N) NATIVE-INIT PID1 (operator-chartered 2026-07-07).** The A90
+> server-distro epic is CLOSED; the operator picked the next target: **reproduce the A90 "Stage 0 native-init
+> device glue (PID1) → Stage 1 distro" architecture on the Galaxy S22+ `SM-S906N`** (Qualcomm SM8450 / SD 8
+> Gen 1, **GKI 5.10 kernel**, Android 15, **bootloader UNLOCKED, Knox already tripped, ROOTED + TWRP done
+> 2026-07-06**). Goal is native-init PID1, **NOT** chroot-under-Android. Prep/recon map:
+> `docs/plans/S22PLUS_EARLY_RECON_AND_RESUME_PREP_2026-07-06.md`.
+>
+> **⛔ HARD SAFETY FIREWALL — the A90 recoverable-envelope pre-authorization ABOVE DOES NOT EXTEND TO S22+.**
+> S22+ is a **different device** with **NO `v2321`-equivalent rollback checkpoint, NO serial bridge, NO
+> `native_init_flash.py` checked helper**, a different partition scheme (dynamic `super`, split
+> `boot`+`vendor_boot`, `vm-bootsys`/pKVM), and **Knox already tripped**. Therefore, for S22+ **the
+> autonomous loop MUST NOT self-authorize ANY device action** — no S22+ flash, no odin/download-mode write,
+> no boot, no reboot. **ALL S22+ device bring-up (odin4 / TWRP / download-mode / first-light flash) is
+> OPERATOR-HANDS-ON ONLY.** The loop's S22+ scope is **HOST-ONLY**: image unpack/analysis, static-init
+> source, boot-repack + module-map tooling, recon docs — and only once the operator has staged the needed
+> S22+ inputs under `workspace/private/`. When any S22+ step would touch the device, STOP and hand to the
+> operator. (This firewall is separate from — and does not relax — the A90 rules above; the A90 loop stays
+> HALTED and the A90 device stays on `v2321`. No parallel A90 device/coding while S22+ is operator-driven.)
+>
+> **S22+ forbidden partitions (never write): `modem`/`efs`/`sec_efs`/`keymaster`/`vbmeta_samsung`(Samsung-
+> fused)/`bootloader`(`sboot`/`xbl`/`abl`)/RPMB/`persist`/`vm-bootsys`.** Boot-partition experiments are
+> soft-brick-recoverable via download-mode + `odin4` + stock fw `S906NKSS7FYG8` (keep it staged); never bump
+> ARB. Commit NO secrets, device serials, or firmware/boot/vendor images.
+>
+> **Structural transfer + new axes:** the A90 `/init`-replacement technique TRANSFERS — `boot.img` (header
+> v3) = GKI kernel + generic ramdisk; kernel execs `/init` from the generic ramdisk → replace it with the
+> static native init, repack (magiskboot handles v3), flash `vbmeta_disabled`, iterate via TWRP/odin. Three
+> NEW axes vs A90: **①** split-boot repack (DTB/bootconfig/vendor ramdisk sit in `vendor_boot`, mostly left
+> alone; tooled); **②** **GKI drivers are LOADABLE MODULES** (`vendor_dlkm`/`vendor_boot` `/lib/modules`) —
+> native init must `insmod` in `modules.dep`/`modules.load` order to bring up hardware (A90 had everything
+> built-in); **③** **early observability without serial** (A90 leaned on a serial/USB bridge; S22+ needs an
+> equivalent first-light channel — early USB-gadget/adb [needs the USB module], LED/vibrator, or
+> marker-to-partition + reboot).
+>
+> **Phased plan (host-only unless marked OPERATOR):** (P0 recon, host) pull shipped kernel config + unpack
+> `boot`/`vendor_boot`, build the module bring-up map; (P1 host) static `/init` skeleton + boot-repack
+> tooling; (**P2 OPERATOR**) first-light flash — does the static `/init` run as PID1? observe via the P0-chosen
+> channel; (P3 loop-host + OPERATOR-flash) incremental module `insmod` hardware bring-up, A90-style
+> V-iteration; (P4) distro (Stage 1) on top, reusing A90 artifacts (Debian rootfs, cloudflared, containment).
+> **First milestone = static `/init` is PID1 (first-light).** Do NOT let the loop drive any S22+ flash.
+
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
 > runner staged WSTA153 policy + WSTA156 filter artifact + WSTA161 gated-apply helper into
