@@ -196,6 +196,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > build/design the direct native `/init` candidate around pstore marker + 26-module USB-first insertion +
 > minimal configfs observation path, but do not flash it until a fresh SHA-pinned S22+ boot-only exception is
 > added.
+>
+> **STATUS UPDATE (2026-07-07 KST, M3 host build):** Codex built the first observable direct native `/init`
+> candidate without flashing. M3 pulls the M2 26-module USB-first `.ko` set into a private ramdisk bundle,
+> emits `S22_NATIVE_INIT_OBSERVABLE_M3` through kmsg/pmsg, inserts the USB modules with per-module
+> `finit_module` logging, creates a minimal configfs `ncm.0` link-only gadget, and parks with heartbeat logs
+> instead of auto-rebooting. Report:
+> `docs/reports/S22PLUS_OBSERVABLE_NATIVE_INIT_M3_HOST_BUILD_2026-07-07.md`. Built package:
+> `workspace/private/outputs/s22plus_native_init/observable_m3_v0_1/odin4/AP.tar.md5` with
+> AP SHA256 `d588b84c231a53ba8447716af2f0bee6128f738634c951b8728fed662c17807e` and boot image SHA256
+> `583a748f045c1053b808ca5b337c66336d3838f3fa240fa5de8e4dbf3f819734`. **No live flash is authorized yet.**
+> Next bounded unit, if the operator wants a live test: add a fresh SHA-pinned S22+ boot-only `AGENTS.md`
+> exception for this exact M3 AP/boot hash, then perform one boot-only Odin live gate with stock boot rollback
+> staged and collect NCM/kmsg/pstore evidence. Do not start display/distro work before USB or pstore
+> observability is proven.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
