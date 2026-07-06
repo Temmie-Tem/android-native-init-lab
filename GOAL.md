@@ -483,6 +483,31 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/S22PLUS_NATIVE_INIT_M4T0_LIVE_RESULT_2026-07-07.md`. Interpretation: M4T0 did not successfully
 > execute the first-action download path; do not add more marker/dwell/watchdog logic on this branch. Next rung
 > is minimal-delta boot comparison or UART when available, with a fresh SHA-pinned exception before any live.
+>
+> **🎯 OPERATOR STEER (2026-07-07, screen-sequence + M4T0-fail corroborated) — THE FLOOR IS BOOT ACCEPTANCE,
+> NOT `/init`. THE "minimal-delta" NEXT RUNG MUST BE AN IN-PLACE PATCH (preserve header/`boot_signature`/AVB),
+> NOT mkbootimg-from-scratch.** Two facts converge: (1) the operator's on-screen sequence is bootloader warning
+> → Galaxy logo → **"software is not official" → reboot loop** = a **bootloader / verified-boot rejection,
+> PRE-`/init`**; (2) **M4T0 — the absolute-minimal `/init` whose FIRST action is reboot-to-download — did NOT
+> self-enter download** (`m4t0_self_download_seen=0`). Together these prove the kernel/bootloader **never
+> reaches `/init`**, so marker/dwell/watchdog/USB are all moot — the boot is not even ACCEPTED. Build facts: the
+> candidate uses the **STOCK kernel** (verified — not the cause) but is **repacked with `mkbootimg` from scratch
+> at boot header v4**. **Root-cause hypothesis:** Magisk boot works because it **patches the real stock
+> `boot.img` IN PLACE (magiskboot), preserving the exact header + GKI v4 `boot_signature` + AVB footer
+> byte-for-byte**, changing only the ramdisk; the `mkbootimg`-from-scratch native boot **reconstructs** the
+> header/signature, and a missing/mismatched v4 `boot_signature` (or `os_version`/`os_patch_level`/`page_size`)
+> makes the bootloader reject it as "not official" → reboot loop.
+> **NEXT UNIT (host-only build): construct the native-init candidate by IN-PLACE PATCH of the working stock/
+> Magisk `boot.img`** — `magiskboot unpack` the known-booting boot → replace ONLY `/init` in its ramdisk →
+> `magiskboot repack` → header/`boot_signature`/AVB footer preserved exactly. **Do NOT `mkbootimg` from
+> scratch.** True minimal-delta (one file changed; everything the bootloader verifies untouched). Then re-run
+> the M4T0 instant-download live gate on the IN-PLACE-patched boot: if it now self-enters download, the boot is
+> finally ACCEPTED and `/init` runs → build upward. **Also settled:** the DT `ramoops` node is
+> `status="disabled"` → **pstore/last_kmsg is a confirmed DEAD retained channel here**; proof is behavioral
+> (self-download) now, UART later — do not chase pstore. **Discriminator to record:** does a WORKING Magisk boot
+> show the SAME "not official software" text then boot (→ normal unlocked warning) or does the native boot show
+> an extra rejection? Each live flash still needs a fresh SHA-pinned boot-only `AGENTS.md` exception + operator
+> ack; if verification state is in doubt, flash the pinned FYG8-derived disabled-vbmeta in the same session.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
