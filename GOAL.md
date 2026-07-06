@@ -649,6 +649,26 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `AGENTS.md` exception and guarded M4T3 helper/dry-run. Live interpretation is three-way: self-download means
 > raw reboot syscall works, stable no-transport park means syscall returned/was rejected, fast loop means the
 > raw reboot syscall path or immediate PID1 action is unstable.
+>
+> **🎯 OPERATOR STEER (2026-07-07, post-M4T2 first-light — set the NORTH STAR: get a control channel, stop
+> micro-stepping).** M4T2 already answered the load-bearing question: **the S22+ GKI kernel execs our custom
+> static `/init` as PID1** (park proven, no bootloop). That also retro-explains the M4T1 loop as diagnosis-B
+> (`reboot(RESTART2,"download")` doing a plain warm reboot at bare PID1, not an exec failure) — M4T3 just
+> confirms that mechanism, which is worthwhile ONE more bounded live step. **But do NOT continue adding one
+> syscall at a time across many flash/rollback cycles — that is O(flash) per bit of knowledge and will crawl.**
+> The force-multiplier milestone is the **A90-style serial-over-USB control channel**: bring up the USB ACM
+> gadget from native `/init` so probing becomes interactive instead of one-shot-per-flash. The exact bring-up
+> map already exists host-only — the **M2 USB-first 26-module insmod-ordered recipe**
+> (`s22plus_observable_init_recipe.py`: `phy-msm-ssusb-qmp → phy-msm-snps-eusb2 → dwc3-msm → usb_f_* →
+> usb_f_ss_acm → repeater → redriver → usb_notify_layer → usb_notifier_qcom → ipa_fmwk → …`), closure complete,
+> and `usb_f_ss_acm.ko` is present. **NEXT MILESTONE (bounded, host-only build first): M5 = native `/init` that
+> mounts `/proc`+`/sys`, insmods the M2 USB chain in order, does dwc3 configfs ACM gadget setup, then parks —
+> success = a USB ACM/serial device enumerates on the host** (that IS the observation channel; A90's whole
+> iteration loop rode on it). Keep the same discipline: static/no-Android-handoff `/init`, host-only build +
+> dry-run, fresh SHA-pinned boot-only `AGENTS.md` exception + attended operator ack + manual-download rollback
+> for each live flash, never touch forbidden partitions. Micro-syscall probes are fine ONLY where they
+> de-risk a specific M5 step (e.g., confirm `mount`/`insmod`/`openat` syscalls before wiring the whole chain);
+> otherwise head straight for the ACM channel.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
