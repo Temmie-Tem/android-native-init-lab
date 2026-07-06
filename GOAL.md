@@ -523,6 +523,26 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > exonerated); in-place boots → cause is mkbootimg reconstruction (confirmed)**. Do not treat the "not official"
 > screen as evidence either way; the behavioral gate is M4T0 self-download.
 >
+> **🔧 OPERATOR CORRECTION #2 (2026-07-07, AOSP boot-flow web-confirmed — DROP the boot_signature-rejection
+> framing).** Boot-chain order on this Qualcomm SM8450 device is `PBL → XBL → ABL(aboot) → kernel → /init`, and
+> AOSP Verified-Boot docs confirm: (a) the orange "not official" warning is drawn by **ABL**, held ~10s, then
+> **dismissed and the device continues booting — control passes to the kernel** ("the device continues booting");
+> (b) in **unlocked/orange, AVB verification is effectively skipped** — ABL boots the boot.img regardless; and
+> (c) **the GKI header-v4 `boot_signature` is NOT used for device verified boot — it is VTS-only** (AOSP
+> generic-boot partition doc). The device-specific verified-boot signature lives in the **vbmeta partition**,
+> which orange-state skips. **CONSEQUENCE: the earlier "bootloader rejects the mkbootimg-reconstructed
+> boot_signature" hypothesis is almost certainly WRONG** — that field is not consulted, and unlocked skips AVB
+> anyway. Since the warning is pre-handoff and the reboot happens AFTER it, the failure is **kernel/init stage,
+> not an ABL rejection**. **NEW LEADING HYPOTHESIS (fits the FAST loop + `m4t0_self_download_seen=0`):**
+> `Kernel panic: Attempted to kill init!` — native `/init` is reached but **exits/crashes immediately → kernel
+> panics → fast reboot**. Second-most-likely: mkbootimg produced a malformed ramdisk cpio so `/init` is never
+> reached. **IN-PLACE PATCH stays the right next experiment, but reframed:** it isolates the **ramdisk-cpio
+> assembly** variable (NOT boot_signature). If the in-place boot STILL fast-loops → cause is `/init` dying →
+> corrective design = make `/init` provably never return (block forever / immediate marker-write) BEFORE trusting
+> any bring-up logic, plus land a real first-light observation channel. Also worth a cheap check: confirm the
+> mkbootimg `os_version`/`os_patch_level` are >= the recorded ARB baseline (a Samsung SW-REV mismatch shows its
+> own distinct error screen, not this silent reboot — so ARB is unlikely, but verify while rebuilding).
+>
 > **STATUS UPDATE (2026-07-07 KST, M4T1 in-place MagiskBoot host build):** Codex built the next host-only
 > acceptance candidate using the required in-place path, not `mkbootimg`: source
 > `workspace/public/src/scripts/revalidation/build_s22plus_inplace_m4t1_magiskboot.py`, report
