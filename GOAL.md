@@ -588,6 +588,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > design/build a smaller non-returning PID1 probe that avoids glibc startup and reboot syscall complexity
 > (raw-syscall static assembly/C, infinite park as first behavior), or acquire UART/another early-boot
 > observation channel before any further live native-init flash.
+>
+> **STATUS UPDATE (2026-07-07 KST, M4T2 raw-park host build):** Codex built the next host-only discriminator:
+> raw AArch64 assembly `/init` source `workspace/public/src/native-init/s22plus_init_park_m4t2.S` plus builder
+> `workspace/public/src/scripts/revalidation/build_s22plus_inplace_m4t2_park.py`; report
+> `docs/reports/S22PLUS_NATIVE_INIT_M4T2_RAW_PARK_HOST_BUILD_2026-07-07.md`. M4T2 starts from the same
+> known-booting Magisk boot base SHA256 `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
+> proves no-change `magiskboot unpack/repack` is byte-identical, replaces only ramdisk `/init`, preserves
+> `SAMSUNG_SEANDROID` + `VBMETA`, and emits a boot-only AP SHA256
+> `66d7f24b348702f58efbe1945b0d2751052ed27f6ce1f6fc4e5da63f3a585b24` / contained `boot.img` SHA256
+> `8103bce76fb3e41d71b64735a64d2f2f29431a44ea1c9a85dc0bc151d71afd15`. Raw `/init` is 544 bytes,
+> AArch64 `ET_EXEC`, static, stripped, no `PT_INTERP`, no libc/loader strings, no syscalls, no reboot request,
+> and immediately parks forever with `wfe; b`. **No live flash was run and none is authorized yet.** M4T2 live
+> needs a fresh SHA-pinned exception/helper and should be treated as an attended visual/early-observation test:
+> success is no fast reboot loop, not ADB or self-download.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
