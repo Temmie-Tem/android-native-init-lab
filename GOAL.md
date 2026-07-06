@@ -294,6 +294,19 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `workspace/public/src/scripts/revalidation/s22plus_m31_marker_live_gate.py --live --ack
 > S22PLUS-M31-MARKER-LIVE-GATE`.
 
+> **STATUS UPDATE (2026-07-07 KST, M3.1 marker-only live result):** Codex ran the attended
+> M3.1 boot-only Odin live gate and rolled back to the pinned Magisk boot-only AP. Safety
+> result passed: candidate boot-only flash succeeded, download mode returned during the helper
+> window, Magisk boot-only rollback succeeded, and Android returned with `boot_completed=1`,
+> `boot_recovery=0`, orange verified boot, and Magisk root. Native-init proof failed: ADB never
+> appeared during the candidate window, post-rollback `/sys/fs/pstore` was empty, and
+> `S22_NATIVE_INIT_MARKER_ONLY_M31` was not found. Download returned around 31 seconds after
+> candidate observation began, so this is not a clean proof of the intended 10-second marker
+> path. Report: `docs/reports/S22PLUS_NATIVE_INIT_M31_LIVE_RESULT_2026-07-07.md`. **Stop live
+> S22+ native-init flashes here** until a host-only postmortem explains why direct `/init`
+> marker evidence is absent and why the device returns to download/bootloop behavior before any
+> collectable native marker.
+
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
 > runner staged WSTA153 policy + WSTA156 filter artifact + WSTA161 gated-apply helper into
