@@ -835,6 +835,34 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/S22PLUS_NATIVE_INIT_M5B_MOUNT_REBOOT_LIVE_GATE_PREFLIGHT_2026-07-07.md`. **No live flash was
 > run.** Next supervised live command:
 > `PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m5b_mount_reboot_live_gate.py --live --ack S22PLUS-M5B-MOUNT-REBOOT-LIVE-GATE`.
+>
+> **🎯 OPERATOR STEER (2026-07-07, M5 miss ROOT-CAUSED host-only — redirect from the M5B mount-bisect to M6
+> full-substrate module replay). Report: `docs/reports/S22PLUS_NATIVE_INIT_M5_USB_ACM_ROOTCAUSE_HOSTANALYSIS_2026-07-07.md`.**
+> Host-only analysis of the vendor artifacts we already hold settled why M5 flashed + ran (no bootloop, PID1
+> parked) but produced no host ACM: **the 26-module "USB-first" bundle was a symbol-level `modules.dep` closure
+> of the USB *function* modules and is structurally incomplete.** The drivers that power/clock the USB
+> controller/PHY, drive the PMIC/Type-C role stack, and provide the i2c/geni buses are **probe-time platform
+> deps (DT/`softdep`), not symbol deps**, so they were omitted → **`dwc3-msm` cannot probe** → no
+> `/sys/class/udc/a600000.dwc3` → gadget binds nothing → silent no-enumeration. This makes the M5B
+> glibc/mount-vs-module bisect largely MOOT: exec + freestanding runtime + mounts are already proven, and the
+> failure is definitively the **module set**, not mounts. **KEY FACTS (all host-derived, no new capture):**
+> (1) vendor `modules.softdep`: `dwc3_msm pre: phy-generic phy-msm-snps-hs phy-msm-snps-eusb2 phy-msm-ssusb-qmp
+> eud  post: ucsi_glink` — the bundle was MISSING `phy-generic`, `phy-msm-snps-hs`, `eud` and loaded no
+> `ucsi_glink`; a missing required PHY alone fails dwc3 probe. (2) The extracted **vendor_boot ramdisk already
+> holds all 441 vendor `.ko`** (incl `pmic_glink`/`ucsi_glink`/`altmode-glink`/`phy-msm-snps-hs`/`i2c-msm-geni`/
+> the rpmh+gdsc regulators+clocks) **plus `modules.load.recovery` (446, ordered)** — the exact minimal list
+> recovery uses to bring up USB/adb. (3) The real UDC is **`a600000.dwc3`**; `dummy_udc.0` also exists — binding
+> the dummy "succeeds" silently, so bind must **prefer `a600000.dwc3` explicitly**. (4) dwc3 uses the kernel
+> **USB role-switch** framework and with `dr_mode=otg` defaults to peripheral on VBUS; the PD stack
+> (`pmic_glink`/`ucsi_glink`/`max77705`) drives cable→role, and if it doesn't auto-fire the fallback is to force
+> `/sys/class/usb_role/*/role = device`. **NEXT UNIT (host-only build) = M6:** keep the freestanding runtime +
+> mounts; **replay `modules.load.recovery` order** (source every `.ko` from the vendor_boot ramdisk we hold),
+> honoring `modules.softdep` (PHYs+`eud` before `dwc3-msm`, `ucsi_glink` after); then bind the existing configfs
+> gadget to **`a600000.dwc3`** specifically; if still no enumeration, force peripheral via the role-switch sysfs
+> before declaring a miss. Methodology lesson to bake into the recipe builder: for GKI vendor bring-up use the
+> vendor's own **`modules.load`/`modules.load.recovery` + `modules.softdep`**, not a leaf-module symbol closure.
+> Same discipline holds: host-only build + dry-run, fresh SHA-pinned boot-only `AGENTS.md` exception + attended
+> ack + manual-download rollback per live flash, no forbidden partitions.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
