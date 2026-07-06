@@ -376,6 +376,46 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    does not authorize display/distro candidates, kernel rebuild,
    recovery/vendor_boot/vbmeta/non-boot flash, raw host `dd`, fastboot,
    multidisabler, format data, or any A90 action.
+   **Narrow operator-authorized exception (2026-07-07, S22+ M4T2 raw-park
+   native-init boot-only live gate):** after M4T1 in-place MagiskBoot still
+   bootlooped and was rolled back cleanly, Codex may prepare and perform one
+   bounded attended boot-partition-only M4T2 live gate on the same Samsung S22+
+   `SM-S906N`/`g0q` `S906NKSS7FYG8` using the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m4t2_park_live_gate.py`
+   and live ack token `S22PLUS-M4T2-RAW-PARK-LIVE-GATE`. The exact candidate
+   AP.tar.md5 SHA256 must be
+   `66d7f24b348702f58efbe1945b0d2751052ed27f6ce1f6fc4e5da63f3a585b24`, the
+   contained padded `boot.img` SHA256 must be
+   `8103bce76fb3e41d71b64735a64d2f2f29431a44ea1c9a85dc0bc151d71afd15`, the
+   known-booting Magisk boot base SHA256 must be
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, and the
+   raw park `/init` SHA256 must be
+   `b8371e3ac671ff71e9be752b8ff1087a4f20811c871a43ca8e698eee47783d12`. The AP
+   must contain exactly one tar member, `boot.img.lz4`, with no recovery,
+   vendor_boot, vbmeta, vbmeta_system, dtbo, BL, CP, CSC, super, persist,
+   userdata, EFS, RPMB, keymaster, modem, or any other partition payload. The
+   M4T2 candidate may only run as direct PID1, must be constructed by
+   `magiskboot unpack/repack` from the known-booting Magisk boot with only the
+   ramdisk `/init` entry replaced, must not be built with `mkbootimg` from
+   scratch, and its first candidate action is infinite park. The raw `/init`
+   must have no libc startup, no syscalls, no reboot request, no marker write,
+   no module insertion, no configfs gadget work, no watchdog touch, no
+   persistent partition mount, no block-device write, no Android start, no
+   Magisk module install, no format data, and no self-rollback path. M4T2
+   success is an attended observation that the fast reboot loop stops; it is
+   not ADB return and not self-download. If the device remains dark/no-transport
+   after the observation window, the helper must stop and require operator
+   manual download-mode entry before rollback. Rollback from manual download
+   mode may be performed only through the same helper's
+   `--rollback-from-download --ack S22PLUS-M4T2-ROLLBACK-FROM-DOWNLOAD` mode,
+   using the exact Magisk boot-only rollback AP SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
+   or the exact stock boot-only fallback AP SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e` if the
+   operator explicitly selects stock rollback. This exception does not
+   authorize display/distro candidates, kernel rebuild,
+   recovery/vendor_boot/vbmeta/non-boot flash, raw host `dd`, fastboot,
+   multidisabler, format data, or any A90 action.
 2. **Flash only via the checked helper by default:** `workspace/public/src/scripts/revalidation/native_init_flash.py`.
    Never `dd`/`fastboot`/raw-write a partition. Never invent a new flash path.
    **Narrow operator-authorized exception (2026-07-02, self-dd ladder only):** the V3358
@@ -536,6 +576,20 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    `9f5b4c48b95b710f742d5ea8c7f16ef4802cf27e78469381073d460361d0451c`, and may
    use `/usr/bin/odin4 --reboot -a` for rollback with the exact single-member
    Magisk boot-only AP.tar.md5 SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` or the
+   exact single-member stock boot-only AP.tar.md5 SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`. No other
+   Odin slot, tar member, candidate hash, rollback hash, or partition is
+   authorized by this exception.
+   **Narrow operator-authorized exception (2026-07-07, S22+ M4T2 raw-park
+   native-init boot-only Odin path):** the S22+ M4T2 live gate above may use
+   `/usr/bin/odin4 --reboot -a` through
+   `workspace/public/src/scripts/revalidation/s22plus_m4t2_park_live_gate.py`
+   for the exact single-member `boot.img.lz4` candidate AP.tar.md5 SHA256
+   `66d7f24b348702f58efbe1945b0d2751052ed27f6ce1f6fc4e5da63f3a585b24`, and
+   the same helper may use `/usr/bin/odin4 --reboot -a` in
+   `--rollback-from-download` mode with the exact single-member Magisk
+   boot-only AP.tar.md5 SHA256
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` or the
    exact single-member stock boot-only AP.tar.md5 SHA256
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`. No other

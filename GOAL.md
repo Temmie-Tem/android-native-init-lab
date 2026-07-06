@@ -602,6 +602,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > and immediately parks forever with `wfe; b`. **No live flash was run and none is authorized yet.** M4T2 live
 > needs a fresh SHA-pinned exception/helper and should be treated as an attended visual/early-observation test:
 > success is no fast reboot loop, not ADB or self-download.
+>
+> **STATUS UPDATE (2026-07-07 KST, M4T2 live gate preflight ready):** Codex added the SHA-pinned `AGENTS.md`
+> M4T2 boot-only exception and guarded helper
+> `workspace/public/src/scripts/revalidation/s22plus_m4t2_park_live_gate.py` with live ack token
+> `S22PLUS-M4T2-RAW-PARK-LIVE-GATE` and rollback-only ack token
+> `S22PLUS-M4T2-ROLLBACK-FROM-DOWNLOAD`. Dry-run passed against the rooted Android/Magisk baseline and verified
+> exact M4T2 AP SHA256 `66d7f24b348702f58efbe1945b0d2751052ed27f6ce1f6fc4e5da63f3a585b24`, contained
+> `boot.img` SHA256 `8103bce76fb3e41d71b64735a64d2f2f29431a44ea1c9a85dc0bc151d71afd15`, raw `/init` SHA256
+> `b8371e3ac671ff71e9be752b8ff1087a4f20811c871a43ca8e698eee47783d12`, rollback AP hashes, manifest safety
+> (`first_candidate_action=infinite-park`, no libc/syscalls/reboot/marker/modules/configfs/watchdog), and
+> current Android identity/root. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M4T2_LIVE_GATE_PREFLIGHT_2026-07-07.md`. **No live flash was run.** M4T2
+> should not be run unattended: live success is visual/behavioral no-fast-loop, and rollback requires manual
+> download-mode entry followed by helper `--rollback-from-download --ack S22PLUS-M4T2-ROLLBACK-FROM-DOWNLOAD`.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
