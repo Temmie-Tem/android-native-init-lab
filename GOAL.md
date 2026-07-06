@@ -408,6 +408,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **Free channel meanwhile:** the operator should watch the SCREEN behavior on each attempt — fast bootloop
 > vs boot-screen-hang vs fast-self-download — that alone partially answers run-vs-not (see the incident
 > analysis). Do not over-interpret an empty last_kmsg after a bootloop; it is expected (overwritten).
+>
+> **REFINEMENT (2026-07-07, operator noted the bootloop is FAST):** a *fast* loop WEAKENS the "parks 90 s then
+> watchdog" theory (that would loop with a ~90 s period, slow) and is instead consistent with an early event:
+> `/init` never execs, OR `/init` execs and **crashes/exits within seconds** (PID1 exit → "Attempted to kill
+> init" panic-loop), OR `/init` runs but reboots fast/to-normal. So **do NOT lead with the 90 s→fast-dwell
+> change; lead with the cleanest floor probe:**
+> - **TEST 0 — INSTANT-DOWNLOAD `/init`:** make the marker init's **very first action** a reboot to DOWNLOAD
+>   mode (correct download reboot reason), *before* any marker write, module load, or dwell. Result decides the
+>   floor: device **self-enters download fast** → the kernel EXECS `/init` and the download-reboot works
+>   (floor confirmed, `/init` runs) → then build upward one layer at a time (add marker → add module load →
+>   …), each layer still proven by "still reaches download." Device **still fast-loops** → the kernel/
+>   bootloader never reaches `/init` (exec-format / image reject / early panic) → step 2 (minimal-delta) / step
+>   3 (UART). This bypasses the crash-before-marker and watchdog-timing ambiguities entirely.
+> - **Record the loop PERIOD + whether the boot screen appears** (free discriminator): sub-second / no boot
+>   screen → bootloader rejects image (vbmeta/AVB, pre-kernel); brief boot screen (~1–3 s) then reboot →
+>   kernel loaded, reached/attempted `/init`, then panicked (init crash or exec-format).
+> The step 1 fast-dwell/watchdog idea is now demoted to a *layer to add after* TEST 0 confirms the floor, not
+> the first probe.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
