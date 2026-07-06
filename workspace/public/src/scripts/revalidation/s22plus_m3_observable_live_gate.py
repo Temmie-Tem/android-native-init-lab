@@ -312,6 +312,16 @@ def collect_android_pstore(
         if marker.encode("ascii") in payload:
             marker_found = True
     append_log(log_path, f"{label}_pstore_marker_found={int(marker_found)}")
+
+    last_kmsg = adb_exec_out("cat /proc/last_kmsg 2>/dev/null || true", serial=serial, timeout=45.0)
+    last_kmsg_payload = last_kmsg.stdout + last_kmsg.stderr
+    (pstore_dir / f"{label}_last_kmsg.bin").write_bytes(last_kmsg_payload)
+    last_kmsg_marker_found = marker.encode("ascii") in last_kmsg_payload
+    append_log(log_path, f"{label}_last_kmsg_rc={last_kmsg.returncode}")
+    append_log(log_path, f"{label}_last_kmsg_bytes={len(last_kmsg_payload)}")
+    append_log(log_path, f"{label}_last_kmsg_marker_found={int(last_kmsg_marker_found)}")
+    marker_found = marker_found or last_kmsg_marker_found
+    append_log(log_path, f"{label}_retained_marker_found={int(marker_found)}")
     return marker_found
 
 

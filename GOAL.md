@@ -348,6 +348,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > steps 1–3 need no new flash. Sources are conceptual (kernel pstore/ramoops docs, pmOS/lk2nd); commit none of
 > them as device secrets.
 
+> **STATUS UPDATE (2026-07-07 KST, M3.2 gate + bootloop evidence capture):** Codex added the SHA-pinned
+> `AGENTS.md` M3.2 boot-only exception and the guarded helper
+> `workspace/public/src/scripts/revalidation/s22plus_m32_marker_live_gate.py`, then dry-ran it only. The dry-run
+> passed against the rooted Android/Magisk baseline and verified the exact M3.2 AP hash
+> `6073e4988a98f741fa207df4efb8a05e144ad16b3a90f43db2ec408657936fc2`, boot image hash
+> `0bb1ef280e42aa2c6069538e77fc21b5330cf9419a19785f79d05da8429bf1fc`, legacy-LZ4 ramdisk metadata, and pinned
+> Magisk/stock boot-only rollback APs. **No M3.2 live flash was executed by this helper.** After the operator
+> clarified that a bootloop had occurred and the phone had been manually moved to download mode, the host found
+> Android reachable again with `boot_completed=1`, orange verified boot, `boot_recovery=0`, and Magisk root.
+> Host-only retained-log capture showed `/sys/fs/pstore` mounted but empty, `/proc/last_kmsg` readable
+> (~2 MiB), no `S22_NATIVE_INIT` marker, no `Kernel panic` / `not syncing` / `Unable to mount root` / `Oops`
+> signatures, and retained `reboot, download` / ABL `reboot_reason = 0x9` records. The common M3 evidence
+> collector now saves and searches both `/sys/fs/pstore` and `/proc/last_kmsg`; future negative evidence must
+> be interpreted across both channels, not from empty pstore alone. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M32_LIVE_GATE_PREFLIGHT_2026-07-07.md`.
+
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
 > runner staged WSTA153 policy + WSTA156 filter artifact + WSTA161 gated-apply helper into
