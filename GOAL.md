@@ -93,17 +93,26 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > 2026-07-06**). Goal is native-init PID1, **NOT** chroot-under-Android. Prep/recon map:
 > `docs/plans/S22PLUS_EARLY_RECON_AND_RESUME_PREP_2026-07-06.md`.
 >
-> **⛔ HARD SAFETY FIREWALL — the A90 recoverable-envelope pre-authorization ABOVE DOES NOT EXTEND TO S22+.**
-> S22+ is a **different device** with **NO `v2321`-equivalent rollback checkpoint, NO serial bridge, NO
-> `native_init_flash.py` checked helper**, a different partition scheme (dynamic `super`, split
-> `boot`+`vendor_boot`, `vm-bootsys`/pKVM), and **Knox already tripped**. Therefore, for S22+ **the
-> autonomous loop MUST NOT self-authorize ANY device action** — no S22+ flash, no odin/download-mode write,
-> no boot, no reboot. **ALL S22+ device bring-up (odin4 / TWRP / download-mode / first-light flash) is
-> OPERATOR-HANDS-ON ONLY.** The loop's S22+ scope is **HOST-ONLY**: image unpack/analysis, static-init
-> source, boot-repack + module-map tooling, recon docs — and only once the operator has staged the needed
-> S22+ inputs under `workspace/private/`. When any S22+ step would touch the device, STOP and hand to the
-> operator. (This firewall is separate from — and does not relax — the A90 rules above; the A90 loop stays
-> HALTED and the A90 device stays on `v2321`. No parallel A90 device/coding while S22+ is operator-driven.)
+> **⚠️ S22+ DEVICE-ACTION AUTHORITY = the `AGENTS.md` S22+ SHA-pinned exceptions (2026-07-06), NOT the A90
+> envelope.** The A90 recoverable-envelope pre-authorization above is A90-specific and does not by itself
+> cover S22+. For S22+, device actions are governed by the **enumerated, SHA-pinned `AGENTS.md` §Safety-
+> invariant-1 exceptions** — which already authorize (and the loop already used) the bounded **TWRP
+> recovery-infra**, **Magisk root-baseline (boot-only)**, and **disabled-vbmeta** flashes, each pinned by
+> SHA and recovery-staged. The **S22+ recoverable envelope = download-mode + `odin4` + the pinned stock
+> rollback firmware `S906NKSS7FYG8`** (this is S22+'s `v2321`-equivalent; keep the pinned stock/rollback APs
+> staged). So S22+ is **not** un-recoverable — but its device authority is **narrow and enumerated**, not the
+> broad A90 self-authorize.
+> - **P0 recon = read-only, loop MAY proceed now:** `adb` reads (getprop, `zcat /proc/config.gz`, `dd if=`
+>   partition **dumps** → `adb pull`, `/vendor/lib/modules` inventory). Reads are non-destructive → no
+>   partition-write exception needed. **Pin the S906N adb serial (`adb -s`) and verify `ro.product.model=
+>   SM-S906N` before every S22+ read** (the A90 is also on adb — never mis-target).
+> - **The native-init boot flash (P2 first-light) is a NEW, un-pinned boot artifact → it needs a NEW
+>   SHA-pinned `AGENTS.md` boot-only S22+ exception BEFORE the loop flashes it.** Until that exception is
+>   added, the loop does **host-only** P0/P1 (recon, static-`/init` source, boot-repack + module-map tooling)
+>   and **STOPS at the flash boundary** for the operator to add the pinned exception. This mirrors how every
+>   prior S22+ device step was gated. Never `dd of=` a partition; boot flashes go through Odin AP tars per
+>   the AGENTS exception, boot-partition only.
+> - A90 loop stays **HALTED**, A90 device on `v2321`; do not do parallel A90 device/coding.
 >
 > **S22+ forbidden partitions (never write): `modem`/`efs`/`sec_efs`/`keymaster`/`vbmeta_samsung`(Samsung-
 > fused)/`bootloader`(`sboot`/`xbl`/`abl`)/RPMB/`persist`/`vm-bootsys`.** Boot-partition experiments are
@@ -120,12 +129,15 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > equivalent first-light channel — early USB-gadget/adb [needs the USB module], LED/vibrator, or
 > marker-to-partition + reboot).
 >
-> **Phased plan (host-only unless marked OPERATOR):** (P0 recon, host) pull shipped kernel config + unpack
+> **Phased plan:** (P0 recon, host + read-only adb) pull shipped kernel config + dump/unpack
 > `boot`/`vendor_boot`, build the module bring-up map; (P1 host) static `/init` skeleton + boot-repack
-> tooling; (**P2 OPERATOR**) first-light flash — does the static `/init` run as PID1? observe via the P0-chosen
-> channel; (P3 loop-host + OPERATOR-flash) incremental module `insmod` hardware bring-up, A90-style
-> V-iteration; (P4) distro (Stage 1) on top, reusing A90 artifacts (Debian rootfs, cloudflared, containment).
-> **First milestone = static `/init` is PID1 (first-light).** Do NOT let the loop drive any S22+ flash.
+> tooling; (**P2 GATED FLASH**) first-light flash of the native-init boot — **requires a new SHA-pinned
+> `AGENTS.md` boot-only S22+ exception first**; then observe whether the static `/init` runs as PID1 via the
+> P0-chosen channel, with the pinned stock rollback AP staged; (P3) incremental module `insmod` hardware
+> bring-up, A90-style V-iteration (each new boot artifact = new pinned exception); (P4) distro (Stage 1) on
+> top, reusing A90 artifacts (Debian rootfs, cloudflared, containment). **First milestone = static `/init`
+> is PID1 (first-light).** Every S22+ boot flash is boot-partition-only, SHA-pinned, recovery-staged,
+> stop-on-fail — per the AGENTS exceptions.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
