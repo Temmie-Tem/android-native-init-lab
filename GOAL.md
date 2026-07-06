@@ -665,6 +665,19 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > appears and the device parks, enter download mode manually and run helper `--rollback-from-download --ack
 > S22PLUS-M4T3-ROLLBACK-FROM-DOWNLOAD`.
 >
+> **STATUS UPDATE (2026-07-07 KST, M4T3 raw-reboot live result):** Codex executed the attended M4T3 live
+> gate. Candidate AP SHA256 `f0a26bb95a091070713f8d736419cbe60974195bb59509cb1fd7cc28a0b1a907` flashed
+> with Odin rc=0, the original Odin device disconnected, and a later Odin/download-mode device appeared at
+> `m4t3_self_download_seen=1` after about 44 seconds. The operator observed a bootloop-like screen sequence
+> during that wait, so the path is not visually clean or instant; nevertheless the host proof is a live PASS
+> for raw custom-PID1 `reboot(..., "download")` causing self-entry to download mode. The helper immediately
+> flashed the pinned Magisk boot-only rollback AP SHA256
+> `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`, Android returned with
+> `boot_completed=1`, root available, and boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M4T3_LIVE_RESULT_2026-07-07.md`. Stop M4T3 here. Next bounded unit is the
+> M5 host-only USB-ACM control-channel build/design, not more broad one-syscall probes.
+>
 > **🎯 OPERATOR STEER (2026-07-07, post-M4T2 first-light — set the NORTH STAR: get a control channel, stop
 > micro-stepping).** M4T2 already answered the load-bearing question: **the S22+ GKI kernel execs our custom
 > static `/init` as PID1** (park proven, no bootloop). That also retro-explains the M4T1 loop as diagnosis-B
