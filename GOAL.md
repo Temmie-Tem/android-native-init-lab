@@ -380,6 +380,35 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > channel. Report:
 > `docs/reports/S22PLUS_NATIVE_INIT_M32_LIVE_INCIDENT_2026-07-07.md`.
 
+> **🧭 OPERATOR STEER (2026-07-07, post-M3.2 bootloop) — BOOTLOOP ≠ "/init didn't run": test the WATCHDOG
+> hypothesis FIRST (cheap), then minimal-delta, then UART.** The M3.2 bootloop + overwritten `/proc/last_kmsg`
+> (the bootloop's recovery reboots clobbered it — persistence channels are structurally weak for bootloops)
+> do NOT prove `/init` never ran. **Strong hypothesis:** the marker `/init` DOES run, writes its marker, then
+> **parks ~90s without servicing the Qualcomm hardware watchdog → the watchdog resets the SoC before the 90s
+> self-download-reboot → it re-enters the same custom boot → bootloop.** In that case `/init` runs fine and
+> only the 90s dwell is fatal. Run this ladder, cheapest first; each live flash still needs a fresh SHA-pinned
+> boot-only `AGENTS.md` exception + operator ack + staged pinned rollback (unchanged), and NO blind reflash:
+> 1. **FAST-DWELL FIRST (one-line change, highest leverage):** make `/init` reboot to download almost
+>    immediately (~2–3 s, or <1 s) after writing the marker, instead of parking 90 s. Optionally also open and
+>    pet `/dev/watchdog` if present. Proof = BEHAVIOR: if the device **self-returns to download mode fast**,
+>    `/init` RAN (only a running init writes the "download" reboot reason — a panic/hang/watchdog reset does
+>    NOT go to download) → the 90 s park was the villain = breakthrough, no last_kmsg needed. If it still
+>    bootloops → `/init` genuinely is not executing (or crashes instantly) → go to step 2. This *reuses*
+>    self-return-to-download as the proof channel but BEFORE the watchdog window — that is valid; the earlier
+>    "avoid self-reboot" conclusion only means self-reboot is unusable if it can't beat the watchdog.
+> 2. **MINIMAL-DELTA BOOT (no hardware):** take a KNOWN-BOOTING boot (stock or Magisk) and swap ONLY `/init`
+>    for the marker/fast-dwell binary, keeping ramdisk format + header + everything else byte-identical. Still
+>    loops → the init BINARY itself is the cause (exec-format / immediate crash → "Attempted to kill init"
+>    panic-loop). Boots/self-returns → a packaging delta was the cause. This isolates init-vs-packaging without
+>    any observation channel.
+> 3. **UART (the non-self-reboot, non-persistence proof channel the incident asks for):** a bootloop is the
+>    textbook UART case — it shows the panic reason live on every loop iteration, no persistence needed. The
+>    operator is sourcing the USB-C UART jig; this is where it is decisive. Pair with a custom `console=ttyMSM…
+>    earlycon` if kernel logs don't appear.
+> **Free channel meanwhile:** the operator should watch the SCREEN behavior on each attempt — fast bootloop
+> vs boot-screen-hang vs fast-self-download — that alone partially answers run-vs-not (see the incident
+> analysis). Do not over-interpret an empty last_kmsg after a bootloop; it is expected (overwritten).
+
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
 > runner staged WSTA153 policy + WSTA156 filter artifact + WSTA161 gated-apply helper into
