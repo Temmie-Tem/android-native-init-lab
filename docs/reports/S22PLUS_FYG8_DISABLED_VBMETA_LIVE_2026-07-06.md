@@ -119,3 +119,55 @@ Conclusion: the remaining gate is the device-side USB debugging RSA approval
 dialog. There is no current host-side proof path for `sys.boot_completed`,
 `ro.boot.veritymode`, recovery boot, or vbmeta readback while ADB remains
 unauthorized.
+
+## Follow-Up - Android Boot Verified, Recovery ADB Blocked
+
+After device-side Android ADB authorization was accepted, Android shell-level
+boot validation passed:
+
+```text
+sys.boot_completed=1
+ro.bootloader=S906NKSS7FYG8
+ro.build.version.incremental=S906NKSS7FYG8
+ro.product.model=SM-S906N
+ro.boot.verifiedbootstate=orange
+ro.boot.veritymode=
+ro.boot.boot_recovery=0
+ro.boot.flash.locked=0
+```
+
+Additional Android props showed AVB present and the expected unlocked/orange
+state:
+
+```text
+ro.boot.avb_version=1.2
+ro.boot.verifiedbootstate=orange
+ro.config.dmverity=G
+```
+
+The local candidate hashes remained pinned:
+
+```text
+patched_raw_vbmeta_sha256=9c0e5b9615f8dac2a902f709927ff3fccaa4e074b34adbd0f8cd7498db78ba13
+candidate_ap_sha256=804ff43b9f68278b026bd31d7703ca778518bb53a08e336e18b5016e3d2a2b4b
+rollback_ap_sha256=fdf42fb913ac82bba7414d41a2995300c9bc56d31e7cddf907b487e7b2ae707b
+```
+
+`adb reboot recovery` was then issued. ADB did not return as an authorized
+recovery shell within 180 seconds. Follow-up USB/ADB inspection showed recovery
+or recovery-like ADB enumeration, but still unauthorized:
+
+```text
+adb_state=unauthorized
+usb_mode=Google/ADB-compatible interface
+```
+
+`adb kill-server && adb start-server` did not clear recovery authorization.
+
+Current proof level:
+
+- Android boot after FYG8-derived disabled-vbmeta flash: **verified**.
+- TWRP/recovery ADB shell and vbmeta prefix readback: **blocked on recovery ADB
+  authorization**.
+- No stock-vbmeta rollback has been run because Android boot was already proven
+  and the current blocker is authorization, not no-boot or recovery-loop.
