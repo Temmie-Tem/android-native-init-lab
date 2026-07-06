@@ -199,6 +199,40 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    available. This exception does not authorize any M4/display/distro candidate,
    kernel rebuild, recovery/vendor_boot/vbmeta/non-boot flash, raw host `dd`,
    fastboot, multidisabler, format data, or any A90 action.
+   **Narrow operator-authorized exception (2026-07-07, S22+ M3.1 marker-only
+   native-init boot-only live gate):** after the M3 v0.2 live result failed
+   before marker evidence and the host-only M3 postmortem scoped the next unit
+   to marker-only proof, Codex may perform one bounded attended boot-partition-
+   only M3.1 live gate on the same Samsung S22+ `SM-S906N`/`g0q`
+   `S906NKSS7FYG8` using the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m31_marker_live_gate.py`
+   and ack token `S22PLUS-M31-MARKER-LIVE-GATE`. The exact candidate
+   AP.tar.md5 SHA256 must be
+   `999beeb67f73c39eaa0b637bc3c62fe2d8474fa707110640ae51adca0fbd2cfb`, the
+   contained padded `boot.img` SHA256 must be
+   `f3dea68c02be295141265820f4acdd425a12460e05957edf75c83a62c4a617c5`, and the
+   AP must contain exactly one tar member, `boot.img.lz4`, with no recovery,
+   vendor_boot, vbmeta, vbmeta_system, dtbo, BL, CP, CSC, super, persist,
+   userdata, EFS, RPMB, keymaster, modem, or any other partition payload. The
+   M3.1 candidate may only run as direct PID1, create `/dev/kmsg` and fallback
+   `/dev/pmsg0`, emit the `S22_NATIVE_INIT_MARKER_ONLY_M31` kmsg/pmsg marker,
+   dwell briefly, then attempt a `download` reboot for rollback; if that reboot
+   syscall returns, it must park. It must not insert modules, mount or write
+   configfs, create a USB gadget, mount persistent partitions, write block
+   devices, start Android, install Magisk modules, format data, or reboot for
+   any reason other than the bounded post-marker `download` reboot attempt.
+   Before live flash, the helper must verify normal Android identity, the exact
+   M3.1 hashes, the exact Magisk boot-only rollback AP SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`, the
+   exact stock boot-only fallback AP SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`, and a
+   single target transport. After the bounded observation window, rollback is
+   required: primary rollback is the pinned Magisk boot-only AP, with the pinned
+   stock boot-only AP as fallback if Magisk rollback transfer fails and download
+   mode remains available. This exception does not authorize USB/NCM bring-up,
+   M4/display/distro candidates, kernel rebuild, recovery/vendor_boot/vbmeta/
+   non-boot flash, raw host `dd`, fastboot, multidisabler, format data, or any
+   A90 action.
 2. **Flash only via the checked helper by default:** `workspace/public/src/scripts/revalidation/native_init_flash.py`.
    Never `dd`/`fastboot`/raw-write a partition. Never invent a new flash path.
    **Narrow operator-authorized exception (2026-07-02, self-dd ladder only):** the V3358
@@ -305,6 +339,19 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    `workspace/public/src/scripts/revalidation/s22plus_m3_observable_live_gate.py`
    for the exact single-member `boot.img.lz4` candidate AP.tar.md5 SHA256
    `4a07a5b24101db6e74e102498c557d457c751e13d932f9f5604125629f06ce3b`, and may
+   use `/usr/bin/odin4 --reboot -a` for rollback with the exact single-member
+   Magisk boot-only AP.tar.md5 SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` or the
+   exact single-member stock boot-only AP.tar.md5 SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`. No other
+   Odin slot, tar member, candidate hash, rollback hash, or partition is
+   authorized by this exception.
+   **Narrow operator-authorized exception (2026-07-07, S22+ M3.1 marker-only
+   native-init boot-only Odin path):** the S22+ M3.1 live gate above may use
+   `/usr/bin/odin4 --reboot -a` through
+   `workspace/public/src/scripts/revalidation/s22plus_m31_marker_live_gate.py`
+   for the exact single-member `boot.img.lz4` candidate AP.tar.md5 SHA256
+   `999beeb67f73c39eaa0b637bc3c62fe2d8474fa707110640ae51adca0fbd2cfb`, and may
    use `/usr/bin/odin4 --reboot -a` for rollback with the exact single-member
    Magisk boot-only AP.tar.md5 SHA256
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` or the

@@ -282,7 +282,13 @@ def host_snapshot(run_dir: Path, log_path: Path, label: str, odin: Path) -> dict
     return result
 
 
-def collect_android_pstore(run_dir: Path, log_path: Path, label: str, serial: str | None = None) -> bool:
+def collect_android_pstore(
+    run_dir: Path,
+    log_path: Path,
+    label: str,
+    serial: str | None = None,
+    marker: str = EXPECTED_M3_MARKER,
+) -> bool:
     pstore_dir = run_dir / "android_pstore"
     pstore_dir.mkdir(exist_ok=True)
     listing = adb_shell(
@@ -303,7 +309,7 @@ def collect_android_pstore(run_dir: Path, log_path: Path, label: str, serial: st
         payload = result.stdout + result.stderr
         out_path = pstore_dir / f"{label}_{name}.bin"
         out_path.write_bytes(payload)
-        if EXPECTED_M3_MARKER.encode("ascii") in payload:
+        if marker.encode("ascii") in payload:
             marker_found = True
     append_log(log_path, f"{label}_pstore_marker_found={int(marker_found)}")
     return marker_found
