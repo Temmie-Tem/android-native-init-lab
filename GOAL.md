@@ -707,10 +707,10 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > no-change `magiskboot unpack/repack` is byte-identical, replaces ramdisk `/init`, injects the 26-module FYG8
 > USB-first bundle under `/lib/modules/s22plus-m5`, preserves kernel SHA256
 > `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`, and emits a boot-only AP SHA256
-> `8af4fd29a4268d30ac988ede6d32852837301ca80d3295ad41e539ae4913a170` / contained `boot.img` SHA256
-> `aeed53543fb277765ddb1657e6b8da33b27db876257b41a95e965a26f7cf1afb`. M5 mounts `/proc`/`/sys`/`/dev`/
-> `/run`/`/config`, inserts the M2 USB module chain, creates a configfs `ss_acm.0` gadget, binds a non-dummy
-> UDC if present, then polls `/dev/ttyGS0` and writes a readiness banner when it opens. It does not start
+> `0085679f89e50625a76ccb02dabc6275a5f324acb798d9d98138de21d01c2769` / contained `boot.img` SHA256
+> `1cef2fdee227efc4ae48063cb79e27cfd0c36e7dd8d4dd23eb1825cd577b019f`. M5 v0.2 mounts `/proc`/`/sys`/`/dev`/
+> `/run`/`/config`, inserts the M2 USB module chain, creates a configfs `ss_acm.0` gadget, retries non-dummy
+> UDC binding until bound, then polls `/dev/ttyGS0` and writes a readiness banner when it opens. It does not start
 > Android/Magisk, mount persistent partitions, write block devices, touch watchdog, or auto-reboot. Validation:
 > builder `py_compile`, standalone cross-compile, required string checks, module hash checks, MagiskBoot
 > no-change repack gate, patched-kernel hash unchanged, single-member `boot.img.lz4` AP, and Odin invalid-device
@@ -724,11 +724,11 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `workspace/public/src/scripts/revalidation/s22plus_m5_usb_acm_live_gate.py`, with live ack token
 > `S22PLUS-M5-USB-ACM-LIVE-GATE` and rollback-only ack token `S22PLUS-M5-ROLLBACK-FROM-DOWNLOAD`. Dry-run
 > passed against the rooted Android/Magisk baseline and verified exact M5 AP SHA256
-> `8af4fd29a4268d30ac988ede6d32852837301ca80d3295ad41e539ae4913a170`, contained `boot.img` SHA256
-> `aeed53543fb277765ddb1657e6b8da33b27db876257b41a95e965a26f7cf1afb`, base Magisk boot SHA256
+> `0085679f89e50625a76ccb02dabc6275a5f324acb798d9d98138de21d01c2769`, contained `boot.img` SHA256
+> `1cef2fdee227efc4ae48063cb79e27cfd0c36e7dd8d4dd23eb1825cd577b019f`, base Magisk boot SHA256
 > `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, kernel SHA256
 > `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`, M5 `/init` SHA256
-> `f677ede617bbf243686a58517260c5b025bc03efbfc012087c72f17ee5e39f41`, module-bundle manifest SHA256
+> `63b61ed65be23e325421cc7f5443fb339f59c204de2a0ee142af5f4cbb3374e4`, module-bundle manifest SHA256
 > `1c22c93496e03a7df6dd74959511797b6d033b74361d3d3733d7be8269a5fa05`, Magisk/stock rollback AP hashes,
 > manifest safety, current `SM-S906N`/`g0q`/`S906NKSS7FYG8` Android identity, orange verified boot, Magisk
 > root, and current Android ACM baseline (`04e8:6860` `SAMSUNG_Android`). The M5 live detector keys on the

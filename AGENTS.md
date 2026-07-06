@@ -468,15 +468,15 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    with live ack token `S22PLUS-M5-USB-ACM-LIVE-GATE` and rollback-only ack
    token `S22PLUS-M5-ROLLBACK-FROM-DOWNLOAD`. The exact candidate AP.tar.md5
    SHA256 must be
-   `8af4fd29a4268d30ac988ede6d32852837301ca80d3295ad41e539ae4913a170`, the
+   `0085679f89e50625a76ccb02dabc6275a5f324acb798d9d98138de21d01c2769`, the
    contained padded `boot.img` SHA256 must be
-   `aeed53543fb277765ddb1657e6b8da33b27db876257b41a95e965a26f7cf1afb`, the
+   `1cef2fdee227efc4ae48063cb79e27cfd0c36e7dd8d4dd23eb1825cd577b019f`, the
    known-booting Magisk boot base SHA256 must be
    `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, the
    preserved Magisk-patched kernel SHA256 must be
    `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`, the
    M5 `/init` SHA256 must be
-   `f677ede617bbf243686a58517260c5b025bc03efbfc012087c72f17ee5e39f41`, and
+   `63b61ed65be23e325421cc7f5443fb339f59c204de2a0ee142af5f4cbb3374e4`, and
    the M2 USB-first module-bundle manifest SHA256 must be
    `1c22c93496e03a7df6dd74959511797b6d033b74361d3d3733d7be8269a5fa05`. The
    AP must contain exactly one tar member, `boot.img.lz4`, with no recovery,
@@ -487,8 +487,8 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    `/init` replaced and the FYG8 USB-first 26-module bundle injected under
    `/lib/modules/s22plus-m5`, must not be built with `mkbootimg` from scratch,
    and may only mount runtime virtual filesystems, insert those 26 ramdisk
-   modules, create the configfs `ss_acm.0` gadget, bind a UDC, and park while
-   probing `/dev/ttyGS0`. The M5 `/init` must not start Android or Magisk,
+   modules, create the configfs `ss_acm.0` gadget, retry UDC binding until
+   bound, and park while probing `/dev/ttyGS0`. The M5 `/init` must not start Android or Magisk,
    mount persistent partitions, write block devices, touch watchdog, install
    Magisk modules, format data, or auto-reboot. M5 success is host-visible USB
    ACM enumeration for the M5 gadget, preferably with product id `0x685d`,
@@ -702,7 +702,7 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    `/usr/bin/odin4 --reboot -a` through
    `workspace/public/src/scripts/revalidation/s22plus_m5_usb_acm_live_gate.py`
    for the exact single-member `boot.img.lz4` candidate AP.tar.md5 SHA256
-   `8af4fd29a4268d30ac988ede6d32852837301ca80d3295ad41e539ae4913a170`, and
+   `0085679f89e50625a76ccb02dabc6275a5f324acb798d9d98138de21d01c2769`, and
    the same helper may use `/usr/bin/odin4 --reboot -a` in
    `--rollback-from-download` mode with the exact single-member Magisk
    boot-only AP.tar.md5 SHA256

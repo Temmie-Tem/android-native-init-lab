@@ -43,7 +43,7 @@ from build_s22plus_inplace_m4t1_magiskboot import (
 )
 
 
-DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_1")
+DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_2")
 DEFAULT_SOURCE = Path("workspace/public/src/native-init/s22plus_init_usb_acm_m5.c")
 DEFAULT_MODULE_BUNDLE = Path("workspace/private/inputs/s22plus_module_bundles/FYG8_usb_first_m2")
 MARKER = "S22_NATIVE_INIT_USB_ACM_M5"
@@ -77,11 +77,13 @@ def compile_init(source: Path, out_path: Path, build_dir: Path) -> dict[str, str
     binary = out_path.read_bytes()
     required_strings = [
         MARKER,
+        "version=0.2",
         "usb_first_modules=26",
         "gadget=ss_acm.0",
         "tty=/dev/ttyGS0",
         "no_android_handoff=1",
         "no_auto_reboot=1",
+        "udc_bind_retry=1",
         "finit_rc",
         "ss_acm.0",
         "ttyGS0",

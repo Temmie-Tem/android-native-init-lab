@@ -6,7 +6,8 @@ Host-side preflight for the M5 USB-ACM live gate. No live flash was run, no
 device partition was written, and no reboot was requested in this unit.
 
 This unit added the guarded M5 live helper plus the SHA-pinned `AGENTS.md`
-exception required before any M5 boot-only Odin live test.
+exception required before any M5 boot-only Odin live test. The preflight was
+refreshed after M5 v0.2 added UDC bind retry and write-failure logging.
 
 ## Helper
 
@@ -35,17 +36,17 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revali
 Dry-run private log:
 
 ```text
-workspace/private/runs/s22plus_m5_usb_acm_live_gate_20260706T210911Z/s22plus_m5_usb_acm_live_gate.txt
+workspace/private/runs/s22plus_m5_usb_acm_live_gate_20260706T211600Z/s22plus_m5_usb_acm_live_gate.txt
 ```
 
 ## Pinned Candidate
 
 ```text
-AP.tar.md5                  8af4fd29a4268d30ac988ede6d32852837301ca80d3295ad41e539ae4913a170
-boot.img                    aeed53543fb277765ddb1657e6b8da33b27db876257b41a95e965a26f7cf1afb
+AP.tar.md5                  0085679f89e50625a76ccb02dabc6275a5f324acb798d9d98138de21d01c2769
+boot.img                    1cef2fdee227efc4ae48063cb79e27cfd0c36e7dd8d4dd23eb1825cd577b019f
 base Magisk boot            2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
 kernel                      bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff
-M5 /init                    f677ede617bbf243686a58517260c5b025bc03efbfc012087c72f17ee5e39f41
+M5 /init                    63b61ed65be23e325421cc7f5443fb339f59c204de2a0ee142af5f4cbb3374e4
 module bundle manifest      1c22c93496e03a7df6dd74959511797b6d033b74361d3d3733d7be8269a5fa05
 ```
 
@@ -70,7 +71,7 @@ The dry-run passed:
 
 ```text
 agents_exception_missing=[]
-m5_candidate_sha256=8af4fd29a4268d30ac988ede6d32852837301ca80d3295ad41e539ae4913a170
+m5_candidate_sha256=0085679f89e50625a76ccb02dabc6275a5f324acb798d9d98138de21d01c2769
 m5_candidate_members=['boot.img.lz4']
 magisk_boot_rollback_sha256=d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56
 stock_boot_fallback_sha256=1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e

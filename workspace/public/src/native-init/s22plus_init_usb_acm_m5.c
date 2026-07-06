@@ -36,9 +36,9 @@
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 static const char k_marker[] =
-    "S22_NATIVE_INIT_USB_ACM_M5 version=0.1 pid1=direct "
+    "S22_NATIVE_INIT_USB_ACM_M5 version=0.2 pid1=direct "
     "usb_first_modules=26 gadget=ss_acm.0 tty=/dev/ttyGS0 "
-    "no_android_handoff=1 no_auto_reboot=1\n";
+    "no_android_handoff=1 no_auto_reboot=1 udc_bind_retry=1\n";
 
 static const char *const k_usb_modules[] = {
     "phy-msm-ssusb-qmp.ko",
@@ -69,21 +69,23 @@ static const char *const k_usb_modules[] = {
     "qc_usb_audio.ko",
 };
 
-static void write_all(int fd, const char *buf, size_t len) {
+static int write_all(int fd, const char *buf, size_t len) {
     while (len > 0) {
         ssize_t rc = write(fd, buf, len);
         if (rc < 0) {
             if (errno == EINTR) {
                 continue;
             }
-            return;
+            return -1;
         }
         if (rc == 0) {
-            return;
+            errno = EIO;
+            return -1;
         }
         buf += (size_t)rc;
         len -= (size_t)rc;
     }
+    return 0;
 }
 
 static void mkdir_one(const char *path, mode_t mode) {
@@ -295,12 +297,25 @@ static int write_attr(const char *path, const char *value) {
         emitf("S22_NATIVE_INIT_USB_ACM_M5 phase=configfs_write path=%s rc=-1 errno=%d\n", path, errno);
         return -1;
     }
-    write_all(fd, value, strlen(value));
+    errno = 0;
+    int rc = write_all(fd, value, strlen(value));
+    int saved_errno = errno;
     close(fd);
+    if (rc != 0) {
+        emitf("S22_NATIVE_INIT_USB_ACM_M5 phase=configfs_write path=%s rc=-1 errno=%d\n", path, saved_errno);
+        errno = saved_errno;
+        return -1;
+    }
     return 0;
 }
 
-static void create_acm_gadget(void) {
+static bool create_acm_gadget(void) {
+    char current_udc[128] = "";
+    if (read_trim("/config/usb_gadget/g1/UDC", current_udc, sizeof(current_udc)) == 0 && current_udc[0] != '\0') {
+        emitf("S22_NATIVE_INIT_USB_ACM_M5 phase=acm_gadget already_bound=1 udc=%s\n", current_udc);
+        return true;
+    }
+
     mkdir_p("/config/usb_gadget/g1", 0755);
     mkdir_p("/config/usb_gadget/g1/strings/0x409", 0755);
     mkdir_p("/config/usb_gadget/g1/configs/b.1/strings/0x409", 0755);
@@ -343,6 +358,7 @@ static void create_acm_gadget(void) {
           udc,
           udc_rc,
           udc_errno);
+    return udc_rc == 0;
 }
 
 static bool ensure_ttygs0(void) {
@@ -360,6 +376,10 @@ static bool ensure_ttygs0(void) {
 
 static void serial_probe_loop(void) {
     for (unsigned int tick = 0;; ++tick) {
+        if ((tick % 3U) == 0U) {
+            bool bound = create_acm_gadget();
+            emitf("S22_NATIVE_INIT_USB_ACM_M5 phase=acm_retry tick=%u bound=%d\n", tick, bound ? 1 : 0);
+        }
         bool tty_ready = ensure_ttygs0();
         int fd = open("/dev/ttyGS0", O_RDWR | O_NOCTTY | O_NONBLOCK | O_CLOEXEC);
         int open_errno = fd >= 0 ? 0 : errno;
@@ -385,6 +405,6 @@ int main(int argc, char **argv, char **envp) {
     setup_minimal_fs();
     emit(k_marker);
     load_usb_modules();
-    create_acm_gadget();
+    (void)create_acm_gadget();
     serial_probe_loop();
 }

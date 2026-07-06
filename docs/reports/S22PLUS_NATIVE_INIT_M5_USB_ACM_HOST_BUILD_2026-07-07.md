@@ -60,6 +60,7 @@ finit_module the 26 FYG8 USB-first modules from /lib/modules/s22plus-m5
 create /config/usb_gadget/g1/functions/ss_acm.0
 bind the gadget to the first non-dummy UDC found under /sys/class/udc
 poll /sys/class/tty/ttyGS0/dev and /dev/ttyGS0
+retry UDC binding every 6 seconds until the gadget is bound
 write "S22_NATIVE_INIT_USB_ACM_M5 READY" to ttyGS0 when it opens
 park forever with heartbeat kmsg lines
 ```
@@ -126,13 +127,13 @@ name and the shipped `usb_f_ss_acm.ko` module.
 Private output directory:
 
 ```text
-workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_1
+workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_2
 ```
 
 Boot-only Odin package:
 
 ```text
-workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_1/odin4/AP.tar.md5
+workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_2/odin4/AP.tar.md5
 ```
 
 Package member list:
@@ -144,19 +145,19 @@ boot.img.lz4
 Hashes:
 
 ```text
-AP.tar.md5                  8af4fd29a4268d30ac988ede6d32852837301ca80d3295ad41e539ae4913a170
-AP.tar                      6329465b900d9fd01b3072ddc781ff5e41323291e80969b03a323856fdee193d
-boot.img                    aeed53543fb277765ddb1657e6b8da33b27db876257b41a95e965a26f7cf1afb
-boot.img.lz4                b16c3c319a531885838855270ba39d61f279f0eedd67e98124909d03332f57ae
+AP.tar.md5                  0085679f89e50625a76ccb02dabc6275a5f324acb798d9d98138de21d01c2769
+AP.tar                      cd00a82836be3e156d174858d54a632516ec1139cdee58111e0da9a59c51c32c
+boot.img                    1cef2fdee227efc4ae48063cb79e27cfd0c36e7dd8d4dd23eb1825cd577b019f
+boot.img.lz4                882131883b485d764de3ab5fd2306aa4ccec37270eea94705d7ccd934dbcef25
 base Magisk boot            2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
 no-change repack boot       2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
 kernel                      bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff
-M5 /init                    f677ede617bbf243686a58517260c5b025bc03efbfc012087c72f17ee5e39f41
-source                      e1dd0dddb51d18c075d37ba96178f76e4649d0d2dd14f4fee20b27b70c4c1032
+M5 /init                    63b61ed65be23e325421cc7f5443fb339f59c204de2a0ee142af5f4cbb3374e4
+source                      4fbfd678409ff92b17b2414f228eacd31cad31f04455d41da744311c51eb7554
 module bundle manifest      1c22c93496e03a7df6dd74959511797b6d033b74361d3d3733d7be8269a5fa05
 original Magisk /init       383670a7ba3a6a4b79e5f3467e1da4b66a5df66a9b356ab9f70916854dd6b468
 ramdisk before              e4654429abca10df94e5145a05853f14620b9e1cd1c7642959981f49c8454aae
-ramdisk after               bee688f7cd9d4fabdfcbb5d362d236c99966bb47370d4b4895890e911c46f558
+ramdisk after               3783befdd409c5209e9a9fd693f0ccbebec7944265788a020619035442b23b03
 ```
 
 Sizes:
@@ -179,7 +180,7 @@ Commands:
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m py_compile workspace/public/src/scripts/revalidation/build_s22plus_inplace_m5_usb_acm.py
 aarch64-linux-gnu-gcc -static -Os -Wall -Wextra -Werror -o /tmp/s22plus_init_usb_acm_m5_test workspace/public/src/native-init/s22plus_init_usb_acm_m5.c
 python3 workspace/public/src/scripts/revalidation/build_s22plus_inplace_m5_usb_acm.py --force
-tar -tf workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_1/odin4/AP.tar.md5
+tar -tf workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_2/odin4/AP.tar.md5
 ```
 
 Results:
@@ -203,11 +204,13 @@ Required strings found in the built `/init`:
 
 ```text
 S22_NATIVE_INIT_USB_ACM_M5
+version=0.2
 usb_first_modules=26
 gadget=ss_acm.0
 tty=/dev/ttyGS0
 no_android_handoff=1
 no_auto_reboot=1
+udc_bind_retry=1
 finit_rc
 ss_acm.0
 ttyGS0
@@ -222,8 +225,8 @@ This is not live-authorized. Before any M5 flash, add a fresh SHA-pinned S22+
 boot-only `AGENTS.md` exception and a guarded live helper/dry-run for exactly:
 
 ```text
-AP.tar.md5  8af4fd29a4268d30ac988ede6d32852837301ca80d3295ad41e539ae4913a170
-boot.img    aeed53543fb277765ddb1657e6b8da33b27db876257b41a95e965a26f7cf1afb
+AP.tar.md5  0085679f89e50625a76ccb02dabc6275a5f324acb798d9d98138de21d01c2769
+boot.img    1cef2fdee227efc4ae48063cb79e27cfd0c36e7dd8d4dd23eb1825cd577b019f
 ```
 
 M5 has no auto-reboot path. A live test must be attended with pinned Magisk

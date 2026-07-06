@@ -52,11 +52,11 @@ LIVE_ACK_TOKEN = "S22PLUS-M5-USB-ACM-LIVE-GATE"
 ROLLBACK_ACK_TOKEN = "S22PLUS-M5-ROLLBACK-FROM-DOWNLOAD"
 
 EXPECTED_TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
-EXPECTED_M5_AP_SHA256 = "8af4fd29a4268d30ac988ede6d32852837301ca80d3295ad41e539ae4913a170"
-EXPECTED_M5_BOOT_SHA256 = "aeed53543fb277765ddb1657e6b8da33b27db876257b41a95e965a26f7cf1afb"
+EXPECTED_M5_AP_SHA256 = "0085679f89e50625a76ccb02dabc6275a5f324acb798d9d98138de21d01c2769"
+EXPECTED_M5_BOOT_SHA256 = "1cef2fdee227efc4ae48063cb79e27cfd0c36e7dd8d4dd23eb1825cd577b019f"
 EXPECTED_M5_BASE_BOOT_SHA256 = "2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e"
 EXPECTED_M5_KERNEL_SHA256 = "bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff"
-EXPECTED_M5_INIT_SHA256 = "f677ede617bbf243686a58517260c5b025bc03efbfc012087c72f17ee5e39f41"
+EXPECTED_M5_INIT_SHA256 = "63b61ed65be23e325421cc7f5443fb339f59c204de2a0ee142af5f4cbb3374e4"
 EXPECTED_M5_MODULE_MANIFEST_SHA256 = "1c22c93496e03a7df6dd74959511797b6d033b74361d3d3733d7be8269a5fa05"
 EXPECTED_M5_MARKER = "S22_NATIVE_INIT_USB_ACM_M5"
 EXPECTED_M5_USB_VENDOR = "04e8"
@@ -65,8 +65,8 @@ EXPECTED_M5_USB_SERIAL = "S22M5ACM0001"
 EXPECTED_M5_MODULE_COUNT = 26
 EXPECTED_M5_MODULE_BYTES = 2854024
 
-DEFAULT_M5_AP = Path("workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_1/odin4/AP.tar.md5")
-DEFAULT_M5_MANIFEST = Path("workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_1/manifest.json")
+DEFAULT_M5_AP = Path("workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_2/odin4/AP.tar.md5")
+DEFAULT_M5_MANIFEST = Path("workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_2/manifest.json")
 
 
 def resolve_run_dir(root: Path, requested: Path | None) -> Path:
@@ -161,11 +161,13 @@ def verify_m5_manifest(path: Path, log_path: Path) -> None:
     required_strings = set(m5_init.get("required_strings", []))
     for required in [
         EXPECTED_M5_MARKER,
+        "version=0.2",
         "usb_first_modules=26",
         "gadget=ss_acm.0",
         "tty=/dev/ttyGS0",
         "no_android_handoff=1",
         "no_auto_reboot=1",
+        "udc_bind_retry=1",
     ]:
         if required not in required_strings:
             raise SystemExit(f"M5 required string missing from manifest: {required}")
