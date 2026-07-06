@@ -522,6 +522,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > that variable so the experiment cleanly bisects: **in-place still reboots → cause is `/init` itself (assembly
 > exonerated); in-place boots → cause is mkbootimg reconstruction (confirmed)**. Do not treat the "not official"
 > screen as evidence either way; the behavioral gate is M4T0 self-download.
+>
+> **STATUS UPDATE (2026-07-07 KST, M4T1 in-place MagiskBoot host build):** Codex built the next host-only
+> acceptance candidate using the required in-place path, not `mkbootimg`: source
+> `workspace/public/src/scripts/revalidation/build_s22plus_inplace_m4t1_magiskboot.py`, report
+> `docs/reports/S22PLUS_NATIVE_INIT_M4T1_INPLACE_MAGISKBOOT_HOST_BUILD_2026-07-07.md`. The builder starts from
+> the known-booting Magisk boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, proves no-change `magiskboot
+> unpack/repack` is byte-identical, replaces only ramdisk entry `/init` with the M4T0 instant-download native
+> init, preserves the Magisk-patched kernel SHA256
+> `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`, and emits a boot-only AP with
+> `AP.tar.md5` SHA256 `9f5b4c48b95b710f742d5ea8c7f16ef4802cf27e78469381073d460361d0451c` and contained
+> `boot.img` SHA256 `9ce597e4ba920f1331937dbe4736f923728ff5502b02c02dea8357b3a9d5b9d1`. Host-side
+> discriminator strengthened: known-good Magisk boot and M4T1 unpack with `SAMSUNG_SEANDROID` + `VBMETA`, while
+> failed M4T0 `mkbootimg` output lacks both. **No live flash was run.** Next live use needs a fresh
+> SHA-pinned S22+ boot-only `AGENTS.md` exception and guarded helper/dry-run for exactly this M4T1 AP/boot hash.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
