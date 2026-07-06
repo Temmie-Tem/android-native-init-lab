@@ -509,6 +509,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > an extra rejection? Each live flash still needs a fresh SHA-pinned boot-only `AGENTS.md` exception + operator
 > ack; if verification state is in doubt, flash the pinned FYG8-derived disabled-vbmeta in the same session.
 
+> **🔧 OPERATOR CORRECTION (2026-07-07, discriminator ANSWERED) — the "software is not official" screen is NOT
+> the rejection signal.** Operator confirmed a WORKING Magisk boot shows the SAME "not official" text then boots
+> normally — it is the standard orange/unlocked warning drawn for ANY modified boot (a rooted AP is by definition
+> not official). So the earlier "screen = bootloader rejection PRE-`/init`" wording OVERREACHED. **The real
+> discriminator is the POST-warning behavior: Magisk → proceeds to boot; native → reboots.** The warning is
+> pre-handoff; the reboot is after handoff → weight shifts toward **kernel panics at/near `/init`** (mkbootimg
+> mis-built header v4 / bootconfig / vendor_boot linkage / AVB footer), not a clean bootloader signature refusal.
+> **The IN-PLACE-PATCH next unit is UNCHANGED and still correct** — but for a sharper reason: the ONLY structural
+> difference between the known-good Magisk boot and the failing native boot is the image-construction method
+> (in-place-preserved header/`boot_signature`/footer vs mkbootimg-reconstructed). In-place patch removes exactly
+> that variable so the experiment cleanly bisects: **in-place still reboots → cause is `/init` itself (assembly
+> exonerated); in-place boots → cause is mkbootimg reconstruction (confirmed)**. Do not treat the "not official"
+> screen as evidence either way; the behavioral gate is M4T0 self-download.
+
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
 > runner staged WSTA153 policy + WSTA156 filter artifact + WSTA161 gated-apply helper into
