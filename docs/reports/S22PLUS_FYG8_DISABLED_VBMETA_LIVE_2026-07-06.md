@@ -81,10 +81,11 @@ Otherwise check for a confirmation dialog on your device.
 
 `adb kill-server` plus reconnect did not clear the unauthorized state.
 
-## Next Step
+## Original Next Step
 
-Operator should unlock the phone and accept the USB debugging RSA prompt. Then run
-the planned validations:
+At this point the plan still assumed a TWRP recovery ADB shell might be present.
+The operator later corrected that the device was in stock/general recovery, not
+TWRP. The historical next-step list was:
 
 1. Android shell props: `sys.boot_completed`, FYG8 build, verified boot state,
    and verity mode.
@@ -167,7 +168,30 @@ usb_mode=Google/ADB-compatible interface
 Current proof level:
 
 - Android boot after FYG8-derived disabled-vbmeta flash: **verified**.
-- TWRP/recovery ADB shell and vbmeta prefix readback: **blocked on recovery ADB
-  authorization**.
+- TWRP ADB shell and vbmeta prefix readback: **not applicable to this run**.
+  The device is in stock/general recovery, not TWRP.
+- Recovery ADB shell: **unauthorized**, which is expected to limit host-side
+  readback from stock/general recovery.
 - No stock-vbmeta rollback has been run because Android boot was already proven
   and the current blocker is authorization, not no-boot or recovery-loop.
+
+## Follow-Up - Stock Recovery Correction
+
+The operator confirmed the recovery UI is stock/general recovery, not TWRP.
+Therefore the earlier TWRP/readback expectation is not a completion criterion for
+this unit. The live proof for the requested FYG8-derived disabled-vbmeta boot
+validation is:
+
+1. The exact FYG8-derived vbmeta-only AP was transferred by Odin4, including
+   `vbmeta.img.lz4` at `100%`, and Odin4 exited `0`.
+2. Android booted afterward with ADB-authorized shell access.
+3. Android reported `sys.boot_completed=1`.
+4. Android reported `ro.bootloader=S906NKSS7FYG8` and
+   `ro.build.version.incremental=S906NKSS7FYG8`.
+5. Android reported `ro.boot.boot_recovery=0`, proving normal Android boot, not
+   recovery.
+
+The later `adb reboot recovery` check intentionally moved the device into
+stock/general recovery. Host `adb reboot` from that state is denied because ADB is
+unauthorized. The operator must select `Reboot system now` on the device to return
+to Android, after which a final Android props recapture can be appended.
