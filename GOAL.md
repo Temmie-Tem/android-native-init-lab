@@ -1845,6 +1845,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > authorizes the non-boot DTBO write and the patched-DTBO AVB digest caveat under the
 > already-proven disabled-vbmeta/orange state.
 
+> **STATUS UPDATE (2026-07-08 01:34 KST, capture exception draft prepared but inactive):**
+> Codex prepared an inert copyable `AGENTS.md` exception draft at
+> `docs/operations/S22PLUS_RAMOOPS_DTBO_M18_CAPTURE_AGENTS_EXCEPTION_DRAFT_2026-07-08.md`
+> and documented it in
+> `docs/reports/S22PLUS_RAMOOPS_DTBO_M18_CAPTURE_EXCEPTION_DRAFT_2026-07-08.md`.
+> `AGENTS.md` was **not** edited and no live authorization was activated. The draft covers
+> the patched DTBO AP, stock DTBO rollback AP, M18 AP, Magisk boot rollback, stock boot
+> fallback, the patched-DTBO AVB caveat under disabled-vbmeta/orange, attended manual
+> download-mode rollback, `pstore` collection, and stock-DTBO restore. Static marker
+> validation against `s22plus_ramoops_dtbo_m18_capture_live_gate.py` passed
+> (`required_count=19`, `missing=[]`). Next step remains explicit operator approval before
+> copying the draft into `AGENTS.md`; until then the capture gate's default dry-run/live
+> paths correctly remain blocked before Android/device action.
+
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
 > runner staged WSTA153 policy + WSTA156 filter artifact + WSTA161 gated-apply helper into
