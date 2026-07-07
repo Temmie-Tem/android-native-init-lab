@@ -67,6 +67,19 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > until that status gate is proven. Report:
 > `docs/reports/S22PLUS_ACTIVE_DTB_PROVENANCE_AUDIT_2026-07-08.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-08 04:02 KST) — DTBO STATUS-ONLY LIVE GATE SOURCE READY; NO LIVE AUTH.**
+> Codex added
+> `workspace/public/src/scripts/revalidation/s22plus_ramoops_dtbo_status_live_gate.py`,
+> a narrower helper than the old DTBO+M18 capture gate. Intended future flow:
+> flash only the pinned patched DTBO, require Android/root return, verify live
+> `ramoops_region/status=okay`, restore stock DTBO, then verify live status is
+> back to `disabled`. It never accepts or flashes an M13/M18/native-init boot
+> candidate. `py_compile` and `--offline-check` passed. A default execution
+> correctly fails before any device action because `AGENTS.md` has no new
+> SHA-pinned "S22+ ramoops DTBO status-only" exception or
+> `S22PLUS-RAMOOPS-DTBO-STATUS-LIVE-GATE` token. Report:
+> `docs/reports/S22PLUS_RAMOOPS_DTBO_STATUS_GATE_SOURCE_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
