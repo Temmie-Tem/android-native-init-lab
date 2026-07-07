@@ -1028,6 +1028,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > M8A/M8B split: first prove a no-module timed-download after minimal fs, then split the first 18-module M8
 > batch into smaller timed-download probes.
 >
+> **STATUS UPDATE (2026-07-07 KST, M8A minimal-fs download host build ready):** Codex built the host-only
+> M8A discriminator and did not flash it. New source:
+> `workspace/public/src/native-init/s22plus_init_m8a_minfs_download.c`; builder:
+> `workspace/public/src/scripts/revalidation/build_s22plus_inplace_m8a_minfs_download.py`; report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M8A_MINFS_DOWNLOAD_HOST_BUILD_2026-07-07.md`. M8A removes the M8 module
+> batch entirely and also omits configfs/USB gadget work: direct PID1 mounts only `/dev`, `/proc`, `/sys`,
+> and `/run`, emits `S22_NATIVE_INIT_M8A_MINFS_DOWNLOAD`, sleeps 250 ms, then calls Samsung
+> `reboot(..., "download")`. Candidate AP SHA256
+> `c97d29e38fe3293ad145a7743b61ae5fddae8f1b028e619dcd56e2f640de3c19`; boot.img SHA256
+> `8a816fb3bf8e644de4bbe0409f6cf94fd06a33d16e672569c130535ce139ad44`; M8A `/init` SHA256
+> `aac2a03a2b20e72c3d69cfa3c4d3e5c045c817c293c347ac2aaf81f1bfb029b1`; source SHA256
+> `830f95cc0f4237f10f2e132ead873a69f543134a503816fa2281205d41362538`; base Magisk boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`; kernel SHA256
+> `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`. Static validation confirmed
+> freestanding AArch64/no interpreter, MagiskBoot no-change repack byte-identical to base boot, AP member
+> `boot.img.lz4` only, no module files or module-list files injected into boot, and actual M8A binary strings
+> contain none of `/lib/modules`, `finit_module`, `modules.load`, `s22plus_m8_delta_batch`, `ttyGS0`,
+> `ss_acm.0`, `usb_gadget`, or `/config`. **No live flash is authorized.** Next bounded live-prep unit, if
+> supervised testing is desired, is a fresh SHA-pinned M8A `AGENTS.md` boot-only exception plus a guarded
+> automatic-download observer helper keyed on the exact hashes above.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
