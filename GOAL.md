@@ -29,6 +29,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > proves dead: EUD (in-SoC USB-C debug console, no jig) → UART jig last. Full
 > rationale: `docs/reports/S22PLUS_RAMOOPS_POSITIVE_CONTROL_OBSERVABILITY_STEER_2026-07-08.md`.
 
+> **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
+> Codex added and ran
+> `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
+> a no-flash/no-reboot/no-write ADB-root collector for the near-free reset/PON
+> surface requested by the observability steer. Result: pass. Current Android is
+> still normal (`sys.boot_completed=1`, boot recovery `0`, Magisk root), current
+> `boot` still matches the pinned Magisk baseline, and current `vendor_boot`
+> still matches stock FYG8. Reset surface: `/proc/reset_reason=NPON`,
+> `/proc/reset_rwc=0`, `/proc/store_lastkmsg=0`, `/sys/fs/pstore` empty, reset
+> summary/history/klog/tzlog open attempts fail with `reset_header (-2)`, and
+> retained `/proc/last_kmsg` contains Android `reboot,download` / XBL hard-reset
+> records rather than a native-init marker, panic, Oops, or SError proof. This
+> reinforces that the current retained channel still cannot explain the
+> native-init bootloop; the next proof remains the already policy-active
+> vendor_boot ramoops + M13 positive-control live gate. Report:
+> `docs/reports/S22PLUS_RESET_REASON_READONLY_PROBE_2026-07-08.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-08 03:32 KST) — RAMOOPS VENDOR_BOOT + M13 CAPTURE POLICY ACTIVE; DRY-RUN PASS; LIVE NOT EXECUTED.**
 > Codex added the narrow `AGENTS.md` exception for exactly the direct-patched
 > `vendor_boot` AP plus M13 boot positive-control flow, using only
