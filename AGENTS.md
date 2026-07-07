@@ -1034,6 +1034,56 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    authorize display/distro candidates, kernel rebuild, recovery/vendor_boot/
    vbmeta/non-boot flash, raw host `dd`, fastboot, multidisabler, format data,
    or any A90 action.
+   **Narrow operator-authorized exception (2026-07-07, S22+ M11 park-USB
+   USB-ACM native-init boot-only live gate):** after the M11 host build report
+   proved the park-based USB candidate and `GOAL.md` pivoted away from the
+   unreliable reboot-download beacon, Codex may prepare and perform one bounded
+   attended boot-partition-only M11 live gate on the same Samsung S22+
+   `SM-S906N`/`g0q` `S906NKSS7FYG8` using the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m11_park_usb_live_gate.py`
+   with live ack token `S22PLUS-M11-PARK-USB-LIVE-GATE` and rollback-only ack
+   token `S22PLUS-M11-ROLLBACK-FROM-DOWNLOAD`. The exact candidate AP.tar.md5
+   SHA256 must be
+   `8b4a4fa6db3bc0b2bf5e4fd1fccf4b671fd2fbd7fbbcc08542c3be816a3f5d43`, the
+   contained padded `boot.img` SHA256 must be
+   `32f2667c31f05d967529031630e5b004cf5238120ffc6ec7089dcc40a3352a3f`, the
+   known-booting Magisk boot base SHA256 must be
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, the
+   preserved Magisk-patched kernel SHA256 must be
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`, the
+   M11 `/init` SHA256 must be
+   `234ded5b6172a3470825a1c616e6537c3de4b2274d8c26525386f8e85d5e8d7e`, the
+   M11 module-list SHA256 must be
+   `c254be05c91199c4f69380f0488de13c7b2cde987594bc1c5d0a6657a0e8eb58`, the
+   M11 source SHA256 must be
+   `ff92af817cd4564b6fd811484540e8a217ff19bbe445839981ce7818498561f6`, and
+   the vendor ramdisk SHA256 must be
+   `41b2481b779ff48863c300250dabf1b3dcc45c7f58fab421fcf6df1245145193`. The AP
+   must contain exactly one tar member, `boot.img.lz4`, with no recovery,
+   vendor_boot, vbmeta, vbmeta_system, dtbo, BL, CP, CSC, super, persist,
+   userdata, EFS, RPMB, keymaster, modem, or any other partition payload. The
+   M11 candidate may only run as direct PID1 with a freestanding raw-syscall
+   runtime, mount only the minimal pseudo filesystems needed for module loading
+   and configfs, load the 48 modules in `s22plus_m11_park_usb.modules`, attempt
+   `/sys/class/usb_role/*/role=device`, bind only `a600000.dwc3` and never
+   `dummy_udc.0`, expose an `ss_acm.0` gadget if possible, and then park. M11
+   has no reboot beacon, no arm64 `__NR_reboot=142` path, no `download` string,
+   no host-commanded ACM download action, and uses park-vs-loop plus host ACM
+   enumeration as the observation model. The final 48 modules must exclude the
+   explicitly blocked reset/debug/glink/eud/audio entries including `abc.ko`,
+   `icc-debug.ko`, `minidump.ko`, `qc_usb_audio.ko`, and `sec_debug.ko`, plus
+   the full explicit blocklist recorded in the manifest. If M11 parks or ACM
+   appears, rollback requires operator manual download-mode rollback through
+   the same helper's `--rollback-from-download --ack
+   S22PLUS-M11-ROLLBACK-FROM-DOWNLOAD` mode, using the exact Magisk boot-only
+   rollback AP SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
+   or the exact stock boot-only fallback AP SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e` if the
+   operator explicitly selects stock rollback. This exception does not
+   authorize M10A4 reboot-beacon retry, display/distro candidates, kernel
+   rebuild, recovery/vendor_boot/vbmeta/non-boot flash, raw host `dd`,
+   fastboot, multidisabler, format data, or any A90 action.
 2. **Flash only via the checked helper by default:** `workspace/public/src/scripts/revalidation/native_init_flash.py`.
    Never `dd`/`fastboot`/raw-write a partition. Never invent a new flash path.
    **Narrow operator-authorized exception (2026-07-02, self-dd ladder only):** the V3358
