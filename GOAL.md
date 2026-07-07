@@ -152,6 +152,18 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > performed. Report:
 > `docs/reports/S22PLUS_RAMOOPS_DTBO_M13_CAPTURE_GATE_SOURCE_2026-07-08.md`.
 
+> **S22+ UPDATE (2026-07-08 04:28 KST) — DTBO+M13 CAPTURE READINESS AUDITOR PASS; POLICY STILL INERT.**
+> Codex added host-only readiness auditor
+> `workspace/public/src/scripts/revalidation/s22plus_ramoops_dtbo_m13_capture_readiness_audit.py`
+> and ran it without device action. Result: pass. The inert DTBO+M13 exception
+> draft has complete marker coverage (`draft.missing=[]`), active `AGENTS.md`
+> remains intentionally incomplete for the new live gate (`agents.complete=false`),
+> the capture helper `--offline-check` still passes, and the helper's default
+> execution still fails closed at the expected AGENTS policy marker before
+> Android/device access. `AGENTS.md` was not edited and no flash/reboot/write was
+> performed. Report:
+> `docs/reports/S22PLUS_RAMOOPS_DTBO_M13_CAPTURE_READINESS_AUDIT_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
