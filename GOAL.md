@@ -1674,6 +1674,29 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > fresh SHA-pinned `AGENTS.md` exception + guarded helper + offline-check + dry-run against the exact hashes
 > before any attended live flash.
 >
+> **STATUS UPDATE (2026-07-08 KST, M16 live superseded + M17 host-only power-QMP build done):** After another
+> bootloop observation on the naked-PHY split path, Codex rechecked the host state and found the S22+ recovered
+> to rooted Android/Magisk baseline (`boot_completed=1`, boot animation stopped, orange verified boot, Magisk
+> root available, pstore count `0`). The latest operator steer correctly supersedes running M16: probing
+> `phy-msm-ssusb-qmp.ko` naked is methodologically weak because QMP should have power/clock substrate first.
+> Codex therefore built M17 host-only from the M13 park floor. M17 adds a 21-module recovery-order dependency
+> closure for power/clock substrate plus `phy-msm-ssusb-qmp.ko`, while withholding other PHYs, `dwc3-msm.ko`,
+> USB functions, role/PD/glink stack, and watchdog modules. No device action or live flash was executed.
+> Report: `docs/reports/S22PLUS_NATIVE_INIT_M17_POWER_QMP_HOST_BUILD_2026-07-08.md`. Exact candidate hashes:
+> AP.tar.md5 SHA256 `78b2641788a1517f39bdbd50dc425dbaeab0683aa662bcd8bfe9c925a8a50274`,
+> boot.img SHA256 `090811c8f50aab753ef7f085c3cf5bd73e9d6d43e2ad629e95d2cfe48a0ecac2`,
+> M17 `/init` SHA256 `34389fc52cd74aa50b2ab2980075183bcde519ffc5d7f9dfb787e1e5b3e2bfe4`,
+> M17 module-list SHA256 `1e00da43ae2b22c56855a28967201733b66b65ec4e91086faa67a4d9b3177fb8`,
+> source SHA256 `561099a8401ea6b5d5642614b6f6a73e225b239556de07c11cf2d99e1d0a6d2f`.
+> Static validation passed: `py_compile`, static/freestanding AArch64 `/init`, required
+> `S22_NATIVE_INIT_USB_ACM_M17` + `module_group=power_qmp module_count=21` strings present, no `download`/
+> `modules.load.recovery`/`/vendor_dlkm`/`ld-linux`/`libc.so` forbidden strings, no intended arm64
+> `__NR_reboot=142` syscall path, arm64 `__NR_finit_module=273` present, AP member `boot.img.lz4` only,
+> module binaries injected into boot ramdisk = 0, module-list files = 1, dependency closure count = 21, watchdog
+> modules in closure = 0. **No live flash is authorized yet.** Next bounded unit is M17 live-gate preflight:
+> fresh SHA-pinned `AGENTS.md` exception + guarded helper + offline-check + dry-run against the exact hashes
+> before any attended live flash.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
