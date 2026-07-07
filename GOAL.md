@@ -29,6 +29,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > proves dead: EUD (in-SoC USB-C debug console, no jig) → UART jig last. Full
 > rationale: `docs/reports/S22PLUS_RAMOOPS_POSITIVE_CONTROL_OBSERVABILITY_STEER_2026-07-08.md`.
 
+> **S22+ LIVE STATUS RECHECK (2026-07-08 03:13 KST) — OPERATOR BOOTLOOP/MANUAL-DOWNLOAD REPORT, BASELINE VERIFIED.**
+> Operator reported another bootloop observation followed by manual download
+> mode entry. Host follow-up found the phone already in normal Android with
+> `sys.boot_completed=1`, `ro.boot.verifiedbootstate=orange`, Magisk root,
+> current `boot` SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`
+> matching the pinned Magisk boot baseline, and current `vendor_boot` SHA256
+> `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`
+> matching stock FYG8. No flash/rollback/write was performed in this recheck.
+> `/sys/fs/pstore` is empty and `/proc/last_kmsg` is missing in the current
+> Android boot, so this confirms recovery state only, not root cause. Report:
+> `docs/reports/S22PLUS_BOOTLOOP_MANUAL_DOWNLOAD_BASELINE_RECHECK_2026-07-08.md`.
+> Do not run more blind native-init candidates; continue the observability path.
+
 > **S22+ CURRENT FRONTIER (2026-07-08 03:07 KST) — RAMOOPS VENDOR_BOOT DIRECT ENABLE HOST BUILD READY; NO LIVE AUTH.**
 > Following the observability steer, Codex built a host-only vendor_boot direct
 > DTB patch under
