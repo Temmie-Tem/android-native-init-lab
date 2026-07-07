@@ -296,6 +296,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > decide whether the already prepared M22+DTBO sysrq-panic gate is still worth
 > one attended run as a final mainline-ramoops negative control before EUD/UART.
 
+> **S22+ CURRENT FRONTIER (2026-07-08 05:19 KST) — SEC_DEBUG MID SYSRQ-PANIC ZERO-FLASH GATE SOURCE READY; POLICY INERT.**
+> Codex added guarded helper
+> `workspace/public/src/scripts/revalidation/s22plus_sec_debug_mid_sysrq_gate.py`
+> plus inert policy draft
+> `docs/operations/S22PLUS_SEC_DEBUG_MID_SYSRQ_PANIC_AGENTS_EXCEPTION_DRAFT_2026-07-08.md`.
+> Intended future flow: operator sets Samsung SysDump DEBUG LEVEL to MID if
+> available, active policy is promoted only after explicit approval, default
+> dry-run collects read-only sec_debug state, `--live-panic` writes the marker
+> `S22_SECDEBUG_MID_SYSRQ_PANIC_CONTROL`, enables sysrq, writes `c` to
+> `/proc/sysrq-trigger`, then after manual recovery `--collect-after-recovery`
+> checks `/proc/last_kmsg`, pstore, pmsg-derived retained state, reset reason,
+> and sec_debug state. Host-only validation passed: `py_compile`,
+> `--offline-check`, and `--print-plan`. A default execution correctly fails
+> closed with `rc=1` before Android/device access because `AGENTS.md` lacks the
+> sec_debug MID sysrq markers and ack tokens. No `AGENTS.md` promotion, live
+> policy, flash, reboot, write, sysrq trigger, or device access was performed.
+> Report:
+> `docs/reports/S22PLUS_SEC_DEBUG_MID_SYSRQ_PANIC_GATE_SOURCE_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
