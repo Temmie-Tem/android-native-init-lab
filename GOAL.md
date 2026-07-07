@@ -4,6 +4,29 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-08 02:07 KST) — BOOTLOOP REPORT RECORDED, DEVICE BACK ON MAGISK BASELINE; M19 HOST-ONLY MATRIX READY, NOT AUTHORIZED LIVE.**
+> Operator reported a bootloop and manual download-mode entry. Host follow-up found the
+> S22+ reachable again as normal rooted Android (`SM-S906N`/`g0q`, `S906NKSS7FYG8`,
+> `sys.boot_completed=1`, `vbstate=orange`, Magisk root) with current boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, matching the
+> pinned Magisk boot-only rollback baseline. Read-only retained capture was saved under
+> `workspace/private/runs/s22plus_bootloop_manual_download_20260707T170721Z`: pstore empty,
+> `/proc/last_kmsg` 2097136 bytes, no `S22_NATIVE_INIT`/panic/Oops markers, but
+> `reboot,download`/`reboot_reason` present. Public checkpoint:
+> `docs/reports/S22PLUS_BOOTLOOP_MANUAL_DOWNLOAD_RECOVERY_CHECK_2026-07-08.md`.
+>
+> M19 was built host-only as the no-UART checkpoint/download fallback matrix, not flashed:
+> source/helper `workspace/public/src/native-init/s22plus_init_m19_closed_checkpoint_download.c`
+> and `workspace/public/src/scripts/revalidation/build_s22plus_inplace_m19_closed_checkpoint_download.py`;
+> private output `workspace/private/outputs/s22plus_native_init/inplace_m19_closed_checkpoint_download_v0_1`.
+> It derives the post-M18 dependency-closed USB list (`141 -> 150` modules, added 9, unresolved
+> non-reset deps `{}`) and emits 9 boot-only AP candidates (`C000/C129/C135/C137/C140/C144/C145/C147/C150`),
+> each a single `boot.img.lz4` AP and each marked `live_flash_authorized=false`. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M19_CLOSED_CHECKPOINT_DOWNLOAD_HOST_BUILD_2026-07-08.md`.
+> **No M19 live flash is authorized.** Any future use requires a fresh SHA-pinned `AGENTS.md`
+> boot-only exception for one selected prefix and a guarded live helper. Do not run the matrix blindly;
+> after a bootloop report, no cascading S22+ live flashes.
+
 > **S22+ CURRENT FRONTIER (2026-07-08 01:53 KST) — M18 CAPTURE POSTMORTEM DONE, NO SAME-M18 REPEAT.**
 > Host-only postmortem
 > `workspace/public/src/scripts/revalidation/s22plus_m18_capture_postmortem.py`
