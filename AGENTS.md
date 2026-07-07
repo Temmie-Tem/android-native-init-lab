@@ -1411,14 +1411,19 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    M18/QMP candidates, additional DTBO candidates, kernel rebuilds, or any A90
    action.
    **Narrow operator-authorized exception (2026-07-08, S22+ ramoops DTBO + M13 positive-control only):**
-   after the DTBO status-only live gate proved that the patched DTBO enables
-   live `/proc/device-tree/reserved-memory/ramoops_region/status=okay`, Codex
-   may perform one bounded attended S22+ ramoops DTBO + M13 positive-control
-   capture run on the Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using only
-   the checked helper
-   `workspace/public/src/scripts/revalidation/s22plus_ramoops_dtbo_m13_capture_live_gate.py`
-   and live ack token `S22PLUS-RAMOOPS-DTBO-M13-CAPTURE-LIVE-GATE`.
-   This exception authorizes exactly two partition classes and no others:
+   **Consumed/retired:** this exception was consumed by the 2026-07-08 live run.
+   The patched DTBO enabled live `ramoops_region/status=okay`, and the M13 boot
+   candidate was flashed, but the 120s observation saw no ACM/ADB/Odin rollback
+   transport and the subsequent attended rollback found no M13 marker in pstore
+   or last_kmsg. Boot rollback and stock DTBO restore completed, and the final
+   dry-run reverified Android/root, Magisk boot baseline, stock DTBO hash, and
+   live `ramoops_region/status=disabled`. This block no longer authorizes a
+   default dry-run or live DTBO+M13 rerun. The consumed helper was
+   `workspace/public/src/scripts/revalidation/s22plus_ramoops_dtbo_m13_capture_live_gate.py`.
+   Before consumption, this exception allowed one bounded attended S22+ ramoops
+   DTBO + M13 positive-control capture run on the Samsung S22+ `SM-S906N`/`g0q`
+   `S906NKSS7FYG8`.
+   The consumed exception authorized exactly two partition classes and no others:
    first flash the patched `dtbo` AP.tar.md5 SHA256
    `4f82663a7c2175a41760ec099c0f662dd04b8932a5ae82ba46b3ecb401a14a00`,
    require Android/root to return, require current DTBO SHA256

@@ -218,6 +218,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > attended live with the active ack token. Report:
 > `docs/reports/S22PLUS_RAMOOPS_DTBO_M13_POLICY_ACTIVATION_2026-07-08.md`.
 
+> **S22+ LIVE RESULT (2026-07-08 04:54 KST) — DTBO+M13 POSITIVE-CONTROL NO-HIT; DEVICE CLEAN RESTORED.**
+> Operator-approved live run consumed the DTBO+M13 policy gate. The helper
+> flashed the patched DTBO (`dtbo_candidate_odin_rc=0`), verified patched DTBO
+> hash and live `ramoops_region/status=okay`, then flashed the M13 boot AP
+> (`m13_candidate_odin_rc=0`). The 120s M13 observation saw no ACM, no ADB, and
+> no Odin rollback transport (`m13_acm_seen=0`,
+> `m13_result=no_rollback_transport_manual_download_required`), so the first
+> command exited `rc=4`. The attended rollback helper then restored the Magisk
+> boot baseline (`magisk_boot_rollback_odin_rc=0`), collected retained logs, found
+> no M13 marker in pstore or last_kmsg (`m13_positive_control_pstore_marker_found=0`),
+> restored stock DTBO (`stock_dtbo_rollback_odin_rc=0`), and verified
+> `stock_restore_ramoops_status=disabled`; its final `rc=10` means marker no-hit,
+> not rollback failure. A final dry-run passed, revalidating Android/root,
+> Magisk boot baseline, stock DTBO hash, and live disabled status. `AGENTS.md`
+> now marks the one-shot DTBO+M13 exception consumed/retired to prevent rerun
+> under the same gate. Report:
+> `docs/reports/S22PLUS_RAMOOPS_DTBO_M13_LIVE_RESULT_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
