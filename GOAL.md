@@ -648,6 +648,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > state. Report:
 > `docs/reports/S22PLUS_EUD_OPENOCD_HOST_AUDIT_2026-07-08.md`.
 
+> **S22+ UPDATE (2026-07-08 07:30 KST) — EUD-OPENOCD STAGING PREFLIGHT DONE; BUILD BLOCKED ON HOST DEPS.**
+> Codex performed host-only/private-source staging preflight for the B1
+> EUD-SWD/JTAG path. Ubuntu `openocd` package candidate `0.12.0-3build3` and
+> upstream OpenOCD master do not provide the needed EUD adapter/config; the
+> useful fork is `linux-msm/openocd` branch `eud-rebased` at
+> `880c11c56b5bc5e8acd2adef5c97ab37b3ca9349`, which contains
+> `tcl/interface/eud.cfg`, `tcl/target/qualcomm/qcom.cfg`, `--enable-eud`, and
+> a `src/jtag/drivers/eud` submodule to `quic/eud`. Qualcomm's `quic/eud` was
+> also staged privately at `693741a3b0448690402539ed0e6af067510e386f`. Build
+> preflight is currently blocked before compilation: host lacks `autoreconf`,
+> `libtool`, and `libusb-1.0` dev headers (`quic/eud` autoreconf rc=127;
+> linux-msm OpenOCD bootstrap says `libtool is required`). No system install,
+> device action, flash, reboot, or sysfs write was performed. Next practical
+> unit is host dependency install/build staging, not a new native-init flash.
+> Report:
+> `docs/reports/S22PLUS_EUD_OPENOCD_STAGING_PREFLIGHT_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
