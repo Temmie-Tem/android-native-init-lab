@@ -4,6 +4,25 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-08 02:52 KST) — M21A RAW NANOSLEEP-DOWNLOAD HOST BUILD READY; NO LIVE AUTH.**
+> Codex added host-only M21A source/builder and built a boot-only private AP
+> under
+> `workspace/private/outputs/s22plus_native_init/m21a_raw_nanosleep_download_v0_1`.
+> Runtime shape is raw AArch64 PID1: `nanosleep({90,0}, NULL) ->
+> reboot("download") -> wfe park`; no C runtime/libc/PT_INTERP, fs setup,
+> marker write, module load, configfs, USB role force, block writes, or Android
+> handoff. AP contains exactly `boot.img.lz4`. Hashes: AP.tar.md5
+> `d1949a56c60c71498d68753d2ffd6064719fafce1ad0e3959ebb8a4255bb6c79`,
+> boot.img `61d7dc9818b79c810b30370edfe4df2b55ec451588defb48458fefae9c6c00a5`,
+> `/init` `10f525760b170cba4ec55d7fd4955c466601253258371cb571eb45515bd9cf30`,
+> source `300ed990c8ea476c3744e18327ae08277c0d27dc443e99245aeecba457968c4f`.
+> `py_compile`, raw init compile/disasm, magiskboot no-change repack, AP member
+> gate, and invalid-device Odin parse gate passed. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M21A_RAW_NANOSLEEP_DOWNLOAD_HOST_BUILD_2026-07-08.md`.
+> **No live flash is authorized.** Next live unit, if selected, must first add a
+> fresh SHA-pinned M21A-only `AGENTS.md` exception and guarded helper that treats
+> early Odin or operator manual download as no-proof.
+
 > **S22+ CURRENT FRONTIER (2026-07-08 02:47 KST) — M21 FLOOR DISCRIMINATOR REDESIGNED; NO LIVE AUTH.**
 > M20A operator correction invalidates the helper-only inference
 > `later Odin endpoint == automatic self-download proof`. M4T2 remains the
