@@ -43,7 +43,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/S22PLUS_BOOTLOOP_MANUAL_DOWNLOAD_BASELINE_RECHECK_2026-07-08.md`.
 > Do not run more blind native-init candidates; continue the observability path.
 
-> **S22+ CURRENT FRONTIER (2026-07-08 03:29 KST) — RAMOOPS VENDOR_BOOT DIRECT BYTE-PRESERVING HOST BUILD READY; NO LIVE AUTH.**
+> **S22+ CURRENT FRONTIER (2026-07-08 03:25 KST) — RAMOOPS VENDOR_BOOT + M13 CAPTURE GATE SOURCE READY; NO LIVE AUTH.**
+> Codex added guarded helper
+> `workspace/public/src/scripts/revalidation/s22plus_ramoops_vendor_boot_m13_capture_live_gate.py`
+> for the positive-control flow: direct-patched vendor_boot flash, Android/root
+> return, live DT `ramoops_region/status=okay` check, M13 boot flash, observation,
+> Magisk boot rollback, pstore collection, and stock vendor_boot restore. No
+> device action was run. `py_compile` and `--offline-check` passed; default
+> dry-run intentionally stops with rc=1 before Android/device action because
+> `AGENTS.md` has no SHA-pinned vendor_boot+M13 authorization markers. Ack tokens
+> reserved: `S22PLUS-RAMOOPS-VENDORBOOT-M13-CAPTURE-LIVE-GATE`,
+> `S22PLUS-RAMOOPS-M13-ROLLBACK-BOOT-FROM-DOWNLOAD`,
+> `S22PLUS-RAMOOPS-RESTORE-STOCK-VENDOR-BOOT`. Report:
+> `docs/reports/S22PLUS_RAMOOPS_VENDOR_BOOT_M13_CAPTURE_GATE_SOURCE_2026-07-08.md`.
+> Next step, only with operator approval, is a narrow `AGENTS.md` exception for
+> this exact helper/hashes, then dry-run and attended live.
+
+> **S22+ CURRENT FRONTIER (2026-07-08 03:24 KST) — RAMOOPS VENDOR_BOOT DIRECT BYTE-PRESERVING HOST BUILD READY; NO LIVE AUTH.**
 > Codex replaced the earlier `magiskboot repack -n` vendor_boot candidate with a
 > direct vendor_boot v4 patcher:
 > `workspace/public/src/scripts/revalidation/build_s22plus_ramoops_vendor_boot_direct_enable.py`.
