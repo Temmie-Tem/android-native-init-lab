@@ -1325,6 +1325,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > SHA-pinned `AGENTS.md` exception + guarded helper + default no-flash dry-run against the rooted Android/Magisk
 > baseline.
 >
+> **STATUS UPDATE (2026-07-07 KST, M10A3 live-gate preflight ready):** Codex added the SHA-pinned `AGENTS.md`
+> M10A3 boot-only/Odin exception and guarded helper
+> `workspace/public/src/scripts/revalidation/s22plus_m10a3_probe_reboot_live_gate.py` with live ack token
+> `S22PLUS-M10A3-PROBE-REBOOT-LIVE-GATE`, rollback-only ack token
+> `S22PLUS-M10A3-ROLLBACK-FROM-DOWNLOAD`, and the same manual-download ambiguity policy used for M10A2.
+> `--offline-check` passed with no device action, then default no-flash dry-run passed against the rooted
+> Android/Magisk baseline, verifying the exact M10A3 AP/boot/init/source hashes, pinned Magisk/stock boot-only
+> rollback APs, `AGENTS.md` exception, Android stability, and live boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M10A3_PROBE_REBOOT_LIVE_GATE_PREFLIGHT_2026-07-07.md`. **No live flash was
+> run.** Next supervised live command:
+> `PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m10a3_probe_reboot_live_gate.py --live --ack S22PLUS-M10A3-PROBE-REBOOT-LIVE-GATE`.
+> Expected branch logic: (a) later Odin endpoint appears and operator confirms no manual entry => extra
+> helper/stack shape is survivable and M10A2 points at the prior getpid syscall. (b) later Odin endpoint appears
+> after operator manual download => rollback OK but no automatic proof. (c) no later endpoint/bootloop => manually
+> enter download mode, rollback with `--rollback-from-download --ack S22PLUS-M10A3-ROLLBACK-FROM-DOWNLOAD`, and
+> treat extra helper/timing/stack shape as enough to lose self-download.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
