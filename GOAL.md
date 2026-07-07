@@ -1515,6 +1515,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `AGENTS.md` exception + guarded helper. Expected branch: M13 parks/no ACM => module insertion caused the
 > M12 loop; M13 loops => shrink again by removing configfs/role-force and keeping only marker+park.
 >
+> **STATUS UPDATE (2026-07-07 KST, M13 live-gate preflight ready):** Codex added the SHA-pinned `AGENTS.md`
+> M13 boot-only/Odin exception and guarded helper
+> `workspace/public/src/scripts/revalidation/s22plus_m13_nomodule_configfs_live_gate.py` with live ack token
+> `S22PLUS-M13-NOMODULE-CONFIGFS-LIVE-GATE` and rollback-only ack token
+> `S22PLUS-M13-ROLLBACK-FROM-DOWNLOAD`. `--offline-check` passed with no device action, then default dry-run
+> verified AGENTS authorization, exact M13 AP/boot/init/source hashes, pinned Magisk/stock boot-only rollback
+> APs, manifest safety (`reboot_syscall=false`, `host_commanded_reboot_download=false`,
+> `module_insertions=false`, zero module-list files, zero module binaries, no arm64 `__NR_finit_module=273`,
+> `a600000.dwc3` only, `ss_acm.0` only), Android/Magisk baseline stability, current boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, and no Odin endpoint during dry-run.
+> Report: `docs/reports/S22PLUS_NATIVE_INIT_M13_NOMODULE_CONFIGFS_LIVE_GATE_PREFLIGHT_2026-07-07.md`.
+> **No live flash was executed.** The attended live command is
+> `PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m13_nomodule_configfs_live_gate.py --live --ack S22PLUS-M13-NOMODULE-CONFIGFS-LIVE-GATE`.
+> If M13 parks or ACM appears, it has no reboot/download path by design; manually enter download mode and
+> rollback with `--rollback-from-download --ack S22PLUS-M13-ROLLBACK-FROM-DOWNLOAD`.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
