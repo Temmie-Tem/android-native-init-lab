@@ -116,26 +116,20 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    fastboot, Magisk modules, multidisabler, format data, additional boot
    candidates, additional debug-level panics, kernel rebuilds, or any A90
    action.
-   **Narrow operator-authorized exception (2026-07-08, S22+ EUD Phase-B reversible enable only):**
-   after EUD Phase-A proved `eud.ko` is loaded, `88e0000.qcom,msm-eud` is
-   bound, `/dev/ttyEUD0` exists, and source analysis identified
-   `/sys/module/eud/parameters/enable` as the actual runtime control, Codex may
-   perform one bounded attended EUD Phase-B reversible enable run on the Samsung
-   S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
-   `workspace/public/src/scripts/revalidation/s22plus_eud_phase_b_enable_live_gate.py`
-   and live ack token `S22PLUS-EUD-PHASE-B-ENABLE-LIVE-GATE`.
-   The helper must first verify Android/root, the known Magisk boot hash, the
-   EUD module parameter, and `/dev/ttyEUD0`. It may then write 1 exactly once to
-   `/sys/module/eud/parameters/enable`, collect host lsusb, dmesg, and host
-   serial/TTY evidence for a Qualcomm/EUD USB-C debug hub/interface or a new
-   host serial/TTY path, and must write 0 back to
-   `/sys/module/eud/parameters/enable` before exit (`restore enable=0`). This
-   exception authorizes no flash, no reboot, no partition write, no native-init
-   boot candidate, no module insertion, no boot/vendor_boot/dtbo/vbmeta/recovery
-   write, no BL, no CP, no CSC, no super, no userdata, no EFS, no sec_efs, no
-   RPMB, no keymaster, no modem, no bootloader, no raw host `dd`, no fastboot,
-   no Magisk module, no format data, no additional sysfs writes, and no A90
-   action.
+   **Consumed exception (2026-07-08, S22+ EUD Phase-B reversible enable only):**
+   this one-shot exception was consumed by the 2026-07-08 live run. It toggled
+   `/sys/module/eud/parameters/enable` from 0 to 1 and back to 0 using only
+   `workspace/public/src/scripts/revalidation/s22plus_eud_phase_b_enable_live_gate.py`.
+   The run restored `enable=0`, observed no host EUD USB hint and no new host
+   serial/TTY path, and left the device on the Android/Magisk baseline. The
+   consumed live ack token is intentionally not listed here as active
+   authorization. Future EUD writes require a fresh operator-approved exception.
+   This consumed exception authorizes no flash, no reboot, no partition write,
+   no native-init boot candidate, no module insertion, no boot/vendor_boot/dtbo/
+   vbmeta/recovery write, no BL, no CP, no CSC, no super, no userdata, no EFS,
+   no sec_efs, no RPMB, no keymaster, no modem, no bootloader, no raw host `dd`,
+   no fastboot, no Magisk module, no format data, no additional sysfs writes,
+   and no A90 action.
    **Narrow operator-authorized exception (2026-07-07, S22+ P2 native-init
    first-light boot-only):** after the S22+ TWRP/root/116-package checkpoint
    and the P0/P1 host-only reports, Codex may perform one bounded Odin4

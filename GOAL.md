@@ -617,6 +617,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > now the next step. Report:
 > `docs/reports/S22PLUS_EUD_PHASE_B_POLICY_ACTIVATION_2026-07-08.md`.
 
+> **S22+ LIVE RESULT (2026-07-08 07:13 KST) — EUD PHASE-B CONTROLLED NEGATIVE; ENABLE RESTORED; EXCEPTION RETIRED.**
+> The attended EUD Phase-B live gate was consumed exactly once with
+> `workspace/public/src/scripts/revalidation/s22plus_eud_phase_b_enable_live_gate.py`.
+> Result: `enable` write `0->1` succeeded, mandatory restore `1->0` succeeded,
+> but host observation found no EUD USB hint and no new host serial/TTY path.
+> Private device evidence captured `runtime_status=unsupported` and
+> `msm-eud ... qcom_scm_io_* failed with rc:-22` after the enable/disable
+> writes, matching a secure-EUD path that is present but rejected/invalid in the
+> current retail Android/Magisk state. Post-run read-only check passed
+> (`enable=0`, `ttyEUD0=1`), ADB stayed available, and host USB remained Samsung
+> MTP/ADB. No flash, reboot, partition write, module insertion, native-init
+> candidate, Magisk module, or extra sysfs write was performed. `AGENTS.md` now
+> marks the one-shot EUD exception consumed/retired; do not rerun the same EUD
+> write without a fresh exception. Report:
+> `docs/reports/S22PLUS_EUD_PHASE_B_LIVE_RESULT_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
