@@ -978,6 +978,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > path and build a smaller timed-download module-bisect probe so the next live result distinguishes "PID1
 > survived this module batch" from "culprit is in/before this batch" without depending on ACM first.
 >
+> **STATUS UPDATE (2026-07-07 KST, M8 timed-download bisect host build ready):** Codex built the host-only M8
+> discriminator and did not flash it. New source:
+> `workspace/public/src/native-init/s22plus_init_m8_timed_download_bisect.c`; builder:
+> `workspace/public/src/scripts/revalidation/build_s22plus_inplace_m8_timed_download_bisect.py`; report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M8_TIMED_DOWNLOAD_BISECT_HOST_BUILD_2026-07-07.md`. M8 intentionally removes
+> ACM/configfs/UDC binding from the test. It loads exactly the first 18 modules from the M7-only 36-module delta
+> relative to M5, using stock vendor_boot `/lib/modules`, then calls Samsung `reboot(..., "download")` if the
+> list parses to exactly 18 entries. Batch SHA256
+> `6831a24ac12ddf0bfdb9b5695dcd3aada7f200aa4a998864874c207efa31bc9d`; M8 `/init` SHA256
+> `5c8591023d0ad801155535e9b535993fb3122c4d3e4c86139d36a819ee72c3b2`; boot.img SHA256
+> `3c10c9232b8579b552d791d24e65b7b4dd8ec3625941766894a08725a7abae52`; candidate AP SHA256
+> `59433518e7bea2d16f5efb62ee226c190f6a3af8673336310a2ef0fff7bee36b`. Static validation confirmed AArch64
+> freestanding/no interpreter, nochange MagiskBoot repack byte-identical to base boot, AP member `boot.img.lz4`
+> only, no module binaries injected into boot, and actual M8 binary strings contain no `ttyGS0`, `ss_acm`,
+> `usb_gadget`, or `/config`. **No live flash is authorized.** Next bounded live-prep unit, if supervised testing
+> is desired, is a fresh SHA-pinned M8 `AGENTS.md` boot-only exception plus an automatic-download observer helper
+> keyed on the exact hashes above.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
