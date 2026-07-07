@@ -1801,6 +1801,32 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > M18 prefix-download/P00 path is superseded as the current live target by this later
 > full-firststage steer.
 
+> **STATUS UPDATE (2026-07-08 01:20 KST, M18 bootloop observed + ramoops target corrected):**
+> Operator reported bootloop behavior after the M18 direction, so this branch is now in the
+> "stop blind module permutations, get a kernel-console channel" state. Codex followed the
+> approved ramoops-console direction host-only and corrected the patch target: the extracted
+> `vendor_boot` DTB has 4 FDT blobs and no `/reserved-memory/ramoops_region/status`
+> property, while stock `dtbo.img` has 11 FDT blobs and blobs 9/10 carry the actual
+> `__fixups__/ramoops_mem -> /fragment@116:target:0` overlay that sets
+> `/fragment@116/__overlay__/status = "disabled"`. Host-only builder
+> `workspace/public/src/scripts/revalidation/build_s22plus_ramoops_dtbo_enable.py` now
+> creates a DT-aware candidate that changes exactly those two same-length values to
+> `okay`, plus a stock rollback AP. Private output:
+> `workspace/private/outputs/s22plus_ramoops_dtbo_enable_v0_1`. Hashes:
+> candidate `AP.tar.md5`
+> `4f82663a7c2175a41760ec099c0f662dd04b8932a5ae82ba46b3ecb401a14a00`, rollback
+> `AP.tar.md5` `6f397421bee84f4ea0c80a8519be0f6f6af84119794970e8a1faaa05f261caaa`,
+> patched raw DTBO `1c90b54577cbb42e029818a0c4248e85ec3a0e40903b0887648d6556355c85ab`.
+> Validation: py_compile pass, builder pass, exactly 2 diff ranges / 16 changed bytes,
+> AP members `dtbo.img.lz4` only, Odin invalid-device parse gate reached file-check stage.
+> AVB caveat: stock DTBO hash descriptor matches, patched DTBO recomputed digest differs,
+> so any live test depends on the disabled-vbmeta state or a separate signing design.
+> **Not live-authorized yet:** current `AGENTS.md` boot-only default does not authorize
+> `dtbo` flashing. Before any live run, add a new narrow SHA-pinned `dtbo`-only exception
+> covering the candidate and stock rollback AP hashes above, attended operator ack, and
+> immediate stock-DTBO restore. Report:
+> `docs/reports/S22PLUS_RAMOOPS_DTBO_ENABLE_HOST_BUILD_2026-07-08.md`.
+
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
 > runner staged WSTA153 policy + WSTA156 filter artifact + WSTA161 gated-apply helper into
