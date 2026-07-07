@@ -152,7 +152,19 @@ def restore_dtbo_from_download(
     device = wait_for_odin(odin, log_path, "stock-dtbo-rollback-wait", odin_wait_sec)
     if device is None:
         raise SystemExit("stock DTBO rollback requires exactly one Odin device")
-    rc = flash_ap(odin, dtbo_rollback_ap, device, log_path, "stock_dtbo_rollback")
+    return restore_dtbo_to_odin_device(odin, dtbo_rollback_ap, device, log_path, android_wait_sec, serial, "stock_dtbo_rollback")
+
+
+def restore_dtbo_to_odin_device(
+    odin: Path,
+    dtbo_rollback_ap: Path,
+    device: str,
+    log_path: Path,
+    android_wait_sec: int,
+    serial: str | None,
+    flash_label: str,
+) -> int:
+    rc = flash_ap(odin, dtbo_rollback_ap, device, log_path, flash_label)
     if rc != 0:
         return rc or 5
     android = wait_for_android_root(log_path, android_wait_sec, serial)
@@ -162,6 +174,33 @@ def restore_dtbo_from_download(
     verify_live_ramoops_status(log_path, android, "disabled", "stock_restore")
     append_log(log_path, f"stock_dtbo_restore_android={android}")
     return 0
+
+
+def restore_after_patched_android_timeout(
+    odin: Path,
+    dtbo_rollback_ap: Path,
+    log_path: Path,
+    odin_wait_sec: int,
+    android_wait_sec: int,
+) -> int:
+    append_log(log_path, "patched_dtbo_android_timeout_attempting_odin_restore=1")
+    device = wait_for_odin(odin, log_path, "stock-dtbo-restore-after-patched-android-timeout-wait", odin_wait_sec)
+    if device is None:
+        print("Android did not return after patched DTBO. Enter download mode and run --restore-dtbo-from-download.", file=sys.stderr)
+        return 6
+    rc = restore_dtbo_to_odin_device(
+        odin,
+        dtbo_rollback_ap,
+        device,
+        log_path,
+        android_wait_sec,
+        None,
+        "stock_dtbo_rollback_after_patched_android_timeout",
+    )
+    append_log(log_path, f"stock_dtbo_restore_after_patched_android_timeout_rc={rc}")
+    if rc != 0:
+        return rc
+    return 11
 
 
 def restore_after_patched_android_failure(
@@ -302,8 +341,13 @@ def main(argv: list[str]) -> int:
 
     patched_serial = wait_for_android_root(log_path, args.android_wait_sec)
     if patched_serial is None:
-        print("Android did not return after patched DTBO. Enter download mode and run --restore-dtbo-from-download.", file=sys.stderr)
-        return 6
+        return restore_after_patched_android_timeout(
+            odin,
+            dtbo_rollback_ap,
+            log_path,
+            args.odin_wait_sec,
+            args.android_wait_sec,
+        )
     try:
         verify_current_dtbo_hash(log_path, patched_serial, EXPECTED_PATCHED_DTBO_RAW_SHA256, "patched")
         verify_live_ramoops_status(log_path, patched_serial, "okay", "patched")

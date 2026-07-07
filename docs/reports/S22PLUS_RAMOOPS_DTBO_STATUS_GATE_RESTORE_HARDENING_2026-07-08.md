@@ -31,8 +31,20 @@ live status is back to `disabled`, and exits nonzero.
 This preserves the failure signal while attempting to leave the device back on
 the clean stock-DTBO baseline.
 
-If Android does not return after the patched DTBO flash, the helper still cannot
-recover automatically and continues to instruct manual Download-mode recovery.
+At this point, Android-timeout recovery was still manual-only. The follow-up
+hardening below removes that gap when the device exposes a Download/Odin
+endpoint.
+
+## Follow-Up Hardening
+
+Codex then removed one more manual-only gap. If Android/root does not return
+after the patched DTBO flash, the helper now checks for a Download/Odin endpoint.
+If one appears, it automatically flashes the pinned stock DTBO rollback AP and
+verifies Android/root, stock DTBO hash, and live `status=disabled` before
+returning nonzero.
+
+Manual Download-mode recovery is now required only when neither Android/root nor
+an Odin endpoint appears after the patched DTBO flash.
 
 ## Validation
 
@@ -70,3 +82,7 @@ stock DTBO restore-from-android already stock
 
 All validation above was read-only or stock-state no-op. No live flash, reboot,
 or write was performed.
+
+Additional validation after the Android-timeout restore hardening repeated the
+same `py_compile`, `--offline-check`, read-only default dry-run, and stock-state
+restore no-op checks successfully.

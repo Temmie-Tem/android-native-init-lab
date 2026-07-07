@@ -106,6 +106,17 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > performed. Report:
 > `docs/reports/S22PLUS_RAMOOPS_DTBO_STATUS_GATE_RESTORE_HARDENING_2026-07-08.md`.
 
+> **S22+ UPDATE (2026-07-08 04:12 KST) — DTBO STATUS GATE ANDROID-TIMEOUT RESTORE HARDENED; LIVE STILL NOT EXECUTED.**
+> Codex further hardened the same status-only helper: if patched DTBO is flashed
+> and Android/root does not return, the helper now checks for an Odin/Download
+> endpoint and automatically attempts the pinned stock DTBO restore when possible
+> before reporting failure. Manual Download recovery remains required only if no
+> Android and no Odin endpoint appears. Validation: `py_compile`,
+> `--offline-check`, read-only default dry-run, and stock-state
+> `--restore-dtbo-from-android` no-op all passed. No live flash/reboot/write was
+> performed. Report:
+> `docs/reports/S22PLUS_RAMOOPS_DTBO_STATUS_GATE_RESTORE_HARDENING_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
