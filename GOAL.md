@@ -417,6 +417,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > crash. Report:
 > `docs/reports/S22PLUS_SEC_DEBUG_MID_SET_READONLY_RESULT_2026-07-08.md`.
 
+> **S22+ UPDATE (2026-07-08 06:08 KST) — SEC_DEBUG MID SYSRQ GATE NOW FAILS CLOSED ON STALE LOW STATE.**
+> Codex hardened
+> `workspace/public/src/scripts/revalidation/s22plus_sec_debug_mid_sysrq_gate.py`
+> so the active-policy dry-run and `--live-panic` no longer trust the operator
+> token alone: after collecting the live precheck state, they now require
+> MID-class `debug_level` (`18765 / 0x494d / MI` accepted; prior
+> `20300 / 0x4f4c / LO` rejected) and `sec_debug enable=1` before returning dry
+> run OK or writing `/proc/sysrq-trigger`. `--read-only-probe` remains policy-free
+> and read-only, but now records `numeric_values`; current live read-only state is
+> still MID-class with `enable=1`, `force_upload=5`, and
+> `/proc/sys/kernel/sysrq=0`. Validation passed: `py_compile`, `--offline-check`,
+> `--print-plan`, default fail-closed before Android because AGENTS is inactive,
+> read-only probe, and assertion unit checks for accept MID / reject LOW /
+> reject `enable=0`. No flash, reboot, write, sysrq, or live panic occurred.
+> Report:
+> `docs/reports/S22PLUS_SEC_DEBUG_MID_SYSRQ_GATE_HARDENING_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,

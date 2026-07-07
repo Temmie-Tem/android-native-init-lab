@@ -266,6 +266,28 @@ def decode_numeric_debug_level(text: str) -> dict[str, Any]:
     }
 
 
+def decode_last_decimal(text: str) -> int | None:
+    numbers = re.findall(r"^\s*([0-9]+)\s*$", text, flags=re.MULTILINE)
+    if not numbers:
+        return None
+    return int(numbers[-1], 10)
+
+
+def assert_sec_debug_mid_state(state: dict[str, Any], label: str) -> None:
+    decoded = state.get("sec_debug_debug_level_decoded", {})
+    decimal = decoded.get("decimal")
+    ascii_le = str(decoded.get("ascii_le", "")).upper()
+    ascii_be = str(decoded.get("ascii_be", "")).upper()
+    likely_mid = decimal == 18765 or ascii_le.startswith("MI") or ascii_be.startswith("MI")
+    if not decoded.get("present") or decoded.get("likely_low_code") or not likely_mid:
+        raise SystemExit(f"{label}: sec_debug debug_level is not MID-class: {decoded}")
+
+    numeric_values = state.get("numeric_values", {})
+    enable = numeric_values.get("/sys/module/sec_debug/parameters/enable")
+    if enable != 1:
+        raise SystemExit(f"{label}: sec_debug enable is not 1: {enable!r}")
+
+
 def collect_sec_debug_state(run_dir: Path, log_path: Path, serial: str, label: str) -> dict[str, Any]:
     state_dir = run_dir / "sec_debug_state" / label
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -274,12 +296,16 @@ def collect_sec_debug_state(run_dir: Path, log_path: Path, serial: str, label: s
         "timestamp_utc": utc_now(),
         "read_files": {},
         "list_targets": {},
+        "numeric_values": {},
     }
 
     for path in READ_FILES:
         item = read_remote_file(serial, path)
         write_text(state_dir / f"{safe_name(path)}.txt", item["text"])
         summary["read_files"][path] = {key: value for key, value in item.items() if key != "text"}
+        numeric = decode_last_decimal(item["text"])
+        if numeric is not None:
+            summary["numeric_values"][path] = numeric
 
     sec_debug_debug_level_path = "/sys/module/sec_debug/parameters/debug_level"
     sec_debug_debug_level_file = state_dir / f"{safe_name(sec_debug_debug_level_path)}.txt"
@@ -641,6 +667,7 @@ def print_operator_plan() -> None:
     print()
     print("default dry-run after active policy:")
     print(f"  PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 {script}")
+    print("  dry-run now fails closed unless debug_level is MID-class and sec_debug enable=1")
     print()
     print("attended panic trigger only after debug_level=MID is operator-confirmed:")
     print(
@@ -759,13 +786,15 @@ def main(argv: list[str]) -> int:
         args.android_stability_interval_sec,
     )
     verify_current_boot_hash(log_path, selected_serial)
-    collect_sec_debug_state(run_dir, log_path, selected_serial, "precheck")
+    precheck_state = collect_sec_debug_state(run_dir, log_path, selected_serial, "precheck")
 
     if args.collect_after_recovery:
         retained = collect_retained_evidence(run_dir, log_path, selected_serial, "post_recovery")
         found = bool(retained["marker_found"])
         print(f"post-recovery retained evidence collected; marker_found={int(found)}; log={log_path}")
         return 0 if found else 10
+
+    assert_sec_debug_mid_state(precheck_state, "precheck")
 
     if not args.live_panic:
         print(
