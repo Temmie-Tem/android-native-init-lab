@@ -962,6 +962,29 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/S22PLUS_NATIVE_INIT_M7_USB_SUBSET_LIVE_GATE_PREFLIGHT_2026-07-07.md`. **No live flash was
 > run.** Next supervised live command:
 > `PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m7_usb_subset_live_gate.py --live --ack S22PLUS-M7-USB-SUBSET-LIVE-GATE`.
+>
+> **🎯 OPERATOR STEER (2026-07-07, M7 is the live-ready USB-ACM candidate — recipe now root-caused end-to-end;
+> reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
+> `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
+> `docs/reports/S22PLUS_NATIVE_INIT_M5_USB_ACM_ROOTCAUSE_HOSTANALYSIS_2026-07-07.md`).** The M5→M6→M7 arc is
+> fully diagnosed host-only and M7 already encodes the whole recipe (operator-verified, converged independently):
+> watchdog blocklist (M6 bootloop cause = unpetted `gh_virt_wdt`/`qcom_wdt_core`), softdep-ordered USB **subset**
+> (not the full 446 recovery list), the Samsung `max77705` i2c PD role chain (`msm-geni-se`→`i2c-msm-geni`→
+> `mfd_max77705`→`pdic_max77705`→`usb_typec_manager`) plus the QC `pmic_glink`/`ucsi_glink` path and `eud`, the
+> `phy-generic`/`phy-msm-snps-hs`→`dwc3-msm` softdep order, **`a600000.dwc3`-only gadget bind** (never
+> `dummy_udc.0`), and an active **`/sys/class/usb_role/*/role=device` force**. The USB bring-up mechanism is now
+> statically mapped: `dwc3@a600000` is `dr_mode="otg"` (peripheral-default) with `usb-role-switch`; the data role
+> is driven by max77705 over i2c (bare-init friendly, not glink-firmware-bound), and there are **three redundant
+> routes to peripheral** (max77705 auto / role-switch force / EUD). **NEXT = attended M7 live gate** (`--live
+> --ack S22PLUS-M7-USB-SUBSET-LIVE-GATE`; rollback = manual download + `--rollback-from-download --ack
+> S22PLUS-M7-ROLLBACK-FROM-DOWNLOAD`). **Post-M7 branch logic:** (a) host sees `/dev/ttyGS0`/ACM ⇒ **milestone:
+> control channel up → switch to A90-style interactive iteration**; (b) stable park, no ACM ⇒ watchdog fix
+> confirmed, failure moved downstream — next unit adds EUD-enable as an explicit step and/or narrows which force
+> path (auto vs role-switch) failed, one change per flash; (c) still bootloops ⇒ the watchdog exclude was
+> insufficient, bisect the subset (halve module count) rather than add — and this is the point the UART jig
+> earns its cost. Do not expand back toward the full recovery list. Same discipline: host-only build + dry-run,
+> fresh SHA-pinned boot-only `AGENTS.md` exception + attended ack + manual-download rollback per live flash, no
+> forbidden partitions.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
