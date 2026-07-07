@@ -1388,11 +1388,11 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `reboot` syscall, no VFS/path/module/configfs/USB), Android/Magisk baseline stability, current boot SHA256
 > `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, and no Odin endpoint during dry-run.
 > Report: `docs/reports/S22PLUS_NATIVE_INIT_M10A4_INLINE_PROBE_REBOOT_LIVE_GATE_PREFLIGHT_2026-07-07.md`.
-> **No live flash was executed.** The attended live command is
-> `PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m10a4_inline_probe_reboot_live_gate.py --live --ack S22PLUS-M10A4-INLINE-PROBE-REBOOT-LIVE-GATE`.
-> If M10A4 fails to return to download mode, manually enter download mode and rollback with
-> `--rollback-from-download --ack S22PLUS-M10A4-ROLLBACK-FROM-DOWNLOAD`; treat any later endpoint as automatic proof
-> only if the operator confirms no manual download-mode entry occurred.
+> **No live flash was executed.** M10A4 is prepared but no longer the default next live action after operator commit
+> `6b867175` / `docs/reports/S22PLUS_NATIVE_INIT_M11_PARK_USB_PIVOT_OPERATOR_2026-07-07.md`, which abandons the
+> unreliable reboot-download beacon and pivots to M11 park-based USB bring-up. Only run the M10A4 live command if
+> the operator explicitly reopens the reboot-beacon bisection. Current default next unit is M11 host-only build:
+> park-based USB init, no reboot beacon, visible park-vs-loop signal plus host ACM enumeration.
 >
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
