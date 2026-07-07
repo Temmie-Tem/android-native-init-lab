@@ -4,16 +4,18 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ ACTIVE FRONTIER (2026-07-08 01:41 KST) — RAMOOPS DTBO + M18 CAPTURE LIVE APPROVED.**
-> The operator approved the attended live S22+ ramoops DTBO + M18 capture run.
-> Proceed only through
+> **S22+ LIVE RESULT (2026-07-08 01:47 KST) — RAMOOPS DTBO + M18 CAPTURE ATTEMPTED, DEVICE CLEAN.**
+> The attended gate
 > `workspace/public/src/scripts/revalidation/s22plus_ramoops_dtbo_m18_capture_live_gate.py`
-> with the live token `S22PLUS-RAMOOPS-DTBO-M18-CAPTURE-LIVE-GATE`, after the
-> `AGENTS.md` narrow exception is active and the adjusted readiness audit,
-> default dry-run gate, and Android baseline preflight pass. Scope remains
-> exactly one patched DTBO flash, one M18 boot flash for pstore capture, Magisk
-> boot rollback, and stock DTBO restore. No vbmeta/recovery/vendor_boot/raw dd/
-> fastboot/additional candidates.
+> ran with token `S22PLUS-RAMOOPS-DTBO-M18-CAPTURE-LIVE-GATE`. Patched DTBO
+> flash passed, Android/root returned, M18 boot flash passed, M18 produced no
+> ACM/ADB and fell back to Odin/download-mode, Magisk boot rollback passed,
+> Android/root returned, pstore/last_kmsg capture found no M18 marker, stock
+> DTBO restore passed, and final Android baseline preflight passed with Magisk
+> boot SHA + stock DTBO SHA restored and `ramoops` disabled. Result is
+> `capture_marker_found=0`, not a stranded device. Next S22+ unit should analyze
+> the private 2 MiB `last_kmsg` and the M18-before-marker path host-side before
+> proposing any further live candidate.
 
 > Running mode note: this loop runs unattended (incl. Codex bypass) and is **OPERATOR-PRE-AUTHORIZED
 > BY PRINCIPLE (2026-06-15)**, not by an enumerated mechanism list. **The rule: the loop MAY
