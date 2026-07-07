@@ -1343,6 +1343,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > enter download mode, rollback with `--rollback-from-download --ack S22PLUS-M10A3-ROLLBACK-FROM-DOWNLOAD`, and
 > treat extra helper/timing/stack shape as enough to lose self-download.
 >
+> **STATUS UPDATE (2026-07-07 KST, M10A3 probe-reboot live result, OPERATOR-CORRECTED):** Codex executed the
+> attended M10A3 boot-only live gate once. Preflight passed, `adb reboot download` succeeded, the exact M10A3 AP
+> flashed with Odin rc=0, and the original Odin endpoint disconnected. The helper later observed Samsung download
+> mode and restored the pinned Magisk boot-only rollback AP with Odin rc=0, but the operator confirmed the device
+> was bootlooping and manually entered download mode. Therefore the later endpoint is not automatic M10A3
+> self-download proof. Android returned to the rooted Magisk baseline with `boot_completed=1`,
+> `init.svc.bootanim=stopped`, Magisk root, live boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, no pstore files, readable
+> `/proc/last_kmsg`, and no retained M10A3 marker as expected because M10A3 writes no marker. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M10A3_PROBE_REBOOT_LIVE_RESULT_2026-07-07.md`. Interpretation: M10A3 is a
+> recovered bootloop/manual-download result. Since M10A3 removed the M10A2 pre-reboot `getpid()` syscall and kept
+> only a no-syscall pre-reboot stack-probe helper, the failure is broader than prior-syscall side effects. Do not
+> proceed to filesystem/module/configfs/USB candidates. Next bounded unit is host-only M10A4 design/build to split
+> the M9A-to-M10A3 delta: inline stack-probe in `_start`, no pre-reboot helper call, then reboot helper. One changed
+> factor; no live flash until a fresh SHA-pinned `AGENTS.md` exception and preflight exist.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
