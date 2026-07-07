@@ -164,6 +164,18 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > performed. Report:
 > `docs/reports/S22PLUS_RAMOOPS_DTBO_M13_CAPTURE_READINESS_AUDIT_2026-07-08.md`.
 
+> **S22+ UPDATE (2026-07-08 04:36 KST) — DTBO+M13 CAPTURE OPERATOR PLAN MODE READY.**
+> Codex added host-only `--print-plan` mode to
+> `workspace/public/src/scripts/revalidation/s22plus_ramoops_dtbo_m13_capture_live_gate.py`.
+> The mode verifies pinned DTBO/M13/rollback artifacts, then prints the exact
+> inactive-readiness, active-readiness, dry-run, live, manual boot-rollback, and
+> stock-DTBO restore command sequence without touching the device. The readiness
+> auditor now runs this mode and asserts the expected live/rollback/restore
+> tokens and `ramoops_region/status=okay` appear. Validation: `py_compile` pass;
+> `--print-plan` pass; readiness audit result remains pass. `AGENTS.md` was not
+> edited and no live policy, flash, reboot, or write was performed. Report:
+> `docs/reports/S22PLUS_RAMOOPS_DTBO_M13_CAPTURE_OPERATOR_PLAN_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,

@@ -23,7 +23,8 @@ attended live run:
    that draft.
 
 The auditor checks both, then re-runs the capture helper's `--offline-check` and
-default fail-closed path to catch hash/manifest/policy drift.
+`--print-plan`, plus the default fail-closed path, to catch
+hash/manifest/policy/command-surface drift.
 
 ## Result
 
@@ -42,6 +43,7 @@ agents.missing=[
 draft.complete=true
 draft.missing=[]
 offline_check.rc=0
+print_plan.rc=0
 default_dryrun.rc=1
 default_dryrun.reason=AGENTS.md missing ramoops DTBO + M13 authorization markers
 failures=[]

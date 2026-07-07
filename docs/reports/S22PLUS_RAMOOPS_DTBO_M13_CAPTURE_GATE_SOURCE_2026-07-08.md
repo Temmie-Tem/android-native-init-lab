@@ -17,6 +17,9 @@ Modes:
 
 - `--offline-check`: verify all DTBO/M13 packages, manifests, and rollback APs;
   no device action; no `AGENTS.md` live exception required.
+- `--print-plan`: verify the same pinned host artifacts, then print the
+  operator-facing policy/dry-run/live/rollback/stock-DTBO restore command
+  sequence without device action.
 - default dry-run: verify packages, then require a future SHA-pinned
   `AGENTS.md` exception before touching Android state.
 - `--live`: once separately authorized, intended flow is patched DTBO flash,

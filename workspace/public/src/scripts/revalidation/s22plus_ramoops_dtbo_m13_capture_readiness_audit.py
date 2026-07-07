@@ -165,6 +165,23 @@ def main(argv: list[str] | None = None) -> int:
     if offline["returncode"] != 0:
         fail(f"capture gate --offline-check failed rc={offline['returncode']}", report)
 
+    plan = run_command(root, ["python3", gate_script, "--print-plan"], timeout=20.0)
+    report["commands"]["print_plan"] = plan
+    plan_output = f"{plan['stdout']}\n{plan['stderr']}"
+    if plan["returncode"] != 0:
+        fail(f"capture gate --print-plan failed rc={plan['returncode']}", report)
+    for expected in [
+        gate.LIVE_ACK_TOKEN,
+        gate.ROLLBACK_BOOT_ACK_TOKEN,
+        RESTORE_DTBO_ACK_TOKEN,
+        "--rollback-boot-from-download",
+        "--restore-dtbo-from-android",
+        "--restore-dtbo-from-download",
+        "ramoops_region/status=okay",
+    ]:
+        if expected not in plan_output:
+            fail(f"capture gate --print-plan missing expected text: {expected}", report)
+
     if args.assert_default_dryrun_policy_block:
         dryrun = run_command(root, ["python3", gate_script], timeout=20.0)
         report["commands"]["default_dryrun"] = dryrun

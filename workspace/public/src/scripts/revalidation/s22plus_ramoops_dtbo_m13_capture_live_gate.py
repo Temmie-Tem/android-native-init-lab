@@ -89,6 +89,13 @@ LIVE_ACK_TOKEN = "S22PLUS-RAMOOPS-DTBO-M13-CAPTURE-LIVE-GATE"
 ROLLBACK_BOOT_ACK_TOKEN = "S22PLUS-RAMOOPS-M13-ROLLBACK-BOOT-FROM-DOWNLOAD"
 
 
+def display_path(path: Path) -> str:
+    try:
+        return str(path.relative_to(Path.cwd()))
+    except ValueError:
+        return str(path)
+
+
 def resolve_run_dir(root: Path, requested: Path | None) -> Path:
     if requested is not None:
         run_dir = resolve(root, requested)
@@ -178,6 +185,58 @@ def restore_stock_dtbo_from_android(
     return restore_dtbo_from_download(odin, dtbo_rollback_ap, log_path, odin_wait_sec, android_wait_sec, serial)
 
 
+def print_operator_plan(
+    dtbo_candidate_ap: Path,
+    dtbo_rollback_ap: Path,
+    m13_ap: Path,
+    magisk_rollback_ap: Path,
+    stock_rollback_ap: Path,
+) -> None:
+    script = "workspace/public/src/scripts/revalidation/s22plus_ramoops_dtbo_m13_capture_live_gate.py"
+    readiness = "workspace/public/src/scripts/revalidation/s22plus_ramoops_dtbo_m13_capture_readiness_audit.py"
+
+    print("S22+ ramoops DTBO + M13 positive-control plan")
+    print("state: host-only plan; no device action was performed")
+    print("")
+    print("pinned artifacts:")
+    print(f"  dtbo_candidate_ap={display_path(dtbo_candidate_ap)}")
+    print(f"  dtbo_rollback_ap={display_path(dtbo_rollback_ap)}")
+    print(f"  m13_ap={display_path(m13_ap)}")
+    print(f"  magisk_rollback_ap={display_path(magisk_rollback_ap)}")
+    print(f"  stock_rollback_ap={display_path(stock_rollback_ap)}")
+    print("")
+    print("current gate state:")
+    print("  1. AGENTS policy is expected to be inactive until the inert draft is promoted.")
+    print("  2. Run readiness while inactive:")
+    print(f"     PYTHONPATH=workspace/public/src/scripts/revalidation PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 {readiness}")
+    print("  3. If operator promotes the draft into AGENTS, re-run readiness in active-policy mode:")
+    print(
+        "     PYTHONPATH=workspace/public/src/scripts/revalidation PYTHONPYCACHEPREFIX=/tmp/a90_pycache "
+        f"python3 {readiness} --no-expect-agents-inactive --no-default-dryrun-check"
+    )
+    print("  4. Then run the capture helper default dry-run:")
+    print(f"     PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 {script}")
+    print("")
+    print("attended live command, only after active policy + dry-run pass:")
+    print(f"  PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 {script} --live --ack {LIVE_ACK_TOKEN}")
+    print("")
+    print("expected live sequence:")
+    print("  1. flash patched DTBO")
+    print("  2. require Android/root return")
+    print("  3. verify patched DTBO hash and live ramoops_region/status=okay")
+    print("  4. flash M13 boot positive-control")
+    print("  5. observe ACM/ADB/Odin/no-transport")
+    print("  6. roll boot back to Magisk and collect pstore")
+    print("  7. restore stock DTBO")
+    print("")
+    print("manual recovery command if M13 parks, ACM appears, or no rollback transport appears:")
+    print(f"  PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 {script} --rollback-boot-from-download --ack {ROLLBACK_BOOT_ACK_TOKEN}")
+    print("")
+    print("stock DTBO cleanup commands:")
+    print(f"  PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 {script} --restore-dtbo-from-android --ack {RESTORE_DTBO_ACK_TOKEN}")
+    print(f"  PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 {script} --restore-dtbo-from-download --ack {RESTORE_DTBO_ACK_TOKEN}")
+
+
 def preflight_common(args: argparse.Namespace) -> tuple[Path, Path, Path, Path, Path, Path, Path, Path, Path]:
     root = repo_root()
     run_dir = resolve_run_dir(root, args.run_dir)
@@ -229,6 +288,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--rollback-boot-from-download", action="store_true")
     parser.add_argument("--restore-dtbo-from-download", action="store_true")
     parser.add_argument("--restore-dtbo-from-android", action="store_true")
+    parser.add_argument("--print-plan", action="store_true", help="verify pinned artifacts and print the operator live/recovery plan")
     parser.add_argument("--ack")
     args = parser.parse_args(argv)
 
@@ -240,13 +300,14 @@ def main(argv: list[str]) -> int:
             args.rollback_boot_from_download,
             args.restore_dtbo_from_download,
             args.restore_dtbo_from_android,
+            args.print_plan,
         )
         if enabled
     )
     if modes > 1:
         raise SystemExit(
             "--offline-check, --live, --rollback-boot-from-download, "
-            "--restore-dtbo-from-download, and --restore-dtbo-from-android are mutually exclusive"
+            "--restore-dtbo-from-download, --restore-dtbo-from-android, and --print-plan are mutually exclusive"
         )
 
     (
@@ -261,6 +322,12 @@ def main(argv: list[str]) -> int:
         stock_rollback_ap,
     ) = preflight_common(args)
     boot_rollback_ap = magisk_rollback_ap if args.rollback_target == ROLLBACK_MAGISK else stock_rollback_ap
+
+    if args.print_plan:
+        append_log(log_path, "print_plan=ok device_action=0 agents_exception_checked=0 android_checked=0")
+        print_operator_plan(dtbo_candidate_ap, dtbo_rollback_ap, m13_ap, magisk_rollback_ap, stock_rollback_ap)
+        print(f"log={display_path(log_path)}")
+        return 0
 
     if args.offline_check:
         append_log(log_path, "offline_check=ok device_action=0 agents_exception_checked=0 android_checked=0")
