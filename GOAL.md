@@ -963,7 +963,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > run.** Next supervised live command:
 > `PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m7_usb_subset_live_gate.py --live --ack S22PLUS-M7-USB-SUBSET-LIVE-GATE`.
 >
-> **🎯 OPERATOR STEER (2026-07-07, M7 is the live-ready USB-ACM candidate — recipe now root-caused end-to-end;
+> **STATUS UPDATE (2026-07-07 KST, M7 USB-subset live result):** Codex executed the attended M7 boot-only live
+> gate once. Preflight passed, `adb reboot download` succeeded, Odin saw download mode, and the exact M7 AP
+> SHA256 `be0e1e34ec9452a14b7cfac66cc7ac57a0b29e92343945c35c1f836282563c4d` flashed with Odin rc=0. The M7
+> candidate did not expose ACM or ADB. The operator observed a boot loop and manually entered Samsung download
+> mode; the helper then detected exactly one Odin endpoint and flashed the pinned Magisk boot-only rollback AP
+> rc=0. Android returned with `boot_completed=1`, `init.svc.bootanim=stopped`, orange verified boot, Magisk
+> root, and live boot SHA256 `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. Retained
+> evidence stayed absent (`pstore_files=[]`, `/proc/last_kmsg` readable but no `S22_NATIVE_INIT_USB_ACM_M7`
+> marker). Report: `docs/reports/S22PLUS_NATIVE_INIT_M7_USB_SUBSET_LIVE_RESULT_2026-07-07.md`. Interpretation:
+> M7 follows the branch below: **still bootloops**. This falsifies the narrow "M6 loop was only full-recovery
+> watchdog modules" hypothesis; the explicit watchdog modules were excluded and the device still boot-looped.
+> Do not repeat M7. Next bounded unit is host-only M8: compare M5's no-loop 26-module path with M7's 53-module
+> path and build a smaller timed-download module-bisect probe so the next live result distinguishes "PID1
+> survived this module batch" from "culprit is in/before this batch" without depending on ACM first.
+>
+> **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M5_USB_ACM_ROOTCAUSE_HOSTANALYSIS_2026-07-07.md`).** The M5→M6→M7 arc is
@@ -975,9 +990,9 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `dummy_udc.0`), and an active **`/sys/class/usb_role/*/role=device` force**. The USB bring-up mechanism is now
 > statically mapped: `dwc3@a600000` is `dr_mode="otg"` (peripheral-default) with `usb-role-switch`; the data role
 > is driven by max77705 over i2c (bare-init friendly, not glink-firmware-bound), and there are **three redundant
-> routes to peripheral** (max77705 auto / role-switch force / EUD). **NEXT = attended M7 live gate** (`--live
-> --ack S22PLUS-M7-USB-SUBSET-LIVE-GATE`; rollback = manual download + `--rollback-from-download --ack
-> S22PLUS-M7-ROLLBACK-FROM-DOWNLOAD`). **Post-M7 branch logic:** (a) host sees `/dev/ttyGS0`/ACM ⇒ **milestone:
+> routes to peripheral** (max77705 auto / role-switch force / EUD). **This `NEXT = attended M7 live gate` was
+> executed once and failed per the M7 live result above; do not execute it again.**
+> **Post-M7 branch logic:** (a) host sees `/dev/ttyGS0`/ACM ⇒ **milestone:
 > control channel up → switch to A90-style interactive iteration**; (b) stable park, no ACM ⇒ watchdog fix
 > confirmed, failure moved downstream — next unit adds EUD-enable as an explicit step and/or narrows which force
 > path (auto vs role-switch) failed, one change per flash; (c) still bootloops ⇒ the watchdog exclude was
