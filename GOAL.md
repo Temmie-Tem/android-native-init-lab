@@ -4,18 +4,21 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ LIVE RESULT (2026-07-08 01:47 KST) — RAMOOPS DTBO + M18 CAPTURE ATTEMPTED, DEVICE CLEAN.**
-> The attended gate
-> `workspace/public/src/scripts/revalidation/s22plus_ramoops_dtbo_m18_capture_live_gate.py`
-> ran with token `S22PLUS-RAMOOPS-DTBO-M18-CAPTURE-LIVE-GATE`. Patched DTBO
-> flash passed, Android/root returned, M18 boot flash passed, M18 produced no
-> ACM/ADB and fell back to Odin/download-mode, Magisk boot rollback passed,
-> Android/root returned, pstore/last_kmsg capture found no M18 marker, stock
-> DTBO restore passed, and final Android baseline preflight passed with Magisk
-> boot SHA + stock DTBO SHA restored and `ramoops` disabled. Result is
-> `capture_marker_found=0`, not a stranded device. Next S22+ unit should analyze
-> the private 2 MiB `last_kmsg` and the M18-before-marker path host-side before
-> proposing any further live candidate.
+> **S22+ CURRENT FRONTIER (2026-07-08 01:53 KST) — M18 CAPTURE POSTMORTEM DONE, NO SAME-M18 REPEAT.**
+> Host-only postmortem
+> `workspace/public/src/scripts/revalidation/s22plus_m18_capture_postmortem.py`
+> parsed the live run, M18 source, M18 manifest, and private retained `last_kmsg`.
+> Result: device recovery flags all present; 41 M18 observe iterations had no ACM;
+> M18 returned via Odin/download-mode; retained `last_kmsg` is 2097136 bytes with
+> zero M18 markers and repeated ABL/download records, so the retained channel does
+> **not** localize whether M18 reached its `/dev/kmsg` marker. Source order proves
+> the first M18 emissions are `/dev/kmsg` only (`phase=mounts`, then `k_marker`).
+> Manifest also proves M18 was not a fully dependency-closed USB-tail candidate:
+> 8 USB-tail modules have 29 non-reset missing dependency edges. Interpretation:
+> do not repeat the same M18 live. Preferred next instrument remains UART/kernel
+> console. If no-UART fallback is pursued, first design host-only as a checkpoint/
+> download discriminator or dependency-closed USB-tail candidate with a fresh
+> SHA-pinned gate; no blind same-shape live.
 
 > Running mode note: this loop runs unattended (incl. Codex bypass) and is **OPERATOR-PRE-AUTHORIZED
 > BY PRINCIPLE (2026-06-15)**, not by an enumerated mechanism list. **The rule: the loop MAY
