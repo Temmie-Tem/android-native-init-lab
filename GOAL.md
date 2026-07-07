@@ -684,6 +684,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > current host state to observe M18. Report:
 > `docs/reports/S22PLUS_EUD_OPENOCD_PRIVATE_BUILD_RESULT_2026-07-08.md`.
 
+> **S22+ UPDATE (2026-07-08 07:56 KST) — SM8450 OPENOCD TARGET CFG DERIVED; CFG BLOCKER CLOSED, EUD ENDPOINT STILL ABSENT.**
+> Codex added a public draft target cfg at
+> `workspace/public/src/openocd/target/qualcomm/sm8450_s22plus_romtable.cfg`
+> plus a host-only DTB-backed auditor
+> `workspace/public/src/scripts/revalidation/s22plus_sm8450_openocd_target_cfg_audit.py`.
+> The stock FYG8 `vendor_boot` DTB proves 8 CPUs and 8 APSS CPU CTIs at
+> `0x12010000`..`0x12080000`; it does **not** source-prove per-core DBGBASE, so
+> the cfg intentionally hardcodes only CTIBASE and leaves debug-base discovery to
+> OpenOCD's aarch64 ROM-table path. Validation passed:
+> `sm8450_cfg_draft_ready_romtable_dbgbase; cpus=8 cpu_ctis=8 dbgbase_hints=0 cfg=1`.
+> Re-running the EUD host audit with the private OpenOCD scripts plus
+> `workspace/public/src/openocd` now moves from `blocked_missing_sm8450_target`
+> to `waiting_for_eud_enumeration_or_hardware`
+> (`openocd=1 eud_cfg=1 qcom_cfg=1 sm8450_cfg=1 host_eud_usb=0`). No device
+> action, flash, reboot, partition write, or sysfs write was performed. Next live
+> gate is a real/current EUD USB/SWD endpoint or an alternate observability path,
+> not another native-init flash expecting current EUD observability. Report:
+> `docs/reports/S22PLUS_SM8450_OPENOCD_TARGET_CFG_DERIVATION_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
