@@ -1381,6 +1381,69 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    bootloader, raw host `dd`, fastboot, Magisk modules, multidisabler, format
    data, additional boot candidates, additional DTBO candidates, kernel rebuilds,
    or any A90 action.
+   **Narrow operator-authorized exception (2026-07-08, S22+ ramoops vendor_boot + M13 positive-control only):**
+   after the direct byte-preserving vendor_boot host build proved
+   `changed_outside_allowed_count=0` and the gate source prepared the M13
+   positive-control flow, Codex may perform one bounded attended S22+ ramoops
+   vendor_boot + M13 positive-control capture run on the Samsung S22+
+   `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_ramoops_vendor_boot_m13_capture_live_gate.py`
+   and live ack token `S22PLUS-RAMOOPS-VENDORBOOT-M13-CAPTURE-LIVE-GATE`.
+   This exception authorizes exactly two partition classes and no others:
+   first flash the direct-patched `vendor_boot` AP.tar.md5 SHA256
+   `0af250628c7cd5d7062b53823162f55716d1758d31ff88f65ea1c61dd0da83c3`,
+   then, only after Android/root returns and the helper verifies live
+   `/proc/device-tree/reserved-memory/ramoops_region/status=okay`, flash the
+   known parking M13 boot candidate AP.tar.md5 SHA256
+   `5e959f0dd7c55d8e6a9363cde0c0fcc72876639bdc46ccdc826186cfc43134fa`;
+   after capture, restore the boot partition using the pinned Magisk boot
+   rollback AP.tar.md5 SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`
+   with stock boot fallback AP.tar.md5 SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`,
+   then restore stock vendor_boot using the pinned stock vendor_boot rollback
+   AP.tar.md5 SHA256
+   `2f9075fe609e7aa66c2ec88a2bd0223d6a9d7ff23d8bab0f7c4eb44633f480bb`.
+   The patched vendor_boot image SHA256 must be
+   `d62f2da241e1104db9e4b72aa0ba1927c0e85afd22fe380bff62c8df52bd3245`, the
+   stock vendor_boot image SHA256 must be
+   `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`,
+   the source DTB SHA256 must be
+   `2cd64d43a4f6b89a7c5523f3ef73fbb84dcad92c6d857e649cd1f0baa7c0080e`, the
+   patched DTB SHA256 must be
+   `b862359dc65adb1eb9f5f17f1b8be637eb0135e88a681d779f9cbeda3ae5a3ec`, the
+   M13 padded boot.img SHA256 must be
+   `21808217d6cf698217e25cf35caf3a271a7f55451cad85ba576d54a40010441b`, the
+   M13 base known-booting Magisk boot SHA256 must be
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, the
+   M13 kernel SHA256 must be
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`, the
+   M13 `/init` SHA256 must be
+   `6b2d229217d83c7f36032c37291bebbebe7c8c5782d006fedcc538649d99f5d3`, and
+   the M13 source SHA256 must be
+   `4e3a88336c6a6e0b1ed6e25f572ed0ec26c2e8d177942598a6e32aa1b2a762e8`.
+   The vendor_boot APs must contain exactly one tar member,
+   `vendor_boot.img.lz4`; the M13, Magisk rollback, and stock boot fallback
+   APs must contain exactly one tar member, `boot.img.lz4`. The helper must
+   verify all AP hashes and both manifests before live work, verify current
+   Android root plus the current boot and stock vendor_boot hashes, flash
+   patched vendor_boot first, require Android/root to return, verify live
+   ramoops status is `okay`, then flash M13 for the M13 positive-control
+   pstore capture. If M13 parks or no transport appears, boot rollback requires
+   operator manual download-mode entry and the helper mode
+   `--rollback-boot-from-download --ack S22PLUS-RAMOOPS-M13-ROLLBACK-BOOT-FROM-DOWNLOAD`.
+   Stock vendor_boot restore requires either
+   `--restore-vendor-boot-from-android --ack S22PLUS-RAMOOPS-RESTORE-STOCK-VENDOR-BOOT`
+   or
+   `--restore-vendor-boot-from-download --ack S22PLUS-RAMOOPS-RESTORE-STOCK-VENDOR-BOOT`.
+   The capture goal is to read `pstore` / `/sys/fs/pstore` after the M13
+   positive-control boot, then restore stock vendor_boot for a clean state. This
+   exception does not authorize writing or flashing recovery, dtbo, vbmeta,
+   vbmeta_system, BL, CP, CSC, super, userdata, persist, EFS, sec_efs, RPMB,
+   keymaster, modem, bootloader, raw host `dd`, fastboot, Magisk modules,
+   multidisabler, format data, M15/M18/QMP candidates, additional boot
+   candidates, additional vendor_boot candidates, kernel rebuilds, or any A90
+   action.
    **Narrow operator-authorized exception (2026-07-08, S22+ M19 C000
    dependency-closed checkpoint/download native-init boot-only):** after the
    M18 capture postmortem showed the same M18 image must not be repeated, the

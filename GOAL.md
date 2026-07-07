@@ -29,6 +29,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > proves dead: EUD (in-SoC USB-C debug console, no jig) → UART jig last. Full
 > rationale: `docs/reports/S22PLUS_RAMOOPS_POSITIVE_CONTROL_OBSERVABILITY_STEER_2026-07-08.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-08 03:32 KST) — RAMOOPS VENDOR_BOOT + M13 CAPTURE POLICY ACTIVE; DRY-RUN PASS; LIVE NOT EXECUTED.**
+> Codex added the narrow `AGENTS.md` exception for exactly the direct-patched
+> `vendor_boot` AP plus M13 boot positive-control flow, using only
+> `workspace/public/src/scripts/revalidation/s22plus_ramoops_vendor_boot_m13_capture_live_gate.py`.
+> The helper now sees `agents_exception_missing=[]`; `py_compile`,
+> `--offline-check`, and default dry-run passed. The dry-run was read-only:
+> no Odin transfer, reboot, flash, rollback, or partition write was performed.
+> After the operator reported another bootloop/manual-download observation,
+> read-only ADB showed Android back at `sys.boot_completed=1`,
+> `ro.boot.verifiedbootstate=orange`, `ro.boot.boot_recovery=0`, Magisk root,
+> current `boot` SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
+> and current `vendor_boot` SHA256
+> `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`.
+> Therefore the device is recovered to the rooted Magisk + stock vendor_boot
+> baseline, but the bootloop remains unexplained. Do not run blind candidates.
+> Next live step, only with operator-attended approval, is the ack-gated command
+> `S22PLUS-RAMOOPS-VENDORBOOT-M13-CAPTURE-LIVE-GATE`, followed by mandatory
+> boot rollback and stock vendor_boot restore gates. Report:
+> `docs/reports/S22PLUS_RAMOOPS_VENDOR_BOOT_M13_CAPTURE_POLICY_ACTIVATION_2026-07-08.md`.
+
 > **S22+ LIVE STATUS RECHECK (2026-07-08 03:13 KST) — OPERATOR BOOTLOOP/MANUAL-DOWNLOAD REPORT, BASELINE VERIFIED.**
 > Operator reported another bootloop observation followed by manual download
 > mode entry. Host follow-up found the phone already in normal Android with
