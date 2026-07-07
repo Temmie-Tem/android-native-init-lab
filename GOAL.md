@@ -1096,6 +1096,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > M9A live is not authorized until it has a host build report, SHA-pinned `AGENTS.md` exception, guarded helper, and
 > dry-run preflight.
 >
+> **STATUS UPDATE (2026-07-07 KST, M9A host build ready):** Codex added
+> `workspace/public/src/native-init/s22plus_init_m9a_c_first_reboot.c` and
+> `workspace/public/src/scripts/revalidation/build_s22plus_inplace_m9a_c_first_reboot.py`, then built host-only
+> output `workspace/private/outputs/s22plus_native_init/inplace_m9a_c_first_reboot_v0_1`. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M9A_C_FIRST_REBOOT_HOST_BUILD_2026-07-07.md`. Exact candidate hashes:
+> AP.tar.md5 SHA256 `c953f74fe7e3cdc226ebd3e1f0bac2142ee39e14483d87022714ae98e336d6b1`, boot.img SHA256
+> `4c998680a1ccdbd5017053d7da58858ab818fc0644f08ef5bb0fc5d0dcc2d981`, M9A `/init` SHA256
+> `46dfc4ecf92457260484d38360c70c0a45a1b7aead3a5cac567ec21ab2c7d97f`, source SHA256
+> `6248617a4d2fe077768aef1324937659d33a0c93a453d0ecf9cd8cc3d3ec34a8`, base Magisk boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, kernel SHA256
+> `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`. Static validation confirmed
+> freestanding AArch64/no interpreter, build-id + `.eh_frame` present, explicit stack/helper path, exactly one live
+> `svc #0` loading arm64 `__NR_reboot` 142, required string `download`, no marker/VFS/kmsg/module/configfs/USB
+> strings in `/init`, no-change MagiskBoot repack byte-identical to base boot, kernel preserved, and AP member
+> `boot.img.lz4` only. **No live flash is authorized yet.** Next bounded unit is M9A live-gate preflight only:
+> SHA-pinned `AGENTS.md` exception + guarded helper + default no-flash dry-run against the rooted Android/Magisk
+> baseline.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
