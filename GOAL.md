@@ -402,6 +402,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/plans/S22PLUS_ANDROID_DEBUG_CHANNEL_REQUIRED_PACKAGES_2026-07-08.txt`.
 > Report: `docs/reports/S22PLUS_SYSDUMP_PACKAGE_RESTORE_2026-07-08.md`.
 
+> **S22+ LIVE READ-ONLY RESULT (2026-07-08 06:04 KST) — DEBUG LEVEL MID-CLASS CONFIRMED AFTER OPERATOR UI REBOOT.**
+> After the operator used the physical SysDump DEBUG LEVEL UI, the phone rebooted
+> and returned to normal Android (`sys.boot_completed=1`, `boot_recovery=0`,
+> Magisk root OK). A follow-up `--read-only-probe` performed no flash, no write,
+> no sysrq, and no reboot. It now decodes
+> `/sys/module/sec_debug/parameters/debug_level` as `18765 / 0x494d`,
+> little-endian ASCII `MI`, `likely_low_code=false`; direct root read also shows
+> `enable=1`, `enable_user=0`, `force_upload=5`. This moves the device off the
+> previous LOW value `20300 / 0x4f4c / LO` and satisfies the precondition for the
+> separate sec_debug MID sysrq positive-control gate. Do not trigger the panic
+> automatically; next step is explicit operator-approved promotion/run of the
+> inert sysrq-panic exception, with manual recovery expected after the intentional
+> crash. Report:
+> `docs/reports/S22PLUS_SEC_DEBUG_MID_SET_READONLY_RESULT_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
