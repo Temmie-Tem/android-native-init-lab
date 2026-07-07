@@ -4,30 +4,36 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **OPERATOR STEER (2026-07-08, Claude) — BUY OBSERVABILITY BEFORE MORE BRING-UP.**
-> The stall is not USB; it is that we cannot *read* the fault. It is already
-> localized (M13 no-module parks; M15 QMP PHY insmod bootloops) but every step is
-> a blind 1-bit park/loop flash — that does not converge. Floor discriminators
-> (M20B/M20C/M21A) characterize the *unreliable reboot("download") beacon* —
-> noise — not the USB fault; M21A may still run if the operator chooses, but it is
-> NOT the high-value unit. The high-value unit is getting the kernel console:
-> 1. **Enable ramoops the RIGHT way** — direct **vendor_boot DTB** `fdtput`
->    `/reserved-memory/ramoops_region status: disabled→okay` (NOT a DTBO overlay;
->    the prior `0116dd61` DTBO attempt never verified enablement and had no
->    positive control → its empty pstore was ambiguous, not a refutation).
-> 2. **POSITIVE CONTROL FIRST** — boot the parking **M13** (no-module) with ramoops
->    enabled, roll back, confirm `/sys/fs/pstore/console-ramoops` holds M13's clean
->    console. Only then point it at **M15** (QMP PHY) to read the exact abort
->    (GDSC/regulator/clk/PLL name or last-line-before-hang). If even M13's clean
->    console does not persist, ramoops is dead here → EUD, then UART.
-> 3. **Near-free now:** read the Samsung reset/PON reason precisely
->    (watchdog-bark vs panic vs SError) — `last_kmsg` shows panic/Oops absent, so
->    the reset is likely a watchdog/async hang (PHY touching an unpowered
->    register). Zero new flashes; tests the hang hypothesis.
-> Needs a fresh SHA-pinned **vendor_boot-only** `AGENTS.md` exception (vendor_boot
-> is not forbidden; odin-flashable + stock-recoverable). Fallback if ramoops
-> proves dead: EUD (in-SoC USB-C debug console, no jig) → UART jig last. Full
-> rationale: `docs/reports/S22PLUS_RAMOOPS_POSITIVE_CONTROL_OBSERVABILITY_STEER_2026-07-08.md`.
+> **OPERATOR STEER (2026-07-08, Claude) — UPDATED: THE REAL CONSOLE IS SAMSUNG sec_debug, NOT MAINLINE ramoops.**
+> Supersedes my earlier "enable ramoops via vendor_boot DTB" steps — that was
+> disproven live (patched vendor_boot did not affect the live DT; the active DT is
+> the DTBO). I then decoded the dtbo blobs host-only (FDT walker, no dtc): the
+> enable-target overlay is **Samsung's `sec_debug` suite, not mainline ramoops** —
+> `samsung,kernel_log_buf` (→ `/proc/last_kmsg`, 2 MiB, zstd), `samsung,pstore_pmsg`
+> (→ `/dev/pmsg0`), `upload_cause`/`crashkey`/`qcom-rst_exinfo`/`user_reset`, all
+> gated by `sec,debug_level`. The DTBO "enable" is a single mainline
+> `ramoops_region status disabled→okay` flip that does NOT drive the Samsung path
+> → that is why every `last_kmsg` was ABL/download-only and M13 pstore was empty:
+> retail ships **`debug_level=LOW`** (sec_debug stores only bootloader/LPM logs),
+> and mainline ramoops is vestigial here.
+> **The real lever (websearch-confirmed): raise Samsung debug_level to MID.**
+> `*#9900#` SysDump → DEBUG LEVEL: MID → a kernel panic enters Upload Mode /
+> ramdump = full kernel log retained next boot. NO flash to enable, reversible to
+> LOW, kernel-level (captures even a bare native-init boot + the QMP-PHY abort
+> independent of our `/init`); `rst_exinfo` logs exception/reset context so even a
+> watchdog/async-SError (leading M15 cause) leaves a reason.
+> 1. **CHEAPEST positive control = ZERO flash:** on rooted Android set MID +
+>    `echo c > /proc/sysrq-trigger`, confirm next-boot `/proc/last_kmsg` holds the
+>    real panic (not ABL-only). Validates the Samsung channel with no boot flash.
+> 2. **Then** point it at a native QMP-PHY candidate (M15/M18) and read the abort.
+> The in-flight M22 sysrq-panic is a valid test of the *mainline* path; if M22
+> retains nothing, do NOT keep permuting DTBO — switch to debug_level=MID.
+> Fallback order: **sec_debug/MID → EUD (in-SoC USB-C console, no jig) → UART last.**
+> On-device caveats: confirm MID is settable via `*#9900#` (vs a `param` write) and
+> cleanly reversible, and that MID capture survives our manual-download recovery.
+> Full evidence + sources:
+> `docs/reports/S22PLUS_SEC_DEBUG_DEBUG_LEVEL_NATIVE_CONSOLE_HOSTFINDING_2026-07-08.md`
+> (prior superseded rationale: `docs/reports/S22PLUS_RAMOOPS_POSITIVE_CONTROL_OBSERVABILITY_STEER_2026-07-08.md`).
 
 > **S22+ LIVE RESULT (2026-07-08 03:50 KST) — DIRECT VENDOR_BOOT RAMOOPS PATCH BOOTED BUT DID NOT AFFECT LIVE DT; M13 NOT FLASHED.**
 > Operator authorized the ack-gated
