@@ -1066,6 +1066,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `--rollback-from-download --ack S22PLUS-M8A-ROLLBACK-FROM-DOWNLOAD`, and treat the failure as below the module
 > layer.
 >
+> **STATUS UPDATE (2026-07-07 KST, M8A minimal-fs live result):** Codex executed the attended M8A boot-only
+> live gate once. Preflight passed, `adb reboot download` succeeded, Odin saw download mode, and the exact M8A AP
+> SHA256 `c97d29e38fe3293ad145a7743b61ae5fddae8f1b028e619dcd56e2f640de3c19` flashed with Odin rc=0. The helper
+> observed the original Odin endpoint disconnect, so later Odin would have counted as true M8A self-download
+> proof. No later Odin/ADB/USB Samsung endpoint appeared during the bounded 60 s observation
+> (`m8a_self_download_seen=0`). Operator manually entered Samsung download mode; rollback helper then flashed the
+> pinned Magisk boot-only AP rc=0. Android returned with four stable samples (`boot_completed=1`,
+> `init.svc.bootanim=stopped`), Magisk root, and live boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. Retained evidence stayed absent
+> (`pstore_files=[]`, `/proc/last_kmsg` readable but no `S22_NATIVE_INIT_M8A_MINFS_DOWNLOAD` marker). Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M8A_MINFS_DOWNLOAD_LIVE_RESULT_2026-07-07.md`. Interpretation: M8A removes
+> the M8 module batch, module-list parsing, `/lib/modules`, configfs, USB gadget, UDC binding, and USB role force
+> from the failure class, yet still does not self-download. Therefore do not proceed to M8B module split. Next
+> bounded unit is host-only lower-layer postmortem: compare the M4T3 raw-asm first-action `reboot("download")`
+> PASS against the M5B/M8A freestanding-C minimal-fs NO-SELF-DOWNLOAD results, then isolate the first failing
+> layer (C entry/runtime shape, compiler-emitted sections/stack use, `/dev`/`mknodat`, `/dev/kmsg`, `mount`, or
+> reboot-after-setup) before any new live flash.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
