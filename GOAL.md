@@ -1531,6 +1531,28 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > If M13 parks or ACM appears, it has no reboot/download path by design; manually enter download mode and
 > rollback with `--rollback-from-download --ack S22PLUS-M13-ROLLBACK-FROM-DOWNLOAD`.
 >
+> **STATUS UPDATE (2026-07-07 KST, M13 live result - rollback clean):** Codex executed the attended M13
+> boot-only live gate once. Preflight passed, `adb reboot download` succeeded, Odin saw download mode, and the
+> exact M13 AP SHA256 `5e959f0dd7c55d8e6a9363cde0c0fcc72876639bdc46ccdc826186cfc43134fa` flashed with
+> Odin rc=0. The M13 candidate did not expose ACM, ADB, or Odin during the 120 second observation window.
+> After the no-transport result, an Odin endpoint was detected and Codex ran
+> `--rollback-from-download --ack S22PLUS-M13-ROLLBACK-FROM-DOWNLOAD`; the pinned Magisk boot-only rollback
+> AP flashed with Odin rc=0. Android returned with `boot_completed=1`, `init.svc.bootanim=stopped`, orange
+> verified boot, Magisk root, and live boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. Retained evidence stayed absent
+> (`pstore_files=[]`, `/proc/last_kmsg` readable but no `S22_NATIVE_INIT_USB_ACM_M13` marker). Independent
+> post-run check also confirmed `/sys/fs/pstore` empty and the baseline boot hash. The operator visually
+> confirmed the candidate was **not boot-looping**. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M13_NOMODULE_CONFIGFS_LIVE_RESULT_2026-07-07.md`. Interpretation:
+> **non-looping/no ACM/no ADB/no Odin during observation; rollback clean**. Do not repeat M13 unchanged. M13
+> recovers a stable no-module/no-transport floor below M12 and strongly points at the removed module work as
+> the source of the M12 boot-loop behavior, but retained markers are absent, so do not over-claim a specific
+> module or internal phase. Next bounded unit should be host-only M14: start from the stable M13 floor,
+> reintroduce module work in a much smaller bounded group, and keep configfs/role-force unchanged so the next
+> live result isolates the small module add-back. If the first small add-back loops, bisect inside that group;
+> if it stays non-looping but no ACM appears, add the next dependency group instead of changing configfs at
+> the same time.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
