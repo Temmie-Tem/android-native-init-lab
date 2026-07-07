@@ -63,14 +63,20 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    stock FYG8 vbmeta-only rollback AP SHA256
    `fdf42fb913ac82bba7414d41a2995300c9bc56d31e7cddf907b487e7b2ae707b` and stop.
    **Narrow operator-authorized exception (2026-07-08, S22+ sec_debug
-   debug_level MID sysrq-panic zero-flash only):** after the S22+ DTBO+M13
-   no-hit and the host finding that Samsung `sec_debug` gated by `debug_level`
-   is the likely retained-console path, Codex may perform one bounded attended
-   zero-flash Android sec_debug positive-control run on the Samsung S22+
+   debug_level MID sysrq-panic zero-flash only):**
+   **Consumed/retired:** this one-shot exception was consumed by the 2026-07-08
+   live run. It proved retained `/proc/last_kmsg` evidence via Samsung
+   sec_debug/MID and must not be reused for another sysrq panic under the same
+   gate. Future native-init fault-capture work needs a fresh, narrower
+   exception for the selected candidate and observation path.
+   Before consumption, after the S22+ DTBO+M13 no-hit and the host finding that
+   Samsung `sec_debug` gated by `debug_level` is the likely retained-console
+   path, Codex could perform one bounded attended zero-flash Android sec_debug
+   positive-control run on the Samsung S22+
    `SM-S906N`/`g0q` `S906NKSS7FYG8` (`SM-S906N/g0q/S906NKSS7FYG8`)
    using only the checked helper
    `workspace/public/src/scripts/revalidation/s22plus_sec_debug_mid_sysrq_gate.py`
-   and live ack token `S22PLUS-SECDEBUG-MID-SYSRQ-PANIC-LIVE-GATE`. This
+   and a now-consumed live ack token. This
    exception authorizes no Odin flash, no partition write, no boot image write,
    no DTBO write, no vendor_boot write, no recovery/vbmeta/BL/CP/CSC/super/
    userdata/EFS/sec_efs/RPMB/keymaster/modem/bootloader write, no raw host `dd`,

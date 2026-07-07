@@ -464,6 +464,28 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `/proc/sys/kernel/sysrq=0`. No live panic occurred in this unit. Report:
 > `docs/reports/S22PLUS_SEC_DEBUG_MID_SYSRQ_POLICY_ACTIVATION_2026-07-08.md`.
 
+> **S22+ LIVE RESULT (2026-07-08 06:22 KST) — SEC_DEBUG MID POSITIVE CONTROL PASS; LAST_KMSG RETAINS THE PANIC.**
+> The operator-approved one-shot zero-flash Android sysrq gate was consumed.
+> `--live-panic` wrote `S22_SECDEBUG_MID_SYSRQ_PANIC_CONTROL`, enabled sysrq, and
+> triggered `c`; the helper ended with `rc=4` /
+> `post_trigger_observed=adb_disconnected`. Host follow-up saw Samsung Download
+> mode USB `04e8:685d`; the operator manually rebooted to Android. A
+> post-recovery `--collect-after-recovery` then passed with `marker_found=1`.
+> `/proc/last_kmsg` was retained (`2097136` bytes) and contains marker hits `2`,
+> `Kernel panic - not syncing: sysrq triggered crash`, SysRq stack frames,
+> `sec_upload_cause ... cause : sysrq triggered crash`, ramdump/upload/reset
+> evidence, and `upload_cause = KERNEL PANIC`. `/sys/fs/pstore` remained empty,
+> so the proven channel is Samsung sec_debug `/proc/last_kmsg`, not mainline
+> pstore. Final Android state: `sys.boot_completed=1`, Magisk root OK,
+> `debug_level=18765 / 0x494d / MI`, `enable=1`, `/proc/reset_reason=KPON`. No
+> Odin flash, partition write, boot/DTBO/vendor_boot write, raw `dd`, fastboot,
+> or Magisk module install occurred. `AGENTS.md` now marks the one-shot
+> sec_debug sysrq exception consumed/retired. Next default path: use this proven
+> Samsung sec_debug/MID retained-console channel for the selected native-init
+> fault-capture candidate; do not keep spending the mainline ramoops/M22 path by
+> default. Report:
+> `docs/reports/S22PLUS_SEC_DEBUG_MID_SYSRQ_LIVE_RESULT_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
