@@ -1012,6 +1012,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > path; (b) no self-download / bootloop ⇒ manually enter download mode, rollback with
 > `--rollback-from-download --ack S22PLUS-M8-ROLLBACK-FROM-DOWNLOAD`, and bisect inside this first 18-module batch.
 >
+> **STATUS UPDATE (2026-07-07 KST, M8 timed-download live result):** Codex executed the attended M8 boot-only
+> live gate once. Preflight passed, `adb reboot download` succeeded, Odin saw download mode, and the exact M8 AP
+> SHA256 `59433518e7bea2d16f5efb62ee226c190f6a3af8673336310a2ef0fff7bee36b` flashed with Odin rc=0. The helper
+> observed the original Odin endpoint disconnect, so later Odin would have counted as true M8 self-download
+> proof. No later Odin/ADB/USB Samsung endpoint appeared during the bounded 60 s observation
+> (`m8_self_download_seen=0`). Operator manually entered Samsung download mode; rollback helper then flashed the
+> pinned Magisk boot-only AP rc=0. Android returned with four stable samples (`boot_completed=1`,
+> `init.svc.bootanim=stopped`), Magisk root, and live boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. Retained evidence stayed absent
+> (`pstore_files=[]`, `/proc/last_kmsg` readable but no `S22_NATIVE_INIT_M8_TIMED_DOWNLOAD` marker). Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M8_TIMED_DOWNLOAD_LIVE_RESULT_2026-07-07.md`. Interpretation: M8 did not
+> survive far enough to request download mode, and because M8 had no ACM/configfs/UDC/role-force path, the
+> failure is upstream of M7 USB gadget bring-up. Do not repeat M7/M8 as-is. Next bounded unit is host-only
+> M8A/M8B split: first prove a no-module timed-download after minimal fs, then split the first 18-module M8
+> batch into smaller timed-download probes.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
