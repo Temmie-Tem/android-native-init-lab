@@ -1638,6 +1638,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > If M15 parks or ACM appears, it has no reboot/download path by design; manually enter download mode and
 > rollback with `--rollback-from-download --ack S22PLUS-M15-ROLLBACK-FROM-DOWNLOAD`.
 >
+> **STATUS UPDATE (2026-07-08 KST, M15 live result - bootloop, rollback clean):** Codex executed the attended
+> M15 boot-only live gate once. Preflight passed, `adb reboot download` succeeded, Odin saw download mode,
+> and the exact M15 AP SHA256 `16a4d526bbc0cb09bc63d61f4743d17dddb26c34047127fe610b1f677bddced2` flashed
+> with Odin rc=0. No M15 ACM or ADB transport appeared. The operator observed a boot loop; the helper detected
+> Odin during the observation window and flashed the pinned Magisk boot-only rollback AP with Odin rc=0.
+> Android returned with `boot_completed=1`, `init.svc.bootanim=stopped`, orange verified boot,
+> `boot_recovery=0`, Magisk root, and live boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. Retained evidence stayed absent
+> (`pstore file count=0`, `/proc/last_kmsg` readable but no `S22_NATIVE_INIT_USB_ACM_M15` marker). Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M15_PHY_SPLIT_LIVE_RESULT_2026-07-08.md`. Interpretation:
+> **two PHY-side modules loop, no ACM; rollback clean**. Do not repeat M15 unchanged. M15 moves the fault
+> boundary earlier than `dwc3-msm.ko`/`usb_f_ss_acm.ko`: the loop is at or below the PHY-side module load or
+> runtime `finit_module` path under native-init. Next bounded unit should be host-only M16: split M15 to
+> one PHY module at a time, starting with `phy-msm-ssusb-qmp.ko` only; if needed, test
+> `phy-msm-snps-eusb2.ko` only and then add an open-only/no-finit control to separate file access/parser
+> mechanics from module init side effects.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
