@@ -43,6 +43,28 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/S22PLUS_BOOTLOOP_MANUAL_DOWNLOAD_BASELINE_RECHECK_2026-07-08.md`.
 > Do not run more blind native-init candidates; continue the observability path.
 
+> **S22+ CURRENT FRONTIER (2026-07-08 03:29 KST) — RAMOOPS VENDOR_BOOT DIRECT BYTE-PRESERVING HOST BUILD READY; NO LIVE AUTH.**
+> Codex replaced the earlier `magiskboot repack -n` vendor_boot candidate with a
+> direct vendor_boot v4 patcher:
+> `workspace/public/src/scripts/revalidation/build_s22plus_ramoops_vendor_boot_direct_enable.py`.
+> The new host-only output is
+> `workspace/private/outputs/s22plus_ramoops_vendor_boot_direct_enable_v0_1`.
+> It patches the embedded DTB at offset `0x14cf000`, uses the existing DTB page
+> padding (`2988 -> 2908` bytes) to absorb the 80-byte DTB growth, updates only
+> the header `dtb_size` field plus the allocated DTB region, and proves
+> `changed_outside_allowed_count=0`. All 4 `ramoops_region` nodes extract back
+> as `status = "okay"`. Candidate AP SHA256:
+> `0af250628c7cd5d7062b53823162f55716d1758d31ff88f65ea1c61dd0da83c3`;
+> patched vendor_boot SHA256:
+> `d62f2da241e1104db9e4b72aa0ba1927c0e85afd22fe380bff62c8df52bd3245`;
+> rollback stock vendor_boot AP SHA256:
+> `2f9075fe609e7aa66c2ec88a2bd0223d6a9d7ff23d8bab0f7c4eb44633f480bb`.
+> Report:
+> `docs/reports/S22PLUS_RAMOOPS_VENDOR_BOOT_DIRECT_ENABLE_HOST_BUILD_2026-07-08.md`.
+> **No live flash is authorized.** Next unit is a vendor_boot live-gate
+> preflight/exception around this direct candidate plus M13 positive-control
+> capture, not the superseded repack candidate.
+
 > **S22+ CURRENT FRONTIER (2026-07-08 03:07 KST) — RAMOOPS VENDOR_BOOT DIRECT ENABLE HOST BUILD READY; NO LIVE AUTH.**
 > Following the observability steer, Codex built a host-only vendor_boot direct
 > DTB patch under
