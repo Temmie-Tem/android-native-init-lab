@@ -4,6 +4,24 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ UPDATE (2026-07-08 02:58 KST) — M21A RAW NANOSLEEP-DOWNLOAD LIVE GATE PREFLIGHT READY, NOT EXECUTED.**
+> Codex added the SHA-pinned M21A-only `AGENTS.md` exception and guarded helper
+> `workspace/public/src/scripts/revalidation/s22plus_m21a_raw_nanosleep_download_live_gate.py`.
+> Live ack token: `S22PLUS-M21A-RAW-NANOSLEEP-DOWNLOAD-LIVE-GATE`; rollback-only
+> ack token: `S22PLUS-M21A-ROLLBACK-FROM-DOWNLOAD`. The helper verifies exact
+> AP/boot/base/kernel/init/source hashes, rollback APs, AP member
+> `boot.img.lz4`, manifest safety, two-syscall raw init (`nanosleep` 101 then
+> `reboot` 142), current rooted Android baseline, and current boot SHA
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+> `py_compile`, `--offline-check`, and default dry-run passed. Dry-run log:
+> `workspace/private/runs/s22plus_m21a_raw_nanosleep_download_live_gate_20260707T180008Z_01/s22plus_m21a_raw_nanosleep_download_live_gate.txt`.
+> Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M21A_RAW_NANOSLEEP_DOWNLOAD_LIVE_GATE_PREFLIGHT_2026-07-08.md`.
+> **No live flash was executed.** If live proceeds, the operator must not press
+> recovery/download keys during the 90s dwell + 30s grace window unless the
+> helper asks for manual rollback; early Odin, ADB return, bootloop, or manual
+> download is no-proof, not PASS.
+
 > **S22+ CURRENT FRONTIER (2026-07-08 02:52 KST) — M21A RAW NANOSLEEP-DOWNLOAD HOST BUILD READY; NO LIVE AUTH.**
 > Codex added host-only M21A source/builder and built a boot-only private AP
 > under

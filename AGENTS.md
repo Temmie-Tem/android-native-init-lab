@@ -1475,6 +1475,55 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    prefixes, USB/ACM bring-up, display/distro candidates, kernel rebuild,
    recovery/vendor_boot/vbmeta/non-boot flash, raw host `dd`, fastboot,
    multidisabler, format data, or any A90 action.
+   **Narrow operator-authorized exception (2026-07-08, S22+ M21A raw
+   nanosleep-download floor discriminator native-init boot-only):** after the
+   M20A live result was operator-corrected to bootloop/manual-download/no
+   automatic raw-reboot proof, and after the M21 redesign and host-only M21A
+   build introduced a 90 second proof separator, Codex may prepare and perform
+   one bounded attended boot-partition-only M21A live gate on the same Samsung
+   S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m21a_raw_nanosleep_download_live_gate.py`
+   with live ack token `S22PLUS-M21A-RAW-NANOSLEEP-DOWNLOAD-LIVE-GATE` and
+   rollback-only ack token `S22PLUS-M21A-ROLLBACK-FROM-DOWNLOAD`. The exact
+   candidate AP.tar.md5 SHA256 must be
+   `d1949a56c60c71498d68753d2ffd6064719fafce1ad0e3959ebb8a4255bb6c79`, the
+   contained padded `boot.img` SHA256 must be
+   `61d7dc9818b79c810b30370edfe4df2b55ec451588defb48458fefae9c6c00a5`, the
+   known-booting Magisk boot base SHA256 must be
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, the
+   preserved Magisk-patched kernel SHA256 must be
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`, the
+   M21A label is `M21A_RAW_NANOSLEEP_DOWNLOAD`; the M21A `/init` SHA256 must be
+   `10f525760b170cba4ec55d7fd4955c466601253258371cb571eb45515bd9cf30`, and the
+   M21A source SHA256 must be
+   `300ed990c8ea476c3744e18327ae08277c0d27dc443e99245aeecba457968c4f`.
+   The AP must contain exactly one tar member, `boot.img.lz4`, with no recovery,
+   vendor_boot, vbmeta, vbmeta_system, dtbo, BL, CP, CSC, super, persist,
+   userdata, EFS, RPMB, keymaster, modem, or any other partition payload. The
+   M21A candidate may only run as direct PID1 raw assembly with no C runtime,
+   no libc startup, no PT_INTERP, no fs setup, no marker write, no module
+   loading, no configfs, no USB role force, no persistent partition mount, no
+   block-device write, no Android/Magisk handoff, no Magisk module install, no
+   format data, and no watchdog touch. Its first runtime action must be a raw
+   `nanosleep({90,0}, NULL)` dwell, followed only by raw
+   `reboot(..., "download")`; if the reboot syscall returns it must only park
+   forever. Success requires the original Odin endpoint to disconnect, no Odin
+   endpoint before the 90 second dwell threshold, no operator key intervention,
+   host-observed download mode only after dwell and within grace, and rollback to the
+   pinned Magisk boot baseline. Any Odin endpoint before dwell+grace, any
+   operator manual download-mode entry, Android/ADB return, no later endpoint,
+   or bootloop must be treated as no automatic proof and requires rollback via
+   the same helper's `--rollback-from-download --ack
+   S22PLUS-M21A-ROLLBACK-FROM-DOWNLOAD` mode, using the exact Magisk boot-only
+   rollback AP SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
+   or the exact stock boot-only fallback AP SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e` if the
+   operator explicitly selects stock rollback. This exception authorizes only
+   M21A and does not authorize M20B, M20C, M19 C129 or wider prefixes, USB/ACM
+   bring-up, display/distro candidates, kernel rebuild, recovery/vendor_boot/
+   vbmeta/non-boot flash, raw host `dd`, fastboot, multidisabler, format data,
+   or any A90 action.
 2. **Flash only via the checked helper by default:** `workspace/public/src/scripts/revalidation/native_init_flash.py`.
    Never `dd`/`fastboot`/raw-write a partition. Never invent a new flash path.
    **Narrow operator-authorized exception (2026-07-02, self-dd ladder only):** the V3358
@@ -1808,6 +1857,20 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`. No other
    Odin slot, tar member, candidate hash, rollback hash, M20 variant, M19
    prefix, or partition is authorized by this exception.
+   **Narrow operator-authorized exception (2026-07-08, S22+ M21A raw
+   nanosleep-download native-init boot-only Odin path):** the S22+ M21A live
+   gate above may use `/usr/bin/odin4 --reboot -a` through
+   `workspace/public/src/scripts/revalidation/s22plus_m21a_raw_nanosleep_download_live_gate.py`
+   for the exact single-member `boot.img.lz4` candidate AP.tar.md5 SHA256
+   `d1949a56c60c71498d68753d2ffd6064719fafce1ad0e3959ebb8a4255bb6c79`, and
+   the same helper may use `/usr/bin/odin4 --reboot -a` in
+   `--rollback-from-download` mode with the exact single-member Magisk
+   boot-only AP.tar.md5 SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` or the
+   exact single-member stock boot-only AP.tar.md5 SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`. No other
+   Odin slot, tar member, candidate hash, rollback hash, M21 variant, M20
+   variant, M19 prefix, or partition is authorized by this exception.
 3. **Rollback precondition:** before ANY flash, confirm the known-good rollback image
    `workspace/private/inputs/boot_images/boot_linux_v2321_usb_clean_identity_rodata.img`
    (SHA256 `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`, the resident
