@@ -1737,6 +1737,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > N M17 modules from the M13 floor, then self-download if the checkpoint is reached, using monotonic prefix
 > candidates (P00/P10/P16/P20/P21) rather than blind add-back.
 >
+> **STATUS UPDATE (2026-07-08 KST, M18 prefix-download host build done):** Codex implemented the host-only M18
+> prefix-download discriminator source
+> `workspace/public/src/native-init/s22plus_init_m18_prefix_download.c` and builder
+> `workspace/public/src/scripts/revalidation/build_s22plus_inplace_m18_prefix_download.py`. Built private
+> artifacts under `workspace/private/outputs/s22plus_native_init/inplace_m18_prefix_download_v0_1`: P00
+> (`prefix_count=0`) AP SHA256 `b79ac94aac341ab5e4c08cb3c568c20be28bb71ccd4f1b047f712bd1dcf5225b`, boot
+> SHA256 `f8f362bdd0d0f75ae9ae0ce69d86bcfe47362f246504b02fc6175a4aa0a83133`, init SHA256
+> `467947f7ba0c4b4088c9a21a19e5202609b833298f2e95256b1f011eb9af034e`; P10 (`prefix_count=10`) AP SHA256
+> `ee46e5eef52d85f6bbfecbede8b7a2d374cce47140f900c2bbb57ce07beddca8`, boot SHA256
+> `ddf72d5cc213008f67bb71d5382989fd94f32787cd85b736dfcc0b54630c0aa7`, init SHA256
+> `f600c98e019bb779b3f338bd9cfd7915793c8f3c94d39cc3faeaeef97aa33831`. AP members are `boot.img.lz4` only;
+> no module binaries are injected; no configfs/ACM/role-force path exists; `live_flash_authorized=false`.
+> Report: `docs/reports/S22PLUS_NATIVE_INIT_M18_PREFIX_DOWNLOAD_HOST_BUILD_2026-07-08.md`. Next bounded unit,
+> if UART is not available, is **P00 live-gate preflight only**: fresh SHA-pinned `AGENTS.md` exception +
+> guarded helper + dry-run for P00. Do not live-run P10 until P00 proves the checkpoint-download channel.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
