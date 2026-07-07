@@ -720,6 +720,34 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `host_openocd_eud_ready_to_probe` is true and the draft is promoted. Report:
 > `docs/reports/S22PLUS_EUD_OPENOCD_INIT_PROBE_GATE_SOURCE_2026-07-08.md`.
 
+> **S22+ UPDATE (2026-07-08 08:10 KST) — OBSERVABILITY FRONTIER AUDIT SELECTS M18 P00 FALLBACK.**
+> Codex added host-only
+> `workspace/public/src/scripts/revalidation/s22plus_native_init_observability_frontier_audit.py`.
+> It reuses the EUD/OpenOCD preflight, classifies current host serial devices
+> for external USB-UART readiness, and validates the existing private M18 P00/P10
+> prefix-download artifacts and safety manifests. Current result:
+> `prepare-m18-prefix-p00-live-gate-source; eud_ready=0 uart_ready=0 m18_prefix_ready=1`.
+> The only current `/dev/ttyACM*` path is Samsung Android ACM, not an external
+> UART adapter; EUD still lacks a host endpoint; P00/P10 artifacts validate. No
+> device action, flash, reboot, sysfs write, OpenOCD init, or ADB action was
+> performed. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_OBSERVABILITY_FRONTIER_AUDIT_2026-07-08.md`.
+
+> **S22+ UPDATE (2026-07-08 08:14 KST) — M18 P00 PREFIX-DOWNLOAD LIVE GATE SOURCE READY; POLICY INERT.**
+> Codex added guarded source
+> `workspace/public/src/scripts/revalidation/s22plus_m18_p00_prefix_download_live_gate.py`
+> and inert policy draft
+> `docs/operations/S22PLUS_M18_P00_PREFIX_DOWNLOAD_AGENTS_EXCEPTION_DRAFT_2026-07-08.md`.
+> Default/`--offline-check` mode verifies the pinned P00 AP, P00 manifest safety,
+> and pinned Magisk/stock boot rollback APs without device action. Validation
+> passed: `offline-check ok: M18 P00 candidate and rollback APs verified; no
+> device action`. An acked `--live` dry attempt fail-closed before ADB/flash
+> because active `AGENTS.md` lacks the new exception markers. The future proof
+> rule is strict: after flashing P00, the original Odin endpoint must disconnect;
+> only a later Odin endpoint counts as candidate self-download proof. P10 must
+> not be run until P00 self-download is observed and rollback is clean. Report:
+> `docs/reports/S22PLUS_M18_P00_PREFIX_DOWNLOAD_GATE_SOURCE_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
