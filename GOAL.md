@@ -48,6 +48,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Report:
 > `docs/reports/S22PLUS_RAMOOPS_VENDOR_BOOT_M13_LIVE_RESULT_2026-07-08.md`.
 
+> **S22+ UPDATE (2026-07-08 03:58 KST) — ACTIVE DTB PROVENANCE AUDIT PASSED; ROOT CAUSE IS STOCK DTBO OVERLAY OVERRIDE.**
+> Codex added and ran the read-only/no-reboot/no-flash
+> `workspace/public/src/scripts/revalidation/s22plus_active_dtb_provenance_audit.py`.
+> Result: pass. Current Android/root, Magisk boot baseline, stock
+> `vendor_boot`, and stock `dtbo` were verified. Live `/proc/device-tree`
+> `ramoops_region/status` is `disabled`. The vendor_boot DTB blobs all have
+> `__symbols__/ramoops_mem = /reserved-memory/ramoops_region` and their
+> non-status ramoops properties match the live node. Stock `dtbo.img` blobs 9
+> and 10 have the `ramoops_mem` fixup to `/fragment@116:target:0` and apply
+> `/fragment@116/__overlay__/status = "disabled"`; the existing patched-DTBO
+> output changes those exact two overlay values to `"okay"`. Corrected
+> interpretation: the direct vendor_boot-only patch was bootable but got
+> overwritten by the stock DTBO overlay, so the direct vendor_boot path is
+> retired. Next useful live unit is a DTBO-status gate: flash only the pinned
+> patched DTBO, require Android/root return, require live
+> `ramoops_region/status=okay`, then restore stock DTBO. Do not flash M13/M15
+> until that status gate is proven. Report:
+> `docs/reports/S22PLUS_ACTIVE_DTB_PROVENANCE_AUDIT_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
