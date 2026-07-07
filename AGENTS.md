@@ -1810,12 +1810,13 @@ identity. Never use helper numbers as run IDs or boot tags.
   `docs/reports/NATIVE_INIT_VNNNN_*.md`.
 - **Strip device serials before committing.** Never paste raw `adb devices -l`,
   `adb -s <serial>`, `fastboot devices`, or Odin/heimdall device-listing output
-  verbatim into a tracked report — it embeds the S22+ serial (DID, e.g. the
-  `RFCT519XWGK` line) and the A90 serial, both on the never-commit list. Redact
-  any serial to `<S22_SERIAL_REDACTED>` / `<A90_SERIAL_REDACTED>`; keep the
-  public product identifiers (`ro.product.model`/`device`/`ro.boot.bootloader`).
-  `git grep -n RFCT519XWGK` (and the generic `adb: <alnum> device usb:` pattern)
-  must return nothing in the staged diff before commit. Same rule for
+  verbatim into a tracked report — it embeds the S22+ serial (DID) and the A90
+  serial, both on the never-commit list. Redact any serial to
+  `<S22_SERIAL_REDACTED>` / `<A90_SERIAL_REDACTED>`; keep the public product
+  identifiers (`ro.product.model`/`device`/`ro.boot.bootloader`). Before commit,
+  grep the staged diff for the recorded device serials and the generic
+  `adb: <alnum> device usb:` device-listing pattern; both must return nothing.
+  Same rule for
   SSID/PSK/BSSID/MAC/DHCP-lease/routable-IP/KASLR slides/tunnel URLs.
 - Commit message: imperative subject naming the V-iteration + purpose; body with what /
   why / validation result.
