@@ -1655,6 +1655,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `phy-msm-snps-eusb2.ko` only and then add an open-only/no-finit control to separate file access/parser
 > mechanics from module init side effects.
 >
+> **STATUS UPDATE (2026-07-08 KST, M16 host-only SSUSB-QMP-only build done):** Codex implemented and built
+> the M16 host-only candidate that preserves M13/M14/M15 mount/configfs/role-force/`a600000.dwc3`/park
+> behavior but loads only `phy-msm-ssusb-qmp.ko`. It withholds the complementary M15 module
+> `phy-msm-snps-eusb2.ko`, plus `dwc3-msm.ko`/`usb_f_ss_acm.ko` and the remaining 20 M12 floor modules.
+> No device action or live flash was executed. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M16_SSUSB_QMP_ONLY_HOST_BUILD_2026-07-08.md`. Exact candidate hashes:
+> AP.tar.md5 SHA256 `266c3229298e9edd568239a5b09ae0a67325b3df600dd8fc1f9326d0f81de709`,
+> boot.img SHA256 `69ff6738e62e4fe891c4c9e204caca19220cc1938b40037e6d992bc97bb1ff42`,
+> M16 `/init` SHA256 `cabccce620de641fa777c00152588ef8cf5234098509b30afb4751d543dac993`,
+> M16 module-list SHA256 `fe59628f9d30996e80b47938675a3e133f2ae7ba7a934b31ef19aa2bf87bb4a1`,
+> source SHA256 `b96c8a2c5a44eadbf03bd1f1aadadb5a74be76726d200d935e81276baf4c6c45`.
+> Static validation passed: `py_compile`, freestanding/static AArch64 `/init`, required
+> `S22_NATIVE_INIT_USB_ACM_M16` + `module_group=ssusb_qmp_only module_count=1` strings present, no
+> `download`/`modules.load.recovery`/`/vendor_dlkm`/`ld-linux`/`libc.so` forbidden strings, no arm64
+> `__NR_reboot=142`, AP member `boot.img.lz4` only, module binaries injected into boot ramdisk = 0,
+> module-list files = 1. **No live flash is authorized yet.** Next bounded unit is M16 live-gate preflight:
+> fresh SHA-pinned `AGENTS.md` exception + guarded helper + offline-check + dry-run against the exact hashes
+> before any attended live flash.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
