@@ -665,6 +665,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Report:
 > `docs/reports/S22PLUS_EUD_OPENOCD_STAGING_PREFLIGHT_2026-07-08.md`.
 
+> **S22+ UPDATE (2026-07-08 07:44 KST) — EUD-OPENOCD PRIVATE BUILD PASS; LIVE ATTACH STILL GATED.**
+> Codex completed host-only/private build staging of the `linux-msm/openocd`
+> `eud-rebased` fork without any system package install, device action, flash,
+> reboot, partition write, or sysfs write. Private sysroot dependency extraction
+> plus `--enable-eud --enable-internal-jimtcl --disable-werror` produced
+> `Open On-Chip Debugger 0.12.0+dev-g880c11c`; final link was fixed by making the
+> private `libusb-1.0.so` symlink non-dangling so the binary links dynamically
+> instead of to static `libusb-1.0.a` with unresolved `libudev` symbols. The host
+> audit with the private binary now reports `openocd=1 eud_cfg=1 qcom_cfg=1` but
+> still `sm8450_cfg=0 host_eud_usb=0`, classified as
+> `blocked_missing_sm8450_target`. The private binary lists `eud` and `swd`, but
+> `transport select swd` fails at SWD driver init, consistent with no enumerated
+> EUD USB endpoint. Operator live approval was received, but no live OpenOCD
+> attach was attempted because the endpoint and SM8450/S22+ target cfg gates are
+> not satisfied. Next useful unit: SM8450 target cfg derivation or physical/EUD
+> endpoint availability; do not burn another native-init flash expecting this
+> current host state to observe M18. Report:
+> `docs/reports/S22PLUS_EUD_OPENOCD_PRIVATE_BUILD_RESULT_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
