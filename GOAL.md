@@ -1149,6 +1149,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `mkdirat("/dev", 0755)` before reboot, no kmsg/mknodat/mount/sleep/module/configfs/USB, and use a longer
 > self-download window (>=150 s) in the preflight helper.
 >
+> **STATUS UPDATE (2026-07-07 KST, M10A host build ready):** Codex added
+> `workspace/public/src/native-init/s22plus_init_m10a_mkdir_dev_reboot.c` and
+> `workspace/public/src/scripts/revalidation/build_s22plus_inplace_m10a_mkdir_dev_reboot.py`, then built
+> host-only output `workspace/private/outputs/s22plus_native_init/inplace_m10a_mkdir_dev_reboot_v0_1`. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M10A_MKDIR_DEV_REBOOT_HOST_BUILD_2026-07-07.md`. Exact candidate hashes:
+> AP.tar.md5 SHA256 `d71c8c82d2703892802228dd61ded561a9b4f90c678db15452014f2477170105`, boot.img SHA256
+> `c62fce5e444bad47e2b934f6e9e82bc731058a0c9494629f0eb9044ff92e8b24`, M10A `/init` SHA256
+> `8f954dfcd5d5887f8c1659e7e658617561627d9c7fecc518972a795ac20422b3`, source SHA256
+> `c12b710f93b957313ad1018de40ebe2dec53883c5de6d018c9d5577b1a426cf0`, base Magisk boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, kernel SHA256
+> `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`. Static validation confirmed
+> freestanding AArch64/no interpreter, build-id + `.eh_frame` present, `svc #0` count 2, syscall order
+> `__NR_mkdirat` 34 then `__NR_reboot` 142, required strings `/dev` and `download`, no marker/kmsg/proc/sys/run/
+> module/configfs/USB strings in `/init`, no-change MagiskBoot repack byte-identical to base boot, kernel
+> preserved, and AP member `boot.img.lz4` only. **No live flash is authorized yet.** Next bounded unit is M10A
+> live-gate preflight only: SHA-pinned `AGENTS.md` exception + guarded helper with self-download wait >=150 s +
+> default no-flash dry-run against the rooted Android/Magisk baseline.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
