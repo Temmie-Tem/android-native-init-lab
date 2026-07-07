@@ -1606,6 +1606,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `phy-msm-ssusb-qmp.ko` + `phy-msm-snps-eusb2.ko`; if that loops, split one module at a time and consider an
 > open-only/no-finit control to separate loader mechanics from module init side effects.
 >
+> **STATUS UPDATE (2026-07-07 KST, M15 host-only PHY-split build done):** Codex implemented and built the
+> M15 host-only candidate that preserves M13/M14 mount/configfs/role-force/`a600000.dwc3`/park behavior but
+> loads only the two PHY-side modules from the failed M14 core group: `phy-msm-ssusb-qmp.ko` and
+> `phy-msm-snps-eusb2.ko`. It withholds `dwc3-msm.ko` and `usb_f_ss_acm.ko`. No device action or live flash
+> was executed. Report: `docs/reports/S22PLUS_NATIVE_INIT_M15_PHY_SPLIT_HOST_BUILD_2026-07-07.md`.
+> Exact candidate hashes: AP.tar.md5 SHA256
+> `16a4d526bbc0cb09bc63d61f4743d17dddb26c34047127fe610b1f677bddced2`, boot.img SHA256
+> `adaee20d490748aa1be555cdc7aa6828b9bc553185355a60183bd722119b5812`, M15 `/init` SHA256
+> `5897fee141921dffc2848fb3eb3515a9b2d75d41e0c286448c4f0add06ab8558`, M15 module-list SHA256
+> `f3afe268a05c47492107227b224185c65f7757c004806c4c24d23231bd19e217`, source SHA256
+> `ac57cb1ece2dcc65bf5a8cbfc3fa0a077b006c757a4615298ee00d115b1fdd13`. Static validation passed:
+> `py_compile`, freestanding/static AArch64 `/init`, required `S22_NATIVE_INIT_USB_ACM_M15` +
+> `module_group=phy_split module_count=2` strings present, no `download`/`modules.load.recovery`/
+> `/vendor_dlkm`/`ld-linux`/`libc.so` forbidden strings, no arm64 `__NR_reboot=142`, AP member
+> `boot.img.lz4` only, module binaries injected into boot ramdisk = 0, module-list files = 1. **No live
+> flash is authorized yet.** Next bounded unit is M15 live-gate preflight: fresh SHA-pinned `AGENTS.md`
+> exception + guarded helper + offline-check + dry-run against the exact hashes before any attended live
+> flash.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
