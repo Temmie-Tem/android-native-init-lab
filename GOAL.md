@@ -4,6 +4,31 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **OPERATOR STEER (2026-07-08, Claude) — BUY OBSERVABILITY BEFORE MORE BRING-UP.**
+> The stall is not USB; it is that we cannot *read* the fault. It is already
+> localized (M13 no-module parks; M15 QMP PHY insmod bootloops) but every step is
+> a blind 1-bit park/loop flash — that does not converge. Floor discriminators
+> (M20B/M20C/M21A) characterize the *unreliable reboot("download") beacon* —
+> noise — not the USB fault; M21A may still run if the operator chooses, but it is
+> NOT the high-value unit. The high-value unit is getting the kernel console:
+> 1. **Enable ramoops the RIGHT way** — direct **vendor_boot DTB** `fdtput`
+>    `/reserved-memory/ramoops_region status: disabled→okay` (NOT a DTBO overlay;
+>    the prior `0116dd61` DTBO attempt never verified enablement and had no
+>    positive control → its empty pstore was ambiguous, not a refutation).
+> 2. **POSITIVE CONTROL FIRST** — boot the parking **M13** (no-module) with ramoops
+>    enabled, roll back, confirm `/sys/fs/pstore/console-ramoops` holds M13's clean
+>    console. Only then point it at **M15** (QMP PHY) to read the exact abort
+>    (GDSC/regulator/clk/PLL name or last-line-before-hang). If even M13's clean
+>    console does not persist, ramoops is dead here → EUD, then UART.
+> 3. **Near-free now:** read the Samsung reset/PON reason precisely
+>    (watchdog-bark vs panic vs SError) — `last_kmsg` shows panic/Oops absent, so
+>    the reset is likely a watchdog/async hang (PHY touching an unpowered
+>    register). Zero new flashes; tests the hang hypothesis.
+> Needs a fresh SHA-pinned **vendor_boot-only** `AGENTS.md` exception (vendor_boot
+> is not forbidden; odin-flashable + stock-recoverable). Fallback if ramoops
+> proves dead: EUD (in-SoC USB-C debug console, no jig) → UART jig last. Full
+> rationale: `docs/reports/S22PLUS_RAMOOPS_POSITIVE_CONTROL_OBSERVABILITY_STEER_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 02:58 KST) — M21A RAW NANOSLEEP-DOWNLOAD LIVE GATE PREFLIGHT READY, NOT EXECUTED.**
 > Codex added the SHA-pinned M21A-only `AGENTS.md` exception and guarded helper
 > `workspace/public/src/scripts/revalidation/s22plus_m21a_raw_nanosleep_download_live_gate.py`.
