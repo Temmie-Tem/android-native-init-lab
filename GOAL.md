@@ -703,6 +703,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > not another native-init flash expecting current EUD observability. Report:
 > `docs/reports/S22PLUS_SM8450_OPENOCD_TARGET_CFG_DERIVATION_2026-07-08.md`.
 
+> **S22+ UPDATE (2026-07-08 08:04 KST) — EUD OPENOCD INIT-PROBE GATE SOURCE READY; POLICY INERT.**
+> Codex added
+> `workspace/public/src/scripts/revalidation/s22plus_eud_openocd_init_probe_gate.py`
+> plus inert policy draft
+> `docs/operations/S22PLUS_EUD_OPENOCD_INIT_PROBE_AGENTS_EXCEPTION_DRAFT_2026-07-08.md`.
+> Default/`--offline-check` mode is host-only: it re-runs the SM8450 cfg audit and
+> EUD host audit, records policy marker coverage, and performs no OpenOCD init,
+> ADB/sysfs/device write, flash, reboot, or partition action. Current result:
+> `waiting_for_eud_enumeration_or_hardware; cfg=sm8450_cfg_draft_ready_romtable_dbgbase host=waiting_for_eud_enumeration_or_hardware host_eud_usb=0; draft_missing=0 active_missing=13`.
+> An acked `--live` dry attempt fail-closed before OpenOCD because active
+> `AGENTS.md` lacks the new exception markers. No live attach was attempted. The
+> prepared live shape is a future single bounded `OpenOCD init; targets; shutdown`
+> probe using `interface/eud.cfg` and
+> `target/qualcomm/sm8450_s22plus_romtable.cfg`, only after
+> `host_openocd_eud_ready_to_probe` is true and the draft is promoted. Report:
+> `docs/reports/S22PLUS_EUD_OPENOCD_INIT_PROBE_GATE_SOURCE_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
