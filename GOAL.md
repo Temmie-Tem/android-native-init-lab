@@ -1496,6 +1496,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > first remove module insertion while keeping only freestanding PID1 + minimal marker + bounded park, then
 > separately remove configfs/role-force. Recover a non-looping floor before adding USB substrate back.
 >
+> **STATUS UPDATE (2026-07-07 KST, M13 no-module configfs/role-force park host build ready):** Codex added
+> host-only M13 source
+> `workspace/public/src/native-init/s22plus_init_usb_acm_m13_nomodule_configfs_park.c` and builder
+> `workspace/public/src/scripts/revalidation/build_s22plus_inplace_m13_nomodule_configfs_park.py`, then built
+> output `workspace/private/outputs/s22plus_native_init/inplace_m13_nomodule_configfs_park_v0_1`. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M13_NOMODULE_CONFIGFS_PARK_HOST_BUILD_2026-07-07.md`. Exact candidate
+> hashes: AP.tar.md5 SHA256 `5e959f0dd7c55d8e6a9363cde0c0fcc72876639bdc46ccdc826186cfc43134fa`,
+> boot.img SHA256 `21808217d6cf698217e25cf35caf3a271a7f55451cad85ba576d54a40010441b`, M13 `/init`
+> SHA256 `6b2d229217d83c7f36032c37291bebbebe7c8c5782d006fedcc538649d99f5d3`, source SHA256
+> `4e3a88336c6a6e0b1ed6e25f572ed0ec26c2e8d177942598a6e32aa1b2a762e8`. M13 keeps the M12 freestanding
+> PID1, minimal mounts, configfs `ss_acm.0` attempt, USB role-force, `a600000.dwc3`-only bind policy, and
+> no-reboot park loop, but removes all runtime module insertion and injects no boot-ramdisk module list.
+> Static validation confirmed no interpreter, no `download` string in the stripped `/init`, no arm64
+> `__NR_reboot=142`, no arm64 `__NR_finit_module=273`, no `/lib/modules`/`.ko`/`modules.load`/`modules.dep`
+> strings, no module payload added to the ramdisk, kernel preserved, and AP tar member `boot.img.lz4` only.
+> **No live flash is authorized yet.** Next bounded unit is M13 live-gate preflight only: fresh SHA-pinned
+> `AGENTS.md` exception + guarded helper. Expected branch: M13 parks/no ACM => module insertion caused the
+> M12 loop; M13 loops => shrink again by removing configfs/role-force and keeping only marker+park.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
