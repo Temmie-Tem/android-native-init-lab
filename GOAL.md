@@ -1084,6 +1084,18 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > layer (C entry/runtime shape, compiler-emitted sections/stack use, `/dev`/`mknodat`, `/dev/kmsg`, `mount`, or
 > reboot-after-setup) before any new live flash.
 >
+> **STATUS UPDATE (2026-07-07 KST, M8A lower-layer postmortem):** Codex completed the host-only artifact/source
+> comparison and recorded report
+> `docs/reports/S22PLUS_NATIVE_INIT_M8A_LOWER_LAYER_POSTMORTEM_2026-07-07.md`. Operator observation classified the
+> M8A live behavior as bootloop/no-self-download, while post-rollback host samples showed the rooted Android/Magisk
+> baseline was stable again. The comparison proves the live boundary is: M4T3 raw assembly first-action
+> `reboot("download")` PASS, but M5B and M8A freestanding-C init paths that touch VFS/kmsg before reboot both
+> produce no self-download and no retained marker. Therefore retire M8B module splitting. Next bounded unit is
+> host-only M9A build/preflight design: freestanding C using the same in-place MagiskBoot/Odin construction, but
+> with first action direct `reboot("download")` and no marker, VFS, kmsg, sleep, modules, configfs, or USB gadget.
+> M9A live is not authorized until it has a host build report, SHA-pinned `AGENTS.md` exception, guarded helper, and
+> dry-run preflight.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
