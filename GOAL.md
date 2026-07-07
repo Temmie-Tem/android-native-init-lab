@@ -326,10 +326,15 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > (`0x4f4c`, little-endian ASCII `LO`, `likely_low_code=true`); `enable=0`,
 > `enable_user=0`, `force_upload=0`; `/dev/pmsg0` exists; `/sys/fs/pstore`
 > exists but is empty; `/proc/reset_reason=NPON`; `/proc/store_lastkmsg=0`;
-> `/proc/sys/kernel/sysrq=0`. Therefore do not consume the panic gate yet.
-> Next operator step is to set Samsung SysDump DEBUG LEVEL to MID if available,
-> rerun `--read-only-probe`, and require the decoded value to move away from LOW
-> before promoting the intentional sysrq-panic AGENTS exception. Report:
+> `/proc/sys/kernel/sysrq=0`. The same read-only route inventory found
+> `com.sec.android.app.servicemodeapp/.SysDump`,
+> `com.sec.android.app.servicemodeapp/.CPDebugLevel`, and
+> `.ServiceModeAppBroadcastReceiver` with `android_secret_code` authority
+> `"9900"` / action `com.samsung.android.action.SECRET_CODE`. Therefore do not
+> consume the panic gate yet. Next operator step is to open SysDump via
+> `*#9900#` or that activity, set DEBUG LEVEL to MID if available, rerun
+> `--read-only-probe`, and require the decoded value to move away from LOW before
+> promoting the intentional sysrq-panic AGENTS exception. Report:
 > `docs/reports/S22PLUS_SEC_DEBUG_READONLY_PROBE_LIVE_2026-07-08.md`.
 
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**

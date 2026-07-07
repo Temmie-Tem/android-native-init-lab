@@ -55,6 +55,18 @@ likely_low_code       true
 /proc/sys/kernel/sysrq 0
 ```
 
+SysDump route metadata, from the same read-only helper path:
+
+```text
+package                         com.sec.android.app.servicemodeapp
+sysdump_activity_found           true  (com.sec.android.app.servicemodeapp/.SysDump)
+cp_debug_level_activity_found    true  (com.sec.android.app.servicemodeapp/.CPDebugLevel)
+secret_code_receiver_found       true  (.ServiceModeAppBroadcastReceiver)
+secret_code_9900_found           true  (android_secret_code authority "9900")
+secret_code_action_found         true  (com.samsung.android.action.SECRET_CODE)
+development_preference_category  true
+```
+
 The retained `/proc/last_kmsg` grep still showed bootloader/download/reset style
 history and Samsung/QCOM ramdump/sec_debug module activity, not a new kernel
 panic marker. Raw retained logs remain under `workspace/private/`.
@@ -102,7 +114,9 @@ Results:
 
 ## Next
 
-1. Operator sets DEBUG LEVEL MID via Samsung SysDump if available.
+1. Operator opens SysDump through `*#9900#` or the identified
+   `com.sec.android.app.servicemodeapp/.SysDump` screen and sets DEBUG LEVEL
+   MID if available.
 2. Rerun `--read-only-probe` and require the decoded value to no longer be LOW.
 3. Only then consider promoting the inert AGENTS exception for the intentional
    sysrq panic gate.

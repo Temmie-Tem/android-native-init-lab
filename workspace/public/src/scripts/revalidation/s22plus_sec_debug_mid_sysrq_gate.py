@@ -325,6 +325,7 @@ def collect_sec_debug_state(run_dir: Path, log_path: Path, serial: str, label: s
 
 def collect_read_only_probe(run_dir: Path, log_path: Path, odin: Path, serial: str) -> dict[str, Any]:
     state = collect_sec_debug_state(run_dir, log_path, serial, "read_only_probe")
+    sysdump_route = collect_sysdump_route(run_dir, log_path, serial)
     host_snapshot(run_dir, log_path, "read_only_probe_host", odin)
     pstore_listing = adb_shell(
         "su -c 'ls -la /sys/fs/pstore 2>&1 || true'",
@@ -361,10 +362,44 @@ def collect_read_only_probe(run_dir: Path, log_path: Path, odin: Path, serial: s
             "bytes": len(last_kmsg_text.encode("utf-8", errors="replace")),
             "line_count": len([line for line in last_kmsg_text.splitlines() if line.strip()]),
         },
+        "sysdump_route": sysdump_route,
         "state": state,
     }
     write_text(run_dir / "read_only_probe_summary.json", json.dumps(summary, indent=2, sort_keys=True) + "\n")
     append_log(log_path, f"read_only_probe_summary={json.dumps(summary, sort_keys=True)}")
+    return summary
+
+
+def collect_sysdump_route(run_dir: Path, log_path: Path, serial: str) -> dict[str, Any]:
+    package = "com.sec.android.app.servicemodeapp"
+    result = adb_shell(
+        "dumpsys package com.sec.android.app.servicemodeapp | "
+        "grep -E 'SysDump|CPDebugLevel|ServiceModeAppBroadcastReceiver|Authority: \"9900\"|"
+        "Action: \"com.samsung.android.action.SECRET_CODE\"|Category: \"android.intent.category.DEVELOPMENT_PREFERENCE\"' -C 3 || true",
+        serial=serial,
+        timeout=30.0,
+    )
+    text = redact(result.stdout + result.stderr)
+    write_text(run_dir / "read_only_probe_sysdump_route.txt", text)
+
+    path_result = adb_shell(f"pm path {shlex.quote(package)} 2>&1 || true", serial=serial, timeout=10.0)
+    path_text = redact(path_result.stdout + path_result.stderr)
+    write_text(run_dir / "read_only_probe_sysdump_package_path.txt", path_text)
+
+    summary = {
+        "package": package,
+        "package_path_rc": path_result.returncode,
+        "package_path_present": f"package:" in path_text,
+        "route_dump_rc": result.returncode,
+        "route_dump_bytes": len(text.encode("utf-8", errors="replace")),
+        "sysdump_activity_found": "com.sec.android.app.servicemodeapp/.SysDump" in text,
+        "cp_debug_level_activity_found": "com.sec.android.app.servicemodeapp/.CPDebugLevel" in text,
+        "secret_code_receiver_found": "ServiceModeAppBroadcastReceiver" in text,
+        "secret_code_9900_found": 'Authority: "9900"' in text,
+        "secret_code_action_found": 'Action: "com.samsung.android.action.SECRET_CODE"' in text,
+        "development_preference_category_found": 'Category: "android.intent.category.DEVELOPMENT_PREFERENCE"' in text,
+    }
+    append_log(log_path, f"sysdump_route={json.dumps(summary, sort_keys=True)}")
     return summary
 
 
