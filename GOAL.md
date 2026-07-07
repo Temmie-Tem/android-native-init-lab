@@ -80,6 +80,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `S22PLUS-RAMOOPS-DTBO-STATUS-LIVE-GATE` token. Report:
 > `docs/reports/S22PLUS_RAMOOPS_DTBO_STATUS_GATE_SOURCE_2026-07-08.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-08 04:05 KST) — DTBO STATUS-ONLY POLICY ACTIVE; DRY-RUN PASS; LIVE NOT EXECUTED.**
+> Codex added the narrow `AGENTS.md` status-only exception for exactly
+> `workspace/public/src/scripts/revalidation/s22plus_ramoops_dtbo_status_live_gate.py`
+> with live ack token `S22PLUS-RAMOOPS-DTBO-STATUS-LIVE-GATE`. Scope: patched
+> DTBO AP only, require Android/root return, require live
+> `ramoops_region/status=okay`, then restore stock DTBO and verify status back
+> to `disabled`; **no boot candidate** and no M13/M15/M18/QMP. Validation:
+> `py_compile`, `--offline-check`, and default read-only dry-run all passed.
+> The dry-run verified Android/root stability, current known Magisk boot hash,
+> current stock DTBO hash, and live `ramoops_region/status=disabled`; it did not
+> flash, reboot, or write anything. Next step, only with explicit attended live
+> approval, is the ack-gated status-only command. Report:
+> `docs/reports/S22PLUS_RAMOOPS_DTBO_STATUS_POLICY_ACTIVATION_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,

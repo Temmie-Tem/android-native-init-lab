@@ -1381,6 +1381,35 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    bootloader, raw host `dd`, fastboot, Magisk modules, multidisabler, format
    data, additional boot candidates, additional DTBO candidates, kernel rebuilds,
    or any A90 action.
+   **Narrow operator-authorized exception (2026-07-08, S22+ ramoops DTBO status-only):**
+   after the active-DTB provenance audit proved that stock DTBO overlays override
+   `/proc/device-tree/reserved-memory/ramoops_region/status` to `disabled`, Codex
+   may perform one bounded attended S22+ ramoops DTBO status-only live gate on
+   the Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_ramoops_dtbo_status_live_gate.py`
+   and live ack token `S22PLUS-RAMOOPS-DTBO-STATUS-LIVE-GATE`. This exception
+   authorizes exactly one partition class and no others: first flash the patched
+   `dtbo` AP.tar.md5 SHA256
+   `4f82663a7c2175a41760ec099c0f662dd04b8932a5ae82ba46b3ecb401a14a00`, require
+   Android/root to return, require current DTBO SHA256
+   `1c90b54577cbb42e029818a0c4248e85ec3a0e40903b0887648d6556355c85ab`, require
+   live `/proc/device-tree/reserved-memory/ramoops_region/status=okay`, then
+   restore stock DTBO using the pinned stock DTBO rollback AP.tar.md5 SHA256
+   `6f397421bee84f4ea0c80a8519be0f6f6af84119794970e8a1faaa05f261caaa`.
+   The stock raw DTBO SHA256 must be
+   `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`, the
+   DTBO APs must contain exactly one tar member, `dtbo.img.lz4`, and the helper
+   must verify current Android root, the current known-booting Magisk boot hash,
+   current stock DTBO hash, and current live `ramoops_region/status=disabled`
+   before any live flash. Stock DTBO restore requires either
+   `--restore-dtbo-from-android --ack S22PLUS-RAMOOPS-RESTORE-STOCK-DTBO` or
+   `--restore-dtbo-from-download --ack S22PLUS-RAMOOPS-RESTORE-STOCK-DTBO`.
+   This exception explicitly has no boot candidate and does not authorize writing
+   or flashing boot, recovery, vendor_boot, vbmeta, vbmeta_system, BL, CP, CSC,
+   super, userdata, persist, EFS, sec_efs, RPMB, keymaster, modem, bootloader,
+   raw host `dd`, fastboot, Magisk modules, multidisabler, format data, M13/M15/
+   M18/QMP candidates, additional DTBO candidates, kernel rebuilds, or any A90
+   action.
    **Narrow operator-authorized exception (2026-07-08, S22+ ramoops vendor_boot + M13 positive-control only):**
    after the direct byte-preserving vendor_boot host build proved
    `changed_outside_allowed_count=0` and the gate source prepared the M13
