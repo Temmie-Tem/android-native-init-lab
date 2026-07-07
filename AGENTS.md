@@ -1403,6 +1403,42 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    distro candidates, kernel rebuild, recovery/vendor_boot/vbmeta/non-boot
    flash, raw host `dd`, fastboot, multidisabler, format data, or any A90
    action.
+   **Narrow operator-authorized exception (2026-07-08, S22+ M18 P00 prefix-download native-init boot-only):**
+   **Consumed/retired:** this one-shot exception was consumed by the 2026-07-08
+   live run. It flashed the pinned P00 boot AP once, observed the original Odin
+   endpoint disconnect, saw no later Odin endpoint during the bounded
+   self-download window, required attended manual Download-mode entry, restored
+   the pinned Magisk boot AP, and reverified Android/Magisk plus boot and DTBO
+   partition hashes. It must not be reused for another P00, P10, M18, or
+   prefix-download live flash under the same gate. The consumed live and
+   rollback ack tokens are intentionally not listed here as active
+   authorization. Before consumption, after the EUD/OpenOCD host path had no
+   EUD USB endpoint and the observability frontier audit selected the M18
+   prefix-download fallback, Codex could perform one bounded attended S22+
+   M18 P00 prefix-download native-init boot-only live gate on the same Samsung
+   S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m18_p00_prefix_download_live_gate.py`.
+   The consumed P00 candidate AP.tar.md5 SHA256 was
+   `b79ac94aac341ab5e4c08cb3c568c20be28bb71ccd4f1b047f712bd1dcf5225b`, the
+   contained boot.img SHA256 was
+   `f8f362bdd0d0f75ae9ae0ce69d86bcfe47362f246504b02fc6175a4aa0a83133`, the
+   base known-booting Magisk boot SHA256 was
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, the
+   preserved kernel SHA256 was
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`, and the
+   P00 `/init` SHA256 was
+   `467947f7ba0c4b4088c9a21a19e5202609b833298f2e95256b1f011eb9af034e`. The AP
+   contained exactly one tar member, `boot.img.lz4`, and no recovery,
+   vendor_boot, vbmeta, vbmeta_system, dtbo, BL, CP, CSC, super, persist,
+   userdata, EFS, sec_efs, RPMB, keymaster, modem, bootloader, or other
+   partition payload. P00 loads no modules and used no ACM, no configfs, no
+   module binary injection, no EUD sysfs write, no raw host partition write, and
+   no fastboot. The failed proof result means P00 did not demonstrate reaching
+   the checkpoint that requests Samsung Download mode. This exception does not
+   authorize P10, M18 full-firststage retry, DTBO, vendor_boot, vbmeta,
+   recovery, BL, CP, CSC, super, userdata, persist, EFS, sec_efs, RPMB,
+   keymaster, modem, bootloader, Magisk modules, multidisabler, format data,
+   additional boot candidates, kernel rebuilds, or any A90 action.
    **Narrow operator-authorized exception (2026-07-08, S22+ ramoops DTBO + M18 capture only):**
    after the operator explicitly accepts the non-boot DTBO write risk and the
    patched-DTBO AVB hash-descriptor mismatch under the already-proven

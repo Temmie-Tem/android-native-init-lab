@@ -748,6 +748,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > not be run until P00 self-download is observed and rollback is clean. Report:
 > `docs/reports/S22PLUS_M18_P00_PREFIX_DOWNLOAD_GATE_SOURCE_2026-07-08.md`.
 
+> **S22+ UPDATE (2026-07-08 08:23 KST) — M18 P00 PREFIX-DOWNLOAD LIVE FAIL, ROLLBACK CLEAN.**
+> Codex promoted the one-shot M18 P00 AGENTS exception, ran the attended live
+> gate, and then retired the exception. The pinned P00 boot-only AP flashed
+> successfully and the original Odin endpoint disconnected, but no later Odin
+> endpoint appeared during the bounded self-download window, so P00 did not
+> prove that minimal native-init reached the checkpoint that requests Samsung
+> Download mode. The operator entered Download mode manually; the helper flashed
+> the pinned Magisk boot rollback AP and Android returned. Post-rollback
+> read-only preflight passed: `boot_completed=1`, Magisk root available,
+> `boot` SHA256 `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
+> stock `dtbo` SHA256
+> `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`,
+> `ramoops_region/status=disabled`. P00 marker was not found in retained
+> pstore/last_kmsg. P10 remains unauthorized; do not continue blind prefix
+> expansion from this result. Report:
+> `docs/reports/S22PLUS_M18_P00_PREFIX_DOWNLOAD_LIVE_RESULT_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
