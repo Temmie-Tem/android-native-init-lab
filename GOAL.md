@@ -117,6 +117,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > performed. Report:
 > `docs/reports/S22PLUS_RAMOOPS_DTBO_STATUS_GATE_RESTORE_HARDENING_2026-07-08.md`.
 
+> **S22+ LIVE RESULT (2026-07-08 04:17 KST) — DTBO STATUS-ONLY GATE PASSED; STOCK DTBO RESTORED.**
+> Operator authorized the ack-gated
+> `S22PLUS-RAMOOPS-DTBO-STATUS-LIVE-GATE` run. Pre-live read-only dry-run passed
+> first, re-verifying Android/root stability, Magisk boot baseline, current stock
+> DTBO hash, and live `ramoops_region/status=disabled`. The live helper then
+> flashed only the pinned patched DTBO AP
+> `4f82663a7c2175a41760ec099c0f662dd04b8932a5ae82ba46b3ecb401a14a00`, Android/root
+> returned, current DTBO readback matched patched raw SHA256
+> `1c90b54577cbb42e029818a0c4248e85ec3a0e40903b0887648d6556355c85ab`, and live
+> `ramoops_region/status=okay` was verified. The helper then restored the pinned
+> stock DTBO AP `6f397421bee84f4ea0c80a8519be0f6f6af84119794970e8a1faaa05f261caaa`;
+> final Android/root returned, stock raw DTBO SHA256
+> `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c` matched, and
+> live status returned to `disabled`. No boot, recovery, vendor_boot, vbmeta,
+> M13/M15/M18/QMP, native-init candidate, or A90 action was performed. Report:
+> `docs/reports/S22PLUS_RAMOOPS_DTBO_STATUS_LIVE_RESULT_2026-07-08.md`. Current
+> next unit is a separate DTBO-enabled M13 positive-control capture helper/policy;
+> do not reuse the retired vendor_boot-only path as-is.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
