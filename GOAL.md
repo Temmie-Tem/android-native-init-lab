@@ -1778,6 +1778,29 @@ safety invariants and flash gates are binding and override any sub-goal.**
 
 > **🎯 OPERATOR STEER (2026-07-08, M17 powered-QMP looped → M18 full first-stage substrate, the LAST principled blind shot; read `docs/reports/S22PLUS_NATIVE_INIT_M18_FULL_FIRSTSTAGE_SUBSTRATE_STEER_2026-07-08.md`).** Operator-user chose one more principled attempt before UART. M17 (hand-picked ~14-module RPMh substrate + QMP PHY/dwc3) bootlooped; DTS shows the QMP PHY `vdda_usb-0p9` rail is a PMIC LDO (L5B) and M17 loaded NO SPMI/PMIC regulator path. The vendor first-stage `modules.load` (140) contains that path (`qcom-spmi-pmic`, `spmi-pmic-arb`, `regmap-spmi`, `pmic_class`, s2dos05/s2mpb02 regulators) plus the complete clock/RPMh/geni substrate in vendor order. **M18 = insmod the full first-stage 140 in order EXCLUDING only reset/anomaly modules (`gh_virt_wdt`, `qcom_wdt_core`, `sec_debug`, `sec_debug_region`, `abc`, `minidump`), then the USB tail (`phy-msm-snps-hs`/`-eusb2`/`-ssusb-qmp` → `dwc3-msm` → `usb_f_ss_acm` → `i2c-msm-geni` → max77705 chain) in softdep order, bind `a600000.dwc3` only, force `/sys/class/usb_role/*/role=device`, PARK.** ~141 modules, all `.ko` in the held vendor_boot ramdisk. **Decision gate:** parks ⇒ power substrate was the gap, proceed to ACM host-only; still loops ⇒ QMP PHY/dwc3 faults even with Android's complete first-stage power env = the runtime power-sequence wall, not diagnosable blind → STOP blind module permutation and move to UART (culprit already localized to the USB PHY/dwc3 block; the kernel prints the exact GDSC/clk/regulator abort to console, pstore disabled). Same boot-only/attended/rollback discipline.
 
+> **STATUS UPDATE (2026-07-08 01:05 KST, M18 full-firststage USB host build + operator bootloop note):**
+> Codex implemented the later M18 full-firststage steer as a host-only boot artifact:
+> `workspace/public/src/native-init/s22plus_init_usb_acm_m18_full_firststage_park.c` plus
+> `workspace/public/src/scripts/revalidation/build_s22plus_inplace_m18_full_firststage_usb_park.py`.
+> Private build output:
+> `workspace/private/outputs/s22plus_native_init/inplace_m18_full_firststage_usb_v0_1`.
+> Hashes: AP.tar.md5
+> `9382f91bf2cd3235410368ca08208b9343d8584da48c29b25c46a931b1f42805`, boot.img
+> `a99a09fa062d1aaa848a41037c649a43abc983f177714dfc24c39d0df4d84083`, `/init`
+> `e73f39f7cc6f3a70e62ab2837b9e2d23422e2b6a5747e94f77bafcf0443baa40`, module list
+> `153921f2cd886e31a5989ba589f6e5058fda4cc8eb6eb196e843293f8fae8e78`.
+> The manifest is intentionally host-only (`live_flash_authorized=false`), boot-only,
+> AP member `boot.img.lz4` only, and injects no module binaries into boot ramdisk. It derives
+> 141 runtime modules: vendor `modules.load` first-stage order minus reset/anomaly modules,
+> then the 12-module USB tail. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M18_FULL_FIRSTSTAGE_USB_HOST_BUILD_2026-07-08.md`.
+> Operator then reported bootloop behavior. Because this status block has no Codex-captured
+> flash transcript, treat that as an operator observation unless the AP SHA above is explicitly
+> confirmed as the flashed artifact. If it was this M18 AP, the M18 gate is resolved:
+> **stop blind module permutations and move to UART/kernel-console capture.** The earlier
+> M18 prefix-download/P00 path is superseded as the current live target by this later
+> full-firststage steer.
+
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
 > runner staged WSTA153 policy + WSTA156 filter artifact + WSTA161 gated-apply helper into
