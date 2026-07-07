@@ -1200,6 +1200,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > mutation. Live use will require a fresh SHA-pinned S22+ boot-only `AGENTS.md` exception, guarded helper, offline
 > check, and dry-run.
 >
+> **STATUS UPDATE (2026-07-07 KST, M10A1 stat-dev host build ready):** Codex added
+> `workspace/public/src/native-init/s22plus_init_m10a1_stat_dev_reboot.c` and
+> `workspace/public/src/scripts/revalidation/build_s22plus_inplace_m10a1_stat_dev_reboot.py`, then built host-only
+> output `workspace/private/outputs/s22plus_native_init/inplace_m10a1_stat_dev_reboot_v0_1`. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M10A1_STAT_DEV_REBOOT_HOST_BUILD_2026-07-07.md`. Exact candidate hashes:
+> AP.tar.md5 SHA256 `68a7f1f5b336a32d882e7cdde73f299815d689b6885b724a6b6c7672bdda00bf`, boot.img SHA256
+> `2fe6b3270f7d493f677f126594061eea33d22de7abe98dc2210fe8050961ecb2`, M10A1 `/init` SHA256
+> `477583121c6c29f5eb31866c034352abb2f03c8fe97ec71e2f63ecbddd6f1642`, source SHA256
+> `a60b66ec5d07f93bb9e29ac96c342e57621815630c29f31653b104e19f7ff86b`, base Magisk boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, kernel SHA256
+> `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`. Static validation confirmed
+> freestanding AArch64/no interpreter, build-id + `.eh_frame` present, `svc #0` count 2, syscall order
+> `__NR_newfstatat` 79 then `__NR_reboot` 142, required strings `/dev` and `download`, no mkdir/mknod/mount/kmsg/
+> proc/sys/run/module/configfs/USB strings in `/init`, no-change MagiskBoot repack byte-identical to base boot,
+> kernel preserved, and AP member `boot.img.lz4` only. **No live flash is authorized yet.** Next bounded unit is
+> M10A1 live-gate preflight only: SHA-pinned `AGENTS.md` exception + guarded helper with explicit manual-download
+> ambiguity wording + default no-flash dry-run against the rooted Android/Magisk baseline.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
