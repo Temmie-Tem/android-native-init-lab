@@ -1859,6 +1859,19 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > copying the draft into `AGENTS.md`; until then the capture gate's default dry-run/live
 > paths correctly remain blocked before Android/device action.
 
+> **STATUS UPDATE (2026-07-08 01:40 KST, capture readiness auditor pass):**
+> Codex added host-only readiness auditor
+> `workspace/public/src/scripts/revalidation/s22plus_ramoops_capture_readiness_audit.py`
+> and report
+> `docs/reports/S22PLUS_RAMOOPS_DTBO_M18_CAPTURE_READINESS_AUDIT_2026-07-08.md`.
+> Validation: `py_compile` pass and audit result pass with `agents=false`,
+> `draft=true`, `offline_rc=0`, `dryrun_rc=1`, `failures=[]`. Meaning: active
+> `AGENTS.md` still has no live authorization, the inert draft covers every required
+> marker, all candidate/rollback APs and manifests still verify, and the capture gate
+> still fails closed at the policy marker gate before Android/device action. No device
+> action occurred. The stack is now repeatably checkable for drift while awaiting
+> explicit operator approval to activate the reviewed exception.
+
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
 > runner staged WSTA153 policy + WSTA156 filter artifact + WSTA161 gated-apply helper into
