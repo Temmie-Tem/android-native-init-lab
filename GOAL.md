@@ -4,6 +4,21 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ LIVE RESULT (2026-07-08 02:42 KST) — M20A RAW-REBOOT BOOTLOOP / MANUAL DOWNLOAD / ROLLBACK OK, NO AUTO PROOF.**
+> Codex executed the guarded M20A live gate once. Candidate flash succeeded and
+> the helper later observed an Odin endpoint and completed Magisk boot rollback,
+> but the operator reported bootloop behavior and manual download-mode entry
+> during the candidate window. Therefore the helper's raw
+> `m20a_self_download_seen=1` is **operator-corrected** to no automatic
+> raw-reboot proof. Final Android/root baseline is restored with boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`; pstore
+> empty; `/proc/last_kmsg` 2097136 bytes; no `S22_NATIVE_INIT_M20A` marker,
+> panic, Oops, or mount-root error strings. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M20A_RAW_REBOOT_LIVE_RESULT_2026-07-08.md`.
+> **Do not run M20B/M20C or M19 C129+.** M20A removes C runtime, minimal fs,
+> marker, and module logic, so the next unit should redesign the floor
+> discriminator before adding code back.
+
 > **S22+ UPDATE (2026-07-08 02:38 KST) — M20A RAW-REBOOT LIVE GATE PREFLIGHT READY, NOT EXECUTED.**
 > Codex added a fresh SHA-pinned `AGENTS.md` exception and guarded helper for
 > exactly one M20 variant: `M20A_RAW`. Helper:
