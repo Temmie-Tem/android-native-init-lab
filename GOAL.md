@@ -1049,6 +1049,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > supervised testing is desired, is a fresh SHA-pinned M8A `AGENTS.md` boot-only exception plus a guarded
 > automatic-download observer helper keyed on the exact hashes above.
 >
+> **STATUS UPDATE (2026-07-07 KST, M8A live gate preflight ready):** Codex added the SHA-pinned
+> `AGENTS.md` M8A boot-only/Odin exceptions and guarded helper
+> `workspace/public/src/scripts/revalidation/s22plus_m8a_minfs_download_live_gate.py` with live ack token
+> `S22PLUS-M8A-MINFS-DOWNLOAD-LIVE-GATE` and rollback-only ack token
+> `S22PLUS-M8A-ROLLBACK-FROM-DOWNLOAD`. `--offline-check` passed with no device action, then default
+> no-flash dry-run passed against the rooted Android/Magisk baseline, verifying the exact M8A AP/boot/init/source
+> hashes, pinned Magisk/stock boot-only rollback APs, `AGENTS.md` exception, Android stability, and live boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M8A_MINFS_DOWNLOAD_LIVE_GATE_PREFLIGHT_2026-07-07.md`. **No live flash was
+> run.** Next supervised live command:
+> `PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m8a_minfs_download_live_gate.py --live --ack S22PLUS-M8A-MINFS-DOWNLOAD-LIVE-GATE`.
+> Expected branch logic: (a) original Odin endpoint disconnects and a later Odin endpoint appears ⇒ direct PID1
+> survived minimal fs setup and reached `reboot("download")`; rollback immediately and continue with M8B module
+> split. (b) no self-download / bootloop ⇒ manually enter download mode, rollback with
+> `--rollback-from-download --ack S22PLUS-M8A-ROLLBACK-FROM-DOWNLOAD`, and treat the failure as below the module
+> layer.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
