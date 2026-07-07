@@ -1277,6 +1277,64 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    display/distro candidates, kernel rebuild, recovery/vendor_boot/vbmeta/
    non-boot flash, raw host `dd`, fastboot, multidisabler, format data, or any
    A90 action.
+   **Narrow operator-authorized exception (2026-07-08, S22+ M17 power-QMP
+   add-back native-init boot-only live gate):** after the M15 live result
+   boot-looped with the naked two-PHY-side module add-back, rollback returned
+   Android/Magisk cleanly, and the M17 host-build report corrected the next
+   experiment to probe QMP only after its power/clock substrate, Codex may
+   prepare and perform one bounded attended boot-partition-only M17 live gate
+   on the same Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using the checked
+   helper `workspace/public/src/scripts/revalidation/s22plus_m17_power_qmp_live_gate.py`
+   with live ack token `S22PLUS-M17-POWER-QMP-LIVE-GATE` and rollback-only ack
+   token `S22PLUS-M17-ROLLBACK-FROM-DOWNLOAD`. The exact candidate AP.tar.md5
+   SHA256 must be
+   `78b2641788a1517f39bdbd50dc425dbaeab0683aa662bcd8bfe9c925a8a50274`, the
+   contained padded `boot.img` SHA256 must be
+   `090811c8f50aab753ef7f085c3cf5bd73e9d6d43e2ad629e95d2cfe48a0ecac2`, the
+   known-booting Magisk boot base SHA256 must be
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, the
+   preserved Magisk-patched kernel SHA256 must be
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`, the
+   M17 `/init` SHA256 must be
+   `34389fc52cd74aa50b2ab2980075183bcde519ffc5d7f9dfb787e1e5b3e2bfe4`, the
+   M17 module-list SHA256 must be
+   `1e00da43ae2b22c56855a28967201733b66b65ec4e91086faa67a4d9b3177fb8`, and
+   the M17 source SHA256 must be
+   `561099a8401ea6b5d5642614b6f6a73e225b239556de07c11cf2d99e1d0a6d2f`. The
+   AP must contain exactly one tar member, `boot.img.lz4`, with no recovery,
+   vendor_boot, vbmeta, vbmeta_system, dtbo, BL, CP, CSC, super, persist,
+   userdata, EFS, RPMB, keymaster, modem, or any other partition payload. The
+   M17 candidate may only run as direct PID1 with a freestanding raw-syscall
+   runtime, mount only the minimal pseudo filesystems needed for module loading,
+   configfs, and kmsg logging, load the 21-module power/clock substrate
+   dependency closure in `s22plus_m17_power_qmp.modules` (`clk-rpmh.ko`,
+   `gcc-waipio.ko`, `icc-rpmh.ko`, `qcom_ipc_logging.ko`,
+   `rpmh-regulator.ko`, `clk-dummy.ko`, `clk-qcom.ko`, `cmd-db.ko`,
+   `debug-regulator.ko`, `gdsc-regulator.ko`, `icc-bcm-voter.ko`,
+   `icc-debug.ko`, `minidump.ko`, `qti-fixed-regulator.ko`,
+   `proxy-consumer.ko`, `qcom_rpmh.ko`, `qcom-scm.ko`, `sec_debug.ko`,
+   `smem.ko`, `socinfo.ko`, `phy-msm-ssusb-qmp.ko`) from stock vendor_boot
+   `/lib/modules`, include the marker strings `module_group=power_qmp` and
+   `module_count=21`, attempt `/sys/class/usb_role/*/role=device`, bind only
+   `a600000.dwc3` and never `dummy_udc.0`, expose an `ss_acm.0` gadget if
+   possible, and then park. M17 has no reboot beacon, no arm64
+   `__NR_reboot=142` path, no `download` string, no host-commanded ACM
+   download action, and uses park-vs-loop plus host ACM enumeration as the
+   observation model. The other PHYs (`phy-generic.ko`,
+   `phy-msm-snps-hs.ko`, `phy-msm-snps-eusb2.ko`), `dwc3-msm.ko`, USB
+   function modules, role/PD/glink stack, and watchdog modules are intentionally
+   withheld. If M17 parks or ACM appears, rollback requires operator manual
+   download-mode rollback through the same helper's `--rollback-from-download
+   --ack S22PLUS-M17-ROLLBACK-FROM-DOWNLOAD` mode, using the exact Magisk
+   boot-only rollback AP SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
+   or the exact stock boot-only fallback AP SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e` if the
+   operator explicitly selects stock rollback. This exception does not authorize
+   M12/M13/M14/M15 retry, naked-QMP M16 live, wider module add-back, display/
+   distro candidates, kernel rebuild, recovery/vendor_boot/vbmeta/non-boot
+   flash, raw host `dd`, fastboot, multidisabler, format data, or any A90
+   action.
 2. **Flash only via the checked helper by default:** `workspace/public/src/scripts/revalidation/native_init_flash.py`.
    Never `dd`/`fastboot`/raw-write a partition. Never invent a new flash path.
    **Narrow operator-authorized exception (2026-07-02, self-dd ladder only):** the V3358

@@ -1697,6 +1697,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > fresh SHA-pinned `AGENTS.md` exception + guarded helper + offline-check + dry-run against the exact hashes
 > before any attended live flash.
 >
+> **STATUS UPDATE (2026-07-08 KST, M17 live-gate preflight ready):** Codex added the SHA-pinned `AGENTS.md`
+> M17 boot-only/Odin exception and guarded helper
+> `workspace/public/src/scripts/revalidation/s22plus_m17_power_qmp_live_gate.py` with live ack token
+> `S22PLUS-M17-POWER-QMP-LIVE-GATE` and rollback-only ack token
+> `S22PLUS-M17-ROLLBACK-FROM-DOWNLOAD`. `--offline-check` passed with no device action, then default dry-run
+> verified AGENTS authorization, exact M17 AP/boot/init/module-list/source hashes, the exact 21-module
+> power/clock substrate + QMP subset, watchdogs absent from the closure, pinned Magisk/stock boot-only rollback
+> APs, Android/Magisk baseline stability, current boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, and no live flash. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M17_POWER_QMP_LIVE_GATE_PREFLIGHT_2026-07-08.md`. The attended live command
+> is `PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m17_power_qmp_live_gate.py --live --ack S22PLUS-M17-POWER-QMP-LIVE-GATE`.
+> If M17 parks or ACM appears, it has no reboot/download path by design; manually enter download mode and
+> rollback with `--rollback-from-download --ack S22PLUS-M17-ROLLBACK-FROM-DOWNLOAD`.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
