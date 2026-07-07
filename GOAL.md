@@ -136,6 +136,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > next unit is a separate DTBO-enabled M13 positive-control capture helper/policy;
 > do not reuse the retired vendor_boot-only path as-is.
 
+> **S22+ CURRENT FRONTIER (2026-07-08 04:24 KST) — DTBO-ENABLED M13 POSITIVE-CONTROL CAPTURE GATE SOURCE READY; POLICY INERT.**
+> Codex added guarded helper
+> `workspace/public/src/scripts/revalidation/s22plus_ramoops_dtbo_m13_capture_live_gate.py`
+> and inert policy draft
+> `docs/operations/S22PLUS_RAMOOPS_DTBO_M13_CAPTURE_AGENTS_EXCEPTION_DRAFT_2026-07-08.md`.
+> This is the DTBO successor to the retired vendor_boot-only path: patched DTBO
+> first, require live `ramoops_region/status=okay`, then flash M13 for
+> positive-control pstore capture, roll boot back, collect pstore, and restore
+> stock DTBO. Validation: `py_compile` passed; `--offline-check` passed with no
+> device action; default execution intentionally stopped before Android/device
+> access because `AGENTS.md` lacks the new
+> `S22PLUS-RAMOOPS-DTBO-M13-CAPTURE-LIVE-GATE` policy marker. `AGENTS.md` was
+> not edited, no live authorization is active, and no flash/reboot/write was
+> performed. Report:
+> `docs/reports/S22PLUS_RAMOOPS_DTBO_M13_CAPTURE_GATE_SOURCE_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
