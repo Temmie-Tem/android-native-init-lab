@@ -562,6 +562,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `enable=1` -> host `lsusb`/dmesg -> `enable=0` test. Report:
 > `docs/reports/S22PLUS_EUD_SOURCE_ANALYSIS_PHASEB_GATE_SOURCE_2026-07-08.md`.
 
+> **S22+ UPDATE (2026-07-08 06:56 KST) — BOOTLOOP/MANUAL-ODIN REPORT RECHECKED; EUD PHASE-B READINESS AUDITOR PASS.**
+> After the operator reported another bootloop observation followed by manual
+> Odin-mode entry, host follow-up saw the phone back as normal Android/ADB
+> (`SM-S906N`/`g0q`). Read-only reset probe passed: Android/root is up,
+> `boot` still matches the pinned Magisk baseline
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
+> `vendor_boot` still matches stock
+> `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`,
+> and `ro.boot.bootreason=sys.boot.reason=reboot,download`; pstore remains
+> empty. No rollback flash was needed or performed. Codex also added
+> `workspace/public/src/scripts/revalidation/s22plus_eud_phase_b_enable_readiness_audit.py`.
+> Validation passed: `py_compile`, inactive readiness audit, readiness audit
+> with `--include-read-only-check`, and negative active-policy check
+> (`--expect-agents-active` fails against current inactive `AGENTS.md`). The
+> EUD helper default execution still fails closed at `agents_exception missing
+> EUD Phase-B markers` before Android/device access. No live EUD enable,
+> flash, reboot, sysfs write, or partition write was performed. Report:
+> `docs/reports/S22PLUS_EUD_PHASE_B_READINESS_AUDIT_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,

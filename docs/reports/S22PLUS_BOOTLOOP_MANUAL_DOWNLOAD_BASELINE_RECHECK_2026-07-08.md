@@ -63,3 +63,21 @@ console capture first, starting with the already built but not live-authorized
 ramoops `vendor_boot` host candidate. That candidate still requires a separate
 SHA-pinned live exception and a decision on the `magiskboot repack -n` drift
 before any vendor_boot flash.
+
+## Follow-Up Recheck (2026-07-08 06:54 KST)
+
+The operator reported another bootloop/manual-Odin observation. Host follow-up
+again found the phone back in normal Android/ADB, not Odin mode. Read-only reset
+probe passed:
+
+```text
+boot        2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
+vendor_boot 096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7
+ro.boot.bootreason=reboot,download
+sys.boot.reason=reboot,download
+/sys/fs/pstore entries=0
+```
+
+No rollback flash was needed or performed. The observation remains useful as a
+manual-download/no-proof shape, but the current baseline is clean rooted Android
+on the pinned Magisk boot hash.

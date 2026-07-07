@@ -229,12 +229,12 @@ def verify_agents_exception(root: Path, log_path: Path) -> None:
 def print_plan() -> None:
     script = "workspace/public/src/scripts/revalidation/s22plus_eud_phase_b_enable_live_gate.py"
     print("S22+ EUD Phase-B reversible enable plan:")
-    print("1. Run read-only check to verify Android/root, Magisk boot hash, EUD module param, and ttyEUD0.")
+    print(f"1. Run read-only check to verify Android/root, Magisk boot hash, {EUD_ENABLE_PARAM}, and {EUD_TTY}.")
     print(f"   PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 {script} --read-only-check")
     print("2. Promote the narrow AGENTS.md exception only after operator approval.")
     print("3. Run live reversible enable:")
     print(f"   PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 {script} --live --ack {LIVE_ACK_TOKEN}")
-    print("4. Helper writes 1 to /sys/module/eud/parameters/enable, collects lsusb/dmesg, then writes 0 back.")
+    print(f"4. Helper will write 1 to {EUD_ENABLE_PARAM}, collect host lsusb/dmesg, then write 0 back.")
     print("Scope: no flash, no reboot, no partition write, no module insertion, no native-init candidate.")
 
 
