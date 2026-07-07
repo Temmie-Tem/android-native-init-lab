@@ -4,6 +4,27 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ UPDATE (2026-07-08 02:38 KST) — M20A RAW-REBOOT LIVE GATE PREFLIGHT READY, NOT EXECUTED.**
+> Codex added a fresh SHA-pinned `AGENTS.md` exception and guarded helper for
+> exactly one M20 variant: `M20A_RAW`. Helper:
+> `workspace/public/src/scripts/revalidation/s22plus_m20a_raw_reboot_live_gate.py`;
+> live ack `S22PLUS-M20A-RAW-REBOOT-LIVE-GATE`; rollback ack
+> `S22PLUS-M20A-ROLLBACK-FROM-DOWNLOAD`. Scope is raw first-action
+> `reboot(..., "download")` only: no libc startup, no fs setup, no marker write,
+> no modules, no configfs, no USB role force, no Android/Magisk handoff.
+> Candidate AP SHA256
+> `795e071107fdd7011a5acdc48ca7415273e5f2a3e19af45386702617292021fc`, boot
+> SHA256 `4fada63c986abc774e2a41eebc590f0635f1f1dcc8a207baa8d02cbfeb20eeb5`,
+> init SHA256 `4b27b050b11a4f0f28f340172515a397f65e1d151507e149bc9cbe47c6beab17`.
+> `py_compile`, `--offline-check`, and default dry-run passed; dry-run verified
+> current rooted Magisk Android baseline and boot SHA256
+> `2e541703951dc725bad35850faf7028c29967e`.
+> Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M20A_RAW_REBOOT_LIVE_GATE_PREFLIGHT_2026-07-08.md`.
+> **No live flash was executed.** If live proceeds, run M20A only first; M20B,
+> M20C, M19 C129+, and all wider module paths remain unauthorized until M20A is
+> operator-clean under current timing.
+
 > **S22+ CURRENT FRONTIER (2026-07-08 02:31 KST) — M20 FLOOR-SPLIT HOST BUILD READY; NO LIVE AUTH.**
 > After the operator-reported M19 C000 bootloop/manual-download event, current
 > device state was rechecked as rooted Magisk Android baseline:
