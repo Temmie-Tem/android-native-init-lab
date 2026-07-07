@@ -1553,6 +1553,26 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > if it stays non-looping but no ACM appears, add the next dependency group instead of changing configfs at
 > the same time.
 >
+> **STATUS UPDATE (2026-07-07 KST, M14 core-ACM add-back host build ready):** Codex added host-only M14 source
+> `workspace/public/src/native-init/s22plus_init_usb_acm_m14_core_acm_park.c` and builder
+> `workspace/public/src/scripts/revalidation/build_s22plus_inplace_m14_core_acm_park.py`, then built output
+> `workspace/private/outputs/s22plus_native_init/inplace_m14_core_acm_v0_1`. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M14_CORE_ACM_HOST_BUILD_2026-07-07.md`. Exact candidate hashes:
+> AP.tar.md5 SHA256 `080fedea35c111020f68b5fb64eb260402dbc45ac4398e282523c94bf9a8922b`,
+> boot.img SHA256 `dee741af20fb3dbcd347c2fa4d45099018f54f577ddf7ae64ac3dca4a357c2e4`,
+> M14 `/init` SHA256 `0a144b2ddde32d78b4dfe051e009f5275f2e67c8276b0fa2d1a61e3280b7eed4`,
+> M14 module-list SHA256 `5b52cd5c1ae26d0bf24e7654b27f254ee478673c9313afdb955a0ec4fcf35f7c`,
+> source SHA256 `8acc0bfff03ec3adbde160a7ad6975be4154c8a219e8e59ebe1a6d8b1a19b8a7`.
+> M14 starts from the stable M13 no-module floor and reintroduces only four M12 core USB/ACM modules:
+> `phy-msm-ssusb-qmp.ko`, `phy-msm-snps-eusb2.ko`, `dwc3-msm.ko`, `usb_f_ss_acm.ko`; it withholds the
+> remaining 20 M12 floor modules. Static validation passed: no interpreter, static AArch64 freestanding
+> `/init`, no arm64 `__NR_reboot=142`, no `download`/`modules.load.recovery`/`/vendor_dlkm`/`ld-linux`/
+> `libc.so` forbidden strings, required `module_group=core_acm module_count=4` marker strings present,
+> AP tar member `boot.img.lz4` only, module binaries injected into boot ramdisk = 0, module-list files = 1,
+> and manifest safety gate true. **No live flash is authorized yet.** Next bounded unit is M14 live-gate
+> preflight only: fresh SHA-pinned `AGENTS.md` exception + guarded helper + dry-run against the exact hashes
+> before any attended live flash.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
