@@ -212,7 +212,7 @@ def print_operator_plan(
     print("  3. If operator promotes the draft into AGENTS, re-run readiness in active-policy mode:")
     print(
         "     PYTHONPATH=workspace/public/src/scripts/revalidation PYTHONPYCACHEPREFIX=/tmp/a90_pycache "
-        f"python3 {readiness} --no-expect-agents-inactive --no-default-dryrun-check"
+        f"python3 {readiness} --expect-agents-active --no-default-dryrun-check"
     )
     print("  4. Then run the capture helper default dry-run:")
     print(f"     PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 {script}")

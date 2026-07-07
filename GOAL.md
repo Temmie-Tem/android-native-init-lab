@@ -176,6 +176,19 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > edited and no live policy, flash, reboot, or write was performed. Report:
 > `docs/reports/S22PLUS_RAMOOPS_DTBO_M13_CAPTURE_OPERATOR_PLAN_2026-07-08.md`.
 
+> **S22+ UPDATE (2026-07-08 04:40 KST) — DTBO+M13 ACTIVE-POLICY READINESS CHECK HARDENED.**
+> Codex hardened
+> `workspace/public/src/scripts/revalidation/s22plus_ramoops_dtbo_m13_capture_readiness_audit.py`
+> so future active-policy validation uses `--expect-agents-active` and fails if
+> `AGENTS.md` does not contain the full DTBO+M13 marker set. Current inactive
+> readiness still passes; `--expect-agents-active --no-default-dryrun-check`
+> against current `AGENTS.md` fails as expected with the four missing policy
+> markers; the same active-mode check passes against a temporary host-only
+> `AGENTS.md + inert draft` file. The helper `--print-plan` now points at
+> `--expect-agents-active --no-default-dryrun-check`. No real `AGENTS.md`
+> promotion, flash, reboot, write, or device access was performed. Report:
+> `docs/reports/S22PLUS_RAMOOPS_DTBO_M13_CAPTURE_OPERATOR_PLAN_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,

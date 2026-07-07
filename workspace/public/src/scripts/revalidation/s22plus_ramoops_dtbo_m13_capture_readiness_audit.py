@@ -134,9 +134,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, help="optional JSON report output path")
     parser.add_argument("--expect-agents-inactive", action="store_true", default=True)
     parser.add_argument("--no-expect-agents-inactive", action="store_false", dest="expect_agents_inactive")
+    parser.add_argument("--expect-agents-active", action="store_true", help="require AGENTS.md to contain the complete DTBO+M13 live policy")
     parser.add_argument("--assert-default-dryrun-policy-block", action="store_true", default=True)
     parser.add_argument("--no-default-dryrun-check", action="store_false", dest="assert_default_dryrun_policy_block")
     args = parser.parse_args(argv)
+    if args.expect_agents_active:
+        args.expect_agents_inactive = False
 
     root = repo_root()
     markers = required_markers()
@@ -157,6 +160,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.expect_agents_inactive and report["agents"]["complete"]:
         fail("AGENTS.md already contains all DTBO+M13 capture markers; this audit expected inactive policy", report)
+    if args.expect_agents_active and not report["agents"]["complete"]:
+        fail(f"AGENTS.md is missing active-policy markers: {report['agents']['missing']}", report)
     if not report["draft"]["complete"]:
         fail(f"exception draft is missing markers: {report['draft']['missing']}", report)
 

@@ -31,6 +31,11 @@ The readiness auditor now also runs `--print-plan` and asserts that the output
 contains the live ack token, boot-rollback token, DTBO restore token, rollback
 mode, stock-DTBO restore modes, and `ramoops_region/status=okay`.
 
+Follow-up hardening added an explicit `--expect-agents-active` mode to the
+readiness auditor. The old active-policy recipe only disabled the inactive
+expectation; it did not require `AGENTS.md` marker completeness. The active mode
+now fails if the complete DTBO+M13 policy block is absent.
+
 ## Validation
 
 Commands:
@@ -57,6 +62,8 @@ py_compile: pass
 print-plan: pass; host-only plan printed
 readiness audit: result=pass
 readiness audit print_plan.returncode=0
+active readiness against current AGENTS: rc=1, expected inactive-policy failure
+active readiness against temporary AGENTS+draft: rc=0
 ```
 
 No live policy was activated. `AGENTS.md` remains inactive for the DTBO+M13 live

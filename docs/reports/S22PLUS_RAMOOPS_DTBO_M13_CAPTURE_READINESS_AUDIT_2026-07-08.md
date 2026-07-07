@@ -76,7 +76,7 @@ The next policy step, if selected, is to promote the inert draft into
 ```sh
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache \
 python3 workspace/public/src/scripts/revalidation/s22plus_ramoops_dtbo_m13_capture_readiness_audit.py \
-  --no-expect-agents-inactive \
+  --expect-agents-active \
   --no-default-dryrun-check
 ```
 
