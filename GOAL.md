@@ -40,6 +40,19 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Report: `docs/reports/S22PLUS_NATIVE_INIT_M19_C000_LIVE_GATE_PREFLIGHT_2026-07-08.md`.
 > **No live flash was executed.** The rest of the M19 matrix remains unauthorized.
 
+> **S22+ LIVE RESULT (2026-07-08 02:20 KST) — M19 C000 BOOTLOOP / MANUAL DOWNLOAD / ROLLBACK OK, NO AUTO PROOF.**
+> Codex executed the guarded C000 live gate once. Candidate flash succeeded and the
+> helper later observed an Odin endpoint and completed Magisk boot rollback, but the
+> operator reported bootloop behavior and manual download-mode entry during the candidate
+> window. Therefore the helper's raw `m19_c000_self_download_seen=1` is **operator-corrected**
+> to no automatic checkpoint proof. Final Android/root baseline is restored with boot SHA
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`; pstore empty;
+> `/proc/last_kmsg` 2097136 bytes; no `S22_NATIVE_INIT_M19` marker. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M19_C000_LIVE_RESULT_2026-07-08.md`.
+> **Do not run C129 or wider M19 prefixes from this result.** C000 loads zero modules, so
+> the next unit should split the C000 floor itself: first-action raw reboot positive
+> control, then minimal-fs-only reboot, then kmsg-marker-after-fs reboot.
+
 > **S22+ CURRENT FRONTIER (2026-07-08 01:53 KST) — M18 CAPTURE POSTMORTEM DONE, NO SAME-M18 REPEAT.**
 > Host-only postmortem
 > `workspace/public/src/scripts/revalidation/s22plus_m18_capture_postmortem.py`
