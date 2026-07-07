@@ -933,6 +933,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `sec_qc_qcom_wdt_core`) and unrelated display/WLAN/thermal/sensor/GPU/camera/audio modules, then build a
 > new no-flash candidate using the existing M6 freestanding/configfs/`a600000.dwc3` design. Any M7 live use
 > still needs a fresh SHA-pinned S22+ boot-only `AGENTS.md` exception and attended rollback path.
+>
+> **STATUS UPDATE (2026-07-07 KST, M7 USB-subset host build ready):** Codex built the M7 host-only candidate
+> and did not flash it. New source:
+> `workspace/public/src/native-init/s22plus_init_usb_acm_m7_usb_subset.c`; builder:
+> `workspace/public/src/scripts/revalidation/build_s22plus_inplace_m7_usb_subset.py`; report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M7_USB_SUBSET_HOST_BUILD_2026-07-07.md`. The builder derives a 54-module
+> `modules.dep` closure from the 20 USB roots, orders it by stock recovery order, removes `qc_usb_audio.ko`
+> via the non-USB blocklist, and emits a 53-module M7 subset text file (`802` bytes) into the boot ramdisk.
+> No `.ko` binaries are injected; runtime still loads from stock vendor_boot `/lib/modules`. Watchdog blocklist
+> is explicit (`gh_virt_wdt.ko`, `qcom_wdt_core.ko`, `qcom_soc_wdt.ko`, `sec_qc_qcom_wdt_core.ko`) and no
+> watchdog module survives the M7 subset. Candidate AP SHA256
+> `be0e1e34ec9452a14b7cfac66cc7ac57a0b29e92343945c35c1f836282563c4d`; boot.img SHA256
+> `7e58de4cfbf50eabef73f62ed1c30a1b4bc83089307cca083c304b9a9b360206`; M7 `/init` SHA256
+> `530ff86247270c5a48db22f009e5f659d4403643a90486842938200c8192514d`; M7 subset list SHA256
+> `b630d318d1a95f596cbd97699d04d2bf60a53e634f35c00bbabc8000fb3315b7`. **No live flash is authorized.**
+> Next bounded live-prep unit, if supervised testing is desired, is a fresh SHA-pinned M7 `AGENTS.md`
+> boot-only exception plus guarded M7 live helper/dry-run for exactly these hashes.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
