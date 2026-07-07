@@ -1306,6 +1306,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > getpid-to-reboot sequence, or first-action reboot using the M10A2 helper/stack shape but no prior syscall. One
 > changed factor per build; no live flash until a fresh SHA-pinned `AGENTS.md` exception and preflight exist.
 >
+> **STATUS UPDATE (2026-07-07 KST, M10A3 probe-reboot host build ready):** Codex added
+> `workspace/public/src/native-init/s22plus_init_m10a3_probe_reboot.c` and
+> `workspace/public/src/scripts/revalidation/build_s22plus_inplace_m10a3_probe_reboot.py`, then built host-only
+> output `workspace/private/outputs/s22plus_native_init/inplace_m10a3_probe_reboot_v0_1`. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M10A3_PROBE_REBOOT_HOST_BUILD_2026-07-07.md`. Exact candidate hashes:
+> AP.tar.md5 SHA256 `7415538ac9cbfdf4af27f294927c3c81d2656412a7f779fce515138ec28e7e3b`, boot.img SHA256
+> `eb2d1cfc278e63cdfe009379f05139e5299b49859a2b247d4e6996be5f24959c`, M10A3 `/init` SHA256
+> `4c7908026430658250a0999fad2d47c7e5d99c212dc8daa3ba8fbafb0f4a8371`, source SHA256
+> `9b5e3669a7a790a369bf8ed4beb662cb5262189e5d8f22011c731fc827955856`, base Magisk boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, kernel SHA256
+> `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`. Static validation confirmed
+> freestanding AArch64/no interpreter, `svc #0` count 1, syscall number `__NR_reboot` 142 only, no getpid/VFS
+> syscall number, `_start` branch order pre-reboot stack-probe helper then reboot helper, required string
+> `download`, no pathname/VFS/dev/proc/sys/run/getpid/newfstatat/mkdir/mount/kmsg/module/configfs/USB strings in
+> `/init`, no-change MagiskBoot repack byte-identical to base boot, kernel preserved, and AP member
+> `boot.img.lz4` only. **No live flash is authorized yet.** Next bounded unit is M10A3 live-gate preflight only:
+> SHA-pinned `AGENTS.md` exception + guarded helper + default no-flash dry-run against the rooted Android/Magisk
+> baseline.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
