@@ -547,6 +547,55 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    authorize full M5 USB-chain changes, display/distro candidates, kernel
    rebuild, recovery/vendor_boot/vbmeta/non-boot flash, raw host `dd`,
    fastboot, multidisabler, format data, or any A90 action.
+   **Narrow operator-authorized exception (2026-07-07, S22+ M6 recovery-replay
+   USB-ACM native-init boot-only live gate):** after the M5B no-transport
+   incident was manually recovered to rooted Magisk Android with boot hash
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, and
+   after the M6 host build report proved the recovery-module replay candidate,
+   Codex may prepare and perform one bounded attended boot-partition-only M6
+   live gate on the same Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using
+   the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m6_recovery_replay_live_gate.py`
+   with live ack token `S22PLUS-M6-RECOVERY-REPLAY-LIVE-GATE` and rollback-only
+   ack token `S22PLUS-M6-ROLLBACK-FROM-DOWNLOAD`. The exact candidate AP.tar.md5
+   SHA256 must be
+   `a12bd8f067375cb14ab9043da5bae37d1f93f82c1d70bccd8fa9cef2f616bee9`, the
+   contained padded `boot.img` SHA256 must be
+   `7fe85c5973b930d777a670ac5997b0f26a51fa5b97705f5e467b0cecf501ffd2`, the
+   known-booting Magisk boot base SHA256 must be
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, the
+   preserved Magisk-patched kernel SHA256 must be
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`, the
+   M6 `/init` SHA256 must be
+   `7aecdf7a2c936b0785d20f5124667a8d682e9eb9678e77d20893889312860295`, and the
+   source vendor_boot ramdisk SHA256 must be
+   `41b2481b779ff48863c300250dabf1b3dcc45c7f58fab421fcf6df1245145193`.
+   The AP must contain exactly one tar member, `boot.img.lz4`, with no
+   recovery, vendor_boot, vbmeta, vbmeta_system, dtbo, BL, CP, CSC, super,
+   persist, userdata, EFS, RPMB, keymaster, modem, or any other partition
+   payload. The M6 candidate may only run as direct PID1 with a freestanding
+   raw-syscall runtime, mount only runtime virtual filesystems, read the stock
+   vendor_boot runtime `/lib/modules/modules.load.recovery`, replay that 446-line
+   ordered module list from `/lib/modules`, rely on the stock
+   `/lib/modules/modules.softdep` context, force `/sys/class/usb_role/*/role`
+   to `device` when available, create only the configfs `ss_acm.0` gadget, bind
+   only the real UDC `a600000.dwc3` and never dummy_udc.0, open `/dev/ttyGS0`,
+   accept only a host-commanded ACM `download` request as its rollback reboot
+   trigger, and park while probing. The M6 `/init` must not start Android or
+   Magisk, mount persistent partitions, write block devices, touch watchdog,
+   install Magisk modules, format data, auto-reboot, or inject vendor modules
+   into the boot ramdisk. If ACM does not appear, ACM command handling fails, or
+   candidate download mode does not appear in the bounded window, rollback
+   requires manual download-mode rollback through the same helper's
+   `--rollback-from-download --ack S22PLUS-M6-ROLLBACK-FROM-DOWNLOAD` mode,
+   using the exact Magisk boot-only rollback AP SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
+   or the exact stock boot-only fallback AP SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e` if the
+   operator explicitly selects stock rollback. This exception does not
+   authorize display/distro candidates, kernel rebuild, recovery/vendor_boot/
+   vbmeta/non-boot flash, raw host `dd`, fastboot, multidisabler, format data,
+   or any A90 action.
 2. **Flash only via the checked helper by default:** `workspace/public/src/scripts/revalidation/native_init_flash.py`.
    Never `dd`/`fastboot`/raw-write a partition. Never invent a new flash path.
    **Narrow operator-authorized exception (2026-07-02, self-dd ladder only):** the V3358
@@ -760,6 +809,20 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    `workspace/public/src/scripts/revalidation/s22plus_m5b_mount_reboot_live_gate.py`
    for the exact single-member `boot.img.lz4` candidate AP.tar.md5 SHA256
    `872de3ee417eebbe8f55c14d226eaefe5e06d5989ffe96176b1bb02994793a59`, and
+   the same helper may use `/usr/bin/odin4 --reboot -a` in
+   `--rollback-from-download` mode with the exact single-member Magisk
+   boot-only AP.tar.md5 SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` or the
+   exact single-member stock boot-only AP.tar.md5 SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`. No other
+   Odin slot, tar member, candidate hash, rollback hash, or partition is
+   authorized by this exception.
+   **Narrow operator-authorized exception (2026-07-07, S22+ M6 recovery-replay
+   USB-ACM native-init boot-only Odin path):** the S22+ M6 live gate above may
+   use `/usr/bin/odin4 --reboot -a` through
+   `workspace/public/src/scripts/revalidation/s22plus_m6_recovery_replay_live_gate.py`
+   for the exact single-member `boot.img.lz4` candidate AP.tar.md5 SHA256
+   `a12bd8f067375cb14ab9043da5bae37d1f93f82c1d70bccd8fa9cef2f616bee9`, and
    the same helper may use `/usr/bin/odin4 --reboot -a` in
    `--rollback-from-download` mode with the exact single-member Magisk
    boot-only AP.tar.md5 SHA256

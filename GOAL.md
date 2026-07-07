@@ -836,6 +836,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > run.** Next supervised live command:
 > `PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m5b_mount_reboot_live_gate.py --live --ack S22PLUS-M5B-MOUNT-REBOOT-LIVE-GATE`.
 >
+> **STATUS UPDATE (2026-07-07 KST, M5B live incident - rollback clean):** Codex executed the attended M5B
+> mount/reboot live gate. The SHA-pinned boot-only AP
+> `872de3ee417eebbe8f55c14d226eaefe5e06d5989ffe96176b1bb02994793a59` flashed with Odin rc=0 and the original
+> Odin endpoint disconnected, but no M5B self-download, ADB transport, or Samsung USB endpoint appeared during
+> the bounded observation window (`m5b_self_download_seen=0`). The helper exited rc=4 and required manual
+> download-mode rollback. Follow-up host checks and two bounded Odin polling loops still saw no ADB/Odin/USB
+> transport. After the operator later reported a boot loop, Codex rechecked at
+> `2026-07-06T22:46:30Z` / `2026-07-07T07:46:30+0900` and still saw no ADB/Odin/Samsung USB endpoint, so
+> rollback could not run at that time. The operator then manually entered Samsung `Downloading...` mode; Codex
+> saw exactly one Odin endpoint, ran
+> `PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m5b_mount_reboot_live_gate.py --rollback-from-download --ack S22PLUS-M5B-ROLLBACK-FROM-DOWNLOAD`,
+> and rollback completed `rc=0`. Android returned as `SM-S906N`/`g0q`, `sys.boot_completed=1`,
+> `init.svc.bootanim=stopped`, orange verified boot, Magisk root available, and boot hash again matched
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. Retained evidence stayed absent
+> (`pstore_files=[]`, marker not found in pstore/last_kmsg). Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M5B_MOUNT_REBOOT_LIVE_INCIDENT_2026-07-07.md`. M5B is recovered; do not
+> repeat it. Next S22+ native-init boot flash is M6 only after a fresh SHA-pinned M6 `AGENTS.md` exception.
+>
 > **🎯 OPERATOR STEER (2026-07-07, M5 miss ROOT-CAUSED host-only — redirect from the M5B mount-bisect to M6
 > full-substrate module replay). Report: `docs/reports/S22PLUS_NATIVE_INIT_M5_USB_ACM_ROOTCAUSE_HOSTANALYSIS_2026-07-07.md`.**
 > Host-only analysis of the vendor artifacts we already hold settled why M5 flashed + ran (no bootloop, PID1
@@ -863,6 +881,58 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > vendor's own **`modules.load`/`modules.load.recovery` + `modules.softdep`**, not a leaf-module symbol closure.
 > Same discipline holds: host-only build + dry-run, fresh SHA-pinned boot-only `AGENTS.md` exception + attended
 > ack + manual-download rollback per live flash, no forbidden partitions.
+>
+> **STATUS UPDATE (2026-07-07 KST, M6 recovery-replay host build ready):** While M5B recovery remained pending,
+> Codex performed only the allowed host-side M6 work. New source:
+> `workspace/public/src/native-init/s22plus_init_usb_acm_m6_recovery_replay.c`; builder:
+> `workspace/public/src/scripts/revalidation/build_s22plus_inplace_m6_recovery_replay.py`; report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M6_RECOVERY_REPLAY_HOST_BUILD_2026-07-07.md`. M6 keeps the freestanding
+> raw-syscall PID1 runtime but does **not** inject the 441 vendor `.ko` files into boot; instead it reads stock
+> vendor_boot runtime `/lib/modules/modules.load.recovery`, replays that 446-line recovery order from
+> `/lib/modules`, requires the expected `dwc3_msm` softdep, forces USB role `device` when available, and binds
+> only `a600000.dwc3` before opening `ss_acm.0`/`ttyGS0`. Host gates passed: py_compile, freestanding AArch64
+> compile/no INTERP, MagiskBoot no-change repack byte-identical, replace `/init` only, unchanged kernel,
+> single-member `boot.img.lz4` AP, Odin invalid-device parse gate, vendor ramdisk `441 .ko` +
+> `modules.load.recovery=446` + `modules.load.recovery` bytes `7239 < 32768` runtime buffer +
+> `modules.dep=441` + softdep verified. Candidate AP SHA256
+> `a12bd8f067375cb14ab9043da5bae37d1f93f82c1d70bccd8fa9cef2f616bee9`; boot.img SHA256
+> `7fe85c5973b930d777a670ac5997b0f26a51fa5b97705f5e467b0cecf501ffd2`; M6 `/init` SHA256
+> `7aecdf7a2c936b0785d20f5124667a8d682e9eb9678e77d20893889312860295`. Codex also added guarded helper
+> `workspace/public/src/scripts/revalidation/s22plus_m6_recovery_replay_live_gate.py` and ran only
+> `--offline-check`, proving the M6 candidate and rollback APs without device action
+> (`device_action=0`, `agents_exception_checked=0`, `android_checked=0`). A follow-up host-only hardening pass
+> added manifest gates proving every recovery-list entry is a single `.ko` token, has no inline whitespace, and
+> fits the runtime parser buffer (`max_basename=30 < 128`), with AP/boot/init hashes unchanged. M5B recovery is
+> now complete, so the remaining pre-live gate is a fresh SHA-pinned M6 `AGENTS.md` boot-only exception before
+> using the guarded live helper.
+>
+> **STATUS UPDATE (2026-07-07 KST, M6 live incident - rollback clean):** Codex added the fresh SHA-pinned M6
+> `AGENTS.md` boot-only/Odin exceptions, ran M6 dry-run successfully against rooted Magisk Android, then executed
+> the attended M6 live gate. Candidate AP
+> `a12bd8f067375cb14ab9043da5bae37d1f93f82c1d70bccd8fa9cef2f616bee9` flashed with Odin rc=0, but no ACM,
+> Odin/download, ADB transport, or Samsung USB endpoint appeared during the bounded 120s observation window
+> (`m6_acm_seen=0`). A post-helper bounded Odin polling loop also saw no download endpoint through
+> `2026-07-07T04:48:40Z`. The operator later entered Samsung `Downloading...` mode; Codex saw exactly one Odin
+> endpoint, ran
+> `PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m6_recovery_replay_live_gate.py --rollback-from-download --ack S22PLUS-M6-ROLLBACK-FROM-DOWNLOAD`,
+> and rollback completed `rc=0`. Android returned as `SM-S906N`/`g0q`, `sys.boot_completed=1`,
+> `init.svc.bootanim=stopped`, orange verified boot, Magisk root available, and boot hash again matched
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. Retained evidence stayed absent
+> (`pstore_files=[]`, marker not found in pstore/last_kmsg). Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M6_RECOVERY_REPLAY_LIVE_INCIDENT_2026-07-07.md`. M6 is recovered; do not
+> repeat it without a host-only postmortem and a fresh, narrower SHA-pinned next-candidate exception.
+>
+> **STATUS UPDATE (2026-07-07 KST, M6 bootloop postmortem operator direction):** A separate host-only operator
+> postmortem is now committed at
+> `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md`. The stronger next hypothesis
+> is that M6 over-corrected from the incomplete M5 USB closure to the whole `modules.load.recovery` list: the
+> full 446-module replay includes watchdog/reset-prone drivers near the front of recovery order, while the bare
+> native PID1 parks and pets no watchdog. Next bounded unit is therefore **M7 host-only**, not an M6 repeat:
+> compute the USB-bring-up subset in recovery order, include genuine `modules.dep` transitive dependencies,
+> explicitly exclude watchdog modules (`gh_virt_wdt`, `qcom_wdt_core`, `qcom_soc_wdt`,
+> `sec_qc_qcom_wdt_core`) and unrelated display/WLAN/thermal/sensor/GPU/camera/audio modules, then build a
+> new no-flash candidate using the existing M6 freestanding/configfs/`a600000.dwc3` design. Any M7 live use
+> still needs a fresh SHA-pinned S22+ boot-only `AGENTS.md` exception and attended rollback path.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
