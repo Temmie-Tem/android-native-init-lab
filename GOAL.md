@@ -202,6 +202,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > write, or device access was performed. Report:
 > `docs/reports/S22PLUS_RAMOOPS_DTBO_M13_DOWNLOAD_MISSING_RESTORE_HARDENING_2026-07-08.md`.
 
+> **S22+ UPDATE (2026-07-08 04:45 KST) — DTBO+M13 ACTIVE POLICY PROMOTED FOR OPERATOR-APPROVED LIVE GATE.**
+> After operator live approval, Codex promoted the inert DTBO+M13
+> positive-control exception draft into `AGENTS.md`. The active exception is
+> limited to the pinned patched DTBO AP, the pinned M13 boot AP, the pinned
+> Magisk/stock boot rollback APs, and the pinned stock-DTBO rollback AP through
+> `workspace/public/src/scripts/revalidation/s22plus_ramoops_dtbo_m13_capture_live_gate.py`
+> with ack token `S22PLUS-RAMOOPS-DTBO-M13-CAPTURE-LIVE-GATE`. It does not
+> authorize vendor_boot, vbmeta, recovery, BL, CP, CSC, super, userdata, EFS,
+> RPMB, keymaster, modem, bootloader, raw host `dd`, fastboot, Magisk modules,
+> additional candidates, or A90 actions. Validation passed: active-policy
+> readiness `agents.complete=true`, `py_compile`, `git diff --check`, and the
+> default pre-live dry-run that reverified Android/root stability, boot hash,
+> stock DTBO hash, and live `ramoops_region/status=disabled`. Next gate:
+> attended live with the active ack token. Report:
+> `docs/reports/S22PLUS_RAMOOPS_DTBO_M13_POLICY_ACTIVATION_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
