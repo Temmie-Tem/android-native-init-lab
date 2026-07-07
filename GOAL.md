@@ -94,6 +94,18 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > approval, is the ack-gated status-only command. Report:
 > `docs/reports/S22PLUS_RAMOOPS_DTBO_STATUS_POLICY_ACTIVATION_2026-07-08.md`.
 
+> **S22+ UPDATE (2026-07-08 04:09 KST) — DTBO STATUS GATE RESTORE HARDENED; LIVE STILL NOT EXECUTED.**
+> Codex hardened
+> `workspace/public/src/scripts/revalidation/s22plus_ramoops_dtbo_status_live_gate.py`
+> so if patched DTBO boots Android but patched-DTBO hash or live
+> `ramoops_region/status=okay` verification fails, the helper attempts stock DTBO
+> restore before exiting nonzero. This closes the main pre-live cleanup gap where
+> a verification failure could otherwise leave patched DTBO installed. Validation:
+> `py_compile`, `--offline-check`, read-only default dry-run, and stock-state
+> `--restore-dtbo-from-android` no-op all passed. No flash/reboot/write was
+> performed. Report:
+> `docs/reports/S22PLUS_RAMOOPS_DTBO_STATUS_GATE_RESTORE_HARDENING_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,

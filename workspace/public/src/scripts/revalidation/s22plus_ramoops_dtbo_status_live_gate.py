@@ -164,6 +164,30 @@ def restore_dtbo_from_download(
     return 0
 
 
+def restore_after_patched_android_failure(
+    odin: Path,
+    dtbo_rollback_ap: Path,
+    log_path: Path,
+    patched_serial: str,
+    odin_wait_sec: int,
+    android_wait_sec: int,
+    reason: BaseException,
+) -> int:
+    append_log(log_path, f"patched_dtbo_verification_failed={reason}")
+    print(f"patched DTBO verification failed; attempting stock DTBO restore before exit: {reason}", file=sys.stderr)
+    try:
+        reboot_android_to_download(patched_serial, log_path, "stock_dtbo_restore_after_patched_verify_fail")
+        rc = restore_dtbo_from_download(odin, dtbo_rollback_ap, log_path, odin_wait_sec, android_wait_sec, patched_serial)
+    except SystemExit as restore_error:
+        append_log(log_path, f"stock_dtbo_restore_after_patched_verify_fail_failed={restore_error}")
+        print(f"stock DTBO restore after patched verification failure failed: {restore_error}", file=sys.stderr)
+        raise
+    append_log(log_path, f"stock_dtbo_restore_after_patched_verify_fail_rc={rc}")
+    if rc != 0:
+        return rc
+    return 10
+
+
 def preflight_common(args: argparse.Namespace) -> tuple[Path, Path, Path, Path, Path]:
     root = repo_root()
     run_dir = resolve_run_dir(root, args.run_dir)
@@ -280,8 +304,19 @@ def main(argv: list[str]) -> int:
     if patched_serial is None:
         print("Android did not return after patched DTBO. Enter download mode and run --restore-dtbo-from-download.", file=sys.stderr)
         return 6
-    verify_current_dtbo_hash(log_path, patched_serial, EXPECTED_PATCHED_DTBO_RAW_SHA256, "patched")
-    verify_live_ramoops_status(log_path, patched_serial, "okay", "patched")
+    try:
+        verify_current_dtbo_hash(log_path, patched_serial, EXPECTED_PATCHED_DTBO_RAW_SHA256, "patched")
+        verify_live_ramoops_status(log_path, patched_serial, "okay", "patched")
+    except SystemExit as verify_error:
+        return restore_after_patched_android_failure(
+            odin,
+            dtbo_rollback_ap,
+            log_path,
+            patched_serial,
+            args.odin_wait_sec,
+            args.android_wait_sec,
+            verify_error,
+        )
 
     reboot_android_to_download(patched_serial, log_path, "stock_dtbo_restore_after_status_gate")
     rc = restore_dtbo_from_download(odin, dtbo_rollback_ap, log_path, args.odin_wait_sec, args.android_wait_sec, patched_serial)
