@@ -4,6 +4,22 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-08 02:47 KST) — M21 FLOOR DISCRIMINATOR REDESIGNED; NO LIVE AUTH.**
+> M20A operator correction invalidates the helper-only inference
+> `later Odin endpoint == automatic self-download proof`. M4T2 remains the
+> strongest positive raw PID1 execution proof because it was a non-transport
+> visual park result. M4T3 is now downgraded from hard raw-reboot PASS to
+> timing-ambiguous: the helper saw a later Odin endpoint, but M20A proves that
+> this shape cannot distinguish self-download from operator/manual recovery
+> unless the candidate has a pre-download proof separator. Do not run M20B/M20C,
+> M19 C129+, or wider module paths. Next safe unit is host-only M21A:
+> raw AArch64 PID1 `nanosleep(75-90s) -> reboot("download") -> wfe park`, with
+> helper timestamps and a strict rule that any Odin endpoint before dwell or any
+> operator key intervention is `no-proof/manual-or-bootloader-artifact`. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M21_FLOOR_DISCRIMINATOR_REDESIGN_2026-07-08.md`.
+> No live flash is authorized until M21A build artifacts, SHA-pinned exception,
+> dry-run, and rollback gates are committed.
+
 > **S22+ LIVE RESULT (2026-07-08 02:42 KST) — M20A RAW-REBOOT BOOTLOOP / MANUAL DOWNLOAD / ROLLBACK OK, NO AUTO PROOF.**
 > Codex executed the guarded M20A live gate once. Candidate flash succeeded and
 > the helper later observed an Odin endpoint and completed Magisk boot rollback,
