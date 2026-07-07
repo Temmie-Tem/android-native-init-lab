@@ -96,40 +96,26 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    state. If no retained evidence appears, stop and do not keep changing DTBO or
    M22 candidates under this exception. Manual recovery may be required.
    **Narrow operator-authorized exception (2026-07-08, S22+ sec_debug MID M18
-   capture boot-only):** after the S22+ sec_debug/MID sysrq positive control
-   proved retained `/proc/last_kmsg` kernel panic evidence, Codex may perform
+   capture boot-only):**
+   **Consumed/retired:** this one-shot exception was consumed by the 2026-07-08
+   live run. It flashed the pinned M18 boot AP once, observed bootloop/Odin
+   return, restored the pinned Magisk boot AP, and collected Samsung sec_debug
+   retained `/proc/last_kmsg` evidence. It must not be reused for another M18
+   or boot-candidate live flash under the same gate. Future native-init live
+   flashes need a fresh, narrower exception for the selected artifact and
+   observation path.
+   Before consumption, after the S22+ sec_debug/MID sysrq positive control
+   proved retained `/proc/last_kmsg` kernel panic evidence, Codex could perform
    one bounded attended S22+ sec_debug MID M18 capture boot-only run on the
    Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
-   `workspace/public/src/scripts/revalidation/s22plus_sec_debug_m18_capture_live_gate.py`
-   and live ack token `S22PLUS-SECDEBUG-M18-CAPTURE-LIVE-GATE`. The operator
-   must keep Samsung SysDump DEBUG LEVEL at MID (`debug_level=MID`) and pass
-   confirmation token `DEBUG_LEVEL_MID_SET_BY_OPERATOR`; the helper must verify
-   Android/root, current boot hash, and sec_debug MID state before live
-   flashing. This exception authorizes exactly one boot partition only candidate
-   flash using the M18 AP.tar.md5 SHA256
-   `9382f91bf2cd3235410368ca08208b9343d8584da48c29b25c46a931b1f42805`.
-   The M18 padded boot.img SHA256 must be
-   `a99a09fa062d1aaa848a41037c649a43abc983f177714dfc24c39d0df4d84083`,
-   the known-booting base Magisk boot SHA256 must be
-   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
-   and the M18 retained marker is `S22_NATIVE_INIT_USB_ACM_M18_FULL`. After
-   observation, restore the boot partition using the pinned Magisk boot rollback
-   AP.tar.md5 SHA256
-   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`
-   with stock boot fallback AP.tar.md5 SHA256
-   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
-   The M18, Magisk rollback, and stock boot fallback APs must contain exactly
-   one tar member, `boot.img.lz4`. If M18 leaves the phone in a panic/upload
-   screen or exposes no rollback transport, rollback requires operator manual
-   download-mode entry and the helper mode
-   `--rollback-boot-from-download --ack S22PLUS-SECDEBUG-M18-ROLLBACK-BOOT-FROM-DOWNLOAD`.
-   The capture goal is to collect Samsung sec_debug retained evidence from
-   `/proc/last_kmsg` after boot rollback. This is boot partition only and no
-   DTBO, no vendor_boot, no vbmeta, no recovery, no BL, no CP, no CSC, no super,
-   no userdata, no persist, no EFS, no sec_efs, no RPMB, no keymaster, no modem,
-   no bootloader, no raw host `dd`, no fastboot, no Magisk module, no
-   multidisabler, no format data, no additional boot candidate, no additional
-   debug-level panic, no kernel rebuild, and no A90 action is authorized.
+   `workspace/public/src/scripts/revalidation/s22plus_sec_debug_m18_capture_live_gate.py`.
+   The consumed live ack token and rollback token are intentionally not listed
+   here as active authorization. The run was boot partition only and did not
+   authorize DTBO, vendor_boot, vbmeta, recovery, BL, CP, CSC, super, userdata,
+   persist, EFS, sec_efs, RPMB, keymaster, modem, bootloader, raw host `dd`,
+   fastboot, Magisk modules, multidisabler, format data, additional boot
+   candidates, additional debug-level panics, kernel rebuilds, or any A90
+   action.
    **Narrow operator-authorized exception (2026-07-07, S22+ P2 native-init
    first-light boot-only):** after the S22+ TWRP/root/116-package checkpoint
    and the P0/P1 host-only reports, Codex may perform one bounded Odin4

@@ -519,6 +519,26 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > happened in this policy unit. Report:
 > `docs/reports/S22PLUS_SEC_DEBUG_M18_POLICY_ACTIVATION_2026-07-08.md`.
 
+> **S22+ LIVE RESULT (2026-07-08 06:45 KST) — SEC_DEBUG MID M18 LIVE CONSUMED; DEVICE CLEAN; NO RETAINED NATIVE HIT.**
+> Operator-approved boot-only M18 live gate ran once. The helper flashed the
+> pinned M18 AP (`m18_candidate_odin_rc=0`), observed no ACM and no ADB during
+> M18, then saw an Odin/Download endpoint at observation iteration 57. The pinned
+> Magisk boot rollback AP flashed successfully (`magisk_boot_rollback_odin_rc=0`).
+> The helper then hit a host bug (`NameError: wait_for_android_root`) after the
+> rollback flash; Codex fixed the import, added `--collect-after-rollback`, and
+> tightened retained-signal classification to avoid generic `dwc3/regulator`
+> false positives. Post-rollback collection passed Android/root stability and
+> boot hash verification (`2e5417...` Magisk baseline), with sec_debug still
+> `debug_level=MID`. `/proc/last_kmsg` was 2097136 bytes and `/sys/fs/pstore`
+> was empty, but M18 marker / `S22_NATIVE_INIT` / `M18` / `S22M18FULL` and
+> kernel panic/Oops/SError/native fault signals were all absent
+> (`native_signal_found=0`). The retained lines are Android `reboot,download`,
+> ABL/XBL Download/Odin reset, and normal watchdog/regulator/dwc3 noise. Final
+> dry-run passed, then `AGENTS.md` marked the one-shot M18 exception
+> consumed/retired; default helper execution now fails closed before Android.
+> Do not rerun the same M18 candidate. Report:
+> `docs/reports/S22PLUS_SEC_DEBUG_M18_LIVE_RESULT_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,

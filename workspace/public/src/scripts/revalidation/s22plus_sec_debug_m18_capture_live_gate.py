@@ -12,6 +12,7 @@ Device modes require a fresh AGENTS.md exception before Android access:
   default dry-run              verify Android/root, boot hash, and sec_debug MID;
   --live                       flash M18 boot only, observe, rollback, collect;
   --rollback-boot-from-download rollback after operator-entered Download mode.
+  --collect-after-rollback     collect retained evidence after confirmed rollback.
 
 The helper never flashes DTBO/vendor_boot/vbmeta/recovery and never writes any
 partition other than the boot partition through the pinned Odin AP packages.
@@ -66,6 +67,7 @@ from s22plus_ramoops_dtbo_m18_capture_live_gate import (
     reboot_android_to_download,
     verify_current_boot_hash,
     verify_m18_manifest,
+    wait_for_android_root,
 )
 from s22plus_sec_debug_mid_sysrq_gate import (
     DEBUG_LEVEL_CONFIRM_TOKEN,
@@ -202,21 +204,16 @@ def scan_payload(payload: bytes) -> dict[str, Any]:
     sysrq_only_panic = "sysrq triggered crash" in lower and not marker_found and "s22_native_init" not in lower
     fatal_without_prior_sysrq = any(
         needle in lower
-        for needle in ("kernel panic", "oops", "serror", "watchdog", "unable to handle", "bug:")
+        for needle in ("kernel panic", "oops", "serror", "unable to handle")
     ) and not sysrq_only_panic
-    native_signal_found = bool(
-        marker_found
-        or "s22_native_init" in lower
-        or "s22m18full" in lower
-        or "qmp" in lower
-        or "dwc3" in lower
-        or "phy-msm" in lower
-        or fatal_without_prior_sysrq
-    )
+    native_marker_found = bool(marker_found or "s22_native_init" in lower or "s22m18full" in lower)
+    native_signal_found = bool(native_marker_found or fatal_without_prior_sysrq)
     return {
         "bytes": len(payload),
         "hit_counts": hits,
         "marker_found": marker_found,
+        "native_marker_found": native_marker_found,
+        "fatal_without_prior_sysrq": fatal_without_prior_sysrq,
         "sysrq_only_panic": sysrq_only_panic,
         "native_signal_found": native_signal_found,
     }
@@ -264,7 +261,7 @@ def collect_m18_retained_evidence(run_dir: Path, log_path: Path, serial: str, la
     summary["native_signal_found"] = bool(summary["native_signal_found"] or scan["native_signal_found"])
 
     grep = adb_shell(
-        f"su -c 'cat /proc/last_kmsg 2>/dev/null | grep -Eai {RETAINED_GREP!r} | head -600 || true'",
+        f"su -c \"cat /proc/last_kmsg 2>/dev/null | grep -Eai '{RETAINED_GREP}' | head -600 || true\"",
         serial=serial,
         timeout=60.0,
     )
@@ -386,13 +383,27 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--print-plan", action="store_true")
     parser.add_argument("--live", action="store_true")
     parser.add_argument("--rollback-boot-from-download", action="store_true")
+    parser.add_argument("--collect-after-rollback", action="store_true")
     parser.add_argument("--ack")
     parser.add_argument("--confirm-debug-level-mid")
     args = parser.parse_args(argv)
 
-    modes = sum(1 for enabled in (args.offline_check, args.print_plan, args.live, args.rollback_boot_from_download) if enabled)
+    modes = sum(
+        1
+        for enabled in (
+            args.offline_check,
+            args.print_plan,
+            args.live,
+            args.rollback_boot_from_download,
+            args.collect_after_rollback,
+        )
+        if enabled
+    )
     if modes > 1:
-        raise SystemExit("--offline-check, --print-plan, --live, and --rollback-boot-from-download are mutually exclusive")
+        raise SystemExit(
+            "--offline-check, --print-plan, --live, --rollback-boot-from-download, "
+            "and --collect-after-rollback are mutually exclusive"
+        )
 
     root, run_dir, log_path, odin, m18_ap, _m18_manifest, magisk_rollback_ap, stock_rollback_ap = preflight_common(args)
 
@@ -432,6 +443,26 @@ def main(argv: list[str]) -> int:
         )
         if rc != 0:
             return rc
+        return 0 if signal else 10
+
+    if args.collect_after_rollback:
+        selected_serial = require_current_android(log_path, args.serial)
+        verify_android_stability(
+            log_path,
+            selected_serial,
+            args.android_stability_samples,
+            args.android_stability_interval_sec,
+        )
+        verify_current_boot_hash(log_path, selected_serial)
+        state = collect_sec_debug_state(run_dir, log_path, selected_serial, "post_m18_manual_recovery")
+        retained = collect_m18_retained_evidence(run_dir, log_path, selected_serial, "post_m18_manual_recovery")
+        append_log(log_path, f"post_m18_manual_recovery_sec_debug_state={json.dumps(state, sort_keys=True)}")
+        signal = bool(retained.get("native_signal_found"))
+        print(
+            "M18 post-rollback retained collection completed; "
+            f"native_signal_found={int(signal)} marker_found={int(retained.get('marker_found', False))}; "
+            f"log={display_path(log_path)}"
+        )
         return 0 if signal else 10
 
     selected_serial = require_current_android(log_path, args.serial)
