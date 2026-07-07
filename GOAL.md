@@ -1184,6 +1184,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `--rollback-from-download --ack S22PLUS-M10A-ROLLBACK-FROM-DOWNLOAD`, and treat the first VFS syscall/pathname
 > access as the failing boundary.
 >
+> **STATUS UPDATE (2026-07-07 KST, M10A mkdir-dev live result, OPERATOR-CORRECTED):** Codex executed the attended
+> M10A boot-only live gate once. Preflight passed, `adb reboot download` succeeded, the exact M10A AP flashed with
+> Odin rc=0, and the original Odin endpoint disconnected. The helper later observed a Samsung download endpoint
+> inside its 150 s window and restored the pinned Magisk boot-only rollback AP with Odin rc=0, but the operator
+> corrected the causal interpretation: the device was bootlooping and the later download endpoint came from manual
+> download-mode entry, not automatic M10A self-download. Android returned to the rooted Magisk baseline with
+> `boot_completed=1`, `init.svc.bootanim=stopped`, Magisk root, no pstore files, readable `/proc/last_kmsg`, and no
+> retained M10A marker as expected because M10A writes no marker. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M10A_MKDIR_DEV_REBOOT_LIVE_RESULT_2026-07-07.md`. Interpretation: M10A is a
+> recovered bootloop/no-automatic-self-download result. Do not treat `mkdirat("/dev", 0755)` or basic pathname VFS
+> access as proven survivable, and do not expand to M10B top-level mkdir batch yet. Next bounded unit is host-only
+> M10A split/postmortem: build a narrower read-only pathname VFS discriminator, e.g.
+> `newfstatat(AT_FDCWD, "/dev", ...)` then `reboot("download")`, to separate pathname lookup/VFS read from mkdir
+> mutation. Live use will require a fresh SHA-pinned S22+ boot-only `AGENTS.md` exception, guarded helper, offline
+> check, and dry-run.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
