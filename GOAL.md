@@ -33,6 +33,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > (+ EUD research `…EUD_RESEARCH_APPLICABILITY…`, sec_debug `…SEC_DEBUG_DEBUG_LEVEL…`,
 > inventory `…DEBUG_CHANNEL_INVENTORY…`).
 
+> **S22+ UPDATE (2026-07-08 08:51 KST) — BOOTLOOP/MANUAL-DOWNLOAD REPORT RECHECKED; DEVICE BASELINE CLEAN.**
+> After the operator reported a bootloop followed by manual Download-mode entry,
+> Codex first checked live state instead of flashing rollback. The phone was
+> already back on Android/root (`boot_completed=1`, Magisk root uid0, verified
+> boot `orange`), with the known clean hashes: boot
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, dtbo
+> `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`, and
+> stock vendor_boot
+> `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`.
+> Read-only retained-evidence probes found `ramoops_region/status=disabled`,
+> empty pstore, reset reason `reboot,download`, and no `S22_NATIVE_INIT` /
+> M23 marker hit. No flash, rollback, reboot, partition write, or sysfs write
+> was performed. Treat this as clean baseline recheck, not rollback failure.
+> Report:
+> `docs/reports/S22PLUS_BOOTLOOP_MANUAL_DOWNLOAD_RECHECK_CLEAN_2026-07-08.md`.
+
 > **S22+ LIVE RESULT (2026-07-08 03:50 KST) — DIRECT VENDOR_BOOT RAMOOPS PATCH BOOTED BUT DID NOT AFFECT LIVE DT; M13 NOT FLASHED.**
 > Operator authorized the ack-gated
 > `S22PLUS-RAMOOPS-VENDORBOOT-M13-CAPTURE-LIVE-GATE` run. Dry-run passed, the
