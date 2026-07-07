@@ -182,7 +182,7 @@ Stock boot-only rollback was flashed:
   `workspace/private/outputs/s22plus_native_init/odin4_stock_rollback_short/odin_stock_rollback_20260705T201859Z.log`
 - Transfer: `boot.img.lz4` reached `100%`
 - Current live state after rollback:
-  - ADB: `RFCT519XWGK device`
+  - ADB: `<S22_SERIAL_REDACTED> device`
   - `sys.boot_completed=1`
   - `ro.boot.flash.locked=0`
   - `ro.boot.verifiedbootstate=orange`

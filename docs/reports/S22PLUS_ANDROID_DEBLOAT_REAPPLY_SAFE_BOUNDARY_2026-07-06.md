@@ -17,7 +17,7 @@ Scope:
 ## Starting State
 
 ```text
-adb: RFCT519XWGK device usb:2-1.3 product:g0qksx model:SM_S906N device:g0q
+adb: <S22_SERIAL_REDACTED> device usb:2-1.3 product:g0qksx model:SM_S906N device:g0q
 sys.boot_completed=1
 build=S906NKSS7FYG8
 persist.sys.safemode=

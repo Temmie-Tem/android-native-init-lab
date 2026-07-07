@@ -115,7 +115,7 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   workspace/public/src/scripts/revalidation/s22plus_m19_c000_checkpoint_live_gate.py \
   --live --ack S22PLUS-M19-C000-CHECKPOINT-LIVE-GATE
 
-adb -s RFCT519XWGK shell 'getprop ro.product.model; getprop ro.product.device; \
+adb -s <S22_SERIAL_REDACTED> shell 'getprop ro.product.model; getprop ro.product.device; \
   getprop ro.boot.bootloader; getprop ro.boot.verifiedbootstate; \
   getprop sys.boot_completed; getprop ro.boot.boot_recovery; \
   su -c id 2>/dev/null || true; \
