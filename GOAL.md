@@ -152,6 +152,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > vendor_boot `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`.
 > No rollback flash was needed or performed.
 
+> **S22+ CURRENT FRONTIER (2026-07-08 21:16 KST / 12:16 UTC) — M25 HASH-GATE HARDENED; DRY-RUN PASS; LIVE NOT EXECUTED.**
+> Codex hardened
+> `workspace/public/src/scripts/revalidation/s22plus_m25_hs_only_usb2_acm_live_gate.py`
+> before live by changing Android partition hash reads from a `dd | sha256sum`
+> pipeline to direct `sha256sum /dev/block/by-name/<part>` with `toybox`
+> fallback. This keeps block-read failures visible through the command rc
+> instead of allowing `sha256sum` on an empty pipe to mask a bad `dd`.
+> The helper now rejects unsafe partition names, and the runbook's
+> post-rollback verification commands match the direct-hash method. Validation
+> passed: `py_compile`, M25 unit tests `Ran 9 tests ... OK`, `--offline-check`,
+> `git diff --check`, and default dry-run
+> (`workspace/private/runs/s22plus_m25_hs_only_usb2_acm_live_gate_20260708T121540Z/...`)
+> with Android stability ok and baseline hashes for boot, vendor_boot, and dtbo.
+> No flash, reboot, rollback, partition write, or sysfs write was performed.
+> Report:
+> `docs/reports/S22PLUS_M25_HASH_GATE_HARDENING_2026-07-08.md`.
+
 > **OPERATOR STEER (2026-07-08, Claude) — M18 WAS THE WRONG FILE: read Samsung `reset_summary` (watchdog-bite capture).**
 > M18's fault is a **msm watchdog bite** (dmesg confirms the watchdog runs + pets
 > ~9.5s; a bare init pets nothing → bite → warm reset). That is NOT a panic, so

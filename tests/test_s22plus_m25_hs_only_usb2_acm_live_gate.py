@@ -2,6 +2,7 @@ import importlib.util
 import sys
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 from pathlib import Path
 
@@ -73,6 +74,33 @@ class S22PlusM25HsOnlyUsb2AcmLiveGateTest(unittest.TestCase):
     def test_manifest_verifier_accepts_current_m25_build(self):
         with patch.object(self.module, "append_log", lambda *_args, **_kwargs: None):
             self.module.verify_m25_manifest(MANIFEST, Path("/tmp/unused-m25-live-gate-test.log"))
+
+    def test_read_partition_hash_uses_direct_sha_not_pipe(self):
+        commands = []
+
+        def adb_shell(command, *, serial, timeout):
+            commands.append((command, serial, timeout))
+            return SimpleNamespace(
+                returncode=0,
+                stdout=f"{self.module.EXPECTED_BASE_BOOT_SHA256}  /dev/block/by-name/boot\n",
+                stderr="",
+            )
+
+        with patch.object(self.module, "adb_shell", adb_shell), patch.object(
+            self.module, "append_log", lambda *_args, **_kwargs: None
+        ):
+            actual = self.module.read_partition_hash(Path("/tmp/unused.log"), "ADB123", "boot", "current")
+
+        self.assertEqual(actual, self.module.EXPECTED_BASE_BOOT_SHA256)
+        self.assertEqual(len(commands), 1)
+        self.assertIn("sha256sum /dev/block/by-name/boot", commands[0][0])
+        self.assertIn("toybox sha256sum /dev/block/by-name/boot", commands[0][0])
+        self.assertNotIn("dd if=", commands[0][0])
+        self.assertNotIn(" | sha256sum", commands[0][0])
+
+    def test_read_partition_hash_rejects_unsafe_partition_name(self):
+        with self.assertRaisesRegex(SystemExit, "unsafe partition name"):
+            self.module.read_partition_hash(Path("/tmp/unused.log"), "ADB123", "boot;reboot", "current")
 
     def test_magisk_rollback_verifies_magisk_boot_hash_before_dtbo_restore(self):
         events = []

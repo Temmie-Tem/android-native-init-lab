@@ -157,7 +157,9 @@ adb shell getprop sys.boot_completed
 adb shell getprop ro.boot.verifiedbootstate
 adb shell getprop ro.boot.boot_recovery
 adb shell su -c id
-adb shell su -c 'sha256sum /dev/block/by-name/boot /dev/block/by-name/dtbo /dev/block/by-name/vendor_boot'
+adb shell su -c 'sha256sum /dev/block/by-name/boot 2>/dev/null || toybox sha256sum /dev/block/by-name/boot'
+adb shell su -c 'sha256sum /dev/block/by-name/dtbo 2>/dev/null || toybox sha256sum /dev/block/by-name/dtbo'
+adb shell su -c 'sha256sum /dev/block/by-name/vendor_boot 2>/dev/null || toybox sha256sum /dev/block/by-name/vendor_boot'
 ```
 
 Expected Magisk baseline:

@@ -308,8 +308,11 @@ def verify_m25_manifest(path: Path, log_path: Path) -> None:
 
 
 def read_partition_hash(log_path: Path, serial: str, partition: str, label: str) -> str:
+    if not partition.replace("_", "").isalnum():
+        raise SystemExit(f"unsafe partition name for hash read: {partition!r}")
     result = adb_shell(
-        f"su -c 'dd if=/dev/block/by-name/{partition} bs=4096 2>/dev/null | sha256sum'",
+        f"su -c 'sha256sum /dev/block/by-name/{partition} 2>/dev/null || "
+        f"toybox sha256sum /dev/block/by-name/{partition}'",
         serial=serial,
         timeout=60.0,
     )
