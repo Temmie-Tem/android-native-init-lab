@@ -4,6 +4,32 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 02:26 KST / 2026-07-08 17:26 UTC) — M33 P12 LIVE GATE PREFLIGHT PASS; OPERATOR LIVE APPROVED; ONE-SHOT POLICY ACTIVE.**
+> Operator approved live. Codex added the guarded M33 P12 live helper
+> `workspace/public/src/scripts/revalidation/s22plus_m33_p12_wdt_prefix_park_live_gate.py`
+> and a narrow SHA-pinned `AGENTS.md` exception for exactly one S22+ M33 P12
+> watchdog-prefix park boot-only live gate. Live token:
+> `S22PLUS-M33-P12-WDT-PREFIX-PARK-LIVE-GATE`; rollback-from-Download token:
+> `S22PLUS-M33-P12-WDT-PREFIX-PARK-ROLLBACK-FROM-DOWNLOAD`. The helper pins
+> candidate AP
+> `47a7acd9f953de4464848aa02413b629064c512e2250356da0e33df5c46a3ce0`, boot
+> `72afa113caf0bd8fc2f3c4d2a27108f3be94dd00f405071d3b7e609af8d8a2f2`,
+> `/init` `8ce2d3aea3008b476fbc8113f8c5712abd120f0dc90cb158956b9ba1a6962405`,
+> module list
+> `b44e23aa5e38c1327bc3286f3b722558b56daa3198982434a474b4bff8c6d052`, and
+> generated source
+> `a7d0f6cf2bd0ca217a92478a8f03c977d3e3d23e40383a050f1215853fa6d3b4`.
+> Validation passed: helper `py_compile`, M33 P12 live/build tests (9),
+> `--offline-check`, and default dry-run. Dry-run verified
+> `agents_exception_missing=[]`, Android `SM-S906N/g0q/S906NKSS7FYG8`,
+> vbstate orange, boot complete, Magisk root, four stability samples, and
+> current boot hash
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+> Next immediate command is the approved live run:
+> `PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m33_p12_wdt_prefix_park_live_gate.py --live --ack S22PLUS-M33-P12-WDT-PREFIX-PARK-LIVE-GATE`.
+> Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M33_P12_WDT_PREFIX_PARK_LIVE_GATE_PREFLIGHT_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 02:19 KST / 2026-07-08 17:19 UTC) — M33 PREFIX-PARK MATRIX HOST BUILD PASS; OPERATOR LIVE APPROVED; LIVE GATE NOT YET AUTHORED.**
 > Codex built the M33 watchdog-managed prefix-park matrix as host-only artifacts
 > after the M32 live bootloop/no-ACM result. M33 keeps the M31B park runtime

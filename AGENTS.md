@@ -2752,6 +2752,67 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
    with stock boot-only fallback SHA256
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
+   **Narrow operator-authorized exception (2026-07-09, S22+ M33 P12 watchdog-
+   prefix park native-init boot-only live gate):** after M32 failed with no ACM
+   and unexpected Download/bootloop around ~35.6 s, and after the M33 host-only
+   prefix matrix split the M32 added closure into smaller watchdog-managed
+   park-only candidates, Codex may perform one bounded attended S22+ M33 P12
+   watchdog-prefix park native-init boot-only live gate on the Samsung S22+
+   `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m33_p12_wdt_prefix_park_live_gate.py`
+   and live ack token `S22PLUS-M33-P12-WDT-PREFIX-PARK-LIVE-GATE`, with
+   rollback-from-Download ack token
+   `S22PLUS-M33-P12-WDT-PREFIX-PARK-ROLLBACK-FROM-DOWNLOAD`. The exact
+   candidate AP.tar.md5 SHA256 must be
+   `47a7acd9f953de4464848aa02413b629064c512e2250356da0e33df5c46a3ce0`;
+   contained padded `boot.img` SHA256 must be
+   `72afa113caf0bd8fc2f3c4d2a27108f3be94dd00f405071d3b7e609af8d8a2f2`;
+   direct `/init` SHA256 must be
+   `8ce2d3aea3008b476fbc8113f8c5712abd120f0dc90cb158956b9ba1a6962405`;
+   module-list SHA256 must be
+   `b44e23aa5e38c1327bc3286f3b722558b56daa3198982434a474b4bff8c6d052`;
+   generated source SHA256 must be
+   `a7d0f6cf2bd0ca217a92478a8f03c977d3e3d23e40383a050f1215853fa6d3b4`;
+   preserved kernel SHA256 must be
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`; and
+   base Magisk boot SHA256 must be
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. The AP
+   marker string is `S22_NATIVE_INIT_M33_WDT_PREFIX_PARK_P12`. The selected
+   variant is `P12`, its runtime marker must include `prefix_targets=12` and
+   `module_load_only=1`, and the behavior class is `watchdog-managed prefix
+   park`. The AP must contain exactly one tar member, `boot.img.lz4`, and must
+   not carry recovery, vendor_boot, dtbo, vbmeta, vbmeta_system, BL, CP, CSC,
+   super, persist, userdata, EFS, sec_efs, RPMB, keymaster, modem, bootloader,
+   or any other partition payload. The candidate may only run as freestanding
+   direct PID1, create a minimal tmpfs/dev/proc/sys runtime, load the P12
+   dependency-complete watchdog-managed prefix, emit kmsg phase markers, and
+   park. It must have no reboot syscall, no Download beacon, no USB/configfs/ACM,
+   no Android/Magisk handoff, no persistent partition mount, no block write, no
+   module binary injection into boot ramdisk, no raw host `dd`, no fastboot, no
+   Magisk modules, no multidisabler, no format data, no DTBO/vendor_boot/
+   recovery/vbmeta/non-boot flash, and no A90 action. Expected proof is that it
+   survives past 60-90 seconds without ADB/Odin returning; `PMIC/RDX abnormal
+   reset before the observation window is FAIL`. `manual Download rollback is
+   recovery-only` and must not be reported as self-Download proof. The module
+   closure is `smem.ko`, `minidump.ko`, `sec_debug.ko`,
+   `qcom_ipc_logging.ko`, `cmd-db.ko`, `qcom_rpmh.ko`, `clk-rpmh.ko`,
+   `debug-regulator.ko`, `proxy-consumer.ko`, `gdsc-regulator.ko`,
+   `clk-qcom.ko`, `clk-dummy.ko`, `gcc-waipio.ko`, `icc-bcm-voter.ko`,
+   `icc-debug.ko`, `socinfo.ko`, `icc-rpmh.ko`, `rpmh-regulator.ko`,
+   `qcom-scm.ko`, `qcom_wdt_core.ko`, and `gh_virt_wdt.ko`;
+   `phy-msm-ssusb-qmp.ko intentionally excluded` and `EUD excluded`. Before
+   live flash, the helper must verify Android identity, current boot hash,
+   rollback APs, exact candidate hashes, AP member list, P12 closure, and the
+   active `AGENTS.md` markers above. Rollback is required after the observation
+   window: primary rollback is the pinned Magisk boot-only AP SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`, with
+   pinned stock boot-only fallback SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e` if
+   Magisk rollback transfer fails and Download mode remains available. This
+   exception authorizes no other M33 variant, no M32 repeat, no M31B repeat, no
+   ACM/configfs candidate, no kernel rebuild, no recovery/vendor_boot/dtbo/
+   vbmeta/non-boot flash, no RDX PC dump retrieval, no EUD writes, and no A90
+   action.
    **Consumed exception (2026-07-09, S22+ M32 watchdog-managed HS ACM
    native-init boot-only live gate):** this one-shot exception was consumed by
    the 2026-07-09 KST live run. It flashed the pinned M32 boot-only candidate
