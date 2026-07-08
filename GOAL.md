@@ -4,6 +4,31 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 03:04 KST / 2026-07-08 18:04 UTC) — M33 P28/DWC3 SELECTED; READINESS PASS; POLICY INERT; NO ACTIVE LIVE AUTH.**
+> After M33 P27 survived, Codex selected P28 as the next high-information gate
+> because it adds `dwc3-msm.ko` and monitor gadget dependencies while still
+> excluding `usb_f_ss_acm.ko` and runtime configfs/ACM setup. The helper is
+> `workspace/public/src/scripts/revalidation/s22plus_m33_p28_wdt_prefix_park_live_gate.py`.
+> Candidate AP
+> `workspace/private/outputs/s22plus_native_init/m33_wdt_prefix_park_matrix_v0_1/P28/odin4/AP.tar.md5`
+> SHA256 is
+> `4c76ef4df814356a7acfa9ce9a00c2fe003208ff8289c2874535e26b7e1c3f07`; boot
+> SHA256 `3bc59d6df58b5c7130e6ca531a6a6cd3a4d35e14ff7fd6667da72e2bd40e9e29`;
+> `/init` SHA256
+> `2ef661b9e5a1496674b6cc457c9b0e84c60ae7af01914c2403db602c6ebe84b1`;
+> module-list SHA256
+> `ef57a00fbef4b9c89936b30fc5c001974fbe9c2ece590c6a6984cb4695318a8f`.
+> Validation passed: helper `py_compile`, M33 P28 live/build tests (9), and
+> P28 `--offline-check`. Default execution fail-closes before Android/device
+> preflight because `AGENTS.md` has no active P28 exception or live/rollback
+> tokens. Current device baseline remains clean: Android `sys.boot_completed=1`,
+> bootanim stopped, vbstate orange, Magisk root OK, bootloader/build
+> `S906NKSS7FYG8`, and boot partition SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+> P28 live requires fresh operator approval and a fresh SHA-pinned `AGENTS.md`
+> exception. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M33_P28_DWC3_READINESS_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 03:00 KST / 2026-07-08 18:00 UTC) — M33 P27 LIVE CONSUMED; P27 SURVIVED 90 S; ROLLBACK CLEAN; NO ACTIVE LIVE AUTH.**
 > The approved M33 P27 watchdog-prefix park live gate ran once under commit
 > `859c9e30`. Candidate AP
