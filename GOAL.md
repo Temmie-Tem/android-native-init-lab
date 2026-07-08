@@ -31,6 +31,30 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Report: `docs/reports/S22PLUS_M25_HS_ONLY_USB2_ACM_SIDESTEP_STEER_2026-07-08.md`.
 > (Observation steers below are now superseded/background; MID stays set, harmless.)
 
+> **S22+ CURRENT FRONTIER (2026-07-08 21:36 KST / 12:36 UTC) — M25 POSTMORTEM DONE; NEXT = M26 PREFIX/DOWNLOAD DISCRIMINATOR.**
+> After the operator reported another bootloop/manual-Download observation,
+> Codex rechecked the live phone before any rollback: host saw Android ADB, not
+> Odin mode. The device is clean rooted Android: `boot_completed=1`,
+> `bootanim=stopped`, verified boot `orange`, Magisk uid0, boot
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
+> dtbo `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`,
+> vendor_boot
+> `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`.
+> No additional rollback flash was needed. Host-only M25 postmortem concluded:
+> M25 proved the DTBO high-speed cap is Android-compatible/recoverable, but the
+> all-at-once 40-module HS-only ACM park candidate still produced no ACM and
+> returned through Odin/Download about 30s after boot flash. Because M25 contains
+> no reboot/download path, that return is not a deliberate candidate beacon.
+> Do not repeat M25 unchanged and do not build another park-and-wait ACM
+> candidate as the next unit. Next bounded unit should be M26 host-only:
+> a prefix/download discriminator over the M25 HS-only module list. First coarse
+> prefixes: `0`, `24`, `25`, `27`, `28`, `30`, `33`, `40`; each candidate loads
+> its prefix and then deliberately self-reboots to Download. Success signal =
+> host-observed self-download after the prefix. Only after a prefix proves clean
+> self-download should a later candidate add configfs/role-force/UDC bind or
+> narrow the failing prefix. Report:
+> `docs/reports/S22PLUS_M25_NO_ACM_POSTMORTEM_2026-07-08.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-08 20:40 KST) — M25 HS-ONLY USB2 ACM HOST BUILD READY; NO LIVE AUTH.**
 > Codex added
 > `workspace/public/src/scripts/revalidation/build_s22plus_m25_hs_only_usb2_acm.py`
