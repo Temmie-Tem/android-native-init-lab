@@ -4,32 +4,39 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **OPERATOR STEER (2026-07-08, Claude) — PRIMARY DIRECTION: STOP OBSERVING THE FAULT, AVOID IT (M25 = HS-only USB2 ACM).**
-> Five observation channels have now failed for the M18/M23 **watchdog-bite** hang
-> (MID/RDX+last_kmsg, Samsung reset_summary, EUD [TZ-gated], mainline ramoops, M24
-> pmsg step-markers) — all try to *see* a bite that Samsung's panic-triggered
-> machinery doesn't capture and our recovery chain clears. **Stop observing; avoid
-> the faulting module.** The vendor_boot DTB decode proves a clean sidestep:
-> `dwc3@a600000 maximum-speed=super-speed-plus`, **two separate PHYs** —
-> `hsphy@88e3000` (`qcom,usb-hsphy-snps-femto`, HighSpeed/USB2, **already works** —
-> ADB + EUD's non-secure path run on it) vs `ssphy@88e8000`
-> (`qcom,usb-ssphy-qmp-dp-combo` = M15's hang, DisplayPort-shared, power-heavy).
-> **A serial ACM control channel needs only HighSpeed; USB3/QMP is NOT required**
-> (A90's bridge was USB2-class).
-> **M25 recipe (from the M13 park floor):** (1) cap dwc3 `maximum-speed`
-> `super-speed-plus → high-speed` via a DTBO overlay (proven overlay path) or a
-> dwc3 module param; (2) load ONLY the HS set — `phy-generic`, `phy-msm-snps-hs`
-> (femto HS phy) + eUSB2 repeater if used, `dwc3-msm`, `usb_f_ss_acm`, + the light
-> HS/dwc3 clock/regulator substrate — **EXCLUDE `phy-msm-ssusb-qmp`**; (3) bind
-> `a600000.dwc3` + force `usb_role=device` + park. **Success signal = host
-> enumerates `/dev/ttyGS0` (ACM), console-free/unambiguous** = the A90-style
-> bidirectional control channel with the QMP PHY never touched. Only unknown = does
-> vendor `dwc3-msm` allow HS-only (mainline gates SS phy on maximum-speed → likely
-> yes; `ss_phy_irq` vs `dp_hs_phy_irq`/`dm_hs_phy_irq` DT separation is
-> encouraging) — one attended flash settles it. If it still bootloops, bisect the
-> HS set from M13 (park-vs-loop) before any UART clip.
-> Report: `docs/reports/S22PLUS_M25_HS_ONLY_USB2_ACM_SIDESTEP_STEER_2026-07-08.md`.
-> (Observation steers below are now superseded/background; MID stays set, harmless.)
+> **OPERATOR STEER (2026-07-08, Claude) — PRIMARY DIRECTION: PREFIX/DOWNLOAD BINARY-SEARCH THE MODULE FAULT (M27 narrowing).**
+> The HS-only ACM sidestep (M25) and the M26 prefix probe are both consumed and
+> operator-Gate-2-verified. **Corrected mental model — read this before steering:**
+> - **M25 (HS-only ACM park) did NOT bootloop.** Direct log read (run
+>   `...122411Z`) shows ~29 s of dead-steady park (`acm=[] odin=[] adb=empty`,
+>   samples 001–029), then a **single** Odin/Download at ~30.3 s — a lone HW
+>   watchdog bite (qcom_wdt_core blocklisted → nobody pets → one bite), **not** a
+>   loop. The report's "bootloop" referred to the *rollback* phase, not the
+>   candidate. So excluding `phy-msm-ssusb-qmp` DID kill the fast M15 QMP loop.
+> - **M26 relocated the fault decisively.** `P00` (0 modules) HIT: raw runtime +
+>   DTBO high-speed cap + `reboot(download)` all work. `P24` (first 24 modules)
+>   NO-HIT: dies before the checkpoint. **⇒ the fault is inside modules 1–24 —
+>   the clk/regulator/interconnect/iommu/scm substrate — UPSTREAM of USB.** dwc3
+>   (mod 28) / ACM (mod 30) are never reached, so the earlier "ssphy phandle left
+>   in the DTBO" idea is DEMOTED: it only becomes relevant once a prefix ≥28
+>   actually reaches dwc3. Do not chase it now.
+> **Why prefix/download is the right method:** every retained-marker channel
+> failed (last_kmsg, reset_summary, EUD, ramoops, M24 pmsg), so an intentional
+> `reboot(download)` after loading prefix N is the ONLY reliable "I reached here"
+> beacon. It binary-searches the fault with zero observability dependency.
+> **Active unit = M27:** narrow the `P00..P24` boundary with the coarse matrix
+> `P08/P12/P16/P20/P22/P23/P24` (host build first, then ONE fresh SHA-pinned live
+> exception for the batch). Do NOT add configfs/ACM/UDC yet — keep M27 pure
+> module-prefix survivability until the exact biting module is pinned. Operator
+> suspects in 1–24 (let the search decide, don't pre-theorize): `qcom-scm`(19)
+> secure calls, `rpmh-regulator`(5)/`gdsc-regulator`(10) touching rails,
+> `secure_buffer`(22)/`smem`(23). Once the biting module is isolated, the fix is
+> either exclude it (if USB doesn't need it) or supply its missing dependency;
+> only THEN re-add the USB tail (25–40) and the ACM gadget, and only THEN revisit
+> the DTBO ssphy-phandle sever if dwc3 probe stalls.
+> Reports: `S22PLUS_M25_NO_ACM_POSTMORTEM_2026-07-08.md`,
+> `S22PLUS_NATIVE_INIT_M26_HS_PREFIX_DOWNLOAD_LIVE_RESULT_2026-07-08.md`.
+> (Observation steers below are superseded/background; MID stays set, harmless.)
 
 > **S22+ CURRENT FRONTIER (2026-07-08 22:10 KST / 13:10 UTC) — M26 LIVE CONSUMED: P00 HIT, P24 NO-HIT; FINAL BASELINE CLEAN.**
 > M26 first-live batch was executed under consumed AGENTS exception `14f421fc`.
