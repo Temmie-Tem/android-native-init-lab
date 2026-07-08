@@ -4,6 +4,43 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 08:45 KST / 2026-07-08 23:45 UTC) — M34 S7A2 HOST BUILD COMPLETE; GENI I2C TRANSPORT ADDED; ROLE-WRITE DISCRIMINATOR BUILT; NO ACTIVE LIVE AUTH.**
+> Codex implemented the corrected S7A.2 host-build path in
+> `workspace/public/src/scripts/revalidation/build_s22plus_m34_runtime_gadget_split.py`
+> and `workspace/public/src/native-init/s22plus_init_m34_runtime_gadget_split.c`.
+> Output root:
+> `workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_7/`.
+>
+> S7A2 starts from S7A and adds the missing GENI I2C transport required for the
+> max77705 on `994000.i2c`: target list `gpi.ko`, `msm-geni-se.ko`,
+> `i2c-msm-geni.ko`; actual dep-safe load order is
+> `msm-geni-se.ko` -> `gpi.ko` -> `i2c-msm-geni.ko`, with
+> `i2c-msm-geni.ko` before `pdic_max77705.ko`. Module count is 86 and module
+> list SHA256 is
+> `c0c35e02fe61a3f6c18c221a9ae2cc1a54aafd38374117fa954dbfa675700998`.
+>
+> S7A2 also includes the bounded host-visible discriminator requested by the
+> corrected steer: if `/sys/class/typec/port0-partner/uevent` is absent or
+> unreadable, it writes only `/sys/class/typec/port0/data_role=device` and
+> `/sys/class/typec/port0/power_role=sink` before UDC bind. It keeps minimal
+> `ss_acm.0` configfs, `ssusb/mode=peripheral`, final `UDC=a600000.dwc3`, no
+> `soft_connect`, no FunctionFS/stock composite, no Android/Magisk handoff, no
+> reboot request, no persistent mount, and no block writes.
+>
+> S7A2 AP.tar.md5 SHA256:
+> `cb89ccf9c8c5481938ddd415930c78a23e1a679d45fdc57f95e6d1b48776bd59`;
+> padded boot.img SHA256:
+> `b9a4d4c2170da2ed6125aa44734005303d81d874b72402513def97b2f8406a54`;
+> `/init` SHA256:
+> `8f8eb4a6f4d94bc552ec61819b9c2b4ea4ec4de7fb7aa097fab7193c6f117e5a`.
+>
+> Validation passed: builder `py_compile`; M34 build tests with v0.7 manifest
+> (`Ran 5 tests`, `OK`); consumed S7A live-helper regression tests
+> (`Ran 10 tests`, `OK`); v0.7 build; `git diff --check`. No active live
+> authorization exists. Any S7A2 flash needs a fresh SHA-pinned boot-only
+> `AGENTS.md` exception and explicit operator approval. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S7A2_GENI_I2C_TRANSPORT_HOST_BUILD_2026-07-09.md`.
+
 > **🎯 OPERATOR STEER (2026-07-09, Claude — read-only live pull): S7A DID NOT TEST THE SESSION HYPOTHESIS — IT LOADED THE max77705 PRODUCERS ONTO A DEAD I2C BUS. DO NOT RETIRE PRODUCERS; DO NOT PIVOT TO S7B. NEXT = S7A.2 = ADD THE GENI I2C TRANSPORT.**
 > The max77705 PD chip is a discrete I2C device on `994000.i2c`, driven by
 > **`i2c_msm_geni`** (core `msm_geni_se`, DMA `gpi`). S7A added `pdic_max77705` etc.

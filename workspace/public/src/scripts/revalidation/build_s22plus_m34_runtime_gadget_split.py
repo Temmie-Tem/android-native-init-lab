@@ -18,6 +18,8 @@ S6: S4 lineage with all high-speed forcing removed, ssusb mode=peripheral
     retained, QMP/EUD/ucsi softdep parity restored, and no soft_connect.
 S7A: S6 plus the stock max77705/PDIC/altmode session-producer module chain
      and TypeC/UDC readback markers, still ACM-only and no soft_connect.
+S7A2: S7A plus the missing GENI I2C transport for the max77705 bus and a
+      bounded TypeC role-write discriminator if no partner is present.
 """
 
 from __future__ import annotations
@@ -57,7 +59,7 @@ from build_s22plus_inplace_m4t1_magiskboot import (
 from build_s22plus_m32_wdt_hs_acm import EXPECTED_M32_MODULES, dependency_complete_wdt_hs_order
 
 
-DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_6")
+DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_7")
 DEFAULT_TEMPLATE_SOURCE = Path("workspace/public/src/native-init/s22plus_init_m34_runtime_gadget_split.c")
 DEFAULT_VENDOR_RAMDISK = m23.DEFAULT_VENDOR_RAMDISK
 DEFAULT_LZ4 = m23.DEFAULT_LZ4
@@ -91,11 +93,53 @@ M34_S7A_SESSION_PRODUCER_TARGETS = [
     "charger-ulog-glink.ko",
     "altmode-glink.ko",
 ]
+M34_S7A2_I2C_GENI_TRANSPORT_TARGETS = [
+    "gpi.ko",
+    "msm-geni-se.ko",
+    "i2c-msm-geni.ko",
+]
+M34_S7A2_SESSION_PRODUCER_TARGETS = [
+    *M34_S7A2_I2C_GENI_TRANSPORT_TARGETS,
+    *M34_S7A_SESSION_PRODUCER_TARGETS,
+]
 M34_S7A_EXPECTED_NEW_MODULES = [
     "charger-ulog-glink.ko",
     "altmode-glink.ko",
     "qti-regmap-debugfs.ko",
     "qcom-i2c-pmic.ko",
+    "sec_pm_log.ko",
+    "qcom-cpufreq-hw.ko",
+    "sched-walt.ko",
+    "kryo_arm64_edac.ko",
+    "memory_dump_v2.ko",
+    "sec_key_notifier.ko",
+    "sec_crashkey_long.ko",
+    "sec_debug_region.ko",
+    "sec_param.ko",
+    "sec_qc_dbg_partition.ko",
+    "sec_qc_summary.ko",
+    "sec_upload_cause.ko",
+    "sec_qc_upload_cause.ko",
+    "sec_qc_user_reset.ko",
+    "sec_qc_smem.ko",
+    "sec_qc_hw_param.ko",
+    "sb-core.ko",
+    "sec_pd.ko",
+    "sec-battery.ko",
+    "mfd_max77705.ko",
+    "spu_verify.ko",
+    "pdic_max77705.ko",
+    "max77705_charger.ko",
+    "max77705-fuelgauge.ko",
+]
+M34_S7A2_EXPECTED_NEW_MODULES = [
+    "msm-geni-se.ko",
+    "gpi.ko",
+    "charger-ulog-glink.ko",
+    "altmode-glink.ko",
+    "qti-regmap-debugfs.ko",
+    "qcom-i2c-pmic.ko",
+    "i2c-msm-geni.ko",
     "sec_pm_log.ko",
     "qcom-cpufreq-hw.ko",
     "sched-walt.ko",
@@ -153,6 +197,8 @@ class RuntimeStage:
     session_producer_parity: bool = False
     max77705_session_modules_included: bool = False
     typec_readback_markers: bool = False
+    geni_i2c_transport_parity: bool = False
+    typec_role_write_discriminator: bool = False
 
     @property
     def lower(self) -> str:
@@ -280,6 +326,31 @@ STAGES = [
         session_producer_parity=True,
         max77705_session_modules_included=True,
         typec_readback_markers=True,
+    ),
+    RuntimeStage(
+        "S7A2",
+        8,
+        (
+            "S7A plus the missing GENI I2C transport for the max77705 994000.i2c bus "
+            "and a bounded TypeC role-write discriminator before UDC bind when no partner is present"
+        ),
+        configfs_gadget=True,
+        udc_none=True,
+        max_speed_high_speed=False,
+        usb_role_force=False,
+        ssusb_speed_high_speed=False,
+        ssusb_mode_peripheral=True,
+        udc_bind=True,
+        soft_connect=False,
+        stock_softdep_parity=True,
+        qmp_module_included=True,
+        eud_module_included=True,
+        ucsi_glink_included=True,
+        session_producer_parity=True,
+        max77705_session_modules_included=True,
+        typec_readback_markers=True,
+        geni_i2c_transport_parity=True,
+        typec_role_write_discriminator=True,
     ),
 ]
 
@@ -433,6 +504,42 @@ def dependency_complete_session_producer_order(
     return closure
 
 
+def dependency_complete_session_producer_i2c_order(
+    *,
+    dep_map: dict[str, list[str]],
+    recovery_basenames: list[str],
+    base_closure: dict[str, Any],
+) -> dict[str, Any]:
+    closure = _dependency_complete_order(
+        dep_map=dep_map,
+        recovery_basenames=recovery_basenames,
+        base_closure=base_closure,
+        stage_label="S7A2",
+        order_model=(
+            "modules.dep topological order with stock modules.load.recovery tie-breaks plus S6 "
+            "QMP/EUD/ucsi, GENI I2C transport, and max77705/PDIC/altmode session-producer targets"
+        ),
+        additional_targets=list(M34_S7A2_SESSION_PRODUCER_TARGETS),
+        expected_new_modules=list(M34_S7A2_EXPECTED_NEW_MODULES),
+    )
+    closure["stock_softdep_targets"] = list(M34_S6_STOCK_SOFTDEP_TARGETS)
+    closure["stock_softdep_new_modules"] = list(M34_S6_EXPECTED_NEW_MODULES)
+    closure["geni_i2c_transport_targets"] = list(M34_S7A2_I2C_GENI_TRANSPORT_TARGETS)
+    closure["geni_i2c_transport_new_modules"] = [
+        module for module in M34_S7A2_I2C_GENI_TRANSPORT_TARGETS if module in closure["additional_new_modules"]
+    ]
+    closure["geni_i2c_transport_order_actual"] = [
+        module for module in closure["modules"] if module in M34_S7A2_I2C_GENI_TRANSPORT_TARGETS
+    ]
+    closure["session_producer_targets"] = list(M34_S7A_SESSION_PRODUCER_TARGETS)
+    closure["session_producer_new_modules"] = [
+        module for module in closure["additional_new_modules"] if module in M34_S7A_EXPECTED_NEW_MODULES
+    ]
+    closure["contains_sec_debug_region"] = "sec_debug_region.ko" in closure["modules"]
+    closure["requires_live_risk_review"] = bool(closure["risk_modules"])
+    return closure
+
+
 def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeStage, module_count: int) -> dict[str, Any]:
     result = run(
         [
@@ -580,6 +687,33 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
         )
     else:
         required_strings.extend(["session_producer_parity=0", "max77705_session=0", "typec_readback=0"])
+    if stage.geni_i2c_transport_parity:
+        required_strings.extend(
+            [
+                "geni_i2c_transport=1",
+                "i2c_msm_geni=1",
+                "gpi_dma=1",
+                "msm_geni_se=1",
+            ]
+        )
+    else:
+        required_strings.append("geni_i2c_transport=0")
+    if stage.typec_role_write_discriminator:
+        required_strings.extend(
+            [
+                "role_write_discriminator=1",
+                "phase=typec_partner_check",
+                "phase=typec_role_write",
+                "role_device_rc=",
+                "role_sink_rc=",
+                "/sys/class/typec/port0/data_role",
+                "/sys/class/typec/port0/power_role",
+                "device",
+                "sink",
+            ]
+        )
+    else:
+        required_strings.append("role_write_discriminator=0")
 
     forbidden_strings = [
         b"ld-linux",
@@ -616,6 +750,10 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
                 b"udc_post_bind",
             ]
         )
+    if not stage.geni_i2c_transport_parity:
+        forbidden_strings.extend([b"geni_i2c_transport=1", b"i2c_msm_geni=1", b"gpi_dma=1", b"msm_geni_se=1"])
+    if not stage.typec_role_write_discriminator:
+        forbidden_strings.extend([b"role_write_discriminator=1", b"phase=typec_partner_check", b"phase=typec_role_write", b"role_device_rc=", b"role_sink_rc="])
 
     binary = out_path.read_bytes()
     for required in required_strings:
@@ -765,6 +903,8 @@ def build_stage(
             "session_producer_parity": stage.session_producer_parity,
             "max77705_session_modules_included": stage.max77705_session_modules_included,
             "typec_readback_markers": stage.typec_readback_markers,
+            "geni_i2c_transport_parity": stage.geni_i2c_transport_parity,
+            "typec_role_write_discriminator": stage.typec_role_write_discriminator,
         },
         "closure": stage_closure,
         "paths": {
@@ -856,9 +996,16 @@ def main(argv: list[str]) -> int:
         recovery_basenames=vendor_metadata["recovery_basenames"],
         base_closure=stock_softdep_closure,
     )
+    session_producer_i2c_closure = dependency_complete_session_producer_i2c_order(
+        dep_map=vendor_metadata["dep_map"],
+        recovery_basenames=vendor_metadata["recovery_basenames"],
+        base_closure=stock_softdep_closure,
+    )
     closure_by_stage = {
         stage.label: (
-            session_producer_closure
+            session_producer_i2c_closure
+            if stage.geni_i2c_transport_parity
+            else session_producer_closure
             if stage.session_producer_parity
             else stock_softdep_closure
             if stage.stock_softdep_parity
@@ -899,10 +1046,11 @@ def main(argv: list[str]) -> int:
     manifest: dict[str, Any] = {
         "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "target": "SM-S906N/g0q/S906NKSS7FYG8",
-        "purpose": (
-            "M34 stock-ordered runtime gadget split plus S4 ssusb role-lever, S5 soft_connect, "
-            "S6 stock-speed QMP/EUD/ucsi, and S7A max77705/PDIC/altmode session-producer host-build candidates"
-        ),
+            "purpose": (
+                "M34 stock-ordered runtime gadget split plus S4 ssusb role-lever, S5 soft_connect, "
+                "S6 stock-speed QMP/EUD/ucsi, S7A max77705/PDIC/altmode session-producer, "
+                "and S7A2 GENI I2C transport host-build candidates"
+            ),
         "stock_recipe_report": "docs/reports/S22PLUS_STOCK_USB_GADGET_ACM_RECIPE_2026-07-09.md",
         "stages": stage_manifests,
         "matrix": {
@@ -926,12 +1074,14 @@ def main(argv: list[str]) -> int:
                     "session_producer_parity": stage.session_producer_parity,
                     "max77705_session_modules_included": stage.max77705_session_modules_included,
                     "typec_readback_markers": stage.typec_readback_markers,
+                    "geni_i2c_transport_parity": stage.geni_i2c_transport_parity,
+                    "typec_role_write_discriminator": stage.typec_role_write_discriminator,
                 }
                 for stage in selected_stages
             ],
             "live_order": ["S1", "S2", "S3", "S4", "S5", "S6"],
             "host_build_order": [stage.label for stage in selected_stages],
-            "next_host_only_candidate": "S7A",
+            "next_host_only_candidate": "S7A2",
             "p30_is_s0": True,
             "module_closure_matches_p30_and_m32_for_s1_s5": True,
             "s6_module_closure_restores_stock_dwc3_softdep": True,
@@ -943,6 +1093,13 @@ def main(argv: list[str]) -> int:
             "s7a_risk_modules": list(M34_S7A_RISK_MODULES),
             "s7a_uses_firmware_module_filename_qcom_i2c_pmic": "qcom-i2c-pmic.ko",
             "s7a_keeps_minimal_ss_acm_without_functionfs_or_conn_gadget": True,
+            "s7a2_closes_missing_geni_i2c_transport": True,
+            "s7a2_geni_i2c_transport_targets": list(M34_S7A2_I2C_GENI_TRANSPORT_TARGETS),
+            "s7a2_geni_i2c_transport_order_actual": list(session_producer_i2c_closure["geni_i2c_transport_order_actual"]),
+            "s7a2_session_producer_targets": list(M34_S7A_SESSION_PRODUCER_TARGETS),
+            "s7a2_session_producer_new_modules": list(M34_S7A2_EXPECTED_NEW_MODULES),
+            "s7a2_risk_modules": list(M34_S7A_RISK_MODULES),
+            "s7a2_typec_role_write_discriminator": True,
         },
         "safety": {
             "boot_only": True,
@@ -996,6 +1153,14 @@ def main(argv: list[str]) -> int:
             "stage_s7a_no_soft_connect": True,
             "stage_s7a_no_functionfs_or_conn_gadget": True,
             "stage_s7a_contains_sec_debug_region_due_stock_charger_dependency": True,
+            "stage_s7a2_starts_from_s7a": True,
+            "stage_s7a2_adds_geni_i2c_transport": True,
+            "stage_s7a2_geni_i2c_transport_order_dep_safe": True,
+            "stage_s7a2_role_write_discriminator_if_no_partner": True,
+            "stage_s7a2_keeps_minimal_ss_acm_without_functionfs_or_conn_gadget": True,
+            "stage_s7a2_no_high_speed_force": True,
+            "stage_s7a2_no_soft_connect": True,
+            "stage_s7a2_no_charge_otg_rail_gpio_writes": True,
         },
         "vendor": {
             "vendor_ramdisk": display_path(root, vendor_ramdisk),

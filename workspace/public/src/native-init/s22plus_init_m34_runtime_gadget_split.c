@@ -13,9 +13,12 @@
  * restores the stock QMP/EUD/ucsi module softdep parity through the module list,
  * and does not write EUD sysfs knobs. Stage 7A adds the stock max77705/PDIC/
  * altmode session-producer module chain and read-only TypeC/UDC snapshots while
- * keeping the S6 ACM-only gadget and no soft_connect. The program remains a
- * direct-PID1 park candidate: no Android handoff, no reboot request, no
- * persistent mount, and no block writes.
+ * keeping the S6 ACM-only gadget and no soft_connect. Stage 7A2 adds the GENI
+ * I2C transport required for the max77705 994000.i2c bus, and if no TypeC
+ * partner is visible, writes the same TypeC role nodes the stock USB HAL owns
+ * as a bounded host-visible discriminator. The program remains a direct-PID1
+ * park candidate: no Android handoff, no reboot request, no persistent mount,
+ * and no block writes.
  */
 
 #include <stdint.h>
@@ -100,19 +103,21 @@ static const char k_marker[] =
     "modules_dep_complete=" M34_MODULES_RAMDISK " module_count=" STR(M34_MODULE_LIMIT) " "
     "module_source=stock_vendor_boot_ramdisk module_list=dep_complete_runtime_gadget_split "
 #if M34_STAGE == 1
-    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 stock_softdep_parity=0 qmp_module=0 eud_module=0 ucsi_glink=0 session_producer_parity=0 max77705_session=0 typec_readback=0 "
+    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 stock_softdep_parity=0 qmp_module=0 eud_module=0 ucsi_glink=0 session_producer_parity=0 max77705_session=0 typec_readback=0 geni_i2c_transport=0 role_write_discriminator=0 "
 #elif M34_STAGE == 2
-    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=1 role_force=1 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 stock_softdep_parity=0 qmp_module=0 eud_module=0 ucsi_glink=0 session_producer_parity=0 max77705_session=0 typec_readback=0 "
+    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=1 role_force=1 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 stock_softdep_parity=0 qmp_module=0 eud_module=0 ucsi_glink=0 session_producer_parity=0 max77705_session=0 typec_readback=0 geni_i2c_transport=0 role_write_discriminator=0 "
 #elif M34_STAGE == 3
-    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=1 role_force=1 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=1 soft_connect=0 stock_softdep_parity=0 qmp_module=0 eud_module=0 ucsi_glink=0 session_producer_parity=0 max77705_session=0 typec_readback=0 "
+    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=1 role_force=1 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=1 soft_connect=0 stock_softdep_parity=0 qmp_module=0 eud_module=0 ucsi_glink=0 session_producer_parity=0 max77705_session=0 typec_readback=0 geni_i2c_transport=0 role_write_discriminator=0 "
 #elif M34_STAGE == 4
-    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=1 role_force=0 ssusb_speed_high_speed=1 ssusb_mode_peripheral=1 udc_bind=1 soft_connect=0 stock_softdep_parity=0 qmp_module=0 eud_module=0 ucsi_glink=0 session_producer_parity=0 max77705_session=0 typec_readback=0 "
+    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=1 role_force=0 ssusb_speed_high_speed=1 ssusb_mode_peripheral=1 udc_bind=1 soft_connect=0 stock_softdep_parity=0 qmp_module=0 eud_module=0 ucsi_glink=0 session_producer_parity=0 max77705_session=0 typec_readback=0 geni_i2c_transport=0 role_write_discriminator=0 "
 #elif M34_STAGE == 5
-    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=1 role_force=0 ssusb_speed_high_speed=1 ssusb_mode_peripheral=1 udc_bind=1 soft_connect=1 stock_softdep_parity=0 qmp_module=0 eud_module=0 ucsi_glink=0 session_producer_parity=0 max77705_session=0 typec_readback=0 "
+    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=1 role_force=0 ssusb_speed_high_speed=1 ssusb_mode_peripheral=1 udc_bind=1 soft_connect=1 stock_softdep_parity=0 qmp_module=0 eud_module=0 ucsi_glink=0 session_producer_parity=0 max77705_session=0 typec_readback=0 geni_i2c_transport=0 role_write_discriminator=0 "
 #elif M34_STAGE == 6
-    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=1 udc_bind=1 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=0 max77705_session=0 typec_readback=0 "
+    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=1 udc_bind=1 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=0 max77705_session=0 typec_readback=0 geni_i2c_transport=0 role_write_discriminator=0 "
 #elif M34_STAGE == 7
-    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=1 udc_bind=1 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=1 functionfs=0 stock_composite=0 "
+    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=1 udc_bind=1 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=1 functionfs=0 stock_composite=0 geni_i2c_transport=0 role_write_discriminator=0 "
+#elif M34_STAGE == 8
+    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=1 udc_bind=1 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=1 functionfs=0 stock_composite=0 geni_i2c_transport=1 i2c_msm_geni=1 gpi_dma=1 msm_geni_se=1 role_write_discriminator=1 "
 #endif
     "no_android_handoff=1 no_reboot_request=1 no_download_beacon=1 "
     "persistent_mount=0 block_write=0\n";
@@ -371,6 +376,47 @@ static void emit_typec_udc_readback(const char *phase) {
     read_attr_emit(phase, "/sys/class/udc/a600000.dwc3/state");
     read_attr_emit(phase, "/sys/class/udc/a600000.dwc3/current_speed");
     read_attr_emit(phase, "/sys/class/udc/a600000.dwc3/function");
+}
+#endif
+
+#if M34_STAGE == 8
+static int typec_partner_present(void) {
+    long fd = sys_openat(AT_FDCWD, "/sys/class/typec/port0-partner/uevent", O_RDONLY | O_CLOEXEC, 0);
+    long rc = fd;
+    long n = 0;
+    if (fd >= 0) {
+        char value[64];
+        n = sys_read((int)fd, value, sizeof(value));
+        rc = n;
+        (void)sys_close((int)fd);
+    }
+    int present = (fd >= 0 && n > 0) ? 1 : 0;
+    struct sbuf sb = {.data = {0}, .len = 0};
+    sb_puts(&sb, M34_MARKER);
+    sb_puts(&sb, " phase=typec_partner_check rc=");
+    sb_put_i64(&sb, rc);
+    sb_puts(&sb, " present=");
+    sb_put_u64(&sb, present ? 1U : 0U);
+    sb_putc(&sb, '\n');
+    emit_buf(&sb);
+    return present;
+}
+
+static void maybe_force_typec_device_sink(void) {
+    if (typec_partner_present()) {
+        emit(M34_MARKER " phase=typec_role_write skipped=partner_present\n");
+        return;
+    }
+    long data_rc = write_attr("/sys/class/typec/port0/data_role", "device");
+    long power_rc = write_attr("/sys/class/typec/port0/power_role", "sink");
+    struct sbuf sb = {.data = {0}, .len = 0};
+    sb_puts(&sb, M34_MARKER);
+    sb_puts(&sb, " phase=typec_role_write role_device_rc=");
+    sb_put_i64(&sb, data_rc);
+    sb_puts(&sb, " role_sink_rc=");
+    sb_put_i64(&sb, power_rc);
+    sb_putc(&sb, '\n');
+    emit_buf(&sb);
 }
 #endif
 
@@ -788,6 +834,10 @@ __attribute__((noreturn)) void _start(void) {
 #if M34_STAGE >= 7
     emit_typec_udc_readback("typec_pre_bind");
     emit_typec_udc_readback("udc_pre_bind");
+#endif
+#if M34_STAGE == 8
+    maybe_force_typec_device_sink();
+    emit_typec_udc_readback("typec_post_role_write");
 #endif
 #if M34_STAGE >= 3
     bind_udc();
