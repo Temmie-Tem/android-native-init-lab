@@ -5,8 +5,8 @@ Host-only. This script does not reboot, flash, or touch a connected device.
 
 M34 starts after P30 proved the full ACM module closure can park safely without
 runtime gadget binding. These artifacts encode the stock ACM recipe, then
-isolate the HS-only/PD-less knobs, the final pullup, and the stock-kernel-proven
-role lever:
+isolate the HS-only/PD-less knobs, the final pullup, the stock-kernel-proven
+role lever, and the stock SuperSpeed softdep parity gap:
 
 S1: create configfs gadget/function/config, UDC=none, no max_speed/role/bind.
 S2: S1 plus max_speed=high-speed and usb_role=device, no UDC bind.
@@ -14,6 +14,8 @@ S3: S2 plus UDC bind/pullup on a600000.dwc3.
 S4: S3 behavior, but replace the dead usb_role path with
     ssusb/speed=high-speed + ssusb/mode=peripheral before UDC bind.
 S5: S4 plus the UDC soft_connect=connect fallback after UDC bind.
+S6: S4 lineage with all high-speed forcing removed, ssusb mode=peripheral
+    retained, QMP/EUD/ucsi softdep parity restored, and no soft_connect.
 """
 
 from __future__ import annotations
@@ -53,12 +55,29 @@ from build_s22plus_inplace_m4t1_magiskboot import (
 from build_s22plus_m32_wdt_hs_acm import EXPECTED_M32_MODULES, dependency_complete_wdt_hs_order
 
 
-DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_4")
+DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_5")
 DEFAULT_TEMPLATE_SOURCE = Path("workspace/public/src/native-init/s22plus_init_m34_runtime_gadget_split.c")
 DEFAULT_VENDOR_RAMDISK = m23.DEFAULT_VENDOR_RAMDISK
 DEFAULT_LZ4 = m23.DEFAULT_LZ4
 
 MARKER_PREFIX = "S22_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT"
+M34_S6_STOCK_SOFTDEP_TARGETS = [
+    "phy-msm-ssusb-qmp.ko",
+    "eud.ko",
+    "ucsi_glink.ko",
+]
+M34_S6_EXPECTED_NEW_MODULES = [
+    "eud.ko",
+    "phy-msm-ssusb-qmp.ko",
+    "qmi_helpers.ko",
+    "qcom_glink.ko",
+    "qcom_glink_smem.ko",
+    "qcom_smd.ko",
+    "rproc_qcom_common.ko",
+    "pdr_interface.ko",
+    "pmic_glink.ko",
+    "ucsi_glink.ko",
+]
 
 
 @dataclass(frozen=True)
@@ -74,6 +93,10 @@ class RuntimeStage:
     ssusb_mode_peripheral: bool
     udc_bind: bool
     soft_connect: bool
+    stock_softdep_parity: bool = False
+    qmp_module_included: bool = False
+    eud_module_included: bool = False
+    ucsi_glink_included: bool = False
 
     @property
     def lower(self) -> str:
@@ -158,6 +181,26 @@ STAGES = [
         udc_bind=True,
         soft_connect=True,
     ),
+    RuntimeStage(
+        "S6",
+        6,
+        (
+            "stock-speed controller parity: remove configfs/ssusb high-speed forcing, keep "
+            "ssusb mode=peripheral and UDC bind, restore QMP/EUD/ucsi softdep modules, no EUD sysfs write, no soft_connect"
+        ),
+        configfs_gadget=True,
+        udc_none=True,
+        max_speed_high_speed=False,
+        usb_role_force=False,
+        ssusb_speed_high_speed=False,
+        ssusb_mode_peripheral=True,
+        udc_bind=True,
+        soft_connect=False,
+        stock_softdep_parity=True,
+        qmp_module_included=True,
+        eud_module_included=True,
+        ucsi_glink_included=True,
+    ),
 ]
 
 
@@ -170,6 +213,87 @@ def _stage_by_label(label: str) -> RuntimeStage:
 
 def c_define_string(name: str, value: str) -> str:
     return f'-D{name}="{value}"'
+
+
+def dependency_complete_stock_softdep_order(
+    *,
+    dep_map: dict[str, list[str]],
+    recovery_basenames: list[str],
+    base_closure: dict[str, Any],
+) -> dict[str, Any]:
+    order_index = {module: index for index, module in enumerate(recovery_basenames)}
+    seen: set[str] = set()
+    visiting: set[str] = set()
+    ordered: list[str] = []
+    missing: set[str] = set()
+    targets = list(base_closure["targets"]) + list(M34_S6_STOCK_SOFTDEP_TARGETS)
+
+    def sort_key(module: str) -> tuple[int, str]:
+        return (order_index.get(module, 10**9), module)
+
+    def visit(module: str) -> None:
+        if module in seen:
+            return
+        if module not in dep_map:
+            missing.add(module)
+            return
+        if module in visiting:
+            raise SystemExit(f"cycle in modules.dep while visiting {module}")
+        visiting.add(module)
+        for dep in sorted(dep_map[module], key=sort_key):
+            visit(dep)
+        visiting.remove(module)
+        seen.add(module)
+        ordered.append(module)
+
+    for target in sorted(targets, key=sort_key):
+        visit(target)
+
+    if missing:
+        raise SystemExit(f"M34 S6 dependency closure missing modules.dep entries: {sorted(missing)}")
+
+    dependency_violations = {
+        module: [dep for dep in dep_map[module] if dep in ordered and ordered.index(dep) > ordered.index(module)]
+        for module in ordered
+    }
+    dependency_violations = {module: deps for module, deps in dependency_violations.items() if deps}
+    if dependency_violations:
+        raise SystemExit(f"M34 S6 module order violates modules.dep: {dependency_violations}")
+
+    new_modules = [module for module in ordered if module not in base_closure["modules"]]
+    if new_modules != M34_S6_EXPECTED_NEW_MODULES:
+        raise SystemExit(f"M34 S6 new module set drifted:\nactual={new_modules!r}\nexpected={M34_S6_EXPECTED_NEW_MODULES!r}")
+    for required in M34_S6_STOCK_SOFTDEP_TARGETS:
+        if required not in ordered:
+            raise SystemExit(f"M34 S6 stock softdep target missing: {required}")
+    if "sec_debug_region.ko" in ordered:
+        raise SystemExit("M34 S6 must not include sec_debug_region.ko")
+
+    module_text = "".join(f"{module}\n" for module in ordered)
+    if len(module_text.encode("ascii")) >= 1024:
+        raise SystemExit("M34 S6 dependency-complete module list exceeds runtime parser buffer")
+    too_long = [module for module in ordered if len(module) >= m23.RUNTIME_MODULE_NAME_BUF]
+    if too_long:
+        raise SystemExit(f"M34 S6 module basename exceeds runtime parser buffer: {too_long}")
+
+    return {
+        "targets": targets,
+        "modules": ordered,
+        "module_count": len(ordered),
+        "module_text": module_text,
+        "module_sha256": None,
+        "watchdog_modules": ["qcom_wdt_core.ko", "gh_virt_wdt.ko"],
+        "usb_modules": ["dwc3-msm.ko", "usb_f_ss_acm.ko", "usb_f_ss_mon_gadget.ko"],
+        "stock_softdep_targets": list(M34_S6_STOCK_SOFTDEP_TARGETS),
+        "stock_softdep_new_modules": new_modules,
+        "excluded_modules": ["sec_debug_region.ko"],
+        "stock_recovery_positions": {
+            module: recovery_basenames.index(module) + 1
+            for module in ordered
+            if module in recovery_basenames
+        },
+        "order_model": "modules.dep topological order with stock modules.load.recovery tie-breaks plus dwc3_msm QMP/EUD/ucsi softdep",
+    }
 
 
 def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeStage, module_count: int) -> dict[str, Any]:
@@ -225,7 +349,7 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
 
     required_strings = [
         stage.marker,
-        "version=0.4",
+        "version=0.5",
         "runtime=freestanding",
         "raw_syscalls=1",
         f"/{stage.modules_ramdisk}",
@@ -291,6 +415,10 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
         ])
     else:
         required_strings.append("soft_connect=0")
+    if stage.stock_softdep_parity:
+        required_strings.extend(["stock_softdep_parity=1", "qmp_module=1", "eud_module=1", "ucsi_glink=1"])
+    else:
+        required_strings.extend(["stock_softdep_parity=0", "qmp_module=0", "eud_module=0", "ucsi_glink=0"])
 
     forbidden_strings = [
         b"ld-linux",
@@ -454,6 +582,10 @@ def build_stage(
             "ssusb_mode_peripheral": stage.ssusb_mode_peripheral,
             "udc_bind": stage.udc_bind,
             "soft_connect": stage.soft_connect,
+            "stock_softdep_parity": stage.stock_softdep_parity,
+            "qmp_module_included": stage.qmp_module_included,
+            "eud_module_included": stage.eud_module_included,
+            "ucsi_glink_included": stage.ucsi_glink_included,
         },
         "closure": stage_closure,
         "paths": {
@@ -529,12 +661,17 @@ def main(argv: list[str]) -> int:
         raise SystemExit(f"base boot size mismatch: {base_boot.stat().st_size} != {BOOT_PARTITION_SIZE}")
 
     vendor_metadata = m23.extract_vendor_metadata(vendor_ramdisk, lz4_tool, common_build_dir)
-    closure = dependency_complete_wdt_hs_order(
+    m32_closure = dependency_complete_wdt_hs_order(
         dep_map=vendor_metadata["dep_map"],
         recovery_basenames=vendor_metadata["recovery_basenames"],
     )
-    if closure["modules"] != EXPECTED_M32_MODULES:
+    if m32_closure["modules"] != EXPECTED_M32_MODULES:
         raise SystemExit("M34 closure drifted from P30/M32 full ACM module closure")
+    stock_softdep_closure = dependency_complete_stock_softdep_order(
+        dep_map=vendor_metadata["dep_map"],
+        recovery_basenames=vendor_metadata["recovery_basenames"],
+        base_closure=m32_closure,
+    )
 
     run_in_dir([magiskboot, "unpack", "-h", base_boot], nochange_dir, "M34 no-change unpack")
     run_in_dir([magiskboot, "repack", base_boot, out_dir / "boot_nochange_repack.img"], nochange_dir, "M34 no-change repack")
@@ -549,7 +686,7 @@ def main(argv: list[str]) -> int:
             base_boot=base_boot,
             template_source=template_source,
             magiskboot=magiskboot,
-            closure=closure,
+            closure=stock_softdep_closure if stage.stock_softdep_parity else m32_closure,
             stage=stage,
         )
         for stage in selected_stages
@@ -569,7 +706,7 @@ def main(argv: list[str]) -> int:
         "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "target": "SM-S906N/g0q/S906NKSS7FYG8",
         "purpose": (
-            "M34 stock-ordered runtime gadget split plus S4 ssusb role-lever and S5 soft_connect candidates"
+            "M34 stock-ordered runtime gadget split plus S4 ssusb role-lever, S5 soft_connect, and S6 stock-speed QMP/EUD/ucsi candidates"
         ),
         "stock_recipe_report": "docs/reports/S22PLUS_STOCK_USB_GADGET_ACM_RECIPE_2026-07-09.md",
         "stages": stage_manifests,
@@ -587,12 +724,19 @@ def main(argv: list[str]) -> int:
                     "ssusb_mode_peripheral": stage.ssusb_mode_peripheral,
                     "udc_bind": stage.udc_bind,
                     "soft_connect": stage.soft_connect,
+                    "stock_softdep_parity": stage.stock_softdep_parity,
+                    "qmp_module_included": stage.qmp_module_included,
+                    "eud_module_included": stage.eud_module_included,
+                    "ucsi_glink_included": stage.ucsi_glink_included,
                 }
                 for stage in selected_stages
             ],
-            "live_order": ["S1", "S2", "S3", "S4", "S5"],
+            "live_order": ["S1", "S2", "S3", "S4", "S5", "S6"],
             "p30_is_s0": True,
-            "module_closure_matches_p30_and_m32": True,
+            "module_closure_matches_p30_and_m32_for_s1_s5": True,
+            "s6_module_closure_restores_stock_dwc3_softdep": True,
+            "s6_stock_softdep_targets": list(M34_S6_STOCK_SOFTDEP_TARGETS),
+            "s6_stock_softdep_new_modules": list(M34_S6_EXPECTED_NEW_MODULES),
         },
         "safety": {
             "boot_only": True,
@@ -612,8 +756,13 @@ def main(argv: list[str]) -> int:
             "module_binary_injection": False,
             "module_files_injected_into_boot_ramdisk": 0,
             "watchdog_managed": True,
-            "qmp_module_excluded": True,
-            "eud_module_excluded": True,
+            "qmp_module_excluded_for_s1_s5": True,
+            "eud_module_excluded_for_s1_s5": True,
+            "ucsi_glink_excluded_for_s1_s5": True,
+            "stage_s6_includes_qmp_eud_ucsi_softdep_parity": True,
+            "stage_s6_no_high_speed_force": True,
+            "stage_s6_no_soft_connect": True,
+            "stage_s6_no_eud_sysfs_write": True,
             "stock_order_udc_none_before_ids_and_link": True,
             "stock_order_udc_bind_last": True,
             "stage_s1_no_max_speed_high_speed": True,
@@ -628,6 +777,9 @@ def main(argv: list[str]) -> int:
             "stage_s4_no_usb_role_force": True,
             "stage_s5_soft_connect_after_udc_bind": True,
             "stage_s5_no_descriptor_or_companion_change": True,
+            "stage_s6_restores_stock_speed_policy": True,
+            "stage_s6_keeps_ssusb_mode_peripheral_before_udc_bind": True,
+            "stage_s6_no_descriptor_or_companion_change": True,
         },
         "vendor": {
             "vendor_ramdisk": display_path(root, vendor_ramdisk),

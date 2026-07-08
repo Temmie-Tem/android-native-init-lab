@@ -4,6 +4,45 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 06:29 KST / 2026-07-08 21:29 UTC) — M34 S6 HOST BUILD COMPLETE; USB2 HS-FORCE REMOVED + QMP/EUD/UCSI SOFTDEP PARITY RESTORED; NO ACTIVE LIVE AUTH.**
+> Operator question answered: USB version does matter here. Stock Android
+> remains `04e8:6860` SuperSpeed 5000M / `bcdUSB 3.20` composite, while M34
+> S2-S5 forced USB2 `high-speed`; S5 then failed to produce `6860` and later
+> fell to Samsung `04e8:685d` upload/download endpoints. The easy/high-signal
+> implementation is therefore controller-speed parity first, not descriptor
+> string polish first.
+>
+> Codex extended the M34 runtime-gadget split to v0.5 with S6. S6 keeps
+> configfs gadget creation, `UDC=none`, `ssusb/mode=peripheral`, and final
+> `UDC=a600000.dwc3`, but removes both high-speed forcing writes:
+> no `g1/max_speed=high-speed` and no `ssusb/speed=high-speed`. S6 also restores
+> stock `dwc3_msm` softdep parity through the module list by adding
+> `phy-msm-ssusb-qmp.ko`, `eud.ko`, `ucsi_glink.ko`, and the required glink
+> dependencies. It does **not** write EUD sysfs knobs, does not `soft_connect`,
+> does not change descriptors/strings/companion functions, and does not request
+> reboot or Android/Magisk handoff.
+>
+> S6 artifacts are under
+> `workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_5/`.
+> S6 AP.tar.md5 SHA256:
+> `f1ff77b7df434536029db417291689bff8b3a7dcdf4fda38fef5322475daad39`;
+> padded `boot.img` SHA256:
+> `b1bfc4ece7ece60af752bc570e0ae4ce76230d13b129b1c58d4e840cd92225f6`;
+> direct `/init` SHA256:
+> `ca3eb2b5a0fedff73cfb0aaa249d42f4b92fcb99b360e9ec5a041649dcd7dd8c`;
+> module-list SHA256:
+> `51ba77aeed1966a2de8c78d307ca3d6fe5440daa2b96488679446f6056142515`.
+> S6 module count is 55, list size 839 bytes, AP tar member is exactly
+> `boot.img.lz4`, and compiled S6 `/init` contains no `high-speed` string.
+>
+> Validation passed: builder `py_compile`, full M34 runtime-gadget split unit
+> tests with manifest (5 tests), v0.5 build, S6 AP tar member check, and negative
+> `grep -a "high-speed"` on S6 `/init`. No live flash is authorized. Next live
+> unit needs a fresh SHA-pinned `AGENTS.md` exception for the exact S6 AP and
+> rollback AP plus a helper that reuses the enhanced all-Samsung `04e8:*`
+> observation path. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S6_STOCK_SOFTDEP_HOST_BUILD_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 06:20 KST / 2026-07-08 21:20 UTC) — HOST-ONLY USB VERSION GAP RECON; S5 FELL TO `04e8:685d`; NEXT S6 DESIGN SHOULD STOP HS-FORCE + RESTORE QMP/EUD SOFTDEP PARITY; NO ACTIVE LIVE AUTH.**
 > Codex re-read the S5 host logs, post-rollback stock Android USB state, and
 > FYG8 stock firmware extracts. Correction to the short S5 summary: the
