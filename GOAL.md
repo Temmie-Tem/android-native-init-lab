@@ -123,7 +123,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > nanosleep-download floor re-anchor and ran both non-flashing gates. The
 > helper `--offline-check` verified the candidate AP/manifest and rollback APs
 > with `agents_exception_missing=[]` and no device action. Android dry-run on
-> serial `RFCT519XWGK` verified model `SM-S906N`, device `g0q`, bootloader
+> serial `<S22_SERIAL_REDACTED>` verified model `SM-S906N`, device `g0q`, bootloader
 > `S906NKSS7FYG8`, vbstate `orange`, `boot_completed=1`, Magisk `su` root, and
 > current boot hash
 > `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. The

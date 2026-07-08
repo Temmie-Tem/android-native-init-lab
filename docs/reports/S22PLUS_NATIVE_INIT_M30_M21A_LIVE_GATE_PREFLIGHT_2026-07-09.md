@@ -91,7 +91,7 @@ Command:
 ```text
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   workspace/public/src/scripts/revalidation/s22plus_m21a_raw_nanosleep_download_live_gate.py \
-  --serial RFCT519XWGK
+  --serial <S22_SERIAL_REDACTED>
 ```
 
 Result:
@@ -146,7 +146,7 @@ The next action can be the live gate, but only with the explicit live ack token:
 ```text
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   workspace/public/src/scripts/revalidation/s22plus_m21a_raw_nanosleep_download_live_gate.py \
-  --serial RFCT519XWGK \
+  --serial <S22_SERIAL_REDACTED> \
   --live \
   --ack S22PLUS-M21A-RAW-NANOSLEEP-DOWNLOAD-LIVE-GATE
 ```
