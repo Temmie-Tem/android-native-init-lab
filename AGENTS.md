@@ -2009,11 +2009,29 @@ BL, CP, CSC, userdata, or any non-boot flash.
    rebuild, recovery/vendor_boot/vbmeta/non-boot/non-DTBO flash other than the
    exact pinned stock-DTBO/M25-DTBO APs above, raw host `dd`, fastboot,
    multidisabler, format data, or any A90 action.
-   **Narrow operator-authorized exception (2026-07-08, S22+ M27 HS
-   prefix-narrow native-init boot+DTBO batch):** after the M27 host build and
-   live-gate source pass proved the exact prefix-narrow matrix between M26
-   `P00` hit and `P24` no-hit, Codex may perform one bounded attended M27
-   prefix-narrow batch on the same Samsung S22+ `SM-S906N`/`g0q`
+   **Consumed exception (2026-07-08, S22+ M27 HS prefix-narrow native-init
+   boot+DTBO batch):** this one-shot exception was consumed by the 2026-07-08
+   live run. It flashed the pinned M25 DTBO high-speed cap AP and then flashed
+   M27 `P08`. Host observation showed no ADB/Odin for samples 001-036 after
+   the candidate, and the operator reported bootloop observation plus manual
+   Download-mode entry. The helper then saw Odin at sample 037 and logged
+   `m27_P08_result=self-download`, but that is operator-corrected to
+   **manual-download contaminated / not a clean self-download proof**. Codex
+   interrupted before any later prefix, the helper had already flashed the
+   pinned Magisk boot rollback AP, Android returned, and Codex then restored
+   stock DTBO with the pinned stock-DTBO AP. Final Android/Magisk baseline was
+   verified: boot
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, dtbo
+   `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`, and
+   vendor_boot
+   `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`.
+   This exception must not be reused for M27 repeat or additional prefixes.
+   Future S22+ native-init live flashes need a fresh, narrower exception for
+   the selected candidate and rollback path.
+   Before consumption, after the M27 host build and live-gate source pass
+   proved the exact prefix-narrow matrix between M26 `P00` hit and `P24`
+   no-hit, Codex could perform one bounded attended M27 prefix-narrow batch on
+   the same Samsung S22+ `SM-S906N`/`g0q`
    `S906NKSS7FYG8` using only the checked helper
    `workspace/public/src/scripts/revalidation/s22plus_m27_hs_prefix_narrow_live_gate.py`
    with live ack token `S22PLUS-M27-HS-PREFIX-NARROW-LIVE-GATE`, rollback ack

@@ -4,8 +4,9 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **OPERATOR STEER (2026-07-08, Claude) — PRIMARY DIRECTION: PREFIX/DOWNLOAD BINARY-SEARCH THE MODULE FAULT (M27 narrowing).**
-> The HS-only ACM sidestep (M25) and the M26 prefix probe are both consumed and
+> **OPERATOR STEER (2026-07-08, Claude) — PRIMARY DIRECTION: PREFIX/DOWNLOAD BINARY-SEARCH THE MODULE FAULT (M28 below-P08 narrowing).**
+> The HS-only ACM sidestep (M25), the M26 prefix probe, and the M27 prefix-narrow
+> live run are consumed and
 > operator-Gate-2-verified. **Corrected mental model — read this before steering:**
 > - **M25 (HS-only ACM park) did NOT bootloop.** Direct log read (run
 >   `...122411Z`) shows ~29 s of dead-steady park (`acm=[] odin=[] adb=empty`,
@@ -20,24 +21,52 @@ safety invariants and flash gates are binding and override any sub-goal.**
 >   (mod 28) / ACM (mod 30) are never reached, so the earlier "ssphy phandle left
 >   in the DTBO" idea is DEMOTED: it only becomes relevant once a prefix ≥28
 >   actually reaches dwc3. Do not chase it now.
+> - **M27 first point is NOT a clean hit.** `P08` was flashed under the M25
+>   high-speed DTBO cap, but the operator observed a bootloop and manually
+>   entered Download mode before/while the host saw Odin. The helper's
+>   `m27_P08_result=self-download` is therefore manual-download contaminated,
+>   not proof that `P08` reached the checkpoint. **New boundary: `P00` clean hit
+>   vs `P08` contaminated/no-hit.**
 > **Why prefix/download is the right method:** every retained-marker channel
 > failed (last_kmsg, reset_summary, EUD, ramoops, M24 pmsg), so an intentional
 > `reboot(download)` after loading prefix N is the ONLY reliable "I reached here"
 > beacon. It binary-searches the fault with zero observability dependency.
-> **Active unit = M27:** narrow the `P00..P24` boundary with the coarse matrix
-> `P08/P12/P16/P20/P22/P23/P24`. Host build is ready; the next live step still
-> requires ONE fresh SHA-pinned live exception for the batch. Do NOT add
-> configfs/ACM/UDC yet — keep M27 pure
-> module-prefix survivability until the exact biting module is pinned. Operator
-> suspects in 1–24 (let the search decide, don't pre-theorize): `qcom-scm`(19)
-> secure calls, `rpmh-regulator`(5)/`gdsc-regulator`(10) touching rails,
-> `secure_buffer`(22)/`smem`(23). Once the biting module is isolated, the fix is
-> either exclude it (if USB doesn't need it) or supply its missing dependency;
-> only THEN re-add the USB tail (25–40) and the ACM gadget, and only THEN revisit
-> the DTBO ssphy-phandle sever if dwc3 probe stalls.
+> **Active unit = M28 (host-only first):** narrow the `P00..P08` boundary with a
+> smaller matrix such as `P01/P02/P04/P06/P07/P08`. No live auth is active. Do
+> NOT continue M27 to `P12+`, do NOT repeat `P08` under the consumed exception,
+> and do NOT add configfs/ACM/UDC yet — keep this pure module-prefix
+> survivability until the exact biting module is pinned. Operator suspects in
+> 1-8 should still be decided by the search, not guessed. Once the biting module
+> is isolated, the fix is either exclude it (if USB doesn't need it) or supply
+> its missing dependency; only THEN re-add the USB tail (25-40) and the ACM
+> gadget, and only THEN revisit the DTBO ssphy-phandle sever if dwc3 probe
+> stalls.
 > Reports: `S22PLUS_M25_NO_ACM_POSTMORTEM_2026-07-08.md`,
-> `S22PLUS_NATIVE_INIT_M26_HS_PREFIX_DOWNLOAD_LIVE_RESULT_2026-07-08.md`.
+> `S22PLUS_NATIVE_INIT_M26_HS_PREFIX_DOWNLOAD_LIVE_RESULT_2026-07-08.md`,
+> `S22PLUS_NATIVE_INIT_M27_HS_PREFIX_NARROW_LIVE_RESULT_2026-07-08.md`.
 > (Observation steers below are superseded/background; MID stays set, harmless.)
+
+> **S22+ CURRENT FRONTIER (2026-07-08 22:48 KST / 13:48 UTC) — M27 LIVE CONSUMED; P08 NOT CLEAN; FINAL BASELINE CLEAN.**
+> M27 live started under consumed exception `e09ef860`: DTBO high-speed cap was
+> flashed and verified, then `P08` was flashed. Host samples showed no ADB/Odin
+> until Odin appeared at sample 037, and the helper logged
+> `m27_P08_result=self-download`, but the operator reported bootloop observation
+> plus manual Download-mode entry. Therefore the Odin event is manual-download
+> contaminated and must not be reported as clean `P08` checkpoint proof. Codex
+> interrupted the helper before `P12+`; the helper had already flashed Magisk
+> boot rollback, Android returned, and Codex restored stock DTBO with the pinned
+> stock-DTBO AP. Final baseline verified: `boot_completed=1`,
+> `bootanim=stopped`, vbstate `orange`, Magisk root present, boot
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, stock
+> DTBO `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`,
+> vendor_boot
+> `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`.
+> Next unit: M28 host-only discriminator inside modules `1..8` (`P01/P02/P04/
+> P06/P07/P08` style), same high-speed DTBO context and prefix/download proof
+> shape, with explicit manual-Download contamination handling. No S22+ native-init
+> live flash is authorized until a fresh SHA-pinned `AGENTS.md` exception is
+> promoted. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M27_HS_PREFIX_NARROW_LIVE_RESULT_2026-07-08.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-08 22:36 KST / 13:36 UTC) — M27 POLICY ACTIVE; PRE-LIVE DRY-RUN PASS; LIVE NOT EXECUTED.**
 > Codex promoted a fresh SHA-pinned `AGENTS.md` exception for exactly one M27

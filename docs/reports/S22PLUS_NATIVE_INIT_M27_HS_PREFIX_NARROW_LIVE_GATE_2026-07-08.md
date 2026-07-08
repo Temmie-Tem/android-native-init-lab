@@ -2,10 +2,13 @@
 
 ## Verdict
 
-PRE-LIVE PASS: M27 prefix-narrow batch gate is implemented, SHA-pinned in
+PRE-LIVE PASS / SUPERSEDED BY LIVE RESULT: M27 prefix-narrow batch gate is implemented, SHA-pinned in
 `AGENTS.md`, statically validated, and dry-run verified against the attached
 S22+ Android/Magisk baseline. No live flash, reboot, rollback, partition write,
 or sysfs write was performed.
+
+This pre-live report is superseded by
+`S22PLUS_NATIVE_INIT_M27_HS_PREFIX_NARROW_LIVE_RESULT_2026-07-08.md`.
 
 ## Scope
 
