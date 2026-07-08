@@ -63,11 +63,11 @@ Rollback command result:
 
 - `manual_magisk_boot_rollback_odin_rc=0`
 - boot upload reached 100%
-- Android returned on ADB serial `RFCT519XWGK`
+- Android returned on ADB serial `<S22_SERIAL_REDACTED>`
 
 Final independent checks:
 
-- `adb devices -l`: `RFCT519XWGK device ... model:SM_S906N device:g0q`
+- `adb devices -l`: `<S22_SERIAL_REDACTED> device ... model:SM_S906N device:g0q`
 - model: `SM-S906N`
 - `sys.boot_completed=1`
 - bootanim: `stopped`

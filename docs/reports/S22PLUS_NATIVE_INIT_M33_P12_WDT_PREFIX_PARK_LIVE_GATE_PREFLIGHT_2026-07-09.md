@@ -86,7 +86,7 @@ Results:
 - dry-run: pass
 - `agents_exception_missing=[]`
 - Android identity: `SM-S906N/g0q/S906NKSS7FYG8`
-- ADB serial: `RFCT519XWGK`
+- ADB serial: `<S22_SERIAL_REDACTED>`
 - vbstate: `orange`
 - Android boot complete: `1`
 - bootanim: `stopped`
