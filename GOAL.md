@@ -25,8 +25,9 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `reboot(download)` after loading prefix N is the ONLY reliable "I reached here"
 > beacon. It binary-searches the fault with zero observability dependency.
 > **Active unit = M27:** narrow the `P00..P24` boundary with the coarse matrix
-> `P08/P12/P16/P20/P22/P23/P24` (host build first, then ONE fresh SHA-pinned live
-> exception for the batch). Do NOT add configfs/ACM/UDC yet — keep M27 pure
+> `P08/P12/P16/P20/P22/P23/P24`. Host build is ready; the next live step still
+> requires ONE fresh SHA-pinned live exception for the batch. Do NOT add
+> configfs/ACM/UDC yet — keep M27 pure
 > module-prefix survivability until the exact biting module is pinned. Operator
 > suspects in 1–24 (let the search decide, don't pre-theorize): `qcom-scm`(19)
 > secure calls, `rpmh-regulator`(5)/`gdsc-regulator`(10) touching rails,
@@ -37,6 +38,32 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Reports: `S22PLUS_M25_NO_ACM_POSTMORTEM_2026-07-08.md`,
 > `S22PLUS_NATIVE_INIT_M26_HS_PREFIX_DOWNLOAD_LIVE_RESULT_2026-07-08.md`.
 > (Observation steers below are superseded/background; MID stays set, harmless.)
+
+> **S22+ CURRENT FRONTIER (2026-07-08 22:17 KST / 13:17 UTC) — M27 HOST BUILD READY; NO LIVE AUTH.**
+> Codex added the M27 HS-only prefix-narrow discriminator: builder
+> `workspace/public/src/scripts/revalidation/build_s22plus_m27_hs_prefix_narrow.py`,
+> runtime `workspace/public/src/native-init/s22plus_init_m27_hs_prefix_download.c`,
+> tests `tests/test_s22plus_m27_hs_prefix_narrow_build.py`, and private output
+> `workspace/private/outputs/s22plus_native_init/m27_hs_prefix_narrow_v0_1`.
+> M27 narrows the M26-proven boundary: `P00` reached `reboot(download)`, while
+> `P24` did not. It builds 7 boot-only APs, each containing exactly
+> `boot.img.lz4`, for prefixes `P08/P12/P16/P20/P22/P23/P24`. AP SHA256s
+> respectively:
+> `60669383e0345dfc5b7f50393ad6aebd3c67307ba32bc107c69eb324d67f499a`,
+> `3e0d65386966fb351a108f0c1e03dfdf695d365717e42552e970cfdab16af7ab`,
+> `32b132e30c8f009e161ae0c71a64ed90d4b1ac1560302a17ef1309b03100f61f`,
+> `d4669c932312d2f84ce5982bc2df81a4903c23e7f6fae19bff4129aaba56afba`,
+> `1d7137f60d5743e0cb2145219e8806c6bc1b051a7d8a68749afe5b260cdf3643`,
+> `5bc8d767af7794bf7ece761b1d61d080e94b345e99be173556aece49ed40f8fb`,
+> `fff7ecf3ff9233f76ac17f07ecf56a383696d6ecb06b67f84ef39d8f08876180`.
+> Runtime shape: M27 marker, no configfs, no UDC bind, no `ttyGS0`, no ACM park;
+> load prefix then deliberate `reboot(..., "download")`. Validation passed:
+> `py_compile`, unit tests, AArch64 syntax check, full host builder, AP member
+> checks, manifest safety checks, and `git diff --check`. No flash/reboot/device
+> action was performed. Next live-capable unit needs a fresh SHA-pinned
+> `AGENTS.md` exception and guarded helper for this M27 batch, preferably
+> starting from `P08` and stopping on the first no-hit. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M27_HS_PREFIX_NARROW_HOST_BUILD_2026-07-08.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-08 22:10 KST / 13:10 UTC) — M26 LIVE CONSUMED: P00 HIT, P24 NO-HIT; FINAL BASELINE CLEAN.**
 > M26 first-live batch was executed under consumed AGENTS exception `14f421fc`.
