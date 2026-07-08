@@ -4,6 +4,33 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **OPERATOR STEER (2026-07-08, Claude) — PRIMARY DIRECTION: STOP OBSERVING THE FAULT, AVOID IT (M25 = HS-only USB2 ACM).**
+> Five observation channels have now failed for the M18/M23 **watchdog-bite** hang
+> (MID/RDX+last_kmsg, Samsung reset_summary, EUD [TZ-gated], mainline ramoops, M24
+> pmsg step-markers) — all try to *see* a bite that Samsung's panic-triggered
+> machinery doesn't capture and our recovery chain clears. **Stop observing; avoid
+> the faulting module.** The vendor_boot DTB decode proves a clean sidestep:
+> `dwc3@a600000 maximum-speed=super-speed-plus`, **two separate PHYs** —
+> `hsphy@88e3000` (`qcom,usb-hsphy-snps-femto`, HighSpeed/USB2, **already works** —
+> ADB + EUD's non-secure path run on it) vs `ssphy@88e8000`
+> (`qcom,usb-ssphy-qmp-dp-combo` = M15's hang, DisplayPort-shared, power-heavy).
+> **A serial ACM control channel needs only HighSpeed; USB3/QMP is NOT required**
+> (A90's bridge was USB2-class).
+> **M25 recipe (from the M13 park floor):** (1) cap dwc3 `maximum-speed`
+> `super-speed-plus → high-speed` via a DTBO overlay (proven overlay path) or a
+> dwc3 module param; (2) load ONLY the HS set — `phy-generic`, `phy-msm-snps-hs`
+> (femto HS phy) + eUSB2 repeater if used, `dwc3-msm`, `usb_f_ss_acm`, + the light
+> HS/dwc3 clock/regulator substrate — **EXCLUDE `phy-msm-ssusb-qmp`**; (3) bind
+> `a600000.dwc3` + force `usb_role=device` + park. **Success signal = host
+> enumerates `/dev/ttyGS0` (ACM), console-free/unambiguous** = the A90-style
+> bidirectional control channel with the QMP PHY never touched. Only unknown = does
+> vendor `dwc3-msm` allow HS-only (mainline gates SS phy on maximum-speed → likely
+> yes; `ss_phy_irq` vs `dp_hs_phy_irq`/`dm_hs_phy_irq` DT separation is
+> encouraging) — one attended flash settles it. If it still bootloops, bisect the
+> HS set from M13 (park-vs-loop) before any UART clip.
+> Report: `docs/reports/S22PLUS_M25_HS_ONLY_USB2_ACM_SIDESTEP_STEER_2026-07-08.md`.
+> (Observation steers below are now superseded/background; MID stays set, harmless.)
+
 > **OPERATOR STEER (2026-07-08, Claude) — M18 WAS THE WRONG FILE: read Samsung `reset_summary` (watchdog-bite capture).**
 > M18's fault is a **msm watchdog bite** (dmesg confirms the watchdog runs + pets
 > ~9.5s; a bare init pets nothing → bite → warm reset). That is NOT a panic, so
