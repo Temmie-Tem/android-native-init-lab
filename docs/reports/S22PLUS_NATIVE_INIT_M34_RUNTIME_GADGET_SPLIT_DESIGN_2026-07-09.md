@@ -8,6 +8,10 @@ Date: 2026-07-09 KST / 2026-07-08 UTC
 build: configfs gadget/function/config only, no role force and no UDC bind.
 No S1 live flash is authorized yet.
 
+2026-07-09 later update: M34 S1/S2/S3 host artifacts are now built and
+source-ready. Current state is tracked in
+`docs/reports/S22PLUS_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT_HOST_BUILD_2026-07-09.md`.
+
 M34 should isolate the runtime gadget bring-up sequence, not continue module
 list bisection.
 
