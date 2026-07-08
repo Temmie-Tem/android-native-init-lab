@@ -36,6 +36,51 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > regulator, GDSC, GPIO, or raw PMIC knobs. Full analysis:
 > `docs/reports/S22PLUS_M34_S7_USB_SESSION_ROLE_PRODUCER_CHAIN_STOCK_2026-07-09.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-09 07:54 KST / 2026-07-08 22:54 UTC) — M34 S7A LIVE CONSUMED; SURVIVED 90 S; SESSION-PRODUCER CHAIN NOT SUFFICIENT; NO USB; MANUAL RDX/DOWNLOAD ROLLBACK CLEAN; NO ACTIVE LIVE AUTH.**
+> The approved M34 S7A session-producer runtime-gadget live gate ran once using
+> `workspace/public/src/scripts/revalidation/s22plus_m34_s7a_session_producer_live_gate.py`.
+> Static gates passed first: S7A helper `py_compile`, S7A helper tests plus
+> M34 build and S6 live-gate tests (`Ran 25 tests`, `OK`), `git diff --check`,
+> `--offline-check`, and default dry-run with Android stability, AGENTS
+> exception, rollback APs, and current boot hash verified.
+>
+> S7A AP.tar.md5 SHA256:
+> `b533d8e218aa4842c941f86075ce770cf60a67a179939dd4d552d22767376267`;
+> padded boot.img SHA256:
+> `5e1a0758008651eb5a22b82fd91d4c2549ba756a4ed885779a0934688e129e49`;
+> `/init` SHA256:
+> `22e1f7e9346c61c876253a6e194d64d55adc3e24571ed2b10d76e4c09cef1914`;
+> module-list SHA256:
+> `eb1ddfe7ac9a481b9dacae696c72b876e82d6e8ac4681772df825995a162001c`.
+>
+> Live result: candidate Odin flash succeeded, the original Download endpoint
+> disconnected, and S7A survived the full 90 s observation window. Operator
+> observed no boot loop, then RDX/PMIC and manual Download entry for rollback.
+> Across 18 candidate snapshots, host observed no Samsung `04e8:*`, no
+> `04e8:6860`, no CDC ACM, no `/dev/ttyACM*`, no ADB, no Odin endpoint, and no
+> Samsung upload/download endpoint. Result string:
+> `survived-observation-window-manual-download-required`.
+>
+> Rollback flashed the pinned Magisk boot-only AP from the returned Odin
+> endpoint and restored the rooted Android baseline: `sys.boot_completed=1`,
+> `SM-S906N/g0q`, build/bootloader `S906NKSS7FYG8`, vbstate `orange`,
+> `boot_recovery=0`, Magisk root present, and boot partition SHA256 restored to
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+> Retained evidence had no S7A marker: pstore empty, `/proc/last_kmsg`
+> readable at 2,097,136 bytes, marker absent.
+>
+> Interpretation: the max77705/PDIC/altmode session-producer module chain is
+> now retired as a sufficient explanation for missing USB pullup/enumeration.
+> S7A preserved survival but still produced no host-visible USB device. Next
+> work is host-only stock Android USB orchestration: diff S7A direct-PID1
+> ordering against stock init rc/property choreography, FunctionFS readiness,
+> `conn_gadget`/stock composite services, `sys.usb.*` gates,
+> `android.hardware.usb@1.3-service.coral`, and `ss_conn_daemon2`. Do not run
+> another live candidate until S7B explains both survival and complete absence
+> of host-visible `04e8:*`. `AGENTS.md` marks the S7A one-shot exception
+> consumed/retired; no active live authorization remains. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S7A_SESSION_PRODUCER_LIVE_RESULT_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 07:30 KST / 2026-07-08 22:30 UTC) — M34 S7A HOST BUILD COMPLETE; SESSION-PRODUCER FULL CLOSURE BUILT; RISK MODULES EXPLICIT; NO ACTIVE LIVE AUTH.**
 > Codex extended the M34 runtime-gadget split builder to v0.6 with a new S7A
 > stage. S7A starts from S6, keeps `ssusb/mode=peripheral`, keeps the minimal
