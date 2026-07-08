@@ -130,6 +130,28 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Report:
 > `docs/reports/S22PLUS_M25_HS_ONLY_USB2_ACM_PREFLIGHT_HARDENING_2026-07-08.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-08 21:05 KST / 12:05 UTC) — M25 LIVE RUNBOOK READY; LIVE NOT EXECUTED.**
+> Codex added
+> `docs/operations/S22PLUS_M25_HS_ONLY_USB2_ACM_LIVE_RUNBOOK_2026-07-08.md`
+> to freeze the attended M25 procedure before any live write. The runbook
+> separates five outcomes: ACM proof then manual Download rollback, automatic
+> Odin rollback, unexpected ADB rollback, no-transport manual rollback, and
+> DTBO-only failure before boot candidate flash requiring stock-DTBO-only
+> restore. It also pins post-rollback verification hashes and the expected
+> timeline event families including `dtbo_rollback_boot_ready`. Validation
+> passed: M25 unit tests `Ran 7 tests ... OK`, `--offline-check`, `git diff
+> --check`, and default dry-run
+> (`workspace/private/runs/s22plus_m25_hs_only_usb2_acm_live_gate_20260708T120721Z/...`).
+> No flash, reboot, rollback, partition write, or sysfs write was performed.
+> Follow-up after an operator bootloop/manual-download report at 2026-07-08
+> 21:11 KST: host observed Android ADB, not Odin/download mode. Boot state was
+> stable for six 5-second samples (`boot_completed=1`, `bootanim=stopped`,
+> monotonic uptime), Magisk root returned, and live hashes matched the baseline:
+> boot `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
+> dtbo `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`,
+> vendor_boot `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`.
+> No rollback flash was needed or performed.
+
 > **OPERATOR STEER (2026-07-08, Claude) — M18 WAS THE WRONG FILE: read Samsung `reset_summary` (watchdog-bite capture).**
 > M18's fault is a **msm watchdog bite** (dmesg confirms the watchdog runs + pets
 > ~9.5s; a bare init pets nothing → bite → warm reset). That is NOT a panic, so
