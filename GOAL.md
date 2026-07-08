@@ -4,44 +4,51 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **OPERATOR STEER (2026-07-08, Claude) — PRIMARY DIRECTION: PREFIX/DOWNLOAD BINARY-SEARCH THE MODULE FAULT (M28 below-P08 narrowing).**
-> The HS-only ACM sidestep (M25), the M26 prefix probe, and the M27 prefix-narrow
-> live run are consumed and
-> operator-Gate-2-verified. **Corrected mental model — read this before steering:**
-> - **M25 (HS-only ACM park) did NOT bootloop.** Direct log read (run
->   `...122411Z`) shows ~29 s of dead-steady park (`acm=[] odin=[] adb=empty`,
->   samples 001–029), then a **single** Odin/Download at ~30.3 s — a lone HW
->   watchdog bite (qcom_wdt_core blocklisted → nobody pets → one bite), **not** a
->   loop. The report's "bootloop" referred to the *rollback* phase, not the
->   candidate. So excluding `phy-msm-ssusb-qmp` DID kill the fast M15 QMP loop.
-> - **M26 relocated the fault decisively.** `P00` (0 modules) HIT: raw runtime +
->   DTBO high-speed cap + `reboot(download)` all work. `P24` (first 24 modules)
->   NO-HIT: dies before the checkpoint. **⇒ the fault is inside modules 1–24 —
->   the clk/regulator/interconnect/iommu/scm substrate — UPSTREAM of USB.** dwc3
->   (mod 28) / ACM (mod 30) are never reached, so the earlier "ssphy phandle left
->   in the DTBO" idea is DEMOTED: it only becomes relevant once a prefix ≥28
->   actually reaches dwc3. Do not chase it now.
-> - **M27 first point is NOT a clean hit.** `P08` was flashed under the M25
->   high-speed DTBO cap, but the operator observed a bootloop and manually
->   entered Download mode before/while the host saw Odin. The helper's
->   `m27_P08_result=self-download` is therefore manual-download contaminated,
->   not proof that `P08` reached the checkpoint. **New boundary: `P00` clean hit
->   vs `P08` contaminated/no-hit.**
-> **Why prefix/download is the right method:** every retained-marker channel
-> failed (last_kmsg, reset_summary, EUD, ramoops, M24 pmsg), so an intentional
-> `reboot(download)` after loading prefix N is the ONLY reliable "I reached here"
-> beacon. It binary-searches the fault with zero observability dependency.
-> **Active unit = M28 (host-only first):** narrow the `P00..P08` boundary with a
-> smaller matrix such as `P01/P02/P04/P06/P07/P08`. No live auth is active. Do
-> NOT continue M27 to `P12+`, do NOT repeat `P08` under the consumed exception,
-> and do NOT add configfs/ACM/UDC yet — keep this pure module-prefix
-> survivability until the exact biting module is pinned. Operator suspects in
-> 1-8 should still be decided by the search, not guessed. Once the biting module
-> is isolated, the fix is either exclude it (if USB doesn't need it) or supply
-> its missing dependency; only THEN re-add the USB tail (25-40) and the ACM
-> gadget, and only THEN revisit the DTBO ssphy-phandle sever if dwc3 probe
-> stalls.
-> Reports: `S22PLUS_M25_NO_ACM_POSTMORTEM_2026-07-08.md`,
+> **OPERATOR STEER (2026-07-08, Claude) — PRIMARY DIRECTION: STOP BISECTING; COPY THE STOCK RECIPE. THE CLOSURE IS DEPENDENCY-INCOMPLETE (rebuild it dependency-complete, M28).**
+> The firmware already contains the correct USB bring-up recipe. The FYG8
+> vendor_boot ramdisk `modules.load` (140-module stock order) + `modules.dep`
+> (depmod hard symbol graph) are the authoritative design, and they prove why
+> M25/M26/M27 all die in modules 1–24. **The M25/M26/M27 40-module closure is
+> dependency-INCOMPLETE:** the builder computes "`modules.dep` closure MINUS a
+> reset/anomaly blocklist" and *actively cuts dependency edges into the
+> blocklist* (it even records them as `blocked_dependency_edges`). The cut edges
+> are hard suppliers of the core substrate — a completeness check shows:
+> `clk-rpmh`(#1, RPMh clock-tree ROOT), `icc-rpmh`(#3), `qcom_ipc_logging`(#4),
+> `rpmh-regulator`(#5), `icc-bcm-voter`(#11), `qnoc-waipio`(#14), `qcom_rpmh`(#18),
+> `socinfo`(#24) all declare **`minidump.ko` + `sec_debug.ko`** as deps, and the
+> USB tail (`phy-msm-snps-hs`, `dwc3-msm`, `usb_typec_manager`…) declares
+> **`abc.ko`** — **all three are blocklisted/omitted.** So the very FIRST module
+> `clk-rpmh` can't resolve symbols → the whole clock/regulator substrate never
+> comes up → every non-empty prefix (P08…P24) dies for the same reason. Blind
+> prefix bisection just re-measures this on attended flashes; the stock files
+> hand us the answer for free.
+> **The fix is surgical and firmware-mandated: add exactly 3 modules, keep the
+> watchdog excluded.** `sec_debug.ko` (no deps) + `minidump.ko` (needs only
+> `smem`, already present) + `abc.ko` (needs only `sec_class`, already present).
+> The pet-or-bite watchdog `qcom_wdt_core.ko`/`gh_virt_wdt.ko` is NOT a dep of any
+> substrate module (only `max77705_charger`/`mhi*`/`dhd`/`sec_qc_*` need it, none
+> in our set) → adding the 3 does NOT reintroduce petting; fault-avoidance holds.
+> **Bonus:** `sec_debug`+`minidump` are exactly the crash-capture registrars, so
+> loading them may re-open the `reset_summary`/`minidump` observability that was
+> empty before (it was empty partly because these were never loaded).
+> **Active unit = M28 (host-only first):** rebuild the closure dependency-complete
+> — keep the blocklist for the *petting watchdog / true reset-anomaly* modules
+> only, STOP cutting `modules.dep` hard-supplier edges (re-include `sec_debug`,
+> `minidump`, `abc`, and audit any other `blocked_dependency_edges`), and load in
+> `modules.dep`-respecting order (suppliers before consumers), not a flat
+> DTS-seed order. Keep the M25 DTBO high-speed cap + QMP exclusion. THEN one
+> fresh SHA-pinned live gate; success = either `/dev/ttyGS0` enumerates, or a
+> clean `reboot(download)` beacon proving 1–24 now survives. Do NOT continue the
+> P01…P08 blind narrow, do NOT re-add configfs/ACM/UDC or chase the DTBO
+> ssphy-phandle until 1–24 survives (both are downstream of this).
+> **Corrected mental model (still holds):** M25 did NOT bootloop — direct log
+> read (`...122411Z`) shows ~29 s dead-steady park then a single ~30.3 s watchdog
+> bite (not a loop); excluding `phy-msm-ssusb-qmp` DID kill the fast M15 QMP loop.
+> M26 `P00` HIT / `P24` NO-HIT localizes the fault to modules 1–24, upstream of
+> USB. M27 `P08` is contaminated (operator manual-download during a bootloop),
+> consistent with the closure being broken at module #1.
+> Reports: `S22PLUS_MODULE_CLOSURE_DEP_INCOMPLETE_STOCK_MODULES_DEP_2026-07-08.md`
+> (primary), `S22PLUS_M25_NO_ACM_POSTMORTEM_2026-07-08.md`,
 > `S22PLUS_NATIVE_INIT_M26_HS_PREFIX_DOWNLOAD_LIVE_RESULT_2026-07-08.md`,
 > `S22PLUS_NATIVE_INIT_M27_HS_PREFIX_NARROW_LIVE_RESULT_2026-07-08.md`.
 > (Observation steers below are superseded/background; MID stays set, harmless.)
@@ -76,7 +83,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > stop-on-first-no-hit/manual-download policy, M25 DTBO high-speed cap, Magisk
 > boot rollback after each hit, and mandatory stock-DTBO rollback at session
 > end. Validation passed: `py_compile`, M27 live-gate unit tests (`Ran 9
-> tests`), `--offline-check`, and default dry-run against `RFCT519XWGK`.
+> tests`), `--offline-check`, and default dry-run against `<S22_SERIAL_REDACTED>`.
 > Dry-run verified `agents_exception_missing=[]`, Android stability
 > (`boot_completed=1`, `bootanim=stopped`, vbstate `orange`, Magisk root), boot
 > `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
@@ -86,7 +93,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`.
 > No live flash, reboot, rollback, partition write, or sysfs write was
 > performed. Next operator-approved live command is:
-> `PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m27_hs_prefix_narrow_live_gate.py --serial RFCT519XWGK --live --ack S22PLUS-M27-HS-PREFIX-NARROW-LIVE-GATE`.
+> `PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m27_hs_prefix_narrow_live_gate.py --serial <S22_SERIAL_REDACTED> --live --ack S22PLUS-M27-HS-PREFIX-NARROW-LIVE-GATE`.
 > Manual Download rescue command is:
 > `PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m27_hs_prefix_narrow_live_gate.py --rollback-from-download --ack S22PLUS-M27-HS-PREFIX-ROLLBACK-FROM-DOWNLOAD`.
 > Report:
@@ -170,7 +177,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > rollback at session end. P25/P28/P33/P40 are explicitly not authorized by this
 > batch. Validation passed: `py_compile`, M26 live-gate unit tests (`Ran 8 tests`),
 > `--offline-check`, `git diff --check`, and default device dry-run against
-> `RFCT519XWGK`, which verified Android stability plus boot/vendor_boot/stock-DTBO
+> `<S22_SERIAL_REDACTED>`, which verified Android stability plus boot/vendor_boot/stock-DTBO
 > hashes before any flash. Next action is the already operator-approved live run
 > with ack `S22PLUS-M26-HS-PREFIX-DOWNLOAD-LIVE-GATE`. Report:
 > `docs/reports/S22PLUS_NATIVE_INIT_M26_HS_PREFIX_DOWNLOAD_LIVE_GATE_2026-07-08.md`.
