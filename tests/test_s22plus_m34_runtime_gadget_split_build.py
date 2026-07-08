@@ -7,7 +7,7 @@ from pathlib import Path
 
 SCRIPT = Path("workspace/public/src/scripts/revalidation/build_s22plus_m34_runtime_gadget_split.py")
 SOURCE = Path("workspace/public/src/native-init/s22plus_init_m34_runtime_gadget_split.c")
-MANIFEST = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_3/manifest.json")
+MANIFEST = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_4/manifest.json")
 
 
 def load_module():
@@ -28,8 +28,8 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
 
     def test_stage_matrix_is_incremental_runtime_gadget_split(self):
         stages = self.module.STAGES
-        self.assertEqual([stage.label for stage in stages], ["S1", "S2", "S3", "S4"])
-        self.assertEqual([stage.number for stage in stages], [1, 2, 3, 4])
+        self.assertEqual([stage.label for stage in stages], ["S1", "S2", "S3", "S4", "S5"])
+        self.assertEqual([stage.number for stage in stages], [1, 2, 3, 4, 5])
         self.assertEqual(self.module.MARKER_PREFIX, "S22_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT")
 
         by_label = {stage.label: stage for stage in stages}
@@ -40,6 +40,7 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         self.assertFalse(by_label["S1"].ssusb_speed_high_speed)
         self.assertFalse(by_label["S1"].ssusb_mode_peripheral)
         self.assertFalse(by_label["S1"].udc_bind)
+        self.assertFalse(by_label["S1"].soft_connect)
         self.assertTrue(by_label["S2"].configfs_gadget)
         self.assertTrue(by_label["S2"].udc_none)
         self.assertTrue(by_label["S2"].max_speed_high_speed)
@@ -47,6 +48,7 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         self.assertFalse(by_label["S2"].ssusb_speed_high_speed)
         self.assertFalse(by_label["S2"].ssusb_mode_peripheral)
         self.assertFalse(by_label["S2"].udc_bind)
+        self.assertFalse(by_label["S2"].soft_connect)
         self.assertTrue(by_label["S3"].configfs_gadget)
         self.assertTrue(by_label["S3"].udc_none)
         self.assertTrue(by_label["S3"].max_speed_high_speed)
@@ -54,6 +56,7 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         self.assertFalse(by_label["S3"].ssusb_speed_high_speed)
         self.assertFalse(by_label["S3"].ssusb_mode_peripheral)
         self.assertTrue(by_label["S3"].udc_bind)
+        self.assertFalse(by_label["S3"].soft_connect)
         self.assertTrue(by_label["S4"].configfs_gadget)
         self.assertTrue(by_label["S4"].udc_none)
         self.assertTrue(by_label["S4"].max_speed_high_speed)
@@ -61,19 +64,32 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         self.assertTrue(by_label["S4"].ssusb_speed_high_speed)
         self.assertTrue(by_label["S4"].ssusb_mode_peripheral)
         self.assertTrue(by_label["S4"].udc_bind)
+        self.assertFalse(by_label["S4"].soft_connect)
+        self.assertTrue(by_label["S5"].configfs_gadget)
+        self.assertTrue(by_label["S5"].udc_none)
+        self.assertTrue(by_label["S5"].max_speed_high_speed)
+        self.assertFalse(by_label["S5"].usb_role_force)
+        self.assertTrue(by_label["S5"].ssusb_speed_high_speed)
+        self.assertTrue(by_label["S5"].ssusb_mode_peripheral)
+        self.assertTrue(by_label["S5"].udc_bind)
+        self.assertTrue(by_label["S5"].soft_connect)
 
     def test_source_has_stage_guards_and_no_reboot_syscall(self):
         text = SOURCE.read_text(encoding="utf-8")
         self.assertIn("#if M34_STAGE >= 2", text)
         self.assertIn("#if M34_STAGE >= 3", text)
         self.assertIn("#if M34_STAGE >= 4", text)
+        self.assertIn("#if M34_STAGE >= 5", text)
         self.assertIn("create_configfs_gadget", text)
         self.assertIn("force_usb_roles_device", text)
         self.assertIn("set_ssusb_speed_high_speed", text)
         self.assertIn("set_ssusb_mode_peripheral", text)
         self.assertIn("bind_udc", text)
+        self.assertIn("soft_connect_udc", text)
         self.assertIn("set_max_speed_high_speed", text)
         self.assertIn("a600000.dwc3", text)
+        self.assertIn("/sys/class/udc/a600000.dwc3/soft_connect", text)
+        self.assertIn('"connect"', text)
         self.assertIn("/sys/devices/platform/soc/a600000.ssusb/speed", text)
         self.assertIn("/sys/devices/platform/soc/a600000.ssusb/mode", text)
         self.assertIn('"peripheral"', text)
@@ -100,6 +116,7 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         start_ssusb_speed = text.index("set_ssusb_speed_high_speed();")
         start_ssusb_mode = text.index("set_ssusb_mode_peripheral();")
         start_bind = text.index("bind_udc();")
+        start_soft_connect = text.index("soft_connect_udc();")
 
         self.assertLess(udc_none, id_vendor)
         self.assertLess(id_vendor, link_acm)
@@ -109,6 +126,7 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         self.assertLess(start_max_speed, start_ssusb_speed)
         self.assertLess(start_ssusb_speed, start_ssusb_mode)
         self.assertLess(start_ssusb_mode, start_bind)
+        self.assertLess(start_bind, start_soft_connect)
 
     def test_c_define_string_quotes_for_gcc_preprocessor(self):
         self.assertEqual(self.module.c_define_string("NAME", "VALUE"), '-DNAME="VALUE"')
@@ -117,9 +135,9 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
     def test_current_manifest_is_host_only_boot_only_stage_matrix(self):
         manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
         self.assertEqual(manifest["target"], "SM-S906N/g0q/S906NKSS7FYG8")
-        self.assertEqual([stage["label"] for stage in manifest["stages"]], ["S1", "S2", "S3", "S4"])
+        self.assertEqual([stage["label"] for stage in manifest["stages"]], ["S1", "S2", "S3", "S4", "S5"])
         self.assertTrue(manifest["matrix"]["p30_is_s0"])
-        self.assertEqual(manifest["matrix"]["live_order"], ["S1", "S2", "S3", "S4"])
+        self.assertEqual(manifest["matrix"]["live_order"], ["S1", "S2", "S3", "S4", "S5"])
         self.assertTrue(manifest["matrix"]["module_closure_matches_p30_and_m32"])
         self.assertFalse(manifest["safety"]["live_flash_authorized"])
         self.assertTrue(manifest["safety"]["requires_new_sha_pinned_agents_exception_before_flash"])
@@ -140,6 +158,8 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         self.assertTrue(manifest["safety"]["stage_s4_sets_ssusb_speed_high_speed_before_udc_bind"])
         self.assertTrue(manifest["safety"]["stage_s4_sets_ssusb_mode_peripheral_before_udc_bind"])
         self.assertTrue(manifest["safety"]["stage_s4_no_usb_role_force"])
+        self.assertTrue(manifest["safety"]["stage_s5_soft_connect_after_udc_bind"])
+        self.assertTrue(manifest["safety"]["stage_s5_no_descriptor_or_companion_change"])
 
         by_label = {stage["label"]: stage for stage in manifest["stages"]}
         self.assertEqual(
@@ -152,6 +172,7 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
                 "ssusb_speed_high_speed": False,
                 "ssusb_mode_peripheral": False,
                 "udc_bind": False,
+                "soft_connect": False,
             },
         )
         self.assertEqual(
@@ -164,6 +185,7 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
                 "ssusb_speed_high_speed": False,
                 "ssusb_mode_peripheral": False,
                 "udc_bind": False,
+                "soft_connect": False,
             },
         )
         self.assertEqual(
@@ -176,6 +198,7 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
                 "ssusb_speed_high_speed": False,
                 "ssusb_mode_peripheral": False,
                 "udc_bind": True,
+                "soft_connect": False,
             },
         )
         self.assertEqual(
@@ -188,6 +211,20 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
                 "ssusb_speed_high_speed": True,
                 "ssusb_mode_peripheral": True,
                 "udc_bind": True,
+                "soft_connect": False,
+            },
+        )
+        self.assertEqual(
+            by_label["S5"]["runtime_steps"],
+            {
+                "configfs_gadget": True,
+                "udc_none": True,
+                "max_speed_high_speed": True,
+                "usb_role_force": False,
+                "ssusb_speed_high_speed": True,
+                "ssusb_mode_peripheral": True,
+                "udc_bind": True,
+                "soft_connect": True,
             },
         )
         for stage in manifest["stages"]:
@@ -204,6 +241,7 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         s2_required = set(by_label["S2"]["init"]["required_strings"])
         s3_required = set(by_label["S3"]["init"]["required_strings"])
         s4_required = set(by_label["S4"]["init"]["required_strings"])
+        s5_required = set(by_label["S5"]["init"]["required_strings"])
         self.assertIn("udc_none=1", s1_required)
         self.assertIn("/config/usb_gadget/g1/UDC", s1_required)
         self.assertIn("none", s1_required)
@@ -228,6 +266,12 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         self.assertIn("/sys/devices/platform/soc/a600000.ssusb/mode", s4_required)
         self.assertIn("peripheral", s4_required)
         self.assertIn("a600000.dwc3", s4_required)
+        self.assertIn("soft_connect=0", s4_required)
+        self.assertIn("soft_connect=1", s5_required)
+        self.assertIn("/sys/class/udc/a600000.dwc3/soft_connect", s5_required)
+        self.assertIn("phase=soft_connect", s5_required)
+        self.assertIn("value=connect", s5_required)
+        self.assertIn("a600000.dwc3", s5_required)
 
 
 if __name__ == "__main__":

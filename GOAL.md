@@ -4,6 +4,38 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 05:58 KST / 2026-07-08 20:58 UTC) — M34 S5 SOFT-CONNECT HOST BUILD PASS; NEXT S5 LIVE-GATE HELPER; NO ACTIVE LIVE AUTH.**
+> Codex extended the M34 runtime-gadget split to v0.4 with a new S5 stage. S5
+> keeps S4's stock-kernel `ssusb/speed=high-speed` +
+> `ssusb/mode=peripheral` role lever, keeps the ACM-only configfs gadget, keeps
+> final `UDC=a600000.dwc3`, and adds exactly one runtime step after UDC bind:
+> `/sys/class/udc/a600000.dwc3/soft_connect=connect`. S5 does not change
+> descriptors, strings, companion functions, module closure, or boot
+> construction. This ordering is intentional: S4 showed no host-visible USB
+> device at all, so explicit UDC pull-up/soft-connect is a higher-signal next
+> variable than descriptor parity.
+>
+> Artifacts are under
+> `workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_4/`.
+> S5 AP.tar.md5 SHA256:
+> `3a63dc339577d4aaf550159743b81edd9c1318ef5c6c4b745ed363f171d30d5e`;
+> padded `boot.img` SHA256:
+> `09751f5fce9f25be3ce7b814f00c04cafd22ae9a96d8c69ab9d52b6274951a95`;
+> direct `/init` SHA256:
+> `efecaf1842aff95907b2f2780dc12531b0980acff6cbe64f789e9ad4b6c3c55c`.
+> Static validation passed: builder `py_compile`, v0.4 build, runtime-gadget
+> split unit tests after manifest generation, and existing S4 live-helper tests.
+> The S5 AP contains exactly one tar member, `boot.img.lz4`; QMP/EUD stay
+> excluded; no reboot syscall, Android/Magisk handoff, persistent mount, block
+> write, or module-binary injection was introduced.
+>
+> Next unit: prepare the S5 live-gate helper with S5 pins and the same enhanced
+> host USB observation used by S4. The operator has given in-thread live
+> pre-approval, but no S5 live flash is authorized until the helper passes
+> offline/default fail-closed checks and a fresh SHA-pinned `AGENTS.md`
+> exception exists. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S5_SOFT_CONNECT_HOST_BUILD_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 05:49 KST / 2026-07-08 20:49 UTC) — M34 S4 LIVE CONSUMED; S4 SURVIVED 90 S; NO ACM; ROLLBACK CLEAN; NO ACTIVE LIVE AUTH.**
 > The approved M34 S4 ssusb role-lever runtime-gadget live gate ran once using
 > `workspace/public/src/scripts/revalidation/s22plus_m34_s4_role_lever_live_gate.py`.

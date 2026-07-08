@@ -13,6 +13,7 @@ S2: S1 plus max_speed=high-speed and usb_role=device, no UDC bind.
 S3: S2 plus UDC bind/pullup on a600000.dwc3.
 S4: S3 behavior, but replace the dead usb_role path with
     ssusb/speed=high-speed + ssusb/mode=peripheral before UDC bind.
+S5: S4 plus the UDC soft_connect=connect fallback after UDC bind.
 """
 
 from __future__ import annotations
@@ -52,7 +53,7 @@ from build_s22plus_inplace_m4t1_magiskboot import (
 from build_s22plus_m32_wdt_hs_acm import EXPECTED_M32_MODULES, dependency_complete_wdt_hs_order
 
 
-DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_3")
+DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_4")
 DEFAULT_TEMPLATE_SOURCE = Path("workspace/public/src/native-init/s22plus_init_m34_runtime_gadget_split.c")
 DEFAULT_VENDOR_RAMDISK = m23.DEFAULT_VENDOR_RAMDISK
 DEFAULT_LZ4 = m23.DEFAULT_LZ4
@@ -72,6 +73,7 @@ class RuntimeStage:
     ssusb_speed_high_speed: bool
     ssusb_mode_peripheral: bool
     udc_bind: bool
+    soft_connect: bool
 
     @property
     def lower(self) -> str:
@@ -102,6 +104,7 @@ STAGES = [
         ssusb_speed_high_speed=False,
         ssusb_mode_peripheral=False,
         udc_bind=False,
+        soft_connect=False,
     ),
     RuntimeStage(
         "S2",
@@ -114,6 +117,7 @@ STAGES = [
         ssusb_speed_high_speed=False,
         ssusb_mode_peripheral=False,
         udc_bind=False,
+        soft_connect=False,
     ),
     RuntimeStage(
         "S3",
@@ -126,6 +130,7 @@ STAGES = [
         ssusb_speed_high_speed=False,
         ssusb_mode_peripheral=False,
         udc_bind=True,
+        soft_connect=False,
     ),
     RuntimeStage(
         "S4",
@@ -138,6 +143,20 @@ STAGES = [
         ssusb_speed_high_speed=True,
         ssusb_mode_peripheral=True,
         udc_bind=True,
+        soft_connect=False,
+    ),
+    RuntimeStage(
+        "S5",
+        5,
+        "S4 plus /sys/class/udc/a600000.dwc3/soft_connect=connect after UDC bind",
+        configfs_gadget=True,
+        udc_none=True,
+        max_speed_high_speed=True,
+        usb_role_force=False,
+        ssusb_speed_high_speed=True,
+        ssusb_mode_peripheral=True,
+        udc_bind=True,
+        soft_connect=True,
     ),
 ]
 
@@ -206,7 +225,7 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
 
     required_strings = [
         stage.marker,
-        "version=0.3",
+        "version=0.4",
         "runtime=freestanding",
         "raw_syscalls=1",
         f"/{stage.modules_ramdisk}",
@@ -263,6 +282,15 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
         required_strings.extend(["udc_bind=1", "/config/usb_gadget/g1/UDC", "/sys/class/udc", "a600000.dwc3", "phase=udc_bind"])
     else:
         required_strings.append("udc_bind=0")
+    if stage.soft_connect:
+        required_strings.extend([
+            "soft_connect=1",
+            "/sys/class/udc/a600000.dwc3/soft_connect",
+            "phase=soft_connect",
+            "value=connect",
+        ])
+    else:
+        required_strings.append("soft_connect=0")
 
     forbidden_strings = [
         b"ld-linux",
@@ -282,6 +310,8 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
         forbidden_strings.extend([b"/sys/devices/platform/soc/a600000.ssusb/mode", b"phase=ssusb_mode", b"value=peripheral"])
     if not stage.udc_bind:
         forbidden_strings.extend([b"/sys/class/udc", b"a600000.dwc3", b"phase=udc_bind"])
+    if not stage.soft_connect:
+        forbidden_strings.extend([b"/sys/class/udc/a600000.dwc3/soft_connect", b"phase=soft_connect"])
 
     binary = out_path.read_bytes()
     for required in required_strings:
@@ -423,6 +453,7 @@ def build_stage(
             "ssusb_speed_high_speed": stage.ssusb_speed_high_speed,
             "ssusb_mode_peripheral": stage.ssusb_mode_peripheral,
             "udc_bind": stage.udc_bind,
+            "soft_connect": stage.soft_connect,
         },
         "closure": stage_closure,
         "paths": {
@@ -538,7 +569,7 @@ def main(argv: list[str]) -> int:
         "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "target": "SM-S906N/g0q/S906NKSS7FYG8",
         "purpose": (
-            "M34 stock-ordered runtime gadget split plus S4 ssusb role-lever candidate"
+            "M34 stock-ordered runtime gadget split plus S4 ssusb role-lever and S5 soft_connect candidates"
         ),
         "stock_recipe_report": "docs/reports/S22PLUS_STOCK_USB_GADGET_ACM_RECIPE_2026-07-09.md",
         "stages": stage_manifests,
@@ -555,10 +586,11 @@ def main(argv: list[str]) -> int:
                     "ssusb_speed_high_speed": stage.ssusb_speed_high_speed,
                     "ssusb_mode_peripheral": stage.ssusb_mode_peripheral,
                     "udc_bind": stage.udc_bind,
+                    "soft_connect": stage.soft_connect,
                 }
                 for stage in selected_stages
             ],
-            "live_order": ["S1", "S2", "S3", "S4"],
+            "live_order": ["S1", "S2", "S3", "S4", "S5"],
             "p30_is_s0": True,
             "module_closure_matches_p30_and_m32": True,
         },
@@ -594,6 +626,8 @@ def main(argv: list[str]) -> int:
             "stage_s4_sets_ssusb_speed_high_speed_before_udc_bind": True,
             "stage_s4_sets_ssusb_mode_peripheral_before_udc_bind": True,
             "stage_s4_no_usb_role_force": True,
+            "stage_s5_soft_connect_after_udc_bind": True,
+            "stage_s5_no_descriptor_or_companion_change": True,
         },
         "vendor": {
             "vendor_ramdisk": display_path(root, vendor_ramdisk),

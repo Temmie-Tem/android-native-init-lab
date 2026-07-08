@@ -8,8 +8,9 @@
  * off-stock HS-only/PD-less knobs: max_speed=high-speed and usb_role=device,
  * still with no UDC bind. Stage 3 adds the UDC bind/pullup. Stage 4 replaces the
  * now-proven-dead usb_role path with the stock-kernel-proven ssusb role lever
- * before UDC bind. The program remains a direct-PID1 park candidate: no Android
- * handoff, no reboot request, no persistent mount, and no block writes.
+ * before UDC bind. Stage 5 keeps S4 and adds the UDC soft_connect fallback after
+ * bind. The program remains a direct-PID1 park candidate: no Android handoff, no
+ * reboot request, no persistent mount, and no block writes.
  */
 
 #include <stdint.h>
@@ -89,18 +90,20 @@ struct sbuf {
 };
 
 static const char k_marker[] =
-    M34_MARKER " version=0.3 pid1=direct runtime=freestanding raw_syscalls=1 "
+    M34_MARKER " version=0.4 pid1=direct runtime=freestanding raw_syscalls=1 "
     "stage=" M34_STAGE_NAME " runtime_step=" M34_STAGE_NAME " "
     "modules_dep_complete=" M34_MODULES_RAMDISK " module_count=" STR(M34_MODULE_LIMIT) " "
     "module_source=stock_vendor_boot_ramdisk module_list=dep_complete_runtime_gadget_split "
 #if M34_STAGE == 1
-    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 "
+    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 "
 #elif M34_STAGE == 2
-    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=1 role_force=1 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 "
+    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=1 role_force=1 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 "
 #elif M34_STAGE == 3
-    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=1 role_force=1 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=1 "
+    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=1 role_force=1 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=1 soft_connect=0 "
 #elif M34_STAGE == 4
-    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=1 role_force=0 ssusb_speed_high_speed=1 ssusb_mode_peripheral=1 udc_bind=1 "
+    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=1 role_force=0 ssusb_speed_high_speed=1 ssusb_mode_peripheral=1 udc_bind=1 soft_connect=0 "
+#elif M34_STAGE == 5
+    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=1 role_force=0 ssusb_speed_high_speed=1 ssusb_mode_peripheral=1 udc_bind=1 soft_connect=1 "
 #endif
     "no_android_handoff=1 no_reboot_request=1 no_download_beacon=1 "
     "persistent_mount=0 block_write=0\n";
@@ -683,6 +686,18 @@ static void bind_udc(void) {
 }
 #endif
 
+#if M34_STAGE >= 5
+static void soft_connect_udc(void) {
+    long rc = write_attr("/sys/class/udc/a600000.dwc3/soft_connect", "connect");
+    struct sbuf sb = {.data = {0}, .len = 0};
+    sb_puts(&sb, M34_MARKER);
+    sb_puts(&sb, " phase=soft_connect value=connect rc=");
+    sb_put_i64(&sb, rc);
+    sb_putc(&sb, '\n');
+    emit_buf(&sb);
+}
+#endif
+
 __attribute__((noreturn)) static void park_forever(void) {
     emit(M34_MARKER " phase=park_enter dwell_target_sec=120\n");
     for (;;) {
@@ -708,6 +723,9 @@ __attribute__((noreturn)) void _start(void) {
 #endif
 #if M34_STAGE >= 3
     bind_udc();
+#endif
+#if M34_STAGE >= 5
+    soft_connect_udc();
 #endif
     park_forever();
 }
