@@ -1921,12 +1921,25 @@ BL, CP, CSC, userdata, or any non-boot flash.
    wider prefixes, EUD writes, broad module permutation, display/distro
    candidates, kernel rebuild, recovery/vendor_boot/vbmeta/non-boot flash, raw
    host `dd`, fastboot, multidisabler, format data, or any A90 action.
-   **Narrow operator-authorized exception (2026-07-08, S22+ M25 HS-only USB2
-   ACM native-init boot+DTBO):** after the M24 pmsg-step path was consumed and
-   retired as a no-hit, and after the M25 host build plus live-gate source
-   passed offline/fail-closed validation, Codex may prepare and perform one
-   bounded attended S22+ M25 HS-only USB2 ACM native-init boot+DTBO live gate on
-   the same Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked
+   **Consumed exception (2026-07-08, S22+ M25 HS-only USB2 ACM native-init
+   boot+DTBO):** this one-shot exception was consumed by the 2026-07-08 live
+   run. It flashed the pinned M25 DTBO high-speed cap AP, verified patched
+   DTBO after Android/Magisk returned, flashed the pinned M25 boot AP, observed
+   no ACM and an Odin/Download return at the bounded observation step, flashed
+   the pinned Magisk boot rollback AP, then restored stock DTBO with the pinned
+   stock-DTBO AP. Final Android/Magisk baseline hashes matched boot
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, dtbo
+   `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`, and
+   vendor_boot
+   `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`. It must
+   not be reused for another M25 live flash under the same gate. Future S22+
+   native-init live flashes need a fresh, narrower exception for the selected
+   candidate and rollback path.
+   Before consumption, after the M24 pmsg-step path was consumed and retired as
+   a no-hit, and after the M25 host build plus live-gate source passed
+   offline/fail-closed validation, Codex could prepare and perform one bounded
+   attended S22+ M25 HS-only USB2 ACM native-init boot+DTBO live gate on the
+   same Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked
    helper
    `workspace/public/src/scripts/revalidation/s22plus_m25_hs_only_usb2_acm_live_gate.py`
    with live ack token `S22PLUS-M25-HS-ONLY-USB2-ACM-LIVE-GATE`, rollback ack

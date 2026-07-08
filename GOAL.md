@@ -185,6 +185,37 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > or sysfs write was performed. Report:
 > `docs/reports/S22PLUS_M25_TIMELINE_GATE_HARDENING_2026-07-08.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-08 21:30 KST / 12:30 UTC) — M25 LIVE CONSUMED; ACM NO-HIT; DEVICE CLEAN BASELINE.**
+> Operator approved live, and Codex ran the M25 HS-only USB2 ACM gate. Default
+> dry-run first passed at
+> `workspace/private/runs/s22plus_m25_hs_only_usb2_acm_live_gate_20260708T122344Z/...`.
+> Live run
+> `workspace/private/runs/s22plus_m25_hs_only_usb2_acm_live_gate_20260708T122411Z`
+> flashed the pinned DTBO high-speed cap (`m25_dtbo_candidate_odin_rc=0`),
+> Android/Magisk returned with patched DTBO, then flashed the pinned M25 boot AP
+> (`candidate_flash_done`). M25 did **not** expose ACM: observation samples
+> reported empty `m25_observe_*_acm_devices=[]`; Odin/Download appeared at
+> `m25_observe_030` (`m25_odin_returned=1`). The helper flashed the pinned
+> Magisk boot rollback AP (`magisk_boot_rollback_odin_rc=0`), then the operator
+> reported bootloop/manual Download coordination while the helper was waiting
+> for post-rollback Android; Codex interrupted that wait and ran a separate
+> stock-DTBO restore from Android:
+> `workspace/private/runs/s22plus_m25_hs_only_usb2_acm_live_gate_20260708T122816Z`.
+> That restore verified patched DTBO before rollback, flashed the pinned stock
+> DTBO AP (`stock_dtbo_rollback_odin_rc=0`), and verified stock DTBO
+> `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c` after
+> Android returned. Final live state: `boot_completed=1`, `bootanim=stopped`,
+> verified boot `orange`, Magisk uid0, boot
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, dtbo
+> `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`,
+> vendor_boot
+> `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`.
+> The M25 one-shot AGENTS exception is now consumed/retired; do not repeat M25
+> under the same gate. Next bounded unit should be host-only postmortem/next
+> candidate design from the M25 no-ACM result before any new live exception.
+> Report:
+> `docs/reports/S22PLUS_M25_HS_ONLY_USB2_ACM_LIVE_RESULT_2026-07-08.md`.
+
 > **OPERATOR STEER (2026-07-08, Claude) — M18 WAS THE WRONG FILE: read Samsung `reset_summary` (watchdog-bite capture).**
 > M18's fault is a **msm watchdog bite** (dmesg confirms the watchdog runs + pets
 > ~9.5s; a bare init pets nothing → bite → warm reset). That is NOT a panic, so
