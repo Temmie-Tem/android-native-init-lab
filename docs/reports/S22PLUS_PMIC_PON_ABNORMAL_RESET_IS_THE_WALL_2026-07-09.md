@@ -1,9 +1,14 @@
 # S22+ — The Wall Is a PMIC/PON Abnormal Reset on a Non-Progressing Bare PID1, Not the Modules (Operator Reframe, 2026-07-09)
 
 Operator (Claude) host-only reframe after the M30/M21A live result plus the
-operator's RDX photo. No device action here. This supersedes the "fault in
-modules 1–24" and "msm software watchdog" framing and retracts the previous
-"regulator modules brown out the rail" guess.
+operator's RDX photo. Codex then host-verified the local module metadata,
+kernel/watchdog source, current Android config, and current Android module
+state. No flash, reboot, Odin action, partition write, or native-init live
+action was run in this unit.
+
+This supersedes the "fault in modules 1–24" and M31 short-dwell-download
+primary direction. It also retracts the previous "regulator modules brown out
+the rail" guess.
 
 ## The decisive evidence: M21A (zero modules) still resets
 
@@ -45,14 +50,95 @@ The `store_lastkmsg=1` / `reset_reason=MPON` / `reset_rwc=25` post-run probe is
 consistent with a PMIC-PON warm-reset path, and the RDX ramdump summary
 (TrustZone/Hypervisor/TME/DCC) means MID upload mode engaged on the reset.
 
-## Leading mechanism hypothesis (to confirm in M31): the watchdog inversion
+## Host Verification Added By Codex
 
-On Qualcomm the **APSS hardware watchdog is armed by XBL before the kernel
-runs**. In a normal boot, the kernel's Qualcomm watchdog driver
-(`qcom_wdt_core.ko`, stock `modules.load` position **6**, right after
-`gh_virt_wdt.ko` at **5**) takes over and keeps it alive (Qualcomm
-`msm_watchdog_v2` pets from a kernel timer/delayed-work, i.e. kernel-side, not
-requiring userspace). Every native-init candidate since M13 has
+The PMIC/RDX string is visual evidence from the operator photo, not a retained
+`last_kmsg` marker. The retained log did preserve surrounding evidence:
+
+```text
+/proc/reset_reason = MPON
+/proc/reset_rwc = 25
+/proc/store_lastkmsg = 1
+last_kmsg marker counts: S22_NATIVE=0, M21A=0
+last_kmsg surrounding counts: RDX=16, abnormal=32, watchdog=72
+```
+
+Local source/string check:
+
+```text
+grep "PMIC abnormal reset" in FYG8 OSRC kernel tar: rc=1
+grep "PMIC abnormal reset" in base OSRC Kernel.tar.gz: rc=1
+```
+
+That supports the conclusion that the exact LCD text is emitted by the
+bootloader/RDX path, not by the Linux candidate.
+
+Stock vendor-ramdisk module order from the extracted FYG8 metadata:
+
+```text
+modules.load #5   gh_virt_wdt.ko
+modules.load #6   qcom_wdt_core.ko
+modules.load #39  gh_virt_wdt.ko
+modules.load #84  qcom_wdt_core.ko
+```
+
+Their `modules.dep` closure is small:
+
+```text
+/lib/modules/qcom_wdt_core.ko: /lib/modules/qcom-scm.ko /lib/modules/minidump.ko /lib/modules/smem.ko
+/lib/modules/gh_virt_wdt.ko: /lib/modules/qcom_wdt_core.ko /lib/modules/qcom-scm.ko /lib/modules/minidump.ko /lib/modules/smem.ko
+```
+
+Current normal Android, read-only through ADB/Magisk root, confirms the stock
+runtime model:
+
+```text
+CONFIG_WATCHDOG_CORE=y
+CONFIG_WATCHDOG_HANDLE_BOOT_ENABLED=y
+CONFIG_WATCHDOG_OPEN_TIMEOUT=0
+# CONFIG_WATCHDOG_NOWAYOUT is not set
+# CONFIG_WATCHDOG_SYSFS is not set
+
+/proc/modules:
+  gh_virt_wdt
+  qcom_wdt_core
+  qcom_soc_wdt
+  sec_qc_qcom_wdt_core
+```
+
+Current root `dmesg` shows kernel-side watchdog feeding:
+
+```text
+msm_watchdog_data - pet: ... / last_pet: ... (delta: 9.47s)
+```
+
+The base OSRC `qcom-wdt.c` is not the exact Samsung vendor module source
+(`CONFIG_QCOM_WDT` is not set in the live config while `qcom_wdt_core` is loaded
+as a vendor module), but it is still useful reference: its default timeout is
+30 seconds when no `timeout-sec` is specified, matching M25's about-30.3 second
+reset return.
+
+The kernel watchdog core is directly relevant and live config confirms it is
+enabled. `watchdog_dev.c` sets:
+
+```text
+handle_boot_enabled = IS_ENABLED(CONFIG_WATCHDOG_HANDLE_BOOT_ENABLED)
+open_timeout = CONFIG_WATCHDOG_OPEN_TIMEOUT
+```
+
+and its worker pings a hardware-running watchdog before userspace opens
+`/dev/watchdog` when `handle_boot_enabled` is true. With
+`CONFIG_WATCHDOG_OPEN_TIMEOUT=0`, the open deadline is effectively infinite.
+That is exactly the mechanism a bare native PID1 loses when the early watchdog
+modules are excluded.
+
+## Leading mechanism hypothesis (M31): the watchdog inversion
+
+On this S22+ path the watchdog is effectively already a boot-critical platform
+service. In a normal boot, stock vendor module order loads `gh_virt_wdt.ko` and
+`qcom_wdt_core.ko` at positions **5** and **6**, and the live Android kernel
+shows `msm_watchdog_data` petting about every 9.47 seconds. Every native-init
+candidate since M13 has
 **blocklisted** `qcom_wdt_core`/`gh_virt_wdt` on the theory "don't load the
 watchdog so nothing needs petting."
 
@@ -63,39 +149,51 @@ watchdog **un-managed**, so it bites at its timeout (~30 s, matching every
 observed park duration) → warm reset → PON records "abnormal". A do-nothing
 sleeping PID1 (M21A) is the purest demonstration.
 
-If the Qualcomm driver's pet is a **kernel timer** (as in mainline
-`msm_watchdog_v2`), then simply **loading** `qcom_wdt_core` would keep the
-watchdog alive even while PID1 sleeps — removing the ~30 s ceiling entirely,
-with no userspace petting needed. This is the opposite of what we have been
-doing.
+If loading the stock watchdog modules registers the hardware-running watchdog
+with the kernel watchdog core, `CONFIG_WATCHDOG_HANDLE_BOOT_ENABLED=y` and
+`CONFIG_WATCHDOG_OPEN_TIMEOUT=0` should let the kernel keep it alive even while
+PID1 parks. That would remove the ~30 second ceiling without userspace petting.
 
-Caveat (honest): the Samsung OSRC tree here is a base GKI drop and does not
-contain the Qualcomm watchdog driver source, so the "kernel-timer auto-pet" is
-inferred from mainline `msm_watchdog_v2`, not confirmed against this exact
-build. M31 must confirm it, and there is a real alternative: if this build's
-watchdog needs **userspace** keepalive (`/dev/watchdog` write, or a magic-close
-disable), the bare init must pet or disable it explicitly.
+Caveat: the exact Samsung `qcom_wdt_core.ko` source is not present as source in
+the OSRC tree. M31 must confirm behavior live. The fallback remains explicit
+userspace keepalive (`/dev/watchdog` write/`WDIOC_KEEPALIVE`) or a narrowly
+proved disable path, but those are secondary because stock Android already
+demonstrates kernel-side petting.
 
-## M31 = host-only research + one decisive load-the-watchdog test
+## M31 = watchdog-managed park, not short-dwell download
 
-1. **Host-only:** confirm the S22+ watchdog pet model — is `qcom_wdt_core`'s pet
-   a kernel timer (survives a sleeping PID1) or does it need userspace
-   `/dev/watchdog` keepalive? Use the mainline `msm_watchdog_v2` / `qcom-wdt`
-   reference and any bark/bite/`pet_time`/`bark_time` DT properties in the FYG8
-   DTB. Also check for a cmdline/sysfs to disable the APSS/PON watchdog
-   (`qcom_wdt`, `nodl`, `pet`, `s2_reset`, PON `warm_reset`), and whether a
-   bare init can write `/dev/watchdog`/`WDIOC_*` inside the ~30 s budget.
-2. **Decisive live test (fresh SHA-pinned boot-only exception):** a minimal
-   candidate that **LOADS `gh_virt_wdt` + `qcom_wdt_core`** (plus only their own
-   `modules.dep` deps) and then **parks** (no reboot beacon). If it survives past
-   ~60–120 s with no PMIC abnormal reset, the watchdog inversion is confirmed and
-   the dwell ceiling is gone — every prior park/ACM attempt was dying to the
-   un-managed watchdog, and USB-ACM bring-up (which needs the device to stay
-   alive) becomes reachable. If it still resets, fall back to explicit
-   `/dev/watchdog` petting from the init, or a cmdline/PON disable.
-3. Only after the ceiling is removed do the earlier threads resume: HS-only ACM
-   gadget bring-up (dependency-complete substrate + watchdog now managed), then
-   the DTBO ssphy-phandle question.
+Next host-only build target:
+
+```text
+M31B_WDT_MANAGED_PARK
+
+setup minimal /dev/proc/sysfs enough for insmod
+insmod smem.ko if needed and available as a module dependency
+insmod minidump.ko
+insmod qcom-scm.ko
+insmod qcom_wdt_core.ko
+insmod gh_virt_wdt.ko
+park for observation; no Download beacon, no USB/configfs, no Android handoff
+```
+
+Notes:
+
+- The exact dependency order must come from `modules.dep`, not hand guessing.
+- If `qcom-scm` or `smem` are built-in/loaded by the kernel before PID1, the
+  builder should still record their dependency status and only package needed
+  `.ko` files.
+- The first live candidate should prove survival, not USB. Do not mix in ACM,
+  configfs, QMP, DTBO, or the 140-module substrate.
+- Success is external behavior: no PMIC/RDX abnormal reset past 60-120 seconds.
+  Manual Download rollback is expected because a park candidate has no self
+  Download beacon.
+- Failure means the module-only watchdog management path is insufficient, and
+  the next branch is explicit `/dev/watchdog` keepalive or a proven disable
+  path.
+
+Only after the ceiling is removed do the earlier threads resume: HS-only ACM
+gadget bring-up (dependency-complete substrate + watchdog now managed), then
+the DTBO ssphy-phandle question.
 
 ## Why this reframes the whole saga
 
@@ -109,9 +207,51 @@ can stay alive long enough to do anything.
 
 ## Discipline
 
-Host-only research + one attended live test under a fresh SHA-pinned boot-only
+Host-only build/design + one attended live test under a fresh SHA-pinned boot-only
 `AGENTS.md` exception. No forbidden partitions, no PMIC/regulator/GDSC/GPIO
-power *writes* (loading the stock watchdog driver is not a power write). Redact
-serials from committed reports. Device stays recoverable to the Magisk baseline;
-it is currently clean (M30 rollback verified boot/dtbo/vendor_boot baseline,
-`uid=0`).
+power *writes* (loading the stock watchdog driver is not a PMIC/regulator/GDSC/
+GPIO write). Redact serials from committed reports. Device stays recoverable to
+the Magisk baseline; it is currently clean (M30 rollback verified
+boot/dtbo/vendor_boot baseline, `uid=0`). No live flash is authorized by this
+report.
+
+## Fallback observability: RDX / S-Boot Upload Mode RAM dump (web-researched, low-ROI)
+
+The operator's RDX photo shows `[To PC] Connect a USB cable` — i.e. the crashed
+device can offer a RAM dump over USB. Researched for completeness; kept as a
+**documented fallback only**, not the next step.
+
+**The path/tools exist.** The screen is Samsung **S-Boot Upload Mode** (RDX).
+Open-source pullers:
+- `bkerler/sboot_dump` (SUC, Python, reverse-engineered S-Boot): dumps RAM over
+  USB — `samupload.py` (partition table) / `all` / `range 0x0 0xffffffff` /
+  `partition N`.
+- `linux-msm/qdl` `qramdump` (Qualcomm **Sahara**, EDL PID `900e`) — lower-level,
+  but that is EDL mode, distinct from S-Boot Upload Mode; not simpler here.
+
+**Two gates make it low-ROI for this project:**
+1. **Protocol generation gap.** `sboot_dump`'s newest *Samsung-QC* test target is
+   the **S7 (2016)**; the S22/SM8450 S-Boot upload protocol is untested and
+   likely needs porting.
+2. **`RDX (without Token)` = the real wall.** Modern Samsung ramdump is gated by
+   a **signed token**; retail units only get the "without Token" path. With
+   `debug_level=MID` (not HIGH) and no token, the dump is expected to be
+   **limited / scrubbed / whitebox-AES-encrypted** (Samsung WAES + CC flags),
+   i.e. not freely decodable. A full decodable kernel RAM dump needs
+   `debug_level=HIGH` **and** a Samsung-signed token = not available on retail.
+   This is the **same token/TZ gating pattern that closed the EUD path.**
+
+**And we do not need it.** The datum we wanted — the reset *cause* — is already
+on the RDX screen (`PMIC abnormal reset`). Per-instruction localization would be
+the only extra value, but the M31B watchdog-managed-park test discriminates the
+leading hypothesis far more cheaply than porting an S-Boot dumper and fighting a
+token gate; a watchdog-bite RAM dump would most likely just show a CPU idle in
+`nanosleep` when the un-managed watchdog bit — which the park test proves
+directly.
+
+**Verdict:** pursue M31B first. Only if M31B is inconclusive *and* per-instruction
+localization becomes necessary, attempt `sboot_dump` as a read-only experiment
+(RAM read, no partition write — within safety bounds), accepting probable
+protocol-port work and token-gated/limited output. Sources: `bkerler/sboot_dump`,
+`linux-msm/qdl`, Qualcomm "collect and parse RAM dumps", SSTIC 2017 "Attacking
+Samsung Secure Boot" (whitebox AES), Samsung Community "ss rdx without token".
