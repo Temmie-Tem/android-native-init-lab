@@ -138,6 +138,51 @@ def missing_policy_markers(text: str) -> list[str]:
     return [marker for marker in policy_required_markers() if marker not in normalized]
 
 
+def agents_exception_draft() -> str:
+    marker_lines = "\n".join(f"   `{marker}`" for marker in policy_required_markers())
+    return f"""   **DRAFT ONLY - Narrow operator-authorized exception (2026-07-09, S22+ M34 S1 stock configfs runtime-gadget boot-only live gate):**
+   This draft is not active authorization unless the operator explicitly approves
+   it and the block is inserted into `AGENTS.md`. After approval, Codex may run
+   one bounded attended boot-partition-only M34 S1 live gate on the Samsung S22+
+   `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m34_s1_runtime_gadget_live_gate.py`.
+   Live ack token: `{LIVE_ACK_TOKEN}`. Rollback ack token:
+   `{ROLLBACK_ACK_TOKEN}`.
+
+   The exact candidate AP.tar.md5 SHA256 must be
+   `{EXPECTED_M34_AP_SHA256}`; contained padded `boot.img` SHA256 must be
+   `{EXPECTED_M34_BOOT_SHA256}`; direct `/init` SHA256 must be
+   `{EXPECTED_M34_INIT_SHA256}`; template source SHA256 must be
+   `{EXPECTED_M34_TEMPLATE_SOURCE_SHA256}`; module-list SHA256 must be
+   `{EXPECTED_M34_MODULE_LIST_SHA256}`; preserved kernel SHA256 must be
+   `{EXPECTED_M34_KERNEL_SHA256}`; and known-booting base Magisk boot SHA256
+   must be `{EXPECTED_M34_BASE_BOOT_SHA256}`. The AP must contain exactly one
+   tar member, `boot.img.lz4`, and must not carry recovery, vendor_boot, dtbo,
+   vbmeta, vbmeta_system, BL, CP, CSC, super, persist, userdata, EFS,
+   sec_efs, RPMB, keymaster, modem, bootloader, or any other partition payload.
+
+   The candidate is limited to freestanding direct PID1 M34 S1 behavior:
+   stock-ordered configfs gadget/function/config, `UDC=none`, stock IDs
+   `0x04E8:0x6860`, and `ss_acm.0 link`. It must have no
+   `max_speed=high-speed`, no `usb_role=device`, no final UDC bind, and no
+   `UDC=a600000.dwc3`. It must have no reboot syscall, no Download beacon, no
+   Android/Magisk handoff, no persistent partition mount, no block write, no
+   module binary injection into boot ramdisk, no raw host `dd`, no fastboot, no
+   Magisk modules, no multidisabler, no format data, no DTBO/vendor_boot/
+   recovery/vbmeta/non-boot flash, and no A90 action. Manual Download rollback
+   is recovery-only after the helper requests it. Survival proof requires it
+   survives past 60-90 seconds; PMIC/RDX abnormal reset before the observation
+   window is FAIL. The module closure must keep `phy-msm-ssusb-qmp.ko
+   intentionally excluded` and `EUD excluded`. This exception does not
+   authorize S2/S3 live, final UDC pullup, DTBO surgery, M32 repeat, display/
+   distro candidates, kernel rebuilds, RDX PC dump retrieval, EUD writes, or
+   any non-boot partition action.
+
+   Required policy marker coverage:
+{marker_lines}
+"""
+
+
 def verify_agents_exception(root: Path, log_path: Path) -> None:
     agents = (root / "AGENTS.md").read_text(encoding="utf-8")
     missing = missing_policy_markers(agents)
@@ -471,14 +516,19 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--android-stability-interval-sec", type=float, default=3.0)
     parser.add_argument("--rollback-target", choices=[ROLLBACK_MAGISK, ROLLBACK_STOCK], default=ROLLBACK_MAGISK)
     parser.add_argument("--offline-check", action="store_true")
+    parser.add_argument("--print-agents-exception-draft", action="store_true")
     parser.add_argument("--live", action="store_true")
     parser.add_argument("--rollback-from-download", action="store_true")
     parser.add_argument("--ack")
     args = parser.parse_args(argv)
 
-    modes = sum(1 for enabled in (args.offline_check, args.live, args.rollback_from_download) if enabled)
+    modes = sum(
+        1
+        for enabled in (args.offline_check, args.print_agents_exception_draft, args.live, args.rollback_from_download)
+        if enabled
+    )
     if modes > 1:
-        raise SystemExit("--offline-check, --live, and --rollback-from-download are mutually exclusive")
+        raise SystemExit("--offline-check, --print-agents-exception-draft, --live, and --rollback-from-download are mutually exclusive")
     if args.observe_sec < 60:
         raise SystemExit("--observe-sec must be at least 60 for the M34 S1 configfs discriminator")
     if args.snapshot_interval_sec < 1.0:
@@ -506,6 +556,15 @@ def main(argv: list[str]) -> int:
         stock_rollback_ap=stock_rollback_ap,
         log_path=log_path,
     )
+
+    if args.print_agents_exception_draft:
+        draft = agents_exception_draft()
+        missing = missing_policy_markers(draft)
+        append_log(log_path, f"agents_exception_draft_missing={missing}")
+        if missing:
+            raise SystemExit(f"internal draft is missing policy markers: {missing}")
+        print(draft, end="")
+        return 0
 
     if args.offline_check:
         append_log(log_path, "offline_check=ok device_action=0 agents_exception_checked=0 android_checked=0")

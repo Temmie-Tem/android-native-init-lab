@@ -56,6 +56,15 @@ class S22PlusM34S1RuntimeGadgetLiveGateTest(unittest.TestCase):
         text = " ".join(self.module.policy_required_markers())
         self.assertEqual(self.module.missing_policy_markers(text), [])
 
+    def test_agents_exception_draft_satisfies_same_policy_markers(self):
+        draft = self.module.agents_exception_draft()
+        self.assertEqual(self.module.missing_policy_markers(draft), [])
+        self.assertIn("DRAFT ONLY", draft)
+        self.assertIn(self.module.LIVE_ACK_TOKEN, draft)
+        self.assertIn(self.module.ROLLBACK_ACK_TOKEN, draft)
+        self.assertIn("This draft is not active authorization", draft)
+        self.assertIn("authorize S2/S3 live", draft)
+
     @unittest.skipUnless(MANIFEST.exists(), "private M34 v0.2 manifest missing")
     def test_current_manifest_contract_matches_live_gate(self):
         with tempfile.TemporaryDirectory() as tmp:

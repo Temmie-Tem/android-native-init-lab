@@ -10,6 +10,11 @@ The M34 S1 live gate helper is implemented and statically validated. It does
 not authorize a live flash. `AGENTS.md` still has no active M34 S1 exception,
 so default execution fails closed before Android or flash actions.
 
+2026-07-09 04:19 KST update: the helper can now print a draft
+SHA-pinned one-shot `AGENTS.md` exception for this exact S1 artifact with
+`--print-agents-exception-draft`. The draft is not active authorization unless
+the operator approves it and it is inserted into `AGENTS.md`.
+
 ## Helper
 
 `workspace/public/src/scripts/revalidation/s22plus_m34_s1_runtime_gadget_live_gate.py`
@@ -55,6 +60,8 @@ The helper verifies the v0.2 manifest and refuses drift:
 - no module binary injection into boot ramdisk
 - QMP and EUD remain excluded
 - rollback APs are SHA-pinned
+- generated exception draft must satisfy the same `policy_required_markers()`
+  set as the live fail-closed gate
 
 ## Validation
 
@@ -72,6 +79,10 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m unittest -q \
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   workspace/public/src/scripts/revalidation/s22plus_m34_s1_runtime_gadget_live_gate.py \
   --offline-check
+
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/s22plus_m34_s1_runtime_gadget_live_gate.py \
+  --print-agents-exception-draft > /tmp/m34_s1_agents_exception_draft.txt
 ```
 
 Results:
@@ -81,6 +92,9 @@ Results:
 - offline check: pass; no device action
 - explicit fail-closed check without active `AGENTS.md` exception: rc=1,
   refused before Android/flash actions
+- combined M34 S1/M34/M33 regression tests: 20 passed
+- exception draft generation: pass; 116-line draft, self-checked against
+  `policy_required_markers()`, no device action
 
 ## Next
 
