@@ -170,6 +170,43 @@ remaining problem is the **upper** DT wiring (dwc3 → SS/QMP phy, §1/§4) plus
 Samsung TypeC/PD hard-dep tree (§3). Lower is done; focus stays on the DTBO
 ssphy-phandle sever.
 
+## 8. Can we even implement the ssphy sever? DTBO patch mechanics (a real gotcha)
+
+Checked whether the proposed fix is achievable within our boot+DTBO flash scope
+and tooling:
+
+- **Good:** the `dwc3@a600000` node with `usb-phy`, `maximum-speed`, and
+  `dr_mode` is present in **all 11 DTBO overlay blobs** (not base-only). So the
+  edit target is on the DTBO partition we already flash — no vendor_boot flash
+  needed. (`ssphy@88e8000`'s node *definition* is base-only, but the referencing
+  `usb-phy` property lives in the overlay.)
+- **Gotcha:** the DTBO is a **proper overlay** with `__fixups__` / `__symbols__`
+  / `__local_fixups__`. Phandle references like `usb-phy = <&hsphy &ssphy>` are
+  **resolved at overlay-apply time via `__fixups__`**, not stored as final inline
+  phandles. So the **M25 equal-length byte-patcher cannot sever the ssphy
+  reference** — overwriting the inline placeholder is futile because the fixup
+  re-resolves it at apply time. `dr_mode` `"otg"`→`"peripheral"` is likewise not
+  an equal-length edit.
+
+**Implication for M34:** severing the ssphy phandle needs **proper DT overlay
+editing** (recompile the overlay, or edit `__fixups__` with an FDT library /
+`fdtoverlay`), not the byte-patcher. Two implementable routes, to be evaluated
+host-only before any flash:
+1. **Proper overlay override:** build a new/edited DTBO node that sets
+   `dwc3.usb-phy = <&hsphy>` only (and optionally `dr_mode = "peripheral"`),
+   using a real FDT toolchain. Highest-fidelity, but new tooling.
+2. **Runtime HS/device force (no DT surgery):** have the native init force HS-only
+   / peripheral at runtime via dwc3 sysfs (`maximum_speed`, `mode`, `usb_role`)
+   or by keeping the QMP phy driver absent so `devm_usb_get_phy_by_node` returns
+   an error dwc3-msm can skip ("unable to get ssphy device" path). Cheaper if
+   dwc3-msm degrades gracefully rather than hard-poking `PRI_SS_PHY_CTRL`
+   regardless — which P28 will reveal.
+
+The choice between (1) and (2) hinges on whether dwc3-msm hard-touches SS PHY
+registers even when the phy handle is absent/errored. **P28 answers exactly that**
+and is therefore still the right single confirmation flash before building M34
+tooling.
+
 ## Discipline
 
 Host-only analysis; the DTBO phandle edit + any live test need a fresh
