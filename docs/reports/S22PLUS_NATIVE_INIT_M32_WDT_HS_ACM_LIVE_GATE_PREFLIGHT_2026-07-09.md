@@ -103,7 +103,7 @@ baseline ACM=/dev/ttyACM0, vendor=04e8, product=6860, model=SAMSUNG_Android
 ```
 
 The baseline ACM endpoint is Android's current interface, not the M32 endpoint:
-product `6860`, serial `RFCT519XWGK`, model `SAMSUNG_Android`; it did not match
+product `6860`, serial `<S22_SERIAL_REDACTED>`, model `SAMSUNG_Android`; it did not match
 the expected M32 serial `S22M32WDTHS01` or model marker.
 
 ## Validation
