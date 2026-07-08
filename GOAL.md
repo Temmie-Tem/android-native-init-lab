@@ -69,6 +69,35 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > high-speed AP + M25 boot AP + stock-DTBO/Magisk-boot rollback path. Report:
 > `docs/reports/S22PLUS_NATIVE_INIT_M25_HS_ONLY_USB2_ACM_HOST_BUILD_2026-07-08.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-08 21:10 KST) — M25 LIVE-GATE SOURCE READY; POLICY-INERT; DEVICE CLEAN ANDROID.**
+> Codex added the guarded helper
+> `workspace/public/src/scripts/revalidation/s22plus_m25_hs_only_usb2_acm_live_gate.py`,
+> inert exception draft
+> `docs/operations/S22PLUS_M25_HS_ONLY_USB2_ACM_AGENTS_EXCEPTION_DRAFT_2026-07-08.md`,
+> and unit tests for the two-stage M25 path: first flash/verify the DTBO
+> high-speed cap, then flash/observe the HS-only USB2 ACM boot candidate, then
+> rollback Magisk boot plus stock DTBO. The helper pins the M25 boot AP
+> `7f89cfb8ff188190d1d161aee97e3edec2730bfc46efca9df37f2035f7206805`,
+> DTBO AP
+> `35afd774444066fd8e2ffe831da11dd73ee47dce3bdd5b1e37675f82344e56b6`,
+> stock DTBO rollback AP
+> `6f397421bee84f4ea0c80a8519be0f6f6af84119794970e8a1faaa05f261caaa`,
+> known Magisk boot hash
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
+> and stock DTBO hash
+> `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`.
+> After the operator reported bootloop/manual Download-mode entry, Codex
+> rechecked live state before rollback: the phone was already Android ADB, not
+> Download mode, with `boot_completed=1`, verified boot `orange`, Magisk root
+> uid0, boot/DTBO/vendor_boot hashes matching the clean baseline. No rollback,
+> flash, reboot, partition write, or sysfs write was performed. Validation
+> passed: `py_compile`, M25 live-gate unit tests, `--offline-check`, and
+> expected default fail-closed on missing active M25 `AGENTS.md` authorization
+> markers before Android/device access. Live execution still requires copying
+> the inert exception into `AGENTS.md`, dry-run pass, and exact ack
+> `S22PLUS-M25-HS-ONLY-USB2-ACM-LIVE-GATE`. Report:
+> `docs/reports/S22PLUS_M25_HS_ONLY_USB2_ACM_GATE_SOURCE_2026-07-08.md`.
+
 > **OPERATOR STEER (2026-07-08, Claude) — M18 WAS THE WRONG FILE: read Samsung `reset_summary` (watchdog-bite capture).**
 > M18's fault is a **msm watchdog bite** (dmesg confirms the watchdog runs + pets
 > ~9.5s; a bare init pets nothing → bite → warm reset). That is NOT a panic, so
