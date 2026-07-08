@@ -3,6 +3,9 @@
 Date: 2026-07-09 KST / 2026-07-08 UTC
 
 Status: HOST/READ-ONLY COMPLETE. No live flash is authorized by this report.
+This report reconciles stock gadget descriptor/composition gaps with the newer
+role-lever finding in
+`docs/reports/S22PLUS_S3_ENUMERATION_ROLE_LEVER_STOCK_2026-07-09.md`.
 
 ## Scope
 
@@ -22,6 +25,8 @@ Inputs:
   `workspace/private/runs/s22plus_m35_stock_gadget_inventory_20260708T201524Z/stock_gadget_inventory_redacted.txt`
 - Stock host USB inventory:
   `workspace/private/runs/s22plus_m35_stock_host_usb_20260708T201842Z/host_usb_stock_android_redacted.txt`
+- Role-lever stock report:
+  `docs/reports/S22PLUS_S3_ENUMERATION_ROLE_LEVER_STOCK_2026-07-09.md`
 - Earlier stock recipe report:
   `docs/reports/S22PLUS_STOCK_USB_GADGET_ACM_RECIPE_2026-07-09.md`
 
@@ -121,32 +126,44 @@ enumeration, and complete no-enumeration all collapse into the same symptom.
 
 ## Current Best Explanation
 
-The highest-confidence gap is descriptor/composition mismatch, not power/DT:
+The highest-confidence gap is now the missed runtime role lever, not
+descriptor/composition and not power/DT:
 
 1. S3 survived final UDC pullup, so pullup itself is no longer the reset wall.
 2. Stock Android proves `ss_acm.0` can enumerate on the same controller.
-3. S3 uses ACM-only `f1` plus non-stock device-class and `bcdDevice` values.
-4. Stock uses a Samsung composite config where `ss_acm.0` is `f2` after MTP,
+3. The newer read-only role-lever report proves `/sys/class/usb_role/` is empty
+   on this device, so S3's `usb_role=device` path was a silent no-op.
+4. The live stock role lever is
+   `/sys/devices/platform/soc/a600000.ssusb/mode=peripheral`; `ssusb/speed` is
+   also root-writable and accepts `high-speed`.
+5. S3 also uses ACM-only `f1` plus non-stock device-class and `bcdDevice`
+   values, while stock uses a Samsung composite config where `ss_acm.0` is `f2`
+   after MTP,
    with `conn_gadget.0`, ADB, and `ss_mon.mtp` companions.
 
-The next candidate should first tighten stock parity and improve observation
-before introducing DTBO, QMP, EUD, kernel rebuild, or new power writes.
+Therefore the next candidate should first write the real `ssusb` role/speed
+levers and improve observation. Descriptor/composition parity is a follow-up
+only if S4 still fails to expose an endpoint.
 
 ## Recommended Next Unit
 
-M35A should be host-build only first:
+S4 should be host-build only first:
 
 - keep boot-only MagiskBoot construction and no live auth by default
-- keep the S2/S3 survival-safe `max_speed=high-speed` and `usb_role=device`
-  unless the candidate explicitly isolates one of those knobs
-- set stock-like device descriptor values:
-  `bDeviceClass=0x00`, `bDeviceSubClass=0x00`, `bDeviceProtocol=0x00`,
-  `bcdDevice=0x0504`
-- set stock-like strings where low risk:
-  manufacturer `SAMSUNG`, product `SAMSUNG_Android`, config `mtp_conn_adb`
+- keep the S2/S3 survival-safe `g1/max_speed=high-speed`
+- replace the dead `/sys/class/usb_role/*/role=device` write with:
+  `/sys/devices/platform/soc/a600000.ssusb/speed=high-speed` and
+  `/sys/devices/platform/soc/a600000.ssusb/mode=peripheral`
 - preserve `idVendor=0x04E8`, `idProduct=0x6860`, `UDC=none` before relink, and
   final `UDC=a600000.dwc3`
-- decide separately whether to add companion functions:
+- do not change descriptors or companion functions in the same candidate; keep
+  S4 as the single role-lever delta plus enhanced observation
+- if S4 still exposes no endpoint, only then consider stock-like descriptor
+  parity:
+  `bDeviceClass=0x00`, `bDeviceSubClass=0x00`, `bDeviceProtocol=0x00`,
+  `bcdDevice=0x0504`, manufacturer `SAMSUNG`, product `SAMSUNG_Android`, config
+  `mtp_conn_adb`
+- decide separately whether to add companion functions after S4:
   `conn_gadget.0`/`ss_mon.mtp` are plausible next deltas, while `ffs.mtp` and
   `ffs.adb` require extra caution because FunctionFS usually needs userspace
   descriptors/daemons before bind
@@ -154,12 +171,12 @@ M35A should be host-build only first:
   `lsusb -d 04e8:6860 -v`, `lsusb -t`, `usb-devices`, `/dev/ttyACM*`,
   `/dev/serial/by-*`, udev properties, and host dmesg/journal deltas
 
-M35A should not be flashed until it has a fresh SHA-pinned `AGENTS.md`
+S4 should not be flashed until it has a fresh SHA-pinned `AGENTS.md`
 exception and explicit operator approval.
 
 ## Authorization State
 
 No active live authorization exists. This report does not authorize S3 repeat,
-M35A live flash, DTBO, vendor_boot, recovery, vbmeta, non-boot flash, raw host
+S4 live flash, M35A live flash, DTBO, vendor_boot, recovery, vbmeta, non-boot flash, raw host
 `dd`, fastboot, EUD writes, RDX PC dump retrieval, Magisk modules, format data,
 or any A90 action.

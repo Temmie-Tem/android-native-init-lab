@@ -4,28 +4,27 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ CURRENT FRONTIER (2026-07-09 05:19 KST / 2026-07-08 20:19 UTC) — M35 STOCK GADGET GAP ANALYSIS COMPLETE; NEXT STOCK-PARITY HOST BUILD; NO ACTIVE LIVE AUTH.**
+> **S22+ CURRENT FRONTIER (2026-07-09 05:23 KST / 2026-07-08 20:23 UTC) — M35 RECONCILED WITH ROLE-LEVER FINDING; NEXT S4 `ssusb/mode=peripheral` HOST BUILD; NO ACTIVE LIVE AUTH.**
 > After the operator confirmed RDX during the S3 manual recovery path and the
 > S3 rollback restored the clean Magisk Android baseline, Codex performed a
-> read-only M35 stock gadget comparison. Stock Android on the same device exposes
-> Samsung `04e8:6860` as a 5-interface composite `mtp,conn_gadget,adb` gadget:
-> `UDC=a600000.dwc3`, `max_speed=super-speed-plus`, `bcdUSB=0x0320`,
-> `bcdDevice=0x0504`, device class/subclass/protocol `0/0/0`, config
-> `mtp_conn_adb`, and active links `f1=ffs.mtp`, `f2=ss_acm.0`,
-> `f3=conn_gadget.0`, `f4=ffs.adb`, `f5=ss_mon.mtp`. Host `lsusb -v` confirms
-> the ACM function is an IAD pair at interfaces 1/2 and binds to Linux
-> `cdc_acm` as `/dev/ttyACM0`.
+> read-only M35 stock gadget comparison and reconciled it with the prior
+> role-lever report. Stock Android on the same device exposes Samsung
+> `04e8:6860` as a 5-interface composite `mtp,conn_gadget,adb` gadget and host
+> `lsusb -v` confirms the ACM function is an IAD pair at interfaces 1/2 bound by
+> Linux `cdc_acm` as `/dev/ttyACM0`.
 >
 > M34 S3 instead creates an ACM-only config with `ss_acm.0` as `f1`, config
 > string `acm`, `bcdDevice=0x0034`, and device class/subclass/protocol
-> `0xef/0x02/0x01`. Its live helper observed only ADB/Odin and `/dev/ttyACM*`,
-> not `lsusb`/`usb-devices`/udev/dmesg. Therefore the strict S3 result is "no
-> host ACM tty endpoint", not "no USB device enumeration at all." The next unit
-> should be M35A host-build: stock-like descriptor/string parity plus enhanced
-> host USB observation. Companion functions (`conn_gadget.0`, `ss_mon.mtp`,
-> and later the FunctionFS-backed MTP/ADB pieces) should be separated from the
-> low-risk descriptor parity delta. No M35A live flash is authorized until a
-> fresh SHA-pinned `AGENTS.md` exception and explicit approval exist. Report:
+> `0xef/0x02/0x01`, but the stronger direct finding is that S3's
+> `/sys/class/usb_role/*/role=device` path was empty/no-op while stock's real
+> role lever is `/sys/devices/platform/soc/a600000.ssusb/mode=peripheral`.
+> Therefore the next unit should be S4 host-build: keep the S3 configfs/UDC
+> sequence, replace the dead `usb_role` write with `ssusb/speed=high-speed` and
+> `ssusb/mode=peripheral` before UDC bind, and enhance observation with `lsusb`,
+> `usb-devices`, udev, and host dmesg. Descriptor/string parity and companion
+> functions are secondary follow-ups only if S4 still exposes no endpoint. No
+> S4 live flash is authorized until a fresh SHA-pinned `AGENTS.md` exception and
+> explicit approval exist. Report:
 > `docs/reports/S22PLUS_NATIVE_INIT_M35_STOCK_GADGET_GAP_ANALYSIS_2026-07-09.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-09 05:11 KST / 2026-07-08 20:11 UTC) — M34 S3 LIVE CONSUMED; S3 SURVIVED 90 S; ROLLBACK CLEAN; NO ACTIVE LIVE AUTH.**

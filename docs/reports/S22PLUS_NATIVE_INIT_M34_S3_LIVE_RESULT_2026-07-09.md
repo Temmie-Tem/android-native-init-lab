@@ -107,7 +107,12 @@ enumeration.
 ## Next
 
 Do not repeat S3 under the consumed authorization. The next unit should be
-host/read-only first and compare S3 against stock Android gadget state:
+host/read-only first and compare S3 against stock Android gadget state. That
+read-only follow-up found the real missing role lever:
+`/sys/devices/platform/soc/a600000.ssusb/mode=peripheral`, while S3's
+`/sys/class/usb_role/*/role=device` path was empty/no-op on this device. So the
+next host-build candidate should be S4: write `ssusb/speed=high-speed` and
+`ssusb/mode=peripheral` before UDC bind, with enhanced host USB observation.
 
 - verify actual gadget descriptors and function naming expected by Samsung
   stock for `04e8:6860`
