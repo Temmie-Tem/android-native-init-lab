@@ -7,6 +7,14 @@ bypass runs**. It mirrors `CLAUDE.md`. `GOAL.md` says what to pursue; this file 
 The work cycle (STATE → SELECT → DESIGN → IMPLEMENT → STATIC VALIDATE → DEVICE → REPORT →
 COMMIT → REPEAT) is defined in `GOAL.md`.
 
+S22+ `S906NKSS7FYG8` full-stock firmware evidence may be either the original
+SamFW ZIP SHA256 `f831e5fb8abe1c7a9d8c38fe9c033a3fce7e77651776383641c385c2bb85a2c8`
+or the extracted six-file stock firmware set with exact sizes and SHA256 values
+documented in
+`docs/operations/S22PLUS_FYG8_STOCK_FIRMWARE_EVIDENCE_POLICY_2026-07-08.md`.
+This is an evidence/precondition rule only; it does not authorize full firmware,
+BL, CP, CSC, userdata, or any non-boot flash.
+
 ## Safety invariants (NEVER violate)
 
 1. **Partitions:** never write/flash `/efs`, `/sec_efs`, modem, RPMB, keymaster, vbmeta,
@@ -23,9 +31,10 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    pinned stock recovery-only rollback AP SHA256
    `8d3647313d2e100134f77984d13c7e5dc9946510ab57d8e34dd0cd192ca8586d` if TWRP
    recovery fails and download mode remains available. This exception is limited to
-   recovery/vbmeta for S22+ recovery infrastructure, requires the full stock
-   `S906NKSS7FYG8` firmware SHA256
-   `f831e5fb8abe1c7a9d8c38fe9c033a3fce7e77651776383641c385c2bb85a2c8` to be present,
+   recovery/vbmeta for S22+ recovery infrastructure, requires S22+
+   `S906NKSS7FYG8` full-stock firmware evidence per
+   `docs/operations/S22PLUS_FYG8_STOCK_FIRMWARE_EVIDENCE_POLICY_2026-07-08.md`
+   to be present,
    requires no auto-reboot and immediate manual boot to recovery after transfer, and
    does not authorize A90 non-boot writes, S22 bootloader/modem/EFS/RPMB/keymaster
    writes, Magisk/root installation, multidisabler, format data, or any other S22
@@ -143,10 +152,10 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    recovery, vendor_boot, vbmeta, vbmeta_system, dtbo, BL, CP, CSC, super,
    persist, userdata, EFS, RPMB, keymaster, modem, or any other partition
    payload. The pinned stock boot-only rollback AP SHA256
-   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e` and full
-   stock `S906NKSS7FYG8` firmware SHA256
-   `f831e5fb8abe1c7a9d8c38fe9c033a3fce7e77651776383641c385c2bb85a2c8` must be
-   present before flashing. On no boot, unreachable Android, missing Magisk
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e` and S22+
+   `S906NKSS7FYG8` full-stock firmware evidence per
+   `docs/operations/S22PLUS_FYG8_STOCK_FIRMWARE_EVIDENCE_POLICY_2026-07-08.md`
+   must be present before flashing. On no boot, unreachable Android, missing Magisk
    root, or failed first-light proof, restore the pinned stock boot-only AP if
    download mode remains available, then stop. This exception does not authorize
    additional S22+ boot candidates, kernel rebuild flashes, Magisk module
@@ -169,10 +178,10 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    collection from `/proc/last_kmsg`; this is not an Android/Magisk handoff
    candidate and rooted Android is not expected before rollback. The pinned
    stock boot-only rollback AP SHA256
-   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e` and full
-   stock `S906NKSS7FYG8` firmware SHA256
-   `f831e5fb8abe1c7a9d8c38fe9c033a3fce7e77651776383641c385c2bb85a2c8` must be
-   present before flashing. After proof collection or on no boot/no marker/no
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e` and S22+
+   `S906NKSS7FYG8` full-stock firmware evidence per
+   `docs/operations/S22PLUS_FYG8_STOCK_FIRMWARE_EVIDENCE_POLICY_2026-07-08.md`
+   must be present before flashing. After proof collection or on no boot/no marker/no
    recovery, restore the pinned stock boot-only AP if download mode or recovery
    transport is available, then stop. This exception does not authorize
    additional S22+ boot candidates, Magisk root reinstall, kernel rebuild
@@ -200,10 +209,10 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    recovery-only rollback AP SHA256
    `8d3647313d2e100134f77984d13c7e5dc9946510ab57d8e34dd0cd192ca8586d`, pinned
    stock boot-only rollback AP SHA256
-   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`, and full
-   stock `S906NKSS7FYG8` firmware SHA256
-   `f831e5fb8abe1c7a9d8c38fe9c033a3fce7e77651776383641c385c2bb85a2c8` must be
-   present before flashing. On bad TWRP proof, restore only the pinned stock
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`, and S22+
+   `S906NKSS7FYG8` full-stock firmware evidence per
+   `docs/operations/S22PLUS_FYG8_STOCK_FIRMWARE_EVIDENCE_POLICY_2026-07-08.md`
+   must be present before flashing. On bad TWRP proof, restore only the pinned stock
    recovery AP if download mode remains available, then stop before Magisk. On
    bad Android boot after the Magisk step, restore only the pinned stock
    boot-only AP if download mode remains available, then stop. This exception

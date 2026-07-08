@@ -147,6 +147,19 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > to preserve reset-summary capture. Report:
 > `docs/reports/S22PLUS_M23_DTS_QMP_RESET_SUMMARY_POLICY_ACTIVE_DRY_RUN_2026-07-08.md`.
 
+> **S22+ STORAGE POLICY UPDATE (2026-07-08 KST) — FYG8 EXTRACTED STOCK SET CAN REPLACE ZIP FOR LOCAL EVIDENCE.**
+> To reduce disk pressure while keeping firmware inputs convenient, Codex added
+> `docs/operations/S22PLUS_FYG8_STOCK_FIRMWARE_EVIDENCE_POLICY_2026-07-08.md`
+> and updated `AGENTS.md` so S22+ `S906NKSS7FYG8` full-stock firmware evidence
+> may be either the pinned SamFW ZIP SHA256
+> `f831e5fb8abe1c7a9d8c38fe9c033a3fce7e77651776383641c385c2bb85a2c8` or the
+> extracted six-file stock set with exact sizes and SHA256 values. This is only
+> an evidence/precondition rule: it does **not** authorize full firmware,
+> BL/CP/CSC, userdata, or any non-boot flash. The large ZIP can now be treated
+> as removable storage overhead if the extracted manifest set remains intact.
+> `s22plus_twrp_magisk_restore_window.py` now accepts either evidence form, so
+> older restore-window dry-runs do not fail just because the ZIP was removed.
+
 > **S22+ LIVE RESULT (2026-07-08 03:50 KST) — DIRECT VENDOR_BOOT RAMOOPS PATCH BOOTED BUT DID NOT AFFECT LIVE DT; M13 NOT FLASHED.**
 > Operator authorized the ack-gated
 > `S22PLUS-RAMOOPS-VENDORBOOT-M13-CAPTURE-LIVE-GATE` run. Dry-run passed, the

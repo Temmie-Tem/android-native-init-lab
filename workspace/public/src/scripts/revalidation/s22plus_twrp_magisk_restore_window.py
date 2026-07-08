@@ -40,12 +40,45 @@ EXPECTED_STOCK_BOOT_AP_SHA256 = "1ee92a86f30e4acb12509272630e1bef5215d1a12686ac6
 EXPECTED_STOCK_BOOT_MEMBER = "boot.img.lz4"
 
 EXPECTED_FULL_FW_SHA256 = "f831e5fb8abe1c7a9d8c38fe9c033a3fce7e77651776383641c385c2bb85a2c8"
+EXPECTED_EXTRACTED_FULL_FW = [
+    (
+        "AP_S906NKSS7FYG8_S906NKSS7FYG8_MQB99315260_REV00_user_low_ship_MULTI_CERT_meta_OS15.tar.md5",
+        11499653242,
+        "7934579fc2e7fc8097b58cb28e915578a972718b2cdc3f53d3f9b5e9bd5a0bb2",
+    ),
+    (
+        "BL_S906NKSS7FYG8_S906NKSS7FYG8_MQB99315260_REV00_user_low_ship_MULTI_CERT.tar.md5",
+        114319472,
+        "e5aeb59de4ed16c21111945900aeda4743b717361b0919084e9d284d08e4e0ba",
+    ),
+    (
+        "CP_S906NKSS7FYG1_CP30713288_MQB98036461_REV00_user_low_ship_MULTI_CERT.tar.md5",
+        68833389,
+        "08495982043835aa233061c70dfc42b327684e93cf7c7e02d89278a5ea3ec445",
+    ),
+    (
+        "CSC_OKR_S906NOKR7FYG8_MQB99315260_REV00_user_low_ship_MULTI_CERT.tar.md5",
+        24811623,
+        "bb13931519fa48a9a9a08c2a00619088e037650fd573280296dedcaa5355984d",
+    ),
+    (
+        "HOME_CSC_OKR_S906NOKR7FYG8_MQB99315260_REV00_user_low_ship_MULTI_CERT.tar.md5",
+        24780908,
+        "b8753e80cf1053b0dfe33ecdc3389c6c5c0df41ae5184d4b221ec9fe0672c514",
+    ),
+    (
+        "_FirmwareInfo_Samfw.com.txt",
+        719,
+        "80daa81f48e8928827f804a34156f9d7cf2df2d7dc6160748d3b4296c674146f",
+    ),
+]
 
 DEFAULT_TWRP_TAR = Path("workspace/private/inputs/s22plus_twrp/g0q/twrp-3.7.0_12-1_afaneh92-g0q.tar")
 DEFAULT_MAGISK_AP = Path("workspace/private/outputs/s22plus_magisk_root_boot_only/AP.tar.md5")
 DEFAULT_STOCK_RECOVERY_AP = Path("workspace/private/outputs/s22plus_twrp/stock_recovery_rollback/AP.tar.md5")
 DEFAULT_STOCK_BOOT_AP = Path("workspace/private/outputs/s22plus_native_init/odin4_stock_rollback_short/AP.tar.md5")
 DEFAULT_FULL_FW = Path("workspace/private/inputs/firmware/SAMFW.COM_SM-S906N_SKC_S906NKSS7FYG8_fac.zip")
+DEFAULT_FULL_FW_DIR = Path("workspace/private/inputs/firmware/SAMFW.COM_SM-S906N_SKC_S906NKSS7FYG8_fac")
 DEFAULT_ODIN = Path("/usr/bin/odin4")
 
 ODIN_DEVICE_RE = re.compile(r"/dev/bus/usb/\d+/\d+")
@@ -129,6 +162,39 @@ def verify_file_sha(path: Path, expected_sha: str, label: str, log_path: Path) -
     append_log(log_path, f"{label}_sha256={actual_sha}")
     if actual_sha != expected_sha:
         raise SystemExit(f"{label} SHA mismatch: {actual_sha}")
+
+
+def verify_file_size_sha(path: Path, expected_size: int, expected_sha: str, label: str, log_path: Path) -> None:
+    if not path.is_file():
+        raise SystemExit(f"{label} missing: {path}")
+    actual_size = path.stat().st_size
+    actual_sha = sha256_file(path)
+    append_log(log_path, f"{label}_size={actual_size}")
+    append_log(log_path, f"{label}_sha256={actual_sha}")
+    if actual_size != expected_size:
+        raise SystemExit(f"{label} size mismatch: {actual_size}")
+    if actual_sha != expected_sha:
+        raise SystemExit(f"{label} SHA mismatch: {actual_sha}")
+
+
+def verify_full_firmware_evidence(zip_path: Path, extracted_dir: Path, log_path: Path) -> None:
+    if zip_path.is_file():
+        verify_file_sha(zip_path, EXPECTED_FULL_FW_SHA256, "full_firmware_zip", log_path)
+        append_log(log_path, "full_firmware_evidence=zip")
+        return
+
+    append_log(log_path, f"full_firmware_zip_missing={zip_path}")
+    if not extracted_dir.is_dir():
+        raise SystemExit(f"full firmware evidence missing: zip={zip_path} extracted_dir={extracted_dir}")
+    for name, expected_size, expected_sha in EXPECTED_EXTRACTED_FULL_FW:
+        verify_file_size_sha(
+            extracted_dir / name,
+            expected_size,
+            expected_sha,
+            f"full_firmware_extracted.{name}",
+            log_path,
+        )
+    append_log(log_path, "full_firmware_evidence=extracted-set")
 
 
 def odin_devices(odin: Path, log_path: Path, label: str) -> list[str]:
@@ -285,6 +351,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--stock-recovery-ap", type=Path, default=DEFAULT_STOCK_RECOVERY_AP)
     parser.add_argument("--stock-boot-ap", type=Path, default=DEFAULT_STOCK_BOOT_AP)
     parser.add_argument("--full-fw", type=Path, default=DEFAULT_FULL_FW)
+    parser.add_argument("--full-fw-dir", type=Path, default=DEFAULT_FULL_FW_DIR)
     parser.add_argument("--odin", type=Path, default=DEFAULT_ODIN)
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--odin-wait-sec", type=int, default=90)
@@ -304,6 +371,7 @@ def main(argv: list[str]) -> int:
     stock_recovery_ap = resolve(root, args.stock_recovery_ap)
     stock_boot_ap = resolve(root, args.stock_boot_ap)
     full_fw = resolve(root, args.full_fw)
+    full_fw_dir = resolve(root, args.full_fw_dir)
     odin = resolve(root, args.odin)
 
     if not odin.is_file():
@@ -318,7 +386,7 @@ def main(argv: list[str]) -> int:
         log_path,
     )
     verify_tar(stock_boot_ap, EXPECTED_STOCK_BOOT_AP_SHA256, EXPECTED_STOCK_BOOT_MEMBER, "stock_boot_ap", log_path)
-    verify_file_sha(full_fw, EXPECTED_FULL_FW_SHA256, "full_firmware_zip", log_path)
+    verify_full_firmware_evidence(full_fw, full_fw_dir, log_path)
     require_single_android_preflight(log_path)
 
     if not args.live:
