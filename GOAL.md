@@ -4,6 +4,40 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 03:44 KST / 2026-07-08 18:44 UTC) — M33 P30 LIVE CONSUMED; P30 SURVIVED 90 S; ROLLBACK CLEAN; NEXT M34 S1 HOST BUILD; NO ACTIVE LIVE AUTH.**
+> The approved M33 P30 watchdog-prefix park live gate ran once under commit
+> `e709ea75`. Candidate AP
+> `e7cadd856da852e577adf32e088c0fee668904f265cdad1e9309072ccb2b18fd`
+> flashed boot-only, the original Download endpoint disconnected, and the
+> candidate survived the full 90 second observation window with no ADB/Odin
+> endpoint returning. This proves the full 45-module closure including
+> `usb_f_ss_acm.ko` is not the M32 failure boundary when runtime configfs/ACM
+> binding is absent.
+>
+> After survival proof, manual rollback was required. The operator observed an
+> RDX screen during manual recovery, then a normal Download endpoint appeared.
+> The checked helper flashed the pinned Magisk boot rollback AP successfully.
+> Final baseline is clean: Android `sys.boot_completed=1`, bootanim stopped,
+> vbstate orange, bootloader/build `S906NKSS7FYG8`, Magisk root OK, and boot
+> partition SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+>
+> Retained evidence had no M33 P30 marker: pstore empty, `/proc/last_kmsg`
+> readable at 2,097,136 bytes, marker absent. The retained log did contain
+> `collect_rr_data : upload_cause = PMIC abnormal reset`, `RDX is locked`,
+> `PonReason.HARD_RESET = 1`, and XBL/PMIC abnormal reset material, consistent
+> with the operator's RDX observation while entering rollback. `AGENTS.md` now
+> marks the M33 P30 one-shot exception consumed/retired and omits the live
+> tokens as active authorization.
+>
+> Direction: stop module-list bisection. The next host-only unit is M34 S1:
+> build the runtime-gadget split artifact that creates configfs
+> gadget/function/config and links `ss_acm.0`, but does **not** force
+> `usb_role=device` and does **not** bind `UDC`. S2/S3 remain next after S1
+> source readiness. No M34 live flash is authorized until a fresh SHA-pinned
+> `AGENTS.md` exception and explicit operator approval exist. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M33_P30_WDT_PREFIX_PARK_LIVE_RESULT_2026-07-09.md`.
+
 > **OPERATOR STEER (2026-07-09, Claude) — CORRECTED DIRECTION (M34): THE WALL IS RUNTIME GADGET BRING-UP, NOT MODULES. ISOLATE THE configfs STEP.**
 > Host USB analysis + the P12/P27/P28 results converge:
 > - **Lower substrate is fully aligned.** Every USB `supply`/`clock`/`interconnect`/

@@ -4,6 +4,10 @@ Date: 2026-07-09 KST / 2026-07-08 UTC
 
 ## Verdict
 
+2026-07-09 update: P30 live has now run and passed the 90 second observation
+window. This readiness report is superseded for current state by
+`docs/reports/S22PLUS_NATIVE_INIT_M33_P30_WDT_PREFIX_PARK_LIVE_RESULT_2026-07-09.md`.
+
 P30 is the next high-information live gate after P28 survived.
 
 No live flash is authorized by this report. `AGENTS.md` has no active P30

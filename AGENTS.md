@@ -2752,17 +2752,15 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
    with stock boot-only fallback SHA256
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
-   **Narrow operator-authorized exception (2026-07-09, S22+ M33 P30
-   watchdog-prefix park native-init boot-only live gate):** after M33 P28
-   survived the full observation window and the operator provided fresh live
-   approval, Codex may perform one bounded attended boot-partition-only M33 P30
-   live gate on the Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the
-   checked helper
-   `workspace/public/src/scripts/revalidation/s22plus_m33_p30_wdt_prefix_park_live_gate.py`
-   with live ack token `S22PLUS-M33-P30-WDT-PREFIX-PARK-LIVE-GATE` and
-   rollback-only ack token
-   `S22PLUS-M33-P30-WDT-PREFIX-PARK-ROLLBACK-FROM-DOWNLOAD`. The exact target
-   is `SM-S906N/g0q/S906NKSS7FYG8`; selected variant `P30`; AP marker
+   **Consumed exception (2026-07-09, S22+ M33 P30 watchdog-prefix park
+   native-init boot-only live gate):** this one-shot exception was consumed by
+   the 2026-07-09 KST live run. It flashed the pinned M33 P30 boot-only
+   candidate once on the Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using
+   only the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m33_p30_wdt_prefix_park_live_gate.py`.
+   The consumed live and rollback ack token strings are intentionally omitted
+   here as active authorization. The exact target was
+   `SM-S906N/g0q/S906NKSS7FYG8`; selected variant `P30`; AP marker
    `S22_NATIVE_INIT_M33_WDT_PREFIX_PARK_P30`; exact candidate AP.tar.md5
    SHA256 `e7cadd856da852e577adf32e088c0fee668904f265cdad1e9309072ccb2b18fd`;
    contained padded `boot.img` SHA256
@@ -2776,50 +2774,40 @@ BL, CP, CSC, userdata, or any non-boot flash.
    preserved kernel SHA256
    `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`;
    and base Magisk boot SHA256
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. The AP
+   contained exactly one tar member, `boot.img.lz4`, and did not carry recovery,
+   vendor_boot, dtbo, vbmeta, vbmeta_system, BL, CP, CSC, super, persist,
+   userdata, EFS, sec_efs, RPMB, keymaster, modem, bootloader, or any other
+   partition payload. The candidate was limited to freestanding direct PID1
+   watchdog-managed prefix park behavior with `prefix_targets=30` and
+   `module_load_only=1`: it loaded the full-ACM-module-without-configfs prefix,
+   including `usb_f_ss_acm.ko`, emitted kmsg phase markers, and parked with no
+   runtime ACM/configfs binding.
+   It had no runtime USB/configfs/ACM, no reboot syscall, no Download beacon,
+   no Android/Magisk handoff, no persistent partition mount, no block write, no
+   module binary injection into boot ramdisk, no raw host `dd`, no fastboot, no
+   Magisk modules, no multidisabler, no format data, no DTBO/vendor_boot/
+   recovery/vbmeta/non-boot flash, and no A90 action. Live result: the original
+   Download endpoint disconnected after candidate flash, and P30 survived the
+   full 90 second observation window without ADB/Odin returning. The operator
+   then observed an RDX screen while entering manual rollback; a normal Download
+   endpoint later appeared and the checked helper flashed the pinned Magisk
+   boot rollback AP SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`
+   successfully. Final baseline was clean: Android boot complete, bootanim
+   stopped, vbstate orange, Magisk root present, bootloader/build
+   `S906NKSS7FYG8`, and boot partition SHA256
    `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
-   The AP must contain exactly one tar member, `boot.img.lz4`, and must not
-   carry recovery, vendor_boot, dtbo, vbmeta, vbmeta_system, BL, CP, CSC, super,
-   persist, userdata, EFS, sec_efs, RPMB, keymaster, modem, bootloader, or any
-   other partition payload. The candidate may only run as freestanding direct
-   PID1, create a minimal tmpfs/dev/proc/sys runtime, load the
-   full-ACM-module-without-configfs prefix as a watchdog-managed prefix park
-   with `prefix_targets=30` and `module_load_only=1`, emit kmsg phase markers,
-   and park. This gate has ACM function module included but no runtime
-   ACM/configfs binding. It must have no runtime USB/configfs/ACM, no reboot
-   syscall, no Download beacon, no Android/Magisk handoff, no persistent
-   partition mount, no block write, no module binary injection into boot
-   ramdisk, no raw host `dd`, no fastboot, no Magisk modules, no multidisabler,
-   no format data, no DTBO/vendor_boot/recovery/vbmeta/non-boot flash, and no
-   A90 action. Expected proof is that it survives past 60-90 seconds without
-   ADB/Odin returning; `PMIC/RDX abnormal reset before the observation window is
-   FAIL`. `manual Download rollback is recovery-only` and must not be reported
-   as self-Download proof. The module closure is `smem.ko`, `minidump.ko`,
-   `sec_debug.ko`, `qcom_ipc_logging.ko`, `cmd-db.ko`, `qcom_rpmh.ko`,
-   `clk-rpmh.ko`, `debug-regulator.ko`, `proxy-consumer.ko`,
-   `gdsc-regulator.ko`, `clk-qcom.ko`, `clk-dummy.ko`, `gcc-waipio.ko`,
-   `icc-bcm-voter.ko`, `icc-debug.ko`, `socinfo.ko`, `icc-rpmh.ko`,
-   `rpmh-regulator.ko`, `qcom-scm.ko`, `qcom_wdt_core.ko`, `gh_virt_wdt.ko`,
-   `iommu-logger.ko`, `qnoc-qos.ko`, `qnoc-waipio.ko`, `phy-generic.ko`,
-   `qcom_iommu_util.ko`, `sec_class.ko`, `secure_buffer.ko`, `arm_smmu.ko`,
-   `abc.ko`, `usb_notify_layer.ko`, `switch_class.ko`, `common_muic.ko`,
-   `vbus_notifier.ko`, `pdic_notifier_module.ko`, `usb_typec_manager.ko`,
-   `usb_f_ss_mon_gadget.ko`, `phy-msm-snps-hs.ko`, `repeater.ko`,
-   `phy-msm-snps-eusb2.ko`, `redriver.ko`, `if_cb_manager.ko`,
-   `qc_usb_audio.ko`, `dwc3-msm.ko`, and `usb_f_ss_acm.ko`;
-   `phy-msm-ssusb-qmp.ko intentionally excluded` and `EUD excluded`.
-   Before live flash, the helper must verify Android identity, current boot
-   hash, rollback APs, exact candidate hashes, AP member list, P30 closure, and
-   the active `AGENTS.md` markers above. Rollback is required after the
-   observation window: primary rollback is the pinned Magisk boot-only AP SHA256
-   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`, with
-   pinned stock boot-only fallback SHA256
-   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e` if
-   Magisk rollback transfer fails and Download mode remains available. This
-   exception does not authorize P30 repeat, P40 live, M34 S1/S2/S3 live,
-   M32 repeat, ACM/configfs runtime binding beyond the P30 no-binding
-   candidate, display/distro candidates, kernel rebuilds, recovery/vendor_boot/
-   dtbo/vbmeta/non-boot flashes, RDX PC dump retrieval, EUD writes, raw host
-   `dd`, fastboot, multidisabler, format data, or any A90 action.
+   Post-rollback pstore was empty and `/proc/last_kmsg` was readable at
+   2,097,136 bytes but did not contain the M33 P30 marker. The retained log did
+   contain `collect_rr_data : upload_cause = PMIC abnormal reset`, `RDX is
+   locked`, `PonReason.HARD_RESET = 1`, and XBL/PMIC abnormal reset material,
+   matching the operator's RDX observation during manual rollback. This
+   exception must not be reused and does not authorize P30 repeat, P40 live,
+   M34 S1/S2/S3 live, M32 repeat, ACM/configfs runtime binding beyond this
+   no-binding candidate, display/distro candidates, kernel rebuilds, recovery/
+   vendor_boot/dtbo/vbmeta/non-boot flashes, RDX PC dump retrieval, EUD writes,
+   raw host `dd`, fastboot, multidisabler, format data, or any A90 action.
    **Consumed exception (2026-07-09, S22+ M33 P28 watchdog-prefix park
    native-init boot-only live gate):** this one-shot exception was consumed by
    the 2026-07-09 KST live run. It flashed the pinned M33 P28 boot-only

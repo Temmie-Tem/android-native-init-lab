@@ -4,6 +4,10 @@ Date: 2026-07-09 KST / 2026-07-08 UTC
 
 ## Verdict
 
+2026-07-09 update: S0/P30 has now passed live. The next unit is M34 S1 host
+build: configfs gadget/function/config only, no role force and no UDC bind.
+No S1 live flash is authorized yet.
+
 M34 should isolate the runtime gadget bring-up sequence, not continue module
 list bisection.
 
