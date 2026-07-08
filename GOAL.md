@@ -4,6 +4,27 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 03:08 KST / 2026-07-08 18:08 UTC) — M33 P30/P40 POST-DWC3 BRANCH SOURCES READY; P28 STILL NEXT; POLICY INERT.**
+> Codex prepared P30 and P40 branch helpers for the post-P28 path:
+> `workspace/public/src/scripts/revalidation/s22plus_m33_p30_wdt_prefix_park_live_gate.py`
+> and
+> `workspace/public/src/scripts/revalidation/s22plus_m33_p40_wdt_prefix_park_live_gate.py`.
+> P30 includes `usb_f_ss_acm.ko` while still doing no runtime configfs/ACM
+> setup. P40 is the full M32 module closure, also park-only and no runtime
+> configfs/ACM. P30 AP SHA256 is
+> `e7cadd856da852e577adf32e088c0fee668904f265cdad1e9309072ccb2b18fd`;
+> P40 AP SHA256 is
+> `420986c447df5cd155aee1ea32ece8ec5a7b021793dd9058d4fe6bc3744b7c34`;
+> both module-list SHA256 values are
+> `2291dc1c72add131c42d0b4ed6649880c20316d0598e0a2af942cc774949062c`.
+> Validation passed: helper `py_compile`, M33 P30/P40/build tests (13), P30
+> `--offline-check`, and P40 `--offline-check`. Default execution for both
+> fail-closes before Android/device preflight because `AGENTS.md` has no active
+> P30/P40 exceptions or live/rollback tokens. The next actual live gate remains
+> P28/DWC3 under a fresh SHA-pinned exception and explicit operator approval.
+> Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M33_P30_P40_POST_DWC3_BRANCH_SOURCE_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 03:04 KST / 2026-07-08 18:04 UTC) — M33 P28/DWC3 SELECTED; READINESS PASS; POLICY INERT; NO ACTIVE LIVE AUTH.**
 > After M33 P27 survived, Codex selected P28 as the next high-information gate
 > because it adds `dwc3-msm.ko` and monitor gadget dependencies while still
