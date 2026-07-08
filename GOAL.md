@@ -4,6 +4,25 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **🎯 OPERATOR STEER (2026-07-09, Claude — operator-approved METHODOLOGY PIVOT): STOP BLIND-FLASHING THE SESSION CHAIN. S8 = USE THE PROVEN download-beacon AS A 1-BIT STATE PROBE TO BISECT WHICH LINK BREAKS. DO THIS BEFORE ANY MORE MODULE ADDS OR THE S7B DESCRIPTOR PIVOT.**
+> S4→S5→S6→S7A→S7A2 = FIVE flashes, all "survived / no 04e8:*", each a blind guess
+> at one link of `i2c bus → max77705 probe → CC detect → port0-partner → data_role=device
+> → session → dwc3 pullup`. Native init is structurally blind here (no console, pstore
+> empty, last_kmsg=Android, marker count 0 every run) so we never learn WHICH link fails.
+> But `reboot(download)` is a **proven 1-bit host-visible channel** (M18 P00 HIT), and the
+> device now SURVIVES the window → a candidate can read one intermediate state and branch
+> `true→reboot(download)[HIT]` / `false→park[MISS]`. **S8 ladder (one predicate per flash,
+> dep-order, keep S7A2 recipe fixed): B1 = did GENI i2c actually reach the chip?**
+> (`/sys/class/typec/port0` OR `/sys/bus/i2c/devices/57-0066` exists — this resolves the
+> exact thing S7A2 left blind) **→ B2 port0-partner exists → B3 data_role=[device] →
+> B4 udc `state==configured` after UDC bind.** First predicate that reads false = the broken
+> link, now KNOWN not guessed → ~2-4 targeted flashes localize it. This is instrumentation,
+> not a new electrical hypothesis; same observability-first lesson the project already paid
+> for (buy a channel before bisecting blind — we HAVE the channel, just weren't probing with
+> it). Encode ONE predicate per flash (beacon = 1 bit; don't multiplex fragilely). S7B
+> descriptor/composition stays downstream until a candidate electrically enumerates. Full
+> analysis: `docs/reports/S22PLUS_M34_S8_BEACON_PROBE_PIVOT_STOP_BLIND_FLASHING_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 08:36 KST / 2026-07-08 23:36 UTC) — M34 S7A2 LIVE CONSUMED; SURVIVED 90 S; GENI I2C + ROLE-WRITE NOT SUFFICIENT; NO USB; MANUAL RDX/DOWNLOAD ROLLBACK CLEAN; NO ACTIVE LIVE AUTH.**
 > The approved M34 S7A2 GENI I2C runtime-gadget live gate ran once using
 > `workspace/public/src/scripts/revalidation/s22plus_m34_s7a2_geni_i2c_live_gate.py`.
