@@ -4,6 +4,39 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 06:02 KST / 2026-07-08 21:02 UTC) — M34 S5 SOFT-CONNECT LIVE-GATE HELPER READY; DEFAULT FAIL-CLOSED; NO ACTIVE LIVE AUTH.**
+> Codex added the guarded S5 helper
+> `workspace/public/src/scripts/revalidation/s22plus_m34_s5_soft_connect_live_gate.py`
+> and tests `tests/test_s22plus_m34_s5_soft_connect_live_gate.py`. The helper
+> pins S5 AP.tar.md5 SHA256
+> `3a63dc339577d4aaf550159743b81edd9c1318ef5c6c4b745ed363f171d30d5e`,
+> padded `boot.img` SHA256
+> `09751f5fce9f25be3ce7b814f00c04cafd22ae9a96d8c69ab9d52b6274951a95`,
+> direct `/init` SHA256
+> `efecaf1842aff95907b2f2780dc12531b0980acff6cbe64f789e9ad4b6c3c55c`,
+> template source SHA256
+> `bf90fbadbaf72bb9287150d769104b97ec8faaae0ce1c0591aaafdeb88004fb8`,
+> module-list SHA256
+> `2291dc1c72add131c42d0b4ed6649880c20316d0598e0a2af942cc774949062c`,
+> preserved kernel SHA256
+> `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`,
+> and known-booting Magisk base boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+>
+> Validation passed: helper `py_compile`, S5 helper unit tests (8),
+> `--offline-check`, and default fail-closed before Android/flash actions
+> because `AGENTS.md` has no S5 authorization. The helper verifies S5's
+> `soft_connect=connect` and
+> `/sys/class/udc/a600000.dwc3/soft_connect` contract, no descriptor or
+> companion-function change, enhanced host USB observation, boot-only single
+> member AP, rollback AP pins, no reboot syscall, no Android/Magisk handoff, no
+> persistent mount, no block write, and no module-binary injection.
+>
+> The operator has given in-thread live pre-approval, but the live action still
+> requires a fresh SHA-pinned active `AGENTS.md` exception followed by a passing
+> dry-run. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S5_SOFT_CONNECT_LIVE_GATE_READY_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 05:58 KST / 2026-07-08 20:58 UTC) — M34 S5 SOFT-CONNECT HOST BUILD PASS; NEXT S5 LIVE-GATE HELPER; NO ACTIVE LIVE AUTH.**
 > Codex extended the M34 runtime-gadget split to v0.4 with a new S5 stage. S5
 > keeps S4's stock-kernel `ssusb/speed=high-speed` +
