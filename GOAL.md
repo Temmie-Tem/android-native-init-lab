@@ -4,6 +4,31 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 02:01 KST / 2026-07-08 17:01 UTC) — M32 LIVE GATE PREFLIGHT PASS; OPERATOR LIVE APPROVED; ONE-SHOT POLICY ACTIVE.**
+> Operator approved live. Codex added the guarded M32 live helper
+> `workspace/public/src/scripts/revalidation/s22plus_m32_wdt_hs_acm_live_gate.py`
+> and a narrow SHA-pinned `AGENTS.md` exception for exactly one S22+ M32
+> watchdog-managed HS ACM boot-only live gate. Live token:
+> `S22PLUS-M32-WDT-HS-ACM-LIVE-GATE`; rollback-from-Download token:
+> `S22PLUS-M32-WDT-HS-ACM-ROLLBACK-FROM-DOWNLOAD`. The helper pins candidate
+> AP `b2dee88862cbbfa8e9da799978c10134a07f41e4d144c23b2db1d0b8e00adbd4`,
+> boot `8001809f9f0d7b2d6615bdec97843680a0c20721d679dde74a76bbe6d95bb9ca`,
+> `/init` `0595a0e932fa0ca7240192e2438d134ca8e4338a48e68a17edb8d9b023dc8f77`,
+> and module list
+> `2291dc1c72add131c42d0b4ed6649880c20316d0598e0a2af942cc774949062c`.
+> Validation passed: helper `py_compile`, M32 live/build unit tests (10),
+> `--offline-check`, and default dry-run. Dry-run verified
+> `agents_exception_missing=[]`, Android `SM-S906N/g0q/S906NKSS7FYG8`,
+> vbstate orange, boot complete, Magisk root, four increasing-uptime samples,
+> current boot hash
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, and no
+> baseline M32 ACM endpoint. Current `/dev/ttyACM0` is Android
+> `04e8:6860`/`SAMSUNG_Android`, not M32. Next immediate command, if still
+> proceeding, is the approved live run:
+> `PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m32_wdt_hs_acm_live_gate.py --live --ack S22PLUS-M32-WDT-HS-ACM-LIVE-GATE`.
+> Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M32_WDT_HS_ACM_LIVE_GATE_PREFLIGHT_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 01:53 KST / 2026-07-08 16:53 UTC) — M32 WATCHDOG-MANAGED HS ACM HOST BUILD PASS; NO ACTIVE LIVE AUTH.**
 > Codex built the first post-M31B observable-transport candidate as a host-only
 > artifact. M32 keeps the watchdog-managed closure that survived the prior 120 s
