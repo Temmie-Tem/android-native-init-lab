@@ -4,6 +4,33 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 01:53 KST / 2026-07-08 16:53 UTC) — M32 WATCHDOG-MANAGED HS ACM HOST BUILD PASS; NO ACTIVE LIVE AUTH.**
+> Codex built the first post-M31B observable-transport candidate as a host-only
+> artifact. M32 keeps the watchdog-managed closure that survived the prior 120 s
+> M31B park window, adds the dependency-complete HS-only USB/ACM closure, keeps
+> `phy-msm-ssusb-qmp.ko` and EUD excluded, and parks without a Download beacon.
+> Private output:
+> `workspace/private/outputs/s22plus_native_init/m32_wdt_hs_acm_v0_1`.
+> Candidate `AP.tar.md5` SHA256 is
+> `b2dee88862cbbfa8e9da799978c10134a07f41e4d144c23b2db1d0b8e00adbd4`;
+> contained `boot.img` SHA256 is
+> `8001809f9f0d7b2d6615bdec97843680a0c20721d679dde74a76bbe6d95bb9ca`;
+> generated `/init` SHA256 is
+> `0595a0e932fa0ca7240192e2438d134ca8e4338a48e68a17edb8d9b023dc8f77`;
+> module-list SHA256 is
+> `2291dc1c72add131c42d0b4ed6649880c20316d0598e0a2af942cc774949062c`.
+> Static validation passed: `py_compile`, builder `--force`, M32 unit tests
+> (5), and adjacent M31B/M28 regression tests (10). The manifest records
+> `boot_only=true`, `host_only_build=true`, `live_flash_authorized=false`,
+> `requires_new_sha_pinned_agents_exception_before_flash=true`,
+> `auto_reboot=false`, `intended_reboot_syscall=false`,
+> `reboot_request=null`, `acm=true`, `watchdog_managed=true`, and AP tar member
+> list `["boot.img.lz4"]`. There is still **no active live authorization**:
+> a future live run needs a fresh M32-only SHA-pinned boot-only `AGENTS.md`
+> exception plus a fail-closed helper that verifies these hashes and treats
+> manual Download only as rollback recovery. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M32_WDT_HS_ACM_HOST_BUILD_2026-07-09.md`.
+
 > **OPERATOR STEER (2026-07-09, Claude) — PRIMARY DIRECTION: THE WALL IS A PMIC/PON WATCHDOG RESET ON A NON-PROGRESSING BARE PID1. STOP STARVING THE WATCHDOG — LOAD/PET IT (M31).**
 > The M30/M21A photo settled it. M21A is a raw PID1 with **ZERO modules** that
 > only `nanosleep(90s) -> reboot(download)`; it did NOT reach Download and the
