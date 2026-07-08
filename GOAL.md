@@ -31,19 +31,34 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **Bonus:** `sec_debug`+`minidump` are exactly the crash-capture registrars, so
 > loading them may re-open the `reset_summary`/`minidump` observability that was
 > empty before (it was empty partly because these were never loaded).
-> **Active unit = M29 host-only design / fresh gate selection:** the M28 policy was
-> consumed by the S24 live run. The helper is
-> `workspace/public/src/scripts/revalidation/s22plus_m28_dep_complete_live_gate.py`
-> SHA256 `83521d521c55ceda8c860a940f8eb334e66638561b785231c5a5b007ad791d3b`
-> and the S24 run flashed/rolled back cleanly, but the operator reported
-> bootloop plus manual Download, so the observed Odin endpoint is contaminated
-> and not clean self-download proof. Host-only retained-log postmortem is now
-> complete: the retained `/proc/last_kmsg` is the later Magisk-rollback Android
-> boot plus helper-driven `reboot,download`, not a usable direct `S24` failure
-> log. F43 is not authorized. Next step is a fresh, narrower M29 design that
-> improves candidate-owned evidence before broad module loading. Do NOT continue
-> the P01…P08 blind narrow, do NOT run F43, and do NOT re-add configfs/ACM/UDC
-> or chase the DTBO
+> **M28 RE-OPENED OBSERVABILITY — the fix is collection TIMING, not more markers.**
+> Adding `sec_debug`+`minidump` worked as predicted: the S24 run captured a full
+> **2,097,136-byte `last_kmsg`** for the first time in this saga (earlier M-runs
+> were empty) → Samsung's retained-log channel is ALIVE. The S24 run was still
+> not-clean (operator bootloop + manual Download), and the captured blob is the
+> Android **rollback** boot (host check: 1320 Android signatures vs 3 incidental
+> native ones), NOT the S24 candidate — because `/proc/last_kmsg` holds only the
+> immediately-previous boot and the helper read it after BOTH rollback boots.
+> S24's log lived in `last_kmsg` at `S24_rollback_boot_ready` (the FIRST Android
+> boot after the candidate reset, 14:34:01) and was overwritten by the second
+> (stock-DTBO) rollback boot before the read. This is now a fixable collection
+> ORDER bug, not a dead channel.
+> **Active unit = M29 (host-only helper change, then one fresh gate):** capture at
+> the FIRST post-candidate boot. At `S24/F43_rollback_boot_ready`, BEFORE the
+> stock-DTBO rollback, immediately read+pull `/proc/last_kmsg` (now == the
+> candidate's kernel log) AND Samsung `sec_qc_user_reset` surfaces
+> (`/proc/reset_summary`, `reset_klog`, `reset_history`, `reset_tzlog`) — with
+> `sec_debug` now loaded IN the candidate, a watchdog bite may populate per-core
+> last-PC / faulting-module there. This is a collection-order change on the
+> EXISTING dependency-complete artifacts (keep S24/F43, DTBO high-speed cap, QMP
+> exclusion) — NO candidate rebuild, NO marker re-architecture yet. **Decision:**
+> if first-boot `last_kmsg`/`reset_summary` shows the S24 fault (a faulting PC /
+> the module active at bite / the last native line) ⇒ the observability wall is
+> DOWN — localize the biting step and fix its missing supply/clock. If first-boot
+> capture is STILL empty ⇒ only then do the loop's marker hypotheses (init never
+> ran / kmsg not retained / faulted pre-first-line) matter → durable
+> candidate-owned marker path becomes M30. Do NOT run F43 blindly, do NOT continue
+> the P01…P08 blind narrow, and do NOT re-add configfs/ACM/UDC or chase the DTBO
 > ssphy-phandle until 1–24 survives (both are downstream of this).
 > **Corrected mental model (still holds):** M25 did NOT bootloop — direct log
 > read (`...122411Z`) shows ~29 s dead-steady park then a single ~30.3 s watchdog
@@ -51,7 +66,8 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > M26 `P00` HIT / `P24` NO-HIT localizes the fault to modules 1–24, upstream of
 > USB. M27 `P08` is contaminated (operator manual-download during a bootloop),
 > consistent with the closure being broken at module #1.
-> Reports: `S22PLUS_MODULE_CLOSURE_DEP_INCOMPLETE_STOCK_MODULES_DEP_2026-07-08.md`
+> Reports: `S22PLUS_M29_CAPTURE_AT_FIRST_ROLLBACK_BOOT_STEER_2026-07-08.md` (M29 primary),
+> `S22PLUS_MODULE_CLOSURE_DEP_INCOMPLETE_STOCK_MODULES_DEP_2026-07-08.md`
 > (primary), `S22PLUS_M25_NO_ACM_POSTMORTEM_2026-07-08.md`,
 > `S22PLUS_NATIVE_INIT_M26_HS_PREFIX_DOWNLOAD_LIVE_RESULT_2026-07-08.md`,
 > `S22PLUS_NATIVE_INIT_M27_HS_PREFIX_NARROW_LIVE_RESULT_2026-07-08.md`,
