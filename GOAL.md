@@ -4,6 +4,31 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 02:05 KST / 2026-07-08 17:05 UTC) — M32 LIVE CONSUMED; NO ACM; UNEXPECTED DOWNLOAD AT ~35.6 S; ROLLBACK CLEAN; NO ACTIVE LIVE AUTH.**
+> The approved M32 watchdog-managed HS ACM live gate ran once under commit
+> `783f4e9c`. Candidate AP
+> `b2dee88862cbbfa8e9da799978c10134a07f41e4d144c23b2db1d0b8e00adbd4`
+> flashed boot-only and left the original Download endpoint. During observation,
+> no M32 ACM endpoint appeared (`m32_transport_observe_001..008_acm_devices=[]`).
+> The operator reported bootloop, and the host observed an unexpected
+> Odin/Download endpoint at elapsed `35.629 s`:
+> `m32_result=unexpected_odin_before_window device=/dev/bus/usb/002/055`.
+> The helper immediately rolled back with the pinned Magisk boot-only AP
+> `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`.
+> Final baseline is clean: Android `sys.boot_completed=1`, bootanim stopped,
+> vbstate orange, Magisk root OK, boot partition SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+> Retained evidence had no M32 marker: pstore empty, `/proc/last_kmsg` readable
+> at 2,097,136 bytes, marker absent. `AGENTS.md` now marks the M32 one-shot
+> exception consumed/retired and omits the live tokens as active authorization;
+> default helper execution must fail closed. Current inference: watchdog closure
+> survives, but adding the dependency-complete HS ACM stack without QMP/EUD still
+> does not produce ACM and returns to Download/loop around the old ~30-35 s wall.
+> Next host-only work should diff M32 against M31B and split the added closure
+> into smaller watchdog-managed prefixes, or design a lower-risk link-only
+> transport that does not replay the full HS ACM provider stack. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M32_WDT_HS_ACM_LIVE_RESULT_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 02:01 KST / 2026-07-08 17:01 UTC) — M32 LIVE GATE PREFLIGHT PASS; OPERATOR LIVE APPROVED; ONE-SHOT POLICY ACTIVE.**
 > Operator approved live. Codex added the guarded M32 live helper
 > `workspace/public/src/scripts/revalidation/s22plus_m32_wdt_hs_acm_live_gate.py`

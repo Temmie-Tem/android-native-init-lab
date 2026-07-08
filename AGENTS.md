@@ -2752,30 +2752,26 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
    with stock boot-only fallback SHA256
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
-   **Narrow operator-authorized exception (2026-07-09, S22+ M32
-   watchdog-managed HS ACM native-init boot-only live gate):** after the M31B
-   watchdog-managed park run survived the 120 second PMIC/PON window, and after
-   the M32 host-only build produced a boot-only observable-transport candidate,
-   Codex may perform one bounded attended S22+ M32 watchdog-managed HS ACM
-   native-init boot-only live gate on the same Samsung S22+ `SM-S906N`/`g0q`
-   `S906NKSS7FYG8` using only the checked helper
+   **Consumed exception (2026-07-09, S22+ M32 watchdog-managed HS ACM
+   native-init boot-only live gate):** this one-shot exception was consumed by
+   the 2026-07-09 KST live run. It flashed the pinned M32 boot-only candidate
+   once on the Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the
+   checked helper
    `workspace/public/src/scripts/revalidation/s22plus_m32_wdt_hs_acm_live_gate.py`.
-   Live mode requires ack token `S22PLUS-M32-WDT-HS-ACM-LIVE-GATE`; rollback-only
-   from manual Download mode requires ack token
-   `S22PLUS-M32-WDT-HS-ACM-ROLLBACK-FROM-DOWNLOAD`. The exact candidate
-   AP.tar.md5 SHA256 must be
+   The consumed live and rollback ack token strings are intentionally omitted
+   here as active authorization. The candidate AP.tar.md5 SHA256 was
    `b2dee88862cbbfa8e9da799978c10134a07f41e4d144c23b2db1d0b8e00adbd4`;
-   contained padded `boot.img` SHA256 must be
+   contained padded `boot.img` SHA256 was
    `8001809f9f0d7b2d6615bdec97843680a0c20721d679dde74a76bbe6d95bb9ca`;
-   direct `/init` SHA256 must be
+   direct `/init` SHA256 was
    `0595a0e932fa0ca7240192e2438d134ca8e4338a48e68a17edb8d9b023dc8f77`;
-   module-list SHA256 must be
+   module-list SHA256 was
    `2291dc1c72add131c42d0b4ed6649880c20316d0598e0a2af942cc774949062c`;
-   generated source SHA256 must be
+   generated source SHA256 was
    `ad1b94c144faa3ba3dd232110a07a7680ce5aa7c796061158e0cd75c3edd37b2`;
-   preserved kernel SHA256 must be
+   preserved kernel SHA256 was
    `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`; and
-   base Magisk boot SHA256 must be
+   base Magisk boot SHA256 was
    `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. The AP
    marker string is `S22_NATIVE_INIT_USB_ACM_M32_WDT_HS`, and its runtime status
    marker must include `role_force=device`. The AP
@@ -2816,11 +2812,16 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`, with
    pinned stock boot-only fallback SHA256
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e` if
-   Magisk rollback transfer fails and Download mode remains available. This
-   exception does not authorize repeat M31B, M30/M21A, M28/M29/S24, F43, RDX PC
-   dump retrieval, EUD writes, kernel rebuilds, recovery/vendor_boot/dtbo/
-   vbmeta/non-boot flashes, or any second M32 run after this one-shot live gate
-   is consumed.
+   Magisk rollback transfer fails and Download mode remains available. Live
+   result: ACM never appeared; the operator reported bootloop; the host observed
+   unexpected Odin/Download endpoint return at ~35.6 s, then the helper rolled
+   back with the pinned Magisk boot-only AP. Final baseline was verified:
+   Android boot complete, vbstate orange, Magisk root present, and boot
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. This
+   exception must not be reused and does not authorize repeat M32, repeat M31B,
+   M30/M21A, M28/M29/S24, F43, RDX PC dump retrieval, EUD writes, kernel
+   rebuilds, recovery/vendor_boot/dtbo/vbmeta/non-boot flashes, or any A90
+   action.
    **Consumed exception (2026-07-09, S22+ M31B watchdog-managed park
    native-init boot-only live gate):** this one-shot exception was consumed by
    the 2026-07-09 KST live run. It flashed the pinned M31B boot-only candidate
