@@ -4,33 +4,48 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **OPERATOR STEER (2026-07-08, Claude) — PRIMARY DIRECTION: STOP BISECTING; COPY THE STOCK RECIPE. THE CLOSURE IS DEPENDENCY-INCOMPLETE (rebuild it dependency-complete, M28).**
-> The firmware already contains the correct USB bring-up recipe. The FYG8
-> vendor_boot ramdisk `modules.load` (140-module stock order) + `modules.dep`
-> (depmod hard symbol graph) are the authoritative design, and they prove why
-> M25/M26/M27 all die in modules 1–24. **The M25/M26/M27 40-module closure is
-> dependency-INCOMPLETE:** the builder computes "`modules.dep` closure MINUS a
-> reset/anomaly blocklist" and *actively cuts dependency edges into the
-> blocklist* (it even records them as `blocked_dependency_edges`). The cut edges
-> are hard suppliers of the core substrate — a completeness check shows:
-> `clk-rpmh`(#1, RPMh clock-tree ROOT), `icc-rpmh`(#3), `qcom_ipc_logging`(#4),
-> `rpmh-regulator`(#5), `icc-bcm-voter`(#11), `qnoc-waipio`(#14), `qcom_rpmh`(#18),
-> `socinfo`(#24) all declare **`minidump.ko` + `sec_debug.ko`** as deps, and the
-> USB tail (`phy-msm-snps-hs`, `dwc3-msm`, `usb_typec_manager`…) declares
-> **`abc.ko`** — **all three are blocklisted/omitted.** So the very FIRST module
-> `clk-rpmh` can't resolve symbols → the whole clock/regulator substrate never
-> comes up → every non-empty prefix (P08…P24) dies for the same reason. Blind
-> prefix bisection just re-measures this on attended flashes; the stock files
-> hand us the answer for free.
-> **The fix is surgical and firmware-mandated: add exactly 3 modules, keep the
-> watchdog excluded.** `sec_debug.ko` (no deps) + `minidump.ko` (needs only
-> `smem`, already present) + `abc.ko` (needs only `sec_class`, already present).
-> The pet-or-bite watchdog `qcom_wdt_core.ko`/`gh_virt_wdt.ko` is NOT a dep of any
-> substrate module (only `max77705_charger`/`mhi*`/`dhd`/`sec_qc_*` need it, none
-> in our set) → adding the 3 does NOT reintroduce petting; fault-avoidance holds.
-> **Bonus:** `sec_debug`+`minidump` are exactly the crash-capture registrars, so
-> loading them may re-open the `reset_summary`/`minidump` observability that was
-> empty before (it was empty partly because these were never loaded).
+> **OPERATOR STEER (2026-07-09, Claude) — PRIMARY DIRECTION: THE WALL IS A PMIC/PON WATCHDOG RESET ON A NON-PROGRESSING BARE PID1. STOP STARVING THE WATCHDOG — LOAD/PET IT (M31).**
+> The M30/M21A photo settled it. M21A is a raw PID1 with **ZERO modules** that
+> only `nanosleep(90s) -> reboot(download)`; it did NOT reach Download and the
+> operator photographed an **RDX `PMIC abnormal reset`**. Decisive contrast:
+> `P00` (0 modules, reboots ~immediately) HIT Download; `M21A` (0 modules, sleeps
+> 90 s first) → PMIC abnormal reset. Same harness, only dwell differs ⇒ **the
+> reset fires during the dwell at a ~30 s timeout, independent of any module.**
+> This kills the prior frames: NOT "fault in modules 1–24" (0 modules resets),
+> NOT the msm software watchdog `qcom_wdt_core` we blocklisted (absent in M21A),
+> NOT "regulator brownout" (no regulator in M21A — RETRACTED). It matches every
+> old shape (M25 park ~29 s then single reset ~30.3 s; M28/S24 park-then-reset) —
+> all the SAME PON/watchdog ceiling, not distinct module bugs. The observable was
+> on the RDX screen the whole time (`PMIC abnormal reset`), never in `last_kmsg`
+> (a PON hard reset + RDX inserts an extra boot that clears it — which is why M29
+> first-rollback capture ALSO returned an Android boot, not S24).
+> **`PMIC abnormal reset` is a bootloader PON classification** (the string is NOT
+> in the S22+ kernel source — grep-confirmed; XBL/ABL reads the PMIC PON reason
+> and labels a non-clean warm reset "abnormal"). **Leading mechanism (confirm in
+> M31):** the APSS hardware watchdog is **armed by XBL** before the kernel; stock
+> `modules.load` loads `gh_virt_wdt`(#5)+`qcom_wdt_core`(#6) to MANAGE it (Qualcomm
+> `msm_watchdog_v2` pets from a KERNEL timer, no userspace needed). Every candidate
+> since M13 **blocklisted** those — which is likely BACKWARDS: the watchdog is
+> armed in hardware regardless; blocklisting the driver leaves it un-managed → it
+> bites at ~30 s → PON "abnormal". **The fix is probably to LOAD the watchdog, not
+> exclude it.**
+> **Active unit = M31 (host-only research + one decisive test):** (1) host-only
+> confirm the S22+ watchdog pet model — kernel-timer auto-pet (survives a sleeping
+> PID1) vs userspace `/dev/watchdog` keepalive — via mainline `msm_watchdog_v2`
+> reference + FYG8 DTB `bark_time`/`pet_time`, and check for a cmdline/PON disable
+> path. (2) Decisive live test under a fresh SHA-pinned boot-only exception: a
+> minimal candidate that **LOADS `gh_virt_wdt`+`qcom_wdt_core`** (plus only their
+> own deps) and PARKS (no reboot beacon). Survives past ~60–120 s with no PMIC
+> reset ⇒ ceiling removed, USB-ACM bring-up (needs the device to stay alive)
+> becomes reachable. Still resets ⇒ fall back to explicit `/dev/watchdog` petting
+> from init, or a cmdline/PON disable. Do NOT run F43, do NOT re-add configfs/ACM
+> or chase the DTBO ssphy-phandle until the dwell ceiling is gone.
+> Report: `S22PLUS_PMIC_PON_ABNORMAL_RESET_IS_THE_WALL_2026-07-09.md` (primary).
+> **Prior dependency-complete work still holds as substrate hygiene** (the M28
+> `modules.dep`-complete closure + load order are correct and reusable) — but its
+> "keep the watchdog EXCLUDED, fault-avoidance holds" conclusion is now INVERTED:
+> the watchdog must be LOADED/managed, not starved. `sec_debug`+`minidump` stay
+> in as dep-complete suppliers (and as crash-capture registrars).
 > **M29 LIVE CONSUMED — first-rollback timing did NOT recover candidate evidence.**
 > M28 did re-open Samsung retained-log capture (full 2,097,136-byte
 > `/proc/last_kmsg`), but M29 showed the cheap collection-timing explanation is
