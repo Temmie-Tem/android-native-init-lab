@@ -4,6 +4,39 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **OPERATOR STEER (2026-07-09, Claude) — CORRECTED DIRECTION (M34): THE WALL IS RUNTIME GADGET BRING-UP, NOT MODULES. ISOLATE THE configfs STEP.**
+> Host USB analysis + the P12/P27/P28 results converge:
+> - **Lower substrate is fully aligned.** Every USB `supply`/`clock`/`interconnect`/
+>   `power-domain` DT phandle resolves to a provider already in the M28
+>   dependency-complete set: USB PHY rails are RPMh VRM LDOs (pm8350 L1/L2/L5 +
+>   pm8350c L1) via `rpmh-regulator` (NOT `max77705`), `USB3_GDSC` via
+>   `gdsc-regulator`, clocks via `gcc-waipio`+`clk-rpmh`, interconnect via
+>   `qnoc-waipio`+`icc-bcm-voter`, SMMU/SCM present. Nothing lower is missing.
+> - **Modules are NOT the wall.** M33 `P28` = the full **44-module dependency-
+>   ordered** USB set (incl. `dwc3-msm` and the whole Samsung TypeC/PD/MUIC tree)
+>   and it **parked 90 s with no reset**. So `dwc3-msm` does NOT hard-hang on the
+>   SS phy at probe, and the TypeC/PD tree does NOT hang at load. My earlier
+>   `ssphy`-phandle-sever and "TypeC tree hangs" hypotheses are **demoted**.
+> - **The ~35 s hang is the RUNTIME gadget bring-up.** `diff` shows M32 (hangs) =
+>   `P28` (survives) **+ `usb_f_ss_acm.ko` + the configfs ACM sequence**. So the
+>   culprit is one of: insmod `usb_f_ss_acm`, create configfs gadget/function,
+>   force `usb_role=device`, or write `UDC=a600000.dwc3` (pullup). Most likely
+>   **UDC pullup**, where dwc3 starts the connect/PHY/role sequence.
+> **M34 = isolate the runtime step, not the modules.** From the proven 44-module
+> park floor, walk the gadget sequence incrementally with a dwell/marker between
+> each: (a) insmod `usb_f_ss_acm` + park [loop's P30 already does this — good];
+> (b) create configfs gadget/function/config, NO UDC, + park; (c) force
+> `usb_role=device` + park; (d) write `UDC` (pullup) + park. The first step that
+> resets is the culprit. **Do NOT** build the DTBO `ssphy`-phandle overlay yet:
+> it re-enters ONLY if **(d) UDC pullup** is the hang (dwc3 connecting on the dead
+> SS phy / arbitrating `otg` role without the PD stack) — and even then try dwc3
+> **sysfs** first (`maximum_speed`, `mode`, `usb_role`) before DT surgery (the
+> DTBO is a fixup-based overlay, so severing a phandle needs a real FDT tool, not
+> the M25 byte-patcher). Watch items: verify `USB3_GDSC` actually enables; keep
+> the `usb-ipa` path out (ACM does not need IPA).
+> Report: `S22PLUS_USB_SUBSYSTEM_HOST_ANALYSIS_2026-07-09.md` (full who-needs-what
+> map + lower-substrate + DTBO-mechanics + this correction).
+
 > **S22+ CURRENT FRONTIER (2026-07-09 03:28 KST / 2026-07-08 18:28 UTC) — M33 P30 SELECTED; READINESS PASS; P40 SUBSUMED BY SAME MODULE CLOSURE; NO ACTIVE LIVE AUTH.**
 > After M33 P28 survived, Codex selected P30 as the next high-information gate:
 > it adds `usb_f_ss_acm.ko` while still doing no runtime configfs/ACM binding.
