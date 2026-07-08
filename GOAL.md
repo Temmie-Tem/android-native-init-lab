@@ -106,14 +106,19 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > contained `boot.img` SHA256 is
 > `206fbb40df69a496f7fbe67e32cf862049d9258ef518db6949e1b5db2f4afdc4`.
 > No M31B live flash is authorized until a fail-closed helper, fresh boot-only
-> exception, dry-run, and rollback gate are committed.
+> exception, dry-run, and rollback gate are committed. The fail-closed helper is
+> now implemented and offline-checks the exact artifacts; default dry-run
+> correctly fails closed on the missing M31B `AGENTS.md` exception. No M31B live
+> flash is authorized yet.
 > **Corrected mental model (still holds):** M25 did NOT bootloop — direct log
 > read (`...122411Z`) shows ~29 s dead-steady park then a single ~30.3 s watchdog
 > bite (not a loop); excluding `phy-msm-ssusb-qmp` DID kill the fast M15 QMP loop.
 > M26 `P00` HIT / `P24` NO-HIT localizes the fault to modules 1–24, upstream of
 > USB. M27 `P08` is contaminated (operator manual-download during a bootloop),
 > consistent with the closure being broken at module #1.
-> Reports: `S22PLUS_NATIVE_INIT_M31B_WDT_MANAGED_PARK_HOST_BUILD_2026-07-09.md` (current primary),
+> Reports: `S22PLUS_NATIVE_INIT_M31B_WDT_MANAGED_PARK_LIVE_GATE_PREFLIGHT_2026-07-09.md` (current primary),
+> `S22PLUS_NATIVE_INIT_M31B_WDT_MANAGED_PARK_LIVE_GATE_SOURCE_2026-07-09.md`,
+> `S22PLUS_NATIVE_INIT_M31B_WDT_MANAGED_PARK_HOST_BUILD_2026-07-09.md`,
 > `S22PLUS_PMIC_PON_ABNORMAL_RESET_IS_THE_WALL_2026-07-09.md`,
 > `S22PLUS_NATIVE_INIT_M31_POST_M30_SHORT_DWELL_DESIGN_2026-07-09.md` (superseded),
 > `S22PLUS_NATIVE_INIT_M30_M21A_LIVE_RESULT_2026-07-09.md`,
@@ -133,6 +138,41 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_GATE_SOURCE_2026-07-08.md`,
 > `S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_GATE_2026-07-08.md`.
 > (Observation steers below are superseded/background; MID stays set, harmless.)
+
+> **S22+ CURRENT FRONTIER (2026-07-09 01:25 KST / 2026-07-08 16:25 UTC) — M31B POLICY ACTIVE; DEFAULT DRY-RUN PASS; LIVE NEXT IF PROCEEDING.**
+> Operator approved proceeding. Codex promoted a narrow M31B one-shot boot-only
+> `AGENTS.md` exception and reran the helper default dry-run. Result: PASS.
+> The helper verified exact candidate AP
+> `06d1c149c7c09a284062826f21ac848220e99d552d6b91762abbfb80f3679527`,
+> exact rollback APs, `agents_exception_missing=[]`, Android identity
+> `SM-S906N/g0q/S906NKSS7FYG8`, vbstate orange, boot completed, Magisk root,
+> four increasing-uptime stability samples, and current boot hash
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+> Dry-run saw no Odin device. No live flash/reboot/Odin transfer was performed
+> in the preflight. Live command is now gated by ack token
+> `S22PLUS-M31B-WDT-MANAGED-PARK-LIVE-GATE`; rollback-only recovery command is
+> gated by `S22PLUS-M31B-WDT-MANAGED-PARK-ROLLBACK-FROM-DOWNLOAD`. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M31B_WDT_MANAGED_PARK_LIVE_GATE_PREFLIGHT_2026-07-09.md`.
+
+> **S22+ CURRENT FRONTIER (2026-07-09 01:22 KST / 2026-07-08 16:22 UTC) — M31B LIVE-GATE HELPER READY; OFFLINE-CHECK PASS; DEFAULT DRY-RUN BLOCKED BY MISSING EXCEPTION; NO ACTIVE LIVE AUTH.**
+> Codex added the guarded helper
+> `workspace/public/src/scripts/revalidation/s22plus_m31b_wdt_managed_park_live_gate.py`
+> and unit tests. The helper pins the M31B AP
+> `06d1c149c7c09a284062826f21ac848220e99d552d6b91762abbfb80f3679527`,
+> boot.img `206fbb40df69a496f7fbe67e32cf862049d9258ef518db6949e1b5db2f4afdc4`,
+> init `b01e52d3762e3cbdcba3501b00bb1dc9f9084899550ea23b92df43884bed23d0`,
+> module-list `80da959311e4a0f6bedb40da3c6f74c7fd5918017e40e0787b3e17c153cfe937`,
+> and rollback APs. `--offline-check` verifies the candidate and rollback
+> artifacts with no device action. Default dry-run now fails closed before
+> Android preflight because `AGENTS.md` has no active M31B exception. Live
+> semantics are survival-based, not self-Download-based: the candidate must
+> remain parked past the observation window, and manual Download is rollback
+> recovery only. Validation passed: helper `py_compile`, combined M31B build/live
+> unit tests (8 tests), offline-check pass, default dry-run expected fail-closed.
+> Next unit, if supervised live is selected, is a fresh M31B-only SHA-pinned
+> boot-only `AGENTS.md` exception followed by default dry-run; no live flash is
+> currently authorized. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M31B_WDT_MANAGED_PARK_LIVE_GATE_SOURCE_2026-07-09.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-09 01:13 KST / 2026-07-08 16:13 UTC) — M31B WATCHDOG-MANAGED PARK HOST BUILD PASS; NO ACTIVE LIVE AUTH.**
 > Codex built the host-only M31B PMIC/PON watchdog-ceiling discriminator. Runtime

@@ -2752,6 +2752,57 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
    with stock boot-only fallback SHA256
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
+   **Narrow operator-authorized exception (2026-07-09, S22+ M31B
+   watchdog-managed park native-init boot-only live gate):** after the M30/M21A
+   RDX photo established `PMIC abnormal reset`, the M31B host-only build proved
+   an exact watchdog-managed park candidate, and the fail-closed helper
+   offline-check passed, Codex may perform one bounded attended boot-partition-
+   only live gate on the same Samsung S22+ `SM-S906N`/`g0q`
+   `S906NKSS7FYG8` using only
+   `workspace/public/src/scripts/revalidation/s22plus_m31b_wdt_managed_park_live_gate.py`
+   with live ack token `S22PLUS-M31B-WDT-MANAGED-PARK-LIVE-GATE` and rollback
+   ack token `S22PLUS-M31B-WDT-MANAGED-PARK-ROLLBACK-FROM-DOWNLOAD`. The exact
+   candidate AP.tar.md5 SHA256 must be
+   `06d1c149c7c09a284062826f21ac848220e99d552d6b91762abbfb80f3679527`, the
+   contained padded `boot.img` SHA256 must be
+   `206fbb40df69a496f7fbe67e32cf862049d9258ef518db6949e1b5db2f4afdc4`, the
+   direct `/init` SHA256 must be
+   `b01e52d3762e3cbdcba3501b00bb1dc9f9084899550ea23b92df43884bed23d0`, the
+   watchdog module-list SHA256 must be
+   `80da959311e4a0f6bedb40da3c6f74c7fd5918017e40e0787b3e17c153cfe937`, the
+   source SHA256 must be
+   `32d85b4aeb64e5e1615b175b93fde166795598bfa0614934a9dcfb1bb165230d`, the
+   preserved kernel SHA256 must be
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`, and
+   the base Magisk boot SHA256 must be
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. The AP
+   must contain exactly one tar member, `boot.img.lz4`, and must not carry
+   recovery, vendor_boot, dtbo, vbmeta, vbmeta_system, BL, CP, CSC, super,
+   persist, userdata, EFS, sec_efs, RPMB, keymaster, modem, bootloader, or any
+   other partition payload. Runtime intent is watchdog-managed park: it may
+   mount only minimal volatile `/proc`, `/sys`, `/dev`, and `/run`, emit bounded
+   kmsg marker/result lines, `finit_module()` only the stock watchdog dependency
+   closure `smem.ko`, `minidump.ko`, `qcom-scm.ko`, `qcom_wdt_core.ko`, and
+   `gh_virt_wdt.ko`, then park. It has no reboot syscall, no Download beacon,
+   no USB/configfs/ACM, no Android/Magisk handoff, no persistent partition
+   mount, and no block write. The kmsg marker is exactly
+   `S22_NATIVE_INIT_M31B_WDT_MANAGED_PARK`. The future live interpretation is
+   survival-based: the candidate survives past 60-120 seconds; `PMIC/RDX
+   abnormal reset before the observation window is FAIL`. manual Download
+   rollback is recovery-only, not self-Download proof, and should occur only after the
+   helper asks for it or if recovery is required after a no-proof stop. Before
+   live flash, the helper must pass default dry-run, proving Android/root
+   stability, current boot hash
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
+   exact candidate hashes, exact rollback hashes, and a single target transport.
+   Rollback must use the exact single-member Magisk boot-only AP.tar.md5 SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
+   with exact single-member stock boot-only AP.tar.md5 SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e` as
+   fallback. This exception does not authorize a second M31B run, M31A
+   short-dwell, M30/M21A repeat, M28/M29/S24 repeat, F43, USB/ACM bring-up,
+   DTBO/vendor_boot/recovery/vbmeta/non-boot flash, kernel rebuild, raw host
+   `dd`, fastboot, multidisabler, format data, EUD writes, or any A90 action.
    **Retired unconsumed exception (2026-07-08, S22+ M21A Odin path):** the
    M21A-specific Odin path that paired with the retired 2026-07-08 M21A live
    gate above is no longer active. It does not independently authorize an M21A
