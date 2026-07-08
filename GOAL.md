@@ -31,6 +31,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Report: `docs/reports/S22PLUS_M25_HS_ONLY_USB2_ACM_SIDESTEP_STEER_2026-07-08.md`.
 > (Observation steers below are now superseded/background; MID stays set, harmless.)
 
+> **S22+ CURRENT FRONTIER (2026-07-08 22:10 KST / 13:10 UTC) — M26 LIVE CONSUMED: P00 HIT, P24 NO-HIT; FINAL BASELINE CLEAN.**
+> M26 first-live batch was executed under consumed AGENTS exception `14f421fc`.
+> Result: DTBO high-speed cap applied and verified; `P00` reached checkpoint and
+> host saw later Odin self-download, proving the minimal M26 native-init runtime
+> can execute `reboot(download)` under the HS cap. After Magisk boot rollback,
+> `P24` was flashed and did not self-download within the bounded window, matching
+> the operator-observed loop/no-transport condition. Operator manually entered
+> Download; Codex ran rollback-from-download, reflashed Magisk boot and stock DTBO.
+> The helper ended with a false-negative final DTBO verify because plain
+> `sha256sum` returned no usable block-device output, but manual `toybox sha256sum`
+> verified final clean baseline: boot
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, dtbo
+> `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`,
+> vendor_boot `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`,
+> `boot_completed=1`, `bootanim=stopped`, vbstate `orange`, Magisk root present.
+> Shared partition hash verification now prefers `toybox sha256sum`. Next unit:
+> host-only M27 narrow prefix discriminator between `P00` and `P24` (for example
+> `P08/P12/P16/P20/P22/P23/P24`) under the same HS-cap context; do not repeat M26
+> or jump to P25+ without a fresh exception. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M26_HS_PREFIX_DOWNLOAD_LIVE_RESULT_2026-07-08.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-08 21:58 KST / 12:58 UTC) — M26 LIVE GATE READY; PRE-LIVE DRY-RUN PASS.**
 > Codex added the guarded M26 first-live batch helper
 > `workspace/public/src/scripts/revalidation/s22plus_m26_hs_prefix_download_live_gate.py`

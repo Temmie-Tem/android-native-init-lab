@@ -2009,12 +2009,30 @@ BL, CP, CSC, userdata, or any non-boot flash.
    rebuild, recovery/vendor_boot/vbmeta/non-boot/non-DTBO flash other than the
    exact pinned stock-DTBO/M25-DTBO APs above, raw host `dd`, fastboot,
    multidisabler, format data, or any A90 action.
-   **Narrow operator-authorized exception (2026-07-08, S22+ M26 HS
-   prefix-download native-init boot+DTBO batch):** after the M26 host build
-   produced a host-only prefix/download discriminator matrix and the operator
-   approved live progression, Codex may perform one bounded attended first-live
-   M26 batch on the same Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using
-   only the checked helper
+   **Consumed exception (2026-07-08, S22+ M26 HS prefix-download native-init
+   boot+DTBO batch):** this one-shot exception was consumed by the 2026-07-08
+   live run. It flashed the pinned M25 DTBO high-speed cap AP, ran M26 `P00`
+   and observed a later Odin endpoint proving P00 reached checkpoint
+   `reboot(download)`, rolled back boot to the pinned Magisk AP, then ran M26
+   `P24` and observed no self-download within the bounded window. The operator
+   manually entered Download mode, Codex flashed the pinned Magisk boot rollback
+   AP and stock DTBO rollback AP, and final Android/Magisk baseline hashes were
+   verified manually with `toybox sha256sum`: boot
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, dtbo
+   `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`, and
+   vendor_boot
+   `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`. The
+   helper's final stock-DTBO verify exited false-negative because plain
+   `sha256sum` produced no usable block-device output while `toybox sha256sum`
+   worked; the shared partition-hash helper was changed to prefer toybox. This
+   exception must not be reused for M26 repeat or additional prefixes. Future
+   S22+ native-init live flashes need a fresh, narrower exception for the
+   selected candidate and rollback path.
+   Before consumption, after the M26 host build produced a host-only
+   prefix/download discriminator matrix and the operator approved live
+   progression, Codex could perform one bounded attended first-live M26 batch
+   on the same Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the
+   checked helper
    `workspace/public/src/scripts/revalidation/s22plus_m26_hs_prefix_download_live_gate.py`
    with live ack token `S22PLUS-M26-HS-PREFIX-DOWNLOAD-LIVE-GATE`, rollback
    ack token `S22PLUS-M26-HS-PREFIX-ROLLBACK-FROM-DOWNLOAD`, and stock-DTBO

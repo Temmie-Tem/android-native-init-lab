@@ -97,6 +97,7 @@ class S22PlusM25HsOnlyUsb2AcmLiveGateTest(unittest.TestCase):
         self.assertEqual(len(commands), 1)
         self.assertIn("sha256sum /dev/block/by-name/boot", commands[0][0])
         self.assertIn("toybox sha256sum /dev/block/by-name/boot", commands[0][0])
+        self.assertLess(commands[0][0].find("toybox sha256sum"), commands[0][0].find("sha256sum /dev/block/by-name/boot"))
         self.assertNotIn("dd if=", commands[0][0])
         self.assertNotIn(" | sha256sum", commands[0][0])
 
