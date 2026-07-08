@@ -4,7 +4,7 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ CURRENT FRONTIER (2026-07-09 04:59 KST / 2026-07-08 19:59 UTC) — M34 S3 LIVE GATE READY; S2 CLOSED; NO ACTIVE LIVE AUTH.**
+> **S22+ CURRENT FRONTIER (2026-07-09 05:03 KST / 2026-07-08 20:03 UTC) — M34 S3 LIVE GATE AUTHORIZED; S2 CLOSED; LIVE NEXT.**
 > Codex prepared the guarded M34 S3 UDC-pullup runtime-gadget live gate helper:
 > `workspace/public/src/scripts/revalidation/s22plus_m34_s3_runtime_gadget_live_gate.py`.
 > It pins the v0.2 S3 AP SHA256
@@ -29,10 +29,11 @@ safety invariants and flash gates are binding and override any sub-goal.**
 >
 > Validation passed: helper `py_compile`; S3 unittest; helper `--offline-check`;
 > explicit fail-closed check without active `AGENTS.md` exception refused before
-> Android/flash actions with rc=1. The operator has approved live in-thread, but
-> approval alone is insufficient under `AGENTS.md`: M34 S3 still needs a fresh
-> SHA-pinned active one-shot exception committed before live. No S3/final
-> pullup live flash is authorized now. Report:
+> Android/flash actions with rc=1; after the operator approved live, the fresh
+> SHA-pinned active S3 one-shot exception was added to `AGENTS.md`; helper
+> dry-run then verified the active exception, Android stability, rollback APs,
+> and current Magisk boot hash. Next action: run the S3 live gate once, then
+> retire the exception and record the result. Report:
 > `docs/reports/S22PLUS_NATIVE_INIT_M34_S3_LIVE_GATE_READY_2026-07-09.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-09 04:48 KST / 2026-07-08 19:48 UTC) — M34 S2 LIVE CONSUMED; S2 SURVIVED 90 S; ROLLBACK CLEAN; NEXT S3 DESIGN/PREP; NO ACTIVE LIVE AUTH.**

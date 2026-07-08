@@ -2752,6 +2752,130 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
    with stock boot-only fallback SHA256
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
+   **Narrow operator-authorized exception (2026-07-09, S22+ M34 S3
+   UDC-pullup runtime-gadget boot-only live gate):** after M34 S2 survived the
+   90 second observation window and the operator approved live in-thread, Codex
+   may run one bounded attended boot-partition-only M34 S3 live gate on the
+   Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m34_s3_runtime_gadget_live_gate.py`.
+   Live ack token: `S22PLUS-M34-S3-UDC-PULLUP-LIVE-GATE`. Rollback ack token:
+   `S22PLUS-M34-S3-UDC-PULLUP-ROLLBACK-FROM-DOWNLOAD`.
+
+   The exact candidate AP.tar.md5 SHA256 must be
+   `0ef55db2d38bec3df83cb77cd83f8ee6644054447ae7da10f8ecaecc8faa2957`;
+   contained padded `boot.img` SHA256 must be
+   `87351f4955740aa4d83567406567c1ef4d6fcfa217d9ee5b0d7c446f2db09142`;
+   direct `/init` SHA256 must be
+   `2f391e50ff271b2dfe14dce31dbfdd0f0fb2b6d353ae89a2079acad5b46e668f`;
+   template source SHA256 must be
+   `ac20dcf724cf6864540d65958332d561d45409e7e85785a8c014882b37e29193`;
+   module-list SHA256 must be
+   `2291dc1c72add131c42d0b4ed6649880c20316d0598e0a2af942cc774949062c`;
+   preserved kernel SHA256 must be
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`; and
+   known-booting base Magisk boot SHA256 must be
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. The AP
+   must contain exactly one tar member, `boot.img.lz4`, and must not carry
+   recovery, vendor_boot, dtbo, vbmeta, vbmeta_system, BL, CP, CSC, super,
+   persist, userdata, EFS, sec_efs, RPMB, keymaster, modem, bootloader, or any
+   other partition payload.
+
+   The candidate is limited to freestanding direct PID1
+   `S22+ M34 S3 UDC-pullup runtime-gadget native-init boot-only` behavior:
+   stock-ordered configfs gadget/function/config, `UDC=none`, stock IDs
+   `0x04E8:0x6860`, `ss_acm.0 link`, `max_speed=high-speed`,
+   `usb_role=device`, final UDC bind, and `UDC=a600000.dwc3`. It must have no
+   reboot syscall, no Download beacon, no Android/Magisk handoff, no persistent
+   partition mount, no block write, no module binary injection into boot
+   ramdisk, no raw host `dd`, no fastboot, no Magisk modules, no multidisabler,
+   no format data, no DTBO/vendor_boot/recovery/vbmeta/non-boot flash, and no
+   A90 action. Manual Download rollback is recovery-only after the helper
+   requests it. Survival proof requires it survives past 60-90 seconds;
+   PMIC/RDX abnormal reset before the observation window is FAIL. The module
+   closure must keep `phy-msm-ssusb-qmp.ko intentionally excluded` and
+   `EUD excluded`. This exception does not authorize S1/S2 repeat, S3 repeat,
+   post-pullup command channels, DTBO surgery, M32 repeat, display/distro
+   candidates, kernel rebuilds, RDX PC dump retrieval, EUD writes, or any
+   non-boot partition action.
+
+   Required policy marker coverage:
+   `S22+ M34 S3 UDC-pullup runtime-gadget native-init boot-only`
+   `workspace/public/src/scripts/revalidation/s22plus_m34_s3_runtime_gadget_live_gate.py`
+   `S22PLUS-M34-S3-UDC-PULLUP-LIVE-GATE`
+   `S22PLUS-M34-S3-UDC-PULLUP-ROLLBACK-FROM-DOWNLOAD`
+   `SM-S906N/g0q/S906NKSS7FYG8`
+   `S3`
+   `S22_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT_S3`
+   `0ef55db2d38bec3df83cb77cd83f8ee6644054447ae7da10f8ecaecc8faa2957`
+   `87351f4955740aa4d83567406567c1ef4d6fcfa217d9ee5b0d7c446f2db09142`
+   `2f391e50ff271b2dfe14dce31dbfdd0f0fb2b6d353ae89a2079acad5b46e668f`
+   `2291dc1c72add131c42d0b4ed6649880c20316d0598e0a2af942cc774949062c`
+   `ac20dcf724cf6864540d65958332d561d45409e7e85785a8c014882b37e29193`
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`
+   `stock-ordered configfs gadget/function/config`
+   `UDC=none`
+   `0x04E8:0x6860`
+   `ss_acm.0 link`
+   `max_speed=high-speed`
+   `usb_role=device`
+   `final UDC bind`
+   `UDC=a600000.dwc3`
+   `no reboot syscall`
+   `no Download beacon`
+   `no Android/Magisk handoff`
+   `no persistent partition mount`
+   `no block write`
+   `manual Download rollback is recovery-only`
+   `survives past 60-90 seconds`
+   `PMIC/RDX abnormal reset before the observation window is FAIL`
+   `phy-msm-ssusb-qmp.ko intentionally excluded`
+   `EUD excluded`
+   `smem.ko`
+   `minidump.ko`
+   `sec_debug.ko`
+   `qcom_ipc_logging.ko`
+   `cmd-db.ko`
+   `qcom_rpmh.ko`
+   `clk-rpmh.ko`
+   `debug-regulator.ko`
+   `proxy-consumer.ko`
+   `gdsc-regulator.ko`
+   `clk-qcom.ko`
+   `clk-dummy.ko`
+   `gcc-waipio.ko`
+   `icc-bcm-voter.ko`
+   `icc-debug.ko`
+   `socinfo.ko`
+   `icc-rpmh.ko`
+   `rpmh-regulator.ko`
+   `qcom-scm.ko`
+   `qcom_wdt_core.ko`
+   `gh_virt_wdt.ko`
+   `iommu-logger.ko`
+   `qnoc-qos.ko`
+   `qnoc-waipio.ko`
+   `phy-generic.ko`
+   `qcom_iommu_util.ko`
+   `sec_class.ko`
+   `secure_buffer.ko`
+   `arm_smmu.ko`
+   `abc.ko`
+   `usb_notify_layer.ko`
+   `switch_class.ko`
+   `common_muic.ko`
+   `vbus_notifier.ko`
+   `pdic_notifier_module.ko`
+   `usb_typec_manager.ko`
+   `usb_f_ss_mon_gadget.ko`
+   `phy-msm-snps-hs.ko`
+   `repeater.ko`
+   `phy-msm-snps-eusb2.ko`
+   `redriver.ko`
+   `if_cb_manager.ko`
+   `qc_usb_audio.ko`
+   `dwc3-msm.ko`
+   `usb_f_ss_acm.ko`
    **Consumed exception (2026-07-09, S22+ M34 S2 pullup-knobs runtime-gadget
    native-init boot-only live gate):** this one-shot exception was consumed by
    the 2026-07-09 KST live run. It flashed the pinned M34 S2 boot-only
