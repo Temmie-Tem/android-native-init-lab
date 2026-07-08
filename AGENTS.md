@@ -2752,140 +2752,53 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
    with stock boot-only fallback SHA256
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
-   **Narrow operator-authorized exception (2026-07-09, S22+ M34 S4 ssusb
-   role-lever runtime-gadget boot-only live gate):** after the S4 helper was
-   prepared and the operator approved live in-thread on 2026-07-09 KST, Codex
-   may run one bounded attended boot-partition-only M34 S4 live gate on the
-   Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
+   **Consumed exception (2026-07-09, S22+ M34 S4 ssusb role-lever
+   runtime-gadget boot-only live gate):** this one-shot exception was consumed by
+   the 2026-07-09 KST live run. It flashed the pinned M34 S4 boot-only
+   candidate once on the Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using
+   only the checked helper
    `workspace/public/src/scripts/revalidation/s22plus_m34_s4_role_lever_live_gate.py`.
-   Live ack token: `S22PLUS-M34-S4-ROLE-LEVER-LIVE-GATE`. Rollback ack token:
-   `S22PLUS-M34-S4-ROLE-LEVER-ROLLBACK-FROM-DOWNLOAD`.
-
-   The exact candidate AP.tar.md5 SHA256 must be
-   `9d93eb5c3c4fec3c02c920b2c80435a76b7c161079d906940a3279fc77495cc9`;
-   contained padded `boot.img` SHA256 must be
+   The consumed live and rollback ack token strings are intentionally omitted
+   here as active authorization. The exact target was
+   `SM-S906N/g0q/S906NKSS7FYG8`; stage `S4`; AP marker
+   `S22_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT_S4`; exact candidate AP.tar.md5
+   SHA256 `9d93eb5c3c4fec3c02c920b2c80435a76b7c161079d906940a3279fc77495cc9`;
+   contained padded `boot.img` SHA256
    `153ceff9877351d55448de7839ec52f7631485c006a68971ca7ea14fc9dd11c5`;
-   direct `/init` SHA256 must be
+   direct `/init` SHA256
    `ee73a26d65649346e8cae830ee9bb229152d0a8001c2bc8fc48e536fdc08fb96`;
-   template source SHA256 must be
+   template source SHA256
    `51ec34f669f35f81a41411c82613ece65924c3a16b4bc5619e670e05b3231065`;
-   module-list SHA256 must be
+   module-list SHA256
    `2291dc1c72add131c42d0b4ed6649880c20316d0598e0a2af942cc774949062c`;
-   preserved kernel SHA256 must be
+   preserved kernel SHA256
    `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`;
-   and known-booting base Magisk boot SHA256 must be
-   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
-   The AP must contain exactly one tar member, `boot.img.lz4`, and must not
-   carry recovery, vendor_boot, dtbo, vbmeta, vbmeta_system, BL, CP, CSC,
-   super, persist, userdata, EFS, sec_efs, RPMB, keymaster, modem,
-   bootloader, or any other partition payload.
+   and base Magisk boot SHA256
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. The AP
+   contained exactly one tar member, `boot.img.lz4`, and did not carry recovery,
+   vendor_boot, dtbo, vbmeta, vbmeta_system, BL, CP, CSC, super, persist,
+   userdata, EFS, sec_efs, RPMB, keymaster, modem, bootloader, or any other
+   partition payload.
 
-   The candidate is limited to freestanding direct PID1 M34 S4 behavior:
-   stock-ordered configfs gadget/function/config, `UDC=none`, stock IDs
-   `0x04E8:0x6860`, `ss_acm.0 link`, `max_speed=high-speed`, no
-   `/sys/class/usb_role`, `ssusb/speed=high-speed`,
-   `ssusb/mode=peripheral`, final UDC bind, and `UDC=a600000.dwc3`.
-   It must have no reboot syscall, no Download beacon, no Android/Magisk
-   handoff, no persistent partition mount, no block write, no module binary
-   injection into boot ramdisk, no raw host `dd`, no fastboot, no Magisk
-   modules, no multidisabler, no format data, no DTBO/vendor_boot/recovery/
-   vbmeta/non-boot flash, and no A90 action. Manual Download rollback is
-   recovery-only after the helper requests it. Survival proof requires it
-   survives past 60-90 seconds; PMIC/RDX abnormal reset before the observation
-   window is FAIL. The helper must collect enhanced host USB observation
-   including `lsusb -d 04e8:6860 -v`, `usb-devices`, udev properties, and host
-   dmesg delta. The module closure must keep
-   `phy-msm-ssusb-qmp.ko intentionally excluded` and `EUD excluded`. This
-   exception does not authorize S1/S2/S3 repeat, S4 repeat, post-pullup command
-   channels, DTBO surgery, M32 repeat, display/distro candidates, kernel
-   rebuilds, RDX PC dump retrieval, EUD writes, or any non-boot partition
-   action.
-
-   Required policy marker coverage:
-   `S22+ M34 S4 ssusb role-lever runtime-gadget native-init boot-only`
-   `workspace/public/src/scripts/revalidation/s22plus_m34_s4_role_lever_live_gate.py`
-   `S22PLUS-M34-S4-ROLE-LEVER-LIVE-GATE`
-   `S22PLUS-M34-S4-ROLE-LEVER-ROLLBACK-FROM-DOWNLOAD`
-   `SM-S906N/g0q/S906NKSS7FYG8`
-   `S4`
-   `S22_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT_S4`
-   `9d93eb5c3c4fec3c02c920b2c80435a76b7c161079d906940a3279fc77495cc9`
-   `153ceff9877351d55448de7839ec52f7631485c006a68971ca7ea14fc9dd11c5`
-   `ee73a26d65649346e8cae830ee9bb229152d0a8001c2bc8fc48e536fdc08fb96`
-   `2291dc1c72add131c42d0b4ed6649880c20316d0598e0a2af942cc774949062c`
-   `51ec34f669f35f81a41411c82613ece65924c3a16b4bc5619e670e05b3231065`
-   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`
-   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`
-   `stock-ordered configfs gadget/function/config`
-   `UDC=none`
-   `0x04E8:0x6860`
-   `ss_acm.0 link`
-   `max_speed=high-speed`
-   `no /sys/class/usb_role`
-   `ssusb/speed=high-speed`
-   `ssusb/mode=peripheral`
-   `final UDC bind`
-   `UDC=a600000.dwc3`
-   `enhanced host USB observation`
-   `lsusb -d 04e8:6860 -v`
-   `usb-devices`
-   `udev properties`
-   `host dmesg delta`
-   `no reboot syscall`
-   `no Download beacon`
-   `no Android/Magisk handoff`
-   `no persistent partition mount`
-   `no block write`
-   `manual Download rollback is recovery-only`
-   `survives past 60-90 seconds`
-   `PMIC/RDX abnormal reset before the observation window is FAIL`
-   `phy-msm-ssusb-qmp.ko intentionally excluded`
-   `EUD excluded`
-   `smem.ko`
-   `minidump.ko`
-   `sec_debug.ko`
-   `qcom_ipc_logging.ko`
-   `cmd-db.ko`
-   `qcom_rpmh.ko`
-   `clk-rpmh.ko`
-   `debug-regulator.ko`
-   `proxy-consumer.ko`
-   `gdsc-regulator.ko`
-   `clk-qcom.ko`
-   `clk-dummy.ko`
-   `gcc-waipio.ko`
-   `icc-bcm-voter.ko`
-   `icc-debug.ko`
-   `socinfo.ko`
-   `icc-rpmh.ko`
-   `rpmh-regulator.ko`
-   `qcom-scm.ko`
-   `qcom_wdt_core.ko`
-   `gh_virt_wdt.ko`
-   `iommu-logger.ko`
-   `qnoc-qos.ko`
-   `qnoc-waipio.ko`
-   `phy-generic.ko`
-   `qcom_iommu_util.ko`
-   `sec_class.ko`
-   `secure_buffer.ko`
-   `arm_smmu.ko`
-   `abc.ko`
-   `usb_notify_layer.ko`
-   `switch_class.ko`
-   `common_muic.ko`
-   `vbus_notifier.ko`
-   `pdic_notifier_module.ko`
-   `usb_typec_manager.ko`
-   `usb_f_ss_mon_gadget.ko`
-   `phy-msm-snps-hs.ko`
-   `repeater.ko`
-   `phy-msm-snps-eusb2.ko`
-   `redriver.ko`
-   `if_cb_manager.ko`
-   `qc_usb_audio.ko`
-   `dwc3-msm.ko`
-   `usb_f_ss_acm.ko`
+   Live result: candidate flash succeeded, original Download endpoint
+   disconnected, S4 survived the full 90 second observation window, and across
+   17 enhanced host USB snapshots no Samsung `04e8:6860`, CDC ACM, `/dev/ttyACM*`,
+   ADB, or Odin endpoint appeared during the park window. The result is
+   `survived-observation-window-manual-download-required`: the stock-kernel
+   `ssusb/speed=high-speed` plus `ssusb/mode=peripheral` role lever is not the
+   reset boundary, but it also did not make the ACM endpoint enumerate. Manual
+   Download rollback was then performed through the checked helper, the pinned
+   Magisk boot-only rollback AP flashed successfully, Android returned with
+   `sys.boot_completed=1`, build/bootloader `S906NKSS7FYG8`, vbstate `orange`,
+   Magisk root present, and boot partition SHA256 restored to
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. Retained
+   evidence collection found empty pstore and readable `/proc/last_kmsg`
+   (2,097,136 bytes) but did not contain the M34 S4 marker. This exception must
+   not be reused for another S4 flash, S1/S2/S3 repeat, DTBO surgery, post-pullup
+   command channels, RDX PC dump retrieval, EUD writes, kernel rebuilds,
+   non-boot flash, raw host `dd`, fastboot, Magisk modules, format data, or any
+   A90 action. Future live work needs a fresh, narrower exception for the
+   selected next candidate and observation path.
 
    **Consumed exception (2026-07-09, S22+ M34 S3 UDC-pullup runtime-gadget
    native-init boot-only live gate):** this one-shot exception was consumed by

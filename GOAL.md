@@ -4,6 +4,42 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 05:49 KST / 2026-07-08 20:49 UTC) — M34 S4 LIVE CONSUMED; S4 SURVIVED 90 S; NO ACM; ROLLBACK CLEAN; NO ACTIVE LIVE AUTH.**
+> The approved M34 S4 ssusb role-lever runtime-gadget live gate ran once using
+> `workspace/public/src/scripts/revalidation/s22plus_m34_s4_role_lever_live_gate.py`.
+> Candidate AP
+> `9d93eb5c3c4fec3c02c920b2c80435a76b7c161079d906940a3279fc77495cc9`
+> flashed boot-only, the original Download endpoint disconnected, and S4
+> survived the full 90 second observation window. Across 17 enhanced host USB
+> snapshots, `lsusb -d 04e8:6860 -v`, `lsusb -t`, `usb-devices`, tty listing,
+> udev, ADB, and Odin all stayed negative for Samsung `04e8:6860`, CDC ACM,
+> and `/dev/ttyACM*` during candidate park.
+>
+> This proves the stock-kernel `ssusb/speed=high-speed` +
+> `ssusb/mode=peripheral` role lever is not the reset boundary. It also proves
+> that simply replacing dead `/sys/class/usb_role` with the real `ssusb` role
+> lever is still insufficient to enumerate ACM from the current ACM-only M34
+> gadget. Manual Download rollback then restored the pinned Magisk boot AP.
+> Final baseline is clean: Android `sys.boot_completed=1`, build/bootloader
+> `S906NKSS7FYG8`, vbstate `orange`, Magisk root present, and boot partition
+> SHA256 restored to
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`
+> (confirmed by helper and post-live check). Retained evidence had no M34 S4
+> marker: pstore empty, `/proc/last_kmsg` readable at 2,097,136 bytes, marker
+> absent. The canonical `events` timeline is present in
+> `workspace/private/runs/s22plus_m34_s4_role_lever_live_gate_20260708T204102Z/timeline.json`.
+> `AGENTS.md` now marks the S4 one-shot exception consumed/retired and omits
+> the live tokens as active authorization.
+>
+> Direction: M34 reset bisection stays closed for S1/S2/S3/S4 survival, but ACM
+> enumeration remains unsolved. The next unit should be host-only S5 design from
+> the stock Android gadget evidence: keep S4's real `ssusb` role lever, then
+> evaluate descriptor/config/function parity, stock composite companion
+> functions, and the `/sys/class/udc/a600000.dwc3/soft_connect` fallback before
+> any DTBO or QMP/SSPHY angle. No S5 live flash is authorized until a fresh
+> SHA-pinned `AGENTS.md` exception and explicit approval exist. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S4_ROLE_LEVER_LIVE_RESULT_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 05:35 KST / 2026-07-08 20:35 UTC) — M34 S4 ROLE-LEVER LIVE-GATE HELPER READY; DEFAULT FAIL-CLOSED; NO ACTIVE LIVE AUTH.**
 > The stock-kernel answer is now encoded end to end: the dead
 > `/sys/class/usb_role/*/role=device` path is not used, and S4 uses
