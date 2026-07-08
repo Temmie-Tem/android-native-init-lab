@@ -4,7 +4,7 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ CURRENT FRONTIER (2026-07-09 04:40 KST / 2026-07-08 19:40 UTC) — M34 S2 LIVE GATE READY; S1 CLOSED; OPERATOR LIVE APPROVAL RECEIVED; ACTIVE AGENTS EXCEPTION STILL REQUIRED.**
+> **S22+ CURRENT FRONTIER (2026-07-09 04:42 KST / 2026-07-08 19:42 UTC) — M34 S2 LIVE GATE AUTHORIZED; S1 CLOSED; LIVE NEXT.**
 > Codex added the guarded M34 S2 pullup-knobs live gate helper:
 > `workspace/public/src/scripts/revalidation/s22plus_m34_s2_runtime_gadget_live_gate.py`.
 > It pins the v0.2 S2 AP SHA256
@@ -29,10 +29,10 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > exception refused before Android/flash actions with rc=1. The helper emits a
 > draft S2 `AGENTS.md` exception and rejects draft-only S2 text as active auth.
 >
-> The operator has approved live in-thread, but the safety gate still requires a
-> fresh SHA-pinned active `AGENTS.md` exception before any S2 flash. Next action:
-> insert the S2 active exception, commit it, then run the S2 live gate. S3/final
-> pullup remains blocked until S2 result. Report:
+> The operator has approved live in-thread, and `AGENTS.md` now contains the
+> fresh SHA-pinned active S2 one-shot exception. Next action: run the S2 live
+> gate once, then retire the exception and record the result. S3/final pullup
+> remains blocked until S2 result. Report:
 > `docs/reports/S22PLUS_NATIVE_INIT_M34_S2_LIVE_GATE_READY_2026-07-09.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-09 04:32 KST / 2026-07-08 19:32 UTC) — M34 S1 LIVE CONSUMED; S1 SURVIVED 90 S; ROLLBACK CLEAN; NEXT S2 DESIGN/PREP; NO ACTIVE LIVE AUTH.**
