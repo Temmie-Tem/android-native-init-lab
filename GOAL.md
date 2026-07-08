@@ -238,7 +238,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > with no DT surgery) and `usb_role=device` (no live PD to arbitrate `otg`) —
 > park; (d) `write UDC a600000.dwc3` (pullup) + host-scan `/dev/ttyGS0`. First
 > step that resets is the culprit; if (d) hangs, toggle `max_speed` vs
-> `usb_role` one at a time to bisect. **Do NOT** build the DTBO `ssphy`-phandle overlay yet:
+> `usb_role` one at a time to bisect.
+> **UPDATE (S1/S2/S3 all SURVIVED — the hang wall is SOLVED; now it's an
+> enumeration problem):** S3 did the full setup incl. `UDC=a600000.dwc3` and
+> parked 90 s with NO reset, but no host ACM endpoint. Live read-only stock RE
+> found why (report `S22PLUS_S3_ENUMERATION_ROLE_LEVER_STOCK_2026-07-09.md`):
+> **`/sys/class/usb_role/` does NOT exist on this device — S3's `usb_role=device`
+> was a silent no-op.** The real, live role lever is
+> **`/sys/devices/platform/soc/a600000.ssusb/mode = peripheral`** (stock value
+> while enumerated; udc `state=configured`); no init rc writes it (dwc3-msm sets
+> it via VBUS/PD auto-detection we lack). `mode`/`speed` are root-writable 0644;
+> dwc3-msm accepts `mode∈{peripheral,host,none}`, `speed∈{high-speed,full-speed,
+> super-speed}`. **S4 = the one thing S3 missed: `write ssusb/mode peripheral`
+> (+ `write ssusb/speed high-speed`) before the UDC bind** (replace the dead
+> `usb_role` write). Fallback pull-up: `write connect` to
+> `/sys/class/udc/a600000.dwc3/soft_connect`. If S4 still shows no endpoint,
+> read udc `state`/`current_speed` post-write on-device (bound vs pulled-up)
+> before any VBUS/`dr_mode=peripheral` DTBO angle. **Do NOT** build the DTBO `ssphy`-phandle overlay yet:
 > it re-enters ONLY if **(d) UDC pullup** is the hang (dwc3 connecting on the dead
 > SS phy / arbitrating `otg` role without the PD stack) — and even then try dwc3
 > **sysfs** first (`maximum_speed`, `mode`, `usb_role`) before DT surgery (the
