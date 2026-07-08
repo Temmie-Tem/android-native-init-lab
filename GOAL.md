@@ -4,7 +4,7 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ CURRENT FRONTIER (2026-07-09 04:19 KST / 2026-07-08 19:19 UTC) — M34 S1 LIVE GATE + AGENTS EXCEPTION DRAFT READY; NO ACTIVE LIVE AUTH.**
+> **S22+ CURRENT FRONTIER (2026-07-09 04:23 KST / 2026-07-08 19:23 UTC) — M34 S1 LIVE GATE + SAFE AGENTS EXCEPTION DRAFT READY; NO ACTIVE LIVE AUTH.**
 > Codex added the guarded M34 S1 live gate helper:
 > `workspace/public/src/scripts/revalidation/s22plus_m34_s1_runtime_gadget_live_gate.py`.
 > It pins the v0.2 S1 AP SHA256
@@ -29,8 +29,11 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > with rc=1. The helper now also supports
 > `--print-agents-exception-draft`, which emits a draft one-shot `AGENTS.md`
 > exception for this exact S1 artifact and self-checks that the draft satisfies
-> the same `policy_required_markers()` set used by the fail-closed gate. Combined
-> M34 S1/M34/M33 regression tests pass (20).
+> the same `policy_required_markers()` set used by the fail-closed gate. The
+> live gate now also rejects draft-only M34 S1 text in `AGENTS.md`, so pasting
+> the draft without turning it into an active operator-approved exception cannot
+> accidentally satisfy live auth. Combined M34 S1/M34/M33 regression tests pass
+> (21).
 >
 > Next live target remains M34 S1 only, under a fresh SHA-pinned `AGENTS.md`
 > exception and explicit operator approval. S2/S3 must not live before S1

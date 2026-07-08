@@ -138,6 +138,20 @@ def missing_policy_markers(text: str) -> list[str]:
     return [marker for marker in policy_required_markers() if marker not in normalized]
 
 
+def has_draft_only_m34_exception(text: str) -> bool:
+    normalized = " ".join(text.split())
+    has_m34_marker = LIVE_ACK_TOKEN in normalized or EXPECTED_M34_MARKER in normalized
+    has_draft_marker = any(
+        marker in normalized
+        for marker in (
+            "DRAFT ONLY",
+            "This draft is not active authorization",
+            "draft is not active authorization",
+        )
+    )
+    return has_m34_marker and has_draft_marker
+
+
 def agents_exception_draft() -> str:
     marker_lines = "\n".join(f"   `{marker}`" for marker in policy_required_markers())
     return f"""   **DRAFT ONLY - Narrow operator-authorized exception (2026-07-09, S22+ M34 S1 stock configfs runtime-gadget boot-only live gate):**
@@ -185,6 +199,10 @@ def agents_exception_draft() -> str:
 
 def verify_agents_exception(root: Path, log_path: Path) -> None:
     agents = (root / "AGENTS.md").read_text(encoding="utf-8")
+    draft_only = has_draft_only_m34_exception(agents)
+    append_log(log_path, f"agents_exception_draft_only_present={int(draft_only)}")
+    if draft_only:
+        raise SystemExit("AGENTS.md contains draft-only M34 S1 authorization text; refuse to treat draft as active live auth")
     missing = missing_policy_markers(agents)
     append_log(log_path, f"agents_exception_missing={missing}")
     if missing:

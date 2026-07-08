@@ -15,6 +15,10 @@ SHA-pinned one-shot `AGENTS.md` exception for this exact S1 artifact with
 `--print-agents-exception-draft`. The draft is not active authorization unless
 the operator approves it and it is inserted into `AGENTS.md`.
 
+2026-07-09 04:23 KST update: the helper now rejects draft-only M34 S1
+authorization text in `AGENTS.md`. Pasting the draft without converting it into
+an active operator-approved exception cannot satisfy the live gate.
+
 ## Helper
 
 `workspace/public/src/scripts/revalidation/s22plus_m34_s1_runtime_gadget_live_gate.py`
@@ -62,6 +66,7 @@ The helper verifies the v0.2 manifest and refuses drift:
 - rollback APs are SHA-pinned
 - generated exception draft must satisfy the same `policy_required_markers()`
   set as the live fail-closed gate
+- draft-only M34 S1 text in `AGENTS.md` is rejected before Android/flash actions
 
 ## Validation
 
@@ -92,9 +97,10 @@ Results:
 - offline check: pass; no device action
 - explicit fail-closed check without active `AGENTS.md` exception: rc=1,
   refused before Android/flash actions
-- combined M34 S1/M34/M33 regression tests: 20 passed
+- combined M34 S1/M34/M33 regression tests: 21 passed
 - exception draft generation: pass; 116-line draft, self-checked against
   `policy_required_markers()`, no device action
+- draft-only exception rejection test: pass
 
 ## Next
 
