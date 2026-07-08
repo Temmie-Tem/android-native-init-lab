@@ -4,6 +4,51 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 08:36 KST / 2026-07-08 23:36 UTC) — M34 S7A2 LIVE CONSUMED; SURVIVED 90 S; GENI I2C + ROLE-WRITE NOT SUFFICIENT; NO USB; MANUAL RDX/DOWNLOAD ROLLBACK CLEAN; NO ACTIVE LIVE AUTH.**
+> The approved M34 S7A2 GENI I2C runtime-gadget live gate ran once using
+> `workspace/public/src/scripts/revalidation/s22plus_m34_s7a2_geni_i2c_live_gate.py`.
+> Static gates passed first: S7A2 helper `py_compile`, S7A2 tests (`Ran 10
+> tests`, `OK`), `--offline-check`, combined M34/S7A/S7A2 regression (`Ran 25
+> tests`, `OK`), default fail-closed behavior without active auth, active
+> `AGENTS.md` insertion, and dry-run with Android stability/current boot hash.
+>
+> S7A2 AP.tar.md5 SHA256:
+> `cb89ccf9c8c5481938ddd415930c78a23e1a679d45fdc57f95e6d1b48776bd59`;
+> padded boot.img SHA256:
+> `b9a4d4c2170da2ed6125aa44734005303d81d874b72402513def97b2f8406a54`;
+> `/init` SHA256:
+> `8f8eb4a6f4d94bc552ec61819b9c2b4ea4ec4de7fb7aa097fab7193c6f117e5a`;
+> module-list SHA256:
+> `c0c35e02fe61a3f6c18c221a9ae2cc1a54aafd38374117fa954dbfa675700998`.
+>
+> Live result: candidate Odin flash succeeded, the original Download endpoint
+> disconnected, and S7A2 survived the full 90 s observation window. The
+> operator observed no boot loop, then RDX/PMIC and manual Download entry for
+> rollback. Across 18 candidate snapshots, host observed no Samsung `04e8:*`,
+> no `04e8:6860`, no CDC ACM, no `/dev/ttyACM*`, no ADB, no Odin endpoint, and
+> no Samsung upload/download endpoint. Result string:
+> `survived-observation-window-manual-download-required`.
+>
+> Rollback flashed the pinned Magisk boot-only AP from the returned Odin
+> endpoint and restored the rooted Android baseline: `sys.boot_completed=1`,
+> `SM-S906N/g0q`, build/bootloader `S906NKSS7FYG8`, vbstate `orange`,
+> `boot_recovery=0`, Magisk root present, and boot partition SHA256 restored to
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+> Retained evidence had no S7A2 marker: pstore empty, `/proc/last_kmsg`
+> readable at 2,097,136 bytes, marker absent.
+>
+> Interpretation: GENI I2C transport closure plus the bounded
+> `/sys/class/typec/port0/{data_role=device,power_role=sink}` discriminator is
+> not sufficient to create a host-visible USB electrical session/pullup.
+> Continue host-only before any new live candidate: explain the complete
+> absence of host-visible `04e8:*` after S7A2 by diffing direct-PID1 ordering
+> against stock Android USB/TypeC orchestration, stock USB HAL/service timing,
+> PDIC/extcon notifier paths, configfs ownership/service triggers, and any
+> required userspace participant before DWC3 asserts pullup. `AGENTS.md` marks
+> the S7A2 one-shot exception consumed/retired; no active live authorization
+> remains. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S7A2_GENI_I2C_LIVE_RESULT_2026-07-09.md`.
+
 > **S22+ PREVIOUS FRONTIER (2026-07-09 08:45 KST / 2026-07-08 23:45 UTC) — M34 S7A2 HOST BUILD COMPLETE; GENI I2C TRANSPORT ADDED; ROLE-WRITE DISCRIMINATOR BUILT; NO ACTIVE LIVE AUTH.**
 > Codex implemented the corrected S7A.2 host-build path in
 > `workspace/public/src/scripts/revalidation/build_s22plus_m34_runtime_gadget_split.py`
@@ -41,7 +86,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `AGENTS.md` exception and explicit operator approval. Report:
 > `docs/reports/S22PLUS_NATIVE_INIT_M34_S7A2_GENI_I2C_TRANSPORT_HOST_BUILD_2026-07-09.md`.
 
-> **S22+ CURRENT FRONTIER (2026-07-09 08:29 KST / 2026-07-08 23:29 UTC) — M34 S7A2 LIVE GATE SOURCE READY; OPERATOR LIVE APPROVAL RECEIVED; ACTIVE SHA-PINNED AGENTS EXCEPTION INSERTED.**
+> **S22+ PREVIOUS FRONTIER (2026-07-09 08:29 KST / 2026-07-08 23:29 UTC) — M34 S7A2 LIVE GATE SOURCE READY; OPERATOR LIVE APPROVAL RECEIVED; ACTIVE SHA-PINNED AGENTS EXCEPTION INSERTED.**
 > Codex added the fail-closed S7A2 live gate helper
 > `workspace/public/src/scripts/revalidation/s22plus_m34_s7a2_geni_i2c_live_gate.py`
 > plus tests in

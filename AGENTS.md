@@ -2752,13 +2752,14 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
    with stock boot-only fallback SHA256
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
-   **Narrow operator-authorized exception (2026-07-09, S22+ M34 S7A2 GENI I2C runtime-gadget boot-only live gate):**
-   Codex may run
-   one bounded attended boot-partition-only M34 S7A2 live gate on the Samsung S22+
-   `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
+   **Consumed exception (2026-07-09, S22+ M34 S7A2 GENI I2C
+   runtime-gadget boot-only live gate):** this one-shot exception was consumed
+   by the 2026-07-09 KST live run. It flashed the pinned M34 S7A2 boot-only
+   candidate once on the Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using
+   only the checked helper
    `workspace/public/src/scripts/revalidation/s22plus_m34_s7a2_geni_i2c_live_gate.py`.
-   Live ack token: `S22PLUS-M34-S7A2-GENI-I2C-LIVE-GATE`. Rollback ack token:
-   `S22PLUS-M34-S7A2-GENI-I2C-ROLLBACK-FROM-DOWNLOAD`.
+   The consumed live and rollback ack token strings are intentionally omitted
+   here as active authorization.
 
    The exact candidate AP.tar.md5 SHA256 must be
    `cb89ccf9c8c5481938ddd415930c78a23e1a679d45fdc57f95e6d1b48776bd59`; contained padded `boot.img` SHA256 must be
@@ -2822,11 +2823,37 @@ BL, CP, CSC, userdata, or any non-boot flash.
    candidates, kernel rebuilds, RDX PC dump retrieval, EUD sysfs writes, or any
    non-boot partition action.
 
-   Required policy marker coverage:
+   Live result: candidate Odin flash succeeded, the original Download endpoint
+   disconnected, and the candidate survived the full 90 s observation window.
+   The operator observed no boot loop, then RDX/PMIC and manual Download entry
+   for rollback. Across 18 candidate park snapshots, the host observed no
+   Samsung `04e8:*` device, no `04e8:6860`, no CDC ACM, no `/dev/ttyACM*`, no
+   ADB, no Odin endpoint, and no Samsung upload/download endpoint. The result
+   was `survived-observation-window-manual-download-required`.
+
+   Rollback used the returned Odin endpoint to flash the pinned Magisk
+   boot-only rollback AP and restored the rooted Android baseline:
+   `sys.boot_completed=1`, model `SM-S906N`, device `g0q`, bootloader/build
+   `S906NKSS7FYG8`, vbstate `orange`, `boot_recovery=0`, Magisk root present,
+   and boot partition SHA256 restored to
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+   Retained evidence did not contain the S7A2 marker: pstore was empty and
+   `/proc/last_kmsg` was readable but marker-absent.
+
+   This consumed exception authorizes no additional S7A2 run, no S1/S2/S3/S4/
+   S5/S6/S7A repeat, no post-pullup command channel, no descriptor/composition
+   pivot, no DTBO surgery, no M32 repeat, no display/distro candidate, no
+   kernel rebuild, no RDX PC dump retrieval, no EUD sysfs write, no non-boot
+   flash, no raw host `dd`, no fastboot, no Magisk module, no multidisabler,
+   no format data, and no A90 action. Future S22+ native-init live flashes
+   require a fresh, narrower exception for the selected artifact and observation
+   path.
+
+   Historical policy marker coverage for the consumed run:
    `S22+ M34 S7A2 GENI I2C runtime-gadget native-init boot-only`
    `workspace/public/src/scripts/revalidation/s22plus_m34_s7a2_geni_i2c_live_gate.py`
-   `S22PLUS-M34-S7A2-GENI-I2C-LIVE-GATE`
-   `S22PLUS-M34-S7A2-GENI-I2C-ROLLBACK-FROM-DOWNLOAD`
+   `consumed-live-ack-token-omitted`
+   `consumed-rollback-ack-token-omitted`
    `SM-S906N/g0q/S906NKSS7FYG8`
    `S7A2`
    `S22_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT_S7A2`
