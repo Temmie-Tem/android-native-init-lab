@@ -39,6 +39,30 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `S22PLUS_NATIVE_INIT_M26_HS_PREFIX_DOWNLOAD_LIVE_RESULT_2026-07-08.md`.
 > (Observation steers below are superseded/background; MID stays set, harmless.)
 
+> **S22+ CURRENT FRONTIER (2026-07-08 22:36 KST / 13:36 UTC) — M27 POLICY ACTIVE; PRE-LIVE DRY-RUN PASS; LIVE NOT EXECUTED.**
+> Codex promoted a fresh SHA-pinned `AGENTS.md` exception for exactly one M27
+> prefix-narrow batch using
+> `workspace/public/src/scripts/revalidation/s22plus_m27_hs_prefix_narrow_live_gate.py`.
+> Authorized candidate set remains exactly `P08/P12/P16/P20/P22/P23/P24`, with
+> stop-on-first-no-hit/manual-download policy, M25 DTBO high-speed cap, Magisk
+> boot rollback after each hit, and mandatory stock-DTBO rollback at session
+> end. Validation passed: `py_compile`, M27 live-gate unit tests (`Ran 9
+> tests`), `--offline-check`, and default dry-run against `RFCT519XWGK`.
+> Dry-run verified `agents_exception_missing=[]`, Android stability
+> (`boot_completed=1`, `bootanim=stopped`, vbstate `orange`, Magisk root), boot
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
+> stock DTBO
+> `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`, and
+> vendor_boot
+> `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`.
+> No live flash, reboot, rollback, partition write, or sysfs write was
+> performed. Next operator-approved live command is:
+> `PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m27_hs_prefix_narrow_live_gate.py --serial RFCT519XWGK --live --ack S22PLUS-M27-HS-PREFIX-NARROW-LIVE-GATE`.
+> Manual Download rescue command is:
+> `PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m27_hs_prefix_narrow_live_gate.py --rollback-from-download --ack S22PLUS-M27-HS-PREFIX-ROLLBACK-FROM-DOWNLOAD`.
+> Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M27_HS_PREFIX_NARROW_LIVE_GATE_2026-07-08.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-08 22:29 KST / 13:29 UTC) — M27 LIVE-GATE SOURCE READY; STILL NO LIVE AUTH.**
 > Codex added the guarded M27 prefix-narrow helper
 > `workspace/public/src/scripts/revalidation/s22plus_m27_hs_prefix_narrow_live_gate.py`

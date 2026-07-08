@@ -2009,6 +2009,114 @@ BL, CP, CSC, userdata, or any non-boot flash.
    rebuild, recovery/vendor_boot/vbmeta/non-boot/non-DTBO flash other than the
    exact pinned stock-DTBO/M25-DTBO APs above, raw host `dd`, fastboot,
    multidisabler, format data, or any A90 action.
+   **Narrow operator-authorized exception (2026-07-08, S22+ M27 HS
+   prefix-narrow native-init boot+DTBO batch):** after the M27 host build and
+   live-gate source pass proved the exact prefix-narrow matrix between M26
+   `P00` hit and `P24` no-hit, Codex may perform one bounded attended M27
+   prefix-narrow batch on the same Samsung S22+ `SM-S906N`/`g0q`
+   `S906NKSS7FYG8` using only the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m27_hs_prefix_narrow_live_gate.py`
+   with live ack token `S22PLUS-M27-HS-PREFIX-NARROW-LIVE-GATE`, rollback ack
+   token `S22PLUS-M27-HS-PREFIX-ROLLBACK-FROM-DOWNLOAD`, and stock-DTBO restore
+   ack token `S22PLUS-M27-RESTORE-STOCK-DTBO`. M27 prefix-narrow live batch is
+   limited to P08/P12/P16/P20/P22/P23/P24; P00, P25+, broader module
+   permutation, and repeated M27 batches require a fresh exception. The helper
+   must stop on first no-hit before trying any later prefix.
+   The exact M25 DTBO high-speed cap AP.tar.md5 SHA256 must be
+   `35afd774444066fd8e2ffe831da11dd73ee47dce3bdd5b1e37675f82344e56b6`, the
+   patched raw DTBO SHA256 must be
+   `8962cbbded722c85dbdebfbdc2eba5476b9a64e2a2933888b81f947159eddc17`, the
+   stock DTBO rollback AP SHA256 must be
+   `6f397421bee84f4ea0c80a8519be0f6f6af84119794970e8a1faaa05f261caaa`, the
+   known Magisk boot baseline SHA256 must be
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, the
+   stock DTBO raw SHA256 must be
+   `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`, the
+   stock vendor_boot SHA256 must be
+   `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`, the
+   Magisk boot rollback AP SHA256 must be
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`, and
+   the stock boot fallback AP SHA256 must be
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
+   The M27 generated source SHA256 must be
+   `44b3111652cbd64561f4b5eee5413864df44422e28f905ce6dc42aa618f951cd`, the
+   marker must be `S22_NATIVE_INIT_M27_HS_PREFIX_DOWNLOAD`, the ramdisk
+   module-list file must be `s22plus_m27_hs_only_usb2.modules`, and the
+   inherited M25 HS-only module list SHA256 must be
+   `00607484b7b777ee5cb54d7657f0cb554b9b66c42fec0e414d0544c0735d6496`.
+   Exact M27 candidates:
+   P08 count `8`, next `debug-regulator.ko`, AP SHA256
+   `60669383e0345dfc5b7f50393ad6aebd3c67307ba32bc107c69eb324d67f499a`,
+   boot.img SHA256
+   `0ab2daa950bde5932f5651b90e7b32f2a102ccb97fe327fb25698c03c89113ca`, and
+   `/init` SHA256
+   `7640cd759c1ebfa9c8470a4d1456af9ea81a6415681c8a9715e6963ac3f0cabf`;
+   P12 count `12`, next `iommu-logger.ko`, AP SHA256
+   `3e0d65386966fb351a108f0c1e03dfdf695d365717e42552e970cfdab16af7ab`,
+   boot.img SHA256
+   `02cdc8b95209559618e7e2da0caa6124d24b9f25d5d5b41fe3dce2fa4294a9a3`, and
+   `/init` SHA256
+   `5add362c7479be1435fdb5d0eb9a88d5e7a6e70f202dbaae406eb76953835ace`;
+   P16 count `16`, next `qcom_iommu_util.ko`, AP SHA256
+   `32b132e30c8f009e161ae0c71a64ed90d4b1ac1560302a17ef1309b03100f61f`,
+   boot.img SHA256
+   `730b32b44daf3a8c958fda7094ed1b3ac07d00ea116d768a362fabce043bb8bf`, and
+   `/init` SHA256
+   `7c068bada632fc441d81843e3c70e9743b9e10e4ee3114847cb69051cda1421d`;
+   P20 count `20`, next `sec_class.ko`, AP SHA256
+   `d4669c932312d2f84ce5982bc2df81a4903c23e7f6fae19bff4129aaba56afba`,
+   boot.img SHA256
+   `5d2a0faee48bb105fa5c0167daabd8447962896bda646ddcfb9781c8e83be008`, and
+   `/init` SHA256
+   `01f88c744d59790991a98e74cec9550803c656c28e29c8daeb51dbe5baafc2b0`;
+   P22 count `22`, next `smem.ko`, AP SHA256
+   `1d7137f60d5743e0cb2145219e8806c6bc1b051a7d8a68749afe5b260cdf3643`,
+   boot.img SHA256
+   `813016d66fc1f47fda5d7f874563d26feae76f2e98a2eda7c3b8de1ea06973ea`, and
+   `/init` SHA256
+   `a8fdccb3dbe2bf88ecd9cecf72b008609376b76d74505b22bdb3499ba3cfa99a`;
+   P23 count `23`, next `socinfo.ko`, AP SHA256
+   `5bc8d767af7794bf7ece761b1d61d080e94b345e99be173556aece49ed40f8fb`,
+   boot.img SHA256
+   `901459a1f1caeaf0774262108fb728cd4bb05e27b0a61ae57dbdd7b0a2f57b4a`, and
+   `/init` SHA256
+   `a55243f1ff3bda8b8e82feb502a70714a90bdc159f340163c24ffcf24f06eaff`;
+   P24 count `24`, next `arm_smmu.ko`, AP SHA256
+   `fff7ecf3ff9233f76ac17f07ecf56a383696d6ecb06b67f84ef39d8f08876180`,
+   boot.img SHA256
+   `507dc385ac178b2b297cb35f0aeb83b65c81ef07ec2da89ebd51dca1de54c86b`, and
+   `/init` SHA256
+   `21c63aa298ac362e09eba15b63be20fe1d9c6bb82ef09297e172c5f32c0faa2a`.
+   Each M27 boot AP must contain exactly one tar member, `boot.img.lz4`, with
+   no recovery, vendor_boot, vbmeta, vbmeta_system, DTBO, BL, CP, CSC, super,
+   persist, userdata, EFS, RPMB, keymaster, modem, or any other partition
+   payload. The M25 DTBO AP and stock DTBO rollback AP must each contain
+   exactly one `dtbo.img.lz4` member, with no boot, recovery, vendor_boot,
+   vbmeta, vbmeta_system, BL, CP, CSC, super, persist, userdata, EFS, RPMB,
+   keymaster, modem, or any other partition payload.
+   The live path is: verify Android/Magisk baseline boot, stock DTBO, and
+   vendor_boot; flash exactly the pinned DTBO high-speed cap; verify patched
+   DTBO; for each authorized M27 prefix, flash exactly that boot AP, wait for
+   the original Odin endpoint to disconnect, count only a later Odin endpoint
+   as the candidate self-download proof, then immediately flash the pinned
+   Magisk boot rollback before the next prefix. The DTBO high-speed cap may
+   remain in place across successful M27 prefixes, but stock DTBO rollback is
+   mandatory at session end. M27 is a direct PID1 freestanding raw-syscall
+   `/init` replacement using `module_count=40`, `reboot_request=download`, and
+   `maximum_speed_dtbo=high-speed`; it has no ACM, no configfs, no module
+   binary injection, no EUD sysfs write, no persistent partition mount, no
+   block-device write, no Android/Magisk handoff, and no recovery fallback
+   inside the candidate.
+   If any M27 prefix loops, fails to self-enter Download mode, or no rollback
+   transport appears, stop and require operator manual download-mode rollback
+   through the same helper's `--rollback-from-download` mode. Rollback must use
+   the pinned Magisk boot rollback first and then stock DTBO rollback; if the
+   DTBO-only step fails before a boot candidate flash, use only the stock DTBO
+   rollback path. This exception does not authorize M27 repeat, P00/P25+ live,
+   M26 repeat, M25 repeat, display/distro candidates, kernel rebuild,
+   recovery/vendor_boot/vbmeta/non-boot/non-DTBO flash other than the exact
+   pinned stock-DTBO/M25-DTBO APs above, raw host `dd`, fastboot,
+   multidisabler, format data, or any A90 action.
    **Consumed exception (2026-07-08, S22+ M26 HS prefix-download native-init
    boot+DTBO batch):** this one-shot exception was consumed by the 2026-07-08
    live run. It flashed the pinned M25 DTBO high-speed cap AP, ran M26 `P00`

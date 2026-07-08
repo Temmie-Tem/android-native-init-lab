@@ -68,11 +68,10 @@ class S22PlusM27HsPrefixNarrowLiveGateTest(unittest.TestCase):
             "fff7ecf3ff9233f76ac17f07ecf56a383696d6ecb06b67f84ef39d8f08876180",
         )
 
-    def test_current_agents_file_has_no_m27_live_exception_yet(self):
+    def test_current_agents_file_contains_m27_live_exception_markers(self):
         agents = Path("AGENTS.md").read_text(encoding="utf-8")
         missing = self.module.missing_policy_markers(agents)
-        self.assertIn(self.module.LIVE_ACK_TOKEN, missing)
-        self.assertIn("M27 prefix-narrow live batch is limited to P08/P12/P16/P20/P22/P23/P24", missing)
+        self.assertEqual(missing, [])
 
     @unittest.skipUnless(MANIFEST.exists(), "private M27 manifest missing")
     def test_top_manifest_verifier_accepts_current_m27_build(self):

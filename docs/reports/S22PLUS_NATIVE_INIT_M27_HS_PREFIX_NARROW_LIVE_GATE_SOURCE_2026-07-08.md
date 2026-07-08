@@ -2,12 +2,15 @@
 
 ## Verdict
 
-SOURCE READY / LIVE NOT AUTHORIZED: the guarded M27 prefix-narrow live helper is
-implemented and validates the pinned M27 artifacts offline. No flash, reboot,
-rollback, partition write, sysfs write, or Android device action was performed.
+SOURCE-STAGE RECORD / SUPERSEDED: this report records the source-only state
+before the M27 `AGENTS.md` exception was promoted. It is superseded by
+`S22PLUS_NATIVE_INIT_M27_HS_PREFIX_NARROW_LIVE_GATE_2026-07-08.md`.
 
-Default execution currently fails closed before Android/device access because
-`AGENTS.md` does not contain a fresh M27 live exception.
+At this source-only stage, the guarded M27 prefix-narrow live helper was
+implemented and validated the pinned M27 artifacts offline. No flash, reboot,
+rollback, partition write, sysfs write, or Android device action was performed.
+Default execution failed closed before Android/device access because `AGENTS.md`
+did not yet contain a fresh M27 live exception.
 
 ## Scope
 
@@ -80,6 +83,6 @@ Results:
 
 ## Next
 
-Live still requires a fresh SHA-pinned `AGENTS.md` exception for exactly this
-M27 helper, candidate set, DTBO cap, rollback APs, and stop-on-first-no-hit
-policy. Without that exception, the helper remains source/offline only.
+The next stage promoted the fresh SHA-pinned `AGENTS.md` exception and ran the
+default dry-run. See
+`S22PLUS_NATIVE_INIT_M27_HS_PREFIX_NARROW_LIVE_GATE_2026-07-08.md`.
