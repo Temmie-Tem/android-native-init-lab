@@ -160,6 +160,31 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `s22plus_twrp_magisk_restore_window.py` now accepts either evidence form, so
 > older restore-window dry-runs do not fail just because the ZIP was removed.
 
+> **S22+ LIVE RESULT (2026-07-08 19:49 KST) — M23 DTS-EXACT QMP/DWC3 CONSUMED; CLEAN ROLLBACK; RESET-SUMMARY STILL EMPTY.**
+> Operator live-approved the M23 reset-summary gate. Codex first added canonical
+> `timeline.json` event recording to the helper, reran `py_compile`,
+> `--offline-check`, and dry-run, then executed
+> `--live --ack S22PLUS-M23-DTS-QMP-RESET-SUMMARY-LIVE-GATE`. The boot-only
+> M23 AP flashed successfully (`m23_candidate_odin_rc=0`) but exposed no M23
+> ACM/ADB. After the operator observed the bootloop and manually entered
+> Download mode, the helper detected Odin at `m23_observe_041`, restored the
+> pinned Magisk boot AP (`magisk_boot_rollback_odin_rc=0`), and collected the
+> reset-context surfaces. Final state is clean Android/Magisk baseline:
+> `boot_completed=1`, verified boot `orange`, Magisk root uid0, boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, and
+> vendor_boot SHA256
+> `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`.
+> Result: pstore empty, M23 marker absent, `/proc/reset_reason=NPON`,
+> `/proc/reset_rwc=0`, `/proc/store_lastkmsg=0`, and `/proc/reset_summary`,
+> `/proc/reset_klog`, `/proc/reset_history`, `/proc/reset_tzlog` still report
+> no reset header (`cat: ... No such file or directory`). The consumed M23
+> AGENTS/Odin exceptions were retired so the same helper now fail-closes without
+> a fresh exception. Canonical timing total was `110.982s`. Do not repeat M23
+> unchanged; next bounded unit needs retained per-step `A90_STEP:` pmsg markers
+> and/or a separately gated watchdog-dump precondition variant such as
+> `qcom_wdt_core`. Report:
+> `docs/reports/S22PLUS_M23_DTS_QMP_RESET_SUMMARY_LIVE_RESULT_2026-07-08.md`.
+
 > **S22+ LIVE RESULT (2026-07-08 03:50 KST) — DIRECT VENDOR_BOOT RAMOOPS PATCH BOOTED BUT DID NOT AFFECT LIVE DT; M13 NOT FLASHED.**
 > Operator authorized the ack-gated
 > `S22PLUS-RAMOOPS-VENDORBOOT-M13-CAPTURE-LIVE-GATE` run. Dry-run passed, the

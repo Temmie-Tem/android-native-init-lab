@@ -141,6 +141,18 @@ def resolve_run_dir(root: Path, requested: Path | None) -> Path:
     raise SystemExit(f"could not allocate unique run directory under {base.parent}")
 
 
+def record_timeline_event(run_dir: Path, name: str) -> None:
+    path = run_dir / "timeline.json"
+    events: list[dict[str, str]] = []
+    if path.exists():
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if sorted(data.keys()) != ["events"] or not isinstance(data.get("events"), list):
+            raise SystemExit(f"refusing non-canonical timeline shape: {path}")
+        events = data["events"]
+    events.append({"name": name, "timestamp_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")})
+    path.write_text(json.dumps({"events": events}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
 def policy_required_markers() -> list[str]:
     return [
         "S22+ M23 DTS-exact QMP/DWC3 reset_summary capture native-init boot-only",
@@ -406,16 +418,23 @@ def rollback_from_download(
     rollback_target: str,
     android_wait_sec: int,
 ) -> int:
+    record_timeline_event(run_dir, "live_session_start")
     devices = odin_devices(odin, log_path, "m23-boot-rollback")
     if len(devices) != 1:
         raise SystemExit(f"M23 rollback requires exactly one Odin device, got {devices}")
+    record_timeline_event(run_dir, "rollback_flash_start")
     rollback_rc = flash_ap(odin, rollback_ap, devices[0], log_path, f"{rollback_target}_boot_rollback")
+    record_timeline_event(run_dir, "rollback_flash_done")
     if rollback_rc != 0:
+        record_timeline_event(run_dir, "live_session_end")
         return rollback_rc or 5
     android = poll_android(log_path, android_wait_sec, expect_root=rollback_target == ROLLBACK_MAGISK)
     if android is None:
+        record_timeline_event(run_dir, "live_session_end")
         return 6
+    record_timeline_event(run_dir, "rollback_boot_ready")
     summary = capture_post_rollback_reset_surfaces(run_dir, log_path, android)
+    record_timeline_event(run_dir, "live_session_end")
     return 0 if summary.get("result") == "pass" else 7
 
 
@@ -497,23 +516,31 @@ def main(argv: list[str]) -> int:
     if args.ack != LIVE_ACK_TOKEN:
         raise SystemExit(f"--live requires --ack {LIVE_ACK_TOKEN}")
 
+    record_timeline_event(run_dir, "live_session_start")
     reboot = run(["adb", "-s", selected_serial, "reboot", "download"], timeout=20.0)
     append_log(log_path, f"adb_reboot_download_rc={reboot.returncode}")
     append_log(log_path, reboot.stdout + reboot.stderr)
     odin_device = wait_for_odin(odin, log_path, "m23-candidate-wait", args.odin_wait_sec)
     if odin_device is None:
+        record_timeline_event(run_dir, "live_session_end")
         print("download mode did not appear for M23 candidate flash", file=sys.stderr)
         return 2
 
+    record_timeline_event(run_dir, "candidate_flash_start")
     candidate_rc = flash_ap(odin, m23_ap, odin_device, log_path, "m23_candidate")
+    record_timeline_event(run_dir, "candidate_flash_done")
     if candidate_rc != 0:
+        record_timeline_event(run_dir, "live_session_end")
         print(f"M23 candidate Odin flash failed rc={candidate_rc}; log={log_path}", file=sys.stderr)
         return candidate_rc or 3
 
     print("M23 candidate flashed. Waiting for ACM/ADB/Odin. No reboot beacon exists.")
     observed, endpoint = observe_m23(run_dir, log_path, args.m23_observe_sec, odin)
+    if endpoint is not None:
+        record_timeline_event(run_dir, "candidate_boot_ready")
     if observed == "acm" and endpoint:
         append_log(log_path, f"m23_result=acm_seen_manual_download_required endpoint={endpoint}")
+        record_timeline_event(run_dir, "live_session_end")
         print(
             "M23 ACM appeared. Enter Download mode manually and run --rollback-from-download "
             "so reset_summary/reset_klog can be captured after rollback.",
@@ -530,25 +557,35 @@ def main(argv: list[str]) -> int:
         odin_device = wait_for_odin(odin, log_path, "m23-unexpected-adb-rollback-wait", args.odin_wait_sec)
     else:
         append_log(log_path, "m23_result=no_acm_no_transport_manual_download_required")
+        record_timeline_event(run_dir, "live_session_end")
         print("M23 did not expose rollback transport. Enter Download mode manually and run --rollback-from-download.", file=sys.stderr)
         return 4
     if odin_device is None:
+        record_timeline_event(run_dir, "live_session_end")
         print("M23 Download mode did not appear; manual Download rollback required.", file=sys.stderr)
         return 4
 
+    record_timeline_event(run_dir, "rollback_flash_start")
     rollback_rc = flash_ap(odin, rollback_ap, odin_device, log_path, f"{args.rollback_target}_boot_rollback")
+    record_timeline_event(run_dir, "rollback_flash_done")
     if rollback_rc != 0 and args.rollback_target == ROLLBACK_MAGISK:
         append_log(log_path, "magisk_rollback_failed_attempting_stock_fallback=1")
         fallback_device = wait_for_odin(odin, log_path, "stock-fallback-wait", 30)
         if fallback_device:
+            record_timeline_event(run_dir, "rollback_flash_start")
             rollback_rc = flash_ap(odin, stock_rollback_ap, fallback_device, log_path, "stock_boot_fallback")
+            record_timeline_event(run_dir, "rollback_flash_done")
     if rollback_rc != 0:
+        record_timeline_event(run_dir, "live_session_end")
         return rollback_rc or 5
 
     post_rollback_serial = poll_android(log_path, args.android_wait_sec, expect_root=args.rollback_target == ROLLBACK_MAGISK)
     if post_rollback_serial is None:
+        record_timeline_event(run_dir, "live_session_end")
         return 6
+    record_timeline_event(run_dir, "rollback_boot_ready")
     summary = capture_post_rollback_reset_surfaces(run_dir, log_path, post_rollback_serial)
+    record_timeline_event(run_dir, "live_session_end")
     rc = 0 if summary.get("result") == "pass" else 7
     print(f"M23 live gate completed rollback and reset-summary capture rc={rc}; log={log_path}")
     return rc

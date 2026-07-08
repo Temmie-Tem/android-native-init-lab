@@ -1776,16 +1776,22 @@ BL, CP, CSC, userdata, or any non-boot flash.
    prefixes, USB/ACM bring-up, display/distro candidates, kernel rebuild,
    recovery/vendor_boot/vbmeta/non-boot flash, raw host `dd`, fastboot,
    multidisabler, format data, or any A90 action.
-   **Narrow operator-authorized exception (2026-07-08, S22+ M23 DTS-exact
-   QMP/DWC3 reset_summary capture native-init boot-only):** after EUD was
-   closed as TrustZone-gated, the M23 host build derived the narrow DTS-exact
-   QMP/DWC3/HS-PHY/provider closure, and the reset-summary gate source passed
-   offline/fail-closed validation, Codex may prepare and perform one bounded
-   attended boot-partition-only M23 live gate on the same Samsung S22+
+   **Consumed/retired exception (2026-07-08, S22+ M23 DTS-exact
+   QMP/DWC3 reset_summary capture native-init boot-only):** this one-shot
+   exception was consumed by the 2026-07-08 live run. It flashed the pinned M23
+   boot AP once, observed no M23 ACM/ADB and an operator manual Download-mode
+   return, restored the pinned Magisk boot AP, and captured Samsung reset
+   surfaces. It must not be reused for another M23 live flash under the same
+   gate. Future native-init live flashes need a fresh, narrower exception for
+   the selected artifact and observation path.
+   Before consumption, after EUD was closed as TrustZone-gated, the M23 host
+   build derived the narrow DTS-exact QMP/DWC3/HS-PHY/provider closure, and the
+   reset-summary gate source passed offline/fail-closed validation, Codex could
+   prepare and perform one bounded attended boot-partition-only M23 live gate on
+   the same Samsung S22+
    `SM-S906N`/`g0q` `S906NKSS7FYG8` using the checked helper
    `workspace/public/src/scripts/revalidation/s22plus_m23_dts_exact_qmp_reset_summary_live_gate.py`
-   with live ack token `S22PLUS-M23-DTS-QMP-RESET-SUMMARY-LIVE-GATE` and
-   rollback-only ack token `S22PLUS-M23-DTS-QMP-ROLLBACK-FROM-DOWNLOAD`. The
+   with now-consumed live/rollback ack tokens. The
    exact candidate AP.tar.md5 SHA256 must be
    `558eddb4b78b68c86d65f171072145c63210e9b33b5d0b56f2a3e4a00f0ba2d8`, the
    contained padded `boot.img` SHA256 must be
@@ -1827,8 +1833,8 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `vbus_notifier.ko`, `usb_typec_manager.ko`, `if_cb_manager.ko`,
    `pdic_notifier_module.ko`, and `qc_usb_audio.ko`. If M23 loops, exposes ACM
    without rollback transport, or no transport appears, use operator manual
-   Download-mode rollback through the same helper's `--rollback-from-download
-   --ack S22PLUS-M23-DTS-QMP-ROLLBACK-FROM-DOWNLOAD` mode, using the exact
+   Download-mode rollback through the same helper's rollback-from-download mode,
+   using the exact
    Magisk boot-only rollback AP SHA256
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
    or the exact stock boot-only fallback AP SHA256
@@ -2174,9 +2180,11 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`. No other
    Odin slot, tar member, candidate hash, rollback hash, M20 variant, M19
    prefix, or partition is authorized by this exception.
-   **Narrow operator-authorized exception (2026-07-08, S22+ M23 DTS-exact
+   **Consumed/retired exception (2026-07-08, S22+ M23 DTS-exact
    QMP/DWC3 reset-summary native-init boot-only Odin path):** the S22+ M23 live
-   gate above may use `/usr/bin/odin4 --reboot -a` through
+   gate above consumed this Odin path. No current exception authorizes another
+   M23 Odin transfer or M23 rollback transfer under this helper. Before
+   consumption, the gate could use `/usr/bin/odin4 --reboot -a` through
    `workspace/public/src/scripts/revalidation/s22plus_m23_dts_exact_qmp_reset_summary_live_gate.py`
    for the exact single-member `boot.img.lz4` candidate AP.tar.md5 SHA256
    `558eddb4b78b68c86d65f171072145c63210e9b33b5d0b56f2a3e4a00f0ba2d8`, and
