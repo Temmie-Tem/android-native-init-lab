@@ -157,6 +157,18 @@ def record_timeline_event(run_dir: Path, name: str) -> None:
         data = json.loads(path.read_text(encoding="utf-8"))
         if sorted(data.keys()) != ["events"] or not isinstance(data.get("events"), list):
             raise SystemExit(f"refusing non-canonical timeline shape: {path}")
+        for index, event in enumerate(data["events"]):
+            if not isinstance(event, dict) or sorted(event.keys()) != ["name", "timestamp_utc"]:
+                raise SystemExit(f"refusing non-canonical timeline event {index}: {path}")
+            if not isinstance(event["name"], str) or not event["name"]:
+                raise SystemExit(f"refusing timeline event with invalid name {index}: {path}")
+            timestamp = event["timestamp_utc"]
+            if not isinstance(timestamp, str) or not timestamp.endswith("Z"):
+                raise SystemExit(f"refusing timeline event with invalid timestamp {index}: {path}")
+            try:
+                datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise SystemExit(f"refusing timeline event with unparsable timestamp {index}: {path}") from exc
         events = data["events"]
     events.append({"name": name, "timestamp_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")})
     path.write_text(json.dumps({"events": events}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -639,6 +651,7 @@ def main(argv: list[str]) -> int:
     if args.restore_dtbo_from_android:
         if args.ack != RESTORE_DTBO_ACK_TOKEN:
             raise SystemExit(f"--restore-dtbo-from-android requires --ack {RESTORE_DTBO_ACK_TOKEN}")
+        record_timeline_event(run_dir, "live_session_start")
         rc = restore_dtbo_from_android(
             odin=odin,
             dtbo_rollback_ap=m25_stock_dtbo_ap,
@@ -648,6 +661,7 @@ def main(argv: list[str]) -> int:
             odin_wait_sec=args.odin_wait_sec,
             android_wait_sec=args.android_wait_sec,
         )
+        record_timeline_event(run_dir, "live_session_end")
         print(f"M25 stock DTBO restore-from-android completed rc={rc}; log={log_path}")
         return rc
 

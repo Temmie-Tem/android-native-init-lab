@@ -169,6 +169,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Report:
 > `docs/reports/S22PLUS_M25_HASH_GATE_HARDENING_2026-07-08.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-08 21:20 KST / 12:20 UTC) — M25 TIMELINE GATE HARDENED; DRY-RUN PASS; LIVE NOT EXECUTED.**
+> Codex hardened M25 timeline accounting before live. `record_timeline_event()`
+> now rejects non-canonical `timeline.json` files not shaped exactly as a single
+> top-level `events` list, and also validates every existing event entry as
+> `{name,timestamp_utc}` with a parseable UTC `Z` timestamp before appending.
+> The auxiliary `--restore-dtbo-from-android` write path now records
+> `live_session_start` and `live_session_end`, matching the other M25 write/
+> rollback modes. Validation passed: `py_compile`, M25 unit tests
+> `Ran 13 tests ... OK`, `--offline-check`, `git diff --check`, and default
+> dry-run
+> (`workspace/private/runs/s22plus_m25_hs_only_usb2_acm_live_gate_20260708T122023Z/...`)
+> with `agents_exception_missing=[]`, Android stability ok, and baseline
+> boot/vendor_boot/dtbo hash reads. No flash, reboot, rollback, partition write,
+> or sysfs write was performed. Report:
+> `docs/reports/S22PLUS_M25_TIMELINE_GATE_HARDENING_2026-07-08.md`.
+
 > **OPERATOR STEER (2026-07-08, Claude) — M18 WAS THE WRONG FILE: read Samsung `reset_summary` (watchdog-bite capture).**
 > M18's fault is a **msm watchdog bite** (dmesg confirms the watchdog runs + pets
 > ~9.5s; a bare init pets nothing → bite → warm reset). That is NOT a panic, so

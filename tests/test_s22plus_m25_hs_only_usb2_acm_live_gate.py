@@ -1,4 +1,6 @@
 import importlib.util
+import io
+import json
 import sys
 import tempfile
 import unittest
@@ -101,6 +103,70 @@ class S22PlusM25HsOnlyUsb2AcmLiveGateTest(unittest.TestCase):
     def test_read_partition_hash_rejects_unsafe_partition_name(self):
         with self.assertRaisesRegex(SystemExit, "unsafe partition name"):
             self.module.read_partition_hash(Path("/tmp/unused.log"), "ADB123", "boot;reboot", "current")
+
+    def test_record_timeline_event_writes_canonical_events_schema(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            self.module.record_timeline_event(run_dir, "live_session_start")
+            self.module.record_timeline_event(run_dir, "candidate_flash_start")
+            data = json.loads((run_dir / "timeline.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(sorted(data.keys()), ["events"])
+        self.assertEqual([event["name"] for event in data["events"]], ["live_session_start", "candidate_flash_start"])
+        for event in data["events"]:
+            self.assertEqual(sorted(event.keys()), ["name", "timestamp_utc"])
+            self.assertTrue(event["timestamp_utc"].endswith("Z"))
+
+    def test_record_timeline_event_rejects_noncanonical_shape(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "timeline.json"
+            path.write_text(json.dumps({"events": [], "steps": []}), encoding="utf-8")
+            with self.assertRaisesRegex(SystemExit, "non-canonical timeline shape"):
+                self.module.record_timeline_event(Path(tmp), "live_session_start")
+
+    def test_record_timeline_event_rejects_noncanonical_event(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "timeline.json"
+            path.write_text(
+                json.dumps({"events": [{"name": "live_session_start", "timestamp_utc": "bad"}]}),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(SystemExit, "invalid timestamp"):
+                self.module.record_timeline_event(Path(tmp), "live_session_end")
+
+    def test_restore_dtbo_from_android_mode_records_session_events(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp) / "run"
+            odin = Path(tmp) / "odin4"
+            odin.write_text("#!/bin/sh\n", encoding="utf-8")
+
+            with (
+                patch.object(self.module, "verify_ap", lambda *_args, **_kwargs: None),
+                patch.object(self.module, "verify_ap_member", lambda *_args, **_kwargs: None),
+                patch.object(self.module, "verify_m25_manifest", lambda *_args, **_kwargs: None),
+                patch.object(self.module, "verify_agents_exception", lambda *_args, **_kwargs: None),
+                patch.object(self.module, "require_current_android", return_value="ADB123"),
+                patch.object(self.module, "verify_android_stability", lambda *_args, **_kwargs: None),
+                patch.object(self.module, "verify_partition_hash", lambda *_args, **_kwargs: None),
+                patch.object(self.module, "restore_dtbo_from_android", return_value=0),
+                patch("sys.stdout", new_callable=io.StringIO),
+            ):
+                rc = self.module.main(
+                    [
+                        "--restore-dtbo-from-android",
+                        "--ack",
+                        self.module.RESTORE_DTBO_ACK_TOKEN,
+                        "--run-dir",
+                        str(run_dir),
+                        "--odin",
+                        str(odin),
+                    ]
+                )
+
+            data = json.loads((run_dir / "timeline.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(rc, 0)
+        self.assertEqual([event["name"] for event in data["events"]], ["live_session_start", "live_session_end"])
 
     def test_magisk_rollback_verifies_magisk_boot_hash_before_dtbo_restore(self):
         events = []
