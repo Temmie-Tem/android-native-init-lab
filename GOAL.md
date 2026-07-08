@@ -4,6 +4,29 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **🎯 OPERATOR STEER (2026-07-09, Claude — read-only live pull): S7A DID NOT TEST THE SESSION HYPOTHESIS — IT LOADED THE max77705 PRODUCERS ONTO A DEAD I2C BUS. DO NOT RETIRE PRODUCERS; DO NOT PIVOT TO S7B. NEXT = S7A.2 = ADD THE GENI I2C TRANSPORT.**
+> The max77705 PD chip is a discrete I2C device on `994000.i2c`, driven by
+> **`i2c_msm_geni`** (core `msm_geni_se`, DMA `gpi`). S7A added `pdic_max77705` etc.
+> but its I2C transport was **NOT loaded** — S7A added `qcom_i2c_pmic` (SPMI/PMIC
+> arbiter = a *different* bus that does NOT reach max77705). So `pdic_max77705` could
+> not probe the chip → no `port0-partner` → `data_role` never became `device` → no
+> session → no pullup. This is the **M5 trap again**: the "chip lives on bus 994000.i2c"
+> fact is a **probe-time DT binding, invisible to `modules.dep`** — a symbol closure of
+> `pdic_max77705` never pulls in `i2c-msm-geni`. Also: S7A's on-device TypeC/UDC markers
+> are **structurally unobservable** here (no console, pstore empty), so S7A NEVER confirmed
+> whether `data_role` flipped — the "producers insufficient" conclusion is unproven.
+> **S7A.2 = load `gpi` → `msm-geni-se` → `i2c-msm-geni` (dep-ordered, BEFORE the
+> max77705/pdic chain), keep everything else from S7A, keep `soft_connect` OFF.** Add ONE
+> host-visible discriminator: if no partner appears, have the candidate directly write
+> `/sys/class/typec/port0/{data_role=device,power_role=sink}` (664, the exact nodes the
+> stock USB HAL chowns) before UDC bind — then the host either sees `6860` or not = a REAL
+> test. Descriptor/FFS parity (S7B) stays downstream until a candidate electrically
+> enumerates. Safety: `i2c-msm-geni`/`msm-geni-se`/`gpi` are bus/DMA drivers (not rail
+> writes); `pdic_max77705` pulls `gdsc-regulator`/`*-regulator` in dep closure = stock
+> power-domain DRIVER loads (same substrate dwc3-msm needs), not manual GDSC/rail knob
+> writes — flag at gate, write no charge/OTG/rail/GPIO knobs. Full analysis:
+> `docs/reports/S22PLUS_M34_S7A_I2C_GENI_BUS_MISSING_ROOTCAUSE_2026-07-09.md`.
+
 > **🎯 OPERATOR STEER (2026-07-09, corrected by Codex read-only stock pull): ORDER S7 CORRECTLY — SESSION BEFORE DESCRIPTORS. THE HOST SAW NO DEVICE AT ALL, WHICH IS ELECTRICAL SESSION/PULLUP BEFORE COMPOSITION.**
 > S7 descriptor/composition parity is real work but downstream: a perfect
 > descriptor set cannot make DWC3 assert a pullup. S4/S6 produced no intended
