@@ -4,21 +4,38 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ CURRENT FRONTIER (2026-07-09 06:44 KST / 2026-07-08 21:44 UTC) — M34 S6 LIVE-GATE AUTHORIZED; DRY-RUN PASS; LIVE NEXT.**
-> The operator gave live pre-approval in-thread. `AGENTS.md` now contains the
-> fresh SHA-pinned active S6 one-shot exception for
+> **S22+ CURRENT FRONTIER (2026-07-09 07:03 KST / 2026-07-08 22:03 UTC) — M34 S6 LIVE CONSUMED; SURVIVED 90 S; NO USB; MANUAL RDX/DOWNLOAD ROLLBACK CLEAN; NO ACTIVE LIVE AUTH.**
+> The approved M34 S6 stock-speed softdep runtime-gadget live gate ran once
+> using
 > `workspace/public/src/scripts/revalidation/s22plus_m34_s6_stock_softdep_live_gate.py`.
-> The helper default dry-run passed after authorization: S6 candidate and
-> rollback APs verified, AGENTS marker coverage accepted, Android stability
-> checked, and current boot partition SHA256 matched the known-booting Magisk
-> baseline `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+> Candidate AP
+> `f1ff77b7df434536029db417291689bff8b3a7dcdf4fda38fef5322475daad39`
+> flashed boot-only, the original Download endpoint disconnected, and the
+> candidate survived the full 90 second park observation window. Operator-side
+> observation: no boot loop, then RDX/PMIC, then manual Download mode for
+> rollback.
 >
-> Next action: run S6 live with ack token
-> `S22PLUS-M34-S6-STOCK-SOFTDEP-LIVE-GATE`, observe the 90 second park window,
-> then require manual Download rollback if the candidate survives or ACM
-> appears. No non-boot flash, no DTBO/vendor_boot/recovery/vbmeta write, no EUD
-> sysfs write, no Magisk module, no raw host `dd`, and no A90 action is
-> authorized.
+> S6 did not enumerate USB. Across 17 candidate snapshots, the host saw no
+> Samsung `04e8:*` endpoint, no stock Android `04e8:6860`, no CDC ACM, no
+> `/dev/ttyACM*`, no ADB, and no Odin/upload/download endpoint during park. The
+> result is `survived-observation-window-manual-download-required`: S6 improves
+> survival over S5, but not USB bring-up.
+>
+> Rollback flashed the pinned Magisk boot-only AP from manual Download and
+> returned a clean baseline: Android `sys.boot_completed=1`, build/bootloader
+> `S906NKSS7FYG8`, vbstate `orange`, `boot_recovery=0`, Magisk root present,
+> and boot partition SHA256 restored to
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`
+> (helper check plus post-live independent `su -c sha256sum`). Retained evidence
+> had no S6 marker: pstore empty, `/proc/last_kmsg` readable at 2,097,136 bytes,
+> marker absent. `AGENTS.md` now marks the S6 one-shot exception
+> consumed/retired and omits live tokens as active authorization. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S6_STOCK_SOFTDEP_LIVE_RESULT_2026-07-09.md`.
+>
+> Direction: no active S22+ live flash is authorized. Next unit should be
+> host-only: recover/inspect stock Android USB init rc/property choreography
+> from FYG8 firmware and rooted Android, capture stock configfs/sysfs USB state,
+> and diff descriptor/function/controller setup against S6 before proposing S7.
 
 > **S22+ CURRENT FRONTIER (2026-07-09 06:37 KST / 2026-07-08 21:37 UTC) — M34 S6 LIVE-GATE HELPER READY; DEFAULT FAIL-CLOSED; NO ACTIVE LIVE AUTH.**
 > Codex added the guarded S6 helper
