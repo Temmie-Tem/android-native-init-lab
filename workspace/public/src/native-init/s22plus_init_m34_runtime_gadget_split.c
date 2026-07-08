@@ -2,12 +2,13 @@
 /*
  * Samsung S22+ native-init M34 runtime gadget split candidate.
  *
- * M34 starts from the P30-proven full ACM module closure and isolates the
+ * M34 starts from the P30-proven full ACM module closure and isolates the stock
  * runtime gadget sequence. Stage 1 creates the configfs gadget/function/config
- * without role force or UDC bind. Stage 2 adds usb_role=device without UDC bind.
- * Stage 3 adds the UDC bind/pullup. The program remains a direct-PID1 park
- * candidate: no Android handoff, no reboot request, no persistent mount, and no
- * block writes.
+ * with stock-style UDC=none unbind and no pullup. Stage 2 adds the two off-stock
+ * HS-only/PD-less knobs: max_speed=high-speed and usb_role=device, still with no
+ * UDC bind. Stage 3 adds the UDC bind/pullup. The program remains a direct-PID1
+ * park candidate: no Android handoff, no reboot request, no persistent mount,
+ * and no block writes.
  */
 
 #include <stdint.h>
@@ -87,16 +88,16 @@ struct sbuf {
 };
 
 static const char k_marker[] =
-    M34_MARKER " version=0.1 pid1=direct runtime=freestanding raw_syscalls=1 "
+    M34_MARKER " version=0.2 pid1=direct runtime=freestanding raw_syscalls=1 "
     "stage=" M34_STAGE_NAME " runtime_step=" M34_STAGE_NAME " "
     "modules_dep_complete=" M34_MODULES_RAMDISK " module_count=" STR(M34_MODULE_LIMIT) " "
     "module_source=stock_vendor_boot_ramdisk module_list=dep_complete_runtime_gadget_split "
 #if M34_STAGE == 1
-    "configfs_gadget=1 role_force=0 udc_bind=0 "
+    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=0 role_force=0 udc_bind=0 "
 #elif M34_STAGE == 2
-    "configfs_gadget=1 role_force=1 udc_bind=0 "
+    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=1 role_force=1 udc_bind=0 "
 #else
-    "configfs_gadget=1 role_force=1 udc_bind=1 "
+    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=1 role_force=1 udc_bind=1 "
 #endif
     "no_android_handoff=1 no_reboot_request=1 no_download_beacon=1 "
     "persistent_mount=0 block_write=0\n";
@@ -481,19 +482,22 @@ static void create_configfs_gadget(void) {
     mkdir_p("/config/usb_gadget/g1/configs/b.1/strings/0x409", 0755);
     mkdir_p("/config/usb_gadget/g1/functions/ss_acm.0", 0755);
 
-    (void)write_attr("/config/usb_gadget/g1/idVendor", "0x04e8");
-    (void)write_attr("/config/usb_gadget/g1/idProduct", "0x685d");
     (void)write_attr("/config/usb_gadget/g1/bcdUSB", "0x0200");
+    (void)write_attr("/config/usb_gadget/g1/os_desc/use", "1");
+    (void)write_attr("/config/usb_gadget/g1/strings/0x409/serialnumber", "S22M34RUNTIME01");
+    (void)write_attr("/config/usb_gadget/g1/strings/0x409/manufacturer", "Codex");
+    (void)write_attr("/config/usb_gadget/g1/strings/0x409/product", "S22 Native Init M34 Runtime Split");
+    (void)write_attr("/config/usb_gadget/g1/configs/b.1/MaxPower", "900");
+    (void)write_attr("/config/usb_gadget/g1/configs/b.1/bmAttributes", "0x80");
+    (void)write_attr("/config/usb_gadget/g1/configs/b.1/strings/0x409/configuration", "acm");
+
+    (void)write_attr("/config/usb_gadget/g1/UDC", "none");
+    (void)write_attr("/config/usb_gadget/g1/idVendor", "0x04E8");
+    (void)write_attr("/config/usb_gadget/g1/idProduct", "0x6860");
     (void)write_attr("/config/usb_gadget/g1/bcdDevice", "0x0034");
     (void)write_attr("/config/usb_gadget/g1/bDeviceClass", "0xef");
     (void)write_attr("/config/usb_gadget/g1/bDeviceSubClass", "0x02");
     (void)write_attr("/config/usb_gadget/g1/bDeviceProtocol", "0x01");
-    (void)write_attr("/config/usb_gadget/g1/strings/0x409/manufacturer", "Codex");
-    (void)write_attr("/config/usb_gadget/g1/strings/0x409/product", "S22 Native Init M34 Runtime Split");
-    (void)write_attr("/config/usb_gadget/g1/strings/0x409/serialnumber", "S22M34RUNTIME01");
-    (void)write_attr("/config/usb_gadget/g1/configs/b.1/MaxPower", "500");
-    (void)write_attr("/config/usb_gadget/g1/configs/b.1/bmAttributes", "0x80");
-    (void)write_attr("/config/usb_gadget/g1/configs/b.1/strings/0x409/configuration", "acm");
 
     long symlink_rc = sys_symlinkat("../../functions/ss_acm.0", "/config/usb_gadget/g1/configs/b.1/f1");
     if (symlink_rc == -EEXIST) {
@@ -504,7 +508,7 @@ static void create_configfs_gadget(void) {
     sb_puts(&sb, M34_MARKER);
     sb_puts(&sb, " phase=configfs_done symlink_rc=");
     sb_put_i64(&sb, symlink_rc);
-    sb_puts(&sb, " role_forced=0 udc_bound=0\n");
+    sb_puts(&sb, " udc_none=1 max_speed_high_speed=0 role_forced=0 udc_bound=0\n");
     emit_buf(&sb);
 }
 
@@ -526,6 +530,16 @@ static int cstr_eq(const char *a, const char *b) {
 #endif
 
 #if M34_STAGE >= 2
+static void set_max_speed_high_speed(void) {
+    long rc = write_attr("/config/usb_gadget/g1/max_speed", "high-speed");
+    struct sbuf sb = {.data = {0}, .len = 0};
+    sb_puts(&sb, M34_MARKER);
+    sb_puts(&sb, " phase=max_speed value=high-speed rc=");
+    sb_put_i64(&sb, rc);
+    sb_puts(&sb, " udc_bound=0\n");
+    emit_buf(&sb);
+}
+
 static void force_usb_roles_device(void) {
     long fd = sys_openat(AT_FDCWD, "/sys/class/usb_role", O_RDONLY | O_DIRECTORY | O_CLOEXEC, 0);
     if (fd < 0) {
@@ -656,6 +670,7 @@ __attribute__((noreturn)) void _start(void) {
     load_modules_from_list();
     create_configfs_gadget();
 #if M34_STAGE >= 2
+    set_max_speed_high_speed();
     force_usb_roles_device();
 #endif
 #if M34_STAGE >= 3

@@ -5,11 +5,12 @@ Date: 2026-07-09 KST / 2026-07-08 UTC
 ## Verdict
 
 2026-07-09 update: S0/P30 has now passed live. The next unit is M34 S1 host
-build: configfs gadget/function/config only, no role force and no UDC bind.
-No S1 live flash is authorized yet.
+build/live: stock-ordered configfs gadget/function/config with `UDC=none`, but
+no `max_speed=high-speed`, no role force, and no final UDC bind. No S1 live
+flash is authorized yet.
 
-2026-07-09 later update: M34 S1/S2/S3 host artifacts are now built and
-source-ready. Current state is tracked in
+2026-07-09 later update: M34 S1/S2/S3 v0.2 host artifacts are now rebuilt from
+the live stock ACM recipe and source-ready. Current state is tracked in
 `docs/reports/S22PLUS_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT_HOST_BUILD_2026-07-09.md`.
 
 M34 should isolate the runtime gadget bring-up sequence, not continue module
@@ -34,6 +35,14 @@ PON reset window with the P28 module set plus:
 
 Therefore the high-value split is the runtime sequence.
 
+The live stock gadget pull in
+`docs/reports/S22PLUS_STOCK_USB_GADGET_ACM_RECIPE_2026-07-09.md` further
+corrected the exact sequence: stock creates `ss_acm.0`, writes `UDC=none`,
+sets IDs, links the function, then writes `UDC=a600000.dwc3` last. Stock does
+not force `usb_role` in init rc. M34 therefore treats `max_speed=high-speed`
+and `usb_role=device` as the two explicit off-stock knobs before the final
+pullup.
+
 ## Proposed Sequence
 
 S0: ACM module only
@@ -52,19 +61,24 @@ S1: configfs object creation only
 - Mount configfs if needed
 - Create `/config/usb_gadget/g1`
 - Create string/config/function directories and static attributes
+- Write `UDC=none`
+- Set stock-style IDs (`0x04E8:0x6860`)
 - Create/link `functions/ss_acm.0` into the config
+- Do not set `g1/max_speed=high-speed`
 - Do not force role
-- Do not write `UDC`
+- Do not write final `UDC=a600000.dwc3`
 - Park after emitting a phase marker
 - If S1 fails, configfs/function setup is the boundary
 
-S2: role force only
+S2: HS-only + role-force knobs, no pullup
 
 - Start from S1 state
+- Write `high-speed` to `/config/usb_gadget/g1/max_speed`
 - Write `device` to each `/sys/class/usb_role/*/role` candidate
-- Do not write `UDC`
+- Do not write final `UDC=a600000.dwc3`
 - Park after emitting per-role rc markers
-- If S2 fails, role switching is the boundary
+- If S2 fails, one of the two off-stock knobs is the boundary; bisect
+  `max_speed` vs role in the next host-only unit
 
 S3: UDC bind / pullup
 
@@ -102,13 +116,14 @@ Required static checks for every generated stage:
 - required marker includes the stage name and `runtime_step=<stage>`
 - all earlier stages are present and later stages are absent
 - S0 contains no `/config`, `usb_gadget`, `ss_acm.0`, `ttyGS0`, or UDC strings
-- S1 contains configfs/gadget strings but no `/sys/class/usb_role` or UDC write
-- S2 contains role-force strings but no UDC write
+- S1 contains configfs/gadget strings plus `UDC=none`, but no max-speed,
+  `/sys/class/usb_role`, or final UDC bind strings
+- S2 contains max-speed and role-force strings but no final UDC bind strings
 - S3 contains `a600000.dwc3` UDC bind strings
 - no candidate contains `LINUX_REBOOT_CMD_RESTART2`
 
 ## Next Gate
 
-Run P30 first under a fresh one-shot `AGENTS.md` exception and explicit operator
-approval. If P30 survives, build the M34 S1/S2/S3 host-only artifacts and live
-them one at a time under separate SHA-pinned exceptions.
+Run M34 S1 first under a fresh one-shot `AGENTS.md` exception and explicit
+operator approval. S2/S3 remain host-only until the previous stage has a live
+result.

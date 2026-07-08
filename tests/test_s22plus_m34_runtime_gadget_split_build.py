@@ -7,7 +7,7 @@ from pathlib import Path
 
 SCRIPT = Path("workspace/public/src/scripts/revalidation/build_s22plus_m34_runtime_gadget_split.py")
 SOURCE = Path("workspace/public/src/native-init/s22plus_init_m34_runtime_gadget_split.c")
-MANIFEST = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_1/manifest.json")
+MANIFEST = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_2/manifest.json")
 
 
 def load_module():
@@ -34,12 +34,18 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
 
         by_label = {stage.label: stage for stage in stages}
         self.assertTrue(by_label["S1"].configfs_gadget)
+        self.assertTrue(by_label["S1"].udc_none)
+        self.assertFalse(by_label["S1"].max_speed_high_speed)
         self.assertFalse(by_label["S1"].usb_role_force)
         self.assertFalse(by_label["S1"].udc_bind)
         self.assertTrue(by_label["S2"].configfs_gadget)
+        self.assertTrue(by_label["S2"].udc_none)
+        self.assertTrue(by_label["S2"].max_speed_high_speed)
         self.assertTrue(by_label["S2"].usb_role_force)
         self.assertFalse(by_label["S2"].udc_bind)
         self.assertTrue(by_label["S3"].configfs_gadget)
+        self.assertTrue(by_label["S3"].udc_none)
+        self.assertTrue(by_label["S3"].max_speed_high_speed)
         self.assertTrue(by_label["S3"].usb_role_force)
         self.assertTrue(by_label["S3"].udc_bind)
 
@@ -50,12 +56,35 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         self.assertIn("create_configfs_gadget", text)
         self.assertIn("force_usb_roles_device", text)
         self.assertIn("bind_udc", text)
+        self.assertIn("set_max_speed_high_speed", text)
         self.assertIn("a600000.dwc3", text)
         self.assertIn("/config/usb_gadget/g1/functions/ss_acm.0", text)
+        self.assertIn("/config/usb_gadget/g1/UDC", text)
+        self.assertIn("/config/usb_gadget/g1/max_speed", text)
+        self.assertIn("0x04E8", text)
+        self.assertIn("0x0200", text)
+        self.assertIn("900", text)
+        self.assertIn("\"none\"", text)
         self.assertNotIn("NR_REBOOT", text)
         self.assertNotIn("LINUX_REBOOT_CMD_RESTART2", text)
         self.assertNotIn("sys_reboot", text)
         self.assertNotIn("ttyGS0", text)
+
+    def test_source_keeps_stock_gadget_order(self):
+        text = SOURCE.read_text(encoding="utf-8")
+        udc_none = text.index('write_attr("/config/usb_gadget/g1/UDC", "none")')
+        id_vendor = text.index('write_attr("/config/usb_gadget/g1/idVendor", "0x04E8")')
+        link_acm = text.index('sys_symlinkat("../../functions/ss_acm.0", "/config/usb_gadget/g1/configs/b.1/f1")')
+        bind_udc = text.index("static void bind_udc")
+        start_max_speed = text.index("set_max_speed_high_speed();")
+        start_role = text.index("force_usb_roles_device();")
+        start_bind = text.index("bind_udc();")
+
+        self.assertLess(udc_none, id_vendor)
+        self.assertLess(id_vendor, link_acm)
+        self.assertLess(link_acm, bind_udc)
+        self.assertLess(start_max_speed, start_role)
+        self.assertLess(start_role, start_bind)
 
     def test_c_define_string_quotes_for_gcc_preprocessor(self):
         self.assertEqual(self.module.c_define_string("NAME", "VALUE"), '-DNAME="VALUE"')
@@ -74,15 +103,46 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         self.assertIsNone(manifest["safety"]["reboot_request"])
         self.assertFalse(manifest["safety"]["persistent_partition_mount"])
         self.assertFalse(manifest["safety"]["block_device_writes"])
+        self.assertTrue(manifest["safety"]["stock_order_udc_none_before_ids_and_link"])
+        self.assertTrue(manifest["safety"]["stock_order_udc_bind_last"])
+        self.assertTrue(manifest["safety"]["stage_s1_no_max_speed_high_speed"])
         self.assertTrue(manifest["safety"]["stage_s1_no_role_force"])
         self.assertTrue(manifest["safety"]["stage_s1_no_udc_bind"])
+        self.assertTrue(manifest["safety"]["stage_s2_sets_max_speed_high_speed"])
         self.assertTrue(manifest["safety"]["stage_s2_no_udc_bind"])
         self.assertTrue(manifest["safety"]["stage_s3_binds_only_a600000_dwc3"])
 
         by_label = {stage["label"]: stage for stage in manifest["stages"]}
-        self.assertEqual(by_label["S1"]["runtime_steps"], {"configfs_gadget": True, "usb_role_force": False, "udc_bind": False})
-        self.assertEqual(by_label["S2"]["runtime_steps"], {"configfs_gadget": True, "usb_role_force": True, "udc_bind": False})
-        self.assertEqual(by_label["S3"]["runtime_steps"], {"configfs_gadget": True, "usb_role_force": True, "udc_bind": True})
+        self.assertEqual(
+            by_label["S1"]["runtime_steps"],
+            {
+                "configfs_gadget": True,
+                "udc_none": True,
+                "max_speed_high_speed": False,
+                "usb_role_force": False,
+                "udc_bind": False,
+            },
+        )
+        self.assertEqual(
+            by_label["S2"]["runtime_steps"],
+            {
+                "configfs_gadget": True,
+                "udc_none": True,
+                "max_speed_high_speed": True,
+                "usb_role_force": True,
+                "udc_bind": False,
+            },
+        )
+        self.assertEqual(
+            by_label["S3"]["runtime_steps"],
+            {
+                "configfs_gadget": True,
+                "udc_none": True,
+                "max_speed_high_speed": True,
+                "usb_role_force": True,
+                "udc_bind": True,
+            },
+        )
         for stage in manifest["stages"]:
             self.assertEqual(stage["tar_members"], ["boot.img.lz4"])
             self.assertEqual(stage["closure"]["modules"], self.module.EXPECTED_M32_MODULES)
@@ -96,10 +156,20 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         s1_required = set(by_label["S1"]["init"]["required_strings"])
         s2_required = set(by_label["S2"]["init"]["required_strings"])
         s3_required = set(by_label["S3"]["init"]["required_strings"])
+        self.assertIn("udc_none=1", s1_required)
+        self.assertIn("/config/usb_gadget/g1/UDC", s1_required)
+        self.assertIn("none", s1_required)
+        self.assertIn("max_speed_high_speed=0", s1_required)
         self.assertIn("role_force=0", s1_required)
+        self.assertNotIn("/config/usb_gadget/g1/max_speed", s1_required)
+        self.assertNotIn("high-speed", s1_required)
         self.assertNotIn("/sys/class/usb_role", s1_required)
+        self.assertIn("max_speed_high_speed=1", s2_required)
+        self.assertIn("/config/usb_gadget/g1/max_speed", s2_required)
+        self.assertIn("high-speed", s2_required)
         self.assertIn("/sys/class/usb_role", s2_required)
-        self.assertNotIn("/config/usb_gadget/g1/UDC", s2_required)
+        self.assertIn("/config/usb_gadget/g1/UDC", s2_required)
+        self.assertNotIn("a600000.dwc3", s2_required)
         self.assertIn("/config/usb_gadget/g1/UDC", s3_required)
         self.assertIn("a600000.dwc3", s3_required)
 

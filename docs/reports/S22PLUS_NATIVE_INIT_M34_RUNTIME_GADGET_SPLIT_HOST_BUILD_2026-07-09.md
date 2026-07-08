@@ -6,15 +6,16 @@ Date: 2026-07-09 KST / 2026-07-08 UTC
 
 HOST BUILD PASS / SOURCE READY / POLICY INERT.
 
-M34 S1/S2/S3 artifacts are built and statically gated. No live flash is
+M34 S1/S2/S3 v0.2 artifacts are built and statically gated. No live flash is
 authorized by this report.
 
 ## Why This Exists
 
 M33 P30 survived the full observation window with the P30/M32 45-module closure,
-including `usb_f_ss_acm.ko`, while doing no runtime configfs/ACM binding. The
-remaining failure boundary is therefore the runtime gadget sequence, not module
-loading.
+including `usb_f_ss_acm.ko`, while doing no runtime configfs/ACM binding. A live
+read-only stock pull then showed Samsung's active gadget recipe uses
+`ss_acm.0` in config `b.1` on UDC `a600000.dwc3`. The remaining failure boundary
+is therefore the runtime gadget sequence, not module loading.
 
 ## Files
 
@@ -25,24 +26,28 @@ loading.
 - Tests:
   `tests/test_s22plus_m34_runtime_gadget_split_build.py`
 - Private output:
-  `workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_1/`
+  `workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_2/`
+- Stock recipe input:
+  `docs/reports/S22PLUS_STOCK_USB_GADGET_ACM_RECIPE_2026-07-09.md`
 
 ## Stages
 
 S1:
 
-- configfs gadget/function/config creation
+- stock-ordered configfs gadget/function/config creation
+- writes `UDC=none` before composition selection
+- sets stock-style IDs (`0x04E8:0x6860`)
 - creates and links `functions/ss_acm.0`
+- no `g1/max_speed=high-speed`
 - no `/sys/class/usb_role`
-- no `/config/usb_gadget/g1/UDC`
-- no `a600000.dwc3`
+- no final `UDC=a600000.dwc3`
 
 S2:
 
 - includes S1 state
+- writes `high-speed` to `/config/usb_gadget/g1/max_speed`
 - writes `device` to `/sys/class/usb_role/*/role`
-- no `/config/usb_gadget/g1/UDC`
-- no `a600000.dwc3`
+- no final `UDC=a600000.dwc3`
 
 S3:
 
@@ -54,7 +59,7 @@ S3:
 
 Template source SHA256:
 
-`4caf29f8ef29fbbf3e0ae3bd00956e33c8d6fc2d8af87e1b9aabeb40f682d47a`
+`ac20dcf724cf6864540d65958332d561d45409e7e85785a8c014882b37e29193`
 
 Common module-list SHA256:
 
@@ -63,29 +68,29 @@ Common module-list SHA256:
 S1:
 
 - AP.tar.md5:
-  `8ab6d8a0fda1e61e17dffd37657e4d36326bc08f4c056d6eb25dcdbf684e2f0e`
+  `77e8858ea6becc3e988232d464f97827f55594f16ed6edebd23c3529c972d237`
 - boot.img:
-  `fe6a4e6533835bcb208bc01242e6e05c0e3a75bb47045f542abd84a7ff0d8f84`
+  `bb46233068890bb6849c63b4dab845ca48b65a9ffeac9e24ad08e81416b63f85`
 - `/init`:
-  `40a3a8a670cda4eaed3e909503781f23f18fc43f2b8f327a848c5f96d37cc199`
+  `5339170f3138843a8f8da6cfd5f20f85696d3a9d18ae22bda439e21d0dd259cd`
 
 S2:
 
 - AP.tar.md5:
-  `d51937eee0955ab4fec77cade2da9f7245cb4d9b3ed3c22077c2eddede995afe`
+  `d235e6fd7c77c9fc2b63bd7280dcbf430783c9b62b5f361f43441c24687c38b3`
 - boot.img:
-  `cd89e2be44e51b1b957dfb8f8d33aecabe2b6c628b267641788a2c547cff41ae`
+  `f8838867e0b0fab5ffe5aa8717565d9304f635ef04487596a0baeb03b2dd7a70`
 - `/init`:
-  `7901789fff98cf899b632bb229357c24d1dee515651e6e5399dd18dc16bd12c7`
+  `fba33555bcc73d834a7dbfe87dc5e6fe3b622184d163ae72d478e18a0ce653b8`
 
 S3:
 
 - AP.tar.md5:
-  `2972a00048a4dfe9acc5a98f789b49f9fe5f731a3f701790e89fa97f6344c921`
+  `0ef55db2d38bec3df83cb77cd83f8ee6644054447ae7da10f8ecaecc8faa2957`
 - boot.img:
-  `e5b884ade62b23c18f28627328f42b0a7dc6ccea66705bb4fee24198061c9a24`
+  `87351f4955740aa4d83567406567c1ef4d6fcfa217d9ee5b0d7c446f2db09142`
 - `/init`:
-  `fe5597e6145f443d5bb779b74492be4bf42737540eb1e21c7e6998b35efc939b`
+  `2f391e50ff271b2dfe14dce31dbfdd0f0fb2b6d353ae89a2079acad5b46e668f`
 
 ## Safety
 
@@ -102,8 +107,9 @@ Static gates verify:
 - no block write
 - no module binary injection into boot ramdisk
 - QMP and EUD modules remain excluded
-- S1 has no role-force or UDC-bind strings
-- S2 has no UDC-bind strings
+- stock `UDC=none` is present before final bind
+- S1 has no max-speed, role-force, or final UDC-bind strings
+- S2 has max-speed and role-force but no final UDC-bind strings
 - S3 binds only `a600000.dwc3`
 
 ## Validation
@@ -132,7 +138,7 @@ Results:
 - builder `py_compile`: pass
 - M34 tests before manifest: 4 passed, 1 skipped
 - builder `--force`: pass
-- combined tests after manifest: 14 passed
+- combined tests after manifest: 15 passed
 
 ## Next
 

@@ -4,36 +4,43 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ CURRENT FRONTIER (2026-07-09 03:56 KST / 2026-07-08 18:56 UTC) — M34 RUNTIME-GADGET SPLIT HOST BUILD READY; S1 NEXT LIVE; NO ACTIVE LIVE AUTH.**
-> After P30 proved the full `usb_f_ss_acm.ko` module closure can park, Codex
-> built the M34 runtime-gadget split host artifacts:
+> **S22+ CURRENT FRONTIER (2026-07-09 04:04 KST / 2026-07-08 19:04 UTC) — M34 v0.2 STOCK-RECIPE RUNTIME-GADGET SPLIT HOST BUILD READY; S1 NEXT LIVE; NO ACTIVE LIVE AUTH.**
+> After P30 proved the full `usb_f_ss_acm.ko` module closure can park, and after
+> the live stock gadget read proved Samsung's active ACM recipe, Codex rebuilt
+> the M34 runtime-gadget split host artifacts to encode that stock order:
 > `workspace/public/src/native-init/s22plus_init_m34_runtime_gadget_split.c`,
 > `workspace/public/src/scripts/revalidation/build_s22plus_m34_runtime_gadget_split.py`,
 > and `tests/test_s22plus_m34_runtime_gadget_split_build.py`.
 >
 > Artifacts under
-> `workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_1/`
+> `workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_2/`
 > are source-ready/policy-inert: S1 AP SHA256
-> `8ab6d8a0fda1e61e17dffd37657e4d36326bc08f4c056d6eb25dcdbf684e2f0e`,
-> boot `fe6a4e6533835bcb208bc01242e6e05c0e3a75bb47045f542abd84a7ff0d8f84`;
+> `77e8858ea6becc3e988232d464f97827f55594f16ed6edebd23c3529c972d237`,
+> boot `bb46233068890bb6849c63b4dab845ca48b65a9ffeac9e24ad08e81416b63f85`;
 > S2 AP SHA256
-> `d51937eee0955ab4fec77cade2da9f7245cb4d9b3ed3c22077c2eddede995afe`,
-> boot `cd89e2be44e51b1b957dfb8f8d33aecabe2b6c628b267641788a2c547cff41ae`;
+> `d235e6fd7c77c9fc2b63bd7280dcbf430783c9b62b5f361f43441c24687c38b3`,
+> boot `f8838867e0b0fab5ffe5aa8717565d9304f635ef04487596a0baeb03b2dd7a70`;
 > S3 AP SHA256
-> `2972a00048a4dfe9acc5a98f789b49f9fe5f731a3f701790e89fa97f6344c921`,
-> boot `e5b884ade62b23c18f28627328f42b0a7dc6ccea66705bb4fee24198061c9a24`.
+> `0ef55db2d38bec3df83cb77cd83f8ee6644054447ae7da10f8ecaecc8faa2957`,
+> boot `87351f4955740aa4d83567406567c1ef4d6fcfa217d9ee5b0d7c446f2db09142`.
 > All stages use the same P30/M32 module-list SHA256
 > `2291dc1c72add131c42d0b4ed6649880c20316d0598e0a2af942cc774949062c`.
 >
-> Stage split: S1 creates configfs gadget/function/config and links `ss_acm.0`,
-> with no `usb_role=device` and no UDC bind. S2 adds `usb_role=device` but no
-> UDC bind. S3 adds only `UDC=a600000.dwc3`. Static gates verify boot-only
-> single-member APs, no reboot syscall, no Android/Magisk handoff, no block
-> writes, no module binaries in boot ramdisk, S1 has no role/UDC strings, S2 has
-> no UDC strings, and S3 selects only `a600000.dwc3`.
+> Stage split now follows the stock recipe from
+> `docs/reports/S22PLUS_STOCK_USB_GADGET_ACM_RECIPE_2026-07-09.md`: S1 mounts/
+> creates configfs gadget/function/config, writes `UDC=none`, sets stock-style
+> IDs (`0x04E8:0x6860`), and links `functions/ss_acm.0`, with no
+> `max_speed=high-speed`, no `usb_role=device`, and no final UDC bind. S2 adds
+> only the two off-stock pullup knobs (`g1/max_speed=high-speed` and
+> `usb_role=device`) while still not binding UDC. S3 adds only the final
+> `UDC=a600000.dwc3` pullup. Static gates verify boot-only single-member APs,
+> no reboot syscall, no Android/Magisk handoff, no block writes, no module
+> binaries in boot ramdisk, stock `UDC=none` before final bind, S1 has no
+> max-speed/role/bind strings, S2 has no final bind strings, and S3 selects only
+> `a600000.dwc3`.
 >
 > Validation passed: builder `py_compile`; M34 build tests before and after
-> private manifest creation; combined M34/M33 P30/M33 build tests (14); and
+> private manifest creation; combined M34/M33 P30/M33 build tests (15); and
 > builder `--force`. Next live target is S1 only, under a fresh SHA-pinned
 > `AGENTS.md` exception and explicit operator approval. S2/S3 must not live
 > before S1 result. Report:

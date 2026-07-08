@@ -4,10 +4,11 @@
 Host-only. This script does not reboot, flash, or touch a connected device.
 
 M34 starts after P30 proved the full ACM module closure can park safely without
-runtime gadget binding. These artifacts isolate the runtime sequence:
+runtime gadget binding. These artifacts encode the stock ACM recipe, then
+isolate the two HS-only/PD-less knobs and the final pullup:
 
-S1: create configfs gadget/function/config, no role force, no UDC bind.
-S2: S1 plus usb_role=device, no UDC bind.
+S1: create configfs gadget/function/config, UDC=none, no max_speed/role/bind.
+S2: S1 plus max_speed=high-speed and usb_role=device, no UDC bind.
 S3: S2 plus UDC bind/pullup on a600000.dwc3.
 """
 
@@ -48,7 +49,7 @@ from build_s22plus_inplace_m4t1_magiskboot import (
 from build_s22plus_m32_wdt_hs_acm import EXPECTED_M32_MODULES, dependency_complete_wdt_hs_order
 
 
-DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_1")
+DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_2")
 DEFAULT_TEMPLATE_SOURCE = Path("workspace/public/src/native-init/s22plus_init_m34_runtime_gadget_split.c")
 DEFAULT_VENDOR_RAMDISK = m23.DEFAULT_VENDOR_RAMDISK
 DEFAULT_LZ4 = m23.DEFAULT_LZ4
@@ -62,6 +63,8 @@ class RuntimeStage:
     number: int
     purpose: str
     configfs_gadget: bool
+    udc_none: bool
+    max_speed_high_speed: bool
     usb_role_force: bool
     udc_bind: bool
 
@@ -86,16 +89,20 @@ STAGES = [
     RuntimeStage(
         "S1",
         1,
-        "configfs gadget/function/config only; no role force and no UDC bind",
+        "stock configfs gadget/function/config plus UDC=none; no max_speed, no role force, no UDC bind",
         configfs_gadget=True,
+        udc_none=True,
+        max_speed_high_speed=False,
         usb_role_force=False,
         udc_bind=False,
     ),
     RuntimeStage(
         "S2",
         2,
-        "S1 plus usb_role=device; no UDC bind",
+        "S1 plus max_speed=high-speed and usb_role=device; no UDC bind",
         configfs_gadget=True,
+        udc_none=True,
+        max_speed_high_speed=True,
         usb_role_force=True,
         udc_bind=False,
     ),
@@ -104,6 +111,8 @@ STAGES = [
         3,
         "S2 plus UDC bind/pullup on a600000.dwc3",
         configfs_gadget=True,
+        udc_none=True,
+        max_speed_high_speed=True,
         usb_role_force=True,
         udc_bind=True,
     ),
@@ -174,7 +183,7 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
 
     required_strings = [
         stage.marker,
-        "version=0.1",
+        "version=0.2",
         "runtime=freestanding",
         "raw_syscalls=1",
         f"/{stage.modules_ramdisk}",
@@ -189,11 +198,23 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
         "phase=configfs_done",
         "phase=park_enter",
         "/config/usb_gadget/g1",
+        "/config/usb_gadget/g1/UDC",
         "/config/usb_gadget/g1/functions/ss_acm.0",
         "../../functions/ss_acm.0",
+        "stock_order=1",
+        "udc_none=1",
+        "0x04E8",
+        "0x0200",
+        "0x6860",
+        "900",
+        "none",
         "S22 Native Init M34 Runtime Split",
         "S22M34RUNTIME01",
     ]
+    if stage.max_speed_high_speed:
+        required_strings.extend(["max_speed_high_speed=1", "/config/usb_gadget/g1/max_speed", "high-speed", "phase=max_speed"])
+    else:
+        required_strings.append("max_speed_high_speed=0")
     if stage.usb_role_force:
         required_strings.extend(["role_force=1", "/sys/class/usb_role", "phase=usb_role_done"])
     else:
@@ -211,10 +232,12 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
         b"LINUX_REBOOT",
         b"ttyGS0",
     ]
+    if not stage.max_speed_high_speed:
+        forbidden_strings.extend([b"/config/usb_gadget/g1/max_speed", b"phase=max_speed", b"high-speed"])
     if not stage.usb_role_force:
         forbidden_strings.extend([b"/sys/class/usb_role", b"phase=usb_role_done"])
     if not stage.udc_bind:
-        forbidden_strings.extend([b"/config/usb_gadget/g1/UDC", b"/sys/class/udc", b"a600000.dwc3", b"phase=udc_bind"])
+        forbidden_strings.extend([b"/sys/class/udc", b"a600000.dwc3", b"phase=udc_bind"])
 
     binary = out_path.read_bytes()
     for required in required_strings:
@@ -350,6 +373,8 @@ def build_stage(
         "purpose": stage.purpose,
         "runtime_steps": {
             "configfs_gadget": stage.configfs_gadget,
+            "udc_none": stage.udc_none,
+            "max_speed_high_speed": stage.max_speed_high_speed,
             "usb_role_force": stage.usb_role_force,
             "udc_bind": stage.udc_bind,
         },
@@ -466,7 +491,10 @@ def main(argv: list[str]) -> int:
     manifest: dict[str, Any] = {
         "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "target": "SM-S906N/g0q/S906NKSS7FYG8",
-        "purpose": "M34 runtime gadget split after P30 proved ACM module load is not the boundary",
+        "purpose": (
+            "M34 stock-ordered runtime gadget split after P30 proved ACM module load is not the boundary"
+        ),
+        "stock_recipe_report": "docs/reports/S22PLUS_STOCK_USB_GADGET_ACM_RECIPE_2026-07-09.md",
         "stages": stage_manifests,
         "matrix": {
             "stages": [
@@ -475,6 +503,8 @@ def main(argv: list[str]) -> int:
                     "stage_number": stage.number,
                     "purpose": stage.purpose,
                     "configfs_gadget": stage.configfs_gadget,
+                    "udc_none": stage.udc_none,
+                    "max_speed_high_speed": stage.max_speed_high_speed,
                     "usb_role_force": stage.usb_role_force,
                     "udc_bind": stage.udc_bind,
                 }
@@ -504,8 +534,12 @@ def main(argv: list[str]) -> int:
             "watchdog_managed": True,
             "qmp_module_excluded": True,
             "eud_module_excluded": True,
+            "stock_order_udc_none_before_ids_and_link": True,
+            "stock_order_udc_bind_last": True,
+            "stage_s1_no_max_speed_high_speed": True,
             "stage_s1_no_role_force": True,
             "stage_s1_no_udc_bind": True,
+            "stage_s2_sets_max_speed_high_speed": True,
             "stage_s2_no_udc_bind": True,
             "stage_s3_binds_only_a600000_dwc3": True,
         },
