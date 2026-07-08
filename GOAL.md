@@ -49,6 +49,28 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Report:
 > `docs/reports/S22PLUS_BOOTLOOP_MANUAL_DOWNLOAD_RECHECK_CLEAN_2026-07-08.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-08 09:04 KST) — M23 DTS-EXACT QMP/DWC3 HOST BUILD READY; NO LIVE AUTH.**
+> Codex added
+> `workspace/public/src/scripts/revalidation/build_s22plus_inplace_m23_dts_exact_qmp_park.py`
+> and built a host-only M23 candidate from the stock vendor DTB and vendor
+> ramdisk metadata. It parses all four vendor DTB blobs, derives the same
+> `/soc/ssusb@a600000` + `dwc3@a600000` + HS/QMP PHY provider closure in each,
+> excludes the EUD extcon because EUD attach is TrustZone-gated, adds the
+> non-EUD `dwc3_msm` softdep PHY preloads and `usb_f_ss_acm.ko`, then emits a
+> 43-module recovery-order list. Artifact hashes: AP
+> `558eddb4b78b68c86d65f171072145c63210e9b33b5d0b56f2a3e4a00f0ba2d8`,
+> boot `277bf33c0f7cc62fe2b635b83c22b052d35a4e97dfb2e1cadaf60fdcb961184e`,
+> `/init` `745131e23a657905542697cc1c0573a87e484df2e9a06810344d8d4d0be6f357`,
+> module list
+> `a542b86aee8d2b09d0ca233e0a81d7deb8919a77657122d91f3b46e0a7933349`.
+> Validation passed: `py_compile`, host-only builder `--force`, generated
+> freestanding AArch64 syntax check, AP tar member check, 43-line module list,
+> no runtime `download`/`M18_FULL`/`full_firststage` strings, no reboot syscall,
+> manifest `live_flash_authorized=false`. No flash/reboot/device action was
+> performed. Next live-capable step requires a fresh SHA-pinned `AGENTS.md`
+> exception and guarded dry-run/live helper for this exact AP. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M23_DTS_EXACT_QMP_HOST_BUILD_2026-07-08.md`.
+
 > **S22+ LIVE RESULT (2026-07-08 03:50 KST) — DIRECT VENDOR_BOOT RAMOOPS PATCH BOOTED BUT DID NOT AFFECT LIVE DT; M13 NOT FLASHED.**
 > Operator authorized the ack-gated
 > `S22PLUS-RAMOOPS-VENDORBOOT-M13-CAPTURE-LIVE-GATE` run. Dry-run passed, the
