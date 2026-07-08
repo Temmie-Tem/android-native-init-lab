@@ -105,18 +105,35 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `06d1c149c7c09a284062826f21ac848220e99d552d6b91762abbfb80f3679527`;
 > contained `boot.img` SHA256 is
 > `206fbb40df69a496f7fbe67e32cf862049d9258ef518db6949e1b5db2f4afdc4`.
-> No M31B live flash is authorized until a fail-closed helper, fresh boot-only
-> exception, dry-run, and rollback gate are committed. The fail-closed helper is
-> now implemented and offline-checks the exact artifacts; default dry-run
-> correctly fails closed on the missing M31B `AGENTS.md` exception. No M31B live
-> flash is authorized yet.
+> M31B live is now consumed/retired. The candidate flashed once, the original
+> Odin endpoint disconnected, and the host observed no ADB/Odin through a 120 s
+> park window. `m31b_survival_window_pass=1` and
+> `m31b_result=survived-observation-window-manual-download-required`; the
+> operator reported no bootloop during the window. After the helper requested
+> manual Download rollback, the operator observed RDX `PMIC abnormal reset` and
+> the first endpoint failed Odin rollback with protocol error 71; after
+> re-entering normal Download, Magisk boot rollback succeeded and Android/Magisk
+> returned cleanly. Final baseline: boot
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, DTBO
+> `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`,
+> vendor_boot
+> `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`, Android
+> boot complete, vbstate orange, Magisk root present. Post-rollback pstore was
+> empty and retained `/proc/last_kmsg` did not contain the M31B marker.
+> **Current direction:** the watchdog-managed base broke the prior ~30 s
+> ceiling. Next host-only unit should add the smallest observable transport on
+> top of this base (watchdog-managed USB/ACM or link-only USB substrate) while
+> preserving survival. A separate read-only RDX/S-Boot dump retrieval rehearsal
+> is possible for the PC dump path, but it is not authorized by the consumed
+> M31B gate.
 > **Corrected mental model (still holds):** M25 did NOT bootloop — direct log
 > read (`...122411Z`) shows ~29 s dead-steady park then a single ~30.3 s watchdog
 > bite (not a loop); excluding `phy-msm-ssusb-qmp` DID kill the fast M15 QMP loop.
 > M26 `P00` HIT / `P24` NO-HIT localizes the fault to modules 1–24, upstream of
 > USB. M27 `P08` is contaminated (operator manual-download during a bootloop),
 > consistent with the closure being broken at module #1.
-> Reports: `S22PLUS_NATIVE_INIT_M31B_WDT_MANAGED_PARK_LIVE_GATE_PREFLIGHT_2026-07-09.md` (current primary),
+> Reports: `S22PLUS_NATIVE_INIT_M31B_WDT_MANAGED_PARK_LIVE_RESULT_2026-07-09.md` (current primary),
+> `S22PLUS_NATIVE_INIT_M31B_WDT_MANAGED_PARK_LIVE_GATE_PREFLIGHT_2026-07-09.md`,
 > `S22PLUS_NATIVE_INIT_M31B_WDT_MANAGED_PARK_LIVE_GATE_SOURCE_2026-07-09.md`,
 > `S22PLUS_NATIVE_INIT_M31B_WDT_MANAGED_PARK_HOST_BUILD_2026-07-09.md`,
 > `S22PLUS_PMIC_PON_ABNORMAL_RESET_IS_THE_WALL_2026-07-09.md`,
@@ -138,6 +155,29 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_GATE_SOURCE_2026-07-08.md`,
 > `S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_GATE_2026-07-08.md`.
 > (Observation steers below are superseded/background; MID stays set, harmless.)
+
+> **S22+ CURRENT FRONTIER (2026-07-09 01:45 KST / 2026-07-08 16:45 UTC) — M31B LIVE CONSUMED; WATCHDOG-MANAGED PARK SURVIVED 120 S; ROLLBACK CLEAN; NO ACTIVE LIVE AUTH.**
+> M31B answered the immediate discriminator positively. The candidate AP
+> `06d1c149c7c09a284062826f21ac848220e99d552d6b91762abbfb80f3679527` flashed
+> boot-only, the original Odin endpoint disconnected, and the helper observed a
+> 120 s parked window with no ADB/Odin endpoint:
+> `m31b_survival_window_pass=1` and
+> `m31b_result=survived-observation-window-manual-download-required`. The
+> operator reported no bootloop during the observation window. After survival,
+> manual Download recovery exposed an RDX `PMIC abnormal reset` screen and the
+> first endpoint `/dev/bus/usb/003/025` failed Odin rollback with protocol error
+> 71; a later proper Download endpoint `/dev/bus/usb/002/051` restored the
+> pinned Magisk boot AP successfully. Android/Magisk returned cleanly with boot
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, DTBO
+> `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`,
+> vendor_boot
+> `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`, vbstate
+> orange, boot complete, and Magisk root present. `AGENTS.md` now marks the
+> M31B exception consumed/retired and intentionally omits the live tokens as
+> active authorization. Next = host-only design/build for a watchdog-managed
+> observable transport, or a separately scoped read-only PC dump retrieval test
+> for the RDX/S-Boot path. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M31B_WDT_MANAGED_PARK_LIVE_RESULT_2026-07-09.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-09 01:25 KST / 2026-07-08 16:25 UTC) — M31B POLICY ACTIVE; DEFAULT DRY-RUN PASS; LIVE NEXT IF PROCEEDING.**
 > Operator approved proceeding. Codex promoted a narrow M31B one-shot boot-only
