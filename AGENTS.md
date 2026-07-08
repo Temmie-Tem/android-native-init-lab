@@ -2009,6 +2009,95 @@ BL, CP, CSC, userdata, or any non-boot flash.
    rebuild, recovery/vendor_boot/vbmeta/non-boot/non-DTBO flash other than the
    exact pinned stock-DTBO/M25-DTBO APs above, raw host `dd`, fastboot,
    multidisabler, format data, or any A90 action.
+   **Narrow operator-authorized exception (2026-07-08, S22+ M26 HS
+   prefix-download native-init boot+DTBO batch):** after the M26 host build
+   produced a host-only prefix/download discriminator matrix and the operator
+   approved live progression, Codex may perform one bounded attended first-live
+   M26 batch on the same Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using
+   only the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m26_hs_prefix_download_live_gate.py`
+   with live ack token `S22PLUS-M26-HS-PREFIX-DOWNLOAD-LIVE-GATE`, rollback
+   ack token `S22PLUS-M26-HS-PREFIX-ROLLBACK-FROM-DOWNLOAD`, and stock-DTBO
+   restore ack token `S22PLUS-M26-RESTORE-STOCK-DTBO`. M26 first live batch is
+   limited to P00/P24/P27/P30; P25, P28, P33, P40, broader module permutation,
+   and repeated M26 batches require a fresh exception.
+   The exact M25 DTBO high-speed cap AP.tar.md5 SHA256 must be
+   `35afd774444066fd8e2ffe831da11dd73ee47dce3bdd5b1e37675f82344e56b6`, the
+   patched raw DTBO SHA256 must be
+   `8962cbbded722c85dbdebfbdc2eba5476b9a64e2a2933888b81f947159eddc17`, the
+   stock DTBO rollback AP SHA256 must be
+   `6f397421bee84f4ea0c80a8519be0f6f6af84119794970e8a1faaa05f261caaa`, the
+   known Magisk boot baseline SHA256 must be
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, the
+   stock DTBO raw SHA256 must be
+   `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`, the
+   stock vendor_boot SHA256 must be
+   `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`, the
+   Magisk boot rollback AP SHA256 must be
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`, and
+   the stock boot fallback AP SHA256 must be
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
+   The M26 generated source SHA256 must be
+   `ba51ec4e8bded43b70d8ae40adafe8b2105aa07f57037457d094f9a1b6b187b7`, the
+   marker must be `S22_NATIVE_INIT_M26_HS_PREFIX_DOWNLOAD`, the ramdisk
+   module-list file must be `s22plus_m26_hs_only_usb2.modules`, and the
+   inherited M25 HS-only module list SHA256 must be
+   `00607484b7b777ee5cb54d7657f0cb554b9b66c42fec0e414d0544c0735d6496`.
+   Exact M26 first-batch candidates:
+   P00 count `0`, next `clk-rpmh.ko`, AP SHA256
+   `1f8763c5f08461bb351f1b461898bf568652e292c79aef9e1f46fb9af4bbd79b`,
+   boot.img SHA256
+   `76a0f5a40dd67db051c60af8fee367594a8580840853b34b3b3e16fe3f47b707`, and
+   `/init` SHA256
+   `1bd912f2732a975d5ed91e442d4def661e515bed9c87d6bd313d22b898ca08fc`;
+   P24 count `24`, next `arm_smmu.ko`, AP SHA256
+   `7e9a3fafdbeeda8c92cfab9b4ae73d2c2b2a4821a48d537e6ba5e35b34018029`,
+   boot.img SHA256
+   `ff231f7fdb410a8fa3489cd63bc8d2f9f539dc823a4086f5917e75a1b24b7af8`, and
+   `/init` SHA256
+   `7e188e760040073ee28708a17e66b4c7b096f91f4f41319083ae51bf2b98f2da`;
+   P27 count `27`, next `dwc3-msm.ko`, AP SHA256
+   `19014f494444e3fce3127ac142bc30f622feb96bd08a1f2031e2f14a0a380341`,
+   boot.img SHA256
+   `38e819de865d0a979446d04521373343f53d3ab8bae461cbb05b94190d2873b3`, and
+   `/init` SHA256
+   `5289ef3bdb344fa09e8a18d0183b8d7d4ce5c98d4eb83fe0f68813d5bf444a22`;
+   P30 count `30`, next `repeater.ko`, AP SHA256
+   `a4510148c14652ffd87c8c0c6dd2ec1b127a36136ed1d28849bba04028ea8c9c`,
+   boot.img SHA256
+   `3f952b45b8d339112fe6c25acc94f83257c21520c370559a37ad1a80f1016990`, and
+   `/init` SHA256
+   `fc99836944f0ac3373b45e8dc0523bc475ecd77cb5661dff77fbaf885a32aedf`.
+   Each M26 boot AP must contain exactly one tar member, `boot.img.lz4`, with
+   no recovery, vendor_boot, vbmeta, vbmeta_system, DTBO, BL, CP, CSC, super,
+   persist, userdata, EFS, RPMB, keymaster, modem, or any other partition
+   payload. The M25 DTBO AP and stock DTBO rollback AP must each contain
+   exactly one `dtbo.img.lz4` member, with no boot, recovery, vendor_boot,
+   vbmeta, vbmeta_system, BL, CP, CSC, super, persist, userdata, EFS, RPMB,
+   keymaster, modem, or any other partition payload.
+   The live path is: verify Android/Magisk baseline boot, stock DTBO, and
+   vendor_boot; flash exactly the pinned DTBO high-speed cap; verify patched
+   DTBO; for each authorized M26 prefix, flash exactly that boot AP, wait for
+   the original Odin endpoint to disconnect, count only a later Odin endpoint
+   as the candidate self-download proof, then immediately flash the pinned
+   Magisk boot rollback before the next prefix. The DTBO high-speed cap may
+   remain in place across the M26 batch, but stock DTBO rollback is mandatory
+   at session end. M26 is a direct PID1 freestanding raw-syscall `/init`
+   replacement using `module_count=40`, `reboot_request=download`, and
+   `maximum_speed_dtbo=high-speed`; it has no ACM, no configfs, no module
+   binary injection, no EUD sysfs write, no persistent partition mount, no
+   block-device write, no Android/Magisk handoff, and no recovery fallback
+   inside the candidate.
+   If any M26 prefix loops, fails to self-enter Download mode, or no rollback
+   transport appears, stop and require operator manual download-mode rollback
+   through the same helper's `--rollback-from-download` mode. Rollback must use
+   the pinned Magisk boot rollback first and then stock DTBO rollback; if the
+   DTBO-only step fails before a boot candidate flash, use only the stock DTBO
+   rollback path. This exception does not authorize M26 repeat, P25/P28/P33/P40
+   live, M25 repeat, display/distro candidates, kernel rebuild,
+   recovery/vendor_boot/vbmeta/non-boot/non-DTBO flash other than the exact
+   pinned stock-DTBO/M25-DTBO APs above, raw host `dd`, fastboot,
+   multidisabler, format data, or any A90 action.
 2. **Flash only via the checked helper by default:** `workspace/public/src/scripts/revalidation/native_init_flash.py`.
    Never `dd`/`fastboot`/raw-write a partition. Never invent a new flash path.
    **Narrow operator-authorized exception (2026-07-02, self-dd ladder only):** the V3358

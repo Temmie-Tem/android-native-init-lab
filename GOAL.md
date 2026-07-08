@@ -31,6 +31,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Report: `docs/reports/S22PLUS_M25_HS_ONLY_USB2_ACM_SIDESTEP_STEER_2026-07-08.md`.
 > (Observation steers below are now superseded/background; MID stays set, harmless.)
 
+> **S22+ CURRENT FRONTIER (2026-07-08 21:58 KST / 12:58 UTC) — M26 LIVE GATE READY; PRE-LIVE DRY-RUN PASS.**
+> Codex added the guarded M26 first-live batch helper
+> `workspace/public/src/scripts/revalidation/s22plus_m26_hs_prefix_download_live_gate.py`
+> and tests `tests/test_s22plus_m26_hs_prefix_download_live_gate.py`, then promoted
+> a fresh SHA-pinned AGENTS exception for exactly one attended M26 boot+DTBO batch.
+> The first-live batch is restricted to `P00/P24/P27/P30` under the pinned M25
+> DTBO high-speed cap, with Magisk boot rollback after each prefix and stock DTBO
+> rollback at session end. P25/P28/P33/P40 are explicitly not authorized by this
+> batch. Validation passed: `py_compile`, M26 live-gate unit tests (`Ran 8 tests`),
+> `--offline-check`, `git diff --check`, and default device dry-run against
+> `RFCT519XWGK`, which verified Android stability plus boot/vendor_boot/stock-DTBO
+> hashes before any flash. Next action is the already operator-approved live run
+> with ack `S22PLUS-M26-HS-PREFIX-DOWNLOAD-LIVE-GATE`. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M26_HS_PREFIX_DOWNLOAD_LIVE_GATE_2026-07-08.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-08 21:46 KST / 12:46 UTC) — M26 HOST BUILD READY; NO LIVE AUTH.**
 > Codex added the M26 HS-only prefix/download discriminator: builder
 > `workspace/public/src/scripts/revalidation/build_s22plus_m26_hs_prefix_download.py`,
