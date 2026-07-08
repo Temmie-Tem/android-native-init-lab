@@ -207,6 +207,40 @@ registers even when the phy handle is absent/errored. **P28 answers exactly that
 and is therefore still the right single confirmation flash before building M34
 tooling.
 
+## 9. CORRECTION (post-P28): the wall is RUNTIME gadget bring-up, not modules
+
+M33 `P28` already ran live (survived 90 s, rollback clean) — and its candidate
+list, when inspected, is the **full 44-module dependency-ordered USB set**
+(smem…`dwc3-msm` last, with every hard dep and the whole Samsung TypeC/PD/MUIC
+tree ordered before it). A `diff` vs the M32 list shows M32 = **P28's 44 modules
++ `usb_f_ss_acm.ko`** plus the configfs ACM gadget setup.
+
+Consequences — several earlier hypotheses in this report are now **demoted**:
+
+- **Modules are NOT the wall.** All 44 USB modules (incl. `dwc3-msm` and the
+  TypeC/PD tree) load and **park for 90 s with no reset** when
+  `modules.dep`-ordered. So `dwc3-msm` does **not** hard-hang on the SS phy at
+  probe (§4 hypothesis retired), and the TypeC/PD tree (§3 "second hang site")
+  does **not** hang at load either.
+- **The hang is the RUNTIME gadget bring-up.** The only delta from P28 (survives)
+  to M32 (~35 s hang) is `usb_f_ss_acm` + the configfs sequence: create gadget →
+  bind ACM function → force `usb_role=device` → write `UDC=a600000.dwc3`
+  (pullup). One of those runtime steps hangs — most likely **UDC pullup**, where
+  dwc3 actually starts the connect/PHY/role sequence.
+
+**Corrected next direction (M34): isolate the runtime gadget step, not the
+modules.** Build a candidate that loads the proven 44-module park set, then walks
+the configfs sequence **incrementally with a dwell/marker between each step**:
+(a) insmod `usb_f_ss_acm` + park; (b) create configfs gadget/function/config, no
+UDC, + park; (c) force `usb_role=device` + park; (d) write `UDC` (pullup) + park.
+The first step that resets is the real culprit.
+
+The SS-phy / `ssphy`-phandle work (§1, §4, §8) is **not the immediate step**; it
+re-enters only if **UDC pullup** is where it hangs (i.e. dwc3's connect sequence
+touching the dead SS phy or arbitrating `otg` role without the PD stack). At that
+point the runtime knobs to try first are dwc3 sysfs (`maximum_speed`, `mode`,
+`usb_role`) — cheaper than the DTBO overlay surgery in §8.
+
 ## Discipline
 
 Host-only analysis; the DTBO phandle edit + any live test need a fresh
