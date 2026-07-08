@@ -2009,6 +2009,103 @@ BL, CP, CSC, userdata, or any non-boot flash.
    rebuild, recovery/vendor_boot/vbmeta/non-boot/non-DTBO flash other than the
    exact pinned stock-DTBO/M25-DTBO APs above, raw host `dd`, fastboot,
    multidisabler, format data, or any A90 action.
+   **Narrow operator-authorized exception (2026-07-08, S22+ M28
+   dependency-complete native-init boot+DTBO batch):** after the M27
+   prefix-narrow result was operator-corrected to manual Download
+   contamination, and after the stock FYG8 `modules.dep` audit proved the
+   prior M25/M26/M27 module closure dependency-incomplete, Codex may prepare
+   and perform one bounded attended M28 dependency-complete batch on the same
+   Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m28_dep_complete_live_gate.py`
+   SHA256
+   `83521d521c55ceda8c860a940f8eb334e66638561b785231c5a5b007ad791d3b`,
+   with live ack token `S22PLUS-M28-DEP-COMPLETE-LIVE-GATE`, rollback ack
+   token `S22PLUS-M28-DEP-COMPLETE-ROLLBACK-FROM-DOWNLOAD`, and stock-DTBO
+   restore ack token `S22PLUS-M28-RESTORE-STOCK-DTBO`.
+   M28 dependency-complete live batch is limited to S24/F43, must run S24
+   first, must not run F43 if S24 fails (do not run F43 if S24 fails), and
+   must stop on first no-hit.
+   The helper may run `S24` alone or the ordered sequence `S24,F43`; `F43`
+   alone, P-label candidates, broader module permutations, and repeat M28
+   batches require a fresh exception. Any operator manual Download during
+   observation is manual Download contamination and is not clean self-download
+   proof.
+   The exact M25 DTBO high-speed cap AP.tar.md5 SHA256 must be
+   `35afd774444066fd8e2ffe831da11dd73ee47dce3bdd5b1e37675f82344e56b6`, the
+   patched raw DTBO SHA256 must be
+   `8962cbbded722c85dbdebfbdc2eba5476b9a64e2a2933888b81f947159eddc17`, the
+   stock DTBO rollback AP SHA256 must be
+   `6f397421bee84f4ea0c80a8519be0f6f6af84119794970e8a1faaa05f261caaa`, the
+   known Magisk boot baseline SHA256 must be
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, the
+   stock DTBO raw SHA256 must be
+   `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`, the
+   stock vendor_boot SHA256 must be
+   `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`, the
+   Magisk boot rollback AP SHA256 must be
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`, and
+   the stock boot fallback AP SHA256 must be
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
+   The M28 generated source SHA256 must be
+   `0c029dd3de42074c3c942efa23266fb383522750d1ffd9d826c67898db6bde6c`, the
+   marker must be `S22_NATIVE_INIT_M28_DEP_COMPLETE_DOWNLOAD`, the ramdisk
+   module-list file must be `s22plus_m28_dep_complete.modules`, the top
+   manifest SHA256 must be
+   `4986940e214dcb32916f5e06806f0cb2342479e82347abec0244edb2a09a250e`, and
+   the stock FYG8 `modules.dep` SHA256 must be
+   `21eae389f1d8b0a9fc93cec0b12d36e736cfac656d91ae55055c793f2ed67b27`.
+   Exact M28 candidates:
+   S24 count `26`, dependency-complete first-24 substrate plus hard suppliers
+   `sec_debug.ko` and `minidump.ko`, module-list SHA256
+   `8c605e2c69aad74f80191bdbc1843b002539d22d49bcffa86bb85bbcb343e5e4`,
+   AP SHA256
+   `c684f6a21bcc9aa50b066b447f4356958fe6d7bfed93edf0ac1b7dcaae8ce75f`,
+   boot.img SHA256
+   `a1459931001bfd6e17593dd329fc682f00ab61f4841b6543791f5349dd012cd0`, and
+   `/init` SHA256
+   `5c04a2023b2b56ef98746da6f7168121b62d7859cee81c756b80d1a382c1964e`;
+   F43 count `43`, full M25 HS-only closure plus hard suppliers
+   `sec_debug.ko`, `minidump.ko`, and `abc.ko`, module-list SHA256
+   `430050d648d85dd6c3fea459a6cd627a58fd234afe1b485820ccc1f2eb65f87b`,
+   AP SHA256
+   `003ea5760d9e33402750afd7a52b6b95727e4b4cff3f4d3cf66c559eabbb38d1`,
+   boot.img SHA256
+   `6453b8f2dd685757148056ba8767c2820b0547123f4e5e5e423c4adb0c70496c`, and
+   `/init` SHA256
+   `68de58cd3f05fd77af00984027948ad5ab953ae128dc4133d336e0a521cd588f`.
+   Each M28 boot AP must contain exactly one tar member, `boot.img.lz4`, with
+   no recovery, vendor_boot, vbmeta, vbmeta_system, DTBO, BL, CP, CSC, super,
+   persist, userdata, EFS, RPMB, keymaster, modem, or any other partition
+   payload. The M25 DTBO AP and stock DTBO rollback AP must each contain
+   exactly one `dtbo.img.lz4` member, with no boot, recovery, vendor_boot,
+   vbmeta, vbmeta_system, BL, CP, CSC, super, persist, userdata, EFS, RPMB,
+   keymaster, modem, or any other partition payload.
+   The live path is: verify Android/Magisk baseline boot, stock DTBO, and
+   vendor_boot; flash exactly the pinned DTBO high-speed cap; verify patched
+   DTBO; flash S24 first; wait for the original Odin endpoint to disconnect;
+   count only a later Odin endpoint as the candidate self-download proof; then
+   immediately perform Magisk boot rollback before considering F43. If S24
+   fails, loops, requires operator manual Download, or cannot be rolled back,
+   stop and do not run F43. The DTBO high-speed cap may remain in place across
+   clean successful M28 candidates, but stock DTBO rollback is mandatory at
+   session end.
+   M28 is a direct PID1 freestanding raw-syscall `/init` replacement using
+   `maximum_speed_dtbo=high-speed`, dependency-complete module ordering,
+   `module_binary_injection=false`, and `reboot_request=download`; it has no
+   ACM, no configfs, no UDC bind, no `ttyGS0`, no EUD sysfs write, no
+   persistent partition mount, no block-device write, no Android/Magisk
+   handoff, and no recovery fallback inside the candidate.
+   If any M28 candidate loops, fails to self-enter Download mode, or no
+   rollback transport appears, stop and require operator manual download-mode
+   rollback through the same helper's `--rollback-from-download` mode.
+   Rollback must use the pinned Magisk boot rollback first and then stock DTBO
+   rollback; if the DTBO-only step fails before a boot candidate flash, use
+   only the stock DTBO rollback path. This exception does not authorize M27
+   repeat, P01..P08 blind narrow, configfs/ACM/UDC add-back, EUD sysfs write,
+   module binary injection, display/distro candidates, kernel rebuild,
+   recovery/vendor_boot/vbmeta/non-boot/non-DTBO flash other than the exact
+   pinned stock-DTBO/M25-DTBO APs above, raw host `dd`, fastboot,
+   multidisabler, format data, or any A90 action.
    **Consumed exception (2026-07-08, S22+ M27 HS prefix-narrow native-init
    boot+DTBO batch):** this one-shot exception was consumed by the 2026-07-08
    live run. It flashed the pinned M25 DTBO high-speed cap AP and then flashed
