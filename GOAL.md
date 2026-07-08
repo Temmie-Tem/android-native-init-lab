@@ -117,6 +117,19 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > to restore Magisk boot and stock DTBO. Report:
 > `docs/reports/S22PLUS_M25_HS_ONLY_USB2_ACM_POLICY_ACTIVE_DRY_RUN_2026-07-08.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-08 21:02 KST / 12:02 UTC) — M25 PRE-LIVE HARDENED; LIVE NOT EXECUTED.**
+> Codex performed one host-only pre-live audit of the M25 helper and fixed a
+> rollback accounting bug before any live flash. Stock boot fallback is now
+> treated as a valid no-root fallback path instead of being forced through a
+> Magisk-root-only `su -c dd` boot hash read. `rollback_boot_ready` now marks
+> Android return after boot rollback, while stock DTBO restore records
+> `dtbo_rollback_boot_ready` separately. Validation passed: `py_compile`,
+> unit tests `Ran 7 tests ... OK`, `--offline-check`, and default dry-run
+> (`workspace/private/runs/s22plus_m25_hs_only_usb2_acm_live_gate_20260708T120351Z/...`).
+> No flash, reboot, rollback, partition write, or sysfs write was performed.
+> Report:
+> `docs/reports/S22PLUS_M25_HS_ONLY_USB2_ACM_PREFLIGHT_HARDENING_2026-07-08.md`.
+
 > **OPERATOR STEER (2026-07-08, Claude) — M18 WAS THE WRONG FILE: read Samsung `reset_summary` (watchdog-bite capture).**
 > M18's fault is a **msm watchdog bite** (dmesg confirms the watchdog runs + pets
 > ~9.5s; a bare init pets nothing → bite → warm reset). That is NOT a panic, so

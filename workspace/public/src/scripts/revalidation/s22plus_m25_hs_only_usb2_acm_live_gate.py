@@ -427,7 +427,7 @@ def restore_dtbo_from_android(
     if android is None:
         return 6
     verify_partition_hash(log_path, android, "dtbo", EXPECTED_STOCK_DTBO_RAW_SHA256, "stock_restore")
-    record_timeline_event(run_dir, "rollback_boot_ready")
+    record_timeline_event(run_dir, "dtbo_rollback_boot_ready")
     append_log(log_path, f"stock_dtbo_restore_android={android}")
     return 0
 
@@ -464,7 +464,11 @@ def rollback_boot_from_odin_device(
     if android is None:
         record_timeline_event(run_dir, "live_session_end")
         return 6
-    verify_partition_hash(log_path, android, "boot", EXPECTED_BASE_BOOT_SHA256, "boot_restore")
+    if rollback_target == ROLLBACK_MAGISK:
+        verify_partition_hash(log_path, android, "boot", EXPECTED_BASE_BOOT_SHA256, "boot_restore")
+    else:
+        append_log(log_path, "boot_restore_hash_check=skipped rollback_target=stock root_not_expected=1")
+    record_timeline_event(run_dir, "rollback_boot_ready")
     capture_post_boot_rollback_surfaces(run_dir, log_path, android)
     dtbo_rc = restore_dtbo_from_android(
         odin=odin,
@@ -597,7 +601,7 @@ def main(argv: list[str]) -> int:
             record_timeline_event(run_dir, "live_session_end")
             return 6
         verify_partition_hash(log_path, android, "dtbo", EXPECTED_STOCK_DTBO_RAW_SHA256, "stock_dtbo_restore")
-        record_timeline_event(run_dir, "rollback_boot_ready")
+        record_timeline_event(run_dir, "dtbo_rollback_boot_ready")
         record_timeline_event(run_dir, "live_session_end")
         print(f"M25 stock DTBO restore-from-download completed rc=0; log={log_path}")
         return 0

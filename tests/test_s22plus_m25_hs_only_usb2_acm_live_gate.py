@@ -1,5 +1,6 @@
 import importlib.util
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 from pathlib import Path
@@ -72,6 +73,84 @@ class S22PlusM25HsOnlyUsb2AcmLiveGateTest(unittest.TestCase):
     def test_manifest_verifier_accepts_current_m25_build(self):
         with patch.object(self.module, "append_log", lambda *_args, **_kwargs: None):
             self.module.verify_m25_manifest(MANIFEST, Path("/tmp/unused-m25-live-gate-test.log"))
+
+    def test_magisk_rollback_verifies_magisk_boot_hash_before_dtbo_restore(self):
+        events = []
+        verify_calls = []
+
+        def record_event(_run_dir, name):
+            events.append(name)
+
+        def verify_hash(_log_path, _serial, partition, expected_sha, label):
+            verify_calls.append((partition, expected_sha, label))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            log_path = run_dir / "log.txt"
+            with (
+                patch.object(self.module, "record_timeline_event", record_event),
+                patch.object(self.module, "flash_ap", return_value=0),
+                patch.object(self.module, "poll_android", return_value="ADB123"),
+                patch.object(self.module, "verify_partition_hash", verify_hash),
+                patch.object(self.module, "capture_post_boot_rollback_surfaces", return_value={}),
+                patch.object(self.module, "restore_dtbo_from_android", return_value=0),
+            ):
+                rc = self.module.rollback_boot_from_odin_device(
+                    odin=Path("/tmp/odin4"),
+                    boot_rollback_ap=Path("/tmp/magisk-ap.tar.md5"),
+                    stock_boot_fallback_ap=Path("/tmp/stock-ap.tar.md5"),
+                    dtbo_rollback_ap=Path("/tmp/dtbo-ap.tar.md5"),
+                    odin_device="/dev/bus/usb/001/002",
+                    run_dir=run_dir,
+                    log_path=log_path,
+                    rollback_target=self.module.ROLLBACK_MAGISK,
+                    odin_wait_sec=1,
+                    android_wait_sec=1,
+                )
+
+        self.assertEqual(rc, 0)
+        self.assertIn("rollback_boot_ready", events)
+        self.assertIn(("boot", self.module.EXPECTED_BASE_BOOT_SHA256, "boot_restore"), verify_calls)
+
+    def test_stock_rollback_skips_root_boot_hash_check(self):
+        events = []
+        verify_calls = []
+
+        def record_event(_run_dir, name):
+            events.append(name)
+
+        def verify_hash(_log_path, _serial, partition, expected_sha, label):
+            verify_calls.append((partition, expected_sha, label))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            log_path = run_dir / "log.txt"
+            with (
+                patch.object(self.module, "record_timeline_event", record_event),
+                patch.object(self.module, "flash_ap", return_value=0),
+                patch.object(self.module, "poll_android", return_value="ADB123"),
+                patch.object(self.module, "verify_partition_hash", verify_hash),
+                patch.object(self.module, "capture_post_boot_rollback_surfaces", return_value={}),
+                patch.object(self.module, "restore_dtbo_from_android", return_value=0),
+            ):
+                rc = self.module.rollback_boot_from_odin_device(
+                    odin=Path("/tmp/odin4"),
+                    boot_rollback_ap=Path("/tmp/stock-ap.tar.md5"),
+                    stock_boot_fallback_ap=Path("/tmp/stock-ap.tar.md5"),
+                    dtbo_rollback_ap=Path("/tmp/dtbo-ap.tar.md5"),
+                    odin_device="/dev/bus/usb/001/002",
+                    run_dir=run_dir,
+                    log_path=log_path,
+                    rollback_target=self.module.ROLLBACK_STOCK,
+                    odin_wait_sec=1,
+                    android_wait_sec=1,
+                )
+            log_text = log_path.read_text(encoding="utf-8")
+
+        self.assertEqual(rc, 0)
+        self.assertIn("rollback_boot_ready", events)
+        self.assertNotIn("boot", [call[0] for call in verify_calls])
+        self.assertIn("boot_restore_hash_check=skipped rollback_target=stock", log_text)
 
 
 if __name__ == "__main__":
