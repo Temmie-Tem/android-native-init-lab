@@ -4,11 +4,12 @@
  *
  * M34 starts from the P30-proven full ACM module closure and isolates the stock
  * runtime gadget sequence. Stage 1 creates the configfs gadget/function/config
- * with stock-style UDC=none unbind and no pullup. Stage 2 adds the two off-stock
- * HS-only/PD-less knobs: max_speed=high-speed and usb_role=device, still with no
- * UDC bind. Stage 3 adds the UDC bind/pullup. The program remains a direct-PID1
- * park candidate: no Android handoff, no reboot request, no persistent mount,
- * and no block writes.
+ * with stock-style UDC=none unbind and no pullup. Stage 2 adds the original two
+ * off-stock HS-only/PD-less knobs: max_speed=high-speed and usb_role=device,
+ * still with no UDC bind. Stage 3 adds the UDC bind/pullup. Stage 4 replaces the
+ * now-proven-dead usb_role path with the stock-kernel-proven ssusb role lever
+ * before UDC bind. The program remains a direct-PID1 park candidate: no Android
+ * handoff, no reboot request, no persistent mount, and no block writes.
  */
 
 #include <stdint.h>
@@ -88,16 +89,18 @@ struct sbuf {
 };
 
 static const char k_marker[] =
-    M34_MARKER " version=0.2 pid1=direct runtime=freestanding raw_syscalls=1 "
+    M34_MARKER " version=0.3 pid1=direct runtime=freestanding raw_syscalls=1 "
     "stage=" M34_STAGE_NAME " runtime_step=" M34_STAGE_NAME " "
     "modules_dep_complete=" M34_MODULES_RAMDISK " module_count=" STR(M34_MODULE_LIMIT) " "
     "module_source=stock_vendor_boot_ramdisk module_list=dep_complete_runtime_gadget_split "
 #if M34_STAGE == 1
-    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=0 role_force=0 udc_bind=0 "
+    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 "
 #elif M34_STAGE == 2
-    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=1 role_force=1 udc_bind=0 "
-#else
-    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=1 role_force=1 udc_bind=1 "
+    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=1 role_force=1 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 "
+#elif M34_STAGE == 3
+    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=1 role_force=1 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=1 "
+#elif M34_STAGE == 4
+    "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=1 role_force=0 ssusb_speed_high_speed=1 ssusb_mode_peripheral=1 udc_bind=1 "
 #endif
     "no_android_handoff=1 no_reboot_request=1 no_download_beacon=1 "
     "persistent_mount=0 block_write=0\n";
@@ -540,6 +543,7 @@ static void set_max_speed_high_speed(void) {
     emit_buf(&sb);
 }
 
+#if M34_STAGE == 2 || M34_STAGE == 3
 static void force_usb_roles_device(void) {
     long fd = sys_openat(AT_FDCWD, "/sys/class/usb_role", O_RDONLY | O_DIRECTORY | O_CLOEXEC, 0);
     if (fd < 0) {
@@ -598,6 +602,29 @@ static void force_usb_roles_device(void) {
     sb_puts(&sb, M34_MARKER);
     sb_puts(&sb, " phase=usb_role_done count=");
     sb_put_u64(&sb, count);
+    sb_puts(&sb, " udc_bound=0\n");
+    emit_buf(&sb);
+}
+#endif
+#endif
+
+#if M34_STAGE >= 4
+static void set_ssusb_speed_high_speed(void) {
+    long rc = write_attr("/sys/devices/platform/soc/a600000.ssusb/speed", "high-speed");
+    struct sbuf sb = {.data = {0}, .len = 0};
+    sb_puts(&sb, M34_MARKER);
+    sb_puts(&sb, " phase=ssusb_speed value=high-speed rc=");
+    sb_put_i64(&sb, rc);
+    sb_puts(&sb, " udc_bound=0\n");
+    emit_buf(&sb);
+}
+
+static void set_ssusb_mode_peripheral(void) {
+    long rc = write_attr("/sys/devices/platform/soc/a600000.ssusb/mode", "peripheral");
+    struct sbuf sb = {.data = {0}, .len = 0};
+    sb_puts(&sb, M34_MARKER);
+    sb_puts(&sb, " phase=ssusb_mode value=peripheral rc=");
+    sb_put_i64(&sb, rc);
     sb_puts(&sb, " udc_bound=0\n");
     emit_buf(&sb);
 }
@@ -671,7 +698,13 @@ __attribute__((noreturn)) void _start(void) {
     create_configfs_gadget();
 #if M34_STAGE >= 2
     set_max_speed_high_speed();
+#endif
+#if M34_STAGE == 2 || M34_STAGE == 3
     force_usb_roles_device();
+#endif
+#if M34_STAGE >= 4
+    set_ssusb_speed_high_speed();
+    set_ssusb_mode_peripheral();
 #endif
 #if M34_STAGE >= 3
     bind_udc();

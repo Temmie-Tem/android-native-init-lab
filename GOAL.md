@@ -4,6 +4,32 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 05:27 KST / 2026-07-08 20:27 UTC) — M34 S4 ROLE-LEVER HOST BUILD PASS; NEXT S4 LIVE-GATE HELPER; NO ACTIVE LIVE AUTH.**
+> Codex extended the M34 runtime-gadget split to v0.3 with a new S4 stage:
+> S4 keeps the S3 configfs/UDC sequence, keeps `g1/max_speed=high-speed`, removes
+> the dead `/sys/class/usb_role/*/role=device` runtime path, writes
+> `/sys/devices/platform/soc/a600000.ssusb/speed=high-speed` and
+> `/sys/devices/platform/soc/a600000.ssusb/mode=peripheral`, then binds
+> `UDC=a600000.dwc3`. S4 does not change descriptors, strings, companion
+> functions, module closure, or boot construction in the same candidate.
+>
+> Artifacts are under
+> `workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_3/`.
+> S4 AP.tar.md5 SHA256:
+> `9d93eb5c3c4fec3c02c920b2c80435a76b7c161079d906940a3279fc77495cc9`;
+> padded `boot.img` SHA256:
+> `153ceff9877351d55448de7839ec52f7631485c006a68971ca7ea14fc9dd11c5`;
+> direct `/init` SHA256:
+> `ee73a26d65649346e8cae830ee9bb229152d0a8001c2bc8fc48e536fdc08fb96`.
+> Static validation passed: builder `py_compile`, v0.3 build, and
+> `tests/test_s22plus_m34_runtime_gadget_split_build.py` after manifest
+> generation. The S4 `/init` contains the ssusb speed/mode paths, contains
+> `a600000.dwc3`, and does not contain `/sys/class/usb_role`. No live flash is
+> authorized. Next unit: prepare the S4 live-gate helper with enhanced host USB
+> observation (`lsusb`, `usb-devices`, udev, dmesg) and default fail-closed
+> policy. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S4_ROLE_LEVER_HOST_BUILD_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 05:23 KST / 2026-07-08 20:23 UTC) — M35 RECONCILED WITH ROLE-LEVER FINDING; NEXT S4 `ssusb/mode=peripheral` HOST BUILD; NO ACTIVE LIVE AUTH.**
 > After the operator confirmed RDX during the S3 manual recovery path and the
 > S3 rollback restored the clean Magisk Android baseline, Codex performed a

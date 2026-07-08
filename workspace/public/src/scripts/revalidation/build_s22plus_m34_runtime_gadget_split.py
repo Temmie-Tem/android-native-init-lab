@@ -5,11 +5,14 @@ Host-only. This script does not reboot, flash, or touch a connected device.
 
 M34 starts after P30 proved the full ACM module closure can park safely without
 runtime gadget binding. These artifacts encode the stock ACM recipe, then
-isolate the two HS-only/PD-less knobs and the final pullup:
+isolate the HS-only/PD-less knobs, the final pullup, and the stock-kernel-proven
+role lever:
 
 S1: create configfs gadget/function/config, UDC=none, no max_speed/role/bind.
 S2: S1 plus max_speed=high-speed and usb_role=device, no UDC bind.
 S3: S2 plus UDC bind/pullup on a600000.dwc3.
+S4: S3 behavior, but replace the dead usb_role path with
+    ssusb/speed=high-speed + ssusb/mode=peripheral before UDC bind.
 """
 
 from __future__ import annotations
@@ -49,7 +52,7 @@ from build_s22plus_inplace_m4t1_magiskboot import (
 from build_s22plus_m32_wdt_hs_acm import EXPECTED_M32_MODULES, dependency_complete_wdt_hs_order
 
 
-DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_2")
+DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_3")
 DEFAULT_TEMPLATE_SOURCE = Path("workspace/public/src/native-init/s22plus_init_m34_runtime_gadget_split.c")
 DEFAULT_VENDOR_RAMDISK = m23.DEFAULT_VENDOR_RAMDISK
 DEFAULT_LZ4 = m23.DEFAULT_LZ4
@@ -66,6 +69,8 @@ class RuntimeStage:
     udc_none: bool
     max_speed_high_speed: bool
     usb_role_force: bool
+    ssusb_speed_high_speed: bool
+    ssusb_mode_peripheral: bool
     udc_bind: bool
 
     @property
@@ -94,6 +99,8 @@ STAGES = [
         udc_none=True,
         max_speed_high_speed=False,
         usb_role_force=False,
+        ssusb_speed_high_speed=False,
+        ssusb_mode_peripheral=False,
         udc_bind=False,
     ),
     RuntimeStage(
@@ -104,6 +111,8 @@ STAGES = [
         udc_none=True,
         max_speed_high_speed=True,
         usb_role_force=True,
+        ssusb_speed_high_speed=False,
+        ssusb_mode_peripheral=False,
         udc_bind=False,
     ),
     RuntimeStage(
@@ -114,6 +123,20 @@ STAGES = [
         udc_none=True,
         max_speed_high_speed=True,
         usb_role_force=True,
+        ssusb_speed_high_speed=False,
+        ssusb_mode_peripheral=False,
+        udc_bind=True,
+    ),
+    RuntimeStage(
+        "S4",
+        4,
+        "S3 with the dead usb_role path replaced by ssusb/speed=high-speed and ssusb/mode=peripheral before UDC bind",
+        configfs_gadget=True,
+        udc_none=True,
+        max_speed_high_speed=True,
+        usb_role_force=False,
+        ssusb_speed_high_speed=True,
+        ssusb_mode_peripheral=True,
         udc_bind=True,
     ),
 ]
@@ -183,7 +206,7 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
 
     required_strings = [
         stage.marker,
-        "version=0.2",
+        "version=0.3",
         "runtime=freestanding",
         "raw_syscalls=1",
         f"/{stage.modules_ramdisk}",
@@ -219,6 +242,23 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
         required_strings.extend(["role_force=1", "/sys/class/usb_role", "phase=usb_role_done"])
     else:
         required_strings.append("role_force=0")
+    if stage.ssusb_speed_high_speed:
+        required_strings.extend([
+            "ssusb_speed_high_speed=1",
+            "/sys/devices/platform/soc/a600000.ssusb/speed",
+            "phase=ssusb_speed",
+        ])
+    else:
+        required_strings.append("ssusb_speed_high_speed=0")
+    if stage.ssusb_mode_peripheral:
+        required_strings.extend([
+            "ssusb_mode_peripheral=1",
+            "/sys/devices/platform/soc/a600000.ssusb/mode",
+            "peripheral",
+            "phase=ssusb_mode",
+        ])
+    else:
+        required_strings.append("ssusb_mode_peripheral=0")
     if stage.udc_bind:
         required_strings.extend(["udc_bind=1", "/config/usb_gadget/g1/UDC", "/sys/class/udc", "a600000.dwc3", "phase=udc_bind"])
     else:
@@ -236,6 +276,10 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
         forbidden_strings.extend([b"/config/usb_gadget/g1/max_speed", b"phase=max_speed", b"high-speed"])
     if not stage.usb_role_force:
         forbidden_strings.extend([b"/sys/class/usb_role", b"phase=usb_role_done"])
+    if not stage.ssusb_speed_high_speed:
+        forbidden_strings.extend([b"/sys/devices/platform/soc/a600000.ssusb/speed", b"phase=ssusb_speed"])
+    if not stage.ssusb_mode_peripheral:
+        forbidden_strings.extend([b"/sys/devices/platform/soc/a600000.ssusb/mode", b"phase=ssusb_mode", b"value=peripheral"])
     if not stage.udc_bind:
         forbidden_strings.extend([b"/sys/class/udc", b"a600000.dwc3", b"phase=udc_bind"])
 
@@ -376,6 +420,8 @@ def build_stage(
             "udc_none": stage.udc_none,
             "max_speed_high_speed": stage.max_speed_high_speed,
             "usb_role_force": stage.usb_role_force,
+            "ssusb_speed_high_speed": stage.ssusb_speed_high_speed,
+            "ssusb_mode_peripheral": stage.ssusb_mode_peripheral,
             "udc_bind": stage.udc_bind,
         },
         "closure": stage_closure,
@@ -492,7 +538,7 @@ def main(argv: list[str]) -> int:
         "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "target": "SM-S906N/g0q/S906NKSS7FYG8",
         "purpose": (
-            "M34 stock-ordered runtime gadget split after P30 proved ACM module load is not the boundary"
+            "M34 stock-ordered runtime gadget split plus S4 ssusb role-lever candidate"
         ),
         "stock_recipe_report": "docs/reports/S22PLUS_STOCK_USB_GADGET_ACM_RECIPE_2026-07-09.md",
         "stages": stage_manifests,
@@ -506,11 +552,13 @@ def main(argv: list[str]) -> int:
                     "udc_none": stage.udc_none,
                     "max_speed_high_speed": stage.max_speed_high_speed,
                     "usb_role_force": stage.usb_role_force,
+                    "ssusb_speed_high_speed": stage.ssusb_speed_high_speed,
+                    "ssusb_mode_peripheral": stage.ssusb_mode_peripheral,
                     "udc_bind": stage.udc_bind,
                 }
                 for stage in selected_stages
             ],
-            "live_order": ["S1", "S2", "S3"],
+            "live_order": ["S1", "S2", "S3", "S4"],
             "p30_is_s0": True,
             "module_closure_matches_p30_and_m32": True,
         },
@@ -542,6 +590,10 @@ def main(argv: list[str]) -> int:
             "stage_s2_sets_max_speed_high_speed": True,
             "stage_s2_no_udc_bind": True,
             "stage_s3_binds_only_a600000_dwc3": True,
+            "stage_s4_replaces_dead_usb_role_with_ssusb_role_lever": True,
+            "stage_s4_sets_ssusb_speed_high_speed_before_udc_bind": True,
+            "stage_s4_sets_ssusb_mode_peripheral_before_udc_bind": True,
+            "stage_s4_no_usb_role_force": True,
         },
         "vendor": {
             "vendor_ramdisk": display_path(root, vendor_ramdisk),
