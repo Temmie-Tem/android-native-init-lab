@@ -4,37 +4,37 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ CURRENT FRONTIER (2026-07-09 05:03 KST / 2026-07-08 20:03 UTC) — M34 S3 LIVE GATE AUTHORIZED; S2 CLOSED; LIVE NEXT.**
-> Codex prepared the guarded M34 S3 UDC-pullup runtime-gadget live gate helper:
+> **S22+ CURRENT FRONTIER (2026-07-09 05:11 KST / 2026-07-08 20:11 UTC) — M34 S3 LIVE CONSUMED; S3 SURVIVED 90 S; ROLLBACK CLEAN; NO ACTIVE LIVE AUTH.**
+> The approved M34 S3 UDC-pullup runtime-gadget live gate ran once using
 > `workspace/public/src/scripts/revalidation/s22plus_m34_s3_runtime_gadget_live_gate.py`.
-> It pins the v0.2 S3 AP SHA256
-> `0ef55db2d38bec3df83cb77cd83f8ee6644054447ae7da10f8ecaecc8faa2957`,
-> boot SHA256
-> `87351f4955740aa4d83567406567c1ef4d6fcfa217d9ee5b0d7c446f2db09142`,
-> `/init` SHA256
-> `2f391e50ff271b2dfe14dce31dbfdd0f0fb2b6d353ae89a2079acad5b46e668f`,
-> template source SHA256
-> `ac20dcf724cf6864540d65958332d561d45409e7e85785a8c014882b37e29193`, and
-> module-list SHA256
-> `2291dc1c72add131c42d0b4ed6649880c20316d0598e0a2af942cc774949062c`.
+> Candidate AP
+> `0ef55db2d38bec3df83cb77cd83f8ee6644054447ae7da10f8ecaecc8faa2957`
+> flashed boot-only, the original Download endpoint disconnected, and S3
+> survived the full 90 second observation window. Across 18 host snapshots,
+> ADB, Odin, and Samsung `04e8:6860` `/dev/ttyACM*` ACM endpoints stayed absent.
+> This proves final `UDC=a600000.dwc3` bind/pullup, when applied after the
+> S2-proven configfs + `max_speed=high-speed` + `usb_role=device` setup, is not
+> the observed reset boundary. It does **not** prove ACM transport usability,
+> because no host ACM endpoint appeared.
 >
-> Helper gates verify the S3 contract exactly: stage `S3`; stock-ordered
-> configfs gadget/function/config; `UDC=none`; stock IDs `0x04E8:0x6860`;
-> `functions/ss_acm.0` link; `g1/max_speed=high-speed`; `usb_role=device`;
-> **must include final** `UDC=a600000.dwc3`; boot-only single-member AP; no
-> reboot syscall; no Android/Magisk handoff; no persistent mount; no block
-> write; no module binary injection; rollback APs pinned. The observation loop
-> treats a Samsung `04e8:6860` `/dev/ttyACM*` endpoint as successful pullup
-> proof requiring manual Download rollback.
+> After survival proof, manual rollback was required. The operator observed RDX
+> while entering manual recovery, then a normal Download endpoint appeared. The
+> checked helper flashed the pinned Magisk boot rollback AP successfully. Final
+> baseline is clean: Android `sys.boot_completed=1`, bootanim stopped, vbstate
+> orange, bootloader/build `S906NKSS7FYG8`, Magisk root OK, and boot partition
+> SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
 >
-> Validation passed: helper `py_compile`; S3 unittest; helper `--offline-check`;
-> explicit fail-closed check without active `AGENTS.md` exception refused before
-> Android/flash actions with rc=1; after the operator approved live, the fresh
-> SHA-pinned active S3 one-shot exception was added to `AGENTS.md`; helper
-> dry-run then verified the active exception, Android stability, rollback APs,
-> and current Magisk boot hash. Next action: run the S3 live gate once, then
-> retire the exception and record the result. Report:
-> `docs/reports/S22PLUS_NATIVE_INIT_M34_S3_LIVE_GATE_READY_2026-07-09.md`.
+> Retained evidence had no M34 S3 marker: pstore empty, `/proc/last_kmsg`
+> readable at 2,097,136 bytes, marker absent. The single `events` timeline is
+> present in
+> `workspace/private/runs/s22plus_m34_s3_runtime_gadget_live_gate_20260708T200449Z/timeline.json`.
+> `AGENTS.md` now marks the S3 one-shot exception consumed/retired and omits the
+> live tokens as active authorization. Direction: M34 runtime-gadget reset
+> bisection is closed for S1/S2/S3 survival; the next unit should explain why
+> final pullup produces no host ACM endpoint, starting from read-only evidence
+> and stock Android gadget comparison. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S3_LIVE_RESULT_2026-07-09.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-09 04:48 KST / 2026-07-08 19:48 UTC) — M34 S2 LIVE CONSUMED; S2 SURVIVED 90 S; ROLLBACK CLEAN; NEXT S3 DESIGN/PREP; NO ACTIVE LIVE AUTH.**
 > The approved M34 S2 pullup-knobs runtime-gadget live gate ran once using
