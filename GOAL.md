@@ -31,6 +31,44 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Report: `docs/reports/S22PLUS_M25_HS_ONLY_USB2_ACM_SIDESTEP_STEER_2026-07-08.md`.
 > (Observation steers below are now superseded/background; MID stays set, harmless.)
 
+> **S22+ CURRENT FRONTIER (2026-07-08 20:40 KST) — M25 HS-ONLY USB2 ACM HOST BUILD READY; NO LIVE AUTH.**
+> Codex added
+> `workspace/public/src/scripts/revalidation/build_s22plus_m25_hs_only_usb2_acm.py`
+> and `tests/test_s22plus_m25_hs_only_usb2_acm_build.py`, then built
+> `workspace/private/outputs/s22plus_native_init/m25_hs_only_usb2_acm_v0_1`.
+> M25 produces a boot candidate plus DTBO high-speed candidate/stock rollback
+> APs. Boot AP SHA256:
+> `7f89cfb8ff188190d1d161aee97e3edec2730bfc46efca9df37f2035f7206805`;
+> boot image:
+> `0ace02ff82be1cb7473879ff52f1c9e8d1491edaa3d9a88b829f901b2c86559f`;
+> `/init`:
+> `cc03d95f06b851717d3ccb4fc32fbecac3adfe7109c1a68454f846e3014ecf75`;
+> module list:
+> `00607484b7b777ee5cb54d7657f0cb554b9b66c42fec0e414d0544c0735d6496`
+> (`40` modules). The derived closure keeps the HS PHY path and excludes
+> `phy-msm-ssusb-qmp.ko`, `eud.ko`, `ucsi_glink.ko`, and reset/watchdog
+> modules. DTBO candidate AP SHA256:
+> `35afd774444066fd8e2ffe831da11dd73ee47dce3bdd5b1e37675f82344e56b6`;
+> patched raw DTBO:
+> `8962cbbded722c85dbdebfbdc2eba5476b9a64e2a2933888b81f947159eddc17`;
+> stock DTBO rollback AP:
+> `6f397421bee84f4ea0c80a8519be0f6f6af84119794970e8a1faaa05f261caaa`.
+> DTBO patch scope is equal-length `super-speed\\0` -> `high-speed\\0\\0`
+> across all 11 overlay blobs (`changed_byte_count=110`). Validation passed:
+> `py_compile`, unit tests, host builder `--force`, AP member checks
+> (`boot.img.lz4` and `dtbo.img.lz4` only), no QMP module in the HS list,
+> `manifest.live_flash_authorized=false`. A read-only baseline check after the
+> operator's bootloop/manual-Download report found Android/Magisk clean:
+> `boot_completed=1`, verified boot `orange`, Magisk uid0, boot
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
+> vendor_boot
+> `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`,
+> dtbo `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`.
+> No live flash/reboot/rollback/device write was performed. Next step requires
+> a fresh SHA-pinned `AGENTS.md` exception and guarded live helper for the DTBO
+> high-speed AP + M25 boot AP + stock-DTBO/Magisk-boot rollback path. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M25_HS_ONLY_USB2_ACM_HOST_BUILD_2026-07-08.md`.
+
 > **OPERATOR STEER (2026-07-08, Claude) — M18 WAS THE WRONG FILE: read Samsung `reset_summary` (watchdog-bite capture).**
 > M18's fault is a **msm watchdog bite** (dmesg confirms the watchdog runs + pets
 > ~9.5s; a bare init pets nothing → bite → warm reset). That is NOT a panic, so
