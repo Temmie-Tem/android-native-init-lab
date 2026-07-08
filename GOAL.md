@@ -4,34 +4,43 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **🎯 OPERATOR STEER (2026-07-09, Claude — read-only live pull): ORDER S7 CORRECTLY — SESSION BEFORE DESCRIPTORS. THE HOST SAW *NO DEVICE AT ALL*, WHICH IS ELECTRICAL (no D+ pullup / no peripheral SESSION), NOT A COMPOSITION/DESCRIPTOR PROBLEM.**
-> The S7A plan below (add `conn_gadget`/`ss_mon`, match OS descriptors, FFS parity)
-> is real work but it is **downstream**: a perfect descriptor set cannot make dwc3
-> assert a pullup. S4/S5/S6 produced **no USB device at all** (not a malformed one),
-> and "no device" = no electrical pullup = **no valid peripheral session**. Live stock
-> read shows the session is NOT forced via dwc3 sysfs here (`b_sess`/`id`/`usb_data_enabled`
-> nodes do **not exist**; `dwc3-msm.ko` exposes only `bus_vote/mode/orientation/speed`).
-> It comes from the **TypeC/PD framework**: `/sys/class/typec/port0/{data_role=device,
-> power_role=sink}` (664, present), driven on cable insert by the **Samsung max77705
-> PD-IC/MUIC + `altmode_glink` chain**. Our set loads only `ucsi_glink` and is **MISSING**
-> `altmode_glink`, `pdic_max77705`, `pdic_notifier_module`, `common_muic`, `mfd_max77705`,
-> `max77705_charger`, `qcom_i2c_pmic`, and dwc3-msm `depends:` `redriver`/`if_cb_manager`.
-> **Do S7 = SESSION FIRST: add that producer chain (dep-correct from stock `modules.load`/
-> `modules.dep`), keep `mode=peripheral`, keep S6's minimal `ss_acm` configfs, DROP
-> `soft_connect` (S5 crashed on it). First reconcile S6's set vs the proven-surviving P28
-> set — the producers may have been in P28 and got dropped.** Live discriminator next boot:
-> `cat /sys/class/typec/port0/data_role` must resolve to `device` with a cable present, and
-> `dmesg | grep -iE 'altmode|max77705|pdic|muic|typec|session'` before/after UDC. Only AFTER
-> a device electrically enumerates does the S7A descriptor/composition parity matter (then it
-> shapes WHAT the host sees). Safety: `max77705_*`/`pdic_*` touch the external USB-C PD/charger
-> PMIC over I2C for **cable/PD detection only** (sink = draw power FROM host) — a stock module
-> load, NOT a rail power-write; do not write charge-current/OTG-boost/rail knobs. Full analysis:
+> **🎯 OPERATOR STEER (2026-07-09, corrected by Codex read-only stock pull): ORDER S7 CORRECTLY — SESSION BEFORE DESCRIPTORS. THE HOST SAW NO DEVICE AT ALL, WHICH IS ELECTRICAL SESSION/PULLUP BEFORE COMPOSITION.**
+> S7 descriptor/composition parity is real work but downstream: a perfect
+> descriptor set cannot make DWC3 assert a pullup. S4/S6 produced no intended
+> stock `04e8:6860` host USB device at all; S5 did not produce `6860` either
+> and later fell to Samsung `04e8:685d` upload/download after `soft_connect`.
+> Stock readback shows the session is not forced through legacy
+> `b_sess`/`id`/`usb_data_enabled` nodes; those nodes are absent under
+> `/sys/devices/platform/soc/a600000.ssusb`. Stock instead has
+> `/sys/class/typec/port0` backed by `max77705-usbc`, an attached
+> `port0-partner`, `data_role=host [device]`, and `power_role=source [sink]`.
+>
+> Corrected missing-list: S6 already contains `common_muic`,
+> `pdic_notifier_module`, `usb_typec_manager`, `redriver`, `if_cb_manager`,
+> `pmic_glink`, and `ucsi_glink`. The missing stock producers are the narrower
+> max77705/altmode side: `qcom_i2c_pmic.ko`, `mfd_max77705.ko`,
+> `max77705_charger.ko`, `max77705-fuelgauge.ko`, `pdic_max77705.ko`,
+> `charger-ulog-glink.ko`, and `altmode-glink.ko`; `usb_f_conn_gadget.ko` is
+> also missing for later stock composite parity.
+>
+> Do S7 in order: first S7A host-build/design restores the missing
+> session-producer modules in dep-correct stock order, keeps
+> `ssusb/mode=peripheral`, keeps S6's minimal `ss_acm` configfs, and keeps
+> `soft_connect` disabled. The next live discriminator, if later authorized,
+> is whether `/sys/class/typec/port0/data_role` resolves to `device` with the
+> cable present before/after UDC bind. Only after a device electrically
+> enumerates should S7B move to descriptor/composition parity. Safety:
+> `max77705_*`/`pdic_*` touch the external USB-C PD/charger path for stock
+> cable/PD detection only; do not write charge-current, OTG boost, rail,
+> regulator, GDSC, GPIO, or raw PMIC knobs. Full analysis:
 > `docs/reports/S22PLUS_M34_S7_USB_SESSION_ROLE_PRODUCER_CHAIN_STOCK_2026-07-09.md`.
 
-> **S22+ CURRENT FRONTIER (2026-07-09 07:06 KST / 2026-07-08 22:06 UTC) — M34 S6 POST-LIVE STOCK USB DIFF COMPLETE; ROLE/SPEED/SOFTDEP HYPOTHESIS RETIRED; NEXT S7A HOST-BUILD ONLY; NO ACTIVE LIVE AUTH.**
+> **S22+ CURRENT FRONTIER (2026-07-09 07:06 KST / 2026-07-08 22:06 UTC) — M34 S6 POST-LIVE STOCK USB DIFF + TYPEC SESSION CHECK COMPLETE; ROLE/SPEED/SOFTDEP HYPOTHESIS RETIRED; NEXT S7A HOST-BUILD ONLY; NO ACTIVE LIVE AUTH.**
 > After S6, Codex captured the rooted stock Android USB state read-only into
 > `workspace/private/runs/s22plus_stock_usb_state_post_s6_20260708T215851Z/`
-> and diffed it against the S6 runtime-gadget source/artifacts. Operator
+> and the stock TypeC/session state into
+> `workspace/private/runs/s22plus_stock_typec_session_post_s6_20260708T221017Z/`,
+> then diffed both against the S6 runtime-gadget source/artifacts. Operator
 > follow-up confirms the S6 recovery observation as no sustained boot loop,
 > RDX/PMIC, then manual Download mode.
 >
@@ -50,20 +59,31 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > restored QMP/EUD/UCSI softdep parity, survived the observation window, and
 > still produced no host USB endpoint. Therefore "missing peripheral mode",
 > "wrong USB2/USB3 forcing", and "missing QMP/EUD/UCSI softdep" are now
-> exhausted as primary explanations. The frontier is stock composition and
-> FunctionFS/userspace readiness: S6 only created `ss_acm.0` as `f1`, used
-> off-stock descriptors, did not include `usb_f_conn_gadget.ko`, did not create
-> `conn_gadget.0`/`ss_mon.mtp`, did not link `os_desc/b.1`, and did not mount or
-> populate FunctionFS.
+> exhausted as primary explanations. The immediate frontier is the stock
+> max77705/PDIC/altmode session producer chain: S6 already had
+> `common_muic`/`pdic_notifier_module`/`usb_typec_manager`/`redriver`/
+> `if_cb_manager`/`pmic_glink`/`ucsi_glink`, but missed
+> `qcom_i2c_pmic.ko`, `mfd_max77705.ko`, `max77705_charger.ko`,
+> `max77705-fuelgauge.ko`, `pdic_max77705.ko`, `charger-ulog-glink.ko`, and
+> `altmode-glink.ko`. Stock Android has `/sys/class/typec/port0` backed by
+> `max77705-usbc`, an attached partner, `data_role=host [device]`, and
+> `power_role=source [sink]`.
 >
-> Next unit: S7A host-build/design only. Start from S6, add
-> `usb_f_conn_gadget.ko`, match stock descriptors/OS descriptors, and create a
-> non-FunctionFS stock-companion composition (`ss_acm.0 + conn_gadget.0 +
-> ss_mon.mtp`) while explicitly leaving true `ffs.mtp`/`ffs.adb` for a separate
-> S7B design review because FunctionFS links need userspace descriptors/daemons
-> before UDC bind. No S7 live flash is authorized until a fresh SHA-pinned
-> `AGENTS.md` exception exists. Report:
-> `docs/reports/S22PLUS_NATIVE_INIT_M34_S6_POST_STOCK_USB_DIFF_2026-07-09.md`.
+> The second frontier remains stock composition and FunctionFS/userspace
+> readiness: S6 only created `ss_acm.0` as `f1`, used off-stock descriptors, did
+> not include `usb_f_conn_gadget.ko`, did not create `conn_gadget.0`/
+> `ss_mon.mtp`, did not link `os_desc/b.1`, and did not mount or populate
+> FunctionFS.
+>
+> Next unit: S7A host-build/design only. Start from S6 and restore the missing
+> stock session-producer modules in dep-correct order, add readback markers for
+> TypeC roles and UDC state, keep `soft_connect` disabled, and do not fold in
+> FunctionFS/userspace changes. S7B can then add `usb_f_conn_gadget.ko` plus
+> stock descriptor and non-FunctionFS companion-function parity. No S7 live
+> flash is authorized until a fresh SHA-pinned `AGENTS.md` exception exists.
+> Reports:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S6_POST_STOCK_USB_DIFF_2026-07-09.md`,
+> `docs/reports/S22PLUS_M34_S7_USB_SESSION_ROLE_PRODUCER_CHAIN_STOCK_2026-07-09.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-09 07:03 KST / 2026-07-08 22:03 UTC) — M34 S6 LIVE CONSUMED; SURVIVED 90 S; NO USB; MANUAL RDX/DOWNLOAD ROLLBACK CLEAN; NO ACTIVE LIVE AUTH.**
 > The approved M34 S6 stock-speed softdep runtime-gadget live gate ran once
