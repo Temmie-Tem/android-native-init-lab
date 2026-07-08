@@ -2752,6 +2752,304 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
    with stock boot-only fallback SHA256
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
+   **Narrow operator-authorized exception (2026-07-09, S22+ M34 S7A2 GENI I2C runtime-gadget boot-only live gate):**
+   Codex may run
+   one bounded attended boot-partition-only M34 S7A2 live gate on the Samsung S22+
+   `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m34_s7a2_geni_i2c_live_gate.py`.
+   Live ack token: `S22PLUS-M34-S7A2-GENI-I2C-LIVE-GATE`. Rollback ack token:
+   `S22PLUS-M34-S7A2-GENI-I2C-ROLLBACK-FROM-DOWNLOAD`.
+
+   The exact candidate AP.tar.md5 SHA256 must be
+   `cb89ccf9c8c5481938ddd415930c78a23e1a679d45fdc57f95e6d1b48776bd59`; contained padded `boot.img` SHA256 must be
+   `b9a4d4c2170da2ed6125aa44734005303d81d874b72402513def97b2f8406a54`; direct `/init` SHA256 must be
+   `8f8eb4a6f4d94bc552ec61819b9c2b4ea4ec4de7fb7aa097fab7193c6f117e5a`; template source SHA256 must be
+   `ce12ea11a6c0f73f5f042801435b419637b473eff6631155f45d4ad382d8a80a`; module-list SHA256 must be
+   `c0c35e02fe61a3f6c18c221a9ae2cc1a54aafd38374117fa954dbfa675700998`; preserved kernel SHA256 must be
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`; and known-booting base Magisk boot SHA256
+   must be `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. The AP must contain exactly one
+   tar member, `boot.img.lz4`, and must not carry recovery, vendor_boot, dtbo,
+   vbmeta, vbmeta_system, BL, CP, CSC, super, persist, userdata, EFS,
+   sec_efs, RPMB, keymaster, modem, bootloader, or any other partition payload.
+
+   The candidate is limited to freestanding direct PID1 M34 S7A2 behavior.
+   It starts from S7A, adds only the missing GENI I2C transport closure
+   (`gpi.ko included`, `msm-geni-se.ko included`, `i2c-msm-geni.ko included`),
+   keeps stock-ordered configfs gadget/function/config, `UDC=none`, stock IDs
+   `0x04E8:0x6860`, `ss_acm.0 link`, no `g1/max_speed=high-speed`, no
+   `/sys/class/usb_role`, no `ssusb/speed` high-speed write, read-only
+   `ssusb/speed` marker, `ssusb/mode=peripheral`, final UDC bind,
+   `UDC=a600000.dwc3`, no `soft_connect`, and no
+   `/sys/class/udc/a600000.dwc3/soft_connect`.
+   It must keep the stock max77705 PDIC altmode session-producer closure:
+   `session_producer_parity=1`, `max77705_session=1`, `typec_readback=1`,
+   `geni_i2c_transport=1`, `i2c_msm_geni=1`, `gpi_dma=1`, `msm_geni_se=1`,
+   `functionfs=0`, `stock_composite=0`, `qmp_module=1`, `eud_module=1`,
+   `ucsi_glink=1`, `phy-msm-ssusb-qmp.ko included`, `eud.ko included without
+   EUD sysfs write`, `ucsi_glink.ko included`, `qcom-i2c-pmic.ko included`,
+   `mfd_max77705.ko included`, `pdic_max77705.ko included`,
+   `max77705_charger.ko included`, `max77705-fuelgauge.ko included`,
+   `charger-ulog-glink.ko included`, and `altmode-glink.ko included`.
+   The helper must treat `sec_debug_region.ko present due stock charger
+   dependency`, `requires_s7a_specific_live_risk_review`, and
+   `stage_s7a2_no_charge_otg_rail_gpio_writes` as explicit policy markers.
+   S7A2 may read TypeC/UDC state through
+   `/sys/class/typec/port0/data_role`, `/sys/class/typec/port0/power_role`,
+   `/sys/class/typec/port0/port_type`, `/sys/class/typec/port0-partner/uevent`,
+   `/sys/class/udc/a600000.dwc3/state`,
+   `/sys/class/udc/a600000.dwc3/current_speed`, and
+   `/sys/class/udc/a600000.dwc3/function`. Its only sysfs writes outside the
+   prior S7A recipe are the bounded role-write discriminator after
+   `phase=typec_partner_check`: if no partner is visible, write
+   `data_role=device` only to `/sys/class/typec/port0/data_role` and
+   `power_role=sink` only to `/sys/class/typec/port0/power_role`, record
+   `phase=typec_role_write`, `role_device_rc=`, and `role_sink_rc=`, then bind
+   UDC. It must not write charge current, OTG/VBUS boost, regulator, GDSC,
+   GPIO, display, raw PMIC knobs, or EUD sysfs.
+   It must make no descriptor or companion-function change, no FunctionFS
+   change, and no `usb_f_conn_gadget.ko`/stock composite parity change. It must
+   have no reboot syscall, no Download beacon, no Android/Magisk handoff, no
+   persistent partition mount, no block write, no module binary injection into
+   boot ramdisk, no raw host `dd`, no fastboot, no Magisk modules, no
+   multidisabler, no format data, no DTBO/vendor_boot/recovery/vbmeta/non-boot
+   flash, and no A90 action. Manual Download rollback is recovery-only after
+   the helper requests it. Survival proof requires it survives past 60-90
+   seconds; PMIC/RDX abnormal reset before the observation window is FAIL. The
+   helper must collect enhanced host USB observation including
+   `lsusb -d 04e8:6860 -v`, `usb-devices`, udev properties, and host dmesg
+   delta. This exception does not authorize S1/S2/S3/S4/S5/S6 repeat,
+   post-pullup command channels, DTBO surgery, M32 repeat, display/distro
+   candidates, kernel rebuilds, RDX PC dump retrieval, EUD sysfs writes, or any
+   non-boot partition action.
+
+   Required policy marker coverage:
+   `S22+ M34 S7A2 GENI I2C runtime-gadget native-init boot-only`
+   `workspace/public/src/scripts/revalidation/s22plus_m34_s7a2_geni_i2c_live_gate.py`
+   `S22PLUS-M34-S7A2-GENI-I2C-LIVE-GATE`
+   `S22PLUS-M34-S7A2-GENI-I2C-ROLLBACK-FROM-DOWNLOAD`
+   `SM-S906N/g0q/S906NKSS7FYG8`
+   `S7A2`
+   `S22_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT_S7A2`
+   `cb89ccf9c8c5481938ddd415930c78a23e1a679d45fdc57f95e6d1b48776bd59`
+   `b9a4d4c2170da2ed6125aa44734005303d81d874b72402513def97b2f8406a54`
+   `8f8eb4a6f4d94bc552ec61819b9c2b4ea4ec4de7fb7aa097fab7193c6f117e5a`
+   `c0c35e02fe61a3f6c18c221a9ae2cc1a54aafd38374117fa954dbfa675700998`
+   `ce12ea11a6c0f73f5f042801435b419637b473eff6631155f45d4ad382d8a80a`
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`
+   `stock-ordered configfs gadget/function/config`
+   `UDC=none`
+   `0x04E8:0x6860`
+   `ss_acm.0 link`
+   `no g1/max_speed=high-speed`
+   `no /sys/class/usb_role`
+   `no ssusb/speed high-speed write`
+   `read-only ssusb speed marker`
+   `ssusb/mode=peripheral`
+   `final UDC bind`
+   `UDC=a600000.dwc3`
+   `no soft_connect`
+   `no /sys/class/udc/a600000.dwc3/soft_connect`
+   `stock max77705 PDIC altmode session-producer closure`
+   `GENI I2C transport closure`
+   `session_producer_parity=1`
+   `max77705_session=1`
+   `typec_readback=1`
+   `geni_i2c_transport=1`
+   `i2c_msm_geni=1`
+   `gpi_dma=1`
+   `msm_geni_se=1`
+   `role_write_discriminator=1`
+   `phase=typec_partner_check`
+   `phase=typec_role_write`
+   `role_device_rc=`
+   `role_sink_rc=`
+   `data_role=device`
+   `power_role=sink`
+   `functionfs=0`
+   `stock_composite=0`
+   `/sys/class/typec/port0/data_role`
+   `/sys/class/typec/port0/power_role`
+   `/sys/class/typec/port0/port_type`
+   `/sys/class/typec/port0-partner/uevent`
+   `/sys/class/udc/a600000.dwc3/state`
+   `/sys/class/udc/a600000.dwc3/current_speed`
+   `/sys/class/udc/a600000.dwc3/function`
+   `qmp_module=1`
+   `eud_module=1`
+   `ucsi_glink=1`
+   `phy-msm-ssusb-qmp.ko included`
+   `eud.ko included without EUD sysfs write`
+   `ucsi_glink.ko included`
+   `qcom-i2c-pmic.ko included`
+   `gpi.ko included`
+   `msm-geni-se.ko included`
+   `i2c-msm-geni.ko included`
+   `mfd_max77705.ko included`
+   `pdic_max77705.ko included`
+   `max77705_charger.ko included`
+   `max77705-fuelgauge.ko included`
+   `charger-ulog-glink.ko included`
+   `altmode-glink.ko included`
+   `sec_debug_region.ko present due stock charger dependency`
+   `requires_s7a_specific_live_risk_review`
+   `stage_s7a2_no_charge_otg_rail_gpio_writes`
+   `no descriptor or companion-function change`
+   `enhanced host USB observation`
+   `lsusb -d 04e8:6860 -v`
+   `usb-devices`
+   `udev properties`
+   `host dmesg delta`
+   `no reboot syscall`
+   `no Download beacon`
+   `no Android/Magisk handoff`
+   `no persistent partition mount`
+   `no block write`
+   `manual Download rollback is recovery-only`
+   `survives past 60-90 seconds`
+   `PMIC/RDX abnormal reset before the observation window is FAIL`
+   `no EUD sysfs write`
+   `no charge-current write`
+   `no OTG/VBUS boost write`
+   `no regulator/GDSC/GPIO/raw PMIC write`
+   `gpi.ko`
+   `msm-geni-se.ko`
+   `i2c-msm-geni.ko`
+   `gpi.ko`
+   `msm-geni-se.ko`
+   `i2c-msm-geni.ko`
+   `qcom-i2c-pmic.ko`
+   `mfd_max77705.ko`
+   `max77705_charger.ko`
+   `max77705-fuelgauge.ko`
+   `pdic_max77705.ko`
+   `charger-ulog-glink.ko`
+   `altmode-glink.ko`
+   `msm-geni-se.ko`
+   `gpi.ko`
+   `charger-ulog-glink.ko`
+   `altmode-glink.ko`
+   `qti-regmap-debugfs.ko`
+   `qcom-i2c-pmic.ko`
+   `i2c-msm-geni.ko`
+   `sec_pm_log.ko`
+   `qcom-cpufreq-hw.ko`
+   `sched-walt.ko`
+   `kryo_arm64_edac.ko`
+   `memory_dump_v2.ko`
+   `sec_key_notifier.ko`
+   `sec_crashkey_long.ko`
+   `sec_debug_region.ko`
+   `sec_param.ko`
+   `sec_qc_dbg_partition.ko`
+   `sec_qc_summary.ko`
+   `sec_upload_cause.ko`
+   `sec_qc_upload_cause.ko`
+   `sec_qc_user_reset.ko`
+   `sec_qc_smem.ko`
+   `sec_qc_hw_param.ko`
+   `sb-core.ko`
+   `sec_pd.ko`
+   `sec-battery.ko`
+   `mfd_max77705.ko`
+   `spu_verify.ko`
+   `pdic_max77705.ko`
+   `max77705_charger.ko`
+   `max77705-fuelgauge.ko`
+   `memory_dump_v2.ko`
+   `sec_debug_region.ko`
+   `sec_param.ko`
+   `sec_qc_dbg_partition.ko`
+   `sec_qc_summary.ko`
+   `sec_upload_cause.ko`
+   `sec_qc_upload_cause.ko`
+   `sec_qc_user_reset.ko`
+   `smem.ko`
+   `minidump.ko`
+   `sec_debug.ko`
+   `qcom_ipc_logging.ko`
+   `cmd-db.ko`
+   `qcom_rpmh.ko`
+   `clk-rpmh.ko`
+   `debug-regulator.ko`
+   `proxy-consumer.ko`
+   `gdsc-regulator.ko`
+   `clk-qcom.ko`
+   `clk-dummy.ko`
+   `gcc-waipio.ko`
+   `icc-bcm-voter.ko`
+   `icc-debug.ko`
+   `socinfo.ko`
+   `icc-rpmh.ko`
+   `rpmh-regulator.ko`
+   `qcom-scm.ko`
+   `qcom_wdt_core.ko`
+   `gh_virt_wdt.ko`
+   `iommu-logger.ko`
+   `qnoc-qos.ko`
+   `qnoc-waipio.ko`
+   `phy-generic.ko`
+   `qcom_iommu_util.ko`
+   `sec_class.ko`
+   `secure_buffer.ko`
+   `arm_smmu.ko`
+   `msm-geni-se.ko`
+   `gpi.ko`
+   `qmi_helpers.ko`
+   `qcom_glink.ko`
+   `qcom_glink_smem.ko`
+   `qcom_smd.ko`
+   `rproc_qcom_common.ko`
+   `pdr_interface.ko`
+   `pmic_glink.ko`
+   `charger-ulog-glink.ko`
+   `altmode-glink.ko`
+   `eud.ko`
+   `qti-regmap-debugfs.ko`
+   `qcom-i2c-pmic.ko`
+   `phy-msm-ssusb-qmp.ko`
+   `abc.ko`
+   `usb_notify_layer.ko`
+   `switch_class.ko`
+   `common_muic.ko`
+   `vbus_notifier.ko`
+   `pdic_notifier_module.ko`
+   `usb_typec_manager.ko`
+   `usb_f_ss_mon_gadget.ko`
+   `phy-msm-snps-hs.ko`
+   `repeater.ko`
+   `phy-msm-snps-eusb2.ko`
+   `redriver.ko`
+   `if_cb_manager.ko`
+   `qc_usb_audio.ko`
+   `dwc3-msm.ko`
+   `usb_f_ss_acm.ko`
+   `ucsi_glink.ko`
+   `i2c-msm-geni.ko`
+   `sec_pm_log.ko`
+   `qcom-cpufreq-hw.ko`
+   `sched-walt.ko`
+   `kryo_arm64_edac.ko`
+   `memory_dump_v2.ko`
+   `sec_key_notifier.ko`
+   `sec_crashkey_long.ko`
+   `sec_debug_region.ko`
+   `sec_param.ko`
+   `sec_qc_dbg_partition.ko`
+   `sec_qc_summary.ko`
+   `sec_upload_cause.ko`
+   `sec_qc_upload_cause.ko`
+   `sec_qc_user_reset.ko`
+   `sec_qc_smem.ko`
+   `sec_qc_hw_param.ko`
+   `sb-core.ko`
+   `sec_pd.ko`
+   `sec-battery.ko`
+   `mfd_max77705.ko`
+   `spu_verify.ko`
+   `pdic_max77705.ko`
+   `max77705_charger.ko`
+   `max77705-fuelgauge.ko`
    **Consumed exception (2026-07-09, S22+ M34 S7A session-producer
    runtime-gadget boot-only live gate):** this one-shot exception was consumed
    by the 2026-07-09 KST live run. It flashed the pinned M34 S7A boot-only

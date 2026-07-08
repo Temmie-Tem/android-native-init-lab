@@ -4,7 +4,7 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ CURRENT FRONTIER (2026-07-09 08:45 KST / 2026-07-08 23:45 UTC) — M34 S7A2 HOST BUILD COMPLETE; GENI I2C TRANSPORT ADDED; ROLE-WRITE DISCRIMINATOR BUILT; NO ACTIVE LIVE AUTH.**
+> **S22+ PREVIOUS FRONTIER (2026-07-09 08:45 KST / 2026-07-08 23:45 UTC) — M34 S7A2 HOST BUILD COMPLETE; GENI I2C TRANSPORT ADDED; ROLE-WRITE DISCRIMINATOR BUILT; NO ACTIVE LIVE AUTH.**
 > Codex implemented the corrected S7A.2 host-build path in
 > `workspace/public/src/scripts/revalidation/build_s22plus_m34_runtime_gadget_split.py`
 > and `workspace/public/src/native-init/s22plus_init_m34_runtime_gadget_split.c`.
@@ -40,6 +40,32 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > authorization exists. Any S7A2 flash needs a fresh SHA-pinned boot-only
 > `AGENTS.md` exception and explicit operator approval. Report:
 > `docs/reports/S22PLUS_NATIVE_INIT_M34_S7A2_GENI_I2C_TRANSPORT_HOST_BUILD_2026-07-09.md`.
+
+> **S22+ CURRENT FRONTIER (2026-07-09 08:29 KST / 2026-07-08 23:29 UTC) — M34 S7A2 LIVE GATE SOURCE READY; OPERATOR LIVE APPROVAL RECEIVED; ACTIVE SHA-PINNED AGENTS EXCEPTION INSERTED.**
+> Codex added the fail-closed S7A2 live gate helper
+> `workspace/public/src/scripts/revalidation/s22plus_m34_s7a2_geni_i2c_live_gate.py`
+> plus tests in
+> `tests/test_s22plus_m34_s7a2_geni_i2c_live_gate.py` and the ready report
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S7A2_GENI_I2C_LIVE_GATE_READY_2026-07-09.md`.
+> The helper pins S7A2 AP.tar.md5 SHA256
+> `cb89ccf9c8c5481938ddd415930c78a23e1a679d45fdc57f95e6d1b48776bd59`,
+> padded boot SHA256
+> `b9a4d4c2170da2ed6125aa44734005303d81d874b72402513def97b2f8406a54`,
+> `/init` SHA256
+> `8f8eb4a6f4d94bc552ec61819b9c2b4ea4ec4de7fb7aa097fab7193c6f117e5a`,
+> template source SHA256
+> `ce12ea11a6c0f73f5f042801435b419637b473eff6631155f45d4ad382d8a80a`,
+> and module-list SHA256
+> `c0c35e02fe61a3f6c18c221a9ae2cc1a54aafd38374117fa954dbfa675700998`.
+> It verifies the v0.7 manifest contract, GENI I2C target/order facts,
+> `i2c-msm-geni.ko` before `pdic_max77705.ko`, bounded TypeC role writes only
+> to `/sys/class/typec/port0/{data_role,power_role}`, and no charge/OTG/rail/
+> GPIO/raw PMIC writes. Validation passed: helper `py_compile`, S7A2 tests
+> (`Ran 10 tests`, `OK`), S7A2 `--offline-check`, combined M34/S7A/S7A2
+> regression (`Ran 25 tests`, `OK`), and default run fail-closed without active
+> authorization. After the operator's in-thread `라이브 승인`, Codex inserted a
+> fresh active SHA-pinned S7A2 `AGENTS.md` exception. Next action is S7A2
+> dry-run followed by one attended `--live` run and mandatory rollback.
 
 > **🎯 OPERATOR STEER (2026-07-09, Claude — read-only live pull): S7A DID NOT TEST THE SESSION HYPOTHESIS — IT LOADED THE max77705 PRODUCERS ONTO A DEAD I2C BUS. DO NOT RETIRE PRODUCERS; DO NOT PIVOT TO S7B. NEXT = S7A.2 = ADD THE GENI I2C TRANSPORT.**
 > The max77705 PD chip is a discrete I2C device on `994000.i2c`, driven by
