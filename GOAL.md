@@ -4,41 +4,39 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ CURRENT FRONTIER (2026-07-09 04:23 KST / 2026-07-08 19:23 UTC) — M34 S1 LIVE GATE + SAFE AGENTS EXCEPTION DRAFT READY; NO ACTIVE LIVE AUTH.**
-> Codex added the guarded M34 S1 live gate helper:
+> **S22+ CURRENT FRONTIER (2026-07-09 04:32 KST / 2026-07-08 19:32 UTC) — M34 S1 LIVE CONSUMED; S1 SURVIVED 90 S; ROLLBACK CLEAN; NEXT S2 DESIGN/PREP; NO ACTIVE LIVE AUTH.**
+> The approved M34 S1 stock configfs runtime-gadget live gate ran once using
 > `workspace/public/src/scripts/revalidation/s22plus_m34_s1_runtime_gadget_live_gate.py`.
-> It pins the v0.2 S1 AP SHA256
-> `77e8858ea6becc3e988232d464f97827f55594f16ed6edebd23c3529c972d237`,
-> boot SHA256
-> `bb46233068890bb6849c63b4dab845ca48b65a9ffeac9e24ad08e81416b63f85`,
-> `/init` SHA256
-> `5339170f3138843a8f8da6cfd5f20f85696d3a9d18ae22bda439e21d0dd259cd`,
-> template source SHA256
-> `ac20dcf724cf6864540d65958332d561d45409e7e85785a8c014882b37e29193`, and
-> module-list SHA256
-> `2291dc1c72add131c42d0b4ed6649880c20316d0598e0a2af942cc774949062c`.
+> Candidate AP
+> `77e8858ea6becc3e988232d464f97827f55594f16ed6edebd23c3529c972d237`
+> flashed boot-only, the original Download endpoint disconnected, and S1
+> survived the full 90 second observation window with no ADB/Odin endpoint
+> returning. This proves stock-ordered configfs gadget/function/config creation,
+> `UDC=none`, stock IDs `0x04E8:0x6860`, and the `ss_acm.0` link are not the
+> observed 35 second reset boundary when `max_speed=high-speed`,
+> `usb_role=device`, and final `UDC=a600000.dwc3` pullup are absent.
 >
-> Helper gates verify the stock S1 contract exactly: stage `S1`; `UDC=none`;
-> stock IDs `0x04E8:0x6860`; `functions/ss_acm.0` link; no
-> `max_speed=high-speed`; no `usb_role=device`; no final
-> `UDC=a600000.dwc3`; boot-only single-member AP; no reboot syscall; no
-> Android/Magisk handoff; no persistent mount; no block write; no module binary
-> injection; rollback APs pinned. Validation passed: helper `py_compile`;
-> M34 S1 + M34 build tests (9); helper `--offline-check`; explicit fail-closed
-> check without active `AGENTS.md` exception refused before Android/flash actions
-> with rc=1. The helper now also supports
-> `--print-agents-exception-draft`, which emits a draft one-shot `AGENTS.md`
-> exception for this exact S1 artifact and self-checks that the draft satisfies
-> the same `policy_required_markers()` set used by the fail-closed gate. The
-> live gate now also rejects draft-only M34 S1 text in `AGENTS.md`, so pasting
-> the draft without turning it into an active operator-approved exception cannot
-> accidentally satisfy live auth. Combined M34 S1/M34/M33 regression tests pass
-> (21).
+> After survival proof, manual rollback was required. The operator observed RDX
+> while entering manual recovery, then a normal Download endpoint appeared. The
+> checked helper flashed the pinned Magisk boot rollback AP successfully. Final
+> baseline is clean: Android `sys.boot_completed=1`, bootanim stopped, vbstate
+> orange, bootloader/build `S906NKSS7FYG8`, Magisk root OK, and boot partition
+> SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
 >
-> Next live target remains M34 S1 only, under a fresh SHA-pinned `AGENTS.md`
-> exception and explicit operator approval. S2/S3 must not live before S1
-> result. Report:
-> `docs/reports/S22PLUS_NATIVE_INIT_M34_S1_LIVE_GATE_READY_2026-07-09.md`.
+> Retained evidence had no M34 S1 marker: pstore empty, `/proc/last_kmsg`
+> readable at 2,097,136 bytes, marker absent. The single `events` timeline is
+> present in
+> `workspace/private/runs/s22plus_m34_s1_runtime_gadget_live_gate_20260708T192613Z/timeline.json`.
+> `AGENTS.md` now marks the S1 one-shot exception consumed/retired and omits the
+> live tokens as active authorization.
+>
+> Direction: S1 is closed. The next high-information unit is M34 S2: add only
+> the two off-stock pullup knobs (`g1/max_speed=high-speed` and
+> `usb_role=device`) while still not binding UDC. S3/final pullup remains
+> blocked until S2 result. No S2/S3 live flash is authorized until a fresh
+> SHA-pinned `AGENTS.md` exception and explicit operator approval exist. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S1_LIVE_RESULT_2026-07-09.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-09 04:04 KST / 2026-07-08 19:04 UTC) — M34 v0.2 STOCK-RECIPE RUNTIME-GADGET SPLIT HOST BUILD READY; S1 NEXT LIVE; NO ACTIVE LIVE AUTH.**
 > After P30 proved the full `usb_f_ss_acm.ko` module closure can park, and after
