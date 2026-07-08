@@ -4,6 +4,29 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 02:40 KST / 2026-07-08 17:40 UTC) — M33 P27 LIVE-GATE SOURCE READY; POLICY INERT; NO ACTIVE LIVE AUTH.**
+> After P12 survived, Codex prepared the next high-information split helper for
+> P27: `workspace/public/src/scripts/revalidation/s22plus_m33_p27_wdt_prefix_park_live_gate.py`.
+> P27 includes SMMU and HS/eUSB2 PHY module loading while still excluding
+> `dwc3-msm.ko`, `usb_f_ss_acm.ko`, `phy-msm-ssusb-qmp.ko`, and EUD. It remains
+> park-only: no reboot syscall, no Download beacon, no runtime USB/configfs/ACM,
+> no Android/Magisk handoff, no persistent mount, no block write. Candidate AP
+> is
+> `workspace/private/outputs/s22plus_native_init/m33_wdt_prefix_park_matrix_v0_1/P27/odin4/AP.tar.md5`
+> with SHA256
+> `9110e793f5cc812c856dedf35aaa4cc2f2c692f8561bba9dbe10c7b1e8a29371`; boot
+> SHA256 `16efd35b4bb340b2c8d5d5b99e3e3d3e19d4c01a60e87f6ed3cf60acc90386ea`;
+> `/init` SHA256
+> `4ce13d65264c2e887aadeefe66c812e4079340b14745bfb277b37a9fde7e8785`;
+> module-list SHA256
+> `11f8ccac67944d689d327d0157eb2f504e794d205df91c480506a3247d9c830e`.
+> Validation passed: helper `py_compile`, P27 live-gate unit tests (4), and
+> `--offline-check`. Default execution currently fail-closes before device
+> preflight because `AGENTS.md` has no active P27 exception or live/rollback
+> tokens. Interpretation for a future approved live run: if P27 survives, move
+> to P28/DWC3; if P27 fails, run P25 to separate SMMU from HS PHY. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M33_P27_WDT_PREFIX_PARK_LIVE_GATE_SOURCE_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 02:35 KST / 2026-07-08 17:35 UTC) — M33 P12 LIVE CONSUMED; P12 SURVIVED 90 S; ROLLBACK CLEAN; NO ACTIVE LIVE AUTH.**
 > The approved M33 P12 watchdog-prefix park live gate ran once under commit
 > `8cf94c00`. Candidate AP
