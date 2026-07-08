@@ -31,62 +31,50 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **Bonus:** `sec_debug`+`minidump` are exactly the crash-capture registrars, so
 > loading them may re-open the `reset_summary`/`minidump` observability that was
 > empty before (it was empty partly because these were never loaded).
-> **M28 RE-OPENED OBSERVABILITY — the fix is collection TIMING, not more markers.**
-> Adding `sec_debug`+`minidump` worked as predicted: the S24 run captured a full
-> **2,097,136-byte `last_kmsg`** for the first time in this saga (earlier M-runs
-> were empty) → Samsung's retained-log channel is ALIVE. The S24 run was still
-> not-clean (operator bootloop + manual Download), and the captured blob is the
-> Android **rollback** boot (host check: 1320 Android signatures vs 3 incidental
-> native ones), NOT the S24 candidate — because `/proc/last_kmsg` holds only the
-> immediately-previous boot and the helper read it after BOTH rollback boots.
-> S24's log lived in `last_kmsg` at `S24_rollback_boot_ready` (the FIRST Android
-> boot after the candidate reset, 14:34:01) and was overwritten by the second
-> (stock-DTBO) rollback boot before the read. This is now a fixable collection
-> ORDER bug, not a dead channel.
-> **Active unit = M29 attended live gate pending operator approval:**
-> capture at the FIRST post-candidate boot. Codex added source-ready helper
-> `workspace/public/src/scripts/revalidation/s22plus_m29_first_rollback_capture_live_gate.py`
-> SHA256 `d8da7792f9ccc60a16358984636b29a3df27fac6b264f039354ea54770a18bb3`.
-> At `S24_rollback_boot_ready`, BEFORE the stock-DTBO rollback, it immediately
-> reads+pulls `/proc/last_kmsg` (the intended candidate kernel-log window) AND
-> Samsung `sec_qc_user_reset` surfaces (`/proc/reset_summary`, `reset_klog`,
-> `reset_history`, `reset_tzlog`) — with `sec_debug` now loaded IN the
-> candidate, a watchdog bite may populate per-core last-PC / faulting-module
-> there. It also captures a pre-candidate retained-log baseline and compares
-> the two `last_kmsg` SHA256 values. This is a collection-order change on the
-> EXISTING dependency-complete `S24` artifact plus DTBO high-speed cap/QMP
-> exclusion — NO candidate rebuild, NO marker re-architecture yet. The helper
-> deliberately rejects `F43`; F43 remains unauthorized until S24 first-capture
-> evidence is understood. Validation passed (`py_compile`, 7-unit unittest,
-> `--offline-check`), and default execution fail-closes because `AGENTS.md` has
-> no M29 authorization tokens. **Decision:** if first-boot
-> `last_kmsg`/`reset_summary` shows the S24 fault (a faulting PC / the module
-> active at bite / the last native line) ⇒ the observability wall is DOWN —
-> localize the biting step and fix its missing supply/clock. If first-boot
-> capture is STILL empty ⇒ only then do the loop's marker hypotheses (init
-> never ran / kmsg not retained / faulted pre-first-line) matter → durable
-> candidate-owned marker path becomes M30. Do NOT run F43 blindly, do NOT
-> continue the P01…P08 blind narrow, and do NOT re-add configfs/ACM/UDC or
-> chase the DTBO ssphy-phandle until 1–24 survives (both are downstream of this).
-> M29 policy is now active in `AGENTS.md` SHA256
-> `4d92c4a13e321fea2cf1c7e74069067927a7055875233d6b4ca6b551cf3bc698`.
-> Pre-live dry-run passed against the attached S22+ Android/Magisk baseline:
-> `agents_exception_missing=[]`, Android stability `ok samples=4`, boot
-> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
+> **M29 LIVE CONSUMED — first-rollback timing did NOT recover candidate evidence.**
+> M28 did re-open Samsung retained-log capture (full 2,097,136-byte
+> `/proc/last_kmsg`), but M29 showed the cheap collection-timing explanation is
+> insufficient by itself. The M29 live run applied the M25 high-speed DTBO cap,
+> captured a pre-candidate baseline, flashed the existing dependency-complete
+> `S24`, then observed no clean candidate self-download proof: no ADB and no
+> Odin appeared through the bounded host window, the helper logged
+> `m29_S24_self_download_seen=0` /
+> `m29_S24_result=no-self-download-manual-download-required`, and the operator
+> reported bootloop plus manual Download-mode entry. The checked
+> rollback-from-download path restored Magisk boot, captured retained surfaces
+> at the first post-M29 rollback Android boot before stock-DTBO restore, then
+> restored stock DTBO. Final baseline is clean: boot
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, DTBO
+> `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`,
 > vendor_boot
-> `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`, and
-> stock DTBO
-> `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`. No
-> live flash/reboot/device mutation has happened under M29 yet. Next step, only
-> with attended operator approval, is:
-> `--variant S24 --live --ack S22PLUS-M29-FIRST-ROLLBACK-CAPTURE-LIVE-GATE`.
+> `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`, Android
+> boot complete, vbstate orange, Magisk root present.
+> **M29 evidence:** first-capture pstore was empty; first-capture
+> `/proc/last_kmsg` was 2,097,136 bytes, SHA256
+> `5306bb56ddd5f73f75921dea18c17fa5b07fffba30262b858647e27c302704da`, with
+> `m29_marker_count=0`, `s22_native_count=0`, `android_really_probe_count=49`,
+> `android_reboot_download_count=1`, `watchdog_count=30`,
+> `kernel_panic_count=0`, and `unknown_symbol_count=0`. The grep shows Android
+> init handling `sys.powerctl='reboot,download'`, not the candidate native-init
+> path. Therefore M29 is **manual-download contaminated / no clean
+> self-download proof**, and the collected retained log still does not observe
+> the candidate failure. The collection-timing hypothesis is weakened; it is
+> not a basis for repeating S24.
+> **Current direction:** M29 is consumed/retired in `AGENTS.md`; F43 remains
+> unauthorized. Do not repeat M28/M29/S24 under old tokens. Next unit is
+> host-only postmortem/design: explain why the S24 native candidate becomes
+> host-invisible and why retained evidence still resolves to Android. Candidate
+> redesign should focus on a more durable pre-rollback observation path or a
+> smaller first-fault discriminator, but any live flash needs a fresh, narrow
+> exception after the host report.
 > **Corrected mental model (still holds):** M25 did NOT bootloop — direct log
 > read (`...122411Z`) shows ~29 s dead-steady park then a single ~30.3 s watchdog
 > bite (not a loop); excluding `phy-msm-ssusb-qmp` DID kill the fast M15 QMP loop.
 > M26 `P00` HIT / `P24` NO-HIT localizes the fault to modules 1–24, upstream of
 > USB. M27 `P08` is contaminated (operator manual-download during a bootloop),
 > consistent with the closure being broken at module #1.
-> Reports: `S22PLUS_M29_CAPTURE_AT_FIRST_ROLLBACK_BOOT_STEER_2026-07-08.md` (M29 primary),
+> Reports: `S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_RESULT_2026-07-09.md` (current primary),
+> `S22PLUS_M29_CAPTURE_AT_FIRST_ROLLBACK_BOOT_STEER_2026-07-08.md`,
 > `S22PLUS_MODULE_CLOSURE_DEP_INCOMPLETE_STOCK_MODULES_DEP_2026-07-08.md`
 > (primary), `S22PLUS_M25_NO_ACM_POSTMORTEM_2026-07-08.md`,
 > `S22PLUS_NATIVE_INIT_M26_HS_PREFIX_DOWNLOAD_LIVE_RESULT_2026-07-08.md`,
@@ -100,28 +88,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_GATE_2026-07-08.md`.
 > (Observation steers below are superseded/background; MID stays set, harmless.)
 
-> **S22+ CURRENT FRONTIER (2026-07-08 23:58 KST / 14:58 UTC) — M29 POLICY ACTIVE; PRE-LIVE DRY-RUN PASS; LIVE NOT EXECUTED.**
-> Codex promoted a fresh narrow `AGENTS.md` exception for exactly one M29
-> first-rollback capture gate using
-> `workspace/public/src/scripts/revalidation/s22plus_m29_first_rollback_capture_live_gate.py`
-> SHA256 `d8da7792f9ccc60a16358984636b29a3df27fac6b264f039354ea54770a18bb3`;
-> `AGENTS.md` SHA256 is
-> `4d92c4a13e321fea2cf1c7e74069067927a7055875233d6b4ca6b551cf3bc698`.
-> The policy authorizes only S24 with M25 DTBO high-speed cap, Magisk boot
-> rollback, first-post-candidate retained-log/reset-surface capture before
-> stock-DTBO rollback, and stock-DTBO restore after first capture. `F43`
-> remains unauthorized. Validation passed: M29+M28 unit tests (`Ran 16 tests`),
-> `py_compile`, and dry-run against the attached Android/Magisk S22+:
-> `agents_exception_missing=[]`, Android stability `ok samples=4`, boot
-> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
-> vendor_boot
-> `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`, stock
-> DTBO `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`.
-> No M29 live flash, reboot, rollback, partition write, or sysfs write was
-> performed. Suggested live command after operator approval:
-> `--variant S24 --live --ack S22PLUS-M29-FIRST-ROLLBACK-CAPTURE-LIVE-GATE`.
-> Report:
-> `docs/reports/S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_GATE_2026-07-08.md`.
+> **S22+ CURRENT FRONTIER (2026-07-09 00:10 KST / 2026-07-08 15:10 UTC) — M29 CONSUMED; BASELINE CLEAN; NO ACTIVE LIVE AUTH.**
+> Codex ran the authorized M29 `S24` live gate and the checked
+> rollback-from-download recovery after the operator reported bootloop/manual
+> Download. The candidate observation window ended with no ADB/Odin and
+> `manual-download-required`; the rollback capture still found no M29/native
+> marker and instead retained an Android `reboot,download` boot. Final
+> independent baseline verified Android boot complete, vbstate orange, Magisk
+> root, boot
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, stock
+> DTBO `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`,
+> and stock vendor_boot
+> `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`.
+> `AGENTS.md` now retires M29 and omits the consumed ack tokens, so the helper
+> fail-closes by default again. No S22+ native-init live flash is currently
+> authorized. Report:
+> `docs/reports/S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_RESULT_2026-07-09.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-08 23:52 KST / 14:52 UTC) — M29 FIRST-ROLLBACK CAPTURE HELPER SOURCE READY; NO LIVE AUTH.**
 > Codex added

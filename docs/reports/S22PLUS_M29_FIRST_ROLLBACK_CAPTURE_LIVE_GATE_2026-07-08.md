@@ -1,5 +1,11 @@
 # S22+ M29 First-Rollback Capture Live Gate (2026-07-08)
 
+Superseded on 2026-07-09 KST by
+`S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_RESULT_2026-07-09.md`. The M29 live
+gate was consumed, produced no clean S24 self-download proof, required operator
+manual Download recovery, and is no longer authorized. Do not use this
+pre-live report as an active runbook.
+
 ## Verdict
 
 POLICY ACTIVE / PRE-LIVE DRY-RUN PASS / LIVE NOT EXECUTED.
@@ -116,16 +122,5 @@ Result: pass.
 
 ## Next
 
-Live command, only after attended operator approval:
-
-```text
-PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
-  workspace/public/src/scripts/revalidation/s22plus_m29_first_rollback_capture_live_gate.py \
-  --serial <REDACTED_S22PLUS_SERIAL> \
-  --variant S24 \
-  --live \
-  --ack S22PLUS-M29-FIRST-ROLLBACK-CAPTURE-LIVE-GATE
-```
-
-Do not run `F43`.
-
+None under this gate. M29 is consumed/retired; S24 repeat and F43 remain
+unauthorized without a fresh, narrower exception.

@@ -39,10 +39,14 @@ class S22PlusM29FirstRollbackCaptureLiveGateTest(unittest.TestCase):
         self.assertIn("/proc/reset_summary", missing)
         self.assertIn("F43 remains unauthorized", missing)
 
-    def test_current_agents_file_authorizes_exact_m29_live_gate_policy(self):
+    def test_current_agents_file_retires_m29_live_gate_policy(self):
         agents = Path("AGENTS.md").read_text(encoding="utf-8")
         missing = self.module.missing_policy_markers(agents)
-        self.assertEqual(missing, [])
+        self.assertIn(self.module.LIVE_ACK_TOKEN, missing)
+        self.assertIn(self.module.ROLLBACK_ACK_TOKEN, missing)
+        self.assertIn(self.module.RESTORE_DTBO_ACK_TOKEN, missing)
+        self.assertIn("Consumed exception (2026-07-09 KST / 2026-07-08 UTC, S22+ M29", agents)
+        self.assertIn("manual-download contaminated / not a clean self-download proof", agents)
 
     def test_candidate_selection_is_s24_only(self):
         self.assertEqual([candidate.label for candidate in self.module.selected_candidates(None)], ["S24"])
