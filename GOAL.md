@@ -4,6 +4,37 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 04:40 KST / 2026-07-08 19:40 UTC) — M34 S2 LIVE GATE READY; S1 CLOSED; OPERATOR LIVE APPROVAL RECEIVED; ACTIVE AGENTS EXCEPTION STILL REQUIRED.**
+> Codex added the guarded M34 S2 pullup-knobs live gate helper:
+> `workspace/public/src/scripts/revalidation/s22plus_m34_s2_runtime_gadget_live_gate.py`.
+> It pins the v0.2 S2 AP SHA256
+> `d235e6fd7c77c9fc2b63bd7280dcbf430783c9b62b5f361f43441c24687c38b3`,
+> boot SHA256
+> `f8838867e0b0fab5ffe5aa8717565d9304f635ef04487596a0baeb03b2dd7a70`,
+> `/init` SHA256
+> `fba33555bcc73d834a7dbfe87dc5e6fe3b622184d163ae72d478e18a0ce653b8`,
+> template source SHA256
+> `ac20dcf724cf6864540d65958332d561d45409e7e85785a8c014882b37e29193`, and
+> module-list SHA256
+> `2291dc1c72add131c42d0b4ed6649880c20316d0598e0a2af942cc774949062c`.
+>
+> Helper gates verify the S2 contract exactly: stage `S2`; stock-ordered
+> configfs gadget/function/config; `UDC=none`; stock IDs `0x04E8:0x6860`;
+> `functions/ss_acm.0` link; **must include** `g1/max_speed=high-speed` and
+> `usb_role=device`; **must not** bind final `UDC=a600000.dwc3`; boot-only
+> single-member AP; no reboot syscall; no Android/Magisk handoff; no persistent
+> mount; no block write; no module binary injection; rollback APs pinned.
+> Validation passed so far: helper `py_compile`; S2 unittest; helper
+> `--offline-check`; explicit fail-closed check without active `AGENTS.md`
+> exception refused before Android/flash actions with rc=1. The helper emits a
+> draft S2 `AGENTS.md` exception and rejects draft-only S2 text as active auth.
+>
+> The operator has approved live in-thread, but the safety gate still requires a
+> fresh SHA-pinned active `AGENTS.md` exception before any S2 flash. Next action:
+> insert the S2 active exception, commit it, then run the S2 live gate. S3/final
+> pullup remains blocked until S2 result. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S2_LIVE_GATE_READY_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 04:32 KST / 2026-07-08 19:32 UTC) — M34 S1 LIVE CONSUMED; S1 SURVIVED 90 S; ROLLBACK CLEAN; NEXT S2 DESIGN/PREP; NO ACTIVE LIVE AUTH.**
 > The approved M34 S1 stock configfs runtime-gadget live gate ran once using
 > `workspace/public/src/scripts/revalidation/s22plus_m34_s1_runtime_gadget_live_gate.py`.
@@ -29,13 +60,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > present in
 > `workspace/private/runs/s22plus_m34_s1_runtime_gadget_live_gate_20260708T192613Z/timeline.json`.
 > `AGENTS.md` now marks the S1 one-shot exception consumed/retired and omits the
-> live tokens as active authorization.
->
-> Direction: S1 is closed. The next high-information unit is M34 S2: add only
-> the two off-stock pullup knobs (`g1/max_speed=high-speed` and
-> `usb_role=device`) while still not binding UDC. S3/final pullup remains
-> blocked until S2 result. No S2/S3 live flash is authorized until a fresh
-> SHA-pinned `AGENTS.md` exception and explicit operator approval exist. Report:
+> live tokens as active authorization. Report:
 > `docs/reports/S22PLUS_NATIVE_INIT_M34_S1_LIVE_RESULT_2026-07-09.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-09 04:04 KST / 2026-07-08 19:04 UTC) — M34 v0.2 STOCK-RECIPE RUNTIME-GADGET SPLIT HOST BUILD READY; S1 NEXT LIVE; NO ACTIVE LIVE AUTH.**
