@@ -72,13 +72,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > grace window, then the operator observed an RDX `PHIC abnormal reset` screen.
 > Manual Download rollback restored the Magisk boot baseline cleanly. No active
 > S22+ native-init live authorization remains.
+> **M31 host-only postmortem/design is complete.** The M30 photo makes the
+> long-dwell conclusion stricter: this was not a clean timed Download; it was a
+> PHIC/RDX abnormal-reset shape. Because M25 already showed an about-30.3 s
+> no-reboot Download return and M30 slept 90 s, a 75-90 s dwell is too long to
+> distinguish raw `reboot(download)` failure from boot-progress/watchdog reset.
+> The next candidate family should be a short-dwell raw floor discriminator:
+> one SHA-pinned M31A candidate with raw PID1 `nanosleep(10s)` then raw
+> `reboot(..., "download")`, no fs/kmsg/modules/configfs/Android handoff, and a
+> helper that treats any manual intervention or post-30 s endpoint as no-proof.
+> No M31A live flash is authorized until a fresh exception, exact hashes,
+> dry-run, and rollback gate are committed.
 > **Corrected mental model (still holds):** M25 did NOT bootloop — direct log
 > read (`...122411Z`) shows ~29 s dead-steady park then a single ~30.3 s watchdog
 > bite (not a loop); excluding `phy-msm-ssusb-qmp` DID kill the fast M15 QMP loop.
 > M26 `P00` HIT / `P24` NO-HIT localizes the fault to modules 1–24, upstream of
 > USB. M27 `P08` is contaminated (operator manual-download during a bootloop),
 > consistent with the closure being broken at module #1.
-> Reports: `S22PLUS_NATIVE_INIT_M30_M21A_LIVE_RESULT_2026-07-09.md` (current primary),
+> Reports: `S22PLUS_NATIVE_INIT_M31_POST_M30_SHORT_DWELL_DESIGN_2026-07-09.md` (current primary),
+> `S22PLUS_NATIVE_INIT_M30_M21A_LIVE_RESULT_2026-07-09.md`,
 > `S22PLUS_NATIVE_INIT_M30_M21A_LIVE_GATE_PREFLIGHT_2026-07-09.md`,
 > `S22PLUS_NATIVE_INIT_M30_M21A_FLOOR_REANCHOR_HOST_ONLY_2026-07-09.md`,
 > `S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_RESULT_2026-07-09.md`,
@@ -95,6 +107,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_GATE_SOURCE_2026-07-08.md`,
 > `S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_GATE_2026-07-08.md`.
 > (Observation steers below are superseded/background; MID stays set, harmless.)
+
+> **S22+ CURRENT FRONTIER (2026-07-09 01:05 KST / 2026-07-08 16:05 UTC) — M31 HOST-ONLY POST-M30 DESIGN COMPLETE; SHORT-DWELL FLOOR NEXT; NO ACTIVE LIVE AUTH.**
+> Codex incorporated the operator's M30/M21A kernel-panic/RDX photo into the
+> postmortem. The visual state is `PHIC abnormal reset`, not clean
+> Download-mode proof. Combined with M25's about-30.3 s no-reboot Download return
+> and M30's 90 s no-transport dwell, the old 75-90 s sleep discriminator is now
+> considered too long: it can be preempted by boot-progress/watchdog policy
+> before raw PID1 reaches the intended reboot syscall. The next host-only unit
+> should build M31A as a raw short-dwell floor discriminator, preferably
+> `nanosleep(10s)` then raw `reboot(..., "download")`, with no fs/kmsg/modules/
+> configfs/Android handoff. A future live PASS requires Odin Download after the
+> short dwell and before the about-30 s reset window, with no operator key
+> intervention. Any PHIC/RDX, no endpoint before the 30 s window, or manual
+> Download remains FAIL/NO-PROOF. No S22+ native-init live flash is currently
+> authorized. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M31_POST_M30_SHORT_DWELL_DESIGN_2026-07-09.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-09 00:46 KST / 2026-07-08 15:46 UTC) — M30/M21A LIVE CONSUMED; PHIC ABNORMAL RESET; FINAL BASELINE CLEAN; NO ACTIVE LIVE AUTH.**
 > Codex ran the authorized M30/M21A raw nanosleep-download live gate. The boot
