@@ -456,6 +456,36 @@ def host_usb_command(run_dir: Path, log_path: Path, label: str, name: str, comma
     return text
 
 
+def samsung_usb_devices_summary(usb_devices_text: str) -> list[dict[str, Any]]:
+    devices: list[dict[str, Any]] = []
+    for block in re.split(r"\n\s*\n", usb_devices_text):
+        product_match = re.search(r"(?im)^P:\s+Vendor=04e8\s+ProdID=([0-9a-f]{4})\b", block)
+        if not product_match:
+            continue
+        speed_match = re.search(r"(?im)^T:.*\bSpd=\s*([0-9]+)", block)
+        name_match = re.search(r"(?im)^S:\s+Product=(.*)$", block)
+        rev_match = re.search(r"(?im)^P:.*\bRev=([0-9a-fA-F.]+)", block)
+        classes: list[str] = []
+        drivers: list[str] = []
+        for iface in re.finditer(r"(?im)^I:.*?\bCls=([0-9a-f]{2})\(([^)]*)\).*?\bDriver=(\S+)", block):
+            cls = iface.group(1).lower()
+            desc = " ".join(iface.group(2).split())
+            driver = iface.group(3)
+            classes.append(f"{cls}:{desc}")
+            drivers.append(driver)
+        devices.append(
+            {
+                "product_id": product_match.group(1).lower(),
+                "product": " ".join(name_match.group(1).split()) if name_match else "",
+                "rev": rev_match.group(1) if rev_match else "",
+                "speed_mbps": int(speed_match.group(1)) if speed_match else None,
+                "interface_classes": sorted(set(classes)),
+                "drivers": sorted(set(drivers)),
+            }
+        )
+    return devices
+
+
 def enhanced_host_usb_snapshot(run_dir: Path, log_path: Path, label: str) -> dict[str, Any]:
     lsusb_device = host_usb_command(run_dir, log_path, label, "lsusb_04e8_6860", ["lsusb", "-d", "04e8:6860", "-v"], 12.0)
     lsusb_tree = host_usb_command(run_dir, log_path, label, "lsusb_tree", ["lsusb", "-t"], 10.0)
@@ -492,7 +522,20 @@ def enhanced_host_usb_snapshot(run_dir: Path, log_path: Path, label: str) -> dic
         ["bash", "-lc", "dmesg -T 2>/dev/null | tail -n 260 || true"],
         10.0,
     )
+    samsung_devices = samsung_usb_devices_summary(usb_devices)
+    samsung_product_ids = sorted({str(device.get("product_id", "")) for device in samsung_devices if device.get("product_id")})
+    samsung_products = sorted({str(device.get("product", "")) for device in samsung_devices if device.get("product")})
+    samsung_upload_download_present = any(
+        str(device.get("product_id", "")).lower() == "685d"
+        or str(device.get("product", "")).upper() in {"MSM_UPLOAD", "SAMSUNG USB"}
+        for device in samsung_devices
+    )
     summary = {
+        "any_samsung_04e8_present": bool(samsung_devices),
+        "samsung_product_ids": samsung_product_ids,
+        "samsung_products": samsung_products,
+        "samsung_usb_devices": samsung_devices,
+        "samsung_upload_download_present": samsung_upload_download_present,
         "lsusb_04e8_6860_present": (
             "04e8:6860" in lsusb_device.lower()
             or ("idvendor" in lsusb_device.lower() and "04e8" in lsusb_device.lower()

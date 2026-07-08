@@ -4,6 +4,40 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 06:20 KST / 2026-07-08 21:20 UTC) — HOST-ONLY USB VERSION GAP RECON; S5 FELL TO `04e8:685d`; NEXT S6 DESIGN SHOULD STOP HS-FORCE + RESTORE QMP/EUD SOFTDEP PARITY; NO ACTIVE LIVE AUTH.**
+> Codex re-read the S5 host logs, post-rollback stock Android USB state, and
+> FYG8 stock firmware extracts. Correction to the short S5 summary: the
+> intended Android `04e8:6860` composite endpoint never appeared, but Samsung
+> `04e8:685d` did appear near the end of the candidate window: observe 013 at
+> 62.987 s as `MSM_UPLOAD` over USB2/480M with CDC-class interfaces and no
+> `cdc_acm`, then observe 015 at 73.950 s as `SAMSUNG USB` over USB3/5000M,
+> again no `cdc_acm`, while `odin4 -l` saw the same endpoint and rollback used
+> it. Therefore S5 is better described as "no `6860` Android/ACM gadget; later
+> fallback to Samsung `685d` upload/download", not simply "no USB electrical
+> appearance".
+>
+> Stock Android remains the compatibility target: host `lsusb` shows
+> `04e8:6860`, negotiated SuperSpeed 5Gbps, `bcdUSB 3.20`, class 0 composite,
+> and a 5-interface `mtp_conn_adb` config with MTP + CDC ACM + `conn_gadget` +
+> ADB. M34 S2-S5 instead forced `g1/max_speed=high-speed`, and S4/S5 also
+> forced `ssusb/speed=high-speed`. Stock vendor ramdisk `modules.softdep`
+> says `dwc3_msm pre: phy-generic phy-msm-snps-hs phy-msm-snps-eusb2
+> phy-msm-ssusb-qmp eud post: ucsi_glink`; M34 S5 explicitly excluded QMP,
+> EUD, and `ucsi_glink`.
+>
+> Implementation priority by cost/signal: (1) observation helper fix is now
+> implemented: future snapshots summarize every Samsung `04e8:*` device from
+> `usb-devices`, including product ID/speed/classes/drivers and an explicit
+> `samsung_upload_download_present` flag; validation passed (`py_compile`, S5
+> helper unit tests 9, `--offline-check`). (2) Next design S6 to stop forcing
+> USB2 high-speed and restore QMP/EUD/ucsi softdep parity without writing EUD
+> sysfs knobs; (3) keep stock descriptor/string parity as an easy but
+> lower-signal follow-up; (4) extract `super.img` logical partitions host-only
+> to recover Android USB init rc before cloning companion functions. The stock
+> AP's `super.img.lz4` is Android sparse super; local `lz4` and sparse tools
+> exist, but `lpunpack` was not found. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S5_USB_VERSION_STOCK_GAP_RECON_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 06:07 KST / 2026-07-08 21:07 UTC) — M34 S5 LIVE CONSUMED; NO ACM; ODIN RETURNED AT 73.950 S; ROLLBACK CLEAN; NO ACTIVE LIVE AUTH.**
 > The approved M34 S5 soft-connect runtime-gadget live gate ran once using
 > `workspace/public/src/scripts/revalidation/s22plus_m34_s5_soft_connect_live_gate.py`.

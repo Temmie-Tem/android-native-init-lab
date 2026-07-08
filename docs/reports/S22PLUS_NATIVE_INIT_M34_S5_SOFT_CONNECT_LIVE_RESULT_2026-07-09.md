@@ -60,11 +60,25 @@ Key observations:
 - original Download endpoint disconnected
 - candidate reached the park observation loop
 - 15 host snapshots through 73.950 seconds all showed no S5 ACM endpoint
-- during all candidate snapshots, Samsung `04e8:6860` was absent
+- during all candidate snapshots, Samsung Android `04e8:6860` was absent
 - CDC ACM was absent from `lsusb -d 04e8:6860 -v` and `lsusb -t`
 - `/dev/ttyACM*` was absent
 - ADB was absent during candidate park
 - Odin returned at 73.950 seconds, before the 90 second survival window
+
+Post-run host-log review found an important endpoint distinction: the candidate
+did not expose the stock Android `04e8:6860` composite gadget, but Samsung
+`04e8:685d` appeared near the end of the observation window:
+
+- observe 013, elapsed 62.987 s: `04e8:685d`, product `MSM_UPLOAD`, USB2/480M,
+  CDC-class interfaces, no host `cdc_acm` driver
+- observe 015, elapsed 73.950 s: `04e8:685d`, product `SAMSUNG USB`,
+  USB3/5000M, CDC-class interfaces, no host `cdc_acm` driver; `odin4 -l`
+  reported the same bus device and rollback proceeded from it
+
+This means the S5 symptom is not simply "no electrical USB ever appeared". It
+is "no intended `04e8:6860` Android/ACM gadget appeared; the device later fell
+through to a Samsung upload/download endpoint."
 
 Interpretation:
 
@@ -72,6 +86,9 @@ Interpretation:
 - S5 is not a survival pass, because Odin returned before 90 seconds.
 - The currently visible host `04e8:6860` / ADB / `/dev/ttyACM0` endpoint is the
   restored Android/Magisk baseline after rollback, not the S5 candidate.
+- Future helpers must summarize all Samsung `04e8:*` endpoints, not only
+  `04e8:6860`, so upload/download leakage is not hidden behind an ACM-negative
+  summary.
 
 ## Rollback
 

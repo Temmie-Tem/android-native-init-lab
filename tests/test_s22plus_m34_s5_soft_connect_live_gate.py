@@ -115,6 +115,33 @@ class S22PlusM34S5SoftConnectLiveGateTest(unittest.TestCase):
         self.assertFalse(self.module.is_m34_s5_acm({"vendor": "04e8", "product": "685d"}))
         self.assertFalse(self.module.is_m34_s5_acm({"vendor": "18d1", "product": "4ee7"}))
 
+    def test_samsung_usb_summary_classifies_android_and_upload_endpoints(self):
+        sample = """
+T:  Bus=02 Lev=02 Prnt=02 Port=02 Cnt=01 Dev#= 91 Spd=5000 MxCh= 0
+D:  Ver= 3.20 Cls=02(commc) Sub=02 Prot=00 MxPS= 9 #Cfgs=  1
+P:  Vendor=04e8 ProdID=685d Rev=01.00
+S:  Manufacturer=Samsung
+S:  Product=SAMSUNG USB
+I:  If#= 0 Alt= 0 #EPs= 1 Cls=02(commc) Sub=02 Prot=01 Driver=(none)
+I:  If#= 1 Alt= 0 #EPs= 2 Cls=0a(data ) Sub=00 Prot=00 Driver=(none)
+
+T:  Bus=02 Lev=02 Prnt=02 Port=02 Cnt=01 Dev#= 93 Spd=5000 MxCh= 0
+D:  Ver= 3.20 Cls=00(>ifc ) Sub=00 Prot=00 MxPS= 9 #Cfgs=  1
+P:  Vendor=04e8 ProdID=6860 Rev=05.04
+S:  Manufacturer=SAMSUNG
+S:  Product=SAMSUNG_Android
+I:  If#= 1 Alt= 0 #EPs= 1 Cls=02(commc) Sub=02 Prot=01 Driver=cdc_acm
+I:  If#= 2 Alt= 0 #EPs= 2 Cls=0a(data ) Sub=00 Prot=00 Driver=cdc_acm
+"""
+        summary = self.module.samsung_usb_devices_summary(sample)
+        self.assertEqual([device["product_id"] for device in summary], ["685d", "6860"])
+        self.assertEqual(summary[0]["product"], "SAMSUNG USB")
+        self.assertEqual(summary[0]["speed_mbps"], 5000)
+        self.assertIn("(none)", summary[0]["drivers"])
+        self.assertIn("02:commc", summary[0]["interface_classes"])
+        self.assertIn("cdc_acm", summary[1]["drivers"])
+        self.assertEqual(summary[1]["product"], "SAMSUNG_Android")
+
     def test_host_usb_redaction_removes_serials_and_by_id_links(self):
         sample = "\n".join(
             [
