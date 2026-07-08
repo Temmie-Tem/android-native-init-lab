@@ -2752,30 +2752,26 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
    with stock boot-only fallback SHA256
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
-   **Narrow operator-authorized exception (2026-07-09, S22+ M33 P12 watchdog-
-   prefix park native-init boot-only live gate):** after M32 failed with no ACM
-   and unexpected Download/bootloop around ~35.6 s, and after the M33 host-only
-   prefix matrix split the M32 added closure into smaller watchdog-managed
-   park-only candidates, Codex may perform one bounded attended S22+ M33 P12
-   watchdog-prefix park native-init boot-only live gate on the Samsung S22+
-   `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
-   `workspace/public/src/scripts/revalidation/s22plus_m33_p12_wdt_prefix_park_live_gate.py`
-   and live ack token `S22PLUS-M33-P12-WDT-PREFIX-PARK-LIVE-GATE`, with
-   rollback-from-Download ack token
-   `S22PLUS-M33-P12-WDT-PREFIX-PARK-ROLLBACK-FROM-DOWNLOAD`. The exact
-   candidate AP.tar.md5 SHA256 must be
+   **Consumed exception (2026-07-09, S22+ M33 P12 watchdog-prefix park
+   native-init boot-only live gate):** this one-shot exception was consumed by
+   the 2026-07-09 KST live run. It flashed the pinned M33 P12 boot-only
+   candidate once on the Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using
+   only the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m33_p12_wdt_prefix_park_live_gate.py`.
+   The consumed live and rollback ack token strings are intentionally omitted
+   here as active authorization. The exact candidate AP.tar.md5 SHA256 was
    `47a7acd9f953de4464848aa02413b629064c512e2250356da0e33df5c46a3ce0`;
-   contained padded `boot.img` SHA256 must be
+   contained padded `boot.img` SHA256 was
    `72afa113caf0bd8fc2f3c4d2a27108f3be94dd00f405071d3b7e609af8d8a2f2`;
-   direct `/init` SHA256 must be
+   direct `/init` SHA256 was
    `8ce2d3aea3008b476fbc8113f8c5712abd120f0dc90cb158956b9ba1a6962405`;
-   module-list SHA256 must be
+   module-list SHA256 was
    `b44e23aa5e38c1327bc3286f3b722558b56daa3198982434a474b4bff8c6d052`;
-   generated source SHA256 must be
+   generated source SHA256 was
    `a7d0f6cf2bd0ca217a92478a8f03c977d3e3d23e40383a050f1215853fa6d3b4`;
-   preserved kernel SHA256 must be
+   preserved kernel SHA256 was
    `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`; and
-   base Magisk boot SHA256 must be
+   base Magisk boot SHA256 was
    `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. The AP
    marker string is `S22_NATIVE_INIT_M33_WDT_PREFIX_PARK_P12`. The selected
    variant is `P12`, its runtime marker must include `prefix_targets=12` and
@@ -2809,10 +2805,28 @@ BL, CP, CSC, userdata, or any non-boot flash.
    pinned stock boot-only fallback SHA256
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e` if
    Magisk rollback transfer fails and Download mode remains available. This
-   exception authorizes no other M33 variant, no M32 repeat, no M31B repeat, no
-   ACM/configfs candidate, no kernel rebuild, no recovery/vendor_boot/dtbo/
-   vbmeta/non-boot flash, no RDX PC dump retrieval, no EUD writes, and no A90
-   action.
+   live result: P12 survived the full 90 second observation window with no host
+   ADB/Odin endpoint returning, and the operator reported no bootloop during
+   that window. The helper recorded
+   `m33_p12_survival_window_pass=1` and
+   `m33_p12_result=survived-observation-window-manual-download-required`.
+   During manual rollback, the operator first observed an RDX screen; the first
+   detected endpoint `/dev/bus/usb/003/027` failed both Magisk and stock fallback
+   Odin attempts with `ioctl bulk write Fail : Protocol error 71`, consistent
+   with RDX rather than normal Odin/Download protocol. After the operator entered
+   normal Download mode, Codex used the checked helper's rollback-from-download
+   mode to flash the pinned Magisk boot rollback AP SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`; rollback
+   completed with rc=0. Final baseline was verified independently: Android boot
+   complete, bootanim stopped, vbstate orange, Magisk root present, and boot
+   partition SHA256
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+   Post-rollback pstore was empty and `/proc/last_kmsg` was readable at
+   2,097,136 bytes but did not contain the M33 P12 marker. This exception must
+   not be reused and does not authorize any other M33 variant, M33 P12 repeat,
+   M32 repeat, M31B repeat, ACM/configfs candidate, kernel rebuild, recovery/
+   vendor_boot/dtbo/vbmeta/non-boot flash, RDX PC dump retrieval, EUD writes, or
+   any A90 action.
    **Consumed exception (2026-07-09, S22+ M32 watchdog-managed HS ACM
    native-init boot-only live gate):** this one-shot exception was consumed by
    the 2026-07-09 KST live run. It flashed the pinned M32 boot-only candidate

@@ -4,6 +4,31 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 02:35 KST / 2026-07-08 17:35 UTC) — M33 P12 LIVE CONSUMED; P12 SURVIVED 90 S; ROLLBACK CLEAN; NO ACTIVE LIVE AUTH.**
+> The approved M33 P12 watchdog-prefix park live gate ran once under commit
+> `8cf94c00`. Candidate AP
+> `47a7acd9f953de4464848aa02413b629064c512e2250356da0e33df5c46a3ce0`
+> flashed boot-only and left the original Download endpoint. The candidate
+> survived the full 90 second observation window with no host ADB/Odin endpoint
+> returning; the operator reported no bootloop during that window. The helper
+> logged `m33_p12_survival_window_pass=1` and
+> `m33_p12_result=survived-observation-window-manual-download-required`.
+> During manual rollback, the operator first observed RDX; the detected
+> `/dev/bus/usb/003/027` endpoint failed Odin setup with `Protocol error 71`.
+> After normal Download mode appeared as `/dev/bus/usb/002/059`, the checked
+> rollback-from-download path restored the pinned Magisk boot AP successfully.
+> Final baseline is clean: Android `sys.boot_completed=1`, bootanim stopped,
+> vbstate orange, Magisk root OK, boot partition SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+> Retained evidence had no M33 P12 marker: pstore empty, `/proc/last_kmsg`
+> readable at 2,097,136 bytes, marker absent. `AGENTS.md` now marks the M33 P12
+> one-shot exception consumed/retired and omits the live tokens as active
+> authorization; default helper execution must fail closed. Current inference:
+> the early supplier prefix plus watchdog closure is not the M32 failure
+> boundary. Next host-only/live-gate unit should advance to P25 or P27 to test
+> the SMMU/HS PHY boundary before DWC3/ACM/configfs. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M33_P12_WDT_PREFIX_PARK_LIVE_RESULT_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 02:26 KST / 2026-07-08 17:26 UTC) — M33 P12 LIVE GATE PREFLIGHT PASS; OPERATOR LIVE APPROVED; ONE-SHOT POLICY ACTIVE.**
 > Operator approved live. Codex added the guarded M33 P12 live helper
 > `workspace/public/src/scripts/revalidation/s22plus_m33_p12_wdt_prefix_park_live_gate.py`
