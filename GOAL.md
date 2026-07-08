@@ -210,6 +210,26 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > pstore, `/proc/last_kmsg`, and reset-context surfaces after rollback. Report:
 > `docs/reports/S22PLUS_NATIVE_INIT_M24_PMSG_STEPS_HOST_BUILD_2026-07-08.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-08 20:18 KST) — M24 PMSG-STEP LIVE GATE SOURCE READY; POLICY-INERT.**
+> Codex added
+> `workspace/public/src/scripts/revalidation/s22plus_m24_pmsg_steps_live_gate.py`,
+> inert exception draft
+> `docs/operations/S22PLUS_M24_PMSG_STEPS_AGENTS_EXCEPTION_DRAFT_2026-07-08.md`,
+> and tests. The helper pins the exact M24 AP/boot/init/source/module-list/
+> vendor-DTB hashes, validates the same 43-module DTS-derived closure, requires
+> the pmsg marker scope (`A90_STEP:M24:` on `/dev/pmsg0`), and on rollback
+> captures pstore/pmsg, `/proc/last_kmsg`, and Samsung reset-context surfaces.
+> Validation passed: `py_compile`, unit tests, `--offline-check`, and expected
+> default fail-closed because active `AGENTS.md` does not yet contain the M24
+> exception. No flash, reboot, rollback, partition write, sysfs write, or live
+> device action was performed. Next live step is to copy the inert exception
+> into `AGENTS.md`, dry-run, then run the attended live gate with ack
+> `S22PLUS-M24-PMSG-STEPS-LIVE-GATE`; if the operator manually enters Download
+> after a loop, immediately run `--rollback-from-download` with ack
+> `S22PLUS-M24-PMSG-STEPS-ROLLBACK-FROM-DOWNLOAD` to preserve pmsg evidence.
+> Report:
+> `docs/reports/S22PLUS_M24_PMSG_STEPS_GATE_SOURCE_2026-07-08.md`.
+
 > **S22+ LIVE RESULT (2026-07-08 03:50 KST) — DIRECT VENDOR_BOOT RAMOOPS PATCH BOOTED BUT DID NOT AFFECT LIVE DT; M13 NOT FLASHED.**
 > Operator authorized the ack-gated
 > `S22PLUS-RAMOOPS-VENDORBOOT-M13-CAPTURE-LIVE-GATE` run. Dry-run passed, the
