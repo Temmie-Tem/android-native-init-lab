@@ -1767,6 +1767,71 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    prefixes, USB/ACM bring-up, display/distro candidates, kernel rebuild,
    recovery/vendor_boot/vbmeta/non-boot flash, raw host `dd`, fastboot,
    multidisabler, format data, or any A90 action.
+   **Narrow operator-authorized exception (2026-07-08, S22+ M23 DTS-exact
+   QMP/DWC3 reset_summary capture native-init boot-only):** after EUD was
+   closed as TrustZone-gated, the M23 host build derived the narrow DTS-exact
+   QMP/DWC3/HS-PHY/provider closure, and the reset-summary gate source passed
+   offline/fail-closed validation, Codex may prepare and perform one bounded
+   attended boot-partition-only M23 live gate on the same Samsung S22+
+   `SM-S906N`/`g0q` `S906NKSS7FYG8` using the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m23_dts_exact_qmp_reset_summary_live_gate.py`
+   with live ack token `S22PLUS-M23-DTS-QMP-RESET-SUMMARY-LIVE-GATE` and
+   rollback-only ack token `S22PLUS-M23-DTS-QMP-ROLLBACK-FROM-DOWNLOAD`. The
+   exact candidate AP.tar.md5 SHA256 must be
+   `558eddb4b78b68c86d65f171072145c63210e9b33b5d0b56f2a3e4a00f0ba2d8`, the
+   contained padded `boot.img` SHA256 must be
+   `277bf33c0f7cc62fe2b635b83c22b052d35a4e97dfb2e1cadaf60fdcb961184e`, the
+   known-booting Magisk boot base SHA256 must be
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, the
+   preserved Magisk-patched kernel SHA256 must be
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`, the
+   M23 `/init` SHA256 must be
+   `745131e23a657905542697cc1c0573a87e484df2e9a06810344d8d4d0be6f357`, the
+   M23 `s22plus_m23_dts_exact_qmp.modules` module-list SHA256 must be
+   `a542b86aee8d2b09d0ca233e0a81d7deb8919a77657122d91f3b46e0a7933349`, the
+   generated source SHA256 must be
+   `75610dbd2148017708300aaf5c37b169d12a6a87ec30ed5d96e753708654c9c0`, and
+   the stock vendor DTB SHA256 used for derivation must be
+   `2cd64d43a4f6b89a7c5523f3ef73fbb84dcad92c6d857e649cd1f0baa7c0080e`.
+   The AP must contain exactly one tar member, `boot.img.lz4`, with no
+   recovery, vendor_boot, vbmeta, vbmeta_system, dtbo, BL, CP, CSC, super,
+   persist, userdata, EFS, RPMB, keymaster, modem, or any other partition
+   payload. The M23 candidate may only run as direct PID1 with a freestanding
+   raw-syscall runtime, load the 43-module DTS-derived QMP/DWC3/HS-PHY/provider
+   closure (`module_group=dts_exact_qmp`, `module_count=43`) from
+   `s22plus_m23_dts_exact_qmp.modules`, attempt `ss_acm.0` on `a600000.dwc3`,
+   force USB role to device if available, and park for bounded host observation.
+   It has no reboot beacon and no arm64 reboot syscall path. EUD extcon
+   excluded; no EUD sysfs write; no EUD enable/open. Exact module list:
+   `clk-rpmh.ko`, `gcc-waipio.ko`, `icc-rpmh.ko`,
+   `qcom_ipc_logging.ko`, `rpmh-regulator.ko`, `clk-dummy.ko`,
+   `clk-qcom.ko`, `cmd-db.ko`, `debug-regulator.ko`,
+   `gdsc-regulator.ko`, `icc-bcm-voter.ko`, `icc-debug.ko`,
+   `iommu-logger.ko`, `pinctrl-waipio.ko`, `qnoc-waipio.ko`,
+   `phy-generic.ko`, `pinctrl-msm.ko`, `proxy-consumer.ko`,
+   `qcom_iommu_util.ko`, `qcom_rpmh.ko`, `qcom-scm.ko`, `qnoc-qos.ko`,
+   `sec_class.ko`, `secure_buffer.ko`, `smem.ko`, `socinfo.ko`,
+   `arm_smmu.ko`, `phy-msm-ssusb-qmp.ko`, `phy-msm-snps-hs.ko`,
+   `phy-msm-snps-eusb2.ko`, `dwc3-msm.ko`, `usb_f_ss_mon_gadget.ko`,
+   `usb_f_ss_acm.ko`, `repeater.ko`, `redriver.ko`,
+   `usb_notify_layer.ko`, `switch_class.ko`, `common_muic.ko`,
+   `vbus_notifier.ko`, `usb_typec_manager.ko`, `if_cb_manager.ko`,
+   `pdic_notifier_module.ko`, and `qc_usb_audio.ko`. If M23 loops, exposes ACM
+   without rollback transport, or no transport appears, use operator manual
+   Download-mode rollback through the same helper's `--rollback-from-download
+   --ack S22PLUS-M23-DTS-QMP-ROLLBACK-FROM-DOWNLOAD` mode, using the exact
+   Magisk boot-only rollback AP SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
+   or the exact stock boot-only fallback AP SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e` if the
+   operator explicitly selects stock rollback. After rollback, run
+   reset_summary/reset_klog post-rollback capture including
+   `/proc/reset_summary`, `/proc/reset_klog`, `/proc/reset_history`,
+   `/proc/reset_tzlog`, and `/proc/enhanced_boot_stat`. This exception does not
+   authorize M21A, M20B, M20C, M19 C129 or wider prefixes, EUD writes, broad
+   module permutation, display/distro candidates, kernel rebuild,
+   recovery/vendor_boot/vbmeta/non-boot flash, raw host `dd`, fastboot,
+   multidisabler, format data, or any A90 action.
 2. **Flash only via the checked helper by default:** `workspace/public/src/scripts/revalidation/native_init_flash.py`.
    Never `dd`/`fastboot`/raw-write a partition. Never invent a new flash path.
    **Narrow operator-authorized exception (2026-07-02, self-dd ladder only):** the V3358
@@ -2100,6 +2165,20 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`. No other
    Odin slot, tar member, candidate hash, rollback hash, M20 variant, M19
    prefix, or partition is authorized by this exception.
+   **Narrow operator-authorized exception (2026-07-08, S22+ M23 DTS-exact
+   QMP/DWC3 reset-summary native-init boot-only Odin path):** the S22+ M23 live
+   gate above may use `/usr/bin/odin4 --reboot -a` through
+   `workspace/public/src/scripts/revalidation/s22plus_m23_dts_exact_qmp_reset_summary_live_gate.py`
+   for the exact single-member `boot.img.lz4` candidate AP.tar.md5 SHA256
+   `558eddb4b78b68c86d65f171072145c63210e9b33b5d0b56f2a3e4a00f0ba2d8`, and
+   the same helper may use `/usr/bin/odin4 --reboot -a` in
+   `--rollback-from-download` mode with the exact single-member Magisk
+   boot-only AP.tar.md5 SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` or the
+   exact single-member stock boot-only AP.tar.md5 SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`. No other
+   Odin slot, tar member, candidate hash, rollback hash, M23 variant, M20
+   variant, M19 prefix, or partition is authorized by this exception.
    **Retired unconsumed exception (2026-07-08, S22+ M21A Odin path):** the
    M21A-specific Odin path that paired with the retired M21A live gate above is
    no longer active. No current exception authorizes an M21A Odin transfer or

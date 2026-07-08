@@ -126,6 +126,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > after the next candidate rollback. Report:
 > `docs/reports/S22PLUS_RESET_REASON_READONLY_AFTER_BOOTLOOP_REPORT_2026-07-08.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-08 09:21 KST) — M23 RESET-SUMMARY POLICY ACTIVE; DRY-RUN PASS; LIVE NOT EXECUTED.**
+> Codex activated the SHA-pinned `AGENTS.md` exception for the exact M23
+> DTS-exact QMP/DWC3 reset-summary boot-only AP
+> `558eddb4b78b68c86d65f171072145c63210e9b33b5d0b56f2a3e4a00f0ba2d8`
+> and rollback token path, then reran validation after freeing host disk space.
+> Validation passed: unit tests, `--offline-check`, `git diff --check`, and the
+> default dry-run. Dry-run evidence:
+> `agents_exception_missing=[]`, Android/root stable for 4 samples,
+> current boot hash
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
+> `boot_completed=1`, `boot_recovery=0`, `vbstate=orange`, and Magisk root
+> uid0. No flash/reboot/Odin transfer/device write was performed. Host storage
+> was also recovered from 100% full to about 22 GiB free by removing retired
+> private S22+ native-init output caches while preserving current M23 and
+> rollback artifacts. Next live step, if authorized, is:
+> `--live --ack S22PLUS-M23-DTS-QMP-RESET-SUMMARY-LIVE-GATE`; if operator
+> manually enters Download after a loop, immediately run
+> `--rollback-from-download --ack S22PLUS-M23-DTS-QMP-ROLLBACK-FROM-DOWNLOAD`
+> to preserve reset-summary capture. Report:
+> `docs/reports/S22PLUS_M23_DTS_QMP_RESET_SUMMARY_POLICY_ACTIVE_DRY_RUN_2026-07-08.md`.
+
 > **S22+ LIVE RESULT (2026-07-08 03:50 KST) — DIRECT VENDOR_BOOT RAMOOPS PATCH BOOTED BUT DID NOT AFFECT LIVE DT; M13 NOT FLASHED.**
 > Operator authorized the ack-gated
 > `S22PLUS-RAMOOPS-VENDORBOOT-M13-CAPTURE-LIVE-GATE` run. Dry-run passed, the
