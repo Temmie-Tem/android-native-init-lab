@@ -39,6 +39,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `S22PLUS_NATIVE_INIT_M26_HS_PREFIX_DOWNLOAD_LIVE_RESULT_2026-07-08.md`.
 > (Observation steers below are superseded/background; MID stays set, harmless.)
 
+> **S22+ CURRENT FRONTIER (2026-07-08 22:29 KST / 13:29 UTC) — M27 LIVE-GATE SOURCE READY; STILL NO LIVE AUTH.**
+> Codex added the guarded M27 prefix-narrow helper
+> `workspace/public/src/scripts/revalidation/s22plus_m27_hs_prefix_narrow_live_gate.py`
+> and tests `tests/test_s22plus_m27_hs_prefix_narrow_live_gate.py`. It verifies
+> the pinned M27 matrix manifest
+> `e44776fd55ff66eb6b4a197f351cc129000e7120b5ceeab91dd36d88c1988e63`,
+> source SHA
+> `44b3111652cbd64561f4b5eee5413864df44422e28f905ce6dc42aa618f951cd`,
+> M25 DTBO high-speed cap AP, stock-DTBO rollback AP, Magisk boot rollback AP,
+> and stock boot fallback AP. Authorized source-level batch is exactly
+> `P08/P12/P16/P20/P22/P23/P24`; the helper rejects `P00` and `P25+`, and the
+> intended live policy is to stop on the first no-hit/manual-download result.
+> Validation passed: `py_compile`, M27 live-gate unit tests (`Ran 9 tests`),
+> `--offline-check`, and expected default fail-closed on missing M27 `AGENTS.md`
+> authorization markers before Android/device access. No flash, reboot,
+> rollback, partition write, sysfs write, or device action was performed.
+> Next live step still requires a fresh SHA-pinned `AGENTS.md` exception for
+> this exact helper/candidate set/rollback policy and an explicit live ack.
+> Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M27_HS_PREFIX_NARROW_LIVE_GATE_SOURCE_2026-07-08.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-08 22:17 KST / 13:17 UTC) — M27 HOST BUILD READY; NO LIVE AUTH.**
 > Codex added the M27 HS-only prefix-narrow discriminator: builder
 > `workspace/public/src/scripts/revalidation/build_s22plus_m27_hs_prefix_narrow.py`,
