@@ -37,9 +37,15 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Report: `S22PLUS_USB_SUBSYSTEM_HOST_ANALYSIS_2026-07-09.md` (full who-needs-what
 > map + lower-substrate + DTBO-mechanics + this correction).
 
-> **S22+ CURRENT FRONTIER (2026-07-09 03:28 KST / 2026-07-08 18:28 UTC) — M33 P30 SELECTED; READINESS PASS; P40 SUBSUMED BY SAME MODULE CLOSURE; NO ACTIVE LIVE AUTH.**
-> After M33 P28 survived, Codex selected P30 as the next high-information gate:
-> it adds `usb_f_ss_acm.ko` while still doing no runtime configfs/ACM binding.
+> **S22+ CURRENT FRONTIER (2026-07-09 03:31 KST / 2026-07-08 18:31 UTC) — M34 RUNTIME-GADGET SPLIT DESIGNED; P30 IS S0; NO ACTIVE LIVE AUTH.**
+> Post-P28 USB analysis corrected the wall: modules are not the failure point,
+> runtime gadget bring-up is. P28 proved the 44-module USB/DWC3/TypeC/PD set
+> survives; M32 differs by adding `usb_f_ss_acm.ko` plus configfs ACM gadget
+> setup. Therefore P30 remains the next high-information live gate, but its
+> meaning is now M34 S0: add the ACM function module and park, with no runtime
+> configfs/ACM binding. If P30 survives, the next host build should be an M34
+> runtime sequence split: S1 configfs gadget/function/config without UDC, S2
+> force `usb_role=device` without UDC, S3 bind `UDC=a600000.dwc3` and park.
 > P30 candidate AP SHA256 is
 > `e7cadd856da852e577adf32e088c0fee668904f265cdad1e9309072ccb2b18fd`;
 > boot SHA256 `0a972bcb4af2b75d5177ae9767e34a4caa8b8c94237afa708bb4a577b2ba7bfe`;
@@ -57,8 +63,10 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > orange, Magisk root, boot partition SHA256
 > `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
 > P30 live requires fresh operator approval and a fresh SHA-pinned `AGENTS.md`
-> exception. Report:
-> `docs/reports/S22PLUS_NATIVE_INIT_M33_P30_READY_AFTER_P28_2026-07-09.md`.
+> exception. P40 is not the next live target unless a non-module runtime reason
+> appears. Reports:
+> `docs/reports/S22PLUS_NATIVE_INIT_M33_P30_READY_AFTER_P28_2026-07-09.md`,
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT_DESIGN_2026-07-09.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-09 03:23 KST / 2026-07-08 18:23 UTC) — M33 P28 LIVE CONSUMED; P28 SURVIVED 90 S; ROLLBACK CLEAN; NO ACTIVE LIVE AUTH.**
 > The approved M33 P28 watchdog-prefix park live gate ran once under commit

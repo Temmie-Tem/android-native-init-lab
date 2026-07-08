@@ -10,6 +10,10 @@ No live flash is authorized by this report. `AGENTS.md` has no active P30
 exception or live/rollback token, so default helper execution must continue to
 fail closed before Android/device preflight.
 
+Post-P28 USB analysis reframes P30 as M34 S0: ACM function module load only,
+with no runtime configfs/ACM binding. If P30 survives, stop module-list bisection
+and move to the M34 runtime gadget split.
+
 ## Why P30
 
 The M33 P28 live run proved the DWC3-without-ACM prefix survived the full 90
@@ -141,3 +145,13 @@ Do not flash P30 until there is fresh operator approval and a fresh SHA-pinned
 `AGENTS.md` exception for exactly one P30 boot-only live gate. P40 should stay
 parked unless P30's result creates a non-module reason to test the P40-labeled
 image separately.
+
+If P30 survives, build M34 S1/S2/S3 host-only artifacts:
+
+- S1: configfs gadget/function/config, no role force, no UDC
+- S2: role force, no UDC
+- S3: UDC bind / pullup on `a600000.dwc3`
+
+Design report:
+
+`docs/reports/S22PLUS_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT_DESIGN_2026-07-09.md`
