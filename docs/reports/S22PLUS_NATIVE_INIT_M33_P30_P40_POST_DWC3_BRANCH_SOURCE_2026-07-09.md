@@ -151,6 +151,14 @@ Verified before this checkpoint:
 
 ## Next
 
-The next actual live gate remains P28. P30/P40 are branch-ready artifacts only
-and require fresh SHA-pinned `AGENTS.md` exceptions plus explicit operator
-approval before any flash.
+Original checkpoint: the next actual live gate remained P28. P30/P40 were
+branch-ready artifacts only and required fresh SHA-pinned `AGENTS.md`
+exceptions plus explicit operator approval before any flash.
+
+Post-P28 update: P28 later survived its live gate and was consumed. The current
+next high-information gate is P30. P40 remains source-ready, but P30 and P40
+have the same module-list SHA256 and same 45-module closure, so P40 is
+subsumed for live ordering unless a future non-module runtime reason appears.
+Current readiness report:
+
+`docs/reports/S22PLUS_NATIVE_INIT_M33_P30_READY_AFTER_P28_2026-07-09.md`

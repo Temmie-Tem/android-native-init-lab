@@ -4,6 +4,29 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 03:28 KST / 2026-07-08 18:28 UTC) — M33 P30 SELECTED; READINESS PASS; P40 SUBSUMED BY SAME MODULE CLOSURE; NO ACTIVE LIVE AUTH.**
+> After M33 P28 survived, Codex selected P30 as the next high-information gate:
+> it adds `usb_f_ss_acm.ko` while still doing no runtime configfs/ACM binding.
+> P30 candidate AP SHA256 is
+> `e7cadd856da852e577adf32e088c0fee668904f265cdad1e9309072ccb2b18fd`;
+> boot SHA256 `0a972bcb4af2b75d5177ae9767e34a4caa8b8c94237afa708bb4a577b2ba7bfe`;
+> `/init` SHA256
+> `48afc2af4fc1bdbfa7724cbff02d68249fc75a62005da073d5092e6c12dd4baa`;
+> module-list SHA256
+> `2291dc1c72add131c42d0b4ed6649880c20316d0598e0a2af942cc774949062c`.
+> Manifest comparison now has an explicit test proving P30 and P40 have the
+> same 45-module closure and module-list SHA256; P40 remains source-ready but
+> is lower priority for live ordering because it adds no module-boundary
+> information beyond P30. Validation passed: P30/P40 helper `py_compile`,
+> M33 P30/P40/build tests (14), P30 `--offline-check`, P30 default fail-closed
+> before Android/device preflight, and current Android baseline
+> `SM-S906N/g0q/S906NKSS7FYG8`, boot complete, bootanim stopped, vbstate
+> orange, Magisk root, boot partition SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+> P30 live requires fresh operator approval and a fresh SHA-pinned `AGENTS.md`
+> exception. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M33_P30_READY_AFTER_P28_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 03:23 KST / 2026-07-08 18:23 UTC) — M33 P28 LIVE CONSUMED; P28 SURVIVED 90 S; ROLLBACK CLEAN; NO ACTIVE LIVE AUTH.**
 > The approved M33 P28 watchdog-prefix park live gate ran once under commit
 > `e33acbd3`. Candidate AP

@@ -144,6 +144,25 @@ class S22PlusM33WdtPrefixParkBuildTest(unittest.TestCase):
         self.assertTrue(by_label["P30"]["closure"]["key_boundaries"]["includes_acm_module"])
         self.assertEqual(by_label["P40"]["closure"]["modules"], self.module.EXPECTED_M32_MODULES)
 
+    @unittest.skipUnless(MANIFEST.exists(), "private M33 manifest missing")
+    def test_p40_live_boundary_is_subsumed_by_p30_module_closure(self):
+        manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+        by_label = {variant["label"]: variant for variant in manifest["variants"]}
+        p30 = by_label["P30"]
+        p40 = by_label["P40"]
+
+        self.assertEqual(p30["closure"]["modules"], p40["closure"]["modules"])
+        self.assertEqual(p30["closure"]["module_sha256"], p40["closure"]["module_sha256"])
+        self.assertEqual(p30["hashes"]["m33_modules"], p40["hashes"]["m33_modules"])
+        self.assertEqual(p30["closure"]["modules"], self.module.EXPECTED_M32_MODULES)
+        self.assertTrue(p30["closure"]["key_boundaries"]["includes_acm_module"])
+        self.assertFalse(p30["closure"]["key_boundaries"]["configfs_runtime_gadget"])
+
+        self.assertNotEqual(p30["hashes"]["ap_tar_md5"], p40["hashes"]["ap_tar_md5"])
+        self.assertNotEqual(p30["hashes"]["m33_init"], p40["hashes"]["m33_init"])
+        self.assertIn("S22_NATIVE_INIT_M33_WDT_PREFIX_PARK_P30", p30["init"]["required_strings"])
+        self.assertIn("S22_NATIVE_INIT_M33_WDT_PREFIX_PARK_P40", p40["init"]["required_strings"])
+
 
 if __name__ == "__main__":
     unittest.main()
