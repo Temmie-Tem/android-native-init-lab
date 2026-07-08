@@ -2718,7 +2718,7 @@ BL, CP, CSC, userdata, or any non-boot flash.
    once, observed no host ADB/Odin through the 90 second dwell plus 30 second
    grace window (`m21a_download_seen=0`,
    `m21a_result=no-download-after-dwell-grace`), and the operator observed an
-   RDX screen with `PHIC abnormal reset`. The host did not observe automatic
+   RDX screen with `PMIC abnormal reset`. The host did not observe automatic
    Download mode. The operator then manually entered Download mode; Codex used
    the checked M21A rollback-from-download mode to flash the pinned Magisk boot
    rollback AP, and Android/Magisk returned cleanly. Final baseline was
@@ -2730,7 +2730,7 @@ BL, CP, CSC, userdata, or any non-boot flash.
    Android boot complete, vbstate orange, and Magisk root present. Post-rollback
    pstore was empty and retained `/proc/last_kmsg` did not contain the M21A
    marker (`S22_NATIVE=0`, `M21A=0`), though the operator photo captured the
-   `PHIC abnormal reset` RDX screen. This exception must not be reused for
+   `PMIC abnormal reset` RDX screen. This exception must not be reused for
    M30/M21A repeat, M28/M29/S24 repeat, F43, USB/ACM bring-up, DTBO/vendor_boot/
    recovery/vbmeta/non-boot flash, kernel rebuild, raw host `dd`, fastboot,
    multidisabler, format data, EUD writes, or any A90 action. Future S22+

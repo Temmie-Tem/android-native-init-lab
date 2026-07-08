@@ -5,9 +5,16 @@
 HOST-ONLY POSTMORTEM / DESIGN ONLY. No build, flash, reboot, Odin action, or
 device write was run in this unit.
 
+Superseded on 2026-07-09 by
+`S22PLUS_PMIC_PON_ABNORMAL_RESET_IS_THE_WALL_2026-07-09.md`. The short-dwell
+download discriminator remains a possible narrow measurement, but it is no
+longer the primary next step. The stronger current direction is to prove or
+disprove the PMIC/PON watchdog-ceiling model by managing the stock watchdog
+modules first.
+
 The M30/M21A photo closes the main ambiguity in the previous result: the
 candidate did not present a clean timed Download endpoint. The observed device
-state was Samsung RDX with `PHIC abnormal reset`.
+state was Samsung RDX with `PMIC abnormal reset`.
 
 That means the next discriminator must not repeat a 75-90 second sleep. On this
 device, earlier native-init work has repeatedly shown an about-30-second reset
@@ -28,7 +35,7 @@ Visible screen text:
 
 ```text
 RDX (without Token)
-PHIC abnormal reset
+PMIC abnormal reset
 ... print_summary_to_lcd...
 pMic init.. Done for RDX
 [To PC] Connect a USB cable or
@@ -45,7 +52,7 @@ host ADB/Odin snapshots through elapsed 119.525s: empty
 post-rollback /proc/last_kmsg: 2097136 bytes
 S22_NATIVE=0
 M21A=0
-PHIC=1
+operator_photo_PMIC_abnormal_reset=1
 RDX=16
 abnormal=32
 watchdog=72
@@ -86,7 +93,7 @@ M25/M30 strengthen the watchdog/boot-progress hypothesis.
 - M25 returned through Odin/Download about 30.3 seconds after boot flash even
   though the candidate had no `download` string and no reboot syscall.
 - M30/M21A slept for 90 seconds, produced no host transport, and then surfaced
-  as `PHIC abnormal reset`.
+  as `PMIC abnormal reset`.
 - Together, these results make a long bare-PID1 dwell a poor proof separator.
 
 ## Current Failure Tree
@@ -96,7 +103,7 @@ M30/M21A narrows the fault to these cases:
 1. Raw PID1 reached `nanosleep(90s)`, but the platform reset it for lack of boot
    progress before the sleep completed.
 2. Raw PID1 reached `reboot(..., "download")`, but Samsung's early direct-PID1
-   reboot target mapped to PHIC/RDX abnormal reset rather than normal Odin
+   reboot target mapped to PMIC/RDX abnormal reset rather than normal Odin
    Download.
 3. Raw PID1 never reached the intended instruction sequence after kernel handoff
    in this specific boot construction, despite M4T2 suggesting the floor can
@@ -136,7 +143,7 @@ Candidate selection:
   below the about-30-second reset shape.
 - If 10 seconds returns clean Download, build a later 20 second candidate to
   bracket the watchdog window.
-- If 10 seconds still lands in PHIC/RDX or no transport, treat raw
+- If 10 seconds still lands in PMIC/RDX or no transport, treat raw
   `reboot(download)` as suspect and stop the download-beacon line.
 
 ## Interpretation Policy For A Future M31A Live Gate
@@ -152,7 +159,7 @@ PASS:
 
 FAIL / REBOOT PATH SUSPECT:
 
-- PHIC/RDX appears before or around the expected short dwell;
+- PMIC/RDX appears before or around the expected short dwell;
 - no Odin endpoint appears before the 30 second watchdog-like window;
 - host sees repeated bootloop behavior;
 - retained evidence still lacks any candidate marker.
@@ -177,4 +184,4 @@ remain host-only until all of the following exist:
 
 Do not add modules, configfs, USB, Android handoff, watchdog pokes, or broad
 observability changes to M31A. This unit exists only to separate short-dwell
-raw `reboot(download)` behavior from the long-dwell PHIC/watchdog reset shape.
+raw `reboot(download)` behavior from the long-dwell PMIC/watchdog reset shape.

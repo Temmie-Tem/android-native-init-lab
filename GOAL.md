@@ -84,27 +84,38 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `reboot(..., "download")`, with no fs/kmsg/modules/configfs/Android handoff.
 > M30/M21A live is now consumed/retired. It did not produce automatic
 > Download-mode proof: the host saw no ADB/Odin through the 90s dwell + 30s
-> grace window, then the operator observed an RDX `PHIC abnormal reset` screen.
+> grace window, then the operator observed an RDX `PMIC abnormal reset` screen.
 > Manual Download rollback restored the Magisk boot baseline cleanly. No active
 > S22+ native-init live authorization remains.
-> **M31 host-only postmortem/design is complete.** The M30 photo makes the
-> long-dwell conclusion stricter: this was not a clean timed Download; it was a
-> PHIC/RDX abnormal-reset shape. Because M25 already showed an about-30.3 s
-> no-reboot Download return and M30 slept 90 s, a 75-90 s dwell is too long to
-> distinguish raw `reboot(download)` failure from boot-progress/watchdog reset.
-> The next candidate family should be a short-dwell raw floor discriminator:
-> one SHA-pinned M31A candidate with raw PID1 `nanosleep(10s)` then raw
-> `reboot(..., "download")`, no fs/kmsg/modules/configfs/Android handoff, and a
-> helper that treats any manual intervention or post-30 s endpoint as no-proof.
-> No M31A live flash is authorized until a fresh exception, exact hashes,
-> dry-run, and rollback gate are committed.
+> **M31 host-only reframe is complete and supersedes the short-dwell primary
+> direction.** The photo text is `PMIC abnormal reset` (not `PHIC`). M21A loaded
+> zero modules and still reset during a 90 s sleep, while M26/P00 zero-module
+> immediate Download previously hit. That points away from modules 1-24 and
+> toward a PMIC/PON watchdog ceiling on a non-progressing bare PID1. Host
+> verification supports this: stock FYG8 `modules.load` puts `gh_virt_wdt.ko`
+> and `qcom_wdt_core.ko` at #5/#6, live Android has
+> `CONFIG_WATCHDOG_HANDLE_BOOT_ENABLED=y` and `CONFIG_WATCHDOG_OPEN_TIMEOUT=0`,
+> `/proc/modules` shows `gh_virt_wdt`, `qcom_wdt_core`, `qcom_soc_wdt`, and
+> `sec_qc_qcom_wdt_core` loaded, and root `dmesg` shows `msm_watchdog_data`
+> petting every ~9.47 s. Next host-only build should therefore be a
+> watchdog-managed park candidate, not another Download beacon. M31B host-only
+> build is now complete: it loads only the stock dependency closure
+> `smem.ko`, `minidump.ko`, `qcom-scm.ko`, `qcom_wdt_core.ko`, and
+> `gh_virt_wdt.ko`, then parks. Candidate `AP.tar.md5` SHA256 is
+> `06d1c149c7c09a284062826f21ac848220e99d552d6b91762abbfb80f3679527`;
+> contained `boot.img` SHA256 is
+> `206fbb40df69a496f7fbe67e32cf862049d9258ef518db6949e1b5db2f4afdc4`.
+> No M31B live flash is authorized until a fail-closed helper, fresh boot-only
+> exception, dry-run, and rollback gate are committed.
 > **Corrected mental model (still holds):** M25 did NOT bootloop — direct log
 > read (`...122411Z`) shows ~29 s dead-steady park then a single ~30.3 s watchdog
 > bite (not a loop); excluding `phy-msm-ssusb-qmp` DID kill the fast M15 QMP loop.
 > M26 `P00` HIT / `P24` NO-HIT localizes the fault to modules 1–24, upstream of
 > USB. M27 `P08` is contaminated (operator manual-download during a bootloop),
 > consistent with the closure being broken at module #1.
-> Reports: `S22PLUS_NATIVE_INIT_M31_POST_M30_SHORT_DWELL_DESIGN_2026-07-09.md` (current primary),
+> Reports: `S22PLUS_NATIVE_INIT_M31B_WDT_MANAGED_PARK_HOST_BUILD_2026-07-09.md` (current primary),
+> `S22PLUS_PMIC_PON_ABNORMAL_RESET_IS_THE_WALL_2026-07-09.md`,
+> `S22PLUS_NATIVE_INIT_M31_POST_M30_SHORT_DWELL_DESIGN_2026-07-09.md` (superseded),
 > `S22PLUS_NATIVE_INIT_M30_M21A_LIVE_RESULT_2026-07-09.md`,
 > `S22PLUS_NATIVE_INIT_M30_M21A_LIVE_GATE_PREFLIGHT_2026-07-09.md`,
 > `S22PLUS_NATIVE_INIT_M30_M21A_FLOOR_REANCHOR_HOST_ONLY_2026-07-09.md`,
@@ -123,9 +134,46 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_GATE_2026-07-08.md`.
 > (Observation steers below are superseded/background; MID stays set, harmless.)
 
-> **S22+ CURRENT FRONTIER (2026-07-09 01:05 KST / 2026-07-08 16:05 UTC) — M31 HOST-ONLY POST-M30 DESIGN COMPLETE; SHORT-DWELL FLOOR NEXT; NO ACTIVE LIVE AUTH.**
+> **S22+ CURRENT FRONTIER (2026-07-09 01:13 KST / 2026-07-08 16:13 UTC) — M31B WATCHDOG-MANAGED PARK HOST BUILD PASS; NO ACTIVE LIVE AUTH.**
+> Codex built the host-only M31B PMIC/PON watchdog-ceiling discriminator. Runtime
+> shape: direct freestanding PID1, minimal `/proc`/`/sys`/`/dev`/`/run`, kmsg
+> marker/result logging, `finit_module()` for only the stock watchdog dependency
+> closure, then infinite park. There is no reboot syscall, no Download beacon,
+> no USB/configfs/ACM, no Android/Magisk handoff, no persistent partition mount,
+> and no block write. Closure:
+> `smem.ko -> minidump.ko -> qcom-scm.ko -> qcom_wdt_core.ko -> gh_virt_wdt.ko`.
+> Hashes: AP.tar.md5
+> `06d1c149c7c09a284062826f21ac848220e99d552d6b91762abbfb80f3679527`,
+> boot.img `206fbb40df69a496f7fbe67e32cf862049d9258ef518db6949e1b5db2f4afdc4`,
+> init `b01e52d3762e3cbdcba3501b00bb1dc9f9084899550ea23b92df43884bed23d0`,
+> module-list `80da959311e4a0f6bedb40da3c6f74c7fd5918017e40e0787b3e17c153cfe937`.
+> Validation passed: builder `py_compile`, forced build, and 4 unit tests. Next
+> live path, if selected, must first add a fresh M31B-only SHA-pinned boot-only
+> `AGENTS.md` exception and fail-closed helper; this report authorizes no live
+> flash. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M31B_WDT_MANAGED_PARK_HOST_BUILD_2026-07-09.md`.
+
+> **S22+ CURRENT FRONTIER (2026-07-09 00:59 KST / 2026-07-08 15:59 UTC) — PMIC/PON WATCHDOG CEILING REFRAME; M31B WATCHDOG-MANAGED PARK NEXT; NO ACTIVE LIVE AUTH.**
+> Codex corrected the M30/RDX photo transcription from `PHIC` to `PMIC abnormal
+> reset` and adopted the PMIC/PON watchdog-ceiling reframe. Host-only evidence:
+> the exact `PMIC abnormal reset` string is absent from both local S22+ OSRC
+> kernel source tars (`grep` rc=1), so the LCD text is bootloader/RDX evidence;
+> stock FYG8 `modules.load` loads `gh_virt_wdt.ko` and `qcom_wdt_core.ko` at #5
+> and #6; `modules.dep` says `qcom_wdt_core` needs only `qcom-scm`,
+> `minidump`, and `smem`, while `gh_virt_wdt` depends on `qcom_wdt_core`;
+> current Android config has `CONFIG_WATCHDOG_HANDLE_BOOT_ENABLED=y` and
+> `CONFIG_WATCHDOG_OPEN_TIMEOUT=0`; current `/proc/modules` has the full
+> watchdog stack loaded; and root `dmesg` shows `msm_watchdog_data` petting about
+> every 9.47 s. Therefore the next host-only unit is M31B: build a minimal
+> watchdog-managed park candidate that loads only the stock watchdog dependency
+> closure and parks, with success defined as no PMIC/RDX reset past 60-120 s.
+> Do not build or flash the previous short-dwell Download candidate as primary.
+> No S22+ native-init live flash is currently authorized. Report:
+> `docs/reports/S22PLUS_PMIC_PON_ABNORMAL_RESET_IS_THE_WALL_2026-07-09.md`.
+
+> **S22+ SUPERSEDED FRONTIER (2026-07-09 01:05 KST / 2026-07-08 16:05 UTC) — M31 HOST-ONLY POST-M30 DESIGN COMPLETE; SHORT-DWELL FLOOR NEXT; NO ACTIVE LIVE AUTH.**
 > Codex incorporated the operator's M30/M21A kernel-panic/RDX photo into the
-> postmortem. The visual state is `PHIC abnormal reset`, not clean
+> postmortem. The visual state is `PMIC abnormal reset`, not clean
 > Download-mode proof. Combined with M25's about-30.3 s no-reboot Download return
 > and M30's 90 s no-transport dwell, the old 75-90 s sleep discriminator is now
 > considered too long: it can be preempted by boot-progress/watchdog policy
@@ -134,18 +182,18 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `nanosleep(10s)` then raw `reboot(..., "download")`, with no fs/kmsg/modules/
 > configfs/Android handoff. A future live PASS requires Odin Download after the
 > short dwell and before the about-30 s reset window, with no operator key
-> intervention. Any PHIC/RDX, no endpoint before the 30 s window, or manual
+> intervention. Any PMIC/RDX, no endpoint before the 30 s window, or manual
 > Download remains FAIL/NO-PROOF. No S22+ native-init live flash is currently
 > authorized. Report:
 > `docs/reports/S22PLUS_NATIVE_INIT_M31_POST_M30_SHORT_DWELL_DESIGN_2026-07-09.md`.
 
-> **S22+ CURRENT FRONTIER (2026-07-09 00:46 KST / 2026-07-08 15:46 UTC) — M30/M21A LIVE CONSUMED; PHIC ABNORMAL RESET; FINAL BASELINE CLEAN; NO ACTIVE LIVE AUTH.**
+> **S22+ CURRENT FRONTIER (2026-07-09 00:46 KST / 2026-07-08 15:46 UTC) — M30/M21A LIVE CONSUMED; PMIC ABNORMAL RESET; FINAL BASELINE CLEAN; NO ACTIVE LIVE AUTH.**
 > Codex ran the authorized M30/M21A raw nanosleep-download live gate. The boot
 > candidate flashed successfully and the original Odin endpoint disconnected,
 > but the helper observed no ADB and no Odin through dwell+grace:
 > `m21a_download_seen=0`, `m21a_result=no-download-after-dwell-grace`. The
 > operator reported no fast bootloop, then observed and photographed an RDX
-> screen showing `PHIC abnormal reset`. After manual Download entry, the
+> screen showing `PMIC abnormal reset`. After manual Download entry, the
 > checked rollback-from-download helper flashed the pinned Magisk boot rollback
 > AP and completed with `rc=0`. Final independent verification: Android boot
 > complete, vbstate orange, Magisk root, boot
@@ -157,7 +205,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > no M21A/native marker (`S22_NATIVE=0`, `M21A=0`) and again included Android
 > `reboot,download` lines. `AGENTS.md` now consumes/retires M30/M21A and omits
 > active ack tokens. Next unit is host-only postmortem/design before any fresh
-> live: distinguish raw PID1 `reboot(download)` mapping to RDX/PHIC versus
+> live: distinguish raw PID1 `reboot(download)` mapping to RDX/PMIC versus
 > watchdog/boot-progress reset versus missing instruction-level proof. Report:
 > `docs/reports/S22PLUS_NATIVE_INIT_M30_M21A_LIVE_RESULT_2026-07-09.md`.
 

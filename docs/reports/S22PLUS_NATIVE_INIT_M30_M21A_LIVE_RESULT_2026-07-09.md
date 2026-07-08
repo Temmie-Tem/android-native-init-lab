@@ -2,14 +2,14 @@
 
 ## Verdict
 
-CONSUMED / NO TIMED-DOWNLOAD PROOF / OPERATOR-OBSERVED PHIC ABNORMAL RESET /
+CONSUMED / NO TIMED-DOWNLOAD PROOF / OPERATOR-OBSERVED PMIC ABNORMAL RESET /
 ROLLBACK CLEAN.
 
 M30/M21A did not produce the intended automatic Download-mode proof. The
 candidate flash succeeded, the original Odin endpoint disconnected, and the
 host observed no ADB and no Odin throughout the 90 second dwell plus 30 second
 grace window. The operator reported that the device did not fall into the prior
-fast bootloop pattern, then observed an RDX screen with `PHIC abnormal reset`.
+fast bootloop pattern, then observed an RDX screen with `PMIC abnormal reset`.
 
 After the helper returned `no-download-after-dwell-grace`, the operator entered
 Download mode manually. The checked rollback helper restored the pinned Magisk
@@ -85,7 +85,7 @@ The photographed screen shows:
 
 ```text
 RDX (without Token)
-PHIC abnormal reset
+PMIC abnormal reset
 ... print_summary_to_lcd...
 pMic init.. Done for RDX
 [To PC] Connect a USB cable or
@@ -181,7 +181,7 @@ last_kmsg_sha256=39dacfc2dde0e710a80b16cfb08efb1e183b9f882bc15c5fd9d65c041244a42
 S22_NATIVE=0
 M21A=0
 S22_NATIVE_INIT_M21A_RAW_NANOSLEEP_DOWNLOAD=0
-PHIC=1
+operator_photo_PMIC_abnormal_reset=1
 RDX=16
 abnormal=32
 panic=0
@@ -193,13 +193,14 @@ watchdog=72
 The retained log still does not contain a candidate-owned marker. It contains
 Android `reboot,download` lines, so retained software evidence remains
 insufficient to prove candidate instruction-level progress. The photo is the
-only direct PHIC/RDX visual evidence from the candidate incident.
+only direct PMIC/RDX visual evidence from the candidate incident; retained
+`last_kmsg` only supplies surrounding RDX/PON/watchdog context.
 
 ## Interpretation
 
 M30/M21A answered the narrow question negatively: raw PID1
 `nanosleep(90s) -> reboot(..., "download")` did not produce a host-observed
-timed Download endpoint. The visual result was RDX/PHIC abnormal reset, and the
+timed Download endpoint. The visual result was RDX/PMIC abnormal reset, and the
 retained logs again resolved mostly to Android-side reboot/download state.
 
 Do not repeat M21A under the consumed tokens. The next unit should be host-only
@@ -207,7 +208,7 @@ postmortem/design. It should separate at least these cases before another
 boot-only live:
 
 - Did the raw PID1 actually reach the `nanosleep` return and `reboot` syscall?
-- Did Samsung's direct PID1 `reboot(..., "download")` path map to RDX/PHIC
+- Did Samsung's direct PID1 `reboot(..., "download")` path map to RDX/PMIC
   abnormal reset instead of Odin Download?
 - Did watchdog/boot-progress policy reset the device because PID1 stayed asleep
   without Android first-stage progress?
