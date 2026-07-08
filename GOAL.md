@@ -111,6 +111,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > capture. Report:
 > `docs/reports/S22PLUS_M23_DTS_QMP_RESET_SUMMARY_GATE_SOURCE_2026-07-08.md`.
 
+> **S22+ READ-ONLY RESULT (2026-07-08 09:18 KST) — CURRENT RESET-SUMMARY SURFACES ARE SAFE BUT EMPTY.**
+> With S22+ back on normal Android ADB after the operator's bootloop/manual
+> Download report, Codex ran the read-only
+> `s22plus_reset_reason_readonly_probe.py`. Result: pass; no flash/reboot/write
+> was performed. Current boot/vendor_boot hashes match the clean Magisk/stock
+> baseline, root is available, pstore has 0 entries, `/proc/reset_reason=RPON`,
+> `/proc/reset_rwc=0`, `/proc/store_lastkmsg=0`, and Android properties report
+> `reboot,userrequested`. `/proc/reset_summary`, `/proc/reset_klog`,
+> `/proc/reset_history`, and `/proc/reset_tzlog` exist but open with
+> `failed to load reset_header (-2)` on this normal boot, so they did not
+> retroactively preserve a useful native-init hang payload. This confirms the
+> reader path but also means the reset-summary capture must run immediately
+> after the next candidate rollback. Report:
+> `docs/reports/S22PLUS_RESET_REASON_READONLY_AFTER_BOOTLOOP_REPORT_2026-07-08.md`.
+
 > **S22+ LIVE RESULT (2026-07-08 03:50 KST) — DIRECT VENDOR_BOOT RAMOOPS PATCH BOOTED BUT DID NOT AFFECT LIVE DT; M13 NOT FLASHED.**
 > Operator authorized the ack-gated
 > `S22PLUS-RAMOOPS-VENDORBOOT-M13-CAPTURE-LIVE-GATE` run. Dry-run passed, the
