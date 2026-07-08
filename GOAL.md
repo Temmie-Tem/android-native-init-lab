@@ -185,6 +185,31 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `qcom_wdt_core`. Report:
 > `docs/reports/S22PLUS_M23_DTS_QMP_RESET_SUMMARY_LIVE_RESULT_2026-07-08.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-08 20:05 KST) — M24 PMSG-STEP HOST BUILD READY; NO LIVE AUTH.**
+> Codex added
+> `workspace/public/src/scripts/revalidation/build_s22plus_inplace_m24_pmsg_steps_park.py`
+> and `tests/test_s22plus_m24_pmsg_steps_build.py`. M24 keeps the same
+> 43-module DTS-exact QMP/DWC3/HS-PHY/provider closure as M23, but adds
+> retained `/dev/pmsg0` progress markers before each risky phase and module
+> insertion (`A90_STEP:M24:*`). Artifact hashes: AP
+> `e09538024abe89585486d54856a5c86bef666da456f314084d4d4d8bb6553fe8`,
+> boot `0cccc003687227c4265081fa59d440f4be3e7f40fbb64aca2a3930ca7d5ca3df`,
+> `/init` `4086d18f453980893fa1b8022f93991775b0ee28a6088f1216de82b74cbaf341`,
+> generated source
+> `f9a060f7804571c036631c954b3e88c064aa33176d7d8ec6abe9da8b8bf84bdd`,
+> module list
+> `a542b86aee8d2b09d0ca233e0a81d7deb8919a77657122d91f3b46e0a7933349`.
+> Validation passed: `py_compile`, unit tests, host builder `--force`, AP tar
+> member check (`boot.img.lz4` only), module count 43, pmsg markers present,
+> manifest `live_flash_authorized=false`. A separate read-only check after the
+> operator reported another bootloop/manual entry found the phone already back
+> on clean Android/Magisk baseline (`boot_completed=1`, verified boot `orange`,
+> Magisk uid0, known boot/vendor_boot hashes); no rollback, reboot, flash, or
+> write was performed in this M24 unit. Next live step requires a fresh
+> SHA-pinned `AGENTS.md` exception and an attended helper that captures pmsg,
+> pstore, `/proc/last_kmsg`, and reset-context surfaces after rollback. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M24_PMSG_STEPS_HOST_BUILD_2026-07-08.md`.
+
 > **S22+ LIVE RESULT (2026-07-08 03:50 KST) — DIRECT VENDOR_BOOT RAMOOPS PATCH BOOTED BUT DID NOT AFFECT LIVE DT; M13 NOT FLASHED.**
 > Operator authorized the ack-gated
 > `S22PLUS-RAMOOPS-VENDORBOOT-M13-CAPTURE-LIVE-GATE` run. Dry-run passed, the
