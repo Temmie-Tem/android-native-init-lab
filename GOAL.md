@@ -91,12 +91,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 >   culprit is one of: insmod `usb_f_ss_acm`, create configfs gadget/function,
 >   force `usb_role=device`, or write `UDC=a600000.dwc3` (pullup). Most likely
 >   **UDC pullup**, where dwc3 starts the connect/PHY/role sequence.
-> **M34 = isolate the runtime step, not the modules.** From the proven 44-module
-> park floor, walk the gadget sequence incrementally with a dwell/marker between
-> each: (a) insmod `usb_f_ss_acm` + park [loop's P30 already does this — good];
-> (b) create configfs gadget/function/config, NO UDC, + park; (c) force
-> `usb_role=device` + park; (d) write `UDC` (pullup) + park. The first step that
-> resets is the culprit. **Do NOT** build the DTBO `ssphy`-phandle overlay yet:
+> **M34 = isolate the runtime step, not the modules — and encode the STOCK recipe
+> verbatim.** A live read-only pull of the stock gadget
+> (`S22PLUS_STOCK_USB_GADGET_ACM_RECIPE_2026-07-09.md`) confirms `ss_acm.0` is a
+> first-class stock function (linked as `f2` in active config `b.1` on UDC
+> `a600000.dwc3`), so ACM binds/enumerates fine on this controller. Stock create/
+> bind order (init.qcom.usb.rc): `write UDC "none"` → set idVendor/idProduct →
+> `symlink functions/ss_acm.0 configs/b.1/fN` → `write UDC a600000.dwc3` (pullup,
+> always LAST); `bcdUSB=0x0200`; stock sets NO role in rc (dr_mode=otg via TypeC/
+> PD HW negotiation, which we lack). Walk it with a dwell/marker: (a) insmod
+> `usb_f_ss_acm` + park [loop P30 = this]; (b) create g1 + `ss_acm.0` + config,
+> link, NO UDC, + park; (c) **the two off-stock knobs that are the pullup
+> suspects** — `write g1/max_speed high-speed` (a CONFIGFS gadget attr, distinct
+> from DT `maximum-speed`; the cheap HS-only lever that avoids the SS connect
+> with no DT surgery) and `usb_role=device` (no live PD to arbitrate `otg`) —
+> park; (d) `write UDC a600000.dwc3` (pullup) + host-scan `/dev/ttyGS0`. First
+> step that resets is the culprit; if (d) hangs, toggle `max_speed` vs
+> `usb_role` one at a time to bisect. **Do NOT** build the DTBO `ssphy`-phandle overlay yet:
 > it re-enters ONLY if **(d) UDC pullup** is the hang (dwc3 connecting on the dead
 > SS phy / arbitrating `otg` role without the PD stack) — and even then try dwc3
 > **sysfs** first (`maximum_speed`, `mode`, `usb_role`) before DT surgery (the
