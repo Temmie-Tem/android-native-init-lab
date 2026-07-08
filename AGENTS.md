@@ -2752,6 +2752,162 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
    with stock boot-only fallback SHA256
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
+   **Narrow operator-authorized exception (2026-07-09, S22+ M34 S6 stock-speed softdep runtime-gadget boot-only live gate):**
+   Codex may run
+   one bounded attended boot-partition-only M34 S6 live gate on the Samsung S22+
+   `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m34_s6_stock_softdep_live_gate.py`.
+   Live ack token: `S22PLUS-M34-S6-STOCK-SOFTDEP-LIVE-GATE`. Rollback ack token:
+   `S22PLUS-M34-S6-STOCK-SOFTDEP-ROLLBACK-FROM-DOWNLOAD`.
+
+   The exact candidate AP.tar.md5 SHA256 must be
+   `f1ff77b7df434536029db417291689bff8b3a7dcdf4fda38fef5322475daad39`; contained padded `boot.img` SHA256 must be
+   `b1bfc4ece7ece60af752bc570e0ae4ce76230d13b129b1c58d4e840cd92225f6`; direct `/init` SHA256 must be
+   `ca3eb2b5a0fedff73cfb0aaa249d42f4b92fcb99b360e9ec5a041649dcd7dd8c`; template source SHA256 must be
+   `ce023ba98006e49839433ce16ec8321bd9003b74151f39879fcecb682fef9ecc`; module-list SHA256 must be
+   `51ba77aeed1966a2de8c78d307ca3d6fe5440daa2b96488679446f6056142515`; preserved kernel SHA256 must be
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`; and known-booting base Magisk boot SHA256
+   must be `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. The AP must contain exactly one
+   tar member, `boot.img.lz4`, and must not carry recovery, vendor_boot, dtbo,
+   vbmeta, vbmeta_system, BL, CP, CSC, super, persist, userdata, EFS,
+   sec_efs, RPMB, keymaster, modem, bootloader, or any other partition payload.
+
+   The candidate is limited to freestanding direct PID1 M34 S6 behavior:
+   stock-ordered configfs gadget/function/config, `UDC=none`, stock IDs
+   `0x04E8:0x6860`, `ss_acm.0 link`, no `g1/max_speed=high-speed`, no
+   `/sys/class/usb_role`, no `ssusb/speed=high-speed`,
+   `ssusb/mode=peripheral`, final UDC bind, `UDC=a600000.dwc3`, no
+   `soft_connect`, and no `/sys/class/udc/a600000.dwc3/soft_connect`.
+   It must restore stock dwc3_msm softdep parity through the module list:
+   `stock_softdep_parity=1`, `qmp_module=1`, `eud_module=1`,
+   `ucsi_glink=1`, `phy-msm-ssusb-qmp.ko included`,
+   `eud.ko included without EUD sysfs write`, and `ucsi_glink.ko included`.
+   It must make no descriptor or companion-function change and no EUD sysfs write.
+   It must have no
+   reboot syscall, no Download beacon, no
+   Android/Magisk handoff, no persistent partition mount, no block write, no
+   module binary injection into boot ramdisk, no raw host `dd`, no fastboot, no
+   Magisk modules, no multidisabler, no format data, no DTBO/vendor_boot/
+   recovery/vbmeta/non-boot flash, and no A90 action. Manual Download rollback
+   is recovery-only after the helper requests it. Survival proof requires it
+   survives past 60-90 seconds; PMIC/RDX abnormal reset before the observation
+   window is FAIL. The helper must collect enhanced host USB observation
+   including `lsusb -d 04e8:6860 -v`, `usb-devices`, udev properties, and host
+   dmesg delta. The module closure must include `phy-msm-ssusb-qmp.ko`,
+   `eud.ko`, `ucsi_glink.ko`, and their dependency-complete closure. This
+   exception does not authorize S1/S2/S3/S4/S5 repeat, post-pullup command
+   channels, DTBO surgery, M32 repeat, display/distro candidates, kernel
+   rebuilds, RDX PC dump retrieval, EUD sysfs writes, or
+   any non-boot partition action.
+
+   Required policy marker coverage:
+   `S22+ M34 S6 stock-speed softdep runtime-gadget native-init boot-only`
+   `workspace/public/src/scripts/revalidation/s22plus_m34_s6_stock_softdep_live_gate.py`
+   `S22PLUS-M34-S6-STOCK-SOFTDEP-LIVE-GATE`
+   `S22PLUS-M34-S6-STOCK-SOFTDEP-ROLLBACK-FROM-DOWNLOAD`
+   `SM-S906N/g0q/S906NKSS7FYG8`
+   `S6`
+   `S22_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT_S6`
+   `f1ff77b7df434536029db417291689bff8b3a7dcdf4fda38fef5322475daad39`
+   `b1bfc4ece7ece60af752bc570e0ae4ce76230d13b129b1c58d4e840cd92225f6`
+   `ca3eb2b5a0fedff73cfb0aaa249d42f4b92fcb99b360e9ec5a041649dcd7dd8c`
+   `51ba77aeed1966a2de8c78d307ca3d6fe5440daa2b96488679446f6056142515`
+   `ce023ba98006e49839433ce16ec8321bd9003b74151f39879fcecb682fef9ecc`
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`
+   `stock-ordered configfs gadget/function/config`
+   `UDC=none`
+   `0x04E8:0x6860`
+   `ss_acm.0 link`
+   `no g1/max_speed=high-speed`
+   `no /sys/class/usb_role`
+   `no ssusb/speed=high-speed`
+   `ssusb/mode=peripheral`
+   `final UDC bind`
+   `UDC=a600000.dwc3`
+   `no soft_connect`
+   `no /sys/class/udc/a600000.dwc3/soft_connect`
+   `stock dwc3_msm softdep parity`
+   `stock_softdep_parity=1`
+   `qmp_module=1`
+   `eud_module=1`
+   `ucsi_glink=1`
+   `phy-msm-ssusb-qmp.ko included`
+   `eud.ko included without EUD sysfs write`
+   `ucsi_glink.ko included`
+   `no descriptor or companion-function change`
+   `enhanced host USB observation`
+   `lsusb -d 04e8:6860 -v`
+   `usb-devices`
+   `udev properties`
+   `host dmesg delta`
+   `no reboot syscall`
+   `no Download beacon`
+   `no Android/Magisk handoff`
+   `no persistent partition mount`
+   `no block write`
+   `manual Download rollback is recovery-only`
+   `survives past 60-90 seconds`
+   `PMIC/RDX abnormal reset before the observation window is FAIL`
+   `no EUD sysfs write`
+   `phy-msm-ssusb-qmp.ko`
+   `eud.ko`
+   `ucsi_glink.ko`
+   `smem.ko`
+   `minidump.ko`
+   `sec_debug.ko`
+   `qcom_ipc_logging.ko`
+   `cmd-db.ko`
+   `qcom_rpmh.ko`
+   `clk-rpmh.ko`
+   `debug-regulator.ko`
+   `proxy-consumer.ko`
+   `gdsc-regulator.ko`
+   `clk-qcom.ko`
+   `clk-dummy.ko`
+   `gcc-waipio.ko`
+   `icc-bcm-voter.ko`
+   `icc-debug.ko`
+   `socinfo.ko`
+   `icc-rpmh.ko`
+   `rpmh-regulator.ko`
+   `qcom-scm.ko`
+   `qcom_wdt_core.ko`
+   `gh_virt_wdt.ko`
+   `iommu-logger.ko`
+   `qnoc-qos.ko`
+   `qnoc-waipio.ko`
+   `phy-generic.ko`
+   `qcom_iommu_util.ko`
+   `sec_class.ko`
+   `secure_buffer.ko`
+   `arm_smmu.ko`
+   `eud.ko`
+   `phy-msm-ssusb-qmp.ko`
+   `abc.ko`
+   `usb_notify_layer.ko`
+   `switch_class.ko`
+   `common_muic.ko`
+   `vbus_notifier.ko`
+   `pdic_notifier_module.ko`
+   `usb_typec_manager.ko`
+   `usb_f_ss_mon_gadget.ko`
+   `phy-msm-snps-hs.ko`
+   `repeater.ko`
+   `phy-msm-snps-eusb2.ko`
+   `redriver.ko`
+   `if_cb_manager.ko`
+   `qc_usb_audio.ko`
+   `dwc3-msm.ko`
+   `usb_f_ss_acm.ko`
+   `qmi_helpers.ko`
+   `qcom_glink.ko`
+   `qcom_glink_smem.ko`
+   `qcom_smd.ko`
+   `rproc_qcom_common.ko`
+   `pdr_interface.ko`
+   `pmic_glink.ko`
+   `ucsi_glink.ko`
    **Consumed exception (2026-07-09, S22+ M34 S5 soft-connect
    runtime-gadget boot-only live gate):** this one-shot exception was consumed by
    the 2026-07-09 KST live run. It flashed the pinned M34 S5 boot-only

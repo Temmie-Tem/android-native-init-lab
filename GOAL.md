@@ -4,6 +4,22 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 06:44 KST / 2026-07-08 21:44 UTC) — M34 S6 LIVE-GATE AUTHORIZED; DRY-RUN PASS; LIVE NEXT.**
+> The operator gave live pre-approval in-thread. `AGENTS.md` now contains the
+> fresh SHA-pinned active S6 one-shot exception for
+> `workspace/public/src/scripts/revalidation/s22plus_m34_s6_stock_softdep_live_gate.py`.
+> The helper default dry-run passed after authorization: S6 candidate and
+> rollback APs verified, AGENTS marker coverage accepted, Android stability
+> checked, and current boot partition SHA256 matched the known-booting Magisk
+> baseline `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+>
+> Next action: run S6 live with ack token
+> `S22PLUS-M34-S6-STOCK-SOFTDEP-LIVE-GATE`, observe the 90 second park window,
+> then require manual Download rollback if the candidate survives or ACM
+> appears. No non-boot flash, no DTBO/vendor_boot/recovery/vbmeta write, no EUD
+> sysfs write, no Magisk module, no raw host `dd`, and no A90 action is
+> authorized.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 06:37 KST / 2026-07-08 21:37 UTC) — M34 S6 LIVE-GATE HELPER READY; DEFAULT FAIL-CLOSED; NO ACTIVE LIVE AUTH.**
 > Codex added the guarded S6 helper
 > `workspace/public/src/scripts/revalidation/s22plus_m34_s6_stock_softdep_live_gate.py`
