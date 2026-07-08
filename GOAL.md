@@ -90,6 +90,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > exception and guarded dry-run/live helper for this exact AP. Report:
 > `docs/reports/S22PLUS_NATIVE_INIT_M23_DTS_EXACT_QMP_HOST_BUILD_2026-07-08.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-08 09:16 KST) — M23 RESET-SUMMARY LIVE GATE SOURCE READY; POLICY-INERT.**
+> Codex added
+> `workspace/public/src/scripts/revalidation/s22plus_m23_dts_exact_qmp_reset_summary_live_gate.py`,
+> the inert AGENTS exception draft
+> `docs/operations/S22PLUS_M23_DTS_QMP_RESET_SUMMARY_AGENTS_EXCEPTION_DRAFT_2026-07-08.md`,
+> and unit tests. The helper pins the exact M23 AP/boot/init/module-list/source/
+> vendor-DTB hashes and rollback APs, validates the 43-module DTS-derived
+> closure, and on rollback captures Samsung watchdog reset-context surfaces via
+> `/proc/reset_summary`, `/proc/reset_klog`, `/proc/reset_history`,
+> `/proc/reset_tzlog`, and `/proc/enhanced_boot_stat`, not just pstore or
+> `/proc/last_kmsg`. Validation passed: `py_compile`, unit tests, `--offline-check`,
+> and expected default fail-closed because active `AGENTS.md` does not yet
+> contain the M23 reset-summary exception. No flash/reboot/device action was
+> performed. Next live step is to copy the inert exception into `AGENTS.md`,
+> dry-run, then run the attended live gate with ack
+> `S22PLUS-M23-DTS-QMP-RESET-SUMMARY-LIVE-GATE`; if the operator manually enters
+> Download after a bootloop, immediately run `--rollback-from-download` with ack
+> `S22PLUS-M23-DTS-QMP-ROLLBACK-FROM-DOWNLOAD` to preserve the reset-context
+> capture. Report:
+> `docs/reports/S22PLUS_M23_DTS_QMP_RESET_SUMMARY_GATE_SOURCE_2026-07-08.md`.
+
 > **S22+ LIVE RESULT (2026-07-08 03:50 KST) — DIRECT VENDOR_BOOT RAMOOPS PATCH BOOTED BUT DID NOT AFFECT LIVE DT; M13 NOT FLASHED.**
 > Operator authorized the ack-gated
 > `S22PLUS-RAMOOPS-VENDORBOOT-M13-CAPTURE-LIVE-GATE` run. Dry-run passed, the
