@@ -230,6 +230,26 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Report:
 > `docs/reports/S22PLUS_M24_PMSG_STEPS_GATE_SOURCE_2026-07-08.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-08 20:20 KST) — M24 PMSG-STEP POLICY ACTIVE; DRY-RUN PASS; LIVE NOT EXECUTED.**
+> Codex activated the narrow `AGENTS.md` exception for the exact M24 pmsg-step
+> DTS-exact QMP/DWC3 boot-only AP
+> `e09538024abe89585486d54856a5c86bef666da456f314084d4d4d8bb6553fe8`
+> and rollback token path. Validation passed: `py_compile`, unit tests,
+> `--offline-check`, and default dry-run. Dry-run evidence:
+> `agents_exception_missing=[]`, single-member candidate/rollback AP checks,
+> Android/root stable for 4 samples, current boot hash
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
+> `boot_completed=1`, `boot_recovery=0`, verified boot `orange`, and Magisk
+> root uid0. Final explicit baseline check also confirmed stock vendor_boot
+> SHA256 `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`.
+> No flash, reboot, rollback, partition write, sysfs write, or Odin transfer
+> was performed. Next step, only with explicit attended live approval, is:
+> `--live --ack S22PLUS-M24-PMSG-STEPS-LIVE-GATE`; if the operator manually
+> enters Download after a loop, immediately run `--rollback-from-download --ack
+> S22PLUS-M24-PMSG-STEPS-ROLLBACK-FROM-DOWNLOAD` to preserve pmsg/pstore/
+> last_kmsg/reset-context capture. Report:
+> `docs/reports/S22PLUS_M24_PMSG_STEPS_POLICY_ACTIVE_DRY_RUN_2026-07-08.md`.
+
 > **S22+ LIVE RESULT (2026-07-08 03:50 KST) — DIRECT VENDOR_BOOT RAMOOPS PATCH BOOTED BUT DID NOT AFFECT LIVE DT; M13 NOT FLASHED.**
 > Operator authorized the ack-gated
 > `S22PLUS-RAMOOPS-VENDORBOOT-M13-CAPTURE-LIVE-GATE` run. Dry-run passed, the
