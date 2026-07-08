@@ -4,6 +4,42 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 06:37 KST / 2026-07-08 21:37 UTC) — M34 S6 LIVE-GATE HELPER READY; DEFAULT FAIL-CLOSED; NO ACTIVE LIVE AUTH.**
+> Codex added the guarded S6 helper
+> `workspace/public/src/scripts/revalidation/s22plus_m34_s6_stock_softdep_live_gate.py`
+> and tests `tests/test_s22plus_m34_s6_stock_softdep_live_gate.py`. The helper
+> pins S6 AP.tar.md5 SHA256
+> `f1ff77b7df434536029db417291689bff8b3a7dcdf4fda38fef5322475daad39`,
+> padded `boot.img` SHA256
+> `b1bfc4ece7ece60af752bc570e0ae4ce76230d13b129b1c58d4e840cd92225f6`,
+> direct `/init` SHA256
+> `ca3eb2b5a0fedff73cfb0aaa249d42f4b92fcb99b360e9ec5a041649dcd7dd8c`,
+> module-list SHA256
+> `51ba77aeed1966a2de8c78d307ca3d6fe5440daa2b96488679446f6056142515`,
+> template source SHA256
+> `ce023ba98006e49839433ce16ec8321bd9003b74151f39879fcecb682fef9ecc`,
+> preserved kernel SHA256
+> `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`,
+> and known-booting Magisk base boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+>
+> The helper verifies S6's exact contract: stage `S6`, AP member exactly
+> `boot.img.lz4`, 55-module closure, QMP/EUD/ucsi softdep parity present,
+> `sec_debug_region.ko` absent, no required `high-speed`, no `g1/max_speed`,
+> no `ssusb/speed`, no `/sys/class/usb_role`, no `soft_connect`, no EUD sysfs
+> write, no reboot syscall, no Android/Magisk handoff, no persistent mount, and
+> no block write. Host observation reuses the enhanced all-Samsung `04e8:*`
+> path from the S5 result, including explicit `685d` upload/download detection.
+>
+> Validation passed: helper `py_compile`, S6 helper unit tests (9),
+> `--offline-check`, `--print-agents-exception-draft`, and default invocation
+> fail-closed before Android/device actions because `AGENTS.md` has no active
+> S6 authorization. No live flash is authorized. Next live unit requires
+> promoting a fresh active SHA-pinned `AGENTS.md` exception from the printed
+> draft, rerunning dry-run, then running live with exact ack token
+> `S22PLUS-M34-S6-STOCK-SOFTDEP-LIVE-GATE`. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S6_LIVE_GATE_READY_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 06:29 KST / 2026-07-08 21:29 UTC) — M34 S6 HOST BUILD COMPLETE; USB2 HS-FORCE REMOVED + QMP/EUD/UCSI SOFTDEP PARITY RESTORED; NO ACTIVE LIVE AUTH.**
 > Operator question answered: USB version does matter here. Stock Android
 > remains `04e8:6860` SuperSpeed 5000M / `bcdUSB 3.20` composite, while M34
