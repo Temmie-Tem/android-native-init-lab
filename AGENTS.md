@@ -2752,6 +2752,64 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
    with stock boot-only fallback SHA256
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
+   **Narrow operator-authorized exception (2026-07-09, S22+ M33 P28
+   watchdog-prefix park native-init boot-only live gate):** after M33 P27
+   survived the full observation window and was rolled back cleanly, and after
+   the operator gave fresh live approval, Codex may perform one bounded
+   attended boot-partition-only M33 P28 watchdog-prefix park native-init
+   boot-only live gate on the same Samsung S22+ `SM-S906N`/`g0q`
+   `S906NKSS7FYG8` using only the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m33_p28_wdt_prefix_park_live_gate.py`
+   with live ack token `S22PLUS-M33-P28-WDT-PREFIX-PARK-LIVE-GATE` and
+   rollback-from-Download ack token
+   `S22PLUS-M33-P28-WDT-PREFIX-PARK-ROLLBACK-FROM-DOWNLOAD`.
+   The exact target string is `SM-S906N/g0q/S906NKSS7FYG8`; variant `P28`;
+   marker `S22_NATIVE_INIT_M33_WDT_PREFIX_PARK_P28`; candidate AP.tar.md5
+   SHA256 `4c76ef4df814356a7acfa9ce9a00c2fe003208ff8289c2874535e26b7e1c3f07`;
+   contained padded `boot.img` SHA256
+   `3bc59d6df58b5c7130e6ca531a6a6cd3a4d35e14ff7fd6667da72e2bd40e9e29`;
+   direct `/init` SHA256
+   `2ef661b9e5a1496674b6cc457c9b0e84c60ae7af01914c2403db602c6ebe84b1`;
+   module-list SHA256
+   `ef57a00fbef4b9c89936b30fc5c001974fbe9c2ece590c6a6984cb4695318a8f`;
+   generated source SHA256
+   `8d752ade0ee5100b5f91cb7fb15c09d24652a97e03721fb8c4d784d1f419f289`;
+   preserved kernel SHA256
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`; and
+   known booting base Magisk boot SHA256
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+   P28 is a `watchdog-managed prefix park`, `prefix_targets=28`,
+   `module_load_only=1`, `DWC3-without-ACM prefix`. It has `no ACM function`,
+   `no reboot syscall`, `no Download beacon`, and `no runtime USB/configfs/ACM`.
+   The survival proof is `survives past 60-90 seconds` with no returned ADB or
+   Odin endpoint; `PMIC/RDX abnormal reset before the observation window is
+   FAIL`. `manual Download rollback is recovery-only` and must use the pinned
+   Magisk boot-only AP first, with stock boot-only fallback only if Magisk
+   rollback fails and Download mode remains available.
+   The P28 module list is exactly: `smem.ko`, `minidump.ko`, `sec_debug.ko`,
+   `qcom_ipc_logging.ko`, `cmd-db.ko`, `qcom_rpmh.ko`, `clk-rpmh.ko`,
+   `debug-regulator.ko`, `proxy-consumer.ko`, `gdsc-regulator.ko`,
+   `clk-qcom.ko`, `clk-dummy.ko`, `gcc-waipio.ko`, `icc-bcm-voter.ko`,
+   `icc-debug.ko`, `socinfo.ko`, `icc-rpmh.ko`, `rpmh-regulator.ko`,
+   `qcom-scm.ko`, `qcom_wdt_core.ko`, `gh_virt_wdt.ko`, `iommu-logger.ko`,
+   `qnoc-qos.ko`, `qnoc-waipio.ko`, `phy-generic.ko`, `qcom_iommu_util.ko`,
+   `sec_class.ko`, `secure_buffer.ko`, `arm_smmu.ko`, `abc.ko`,
+   `usb_notify_layer.ko`, `switch_class.ko`, `common_muic.ko`,
+   `vbus_notifier.ko`, `pdic_notifier_module.ko`, `usb_typec_manager.ko`,
+   `usb_f_ss_mon_gadget.ko`, `phy-msm-snps-hs.ko`, `repeater.ko`,
+   `phy-msm-snps-eusb2.ko`, `redriver.ko`, `if_cb_manager.ko`,
+   `qc_usb_audio.ko`, and `dwc3-msm.ko`. `phy-msm-ssusb-qmp.ko intentionally
+   excluded`; `EUD excluded`.
+   The candidate must not expose ACM, run configfs gadget setup, start
+   Android/Magisk, mount persistent partitions, write block devices, inject
+   module binaries into the boot ramdisk, write DTBO/vendor_boot/recovery/
+   vbmeta/non-boot partitions, use raw host `dd`, use fastboot, install
+   Magisk modules, run multidisabler, or format data. The AP must contain
+   exactly one tar member, `boot.img.lz4`. This exception does not authorize
+   P28 repeat, P25/P30/P40 live, M33 matrix rebuild, M32 repeat,
+   display/distro candidates, kernel rebuild, recovery/vendor_boot/vbmeta/
+   DTBO/non-boot flash, raw host `dd`, fastboot, multidisabler, format data,
+   EUD writes, or any A90 action.
    **Consumed exception (2026-07-09, S22+ M33 P27 watchdog-prefix park
    native-init boot-only live gate):** this one-shot exception was consumed by
    the 2026-07-09 KST live run. It flashed the pinned M33 P27 boot-only

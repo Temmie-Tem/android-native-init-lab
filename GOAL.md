@@ -4,6 +4,35 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 03:16 KST / 2026-07-08 18:16 UTC) — M33 P28 LIVE APPROVED; ONE-SHOT POLICY ACTIVE; PREFLIGHT PASS.**
+> The operator gave fresh live approval for the next selected gate, M33 P28.
+> Codex added a narrow SHA-pinned `AGENTS.md` exception for exactly one S22+
+> M33 P28 watchdog-prefix park boot-only live gate. Live token:
+> `S22PLUS-M33-P28-WDT-PREFIX-PARK-LIVE-GATE`; rollback-from-Download token:
+> `S22PLUS-M33-P28-WDT-PREFIX-PARK-ROLLBACK-FROM-DOWNLOAD`. The helper pins
+> candidate AP
+> `4c76ef4df814356a7acfa9ce9a00c2fe003208ff8289c2874535e26b7e1c3f07`, boot
+> `3bc59d6df58b5c7130e6ca531a6a6cd3a4d35e14ff7fd6667da72e2bd40e9e29`,
+> `/init` `2ef661b9e5a1496674b6cc457c9b0e84c60ae7af01914c2403db602c6ebe84b1`,
+> module list
+> `ef57a00fbef4b9c89936b30fc5c001974fbe9c2ece590c6a6984cb4695318a8f`,
+> generated source
+> `8d752ade0ee5100b5f91cb7fb15c09d24652a97e03721fb8c4d784d1f419f289`,
+> and base Magisk boot
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+> Scope remains park-only: DWC3-without-ACM prefix, no ACM function, no
+> runtime USB/configfs/ACM, no reboot syscall, no Download beacon, no
+> Android/Magisk handoff, no persistent mount, no block write. Validation
+> passed: helper `py_compile`, M33 P28/build unit tests (9), and default
+> dry-run. Dry-run verified `agents_exception_missing=[]`, Android
+> `SM-S906N/g0q/S906NKSS7FYG8`, vbstate orange, boot complete, Magisk root,
+> four stability samples, and current boot hash
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+> The approved live command is:
+> `PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m33_p28_wdt_prefix_park_live_gate.py --live --ack S22PLUS-M33-P28-WDT-PREFIX-PARK-LIVE-GATE`.
+> Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M33_P28_LIVE_GATE_PREFLIGHT_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 03:08 KST / 2026-07-08 18:08 UTC) — M33 P30/P40 POST-DWC3 BRANCH SOURCES READY; P28 STILL NEXT; POLICY INERT.**
 > Codex prepared P30 and P40 branch helpers for the post-P28 path:
 > `workspace/public/src/scripts/revalidation/s22plus_m33_p30_wdt_prefix_park_live_gate.py`
