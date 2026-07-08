@@ -2752,18 +2752,14 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
    with stock boot-only fallback SHA256
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
-   **Narrow operator-authorized exception (2026-07-09, S22+ M33 P27
-   watchdog-prefix park native-init boot-only live gate):** after M33 P12
-   survived the 90 second park window, the M33 P25/P28 branch helpers were
-   staged source-ready, and the operator gave pre-live approval, Codex may
-   perform one bounded attended boot-partition-only M33 P27 live gate on the
-   same Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked
-   helper
-   `workspace/public/src/scripts/revalidation/s22plus_m33_p27_wdt_prefix_park_live_gate.py`
-   and live ack token `S22PLUS-M33-P27-WDT-PREFIX-PARK-LIVE-GATE`. If the
-   candidate stops before proof and the operator manually enters Download mode,
-   the same helper may use rollback ack token
-   `S22PLUS-M33-P27-WDT-PREFIX-PARK-ROLLBACK-FROM-DOWNLOAD`.
+   **Consumed exception (2026-07-09, S22+ M33 P27 watchdog-prefix park
+   native-init boot-only live gate):** this one-shot exception was consumed by
+   the 2026-07-09 KST live run. It flashed the pinned M33 P27 boot-only
+   candidate once on the Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using
+   only the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m33_p27_wdt_prefix_park_live_gate.py`.
+   The consumed live and rollback ack token strings are intentionally omitted
+   here as active authorization.
    The exact candidate AP.tar.md5 SHA256 must be
    `9110e793f5cc812c856dedf35aaa4cc2f2c692f8561bba9dbe10c7b1e8a29371`; the
    contained padded `boot.img` SHA256 must be
@@ -2801,14 +2797,27 @@ BL, CP, CSC, userdata, or any non-boot flash.
    vbmeta/non-boot partitions, use raw host `dd`, use fastboot, install
    Magisk modules, run multidisabler, or format data. The AP must contain
    exactly one tar member, `boot.img.lz4`.
-   Before live flash, the helper must verify normal Android identity, vbstate
-   orange, Magisk root, current boot partition SHA256
+   Live result: the candidate flashed successfully, left the original Download
+   endpoint, and survived the full 90 second observation window with no host
+   ADB/Odin endpoint returning. The operator reported no bootloop during the
+   observation window. After survival proof, the operator reported a PMIC/RDX
+   screen while entering manual recovery; a normal Odin/Download endpoint later
+   appeared and the checked helper flashed the pinned Magisk boot rollback AP
+   successfully. Final baseline was clean: Android boot complete, bootanim
+   stopped, vbstate orange, Magisk root present, and boot partition SHA256
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+   Retained evidence had no M33 P27 marker: pstore empty, `/proc/last_kmsg`
+   readable at 2,097,136 bytes, marker absent. The retained log did contain
+   XBL/PMIC `boot_update_abnormal_reset_status` material, matching the
+   operator's RDX observation, but not the P27 marker.
+   Before consumption, the helper had to verify normal Android identity,
+   vbstate orange, Magisk root, current boot partition SHA256
    `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, the
    exact P27 candidate hashes, the exact Magisk boot-only rollback AP SHA256
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`, and
    the exact stock boot-only fallback AP SHA256
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
-   The live path is: reboot Android to Download, flash exactly the pinned P27
+   The live path was: reboot Android to Download, flash exactly the pinned P27
    boot AP, wait for the original Odin endpoint to disconnect, observe for the
    bounded survival window, and treat `survives past 60-90 seconds` with no
    returned ADB/Odin endpoint as the survival proof. Manual Download rollback
@@ -2816,11 +2825,11 @@ BL, CP, CSC, userdata, or any non-boot flash.
    pre-proof stop when the helper requires it. `PMIC/RDX abnormal reset before
    the observation window is FAIL`. Rollback must use the pinned Magisk
    boot-only AP first, with the pinned stock boot-only AP only as fallback if
-   Magisk rollback fails and Download mode remains available. This exception
-   does not authorize P27 repeat, P25/P28/P30/P40 live, M33 matrix rebuild,
-   M32 repeat, display/distro candidates, kernel rebuild, recovery/vendor_boot/
-   vbmeta/DTBO/non-boot flash, raw host `dd`, fastboot, multidisabler, format
-   data, EUD writes, or any A90 action.
+   Magisk rollback failed and Download mode remained available. This exception
+   must not be reused and does not authorize P27 repeat, P25/P28/P30/P40 live,
+   M33 matrix rebuild, M32 repeat, display/distro candidates, kernel rebuild,
+   recovery/vendor_boot/vbmeta/DTBO/non-boot flash, raw host `dd`, fastboot,
+   multidisabler, format data, EUD writes, or any A90 action.
    **Consumed exception (2026-07-09, S22+ M33 P12 watchdog-prefix park
    native-init boot-only live gate):** this one-shot exception was consumed by
    the 2026-07-09 KST live run. It flashed the pinned M33 P12 boot-only

@@ -4,6 +4,32 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 03:00 KST / 2026-07-08 18:00 UTC) — M33 P27 LIVE CONSUMED; P27 SURVIVED 90 S; ROLLBACK CLEAN; NO ACTIVE LIVE AUTH.**
+> The approved M33 P27 watchdog-prefix park live gate ran once under commit
+> `859c9e30`. Candidate AP
+> `9110e793f5cc812c856dedf35aaa4cc2f2c692f8561bba9dbe10c7b1e8a29371`
+> flashed boot-only and left the original Download endpoint. The candidate
+> survived the full 90 second observation window with no host ADB/Odin endpoint
+> returning; the operator reported no bootloop during that window. The helper
+> logged `m33_p27_survival_window_pass=1` and
+> `m33_p27_result=survived-observation-window-manual-download-required`. After
+> survival proof, the operator reported a PMIC/RDX screen while entering manual
+> recovery. Normal Download mode then appeared and the helper restored the
+> pinned Magisk boot AP successfully. Final baseline is clean: Android
+> `sys.boot_completed=1`, bootanim stopped, vbstate orange, Magisk root OK,
+> bootloader/build `S906NKSS7FYG8`, and boot partition SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+> Retained evidence had no M33 P27 marker: pstore empty, `/proc/last_kmsg`
+> readable at 2,097,136 bytes, marker absent. `/proc/last_kmsg` did contain
+> XBL/PMIC `boot_update_abnormal_reset_status` material, consistent with the
+> operator's RDX observation. `AGENTS.md` now marks the M33 P27 one-shot
+> exception consumed/retired and omits the live tokens as active authorization;
+> default helper execution must fail closed. Interpretation: SMMU + HS/eUSB2
+> PHY module loading is not the M32 no-ACM/bootloop boundary. Next
+> high-information gate is P28/DWC3, already source-ready, under a fresh
+> SHA-pinned exception. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M33_P27_WDT_PREFIX_PARK_LIVE_RESULT_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 02:51 KST / 2026-07-08 17:51 UTC) — M33 P27 LIVE GATE PREFLIGHT PASS; OPERATOR PRE-LIVE APPROVED; ONE-SHOT POLICY ACTIVE.**
 > Operator gave pre-live approval. Codex added a narrow SHA-pinned
 > `AGENTS.md` exception for exactly one S22+ M33 P27 watchdog-prefix park
