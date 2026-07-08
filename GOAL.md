@@ -18,7 +18,8 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Corrected missing-list: S6 already contains `common_muic`,
 > `pdic_notifier_module`, `usb_typec_manager`, `redriver`, `if_cb_manager`,
 > `pmic_glink`, and `ucsi_glink`. The missing stock producers are the narrower
-> max77705/altmode side: `qcom_i2c_pmic.ko`, `mfd_max77705.ko`,
+> max77705/altmode side: `qcom-i2c-pmic.ko` (stock `/proc/modules` name:
+> `qcom_i2c_pmic`), `mfd_max77705.ko`,
 > `max77705_charger.ko`, `max77705-fuelgauge.ko`, `pdic_max77705.ko`,
 > `charger-ulog-glink.ko`, and `altmode-glink.ko`; `usb_f_conn_gadget.ko` is
 > also missing for later stock composite parity.
@@ -35,11 +36,52 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > regulator, GDSC, GPIO, or raw PMIC knobs. Full analysis:
 > `docs/reports/S22PLUS_M34_S7_USB_SESSION_ROLE_PRODUCER_CHAIN_STOCK_2026-07-09.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-09 07:30 KST / 2026-07-08 22:30 UTC) — M34 S7A HOST BUILD COMPLETE; SESSION-PRODUCER FULL CLOSURE BUILT; RISK MODULES EXPLICIT; NO ACTIVE LIVE AUTH.**
+> Codex extended the M34 runtime-gadget split builder to v0.6 with a new S7A
+> stage. S7A starts from S6, keeps `ssusb/mode=peripheral`, keeps the minimal
+> ACM-only `ss_acm.0` configfs recipe, keeps `soft_connect` disabled, and adds
+> read-only TypeC/UDC snapshot markers around UDC bind:
+> `/sys/devices/platform/soc/a600000.ssusb/{mode,speed}`,
+> `/sys/class/typec/port0/{data_role,power_role,port_type}`,
+> `/sys/class/typec/port0-partner/uevent`, and
+> `/sys/class/udc/a600000.dwc3/{state,current_speed,function}`.
+>
+> S7A artifacts are under
+> `workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_6/`.
+> Manifest SHA256:
+> `fc61ca67c2d141e9e6a2e382c212fd8f06412ec0982367f8f89940cd49545a33`.
+> S7A AP.tar.md5 SHA256:
+> `b533d8e218aa4842c941f86075ce770cf60a67a179939dd4d552d22767376267`;
+> padded boot.img SHA256:
+> `5e1a0758008651eb5a22b82fd91d4c2549ba756a4ed885779a0934688e129e49`;
+> `/init` SHA256:
+> `22e1f7e9346c61c876253a6e194d64d55adc3e24571ed2b10d76e4c09cef1914`;
+> module-list SHA256:
+> `eb1ddfe7ac9a481b9dacae696c72b876e82d6e8ac4681772df825995a162001c`.
+>
+> Closure facts: S7A module count is 83 and module list size is 1340 bytes, so
+> the runtime parser buffer is now 4096 bytes. The stock firmware filename is
+> `qcom-i2c-pmic.ko`, not `qcom_i2c_pmic.ko`. The full stock charger/fuelgauge
+> dependency closure necessarily pulls reset/debug/upload-adjacent modules:
+> `memory_dump_v2.ko`, `sec_debug_region.ko`, `sec_param.ko`,
+> `sec_qc_dbg_partition.ko`, `sec_qc_summary.ko`, `sec_upload_cause.ko`,
+> `sec_qc_upload_cause.ko`, and `sec_qc_user_reset.ko`. This is recorded in
+> the manifest as `requires_s7a_specific_live_risk_review=true`; it is not a
+> silent live-ready artifact.
+>
+> Validation passed: builder `py_compile`; full M34 build tests with v0.6
+> manifest plus existing S6 live-gate tests (`Ran 15 tests`, `OK`); v0.6 build;
+> `git diff --check`; and negative grep for `high-speed`, UDC `soft_connect`,
+> and `phase=ssusb_speed` in the S7A `/init`. No S7A live flash is authorized. Next live work needs a
+> fresh SHA-pinned `AGENTS.md` exception for the exact S7A AP and an explicit
+> decision on the charger/fuelgauge-induced risk modules. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S7A_SESSION_PRODUCER_HOST_BUILD_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 07:06 KST / 2026-07-08 22:06 UTC) — M34 S6 POST-LIVE STOCK USB DIFF + TYPEC SESSION CHECK COMPLETE; ROLE/SPEED/SOFTDEP HYPOTHESIS RETIRED; NEXT S7A HOST-BUILD ONLY; NO ACTIVE LIVE AUTH.**
 > After S6, Codex captured the rooted stock Android USB state read-only into
 > `workspace/private/runs/s22plus_stock_usb_state_post_s6_20260708T215851Z/`
 > and the stock TypeC/session state into
-> `workspace/private/runs/s22plus_stock_typec_session_post_s6_20260708T221017Z/`,
+> `workspace/private/runs/s22plus_stock_typec_session_post_s6_20260708T220931Z/`,
 > then diffed both against the S6 runtime-gadget source/artifacts. Operator
 > follow-up confirms the S6 recovery observation as no sustained boot loop,
 > RDX/PMIC, then manual Download mode.
@@ -63,7 +105,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > max77705/PDIC/altmode session producer chain: S6 already had
 > `common_muic`/`pdic_notifier_module`/`usb_typec_manager`/`redriver`/
 > `if_cb_manager`/`pmic_glink`/`ucsi_glink`, but missed
-> `qcom_i2c_pmic.ko`, `mfd_max77705.ko`, `max77705_charger.ko`,
+> `qcom-i2c-pmic.ko`, `mfd_max77705.ko`, `max77705_charger.ko`,
 > `max77705-fuelgauge.ko`, `pdic_max77705.ko`, `charger-ulog-glink.ko`, and
 > `altmode-glink.ko`. Stock Android has `/sys/class/typec/port0` backed by
 > `max77705-usbc`, an attached partner, `data_role=host [device]`, and

@@ -18,7 +18,7 @@ flash write was performed.
 Raw capture:
 
 ```text
-workspace/private/runs/s22plus_stock_typec_session_post_s6_20260708T221017Z/typec_session.txt
+workspace/private/runs/s22plus_stock_typec_session_post_s6_20260708T220931Z/typec_session.txt
 ```
 
 The raw capture redacts the adb serial in its header.
@@ -110,7 +110,7 @@ max77705/altmode producers and `usb_f_conn_gadget`.
 Missing from S6, using module filenames from the firmware:
 
 ```text
-qcom_i2c_pmic.ko
+qcom-i2c-pmic.ko
 mfd_max77705.ko
 max77705_charger.ko
 max77705-fuelgauge.ko
@@ -181,10 +181,10 @@ Recommended split:
 
 Candidate safety notes for S7A:
 
-- Loading `max77705_*`, `pdic_*`, `qcom_i2c_pmic`, and `altmode-glink` touches
-  the external USB-C PD/charger path. That is stock module loading, but it is
-  PMIC-adjacent and needs an explicit host-only design review before a live
-  gate.
+- Loading `max77705_*`, `pdic_*`, `qcom-i2c-pmic.ko` (stock module name
+  `qcom_i2c_pmic`), and `altmode-glink` touches the external USB-C PD/charger
+  path. That is stock module loading, but it is PMIC-adjacent and needs an
+  explicit host-only design review before a live gate.
 - The candidate must not write charge current, OTG/VBUS boost, regulator,
   GDSC, GPIO, display, or raw PMIC knobs.
 - The only intended role action is to let stock drivers detect the attached

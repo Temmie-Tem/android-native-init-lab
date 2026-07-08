@@ -16,6 +16,8 @@ S4: S3 behavior, but replace the dead usb_role path with
 S5: S4 plus the UDC soft_connect=connect fallback after UDC bind.
 S6: S4 lineage with all high-speed forcing removed, ssusb mode=peripheral
     retained, QMP/EUD/ucsi softdep parity restored, and no soft_connect.
+S7A: S6 plus the stock max77705/PDIC/altmode session-producer module chain
+     and TypeC/UDC readback markers, still ACM-only and no soft_connect.
 """
 
 from __future__ import annotations
@@ -55,12 +57,13 @@ from build_s22plus_inplace_m4t1_magiskboot import (
 from build_s22plus_m32_wdt_hs_acm import EXPECTED_M32_MODULES, dependency_complete_wdt_hs_order
 
 
-DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_5")
+DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_6")
 DEFAULT_TEMPLATE_SOURCE = Path("workspace/public/src/native-init/s22plus_init_m34_runtime_gadget_split.c")
 DEFAULT_VENDOR_RAMDISK = m23.DEFAULT_VENDOR_RAMDISK
 DEFAULT_LZ4 = m23.DEFAULT_LZ4
 
 MARKER_PREFIX = "S22_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT"
+RUNTIME_MODULES_LOAD_BUF = 4096
 M34_S6_STOCK_SOFTDEP_TARGETS = [
     "phy-msm-ssusb-qmp.ko",
     "eud.ko",
@@ -77,6 +80,56 @@ M34_S6_EXPECTED_NEW_MODULES = [
     "pdr_interface.ko",
     "pmic_glink.ko",
     "ucsi_glink.ko",
+]
+M34_S7A_SESSION_PRODUCER_TARGETS = [
+    # Stock /proc/modules prints qcom_i2c_pmic; the firmware module file uses hyphens.
+    "qcom-i2c-pmic.ko",
+    "mfd_max77705.ko",
+    "max77705_charger.ko",
+    "max77705-fuelgauge.ko",
+    "pdic_max77705.ko",
+    "charger-ulog-glink.ko",
+    "altmode-glink.ko",
+]
+M34_S7A_EXPECTED_NEW_MODULES = [
+    "charger-ulog-glink.ko",
+    "altmode-glink.ko",
+    "qti-regmap-debugfs.ko",
+    "qcom-i2c-pmic.ko",
+    "sec_pm_log.ko",
+    "qcom-cpufreq-hw.ko",
+    "sched-walt.ko",
+    "kryo_arm64_edac.ko",
+    "memory_dump_v2.ko",
+    "sec_key_notifier.ko",
+    "sec_crashkey_long.ko",
+    "sec_debug_region.ko",
+    "sec_param.ko",
+    "sec_qc_dbg_partition.ko",
+    "sec_qc_summary.ko",
+    "sec_upload_cause.ko",
+    "sec_qc_upload_cause.ko",
+    "sec_qc_user_reset.ko",
+    "sec_qc_smem.ko",
+    "sec_qc_hw_param.ko",
+    "sb-core.ko",
+    "sec_pd.ko",
+    "sec-battery.ko",
+    "mfd_max77705.ko",
+    "spu_verify.ko",
+    "pdic_max77705.ko",
+    "max77705_charger.ko",
+    "max77705-fuelgauge.ko",
+]
+M34_S7A_RISK_MODULES = [
+    "memory_dump_v2.ko",
+    "sec_debug_region.ko",
+    "sec_param.ko",
+    "sec_qc_dbg_partition.ko",
+    "sec_qc_summary.ko",
+    "sec_upload_cause.ko",
+    "sec_qc_upload_cause.ko",
+    "sec_qc_user_reset.ko",
 ]
 
 
@@ -97,6 +150,9 @@ class RuntimeStage:
     qmp_module_included: bool = False
     eud_module_included: bool = False
     ucsi_glink_included: bool = False
+    session_producer_parity: bool = False
+    max77705_session_modules_included: bool = False
+    typec_readback_markers: bool = False
 
     @property
     def lower(self) -> str:
@@ -201,6 +257,30 @@ STAGES = [
         eud_module_included=True,
         ucsi_glink_included=True,
     ),
+    RuntimeStage(
+        "S7A",
+        7,
+        (
+            "session producer parity: start from S6, add the stock max77705/PDIC/altmode "
+            "producer chain in dep-correct order, keep minimal ss_acm configfs, keep "
+            "ssusb mode=peripheral and UDC bind, add TypeC/UDC readback markers, no soft_connect"
+        ),
+        configfs_gadget=True,
+        udc_none=True,
+        max_speed_high_speed=False,
+        usb_role_force=False,
+        ssusb_speed_high_speed=False,
+        ssusb_mode_peripheral=True,
+        udc_bind=True,
+        soft_connect=False,
+        stock_softdep_parity=True,
+        qmp_module_included=True,
+        eud_module_included=True,
+        ucsi_glink_included=True,
+        session_producer_parity=True,
+        max77705_session_modules_included=True,
+        typec_readback_markers=True,
+    ),
 ]
 
 
@@ -215,18 +295,24 @@ def c_define_string(name: str, value: str) -> str:
     return f'-D{name}="{value}"'
 
 
-def dependency_complete_stock_softdep_order(
+def _dependency_complete_order(
     *,
     dep_map: dict[str, list[str]],
     recovery_basenames: list[str],
     base_closure: dict[str, Any],
+    stage_label: str,
+    order_model: str,
+    additional_targets: list[str],
+    expected_new_modules: list[str],
+    forbidden_modules: list[str] | None = None,
 ) -> dict[str, Any]:
     order_index = {module: index for index, module in enumerate(recovery_basenames)}
     seen: set[str] = set()
     visiting: set[str] = set()
     ordered: list[str] = []
     missing: set[str] = set()
-    targets = list(base_closure["targets"]) + list(M34_S6_STOCK_SOFTDEP_TARGETS)
+    targets = list(base_closure["targets"]) + list(additional_targets)
+    forbidden_modules = forbidden_modules or []
 
     def sort_key(module: str) -> tuple[int, str]:
         return (order_index.get(module, 10**9), module)
@@ -250,7 +336,7 @@ def dependency_complete_stock_softdep_order(
         visit(target)
 
     if missing:
-        raise SystemExit(f"M34 S6 dependency closure missing modules.dep entries: {sorted(missing)}")
+        raise SystemExit(f"M34 {stage_label} dependency closure missing modules.dep entries: {sorted(missing)}")
 
     dependency_violations = {
         module: [dep for dep in dep_map[module] if dep in ordered and ordered.index(dep) > ordered.index(module)]
@@ -258,23 +344,24 @@ def dependency_complete_stock_softdep_order(
     }
     dependency_violations = {module: deps for module, deps in dependency_violations.items() if deps}
     if dependency_violations:
-        raise SystemExit(f"M34 S6 module order violates modules.dep: {dependency_violations}")
+        raise SystemExit(f"M34 {stage_label} module order violates modules.dep: {dependency_violations}")
 
     new_modules = [module for module in ordered if module not in base_closure["modules"]]
-    if new_modules != M34_S6_EXPECTED_NEW_MODULES:
-        raise SystemExit(f"M34 S6 new module set drifted:\nactual={new_modules!r}\nexpected={M34_S6_EXPECTED_NEW_MODULES!r}")
-    for required in M34_S6_STOCK_SOFTDEP_TARGETS:
+    if new_modules != expected_new_modules:
+        raise SystemExit(f"M34 {stage_label} new module set drifted:\nactual={new_modules!r}\nexpected={expected_new_modules!r}")
+    for required in additional_targets:
         if required not in ordered:
-            raise SystemExit(f"M34 S6 stock softdep target missing: {required}")
-    if "sec_debug_region.ko" in ordered:
-        raise SystemExit("M34 S6 must not include sec_debug_region.ko")
+            raise SystemExit(f"M34 {stage_label} additional target missing: {required}")
+    forbidden_present = [module for module in forbidden_modules if module in ordered]
+    if forbidden_present:
+        raise SystemExit(f"M34 {stage_label} forbidden module(s) present: {forbidden_present}")
 
     module_text = "".join(f"{module}\n" for module in ordered)
-    if len(module_text.encode("ascii")) >= 1024:
-        raise SystemExit("M34 S6 dependency-complete module list exceeds runtime parser buffer")
+    if len(module_text.encode("ascii")) >= RUNTIME_MODULES_LOAD_BUF:
+        raise SystemExit(f"M34 {stage_label} dependency-complete module list exceeds runtime parser buffer")
     too_long = [module for module in ordered if len(module) >= m23.RUNTIME_MODULE_NAME_BUF]
     if too_long:
-        raise SystemExit(f"M34 S6 module basename exceeds runtime parser buffer: {too_long}")
+        raise SystemExit(f"M34 {stage_label} module basename exceeds runtime parser buffer: {too_long}")
 
     return {
         "targets": targets,
@@ -284,16 +371,66 @@ def dependency_complete_stock_softdep_order(
         "module_sha256": None,
         "watchdog_modules": ["qcom_wdt_core.ko", "gh_virt_wdt.ko"],
         "usb_modules": ["dwc3-msm.ko", "usb_f_ss_acm.ko", "usb_f_ss_mon_gadget.ko"],
-        "stock_softdep_targets": list(M34_S6_STOCK_SOFTDEP_TARGETS),
-        "stock_softdep_new_modules": new_modules,
-        "excluded_modules": ["sec_debug_region.ko"],
+        "additional_targets": list(additional_targets),
+        "additional_new_modules": new_modules,
+        "forbidden_modules": list(forbidden_modules),
+        "risk_modules": [module for module in M34_S7A_RISK_MODULES if module in ordered],
         "stock_recovery_positions": {
             module: recovery_basenames.index(module) + 1
             for module in ordered
             if module in recovery_basenames
         },
-        "order_model": "modules.dep topological order with stock modules.load.recovery tie-breaks plus dwc3_msm QMP/EUD/ucsi softdep",
+        "order_model": order_model,
     }
+
+
+def dependency_complete_stock_softdep_order(
+    *,
+    dep_map: dict[str, list[str]],
+    recovery_basenames: list[str],
+    base_closure: dict[str, Any],
+) -> dict[str, Any]:
+    closure = _dependency_complete_order(
+        dep_map=dep_map,
+        recovery_basenames=recovery_basenames,
+        base_closure=base_closure,
+        stage_label="S6",
+        order_model="modules.dep topological order with stock modules.load.recovery tie-breaks plus dwc3_msm QMP/EUD/ucsi softdep",
+        additional_targets=list(M34_S6_STOCK_SOFTDEP_TARGETS),
+        expected_new_modules=list(M34_S6_EXPECTED_NEW_MODULES),
+        forbidden_modules=["sec_debug_region.ko"],
+    )
+    closure["stock_softdep_targets"] = list(M34_S6_STOCK_SOFTDEP_TARGETS)
+    closure["stock_softdep_new_modules"] = list(closure["additional_new_modules"])
+    closure["excluded_modules"] = ["sec_debug_region.ko"]
+    return closure
+
+
+def dependency_complete_session_producer_order(
+    *,
+    dep_map: dict[str, list[str]],
+    recovery_basenames: list[str],
+    base_closure: dict[str, Any],
+) -> dict[str, Any]:
+    closure = _dependency_complete_order(
+        dep_map=dep_map,
+        recovery_basenames=recovery_basenames,
+        base_closure=base_closure,
+        stage_label="S7A",
+        order_model=(
+            "modules.dep topological order with stock modules.load.recovery tie-breaks plus S6 "
+            "QMP/EUD/ucsi and max77705/PDIC/altmode session-producer targets"
+        ),
+        additional_targets=list(M34_S7A_SESSION_PRODUCER_TARGETS),
+        expected_new_modules=list(M34_S7A_EXPECTED_NEW_MODULES),
+    )
+    closure["stock_softdep_targets"] = list(M34_S6_STOCK_SOFTDEP_TARGETS)
+    closure["stock_softdep_new_modules"] = list(M34_S6_EXPECTED_NEW_MODULES)
+    closure["session_producer_targets"] = list(M34_S7A_SESSION_PRODUCER_TARGETS)
+    closure["session_producer_new_modules"] = list(closure["additional_new_modules"])
+    closure["contains_sec_debug_region"] = "sec_debug_region.ko" in closure["modules"]
+    closure["requires_live_risk_review"] = bool(closure["risk_modules"])
+    return closure
 
 
 def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeStage, module_count: int) -> dict[str, Any]:
@@ -349,7 +486,7 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
 
     required_strings = [
         stage.marker,
-        "version=0.5",
+        "version=0.6",
         "runtime=freestanding",
         "raw_syscalls=1",
         f"/{stage.modules_ramdisk}",
@@ -419,6 +556,30 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
         required_strings.extend(["stock_softdep_parity=1", "qmp_module=1", "eud_module=1", "ucsi_glink=1"])
     else:
         required_strings.extend(["stock_softdep_parity=0", "qmp_module=0", "eud_module=0", "ucsi_glink=0"])
+    if stage.session_producer_parity:
+        required_strings.extend(
+            [
+                "session_producer_parity=1",
+                "max77705_session=1",
+                "typec_readback=1",
+                "functionfs=0",
+                "stock_composite=0",
+                "/sys/devices/platform/soc/a600000.ssusb/speed",
+                "/sys/class/typec/port0/data_role",
+                "/sys/class/typec/port0/power_role",
+                "/sys/class/typec/port0/port_type",
+                "/sys/class/typec/port0-partner/uevent",
+                "/sys/class/udc/a600000.dwc3/state",
+                "/sys/class/udc/a600000.dwc3/current_speed",
+                "/sys/class/udc/a600000.dwc3/function",
+                "typec_pre_bind",
+                "typec_post_bind",
+                "udc_pre_bind",
+                "udc_post_bind",
+            ]
+        )
+    else:
+        required_strings.extend(["session_producer_parity=0", "max77705_session=0", "typec_readback=0"])
 
     forbidden_strings = [
         b"ld-linux",
@@ -433,13 +594,28 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
     if not stage.usb_role_force:
         forbidden_strings.extend([b"/sys/class/usb_role", b"phase=usb_role_done"])
     if not stage.ssusb_speed_high_speed:
-        forbidden_strings.extend([b"/sys/devices/platform/soc/a600000.ssusb/speed", b"phase=ssusb_speed"])
+        forbidden_strings.append(b"phase=ssusb_speed")
+        if not stage.typec_readback_markers:
+            forbidden_strings.append(b"/sys/devices/platform/soc/a600000.ssusb/speed")
     if not stage.ssusb_mode_peripheral:
         forbidden_strings.extend([b"/sys/devices/platform/soc/a600000.ssusb/mode", b"phase=ssusb_mode", b"value=peripheral"])
     if not stage.udc_bind:
         forbidden_strings.extend([b"/sys/class/udc", b"a600000.dwc3", b"phase=udc_bind"])
     if not stage.soft_connect:
         forbidden_strings.extend([b"/sys/class/udc/a600000.dwc3/soft_connect", b"phase=soft_connect"])
+    if not stage.session_producer_parity:
+        forbidden_strings.extend(
+            [
+                b"/sys/class/typec/port0/data_role",
+                b"/sys/class/typec/port0/power_role",
+                b"/sys/class/typec/port0/port_type",
+                b"/sys/class/typec/port0-partner/uevent",
+                b"typec_pre_bind",
+                b"typec_post_bind",
+                b"udc_pre_bind",
+                b"udc_post_bind",
+            ]
+        )
 
     binary = out_path.read_bytes()
     for required in required_strings:
@@ -586,6 +762,9 @@ def build_stage(
             "qmp_module_included": stage.qmp_module_included,
             "eud_module_included": stage.eud_module_included,
             "ucsi_glink_included": stage.ucsi_glink_included,
+            "session_producer_parity": stage.session_producer_parity,
+            "max77705_session_modules_included": stage.max77705_session_modules_included,
+            "typec_readback_markers": stage.typec_readback_markers,
         },
         "closure": stage_closure,
         "paths": {
@@ -672,6 +851,21 @@ def main(argv: list[str]) -> int:
         recovery_basenames=vendor_metadata["recovery_basenames"],
         base_closure=m32_closure,
     )
+    session_producer_closure = dependency_complete_session_producer_order(
+        dep_map=vendor_metadata["dep_map"],
+        recovery_basenames=vendor_metadata["recovery_basenames"],
+        base_closure=stock_softdep_closure,
+    )
+    closure_by_stage = {
+        stage.label: (
+            session_producer_closure
+            if stage.session_producer_parity
+            else stock_softdep_closure
+            if stage.stock_softdep_parity
+            else m32_closure
+        )
+        for stage in selected_stages
+    }
 
     run_in_dir([magiskboot, "unpack", "-h", base_boot], nochange_dir, "M34 no-change unpack")
     run_in_dir([magiskboot, "repack", base_boot, out_dir / "boot_nochange_repack.img"], nochange_dir, "M34 no-change repack")
@@ -686,7 +880,7 @@ def main(argv: list[str]) -> int:
             base_boot=base_boot,
             template_source=template_source,
             magiskboot=magiskboot,
-            closure=stock_softdep_closure if stage.stock_softdep_parity else m32_closure,
+            closure=closure_by_stage[stage.label],
             stage=stage,
         )
         for stage in selected_stages
@@ -706,7 +900,8 @@ def main(argv: list[str]) -> int:
         "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "target": "SM-S906N/g0q/S906NKSS7FYG8",
         "purpose": (
-            "M34 stock-ordered runtime gadget split plus S4 ssusb role-lever, S5 soft_connect, and S6 stock-speed QMP/EUD/ucsi candidates"
+            "M34 stock-ordered runtime gadget split plus S4 ssusb role-lever, S5 soft_connect, "
+            "S6 stock-speed QMP/EUD/ucsi, and S7A max77705/PDIC/altmode session-producer host-build candidates"
         ),
         "stock_recipe_report": "docs/reports/S22PLUS_STOCK_USB_GADGET_ACM_RECIPE_2026-07-09.md",
         "stages": stage_manifests,
@@ -728,24 +923,37 @@ def main(argv: list[str]) -> int:
                     "qmp_module_included": stage.qmp_module_included,
                     "eud_module_included": stage.eud_module_included,
                     "ucsi_glink_included": stage.ucsi_glink_included,
+                    "session_producer_parity": stage.session_producer_parity,
+                    "max77705_session_modules_included": stage.max77705_session_modules_included,
+                    "typec_readback_markers": stage.typec_readback_markers,
                 }
                 for stage in selected_stages
             ],
             "live_order": ["S1", "S2", "S3", "S4", "S5", "S6"],
+            "host_build_order": [stage.label for stage in selected_stages],
+            "next_host_only_candidate": "S7A",
             "p30_is_s0": True,
             "module_closure_matches_p30_and_m32_for_s1_s5": True,
             "s6_module_closure_restores_stock_dwc3_softdep": True,
             "s6_stock_softdep_targets": list(M34_S6_STOCK_SOFTDEP_TARGETS),
             "s6_stock_softdep_new_modules": list(M34_S6_EXPECTED_NEW_MODULES),
+            "s7a_module_closure_restores_stock_session_producer_chain": True,
+            "s7a_session_producer_targets": list(M34_S7A_SESSION_PRODUCER_TARGETS),
+            "s7a_session_producer_new_modules": list(M34_S7A_EXPECTED_NEW_MODULES),
+            "s7a_risk_modules": list(M34_S7A_RISK_MODULES),
+            "s7a_uses_firmware_module_filename_qcom_i2c_pmic": "qcom-i2c-pmic.ko",
+            "s7a_keeps_minimal_ss_acm_without_functionfs_or_conn_gadget": True,
         },
         "safety": {
             "boot_only": True,
             "host_only_build": True,
             "live_flash_authorized": False,
             "requires_new_sha_pinned_agents_exception_before_flash": True,
+            "requires_s7a_specific_live_risk_review": True,
             "base_is_known_booting_magisk_boot": True,
             "construction": "magiskboot unpack/repack; replace ramdisk /init and add one text module list per stage",
             "runtime": "freestanding-raw-syscall",
+            "runtime_module_list_buffer_bytes": RUNTIME_MODULES_LOAD_BUF,
             "mkbootimg_from_scratch": False,
             "no_android_or_magisk_handoff": True,
             "auto_reboot": False,
@@ -780,6 +988,14 @@ def main(argv: list[str]) -> int:
             "stage_s6_restores_stock_speed_policy": True,
             "stage_s6_keeps_ssusb_mode_peripheral_before_udc_bind": True,
             "stage_s6_no_descriptor_or_companion_change": True,
+            "stage_s7a_starts_from_s6": True,
+            "stage_s7a_restores_max77705_pdic_altmode_session_producer_chain": True,
+            "stage_s7a_adds_typec_udc_readback_markers": True,
+            "stage_s7a_keeps_ssusb_mode_peripheral_before_udc_bind": True,
+            "stage_s7a_no_high_speed_force": True,
+            "stage_s7a_no_soft_connect": True,
+            "stage_s7a_no_functionfs_or_conn_gadget": True,
+            "stage_s7a_contains_sec_debug_region_due_stock_charger_dependency": True,
         },
         "vendor": {
             "vendor_ramdisk": display_path(root, vendor_ramdisk),
