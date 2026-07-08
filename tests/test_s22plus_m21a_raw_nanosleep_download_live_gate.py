@@ -28,11 +28,13 @@ class S22PlusM21ARawNanosleepDownloadLiveGateTest(unittest.TestCase):
     def setUp(self):
         self.module = load_module()
 
-    def test_current_agents_file_authorizes_fresh_m30_m21a_policy(self):
+    def test_current_agents_file_retires_consumed_m30_m21a_policy(self):
         agents = Path("AGENTS.md").read_text(encoding="utf-8")
         missing = self.module.missing_policy_markers(agents)
-        self.assertEqual(missing, [])
-        self.assertIn("S22+ M30/M21A raw", agents)
+        self.assertIn(self.module.LIVE_ACK_TOKEN, missing)
+        self.assertIn(self.module.ROLLBACK_ACK_TOKEN, missing)
+        self.assertIn("no Odin endpoint before the 90 second dwell threshold", missing)
+        self.assertIn("Consumed exception (2026-07-09, S22+ M30/M21A", agents)
         self.assertIn("Retired unconsumed exception (2026-07-08, S22+ M21A", agents)
 
     def test_expected_hashes_and_runtime_constants_are_pinned(self):

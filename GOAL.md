@@ -67,17 +67,19 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `reboot,download` log. The next candidate shape is therefore the smaller
 > M30/M21A floor re-anchor: raw PID1 `nanosleep(90s)` then raw
 > `reboot(..., "download")`, with no fs/kmsg/modules/configfs/Android handoff.
-> Fresh M30/M21A policy is now active and preflight passed; live still requires
-> the explicit helper ack token and operator discipline: no manual
-> Download/Recovery key entry before the helper reaches dwell+grace timeout or
-> asks for rollback.
+> M30/M21A live is now consumed/retired. It did not produce automatic
+> Download-mode proof: the host saw no ADB/Odin through the 90s dwell + 30s
+> grace window, then the operator observed an RDX `PHIC abnormal reset` screen.
+> Manual Download rollback restored the Magisk boot baseline cleanly. No active
+> S22+ native-init live authorization remains.
 > **Corrected mental model (still holds):** M25 did NOT bootloop — direct log
 > read (`...122411Z`) shows ~29 s dead-steady park then a single ~30.3 s watchdog
 > bite (not a loop); excluding `phy-msm-ssusb-qmp` DID kill the fast M15 QMP loop.
 > M26 `P00` HIT / `P24` NO-HIT localizes the fault to modules 1–24, upstream of
 > USB. M27 `P08` is contaminated (operator manual-download during a bootloop),
 > consistent with the closure being broken at module #1.
-> Reports: `S22PLUS_NATIVE_INIT_M30_M21A_LIVE_GATE_PREFLIGHT_2026-07-09.md` (current primary),
+> Reports: `S22PLUS_NATIVE_INIT_M30_M21A_LIVE_RESULT_2026-07-09.md` (current primary),
+> `S22PLUS_NATIVE_INIT_M30_M21A_LIVE_GATE_PREFLIGHT_2026-07-09.md`,
 > `S22PLUS_NATIVE_INIT_M30_M21A_FLOOR_REANCHOR_HOST_ONLY_2026-07-09.md`,
 > `S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_RESULT_2026-07-09.md`,
 > `S22PLUS_M29_CAPTURE_AT_FIRST_ROLLBACK_BOOT_STEER_2026-07-08.md`,
@@ -93,6 +95,28 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_GATE_SOURCE_2026-07-08.md`,
 > `S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_GATE_2026-07-08.md`.
 > (Observation steers below are superseded/background; MID stays set, harmless.)
+
+> **S22+ CURRENT FRONTIER (2026-07-09 00:46 KST / 2026-07-08 15:46 UTC) — M30/M21A LIVE CONSUMED; PHIC ABNORMAL RESET; FINAL BASELINE CLEAN; NO ACTIVE LIVE AUTH.**
+> Codex ran the authorized M30/M21A raw nanosleep-download live gate. The boot
+> candidate flashed successfully and the original Odin endpoint disconnected,
+> but the helper observed no ADB and no Odin through dwell+grace:
+> `m21a_download_seen=0`, `m21a_result=no-download-after-dwell-grace`. The
+> operator reported no fast bootloop, then observed and photographed an RDX
+> screen showing `PHIC abnormal reset`. After manual Download entry, the
+> checked rollback-from-download helper flashed the pinned Magisk boot rollback
+> AP and completed with `rc=0`. Final independent verification: Android boot
+> complete, vbstate orange, Magisk root, boot
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, DTBO
+> `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`, and
+> vendor_boot
+> `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`.
+> Post-rollback pstore was empty; `/proc/last_kmsg` was retained but contained
+> no M21A/native marker (`S22_NATIVE=0`, `M21A=0`) and again included Android
+> `reboot,download` lines. `AGENTS.md` now consumes/retires M30/M21A and omits
+> active ack tokens. Next unit is host-only postmortem/design before any fresh
+> live: distinguish raw PID1 `reboot(download)` mapping to RDX/PHIC versus
+> watchdog/boot-progress reset versus missing instruction-level proof. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M30_M21A_LIVE_RESULT_2026-07-09.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-09 00:31 KST / 2026-07-08 15:31 UTC) — M30/M21A POLICY ACTIVE; PREFLIGHT PASS; LIVE NOT EXECUTED.**
 > Codex promoted a fresh one-shot `AGENTS.md` exception for the M30/M21A raw

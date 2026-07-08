@@ -2712,63 +2712,53 @@ BL, CP, CSC, userdata, or any non-boot flash.
    Odin slot, tar member, candidate hash, rollback hash, M24 variant, M23
    variant, M20 variant, M19 prefix, or partition is authorized by this
    exception.
-   **Narrow operator-authorized exception (2026-07-09, S22+ M30/M21A raw
-   nanosleep-download floor re-anchor boot-only live gate):** after M29 showed
-   that first-rollback retained-log timing still captured Android
-   `reboot,download` rather than the S24 native-init marker, Codex may perform
-   one bounded attended M30/M21A floor re-anchor run on the same Samsung S22+
-   `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
-   `workspace/public/src/scripts/revalidation/s22plus_m21a_raw_nanosleep_download_live_gate.py`.
-   This is the S22+ M21A raw nanosleep-download floor discriminator native-init
-   boot-only gate, re-promoted as M30 solely to re-anchor the direct PID1 floor.
-   The exact candidate AP.tar.md5 SHA256 must be
-   `d1949a56c60c71498d68753d2ffd6064719fafce1ad0e3959ebb8a4255bb6c79`;
-   the contained padded `boot.img` SHA256 must be
-   `61d7dc9818b79c810b30370edfe4df2b55ec451588defb48458fefae9c6c00a5`;
-   the known-booting Magisk base boot SHA256 must be
-   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`;
-   the preserved Magisk-patched kernel SHA256 must be
-   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`;
-   the replacement raw `/init` SHA256 must be
-   `10f525760b170cba4ec55d7fd4955c466601253258371cb571eb45515bd9cf30`;
-   and the source SHA256 must be
-   `300ed990c8ea476c3744e18327ae08277c0d27dc443e99245aeecba457968c4f`.
-   The candidate label must be `M21A_RAW_NANOSLEEP_DOWNLOAD`; its AP must
-   contain exactly one tar member, `boot.img.lz4`, with no recovery,
-   vendor_boot, vbmeta, vbmeta_system, dtbo, BL, CP, CSC, super, persist,
-   userdata, EFS, RPMB, keymaster, modem, or any other partition payload. The
-   M21A candidate may only run as direct PID1 raw assembly with no libc startup,
-   no filesystem setup, no kmsg/pstore marker write, no module loading, no
-   configfs, no USB role force, no persistent partition mount, no block-device
-   write, no Android/Magisk handoff, no Magisk module install, no format data,
-   and no watchdog touch. Its first runtime action must be
-   `nanosleep({90,0}, NULL)` followed only by raw
-   `reboot(..., "download")`; if that reboot syscall returns it must park
-   forever. The helper must treat no Odin endpoint before the 90 second dwell
-   threshold as a hard interpretation rule: success requires host-observed
-   download mode only after dwell and within grace, after the original Odin
-   endpoint disconnects, and with no operator manual download-mode entry before
-   the helper asks for rollback. Operator manual download-mode entry before the
-   dwell+grace decision is recovery-only and no proof. Live mode requires ack
-   token `S22PLUS-M21A-RAW-NANOSLEEP-DOWNLOAD-LIVE-GATE`; rollback-only mode
-   requires ack token `S22PLUS-M21A-ROLLBACK-FROM-DOWNLOAD`. Rollback must use
-   the exact single-member Magisk boot-only AP.tar.md5 SHA256
+   **Consumed exception (2026-07-09, S22+ M30/M21A raw nanosleep-download floor
+   re-anchor boot-only live gate):** this one-shot exception was consumed by
+   the 2026-07-09 KST live run. It flashed the pinned M21A boot-only candidate
+   once, observed no host ADB/Odin through the 90 second dwell plus 30 second
+   grace window (`m21a_download_seen=0`,
+   `m21a_result=no-download-after-dwell-grace`), and the operator observed an
+   RDX screen with `PHIC abnormal reset`. The host did not observe automatic
+   Download mode. The operator then manually entered Download mode; Codex used
+   the checked M21A rollback-from-download mode to flash the pinned Magisk boot
+   rollback AP, and Android/Magisk returned cleanly. Final baseline was
+   verified independently: boot
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, dtbo
+   `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`,
+   vendor_boot
+   `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`,
+   Android boot complete, vbstate orange, and Magisk root present. Post-rollback
+   pstore was empty and retained `/proc/last_kmsg` did not contain the M21A
+   marker (`S22_NATIVE=0`, `M21A=0`), though the operator photo captured the
+   `PHIC abnormal reset` RDX screen. This exception must not be reused for
+   M30/M21A repeat, M28/M29/S24 repeat, F43, USB/ACM bring-up, DTBO/vendor_boot/
+   recovery/vbmeta/non-boot flash, kernel rebuild, raw host `dd`, fastboot,
+   multidisabler, format data, EUD writes, or any A90 action. Future S22+
+   native-init live flashes need a fresh, narrower exception for the selected
+   candidate and observation path. The now-consumed live and rollback ack token
+   strings are intentionally omitted here as active authorization. Before
+   consumption, this exception allowed one bounded attended run using only
+   `workspace/public/src/scripts/revalidation/s22plus_m21a_raw_nanosleep_download_live_gate.py`
+   and the exact candidate AP.tar.md5 SHA256
+   `d1949a56c60c71498d68753d2ffd6064719fafce1ad0e3959ebb8a4255bb6c79`, padded
+   `boot.img` SHA256
+   `61d7dc9818b79c810b30370edfe4df2b55ec451588defb48458fefae9c6c00a5`, raw
+   `/init` SHA256
+   `10f525760b170cba4ec55d7fd4955c466601253258371cb571eb45515bd9cf30`, source
+   SHA256 `300ed990c8ea476c3744e18327ae08277c0d27dc443e99245aeecba457968c4f`,
+   preserved kernel SHA256
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`, and
+   boot-only rollback AP SHA256
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
-   or the exact single-member stock boot-only fallback AP.tar.md5 SHA256
-   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e` if the
-   operator explicitly selects stock rollback or Magisk rollback transfer
-   fails while download mode remains available. M21A and does not authorize
-   M20B, M20C, M19 C129 or wider prefixes, M28/M29/S24 repeat, F43, USB/ACM
-   bring-up, DTBO/vendor_boot/recovery/vbmeta/non-boot flash, kernel rebuild,
-   raw host `dd`, fastboot, multidisabler, format data, EUD writes, or any A90
-   action.
+   with stock boot-only fallback SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
    **Retired unconsumed exception (2026-07-08, S22+ M21A Odin path):** the
    M21A-specific Odin path that paired with the retired 2026-07-08 M21A live
    gate above is no longer active. It does not independently authorize an M21A
-   Odin transfer or M21A rollback transfer; any currently active M21A/M30
-   authority must come only from the fresh SHA-pinned M30/M21A exception above.
-   This retired block authorizes no Odin slot, tar member, candidate hash,
-   rollback hash, M21 variant, M20 variant, M19 prefix, or partition.
+   Odin transfer or M21A rollback transfer; the later M30/M21A exception above
+   is also now consumed. This retired block authorizes no Odin slot, tar member,
+   candidate hash, rollback hash, M21 variant, M20 variant, M19 prefix, or
+   partition.
    **Retired consumed exception (2026-07-08, S22+ ramoops DTBO + M22
    sysrq-panic Odin path):** the Odin path paired with the consumed M22 gate
    above is no longer active. No current exception authorizes another M22 Odin
