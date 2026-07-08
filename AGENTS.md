@@ -1921,6 +1921,81 @@ BL, CP, CSC, userdata, or any non-boot flash.
    wider prefixes, EUD writes, broad module permutation, display/distro
    candidates, kernel rebuild, recovery/vendor_boot/vbmeta/non-boot flash, raw
    host `dd`, fastboot, multidisabler, format data, or any A90 action.
+   **Narrow operator-authorized exception (2026-07-08, S22+ M25 HS-only USB2
+   ACM native-init boot+DTBO):** after the M24 pmsg-step path was consumed and
+   retired as a no-hit, and after the M25 host build plus live-gate source
+   passed offline/fail-closed validation, Codex may prepare and perform one
+   bounded attended S22+ M25 HS-only USB2 ACM native-init boot+DTBO live gate on
+   the same Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked
+   helper
+   `workspace/public/src/scripts/revalidation/s22plus_m25_hs_only_usb2_acm_live_gate.py`
+   with live ack token `S22PLUS-M25-HS-ONLY-USB2-ACM-LIVE-GATE`, rollback ack
+   token `S22PLUS-M25-HS-ONLY-ROLLBACK-FROM-DOWNLOAD`, and stock-DTBO restore
+   ack token `S22PLUS-M25-RESTORE-STOCK-DTBO`. The exact M25 boot AP.tar.md5
+   SHA256 must be
+   `7f89cfb8ff188190d1d161aee97e3edec2730bfc46efca9df37f2035f7206805`, the
+   contained `boot.img` SHA256 must be
+   `0ace02ff82be1cb7473879ff52f1c9e8d1491edaa3d9a88b829f901b2c86559f`, the
+   M25 `/init` SHA256 must be
+   `cc03d95f06b851717d3ccb4fc32fbecac3adfe7109c1a68454f846e3014ecf75`, the
+   M25 `s22plus_m25_hs_only_usb2.modules` module-list SHA256 must be
+   `00607484b7b777ee5cb54d7657f0cb554b9b66c42fec0e414d0544c0735d6496`, the
+   generated source SHA256 must be
+   `22350e7de748cf3a2f47236ef984bb224df58ffa7664ced811151c9db189562f`, and
+   the stock vendor DTB SHA256 used for derivation must be
+   `2cd64d43a4f6b89a7c5523f3ef73fbb84dcad92c6d857e649cd1f0baa7c0080e`. The
+   exact M25 DTBO high-speed cap AP.tar.md5 SHA256 must be
+   `35afd774444066fd8e2ffe831da11dd73ee47dce3bdd5b1e37675f82344e56b6`, the
+   patched raw DTBO SHA256 must be
+   `8962cbbded722c85dbdebfbdc2eba5476b9a64e2a2933888b81f947159eddc17`, the
+   stock DTBO rollback AP SHA256 must be
+   `6f397421bee84f4ea0c80a8519be0f6f6af84119794970e8a1faaa05f261caaa`, the
+   known Magisk boot baseline SHA256 must be
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, and the
+   stock DTBO raw SHA256 must be
+   `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`.
+   The M25 boot AP must contain exactly one tar member, `boot.img.lz4`, with no
+   recovery, vendor_boot, vbmeta, vbmeta_system, DTBO, BL, CP, CSC, super,
+   persist, userdata, EFS, RPMB, keymaster, modem, or any other partition
+   payload. The M25 DTBO AP and stock DTBO rollback AP must each contain
+   exactly one `dtbo.img.lz4` member, with no boot, recovery, vendor_boot,
+   vbmeta, vbmeta_system, BL, CP, CSC, super, persist, userdata, EFS, RPMB,
+   keymaster, modem, or any other partition payload.
+   The live path is two-stage: first flash exactly the pinned DTBO high-speed
+   cap through Odin4, wait for Android/Magisk root to return, and verify the
+   patched DTBO hash; only then flash exactly the pinned M25 boot-only AP. M25
+   first applies the DTBO high-speed cap by changing equal-length
+   `super-speed` maximum-speed values to `high-speed` across all 11 DTBO
+   overlay blobs, then runs a direct PID1 freestanding raw-syscall `/init`
+   replacement based on the known booting Magisk boot. It uses
+   `module_group=hs_only_usb2`, `module_count=40`, and
+   `s22plus_m25_hs_only_usb2.modules`, creates only the USB2 HighSpeed ACM path,
+   attempts `ss_acm.0` on `a600000.dwc3 only`, forces `bcdUSB=0x0200`, and
+   parks for bounded host observation. `phy-msm-ssusb-qmp.ko intentionally
+   excluded`; EUD extcon excluded; no EUD sysfs write; no EUD enable/open; no
+   QMP/USB3 module loading; no reboot beacon; no arm64 reboot syscall path.
+   Exact module list: `clk-rpmh.ko`, `gcc-waipio.ko`, `icc-rpmh.ko`,
+   `qcom_ipc_logging.ko`, `rpmh-regulator.ko`, `clk-dummy.ko`, `clk-qcom.ko`,
+   `cmd-db.ko`, `debug-regulator.ko`, `gdsc-regulator.ko`,
+   `icc-bcm-voter.ko`, `icc-debug.ko`, `iommu-logger.ko`, `qnoc-waipio.ko`,
+   `phy-generic.ko`, `proxy-consumer.ko`, `qcom_iommu_util.ko`,
+   `qcom_rpmh.ko`, `qcom-scm.ko`, `qnoc-qos.ko`, `sec_class.ko`,
+   `secure_buffer.ko`, `smem.ko`, `socinfo.ko`, `arm_smmu.ko`,
+   `phy-msm-snps-hs.ko`, `phy-msm-snps-eusb2.ko`, `dwc3-msm.ko`,
+   `usb_f_ss_mon_gadget.ko`, `usb_f_ss_acm.ko`, `repeater.ko`, `redriver.ko`,
+   `usb_notify_layer.ko`, `switch_class.ko`, `common_muic.ko`,
+   `vbus_notifier.ko`, `usb_typec_manager.ko`, `if_cb_manager.ko`,
+   `pdic_notifier_module.ko`, and `qc_usb_audio.ko`.
+   If M25 loops, exposes ACM without rollback transport, or no rollback
+   transport appears, stop and require operator manual download-mode rollback
+   through the same helper's `--rollback-from-download` mode. Rollback must use
+   the pinned Magisk boot rollback first and then stock DTBO rollback; if the
+   DTBO-only step fails before boot candidate flash, use only the stock DTBO
+   rollback path. This exception does not authorize M25 repeat, M24 repeat,
+   M23 repeat, broad module permutation, display/distro candidates, kernel
+   rebuild, recovery/vendor_boot/vbmeta/non-boot/non-DTBO flash other than the
+   exact pinned stock-DTBO/M25-DTBO APs above, raw host `dd`, fastboot,
+   multidisabler, format data, or any A90 action.
 2. **Flash only via the checked helper by default:** `workspace/public/src/scripts/revalidation/native_init_flash.py`.
    Never `dd`/`fastboot`/raw-write a partition. Never invent a new flash path.
    **Narrow operator-authorized exception (2026-07-02, self-dd ladder only):** the V3358

@@ -98,6 +98,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `S22PLUS-M25-HS-ONLY-USB2-ACM-LIVE-GATE`. Report:
 > `docs/reports/S22PLUS_M25_HS_ONLY_USB2_ACM_GATE_SOURCE_2026-07-08.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-08 20:57 KST / 11:57 UTC) — M25 POLICY ACTIVE; DRY-RUN PASS; LIVE NOT EXECUTED.**
+> Codex activated the SHA-pinned M25 boot+DTBO exception in `AGENTS.md` and
+> reran validation. Results: `py_compile` pass, unit tests `Ran 5 tests ... OK`,
+> `--offline-check` pass, and default dry-run pass. Dry-run evidence:
+> `agents_exception_missing=[]`, Android stability `ok samples=4`,
+> `boot_completed=1`, verified boot `orange`, Magisk uid0, boot hash
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
+> vendor_boot hash
+> `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`,
+> and stock DTBO hash
+> `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`.
+> No flash, reboot, rollback, partition write, or sysfs write was performed.
+> Next live step, if authorized, is:
+> `--live --ack S22PLUS-M25-HS-ONLY-USB2-ACM-LIVE-GATE`; if the operator
+> manually enters Download after a loop/no-transport result, immediately run
+> `--rollback-from-download --ack S22PLUS-M25-HS-ONLY-ROLLBACK-FROM-DOWNLOAD`
+> to restore Magisk boot and stock DTBO. Report:
+> `docs/reports/S22PLUS_M25_HS_ONLY_USB2_ACM_POLICY_ACTIVE_DRY_RUN_2026-07-08.md`.
+
 > **OPERATOR STEER (2026-07-08, Claude) — M18 WAS THE WRONG FILE: read Samsung `reset_summary` (watchdog-bite capture).**
 > M18's fault is a **msm watchdog bite** (dmesg confirms the watchdog runs + pets
 > ~9.5s; a bare init pets nothing → bite → warm reset). That is NOT a panic, so
