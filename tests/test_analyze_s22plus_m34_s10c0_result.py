@@ -200,6 +200,16 @@ class AnalyzeS22PlusM34S10C0ResultTest(unittest.TestCase):
         self.assertFalse(analysis["cmd_db_direct_finit_observed"])
         self.assertFalse(analysis["ok_to_advance"])
 
+    def test_current_rollback_only_result_is_not_cmd_db_direct_finit_proof(self):
+        analysis = self.module.classify_result(
+            self.result_payload("rollback-only-no-s10c0-proof"),
+            self.timeline_payload(),
+        )
+
+        self.assertEqual(analysis["decision"], self.module.DECISION_ROLLBACK_ONLY)
+        self.assertFalse(analysis["cmd_db_direct_finit_observed"])
+        self.assertFalse(analysis["ok_to_advance"])
+
     def test_hash_mismatch_invalidates_evidence(self):
         payload = self.result_payload("download-beacon-hit")
         payload["candidate_ap_sha256"] = "0" * 64

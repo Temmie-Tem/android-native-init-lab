@@ -315,7 +315,10 @@ def classify_result(payload: dict[str, Any], timeline: dict[str, Any] | None = N
             )
         return analysis
 
-    if result == "rollback-from-download-completed":
+    if result in {
+        "rollback-from-download-completed",
+        "rollback-only-no-s10c0-proof",
+    }:
         analysis["decision"] = DECISION_ROLLBACK_ONLY
         analysis["next_action"] = "rollback-only evidence does not prove cmd-db direct finit; rerun or locate the original live result"
         return analysis

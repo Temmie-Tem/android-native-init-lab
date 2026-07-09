@@ -26,6 +26,52 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > session widening (B2-B4) stays queued. Full analysis:
 > `docs/reports/S22PLUS_M34_S10_MODULE_LOAD_MECHANISM_IS_THE_WALL_NOT_SELECTION_2026-07-09.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 00:57 KST / 2026-07-09 15:57 UTC) — M34 S10C0 LIVE HIT; MAGISK ROLLBACK INCOMPLETE; STOCK BOOT RECOVERED.**
+> S10C0 was run live with explicit operator approval. The live result is a
+> technical HIT:
+>
+> ```text
+> run_dir=workspace/private/runs/s22plus_m34_s10c0_live_20260709T120611Z
+> result=download-beacon-hit
+> rc=5
+> module_load_probe=finit_cmd_db_accepted
+> probe_module=cmd-db.ko
+> probe_proc_name=cmd_db
+> ```
+>
+> The candidate self-entered Download mode and the helper logged
+> `s10c0_result=download-beacon-hit`, proving direct `cmd-db.ko`
+> `finit_module` reached the accepted path under native-init. This narrows the
+> S10 wall: `cmd-db.ko` is not simply impossible to load; S11 should now
+> distinguish load-loop skip/order/abort from `/proc/modules` observation
+> artifact using per-module attempted/rc/errno plus a positive-control module.
+>
+> The run is **not** a clean advance gate because the automatic Magisk rollback
+> did not produce stable `rollback_boot_ready`; analyzer output is
+> `decision=s22plus-m34-s10c0-rollback-incomplete-recovery-required`,
+> `ok_to_advance=false`, `ok_to_live_next_stage=false`,
+> `missing_required_live_events=rollback_boot_ready`. The S10C0 live
+> authorization is consumed and must not be reused for another candidate flash.
+>
+> Recovery was completed with the S10C0 stock boot-only fallback:
+>
+> ```text
+> run_dir=workspace/private/runs/s22plus_m34_s10c0_stock_rollback_only_20260709T155407Z
+> result=rollback-only-no-s10c0-proof
+> rc=0
+> rollback_target=stock
+> boot_completed=1
+> Android=SM-S906N/g0q/S906NKSS7FYG8
+> vbstate=orange
+> root_probe=missing
+> ```
+>
+> This is a stable stock-boot recovery state, not the rooted Magisk
+> measurement baseline. Before any next live gate, restore/verify the Magisk
+> boot baseline with a fresh bounded boot-only gate, or explicitly redesign the
+> next helper for a stock-only baseline. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S10C0_LIVE_RESULT_AND_STOCK_RECOVERY_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 21:02 KST / 2026-07-09 12:02 UTC) — M34 S10C0 POST-LIVE ANALYZER READY; LIVE STILL NOT RUN.**
 > Codex added a host-only S10C0 result analyzer:
 > `workspace/public/src/scripts/revalidation/analyze_s22plus_m34_s10c0_result.py`
