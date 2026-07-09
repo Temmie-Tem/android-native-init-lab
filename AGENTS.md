@@ -2918,6 +2918,89 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `mfd_max77705`
    `pdic_max77705`
 
+   **Narrow operator-authorized exception (2026-07-10, S22+ O1.1 SELinux-domain USB control boot-only live gate):**
+   after the V3406 O1 retained-log result isolated the service-domain transition
+   failure, V3407 built the single-delta O1.1 candidate, the checked O1.1 live
+   helper passed its host gates, and the operator explicitly approved live work,
+   Codex may perform one bounded attended boot-partition-only O1.1 run on the
+   Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_o11_stock_first_stage_control_live_gate.py`.
+   Exact target marker: `SM-S906N/g0q/S906NKSS7FYG8`.
+   Live ack token: `S22PLUS-O11-SECLABEL-CONTROL-LIVE-GATE`.
+   Mandatory rollback ack token:
+   `S22PLUS-O11-SECLABEL-CONTROL-ROLLBACK`.
+
+   The exact candidate AP.tar.md5 SHA256 must be
+   `c43eeb83cedb2db3e0758de71050ef2960765740face7378fcc285a5b8188730`;
+   contained padded `boot.img` SHA256 must be
+   `1e59b172edda0d2c717a93021c9084af1393c0c4db7d28eeb10e06c0b1787b0d`;
+   `boot.img.lz4` SHA256 must be
+   `afef7ff56c7efd54cbb094b1a36bc8068cb3c780ccc8e2667baee9493c6ca6e6`.
+   The known-booting base Magisk boot SHA256 must remain
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`;
+   preserved kernel SHA256 must be
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`;
+   preserved Magisk `/init` SHA256 must be
+   `383670a7ba3a6a4b79e5f3467e1da4b66a5df66a9b356ab9f70916854dd6b468`.
+   Overlay source SHA256 values must be rc
+   `36363a0c6aedbd901310ac5de7bcdd9b85c2a2f985f92a0d78d86daefef8503b`,
+   service
+   `3e5c000308acaa52495c1b235b9f3e777123e3ddeb1e51f01b7461a38593be93`,
+   and O0 daemon
+   `a82cd32f83afc20d40fc74a9402896ae07378811f259913ed6df7cbc540f858c`.
+   The AP must contain exactly one tar member, `boot.img.lz4`, and must not
+   contain recovery, vendor_boot, dtbo, vbmeta, vbmeta_system, BL, CP, CSC,
+   super, persist, userdata, EFS, sec_efs, RPMB, keymaster, modem, bootloader,
+   or any other partition payload.
+
+   The candidate is limited to `S22+ O1.1 SELinux-domain USB control boot-only`
+   behavior. It preserves the O1 kernel, Magisk `/init`, stock first-stage
+   module loader, stock Android USB gadget, wrapper, daemon, trigger, protocol,
+   and timeouts. Its only executable behavior delta from O1 is the service
+   option `seclabel u:r:magisk:s0`; it carries no SELinux policy file. After
+   `sys.usb.configured=configured`, the bounded wrapper may require stock
+   `DR-daemon`/`ddexe` ttyGS0 ownership, stop only `DR-daemon`, run the
+   `128-request framed O0 protocol` with one host tty close/reopen, restore and
+   revalidate `DR-daemon`, and write only volatile marker/status evidence under
+   `/dev`, including `/dev/.s22plus_o1_status`. The candidate and helper perform
+   `no configfs/sysfs write`, no active gadget change, `no module insertion`,
+   `no persistent partition mount`, no block-device write, and no
+   candidate-side reboot request.
+
+   Before candidate flash the helper must verify the normal rooted Android
+   identity, exact current Magisk boot SHA, single Samsung ACM tty, stock
+   `DR-daemon` ownership, exact candidate/manifest hashes, the active exception,
+   the pinned Magisk boot-only rollback AP SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`,
+   and the FYG8 stock boot-only fallback AP SHA256
+   `2f6a8ac093587a0f03c423d8e21f65c6fe3a8d2ce9915297170cdaa2cac37c94`
+   derived from stock raw boot SHA256
+   `4150b962314e6136acba61b20f471d6ee1c418b83cf8c3ee4d9cf7c91a3640ae`.
+   The helper may use a `bounded two-attempt ADB Download retry`: a nonzero ADB
+   result is retried only after it proves the same Android target is again
+   reachable, while an already observed single Odin endpoint counts only as
+   transition acceptance and is not retried. Continuous host USB observers
+   must cover the candidate window. O1.1 PASS requires candidate boot readback,
+   service domain readiness before host tty open, all 128 framed payloads with
+   sequence continuity, host tty reopen completion, volatile
+   `result=pass`/`daemon_rc=0`/`restore_rc=0`, and restored stock tty ownership.
+
+   A `mandatory boot-only rollback` to the pinned Magisk AP follows both PASS
+   and FAIL. The pinned stock boot-only AP is fallback only if the Magisk
+   rollback transfer fails while Download remains available. After successful
+   rollback the helper must perform `automatic postrollback retained-log collection`
+   from both `/sys/fs/pstore` and `/proc/last_kmsg`, then verify Android/root,
+   boot SHA, stability, and stock tty ownership. If Android/ACM does not return,
+   the helper may wait for attended manual Download entry and perform only that
+   rollback. Absence of protocol/status is FAIL and must not be rounded up to
+   source-intended execution. The exception is consumed once
+   `candidate_flash_start` is recorded and must then be rewritten as consumed.
+   This exception does not authorize O1.1 repeat, O2/O3, direct PID1, native
+   module loading, USB role/Type-C/PMIC/EUD writes, Magisk modules,
+   multidisabler, format data, raw host `dd`, fastboot, non-boot flash, full
+   firmware flash, RDX dump retrieval, or any A90 action. Recoverable-envelope,
+   single-target, fail-closed, and mandatory rollback gates remain binding.
+
    **Consumed exception (2026-07-10, S22+ O1 stock-first-stage USB control boot-only live gate):**
    this one-shot exception was consumed by the 2026-07-10 KST O1 live run. The
    exact candidate booted normal Android with its pinned boot SHA, but the first

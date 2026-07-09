@@ -84,6 +84,40 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 04:33 KST / 2026-07-09 19:33 UTC) — O1.1 LIVE GATE READY; OPERATOR APPROVAL RECEIVED; ONE BOOT-ONLY RUN NEXT.**
+> V3408 added the fresh SHA-pinned O1.1 one-shot exception and checked live
+> helper for the V3407 candidate. The helper verifies the exact candidate,
+> manifest/source hashes, single-member boot-only AP, Magisk and stock rollback
+> APs, Android/Magisk identity, current boot hash, stock `DR-daemon` tty
+> ownership, one Samsung ACM target, and no concurrent Odin endpoint before any
+> candidate write.
+>
+> The O1 rollback-transition failure mode is now bounded: a failed ADB Download
+> request is retried once only after the same Android target is reachable again;
+> an already observed single Odin endpoint is accepted without a duplicate
+> request. Candidate readiness must prove O1.1 boot readback, the Magisk SELinux
+> service domain, volatile `phase=daemon-running`, and completed stock tty
+> handoff before the host opens ACM. Mandatory rollback now automatically
+> collects both pstore and `/proc/last_kmsg` before final stability and stock tty
+> ownership checks.
+>
+> ```text
+> candidate_AP_sha256=c43eeb83cedb2db3e0758de71050ef2960765740face7378fcc285a5b8188730
+> candidate_boot_sha256=1e59b172edda0d2c717a93021c9084af1393c0c4db7d28eeb10e06c0b1787b0d
+> rollback_magisk_AP_sha256=d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56
+> tests=39 PASS
+> offline_run=workspace/private/runs/s22plus_o11_stock_first_stage_control_live_gate_20260709T193430Z
+> connected_dry_run=workspace/private/runs/s22plus_o11_stock_first_stage_control_live_gate_20260709T193436Z
+> current_boot_sha256=2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
+> ```
+>
+> The operator explicitly approved the attended O1.1 live run. No candidate
+> flash occurred during V3408 preparation. Next = execute the checked helper
+> once with both exact acknowledgements, require the 128-frame protocol proof,
+> perform mandatory boot-only rollback after PASS or FAIL, analyze retained
+> evidence, and consume the exception. Report:
+> `docs/reports/NATIVE_INIT_V3408_S22PLUS_O11_LIVE_GATE_READY_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 04:17 KST / 2026-07-09 19:17 UTC) — O1.1 SELINUX-DOMAIN-ONLY HOST BUILD PASS; LIVE HELPER HARDENING NEXT; NO O1.1 LIVE AUTH.**
 > V3407 built O1.1 from the same known-good Magisk boot. A structural rc
 > comparator requires the executable behavior to differ from O1 by exactly one
