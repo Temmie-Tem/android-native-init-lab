@@ -1,0 +1,12 @@
+# O1.1 preserves the O1 trigger and runtime. The only behavioral delta is the
+# explicit Magisk service domain required for a rootfs-overlay executable.
+on property:sys.usb.configured=configured
+    start s22plus_o1_control
+
+service s22plus_o1_control ${MAGISKTMP}/s22plus_o1_service.sh ${MAGISKTMP}/s22plus_o1_tty_echo
+    class main
+    user root
+    group root system shell
+    seclabel u:r:magisk:s0
+    disabled
+    oneshot

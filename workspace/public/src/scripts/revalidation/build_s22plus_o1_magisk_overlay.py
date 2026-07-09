@@ -441,7 +441,8 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
         "".join(f"{value}  {key}\n" for key, value in sorted(hashes.items())),
         encoding="ascii",
     )
-    print(json.dumps(manifest, indent=2, sort_keys=True))
+    if not getattr(args, "quiet", False):
+        print(json.dumps(manifest, indent=2, sort_keys=True))
     return manifest
 
 

@@ -84,6 +84,33 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 04:17 KST / 2026-07-09 19:17 UTC) — O1.1 SELINUX-DOMAIN-ONLY HOST BUILD PASS; LIVE HELPER HARDENING NEXT; NO O1.1 LIVE AUTH.**
+> V3407 built O1.1 from the same known-good Magisk boot. A structural rc
+> comparator requires the executable behavior to differ from O1 by exactly one
+> service option: `seclabel u:r:magisk:s0`. This directly targets V3406's retained
+> init rejection. AOSP init documents `seclabel` as the context selected before
+> service exec, and the same Magisk v30.7 boot already injects its own exec actions
+> with `u:r:magisk:s0`.
+>
+> ```text
+> variant=O1.1 run_id=V3407
+> rc_delta=seclabel u:r:magisk:s0; other_behavioral_delta=false
+> boot_img_sha256=1e59b172edda0d2c717a93021c9084af1393c0c4db7d28eeb10e06c0b1787b0d
+> boot_img_lz4_sha256=afef7ff56c7efd54cbb094b1a36bc8068cb3c780ccc8e2667baee9493c6ca6e6
+> AP.tar.md5_sha256=c43eeb83cedb2db3e0758de71050ef2960765740face7378fcc285a5b8188730
+> tar_members=boot.img.lz4
+> kernel/init/service/daemon preserved=true
+> ```
+>
+> No SELinux policy file, gadget, configfs/sysfs action, module, trigger, wrapper,
+> protocol, timeout, or tty handoff changed. No device action occurred. Tests:
+> 28 combined O0/O1/O1.1 tests PASS. Report:
+> `docs/reports/NATIVE_INIT_V3407_S22PLUS_O11_SECLABEL_HOST_BUILD_2026-07-10.md`.
+> Next = fork the consumed O1 helper for O1.1, pin the new hashes, add bounded ADB
+> Download retry after transport reconnect and automatic postrollback
+> `/proc/last_kmsg` collection, then dry-run/review. O1.1 flash still requires a
+> fresh one-shot `AGENTS.md` exception and new explicit operator approval.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 04:12 KST / 2026-07-09 19:12 UTC) — O1 LIVE FAIL AT SELINUX SERVICE TRANSITION; MAGISK BASELINE RESTORED; O1 EXCEPTION CONSUMED.**
 > The pinned O1 boot-only candidate flashed and booted normal Android. Host saw the
 > stock Samsung ACM tty, but the first framed request failed with `EIO`; therefore
