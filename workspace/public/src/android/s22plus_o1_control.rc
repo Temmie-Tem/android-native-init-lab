@@ -1,0 +1,12 @@
+# O1 preserves stock first-stage init and the stock USB gadget. The service
+# performs its own bounded DR-daemon handoff only after the gadget is configured.
+on property:sys.usb.configured=configured
+    start s22plus_o1_control
+
+service s22plus_o1_control ${MAGISKTMP}/s22plus_o1_service.sh ${MAGISKTMP}/s22plus_o1_tty_echo
+    class main
+    user root
+    group root system shell
+    disabled
+    oneshot
+

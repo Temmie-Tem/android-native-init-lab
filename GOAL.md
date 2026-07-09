@@ -84,6 +84,37 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 03:47 KST / 2026-07-09 18:47 UTC) — O1 HOST BUILD PASS; LIVE GATE PREP NEXT; NO FLASH UNDER THIS RESULT.**
+> V3404 built the O1 stock-first-stage Magisk overlay candidate from the exact
+> known-booting Magisk boot. A no-change `magiskboot unpack/repack` was byte-identical
+> to the base. The candidate preserves the kernel and Magisk `/init`, and the parsed
+> ramdisk listing delta contains exactly three additions with no removal or
+> replacement:
+>
+> ```text
+> overlay.d/s22plus_o1_control.rc                    mode 0644
+> overlay.d/sbin/s22plus_o1_service.sh              mode 0750
+> overlay.d/sbin/s22plus_o1_tty_echo                mode 0750
+> boot_img_sha256=df7a166752f78aa07bea10aef53de1ba2737abf43bb041fe01738cce36113070
+> boot_img_lz4_sha256=26af084cca0cf23525e8786a50a49b270d60ae7b2fa7f4ed8d652bc9e102bb21
+> AP.tar.md5_sha256=388d35c12e9f5024f053837444da46254db6a6177c046400549148e24eaeec29
+> tar_members=boot.img.lz4
+> ```
+>
+> Runtime design: wait for stock `sys.usb.configured=configured`; the rc action only
+> starts a bounded wrapper. The wrapper requires stock `DR-daemon` running and owning
+> ttyGS0 before creating its one-shot marker, stops it, runs the O0-proven 128-request
+> daemon with a 180s idle timeout, and restores/revalidates `DR-daemon` on normal and
+> signal exit. It writes phase plus final `daemon_rc/restore_rc` only to a volatile
+> `/dev` status file. The rc file itself never stops the stock service, so failed wrapper
+> exec leaves stock ownership untouched. There are no gadget/configfs/sysfs writes,
+> module loads, reboots, or persistent mounts. Tests: 18 combined O0/O1 tests PASS.
+> Report:
+> `docs/reports/NATIVE_INIT_V3404_S22PLUS_O1_MAGISK_OVERLAY_HOST_BUILD_2026-07-10.md`.
+> Next = author a fresh SHA-pinned boot-only O1 live exception and checked live
+> helper, review/dry-run it, then use explicit operator approval. This host-build
+> result itself does not authorize flash.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 03:34 KST / 2026-07-09 18:34 UTC) — O0 ZERO-FLASH STOCK USB CONTROL LIVE PASS; O1 HOST-ONLY NEXT; NO O1 LIVE AUTH.**
 > V3403 implemented and live-validated the O0 framed control path over stock
 > `/dev/ttyGS0` <-> host `/dev/ttyACM0`. The first attempt correctly remained a
