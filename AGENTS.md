@@ -2752,6 +2752,257 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
    with stock boot-only fallback SHA256
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
+   **Narrow operator-authorized exception (2026-07-09, S22+ M34 S8B1 download-beacon state-probe boot-only live gate):**
+   Codex may run
+   one bounded attended boot-partition-only M34 S8B1 live gate on the Samsung S22+
+   `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py`.
+   Live ack token: `S22PLUS-M34-S8B1-BEACON-PROBE-LIVE-GATE`. Rollback ack token:
+   `S22PLUS-M34-S8B1-BEACON-PROBE-ROLLBACK-FROM-DOWNLOAD`.
+
+   The exact candidate AP.tar.md5 SHA256 must be
+   `0bf313cdf24a5f5babc3d0073a1e90686f1b734b6dafdfa548154ef3eac6c2c8`; contained padded `boot.img` SHA256 must be
+   `4e599087f242fdf2ae6bee1465e0725b60057bad893b665a178bcf87b88b9a20`; direct `/init` SHA256 must be
+   `a1cbc9828a24a7e302bd569de93b4f41e2ceb159130ea373d2ea9c9572f5a20d`; template source SHA256 must be
+   `35978182a80e0502a0aec89ec66e35ca378ebbb3b7c58c573ad0e8ff55cc248d`; module-list SHA256 must be
+   `c0c35e02fe61a3f6c18c221a9ae2cc1a54aafd38374117fa954dbfa675700998`; preserved kernel SHA256 must be
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`; and known-booting base Magisk boot SHA256
+   must be `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. The AP must contain exactly one
+   tar member, `boot.img.lz4`, and must not carry recovery, vendor_boot, dtbo,
+   vbmeta, vbmeta_system, BL, CP, CSC, super, persist, userdata, EFS,
+   sec_efs, RPMB, keymaster, modem, bootloader, or any other partition payload.
+
+   The candidate is limited to freestanding direct PID1 M34 S8B1 behavior.
+   S8B1 keeps the S7A2 module recipe fixed: GENI I2C transport closure,
+   stock max77705 PDIC altmode session-producer closure, `module_count=86`,
+   `session_producer_parity=1`, `max77705_session=1`,
+   `geni_i2c_transport=1`, `i2c_msm_geni=1`, `gpi_dma=1`,
+   `msm_geni_se=1`, `functionfs=0`, `stock_composite=0`,
+   `sec_debug_region.ko present due stock charger dependency`, and
+   `requires_s7a_specific_live_risk_review`.
+
+   S8B1 intentionally performs no downstream USB gadget work:
+   `configfs_gadget=0`, `udc_bind=0`, `ssusb_mode_peripheral=0`,
+   `typec_readback=0`, `role_write_discriminator=0`, no configfs gadget setup,
+   no UDC bind, no TypeC role write, no ssusb role write, no FunctionFS, and
+   no stock composite. Its only observation is
+   `s8_beacon_probe=typec_port_or_i2c_device` / `predicate=typec_port_or_i2c_device`,
+   reading `/sys/class/typec/port0` and `/sys/bus/i2c/devices/57-0066`.
+   Predicate true requests `reboot_request=download` with `download_beacon=1`
+   and records `true_action=reboot_download`; predicate false records
+   `false_action=park` and parks. The host-visible HIT is that a new Odin
+   Download endpoint appears after the original Download endpoint disconnects.
+   MISS means no new Odin endpoint during bounded observation; manual Download
+   rollback is required and is recovery-only.
+
+   The candidate must have no Android/Magisk handoff, no persistent partition
+   mount, no block write, no module binary injection into boot ramdisk, no raw
+   host `dd`, no fastboot, no Magisk modules, no multidisabler, no format data,
+   no DTBO/vendor_boot/recovery/vbmeta/non-boot flash, and no A90 action. It
+   must not write charge current, OTG/VBUS boost, regulator, GDSC, GPIO,
+   display, raw PMIC knobs, EUD sysfs, TypeC role nodes, configfs, UDC, or
+   ssusb role nodes. PMIC/RDX abnormal reset before the observation window is
+   FAIL. This exception does not authorize S1/S2/S3/S4/S5/S6/S7A/S7A2 repeat,
+   B2/B3/B4, descriptor/composition pivots, FunctionFS/conn_gadget parity,
+   display/distro candidates, kernel rebuilds, RDX PC dump retrieval, or any
+   non-boot partition action.
+
+   Required policy marker coverage:
+   `S22+ M34 S8B1 download-beacon state-probe native-init boot-only`
+   `workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py`
+   `S22PLUS-M34-S8B1-BEACON-PROBE-LIVE-GATE`
+   `S22PLUS-M34-S8B1-BEACON-PROBE-ROLLBACK-FROM-DOWNLOAD`
+   `SM-S906N/g0q/S906NKSS7FYG8`
+   `S8B1`
+   `S22_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT_S8B1`
+   `0bf313cdf24a5f5babc3d0073a1e90686f1b734b6dafdfa548154ef3eac6c2c8`
+   `4e599087f242fdf2ae6bee1465e0725b60057bad893b665a178bcf87b88b9a20`
+   `a1cbc9828a24a7e302bd569de93b4f41e2ceb159130ea373d2ea9c9572f5a20d`
+   `c0c35e02fe61a3f6c18c221a9ae2cc1a54aafd38374117fa954dbfa675700998`
+   `35978182a80e0502a0aec89ec66e35ca378ebbb3b7c58c573ad0e8ff55cc248d`
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`
+   `S8B1 keeps the S7A2 module recipe fixed`
+   `GENI I2C transport closure`
+   `stock max77705 PDIC altmode session-producer closure`
+   `module_count=86`
+   `session_producer_parity=1`
+   `max77705_session=1`
+   `geni_i2c_transport=1`
+   `i2c_msm_geni=1`
+   `gpi_dma=1`
+   `msm_geni_se=1`
+   `typec_readback=0`
+   `role_write_discriminator=0`
+   `configfs_gadget=0`
+   `udc_bind=0`
+   `ssusb_mode_peripheral=0`
+   `functionfs=0`
+   `stock_composite=0`
+   `s8_beacon_probe=typec_port_or_i2c_device`
+   `predicate=typec_port_or_i2c_device`
+   `/sys/class/typec/port0`
+   `/sys/bus/i2c/devices/57-0066`
+   `reboot_request=download`
+   `download_beacon=1`
+   `true_action=reboot_download`
+   `false_action=park`
+   `download-beacon-hit`
+   `download-beacon-miss-parked-manual-download-required`
+   `host-visible HIT = new Odin Download endpoint appears`
+   `MISS = no new Odin endpoint during bounded observation; manual Download rollback required`
+   `no configfs gadget setup`
+   `no UDC bind`
+   `no TypeC role write`
+   `no ssusb role write`
+   `no FunctionFS`
+   `no stock composite`
+   `no Android/Magisk handoff`
+   `no persistent partition mount`
+   `no block write`
+   `no charge-current write`
+   `no OTG/VBUS boost write`
+   `no regulator/GDSC/GPIO/raw PMIC write`
+   `manual Download rollback is recovery-only`
+   `PMIC/RDX abnormal reset before the observation window is FAIL`
+   `sec_debug_region.ko present due stock charger dependency`
+   `requires_s7a_specific_live_risk_review`
+   `gpi.ko`
+   `msm-geni-se.ko`
+   `i2c-msm-geni.ko`
+   `qcom-i2c-pmic.ko`
+   `mfd_max77705.ko`
+   `max77705_charger.ko`
+   `max77705-fuelgauge.ko`
+   `pdic_max77705.ko`
+   `charger-ulog-glink.ko`
+   `altmode-glink.ko`
+   `msm-geni-se.ko`
+   `gpi.ko`
+   `charger-ulog-glink.ko`
+   `altmode-glink.ko`
+   `qti-regmap-debugfs.ko`
+   `qcom-i2c-pmic.ko`
+   `i2c-msm-geni.ko`
+   `sec_pm_log.ko`
+   `qcom-cpufreq-hw.ko`
+   `sched-walt.ko`
+   `kryo_arm64_edac.ko`
+   `memory_dump_v2.ko`
+   `sec_key_notifier.ko`
+   `sec_crashkey_long.ko`
+   `sec_debug_region.ko`
+   `sec_param.ko`
+   `sec_qc_dbg_partition.ko`
+   `sec_qc_summary.ko`
+   `sec_upload_cause.ko`
+   `sec_qc_upload_cause.ko`
+   `sec_qc_user_reset.ko`
+   `sec_qc_smem.ko`
+   `sec_qc_hw_param.ko`
+   `sb-core.ko`
+   `sec_pd.ko`
+   `sec-battery.ko`
+   `mfd_max77705.ko`
+   `spu_verify.ko`
+   `pdic_max77705.ko`
+   `max77705_charger.ko`
+   `max77705-fuelgauge.ko`
+   `memory_dump_v2.ko`
+   `sec_debug_region.ko`
+   `sec_param.ko`
+   `sec_qc_dbg_partition.ko`
+   `sec_qc_summary.ko`
+   `sec_upload_cause.ko`
+   `sec_qc_upload_cause.ko`
+   `sec_qc_user_reset.ko`
+   `smem.ko`
+   `minidump.ko`
+   `sec_debug.ko`
+   `qcom_ipc_logging.ko`
+   `cmd-db.ko`
+   `qcom_rpmh.ko`
+   `clk-rpmh.ko`
+   `debug-regulator.ko`
+   `proxy-consumer.ko`
+   `gdsc-regulator.ko`
+   `clk-qcom.ko`
+   `clk-dummy.ko`
+   `gcc-waipio.ko`
+   `icc-bcm-voter.ko`
+   `icc-debug.ko`
+   `socinfo.ko`
+   `icc-rpmh.ko`
+   `rpmh-regulator.ko`
+   `qcom-scm.ko`
+   `qcom_wdt_core.ko`
+   `gh_virt_wdt.ko`
+   `iommu-logger.ko`
+   `qnoc-qos.ko`
+   `qnoc-waipio.ko`
+   `phy-generic.ko`
+   `qcom_iommu_util.ko`
+   `sec_class.ko`
+   `secure_buffer.ko`
+   `arm_smmu.ko`
+   `msm-geni-se.ko`
+   `gpi.ko`
+   `qmi_helpers.ko`
+   `qcom_glink.ko`
+   `qcom_glink_smem.ko`
+   `qcom_smd.ko`
+   `rproc_qcom_common.ko`
+   `pdr_interface.ko`
+   `pmic_glink.ko`
+   `charger-ulog-glink.ko`
+   `altmode-glink.ko`
+   `eud.ko`
+   `qti-regmap-debugfs.ko`
+   `qcom-i2c-pmic.ko`
+   `phy-msm-ssusb-qmp.ko`
+   `abc.ko`
+   `usb_notify_layer.ko`
+   `switch_class.ko`
+   `common_muic.ko`
+   `vbus_notifier.ko`
+   `pdic_notifier_module.ko`
+   `usb_typec_manager.ko`
+   `usb_f_ss_mon_gadget.ko`
+   `phy-msm-snps-hs.ko`
+   `repeater.ko`
+   `phy-msm-snps-eusb2.ko`
+   `redriver.ko`
+   `if_cb_manager.ko`
+   `qc_usb_audio.ko`
+   `dwc3-msm.ko`
+   `usb_f_ss_acm.ko`
+   `ucsi_glink.ko`
+   `i2c-msm-geni.ko`
+   `sec_pm_log.ko`
+   `qcom-cpufreq-hw.ko`
+   `sched-walt.ko`
+   `kryo_arm64_edac.ko`
+   `memory_dump_v2.ko`
+   `sec_key_notifier.ko`
+   `sec_crashkey_long.ko`
+   `sec_debug_region.ko`
+   `sec_param.ko`
+   `sec_qc_dbg_partition.ko`
+   `sec_qc_summary.ko`
+   `sec_upload_cause.ko`
+   `sec_qc_upload_cause.ko`
+   `sec_qc_user_reset.ko`
+   `sec_qc_smem.ko`
+   `sec_qc_hw_param.ko`
+   `sb-core.ko`
+   `sec_pd.ko`
+   `sec-battery.ko`
+   `mfd_max77705.ko`
+   `spu_verify.ko`
+   `pdic_max77705.ko`
+   `max77705_charger.ko`
+   `max77705-fuelgauge.ko`
+
    **Consumed exception (2026-07-09, S22+ M34 S7A2 GENI I2C
    runtime-gadget boot-only live gate):** this one-shot exception was consumed
    by the 2026-07-09 KST live run. It flashed the pinned M34 S7A2 boot-only

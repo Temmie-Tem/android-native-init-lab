@@ -99,11 +99,11 @@ The helper verifies the v0.8 manifest before any live action:
 - no Android/Magisk handoff, no persistent partition mount, no block write
 
 The helper also prints a draft and active-template `AGENTS.md` exception, but
-does not insert it. `--live` and `--rollback-from-download` fail closed unless a
-fresh active exception is present in `AGENTS.md` and the matching ack token is
-passed. The active-exception gate now requires the exact helper-generated
-active-template text to be present in `AGENTS.md`; marker-complete but edited
-authorization text is rejected.
+does not insert it by itself. `--live` and `--rollback-from-download` fail
+closed unless a fresh active exception is present in `AGENTS.md` and the
+matching ack token is passed. The active-exception gate now requires the exact
+helper-generated active-template text to be present in `AGENTS.md`;
+marker-complete but edited authorization text is rejected.
 
 The helper also provides a non-live readiness mode:
 
@@ -446,21 +446,24 @@ docs/operations/S22PLUS_M34_S8B1_BEACON_PROBE_LIVE_RUNBOOK_2026-07-09.md
 ```
 
 It pins the packet and sidecar hashes, summarizes the current Android
-predicate/reset baselines, and points to the exact private runbook command file.
-It does not authorize a live flash and does not insert `AGENTS.md`.
+predicate/reset baselines, and points to the exact private runbook command
+file. It does not itself authorize a live flash or insert `AGENTS.md`.
 
-The helper generated and verified this full candidate `AGENTS.md` without
-changing the repo file:
+The helper generated and verified this full candidate `AGENTS.md`, and repo
+`AGENTS.md` now matches it byte-for-byte:
 
 ```text
 workspace/private/runs/s22plus_m34_s8b1_agents_candidate_20260709T035315Z/AGENTS.candidate.md
 sha256=0186b2dc881ba1a35565bc34e98c8283513d7fd0fc6aae3c000a88c3f1bbdf48
 ```
 
+`--verify-agents-candidate AGENTS.md` passes with exact active-template
+coverage.
+
 The latest packet was generated after the print-only run-dir side-effect fix
 and candidate-writer addition, and confirmed the current Android baseline is
 still suitable for the same S8B1 live gate. It did not create any planned live
-directories:
+directories at packet generation time:
 
 ```text
 android_stability_result=ok samples=2
@@ -476,6 +479,21 @@ ro.boot.bootreason=reboot,download
 /proc/store_lastkmsg=1
 ```
 
+After the active exception was inserted, the default no-live dry-run passed in:
+
+```text
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z_live_dryrun/
+```
+
+The dry-run verified exact `AGENTS.md` template coverage, artifacts, Android
+stability, current boot SHA256
+`2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
+S8B1 predicate true through `/sys/bus/i2c/devices/57-0066`, and the future B2
+hint path with `port0-partner`. It performed no Odin transfer, reboot, live
+flash, or rollback. Because that dry-run directory now exists, the earlier
+prelive packet verifier remains historical pre-dry-run staleness evidence;
+generate a fresh packet before expecting empty planned phase directories again.
+
 Latest packet sidecar SHA256s:
 
 ```text
@@ -488,14 +506,9 @@ s22plus_m34_s8b1_android_reset_context_baseline.json: 0488d8cb5d8214d09ddeabe144
 
 ## Next Gate
 
-To run live, generate a fresh full `AGENTS.md` candidate, verify it, and only
-then replace repo `AGENTS.md` with that reviewed file:
-
-```text
-PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --write-agents-candidate <candidate-AGENTS.md>
-PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --verify-agents-candidate <candidate-AGENTS.md>
-```
-
-Then, only after explicit operator approval, run one attended `--live` pass with
-the live ack token. Without that exception and approval, S8B1 remains host-only
-prepared.
+To run live, use the runbook command for one attended `--live` pass with
+explicit operator approval and ack token
+`S22PLUS-M34-S8B1-BEACON-PROBE-LIVE-GATE`. If the same planned run directory
+has been consumed by any later non-live experiment, generate a fresh prelive
+packet/runbook first so phase directories are clean. Without explicit live
+approval and the ack token, S8B1 remains prepared but not executed.

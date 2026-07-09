@@ -265,9 +265,24 @@ PMIC/RDX abnormal reset before the observation window = fail, not HIT.
 
 ## Current Status
 
-As of this document, repo `AGENTS.md` has no active S8B1 exception. A full
-candidate has been generated and verified at the path above, but it has not
-replaced repo `AGENTS.md`. The next live step remains blocked on explicit
-operator live approval plus active SHA-pinned exception insertion. Until then,
-only the packet verifier, candidate verifier, and other no-write checks are
-allowed.
+Repo `AGENTS.md` now matches the verified S8B1 full candidate byte-for-byte
+and `--verify-agents-candidate AGENTS.md` passes with exact active-template
+coverage. The default no-live dry-run also passed in:
+
+```text
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z_live_dryrun/
+```
+
+That dry-run verified artifacts, Android stability, current Magisk boot hash,
+the active `AGENTS.md` exception, the S8B1 Android predicate baseline, and the
+future B2 hint path. It performed no Odin transfer, reboot, live flash, or
+rollback.
+
+The earlier prelive packet verifier evidence remains the historical
+pre-dry-run staleness proof. Since the planned dry-run directory now exists,
+do not rerun that same packet verifier expecting all planned phase directories
+to be empty unless a fresh packet is generated.
+
+The next live step remains blocked on explicit operator live approval and the
+live ack token. Until then, only no-write checks, dry-run checks, and report
+updates are allowed.

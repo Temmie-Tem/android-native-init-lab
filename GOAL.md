@@ -23,7 +23,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > descriptor/composition stays downstream until a candidate electrically enumerates. Full
 > analysis: `docs/reports/S22PLUS_M34_S8_BEACON_PROBE_PIVOT_STOP_BLIND_FLASHING_2026-07-09.md`.
 
-> **S22+ CURRENT FRONTIER (2026-07-09 12:03 KST / 2026-07-09 03:03 UTC) — M34 S8B1 LIVE GATE READY + FIRST-CLASS READONLY PREFLIGHT/PRELIVE PACKET + RESET-CONTEXT BASELINE; NO ACTIVE LIVE AUTH.**
+> **S22+ CURRENT FRONTIER (2026-07-09 13:05 KST / 2026-07-09 04:05 UTC) — M34 S8B1 ACTIVE AUTH INSERTED + DEFAULT DRY-RUN PASS; LIVE NOT RUN.**
 > Codex added the fail-closed S8B1 live gate helper
 > `workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py`
 > plus tests in
@@ -48,8 +48,9 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > is `download-beacon-miss-parked-manual-download-required` and requires manual
 > Download rollback. Observer classification is now unit-tested for HIT, MISS,
 > ambiguous multi-Odin refusal, and unexpected ADB return before rollback. The
-> helper prints a draft and active-template exception, but no active exception
-> has been inserted. The live/default gate now requires `AGENTS.md` to contain
+> helper prints a draft and active-template exception, and the exact
+> helper-generated active exception is now inserted in `AGENTS.md`. The
+> live/default gate requires `AGENTS.md` to contain
 > the exact helper-generated active-template text, not just all policy marker
 > strings, so marker-complete but edited authorization text fails closed.
 > A first-class `--readonly-preflight` mode now verifies
@@ -149,8 +150,9 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > S8B1 analyzer tests
 > (`Ran 20 tests`, `OK`), M34/S7A2 regression including S8B1/analyzer
 > (`Ran 75 tests`, `OK`), runbook fallback-contract/staleness tests, exact
-> active-template authorization tests, material-hash staleness tests, and default run
-> fail-closed without active authorization.
+> active-template authorization tests, material-hash staleness tests, default run
+> fail-closed without active authorization, and active default dry-run after
+> authorization.
 >
 > Read-only host status after the operator's RDX/download note: the phone is
 > currently host-visible as Android/MTP + ADB (`04e8:6860`, `RFCT519XWGK`),
@@ -170,8 +172,9 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `workspace/private/runs/s22plus_m34_s8b1_agents_candidate_20260709T035315Z/AGENTS.candidate.md`
 > (SHA256
 > `0186b2dc881ba1a35565bc34e98c8283513d7fd0fc6aae3c000a88c3f1bbdf48`);
-> repo `AGENTS.md` remains unchanged and still fails closed without the active
-> exception.
+> repo `AGENTS.md` now matches that candidate byte-for-byte and
+> `--verify-agents-candidate AGENTS.md` passes with
+> `agents_exception_exact_active_template_present=1`.
 > Latest no-write prelive packet was regenerated with the print-only run-dir
 > side-effect fix plus candidate-writer runbook step in place at
 > `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z/`;
@@ -204,6 +207,17 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `/proc/store_lastkmsg=1`. This packet is readiness evidence only: it did
 > not create the planned live phase directories,
 > and did not authorize or perform S8B1 live flash/rollback.
+> After inserting the active exception, Codex ran the default no-live dry-run at
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z_live_dryrun/`.
+> The dry-run passed (`dry-run ok`), verifying exact AGENTS template coverage,
+> artifacts, Android stability, current boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
+> S8B1 predicate true through `/sys/bus/i2c/devices/57-0066`, and the future B2
+> hint path with `port0-partner`. No Odin transfer, reboot, live flash, or
+> rollback was performed. Since the planned dry-run directory now exists, the
+> earlier prelive packet verifier evidence remains historical pre-dry-run
+> staleness proof; do not rerun it expecting empty planned phase directories
+> unless a new packet is generated.
 > A follow-up read-only reset-context capture after the operator's RDX/Download
 > observation passed at
 > `workspace/private/runs/s22plus_reset_reason_readonly_20260709T025333Z/`.
