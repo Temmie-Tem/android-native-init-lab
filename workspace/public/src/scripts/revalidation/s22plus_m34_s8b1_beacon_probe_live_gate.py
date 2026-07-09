@@ -67,6 +67,7 @@ from s22plus_m34_s7a2_geni_i2c_live_gate import (
     M34_S7A2_I2C_ORDER_ACTUAL,
 )
 from s22plus_m5_usb_acm_live_gate import verify_android_stability
+from s22plus_reset_reason_readonly_probe import collect as collect_reset_reason
 
 
 LIVE_ACK_TOKEN = "S22PLUS-M34-S8B1-BEACON-PROBE-LIVE-GATE"
@@ -533,6 +534,10 @@ def android_predicate_baseline_path(run_dir: Path) -> Path:
     return run_dir / "s22plus_m34_s8b1_android_predicate_baseline.json"
 
 
+def android_reset_context_baseline_path(run_dir: Path) -> Path:
+    return run_dir / "s22plus_m34_s8b1_android_reset_context_baseline.json"
+
+
 def read_android_root_text_value(serial: str, path: str, log_path: Path) -> str:
     if not path.startswith("/sys/"):
         raise SystemExit(f"refusing non-sysfs Android root read path: {path}")
@@ -633,6 +638,57 @@ done
     return payload
 
 
+def verify_reset_context_summary(summary: dict[str, Any]) -> None:
+    if summary.get("device_action") != "read-only-adb-root":
+        raise SystemExit(f"Android reset-context baseline action mismatch: {summary.get('device_action')!r}")
+    for key in ("writes_performed", "reboots_performed", "flashes_performed"):
+        if summary.get(key) is not False:
+            raise SystemExit(f"Android reset-context baseline is not no-write: {key}={summary.get(key)!r}")
+    if summary.get("result") != "pass":
+        raise SystemExit(f"Android reset-context baseline did not pass: {summary.get('result')!r}")
+    checks = summary.get("checks")
+    if not isinstance(checks, dict) or not all(bool(value) for value in checks.values()):
+        raise SystemExit(f"Android reset-context baseline checks are not all true: {checks!r}")
+    reset = summary.get("reset_reason")
+    if not isinstance(reset, dict):
+        raise SystemExit("Android reset-context baseline missing reset_reason object")
+    for key in (
+        "proc_reset_reason_value",
+        "proc_reset_rwc_value",
+        "proc_store_lastkmsg_value",
+        "reset_history_upload_cause_count",
+        "reset_history_pmic_abnormal_count",
+        "reset_history_oem_reset_magic_count",
+    ):
+        if key not in reset:
+            raise SystemExit(f"Android reset-context baseline missing {key}")
+
+
+def collect_android_reset_context_baseline(
+    *,
+    run_dir: Path,
+    log_path: Path,
+    serial: str,
+) -> dict[str, Any]:
+    summary = collect_reset_reason(run_dir, serial)
+    verify_reset_context_summary(summary)
+    payload: dict[str, Any] = {
+        "schema": "s22plus_m34_s8b1_android_reset_context_baseline_v1",
+        "timestamp_utc": utc_now(),
+        "serial": serial,
+        "summary": summary,
+    }
+    path = android_reset_context_baseline_path(run_dir)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    append_log(log_path, f"s8b1_android_reset_context_baseline_json={path}")
+    append_log(
+        log_path,
+        "s8b1_android_reset_context_baseline="
+        f"{json.dumps({'schema': payload['schema'], 'serial': serial, 'reset_reason': summary.get('reset_reason')}, sort_keys=True)}",
+    )
+    return payload
+
+
 def run_android_readonly_preflight(
     *,
     run_dir: Path,
@@ -653,6 +709,7 @@ def run_android_readonly_preflight(
     )
     verify_partition_hash(log_path, selected_serial, "boot", EXPECTED_M34_BASE_BOOT_SHA256, "current")
     collect_android_s8b1_predicate_baseline(run_dir=run_dir, log_path=log_path, serial=selected_serial)
+    collect_android_reset_context_baseline(run_dir=run_dir, log_path=log_path, serial=selected_serial)
     host_snapshot(run_dir, log_path, snapshot_label, odin)
     append_log(
         log_path,
@@ -954,6 +1011,21 @@ def write_prelive_packet(
     baseline_payload = json.loads(baseline_path.read_text(encoding="utf-8"))
     if not baseline_payload.get("predicate_true"):
         raise SystemExit("prelive packet refuses false Android S8B1 predicate baseline")
+    reset_baseline_path = android_reset_context_baseline_path(run_dir)
+    if not reset_baseline_path.is_file():
+        raise SystemExit(f"prelive packet requires Android reset-context baseline: {reset_baseline_path}")
+    reset_baseline_payload = json.loads(reset_baseline_path.read_text(encoding="utf-8"))
+    if reset_baseline_payload.get("schema") != "s22plus_m34_s8b1_android_reset_context_baseline_v1":
+        raise SystemExit(
+            "prelive packet Android reset-context baseline schema mismatch: "
+            f"{reset_baseline_payload.get('schema')!r}"
+        )
+    if reset_baseline_payload.get("serial") != selected_serial:
+        raise SystemExit("prelive packet Android reset-context baseline serial mismatch")
+    reset_summary = reset_baseline_payload.get("summary")
+    if not isinstance(reset_summary, dict):
+        raise SystemExit("prelive packet Android reset-context baseline missing summary")
+    verify_reset_context_summary(reset_summary)
     runbook_path.write_text(runbook, encoding="utf-8")
     active_template_path.write_text(active_template, encoding="utf-8")
     payload = {
@@ -985,6 +1057,8 @@ def write_prelive_packet(
         "planned_rollback_result_json": str(planned_rollback_result_json(live_run_dir)),
         "android_s8b1_predicate_baseline": baseline_payload,
         "android_s8b1_predicate_baseline_json": str(baseline_path),
+        "android_reset_context_baseline": reset_baseline_payload,
+        "android_reset_context_baseline_json": str(reset_baseline_path),
         "runbook_options": runbook_options(packet_args),
         "runbook_notes": prelive_packet_notes(live_run_dir),
         "runbook": str(runbook_path),
@@ -1111,6 +1185,28 @@ def verify_prelive_packet(
         raise SystemExit(f"prelive packet Android S8B1 predicate baseline JSON missing: {baseline_json}")
     if json.loads(baseline_json.read_text(encoding="utf-8")) != baseline:
         raise SystemExit("prelive packet Android S8B1 predicate baseline JSON is stale")
+
+    reset_baseline = payload.get("android_reset_context_baseline")
+    if not isinstance(reset_baseline, dict):
+        raise SystemExit("prelive packet missing Android reset-context baseline")
+    if reset_baseline.get("schema") != "s22plus_m34_s8b1_android_reset_context_baseline_v1":
+        raise SystemExit(
+            "prelive packet Android reset-context baseline schema mismatch: "
+            f"{reset_baseline.get('schema')!r}"
+        )
+    if reset_baseline.get("serial") != selected_serial:
+        raise SystemExit("prelive packet Android reset-context baseline serial mismatch")
+    reset_summary = reset_baseline.get("summary")
+    if not isinstance(reset_summary, dict):
+        raise SystemExit("prelive packet Android reset-context baseline missing summary")
+    verify_reset_context_summary(reset_summary)
+    reset_baseline_json = Path(str(payload.get("android_reset_context_baseline_json", "")))
+    if reset_baseline_json != android_reset_context_baseline_path(packet_run_dir):
+        raise SystemExit("prelive packet Android reset-context baseline path mismatch")
+    if not reset_baseline_json.is_file():
+        raise SystemExit(f"prelive packet Android reset-context baseline JSON missing: {reset_baseline_json}")
+    if json.loads(reset_baseline_json.read_text(encoding="utf-8")) != reset_baseline:
+        raise SystemExit("prelive packet Android reset-context baseline JSON is stale")
 
     runbook_path = Path(str(payload.get("runbook", "")))
     active_template_path = Path(str(payload.get("active_exception_template", "")))

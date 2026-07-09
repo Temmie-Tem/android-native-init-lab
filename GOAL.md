@@ -23,7 +23,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > descriptor/composition stays downstream until a candidate electrically enumerates. Full
 > analysis: `docs/reports/S22PLUS_M34_S8_BEACON_PROBE_PIVOT_STOP_BLIND_FLASHING_2026-07-09.md`.
 
-> **S22+ CURRENT FRONTIER (2026-07-09 11:08 KST / 2026-07-09 02:08 UTC) — M34 S8B1 LIVE GATE READY + FIRST-CLASS READONLY PREFLIGHT/PRELIVE PACKET; NO ACTIVE LIVE AUTH.**
+> **S22+ CURRENT FRONTIER (2026-07-09 12:03 KST / 2026-07-09 03:03 UTC) — M34 S8B1 LIVE GATE READY + FIRST-CLASS READONLY PREFLIGHT/PRELIVE PACKET + RESET-CONTEXT BASELINE; NO ACTIVE LIVE AUTH.**
 > Codex added the fail-closed S8B1 live gate helper
 > `workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py`
 > plus tests in
@@ -52,9 +52,11 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > has been inserted. A first-class `--readonly-preflight` mode now verifies
 > artifacts, Android identity/stability, current boot hash, and host snapshot
 > without requiring an active `AGENTS.md` exception and without reboot/flash.
-> It now also captures a read-only Android S8B1 predicate baseline JSON and
-> refuses preflight if both probe paths are false on the known-good Android
-> baseline. Current Android baseline is predicate-true through
+> It now also captures a read-only Android S8B1 predicate baseline JSON plus
+> an Android reset-context baseline JSON, and refuses preflight if both probe
+> paths are false on the known-good Android baseline or if the reset-context
+> helper is not strictly no-write/no-reboot/no-flash. Current Android baseline
+> is predicate-true through
 > `/sys/bus/i2c/devices/57-0066`; `/sys/class/typec/port0` is absent on the
 > current boot, so S8B1 HIT should be interpreted first as I2C/max77705-chip
 > reachability, not port0 creation. After the operator reported RDX then
@@ -92,7 +94,10 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > command is fallback-only if the live command exits after MISS without rollback
 > or the device is placed in Download mode later. The prelive packet JSON records
 > `planned_phase_run_dirs`, `planned_result_json`,
-> `planned_rollback_result_json`, `runbook_options`, and `runbook_notes` so
+> `planned_rollback_result_json`, `android_s8b1_predicate_baseline`,
+> `android_s8b1_predicate_baseline_json`, `android_reset_context_baseline`,
+> `android_reset_context_baseline_json`, `runbook_options`, and
+> `runbook_notes` so
 > automation does not have to scrape the runbook text, re-remember custom
 > timing options, or confuse rollback-only cleanup evidence with B1 proof.
 > Live/rollback outcomes now also write machine-readable
@@ -122,10 +127,10 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Validation passed: helper `py_compile`, `--offline-check`,
 > `--readonly-preflight`, `--prelive-packet`, `--verify-prelive-packet`,
 > `--print-live-runbook`, draft/active-template generation, S8B1 tests
-> (`Ran 30 tests`, `OK`),
+> (`Ran 32 tests`, `OK`),
 > S8B1 analyzer tests
 > (`Ran 20 tests`, `OK`), M34/S7A2 regression including S8B1/analyzer
-> (`Ran 65 tests`, `OK`), runbook fallback-contract/staleness tests, and default run
+> (`Ran 67 tests`, `OK`), runbook fallback-contract/staleness tests, and default run
 > fail-closed without active authorization.
 >
 > Read-only host status after the operator's RDX/download note: the phone is
@@ -143,20 +148,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `/sys/class/typec/port0` is absent, and the OR predicate is true. No live S8B1
 > flash or rollback was performed in this observation.
 > Latest no-write prelive packet was regenerated at
-> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T024623Z/`;
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T030213Z/`;
 > it contains `s22plus_m34_s8b1_prelive_packet.json`, the exact live runbook,
 > the active exception template, stored runbook options, selected serial
-> `RFCT519XWGK`, and the Android predicate baseline, with `device_action=false` and
+> `RFCT519XWGK`, the Android predicate baseline, and the Android reset-context
+> baseline, with `device_action=false` and
 > `agents_exception_inserted=false`. The packet verified cleanly with
 > `--verify-prelive-packet` at
-> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T024633Z/`.
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T030227Z/`.
 > The planned live run directory is
-> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T024623Z_live/`;
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T030213Z_live/`;
 > preflight/template/dryrun/rollback sibling directories are also separate and
 > all were verified not to exist at packet generation time. The planned
 > rollback-only fallback result path is
-> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T024623Z_live_rollback/result.json`
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T030213Z_live_rollback/result.json`
 > and is cleanup evidence, not B1 proof.
+> The packet's reset-context baseline records `ro.boot.bootreason=reboot,download`,
+> `/proc/reset_reason=MPON`, `/proc/reset_rwc=41`, `/proc/store_lastkmsg=1`,
+> `reset_history_pmic_abnormal_count=10`, and
+> `reset_history_upload_cause_count=10`.
 > A follow-up read-only reset-context capture after the operator's RDX/Download
 > observation passed at
 > `workspace/private/runs/s22plus_reset_reason_readonly_20260709T025333Z/`.

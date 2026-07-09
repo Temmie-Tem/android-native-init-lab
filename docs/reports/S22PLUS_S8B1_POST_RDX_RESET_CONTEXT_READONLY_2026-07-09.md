@@ -118,6 +118,22 @@ prove the post-RDX/manual-Download recovery returned to the expected Magisk
 baseline and that reset-context surfaces are more informative than pstore alone
 for this recovery path.
 
+## S8B1 Packet Integration
+
+The S8B1 prelive packet generator now embeds this same no-write reset-context
+shape as `android_reset_context_baseline` and verifies the sidecar JSON during
+`--verify-prelive-packet`. The latest packet with the integrated baseline is:
+
+```text
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T030213Z/s22plus_m34_s8b1_prelive_packet.json
+```
+
+It verified cleanly at:
+
+```text
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T030227Z/
+```
+
 ## Validation
 
 ```text

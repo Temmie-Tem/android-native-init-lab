@@ -86,9 +86,48 @@ def write_test_predicate_baseline(module, run_dir: Path, serial: str = "RFCT519X
     return payload
 
 
+def write_test_reset_context_baseline(module, run_dir: Path, serial: str = "RFCT519XWGK") -> dict:
+    payload = {
+        "schema": "s22plus_m34_s8b1_android_reset_context_baseline_v1",
+        "timestamp_utc": "2026-07-09T00:00:00Z",
+        "serial": serial,
+        "summary": {
+            "device_action": "read-only-adb-root",
+            "writes_performed": False,
+            "reboots_performed": False,
+            "flashes_performed": False,
+            "result": "pass",
+            "checks": {
+                "target_model": True,
+                "target_device": True,
+                "target_build": True,
+                "android_booted": True,
+                "normal_boot": True,
+                "root_available": True,
+                "boot_hash_baseline": True,
+                "vendor_boot_hash_stock": True,
+            },
+            "reset_reason": {
+                "proc_reset_reason_value": "MPON",
+                "proc_reset_rwc_value": "41",
+                "proc_store_lastkmsg_value": "1",
+                "reset_history_upload_cause_count": 10,
+                "reset_history_pmic_abnormal_count": 10,
+                "reset_history_oem_reset_magic_count": 9,
+            },
+        },
+    }
+    module.android_reset_context_baseline_path(run_dir).write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return payload
+
+
 def readonly_preflight_stub(module, serial: str = "RFCT519XWGK"):
     def _stub(*, run_dir, **_kwargs):
         write_test_predicate_baseline(module, run_dir, serial)
+        write_test_reset_context_baseline(module, run_dir, serial)
         return serial
 
     return _stub
@@ -228,6 +267,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
                 mock.patch.object(self.module, "verify_android_stability") as verify_stability,
                 mock.patch.object(self.module, "verify_partition_hash") as verify_hash,
                 mock.patch.object(self.module, "collect_android_s8b1_predicate_baseline") as collect_baseline,
+                mock.patch.object(self.module, "collect_android_reset_context_baseline") as collect_reset_context,
                 mock.patch.object(self.module, "host_snapshot", return_value={}) as snapshot,
             ):
                 serial = self.module.run_android_readonly_preflight(
@@ -252,11 +292,26 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
                 "current",
             )
             collect_baseline.assert_called_once_with(run_dir=run_dir, log_path=log_path, serial="RFCT519XWGK")
+            collect_reset_context.assert_called_once_with(run_dir=run_dir, log_path=log_path, serial="RFCT519XWGK")
             snapshot.assert_called_once_with(run_dir, log_path, "readonly_preflight_current", Path("/no/odin"))
             text = log_path.read_text(encoding="utf-8")
             self.assertIn("android_readonly_preflight=ok", text)
             self.assertIn("agents_exception_checked=0", text)
             self.assertIn("current_boot_hash_checked=1", text)
+
+    def test_verify_reset_context_summary_rejects_write_or_missing_reset_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            payload = write_test_reset_context_baseline(self.module, Path(tmp))["summary"]
+            payload["writes_performed"] = True
+            with self.assertRaises(SystemExit) as caught:
+                self.module.verify_reset_context_summary(payload)
+            self.assertIn("not no-write", str(caught.exception))
+
+            payload = write_test_reset_context_baseline(self.module, Path(tmp))["summary"]
+            payload["reset_reason"].pop("proc_reset_rwc_value")
+            with self.assertRaises(SystemExit) as caught:
+                self.module.verify_reset_context_summary(payload)
+            self.assertIn("missing proc_reset_rwc_value", str(caught.exception))
 
     def test_collect_android_s8b1_predicate_baseline_writes_true_baseline(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -484,6 +539,19 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertEqual(
                 packet["android_s8b1_predicate_baseline_json"],
                 str(run_dir / "s22plus_m34_s8b1_android_predicate_baseline.json"),
+            )
+            self.assertEqual(
+                packet["android_reset_context_baseline"]["schema"],
+                "s22plus_m34_s8b1_android_reset_context_baseline_v1",
+            )
+            self.assertEqual(packet["android_reset_context_baseline"]["serial"], "RFCT519XWGK")
+            self.assertEqual(
+                packet["android_reset_context_baseline"]["summary"]["reset_reason"]["proc_reset_reason_value"],
+                "MPON",
+            )
+            self.assertEqual(
+                packet["android_reset_context_baseline_json"],
+                str(run_dir / "s22plus_m34_s8b1_android_reset_context_baseline.json"),
             )
             runbook = (run_dir / "s22plus_m34_s8b1_live_runbook.txt").read_text(encoding="utf-8")
             active_template = (run_dir / "s22plus_m34_s8b1_active_exception_template.txt").read_text(encoding="utf-8")
@@ -744,6 +812,49 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
                             ]
                         )
             self.assertIn("missing future_b2_hints", str(caught.exception))
+
+    def test_verify_prelive_packet_rejects_missing_reset_context_baseline(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            odin = root / "odin4"
+            odin.write_text("#!/bin/sh\n", encoding="utf-8")
+            run_dir = root / "run"
+            path_args = [
+                "--odin",
+                str(odin),
+                "--m34-ap",
+                str(root / "candidate.tar.md5"),
+                "--m34-manifest",
+                str(root / "manifest.json"),
+                "--magisk-rollback-ap",
+                str(root / "magisk.tar.md5"),
+                "--stock-rollback-ap",
+                str(root / "stock.tar.md5"),
+            ]
+            with (
+                mock.patch.object(self.module, "verify_m34_artifacts"),
+                mock.patch.object(self.module, "run_android_readonly_preflight", side_effect=readonly_preflight_stub(self.module)),
+            ):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.module.main(["--prelive-packet", *path_args, "--run-dir", str(run_dir)])
+
+            packet_path = run_dir / "s22plus_m34_s8b1_prelive_packet.json"
+            packet = json.loads(packet_path.read_text(encoding="utf-8"))
+            packet.pop("android_reset_context_baseline")
+            packet_path.write_text(json.dumps(packet, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            with mock.patch.object(self.module, "verify_m34_artifacts"):
+                with self.assertRaises(SystemExit) as caught:
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        self.module.main(
+                            [
+                                "--verify-prelive-packet",
+                                str(packet_path),
+                                *path_args,
+                                "--run-dir",
+                                str(root / "verify"),
+                            ]
+                        )
+            self.assertIn("missing Android reset-context baseline", str(caught.exception))
 
     def test_planned_live_run_dir_avoids_existing_siblings(self):
         with tempfile.TemporaryDirectory() as tmp:

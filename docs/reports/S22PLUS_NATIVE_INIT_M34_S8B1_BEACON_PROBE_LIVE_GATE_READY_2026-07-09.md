@@ -114,10 +114,13 @@ The helper also provides a non-live readiness mode:
 
 `--readonly-preflight` verifies the S8B1 candidate artifacts and rollback APs,
 then checks current Android identity, stability, current boot SHA256, the
-read-only Android S8B1 predicate baseline, and a host snapshot. It intentionally
+read-only Android S8B1 predicate baseline, the Android reset-context baseline,
+and a host snapshot. It intentionally
 skips the `AGENTS.md` active-exception gate because it performs no reboot, no
 Odin transfer, no partition write, and no rollback action. It refuses the
 preflight if both S8B1 probe paths are false on the known-good Android baseline.
+It also fails closed if the reset-context collector is not strictly
+read-only/no-reboot/no-flash or if the expected Samsung reset fields are absent.
 
 `--print-live-runbook` verifies the same pinned artifacts, then prints the exact
 operator command sequence for read-only preflight, active exception review,
@@ -151,8 +154,9 @@ phase sibling directories for preflight, template, dry-run, live, rollback,
 and analyzer output so the commands can be run after reviewing the packet. The
 packet JSON also records `planned_phase_run_dirs`, `planned_result_json`,
 `planned_rollback_result_json`, `android_s8b1_predicate_baseline`,
-`android_s8b1_predicate_baseline_json`, `runbook_options`, and `runbook_notes`
-for machine-readable handoff. `planned_result_json` is the B1 proof target; the
+`android_s8b1_predicate_baseline_json`, `android_reset_context_baseline`,
+`android_reset_context_baseline_json`, `runbook_options`, and
+`runbook_notes` for machine-readable handoff. `planned_result_json` is the B1 proof target; the
 rollback-only fallback result path is cleanup evidence if that command is needed.
 The stored `runbook_options` let later checks replay the exact timing/options
 used to generate the live runbook without relying on shell history.
@@ -160,8 +164,8 @@ used to generate the live runbook without relying on shell history.
 `--verify-prelive-packet <json>` is a no-device/no-write staleness check. It
 verifies the packet against current S8B1 constants, artifact paths, active
 exception template, generated runbook text, selected serial, stored Android
-predicate baseline, stored runbook options, and still-empty planned phase
-directories. It intentionally skips ADB, Odin transfer, `AGENTS.md`
+predicate baseline, stored Android reset-context baseline, stored runbook
+options, and still-empty planned phase directories. It intentionally skips ADB, Odin transfer, `AGENTS.md`
 active-exception checks, reboot, flash, and rollback.
 
 Live and rollback paths also write a machine-readable result file:
@@ -245,7 +249,7 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m py_compile workspace/public/src/
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --offline-check
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --readonly-preflight --android-stability-samples 2 --android-stability-interval-sec 1
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --prelive-packet --android-stability-samples 2 --android-stability-interval-sec 1
-PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --verify-prelive-packet workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T024623Z/s22plus_m34_s8b1_prelive_packet.json
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --verify-prelive-packet workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T030213Z/s22plus_m34_s8b1_prelive_packet.json
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --print-live-runbook
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --print-agents-exception-draft
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --print-agents-exception-active-template
@@ -268,13 +272,15 @@ live-runbook generation: OK, no device action
 draft exception generation: OK
 active-template generation: OK
 default run without active AGENTS exception: correctly fails closed
-S8B1 tests: Ran 30 tests, OK
+S8B1 tests: Ran 32 tests, OK
 S8B1 analyzer tests: Ran 20 tests, OK
 S8B1/analyzer evidence-path cross-check: included in S8B1 tests
 runbook fallback/staleness-contract tests: included in S8B1 tests
 Android predicate-baseline tests: included in S8B1 tests
-M34/S7A2/S8B1/analyzer regression: Ran 65 tests, OK
+Android reset-context packet tests: included in S8B1 tests
+M34/S7A2/S8B1/analyzer regression: Ran 67 tests, OK
 post-RDX readonly-preflight with future B2 hints: OK, no reboot/flash/write
+post-RDX prelive packet with reset-context baseline: OK, no reboot/flash/write
 ```
 
 ## Read-Only Current Device Note
@@ -366,17 +372,18 @@ from relying on stale `/sys/class/typec/port0` assumptions when the stock
 Android path exposes TypeC below `max77705-usbc/typec/port0`.
 
 The latest no-write prelive packet with explicit fallback-rollback notes,
-selected-serial pinning, stored runbook options, and Android predicate baseline
+selected-serial pinning, stored runbook options, Android predicate baseline,
+and Android reset-context baseline
 is:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T024623Z/
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T030213Z/
 ```
 
 It was verified with `--verify-prelive-packet` at:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T024633Z/
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T030227Z/
 ```
 
 It plans the live B1 proof directory and rollback-only fallback directory
@@ -384,10 +391,22 @@ separately:
 
 ```text
 planned_result_json:
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T024623Z_live/result.json
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T030213Z_live/result.json
 
 planned_rollback_result_json:
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T024623Z_live_rollback/result.json
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T030213Z_live_rollback/result.json
+```
+
+The same packet now embeds the reset-context baseline captured by the
+read-only reset helper:
+
+```text
+ro.boot.bootreason=reboot,download
+/proc/reset_reason=MPON
+/proc/reset_rwc=41
+/proc/store_lastkmsg=1
+reset_history_pmic_abnormal_count=10
+reset_history_upload_cause_count=10
 ```
 
 ## Next Gate
