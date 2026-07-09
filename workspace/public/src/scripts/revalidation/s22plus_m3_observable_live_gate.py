@@ -183,8 +183,12 @@ def verify_agents_exception(root: Path, log_path: Path) -> None:
 def odin_devices(odin: Path, log_path: Path, label: str) -> list[str]:
     result = run([odin, "-l"], timeout=10.0)
     output = result.stdout + result.stderr
-    devices = sorted(set(ODIN_DEVICE_RE.findall(output)))
+    raw_devices = sorted(set(ODIN_DEVICE_RE.findall(output)))
+    devices = [device for device in raw_devices if Path(device).exists()]
+    stale_devices = [device for device in raw_devices if device not in devices]
     append_log(log_path, f"[{utc_now()}] {label} odin4 -l rc={result.returncode} devices={devices}")
+    if stale_devices:
+        append_log(log_path, f"[{utc_now()}] {label} stale_odin_devices_ignored={stale_devices}")
     append_log(log_path, output)
     return devices
 

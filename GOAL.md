@@ -26,6 +26,72 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > session widening (B2-B4) stays queued. Full analysis:
 > `docs/reports/S22PLUS_M34_S10_MODULE_LOAD_MECHANISM_IS_THE_WALL_NOT_SELECTION_2026-07-09.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 02:12 KST / 2026-07-09 17:12 UTC) — M34 S11P0 LIVE MISS; MAGISK BASELINE RECOVERED; USB TRANSPORT HAD ERRNO 71 INSTABILITY.**
+> S11P0 was run live with explicit operator approval after the active exception
+> was installed. The candidate flash completed, the original Download endpoint
+> disconnected, and the 90s observation window did **not** see a new Download
+> beacon:
+>
+> ```text
+> run_dir=workspace/private/runs/s22plus_m34_s11p0_proc_modules_positive_control_live_gate_20260709T164647Z
+> result=download-beacon-miss-parked-manual-download-required
+> rc=1
+> stage=S11P0
+> module_load_probe=finit_cmd_db_accepted_and_watchdog_proc_visible
+> positive_control_proc_names=qcom_wdt_core,gh_virt_wdt
+> ```
+>
+> This is a technical MISS for the S11P0 predicate: direct `cmd-db.ko`
+> acceptance plus watchdog visibility in native-init `/proc/modules` did not
+> reach the true-action Download beacon. The S11P0 live exception is consumed
+> and must not be reused.
+>
+> Recovery initially looked mixed and could not be rounded up to clean recovery.
+> The immediate manual-Download rollback path hit a host/USB stale-path failure
+> (`/dev/bus/usb/003/010` protocol error, then stale fallback path). A later
+> rollback-only run flashed the pinned Magisk boot-only AP successfully and
+> briefly observed rooted Android:
+>
+> ```text
+> run_dir=workspace/private/runs/s22plus_m34_s11p0_proc_modules_positive_control_live_gate_20260709T164946Z
+> rollback_target=magisk
+> rollback_device=/dev/bus/usb/002/010
+> Odin transfer rc=0
+> transient ADB root proof at 2026-07-09T16:50:27Z:
+>   model=SM-S906N device=g0q incremental=S906NKSS7FYG8 vbstate=orange
+>   su_root_rc=0 uid=0(root) context=u:r:magisk:s0
+> helper result=rollback-only-no-s11p0-proof
+> helper rc=5
+> ```
+>
+> After cable/USB re-enumeration, current host verification confirms the rooted
+> Magisk measurement baseline is back:
+>
+> ```text
+> adb device=RFCT519XWGK usb:2-1.3 product:g0qksx model=SM_S906N device=g0q
+> boot_completed=1
+> model=SM-S906N device=g0q bootloader=S906NKSS7FYG8
+> incremental=S906NKSS7FYG8 vbstate=orange boot_recovery=0
+> su: uid=0(root) context=u:r:magisk:s0
+> /debug_ramdisk/su -> ./magisk
+> boot_sha256=2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
+> 30s stability loop: adb device + boot_completed=1 throughout
+> ```
+>
+> The USB issue was real but transient: the host saw Android USB enumerate,
+> ADB found the device and repeatedly failed bulk read/write with `errno 71`
+> `Protocol error`, then a later disconnect/re-enumeration restored stable ADB.
+> Treat this as a host/physical/USB3 transport risk for future Odin/ADB gates;
+> prefer direct cable/USB2 path if it repeats.
+>
+> Host-side hardening now required before another live boot candidate:
+> `odin_devices()` must filter stale `/dev/bus/usb/...` paths by actual device
+> node existence before fallback rollback, so a failed primary rollback does not
+> immediately reuse a dead path. Next native-init design should continue S11 by
+> making the per-module loader result directly observable rather than relying
+> only on the S11P0 true-action beacon. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S11P0_LIVE_RESULT_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 01:37 KST / 2026-07-09 16:37 UTC) — M34 S11P0 HOST-BUILD READY; NO LIVE AUTH.**
 > Codex implemented and host-built the next S11 probe as `S11P0` in the M34
 > runtime-gadget split builder. S11P0 keeps the S10C0/S9 module recipe, preserves

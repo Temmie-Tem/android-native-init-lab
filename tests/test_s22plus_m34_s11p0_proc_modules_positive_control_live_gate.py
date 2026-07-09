@@ -2,9 +2,11 @@ import contextlib
 import importlib.util
 import io
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 
@@ -68,6 +70,29 @@ class S22PlusM34S11P0ProcModulesPositiveControlLiveGateTest(unittest.TestCase):
             text = log_path.read_text(encoding="utf-8")
             self.assertIn("agents_exception_missing=[]", text)
             self.assertIn("agents_exception_exact_active_template_present=1", text)
+
+    def test_odin_device_listing_filters_stale_device_nodes(self):
+        common = sys.modules["s22plus_m3_observable_live_gate"]
+        completed = subprocess.CompletedProcess(
+            args=["odin4", "-l"],
+            returncode=0,
+            stdout="/dev/bus/usb/001/002\n/dev/bus/usb/003/010\n",
+            stderr="",
+        )
+
+        def fake_exists(path: Path) -> bool:
+            return str(path) == "/dev/bus/usb/001/002"
+
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.object(common, "run", return_value=completed), \
+                mock.patch.object(common.Path, "exists", fake_exists):
+            log_path = Path(tmp) / "odin.log"
+            devices = common.odin_devices(Path("odin4"), log_path, "unit")
+            text = log_path.read_text(encoding="utf-8")
+
+        self.assertEqual(devices, ["/dev/bus/usb/001/002"])
+        self.assertIn("devices=['/dev/bus/usb/001/002']", text)
+        self.assertIn("stale_odin_devices_ignored=['/dev/bus/usb/003/010']", text)
 
     @unittest.skipUnless(MANIFEST.exists(), "private M34 v0.14 manifest missing")
     def test_current_manifest_contract_matches_s11p0_live_gate(self):

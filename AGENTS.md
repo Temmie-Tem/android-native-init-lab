@@ -2918,10 +2918,20 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `mfd_max77705`
    `pdic_max77705`
 
-   **Narrow operator-authorized exception (2026-07-10, S22+ M34 S11P0 proc-modules positive-control boot-only live gate):**
-   After the Magisk boot baseline was restored and the M34 S11P0 host-build
-   report pinned the exact artifact hashes, Codex may run one bounded attended
-   boot-partition-only M34 S11P0 live gate on the Samsung S22+
+   **Consumed exception (2026-07-10, S22+ M34 S11P0 proc-modules positive-control boot-only live gate):**
+   this one-shot exception was consumed by the 2026-07-10 KST live S11P0 run.
+   It flashed only the pinned single-member M34 S11P0 boot-only AP.tar.md5
+   SHA256 `dacb20dc0466487e6ad30f7ad5ebcb053a9593966922464eba4b3ed60e5f3b45`,
+   observed a Download-beacon MISS, and then recovered the rooted Magisk
+   measurement baseline through the rollback paths documented in
+   `docs/reports/S22PLUS_NATIVE_INIT_M34_S11P0_LIVE_RESULT_2026-07-10.md`.
+   The live and rollback ack tokens below are retained as historical evidence
+   only and are not active authorization for another S11P0/S11P1/S10 repeat or
+   any other boot candidate.
+
+   Before consumption, after the Magisk boot baseline was restored and the M34
+   S11P0 host-build report pinned the exact artifact hashes, Codex could run
+   one bounded attended boot-partition-only M34 S11P0 live gate on the Samsung S22+
    `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
    `workspace/public/src/scripts/revalidation/s22plus_m34_s11p0_proc_modules_positive_control_live_gate.py`.
    Live ack token: `S22PLUS-M34-S11P0-PROC-MODULES-POSITIVE-CONTROL-LIVE-GATE`. Rollback ack token:
