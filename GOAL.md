@@ -179,6 +179,11 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `0x0 / PMIC abnormal reset`. This is read-only corroboration of the
 > operator-observed RDX path, not S8B1 proof. Report:
 > `docs/reports/S22PLUS_S8B1_POST_RDX_RESET_CONTEXT_READONLY_2026-07-09.md`.
+> The inert operator-facing live runbook index is now:
+> `docs/operations/S22PLUS_M34_S8B1_BEACON_PROBE_LIVE_RUNBOOK_2026-07-09.md`.
+> It pins the latest packet SHA256s, sidecar paths, baseline interpretation,
+> planned phase directories, and forbidden actions, but does not authorize live
+> execution or insert `AGENTS.md`.
 > Report:
 > `docs/reports/S22PLUS_NATIVE_INIT_M34_S8B1_BEACON_PROBE_LIVE_GATE_READY_2026-07-09.md`.
 
