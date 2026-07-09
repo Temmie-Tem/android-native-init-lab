@@ -103,6 +103,17 @@ does not insert it. `--live` and `--rollback-from-download` fail closed unless a
 fresh active exception is present in `AGENTS.md` and the matching ack token is
 passed.
 
+The helper also provides a non-live readiness mode:
+
+```text
+--readonly-preflight
+```
+
+This mode verifies the S8B1 candidate artifacts and rollback APs, then checks
+current Android identity, stability, current boot SHA256, and a host snapshot.
+It intentionally skips the `AGENTS.md` active-exception gate because it performs
+no reboot, no Odin transfer, no partition write, and no rollback action.
+
 ## Validation
 
 Commands run:
@@ -110,6 +121,7 @@ Commands run:
 ```text
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m py_compile workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --offline-check
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --readonly-preflight --android-stability-samples 2 --android-stability-interval-sec 1
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --print-agents-exception-draft
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --print-agents-exception-active-template
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py
@@ -123,11 +135,12 @@ Results:
 ```text
 py_compile: OK
 offline-check: OK, no device action
+readonly-preflight: OK, no reboot/flash/write
 draft exception generation: OK
 active-template generation: OK
 default run without active AGENTS exception: correctly fails closed
-S8B1 tests: Ran 12 tests, OK
-M34/S7A2/S8B1 regression: Ran 27 tests, OK
+S8B1 tests: Ran 14 tests, OK
+M34/S7A2/S8B1 regression: Ran 29 tests, OK
 ```
 
 ## Read-Only Current Device Note
@@ -164,6 +177,22 @@ Result:
 android_stability_result=ok samples=2
 current_boot_hash_rc=0
 2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e  /dev/block/by-name/boot
+```
+
+The committed `--readonly-preflight` mode then passed against the same live
+Android baseline:
+
+```text
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T003315Z/
+```
+
+Key rows:
+
+```text
+android_stability_result=ok samples=2
+current_boot_hash_rc=0
+2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e  /dev/block/by-name/boot
+android_readonly_preflight=ok device_action=0 agents_exception_checked=0 android_checked=1 current_boot_hash_checked=1
 ```
 
 ## Next Gate

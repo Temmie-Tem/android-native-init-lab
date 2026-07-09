@@ -501,6 +501,35 @@ def verify_m34_artifacts(
     verify_ap(stock_rollback_ap, EXPECTED_STOCK_BOOT_AP_SHA256, "stock_boot_fallback", log_path)
 
 
+def run_android_readonly_preflight(
+    *,
+    run_dir: Path,
+    log_path: Path,
+    odin: Path,
+    serial: str | None,
+    stability_samples: int,
+    stability_interval_sec: float,
+    snapshot_label: str,
+    agents_exception_checked: bool,
+) -> str:
+    selected_serial = require_current_android(log_path, serial)
+    verify_android_stability(
+        log_path,
+        selected_serial,
+        stability_samples,
+        stability_interval_sec,
+    )
+    verify_partition_hash(log_path, selected_serial, "boot", EXPECTED_M34_BASE_BOOT_SHA256, "current")
+    host_snapshot(run_dir, log_path, snapshot_label, odin)
+    append_log(
+        log_path,
+        "android_readonly_preflight=ok device_action=0 "
+        f"agents_exception_checked={int(agents_exception_checked)} "
+        "android_checked=1 current_boot_hash_checked=1",
+    )
+    return selected_serial
+
+
 def wait_for_odin_absent(odin: Path, log_path: Path, label: str, wait_sec: int) -> bool:
     deadline = time.monotonic() + wait_sec
     while True:
@@ -646,6 +675,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--android-stability-interval-sec", type=float, default=3.0)
     parser.add_argument("--rollback-target", choices=[ROLLBACK_MAGISK, ROLLBACK_STOCK], default=ROLLBACK_MAGISK)
     parser.add_argument("--offline-check", action="store_true")
+    parser.add_argument("--readonly-preflight", action="store_true")
     parser.add_argument("--print-agents-exception-draft", action="store_true")
     parser.add_argument("--print-agents-exception-active-template", action="store_true")
     parser.add_argument("--live", action="store_true")
@@ -657,6 +687,7 @@ def main(argv: list[str]) -> int:
         1
         for enabled in (
             args.offline_check,
+            args.readonly_preflight,
             args.print_agents_exception_draft,
             args.print_agents_exception_active_template,
             args.live,
@@ -666,7 +697,7 @@ def main(argv: list[str]) -> int:
     )
     if modes > 1:
         raise SystemExit(
-            "--offline-check, --print-agents-exception-draft, "
+            "--offline-check, --readonly-preflight, --print-agents-exception-draft, "
             "--print-agents-exception-active-template, --live, and --rollback-from-download are mutually exclusive"
         )
     if args.observe_sec < 30:
@@ -723,6 +754,23 @@ def main(argv: list[str]) -> int:
         print(f"offline-check ok: M34 S8B1 candidate and rollback APs verified; no device action; log={log_path}")
         return 0
 
+    if args.readonly_preflight:
+        selected_serial = run_android_readonly_preflight(
+            run_dir=run_dir,
+            log_path=log_path,
+            odin=odin,
+            serial=args.serial,
+            stability_samples=args.android_stability_samples,
+            stability_interval_sec=args.android_stability_interval_sec,
+            snapshot_label="readonly_preflight_current",
+            agents_exception_checked=False,
+        )
+        print(
+            "readonly-preflight ok: M34 S8B1 candidate, rollback APs, Android stability, "
+            f"and current boot hash verified for {selected_serial}; no AGENTS exception required; log={log_path}"
+        )
+        return 0
+
     verify_agents_exception(root, log_path)
 
     if args.rollback_from_download:
@@ -740,15 +788,16 @@ def main(argv: list[str]) -> int:
         print(f"M34 S8B1 rollback-from-download completed rc={rc}; log={log_path}")
         return rc
 
-    selected_serial = require_current_android(log_path, args.serial)
-    verify_android_stability(
-        log_path,
-        selected_serial,
-        args.android_stability_samples,
-        args.android_stability_interval_sec,
+    selected_serial = run_android_readonly_preflight(
+        run_dir=run_dir,
+        log_path=log_path,
+        odin=odin,
+        serial=args.serial,
+        stability_samples=args.android_stability_samples,
+        stability_interval_sec=args.android_stability_interval_sec,
+        snapshot_label="dryrun_current",
+        agents_exception_checked=True,
     )
-    verify_partition_hash(log_path, selected_serial, "boot", EXPECTED_M34_BASE_BOOT_SHA256, "current")
-    host_snapshot(run_dir, log_path, "dryrun_current", odin)
 
     if not args.live:
         print(

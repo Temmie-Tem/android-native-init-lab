@@ -23,7 +23,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > descriptor/composition stays downstream until a candidate electrically enumerates. Full
 > analysis: `docs/reports/S22PLUS_M34_S8_BEACON_PROBE_PIVOT_STOP_BLIND_FLASHING_2026-07-09.md`.
 
-> **S22+ CURRENT FRONTIER (2026-07-09 09:29 KST / 2026-07-09 00:29 UTC) — M34 S8B1 LIVE GATE READY + OBSERVER/PREFLIGHT TESTED; NO ACTIVE LIVE AUTH.**
+> **S22+ CURRENT FRONTIER (2026-07-09 09:33 KST / 2026-07-09 00:33 UTC) — M34 S8B1 LIVE GATE READY + FIRST-CLASS READONLY PREFLIGHT; NO ACTIVE LIVE AUTH.**
 > Codex added the fail-closed S8B1 live gate helper
 > `workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py`
 > plus tests in
@@ -49,10 +49,13 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Download rollback. Observer classification is now unit-tested for HIT, MISS,
 > ambiguous multi-Odin refusal, and unexpected ADB return before rollback. The
 > helper prints a draft and active-template exception, but no active exception
-> has been inserted. Validation passed: helper `py_compile`, `--offline-check`,
-> draft/active-template generation, S8B1 tests (`Ran 12 tests`, `OK`), M34/S7A2
-> regression including S8B1 (`Ran 27 tests`, `OK`), and default run fail-closed
-> without active authorization.
+> has been inserted. A first-class `--readonly-preflight` mode now verifies
+> artifacts, Android identity/stability, current boot hash, and host snapshot
+> without requiring an active `AGENTS.md` exception and without reboot/flash.
+> Validation passed: helper `py_compile`, `--offline-check`,
+> `--readonly-preflight`, draft/active-template generation, S8B1 tests
+> (`Ran 14 tests`, `OK`), M34/S7A2 regression including S8B1 (`Ran 29 tests`,
+> `OK`), and default run fail-closed without active authorization.
 >
 > Read-only host status after the operator's RDX/download note: the phone is
 > currently host-visible as Android/MTP + ADB (`04e8:6860`, `RFCT519XWGK`),
@@ -64,7 +67,11 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > path matched the known Magisk baseline
 > `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, and a
 > host snapshot was captured. No live S8B1 flash or rollback was performed in
-> this observation.
+> this observation. The committed helper mode was then run on the live Android
+> baseline at
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T003315Z/`,
+> again proving Android/root stability and current boot SHA match with
+> `device_action=0` and `agents_exception_checked=0`.
 > Report:
 > `docs/reports/S22PLUS_NATIVE_INIT_M34_S8B1_BEACON_PROBE_LIVE_GATE_READY_2026-07-09.md`.
 

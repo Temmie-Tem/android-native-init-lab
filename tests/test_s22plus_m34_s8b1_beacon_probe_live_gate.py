@@ -1,4 +1,6 @@
+import contextlib
 import importlib.util
+import io
 import sys
 import tempfile
 import unittest
@@ -146,6 +148,78 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
         self.assertNotEqual("download-beacon-hit", "download-beacon-miss-parked-manual-download-required")
         self.assertIn("download-beacon-hit", self.module.agents_exception_draft())
         self.assertIn("manual Download rollback", self.module.agents_exception_draft())
+
+    def test_run_android_readonly_preflight_checks_android_boot_and_snapshot(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            log_path = run_dir / "readonly_preflight.log"
+            with (
+                mock.patch.object(self.module, "require_current_android", return_value="RFCT519XWGK") as require_android,
+                mock.patch.object(self.module, "verify_android_stability") as verify_stability,
+                mock.patch.object(self.module, "verify_partition_hash") as verify_hash,
+                mock.patch.object(self.module, "host_snapshot", return_value={}) as snapshot,
+            ):
+                serial = self.module.run_android_readonly_preflight(
+                    run_dir=run_dir,
+                    log_path=log_path,
+                    odin=Path("/no/odin"),
+                    serial=None,
+                    stability_samples=2,
+                    stability_interval_sec=1.0,
+                    snapshot_label="readonly_preflight_current",
+                    agents_exception_checked=False,
+                )
+
+            self.assertEqual(serial, "RFCT519XWGK")
+            require_android.assert_called_once_with(log_path, None)
+            verify_stability.assert_called_once_with(log_path, "RFCT519XWGK", 2, 1.0)
+            verify_hash.assert_called_once_with(
+                log_path,
+                "RFCT519XWGK",
+                "boot",
+                self.module.EXPECTED_M34_BASE_BOOT_SHA256,
+                "current",
+            )
+            snapshot.assert_called_once_with(run_dir, log_path, "readonly_preflight_current", Path("/no/odin"))
+            text = log_path.read_text(encoding="utf-8")
+            self.assertIn("android_readonly_preflight=ok", text)
+            self.assertIn("agents_exception_checked=0", text)
+            self.assertIn("current_boot_hash_checked=1", text)
+
+    def test_readonly_preflight_cli_skips_agents_exception_gate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            odin = root / "odin4"
+            odin.write_text("#!/bin/sh\n", encoding="utf-8")
+            run_dir = root / "run"
+            with (
+                mock.patch.object(self.module, "verify_m34_artifacts") as verify_artifacts,
+                mock.patch.object(self.module, "verify_agents_exception", side_effect=AssertionError("AGENTS gate should be skipped")),
+                mock.patch.object(self.module, "run_android_readonly_preflight", return_value="RFCT519XWGK") as readonly,
+            ):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    rc = self.module.main(
+                        [
+                            "--readonly-preflight",
+                            "--odin",
+                            str(odin),
+                            "--m34-ap",
+                            str(root / "candidate.tar.md5"),
+                            "--m34-manifest",
+                            str(root / "manifest.json"),
+                            "--magisk-rollback-ap",
+                            str(root / "magisk.tar.md5"),
+                            "--stock-rollback-ap",
+                            str(root / "stock.tar.md5"),
+                            "--run-dir",
+                            str(run_dir),
+                        ]
+                    )
+
+            self.assertEqual(rc, 0)
+            verify_artifacts.assert_called_once()
+            readonly.assert_called_once()
+            self.assertFalse((run_dir / "timeline.json").exists())
 
     def test_observe_download_beacon_classifies_new_odin_endpoint_as_hit(self):
         with tempfile.TemporaryDirectory() as tmp:
