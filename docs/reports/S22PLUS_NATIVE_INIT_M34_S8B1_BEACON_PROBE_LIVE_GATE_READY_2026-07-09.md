@@ -152,6 +152,11 @@ clean MISS is classified as a stop before B2: investigate GENI I2C/max77705/
 TypeC reachability. Rollback-only, incomplete timeline, nonzero `rc`, or hash
 mismatch all fail closed and do not authorize B2.
 
+The S8B1 helper tests now cross-check the helper's own
+`record_timeline_event()` + `write_result_summary()` output against the analyzer
+for both HIT and MISS, so the next live run's machine-readable evidence path is
+tested end-to-end at the host level.
+
 ## Validation
 
 Commands run:
@@ -178,9 +183,10 @@ readonly-preflight: OK, no reboot/flash/write
 draft exception generation: OK
 active-template generation: OK
 default run without active AGENTS exception: correctly fails closed
-S8B1 tests: Ran 16 tests, OK
+S8B1 tests: Ran 18 tests, OK
 S8B1 analyzer tests: Ran 7 tests, OK
-M34/S7A2/S8B1/analyzer regression: Ran 38 tests, OK
+S8B1/analyzer evidence-path cross-check: included in S8B1 tests
+M34/S7A2/S8B1/analyzer regression: Ran 40 tests, OK
 ```
 
 ## Read-Only Current Device Note

@@ -10,6 +10,7 @@ from pathlib import Path
 
 
 SCRIPT = Path("workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py")
+ANALYZER_SCRIPT = Path("workspace/public/src/scripts/revalidation/analyze_s22plus_m34_s8b1_result.py")
 MANIFEST = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_8/manifest.json")
 
 
@@ -18,6 +19,18 @@ def load_module():
     if script_dir not in sys.path:
         sys.path.insert(0, script_dir)
     spec = importlib.util.spec_from_file_location("s22plus_m34_s8b1_beacon_probe_live_gate", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def load_analyzer():
+    script_dir = str(ANALYZER_SCRIPT.parent.resolve())
+    if script_dir not in sys.path:
+        sys.path.insert(0, script_dir)
+    spec = importlib.util.spec_from_file_location("analyze_s22plus_m34_s8b1_result", ANALYZER_SCRIPT)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     sys.modules[spec.name] = module
@@ -284,6 +297,57 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertIn("beacon_hit_rollback_flash_start", names)
             self.assertIn("beacon_hit_rollback_flash_done", names)
             self.assertIn("beacon_hit_rollback_boot_ready", names)
+
+    def test_helper_result_and_timeline_are_accepted_by_s8b1_analyzer_for_hit(self):
+        analyzer = load_analyzer()
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            log_path = run_dir / "result.log"
+            for name in analyzer.REQUIRED_LIVE_PROOF_EVENTS:
+                self.module.record_timeline_event(run_dir, name)
+            self.module.write_result_summary(
+                run_dir,
+                log_path,
+                result="download-beacon-hit",
+                rc=0,
+                rollback_target=self.module.ROLLBACK_MAGISK,
+                rollback_device="/dev/bus/usb/001/002",
+                android_serial="RFCT519XWGK",
+            )
+
+            result_payload = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
+            timeline_payload = json.loads((run_dir / "timeline.json").read_text(encoding="utf-8"))
+            analysis = analyzer.classify_result(result_payload, timeline_payload)
+
+            self.assertEqual(analysis["decision"], analyzer.DECISION_PROCEED_B2)
+            self.assertTrue(analysis["ok_to_advance"])
+            self.assertEqual(analysis["next_stage"], "S8B2")
+            self.assertEqual(analysis["next_probe"], "port0_partner_exists")
+
+    def test_helper_result_and_timeline_are_accepted_by_s8b1_analyzer_for_miss(self):
+        analyzer = load_analyzer()
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            log_path = run_dir / "result.log"
+            for name in analyzer.REQUIRED_LIVE_PROOF_EVENTS:
+                self.module.record_timeline_event(run_dir, name)
+            self.module.write_result_summary(
+                run_dir,
+                log_path,
+                result="download-beacon-miss-parked-manual-download-required",
+                rc=0,
+                rollback_target=self.module.ROLLBACK_MAGISK,
+                rollback_device="/dev/bus/usb/001/002",
+                android_serial="RFCT519XWGK",
+            )
+
+            result_payload = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
+            timeline_payload = json.loads((run_dir / "timeline.json").read_text(encoding="utf-8"))
+            analysis = analyzer.classify_result(result_payload, timeline_payload)
+
+            self.assertEqual(analysis["decision"], analyzer.DECISION_B1_MISS_STOP)
+            self.assertFalse(analysis["ok_to_advance"])
+            self.assertIsNone(analysis["next_stage"])
 
     def test_observe_download_beacon_classifies_new_odin_endpoint_as_hit(self):
         with tempfile.TemporaryDirectory() as tmp:
