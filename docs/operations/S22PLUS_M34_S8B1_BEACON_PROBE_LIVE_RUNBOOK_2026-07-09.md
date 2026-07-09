@@ -36,44 +36,53 @@ S22PLUS-M34-S8B1-BEACON-PROBE-ROLLBACK-FROM-DOWNLOAD
 Latest no-write packet:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z/s22plus_m34_s8b1_prelive_packet.json
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z/s22plus_m34_s8b1_prelive_packet.json
 ```
 
 Packet sidecars:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z/s22plus_m34_s8b1_live_runbook.txt
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z/s22plus_m34_s8b1_active_exception_template.txt
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z/s22plus_m34_s8b1_android_predicate_baseline.json
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z/s22plus_m34_s8b1_android_reset_context_baseline.json
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z/s22plus_m34_s8b1_live_runbook.txt
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z/s22plus_m34_s8b1_active_exception_template.txt
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z/s22plus_m34_s8b1_android_predicate_baseline.json
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z/s22plus_m34_s8b1_android_reset_context_baseline.json
 ```
 
 Pinned hashes:
 
 ```text
-prelive packet                 2b20488162bb630eed0197d426a7c688f3e37f640b11289cc8bae14e81305aa6
-live runbook                   a4a24808320b57409be34e237fcc72ec3ba5c1458177bde65e0813cd88eebada
+prelive packet                 fd754158459b78f4b2e6ae5b136b5d53ac05cdb3c7c72b83a483da742509e2b1
+live runbook                   e3b7e41ec26fdfb03f38142a32d0a4917f5e24088e3b78c7f7cf1084142d96ec
 active exception template       66f1e39a3a01da4be3b100c899fd39c553cf31a014fa47532973daf5e2e8ac8f
-Android predicate baseline      73e0473188a9fec9e8485f14c57211f58ded30a96e277e06824e1321374009cb
-Android reset-context baseline  0488d8cb5d8214d09ddeabe1446fa5ff0c16b46d491425df5e10cfdb54f784b0
+Android predicate baseline      ede39a5ab7e5cd6c674a86efcb28e7035f8530fa1d2f261592032ee5e949806e
+Android reset-context baseline  325d8803548c5b37bbe5b9e22d641c9eebb3cc170ff877b6e99504e85e49ab1c
 ```
 
 The packet embeds the same sidecar hashes under `material_sha256`; the verifier
 recomputes them and rejects drift.
 
-Verify the pinned packet before any live authorization work:
+The pinned packet was verified before the dry-run created its planned dry-run
+directory:
 
 ```text
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py \
   --verify-prelive-packet \
-  workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z/s22plus_m34_s8b1_prelive_packet.json
+  workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z/s22plus_m34_s8b1_prelive_packet.json
 ```
 
 Expected result:
 
 ```text
 verify-prelive-packet ok: packet matches current S8B1 helper contract, selected_serial=RFCT519XWGK; no device action
+```
+
+Do not rerun this verifier after the dry-run unless a fresh packet is generated:
+the verifier intentionally fails once any planned phase directory already
+exists. Stored verifier evidence for this packet is in:
+
+```text
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_packet_verify/
 ```
 
 ## Current Baselines
@@ -155,7 +164,7 @@ Download-mode rollback.
 The exact command sequence is stored in:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z/s22plus_m34_s8b1_live_runbook.txt
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z/s22plus_m34_s8b1_live_runbook.txt
 ```
 
 Use that file as the source of truth for the command lines. Its phases are:
@@ -199,28 +208,29 @@ sha256=0186b2dc881ba1a35565bc34e98c8283513d7fd0fc6aae3c000a88c3f1bbdf48
 The planned run directories are intentionally distinct:
 
 ```text
-preflight: workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z_live_preflight
-template:  workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z_live_template
-dryrun:    workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z_live_dryrun
-live:      workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z_live
-rollback:  workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z_live_rollback
+preflight: workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_live_preflight
+template:  workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_live_template
+dryrun:    workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_live_dryrun
+live:      workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_live
+rollback:  workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_live_rollback
 ```
 
-Do not create these planned directories casually before the live approval flow:
-the packet verifier intentionally checks that they are not already stale.
+The packet verifier checked these planned directories before dry-run. The
+latest dry-run directory now exists by design; the live directory must remain
+uncreated until the attended live command consumes it.
 
 ## Interpretation
 
 Analyze only the live run result as B1 proof:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z_live/result.json
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_live/result.json
 ```
 
 The fallback rollback result is cleanup evidence, not B1 proof:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z_live_rollback/result.json
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_live_rollback/result.json
 ```
 
 Use:
@@ -228,7 +238,7 @@ Use:
 ```text
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   workspace/public/src/scripts/revalidation/analyze_s22plus_m34_s8b1_result.py \
-  workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z_live/result.json \
+  workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_live/result.json \
   --write-report
 ```
 
@@ -267,10 +277,10 @@ PMIC/RDX abnormal reset before the observation window = fail, not HIT.
 
 Repo `AGENTS.md` now matches the verified S8B1 full candidate byte-for-byte
 and `--verify-agents-candidate AGENTS.md` passes with exact active-template
-coverage. The default no-live dry-run also passed in:
+coverage. The latest default no-live dry-run also passed in:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z_live_dryrun/
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_live_dryrun/
 ```
 
 That dry-run verified artifacts, Android stability, current Magisk boot hash,
@@ -278,10 +288,11 @@ the active `AGENTS.md` exception, the S8B1 Android predicate baseline, and the
 future B2 hint path. It performed no Odin transfer, reboot, live flash, or
 rollback.
 
-The earlier prelive packet verifier evidence remains the historical
-pre-dry-run staleness proof. Since the planned dry-run directory now exists,
-do not rerun that same packet verifier expecting all planned phase directories
-to be empty unless a fresh packet is generated.
+The latest packet verifier ran before this dry-run and passed in
+`workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_packet_verify/`.
+Since the planned dry-run directory now exists, do not rerun that same packet
+verifier expecting all planned phase directories to be empty unless another
+fresh packet is generated. The planned live directory remains uncreated.
 
 The next live step remains blocked on explicit operator live approval and the
 live ack token. Until then, only no-write checks, dry-run checks, and report
