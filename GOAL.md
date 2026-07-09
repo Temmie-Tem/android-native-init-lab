@@ -6,6 +6,37 @@ safety invariants and flash gates are binding and override any sub-goal.**
 
 > **🔒 OPERATOR STEER (2026-07-09, Claude — SECRET DISCIPLINE, recurring): REDACT THE S22+ DEVICE SERIAL IN GENERATED ARTIFACTS AT SOURCE.** The device serial (`ro.serialno`, the `adb devices`/`--serial` value) was committed into reports/GOAL/source **3× in one session**. It must NEVER be committed (it is already public-pushed once). Fix at source: any helper that captures `getprop`, `adb devices -l`, `lsusb`, or passes `--serial` must **write a redacted placeholder (`<S22_SERIAL_REDACTED>`) into committed artifacts**, keeping the real value only in gitignored `workspace/private/` run dirs. Do not paste raw `adb`/getprop output into `docs/`, `GOAL.md`, `AGENTS.md`, tests, or `workspace/public/` source. Before any commit touching those paths, `git grep -n <serial-pattern>` and redact. Same for BSSID/MAC/PSK/SSID/IP/tunnel-URL/KASLR.
 
+> **S22+ CURRENT FRONTIER (2026-07-09 17:56 KST / 2026-07-09 08:56 UTC) — M34 S9 HOST BUILD COMPLETE; DEVLINK SUBSTRATE LOAD-SET PINNED; NO ACTIVE LIVE AUTH.**
+> Codex updated the M34 runtime-gadget split builder and native-init template for
+> `S9`, regenerated
+> `workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_10/`,
+> and documented the host build in
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S9_DEVLINK_SUBSTRATE_B1_HOST_BUILD_2026-07-09.md`.
+> S9 keeps the S8B1A wide B1 beacon (`/sys/class/typec/port0` OR
+> `/sys/bus/i2c/devices/*-0066`) and still skips configfs, UDC bind, role writes,
+> soft_connect, persistent mounts, block writes, and Android/Magisk handoff. It
+> now pins the full Waipio devlink substrate load-set
+> (`clk-qcom`, `pinctrl-msm`, `qcom_rpmh`, `icc-rpmh`, `icc-bcm-voter`,
+> `gcc-waipio`, `pinctrl-waipio`, `clk-rpmh`, `rpmh-regulator`,
+> `gdsc-regulator`, `qnoc-waipio`, `arm_smmu`, `qcom-pdc`) while the actual
+> dep-complete delta from the existing S8B1A closure is exactly
+> `qcom-pdc.ko`, `pinctrl-msm.ko`, and `pinctrl-waipio.ko`.
+>
+> S9 AP.tar.md5 SHA256:
+> `41a76ac1404c99273e9ec3aeae591dbfc94e1aa83daf97de9a7068e3c155022f`.
+> Padded boot.img SHA256:
+> `509a05e4ff97dad39ca52eae6c57169e20d3ddbf1524d292e8c91b9286a80414`.
+> `/init` SHA256:
+> `9f231faff6154dc08b6b4d1b6cd169e82c81bfdc1e8d02cc92d1ea5a02dbd390`.
+> Module-list SHA256:
+> `c07425f4c738b53822e9f6783a142a2b5eafd72a15bd34c06fb3b49357c8fe26`.
+> S8B1 and S8B1A hashes stayed byte-stable in v0.10. Validation passed:
+> S9 smoke build, full v0.10 build, `tests/test_s22plus_m34_runtime_gadget_split_build.py`
+> (`Ran 5`, `OK`), and `git diff --check`. No live helper or `AGENTS.md`
+> exception exists yet; any S9 live run requires a fresh fail-closed helper,
+> SHA-pinned boot-only exception, default dry-run, rollback proof, and explicit
+> operator approval.
+
 > **✅ S9 SUBSTRATE .ko LOAD-SET CONFIRMED (2026-07-09, Claude — vendor module DB + live lsmod): all closure drivers are LOADABLE vendor modules, none GKI-built-in.** Waipio (SM8450) set, frameworks/parents before instances (exact order from modules.dep): `clk-qcom` `pinctrl-msm` `qcom-rpmh` `icc-rpmh` `icc-bcm-voter` → `gcc-waipio` `pinctrl-waipio` `clk-rpmh` `rpmh-regulator` `gdsc-regulator` `qnoc-waipio` `arm_smmu` `qcom-pdc` → then existing `gpi`/`msm-geni-se`/`i2c-msm-geni` → max77705/pdic/altmode → dwc3/typec. Use waipio NOT diwali/parrot/cape. Confirm transitive deps (qcom-rpmh→smem/cmd-db; arm_smmu→qcom_iommu_util) via modules.dep. Details in the S9 report's "Resolved .ko load-set" section.
 
 > **🎯 OPERATOR STEER (2026-07-09, Claude — ROOT CAUSE FOUND via live devlink walk): B1=MISS BECAUSE THE ENTIRE FOUNDATIONAL SoC SUBSTRATE IS MISSING. WE READ THE modules.dep SYMBOL GRAPH; DEVICE PROBE NEEDS THE DT PHANDLE-SUPPLIER GRAPH. S9 = LOAD THE DEVLINK-CLOSURE SUBSTRATE, THEN RE-RUN B1.**

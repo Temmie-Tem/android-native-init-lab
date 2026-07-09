@@ -20,9 +20,11 @@
  * recipe but uses reboot(download) as a one-bit beacon for whether the max77705
  * TypeC port or exact Android-observed I2C device appeared. Stage 8B1A keeps
  * the same recipe but scans all I2C adapter entries for any *-0066 max77705
- * device to remove the Android bus-number assumption. S1..S7A2 remain direct-PID1 park
- * candidates with no Android handoff, no reboot request, no persistent mount,
- * and no block writes.
+ * device to remove the Android bus-number assumption. Stage 9 keeps the wide
+ * B1 beacon, pins the resolved Waipio devlink supplier load-set, and adds the
+ * missing provider modules before GENI I2C/max77705 probing. S1..S7A2 remain
+ * direct-PID1 park candidates with no Android handoff, no reboot request, no
+ * persistent mount, and no block writes.
  */
 
 #include <stdint.h>
@@ -136,6 +138,8 @@ static const char k_marker[] =
     "configfs_gadget=0 stock_order=0 udc_none=0 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=0 functionfs=0 stock_composite=0 geni_i2c_transport=1 i2c_msm_geni=1 gpi_dma=1 msm_geni_se=1 role_write_discriminator=0 s8_beacon_probe=typec_port_or_i2c_device b1=1 "
 #elif M34_STAGE == 10
     "configfs_gadget=0 stock_order=0 udc_none=0 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=0 functionfs=0 stock_composite=0 geni_i2c_transport=1 i2c_msm_geni=1 gpi_dma=1 msm_geni_se=1 role_write_discriminator=0 s8_beacon_probe=typec_port_or_i2c_any_0066 b1a=1 "
+#elif M34_STAGE == 11
+    "configfs_gadget=0 stock_order=0 udc_none=0 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=0 functionfs=0 stock_composite=0 geni_i2c_transport=1 i2c_msm_geni=1 gpi_dma=1 msm_geni_se=1 role_write_discriminator=0 s8_beacon_probe=typec_port_or_i2c_any_0066 s9_b1=1 devlink_supplier_closure=1 substrate_load_set=waipio_devlink clk_qcom=1 qcom_rpmh=1 icc_rpmh=1 icc_bcm_voter=1 gcc_waipio=1 clk_rpmh=1 rpmh_regulator=1 gdsc_regulator=1 qnoc_waipio=1 arm_smmu=1 qcom_pdc=1 pinctrl_msm=1 pinctrl_waipio=1 driver_load_only=1 manual_power_write=0 "
 #endif
 #if M34_STAGE >= 9
     "no_android_handoff=1 reboot_request=download download_beacon=1 "
@@ -473,7 +477,7 @@ static int s8_b1_typec_port_or_i2c_present(void) {
     return path_present("/sys/class/typec/port0") || path_present("/sys/bus/i2c/devices/57-0066");
 }
 
-#if M34_STAGE == 10
+#if M34_STAGE == 10 || M34_STAGE == 11
 static int cstr_ends_with(const char *s, const char *suffix) {
     size_t slen = cstr_len(s);
     size_t suffix_len = cstr_len(suffix);
@@ -549,6 +553,8 @@ static void s8_beacon_probe(void) {
     sb_puts(&sb, M34_MARKER);
 #if M34_STAGE == 9
     sb_puts(&sb, " phase=s8_b1_probe predicate=typec_port_or_i2c_device present=");
+#elif M34_STAGE == 11
+    sb_puts(&sb, " phase=s9_b1_probe predicate=typec_port_or_i2c_any_0066 present=");
 #else
     sb_puts(&sb, " phase=s8_b1a_probe predicate=typec_port_or_i2c_any_0066 present=");
 #endif
@@ -568,6 +574,8 @@ static void s8_beacon_probe(void) {
         sb_puts(&rb, M34_MARKER);
 #if M34_STAGE == 9
         sb_puts(&rb, " phase=s8_b1_reboot_returned rc=");
+#elif M34_STAGE == 11
+        sb_puts(&rb, " phase=s9_b1_reboot_returned rc=");
 #else
         sb_puts(&rb, " phase=s8_b1a_reboot_returned rc=");
 #endif

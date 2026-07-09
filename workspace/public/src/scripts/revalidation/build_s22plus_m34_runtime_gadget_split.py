@@ -24,6 +24,9 @@ S8B1: S7A2 module recipe plus a 1-bit reboot(download) beacon probe for
       max77705 TypeC port or exact I2C-device presence; false parks.
 S8B1A: Same as S8B1 but scans all I2C adapter entries for any *-0066 max77705
        device, avoiding the Android-only bus-number assumption.
+S9: S8B1A B1 beacon again, but with the resolved Waipio devlink supplier
+    substrate load-set pinned and the missing provider modules added before
+    GENI I2C/max77705 probe.
 """
 
 from __future__ import annotations
@@ -63,7 +66,7 @@ from build_s22plus_inplace_m4t1_magiskboot import (
 from build_s22plus_m32_wdt_hs_acm import EXPECTED_M32_MODULES, dependency_complete_wdt_hs_order
 
 
-DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_9")
+DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_10")
 DEFAULT_TEMPLATE_SOURCE = Path("workspace/public/src/native-init/s22plus_init_m34_runtime_gadget_split.c")
 DEFAULT_VENDOR_RAMDISK = m23.DEFAULT_VENDOR_RAMDISK
 DEFAULT_LZ4 = m23.DEFAULT_LZ4
@@ -169,6 +172,26 @@ M34_S7A2_EXPECTED_NEW_MODULES = [
     "max77705_charger.ko",
     "max77705-fuelgauge.ko",
 ]
+M34_S9_DEVLINK_SUPPLIER_LOAD_SET = [
+    "clk-qcom.ko",
+    "pinctrl-msm.ko",
+    "qcom_rpmh.ko",
+    "icc-rpmh.ko",
+    "icc-bcm-voter.ko",
+    "gcc-waipio.ko",
+    "pinctrl-waipio.ko",
+    "clk-rpmh.ko",
+    "rpmh-regulator.ko",
+    "gdsc-regulator.ko",
+    "qnoc-waipio.ko",
+    "arm_smmu.ko",
+    "qcom-pdc.ko",
+]
+M34_S9_EXPECTED_NEW_MODULES = [
+    "qcom-pdc.ko",
+    "pinctrl-msm.ko",
+    "pinctrl-waipio.ko",
+]
 M34_S7A_RISK_MODULES = [
     "memory_dump_v2.ko",
     "sec_debug_region.ko",
@@ -204,6 +227,7 @@ class RuntimeStage:
     geni_i2c_transport_parity: bool = False
     typec_role_write_discriminator: bool = False
     beacon_probe: str | None = None
+    devlink_supplier_closure: bool = False
 
     @property
     def lower(self) -> str:
@@ -411,6 +435,34 @@ STAGES = [
         typec_role_write_discriminator=False,
         beacon_probe="typec_port_or_i2c_any_0066",
     ),
+    RuntimeStage(
+        "S9",
+        11,
+        (
+            "S8B1A wide B1 download-beacon probe with the devlink supplier substrate "
+            "load-set pinned and the missing qcom-pdc/waipio pinctrl provider modules "
+            "added before GENI I2C/max77705"
+        ),
+        configfs_gadget=False,
+        udc_none=False,
+        max_speed_high_speed=False,
+        usb_role_force=False,
+        ssusb_speed_high_speed=False,
+        ssusb_mode_peripheral=False,
+        udc_bind=False,
+        soft_connect=False,
+        stock_softdep_parity=True,
+        qmp_module_included=True,
+        eud_module_included=True,
+        ucsi_glink_included=True,
+        session_producer_parity=True,
+        max77705_session_modules_included=True,
+        typec_readback_markers=False,
+        geni_i2c_transport_parity=True,
+        typec_role_write_discriminator=False,
+        beacon_probe="typec_port_or_i2c_any_0066",
+        devlink_supplier_closure=True,
+    ),
 ]
 
 
@@ -593,6 +645,53 @@ def dependency_complete_session_producer_i2c_order(
     closure["session_producer_targets"] = list(M34_S7A_SESSION_PRODUCER_TARGETS)
     closure["session_producer_new_modules"] = [
         module for module in closure["additional_new_modules"] if module in M34_S7A_EXPECTED_NEW_MODULES
+    ]
+    closure["contains_sec_debug_region"] = "sec_debug_region.ko" in closure["modules"]
+    closure["requires_live_risk_review"] = bool(closure["risk_modules"])
+    return closure
+
+
+def dependency_complete_devlink_supplier_i2c_order(
+    *,
+    dep_map: dict[str, list[str]],
+    recovery_basenames: list[str],
+    base_closure: dict[str, Any],
+) -> dict[str, Any]:
+    closure = _dependency_complete_order(
+        dep_map=dep_map,
+        recovery_basenames=recovery_basenames,
+        base_closure=base_closure,
+        stage_label="S9",
+        order_model=(
+            "modules.dep topological order with stock modules.load.recovery tie-breaks plus "
+            "S8B1A wide B1 recipe and the resolved Waipio devlink supplier substrate load-set"
+        ),
+        additional_targets=list(M34_S9_DEVLINK_SUPPLIER_LOAD_SET),
+        expected_new_modules=list(M34_S9_EXPECTED_NEW_MODULES),
+    )
+    closure["stock_softdep_targets"] = list(M34_S6_STOCK_SOFTDEP_TARGETS)
+    closure["stock_softdep_new_modules"] = list(M34_S6_EXPECTED_NEW_MODULES)
+    closure["geni_i2c_transport_targets"] = list(M34_S7A2_I2C_GENI_TRANSPORT_TARGETS)
+    closure["geni_i2c_transport_new_modules"] = [
+        module for module in M34_S7A2_I2C_GENI_TRANSPORT_TARGETS if module in closure["additional_new_modules"]
+    ]
+    closure["geni_i2c_transport_order_actual"] = [
+        module for module in closure["modules"] if module in M34_S7A2_I2C_GENI_TRANSPORT_TARGETS
+    ]
+    closure["session_producer_targets"] = list(M34_S7A_SESSION_PRODUCER_TARGETS)
+    closure["session_producer_new_modules"] = [
+        module for module in closure["additional_new_modules"] if module in M34_S7A_EXPECTED_NEW_MODULES
+    ]
+    closure["devlink_supplier_load_set"] = list(M34_S9_DEVLINK_SUPPLIER_LOAD_SET)
+    closure["devlink_supplier_targets"] = list(M34_S9_DEVLINK_SUPPLIER_LOAD_SET)
+    closure["devlink_supplier_new_modules"] = list(closure["additional_new_modules"])
+    closure["devlink_supplier_order_actual"] = [
+        module for module in closure["modules"] if module in M34_S9_DEVLINK_SUPPLIER_LOAD_SET
+    ]
+    closure["devlink_supplier_already_present_modules"] = [
+        module
+        for module in M34_S9_DEVLINK_SUPPLIER_LOAD_SET
+        if module in base_closure["modules"]
     ]
     closure["contains_sec_debug_region"] = "sec_debug_region.ko" in closure["modules"]
     closure["requires_live_risk_review"] = bool(closure["risk_modules"])
@@ -794,6 +893,28 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
         )
     else:
         required_strings.append("role_write_discriminator=0")
+    if stage.devlink_supplier_closure:
+        required_strings.extend(
+            [
+                "devlink_supplier_closure=1",
+                "substrate_load_set=waipio_devlink",
+                "clk_qcom=1",
+                "qcom_rpmh=1",
+                "icc_rpmh=1",
+                "icc_bcm_voter=1",
+                "gcc_waipio=1",
+                "clk_rpmh=1",
+                "rpmh_regulator=1",
+                "gdsc_regulator=1",
+                "qnoc_waipio=1",
+                "arm_smmu=1",
+                "qcom_pdc=1",
+                "pinctrl_msm=1",
+                "pinctrl_waipio=1",
+                "driver_load_only=1",
+                "manual_power_write=0",
+            ]
+        )
     if stage.beacon_probe:
         required_strings.extend(
             [
@@ -814,10 +935,12 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
                 ]
             )
         elif stage.beacon_probe == "typec_port_or_i2c_any_0066":
+            phase = "phase=s9_b1_probe" if stage.label == "S9" else "phase=s8_b1a_probe"
+            flag = "s9_b1=1" if stage.label == "S9" else "b1a=1"
             required_strings.extend(
                 [
-                    "b1a=1",
-                    "phase=s8_b1a_probe",
+                    flag,
+                    phase,
                     "predicate=typec_port_or_i2c_any_0066",
                     "/sys/bus/i2c/devices",
                     "*-0066",
@@ -838,12 +961,32 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
             forbidden_strings.extend([b"phase=s8_b1a_probe", b"predicate=typec_port_or_i2c_any_0066", b"*-0066"])
         elif stage.beacon_probe == "typec_port_or_i2c_any_0066":
             forbidden_strings.extend([b"phase=s8_b1_probe", b"predicate=typec_port_or_i2c_device", b"/sys/bus/i2c/devices/57-0066"])
+            if stage.label == "S9":
+                forbidden_strings.append(b"phase=s8_b1a_probe")
+    else:
+        forbidden_strings.extend([
+            b"devlink_supplier_closure=1",
+            b"substrate_load_set=waipio_devlink",
+            b"qcom_pdc=1",
+            b"pinctrl_waipio=1",
+        ])
+    if not stage.devlink_supplier_closure:
+        forbidden_strings.extend([
+            b"devlink_supplier_closure=1",
+            b"substrate_load_set=waipio_devlink",
+            b"qcom_pdc=1",
+            b"pinctrl_waipio=1",
+        ])
+    if stage.beacon_probe:
+        if stage.label != "S9":
+            forbidden_strings.append(b"phase=s9_b1_probe")
     else:
         forbidden_strings.extend([
             b" reboot_request=download ",
             b" download_beacon=1 ",
             b"phase=s8_b1_probe",
             b"phase=s8_b1a_probe",
+            b"phase=s9_b1_probe",
             b"/sys/bus/i2c/devices/57-0066",
             b"/sys/bus/i2c/devices",
             b"LINUX_REBOOT",
@@ -1138,9 +1281,16 @@ def main(argv: list[str]) -> int:
         recovery_basenames=vendor_metadata["recovery_basenames"],
         base_closure=stock_softdep_closure,
     )
+    devlink_supplier_i2c_closure = dependency_complete_devlink_supplier_i2c_order(
+        dep_map=vendor_metadata["dep_map"],
+        recovery_basenames=vendor_metadata["recovery_basenames"],
+        base_closure=session_producer_i2c_closure,
+    )
     closure_by_stage = {
         stage.label: (
-            session_producer_i2c_closure
+            devlink_supplier_i2c_closure
+            if stage.devlink_supplier_closure
+            else session_producer_i2c_closure
             if stage.geni_i2c_transport_parity
             else session_producer_closure
             if stage.session_producer_parity
@@ -1188,7 +1338,7 @@ def main(argv: list[str]) -> int:
                 "M34 stock-ordered runtime gadget split plus S4 ssusb role-lever, S5 soft_connect, "
                 "S6 stock-speed QMP/EUD/ucsi, S7A max77705/PDIC/altmode session-producer, "
                 "S7A2 GENI I2C transport, S8B1 exact-bus download beacon, and S8B1A widened "
-                "I2C-device download-beacon host-build candidates"
+                "I2C-device download beacon, plus S9 devlink-supplier substrate B1 host-build candidates"
             ),
         "stock_recipe_report": "docs/reports/S22PLUS_STOCK_USB_GADGET_ACM_RECIPE_2026-07-09.md",
         "stages": stage_manifests,
@@ -1216,12 +1366,13 @@ def main(argv: list[str]) -> int:
                     "geni_i2c_transport_parity": stage.geni_i2c_transport_parity,
                     "typec_role_write_discriminator": stage.typec_role_write_discriminator,
                     "beacon_probe": stage.beacon_probe,
+                    "devlink_supplier_closure": stage.devlink_supplier_closure,
                 }
                 for stage in selected_stages
             ],
             "live_order": ["S1", "S2", "S3", "S4", "S5", "S6"],
             "host_build_order": [stage.label for stage in selected_stages],
-            "next_host_only_candidate": "S8B1A",
+            "next_host_only_candidate": "S9",
             "p30_is_s0": True,
             "module_closure_matches_p30_and_m32_for_s1_s5": True,
             "s6_module_closure_restores_stock_dwc3_softdep": True,
@@ -1253,6 +1404,16 @@ def main(argv: list[str]) -> int:
             "s8b1a_keeps_s7a2_module_recipe": True,
             "s8b1a_widens_i2c_adapter_number_assumption": True,
             "s8b1a_skips_downstream_configfs_and_udc_to_isolate_probe": True,
+            "s9_download_beacon_probe": "typec_port_or_i2c_any_0066",
+            "s9_true_action": "reboot(download)",
+            "s9_false_action": "park",
+            "s9_probe_paths": ["/sys/class/typec/port0", "/sys/bus/i2c/devices/*-0066"],
+            "s9_starts_from_s8b1a_b1_recipe": True,
+            "s9_closes_devlink_supplier_substrate": True,
+            "s9_devlink_supplier_load_set": list(M34_S9_DEVLINK_SUPPLIER_LOAD_SET),
+            "s9_devlink_supplier_targets": list(M34_S9_DEVLINK_SUPPLIER_LOAD_SET),
+            "s9_devlink_supplier_new_modules": list(M34_S9_EXPECTED_NEW_MODULES),
+            "s9_skips_downstream_configfs_and_udc_to_isolate_probe": True,
         },
         "safety": {
             "boot_only": True,
@@ -1323,6 +1484,12 @@ def main(argv: list[str]) -> int:
             "stage_s8b1a_true_reboot_download_false_park": True,
             "stage_s8b1a_no_configfs_udc_or_role_write": True,
             "stage_s8b1a_widens_i2c_adapter_number_assumption": True,
+            "stage_s9_starts_from_s8b1a_b1_recipe": True,
+            "stage_s9_closes_devlink_supplier_substrate": True,
+            "stage_s9_beacon_probe": "typec_port_or_i2c_any_0066",
+            "stage_s9_true_reboot_download_false_park": True,
+            "stage_s9_no_configfs_udc_or_role_write": True,
+            "stage_s9_driver_load_only_no_manual_power_write": True,
         },
         "vendor": {
             "vendor_ramdisk": display_path(root, vendor_ramdisk),
