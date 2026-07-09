@@ -52,6 +52,10 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > has been inserted. A first-class `--readonly-preflight` mode now verifies
 > artifacts, Android identity/stability, current boot hash, and host snapshot
 > without requiring an active `AGENTS.md` exception and without reboot/flash.
+> A no-device `--print-live-runbook` mode now prints the exact next commands
+> for read-only preflight, active exception review/insertion, dry-run, live,
+> manual-download rollback, and analyzer gates without checking AGENTS.md or
+> touching Android.
 > Live/rollback outcomes now also write machine-readable
 > `result.json` using schema `s22plus_m34_s8b1_result_v1`, so B1 HIT/MISS and
 > rollback state do not depend only on text-log parsing. The helper now also
@@ -77,9 +81,10 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > S8B1 tests now cross-check the helper's actual `record_timeline_event()` +
 > `write_result_summary()` output against the analyzer for both HIT and MISS.
 > Validation passed: helper `py_compile`, `--offline-check`,
-> `--readonly-preflight`, draft/active-template generation, S8B1 tests
-> (`Ran 20 tests`, `OK`), S8B1 analyzer tests (`Ran 20 tests`, `OK`),
-> M34/S7A2 regression including S8B1/analyzer (`Ran 55 tests`, `OK`), and
+> `--readonly-preflight`, `--print-live-runbook`, draft/active-template
+> generation, S8B1 tests (`Ran 21 tests`, `OK`), S8B1 analyzer tests
+> (`Ran 20 tests`, `OK`), M34/S7A2 regression including S8B1/analyzer
+> (`Ran 56 tests`, `OK`), and
 > default run fail-closed without active authorization.
 >
 > Read-only host status after the operator's RDX/download note: the phone is

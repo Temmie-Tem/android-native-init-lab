@@ -235,6 +235,52 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             readonly.assert_called_once()
             self.assertFalse((run_dir / "timeline.json").exists())
 
+    def test_print_live_runbook_skips_agents_and_android_gates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            odin = root / "odin4"
+            odin.write_text("#!/bin/sh\n", encoding="utf-8")
+            run_dir = root / "run"
+            with (
+                mock.patch.object(self.module, "verify_m34_artifacts") as verify_artifacts,
+                mock.patch.object(self.module, "verify_agents_exception", side_effect=AssertionError("AGENTS gate should be skipped")),
+                mock.patch.object(self.module, "run_android_readonly_preflight", side_effect=AssertionError("Android gate should be skipped")),
+            ):
+                stdout = io.StringIO()
+                with contextlib.redirect_stdout(stdout):
+                    rc = self.module.main(
+                        [
+                            "--print-live-runbook",
+                            "--serial",
+                            "RFCT519XWGK",
+                            "--odin",
+                            str(odin),
+                            "--m34-ap",
+                            str(root / "candidate.tar.md5"),
+                            "--m34-manifest",
+                            str(root / "manifest.json"),
+                            "--magisk-rollback-ap",
+                            str(root / "magisk.tar.md5"),
+                            "--stock-rollback-ap",
+                            str(root / "stock.tar.md5"),
+                            "--run-dir",
+                            str(run_dir),
+                        ]
+                    )
+
+            self.assertEqual(rc, 0)
+            verify_artifacts.assert_called_once()
+            text = stdout.getvalue()
+            self.assertIn("--readonly-preflight", text)
+            self.assertIn("--print-agents-exception-active-template", text)
+            self.assertIn(f"--ack {self.module.LIVE_ACK_TOKEN}", text)
+            self.assertIn(f"--ack {self.module.ROLLBACK_ACK_TOKEN}", text)
+            self.assertIn("--require-advance", text)
+            self.assertIn("--require-live-next-stage", text)
+            self.assertIn("--serial RFCT519XWGK", text)
+            self.assertIn("live_runbook_printed=1", (run_dir / "s22plus_m34_s8b1_beacon_probe_live_gate.txt").read_text(encoding="utf-8"))
+            self.assertFalse((run_dir / "timeline.json").exists())
+
     def test_write_result_summary_creates_machine_readable_result_json(self):
         with tempfile.TemporaryDirectory() as tmp:
             run_dir = Path(tmp)

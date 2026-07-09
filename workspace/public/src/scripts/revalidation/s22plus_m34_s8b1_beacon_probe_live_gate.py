@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shlex
 import sys
 import time
 from dataclasses import dataclass
@@ -600,6 +601,68 @@ def write_result_analysis(run_dir: Path, log_path: Path, result_json: Path) -> N
         append_log(log_path, f"result_analysis_error={type(exc).__name__}: {exc}")
 
 
+def shell_cmd(parts: list[str]) -> str:
+    return " ".join(shlex.quote(part) for part in parts)
+
+
+def optional_serial_args(serial: str | None) -> list[str]:
+    return ["--serial", serial] if serial else []
+
+
+def live_runbook(args: argparse.Namespace) -> str:
+    helper = "workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py"
+    analyzer = "workspace/public/src/scripts/revalidation/analyze_s22plus_m34_s8b1_result.py"
+    base = ["PYTHONPYCACHEPREFIX=/tmp/a90_pycache", "python3", helper]
+    analyze_base = ["PYTHONPYCACHEPREFIX=/tmp/a90_pycache", "python3", analyzer]
+    common_android = [
+        "--android-stability-samples",
+        str(args.android_stability_samples),
+        "--android-stability-interval-sec",
+        str(args.android_stability_interval_sec),
+        *optional_serial_args(args.serial),
+    ]
+    live_args = [
+        "--observe-sec",
+        str(args.observe_sec),
+        "--snapshot-interval-sec",
+        str(args.snapshot_interval_sec),
+        "--post-flash-disconnect-wait-sec",
+        str(args.post_flash_disconnect_wait_sec),
+        "--manual-download-wait-sec",
+        str(args.manual_download_wait_sec),
+        "--odin-wait-sec",
+        str(args.odin_wait_sec),
+        "--android-wait-sec",
+        str(args.android_wait_sec),
+        "--rollback-target",
+        args.rollback_target,
+    ]
+    lines = [
+        "# S22+ M34 S8B1 live runbook (no command below inserts AGENTS.md by itself)",
+        "# 1. No-write readiness check",
+        shell_cmd([*base, "--readonly-preflight", *common_android]),
+        "",
+        "# 2. Print the active AGENTS.md exception template, then insert it manually after review",
+        shell_cmd([*base, "--print-agents-exception-active-template"]),
+        "",
+        "# 3. After AGENTS.md has the active exception, run the default dry-run gate",
+        shell_cmd([*base, *common_android]),
+        "",
+        "# 4. Live gate with explicit ack token",
+        shell_cmd([*base, "--live", "--ack", LIVE_ACK_TOKEN, *common_android, *live_args]),
+        "",
+        "# 5. If the result is MISS and the device is manually placed in Download mode, rollback",
+        shell_cmd([*base, "--rollback-from-download", "--ack", ROLLBACK_ACK_TOKEN, "--rollback-target", args.rollback_target]),
+        "",
+        "# 6. Interpret the resulting run directory",
+        shell_cmd([*analyze_base, "<run-dir>/result.json", "--write-report"]),
+        shell_cmd([*analyze_base, "<run-dir>/result.json", "--require-advance"]),
+        shell_cmd([*analyze_base, "<run-dir>/result.json", "--require-live-next-stage"]),
+        "",
+    ]
+    return "\n".join(lines)
+
+
 def wait_for_odin_absent(odin: Path, log_path: Path, label: str, wait_sec: int) -> bool:
     deadline = time.monotonic() + wait_sec
     while True:
@@ -773,6 +836,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--rollback-target", choices=[ROLLBACK_MAGISK, ROLLBACK_STOCK], default=ROLLBACK_MAGISK)
     parser.add_argument("--offline-check", action="store_true")
     parser.add_argument("--readonly-preflight", action="store_true")
+    parser.add_argument("--print-live-runbook", action="store_true")
     parser.add_argument("--print-agents-exception-draft", action="store_true")
     parser.add_argument("--print-agents-exception-active-template", action="store_true")
     parser.add_argument("--live", action="store_true")
@@ -785,6 +849,7 @@ def main(argv: list[str]) -> int:
         for enabled in (
             args.offline_check,
             args.readonly_preflight,
+            args.print_live_runbook,
             args.print_agents_exception_draft,
             args.print_agents_exception_active_template,
             args.live,
@@ -795,7 +860,8 @@ def main(argv: list[str]) -> int:
     if modes > 1:
         raise SystemExit(
             "--offline-check, --readonly-preflight, --print-agents-exception-draft, "
-            "--print-agents-exception-active-template, --live, and --rollback-from-download are mutually exclusive"
+            "--print-agents-exception-active-template, --print-live-runbook, --live, "
+            "and --rollback-from-download are mutually exclusive"
         )
     if args.observe_sec < 30:
         raise SystemExit("--observe-sec must be at least 30 for the M34 S8B1 download-beacon probe")
@@ -866,6 +932,11 @@ def main(argv: list[str]) -> int:
             "readonly-preflight ok: M34 S8B1 candidate, rollback APs, Android stability, "
             f"and current boot hash verified for {selected_serial}; no AGENTS exception required; log={log_path}"
         )
+        return 0
+
+    if args.print_live_runbook:
+        append_log(log_path, "live_runbook_printed=1 device_action=0 agents_exception_checked=0 android_checked=0")
+        print(live_runbook(args))
         return 0
 
     verify_agents_exception(root, log_path)
