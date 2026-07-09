@@ -343,6 +343,8 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertEqual(packet["packet_run_dir"], str(run_dir))
             self.assertEqual(planned_live_run_dir, Path(f"{run_dir}_live"))
             self.assertFalse(planned_live_run_dir.exists())
+            self.assertEqual(packet["planned_result_json"], str(planned_live_run_dir / "result.json"))
+            self.assertEqual(packet["planned_phase_run_dirs"]["live"], str(planned_live_run_dir))
             runbook = (run_dir / "s22plus_m34_s8b1_live_runbook.txt").read_text(encoding="utf-8")
             active_template = (run_dir / "s22plus_m34_s8b1_active_exception_template.txt").read_text(encoding="utf-8")
             self.assertIn(str(root / "candidate.tar.md5"), runbook)
@@ -354,6 +356,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertIn(str(planned_live_run_dir / "result.json"), runbook)
             for phase in ("preflight", "template", "dryrun", "rollback"):
                 phase_dir = Path(f"{planned_live_run_dir}_{phase}")
+                self.assertEqual(packet["planned_phase_run_dirs"][phase], str(phase_dir))
                 self.assertIn(str(phase_dir), runbook)
                 self.assertFalse(phase_dir.exists())
             self.assertNotIn(str(run_dir / "result.json"), runbook)
@@ -381,6 +384,16 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
         self.assertEqual(self.module.runbook_phase_run_dir(base, "preflight"), Path("/tmp/s8b1-live_preflight"))
         self.assertEqual(self.module.runbook_phase_run_dir(base, "template"), Path("/tmp/s8b1-live_template"))
         self.assertIsNone(self.module.runbook_phase_run_dir(None, "live"))
+        self.assertEqual(
+            self.module.runbook_phase_run_dirs(base),
+            {
+                "preflight": "/tmp/s8b1-live_preflight",
+                "template": "/tmp/s8b1-live_template",
+                "dryrun": "/tmp/s8b1-live_dryrun",
+                "live": "/tmp/s8b1-live",
+                "rollback": "/tmp/s8b1-live_rollback",
+            },
+        )
 
     def test_write_result_summary_creates_machine_readable_result_json(self):
         with tempfile.TemporaryDirectory() as tmp:

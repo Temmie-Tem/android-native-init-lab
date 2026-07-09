@@ -138,7 +138,9 @@ perform any Odin transfer, reboot, rollback, or partition write. The packet
 directory is separate from the planned live run directory because `--run-dir`
 is created with `exist_ok=False`; the runbook targets distinct not-yet-created
 phase sibling directories for preflight, template, dry-run, live, rollback,
-and analyzer output so the commands can be run after reviewing the packet.
+and analyzer output so the commands can be run after reviewing the packet. The
+packet JSON also records `planned_phase_run_dirs` and `planned_result_json` for
+machine-readable handoff.
 
 Live and rollback paths also write a machine-readable result file:
 

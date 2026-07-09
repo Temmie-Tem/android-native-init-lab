@@ -23,7 +23,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > descriptor/composition stays downstream until a candidate electrically enumerates. Full
 > analysis: `docs/reports/S22PLUS_M34_S8_BEACON_PROBE_PIVOT_STOP_BLIND_FLASHING_2026-07-09.md`.
 
-> **S22+ CURRENT FRONTIER (2026-07-09 10:55 KST / 2026-07-09 01:55 UTC) — M34 S8B1 LIVE GATE READY + FIRST-CLASS READONLY PREFLIGHT/PRELIVE PACKET; NO ACTIVE LIVE AUTH.**
+> **S22+ CURRENT FRONTIER (2026-07-09 11:00 KST / 2026-07-09 02:00 UTC) — M34 S8B1 LIVE GATE READY + FIRST-CLASS READONLY PREFLIGHT/PRELIVE PACKET; NO ACTIVE LIVE AUTH.**
 > Codex added the fail-closed S8B1 live gate helper
 > `workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py`
 > plus tests in
@@ -63,7 +63,9 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > planned live run directory are intentionally separate because the helper
 > creates `--run-dir` with `exist_ok=False`; the runbook therefore targets
 > distinct not-yet-created phase sibling directories for preflight, template,
-> dry-run, live, rollback, and analyzer output.
+> dry-run, live, rollback, and analyzer output. The prelive packet JSON records
+> `planned_phase_run_dirs` and `planned_result_json` so automation does not
+> have to scrape the runbook text.
 > Live/rollback outcomes now also write machine-readable
 > `result.json` using schema `s22plus_m34_s8b1_result_v1`, so B1 HIT/MISS and
 > rollback state do not depend only on text-log parsing. The helper now also
@@ -112,11 +114,11 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > again proving Android/root stability and current boot SHA match with
 > `device_action=0` and `agents_exception_checked=0`.
 > Latest no-write prelive packet was generated at
-> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T015509Z/`;
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T020000Z/`;
 > it contains `s22plus_m34_s8b1_prelive_packet.json`, the exact live runbook,
 > and the active exception template, with `device_action=false` and
 > `agents_exception_inserted=false`. The planned live run directory is
-> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T015509Z_live/`;
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T020000Z_live/`;
 > preflight/template/dryrun/rollback sibling directories are also separate and
 > all were verified not to exist at packet generation time.
 > Report:

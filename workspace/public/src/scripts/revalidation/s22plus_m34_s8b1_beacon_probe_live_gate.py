@@ -641,6 +641,11 @@ def runbook_phase_run_dir_args(run_dir: Path | None, phase: str) -> list[str]:
     return ["--run-dir", str(phase_run_dir)] if phase_run_dir is not None else []
 
 
+def runbook_phase_run_dirs(run_dir: Path) -> dict[str, str]:
+    phases = ("preflight", "template", "dryrun", "live", "rollback")
+    return {phase: str(runbook_phase_run_dir(run_dir, phase)) for phase in phases}
+
+
 def planned_live_run_dir(packet_run_dir: Path) -> Path:
     base = Path(f"{packet_run_dir}_live")
     if not base.exists():
@@ -800,6 +805,8 @@ def write_prelive_packet(
         "log": str(log_path),
         "packet_run_dir": str(run_dir),
         "planned_live_run_dir": str(live_run_dir),
+        "planned_phase_run_dirs": runbook_phase_run_dirs(live_run_dir),
+        "planned_result_json": str(live_run_dir / "result.json"),
         "runbook": str(runbook_path),
         "active_exception_template": str(active_template_path),
     }
