@@ -151,11 +151,13 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revali
 
 It consumes `result.json` plus sibling `timeline.json` by default. It only marks
 the run as B2-ready when the S8B1 result is `download-beacon-hit`, `rc=0`, and
-the canonical timeline contains the required live/flash/rollback events in
-order with parseable, monotonic UTC timestamps. A clean MISS is classified as a
-stop before B2: investigate GENI I2C/max77705/TypeC reachability.
-Rollback-only, incomplete, out-of-order, or timestamp-regressing timeline,
-nonzero `rc`, or hash mismatch all fail closed and do not authorize B2.
+the result schema records a valid rollback target plus Android return, and the
+canonical timeline contains the required live/flash/rollback events in order
+with parseable, monotonic UTC timestamps. A clean MISS is classified as a stop
+before B2: investigate GENI I2C/max77705/TypeC reachability. Rollback-only,
+incomplete, out-of-order, timestamp-regressing timeline, malformed rollback
+metadata, nonzero `rc`, or hash mismatch all fail closed and do not authorize
+B2.
 The analyzer also separates ladder proof from next-live readiness: a HIT with
 stock fallback is valid B1 evidence, but `ok_to_live_next_stage` remains false
 until the Magisk baseline is restored and verified.
@@ -192,9 +194,9 @@ draft exception generation: OK
 active-template generation: OK
 default run without active AGENTS exception: correctly fails closed
 S8B1 tests: Ran 20 tests, OK
-S8B1 analyzer tests: Ran 11 tests, OK
+S8B1 analyzer tests: Ran 13 tests, OK
 S8B1/analyzer evidence-path cross-check: included in S8B1 tests
-M34/S7A2/S8B1/analyzer regression: Ran 46 tests, OK
+M34/S7A2/S8B1/analyzer regression: Ran 48 tests, OK
 ```
 
 ## Read-Only Current Device Note

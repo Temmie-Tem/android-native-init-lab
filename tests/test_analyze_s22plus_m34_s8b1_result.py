@@ -173,6 +173,22 @@ class AnalyzeS22PlusM34S8B1ResultTest(unittest.TestCase):
         self.assertEqual(analysis["decision"], self.module.DECISION_INVALID)
         self.assertTrue(any("candidate_ap_sha256 mismatch" in item for item in analysis["errors"]))
 
+    def test_invalid_rollback_target_invalidates_evidence(self):
+        payload = self.result_payload("download-beacon-hit")
+        payload["rollback_target"] = "magisk-but-not-really"
+        analysis = self.module.classify_result(payload, self.timeline_payload())
+
+        self.assertEqual(analysis["decision"], self.module.DECISION_INVALID)
+        self.assertTrue(any("rollback_target must be one of" in item for item in analysis["errors"]))
+
+    def test_rc_zero_without_android_serial_invalidates_evidence(self):
+        payload = self.result_payload("download-beacon-hit")
+        del payload["android_serial"]
+        analysis = self.module.classify_result(payload, self.timeline_payload())
+
+        self.assertEqual(analysis["decision"], self.module.DECISION_INVALID)
+        self.assertTrue(any("android_serial must be present" in item for item in analysis["errors"]))
+
     def test_cli_write_report_writes_analysis_json(self):
         with tempfile.TemporaryDirectory() as tmp:
             run_dir = Path(tmp)

@@ -23,11 +23,13 @@ from s22plus_m34_s8b1_beacon_probe_live_gate import (
     EXPECTED_STAGE,
     EXPECTED_TARGET,
     ROLLBACK_MAGISK,
+    ROLLBACK_STOCK,
 )
 
 
 EXPECTED_SCHEMA = "s22plus_m34_s8b1_result_v1"
 ANALYSIS_SCHEMA = "s22plus_m34_s8b1_result_analysis_v1"
+VALID_ROLLBACK_TARGETS = {ROLLBACK_MAGISK, ROLLBACK_STOCK}
 
 DECISION_PROCEED_B2 = "s22plus-m34-s8b1-b1-hit-proceed-s8b2"
 DECISION_B1_MISS_STOP = "s22plus-m34-s8b1-b1-miss-stop-at-typec-or-i2c"
@@ -79,6 +81,13 @@ def validate_result_payload(payload: dict[str, Any]) -> list[str]:
         errors.append("result must be a non-empty string")
     if not isinstance(payload.get("rc"), int):
         errors.append("rc must be an integer")
+    rollback_target = payload.get("rollback_target")
+    if rollback_target not in VALID_ROLLBACK_TARGETS:
+        errors.append(f"rollback_target must be one of {sorted(VALID_ROLLBACK_TARGETS)!r}")
+    if payload.get("rc") == 0 and not isinstance(payload.get("android_serial"), str):
+        errors.append("android_serial must be present when rc is 0")
+    elif isinstance(payload.get("android_serial"), str) and not payload.get("android_serial"):
+        errors.append("android_serial must be non-empty when present")
     return errors
 
 
