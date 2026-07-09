@@ -84,6 +84,28 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 05:43 KST / 2026-07-09 20:43 UTC) — O3 LIVE MISS; MAGISK ROLLBACK PASS; PHASE UNVERIFIABLE; EXCEPTION CONSUMED; FREESTANDING HOST REDESIGN NEXT.**
+> V3414 consumed the exact O3 exception. Candidate AP transfer and original
+> Odin disconnect succeeded, and the operator observed no bootloop, but no O3
+> ACM device appeared during the bounded 120-second wait. Continuous host USB
+> logs show no candidate enumeration at all between candidate disconnect
+> (`20:38:04Z`) and attended manual Download (`20:41:21Z`), so there was no
+> hidden alternative tty to accept. The helper correctly recorded
+> `candidate-proof-failed`/`rc=9`; `candidate_boot_ready`, roundtrip, and
+> `O3 STATUS` are absent, and the canonical timeline is honestly incomplete.
+>
+> Manual Download rollback restored the exact Magisk boot AP. Android/root,
+> baseline boot SHA `2e541703…967e`, and four stability samples passed. Pstore
+> was empty; `/proc/last_kmsg` yielded 2,097,136 bytes but no O3 marker, so the
+> candidate cannot be localized to startup, filesystem setup, module load, or
+> bind gate. This is `UNVERIFIABLE`, not a module-root conclusion. Do not repeat
+> or widen the 59-module AP. The strongest bounded build delta is that O3 used
+> static glibc startup while the prior surviving direct-PID1 line used
+> freestanding raw syscalls. Next = host-only startup diff and a no-libc O3
+> runtime preserving the same plan/gates/generic-ACM contract; no new live
+> exception exists. Report:
+> `docs/reports/NATIVE_INIT_V3414_S22PLUS_O3_MINIMAL_ACM_LIVE_MISS_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 05:35 KST / 2026-07-09 20:35 UTC) — O3 EXACT LIVE GATE READY; OFFLINE + CONNECTED DRY-RUN PASS; ONE-SHOT EXCEPTION ACTIVE AND UNCONSUMED.**
 > V3413 added the checked O3 helper and a fresh exact one-shot exception after
 > the operator's explicit live approval. The helper pins the V3412 AP/boot/LZ4/

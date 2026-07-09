@@ -2918,7 +2918,21 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `mfd_max77705`
    `pdic_max77705`
 
-   **Narrow operator-authorized exception (2026-07-10, S22+ O3 direct-PID1 minimal generic-ACM boot-only live gate):**
+   **Consumed exception (2026-07-10, S22+ O3 direct-PID1 minimal generic-ACM boot-only live gate):**
+   this one-shot exception was consumed by the 2026-07-10 KST O3 live run.
+   The exact candidate AP transferred and left the original Odin endpoint, and
+   the operator observed no bootloop, but no O3 ACM device appeared during the
+   bounded 120-second wait. Continuous host USB evidence contains no candidate
+   USB enumeration between the candidate Odin disconnect and attended manual
+   Download entry. The checked helper therefore recorded
+   `candidate-proof-failed`/`rc=9`, with no `candidate_boot_ready`, roundtrip, or
+   `O3 STATUS` proof. After manual Download entry it restored the pinned Magisk
+   boot-only AP and verified Android/root, exact baseline boot SHA, and four
+   stability samples. It collected 2,097,136 bytes from `/proc/last_kmsg`, but
+   no O3 marker; the exact candidate phase remains `UNVERIFIABLE`. This
+   exception must not be reused for O3 repeat, a freestanding rewrite, O4, or
+   any other candidate. A new candidate requires a fresh narrower exception.
+
    after V3412 built and reproducibly verified the exact O3 artifact, the
    checked live helper passed its offline artifact gate and connected read-only
    Android/Magisk preflight, and the operator explicitly approved live work,
