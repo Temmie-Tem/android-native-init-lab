@@ -84,6 +84,40 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 05:27 KST / 2026-07-09 20:27 UTC) — O3 DIRECT-PID1 MINIMAL GENERIC-ACM HOST BUILD PASS; EXACT LIVE GATE DESIGN NEXT; NO ACTIVE O3 EXCEPTION.**
+> V3412 implemented the exact V3411 behavior contract: the O2 fail-stop core
+> executes the pinned 59-module plan, `/proc/modules` is consumed through EOF,
+> all eight bind gates must pass in order, one built-in `acm.usb0` function is
+> created, only `a600000.ssusb/mode=peripheral` is written, only
+> `a600000.dwc3` is bound, and a static PID1 control daemon serves O0-compatible
+> CRC-framed echo plus `O3 STATUS`. Review removed an invalid preliminary
+> `UDC=none` write; a new gadget is already unbound, so the final source has one
+> UDC write only: the exact final bind.
+>
+> ```text
+> plan_count=59
+> plan_tsv_sha256=a34ebbad3b5d770f133e37a450cc3007e4a84ab831788484680e88aad6b3d534
+> plan_header_sha256=45727cff30952096d9604682a3ba3d284807a75e6622ed4c8ae57bc153d5b863
+> o3_init_sha256=7b2785687482971e4358575d555e49af402ceac2ee72136afdfeff3ece4b95cc
+> o3_control_sha256=2cb881f420dccd909610c4e3822adf6439fbe443460ee61644178f38509e5570
+> boot_img_sha256=4f4a073f79b47c0a6a3924fabf09b2389c62bb731ed3355ebb83e48c53868609
+> boot_img_lz4_sha256=5421281a463cbca00a2a1fcec00af96f21f827af30f3b107ae326c364d9264fb
+> ap_tar_md5_sha256=41b7e32424a809cec6ac7bded281b9ac355a9f3d2d0a3727f8b02de6d1e757f7
+> tar_members=boot.img.lz4
+> ```
+>
+> A second clean output reproduced init, daemon, plan, ramdisk, boot, LZ4, tar,
+> and AP hashes exactly. A real host PTY run passed status + 128/128 echo frames
+> with zero invalid/CRC/sequence errors; the combined O0/O1/O1.1/O2/O3 focused
+> suite passed 58 tests. The candidate preserves the known Magisk kernel and
+> contains no Samsung `ss_acm`, FunctionFS, MTP/ADB/NCM, max77705/charger,
+> EUD enable, sec_debug trigger, reboot, persistent mount, block write, or
+> Android handoff behavior. The artifact is still host-only and its manifest
+> says `live_flash_authorized=false`. The operator's live intent is recorded,
+> but an exact SHA-pinned one-shot exception and checked mandatory-rollback
+> helper must land before it can be consumed. Report:
+> `docs/reports/NATIVE_INIT_V3412_S22PLUS_O3_MINIMAL_ACM_HOST_BUILD_PASS_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 05:11 KST / 2026-07-09 20:11 UTC) — O3 MINIMAL-ACM ROOT/RISK DESIGN HOST PASS; DIRECT-PID1 IMPLEMENTATION NEXT; NO LIVE AUTH.**
 > V3411 rejected the tempting 44-module `O2 default + watchdog` plan because it
 > would repeat the already-known M34 S9 DT-supplier omission. The O3 profile now
