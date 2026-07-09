@@ -632,6 +632,17 @@ def runbook_result_json(args: argparse.Namespace) -> str:
     return str(args.run_dir / "result.json") if args.run_dir is not None else "<run-dir>/result.json"
 
 
+def planned_live_run_dir(packet_run_dir: Path) -> Path:
+    base = Path(f"{packet_run_dir}_live")
+    if not base.exists():
+        return base
+    for suffix in range(100):
+        candidate = Path(f"{base}_{suffix:02d}")
+        if not candidate.exists():
+            return candidate
+    raise SystemExit(f"could not allocate planned live run directory near {packet_run_dir}")
+
+
 def resolved_runbook_args(
     args: argparse.Namespace,
     *,
@@ -734,9 +745,10 @@ def write_prelive_packet(
     magisk_rollback_ap: Path,
     stock_rollback_ap: Path,
 ) -> Path:
+    live_run_dir = planned_live_run_dir(run_dir)
     packet_args = resolved_runbook_args(
         args,
-        run_dir=run_dir,
+        run_dir=live_run_dir,
         odin=odin,
         m34_ap=m34_ap,
         m34_manifest=m34_manifest,
@@ -778,11 +790,14 @@ def write_prelive_packet(
         "stock_rollback_ap": str(stock_rollback_ap),
         "odin": str(odin),
         "log": str(log_path),
+        "packet_run_dir": str(run_dir),
+        "planned_live_run_dir": str(live_run_dir),
         "runbook": str(runbook_path),
         "active_exception_template": str(active_template_path),
     }
     packet_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     append_log(log_path, f"prelive_packet_json={packet_path}")
+    append_log(log_path, f"prelive_packet_planned_live_run_dir={live_run_dir}")
     append_log(log_path, f"prelive_packet_runbook={runbook_path}")
     append_log(log_path, f"prelive_packet_active_exception_template={active_template_path}")
     append_log(log_path, "prelive_packet=ok device_action=0 agents_exception_checked=0 android_checked=1")

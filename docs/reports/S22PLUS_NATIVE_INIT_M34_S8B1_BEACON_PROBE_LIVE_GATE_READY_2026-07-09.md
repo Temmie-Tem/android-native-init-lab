@@ -134,7 +134,10 @@ s22plus_m34_s8b1_active_exception_template.txt
 ```
 
 The packet intentionally does not insert `AGENTS.md` authorization and does not
-perform any Odin transfer, reboot, rollback, or partition write.
+perform any Odin transfer, reboot, rollback, or partition write. The packet
+directory is separate from the planned live run directory because `--run-dir`
+is created with `exist_ok=False`; the runbook targets a not-yet-created sibling
+`*_live` directory so the commands can be run after reviewing the packet.
 
 Live and rollback paths also write a machine-readable result file:
 
@@ -238,10 +241,10 @@ live-runbook generation: OK, no device action
 draft exception generation: OK
 active-template generation: OK
 default run without active AGENTS exception: correctly fails closed
-S8B1 tests: Ran 22 tests, OK
+S8B1 tests: Ran 23 tests, OK
 S8B1 analyzer tests: Ran 20 tests, OK
 S8B1/analyzer evidence-path cross-check: included in S8B1 tests
-M34/S7A2/S8B1/analyzer regression: Ran 57 tests, OK
+M34/S7A2/S8B1/analyzer regression: Ran 58 tests, OK
 ```
 
 ## Read-Only Current Device Note

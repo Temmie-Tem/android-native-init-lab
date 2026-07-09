@@ -335,6 +335,10 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertEqual(packet["selected_serial"], "RFCT519XWGK")
             self.assertEqual(packet["live_ack_token"], self.module.LIVE_ACK_TOKEN)
             self.assertEqual(packet["rollback_ack_token"], self.module.ROLLBACK_ACK_TOKEN)
+            planned_live_run_dir = Path(packet["planned_live_run_dir"])
+            self.assertEqual(packet["packet_run_dir"], str(run_dir))
+            self.assertEqual(planned_live_run_dir, Path(f"{run_dir}_live"))
+            self.assertFalse(planned_live_run_dir.exists())
             runbook = (run_dir / "s22plus_m34_s8b1_live_runbook.txt").read_text(encoding="utf-8")
             active_template = (run_dir / "s22plus_m34_s8b1_active_exception_template.txt").read_text(encoding="utf-8")
             self.assertIn(str(root / "candidate.tar.md5"), runbook)
@@ -342,13 +346,26 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertIn(str(root / "magisk.tar.md5"), runbook)
             self.assertIn(str(root / "stock.tar.md5"), runbook)
             self.assertIn(str(odin), runbook)
-            self.assertIn(str(run_dir / "result.json"), runbook)
+            self.assertIn(str(planned_live_run_dir), runbook)
+            self.assertIn(str(planned_live_run_dir / "result.json"), runbook)
+            self.assertNotIn(str(run_dir / "result.json"), runbook)
             self.assertIn(self.module.LIVE_ACK_TOKEN, runbook)
             self.assertIn(self.module.LIVE_ACK_TOKEN, active_template)
             self.assertNotIn("DRAFT ONLY", active_template)
             log_text = (run_dir / "s22plus_m34_s8b1_beacon_probe_live_gate.txt").read_text(encoding="utf-8")
             self.assertIn("prelive_packet=ok device_action=0 agents_exception_checked=0 android_checked=1", log_text)
+            self.assertIn(f"prelive_packet_planned_live_run_dir={planned_live_run_dir}", log_text)
             self.assertFalse((run_dir / "timeline.json").exists())
+
+    def test_planned_live_run_dir_avoids_existing_siblings(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            packet_dir = Path(tmp) / "packet"
+            packet_dir.mkdir()
+            first = Path(f"{packet_dir}_live")
+            first.mkdir()
+            planned = self.module.planned_live_run_dir(packet_dir)
+            self.assertEqual(planned, Path(f"{packet_dir}_live_00"))
+            self.assertFalse(planned.exists())
 
     def test_write_result_summary_creates_machine_readable_result_json(self):
         with tempfile.TemporaryDirectory() as tmp:
