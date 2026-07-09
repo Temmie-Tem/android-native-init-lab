@@ -84,6 +84,51 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 05:02 KST / 2026-07-09 20:02 UTC) — O2 STOCK LOADER-PARITY HOST PASS; O3 RISK/ROOT DECISION AND HOST BUILD NEXT; NO O3 LIVE AUTH.**
+> V3410 replaced the historical hard-dep-only/list-buffer model with a reusable
+> FYG8-pinned planner and freestanding C runtime core. The planner parses all 441
+> `modules.dep` entries, recursive hard deps, merged softdep pre/post edges,
+> `modules.load` then `modules.load.recovery` tie-breaks, 901 alias records,
+> the 64-line/63-unique stock blocklist, and optional `modules.options` params.
+> Alias targets all resolve; five unrelated softdep edges point to modules absent
+> from this vendor DB and are inventoried, while selecting any affected target
+> fails closed.
+>
+> The default functional-substrate roots `qcom_rpmh.ko`, `gcc-waipio.ko`, and
+> selected USB leaf `dwc3-msm.ko` produce a deterministic 42-module DAG plan:
+>
+> ```text
+> plan_tsv_sha256=47b9a44331310951eb8bcb27d9dfe58bf44441ef7d981eee42ab658f60643987
+> generated_header_sha256=02ccc6d34148e652071bb5247e8856f4b36974bc203e0f29d5c73eeb2a3c8ebc
+> functional_bind_gates_sha256=952496134adb496c49a7a7b4a5dd0c46ed418ffe8161641ebe066ff5790f5e9c
+> smem_pre_qcom_hwspinlock=present/ordered
+> qmi_helpers_pre_qrtr=present/ordered
+> dwc3_msm_pre=phy-generic,phy-msm-snps-hs,phy-msm-snps-eusb2,phy-msm-ssusb-qmp,eud
+> dwc3_msm_post=ucsi_glink
+> options_file_present=false
+> tests=14 PASS
+> arm64_freestanding_compile=PASS
+> ```
+>
+> The C core streams `/proc/modules` through EOF while retaining only each
+> first token, so neither the old one-read 16KiB ceiling nor long dependency
+> columns can hide modules. Its host probe found a target placed after 16KiB,
+> and its plan executor stopped before a fourth module after a third-module
+> `finit_module` failure. Registration remains evidence only. Eight ordered
+> functional gates are pinned from stock read-only evidence: hwspinlock -> SMEM
+> -> cmd-db -> RPMH -> GCC -> `a600000.ssusb` -> `a600000.dwc3` -> UDC.
+>
+> This is not yet an O3 candidate. Exact stock closure includes `abc.ko`,
+> `sec_debug.ko`, `minidump.ko`, `eud.ko`, and `qc_usb_audio.ko`; O3 must make an
+> explicit root/risk decision without silently deleting hard or soft
+> dependencies. The operator expressed live approval intent during O2, but no
+> SHA-pinned O3 boot artifact or active one-shot exception exists, so no flash
+> was authorized or performed and that approval was not consumed. Next = design
+> and host-build O3 minimal generic configfs `acm.usb0` around this loader core,
+> with bounded per-gate observation and a fresh exact candidate gate before any
+> live run. Report:
+> `docs/reports/NATIVE_INIT_V3410_S22PLUS_O2_LOADER_PARITY_HOST_PASS_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 04:39 KST / 2026-07-09 19:39 UTC) — O1.1 STOCK-FIRST-STAGE EARLY-BOOT USB CONTROL LIVE PASS; MAGISK BASELINE RESTORED; EXCEPTION CONSUMED.**
 > The checked O1.1 helper flashed the pinned single-member boot AP once, proved
 > the candidate boot SHA, waited until the O1.1 daemon was running and stock
