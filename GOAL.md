@@ -157,6 +157,18 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > rollback-only fallback result path is
 > `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T024623Z_live_rollback/result.json`
 > and is cleanup evidence, not B1 proof.
+> A follow-up read-only reset-context capture after the operator's RDX/Download
+> observation passed at
+> `workspace/private/runs/s22plus_reset_reason_readonly_20260709T025333Z/`.
+> The reset helper now structures Samsung reset surfaces in `summary.json`.
+> Current post-RDX baseline: `ro.boot.bootreason=reboot,download`,
+> `sys.boot.reason=reboot,download`, `/proc/reset_reason=MPON`,
+> `/proc/reset_rwc=41`, `/proc/store_lastkmsg=1`, pstore count `0`, boot SHA
+> still matches the Magisk baseline, and reset history has
+> `reset_history_pmic_abnormal_count=10` with upload cause
+> `0x0 / PMIC abnormal reset`. This is read-only corroboration of the
+> operator-observed RDX path, not S8B1 proof. Report:
+> `docs/reports/S22PLUS_S8B1_POST_RDX_RESET_CONTEXT_READONLY_2026-07-09.md`.
 > Report:
 > `docs/reports/S22PLUS_NATIVE_INIT_M34_S8B1_BEACON_PROBE_LIVE_GATE_READY_2026-07-09.md`.
 

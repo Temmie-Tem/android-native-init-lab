@@ -145,6 +145,49 @@ def safe_name(path: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.+-]", "_", cleaned) or "root"
 
 
+def remote_file_payload(text: str) -> str:
+    lines = text.splitlines()
+    if lines and re.match(r"^[bcdlps-][rwxStTs-]{9}\s+", lines[0]):
+        return "\n".join(lines[1:]).strip()
+    return text.strip()
+
+
+def first_payload_line(text: str) -> str:
+    for line in remote_file_payload(text).splitlines():
+        line = line.strip()
+        if line:
+            return line
+    return ""
+
+
+def parse_reset_context(
+    *,
+    reset_reason_text: str,
+    reset_rwc_text: str,
+    store_lastkmsg_text: str,
+    reset_history_text: str,
+    reset_summary_text: str,
+) -> dict[str, Any]:
+    reset_reason_value = first_payload_line(reset_reason_text)
+    reset_rwc_value = first_payload_line(reset_rwc_text)
+    store_lastkmsg_value = first_payload_line(store_lastkmsg_text)
+    history_payload = remote_file_payload(reset_history_text)
+    summary_payload = remote_file_payload(reset_summary_text)
+    upload_causes = re.findall(r"@ Upload Cause = ([^\r\n<]+)", history_payload)
+    oem_reset_magic_values = re.findall(r"OEM_RESET_REASON:.*?magic_val:(0x[0-9a-fA-F]+)", history_payload)
+    return {
+        "proc_reset_reason_value": reset_reason_value,
+        "proc_reset_rwc_value": reset_rwc_value,
+        "proc_store_lastkmsg_value": store_lastkmsg_value,
+        "reset_history_upload_causes": upload_causes[:16],
+        "reset_history_upload_cause_count": len(upload_causes),
+        "reset_history_pmic_abnormal_count": history_payload.count("PMIC abnormal reset"),
+        "reset_summary_pmic_abnormal_count": summary_payload.count("PMIC abnormal reset"),
+        "reset_history_oem_reset_magic_values": oem_reset_magic_values[:16],
+        "reset_history_oem_reset_magic_count": len(oem_reset_magic_values),
+    }
+
+
 def write_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
@@ -287,6 +330,8 @@ def collect(run_dir: Path, serial: str) -> dict[str, Any]:
     reset_reason = (run_dir / "reset_files" / f"{safe_name('/proc/reset_reason')}.txt").read_text(encoding="utf-8")
     reset_rwc = (run_dir / "reset_files" / f"{safe_name('/proc/reset_rwc')}.txt").read_text(encoding="utf-8")
     store_lastkmsg = (run_dir / "reset_files" / f"{safe_name('/proc/store_lastkmsg')}.txt").read_text(encoding="utf-8")
+    reset_history = (run_dir / "reset_files" / f"{safe_name('/proc/reset_history')}.txt").read_text(encoding="utf-8")
+    reset_summary = (run_dir / "reset_files" / f"{safe_name('/proc/reset_summary')}.txt").read_text(encoding="utf-8")
 
     summary: dict[str, Any] = {
         "generated_at_utc": utc_now(),
@@ -300,6 +345,13 @@ def collect(run_dir: Path, serial: str) -> dict[str, Any]:
             "proc_reset_reason_contains_NPON": "NPON" in reset_reason,
             "proc_reset_rwc_value_0": reset_rwc.rstrip().endswith("0"),
             "proc_store_lastkmsg_value_0": store_lastkmsg.rstrip().endswith("0"),
+            **parse_reset_context(
+                reset_reason_text=reset_reason,
+                reset_rwc_text=reset_rwc,
+                store_lastkmsg_text=store_lastkmsg,
+                reset_history_text=reset_history,
+                reset_summary_text=reset_summary,
+            ),
         },
         "partition_hashes": {
             "boot": boot_hash,
