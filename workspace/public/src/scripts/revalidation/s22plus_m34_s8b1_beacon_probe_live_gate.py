@@ -609,11 +609,37 @@ def optional_serial_args(serial: str | None) -> list[str]:
     return ["--serial", serial] if serial else []
 
 
+def path_args(args: argparse.Namespace) -> list[str]:
+    return [
+        "--m34-ap",
+        str(args.m34_ap),
+        "--m34-manifest",
+        str(args.m34_manifest),
+        "--magisk-rollback-ap",
+        str(args.magisk_rollback_ap),
+        "--stock-rollback-ap",
+        str(args.stock_rollback_ap),
+        "--odin",
+        str(args.odin),
+    ]
+
+
+def optional_run_dir_args(run_dir: Path | None) -> list[str]:
+    return ["--run-dir", str(run_dir)] if run_dir is not None else []
+
+
+def runbook_result_json(args: argparse.Namespace) -> str:
+    return str(args.run_dir / "result.json") if args.run_dir is not None else "<run-dir>/result.json"
+
+
 def live_runbook(args: argparse.Namespace) -> str:
     helper = "workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py"
     analyzer = "workspace/public/src/scripts/revalidation/analyze_s22plus_m34_s8b1_result.py"
     base = ["PYTHONPYCACHEPREFIX=/tmp/a90_pycache", "python3", helper]
     analyze_base = ["PYTHONPYCACHEPREFIX=/tmp/a90_pycache", "python3", analyzer]
+    common_paths = path_args(args)
+    run_dir_args = optional_run_dir_args(args.run_dir)
+    result_json = runbook_result_json(args)
     common_android = [
         "--android-stability-samples",
         str(args.android_stability_samples),
@@ -640,24 +666,37 @@ def live_runbook(args: argparse.Namespace) -> str:
     lines = [
         "# S22+ M34 S8B1 live runbook (no command below inserts AGENTS.md by itself)",
         "# 1. No-write readiness check",
-        shell_cmd([*base, "--readonly-preflight", *common_android]),
+        shell_cmd([*base, "--readonly-preflight", *common_paths, *run_dir_args, *common_android]),
         "",
         "# 2. Print the active AGENTS.md exception template, then insert it manually after review",
-        shell_cmd([*base, "--print-agents-exception-active-template"]),
+        shell_cmd([*base, "--print-agents-exception-active-template", *common_paths, *run_dir_args]),
         "",
         "# 3. After AGENTS.md has the active exception, run the default dry-run gate",
-        shell_cmd([*base, *common_android]),
+        shell_cmd([*base, *common_paths, *run_dir_args, *common_android]),
         "",
         "# 4. Live gate with explicit ack token",
-        shell_cmd([*base, "--live", "--ack", LIVE_ACK_TOKEN, *common_android, *live_args]),
+        shell_cmd([*base, "--live", "--ack", LIVE_ACK_TOKEN, *common_paths, *run_dir_args, *common_android, *live_args]),
         "",
         "# 5. If the result is MISS and the device is manually placed in Download mode, rollback",
-        shell_cmd([*base, "--rollback-from-download", "--ack", ROLLBACK_ACK_TOKEN, "--rollback-target", args.rollback_target]),
+        shell_cmd(
+            [
+                *base,
+                "--rollback-from-download",
+                "--ack",
+                ROLLBACK_ACK_TOKEN,
+                *common_paths,
+                *run_dir_args,
+                "--android-wait-sec",
+                str(args.android_wait_sec),
+                "--rollback-target",
+                args.rollback_target,
+            ]
+        ),
         "",
         "# 6. Interpret the resulting run directory",
-        shell_cmd([*analyze_base, "<run-dir>/result.json", "--write-report"]),
-        shell_cmd([*analyze_base, "<run-dir>/result.json", "--require-advance"]),
-        shell_cmd([*analyze_base, "<run-dir>/result.json", "--require-live-next-stage"]),
+        shell_cmd([*analyze_base, result_json, "--write-report"]),
+        shell_cmd([*analyze_base, result_json, "--require-advance"]),
+        shell_cmd([*analyze_base, result_json, "--require-live-next-stage"]),
         "",
     ]
     return "\n".join(lines)

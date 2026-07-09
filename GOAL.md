@@ -54,8 +54,9 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > without requiring an active `AGENTS.md` exception and without reboot/flash.
 > A no-device `--print-live-runbook` mode now prints the exact next commands
 > for read-only preflight, active exception review/insertion, dry-run, live,
-> manual-download rollback, and analyzer gates without checking AGENTS.md or
-> touching Android.
+> manual-download rollback, and analyzer gates, including any custom artifact,
+> Odin, rollback, and run-dir paths, without checking AGENTS.md or touching
+> Android.
 > Live/rollback outcomes now also write machine-readable
 > `result.json` using schema `s22plus_m34_s8b1_result_v1`, so B1 HIT/MISS and
 > rollback state do not depend only on text-log parsing. The helper now also

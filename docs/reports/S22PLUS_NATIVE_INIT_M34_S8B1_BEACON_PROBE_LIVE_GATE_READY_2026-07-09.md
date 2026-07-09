@@ -119,7 +119,9 @@ rollback action.
 `--print-live-runbook` verifies the same pinned artifacts, then prints the exact
 operator command sequence for read-only preflight, active exception review,
 post-exception dry-run, live ack, manual-download rollback, and analyzer gates.
-It does not check `AGENTS.md`, call ADB, reboot, flash, or rollback.
+The printed sequence carries any custom candidate, manifest, Odin, rollback,
+and run-directory paths supplied to the runbook command. It does not check
+`AGENTS.md`, call ADB, reboot, flash, or rollback.
 
 Live and rollback paths also write a machine-readable result file:
 
