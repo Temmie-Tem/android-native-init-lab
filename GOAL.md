@@ -84,6 +84,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 05:35 KST / 2026-07-09 20:35 UTC) — O3 EXACT LIVE GATE READY; OFFLINE + CONNECTED DRY-RUN PASS; ONE-SHOT EXCEPTION ACTIVE AND UNCONSUMED.**
+> V3413 added the checked O3 helper and a fresh exact one-shot exception after
+> the operator's explicit live approval. The helper pins the V3412 AP/boot/LZ4/
+> init/daemon/kernel/plan hashes, Magisk and stock boot-only rollback APs,
+> current rooted Android boot SHA, and one transport. It accepts only ACM serial
+> `S22O3ACM01`, runs 128 framed requests with a host reopen, and requires
+> `O3 STATUS` to prove all 59 modules, EOF registration, eight gates, exact
+> `peripheral`/`a600000.dwc3` readbacks, and zero protocol errors.
+>
+> Both artifact-only offline check and connected read-only dry-run passed. Nine
+> O3 build/live-focused tests pass. A complete run uses the canonical eight-event
+> timeline and always enters mandatory rollback handling after a candidate
+> flash attempt. O3 has no candidate-side reboot command, so after observation
+> the helper waits up to 600 seconds for attended manual Download entry, then
+> restores the pinned Magisk boot AP, verifies exact baseline boot SHA and
+> Android/root stability, and collects retained logs. No live flash has occurred
+> yet; the exception remains unconsumed until `candidate_flash_start`. Report:
+> `docs/reports/NATIVE_INIT_V3413_S22PLUS_O3_MINIMAL_ACM_LIVE_GATE_READY_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 05:27 KST / 2026-07-09 20:27 UTC) — O3 DIRECT-PID1 MINIMAL GENERIC-ACM HOST BUILD PASS; EXACT LIVE GATE DESIGN NEXT; NO ACTIVE O3 EXCEPTION.**
 > V3412 implemented the exact V3411 behavior contract: the O2 fail-stop core
 > executes the pinned 59-module plan, `/proc/modules` is consumed through EOF,
