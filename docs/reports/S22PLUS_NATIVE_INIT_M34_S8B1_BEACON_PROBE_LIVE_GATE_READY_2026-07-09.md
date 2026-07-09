@@ -131,6 +131,27 @@ rollback Odin endpoint, optional post-rollback Android serial, and the pinned
 candidate/base hashes. This is the authoritative host-side summary to classify
 B1 after a live run, alongside `timeline.json` and the text log.
 
+Added host-only post-live classifier:
+
+```text
+workspace/public/src/scripts/revalidation/analyze_s22plus_m34_s8b1_result.py
+```
+
+Usage after a live run:
+
+```text
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/analyze_s22plus_m34_s8b1_result.py \
+  <run-dir>/result.json \
+  --write-report
+```
+
+It consumes `result.json` plus sibling `timeline.json` by default. It only marks
+the run as B2-ready when the S8B1 result is `download-beacon-hit`, `rc=0`, and
+the canonical timeline contains the required live/flash/rollback events. A
+clean MISS is classified as a stop before B2: investigate GENI I2C/max77705/
+TypeC reachability. Rollback-only, incomplete timeline, nonzero `rc`, or hash
+mismatch all fail closed and do not authorize B2.
+
 ## Validation
 
 Commands run:
@@ -143,8 +164,9 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revali
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --print-agents-exception-active-template
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m unittest tests/test_s22plus_m34_s8b1_beacon_probe_live_gate.py
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m unittest tests/test_analyze_s22plus_m34_s8b1_result.py
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m unittest tests/test_s22plus_m34_runtime_gadget_split_build.py tests/test_s22plus_m34_s7a2_geni_i2c_live_gate.py
-PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m unittest tests/test_s22plus_m34_runtime_gadget_split_build.py tests/test_s22plus_m34_s7a2_geni_i2c_live_gate.py tests/test_s22plus_m34_s8b1_beacon_probe_live_gate.py
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m unittest tests/test_s22plus_m34_runtime_gadget_split_build.py tests/test_s22plus_m34_s7a2_geni_i2c_live_gate.py tests/test_s22plus_m34_s8b1_beacon_probe_live_gate.py tests/test_analyze_s22plus_m34_s8b1_result.py
 ```
 
 Results:
@@ -157,7 +179,8 @@ draft exception generation: OK
 active-template generation: OK
 default run without active AGENTS exception: correctly fails closed
 S8B1 tests: Ran 16 tests, OK
-M34/S7A2/S8B1 regression: Ran 31 tests, OK
+S8B1 analyzer tests: Ran 7 tests, OK
+M34/S7A2/S8B1/analyzer regression: Ran 38 tests, OK
 ```
 
 ## Read-Only Current Device Note

@@ -54,11 +54,17 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > without requiring an active `AGENTS.md` exception and without reboot/flash.
 > Live/rollback outcomes now also write machine-readable
 > `result.json` using schema `s22plus_m34_s8b1_result_v1`, so B1 HIT/MISS and
-> rollback state do not depend only on text-log parsing.
+> rollback state do not depend only on text-log parsing. Codex also added
+> `workspace/public/src/scripts/revalidation/analyze_s22plus_m34_s8b1_result.py`;
+> it consumes `result.json` plus canonical `timeline.json` and fail-closed
+> classifies B1 as `S8B2`-ready only when HIT, `rc=0`, and required
+> live/rollback events are present. MISS stops before B2 and points back to
+> GENI I2C/max77705/typec reachability.
 > Validation passed: helper `py_compile`, `--offline-check`,
 > `--readonly-preflight`, draft/active-template generation, S8B1 tests
-> (`Ran 16 tests`, `OK`), M34/S7A2 regression including S8B1 (`Ran 31 tests`,
-> `OK`), and default run fail-closed without active authorization.
+> (`Ran 16 tests`, `OK`), S8B1 analyzer tests (`Ran 7 tests`, `OK`),
+> M34/S7A2 regression including S8B1/analyzer (`Ran 38 tests`, `OK`), and
+> default run fail-closed without active authorization.
 >
 > Read-only host status after the operator's RDX/download note: the phone is
 > currently host-visible as Android/MTP + ADB (`04e8:6860`, `RFCT519XWGK`),
