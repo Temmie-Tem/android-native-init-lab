@@ -84,6 +84,38 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 08:53 KST / 2026-07-09 23:53 UTC) — V3424 FYG8 USB ROLE DEEP RE PASS; EXACT STOCK NOTIFIER PATH RECONSTRUCTED; STOCK LIVE CROSS-CHECK PARTIAL PASS; O0 NEXT.**
+> V3424 pinned and inspected exact FYG8 `pdic_max77705`,
+> `usb_typec_manager`, `usb_notifier_qcom`, `usb_notify_layer`, and `dwc3-msm`
+> ELFs. Twenty-one call relocations plus the matched Samsung `usb_notify.c`
+> reconstruct the automatic path as `Max77705 PDIC -> Type-C manager -> USB
+> notifier -> OTG notify set_host/set_peripheral -> DWC3 events`. This is a
+> Samsung runtime notifier chain, not a direct Max77705-to-DWC3 extcon phandle.
+>
+> All 11 g0q DT overlays independently agree: parent and child
+> `usb-role-switch`, child `dr_mode=otg`, UCSI graph connection, Max77705 PDIC
+> with role-swap support, and a separate `samsung,usb-notifier` node. They have
+> no explicit extcon property or direct Max77705-to-DWC3 phandle. The static
+> result is `ELF_SOURCE_DT_VERIFIED` and is reproducible from SHA-pinned inputs.
+>
+> The separate rooted-stock read-only cross-check passed on active board-id 12
+> and exact boot SHA `2e541703…967e`: all five modules are loaded, the live DT
+> properties match, and Max77705, USB notifier, and msm-dwc3 driver/module binds
+> are exact. One ordered `max77705_ccic_event_notifier ->
+> manager_handle_pdic_notification -> manager_event_notify -> notify done`
+> group was retained. It was a battery power-status event, so the upstream
+> relay and manager dispatch are `LIVE_OBSERVED`; a USB attach through
+> `usb_notifier_qcom` into DWC3 is `NOT_CAPTURED_THIS_BOOT`.
+>
+> Public Android/Linux sources corroborate the Type-C role-reporting API,
+> firmware-described DWC3 role-switch, extcon fallback, and Qualcomm queued
+> ID/VBUS-event method. They do not replace the exact FYG8 proof. Direct PID1
+> automatic role without the Samsung chain remains `NOT_PROVED`; a deliberately
+> fixed peripheral bypass remains `PLAUSIBLE_NOT_PROVED`. This unit performed no
+> flash, reboot, module insertion, service control, sysfs/configfs write, or
+> partition write. Next remains O0 functional tty roundtrip. Report:
+> `docs/reports/NATIVE_INIT_V3424_S22PLUS_FYG8_USB_ROLE_DEEP_RE_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 08:25 KST / 2026-07-09 23:25 UTC) — V3423 NORMAL ANDROID BASELINE RESTORED; STOCK USB TOPOLOGY PARTIAL PASS; DWC3 + MAX77705 TYPE-C LIVE-BOUND; ROLE PROPAGATION STILL UNVERIFIABLE.**
 > The operator-requested normal Android reboot restored `/dev/null` as character
 > device `1:3`, mode `0666`, size zero, with the expected SELinux label. Android

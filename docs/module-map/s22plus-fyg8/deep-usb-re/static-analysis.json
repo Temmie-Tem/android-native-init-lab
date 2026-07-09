@@ -1,0 +1,560 @@
+{
+  "call_edges": [
+    {
+      "callee": "typec_register_port",
+      "caller": "max77705_usbc_probe",
+      "evidence": "ELF_CALL_RELOCATION",
+      "module": "pdic_max77705.ko"
+    },
+    {
+      "callee": "max77705_ccic_event_work",
+      "caller": "max77705_notify_dr_status",
+      "evidence": "ELF_CALL_RELOCATION",
+      "module": "pdic_max77705.ko"
+    },
+    {
+      "callee": "typec_set_data_role",
+      "caller": "max77705_ccic_event_work",
+      "evidence": "ELF_CALL_RELOCATION",
+      "module": "pdic_max77705.ko"
+    },
+    {
+      "callee": "typec_set_pwr_role",
+      "caller": "max77705_ccic_event_work",
+      "evidence": "ELF_CALL_RELOCATION",
+      "module": "pdic_max77705.ko"
+    },
+    {
+      "callee": "pdic_notifier_notify",
+      "caller": "max77705_ccic_event_notifier",
+      "evidence": "ELF_CALL_RELOCATION",
+      "module": "pdic_max77705.ko"
+    },
+    {
+      "callee": "pdic_notifier_register",
+      "caller": "init_module",
+      "evidence": "ELF_CALL_RELOCATION",
+      "module": "usb_typec_manager.ko"
+    },
+    {
+      "callee": "manager_event_work",
+      "caller": "manager_handle_pdic_notification",
+      "evidence": "ELF_CALL_RELOCATION",
+      "module": "usb_typec_manager.ko"
+    },
+    {
+      "callee": "blocking_notifier_call_chain",
+      "caller": "manager_event_notify",
+      "evidence": "ELF_CALL_RELOCATION",
+      "module": "usb_typec_manager.ko"
+    },
+    {
+      "callee": "blocking_notifier_chain_register",
+      "caller": "manager_notifier_register",
+      "evidence": "ELF_CALL_RELOCATION",
+      "module": "usb_typec_manager.ko"
+    },
+    {
+      "callee": "manager_notifier_register",
+      "caller": "usb_notifier_probe",
+      "evidence": "ELF_CALL_RELOCATION",
+      "module": "usb_notifier_qcom.ko"
+    },
+    {
+      "callee": "send_otg_notify",
+      "caller": "ccic_usb_handle_notification",
+      "evidence": "ELF_CALL_RELOCATION",
+      "module": "usb_notifier_qcom.ko"
+    },
+    {
+      "callee": "dwc_msm_id_event",
+      "caller": "qcom_set_host",
+      "evidence": "ELF_CALL_RELOCATION",
+      "module": "usb_notifier_qcom.ko"
+    },
+    {
+      "callee": "dwc_msm_vbus_event",
+      "caller": "qcom_set_peripheral",
+      "evidence": "ELF_CALL_RELOCATION",
+      "module": "usb_notifier_qcom.ko"
+    },
+    {
+      "callee": "queue_work_on",
+      "caller": "dwc_msm_id_event",
+      "evidence": "ELF_CALL_RELOCATION",
+      "module": "dwc3-msm.ko"
+    },
+    {
+      "callee": "queue_work_on",
+      "caller": "dwc_msm_vbus_event",
+      "evidence": "ELF_CALL_RELOCATION",
+      "module": "dwc3-msm.ko"
+    },
+    {
+      "callee": "usb_role_switch_register",
+      "caller": "dwc3_msm_probe",
+      "evidence": "ELF_CALL_RELOCATION",
+      "module": "dwc3-msm.ko"
+    },
+    {
+      "callee": "dwc3_msm_set_role",
+      "caller": "dwc3_msm_usb_role_switch_set_role",
+      "evidence": "ELF_CALL_RELOCATION",
+      "module": "dwc3-msm.ko"
+    },
+    {
+      "callee": "dwc3_ext_event_notify",
+      "caller": "dwc3_msm_set_role",
+      "evidence": "ELF_CALL_RELOCATION",
+      "module": "dwc3-msm.ko"
+    },
+    {
+      "callee": "usb_role_switch_find_by_fwnode",
+      "caller": "dwc3_msm_core_init",
+      "evidence": "ELF_CALL_RELOCATION",
+      "module": "dwc3-msm.ko"
+    },
+    {
+      "callee": "usb_role_switch_set_role",
+      "caller": "dwc3_otg_start_host",
+      "evidence": "ELF_CALL_RELOCATION",
+      "module": "dwc3-msm.ko"
+    },
+    {
+      "callee": "usb_role_switch_set_role",
+      "caller": "dwc3_otg_start_peripheral",
+      "evidence": "ELF_CALL_RELOCATION",
+      "module": "dwc3-msm.ko"
+    }
+  ],
+  "conclusions": {
+    "direct_pid1_automatic_role_without_samsung_chain": "NOT_PROVED",
+    "dwc3_parent_and_child_role_switches": "ELF_PLUS_DT_VERIFIED",
+    "forced_peripheral_role_bypass": "PLAUSIBLE_NOT_PROVED",
+    "max77705_to_dwc3_transport": "SAMSUNG_NOTIFIER_CHAIN_NOT_DIRECT_EXTCON_PHANDLE",
+    "max77705_typec_reporting": "ELF_VERIFIED",
+    "pdic_to_typec_manager_notifier": "ELF_VERIFIED",
+    "qcom_callbacks_to_dwc3_events": "ELF_VERIFIED",
+    "typec_manager_to_usb_notifier": "ELF_VERIFIED",
+    "usb_notify_to_qcom_host_peripheral_callbacks": "ELF_PLUS_SOURCE_VERIFIED"
+  },
+  "device_tree": {
+    "common_topology": {
+      "direct_max77705_to_dwc3_phandle": false,
+      "dwc3_child_role_switch": true,
+      "dwc3_dr_mode": "otg",
+      "explicit_extcon_property": false,
+      "max77705_i2c_parent_fixup": "qupv3_se5_i2c",
+      "max77705_pdic_support_pd_role_swap": true,
+      "usb0_parent_role_switch": true,
+      "usb0_to_ucsi_graph_endpoints": true,
+      "usb_notifier_parent_fixup": "soc"
+    },
+    "overlay_count": 11,
+    "overlays": [
+      {
+        "bytes": 1082865,
+        "explicit_extcon_property_count": 0,
+        "fragment_indices": {
+          "max77705": "62",
+          "usb_notifier": "132",
+          "usb_role": "23"
+        },
+        "hw_rev": 1,
+        "hw_rev_end": 1,
+        "matches": {
+          "child_role_switch": true,
+          "max77705_i2c_fixup": true,
+          "max77705_mfd": true,
+          "max77705_pdic": true,
+          "otg_mode": true,
+          "parent_role_switch": true,
+          "pd_role_swap": true,
+          "samsung_usb_notifier": true,
+          "ucsi_fixup": true,
+          "usb0_fixup": true,
+          "usb_notifier_soc_fixup": true
+        },
+        "name": "g0q_kor_singlex_w00_r01.dts",
+        "sha256": "841ccd55d1b96041a5b80075b6c39d11bd345bf8a9d6d9221bee4401ae205bb4"
+      },
+      {
+        "bytes": 1082957,
+        "explicit_extcon_property_count": 0,
+        "fragment_indices": {
+          "max77705": "62",
+          "usb_notifier": "132",
+          "usb_role": "23"
+        },
+        "hw_rev": 2,
+        "hw_rev_end": 2,
+        "matches": {
+          "child_role_switch": true,
+          "max77705_i2c_fixup": true,
+          "max77705_mfd": true,
+          "max77705_pdic": true,
+          "otg_mode": true,
+          "parent_role_switch": true,
+          "pd_role_swap": true,
+          "samsung_usb_notifier": true,
+          "ucsi_fixup": true,
+          "usb0_fixup": true,
+          "usb_notifier_soc_fixup": true
+        },
+        "name": "g0q_kor_singlex_w00_r02.dts",
+        "sha256": "83487ad98726b20b71d667a95469d86df163f0b64353dbf041a5a103c4a75b97"
+      },
+      {
+        "bytes": 1084311,
+        "explicit_extcon_property_count": 0,
+        "fragment_indices": {
+          "max77705": "62",
+          "usb_notifier": "132",
+          "usb_role": "23"
+        },
+        "hw_rev": 4,
+        "hw_rev_end": 4,
+        "matches": {
+          "child_role_switch": true,
+          "max77705_i2c_fixup": true,
+          "max77705_mfd": true,
+          "max77705_pdic": true,
+          "otg_mode": true,
+          "parent_role_switch": true,
+          "pd_role_swap": true,
+          "samsung_usb_notifier": true,
+          "ucsi_fixup": true,
+          "usb0_fixup": true,
+          "usb_notifier_soc_fixup": true
+        },
+        "name": "g0q_kor_singlex_w00_r04.dts",
+        "sha256": "129c60d6e99e16d3104a71d66f25a3dff81179562ece8999fc2dbed7e9308faf"
+      },
+      {
+        "bytes": 1084410,
+        "explicit_extcon_property_count": 0,
+        "fragment_indices": {
+          "max77705": "62",
+          "usb_notifier": "132",
+          "usb_role": "23"
+        },
+        "hw_rev": 5,
+        "hw_rev_end": 5,
+        "matches": {
+          "child_role_switch": true,
+          "max77705_i2c_fixup": true,
+          "max77705_mfd": true,
+          "max77705_pdic": true,
+          "otg_mode": true,
+          "parent_role_switch": true,
+          "pd_role_swap": true,
+          "samsung_usb_notifier": true,
+          "ucsi_fixup": true,
+          "usb0_fixup": true,
+          "usb_notifier_soc_fixup": true
+        },
+        "name": "g0q_kor_singlex_w00_r05.dts",
+        "sha256": "1e5f6302d8cf5e7434e15db229337284d7ea839482ca8c920ce8d97f7d78506c"
+      },
+      {
+        "bytes": 1084502,
+        "explicit_extcon_property_count": 0,
+        "fragment_indices": {
+          "max77705": "62",
+          "usb_notifier": "132",
+          "usb_role": "23"
+        },
+        "hw_rev": 6,
+        "hw_rev_end": 6,
+        "matches": {
+          "child_role_switch": true,
+          "max77705_i2c_fixup": true,
+          "max77705_mfd": true,
+          "max77705_pdic": true,
+          "otg_mode": true,
+          "parent_role_switch": true,
+          "pd_role_swap": true,
+          "samsung_usb_notifier": true,
+          "ucsi_fixup": true,
+          "usb0_fixup": true,
+          "usb_notifier_soc_fixup": true
+        },
+        "name": "g0q_kor_singlex_w00_r06.dts",
+        "sha256": "9023d3f3dda2f86c742c5e9acf7fbf743347650071878b6dd222fcf73a409aba"
+      },
+      {
+        "bytes": 1084594,
+        "explicit_extcon_property_count": 0,
+        "fragment_indices": {
+          "max77705": "62",
+          "usb_notifier": "132",
+          "usb_role": "23"
+        },
+        "hw_rev": 7,
+        "hw_rev_end": 7,
+        "matches": {
+          "child_role_switch": true,
+          "max77705_i2c_fixup": true,
+          "max77705_mfd": true,
+          "max77705_pdic": true,
+          "otg_mode": true,
+          "parent_role_switch": true,
+          "pd_role_swap": true,
+          "samsung_usb_notifier": true,
+          "ucsi_fixup": true,
+          "usb0_fixup": true,
+          "usb_notifier_soc_fixup": true
+        },
+        "name": "g0q_kor_singlex_w00_r07.dts",
+        "sha256": "3fbfe3bec34dfb42ab17406feb765c1ae5d71ff217b53faa72d8a0e258ffc2c0"
+      },
+      {
+        "bytes": 1084686,
+        "explicit_extcon_property_count": 0,
+        "fragment_indices": {
+          "max77705": "62",
+          "usb_notifier": "132",
+          "usb_role": "23"
+        },
+        "hw_rev": 8,
+        "hw_rev_end": 8,
+        "matches": {
+          "child_role_switch": true,
+          "max77705_i2c_fixup": true,
+          "max77705_mfd": true,
+          "max77705_pdic": true,
+          "otg_mode": true,
+          "parent_role_switch": true,
+          "pd_role_swap": true,
+          "samsung_usb_notifier": true,
+          "ucsi_fixup": true,
+          "usb0_fixup": true,
+          "usb_notifier_soc_fixup": true
+        },
+        "name": "g0q_kor_singlex_w00_r08.dts",
+        "sha256": "603e6cc64bb8ebb526b90e327269b2d7f6a397d9d8b648f8f9e161679fcf93f0"
+      },
+      {
+        "bytes": 1084917,
+        "explicit_extcon_property_count": 0,
+        "fragment_indices": {
+          "max77705": "62",
+          "usb_notifier": "132",
+          "usb_role": "23"
+        },
+        "hw_rev": 9,
+        "hw_rev_end": 9,
+        "matches": {
+          "child_role_switch": true,
+          "max77705_i2c_fixup": true,
+          "max77705_mfd": true,
+          "max77705_pdic": true,
+          "otg_mode": true,
+          "parent_role_switch": true,
+          "pd_role_swap": true,
+          "samsung_usb_notifier": true,
+          "ucsi_fixup": true,
+          "usb0_fixup": true,
+          "usb_notifier_soc_fixup": true
+        },
+        "name": "g0q_kor_singlex_w00_r09.dts",
+        "sha256": "d2370f1382b0369646b8e3e2f515c15c79370dc59f85b0f232bc3f4c1390bbbe"
+      },
+      {
+        "bytes": 1085009,
+        "explicit_extcon_property_count": 0,
+        "fragment_indices": {
+          "max77705": "62",
+          "usb_notifier": "132",
+          "usb_role": "23"
+        },
+        "hw_rev": 10,
+        "hw_rev_end": 10,
+        "matches": {
+          "child_role_switch": true,
+          "max77705_i2c_fixup": true,
+          "max77705_mfd": true,
+          "max77705_pdic": true,
+          "otg_mode": true,
+          "parent_role_switch": true,
+          "pd_role_swap": true,
+          "samsung_usb_notifier": true,
+          "ucsi_fixup": true,
+          "usb0_fixup": true,
+          "usb_notifier_soc_fixup": true
+        },
+        "name": "g0q_kor_singlex_w00_r10.dts",
+        "sha256": "adb60c24c96fa509a43bb15eb88098ae3838336498ebace37200cb1655522a02"
+      },
+      {
+        "bytes": 1086035,
+        "explicit_extcon_property_count": 0,
+        "fragment_indices": {
+          "max77705": "63",
+          "usb_notifier": "133",
+          "usb_role": "23"
+        },
+        "hw_rev": 11,
+        "hw_rev_end": 11,
+        "matches": {
+          "child_role_switch": true,
+          "max77705_i2c_fixup": true,
+          "max77705_mfd": true,
+          "max77705_pdic": true,
+          "otg_mode": true,
+          "parent_role_switch": true,
+          "pd_role_swap": true,
+          "samsung_usb_notifier": true,
+          "ucsi_fixup": true,
+          "usb0_fixup": true,
+          "usb_notifier_soc_fixup": true
+        },
+        "name": "g0q_kor_singlex_w00_r11.dts",
+        "sha256": "640b4d94583358a07b5f7b209012a87fcd9b7939c49fa4c62e0242d9ac14a58a"
+      },
+      {
+        "bytes": 1086127,
+        "explicit_extcon_property_count": 0,
+        "fragment_indices": {
+          "max77705": "63",
+          "usb_notifier": "133",
+          "usb_role": "23"
+        },
+        "hw_rev": 12,
+        "hw_rev_end": 32,
+        "matches": {
+          "child_role_switch": true,
+          "max77705_i2c_fixup": true,
+          "max77705_mfd": true,
+          "max77705_pdic": true,
+          "otg_mode": true,
+          "parent_role_switch": true,
+          "pd_role_swap": true,
+          "samsung_usb_notifier": true,
+          "ucsi_fixup": true,
+          "usb0_fixup": true,
+          "usb_notifier_soc_fixup": true
+        },
+        "name": "g0q_kor_singlex_w00_r12.dts",
+        "sha256": "aff997ab764b7be8ff66d57b0633fa11c881a108f8fabea186cf5a4216844822"
+      }
+    ],
+    "source_dir": "workspace/private/inputs/s22plus_kernel_source/S906NKSS7FYG8_osrc/Kernel/kernel_platform/msm-kernel/arch/arm64/boot/dts/samsung/rainbow/g0q",
+    "source_manifest_sha256": "8e9c1bd351d08783adae5670d9b4813af8611b12e032959128f58c3289409255",
+    "stock_dtbo": {
+      "bytes": 8388608,
+      "path": "workspace/private/inputs/s22plus_firmware/S906NKSS7FYG8_SKC/extracted-images/raw/dtbo.img",
+      "sha256": "97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c"
+    }
+  },
+  "matched_source": {
+    "interpretation": "send_otg_notify queues state events; otg_notify_state dispatches VBUS to set_peripheral and HOST to set_host",
+    "matches": {
+      "host_dispatch": true,
+      "queued_state_worker": true,
+      "send_notifier_entry": true,
+      "vbus_dispatch": true
+    },
+    "path": "workspace/private/inputs/s22plus_kernel_source/S906NKSS7FYG8_osrc/Kernel/kernel_platform/msm-kernel/drivers/usb/notify/usb_notify.c",
+    "sha256": "cdb489a2aecd3dc4c7d00899421d827c2aa64cd865e931b3a6cc6a3aa540d02b"
+  },
+  "modules": {
+    "dwc3-msm.ko": {
+      "bytes": 308624,
+      "defined_symbol_count": 323,
+      "path": "workspace/private/inputs/s22plus_firmware/S906NKSS7FYG8_SKC/extracted-images/ramdisk-list/vendor/extract/lib/modules/dwc3-msm.ko",
+      "sha256": "8913b050419e88699033e957d927beef86742ed035f531dc5c4729f50cea60f1",
+      "undefined_symbol_count": 189
+    },
+    "pdic_max77705.ko": {
+      "bytes": 423456,
+      "defined_symbol_count": 460,
+      "path": "workspace/private/inputs/s22plus_firmware/S906NKSS7FYG8_SKC/extracted-images/ramdisk-list/vendor/extract/lib/modules/pdic_max77705.ko",
+      "sha256": "27e988788242888dc0c3acaf835a66585c024b034b07741e619b674ee77db3db",
+      "undefined_symbol_count": 155
+    },
+    "usb_notifier_qcom.ko": {
+      "bytes": 26344,
+      "defined_symbol_count": 50,
+      "path": "workspace/private/inputs/s22plus_firmware/S906NKSS7FYG8_SKC/extracted-images/ramdisk-list/vendor/extract/lib/modules/usb_notifier_qcom.ko",
+      "sha256": "73f937efc9302d5fa8c2758b5e71b80f52063141d72c063bfe73b1583c781ccb",
+      "undefined_symbol_count": 29
+    },
+    "usb_notify_layer.ko": {
+      "bytes": 294152,
+      "defined_symbol_count": 583,
+      "path": "workspace/private/inputs/s22plus_firmware/S906NKSS7FYG8_SKC/extracted-images/ramdisk-list/vendor/extract/lib/modules/usb_notify_layer.ko",
+      "sha256": "710d9cc6f523d615e459d22e2d9e3d1ff082514b7efcd6add0f437e890b3d294",
+      "undefined_symbol_count": 110
+    },
+    "usb_typec_manager.ko": {
+      "bytes": 73528,
+      "defined_symbol_count": 115,
+      "path": "workspace/private/inputs/s22plus_firmware/S906NKSS7FYG8_SKC/extracted-images/ramdisk-list/vendor/extract/lib/modules/usb_typec_manager.ko",
+      "sha256": "4da0a4d056abfb09e111ffc4f74fe0adbddcf7be0bc172a48c36f55fd0ea52dc",
+      "undefined_symbol_count": 48
+    }
+  },
+  "result": "pass-static-role-path-reconstructed",
+  "safety": {
+    "adb": false,
+    "device_read": false,
+    "device_write": false,
+    "flash": false,
+    "host_only": true,
+    "module_insertion": false,
+    "reboot": false
+  },
+  "schema": "s22plus_fyg8_usb_role_static_re_v1",
+  "sec_otg_notify_callback_table": [
+    {
+      "relocation_offset": 304,
+      "table_offset": 64,
+      "target": "otg_accessory_power.cfi_jt",
+      "target_address": 2944
+    },
+    {
+      "relocation_offset": 312,
+      "table_offset": 72,
+      "target": "qcom_set_host.cfi_jt",
+      "target_address": 2952
+    },
+    {
+      "relocation_offset": 320,
+      "table_offset": 80,
+      "target": "qcom_set_peripheral.cfi_jt",
+      "target_address": 2960
+    },
+    {
+      "relocation_offset": 352,
+      "table_offset": 112,
+      "target": "set_online.cfi_jt",
+      "target_address": 2968
+    },
+    {
+      "relocation_offset": 360,
+      "table_offset": 120,
+      "target": "usb_set_chg_current.cfi_jt",
+      "target_address": 2992
+    },
+    {
+      "relocation_offset": 376,
+      "table_offset": 136,
+      "target": "qcom_get_gadget_speed.cfi_jt",
+      "target_address": 2984
+    },
+    {
+      "relocation_offset": 384,
+      "table_offset": 144,
+      "target": "is_skip_list.cfi_jt",
+      "target_address": 3000
+    }
+  ],
+  "target": "SM-S906N/g0q/S906NKSS7FYG8",
+  "web_primary_references": [
+    "https://android.googlesource.com/kernel/common/+/5bad7993b0ff764e1ff37d00e370c0ed85661ea3/drivers/usb/typec/class.c",
+    "https://android.googlesource.com/kernel/common/+/9e5737bd0457955690d871b3f4fc66dea40ea141/drivers/usb/dwc3/drd.c",
+    "https://android.googlesource.com/kernel/msm/+/53f9955dd5876826f623fb9a1a736cfe36bec176/drivers/usb/dwc3/dwc3-msm.c",
+    "https://www.kernel.org/doc/Documentation/devicetree/bindings/usb/usb-drd.yaml"
+  ]
+}

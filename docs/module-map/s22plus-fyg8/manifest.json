@@ -1,8 +1,8 @@
 {
   "artifacts": {
     "README.md": {
-      "bytes": 2348,
-      "sha256": "17b0d0a375332ee6af7204cc3c5402053e3d6847936d9e30229d6577ba9e02c7"
+      "bytes": 2481,
+      "sha256": "1ffa6dded1d21f21f198501571c07d41062f29b06845eb036ff555b1b7197354"
     },
     "dependency-edges.tsv": {
       "bytes": 106491,
@@ -13,8 +13,8 @@
       "sha256": "52cc6fdb422a799b654e77facd2f3461d64c507239da676642a722c23b2c7492"
     },
     "known-gaps.md": {
-      "bytes": 1216,
-      "sha256": "15c7537f3efdf9749c7be12c4877aa230c28ce56f807baadff0a22233f16c00a"
+      "bytes": 1226,
+      "sha256": "9cbeea9b2850a45209e5f9cd3db3d8dfcac08b8f5bad31fec904160eb697e929"
     },
     "runtime-gates.md": {
       "bytes": 1241,
@@ -25,8 +25,8 @@
       "sha256": "e3729435cacaf0b0d9d156169f941f2c09bae48d9aa7bc6773200dead42dfa70"
     },
     "subsystem-usb.md": {
-      "bytes": 1999,
-      "sha256": "2e90a3ed86a50bfffd1d2eba134bed1639c735dc1f64bdbf1ef7ad475326e400"
+      "bytes": 2837,
+      "sha256": "aad230b9ff499e9ca76b053448ca2cf37c70bf272d0b128edf19b5a631886ef2"
     },
     "symbol-overlap-edges.tsv": {
       "bytes": 92201,

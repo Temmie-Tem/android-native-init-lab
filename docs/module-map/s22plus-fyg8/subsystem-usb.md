@@ -3,12 +3,29 @@
 ## Status
 
 - FYG8 metadata closure: `STATIC_VERIFIED`.
-- Stock Android DWC3/UDC/gadget path: `LIVE_BOUND` in V3420 recovery checks.
+- Exact automatic role path: `ELF_SOURCE_DT_VERIFIED` in the deep USB RE.
+- Stock Android DWC3/UDC/gadget and participating driver path: `LIVE_BOUND`.
+- PDIC-to-Type-C-manager relay: `LIVE_OBSERVED`; the same-boot USB attach event
+  through `usb_notifier_qcom` to DWC3 was `NOT_CAPTURED_THIS_BOOT`.
 - Direct-PID1 module execution and bind sequence: `UNVERIFIABLE` after O3/O3F.
 
 The current O3 minimal-ACM metadata plan contains 59 modules and
 passes recursive hard dependency, softdep pre/post, stock-order, alias,
 blocklist, and options parsing. This proves a static load plan only.
+
+The exact FYG8 automatic cable/role path is:
+
+```text
+pdic_max77705 -> usb_typec_manager -> usb_notifier_qcom
+  -> usb_notify_layer set_host/set_peripheral -> dwc3-msm role events
+```
+
+This chain is backed by 21 ELF call relocations, the SHA-pinned Samsung
+`usb_notify.c`, and all 11 g0q DT overlays. The DT has parent and child
+`usb-role-switch` properties, `dr_mode = "otg"`, a Max77705 PDIC with role-swap
+support, and a separate `samsung,usb-notifier` node. It has no direct
+Max77705-to-DWC3 phandle or explicit extcon property for this path. Details and
+the serial-redacted live sidecar are in `deep-usb-re/`.
 
 ## Functional Gates
 

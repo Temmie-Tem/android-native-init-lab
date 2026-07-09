@@ -33,6 +33,8 @@ probed successfully.
 - `subsystem-usb.md`: current static USB closure and functional bind gates.
 - `stock-usb-runtime-topology.json`: separately collected, serial-redacted stock
   Android read-only snapshot. It is preserved but not generated from firmware.
+- `deep-usb-re/`: exact FYG8 Max77705-to-DWC3 ELF/source/DT reconstruction plus
+  a separately collected read-only live cross-check.
 - `runtime-gates.md`: conditions required before a module is treated as usable.
 - `known-gaps.md`: explicit boundaries and work not yet proved.
 - `manifest.json`: source pins, counts, safety envelope, and generated hashes.

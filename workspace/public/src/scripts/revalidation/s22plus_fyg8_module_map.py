@@ -385,6 +385,8 @@ probed successfully.
 - `subsystem-usb.md`: current static USB closure and functional bind gates.
 - `stock-usb-runtime-topology.json`: separately collected, serial-redacted stock
   Android read-only snapshot. It is preserved but not generated from firmware.
+- `deep-usb-re/`: exact FYG8 Max77705-to-DWC3 ELF/source/DT reconstruction plus
+  a separately collected read-only live cross-check.
 - `runtime-gates.md`: conditions required before a module is treated as usable.
 - `known-gaps.md`: explicit boundaries and work not yet proved.
 - `manifest.json`: source pins, counts, safety envelope, and generated hashes.
@@ -468,12 +470,29 @@ def render_usb(model: MapModel) -> str:
 ## Status
 
 - FYG8 metadata closure: `STATIC_VERIFIED`.
-- Stock Android DWC3/UDC/gadget path: `LIVE_BOUND` in V3420 recovery checks.
+- Exact automatic role path: `ELF_SOURCE_DT_VERIFIED` in the deep USB RE.
+- Stock Android DWC3/UDC/gadget and participating driver path: `LIVE_BOUND`.
+- PDIC-to-Type-C-manager relay: `LIVE_OBSERVED`; the same-boot USB attach event
+  through `usb_notifier_qcom` to DWC3 was `NOT_CAPTURED_THIS_BOOT`.
 - Direct-PID1 module execution and bind sequence: `UNVERIFIABLE` after O3/O3F.
 
 The current O3 minimal-ACM metadata plan contains {len(plan.modules)} modules and
 passes recursive hard dependency, softdep pre/post, stock-order, alias,
 blocklist, and options parsing. This proves a static load plan only.
+
+The exact FYG8 automatic cable/role path is:
+
+```text
+pdic_max77705 -> usb_typec_manager -> usb_notifier_qcom
+  -> usb_notify_layer set_host/set_peripheral -> dwc3-msm role events
+```
+
+This chain is backed by 21 ELF call relocations, the SHA-pinned Samsung
+`usb_notify.c`, and all 11 g0q DT overlays. The DT has parent and child
+`usb-role-switch` properties, `dr_mode = "otg"`, a Max77705 PDIC with role-swap
+support, and a separate `samsung,usb-notifier` node. It has no direct
+Max77705-to-DWC3 phandle or explicit extcon property for this path. Details and
+the serial-redacted live sidecar are in `deep-usb-re/`.
 
 ## Functional Gates
 
@@ -536,8 +555,8 @@ def render_known_gaps(model: MapModel) -> str:
     ambiguous = sum(model.ambiguous_symbol_counts.values())
     return f"""# Known Gaps
 
-- Only `sec_log_buf.ko` and `sec_debug.ko` currently have curated Samsung source
-  review and live bind evidence in this map. Other modules are
+- Retention and the Max77705-to-DWC3 USB role path now have curated Samsung
+  source/ELF/DT review plus stock live bind evidence. Other subsystems remain
   `STATIC_VERIFIED` only.
 - ELF imports with no module provider total {unresolved}. They are labeled
   kernel-or-unresolved; this map does not assume every one is a valid built-in

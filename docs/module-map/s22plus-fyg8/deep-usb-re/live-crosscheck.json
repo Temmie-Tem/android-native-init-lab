@@ -1,0 +1,106 @@
+{
+  "baseline_result": "pass-stock-topology-partial",
+  "captured_at_utc": "2026-07-09T23:52:21.688224Z",
+  "command_failures": [],
+  "conclusions": {
+    "direct_pid1_automatic_role_without_samsung_chain": "NOT_PROVED",
+    "direct_pid1_forced_peripheral_bypass": "PLAUSIBLE_NOT_PROVED",
+    "exact_fyg8_automatic_role_path": "ELF_SOURCE_DT_VERIFIED",
+    "pdic_to_typec_manager_relay": "LIVE_OBSERVED",
+    "stock_components_and_dt": "LIVE_BOUND",
+    "typec_manager_notifier_dispatch": "LIVE_OBSERVED",
+    "usb_attach_through_usb_notifier_qcom": "NOT_CAPTURED_THIS_BOOT",
+    "usb_notifier_to_dwc3_role_event": "NOT_CAPTURED_THIS_BOOT"
+  },
+  "device_tree": {
+    "child_dr_mode": "otg",
+    "child_role_switch_property_size": "0",
+    "max77705_compatible": [
+      "maxim,max77705"
+    ],
+    "max77705_status": "okay",
+    "model": "Samsung G0Q PROJECT (board-id,12)",
+    "parent_role_switch_property_size": "0",
+    "pdic_compatible": [
+      "maxim,max77705_pdic"
+    ],
+    "pdic_role_swap_property_size": "0",
+    "pdic_status": "okay",
+    "qupv3_se5_i2c_symbol": "/soc/i2c@994000",
+    "ucsi_symbol": "/soc/qcom,pmic_glink/qcom,ucsi",
+    "usb0_symbol": "/soc/ssusb@a600000",
+    "usb_notifier_compatible": [
+      "samsung,usb-notifier"
+    ]
+  },
+  "device_tree_checks": {
+    "active_g0q_revision_12": true,
+    "child_otg_mode": true,
+    "child_role_switch_present": true,
+    "max77705_compatible": true,
+    "max77705_enabled": true,
+    "parent_role_switch_present": true,
+    "pd_role_swap_present": true,
+    "pdic_compatible": true,
+    "pdic_enabled": true,
+    "qupv3_se5_i2c_symbol_exact": true,
+    "ucsi_symbol_exact": true,
+    "usb0_symbol_exact": true,
+    "usb_notifier_compatible": true
+  },
+  "driver_bind_checks": {
+    "dwc3_msm_driver": true,
+    "max77705_driver": true,
+    "ssusb_module": true,
+    "typec_module": true,
+    "usb_notifier_driver": true,
+    "usb_notifier_module": true
+  },
+  "driver_binds": {
+    "dwc3_msm_driver": "/sys/bus/platform/drivers/msm-dwc3",
+    "max77705_driver": "/sys/bus/platform/drivers/max77705-usbc",
+    "ssusb_module": "/sys/module/dwc3_msm",
+    "typec_module": "/sys/module/pdic_max77705",
+    "usb_notifier_driver": "/sys/bus/platform/drivers/usb_notifier",
+    "usb_notifier_module": "/sys/module/usb_notifier_qcom"
+  },
+  "modules_loaded": {
+    "dwc3_msm": true,
+    "pdic_max77705": true,
+    "usb_notifier_qcom": true,
+    "usb_notify_layer": true,
+    "usb_typec_manager": true
+  },
+  "notifier_log": {
+    "downstream_usb_role_markers": {
+      "ccic_usb_handle_notification": false,
+      "dwc_msm_id_event": false,
+      "dwc_msm_vbus_event": false,
+      "send_otg_notify": false
+    },
+    "filtered_lines": [
+      "[ 2523.280177] max77705: max77705_ccic_event_notifier: usb: dest=BATTERY, id=ID_POWER_STATUS, attach=0, event=0",
+      "[ 2523.280222] TCM: manager_handle_pdic_notification: src:CCIC dest:BATTERY id:ID_POWER_STATUS sub1:00 sub2:00 sub3:00",
+      "[ 2523.280305] TCM: manager_event_notify: src:CCIC dest:BATTERY id:ID_POWER_STATUS sub1:00 sub2:00 sub3:00",
+      "[ 2523.280386] TCM: manager_event_notify: notify done(0x0)"
+    ],
+    "pdic_to_manager_relay_sequence_count": 1
+  },
+  "private_run": "workspace/private/runs/s22plus_stock_usb_role_crosscheck_readonly_20260709T235217Z",
+  "result": "pass-live-role-crosscheck-partial",
+  "safety": {
+    "configfs_write": false,
+    "device_read_only": true,
+    "flash": false,
+    "module_insertion": false,
+    "partition_write": false,
+    "reboot": false,
+    "serial_redacted": true,
+    "service_control": false,
+    "sysfs_write": false
+  },
+  "schema": "s22plus_stock_usb_role_crosscheck_readonly_v1",
+  "serial": "<S22_SERIAL_REDACTED>",
+  "static_result": "pass-static-role-path-reconstructed",
+  "target": "SM-S906N/g0q/S906NKSS7FYG8"
+}

@@ -1,7 +1,7 @@
 # Known Gaps
 
-- Only `sec_log_buf.ko` and `sec_debug.ko` currently have curated Samsung source
-  review and live bind evidence in this map. Other modules are
+- Retention and the Max77705-to-DWC3 USB role path now have curated Samsung
+  source/ELF/DT review plus stock live bind evidence. Other subsystems remain
   `STATIC_VERIFIED` only.
 - ELF imports with no module provider total 19086. They are labeled
   kernel-or-unresolved; this map does not assume every one is a valid built-in
