@@ -632,6 +632,26 @@ def runbook_result_json(args: argparse.Namespace) -> str:
     return str(args.run_dir / "result.json") if args.run_dir is not None else "<run-dir>/result.json"
 
 
+def resolved_runbook_args(
+    args: argparse.Namespace,
+    *,
+    run_dir: Path,
+    odin: Path,
+    m34_ap: Path,
+    m34_manifest: Path,
+    magisk_rollback_ap: Path,
+    stock_rollback_ap: Path,
+) -> argparse.Namespace:
+    packet_args = argparse.Namespace(**vars(args))
+    packet_args.run_dir = run_dir
+    packet_args.odin = odin
+    packet_args.m34_ap = m34_ap
+    packet_args.m34_manifest = m34_manifest
+    packet_args.magisk_rollback_ap = magisk_rollback_ap
+    packet_args.stock_rollback_ap = stock_rollback_ap
+    return packet_args
+
+
 def live_runbook(args: argparse.Namespace) -> str:
     helper = "workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py"
     analyzer = "workspace/public/src/scripts/revalidation/analyze_s22plus_m34_s8b1_result.py"
@@ -700,6 +720,73 @@ def live_runbook(args: argparse.Namespace) -> str:
         "",
     ]
     return "\n".join(lines)
+
+
+def write_prelive_packet(
+    *,
+    run_dir: Path,
+    log_path: Path,
+    args: argparse.Namespace,
+    selected_serial: str,
+    odin: Path,
+    m34_ap: Path,
+    m34_manifest: Path,
+    magisk_rollback_ap: Path,
+    stock_rollback_ap: Path,
+) -> Path:
+    packet_args = resolved_runbook_args(
+        args,
+        run_dir=run_dir,
+        odin=odin,
+        m34_ap=m34_ap,
+        m34_manifest=m34_manifest,
+        magisk_rollback_ap=magisk_rollback_ap,
+        stock_rollback_ap=stock_rollback_ap,
+    )
+    runbook = live_runbook(packet_args)
+    active_template = agents_exception_active_template()
+    missing = missing_policy_markers(active_template)
+    if missing:
+        raise SystemExit(f"internal active template is missing policy markers: {missing}")
+    if has_draft_only_m34_exception(active_template):
+        raise SystemExit("internal active template still looks draft-only")
+
+    runbook_path = run_dir / "s22plus_m34_s8b1_live_runbook.txt"
+    active_template_path = run_dir / "s22plus_m34_s8b1_active_exception_template.txt"
+    packet_path = run_dir / "s22plus_m34_s8b1_prelive_packet.json"
+    runbook_path.write_text(runbook, encoding="utf-8")
+    active_template_path.write_text(active_template, encoding="utf-8")
+    payload = {
+        "schema": "s22plus_m34_s8b1_prelive_packet_v1",
+        "generated_utc": utc_now(),
+        "target": EXPECTED_TARGET,
+        "stage": "S8B1",
+        "device_action": False,
+        "agents_exception_inserted": False,
+        "agents_exception_checked": False,
+        "android_checked": True,
+        "selected_serial": selected_serial,
+        "candidate_ap_sha256": EXPECTED_M34_AP_SHA256,
+        "candidate_boot_sha256": EXPECTED_M34_BOOT_SHA256,
+        "candidate_init_sha256": EXPECTED_M34_INIT_SHA256,
+        "base_boot_sha256": EXPECTED_M34_BASE_BOOT_SHA256,
+        "live_ack_token": LIVE_ACK_TOKEN,
+        "rollback_ack_token": ROLLBACK_ACK_TOKEN,
+        "m34_ap": str(m34_ap),
+        "m34_manifest": str(m34_manifest),
+        "magisk_rollback_ap": str(magisk_rollback_ap),
+        "stock_rollback_ap": str(stock_rollback_ap),
+        "odin": str(odin),
+        "log": str(log_path),
+        "runbook": str(runbook_path),
+        "active_exception_template": str(active_template_path),
+    }
+    packet_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    append_log(log_path, f"prelive_packet_json={packet_path}")
+    append_log(log_path, f"prelive_packet_runbook={runbook_path}")
+    append_log(log_path, f"prelive_packet_active_exception_template={active_template_path}")
+    append_log(log_path, "prelive_packet=ok device_action=0 agents_exception_checked=0 android_checked=1")
+    return packet_path
 
 
 def wait_for_odin_absent(odin: Path, log_path: Path, label: str, wait_sec: int) -> bool:
@@ -875,6 +962,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--rollback-target", choices=[ROLLBACK_MAGISK, ROLLBACK_STOCK], default=ROLLBACK_MAGISK)
     parser.add_argument("--offline-check", action="store_true")
     parser.add_argument("--readonly-preflight", action="store_true")
+    parser.add_argument("--prelive-packet", action="store_true")
     parser.add_argument("--print-live-runbook", action="store_true")
     parser.add_argument("--print-agents-exception-draft", action="store_true")
     parser.add_argument("--print-agents-exception-active-template", action="store_true")
@@ -888,6 +976,7 @@ def main(argv: list[str]) -> int:
         for enabled in (
             args.offline_check,
             args.readonly_preflight,
+            args.prelive_packet,
             args.print_live_runbook,
             args.print_agents_exception_draft,
             args.print_agents_exception_active_template,
@@ -899,8 +988,8 @@ def main(argv: list[str]) -> int:
     if modes > 1:
         raise SystemExit(
             "--offline-check, --readonly-preflight, --print-agents-exception-draft, "
-            "--print-agents-exception-active-template, --print-live-runbook, --live, "
-            "and --rollback-from-download are mutually exclusive"
+            "--print-agents-exception-active-template, --print-live-runbook, "
+            "--prelive-packet, --live, and --rollback-from-download are mutually exclusive"
         )
     if args.observe_sec < 30:
         raise SystemExit("--observe-sec must be at least 30 for the M34 S8B1 download-beacon probe")
@@ -970,6 +1059,35 @@ def main(argv: list[str]) -> int:
         print(
             "readonly-preflight ok: M34 S8B1 candidate, rollback APs, Android stability, "
             f"and current boot hash verified for {selected_serial}; no AGENTS exception required; log={log_path}"
+        )
+        return 0
+
+    if args.prelive_packet:
+        selected_serial = run_android_readonly_preflight(
+            run_dir=run_dir,
+            log_path=log_path,
+            odin=odin,
+            serial=args.serial,
+            stability_samples=args.android_stability_samples,
+            stability_interval_sec=args.android_stability_interval_sec,
+            snapshot_label="prelive_packet_current",
+            agents_exception_checked=False,
+        )
+        packet_path = write_prelive_packet(
+            run_dir=run_dir,
+            log_path=log_path,
+            args=args,
+            selected_serial=selected_serial,
+            odin=odin,
+            m34_ap=m34_ap,
+            m34_manifest=m34_manifest,
+            magisk_rollback_ap=magisk_rollback_ap,
+            stock_rollback_ap=stock_rollback_ap,
+        )
+        print(
+            "prelive-packet ok: M34 S8B1 artifacts, rollback APs, Android stability, "
+            f"current boot hash, active-template, and runbook captured for {selected_serial}; "
+            f"no AGENTS exception inserted; packet={packet_path}"
         )
         return 0
 

@@ -289,6 +289,67 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertIn("live_runbook_printed=1", (run_dir / "s22plus_m34_s8b1_beacon_probe_live_gate.txt").read_text(encoding="utf-8"))
             self.assertFalse((run_dir / "timeline.json").exists())
 
+    def test_prelive_packet_skips_agents_gate_and_writes_exact_run_material(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            odin = root / "odin4"
+            odin.write_text("#!/bin/sh\n", encoding="utf-8")
+            run_dir = root / "run"
+            with (
+                mock.patch.object(self.module, "verify_m34_artifacts") as verify_artifacts,
+                mock.patch.object(self.module, "verify_agents_exception", side_effect=AssertionError("AGENTS gate should be skipped")),
+                mock.patch.object(self.module, "run_android_readonly_preflight", return_value="RFCT519XWGK") as readonly,
+            ):
+                stdout = io.StringIO()
+                with contextlib.redirect_stdout(stdout):
+                    rc = self.module.main(
+                        [
+                            "--prelive-packet",
+                            "--serial",
+                            "RFCT519XWGK",
+                            "--odin",
+                            str(odin),
+                            "--m34-ap",
+                            str(root / "candidate.tar.md5"),
+                            "--m34-manifest",
+                            str(root / "manifest.json"),
+                            "--magisk-rollback-ap",
+                            str(root / "magisk.tar.md5"),
+                            "--stock-rollback-ap",
+                            str(root / "stock.tar.md5"),
+                            "--run-dir",
+                            str(run_dir),
+                        ]
+                    )
+
+            self.assertEqual(rc, 0)
+            verify_artifacts.assert_called_once()
+            readonly.assert_called_once()
+            self.assertIn("prelive-packet ok", stdout.getvalue())
+            packet = json.loads((run_dir / "s22plus_m34_s8b1_prelive_packet.json").read_text(encoding="utf-8"))
+            self.assertEqual(packet["schema"], "s22plus_m34_s8b1_prelive_packet_v1")
+            self.assertFalse(packet["device_action"])
+            self.assertFalse(packet["agents_exception_inserted"])
+            self.assertFalse(packet["agents_exception_checked"])
+            self.assertTrue(packet["android_checked"])
+            self.assertEqual(packet["selected_serial"], "RFCT519XWGK")
+            self.assertEqual(packet["live_ack_token"], self.module.LIVE_ACK_TOKEN)
+            self.assertEqual(packet["rollback_ack_token"], self.module.ROLLBACK_ACK_TOKEN)
+            runbook = (run_dir / "s22plus_m34_s8b1_live_runbook.txt").read_text(encoding="utf-8")
+            active_template = (run_dir / "s22plus_m34_s8b1_active_exception_template.txt").read_text(encoding="utf-8")
+            self.assertIn(str(root / "candidate.tar.md5"), runbook)
+            self.assertIn(str(root / "manifest.json"), runbook)
+            self.assertIn(str(root / "magisk.tar.md5"), runbook)
+            self.assertIn(str(root / "stock.tar.md5"), runbook)
+            self.assertIn(str(odin), runbook)
+            self.assertIn(str(run_dir / "result.json"), runbook)
+            self.assertIn(self.module.LIVE_ACK_TOKEN, runbook)
+            self.assertIn(self.module.LIVE_ACK_TOKEN, active_template)
+            self.assertNotIn("DRAFT ONLY", active_template)
+            log_text = (run_dir / "s22plus_m34_s8b1_beacon_probe_live_gate.txt").read_text(encoding="utf-8")
+            self.assertIn("prelive_packet=ok device_action=0 agents_exception_checked=0 android_checked=1", log_text)
+            self.assertFalse((run_dir / "timeline.json").exists())
+
     def test_write_result_summary_creates_machine_readable_result_json(self):
         with tempfile.TemporaryDirectory() as tmp:
             run_dir = Path(tmp)

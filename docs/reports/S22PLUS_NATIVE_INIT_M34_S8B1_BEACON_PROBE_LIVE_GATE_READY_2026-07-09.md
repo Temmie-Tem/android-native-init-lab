@@ -107,6 +107,7 @@ The helper also provides a non-live readiness mode:
 
 ```text
 --readonly-preflight
+--prelive-packet
 --print-live-runbook
 ```
 
@@ -122,6 +123,18 @@ post-exception dry-run, live ack, manual-download rollback, and analyzer gates.
 The printed sequence carries any custom candidate, manifest, Odin, rollback,
 and run-directory paths supplied to the runbook command. It does not check
 `AGENTS.md`, call ADB, reboot, flash, or rollback.
+
+`--prelive-packet` performs the read-only preflight and writes a self-contained
+run directory packet:
+
+```text
+s22plus_m34_s8b1_prelive_packet.json
+s22plus_m34_s8b1_live_runbook.txt
+s22plus_m34_s8b1_active_exception_template.txt
+```
+
+The packet intentionally does not insert `AGENTS.md` authorization and does not
+perform any Odin transfer, reboot, rollback, or partition write.
 
 Live and rollback paths also write a machine-readable result file:
 
@@ -203,6 +216,7 @@ Commands run:
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m py_compile workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --offline-check
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --readonly-preflight --android-stability-samples 2 --android-stability-interval-sec 1
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --prelive-packet --android-stability-samples 2 --android-stability-interval-sec 1
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --print-live-runbook
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --print-agents-exception-draft
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --print-agents-exception-active-template
@@ -219,14 +233,15 @@ Results:
 py_compile: OK
 offline-check: OK, no device action
 readonly-preflight: OK, no reboot/flash/write
+prelive-packet: OK, no AGENTS insert/reboot/flash/write
 live-runbook generation: OK, no device action
 draft exception generation: OK
 active-template generation: OK
 default run without active AGENTS exception: correctly fails closed
-S8B1 tests: Ran 21 tests, OK
+S8B1 tests: Ran 22 tests, OK
 S8B1 analyzer tests: Ran 20 tests, OK
 S8B1/analyzer evidence-path cross-check: included in S8B1 tests
-M34/S7A2/S8B1/analyzer regression: Ran 56 tests, OK
+M34/S7A2/S8B1/analyzer regression: Ran 57 tests, OK
 ```
 
 ## Read-Only Current Device Note

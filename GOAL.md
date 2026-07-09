@@ -23,7 +23,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > descriptor/composition stays downstream until a candidate electrically enumerates. Full
 > analysis: `docs/reports/S22PLUS_M34_S8_BEACON_PROBE_PIVOT_STOP_BLIND_FLASHING_2026-07-09.md`.
 
-> **S22+ CURRENT FRONTIER (2026-07-09 09:33 KST / 2026-07-09 00:33 UTC) — M34 S8B1 LIVE GATE READY + FIRST-CLASS READONLY PREFLIGHT; NO ACTIVE LIVE AUTH.**
+> **S22+ CURRENT FRONTIER (2026-07-09 10:47 KST / 2026-07-09 01:47 UTC) — M34 S8B1 LIVE GATE READY + FIRST-CLASS READONLY PREFLIGHT/PRELIVE PACKET; NO ACTIVE LIVE AUTH.**
 > Codex added the fail-closed S8B1 live gate helper
 > `workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py`
 > plus tests in
@@ -56,7 +56,10 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > for read-only preflight, active exception review/insertion, dry-run, live,
 > manual-download rollback, and analyzer gates, including any custom artifact,
 > Odin, rollback, and run-dir paths, without checking AGENTS.md or touching
-> Android.
+> Android. A no-write `--prelive-packet` mode now runs the same read-only
+> Android/artifact preflight, then captures the active exception template,
+> exact runbook, and machine-readable prelive packet in the run directory
+> without inserting `AGENTS.md` authorization.
 > Live/rollback outcomes now also write machine-readable
 > `result.json` using schema `s22plus_m34_s8b1_result_v1`, so B1 HIT/MISS and
 > rollback state do not depend only on text-log parsing. The helper now also
@@ -82,10 +85,11 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > S8B1 tests now cross-check the helper's actual `record_timeline_event()` +
 > `write_result_summary()` output against the analyzer for both HIT and MISS.
 > Validation passed: helper `py_compile`, `--offline-check`,
-> `--readonly-preflight`, `--print-live-runbook`, draft/active-template
-> generation, S8B1 tests (`Ran 21 tests`, `OK`), S8B1 analyzer tests
+> `--readonly-preflight`, `--prelive-packet`, `--print-live-runbook`,
+> draft/active-template generation, S8B1 tests (`Ran 22 tests`, `OK`),
+> S8B1 analyzer tests
 > (`Ran 20 tests`, `OK`), M34/S7A2 regression including S8B1/analyzer
-> (`Ran 56 tests`, `OK`), and
+> (`Ran 57 tests`, `OK`), and
 > default run fail-closed without active authorization.
 >
 > Read-only host status after the operator's RDX/download note: the phone is
@@ -103,6 +107,11 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T003315Z/`,
 > again proving Android/root stability and current boot SHA match with
 > `device_action=0` and `agents_exception_checked=0`.
+> Latest no-write prelive packet was generated at
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T014623Z/`;
+> it contains `s22plus_m34_s8b1_prelive_packet.json`, the exact live runbook,
+> and the active exception template, with `device_action=false` and
+> `agents_exception_inserted=false`.
 > Report:
 > `docs/reports/S22PLUS_NATIVE_INIT_M34_S8B1_BEACON_PROBE_LIVE_GATE_READY_2026-07-09.md`.
 
