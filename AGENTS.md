@@ -2918,6 +2918,93 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `mfd_max77705`
    `pdic_max77705`
 
+   **Narrow operator-authorized exception (2026-07-10, S22+ O3R1 native retained-SysRq boot-only live gate):**
+   after V3418 reproducibly built the exact O3R1 artifact, the checked O3R1
+   helper passed artifact-only offline validation and connected read-only
+   Android/Magisk/sec_debug preflight, the operator explicitly directed the
+   direct proof, and the operator set Samsung SysDump DEBUG LEVEL to MID,
+   Codex may perform one bounded attended boot-partition-only O3R1 run on the
+   Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_o3r1_native_retained_sysrq_live_gate.py`.
+   The authorized candidate is exactly `S22+ O3R1 native retained-SysRq boot-only`.
+   Exact target marker: `SM-S906N/g0q/S906NKSS7FYG8`.
+   Live ack token: `S22PLUS-O3R1-NATIVE-RETAINED-SYSRQ-LIVE-GATE`.
+   Mandatory rollback ack token:
+   `S22PLUS-O3R1-NATIVE-RETAINED-SYSRQ-ROLLBACK-FROM-DOWNLOAD`.
+   Operator MID confirmation token: `DEBUG_LEVEL_MID_SET_BY_OPERATOR`.
+
+   The exact candidate AP.tar.md5 SHA256 must be
+   `2a92008b4632a8907fec96f0d8194a8461c16060cb1d919aeba7446020c4beda`;
+   AP tar SHA256 must be
+   `eb3819730944e68cab7355d72f2372c2dc47e88de6cb5670e94c43fe1593cbb8`;
+   contained padded `boot.img` SHA256 must be
+   `fc0dce090f454b621ed90e63dd11cfe29dad8de0fe04d3c1f138a004d9d2f6aa`;
+   `boot.img.lz4` SHA256 must be
+   `3af2ec28c2048aee8aac632c815581ded688dae256e3522eb002464514ae84a9`;
+   direct freestanding `/init` SHA256 must be
+   `44d70f3d7ee534b6701a5a912e07febdaf21b0b4d7fabf0368c4a6f942499fdc`;
+   and source SHA256 must be
+   `a51fd1d87732bbcc3fa4b6ea2c9ede7ff78d423736ce3e168c059cef50626968`.
+   The known-booting base Magisk boot SHA256 must remain
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`;
+   preserved kernel SHA256 must remain
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`.
+   The AP must contain exactly one tar member, `boot.img.lz4`, and must not
+   contain recovery, vendor_boot, dtbo, vbmeta, vbmeta_system, BL, CP, CSC,
+   super, persist, userdata, EFS, sec_efs, RPMB, keymaster, modem, bootloader,
+   or any other partition payload. There is `no non-boot partition write`.
+
+   Candidate behavior is limited to one freestanding raw-syscall PID1. It may
+   create or preserve `/dev/kmsg` as major 1 minor 11, emit marker
+   `S22_NATIVE_INIT_O3R1_RETAINED_SYSRQ` with ordered phase and return-code
+   records, mount only volatile procfs, open `/proc/sysrq-trigger`, and write
+   exactly one byte `c` for one `intentional kernel crash`. It must not write
+   `/proc/sys/kernel/sysrq`. If setup fails or the SysRq write returns, the
+   only allowed fallback is a `global PID1 exit_group panic fallback`. It must
+   not write pmsg, sysfs, configfs, or block devices; insert modules; configure
+   USB; mount persistent partitions; start Android/Magisk; fork/clone; or
+   request reboot.
+
+   Before candidate flash the helper must verify every pinned artifact and
+   manifest hash, normal rooted Android identity, exact current boot SHA, one
+   target transport, `debug_level=MID` (`18765` / `0x494d` / `MI`),
+   `sec_debug enable=1`, this active exception, the pinned Magisk boot-only
+   rollback AP SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`,
+   and the FYG8 stock boot-only fallback AP SHA256
+   `2f6a8ac093587a0f03c423d8e21f65c6fe3a8d2ce9915297170cdaa2cac37c94`
+   derived from stock raw boot SHA256
+   `4150b962314e6136acba61b20f471d6ee1c418b83cf8c3ee4d9cf7c91a3640ae`.
+   Continuous host USB observers must cover the candidate and recovery window.
+
+   A `mandatory boot-only rollback` follows every candidate flash result.
+   O3R1 intentionally panics and exposes no candidate control transport, so
+   attended `manual Download-mode entry` is expected after observation. The
+   helper may wait only its bounded timeout and then flash only the pinned
+   Magisk boot AP; the pinned stock boot AP is fallback only if the Magisk
+   rollback transfer fails while one Download endpoint remains available.
+   After rollback the helper must verify Android/root, exact baseline boot SHA,
+   stability, MID/enabled sec_debug state, and collect `/sys/fs/pstore` plus
+   `/proc/last_kmsg`.
+
+   O3R1 PASS requires the exact O3R1 marker including phase
+   `before-sysrq-c`, retained `sysrq: Trigger a crash`, and retained
+   `Kernel panic - not syncing: sysrq triggered crash`. Marker plus
+   `Attempted to kill init` proves only the retained kmsg channel while failing
+   the exact SysRq path; init-death panic without the marker is not channel
+   proof; unrelated panic or no marker/panic is FAIL. Source intent, Odin
+   disconnect, RDX display, or survival alone is not PASS. If Download mode
+   does not appear, stop and preserve the emergency rollback command; do not
+   widen candidate behavior.
+
+   This exception is consumed once `candidate_flash_start` is recorded and
+   must be rewritten as consumed after the run. It does not authorize O3/O3F
+   repeat, O3R2, USB/ACM/NCM, module loading, Type-C/PMIC changes, another
+   panic, another boot candidate, kernel rebuild, Magisk module,
+   multidisabler, format data, raw host `dd`, fastboot, full firmware flash,
+   RDX retrieval, any non-boot flash, or any A90 action. Recoverable-envelope,
+   single-target, fail-closed, and fails-twice-stop rules remain binding.
+
    **Consumed exception (2026-07-10, S22+ O3F freestanding single-PID1 generic-ACM boot-only live gate):**
    this one-shot exception was consumed by the 2026-07-10 KST O3F live run.
    The exact candidate AP transferred, left the original Odin endpoint, and the

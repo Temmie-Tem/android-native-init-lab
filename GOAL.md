@@ -84,6 +84,32 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 07:03 KST / 2026-07-09 22:03 UTC) — O3R1 EXACT LIVE GATE READY; OFFLINE + CONNECTED DRY-RUN PASS; ONE-SHOT EXCEPTION ACTIVE AND UNCONSUMED.**
+> V3419 added the O3R1-specific checked helper. It pins the exact source/init/
+> ramdisk/kernel/boot/LZ4/tar/AP hashes, exact Magisk and stock boot-only
+> rollback APs, current rooted Android boot SHA, single transport, Samsung
+> `debug_level=MID`, `sec_debug enable=1`, continuous host observers, mandatory
+> rollback, exact retained-log classifier, and the canonical eight-event
+> timeline.
+>
+> Artifact-only offline validation passed. The first connected dry-run correctly
+> rejected LOW (`20300 / 0x4f4c / LO`). Direct SysDump Activity/broadcast routes
+> were blocked; the standard dialer plus `*#9900#` key events opened SysDump, the
+> operator selected MID, and Android rebooted cleanly. The second connected
+> read-only dry-run passed with exact boot SHA `2e541703…967e`, Magisk uid 0,
+> four stable samples, `18765 / 0x494d / MI`, `enable=1`, and no concurrent Odin
+> endpoint. No candidate flash or panic has occurred.
+>
+> Exact PASS requires the O3R1 `before-sysrq-c` marker plus retained
+> `sysrq: Trigger a crash` and `Kernel panic - not syncing: sysrq triggered
+> crash`. Marker+init-death is channel evidence but not exact SysRq PASS;
+> init-death without marker is not channel proof. Twenty focused/regression
+> tests pass. The fresh one-shot exception is active and remains unconsumed
+> until `candidate_flash_start`. Next = one attended exact live run with all
+> three tokens, expected panic/RDX, manual Download if needed, mandatory Magisk
+> rollback, then `/proc/last_kmsg` verdict. Report:
+> `docs/reports/NATIVE_INIT_V3419_S22PLUS_O3R1_NATIVE_RETAINED_SYSRQ_LIVE_GATE_READY_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 06:48 KST / 2026-07-09 21:48 UTC) — O3R1 NATIVE RETAINED-SYSRQ HOST BUILD PASS; REPRODUCIBLE EXACT ARTIFACT; LIVE GATE DESIGN NEXT; NO ACTIVE O3R1 EXCEPTION.**
 > V3418 implements the smallest direct-PID1 retained-console positive control
 > selected after the O3F phase-unverifiable miss. O3R1 creates or preserves only
