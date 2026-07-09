@@ -23,6 +23,36 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > descriptor/composition stays downstream until a candidate electrically enumerates. Full
 > analysis: `docs/reports/S22PLUS_M34_S8_BEACON_PROBE_PIVOT_STOP_BLIND_FLASHING_2026-07-09.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-09 17:04 KST / 2026-07-09 08:04 UTC) — M34 S8B1 LIVE CONSUMED; B1 MISS; MAGISK ROLLBACK CLEAN; NO ACTIVE LIVE AUTH.**
+> After explicit operator live approval, Codex ran the attended boot-only S8B1
+> live gate with the active ack token. The helper flashed the pinned S8B1
+> candidate AP SHA256
+> `0bf313cdf24a5f5babc3d0073a1e90686f1b734b6dafdfa548154ef3eac6c2c8`,
+> observed the candidate window for 90 seconds, and saw no new Odin Download
+> endpoint. Result:
+> `download-beacon-miss-parked-manual-download-required`.
+> The operator observed no bootloop during the window. Manual Download rollback
+> appeared as `/dev/bus/usb/002/108`; the helper flashed the pinned Magisk
+> boot-only rollback AP and Android returned as `<S22_SERIAL_REDACTED>`.
+> Machine-readable evidence:
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_live/result.json`,
+> `timeline.json`, and `s22plus_m34_s8b1_result_analysis.json`.
+> Analyzer decision:
+> `s22plus-m34-s8b1-b1-miss-stop-at-typec-or-i2c`,
+> `b1_observed=true`, `b1_state=false`, `ok_to_advance=false`,
+> `ok_to_live_next_stage=false`, timeline ordered/monotonic, no errors.
+> Post-rollback baseline is clean: `sys.boot_completed=1`,
+> `ro.boot.verifiedbootstate=orange`, build `S906NKSS7FYG8`, Magisk `su`
+> returns `uid=0`, and boot SHA256 is back to
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+> `AGENTS.md` now marks the S8B1 exception consumed/retired; the consumed ack
+> token strings are no longer active authorization. Interpretation: the S8
+> one-bit probe did its job and B1 is false in native-init under the S7A2 module
+> recipe. Do not proceed to B2/B3/B4, S7B descriptor/composition, or more
+> downstream USB changes. Next unit is host-only postmortem/design focused on
+> why native-init does not reach `/sys/bus/i2c/devices/57-0066` or
+> `/sys/class/typec/port0` even though Android shows max77705/TypeC paths.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 13:27 KST / 2026-07-09 04:27 UTC) — M34 S8B1 ACTIVE AUTH + AFTER-DRYRUN PACKET VERIFIER + DEFAULT DRY-RUN PASS; LIVE NOT RUN.**
 > Codex added the fail-closed S8B1 live gate helper
 > `workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py`
@@ -156,7 +186,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > authorization.
 >
 > Read-only host status after the operator's RDX/download note: the phone is
-> currently host-visible as Android/MTP + ADB (`04e8:6860`, `RFCT519XWGK`),
+> currently host-visible as Android/MTP + ADB (`04e8:6860`, `<S22_SERIAL_REDACTED>`),
 > `sys.boot_completed=1`, `ro.boot.verifiedbootstate=orange`, and Magisk `su`
 > returns `uid=0`. `/proc/last_kmsg` and pstore are not present in this boot.
 > A read-only S8B1 preflight component check passed at
@@ -182,7 +212,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z/`;
 > it contains `s22plus_m34_s8b1_prelive_packet.json`, the exact live runbook,
 > the active exception template, stored runbook options, selected serial
-> `RFCT519XWGK`, the Android predicate baseline, and the Android reset-context
+> `<S22_SERIAL_REDACTED>`, the Android predicate baseline, and the Android reset-context
 > baseline, plus embedded `material_sha256` for the sidecars, with `device_action=false` and
 > `agents_exception_inserted=false`. The packet verified cleanly with
 > `--verify-prelive-packet` at

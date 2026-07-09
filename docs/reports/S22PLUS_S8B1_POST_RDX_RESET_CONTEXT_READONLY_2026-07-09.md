@@ -45,7 +45,7 @@ tests/test_s22plus_reset_reason_readonly_probe.py
 Command:
 
 ```text
-PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py --serial RFCT519XWGK
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py --serial <S22_SERIAL_REDACTED>
 ```
 
 Run directory:

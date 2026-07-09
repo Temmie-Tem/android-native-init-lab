@@ -38,7 +38,7 @@ def load_analyzer():
     return module
 
 
-def write_test_predicate_baseline(module, run_dir: Path, serial: str = "RFCT519XWGK") -> dict:
+def write_test_predicate_baseline(module, run_dir: Path, serial: str = "<S22_SERIAL_REDACTED>") -> dict:
     payload = {
         "schema": "s22plus_m34_s8b1_android_predicate_baseline_v1",
         "timestamp_utc": "2026-07-09T00:00:00Z",
@@ -86,7 +86,7 @@ def write_test_predicate_baseline(module, run_dir: Path, serial: str = "RFCT519X
     return payload
 
 
-def write_test_reset_context_baseline(module, run_dir: Path, serial: str = "RFCT519XWGK") -> dict:
+def write_test_reset_context_baseline(module, run_dir: Path, serial: str = "<S22_SERIAL_REDACTED>") -> dict:
     payload = {
         "schema": "s22plus_m34_s8b1_android_reset_context_baseline_v1",
         "timestamp_utc": "2026-07-09T00:00:00Z",
@@ -124,7 +124,7 @@ def write_test_reset_context_baseline(module, run_dir: Path, serial: str = "RFCT
     return payload
 
 
-def readonly_preflight_stub(module, serial: str = "RFCT519XWGK"):
+def readonly_preflight_stub(module, serial: str = "<S22_SERIAL_REDACTED>"):
     def _stub(*, run_dir, **_kwargs):
         write_test_predicate_baseline(module, run_dir, serial)
         write_test_reset_context_baseline(module, run_dir, serial)
@@ -282,7 +282,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             run_dir = Path(tmp)
             log_path = run_dir / "readonly_preflight.log"
             with (
-                mock.patch.object(self.module, "require_current_android", return_value="RFCT519XWGK") as require_android,
+                mock.patch.object(self.module, "require_current_android", return_value="<S22_SERIAL_REDACTED>") as require_android,
                 mock.patch.object(self.module, "verify_android_stability") as verify_stability,
                 mock.patch.object(self.module, "verify_partition_hash") as verify_hash,
                 mock.patch.object(self.module, "collect_android_s8b1_predicate_baseline") as collect_baseline,
@@ -300,18 +300,18 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
                     agents_exception_checked=False,
                 )
 
-            self.assertEqual(serial, "RFCT519XWGK")
+            self.assertEqual(serial, "<S22_SERIAL_REDACTED>")
             require_android.assert_called_once_with(log_path, None)
-            verify_stability.assert_called_once_with(log_path, "RFCT519XWGK", 2, 1.0)
+            verify_stability.assert_called_once_with(log_path, "<S22_SERIAL_REDACTED>", 2, 1.0)
             verify_hash.assert_called_once_with(
                 log_path,
-                "RFCT519XWGK",
+                "<S22_SERIAL_REDACTED>",
                 "boot",
                 self.module.EXPECTED_M34_BASE_BOOT_SHA256,
                 "current",
             )
-            collect_baseline.assert_called_once_with(run_dir=run_dir, log_path=log_path, serial="RFCT519XWGK")
-            collect_reset_context.assert_called_once_with(run_dir=run_dir, log_path=log_path, serial="RFCT519XWGK")
+            collect_baseline.assert_called_once_with(run_dir=run_dir, log_path=log_path, serial="<S22_SERIAL_REDACTED>")
+            collect_reset_context.assert_called_once_with(run_dir=run_dir, log_path=log_path, serial="<S22_SERIAL_REDACTED>")
             snapshot.assert_called_once_with(run_dir, log_path, "readonly_preflight_current", Path("/no/odin"))
             text = log_path.read_text(encoding="utf-8")
             self.assertIn("android_readonly_preflight=ok", text)
@@ -367,7 +367,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
                 payload = self.module.collect_android_s8b1_predicate_baseline(
                     run_dir=run_dir,
                     log_path=log_path,
-                    serial="RFCT519XWGK",
+                    serial="<S22_SERIAL_REDACTED>",
                 )
 
             self.assertEqual(run.call_count, 1 + len(self.module.ANDROID_S8B2_HINT_VALUE_PATHS))
@@ -440,7 +440,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
                         [
                             "--print-live-runbook",
                             "--serial",
-                            "RFCT519XWGK",
+                            "<S22_SERIAL_REDACTED>",
                             "--odin",
                             str(odin),
                             "--m34-ap",
@@ -467,7 +467,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertIn(f"--ack {self.module.ROLLBACK_ACK_TOKEN}", text)
             self.assertIn("--require-advance", text)
             self.assertIn("--require-live-next-stage", text)
-            self.assertIn("--serial RFCT519XWGK", text)
+            self.assertIn("--serial '<S22_SERIAL_REDACTED>'", text)
             self.assertIn("This command handles HIT rollback", text)
             self.assertIn("Fallback only: run this if step 6 exits after MISS without rollback", text)
             self.assertIn("cleanup evidence, not B1 proof", text)
@@ -720,7 +720,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
                         [
                             "--prelive-packet",
                             "--serial",
-                            "RFCT519XWGK",
+                            "<S22_SERIAL_REDACTED>",
                             "--odin",
                             str(odin),
                             "--m34-ap",
@@ -746,7 +746,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertFalse(packet["agents_exception_inserted"])
             self.assertFalse(packet["agents_exception_checked"])
             self.assertTrue(packet["android_checked"])
-            self.assertEqual(packet["selected_serial"], "RFCT519XWGK")
+            self.assertEqual(packet["selected_serial"], "<S22_SERIAL_REDACTED>")
             self.assertEqual(packet["live_ack_token"], self.module.LIVE_ACK_TOKEN)
             self.assertEqual(packet["rollback_ack_token"], self.module.ROLLBACK_ACK_TOKEN)
             planned_live_run_dir = Path(packet["planned_live_run_dir"])
@@ -769,7 +769,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertEqual(packet["runbook_options"]["android_stability_interval_sec"], 3.0)
             self.assertEqual(packet["android_s8b1_predicate_baseline"]["schema"], "s22plus_m34_s8b1_android_predicate_baseline_v1")
             self.assertTrue(packet["android_s8b1_predicate_baseline"]["predicate_true"])
-            self.assertEqual(packet["android_s8b1_predicate_baseline"]["serial"], "RFCT519XWGK")
+            self.assertEqual(packet["android_s8b1_predicate_baseline"]["serial"], "<S22_SERIAL_REDACTED>")
             hints = packet["android_s8b1_predicate_baseline"]["future_b2_hints"]
             self.assertEqual(hints["candidate_paths"], self.module.ANDROID_S8B2_HINT_PATHS)
             self.assertEqual(hints["value_paths"], self.module.ANDROID_S8B2_HINT_VALUE_PATHS)
@@ -782,7 +782,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
                 packet["android_reset_context_baseline"]["schema"],
                 "s22plus_m34_s8b1_android_reset_context_baseline_v1",
             )
-            self.assertEqual(packet["android_reset_context_baseline"]["serial"], "RFCT519XWGK")
+            self.assertEqual(packet["android_reset_context_baseline"]["serial"], "<S22_SERIAL_REDACTED>")
             self.assertEqual(
                 packet["android_reset_context_baseline"]["summary"]["reset_reason"]["proc_reset_reason_value"],
                 "MPON",
@@ -822,7 +822,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertIn(str(odin), runbook)
             self.assertIn(str(planned_live_run_dir), runbook)
             self.assertIn(str(planned_live_run_dir / "result.json"), runbook)
-            self.assertIn("--serial RFCT519XWGK", runbook)
+            self.assertIn("--serial '<S22_SERIAL_REDACTED>'", runbook)
             self.assertIn("Fallback only", runbook)
             self.assertIn("cleanup evidence, not B1 proof", runbook)
             for phase in ("preflight", "template", "dryrun", "rollback"):
@@ -870,9 +870,9 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
 
             self.assertEqual(rc, 0)
             packet = json.loads((run_dir / "s22plus_m34_s8b1_prelive_packet.json").read_text(encoding="utf-8"))
-            self.assertEqual(packet["selected_serial"], "RFCT519XWGK")
+            self.assertEqual(packet["selected_serial"], "<S22_SERIAL_REDACTED>")
             runbook = (run_dir / "s22plus_m34_s8b1_live_runbook.txt").read_text(encoding="utf-8")
-            self.assertIn("--serial RFCT519XWGK", runbook)
+            self.assertIn("--serial '<S22_SERIAL_REDACTED>'", runbook)
 
     def test_verify_prelive_packet_skips_device_and_agents_gates(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1327,7 +1327,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
                 rc=0,
                 rollback_target=self.module.ROLLBACK_MAGISK,
                 rollback_device="/dev/bus/usb/001/002",
-                android_serial="RFCT519XWGK",
+                android_serial="<S22_SERIAL_REDACTED>",
             )
 
             payload = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
@@ -1338,7 +1338,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertEqual(payload["rc"], 0)
             self.assertEqual(payload["rollback_target"], self.module.ROLLBACK_MAGISK)
             self.assertEqual(payload["rollback_device"], "/dev/bus/usb/001/002")
-            self.assertEqual(payload["android_serial"], "RFCT519XWGK")
+            self.assertEqual(payload["android_serial"], "<S22_SERIAL_REDACTED>")
             self.assertEqual(payload["candidate_ap_sha256"], self.module.EXPECTED_M34_AP_SHA256)
             self.assertEqual(payload["candidate_boot_sha256"], self.module.EXPECTED_M34_BOOT_SHA256)
             self.assertEqual(payload["candidate_init_sha256"], self.module.EXPECTED_M34_INIT_SHA256)
@@ -1356,7 +1356,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             log_path = run_dir / "rollback.log"
             with (
                 mock.patch.object(self.module, "flash_ap", return_value=0),
-                mock.patch.object(self.module, "poll_android", return_value="RFCT519XWGK"),
+                mock.patch.object(self.module, "poll_android", return_value="<S22_SERIAL_REDACTED>"),
                 mock.patch.object(self.module, "verify_partition_hash"),
                 mock.patch.object(self.module, "collect_android_pstore", return_value=False),
             ):
@@ -1373,7 +1373,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
                 )
 
             self.assertEqual(rollback.rc, 0)
-            self.assertEqual(rollback.android_serial, "RFCT519XWGK")
+            self.assertEqual(rollback.android_serial, "<S22_SERIAL_REDACTED>")
             self.assertEqual(rollback.rollback_target, self.module.ROLLBACK_MAGISK)
             self.assertEqual(rollback.rollback_device, "/dev/bus/usb/001/002")
             timeline = json.loads((run_dir / "timeline.json").read_text(encoding="utf-8"))
@@ -1393,7 +1393,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             with (
                 mock.patch.object(self.module, "flash_ap", side_effect=[9, 0]) as flash,
                 mock.patch.object(self.module, "wait_for_odin", return_value="/dev/bus/usb/001/003"),
-                mock.patch.object(self.module, "poll_android", return_value="RFCT519XWGK") as poll_android,
+                mock.patch.object(self.module, "poll_android", return_value="<S22_SERIAL_REDACTED>") as poll_android,
                 mock.patch.object(self.module, "verify_partition_hash") as verify_hash,
                 mock.patch.object(self.module, "collect_android_pstore", return_value=False),
             ):
@@ -1410,7 +1410,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
                 )
 
             self.assertEqual(rollback.rc, 0)
-            self.assertEqual(rollback.android_serial, "RFCT519XWGK")
+            self.assertEqual(rollback.android_serial, "<S22_SERIAL_REDACTED>")
             self.assertEqual(rollback.rollback_target, self.module.ROLLBACK_STOCK)
             self.assertEqual(rollback.rollback_device, "/dev/bus/usb/001/003")
             self.assertEqual(flash.call_count, 2)
@@ -1432,7 +1432,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             log_path = run_dir / "rollback_only.log"
             fallback = self.module.RollbackResult(
                 rc=0,
-                android_serial="RFCT519XWGK",
+                android_serial="<S22_SERIAL_REDACTED>",
                 rollback_target=self.module.ROLLBACK_STOCK,
                 rollback_device="/dev/bus/usb/001/003",
             )
@@ -1455,7 +1455,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertEqual(payload["result"], "rollback-from-download-completed")
             self.assertEqual(payload["rollback_target"], self.module.ROLLBACK_STOCK)
             self.assertEqual(payload["rollback_device"], "/dev/bus/usb/001/003")
-            self.assertEqual(payload["android_serial"], "RFCT519XWGK")
+            self.assertEqual(payload["android_serial"], "<S22_SERIAL_REDACTED>")
 
     def test_helper_result_and_timeline_are_accepted_by_s8b1_analyzer_for_hit(self):
         analyzer = load_analyzer()
@@ -1471,7 +1471,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
                 rc=0,
                 rollback_target=self.module.ROLLBACK_MAGISK,
                 rollback_device="/dev/bus/usb/001/002",
-                android_serial="RFCT519XWGK",
+                android_serial="<S22_SERIAL_REDACTED>",
             )
 
             result_payload = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
@@ -1505,7 +1505,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
                 rc=0,
                 rollback_target=self.module.ROLLBACK_MAGISK,
                 rollback_device="/dev/bus/usb/001/002",
-                android_serial="RFCT519XWGK",
+                android_serial="<S22_SERIAL_REDACTED>",
             )
 
             result_payload = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
@@ -1607,7 +1607,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             with (
                 mock.patch.object(self.module, "host_snapshot", return_value={}),
                 mock.patch.object(self.module, "odin_devices", return_value=[]),
-                mock.patch.object(self.module, "adb_rows", return_value=[("RFCT519XWGK", "device", "model:SM_S906N")]),
+                mock.patch.object(self.module, "adb_rows", return_value=[("<S22_SERIAL_REDACTED>", "device", "model:SM_S906N")]),
                 mock.patch.object(self.module.time, "monotonic", side_effect=lambda: clock["now"]),
                 mock.patch.object(self.module.time, "sleep", side_effect=lambda sec: clock.__setitem__("now", clock["now"] + sec)),
             ):

@@ -1,5 +1,26 @@
 # S22+ M34 S8B1 Download-Beacon Probe Live Gate Ready (2026-07-09)
 
+## 2026-07-09 Live Update
+
+This pre-live packet was consumed by the attended S8B1 live run. The live run
+returned `download-beacon-miss-parked-manual-download-required`, restored the
+Magisk boot baseline, and the analyzer marked `ok_to_advance=false`.
+
+Post-run report:
+
+```text
+docs/reports/S22PLUS_NATIVE_INIT_M34_S8B1_LIVE_CONSUMED_B1_MISS_2026-07-09.md
+```
+
+Run evidence:
+
+```text
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_live/
+```
+
+This document is now historical readiness evidence. It is not a current live
+authorization source.
+
 Host-side live-gate preparation only. No S22+ live flash is authorized by this
 report.
 
@@ -323,7 +344,7 @@ the phone back in normal Android/MTP + ADB:
 
 ```text
 lsusb: 04e8:6860 Samsung Galaxy series, MTP mode
-adb serial: RFCT519XWGK device
+adb serial: <S22_SERIAL_REDACTED> device
 model/device/build: SM-S906N / g0q / S906NKSS7FYG8
 ro.boot.verifiedbootstate: orange
 sys.boot_completed: 1

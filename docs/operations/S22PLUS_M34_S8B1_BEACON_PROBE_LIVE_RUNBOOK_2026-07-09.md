@@ -1,9 +1,22 @@
 # S22+ M34 S8B1 Beacon-Probe Live Runbook (2026-07-09)
 
+## Consumed
+
+This runbook was consumed by the attended S8B1 live run. The result was
+`download-beacon-miss-parked-manual-download-required`; Magisk rollback
+completed and Android returned cleanly. Do not rerun this live command or reuse
+the consumed ack token path.
+
+Post-run report:
+
+```text
+docs/reports/S22PLUS_NATIVE_INIT_M34_S8B1_LIVE_CONSUMED_B1_MISS_2026-07-09.md
+```
+
 This document is inert. It does not authorize a live flash, does not insert an
-`AGENTS.md` exception, and does not replace the helper gates. It pins the latest
-no-write prelive packet and the operator-facing sequence for the next S8B1
-live gate if the operator later gives explicit live approval.
+`AGENTS.md` exception, and does not replace the helper gates. It records the
+no-write prelive packet and operator-facing sequence that were used for the
+now-consumed S8B1 live gate.
 
 ## Scope
 
@@ -74,7 +87,7 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
 Expected result:
 
 ```text
-verify-prelive-packet ok: packet matches current S8B1 helper contract, selected_serial=RFCT519XWGK; no device action
+verify-prelive-packet ok: packet matches current S8B1 helper contract, selected_serial=<S22_SERIAL_REDACTED>; no device action
 ```
 
 Do not rerun this verifier after the dry-run unless a fresh packet is generated:
@@ -90,7 +103,7 @@ workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_
 Android baseline from the packet:
 
 ```text
-selected_serial=RFCT519XWGK
+selected_serial=<S22_SERIAL_REDACTED>
 predicate=/sys/class/typec/port0 OR /sys/bus/i2c/devices/57-0066
 /sys/bus/i2c/devices/57-0066 exists
 /sys/class/typec/port0 absent
@@ -279,9 +292,10 @@ PMIC/RDX abnormal reset before the observation window = fail, not HIT.
 
 ## Current Status
 
-Repo `AGENTS.md` now matches the verified S8B1 full candidate byte-for-byte
-and `--verify-agents-candidate AGENTS.md` passes with exact active-template
-coverage. The latest default no-live dry-run also passed in:
+The live gate has now been consumed. Repo `AGENTS.md` marks the S8B1 exception
+consumed/retired, so `--verify-agents-candidate AGENTS.md` is no longer
+expected to pass as active authorization. The pre-live default no-live dry-run
+passed in:
 
 ```text
 workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_live_dryrun/
@@ -299,6 +313,12 @@ The latest after-dryrun verifier passed in
 It checked the dry-run evidence while still requiring live/rollback directories
 to be absent. The planned live directory remains uncreated.
 
-The next live step remains blocked on explicit operator live approval and the
-live ack token. Until then, only no-write checks, dry-run checks, and report
-updates are allowed.
+The attended live run consumed the planned live directory and returned MISS:
+
+```text
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_live/
+```
+
+Next work is host-only postmortem/design around native-init GENI I2C/max77705
+reachability. B2/B3/B4 and downstream USB changes are not authorized by this
+MISS.

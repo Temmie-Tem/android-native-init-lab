@@ -35,7 +35,7 @@ class AnalyzeS22PlusM34S8B1ResultTest(unittest.TestCase):
             "result": result,
             "rc": rc,
             "rollback_target": "magisk",
-            "android_serial": "RFCT519XWGK",
+            "android_serial": "<S22_SERIAL_REDACTED>",
             "candidate_ap_sha256": self.module.EXPECTED_M34_AP_SHA256,
             "candidate_boot_sha256": self.module.EXPECTED_M34_BOOT_SHA256,
             "candidate_init_sha256": self.module.EXPECTED_M34_INIT_SHA256,
