@@ -4,6 +4,27 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **🎯 OPERATOR STEER (2026-07-09, Claude — WHY S9 STILL MISSED, host analysis): THE LOAD-SET NEEDS *BOTH GRAPHS*. S9 loaded the devlink PROVIDERS but not their modules.dep SYMBOL-DEPS → they never probed → B1 still MISS. S9.2 = add the symbol-closure (esp `cmd-db`).**
+> Transitive `modules.dep` closure of the S9 substrate set = **16 more modules missing**,
+> foundational ones: **`cmd-db.ko`** (RPMh command DB — gcc/clk-rpmh/rpmh-regulator CANNOT
+> probe without it → no clocks → i2c dead = the smoking gun), `smem`, `qcom-scm`, `socinfo`,
+> `qcom_ipc_logging`, `qcom_iommu_util`+`secure_buffer` (arm_smmu), `proxy-consumer`+
+> `debug-regulator`+`clk-dummy` (regulators), `minidump`+`sec_debug` (geni), `qnoc-qos`.
+> **RULE (your "static+living together", exact): COMPLETE_SET = closure(seeds={target devices},
+> edges = devlink-supplier-graph ∪ modules.dep-symbol-graph), ordered by modules.load.** devlink
+> alone (S9) = providers w/o symbol-deps → insmod/probe fail. modules.dep alone (M5..S7A) =
+> symbol-deps w/o phandle providers → probe defers. BOTH = complete; neither alone works — that's
+> why we kept missing it. **S9.2 = load-set = the 32-module BOTH-graphs closure (16 devlink +
+> 16 symbol-deps) + max77705/producer chain's own both-graphs closure; ORDER BY stock modules.load
+> (it already puts cmd-db/smem/scm/socinfo/rpmh first) — simplest: load the modules.load prefix
+> filtered to the closure set, in modules.load order. Keep watchdog/mode=peripheral/minimal ss_acm/
+> soft_connect OFF. Re-run B1.** Optional finer beacon if still MISS: report whether substrate
+> modules insmod-ed + gcc bound (`.../100000.clock-controller/driver` exists) + `/sys/kernel/debug/
+> devices_deferred` empty for 994000.i2c — the insmod/probe layer we're blind to. Role/session
+> closure widening (B2-B4, incl glink/charger-DSP question) stays queued until B1 passes. Safety:
+> cmd-db/smem/qcom-scm/socinfo = stock driver loads for normal probe, NOT rail/partition writes.
+> Full analysis: `docs/reports/S22PLUS_M34_S9_2_BOTH_GRAPHS_SYMBOL_CLOSURE_OF_DEVLINK_PROVIDERS_2026-07-09.md`.
+
 > **🔒 OPERATOR STEER (2026-07-09, Claude — SECRET DISCIPLINE, recurring): REDACT THE S22+ DEVICE SERIAL IN GENERATED ARTIFACTS AT SOURCE.** The device serial (`ro.serialno`, the `adb devices`/`--serial` value) was committed into reports/GOAL/source **3× in one session**. It must NEVER be committed (it is already public-pushed once). Fix at source: any helper that captures `getprop`, `adb devices -l`, `lsusb`, or passes `--serial` must **write a redacted placeholder (`<S22_SERIAL_REDACTED>`) into committed artifacts**, keeping the real value only in gitignored `workspace/private/` run dirs. Do not paste raw `adb`/getprop output into `docs/`, `GOAL.md`, `AGENTS.md`, tests, or `workspace/public/` source. Before any commit touching those paths, `git grep -n <serial-pattern>` and redact. Same for BSSID/MAC/PSK/SSID/IP/tunnel-URL/KASLR.
 
 > **S22+ CURRENT FRONTIER (2026-07-09 18:18 KST / 2026-07-09 09:18 UTC) — M34 S9 LIVE CONSUMED; DEVLINK SUBSTRATE CLOSED BUT B1 STILL MISS; MAGISK ROLLBACK CLEAN; NO ACTIVE LIVE AUTH.**
