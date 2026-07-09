@@ -1,6 +1,7 @@
 import contextlib
 import importlib.util
 import io
+import json
 import sys
 import tempfile
 import unittest
@@ -220,6 +221,69 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             verify_artifacts.assert_called_once()
             readonly.assert_called_once()
             self.assertFalse((run_dir / "timeline.json").exists())
+
+    def test_write_result_summary_creates_machine_readable_result_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            log_path = run_dir / "result.log"
+            self.module.write_result_summary(
+                run_dir,
+                log_path,
+                result="download-beacon-hit",
+                rc=0,
+                rollback_target=self.module.ROLLBACK_MAGISK,
+                rollback_device="/dev/bus/usb/001/002",
+                android_serial="RFCT519XWGK",
+            )
+
+            payload = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
+            self.assertEqual(payload["schema"], "s22plus_m34_s8b1_result_v1")
+            self.assertEqual(payload["target"], self.module.EXPECTED_TARGET)
+            self.assertEqual(payload["stage"], "S8B1")
+            self.assertEqual(payload["result"], "download-beacon-hit")
+            self.assertEqual(payload["rc"], 0)
+            self.assertEqual(payload["rollback_target"], self.module.ROLLBACK_MAGISK)
+            self.assertEqual(payload["rollback_device"], "/dev/bus/usb/001/002")
+            self.assertEqual(payload["android_serial"], "RFCT519XWGK")
+            self.assertEqual(payload["candidate_ap_sha256"], self.module.EXPECTED_M34_AP_SHA256)
+            self.assertEqual(payload["candidate_boot_sha256"], self.module.EXPECTED_M34_BOOT_SHA256)
+            self.assertEqual(payload["candidate_init_sha256"], self.module.EXPECTED_M34_INIT_SHA256)
+            self.assertEqual(payload["base_boot_sha256"], self.module.EXPECTED_M34_BASE_BOOT_SHA256)
+            self.assertIn("result_summary=", log_path.read_text(encoding="utf-8"))
+
+    def test_rollback_boot_only_records_canonical_timeline_events(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            log_path = run_dir / "rollback.log"
+            with (
+                mock.patch.object(self.module, "flash_ap", return_value=0),
+                mock.patch.object(self.module, "poll_android", return_value="RFCT519XWGK"),
+                mock.patch.object(self.module, "verify_partition_hash"),
+                mock.patch.object(self.module, "collect_android_pstore", return_value=False),
+            ):
+                rc, android = self.module.rollback_boot_only_from_download(
+                    odin=Path("/no/odin"),
+                    rollback_ap=Path("/magisk.tar.md5"),
+                    stock_boot_fallback_ap=Path("/stock.tar.md5"),
+                    odin_device="/dev/bus/usb/001/002",
+                    run_dir=run_dir,
+                    log_path=log_path,
+                    rollback_target=self.module.ROLLBACK_MAGISK,
+                    android_wait_sec=1,
+                    label="beacon_hit",
+                )
+
+            self.assertEqual(rc, 0)
+            self.assertEqual(android, "RFCT519XWGK")
+            timeline = json.loads((run_dir / "timeline.json").read_text(encoding="utf-8"))
+            self.assertEqual(set(timeline), {"events"})
+            names = [event["name"] for event in timeline["events"]]
+            self.assertIn("rollback_flash_start", names)
+            self.assertIn("rollback_flash_done", names)
+            self.assertIn("rollback_boot_ready", names)
+            self.assertIn("beacon_hit_rollback_flash_start", names)
+            self.assertIn("beacon_hit_rollback_flash_done", names)
+            self.assertIn("beacon_hit_rollback_boot_ready", names)
 
     def test_observe_download_beacon_classifies_new_odin_endpoint_as_hit(self):
         with tempfile.TemporaryDirectory() as tmp:

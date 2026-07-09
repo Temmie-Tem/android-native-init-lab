@@ -52,9 +52,12 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > has been inserted. A first-class `--readonly-preflight` mode now verifies
 > artifacts, Android identity/stability, current boot hash, and host snapshot
 > without requiring an active `AGENTS.md` exception and without reboot/flash.
+> Live/rollback outcomes now also write machine-readable
+> `result.json` using schema `s22plus_m34_s8b1_result_v1`, so B1 HIT/MISS and
+> rollback state do not depend only on text-log parsing.
 > Validation passed: helper `py_compile`, `--offline-check`,
 > `--readonly-preflight`, draft/active-template generation, S8B1 tests
-> (`Ran 14 tests`, `OK`), M34/S7A2 regression including S8B1 (`Ran 29 tests`,
+> (`Ran 16 tests`, `OK`), M34/S7A2 regression including S8B1 (`Ran 31 tests`,
 > `OK`), and default run fail-closed without active authorization.
 >
 > Read-only host status after the operator's RDX/download note: the phone is

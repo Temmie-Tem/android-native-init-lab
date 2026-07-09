@@ -114,6 +114,23 @@ current Android identity, stability, current boot SHA256, and a host snapshot.
 It intentionally skips the `AGENTS.md` active-exception gate because it performs
 no reboot, no Odin transfer, no partition write, and no rollback action.
 
+Live and rollback paths also write a machine-readable result file:
+
+```text
+result.json
+```
+
+Schema:
+
+```text
+s22plus_m34_s8b1_result_v1
+```
+
+The result file records the final `result`, `rc`, rollback target, optional
+rollback Odin endpoint, optional post-rollback Android serial, and the pinned
+candidate/base hashes. This is the authoritative host-side summary to classify
+B1 after a live run, alongside `timeline.json` and the text log.
+
 ## Validation
 
 Commands run:
@@ -139,8 +156,8 @@ readonly-preflight: OK, no reboot/flash/write
 draft exception generation: OK
 active-template generation: OK
 default run without active AGENTS exception: correctly fails closed
-S8B1 tests: Ran 14 tests, OK
-M34/S7A2/S8B1 regression: Ran 29 tests, OK
+S8B1 tests: Ran 16 tests, OK
+M34/S7A2/S8B1 regression: Ran 31 tests, OK
 ```
 
 ## Read-Only Current Device Note
