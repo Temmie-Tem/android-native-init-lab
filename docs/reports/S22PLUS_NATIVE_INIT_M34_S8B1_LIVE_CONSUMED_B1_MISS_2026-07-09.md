@@ -113,8 +113,13 @@ On Android, the same preflight sees:
 ```
 
 S8B1 in native-init did not hit even the OR predicate
-`/sys/class/typec/port0 OR /sys/bus/i2c/devices/57-0066`. The next unit should
-therefore be host-only postmortem/design around native-init module bring-up and
-the GENI I2C/max77705/TypeC sysfs creation path, not downstream gadget,
-FunctionFS, UDC bind, descriptor, or composition changes.
+`/sys/class/typec/port0 OR /sys/bus/i2c/devices/57-0066`. The immediate
+host-only follow-up is S8B1A, which keeps the same recipe but widens the I2C
+predicate to `/sys/bus/i2c/devices/*-0066` so the Android bus-number assumption
+is tested before touching downstream USB behavior.
 
+S8B1A host-build report:
+
+```text
+docs/reports/S22PLUS_NATIVE_INIT_M34_S8B1A_WIDE_I2C_BEACON_HOST_BUILD_2026-07-09.md
+```

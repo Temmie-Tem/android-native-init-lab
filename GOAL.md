@@ -23,6 +23,44 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > descriptor/composition stays downstream until a candidate electrically enumerates. Full
 > analysis: `docs/reports/S22PLUS_M34_S8_BEACON_PROBE_PIVOT_STOP_BLIND_FLASHING_2026-07-09.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-09 17:21 KST / 2026-07-09 08:21 UTC) — M34 S8B1A HOST BUILD COMPLETE; WIDE I2C B1 PROBE; NO ACTIVE LIVE AUTH.**
+> Codex implemented and host-built `S8B1A` in
+> `workspace/public/src/scripts/revalidation/build_s22plus_m34_runtime_gadget_split.py`
+> and `workspace/public/src/native-init/s22plus_init_m34_runtime_gadget_split.c`.
+> Output:
+> `workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_9/`.
+> S8B1A keeps the S8B1/S7A2 module recipe and still skips configfs, UDC bind,
+> role writes, downstream descriptor/composition, persistent mounts, and block
+> writes. The only semantic change from consumed S8B1 is the B1 predicate:
+> S8B1 checked exact `/sys/bus/i2c/devices/57-0066`; S8B1A checks
+> `/sys/class/typec/port0` OR any `/sys/bus/i2c/devices/*-0066`, removing the
+> Android-only i2c-adapter-number assumption. If S8B1A HITs later, the S8B1
+> MISS was likely a bus-number false negative; if it MISSes, max77705 still does
+> not instantiate anywhere under native-init with this recipe.
+>
+> S8B1A AP.tar.md5 SHA256:
+> `5c5df5f3fd83adf15c521f4509f90696ba3372e1aee5a79128a29f74a701ceb1`.
+> Padded boot.img SHA256:
+> `df3ee853bb84541f9d494a97f9ba3db5d08bda67662782de0868e90c49d22145`.
+> `/init` SHA256:
+> `6aec230f27edae8e0070b367bf78d2b074f67a289b378958a36e908bb60bf83e`.
+> Module-list SHA256 remains
+> `c0c35e02fe61a3f6c18c221a9ae2cc1a54aafd38374117fa954dbfa675700998`.
+> Template source SHA256:
+> `87f45e212b52e517a078c1af7666924c3a62901918a47f710e06cf28332f4353`.
+> The v0_9 manifest also confirms consumed S8B1 artifact hashes stayed
+> unchanged (`AP.tar.md5` SHA256
+> `0bf313cdf24a5f5babc3d0073a1e90686f1b734b6dafdfa548154ef3eac6c2c8`).
+> Validation passed:
+> `python3 -m py_compile build_s22plus_m34_runtime_gadget_split.py ...`,
+> `python3 -m unittest tests/test_s22plus_m34_runtime_gadget_split_build.py`
+> (`Ran 5 tests`, `OK`), and the builder `--force` completed. No live helper,
+> no AGENTS exception, and no live S8B1A flash exists yet. Any S8B1A live run
+> requires a fresh narrow boot-only exception and a new pinned helper; do not
+> reuse the consumed S8B1 ack path.
+> Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S8B1A_WIDE_I2C_BEACON_HOST_BUILD_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 17:04 KST / 2026-07-09 08:04 UTC) — M34 S8B1 LIVE CONSUMED; B1 MISS; MAGISK ROLLBACK CLEAN; NO ACTIVE LIVE AUTH.**
 > After explicit operator live approval, Codex ran the attended boot-only S8B1
 > live gate with the active ack token. The helper flashed the pinned S8B1

@@ -2752,13 +2752,18 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
    with stock boot-only fallback SHA256
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
-   **Narrow operator-authorized exception (2026-07-09, S22+ M34 S8B1 download-beacon state-probe boot-only live gate):**
-   Codex may run
-   one bounded attended boot-partition-only M34 S8B1 live gate on the Samsung S22+
-   `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
+   **Consumed exception (2026-07-09, S22+ M34 S8B1 download-beacon
+   state-probe boot-only live gate):** this one-shot exception was consumed by
+   the 2026-07-09 KST live run. It flashed the pinned M34 S8B1 boot-only
+   candidate once on the Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using
+   only the checked helper
    `workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py`.
-   Live ack token: `S22PLUS-M34-S8B1-BEACON-PROBE-LIVE-GATE`. Rollback ack token:
-   `S22PLUS-M34-S8B1-BEACON-PROBE-ROLLBACK-FROM-DOWNLOAD`.
+   The consumed live and rollback ack token strings are intentionally omitted
+   here as active authorization. The run returned
+   `download-beacon-miss-parked-manual-download-required`, then restored the
+   pinned Magisk boot baseline through manual Download rollback; `result.json`
+   and `timeline.json` live in
+   `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_live/`.
 
    The exact candidate AP.tar.md5 SHA256 must be
    `0bf313cdf24a5f5babc3d0073a1e90686f1b734b6dafdfa548154ef3eac6c2c8`; contained padded `boot.img` SHA256 must be
@@ -2810,8 +2815,6 @@ BL, CP, CSC, userdata, or any non-boot flash.
    Required policy marker coverage:
    `S22+ M34 S8B1 download-beacon state-probe native-init boot-only`
    `workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py`
-   `S22PLUS-M34-S8B1-BEACON-PROBE-LIVE-GATE`
-   `S22PLUS-M34-S8B1-BEACON-PROBE-ROLLBACK-FROM-DOWNLOAD`
    `SM-S906N/g0q/S906NKSS7FYG8`
    `S8B1`
    `S22_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT_S8B1`

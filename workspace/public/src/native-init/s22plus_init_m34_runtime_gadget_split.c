@@ -18,7 +18,9 @@
  * partner is visible, writes the same TypeC role nodes the stock USB HAL owns
  * as a bounded host-visible discriminator. Stage 8B1 keeps the S7A2 module
  * recipe but uses reboot(download) as a one-bit beacon for whether the max77705
- * TypeC port or I2C device appeared. S1..S7A2 remain direct-PID1 park
+ * TypeC port or exact Android-observed I2C device appeared. Stage 8B1A keeps
+ * the same recipe but scans all I2C adapter entries for any *-0066 max77705
+ * device to remove the Android bus-number assumption. S1..S7A2 remain direct-PID1 park
  * candidates with no Android handoff, no reboot request, no persistent mount,
  * and no block writes.
  */
@@ -132,6 +134,8 @@ static const char k_marker[] =
     "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=1 udc_bind=1 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=1 functionfs=0 stock_composite=0 geni_i2c_transport=1 i2c_msm_geni=1 gpi_dma=1 msm_geni_se=1 role_write_discriminator=1 "
 #elif M34_STAGE == 9
     "configfs_gadget=0 stock_order=0 udc_none=0 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=0 functionfs=0 stock_composite=0 geni_i2c_transport=1 i2c_msm_geni=1 gpi_dma=1 msm_geni_se=1 role_write_discriminator=0 s8_beacon_probe=typec_port_or_i2c_device b1=1 "
+#elif M34_STAGE == 10
+    "configfs_gadget=0 stock_order=0 udc_none=0 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=0 functionfs=0 stock_composite=0 geni_i2c_transport=1 i2c_msm_geni=1 gpi_dma=1 msm_geni_se=1 role_write_discriminator=0 s8_beacon_probe=typec_port_or_i2c_any_0066 b1a=1 "
 #endif
 #if M34_STAGE >= 9
     "no_android_handoff=1 reboot_request=download download_beacon=1 "
@@ -179,6 +183,12 @@ static long sys_close(int fd) {
 static long sys_read(int fd, void *buf, size_t count) {
     return syscall3(NR_READ, fd, (long)(uintptr_t)buf, (long)count);
 }
+
+#if M34_STAGE >= 2
+static long sys_getdents64(int fd, void *buf, size_t count) {
+    return syscall3(NR_GETDENTS64, fd, (long)(uintptr_t)buf, (long)count);
+}
+#endif
 
 static long sys_write(int fd, const void *buf, size_t count) {
     return syscall3(NR_WRITE, fd, (long)(uintptr_t)buf, (long)count);
@@ -449,7 +459,7 @@ static void maybe_force_typec_device_sink(void) {
 }
 #endif
 
-#if M34_STAGE == 9
+#if M34_STAGE >= 9
 static int path_present(const char *path) {
     long fd = sys_openat(AT_FDCWD, path, O_RDONLY | O_CLOEXEC, 0);
     if (fd < 0) {
@@ -463,11 +473,72 @@ static int s8_b1_typec_port_or_i2c_present(void) {
     return path_present("/sys/class/typec/port0") || path_present("/sys/bus/i2c/devices/57-0066");
 }
 
-static void s8_b1_beacon_probe(void) {
+#if M34_STAGE == 10
+static int cstr_ends_with(const char *s, const char *suffix) {
+    size_t slen = cstr_len(s);
+    size_t suffix_len = cstr_len(suffix);
+    if (slen < suffix_len) {
+        return 0;
+    }
+    for (size_t i = 0; i < suffix_len; ++i) {
+        if (s[slen - suffix_len + i] != suffix[i]) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static int cstr_is_dot_or_dotdot(const char *s) {
+    return s[0] == '.' && (s[1] == '\0' || (s[1] == '.' && s[2] == '\0'));
+}
+
+static int s8_b1a_i2c_any_0066_present(void) {
+    long fd = sys_openat(AT_FDCWD, "/sys/bus/i2c/devices", O_RDONLY | O_DIRECTORY | O_CLOEXEC, 0);
+    if (fd < 0) {
+        return 0;
+    }
+    char dents[1024];
+    int found = 0;
+    for (;;) {
+        long nread = sys_getdents64((int)fd, dents, sizeof(dents));
+        if (nread <= 0) {
+            break;
+        }
+        long pos = 0;
+        while (pos < nread) {
+            struct linux_dirent64 *de = (struct linux_dirent64 *)(void *)(dents + pos);
+            const char *name = de->d_name;
+            if (!cstr_is_dot_or_dotdot(name) && cstr_ends_with(name, "-0066")) {
+                found = 1;
+                break;
+            }
+            if (de->d_reclen == 0) {
+                break;
+            }
+            pos += de->d_reclen;
+        }
+        if (found) {
+            break;
+        }
+    }
+    (void)sys_close((int)fd);
+    return found;
+}
+
+static int s8_b1a_typec_port_or_i2c_any_0066_present(void) {
+    return path_present("/sys/class/typec/port0") || s8_b1a_i2c_any_0066_present();
+}
+#endif
+
+static void s8_beacon_probe(void) {
     int present = 0;
     unsigned int waited = 0;
     for (; waited < 10; ++waited) {
+#if M34_STAGE == 9
         if (s8_b1_typec_port_or_i2c_present()) {
+#else
+        if (s8_b1a_typec_port_or_i2c_any_0066_present()) {
+#endif
             present = 1;
             break;
         }
@@ -476,18 +547,30 @@ static void s8_b1_beacon_probe(void) {
 
     struct sbuf sb = {.data = {0}, .len = 0};
     sb_puts(&sb, M34_MARKER);
+#if M34_STAGE == 9
     sb_puts(&sb, " phase=s8_b1_probe predicate=typec_port_or_i2c_device present=");
+#else
+    sb_puts(&sb, " phase=s8_b1a_probe predicate=typec_port_or_i2c_any_0066 present=");
+#endif
     sb_put_u64(&sb, present ? 1U : 0U);
     sb_puts(&sb, " waited_sec=");
     sb_put_u64(&sb, waited);
+#if M34_STAGE == 9
     sb_puts(&sb, " true_action=reboot_download false_action=park paths=/sys/class/typec/port0,/sys/bus/i2c/devices/57-0066\n");
+#else
+    sb_puts(&sb, " true_action=reboot_download false_action=park paths=/sys/class/typec/port0,/sys/bus/i2c/devices/*-0066\n");
+#endif
     emit_buf(&sb);
 
     if (present) {
         long rc = sys_reboot_download();
         struct sbuf rb = {.data = {0}, .len = 0};
         sb_puts(&rb, M34_MARKER);
+#if M34_STAGE == 9
         sb_puts(&rb, " phase=s8_b1_reboot_returned rc=");
+#else
+        sb_puts(&rb, " phase=s8_b1a_reboot_returned rc=");
+#endif
         sb_put_i64(&rb, rc);
         sb_putc(&rb, '\n');
         emit_buf(&rb);
@@ -698,10 +781,6 @@ static void create_configfs_gadget(void) {
 }
 
 #if M34_STAGE >= 2
-static long sys_getdents64(int fd, void *buf, size_t count) {
-    return syscall3(NR_GETDENTS64, fd, (long)(uintptr_t)buf, (long)count);
-}
-
 static int cstr_eq(const char *a, const char *b) {
     size_t i = 0;
     while (a[i] != '\0' && b[i] != '\0') {
@@ -891,8 +970,8 @@ __attribute__((noreturn)) void _start(void) {
     setup_minimal_fs();
     emit(k_marker);
     load_modules_from_list();
-#if M34_STAGE == 9
-    s8_b1_beacon_probe();
+#if M34_STAGE >= 9
+    s8_beacon_probe();
     park_forever();
 #else
     create_configfs_gadget();

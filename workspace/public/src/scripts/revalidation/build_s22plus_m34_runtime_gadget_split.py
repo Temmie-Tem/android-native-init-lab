@@ -21,7 +21,9 @@ S7A: S6 plus the stock max77705/PDIC/altmode session-producer module chain
 S7A2: S7A plus the missing GENI I2C transport for the max77705 bus and a
       bounded TypeC role-write discriminator if no partner is present.
 S8B1: S7A2 module recipe plus a 1-bit reboot(download) beacon probe for
-      max77705 TypeC port or I2C-device presence; false parks.
+      max77705 TypeC port or exact I2C-device presence; false parks.
+S8B1A: Same as S8B1 but scans all I2C adapter entries for any *-0066 max77705
+       device, avoiding the Android-only bus-number assumption.
 """
 
 from __future__ import annotations
@@ -61,7 +63,7 @@ from build_s22plus_inplace_m4t1_magiskboot import (
 from build_s22plus_m32_wdt_hs_acm import EXPECTED_M32_MODULES, dependency_complete_wdt_hs_order
 
 
-DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_8")
+DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_9")
 DEFAULT_TEMPLATE_SOURCE = Path("workspace/public/src/native-init/s22plus_init_m34_runtime_gadget_split.c")
 DEFAULT_VENDOR_RAMDISK = m23.DEFAULT_VENDOR_RAMDISK
 DEFAULT_LZ4 = m23.DEFAULT_LZ4
@@ -381,6 +383,33 @@ STAGES = [
         geni_i2c_transport_parity=True,
         typec_role_write_discriminator=False,
         beacon_probe="typec_port_or_i2c_device",
+    ),
+    RuntimeStage(
+        "S8B1A",
+        10,
+        (
+            "S7A2 module recipe plus a widened 1-bit download-beacon probe: after module "
+            "load, poll for /sys/class/typec/port0 or any /sys/bus/i2c/devices/*-0066 entry; "
+            "true requests reboot(download), false parks"
+        ),
+        configfs_gadget=False,
+        udc_none=False,
+        max_speed_high_speed=False,
+        usb_role_force=False,
+        ssusb_speed_high_speed=False,
+        ssusb_mode_peripheral=False,
+        udc_bind=False,
+        soft_connect=False,
+        stock_softdep_parity=True,
+        qmp_module_included=True,
+        eud_module_included=True,
+        ucsi_glink_included=True,
+        session_producer_parity=True,
+        max77705_session_modules_included=True,
+        typec_readback_markers=False,
+        geni_i2c_transport_parity=True,
+        typec_role_write_discriminator=False,
+        beacon_probe="typec_port_or_i2c_any_0066",
     ),
 ]
 
@@ -769,16 +798,33 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
         required_strings.extend(
             [
                 f"s8_beacon_probe={stage.beacon_probe}",
-                "b1=1",
-                "phase=s8_b1_probe",
-                "predicate=typec_port_or_i2c_device",
                 "true_action=reboot_download",
                 "false_action=park",
                 "/sys/class/typec/port0",
-                "/sys/bus/i2c/devices/57-0066",
                 "download",
             ]
         )
+        if stage.beacon_probe == "typec_port_or_i2c_device":
+            required_strings.extend(
+                [
+                    "b1=1",
+                    "phase=s8_b1_probe",
+                    "predicate=typec_port_or_i2c_device",
+                    "/sys/bus/i2c/devices/57-0066",
+                ]
+            )
+        elif stage.beacon_probe == "typec_port_or_i2c_any_0066":
+            required_strings.extend(
+                [
+                    "b1a=1",
+                    "phase=s8_b1a_probe",
+                    "predicate=typec_port_or_i2c_any_0066",
+                    "/sys/bus/i2c/devices",
+                    "*-0066",
+                ]
+            )
+        else:
+            raise SystemExit(f"unknown M34 beacon probe contract for {stage.label}: {stage.beacon_probe}")
 
     forbidden_strings = [
         b"ld-linux",
@@ -788,12 +834,18 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
     ]
     if stage.beacon_probe:
         forbidden_strings.extend([b"no_reboot_request=1", b"no_download_beacon=1"])
+        if stage.beacon_probe == "typec_port_or_i2c_device":
+            forbidden_strings.extend([b"phase=s8_b1a_probe", b"predicate=typec_port_or_i2c_any_0066", b"*-0066"])
+        elif stage.beacon_probe == "typec_port_or_i2c_any_0066":
+            forbidden_strings.extend([b"phase=s8_b1_probe", b"predicate=typec_port_or_i2c_device", b"/sys/bus/i2c/devices/57-0066"])
     else:
         forbidden_strings.extend([
             b" reboot_request=download ",
             b" download_beacon=1 ",
             b"phase=s8_b1_probe",
+            b"phase=s8_b1a_probe",
             b"/sys/bus/i2c/devices/57-0066",
+            b"/sys/bus/i2c/devices",
             b"LINUX_REBOOT",
         ])
     if not stage.configfs_gadget:
@@ -1135,7 +1187,8 @@ def main(argv: list[str]) -> int:
             "purpose": (
                 "M34 stock-ordered runtime gadget split plus S4 ssusb role-lever, S5 soft_connect, "
                 "S6 stock-speed QMP/EUD/ucsi, S7A max77705/PDIC/altmode session-producer, "
-                "S7A2 GENI I2C transport, and S8B1 download-beacon state-probe host-build candidates"
+                "S7A2 GENI I2C transport, S8B1 exact-bus download beacon, and S8B1A widened "
+                "I2C-device download-beacon host-build candidates"
             ),
         "stock_recipe_report": "docs/reports/S22PLUS_STOCK_USB_GADGET_ACM_RECIPE_2026-07-09.md",
         "stages": stage_manifests,
@@ -1168,7 +1221,7 @@ def main(argv: list[str]) -> int:
             ],
             "live_order": ["S1", "S2", "S3", "S4", "S5", "S6"],
             "host_build_order": [stage.label for stage in selected_stages],
-            "next_host_only_candidate": "S8B1",
+            "next_host_only_candidate": "S8B1A",
             "p30_is_s0": True,
             "module_closure_matches_p30_and_m32_for_s1_s5": True,
             "s6_module_closure_restores_stock_dwc3_softdep": True,
@@ -1193,6 +1246,13 @@ def main(argv: list[str]) -> int:
             "s8b1_probe_paths": ["/sys/class/typec/port0", "/sys/bus/i2c/devices/57-0066"],
             "s8b1_keeps_s7a2_module_recipe": True,
             "s8b1_skips_downstream_configfs_and_udc_to_isolate_probe": True,
+            "s8b1a_download_beacon_probe": "typec_port_or_i2c_any_0066",
+            "s8b1a_true_action": "reboot(download)",
+            "s8b1a_false_action": "park",
+            "s8b1a_probe_paths": ["/sys/class/typec/port0", "/sys/bus/i2c/devices/*-0066"],
+            "s8b1a_keeps_s7a2_module_recipe": True,
+            "s8b1a_widens_i2c_adapter_number_assumption": True,
+            "s8b1a_skips_downstream_configfs_and_udc_to_isolate_probe": True,
         },
         "safety": {
             "boot_only": True,
@@ -1258,6 +1318,11 @@ def main(argv: list[str]) -> int:
             "stage_s8b1_beacon_probe": "typec_port_or_i2c_device",
             "stage_s8b1_true_reboot_download_false_park": True,
             "stage_s8b1_no_configfs_udc_or_role_write": True,
+            "stage_s8b1a_starts_from_s7a2_module_recipe": True,
+            "stage_s8b1a_beacon_probe": "typec_port_or_i2c_any_0066",
+            "stage_s8b1a_true_reboot_download_false_park": True,
+            "stage_s8b1a_no_configfs_udc_or_role_write": True,
+            "stage_s8b1a_widens_i2c_adapter_number_assumption": True,
         },
         "vendor": {
             "vendor_ramdisk": display_path(root, vendor_ramdisk),
