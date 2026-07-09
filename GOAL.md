@@ -84,6 +84,38 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 06:48 KST / 2026-07-09 21:48 UTC) — O3R1 NATIVE RETAINED-SYSRQ HOST BUILD PASS; REPRODUCIBLE EXACT ARTIFACT; LIVE GATE DESIGN NEXT; NO ACTIVE O3R1 EXCEPTION.**
+> V3418 implements the smallest direct-PID1 retained-console positive control
+> selected after the O3F phase-unverifiable miss. O3R1 creates or preserves only
+> `/dev/kmsg` as `1:11`, emits ordered phase/return-code markers, mounts only
+> procfs, opens `/proc/sysrq-trigger`, emits `before-sysrq-c`, and writes exactly
+> one byte `c`. It does not write the `kernel.sysrq` sysctl. If setup fails or
+> the SysRq write returns, global PID1 calls `exit_group`, deliberately forcing
+> the independent init-death panic path instead of parking silently.
+>
+> This is not an unchanged M22 repeat. M22 discarded relevant syscall results
+> and could fall through to an unreliable reboot/park path. O3R1 can classify
+> marker+SysRq panic, marker+init-death panic, panic-without-marker, or no
+> retained panic. It has no pmsg, sysfs/configfs, module, USB, persistent mount,
+> block write, reboot, clone, or Android handoff path.
+>
+> ```text
+> o3r1_init_sha256=44d70f3d7ee534b6701a5a912e07febdaf21b0b4d7fabf0368c4a6f942499fdc
+> boot_img_sha256=fc0dce090f454b621ed90e63dd11cfe29dad8de0fe04d3c1f138a004d9d2f6aa
+> boot_img_lz4_sha256=3af2ec28c2048aee8aac632c815581ded688dae256e3522eb002464514ae84a9
+> ap_tar_md5_sha256=2a92008b4632a8907fec96f0d8194a8461c16060cb1d919aeba7446020c4beda
+> kernel_sha256=bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff
+> ```
+>
+> MagiskBoot no-change repack is byte-identical; patched boot changes only
+> ramdisk `/init`, preserves the kernel, and contains one Odin member. A clean
+> `/tmp` build reproduced init, boot, and AP bytes exactly. Four focused tests
+> pass. The manifest remains `live_flash_authorized=false`; no flash or device
+> action occurred. Next = exact O3R1 helper, offline and connected read-only
+> dry-runs, then a fresh SHA-pinned one-shot exception before any attended
+> intentional-crash boot-only live run. Report:
+> `docs/reports/NATIVE_INIT_V3418_S22PLUS_O3R1_NATIVE_RETAINED_SYSRQ_HOST_BUILD_PASS_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 06:14 KST / 2026-07-09 21:14 UTC) — O3F LIVE MISS; NO CANDIDATE USB; MAGISK ROLLBACK PASS; PHASE UNVERIFIABLE; EXCEPTION CONSUMED.**
 > V3417 consumed the exact O3F exception. Candidate flash and original Odin
 > disconnect passed, and the operator observed no bootloop, but exact O3F ACM
