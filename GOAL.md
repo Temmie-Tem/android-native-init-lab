@@ -84,6 +84,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 07:57 KST / 2026-07-09 22:57 UTC) — V3422 FYG8 MODULE MAP GENERATED; 441-MODULE STATIC INVENTORY + RETENTION/USB EVIDENCE LAYERS; O0 STILL NEXT.**
+> V3422 added the reproducible `docs/module-map/s22plus-fyg8/` source of truth.
+> The host-only generator reuses the pinned O2 depmod parser and inspects all
+> 441 exact FYG8 modules with `modinfo` and AArch64 `nm`. Generated artifacts
+> contain 441 inventory rows, 2,175 hard edges, 33 soft pre/post edges, and 730
+> ELF symbol-name overlaps. Of those overlaps, 664 agree with `modules.dep` and
+> are `DECLARED_HARD`; 66 are only `CANDIDATE_ONLY` and are not promoted because
+> the same symbol may be kernel-provided. Original load-file line positions and
+> deduplicated order are separate fields, preserving `sec_debug.ko` line 105
+> versus unique position 100.
+>
+> Retention is currently `SOURCE_VERIFIED + LIVE_BOUND`; stock Android USB is
+> `LIVE_BOUND`, while direct-PID1 USB remains `UNVERIFIABLE`. Every other module
+> is `STATIC_VERIFIED` only until a subsystem source review and functional bind
+> gate says otherwise. Six unit tests, py_compile, write regeneration, and
+> fail-closed `--check` all pass. This unit used no ADB, module insertion,
+> reboot, image build, flash, or device write. The active next unit remains O0,
+> after the pre-O0 `/dev/null` character-device baseline is restored and proved.
+> Report:
+> `docs/reports/NATIVE_INIT_V3422_S22PLUS_FYG8_MODULE_MAP_HOST_BUILD_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 07:40 KST / 2026-07-09 22:40 UTC) — V3421 RETENTION MODULE CLOSURE CORRECTION; `sec_log_buf.ko` IS THE CAPTURE OWNER; O0 STILL NEXT; NO LIVE CANDIDATE AUTHORIZED.**
 > FYG8 stock metadata, the official Samsung kernel source archive, the exact
 > modules, and the live Android bind state were cross-checked. `sec_log_buf.ko`,

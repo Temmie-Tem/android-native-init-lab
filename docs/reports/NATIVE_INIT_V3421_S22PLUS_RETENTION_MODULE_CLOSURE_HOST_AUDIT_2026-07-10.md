@@ -167,6 +167,23 @@ retention-owner proof.
 No such live rung is authorized now. The active goal remains O0 stock Android
 TTY roundtrip, then O1 stock-first-stage observation.
 
+## Reproducible Module Map
+
+The follow-up module-map unit operationalizes this audit for all 441 FYG8
+modules:
+
+```text
+docs/module-map/s22plus-fyg8/
+workspace/public/src/scripts/revalidation/s22plus_fyg8_module_map.py
+tests/test_s22plus_fyg8_module_map.py
+```
+
+The generated map keeps depmod hard/soft edges separate from ELF symbol-name
+overlaps. Only a `modules.dep`-declared overlap is labeled `DECLARED_HARD`;
+an undeclared name match is `CANDIDATE_ONLY`, because a same-name symbol may be
+provided by the kernel. This prevents symbol-name coincidence from becoming a
+false module dependency.
+
 ## External Cross-Check
 
 The AOSP kernel-module documentation confirms that first-stage vendor modules

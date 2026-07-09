@@ -13,6 +13,15 @@
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
 
+## S22+ FYG8 module map
+
+S22+ `SM-S906N/g0q/S906NKSS7FYG8` 모듈 조사와 native-init load/bind
+판정은 `docs/module-map/s22plus-fyg8/README.md`에서 시작합니다. 이 맵은
+441개 exact module의 해시, stock load line/unique order, hard/softdep,
+modinfo, ELF symbol overlap을 자동 생성하고, retention/USB의 source/live
+evidence를 별도 문서로 분리합니다. `STATIC_VERIFIED`는 probe 성공을
+뜻하지 않으며, runtime gate를 통과하지 않은 기능 주장은 승격하지 않습니다.
+
 ## 최신 Wi-Fi bring-up 조사 기준
 
 > 현재 기준은 `A90 Linux init 0.9.266 (v2232-service-object-fwclass-bridge)`

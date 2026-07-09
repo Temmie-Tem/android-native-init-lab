@@ -1,0 +1,92 @@
+{
+  "artifacts": {
+    "README.md": {
+      "bytes": 2188,
+      "sha256": "306c762fd71132d056e215ccce6b90fdd2e1f92d80d90422b3aabc179ed6e174"
+    },
+    "dependency-edges.tsv": {
+      "bytes": 106491,
+      "sha256": "ec7292c918270748e9bcfccdea454c2e35965acc202c1648ef215963777c5afa"
+    },
+    "inventory.tsv": {
+      "bytes": 150020,
+      "sha256": "52cc6fdb422a799b654e77facd2f3461d64c507239da676642a722c23b2c7492"
+    },
+    "known-gaps.md": {
+      "bytes": 1216,
+      "sha256": "15c7537f3efdf9749c7be12c4877aa230c28ce56f807baadff0a22233f16c00a"
+    },
+    "runtime-gates.md": {
+      "bytes": 1241,
+      "sha256": "4f42b11068fc05dc1a39cd296e76eb586046955bce755da654d97f5ef7bcb996"
+    },
+    "subsystem-retention.md": {
+      "bytes": 1680,
+      "sha256": "e3729435cacaf0b0d9d156169f941f2c09bae48d9aa7bc6773200dead42dfa70"
+    },
+    "subsystem-usb.md": {
+      "bytes": 1900,
+      "sha256": "f736ab2859cade63491b4de677476afaa4b495cbc0287879e25a7bfc2b9db4e5"
+    },
+    "symbol-overlap-edges.tsv": {
+      "bytes": 92201,
+      "sha256": "f73797a9bfd3c5b22417b12452031919ca680d5009717ef63c2bca9a95f72056"
+    }
+  },
+  "counts": {
+    "ambiguous_symbols": 0,
+    "candidate_only_symbol_overlaps": 66,
+    "declared_symbol_provider_overlaps": 664,
+    "firststage_modules": 135,
+    "hard_edges": 2175,
+    "kernel_or_unresolved_symbols": 19086,
+    "recovery_modules": 441,
+    "soft_post_edges": 1,
+    "soft_pre_edges": 32,
+    "symbol_overlap_edges": 730
+  },
+  "inputs": {
+    "metadata_directory": "workspace/private/inputs/s22plus_firmware/S906NKSS7FYG8_SKC/extracted-images/ramdisk-list/vendor/extract/lib/modules",
+    "metadata_hashes": {
+      "modules.alias": "5679e647fcdcb6a13bd4f20d24a901f158e641fbd0a813274c99006ec8fa2c20",
+      "modules.blocklist": "1fd4e3e5e5a13920c2fa75f0cdb7149869ceef6c194f2516ce977c0e492cb706",
+      "modules.dep": "21eae389f1d8b0a9fc93cec0b12d36e736cfac656d91ae55055c793f2ed67b27",
+      "modules.load": "8491b842e6e05cfba42694ad003301a6598e8d152ec10cc8f0cc6fb17f10e232",
+      "modules.load.recovery": "616bdb71f2b68d76eca23f72883aea25d5202d4e14f5c99dd934720df863ac10",
+      "modules.softdep": "21d6a678d186356c2fb0349a8a9a5190e6e225dab0feb5012e495a100c33afb0"
+    },
+    "module_count": 441,
+    "module_files_total_bytes": 63764320
+  },
+  "retention": {
+    "sec_debug.ko": {
+      "bind": "/sys/bus/platform/drivers/samsung,sec_debug/soc:samsung,sec_debug",
+      "compatible": "samsung,sec_debug",
+      "role": "Samsung panic notifier, statistics, and debug controls",
+      "runtime_status": "LIVE_BOUND",
+      "sha256": "9936d5622f55530480bd167ba4ca000cbc7c6dbb2bc9c99623b895a4ae087d3d",
+      "source_status": "SOURCE_VERIFIED"
+    },
+    "sec_log_buf.ko": {
+      "bind": "/sys/bus/platform/drivers/samsung,kernel_log_buf/8.samsung,kernel_log_buf",
+      "compatible": "samsung,kernel_log_buf",
+      "role": "reserved-memory printk ring and last_kmsg/ap_klog owner",
+      "runtime_status": "LIVE_BOUND",
+      "sha256": "b4751eb8243a2bce4cd2f7b5f157f8429b295798dc310e23e861648906d24b61",
+      "source_status": "SOURCE_VERIFIED"
+    }
+  },
+  "safety": {
+    "adb": false,
+    "configfs_write": false,
+    "flash": false,
+    "host_only": true,
+    "image_build": false,
+    "module_insertion": false,
+    "partition_write": false,
+    "reboot": false,
+    "sysfs_write": false
+  },
+  "schema": "s22plus_fyg8_module_map_v1",
+  "target": "SM-S906N/g0q/S906NKSS7FYG8"
+}
