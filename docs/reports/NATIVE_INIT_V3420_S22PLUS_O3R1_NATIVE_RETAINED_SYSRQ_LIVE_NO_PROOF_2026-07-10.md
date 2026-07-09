@@ -19,23 +19,40 @@ Post-recovery `/proc/last_kmsg` contains neither the exact O3R1 marker nor a
 SysRq crash or init-death panic. O3R1 did not prove the direct-PID1 retained
 observation channel. Its exception is consumed and O3R2 is not authorized.
 
-## Post-Run Condition Correction
+## Post-Run Condition Correction, Superseded By V3421
 
-The run did not establish its intended sec_debug prerequisite inside the
-candidate boot. Current rooted Android proves `sec_debug` is a loadable module,
-not persistent kernel state:
+The first post-run inspection correctly found that the candidate did not carry
+Android's module state across a kernel boot, but it incorrectly treated
+`sec_debug.ko` as the retained-log owner. V3421 inspected the exact FYG8 modules
+and Samsung source and corrected that ownership.
+
+Current rooted Android proves both relevant components are loadable modules:
 
 ```text
 /proc/modules: sec_debug 32768 ... Live
+/proc/modules: sec_log_buf 45056 2 sec_qc_rst_exinfo,sec_qc_debug Live
 /sys/module/sec_debug/parameters/enable=1
 /sys/module/sec_debug/parameters/debug_level=18765
+/sys/bus/platform/drivers/samsung,kernel_log_buf/8.samsung,kernel_log_buf
+/proc/last_kmsg
+/proc/ap_klog
 ```
 
-The O3 and O3F 59-module plans explicitly contain `sec_debug.ko`. O3R1 instead
-forbids all module insertion. Module state is reset on every kernel boot, so the
-Android preflight's `sec_debug enable=1` did not carry into O3R1. MID is a
-persistent selection, but the candidate did not prove that the sec_debug module
-and its retention hooks were loaded before writing kmsg or forcing panic.
+FYG8 `modules.load` places `sec_log_buf.ko` at entry 2 and `sec_debug.ko` at
+entry 105. Both have empty `modules.dep` right-hand sides and no softdep, but
+their source roles differ:
+
+- `sec_log_buf.ko` binds `samsung,kernel_log_buf`, maps DT reserved memory,
+  registers Android printk vendor hooks, and creates `/proc/last_kmsg` and
+  `/proc/ap_klog`.
+- `sec_debug.ko` binds `samsung,sec_debug` and registers Samsung panic notifier,
+  statistics, and control behavior. It does not create the retained ring.
+
+The O3 and O3F 59-module plans contain `sec_debug.ko` but omit
+`sec_log_buf.ko`. O3R1 forbids every module insertion. Module state resets on
+each kernel boot, so none of these candidates established the source-proven
+retained-log writer before writing a marker. MID and `sec_debug enable=1` on the
+Android preflight did not change that fact.
 
 Therefore the no-hit does **not** falsify the general hypothesis that a direct
 PID1 marker can be retained when the Samsung capture stack is active. It shows
@@ -180,10 +197,11 @@ executing and panicking without sec_debug loaded, or a failure before the
 marker. The direct-PID1 phase remains `UNVERIFIABLE`.
 
 The next justified architecture step is to return to the stock-first-stage
-observation layer. Stock init already loads the sec_debug dependency stack as
-well as the known Android USB/module/gadget stack. Add a bounded Magisk
-`overlay.d` early-boot marker/control service whose execution and module-ready
-condition are observable through normal Android/ADB. Direct PID1 USB work
-remains downstream of that proof. A future direct-PID1 retained test would need
-an independently derived and statically verified sec_debug module closure, not
-another no-module O3R1 variant.
+observation layer. Stock init already loads the retained-log and USB stacks.
+Add a bounded Magisk `overlay.d` early-boot marker/control service whose
+execution and module-ready condition are observable through normal Android/ADB.
+Direct PID1 USB work remains downstream of that proof. A future direct-PID1
+retained test would first need to load and functionally bind the exact
+`sec_log_buf.ko` capture owner, then prove its procfs surfaces before emitting a
+marker. That future test is not authorized, and the O0/O1 stock-observation
+direction remains active.

@@ -84,6 +84,35 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 07:40 KST / 2026-07-09 22:40 UTC) — V3421 RETENTION MODULE CLOSURE CORRECTION; `sec_log_buf.ko` IS THE CAPTURE OWNER; O0 STILL NEXT; NO LIVE CANDIDATE AUTHORIZED.**
+> FYG8 stock metadata, the official Samsung kernel source archive, the exact
+> modules, and the live Android bind state were cross-checked. `sec_log_buf.ko`,
+> not `sec_debug.ko`, owns the reserved-memory printk ring and creates
+> `/proc/last_kmsg` plus `/proc/ap_klog`. It is stock `modules.load` entry 2,
+> has no loadable hard or soft dependency, binds DT compatible
+> `samsung,kernel_log_buf`, requires the DT reserved-memory region and
+> `sec,strategy=3`, and registers the Android `android_vh_logbuf` hooks.
+> `sec_debug.ko` is stock entry 105 and separately registers Samsung panic
+> notification/statistics behavior; it does not create the retained ring.
+>
+> The O3/O3F 59-module plan included `sec_debug.ko` but omitted
+> `sec_log_buf.ko`; O3R1 loaded neither. Therefore none of those candidates
+> instantiated the source-proven retained-log writer before emitting markers.
+> V3420's first post-run correction identified a missing module condition but
+> named the wrong module as the capture owner. O3R1 remains no-proof and its
+> exception remains consumed. Do not retrofit or live-run another panic probe.
+> The operator-directed O0 stock USB roundtrip remains the next unit, followed
+> by O1 stock-first-stage observation.
+>
+> Incidental baseline warning: during read-only diagnostics `/dev/null` was
+> observed as a sparse regular file on `/dev` tmpfs rather than char device
+> `1:3`. The first diagnostic itself used `2>/dev/null`, so whether the malformed
+> file pre-existed or was materialized during that observation is
+> `UNVERIFIABLE`. Do not start O0 until a normal Android baseline proves
+> `test -c /dev/null` and major/minor `1:3`; no persistent partition impact is
+> claimed. Report:
+> `docs/reports/NATIVE_INIT_V3421_S22PLUS_RETENTION_MODULE_CLOSURE_HOST_AUDIT_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 07:21 KST / 2026-07-09 22:21 UTC) — O3R1 LIVE NO-PROOF; MAGISK BASELINE RESTORED; TRANSIENT ANDROID USB RECOVERED; EXCEPTION CONSUMED; O3R2 STOP.**
 > V3420 consumed the exact O3R1 exception. Candidate flash and original Odin
 > disconnect passed; the operator observed a bootloop, not a retained panic
