@@ -84,6 +84,33 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 04:03 KST / 2026-07-09 19:03 UTC) — O1 LIVE GATE READY; OPERATOR APPROVAL RECEIVED; ONE BOOT-ONLY RUN NEXT.**
+> V3405 added the fresh SHA-pinned O1 exception and checked live helper. The helper
+> defaults to dry-run and requires both live and mandatory-rollback ack tokens. It
+> verifies the exact V3404 candidate, exact Magisk and stock boot-only rollback APs,
+> current Android/Magisk identity and boot hash, stock `DR-daemon` tty ownership,
+> one Samsung ACM target, and no concurrent Odin endpoint before any reboot.
+>
+> Offline and connected-device dry-runs both passed. The connected dry-run used no
+> flash or reboot and confirmed the current rooted Magisk baseline plus stock tty
+> ownership. Combined O0/O1 build/live-gate tests: 25 PASS. Dry-run evidence:
+>
+> ```text
+> workspace/private/runs/s22plus_o1_stock_first_stage_control_live_gate_20260709T190326Z
+> result=dry-run-pass
+> candidate_ap_sha256=388d35c12e9f5024f053837444da46254db6a6177c046400549148e24eaeec29
+> current_boot_sha256=2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
+> ```
+>
+> Live PASS requires 128/128 framed payload equality and sequence continuity,
+> host tty close/reopen, candidate boot readback, volatile O1
+> `result=pass`/`daemon_rc=0`/`restore_rc=0`, and restored `DR-daemon` ownership.
+> Continuous USB observers cover the candidate window. Mandatory boot-only rollback
+> follows both PASS and FAIL. Report:
+> `docs/reports/NATIVE_INIT_V3405_S22PLUS_O1_LIVE_GATE_READY_2026-07-10.md`.
+> Next = execute the one-shot attended O1 live gate under the active exception, then
+> mark the exception consumed and report the measured result without inference.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 03:47 KST / 2026-07-09 18:47 UTC) — O1 HOST BUILD PASS; LIVE GATE PREP NEXT; NO FLASH UNDER THIS RESULT.**
 > V3404 built the O1 stock-first-stage Magisk overlay candidate from the exact
 > known-booting Magisk boot. A no-change `magiskboot unpack/repack` was byte-identical
