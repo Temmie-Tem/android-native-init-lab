@@ -26,6 +26,46 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > session widening (B2-B4) stays queued. Full analysis:
 > `docs/reports/S22PLUS_M34_S10_MODULE_LOAD_MECHANISM_IS_THE_WALL_NOT_SELECTION_2026-07-09.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 02:50 KST / 2026-07-09 17:50 UTC) - M34 S11P1 LIVE MISS; MAGISK BASELINE RECOVERED; S11P1 EXCEPTION CONSUMED.**
+> S11P1 was run live with explicit operator approval after the active exception
+> was installed. The candidate boot-only AP flashed, the original Download
+> endpoint disconnected, and the bounded 180s observation window did **not**
+> see a new Download timed-result beacon:
+>
+> ```text
+> run_dir=workspace/private/runs/s22plus_m34_s11p1_timed_loader_result_live_gate_20260709T173415Z
+> result=download-beacon-miss-manual-download-required
+> rc=0
+> stage=S11P1
+> module_load_probe=timed_first_failure_or_proc_modules_result
+> candidate_ap_sha256=1bc209674aa6b496bcc4132eae4343c1311de06143164771994cc8b1df945b56
+> candidate_boot_sha256=874c312b4ce1b95388c158a686f22e56d7a5278dd09cfab13c0c853ab688c61e
+> ```
+>
+> The result is a technical MISS, not a timed loader-result HIT. Since no
+> beacon arrived, S11P1 did not prove any encoded delay bucket (6/12/18/20+N/
+> 116/122/128s). It only proves that the candidate did not reach a host-visible
+> self-Download timed beacon within the observation window.
+>
+> Manual Download rollback restored the pinned Magisk boot-only AP. Current
+> post-rollback checks confirm the rooted Magisk measurement baseline:
+>
+> ```text
+> adb device=RFCT519XWGK usb:2-1.3 product:g0qksx model=SM_S906N device=g0q
+> boot_completed=1
+> vbstate=orange
+> su=uid=0(root) gid=0(root) groups=0(root) context=u:r:magisk:s0
+> boot_sha256=2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
+> ```
+>
+> Retained evidence was weak: `/proc/last_kmsg` had no
+> `S22_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT_S11P1` marker and
+> `/sys/fs/pstore` was empty. The S11P1 one-shot live exception is consumed
+> and must not be reused. Next work should be host-only analysis/design for an
+> observation path that does not depend solely on native-init reaching
+> `reboot(download)` after the module loop. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S11P1_TIMED_LOADER_RESULT_LIVE_RESULT_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 02:12 KST / 2026-07-09 17:12 UTC) — M34 S11P0 LIVE MISS; MAGISK BASELINE RECOVERED; USB TRANSPORT HAD ERRNO 71 INSTABILITY.**
 > S11P0 was run live with explicit operator approval after the active exception
 > was installed. The candidate flash completed, the original Download endpoint

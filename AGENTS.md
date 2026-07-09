@@ -2918,9 +2918,17 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `mfd_max77705`
    `pdic_max77705`
 
-   **Narrow operator-authorized exception (2026-07-10, S22+ M34 S11P1 timed loader-result boot-only live gate):**
-   After the M34 S11P1 host-build report pinned the exact artifact hashes and
-   the operator provided live approval, Codex may run one bounded attended
+   **Consumed exception (2026-07-10, S22+ M34 S11P1 timed loader-result boot-only live gate):**
+   this one-shot exception was consumed by the 2026-07-10 KST live S11P1 run.
+   It flashed only the pinned single-member M34 S11P1 boot-only AP.tar.md5,
+   observed no self-Download timed beacon inside the bounded 180s observation
+   window, then restored the pinned Magisk boot-only AP after manual Download
+   entry. Android/Magisk baseline and boot SHA were verified after rollback.
+   The exception must not be reused for another S11P1/S11P0/S10 repeat or any
+   other boot candidate.
+
+   Before consumption, after the M34 S11P1 host-build report pinned the exact artifact hashes and
+   the operator provided live approval, Codex could run one bounded attended
    boot-partition-only M34 S11P1 live gate on the Samsung S22+
    `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
    `workspace/public/src/scripts/revalidation/s22plus_m34_s11p1_timed_loader_result_live_gate.py`.
