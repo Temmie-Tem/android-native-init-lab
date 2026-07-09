@@ -333,6 +333,12 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             text = log_path.read_text(encoding="utf-8")
             self.assertIn("magisk_rollback_failed_attempting_stock_fallback=1", text)
             self.assertIn("boot_restore_hash_check=skipped rollback_target=stock", text)
+            timeline = json.loads((run_dir / "timeline.json").read_text(encoding="utf-8"))
+            names = [event["name"] for event in timeline["events"]]
+            self.assertLess(
+                names.index("beacon_hit_stock_fallback_flash_done"),
+                names.index("rollback_flash_done"),
+            )
 
     def test_rollback_from_download_result_json_uses_actual_fallback_target_and_device(self):
         with tempfile.TemporaryDirectory() as tmp:

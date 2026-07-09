@@ -647,7 +647,6 @@ def rollback_boot_only_from_download(
     record_timeline_event(run_dir, f"{label}_rollback_flash_start")
     record_timeline_event(run_dir, "rollback_flash_start")
     rollback_rc = flash_ap(odin, rollback_ap, odin_device, log_path, f"{label}_{rollback_target}_boot_rollback")
-    record_timeline_event(run_dir, "rollback_flash_done")
     record_timeline_event(run_dir, f"{label}_rollback_flash_done")
     if rollback_rc != 0 and rollback_target == ROLLBACK_MAGISK:
         append_log(log_path, f"m34_s8b1_{label}_magisk_rollback_failed_attempting_stock_fallback=1")
@@ -658,6 +657,7 @@ def rollback_boot_only_from_download(
             record_timeline_event(run_dir, f"{label}_stock_fallback_flash_done")
             actual_rollback_target = ROLLBACK_STOCK
             actual_rollback_device = fallback_device
+    record_timeline_event(run_dir, "rollback_flash_done")
     if rollback_rc != 0:
         return RollbackResult(
             rc=rollback_rc or 5,

@@ -56,6 +56,8 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `result.json` using schema `s22plus_m34_s8b1_result_v1`, so B1 HIT/MISS and
 > rollback state do not depend only on text-log parsing. The helper records the
 > actual rollback target/device even if Magisk rollback falls back to stock.
+> Canonical `timeline.json` now records `rollback_flash_done` after the final
+> actual rollback flash attempt, including stock fallback.
 > Codex also added
 > `workspace/public/src/scripts/revalidation/analyze_s22plus_m34_s8b1_result.py`;
 > it consumes `result.json` plus canonical `timeline.json` and fail-closed

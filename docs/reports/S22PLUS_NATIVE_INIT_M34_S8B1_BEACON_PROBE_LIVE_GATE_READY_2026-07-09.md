@@ -132,6 +132,8 @@ pinned candidate/base hashes. If Magisk rollback falls back to stock, the
 result file records `stock` and the fallback Odin endpoint rather than the
 original requested target/device. This is the authoritative host-side summary
 to classify B1 after a live run, alongside `timeline.json` and the text log.
+The canonical `rollback_flash_done` timeline event is emitted after the final
+actual rollback flash attempt, including stock fallback.
 
 Added host-only post-live classifier:
 
