@@ -6,6 +6,37 @@ safety invariants and flash gates are binding and override any sub-goal.**
 
 > **🔒 OPERATOR STEER (2026-07-09, Claude — SECRET DISCIPLINE, recurring): REDACT THE S22+ DEVICE SERIAL IN GENERATED ARTIFACTS AT SOURCE.** The device serial (`ro.serialno`, the `adb devices`/`--serial` value) was committed into reports/GOAL/source **3× in one session**. It must NEVER be committed (it is already public-pushed once). Fix at source: any helper that captures `getprop`, `adb devices -l`, `lsusb`, or passes `--serial` must **write a redacted placeholder (`<S22_SERIAL_REDACTED>`) into committed artifacts**, keeping the real value only in gitignored `workspace/private/` run dirs. Do not paste raw `adb`/getprop output into `docs/`, `GOAL.md`, `AGENTS.md`, tests, or `workspace/public/` source. Before any commit touching those paths, `git grep -n <serial-pattern>` and redact. Same for BSSID/MAC/PSK/SSID/IP/tunnel-URL/KASLR.
 
+> **S22+ CURRENT FRONTIER (2026-07-09 18:18 KST / 2026-07-09 09:18 UTC) — M34 S9 LIVE CONSUMED; DEVLINK SUBSTRATE CLOSED BUT B1 STILL MISS; MAGISK ROLLBACK CLEAN; NO ACTIVE LIVE AUTH.**
+> After explicit operator live approval, Codex inserted the exact S9
+> boot-only exception, passed S9 default dry-run, flashed the pinned S9 AP
+> SHA256 `41a76ac1404c99273e9ec3aeae591dbfc94e1aa83daf97de9a7068e3c155022f`,
+> and observed the candidate window for 90 seconds. No new Odin Download
+> endpoint appeared, so the result is
+> `download-beacon-miss-parked-manual-download-required`. The operator reported
+> no bootloop during the observation window, then manually entered Download via
+> RDX for rollback. The helper flashed the pinned Magisk boot-only rollback AP,
+> Android returned as `<S22_SERIAL_REDACTED>`, and boot SHA256 returned to the
+> known Magisk baseline
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+> Machine-readable evidence:
+> `workspace/private/runs/s22plus_m34_s9_devlink_substrate_beacon_live_gate_20260709T091154Z/result.json`,
+> `timeline.json`, and `s22plus_m34_s9_result_analysis.json`.
+> Analyzer decision:
+> `s22plus-m34-s9-b1-miss-stop-at-typec-or-i2c`,
+> `b1_observed=true`, `b1_state=false`, `ok_to_advance=false`,
+> `ok_to_live_next_stage=false`, `magisk_baseline_restored=true`, and timeline
+> required events are present/ordered/monotonic. `AGENTS.md` now marks the S9
+> exception consumed/retired; the consumed ack token strings are no longer
+> active authorization.
+>
+> Interpretation: the S9 devlink-supplier substrate hypothesis was tested and
+> did not make native-init expose `/sys/class/typec/port0` or any
+> `/sys/bus/i2c/devices/*-0066` path. Do **not** proceed to B2/B3/B4,
+> S7B descriptor/composition, FunctionFS, or stock-composite pivots on this
+> evidence. Next unit is host-only/rooted-Android comparison around native-init
+> module probe/deferred-probe visibility for GENI I2C/max77705/TypeC reachability
+> before designing another boot-only candidate.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 17:56 KST / 2026-07-09 08:56 UTC) — M34 S9 HOST BUILD COMPLETE; DEVLINK SUBSTRATE LOAD-SET PINNED; NO ACTIVE LIVE AUTH.**
 > Codex updated the M34 runtime-gadget split builder and native-init template for
 > `S9`, regenerated
