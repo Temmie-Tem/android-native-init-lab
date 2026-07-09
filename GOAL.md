@@ -26,6 +26,34 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > session widening (B2-B4) stays queued. Full analysis:
 > `docs/reports/S22PLUS_M34_S10_MODULE_LOAD_MECHANISM_IS_THE_WALL_NOT_SELECTION_2026-07-09.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-09 20:55 KST / 2026-07-09 11:55 UTC) — M34 S10C0 ACTIVE EXCEPTION INSTALLED; DEFAULT DRY-RUN PASS; READY FOR EXPLICIT LIVE ACK.**
+> Codex inserted the exact helper-generated S10C0 active exception into
+> `AGENTS.md` and verified it with
+> `s22plus_m34_s10c0_direct_finit_loader_audit_live_gate.py --verify-agents-candidate AGENTS.md`.
+> Then the default no-flash dry-run passed:
+> `dry-run ok: M34 S10C0 candidate, rollback APs, AGENTS exception, Android, and boot hash verified`.
+>
+> Dry-run evidence:
+>
+> ```text
+> run_dir=workspace/private/runs/s22plus_m34_s10c0_default_dryrun_20260709T115447Z
+> Android=SM-S906N/g0q/S906NKSS7FYG8
+> vbstate=orange
+> boot_completed=1
+> Magisk root path=/debug_ramdisk/su
+> current boot hash=2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
+> candidate AP=9221cfa3ea3ce0776860a5041981e23a84d0be9b833203401dab771897266c6f
+> Magisk rollback AP=d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56
+> stock boot fallback AP=2f6a8ac093587a0f03c423d8e21f65c6fe3a8d2ce9915297170cdaa2cac37c94
+> ```
+>
+> No `--live`, Odin flash, reboot, partition write, or rollback was performed.
+> The next live step is now mechanically ready but still requires an explicit
+> operator live approval immediately before running:
+> `--live --ack S22PLUS-M34-S10C0-DIRECT-FINIT-LOADER-AUDIT-LIVE-GATE`.
+> Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S10C0_ACTIVE_EXCEPTION_DRYRUN_2026-07-09.md`.
+
 > **S22+ STORAGE CLEANUP (2026-07-09 20:51 KST / 2026-07-09 11:51 UTC) — PRIVATE CACHE REDUCED TO CURRENT FRONTIER ARTIFACTS.**
 > Host cleanup removed stale private payloads and reduced `workspace/private`
 > from about 20G to about 8.2G, while preserving the current S10C0 candidate AP,

@@ -2752,6 +2752,167 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
    with stock boot-only fallback SHA256
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
+   **Narrow operator-authorized exception (2026-07-09, S22+ M34 S10C0 direct-finit loader-audit boot-only live gate):**
+   Codex may run
+   one bounded attended boot-partition-only M34 S10C0 live gate on the Samsung
+   S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m34_s10c0_direct_finit_loader_audit_live_gate.py`.
+   Live ack token: `S22PLUS-M34-S10C0-DIRECT-FINIT-LOADER-AUDIT-LIVE-GATE`. Rollback ack token:
+   `S22PLUS-M34-S10C0-DIRECT-FINIT-LOADER-AUDIT-ROLLBACK-FROM-DOWNLOAD`.
+
+   The exact candidate AP.tar.md5 SHA256 must be
+   `9221cfa3ea3ce0776860a5041981e23a84d0be9b833203401dab771897266c6f`; contained padded `boot.img` SHA256 must be
+   `8d77e1434cd47fe47f4723c948e4ff6db759cbe4bf75dd21e9e0c265d928c6df`; direct `/init` SHA256 must be
+   `cd80d5923c94f8a423821bc6dee4547f22763e177fbcc637d1bcb101c4b8c39b`; template source SHA256 must be
+   `e7c8e62487701d6af31b5e7bc060a12091a5f55737aec67c4b45be484f67666b`; module-list SHA256 must be
+   `c07425f4c738b53822e9f6783a142a2b5eafd72a15bd34c06fb3b49357c8fe26`; preserved kernel SHA256 must be
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`; and known-booting base Magisk boot SHA256
+   must be `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. The AP must contain exactly one
+   tar member, `boot.img.lz4`, and must not carry recovery, vendor_boot, dtbo,
+   vbmeta, vbmeta_system, BL, CP, CSC, super, persist, userdata, EFS,
+   sec_efs, RPMB, keymaster, modem, bootloader, or any other partition payload.
+   Before live flash, the helper must verify the pinned Magisk boot-only
+   rollback AP SHA256 `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` and the S10C0-specific
+   FYG8 stock boot-only fallback AP SHA256 `2f6a8ac093587a0f03c423d8e21f65c6fe3a8d2ce9915297170cdaa2cac37c94`
+   generated from stock raw boot SHA256 `4150b962314e6136acba61b20f471d6ee1c418b83cf8c3ee4d9cf7c91a3640ae`.
+
+   The candidate is limited to freestanding direct PID1 M34 S10C0 behavior:
+   `S22+ M34 S10C0 direct-finit loader-audit download-beacon native-init boot-only`,
+   `S22_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT_S10C0`, `S10C0 starts from the S9/S10A/S10B 89-module recipe`,
+   and `S10C0 separates direct cmd-db.ko finit_module rc from /proc/modules observation failure`. It remains
+   driver-load-only: `both_graphs_closure=1`, `devlink_supplier_closure=1`,
+   `substrate_load_set=waipio_devlink`, `driver_load_only=1`,
+   `manual_power_write=0`, `module_count=89`, `session_producer_parity=1`,
+   `max77705_session=1`, `geni_i2c_transport=1`, `i2c_msm_geni=1`,
+   `gpi_dma=1`, `msm_geni_se=1`, `functionfs=0`, `stock_composite=0`,
+   `configfs_gadget=0`, `udc_bind=0`, `role_write_discriminator=0`, and
+   `typec_readback=0`.
+
+   S10C0 intentionally performs no downstream USB gadget work: no configfs
+   gadget setup, no UDC bind, no TypeC role write, no ssusb role write, no
+   FunctionFS, and no stock composite. Its only observation is
+   `s10c_loader_audit=1`, `module_load_probe=finit_cmd_db_accepted`,
+   `predicate=cmd_db_finit_accepted`, `phase=s10c_module_loader_audit_probe`,
+   `proc_modules=0`, `direct_finit_rc=1`, `probe_module=cmd-db.ko`,
+   `probe_proc_name=cmd_db`, `cmd_db_file=cmd-db.ko`,
+   `cmd_db_seen=`, `cmd_db_rc=`, `modules_open_rc=`, `modules_read_rc=`,
+   `attempted=`, `ok=`, `eexist=`, `fail=`, `first_fail_index=`,
+   `first_fail_rc=`, and `first_fail_name=`. Predicate true requests
+   `reboot_request=download` with `download_beacon=1` and records
+   `true_action=reboot_download`; predicate false records `false_action=park`
+   and parks. The host-visible HIT is `download-beacon-hit`, where a new Odin
+   Download endpoint appears after the original Download endpoint disconnects.
+   MISS is `download-beacon-miss-parked-manual-download-required`; manual
+   Download rollback is required and is recovery-only. S10C0 HIT means
+   cmd-db.ko finit_module returned 0 or -EEXIST under native-init. S10C0 MISS
+   means cmd-db.ko was not attempted or direct finit_module failed.
+
+   The candidate must have no Android/Magisk handoff, no persistent partition
+   mount, no block write, no module binary injection into boot ramdisk, no raw
+   host `dd`, no fastboot, no Magisk modules, no multidisabler, no format data,
+   no DTBO/vendor_boot/recovery/vbmeta/non-boot flash, and no A90 action. It
+   must not write charge current, OTG/VBUS boost, regulator, GDSC, GPIO,
+   display, raw PMIC knobs, EUD sysfs, TypeC role nodes, configfs, UDC, or
+   ssusb role nodes. PMIC/RDX abnormal reset before the observation window is
+   FAIL. This exception does not authorize S10B1/S10B2/S10B3/S10B4/S10B5/
+   S10B6, S10A/S9 repeat, B2/B3/B4, descriptor/composition pivots,
+   FunctionFS/conn_gadget parity, display/distro candidates, kernel rebuilds,
+   RDX PC dump retrieval, or any non-boot partition action.
+
+   Required policy marker coverage:
+   `S22+ M34 S10C0 direct-finit loader-audit download-beacon native-init boot-only`
+   `workspace/public/src/scripts/revalidation/s22plus_m34_s10c0_direct_finit_loader_audit_live_gate.py`
+   `S22PLUS-M34-S10C0-DIRECT-FINIT-LOADER-AUDIT-LIVE-GATE`
+   `S22PLUS-M34-S10C0-DIRECT-FINIT-LOADER-AUDIT-ROLLBACK-FROM-DOWNLOAD`
+   `SM-S906N/g0q/S906NKSS7FYG8`
+   `S10C0`
+   `S22_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT_S10C0`
+   `9221cfa3ea3ce0776860a5041981e23a84d0be9b833203401dab771897266c6f`
+   `8d77e1434cd47fe47f4723c948e4ff6db759cbe4bf75dd21e9e0c265d928c6df`
+   `cd80d5923c94f8a423821bc6dee4547f22763e177fbcc637d1bcb101c4b8c39b`
+   `c07425f4c738b53822e9f6783a142a2b5eafd72a15bd34c06fb3b49357c8fe26`
+   `e7c8e62487701d6af31b5e7bc060a12091a5f55737aec67c4b45be484f67666b`
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`
+   `2f6a8ac093587a0f03c423d8e21f65c6fe3a8d2ce9915297170cdaa2cac37c94`
+   `4150b962314e6136acba61b20f471d6ee1c418b83cf8c3ee4d9cf7c91a3640ae`
+   `S10C0 starts from the S9/S10A/S10B 89-module recipe`
+   `S10C0 separates direct cmd-db.ko finit_module rc from /proc/modules observation failure`
+   `s10c_loader_audit=1`
+   `module_load_probe=finit_cmd_db_accepted`
+   `predicate=cmd_db_finit_accepted`
+   `phase=s10c_module_loader_audit_probe`
+   `proc_modules=0`
+   `direct_finit_rc=1`
+   `probe_module=cmd-db.ko`
+   `probe_proc_name=cmd_db`
+   `cmd_db_file=cmd-db.ko`
+   `cmd_db=1`
+   `cmd_db_seen=`
+   `cmd_db_rc=`
+   `modules_open_rc=`
+   `modules_read_rc=`
+   `attempted=`
+   `ok=`
+   `eexist=`
+   `fail=`
+   `first_fail_index=`
+   `first_fail_rc=`
+   `first_fail_name=`
+   `both_graphs_closure=1`
+   `devlink_supplier_closure=1`
+   `substrate_load_set=waipio_devlink`
+   `driver_load_only=1`
+   `manual_power_write=0`
+   `module_count=89`
+   `session_producer_parity=1`
+   `max77705_session=1`
+   `geni_i2c_transport=1`
+   `i2c_msm_geni=1`
+   `gpi_dma=1`
+   `msm_geni_se=1`
+   `functionfs=0`
+   `stock_composite=0`
+   `configfs_gadget=0`
+   `udc_bind=0`
+   `role_write_discriminator=0`
+   `typec_readback=0`
+   `reboot_request=download`
+   `download_beacon=1`
+   `true_action=reboot_download`
+   `false_action=park`
+   `download-beacon-hit`
+   `download-beacon-miss-parked-manual-download-required`
+   `host-visible HIT = new Odin Download endpoint appears`
+   `MISS = no new Odin endpoint during bounded observation; manual Download rollback required`
+   `no configfs gadget setup`
+   `no UDC bind`
+   `no TypeC role write`
+   `no ssusb role write`
+   `no FunctionFS`
+   `no stock composite`
+   `no Android/Magisk handoff`
+   `no persistent partition mount`
+   `no block write`
+   `no charge-current write`
+   `no OTG/VBUS boost write`
+   `no regulator/GDSC/GPIO/raw PMIC write`
+   `manual Download rollback is recovery-only`
+   `PMIC/RDX abnormal reset before the observation window is FAIL`
+   `S10C0 HIT means cmd-db.ko finit_module returned 0 or -EEXIST under native-init`
+   `S10C0 MISS means cmd-db.ko was not attempted or direct finit_module failed`
+   `cmd-db.ko`
+   `cmd_db`
+   `cmd_db`
+   `qcom_rpmh`
+   `gcc_waipio`
+   `pinctrl_waipio`
+   `qcom_pdc`
+   `i2c_msm_geni`
+   `mfd_max77705`
+   `pdic_max77705`
+
    **Consumed exception (2026-07-09, S22+ M34 S10B0 module-load prefix
    boot-only live gate):** this one-shot exception was consumed by the
    2026-07-09 KST live run. It flashed the pinned M34 S10B0 boot-only
