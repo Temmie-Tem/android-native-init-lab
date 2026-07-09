@@ -26,6 +26,53 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > session widening (B2-B4) stays queued. Full analysis:
 > `docs/reports/S22PLUS_M34_S10_MODULE_LOAD_MECHANISM_IS_THE_WALL_NOT_SELECTION_2026-07-09.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-09 20:28 KST / 2026-07-09 11:28 UTC) — M34 S10C0 DIRECT-FINIT LOADER-AUDIT HOST BUILD COMPLETE; NEXT S10C0 LIVE-GATE SOURCE; NO ACTIVE LIVE AUTH.**
+> S10B0's consumed live MISS was not enough to distinguish two cases:
+> `cmd-db.ko` failed/was never attempted, or `/proc/modules` is not a reliable
+> observation channel during direct PID1 native-init. Codex therefore added and
+> host-built S10C0 in
+> `workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_13/`.
+> S10C0 keeps the same S9/S10A/S10B 89-module recipe but changes the first
+> boundary predicate from `/proc/modules` to the direct `finit_module` rc for
+> `cmd-db.ko`.
+>
+> S10C0 contract:
+>
+> ```text
+> stage=S10C0
+> stage_number=20
+> version=0.11
+> module_load_probe=finit_cmd_db_accepted
+> probe_module=cmd-db.ko
+> proc_modules=0
+> direct_finit_rc=1
+> predicate=cmd_db_finit_accepted
+> HIT: cmd-db.ko attempted and rc is 0 or -EEXIST -> reboot(download)
+> MISS: direct rc missing/failing -> park for manual Download rollback
+> ```
+>
+> Artifact hashes:
+>
+> ```text
+> AP.tar.md5  9221cfa3ea3ce0776860a5041981e23a84d0be9b833203401dab771897266c6f
+> boot.img    8d77e1434cd47fe47f4723c948e4ff6db759cbe4bf75dd21e9e0c265d928c6df
+> /init       cd80d5923c94f8a423821bc6dee4547f22763e177fbcc637d1bcb101c4b8c39b
+> modules     c07425f4c738b53822e9f6783a142a2b5eafd72a15bd34c06fb3b49357c8fe26
+> template    e7c8e62487701d6af31b5e7bc060a12091a5f55737aec67c4b45be484f67666b
+> base boot   2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
+> ```
+>
+> Validation passed: S10C0 smoke host build, builder/helper `py_compile`, and
+> `tests/test_s22plus_m34_runtime_gadget_split_build.py`
+> + `tests/test_s22plus_m34_s10b0_module_load_prefix_live_gate.py`
+> (`Ran 11`, `OK`, `skipped=2`). Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S10C0_DIRECT_FINIT_LOADER_AUDIT_HOST_BUILD_2026-07-09.md`.
+>
+> No flash/reboot/device action was performed for S10C0. `AGENTS.md` has no
+> active S10C0 authorization. Next: write a fail-closed S10C0 live helper,
+> pin the exact hashes above, add a fresh boot-only exception, run default
+> dry-run, then require explicit operator approval before any live flash.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 20:05 KST / 2026-07-09 11:05 UTC) — M34 S10B0 LIVE CONSUMED; MISS; ROOT FALLBACK FIXED; DATA CORE DUMPS CLEANED; NO ACTIVE LIVE AUTH.**
 > S10B0 was executed once under the bounded boot-only exception using
 > `workspace/public/src/scripts/revalidation/s22plus_m34_s10b0_module_load_prefix_live_gate.py`.

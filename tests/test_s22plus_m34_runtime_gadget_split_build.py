@@ -7,9 +7,10 @@ from pathlib import Path
 
 SCRIPT = Path("workspace/public/src/scripts/revalidation/build_s22plus_m34_runtime_gadget_split.py")
 SOURCE = Path("workspace/public/src/native-init/s22plus_init_m34_runtime_gadget_split.c")
-MANIFEST = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_12/manifest.json")
+MANIFEST = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_13/manifest.json")
 S10B_LABELS = ["S10B0", "S10B1", "S10B2", "S10B3", "S10B4", "S10B5", "S10B6"]
-STAGE_LABELS = ["S1", "S2", "S3", "S4", "S5", "S6", "S7A", "S7A2", "S8B1", "S8B1A", "S9", "S10A", *S10B_LABELS]
+S10C_LABELS = ["S10C0"]
+STAGE_LABELS = ["S1", "S2", "S3", "S4", "S5", "S6", "S7A", "S7A2", "S8B1", "S8B1A", "S9", "S10A", *S10B_LABELS, *S10C_LABELS]
 
 
 def load_module():
@@ -31,7 +32,7 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
     def test_stage_matrix_is_incremental_runtime_gadget_split(self):
         stages = self.module.STAGES
         self.assertEqual([stage.label for stage in stages], STAGE_LABELS)
-        self.assertEqual([stage.number for stage in stages], list(range(1, 20)))
+        self.assertEqual([stage.number for stage in stages], list(range(1, 21)))
         self.assertEqual(self.module.MARKER_PREFIX, "S22_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT")
 
         by_label = {stage.label: stage for stage in stages}
@@ -235,6 +236,26 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
             self.assertIsNone(stage.beacon_probe)
             self.assertEqual(stage.module_load_probe, f"proc_modules_prefix_{len(modules)}")
             self.assertTrue(stage.devlink_supplier_closure)
+        self.assertFalse(by_label["S10C0"].configfs_gadget)
+        self.assertFalse(by_label["S10C0"].udc_none)
+        self.assertFalse(by_label["S10C0"].max_speed_high_speed)
+        self.assertFalse(by_label["S10C0"].usb_role_force)
+        self.assertFalse(by_label["S10C0"].ssusb_speed_high_speed)
+        self.assertFalse(by_label["S10C0"].ssusb_mode_peripheral)
+        self.assertFalse(by_label["S10C0"].udc_bind)
+        self.assertFalse(by_label["S10C0"].soft_connect)
+        self.assertTrue(by_label["S10C0"].stock_softdep_parity)
+        self.assertTrue(by_label["S10C0"].qmp_module_included)
+        self.assertTrue(by_label["S10C0"].eud_module_included)
+        self.assertTrue(by_label["S10C0"].ucsi_glink_included)
+        self.assertTrue(by_label["S10C0"].session_producer_parity)
+        self.assertTrue(by_label["S10C0"].max77705_session_modules_included)
+        self.assertFalse(by_label["S10C0"].typec_readback_markers)
+        self.assertTrue(by_label["S10C0"].geni_i2c_transport_parity)
+        self.assertFalse(by_label["S10C0"].typec_role_write_discriminator)
+        self.assertIsNone(by_label["S10C0"].beacon_probe)
+        self.assertEqual(by_label["S10C0"].module_load_probe, "finit_cmd_db_accepted")
+        self.assertTrue(by_label["S10C0"].devlink_supplier_closure)
 
     def test_source_has_stage_guards_and_no_unintended_reboot_syscall(self):
         text = SOURCE.read_text(encoding="utf-8")
@@ -250,6 +271,7 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         self.assertIn("#elif M34_STAGE == 11", text)
         self.assertIn("#elif M34_STAGE == 12", text)
         self.assertIn("#elif M34_STAGE >= 13 && M34_STAGE <= 19", text)
+        self.assertIn("#elif M34_STAGE == 20", text)
         self.assertIn("create_configfs_gadget", text)
         self.assertIn("force_usb_roles_device", text)
         self.assertIn("set_ssusb_speed_high_speed", text)
@@ -281,9 +303,13 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         self.assertIn("phase=s9_b1_probe", text)
         self.assertIn("phase=s10a_module_load_probe", text)
         self.assertIn("phase=s10b_module_load_prefix_probe", text)
+        self.assertIn("phase=s10c_module_loader_audit_probe", text)
         self.assertIn("proc_modules_core_loaded", text)
         self.assertIn("proc_modules_prefix", text)
+        self.assertIn("finit_cmd_db_accepted", text)
         self.assertIn("S10B_PREFIX_MODULES", text)
+        self.assertIn("cmd-db.ko", text)
+        self.assertIn("cmd_db_rc=", text)
         self.assertIn("/proc/modules", text)
         self.assertIn("cmd_db,qcom_rpmh,gcc_waipio,pinctrl_waipio,qcom_pdc,i2c_msm_geni,mfd_max77705,pdic_max77705", text)
         self.assertIn("devlink_supplier_closure=1", text)
@@ -333,12 +359,13 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
     @unittest.skipUnless(MANIFEST.exists(), "private M34 manifest missing")
     def test_current_manifest_is_host_only_boot_only_stage_matrix(self):
         manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+        built_labels = [stage["label"] for stage in manifest["stages"]]
         self.assertEqual(manifest["target"], "SM-S906N/g0q/S906NKSS7FYG8")
-        self.assertEqual([stage["label"] for stage in manifest["stages"]], STAGE_LABELS)
+        self.assertEqual(built_labels, manifest["matrix"]["host_build_order"])
+        self.assertTrue(set(built_labels).issubset(set(STAGE_LABELS)))
         self.assertTrue(manifest["matrix"]["p30_is_s0"])
         self.assertEqual(manifest["matrix"]["live_order"], ["S1", "S2", "S3", "S4", "S5", "S6"])
-        self.assertEqual(manifest["matrix"]["host_build_order"], STAGE_LABELS)
-        self.assertEqual(manifest["matrix"]["next_host_only_candidate"], "S10B0")
+        self.assertEqual(manifest["matrix"]["next_host_only_candidate"], "S10C0")
         self.assertTrue(manifest["matrix"]["module_closure_matches_p30_and_m32_for_s1_s5"])
         self.assertTrue(manifest["matrix"]["s6_module_closure_restores_stock_dwc3_softdep"])
         self.assertEqual(
@@ -400,6 +427,16 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         self.assertTrue(manifest["matrix"]["s10b_starts_from_s9_module_recipe"])
         self.assertTrue(manifest["matrix"]["s10b_bisects_s10a_all_core_miss"])
         self.assertTrue(manifest["matrix"]["s10b_skips_downstream_configfs_and_udc_to_isolate_module_load"])
+        self.assertEqual(manifest["matrix"]["s10c0_module_load_probe"], "finit_cmd_db_accepted")
+        self.assertEqual(manifest["matrix"]["s10c0_probe_module"], "cmd-db.ko")
+        self.assertEqual(manifest["matrix"]["s10c0_probe_proc_name"], "cmd_db")
+        self.assertEqual(manifest["matrix"]["s10c0_true_action"], "reboot(download)")
+        self.assertEqual(manifest["matrix"]["s10c0_false_action"], "park")
+        self.assertTrue(manifest["matrix"]["s10c0_starts_from_s9_module_recipe"])
+        self.assertTrue(manifest["matrix"]["s10c0_avoids_proc_modules_dependency"])
+        self.assertTrue(manifest["matrix"]["s10c0_uses_direct_finit_module_rc"])
+        self.assertTrue(manifest["matrix"]["s10c0_beacon_hit_means_cmd_db_finit_accepted"])
+        self.assertTrue(manifest["matrix"]["s10c0_skips_downstream_configfs_and_udc_to_isolate_module_load"])
         self.assertFalse(manifest["safety"]["live_flash_authorized"])
         self.assertTrue(manifest["safety"]["requires_new_sha_pinned_agents_exception_before_flash"])
         self.assertTrue(manifest["safety"]["requires_s7a_specific_live_risk_review"])
@@ -464,8 +501,40 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         self.assertTrue(manifest["safety"]["stage_s10b_no_configfs_udc_or_role_write"])
         self.assertTrue(manifest["safety"]["stage_s10b_driver_load_only_no_manual_power_write"])
         self.assertTrue(manifest["safety"]["stage_s10b_bisects_s10a_all_core_miss"])
+        self.assertTrue(manifest["safety"]["stage_s10c0_starts_from_s9_module_recipe"])
+        self.assertEqual(manifest["safety"]["stage_s10c0_module_load_probe"], "finit_cmd_db_accepted")
+        self.assertEqual(manifest["safety"]["stage_s10c0_probe_module"], "cmd-db.ko")
+        self.assertTrue(manifest["safety"]["stage_s10c0_true_reboot_download_false_park"])
+        self.assertTrue(manifest["safety"]["stage_s10c0_no_proc_modules_dependency"])
+        self.assertTrue(manifest["safety"]["stage_s10c0_no_configfs_udc_or_role_write"])
+        self.assertTrue(manifest["safety"]["stage_s10c0_driver_load_only_no_manual_power_write"])
 
         by_label = {stage["label"]: stage for stage in manifest["stages"]}
+        if built_labels != STAGE_LABELS:
+            self.assertEqual(built_labels, ["S10C0"])
+            s10c0 = by_label["S10C0"]
+            self.assertEqual(s10c0["hashes"]["base_boot"], "2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e")
+            self.assertEqual(s10c0["hashes"]["m34_modules"], "c07425f4c738b53822e9f6783a142a2b5eafd72a15bd34c06fb3b49357c8fe26")
+            self.assertEqual(s10c0["stage_number"], 20)
+            self.assertEqual(s10c0["tar_members"], ["boot.img.lz4"])
+            self.assertEqual(s10c0["ramdisk"]["module_files_injected_into_boot_ramdisk"], 0)
+            self.assertEqual(s10c0["ramdisk"]["module_list_files_injected_into_boot_ramdisk"], 1)
+            self.assertEqual(s10c0["closure"]["module_count"], 89)
+            self.assertIn("cmd-db.ko", s10c0["closure"]["modules"])
+            self.assertIn("sec_debug_region.ko", s10c0["closure"]["modules"])
+            s10c0_required = set(s10c0["init"]["required_strings"])
+            self.assertIn("version=0.11", s10c0_required)
+            self.assertIn("module_load_probe=finit_cmd_db_accepted", s10c0_required)
+            self.assertIn("proc_modules=0", s10c0_required)
+            self.assertIn("direct_finit_rc=1", s10c0_required)
+            self.assertIn("probe_module=cmd-db.ko", s10c0_required)
+            self.assertIn("phase=s10c_module_loader_audit_probe", s10c0_required)
+            self.assertIn("predicate=cmd_db_finit_accepted", s10c0_required)
+            self.assertIn("cmd_db_rc=", s10c0_required)
+            self.assertIn("true_action=reboot_download", s10c0_required)
+            self.assertIn("false_action=park", s10c0_required)
+            self.assertNotIn("/proc/modules", s10c0_required)
+            return
         self.assertEqual(
             by_label["S1"]["runtime_steps"],
             {

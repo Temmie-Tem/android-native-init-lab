@@ -26,7 +26,9 @@
  * the S9 module recipe and uses /proc/modules as a one-bit module-load beacon
  * before probing more downstream TypeC state. Stage 10B0..10B6 split that
  * all-core check into prefix predicates to identify the first missing module
- * or module-load boundary. S1..S7A2 remain
+ * or module-load boundary. Stage 10C0 keeps the same recipe but uses the direct
+ * cmd-db.ko finit_module rc instead of /proc/modules for the first boundary.
+ * S1..S7A2 remain
  * direct-PID1 park candidates with no Android handoff, no reboot request, no
  * persistent mount, and no block writes.
  */
@@ -114,7 +116,9 @@ struct sbuf {
 };
 
 static const char k_marker[] =
-#if M34_STAGE >= 13 && M34_STAGE <= 19
+#if M34_STAGE == 20
+    M34_MARKER " version=0.11 pid1=direct runtime=freestanding raw_syscalls=1 "
+#elif M34_STAGE >= 13 && M34_STAGE <= 19
     M34_MARKER " version=0.10 pid1=direct runtime=freestanding raw_syscalls=1 "
 #elif M34_STAGE == 12
     M34_MARKER " version=0.9 pid1=direct runtime=freestanding raw_syscalls=1 "
@@ -164,6 +168,8 @@ static const char k_marker[] =
     "configfs_gadget=0 stock_order=0 udc_none=0 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=0 functionfs=0 stock_composite=0 geni_i2c_transport=1 i2c_msm_geni=1 gpi_dma=1 msm_geni_se=1 role_write_discriminator=0 s10b_module_load_prefix_probe=1 module_load_probe=proc_modules_prefix_7 proc_modules=1 s10b_ladder=1 prefix_index=5 prefix_expected=7 prefix_modules=cmd_db,qcom_rpmh,gcc_waipio,pinctrl_waipio,qcom_pdc,i2c_msm_geni,mfd_max77705 devlink_supplier_closure=1 substrate_load_set=waipio_devlink both_graphs_closure=1 clk_qcom=1 qcom_rpmh=1 icc_rpmh=1 icc_bcm_voter=1 gcc_waipio=1 clk_rpmh=1 rpmh_regulator=1 gdsc_regulator=1 qnoc_waipio=1 arm_smmu=1 qcom_pdc=1 pinctrl_msm=1 pinctrl_waipio=1 cmd_db=1 smem=1 qcom_scm=1 qcom_ipc_logging=1 driver_load_only=1 manual_power_write=0 "
 #elif M34_STAGE == 19
     "configfs_gadget=0 stock_order=0 udc_none=0 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=0 functionfs=0 stock_composite=0 geni_i2c_transport=1 i2c_msm_geni=1 gpi_dma=1 msm_geni_se=1 role_write_discriminator=0 s10b_module_load_prefix_probe=1 module_load_probe=proc_modules_prefix_8 proc_modules=1 s10b_ladder=1 prefix_index=6 prefix_expected=8 prefix_modules=cmd_db,qcom_rpmh,gcc_waipio,pinctrl_waipio,qcom_pdc,i2c_msm_geni,mfd_max77705,pdic_max77705 devlink_supplier_closure=1 substrate_load_set=waipio_devlink both_graphs_closure=1 clk_qcom=1 qcom_rpmh=1 icc_rpmh=1 icc_bcm_voter=1 gcc_waipio=1 clk_rpmh=1 rpmh_regulator=1 gdsc_regulator=1 qnoc_waipio=1 arm_smmu=1 qcom_pdc=1 pinctrl_msm=1 pinctrl_waipio=1 cmd_db=1 smem=1 qcom_scm=1 qcom_ipc_logging=1 driver_load_only=1 manual_power_write=0 "
+#elif M34_STAGE == 20
+    "configfs_gadget=0 stock_order=0 udc_none=0 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=0 functionfs=0 stock_composite=0 geni_i2c_transport=1 i2c_msm_geni=1 gpi_dma=1 msm_geni_se=1 role_write_discriminator=0 s10c_loader_audit=1 module_load_probe=finit_cmd_db_accepted proc_modules=0 direct_finit_rc=1 probe_module=cmd-db.ko probe_proc_name=cmd_db cmd_db_file=cmd-db.ko cmd_db=1 devlink_supplier_closure=1 substrate_load_set=waipio_devlink both_graphs_closure=1 clk_qcom=1 qcom_rpmh=1 icc_rpmh=1 icc_bcm_voter=1 gcc_waipio=1 clk_rpmh=1 rpmh_regulator=1 gdsc_regulator=1 qnoc_waipio=1 arm_smmu=1 qcom_pdc=1 pinctrl_msm=1 pinctrl_waipio=1 smem=1 qcom_scm=1 qcom_ipc_logging=1 driver_load_only=1 manual_power_write=0 "
 #endif
 #if M34_STAGE >= 9
     "no_android_handoff=1 reboot_request=download download_beacon=1 "
@@ -277,6 +283,17 @@ static size_t cstr_len(const char *s) {
         ++n;
     }
     return n;
+}
+
+static int cstr_eq(const char *a, const char *b) {
+    size_t i = 0;
+    while (a[i] != '\0' && b[i] != '\0') {
+        if (a[i] != b[i]) {
+            return 0;
+        }
+        ++i;
+    }
+    return a[i] == b[i];
 }
 
 void *memcpy(void *dst, const void *src, size_t n) {
@@ -750,6 +767,91 @@ static void s10b_module_load_prefix_probe(void) {
 }
 #endif
 
+static long g_modules_open_rc = -1;
+static long g_modules_read_rc = -1;
+static unsigned int g_module_attempted = 0;
+static unsigned int g_module_ok = 0;
+static unsigned int g_module_eexist = 0;
+static unsigned int g_module_fail = 0;
+static unsigned int g_first_fail_index = 0;
+static long g_first_fail_rc = 0;
+static char g_first_fail_name[MODULE_NAME_BUF];
+static unsigned int g_cmd_db_seen = 0;
+static long g_cmd_db_rc = 0;
+
+static int module_rc_accepted(long rc) {
+    return rc == 0 || rc == -EEXIST;
+}
+
+static void record_module_result(const char *name, long rc) {
+    ++g_module_attempted;
+    if (cstr_eq(name, "cmd-db.ko")) {
+        g_cmd_db_seen = 1;
+        g_cmd_db_rc = rc;
+    }
+    if (rc == 0) {
+        ++g_module_ok;
+        return;
+    }
+    if (rc == -EEXIST) {
+        ++g_module_eexist;
+        return;
+    }
+    ++g_module_fail;
+    if (g_first_fail_index == 0) {
+        g_first_fail_index = g_module_attempted;
+        g_first_fail_rc = rc;
+        copy_cstr(g_first_fail_name, sizeof(g_first_fail_name), name);
+    }
+}
+
+#if M34_STAGE == 20
+static void s10c_module_loader_audit_probe(void) {
+    unsigned int present = (g_cmd_db_seen && module_rc_accepted(g_cmd_db_rc)) ? 1U : 0U;
+
+    struct sbuf sb = {.data = {0}, .len = 0};
+    sb_puts(&sb, M34_MARKER);
+    sb_puts(&sb, " phase=s10c_module_loader_audit_probe predicate=cmd_db_finit_accepted present=");
+    sb_put_u64(&sb, present);
+    sb_puts(&sb, " modules_open_rc=");
+    sb_put_i64(&sb, g_modules_open_rc);
+    sb_puts(&sb, " modules_read_rc=");
+    sb_put_i64(&sb, g_modules_read_rc);
+    sb_puts(&sb, " attempted=");
+    sb_put_u64(&sb, g_module_attempted);
+    sb_puts(&sb, " expected=");
+    sb_put_u64(&sb, M34_MODULE_LIMIT);
+    sb_puts(&sb, " ok=");
+    sb_put_u64(&sb, g_module_ok);
+    sb_puts(&sb, " eexist=");
+    sb_put_u64(&sb, g_module_eexist);
+    sb_puts(&sb, " fail=");
+    sb_put_u64(&sb, g_module_fail);
+    sb_puts(&sb, " first_fail_index=");
+    sb_put_u64(&sb, g_first_fail_index);
+    sb_puts(&sb, " first_fail_rc=");
+    sb_put_i64(&sb, g_first_fail_rc);
+    sb_puts(&sb, " first_fail_name=");
+    sb_puts(&sb, g_first_fail_name[0] ? g_first_fail_name : "none");
+    sb_puts(&sb, " cmd_db_seen=");
+    sb_put_u64(&sb, g_cmd_db_seen);
+    sb_puts(&sb, " cmd_db_rc=");
+    sb_put_i64(&sb, g_cmd_db_rc);
+    sb_puts(&sb, " true_action=reboot_download false_action=park\n");
+    emit_buf(&sb);
+
+    if (present) {
+        long rc = sys_reboot_download();
+        struct sbuf rb = {.data = {0}, .len = 0};
+        sb_puts(&rb, M34_MARKER);
+        sb_puts(&rb, " phase=s10c_module_loader_audit_reboot_returned rc=");
+        sb_put_i64(&rb, rc);
+        sb_putc(&rb, '\n');
+        emit_buf(&rb);
+    }
+}
+#endif
+
 #if M34_STAGE == 9 || M34_STAGE == 10 || M34_STAGE == 11
 static void s8_beacon_probe(void) {
     int present = 0;
@@ -924,11 +1026,13 @@ static void emit_module_result(const char *name, long rc) {
 static void load_modules_from_list(void) {
     char buf[MODULES_LOAD_BUF];
     long fd = sys_openat(AT_FDCWD, M34_MODULES_RAMDISK, O_RDONLY | O_CLOEXEC, 0);
+    g_modules_open_rc = fd;
     if (fd < 0) {
         emit(M34_MARKER " phase=modules_open_failed\n");
         return;
     }
     long n = sys_read((int)fd, buf, sizeof(buf) - 1);
+    g_modules_read_rc = n;
     (void)sys_close((int)fd);
     if (n <= 0) {
         emit(M34_MARKER " phase=modules_read_failed\n");
@@ -945,6 +1049,7 @@ static void load_modules_from_list(void) {
             if (name_len > 0) {
                 name[name_len] = '\0';
                 long rc = load_one_module(name);
+                record_module_result(name, rc);
                 emit_module_result(name, rc);
                 ++loaded;
                 name_len = 0;
@@ -965,6 +1070,14 @@ static void load_modules_from_list(void) {
     sb_put_u64(&sb, loaded);
     sb_puts(&sb, " expected=");
     sb_put_u64(&sb, M34_MODULE_LIMIT);
+    sb_puts(&sb, " attempted=");
+    sb_put_u64(&sb, g_module_attempted);
+    sb_puts(&sb, " ok=");
+    sb_put_u64(&sb, g_module_ok);
+    sb_puts(&sb, " eexist=");
+    sb_put_u64(&sb, g_module_eexist);
+    sb_puts(&sb, " fail=");
+    sb_put_u64(&sb, g_module_fail);
     sb_putc(&sb, '\n');
     emit_buf(&sb);
 }
@@ -1004,19 +1117,6 @@ static void create_configfs_gadget(void) {
     sb_puts(&sb, " udc_none=1 max_speed_high_speed=0 role_forced=0 udc_bound=0\n");
     emit_buf(&sb);
 }
-
-#if M34_STAGE >= 2
-static int cstr_eq(const char *a, const char *b) {
-    size_t i = 0;
-    while (a[i] != '\0' && b[i] != '\0') {
-        if (a[i] != b[i]) {
-            return 0;
-        }
-        ++i;
-    }
-    return a[i] == b[i];
-}
-#endif
 
 #if M34_STAGE == 2 || M34_STAGE == 3 || M34_STAGE == 4 || M34_STAGE == 5
 static void set_max_speed_high_speed(void) {
@@ -1195,7 +1295,10 @@ __attribute__((noreturn)) void _start(void) {
     setup_minimal_fs();
     emit(k_marker);
     load_modules_from_list();
-#if M34_STAGE == 12
+#if M34_STAGE == 20
+    s10c_module_loader_audit_probe();
+    park_forever();
+#elif M34_STAGE == 12
     s10a_module_load_probe();
     park_forever();
 #elif M34_STAGE >= 13 && M34_STAGE <= 19
