@@ -35,6 +35,7 @@ class AnalyzeS22PlusM34S8B1ResultTest(unittest.TestCase):
             "result": result,
             "rc": rc,
             "rollback_target": "magisk",
+            "android_serial": "RFCT519XWGK",
             "candidate_ap_sha256": self.module.EXPECTED_M34_AP_SHA256,
             "candidate_boot_sha256": self.module.EXPECTED_M34_BOOT_SHA256,
             "candidate_init_sha256": self.module.EXPECTED_M34_INIT_SHA256,
@@ -63,6 +64,22 @@ class AnalyzeS22PlusM34S8B1ResultTest(unittest.TestCase):
         self.assertTrue(analysis["b1_state"])
         self.assertEqual(analysis["next_stage"], "S8B2")
         self.assertEqual(analysis["next_probe"], "port0_partner_exists")
+        self.assertTrue(analysis["magisk_baseline_restored"])
+        self.assertTrue(analysis["ok_to_live_next_stage"])
+        self.assertFalse(analysis["requires_magisk_baseline_restore"])
+
+    def test_hit_with_stock_rollback_advances_b1_but_requires_magisk_baseline_restore(self):
+        payload = self.result_payload("download-beacon-hit")
+        payload["rollback_target"] = "stock"
+        analysis = self.module.classify_result(payload, self.timeline_payload())
+
+        self.assertEqual(analysis["decision"], self.module.DECISION_PROCEED_B2)
+        self.assertTrue(analysis["ok_to_advance"])
+        self.assertEqual(analysis["next_stage"], "S8B2")
+        self.assertFalse(analysis["magisk_baseline_restored"])
+        self.assertFalse(analysis["ok_to_live_next_stage"])
+        self.assertTrue(analysis["requires_magisk_baseline_restore"])
+        self.assertIn("restore/verify Magisk baseline", analysis["next_action"])
 
     def test_miss_with_complete_timeline_stops_before_b2(self):
         analysis = self.module.classify_result(

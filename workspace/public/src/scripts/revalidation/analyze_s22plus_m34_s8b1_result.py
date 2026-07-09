@@ -22,6 +22,7 @@ from s22plus_m34_s8b1_beacon_probe_live_gate import (
     EXPECTED_M34_INIT_SHA256,
     EXPECTED_STAGE,
     EXPECTED_TARGET,
+    ROLLBACK_MAGISK,
 )
 
 
@@ -163,6 +164,9 @@ def classify_result(payload: dict[str, Any], timeline: dict[str, Any] | None = N
     timeline_names, timeline_errors = validate_timeline_payload(timeline)
     result = payload.get("result")
     rc = payload.get("rc")
+    rollback_target = payload.get("rollback_target")
+    android_serial = payload.get("android_serial")
+    magisk_baseline_restored = rollback_target == ROLLBACK_MAGISK and isinstance(android_serial, str) and bool(android_serial)
     analysis: dict[str, Any] = {
         "schema": ANALYSIS_SCHEMA,
         "input_schema": payload.get("schema"),
@@ -170,7 +174,12 @@ def classify_result(payload: dict[str, Any], timeline: dict[str, Any] | None = N
         "stage": payload.get("stage"),
         "result": result,
         "rc": rc,
+        "rollback_target": rollback_target,
+        "android_serial": android_serial,
         "ok_to_advance": False,
+        "ok_to_live_next_stage": False,
+        "magisk_baseline_restored": magisk_baseline_restored,
+        "requires_magisk_baseline_restore": False,
         "b1_observed": False,
         "b1_state": None,
         "next_stage": None,
@@ -217,16 +226,25 @@ def classify_result(payload: dict[str, Any], timeline: dict[str, Any] | None = N
                 {
                     "decision": DECISION_PROCEED_B2,
                     "ok_to_advance": True,
+                    "ok_to_live_next_stage": magisk_baseline_restored,
+                    "requires_magisk_baseline_restore": not magisk_baseline_restored,
                     "next_stage": "S8B2",
                     "next_probe": "port0_partner_exists",
-                    "next_action": "build S8B2 host-only, then seek a fresh SHA-pinned live exception",
                 }
             )
+            if magisk_baseline_restored:
+                analysis["next_action"] = "build S8B2 host-only, then seek a fresh SHA-pinned live exception"
+            else:
+                analysis["next_action"] = (
+                    "B1 proof is valid; restore/verify Magisk baseline before any S8B2 live gate"
+                )
             return analysis
         analysis.update(
             {
                 "decision": DECISION_B1_MISS_STOP,
                 "ok_to_advance": False,
+                "ok_to_live_next_stage": False,
+                "requires_magisk_baseline_restore": not magisk_baseline_restored,
                 "next_action": "stop S8 ladder; investigate GENI I2C/max77705/typec port reachability before B2",
             }
         )

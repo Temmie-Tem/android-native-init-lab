@@ -64,12 +64,14 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > classifies B1 as `S8B2`-ready only when HIT, `rc=0`, and required
 > live/rollback events are present, ordered, parseable, and timestamp-monotonic.
 > MISS stops before B2 and points back to GENI I2C/max77705/typec reachability.
+> HIT with stock fallback still proves B1, but the analyzer marks
+> `ok_to_live_next_stage=0` until Magisk baseline is restored/verified.
 > S8B1 tests now cross-check the helper's actual `record_timeline_event()` +
 > `write_result_summary()` output against the analyzer for both HIT and MISS.
 > Validation passed: helper `py_compile`, `--offline-check`,
 > `--readonly-preflight`, draft/active-template generation, S8B1 tests
-> (`Ran 20 tests`, `OK`), S8B1 analyzer tests (`Ran 10 tests`, `OK`),
-> M34/S7A2 regression including S8B1/analyzer (`Ran 45 tests`, `OK`), and
+> (`Ran 20 tests`, `OK`), S8B1 analyzer tests (`Ran 11 tests`, `OK`),
+> M34/S7A2 regression including S8B1/analyzer (`Ran 46 tests`, `OK`), and
 > default run fail-closed without active authorization.
 >
 > Read-only host status after the operator's RDX/download note: the phone is

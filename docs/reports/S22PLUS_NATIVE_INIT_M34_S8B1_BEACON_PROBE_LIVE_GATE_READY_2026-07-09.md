@@ -156,6 +156,9 @@ order with parseable, monotonic UTC timestamps. A clean MISS is classified as a
 stop before B2: investigate GENI I2C/max77705/TypeC reachability.
 Rollback-only, incomplete, out-of-order, or timestamp-regressing timeline,
 nonzero `rc`, or hash mismatch all fail closed and do not authorize B2.
+The analyzer also separates ladder proof from next-live readiness: a HIT with
+stock fallback is valid B1 evidence, but `ok_to_live_next_stage` remains false
+until the Magisk baseline is restored and verified.
 
 The S8B1 helper tests now cross-check the helper's own
 `record_timeline_event()` + `write_result_summary()` output against the analyzer
@@ -189,9 +192,9 @@ draft exception generation: OK
 active-template generation: OK
 default run without active AGENTS exception: correctly fails closed
 S8B1 tests: Ran 20 tests, OK
-S8B1 analyzer tests: Ran 10 tests, OK
+S8B1 analyzer tests: Ran 11 tests, OK
 S8B1/analyzer evidence-path cross-check: included in S8B1 tests
-M34/S7A2/S8B1/analyzer regression: Ran 45 tests, OK
+M34/S7A2/S8B1/analyzer regression: Ran 46 tests, OK
 ```
 
 ## Read-Only Current Device Note
