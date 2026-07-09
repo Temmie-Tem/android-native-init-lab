@@ -2918,7 +2918,19 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `mfd_max77705`
    `pdic_max77705`
 
-   **Narrow operator-authorized exception (2026-07-10, S22+ O1.1 SELinux-domain USB control boot-only live gate):**
+   **Consumed exception (2026-07-10, S22+ O1.1 SELinux-domain USB control boot-only live gate):**
+   this one-shot exception was consumed by the 2026-07-10 KST O1.1 live run.
+   The exact candidate booted with its pinned boot SHA, reached the bounded O1.1
+   daemon while stock `DR-daemon` had released ttyGS0, completed all 128 framed
+   request/response payloads with sequence continuity and the host close/reopen,
+   restored stock tty ownership, and reported `daemon_rc=0`/`restore_rc=0`.
+   The checked helper then restored the pinned Magisk boot-only AP, collected
+   retained `/proc/last_kmsg`, and verified Android/root, exact baseline boot
+   SHA, stability, and stock tty ownership. Retained init logs show
+   `s22plus_o1_control` started and exited status 0; the O1 `no domain transition`
+   rejection did not recur. This exception must not be reused for O1.1 repeat,
+   O2/O3, or any other candidate.
+
    after the V3406 O1 retained-log result isolated the service-domain transition
    failure, V3407 built the single-delta O1.1 candidate, the checked O1.1 live
    helper passed its host gates, and the operator explicitly approved live work,

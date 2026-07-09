@@ -31,28 +31,26 @@ class S22PlusO11StockFirstStageControlLiveGateTest(unittest.TestCase):
     def setUpClass(cls):
         cls.module = load_module()
 
-    def test_active_exception_contains_every_live_marker(self):
+    def test_consumed_exception_does_not_authorize_live(self):
         text = Path("AGENTS.md").read_text(encoding="utf-8")
-        segment = self.module.active_exception_segment(text)
-        self.assertTrue(segment)
-        self.assertNotIn("Consumed exception", segment)
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            (root / "AGENTS.md").write_text(text, encoding="utf-8")
-            self.module.verify_agents_exception(root, root / "gate.log")
-
-    def test_consumed_exception_is_not_live_authorization(self):
-        text = Path("AGENTS.md").read_text(encoding="utf-8")
-        text = text.replace(
-            self.module.ACTIVE_EXCEPTION_HEADING,
-            "**Consumed exception (2026-07-10, S22+ O1.1 SELinux-domain USB control boot-only live gate):**",
-            1,
-        )
+        self.assertEqual(self.module.active_exception_segment(text), "")
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / "AGENTS.md").write_text(text, encoding="utf-8")
             with self.assertRaisesRegex(SystemExit, "absent or consumed"):
                 self.module.verify_agents_exception(root, root / "gate.log")
+
+    def test_synthetic_active_exception_requires_every_marker(self):
+        text = Path("AGENTS.md").read_text(encoding="utf-8")
+        text = text.replace(
+            "**Consumed exception (2026-07-10, S22+ O1.1 SELinux-domain USB control boot-only live gate):**",
+            self.module.ACTIVE_EXCEPTION_HEADING,
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "AGENTS.md").write_text(text, encoding="utf-8")
+            self.module.verify_agents_exception(root, root / "gate.log")
 
     def test_live_requires_both_new_ack_tokens(self):
         args = argparse.Namespace(live=True, ack=None, rollback_ack=None)

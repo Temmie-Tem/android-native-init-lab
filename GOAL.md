@@ -84,6 +84,43 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 04:39 KST / 2026-07-09 19:39 UTC) — O1.1 STOCK-FIRST-STAGE EARLY-BOOT USB CONTROL LIVE PASS; MAGISK BASELINE RESTORED; EXCEPTION CONSUMED.**
+> The checked O1.1 helper flashed the pinned single-member boot AP once, proved
+> the candidate boot SHA, waited until the O1.1 daemon was running and stock
+> `DR-daemon` had released ttyGS0, then completed the O0 protocol over the stock
+> Samsung ACM transport. Both candidate and rollback Download requests succeeded
+> on their first bounded attempt. Mandatory Magisk boot-only rollback completed.
+>
+> ```text
+> run=workspace/private/runs/s22plus_o11_stock_first_stage_control_live_gate_20260709T193558Z
+> result=pass rc=0
+> candidate_boot_sha256=1e59b172edda0d2c717a93021c9084af1393c0c4db7d28eeb10e06c0b1787b0d
+> runtime=o1-service-running/o1-daemon-present/DR-daemon-stopped/tty-owner-0
+> protocol=128/128 payload-equal sequence-continuous reopen-at-64-complete
+> latency_ms=p50:0.286844 p95:1.855466 p99:4.058925 max:4.872837
+> final=daemon_rc:0 restore_rc:0 DR-daemon-running/tty-owner-1
+> rollback_boot_sha256=2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
+> retained_last_kmsg_bytes=2097136 marker_found=1
+> timeline=canonical-events-schema/all-8-required-phases-present
+> ```
+>
+> Retained init logs show the property action starting `s22plus_o1_control`, a
+> real service PID, and status-0 oneshot exit after 9.059 seconds; the O1
+> `no domain transition from u:r:init:s0` rejection did not recur. The candidate
+> contained exactly one executable delta, `seclabel u:r:magisk:s0`. No live
+> `ps -Z` process-context string was captured before the short-lived service
+> exited, so the domain fix is proven by the pinned single-delta artifact plus
+> accepted service execution and complete protocol behavior, not by a separate
+> context readback claim.
+>
+> O1 is now complete: stock first-stage/module loading and the stock gadget can
+> expose a reliable framed early-boot host control plane. This does not prove
+> direct-PID1 USB. Next = O2 host-only loader-parity work: audit and implement
+> hard dependency recursion, softdep pre/post ordering, stock tie-breaks, and
+> EOF-complete `/proc/modules` reads, with functional bind gates before O3.
+> Report:
+> `docs/reports/NATIVE_INIT_V3409_S22PLUS_O11_LIVE_PASS_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 04:33 KST / 2026-07-09 19:33 UTC) — O1.1 LIVE GATE READY; OPERATOR APPROVAL RECEIVED; ONE BOOT-ONLY RUN NEXT.**
 > V3408 added the fresh SHA-pinned O1.1 one-shot exception and checked live
 > helper for the V3407 candidate. The helper verifies the exact candidate,
