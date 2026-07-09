@@ -23,6 +23,34 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > descriptor/composition stays downstream until a candidate electrically enumerates. Full
 > analysis: `docs/reports/S22PLUS_M34_S8_BEACON_PROBE_PIVOT_STOP_BLIND_FLASHING_2026-07-09.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-09 17:34 KST / 2026-07-09 08:34 UTC) — M34 S8B1A LIVE-GATE HELPER + PRELIVE PACKET READY; NO ACTIVE LIVE AUTH.**
+> Codex added the dedicated fail-closed S8B1A live helper
+> `workspace/public/src/scripts/revalidation/s22plus_m34_s8b1a_wide_i2c_beacon_live_gate.py`,
+> post-run analyzer
+> `workspace/public/src/scripts/revalidation/analyze_s22plus_m34_s8b1a_result.py`,
+> and tests
+> `tests/test_s22plus_m34_s8b1a_wide_i2c_beacon_live_gate.py` plus
+> `tests/test_analyze_s22plus_m34_s8b1a_result.py`. The helper pins the v0_9
+> S8B1A artifact from the host-build block below and validates the wide B1
+> predicate `typec_port_or_i2c_any_0066`: `/sys/class/typec/port0` OR any
+> `/sys/bus/i2c/devices/*-0066`. It preserves the S8B1/S7A2 module recipe and
+> still forbids configfs, UDC bind, role writes, FunctionFS, stock composite,
+> Android/Magisk handoff, persistent mounts, and block writes.
+>
+> Read-only prelive packet generation passed on Android serial
+> `RFCT519XWGK` after the operator reported no bootloop:
+> `workspace/private/runs/s22plus_m34_s8b1a_wide_i2c_beacon_live_gate_20260709T083307Z/s22plus_m34_s8b1a_prelive_packet.json`.
+> Verifier passed:
+> `workspace/private/runs/s22plus_m34_s8b1a_wide_i2c_beacon_live_gate_20260709T083333Z/s22plus_m34_s8b1a_wide_i2c_beacon_live_gate.txt`.
+> Validation passed: S8B1A py_compile, S8B1A helper/analyzer tests (`Ran 62`,
+> `OK`), S8B1A `--offline-check`, S8B1/S8B1 analyzer/build regression tests
+> (`Ran 67`, `OK`), S8B1A `--prelive-packet`, and S8B1A
+> `--verify-prelive-packet`. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S8B1A_WIDE_I2C_BEACON_LIVE_GATE_READY_2026-07-09.md`.
+> No active `AGENTS.md` live exception has been inserted. A future S8B1A live
+> run still requires a fresh narrow boot-only active exception, default dry-run
+> pass, and explicit operator approval.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 17:21 KST / 2026-07-09 08:21 UTC) — M34 S8B1A HOST BUILD COMPLETE; WIDE I2C B1 PROBE; NO ACTIVE LIVE AUTH.**
 > Codex implemented and host-built `S8B1A` in
 > `workspace/public/src/scripts/revalidation/build_s22plus_m34_runtime_gadget_split.py`
