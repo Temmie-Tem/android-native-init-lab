@@ -101,10 +101,19 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Delayed collection read 2,097,136 bytes from `/proc/last_kmsg`; pstore was
 > empty. Exact O3R1 marker, `before-sysrq-c`, SysRq crash, kernel panic, and
 > init-death panic are all absent. A later `sysrq: Kill All Tasks` line is not
-> O3R1 proof. Final verdict is `no-retained-o3r1-proof`/`rc=9`. Do not repeat
-> O3R1 and do not proceed to O3R2. Return to the stock-first-stage observation
-> layer: bounded Magisk `overlay.d` early-boot marker/control service with normal
-> Android/ADB observability. Report:
+> O3R1 proof. Final verdict is `no-retained-o3r1-proof`/`rc=9`.
+>
+> **Post-run condition correction:** live Android shows `sec_debug` in
+> `/proc/modules`, and the O3/O3F plans explicitly include `sec_debug.ko`.
+> O3R1 forbade every module insertion, so Android preflight `enable=1` did not
+> carry across the candidate kernel boot. The no-hit therefore does not falsify
+> retained direct-PID1 markers; it means O3R1 failed to instantiate a
+> load-bearing capture prerequisite. The bootloop remains compatible with
+> repeated SysRq panic, PID1-exit panic, or an earlier boot failure. Do not
+> repeat O3R1 and do not proceed to the proposed O3R2. Return to the
+> stock-first-stage observation layer, where stock init loads the capture and
+> USB stacks, using a bounded Magisk `overlay.d` early-boot marker/control
+> service with normal Android/ADB observability. Report:
 > `docs/reports/NATIVE_INIT_V3420_S22PLUS_O3R1_NATIVE_RETAINED_SYSRQ_LIVE_NO_PROOF_2026-07-10.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-10 07:03 KST / 2026-07-09 22:03 UTC) — O3R1 EXACT LIVE GATE READY; OFFLINE + CONNECTED DRY-RUN PASS; ONE-SHOT EXCEPTION ACTIVE AND UNCONSUMED.**

@@ -2933,8 +2933,13 @@ BL, CP, CSC, userdata, or any non-boot flash.
    220GB free device storage. Delayed `/proc/last_kmsg` collection found no
    exact O3R1 marker, SysRq crash, kernel panic, or init-death panic and
    classified the run `no-retained-o3r1-proof`/`rc=9`. This exception must not
-   be reused for O3R1, O3R2, another panic, or another boot candidate. Further
-   work is read-only analysis or a separately authorized stock-first-stage
+   be reused for O3R1, O3R2, another panic, or another boot candidate. Post-run
+   read-only inspection corrected a load-bearing assumption: `sec_debug` is a
+   loadable module present in Android `/proc/modules`, while O3R1 inserted no
+   modules, so the Android `enable=1` preflight did not prove an active capture
+   stack inside the candidate boot. The no-hit does not falsify retention with
+   sec_debug loaded; it makes the O3R1 internal result unverified. Further work
+   is read-only analysis or a separately authorized stock-first-stage
    observation unit.
 
    after V3418 reproducibly built the exact O3R1 artifact, the checked O3R1

@@ -19,6 +19,31 @@ Post-recovery `/proc/last_kmsg` contains neither the exact O3R1 marker nor a
 SysRq crash or init-death panic. O3R1 did not prove the direct-PID1 retained
 observation channel. Its exception is consumed and O3R2 is not authorized.
 
+## Post-Run Condition Correction
+
+The run did not establish its intended sec_debug prerequisite inside the
+candidate boot. Current rooted Android proves `sec_debug` is a loadable module,
+not persistent kernel state:
+
+```text
+/proc/modules: sec_debug 32768 ... Live
+/sys/module/sec_debug/parameters/enable=1
+/sys/module/sec_debug/parameters/debug_level=18765
+```
+
+The O3 and O3F 59-module plans explicitly contain `sec_debug.ko`. O3R1 instead
+forbids all module insertion. Module state is reset on every kernel boot, so the
+Android preflight's `sec_debug enable=1` did not carry into O3R1. MID is a
+persistent selection, but the candidate did not prove that the sec_debug module
+and its retention hooks were loaded before writing kmsg or forcing panic.
+
+Therefore the no-hit does **not** falsify the general hypothesis that a direct
+PID1 marker can be retained when the Samsung capture stack is active. It shows
+that O3R1 was not a valid test of that hypothesis because a load-bearing runtime
+condition was missing. The bootloop is compatible with repeated SysRq panic,
+repeated PID1-exit panic, or an earlier boot failure; without the retained
+marker those cases remain indistinguishable.
+
 ## Exact Runs
 
 Live and rollback run:
@@ -149,12 +174,16 @@ tty=ttyACM0
 
 ## Interpretation And Next Bound
 
-Do not repeat O3R1 and do not build O3R2. This run does not distinguish between
-direct `/init` never executing and direct `/init` executing without the
-expected retained path. The direct-PID1 phase remains `UNVERIFIABLE`.
+Do not repeat O3R1 and do not build the previously proposed O3R2. This run does
+not distinguish between direct `/init` never executing, direct `/init`
+executing and panicking without sec_debug loaded, or a failure before the
+marker. The direct-PID1 phase remains `UNVERIFIABLE`.
 
 The next justified architecture step is to return to the stock-first-stage
-observation layer: preserve the known Android USB/module/gadget stack and add a
-bounded Magisk `overlay.d` early-boot marker/control service whose execution is
-observable through normal Android/ADB. Direct PID1 USB work remains downstream
-of that proof.
+observation layer. Stock init already loads the sec_debug dependency stack as
+well as the known Android USB/module/gadget stack. Add a bounded Magisk
+`overlay.d` early-boot marker/control service whose execution and module-ready
+condition are observable through normal Android/ADB. Direct PID1 USB work
+remains downstream of that proof. A future direct-PID1 retained test would need
+an independently derived and statically verified sec_debug module closure, not
+another no-module O3R1 variant.
