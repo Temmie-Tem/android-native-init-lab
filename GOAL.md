@@ -26,6 +26,42 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > session widening (B2-B4) stays queued. Full analysis:
 > `docs/reports/S22PLUS_M34_S10_MODULE_LOAD_MECHANISM_IS_THE_WALL_NOT_SELECTION_2026-07-09.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 01:37 KST / 2026-07-09 16:37 UTC) — M34 S11P0 HOST-BUILD READY; NO LIVE AUTH.**
+> Codex implemented and host-built the next S11 probe as `S11P0` in the M34
+> runtime-gadget split builder. S11P0 keeps the S10C0/S9 module recipe, preserves
+> the direct `cmd-db.ko` finit acceptance gate, and adds a positive-control
+> `/proc/modules` predicate for watchdog modules:
+>
+> ```text
+> stage=S11P0
+> stage_number=21
+> module_load_probe=finit_cmd_db_accepted_and_watchdog_proc_visible
+> positive_control_proc_names=qcom_wdt_core,gh_virt_wdt
+> true_action=reboot(download)
+> false_action=park
+> ```
+>
+> Host-build output:
+>
+> ```text
+> out_dir=workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_14
+> AP.tar.md5=dacb20dc0466487e6ad30f7ad5ebcb053a9593966922464eba4b3ed60e5f3b45
+> boot.img=3ac8b8a5dde2ef6c3f7170c258a4dc6f3a3f9a4bb4575b5af5cf3380952d7881
+> /init=efd8141e8c552b4e30f0052186b801d36420476d155e7c489c0a8644718dd5f6
+> modules=c07425f4c738b53822e9f6783a142a2b5eafd72a15bd34c06fb3b49357c8fe26
+> base_boot=2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
+> nochange_repack_boot=2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
+> ```
+>
+> Validation passed: builder `py_compile`, focused
+> `tests/test_s22plus_m34_runtime_gadget_split_build.py` (`Ran 5`, `OK`),
+> manifest safety check `live_flash_authorized=false`, AP tar member check
+> `boot.img.lz4` only. No Odin flash, reboot, partition write, or S11 live gate
+> was performed. Next live step requires a new S11P0 live helper or equivalent
+> gate, a fresh narrow `AGENTS.md` exception with these exact hashes, and
+> explicit operator approval. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S11P0_PROC_MODULES_POSITIVE_CONTROL_HOST_BUILD_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 01:27 KST / 2026-07-09 16:27 UTC) — MAGISK BOOT BASELINE RESTORED; S11 HOST-ONLY PREP MAY RESUME.**
 > With explicit operator flash approval, Codex consumed the narrow Magisk
 > boot-baseline restore gate and restored the rooted measurement baseline:

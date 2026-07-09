@@ -2918,6 +2918,153 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `mfd_max77705`
    `pdic_max77705`
 
+   **Narrow operator-authorized exception (2026-07-10, S22+ M34 S11P0 proc-modules positive-control boot-only live gate):**
+   After the Magisk boot baseline was restored and the M34 S11P0 host-build
+   report pinned the exact artifact hashes, Codex may run one bounded attended
+   boot-partition-only M34 S11P0 live gate on the Samsung S22+
+   `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m34_s11p0_proc_modules_positive_control_live_gate.py`.
+   Live ack token: `S22PLUS-M34-S11P0-PROC-MODULES-POSITIVE-CONTROL-LIVE-GATE`. Rollback ack token:
+   `S22PLUS-M34-S11P0-PROC-MODULES-POSITIVE-CONTROL-ROLLBACK-FROM-DOWNLOAD`.
+
+   The exact candidate AP.tar.md5 SHA256 must be
+   `dacb20dc0466487e6ad30f7ad5ebcb053a9593966922464eba4b3ed60e5f3b45`; contained padded `boot.img` SHA256 must be
+   `3ac8b8a5dde2ef6c3f7170c258a4dc6f3a3f9a4bb4575b5af5cf3380952d7881`; direct `/init` SHA256 must be
+   `efd8141e8c552b4e30f0052186b801d36420476d155e7c489c0a8644718dd5f6`; template source SHA256 must be
+   `70f4326294da2f27c7736f5119c7c9ad32f10e02e066fd2f2530ca91a8e4078b`; module-list SHA256 must be
+   `c07425f4c738b53822e9f6783a142a2b5eafd72a15bd34c06fb3b49357c8fe26`; preserved kernel SHA256 must be
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`; and known-booting base Magisk boot SHA256
+   must be `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. The AP must contain exactly one
+   tar member, `boot.img.lz4`, and must not carry recovery, vendor_boot, dtbo,
+   vbmeta, vbmeta_system, BL, CP, CSC, super, persist, userdata, EFS,
+   sec_efs, RPMB, keymaster, modem, bootloader, or any other partition payload.
+   Before live flash, the helper must verify the pinned Magisk boot-only
+   rollback AP SHA256 `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` and the S10C0-specific
+   FYG8 stock boot-only fallback AP SHA256 `2f6a8ac093587a0f03c423d8e21f65c6fe3a8d2ce9915297170cdaa2cac37c94`
+   generated from stock raw boot SHA256 `4150b962314e6136acba61b20f471d6ee1c418b83cf8c3ee4d9cf7c91a3640ae`.
+
+   The candidate is limited to freestanding direct PID1 M34 S11P0 behavior:
+   `S22+ M34 S11P0 proc-modules positive-control native-init boot-only`,
+   `S22_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT_S11P0`, `S11P0 keeps the S10C0/S9 module recipe`, and
+   `S11P0 positive-controls native-init /proc/modules with watchdog modules`.
+   It remains driver-load-only: `both_graphs_closure=1`,
+   `devlink_supplier_closure=1`, `substrate_load_set=waipio_devlink`,
+   `driver_load_only=1`, `manual_power_write=0`, `module_count=89`,
+   `configfs_gadget=0`, `udc_bind=0`, `role_write_discriminator=0`, and
+   `typec_readback=0`.
+
+   S11P0 intentionally performs no downstream USB gadget work: no configfs
+   gadget setup, no UDC bind, no TypeC role write, no ssusb role write, no
+   FunctionFS, and no stock composite. Its observation is
+   `s11_proc_modules_positive_control=1`,
+   `module_load_probe=finit_cmd_db_accepted_and_watchdog_proc_visible`,
+   `predicate=cmd_db_finit_accepted_and_watchdog_proc_visible`,
+   `phase=s11_proc_modules_positive_control_probe`, `proc_modules=1`,
+   `direct_finit_rc=1`, `probe_module=cmd-db.ko`,
+   `probe_proc_name=cmd_db`,
+   `positive_control=watchdog_proc_visible`,
+   `positive_control_proc_names=qcom_wdt_core,gh_virt_wdt`,
+   `positive_control_modules=qcom_wdt_core.ko,gh_virt_wdt.ko`,
+   `cmd_db_proc_seen=`, `qcom_wdt_core_proc_seen=`,
+   `gh_virt_wdt_proc_seen=`, `watchdog_proc_seen=`, `cmd_db_seen=`,
+   `cmd_db_rc=`, `modules_open_rc=`, `modules_read_rc=`, `attempted=`,
+   `ok=`, `eexist=`, `fail=`, `first_fail_index=`, `first_fail_rc=`, and
+   `first_fail_name=`. Predicate true requests `reboot_request=download` with
+   `download_beacon=1` and records `true_action=reboot_download`; predicate
+   false records `false_action=park` and parks. The host-visible HIT is
+   `download-beacon-hit`, where a new Odin Download endpoint appears after the
+   original Download endpoint disconnects. MISS is
+   `download-beacon-miss-parked-manual-download-required`; manual Download
+   rollback is required and is recovery-only. HIT means native-init
+   /proc/modules can see a watchdog positive control. MISS means watchdog
+   positive-control visibility failed or the loader did not reach the expected
+   state.
+
+   The candidate must have no Android/Magisk handoff, no persistent partition
+   mount, no block write, no module binary injection into boot ramdisk, no raw
+   host `dd`, no fastboot, no Magisk modules, no multidisabler, no format data,
+   no DTBO/vendor_boot/recovery/vbmeta/non-boot flash, and no A90 action. It
+   must not write charge current, OTG/VBUS boost, regulator, GDSC, GPIO,
+   display, raw PMIC knobs, EUD sysfs, TypeC role nodes, configfs, UDC, or
+   ssusb role nodes. PMIC/RDX abnormal reset before the observation window is
+   FAIL. This exception does not authorize S11P1, S10C0 repeat, S10B repeat,
+   B2/B3/B4, descriptor/composition pivots, FunctionFS/conn_gadget parity,
+   display/distro candidates, kernel rebuilds, RDX PC dump retrieval, or any
+   non-boot partition action.
+
+   Required policy marker coverage:
+   `S22+ M34 S11P0 proc-modules positive-control native-init boot-only`
+   `workspace/public/src/scripts/revalidation/s22plus_m34_s11p0_proc_modules_positive_control_live_gate.py`
+   `S22PLUS-M34-S11P0-PROC-MODULES-POSITIVE-CONTROL-LIVE-GATE`
+   `S22PLUS-M34-S11P0-PROC-MODULES-POSITIVE-CONTROL-ROLLBACK-FROM-DOWNLOAD`
+   `SM-S906N/g0q/S906NKSS7FYG8`
+   `S11P0`
+   `S22_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT_S11P0`
+   `dacb20dc0466487e6ad30f7ad5ebcb053a9593966922464eba4b3ed60e5f3b45`
+   `3ac8b8a5dde2ef6c3f7170c258a4dc6f3a3f9a4bb4575b5af5cf3380952d7881`
+   `efd8141e8c552b4e30f0052186b801d36420476d155e7c489c0a8644718dd5f6`
+   `c07425f4c738b53822e9f6783a142a2b5eafd72a15bd34c06fb3b49357c8fe26`
+   `70f4326294da2f27c7736f5119c7c9ad32f10e02e066fd2f2530ca91a8e4078b`
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`
+   `2f6a8ac093587a0f03c423d8e21f65c6fe3a8d2ce9915297170cdaa2cac37c94`
+   `4150b962314e6136acba61b20f471d6ee1c418b83cf8c3ee4d9cf7c91a3640ae`
+   `S11P0 keeps the S10C0/S9 module recipe`
+   `S11P0 positive-controls native-init /proc/modules with watchdog modules`
+   `module_load_probe=finit_cmd_db_accepted_and_watchdog_proc_visible`
+   `predicate=cmd_db_finit_accepted_and_watchdog_proc_visible`
+   `phase=s11_proc_modules_positive_control_probe`
+   `s11_proc_modules_positive_control=1`
+   `proc_modules=1`
+   `direct_finit_rc=1`
+   `probe_module=cmd-db.ko`
+   `probe_proc_name=cmd_db`
+   `positive_control=watchdog_proc_visible`
+   `positive_control_proc_names=qcom_wdt_core,gh_virt_wdt`
+   `positive_control_modules=qcom_wdt_core.ko,gh_virt_wdt.ko`
+   `cmd_db_proc_seen=`
+   `qcom_wdt_core_proc_seen=`
+   `gh_virt_wdt_proc_seen=`
+   `watchdog_proc_seen=`
+   `cmd_db_seen=`
+   `cmd_db_rc=`
+   `modules_open_rc=`
+   `modules_read_rc=`
+   `attempted=`
+   `ok=`
+   `eexist=`
+   `fail=`
+   `first_fail_index=`
+   `first_fail_rc=`
+   `first_fail_name=`
+   `both_graphs_closure=1`
+   `devlink_supplier_closure=1`
+   `substrate_load_set=waipio_devlink`
+   `driver_load_only=1`
+   `manual_power_write=0`
+   `module_count=89`
+   `configfs_gadget=0`
+   `udc_bind=0`
+   `role_write_discriminator=0`
+   `typec_readback=0`
+   `reboot_request=download`
+   `download_beacon=1`
+   `true_action=reboot_download`
+   `false_action=park`
+   `download-beacon-hit`
+   `download-beacon-miss-parked-manual-download-required`
+   `HIT means native-init /proc/modules can see a watchdog positive control`
+   `MISS means watchdog positive-control visibility failed or the loader did not reach the expected state`
+   `no configfs gadget setup`
+   `no UDC bind`
+   `no TypeC role write`
+   `no ssusb role write`
+   `no Android/Magisk handoff`
+   `no persistent partition mount`
+   `no block write`
+   `manual Download rollback is recovery-only`
+
    **Consumed exception (2026-07-10, S22+ Magisk boot-baseline restore boot-only gate):**
    this one-shot exception was consumed by the 2026-07-10 KST live restore run.
    It flashed only the pinned single-member Magisk boot-only AP.tar.md5 SHA256

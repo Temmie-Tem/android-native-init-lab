@@ -28,6 +28,9 @@
  * all-core check into prefix predicates to identify the first missing module
  * or module-load boundary. Stage 10C0 keeps the same recipe but uses the direct
  * cmd-db.ko finit_module rc instead of /proc/modules for the first boundary.
+ * Stage 11P0 keeps the direct cmd-db acceptance check and adds a watchdog
+ * /proc/modules positive control so a hit proves the proc read path can see a
+ * module known to be loaded under the native-init survival path.
  * S1..S7A2 remain
  * direct-PID1 park candidates with no Android handoff, no reboot request, no
  * persistent mount, and no block writes.
@@ -111,12 +114,14 @@ struct timespec64 {
 };
 
 struct sbuf {
-    char data[768];
+    char data[1024];
     size_t len;
 };
 
 static const char k_marker[] =
-#if M34_STAGE == 20
+#if M34_STAGE == 21
+    M34_MARKER " version=0.12 pid1=direct runtime=freestanding raw_syscalls=1 "
+#elif M34_STAGE == 20
     M34_MARKER " version=0.11 pid1=direct runtime=freestanding raw_syscalls=1 "
 #elif M34_STAGE >= 13 && M34_STAGE <= 19
     M34_MARKER " version=0.10 pid1=direct runtime=freestanding raw_syscalls=1 "
@@ -168,6 +173,8 @@ static const char k_marker[] =
     "configfs_gadget=0 stock_order=0 udc_none=0 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=0 functionfs=0 stock_composite=0 geni_i2c_transport=1 i2c_msm_geni=1 gpi_dma=1 msm_geni_se=1 role_write_discriminator=0 s10b_module_load_prefix_probe=1 module_load_probe=proc_modules_prefix_7 proc_modules=1 s10b_ladder=1 prefix_index=5 prefix_expected=7 prefix_modules=cmd_db,qcom_rpmh,gcc_waipio,pinctrl_waipio,qcom_pdc,i2c_msm_geni,mfd_max77705 devlink_supplier_closure=1 substrate_load_set=waipio_devlink both_graphs_closure=1 clk_qcom=1 qcom_rpmh=1 icc_rpmh=1 icc_bcm_voter=1 gcc_waipio=1 clk_rpmh=1 rpmh_regulator=1 gdsc_regulator=1 qnoc_waipio=1 arm_smmu=1 qcom_pdc=1 pinctrl_msm=1 pinctrl_waipio=1 cmd_db=1 smem=1 qcom_scm=1 qcom_ipc_logging=1 driver_load_only=1 manual_power_write=0 "
 #elif M34_STAGE == 19
     "configfs_gadget=0 stock_order=0 udc_none=0 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=0 functionfs=0 stock_composite=0 geni_i2c_transport=1 i2c_msm_geni=1 gpi_dma=1 msm_geni_se=1 role_write_discriminator=0 s10b_module_load_prefix_probe=1 module_load_probe=proc_modules_prefix_8 proc_modules=1 s10b_ladder=1 prefix_index=6 prefix_expected=8 prefix_modules=cmd_db,qcom_rpmh,gcc_waipio,pinctrl_waipio,qcom_pdc,i2c_msm_geni,mfd_max77705,pdic_max77705 devlink_supplier_closure=1 substrate_load_set=waipio_devlink both_graphs_closure=1 clk_qcom=1 qcom_rpmh=1 icc_rpmh=1 icc_bcm_voter=1 gcc_waipio=1 clk_rpmh=1 rpmh_regulator=1 gdsc_regulator=1 qnoc_waipio=1 arm_smmu=1 qcom_pdc=1 pinctrl_msm=1 pinctrl_waipio=1 cmd_db=1 smem=1 qcom_scm=1 qcom_ipc_logging=1 driver_load_only=1 manual_power_write=0 "
+#elif M34_STAGE == 21
+    "configfs_gadget=0 stock_order=0 udc_none=0 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=0 functionfs=0 stock_composite=0 geni_i2c_transport=1 i2c_msm_geni=1 gpi_dma=1 msm_geni_se=1 role_write_discriminator=0 s11_proc_modules_positive_control=1 module_load_probe=finit_cmd_db_accepted_and_watchdog_proc_visible proc_modules=1 direct_finit_rc=1 probe_module=cmd-db.ko probe_proc_name=cmd_db positive_control=watchdog_proc_visible positive_control_proc_names=qcom_wdt_core,gh_virt_wdt positive_control_modules=qcom_wdt_core.ko,gh_virt_wdt.ko cmd_db_file=cmd-db.ko cmd_db=1 qcom_wdt_core=1 gh_virt_wdt=1 devlink_supplier_closure=1 substrate_load_set=waipio_devlink both_graphs_closure=1 clk_qcom=1 qcom_rpmh=1 icc_rpmh=1 icc_bcm_voter=1 gcc_waipio=1 clk_rpmh=1 rpmh_regulator=1 gdsc_regulator=1 qnoc_waipio=1 arm_smmu=1 qcom_pdc=1 pinctrl_msm=1 pinctrl_waipio=1 smem=1 qcom_scm=1 qcom_ipc_logging=1 driver_load_only=1 manual_power_write=0 "
 #elif M34_STAGE == 20
     "configfs_gadget=0 stock_order=0 udc_none=0 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=0 functionfs=0 stock_composite=0 geni_i2c_transport=1 i2c_msm_geni=1 gpi_dma=1 msm_geni_se=1 role_write_discriminator=0 s10c_loader_audit=1 module_load_probe=finit_cmd_db_accepted proc_modules=0 direct_finit_rc=1 probe_module=cmd-db.ko probe_proc_name=cmd_db cmd_db_file=cmd-db.ko cmd_db=1 devlink_supplier_closure=1 substrate_load_set=waipio_devlink both_graphs_closure=1 clk_qcom=1 qcom_rpmh=1 icc_rpmh=1 icc_bcm_voter=1 gcc_waipio=1 clk_rpmh=1 rpmh_regulator=1 gdsc_regulator=1 qnoc_waipio=1 arm_smmu=1 qcom_pdc=1 pinctrl_msm=1 pinctrl_waipio=1 smem=1 qcom_scm=1 qcom_ipc_logging=1 driver_load_only=1 manual_power_write=0 "
 #endif
@@ -576,7 +583,7 @@ static int s8_b1a_typec_port_or_i2c_any_0066_present(void) {
 #endif
 #endif
 
-#if M34_STAGE == 12 || (M34_STAGE >= 13 && M34_STAGE <= 19)
+#if M34_STAGE == 12 || (M34_STAGE >= 13 && M34_STAGE <= 19) || M34_STAGE == 21
 #define S10A_PROC_MODULES_EXPECTED 8U
 
 static int module_line_starts_with(const char *line, const char *name) {
@@ -845,6 +852,82 @@ static void s10c_module_loader_audit_probe(void) {
         struct sbuf rb = {.data = {0}, .len = 0};
         sb_puts(&rb, M34_MARKER);
         sb_puts(&rb, " phase=s10c_module_loader_audit_reboot_returned rc=");
+        sb_put_i64(&rb, rc);
+        sb_putc(&rb, '\n');
+        emit_buf(&rb);
+    }
+}
+#endif
+
+#if M34_STAGE == 21
+static void s11_proc_modules_positive_control_probe(void) {
+    unsigned int direct_cmd_db = (g_cmd_db_seen && module_rc_accepted(g_cmd_db_rc)) ? 1U : 0U;
+    unsigned int cmd_db_proc_seen = 0;
+    unsigned int qcom_wdt_core_proc_seen = 0;
+    unsigned int gh_virt_wdt_proc_seen = 0;
+    unsigned int watchdog_proc_seen = 0;
+    unsigned int present = 0;
+    unsigned int waited = 0;
+    for (; waited < 10; ++waited) {
+        cmd_db_proc_seen = proc_modules_has("cmd_db") ? 1U : 0U;
+        qcom_wdt_core_proc_seen = proc_modules_has("qcom_wdt_core") ? 1U : 0U;
+        gh_virt_wdt_proc_seen = proc_modules_has("gh_virt_wdt") ? 1U : 0U;
+        watchdog_proc_seen = (qcom_wdt_core_proc_seen || gh_virt_wdt_proc_seen) ? 1U : 0U;
+        if (direct_cmd_db && watchdog_proc_seen) {
+            present = 1U;
+            break;
+        }
+        (void)sys_sleep_sec(1);
+    }
+
+    struct sbuf sb = {.data = {0}, .len = 0};
+    sb_puts(&sb, M34_MARKER);
+    sb_puts(&sb, " phase=s11_proc_modules_positive_control_probe predicate=cmd_db_finit_accepted_and_watchdog_proc_visible present=");
+    sb_put_u64(&sb, present);
+    sb_puts(&sb, " modules_open_rc=");
+    sb_put_i64(&sb, g_modules_open_rc);
+    sb_puts(&sb, " modules_read_rc=");
+    sb_put_i64(&sb, g_modules_read_rc);
+    sb_puts(&sb, " attempted=");
+    sb_put_u64(&sb, g_module_attempted);
+    sb_puts(&sb, " expected=");
+    sb_put_u64(&sb, M34_MODULE_LIMIT);
+    sb_puts(&sb, " ok=");
+    sb_put_u64(&sb, g_module_ok);
+    sb_puts(&sb, " eexist=");
+    sb_put_u64(&sb, g_module_eexist);
+    sb_puts(&sb, " fail=");
+    sb_put_u64(&sb, g_module_fail);
+    sb_puts(&sb, " first_fail_index=");
+    sb_put_u64(&sb, g_first_fail_index);
+    sb_puts(&sb, " first_fail_rc=");
+    sb_put_i64(&sb, g_first_fail_rc);
+    sb_puts(&sb, " first_fail_name=");
+    sb_puts(&sb, g_first_fail_name[0] ? g_first_fail_name : "none");
+    sb_puts(&sb, " cmd_db_seen=");
+    sb_put_u64(&sb, g_cmd_db_seen);
+    sb_puts(&sb, " cmd_db_rc=");
+    sb_put_i64(&sb, g_cmd_db_rc);
+    sb_puts(&sb, " direct_cmd_db=");
+    sb_put_u64(&sb, direct_cmd_db);
+    sb_puts(&sb, " cmd_db_proc_seen=");
+    sb_put_u64(&sb, cmd_db_proc_seen);
+    sb_puts(&sb, " qcom_wdt_core_proc_seen=");
+    sb_put_u64(&sb, qcom_wdt_core_proc_seen);
+    sb_puts(&sb, " gh_virt_wdt_proc_seen=");
+    sb_put_u64(&sb, gh_virt_wdt_proc_seen);
+    sb_puts(&sb, " watchdog_proc_seen=");
+    sb_put_u64(&sb, watchdog_proc_seen);
+    sb_puts(&sb, " waited_sec=");
+    sb_put_u64(&sb, waited);
+    sb_puts(&sb, " true_action=reboot_download false_action=park\n");
+    emit_buf(&sb);
+
+    if (present) {
+        long rc = sys_reboot_download();
+        struct sbuf rb = {.data = {0}, .len = 0};
+        sb_puts(&rb, M34_MARKER);
+        sb_puts(&rb, " phase=s11_proc_modules_positive_control_reboot_returned rc=");
         sb_put_i64(&rb, rc);
         sb_putc(&rb, '\n');
         emit_buf(&rb);
@@ -1295,7 +1378,10 @@ __attribute__((noreturn)) void _start(void) {
     setup_minimal_fs();
     emit(k_marker);
     load_modules_from_list();
-#if M34_STAGE == 20
+#if M34_STAGE == 21
+    s11_proc_modules_positive_control_probe();
+    park_forever();
+#elif M34_STAGE == 20
     s10c_module_loader_audit_probe();
     park_forever();
 #elif M34_STAGE == 12

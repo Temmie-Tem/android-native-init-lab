@@ -36,6 +36,9 @@ S10B0..S10B6: same S9 module recipe again, but split S10A's all-core predicate
 S10C0: same S9 module recipe again, but stop relying on /proc/modules for the
       first boundary and use the direct cmd-db.ko finit_module rc as the
       download-beacon predicate.
+S11P0: after the S10C0 live hit proved direct cmd-db.ko finit acceptance, keep
+       the same module recipe and positive-control the /proc/modules read path
+       against watchdog modules expected to be loaded on the survival path.
 """
 
 from __future__ import annotations
@@ -75,7 +78,7 @@ from build_s22plus_inplace_m4t1_magiskboot import (
 from build_s22plus_m32_wdt_hs_acm import EXPECTED_M32_MODULES, dependency_complete_wdt_hs_order
 
 
-DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_13")
+DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_14")
 DEFAULT_TEMPLATE_SOURCE = Path("workspace/public/src/native-init/s22plus_init_m34_runtime_gadget_split.c")
 DEFAULT_VENDOR_RAMDISK = m23.DEFAULT_VENDOR_RAMDISK
 DEFAULT_LZ4 = m23.DEFAULT_LZ4
@@ -229,6 +232,9 @@ M34_S10B_PROC_MODULE_PREFIX_BY_LABEL = {
 }
 M34_S10C0_PROBE_MODULE = "cmd-db.ko"
 M34_S10C0_PROBE_PROC_NAME = "cmd_db"
+M34_S11P0_MODULE_LOAD_PROBE = "finit_cmd_db_accepted_and_watchdog_proc_visible"
+M34_S11P0_POSITIVE_CONTROL_PROC_NAMES = ["qcom_wdt_core", "gh_virt_wdt"]
+M34_S11P0_POSITIVE_CONTROL_MODULES = ["qcom_wdt_core.ko", "gh_virt_wdt.ko"]
 M34_S7A_RISK_MODULES = [
     "memory_dump_v2.ko",
     "sec_debug_region.ko",
@@ -352,6 +358,37 @@ def s10c_loader_audit_stage() -> RuntimeStage:
         geni_i2c_transport_parity=True,
         typec_role_write_discriminator=False,
         module_load_probe="finit_cmd_db_accepted",
+        devlink_supplier_closure=True,
+    )
+
+
+def s11p0_proc_modules_positive_control_stage() -> RuntimeStage:
+    return RuntimeStage(
+        "S11P0",
+        21,
+        (
+            "S9/S10C0 module recipe plus a direct cmd-db.ko finit acceptance "
+            "gate and a /proc/modules positive-control beacon for watchdog "
+            "modules; true requests reboot(download), false parks"
+        ),
+        configfs_gadget=False,
+        udc_none=False,
+        max_speed_high_speed=False,
+        usb_role_force=False,
+        ssusb_speed_high_speed=False,
+        ssusb_mode_peripheral=False,
+        udc_bind=False,
+        soft_connect=False,
+        stock_softdep_parity=True,
+        qmp_module_included=True,
+        eud_module_included=True,
+        ucsi_glink_included=True,
+        session_producer_parity=True,
+        max77705_session_modules_included=True,
+        typec_readback_markers=False,
+        geni_i2c_transport_parity=True,
+        typec_role_write_discriminator=False,
+        module_load_probe=M34_S11P0_MODULE_LOAD_PROBE,
         devlink_supplier_closure=True,
     )
 
@@ -606,6 +643,7 @@ STAGES = [
         for label, number, modules in M34_S10B_PROC_MODULE_PREFIXES
     ],
     s10c_loader_audit_stage(),
+    s11p0_proc_modules_positive_control_stage(),
 ]
 
 
@@ -845,7 +883,9 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
     has_download_probe = bool(stage.beacon_probe or stage.module_load_probe)
     s10b_prefix = s10b_prefix_modules(stage)
     version_marker = (
-        "version=0.11"
+        "version=0.12"
+        if stage.module_load_probe == M34_S11P0_MODULE_LOAD_PROBE
+        else "version=0.11"
         if stage.module_load_probe == "finit_cmd_db_accepted"
         else "version=0.10"
         if s10b_prefix
@@ -1198,6 +1238,53 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
                     "download",
                 ]
             )
+        elif stage.module_load_probe == M34_S11P0_MODULE_LOAD_PROBE:
+            required_strings.extend(
+                [
+                    f"module_load_probe={M34_S11P0_MODULE_LOAD_PROBE}",
+                    "s11_proc_modules_positive_control=1",
+                    "proc_modules=1",
+                    "direct_finit_rc=1",
+                    f"probe_module={M34_S10C0_PROBE_MODULE}",
+                    f"probe_proc_name={M34_S10C0_PROBE_PROC_NAME}",
+                    "positive_control=watchdog_proc_visible",
+                    "positive_control_proc_names=" + ",".join(M34_S11P0_POSITIVE_CONTROL_PROC_NAMES),
+                    "positive_control_modules=" + ",".join(M34_S11P0_POSITIVE_CONTROL_MODULES),
+                    f"cmd_db_file={M34_S10C0_PROBE_MODULE}",
+                    "both_graphs_closure=1",
+                    "cmd_db=1",
+                    "qcom_wdt_core=1",
+                    "gh_virt_wdt=1",
+                    "smem=1",
+                    "qcom_scm=1",
+                    "qcom_ipc_logging=1",
+                    "phase=modules_load_done",
+                    "attempted=",
+                    "ok=",
+                    "eexist=",
+                    "fail=",
+                    "phase=s11_proc_modules_positive_control_probe",
+                    "predicate=cmd_db_finit_accepted_and_watchdog_proc_visible",
+                    "modules_open_rc=",
+                    "modules_read_rc=",
+                    "first_fail_index=",
+                    "first_fail_rc=",
+                    "first_fail_name=",
+                    "cmd_db_seen=",
+                    "cmd_db_rc=",
+                    "direct_cmd_db=",
+                    "cmd_db_proc_seen=",
+                    "qcom_wdt_core_proc_seen=",
+                    "gh_virt_wdt_proc_seen=",
+                    "watchdog_proc_seen=",
+                    "waited_sec=",
+                    "true_action=reboot_download",
+                    "false_action=park",
+                    "phase=s11_proc_modules_positive_control_reboot_returned",
+                    "/proc/modules",
+                    "download",
+                ]
+            )
         else:
             raise SystemExit(f"unknown M34 module-load probe contract for {stage.label}: {stage.module_load_probe}")
 
@@ -1258,6 +1345,9 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
                 b"s10c_loader_audit=1",
                 b"phase=s10c_module_loader_audit_probe",
                 b"predicate=cmd_db_finit_accepted",
+                b"s11_proc_modules_positive_control=1",
+                b"phase=s11_proc_modules_positive_control_probe",
+                b"predicate=cmd_db_finit_accepted_and_watchdog_proc_visible",
             ])
         elif stage.module_load_probe == "proc_modules_core_loaded":
             forbidden_strings.extend([
@@ -1267,8 +1357,11 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
                 b"s10c_loader_audit=1",
                 b"phase=s10c_module_loader_audit_probe",
                 b"predicate=cmd_db_finit_accepted",
+                b"s11_proc_modules_positive_control=1",
+                b"phase=s11_proc_modules_positive_control_probe",
+                b"predicate=cmd_db_finit_accepted_and_watchdog_proc_visible",
             ])
-        else:
+        elif stage.module_load_probe == "finit_cmd_db_accepted":
             forbidden_strings.extend([
                 b"s10a_module_load_probe=1",
                 b"phase=s10a_module_load_probe",
@@ -1277,6 +1370,20 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
                 b"phase=s10b_module_load_prefix_probe",
                 b"predicate=proc_modules_prefix",
                 b"/proc/modules",
+                b"s11_proc_modules_positive_control=1",
+                b"phase=s11_proc_modules_positive_control_probe",
+                b"predicate=cmd_db_finit_accepted_and_watchdog_proc_visible",
+            ])
+        elif stage.module_load_probe == M34_S11P0_MODULE_LOAD_PROBE:
+            forbidden_strings.extend([
+                b"s10a_module_load_probe=1",
+                b"phase=s10a_module_load_probe",
+                b"predicate=proc_modules_core_loaded",
+                b"s10b_module_load_prefix_probe=1",
+                b"phase=s10b_module_load_prefix_probe",
+                b"predicate=proc_modules_prefix",
+                b"s10c_loader_audit=1",
+                b"phase=s10c_module_loader_audit_probe",
             ])
     else:
         forbidden_strings.extend([
@@ -1291,6 +1398,10 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
             b"module_load_probe=finit_cmd_db_accepted",
             b"phase=s10c_module_loader_audit_probe",
             b"predicate=cmd_db_finit_accepted",
+            b"s11_proc_modules_positive_control=1",
+            b"module_load_probe=finit_cmd_db_accepted_and_watchdog_proc_visible",
+            b"phase=s11_proc_modules_positive_control_probe",
+            b"predicate=cmd_db_finit_accepted_and_watchdog_proc_visible",
             b"/proc/modules",
         ])
     if not stage.configfs_gadget:
@@ -1643,7 +1754,8 @@ def main(argv: list[str]) -> int:
                 "S7A2 GENI I2C transport, S8B1 exact-bus download beacon, S8B1A widened "
                 "I2C-device download beacon, S9 devlink-supplier substrate B1, S10A "
                 "/proc/modules all-core beacon, S10B prefix-bisection module-load "
-                "beacon, and S10C direct-finit loader-audit host-build candidates"
+                "beacon, S10C direct-finit loader-audit, and S11P0 /proc/modules "
+                "positive-control host-build candidates"
             ),
         "stock_recipe_report": "docs/reports/S22PLUS_STOCK_USB_GADGET_ACM_RECIPE_2026-07-09.md",
         "stages": stage_manifests,
@@ -1678,7 +1790,7 @@ def main(argv: list[str]) -> int:
             ],
             "live_order": ["S1", "S2", "S3", "S4", "S5", "S6"],
             "host_build_order": [stage.label for stage in selected_stages],
-            "next_host_only_candidate": "S10C0",
+            "next_host_only_candidate": "S11P0",
             "p30_is_s0": True,
             "module_closure_matches_p30_and_m32_for_s1_s5": True,
             "s6_module_closure_restores_stock_dwc3_softdep": True,
@@ -1753,6 +1865,17 @@ def main(argv: list[str]) -> int:
             "s10c0_uses_direct_finit_module_rc": True,
             "s10c0_beacon_hit_means_cmd_db_finit_accepted": True,
             "s10c0_skips_downstream_configfs_and_udc_to_isolate_module_load": True,
+            "s11p0_module_load_probe": M34_S11P0_MODULE_LOAD_PROBE,
+            "s11p0_probe_module": M34_S10C0_PROBE_MODULE,
+            "s11p0_probe_proc_name": M34_S10C0_PROBE_PROC_NAME,
+            "s11p0_positive_control_proc_names": list(M34_S11P0_POSITIVE_CONTROL_PROC_NAMES),
+            "s11p0_positive_control_modules": list(M34_S11P0_POSITIVE_CONTROL_MODULES),
+            "s11p0_true_action": "reboot(download)",
+            "s11p0_false_action": "park",
+            "s11p0_starts_from_s10c0_module_recipe": True,
+            "s11p0_uses_direct_finit_module_rc": True,
+            "s11p0_beacon_hit_means_proc_modules_can_see_watchdog": True,
+            "s11p0_skips_downstream_configfs_and_udc_to_isolate_module_load": True,
         },
         "safety": {
             "boot_only": True,
@@ -1859,6 +1982,12 @@ def main(argv: list[str]) -> int:
             "stage_s10c0_no_proc_modules_dependency": True,
             "stage_s10c0_no_configfs_udc_or_role_write": True,
             "stage_s10c0_driver_load_only_no_manual_power_write": True,
+            "stage_s11p0_starts_from_s10c0_module_recipe": True,
+            "stage_s11p0_module_load_probe": M34_S11P0_MODULE_LOAD_PROBE,
+            "stage_s11p0_positive_control_proc_names": list(M34_S11P0_POSITIVE_CONTROL_PROC_NAMES),
+            "stage_s11p0_true_reboot_download_false_park": True,
+            "stage_s11p0_no_configfs_udc_or_role_write": True,
+            "stage_s11p0_driver_load_only_no_manual_power_write": True,
         },
         "vendor": {
             "vendor_ramdisk": display_path(root, vendor_ramdisk),
