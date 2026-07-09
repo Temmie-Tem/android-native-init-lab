@@ -4,6 +4,44 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 19:31 KST / 2026-07-09 10:31 UTC) — M34 S10B0 LIVE-GATE SOURCE READY; OFFLINE-CHECK PASS; NO ACTIVE LIVE AUTH.**
+> Codex added the fail-closed S10B0 live helper
+> `workspace/public/src/scripts/revalidation/s22plus_m34_s10b0_module_load_prefix_live_gate.py`
+> and tests
+> `tests/test_s22plus_m34_s10b0_module_load_prefix_live_gate.py`.
+> The helper pins the v0.12 S10B0 artifact:
+> AP.tar.md5 SHA256
+> `c117d8789b4ed990afd047ef3a6bb8d32f0b7b5d76bdce58eecf8ae98725d47c`,
+> padded boot.img SHA256
+> `a30120d094d3484b6b4234e0a285f6c26e95120f032ed9ec3671fd287661b610`,
+> `/init` SHA256
+> `50bd942c92d6aad3b143e1f215c0e7a313819994f5dbfa580c11666d32d5f761`,
+> template source SHA256
+> `6ac888ddf29e559a9a9b7522eda4edd54c5a38264782dddd2bd5c80d6d8e21a6`,
+> and module-list SHA256
+> `c07425f4c738b53822e9f6783a142a2b5eafd72a15bd34c06fb3b49357c8fe26`.
+>
+> S10B0 is the first prefix predicate only:
+> `module_load_probe=proc_modules_prefix_1`, `prefix_modules=cmd_db`.
+> HIT means `cmd_db` appears in `/proc/modules` under native-init and should
+> self-enter Download; MISS means `cmd_db` never appears or `/proc/modules`
+> cannot be trusted there, then the candidate parks and requires manual
+> Download rollback. The helper keeps the S10B isolation envelope:
+> no configfs, no UDC bind, no role/typec writes, no FunctionFS/stock-composite,
+> no persistent mounts, no block writes, and no Android/Magisk handoff.
+>
+> Validation passed: helper `py_compile`, `--offline-check`, active exception
+> template print, `/tmp` AGENTS candidate write+verify, and
+> `tests/test_s22plus_m34_s10b0_module_load_prefix_live_gate.py` (`Ran 6`,
+> `OK`). Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S10B0_MODULE_LOAD_PREFIX_LIVE_GATE_SOURCE_2026-07-09.md`.
+>
+> `AGENTS.md` was intentionally not modified, and no live flash/reboot/device
+> action was performed. Next: if proceeding live, insert the generated exact
+> active S10B0 exception into `AGENTS.md`, run default dry-run against the
+> current rooted Android/Magisk baseline, then require explicit operator
+> approval before `--live`. Do not run S10B1+ until S10B0 result is analyzed.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 19:19 KST / 2026-07-09 10:19 UTC) — M34 S10B MODULE-LOAD PREFIX LADDER HOST BUILD COMPLETE; NEXT S10B0; NO ACTIVE LIVE AUTH.**
 > Codex added and host-built M34 `S10B0`..`S10B6` in
 > `workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_12/`.
