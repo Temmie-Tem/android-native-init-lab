@@ -43,6 +43,7 @@ ODIN_DEVICE_RE = re.compile(r"/dev/bus/usb/\d+/\d+")
 ANDROID_MODEL = "SM-S906N"
 ANDROID_DEVICE = "g0q"
 ANDROID_INCREMENTAL = "S906NKSS7FYG8"
+ANDROID_VBSTATE = "orange"
 
 
 @dataclass(frozen=True)
@@ -265,6 +266,25 @@ def android_props(serial: str, log_path: Path, label: str) -> dict[str, str]:
     return parse_props(text)
 
 
+def android_identity_errors(props: dict[str, str]) -> list[str]:
+    expected = {
+        "boot_completed": "1",
+        "model": ANDROID_MODEL,
+        "device": ANDROID_DEVICE,
+        "incremental": ANDROID_INCREMENTAL,
+        "vbstate": ANDROID_VBSTATE,
+    }
+    return [f"{key}={props.get(key)!r} != {value!r}" for key, value in expected.items() if props.get(key) != value]
+
+
+def require_current_android_identity(serial: str, log_path: Path, label: str) -> None:
+    props = android_props(serial, log_path, label)
+    errors = android_identity_errors(props)
+    if errors:
+        raise SystemExit(f"current Android identity check failed before Magisk restore: {errors}")
+    append_log(log_path, f"{label}_identity=ok")
+
+
 def find_root(serial: str, log_path: Path) -> str | None:
     for root_path in ("/debug_ramdisk/su", "su"):
         result = adb_shell(serial, f"{shlex.quote(root_path)} -c id", timeout=20.0)
@@ -300,10 +320,7 @@ def poll_android_magisk(log_path: Path, wait_sec: int) -> AndroidProof | None:
             serial = device_rows[0][0]
             props = android_props(serial, log_path, "post_magisk")
             if (
-                props.get("boot_completed") == "1"
-                and props.get("model") == ANDROID_MODEL
-                and props.get("device") == ANDROID_DEVICE
-                and props.get("incremental") == ANDROID_INCREMENTAL
+                not android_identity_errors(props)
             ):
                 root_path = find_root(serial, log_path)
                 if root_path is not None:
@@ -358,6 +375,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--odin-wait-sec", type=int, default=90)
     parser.add_argument("--ack")
     parser.add_argument("--offline-check", action="store_true")
+    parser.add_argument("--check-current-android", action="store_true")
     parser.add_argument("--print-agents-exception-active-template", action="store_true")
     parser.add_argument("--verify-agents-candidate", type=Path)
     parser.add_argument("--live-from-download", action="store_true")
@@ -380,6 +398,16 @@ def main(argv: list[str]) -> int:
         print(f"verify-agents-candidate ok: Magisk boot baseline restore exception is present; log={log_path}")
         return 0
 
+    if args.check_current_android:
+        rows = adb_rows(log_path, "check_current_android")
+        device_rows = [row for row in rows if row[1] == "device"]
+        if len(device_rows) != 1:
+            raise SystemExit(f"expected exactly one Android device for --check-current-android, got {device_rows}")
+        require_current_android_identity(device_rows[0][0], log_path, "check_current_android")
+        append_log(log_path, "check_current_android=ok device_action=0")
+        print(f"check-current-android ok: S22+ stock Android identity verified; no device action; log={log_path}")
+        return 0
+
     if args.offline_check or (not args.live_from_download and not args.live_from_android):
         append_log(log_path, "offline_check=ok device_action=0 agents_exception_checked=0")
         print(f"offline-check ok: Magisk boot baseline restore artifact verified; no device action; log={log_path}")
@@ -400,7 +428,9 @@ def main(argv: list[str]) -> int:
         device_rows = [row for row in rows if row[1] == "device"]
         if len(device_rows) != 1:
             raise SystemExit(f"expected exactly one Android device for --live-from-android, got {device_rows}")
-        result = run(["adb", "-s", device_rows[0][0], "reboot", "download"], timeout=20.0)
+        android_serial = device_rows[0][0]
+        require_current_android_identity(android_serial, log_path, "pre_restore")
+        result = run(["adb", "-s", android_serial, "reboot", "download"], timeout=20.0)
         append_log(log_path, f"adb_reboot_download_rc={result.returncode}")
         append_log(log_path, result.stdout + result.stderr)
         odin_device = wait_for_odin(odin, log_path, args.odin_wait_sec)

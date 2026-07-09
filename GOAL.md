@@ -26,6 +26,33 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > session widening (B2-B4) stays queued. Full analysis:
 > `docs/reports/S22PLUS_M34_S10_MODULE_LOAD_MECHANISM_IS_THE_WALL_NOT_SELECTION_2026-07-09.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 01:19 KST / 2026-07-09 16:19 UTC) — MAGISK BOOT BASELINE RESTORE ACTIVE EXCEPTION INSTALLED; PREFLIGHT PASS; READY FOR EXPLICIT LIVE ACK.**
+> Codex marked the consumed S10C0 live gate as consumed in `AGENTS.md`, inserted
+> the narrow Magisk boot-baseline restore active exception, and verified it:
+>
+> ```text
+> verify-agents-candidate ok: Magisk boot baseline restore exception is present
+> offline-check ok: Magisk boot baseline restore artifact verified; no device action
+> check-current-android ok: S22+ stock Android identity verified; no device action
+> ```
+>
+> The restore helper was also hardened so `--live-from-android` verifies
+> `boot_completed=1`, `model=SM-S906N`, `device=g0q`,
+> `incremental=S906NKSS7FYG8`, and `vbstate=orange` before issuing
+> `adb reboot download`. No live restore, Odin flash, reboot, or partition write
+> was performed for this prep unit. Next live command, only after explicit
+> operator approval:
+>
+> ```text
+> PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+>   workspace/public/src/scripts/revalidation/s22plus_magisk_boot_baseline_restore_gate.py \
+>   --live-from-android \
+>   --ack S22PLUS-MAGISK-BOOT-BASELINE-RESTORE-GATE
+> ```
+>
+> Report:
+> `docs/reports/S22PLUS_MAGISK_BOOT_BASELINE_RESTORE_ACTIVE_EXCEPTION_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 00:57 KST / 2026-07-09 15:57 UTC) — M34 S10C0 LIVE HIT; MAGISK ROLLBACK INCOMPLETE; STOCK BOOT RECOVERED.**
 > S10C0 was run live with explicit operator approval. The live result is a
 > technical HIT:

@@ -100,6 +100,32 @@ class S22PlusMagiskBootBaselineRestoreGateTest(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 self.module.verify_magisk_ap(ap, tmp_path / "log.txt")
 
+    def test_android_identity_errors_accepts_current_stock_state(self):
+        errors = self.module.android_identity_errors(
+            {
+                "boot_completed": "1",
+                "model": "SM-S906N",
+                "device": "g0q",
+                "incremental": "S906NKSS7FYG8",
+                "vbstate": "orange",
+            }
+        )
+
+        self.assertEqual(errors, [])
+
+    def test_android_identity_errors_rejects_wrong_build_before_reboot(self):
+        errors = self.module.android_identity_errors(
+            {
+                "boot_completed": "1",
+                "model": "SM-S906N",
+                "device": "g0q",
+                "incremental": "S906NKSS7NOTFYG8",
+                "vbstate": "orange",
+            }
+        )
+
+        self.assertIn("incremental='S906NKSS7NOTFYG8' != 'S906NKSS7FYG8'", errors)
+
     def test_write_result_summary_redacts_android_serial(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
