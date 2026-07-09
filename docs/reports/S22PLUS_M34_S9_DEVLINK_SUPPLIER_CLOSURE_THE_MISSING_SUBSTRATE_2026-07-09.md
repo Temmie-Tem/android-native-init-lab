@@ -74,6 +74,38 @@ curated USB module set silently omits.
    reboot-download HIT). B1 flipping to HIT proves the substrate brought the i2c
    bus + max77705 up; only then advance to B2/B3/B4.
 
+## Resolved `.ko` load-set (confirmed: all are vendor modules, none GKI-built-in)
+
+Every closure driver has a matching vendor `.ko` **and** is loaded on live stock
+(`lsmod`), so all must be loaded — none are built into the GKI kernel. Use the
+**waipio** (SM8450) instances, not diwali/parrot/cape. Load frameworks/parents
+before instances; take exact order from `modules.dep`/`modules.load`:
+
+```text
+# framework/parent cores first
+clk-qcom.ko            # common clk framework (gcc-waipio depends on it)
+pinctrl-msm.ko         # pinctrl core (pinctrl-waipio depends on it)
+qcom-rpmh.ko           # RPMh RSC @17a00000.rsc = PARENT of clk-rpmh + rpmh-regulator
+icc-rpmh.ko            # interconnect framework
+icc-bcm-voter.ko       # interconnect BCM voter
+# SoC instances
+gcc-waipio.ko          # 100000.clock-controller (i2c se-clk/m-ahb/s-ahb + ssusb)
+pinctrl-waipio.ko      # f000000.pinctrl (TLMM: i2c SDA/SCL)
+clk-rpmh.ko            # RPMh clocks
+rpmh-regulator.ko      # RPMh regulators (cx/mx + LDO regulator.2/.6/.18)
+gdsc-regulator.ko      # 149004.qcom,gdsc (USB3 power domain)
+qnoc-waipio.ko         # 1500000/16e0000/19100000.interconnect
+arm_smmu.ko            # 15000000.apps-smmu (dwc3 IOMMU) -- a MODULE here, not built-in
+qcom-pdc.ko            # b220000.interrupt-controller -- also a MODULE
+# then the transport + producers already in S7A2/S8B1
+gpi.ko ; msm-geni-se.ko ; i2c-msm-geni.ko ; <max77705/pdic/altmode chain> ; dwc3-msm ; ...
+```
+
+The loop must still confirm exact `.ko` filenames + dep order against
+`modules.dep` (some have transitive deps: e.g. `qcom-rpmh` pulls `smem`/`cmd-db`;
+`arm_smmu` may pull `qcom_iommu_util`). But the closure above is the complete
+provider set — no more one-module-at-a-time guessing.
+
 ## Honest scope
 
 Fixing the substrate is necessary and likely unblocks B1/B2 (chip reachable +
