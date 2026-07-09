@@ -318,6 +318,16 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--timeline-json", type=Path)
     parser.add_argument("--write-report", action="store_true")
     parser.add_argument("--json", action="store_true", help="print full JSON analysis")
+    parser.add_argument(
+        "--require-advance",
+        action="store_true",
+        help="exit nonzero unless the evidence is sufficient to advance the S8 ladder",
+    )
+    parser.add_argument(
+        "--require-live-next-stage",
+        action="store_true",
+        help="exit nonzero unless the evidence and rollback state are sufficient for the next live gate",
+    )
     args = parser.parse_args(argv)
 
     result_json = args.result_json
@@ -337,7 +347,13 @@ def main(argv: list[str]) -> int:
         print(json.dumps(analysis, indent=2, sort_keys=True))
     else:
         print(analysis["decision"])
-    return 1 if analysis["decision"] == DECISION_INVALID else 0
+    if analysis["decision"] == DECISION_INVALID:
+        return 1
+    if args.require_live_next_stage and not analysis["ok_to_live_next_stage"]:
+        return 3
+    if args.require_advance and not analysis["ok_to_advance"]:
+        return 2
+    return 0
 
 
 if __name__ == "__main__":

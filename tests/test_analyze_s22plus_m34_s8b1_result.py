@@ -237,6 +237,78 @@ class AnalyzeS22PlusM34S8B1ResultTest(unittest.TestCase):
             self.assertEqual(report["result_json"], str(result_json))
             self.assertEqual(report["timeline_json"], str(timeline_json))
 
+    def test_cli_require_advance_allows_clean_hit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            result_json = run_dir / "result.json"
+            timeline_json = run_dir / "timeline.json"
+            result_json.write_text(json.dumps(self.result_payload("download-beacon-hit")), encoding="utf-8")
+            timeline_json.write_text(json.dumps(self.timeline_payload()), encoding="utf-8")
+
+            with contextlib.redirect_stdout(io.StringIO()):
+                rc = self.module.main([str(result_json), "--require-advance"])
+
+            self.assertEqual(rc, 0)
+
+    def test_cli_require_advance_rejects_clean_miss(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            result_json = run_dir / "result.json"
+            timeline_json = run_dir / "timeline.json"
+            result_json.write_text(
+                json.dumps(self.result_payload("download-beacon-miss-parked-manual-download-required")),
+                encoding="utf-8",
+            )
+            timeline_json.write_text(json.dumps(self.timeline_payload()), encoding="utf-8")
+
+            with contextlib.redirect_stdout(io.StringIO()):
+                rc = self.module.main([str(result_json), "--require-advance"])
+
+            self.assertEqual(rc, 2)
+
+    def test_cli_require_live_next_stage_allows_clean_hit_with_magisk_rollback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            result_json = run_dir / "result.json"
+            timeline_json = run_dir / "timeline.json"
+            result_json.write_text(json.dumps(self.result_payload("download-beacon-hit")), encoding="utf-8")
+            timeline_json.write_text(json.dumps(self.timeline_payload()), encoding="utf-8")
+
+            with contextlib.redirect_stdout(io.StringIO()):
+                rc = self.module.main([str(result_json), "--require-live-next-stage"])
+
+            self.assertEqual(rc, 0)
+
+    def test_cli_require_live_next_stage_rejects_stock_fallback_hit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            result_json = run_dir / "result.json"
+            timeline_json = run_dir / "timeline.json"
+            payload = self.result_payload("download-beacon-hit")
+            payload["rollback_target"] = "stock"
+            result_json.write_text(json.dumps(payload), encoding="utf-8")
+            timeline_json.write_text(json.dumps(self.timeline_payload()), encoding="utf-8")
+
+            with contextlib.redirect_stdout(io.StringIO()):
+                rc = self.module.main([str(result_json), "--require-live-next-stage"])
+
+            self.assertEqual(rc, 3)
+
+    def test_cli_gate_keeps_invalid_result_as_rc_one(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            result_json = run_dir / "result.json"
+            timeline_json = run_dir / "timeline.json"
+            payload = self.result_payload("download-beacon-hit")
+            payload["candidate_ap_sha256"] = "0" * 64
+            result_json.write_text(json.dumps(payload), encoding="utf-8")
+            timeline_json.write_text(json.dumps(self.timeline_payload()), encoding="utf-8")
+
+            with contextlib.redirect_stdout(io.StringIO()):
+                rc = self.module.main([str(result_json), "--require-advance", "--require-live-next-stage"])
+
+            self.assertEqual(rc, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -147,6 +147,14 @@ Usage after a live run:
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/analyze_s22plus_m34_s8b1_result.py \
   <run-dir>/result.json \
   --write-report
+
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/analyze_s22plus_m34_s8b1_result.py \
+  <run-dir>/result.json \
+  --require-advance
+
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/analyze_s22plus_m34_s8b1_result.py \
+  <run-dir>/result.json \
+  --require-live-next-stage
 ```
 
 It consumes `result.json` plus sibling `timeline.json` by default. It only marks
@@ -161,7 +169,12 @@ metadata, nonzero `rc`, or hash mismatch all fail closed and do not authorize
 B2.
 The analyzer also separates ladder proof from next-live readiness: a HIT with
 stock fallback is valid B1 evidence, but `ok_to_live_next_stage` remains false
-until the Magisk baseline is restored and verified.
+until the Magisk baseline is restored and verified. The CLI defaults to
+classification output, while `--require-advance` and
+`--require-live-next-stage` make automation fail nonzero unless the evidence
+meets the requested gate. This prevents a clean MISS, rollback-only result,
+no-proof timeline, or stock-fallback HIT from being mistaken for next-live
+readiness by exit status alone.
 
 The S8B1 helper tests now cross-check the helper's own
 `record_timeline_event()` + `write_result_summary()` output against the analyzer
@@ -195,9 +208,9 @@ draft exception generation: OK
 active-template generation: OK
 default run without active AGENTS exception: correctly fails closed
 S8B1 tests: Ran 20 tests, OK
-S8B1 analyzer tests: Ran 15 tests, OK
+S8B1 analyzer tests: Ran 20 tests, OK
 S8B1/analyzer evidence-path cross-check: included in S8B1 tests
-M34/S7A2/S8B1/analyzer regression: Ran 50 tests, OK
+M34/S7A2/S8B1/analyzer regression: Ran 55 tests, OK
 ```
 
 ## Read-Only Current Device Note
