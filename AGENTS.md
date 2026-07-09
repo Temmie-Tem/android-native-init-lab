@@ -2918,25 +2918,24 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `mfd_max77705`
    `pdic_max77705`
 
-   **Narrow operator-authorized exception (2026-07-10, S22+ Magisk boot-baseline restore boot-only gate):**
-   after the M34 S10C0 live HIT was recovered to stock boot and before any
-   further S22+ native-init live gate, Codex may perform one bounded attended
-   boot-partition-only Magisk measurement-baseline restore on the Samsung S22+
-   `SM-S906N`/`g0q` `S906NKSS7FYG8` using only
-   `workspace/public/src/scripts/revalidation/s22plus_magisk_boot_baseline_restore_gate.py`.
-   Live ack token: `S22PLUS-MAGISK-BOOT-BASELINE-RESTORE-GATE`. The helper may flash exactly the pinned
-   single-member Magisk boot-only AP.tar.md5 SHA256
-   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` via Odin AP slot; the AP must contain exactly
-   one tar member, `boot.img.lz4`, with member SHA256
-   `b33b63d9d2c56cbe10170820e88cf136be8fe9ad621a21752da19fdd9b642d31`, and the restored boot partition must verify
-   as SHA256 `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e` after Android/Magisk root returns.
-   This is boot partition only and exists solely to restore the rooted
-   measurement baseline. It does not authorize recovery, vendor_boot, vbmeta,
-   dtbo, BL, CP, CSC, super, userdata, EFS, sec_efs, RPMB, keymaster, modem,
-   bootloader, raw host `dd`, fastboot, Magisk modules, multidisabler, format
-   data, native-init candidates, kernel rebuilds, or any A90 action. If Android
-   or Magisk root does not return, stop and require a separately authorized
-   boot-only recovery path.
+   **Consumed exception (2026-07-10, S22+ Magisk boot-baseline restore boot-only gate):**
+   this one-shot exception was consumed by the 2026-07-10 KST live restore run.
+   It flashed only the pinned single-member Magisk boot-only AP.tar.md5 SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` through
+   `workspace/public/src/scripts/revalidation/s22plus_magisk_boot_baseline_restore_gate.py`
+   after explicit operator flash approval. The AP contained exactly
+   `boot.img.lz4` with member SHA256
+   `b33b63d9d2c56cbe10170820e88cf136be8fe9ad621a21752da19fdd9b642d31`.
+   The run completed with `result=magisk-baseline-restored`, Android
+   `SM-S906N`/`g0q`/`S906NKSS7FYG8`, `vbstate=orange`,
+   `/debug_ramdisk/su` Magisk root, and restored boot partition SHA256
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+   The consumed live ack token string is intentionally omitted here as active
+   authorization. This consumed exception must not be reused for another
+   Magisk restore, native-init candidate, kernel rebuild, recovery/vendor_boot/
+   vbmeta/dtbo/BL/CP/CSC/super/userdata/EFS/sec_efs/RPMB/keymaster/modem/
+   bootloader write, raw host `dd`, fastboot, Magisk module, multidisabler,
+   format data, or any A90 action.
 
    **Consumed exception (2026-07-09, S22+ M34 S10B0 module-load prefix
    boot-only live gate):** this one-shot exception was consumed by the

@@ -26,6 +26,33 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > session widening (B2-B4) stays queued. Full analysis:
 > `docs/reports/S22PLUS_M34_S10_MODULE_LOAD_MECHANISM_IS_THE_WALL_NOT_SELECTION_2026-07-09.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 01:27 KST / 2026-07-09 16:27 UTC) — MAGISK BOOT BASELINE RESTORED; S11 HOST-ONLY PREP MAY RESUME.**
+> With explicit operator flash approval, Codex consumed the narrow Magisk
+> boot-baseline restore gate and restored the rooted measurement baseline:
+>
+> ```text
+> run_dir=workspace/private/runs/s22plus_magisk_boot_baseline_restore_20260709T162708Z
+> result=magisk-baseline-restored
+> rc=0
+> target=SM-S906N/g0q/S906NKSS7FYG8
+> vbstate=orange
+> root_path=/debug_ramdisk/su
+> verified_boot_sha256=2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
+> ```
+>
+> Independent read-only post-check also saw `boot_completed=1`, the FYG8
+> Android identity, `/product/bin/su`, and `/debug_ramdisk/su -> ./magisk`.
+> The consumed Magisk restore exception is now retired in `AGENTS.md`; it is not
+> reusable. No native-init candidate was flashed in this restore unit.
+>
+> The next native-init work returns to the S11 task from the operator steer:
+> host-only design/build a bounded M34/S11 probe that distinguishes load-loop
+> skip/order/abort from `/proc/modules` observation artifact using per-module
+> attempted/rc/errno plus a positive-control visible module. Any S11 live gate
+> still requires a fresh, narrow `AGENTS.md` exception and explicit operator
+> approval. Report:
+> `docs/reports/S22PLUS_MAGISK_BOOT_BASELINE_RESTORE_LIVE_RESULT_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 01:19 KST / 2026-07-09 16:19 UTC) — MAGISK BOOT BASELINE RESTORE ACTIVE EXCEPTION INSTALLED; PREFLIGHT PASS; READY FOR EXPLICIT LIVE ACK.**
 > Codex marked the consumed S10C0 live gate as consumed in `AGENTS.md`, inserted
 > the narrow Magisk boot-baseline restore active exception, and verified it:
