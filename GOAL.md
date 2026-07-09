@@ -4,6 +4,81 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **🎯 OPERATOR STEER (2026-07-10 03:18 KST / 2026-07-09 18:18 UTC) — S22+ USB CONTROL REFRAME: OBSERVABILITY FIRST, THEN NATIVE USB. THIS SUPERSEDES THE S10/S11 DOWNLOAD-BEACON FRONTIER AS THE ACTIVE DIRECTION.**
+>
+> The current S22+ objective is to obtain a reliable host control plane from native
+> init over USB. Split that objective into independently provable layers. Do not add
+> more native-PID1 module, Type-C, PMIC, Samsung-composite, or reboot-beacon behavior
+> until the layer below has a direct observation channel and a bounded PASS result.
+>
+> **Evidence correction.** The M34 S1-S9 live results proved candidate transfer,
+> departure from the original Odin endpoint, bounded survival/no host USB, and
+> rollback. With no retained stage marker or device-side readback, survival does
+> **not** prove that source-intended configfs creation, role writes, UDC bind, module
+> load, or park entry actually executed. S10C0's later Download endpoint is an
+> ambiguous positive signal, not conclusive proof that the direct `cmd-db.ko`
+> `finit_module` accepted path self-entered Download; earlier raw-reboot runs show
+> that reset/RDX/operator timing can produce the same host shape. S11P0/P1 prove only
+> that no encoded self-Download beacon was observed. Do not use Download-mode
+> reappearance or candidate survival as the sole evidence for an internal branch.
+>
+> **O0 — zero-flash stock USB control proof (immediate next unit).** Keep the known-
+> good Android/Magisk boot and its already working USB stack. Prove a small framed,
+> sequenced request/response protocol over device `/dev/ttyGS0` and host
+> `/dev/ttyACM0`. Capture latency, loss, ordering, clean close/reopen, and bounded
+> reconnect behavior. Run a continuous host observer (`udevadm monitor`, kernel
+> journal, and optional `usbmon`) so no transient connect/reset/descriptor event is
+> collapsed into a periodic `lsusb` MISS. This unit must not flash, reboot, write
+> configfs/sysfs, change the active gadget, or claim anything about direct PID1.
+> PASS requires host-to-device and device-to-host payload equality with sequence
+> continuity across a bounded multi-request run; a visible tty alone is not PASS.
+>
+> **O1 — stock-first-stage early-boot observation proof.** After O0, design a
+> Magisk-boot `overlay.d` rc/service candidate that preserves the stock first-stage
+> module loader and starts the O0-proven control daemon as early as its prerequisites
+> allow. Its purpose is to prove boot-time observability and the daemon/protocol while
+> removing module-selection and DWC3 bring-up from the experiment. Host-only build,
+> static validation, and review come first. Any boot flash needs a fresh narrow
+> `AGENTS.md` exception and explicit operator approval; no current exception
+> authorizes O1 live work.
+>
+> **O2 — native loader parity, host-only before live.** Replace the hand-selected
+> `modules.dep`-only model with the FYG8 first-stage semantics needed by the selected
+> USB leaf set: recursive hard dependencies, `modules.softdep` pre/post ordering,
+> stock order tie-breaks, and explicit treatment of aliases/blocklist/options when
+> present. At minimum resolve the observed `smem pre: qcom_hwspinlock` and
+> `qmi_helpers pre: qrtr` omissions. Read `/proc/modules` to EOF, not with one fixed
+> 16 KiB read. A module `finit_module` rc or `/proc/modules` name is only driver-
+> registration evidence; gate advancement on functional device/driver binds in this
+> order: hwspinlock -> SMEM -> cmd-db -> RPMH/GCC -> `a600000.ssusb` ->
+> `a600000.dwc3` -> `/sys/class/udc/a600000.dwc3`. Rename/remove manifest claims such
+> as `both_graphs_closure=1` or `devlink_supplier_closure=1` unless tests prove the
+> exact hard+soft+supplier closure.
+>
+> **O3 — direct-PID1 minimal ACM.** Only after O0/O1 and O2 static gates, move the
+> same daemon/protocol into direct native PID1. Start with the kernel-built generic
+> configfs ACM function (`acm.usb0`), one configuration, `ssusb/mode=peripheral`, and
+> bind only `a600000.dwc3`. Do not initially clone Samsung MTP/ADB/FunctionFS,
+> `ss_acm`, max77705/charger/altmode, or the full stock composite. Those paths are
+> separate hypotheses and may be added only after a direct bind/readback shows they
+> are required. O3 PASS is a host-observed framed request/response plus device-reported
+> bind-state bundle, not mere enumeration or survival.
+>
+> **O4 — durable network control.** Add `ncm.usb0` only after O3 ACM is stable. Keep
+> ACM as the recovery/status control channel while NCM carries higher-volume traffic.
+> Debian/userspace handoff remains downstream of this control-plane proof.
+>
+> **Anti-expansion rule.** One candidate may answer one named discriminator. No more
+> widening from "no USB" directly to a larger module list, full Type-C/PMIC session
+> producer chain, stock composite, or another timed reboot encoding. A failed layer
+> must produce direct evidence or remain `UNVERIFIABLE`; it must not be promoted by
+> source intent. Preserve all existing rollback gates, consumed-token rules,
+> boot-only boundaries, and recoverable-envelope requirements.
+>
+> **Immediate deliverable:** O0 host/device tty roundtrip harness + continuous host
+> USB observer + tests/report, followed by the host-only O1 overlay design. No S11
+> repeat and no new native-init live flash are authorized by this steer.
+
 > **🎯 OPERATOR STEER (2026-07-09, Claude — REFRAME: the wall is the module-LOAD MECHANISM, not module SELECTION. + correction to my S9.2). S10 next = instrument per-module insmod rc, positive-control the beacon read.**
 > CORRECTION: my S9.2 "S9 missed because symbol-deps (cmd-db) missing" was WRONG — the S9
 > artifact already contained them (S10A verified, same 89-module SHA). Verify "missing X" vs the
