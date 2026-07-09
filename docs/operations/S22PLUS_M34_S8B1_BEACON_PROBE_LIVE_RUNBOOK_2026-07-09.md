@@ -76,6 +76,24 @@ Expected result:
 verify-prelive-packet ok: packet matches current S8B1 helper contract, selected_serial=RFCT519XWGK; no device action
 ```
 
+Latest no-write readonly-preflight refresh:
+
+```text
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T032442Z/
+```
+
+Refresh sidecar hashes:
+
+```text
+predicate baseline JSON      a24a50ba01c5c66d64de76de82b67d3277d5a4fc04c78a52247e2a3532dbf4ba
+reset-context baseline JSON  195022d2ca5dd41e4f76f2dfdb94a3d8a8d89e9cc7d2919f232393cc181572ea
+preflight text log           ec088c906e4d06ee5f73fce2943bc67b0a69e0a6338ba895f9b7ed43e0678725
+```
+
+The refresh did not generate a new prelive packet and did not create the planned
+live phase directories. It only rechecked current Android readiness after the
+operator-observed RDX/Download path.
+
 ## Current Baselines
 
 Android baseline from the packet:
@@ -112,6 +130,15 @@ ro.boot.bootreason=reboot,download
 reset_history_pmic_abnormal_count=10
 reset_history_upload_cause_count=10
 ```
+
+Readonly-preflight refresh at `2026-07-09T03:24:42Z` confirmed the same live
+input conditions remain true: `android_stability_result=ok`, current boot hash
+matches the known Magisk baseline, `/sys/bus/i2c/devices/57-0066` exists,
+`/sys/class/typec/port0` is absent, and the future B2 hint path
+`/sys/devices/platform/soc/994000.i2c/i2c-57/57-0066/max77705-usbc/typec/port0`
+with `port0-partner` still exists. Reset context remained
+`ro.boot.bootreason=reboot,download`, `/proc/reset_reason=MPON`,
+`/proc/reset_rwc=41`, and `/proc/store_lastkmsg=1`.
 
 ## Live Semantics
 
@@ -164,6 +191,10 @@ The default dry-run/live gate requires `AGENTS.md` to contain the exact
 helper-generated active-template text, not only all marker strings. If the
 template is manually edited while retaining the markers, the helper must fail
 closed before live.
+Print-only helper modes such as `--print-live-runbook` and
+`--print-agents-exception-active-template` verify artifacts through a temporary
+log and must not create the requested `--run-dir` or any planned phase
+directory.
 
 The planned run directories are intentionally distinct:
 

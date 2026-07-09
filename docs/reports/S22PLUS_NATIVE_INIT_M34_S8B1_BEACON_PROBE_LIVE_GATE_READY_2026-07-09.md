@@ -276,7 +276,7 @@ live-runbook generation: OK, no device action
 draft exception generation: OK
 active-template generation: OK
 default run without active AGENTS exception: correctly fails closed
-S8B1 tests: Ran 34 tests, OK
+S8B1 tests: Ran 35 tests, OK
 S8B1 analyzer tests: Ran 20 tests, OK
 S8B1/analyzer evidence-path cross-check: included in S8B1 tests
 runbook fallback/staleness-contract tests: included in S8B1 tests
@@ -284,9 +284,12 @@ Android predicate-baseline tests: included in S8B1 tests
 Android reset-context packet tests: included in S8B1 tests
 exact active-template authorization tests: included in S8B1 tests
 material-hash staleness tests: included in S8B1 tests
-M34/S7A2/S8B1/analyzer regression: Ran 69 tests, OK
+print-only run-dir side-effect tests: included in S8B1 tests
+M34/S7A2/S8B1/analyzer regression: Ran 70 tests, OK
 post-RDX readonly-preflight with future B2 hints: OK, no reboot/flash/write
 post-RDX prelive packet with reset-context baseline: OK, no reboot/flash/write
+latest readonly-preflight refresh: OK, no reboot/flash/write
+print-live-runbook no requested run-dir side effect: OK
 ```
 
 ## Read-Only Current Device Note
@@ -424,6 +427,39 @@ docs/operations/S22PLUS_M34_S8B1_BEACON_PROBE_LIVE_RUNBOOK_2026-07-09.md
 It pins the packet and sidecar hashes, summarizes the current Android
 predicate/reset baselines, and points to the exact private runbook command file.
 It does not authorize a live flash and does not insert `AGENTS.md`.
+
+After the packet was pinned, a later no-write readonly-preflight refresh passed
+at:
+
+```text
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T032442Z/
+```
+
+That refresh did not create a new packet or planned live directories. It
+confirmed the current Android baseline is still suitable for the same S8B1
+live gate:
+
+```text
+android_stability_result=ok samples=2
+current boot SHA256: 2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
+/sys/bus/i2c/devices/57-0066 exists
+/sys/class/typec/port0 absent
+predicate_true=1
+/sys/devices/platform/soc/994000.i2c/i2c-57/57-0066/max77705-usbc/typec/port0 exists
+/sys/devices/platform/soc/994000.i2c/i2c-57/57-0066/max77705-usbc/typec/port0/port0-partner exists
+ro.boot.bootreason=reboot,download
+/proc/reset_reason=MPON
+/proc/reset_rwc=41
+/proc/store_lastkmsg=1
+```
+
+Refresh sidecar SHA256s:
+
+```text
+s22plus_m34_s8b1_android_predicate_baseline.json: a24a50ba01c5c66d64de76de82b67d3277d5a4fc04c78a52247e2a3532dbf4ba
+s22plus_m34_s8b1_android_reset_context_baseline.json: 195022d2ca5dd41e4f76f2dfdb94a3d8a8d89e9cc7d2919f232393cc181572ea
+s22plus_m34_s8b1_beacon_probe_live_gate.txt: ec088c906e4d06ee5f73fce2943bc67b0a69e0a6338ba895f9b7ed43e0678725
+```
 
 ## Next Gate
 

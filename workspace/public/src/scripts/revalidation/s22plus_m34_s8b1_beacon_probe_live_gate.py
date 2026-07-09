@@ -21,6 +21,7 @@ import hashlib
 import json
 import shlex
 import sys
+import tempfile
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -1495,11 +1496,6 @@ def main(argv: list[str]) -> int:
         raise SystemExit("--snapshot-interval-sec must be at least 1.0")
 
     root = repo_root()
-    run_dir = resolve_run_dir(root, args.run_dir)
-    log_path = run_dir / "s22plus_m34_s8b1_beacon_probe_live_gate.txt"
-    append_log(log_path, f"=== {utc_now()} s22plus M34 S8B1 download-beacon probe live gate ===")
-    append_log(log_path, f"target={EXPECTED_TARGET}")
-
     odin = resolve(root, args.odin)
     m34_ap = resolve(root, args.m34_ap)
     m34_manifest = resolve(root, args.m34_manifest)
@@ -1509,6 +1505,57 @@ def main(argv: list[str]) -> int:
     if not odin.is_file():
         raise SystemExit(f"odin4 missing: {odin}")
 
+    print_only_mode = (
+        args.print_agents_exception_draft
+        or args.print_agents_exception_active_template
+        or args.print_live_runbook
+    )
+    if print_only_mode:
+        with tempfile.TemporaryDirectory(prefix="s22plus_m34_s8b1_print_") as tmp:
+            log_path = Path(tmp) / "s22plus_m34_s8b1_beacon_probe_live_gate.txt"
+            append_log(log_path, f"=== {utc_now()} s22plus M34 S8B1 download-beacon probe live gate ===")
+            append_log(log_path, f"target={EXPECTED_TARGET}")
+            verify_m34_artifacts(
+                m34_ap=m34_ap,
+                m34_manifest=m34_manifest,
+                magisk_rollback_ap=magisk_rollback_ap,
+                stock_rollback_ap=stock_rollback_ap,
+                log_path=log_path,
+            )
+
+            if args.print_agents_exception_draft:
+                draft = agents_exception_draft()
+                missing = missing_policy_markers(draft)
+                append_log(log_path, f"agents_exception_draft_missing={missing}")
+                if missing:
+                    raise SystemExit(f"internal draft is missing policy markers: {missing}")
+                print(draft, end="")
+                return 0
+
+            if args.print_agents_exception_active_template:
+                template = agents_exception_active_template()
+                missing = missing_policy_markers(template)
+                append_log(log_path, f"agents_exception_active_template_missing={missing}")
+                append_log(
+                    log_path,
+                    f"agents_exception_active_template_draft_only_present={int(has_draft_only_m34_exception(template))}",
+                )
+                if missing:
+                    raise SystemExit(f"internal active template is missing policy markers: {missing}")
+                if has_draft_only_m34_exception(template):
+                    raise SystemExit("internal active template still looks draft-only")
+                print(template, end="")
+                return 0
+
+            append_log(log_path, "live_runbook_printed=1 device_action=0 agents_exception_checked=0 android_checked=0")
+            print(live_runbook(args))
+            return 0
+
+    run_dir = resolve_run_dir(root, args.run_dir)
+    log_path = run_dir / "s22plus_m34_s8b1_beacon_probe_live_gate.txt"
+    append_log(log_path, f"=== {utc_now()} s22plus M34 S8B1 download-beacon probe live gate ===")
+    append_log(log_path, f"target={EXPECTED_TARGET}")
+
     verify_m34_artifacts(
         m34_ap=m34_ap,
         m34_manifest=m34_manifest,
@@ -1516,27 +1563,6 @@ def main(argv: list[str]) -> int:
         stock_rollback_ap=stock_rollback_ap,
         log_path=log_path,
     )
-
-    if args.print_agents_exception_draft:
-        draft = agents_exception_draft()
-        missing = missing_policy_markers(draft)
-        append_log(log_path, f"agents_exception_draft_missing={missing}")
-        if missing:
-            raise SystemExit(f"internal draft is missing policy markers: {missing}")
-        print(draft, end="")
-        return 0
-
-    if args.print_agents_exception_active_template:
-        template = agents_exception_active_template()
-        missing = missing_policy_markers(template)
-        append_log(log_path, f"agents_exception_active_template_missing={missing}")
-        append_log(log_path, f"agents_exception_active_template_draft_only_present={int(has_draft_only_m34_exception(template))}")
-        if missing:
-            raise SystemExit(f"internal active template is missing policy markers: {missing}")
-        if has_draft_only_m34_exception(template):
-            raise SystemExit("internal active template still looks draft-only")
-        print(template, end="")
-        return 0
 
     if args.offline_check:
         append_log(log_path, "offline_check=ok device_action=0 agents_exception_checked=0 android_checked=0")
@@ -1605,11 +1631,6 @@ def main(argv: list[str]) -> int:
             "verify-prelive-packet ok: packet matches current S8B1 helper contract, "
             f"selected_serial={packet['selected_serial']}; no device action; log={log_path}"
         )
-        return 0
-
-    if args.print_live_runbook:
-        append_log(log_path, "live_runbook_printed=1 device_action=0 agents_exception_checked=0 android_checked=0")
-        print(live_runbook(args))
         return 0
 
     verify_agents_exception(root, log_path)

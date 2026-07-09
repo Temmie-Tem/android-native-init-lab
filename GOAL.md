@@ -76,7 +76,10 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > for read-only preflight, active exception review/insertion, dry-run, live,
 > manual-download rollback, and analyzer gates, including any custom artifact,
 > Odin, rollback, and run-dir paths, without checking AGENTS.md or touching
-> Android. A no-write `--prelive-packet` mode now runs the same read-only
+> Android. Print-only modes now verify artifacts through a temporary log and do
+> not create the requested `--run-dir`, preventing accidental stale planned
+> live/template directories from breaking the prelive packet verifier. A
+> no-write `--prelive-packet` mode now runs the same read-only
 > Android/artifact preflight, then captures the active exception template,
 > exact runbook, and machine-readable prelive packet in the run directory
 > without inserting `AGENTS.md` authorization. The generated runbook now pins
@@ -133,10 +136,10 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Validation passed: helper `py_compile`, `--offline-check`,
 > `--readonly-preflight`, `--prelive-packet`, `--verify-prelive-packet`,
 > `--print-live-runbook`, draft/active-template generation, S8B1 tests
-> (`Ran 34 tests`, `OK`),
+> (`Ran 35 tests`, `OK`),
 > S8B1 analyzer tests
 > (`Ran 20 tests`, `OK`), M34/S7A2 regression including S8B1/analyzer
-> (`Ran 69 tests`, `OK`), runbook fallback-contract/staleness tests, exact
+> (`Ran 70 tests`, `OK`), runbook fallback-contract/staleness tests, exact
 > active-template authorization tests, material-hash staleness tests, and default run
 > fail-closed without active authorization.
 >
@@ -174,6 +177,18 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `/proc/reset_reason=MPON`, `/proc/reset_rwc=41`, `/proc/store_lastkmsg=1`,
 > `reset_history_pmic_abnormal_count=10`, and
 > `reset_history_upload_cause_count=10`.
+> A later no-write readonly-preflight refresh also passed at
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T032442Z/`
+> with `android_stability_result=ok`, current boot SHA256 still
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
+> S8B1 predicate still true through `/sys/bus/i2c/devices/57-0066`,
+> future B2 hint paths still present under
+> `/sys/devices/platform/soc/994000.i2c/i2c-57/57-0066/max77705-usbc/typec/port0`,
+> and reset context still `ro.boot.bootreason=reboot,download`,
+> `/proc/reset_reason=MPON`, `/proc/reset_rwc=41`,
+> `/proc/store_lastkmsg=1`. This refresh is readiness evidence only: it did
+> not create a new packet, did not create the planned live phase directories,
+> and did not authorize or perform S8B1 live flash/rollback.
 > A follow-up read-only reset-context capture after the operator's RDX/Download
 > observation passed at
 > `workspace/private/runs/s22plus_reset_reason_readonly_20260709T025333Z/`.

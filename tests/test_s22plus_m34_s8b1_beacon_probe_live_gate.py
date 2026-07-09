@@ -481,8 +481,44 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
                 self.assertIn(str(phase_dir), text)
                 self.assertFalse(phase_dir.exists())
             self.assertNotIn("<run-dir>/result.json", text)
-            self.assertIn("live_runbook_printed=1", (run_dir / "s22plus_m34_s8b1_beacon_probe_live_gate.txt").read_text(encoding="utf-8"))
+            self.assertFalse(run_dir.exists())
             self.assertFalse((run_dir / "timeline.json").exists())
+
+    def test_print_only_exception_template_does_not_create_requested_run_dir(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            odin = root / "odin4"
+            odin.write_text("#!/bin/sh\n", encoding="utf-8")
+            run_dir = root / "run"
+            with (
+                mock.patch.object(self.module, "verify_m34_artifacts") as verify_artifacts,
+                mock.patch.object(self.module, "verify_agents_exception", side_effect=AssertionError("AGENTS gate should be skipped")),
+                mock.patch.object(self.module, "run_android_readonly_preflight", side_effect=AssertionError("Android gate should be skipped")),
+            ):
+                stdout = io.StringIO()
+                with contextlib.redirect_stdout(stdout):
+                    rc = self.module.main(
+                        [
+                            "--print-agents-exception-active-template",
+                            "--odin",
+                            str(odin),
+                            "--m34-ap",
+                            str(root / "candidate.tar.md5"),
+                            "--m34-manifest",
+                            str(root / "manifest.json"),
+                            "--magisk-rollback-ap",
+                            str(root / "magisk.tar.md5"),
+                            "--stock-rollback-ap",
+                            str(root / "stock.tar.md5"),
+                            "--run-dir",
+                            str(run_dir),
+                        ]
+                    )
+
+            self.assertEqual(rc, 0)
+            verify_artifacts.assert_called_once()
+            self.assertIn(self.module.LIVE_ACK_TOKEN, stdout.getvalue())
+            self.assertFalse(run_dir.exists())
 
     def test_prelive_packet_skips_agents_gate_and_writes_exact_run_material(self):
         with tempfile.TemporaryDirectory() as tmp:
