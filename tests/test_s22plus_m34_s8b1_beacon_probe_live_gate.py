@@ -406,6 +406,9 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertEqual(analysis["next_probe"], "port0_partner_exists")
             self.assertEqual(written_analysis["decision"], analyzer.DECISION_PROCEED_B2)
             self.assertTrue(written_analysis["ok_to_live_next_stage"])
+            with contextlib.redirect_stdout(io.StringIO()):
+                rc = analyzer.main([str(run_dir / "result.json"), "--require-live-next-stage"])
+            self.assertEqual(rc, 0)
 
     def test_helper_result_and_timeline_are_accepted_by_s8b1_analyzer_for_miss(self):
         analyzer = load_analyzer()
@@ -436,6 +439,9 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertIsNone(analysis["next_stage"])
             self.assertEqual(written_analysis["decision"], analyzer.DECISION_B1_MISS_STOP)
             self.assertFalse(written_analysis["ok_to_advance"])
+            with contextlib.redirect_stdout(io.StringIO()):
+                rc = analyzer.main([str(run_dir / "result.json"), "--require-advance"])
+            self.assertEqual(rc, 2)
 
     def test_observe_download_beacon_classifies_new_odin_endpoint_as_hit(self):
         with tempfile.TemporaryDirectory() as tmp:
