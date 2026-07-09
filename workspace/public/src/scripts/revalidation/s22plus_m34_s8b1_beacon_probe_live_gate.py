@@ -17,6 +17,7 @@ parks, requiring manual Download rollback.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import shlex
 import sys
@@ -121,6 +122,10 @@ class RollbackResult:
 
 def utc_stamp() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def resolve_run_dir(root: Path, requested: Path | None) -> Path:
@@ -1036,6 +1041,12 @@ def write_prelive_packet(
     verify_reset_context_summary(reset_summary)
     runbook_path.write_text(runbook, encoding="utf-8")
     active_template_path.write_text(active_template, encoding="utf-8")
+    material_paths = {
+        "runbook": runbook_path,
+        "active_exception_template": active_template_path,
+        "android_s8b1_predicate_baseline_json": baseline_path,
+        "android_reset_context_baseline_json": reset_baseline_path,
+    }
     payload = {
         "schema": "s22plus_m34_s8b1_prelive_packet_v1",
         "generated_utc": utc_now(),
@@ -1071,6 +1082,7 @@ def write_prelive_packet(
         "runbook_notes": prelive_packet_notes(live_run_dir),
         "runbook": str(runbook_path),
         "active_exception_template": str(active_template_path),
+        "material_sha256": {key: sha256_file(path) for key, path in material_paths.items()},
     }
     packet_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     append_log(log_path, f"prelive_packet_json={packet_path}")
@@ -1239,6 +1251,30 @@ def verify_prelive_packet(
     expected_runbook = live_runbook(packet_args)
     if runbook_path.read_text(encoding="utf-8") != expected_runbook:
         raise SystemExit("prelive packet runbook is stale")
+
+    material_sha256 = payload.get("material_sha256")
+    if not isinstance(material_sha256, dict):
+        raise SystemExit("prelive packet missing material_sha256")
+    expected_material_paths = {
+        "runbook": runbook_path,
+        "active_exception_template": active_template_path,
+        "android_s8b1_predicate_baseline_json": baseline_json,
+        "android_reset_context_baseline_json": reset_baseline_json,
+    }
+    material_keys = set(material_sha256)
+    expected_material_keys = set(expected_material_paths)
+    if material_keys != expected_material_keys:
+        raise SystemExit(
+            "prelive packet material_sha256 key mismatch: "
+            f"missing={sorted(expected_material_keys - material_keys)} extra={sorted(material_keys - expected_material_keys)}"
+        )
+    for key, path in expected_material_paths.items():
+        recorded_hash = material_sha256.get(key)
+        if not isinstance(recorded_hash, str) or len(recorded_hash) != 64:
+            raise SystemExit(f"prelive packet material hash malformed: {key}={recorded_hash!r}")
+        actual_hash = sha256_file(path)
+        if recorded_hash != actual_hash:
+            raise SystemExit(f"prelive packet material hash mismatch: {key}: {recorded_hash} != {actual_hash}")
 
     append_log(log_path, f"prelive_packet_verify_json={packet_path}")
     append_log(log_path, f"prelive_packet_verify_packet_run_dir={packet_run_dir}")

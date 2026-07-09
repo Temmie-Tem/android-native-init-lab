@@ -572,6 +572,28 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
                 packet["android_reset_context_baseline_json"],
                 str(run_dir / "s22plus_m34_s8b1_android_reset_context_baseline.json"),
             )
+            self.assertEqual(
+                set(packet["material_sha256"]),
+                {
+                    "runbook",
+                    "active_exception_template",
+                    "android_s8b1_predicate_baseline_json",
+                    "android_reset_context_baseline_json",
+                },
+            )
+            self.assertEqual(packet["material_sha256"]["runbook"], self.module.sha256_file(run_dir / "s22plus_m34_s8b1_live_runbook.txt"))
+            self.assertEqual(
+                packet["material_sha256"]["active_exception_template"],
+                self.module.sha256_file(run_dir / "s22plus_m34_s8b1_active_exception_template.txt"),
+            )
+            self.assertEqual(
+                packet["material_sha256"]["android_s8b1_predicate_baseline_json"],
+                self.module.sha256_file(run_dir / "s22plus_m34_s8b1_android_predicate_baseline.json"),
+            )
+            self.assertEqual(
+                packet["material_sha256"]["android_reset_context_baseline_json"],
+                self.module.sha256_file(run_dir / "s22plus_m34_s8b1_android_reset_context_baseline.json"),
+            )
             runbook = (run_dir / "s22plus_m34_s8b1_live_runbook.txt").read_text(encoding="utf-8")
             active_template = (run_dir / "s22plus_m34_s8b1_active_exception_template.txt").read_text(encoding="utf-8")
             self.assertIn(str(root / "candidate.tar.md5"), runbook)
@@ -874,6 +896,49 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
                             ]
                         )
             self.assertIn("missing Android reset-context baseline", str(caught.exception))
+
+    def test_verify_prelive_packet_rejects_material_hash_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            odin = root / "odin4"
+            odin.write_text("#!/bin/sh\n", encoding="utf-8")
+            run_dir = root / "run"
+            path_args = [
+                "--odin",
+                str(odin),
+                "--m34-ap",
+                str(root / "candidate.tar.md5"),
+                "--m34-manifest",
+                str(root / "manifest.json"),
+                "--magisk-rollback-ap",
+                str(root / "magisk.tar.md5"),
+                "--stock-rollback-ap",
+                str(root / "stock.tar.md5"),
+            ]
+            with (
+                mock.patch.object(self.module, "verify_m34_artifacts"),
+                mock.patch.object(self.module, "run_android_readonly_preflight", side_effect=readonly_preflight_stub(self.module)),
+            ):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.module.main(["--prelive-packet", *path_args, "--run-dir", str(run_dir)])
+
+            packet_path = run_dir / "s22plus_m34_s8b1_prelive_packet.json"
+            packet = json.loads(packet_path.read_text(encoding="utf-8"))
+            packet["material_sha256"]["runbook"] = "0" * 64
+            packet_path.write_text(json.dumps(packet, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            with mock.patch.object(self.module, "verify_m34_artifacts"):
+                with self.assertRaises(SystemExit) as caught:
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        self.module.main(
+                            [
+                                "--verify-prelive-packet",
+                                str(packet_path),
+                                *path_args,
+                                "--run-dir",
+                                str(root / "verify"),
+                            ]
+                        )
+            self.assertIn("material hash mismatch: runbook", str(caught.exception))
 
     def test_planned_live_run_dir_avoids_existing_siblings(self):
         with tempfile.TemporaryDirectory() as tmp:
