@@ -1,8 +1,8 @@
 {
   "artifacts": {
     "README.md": {
-      "bytes": 2188,
-      "sha256": "306c762fd71132d056e215ccce6b90fdd2e1f92d80d90422b3aabc179ed6e174"
+      "bytes": 2348,
+      "sha256": "17b0d0a375332ee6af7204cc3c5402053e3d6847936d9e30229d6577ba9e02c7"
     },
     "dependency-edges.tsv": {
       "bytes": 106491,
@@ -25,8 +25,8 @@
       "sha256": "e3729435cacaf0b0d9d156169f941f2c09bae48d9aa7bc6773200dead42dfa70"
     },
     "subsystem-usb.md": {
-      "bytes": 1900,
-      "sha256": "f736ab2859cade63491b4de677476afaa4b495cbc0287879e25a7bfc2b9db4e5"
+      "bytes": 1999,
+      "sha256": "2e90a3ed86a50bfffd1d2eba134bed1639c735dc1f64bdbf1ef7ad475326e400"
     },
     "symbol-overlap-edges.tsv": {
       "bytes": 92201,

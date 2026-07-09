@@ -26,6 +26,7 @@ SCHEMA = "s22plus_fyg8_module_map_v1"
 TARGET = o2.TARGET
 DEFAULT_METADATA_DIR = o2.DEFAULT_METADATA_DIR
 DEFAULT_OUT = Path("docs/module-map/s22plus-fyg8")
+LIVE_SIDECARS = frozenset({"stock-usb-runtime-topology.json"})
 EXPECTED_MODULE_COUNT = 441
 EXPECTED_VERMAGIC = (
     "5.10.226-android12-9-gki-30958166-abS906NKSS7FYG8 "
@@ -382,6 +383,8 @@ probed successfully.
   Imports without a module export remain `kernel-or-unresolved`.
 - `subsystem-retention.md`: reviewed `sec_log_buf`/`sec_debug` ownership map.
 - `subsystem-usb.md`: current static USB closure and functional bind gates.
+- `stock-usb-runtime-topology.json`: separately collected, serial-redacted stock
+  Android read-only snapshot. It is preserved but not generated from firmware.
 - `runtime-gates.md`: conditions required before a module is treated as usable.
 - `known-gaps.md`: explicit boundaries and work not yet proved.
 - `manifest.json`: source pins, counts, safety envelope, and generated hashes.
@@ -485,7 +488,8 @@ enumeration or survival.
 
 Current active work remains O0 stock `/dev/ttyGS0` to host `/dev/ttyACM0`, then
 O1 stock-first-stage observation. No direct-PID1 USB candidate is authorized by
-this map.
+this map. The latest stock read-only evidence is maintained separately in
+`stock-usb-runtime-topology.json`.
 """
 
 
@@ -626,7 +630,7 @@ def write_artifacts(out_dir: Path, artifacts: dict[str, str]) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     expected = set(artifacts)
     existing = {path.name for path in out_dir.iterdir() if path.is_file()}
-    stale = sorted(existing - expected)
+    stale = sorted(existing - expected - LIVE_SIDECARS)
     if stale:
         raise MapError(f"refusing to leave stale module-map files: {stale}")
     for name, text in artifacts.items():
@@ -641,7 +645,7 @@ def check_artifacts(out_dir: Path, artifacts: dict[str, str]) -> None:
         path = out_dir / name
         if not path.is_file() or path.read_text(encoding="ascii") != text:
             mismatches.append(name)
-    stale = sorted(existing - expected)
+    stale = sorted(existing - expected - LIVE_SIDECARS)
     if mismatches or stale:
         raise MapError(f"module map drifted mismatches={sorted(mismatches)} stale={stale}")
 

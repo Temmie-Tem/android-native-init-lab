@@ -30,4 +30,5 @@ enumeration or survival.
 
 Current active work remains O0 stock `/dev/ttyGS0` to host `/dev/ttyACM0`, then
 O1 stock-first-stage observation. No direct-PID1 USB candidate is authorized by
-this map.
+this map. The latest stock read-only evidence is maintained separately in
+`stock-usb-runtime-topology.json`.

@@ -84,6 +84,34 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 08:25 KST / 2026-07-09 23:25 UTC) — V3423 NORMAL ANDROID BASELINE RESTORED; STOCK USB TOPOLOGY PARTIAL PASS; DWC3 + MAX77705 TYPE-C LIVE-BOUND; ROLE PROPAGATION STILL UNVERIFIABLE.**
+> The operator-requested normal Android reboot restored `/dev/null` as character
+> device `1:3`, mode `0666`, size zero, with the expected SELinux label. Android
+> returned with exact FYG8 identity, boot-complete, Magisk root, pinned boot SHA
+> `2e541703…967e`, stable host `04e8:6860`, and the stock
+> `mtp,conn_gadget,adb` configuration.
+>
+> V3423 then added and ran a serial-redacted read-only topology collector. The
+> stock parent `a600000.ssusb` is bound to `msm-dwc3`, child
+> `a600000.dwc3` is bound to `dwc3`, USB manager reports connected/configured
+> UFP+sink+device with dual-role support, and both ssusb/dwc3 role-switch
+> objects exist. Root read-only checks additionally prove ssusb role `device`,
+> UDC `configured`, gadget UDC `a600000.dwc3`, and Type-C `port0` bound under
+> `57-0066/max77705-usbc` with driver `max77705-usbc`. This proves the stock
+> DWC3 path and Max77705 Type-C provider `LIVE_BOUND`, with role-switch objects
+> `LIVE_OBSERVED`.
+>
+> The final 25-command root read-only capture has no read denials. The visible
+> extcon class contains only display and EUD providers, and no direct Max77705
+> supplier devlink is visible. Neither fact proves or excludes a notifier or
+> role-switch consumer path. Therefore `max77705_to_dwc3_role_propagation`,
+> `extcon_attachment`, and all direct-PID1 implications remain `UNVERIFIABLE`.
+> Next = exact FYG8 `dwc3-msm`/`max77705*`/DT host-only source
+> and symbol RE, then O0 functional tty roundtrip. The collector itself used no
+> flash, reboot, module insertion, service control, sysfs/configfs write, or
+> partition write. Report:
+> `docs/reports/NATIVE_INIT_V3423_S22PLUS_STOCK_USB_TOPOLOGY_READONLY_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 07:57 KST / 2026-07-09 22:57 UTC) — V3422 FYG8 MODULE MAP GENERATED; 441-MODULE STATIC INVENTORY + RETENTION/USB EVIDENCE LAYERS; O0 STILL NEXT.**
 > V3422 added the reproducible `docs/module-map/s22plus-fyg8/` source of truth.
 > The host-only generator reuses the pinned O2 depmod parser and inspects all
