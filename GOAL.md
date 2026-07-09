@@ -23,7 +23,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > descriptor/composition stays downstream until a candidate electrically enumerates. Full
 > analysis: `docs/reports/S22PLUS_M34_S8_BEACON_PROBE_PIVOT_STOP_BLIND_FLASHING_2026-07-09.md`.
 
-> **S22+ CURRENT FRONTIER (2026-07-09 13:15 KST / 2026-07-09 04:15 UTC) — M34 S8B1 ACTIVE AUTH + FRESH PRELIVE PACKET + DEFAULT DRY-RUN PASS; LIVE NOT RUN.**
+> **S22+ CURRENT FRONTIER (2026-07-09 13:27 KST / 2026-07-09 04:27 UTC) — M34 S8B1 ACTIVE AUTH + AFTER-DRYRUN PACKET VERIFIER + DEFAULT DRY-RUN PASS; LIVE NOT RUN.**
 > Codex added the fail-closed S8B1 live gate helper
 > `workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py`
 > plus tests in
@@ -145,11 +145,12 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Validation passed: helper `py_compile`, `--offline-check`,
 > `--readonly-preflight`, `--prelive-packet`, `--verify-prelive-packet`,
 > `--print-live-runbook`, draft/active-template generation,
-> `--write-agents-candidate`, `--verify-agents-candidate`, S8B1 tests
-> (`Ran 40 tests`, `OK`),
+> `--write-agents-candidate`, `--verify-agents-candidate`,
+> `--verify-prelive-packet-after-dryrun`, S8B1 tests
+> (`Ran 42 tests`, `OK`),
 > S8B1 analyzer tests
 > (`Ran 20 tests`, `OK`), M34/S7A2 regression including S8B1/analyzer
-> (`Ran 75 tests`, `OK`), runbook fallback-contract/staleness tests, exact
+> (`Ran 77 tests`, `OK`), runbook fallback-contract/staleness tests, exact
 > active-template authorization tests, material-hash staleness tests, default run
 > fail-closed without active authorization, and active default dry-run after
 > authorization.
@@ -176,21 +177,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `--verify-agents-candidate AGENTS.md` passes with
 > `agents_exception_exact_active_template_present=1`.
 > Fresh no-write prelive packet was regenerated with the print-only run-dir
-> side-effect fix plus candidate-writer runbook step in place at
-> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z/`;
+> side-effect fix, candidate-writer runbook step, and after-dryrun verifier step
+> in place at
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z/`;
 > it contains `s22plus_m34_s8b1_prelive_packet.json`, the exact live runbook,
 > the active exception template, stored runbook options, selected serial
 > `RFCT519XWGK`, the Android predicate baseline, and the Android reset-context
 > baseline, plus embedded `material_sha256` for the sidecars, with `device_action=false` and
 > `agents_exception_inserted=false`. The packet verified cleanly with
 > `--verify-prelive-packet` at
-> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_packet_verify/`.
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_packet_verify/`.
 > The planned live run directory is
-> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_live/`;
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_live/`;
 > preflight/template/dryrun/rollback sibling directories are also separate and
 > all were verified not to exist at packet generation time. The planned
 > rollback-only fallback result path is
-> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_live_rollback/result.json`
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_live_rollback/result.json`
 > and is cleanup evidence, not B1 proof.
 > The packet's reset-context baseline records `ro.boot.bootreason=reboot,download`,
 > `/proc/reset_reason=MPON`, `/proc/reset_rwc=41`, `/proc/store_lastkmsg=1`,
@@ -208,7 +210,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > not create the planned live phase directories,
 > and did not authorize or perform S8B1 live flash/rollback.
 > After inserting the active exception, Codex ran the latest default no-live dry-run at
-> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_live_dryrun/`.
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_live_dryrun/`.
 > The dry-run passed (`dry-run ok`), verifying exact AGENTS template coverage,
 > artifacts, Android stability, current boot SHA256
 > `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
@@ -216,10 +218,13 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > hint path with `port0-partner`. No Odin transfer, reboot, live flash, or
 > rollback was performed. The packet verifier ran before this dry-run and passed
 > in
-> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_packet_verify/`.
-> Since the planned dry-run directory now exists, do not rerun the same packet
-> verifier expecting empty planned phase directories unless another fresh packet
-> is generated. The planned live directory remains uncreated.
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_packet_verify/`.
+> Codex also added and live-checked a no-device
+> `--verify-prelive-packet-after-dryrun` mode, which allows only the planned
+> dry-run directory to exist, verifies dry-run evidence markers, and still
+> rejects live/rollback dir staleness. The runbook-path check passed at
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_live_after_dryrun_verify/`.
+> The planned live directory remains uncreated.
 > A follow-up read-only reset-context capture after the operator's RDX/Download
 > observation passed at
 > `workspace/private/runs/s22plus_reset_reason_readonly_20260709T025333Z/`.

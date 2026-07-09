@@ -942,13 +942,14 @@ def apply_runbook_options(args: argparse.Namespace, options: dict[str, Any]) -> 
         setattr(args, key, options[key])
 
 
-def live_runbook(args: argparse.Namespace) -> str:
+def live_runbook(args: argparse.Namespace, packet_path: Path | None = None) -> str:
     helper = "workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py"
     analyzer = "workspace/public/src/scripts/revalidation/analyze_s22plus_m34_s8b1_result.py"
     base = ["PYTHONPYCACHEPREFIX=/tmp/a90_pycache", "python3", helper]
     analyze_base = ["PYTHONPYCACHEPREFIX=/tmp/a90_pycache", "python3", analyzer]
     common_paths = path_args(args)
     result_json = runbook_result_json(args)
+    packet_path_arg = str(packet_path) if packet_path is not None else "<prelive-packet.json>"
     common_android = [
         "--android-stability-samples",
         str(args.android_stability_samples),
@@ -989,6 +990,9 @@ def live_runbook(args: argparse.Namespace) -> str:
         "",
         "# 5. After AGENTS.md has the active exception, run the default dry-run gate",
         shell_cmd([*base, *common_paths, *runbook_phase_run_dir_args(args.run_dir, "dryrun"), *common_android]),
+        "",
+        "# 5.5. No-device packet verifier after dry-run: dryrun may exist, live/rollback must not",
+        shell_cmd([*base, "--verify-prelive-packet-after-dryrun", packet_path_arg, *common_paths, *runbook_phase_run_dir_args(args.run_dir, "after_dryrun_verify")]),
         "",
         "# 6. Live gate with explicit ack token",
         "#    This command handles HIT rollback. On MISS it also waits for manual Download",
@@ -1045,7 +1049,6 @@ def write_prelive_packet(
         stock_rollback_ap=stock_rollback_ap,
     )
     packet_args.serial = selected_serial
-    runbook = live_runbook(packet_args)
     active_template = agents_exception_active_template()
     missing = missing_policy_markers(active_template)
     if missing:
@@ -1056,6 +1059,7 @@ def write_prelive_packet(
     runbook_path = run_dir / "s22plus_m34_s8b1_live_runbook.txt"
     active_template_path = run_dir / "s22plus_m34_s8b1_active_exception_template.txt"
     packet_path = run_dir / "s22plus_m34_s8b1_prelive_packet.json"
+    runbook = live_runbook(packet_args, packet_path=packet_path)
     baseline_path = android_predicate_baseline_path(run_dir)
     if not baseline_path.is_file():
         raise SystemExit(f"prelive packet requires Android S8B1 predicate baseline: {baseline_path}")
@@ -1153,6 +1157,7 @@ def verify_prelive_packet(
     m34_manifest: Path,
     magisk_rollback_ap: Path,
     stock_rollback_ap: Path,
+    allow_existing_dryrun: bool = False,
 ) -> dict[str, Any]:
     payload = load_prelive_packet(packet_path)
     expected_scalars: dict[str, Any] = {
@@ -1213,7 +1218,14 @@ def verify_prelive_packet(
         raise SystemExit(f"prelive packet planned path mismatch: {json.dumps(path_mismatches, sort_keys=True)}")
 
     stale_dirs = [path for path in expected_phase_dirs.values() if Path(path).exists()]
-    if stale_dirs:
+    if allow_existing_dryrun:
+        expected_dryrun_dir = expected_phase_dirs.get("dryrun")
+        unexpected_stale_dirs = [path for path in stale_dirs if path != expected_dryrun_dir]
+        if unexpected_stale_dirs:
+            raise SystemExit(f"prelive packet planned run directory already exists: {unexpected_stale_dirs}")
+        if expected_dryrun_dir is None or not Path(expected_dryrun_dir).is_dir():
+            raise SystemExit("prelive packet after-dryrun verification requires the planned dry-run directory to exist")
+    elif stale_dirs:
         raise SystemExit(f"prelive packet planned run directory already exists: {stale_dirs}")
 
     baseline = payload.get("android_s8b1_predicate_baseline")
@@ -1286,7 +1298,7 @@ def verify_prelive_packet(
     )
     apply_runbook_options(packet_args, options)
     packet_args.serial = selected_serial
-    expected_runbook = live_runbook(packet_args)
+    expected_runbook = live_runbook(packet_args, packet_path=packet_path)
     if runbook_path.read_text(encoding="utf-8") != expected_runbook:
         raise SystemExit("prelive packet runbook is stale")
 
@@ -1318,8 +1330,39 @@ def verify_prelive_packet(
     append_log(log_path, f"prelive_packet_verify_packet_run_dir={packet_run_dir}")
     append_log(log_path, f"prelive_packet_verify_planned_live_run_dir={live_run_dir}")
     append_log(log_path, f"prelive_packet_verify_selected_serial={selected_serial}")
-    append_log(log_path, "prelive_packet_verify=ok device_action=0 agents_exception_checked=0 android_checked=0")
+    if allow_existing_dryrun:
+        verify_prelive_packet_dryrun_evidence(Path(expected_phase_dirs["dryrun"]), log_path)
+        append_log(
+            log_path,
+            "prelive_packet_verify_after_dryrun=ok device_action=0 agents_exception_checked=0 "
+            "android_checked=0 dryrun_checked=1",
+        )
+    else:
+        append_log(log_path, "prelive_packet_verify=ok device_action=0 agents_exception_checked=0 android_checked=0")
     return payload
+
+
+def verify_prelive_packet_dryrun_evidence(dryrun_dir: Path, log_path: Path) -> None:
+    dryrun_log = dryrun_dir / "s22plus_m34_s8b1_beacon_probe_live_gate.txt"
+    if not dryrun_log.is_file():
+        raise SystemExit(f"prelive packet after-dryrun verification missing dry-run log: {dryrun_log}")
+    text = dryrun_log.read_text(encoding="utf-8")
+    required_markers = [
+        "agents_exception_exact_active_template_present=1",
+        "android_stability_result=ok",
+        "current_boot_hash_rc=0",
+        EXPECTED_M34_BASE_BOOT_SHA256,
+        "android_readonly_preflight=ok device_action=0 agents_exception_checked=1 android_checked=1 current_boot_hash_checked=1",
+    ]
+    missing = [marker for marker in required_markers if marker not in text]
+    if missing:
+        raise SystemExit(f"prelive packet after-dryrun verification missing dry-run evidence markers: {missing}")
+    forbidden_files = [dryrun_dir / "result.json", dryrun_dir / "timeline.json"]
+    existing_forbidden = [str(path) for path in forbidden_files if path.exists()]
+    if existing_forbidden:
+        raise SystemExit(f"prelive packet after-dryrun verification found live-only files in dry-run dir: {existing_forbidden}")
+    append_log(log_path, f"prelive_packet_verify_after_dryrun_dir={dryrun_dir}")
+    append_log(log_path, f"prelive_packet_verify_after_dryrun_log={dryrun_log}")
 
 
 def wait_for_odin_absent(odin: Path, log_path: Path, label: str, wait_sec: int) -> bool:
@@ -1497,6 +1540,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--readonly-preflight", action="store_true")
     parser.add_argument("--prelive-packet", action="store_true")
     parser.add_argument("--verify-prelive-packet", type=Path)
+    parser.add_argument("--verify-prelive-packet-after-dryrun", type=Path)
     parser.add_argument("--print-live-runbook", action="store_true")
     parser.add_argument("--print-agents-exception-draft", action="store_true")
     parser.add_argument("--print-agents-exception-active-template", action="store_true")
@@ -1514,6 +1558,7 @@ def main(argv: list[str]) -> int:
             args.readonly_preflight,
             args.prelive_packet,
             args.verify_prelive_packet is not None,
+            args.verify_prelive_packet_after_dryrun is not None,
             args.print_live_runbook,
             args.print_agents_exception_draft,
             args.print_agents_exception_active_template,
@@ -1529,7 +1574,8 @@ def main(argv: list[str]) -> int:
             "--offline-check, --readonly-preflight, --print-agents-exception-draft, "
             "--print-agents-exception-active-template, --print-live-runbook, "
             "--write-agents-candidate, --verify-agents-candidate, --prelive-packet, "
-            "--verify-prelive-packet, --live, and --rollback-from-download are mutually exclusive"
+            "--verify-prelive-packet, --verify-prelive-packet-after-dryrun, --live, "
+            "and --rollback-from-download are mutually exclusive"
         )
     if args.observe_sec < 30:
         raise SystemExit("--observe-sec must be at least 30 for the M34 S8B1 download-beacon probe")
@@ -1703,6 +1749,26 @@ def main(argv: list[str]) -> int:
         print(
             "verify-prelive-packet ok: packet matches current S8B1 helper contract, "
             f"selected_serial={packet['selected_serial']}; no device action; log={log_path}"
+        )
+        return 0
+
+    if args.verify_prelive_packet_after_dryrun is not None:
+        packet_path = resolve(root, args.verify_prelive_packet_after_dryrun)
+        packet = verify_prelive_packet(
+            packet_path=packet_path,
+            log_path=log_path,
+            args=args,
+            odin=odin,
+            m34_ap=m34_ap,
+            m34_manifest=m34_manifest,
+            magisk_rollback_ap=magisk_rollback_ap,
+            stock_rollback_ap=stock_rollback_ap,
+            allow_existing_dryrun=True,
+        )
+        print(
+            "verify-prelive-packet-after-dryrun ok: packet matches current S8B1 helper contract, "
+            f"dry-run evidence checked, live dir absent, selected_serial={packet['selected_serial']}; "
+            f"no device action; log={log_path}"
         )
         return 0
 

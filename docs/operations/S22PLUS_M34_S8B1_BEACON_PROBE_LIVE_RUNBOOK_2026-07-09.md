@@ -36,26 +36,26 @@ S22PLUS-M34-S8B1-BEACON-PROBE-ROLLBACK-FROM-DOWNLOAD
 Latest no-write packet:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z/s22plus_m34_s8b1_prelive_packet.json
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z/s22plus_m34_s8b1_prelive_packet.json
 ```
 
 Packet sidecars:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z/s22plus_m34_s8b1_live_runbook.txt
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z/s22plus_m34_s8b1_active_exception_template.txt
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z/s22plus_m34_s8b1_android_predicate_baseline.json
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z/s22plus_m34_s8b1_android_reset_context_baseline.json
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z/s22plus_m34_s8b1_live_runbook.txt
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z/s22plus_m34_s8b1_active_exception_template.txt
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z/s22plus_m34_s8b1_android_predicate_baseline.json
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z/s22plus_m34_s8b1_android_reset_context_baseline.json
 ```
 
 Pinned hashes:
 
 ```text
-prelive packet                 fd754158459b78f4b2e6ae5b136b5d53ac05cdb3c7c72b83a483da742509e2b1
-live runbook                   e3b7e41ec26fdfb03f38142a32d0a4917f5e24088e3b78c7f7cf1084142d96ec
+prelive packet                 673bd92e3f48e776d3d4d0b02e42bd473dcdb1bb149a4b6dbc6ac2a3f97eb3e9
+live runbook                   ee9fab445387ce26a088cba94236d5a3b1329e26cf580edf7d58bab7064cafb9
 active exception template       66f1e39a3a01da4be3b100c899fd39c553cf31a014fa47532973daf5e2e8ac8f
-Android predicate baseline      ede39a5ab7e5cd6c674a86efcb28e7035f8530fa1d2f261592032ee5e949806e
-Android reset-context baseline  325d8803548c5b37bbe5b9e22d641c9eebb3cc170ff877b6e99504e85e49ab1c
+Android predicate baseline      de95b7a8ee6efedfbb24c541de9fd5e34ba31ff7ac17b024d232da66ad1d8694
+Android reset-context baseline  9f9fa1b0c25fc6b891d102c16a7472bd2e2a0a2af3d1d39f714d8520188d8726
 ```
 
 The packet embeds the same sidecar hashes under `material_sha256`; the verifier
@@ -68,7 +68,7 @@ directory:
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py \
   --verify-prelive-packet \
-  workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z/s22plus_m34_s8b1_prelive_packet.json
+  workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z/s22plus_m34_s8b1_prelive_packet.json
 ```
 
 Expected result:
@@ -82,7 +82,7 @@ the verifier intentionally fails once any planned phase directory already
 exists. Stored verifier evidence for this packet is in:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_packet_verify/
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_packet_verify/
 ```
 
 ## Current Baselines
@@ -164,7 +164,7 @@ Download-mode rollback.
 The exact command sequence is stored in:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z/s22plus_m34_s8b1_live_runbook.txt
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z/s22plus_m34_s8b1_live_runbook.txt
 ```
 
 Use that file as the source of truth for the command lines. Its phases are:
@@ -175,6 +175,7 @@ Use that file as the source of truth for the command lines. Its phases are:
 3. generate a full AGENTS.md candidate without replacing the repo file
 4. no-write verify-agents-candidate on the reviewed full AGENTS.md candidate
 5. default dry-run after AGENTS.md contains the active exception
+5.5 no-device verify-prelive-packet-after-dryrun after the dry-run
 6. live gate with explicit live ack
 7. fallback rollback-from-download only if live exits after MISS without rollback
 8. analyzer gates on the live result.json
@@ -208,29 +209,32 @@ sha256=0186b2dc881ba1a35565bc34e98c8283513d7fd0fc6aae3c000a88c3f1bbdf48
 The planned run directories are intentionally distinct:
 
 ```text
-preflight: workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_live_preflight
-template:  workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_live_template
-dryrun:    workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_live_dryrun
-live:      workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_live
-rollback:  workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_live_rollback
+preflight:             workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_live_preflight
+template:              workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_live_template
+dryrun:                workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_live_dryrun
+after_dryrun_verify:   workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_live_after_dryrun_verify
+live:                  workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_live
+rollback:              workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_live_rollback
 ```
 
 The packet verifier checked these planned directories before dry-run. The
-latest dry-run directory now exists by design; the live directory must remain
-uncreated until the attended live command consumes it.
+latest dry-run directory now exists by design. The after-dryrun verifier then
+checked the dry-run evidence and still required the live/rollback directories
+to remain absent. The live directory must remain uncreated until the attended
+live command consumes it.
 
 ## Interpretation
 
 Analyze only the live run result as B1 proof:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_live/result.json
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_live/result.json
 ```
 
 The fallback rollback result is cleanup evidence, not B1 proof:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_live_rollback/result.json
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_live_rollback/result.json
 ```
 
 Use:
@@ -238,7 +242,7 @@ Use:
 ```text
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   workspace/public/src/scripts/revalidation/analyze_s22plus_m34_s8b1_result.py \
-  workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_live/result.json \
+  workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_live/result.json \
   --write-report
 ```
 
@@ -280,7 +284,7 @@ and `--verify-agents-candidate AGENTS.md` passes with exact active-template
 coverage. The latest default no-live dry-run also passed in:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_live_dryrun/
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_live_dryrun/
 ```
 
 That dry-run verified artifacts, Android stability, current Magisk boot hash,
@@ -289,10 +293,11 @@ future B2 hint path. It performed no Odin transfer, reboot, live flash, or
 rollback.
 
 The latest packet verifier ran before this dry-run and passed in
-`workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_packet_verify/`.
-Since the planned dry-run directory now exists, do not rerun that same packet
-verifier expecting all planned phase directories to be empty unless another
-fresh packet is generated. The planned live directory remains uncreated.
+`workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_packet_verify/`.
+The latest after-dryrun verifier passed in
+`workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_live_after_dryrun_verify/`.
+It checked the dry-run evidence while still requiring live/rollback directories
+to be absent. The planned live directory remains uncreated.
 
 The next live step remains blocked on explicit operator live approval and the
 live ack token. Until then, only no-write checks, dry-run checks, and report

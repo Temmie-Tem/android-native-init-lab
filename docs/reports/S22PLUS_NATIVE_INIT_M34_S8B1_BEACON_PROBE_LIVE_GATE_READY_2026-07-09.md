@@ -270,13 +270,14 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m py_compile workspace/public/src/
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --offline-check
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --readonly-preflight --android-stability-samples 2 --android-stability-interval-sec 1
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --prelive-packet --android-stability-samples 2 --android-stability-interval-sec 0.5
-PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --verify-prelive-packet workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z/s22plus_m34_s8b1_prelive_packet.json
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --verify-prelive-packet workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z/s22plus_m34_s8b1_prelive_packet.json
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --print-live-runbook
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --print-agents-exception-draft
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --print-agents-exception-active-template
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --write-agents-candidate workspace/private/runs/s22plus_m34_s8b1_agents_candidate_20260709T035315Z/AGENTS.candidate.md
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --verify-agents-candidate workspace/private/runs/s22plus_m34_s8b1_agents_candidate_20260709T035315Z/AGENTS.candidate.md
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --verify-prelive-packet-after-dryrun workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z/s22plus_m34_s8b1_prelive_packet.json
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m unittest tests/test_s22plus_m34_s8b1_beacon_probe_live_gate.py
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m unittest tests/test_analyze_s22plus_m34_s8b1_result.py
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m unittest tests/test_s22plus_m34_runtime_gadget_split_build.py tests/test_s22plus_m34_s7a2_geni_i2c_live_gate.py
@@ -295,7 +296,8 @@ live-runbook generation: OK, no device action
 draft exception generation: OK
 active-template generation: OK
 default run without active AGENTS exception: correctly fails closed
-S8B1 tests: Ran 40 tests, OK
+verify-prelive-packet-after-dryrun: OK, no device action
+S8B1 tests: Ran 42 tests, OK
 S8B1 analyzer tests: Ran 20 tests, OK
 S8B1/analyzer evidence-path cross-check: included in S8B1 tests
 runbook fallback/staleness-contract tests: included in S8B1 tests
@@ -306,7 +308,8 @@ write-agents-candidate tests: included in S8B1 tests
 verify-agents-candidate tests: included in S8B1 tests
 material-hash staleness tests: included in S8B1 tests
 print-only run-dir side-effect tests: included in S8B1 tests
-M34/S7A2/S8B1/analyzer regression: Ran 75 tests, OK
+after-dryrun packet verifier tests: included in S8B1 tests
+M34/S7A2/S8B1/analyzer regression: Ran 77 tests, OK
 post-RDX readonly-preflight with future B2 hints: OK, no reboot/flash/write
 post-RDX prelive packet with reset-context baseline: OK, no reboot/flash/write
 latest readonly-preflight refresh: OK, no reboot/flash/write
@@ -407,13 +410,13 @@ Android reset-context baseline, full AGENTS candidate generation/verification
 step, and embedded sidecar material hashes is:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z/
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z/
 ```
 
 It was verified with `--verify-prelive-packet` at:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_packet_verify/
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_packet_verify/
 ```
 
 It plans the live B1 proof directory and rollback-only fallback directory
@@ -421,10 +424,10 @@ separately:
 
 ```text
 planned_result_json:
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_live/result.json
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_live/result.json
 
 planned_rollback_result_json:
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_live_rollback/result.json
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_live_rollback/result.json
 ```
 
 The same packet now embeds the reset-context baseline captured by the
@@ -482,7 +485,7 @@ ro.boot.bootreason=reboot,download
 After the active exception was inserted, the default no-live dry-run passed in:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_live_dryrun/
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_live_dryrun/
 ```
 
 The dry-run verified exact `AGENTS.md` template coverage, artifacts, Android
@@ -490,21 +493,24 @@ stability, current boot SHA256
 `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
 S8B1 predicate true through `/sys/bus/i2c/devices/57-0066`, and the future B2
 hint path with `port0-partner`. It performed no Odin transfer, reboot, live
-flash, or rollback. The latest packet verifier ran before this dry-run and
+flash, or rollback. The strict packet verifier ran before this dry-run and
 passed in
-`workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T041315Z_packet_verify/`.
-Because that dry-run directory now exists, do not rerun the same packet
-verifier expecting all planned phase directories to be empty unless another
-fresh packet is generated. The planned live directory remains uncreated.
+`workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_packet_verify/`.
+After the dry-run created its planned dry-run directory, the dedicated
+no-device `--verify-prelive-packet-after-dryrun` mode passed in
+`workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T042547Z_live_after_dryrun_verify/`.
+That mode verifies the dry-run evidence markers while still requiring the
+planned live and rollback directories to remain absent. The planned live
+directory remains uncreated.
 
 Latest packet sidecar SHA256s:
 
 ```text
-s22plus_m34_s8b1_prelive_packet.json: fd754158459b78f4b2e6ae5b136b5d53ac05cdb3c7c72b83a483da742509e2b1
-s22plus_m34_s8b1_live_runbook.txt: e3b7e41ec26fdfb03f38142a32d0a4917f5e24088e3b78c7f7cf1084142d96ec
+s22plus_m34_s8b1_prelive_packet.json: 673bd92e3f48e776d3d4d0b02e42bd473dcdb1bb149a4b6dbc6ac2a3f97eb3e9
+s22plus_m34_s8b1_live_runbook.txt: ee9fab445387ce26a088cba94236d5a3b1329e26cf580edf7d58bab7064cafb9
 s22plus_m34_s8b1_active_exception_template.txt: 66f1e39a3a01da4be3b100c899fd39c553cf31a014fa47532973daf5e2e8ac8f
-s22plus_m34_s8b1_android_predicate_baseline.json: ede39a5ab7e5cd6c674a86efcb28e7035f8530fa1d2f261592032ee5e949806e
-s22plus_m34_s8b1_android_reset_context_baseline.json: 325d8803548c5b37bbe5b9e22d641c9eebb3cc170ff877b6e99504e85e49ab1c
+s22plus_m34_s8b1_android_predicate_baseline.json: de95b7a8ee6efedfbb24c541de9fd5e34ba31ff7ac17b024d232da66ad1d8694
+s22plus_m34_s8b1_android_reset_context_baseline.json: 9f9fa1b0c25fc6b891d102c16a7472bd2e2a0a2af3d1d39f714d8520188d8726
 ```
 
 ## Next Gate
