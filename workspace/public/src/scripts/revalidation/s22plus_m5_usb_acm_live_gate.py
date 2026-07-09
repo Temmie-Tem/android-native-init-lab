@@ -34,6 +34,7 @@ from s22plus_m3_observable_live_gate import (
     ROLLBACK_MAGISK,
     ROLLBACK_STOCK,
     adb_rows,
+    adb_root_shell,
     adb_shell,
     append_log,
     collect_android_pstore,
@@ -290,17 +291,17 @@ def verify_android_stability(
 
     previous_uptime: float | None = None
     for index in range(samples):
-        result = adb_shell(
+        props = adb_shell(
             "printf 'boot_completed='; getprop sys.boot_completed; "
             "printf 'bootanim='; getprop init.svc.bootanim; "
             "printf 'sys_boot_reason='; getprop sys.boot.reason; "
-            "printf 'uptime='; cat /proc/uptime; "
-            "printf 'su_id='; su -c id 2>/dev/null || true",
+            "printf 'uptime='; cat /proc/uptime",
             serial=serial,
             timeout=25.0,
         )
-        text = result.stdout + result.stderr
-        append_log(log_path, f"android_stability_sample_{index + 1}_rc={result.returncode}")
+        root = adb_root_shell("id", serial=serial, timeout=25.0)
+        text = props.stdout + props.stderr + f"\nroot_probe_rc={root.returncode}\n" + root.stdout + root.stderr
+        append_log(log_path, f"android_stability_sample_{index + 1}_rc={props.returncode}")
         append_log(log_path, text)
         required = ["boot_completed=1", "bootanim=stopped", "uid=0(root)"]
         missing = [item for item in required if item not in text]
@@ -321,8 +322,8 @@ def verify_android_stability(
 
 
 def verify_current_boot_hash(log_path: Path, serial: str) -> None:
-    result = adb_shell(
-        "su -c 'dd if=/dev/block/by-name/boot bs=4096 2>/dev/null | sha256sum'",
+    result = adb_root_shell(
+        "dd if=/dev/block/by-name/boot bs=4096 2>/dev/null | sha256sum",
         serial=serial,
         timeout=45.0,
     )

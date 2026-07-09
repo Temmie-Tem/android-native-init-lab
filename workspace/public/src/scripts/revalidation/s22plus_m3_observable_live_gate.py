@@ -55,6 +55,8 @@ DEFAULT_RUN_ROOT = Path("workspace/private/runs")
 ROLLBACK_MAGISK = "magisk"
 ROLLBACK_STOCK = "stock"
 ODIN_DEVICE_RE = re.compile(r"/dev/bus/usb/\d+/\d+")
+ROOT_SHELL_PATHS = ("su", "/debug_ramdisk/su")
+ROOT_CORE_SUPPRESS_PREFIX = "printf /dev/null > /proc/sys/kernel/core_pattern 2>/dev/null || true"
 
 
 def repo_root() -> Path:
@@ -212,12 +214,72 @@ def adb_shell(command: str, *, serial: str | None = None, timeout: float = 20.0)
     return run(argv, timeout=timeout)
 
 
+def root_shell_payload(command: str) -> str:
+    return f"{ROOT_CORE_SUPPRESS_PREFIX}; {command}"
+
+
+def adb_root_shell(
+    command: str,
+    *,
+    serial: str | None = None,
+    timeout: float = 20.0,
+) -> subprocess.CompletedProcess[str]:
+    payload = root_shell_payload(command)
+    attempts: list[subprocess.CompletedProcess[str]] = []
+    for su_path in ROOT_SHELL_PATHS:
+        result = adb_shell(f"{su_path} -c {shlex.quote(payload)}", serial=serial, timeout=timeout)
+        attempts.append(result)
+        if result.returncode == 0:
+            return result
+    stdout = "".join(result.stdout for result in attempts)
+    stderr = "".join(result.stderr for result in attempts)
+    return subprocess.CompletedProcess(
+        args=["adb-root-shell-fallback", command],
+        returncode=attempts[-1].returncode if attempts else 127,
+        stdout=stdout,
+        stderr=stderr,
+    )
+
+
+def root_id_probe_text(serial: str | None = None) -> str:
+    lines: list[str] = []
+    payload = root_shell_payload("id")
+    for su_path in ROOT_SHELL_PATHS:
+        label = su_path.strip("/").replace("/", "_")
+        result = adb_shell(f"{su_path} -c {shlex.quote(payload)}", serial=serial, timeout=25.0)
+        output = (result.stdout + result.stderr).strip()
+        lines.append(f"{label}_root_rc={result.returncode}")
+        if output:
+            lines.append(f"{label}_root_out={output}")
+        if result.returncode == 0 and "uid=0(root)" in output:
+            lines.append(f"root_probe={label}")
+            lines.append(f"su_id={output}")
+            return "\n".join(lines) + "\n"
+    lines.append("root_probe=missing")
+    lines.append("su_id=")
+    return "\n".join(lines) + "\n"
+
+
 def adb_exec_out(command: str, *, serial: str | None = None, timeout: float = 20.0) -> subprocess.CompletedProcess[bytes]:
-    argv: list[str | Path] = ["adb"]
-    if serial:
-        argv.extend(["-s", serial])
-    argv.extend(["exec-out", "su", "-c", command])
-    return run_bytes(argv, timeout=timeout)
+    payload = root_shell_payload(command)
+    attempts: list[subprocess.CompletedProcess[bytes]] = []
+    for su_path in ROOT_SHELL_PATHS:
+        argv: list[str | Path] = ["adb"]
+        if serial:
+            argv.extend(["-s", serial])
+        argv.extend(["exec-out", su_path, "-c", payload])
+        result = run_bytes(argv, timeout=timeout)
+        attempts.append(result)
+        if result.returncode == 0:
+            return result
+    stdout = b"".join(result.stdout for result in attempts)
+    stderr = b"".join(result.stderr for result in attempts)
+    return subprocess.CompletedProcess(
+        args=["adb-root-exec-out-fallback", command],
+        returncode=attempts[-1].returncode if attempts else 127,
+        stdout=stdout,
+        stderr=stderr,
+    )
 
 
 def require_current_android(log_path: Path, serial: str | None) -> str:
@@ -235,12 +297,11 @@ def require_current_android(log_path: Path, serial: str | None) -> str:
         "printf 'incremental='; getprop ro.build.version.incremental; "
         "printf 'vbstate='; getprop ro.boot.verifiedbootstate; "
         "printf 'boot_recovery='; getprop ro.boot.boot_recovery; "
-        "printf 'boot_completed='; getprop sys.boot_completed; "
-        "printf 'su_id='; su -c id 2>/dev/null || true",
+        "printf 'boot_completed='; getprop sys.boot_completed",
         serial=selected_serial,
         timeout=25.0,
     )
-    text = props.stdout + props.stderr
+    text = props.stdout + props.stderr + root_id_probe_text(selected_serial)
     append_log(log_path, "android_preflight_props:")
     append_log(log_path, text)
     required = [
@@ -291,8 +352,8 @@ def collect_android_pstore(
 ) -> bool:
     pstore_dir = run_dir / "android_pstore"
     pstore_dir.mkdir(exist_ok=True)
-    listing = adb_shell(
-        "su -c 'for f in /sys/fs/pstore/*; do [ -f \"$f\" ] && echo \"${f##*/}\"; done' 2>/dev/null || true",
+    listing = adb_root_shell(
+        "for f in /sys/fs/pstore/*; do [ -f \"$f\" ] && echo \"${f##*/}\"; done",
         serial=serial,
         timeout=20.0,
     )
@@ -393,12 +454,11 @@ def poll_android(log_path: Path, wait_sec: int, expect_root: bool, serial: str |
                 "printf 'bootloader='; getprop ro.boot.bootloader; "
                 "printf 'incremental='; getprop ro.build.version.incremental; "
                 "printf 'vbstate='; getprop ro.boot.verifiedbootstate; "
-                "printf 'boot_recovery='; getprop ro.boot.boot_recovery; "
-                "printf 'su_id='; su -c id 2>/dev/null || true",
+                "printf 'boot_recovery='; getprop ro.boot.boot_recovery",
                 serial=selected,
                 timeout=25.0,
             )
-            text = props.stdout + props.stderr
+            text = props.stdout + props.stderr + root_id_probe_text(selected)
             append_log(log_path, "post_rollback_props:")
             append_log(log_path, text)
             required = [

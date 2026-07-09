@@ -29,6 +29,7 @@ from s22plus_m3_observable_live_gate import (
     ROLLBACK_MAGISK,
     ROLLBACK_STOCK,
     adb_rows,
+    adb_root_shell,
     adb_shell,
     append_log,
     collect_android_pstore,
@@ -322,9 +323,9 @@ def verify_m25_manifest(path: Path, log_path: Path) -> None:
 def read_partition_hash(log_path: Path, serial: str, partition: str, label: str) -> str:
     if not partition.replace("_", "").isalnum():
         raise SystemExit(f"unsafe partition name for hash read: {partition!r}")
-    result = adb_shell(
-        f"su -c 'toybox sha256sum /dev/block/by-name/{partition} 2>/dev/null || "
-        f"sha256sum /dev/block/by-name/{partition}'",
+    result = adb_root_shell(
+        f"toybox sha256sum /dev/block/by-name/{partition} 2>/dev/null || "
+        f"sha256sum /dev/block/by-name/{partition}",
         serial=serial,
         timeout=60.0,
     )

@@ -4,6 +4,67 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 20:05 KST / 2026-07-09 11:05 UTC) — M34 S10B0 LIVE CONSUMED; MISS; ROOT FALLBACK FIXED; DATA CORE DUMPS CLEANED; NO ACTIVE LIVE AUTH.**
+> S10B0 was executed once under the bounded boot-only exception using
+> `workspace/public/src/scripts/revalidation/s22plus_m34_s10b0_module_load_prefix_live_gate.py`.
+> It flashed only the pinned S10B0 boot AP
+> `c117d8789b4ed990afd047ef3a6bb8d32f0b7b5d76bdce58eecf8ae98725d47c`
+> and observed:
+>
+> ```text
+> result=download-beacon-miss-parked-manual-download-required
+> stage=S10B0
+> module_load_probe=proc_modules_prefix_1
+> prefix_modules=cmd_db
+> ```
+>
+> Interpretation: the first prefix predicate did not HIT. Under this channel,
+> `cmd_db` did not appear in `/proc/modules` under native-init, or
+> `/proc/modules` cannot be trusted at that point. Do not advance to S10B1+
+> or downstream USB/configfs/descriptor work from this evidence. The next
+> native-init unit should recover a stronger module-load observation channel:
+> first failed `finit_module`/`insmod` rc, retained bitmask/log, or a predicate
+> that proves whether `/proc/modules` is readable/trustworthy before continuing
+> the S10B ladder.
+>
+> Live artifact paths:
+>
+> ```text
+> workspace/private/runs/s22plus_m34_s10b0_live_20260709T103800Z/result.json
+> workspace/private/runs/s22plus_m34_s10b0_live_20260709T103800Z/timeline.json
+> ```
+>
+> Important correction: the live helper returned `rc=5` after rollback because
+> the old post-rollback verifier only accepted `su -c id` from PATH. The phone
+> was actually back on the Magisk boot baseline: `/debug_ramdisk/su -c id`
+> returned root and `/dev/block/by-name/boot` SHA256 was
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+> Codex fixed the shared S22 live-gate root helpers to fall back to
+> `/debug_ramdisk/su`, and a follow-up default S10B0 dry-run passed:
+>
+> ```text
+> workspace/private/runs/s22plus_m34_s10b0_root_fallback_dryrun_20260709T110121Z/
+> root_probe=debug_ramdisk_su
+> current_boot_hash_rc=0
+> ```
+>
+> Storage side effect: `/data` was full because `/data/log/core` held 1393 ART
+> core dumps from `app_process ... com.android.commands.content.Content call -`
+> (`SIGSEGV`, fault address 0). Public-safe triage samples were preserved under
+> `workspace/private/runs/s22plus_core_dump_triage_20260709T105028Z/` and
+> `workspace/private/runs/s22plus_core_regen_probe_20260709T105514Z/`. After
+> explicit operator approval, `/data/log/core/core-*` was deleted and runtime
+> `core_pattern` was set to `/dev/null` to suppress immediate regeneration.
+> Current observed `/data` state: `223G` total, `2.9G` used, `220G` available.
+>
+> Validation passed: `py_compile` for the changed S22 helpers,
+> `tests/test_s22plus_m3_root_fallback.py`,
+> `tests/test_s22plus_m34_s10b0_module_load_prefix_live_gate.py`, and a live
+> default dry-run against the current Android baseline. `AGENTS.md` has been
+> updated to mark the S10B0 exception consumed. No active S22+ live auth exists.
+> Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S10B0_MODULE_LOAD_PREFIX_LIVE_RESULT_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 19:31 KST / 2026-07-09 10:31 UTC) — M34 S10B0 LIVE-GATE SOURCE READY; OFFLINE-CHECK PASS; NO ACTIVE LIVE AUTH.**
 > Codex added the fail-closed S10B0 live helper
 > `workspace/public/src/scripts/revalidation/s22plus_m34_s10b0_module_load_prefix_live_gate.py`

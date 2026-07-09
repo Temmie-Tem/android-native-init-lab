@@ -2752,13 +2752,25 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
    with stock boot-only fallback SHA256
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
-   **Narrow operator-authorized exception (2026-07-09, S22+ M34 S10B0 module-load prefix boot-only live gate):**
-   Codex may run
-   one bounded attended boot-partition-only M34 S10B0 live gate on the Samsung
-   S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
+   **Consumed exception (2026-07-09, S22+ M34 S10B0 module-load prefix
+   boot-only live gate):** this one-shot exception was consumed by the
+   2026-07-09 KST live run. It flashed the pinned M34 S10B0 boot-only
+   candidate once on the Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using
+   only the checked helper
    `workspace/public/src/scripts/revalidation/s22plus_m34_s10b0_module_load_prefix_live_gate.py`.
-   Live ack token: `S22PLUS-M34-S10B0-MODULE-LOAD-PREFIX-LIVE-GATE`. Rollback ack token:
-   `S22PLUS-M34-S10B0-MODULE-LOAD-PREFIX-ROLLBACK-FROM-DOWNLOAD`.
+   The consumed live and rollback ack token strings are intentionally omitted
+   here as active authorization. The run returned
+   `download-beacon-miss-parked-manual-download-required`, then restored the
+   pinned Magisk boot baseline through manual Download rollback after the
+   operator reported RDX then Download entry. The helper's live rc was `5`
+   because the old post-rollback verifier only accepted PATH `su`; a follow-up
+   dry-run proved Magisk root through `/debug_ramdisk/su`, boot partition
+   SHA256
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, and
+   Android baseline clean. The Android `/data` storage-full side effect was
+   traced to `/data/log/core` ART core dumps and cleaned after preserving
+   triage samples; runtime `core_pattern=/dev/null` suppressed immediate
+   regeneration.
 
    The exact candidate AP.tar.md5 SHA256 must be
    `c117d8789b4ed990afd047ef3a6bb8d32f0b7b5d76bdce58eecf8ae98725d47c`; contained padded `boot.img` SHA256 must be
@@ -2807,88 +2819,11 @@ BL, CP, CSC, userdata, or any non-boot flash.
    must not write charge current, OTG/VBUS boost, regulator, GDSC, GPIO,
    display, raw PMIC knobs, EUD sysfs, TypeC role nodes, configfs, UDC, or
    ssusb role nodes. PMIC/RDX abnormal reset before the observation window is
-   FAIL. This exception does not authorize S10B1/S10B2/S10B3/S10B4/S10B5/
+   FAIL. This consumed exception must not be reused and does not authorize
+   S10B1/S10B2/S10B3/S10B4/S10B5/
    S10B6, S10A/S9 repeat, B2/B3/B4, descriptor/composition pivots,
    FunctionFS/conn_gadget parity, display/distro candidates, kernel rebuilds,
    RDX PC dump retrieval, or any non-boot partition action.
-
-   Required policy marker coverage:
-   `S22+ M34 S10B0 module-load prefix download-beacon native-init boot-only`
-   `workspace/public/src/scripts/revalidation/s22plus_m34_s10b0_module_load_prefix_live_gate.py`
-   `S22PLUS-M34-S10B0-MODULE-LOAD-PREFIX-LIVE-GATE`
-   `S22PLUS-M34-S10B0-MODULE-LOAD-PREFIX-ROLLBACK-FROM-DOWNLOAD`
-   `SM-S906N/g0q/S906NKSS7FYG8`
-   `S10B0`
-   `S22_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT_S10B0`
-   `c117d8789b4ed990afd047ef3a6bb8d32f0b7b5d76bdce58eecf8ae98725d47c`
-   `a30120d094d3484b6b4234e0a285f6c26e95120f032ed9ec3671fd287661b610`
-   `50bd942c92d6aad3b143e1f215c0e7a313819994f5dbfa580c11666d32d5f761`
-   `c07425f4c738b53822e9f6783a142a2b5eafd72a15bd34c06fb3b49357c8fe26`
-   `6ac888ddf29e559a9a9b7522eda4edd54c5a38264782dddd2bd5c80d6d8e21a6`
-   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`
-   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`
-   `S10B0 starts from the S9/S10A 89-module recipe`
-   `S10B0 bisects the S10A all-core /proc/modules MISS`
-   `s10b_ladder=1`
-   `s10b_module_load_prefix_probe=1`
-   `module_load_probe=proc_modules_prefix_1`
-   `predicate=proc_modules_prefix`
-   `prefix_index=0`
-   `prefix_expected=1`
-   `prefix_modules=cmd_db`
-   `proc_modules=1`
-   `cmd_db=1`
-   `both_graphs_closure=1`
-   `devlink_supplier_closure=1`
-   `substrate_load_set=waipio_devlink`
-   `driver_load_only=1`
-   `manual_power_write=0`
-   `module_count=89`
-   `session_producer_parity=1`
-   `max77705_session=1`
-   `geni_i2c_transport=1`
-   `i2c_msm_geni=1`
-   `gpi_dma=1`
-   `msm_geni_se=1`
-   `functionfs=0`
-   `stock_composite=0`
-   `configfs_gadget=0`
-   `udc_bind=0`
-   `role_write_discriminator=0`
-   `typec_readback=0`
-   `reboot_request=download`
-   `download_beacon=1`
-   `true_action=reboot_download`
-   `false_action=park`
-   `download-beacon-hit`
-   `download-beacon-miss-parked-manual-download-required`
-   `host-visible HIT = new Odin Download endpoint appears`
-   `MISS = no new Odin endpoint during bounded observation; manual Download rollback required`
-   `no configfs gadget setup`
-   `no UDC bind`
-   `no TypeC role write`
-   `no ssusb role write`
-   `no FunctionFS`
-   `no stock composite`
-   `no Android/Magisk handoff`
-   `no persistent partition mount`
-   `no block write`
-   `no charge-current write`
-   `no OTG/VBUS boost write`
-   `no regulator/GDSC/GPIO/raw PMIC write`
-   `manual Download rollback is recovery-only`
-   `PMIC/RDX abnormal reset before the observation window is FAIL`
-   `S10B0 HIT means cmd_db appears in /proc/modules under native-init`
-   `S10B0 MISS means cmd_db never appears or /proc/modules cannot be trusted there`
-   `cmd_db`
-   `cmd_db`
-   `qcom_rpmh`
-   `gcc_waipio`
-   `pinctrl_waipio`
-   `qcom_pdc`
-   `i2c_msm_geni`
-   `mfd_max77705`
-   `pdic_max77705`
    **Consumed exception (2026-07-09, S22+ M34 S10A module-load
    download-beacon boot-only live gate):** this one-shot exception was consumed
    by the 2026-07-09 KST live run. It flashed the pinned M34 S10A boot-only
