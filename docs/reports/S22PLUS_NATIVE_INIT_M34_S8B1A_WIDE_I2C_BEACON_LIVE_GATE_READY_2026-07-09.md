@@ -7,7 +7,7 @@ unit, and no active `AGENTS.md` live authorization was inserted.
 
 The operator separately observed that the device is not in a bootloop. Current
 read-only ADB prelive packet generation also passed on Android serial
-`RFCT519XWGK`.
+`<S22_SERIAL_REDACTED>`.
 
 ## Helper
 
@@ -114,13 +114,13 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m unittest \
 
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   workspace/public/src/scripts/revalidation/s22plus_m34_s8b1a_wide_i2c_beacon_live_gate.py \
-  --prelive-packet --serial RFCT519XWGK
+  --prelive-packet --serial <S22_SERIAL_REDACTED>
 
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   workspace/public/src/scripts/revalidation/s22plus_m34_s8b1a_wide_i2c_beacon_live_gate.py \
   --verify-prelive-packet \
   workspace/private/runs/s22plus_m34_s8b1a_wide_i2c_beacon_live_gate_20260709T083307Z/s22plus_m34_s8b1a_prelive_packet.json \
-  --serial RFCT519XWGK
+  --serial <S22_SERIAL_REDACTED>
 ```
 
 Result:
