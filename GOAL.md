@@ -4,6 +4,29 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **🎯 OPERATOR STEER (2026-07-09, Claude — ROOT CAUSE FOUND via live devlink walk): B1=MISS BECAUSE THE ENTIRE FOUNDATIONAL SoC SUBSTRATE IS MISSING. WE READ THE modules.dep SYMBOL GRAPH; DEVICE PROBE NEEDS THE DT PHANDLE-SUPPLIER GRAPH. S9 = LOAD THE DEVLINK-CLOSURE SUBSTRATE, THEN RE-RUN B1.**
+> Walked the live stock kernel's device-link graph (`/sys/devices/virtual/devlink/`,
+> 859 edges) for the transitive supplier closure of `{994000.i2c, a600000.dwc3,
+> a600000.ssusb, max77705@57-0066}` = 18 devices. Backing drivers, **cross-checked vs
+> our S8B1 set — ALL MISSING except gpi**: `gcc-waipio` (GCC clocks: i2c se-clk/m-ahb/
+> s-ahb + ssusb), `waipio-pinctrl` (TLMM: i2c SDA/SCL mux), `gdsc` (USB3 power domain),
+> `qnoc-waipio` ×3 (interconnect/NoC votes), `arm-smmu` (dwc3 IOMMU), `qcom-pdc` (wakeup
+> IRQ), `clk-rpmh`+`rpmh-regulator` (RPMh clocks/regulators). i2c_msm_geni loads, finds
+> NO clocks/pinctrl → deferred-probe forever → bus never comes up → max77705 never
+> instantiates → port0 absent → **B1 MISS.** These are `clocks=<&gcc>`/`pinctrl-0=<&tlmm>`
+> phandle refs = INVISIBLE to modules.dep (why we kept missing them; same trap as M5/S7A,
+> now at the foundation). **S9 = map each closure driver → vendor .ko (verify module vs
+> GKI-built-in; only load modules), load the substrate BEFORE msm-geni-se/i2c-msm-geni/
+> producers in modules.dep order, keep watchdog(M31B) + mode=peripheral + minimal ss_acm +
+> soft_connect OFF, then RE-RUN B1.** The closure is bounded + self-excludes display/wlan/
+> thermal (not USB suppliers) → M6 watchdog-bootloop class does NOT return (and watchdog is
+> solved anyway). This is why curated-subset kept failing: it was an M6-workaround, but M6's
+> real cause (watchdog) is fixed, so load the full substrate closure like stock first-stage.
+> SAFETY: gdsc/rpmh-regulator/interconnect are DRIVER loads (auto-manage domains via genpd/
+> regulator/icc frameworks as stock does) = NOT the bright-line manual PMIC/GDSC/rail write;
+> S9 must still hand-write no charge/OTG/rail knobs — flag at gate. Full analysis:
+> `docs/reports/S22PLUS_M34_S9_DEVLINK_SUPPLIER_CLOSURE_THE_MISSING_SUBSTRATE_2026-07-09.md`.
+
 > **🎯 OPERATOR STEER (2026-07-09, Claude — operator-approved METHODOLOGY PIVOT): STOP BLIND-FLASHING THE SESSION CHAIN. S8 = USE THE PROVEN download-beacon AS A 1-BIT STATE PROBE TO BISECT WHICH LINK BREAKS. DO THIS BEFORE ANY MORE MODULE ADDS OR THE S7B DESCRIPTOR PIVOT.**
 > S4→S5→S6→S7A→S7A2 = FIVE flashes, all "survived / no 04e8:*", each a blind guess
 > at one link of `i2c bus → max77705 probe → CC detect → port0-partner → data_role=device
