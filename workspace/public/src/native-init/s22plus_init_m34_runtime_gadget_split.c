@@ -24,7 +24,9 @@
  * B1 beacon, pins the resolved Waipio devlink supplier load-set, and adds the
  * missing provider modules before GENI I2C/max77705 probing. Stage 10A keeps
  * the S9 module recipe and uses /proc/modules as a one-bit module-load beacon
- * before probing more downstream TypeC state. S1..S7A2 remain
+ * before probing more downstream TypeC state. Stage 10B0..10B6 split that
+ * all-core check into prefix predicates to identify the first missing module
+ * or module-load boundary. S1..S7A2 remain
  * direct-PID1 park candidates with no Android handoff, no reboot request, no
  * persistent mount, and no block writes.
  */
@@ -112,7 +114,9 @@ struct sbuf {
 };
 
 static const char k_marker[] =
-#if M34_STAGE == 12
+#if M34_STAGE >= 13 && M34_STAGE <= 19
+    M34_MARKER " version=0.10 pid1=direct runtime=freestanding raw_syscalls=1 "
+#elif M34_STAGE == 12
     M34_MARKER " version=0.9 pid1=direct runtime=freestanding raw_syscalls=1 "
 #elif M34_STAGE >= 9
     M34_MARKER " version=0.8 pid1=direct runtime=freestanding raw_syscalls=1 "
@@ -146,6 +150,20 @@ static const char k_marker[] =
     "configfs_gadget=0 stock_order=0 udc_none=0 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=0 functionfs=0 stock_composite=0 geni_i2c_transport=1 i2c_msm_geni=1 gpi_dma=1 msm_geni_se=1 role_write_discriminator=0 s8_beacon_probe=typec_port_or_i2c_any_0066 s9_b1=1 devlink_supplier_closure=1 substrate_load_set=waipio_devlink clk_qcom=1 qcom_rpmh=1 icc_rpmh=1 icc_bcm_voter=1 gcc_waipio=1 clk_rpmh=1 rpmh_regulator=1 gdsc_regulator=1 qnoc_waipio=1 arm_smmu=1 qcom_pdc=1 pinctrl_msm=1 pinctrl_waipio=1 driver_load_only=1 manual_power_write=0 "
 #elif M34_STAGE == 12
     "configfs_gadget=0 stock_order=0 udc_none=0 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=0 functionfs=0 stock_composite=0 geni_i2c_transport=1 i2c_msm_geni=1 gpi_dma=1 msm_geni_se=1 role_write_discriminator=0 s10a_module_load_probe=1 module_load_probe=proc_modules_core_loaded proc_modules=1 core_module_count=8 expected=8 core_modules=cmd_db,qcom_rpmh,gcc_waipio,pinctrl_waipio,qcom_pdc,i2c_msm_geni,mfd_max77705,pdic_max77705 devlink_supplier_closure=1 substrate_load_set=waipio_devlink both_graphs_closure=1 clk_qcom=1 qcom_rpmh=1 icc_rpmh=1 icc_bcm_voter=1 gcc_waipio=1 clk_rpmh=1 rpmh_regulator=1 gdsc_regulator=1 qnoc_waipio=1 arm_smmu=1 qcom_pdc=1 pinctrl_msm=1 pinctrl_waipio=1 cmd_db=1 smem=1 qcom_scm=1 qcom_ipc_logging=1 driver_load_only=1 manual_power_write=0 "
+#elif M34_STAGE == 13
+    "configfs_gadget=0 stock_order=0 udc_none=0 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=0 functionfs=0 stock_composite=0 geni_i2c_transport=1 i2c_msm_geni=1 gpi_dma=1 msm_geni_se=1 role_write_discriminator=0 s10b_module_load_prefix_probe=1 module_load_probe=proc_modules_prefix_1 proc_modules=1 s10b_ladder=1 prefix_index=0 prefix_expected=1 prefix_modules=cmd_db devlink_supplier_closure=1 substrate_load_set=waipio_devlink both_graphs_closure=1 clk_qcom=1 qcom_rpmh=1 icc_rpmh=1 icc_bcm_voter=1 gcc_waipio=1 clk_rpmh=1 rpmh_regulator=1 gdsc_regulator=1 qnoc_waipio=1 arm_smmu=1 qcom_pdc=1 pinctrl_msm=1 pinctrl_waipio=1 cmd_db=1 smem=1 qcom_scm=1 qcom_ipc_logging=1 driver_load_only=1 manual_power_write=0 "
+#elif M34_STAGE == 14
+    "configfs_gadget=0 stock_order=0 udc_none=0 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=0 functionfs=0 stock_composite=0 geni_i2c_transport=1 i2c_msm_geni=1 gpi_dma=1 msm_geni_se=1 role_write_discriminator=0 s10b_module_load_prefix_probe=1 module_load_probe=proc_modules_prefix_2 proc_modules=1 s10b_ladder=1 prefix_index=1 prefix_expected=2 prefix_modules=cmd_db,qcom_rpmh devlink_supplier_closure=1 substrate_load_set=waipio_devlink both_graphs_closure=1 clk_qcom=1 qcom_rpmh=1 icc_rpmh=1 icc_bcm_voter=1 gcc_waipio=1 clk_rpmh=1 rpmh_regulator=1 gdsc_regulator=1 qnoc_waipio=1 arm_smmu=1 qcom_pdc=1 pinctrl_msm=1 pinctrl_waipio=1 cmd_db=1 smem=1 qcom_scm=1 qcom_ipc_logging=1 driver_load_only=1 manual_power_write=0 "
+#elif M34_STAGE == 15
+    "configfs_gadget=0 stock_order=0 udc_none=0 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=0 functionfs=0 stock_composite=0 geni_i2c_transport=1 i2c_msm_geni=1 gpi_dma=1 msm_geni_se=1 role_write_discriminator=0 s10b_module_load_prefix_probe=1 module_load_probe=proc_modules_prefix_3 proc_modules=1 s10b_ladder=1 prefix_index=2 prefix_expected=3 prefix_modules=cmd_db,qcom_rpmh,gcc_waipio devlink_supplier_closure=1 substrate_load_set=waipio_devlink both_graphs_closure=1 clk_qcom=1 qcom_rpmh=1 icc_rpmh=1 icc_bcm_voter=1 gcc_waipio=1 clk_rpmh=1 rpmh_regulator=1 gdsc_regulator=1 qnoc_waipio=1 arm_smmu=1 qcom_pdc=1 pinctrl_msm=1 pinctrl_waipio=1 cmd_db=1 smem=1 qcom_scm=1 qcom_ipc_logging=1 driver_load_only=1 manual_power_write=0 "
+#elif M34_STAGE == 16
+    "configfs_gadget=0 stock_order=0 udc_none=0 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=0 functionfs=0 stock_composite=0 geni_i2c_transport=1 i2c_msm_geni=1 gpi_dma=1 msm_geni_se=1 role_write_discriminator=0 s10b_module_load_prefix_probe=1 module_load_probe=proc_modules_prefix_5 proc_modules=1 s10b_ladder=1 prefix_index=3 prefix_expected=5 prefix_modules=cmd_db,qcom_rpmh,gcc_waipio,pinctrl_waipio,qcom_pdc devlink_supplier_closure=1 substrate_load_set=waipio_devlink both_graphs_closure=1 clk_qcom=1 qcom_rpmh=1 icc_rpmh=1 icc_bcm_voter=1 gcc_waipio=1 clk_rpmh=1 rpmh_regulator=1 gdsc_regulator=1 qnoc_waipio=1 arm_smmu=1 qcom_pdc=1 pinctrl_msm=1 pinctrl_waipio=1 cmd_db=1 smem=1 qcom_scm=1 qcom_ipc_logging=1 driver_load_only=1 manual_power_write=0 "
+#elif M34_STAGE == 17
+    "configfs_gadget=0 stock_order=0 udc_none=0 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=0 functionfs=0 stock_composite=0 geni_i2c_transport=1 i2c_msm_geni=1 gpi_dma=1 msm_geni_se=1 role_write_discriminator=0 s10b_module_load_prefix_probe=1 module_load_probe=proc_modules_prefix_6 proc_modules=1 s10b_ladder=1 prefix_index=4 prefix_expected=6 prefix_modules=cmd_db,qcom_rpmh,gcc_waipio,pinctrl_waipio,qcom_pdc,i2c_msm_geni devlink_supplier_closure=1 substrate_load_set=waipio_devlink both_graphs_closure=1 clk_qcom=1 qcom_rpmh=1 icc_rpmh=1 icc_bcm_voter=1 gcc_waipio=1 clk_rpmh=1 rpmh_regulator=1 gdsc_regulator=1 qnoc_waipio=1 arm_smmu=1 qcom_pdc=1 pinctrl_msm=1 pinctrl_waipio=1 cmd_db=1 smem=1 qcom_scm=1 qcom_ipc_logging=1 driver_load_only=1 manual_power_write=0 "
+#elif M34_STAGE == 18
+    "configfs_gadget=0 stock_order=0 udc_none=0 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=0 functionfs=0 stock_composite=0 geni_i2c_transport=1 i2c_msm_geni=1 gpi_dma=1 msm_geni_se=1 role_write_discriminator=0 s10b_module_load_prefix_probe=1 module_load_probe=proc_modules_prefix_7 proc_modules=1 s10b_ladder=1 prefix_index=5 prefix_expected=7 prefix_modules=cmd_db,qcom_rpmh,gcc_waipio,pinctrl_waipio,qcom_pdc,i2c_msm_geni,mfd_max77705 devlink_supplier_closure=1 substrate_load_set=waipio_devlink both_graphs_closure=1 clk_qcom=1 qcom_rpmh=1 icc_rpmh=1 icc_bcm_voter=1 gcc_waipio=1 clk_rpmh=1 rpmh_regulator=1 gdsc_regulator=1 qnoc_waipio=1 arm_smmu=1 qcom_pdc=1 pinctrl_msm=1 pinctrl_waipio=1 cmd_db=1 smem=1 qcom_scm=1 qcom_ipc_logging=1 driver_load_only=1 manual_power_write=0 "
+#elif M34_STAGE == 19
+    "configfs_gadget=0 stock_order=0 udc_none=0 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=0 functionfs=0 stock_composite=0 geni_i2c_transport=1 i2c_msm_geni=1 gpi_dma=1 msm_geni_se=1 role_write_discriminator=0 s10b_module_load_prefix_probe=1 module_load_probe=proc_modules_prefix_8 proc_modules=1 s10b_ladder=1 prefix_index=6 prefix_expected=8 prefix_modules=cmd_db,qcom_rpmh,gcc_waipio,pinctrl_waipio,qcom_pdc,i2c_msm_geni,mfd_max77705,pdic_max77705 devlink_supplier_closure=1 substrate_load_set=waipio_devlink both_graphs_closure=1 clk_qcom=1 qcom_rpmh=1 icc_rpmh=1 icc_bcm_voter=1 gcc_waipio=1 clk_rpmh=1 rpmh_regulator=1 gdsc_regulator=1 qnoc_waipio=1 arm_smmu=1 qcom_pdc=1 pinctrl_msm=1 pinctrl_waipio=1 cmd_db=1 smem=1 qcom_scm=1 qcom_ipc_logging=1 driver_load_only=1 manual_power_write=0 "
 #endif
 #if M34_STAGE >= 9
     "no_android_handoff=1 reboot_request=download download_beacon=1 "
@@ -541,7 +559,7 @@ static int s8_b1a_typec_port_or_i2c_any_0066_present(void) {
 #endif
 #endif
 
-#if M34_STAGE == 12
+#if M34_STAGE == 12 || (M34_STAGE >= 13 && M34_STAGE <= 19)
 #define S10A_PROC_MODULES_EXPECTED 8U
 
 static int module_line_starts_with(const char *line, const char *name) {
@@ -582,7 +600,9 @@ static int proc_modules_has(const char *name) {
     }
     return 0;
 }
+#endif
 
+#if M34_STAGE == 12
 static unsigned int s10a_core_modules_loaded_count(void) {
     unsigned int count = 0;
     count += proc_modules_has("cmd_db") ? 1U : 0U;
@@ -627,6 +647,102 @@ static void s10a_module_load_probe(void) {
         struct sbuf rb = {.data = {0}, .len = 0};
         sb_puts(&rb, M34_MARKER);
         sb_puts(&rb, " phase=s10a_module_load_reboot_returned rc=");
+        sb_put_i64(&rb, rc);
+        sb_putc(&rb, '\n');
+        emit_buf(&rb);
+    }
+}
+#endif
+
+#if M34_STAGE >= 13 && M34_STAGE <= 19
+#if M34_STAGE == 13
+#define S10B_PREFIX_INDEX 0U
+#define S10B_PROC_MODULES_EXPECTED 1U
+#define S10B_PREFIX_MODULES "cmd_db"
+#elif M34_STAGE == 14
+#define S10B_PREFIX_INDEX 1U
+#define S10B_PROC_MODULES_EXPECTED 2U
+#define S10B_PREFIX_MODULES "cmd_db,qcom_rpmh"
+#elif M34_STAGE == 15
+#define S10B_PREFIX_INDEX 2U
+#define S10B_PROC_MODULES_EXPECTED 3U
+#define S10B_PREFIX_MODULES "cmd_db,qcom_rpmh,gcc_waipio"
+#elif M34_STAGE == 16
+#define S10B_PREFIX_INDEX 3U
+#define S10B_PROC_MODULES_EXPECTED 5U
+#define S10B_PREFIX_MODULES "cmd_db,qcom_rpmh,gcc_waipio,pinctrl_waipio,qcom_pdc"
+#elif M34_STAGE == 17
+#define S10B_PREFIX_INDEX 4U
+#define S10B_PROC_MODULES_EXPECTED 6U
+#define S10B_PREFIX_MODULES "cmd_db,qcom_rpmh,gcc_waipio,pinctrl_waipio,qcom_pdc,i2c_msm_geni"
+#elif M34_STAGE == 18
+#define S10B_PREFIX_INDEX 5U
+#define S10B_PROC_MODULES_EXPECTED 7U
+#define S10B_PREFIX_MODULES "cmd_db,qcom_rpmh,gcc_waipio,pinctrl_waipio,qcom_pdc,i2c_msm_geni,mfd_max77705"
+#elif M34_STAGE == 19
+#define S10B_PREFIX_INDEX 6U
+#define S10B_PROC_MODULES_EXPECTED 8U
+#define S10B_PREFIX_MODULES "cmd_db,qcom_rpmh,gcc_waipio,pinctrl_waipio,qcom_pdc,i2c_msm_geni,mfd_max77705,pdic_max77705"
+#endif
+
+static unsigned int s10b_prefix_modules_loaded_count(void) {
+    unsigned int count = 0;
+    count += proc_modules_has("cmd_db") ? 1U : 0U;
+#if M34_STAGE >= 14
+    count += proc_modules_has("qcom_rpmh") ? 1U : 0U;
+#endif
+#if M34_STAGE >= 15
+    count += proc_modules_has("gcc_waipio") ? 1U : 0U;
+#endif
+#if M34_STAGE >= 16
+    count += proc_modules_has("pinctrl_waipio") ? 1U : 0U;
+    count += proc_modules_has("qcom_pdc") ? 1U : 0U;
+#endif
+#if M34_STAGE >= 17
+    count += proc_modules_has("i2c_msm_geni") ? 1U : 0U;
+#endif
+#if M34_STAGE >= 18
+    count += proc_modules_has("mfd_max77705") ? 1U : 0U;
+#endif
+#if M34_STAGE >= 19
+    count += proc_modules_has("pdic_max77705") ? 1U : 0U;
+#endif
+    return count;
+}
+
+static void s10b_module_load_prefix_probe(void) {
+    unsigned int loaded = 0;
+    unsigned int present = 0;
+    unsigned int waited = 0;
+    for (; waited < 10; ++waited) {
+        loaded = s10b_prefix_modules_loaded_count();
+        if (loaded == S10B_PROC_MODULES_EXPECTED) {
+            present = 1;
+            break;
+        }
+        (void)sys_sleep_sec(1);
+    }
+
+    struct sbuf sb = {.data = {0}, .len = 0};
+    sb_puts(&sb, M34_MARKER);
+    sb_puts(&sb, " phase=s10b_module_load_prefix_probe predicate=proc_modules_prefix present=");
+    sb_put_u64(&sb, present ? 1U : 0U);
+    sb_puts(&sb, " loaded_count=");
+    sb_put_u64(&sb, loaded);
+    sb_puts(&sb, " expected=");
+    sb_put_u64(&sb, S10B_PROC_MODULES_EXPECTED);
+    sb_puts(&sb, " prefix_index=");
+    sb_put_u64(&sb, S10B_PREFIX_INDEX);
+    sb_puts(&sb, " waited_sec=");
+    sb_put_u64(&sb, waited);
+    sb_puts(&sb, " modules=" S10B_PREFIX_MODULES " true_action=reboot_download false_action=park\n");
+    emit_buf(&sb);
+
+    if (present) {
+        long rc = sys_reboot_download();
+        struct sbuf rb = {.data = {0}, .len = 0};
+        sb_puts(&rb, M34_MARKER);
+        sb_puts(&rb, " phase=s10b_module_load_reboot_returned rc=");
         sb_put_i64(&rb, rc);
         sb_putc(&rb, '\n');
         emit_buf(&rb);
@@ -1081,6 +1197,9 @@ __attribute__((noreturn)) void _start(void) {
     load_modules_from_list();
 #if M34_STAGE == 12
     s10a_module_load_probe();
+    park_forever();
+#elif M34_STAGE >= 13 && M34_STAGE <= 19
+    s10b_module_load_prefix_probe();
     park_forever();
 #elif M34_STAGE >= 9
     s8_beacon_probe();

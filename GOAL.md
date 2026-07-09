@@ -4,6 +4,40 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 19:19 KST / 2026-07-09 10:19 UTC) — M34 S10B MODULE-LOAD PREFIX LADDER HOST BUILD COMPLETE; NEXT S10B0; NO ACTIVE LIVE AUTH.**
+> Codex added and host-built M34 `S10B0`..`S10B6` in
+> `workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_12/`.
+> These candidates keep the same S9/S10A 89-module recipe and split S10A's
+> all-core `/proc/modules` predicate into prefix predicates:
+> `S10B0=cmd_db`, `S10B1=cmd_db+qcom_rpmh`,
+> `S10B2=+gcc_waipio`, `S10B3=+pinctrl_waipio+qcom_pdc`,
+> `S10B4=+i2c_msm_geni`, `S10B5=+mfd_max77705`, and
+> `S10B6=+pdic_max77705`. Predicate true requests the same
+> `reboot(download)` beacon; predicate false parks.
+>
+> Shared module-list SHA256:
+> `c07425f4c738b53822e9f6783a142a2b5eafd72a15bd34c06fb3b49357c8fe26`.
+> Template source SHA256:
+> `6ac888ddf29e559a9a9b7522eda4edd54c5a38264782dddd2bd5c80d6d8e21a6`.
+> S10A stayed byte-stable in v0.12. S10B AP.tar.md5 SHA256s:
+> `S10B0=c117d8789b4ed990afd047ef3a6bb8d32f0b7b5d76bdce58eecf8ae98725d47c`,
+> `S10B1=eae1397e027039f081f0a2bc4e24289493a813ed4c7cd8c764041d43c6049119`,
+> `S10B2=ca9dec63b6e039a85d15a0c50720bc59ca6bbb69048e51ccb66a6fd20de62a84`,
+> `S10B3=cb0290e3d1c361ad5cf019a940f58095832a795417f6e54710425f37270af49a`,
+> `S10B4=97a6fed0b09cabab746f6a1409659d7d6e12adc2385373d283e589a7eb5cc15f`,
+> `S10B5=567643284f71b1e66f4827eddf5c827222990df31a779b42067a236157acdf09`,
+> `S10B6=bd4b25f28a64b8f65f7f7cec3393a7679362412af9c02d2e3f1848e207610282`.
+>
+> Validation passed: S10B0/S10B6 smoke build, full v0.12 host build,
+> `tests/test_s22plus_m34_runtime_gadget_split_build.py` (`Ran 5`, `OK`), and
+> builder `py_compile`. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S10B_MODULE_LOAD_PREFIX_LADDER_HOST_BUILD_2026-07-09.md`.
+>
+> Next: author a fail-closed S10B0 live gate or extend the S10A helper for a
+> single selected S10B stage, then add a fresh SHA-pinned `AGENTS.md` boot-only
+> exception, default dry-run, rollback proof, and explicit operator approval.
+> Do not flash S10B yet; no active live authorization exists.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 19:01 KST / 2026-07-09 10:01 UTC) — M34 S10A MODULE-LOAD BEACON LIVE CONSUMED; MISS; MAGISK ROLLBACK CLEAN; NO ACTIVE LIVE AUTH.**
 > After explicit operator live approval, Codex built M34 `S10A` from the same
 > S9 89-module recipe but changed the one-bit beacon to check `/proc/modules`

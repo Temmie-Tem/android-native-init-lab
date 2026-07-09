@@ -7,7 +7,9 @@ from pathlib import Path
 
 SCRIPT = Path("workspace/public/src/scripts/revalidation/build_s22plus_m34_runtime_gadget_split.py")
 SOURCE = Path("workspace/public/src/native-init/s22plus_init_m34_runtime_gadget_split.c")
-MANIFEST = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_11/manifest.json")
+MANIFEST = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_12/manifest.json")
+S10B_LABELS = ["S10B0", "S10B1", "S10B2", "S10B3", "S10B4", "S10B5", "S10B6"]
+STAGE_LABELS = ["S1", "S2", "S3", "S4", "S5", "S6", "S7A", "S7A2", "S8B1", "S8B1A", "S9", "S10A", *S10B_LABELS]
 
 
 def load_module():
@@ -28,8 +30,8 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
 
     def test_stage_matrix_is_incremental_runtime_gadget_split(self):
         stages = self.module.STAGES
-        self.assertEqual([stage.label for stage in stages], ["S1", "S2", "S3", "S4", "S5", "S6", "S7A", "S7A2", "S8B1", "S8B1A", "S9", "S10A"])
-        self.assertEqual([stage.number for stage in stages], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+        self.assertEqual([stage.label for stage in stages], STAGE_LABELS)
+        self.assertEqual([stage.number for stage in stages], list(range(1, 20)))
         self.assertEqual(self.module.MARKER_PREFIX, "S22_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT")
 
         by_label = {stage.label: stage for stage in stages}
@@ -194,6 +196,45 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         self.assertIsNone(by_label["S10A"].beacon_probe)
         self.assertEqual(by_label["S10A"].module_load_probe, "proc_modules_core_loaded")
         self.assertTrue(by_label["S10A"].devlink_supplier_closure)
+        self.assertEqual(
+            self.module.M34_S10B_PROC_MODULE_PREFIXES,
+            [
+                ("S10B0", 13, ["cmd_db"]),
+                ("S10B1", 14, ["cmd_db", "qcom_rpmh"]),
+                ("S10B2", 15, ["cmd_db", "qcom_rpmh", "gcc_waipio"]),
+                ("S10B3", 16, ["cmd_db", "qcom_rpmh", "gcc_waipio", "pinctrl_waipio", "qcom_pdc"]),
+                ("S10B4", 17, ["cmd_db", "qcom_rpmh", "gcc_waipio", "pinctrl_waipio", "qcom_pdc", "i2c_msm_geni"]),
+                (
+                    "S10B5",
+                    18,
+                    ["cmd_db", "qcom_rpmh", "gcc_waipio", "pinctrl_waipio", "qcom_pdc", "i2c_msm_geni", "mfd_max77705"],
+                ),
+                ("S10B6", 19, self.module.M34_S10A_PROC_MODULES_CORE_NAMES),
+            ],
+        )
+        for label, number, modules in self.module.M34_S10B_PROC_MODULE_PREFIXES:
+            stage = by_label[label]
+            self.assertEqual(stage.number, number)
+            self.assertFalse(stage.configfs_gadget)
+            self.assertFalse(stage.udc_none)
+            self.assertFalse(stage.max_speed_high_speed)
+            self.assertFalse(stage.usb_role_force)
+            self.assertFalse(stage.ssusb_speed_high_speed)
+            self.assertFalse(stage.ssusb_mode_peripheral)
+            self.assertFalse(stage.udc_bind)
+            self.assertFalse(stage.soft_connect)
+            self.assertTrue(stage.stock_softdep_parity)
+            self.assertTrue(stage.qmp_module_included)
+            self.assertTrue(stage.eud_module_included)
+            self.assertTrue(stage.ucsi_glink_included)
+            self.assertTrue(stage.session_producer_parity)
+            self.assertTrue(stage.max77705_session_modules_included)
+            self.assertFalse(stage.typec_readback_markers)
+            self.assertTrue(stage.geni_i2c_transport_parity)
+            self.assertFalse(stage.typec_role_write_discriminator)
+            self.assertIsNone(stage.beacon_probe)
+            self.assertEqual(stage.module_load_probe, f"proc_modules_prefix_{len(modules)}")
+            self.assertTrue(stage.devlink_supplier_closure)
 
     def test_source_has_stage_guards_and_no_unintended_reboot_syscall(self):
         text = SOURCE.read_text(encoding="utf-8")
@@ -208,6 +249,7 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         self.assertIn("#elif M34_STAGE == 10", text)
         self.assertIn("#elif M34_STAGE == 11", text)
         self.assertIn("#elif M34_STAGE == 12", text)
+        self.assertIn("#elif M34_STAGE >= 13 && M34_STAGE <= 19", text)
         self.assertIn("create_configfs_gadget", text)
         self.assertIn("force_usb_roles_device", text)
         self.assertIn("set_ssusb_speed_high_speed", text)
@@ -238,7 +280,10 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         self.assertIn("s8_b1a_typec_port_or_i2c_any_0066_present", text)
         self.assertIn("phase=s9_b1_probe", text)
         self.assertIn("phase=s10a_module_load_probe", text)
+        self.assertIn("phase=s10b_module_load_prefix_probe", text)
         self.assertIn("proc_modules_core_loaded", text)
+        self.assertIn("proc_modules_prefix", text)
+        self.assertIn("S10B_PREFIX_MODULES", text)
         self.assertIn("/proc/modules", text)
         self.assertIn("cmd_db,qcom_rpmh,gcc_waipio,pinctrl_waipio,qcom_pdc,i2c_msm_geni,mfd_max77705,pdic_max77705", text)
         self.assertIn("devlink_supplier_closure=1", text)
@@ -289,11 +334,11 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
     def test_current_manifest_is_host_only_boot_only_stage_matrix(self):
         manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
         self.assertEqual(manifest["target"], "SM-S906N/g0q/S906NKSS7FYG8")
-        self.assertEqual([stage["label"] for stage in manifest["stages"]], ["S1", "S2", "S3", "S4", "S5", "S6", "S7A", "S7A2", "S8B1", "S8B1A", "S9", "S10A"])
+        self.assertEqual([stage["label"] for stage in manifest["stages"]], STAGE_LABELS)
         self.assertTrue(manifest["matrix"]["p30_is_s0"])
         self.assertEqual(manifest["matrix"]["live_order"], ["S1", "S2", "S3", "S4", "S5", "S6"])
-        self.assertEqual(manifest["matrix"]["host_build_order"], ["S1", "S2", "S3", "S4", "S5", "S6", "S7A", "S7A2", "S8B1", "S8B1A", "S9", "S10A"])
-        self.assertEqual(manifest["matrix"]["next_host_only_candidate"], "S10A")
+        self.assertEqual(manifest["matrix"]["host_build_order"], STAGE_LABELS)
+        self.assertEqual(manifest["matrix"]["next_host_only_candidate"], "S10B0")
         self.assertTrue(manifest["matrix"]["module_closure_matches_p30_and_m32_for_s1_s5"])
         self.assertTrue(manifest["matrix"]["s6_module_closure_restores_stock_dwc3_softdep"])
         self.assertEqual(
@@ -338,6 +383,23 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         self.assertTrue(manifest["matrix"]["s10a_starts_from_s9_module_recipe"])
         self.assertTrue(manifest["matrix"]["s10a_separates_module_load_from_probe_bind_failure"])
         self.assertTrue(manifest["matrix"]["s10a_skips_downstream_configfs_and_udc_to_isolate_module_load"])
+        expected_s10b_ladder = [
+            {
+                "label": label,
+                "stage_number": number,
+                "module_load_probe": f"proc_modules_prefix_{len(modules)}",
+                "prefix_index": index,
+                "prefix_expected": len(modules),
+                "prefix_modules": modules,
+            }
+            for index, (label, number, modules) in enumerate(self.module.M34_S10B_PROC_MODULE_PREFIXES)
+        ]
+        self.assertEqual(manifest["matrix"]["s10b_module_load_prefix_ladder"], expected_s10b_ladder)
+        self.assertEqual(manifest["matrix"]["s10b_true_action"], "reboot(download)")
+        self.assertEqual(manifest["matrix"]["s10b_false_action"], "park")
+        self.assertTrue(manifest["matrix"]["s10b_starts_from_s9_module_recipe"])
+        self.assertTrue(manifest["matrix"]["s10b_bisects_s10a_all_core_miss"])
+        self.assertTrue(manifest["matrix"]["s10b_skips_downstream_configfs_and_udc_to_isolate_module_load"])
         self.assertFalse(manifest["safety"]["live_flash_authorized"])
         self.assertTrue(manifest["safety"]["requires_new_sha_pinned_agents_exception_before_flash"])
         self.assertTrue(manifest["safety"]["requires_s7a_specific_live_risk_review"])
@@ -396,6 +458,12 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         self.assertTrue(manifest["safety"]["stage_s10a_no_configfs_udc_or_role_write"])
         self.assertTrue(manifest["safety"]["stage_s10a_driver_load_only_no_manual_power_write"])
         self.assertTrue(manifest["safety"]["stage_s10a_separates_module_load_from_probe_bind_failure"])
+        self.assertTrue(manifest["safety"]["stage_s10b_starts_from_s9_module_recipe"])
+        self.assertEqual(manifest["safety"]["stage_s10b_module_load_prefix_ladder"], expected_s10b_ladder)
+        self.assertTrue(manifest["safety"]["stage_s10b_true_reboot_download_false_park"])
+        self.assertTrue(manifest["safety"]["stage_s10b_no_configfs_udc_or_role_write"])
+        self.assertTrue(manifest["safety"]["stage_s10b_driver_load_only_no_manual_power_write"])
+        self.assertTrue(manifest["safety"]["stage_s10b_bisects_s10a_all_core_miss"])
 
         by_label = {stage["label"]: stage for stage in manifest["stages"]}
         self.assertEqual(
@@ -686,6 +754,31 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
                 "module_load_probe": "proc_modules_core_loaded",
             },
         )
+        for label, _number, modules in self.module.M34_S10B_PROC_MODULE_PREFIXES:
+            self.assertEqual(
+                by_label[label]["runtime_steps"],
+                {
+                    "configfs_gadget": False,
+                    "udc_none": False,
+                    "max_speed_high_speed": False,
+                    "usb_role_force": False,
+                    "ssusb_speed_high_speed": False,
+                    "ssusb_mode_peripheral": False,
+                    "udc_bind": False,
+                    "soft_connect": False,
+                    "stock_softdep_parity": True,
+                    "qmp_module_included": True,
+                    "eud_module_included": True,
+                    "ucsi_glink_included": True,
+                    "session_producer_parity": True,
+                    "max77705_session_modules_included": True,
+                    "typec_readback_markers": False,
+                    "geni_i2c_transport_parity": True,
+                    "typec_role_write_discriminator": False,
+                    "beacon_probe": None,
+                    "module_load_probe": f"proc_modules_prefix_{len(modules)}",
+                },
+            )
         for stage in manifest["stages"]:
             self.assertEqual(stage["tar_members"], ["boot.img.lz4"])
             if stage["label"] == "S6":
@@ -757,7 +850,7 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
                 self.assertTrue(stage["closure"]["contains_sec_debug_region"])
                 self.assertTrue(stage["closure"]["requires_live_risk_review"])
                 self.assertIn("sec_debug_region.ko", stage["closure"]["risk_modules"])
-            elif stage["label"] in ("S9", "S10A"):
+            elif stage["label"] in ("S9", "S10A", *S10B_LABELS):
                 self.assertEqual(stage["closure"]["module_count"], 89)
                 self.assertEqual(stage["closure"]["geni_i2c_transport_targets"], ["gpi.ko", "msm-geni-se.ko", "i2c-msm-geni.ko"])
                 self.assertEqual(stage["closure"]["geni_i2c_transport_order_actual"], ["msm-geni-se.ko", "gpi.ko", "i2c-msm-geni.ko"])
@@ -1108,6 +1201,67 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         self.assertNotIn("phase=udc_bind", s10a_required)
         self.assertNotIn("/sys/class/udc/a600000.dwc3/soft_connect", s10a_required)
         self.assertNotIn("phase=typec_role_write", s10a_required)
+        for index, (label, _number, modules) in enumerate(self.module.M34_S10B_PROC_MODULE_PREFIXES):
+            required = set(by_label[label]["init"]["required_strings"])
+            modules_csv = ",".join(modules)
+            self.assertIn("version=0.10", required)
+            self.assertIn("configfs_gadget=0", required)
+            self.assertIn("stock_order=0", required)
+            self.assertIn("udc_none=0", required)
+            self.assertIn("udc_bind=0", required)
+            self.assertIn("role_force=0", required)
+            self.assertIn("typec_readback=0", required)
+            self.assertIn("role_write_discriminator=0", required)
+            self.assertIn("session_producer_parity=1", required)
+            self.assertIn("max77705_session=1", required)
+            self.assertIn("geni_i2c_transport=1", required)
+            self.assertIn("devlink_supplier_closure=1", required)
+            self.assertIn("both_graphs_closure=1", required)
+            self.assertIn(f"module_load_probe=proc_modules_prefix_{len(modules)}", required)
+            self.assertIn("s10b_module_load_prefix_probe=1", required)
+            self.assertIn("proc_modules=1", required)
+            self.assertIn("s10b_ladder=1", required)
+            self.assertIn(f"prefix_index={index}", required)
+            self.assertIn(f"prefix_expected={len(modules)}", required)
+            self.assertIn(f"prefix_modules={modules_csv}", required)
+            self.assertIn("cmd_db=1", required)
+            self.assertIn("smem=1", required)
+            self.assertIn("qcom_scm=1", required)
+            self.assertIn("qcom_ipc_logging=1", required)
+            self.assertIn("reboot_request=download", required)
+            self.assertIn("download_beacon=1", required)
+            self.assertIn("phase=s10b_module_load_prefix_probe", required)
+            self.assertIn("predicate=proc_modules_prefix", required)
+            self.assertIn("loaded_count=", required)
+            self.assertIn(f"expected={len(modules)}", required)
+            self.assertIn(f"modules={modules_csv}", required)
+            self.assertIn("true_action=reboot_download", required)
+            self.assertIn("false_action=park", required)
+            self.assertIn("phase=s10b_module_load_reboot_returned", required)
+            self.assertIn("/proc/modules", required)
+            self.assertIn("download", required)
+            self.assertNotIn("s10a_module_load_probe=1", required)
+            self.assertNotIn("phase=s10a_module_load_probe", required)
+            self.assertNotIn("predicate=proc_modules_core_loaded", required)
+            self.assertNotIn("s8_beacon_probe=typec_port_or_i2c_any_0066", required)
+            self.assertNotIn("phase=s9_b1_probe", required)
+            self.assertNotIn("phase=s8_b1a_probe", required)
+            self.assertNotIn("/sys/bus/i2c/devices", required)
+            self.assertNotIn("/sys/class/typec/port0", required)
+            self.assertNotIn("/config/usb_gadget/g1/functions/ss_acm.0", required)
+            self.assertNotIn("phase=configfs_done", required)
+            self.assertNotIn("/config/usb_gadget/g1/max_speed", required)
+            self.assertNotIn("phase=max_speed", required)
+            self.assertNotIn("high-speed", required)
+            self.assertNotIn("/sys/class/usb_role", required)
+            self.assertNotIn("/sys/devices/platform/soc/a600000.ssusb/mode", required)
+            self.assertNotIn("phase=ssusb_mode", required)
+            self.assertNotIn("/config/usb_gadget/g1/UDC", required)
+            self.assertNotIn("/sys/class/udc", required)
+            self.assertNotIn("a600000.dwc3", required)
+            self.assertNotIn("phase=udc_bind", required)
+            self.assertNotIn("/sys/class/udc/a600000.dwc3/soft_connect", required)
+            self.assertNotIn("phase=typec_role_write", required)
 
 
 if __name__ == "__main__":

@@ -30,6 +30,9 @@ S9: S8B1A B1 beacon again, but with the resolved Waipio devlink supplier
 S10A: S9 module recipe again, but the 1-bit beacon checks /proc/modules for
       core substrate and max77705 modules, separating module-load failure from
       later driver probe/bind failure.
+S10B0..S10B6: same S9 module recipe again, but split S10A's all-core predicate
+      into prefix predicates so later live runs can identify the first missing
+      module/load-failure boundary instead of only learning "not all 8".
 """
 
 from __future__ import annotations
@@ -69,7 +72,7 @@ from build_s22plus_inplace_m4t1_magiskboot import (
 from build_s22plus_m32_wdt_hs_acm import EXPECTED_M32_MODULES, dependency_complete_wdt_hs_order
 
 
-DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_11")
+DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_12")
 DEFAULT_TEMPLATE_SOURCE = Path("workspace/public/src/native-init/s22plus_init_m34_runtime_gadget_split.c")
 DEFAULT_VENDOR_RAMDISK = m23.DEFAULT_VENDOR_RAMDISK
 DEFAULT_LZ4 = m23.DEFAULT_LZ4
@@ -205,6 +208,22 @@ M34_S10A_PROC_MODULES_CORE_NAMES = [
     "mfd_max77705",
     "pdic_max77705",
 ]
+M34_S10B_PROC_MODULE_PREFIXES = [
+    ("S10B0", 13, ["cmd_db"]),
+    ("S10B1", 14, ["cmd_db", "qcom_rpmh"]),
+    ("S10B2", 15, ["cmd_db", "qcom_rpmh", "gcc_waipio"]),
+    ("S10B3", 16, ["cmd_db", "qcom_rpmh", "gcc_waipio", "pinctrl_waipio", "qcom_pdc"]),
+    ("S10B4", 17, ["cmd_db", "qcom_rpmh", "gcc_waipio", "pinctrl_waipio", "qcom_pdc", "i2c_msm_geni"]),
+    (
+        "S10B5",
+        18,
+        ["cmd_db", "qcom_rpmh", "gcc_waipio", "pinctrl_waipio", "qcom_pdc", "i2c_msm_geni", "mfd_max77705"],
+    ),
+    ("S10B6", 19, list(M34_S10A_PROC_MODULES_CORE_NAMES)),
+]
+M34_S10B_PROC_MODULE_PREFIX_BY_LABEL = {
+    label: modules for label, _number, modules in M34_S10B_PROC_MODULE_PREFIXES
+}
 M34_S7A_RISK_MODULES = [
     "memory_dump_v2.ko",
     "sec_debug_region.ko",
@@ -258,6 +277,47 @@ class RuntimeStage:
     @property
     def init_name(self) -> str:
         return f"s22plus_init_m34_{self.lower}_runtime_gadget_split"
+
+
+def s10b_prefix_modules(stage: RuntimeStage) -> list[str] | None:
+    return M34_S10B_PROC_MODULE_PREFIX_BY_LABEL.get(stage.label)
+
+
+def s10b_prefix_index(stage: RuntimeStage) -> int | None:
+    for index, (label, _number, _modules) in enumerate(M34_S10B_PROC_MODULE_PREFIXES):
+        if stage.label == label:
+            return index
+    return None
+
+
+def s10b_prefix_stage(label: str, number: int, modules: list[str]) -> RuntimeStage:
+    return RuntimeStage(
+        label,
+        number,
+        (
+            "S9 module recipe plus a 1-bit /proc/modules prefix download-beacon "
+            f"probe for {','.join(modules)}; true requests reboot(download), false parks"
+        ),
+        configfs_gadget=False,
+        udc_none=False,
+        max_speed_high_speed=False,
+        usb_role_force=False,
+        ssusb_speed_high_speed=False,
+        ssusb_mode_peripheral=False,
+        udc_bind=False,
+        soft_connect=False,
+        stock_softdep_parity=True,
+        qmp_module_included=True,
+        eud_module_included=True,
+        ucsi_glink_included=True,
+        session_producer_parity=True,
+        max77705_session_modules_included=True,
+        typec_readback_markers=False,
+        geni_i2c_transport_parity=True,
+        typec_role_write_discriminator=False,
+        module_load_probe=f"proc_modules_prefix_{len(modules)}",
+        devlink_supplier_closure=True,
+    )
 
 
 STAGES = [
@@ -505,6 +565,10 @@ STAGES = [
         module_load_probe="proc_modules_core_loaded",
         devlink_supplier_closure=True,
     ),
+    *[
+        s10b_prefix_stage(label, number, modules)
+        for label, number, modules in M34_S10B_PROC_MODULE_PREFIXES
+    ],
 ]
 
 
@@ -742,6 +806,16 @@ def dependency_complete_devlink_supplier_i2c_order(
 
 def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeStage, module_count: int) -> dict[str, Any]:
     has_download_probe = bool(stage.beacon_probe or stage.module_load_probe)
+    s10b_prefix = s10b_prefix_modules(stage)
+    version_marker = (
+        "version=0.10"
+        if s10b_prefix
+        else "version=0.9"
+        if stage.module_load_probe
+        else "version=0.8"
+        if stage.beacon_probe
+        else "version=0.6"
+    )
     result = run(
         [
             "aarch64-linux-gnu-gcc",
@@ -799,7 +873,7 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
 
     required_strings = [
         stage.marker,
-        "version=0.9" if stage.module_load_probe else "version=0.8" if stage.beacon_probe else "version=0.6",
+        version_marker,
         "runtime=freestanding",
         "raw_syscalls=1",
         f"/{stage.modules_ramdisk}",
@@ -992,32 +1066,66 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
         else:
             raise SystemExit(f"unknown M34 beacon probe contract for {stage.label}: {stage.beacon_probe}")
     if stage.module_load_probe:
-        if stage.module_load_probe != "proc_modules_core_loaded":
+        if stage.module_load_probe == "proc_modules_core_loaded":
+            required_strings.extend(
+                [
+                    f"module_load_probe={stage.module_load_probe}",
+                    "s10a_module_load_probe=1",
+                    "proc_modules=1",
+                    f"core_module_count={len(M34_S10A_PROC_MODULES_CORE_NAMES)}",
+                    "core_modules=" + ",".join(M34_S10A_PROC_MODULES_CORE_NAMES),
+                    "both_graphs_closure=1",
+                    "cmd_db=1",
+                    "smem=1",
+                    "qcom_scm=1",
+                    "qcom_ipc_logging=1",
+                    "phase=s10a_module_load_probe",
+                    "predicate=proc_modules_core_loaded",
+                    "loaded_count=",
+                    f"expected={len(M34_S10A_PROC_MODULES_CORE_NAMES)}",
+                    "modules=" + ",".join(M34_S10A_PROC_MODULES_CORE_NAMES),
+                    "true_action=reboot_download",
+                    "false_action=park",
+                    "phase=s10a_module_load_reboot_returned",
+                    "/proc/modules",
+                    "download",
+                ]
+            )
+        elif s10b_prefix:
+            prefix_index = s10b_prefix_index(stage)
+            if prefix_index is None:
+                raise SystemExit(f"unknown M34 S10B prefix stage: {stage.label}")
+            expected_probe = f"proc_modules_prefix_{len(s10b_prefix)}"
+            if stage.module_load_probe != expected_probe:
+                raise SystemExit(f"M34 {stage.label} prefix probe mismatch: {stage.module_load_probe} != {expected_probe}")
+            required_strings.extend(
+                [
+                    f"module_load_probe={stage.module_load_probe}",
+                    "s10b_module_load_prefix_probe=1",
+                    "proc_modules=1",
+                    "s10b_ladder=1",
+                    f"prefix_index={prefix_index}",
+                    f"prefix_expected={len(s10b_prefix)}",
+                    "prefix_modules=" + ",".join(s10b_prefix),
+                    "both_graphs_closure=1",
+                    "cmd_db=1",
+                    "smem=1",
+                    "qcom_scm=1",
+                    "qcom_ipc_logging=1",
+                    "phase=s10b_module_load_prefix_probe",
+                    "predicate=proc_modules_prefix",
+                    "loaded_count=",
+                    f"expected={len(s10b_prefix)}",
+                    "modules=" + ",".join(s10b_prefix),
+                    "true_action=reboot_download",
+                    "false_action=park",
+                    "phase=s10b_module_load_reboot_returned",
+                    "/proc/modules",
+                    "download",
+                ]
+            )
+        else:
             raise SystemExit(f"unknown M34 module-load probe contract for {stage.label}: {stage.module_load_probe}")
-        required_strings.extend(
-            [
-                f"module_load_probe={stage.module_load_probe}",
-                "s10a_module_load_probe=1",
-                "proc_modules=1",
-                f"core_module_count={len(M34_S10A_PROC_MODULES_CORE_NAMES)}",
-                "core_modules=" + ",".join(M34_S10A_PROC_MODULES_CORE_NAMES),
-                "both_graphs_closure=1",
-                "cmd_db=1",
-                "smem=1",
-                "qcom_scm=1",
-                "qcom_ipc_logging=1",
-                "phase=s10a_module_load_probe",
-                "predicate=proc_modules_core_loaded",
-                "loaded_count=",
-                f"expected={len(M34_S10A_PROC_MODULES_CORE_NAMES)}",
-                "modules=" + ",".join(M34_S10A_PROC_MODULES_CORE_NAMES),
-                "true_action=reboot_download",
-                "false_action=park",
-                "phase=s10a_module_load_reboot_returned",
-                "/proc/modules",
-                "download",
-            ]
-        )
 
     forbidden_strings = [
         b"ld-linux",
@@ -1068,12 +1176,27 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
             b"/sys/bus/i2c/devices",
             b"/sys/class/typec/port0",
         ])
+        if s10b_prefix:
+            forbidden_strings.extend([
+                b"s10a_module_load_probe=1",
+                b"phase=s10a_module_load_probe",
+                b"predicate=proc_modules_core_loaded",
+            ])
+        else:
+            forbidden_strings.extend([
+                b"s10b_module_load_prefix_probe=1",
+                b"phase=s10b_module_load_prefix_probe",
+                b"predicate=proc_modules_prefix",
+            ])
     else:
         forbidden_strings.extend([
             b"s10a_module_load_probe=1",
             b"module_load_probe=proc_modules_core_loaded",
             b"phase=s10a_module_load_probe",
             b"predicate=proc_modules_core_loaded",
+            b"s10b_module_load_prefix_probe=1",
+            b"phase=s10b_module_load_prefix_probe",
+            b"predicate=proc_modules_prefix",
             b"/proc/modules",
         ])
     if not stage.configfs_gadget:
@@ -1423,9 +1546,10 @@ def main(argv: list[str]) -> int:
             "purpose": (
                 "M34 stock-ordered runtime gadget split plus S4 ssusb role-lever, S5 soft_connect, "
                 "S6 stock-speed QMP/EUD/ucsi, S7A max77705/PDIC/altmode session-producer, "
-                "S7A2 GENI I2C transport, S8B1 exact-bus download beacon, and S8B1A widened "
-                "I2C-device download beacon, S9 devlink-supplier substrate B1, and S10A "
-                "/proc/modules module-load beacon host-build candidates"
+                "S7A2 GENI I2C transport, S8B1 exact-bus download beacon, S8B1A widened "
+                "I2C-device download beacon, S9 devlink-supplier substrate B1, S10A "
+                "/proc/modules all-core beacon, and S10B prefix-bisection module-load "
+                "beacon host-build candidates"
             ),
         "stock_recipe_report": "docs/reports/S22PLUS_STOCK_USB_GADGET_ACM_RECIPE_2026-07-09.md",
         "stages": stage_manifests,
@@ -1460,7 +1584,7 @@ def main(argv: list[str]) -> int:
             ],
             "live_order": ["S1", "S2", "S3", "S4", "S5", "S6"],
             "host_build_order": [stage.label for stage in selected_stages],
-            "next_host_only_candidate": "S10A",
+            "next_host_only_candidate": "S10B0",
             "p30_is_s0": True,
             "module_closure_matches_p30_and_m32_for_s1_s5": True,
             "s6_module_closure_restores_stock_dwc3_softdep": True,
@@ -1509,6 +1633,22 @@ def main(argv: list[str]) -> int:
             "s10a_starts_from_s9_module_recipe": True,
             "s10a_separates_module_load_from_probe_bind_failure": True,
             "s10a_skips_downstream_configfs_and_udc_to_isolate_module_load": True,
+            "s10b_module_load_prefix_ladder": [
+                {
+                    "label": label,
+                    "stage_number": number,
+                    "module_load_probe": f"proc_modules_prefix_{len(modules)}",
+                    "prefix_index": index,
+                    "prefix_expected": len(modules),
+                    "prefix_modules": list(modules),
+                }
+                for index, (label, number, modules) in enumerate(M34_S10B_PROC_MODULE_PREFIXES)
+            ],
+            "s10b_true_action": "reboot(download)",
+            "s10b_false_action": "park",
+            "s10b_starts_from_s9_module_recipe": True,
+            "s10b_bisects_s10a_all_core_miss": True,
+            "s10b_skips_downstream_configfs_and_udc_to_isolate_module_load": True,
         },
         "safety": {
             "boot_only": True,
@@ -1592,6 +1732,22 @@ def main(argv: list[str]) -> int:
             "stage_s10a_no_configfs_udc_or_role_write": True,
             "stage_s10a_driver_load_only_no_manual_power_write": True,
             "stage_s10a_separates_module_load_from_probe_bind_failure": True,
+            "stage_s10b_starts_from_s9_module_recipe": True,
+            "stage_s10b_module_load_prefix_ladder": [
+                {
+                    "label": label,
+                    "stage_number": number,
+                    "module_load_probe": f"proc_modules_prefix_{len(modules)}",
+                    "prefix_index": index,
+                    "prefix_expected": len(modules),
+                    "prefix_modules": list(modules),
+                }
+                for index, (label, number, modules) in enumerate(M34_S10B_PROC_MODULE_PREFIXES)
+            ],
+            "stage_s10b_true_reboot_download_false_park": True,
+            "stage_s10b_no_configfs_udc_or_role_write": True,
+            "stage_s10b_driver_load_only_no_manual_power_write": True,
+            "stage_s10b_bisects_s10a_all_core_miss": True,
         },
         "vendor": {
             "vendor_ramdisk": display_path(root, vendor_ramdisk),
