@@ -285,6 +285,10 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertIn(str(odin), text)
             self.assertIn(str(run_dir), text)
             self.assertIn(str(run_dir / "result.json"), text)
+            for phase in ("preflight", "template", "dryrun", "rollback"):
+                phase_dir = Path(f"{run_dir}_{phase}")
+                self.assertIn(str(phase_dir), text)
+                self.assertFalse(phase_dir.exists())
             self.assertNotIn("<run-dir>/result.json", text)
             self.assertIn("live_runbook_printed=1", (run_dir / "s22plus_m34_s8b1_beacon_probe_live_gate.txt").read_text(encoding="utf-8"))
             self.assertFalse((run_dir / "timeline.json").exists())
@@ -348,6 +352,10 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertIn(str(odin), runbook)
             self.assertIn(str(planned_live_run_dir), runbook)
             self.assertIn(str(planned_live_run_dir / "result.json"), runbook)
+            for phase in ("preflight", "template", "dryrun", "rollback"):
+                phase_dir = Path(f"{planned_live_run_dir}_{phase}")
+                self.assertIn(str(phase_dir), runbook)
+                self.assertFalse(phase_dir.exists())
             self.assertNotIn(str(run_dir / "result.json"), runbook)
             self.assertIn(self.module.LIVE_ACK_TOKEN, runbook)
             self.assertIn(self.module.LIVE_ACK_TOKEN, active_template)
@@ -366,6 +374,13 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             planned = self.module.planned_live_run_dir(packet_dir)
             self.assertEqual(planned, Path(f"{packet_dir}_live_00"))
             self.assertFalse(planned.exists())
+
+    def test_runbook_phase_run_dir_keeps_live_result_dir_unique(self):
+        base = Path("/tmp/s8b1-live")
+        self.assertEqual(self.module.runbook_phase_run_dir(base, "live"), base)
+        self.assertEqual(self.module.runbook_phase_run_dir(base, "preflight"), Path("/tmp/s8b1-live_preflight"))
+        self.assertEqual(self.module.runbook_phase_run_dir(base, "template"), Path("/tmp/s8b1-live_template"))
+        self.assertIsNone(self.module.runbook_phase_run_dir(None, "live"))
 
     def test_write_result_summary_creates_machine_readable_result_json(self):
         with tempfile.TemporaryDirectory() as tmp:

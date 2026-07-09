@@ -624,12 +624,21 @@ def path_args(args: argparse.Namespace) -> list[str]:
     ]
 
 
-def optional_run_dir_args(run_dir: Path | None) -> list[str]:
-    return ["--run-dir", str(run_dir)] if run_dir is not None else []
-
-
 def runbook_result_json(args: argparse.Namespace) -> str:
     return str(args.run_dir / "result.json") if args.run_dir is not None else "<run-dir>/result.json"
+
+
+def runbook_phase_run_dir(run_dir: Path | None, phase: str) -> Path | None:
+    if run_dir is None:
+        return None
+    if phase == "live":
+        return run_dir
+    return Path(f"{run_dir}_{phase}")
+
+
+def runbook_phase_run_dir_args(run_dir: Path | None, phase: str) -> list[str]:
+    phase_run_dir = runbook_phase_run_dir(run_dir, phase)
+    return ["--run-dir", str(phase_run_dir)] if phase_run_dir is not None else []
 
 
 def planned_live_run_dir(packet_run_dir: Path) -> Path:
@@ -669,7 +678,6 @@ def live_runbook(args: argparse.Namespace) -> str:
     base = ["PYTHONPYCACHEPREFIX=/tmp/a90_pycache", "python3", helper]
     analyze_base = ["PYTHONPYCACHEPREFIX=/tmp/a90_pycache", "python3", analyzer]
     common_paths = path_args(args)
-    run_dir_args = optional_run_dir_args(args.run_dir)
     result_json = runbook_result_json(args)
     common_android = [
         "--android-stability-samples",
@@ -697,16 +705,16 @@ def live_runbook(args: argparse.Namespace) -> str:
     lines = [
         "# S22+ M34 S8B1 live runbook (no command below inserts AGENTS.md by itself)",
         "# 1. No-write readiness check",
-        shell_cmd([*base, "--readonly-preflight", *common_paths, *run_dir_args, *common_android]),
+        shell_cmd([*base, "--readonly-preflight", *common_paths, *runbook_phase_run_dir_args(args.run_dir, "preflight"), *common_android]),
         "",
         "# 2. Print the active AGENTS.md exception template, then insert it manually after review",
-        shell_cmd([*base, "--print-agents-exception-active-template", *common_paths, *run_dir_args]),
+        shell_cmd([*base, "--print-agents-exception-active-template", *common_paths, *runbook_phase_run_dir_args(args.run_dir, "template")]),
         "",
         "# 3. After AGENTS.md has the active exception, run the default dry-run gate",
-        shell_cmd([*base, *common_paths, *run_dir_args, *common_android]),
+        shell_cmd([*base, *common_paths, *runbook_phase_run_dir_args(args.run_dir, "dryrun"), *common_android]),
         "",
         "# 4. Live gate with explicit ack token",
-        shell_cmd([*base, "--live", "--ack", LIVE_ACK_TOKEN, *common_paths, *run_dir_args, *common_android, *live_args]),
+        shell_cmd([*base, "--live", "--ack", LIVE_ACK_TOKEN, *common_paths, *runbook_phase_run_dir_args(args.run_dir, "live"), *common_android, *live_args]),
         "",
         "# 5. If the result is MISS and the device is manually placed in Download mode, rollback",
         shell_cmd(
@@ -716,7 +724,7 @@ def live_runbook(args: argparse.Namespace) -> str:
                 "--ack",
                 ROLLBACK_ACK_TOKEN,
                 *common_paths,
-                *run_dir_args,
+                *runbook_phase_run_dir_args(args.run_dir, "rollback"),
                 "--android-wait-sec",
                 str(args.android_wait_sec),
                 "--rollback-target",
