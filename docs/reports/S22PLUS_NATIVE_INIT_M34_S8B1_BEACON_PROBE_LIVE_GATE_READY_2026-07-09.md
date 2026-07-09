@@ -122,7 +122,12 @@ operator command sequence for read-only preflight, active exception review,
 post-exception dry-run, live ack, manual-download rollback, and analyzer gates.
 The printed sequence carries any custom candidate, manifest, Odin, rollback,
 and run-directory paths supplied to the runbook command. It does not check
-`AGENTS.md`, call ADB, reboot, flash, or rollback.
+`AGENTS.md`, call ADB, reboot, flash, or rollback. The runbook explicitly says
+that the live command handles HIT rollback and, on MISS, waits for manual
+Download and performs rollback inside the live run directory if Download appears
+within the bounded wait. The separate `--rollback-from-download` command is a
+fallback only if the live command exits after MISS without rollback, or if the
+device is placed in Download mode later.
 
 `--prelive-packet` performs the read-only preflight and writes a self-contained
 run directory packet:
@@ -139,8 +144,10 @@ directory is separate from the planned live run directory because `--run-dir`
 is created with `exist_ok=False`; the runbook targets distinct not-yet-created
 phase sibling directories for preflight, template, dry-run, live, rollback,
 and analyzer output so the commands can be run after reviewing the packet. The
-packet JSON also records `planned_phase_run_dirs` and `planned_result_json` for
-machine-readable handoff.
+packet JSON also records `planned_phase_run_dirs`, `planned_result_json`,
+`planned_rollback_result_json`, and `runbook_notes` for machine-readable
+handoff. `planned_result_json` is the B1 proof target; the rollback-only
+fallback result path is cleanup evidence if that command is needed.
 
 Live and rollback paths also write a machine-readable result file:
 
@@ -247,6 +254,7 @@ default run without active AGENTS exception: correctly fails closed
 S8B1 tests: Ran 24 tests, OK
 S8B1 analyzer tests: Ran 20 tests, OK
 S8B1/analyzer evidence-path cross-check: included in S8B1 tests
+runbook fallback-contract tests: included in S8B1 tests
 M34/S7A2/S8B1/analyzer regression: Ran 59 tests, OK
 ```
 
@@ -290,7 +298,7 @@ The committed `--readonly-preflight` mode then passed against the same live
 Android baseline:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T003315Z/
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T020943Z/
 ```
 
 Key rows:
@@ -300,6 +308,23 @@ android_stability_result=ok samples=2
 current_boot_hash_rc=0
 2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e  /dev/block/by-name/boot
 android_readonly_preflight=ok device_action=0 agents_exception_checked=0 android_checked=1 current_boot_hash_checked=1
+```
+
+The latest no-write prelive packet with explicit fallback-rollback notes is:
+
+```text
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T020954Z/
+```
+
+It plans the live B1 proof directory and rollback-only fallback directory
+separately:
+
+```text
+planned_result_json:
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T020954Z_live/result.json
+
+planned_rollback_result_json:
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T020954Z_live_rollback/result.json
 ```
 
 ## Next Gate

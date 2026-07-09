@@ -278,6 +278,9 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertIn("--require-advance", text)
             self.assertIn("--require-live-next-stage", text)
             self.assertIn("--serial RFCT519XWGK", text)
+            self.assertIn("This command handles HIT rollback", text)
+            self.assertIn("Fallback only: run this if step 4 exits after MISS without rollback", text)
+            self.assertIn("cleanup evidence, not B1 proof", text)
             self.assertIn(str(root / "candidate.tar.md5"), text)
             self.assertIn(str(root / "manifest.json"), text)
             self.assertIn(str(root / "magisk.tar.md5"), text)
@@ -344,7 +347,16 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertEqual(planned_live_run_dir, Path(f"{run_dir}_live"))
             self.assertFalse(planned_live_run_dir.exists())
             self.assertEqual(packet["planned_result_json"], str(planned_live_run_dir / "result.json"))
+            self.assertEqual(packet["planned_rollback_result_json"], str(Path(f"{planned_live_run_dir}_rollback") / "result.json"))
             self.assertEqual(packet["planned_phase_run_dirs"]["live"], str(planned_live_run_dir))
+            self.assertIn(
+                "handles MISS manual rollback internally",
+                " ".join(packet["runbook_notes"]),
+            )
+            self.assertIn(
+                "cleanup-only evidence",
+                " ".join(packet["runbook_notes"]),
+            )
             runbook = (run_dir / "s22plus_m34_s8b1_live_runbook.txt").read_text(encoding="utf-8")
             active_template = (run_dir / "s22plus_m34_s8b1_active_exception_template.txt").read_text(encoding="utf-8")
             self.assertIn(str(root / "candidate.tar.md5"), runbook)
@@ -354,6 +366,8 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertIn(str(odin), runbook)
             self.assertIn(str(planned_live_run_dir), runbook)
             self.assertIn(str(planned_live_run_dir / "result.json"), runbook)
+            self.assertIn("Fallback only", runbook)
+            self.assertIn("cleanup evidence, not B1 proof", runbook)
             for phase in ("preflight", "template", "dryrun", "rollback"):
                 phase_dir = Path(f"{planned_live_run_dir}_{phase}")
                 self.assertEqual(packet["planned_phase_run_dirs"][phase], str(phase_dir))

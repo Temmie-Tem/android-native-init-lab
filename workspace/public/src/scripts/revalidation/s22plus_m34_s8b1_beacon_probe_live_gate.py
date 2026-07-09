@@ -646,6 +646,21 @@ def runbook_phase_run_dirs(run_dir: Path) -> dict[str, str]:
     return {phase: str(runbook_phase_run_dir(run_dir, phase)) for phase in phases}
 
 
+def planned_rollback_result_json(live_run_dir: Path) -> Path:
+    rollback_dir = runbook_phase_run_dir(live_run_dir, "rollback")
+    if rollback_dir is None:
+        raise AssertionError("live_run_dir unexpectedly resolved to None")
+    return rollback_dir / "result.json"
+
+
+def prelive_packet_notes(live_run_dir: Path) -> list[str]:
+    return [
+        "The live command handles HIT rollback and also handles MISS manual rollback internally if Download appears before --manual-download-wait-sec expires.",
+        "Run the rollback-from-download command only if the live command exits after MISS without rollback, or if the device is placed in Download mode later.",
+        f"Analyze {live_run_dir / 'result.json'} for B1 proof; {planned_rollback_result_json(live_run_dir)} is cleanup-only evidence if the fallback rollback command is needed.",
+    ]
+
+
 def planned_live_run_dir(packet_run_dir: Path) -> Path:
     base = Path(f"{packet_run_dir}_live")
     if not base.exists():
@@ -719,9 +734,12 @@ def live_runbook(args: argparse.Namespace) -> str:
         shell_cmd([*base, *common_paths, *runbook_phase_run_dir_args(args.run_dir, "dryrun"), *common_android]),
         "",
         "# 4. Live gate with explicit ack token",
+        "#    This command handles HIT rollback. On MISS it also waits for manual Download",
+        "#    and performs rollback inside the live run directory if Download appears in time.",
         shell_cmd([*base, "--live", "--ack", LIVE_ACK_TOKEN, *common_paths, *runbook_phase_run_dir_args(args.run_dir, "live"), *common_android, *live_args]),
         "",
-        "# 5. If the result is MISS and the device is manually placed in Download mode, rollback",
+        "# 5. Fallback only: run this if step 4 exits after MISS without rollback,",
+        "#    or if the device is placed in Download mode after the bounded live wait.",
         shell_cmd(
             [
                 *base,
@@ -737,7 +755,8 @@ def live_runbook(args: argparse.Namespace) -> str:
             ]
         ),
         "",
-        "# 6. Interpret the resulting run directory",
+        "# 6. Interpret the live run directory for B1 proof",
+        "#    If step 5 was needed, its result directory is cleanup evidence, not B1 proof.",
         shell_cmd([*analyze_base, result_json, "--write-report"]),
         shell_cmd([*analyze_base, result_json, "--require-advance"]),
         shell_cmd([*analyze_base, result_json, "--require-live-next-stage"]),
@@ -807,6 +826,8 @@ def write_prelive_packet(
         "planned_live_run_dir": str(live_run_dir),
         "planned_phase_run_dirs": runbook_phase_run_dirs(live_run_dir),
         "planned_result_json": str(live_run_dir / "result.json"),
+        "planned_rollback_result_json": str(planned_rollback_result_json(live_run_dir)),
+        "runbook_notes": prelive_packet_notes(live_run_dir),
         "runbook": str(runbook_path),
         "active_exception_template": str(active_template_path),
     }
