@@ -68,6 +68,10 @@ BL, CP, CSC, userdata, or any non-boot flash.
    PASS, NO_PROOF, UNAVAILABLE, FAIL, or recovery-only outcome and must be marked
    consumed immediately afterward.
    **Narrow operator-authorized exception (2026-07-10, S22+ V3428R stock-origin transition positive-control retry):**
+   Consumed/retired: this one-shot exception was consumed by the 2026-07-10
+   V3428R live run, which reached manual Download, completed the pinned Magisk
+   boot-only identity rollback, and passed the exact first-boot retained
+   PRECHECK+FINAL classification. It must not be reused.
    after the operator's fresh 2026-07-10 live approval, Codex may perform one
    bounded attended V3428R retry on `SM-S906N/g0q/S906NKSS7FYG8` using only
    `workspace/public/src/scripts/revalidation/s22plus_v3428_stock_transition_positive_control.py`

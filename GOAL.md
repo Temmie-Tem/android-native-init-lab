@@ -84,7 +84,37 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
-> **S22+ CURRENT FRONTIER (2026-07-10 18:48 KST / 2026-07-10 09:48 UTC) — V3428 STOCK-ORIGIN POSITIVE CONTROL UNAVAILABLE/STOP; CURRENT-RING PAIR PROVED; MANUAL DOWNLOAD TIMEOUT; FLASH 0; EXCEPTION RETIRED.**
+> **S22+ CURRENT FRONTIER (2026-07-10 19:29 KST / 2026-07-10 10:29 UTC) — V3428R STOCK-ORIGIN POSITIVE CONTROL LIVE PASS; EXACT PAIR SURVIVED MANUAL DOWNLOAD + FIRST ROLLBACK BOOT; DIRECT-PID1 OBSERVER NEXT.**
+> V3428R reused the independently reviewed V3428 logic under a fresh schema,
+> ACK, helper SHA
+> `b42c98c8bde0821b899015ab2524feec74b0e9cecb08a1bc72896353c5236c67`,
+> and one-shot exception. Focused V3426-V3428R validation passed 49 tests; the
+> connected read-only dry-run and exception pin check passed. Persistent Claude
+> Opus session `10a19d6c-d0ef-4659-af34-dfd6472c7eb6` confirmed the retry delta
+> preserved the prior GO.
+>
+> Live run `de3b50b0734fdd418b732bf76d5d788d` proved a negative baseline, exact
+> PRECHECK-only current-ring state, then exact PRECHECK+FINAL current-ring state.
+> The operator completed manual RDX/Download in 125.229 seconds; the pinned
+> Magisk boot-only identity rollback returned Odin rc=0 without fallback. The
+> first rooted rollback boot matched exact FYG8/Magisk health. Two full EOF reads
+> of `/proc/last_kmsg` were both 2,097,136 bytes with identical SHA256
+> `07ac07fbf25bbe642c4085da9a1b55662c0e79c03c9ce7d6a2940d106359497e`.
+> Both contained exactly the armed PRECHECK then FINAL pair, with zero malformed,
+> duplicate, foreign, identity, or ordering issue. Verdict:
+> `PASS_STAGE_A_AND_CROSS_SESSION_RETENTION`; canonical timeline complete.
+>
+> Opus independently audited the five live artifacts and returned `PASS is
+> WARRANTED`, including the identical 1223-byte PRECHECK-to-FINAL gap in the
+> current and retained snapshots. This closes the stock-origin collection
+> sensitivity and cross-session retention prerequisite. It does not itself prove
+> direct-PID1 execution. Next = build the direct-PID1 observer candidate against
+> the now-validated V3426 contract, then use the same first-rollback classifier
+> under a fresh exact exception. V3428R is consumed/retired; no live exception is
+> active. Report:
+> `docs/reports/NATIVE_INIT_V3428R_S22PLUS_STOCK_TRANSITION_POSITIVE_CONTROL_LIVE_PASS_2026-07-10.md`.
+
+> **S22+ PRIOR FRONTIER (2026-07-10 18:48 KST / 2026-07-10 09:48 UTC) — V3428 STOCK-ORIGIN POSITIVE CONTROL UNAVAILABLE/STOP; CURRENT-RING PAIR PROVED; MANUAL DOWNLOAD TIMEOUT; FLASH 0; EXCEPTION RETIRED.**
 > V3428 built and independently reviewed the stock/Magisk-origin same-transition
 > positive-control helper, pinned helper SHA
 > `1b2c3395334efd8d51388676799c832042a82df20dad49817e0ab403ce78be52`,
