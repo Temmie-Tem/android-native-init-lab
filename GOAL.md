@@ -4,7 +4,7 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3435 RAMOOPS CONSOLE/DMESG DTBO HOST BUILD PASS; FINAL TARGET IS NO ANDROID USERSPACE; ANDROID POSITIVE CONTROL NEXT, NO LIVE AUTHORIZATION.**
+> **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3436 RAMOOPS ANDROID POSITIVE-CONTROL HOST DESIGN PASS; FINAL TARGET IS NO ANDROID USERSPACE; RESUMABLE HELPER NEXT, NO LIVE AUTHORIZATION.**
 > The S22+ end state remains a lightweight native/Debian system that does not
 > boot or retain the Android userspace. The V3434 stock-global-PID1 plus
 > mount-namespace service-supervisor architecture is an interim bring-up and
@@ -48,6 +48,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > each require a fresh narrow SHA-pinned `AGENTS.md` exception.
 > Report:
 > `docs/reports/NATIVE_INIT_V3435_S22PLUS_RAMOOPS_CONSOLE_DTBO_HOST_BUILD_PASS_2026-07-11.md`.
+>
+> V3436 now pins the future Android positive-control contract. DTBO maintenance
+> and intentional panic require separate exceptions and independent ack tokens.
+> The exact order is patched DTBO boot -> backend/live-size proof -> run-bound
+> kmsg+pmsg markers -> one panic -> patched Android recovery -> pstore collection
+> -> stock DTBO rollback. Evidence collection must finish before rollback because
+> stock DTBO disables ramoops. Only a valid current-run frame in
+> `console-ramoops*` or `dmesg-ramoops*` is PASS; pmsg-only is PARTIAL and does
+> not reopen direct PID1. The future helper uses only
+> `events:[{name,timestamp_utc}]` and is resumable after manual recovery. V3436
+> is host-only and activates no policy. Report:
+> `docs/reports/NATIVE_INIT_V3436_S22PLUS_RAMOOPS_POSITIVE_CONTROL_HOST_DESIGN_PASS_2026-07-11.md`.
+> Next: V3437 host-only resumable helper plus inert two-policy drafts; still no
+> live authorization.
 >
 > V3434 remains the corrected boot-boundary baseline below.
 > V3434 pinned the Samsung base OSRC, running Magisk-kernel IKCONFIG, stock

@@ -1,0 +1,216 @@
+{
+  "allowed_transitions": {
+    "BACKEND_PROVEN": [
+      "MARKERS_WRITTEN",
+      "ROLLBACK_TRANSFER"
+    ],
+    "CANDIDATE_TRANSFER": [
+      "PATCHED_BOOT_WAIT",
+      "ROLLBACK_TRANSFER"
+    ],
+    "CLASSIFIED": [],
+    "EVIDENCE_COLLECTED": [
+      "ROLLBACK_TRANSFER"
+    ],
+    "MARKERS_WRITTEN": [
+      "PANIC_TRIGGERED",
+      "ROLLBACK_TRANSFER"
+    ],
+    "PANIC_TRIGGERED": [
+      "RECOVERY_WAIT",
+      "ROLLBACK_TRANSFER"
+    ],
+    "PATCHED_ANDROID_RETURNED": [
+      "EVIDENCE_COLLECTED"
+    ],
+    "PATCHED_BOOT_WAIT": [
+      "PATCHED_PREFLIGHT",
+      "ROLLBACK_TRANSFER"
+    ],
+    "PATCHED_PREFLIGHT": [
+      "BACKEND_PROVEN",
+      "ROLLBACK_TRANSFER"
+    ],
+    "RECOVERY_WAIT": [
+      "PATCHED_ANDROID_RETURNED"
+    ],
+    "ROLLBACK_BOOT_WAIT": [
+      "STOCK_RESTORED"
+    ],
+    "ROLLBACK_TRANSFER": [
+      "ROLLBACK_BOOT_WAIT"
+    ],
+    "STOCK_BASELINE": [
+      "CANDIDATE_TRANSFER"
+    ],
+    "STOCK_RESTORED": [
+      "CLASSIFIED"
+    ]
+  },
+  "artifacts": {
+    "candidate_ap": "workspace/private/outputs/s22plus_v3435_ramoops_console_dtbo_v0_1/candidate_odin4/AP.tar.md5",
+    "candidate_ap_sha256": "622ac0259eb61a7c9ef71eff44d4ea8bb3edbc6a90c3f2b237be7fdf88cb0264",
+    "candidate_raw_sha256": "3c4d38a9d4833bab648cd36c3c0c78a2bfed35ca80dc4532b5e877cbaa8fa281",
+    "expected_member": "dtbo.img.lz4",
+    "magisk_boot_raw_sha256": "2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e",
+    "rollback_ap": "workspace/private/outputs/s22plus_v3435_ramoops_console_dtbo_v0_1/stock_rollback_odin4/AP.tar.md5",
+    "rollback_ap_sha256": "6f397421bee84f4ea0c80a8519be0f6f6af84119794970e8a1faaa05f261caaa",
+    "stock_raw_sha256": "97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c"
+  },
+  "classification": {
+    "fail": "stale collision, malformed frame, bad CRC, or wrong bound identity",
+    "fail_effect": "retire ramoops after a proven backend and move to EUD/UART",
+    "no_proof": "no valid current-run frame and no malformed/current-run identity conflict",
+    "partial": "current-run frame only in pmsg-ramoops*; no console/dmesg proof",
+    "pass": "valid current-run PREPANIC_KMSG or TRIGGER_KMSG frame in console-ramoops* or dmesg-ramoops* after reset",
+    "pass_effect": "reopen a minimal module-free direct-PID1 witness"
+  },
+  "contract_sha256": "f9ff86aa346023f8a168c98cd04bee57e1d69f913c9b4592f40ecfdc9133fec5",
+  "evidence_first_rule": "after panic, patched Android evidence collection must complete before stock DTBO rollback",
+  "full_path_validated": true,
+  "layout": {
+    "console_size": 524288,
+    "dmesg_record_count": 2,
+    "dmesg_size": 524288,
+    "pmsg_size": 1048576,
+    "record_size": 262144,
+    "region_size": 2097152
+  },
+  "marker": {
+    "candidate_identity_bound": true,
+    "contract_identity_bound": true,
+    "integrity": "CRC32 over canonical ASCII payload",
+    "kmsg_priority": "<0> emergency prefix before the frame",
+    "phases": {
+      "PREPANIC_KMSG": 1,
+      "PREPANIC_PMSG": 2,
+      "TRIGGER_KMSG": 3
+    },
+    "protocol": "S22RPC1",
+    "run_id_bits": 128
+  },
+  "marker_examples": {
+    "PREPANIC_KMSG": "[[S22RPC1|00d5|run=0123456789abcdef0123456789abcdef;phase=PREPANIC_KMSG;seq=00000001;dtbo=3c4d38a9d4833bab648cd36c3c0c78a2bfed35ca80dc4532b5e877cbaa8fa281;contract=f9ff86aa346023f8a168c98cd04bee57e1d69f913c9b4592f40ecfdc9133fec5|crc=9a8a2241]]",
+    "PREPANIC_PMSG": "[[S22RPC1|00d5|run=0123456789abcdef0123456789abcdef;phase=PREPANIC_PMSG;seq=00000002;dtbo=3c4d38a9d4833bab648cd36c3c0c78a2bfed35ca80dc4532b5e877cbaa8fa281;contract=f9ff86aa346023f8a168c98cd04bee57e1d69f913c9b4592f40ecfdc9133fec5|crc=413d1183]]",
+    "TRIGGER_KMSG": "[[S22RPC1|00d4|run=0123456789abcdef0123456789abcdef;phase=TRIGGER_KMSG;seq=00000003;dtbo=3c4d38a9d4833bab648cd36c3c0c78a2bfed35ca80dc4532b5e877cbaa8fa281;contract=f9ff86aa346023f8a168c98cd04bee57e1d69f913c9b4592f40ecfdc9133fec5|crc=da90b641]]"
+  },
+  "next_implementation": {
+    "agents_exception_created": false,
+    "live_helper_created": false,
+    "required_modes": [
+      "offline-check",
+      "dry-run",
+      "live-session",
+      "resume-after-manual-recovery",
+      "restore-from-android",
+      "restore-from-download"
+    ],
+    "session_is_resumable_from_disk": true
+  },
+  "objective": {
+    "final_state": "native/Debian without Android userspace",
+    "first_live_target": "known-good Android/Magisk positive control",
+    "purpose": "prove ramoops console/dmesg retention before direct PID1"
+  },
+  "pins": {
+    "docs/plans/s22plus-v3435-ramoops-console-dtbo-contract.json": "ee5761c22f590ec01a398dc75bdb31e87e4c983d34b813d94b1428ca7b4e1680",
+    "workspace/private/outputs/s22plus_v3435_ramoops_console_dtbo_v0_1/build/dtbo.img": "3c4d38a9d4833bab648cd36c3c0c78a2bfed35ca80dc4532b5e877cbaa8fa281",
+    "workspace/private/outputs/s22plus_v3435_ramoops_console_dtbo_v0_1/build/stock_dtbo.img": "97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c",
+    "workspace/private/outputs/s22plus_v3435_ramoops_console_dtbo_v0_1/candidate_odin4/AP.tar.md5": "622ac0259eb61a7c9ef71eff44d4ea8bb3edbc6a90c3f2b237be7fdf88cb0264",
+    "workspace/private/outputs/s22plus_v3435_ramoops_console_dtbo_v0_1/stock_rollback_odin4/AP.tar.md5": "6f397421bee84f4ea0c80a8519be0f6f6af84119794970e8a1faaa05f261caaa"
+  },
+  "policy_split": {
+    "both_required_before_live": true,
+    "currently_active": false,
+    "dtbo_exception": "one candidate DTBO flash plus one stock DTBO rollback, exact SHA pins",
+    "independent_ack_tokens_required": true,
+    "panic_exception": "one marker sequence plus one sysrq-trigger-c intentional panic"
+  },
+  "predecessor": {
+    "path": "docs/plans/s22plus-v3435-ramoops-console-dtbo-contract.json",
+    "sha256": "ee5761c22f590ec01a398dc75bdb31e87e4c983d34b813d94b1428ca7b4e1680"
+  },
+  "preflight": {
+    "patched_backend": [
+      "candidate DTBO raw SHA256=3c4d38a9d4833bab648cd36c3c0c78a2bfed35ca80dc4532b5e877cbaa8fa281",
+      "live status=okay",
+      "live size=0x200000",
+      "live pmsg-size=0x100000",
+      "live console-size=0x80000",
+      "live record-size=0x40000",
+      "ramoops module parameters equal live DT sizes",
+      "pstore backend registration visible in dmesg/sysfs",
+      "/sys/fs/pstore is mounted",
+      "/dev/pmsg0 exists",
+      "current run ID absent from baseline pstore and current ring"
+    ],
+    "stock_baseline": [
+      "single Android ADB target",
+      "SM-S906N/g0q/S906NKSS7FYG8 identity",
+      "boot_completed=1 and root available",
+      "boot raw SHA256=2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e",
+      "stock DTBO raw SHA256=97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c",
+      "live ramoops status=disabled",
+      "four bounded Android stability samples"
+    ]
+  },
+  "recovery": {
+    "collection_retry_limit": 2,
+    "post_panic_android_return": "collect every pstore file twice and flush host artifacts before rollback",
+    "post_panic_no_android": "require operator recovery to patched Android; do not auto-rollback over unread evidence",
+    "pre_panic_failure": "restore stock DTBO immediately when a single Odin path exists",
+    "rollback_failure": "stop in Download and require operator recovery",
+    "safety_override": "if patched Android cannot be recovered and exactly one Odin path exists, operator may choose stock rollback; classify NO_PROOF_EVIDENCE_ABANDONED_FOR_RECOVERY"
+  },
+  "safety": {
+    "agents_modified": false,
+    "device_contact": false,
+    "flash": false,
+    "host_only": true,
+    "image_build": false,
+    "live_authorized": false,
+    "panic": false,
+    "reboot": false
+  },
+  "schema": "s22plus_v3436_ramoops_positive_control_design_v1",
+  "state_order": [
+    "STOCK_BASELINE",
+    "CANDIDATE_TRANSFER",
+    "PATCHED_BOOT_WAIT",
+    "PATCHED_PREFLIGHT",
+    "BACKEND_PROVEN",
+    "MARKERS_WRITTEN",
+    "PANIC_TRIGGERED",
+    "RECOVERY_WAIT",
+    "PATCHED_ANDROID_RETURNED",
+    "EVIDENCE_COLLECTED",
+    "ROLLBACK_TRANSFER",
+    "ROLLBACK_BOOT_WAIT",
+    "STOCK_RESTORED",
+    "CLASSIFIED"
+  ],
+  "target": "SM-S906N/g0q/S906NKSS7FYG8",
+  "timeline": {
+    "ad_hoc_shapes_forbidden": true,
+    "flush_after_every_event": true,
+    "required_order": [
+      "live_session_start",
+      "candidate_flash_start",
+      "candidate_flash_done",
+      "candidate_boot_ready",
+      "backend_proven",
+      "markers_written",
+      "panic_trigger_start",
+      "panic_transport_lost",
+      "patched_recovery_boot_ready",
+      "evidence_collect_start",
+      "evidence_collect_done",
+      "rollback_flash_start",
+      "rollback_flash_done",
+      "rollback_boot_ready",
+      "live_session_end"
+    ],
+    "schema": "events:[{name,timestamp_utc}]"
+  },
+  "verdict": "HOST_DESIGN_PASS_NO_LIVE"
+}
