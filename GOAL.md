@@ -84,7 +84,33 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
-> **S22+ CURRENT FRONTIER (2026-07-10 14:27 KST / 2026-07-10 05:27 UTC) — V3427 OBSERVER TRANSITION HOST PASS; MANUAL RDX/DOWNLOAD + FIRST ROLLBACK BOOT SELECTED; STOCK-ORIGIN POSITIVE CONTROL NEXT; NO LIVE.**
+> **S22+ CURRENT FRONTIER (2026-07-10 18:48 KST / 2026-07-10 09:48 UTC) — V3428 STOCK-ORIGIN POSITIVE CONTROL UNAVAILABLE/STOP; CURRENT-RING PAIR PROVED; MANUAL DOWNLOAD TIMEOUT; FLASH 0; EXCEPTION RETIRED.**
+> V3428 built and independently reviewed the stock/Magisk-origin same-transition
+> positive-control helper, pinned helper SHA
+> `1b2c3395334efd8d51388676799c832042a82df20dad49817e0ab403ce78be52`,
+> and passed 49 focused V3426-V3428 tests plus two connected read-only dry-runs.
+> Persistent Claude Opus review session
+> `10a19d6c-d0ef-4659-af34-dfd6472c7eb6` returned GO after strict post-verification
+> 180-second deadline, post-rollback identity/health gating, JSON-safe observer
+> shutdown, self-describing timeline events, and redacting Odin wrappers were
+> added.
+>
+> The one-shot live invocation proved baseline current-run marker count 0, then
+> exact run-bound PRECHECK and PRECHECK+FINAL current-ring snapshots with no
+> integrity issue. After the mandatory 60-second quiet dwell, no Odin device
+> appeared during the bounded manual RDX/Download window. The helper stopped
+> `UNAVAILABLE_STOP_MANUAL_DOWNLOAD_TIMEOUT` before `rollback_flash_start`:
+> candidate flash 0, rollback flash 0, reboot 0, and no `/proc/last_kmsg`
+> classification. The device remained normal FYG8 Android/Magisk with
+> `boot_completed=1`, root, orange verified-boot state, and boot SHA
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+> The V3428 exception is consumed/retired. A rerun requires a fresh narrow
+> exception and explicit approval, with the operator ready to enter RDX/Download
+> only after `MANUAL_ACTION_REQUIRED`. No direct-PID1 candidate is authorized.
+> Report:
+> `docs/reports/NATIVE_INIT_V3428_S22PLUS_STOCK_TRANSITION_POSITIVE_CONTROL_UNAVAILABLE_2026-07-10.md`.
+
+> **S22+ PRIOR FRONTIER (2026-07-10 14:27 KST / 2026-07-10 05:27 UTC) — V3427 OBSERVER TRANSITION HOST PASS; MANUAL RDX/DOWNLOAD + FIRST ROLLBACK BOOT SELECTED; STOCK-ORIGIN POSITIVE CONTROL NEXT; NO LIVE.**
 > V3427 found and corrected V3426's negative-result identifiability boundary.
 > The candidate can verify G11 internally, but the host has no signal before the
 > transition. Therefore an exact fresh PRECHECK+FINAL pair in the first rollback
@@ -94,7 +120,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > double reads are `UNAVAILABLE/STOP`. V3426 is now schema v2 with contract SHA
 > `cba82ce1bae23f56bcad57876f5d647e31a37a36d7bc9b477de57b1f85b3babf`.
 >
-> The selected transition is quiet post-FINAL park -> wait 60 seconds, act by 90
+> The selected transition is quiet post-FINAL park -> wait 60 seconds, act by 180
 > seconds -> attended manual Samsung RDX/Download -> exact Magisk boot-only
 > rollback -> first rooted boot with no extra reboot -> two full EOF reads of
 > `/proc/last_kmsg` with identical bytes/SHA -> exact pair classification. The
@@ -106,7 +132,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > M29 proves Android-origin ring survival through that path, not direct-PID1
 > origin. Exact report hashes, both rollback AP hashes/members, Odin4, V3426
 > source contract, and V3427 transition contract validate host-only. Transition
-> SHA is `ad5a99b06e30e300fceb0e4fe882c001d1a4c131ce4a7e2b16b65af5bf2a12f1`.
+> SHA is `426aa2bb50f6e73e153f5f5dc9cde59ddf37ab315f46860c1dc0bd0b3e810734`.
 > Claude Opus confirmed this is the least-confounded available transition but
 > requires a same-transition stock/Magisk-origin positive control before any
 > direct-PID1 candidate. Next = design that positive control with the same run-id

@@ -12,7 +12,7 @@ observer and corrected the negative-result interpretation before live work.
 ```text
 V3426 schema                         s22plus_v3426_phase_observer_design_v2
 V3426 contract SHA256                cba82ce1bae23f56bcad57876f5d647e31a37a36d7bc9b477de57b1f85b3babf
-V3427 transition SHA256              ad5a99b06e30e300fceb0e4fe882c001d1a4c131ce4a7e2b16b65af5bf2a12f1
+V3427 transition SHA256              426aa2bb50f6e73e153f5f5dc9cde59ddf37ab315f46860c1dc0bd0b3e810734
 Magisk boot-only rollback AP         exact SHA, one member PASS
 stock boot-only fallback AP          exact SHA, one member PASS
 Odin4 executable                     PASS

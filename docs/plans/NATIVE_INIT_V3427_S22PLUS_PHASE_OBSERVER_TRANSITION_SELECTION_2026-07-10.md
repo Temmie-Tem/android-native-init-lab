@@ -33,7 +33,7 @@ schema v2 and its contract hash encode this asymmetric boundary.
 ```text
 candidate flash completes and original Odin disconnects
   -> candidate internally completes G0..G11 and enters quiet park
-  -> operator waits 60 seconds, acts no later than 90 seconds
+  -> operator waits 60 seconds, completes entry no later than 180 seconds
   -> operator manually enters Samsung RDX/Download
   -> host flashes pinned Magisk boot-only rollback AP
   -> first rooted Android boot, no intervening reboot
@@ -62,7 +62,7 @@ resulting boot SHA256=4150b962314e6136acba61b20f471d6ee1c418b83cf8c3ee4d9cf7c91a
 Using the stock fallback makes the run recovery-only and `NO_PROOF/STOP`; it is
 not an alternate evidence path. After FINAL the candidate performs no userspace
 log writes and only parks. Background kernel log volume remains unverifiable but
-is bounded by the 90-second operator window.
+is bounded by the 180-second operator window.
 
 ## Why This Transition
 

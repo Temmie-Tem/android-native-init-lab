@@ -105,12 +105,12 @@ TRANSITION_CORE: dict[str, Any] = {
         "name": "attended-manual-rdx-download-first-rollback-boot-capture",
         "candidate_terminal_state": "quiet_park_after_internal_final_readback",
         "post_final_userspace_log_writes": False,
-        "kernel_background_log_volume": "UNVERIFIABLE_BOUNDED_BY_90_SECONDS",
+        "kernel_background_log_volume": "UNVERIFIABLE_BOUNDED_BY_180_SECONDS",
         "host_pretransition_stage_a_signal": False,
         "operator_entry": "manual_rdx_then_download",
         "candidate_side_reboot": False,
         "minimum_wait_after_candidate_odin_disconnect_sec": 60,
-        "maximum_wait_after_candidate_odin_disconnect_sec": 90,
+        "maximum_wait_after_candidate_odin_disconnect_sec": 180,
         "primary_rollback": "magisk_boot_only",
         "fallback_rollback": "stock_boot_only_if_transfer_fails_and_download_remains",
         "fallback_result": "RECOVERY_ONLY_NO_PROOF_STOP",
@@ -158,7 +158,7 @@ TRANSITION_CORE: dict[str, Any] = {
     "live_authorized": False,
 }
 TRANSITION_SHA256 = hashlib.sha256(observer.canonical_json(TRANSITION_CORE)).hexdigest()
-PINNED_TRANSITION_SHA256 = "ad5a99b06e30e300fceb0e4fe882c001d1a4c131ce4a7e2b16b65af5bf2a12f1"
+PINNED_TRANSITION_SHA256 = "426aa2bb50f6e73e153f5f5dc9cde59ddf37ab315f46860c1dc0bd0b3e810734"
 if TRANSITION_SHA256 != PINNED_TRANSITION_SHA256:
     raise RuntimeError(
         "transition contract changed without an explicit pin update: "

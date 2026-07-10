@@ -21,6 +21,52 @@ BL, CP, CSC, userdata, or any non-boot flash.
    bootloader, or any partition other than **boot**. Device changes touch the boot image
    only. These forbidden partitions are **NOT** TWRP/download-mode recoverable = permanent
    brick; the operator's acceptance of boot-flash risk does NOT extend to them.
+   **Narrow operator-authorized exception (2026-07-10, S22+ V3428 stock-origin transition positive control):**
+   Consumed/retired: this one-shot exception was consumed by the 2026-07-10
+   live invocation. The helper proved the run-bound PRECHECK+FINAL pair in the
+   current `/proc/ap_klog` ring, but no Odin device appeared during the bounded
+   manual RDX/Download window, so it stopped with
+   `UNAVAILABLE_STOP_MANUAL_DOWNLOAD_TIMEOUT` before any Odin flash. It must not
+   be reused. A rerun requires a fresh, separately approved narrow exception.
+   Codex may perform one bounded attended V3428 stock-origin same-transition
+   positive-control run on the Samsung S22+ target
+   `SM-S906N/g0q/S906NKSS7FYG8` using only the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_v3428_stock_transition_positive_control.py`
+   SHA256 `1b2c3395334efd8d51388676799c832042a82df20dad49817e0ab403ce78be52`
+   and live acknowledgement token
+   `S22PLUS-V3428-STOCK-TRANSITION-POSITIVE-CONTROL-LIVE-GATE`. The helper must
+   enforce observer contract SHA256
+   `cba82ce1bae23f56bcad57876f5d647e31a37a36d7bc9b477de57b1f85b3babf`
+   and transition contract SHA256
+   `426aa2bb50f6e73e153f5f5dc9cde59ddf37ab315f46860c1dc0bd0b3e810734`.
+   This exception authorizes no native-init candidate and no candidate flash. On
+   the already-booted, exact Magisk baseline it may perform `/dev/kmsg PRECHECK
+   and FINAL only`, verify both frames through fresh read-only `/proc/ap_klog`
+   snapshots, remain quiet for at least 60 seconds, and require attended manual
+   RDX/Download entry with the boot rollback flash beginning no later than the
+   hard 180-second transition deadline. It may then flash only the pinned Magisk
+   boot partition only AP SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`,
+   whose sole tar member must be `boot.img.lz4`, to reproduce the already-running
+   Magisk boot SHA256
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+   On that first rooted boot, before any additional reboot, it must require exact
+   target, root, boot completion, verified-boot state, and boot SHA identity, then
+   perform a first-boot /proc/last_kmsg double-read to EOF and classify only the
+   run-bound exact PRECHECK+FINAL pair. If the Magisk Odin transfer fails while
+   Download remains available, it may use only the pinned stock boot-only
+   recovery AP SHA256
+   `2f6a8ac093587a0f03c423d8e21f65c6fe3a8d2ce9915297170cdaa2cac37c94`,
+   also containing only `boot.img.lz4`; that path is recovery-only and can never
+   produce proof or PASS. This is a boot partition only exception with no
+   non-boot partition write. It authorizes no recovery, vendor_boot, dtbo,
+   vbmeta, vbmeta_system, BL, CP, CSC, super, persist, userdata, EFS, sec_efs,
+   RPMB, keymaster, modem, bootloader, raw host `dd`, fastboot, Magisk module,
+   multidisabler, format data, sysfs/configfs write, block-device write, Android
+   `adb reboot`, candidate-side reboot, panic, watchdog, sec_debug trigger, or
+   A90 action. This exception is consumed by one live invocation regardless of
+   PASS, NO_PROOF, UNAVAILABLE, FAIL, or recovery-only outcome and must be marked
+   consumed immediately afterward.
    **Narrow operator-authorized exception (2026-07-06, S22+ recovery-infra only):**
    for the Samsung S22+ `SM-S906N`/`g0q` on `S906NKSS7FYG8`, Codex may perform one
    bounded Odin4 recovery-infrastructure install of the pinned unofficial g0q TWRP

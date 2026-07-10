@@ -131,8 +131,8 @@
       "fallback_result": "RECOVERY_ONLY_NO_PROOF_STOP",
       "fallback_rollback": "stock_boot_only_if_transfer_fails_and_download_remains",
       "host_pretransition_stage_a_signal": false,
-      "kernel_background_log_volume": "UNVERIFIABLE_BOUNDED_BY_90_SECONDS",
-      "maximum_wait_after_candidate_odin_disconnect_sec": 90,
+      "kernel_background_log_volume": "UNVERIFIABLE_BOUNDED_BY_180_SECONDS",
+      "maximum_wait_after_candidate_odin_disconnect_sec": 180,
       "minimum_wait_after_candidate_odin_disconnect_sec": 60,
       "name": "attended-manual-rdx-download-first-rollback-boot-capture",
       "operator_entry": "manual_rdx_then_download",
@@ -141,6 +141,6 @@
     },
     "target": "SM-S906N/g0q/S906NKSS7FYG8"
   },
-  "transition_sha256": "ad5a99b06e30e300fceb0e4fe882c001d1a4c131ce4a7e2b16b65af5bf2a12f1",
+  "transition_sha256": "426aa2bb50f6e73e153f5f5dc9cde59ddf37ab315f46860c1dc0bd0b3e810734",
   "verdict": "HOST_TRANSITION_SELECTION_PASS_NO_LIVE"
 }
