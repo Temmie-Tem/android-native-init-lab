@@ -106,7 +106,7 @@ BL, CP, CSC, userdata, or any non-boot flash.
    stock-origin retention PASS, Codex may perform one bounded attended V3430
    live run on `SM-S906N/g0q/S906NKSS7FYG8` using only
    `workspace/public/src/scripts/revalidation/s22plus_v3430_phase_observer_live_gate.py`
-   SHA256 `dda8c94542a8e7f0cec0a0dc90618ff722f367528cef99c2b0dedd972b4b367e`
+   SHA256 `587d81409ecfaea6002d63aaa931d01fdab1fb6a73a403bf6ed371427773769d`
    with live acknowledgement token
    `S22PLUS-V3430-V3429-PHASE-OBSERVER-LIVE-GATE`. Mandatory recovery from an
    already-transferred candidate may use the same helper's rollback-only mode

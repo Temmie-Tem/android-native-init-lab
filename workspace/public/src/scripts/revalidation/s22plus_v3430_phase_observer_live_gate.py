@@ -92,6 +92,22 @@ class FilePin:
     mtime_ns: int
 
 
+def allocate_run_dir(root: Path, requested: Path | None) -> Path:
+    if requested is not None:
+        run_dir = requested if requested.is_absolute() else root / requested
+        run_dir.mkdir(parents=True, exist_ok=False)
+        return run_dir
+    base = root / RUN_ROOT / f"s22plus_v3430_phase_observer_{control.utc_stamp()}"
+    for suffix in range(100):
+        run_dir = base if suffix == 0 else Path(f"{base}_{suffix:02d}")
+        try:
+            run_dir.mkdir(parents=True, exist_ok=False)
+            return run_dir
+        except FileExistsError:
+            continue
+    raise LiveGateError(f"could not allocate V3430 run directory under {base.parent}")
+
+
 def file_pin(path: Path) -> FilePin:
     stat = path.stat()
     return FilePin(path, stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns)
@@ -602,7 +618,7 @@ def main() -> int:
         print(json.dumps(plan, indent=2, sort_keys=True))
     if modes == 0:
         return 0
-    run_dir = control.allocate_run_dir(root, args.run_dir)
+    run_dir = allocate_run_dir(root, args.run_dir)
     control.write_json_fsync(run_dir / "offline_plan.json", plan)
     try:
         if args.connected_dry_run:

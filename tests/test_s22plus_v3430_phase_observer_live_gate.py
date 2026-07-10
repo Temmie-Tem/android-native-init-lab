@@ -99,6 +99,12 @@ class S22PlusV3430PhaseObserverLiveGateTest(unittest.TestCase):
             ):
                 self.module.require_unchanged(pin)
 
+    def test_run_directory_uses_v3430_prefix(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            run_dir = self.module.allocate_run_dir(root, None)
+            self.assertTrue(run_dir.name.startswith("s22plus_v3430_phase_observer_"))
+
     def test_timeline_uses_canonical_eight_phase_names(self):
         self.assertEqual(
             self.module.control.TIMELINE_REQUIRED_NAMES,

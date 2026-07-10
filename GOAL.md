@@ -97,7 +97,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 >
 > Helper
 > `workspace/public/src/scripts/revalidation/s22plus_v3430_phase_observer_live_gate.py`
-> SHA is `dda8c94542a8e7f0cec0a0dc90618ff722f367528cef99c2b0dedd972b4b367e`.
+> SHA is `587d81409ecfaea6002d63aaa931d01fdab1fb6a73a403bf6ed371427773769d`.
 > It pins fixed run ID `f1613e72912b63f030c25a6bd7fd072e`, manifest SHA
 > `3961f828b0427c70ec09bce3ffc168cfdb02132f5e5363a2767eb287d89270a1`,
 > marker-manifest SHA
