@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-SCHEMA = "s22plus_v3426_phase_observer_design_v1"
+SCHEMA = "s22plus_v3426_phase_observer_design_v2"
 TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
 SOURCE_ARCHIVE = Path(
     "workspace/private/inputs/s22plus_kernel_source/"
@@ -175,10 +175,17 @@ CONTRACT_CORE: dict[str, Any] = {
         "result_boundary": "current_session_capture_only",
     },
     "stage_b": {
-        "entry_gate": "exact current-run FINAL recovered from later /proc/last_kmsg",
+        "entry_gate": (
+            "exact current-run PRECHECK and FINAL recovered from the first later "
+            "/proc/last_kmsg"
+        ),
         "same_session_last_kmsg_is_not_capture_evidence": True,
         "transition_selected": False,
-        "result_boundary": "cross_session_retention_only_after_exact_recovery",
+        "host_can_observe_stage_a_before_transition": False,
+        "positive_result": "stage_a_and_cross_session_retention_pass",
+        "absent_result": "NO_PROOF_STAGE_A_VS_TRANSITION_UNRESOLVED_STOP",
+        "integrity_error_result": "FAIL_STOP",
+        "result_boundary": "positive_conclusive_negative_inconclusive",
     },
     "forbidden_components": FORBIDDEN_COMPONENTS,
     "consumed_marker_families": CONSUMED_MARKER_FAMILIES,
@@ -206,11 +213,11 @@ CONTRACT_CORE: dict[str, Any] = {
         },
         {
             "condition": "exact FINAL absent from later last_kmsg",
-            "result": "RETENTION_FAIL_STAGE_B_AND_USB_FORBIDDEN",
+            "result": "NO_PROOF_STAGE_A_VS_TRANSITION_UNRESOLVED_STOP",
         },
         {
-            "condition": "exact FINAL recovered from later last_kmsg",
-            "result": "RETENTION_PASS_STAGE_B_DESIGN_MAY_START",
+            "condition": "exact PRECHECK and FINAL recovered from first later last_kmsg",
+            "result": "STAGE_A_AND_RETENTION_PASS_STAGE_B_DESIGN_MAY_START",
         },
     ],
     "live_authorized": False,
@@ -227,7 +234,7 @@ def canonical_json(value: Any) -> bytes:
 
 
 CONTRACT_SHA256 = hashlib.sha256(canonical_json(CONTRACT_CORE)).hexdigest()
-PINNED_CONTRACT_SHA256 = "dbd3efbdbaece277a34a54f40ab1f2785e8115efa7924c17408f53c9debba8a8"
+PINNED_CONTRACT_SHA256 = "cba82ce1bae23f56bcad57876f5d647e31a37a36d7bc9b477de57b1f85b3babf"
 if CONTRACT_SHA256 != PINNED_CONTRACT_SHA256:
     raise RuntimeError(
         "phase-observer contract changed without an explicit pin update: "
@@ -521,7 +528,7 @@ def classify_marker_snapshot(
         elif stage == "retention":
             if len(finals) != 1:
                 errors.append(f"retained-final-count:{len(finals)}")
-            if len(prechecks) > 1:
+            if len(prechecks) != 1:
                 errors.append(f"retained-precheck-count:{len(prechecks)}")
             if len(prechecks) == 1 and len(finals) == 1:
                 if prechecks[0].sequence >= finals[0].sequence:
@@ -866,7 +873,14 @@ def build_design(root: Path) -> dict[str, Any]:
             "baseline": "negative control only",
             "precheck": "current-session hook and current-ring capture",
             "final": "current-session FINAL committed to current ring",
-            "retention": "only a later-session exact FINAL in /proc/last_kmsg",
+            "retention": (
+                "only first-later-session exact PRECHECK and FINAL in "
+                "/proc/last_kmsg"
+            ),
+            "retention_absence": (
+                "NO_PROOF because the host cannot distinguish Stage A not reached "
+                "from transition loss"
+            ),
             "same_session_last_kmsg": "never capture evidence",
         },
         "unverifiable": list(RESET_UNKNOWNS),

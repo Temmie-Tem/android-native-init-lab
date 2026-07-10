@@ -84,6 +84,41 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 14:27 KST / 2026-07-10 05:27 UTC) — V3427 OBSERVER TRANSITION HOST PASS; MANUAL RDX/DOWNLOAD + FIRST ROLLBACK BOOT SELECTED; STOCK-ORIGIN POSITIVE CONTROL NEXT; NO LIVE.**
+> V3427 found and corrected V3426's negative-result identifiability boundary.
+> The candidate can verify G11 internally, but the host has no signal before the
+> transition. Therefore an exact fresh PRECHECK+FINAL pair in the first rollback
+> `/proc/last_kmsg` proves both Stage A and preservation, while pair absence is
+> `NO_PROOF/STOP`, not a causal retention failure. Partial, malformed, duplicate,
+> or wrong-identity data is `FAIL/STOP`; non-EOF, empty, oversized, or changing
+> double reads are `UNAVAILABLE/STOP`. V3426 is now schema v2 with contract SHA
+> `cba82ce1bae23f56bcad57876f5d647e31a37a36d7bc9b477de57b1f85b3babf`.
+>
+> The selected transition is quiet post-FINAL park -> wait 60 seconds, act by 90
+> seconds -> attended manual Samsung RDX/Download -> exact Magisk boot-only
+> rollback -> first rooted boot with no extra reboot -> two full EOF reads of
+> `/proc/last_kmsg` with identical bytes/SHA -> exact pair classification. The
+> stock boot-only AP remains transfer-failure fallback only. Candidate-side
+> `reboot("download")` is rejected by M4T0/M4T1, cold power loss by retention
+> risk, and panic/watchdog/`sec_debug` by observer-policy confounding.
+>
+> M4T0/O3/O3F/O3R1/M29 prove the manual Download rollback envelope repeatedly;
+> M29 proves Android-origin ring survival through that path, not direct-PID1
+> origin. Exact report hashes, both rollback AP hashes/members, Odin4, V3426
+> source contract, and V3427 transition contract validate host-only. Transition
+> SHA is `ad5a99b06e30e300fceb0e4fe882c001d1a4c131ce4a7e2b16b65af5bf2a12f1`.
+> Claude Opus confirmed this is the least-confounded available transition but
+> requires a same-transition stock/Magisk-origin positive control before any
+> direct-PID1 candidate. Next = design that positive control with the same run-id
+> marker encoder, manual transition, first-boot double-read, and classifier. The
+> operator's broad live approval is acknowledged but does not authorize an
+> as-yet-unbuilt helper/artifact; a fresh exact exception and ack remain required.
+> No candidate, helper, exception, device contact, write, reboot, image, or flash.
+> Plan:
+> `docs/plans/NATIVE_INIT_V3427_S22PLUS_PHASE_OBSERVER_TRANSITION_SELECTION_2026-07-10.md`.
+> Report:
+> `docs/reports/NATIVE_INIT_V3427_S22PLUS_TRANSITION_SELECTION_HOST_PASS_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 09:42 KST / 2026-07-10 00:42 UTC) — V3426 DIRECT-PID1 PHASE-OBSERVER HOST DESIGN PASS; CURRENT-RING CAPTURE CONTRACT CLOSED; TRANSITION UNSELECTED; NO LIVE.**
 > V3426 selected `sec_log_buf.ko` as an observer-only first rung and converted
 > the O3/O3F phase ambiguity into a two-stage evidence contract. The exact FYG8
@@ -101,10 +136,13 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > retained circular ring but cannot satisfy the current run. Malformed current-
 > run data, duplicates, wrong identity/sequence, premature FINAL, or PRECHECK
 > eviction are hard failures. Deterministic contract SHA256 is
-> `dbd3efbdbaece277a34a54f40ab1f2785e8115efa7924c17408f53c9debba8a8`.
+> `cba82ce1bae23f56bcad57876f5d647e31a37a36d7bc9b477de57b1f85b3babf`.
 >
-> Stage B remains forbidden until a later stock/Magisk session recovers the exact
-> FINAL from `/proc/last_kmsg` after one separately selected transition. Warm,
+> Stage B remains forbidden until the first later stock/Magisk session recovers
+> the exact PRECHECK and FINAL from `/proc/last_kmsg` after one separately
+> selected transition. A positive is conclusive, but marker absence is
+> `NO_PROOF`: the host cannot distinguish Stage A not reached from transition
+> loss because G11 is internal-only. Warm,
 > cold, panic, watchdog, RDX, bootloader, and bootloader/TZ clearing semantics
 > remain `UNVERIFIABLE`; V3426 selects none. `sec_debug.ko`, USB/DWC3/configfs,
 > sysfs writes, Max77705, panic/watchdog, persistent mounts, and O3/O3F/O3R1

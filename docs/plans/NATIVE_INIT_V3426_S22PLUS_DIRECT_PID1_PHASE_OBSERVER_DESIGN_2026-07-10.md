@@ -121,18 +121,23 @@ sequence, FINAL before its gate, or PRECHECK eviction at G11 are failures.
 
 ## Stage B Boundary
 
-Stage B is not a candidate. It is a future evidence classification performed
-after a separately authorized and named transition:
+Stage B is not a candidate. It is a future positive-evidence classification
+performed after a separately authorized and named transition. The host cannot
+observe the candidate's internal G11 PASS before that transition, so positive
+and negative outcomes are intentionally asymmetric:
 
 ```text
-PASS = later stock/Magisk /proc/last_kmsg contains exactly one valid
-       current-run FINAL bound to the pinned module and contract
-FAIL = absent, duplicate, malformed, wrong-run, wrong-contract, or bad sequence
+PASS     = first later stock/Magisk /proc/last_kmsg contains exactly one valid
+           current-run PRECHECK and FINAL bound to the pinned module and contract
+NO_PROOF = both are absent; Stage A not reached and transition loss are not
+           distinguishable; stop without causal attribution
+FAIL     = partial, duplicate, malformed, wrong-run, wrong-contract, or bad sequence
 ```
 
-PRECHECK may also be present once, but FINAL is the retention proof token. Same-
-session `/proc/last_kmsg` is structurally incapable of proving the current
-capture and is never accepted for that purpose.
+The unique FINAL is emitted only after internal current-ring verification, so an
+exact positive proves both Stage A and cross-session preservation. Absence cannot
+prove which hidden condition failed. Same-session `/proc/last_kmsg` is
+structurally incapable of proving current capture and is never accepted.
 
 ## Unverifiable Ledger
 

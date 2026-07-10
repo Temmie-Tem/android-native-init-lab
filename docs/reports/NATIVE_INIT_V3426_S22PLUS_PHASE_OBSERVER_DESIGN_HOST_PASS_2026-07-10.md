@@ -7,8 +7,8 @@
 V3426 converts the O3/O3F runtime-phase ambiguity into a two-stage evidence
 contract. Stage A will eventually prove current-session execution and log-ring
 capture through a fresh `/proc/ap_klog` readback. Stage B remains forbidden
-until a later stock/Magisk session recovers the exact run-bound FINAL marker
-from `/proc/last_kmsg` after one separately selected transition.
+until the first later stock/Magisk session recovers the exact run-bound PRECHECK
+and FINAL markers from `/proc/last_kmsg` after one separately selected transition.
 
 No candidate source, boot image, AP, live helper, exception, device write,
 module insertion, reboot, or flash was produced or performed.
@@ -66,7 +66,7 @@ backstop tests also cover malformed frames whose parser issue lacks a run hint.
 V3426 focused tests                         24/24 PASS
 module-map + USB-role + O2 regressions      27/27 PASS
 generated contract --check                 PASS
-contract sha256                            dbd3efbdbaece277a34a54f40ab1f2785e8115efa7924c17408f53c9debba8a8
+contract sha256                            cba82ce1bae23f56bcad57876f5d647e31a37a36d7bc9b477de57b1f85b3babf
 ```
 
 ## Remaining Boundary
@@ -78,3 +78,9 @@ reserved-region clearing. V3426 intentionally selects none of them.
 Next is one host-only transition-selection unit. It must choose one exact
 transition and recovery envelope. It must not build a candidate or request live
 authorization until that choice is independently justified.
+
+The host has no pre-transition signal for the candidate's internal G11 result.
+Consequently an exact later PRECHECK+FINAL is conclusive positive evidence, while
+marker absence is `NO_PROOF`: it cannot distinguish Stage A not reached from
+marker loss during the transition. V3427 identified and corrected this
+identifiability boundary before any live preparation.

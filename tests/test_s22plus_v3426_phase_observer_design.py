@@ -60,7 +60,7 @@ class S22PlusV3426PhaseObserverDesignTest(unittest.TestCase):
     def test_contract_pin_and_committed_json_are_current(self):
         self.assertEqual(
             self.module.CONTRACT_SHA256,
-            "dbd3efbdbaece277a34a54f40ab1f2785e8115efa7924c17408f53c9debba8a8",
+            self.module.PINNED_CONTRACT_SHA256,
         )
         committed = Path(
             "docs/plans/s22plus-v3426-phase-observer-contract.json"
@@ -210,10 +210,12 @@ class S22PlusV3426PhaseObserverDesignTest(unittest.TestCase):
         self.assertIn("current-run-malformed:crc-mismatch", result["errors"])
 
     def test_retention_requires_exact_final(self):
-        self.assertTrue(self.classify("retention", self.final)["pass"])
         self.assertTrue(
             self.classify("retention", self.precheck + self.final)["pass"]
         )
+        final_only = self.classify("retention", self.final)
+        self.assertFalse(final_only["pass"])
+        self.assertIn("retained-precheck-count:0", final_only["errors"])
         self.assertFalse(self.classify("retention", self.precheck)["pass"])
         duplicate = self.classify("retention", self.final + self.final)
         self.assertFalse(duplicate["pass"])
