@@ -4,7 +4,43 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3434 BOOT BOUNDARY MAP CORRECTED; STOCK GLOBAL-PID1 + MOUNT-NAMESPACE SERVICE SUPERVISOR SELECTED; NO LIVE AUTHORIZATION.**
+> **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3435 RAMOOPS CONSOLE/DMESG PARTITION CORRECTION ACTIVE; FINAL TARGET IS NO ANDROID USERSPACE; HOST-ONLY, NO LIVE AUTHORIZATION.**
+> The S22+ end state remains a lightweight native/Debian system that does not
+> boot or retain the Android userspace. The V3434 stock-global-PID1 plus
+> mount-namespace service-supervisor architecture is an interim bring-up and
+> recovery fallback only; it is not the final product architecture. It may be
+> used to validate hardware ownership and service prerequisites while direct
+> native PID1 remains unobservable, but it must not silently replace the
+> no-Android objective.
+>
+> Immediate priority is to buy a pre/early-userspace witness before more USB,
+> distro, or broad module work. Host parsing of the exact FYG8 vendor DTBs found
+> an existing 2 MiB `/reserved-memory/ramoops_region` whose only frontend size
+> is `pmsg-size=0x200000`; `console-size` and `record-size` are absent. The
+> ramoops driver therefore computes zero dmesg space and registers no console
+> frontend. The earlier DTBO `status=okay` PASS proved active-DT provenance but
+> enabled only pmsg, so the M13/M18/M22 empty console/dmesg results did not
+> refute ramoops retention.
+>
+> V3435 is host-only: preserve the existing reserved-memory base and total size,
+> add no new memory region, and design a DTBO property overlay that enables the
+> node and partitions the same 2 MiB into power-of-two pmsg, console, and dmesg
+> record areas. Machine-check all applicable vendor-DTB/DTBO variants, exact
+> arithmetic, kernel-driver frontend flags, FDT/container integrity, AVB/footer
+> preservation, and a strict changed-property allowlist. Do not alter kernel
+> cmdline: `console=null` does not disable pstore's independently registered
+> `CON_ENABLED` console once `console-size` exists.
+>
+> A future live unit is not authorized here. Its first gate must be a true
+> Android positive control, not another direct-PID1 candidate: boot the exact
+> console-enabled DTBO on the known Magisk baseline, prove live DT sizes and
+> ramoops backend registration, emit a run-bound marker, perform one separately
+> authorized intentional panic, recover the prior console/dmesg/pmsg records,
+> and restore stock DTBO. PASS reopens a minimal module-free direct-PID1 witness;
+> FAIL retires ramoops and moves observability to EUD/UART. DTBO write and panic
+> each require a fresh narrow SHA-pinned `AGENTS.md` exception.
+>
+> V3434 remains the corrected boot-boundary baseline below.
 > V3434 pinned the Samsung base OSRC, running Magisk-kernel IKCONFIG, stock
 > boot/vendor_boot v4 images, live cmdline/bootconfig, first-stage module order,
 > O1.1/M31B/V3433 evidence, retained ABL ring, and exact FYG8 ABL binary. The
@@ -26,7 +62,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **Correction:** the pinned running Magisk kernel IKCONFIG has
 > `CONFIG_PID_NS=n`, `CONFIG_USER_NS=n`, and `CONFIG_SYSVIPC=n`. V3434's initial
 > new-PID-namespace/namespace-PID1 selection was therefore impossible and is
-> retired. The corrected primary architecture retains stock Android `init` as
+> retired. The corrected interim architecture retains stock Android `init` as
 > global PID 1 and hardware/watchdog/recovery owner, then launches a
 > purpose-built child service supervisor in a private mount namespace. The
 > child performs `pivot_root` (not chroot), uses `PR_SET_CHILD_SUBREAPER`, and
@@ -41,8 +77,9 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > branch/`start_kernel` remains unobserved; broad ABL RE is deferred. V3434 is
 > host-only and authorizes no device action or flash. Report:
 > `docs/reports/NATIVE_INIT_V3434_S22PLUS_BOOT_BOUNDARY_STATIC_MAP_HOST_PASS_2026-07-11.md`.
-> Next: V3435 child service supervisor protocol/prerequisite contract, then
-> host-only mount-namespace+`pivot_root`/subreaper implementation testing. The
+> The child-service supervisor protocol and host-only
+> mount-namespace+`pivot_root`/subreaper implementation are deferred until the
+> V3435 observation decision. The
 > concrete S22+ rootfs artifact and storage selector remain unselected and are a
 > hard live-start blocker.
 
