@@ -4,7 +4,7 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3436 RAMOOPS ANDROID POSITIVE-CONTROL HOST DESIGN PASS; FINAL TARGET IS NO ANDROID USERSPACE; RESUMABLE HELPER NEXT, NO LIVE AUTHORIZATION.**
+> **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3437 RAMOOPS POSITIVE-CONTROL LIVE-GATE SOURCE READY; POLICY INERT; FINAL TARGET IS NO ANDROID USERSPACE; NO LIVE AUTHORIZATION.**
 > The S22+ end state remains a lightweight native/Debian system that does not
 > boot or retain the Android userspace. The V3434 stock-global-PID1 plus
 > mount-namespace service-supervisor architecture is an interim bring-up and
@@ -62,6 +62,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/NATIVE_INIT_V3436_S22PLUS_RAMOOPS_POSITIVE_CONTROL_HOST_DESIGN_PASS_2026-07-11.md`.
 > Next: V3437 host-only resumable helper plus inert two-policy drafts; still no
 > live authorization.
+>
+> V3437 now implements that resumable helper and stages separate inert DTBO and
+> intentional-panic policy drafts. Only `--offline-check` and `--print-plan`
+> are currently usable. Dry-run/live/resume modes verify active policy markers
+> before device contact and require independent DTBO/panic tokens; restore modes
+> additionally require the stock-restore token. Session/timeline writes are
+> atomic and durable, timeline uses only `events:[{name,timestamp_utc}]`,
+> pre-panic failures attempt stock rollback, and post-panic paths preserve
+> evidence until duplicate pstore collection finishes. Current offline result:
+> artifacts/drafts PASS, `dtbo_active=false`, `panic_active=false`, device
+> actions 0. Report:
+> `docs/reports/NATIVE_INIT_V3437_S22PLUS_RAMOOPS_POSITIVE_CONTROL_LIVE_GATE_READY_2026-07-11.md`.
+> Next: review the two policy drafts. Only separate explicit operator approval
+> may promote them to `AGENTS.md`; then run read-only dry-run before live.
 >
 > V3434 remains the corrected boot-boundary baseline below.
 > V3434 pinned the Samsung base OSRC, running Magisk-kernel IKCONFIG, stock
