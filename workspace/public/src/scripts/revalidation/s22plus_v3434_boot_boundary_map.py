@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 
-SCHEMA = "s22plus_v3434_boot_boundary_map_v1"
+SCHEMA = "s22plus_v3434_boot_boundary_map_v2"
 TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
 
 SOURCE_ARCHIVE = Path(
@@ -107,6 +107,7 @@ MAIN_SOURCE = "kernel_platform/common/init/main.c"
 INITRAMFS_SOURCE = "kernel_platform/common/init/initramfs.c"
 EXIT_SOURCE = "kernel_platform/common/kernel/exit.c"
 WATCHDOG_SOURCE = "kernel_platform/common/drivers/watchdog/watchdog_dev.c"
+NAMESPACE_SOURCE = "kernel_platform/common/fs/namespace.c"
 SEC_LOG_BUF_SOURCE = (
     "kernel_platform/msm-kernel/drivers/samsung/debug/log_buf/"
     "sec_log_buf_main.c"
@@ -352,6 +353,7 @@ def build_map(root: Path) -> dict[str, Any]:
             INITRAMFS_SOURCE,
             EXIT_SOURCE,
             WATCHDOG_SOURCE,
+            NAMESPACE_SOURCE,
             SEC_LOG_BUF_SOURCE,
             SEC_DEBUG_SOURCE,
         ),
@@ -360,6 +362,7 @@ def build_map(root: Path) -> dict[str, Any]:
     initramfs = sources[INITRAMFS_SOURCE]
     exit_source = sources[EXIT_SOURCE]
     watchdog = sources[WATCHDOG_SOURCE]
+    namespace = sources[NAMESPACE_SOURCE]
     sec_log = sources[SEC_LOG_BUF_SOURCE]
     sec_debug = sources[SEC_DEBUG_SOURCE]
 
@@ -391,6 +394,11 @@ def build_map(root: Path) -> dict[str, Any]:
         "watchdog_boot_handler": require(watchdog, "static bool handle_boot_enabled", "watchdog boot handler"),
         "watchdog_open_timeout": require(watchdog, "static unsigned open_timeout", "watchdog open timeout"),
         "watchdog_immediate_ping": require(watchdog, "if (handle_boot_enabled)\n\t\t\thrtimer_start", "watchdog immediate ping"),
+        "pivot_root_syscall": require(
+            namespace,
+            "SYSCALL_DEFINE2(pivot_root, const char __user *, new_root,",
+            "pivot_root syscall",
+        ),
         "sec_log_driver": require(sec_log, "platform_driver_register(&sec_log_buf_driver)", "sec_log_buf driver"),
         "sec_log_initcall": require(sec_log, "subsys_initcall_sync(sec_log_buf_init);", "sec_log_buf initcall"),
         "sec_debug_panic_notifier": require(sec_debug, "atomic_notifier_chain_register(&panic_notifier_list, nb)", "sec_debug panic notifier"),
@@ -400,8 +408,14 @@ def build_map(root: Path) -> dict[str, Any]:
     config = extract_ikconfig(resolve(root, MAGISK_KERNEL))
     expected_config = {
         "CONFIG_BLK_DEV_INITRD": "y",
+        "CONFIG_BLK_DEV_LOOP": "y",
+        "CONFIG_CGROUPS": "y",
+        "CONFIG_CGROUP_PIDS": "n",
         "CONFIG_DEVTMPFS": "n",
+        "CONFIG_EXT4_FS": "y",
         "CONFIG_IKCONFIG": "y",
+        "CONFIG_NAMESPACES": "y",
+        "CONFIG_NET_NS": "y",
         "CONFIG_PANIC_ON_OOPS": "y",
         "CONFIG_PANIC_TIMEOUT": "-1",
         "CONFIG_PSTORE": "y",
@@ -412,6 +426,12 @@ def build_map(root: Path) -> dict[str, Any]:
         "CONFIG_SECURITY_DEFEX": "y",
         "CONFIG_SECURITY_SELINUX": "y",
         "CONFIG_SERIAL_EARLYCON": "y",
+        "CONFIG_SYSVIPC": "n",
+        "CONFIG_TIME_NS": "y",
+        "CONFIG_USER_NS": "n",
+        "CONFIG_UTS_NS": "y",
+        "CONFIG_PID_NS": "n",
+        "CONFIG_VETH": "y",
         "CONFIG_WATCHDOG": "y",
         "CONFIG_WATCHDOG_CORE": "y",
         "CONFIG_WATCHDOG_HANDLE_BOOT_ENABLED": "y",
@@ -629,12 +649,15 @@ def build_map(root: Path) -> dict[str, Any]:
             "decision": "do not widen ABL reverse engineering until a header/handoff contradiction appears",
         },
         "selected_architecture": {
-            "name": "stock_global_pid1_with_namespaced_native_handoff",
+            "name": "stock_global_pid1_with_mount_namespace_service_supervisor",
             "priority": "PRIMARY",
             "global_pid1": "retain stock Android init as hardware/watchdog/recovery owner",
             "native_runtime": "launch a native supervisor after a device-reported prerequisite bundle",
-            "debian_root": "new mount/PID namespace plus pivot_root; not chroot",
-            "control_plane": "retain O1.1-proven ttyGS0 framed channel outside Debian namespace",
+            "debian_root": "new private mount namespace plus pivot_root; not chroot",
+            "process_model": "custom child service supervisor; Debian init is not PID 1",
+            "reaping_model": "supervisor becomes a child subreaper and directly owns approved services",
+            "kernel_constraint": "CONFIG_PID_NS=n and CONFIG_USER_NS=n prohibit namespace PID 1",
+            "control_plane": "retain O1.1-proven ttyGS0 framed channel outside the Debian mount namespace",
             "handoff_gates": [
                 "sec_log_buf driver bound and both proc nodes present",
                 "watchdog modules registered and kernel pet path alive",
@@ -643,11 +666,13 @@ def build_map(root: Path) -> dict[str, Any]:
                 "DRM/input/audio ownership transition plan is explicit and reversible",
             ],
             "failure_behavior": "return control to stock init and keep USB recovery channel",
-            "direct_pid1_track": "research-only until a pre-userspace witness exists",
+            "direct_pid1_track": "only path to true Debian PID 1 on this kernel; research-only until a pre-userspace witness exists",
+            "kernel_rebuild_track": "CONFIG_PID_NS enablement is a separate research track, not a deployment prerequisite",
         },
         "next_host_units": [
-            "design the stock-init native supervisor service and prerequisite bundle",
-            "design namespace plus pivot_root Debian handoff with reversible device ownership",
+            "design the stock-init child service supervisor protocol and prerequisite bundle",
+            "design mount-namespace plus pivot_root handoff without claiming Debian PID 1",
+            "host-test child subreaping, mount isolation, and reversible device ownership",
             "separately evaluate a kernel-entry witness without reusing direct-PID1 retained-marker live gates",
         ],
     }

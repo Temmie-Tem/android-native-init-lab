@@ -76,6 +76,12 @@ class S22PlusV3434BootBoundaryMapTest(unittest.TestCase):
         self.assertEqual(config["CONFIG_PSTORE_RAM"], "y")
         self.assertEqual(config["CONFIG_WATCHDOG_HANDLE_BOOT_ENABLED"], "y")
         self.assertEqual(config["CONFIG_WATCHDOG_OPEN_TIMEOUT"], "0")
+        self.assertEqual(config["CONFIG_NAMESPACES"], "y")
+        self.assertEqual(config["CONFIG_PID_NS"], "n")
+        self.assertEqual(config["CONFIG_USER_NS"], "n")
+        self.assertEqual(config["CONFIG_SYSVIPC"], "n")
+        self.assertEqual(config["CONFIG_NET_NS"], "y")
+        self.assertEqual(config["CONFIG_VETH"], "y")
 
     def test_watchdog_ownership_map_uses_stock_order_and_live_proof(self):
         watchdog = self.result["watchdog"]
@@ -147,16 +153,19 @@ class S22PlusV3434BootBoundaryMapTest(unittest.TestCase):
         self.assertIn("unlocked device skips boot verification", " ".join(abl["verified"]))
         self.assertIn("do not widen ABL", abl["decision"])
 
-    def test_selected_architecture_is_not_chroot_or_direct_pid1(self):
+    def test_selected_architecture_matches_running_namespace_support(self):
         architecture = self.result["selected_architecture"]
         self.assertEqual(
             architecture["name"],
-            "stock_global_pid1_with_namespaced_native_handoff",
+            "stock_global_pid1_with_mount_namespace_service_supervisor",
         )
         self.assertIn("stock Android init", architecture["global_pid1"])
-        self.assertIn("pivot_root; not chroot", architecture["debian_root"])
+        self.assertIn("mount namespace plus pivot_root; not chroot", architecture["debian_root"])
+        self.assertIn("not PID 1", architecture["process_model"])
+        self.assertIn("CONFIG_PID_NS=n", architecture["kernel_constraint"])
+        self.assertIn("child subreaper", architecture["reaping_model"])
         self.assertIn("ttyGS0", architecture["control_plane"])
-        self.assertEqual(architecture["direct_pid1_track"], "research-only until a pre-userspace witness exists")
+        self.assertIn("research-only", architecture["direct_pid1_track"])
         self.assertGreaterEqual(len(architecture["handoff_gates"]), 5)
 
     def test_script_contains_no_live_transport_or_flash_path(self):

@@ -5,9 +5,15 @@
 `HOST_STATIC_MAP_PASS_NO_LIVE`.
 
 V3434 converted the S22+ boot/PID1/watchdog/observer boundary into a
-machine-checked static map and selected the stock-first-stage namespace handoff
-as the primary runtime architecture. No device contact, reboot, image build,
-flash, or partition write occurred. No live action is authorized.
+machine-checked static map and selected a stock-first-stage handoff as the
+primary runtime architecture. No device contact, reboot, image build, flash,
+or partition write occurred. No live action is authorized.
+
+**Correction recorded 2026-07-11:** the initial report incorrectly included a
+new PID namespace and Debian init as namespace PID 1. Rechecking the pinned
+running Magisk kernel IKCONFIG proves `CONFIG_PID_NS=n` and
+`CONFIG_USER_NS=n`. The corrected map retains only a private mount namespace,
+`pivot_root`, and a purpose-built non-PID1 child service supervisor.
 
 Artifacts:
 
@@ -72,6 +78,12 @@ The watchdog core is built in with boot handling enabled and infinite userspace
 takeover timeout. Stock first-stage modules #5/#6 instantiate the watchdog path;
 M31B's 120-second survival is the live positive discriminator.
 
+The same IKCONFIG also proves `CONFIG_NAMESPACES`, `CONFIG_UTS_NS`,
+`CONFIG_TIME_NS`, `CONFIG_NET_NS`, `CONFIG_VETH`, `CONFIG_BLK_DEV_LOOP`, and
+`CONFIG_EXT4_FS` are enabled, while `CONFIG_PID_NS`, `CONFIG_USER_NS`, and
+`CONFIG_CGROUP_PIDS` are disabled. `CONFIG_SYSVIPC` is disabled, so an IPC
+namespace is not part of the feasible design either.
+
 ## ABL Scope
 
 The stock headers parse as boot/vendor_boot v4. `vendor_boot` supplies the
@@ -94,17 +106,19 @@ The primary architecture is:
 ```text
 stock Android init (global PID 1, hardware/watchdog/recovery owner)
   -> native supervisor service
-  -> new PID + mount namespaces
+  -> new private mount namespace
   -> Debian root identity preflight
   -> private mount propagation and allowlisted device binds
   -> pivot_root
-  -> Debian /sbin/init as namespace PID 1
+  -> purpose-built child subreaper launches approved Debian services
 ```
 
 The O1.1-proven `ttyGS0` framed control plane stays in the global namespace.
-This is a real namespace root handoff, not `chroot`, while preserving a recovery
-owner if Debian or a device transfer fails. Direct `/init` replacement is now a
-research-only line until a pre-userspace witness exists.
+This is a real mount-namespace root handoff, not `chroot`, while preserving a
+recovery owner if a service or device transfer fails. It does not provide PID
+isolation and does not run sysvinit/systemd. Direct `/init` replacement is now
+a research-only line until a pre-userspace witness exists; rebuilding the
+kernel with PID namespaces is a separate research track.
 
 ## Validation
 
@@ -120,6 +134,7 @@ host-only/no-live source contract              PASS
 ```
 
 Next host units are the supervisor protocol/prerequisite contract, a disposable
-namespace+`pivot_root` implementation test, and only then a stock-first-stage
-overlay build. Each future device action still requires a new narrow review and
-authorization.
+mount-namespace+`pivot_root`/subreaper implementation test, and only then a
+stock-first-stage overlay build. The S22+ rootfs artifact and storage selector
+remain unselected, so a live start is blocked independently. Each future device
+action still requires a new narrow review and authorization.

@@ -5,10 +5,17 @@
 `HOST_STATIC_MAP_PASS_NO_LIVE`.
 
 The immediate production architecture should retain stock Android `init` as
-the global PID 1 and hardware/recovery owner, then launch Debian in new mount
-and PID namespaces through a native supervisor. Debian receives a real
+the global PID 1 and hardware/recovery owner, then launch a purpose-built
+service supervisor in a private mount namespace. That child may perform a real
 `pivot_root`, not a `chroot`, while the O1.1-proven stock USB control channel
-stays outside the Debian namespace as the recovery plane.
+stays outside its mount namespace as the recovery plane.
+
+**2026-07-11 correction:** the running Magisk kernel IKCONFIG has
+`CONFIG_PID_NS=n` and `CONFIG_USER_NS=n`. The original V3434 text incorrectly
+selected a new PID namespace and Debian `/sbin/init` as namespace PID 1. That
+process model is impossible on the pinned running kernel and is retired. The
+corrected primary design does not run sysvinit/systemd and makes no isolated
+PID-view claim.
 
 Direct `/init` replacement is now a research-only track. It must not return to
 live testing until it has an observation channel available before the first
@@ -173,6 +180,23 @@ header or handoff evidence later contradicts the current map.
 
 ## Selected Runtime Architecture
 
+The running-kernel namespace/storage capabilities relevant to this selection
+are machine-checked:
+
+```text
+CONFIG_NAMESPACES=y
+CONFIG_UTS_NS=y
+CONFIG_TIME_NS=y
+CONFIG_NET_NS=y
+CONFIG_VETH=y
+CONFIG_PID_NS=n
+CONFIG_USER_NS=n
+CONFIG_SYSVIPC=n
+CONFIG_BLK_DEV_LOOP=y
+CONFIG_EXT4_FS=y
+CONFIG_CGROUP_PIDS=n
+```
+
 ```text
 global namespace
   stock Android init (global PID 1)
@@ -182,20 +206,24 @@ global namespace
     |- stock USB gadget + ttyGS0 recovery daemon
     `- native supervisor service
           |
-          `- clone new PID + mount + UTS + IPC namespaces
+          `- unshare a private mount namespace
                 |- mount Debian root read-only for identity preflight
                 |- make mount propagation private
-                |- create /run and a namespace-specific /proc
-                |- bind only the approved /dev and /sys surfaces
+                |- create /run and bind only approved /dev, /proc, /sys surfaces
                 |- pivot_root(newroot, newroot/.oldroot)
                 |- detach old root
-                `- exec Debian /sbin/init as namespace PID 1
+                `- run a custom child service supervisor
+                     |- PR_SET_CHILD_SUBREAPER
+                     |- launch only manifest-approved services
+                     `- reap, stop, and report every owned child
 ```
 
-This is not `chroot`: Debian receives its own root mount and PID 1 view.
-Android `init` remains the global PID 1 solely as the hardware, recovery, and
-rollback substrate. If Debian fails, the supervisor kills the namespace,
-restores any released devices/services, and keeps the host USB channel alive.
+This is not `chroot`: the service subtree receives its own root mount. It does
+not receive a PID namespace or isolated `/proc` process view, and Debian
+`/sbin/init` is not run. Android `init` remains the only PID 1 and the hardware,
+recovery, and rollback substrate. If a service fails, the supervisor terminates
+its owned process group, restores any released devices/services, and keeps the
+host USB channel alive.
 
 ### Mandatory Handoff Gates
 
@@ -207,13 +235,23 @@ restores any released devices/services, and keeps the host USB channel alive.
    read-only verification.
 5. DRM, input, audio, and network ownership each have an explicit release and
    restore action.
-6. The global recovery daemon and tty endpoint remain outside the Debian PID
-   and mount namespaces.
+6. The global recovery daemon and tty endpoint remain outside the child mount
+   namespace.
+7. The rootfs source, storage location, size, filesystem, and SHA256 manifest
+   are concretely selected; they are currently unselected, so live `START`
+   remains blocked.
 
-Do not pass `/dev/ttyGS0` into Debian initially. The recovery/control channel
+Do not pass `/dev/ttyGS0` into the service root. The recovery/control channel
 must remain owned by the global supervisor. The running kernel has
 `CONFIG_DEVTMPFS=n`, so Debian must not assume a fresh devtmpfs will populate
 devices; use an allowlisted bind model from the stock `/dev` tmpfs.
+
+Because `CONFIG_USER_NS=n`, creating the mount namespace and pivoting requires
+the real privileged Magisk service context and `CAP_SYS_ADMIN`; there is no
+unprivileged fallback. Because `CONFIG_PID_NS=n`, mounting a fresh procfs does
+not create an isolated process view. The first implementation should therefore
+bind or mount procfs with that limitation explicit and expose no claim of PID
+isolation.
 
 ### Device Ownership Sequence
 
@@ -253,11 +291,14 @@ No such candidate or live gate is authorized by V3434.
 
 ## Next Host Units
 
-1. V3435: specify the native supervisor command/state protocol and the exact
-   prerequisite bundle, including fail-closed restoration states.
-2. V3436: implement and host-test the PID/mount namespace plus `pivot_root`
-   launcher against a disposable rootfs; no device contact.
+1. V3435: specify the child service supervisor command/state protocol and the
+   exact prerequisite bundle, including fail-closed restoration states.
+2. V3436: implement and host-test the mount namespace plus `pivot_root`
+   launcher, child subreaping, and service lifecycle against a disposable
+   rootfs; no device contact.
 3. V3437: build a stock-first-stage overlay candidate that carries the
    supervisor but remains live unauthorized pending a separate review.
 4. Separately design a pre-userspace kernel witness; do not reuse V3433 or any
    consumed direct-PID1 exception.
+5. Treat enabling `CONFIG_PID_NS` in a rebuilt kernel as a separate research
+   track, not as a hidden prerequisite for the primary architecture.

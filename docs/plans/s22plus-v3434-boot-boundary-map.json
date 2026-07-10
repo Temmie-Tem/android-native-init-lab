@@ -86,10 +86,17 @@
   "evidence": {
     "kernel_config": {
       "CONFIG_BLK_DEV_INITRD": "y",
+      "CONFIG_BLK_DEV_LOOP": "y",
+      "CONFIG_CGROUPS": "y",
+      "CONFIG_CGROUP_PIDS": "n",
       "CONFIG_DEVTMPFS": "n",
+      "CONFIG_EXT4_FS": "y",
       "CONFIG_IKCONFIG": "y",
+      "CONFIG_NAMESPACES": "y",
+      "CONFIG_NET_NS": "y",
       "CONFIG_PANIC_ON_OOPS": "y",
       "CONFIG_PANIC_TIMEOUT": "-1",
+      "CONFIG_PID_NS": "n",
       "CONFIG_PSTORE": "y",
       "CONFIG_PSTORE_CONSOLE": "y",
       "CONFIG_PSTORE_PMSG": "y",
@@ -98,6 +105,11 @@
       "CONFIG_SECURITY_DEFEX": "y",
       "CONFIG_SECURITY_SELINUX": "y",
       "CONFIG_SERIAL_EARLYCON": "y",
+      "CONFIG_SYSVIPC": "n",
+      "CONFIG_TIME_NS": "y",
+      "CONFIG_USER_NS": "n",
+      "CONFIG_UTS_NS": "y",
+      "CONFIG_VETH": "y",
       "CONFIG_WATCHDOG": "y",
       "CONFIG_WATCHDOG_CORE": "y",
       "CONFIG_WATCHDOG_HANDLE_BOOT_ENABLED": "y",
@@ -166,6 +178,7 @@
       "kernel_init_freeable": 1525,
       "pid1_creation": 706,
       "pid1_death_panic": 849,
+      "pivot_root_syscall": 4124,
       "rdinit_override": 619,
       "rest_init": 695,
       "rest_init_bridge": 872,
@@ -222,8 +235,9 @@
     ]
   },
   "next_host_units": [
-    "design the stock-init native supervisor service and prerequisite bundle",
-    "design namespace plus pivot_root Debian handoff with reversible device ownership",
+    "design the stock-init child service supervisor protocol and prerequisite bundle",
+    "design mount-namespace plus pivot_root handoff without claiming Debian PID 1",
+    "host-test child subreaping, mount isolation, and reversible device ownership",
     "separately evaluate a kernel-entry witness without reusing direct-PID1 retained-marker live gates"
   ],
   "observation_channels": [
@@ -283,11 +297,11 @@
     "image_build": false,
     "live_authorized": false
   },
-  "schema": "s22plus_v3434_boot_boundary_map_v1",
+  "schema": "s22plus_v3434_boot_boundary_map_v2",
   "selected_architecture": {
-    "control_plane": "retain O1.1-proven ttyGS0 framed channel outside Debian namespace",
-    "debian_root": "new mount/PID namespace plus pivot_root; not chroot",
-    "direct_pid1_track": "research-only until a pre-userspace witness exists",
+    "control_plane": "retain O1.1-proven ttyGS0 framed channel outside the Debian mount namespace",
+    "debian_root": "new private mount namespace plus pivot_root; not chroot",
+    "direct_pid1_track": "only path to true Debian PID 1 on this kernel; research-only until a pre-userspace witness exists",
     "failure_behavior": "return control to stock init and keep USB recovery channel",
     "global_pid1": "retain stock Android init as hardware/watchdog/recovery owner",
     "handoff_gates": [
@@ -297,9 +311,13 @@
       "Debian rootfs identity and read-only preflight pass",
       "DRM/input/audio ownership transition plan is explicit and reversible"
     ],
-    "name": "stock_global_pid1_with_namespaced_native_handoff",
+    "kernel_constraint": "CONFIG_PID_NS=n and CONFIG_USER_NS=n prohibit namespace PID 1",
+    "kernel_rebuild_track": "CONFIG_PID_NS enablement is a separate research track, not a deployment prerequisite",
+    "name": "stock_global_pid1_with_mount_namespace_service_supervisor",
     "native_runtime": "launch a native supervisor after a device-reported prerequisite bundle",
-    "priority": "PRIMARY"
+    "priority": "PRIMARY",
+    "process_model": "custom child service supervisor; Debian init is not PID 1",
+    "reaping_model": "supervisor becomes a child subreaper and directly owns approved services"
   },
   "target": "SM-S906N/g0q/S906NKSS7FYG8",
   "verdict": "HOST_STATIC_MAP_PASS_NO_LIVE",
