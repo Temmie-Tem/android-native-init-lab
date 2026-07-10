@@ -378,6 +378,7 @@ class S22PlusV3437RamoopsPositiveControlLiveGateTest(unittest.TestCase):
         source = (self.root / SCRIPT).read_text(encoding="utf-8")
         self.assertIn("require_active_policies", source)
         self.assertIn("verify_acks", source)
+        self.assertIn("verify_acks(args, panic=True, restore=True)", source)
         self.assertIn("--offline-check", source)
         self.assertIn("--resume-after-manual-recovery", source)
         self.assertNotIn("default=True", source)

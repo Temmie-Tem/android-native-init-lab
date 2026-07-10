@@ -66,8 +66,8 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > V3437 now implements that resumable helper and stages separate inert DTBO and
 > intentional-panic policy drafts. Only `--offline-check` and `--print-plan`
 > are currently usable. Dry-run/live/resume modes verify active policy markers
-> before device contact and require independent DTBO/panic tokens; restore modes
-> additionally require the stock-restore token. Session/timeline writes are
+> before device contact and require independent DTBO/panic tokens; every mode
+> that can reach rollback additionally requires the stock-restore token. Session/timeline writes are
 > atomic and durable, timeline uses only `events:[{name,timestamp_utc}]`,
 > pre-panic failures attempt stock rollback, and post-panic paths preserve
 > evidence until duplicate pstore collection finishes. Current offline result:

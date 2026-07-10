@@ -937,7 +937,7 @@ def main(argv: list[str]) -> int:
     )
     require_active_policies(root, panic=panic_required)
     if args.live_session:
-        verify_acks(args, panic=True)
+        verify_acks(args, panic=True, restore=True)
     elif args.resume_after_manual_recovery:
         verify_acks(args, panic=True, restore=True)
     elif args.restore_from_android or args.restore_from_download:

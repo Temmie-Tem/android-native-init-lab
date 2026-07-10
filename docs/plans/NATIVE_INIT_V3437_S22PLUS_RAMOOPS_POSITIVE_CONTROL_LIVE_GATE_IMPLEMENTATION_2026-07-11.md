@@ -34,8 +34,8 @@ Present but policy-gated:
 ```
 
 `--dry-run`, `--live-session`, and resume require both independent policy
-clauses. Restore-only modes require the DTBO maintenance policy and the
-independent restore acknowledgement.
+clauses. `--live-session`, resume, and restore-only modes also require the
+independent restore acknowledgement because each can reach a stock-DTBO write.
 
 ## Policy Split
 
