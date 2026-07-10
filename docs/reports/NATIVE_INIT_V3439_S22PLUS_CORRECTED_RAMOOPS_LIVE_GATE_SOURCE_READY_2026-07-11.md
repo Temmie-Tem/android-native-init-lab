@@ -74,3 +74,8 @@ promoted into separate one-shot `AGENTS.md` clauses under the operator's fresh
 approval. Offline policy status passed as `dtbo_active=true` and
 `panic_active=true`; activation itself performed no device action. The connected
 read-only dry-run is the next mandatory gate.
+
+This was a pre-live checkpoint. The subsequent run consumed and retired both
+policies after proving the corrected backend gate, executing one attended panic,
+collecting an empty ramoops pstore set, and restoring stock DTBO. See
+`docs/reports/NATIVE_INIT_V3439_S22PLUS_CORRECTED_RAMOOPS_LIVE_NO_PROOF_2026-07-11.md`.

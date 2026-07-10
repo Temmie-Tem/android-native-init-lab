@@ -22,7 +22,17 @@ BL, CP, CSC, userdata, or any non-boot flash.
    only. These forbidden partitions are **NOT** TWRP/download-mode recoverable = permanent
    brick; the operator's acceptance of boot-flash risk does NOT extend to them.
    **Narrow operator-authorized exception (2026-07-11, S22+ V3439 ramoops DTBO maintenance live gate):**
-   `S22PLUS_V3439_DTBO_POLICY_STATE=ACTIVE`. After the operator's explicit
+   Consumed/retired: the 2026-07-11 V3439 run consumed this one-shot DTBO
+   exception. The candidate DTBO-only transfer completed with Odin rc=0;
+   Android returned with the exact candidate hash, live DT, exact post-register
+   parameters, pstore backend `ramoops`, and one bound
+   `reserved-memory:ramoops_region` device. After the paired panic and evidence
+   collection, the pinned stock DTBO-only rollback completed with Odin rc=0.
+   Final Android health, Magisk boot hash, stock DTBO hash, and disabled stock
+   ramoops state passed. The durable result is
+   `NO_PROOF_NO_CURRENT_RUN_FRAME`. This exception must not be reused;
+   mandatory rollback is complete.
+   `S22PLUS_V3439_DTBO_POLICY_STATE=RETIRED`. After the operator's explicit
    2026-07-11 fresh live approval and the V3438 false-negative postmortem,
    Codex may perform one bounded attended V3439 DTBO maintenance run on
    `SM-S906N/g0q/S906NKSS7FYG8` using only
@@ -69,7 +79,15 @@ BL, CP, CSC, userdata, or any non-boot flash.
    mandatory rollback remains authorized only for that already-started run.
 
    **Narrow operator-authorized exception (2026-07-11, S22+ V3439 ramoops intentional-panic live gate):**
-   `S22PLUS_V3439_PANIC_POLICY_STATE=ACTIVE`. Only while the paired V3439 DTBO
+   Consumed/retired: the paired V3439 run proved every corrected backend gate,
+   armed exactly one run-bound marker sequence, and performed one sysrq panic.
+   ADB transport disappeared and the operator observed the RDX kernel-panic
+   screen. Patched Android returned after attended RDX exit. Duplicate pstore
+   reads were stable but contained zero files and no current-run frame. The
+   first stock boot `/proc/last_kmsg` retained `PANIC:sysrq triggered crash`
+   but not the run ID. The one-shot panic approval is exhausted and must not be
+   reused.
+   `S22PLUS_V3439_PANIC_POLICY_STATE=RETIRED`. Only while the paired V3439 DTBO
    exception is active for the same run, Codex may execute one bounded
    intentional-panic positive control using the exact helper and token
    `S22PLUS-V3439-RAMOOPS-INTENTIONAL-PANIC`. The helper must enforce V3436

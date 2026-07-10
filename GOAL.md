@@ -4,7 +4,7 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3439 CORRECTED RAMOOPS LIVE GATE ACTIVE UNDER FRESH OPERATOR APPROVAL; EXACT SOURCE COMMITTED; CONNECTED READ-ONLY DRY-RUN NEXT; FINAL TARGET IS NO ANDROID USERSPACE.**
+> **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3439 LIVE NO_PROOF: BACKEND/BINDING AND SYSRQ/RDX PROVEN, ZERO RAMOOPS RECORDS, STOCK DTBO RESTORED, BOTH POLICIES RETIRED; MAINLINE RAMOOPS TRACK CLOSED; FINAL TARGET IS NO ANDROID USERSPACE.**
 > The S22+ end state remains a lightweight native/Debian system that does not
 > boot or retain the Android userspace. The V3434 stock-global-PID1 plus
 > mount-namespace service-supervisor architecture is an interim bring-up and
@@ -133,6 +133,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `dtbo_active=true`, `panic_active=true`, with device actions still 0. Next is
 > the connected read-only dry-run; candidate transfer remains forbidden until
 > that gate passes.
+>
+> V3439 live result: connected dry-run passed. Candidate DTBO-only transfer
+> completed with Odin rc=0 and corrected proof passed exactly:
+> `pstore_backend=ramoops`, one bound
+> `reserved-memory:ramoops_region`, compatible `ramoops`, status `okay`, exact
+> live DT and post-register parameters. The helper armed one run-bound S22RPC1
+> sequence and triggered one sysrq panic; ADB disappeared and the operator
+> observed the RDX kernel-panic screen. After attended RDX exit, patched Android
+> returned and duplicate pstore reads were byte-stable but the filename set was
+> empty. Classification is `NO_PROOF_NO_CURRENT_RUN_FRAME`. Stock DTBO rollback
+> completed with Odin rc=0; final Magisk boot, stock DTBO, Android stability,
+> and disabled ramoops state all passed. First-stock-boot `/proc/last_kmsg`
+> retained `PANIC:sysrq triggered crash` but no run ID. Both policies are
+> retired. This closes mainline ramoops as the pre/PID1 witness on this reset
+> path; do not permute the same DTBO again. Next observation work returns to the
+> already-proven Samsung retained path where available, otherwise EUD/UART or
+> the stock-global-PID1 service-supervisor architecture. Report:
+> `docs/reports/NATIVE_INIT_V3439_S22PLUS_CORRECTED_RAMOOPS_LIVE_NO_PROOF_2026-07-11.md`.
 >
 > V3434 remains the corrected boot-boundary baseline below.
 > V3434 pinned the Samsung base OSRC, running Magisk-kernel IKCONFIG, stock
