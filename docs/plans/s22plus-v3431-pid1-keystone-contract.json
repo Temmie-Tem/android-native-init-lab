@@ -1,0 +1,175 @@
+{
+  "contract": {
+    "candidate": {
+      "candidate_gate_order": [
+        "raw_getpid_returned_one",
+        "volatile_proc_sys_dev_ready",
+        "embedded_module_opened_read_only",
+        "finit_module_returned_zero",
+        "last_kmsg_and_ap_klog_nodes_present",
+        "pid1_enter_marker_full_write_returned",
+        "quiet_nonreturning_park"
+      ],
+      "entry_pid_check": "raw getpid return must equal 1",
+      "failure_behavior": "quiet_nonreturning_park_without_run_token",
+      "fork_clone_exec_before_marker": false,
+      "marker_acceptance_retry_count": 0,
+      "marker_pid_source": "raw getpid return value, not a literal claim",
+      "marker_reachable_only_after_all_prior_gates": true,
+      "marker_write_count": 1,
+      "runtime": "freestanding_raw_aarch64_syscalls"
+    },
+    "candidate_source_authorized": false,
+    "claim": "positive marker proves the exact candidate reached its marker path as PID 1 and the exact sec_log_buf observer was active",
+    "claim_kind": "conjunctive_pid1_execution_and_observer_load",
+    "collection": {
+      "absence": "NO_PROOF_PID1_VS_OBSERVER_UNRESOLVED_STOP",
+      "both_reads_eof_complete_and_byte_identical": true,
+      "first_last_kmsg_reads": 2,
+      "first_rollback_boot_health_required": true,
+      "integrity_error": "FAIL_STOP",
+      "positive": "PASS_PID1_EXECUTION_AND_OBSERVER_LOAD",
+      "transition": "attended_manual_rdx_download_then_magisk_boot_rollback"
+    },
+    "flash_authorized": false,
+    "forbidden_proof_channels": {
+      "intentional_panic": "sec_debug is CONFIG_SEC_DEBUG=m and early direct-PID1 panic retention was not proved",
+      "persistent_partition_marker": "persistent partition writes are forbidden",
+      "pmsg": "native M24 produced no retained marker",
+      "ramoops": "native M22 produced no retained pstore marker",
+      "timed_reboot_or_download": "bare-PID1 reboot behavior and manual transition timing are ambiguous",
+      "usb": "host USB enumeration is a later capability, not PID1 proof"
+    },
+    "host_preflight": {
+      "candidate_and_rollback_artifacts_sha_pinned": true,
+      "current_run_absent_from_ap_klog_and_last_kmsg": true,
+      "exact_live_osrelease_equality": "5.10.226-android12-9-30958166-abS906NKSS7FYG8",
+      "exact_target_and_magisk_boot_health": true,
+      "single_target_transport": true
+    },
+    "image_build_authorized": false,
+    "kernel": {
+      "candidate_runtime_osrelease_gate_before_marker": false,
+      "connected_preflight_exact_equality_required": true,
+      "expected_connected_live_osrelease": "5.10.226-android12-9-30958166-abS906NKSS7FYG8"
+    },
+    "live_authorized": false,
+    "marker": {
+      "end": "]]",
+      "integrity": "crc32 over canonical ASCII payload",
+      "length": "four lowercase hexadecimal payload bytes",
+      "module_contract_context_bound": true,
+      "phase": "PID1_ENTER",
+      "pid": 1,
+      "protocol": "S22P1K1",
+      "run_id_bits": 128,
+      "run_id_source": "secrets.token_hex(16)",
+      "sequence": 1,
+      "start": "[[S22P1K1|"
+    },
+    "observer": {
+      "embedded_path": "/observer/sec_log_buf.ko",
+      "filename": "sec_log_buf.ko",
+      "hard_dependencies": [],
+      "only_runtime_module": true,
+      "sha256": "b4751eb8243a2bce4cd2f7b5f157f8429b295798dc310e23e861648906d24b61",
+      "size": 76688,
+      "soft_dependencies": [],
+      "vermagic": "5.10.226-android12-9-gki-30958166-abS906NKSS7FYG8 SMP preempt mod_unload modversions aarch64"
+    },
+    "schema": "s22plus_v3431_pid1_keystone_design_v1",
+    "status": "HOST_DESIGN_PASS_NO_LIVE",
+    "target": "SM-S906N/g0q/S906NKSS7FYG8"
+  },
+  "contract_sha256": "686207c75d2530f90049de6b6945fbd3134019ca402f84cb97418c43804a4ca5",
+  "next": "implement and statically/QEMU-validate one exact freestanding candidate under this contract; do not create a live helper or exception yet",
+  "proof_boundary": {
+    "absence": "inconclusive because PID1 non-entry, pre-marker failure, observer load failure, and transition loss remain indistinguishable",
+    "not_pure_module_free": true,
+    "observer_is_part_of_the_keystone": true,
+    "positive": "exact retained marker is conclusive for direct PID1 execution and exact observer activation"
+  },
+  "safety": {
+    "device_contact": false,
+    "device_write": false,
+    "flash": false,
+    "host_only": true,
+    "image_build": false,
+    "live_authorized": false,
+    "module_insertion": false,
+    "reboot": false
+  },
+  "schema": "s22plus_v3431_pid1_keystone_design_v1",
+  "static_evidence": {
+    "kernel_config": {
+      "gki_magic_sysrq": "y",
+      "gki_modules": "y",
+      "gki_pstore": "y",
+      "gki_pstore_ram": "y",
+      "waipio_gki_sec_debug": "m",
+      "waipio_sec_debug": "m"
+    },
+    "module": {
+      "modinfo_aliases": [
+        "of:N*T*Csamsung,kernel_log_buf",
+        "of:N*T*Csamsung,kernel_log_bufC*"
+      ],
+      "modinfo_depends": [],
+      "modules_dep_rhs": [],
+      "modules_load_position": 2,
+      "modules_softdep_edges": [],
+      "path": "workspace/private/inputs/s22plus_firmware/S906NKSS7FYG8_SKC/extracted-images/ramdisk-list/vendor/extract/lib/modules/sec_log_buf.ko",
+      "sec_debug_symbol_references": [],
+      "sha256": "b4751eb8243a2bce4cd2f7b5f157f8429b295798dc310e23e861648906d24b61",
+      "size": 76688,
+      "undefined_symbol_count": 70,
+      "vermagic": "5.10.226-android12-9-gki-30958166-abS906NKSS7FYG8 SMP preempt mod_unload modversions aarch64"
+    },
+    "report_pins": {
+      "android_sec_debug_positive_control": {
+        "path": "docs/reports/S22PLUS_SEC_DEBUG_MID_SYSRQ_LIVE_RESULT_2026-07-08.md",
+        "sha256": "34bac6f3a09242361b1f7a72900972037f5c804a4eec226fe4d8d2627ce5e466"
+      },
+      "native_pmsg_no_hit": {
+        "path": "docs/reports/S22PLUS_M24_PMSG_STEPS_LIVE_RESULT_2026-07-08.md",
+        "sha256": "e002c17c72138db19e753a4a9510457bc12870e9535708af9c57b66e8b234011"
+      },
+      "native_ramoops_no_hit": {
+        "path": "docs/reports/S22PLUS_RAMOOPS_DTBO_M22_SYSRQ_PANIC_LIVE_RESULT_2026-07-08.md",
+        "sha256": "ab5b52d9b36b6f827eb160a33d5fe85d345948d413e51faaffe887506b3da8ff"
+      },
+      "native_sec_debug_no_hit": {
+        "path": "docs/reports/S22PLUS_SEC_DEBUG_M18_LIVE_RESULT_2026-07-08.md",
+        "sha256": "c434ecbc269544751b4685ee50197d9554263d8da061de1bda8dc0e4dcff647e"
+      },
+      "stock_transition_positive_control": {
+        "path": "docs/reports/NATIVE_INIT_V3428R_S22PLUS_STOCK_TRANSITION_POSITIVE_CONTROL_LIVE_PASS_2026-07-10.md",
+        "sha256": "21e233829a583b186377cb9aa0b330821e928fa41d13a7ab965cf6e06254ea3d"
+      },
+      "v3430_no_proof": {
+        "path": "docs/reports/NATIVE_INIT_V3430_S22PLUS_V3429_PHASE_OBSERVER_LIVE_NO_PROOF_2026-07-10.md",
+        "sha256": "951a7749a3ba90c3998945e1e4c6de73969f0ac2ce937f15e6de1b854cf12c19"
+      }
+    },
+    "source_archive": {
+      "path": "workspace/private/inputs/s22plus_kernel_source/SM-S906N_15_base_osrc/Kernel.tar.gz",
+      "sha256": "86e2f73412c65fadff0b15bbf0eac9140610f70250514ac0bddbf3b53fb5f7bf"
+    },
+    "source_proofs": {
+      "devkmsg_write_hook_return_is_synchronous": "VERIFIED",
+      "finit_module_success_is_after_module_init_live": "VERIFIED",
+      "kernel_executes_initramfs_init_as_pid1": "VERIFIED",
+      "sec_debug_is_loadable_module_not_builtin": "VERIFIED",
+      "sec_log_buf_required_observer_builders_are_synchronous": "VERIFIED"
+    }
+  },
+  "target": "SM-S906N/g0q/S906NKSS7FYG8",
+  "verdict": "HOST_DESIGN_PASS_NO_LIVE",
+  "web_cross_check": {
+    "android_first_stage_init_from_ramdisk": "SUPPORTED_BY_AOSP_DOCS",
+    "finit_module_init_completion": "SUPPORTED_BY_ANDROID_COMMON_SOURCE",
+    "kernel_initramfs_init_pid1": "SUPPORTED_BY_UPSTREAM_KERNEL_DOCS",
+    "ramoops_requires_reserved_persistent_ram": "SUPPORTED_BY_KERNEL_DOCS",
+    "samsung_specific_behavior_source": "PINNED_FYG8_SOURCE_IS_AUTHORITATIVE"
+  }
+}

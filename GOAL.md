@@ -84,7 +84,42 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
-> **S22+ CURRENT FRONTIER (2026-07-10 21:23 KST / 2026-07-10 12:23 UTC) — V3430 V3429 LIVE RESULT NO_PROOF WITH CLEAN ROLLBACK; EXACT PRE-MODULE OSRELEASE BUG VERIFIED; V3431 HOST-ONLY CORRECTION NEXT.**
+> **S22+ CURRENT FRONTIER (2026-07-10 21:52 KST / 2026-07-10 12:52 UTC) — V3431 PID1-FIRST KEYSTONE HOST DESIGN PASS; EXACT POSITIVE/NO_PROOF CONTRACT PINNED; V3432 HOST-ONLY CANDIDATE BUILD NEXT.**
+> V3431 re-audited the exact FYG8 kernel/module source, six pinned live reports,
+> and public Linux/AOSP mechanics before selecting the next discriminator. The
+> kernel source proves boot-ramdisk `/init` is executed by the first kernel task
+> as PID 1. Module-loader source proves successful `finit_module` follows the
+> module init function and `MODULE_STATE_LIVE`. Samsung source proves the
+> load-bearing `sec_log_buf` builder chain is synchronous: last_kmsg proc node,
+> vh_logbuf capture hook, ap_klog proc node, and probe epilog complete before
+> module init returns. `sec_log_buf.ko` remains exact, hard/soft-dependency-free,
+> size 76688, SHA
+> `b4751eb8243a2bce4cd2f7b5f157f8429b295798dc310e23e861648906d24b61`.
+>
+> The selected keystone is deliberately conjunctive, not falsely called
+> module-free: future freestanding `/init` must require raw `getpid()==1`, load
+> only ramdisk-bundled `/observer/sec_log_buf.ko`, require both observer proc
+> nodes, emit one `S22P1K1` `PID1_ENTER` frame whose PID comes from the syscall
+> result, then quietly park. Exact first-rollback retention means
+> `PASS_PID1_EXECUTION_AND_OBSERVER_LOAD`; complete absence remains
+> `NO_PROOF_PID1_VS_OBSERVER_UNRESOLVED_STOP`; malformed/duplicate/wrong-PID or
+> wrong-identity evidence is `FAIL_STOP`. Panic/sec_debug, pmsg, ramoops, USB,
+> timed reboot, and persistent markers are rejected as PID1 witnesses.
+>
+> V3429's pre-marker runtime osrelease bug is removed structurally: exact live
+> osrelease equality
+> `5.10.226-android12-9-30958166-abS906NKSS7FYG8` moves to connected host
+> preflight, with no candidate-side osrelease gate before the marker. Contract
+> SHA is `686207c75d2530f90049de6b6945fbd3134019ca402f84cb97418c43804a4ca5`;
+> 23 focused tests pass. V3431 produced no candidate, image, helper, exception,
+> device contact, reboot, or flash. Next V3432 is host-only candidate
+> source/build with static disassembly and QEMU negative gates; live remains
+> unauthorized. Plan:
+> `docs/plans/NATIVE_INIT_V3431_S22PLUS_PID1_KEYSTONE_PROOF_DESIGN_2026-07-10.md`.
+> Report:
+> `docs/reports/NATIVE_INIT_V3431_S22PLUS_PID1_KEYSTONE_DESIGN_HOST_PASS_2026-07-10.md`.
+
+> **S22+ PRIOR FRONTIER (2026-07-10 21:23 KST / 2026-07-10 12:23 UTC) — V3430 V3429 LIVE RESULT NO_PROOF WITH CLEAN ROLLBACK; EXACT PRE-MODULE OSRELEASE BUG VERIFIED; V3431 HOST-ONLY CORRECTION NEXT.**
 > The exact candidate AP transferred with Odin rc=0, the original Odin endpoint
 > departed, and the operator observed no bootloop. After the 60-second dwell,
 > attended `MSM_UPLOAD`/RDX and Download returned in 132.351 seconds. The pinned
