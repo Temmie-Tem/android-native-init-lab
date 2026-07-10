@@ -29,8 +29,10 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > The O1.1-proven `ttyGS0` framed channel remains outside Debian as recovery
 > control. Direct-PID1 replacement is research-only until a pre-userspace
 > witness exists. Targeted ABL work parsed header/load ownership and proved the
-> warning path continues through unlocked verification skip and DT selection,
-> but final kernel entry remains unverified; broad ABL RE is deferred. V3434 is
+> warning path continues through unlocked verification skip, DT selection, and
+> `Shutting Down UEFI Boot Services` in the same boot section. The firmware
+> handoff boundary is therefore reached, while the immediately following kernel
+> branch/`start_kernel` remains unobserved; broad ABL RE is deferred. V3434 is
 > host-only and authorizes no device action or flash. Report:
 > `docs/reports/NATIVE_INIT_V3434_S22PLUS_BOOT_BOUNDARY_STATIC_MAP_HOST_PASS_2026-07-11.md`.
 > Next: V3435 supervisor protocol/prerequisite contract, then host-only

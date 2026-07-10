@@ -81,9 +81,11 @@ The exact FYG8 ABL is a 4 MiB ELF32 ARM UEFI firmware volume with entry
 
 Retained ABL evidence includes `AUTHENTICATE fail but allow Kernel binary`, the
 custom boot warning, `Device is unlocked, Skipping boot verification`, and
-continued hypervisor/DT selection. This closes bootloader rejection as the
-explanation for the warning but does not prove the final kernel branch or
-`start_kernel`. Broad ABL reverse engineering remains deferred.
+continued hypervisor/DT selection followed by `Shutting Down UEFI Boot
+Services: 19125 ms` in the same boot section. This proves the firmware handoff
+boundary was reached and closes bootloader rejection as the explanation for the
+warning. The immediately following kernel branch and `start_kernel` remain
+unobserved. Broad ABL reverse engineering remains deferred.
 
 ## Selected Architecture
 

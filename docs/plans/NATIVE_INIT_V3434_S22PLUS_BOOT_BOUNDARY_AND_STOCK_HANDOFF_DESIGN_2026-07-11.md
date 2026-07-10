@@ -160,13 +160,16 @@ Device is unlocked, Skipping boot verification
 Hyp version: 1
 Memory Base Address: 0x80000000
 DT/DTBO selection messages
+Shutting Down UEFI Boot Services: 19125 ms
 ```
 
 This proves the custom warning is not a terminal verification rejection and
-that ABL continues boot preparation. It does not prove the final branch into
-the candidate kernel, successful decompression, `start_kernel()`, or PID 1.
-The ABL payload is a proprietary stripped UEFI firmware volume; broad ABL RE is
-deferred unless header or handoff evidence later contradicts the current map.
+that the same candidate boot reaches the irreversible UEFI boot-services
+shutdown boundary. The firmware side of the handoff is therefore reached. It
+does not directly observe the immediately following branch into the candidate
+kernel, successful decompression, `start_kernel()`, or PID 1. The ABL payload
+is a proprietary stripped UEFI firmware volume; broad ABL RE is deferred unless
+header or handoff evidence later contradicts the current map.
 
 ## Selected Runtime Architecture
 

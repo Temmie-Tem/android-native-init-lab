@@ -457,6 +457,7 @@ def build_map(root: Path) -> dict[str, Any]:
         b"Device is unlocked, Skipping boot verification",
         b"Hyp version: 1",
         b"Memory Base Address: 0x80000000",
+        b"Shutting Down UEFI Boot Services:",
         b"reboot_reason = 0x9",
     ]
     missing_retained = [value.decode() for value in retained_markers if value not in retained]
@@ -608,12 +609,15 @@ def build_map(root: Path) -> dict[str, Any]:
         ],
         "abl_targeted_boundary": {
             "binary": abl,
+            "handoff_result": "FIRMWARE_EXIT_BOOT_SERVICES_BOUNDARY_REACHED",
+            "kernel_entry_result": "UNVERIFIED_AFTER_EXIT_BOOT_SERVICES",
             "verified": [
                 "boot and vendor_boot header v4 are parsed from pinned stock images",
                 "vendor_boot carries load addresses, DTB, vendor ramdisk, cmdline, and bootconfig",
                 "retained ABL log says authentication failed but custom kernel binary is allowed",
                 "retained ABL log says unlocked device skips boot verification",
                 "ABL proceeds to hypervisor and DT selection messages after the warning",
+                "the same retained ABL boot reaches Shutting Down UEFI Boot Services after the warning",
                 "ABL records reboot_reason values consumed on the next boot",
             ],
             "unverified": [

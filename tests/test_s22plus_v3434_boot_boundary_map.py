@@ -127,11 +127,19 @@ class S22PlusV3434BootBoundaryMapTest(unittest.TestCase):
         self.assertIn("dtb", images["ownership"]["vendor_boot"])
         self.assertIn("bootconfig", images["ownership"]["vendor_boot"])
 
-    def test_abl_scope_stops_at_unproved_kernel_handoff(self):
+    def test_abl_handoff_boundary_is_proved_but_kernel_entry_is_not(self):
         abl = self.result["abl_targeted_boundary"]
         self.assertEqual(abl["binary"]["elf_class"], "ELF32")
         self.assertEqual(abl["binary"]["elf_machine"], "ARM")
         self.assertEqual(abl["binary"]["entry_point"], "0x9fa00000")
+        self.assertEqual(
+            abl["handoff_result"],
+            "FIRMWARE_EXIT_BOOT_SERVICES_BOUNDARY_REACHED",
+        )
+        self.assertEqual(
+            abl["kernel_entry_result"],
+            "UNVERIFIED_AFTER_EXIT_BOOT_SERVICES",
+        )
         self.assertIn(
             "kernel reaching start_kernel",
             abl["unverified"],

@@ -12,6 +12,8 @@
       "source_availability": "PROPRIETARY_BINARY_ONLY"
     },
     "decision": "do not widen ABL reverse engineering until a header/handoff contradiction appears",
+    "handoff_result": "FIRMWARE_EXIT_BOOT_SERVICES_BOUNDARY_REACHED",
+    "kernel_entry_result": "UNVERIFIED_AFTER_EXIT_BOOT_SERVICES",
     "unverified": [
       "final branch into the candidate kernel entry point",
       "candidate kernel decompression completion",
@@ -24,6 +26,7 @@
       "retained ABL log says authentication failed but custom kernel binary is allowed",
       "retained ABL log says unlocked device skips boot verification",
       "ABL proceeds to hypervisor and DT selection messages after the warning",
+      "the same retained ABL boot reaches Shutting Down UEFI Boot Services after the warning",
       "ABL records reboot_reason values consumed on the next boot"
     ]
   },
