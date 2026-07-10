@@ -15,7 +15,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[5]
 TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
-SCHEMA = "s22plus_fyg8_usb_role_static_re_v1"
+SCHEMA = "s22plus_fyg8_usb_role_static_re_v2"
 
 MODULE_DIR = Path(
     "workspace/private/inputs/s22plus_firmware/S906NKSS7FYG8_SKC/"
@@ -69,6 +69,16 @@ EXPECTED_CALL_EDGES = (
     ("dwc3-msm.ko", "dwc3_msm_core_init", "usb_role_switch_find_by_fwnode"),
     ("dwc3-msm.ko", "dwc3_otg_start_host", "usb_role_switch_set_role"),
     ("dwc3-msm.ko", "dwc3_otg_start_peripheral", "usb_role_switch_set_role"),
+)
+
+FORCED_PERIPHERAL_EDGES = (
+    ("mode_store", "dwc3_msm_set_role"),
+    ("dwc3_msm_set_role", "dwc3_ext_event_notify"),
+    ("dwc3_ext_event_notify", "queue_delayed_work_on"),
+    ("dwc3_otg_sm_work", "dwc3_otg_start_peripheral"),
+    ("dwc3_otg_start_peripheral", "usb_role_switch_set_role"),
+    ("dwc3_otg_start_peripheral", "vbus_session_notify"),
+    ("dwc3_otg_start_peripheral", "usb_gadget_connect"),
 )
 
 SOURCE_PATTERNS = {
@@ -125,6 +135,8 @@ def run_tool(argv: list[str]) -> str:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=120,
             check=False,
         )
@@ -195,6 +207,115 @@ def parse_undefined(path: Path) -> set[str]:
     return {line.split()[-1] for line in output.splitlines() if line.split()}
 
 
+def parse_function_blocks(path: Path) -> dict[str, str]:
+    output = run_tool(["aarch64-linux-gnu-objdump", "-dr", str(path)])
+    blocks: dict[str, list[str]] = {}
+    current = ""
+    for line in output.splitlines():
+        header = re.match(r"^[0-9a-fA-F]+ <([^>]+)>:$", line)
+        if header:
+            current = header.group(1)
+            blocks.setdefault(current, [])
+        elif current:
+            blocks[current].append(line)
+    return {name: "\n".join(lines) for name, lines in blocks.items()}
+
+
+def normalized_instructions(block: str) -> str:
+    return re.sub(r"\s+", "", block.lower())
+
+
+def inspect_forced_peripheral(
+    path: Path,
+    symbols: dict[str, dict[str, Any]],
+    edges: set[tuple[str, str]],
+) -> dict[str, Any]:
+    missing_edges = [edge for edge in FORCED_PERIPHERAL_EDGES if edge not in edges]
+    if missing_edges:
+        raise StaticReError(f"forced-peripheral call path drifted: {missing_edges}")
+
+    required_symbols = (
+        "dev_attr_mode",
+        "mode_show",
+        "mode_store",
+        "dwc3_msm_set_role",
+        "dwc3_ext_event_notify",
+        "dwc3_otg_sm_work",
+        "dwc3_otg_start_peripheral",
+    )
+    missing_symbols = [name for name in required_symbols if name not in symbols]
+    if missing_symbols:
+        raise StaticReError(f"forced-peripheral symbols missing: {missing_symbols}")
+
+    relocations = run_tool(["aarch64-linux-gnu-readelf", "-rW", str(path)])
+    attr_address = int(symbols["dev_attr_mode"]["address"])
+    show_cfi = int(symbols["mode_show.cfi_jt"]["address"])
+    store_cfi = int(symbols["mode_store.cfi_jt"]["address"])
+    attr_callbacks = {
+        "show": bool(
+            re.search(
+                rf"^{attr_address + 0x10:016x}\s+.*R_AARCH64_ABS64\s+.*\.text \+ {show_cfi:x}$",
+                relocations,
+                re.MULTILINE,
+            )
+        ),
+        "store": bool(
+            re.search(
+                rf"^{attr_address + 0x18:016x}\s+.*R_AARCH64_ABS64\s+.*\.text \+ {store_cfi:x}$",
+                relocations,
+                re.MULTILINE,
+            )
+        ),
+    }
+    if not all(attr_callbacks.values()):
+        raise StaticReError(f"dev_attr_mode callback relocation drift: {attr_callbacks}")
+
+    rodata = run_tool(["aarch64-linux-gnu-readelf", "-p", ".rodata", str(path)])
+    peripheral_literal = bool(re.search(r"\[\s*11da\]\s+peripheral\s*$", rodata, re.MULTILINE))
+    if not peripheral_literal:
+        raise StaticReError("mode_store peripheral literal drifted")
+
+    blocks = parse_function_blocks(path)
+    mode_store = normalized_instructions(blocks["mode_store"])
+    set_role = normalized_instructions(blocks["dwc3_msm_set_role"])
+    vbus_event = normalized_instructions(blocks["dwc_msm_vbus_event"])
+    instruction_checks = {
+        "peripheral_literal_to_role_2": (
+            ".rodata+0x11da" in mode_store and "movw21,#0x2" in mode_store
+        ),
+        "role_2_sets_vbus_active_byte": (
+            "cmpw21,#0x2" in set_role and "strbw8,[x19,#858]" in set_role
+        ),
+        "role_2_sets_role_state_word": "strw8,[x19,#864]" in set_role,
+        "vbus_event_uses_same_active_byte": "strbw4,[x19,#858]" in vbus_event,
+    }
+    if not all(instruction_checks.values()):
+        raise StaticReError(f"forced-peripheral instruction drift: {instruction_checks}")
+
+    return {
+        "module": path.name,
+        "dev_attr_mode_address": attr_address,
+        "show_callback_relocation_offset": attr_address + 0x10,
+        "store_callback_relocation_offset": attr_address + 0x18,
+        "sysfs_mode_attribute_callbacks": attr_callbacks,
+        "peripheral_literal": "peripheral",
+        "peripheral_role_value": 2,
+        "shared_vbus_active_offset": 858,
+        "role_state_offset": 864,
+        "instruction_checks": instruction_checks,
+        "call_edges": [
+            {"caller": caller, "callee": callee, "evidence": "ELF_CALL_RELOCATION"}
+            for caller, callee in FORCED_PERIPHERAL_EDGES
+        ],
+        "result": "ELF_INSTRUCTION_AND_CALL_PATH_VERIFIED",
+        "interpretation": (
+            "writing peripheral to the bound dwc3-msm mode attribute requests device role, "
+            "sets the same VBUS-active field used by dwc_msm_vbus_event, dispatches OTG work, "
+            "and reaches the peripheral start path with gadget connect"
+        ),
+    }
+
+
 def parse_callback_table(path: Path, symbols: dict[str, dict[str, Any]], by_address: dict[int, list[str]]) -> list[dict[str, Any]]:
     table = symbols.get("sec_otg_notify")
     if not table:
@@ -229,7 +350,12 @@ def parse_callback_table(path: Path, symbols: dict[str, dict[str, Any]], by_addr
     return sorted(entries, key=lambda entry: entry["table_offset"])
 
 
-def inspect_modules() -> tuple[dict[str, Any], list[dict[str, str]], list[dict[str, Any]]]:
+def inspect_modules() -> tuple[
+    dict[str, Any],
+    list[dict[str, str]],
+    list[dict[str, Any]],
+    dict[str, Any],
+]:
     module_results: dict[str, Any] = {}
     all_edges: dict[str, set[tuple[str, str]]] = {}
     symbol_maps: dict[str, tuple[dict[str, dict[str, Any]], dict[int, list[str]]]] = {}
@@ -267,7 +393,13 @@ def inspect_modules() -> tuple[dict[str, Any], list[dict[str, str]], list[dict[s
         notifier_symbols,
         notifier_by_address,
     )
-    return module_results, proved_edges, callback_table
+    dwc3_symbols, _dwc3_by_address = symbol_maps["dwc3-msm.ko"]
+    forced_peripheral = inspect_forced_peripheral(
+        resolve(MODULE_DIR / "dwc3-msm.ko"),
+        dwc3_symbols,
+        all_edges["dwc3-msm.ko"],
+    )
+    return module_results, proved_edges, callback_table, forced_peripheral
 
 
 def inspect_source() -> dict[str, Any]:
@@ -393,7 +525,7 @@ def inspect_dt() -> dict[str, Any]:
 
 
 def build_payload() -> dict[str, Any]:
-    modules, edges, callback_table = inspect_modules()
+    modules, edges, callback_table, forced_peripheral = inspect_modules()
     source = inspect_source()
     dt = inspect_dt()
     return {
@@ -412,6 +544,7 @@ def build_payload() -> dict[str, Any]:
         "modules": modules,
         "call_edges": edges,
         "sec_otg_notify_callback_table": callback_table,
+        "forced_peripheral_bypass": forced_peripheral,
         "matched_source": source,
         "device_tree": dt,
         "conclusions": {
@@ -423,7 +556,9 @@ def build_payload() -> dict[str, Any]:
             "dwc3_parent_and_child_role_switches": "ELF_PLUS_DT_VERIFIED",
             "max77705_to_dwc3_transport": "SAMSUNG_NOTIFIER_CHAIN_NOT_DIRECT_EXTCON_PHANDLE",
             "direct_pid1_automatic_role_without_samsung_chain": "NOT_PROVED",
-            "forced_peripheral_role_bypass": "PLAUSIBLE_NOT_PROVED",
+            "forced_peripheral_role_bypass": "ELF_VERIFIED_AFTER_DWC3_MSM_BIND",
+            "max77705_chain_required_for_forced_peripheral": False,
+            "o3_role_chain_omission_as_no_usb_root_cause": "RULED_OUT_IF_MODE_WRITE_EXECUTED",
         },
         "web_primary_references": list(WEB_REFERENCES),
     }
@@ -512,8 +647,22 @@ that does not make extcon the proven attach transport here.
 The stock automatic role path requires more than `dwc3-msm.ko`: it includes the
 Max77705 PDIC, Samsung Type-C manager, USB notifier, and USB notify layer. This
 does not prove that a direct native PID1 implementation must clone the entire
-chain. A deliberate fixed peripheral role may bypass automatic cable/role
-policy, but that remains `PLAUSIBLE_NOT_PROVED` until a bounded functional gate.
+chain. The separate exact `dwc3-msm.ko` forced-role path closes the narrower
+question:
+
+```text
+mode_store("peripheral") -> dwc3_msm_set_role(role=2)
+  -> set VBUS-active/role state -> dwc3_ext_event_notify
+  -> OTG work -> dwc3_otg_start_peripheral
+  -> usb_role_switch_set_role + vbus_session_notify + usb_gadget_connect
+```
+
+The mode attribute callback relocation, the `peripheral` literal-to-role-2
+instruction path, the shared VBUS-active field, and all seven calls are verified
+in the SHA-pinned FYG8 binary. Therefore the Max77705 notifier chain is not
+required after `dwc3-msm` is successfully bound and this explicit mode write
+executes. O3/O3F's chain omission cannot explain their no-USB result unless the
+candidate never reached the mode write or an earlier/downstream gate failed.
 
 ## Web Cross-Check
 

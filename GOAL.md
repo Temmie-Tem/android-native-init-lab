@@ -84,7 +84,33 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
-> **S22+ CURRENT FRONTIER (2026-07-10 08:53 KST / 2026-07-09 23:53 UTC) — V3424 FYG8 USB ROLE DEEP RE PASS; EXACT STOCK NOTIFIER PATH RECONSTRUCTED; STOCK LIVE CROSS-CHECK PARTIAL PASS; O0 NEXT.**
+> **S22+ CURRENT FRONTIER (2026-07-10 09:03 KST / 2026-07-10 00:03 UTC) — V3425 FORCED-PERIPHERAL BYPASS ELF-VERIFIED; MAX77705 CHAIN OMISSION RULED OUT FOR O3 AFTER MODE EXECUTION; O0/O1.1/O2 ALREADY COMPLETE; PHASE-OBSERVATION DESIGN NEXT.**
+> V3425 extended the exact FYG8 deep RE to the `dwc3-msm.ko` sysfs mode path.
+> `dev_attr_mode` relocations bind `mode_store`; the exact `peripheral` literal
+> maps to role 2; that branch writes the same VBUS-active byte used by
+> `dwc_msm_vbus_event`, updates role state, and calls `dwc3_ext_event_notify`.
+> Seven exact call relocations continue through OTG work to
+> `dwc3_otg_start_peripheral`, `usb_role_switch_set_role`,
+> `vbus_session_notify`, and `usb_gadget_connect`.
+>
+> Therefore the Samsung `pdic_max77705 -> typec_manager -> usb_notifier` chain
+> is required for stock automatic cable/role policy but not for O3's deliberate
+> fixed-peripheral request after `dwc3-msm` binds. Do not add that five-module
+> policy chain to explain O3/O3F no-USB. The omission is ruled out as root cause
+> if the mode write executed; whether execution reached that point remains
+> `UNVERIFIABLE` because neither run produced a phase readback.
+>
+> Frontier correction: V3403 O0, V3409 O1.1, and V3410 O2 already passed. The
+> V3424 `O0 next` line was stale and is retired. No protocol or boot prerequisite
+> is repeated. Next = host-only direct-PID1 phase-observation design that does
+> not repeat consumed O3/O3F/O3R1, does not widen the module chain, and does not
+> create or flash a live candidate until an internal phase can be reported
+> independently of ACM success. The verdict inputs were host-only; an initial
+> read-only Android baseline check was not used as evidence. There was no device
+> write, reboot, module insertion, image build, or flash. Report:
+> `docs/reports/NATIVE_INIT_V3425_S22PLUS_FYG8_FORCED_PERIPHERAL_BYPASS_HOST_AUDIT_2026-07-10.md`.
+
+> **S22+ HISTORICAL FRONTIER (2026-07-10 08:53 KST / 2026-07-09 23:53 UTC) — V3424 FYG8 USB ROLE DEEP RE PASS; EXACT STOCK NOTIFIER PATH RECONSTRUCTED; STOCK LIVE CROSS-CHECK PARTIAL PASS; STALE O0-NEXT LABEL CORRECTED BY V3425.**
 > V3424 pinned and inspected exact FYG8 `pdic_max77705`,
 > `usb_typec_manager`, `usb_notifier_qcom`, `usb_notify_layer`, and `dwc3-msm`
 > ELFs. Twenty-one call relocations plus the matched Samsung `usb_notify.c`
@@ -111,9 +137,11 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > firmware-described DWC3 role-switch, extcon fallback, and Qualcomm queued
 > ID/VBUS-event method. They do not replace the exact FYG8 proof. Direct PID1
 > automatic role without the Samsung chain remains `NOT_PROVED`; a deliberately
-> fixed peripheral bypass remains `PLAUSIBLE_NOT_PROVED`. This unit performed no
+> fixed peripheral bypass was still `PLAUSIBLE_NOT_PROVED` at V3424 close and
+> is superseded by V3425's exact ELF proof. This unit performed no
 > flash, reboot, module insertion, service control, sysfs/configfs write, or
-> partition write. Next remains O0 functional tty roundtrip. Report:
+> partition write. The V3424 `O0 next` statement was stale because V3403 O0,
+> V3409 O1.1, and V3410 O2 had already passed; V3425 corrects the frontier. Report:
 > `docs/reports/NATIVE_INIT_V3424_S22PLUS_FYG8_USB_ROLE_DEEP_RE_2026-07-10.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-10 08:25 KST / 2026-07-09 23:25 UTC) — V3423 NORMAL ANDROID BASELINE RESTORED; STOCK USB TOPOLOGY PARTIAL PASS; DWC3 + MAX77705 TYPE-C LIVE-BOUND; ROLE PROPAGATION STILL UNVERIFIABLE.**

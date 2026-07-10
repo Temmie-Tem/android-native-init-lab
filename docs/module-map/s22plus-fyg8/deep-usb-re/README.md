@@ -78,8 +78,22 @@ that does not make extcon the proven attach transport here.
 The stock automatic role path requires more than `dwc3-msm.ko`: it includes the
 Max77705 PDIC, Samsung Type-C manager, USB notifier, and USB notify layer. This
 does not prove that a direct native PID1 implementation must clone the entire
-chain. A deliberate fixed peripheral role may bypass automatic cable/role
-policy, but that remains `PLAUSIBLE_NOT_PROVED` until a bounded functional gate.
+chain. The separate exact `dwc3-msm.ko` forced-role path closes the narrower
+question:
+
+```text
+mode_store("peripheral") -> dwc3_msm_set_role(role=2)
+  -> set VBUS-active/role state -> dwc3_ext_event_notify
+  -> OTG work -> dwc3_otg_start_peripheral
+  -> usb_role_switch_set_role + vbus_session_notify + usb_gadget_connect
+```
+
+The mode attribute callback relocation, the `peripheral` literal-to-role-2
+instruction path, the shared VBUS-active field, and all seven calls are verified
+in the SHA-pinned FYG8 binary. Therefore the Max77705 notifier chain is not
+required after `dwc3-msm` is successfully bound and this explicit mode write
+executes. O3/O3F's chain omission cannot explain their no-USB result unless the
+candidate never reached the mode write or an earlier/downstream gate failed.
 
 ## Web Cross-Check
 

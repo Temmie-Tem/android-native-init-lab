@@ -58,6 +58,35 @@ class S22PlusFyg8UsbRoleStaticReTest(unittest.TestCase):
             self.assertEqual(overlay["explicit_extcon_property_count"], 0)
         self.assertFalse(device_tree["common_topology"]["direct_max77705_to_dwc3_phandle"])
 
+    def test_forced_peripheral_bypass_is_exact_binary_verified(self):
+        bypass = self.payload["forced_peripheral_bypass"]
+        self.assertEqual(bypass["result"], "ELF_INSTRUCTION_AND_CALL_PATH_VERIFIED")
+        self.assertEqual(bypass["peripheral_role_value"], 2)
+        self.assertEqual(bypass["shared_vbus_active_offset"], 858)
+        self.assertEqual(
+            bypass["show_callback_relocation_offset"],
+            bypass["dev_attr_mode_address"] + 0x10,
+        )
+        self.assertEqual(
+            bypass["store_callback_relocation_offset"],
+            bypass["dev_attr_mode_address"] + 0x18,
+        )
+        self.assertTrue(all(bypass["sysfs_mode_attribute_callbacks"].values()))
+        self.assertTrue(all(bypass["instruction_checks"].values()))
+        self.assertEqual(len(bypass["call_edges"]), len(self.module.FORCED_PERIPHERAL_EDGES))
+
+    def test_forced_bypass_rules_out_notifier_omission_only_after_mode_executes(self):
+        conclusions = self.payload["conclusions"]
+        self.assertEqual(
+            conclusions["forced_peripheral_role_bypass"],
+            "ELF_VERIFIED_AFTER_DWC3_MSM_BIND",
+        )
+        self.assertFalse(conclusions["max77705_chain_required_for_forced_peripheral"])
+        self.assertEqual(
+            conclusions["o3_role_chain_omission_as_no_usb_root_cause"],
+            "RULED_OUT_IF_MODE_WRITE_EXECUTED",
+        )
+
     def test_write_then_check_is_reproducible_and_fail_closed(self):
         rendered = self.module.artifacts()
         with tempfile.TemporaryDirectory() as temp_dir:

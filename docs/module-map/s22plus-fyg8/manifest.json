@@ -25,8 +25,8 @@
       "sha256": "e3729435cacaf0b0d9d156169f941f2c09bae48d9aa7bc6773200dead42dfa70"
     },
     "subsystem-usb.md": {
-      "bytes": 2837,
-      "sha256": "aad230b9ff499e9ca76b053448ca2cf37c70bf272d0b128edf19b5a631886ef2"
+      "bytes": 3567,
+      "sha256": "ad684aa594dbf79715832dadc8568873423fcee8dfdf678a2109f2b77a9e5c87"
     },
     "symbol-overlap-edges.tsv": {
       "bytes": 92201,

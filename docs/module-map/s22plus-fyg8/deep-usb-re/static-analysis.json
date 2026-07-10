@@ -130,9 +130,11 @@
   "conclusions": {
     "direct_pid1_automatic_role_without_samsung_chain": "NOT_PROVED",
     "dwc3_parent_and_child_role_switches": "ELF_PLUS_DT_VERIFIED",
-    "forced_peripheral_role_bypass": "PLAUSIBLE_NOT_PROVED",
+    "forced_peripheral_role_bypass": "ELF_VERIFIED_AFTER_DWC3_MSM_BIND",
+    "max77705_chain_required_for_forced_peripheral": false,
     "max77705_to_dwc3_transport": "SAMSUNG_NOTIFIER_CHAIN_NOT_DIRECT_EXTCON_PHANDLE",
     "max77705_typec_reporting": "ELF_VERIFIED",
+    "o3_role_chain_omission_as_no_usb_root_cause": "RULED_OUT_IF_MODE_WRITE_EXECUTED",
     "pdic_to_typec_manager_notifier": "ELF_VERIFIED",
     "qcom_callbacks_to_dwc3_events": "ELF_VERIFIED",
     "typec_manager_to_usb_notifier": "ELF_VERIFIED",
@@ -447,6 +449,65 @@
       "sha256": "97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c"
     }
   },
+  "forced_peripheral_bypass": {
+    "call_edges": [
+      {
+        "callee": "dwc3_msm_set_role",
+        "caller": "mode_store",
+        "evidence": "ELF_CALL_RELOCATION"
+      },
+      {
+        "callee": "dwc3_ext_event_notify",
+        "caller": "dwc3_msm_set_role",
+        "evidence": "ELF_CALL_RELOCATION"
+      },
+      {
+        "callee": "queue_delayed_work_on",
+        "caller": "dwc3_ext_event_notify",
+        "evidence": "ELF_CALL_RELOCATION"
+      },
+      {
+        "callee": "dwc3_otg_start_peripheral",
+        "caller": "dwc3_otg_sm_work",
+        "evidence": "ELF_CALL_RELOCATION"
+      },
+      {
+        "callee": "usb_role_switch_set_role",
+        "caller": "dwc3_otg_start_peripheral",
+        "evidence": "ELF_CALL_RELOCATION"
+      },
+      {
+        "callee": "vbus_session_notify",
+        "caller": "dwc3_otg_start_peripheral",
+        "evidence": "ELF_CALL_RELOCATION"
+      },
+      {
+        "callee": "usb_gadget_connect",
+        "caller": "dwc3_otg_start_peripheral",
+        "evidence": "ELF_CALL_RELOCATION"
+      }
+    ],
+    "dev_attr_mode_address": 432,
+    "instruction_checks": {
+      "peripheral_literal_to_role_2": true,
+      "role_2_sets_role_state_word": true,
+      "role_2_sets_vbus_active_byte": true,
+      "vbus_event_uses_same_active_byte": true
+    },
+    "interpretation": "writing peripheral to the bound dwc3-msm mode attribute requests device role, sets the same VBUS-active field used by dwc_msm_vbus_event, dispatches OTG work, and reaches the peripheral start path with gadget connect",
+    "module": "dwc3-msm.ko",
+    "peripheral_literal": "peripheral",
+    "peripheral_role_value": 2,
+    "result": "ELF_INSTRUCTION_AND_CALL_PATH_VERIFIED",
+    "role_state_offset": 864,
+    "shared_vbus_active_offset": 858,
+    "show_callback_relocation_offset": 448,
+    "store_callback_relocation_offset": 456,
+    "sysfs_mode_attribute_callbacks": {
+      "show": true,
+      "store": true
+    }
+  },
   "matched_source": {
     "interpretation": "send_otg_notify queues state events; otg_notify_state dispatches VBUS to set_peripheral and HOST to set_host",
     "matches": {
@@ -505,7 +566,7 @@
     "module_insertion": false,
     "reboot": false
   },
-  "schema": "s22plus_fyg8_usb_role_static_re_v1",
+  "schema": "s22plus_fyg8_usb_role_static_re_v2",
   "sec_otg_notify_callback_table": [
     {
       "relocation_offset": 304,

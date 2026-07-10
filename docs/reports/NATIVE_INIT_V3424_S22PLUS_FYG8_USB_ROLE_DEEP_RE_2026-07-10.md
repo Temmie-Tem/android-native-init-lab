@@ -148,10 +148,10 @@ is a Samsung runtime notifier chain that eventually calls DWC3 role events.
 Consequently, loading `dwc3-msm.ko` alone does not reproduce stock automatic
 role policy.
 
-This still does not prove that direct native PID1 must clone the entire Samsung
-chain. A fixed peripheral role may deliberately bypass automatic cable and
-role-swap policy, but that remains `PLAUSIBLE_NOT_PROVED` until a bounded
-functional ACM request/response gate reports its own bind state.
+At V3424 close, a fixed peripheral role was still classified
+`PLAUSIBLE_NOT_PROVED`. V3425 subsequently verified the exact FYG8
+`mode_store("peripheral")` instruction and call path through DWC3 peripheral
+start and gadget connect. The later result supersedes this V3424 boundary.
 
 ## Safety and Validation
 
@@ -162,7 +162,7 @@ service control, sysfs write, or configfs write. Public and private artifacts
 were scanned for the device serial and MAC-like values.
 
 ```text
-static/deep-RE tests                  6/6 PASS
+static/deep-RE tests                  6/6 PASS at V3424 close
 live cross-check tests               6/6 PASS
 live result                          pass-live-role-crosscheck-partial
 command failures                     0
@@ -171,7 +171,6 @@ static regeneration/check            PASS
 
 ## Next Bound
 
-Proceed to O0 on the known-good stock Android stack: prove the framed,
-sequenced `/dev/ttyGS0` to host `/dev/ttyACM0` roundtrip with bounded
-`DR-daemon` ownership handoff and mandatory restoration. V3424 narrows later
-native-PID1 reasoning; it does not satisfy O0 and authorizes no new flash.
+Correction: O0 had already passed in V3403, O1.1 in V3409, and O2 in V3410.
+The original V3424 `O0 next` statement was stale and is retired by V3425.
+V3424 narrows later native-PID1 reasoning and authorizes no new flash.

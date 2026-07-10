@@ -27,6 +27,20 @@ support, and a separate `samsung,usb-notifier` node. It has no direct
 Max77705-to-DWC3 phandle or explicit extcon property for this path. Details and
 the serial-redacted live sidecar are in `deep-usb-re/`.
 
+The same exact `dwc3-msm.ko` also verifies the deliberate bypass used by O3:
+
+```text
+mode_store("peripheral") -> dwc3_msm_set_role(role=2)
+  -> VBUS-active/role state -> ext-event -> OTG work
+  -> start peripheral -> role switch + VBUS session + gadget connect
+```
+
+Thus the Samsung Max77705 notifier chain is required for stock automatic role
+policy, but not after a successfully bound `dwc3-msm` receives the explicit
+peripheral-mode request. Do not widen O3 with the five-module policy chain to
+explain its no-USB result; that result remains unlocalized to an earlier or
+downstream gate because no candidate phase readback was captured.
+
 ## Functional Gates
 
 | Order | Gate | Provider | Required path | Direct-PID1 status |
@@ -45,7 +59,8 @@ The next gate advances only after its driver/device path exists. O3 PASS remains
 a framed host/device ACM request-response plus device-reported bind state, not
 enumeration or survival.
 
-Current active work remains O0 stock `/dev/ttyGS0` to host `/dev/ttyACM0`, then
-O1 stock-first-stage observation. No direct-PID1 USB candidate is authorized by
-this map. The latest stock read-only evidence is maintained separately in
-`stock-usb-runtime-topology.json`.
+O0 stock control, O1.1 stock-first-stage control, and O2 loader parity are
+already complete. Current work is host-only design of a direct-PID1 phase
+observation channel before any further O3 candidate. No direct-PID1 USB
+candidate is authorized by this map. The latest stock read-only evidence is
+maintained separately in `stock-usb-runtime-topology.json`.
