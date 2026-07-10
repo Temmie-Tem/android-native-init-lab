@@ -102,6 +102,18 @@ BL, CP, CSC, userdata, or any non-boot flash.
    invocation exhausts this exception regardless of outcome; retire it and stop
    after evidence collection.
    **Narrow operator-authorized exception (2026-07-10, S22+ V3430 V3429 direct-PID1 phase-observer live gate):**
+   Consumed/retired: this one-shot exception was consumed by the 2026-07-10
+   V3430 live run. The exact V3429 boot-only candidate transferred with Odin
+   rc=0 and departed the original Odin endpoint, attended manual RDX/Download
+   returned, the pinned Magisk boot-only rollback completed with rc=0, and the
+   first rooted boot passed exact health. Two identical full
+   `/proc/last_kmsg` reads contained no current-run marker or issue, so the
+   contractual result was
+   `NO_PROOF_STAGE_A_VS_TRANSITION_UNRESOLVED_STOP`. Post-run read-only analysis
+   found that V3429 pinned module-vermagic osrelease containing `gki-` while
+   live `uname -r`/`/proc/sys/kernel/osrelease` omit it; a running candidate
+   would therefore stop at pre-module code 8 before the retained observer was
+   active. Mandatory rollback is complete. This exception must not be reused.
    After the operator's explicit 2026-07-10 live approval and the V3428R
    stock-origin retention PASS, Codex may perform one bounded attended V3430
    live run on `SM-S906N/g0q/S906NKSS7FYG8` using only

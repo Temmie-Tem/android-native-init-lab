@@ -84,6 +84,38 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 21:23 KST / 2026-07-10 12:23 UTC) — V3430 V3429 LIVE RESULT NO_PROOF WITH CLEAN ROLLBACK; EXACT PRE-MODULE OSRELEASE BUG VERIFIED; V3431 HOST-ONLY CORRECTION NEXT.**
+> The exact candidate AP transferred with Odin rc=0, the original Odin endpoint
+> departed, and the operator observed no bootloop. After the 60-second dwell,
+> attended `MSM_UPLOAD`/RDX and Download returned in 132.351 seconds. The pinned
+> Magisk boot-only rollback completed with rc=0; the first rooted boot passed
+> exact target, boot completion, orange vbstate, root, and boot-SHA health. The
+> canonical eight-event timeline is complete.
+>
+> Both full first-boot `/proc/last_kmsg` reads were 2,097,136 bytes with identical
+> SHA `4081a8389310caed3b95effd7cd46586828a7f808dc2985f4c7b32a8c2b95db0`.
+> They contained zero current-run PRECHECK/FINAL, malformed issue, raw run token,
+> or V3429 failure diagnostic. Contract verdict is exactly
+> `NO_PROOF_STAGE_A_VS_TRANSITION_UNRESOLVED_STOP`; do not relabel it retention
+> FAIL or PID1 non-execution proof.
+>
+> A post-run read-only comparison found the concrete build blocker. V3429 pinned
+> `5.10.226-android12-9-gki-30958166-abS906NKSS7FYG8` by taking the first module
+> vermagic token, while both live `uname -r` and
+> `/proc/sys/kernel/osrelease` are
+> `5.10.226-android12-9-30958166-abS906NKSS7FYG8`. V3429 performs this check
+> before `finit_module`, so any running candidate necessarily parked at code 8
+> before its retained observer existed. This fully explains why even its
+> run-bound failure line was absent, but still does not prove `/init` ran. The
+> connected preflight should have compared these identities and is missing that
+> gate.
+>
+> V3430 is consumed/retired and rollback is complete. Next = host-only V3431:
+> pin exact live osrelease, bind it into context, add live/prebuilt equality to
+> connected preflight, generate a fresh run ID, and rebuild/review. No successor
+> live is authorized. Report:
+> `docs/reports/NATIVE_INIT_V3430_S22PLUS_V3429_PHASE_OBSERVER_LIVE_NO_PROOF_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 20:32 KST / 2026-07-10 11:32 UTC) — V3430 V3429 DIRECT-PID1 PHASE-OBSERVER LIVE GATE ARMED UNDER EXPLICIT OPERATOR APPROVAL; EXACT ONE-SHOT HELPER/EXCEPTION READY; CONNECTED READ-ONLY PREFLIGHT NEXT.**
 > The operator explicitly approved V3429 live execution. V3430 reuses the
 > V3428R EOF classifier, host observers, redacted Odin transport, exact

@@ -51,13 +51,14 @@ class S22PlusV3430PhaseObserverLiveGateTest(unittest.TestCase):
             self.module.EXPECTED_CANDIDATE_AP_SHA256,
         )
 
-    def test_active_exception_is_present_and_fully_pinned(self):
-        self.module.verify_agents_exception(self.root)
+    def test_consumed_exception_preserves_pins_but_rejects_new_live(self):
         segment = self.module.active_exception_segment(
             (self.root / "AGENTS.md").read_text(encoding="utf-8")
         )
-        self.assertNotIn("Consumed/retired", segment)
-        self.assertNotIn("Consumed exception", segment)
+        with self.assertRaisesRegex(self.module.LiveGateError, "already consumed"):
+            self.module.verify_agents_exception(self.root)
+        self.module.verify_agents_exception(self.root, allow_consumed=True)
+        self.assertIn("Consumed/retired", segment)
 
     def test_consumed_exception_is_rejected_for_new_live(self):
         heading = self.module.ACTIVE_EXCEPTION_HEADING
