@@ -4,7 +4,7 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3435 RAMOOPS CONSOLE/DMESG PARTITION CORRECTION ACTIVE; FINAL TARGET IS NO ANDROID USERSPACE; HOST-ONLY, NO LIVE AUTHORIZATION.**
+> **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3435 RAMOOPS CONSOLE/DMESG DTBO HOST BUILD PASS; FINAL TARGET IS NO ANDROID USERSPACE; ANDROID POSITIVE CONTROL NEXT, NO LIVE AUTHORIZATION.**
 > The S22+ end state remains a lightweight native/Debian system that does not
 > boot or retain the Android userspace. The V3434 stock-global-PID1 plus
 > mount-namespace service-supervisor architecture is an interim bring-up and
@@ -22,14 +22,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > enabled only pmsg, so the M13/M18/M22 empty console/dmesg results did not
 > refute ramoops retention.
 >
-> V3435 is host-only: preserve the existing reserved-memory base and total size,
-> add no new memory region, and design a DTBO property overlay that enables the
+> V3435 host build passed: it preserves the existing reserved-memory allocation
+> contract and total size, adds no new memory region, and builds a DTBO property overlay that enables the
 > node and partitions the same 2 MiB into power-of-two pmsg, console, and dmesg
-> record areas. Machine-check all applicable vendor-DTB/DTBO variants, exact
+> record areas. It machine-checks all applicable vendor-DTB/DTBO variants, exact
 > arithmetic, kernel-driver frontend flags, FDT/container integrity, AVB/footer
 > preservation, and a strict changed-property allowlist. Do not alter kernel
 > cmdline: `console=null` does not disable pstore's independently registered
 > `CON_ENABLED` console once `console-size` exists.
+> Selected layout is pmsg 1 MiB, console 512 KiB, and two 256 KiB dmesg
+> records. Both target overlays apply to all four vendor DTBs (8/8). FDT string
+> compaction keeps every entry size/offset fixed; the DT table, Samsung signer
+> trailer, and AVB metadata/footer remain byte-position stable. Candidate raw
+> SHA256 is `3c4d38a9d4833bab648cd36c3c0c78a2bfed35ca80dc4532b5e877cbaa8fa281`;
+> DTBO-only AP.tar.md5 SHA256 is
+> `622ac0259eb61a7c9ef71eff44d4ea8bb3edbc6a90c3f2b237be7fdf88cb0264`.
 >
 > A future live unit is not authorized here. Its first gate must be a true
 > Android positive control, not another direct-PID1 candidate: boot the exact
@@ -39,6 +46,8 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > and restore stock DTBO. PASS reopens a minimal module-free direct-PID1 witness;
 > FAIL retires ramoops and moves observability to EUD/UART. DTBO write and panic
 > each require a fresh narrow SHA-pinned `AGENTS.md` exception.
+> Report:
+> `docs/reports/NATIVE_INIT_V3435_S22PLUS_RAMOOPS_CONSOLE_DTBO_HOST_BUILD_PASS_2026-07-11.md`.
 >
 > V3434 remains the corrected boot-boundary baseline below.
 > V3434 pinned the Samsung base OSRC, running Magisk-kernel IKCONFIG, stock

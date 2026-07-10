@@ -1,0 +1,362 @@
+{
+  "candidate": {
+    "ap_members": [
+      "dtbo.img.lz4"
+    ],
+    "ap_tar_md5_sha256": "622ac0259eb61a7c9ef71eff44d4ea8bb3edbc6a90c3f2b237be7fdf88cb0264",
+    "ap_tar_sha256": "839296660e6834e9e39bb207dbd676748c4dc2340fad1e96995d3f7e57d25ab9",
+    "avb_hash_descriptor": {
+      "candidate_matches_stock_descriptor": false,
+      "candidate_recomputed_digest": "c59620b3fb49ffe57d775c9ee5268576e5ac49d419df2bac383efea7c5ed5788",
+      "future_live_requires_verified_boot_disabled_or_resigning": true,
+      "hash_image_size": 7777749,
+      "metadata_tail_preserved": true,
+      "salt_hex": "cd2e0e500c8eba1677c63ef2336da873c0d18d0c4cfc7f7166828b1e73086a2b",
+      "stock_digest": "fc4274765cb8e785d1d88c974a5a6ef7119961a66fac452c305ba0dc2fbd3ed1"
+    },
+    "container": {
+      "all_bytes_after_dt_table_preserved_from_offset": 7777237,
+      "all_fdt_entry_sizes_preserved": true,
+      "candidate_header": {
+        "entries_offset": 32,
+        "entry_count": 11,
+        "entry_size": 32,
+        "header_size": 32,
+        "magic": 3619138334,
+        "page_size": 4096,
+        "total_size": 7777237,
+        "version": 0
+      },
+      "dt_table_header_and_entries_preserved": true,
+      "patched_entry_indices": [
+        9,
+        10
+      ],
+      "patches": [
+        {
+          "changed_properties": [
+            "status=okay",
+            "pmsg-size=0x100000",
+            "console-size=0x80000",
+            "record-size=0x40000"
+          ],
+          "entry_index": 9,
+          "fdtput_expanded_size": 708336,
+          "growth": 0,
+          "new_size": 708257,
+          "old_size": 708257,
+          "semantic_diff_allowlist_only": true,
+          "string_compaction": {
+            "final_padded_size": 708257,
+            "minimum_size_after_compaction": 708196,
+            "string_bytes_after": 56608,
+            "string_bytes_before": 56748,
+            "string_bytes_reclaimed": 140,
+            "trailing_padding": 61
+          }
+        },
+        {
+          "changed_properties": [
+            "status=okay",
+            "pmsg-size=0x100000",
+            "console-size=0x80000",
+            "record-size=0x40000"
+          ],
+          "entry_index": 10,
+          "fdtput_expanded_size": 708416,
+          "growth": 0,
+          "new_size": 708337,
+          "old_size": 708337,
+          "semantic_diff_allowlist_only": true,
+          "string_compaction": {
+            "final_padded_size": 708337,
+            "minimum_size_after_compaction": 708276,
+            "string_bytes_after": 56608,
+            "string_bytes_before": 56748,
+            "string_bytes_reclaimed": 140,
+            "trailing_padding": 61
+          }
+        }
+      ],
+      "raw_image_size_preserved": true,
+      "samsung_signer_trailer_preserved": true,
+      "samsung_signer_trailer_sha256": "c687713921d0ba256f84966c5644db59c4ddfcc8ad98469618c5af8710d3b499",
+      "samsung_signer_trailer_size": 512,
+      "stock_header": {
+        "entries_offset": 32,
+        "entry_count": 11,
+        "entry_size": 32,
+        "header_size": 32,
+        "magic": 3619138334,
+        "page_size": 4096,
+        "total_size": 7777237,
+        "version": 0
+      }
+    },
+    "lz4_sha256": "4202edca2a0d06ab691c492151b5f4228b1bd28eace06b1a72c36e35cac7c84b",
+    "odin_parse_gate": {
+      "candidate": {
+        "archive_check_reached": true,
+        "executed": true,
+        "invalid_device_boundary_reached": true
+      },
+      "rollback": {
+        "archive_check_reached": true,
+        "executed": true,
+        "invalid_device_boundary_reached": true
+      }
+    },
+    "overlay_application_matrix": [
+      {
+        "console_size": 524288,
+        "has_reg": false,
+        "overlay_entry_index": 9,
+        "pass": true,
+        "pmsg_size": 1048576,
+        "record_size": 262144,
+        "size": 2097152,
+        "status": [
+          "okay"
+        ],
+        "vendor_root_index": 0
+      },
+      {
+        "console_size": 524288,
+        "has_reg": false,
+        "overlay_entry_index": 10,
+        "pass": true,
+        "pmsg_size": 1048576,
+        "record_size": 262144,
+        "size": 2097152,
+        "status": [
+          "okay"
+        ],
+        "vendor_root_index": 0
+      },
+      {
+        "console_size": 524288,
+        "has_reg": false,
+        "overlay_entry_index": 9,
+        "pass": true,
+        "pmsg_size": 1048576,
+        "record_size": 262144,
+        "size": 2097152,
+        "status": [
+          "okay"
+        ],
+        "vendor_root_index": 1
+      },
+      {
+        "console_size": 524288,
+        "has_reg": false,
+        "overlay_entry_index": 10,
+        "pass": true,
+        "pmsg_size": 1048576,
+        "record_size": 262144,
+        "size": 2097152,
+        "status": [
+          "okay"
+        ],
+        "vendor_root_index": 1
+      },
+      {
+        "console_size": 524288,
+        "has_reg": false,
+        "overlay_entry_index": 9,
+        "pass": true,
+        "pmsg_size": 1048576,
+        "record_size": 262144,
+        "size": 2097152,
+        "status": [
+          "okay"
+        ],
+        "vendor_root_index": 2
+      },
+      {
+        "console_size": 524288,
+        "has_reg": false,
+        "overlay_entry_index": 10,
+        "pass": true,
+        "pmsg_size": 1048576,
+        "record_size": 262144,
+        "size": 2097152,
+        "status": [
+          "okay"
+        ],
+        "vendor_root_index": 2
+      },
+      {
+        "console_size": 524288,
+        "has_reg": false,
+        "overlay_entry_index": 9,
+        "pass": true,
+        "pmsg_size": 1048576,
+        "record_size": 262144,
+        "size": 2097152,
+        "status": [
+          "okay"
+        ],
+        "vendor_root_index": 3
+      },
+      {
+        "console_size": 524288,
+        "has_reg": false,
+        "overlay_entry_index": 10,
+        "pass": true,
+        "pmsg_size": 1048576,
+        "record_size": 262144,
+        "size": 2097152,
+        "status": [
+          "okay"
+        ],
+        "vendor_root_index": 3
+      }
+    ],
+    "paths": {
+      "ap_tar_md5": "workspace/private/outputs/s22plus_v3435_ramoops_console_dtbo_v0_1/candidate_odin4/AP.tar.md5",
+      "raw": "workspace/private/outputs/s22plus_v3435_ramoops_console_dtbo_v0_1/build/dtbo.img",
+      "rollback_ap_tar_md5": "workspace/private/outputs/s22plus_v3435_ramoops_console_dtbo_v0_1/stock_rollback_odin4/AP.tar.md5"
+    },
+    "raw_sha256": "3c4d38a9d4833bab648cd36c3c0c78a2bfed35ca80dc4532b5e877cbaa8fa281",
+    "raw_size": 8388608
+  },
+  "candidate_layout": {
+    "all_nonzero_sizes_power_of_two": true,
+    "cmdline_change": false,
+    "console_size": 524288,
+    "dmesg_record_count": 2,
+    "dmesg_size": 524288,
+    "ftrace_size": 0,
+    "new_reserved_region": false,
+    "pmsg_size": 1048576,
+    "record_size": 262144,
+    "region_size": 2097152,
+    "sum_exact": true
+  },
+  "future_live_gate": {
+    "authorized": false,
+    "fail": "retire ramoops and move to EUD/UART",
+    "first_action": "Android positive control, not direct PID1",
+    "pass": "run-bound marker recovered from console/dmesg/pmsg after reset",
+    "requires": [
+      "fresh SHA-pinned DTBO exception",
+      "fresh one-shot intentional-panic exception",
+      "known Magisk boot baseline",
+      "stock DTBO rollback staged",
+      "live DT property and ramoops backend-registration proof before panic"
+    ]
+  },
+  "objective": {
+    "current_unit": "enable a real pre/early-userspace ramoops console/dmesg witness",
+    "final_state": "native/Debian without Android userspace",
+    "stock_pid1_supervisor": "interim bring-up and recovery fallback only"
+  },
+  "pins": {
+    "workspace/private/inputs/s22plus_firmware/S906NKSS7FYG8_SKC/extracted-images/raw/dtbo.img": "97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c",
+    "workspace/private/inputs/s22plus_firmware/S906NKSS7FYG8_SKC/extracted-images/unpack-vendor-boot/dtb": "2cd64d43a4f6b89a7c5523f3ef73fbb84dcad92c6d857e649cd1f0baa7c0080e",
+    "workspace/private/inputs/s22plus_kernel_source/SM-S906N_15_base_osrc/Kernel.tar.gz": "86e2f73412c65fadff0b15bbf0eac9140610f70250514ac0bddbf3b53fb5f7bf",
+    "workspace/private/outputs/s22plus_native_init/v3432_pid1_keystone_v0_1/magiskboot-work/kernel": "bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff",
+    "workspace/private/tools/dtc_pkg/sysroot/usr/bin/fdtoverlay": "5ceccef2df580cea6fa136e30a66e9ae84efca642583345275ab6b8a21e1e3b2",
+    "workspace/private/tools/dtc_pkg/sysroot/usr/bin/fdtput": "1e2d249c4f3d302870471bd86e6f6cb94ba94f4596a881ab1ac9ef663cb4f348",
+    "workspace/private/tools/dtc_pkg/sysroot/usr/lib/x86_64-linux-gnu/libfdt.so.1.7.2": "f9cd7d2d8222f016951dc3dca7c67326a6411fb9f28766f41951591988a11444"
+  },
+  "safety": {
+    "device_contact": false,
+    "direct_pid1_candidate_authorized": false,
+    "flash": false,
+    "future_partition_scope": "dtbo only after a fresh exception",
+    "future_positive_control_first": true,
+    "host_only": true,
+    "live_authorized": false,
+    "reboot": false
+  },
+  "schema": "s22plus_v3435_ramoops_console_dtbo_contract_v1",
+  "source_contract": {
+    "console_null_effect": "not a blocker: pstore registers its own CON_ENABLED console when PSTORE_FLAGS_CONSOLE is present",
+    "dmesg_space_formula": "region - console - ftrace - pmsg",
+    "frontend_flags": {
+      "console": "set only when console-size is nonzero",
+      "dmesg": "set only when at least one record zone exists",
+      "pmsg": "set only when pmsg-size is nonzero"
+    },
+    "kernel_config": {
+      "CONFIG_PSTORE": "y",
+      "CONFIG_PSTORE_CONSOLE": "y",
+      "CONFIG_PSTORE_PMSG": "y",
+      "CONFIG_PSTORE_RAM": "y"
+    },
+    "ramoops_size_defaults": "missing record/console/ftrace properties parse as zero"
+  },
+  "stock_ramoops": {
+    "console_size": 0,
+    "dmesg_size": 0,
+    "pmsg_size": 2097152,
+    "record_size": 0,
+    "region_size": 2097152,
+    "root_cause": "pmsg consumes the entire region",
+    "vendor_dtb_variants": [
+      {
+        "allocation": "dynamic_reserved_memory_size_plus_alloc_ranges",
+        "compatible": [
+          "ramoops"
+        ],
+        "console_size": 0,
+        "dmesg_size": 0,
+        "has_reg": false,
+        "index": 0,
+        "offset": 0,
+        "pmsg_size": 2097152,
+        "record_size": 0,
+        "size": 2097152,
+        "totalsize": 430353
+      },
+      {
+        "allocation": "dynamic_reserved_memory_size_plus_alloc_ranges",
+        "compatible": [
+          "ramoops"
+        ],
+        "console_size": 0,
+        "dmesg_size": 0,
+        "has_reg": false,
+        "index": 1,
+        "offset": 430353,
+        "pmsg_size": 2097152,
+        "record_size": 0,
+        "size": 2097152,
+        "totalsize": 430333
+      },
+      {
+        "allocation": "dynamic_reserved_memory_size_plus_alloc_ranges",
+        "compatible": [
+          "ramoops"
+        ],
+        "console_size": 0,
+        "dmesg_size": 0,
+        "has_reg": false,
+        "index": 2,
+        "offset": 860686,
+        "pmsg_size": 2097152,
+        "record_size": 0,
+        "size": 2097152,
+        "totalsize": 430381
+      },
+      {
+        "allocation": "dynamic_reserved_memory_size_plus_alloc_ranges",
+        "compatible": [
+          "ramoops"
+        ],
+        "console_size": 0,
+        "dmesg_size": 0,
+        "has_reg": false,
+        "index": 3,
+        "offset": 1291067,
+        "pmsg_size": 2097152,
+        "record_size": 0,
+        "size": 2097152,
+        "totalsize": 430361
+      }
+    ]
+  },
+  "target": "SM-S906N/g0q/S906NKSS7FYG8",
+  "verdict": "HOST_BUILD_PASS_NO_LIVE"
+}
