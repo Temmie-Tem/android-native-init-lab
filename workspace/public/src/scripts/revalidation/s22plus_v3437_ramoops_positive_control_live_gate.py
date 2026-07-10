@@ -886,7 +886,7 @@ def load_resume(run_dir: Path) -> tuple[Session, Timeline, Path]:
 
 
 def print_plan() -> None:
-    print("V3437 ramoops positive-control plan (currently live-inert)")
+    print("V3437 ramoops positive-control plan (policy-gated)")
     print("1. offline-check artifacts, contracts, policy drafts")
     print("2. activate separate DTBO and panic AGENTS exceptions")
     print("3. dry-run stock Android/Magisk/DTBO baseline")

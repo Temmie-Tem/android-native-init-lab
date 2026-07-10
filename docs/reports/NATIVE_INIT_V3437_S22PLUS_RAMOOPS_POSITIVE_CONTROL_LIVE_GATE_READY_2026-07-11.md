@@ -41,3 +41,10 @@ V3426-V3437 regression tests           165/165 PASS (61.017 s)
 This is not yet live-ready. The two policy drafts require review and separate
 operator approval before promotion to `AGENTS.md`. After promotion, a read-only
 `--dry-run` must pass before `--live-session` may be considered.
+
+## Post-Report Activation
+
+The operator explicitly approved the V3437 live run on 2026-07-11. Both narrow
+one-shot clauses were promoted to `AGENTS.md`; offline policy status is now
+`dtbo_active=true`, `panic_active=true`. This activation record itself performed
+no device action. The read-only dry-run remains the mandatory next gate.

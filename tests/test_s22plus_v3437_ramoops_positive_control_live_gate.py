@@ -46,10 +46,9 @@ class S22PlusV3437RamoopsPositiveControlLiveGateTest(unittest.TestCase):
                 str(self.module.PANIC_POLICY_DRAFT),
             },
         )
-        self.assertEqual(
-            self.module.policy_status(self.root),
-            {"dtbo_active": False, "panic_active": False},
-        )
+        status = self.module.policy_status(self.root)
+        self.assertEqual(set(status), {"dtbo_active", "panic_active"})
+        self.assertTrue(all(isinstance(value, bool) for value in status.values()))
 
     def test_offline_check_never_calls_device_functions(self):
         with mock.patch.object(
@@ -65,6 +64,10 @@ class S22PlusV3437RamoopsPositiveControlLiveGateTest(unittest.TestCase):
 
     def test_device_modes_fail_before_device_contact_while_policy_inactive(self):
         with mock.patch.object(
+            self.module,
+            "policy_status",
+            return_value={"dtbo_active": False, "panic_active": False},
+        ), mock.patch.object(
             self.module, "require_current_android", side_effect=AssertionError("device")
         ):
             with self.assertRaisesRegex(self.module.GateError, "policy is inactive"):

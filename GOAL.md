@@ -4,7 +4,7 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3437 RAMOOPS POSITIVE-CONTROL LIVE-GATE SOURCE READY; POLICY INERT; FINAL TARGET IS NO ANDROID USERSPACE; NO LIVE AUTHORIZATION.**
+> **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3437 RAMOOPS POSITIVE-CONTROL LIVE AUTHORIZED; BOTH POLICIES ACTIVE; READ-ONLY DRY-RUN NEXT; FINAL TARGET IS NO ANDROID USERSPACE.**
 > The S22+ end state remains a lightweight native/Debian system that does not
 > boot or retain the Android userspace. The V3434 stock-global-PID1 plus
 > mount-namespace service-supervisor architecture is an interim bring-up and
@@ -74,8 +74,11 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > artifacts/drafts PASS, `dtbo_active=false`, `panic_active=false`, device
 > actions 0. Report:
 > `docs/reports/NATIVE_INIT_V3437_S22PLUS_RAMOOPS_POSITIVE_CONTROL_LIVE_GATE_READY_2026-07-11.md`.
-> Next: review the two policy drafts. Only separate explicit operator approval
-> may promote them to `AGENTS.md`; then run read-only dry-run before live.
+> The operator explicitly approved the V3437 live run on 2026-07-11. The two
+> narrow one-shot clauses are now active in `AGENTS.md`; offline policy status
+> is `dtbo_active=true`, `panic_active=true`, with device actions still 0.
+> Next: commit the active gate, run the read-only dry-run, and proceed to the
+> attended candidate only if every dry-run precondition passes.
 >
 > V3434 remains the corrected boot-boundary baseline below.
 > V3434 pinned the Samsung base OSRC, running Magisk-kernel IKCONFIG, stock

@@ -21,6 +21,75 @@ BL, CP, CSC, userdata, or any non-boot flash.
    bootloader, or any partition other than **boot**. Device changes touch the boot image
    only. These forbidden partitions are **NOT** TWRP/download-mode recoverable = permanent
    brick; the operator's acceptance of boot-flash risk does NOT extend to them.
+   **Narrow operator-authorized exception (2026-07-11, S22+ V3437 ramoops DTBO maintenance live gate):**
+   `S22PLUS_V3437_DTBO_POLICY_STATE=ACTIVE`. After the operator's explicit
+   2026-07-11 live approval, Codex may perform one bounded attended V3437 DTBO
+   maintenance run on `SM-S906N/g0q/S906NKSS7FYG8` using only
+   `workspace/public/src/scripts/revalidation/s22plus_v3437_ramoops_positive_control_live_gate.py`
+   and acknowledgement token
+   `S22PLUS-V3437-RAMOOPS-DTBO-MAINTENANCE`. The helper must first pass its
+   offline checks and read-only dry-run against normal rooted Android, exact
+   Magisk boot SHA256
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
+   exact stock DTBO SHA256
+   `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`,
+   and full FYG8 stock firmware evidence.
+
+   It may flash exactly one candidate DTBO-only AP.tar.md5 SHA256
+   `622ac0259eb61a7c9ef71eff44d4ea8bb3edbc6a90c3f2b237be7fdf88cb0264`,
+   containing exactly `dtbo.img.lz4`, which must produce raw DTBO SHA256
+   `3c4d38a9d4833bab648cd36c3c0c78a2bfed35ca80dc4532b5e877cbaa8fa281`.
+   After evidence collection, or on any pre-panic candidate failure with one
+   usable Android or Odin transport, it must restore only the stock DTBO-only
+   AP.tar.md5 SHA256
+   `6f397421bee84f4ea0c80a8519be0f6f6af84119794970e8a1faaa05f261caaa`,
+   containing exactly `dtbo.img.lz4`, and prove the stock raw DTBO hash plus
+   normal rooted Android health. Restore actions require the independent token
+   `S22PLUS-V3437-RAMOOPS-STOCK-DTBO-RESTORE`. If post-panic evidence remains
+   unread, evidence collection precedes automatic rollback; an attended
+   recovery override may abandon evidence only with the explicit no-proof
+   classification implemented by the helper.
+
+   This exception authorizes no boot, vendor_boot, recovery, vbmeta,
+   vbmeta_system, BL, CP, CSC, super, persist, userdata, EFS, sec_efs, RPMB,
+   keymaster, modem, bootloader, or other partition write; no raw host `dd`,
+   fastboot, Magisk module, multidisabler, format data, PMIC/GPIO/regulator/GDSC
+   write, or A90 action. It does not by itself authorize panic or sysrq writes.
+   One candidate invocation consumes this exception regardless of PASS,
+   PARTIAL, NO_PROOF, FAIL, or recovery-only result. Mandatory stock-DTBO
+   rollback remains authorized after consumption only for the already-started
+   run; it cannot authorize a second candidate transfer.
+
+   **Narrow operator-authorized exception (2026-07-11, S22+ V3437 ramoops intentional-panic live gate):**
+   `S22PLUS_V3437_PANIC_POLICY_STATE=ACTIVE`. After the same explicit
+   2026-07-11 approval, and only while the separate V3437 DTBO maintenance
+   exception is active for the same run, Codex may execute one bounded
+   intentional-panic positive control using only
+   `workspace/public/src/scripts/revalidation/s22plus_v3437_ramoops_positive_control_live_gate.py`
+   and acknowledgement token
+   `S22PLUS-V3437-RAMOOPS-INTENTIONAL-PANIC`. The helper must enforce V3436
+   contract SHA256
+   `f9ff86aa346023f8a168c98cd04bee57e1d69f913c9b4592f40ecfdc9133fec5`,
+   candidate raw DTBO SHA256
+   `3c4d38a9d4833bab648cd36c3c0c78a2bfed35ca80dc4532b5e877cbaa8fa281`,
+   exact patched live-DT sizes, ramoops module parameters, mounted pstore, and
+   registered backend before arming the trigger.
+
+   It may emit exactly one run-bound `S22RPC1` marker sequence to `/dev/kmsg`
+   and `/dev/pmsg0`, write `1` once to `/proc/sys/kernel/sysrq`, and perform
+   exactly one `sysrq-trigger-c` write of `c` to `/proc/sysrq-trigger`. A
+   returned or failed trigger does not authorize a retry. After transport loss,
+   the helper must recover patched Android, read pstore twice without deletion,
+   compare and durably flush the evidence, classify only through the pinned
+   contract, and only then use the separate DTBO rollback authorization. If
+   automatic recovery fails, stop in the durable recovery-wait state for
+   attended continuation.
+
+   This panic exception authorizes no partition write, additional panic,
+   additional procfs/sysfs/configfs write, module insertion, persistent
+   filesystem marker, PMIC/GPIO/regulator/GDSC write, watchdog action, sec_debug
+   trigger, or A90 action. One panic attempt consumes it regardless of result
+   and it must be marked consumed immediately after the attended run.
    **Narrow operator-authorized exception (2026-07-11, S22+ V3433 V3432 direct-PID1 keystone live gate):**
    Consumed/retired: this one-shot exception was consumed by the 2026-07-11
    V3433 live run. The exact V3432 boot-only candidate transferred with Odin
