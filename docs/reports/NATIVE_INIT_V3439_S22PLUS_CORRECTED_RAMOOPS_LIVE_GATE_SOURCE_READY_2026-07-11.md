@@ -66,3 +66,11 @@ device_action           0
 The operator supplied fresh live approval. The exact helper must first be
 committed, then separate SHA-pinned clauses may be promoted to `AGENTS.md`.
 A connected read-only dry-run remains mandatory before candidate transfer.
+
+## Policy Activation
+
+After commit `7d97807a`, the exact helper SHA and V3438 postmortem SHA were
+promoted into separate one-shot `AGENTS.md` clauses under the operator's fresh
+approval. Offline policy status passed as `dtbo_active=true` and
+`panic_active=true`; activation itself performed no device action. The connected
+read-only dry-run is the next mandatory gate.

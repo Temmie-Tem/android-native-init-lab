@@ -4,7 +4,7 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3439 CORRECTED RAMOOPS LIVE-GATE SOURCE READY; OPERATOR LIVE APPROVAL RECEIVED; POLICY STILL INERT; CONNECTED DRY-RUN ONLY AFTER EXACT POLICY ACTIVATION; FINAL TARGET IS NO ANDROID USERSPACE.**
+> **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3439 CORRECTED RAMOOPS LIVE GATE ACTIVE UNDER FRESH OPERATOR APPROVAL; EXACT SOURCE COMMITTED; CONNECTED READ-ONLY DRY-RUN NEXT; FINAL TARGET IS NO ANDROID USERSPACE.**
 > The S22+ end state remains a lightweight native/Debian system that does not
 > boot or retain the Android userspace. The V3434 stock-global-PID1 plus
 > mount-namespace service-supervisor architecture is an interim bring-up and
@@ -128,6 +128,11 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > device actions 0. The operator supplied fresh live approval, but policy
 > promotion occurs only after this exact source-ready commit. Report:
 > `docs/reports/NATIVE_INIT_V3439_S22PLUS_CORRECTED_RAMOOPS_LIVE_GATE_SOURCE_READY_2026-07-11.md`.
+> The exact source was committed as `7d97807a`, then both one-shot clauses were
+> activated under the fresh approval. Offline status is now
+> `dtbo_active=true`, `panic_active=true`, with device actions still 0. Next is
+> the connected read-only dry-run; candidate transfer remains forbidden until
+> that gate passes.
 >
 > V3434 remains the corrected boot-boundary baseline below.
 > V3434 pinned the Samsung base OSRC, running Magisk-kernel IKCONFIG, stock
