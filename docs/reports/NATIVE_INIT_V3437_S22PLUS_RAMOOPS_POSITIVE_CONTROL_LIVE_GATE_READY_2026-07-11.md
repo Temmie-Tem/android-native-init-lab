@@ -45,6 +45,11 @@ operator approval before promotion to `AGENTS.md`. After promotion, a read-only
 ## Post-Report Activation
 
 The operator explicitly approved the V3437 live run on 2026-07-11. Both narrow
-one-shot clauses were promoted to `AGENTS.md`; offline policy status is now
+one-shot clauses were promoted to `AGENTS.md`; offline policy status was then
 `dtbo_active=true`, `panic_active=true`. This activation record itself performed
 no device action. The read-only dry-run remains the mandatory next gate.
+
+This was a pre-live checkpoint. The subsequent run consumed and retired both
+policies after a pre-panic backend-registration gate failure and successful
+stock-DTBO rollback. Current policy status is `false/false`; see
+`docs/reports/NATIVE_INIT_V3437_S22PLUS_RAMOOPS_POSITIVE_CONTROL_LIVE_RESULT_2026-07-11.md`.

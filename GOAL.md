@@ -4,7 +4,7 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3437 RAMOOPS POSITIVE-CONTROL LIVE AUTHORIZED; BOTH POLICIES ACTIVE; READ-ONLY DRY-RUN NEXT; FINAL TARGET IS NO ANDROID USERSPACE.**
+> **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3437 STOPPED PRE-PANIC: LIVE DT/PARAMETERS PASS, BACKEND REGISTRATION UNPROVEN, STOCK DTBO RESTORED; BOTH POLICIES RETIRED; FINAL TARGET IS NO ANDROID USERSPACE.**
 > The S22+ end state remains a lightweight native/Debian system that does not
 > boot or retain the Android userspace. The V3434 stock-global-PID1 plus
 > mount-namespace service-supervisor architecture is an interim bring-up and
@@ -75,10 +75,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > actions 0. Report:
 > `docs/reports/NATIVE_INIT_V3437_S22PLUS_RAMOOPS_POSITIVE_CONTROL_LIVE_GATE_READY_2026-07-11.md`.
 > The operator explicitly approved the V3437 live run on 2026-07-11. The two
-> narrow one-shot clauses are now active in `AGENTS.md`; offline policy status
-> is `dtbo_active=true`, `panic_active=true`, with device actions still 0.
-> Next: commit the active gate, run the read-only dry-run, and proceed to the
-> attended candidate only if every dry-run precondition passes.
+> narrow one-shot clauses were activated in `AGENTS.md`; at that pre-live
+> checkpoint policy status was `dtbo_active=true`, `panic_active=true`, with
+> device actions still 0. The following live-result paragraph supersedes that
+> checkpoint state.
+>
+> V3437 live result: read-only dry-run passed, then candidate DTBO-only Odin
+> transfer completed with rc=0. Android returned with exact candidate DTBO
+> SHA256 `3c4d38a...a8fa281`, live `status=okay`, exact 2 MiB layout, and exact
+> ramoops module parameters. Pstore was mounted and `/dev/pmsg0` existed, but
+> no required `Registered ramoops as persistent store backend` evidence was
+> present. The helper therefore failed closed before marker arm or panic,
+> classified `FAIL_PREPANIC_GATE_ROLLBACK`, and restored stock DTBO-only AP with
+> rc=0. Final stock DTBO SHA256 `97a4864f...f4bd0c`, Magisk boot SHA256
+> `2e541703...29967e`, Android stability, and `status=disabled` all passed.
+> `panic_attempted=false`; both one-shot policies are retired. Report:
+> `docs/reports/NATIVE_INIT_V3437_S22PLUS_RAMOOPS_POSITIVE_CONTROL_LIVE_RESULT_2026-07-11.md`.
+> Next is host-only analysis of why the enabled DT node did not yield a proven
+> platform backend; no repeat flash or panic is authorized.
 >
 > V3434 remains the corrected boot-boundary baseline below.
 > V3434 pinned the Samsung base OSRC, running Magisk-kernel IKCONFIG, stock

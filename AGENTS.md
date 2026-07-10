@@ -22,7 +22,16 @@ BL, CP, CSC, userdata, or any non-boot flash.
    only. These forbidden partitions are **NOT** TWRP/download-mode recoverable = permanent
    brick; the operator's acceptance of boot-flash risk does NOT extend to them.
    **Narrow operator-authorized exception (2026-07-11, S22+ V3437 ramoops DTBO maintenance live gate):**
-   `S22PLUS_V3437_DTBO_POLICY_STATE=ACTIVE`. After the operator's explicit
+   Consumed/retired: the 2026-07-11 V3437 run consumed this one-shot DTBO
+   exception. The candidate DTBO-only transfer completed with Odin rc=0 and
+   Android returned with the exact candidate hash, live DT layout, and ramoops
+   module parameters. The required backend-registration marker was absent, so
+   the helper stopped before marker arm or panic and automatically restored the
+   pinned stock DTBO-only AP with Odin rc=0. Final Android health, Magisk boot
+   hash, stock DTBO hash, and disabled stock ramoops state passed. The durable
+   classification is `FAIL_PREPANIC_GATE_ROLLBACK`; `panic_attempted=false`.
+   This exception must not be reused. Mandatory rollback is complete.
+   `S22PLUS_V3437_DTBO_POLICY_STATE=RETIRED`. After the operator's explicit
    2026-07-11 live approval, Codex may perform one bounded attended V3437 DTBO
    maintenance run on `SM-S906N/g0q/S906NKSS7FYG8` using only
    `workspace/public/src/scripts/revalidation/s22plus_v3437_ramoops_positive_control_live_gate.py`
@@ -61,7 +70,11 @@ BL, CP, CSC, userdata, or any non-boot flash.
    run; it cannot authorize a second candidate transfer.
 
    **Narrow operator-authorized exception (2026-07-11, S22+ V3437 ramoops intentional-panic live gate):**
-   `S22PLUS_V3437_PANIC_POLICY_STATE=ACTIVE`. After the same explicit
+   Retired unused: the paired V3437 run failed its backend-registration gate
+   before marker arm or sysrq, so no intentional panic occurred. The approval
+   does not survive the completed DTBO run and cannot be combined with a future
+   candidate. A fresh, narrower exception is required for any later panic.
+   `S22PLUS_V3437_PANIC_POLICY_STATE=RETIRED`. After the same explicit
    2026-07-11 approval, and only while the separate V3437 DTBO maintenance
    exception is active for the same run, Codex may execute one bounded
    intentional-panic positive control using only
