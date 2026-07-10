@@ -67,6 +67,36 @@ BL, CP, CSC, userdata, or any non-boot flash.
    A90 action. This exception is consumed by one live invocation regardless of
    PASS, NO_PROOF, UNAVAILABLE, FAIL, or recovery-only outcome and must be marked
    consumed immediately afterward.
+   **Narrow operator-authorized exception (2026-07-10, S22+ V3428R stock-origin transition positive-control retry):**
+   after the operator's fresh 2026-07-10 live approval, Codex may perform one
+   bounded attended V3428R retry on `SM-S906N/g0q/S906NKSS7FYG8` using only
+   `workspace/public/src/scripts/revalidation/s22plus_v3428_stock_transition_positive_control.py`
+   SHA256 `b42c98c8bde0821b899015ab2524feec74b0e9cecb08a1bc72896353c5236c67`
+   and acknowledgement token
+   `S22PLUS-V3428R-STOCK-TRANSITION-POSITIVE-CONTROL-LIVE-GATE`. The helper must
+   enforce observer contract SHA256
+   `cba82ce1bae23f56bcad57876f5d647e31a37a36d7bc9b477de57b1f85b3babf`
+   and transition contract SHA256
+   `426aa2bb50f6e73e153f5f5dc9cde59ddf37ab315f46860c1dc0bd0b3e810734`.
+   This retry has no native-init candidate and no candidate flash. It may write
+   `/dev/kmsg PRECHECK and FINAL only`, verify both through fresh read-only
+   `/proc/ap_klog`, wait at least 60 seconds, then require attended manual
+   RDX/Download and begin rollback no later than the hard 180-second deadline.
+   It may flash only the pinned Magisk boot partition only AP SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`,
+   containing exactly `boot.img.lz4`, then require exact FYG8/Magisk identity and
+   perform a first-boot /proc/last_kmsg double-read before any extra reboot. If
+   that Magisk transfer fails while Download remains, it may use only the stock
+   boot-only recovery AP SHA256
+   `2f6a8ac093587a0f03c423d8e21f65c6fe3a8d2ce9915297170cdaa2cac37c94`,
+   also containing exactly `boot.img.lz4`; fallback is recovery-only and cannot
+   PASS. This is boot partition only with no non-boot partition write. It
+   authorizes no recovery/vendor_boot/dtbo/vbmeta/BL/CP/CSC/super/userdata/EFS/
+   sec_efs/RPMB/keymaster/modem/bootloader write, raw host `dd`, fastboot,
+   Magisk module, format data, sysfs/configfs or raw block write, Android
+   `adb reboot`, panic, watchdog, sec_debug trigger, or A90 action. One live
+   invocation exhausts this exception regardless of outcome; retire it and stop
+   after evidence collection.
    **Narrow operator-authorized exception (2026-07-06, S22+ recovery-infra only):**
    for the Samsung S22+ `SM-S906N`/`g0q` on `S906NKSS7FYG8`, Codex may perform one
    bounded Odin4 recovery-infrastructure install of the pinned unofficial g0q TWRP

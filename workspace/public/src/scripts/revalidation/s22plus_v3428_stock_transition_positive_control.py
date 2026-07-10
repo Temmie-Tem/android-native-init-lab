@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guarded S22+ V3428 stock-origin transition positive control.
+"""Guarded S22+ V3428R stock-origin transition positive-control retry.
 
 The live mode writes two bounded run-unique frames to /dev/kmsg, verifies them
 through fresh /proc/ap_klog snapshots, waits for attended manual Download entry,
@@ -29,12 +29,12 @@ from s22plus_m3_observable_live_gate import run
 from s22plus_o0_stock_usb_control import start_observers
 
 
-SCHEMA = "s22plus_v3428_stock_transition_positive_control_v1"
+SCHEMA = "s22plus_v3428r_stock_transition_positive_control_v1"
 TARGET = observer.TARGET
-LIVE_ACK_TOKEN = "S22PLUS-V3428-STOCK-TRANSITION-POSITIVE-CONTROL-LIVE-GATE"
+LIVE_ACK_TOKEN = "S22PLUS-V3428R-STOCK-TRANSITION-POSITIVE-CONTROL-LIVE-GATE"
 ACTIVE_EXCEPTION_HEADING = (
-    "**Narrow operator-authorized exception (2026-07-10, S22+ V3428 "
-    "stock-origin transition positive control):**"
+    "**Narrow operator-authorized exception (2026-07-10, S22+ V3428R "
+    "stock-origin transition positive-control retry):**"
 )
 SCRIPT_RELATIVE = Path(
     "workspace/public/src/scripts/revalidation/"
@@ -129,7 +129,7 @@ def allocate_run_dir(root: Path, requested: Path | None) -> Path:
         run_dir = resolve(root, requested)
         run_dir.mkdir(parents=True, exist_ok=False)
         return run_dir
-    base = resolve(root, RUN_ROOT / f"s22plus_v3428_stock_transition_{utc_stamp()}")
+    base = resolve(root, RUN_ROOT / f"s22plus_v3428r_stock_transition_{utc_stamp()}")
     for suffix in range(100):
         run_dir = base if suffix == 0 else Path(f"{base}_{suffix:02d}")
         try:
@@ -269,7 +269,7 @@ def active_exception_segment(text: str) -> str:
 
 def policy_markers(root: Path) -> list[str]:
     return [
-        "S22+ V3428 stock-origin transition positive control",
+        "S22+ V3428R stock-origin transition positive-control retry",
         str(SCRIPT_RELATIVE),
         helper_sha256(root),
         LIVE_ACK_TOKEN,
@@ -293,9 +293,9 @@ def verify_agents_exception(root: Path) -> None:
     missing = [marker for marker in policy_markers(root) if marker not in normalized]
     consumed = "Consumed exception" in segment or "Consumed/retired" in segment
     if not segment or consumed:
-        raise PositiveControlError("active V3428 exception is absent or consumed")
+        raise PositiveControlError("active V3428R exception is absent or consumed")
     if missing:
-        raise PositiveControlError(f"V3428 exception missing markers: {missing}")
+        raise PositiveControlError(f"V3428R exception missing markers: {missing}")
 
 
 def verify_host_inputs(root: Path) -> dict[str, Any]:
@@ -624,7 +624,7 @@ def live_run(
         odin_device = wait_for_odin(
             transition.ODIN4,
             log_path,
-            "v3428-manual-download",
+            "v3428r-manual-download",
             remaining,
         )
         if odin_device is None:
@@ -647,14 +647,14 @@ def live_run(
             primary_ap,
             odin_device,
             log_path,
-            "v3428_magisk_identity_rollback",
+            "v3428r_magisk_identity_rollback",
         )
         record_timeline_event(timeline_path, events, "rollback_flash_done")
         result["primary_rollback_rc"] = flash_rc
         if flash_rc != 0:
             verify_host_inputs(root)
             fallback_device = wait_for_odin(
-                transition.ODIN4, log_path, "v3428-fallback", 15
+                transition.ODIN4, log_path, "v3428r-fallback", 15
             )
             if fallback_device is not None:
                 result["stock_fallback_rc"] = flash_ap(
@@ -662,7 +662,7 @@ def live_run(
                     root / transition.STOCK_ROLLBACK_AP,
                     fallback_device,
                     log_path,
-                    "v3428_stock_recovery_only",
+                    "v3428r_stock_recovery_only",
                 )
             result["verdict"] = "RECOVERY_ONLY_NO_PROOF_STOP"
             return result
@@ -752,9 +752,9 @@ def main() -> int:
             run_dir / "fatal.json",
             {"schema": SCHEMA, "error": str(exc), "timestamp_utc": utc_now()},
         )
-        print(f"V3428 FAIL: {exc}", file=sys.stderr)
+        print(f"V3428R FAIL: {exc}", file=sys.stderr)
         return 2
-    print(f"V3428 verdict={result['verdict']} run_dir={run_dir.relative_to(root)}")
+    print(f"V3428R verdict={result['verdict']} run_dir={run_dir.relative_to(root)}")
     return 0 if result["verdict"] == "PASS_STAGE_A_AND_CROSS_SESSION_RETENTION" else 3
 
 
