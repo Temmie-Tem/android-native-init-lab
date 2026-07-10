@@ -4,7 +4,7 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3438 HOST POSTMORTEM PASS: V3437 BACKEND WAS REGISTERED; LOG-ONLY GATE FALSE NEGATIVE; RETENTION STILL UNTESTED; NO LIVE AUTHORIZATION; FINAL TARGET IS NO ANDROID USERSPACE.**
+> **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3439 CORRECTED RAMOOPS LIVE-GATE SOURCE READY; OPERATOR LIVE APPROVAL RECEIVED; POLICY STILL INERT; CONNECTED DRY-RUN ONLY AFTER EXACT POLICY ACTIVATION; FINAL TARGET IS NO ANDROID USERSPACE.**
 > The S22+ end state remains a lightweight native/Debian system that does not
 > boot or retain the Android userspace. The V3434 stock-global-PID1 plus
 > mount-namespace service-supervisor architecture is an interim bring-up and
@@ -114,6 +114,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > with dmesg only corroborative. It requires a fresh exception before any
 > candidate flash or panic. Report:
 > `docs/reports/NATIVE_INIT_V3438_S22PLUS_RAMOOPS_BACKEND_FALSE_NEGATIVE_HOST_PASS_2026-07-11.md`.
+>
+> V3439 preserves the V3437 session, evidence-first, duplicate-read, rollback,
+> and timeline model but replaces the unstable early-log hard gate. The new hard
+> proof is exact candidate DTBO and parameters plus
+> `/sys/module/pstore/parameters/backend=ramoops` and exactly one bound ramoops
+> platform device whose live OF node is compatible `ramoops`, status `okay`.
+> Early registration strings are captured only as optional corroboration. The
+> helper additionally pins the V3438 postmortem SHA256 and requires the restore
+> acknowledgement before any live session. Exact helper SHA256 is
+> `a070b7d826c4698032cc6a3eb903f9c0365db72cf75bc900f5b1482f38432a81`;
+> focused tests are 18/18 PASS and offline policy status is false/false with
+> device actions 0. The operator supplied fresh live approval, but policy
+> promotion occurs only after this exact source-ready commit. Report:
+> `docs/reports/NATIVE_INIT_V3439_S22PLUS_CORRECTED_RAMOOPS_LIVE_GATE_SOURCE_READY_2026-07-11.md`.
 >
 > V3434 remains the corrected boot-boundary baseline below.
 > V3434 pinned the Samsung base OSRC, running Magisk-kernel IKCONFIG, stock
