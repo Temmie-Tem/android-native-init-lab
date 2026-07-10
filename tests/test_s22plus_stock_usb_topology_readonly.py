@@ -60,9 +60,9 @@ class S22PlusStockUsbTopologyReadonlyTest(unittest.TestCase):
         return good
 
     def test_redaction_removes_device_serial_and_mac(self):
-        text = "ID_SERIAL_SHORT=RFCT519XWGK mac=00:11:22:33:44:55"
-        redacted = self.module.redact(text, "RFCT519XWGK")
-        self.assertNotIn("RFCT519XWGK", redacted)
+        text = "ID_SERIAL_SHORT=RFCT0000000 mac=00:11:22:33:44:55"
+        redacted = self.module.redact(text, "RFCT0000000")
+        self.assertNotIn("RFCT0000000", redacted)
         self.assertNotIn("00:11:22:33:44:55", redacted)
         self.assertIn("<S22_SERIAL_REDACTED>", redacted)
 
