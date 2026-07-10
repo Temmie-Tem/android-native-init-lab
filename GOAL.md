@@ -4,6 +4,38 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3434 BOOT BOUNDARY + OBSERVER ACTIVATION STATIC MAP PASS; STOCK GLOBAL-PID1 NAMESPACE HANDOFF SELECTED; NO LIVE AUTHORIZATION.**
+> V3434 pinned the Samsung base OSRC, running Magisk-kernel IKCONFIG, stock
+> boot/vendor_boot v4 images, live cmdline/bootconfig, first-stage module order,
+> O1.1/M31B/V3433 evidence, retained ABL ring, and exact FYG8 ABL binary. The
+> machine-checked flow is `start_kernel -> rest_init -> kernel_init_freeable ->
+> kernel_init -> run_init_process -> kernel_execve(/init)`, including initramfs
+> `/init` selection, fallback order, exec-failure panic, and global-PID1 death
+> panic.
+>
+> The structural result is that V3432's first retained proof was not at PID1
+> entry: it depended on volatile mounts, `sec_log_buf.ko` insertion, platform
+> bind, and proc-node creation. V3433 absence therefore remains unable to split
+> kernel non-entry, `/init` non-entry, module/probe failure, or transition loss.
+> Channel stages are now explicit: earlycon is compiled but disabled by
+> `console=null nohyp_uart`; pstore is compiled but ramoops DT is disabled;
+> `sec_log_buf` starts only at stock module #2; `sec_debug` starts at #105; PMIC/
+> PON is a pre-kernel reset classifier only. Watchdog modules #5/#6 plus the
+> built-in boot handler explain M31B's 120-second survival.
+>
+> The primary architecture is now stock Android `init` retained as global PID 1
+> and hardware/watchdog/recovery owner, with a native supervisor launching
+> Debian in new PID/mount namespaces and performing `pivot_root` (not chroot).
+> The O1.1-proven `ttyGS0` framed channel remains outside Debian as recovery
+> control. Direct-PID1 replacement is research-only until a pre-userspace
+> witness exists. Targeted ABL work parsed header/load ownership and proved the
+> warning path continues through unlocked verification skip and DT selection,
+> but final kernel entry remains unverified; broad ABL RE is deferred. V3434 is
+> host-only and authorizes no device action or flash. Report:
+> `docs/reports/NATIVE_INIT_V3434_S22PLUS_BOOT_BOUNDARY_STATIC_MAP_HOST_PASS_2026-07-11.md`.
+> Next: V3435 supervisor protocol/prerequisite contract, then host-only
+> namespace+`pivot_root` implementation testing.
+
 > **🎯 OPERATOR STEER (2026-07-10 03:18 KST / 2026-07-09 18:18 UTC) — S22+ USB CONTROL REFRAME: OBSERVABILITY FIRST, THEN NATIVE USB. THIS SUPERSEDES THE S10/S11 DOWNLOAD-BEACON FRONTIER AS THE ACTIVE DIRECTION.**
 >
 > The current S22+ objective is to obtain a reliable host control plane from native
