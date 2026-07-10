@@ -1,0 +1,236 @@
+{
+  "contract": {
+    "candidate_source_authorized": false,
+    "consumed_marker_families": [
+      "S22O3ACM01",
+      "S22O3FACM01",
+      "S22_NATIVE_INIT_RETAINED_O3R1"
+    ],
+    "fail_matrix": [
+      {
+        "condition": "module or kernel identity mismatch",
+        "result": "STOP_BEFORE_LOAD"
+      },
+      {
+        "condition": "registration, bind, or proc-node gate failure",
+        "result": "STAGE_A_FAIL_NO_MARKER"
+      },
+      {
+        "condition": "current-run marker present in baseline",
+        "result": "STAGE_A_FAIL_STALE_OR_COLLISION"
+      },
+      {
+        "condition": "PRECHECK missing, malformed, duplicate, or wrong identity",
+        "result": "STAGE_A_FAIL_FINAL_FORBIDDEN"
+      },
+      {
+        "condition": "FINAL or PRECHECK missing from final current-ring snapshot",
+        "result": "STAGE_A_FAIL_NO_TRANSITION"
+      },
+      {
+        "condition": "exact FINAL absent from later last_kmsg",
+        "result": "RETENTION_FAIL_STAGE_B_AND_USB_FORBIDDEN"
+      },
+      {
+        "condition": "exact FINAL recovered from later last_kmsg",
+        "result": "RETENTION_PASS_STAGE_B_DESIGN_MAY_START"
+      }
+    ],
+    "forbidden_components": [
+      "usb",
+      "dwc3",
+      "configfs",
+      "sysfs_write",
+      "sec_debug.ko",
+      "max77705",
+      "panic",
+      "watchdog",
+      "block_write",
+      "persistent_mount",
+      "android_start"
+    ],
+    "image_build_authorized": false,
+    "live_authorized": false,
+    "marker": {
+      "contract_identity_bound": true,
+      "end": "]]",
+      "integrity": "crc32 over canonical ASCII payload",
+      "length": "four lowercase hexadecimal payload bytes",
+      "module_identity_bound": true,
+      "physical_buffer_offset_defines_order": false,
+      "protocol": "S22PO1",
+      "run_id_bits": 128,
+      "run_id_source": "secrets.token_hex(16)",
+      "sequences": {
+        "FINAL": 2,
+        "PRECHECK": 1
+      },
+      "start": "[[S22PO1|"
+    },
+    "module": {
+      "bind": "/sys/bus/platform/drivers/samsung,kernel_log_buf/8.samsung,kernel_log_buf",
+      "driver": "samsung,kernel_log_buf",
+      "filename": "sec_log_buf.ko",
+      "hard_dependencies": [],
+      "load_position": 2,
+      "runtime_name": "sec_log_buf",
+      "sha256": "b4751eb8243a2bce4cd2f7b5f157f8429b295798dc310e23e861648906d24b61",
+      "size": 76688,
+      "soft_dependencies": [],
+      "vermagic": "5.10.226-android12-9-gki-30958166-abS906NKSS7FYG8 SMP preempt mod_unload modversions aarch64"
+    },
+    "reset_unknowns": [
+      "warm_reboot_reserved_memory_preservation",
+      "cold_boot_reserved_memory_preservation",
+      "panic_reset_reserved_memory_preservation",
+      "watchdog_reset_reserved_memory_preservation",
+      "rdx_transition_reserved_memory_preservation",
+      "bootloader_transition_reserved_memory_preservation",
+      "bootloader_or_tz_reserved_region_zeroing"
+    ],
+    "schema": "s22plus_v3426_phase_observer_design_v1",
+    "stage_a": {
+      "acceptance_retries": 0,
+      "baseline_current_run_markers": 0,
+      "final_current_run_markers": [
+        "PRECHECK",
+        "FINAL"
+      ],
+      "gates": [
+        {
+          "evidence": "host_identity",
+          "name": "host_manifest_pinned"
+        },
+        {
+          "evidence": "environment",
+          "name": "volatile_filesystems_ready"
+        },
+        {
+          "evidence": "identity",
+          "name": "module_identity_verified"
+        },
+        {
+          "evidence": "load",
+          "name": "module_loaded"
+        },
+        {
+          "evidence": "registration",
+          "name": "proc_modules_eof_live"
+        },
+        {
+          "evidence": "bind",
+          "name": "driver_bound"
+        },
+        {
+          "evidence": "probe",
+          "name": "proc_nodes_present"
+        },
+        {
+          "evidence": "negative_control",
+          "name": "baseline_negative_control"
+        },
+        {
+          "evidence": "capture_stimulus",
+          "name": "precheck_emitted"
+        },
+        {
+          "evidence": "capture",
+          "name": "precheck_current_ring_verified"
+        },
+        {
+          "evidence": "retention_stimulus",
+          "name": "final_emitted"
+        },
+        {
+          "evidence": "capture",
+          "name": "final_current_ring_verified"
+        }
+      ],
+      "module_allowlist": [
+        "sec_log_buf.ko"
+      ],
+      "precheck_current_run_markers": [
+        "PRECHECK"
+      ],
+      "precheck_eviction_at_final": "FAIL",
+      "proc_nodes": [
+        "/proc/last_kmsg",
+        "/proc/ap_klog"
+      ],
+      "result_boundary": "current_session_capture_only"
+    },
+    "stage_b": {
+      "entry_gate": "exact current-run FINAL recovered from later /proc/last_kmsg",
+      "result_boundary": "cross_session_retention_only_after_exact_recovery",
+      "same_session_last_kmsg_is_not_capture_evidence": true,
+      "transition_selected": false
+    },
+    "status": "HOST_DESIGN_PASS_NO_LIVE",
+    "target": "SM-S906N/g0q/S906NKSS7FYG8",
+    "transition_selected": false
+  },
+  "contract_sha256": "dbd3efbdbaece277a34a54f40ab1f2785e8115efa7924c17408f53c9debba8a8",
+  "next": "select and host-prove one exact transition/recovery envelope before any candidate source or live authorization",
+  "proof_boundaries": {
+    "baseline": "negative control only",
+    "final": "current-session FINAL committed to current ring",
+    "precheck": "current-session hook and current-ring capture",
+    "retention": "only a later-session exact FINAL in /proc/last_kmsg",
+    "same_session_last_kmsg": "never capture evidence"
+  },
+  "safety": {
+    "device_contact": false,
+    "device_write": false,
+    "flash": false,
+    "host_only": true,
+    "image_build": false,
+    "live_authorized": false,
+    "module_insertion": false,
+    "reboot": false
+  },
+  "schema": "s22plus_v3426_phase_observer_design_v1",
+  "static_evidence": {
+    "module": {
+      "modinfo_aliases": [
+        "of:N*T*Csamsung,kernel_log_buf",
+        "of:N*T*Csamsung,kernel_log_bufC*"
+      ],
+      "modinfo_depends": [],
+      "modules_dep_rhs": [],
+      "modules_load_position": 2,
+      "modules_softdep_edges": [],
+      "path": "workspace/private/inputs/s22plus_firmware/S906NKSS7FYG8_SKC/extracted-images/ramdisk-list/vendor/extract/lib/modules/sec_log_buf.ko",
+      "sec_debug_symbol_references": [],
+      "sha256": "b4751eb8243a2bce4cd2f7b5f157f8429b295798dc310e23e861648906d24b61",
+      "size": 76688,
+      "undefined_symbol_count": 70,
+      "vermagic": "5.10.226-android12-9-gki-30958166-abS906NKSS7FYG8 SMP preempt mod_unload modversions aarch64"
+    },
+    "sec_debug_required": false,
+    "source_archive": {
+      "path": "workspace/private/inputs/s22plus_kernel_source/SM-S906N_15_base_osrc/Kernel.tar.gz",
+      "sha256": "86e2f73412c65fadff0b15bbf0eac9140610f70250514ac0bddbf3b53fb5f7bf"
+    },
+    "source_proofs": {
+      "ap_klog_fresh_open_reads_current_ring": "VERIFIED",
+      "ap_klog_release_frees_snapshot": "VERIFIED",
+      "devkmsg_write_hook_return_is_synchronous": "VERIFIED",
+      "invalid_magic_resets_ring": "VERIFIED",
+      "last_kmsg_is_pre_probe_snapshot": "VERIFIED",
+      "probe_order": "VERIFIED",
+      "reset_class_preservation": "UNVERIFIABLE",
+      "strategy_3_vh_logbuf_source_path": "SOURCE_VERIFIED_RUNTIME_SELECTION_DEFERRED"
+    }
+  },
+  "target": "SM-S906N/g0q/S906NKSS7FYG8",
+  "unverifiable": [
+    "warm_reboot_reserved_memory_preservation",
+    "cold_boot_reserved_memory_preservation",
+    "panic_reset_reserved_memory_preservation",
+    "watchdog_reset_reserved_memory_preservation",
+    "rdx_transition_reserved_memory_preservation",
+    "bootloader_transition_reserved_memory_preservation",
+    "bootloader_or_tz_reserved_region_zeroing"
+  ],
+  "verdict": "HOST_DESIGN_PASS_NO_LIVE"
+}

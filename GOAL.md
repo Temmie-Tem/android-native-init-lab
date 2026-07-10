@@ -84,6 +84,41 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 09:42 KST / 2026-07-10 00:42 UTC) — V3426 DIRECT-PID1 PHASE-OBSERVER HOST DESIGN PASS; CURRENT-RING CAPTURE CONTRACT CLOSED; TRANSITION UNSELECTED; NO LIVE.**
+> V3426 selected `sec_log_buf.ko` as an observer-only first rung and converted
+> the O3/O3F phase ambiguity into a two-stage evidence contract. The exact FYG8
+> source proves that `/proc/ap_klog` fresh-open copies the current reserved ring,
+> while `/proc/last_kmsg` is the pre-probe snapshot. Exact printk source also
+> proves `/dev/kmsg write -> printk commit -> android_vh_logbuf callback ->
+> sec_log_buf ring write -> write return` is synchronous, so no acceptance retry
+> or timing inference is allowed.
+>
+> Stage A is registration -> exact bind -> both proc nodes -> baseline negative
+> control -> one PRECHECK -> fresh current-ring proof -> one FINAL -> fresh proof
+> of exactly one PRECHECK and FINAL. The self-delimiting marker binds a fresh
+> 128-bit run id, embedded phase sequence, exact module SHA, contract SHA, and
+> context SHA with length+CRC. Historical foreign-run markers may remain in the
+> retained circular ring but cannot satisfy the current run. Malformed current-
+> run data, duplicates, wrong identity/sequence, premature FINAL, or PRECHECK
+> eviction are hard failures. Deterministic contract SHA256 is
+> `dbd3efbdbaece277a34a54f40ab1f2785e8115efa7924c17408f53c9debba8a8`.
+>
+> Stage B remains forbidden until a later stock/Magisk session recovers the exact
+> FINAL from `/proc/last_kmsg` after one separately selected transition. Warm,
+> cold, panic, watchdog, RDX, bootloader, and bootloader/TZ clearing semantics
+> remain `UNVERIFIABLE`; V3426 selects none. `sec_debug.ko`, USB/DWC3/configfs,
+> sysfs writes, Max77705, panic/watchdog, persistent mounts, and O3/O3F/O3R1
+> artifacts remain excluded. Claude Opus reviewed the architecture twice: final
+> verdict `GO` for host-only implementation, `NO-LIVE` until a named transition.
+> The exact-source validator and 24 marker/gate negative tests pass. No device
+> contact, write, module insertion, reboot, image build, exception, or flash.
+> Next = host-only selection and proof of one exact transition/recovery envelope;
+> do not create candidate source or request live authorization before that closes.
+> Plan:
+> `docs/plans/NATIVE_INIT_V3426_S22PLUS_DIRECT_PID1_PHASE_OBSERVER_DESIGN_2026-07-10.md`.
+> Report:
+> `docs/reports/NATIVE_INIT_V3426_S22PLUS_PHASE_OBSERVER_DESIGN_HOST_PASS_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 09:03 KST / 2026-07-10 00:03 UTC) — V3425 FORCED-PERIPHERAL BYPASS ELF-VERIFIED; MAX77705 CHAIN OMISSION RULED OUT FOR O3 AFTER MODE EXECUTION; O0/O1.1/O2 ALREADY COMPLETE; PHASE-OBSERVATION DESIGN NEXT.**
 > V3425 extended the exact FYG8 deep RE to the `dwc3-msm.ko` sysfs mode path.
 > `dev_attr_mode` relocations bind `mode_store`; the exact `peripheral` literal
