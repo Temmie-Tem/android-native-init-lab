@@ -84,7 +84,36 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
-> **S22+ CURRENT FRONTIER (2026-07-10 21:52 KST / 2026-07-10 12:52 UTC) — V3431 PID1-FIRST KEYSTONE HOST DESIGN PASS; EXACT POSITIVE/NO_PROOF CONTRACT PINNED; V3432 HOST-ONLY CANDIDATE BUILD NEXT.**
+> **S22+ CURRENT FRONTIER (2026-07-11 05:47 KST / 2026-07-10 20:47 UTC) — V3432 PID1 KEYSTONE HOST BUILD PASS; TWO BUILDS BYTE-IDENTICAL; FRESH EXACT LIVE GATE DESIGN NEXT.**
+> V3432 implements V3431 as a 1,856-byte freestanding direct `/init`. The first
+> runtime syscall is disassembly-proved `getpid`; only return value 1 advances.
+> It then prepares volatile dev/proc/sys, loads the exact dependency-free
+> `/observer/sec_log_buf.ko`, requires `/proc/last_kmsg` and `/proc/ap_klog`,
+> derives the marker PID field from the syscall result, writes the exact
+> `S22P1K1` `PID1_ENTER` frame once, and parks. Every failed gate parks silently
+> without the current run token. Runtime osrelease, module hashing,
+> `/proc/modules`, driver-bind waits, PRECHECK/FINAL self-reads, failure
+> diagnostics, USB, reboot, panic, watchdog, and persistent writes are absent.
+>
+> Run ID is `db4d3b66480bec29158c9ac9bfede880`. Source SHA is
+> `0a69f55947fa148928d10741c10bb5433f493434cb734d9a1f276bbfd40fc664`,
+> init SHA `59d4a11fd66528a3be4d4749b8191449a8675fdb0f7148b3cb9bdded6263b2db`,
+> boot SHA `67075d7f26486c3e4130dc6a935c5ed98ded8b817d9d5ec4beeddd05bef7f232`,
+> and one-member AP.tar.md5 SHA
+> `264acafa1320e6faee1f6b3a569c6de1742ca6712e61003d114ec4a6d549bf34`.
+> The exact module is embedded at mode 0600 and re-extracted from the final boot
+> with matching SHA. The kernel remains
+> `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`.
+> Two independent full builds matched through AP.tar.md5. QEMU failure/happy
+> state tests and 11 focused tests pass.
+>
+> V3432 remains host-only and live unauthorized. Next is a separate exact
+> one-shot helper/exception unit pinned to these hashes, with connected
+> Android/Magisk and exact live osrelease preflight plus mandatory Magisk
+> boot-only rollback. Report:
+> `docs/reports/NATIVE_INIT_V3432_S22PLUS_PID1_KEYSTONE_HOST_BUILD_PASS_2026-07-11.md`.
+
+> **S22+ PRIOR FRONTIER (2026-07-10 21:52 KST / 2026-07-10 12:52 UTC) — V3431 PID1-FIRST KEYSTONE HOST DESIGN PASS; EXACT POSITIVE/NO_PROOF CONTRACT PINNED; V3432 HOST-ONLY CANDIDATE BUILD NEXT.**
 > V3431 re-audited the exact FYG8 kernel/module source, six pinned live reports,
 > and public Linux/AOSP mechanics before selecting the next discriminator. The
 > kernel source proves boot-ramdisk `/init` is executed by the first kernel task
