@@ -96,3 +96,18 @@ V3426-V3437 regression tests         165/165 PASS (57.760 s)
 offline policy status                dtbo_active=false panic_active=false
 git diff --check                     PASS
 ```
+
+## V3438 Postmortem Correction
+
+The durable V3437 contract result remains `FAIL_PREPANIC_GATE_ROLLBACK`, because
+the helper correctly stopped under its then-current gate. Subsequent exact-source
+analysis proved that the gate was a false negative, not a real backend failure.
+
+In the FYG8 `ramoops_probe()` path, DT values are copied into the public ramoops
+module parameters only after `pstore_register()` returns success. V3437 observed
+all exact candidate values rather than the stock defaults. The early registration
+messages were absent because the retained ring starts at 3.453647 seconds, after
+the relevant initcalls. Thus backend registration is
+`PROVEN_BY_POST_REGISTER_PARAMETER_UPDATE`; only panic-record retention remains
+untested. See the V3438 report and machine-readable postmortem for the corrected
+interpretation. No repeat live action is authorized by this correction.

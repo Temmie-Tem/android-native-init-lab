@@ -4,7 +4,7 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3437 STOPPED PRE-PANIC: LIVE DT/PARAMETERS PASS, BACKEND REGISTRATION UNPROVEN, STOCK DTBO RESTORED; BOTH POLICIES RETIRED; FINAL TARGET IS NO ANDROID USERSPACE.**
+> **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3438 HOST POSTMORTEM PASS: V3437 BACKEND WAS REGISTERED; LOG-ONLY GATE FALSE NEGATIVE; RETENTION STILL UNTESTED; NO LIVE AUTHORIZATION; FINAL TARGET IS NO ANDROID USERSPACE.**
 > The S22+ end state remains a lightweight native/Debian system that does not
 > boot or retain the Android userspace. The V3434 stock-global-PID1 plus
 > mount-namespace service-supervisor architecture is an interim bring-up and
@@ -93,6 +93,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/NATIVE_INIT_V3437_S22PLUS_RAMOOPS_POSITIVE_CONTROL_LIVE_RESULT_2026-07-11.md`.
 > Next is host-only analysis of why the enabled DT node did not yield a proven
 > platform backend; no repeat flash or panic is authorized.
+>
+> V3438 corrects the technical interpretation without rewriting V3437's durable
+> contract result. Exact FYG8 source shows `ramoops_probe()` calls
+> `pstore_register()` and returns on error; only after success does it copy DT
+> values into `/sys/module/ramoops/parameters`. V3437 observed all four exact,
+> non-default candidate values, while the stock read-only snapshot has
+> `mem_size=0`, 4096-byte defaults, and backend `samsung,pstore_pmsg`. Therefore
+> candidate ramoops registration succeeded. Exact OF source also explicitly
+> creates available `compatible=ramoops` reserved-memory devices at
+> `arch_initcall_sync`, and the running kernel binary contains both success log
+> strings. The candidate `/proc/last_kmsg` ring starts at 3.453647 seconds, after
+> those early initcalls, so both success strings had already been overwritten.
+> V3437 captured either string but its final predicate required one early log,
+> producing a false negative. Contract classification remains historical
+> `FAIL_PREPANIC_GATE_ROLLBACK`; backend status is now
+> `PROVEN_BY_POST_REGISTER_PARAMETER_UPDATE`; panic retention remains untested.
+> No DTBO rebuild is needed. A future V3439 helper must use backend sysfs,
+> platform-driver binding, and exact post-register parameters as the hard gate,
+> with dmesg only corroborative. It requires a fresh exception before any
+> candidate flash or panic. Report:
+> `docs/reports/NATIVE_INIT_V3438_S22PLUS_RAMOOPS_BACKEND_FALSE_NEGATIVE_HOST_PASS_2026-07-11.md`.
 >
 > V3434 remains the corrected boot-boundary baseline below.
 > V3434 pinned the Samsung base OSRC, running Magisk-kernel IKCONFIG, stock
