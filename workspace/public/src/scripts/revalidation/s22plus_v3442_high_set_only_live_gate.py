@@ -147,7 +147,7 @@ def wait_android_any(seconds: int) -> tuple[str, dict[str, str]] | None:
     while time.monotonic() < deadline:
         try:
             return common_android_state()
-        except (GateError, OSError, subprocess.SubprocessError):
+        except (GateError, rescue.GateError, OSError, subprocess.SubprocessError):
             time.sleep(2)
     return None
 
@@ -165,7 +165,12 @@ def wait_android_mid(seconds: int) -> tuple[str, dict[str, str]]:
             ):
                 return serial, state
             last = f"debug_level={state['debug_level']}"
-        except (GateError, OSError, subprocess.SubprocessError) as error:
+        except (
+            GateError,
+            rescue.GateError,
+            OSError,
+            subprocess.SubprocessError,
+        ) as error:
             last = str(error)
         time.sleep(2)
     raise GateError(f"MID Android did not return: {last}")
@@ -307,7 +312,7 @@ def classify_high_state(state: dict[str, str]) -> str:
 def cleanup_setter(serial: str) -> None:
     try:
         adb_shell(serial, f"rm -f {REMOTE_SETTER}", root=True)
-    except (GateError, OSError, subprocess.SubprocessError):
+    except (GateError, rescue.GateError, OSError, subprocess.SubprocessError):
         pass
 
 
@@ -517,6 +522,7 @@ def live_run(root: Path, args: argparse.Namespace, artifacts: dict[str, Any]) ->
     result["timeline_phase_semantics"]["rollback_flash_start"] = (
         "MID-restore dispatch; no rollback flash"
     )
+    stage_setter(high_serial, setter)
     result["mid_dispatch"] = dispatch_level(high_serial, "mid")
     if not wait_adb_absent(25):
         raise GateError("MID restore reboot syscall returned or transport stayed")
@@ -583,6 +589,7 @@ def main(argv: list[str] | None = None) -> int:
         return live_run(root, args, artifacts)
     except (
         GateError,
+        rescue.GateError,
         OSError,
         ValueError,
         json.JSONDecodeError,

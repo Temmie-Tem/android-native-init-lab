@@ -21,15 +21,28 @@ BL, CP, CSC, userdata, or any non-boot flash.
    bootloader, or any partition other than **boot**. Device changes touch the boot image
    only. These forbidden partitions are **NOT** TWRP/download-mode recoverable = permanent
    brick; the operator's acceptance of boot-flash risk does NOT extend to them.
-   **Narrow operator-authorized exception (2026-07-11, S22+ V3442 HIGH set-only
-   live gate):** after V3441 proved the attended MID rescue boot and Magisk
+   **Consumed/retired exception (2026-07-11, S22+ V3442 HIGH set-only live
+   gate):** the exact raw setter dispatched `debug0x4948` once. Android returned
+   with sysfs debug level decimal `18760` and bootloader property `0x4948`,
+   proving HIGH is accepted even while the Download/RDX screen reports LCS
+   PROD. Boot, DTBO, recovery, Android, and Magisk root identities were
+   unchanged. The live helper then hit an uncaught imported exception while
+   polling the expected ADB absence; host continuation re-staged the exact same
+   setter and dispatched `debug0x494d` once. Android returned with exact MID
+   decimal `18765`, boot property `0x494d`, and all baseline hashes. No boot
+   flash, panic, RDX/S-Boot command, EUD write, LCS/fuse/QFPROM change, or raw
+   parameter write occurred. Durable verdict is
+   `HIGH_ACCEPTED_AND_MID_RESTORED_WITH_HOST_CONTINUATION_AFTER_HELPER_EXCEPTION`.
+   This exception is consumed and must not be reused.
+   `S22PLUS_V3442_HIGH_SET_ONLY_POLICY_STATE=RETIRED`. Before consumption, after
+   V3441 proved the attended MID rescue boot and Magisk
    rollback route, and after the operator approved the proposed HIGH set-only
    discriminator, Codex may perform one bounded attended HIGH acceptance run on
    Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using only checked helper
    `workspace/public/src/scripts/revalidation/s22plus_v3442_high_set_only_live_gate.py`
    SHA256
    `43aee96afee7542787a0a0d97a4f919e208516da96de0be281c848d047e4e8e2`.
-   `S22PLUS_V3442_HIGH_SET_ONLY_POLICY_STATE=ACTIVE`. Live acknowledgement is
+   Live acknowledgement is
    `S22PLUS-V3442-HIGH-SET-ONLY-LIVE`; interrupted recovery from a HIGH-state
    Download endpoint requires `S22PLUS-V3442-HIGH-RECOVERY-FROM-DOWNLOAD`;
    direct Magisk rollback after V3441 rescue requires

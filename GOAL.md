@@ -23,18 +23,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > This proves the attended rescue route from MID but not HIGH->MID, so HIGH
 > still requires a separate exact design and fresh gate. Report:
 > `docs/reports/NATIVE_INIT_V3441_S22PLUS_DEBUG_MID_RESCUE_LIVE_PASS_2026-07-11.md`.
-> V3442 now implements that host-only discriminator. A raw static setter makes
+> V3442 implemented and ran that discriminator. A raw static setter made
 > `debug0x4948`/`debug0x494d` reboot requests without Android command parsing;
 > the checked helper distinguishes exact HIGH, mixed acceptance, MID/LOW clamp,
 > syscall return, and Android non-return. Any HIGH evidence is immediately
 > restored to MID. Non-return uses the exact V3441 rescue boot, a second
 > physical Download entry, and exact Magisk rollback. Emergency continuation
-> modes cover either Download stage. Focused tests are 8/8 PASS. After source
-> commit `0a5d390d`, the operator's approval was promoted to one exact ACTIVE
-> policy; activation itself made no device contact. Report:
-> `docs/reports/NATIVE_INIT_V3442_S22PLUS_HIGH_SET_ONLY_GATE_SOURCE_READY_2026-07-11.md`.
-> Next: connected MID dry-run, then one HIGH dispatch. HIGH dispatch consumes
-> the policy regardless of result.
+> modes cover either Download stage. Live result is decisive: HIGH returned
+> Android with sysfs `18760` and boot property `0x4948`; therefore LCS PROD does
+> not reject or clamp HIGH itself. The helper hit an imported-exception catch
+> bug after the reboot, so host continuation re-staged the exact setter and
+> dispatched MID once. Final Android returned with `18765`/`0x494d`, root and
+> exact boot/DTBO/recovery hashes. No flash, panic, RDX command, EUD, LCS/fuse,
+> or raw parameter action occurred. The helper bug is fixed at SHA256
+> `a94066c1...db72bb`; the live policy is RETIRED. Report:
+> `docs/reports/NATIVE_INIT_V3442_S22PLUS_HIGH_SET_ONLY_LIVE_ACCEPTED_MID_RESTORED_2026-07-11.md`.
+> Next: host-only design of a fresh HIGH+panic preamble-only RDX discriminator,
+> or stop here if proving HIGH acceptance was sufficient. HIGH alone does not
+> prove secure-debug authorization.
 >
 > **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3440 RDX USB LIVE CONTROLLED
 > NEGATIVE: `04e8:685d` PROVEN, EXACT `NegativeAck`, PROBE/DATA TRANSFER NOT

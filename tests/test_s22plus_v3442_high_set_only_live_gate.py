@@ -133,6 +133,10 @@ class V3442HighSetOnlyTest(unittest.TestCase):
         self.assertNotIn("PrObE", source)
         self.assertNotIn("DaTaXfEr", source)
         self.assertIn("recover_high_via_download", source)
+        self.assertIn("GateError, rescue.GateError", source)
+        live = source.split("def live_run(", 1)[1].split("def build_parser(", 1)[0]
+        rollback = live.split('"MID-restore dispatch; no rollback flash"', 1)[1]
+        self.assertLess(rollback.index("stage_setter(high_serial"), rollback.index("dispatch_level(high_serial"))
 
     def test_emergency_high_recovery_writes_complete_timeline(self):
         with tempfile.TemporaryDirectory() as temporary, mock.patch.object(

@@ -60,3 +60,12 @@ vbmeta/BL/CP/CSC/super/userdata/persist/EFS/sec_efs/RPMB/keymaster/modem/
 bootloader flash, raw host `dd`, fastboot, Magisk modules, multidisabler,
 format data, or any A90 action. `S22+ V3442 HIGH set-only live gate` is the
 policy marker.
+
+## Post-Live Maintenance Note
+
+The authorized live helper above was consumed. After its imported-exception
+catch bug was observed, the helper was fixed without authorizing another run.
+Current fixed helper SHA256 is
+`a94066c15e9e6cc62b7790e7e88bfd251a082392b8df65ba06187bf100db72bb`.
+The policy remains inactive/retired; this added pin is only for offline source
+verification and does not reactivate HIGH.
