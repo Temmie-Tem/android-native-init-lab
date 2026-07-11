@@ -21,6 +21,10 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Next: commit and independently review the exact source-ready unit. A fresh
 > explicit operator approval is required before adding the SHA-pinned one-shot
 > clause to `AGENTS.md`, connected dry-run, HIGH, panic, or USB command.
+> The operator then explicitly approved V3443. The exact one-shot clause is now
+> active with all three independent acknowledgements; policy activation itself
+> performed no device action. Next is connected read-only dry-run. Only a clean
+> dry-run may advance to the single attended HIGH/panic/preamble comparison.
 
 > **S22+ CURRENT FRONTIER (2026-07-11 KST) - V3441 DEBUG MID RESCUE LIVE PASS;
 > POLICY RETIRED; HIGH REMAINS A SEPARATE GATE.** Before forcing Samsung

@@ -21,6 +21,71 @@ BL, CP, CSC, userdata, or any non-boot flash.
    bootloader, or any partition other than **boot**. Device changes touch the boot image
    only. These forbidden partitions are **NOT** TWRP/download-mode recoverable = permanent
    brick; the operator's acceptance of boot-flash risk does NOT extend to them.
+   **Narrow operator-authorized exception (2026-07-11, S22+ V3443 HIGH panic
+   MID-control comparison live gate):** after V3442 proved exact HIGH acceptance
+   and the operator explicitly approved the comparison, Codex may perform one
+   bounded attended zero-candidate-flash run on Samsung S22+
+   `SM-S906N`/`g0q` `S906NKSS7FYG8` using only checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_v3443_high_panic_compare_live_gate.py`
+   SHA256
+   `9e5e561bc39019b7ec5ebe1a79c3a24fa89803bca568c7aec6d5308a1a35f6a9`.
+   `S22PLUS_V3443_HIGH_PANIC_COMPARE_POLICY_STATE=ACTIVE`. The operator supplied
+   all three acknowledgements `S22PLUS-V3443-HIGH-ONE-SYSRQ-PANIC`,
+   `S22PLUS-V3443-RDX-PREAMBLE-ONLY`, and
+   `S22PLUS-V3443-MID-RESTORE-RECOVERY`.
+
+   Before device contact, the helper must verify the pinned V3440 MID control:
+   `result.json` SHA256
+   `62a6d12adb5ab33f39d9d44078de09f6180a39980b417dadf1fe9a598acd7dbe`,
+   retained `/proc/last_kmsg` SHA256
+   `a397d9688e740bc03bead8c4fd2fcc667910cfe98d2f92252a36b474e66a5b04`,
+   and preamble response SHA256
+   `3a4a3980e7835ebb77c927b99863e01847086171bdb81773e81e06f2192ab60c`.
+   The control must prove its run marker, SysRq panic, `RDX is locked`, kernel
+   panic upload cause, exact NegativeAck, `probe_sent=false`, and
+   `data_transfer_requested=false`. Live preflight must prove one exact Android
+   target, Magisk root, MID `18765` / `0x494d`, known Magisk boot, stock DTBO,
+   stock recovery, and all pinned recovery artifacts.
+
+   The helper may stage only V3442 setter SHA256
+   `5bc230b87d090dcb694cd5eb68eb7e24a0ba5d8d9062cfada817953e5cc6f346`,
+   dispatch HIGH once, and require exact `18760` / `0x4948`. At exact HIGH it
+   may emit one run marker to `/dev/kmsg`, write `1` once to
+   `/proc/sys/kernel/sysrq`, and write `c` once to `/proc/sysrq-trigger`. It may
+   observe USB for at most 120 seconds. Only for exactly one Samsung RDX
+   `04e8:685d` endpoint may it send exactly `PrEaMbLe\0` once and read one
+   bounded endpoint packet. `PrObE forbidden`; `DaTaXfEr forbidden`. Every
+   positive, negative, malformed, timeout, or transport-error result stops
+   without another S-Boot command. qdl, Sahara, Firehose, memory ranges, RAM
+   reads, probe tables, and dump transfers are forbidden.
+
+   The operator must physically use RDX EXIT only after the helper reports
+   observation complete. On HIGH Android return, the helper may collect
+   `/proc/last_kmsg`, write private evidence, compare bounded MID/HIGH metrics,
+   then must re-stage the exact setter and dispatch MID once. PASS requires
+   final MID `18765` / `0x494d`, Android/Magisk root, and exact boot/DTBO/
+   recovery identities. HIGH dispatch and panic each consume this exception
+   regardless of result and may not be retried.
+
+   If HIGH Android does not return, attended recovery may flash only exact
+   V3441 MID-rescue boot AP SHA256
+   `25a8a5b5cfdeeebd47525c236d975561da8492bb08df5716cfa9da15e00ecfd6`,
+   require a second physical Download entry, then flash only exact Magisk
+   boot-only rollback AP SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`.
+   If that transfer fails with one Odin endpoint retained, exact stock
+   boot-only fallback AP SHA256
+   `2f6a8ac093587a0f03c423d8e21f65c6fe3a8d2ce9915297170cdaa2cac37c94`
+   is cleanup-only. Emergency continuation must not dispatch HIGH or panic.
+
+   This exception authorizes no candidate flash, RAM dump, device-memory write,
+   partition-table action, recovery/vendor_boot/DTBO/vbmeta/BL/CP/CSC/super/
+   userdata/persist/EFS/sec_efs/RPMB/keymaster/modem/bootloader flash, raw host
+   `dd`, fastboot, Magisk module, EUD/UART write, LCS/fuse/QFPROM change, raw
+   parameter action, format data, native-init candidate, or A90 action. Timeline
+   output must use only `events:[{name,timestamp_utc}]` with all eight mandatory
+   phases. `S22+ V3443 HIGH panic MID-control comparison live gate` is the
+   policy marker.
    **Consumed/retired exception (2026-07-11, S22+ V3442 HIGH set-only live
    gate):** the exact raw setter dispatched `debug0x4948` once. Android returned
    with sysfs debug level decimal `18760` and bootloader property `0x4948`,
