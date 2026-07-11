@@ -21,8 +21,20 @@ BL, CP, CSC, userdata, or any non-boot flash.
    bootloader, or any partition other than **boot**. Device changes touch the boot image
    only. These forbidden partitions are **NOT** TWRP/download-mode recoverable = permanent
    brick; the operator's acceptance of boot-flash risk does NOT extend to them.
-   **Narrow operator-authorized exception (2026-07-11, S22+ V3443R corrected
-   HIGH panic MID-control comparison live gate):** after V3443 failed closed
+   **Consumed/retired exception (2026-07-11, S22+ V3443R corrected
+   HIGH panic MID-control comparison live gate):** exact HIGH returned, the
+   quoted two-command root control passed, one SysRq panic reached Samsung RDX
+   `04e8:685d`, and exactly one `PrEaMbLe\0` received the same exact
+   `NeGaTiVeAcKmNt\0` as MID. No probe or transfer occurred. HIGH
+   `/proc/last_kmsg` retained the current marker, SysRq panic, `RDX is locked`,
+   and kernel-panic upload cause. Marker-forward MID/HIGH counts for ramdump,
+   minidump, sec_debug, reset-exinfo, RDX lock, panic, and upload cause were
+   identical. The exact setter dispatched MID once. A host partial-boot parser
+   raised `IndexError` after that dispatch, but read-only continuation proved
+   final Android/Magisk root, MID `18765` / `0x494d`, and exact boot/DTBO/
+   recovery identities. This exception is consumed and must not be reused.
+   `S22PLUS_V3443R_HIGH_PANIC_COMPARE_POLICY_STATE=RETIRED`. Before consumption,
+   after V3443 failed closed
    before panic due split ADB shell argv, after host-only V3443R corrected the
    compound root command and passed 42 related tests, and after the operator's
    fresh explicit approval, Codex may perform one bounded attended zero-
@@ -31,7 +43,7 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `workspace/public/src/scripts/revalidation/s22plus_v3443_high_panic_compare_live_gate.py`
    SHA256
    `8d66d9e1766eac674589ac77b0ea7c82b5243274cc502b3cbd20bcfb09e8192c`.
-   `S22PLUS_V3443R_HIGH_PANIC_COMPARE_POLICY_STATE=ACTIVE`. The operator supplied
+   The operator supplied
    fresh acknowledgements `S22PLUS-V3443R-HIGH-ONE-SYSRQ-PANIC`,
    `S22PLUS-V3443R-RDX-PREAMBLE-ONLY`, and
    `S22PLUS-V3443R-MID-RESTORE-RECOVERY`.

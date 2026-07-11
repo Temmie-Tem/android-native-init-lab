@@ -77,6 +77,17 @@ class V3442HighSetOnlyTest(unittest.TestCase):
             "HIGH_CLAMPED_OR_REJECTED_TO_MID",
         )
 
+    def test_partial_boot_empty_partition_sha_fails_closed(self):
+        self.assertEqual(
+            self.gate.parse_partition_sha256("a" * 64 + "  /dev/boot", "boot"),
+            "a" * 64,
+        )
+        for output in ("", "not-a-sha /dev/boot"):
+            with self.subTest(output=output), self.assertRaisesRegex(
+                self.gate.GateError, "partial Android boot"
+            ):
+                self.gate.parse_partition_sha256(output, "boot")
+
     def test_timeline_is_exact_single_events_schema(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "timeline.json"

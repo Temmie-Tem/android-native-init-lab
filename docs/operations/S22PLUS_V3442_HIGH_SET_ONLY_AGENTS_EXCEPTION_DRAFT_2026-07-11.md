@@ -69,3 +69,9 @@ Current fixed helper SHA256 is
 `a94066c15e9e6cc62b7790e7e88bfd251a082392b8df65ba06187bf100db72bb`.
 The policy remains inactive/retired; this added pin is only for offline source
 verification and does not reactivate HIGH.
+
+After V3443R, the shared Android-state parser was additionally hardened so an
+empty partition-hash result during partial boot raises a caught `GateError`
+instead of `IndexError`. Current helper SHA256 is
+`9af60450ea255b963a4bab1b70e2ff5638c0a229245b08c994becc5df76f3e66`.
+This is post-live maintenance only and does not reactivate V3442 or V3443R.

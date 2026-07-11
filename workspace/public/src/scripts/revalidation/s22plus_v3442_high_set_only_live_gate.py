@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import time
@@ -94,6 +95,13 @@ def adb_shell(serial: str, command: str, root: bool = False, timeout: float = 30
     return rescue.adb_shell(serial, command, root=root, timeout=timeout)
 
 
+def parse_partition_sha256(output: str, label: str) -> str:
+    fields = output.split()
+    if not fields or re.fullmatch(r"[0-9a-f]{64}", fields[0]) is None:
+        raise GateError(f"{label} SHA256 unavailable during partial Android boot")
+    return fields[0]
+
+
 def common_android_state() -> tuple[str, dict[str, str]]:
     serial = adb_serial()
     state = {
@@ -107,15 +115,18 @@ def common_android_state() -> tuple[str, dict[str, str]]:
         ),
         "boot_debug_level": adb_shell(serial, "getprop ro.boot.debug_level"),
         "boot_reason": adb_shell(serial, "getprop ro.boot.bootreason"),
-        "boot_sha256": adb_shell(
-            serial, "sha256sum /dev/block/by-name/boot", root=True
-        ).split()[0],
-        "dtbo_sha256": adb_shell(
-            serial, "sha256sum /dev/block/by-name/dtbo", root=True
-        ).split()[0],
-        "recovery_sha256": adb_shell(
-            serial, "sha256sum /dev/block/by-name/recovery", root=True
-        ).split()[0],
+        "boot_sha256": parse_partition_sha256(
+            adb_shell(serial, "sha256sum /dev/block/by-name/boot", root=True),
+            "boot",
+        ),
+        "dtbo_sha256": parse_partition_sha256(
+            adb_shell(serial, "sha256sum /dev/block/by-name/dtbo", root=True),
+            "dtbo",
+        ),
+        "recovery_sha256": parse_partition_sha256(
+            adb_shell(serial, "sha256sum /dev/block/by-name/recovery", root=True),
+            "recovery",
+        ),
     }
     expected = {
         "model": "SM-S906N",

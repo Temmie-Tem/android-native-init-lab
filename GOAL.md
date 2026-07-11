@@ -48,6 +48,18 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > activation performed no device action. Next is connected read-only MID dry-run
 > plus harmless quoted `id; id` root control, then the single attended live run
 > only if both pass.
+> V3443R live comparison then completed. HIGH returned exactly, quoted root
+> control passed, one SysRq panic reached RDX `04e8:685d`, and the one allowed
+> preamble received the exact same NegativeAck as MID. Marker-forward retained
+> panic signatures are identical across MID/HIGH; whole-ring count differences
+> were boot-age bias (`26s` versus `1683s`). HIGH therefore does not unlock RDX
+> or expand core sec_debug panic capture here. Static FYG8 init rules show only
+> narrower Android additions: NFC vendor debug and system_server Binder tracker.
+> MID was restored exactly. A transient empty SHA output caused a host
+> `IndexError` after MID dispatch; read-only continuation proved the final
+> baseline and the parser is now fail-closed/retryable. Policy is consumed.
+> Report:
+> `docs/reports/NATIVE_INIT_V3443R_S22PLUS_HIGH_VS_MID_PANIC_COMPARE_LIVE_PASS_2026-07-11.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-11 KST) - V3441 DEBUG MID RESCUE LIVE PASS;
 > POLICY RETIRED; HIGH REMAINS A SEPARATE GATE.** Before forcing Samsung
