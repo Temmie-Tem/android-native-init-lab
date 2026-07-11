@@ -4,7 +4,28 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ LIVE GATE ARMED (2026-07-11 KST) — V3440 ZERO-FLASH RDX USB
+> **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3440 RDX USB LIVE CONTROLLED
+> NEGATIVE: `04e8:685d` PROVEN, EXACT `NegativeAck`, PROBE/DATA TRANSFER NOT
+> SENT, ANDROID BASELINE HEALTHY; RDX DUMP TRACK RETIRED ABSENT A MATERIALLY
+> DIFFERENT TOKEN/LOCKED HYPOTHESIS.** One authorized SysRq panic reached the
+> operator-observed RDX kernel-panic screen. Although the helper first
+> misclassified a clean ADB command return as no panic, delayed host USB events
+> and retained `/proc/last_kmsg` proved the current run marker, SysRq panic,
+> `RDX is locked`, Android disconnect, and Samsung S-Boot `04e8:685d`
+> enumeration. The exact checked helper function then sent only
+> `PrEaMbLe\0`; the endpoint returned exact `NeGaTiVeAcKmNt\0` (15 bytes,
+> SHA256 `3a4a3980...ab60c`). Policy stopped before `PrObE`; no `DaTaXfEr`,
+> range, qdl, Sahara, RAM dump, flash, or partition write occurred. After
+> physical RDX EXIT, Android/Magisk root returned with the exact known boot and
+> stock DTBO hashes. Classification is
+> `CONTROLLED_NEGATIVE_SBOOT_NEGATIVE_ACK_PROBE_NOT_SENT`; the one-shot policy
+> is consumed/retired. Do not repeat or send probe after NegativeAck. Reopen
+> only with a materially different token/locked hypothesis or independently
+> observed `05c6:900e`. Practical next direction is stock-global-PID1
+> service-supervisor bring-up, with UART preferred when available. Report:
+> `docs/reports/NATIVE_INIT_V3440_S22PLUS_RDX_USB_VIABILITY_LIVE_CONTROLLED_NEGATIVE_2026-07-11.md`.
+>
+> **PRIOR GATE (consumed) — V3440 ZERO-FLASH RDX USB
 > VIABILITY, EXACT SOURCE `cab62d…e4f8`, ONE SYSRQ PANIC + TWO DISCOVERY
 > COMMANDS ONLY.** The operator explicitly approved the live run after commit
 > `e9356a17`. `AGENTS.md` now carries
@@ -15,7 +36,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > the checked helper live invocation; keep the RDX screen displayed until the
 > host reports observation complete, then use physical RDX EXIT.
 
-> **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3440 RDX USB VIABILITY GATE SOURCE READY, POLICY INACTIVE; ZERO-FLASH TWO-COMMAND DISCOVERY ONLY; FINAL TARGET IS NO ANDROID USERSPACE.**
+> **PRIOR SOURCE-READY FRONTIER — V3440 RDX USB VIABILITY GATE SOURCE READY, POLICY INACTIVE; ZERO-FLASH TWO-COMMAND DISCOVERY ONLY; FINAL TARGET IS NO ANDROID USERSPACE.**
 > V3440 audits and pins `bkerler/sboot_dump` commit
 > `8c9f6eb79ffbe702152ca7810f6382bf5e1bfd58` and `linux-msm/qdl` commit
 > `a00d81bc639908875862582f0d3cb0775d92e269`, then implements the cheap RDX

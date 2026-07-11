@@ -21,7 +21,17 @@ BL, CP, CSC, userdata, or any non-boot flash.
    bootloader, or any partition other than **boot**. Device changes touch the boot image
    only. These forbidden partitions are **NOT** TWRP/download-mode recoverable = permanent
    brick; the operator's acceptance of boot-flash risk does NOT extend to them.
-   **Narrow operator-authorized exception (2026-07-11, S22+ V3440 RDX USB viability live gate):** after V3439 proved one attended SysRq panic reaches
+   **Consumed/retired exception (2026-07-11, S22+ V3440 RDX USB viability live gate):** the one-shot V3440 run triggered one SysRq panic, the operator
+   observed the RDX kernel-panic screen, and the host observed Samsung S-Boot
+   USB `04e8:685d`. The checked two-command probe sent only `PrEaMbLe\0`; the
+   endpoint returned exact `NeGaTiVeAcKmNt\0`, so the helper stopped before
+   `PrObE`. No data transfer, address/range request, qdl, Sahara session, dump,
+   flash, or partition write occurred. After physical RDX EXIT, Android,
+   Magisk root, known boot hash, and stock DTBO hash passed. The helper's
+   initial clean-return panic classifier was a false negative corrected by the
+   operator RDX observation, delayed USB transition, and retained current-run
+   panic frame. This exception is consumed and must not be reused.
+   `S22PLUS_V3440_RDX_USB_POLICY_STATE=RETIRED`. Before consumption, after V3439 proved one attended SysRq panic reaches
    the Samsung RDX kernel-panic screen but ramoops retains no current-run
    frame, and after the operator's explicit 2026-07-11 live approval, Codex may
    perform one bounded attended zero-flash RDX USB viability run on the Samsung
@@ -29,7 +39,7 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `workspace/public/src/scripts/revalidation/s22plus_v3440_rdx_usb_viability_gate.py`
    SHA256
    `cab62dcc89cb7f39d16e99b3d19106f1e5a418436d05a6d5fa7076aab136e4f8`.
-   `S22PLUS_V3440_RDX_USB_POLICY_STATE=ACTIVE`. The operator supplied fresh
+   The operator supplied fresh
    authorization for both acknowledgements
    `S22PLUS-V3440-RDX-ONE-SYSRQ-PANIC` and
    `S22PLUS-V3440-RDX-TWO-COMMAND-USB-PROBE`.
