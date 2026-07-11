@@ -4,6 +4,38 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-11 KST) - FYG8 KERNEL REBUILD R0 HOST
+> ENVIRONMENT IN PROGRESS; NO LIVE AUTHORIZATION.** The kernel-rebuild branch is
+> now ordered as stock-equivalent reproduction -> static KMI/module equivalence
+> -> one boot-only stock-equivalent proof -> one minimal retained-witness change
+> -> security-config changes only when a specific blocking dependency is proven.
+> Do not begin with `CONFIG_RKP=n`, do not promote the unverified
+> `RKP+KDP+UH+DEFEX+PROCA+FIVE=n` forum recipe, and do not claim that rebuilding
+> the already-enabled ramoops backend fixes V3439 retention.
+>
+> Host R0 pinned the FYD9-base plus FYG8-delta archives, generated a 2.9 GiB
+> combined private tree, and pinned Android Clang 12.0.5 `r416183b` plus the
+> `master-kernel-build-2021` AOSP build prebuilts. Unchanged Full-LTO compilation
+> reached the GKI link after compiling the Samsung hardening and pstore paths,
+> but the 16 GiB host entered sustained swap pressure at about 12.5 GiB linker
+> RSS and 14 GiB swap; the run was stopped as an environment limit, not a code
+> failure. A non-stock `LTO=thin` diagnostic completed GKI Image/vmlinux, FIPS,
+> and KMI checks for `5.10.226-android12-9`, then compiled the vendor tree through
+> module modpost. It failed there on the ThinLTO-incompatible naked-assembly
+> reference to static `__sec_arm64_ap_context_on_panic` and is not flashable.
+> The supplied Samsung helper also contains `export TARGET_BUILD_VARIANT= user`,
+> which exports an empty value and requests nonexistent
+> `waipio_sec__defconfig`; R0 must replace this with a reproducible wrapper that
+> exports exact `TARGET_BUILD_VARIANT=user` without changing kernel source.
+>
+> Next: finish R0 source-overlay audit and wrapper, isolate build provenance from
+> the parent Git repository, and complete a non-stock source smoke without an
+> unexplained missing input. R1 stock Full-LTO remains blocked until a controlled
+> >=32 GiB effective-memory build can complete. No artifact may be packaged or
+> flashed before R1 and R2 pass and a fresh SHA-pinned boot-only R3 exception is
+> added to `AGENTS.md` with explicit operator approval. Roadmap:
+> `docs/plans/S22PLUS_FYG8_KERNEL_REBUILD_ROADMAP_2026-07-11.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-11 KST) - V3443 HIGH PANIC VERSUS PINNED
 > MID CONTROL GATE SOURCE READY; POLICY INACTIVE.** V3442 proved HIGH is accepted
 > but did not measure a downstream feature delta. V3443 pins the existing V3440
