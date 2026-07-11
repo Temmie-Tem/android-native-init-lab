@@ -25,10 +25,13 @@ probed successfully.
   positions, deduplicated order, dependencies, modinfo counts, symbol summary,
   and evidence status.
 - `dependency-edges.tsv`: normalized hard and soft pre/post ordering edges.
-- `symbol-overlap-edges.tsv`: ELF import/export name overlaps. Only rows marked
+- `symbol-overlap-edges.tsv`: ELF import/`__ksymtab` export name overlaps. Only rows marked
   `DECLARED_HARD` are accepted module-provider edges; `CANDIDATE_ONLY` overlaps
   are not promoted because the same symbol may be exported by the kernel.
   Imports without a module export remain `kernel-or-unresolved`.
+- `symbol-crc-requirements.tsv`: the exact `__versions` CRC each shipped module
+  requires. These are consumer-side requirements only; they do not prove that
+  a rebuilt kernel provides matching CRCs.
 - `subsystem-retention.md`: reviewed `sec_log_buf`/`sec_debug` ownership map.
 - `subsystem-usb.md`: current static USB closure and functional bind gates.
 - `stock-usb-runtime-topology.json`: separately collected, serial-redacted stock

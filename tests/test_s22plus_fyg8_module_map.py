@@ -74,10 +74,24 @@ class S22PlusFyg8ModuleMapTest(unittest.TestCase):
     def test_symbol_map_does_not_promote_kernel_or_unresolved_imports(self):
         manifest = self.module.json.loads(self.artifacts["manifest.json"])
         self.assertGreater(manifest["counts"]["declared_symbol_provider_overlaps"], 0)
-        self.assertGreater(manifest["counts"]["candidate_only_symbol_overlaps"], 0)
+        self.assertEqual(manifest["counts"]["candidate_only_symbol_overlaps"], 0)
         self.assertGreater(manifest["counts"]["kernel_or_unresolved_symbols"], 0)
         self.assertIn("kernel-or-unresolved", self.artifacts["README.md"])
-        self.assertIn("CANDIDATE_ONLY", self.artifacts["symbol-overlap-edges.tsv"])
+        self.assertNotIn("\tCANDIDATE_ONLY\n", self.artifacts["symbol-overlap-edges.tsv"])
+
+    def test_symbol_crc_requirements_are_consumer_side_only(self):
+        rows = self.artifacts["symbol-crc-requirements.tsv"].splitlines()
+        self.assertGreater(len(rows), 441)
+        self.assertEqual(rows[0], "module\tsymbol\trequired_crc\tprovider_status")
+        self.assertTrue(any("dwc3-msm.ko\tmodule_layout\t0x7c24b32d" in row for row in rows))
+        manifest = self.module.json.loads(self.artifacts["manifest.json"])
+        self.assertGreater(manifest["counts"]["required_symbol_version_entries"], 0)
+        self.assertIn("consumer side only", self.artifacts["known-gaps.md"])
+
+    def test_export_surface_comes_from_ksymtab_not_all_defined_globals(self):
+        inspection = self.model.inspections["dwc3-msm.ko"]
+        self.assertIn("dwc3_msm_set_dp_mode_for_ss", inspection.exported_symbols)
+        self.assertNotIn("dwc3_msm_probe", inspection.exported_symbols)
 
     def test_write_then_check_is_reproducible_and_fail_closed(self):
         with tempfile.TemporaryDirectory() as tmp:

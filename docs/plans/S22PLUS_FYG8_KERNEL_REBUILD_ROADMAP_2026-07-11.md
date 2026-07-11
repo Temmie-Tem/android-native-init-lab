@@ -88,7 +88,8 @@ ThinLTO evidence and are explicitly not boot or flash candidates.
    about 12.5 GiB RSS while system swap reached about 14 GiB. It entered sustained
    swap wait, so the run was stopped before host stability degraded. This is an
    environment limit, not a compiler error. Stock-equivalent build PASS remains
-   open until Full LTO completes on a controlled >=32 GiB effective-memory setup.
+   open until Full LTO completes on a controlled nominal 32 GiB physical-memory
+   setup. Swap is recommended headroom, not a substitute for that physical RAM.
 2. **Samsung helper typo.** The supplied `build_kernel_GKI.sh` and README contain
    `export TARGET_BUILD_VARIANT= user`. In shell this exports an empty value. The
    build consequently asks for nonexistent
@@ -115,7 +116,7 @@ ThinLTO evidence and are explicitly not boot or flash candidates.
 
 ### R0 - Reproducible host build environment
 
-Status: **IN PROGRESS**
+Status: **HOST AUDIT PASS; 32 GiB BUILD-HOST REPRODUCTION PENDING**
 
 - Generate the combined source tree deterministically from pinned archives.
 - Verify every FYG8 delta member after stripping exactly one `Kernel/` prefix.
@@ -128,6 +129,27 @@ Status: **IN PROGRESS**
 Exit gate: one source-generation audit plus one non-stock smoke build reaches
 all intended code paths without an unexplained missing input. Smoke output is
 never flashable.
+
+2026-07-11 host-audit close:
+
+- 166,037 reconstructed source members match the resident tree exactly;
+- the 51-member FYG8 delta changes 22 and re-ships 29 identical base files;
+- the stock ARM64 Image exposes exact release/compiler metadata and embedded
+  IKCONFIG SHA256
+  `99352a4f8db49814330c9d2c28038fafbbd1dadbe1fef3082c6d7e2614c2dbf1`;
+- stock versus ThinLTO diagnostic config differs only in Full/Thin LTO and the
+  host-specific absolute `UNUSED_KSYMS_WHITELIST` path;
+- the existing 441-module map now records 22,131 consumer-side symbol CRC
+  requirements covering 4,060 unique symbols;
+- current-host Full-LTO preflight fails closed only on physical RAM, while all
+  source, compiler, prebuilt-commit, provenance, and disk gates pass;
+- a private nine-file/four-repository transfer manifest is ready for the
+  Debian 12 FX-8300 32 GiB build host; toolchain transfer preserves `.git`
+  metadata, and preflight requires Git plus GNU `/usr/bin/time`. Swap is
+  recommended headroom, not a hard rejection when physical RAM passes.
+
+Report:
+`docs/reports/S22PLUS_FYG8_KERNEL_REBUILD_R0_HOST_AUDIT_2026-07-11.md`.
 
 ### R1 - Unchanged stock Full-LTO build
 

@@ -1,20 +1,20 @@
 {
   "artifacts": {
     "README.md": {
-      "bytes": 2481,
-      "sha256": "1ffa6dded1d21f21f198501571c07d41062f29b06845eb036ff555b1b7197354"
+      "bytes": 2694,
+      "sha256": "837f0a005f60ce180eb866cd48187c076010e452acc5abb07df05912ab53c673"
     },
     "dependency-edges.tsv": {
       "bytes": 106491,
       "sha256": "ec7292c918270748e9bcfccdea454c2e35965acc202c1648ef215963777c5afa"
     },
     "inventory.tsv": {
-      "bytes": 150020,
-      "sha256": "52cc6fdb422a799b654e77facd2f3461d64c507239da676642a722c23b2c7492"
+      "bytes": 151375,
+      "sha256": "35f1a7b903fc3582d3d51c4f119b993d154874e632465b2e212e0bf56a37ab7b"
     },
     "known-gaps.md": {
-      "bytes": 1226,
-      "sha256": "9cbeea9b2850a45209e5f9cd3db3d8dfcac08b8f5bad31fec904160eb697e929"
+      "bytes": 1439,
+      "sha256": "296f94fba050a2e099766b68839e64d96dc6330a75283990f38f18540554b2c5"
     },
     "runtime-gates.md": {
       "bytes": 1241,
@@ -28,22 +28,28 @@
       "bytes": 3567,
       "sha256": "ad684aa594dbf79715832dadc8568873423fcee8dfdf678a2109f2b77a9e5c87"
     },
+    "symbol-crc-requirements.tsv": {
+      "bytes": 1429332,
+      "sha256": "9be63bf9d2086d0823cc2b87cc2412b34f3d44394444c0cb693a5b1edf5a6e86"
+    },
     "symbol-overlap-edges.tsv": {
-      "bytes": 92201,
-      "sha256": "f73797a9bfd3c5b22417b12452031919ca680d5009717ef63c2bca9a95f72056"
+      "bytes": 88965,
+      "sha256": "270a6722816bbd880faf6eed7f866cbbf741cb24044d5847e051be35deb2d9bf"
     }
   },
   "counts": {
     "ambiguous_symbols": 0,
-    "candidate_only_symbol_overlaps": 66,
+    "candidate_only_symbol_overlaps": 0,
     "declared_symbol_provider_overlaps": 664,
     "firststage_modules": 135,
     "hard_edges": 2175,
-    "kernel_or_unresolved_symbols": 19086,
+    "kernel_or_unresolved_symbols": 19152,
     "recovery_modules": 441,
+    "required_symbol_version_entries": 22131,
+    "required_symbol_version_unique_symbols": 4060,
     "soft_post_edges": 1,
     "soft_pre_edges": 32,
-    "symbol_overlap_edges": 730
+    "symbol_overlap_edges": 664
   },
   "inputs": {
     "metadata_directory": "workspace/private/inputs/s22plus_firmware/S906NKSS7FYG8_SKC/extracted-images/ramdisk-list/vendor/extract/lib/modules",

@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -34,6 +35,8 @@ EXPECTED_VERMAGIC = (
 )
 MODINFO_TOOL = "modinfo"
 NM_TOOL = "aarch64-linux-gnu-nm"
+MODPROBE_TOOL = "modprobe"
+READELF_TOOL = "readelf"
 
 RETENTION_MODULES = {
     "sec_log_buf.ko": {
@@ -69,6 +72,7 @@ class ModuleInspection:
     parameters: tuple[str, ...]
     undefined_symbols: tuple[str, ...]
     exported_symbols: tuple[str, ...]
+    required_symbol_versions: tuple[tuple[str, str], ...]
 
 
 @dataclass(frozen=True)
@@ -120,6 +124,28 @@ def parse_nm_symbols(path: Path, *, defined: bool) -> tuple[str, ...]:
     return tuple(sorted(symbols))
 
 
+def parse_required_symbol_versions(path: Path) -> tuple[tuple[str, str], ...]:
+    versions: dict[str, str] = {}
+    for raw in run_tool([MODPROBE_TOOL, "--dump-modversions", str(path)]).splitlines():
+        fields = raw.split()
+        if len(fields) != 2 or not fields[0].startswith("0x"):
+            raise MapError(f"malformed modversion line for {path.name}: {raw!r}")
+        crc, symbol = fields
+        if symbol in versions:
+            raise MapError(f"duplicate modversion symbol for {path.name}: {symbol}")
+        versions[symbol] = crc.lower()
+    return tuple(sorted(versions.items()))
+
+
+def parse_exported_symbols(path: Path, defined_globals: tuple[str, ...]) -> tuple[str, ...]:
+    section_strings: set[str] = set()
+    for raw in run_tool([READELF_TOOL, "-p", "__ksymtab_strings", str(path)]).splitlines():
+        match = re.match(r"^\s*\[\s*[0-9a-fA-F]+\]\s+(.+?)\s*$", raw)
+        if match:
+            section_strings.add(match.group(1))
+    return tuple(sorted(section_strings & set(defined_globals)))
+
+
 def one(values: tuple[str, ...], field: str, module: str) -> str:
     if len(values) != 1:
         raise MapError(f"expected one {field} for {module}, got {values}")
@@ -140,6 +166,7 @@ def inspect_module(metadata: o2.ModuleMetadata, filename: str) -> ModuleInspecti
         raise MapError(f"vermagic mismatch for {filename}: {vermagic!r}")
     depends_text = one(fields.get("depends", ()), "depends", filename)
     depends = tuple(value for value in depends_text.split(",") if value)
+    defined_globals = parse_nm_symbols(path, defined=True)
     return ModuleInspection(
         filename=filename,
         runtime_name=runtime_name,
@@ -150,7 +177,8 @@ def inspect_module(metadata: o2.ModuleMetadata, filename: str) -> ModuleInspecti
         modinfo_aliases=tuple(sorted(fields.get("alias", ()))),
         parameters=tuple(sorted(fields.get("parm", ()))),
         undefined_symbols=parse_nm_symbols(path, defined=False),
-        exported_symbols=parse_nm_symbols(path, defined=True),
+        exported_symbols=parse_exported_symbols(path, defined_globals),
+        required_symbol_versions=parse_required_symbol_versions(path),
     )
 
 
@@ -211,7 +239,7 @@ def build_symbol_model(
 
 
 def build_model(metadata_dir: Path) -> MapModel:
-    for tool in (MODINFO_TOOL, NM_TOOL):
+    for tool in (MODINFO_TOOL, NM_TOOL, MODPROBE_TOOL, READELF_TOOL):
         if shutil.which(tool) is None:
             raise MapError(f"required host tool missing: {tool}")
     metadata = o2.load_metadata(metadata_dir)
@@ -275,6 +303,7 @@ def render_inventory(model: MapModel) -> str:
         "modinfo_alias_count",
         "parameter_count",
         "undefined_symbol_count",
+        "required_symbol_version_count",
         "declared_symbol_provider_count",
         "candidate_symbol_overlap_provider_count",
         "kernel_or_unresolved_symbol_count",
@@ -309,6 +338,7 @@ def render_inventory(model: MapModel) -> str:
             str(len(inspection.modinfo_aliases)),
             str(len(inspection.parameters)),
             str(len(inspection.undefined_symbols)),
+            str(len(inspection.required_symbol_versions)),
             str(len(declared_providers)),
             str(len(candidate_providers)),
             str(model.unresolved_symbol_counts[module]),
@@ -349,6 +379,20 @@ def render_symbol_overlaps(model: MapModel) -> str:
     return "\n".join(rows) + "\n"
 
 
+def render_symbol_crc_requirements(model: MapModel) -> str:
+    rows = ["module\tsymbol\trequired_crc\tprovider_status"]
+    module_exports = {
+        symbol
+        for inspection in model.inspections.values()
+        for symbol in inspection.exported_symbols
+    }
+    for module in model.metadata.files:
+        for symbol, crc in model.inspections[module].required_symbol_versions:
+            provider_status = "module-or-kernel" if symbol in module_exports else "kernel-or-unresolved"
+            rows.append(f"{module}\t{symbol}\t{crc}\t{provider_status}")
+    return "\n".join(rows) + "\n"
+
+
 def render_readme(model: MapModel) -> str:
     return f"""# S22+ FYG8 Module Map
 
@@ -377,10 +421,13 @@ probed successfully.
   positions, deduplicated order, dependencies, modinfo counts, symbol summary,
   and evidence status.
 - `dependency-edges.tsv`: normalized hard and soft pre/post ordering edges.
-- `symbol-overlap-edges.tsv`: ELF import/export name overlaps. Only rows marked
+- `symbol-overlap-edges.tsv`: ELF import/`__ksymtab` export name overlaps. Only rows marked
   `DECLARED_HARD` are accepted module-provider edges; `CANDIDATE_ONLY` overlaps
   are not promoted because the same symbol may be exported by the kernel.
   Imports without a module export remain `kernel-or-unresolved`.
+- `symbol-crc-requirements.tsv`: the exact `__versions` CRC each shipped module
+  requires. These are consumer-side requirements only; they do not prove that
+  a rebuilt kernel provides matching CRCs.
 - `subsystem-retention.md`: reviewed `sec_log_buf`/`sec_debug` ownership map.
 - `subsystem-usb.md`: current static USB closure and functional bind gates.
 - `stock-usb-runtime-topology.json`: separately collected, serial-redacted stock
@@ -576,6 +623,9 @@ def render_known_gaps(model: MapModel) -> str:
 - ELF imports with no module provider total {unresolved}. They are labeled
   kernel-or-unresolved; this map does not assume every one is a valid built-in
   export for the running kernel.
+- Module `__versions` rows describe the shipped consumer side only. Provider
+  compatibility remains unproved until a completed Full-LTO build supplies a
+  matching `vmlinux.symvers` and module set for comparison.
 - Ambiguous ELF imports with multiple module providers total {ambiguous}.
 - Import/export symbol-name overlaps absent from `modules.dep` total
   {candidate_only}; they remain visible in `symbol-overlap-edges.tsv` as
@@ -601,6 +651,7 @@ def build_artifacts(model: MapModel) -> dict[str, str]:
         "inventory.tsv": render_inventory(model),
         "dependency-edges.tsv": render_dependency_edges(model),
         "symbol-overlap-edges.tsv": render_symbol_overlaps(model),
+        "symbol-crc-requirements.tsv": render_symbol_crc_requirements(model),
         "subsystem-retention.md": render_retention(model),
         "subsystem-usb.md": render_usb(model),
         "runtime-gates.md": render_runtime_gates(),
@@ -632,6 +683,16 @@ def build_artifacts(model: MapModel) -> dict[str, str]:
             "candidate_only_symbol_overlaps": symbol_undeclared,
             "kernel_or_unresolved_symbols": sum(model.unresolved_symbol_counts.values()),
             "ambiguous_symbols": sum(model.ambiguous_symbol_counts.values()),
+            "required_symbol_version_entries": sum(
+                len(item.required_symbol_versions) for item in model.inspections.values()
+            ),
+            "required_symbol_version_unique_symbols": len(
+                {
+                    symbol
+                    for item in model.inspections.values()
+                    for symbol, _crc in item.required_symbol_versions
+                }
+            ),
         },
         "retention": {
             module: {

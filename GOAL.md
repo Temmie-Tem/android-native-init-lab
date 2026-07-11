@@ -4,8 +4,8 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ ACTIVE FRONTIER (2026-07-11 KST) - FYG8 KERNEL REBUILD R0 HOST
-> ENVIRONMENT IN PROGRESS; NO LIVE AUTHORIZATION.** The kernel-rebuild branch is
+> **S22+ ACTIVE FRONTIER (2026-07-11 KST) - FYG8 KERNEL REBUILD R0 HOST AUDIT
+> PASS; 32 GIB BUILD-HOST REPRODUCTION NEXT; NO LIVE AUTHORIZATION.** The kernel-rebuild branch is
 > now ordered as stock-equivalent reproduction -> static KMI/module equivalence
 > -> one boot-only stock-equivalent proof -> one minimal retained-witness change
 > -> security-config changes only when a specific blocking dependency is proven.
@@ -28,10 +28,17 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `waipio_sec__defconfig`; R0 must replace this with a reproducible wrapper that
 > exports exact `TARGET_BUILD_VARIANT=user` without changing kernel source.
 >
-> Next: finish R0 source-overlay audit and wrapper, isolate build provenance from
-> the parent Git repository, and complete a non-stock source smoke without an
-> unexplained missing input. R1 stock Full-LTO remains blocked until a controlled
-> >=32 GiB effective-memory build can complete. No artifact may be packaged or
+> R0 host audit now reconstructs 166,037 archive members with resident mismatch
+> zero, extracts the exact stock release and embedded IKCONFIG, fixes and pins
+> the build environment, and extends the authoritative 441-module map with
+> 22,131 consumer-side symbol CRC requirements. Current-host Full-LTO preflight
+> fails closed only on physical RAM; toolchain, provenance, source, and disk
+> gates pass. A private nine-file/four-repository transfer manifest is ready;
+> it includes the `AGENTS.md`/`GOAL.md` root markers required by the standalone
+> host tools.
+>
+> Next: reproduce R0 from pinned archives on the Debian 12 FX-8300 32 GiB host,
+> then run R1 stock Full LTO under the checked wrapper. No artifact may be packaged or
 > flashed before R1 and R2 pass and a fresh SHA-pinned boot-only R3 exception is
 > added to `AGENTS.md` with explicit operator approval. Roadmap:
 > `docs/plans/S22PLUS_FYG8_KERNEL_REBUILD_ROADMAP_2026-07-11.md`.
