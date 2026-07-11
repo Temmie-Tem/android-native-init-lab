@@ -76,6 +76,39 @@ class V3443HighPanicCompareTest(unittest.TestCase):
         ), mock.patch.object(self.module.time, "sleep", return_value=None):
             self.module.trigger_one_sysrq_panic("SERIAL", "a" * 32)
 
+    def test_compound_root_command_is_one_quoted_remote_shell_argument(self):
+        output = "\n".join(
+            (
+                "uid=0(root) gid=0(root) context=u:r:magisk:s0",
+                "uid=0(root) gid=0(root) context=u:r:magisk:s0",
+            )
+        )
+        with mock.patch.object(
+            self.module.high,
+            "run",
+            return_value=mock.Mock(returncode=0, stdout=output),
+        ) as run:
+            result = self.module.verify_root_compound_shell("SERIAL")
+            self.assertEqual(result["root_line_count"], 2)
+            command = run.call_args.args[0]
+            self.assertEqual(command[:5], ["adb", "-s", "SERIAL", "shell", "su -c 'id; id'"])
+            self.assertEqual(len(command), 5)
+
+    def test_compound_root_control_rejects_split_scope(self):
+        output = "\n".join(
+            (
+                "uid=0(root) gid=0(root) context=u:r:magisk:s0",
+                "uid=2000(shell) gid=2000(shell) context=u:r:shell:s0",
+            )
+        )
+        with mock.patch.object(
+            self.module.high,
+            "run",
+            return_value=mock.Mock(returncode=0, stdout=output),
+        ):
+            with self.assertRaisesRegex(self.module.GateError, "root-shell control"):
+                self.module.verify_root_compound_shell("SERIAL")
+
     def test_panic_rejects_persistently_connected_adb(self):
         ticks = iter((0.0, 0.0, 21.0))
         with mock.patch.object(

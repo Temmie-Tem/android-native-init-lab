@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guarded S22+ V3443 HIGH panic versus pinned MID control comparison."""
+"""Guarded S22+ V3443R corrected HIGH panic versus pinned MID control."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import os
+import shlex
 import subprocess
 import sys
 import time
@@ -18,20 +19,20 @@ import s22plus_v3440_rdx_usb_viability_gate as rdx
 import s22plus_v3442_high_set_only_live_gate as high
 
 
-SCHEMA = "s22plus_v3443_high_panic_compare_v1"
+SCHEMA = "s22plus_v3443r_high_panic_compare_v1"
 SCRIPT_RELATIVE = Path(
     "workspace/public/src/scripts/revalidation/"
     "s22plus_v3443_high_panic_compare_live_gate.py"
 )
 POLICY_DRAFT = Path(
     "docs/operations/"
-    "S22PLUS_V3443_HIGH_PANIC_COMPARE_AGENTS_EXCEPTION_DRAFT_2026-07-11.md"
+    "S22PLUS_V3443R_HIGH_PANIC_COMPARE_AGENTS_EXCEPTION_DRAFT_2026-07-11.md"
 )
-POLICY_MARKER = "S22+ V3443 HIGH panic MID-control comparison live gate"
-ACTIVE_SENTINEL = "S22PLUS_V3443_HIGH_PANIC_COMPARE_POLICY_STATE=ACTIVE"
-HIGH_PANIC_ACK_TOKEN = "S22PLUS-V3443-HIGH-ONE-SYSRQ-PANIC"
-PREAMBLE_ACK_TOKEN = "S22PLUS-V3443-RDX-PREAMBLE-ONLY"
-RECOVERY_ACK_TOKEN = "S22PLUS-V3443-MID-RESTORE-RECOVERY"
+POLICY_MARKER = "S22+ V3443R corrected HIGH panic MID-control comparison live gate"
+ACTIVE_SENTINEL = "S22PLUS_V3443R_HIGH_PANIC_COMPARE_POLICY_STATE=ACTIVE"
+HIGH_PANIC_ACK_TOKEN = "S22PLUS-V3443R-HIGH-ONE-SYSRQ-PANIC"
+PREAMBLE_ACK_TOKEN = "S22PLUS-V3443R-RDX-PREAMBLE-ONLY"
+RECOVERY_ACK_TOKEN = "S22PLUS-V3443R-MID-RESTORE-RECOVERY"
 
 MID_CONTROL_DIR = Path(
     "workspace/private/runs/s22plus_v3440_rdx_20260711T000711Z"
@@ -114,7 +115,7 @@ def policy_active(root: Path) -> bool:
 def verify_policy_draft(root: Path) -> dict[str, Any]:
     path = root / POLICY_DRAFT
     if not path.is_file():
-        raise GateError("V3443 policy draft missing")
+        raise GateError("V3443R policy draft missing")
     text = path.read_text(encoding="utf-8")
     required = (
         "DRAFT_INACTIVE",
@@ -134,7 +135,7 @@ def verify_policy_draft(root: Path) -> dict[str, Any]:
     )
     missing = [item for item in required if item not in text]
     if missing:
-        raise GateError(f"V3443 policy draft missing pins: {missing}")
+        raise GateError(f"V3443R policy draft missing pins: {missing}")
     return {
         "path": str(POLICY_DRAFT),
         "sha256": sha256_file(path),
@@ -305,8 +306,31 @@ def adb_connected(serial: str) -> bool:
     return result.returncode == 0 and result.stdout.strip() == "device"
 
 
+def run_quoted_root_command(
+    serial: str, command: str, *, timeout: float = 20
+) -> subprocess.CompletedProcess[str]:
+    remote_shell = f"su -c {shlex.quote(command)}"
+    return high.run(
+        ["adb", "-s", serial, "shell", remote_shell], timeout=timeout
+    )
+
+
+def verify_root_compound_shell(serial: str) -> dict[str, Any]:
+    result = run_quoted_root_command(serial, "id; id")
+    root_lines = [
+        line for line in result.stdout.splitlines() if line.startswith("uid=0(root)")
+    ]
+    if result.returncode != 0 or len(root_lines) != 2 or "uid=2000(shell)" in result.stdout:
+        raise GateError("quoted compound root-shell control failed")
+    return {
+        "command": "id; id",
+        "root_line_count": 2,
+        "shell_uid_present": False,
+    }
+
+
 def trigger_one_sysrq_panic(serial: str, run_id: str) -> None:
-    marker = f"S22_V3443_HIGH_RDX_BEGIN run={run_id}"
+    marker = f"S22_V3443R_HIGH_RDX_BEGIN run={run_id}"
     command = (
         "set -eu; "
         f"printf '%s\\n' '{marker}' > /dev/kmsg; "
@@ -314,9 +338,7 @@ def trigger_one_sysrq_panic(serial: str, run_id: str) -> None:
         "printf c > /proc/sysrq-trigger"
     )
     try:
-        high.run(
-            ["adb", "-s", serial, "shell", "su", "-c", command], timeout=20
-        )
+        run_quoted_root_command(serial, command)
     except subprocess.TimeoutExpired:
         pass
     deadline = time.monotonic() + 20
@@ -340,7 +362,7 @@ def collect_last_kmsg(serial: str, run_dir: Path, run_id: str) -> dict[str, Any]
     path = run_dir / "post_recovery_last_kmsg.bin"
     rdx.durable_write_bytes(path, result.stdout)
     return summarize_last_kmsg(
-        result.stdout, f"S22_V3443_HIGH_RDX_BEGIN run={run_id}".encode()
+        result.stdout, f"S22_V3443R_HIGH_RDX_BEGIN run={run_id}".encode()
     )
 
 
@@ -383,7 +405,7 @@ def complete_timeline(path: Path, events: list[dict[str, str]]) -> None:
 
 def live_run(root: Path, args: argparse.Namespace, control: dict[str, Any]) -> int:
     if not policy_active(root):
-        raise GateError("V3443 policy inactive")
+        raise GateError("V3443R policy inactive")
     if args.high_panic_ack != HIGH_PANIC_ACK_TOKEN:
         raise GateError("HIGH panic acknowledgement mismatch")
     if args.preamble_ack != PREAMBLE_ACK_TOKEN:
@@ -393,7 +415,7 @@ def live_run(root: Path, args: argparse.Namespace, control: dict[str, Any]) -> i
 
     serial, baseline = high.require_mid_baseline()
     setter = high.resolve(root, args.setter)
-    run_dir = root / RUN_ROOT / f"s22plus_v3443_high_panic_{utc_stamp()}"
+    run_dir = root / RUN_ROOT / f"s22plus_v3443r_high_panic_{utc_stamp()}"
     run_dir.mkdir(parents=True, exist_ok=False)
     timeline_path = run_dir / "timeline.json"
     events: list[dict[str, str]] = []
@@ -435,6 +457,7 @@ def live_run(root: Path, args: argparse.Namespace, control: dict[str, Any]) -> i
     append_event(timeline_path, events, "candidate_flash_done")
     durable_write_json(run_dir / "result.json", result)
 
+    result["root_compound_shell_control"] = verify_root_compound_shell(high_serial)
     result["panic_attempted"] = True
     durable_write_json(run_dir / "result.json", result)
     trigger_one_sysrq_panic(high_serial, run_id)
@@ -519,8 +542,8 @@ def live_run(root: Path, args: argparse.Namespace, control: dict[str, Any]) -> i
 
 def emergency_recovery(root: Path, args: argparse.Namespace, from_high: bool) -> dict[str, Any]:
     if not policy_active(root) or args.recovery_ack != RECOVERY_ACK_TOKEN:
-        raise GateError("V3443 recovery policy or acknowledgement missing")
-    run_dir = root / RUN_ROOT / f"s22plus_v3443_recovery_{utc_stamp()}"
+        raise GateError("V3443R recovery policy or acknowledgement missing")
+    run_dir = root / RUN_ROOT / f"s22plus_v3443r_recovery_{utc_stamp()}"
     run_dir.mkdir(parents=True, exist_ok=False)
     timeline_path = run_dir / "timeline.json"
     events: list[dict[str, str]] = []
@@ -536,7 +559,7 @@ def emergency_recovery(root: Path, args: argparse.Namespace, from_high: bool) ->
             root, odin, log_path, args.manual_wait_sec, args.recovery_sec
         )
     else:
-        devices = high.odin_devices(odin, log_path, "v3443-magisk-continuation")
+        devices = high.odin_devices(odin, log_path, "v3443r-magisk-continuation")
         if len(devices) != 1:
             raise GateError("Magisk continuation requires exactly one Odin endpoint")
         target = high.rescue.flash_boot_rollback(root, odin, devices[0], log_path)
@@ -606,7 +629,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(offline_check(root, args), indent=2, sort_keys=True))
             return 0
         if not policy_active(root):
-            raise GateError("V3443 policy inactive")
+            raise GateError("V3443R policy inactive")
         high.verify_setter(
             root,
             high.resolve(root, args.setter),
@@ -635,7 +658,7 @@ def main(argv: list[str] | None = None) -> int:
         json.JSONDecodeError,
         subprocess.SubprocessError,
     ) as error:
-        print(f"V3443 gate error: {error}", file=sys.stderr)
+        print(f"V3443R gate error: {error}", file=sys.stderr)
         return 2
 
 

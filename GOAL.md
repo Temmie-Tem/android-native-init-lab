@@ -34,6 +34,15 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Next is host-only V3443R correction using one quoted remote shell argument and
 > a harmless two-command root quotation control. No repeat HIGH/panic is
 > authorized without a new SHA-pinned gate and fresh explicit approval.
+> V3443R now implements that host-only correction. The complete compound command
+> is protected by `shlex.quote` and sent as one remote shell argument; a harmless
+> `id; id` gate requires two root results before marker/SysRq. Focused tests are
+> 11/11 PASS, helper SHA256 is `8d66d9e1...9e8192c`, and the new policy remains
+> `DRAFT_INACTIVE`. No device write, HIGH dispatch, panic, or USB command occurred
+> in V3443R preparation. Report:
+> `docs/reports/NATIVE_INIT_V3443R_S22PLUS_HIGH_PANIC_COMPARE_CORRECTED_GATE_SOURCE_READY_2026-07-11.md`.
+> Next: full regression/offline validation and source-ready commit, then fresh
+> explicit approval before any connected V3443R dry-run or live action.
 
 > **S22+ CURRENT FRONTIER (2026-07-11 KST) - V3441 DEBUG MID RESCUE LIVE PASS;
 > POLICY RETIRED; HIGH REMAINS A SEPARATE GATE.** Before forcing Samsung
