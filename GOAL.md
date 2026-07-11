@@ -14,12 +14,13 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > boot-only rollback APs, and the complete FYG8 stock-firmware evidence. PASS
 > requires original Odin disconnect, attended physical Download entry, exact
 > Magisk boot rollback, then Android/root/MID and all baseline hashes restored.
-> Focused tests are 12/12 PASS. Policy is `DRAFT_INACTIVE`; no device contact,
-> reboot, or flash occurred. The MID rehearsal does not itself prove HIGH->MID,
+> Focused tests are 12/12 PASS. The operator gave fresh live approval after
+> commit `bae7f262`; the exact one-shot policy is now ACTIVE, with no device
+> action yet at the activation checkpoint. The MID rehearsal does not itself prove HIGH->MID,
 > so HIGH still needs a separate later gate. Report:
 > `docs/reports/NATIVE_INIT_V3441_S22PLUS_DEBUG_MID_RESCUE_GATE_SOURCE_READY_2026-07-11.md`.
-> Next: commit and adversarially review the exact V3441 source; only fresh
-> operator approval may activate and run the attended rescue rehearsal.
+> Next: run the checked helper's connected dry-run, then the attended rescue
+> rehearsal. Candidate flash start consumes the exception regardless of result.
 >
 > **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3440 RDX USB LIVE CONTROLLED
 > NEGATIVE: `04e8:685d` PROVEN, EXACT `NegativeAck`, PROBE/DATA TRANSFER NOT
