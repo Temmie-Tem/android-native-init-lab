@@ -23,8 +23,17 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > This proves the attended rescue route from MID but not HIGH->MID, so HIGH
 > still requires a separate exact design and fresh gate. Report:
 > `docs/reports/NATIVE_INIT_V3441_S22PLUS_DEBUG_MID_RESCUE_LIVE_PASS_2026-07-11.md`.
-> Next: host-only design of one bounded HIGH-setting discriminator and its
-> rollback decision tree; no HIGH action is authorized by V3441.
+> V3442 now implements that host-only discriminator. A raw static setter makes
+> `debug0x4948`/`debug0x494d` reboot requests without Android command parsing;
+> the checked helper distinguishes exact HIGH, mixed acceptance, MID/LOW clamp,
+> syscall return, and Android non-return. Any HIGH evidence is immediately
+> restored to MID. Non-return uses the exact V3441 rescue boot, a second
+> physical Download entry, and exact Magisk rollback. Emergency continuation
+> modes cover either Download stage. Focused tests are 8/8 PASS; policy is
+> `DRAFT_INACTIVE`, device contact is zero. Report:
+> `docs/reports/NATIVE_INIT_V3442_S22PLUS_HIGH_SET_ONLY_GATE_SOURCE_READY_2026-07-11.md`.
+> Next: commit and review exact V3442 source; only fresh explicit approval may
+> activate HIGH dispatch.
 >
 > **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3440 RDX USB LIVE CONTROLLED
 > NEGATIVE: `04e8:685d` PROVEN, EXACT `NegativeAck`, PROBE/DATA TRANSFER NOT
