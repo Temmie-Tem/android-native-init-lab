@@ -4,7 +4,31 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3439 LIVE NO_PROOF: BACKEND/BINDING AND SYSRQ/RDX PROVEN, ZERO RAMOOPS RECORDS, STOCK DTBO RESTORED, BOTH POLICIES RETIRED; MAINLINE RAMOOPS TRACK CLOSED; FINAL TARGET IS NO ANDROID USERSPACE.**
+> **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3440 RDX USB VIABILITY GATE SOURCE READY, POLICY INACTIVE; ZERO-FLASH TWO-COMMAND DISCOVERY ONLY; FINAL TARGET IS NO ANDROID USERSPACE.**
+> V3440 audits and pins `bkerler/sboot_dump` commit
+> `8c9f6eb79ffbe702152ca7810f6382bf5e1bfd58` and `linux-msm/qdl` commit
+> `a00d81bc639908875862582f0d3cb0775d92e269`, then implements the cheap RDX
+> discriminator selected after V3439. The helper is zero-flash and fail-closed:
+> inactive policy blocks before Android or USB protocol contact; a future live
+> run requires the known Magisk boot and stock DTBO hashes, one separately
+> acknowledged SysRq panic, and a second acknowledgement for USB discovery.
+> Exact Samsung `04e8:685d` permits only `PrEaMbLe` plus `PrObE`, requires an
+> exact positive ACK, caps metadata at 32 KiB, and never requests `DaTaXfEr` or
+> an address/range. Exact Qualcomm `05c6:900e` is classified only; qdl is not
+> invoked. Any other identity is no-proof. PyUSB `1.2.1` wheel SHA256
+> `2b4c7cb...449ea36` and libusb are verified before panic arm. The operator
+> must keep RDX displayed through observation and physically use RDX EXIT only
+> after the helper says capture is complete. Full/bounded RAM transfer remains
+> a separate future gate. Focused tests are 11/11 PASS; current read-only USB is
+> normal Android `04e8:6860`; policy is `DRAFT_INACTIVE`, so no panic, reboot,
+> flash, or protocol command has run. Helper SHA256 is
+> `cab62dcc89cb7f39d16e99b3d19106f1e5a418436d05a6d5fa7076aab136e4f8`.
+> Report:
+> `docs/reports/NATIVE_INIT_V3440_S22PLUS_RDX_USB_VIABILITY_GATE_SOURCE_READY_2026-07-11.md`.
+> Next: review and commit this exact source; only a fresh explicit operator
+> approval may promote the draft exception and start one attended live run.
+>
+> **PRIOR FRONTIER — V3439 LIVE NO_PROOF: BACKEND/BINDING AND SYSRQ/RDX PROVEN, ZERO RAMOOPS RECORDS, STOCK DTBO RESTORED, BOTH POLICIES RETIRED; MAINLINE RAMOOPS TRACK CLOSED.**
 > The S22+ end state remains a lightweight native/Debian system that does not
 > boot or retain the Android userspace. The V3434 stock-global-PID1 plus
 > mount-namespace service-supervisor architecture is an interim bring-up and
