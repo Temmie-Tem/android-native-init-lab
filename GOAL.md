@@ -4,10 +4,11 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ ACTIVE FRONTIER (2026-07-11 KST) - FYG8 KERNEL REBUILD R0 HOST AUDIT
-> PASS; 32 GIB BUILD-HOST REPRODUCTION NEXT; NO LIVE AUTHORIZATION.** The kernel-rebuild branch is
-> now ordered as stock-equivalent reproduction -> static KMI/module equivalence
-> -> one boot-only stock-equivalent proof -> one minimal retained-witness change
+> **S22+ ACTIVE FRONTIER (2026-07-11 KST) - FYG8 KERNEL REBUILD R0 AND MAGISK
+> CARRIER HOST AUDITS PASS; 32 GIB BUILD-HOST REPRODUCTION NEXT; NO LIVE
+> AUTHORIZATION.** The kernel-rebuild branch is now ordered as stock-equivalent
+> reproduction -> static KMI/module equivalence -> one boot-only
+> Magisk-equivalent rebuilt-kernel proof -> one minimal retained-witness change
 > -> security-config changes only when a specific blocking dependency is proven.
 > Do not begin with `CONFIG_RKP=n`, do not promote the unverified
 > `RKP+KDP+UH+DEFEX+PROCA+FIVE=n` forum recipe, and do not claim that rebuilding
@@ -42,6 +43,18 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > flashed before R1 and R2 pass and a fresh SHA-pinned boot-only R3 exception is
 > added to `AGENTS.md` with explicit operator approval. Roadmap:
 > `docs/plans/S22PLUS_FYG8_KERNEL_REBUILD_ROADMAP_2026-07-11.md`.
+>
+> The pinned known-booting Magisk v30.7 boot is now byte-audited. Its kernel is
+> stock plus exactly DEFEX and PROCA patches: 9 changed bytes in two ranges.
+> RKP and legacy-SAR hexpatches were no-ops; embedded `CONFIG_RKP=y` and the rest
+> of IKCONFIG remain exact stock. All 21 ramdisk entries are classified, stock
+> init is losslessly retained in `.backup/init.xz`, and all four runtime payloads
+> match the pinned APK. Signed vbmeta is copied byte-identically from stock but
+> has a stale payload digest, as expected for the known unlocked baseline.
+> Therefore R3 is explicitly a `magisk-equivalent-kernel` proof derived from the
+> unpatched R2-GO rebuild, not an unchanged stock-kernel claim. A strict
+> unpatched live proof is separate and cannot require Magisk root. Report:
+> `docs/reports/S22PLUS_FYG8_MAGISK_BOOT_SEMANTIC_AUDIT_2026-07-11.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-11 KST) - V3443 HIGH PANIC VERSUS PINNED
 > MID CONTROL GATE SOURCE READY; POLICY INACTIVE.** V3442 proved HIGH is accepted

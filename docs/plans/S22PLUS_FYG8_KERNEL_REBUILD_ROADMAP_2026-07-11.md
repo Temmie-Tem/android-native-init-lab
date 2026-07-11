@@ -12,7 +12,8 @@ order is:
 
 1. reproduce an unchanged stock-equivalent kernel build;
 2. prove static compatibility with the running FYG8 kernel and vendor modules;
-3. prove one boot-only stock-equivalent candidate with mandatory rollback;
+3. prove one boot-only Magisk-equivalent carrier candidate derived from the
+   statically stock-equivalent rebuild, with mandatory rollback;
 4. add one minimal observation change;
 5. change Samsung security configuration only if a specific dependency is
    proven to block that observation change.
@@ -22,6 +23,23 @@ Do not begin with `CONFIG_RKP=n`, and do not treat
 is also not the default witness target: V3438 proved backend registration and
 binding, while V3439 retained zero current-run ramoops records across the
 attended SysRq/RDX/reset path.
+
+The known-booting Magisk boot has now been audited byte-for-byte. Its kernel is
+the stock kernel plus exactly the Magisk v30.7 DEFEX and PROCA patches (9 changed
+bytes in two ranges); RKP and legacy-SAR patch patterns did not match, while
+embedded `CONFIG_RKP=y` remains unchanged. Its signed stock vbmeta is copied
+unchanged and therefore has a stale payload digest. Report:
+`docs/reports/S22PLUS_FYG8_MAGISK_BOOT_SEMANTIC_AUDIT_2026-07-11.md`.
+
+This creates three distinct labels:
+
+- `byte-identical-stock-kernel`: the shipped stock kernel hash;
+- `static-stock-equivalent-kernel`: the unpatched R2-GO rebuild;
+- `magisk-equivalent-kernel`: the R2-GO rebuild plus exactly the v30.7 DEFEX and
+  PROCA patches, preserving the known Magisk baseline posture including RKP-on.
+
+The first live rebuild proof uses the third label. A strict unpatched live proof
+is a separate optional experiment and cannot require Magisk root as PASS.
 
 ## Pinned Inputs
 
@@ -179,12 +197,19 @@ Status: **PENDING R1**
 
 Exit gate: static compatibility report says GO for one unchanged boot candidate.
 
-### R3 - Stock-equivalent boot-only proof
+### R3 - Magisk-equivalent rebuilt-kernel boot-only proof
 
 Status: **PENDING R2 AND FRESH POLICY**
 
+- Start from the unpatched R2-GO `static-stock-equivalent-kernel`.
+- Apply pinned Magisk v30.7 semantics to produce a
+  `magisk-equivalent-kernel`: exactly DEFEX plus PROCA patches, while RKP and
+  legacy-SAR remain no-ops. Any extra patch or multiple pattern match is FAIL.
 - Build from the known-booting Magisk boot base while replacing only the kernel
-  payload required by the selected boot format.
+  payload required by the selected boot format. Preserve and re-audit the exact
+  known Magisk ramdisk semantics.
+- Explicitly record that copied signed vbmeta has a stale boot-payload digest
+  and that this path relies on the already-unlocked bootloader behavior.
 - AP must contain only `boot.img.lz4` and satisfy all existing boot-only safety
   and rollback pins.
 - Require a fresh SHA-pinned `AGENTS.md` one-shot exception and explicit operator
@@ -193,7 +218,10 @@ Status: **PENDING R2 AND FRESH POLICY**
   modules, USB, display, storage, and rollback readiness.
 - Restore the pinned known-booting Magisk boot after proof, even on PASS.
 
-Exit gate: one unchanged rebuilt kernel boots and rolls back cleanly.
+Exit gate: one `magisk-equivalent-kernel` derived from the statically equivalent
+rebuild boots with root and hardware health, then rolls back cleanly. This proves
+rebuild compatibility under the known Magisk posture, not a strict unpatched
+stock-kernel live boot.
 
 ### R4 - Minimal witness kernel
 
