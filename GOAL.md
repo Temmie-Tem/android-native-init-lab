@@ -43,6 +43,11 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/NATIVE_INIT_V3443R_S22PLUS_HIGH_PANIC_COMPARE_CORRECTED_GATE_SOURCE_READY_2026-07-11.md`.
 > Next: full regression/offline validation and source-ready commit, then fresh
 > explicit approval before any connected V3443R dry-run or live action.
+> The operator supplied fresh V3443R live approval after source-ready commit
+> `f2291bde`. The exact helper SHA and three acknowledgements are active; policy
+> activation performed no device action. Next is connected read-only MID dry-run
+> plus harmless quoted `id; id` root control, then the single attended live run
+> only if both pass.
 
 > **S22+ CURRENT FRONTIER (2026-07-11 KST) - V3441 DEBUG MID RESCUE LIVE PASS;
 > POLICY RETIRED; HIGH REMAINS A SEPARATE GATE.** Before forcing Samsung
