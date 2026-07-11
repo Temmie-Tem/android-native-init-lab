@@ -4,6 +4,23 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-11 KST) - V3441 DEBUG MID RESCUE GATE
+> SOURCE READY, POLICY INACTIVE; HIGH REMAINS BLOCKED.** Before forcing Samsung
+> sec_debug HIGH, V3441 constructs an exact boot-only rescue AP whose raw PID1
+> first and only syscall is `reboot(..., "debug0x494d")`, then parks if the
+> syscall returns. The AP contains only `boot.img.lz4`, preserves the exact
+> known Magisk kernel, and rebuilds reproducibly. The checked live helper
+> requires the exact Android/Magisk/MID boot, stock DTBO/recovery, both
+> boot-only rollback APs, and the complete FYG8 stock-firmware evidence. PASS
+> requires original Odin disconnect, attended physical Download entry, exact
+> Magisk boot rollback, then Android/root/MID and all baseline hashes restored.
+> Focused tests are 12/12 PASS. Policy is `DRAFT_INACTIVE`; no device contact,
+> reboot, or flash occurred. The MID rehearsal does not itself prove HIGH->MID,
+> so HIGH still needs a separate later gate. Report:
+> `docs/reports/NATIVE_INIT_V3441_S22PLUS_DEBUG_MID_RESCUE_GATE_SOURCE_READY_2026-07-11.md`.
+> Next: commit and adversarially review the exact V3441 source; only fresh
+> operator approval may activate and run the attended rescue rehearsal.
+>
 > **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3440 RDX USB LIVE CONTROLLED
 > NEGATIVE: `04e8:685d` PROVEN, EXACT `NegativeAck`, PROBE/DATA TRANSFER NOT
 > SENT, ANDROID BASELINE HEALTHY; RDX DUMP TRACK RETIRED ABSENT A MATERIALLY
