@@ -29,11 +29,12 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > syscall return, and Android non-return. Any HIGH evidence is immediately
 > restored to MID. Non-return uses the exact V3441 rescue boot, a second
 > physical Download entry, and exact Magisk rollback. Emergency continuation
-> modes cover either Download stage. Focused tests are 8/8 PASS; policy is
-> `DRAFT_INACTIVE`, device contact is zero. Report:
+> modes cover either Download stage. Focused tests are 8/8 PASS. After source
+> commit `0a5d390d`, the operator's approval was promoted to one exact ACTIVE
+> policy; activation itself made no device contact. Report:
 > `docs/reports/NATIVE_INIT_V3442_S22PLUS_HIGH_SET_ONLY_GATE_SOURCE_READY_2026-07-11.md`.
-> Next: commit and review exact V3442 source; only fresh explicit approval may
-> activate HIGH dispatch.
+> Next: connected MID dry-run, then one HIGH dispatch. HIGH dispatch consumes
+> the policy regardless of result.
 >
 > **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3440 RDX USB LIVE CONTROLLED
 > NEGATIVE: `04e8:685d` PROVEN, EXACT `NegativeAck`, PROBE/DATA TRANSFER NOT
