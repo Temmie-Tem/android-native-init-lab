@@ -4,6 +4,17 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ LIVE GATE ARMED (2026-07-11 KST) — V3440 ZERO-FLASH RDX USB
+> VIABILITY, EXACT SOURCE `cab62d…e4f8`, ONE SYSRQ PANIC + TWO DISCOVERY
+> COMMANDS ONLY.** The operator explicitly approved the live run after commit
+> `e9356a17`. `AGENTS.md` now carries
+> `S22PLUS_V3440_RDX_USB_POLICY_STATE=ACTIVE` with both independent
+> acknowledgements. Revalidated preflight is exact FYG8 Android, Magisk root,
+> known boot and stock DTBO hashes, PyUSB/libusb ready, and baseline USB
+> `04e8:6860`. No panic has yet been attempted under this gate. Next action is
+> the checked helper live invocation; keep the RDX screen displayed until the
+> host reports observation complete, then use physical RDX EXIT.
+
 > **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3440 RDX USB VIABILITY GATE SOURCE READY, POLICY INACTIVE; ZERO-FLASH TWO-COMMAND DISCOVERY ONLY; FINAL TARGET IS NO ANDROID USERSPACE.**
 > V3440 audits and pins `bkerler/sboot_dump` commit
 > `8c9f6eb79ffbe702152ca7810f6382bf5e1bfd58` and `linux-msm/qdl` commit
