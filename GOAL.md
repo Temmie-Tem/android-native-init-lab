@@ -4,6 +4,29 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-13 KST) - R4W1 RETAINED PID1 WITNESS
+> CLEAN G/H FULL-LTO REPRODUCIBILITY PASS; HOST-ONLY; NO LIVE CANDIDATE OR
+> FLASH AUTHORIZATION.** Two independently prepared source-only trees passed
+> schema v2 preflight and completed Full-LTO builds in `37:06.59` and
+> `35:54.47`, both with approximately 23.12 GiB peak RSS and zero process
+> swaps. Both independent static audits returned blocker count zero. The final
+> cross-tree checker returned `PASS_R4W1_CLEAN_REPRODUCIBILITY`: raw `Image`,
+> config, `vmlinux.symvers`, `abi.xml`, `vmlinux`, and `System.map` are all
+> byte-identical. Shared raw Image SHA256 is
+> `9552653de86dbdc2f1abd919b4d7b0d3f365fc878a56ed5ae09c82d0d81d844c`;
+> both top-level build-ids are
+> `d05ba7ae3b233e5aceceb2d61e7f8bf7d1941600`. The Image is exactly
+> 41,490,944 bytes, has one retained witness marker, preserves 1,536 bytes of
+> fixed-layout slack, and contains no host/work-tree path. KMI CRC and
+> `abi.xml` equal the pinned baseline, and all timestamp/KMI/VDSO/global-debug
+> path controls restored exact source bytes. Result JSON SHA256 is
+> `71ab56b4c56010225145b82899535fbb9680c455e78aec19cebb39f39ad2cbd8`.
+> This closes same-host R4W1 build reproducibility only. Host-generated boot,
+> DTBO, vendor_boot, vendor_dlkm, and super images are not promoted. Next is a
+> separate R4W1-A stock-Android positive-control design and fresh review; no
+> packaging, device contact, or flash is authorized by this result. Record:
+> `docs/reports/S22PLUS_FYG8_R4W1_HOST_BUILD_AND_REPRODUCIBILITY_2026-07-13.md`.
+>
 > **S22+ ACTIVE FRONTIER (2026-07-12 KST) - CLEAN R1 V3 FULL-LTO, R2 V2,
 > R3 CHECKER, SYNTHETIC R3C0 ARTIFACT, AND R3C0 LIVE CONTROL PASS+ROLLBACK;
 > R3C0 RETIRED; R3C1 UNPATCHED REBUILT KERNEL LIVE PASS+ROLLBACK AND RETIRED;

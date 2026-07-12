@@ -4,7 +4,7 @@ Date: 2026-07-13 KST
 
 Target: `SM-S906N/g0q/S906NKSS7FYG8`
 
-Verdict: `PENDING_FINAL_CLEAN_G_H_REPRODUCIBILITY`
+Verdict: `PASS_R4W1_CLEAN_REPRODUCIBILITY`
 
 This is a host-only R4W1 build-influence and reproducibility report. No device
 contact, transfer, reboot, flash, or partition write occurred. Samsung's build
@@ -158,7 +158,7 @@ Kbuild variable probe proved both actual expanded flag sets contain the exact
 map, and the source Makefile is restored exactly.
 
 E elapsed `37:31.57`; F elapsed `37:40.73`. Peak RSS was approximately
-24.24 GiB. F build result SHA256 is
+23.12 GiB. F build result SHA256 is
 `bd97cdc2782db20c46f994f2401144e5643415c7981e3b78e1006f9df3c83076`.
 
 ## F Post-Build Taint
@@ -196,47 +196,53 @@ boot-only policy.
 
 ## Final G/H Gate
 
-No G/H Full-LTO build has started. Final evidence requires two new source-only
-trees copied independently without `out/`, both passing schema v2 preflight.
+G and H were created independently from the source baseline without `out/`.
+The three Samsung archive symlinks that a prior baseline build had rewritten
+were restored directly from the pinned base archive in each final tree. Both
+schema v2 preflights passed the complete 166,037-member source reconstruction,
+stock baseline, Clang identity, four repository pins, four runtime controls,
+host-tool overrides, and the 17-tool manifest before either build started.
 
-The G source-only tree has been prepared without `out/`. Its first preflight
-correctly rejected three Samsung archive symlinks that a prior baseline build
-had rewritten to the old local tree. Those three links were restored directly
-from the pinned base archive. The complete 166,037-member check then passed
-with no missing or mismatched members. Schema v2 G preflight result SHA256 is
-`4c957b675626804a6a9835a282db558d0afd3f3f308c8ea9f620e3fe2c4302ed`;
-`build_allowed=true`, and `source-r4w1-g/out` remains absent.
+Both final Full-LTO builds completed without process swaps:
 
-All preflight gates passed: source overlay, stock baseline, Clang identity,
-four pinned repositories, timestamp control, KMI path control, global kernel
-debug-path control, both VDSO controls, host-tool overrides, and the 17-tool
-manifest. The host has 32 GiB RAM and sufficient disk. Its 4 GiB swap is below
-the 8 GiB recommendation but is not a build blocker; E/F completed with zero
-process swaps. This affects OOM margin and elapsed time, not expected bytes.
+| Run | Elapsed | Peak RSS | Build result SHA256 | Static result SHA256 |
+| --- | ---: | ---: | --- | --- |
+| G | `37:06.59` | 24,242,528 KiB | `97e694953125439cd69a6d16b49b6493fa2d373ef1b36f6c3a6d9564c249f1a7` | `2d2653f00044da98470e93dc993d6c11be078d1df713d8220e42e85c3a692ce5` |
+| H | `35:54.47` | 24,243,240 KiB | `6963f8894de88b1468d5c4f01961152276ad9c7aced49d5b5490f3bc37267bc0` | `5e4b93d427758ba4e178b3d77ee3f3b858caecb0a26f0062d3986b9b526394cb` |
 
-The final gate requires:
+Each build independently passed exact source/patch identity, Full LTO, exact
+FYG8 banner, all required output and module gates, provider closure, witness
+geometry, and exact restoration of timestamp, KMI-path, VDSO-path, and global
+kernel-debug-path controls. Each static audit returned blocker count zero and
+`PASS_R4W1_STATIC_COMPATIBILITY`.
 
-- exact source overlay and patch identities;
-- exact timestamp, KMI path, VDSO path, and global debug-path controls with
-  restoration proof;
-- identical 17-tool fingerprints;
-- exact FYG8 banner and 41,490,944-byte Image geometry;
-- exact config delta and Full LTO;
-- 25,864/25,864 stock module-consumer CRC rows over 4,619 symbols;
-- complete exported symbol/CRC identity;
-- exact baseline `abi.xml`;
-- complete 491-module corpus contract;
-- fixed ramdisk start, one marker, `CONFIG_SEC_LOG_BUF=m`, and a regular
-  `sec_log_buf.ko`;
-- byte-identical G/H Image, normalized config, `vmlinux.symvers`, and
-  `abi.xml`.
+The final cross-tree checker returned
+`PASS_R4W1_CLEAN_REPRODUCIBILITY`, blocker count zero, and result SHA256
+`71ab56b4c56010225145b82899535fbb9680c455e78aec19cebb39f39ad2cbd8`.
+Its artifact bindings point to distinct G and H paths for the first four rows
+below. Together with the independent G/H build-output records, they prove:
 
-Pending:
+| Artifact | Shared SHA256 |
+| --- | --- |
+| raw `Image` | `9552653de86dbdc2f1abd919b4d7b0d3f365fc878a56ed5ae09c82d0d81d844c` |
+| `.config` | `9c54c862ac5b6a7f1c29a89041eb027458bc0c1189243bce99cd9ed0eba39efc` |
+| `vmlinux.symvers` | `fd75413401617a427ddf6c264d0ae4f5452b46cde02b4575b9af09f19601ca19` |
+| `abi.xml` | `3660c592e1884ab323816c09a3abd197744c8b2f78aed890b02c3e69dbc1c55c` |
+| `vmlinux` | `5a76e70205fb453c3381e66dcd0def4b795e0451edb774ccdbc5164f0668aec0` |
+| `System.map` | `c91df6227ddc956936686954f0df27a512511e60543718388cb2f65cb4772779` |
 
-- G build/static result: `PENDING`;
-- H build/static result: `PENDING`;
-- G/H cross-tree result: `PENDING`;
-- final same-session Opus review: `PENDING`.
+Both `vmlinux` files have build-id
+`d05ba7ae3b233e5aceceb2d61e7f8bf7d1941600`. Neither raw Image contains
+the host build root or its G/H work-tree label. Neither `vmlinux` contains its
+G/H source or object-tree path; both contain the same 53 `/kernel-out` stable
+aliases and the same fixed toolchain include path. This closes the E/F
+top-level build-id discrepancy without claiming cross-host reproducibility.
+
+The raw Image is exactly 41,490,944 bytes, contains the witness marker once,
+and preserves 1,536 bytes before the fixed ramdisk start. The exported
+symbol/CRC map and `abi.xml` are byte-identical to the pinned baseline. The
+host-generated packaging side outputs remain non-promoted and outside this raw
+Image reproducibility verdict.
 
 ## Source And Tests
 
@@ -249,15 +255,28 @@ Relevant commits:
 - `5fe6add3`, `7b8b4e41`: VDSO path controls;
 - `dcbcf091`: global kernel DWARF path control;
 - `4121b058`: ABI, host packaging, and effective-tool provenance.
+- `95eec5dc`: build-influence audit;
+- `93033fcb`: final G preflight record.
+
+The final same-session Claude Opus read-only review returned `GO` for the
+same-host raw-Image/KMI/ABI/layout verdict and documentation commit. It
+independently checked both build results, both static audits, the cross-tree
+result, artifact bindings, path-control restoration, and non-promotion safety
+flags. Two low-severity wording findings were corrected here: the four
+artifacts directly bound by the repro checker are distinguished from
+`vmlinux`/`System.map` build-output evidence, and peak RSS is expressed as
+approximately 23.12 GiB rather than treating the raw KiB figure as GiB. The
+review explicitly did not extend GO to runtime witness behavior, packaging,
+device contact, or flash.
 
 Current focused tests: 48 PASS. `py_compile` and `git diff --check` pass.
 
 ## Boundary
 
 No generated kernel, boot image, AP, raw build JSON, or static evidence JSON is
-committed. They remain private outputs. Even a final host PASS would prove only
-that this kernel change is same-host reproducible, KMI/ABI-compatible,
-layout-compatible, and ready for a separately designed R4W1-A stock-Android
-positive-control live gate. Packaging a live boot candidate, device contact,
-and flash remain unauthorized until a fresh SHA-pinned one-shot `AGENTS.md`
-exception and attended approval exist.
+committed. They remain private outputs. This host PASS proves only that this
+kernel change is same-host reproducible, KMI/ABI-compatible, layout-compatible,
+and ready for a separately designed R4W1-A stock-Android positive-control live
+gate. Packaging a live boot candidate, device contact, and flash remain
+unauthorized until a fresh SHA-pinned one-shot `AGENTS.md` exception and
+attended approval exist.
