@@ -4,9 +4,18 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ ACTIVE FRONTIER (2026-07-11 KST) - NATIVE-PID1 WITNESS AND FYG8
+> **S22+ ACTIVE FRONTIER (2026-07-12 KST) - R1/R2 HOST GATES CLOSED; R3
+> HOST-ONLY ARTIFACT/POLICY DESIGN NEXT; LANE W REMAINS DESIGN-ONLY; NO LIVE
+> AUTHORIZATION.** The Debian 13 FX-8300 build host completed the unchanged
+> Full-LTO R1 and static-equivalence R2 gates. The next bounded work is a clean
+> final-wrapper reproduction and an R3 design packet; no candidate kernel,
+> ramdisk, boot image, AP, device action, or flash is authorized. The ranked
+> operator-away backlog and stop conditions are recorded in
+> `docs/plans/S22PLUS_HOST_ONLY_BACKLOG_UNTIL_2200_KST_2026-07-12.md`.
+>
+> **S22+ PREVIOUS FRONTIER (2026-07-11 KST) - NATIVE-PID1 WITNESS AND FYG8
 > KERNEL TRUST ARE PARALLEL LANES; R1/R2 HOST GATES READY, FULL-LTO BUILD-HOST
-> RUN NEXT; NO LIVE AUTHORIZATION.** Repository-wide evidence review
+> RUN NEXT; SUPERSEDED BY THE 2026-07-12 CLOSE ABOVE.** Repository-wide evidence review
 > plus a two-round adversarial Claude Opus review corrected the previous serial
 > order. A subsequent exact FYG8 ABL/Linux static RE invalidated the proposed
 > M4T3 Download beacon: ABL does map stored PON reason `0x15` to Odin, but the
