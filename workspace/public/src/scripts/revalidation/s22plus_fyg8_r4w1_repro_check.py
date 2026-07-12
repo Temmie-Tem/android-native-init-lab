@@ -64,6 +64,8 @@ def check_build(path: Path) -> dict[str, Any]:
     value = load_json(path)
     source_delta = value.get("source_delta", {})
     kmi_path = value.get("kmi_path_control_runtime", {})
+    kernel_debug = value.get("kernel_debug_control_runtime", {})
+    vdso_debug = value.get("vdso_debug_control_runtime", {})
     outputs = value.get("outputs", [])
     artifact_rows: dict[str, dict[str, Any]] = {}
     duplicate_artifacts: list[str] = []
@@ -111,6 +113,20 @@ def check_build(path: Path) -> dict[str, Any]:
             and kmi_path.get("patched_content_unchanged") is True
             and kmi_path.get("restored_sha256") == kmi_path.get("original_sha256")
         ),
+        "kernel_debug_control_verified": (
+            kernel_debug.get("applied") is True
+            and kernel_debug.get("restored") is True
+            and kernel_debug.get("patched_content_unchanged") is True
+            and kernel_debug.get("restored_sha256")
+            == kernel_debug.get("original_sha256")
+            and kernel_debug.get("object_map") == "/kernel-out"
+        ),
+        "vdso_debug_control_verified": (
+            vdso_debug.get("applied") is True
+            and vdso_debug.get("restored") is True
+            and vdso_debug.get("patched_content_unchanged") is True
+            and vdso_debug.get("verified") is True
+        ),
         "artifacts": artifact_rows,
         "duplicate_artifacts": sorted(duplicate_artifacts),
         "artifact_manifest_verified": artifacts_verified,
@@ -125,6 +141,8 @@ def check_build(path: Path) -> dict[str, Any]:
         and gate["source_delta_verified"] is True
         and gate["witness_output_verified"] is True
         and gate["kmi_path_control_verified"] is True
+        and gate["kernel_debug_control_verified"] is True
+        and gate["vdso_debug_control_verified"] is True
         and gate["artifact_manifest_verified"] is True
         and isinstance(gate["work_tree"], str)
         and bool(gate["work_tree"])

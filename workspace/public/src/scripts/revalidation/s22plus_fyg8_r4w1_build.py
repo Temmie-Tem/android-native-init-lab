@@ -35,6 +35,19 @@ KMI_PATH_REPRODUCIBLE = (
     "              --set-str UNUSED_KSYMS_WHITELIST "
     "../../out/msm-waipio-waipio-gki/gki_kernel/common/abi_symbollist.raw\n"
 )
+KERNEL_MAKEFILE_PATH = Path("kernel_platform/common/Makefile")
+KERNEL_MAKEFILE_SHA256 = (
+    "9dcb6faf9709e8bc5a0d52c08611e36b14788e04e0488c88178015142e9c0c0f"
+)
+KERNEL_DEBUG_PATH_ORIGINAL = (
+    "# change __FILE__ to the relative path from the srctree\n"
+    "KBUILD_CPPFLAGS += $(call cc-option,-fmacro-prefix-map=$(srctree)/=)\n"
+)
+KERNEL_DEBUG_PATH_REPRODUCIBLE = (
+    KERNEL_DEBUG_PATH_ORIGINAL
+    + "KBUILD_AFLAGS += -fdebug-prefix-map=$(abs_objtree)=/kernel-out\n"
+    + "KBUILD_CFLAGS += -fdebug-prefix-map=$(abs_objtree)=/kernel-out\n"
+)
 VDSO_DEBUG_CONTROLS = (
     {
         "path": Path("kernel_platform/common/arch/arm64/kernel/vdso/Makefile"),
@@ -185,6 +198,77 @@ def inspect_vdso_debug_control(work_tree: Path) -> dict[str, Any]:
             and all(row.get("verified") for row in rows)
         ),
     }
+
+
+def inspect_kernel_debug_control(work_tree: Path) -> dict[str, Any]:
+    path = work_tree / KERNEL_MAKEFILE_PATH
+    if path.is_symlink() or not path.is_file():
+        return {"path": str(path), "verified": False, "reason": "missing-or-indirect"}
+    original = path.read_bytes()
+    try:
+        text = original.decode("utf-8")
+    except UnicodeDecodeError:
+        return {"path": str(path), "verified": False, "reason": "not-utf8"}
+    metadata = path.stat()
+    patched = text.replace(
+        KERNEL_DEBUG_PATH_ORIGINAL, KERNEL_DEBUG_PATH_REPRODUCIBLE, 1
+    ).encode("utf-8")
+    result = {
+        "path": str(path),
+        "original_sha256": base.sha256_file(path),
+        "expected_original_sha256": KERNEL_MAKEFILE_SHA256,
+        "patched_sha256": __import__("hashlib").sha256(patched).hexdigest(),
+        "original_mode": stat.S_IMODE(metadata.st_mode),
+        "original_atime_ns": metadata.st_atime_ns,
+        "original_mtime_ns": metadata.st_mtime_ns,
+        "match_count": text.count(KERNEL_DEBUG_PATH_ORIGINAL),
+        "object_map": "/kernel-out",
+        "parent_writable": os.access(path.parent, os.W_OK),
+    }
+    result["verified"] = (
+        result["original_sha256"] == KERNEL_MAKEFILE_SHA256
+        and result["match_count"] == 1
+        and patched != original
+        and result["parent_writable"]
+    )
+    return result
+
+
+@contextmanager
+def apply_kernel_debug_control(
+    work_tree: Path, control: dict[str, Any]
+) -> Iterator[dict[str, Any]]:
+    if not control.get("verified"):
+        raise BuildError("kernel debug-path reproducibility control is not verified")
+    path = work_tree / KERNEL_MAKEFILE_PATH
+    original = path.read_bytes()
+    if base.sha256_file(path) != control["original_sha256"]:
+        raise BuildError("kernel Makefile changed after debug-path preflight")
+    patched = original.decode("utf-8").replace(
+        KERNEL_DEBUG_PATH_ORIGINAL, KERNEL_DEBUG_PATH_REPRODUCIBLE, 1
+    ).encode("utf-8")
+    base.atomic_replace_bytes(path, patched, mode=control["original_mode"])
+    runtime = dict(control)
+    runtime.update({"applied": True, "restored": False})
+    try:
+        yield runtime
+    finally:
+        current_sha = base.sha256_file(path) if path.is_file() else None
+        base.atomic_replace_bytes(path, original, mode=control["original_mode"])
+        os.utime(
+            path,
+            ns=(control["original_atime_ns"], control["original_mtime_ns"]),
+            follow_symlinks=False,
+        )
+        runtime["patched_content_unchanged"] = current_sha == control["patched_sha256"]
+        runtime["restored_sha256"] = base.sha256_file(path)
+        runtime["restored_mode"] = stat.S_IMODE(path.stat().st_mode)
+        runtime["restored"] = (
+            runtime["restored_sha256"] == control["original_sha256"]
+            and runtime["restored_mode"] == control["original_mode"]
+        )
+        if not runtime["patched_content_unchanged"] or not runtime["restored"]:
+            raise BuildError("kernel debug-path control was not cleanly restored")
 
 
 @contextmanager
@@ -367,6 +451,7 @@ def main() -> int:
     )
     timestamp = base.inspect_timestamp_control(work_tree)
     kmi_path_control = inspect_kmi_path_control(work_tree)
+    kernel_debug_control = inspect_kernel_debug_control(work_tree)
     vdso_debug_control = inspect_vdso_debug_control(work_tree)
     stock = base.inspect_stock_baseline(base.resolve(root, args.stock_baseline))
     r4_contract = patch_check.run_check(work_tree, source_patch)
@@ -384,9 +469,11 @@ def main() -> int:
     preflight["build_allowed"] = (
         preflight["build_allowed"]
         and kmi_path_control["verified"]
+        and kernel_debug_control["verified"]
         and vdso_debug_control["verified"]
     )
     preflight["provenance"]["kmi_path_control"] = kmi_path_control
+    preflight["provenance"]["kernel_debug_control"] = kernel_debug_control
     preflight["provenance"]["vdso_debug_control"] = vdso_debug_control
     result: dict[str, Any] = {
         **preflight,
@@ -420,24 +507,29 @@ def main() -> int:
     command = ["./kernel_platform/build/android/prepare_vendor.sh", "sec", "gki"]
     time_file = result_dir / "time.txt"
     with apply_kmi_path_control(work_tree, kmi_path_control) as kmi_path_runtime:
-        with apply_vdso_debug_control(
-            work_tree, vdso_debug_control
-        ) as vdso_debug_runtime:
-            with base.apply_timestamp_control(work_tree, timestamp) as timestamp_runtime:
-                with (result_dir / "stdout.log").open(
-                    "w", encoding="utf-8"
-                ) as stdout_log, (result_dir / "stderr.log").open(
-                    "w", encoding="utf-8"
-                ) as stderr_log:
-                    completed = subprocess.run(
-                        ["/usr/bin/time", "-v", "-o", str(time_file), *command],
-                        cwd=work_tree,
-                        env=environment,
-                        text=True,
-                        stdout=stdout_log,
-                        stderr=stderr_log,
-                        check=False,
-                    )
+        with apply_kernel_debug_control(
+            work_tree, kernel_debug_control
+        ) as kernel_debug_runtime:
+            with apply_vdso_debug_control(
+                work_tree, vdso_debug_control
+            ) as vdso_debug_runtime:
+                with base.apply_timestamp_control(
+                    work_tree, timestamp
+                ) as timestamp_runtime:
+                    with (result_dir / "stdout.log").open(
+                        "w", encoding="utf-8"
+                    ) as stdout_log, (result_dir / "stderr.log").open(
+                        "w", encoding="utf-8"
+                    ) as stderr_log:
+                        completed = subprocess.run(
+                            ["/usr/bin/time", "-v", "-o", str(time_file), *command],
+                            cwd=work_tree,
+                            env=environment,
+                            text=True,
+                            stdout=stdout_log,
+                            stderr=stderr_log,
+                            check=False,
+                        )
     providers = (
         base.run_provider_module_closure(
             work_tree, environment, result_dir, jobs=args.jobs
@@ -481,6 +573,7 @@ def main() -> int:
             "witness_output_gate": witness_gate,
             "timestamp_control_runtime": timestamp_runtime,
             "kmi_path_control_runtime": kmi_path_runtime,
+            "kernel_debug_control_runtime": kernel_debug_runtime,
             "vdso_debug_control_runtime": vdso_debug_runtime,
             "provider_module_closure": providers,
             "symvers_files": base.collect_symvers(work_tree),

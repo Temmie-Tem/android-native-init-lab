@@ -141,6 +141,7 @@ def audit_build_result(
     build = r2.load_json(path)
     timestamp = build.get("timestamp_control_runtime", {})
     kmi_path = build.get("kmi_path_control_runtime", {})
+    kernel_debug = build.get("kernel_debug_control_runtime", {})
     vdso_debug = build.get("vdso_debug_control_runtime", {})
     patch_contract = build.get("r4w1_patch_contract", {})
     source_delta = build.get("source_delta", {})
@@ -224,6 +225,16 @@ def audit_build_result(
             and kmi_path.get("restored_sha256") == kmi_path.get("original_sha256")
             and kmi_path.get("original_sha256") == r4_build.BUILD_SH_SHA256
         ),
+        "kernel_debug_control_verified": (
+            kernel_debug.get("applied") is True
+            and kernel_debug.get("restored") is True
+            and kernel_debug.get("patched_content_unchanged") is True
+            and kernel_debug.get("restored_sha256")
+            == kernel_debug.get("original_sha256")
+            and kernel_debug.get("original_sha256")
+            == r4_build.KERNEL_MAKEFILE_SHA256
+            and kernel_debug.get("object_map") == "/kernel-out"
+        ),
         "vdso_debug_control_verified": (
             vdso_debug.get("applied") is True
             and vdso_debug.get("restored") is True
@@ -260,6 +271,7 @@ def audit_build_result(
         and gate["witness_output_gate_verified"] is True
         and gate["timestamp_control_verified"] is True
         and gate["kmi_path_control_verified"] is True
+        and gate["kernel_debug_control_verified"] is True
         and gate["vdso_debug_control_verified"] is True
     )
     return gate

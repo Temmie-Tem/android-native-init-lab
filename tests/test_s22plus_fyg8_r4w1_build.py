@@ -131,6 +131,30 @@ class S22PlusFyg8R4W1BuildTest(unittest.TestCase):
             for path, content in originals.items():
                 self.assertEqual(path.read_bytes(), content)
 
+    def test_kernel_debug_control_is_exact_and_restored(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            path = root / self.module.KERNEL_MAKEFILE_PATH
+            path.parent.mkdir(parents=True)
+            content = (
+                "prefix\n" + self.module.KERNEL_DEBUG_PATH_ORIGINAL + "suffix\n"
+            ).encode("ascii")
+            path.write_bytes(content)
+            expected_sha256 = self.module.base.sha256_file(path)
+            with mock.patch.object(
+                self.module, "KERNEL_MAKEFILE_SHA256", expected_sha256
+            ):
+                control = self.module.inspect_kernel_debug_control(root)
+                self.assertTrue(control["verified"])
+                with self.module.apply_kernel_debug_control(root, control) as runtime:
+                    self.assertIn(
+                        self.module.KERNEL_DEBUG_PATH_REPRODUCIBLE,
+                        path.read_text(encoding="ascii"),
+                    )
+            self.assertEqual(path.read_bytes(), content)
+            self.assertTrue(runtime["restored"])
+            self.assertTrue(runtime["patched_content_unchanged"])
+
 
 if __name__ == "__main__":
     unittest.main()
