@@ -206,7 +206,7 @@ Report:
 
 ### R1 - Unchanged stock Full-LTO build
 
-Status: **FULL-LTO BUILDABILITY PROVED; REPRODUCIBLE R1 V3 RE-CLOSE PENDING**
+Status: **R1 V3 CLEAN FULL-LTO REPRODUCIBILITY PASS 2026-07-12**
 
 - Use the supplied config with Full LTO; no security or witness changes.
 - Require every artifact owned by the pinned build rules: kernel Image form,
@@ -255,9 +255,21 @@ the live compile timestamp `Sun Jul 12 07:16:46 UTC 2026`, while stock requires
 `Fri Aug 1 05:55:56 UTC 2025`. R1 v3 must pass the temporary Samsung setup-env
 timestamp-control gate and exact stock banner before reproducibility closes.
 
+2026-07-12 final clean R1 v3 close:
+
+- a separately reconstructed source tree passed all 166,037 member checks;
+- Full-LTO completed in 33:47.58 with peak RSS 24,252,508 KiB and zero swaps;
+- exact 398-byte FYG8 banner equality and timestamp apply/restore passed;
+- all eight outputs, 2,397 generated modules, both provider closures, and all
+  15 symvers path identities passed;
+- unpatched Image SHA256 is
+  `9110a7722f28f075c5cb09789710341b44956147fa05867d05e5b3e7d024770d`;
+- R1 v3 result SHA256 is
+  `448f024b9c0d99fcac02cbc6a858a227ca5cb290a44f0616621542994b329c6f`.
+
 ### R2 - Static stock-equivalence audit
 
-Status: **REOPENED; PRIOR R2 V1 PASS SUPERSEDED BY EXACT-BANNER MISS**
+Status: **R2 V2 STATIC EQUIVALENCE PASS 2026-07-12**
 
 - Compare generated kernel release and version metadata with running FYG8.
 - Compare generated `.config` with captured running IKCONFIG.
@@ -313,10 +325,19 @@ R2 v2 requires exact equality with the pinned FYG8 `linux_banner` and an R1 v3
 result whose timestamp-control script was restored. The old R2 hash is
 historical evidence and does not satisfy the current R3 prerequisite.
 
+2026-07-12 final R2 v2 close:
+
+- exact banner/release/compiler/PREEMPT and Full-LTO config gates pass;
+- 25,864/25,864 consumer CRC rows close over 4,619 required symbols against
+  10,511 providers, with zero missing, mismatched, or conflicting symbols;
+- complete 491-module corpus and boot-capacity gates pass;
+- R2 v2 result SHA256 is
+  `ee935a523270b45c93d2db3e1f21d32b2bf49f3a96965efe5d8df66515964392`.
+
 ### R3 - Unpatched rebuilt-kernel boot-only viability proof
 
-Status: **HOST DESIGN COMPLETE 2026-07-12; BLOCKED ON R1 V3/R2 V2 RE-CLOSE,
-THEN ARTIFACT IMPLEMENTATION, FRESH POLICY, AND OPERATOR APPROVAL**
+Status: **HOST DESIGN COMPLETE AND R1 V3/R2 V2 CLOSED 2026-07-12; BLOCKED ON
+ARTIFACT/STATIC-CHECKER IMPLEMENTATION, FRESH POLICY, AND OPERATOR APPROVAL**
 
 - Start from the unpatched R2-GO `static-stock-equivalent-kernel`.
 - Use the selected stock ramdisk/userspace carrier and make no DEFEX, PROCA,

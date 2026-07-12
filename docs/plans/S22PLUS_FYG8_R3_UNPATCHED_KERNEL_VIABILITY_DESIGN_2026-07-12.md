@@ -4,9 +4,9 @@ Date: 2026-07-12 KST
 Target: `SM-S906N/g0q/S906NKSS7FYG8`  
 Scope: host-only design; no candidate build, package, device contact, or flash
 
-Status: design complete, but blocked on the corrected R1 v3/R2 v2 re-close.
-The historical R2 v1 result below is provenance only and is not a current
-artifact-implementation gate.
+Status: design complete; corrected R1 v3/R2 v2 re-close and local artifact
+retrieval passed on 2026-07-12. Artifact/static-checker implementation, policy
+activation, and live work remain separate and unauthorized.
 
 ## Decision
 
@@ -41,9 +41,9 @@ vbmeta behavior; only its former rung ordering is superseded.
 
 | Input | Size | SHA256 |
 |---|---:|---|
-| R1 result JSON | 647,397 | `027d0104ea0640b4d7faca1607dcaae4d0b1bb6af403725c9bd85e524f54b18f` |
-| R2 result JSON | 5,954 | `66c76073881752752c8a0eeddee03e8d6f8d63dc84109441616eda7386dea4cf` |
-| unpatched R2 `Image` | 41,490,944 | `e9b6717e6a25f4d65861da9771dcf49402ab0cb22ed3c3814c683d92b22ee161` |
+| R1 v3 result JSON | 680,172 | `448f024b9c0d99fcac02cbc6a858a227ca5cb290a44f0616621542994b329c6f` |
+| R2 v2 result JSON | 6,756 | `ee935a523270b45c93d2db3e1f21d32b2bf49f3a96965efe5d8df66515964392` |
+| unpatched R2 `Image` | 41,490,944 | `9110a7722f28f075c5cb09789710341b44956147fa05867d05e5b3e7d024770d` |
 | FYG8 stock `boot.img` carrier | 100,663,296 | `4150b962314e6136acba61b20f471d6ee1c418b83cf8c3ee4d9cf7c91a3640ae` |
 | FYG8 stock Odin `boot.img.lz4` | 27,721,802 | `a75dd0285f31a5d18b0d19a0fa8f024f45a3682bb60dcdbfcbef3f654b848b38` |
 | known Magisk rollback `boot.img` | 100,663,296 | `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e` |
@@ -55,6 +55,10 @@ vbmeta behavior; only its former rung ordering is superseded.
 
 The full FYG8 stock evidence must also satisfy
 `docs/operations/S22PLUS_FYG8_STOCK_FIRMWARE_EVIDENCE_POLICY_2026-07-08.md`.
+
+The three R1/R2 pins above are locally retained and independently rehashed as
+recorded in
+`docs/reports/S22PLUS_FYG8_R1V3_R2V2_CLEAN_REPRODUCTION_2026-07-12.md`.
 
 The rebuilt `Image` has the same 41,490,944-byte payload length as the stock
 kernel. Equal size reduces layout churn but does not imply byte identity,
@@ -221,3 +225,6 @@ Before artifact implementation or live work:
 6. obtain fresh explicit operator approval while recovery is attended.
 
 This document grants none of those later permissions.
+
+Steps 1 and 2 above are complete for the corrected R1 v3/R2 v2 evidence.
+Steps 3 through 6 remain mandatory and incomplete.

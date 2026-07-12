@@ -4,6 +4,10 @@ Date: 2026-07-12 KST
 Target: `SM-S906N/g0q/S906NKSS7FYG8`  
 Scope: host-only evidence inventory; no build, package, device, or flash action
 
+Status: historical R2 v1 retention snapshot, superseded by the clean R1 v3/R2
+v2 reproduction and local Tier B return recorded in
+`S22PLUS_FYG8_R1V3_R2V2_CLEAN_REPRODUCTION_2026-07-12.md`.
+
 ## Verdict
 
 `PASS_METADATA_PINNED_R2_V1_SUPERSEDED_ARTIFACT_BYTES_REMOTE_ONLY`

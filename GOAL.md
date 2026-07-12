@@ -4,17 +4,24 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ ACTIVE FRONTIER (2026-07-12 KST) - R1 FULL-LTO BUILDABILITY PROVED,
-> BUT REPRODUCIBILITY/R2 REOPENED BY EXACT-BANNER MISS; R3 HOST DESIGN CLOSED
-> AND BLOCKED ON R1 V3/R2 V2 RE-CLOSE; LANE W REMAINS DESIGN-ONLY; NO LIVE
-> AUTHORIZATION.** The Debian 13 FX-8300 host completed the unchanged Full-LTO
-> compile/module/output path, but the archived `Image` contains the current
-> compile timestamp instead of the exact FYG8 stock timestamp. Samsung
-> `_setup_env.sh` overwrote the wrapper's pinned metadata, and R2 v1 checked
-> only release/compiler substrings. R1 buildability remains proved; strict R1
-> reproducibility and R2 equivalence are reopened. The next bounded work is a
-> clean R1 v3/R2 v2 reproduction with exact full-banner matching; no candidate kernel,
-> ramdisk, boot image, AP, device action, or flash is authorized. The ranked
+> **S22+ ACTIVE FRONTIER (2026-07-12 KST) - CLEAN R1 V3 FULL-LTO AND R2 V2
+> STATIC EQUIVALENCE RE-CLOSED; R3 OPERATIONAL BYTES LOCAL; ARTIFACT/CHECKER
+> IMPLEMENTATION NEXT; LANE W REMAINS DESIGN-ONLY; NO LIVE AUTHORIZATION.**
+> The Debian 13 FX-8300 host completed a separate clean Full-LTO build in
+> 33:47.58 with 24,252,508 KiB peak RSS and zero swaps. R1 v3 passed exact
+> source, output, module, provider, timestamp-restore, and 398-byte FYG8 banner
+> gates. The unpatched 41,490,944-byte Image SHA256 is
+> `9110a7722f28f075c5cb09789710341b44956147fa05867d05e5b3e7d024770d`.
+> R2 v2 passed with blocker 0, 25,864/25,864 consumer CRC rows matched over
+> 4,619 symbols, complete 491-module corpus, and boot-capacity PASS. All R1/R2
+> evidence plus the 19-path R3-operational set were returned locally and
+> remote/local hashes matched. Record:
+> `docs/reports/S22PLUS_FYG8_R1V3_R2V2_CLEAN_REPRODUCTION_2026-07-12.md`.
+> No candidate kernel, ramdisk, boot image, AP, device action, or flash is
+> authorized. The next bounded host work is the independently reviewed R3
+> artifact/static checker and no-change container parity gate; policy and live
+> work still require a fresh narrow `AGENTS.md` exception and explicit attended
+> approval. The ranked
 > pre-run hardening is now closed: baseline generation, R1, and R2 share one
 > LF/NUL-bounded exact-banner extractor; R1 consumes the pinned baseline; the
 > real read-only `_setup_env.sh` is handled by mode-preserving atomic

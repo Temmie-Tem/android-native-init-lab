@@ -4,6 +4,11 @@ Date: 2026-07-12 KST
 Planning window: approximately 17:55-22:00 KST  
 Target: Samsung Galaxy S22+ `SM-S906N` / `g0q` / `S906NKSS7FYG8`
 
+Status update: the P0 clean R1 v3/R2 v2 reproduction and Tier B evidence
+return completed on 2026-07-12. See
+`docs/reports/S22PLUS_FYG8_R1V3_R2V2_CLEAN_REPRODUCTION_2026-07-12.md`.
+The baseline and ranked table below preserve the pre-run planning snapshot.
+
 ## Scope
 
 This is the ranked work list for the operator-away window. It permits only
