@@ -199,6 +199,21 @@ boot-only policy.
 No G/H Full-LTO build has started. Final evidence requires two new source-only
 trees copied independently without `out/`, both passing schema v2 preflight.
 
+The G source-only tree has been prepared without `out/`. Its first preflight
+correctly rejected three Samsung archive symlinks that a prior baseline build
+had rewritten to the old local tree. Those three links were restored directly
+from the pinned base archive. The complete 166,037-member check then passed
+with no missing or mismatched members. Schema v2 G preflight result SHA256 is
+`4c957b675626804a6a9835a282db558d0afd3f3f308c8ea9f620e3fe2c4302ed`;
+`build_allowed=true`, and `source-r4w1-g/out` remains absent.
+
+All preflight gates passed: source overlay, stock baseline, Clang identity,
+four pinned repositories, timestamp control, KMI path control, global kernel
+debug-path control, both VDSO controls, host-tool overrides, and the 17-tool
+manifest. The host has 32 GiB RAM and sufficient disk. Its 4 GiB swap is below
+the 8 GiB recommendation but is not a build blocker; E/F completed with zero
+process swaps. This affects OOM margin and elapsed time, not expected bytes.
+
 The final gate requires:
 
 - exact source overlay and patch identities;
