@@ -21,6 +21,95 @@ BL, CP, CSC, userdata, or any non-boot flash.
    bootloader, or any partition other than **boot**. Device changes touch the boot image
    only. These forbidden partitions are **NOT** TWRP/download-mode recoverable = permanent
    brick; the operator's acceptance of boot-flash risk does NOT extend to them.
+   **Consumed/retired exception (2026-07-12, S22+ FYG8 R3C0):** the exact
+   candidate boot-only AP flashed once with Odin rc=0. The synthetic carrier
+   reached normal FYG8 Android and passed three stable identity, boot-complete,
+   boot-animation, kernel release, `/proc/version`, and orange verified-boot
+   samples. The exact Magisk boot-only rollback then flashed with Odin rc=0.
+   Final verification proved normal Android, Magisk root, exact known Magisk
+   boot, stock DTBO/recovery identities, and no Odin endpoint. The helper saw
+   ADB before one root `sha256sum` produced output and raised `IndexError` during
+   final verification; a host read-only continuation immediately proved every
+   final gate and completed the standard timeline. Durable verdict is
+   `PASS_R3C0_NORMALIZED_STOCK_CARRIER_AND_ROLLED_BACK`. The one-shot consumed
+   state exists, this exception must not be reused, and R3C1 still requires a
+   separately constructed, reviewed, SHA-pinned exception and approval.
+   Policy marker: `S22+ FYG8 R3C0 synthetic carrier boot-only live gate`.
+   `S22PLUS_FYG8_R3C0_POLICY_STATE=RETIRED`
+   After the helper, tests, offline
+   gate, and connected read-only dry-run passed, Codex may perform one bounded
+   attended R3C0 run on Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` only
+   after a fresh explicit operator approval in the current conversation, using
+   checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_fyg8_r3c0_live_gate.py`
+   SHA256
+   `921800725fa73b7d37fd8d3c46369d0015ab4a8e366111e079b5f7ce674246e3`.
+   The live acknowledgement is
+   `S22PLUS-FYG8-R3C0-SYNTHETIC-CARRIER-LIVE`; interrupted recovery from an
+   already-started run requires
+   `S22PLUS-FYG8-R3C0-MAGISK-ROLLBACK-FROM-DOWNLOAD`.
+
+   Before candidate transfer, the helper must verify R3 static checker SHA256
+   `917b12f82dc5525b84cf2627379a80e49d921b6c33ca79fe3fc5c6a9ece6a514`
+   returns `PASS_R3C0_STATIC_CONTRACT`, including full FYG8 stock evidence.
+   It must verify candidate raw boot SHA256
+   `384efeb0f81534cbfaf3643f42e34fb6e01fe6f0b6bf80139a047a1f9a71f29f`,
+   size `100663296`; candidate boot-only AP SHA256
+   `8f2b16d3ee8932ff927e06fee8956f975ec3f9e5cc0ef16337e00ad5108d3c00`
+   containing exactly `boot.img.lz4`; manifest SHA256
+   `febffce465ea639d4d4751170bf280ae148ca3431f560aae6ecd8ea08f12ced0`;
+   Magisk boot-only rollback AP SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`;
+   cleanup-only stock boot AP SHA256
+   `2f6a8ac093587a0f03c423d8e21f65c6fe3a8d2ce9915297170cdaa2cac37c94`;
+   and Odin SHA256
+   `6754aa54f2abe6e99ece32414cd34c8b23b28dbddde537a33203036813637c3b`,
+   size `3746744`.
+
+   Live preflight must prove exactly one normal Android target, exact model,
+   device, bootloader, and FYG8 incremental, completed boot and stopped boot
+   animation, orange verified-boot state, Magisk `uid=0(root)`, known Magisk
+   boot SHA256
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
+   stock DTBO SHA256
+   `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`,
+   and stock recovery SHA256
+   `93fac06ca79bf4b365b25a8d49902bc41aba112ea253c30880c90e314d7895d4`.
+
+   The helper may request Download mode and flash the exact candidate AP once
+   to boot only. Candidate flash start consumes this exception regardless of
+   result. Candidate milestone requires one ADB target, exact identity and
+   incremental, completed boot, stopped boot animation, exact kernel release
+   and `/proc/version`, orange verified-boot state, and three stable bounded
+   samples. Root is not required for the candidate. Missing or mismatched
+   candidate evidence is no-proof and does not relax mandatory rollback.
+
+   After bounded candidate observation, the helper must restore the exact
+   Magisk boot AP. If candidate Android exposes ADB it may request Download;
+   otherwise the operator physically enters Download mode. Only if the Magisk
+   transfer fails while exactly one Odin endpoint remains may the exact stock
+   boot AP above be used as cleanup. Final PASS requires normal Android,
+   Magisk root, exact Magisk boot, stock DTBO/recovery hashes, and no Odin
+   endpoint. Candidate boot without verified Magisk rollback is not PASS.
+   The exception is one-shot: before any live run the helper must require that
+   `workspace/private/state/s22plus_fyg8_r3c0_live_exception_consumed.json`
+   does not exist, and it must durably create that state at candidate flash
+   start. Emergency rollback remains allowed after consumption. The policy
+   must also be retired in this file after the run.
+
+   Timeline output must use only `events:[{name,timestamp_utc}]` and exactly
+   once, in order: `live_session_start`, `candidate_flash_start`,
+   `candidate_flash_done`, `candidate_boot_ready`, `rollback_flash_start`,
+   `rollback_flash_done`, `rollback_boot_ready`, `live_session_end`. A no-
+   milestone `candidate_boot_ready` is only bounded observation close with
+   explicit no-proof semantics.
+
+   This exception authorizes no R3C1 construction or transfer, native PID1,
+   Debian transition, raw host `dd`, fastboot, Magisk module, panic, SysRq,
+   RDX/S-Boot command, RAM dump, EUD/UART write, format data, partition-table
+   action, or write to recovery/vendor_boot/DTBO/vbmeta/BL/CP/CSC/super/
+   userdata/persist/EFS/sec_efs/RPMB/keymaster/modem/bootloader or any
+   partition other than boot. It grants no A90 action.
    **Consumed/retired exception (2026-07-11, S22+ V3443R corrected
    HIGH panic MID-control comparison live gate):** exact HIGH returned, the
    quoted two-command root control passed, one SysRq panic reached Samsung RDX

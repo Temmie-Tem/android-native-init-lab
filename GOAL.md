@@ -5,8 +5,8 @@ the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW â€
 safety invariants and flash gates are binding and override any sub-goal.**
 
 > **S22+ ACTIVE FRONTIER (2026-07-12 KST) - CLEAN R1 V3 FULL-LTO, R2 V2,
-> R3 CHECKER, AND SYNTHETIC R3C0 ARTIFACT REPRODUCTION CLOSED; R3C0 LIVE POLICY
-> NOT ACTIVE; R3C1 BLOCKED; LANE W REMAINS DESIGN-ONLY.**
+> R3 CHECKER, SYNTHETIC R3C0 ARTIFACT, AND R3C0 LIVE CONTROL PASS+ROLLBACK;
+> R3C0 RETIRED; R3C1 HOST CONSTRUCTION NEXT; LANE W DESIGN-ONLY.**
 > The Debian 13 FX-8300 host completed a separate clean Full-LTO build in
 > 33:47.58 with 24,252,508 KiB peak RSS and zero swaps. R1 v3 passed exact
 > source, output, module, provider, timestamp-restore, and 398-byte FYG8 banner
@@ -17,8 +17,9 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > evidence plus the 19-path R3-operational set were returned locally and
 > remote/local hashes matched. Record:
 > `docs/reports/S22PLUS_FYG8_R1V3_R2V2_CLEAN_REPRODUCTION_2026-07-12.md`.
-> No candidate kernel, ramdisk, boot image, AP, device action, or flash is
-> authorized. Exact stock boot analysis found a 528-byte Samsung
+> No R3C1 artifact or transfer is authorized. R3C0 completed once and its
+> policy is retired. Exact stock boot
+> analysis found a 528-byte Samsung
 > `SignerVer02` record that MagiskBoot v30.7 replaces with only the 16-byte
 > `SEANDROIDENFORCE` marker while updating the AVB footer. The former
 > byte-identical exact-stock no-change premise is source-disproved. R3 is now a
@@ -28,8 +29,11 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > pinned stock no-change MagiskBoot run corrected the source-only model: it also
 > recompressed ramdisk `1978967 -> 1653775` and moved signer/vbmeta, so
 > MagiskBoot is provenance only and is not the R3C0 generator. Artifact
-> construction is now host-closed; policy and live work still require separate
-> review, a fresh narrow `AGENTS.md` exception, and explicit attended approval.
+> construction and the R3C0 live control are now closed. The synthetic carrier
+> reached normal Android with three exact stability samples, then exact Magisk
+> rollback restored root, boot, DTBO, and recovery identities with no Odin
+> endpoint. Durable verdict is
+> `PASS_R3C0_NORMALIZED_STOCK_CARRIER_AND_ROLLED_BACK`.
 > Records:
 > `docs/reports/S22PLUS_FYG8_R3_CARRIER_AND_STATIC_CHECKER_AUDIT_2026-07-12.md`.
 > `docs/reports/S22PLUS_FYG8_R3C0_ARTIFACT_REPRODUCTION_2026-07-12.md`.
@@ -44,9 +48,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > R3C0 private reproduction A/B are byte-identical and both independently pass
 > `PASS_R3C0_STATIC_CONTRACT`. Raw boot SHA256 is `384efeb0...71f29f`, LZ4 is
 > `61f5d9f6...e2212e`, and boot-only AP is `8f2b16d3...d3c00`. No generated
-> image/AP is committed. No device was contacted and no flash occurred. No
-> R3C1 artifact exists; R3C1 remains blocked on a future attended R3C0 PASS and
-> rollback.
+> image/AP is committed. The executed R3C0 helper SHA256 was
+> `92180072...4246e3`; 35 related tests, the full offline gate, and
+> the connected dry-run passed. An initial Claude Opus NO-GO found a fragile
+> activation sentinel, stock-cleanup false-success exit, and unenforced
+> one-shot state; all were fixed and the same session returned GO. Record:
+> `docs/reports/S22PLUS_FYG8_R3C0_LIVE_GATE_SOURCE_READY_2026-07-12.md`.
+> During final rollback validation an early empty root SHA output raised
+> `IndexError`; Odin rollback had already passed and a host read-only
+> continuation immediately proved every final gate and completed the timeline.
+> The post-run helper now retries malformed/empty SHA output via `GateError`.
+> Live record:
+> `docs/reports/S22PLUS_FYG8_R3C0_LIVE_RESULT_2026-07-12.md`.
+> No R3C1 artifact exists. R3C1 is now eligible only for host construction,
+> independent checking, and a separate policy design; live remains blocked.
 > The ranked
 > pre-run hardening is now closed: baseline generation, R1, and R2 share one
 > LF/NUL-bounded exact-banner extractor; R1 consumes the pinned baseline; the

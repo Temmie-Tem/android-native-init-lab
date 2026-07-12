@@ -296,6 +296,14 @@ Steps 1 and 2 above are complete for the corrected R1 v3/R2 v2 evidence.
 Step 3 is complete. Checker source and input-audit evidence:
 `docs/reports/S22PLUS_FYG8_R3_STATIC_CHECKER_SOURCE_READY_2026-07-12.md`.
 Step 4 is complete for R3C0 only: two clean private reproductions are
-byte-identical and both passed the independent checker. Steps 5 and 6 remain
-mandatory and incomplete. No live exception is active, no device was contacted,
-and no R3C1 artifact exists.
+byte-identical and both passed the independent checker. The step-5 helper,
+tests, pending exception text, offline gate, connected read-only dry-run, and
+two-round adversarial review are source-closed in
+`docs/reports/S22PLUS_FYG8_R3C0_LIVE_GATE_SOURCE_READY_2026-07-12.md`.
+Step 5 subsequently completed once with durable verdict
+`PASS_R3C0_NORMALIZED_STOCK_CARRIER_AND_ROLLED_BACK`; exact result and the
+read-only host continuation are recorded in
+`docs/reports/S22PLUS_FYG8_R3C0_LIVE_RESULT_2026-07-12.md`. The R3C0 policy and
+one-shot state are retired. Step 6 is now eligible for host-only R3C1 artifact
+construction and independent review, but no R3C1 artifact or live authorization
+exists yet.
