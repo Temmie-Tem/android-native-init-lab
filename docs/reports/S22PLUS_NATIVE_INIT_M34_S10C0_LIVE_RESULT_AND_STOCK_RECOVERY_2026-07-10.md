@@ -2,7 +2,27 @@
 
 Date: 2026-07-10 00:57 KST / 2026-07-09 15:57 UTC
 
-## Verdict
+## 2026-07-11 Static-RE Correction
+
+Retain the raw endpoint, timing, candidate, and rollback evidence below, but
+withdraw the causal interpretation that `cmd-db.ko` acceptance deliberately
+self-entered Download mode. Exact FYG8 source and shipped module metadata show
+that S10C0's 89-module manifest omitted `qcom-dload-mode.ko`,
+`sec_reboot_cmd.ko`, `sec_qc_rbcmd.ko`, and
+`sec_qc_qcom_reboot_reason.ko`. Those modules implement the only identified
+source-backed path from exact command string `download` to Samsung PON reason
+`0x15`; FYG8 ABL then consumes `0x15` as Odin/Download. The present
+`qcom-scm.ko` restart handler ignores the command pointer and can reset without
+encoding `0x15`.
+
+The host-visible Download endpoint therefore cannot distinguish a successful
+candidate predicate from generic reset, boot failure, or bootloader fallback.
+The internal `finit_module` result was not independently retained. Corrected
+classification: `NO HARD PROOF OF FINIT_MODULE ACCEPTANCE OR SELF-DOWNLOAD`.
+See
+`docs/reports/S22PLUS_FYG8_BOOTLOADER_REBOOT_REASON_AND_RETAINED_MEMORY_STATIC_RE_2026-07-11.md`.
+
+## Original Verdict (Superseded)
 
 S10C0 produced the intended live signal:
 
@@ -13,7 +33,8 @@ probe_module=cmd-db.ko
 probe_proc_name=cmd_db
 ```
 
-Meaning: under native-init, the direct `cmd-db.ko` `finit_module` probe reached
+Original interpretation: under native-init, the direct `cmd-db.ko`
+`finit_module` probe reached
 the accepted path and self-entered Download mode. That proves the S10A/S10B0
 wall is not simply "cmd-db cannot be loaded at all"; the next technical unit
 should distinguish load-loop skip/order/abort from `/proc/modules` observation
