@@ -37,6 +37,13 @@ class S22PlusFyg8KernelTransferManifestTest(unittest.TestCase):
         )
         self.assertTrue(self.module.REPO_SPECS[1][3].startswith("source/"))
 
+    def test_build_host_distribution_is_pinned_to_observed_remote(self):
+        manifest = self.module.build_manifest(self.module.repo_root())
+        self.assertEqual(
+            manifest["host_requirements"]["distribution"],
+            "Debian 13 x86_64",
+        )
+
     def test_transfer_contains_repo_root_markers(self):
         paths = {str(item[0]) for item in self.module.FILE_SPECS}
         self.assertIn("AGENTS.md", paths)

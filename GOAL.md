@@ -107,7 +107,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > vendor module modpost completed. This is diagnostic evidence, not R2 PASS.
 >
 > Next: transfer the now 20-file/four-repository pinned host kit, reproduce the
-> exact source-binding preflight on the Debian 12 FX-8300 32 GiB host, then run
+> exact source-binding preflight on the Debian 13 FX-8300 32 GiB host, then run
 > unchanged stock Full LTO. Feed every returned symvers file and generated
 > module into the prepared R2 audit. Lane W's independent static review is now
 > complete: it added the hidden nvmem provider, exact Recovery consumer,

@@ -130,7 +130,7 @@ current 10 GiB generated tree.
 
 Host floor recorded in the manifest:
 
-- Debian 12 x86_64;
+- Debian 13 x86_64;
 - at least 30 GiB visible physical RAM, representing nominal 32 GiB;
 - 8 GiB swap recommended as non-blocking headroom;
 - at least 30 GiB free disk;

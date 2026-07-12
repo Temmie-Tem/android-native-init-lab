@@ -196,8 +196,8 @@ never flashable.
   requirements covering 4,060 unique symbols;
 - current-host Full-LTO preflight fails closed only on physical RAM, while all
   source, compiler, prebuilt-commit, provenance, and disk gates pass;
-- a private nine-file/four-repository transfer manifest is ready for the
-  Debian 12 FX-8300 32 GiB build host; toolchain transfer preserves `.git`
+- a private 20-file/four-repository transfer manifest is ready for the
+  Debian 13 FX-8300 32 GiB build host; toolchain transfer preserves `.git`
   metadata, and preflight requires Git plus GNU `/usr/bin/time`. Swap is
   recommended headroom, not a hard rejection when physical RAM passes.
 

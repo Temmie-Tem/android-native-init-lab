@@ -111,7 +111,7 @@ present providers is positive diagnostic evidence only.
 
 ## Remaining Gate
 
-1. Transfer the pinned 20-file/four-repository kit to the Debian 12 FX-8300
+1. Transfer the pinned 20-file/four-repository kit to the Debian 13 FX-8300
    32 GiB host.
 2. Require exact R1 preflight PASS and run unchanged Full LTO under `tmux`.
 3. Return the R1 result, all owned outputs, generated modules, and every symvers

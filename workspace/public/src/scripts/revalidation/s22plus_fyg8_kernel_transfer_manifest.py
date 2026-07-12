@@ -261,7 +261,7 @@ def build_manifest(root: Path) -> dict[str, Any]:
         ],
         "destination_path_base": "all destination and symlink paths are relative to one transfer workspace root",
         "host_requirements": {
-            "distribution": "Debian 12 x86_64",
+            "distribution": "Debian 13 x86_64",
             "min_physical_memory_bytes": 30 * 1024**3,
             "min_swap_bytes": 8 * 1024**3,
             "min_free_disk_bytes": 30 * 1024**3,
