@@ -6,7 +6,8 @@ safety invariants and flash gates are binding and override any sub-goal.**
 
 > **S22+ ACTIVE FRONTIER (2026-07-12 KST) - CLEAN R1 V3 FULL-LTO, R2 V2,
 > R3 CHECKER, SYNTHETIC R3C0 ARTIFACT, AND R3C0 LIVE CONTROL PASS+ROLLBACK;
-> R3C0 RETIRED; R3C1 HOST CONSTRUCTION NEXT; LANE W DESIGN-ONLY.**
+> R3C0 RETIRED; R3C1 ARTIFACT+STATIC CONTRACT CLOSED, LIVE POLICY INACTIVE;
+> LANE W DESIGN-ONLY.**
 > The Debian 13 FX-8300 host completed a separate clean Full-LTO build in
 > 33:47.58 with 24,252,508 KiB peak RSS and zero swaps. R1 v3 passed exact
 > source, output, module, provider, timestamp-restore, and 398-byte FYG8 banner
@@ -17,8 +18,10 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > evidence plus the 19-path R3-operational set were returned locally and
 > remote/local hashes matched. Record:
 > `docs/reports/S22PLUS_FYG8_R1V3_R2V2_CLEAN_REPRODUCTION_2026-07-12.md`.
-> No R3C1 artifact or transfer is authorized. R3C0 completed once and its
-> policy is retired. Exact stock boot
+> No R3C1 transfer is authorized. R3C0 completed once and its policy is
+> retired. R3C1 host-only A/B/final-source C artifacts are byte-identical and
+> independently return `PASS_R3C1_STATIC_CONTRACT`; live helper, policy, and
+> approval remain separate and absent. Exact stock boot
 > analysis found a 528-byte Samsung
 > `SignerVer02` record that MagiskBoot v30.7 replaces with only the 16-byte
 > `SEANDROIDENFORCE` marker while updating the AVB footer. The former
@@ -60,8 +63,16 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > The post-run helper now retries malformed/empty SHA output via `GateError`.
 > Live record:
 > `docs/reports/S22PLUS_FYG8_R3C0_LIVE_RESULT_2026-07-12.md`.
-> No R3C1 artifact exists. R3C1 is now eligible only for host construction,
-> independent checking, and a separate policy design; live remains blocked.
+> Exact R3C1 raw boot SHA256 is
+> `e1f0be99...0d120c`, LZ4 is `d00e12c6...da9efd`, and boot-only AP is
+> `023d7780...13fb4`. The actual delta is 9,098,520 bytes entirely inside
+> `[4096,41495040)`; R3C0 ramdisk, signer, vbmeta, footer, and every
+> outside-kernel byte are preserved. Three clean reproductions are identical,
+> final-source checker verdict is `PASS_R3C1_STATIC_CONTRACT`, and Claude Opus
+> returned GO after its LOW input-TOCTOU finding was fixed. Record:
+> `docs/reports/S22PLUS_FYG8_R3C1_ARTIFACT_REPRODUCTION_2026-07-12.md`.
+> Next is a separate one-shot R3C1 live-helper/policy design and independent
+> pre-live review; no current text authorizes flashing it.
 > The ranked
 > pre-run hardening is now closed: baseline generation, R1, and R2 share one
 > LF/NUL-bounded exact-banner extractor; R1 consumes the pinned baseline; the

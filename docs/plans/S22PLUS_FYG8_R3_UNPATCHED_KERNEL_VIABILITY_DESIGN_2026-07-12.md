@@ -2,13 +2,14 @@
 
 Date: 2026-07-12 KST  
 Target: `SM-S906N/g0q/S906NKSS7FYG8`  
-Scope: host-only design and R3C0 artifact close; no device contact or flash
+Scope: R3C0 control close plus host-only R3C1 artifact contract
 
 Status: carrier design corrected after an actual MagiskBoot no-change repack;
 corrected R1 v3/R2 v2, checker, exact-input audit, and independently reproduced
-R3C0 synthetic control artifacts passed on 2026-07-12. Policy activation and
-live work remain separate and unauthorized. R3C1 remains blocked on a future
-attended R3C0 PASS plus rollback.
+R3C0 synthetic control artifacts and its attended live control passed with
+verified rollback on 2026-07-12. The R3C0 exception is retired. R3C1 host-only
+artifacts now independently pass the exact kernel-only contract; R3C1 live
+policy and transfer remain separate and unauthorized.
 
 ## Decision
 
@@ -304,6 +305,9 @@ Step 5 subsequently completed once with durable verdict
 `PASS_R3C0_NORMALIZED_STOCK_CARRIER_AND_ROLLED_BACK`; exact result and the
 read-only host continuation are recorded in
 `docs/reports/S22PLUS_FYG8_R3C0_LIVE_RESULT_2026-07-12.md`. The R3C0 policy and
-one-shot state are retired. Step 6 is now eligible for host-only R3C1 artifact
-construction and independent review, but no R3C1 artifact or live authorization
-exists yet.
+one-shot state are retired. Step 6 host construction and independent review are
+complete: three byte-identical reproductions return
+`PASS_R3C1_STATIC_CONTRACT`, recorded in
+`docs/reports/S22PLUS_FYG8_R3C1_ARTIFACT_REPRODUCTION_2026-07-12.md`. No R3C1
+live helper, exception, approval, or transfer exists; those require a separate
+pre-live unit.
