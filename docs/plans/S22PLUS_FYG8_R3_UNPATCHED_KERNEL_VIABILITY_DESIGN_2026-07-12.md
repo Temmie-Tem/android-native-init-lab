@@ -309,5 +309,9 @@ one-shot state are retired. Step 6 host construction and independent review are
 complete: three byte-identical reproductions return
 `PASS_R3C1_STATIC_CONTRACT`, recorded in
 `docs/reports/S22PLUS_FYG8_R3C1_ARTIFACT_REPRODUCTION_2026-07-12.md`. No R3C1
-live helper, exception, approval, or transfer exists; those require a separate
-pre-live unit.
+transfer exists. The separate helper, PENDING exception, offline gate,
+connected read-only dry-run, and independent pre-live GO are source-closed in
+`docs/reports/S22PLUS_FYG8_R3C1_LIVE_GATE_SOURCE_READY_2026-07-12.md`. The
+pre-gate approval was not retained. Binding state remains
+`PENDING_OPERATOR_APPROVAL`; a new fresh attended approval and exact ACTIVE
+transition are still required before one live run.
