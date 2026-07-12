@@ -72,6 +72,72 @@ FILE_SPECS = (
         "public",
         None,
     ),
+    (
+        Path("workspace/public/src/scripts/revalidation/s22plus_fyg8_kernel_r2_audit.py"),
+        "r2-static-compatibility-audit-tool",
+        "public",
+        None,
+    ),
+    (
+        Path("workspace/public/src/scripts/revalidation/s22plus_fyg8_f2fs_module_corpus.py"),
+        "fyg8-vendor-dlkm-corpus-audit-tool",
+        "public",
+        None,
+    ),
+    (
+        Path("workspace/public/src/scripts/revalidation/s22plus_fyg8_super_module_layout.py"),
+        "fyg8-super-module-layout-audit-tool",
+        "public",
+        None,
+    ),
+    (
+        Path("workspace/private/outputs/s22plus_fyg8_kernel_rebuild_r0/stock-baseline/stock-kernel-baseline.json"),
+        "pinned-stock-kernel-baseline",
+        "private-proprietary",
+        "3041f6a50c5ac77631c747dc3d21e5fd0ad68a520ffc9a2052b1c0b5976db092",
+    ),
+    (
+        Path("workspace/private/outputs/s22plus_fyg8_kernel_rebuild_r0/stock-baseline/stock-ikconfig"),
+        "pinned-stock-kernel-ikconfig",
+        "private-proprietary",
+        "99352a4f8db49814330c9d2c28038fafbbd1dadbe1fef3082c6d7e2614c2dbf1",
+    ),
+    (
+        Path("docs/module-map/s22plus-fyg8/manifest.json"),
+        "pinned-vendor-ramdisk-module-map",
+        "public",
+        "f18e692511f4f37387f916be9266bd6c744eac650fad3455d8fef139257dfc33",
+    ),
+    (
+        Path("docs/module-map/s22plus-fyg8/symbol-crc-requirements.tsv"),
+        "pinned-vendor-ramdisk-consumer-crc-requirements",
+        "public",
+        "9be63bf9d2086d0823cc2b87cc2412b34f3d44394444c0cb693a5b1edf5a6e86",
+    ),
+    (
+        Path("docs/module-map/s22plus-fyg8-super/manifest.json"),
+        "pinned-vendor-dlkm-corpus-manifest",
+        "public",
+        "c23077120499012db4d492d5b494c1f69274486e5bbf7a15ec3f192dbdd71092",
+    ),
+    (
+        Path("docs/module-map/s22plus-fyg8-super/layout-manifest.json"),
+        "pinned-complete-super-module-layout-manifest",
+        "public",
+        "89d97fd7215ca1e830a983de61779baa13d4ecba3573bc2778ba98c5c26bca3e",
+    ),
+    (
+        Path("docs/module-map/s22plus-fyg8-super/inventory.tsv"),
+        "pinned-vendor-dlkm-module-inventory",
+        "public",
+        "5ad69e151efbe48ba0348608120da3001f9e11d481b13a498177e080771c6d37",
+    ),
+    (
+        Path("docs/module-map/s22plus-fyg8-super/vendor-dlkm-only-symbol-crc-requirements.tsv"),
+        "pinned-vendor-dlkm-only-consumer-crc-requirements",
+        "public",
+        "870d7cf4d077c7bb98bfe42d5ef24b5765136a7166c4850b6031168ce78dd00e",
+    ),
 )
 REPO_SPECS = (
     (
@@ -213,6 +279,8 @@ def build_manifest(root: Path) -> dict[str, Any]:
             "run s22plus_fyg8_kernel_overlay_audit.py --resident-tree source and require PASS",
             "run s22plus_fyg8_kernel_build.py --work-tree source --clang-repo toolchains/aosp-clang-android12-release --mode preflight --lto full --jobs 8",
             "only after preflight PASS run the same wrapper with --mode build",
+            "run s22plus_fyg8_kernel_r2_audit.py with the R1 result and every generated Module.symvers/vmlinux.symvers file",
+            "require the pinned complete super module-layout manifest and both consumer CRC requirement TSV files during R2",
         ],
         "claims": {
             "source_transfer_reproducible": True,

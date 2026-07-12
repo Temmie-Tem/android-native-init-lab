@@ -41,6 +41,18 @@ class S22PlusFyg8KernelTransferManifestTest(unittest.TestCase):
         paths = {str(item[0]) for item in self.module.FILE_SPECS}
         self.assertIn("AGENTS.md", paths)
         self.assertIn("GOAL.md", paths)
+        self.assertIn(
+            "workspace/public/src/scripts/revalidation/s22plus_fyg8_kernel_r2_audit.py",
+            paths,
+        )
+        self.assertIn(
+            "docs/module-map/s22plus-fyg8/symbol-crc-requirements.tsv",
+            paths,
+        )
+        self.assertIn(
+            "docs/module-map/s22plus-fyg8-super/layout-manifest.json",
+            paths,
+        )
 
 
 if __name__ == "__main__":

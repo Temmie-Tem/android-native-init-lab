@@ -32,6 +32,47 @@ class S22PlusFyg8KernelBuildTest(unittest.TestCase):
         self.assertEqual(env["GIT_CEILING_DIRECTORIES"], "/tmp")
         self.assertEqual(env["MAKEFLAGS"], "-j8")
 
+    def test_environment_does_not_inherit_compiler_poison(self):
+        with mock.patch.dict(
+            self.module.os.environ,
+            {"CC": "/tmp/not-clang", "CFLAGS": "-DBROKEN", "BASH_ENV": "/tmp/hook"},
+            clear=False,
+        ):
+            env = self.module.build_environment(Path("/tmp/fyg8-work"), lto="full", jobs=8)
+        self.assertNotIn("CC", env)
+        self.assertNotIn("CFLAGS", env)
+        self.assertNotIn("BASH_ENV", env)
+        self.assertEqual(env["LC_ALL"], "C")
+
+    def test_output_gate_requires_every_r1_owned_artifact(self):
+        complete = [
+            {"name": name}
+            for name in (*self.module.DIST_OUTPUTS, ".config")
+        ]
+        self.assertTrue(self.module.output_gate(complete)["verified"])
+        incomplete = [item for item in complete if item["name"] != "vmlinux"]
+        gate = self.module.output_gate(incomplete)
+        self.assertFalse(gate["verified"])
+        self.assertEqual(gate["missing"], ["vmlinux"])
+
+    def test_source_overlay_is_a_hard_preflight_input(self):
+        source = self.module.Path("/tmp/source")
+        clang = self.module.Path("/tmp/clang")
+        with mock.patch.object(self.module, "run", return_value=self.module.subprocess.CompletedProcess([], 1, "", "")), mock.patch.object(
+            self.module, "host_resources", return_value={"disk_ok": True, "full_lto_memory_ok": True}
+        ), mock.patch.object(self.module, "git_identity", return_value={"verified": True}), mock.patch.object(
+            self.module.Path, "exists", return_value=True
+        ), mock.patch.object(self.module.Path, "is_file", return_value=True):
+            result = self.module.preflight(
+                self.module.ROOT if hasattr(self.module, "ROOT") else Path("/tmp"),
+                source,
+                clang,
+                lto="full",
+                jobs=8,
+                source_overlay={"verified": False},
+            )
+        self.assertFalse(result["build_allowed"])
+
     def test_full_lto_memory_gate_requires_nominal_32_gib_physical_ram(self):
         fake_disk = self.module.shutil._ntuple_diskusage(100, 10, 90)
         with mock.patch.object(

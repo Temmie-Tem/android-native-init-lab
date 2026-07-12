@@ -14,11 +14,12 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
 
-SCHEMA = "s22plus_fyg8_kernel_build_v1"
+SCHEMA = "s22plus_fyg8_kernel_build_v2"
 TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
 SOURCE_DATE_EPOCH = 1754027756
 STOCK_TIMESTAMP = "Fri Aug 1 05:55:56 UTC 2025"
@@ -33,10 +34,25 @@ DEFAULT_CLANG_REPO = Path("workspace/private/inputs/toolchains/aosp-clang-androi
 DEFAULT_RESULT_DIR = Path(
     "workspace/private/outputs/s22plus_fyg8_kernel_rebuild_r0/build-preflight"
 )
+DEFAULT_BASE_ARCHIVE = Path(
+    "workspace/private/inputs/s22plus_kernel_source/SM-S906N_15_base_osrc/Kernel.tar.gz"
+)
+DEFAULT_DELTA_ARCHIVE = Path(
+    "workspace/private/inputs/s22plus_kernel_source/S906NKSS7FYG8_osrc/"
+    "S906NKSS7FYG8_kernel.tar.gz"
+)
+DEFAULT_OVERLAY_AUDIT = Path(
+    "workspace/public/src/scripts/revalidation/s22plus_fyg8_kernel_overlay_audit.py"
+)
+EXPECTED_BASE_SHA256 = "86e2f73412c65fadff0b15bbf0eac9140610f70250514ac0bddbf3b53fb5f7bf"
+EXPECTED_DELTA_SHA256 = "23ef2b27de8843e271d41405b3c0b1a71bfa668615c8f0f12a1e5c4395ec851a"
+EXPECTED_FINAL_MEMBERS_SHA256 = "946789ba7bae742893e2b9e94db76614775ce770e04aaeb4254c960c907f0b58"
+EXPECTED_SOURCE_MEMBER_COUNT = 166037
 MIN_PHYSICAL_MEMORY_BYTES = 30 * 1024**3
 MIN_SWAP_BYTES = 8 * 1024**3
 MIN_FREE_DISK_BYTES = 30 * 1024**3
 REQUIRED_HOST_TOOLS = ("git", "/usr/bin/time")
+HOST_ENV_ALLOWLIST = ("HOME", "USER", "LOGNAME", "TMPDIR", "TERM")
 PINNED_REPOS = {
     "clang": (
         DEFAULT_CLANG_REPO,
@@ -63,7 +79,15 @@ EXT_MODULES = (
     "../vendor/qcom/opensource/camera-kernel",
     "../vendor/qcom/opensource/display-drivers/msm",
 )
-DIST_OUTPUTS = ("Image", "Image.lz4", "vmlinux", "System.map", "vmlinux.symvers")
+DIST_OUTPUTS = (
+    "Image",
+    "Image.lz4",
+    "vmlinux",
+    "System.map",
+    "vmlinux.symvers",
+    "modules.builtin",
+    "modules.builtin.modinfo",
+)
 
 
 class BuildError(ValueError):
@@ -148,11 +172,35 @@ def git_identity(path: Path, expected: str) -> dict[str, Any]:
     }
 
 
-def build_environment(work_tree: Path, *, lto: str, jobs: int) -> dict[str, str]:
+def hermetic_path(work_tree: Path, clang_repo: Path) -> str:
+    candidates = (
+        clang_repo / "clang-r416183b/bin",
+        work_tree / "kernel_platform/prebuilts/build-tools/path/linux-x86",
+        work_tree / "kernel_platform/prebuilts/kernel-build-tools/linux-x86/bin",
+        Path("/usr/bin"),
+        Path("/bin"),
+    )
+    return os.pathsep.join(str(path) for path in candidates)
+
+
+def build_environment(
+    work_tree: Path,
+    *,
+    lto: str,
+    jobs: int,
+    clang_repo: Path | None = None,
+) -> dict[str, str]:
     out_dir = work_tree / "out/msm-waipio-waipio-gki"
-    environment = os.environ.copy()
+    if clang_repo is None:
+        clang_repo = DEFAULT_CLANG_REPO
+    environment = {
+        key: os.environ[key]
+        for key in HOST_ENV_ALLOWLIST
+        if key in os.environ
+    }
     environment.update(
         {
+            "PATH": hermetic_path(work_tree, clang_repo),
             "BUILD_TARGET": "g0q_kor_singlex",
             "MODEL": "g0q",
             "PROJECT_NAME": "g0q",
@@ -188,7 +236,79 @@ def build_environment(work_tree: Path, *, lto: str, jobs: int) -> dict[str, str]
     return environment
 
 
-def preflight(root: Path, work_tree: Path, clang_repo: Path, *, lto: str, jobs: int) -> dict[str, Any]:
+def run_overlay_audit(
+    root: Path,
+    work_tree: Path,
+    result_dir: Path,
+    base_archive: Path,
+    delta_archive: Path,
+    audit_script: Path,
+) -> dict[str, Any]:
+    audit_out = result_dir / "source-overlay-audit"
+    completed = run(
+        [
+            sys.executable,
+            str(audit_script),
+            "--base",
+            str(base_archive),
+            "--delta",
+            str(delta_archive),
+            "--resident-tree",
+            str(work_tree),
+            "--out",
+            str(audit_out),
+        ],
+        cwd=root,
+    )
+    manifest_path = audit_out / "manifest.json"
+    if completed.returncode != 0 or not manifest_path.is_file():
+        return {
+            "verified": False,
+            "returncode": completed.returncode,
+            "stdout": completed.stdout[-4000:],
+            "stderr": completed.stderr[-4000:],
+            "manifest_path": display_path(root, manifest_path),
+        }
+    manifest = json.loads(manifest_path.read_text(encoding="ascii"))
+    input_hashes = {item.get("sha256") for item in manifest.get("inputs", [])}
+    final_artifact = manifest.get("artifacts", {}).get(
+        "reconstructed-final-members.jsonl", {}
+    )
+    resident = manifest.get("resident_tree", {})
+    summary = manifest.get("summary", {})
+    verified = (
+        manifest.get("schema") == "s22plus_fyg8_kernel_overlay_audit_v1"
+        and manifest.get("target") == TARGET
+        and input_hashes == {EXPECTED_BASE_SHA256, EXPECTED_DELTA_SHA256}
+        and final_artifact.get("sha256") == EXPECTED_FINAL_MEMBERS_SHA256
+        and summary.get("final_members") == EXPECTED_SOURCE_MEMBER_COUNT
+        and resident.get("checked") is True
+        and resident.get("match") is True
+        and resident.get("missing_count") == 0
+        and resident.get("mismatch_count") == 0
+    )
+    return {
+        "verified": verified,
+        "returncode": completed.returncode,
+        "manifest_path": display_path(root, manifest_path),
+        "manifest_sha256": sha256_file(manifest_path),
+        "base_sha256": EXPECTED_BASE_SHA256,
+        "delta_sha256": EXPECTED_DELTA_SHA256,
+        "final_members_sha256": final_artifact.get("sha256", ""),
+        "final_member_count": summary.get("final_members", 0),
+        "resident_match": resident.get("match", False),
+    }
+
+
+def preflight(
+    root: Path,
+    work_tree: Path,
+    clang_repo: Path,
+    *,
+    lto: str,
+    jobs: int,
+    source_overlay: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     required_paths = (
         work_tree / "kernel_platform/build/android/prepare_vendor.sh",
         work_tree / "kernel_platform/common/Makefile",
@@ -211,7 +331,9 @@ def preflight(root: Path, work_tree: Path, clang_repo: Path, *, lto: str, jobs: 
         and clang_result.returncode == 0
         and all(value in clang_text for value in EXPECTED_CLANG_LINES)
     )
-    environment = build_environment(work_tree, lto=lto, jobs=jobs)
+    environment = build_environment(
+        work_tree, lto=lto, jobs=jobs, clang_repo=clang_repo
+    )
     parent_git = run(
         ["git", "-C", str(work_tree), "rev-parse", "--show-toplevel"],
         env=environment,
@@ -229,6 +351,7 @@ def preflight(root: Path, work_tree: Path, clang_repo: Path, *, lto: str, jobs: 
         and all(repo["verified"] for repo in repositories.values())
         and clang_verified
         and parent_git_isolated
+        and bool(source_overlay and source_overlay.get("verified"))
         and resources["disk_ok"]
         and (lto != "full" or resources["full_lto_memory_ok"])
     )
@@ -257,6 +380,9 @@ def preflight(root: Path, work_tree: Path, clang_repo: Path, *, lto: str, jobs: 
             "expected_kernel_release": STOCK_KERNEL_RELEASE,
             "git_ceiling_directories": environment["GIT_CEILING_DIRECTORIES"],
             "parent_git_isolated": parent_git_isolated,
+            "source_overlay": source_overlay or {"verified": False},
+            "ambient_environment_allowlist": list(HOST_ENV_ALLOWLIST),
+            "effective_path": environment["PATH"],
         },
         "environment": {
             key: environment[key]
@@ -300,6 +426,53 @@ def collect_outputs(work_tree: Path) -> list[dict[str, Any]]:
     return outputs
 
 
+def collect_generated_modules(work_tree: Path) -> list[dict[str, Any]]:
+    out_root = work_tree / "out"
+    if not out_root.is_dir():
+        return []
+    return [
+        {
+            "path": str(path),
+            "size": path.stat().st_size,
+            "sha256": sha256_file(path),
+        }
+        for path in sorted(out_root.rglob("*.ko"))
+        if path.is_file()
+    ]
+
+
+def collect_symvers(work_tree: Path) -> list[dict[str, Any]]:
+    out_root = work_tree / "out"
+    if not out_root.is_dir():
+        return []
+    paths = {
+        path.resolve()
+        for pattern in ("Module.symvers", "vmlinux.symvers")
+        for path in out_root.rglob(pattern)
+        if path.is_file()
+    }
+    return [
+        {
+            "path": str(path),
+            "size": path.stat().st_size,
+            "sha256": sha256_file(path),
+        }
+        for path in sorted(paths)
+    ]
+
+
+def output_gate(outputs: list[dict[str, Any]]) -> dict[str, Any]:
+    present = {item["name"] for item in outputs}
+    required = set(DIST_OUTPUTS) | {".config"}
+    missing = sorted(required - present)
+    return {
+        "required": sorted(required),
+        "present": sorted(present),
+        "missing": missing,
+        "verified": not missing,
+    }
+
+
 def write_json(path: Path, data: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="ascii")
@@ -313,6 +486,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--work-tree", type=Path, default=DEFAULT_WORK_TREE)
     parser.add_argument("--clang-repo", type=Path, default=DEFAULT_CLANG_REPO)
     parser.add_argument("--result-dir", type=Path, default=DEFAULT_RESULT_DIR)
+    parser.add_argument("--base-archive", type=Path, default=DEFAULT_BASE_ARCHIVE)
+    parser.add_argument("--delta-archive", type=Path, default=DEFAULT_DELTA_ARCHIVE)
+    parser.add_argument("--overlay-audit", type=Path, default=DEFAULT_OVERLAY_AUDIT)
     return parser.parse_args(argv)
 
 
@@ -324,7 +500,22 @@ def main(argv: list[str] | None = None) -> int:
     work_tree = resolve(root, args.work_tree)
     clang_repo = resolve(root, args.clang_repo)
     result_dir = resolve(root, args.result_dir)
-    result = preflight(root, work_tree, clang_repo, lto=args.lto, jobs=args.jobs)
+    source_overlay = run_overlay_audit(
+        root,
+        work_tree,
+        result_dir,
+        resolve(root, args.base_archive),
+        resolve(root, args.delta_archive),
+        resolve(root, args.overlay_audit),
+    )
+    result = preflight(
+        root,
+        work_tree,
+        clang_repo,
+        lto=args.lto,
+        jobs=args.jobs,
+        source_overlay=source_overlay,
+    )
     write_json(result_dir / "preflight.json", result)
     if args.mode == "preflight":
         print(json.dumps(result, indent=2, sort_keys=True))
@@ -332,7 +523,9 @@ def main(argv: list[str] | None = None) -> int:
     if not result["build_allowed"]:
         raise BuildError("build refused: preflight did not pass")
 
-    environment = build_environment(work_tree, lto=args.lto, jobs=args.jobs)
+    environment = build_environment(
+        work_tree, lto=args.lto, jobs=args.jobs, clang_repo=clang_repo
+    )
     command = ["./kernel_platform/build/android/prepare_vendor.sh", "sec", "gki"]
     time_file = result_dir / "time.txt"
     with (result_dir / "stdout.log").open("w", encoding="utf-8") as stdout_log, (
@@ -347,18 +540,36 @@ def main(argv: list[str] | None = None) -> int:
             stderr=stderr_log,
             check=False,
         )
+    outputs = collect_outputs(work_tree)
+    outputs_gate = output_gate(outputs)
+    generated_modules = collect_generated_modules(work_tree)
+    module_gate = {
+        "generated_module_count": len(generated_modules),
+        "verified": bool(generated_modules),
+    }
+    effective_returncode = completed.returncode
+    if effective_returncode == 0 and not outputs_gate["verified"]:
+        effective_returncode = 3
+    if effective_returncode == 0 and not module_gate["verified"]:
+        effective_returncode = 4
     result.update(
         {
             "mode": "build",
-            "returncode": completed.returncode,
-            "outputs": collect_outputs(work_tree),
+            "build_command_returncode": completed.returncode,
+            "returncode": effective_returncode,
+            "outputs": outputs,
+            "output_gate": outputs_gate,
+            "generated_modules": generated_modules,
+            "module_gate": module_gate,
+            "symvers_files": collect_symvers(work_tree),
+            "r1_buildability_pass": effective_returncode == 0,
             "stock_equivalent_claim": False,
             "interpretation": "build output only; R2 static equivalence and R3 live proof remain required",
         }
     )
     write_json(result_dir / "result.json", result)
-    print(json.dumps({"result": "pass" if completed.returncode == 0 else "fail", "returncode": completed.returncode, "result_dir": display_path(root, result_dir), "output_count": len(result["outputs"])}, indent=2, sort_keys=True))
-    return completed.returncode
+    print(json.dumps({"result": "pass" if effective_returncode == 0 else "fail", "returncode": effective_returncode, "result_dir": display_path(root, result_dir), "output_count": len(result["outputs"]), "generated_module_count": len(result["generated_modules"]), "symvers_file_count": len(result["symvers_files"])}, indent=2, sort_keys=True))
+    return effective_returncode
 
 
 if __name__ == "__main__":
