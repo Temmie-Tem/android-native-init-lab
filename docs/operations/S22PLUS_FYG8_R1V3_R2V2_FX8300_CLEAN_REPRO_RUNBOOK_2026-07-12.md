@@ -1,7 +1,7 @@
 # S22+ FYG8 R1 v3 / R2 v2 FX-8300 Clean Reproduction Runbook
 
 Date: 2026-07-12 KST  
-Remote: `temmie@192.168.0.3`  
+Remote: `<BUILD_HOST>`  
 Workspace: `/home/temmie/a90-fyg8-build`  
 Scope: host-only build; no image packaging, USB, device, or flash action
 
@@ -59,7 +59,7 @@ rsync -avR \
   docs/module-map/s22plus-fyg8/symbol-crc-requirements.tsv \
   docs/module-map/s22plus-fyg8-super/layout-manifest.json \
   docs/module-map/s22plus-fyg8-super/vendor-dlkm-only-symbol-crc-requirements.tsv \
-  temmie@192.168.0.3:/home/temmie/a90-fyg8-build/
+  <BUILD_HOST>:/home/temmie/a90-fyg8-build/
 ```
 
 On the remote, verify every tool and R2 input before continuing:

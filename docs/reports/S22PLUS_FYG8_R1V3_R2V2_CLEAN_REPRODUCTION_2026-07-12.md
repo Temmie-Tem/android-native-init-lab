@@ -1,7 +1,7 @@
 # S22+ FYG8 R1 v3 / R2 v2 Clean Reproduction
 
 Date: 2026-07-12 KST  
-Remote: Debian 13 FX-8300, `temmie@192.168.0.3`  
+Remote: Debian 13 FX-8300, `<BUILD_HOST>`  
 Scope: host-only clean Full-LTO build and static audit; no image packaging,
 USB, device contact, or flash action
 
