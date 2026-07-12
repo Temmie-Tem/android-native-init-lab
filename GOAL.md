@@ -4,6 +4,27 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-13 KST) - R4W1-A A0 HOST DESIGN GO;
+> A1 MARKER-ORACLE FEASIBILITY OPEN; A0 IMPLEMENTATION/ARTIFACTS AND ALL LIVE
+> WORK REMAIN UNAUTHORIZED.** R4W1-A will place the exact clean-reproduced
+> R4W1 Image into the live-proven R3C0 stock carrier, changing only boot kernel
+> interval `[4096,41495040)`. Candidate root is not required. PASS requires
+> stable FYG8 Android, then mandatory exact Magisk rollback and two identical
+> first-boot `/proc/last_kmsg` reads containing the exact build-bound marker
+> after baseline absence. This tests the exact G/H Image without adding the
+> separate nine-byte Magisk DEFEX/PROCA delta. Marker absence remains
+> `NO_PROOF`; partial exec-only evidence does not promote R4W1-B. The design
+> pins one-shot consumption, boot-only scope, standard eight-event timeline,
+> immediate evidence fsync, exact Magisk rollback, stock cleanup-only fallback,
+> and a verdict matrix. Opus returned A0 `GO` with no A0 blocker, but existing
+> full-ring normal-boot snapshots begin only at 3.34-3.54 seconds, making early
+> marker overwrite the load-bearing A1 risk. Next is a separate host-only A0
+> builder/checker, three clean reproductions, and SHA-bound overwrite-budget
+> analysis. A1 helper/policy remains blocked until an exact candidate snapshot
+> path is selected. No candidate packaging, connected dry-run, `AGENTS.md`
+> exception, device contact, or flash is authorized. Record:
+> `docs/plans/S22PLUS_FYG8_R4W1A_STOCK_ANDROID_POSITIVE_CONTROL_DESIGN_2026-07-13.md`.
+>
 > **S22+ ACTIVE FRONTIER (2026-07-13 KST) - R4W1 RETAINED PID1 WITNESS
 > CLEAN G/H FULL-LTO REPRODUCIBILITY PASS; HOST-ONLY; NO LIVE CANDIDATE OR
 > FLASH AUTHORIZATION.** Two independently prepared source-only trees passed

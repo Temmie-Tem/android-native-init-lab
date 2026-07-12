@@ -116,11 +116,17 @@ Before any live preparation:
 
 ## Live Ladder, Not Yet Authorized
 
+Detailed R4W1-A sequencing, artifact construction, marker classification,
+rollback, and verdict rules are superseded by
+`docs/plans/S22PLUS_FYG8_R4W1A_STOCK_ANDROID_POSITIVE_CONTROL_DESIGN_2026-07-13.md`.
+The original ladder below remains the high-level intent.
+
 R4W1-A, stock-Android positive control:
 
 - one boot-only candidate flash;
-- normal Android and Magisk root must return;
-- `/proc/last_kmsg` must contain the exact marker;
+- candidate normal Android must return; candidate root is not required;
+- the first Magisk rollback boot's `/proc/last_kmsg` must contain the exact
+  marker after a clean baseline absence proof;
 - exact boot/DTBO/recovery identities must be collected;
 - exact Magisk boot rollback is mandatory.
 
