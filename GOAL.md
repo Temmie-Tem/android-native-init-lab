@@ -4,9 +4,9 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ ACTIVE FRONTIER (2026-07-12 KST) - CLEAN R1 V3 FULL-LTO, R2 V2, AND
-> R3 STATIC CHECKER CLOSED; R3C0 ARTIFACT CONSTRUCTION/REPRODUCTION NEXT BUT
-> UNAUTHORIZED; LANE W REMAINS DESIGN-ONLY; NO LIVE AUTHORIZATION.**
+> **S22+ ACTIVE FRONTIER (2026-07-12 KST) - CLEAN R1 V3 FULL-LTO, R2 V2,
+> R3 CHECKER, AND SYNTHETIC R3C0 ARTIFACT REPRODUCTION CLOSED; R3C0 LIVE POLICY
+> NOT ACTIVE; R3C1 BLOCKED; LANE W REMAINS DESIGN-ONLY.**
 > The Debian 13 FX-8300 host completed a separate clean Full-LTO build in
 > 33:47.58 with 24,252,508 KiB peak RSS and zero swaps. R1 v3 passed exact
 > source, output, module, provider, timestamp-restore, and 398-byte FYG8 banner
@@ -22,13 +22,17 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `SignerVer02` record that MagiskBoot v30.7 replaces with only the 16-byte
 > `SEANDROIDENFORCE` marker while updating the AVB footer. The former
 > byte-identical exact-stock no-change premise is source-disproved. R3 is now a
-> two-rung differential: R3C0 proves the normalized stock-kernel/stock-ramdisk
-> carrier and rolls back; only then may a separate R3C1 change exactly the
-> kernel region to the R2 Image and roll back. The next bounded host work is
-> checker-source implementation against the explicit 11-region boot model.
-> Artifact creation, policy, and live work still require separate review,
-> fresh narrow `AGENTS.md` exceptions, and explicit attended approval. Record:
+> two-rung differential: R3C0 proves a synthetic minimal signer-normalized
+> stock-kernel/stock-ramdisk carrier and rolls back; only then may a separate
+> R3C1 change exactly the kernel region to the R2 Image and roll back. An actual
+> pinned stock no-change MagiskBoot run corrected the source-only model: it also
+> recompressed ramdisk `1978967 -> 1653775` and moved signer/vbmeta, so
+> MagiskBoot is provenance only and is not the R3C0 generator. Artifact
+> construction is now host-closed; policy and live work still require separate
+> review, a fresh narrow `AGENTS.md` exception, and explicit attended approval.
+> Records:
 > `docs/reports/S22PLUS_FYG8_R3_CARRIER_AND_STATIC_CHECKER_AUDIT_2026-07-12.md`.
+> `docs/reports/S22PLUS_FYG8_R3C0_ARTIFACT_REPRODUCTION_2026-07-12.md`.
 > The host-only checker is now source-ready and independently reviewed. Its
 > exact `inputs` stage rehashed the full six-file FYG8 firmware evidence,
 > validated R1/R2, all 11 stock boot regions, stock AVB through a sealed memfd,
@@ -37,9 +41,12 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > is `917b12f8...6a514`; final private `/tmp` audit JSON SHA256 is
 > `40ae3e81...d1199`. Record:
 > `docs/reports/S22PLUS_FYG8_R3_STATIC_CHECKER_SOURCE_READY_2026-07-12.md`.
-> No R3C0/R3C1 boot or AP was generated. Artifact construction and independent
-> reproduction remain a separate unauthorized unit; R3C1 remains blocked on a
-> future attended R3C0 PASS and rollback.
+> R3C0 private reproduction A/B are byte-identical and both independently pass
+> `PASS_R3C0_STATIC_CONTRACT`. Raw boot SHA256 is `384efeb0...71f29f`, LZ4 is
+> `61f5d9f6...e2212e`, and boot-only AP is `8f2b16d3...d3c00`. No generated
+> image/AP is committed. No device was contacted and no flash occurred. No
+> R3C1 artifact exists; R3C1 remains blocked on a future attended R3C0 PASS and
+> rollback.
 > The ranked
 > pre-run hardening is now closed: baseline generation, R1, and R2 share one
 > LF/NUL-bounded exact-banner extractor; R1 consumes the pinned baseline; the

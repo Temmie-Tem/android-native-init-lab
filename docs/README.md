@@ -13,6 +13,20 @@
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
 
+## S22+ FYG8 kernel rebuild frontier
+
+S22+ `SM-S906N/g0q/S906NKSS7FYG8` 커널 재현과 첫 부트 대조군의 현재
+상태는 다음 문서에서 시작합니다.
+
+- 설계: `plans/S22PLUS_FYG8_R3_UNPATCHED_KERNEL_VIABILITY_DESIGN_2026-07-12.md`
+- R3 정적 체커: `reports/S22PLUS_FYG8_R3_STATIC_CHECKER_SOURCE_READY_2026-07-12.md`
+- R3C0 산출물 재현: `reports/S22PLUS_FYG8_R3C0_ARTIFACT_REPRODUCTION_2026-07-12.md`
+
+R3C0는 실제 MagiskBoot 재패킹물이 아니라 exact stock geometry에서 signer
+tail과 AVB footer size만 바꾼 synthetic minimal control입니다. A/B 호스트
+재현과 정적 체커는 통과했지만 live 정책은 없고 R3C1은 R3C0 live PASS와
+rollback 전까지 차단됩니다.
+
 ## S22+ FYG8 module map
 
 S22+ `SM-S906N/g0q/S906NKSS7FYG8` 모듈 조사와 native-init load/bind

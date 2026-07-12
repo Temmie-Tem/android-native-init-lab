@@ -336,15 +336,17 @@ historical evidence and does not satisfy the current R3 prerequisite.
 
 ### R3 - Unpatched rebuilt-kernel boot-only viability proof
 
-Status: **CARRIER DESIGN, R1 V3/R2 V2, AND STATIC CHECKER CLOSED 2026-07-12;
-BLOCKED ON R3C0 ARTIFACT CONSTRUCTION/REPRODUCTION, FRESH POLICY, AND OPERATOR
-APPROVAL**
+Status: **CARRIER DESIGN, R1 V3/R2 V2, STATIC CHECKER, AND SYNTHETIC R3C0
+ARTIFACT REPRODUCTION CLOSED 2026-07-12; BLOCKED ON FRESH R3C0 LIVE POLICY AND
+OPERATOR APPROVAL; R3C1 BLOCKED ON R3C0 LIVE PASS PLUS ROLLBACK**
 
-- Exact-stock analysis found a 528-byte Samsung `SignerVer02` record that
-  MagiskBoot v30.7 normalizes to a 16-byte marker; no-change exact-stock repack
-  is therefore source-confirmed non-identical.
-- R3C0 first proves the normalized carrier with the exact stock kernel and
-  stock ramdisk, then rolls back in its own one-shot session.
+- Exact-stock analysis found a 528-byte Samsung `SignerVer02` record. An actual
+  pinned MagiskBoot v30.7 no-change run also recompressed the ramdisk and moved
+  the post-payload layout, so MagiskBoot is provenance only, not the R3C0
+  generator.
+- R3C0 first proves the directly constructed synthetic minimal
+  signer-normalized carrier with the exact stock kernel and stock ramdisk, then
+  rolls back in its own one-shot session.
 - Only after R3C0 PASS may R3C1 start from byte-identical R3C0 bytes and replace
   only the kernel region with the unpatched R2-GO
   `static-stock-equivalent-kernel`.
@@ -363,8 +365,9 @@ APPROVAL**
   closure or native PID1.
 - Restore the pinned known-booting Magisk boot after proof, even on PASS.
 
-Exit gate: R3C0 proves and rolls back the normalized stock carrier, then a
-separate R3C1 run proves and rolls back the unpatched R2-GO rebuild. This proves
+Exit gate: R3C0 proves and rolls back the synthetic minimal signer-normalized
+stock carrier, then a separate R3C1 run proves and rolls back the unpatched
+R2-GO rebuild. This proves
 only that the rebuilt kernel can boot this hardware far enough for the selected
 milestone after its carrier path is independently controlled.
 

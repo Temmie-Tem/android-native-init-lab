@@ -7,6 +7,18 @@ device contact, or flash
 
 ## Verdict
 
+### Subsequent execution correction
+
+The source-only audit below correctly predicted that exact-stock no-change
+repack would not be byte-identical, but it incompletely predicted the output
+shape. A later actual pinned MagiskBoot v30.7 run also recompressed the stock
+ramdisk from 1,978,967 to 1,653,775 bytes and moved the signature, signer, and
+vbmeta. Therefore references below to a "MagiskBoot-normalized container" are
+superseded. R3C0 is a directly constructed **synthetic minimal
+signer-normalized control** at exact stock geometry; MagiskBoot is provenance
+only and is not its generator. Full correction and pins:
+`docs/reports/S22PLUS_FYG8_R3C0_ARTIFACT_REPRODUCTION_2026-07-12.md`.
+
 The former R3 requirement that a no-change MagiskBoot repack of the exact FYG8
 stock `boot.img` be byte-identical is **source-disproved**.
 
@@ -27,8 +39,9 @@ kernel insertion into the exact stock container would mix two hypotheses:
 
 R3 is therefore corrected to a two-rung differential:
 
-1. **R3C0 carrier control:** stock kernel plus stock ramdisk in the exact,
-   statically characterized MagiskBoot-normalized container;
+1. **R3C0 carrier control:** stock kernel plus stock ramdisk in a directly
+   constructed, statically characterized synthetic minimal signer-normalized
+   container;
 2. **R3C1 kernel differential:** the byte-identical R3C0 control with only the
    kernel region replaced by the exact R2 Image.
 
@@ -122,7 +135,7 @@ The boot checker must adopt the same fail-closed principle.
 
 ## Corrected R3 Differential
 
-### R3C0 - Normalized Carrier Control
+### R3C0 - Synthetic Minimal Signer-Normalized Control
 
 R3C0 must contain the stock kernel and stock ramdisk. Relative to exact stock,
 the only allowed byte differences are:
@@ -137,7 +150,10 @@ For this fixed geometry, `vbmeta_offset` must remain `43487232`. The header,
 kernel, alignment, ramdisk, GKI signature, vbmeta, and all other padding must
 remain byte-identical to stock.
 
-R3C0 is a carrier-acceptance control. It does not test the rebuilt kernel.
+R3C0 is a synthetic carrier-acceptance control. The known Magisk boot proves
+only one different stale-vbmeta layout boots; it does not establish that this
+exact stock-geometry synthetic shape boots. R3C0 does not test the rebuilt
+kernel.
 
 ### R3C1 - Kernel-Only Differential
 

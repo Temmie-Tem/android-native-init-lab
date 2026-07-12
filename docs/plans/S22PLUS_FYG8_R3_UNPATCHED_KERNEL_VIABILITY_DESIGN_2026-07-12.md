@@ -2,13 +2,13 @@
 
 Date: 2026-07-12 KST  
 Target: `SM-S906N/g0q/S906NKSS7FYG8`  
-Scope: host-only design; no candidate build, package, device contact, or flash
+Scope: host-only design and R3C0 artifact close; no device contact or flash
 
-Status: carrier design corrected after exact-stock signer audit; corrected R1
-v3/R2 v2 re-close, local artifact retrieval, static-checker implementation,
-independent source review, and exact-input audit passed on 2026-07-12. Artifact
-construction, policy activation, and live work remain separate and
-unauthorized.
+Status: carrier design corrected after an actual MagiskBoot no-change repack;
+corrected R1 v3/R2 v2, checker, exact-input audit, and independently reproduced
+R3C0 synthetic control artifacts passed on 2026-07-12. Policy activation and
+live work remain separate and unauthorized. R3C1 remains blocked on a future
+attended R3C0 PASS plus rollback.
 
 ## Decision
 
@@ -16,13 +16,15 @@ R3 tests the **unpatched** R2-GO kernel with the exact FYG8 stock
 ramdisk/userspace. It does not use Magisk kernel patches, Magisk ramdisk
 semantics, a native PID1, a witness patch, or any security-config change.
 
-Exact-stock analysis found a 528-byte Samsung `SignerVer02` record that
-MagiskBoot v30.7 normalizes to the 16-byte `SEANDROIDENFORCE` marker. Because a
-direct stock-container kernel replacement would leave a present-but-stale
-Samsung signer record, R3 is split into two independently rolled-back rungs:
+Exact-stock analysis found a 528-byte Samsung `SignerVer02` record. An actual
+pinned MagiskBoot v30.7 no-change repack writes only the 16-byte
+`SEANDROIDENFORCE` marker, but it also recompresses the stock ramdisk and moves
+the signature, signer, and vbmeta. R3C0 therefore does not use MagiskBoot as a
+generator. It directly creates a synthetic minimal signer differential at the
+stock geometry, splitting R3 into two independently rolled-back rungs:
 
-1. R3C0 proves the normalized container with the stock kernel and stock
-   ramdisk;
+1. R3C0 tests the synthetic minimal signer-normalized stock container with the
+   exact stock kernel and ramdisk;
 2. R3C1 starts from byte-identical R3C0 bytes and changes only the kernel region
    to the exact R2 Image.
 
@@ -89,29 +91,34 @@ The exact 100,663,296-byte stock boot image has this relevant geometry:
 The signer area starts with `SEANDROIDENFORCE`, `SignerVer02`, FYG8 build
 metadata, and signature-like bytes. MagiskBoot v30.7 source detects the first
 16-byte marker, writes only those 16 bytes during repack, and updates the
-footer's `original_image_size`. Therefore an exact-stock no-change MagiskBoot
-repack cannot be byte-identical. The former stop-on-nonidentity contract is
-retired.
+footer's `original_image_size`. The actual pinned no-change repack additionally
+changed ramdisk size from 1,978,967 to 1,653,775 bytes and moved the marker to
+43,155,456 plus vbmeta to 43,159,552. Its output SHA256 was
+`f173500c9c9f2dcbe1272e1e4557c6d5818cbc06ab6484a4d235a4ef0b9dc81f`.
+It preserved the exact stock kernel and vbmeta bytes, but it is not the R3C0
+two-field differential. The former stop-on-nonidentity and
+MagiskBoot-as-R3C0-generator contracts are retired.
 
 Full evidence and checker threat model:
 `docs/reports/S22PLUS_FYG8_R3_CARRIER_AND_STATIC_CHECKER_AUDIT_2026-07-12.md`.
 
-## Future Artifact Construction Contract
+## R3C0 Artifact Construction Contract
 
-Artifact implementation is a separate unit. When authorized, it must:
+The completed host-only R3C0 implementation follows this contract:
 
 1. Start from the exact stock `boot.img`, never from a previous native-init or
    Magisk candidate.
-2. Construct R3C0 in a temporary directory using the pinned MagiskBoot v30.7
-   normalization behavior. R3C0 must retain the exact stock kernel and ramdisk.
+2. Construct R3C0 directly from pinned stock bytes. MagiskBoot v30.7 is pinned
+   as provenance for the 16-byte marker behavior but is not executed as the
+   generator. R3C0 must retain the exact stock kernel and ramdisk.
 3. Require R3C0 versus stock to differ only in the 528-byte Samsung signer area
    and AVB footer `original_image_size`. The first 16 signer bytes remain exact
    `SEANDROIDENFORCE`, the remaining 512 bytes become zero, and
    `original_image_size` becomes `43483152`. `vbmeta_offset` remains
    `43487232`.
-4. Construct R3C1 from the exact pinned R3C0 raw bytes by replacing only kernel
-   `[4096, 41495040)` with the exact R2 Image. Do not perform another semantic
-   repack.
+4. A future R3C1 must start from the exact pinned R3C0 raw bytes and replace
+   only kernel `[4096, 41495040)` with the exact R2 Image. Do not perform
+   another semantic repack.
 5. Require R3C1 versus R3C0 to differ only in that kernel range. Preserve the
    stock ramdisk byte-for-byte. No `/init`, cpio metadata, SELinux file,
    bootconfig, cmdline, vendor_boot, DTBO, or recovery change is allowed.
@@ -125,16 +132,19 @@ Artifact implementation is a separate unit. When authorized, it must:
 9. Run offline Odin parse gates against an invalid device path. This checks
    container parsing only and must not contact USB.
 
-No output hash can be pinned until that future artifact unit is executed and
-independently reproduced.
+R3C0 was independently reproduced twice. Exact pins are recorded in
+`docs/reports/S22PLUS_FYG8_R3C0_ARTIFACT_REPRODUCTION_2026-07-12.md`.
+This completion does not authorize R3C0 live use or any R3C1 construction.
 
 ## AVB And Unlock Caveat
 
-The stock signed vbmeta descriptor authenticates the stock boot payload. Once
-the kernel is replaced, the copied descriptor is stale even if its signature
-still verifies. The known-booting Magisk baseline demonstrates that this
-unlocked device accepts one stale-descriptor boot path; it does not prove that
-every rebuilt-kernel candidate will boot.
+The stock signed vbmeta descriptor authenticates the stock boot payload. R3C0
+already makes that descriptor stale by changing the signer/footer shape; R3C1
+would additionally replace the kernel. The known-booting Magisk baseline proves
+only that this unlocked device accepts one different stale-descriptor image
+whose ramdisk and internal layout differ from R3C0. It does not prove that the
+synthetic R3C0 shape or any rebuilt-kernel candidate will boot. That unresolved
+acceptance question is precisely why a separate R3C0 live control is required.
 
 R3 must therefore report all three facts explicitly:
 
@@ -188,9 +198,10 @@ Require exactly one normal Android ADB target with:
 
 ### R3C0 Control Milestone
 
-R3C0 uses the stock kernel and stock ramdisk in the normalized container. Its
-PASS requirements are the same bounded Android identity and stability checks
-below plus mandatory rollback. It proves only carrier acceptance.
+R3C0 uses the stock kernel and stock ramdisk in the synthetic minimal
+signer-normalized container. Its PASS requirements are the same bounded Android
+identity and stability checks below plus mandatory rollback. It proves only
+acceptance of this exact synthetic carrier shape.
 
 R3C0 must run in its own one-shot session and roll back before R3C1 is eligible.
 
@@ -284,5 +295,7 @@ This document grants none of those later permissions.
 Steps 1 and 2 above are complete for the corrected R1 v3/R2 v2 evidence.
 Step 3 is complete. Checker source and input-audit evidence:
 `docs/reports/S22PLUS_FYG8_R3_STATIC_CHECKER_SOURCE_READY_2026-07-12.md`.
-Steps 4 through 6 remain mandatory and incomplete. No R3C0/R3C1 artifact was
-created by the checker unit.
+Step 4 is complete for R3C0 only: two clean private reproductions are
+byte-identical and both passed the independent checker. Steps 5 and 6 remain
+mandatory and incomplete. No live exception is active, no device was contacted,
+and no R3C1 artifact exists.
