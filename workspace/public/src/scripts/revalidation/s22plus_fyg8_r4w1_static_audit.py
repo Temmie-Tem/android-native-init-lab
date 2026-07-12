@@ -141,6 +141,7 @@ def audit_build_result(
     build = r2.load_json(path)
     timestamp = build.get("timestamp_control_runtime", {})
     kmi_path = build.get("kmi_path_control_runtime", {})
+    vdso_debug = build.get("vdso_debug_control_runtime", {})
     patch_contract = build.get("r4w1_patch_contract", {})
     source_delta = build.get("source_delta", {})
     recorded_work_tree = build.get("work_tree")
@@ -223,6 +224,24 @@ def audit_build_result(
             and kmi_path.get("restored_sha256") == kmi_path.get("original_sha256")
             and kmi_path.get("original_sha256") == r4_build.BUILD_SH_SHA256
         ),
+        "vdso_debug_control_verified": (
+            vdso_debug.get("applied") is True
+            and vdso_debug.get("restored") is True
+            and vdso_debug.get("patched_content_unchanged") is True
+            and vdso_debug.get("verified") is True
+            and len(vdso_debug.get("files", []))
+            == len(r4_build.VDSO_DEBUG_CONTROLS)
+            and all(
+                row.get("restored") is True
+                and row.get("patched_content_unchanged") is True
+                and row.get("original_sha256") == spec["sha256"]
+                and row.get("source_map") == "/kernel-src"
+                and row.get("object_map") == "/kernel-out"
+                for row, spec in zip(
+                    vdso_debug.get("files", []), r4_build.VDSO_DEBUG_CONTROLS
+                )
+            )
+        ),
     }
     gate["verified"] = (
         gate["schema"] == r4_build.SCHEMA
@@ -241,6 +260,7 @@ def audit_build_result(
         and gate["witness_output_gate_verified"] is True
         and gate["timestamp_control_verified"] is True
         and gate["kmi_path_control_verified"] is True
+        and gate["vdso_debug_control_verified"] is True
     )
     return gate
 

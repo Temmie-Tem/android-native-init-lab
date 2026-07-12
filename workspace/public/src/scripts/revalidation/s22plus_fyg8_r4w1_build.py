@@ -35,6 +35,30 @@ KMI_PATH_REPRODUCIBLE = (
     "              --set-str UNUSED_KSYMS_WHITELIST "
     "../../out/msm-waipio-waipio-gki/gki_kernel/common/abi_symbollist.raw\n"
 )
+VDSO_DEBUG_CONTROLS = (
+    {
+        "path": Path("kernel_platform/common/arch/arm64/kernel/vdso/Makefile"),
+        "sha256": "ffea25de09036567a55f0618f37c7ec71d05bed2fda57080c7018e5a67957d5a",
+        "original": "ccflags-y += -DDISABLE_BRANCH_PROFILING -DBUILD_VDSO\n",
+        "reproducible": (
+            "ccflags-y += -DDISABLE_BRANCH_PROFILING -DBUILD_VDSO\n"
+            "ccflags-y += -fdebug-prefix-map=$(srctree)=/kernel-src\n"
+            "ccflags-y += -fdebug-prefix-map=$(objtree)=/kernel-out\n"
+            "asflags-y += -fdebug-prefix-map=$(srctree)=/kernel-src\n"
+            "asflags-y += -fdebug-prefix-map=$(objtree)=/kernel-out\n"
+        ),
+    },
+    {
+        "path": Path("kernel_platform/common/arch/arm64/kernel/vdso32/Makefile"),
+        "sha256": "a0f4a9ea0f57b075d5835d0d4755e2d70eaab1c90d49105da557ff1892986393",
+        "original": "VDSO_CAFLAGS += -DDISABLE_BRANCH_PROFILING\n",
+        "reproducible": (
+            "VDSO_CAFLAGS += -DDISABLE_BRANCH_PROFILING\n"
+            "VDSO_CAFLAGS += -fdebug-prefix-map=$(srctree)=/kernel-src\n"
+            "VDSO_CAFLAGS += -fdebug-prefix-map=$(objtree)=/kernel-out\n"
+        ),
+    },
+)
 DEFAULT_RESULT_DIR = Path(
     "workspace/private/outputs/s22plus_fyg8_r4w1_build/build"
 )
@@ -111,6 +135,120 @@ def apply_kmi_path_control(
         )
         if not runtime["patched_content_unchanged"] or not runtime["restored"]:
             raise BuildError("KMI path control was not cleanly restored")
+
+
+def inspect_vdso_debug_control(work_tree: Path) -> dict[str, Any]:
+    rows: list[dict[str, Any]] = []
+    for spec in VDSO_DEBUG_CONTROLS:
+        path = work_tree / spec["path"]
+        if path.is_symlink() or not path.is_file():
+            rows.append(
+                {"path": str(path), "verified": False, "reason": "missing-or-indirect"}
+            )
+            continue
+        original = path.read_bytes()
+        try:
+            text = original.decode("utf-8")
+        except UnicodeDecodeError:
+            rows.append({"path": str(path), "verified": False, "reason": "not-utf8"})
+            continue
+        metadata = path.stat()
+        patched = text.replace(spec["original"], spec["reproducible"], 1).encode(
+            "utf-8"
+        )
+        row = {
+            "path": str(path),
+            "relative_path": str(spec["path"]),
+            "original_sha256": base.sha256_file(path),
+            "expected_original_sha256": spec["sha256"],
+            "patched_sha256": __import__("hashlib").sha256(patched).hexdigest(),
+            "original_mode": stat.S_IMODE(metadata.st_mode),
+            "original_atime_ns": metadata.st_atime_ns,
+            "original_mtime_ns": metadata.st_mtime_ns,
+            "match_count": text.count(spec["original"]),
+            "source_map": "/kernel-src",
+            "object_map": "/kernel-out",
+            "parent_writable": os.access(path.parent, os.W_OK),
+        }
+        row["verified"] = (
+            row["original_sha256"] == spec["sha256"]
+            and row["match_count"] == 1
+            and patched != original
+            and row["parent_writable"]
+        )
+        rows.append(row)
+    return {
+        "files": rows,
+        "expected_file_count": len(VDSO_DEBUG_CONTROLS),
+        "verified": (
+            len(rows) == len(VDSO_DEBUG_CONTROLS)
+            and all(row.get("verified") for row in rows)
+        ),
+    }
+
+
+@contextmanager
+def apply_vdso_debug_control(
+    work_tree: Path, control: dict[str, Any]
+) -> Iterator[dict[str, Any]]:
+    if not control.get("verified"):
+        raise BuildError("VDSO debug-path reproducibility control is not verified")
+    originals: dict[Path, bytes] = {}
+    patched_hashes: dict[Path, str] = {}
+    rows_by_relative = {
+        row["relative_path"]: row for row in control.get("files", [])
+    }
+    runtime = dict(control)
+    runtime["files"] = [dict(row) for row in control["files"]]
+    runtime.update({"applied": False, "restored": False})
+    written: list[Path] = []
+    try:
+        for spec in VDSO_DEBUG_CONTROLS:
+            path = work_tree / spec["path"]
+            row = rows_by_relative[str(spec["path"])]
+            original = path.read_bytes()
+            if base.sha256_file(path) != row["original_sha256"]:
+                raise BuildError(f"VDSO Makefile changed after preflight: {path}")
+            patched = original.decode("utf-8").replace(
+                spec["original"], spec["reproducible"], 1
+            ).encode("utf-8")
+            originals[path] = original
+            patched_hashes[path] = row["patched_sha256"]
+            base.atomic_replace_bytes(path, patched, mode=row["original_mode"])
+            written.append(path)
+        runtime["applied"] = True
+        yield runtime
+    finally:
+        runtime_rows = {row["relative_path"]: row for row in runtime["files"]}
+        for path in reversed(written):
+            relative = str(path.relative_to(work_tree))
+            row = runtime_rows[relative]
+            current_sha = base.sha256_file(path) if path.is_file() else None
+            base.atomic_replace_bytes(path, originals[path], mode=row["original_mode"])
+            os.utime(
+                path,
+                ns=(row["original_atime_ns"], row["original_mtime_ns"]),
+                follow_symlinks=False,
+            )
+            row["patched_content_unchanged"] = current_sha == patched_hashes[path]
+            row["restored_sha256"] = base.sha256_file(path)
+            row["restored_mode"] = stat.S_IMODE(path.stat().st_mode)
+            row["restored"] = (
+                row["restored_sha256"] == row["original_sha256"]
+                and row["restored_mode"] == row["original_mode"]
+            )
+        runtime["patched_content_unchanged"] = (
+            len(written) == len(VDSO_DEBUG_CONTROLS)
+            and all(row.get("patched_content_unchanged") for row in runtime["files"])
+        )
+        runtime["restored"] = (
+            len(written) == len(VDSO_DEBUG_CONTROLS)
+            and all(row.get("restored") for row in runtime["files"])
+        )
+        if written and (
+            not runtime["patched_content_unchanged"] or not runtime["restored"]
+        ):
+            raise BuildError("VDSO debug-path control was not cleanly restored")
 
 
 def witness_output_gate(work_tree: Path) -> dict[str, Any]:
@@ -229,6 +367,7 @@ def main() -> int:
     )
     timestamp = base.inspect_timestamp_control(work_tree)
     kmi_path_control = inspect_kmi_path_control(work_tree)
+    vdso_debug_control = inspect_vdso_debug_control(work_tree)
     stock = base.inspect_stock_baseline(base.resolve(root, args.stock_baseline))
     r4_contract = patch_check.run_check(work_tree, source_patch)
     preflight = base.preflight(
@@ -243,9 +382,12 @@ def main() -> int:
         stock_baseline=stock,
     )
     preflight["build_allowed"] = (
-        preflight["build_allowed"] and kmi_path_control["verified"]
+        preflight["build_allowed"]
+        and kmi_path_control["verified"]
+        and vdso_debug_control["verified"]
     )
     preflight["provenance"]["kmi_path_control"] = kmi_path_control
+    preflight["provenance"]["vdso_debug_control"] = vdso_debug_control
     result: dict[str, Any] = {
         **preflight,
         "schema": SCHEMA,
@@ -278,21 +420,24 @@ def main() -> int:
     command = ["./kernel_platform/build/android/prepare_vendor.sh", "sec", "gki"]
     time_file = result_dir / "time.txt"
     with apply_kmi_path_control(work_tree, kmi_path_control) as kmi_path_runtime:
-        with base.apply_timestamp_control(work_tree, timestamp) as timestamp_runtime:
-            with (result_dir / "stdout.log").open(
-                "w", encoding="utf-8"
-            ) as stdout_log, (result_dir / "stderr.log").open(
-                "w", encoding="utf-8"
-            ) as stderr_log:
-                completed = subprocess.run(
-                    ["/usr/bin/time", "-v", "-o", str(time_file), *command],
-                    cwd=work_tree,
-                    env=environment,
-                    text=True,
-                    stdout=stdout_log,
-                    stderr=stderr_log,
-                    check=False,
-                )
+        with apply_vdso_debug_control(
+            work_tree, vdso_debug_control
+        ) as vdso_debug_runtime:
+            with base.apply_timestamp_control(work_tree, timestamp) as timestamp_runtime:
+                with (result_dir / "stdout.log").open(
+                    "w", encoding="utf-8"
+                ) as stdout_log, (result_dir / "stderr.log").open(
+                    "w", encoding="utf-8"
+                ) as stderr_log:
+                    completed = subprocess.run(
+                        ["/usr/bin/time", "-v", "-o", str(time_file), *command],
+                        cwd=work_tree,
+                        env=environment,
+                        text=True,
+                        stdout=stdout_log,
+                        stderr=stderr_log,
+                        check=False,
+                    )
     providers = (
         base.run_provider_module_closure(
             work_tree, environment, result_dir, jobs=args.jobs
@@ -336,6 +481,7 @@ def main() -> int:
             "witness_output_gate": witness_gate,
             "timestamp_control_runtime": timestamp_runtime,
             "kmi_path_control_runtime": kmi_path_runtime,
+            "vdso_debug_control_runtime": vdso_debug_runtime,
             "provider_module_closure": providers,
             "symvers_files": base.collect_symvers(work_tree),
             "incremental_dist_refresh": incremental,

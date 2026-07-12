@@ -101,6 +101,36 @@ class S22PlusFyg8R4W1BuildTest(unittest.TestCase):
             self.assertEqual(path.read_bytes(), content)
             self.assertTrue(runtime["restored"])
 
+    def test_vdso_debug_control_is_exact_and_restored(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            controls = []
+            originals = {}
+            for index, spec in enumerate(self.module.VDSO_DEBUG_CONTROLS):
+                path = root / spec["path"]
+                path.parent.mkdir(parents=True, exist_ok=True)
+                content = (f"prefix-{index}\n" + spec["original"] + "suffix\n").encode(
+                    "ascii"
+                )
+                path.write_bytes(content)
+                originals[path] = content
+                controls.append({**spec, "sha256": self.module.base.sha256_file(path)})
+            with mock.patch.object(
+                self.module, "VDSO_DEBUG_CONTROLS", tuple(controls)
+            ):
+                control = self.module.inspect_vdso_debug_control(root)
+                self.assertTrue(control["verified"])
+                with self.module.apply_vdso_debug_control(root, control) as runtime:
+                    for spec in controls:
+                        self.assertIn(
+                            spec["reproducible"],
+                            (root / spec["path"]).read_text(encoding="ascii"),
+                        )
+            self.assertTrue(runtime["restored"])
+            self.assertTrue(runtime["patched_content_unchanged"])
+            for path, content in originals.items():
+                self.assertEqual(path.read_bytes(), content)
+
 
 if __name__ == "__main__":
     unittest.main()
