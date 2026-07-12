@@ -342,6 +342,12 @@ unauthorized. A future implementation needs a fresh design review followed by a
 narrow SHA-pinned `AGENTS.md` exception and explicit operator approval for each
 live rung.
 
+2026-07-12 stock-payload/R1-output cross-check:
+`docs/reports/S22PLUS_FYG8_LANE_W_STATIC_READINESS_CROSSCHECK_2026-07-12.md`.
+It rehashes all 15 stock modules, confirms the selected hard-edge topology, and
+records that same-size R1 v2 stripped modules are not byte-identical and must
+not replace the pinned stock payload.
+
 ## Consequences
 
 1. The old seven-module list must not be used to build a producer candidate.

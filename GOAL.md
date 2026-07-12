@@ -23,6 +23,8 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/plans/S22PLUS_FYG8_R3_UNPATCHED_KERNEL_VIABILITY_DESIGN_2026-07-12.md`.
 > Correction record:
 > `docs/reports/S22PLUS_FYG8_R1_R2_TIMESTAMP_GATE_POSTMORTEM_2026-07-12.md`.
+> Lane W stock-payload readiness cross-check:
+> `docs/reports/S22PLUS_FYG8_LANE_W_STATIC_READINESS_CROSSCHECK_2026-07-12.md`.
 >
 > **S22+ PREVIOUS FRONTIER (2026-07-11 KST) - NATIVE-PID1 WITNESS AND FYG8
 > KERNEL TRUST ARE PARALLEL LANES; R1/R2 HOST GATES READY, FULL-LTO BUILD-HOST
