@@ -13,11 +13,15 @@ import hashlib
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
+import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator
+
+from s22plus_fyg8_kernel_banner import extract_linux_banner, extract_linux_release
 
 
 SCHEMA = "s22plus_fyg8_kernel_build_v3"
@@ -44,6 +48,10 @@ DEFAULT_WORK_TREE = Path("workspace/private/work/s22plus_fyg8_kernel_rebuild_r0"
 DEFAULT_CLANG_REPO = Path("workspace/private/inputs/toolchains/aosp-clang-android12-release")
 DEFAULT_RESULT_DIR = Path(
     "workspace/private/outputs/s22plus_fyg8_kernel_rebuild_r0/build-preflight"
+)
+DEFAULT_STOCK_BASELINE = Path(
+    "workspace/private/outputs/s22plus_fyg8_kernel_rebuild_r0/stock-baseline/"
+    "stock-kernel-baseline.json"
 )
 DEFAULT_BASE_ARCHIVE = Path(
     "workspace/private/inputs/s22plus_kernel_source/SM-S906N_15_base_osrc/Kernel.tar.gz"
@@ -162,6 +170,53 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def inspect_stock_baseline(path: Path) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "path": str(path),
+        "verified": False,
+    }
+    if not path.is_file():
+        result["reason"] = "stock-baseline-missing"
+        return result
+    try:
+        raw = path.read_bytes()
+        baseline = json.loads(raw.decode("ascii"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        result["reason"] = f"stock-baseline-invalid: {exc}"
+        return result
+    banner = baseline.get("linux_banner") if isinstance(baseline, dict) else None
+    release = extract_linux_release(banner) if isinstance(banner, str) else None
+    missing_markers = (
+        [marker for marker in STOCK_BANNER_MARKERS if marker not in banner]
+        if isinstance(banner, str)
+        else list(STOCK_BANNER_MARKERS)
+    )
+    verified = (
+        isinstance(baseline, dict)
+        and baseline.get("target") == TARGET
+        and baseline.get("kernel_release") == STOCK_KERNEL_RELEASE
+        and isinstance(banner, str)
+        and bool(banner)
+        and "\n" not in banner
+        and "\x00" not in banner
+        and release == STOCK_KERNEL_RELEASE
+        and not missing_markers
+    )
+    result.update(
+        {
+            "sha256": hashlib.sha256(raw).hexdigest(),
+            "target": baseline.get("target") if isinstance(baseline, dict) else None,
+            "kernel_release": baseline.get("kernel_release") if isinstance(baseline, dict) else None,
+            "expected_banner": banner if isinstance(banner, str) else "",
+            "missing_markers": missing_markers,
+            "verified": verified,
+        }
+    )
+    if not verified:
+        result["reason"] = "stock-baseline-identity-mismatch"
+    return result
 
 
 def run(command: list[str], *, cwd: Path | None = None, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -290,28 +345,65 @@ def prepare_incremental_dist_refresh(work_tree: Path) -> dict[str, Any]:
 def inspect_timestamp_control(work_tree: Path) -> dict[str, Any]:
     """Verify the exact Samsung timestamp override before any temporary edit."""
     path = work_tree / SETUP_ENV_PATH
-    if not path.is_file():
+    if not path.is_file() or path.is_symlink():
         return {
             "path": str(path),
             "verified": False,
-            "reason": "setup-env-missing",
+            "reason": "setup-env-missing-or-not-regular",
         }
-    original = path.read_text(encoding="utf-8")
+    original_bytes = path.read_bytes()
+    try:
+        original = original_bytes.decode("utf-8")
+    except UnicodeDecodeError:
+        return {
+            "path": str(path),
+            "verified": False,
+            "reason": "setup-env-not-utf8",
+        }
     count = original.count(SETUP_ENV_TIMESTAMP_ORIGINAL)
     patched = original.replace(
         SETUP_ENV_TIMESTAMP_ORIGINAL,
         SETUP_ENV_TIMESTAMP_PINNED,
         1,
     )
+    patched_bytes = patched.encode("utf-8")
+    metadata = path.stat()
+    parent_writable = os.access(path.parent, os.W_OK)
     return {
         "path": str(path),
-        "original_sha256": hashlib.sha256(original.encode("utf-8")).hexdigest(),
-        "patched_sha256": hashlib.sha256(patched.encode("utf-8")).hexdigest(),
+        "original_sha256": hashlib.sha256(original_bytes).hexdigest(),
+        "patched_sha256": hashlib.sha256(patched_bytes).hexdigest(),
+        "original_mode": stat.S_IMODE(metadata.st_mode),
+        "original_atime_ns": metadata.st_atime_ns,
+        "original_mtime_ns": metadata.st_mtime_ns,
+        "parent_writable": parent_writable,
         "match_count": count,
         "source_date_epoch": SOURCE_DATE_EPOCH,
         "kbuild_build_timestamp": STOCK_TIMESTAMP,
-        "verified": count == 1 and patched != original,
+        "verified": count == 1 and patched != original and parent_writable,
     }
+
+
+def atomic_replace_bytes(path: Path, data: bytes, *, mode: int) -> None:
+    """Replace one regular file atomically while preserving its permission mode."""
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            os.fchmod(handle.fileno(), mode)
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        directory = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 @contextmanager
@@ -325,6 +417,8 @@ def apply_timestamp_control(
     original_bytes = path.read_bytes()
     if hashlib.sha256(original_bytes).hexdigest() != control["original_sha256"]:
         raise BuildError("timestamp control source changed after preflight")
+    if stat.S_IMODE(path.stat().st_mode) != control["original_mode"]:
+        raise BuildError("timestamp control source mode changed after preflight")
     original = original_bytes.decode("utf-8")
     patched = original.replace(
         SETUP_ENV_TIMESTAMP_ORIGINAL,
@@ -333,42 +427,60 @@ def apply_timestamp_control(
     )
     if patched.count(SETUP_ENV_TIMESTAMP_PINNED) != 1:
         raise BuildError("timestamp control replacement is not unique")
-    path.write_text(patched, encoding="utf-8")
+    atomic_replace_bytes(path, patched.encode("utf-8"), mode=control["original_mode"])
     runtime = dict(control)
     runtime.update({"applied": True, "restored": False})
     try:
         yield runtime
     finally:
-        current_sha = sha256_file(path)
-        path.write_bytes(original_bytes)
-        runtime["restored"] = True
+        current_sha = sha256_file(path) if path.is_file() else None
+        atomic_replace_bytes(path, original_bytes, mode=control["original_mode"])
+        os.utime(
+            path,
+            ns=(control["original_atime_ns"], control["original_mtime_ns"]),
+            follow_symlinks=False,
+        )
+        runtime["restored_sha256"] = sha256_file(path)
+        runtime["restored_mode"] = stat.S_IMODE(path.stat().st_mode)
+        runtime["restored"] = (
+            runtime["restored_sha256"] == control["original_sha256"]
+            and runtime["restored_mode"] == control["original_mode"]
+        )
         runtime["patched_content_unchanged"] = (
             current_sha == control["patched_sha256"]
         )
-        runtime["restored_sha256"] = sha256_file(path)
+        if not runtime["restored"]:
+            raise BuildError("timestamp-controlled setup script was not restored")
         if not runtime["patched_content_unchanged"]:
             raise BuildError("timestamp-controlled setup script changed during build")
 
 
-def kernel_banner_gate(work_tree: Path) -> dict[str, Any]:
+def kernel_banner_gate(work_tree: Path, *, expected_banner: str) -> dict[str, Any]:
     image = work_tree / "out/msm-waipio-waipio-gki/gki_kernel/dist/Image"
     if not image.is_file():
         return {
             "path": str(image),
             "verified": False,
             "missing_markers": list(STOCK_BANNER_MARKERS),
+            "expected_banner": expected_banner,
         }
     data = image.read_bytes()
+    banner = extract_linux_banner(data) or ""
     missing = [
         marker
         for marker in STOCK_BANNER_MARKERS
-        if marker.encode("ascii") not in data
+        if marker not in banner
     ]
+    exact_banner_match = banner == expected_banner
     return {
         "path": str(image),
+        "banner": banner,
+        "expected_banner": expected_banner,
+        "release": extract_linux_release(banner) or "",
         "required_markers": list(STOCK_BANNER_MARKERS),
         "missing_markers": missing,
-        "verified": not missing,
+        "exact_banner_match": exact_banner_match,
+        "verified": exact_banner_match and not missing,
     }
 
 
@@ -594,6 +706,7 @@ def preflight(
     source_overlay: dict[str, Any] | None = None,
     host_tool_overrides: dict[str, Any] | None = None,
     timestamp_control: dict[str, Any] | None = None,
+    stock_baseline: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     required_paths = (
         work_tree / "kernel_platform/build/android/prepare_vendor.sh",
@@ -640,6 +753,7 @@ def preflight(
         and bool(source_overlay and source_overlay.get("verified"))
         and bool(host_tool_overrides and host_tool_overrides.get("verified"))
         and bool(timestamp_control and timestamp_control.get("verified"))
+        and bool(stock_baseline and stock_baseline.get("verified"))
         and resources["disk_ok"]
         and (lto != "full" or resources["full_lto_memory_ok"])
     )
@@ -671,6 +785,7 @@ def preflight(
             "source_overlay": source_overlay or {"verified": False},
             "host_tool_overrides": host_tool_overrides or {"verified": False},
             "timestamp_control": timestamp_control or {"verified": False},
+            "stock_baseline": stock_baseline or {"verified": False},
             "ambient_environment_allowlist": list(HOST_ENV_ALLOWLIST),
             "effective_path": environment["PATH"],
         },
@@ -779,6 +894,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--base-archive", type=Path, default=DEFAULT_BASE_ARCHIVE)
     parser.add_argument("--delta-archive", type=Path, default=DEFAULT_DELTA_ARCHIVE)
     parser.add_argument("--overlay-audit", type=Path, default=DEFAULT_OVERLAY_AUDIT)
+    parser.add_argument("--stock-baseline", type=Path, default=DEFAULT_STOCK_BASELINE)
     return parser.parse_args(argv)
 
 
@@ -800,6 +916,7 @@ def main(argv: list[str] | None = None) -> int:
         resolve(root, args.overlay_audit),
     )
     timestamp_control = inspect_timestamp_control(work_tree)
+    stock_baseline = inspect_stock_baseline(resolve(root, args.stock_baseline))
     result = preflight(
         root,
         work_tree,
@@ -809,6 +926,7 @@ def main(argv: list[str] | None = None) -> int:
         source_overlay=source_overlay,
         host_tool_overrides=host_tool_overrides,
         timestamp_control=timestamp_control,
+        stock_baseline=stock_baseline,
     )
     write_json(result_dir / "preflight.json", result)
     if args.mode == "preflight":
@@ -850,7 +968,9 @@ def main(argv: list[str] | None = None) -> int:
         "generated_module_count": len(generated_modules),
         "verified": bool(generated_modules),
     }
-    banner_gate = kernel_banner_gate(work_tree)
+    banner_gate = kernel_banner_gate(
+        work_tree, expected_banner=stock_baseline["expected_banner"]
+    )
     effective_returncode = completed.returncode
     if effective_returncode == 0 and not provider_module_closure["verified"]:
         effective_returncode = 5

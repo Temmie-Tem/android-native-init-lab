@@ -8,6 +8,9 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "workspace/public/src/scripts/revalidation/s22plus_fyg8_kernel_build.py"
+SCRIPT_DIR = str(SCRIPT.parent)
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
 
 
 def load_module():
@@ -85,14 +88,18 @@ class S22PlusFyg8KernelBuildTest(unittest.TestCase):
             setup.parent.mkdir(parents=True)
             original = "prefix\n" + self.module.SETUP_ENV_TIMESTAMP_ORIGINAL + "suffix\n"
             setup.write_text(original, encoding="utf-8")
+            setup.chmod(0o444)
             control = self.module.inspect_timestamp_control(work)
             self.assertTrue(control["verified"])
+            self.assertEqual(control["original_mode"], 0o444)
             with self.module.apply_timestamp_control(work, control) as runtime:
                 patched = setup.read_text(encoding="utf-8")
                 self.assertIn(self.module.SETUP_ENV_TIMESTAMP_PINNED, patched)
                 self.assertNotIn(self.module.SETUP_ENV_TIMESTAMP_ORIGINAL, patched)
+                self.assertEqual(setup.stat().st_mode & 0o777, 0o444)
                 self.assertFalse(runtime["restored"])
             self.assertEqual(setup.read_text(encoding="utf-8"), original)
+            self.assertEqual(setup.stat().st_mode & 0o777, 0o444)
             self.assertTrue(runtime["restored"])
             self.assertTrue(runtime["patched_content_unchanged"])
 
@@ -125,10 +132,47 @@ class S22PlusFyg8KernelBuildTest(unittest.TestCase):
             work = Path(temporary) / "source"
             image = work / "out/msm-waipio-waipio-gki/gki_kernel/dist/Image"
             image.parent.mkdir(parents=True)
-            image.write_bytes(" ".join(self.module.STOCK_BANNER_MARKERS).encode("ascii"))
-            self.assertTrue(self.module.kernel_banner_gate(work)["verified"])
+            banner = (
+                "Linux version 5.10.226-android12-9-30958166-abS906NKSS7FYG8 "
+                "(build-user@build-host) (Android (7284624, based on r416183b) "
+                "clang version 12.0.5) #1 SMP PREEMPT Fri Aug 1 05:55:56 UTC 2025"
+            )
+            image.write_bytes(banner.encode("ascii") + b"\n\x00")
+            result = self.module.kernel_banner_gate(work, expected_banner=banner)
+            self.assertTrue(result["verified"])
+            self.assertEqual(result["banner"], banner)
             image.write_bytes(b"Sun Jul 12 07:16:46 UTC 2026")
-            self.assertFalse(self.module.kernel_banner_gate(work)["verified"])
+            self.assertFalse(
+                self.module.kernel_banner_gate(work, expected_banner=banner)["verified"]
+            )
+
+    def test_stock_baseline_is_a_hard_exact_banner_input(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            baseline = Path(temporary) / "stock.json"
+            banner = (
+                "Linux version 5.10.226-android12-9-30958166-abS906NKSS7FYG8 "
+                "(build-user@build-host) (Android (7284624, based on r416183b) "
+                "clang version 12.0.5) #1 SMP PREEMPT Fri Aug 1 05:55:56 UTC 2025"
+            )
+            baseline.write_text(
+                self.module.json.dumps(
+                    {
+                        "target": self.module.TARGET,
+                        "kernel_release": self.module.STOCK_KERNEL_RELEASE,
+                        "linux_banner": banner,
+                    }
+                ),
+                encoding="ascii",
+            )
+            result = self.module.inspect_stock_baseline(baseline)
+            self.assertTrue(result["verified"])
+            self.assertEqual(result["expected_banner"], banner)
+
+            baseline.write_text(
+                baseline.read_text(encoding="ascii").replace("UTC 2025", "UTC 2026"),
+                encoding="ascii",
+            )
+            self.assertFalse(self.module.inspect_stock_baseline(baseline)["verified"])
 
     def test_provider_module_closure_requires_every_owned_output(self):
         with tempfile.TemporaryDirectory() as temporary:

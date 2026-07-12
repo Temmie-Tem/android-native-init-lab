@@ -8,6 +8,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "workspace/public/src/scripts/revalidation/s22plus_fyg8_stock_kernel_baseline.py"
+SCRIPT_DIR = str(SCRIPT.parent)
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
 
 
 def load_module():
@@ -42,6 +45,16 @@ class S22PlusFyg8StockKernelBaselineTest(unittest.TestCase):
         parsed = self.module.decode_os_version(encoded)
         self.assertEqual(parsed["os_version"], "12.0.0")
         self.assertEqual(parsed["os_patch_level"], "2025-08")
+
+    def test_canonical_banner_excludes_stock_newline_and_nul(self):
+        banner = (
+            b"Linux version 5.10.226-android12-9-30958166-abS906NKSS7FYG8 "
+            b"(build-user@build-host) #1 SMP PREEMPT Fri Aug 1 05:55:56 UTC 2025"
+        )
+        self.assertEqual(
+            self.module.extract_linux_banner(b"prefix" + banner + b"\n\x00suffix"),
+            banner.decode("ascii"),
+        )
 
 
 if __name__ == "__main__":

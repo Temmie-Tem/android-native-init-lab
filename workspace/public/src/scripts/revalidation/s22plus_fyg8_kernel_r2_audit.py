@@ -15,6 +15,8 @@ import struct
 from pathlib import Path
 from typing import Any, Iterable
 
+from s22plus_fyg8_kernel_banner import extract_linux_banner, extract_linux_release
+
 
 SCHEMA = "s22plus_fyg8_kernel_r2_audit_v2"
 TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
@@ -144,9 +146,9 @@ def image_metadata(path: Path, *, expected_banner: str) -> dict[str, Any]:
     magic = data[0x38:0x3C]
     if magic != b"ARM\x64":
         raise AuditError(f"ARM64 Image magic mismatch: {path}: {magic!r}")
-    banner_match = re.search(rb"Linux version ([^\x00\s]+).*?#1 SMP PREEMPT[^\x00]*", data)
-    banner = banner_match.group(0).decode("ascii", errors="replace") if banner_match else ""
-    release = banner_match.group(1).decode("ascii") if banner_match else ""
+    banner = extract_linux_banner(data) or ""
+    release = extract_linux_release(banner) or ""
+    preempt_marker_present = "#1 SMP PREEMPT" in banner
     return {
         "path": str(path),
         "sha256": sha256_file(path),
@@ -158,8 +160,9 @@ def image_metadata(path: Path, *, expected_banner: str) -> dict[str, Any]:
         "banner": banner,
         "release_match": release == STOCK_RELEASE,
         "compiler_match": STOCK_COMPILER_MARKER in banner,
+        "preempt_marker_present": preempt_marker_present,
         "expected_banner": expected_banner,
-        "exact_banner_match": banner == expected_banner,
+        "exact_banner_match": banner == expected_banner and preempt_marker_present,
     }
 
 

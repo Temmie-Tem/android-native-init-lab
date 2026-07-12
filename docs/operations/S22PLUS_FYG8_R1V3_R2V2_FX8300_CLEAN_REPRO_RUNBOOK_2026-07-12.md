@@ -15,12 +15,24 @@ This run must preserve the existing `source/out` tree and historical
 
 | Tool | SHA256 |
 |---|---|
-| R1 v3 wrapper | `59e0bac0c4a75468baf0e33218425a4d7d03b3db5981d01cb8fa642a8f5e12df` |
-| R2 v2 auditor | `e9c8d832460bc6b6316611a91a550c4989277351780961b86f4d6783a82b7f0a` |
+| R1 v3 wrapper | `fa7570ea874f0d8c7147a975860a69b98e6fb96bdb92936803e2c13d856c8a6b` |
+| R2 v2 auditor | `fe7afd6bfc7dbbff15d0c4217bf6d65f54aa4a772c3d970508714cf8da55883a` |
+| canonical banner helper | `ab801d7ba988fd22f1c281aec930eaec1c25afcc9527b81b2bf57e5ad6cdd8aa` |
 | source-overlay auditor | `61a07c07aea3df5000cf8bb45f874d73dde20ea7509184a419ce5f77760d2556` |
 
 The wrapper must report `s22plus_fyg8_kernel_build_v3`; the auditor must report
 `s22plus_fyg8_kernel_r2_audit_v2`.
+
+## R2 Data Pins
+
+| Input | SHA256 |
+|---|---|
+| stock kernel baseline | `3041f6a50c5ac77631c747dc3d21e5fd0ad68a520ffc9a2052b1c0b5976db092` |
+| stock IKCONFIG | `99352a4f8db49814330c9d2c28038fafbbd1dadbe1fef3082c6d7e2614c2dbf1` |
+| vendor ramdisk module manifest | `f18e692511f4f37387f916be9266bd6c744eac650fad3455d8fef139257dfc33` |
+| vendor ramdisk symbol requirements | `9be63bf9d2086d0823cc2b87cc2412b34f3d44394444c0cb693a5b1edf5a6e86` |
+| complete module layout | `89d97fd7215ca1e830a983de61779baa13d4ecba3573bc2778ba98c5c26bca3e` |
+| vendor_dlkm-only symbol requirements | `870d7cf4d077c7bb98bfe42d5ef24b5765136a7166c4850b6031168ce78dd00e` |
 
 ## Authentication Blocker
 
@@ -39,7 +51,10 @@ rsync -avR \
   AGENTS.md GOAL.md \
   workspace/public/src/scripts/revalidation/s22plus_fyg8_kernel_build.py \
   workspace/public/src/scripts/revalidation/s22plus_fyg8_kernel_r2_audit.py \
+  workspace/public/src/scripts/revalidation/s22plus_fyg8_kernel_banner.py \
   workspace/public/src/scripts/revalidation/s22plus_fyg8_kernel_overlay_audit.py \
+  workspace/private/outputs/s22plus_fyg8_kernel_rebuild_r0/stock-baseline/stock-kernel-baseline.json \
+  workspace/private/outputs/s22plus_fyg8_kernel_rebuild_r0/stock-baseline/stock-ikconfig \
   docs/module-map/s22plus-fyg8/manifest.json \
   docs/module-map/s22plus-fyg8/symbol-crc-requirements.tsv \
   docs/module-map/s22plus-fyg8-super/layout-manifest.json \
@@ -47,7 +62,25 @@ rsync -avR \
   temmie@192.168.0.3:/home/temmie/a90-fyg8-build/
 ```
 
-On the remote, verify the three tool hashes against the table before continuing.
+On the remote, verify every tool and R2 input before continuing:
+
+```bash
+cd /home/temmie/a90-fyg8-build
+sha256sum --check --strict <<'EOF'
+fa7570ea874f0d8c7147a975860a69b98e6fb96bdb92936803e2c13d856c8a6b  workspace/public/src/scripts/revalidation/s22plus_fyg8_kernel_build.py
+fe7afd6bfc7dbbff15d0c4217bf6d65f54aa4a772c3d970508714cf8da55883a  workspace/public/src/scripts/revalidation/s22plus_fyg8_kernel_r2_audit.py
+ab801d7ba988fd22f1c281aec930eaec1c25afcc9527b81b2bf57e5ad6cdd8aa  workspace/public/src/scripts/revalidation/s22plus_fyg8_kernel_banner.py
+61a07c07aea3df5000cf8bb45f874d73dde20ea7509184a419ce5f77760d2556  workspace/public/src/scripts/revalidation/s22plus_fyg8_kernel_overlay_audit.py
+3041f6a50c5ac77631c747dc3d21e5fd0ad68a520ffc9a2052b1c0b5976db092  workspace/private/outputs/s22plus_fyg8_kernel_rebuild_r0/stock-baseline/stock-kernel-baseline.json
+99352a4f8db49814330c9d2c28038fafbbd1dadbe1fef3082c6d7e2614c2dbf1  workspace/private/outputs/s22plus_fyg8_kernel_rebuild_r0/stock-baseline/stock-ikconfig
+f18e692511f4f37387f916be9266bd6c744eac650fad3455d8fef139257dfc33  docs/module-map/s22plus-fyg8/manifest.json
+9be63bf9d2086d0823cc2b87cc2412b34f3d44394444c0cb693a5b1edf5a6e86  docs/module-map/s22plus-fyg8/symbol-crc-requirements.tsv
+89d97fd7215ca1e830a983de61779baa13d4ecba3573bc2778ba98c5c26bca3e  docs/module-map/s22plus-fyg8-super/layout-manifest.json
+870d7cf4d077c7bb98bfe42d5ef24b5765136a7166c4850b6031168ce78dd00e  docs/module-map/s22plus-fyg8-super/vendor-dlkm-only-symbol-crc-requirements.tsv
+EOF
+```
+
+Any missing file or hash mismatch stops before source reconstruction or build.
 
 ## 2. Preserve Historical Output
 
@@ -57,6 +90,8 @@ Do not remove or rename `source/out` in this run. Before reconstruction:
 cd /home/temmie/a90-fyg8-build
 test -d source/out
 test -f outputs/r1-full-lto/result.json
+test -f workspace/private/outputs/s22plus_fyg8_kernel_rebuild_r0/stock-baseline/stock-kernel-baseline.json
+test -f workspace/private/outputs/s22plus_fyg8_kernel_rebuild_r0/stock-baseline/stock-ikconfig
 test ! -e source-clean-final
 test ! -e outputs/r1-clean-final
 test ! -e outputs/r2-clean-final
@@ -112,6 +147,7 @@ python3 workspace/public/src/scripts/revalidation/s22plus_fyg8_kernel_build.py \
   --jobs 8 \
   --work-tree source-clean-final \
   --clang-repo toolchains/aosp-clang-android12-release \
+  --stock-baseline workspace/private/outputs/s22plus_fyg8_kernel_rebuild_r0/stock-baseline/stock-kernel-baseline.json \
   --result-dir outputs/r1-clean-final
 ```
 
@@ -132,6 +168,7 @@ tmux new-session -d -s fyg8-r1v3-clean \
      --mode build --lto full --jobs 8 \
      --work-tree source-clean-final \
      --clang-repo toolchains/aosp-clang-android12-release \
+     --stock-baseline workspace/private/outputs/s22plus_fyg8_kernel_rebuild_r0/stock-baseline/stock-kernel-baseline.json \
      --result-dir outputs/r1-clean-final \
    > outputs/r1-clean-final/runner.stdout 2> outputs/r1-clean-final/runner.stderr; \
    printf '%s\n' \$? > outputs/r1-clean-final/runner.rc"
@@ -154,6 +191,8 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache \
 python3 workspace/public/src/scripts/revalidation/s22plus_fyg8_kernel_r2_audit.py \
   --mode r2 \
   --work-tree source-clean-final \
+  --stock-baseline workspace/private/outputs/s22plus_fyg8_kernel_rebuild_r0/stock-baseline/stock-kernel-baseline.json \
+  --stock-config workspace/private/outputs/s22plus_fyg8_kernel_rebuild_r0/stock-baseline/stock-ikconfig \
   --r1-result outputs/r1-clean-final/result.json \
   --out outputs/r2-clean-final/result.json
 ```

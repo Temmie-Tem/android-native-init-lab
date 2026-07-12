@@ -12,6 +12,8 @@ import struct
 from pathlib import Path
 from typing import Any
 
+from s22plus_fyg8_kernel_banner import extract_linux_banner
+
 
 SCHEMA = "s22plus_fyg8_stock_kernel_baseline_v1"
 TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
@@ -171,7 +173,9 @@ def build_artifacts(root: Path, input_dir: Path) -> dict[str, bytes]:
         rb"(5\.10\.226-android12-9-30958166-abS906NKSS7FYG8)",
         "kernel release",
     )
-    linux_banner = find_ascii(kernel_data, rb"(Linux version 5\.10\.226[^\x00\n]+)", "Linux banner")
+    linux_banner = extract_linux_banner(kernel_data)
+    if linux_banner is None:
+        raise BaselineError("Linux banner not found in stock kernel")
     if kernel_release != EXPECTED_KERNEL_RELEASE or EXPECTED_COMPILER not in linux_banner:
         raise BaselineError("stock kernel release or compiler identity mismatch")
     config_text = ikconfig.decode("ascii")
