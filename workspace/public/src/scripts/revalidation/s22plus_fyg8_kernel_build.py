@@ -23,7 +23,11 @@ SCHEMA = "s22plus_fyg8_kernel_build_v2"
 TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
 SOURCE_DATE_EPOCH = 1754027756
 STOCK_TIMESTAMP = "Fri Aug 1 05:55:56 UTC 2025"
-STOCK_LOCALVERSION = "-android12-9-30958166-abS906NKSS7FYG8"
+# Samsung's setlocalversion prepends -android12-9 and each target config may
+# add CONFIG_LOCALVERSION (for example, -gki for vendor modules).  Pass only
+# the common release suffix here.  BUILD_NUMBER must remain unset because this
+# tree appends it separately as -ab${BUILD_NUMBER} to UTS_RELEASE.
+STOCK_LOCALVERSION = "-30958166-abS906NKSS7FYG8"
 STOCK_KERNEL_RELEASE = "5.10.226-android12-9-30958166-abS906NKSS7FYG8"
 EXPECTED_CLANG_LINES = (
     "Android (7284624, based on r416183b) clang version 12.0.5",
@@ -225,7 +229,6 @@ def build_environment(
             "KBUILD_BUILD_USER": "build-user",
             "KBUILD_BUILD_HOST": "build-host",
             "KBUILD_BUILD_VERSION": "1",
-            "BUILD_NUMBER": "30958166",
             "BUILD_ID": "S906NKSS7FYG8",
             "GIT_CEILING_DIRECTORIES": str(work_tree.parent),
             "MAKEFLAGS": f"-j{jobs}",

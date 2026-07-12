@@ -86,7 +86,10 @@ Checked tool:
 The wrapper pins:
 
 - `TARGET_BUILD_VARIANT=user`;
-- `LOCALVERSION=-android12-9-30958166-abS906NKSS7FYG8`;
+- `LOCALVERSION=-30958166-abS906NKSS7FYG8`; Samsung's
+  `setlocalversion` supplies `-android12-9` and target configs supply optional
+  values such as `-gki`, while `BUILD_NUMBER` stays unset to avoid an extra
+  `-ab30958166` suffix;
 - `SOURCE_DATE_EPOCH=1754027756` and stock timestamp/user/host;
 - `GIT_CEILING_DIRECTORIES` above the isolated source tree;
 - exact Clang and three AOSP build-prebuilt commits;
