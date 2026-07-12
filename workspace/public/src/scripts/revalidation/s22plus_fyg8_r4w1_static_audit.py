@@ -117,6 +117,20 @@ def compare_full_symvers(baseline: Path, candidate: Path) -> dict[str, Any]:
     }
 
 
+def check_sec_log_buf_module(config_path: Path, module_path: Path) -> dict[str, Any]:
+    config = r2.parse_config(config_path)
+    module_regular = module_path.is_file() and not module_path.is_symlink()
+    result = {
+        "config_path": str(config_path),
+        "config_value": config.get("CONFIG_SEC_LOG_BUF", "<missing>"),
+        "module_path": str(module_path),
+        "module_regular": module_regular,
+        "module_sha256": r2.sha256_file(module_path) if module_regular else None,
+    }
+    result["verified"] = result["config_value"] == "m" and module_regular
+    return result
+
+
 def audit_build_result(
     path: Path,
     *,
@@ -250,6 +264,10 @@ def run_audit(
         "out/msm-waipio-waipio-gki/gki_kernel/common/.config"
     )
     candidate_symvers = dist / "vmlinux.symvers"
+    vendor_config = work_tree / "out/msm-waipio-waipio-gki/msm-kernel/.config"
+    sec_log_buf_module = work_tree / (
+        "out/msm-waipio-waipio-gki/dist/sec_log_buf.ko"
+    )
     build_data = r2.load_json(build_result)
     if symvers_paths is None:
         symvers_items = build_data.get("symvers_files", [])
@@ -263,6 +281,8 @@ def run_audit(
         image,
         generated_config,
         candidate_symvers,
+        vendor_config,
+        sec_log_buf_module,
         build_result,
         baseline_symvers,
         stock_baseline,
@@ -299,6 +319,7 @@ def run_audit(
     config_gate = compare_r4_configs(stock_config, generated_config)
     consumer_crc = r2.compare_symbol_requirements(requirements, symvers_paths)
     full_symvers = compare_full_symvers(baseline_symvers, candidate_symvers)
+    sec_log_buf_gate = check_sec_log_buf_module(vendor_config, sec_log_buf_module)
     partition_capacity = r2.boot_capacity(stock, image_gate["file_bytes"])
     fixed_layout = {
         "capacity": r4_build.FIXED_KERNEL_SLOT_CAPACITY,
@@ -338,6 +359,7 @@ def run_audit(
         "config": config_gate,
         "consumer_crc": consumer_crc,
         "full_symvers": full_symvers,
+        "sec_log_buf_single_writer": sec_log_buf_gate,
         "partition_capacity": partition_capacity,
         "fixed_layout": fixed_layout,
         "module_corpus": corpus_gate,
@@ -356,6 +378,8 @@ def run_audit(
         blockers.append("module-consumer requirement baseline shape changed")
     if not full_symvers["verified"]:
         blockers.append("complete exported symbol/CRC mapping changed")
+    if not sec_log_buf_gate["verified"]:
+        blockers.append("sec_log_buf is not a loadable module for witness timing")
     if not partition_capacity["fits"]:
         blockers.append("Image exceeds boot partition capacity")
     if not fixed_layout["verified"]:

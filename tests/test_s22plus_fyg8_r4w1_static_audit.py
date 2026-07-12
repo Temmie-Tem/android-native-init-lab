@@ -81,6 +81,21 @@ class S22PlusFyg8R4W1StaticAuditTest(unittest.TestCase):
             self.assertFalse(result["verified"])
             self.assertEqual(result["added_count"], 1)
 
+    def test_sec_log_buf_timing_requires_module_config_and_regular_ko(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            config = root / ".config"
+            module = root / "sec_log_buf.ko"
+            config.write_text("CONFIG_SEC_LOG_BUF=m\n", encoding="ascii")
+            module.write_bytes(b"module")
+            self.assertTrue(
+                self.module.check_sec_log_buf_module(config, module)["verified"]
+            )
+            config.write_text("CONFIG_SEC_LOG_BUF=y\n", encoding="ascii")
+            self.assertFalse(
+                self.module.check_sec_log_buf_module(config, module)["verified"]
+            )
+
     def test_build_gate_rejects_wrong_patch(self):
         with tempfile.TemporaryDirectory() as name:
             path = Path(name) / "result.json"
