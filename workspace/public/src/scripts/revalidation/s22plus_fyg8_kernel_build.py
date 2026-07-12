@@ -57,7 +57,14 @@ MIN_SWAP_BYTES = 8 * 1024**3
 MIN_FREE_DISK_BYTES = 30 * 1024**3
 GNU_TAR_PATH = Path("/usr/bin/tar")
 EXPECTED_GNU_TAR_PREFIX = "tar (GNU tar)"
-REQUIRED_HOST_TOOLS = ("git", "/usr/bin/time", str(GNU_TAR_PATH))
+GNU_XARGS_PATH = Path("/usr/bin/xargs")
+EXPECTED_GNU_XARGS_PREFIX = "xargs (GNU findutils)"
+REQUIRED_HOST_TOOLS = (
+    "git",
+    "/usr/bin/time",
+    str(GNU_TAR_PATH),
+    str(GNU_XARGS_PATH),
+)
 HOST_ENV_ALLOWLIST = ("HOME", "USER", "LOGNAME", "TMPDIR", "TERM")
 PINNED_REPOS = {
     "clang": (
@@ -191,31 +198,42 @@ def hermetic_path(work_tree: Path, clang_repo: Path) -> str:
 
 
 def prepare_host_tool_overrides(work_tree: Path) -> dict[str, Any]:
-    """Expose GNU tar without replacing any other pinned Android host tool."""
+    """Expose required GNU tools without replacing other Android host tools."""
     override_dir = work_tree.parent / "host-tool-overrides"
     override_dir.mkdir(parents=True, exist_ok=True)
-    unexpected = sorted(path.name for path in override_dir.iterdir() if path.name != "tar")
+    expected = {
+        "tar": (GNU_TAR_PATH, EXPECTED_GNU_TAR_PREFIX),
+        "xargs": (GNU_XARGS_PATH, EXPECTED_GNU_XARGS_PREFIX),
+    }
+    unexpected = sorted(
+        path.name for path in override_dir.iterdir() if path.name not in expected
+    )
     if unexpected:
         raise BuildError(f"unexpected host-tool overrides: {unexpected}")
 
-    tar_link = override_dir / "tar"
-    if tar_link.exists() or tar_link.is_symlink():
-        tar_link.unlink()
-    tar_link.symlink_to(GNU_TAR_PATH)
-    version = run([str(tar_link), "--version"])
-    first_line = version.stdout.splitlines()[0] if version.stdout else ""
-    verified = (
-        GNU_TAR_PATH.is_file()
-        and tar_link.resolve() == GNU_TAR_PATH.resolve()
-        and version.returncode == 0
-        and first_line.startswith(EXPECTED_GNU_TAR_PREFIX)
-    )
+    tools: dict[str, dict[str, Any]] = {}
+    for name, (target, version_prefix) in expected.items():
+        link = override_dir / name
+        if link.exists() or link.is_symlink():
+            link.unlink()
+        link.symlink_to(target)
+        version = run([str(link), "--version"])
+        first_line = version.stdout.splitlines()[0] if version.stdout else ""
+        tools[name] = {
+            "path": str(link),
+            "target": str(target),
+            "version": first_line,
+            "verified": (
+                target.is_file()
+                and link.resolve() == target.resolve()
+                and version.returncode == 0
+                and first_line.startswith(version_prefix)
+            ),
+        }
     return {
         "directory": str(override_dir),
-        "tar_path": str(tar_link),
-        "tar_target": str(GNU_TAR_PATH),
-        "tar_version": first_line,
-        "verified": verified,
+        "tools": tools,
+        "verified": all(tool["verified"] for tool in tools.values()),
     }
 
 
@@ -246,7 +264,7 @@ def build_environment(
             "ANDROID_BUILD_TOP": str(work_tree),
             "TARGET_PRODUCT": "gki",
             "TARGET_BOARD_PLATFORM": "gki",
-            "ANDROID_PRODUCT_OUT": str(work_tree / "out/target/product/g0q"),
+            "ANDROID_KERNEL_OUT": str(work_tree / "out/android-kernel-out"),
             "OUT_DIR": str(out_dir),
             "KBUILD_EXTRA_SYMBOLS": str(
                 work_tree / "out/vendor/qcom/opensource/mmrm-driver/Module.symvers"

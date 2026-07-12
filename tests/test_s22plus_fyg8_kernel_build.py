@@ -30,6 +30,8 @@ class S22PlusFyg8KernelBuildTest(unittest.TestCase):
         self.assertEqual(env["TARGET_BUILD_VARIANT"], "user")
         self.assertEqual(env["LOCALVERSION"], "-30958166-abS906NKSS7FYG8")
         self.assertNotIn("BUILD_NUMBER", env)
+        self.assertNotIn("ANDROID_PRODUCT_OUT", env)
+        self.assertEqual(env["ANDROID_KERNEL_OUT"], "/tmp/fyg8-work/out/android-kernel-out")
         self.assertEqual(env["KBUILD_BUILD_TIMESTAMP"], "Fri Aug 1 05:55:56 UTC 2025")
         self.assertEqual(env["GIT_CEILING_DIRECTORIES"], "/tmp")
         self.assertEqual(env["MAKEFLAGS"], "-j8")
@@ -52,8 +54,9 @@ class S22PlusFyg8KernelBuildTest(unittest.TestCase):
             result = self.module.prepare_host_tool_overrides(work)
             override = work.parent / "host-tool-overrides"
             self.assertTrue(result["verified"])
-            self.assertEqual({path.name for path in override.iterdir()}, {"tar"})
+            self.assertEqual({path.name for path in override.iterdir()}, {"tar", "xargs"})
             self.assertEqual((override / "tar").resolve(), Path("/usr/bin/tar"))
+            self.assertEqual((override / "xargs").resolve(), Path("/usr/bin/xargs"))
 
     def test_host_tool_override_rejects_unexpected_executable(self):
         with tempfile.TemporaryDirectory() as temporary:
