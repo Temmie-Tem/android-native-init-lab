@@ -5,8 +5,8 @@ the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW â€
 safety invariants and flash gates are binding and override any sub-goal.**
 
 > **S22+ ACTIVE FRONTIER (2026-07-12 KST) - CLEAN R1 V3 FULL-LTO AND R2 V2
-> STATIC EQUIVALENCE RE-CLOSED; R3 OPERATIONAL BYTES LOCAL; ARTIFACT/CHECKER
-> IMPLEMENTATION NEXT; LANE W REMAINS DESIGN-ONLY; NO LIVE AUTHORIZATION.**
+> STATIC EQUIVALENCE RE-CLOSED; R3 CARRIER PREMISE CORRECTED; CHECKER SOURCE
+> NEXT; LANE W REMAINS DESIGN-ONLY; NO LIVE AUTHORIZATION.**
 > The Debian 13 FX-8300 host completed a separate clean Full-LTO build in
 > 33:47.58 with 24,252,508 KiB peak RSS and zero swaps. R1 v3 passed exact
 > source, output, module, provider, timestamp-restore, and 398-byte FYG8 banner
@@ -18,10 +18,18 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > remote/local hashes matched. Record:
 > `docs/reports/S22PLUS_FYG8_R1V3_R2V2_CLEAN_REPRODUCTION_2026-07-12.md`.
 > No candidate kernel, ramdisk, boot image, AP, device action, or flash is
-> authorized. The next bounded host work is the independently reviewed R3
-> artifact/static checker and no-change container parity gate; policy and live
-> work still require a fresh narrow `AGENTS.md` exception and explicit attended
-> approval. The ranked
+> authorized. Exact stock boot analysis found a 528-byte Samsung
+> `SignerVer02` record that MagiskBoot v30.7 replaces with only the 16-byte
+> `SEANDROIDENFORCE` marker while updating the AVB footer. The former
+> byte-identical exact-stock no-change premise is source-disproved. R3 is now a
+> two-rung differential: R3C0 proves the normalized stock-kernel/stock-ramdisk
+> carrier and rolls back; only then may a separate R3C1 change exactly the
+> kernel region to the R2 Image and roll back. The next bounded host work is
+> checker-source implementation against the explicit 11-region boot model.
+> Artifact creation, policy, and live work still require separate review,
+> fresh narrow `AGENTS.md` exceptions, and explicit attended approval. Record:
+> `docs/reports/S22PLUS_FYG8_R3_CARRIER_AND_STATIC_CHECKER_AUDIT_2026-07-12.md`.
+> The ranked
 > pre-run hardening is now closed: baseline generation, R1, and R2 share one
 > LF/NUL-bounded exact-banner extractor; R1 consumes the pinned baseline; the
 > real read-only `_setup_env.sh` is handled by mode-preserving atomic

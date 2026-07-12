@@ -4,16 +4,26 @@ Date: 2026-07-12 KST
 Target: `SM-S906N/g0q/S906NKSS7FYG8`  
 Scope: host-only design; no candidate build, package, device contact, or flash
 
-Status: design complete; corrected R1 v3/R2 v2 re-close and local artifact
-retrieval passed on 2026-07-12. Artifact/static-checker implementation, policy
-activation, and live work remain separate and unauthorized.
+Status: carrier design corrected after exact-stock signer audit; corrected R1
+v3/R2 v2 re-close and local artifact retrieval passed on 2026-07-12. Static
+checker implementation, artifact construction, policy activation, and live
+work remain separate and unauthorized.
 
 ## Decision
 
-R3 first tests the **unpatched** R2-GO kernel with the exact FYG8 stock
-ramdisk/userspace carrier. It does not use Magisk kernel patches, Magisk
-ramdisk semantics, a native PID1, a witness patch, or any security-config
-change.
+R3 tests the **unpatched** R2-GO kernel with the exact FYG8 stock
+ramdisk/userspace. It does not use Magisk kernel patches, Magisk ramdisk
+semantics, a native PID1, a witness patch, or any security-config change.
+
+Exact-stock analysis found a 528-byte Samsung `SignerVer02` record that
+MagiskBoot v30.7 normalizes to the 16-byte `SEANDROIDENFORCE` marker. Because a
+direct stock-container kernel replacement would leave a present-but-stale
+Samsung signer record, R3 is split into two independently rolled-back rungs:
+
+1. R3C0 proves the normalized container with the stock kernel and stock
+   ramdisk;
+2. R3C1 starts from byte-identical R3C0 bytes and changes only the kernel region
+   to the exact R2 Image.
 
 The single proof question is:
 
@@ -64,30 +74,54 @@ The rebuilt `Image` has the same 41,490,944-byte payload length as the stock
 kernel. Equal size reduces layout churn but does not imply byte identity,
 signature validity, or bootability.
 
+## Corrected Carrier Finding
+
+The exact 100,663,296-byte stock boot image has this relevant geometry:
+
+- kernel `[4096, 41495040)`, 41,490,944 bytes;
+- stock ramdisk `[41496576, 43475543)`, 1,978,967 bytes;
+- GKI signature `[43479040, 43483136)`, 4,096 all-zero bytes;
+- Samsung signer area `[43483136, 43483664)`, 528 bytes;
+- vbmeta `[43487232, 43489344)`, 2,112 bytes;
+- AVB footer `[100663232, 100663296)`, 64 bytes.
+
+The signer area starts with `SEANDROIDENFORCE`, `SignerVer02`, FYG8 build
+metadata, and signature-like bytes. MagiskBoot v30.7 source detects the first
+16-byte marker, writes only those 16 bytes during repack, and updates the
+footer's `original_image_size`. Therefore an exact-stock no-change MagiskBoot
+repack cannot be byte-identical. The former stop-on-nonidentity contract is
+retired.
+
+Full evidence and checker threat model:
+`docs/reports/S22PLUS_FYG8_R3_CARRIER_AND_STATIC_CHECKER_AUDIT_2026-07-12.md`.
+
 ## Future Artifact Construction Contract
 
 Artifact implementation is a separate unit. When authorized, it must:
 
 1. Start from the exact stock `boot.img`, never from a previous native-init or
    Magisk candidate.
-2. Use a temporary output directory and run a no-change stock
-   `magiskboot unpack -h` plus `repack` parity probe first. If no-change repack
-   is not byte-identical, stop and design a separately audited
-   container-preserving writer; do not normalize the difference.
-3. Unpack the stock carrier and pin the kernel, compressed ramdisk, header,
-   4,096-byte boot-signature field, AVB vbmeta blob, footer, and padding.
-4. Replace only the unpacked `kernel` payload with the exact R2 `Image`.
-5. Preserve the stock ramdisk byte-for-byte. No `/init`, cpio metadata, SELinux
-   file, bootconfig, cmdline, vendor_boot, DTBO, or recovery change is allowed.
-6. Repack against the original stock image and require a 96 MiB padded boot
-   container.
-7. Re-unpack the result and prove exact R2 kernel hash, exact stock ramdisk
-   hash, unchanged header fields, unchanged boot-signature field, unchanged
-   copied vbmeta blob, and no other semantic delta.
-8. Produce an Odin container containing exactly one member named
-   `boot.img.lz4`. Deterministic tar metadata and LZ4 round-trip validation are
+2. Construct R3C0 in a temporary directory using the pinned MagiskBoot v30.7
+   normalization behavior. R3C0 must retain the exact stock kernel and ramdisk.
+3. Require R3C0 versus stock to differ only in the 528-byte Samsung signer area
+   and AVB footer `original_image_size`. The first 16 signer bytes remain exact
+   `SEANDROIDENFORCE`, the remaining 512 bytes become zero, and
+   `original_image_size` becomes `43483152`. `vbmeta_offset` remains
+   `43487232`.
+4. Construct R3C1 from the exact pinned R3C0 raw bytes by replacing only kernel
+   `[4096, 41495040)` with the exact R2 Image. Do not perform another semantic
+   repack.
+5. Require R3C1 versus R3C0 to differ only in that kernel range. Preserve the
+   stock ramdisk byte-for-byte. No `/init`, cpio metadata, SELinux file,
+   bootconfig, cmdline, vendor_boot, DTBO, or recovery change is allowed.
+6. Require each raw image to remain exactly 100,663,296 bytes.
+7. Re-parse both outputs and prove their exact rung-specific region contract,
+   copied vbmeta blob, footer fields, and expected stale payload digest.
+8. Produce one separately pinned Odin container per rung, each containing
+   exactly one regular member named `boot.img.lz4`. Deterministic tar metadata,
+   exact MD5 trailer, strict LZ4 round-trip, and no-trailing-data validation are
    mandatory.
-9. Run an offline Odin parse gate against an invalid device path. This checks
+9. Run offline Odin parse gates against an invalid device path. This checks
    container parsing only and must not contact USB.
 
 No output hash can be pinned until that future artifact unit is executed and
@@ -119,13 +153,18 @@ require:
   41,490,944-byte size;
 - exact stock carrier, Magisk rollback AP, stock cleanup AP, DTBO, recovery,
   and full-firmware evidence;
-- stock no-change repack parity;
-- candidate kernel equals R2 `Image` and differs from stock kernel;
-- candidate ramdisk equals stock ramdisk, with no Magisk or native-init entry;
+- exact 11-region stock geometry including the 528-byte Samsung signer record;
+- R3C0 normalization differs from stock only in the declared signer and footer
+  fields, while retaining the exact stock kernel and ramdisk;
+- R3C1 differs from R3C0 only in the kernel region, whose bytes equal the exact
+  R2 Image and differ from stock;
+- both rung ramdisks equal stock, with no Magisk or native-init entry;
 - no DEFEX, PROCA, RKP, legacy-SAR, config, cmdline, bootconfig, or witness
   transformation;
 - candidate size within the 100,663,296-byte boot partition;
-- AP member list exactly `boot.img.lz4`;
+- each AP contains exactly one regular `boot.img.lz4` member, a valid exact MD5
+  trailer, canonical tar termination, and one strict LZ4 frame with no trailing
+  data;
 - no active live authorization implied by an offline PASS.
 
 Any zero/multiple input identity, unexpected delta, missing rollback artifact,
@@ -146,10 +185,19 @@ Require exactly one normal Android ADB target with:
 - exact stock DTBO and recovery hashes;
 - exactly one Odin endpoint only after an attended Download transition.
 
-### Candidate Milestone
+### R3C0 Control Milestone
 
-After one boot-only candidate transfer, observe for a bounded window. R3
-candidate PASS evidence requires all of:
+R3C0 uses the stock kernel and stock ramdisk in the normalized container. Its
+PASS requirements are the same bounded Android identity and stability checks
+below plus mandatory rollback. It proves only carrier acceptance.
+
+R3C0 must run in its own one-shot session and roll back before R3C1 is eligible.
+
+### R3C1 Candidate Milestone
+
+After R3C0 PASS and rollback, a separately authorized R3C1 session may perform
+one boot-only candidate transfer and observe for a bounded window. R3C1 PASS
+evidence requires all of:
 
 - one authorized ADB target returns;
 - `sys.boot_completed=1` and boot animation is stopped;
@@ -179,7 +227,9 @@ without verified rollback is not an R3 PASS.
 
 ## Result Classes
 
-- `PASS_UNPATCHED_REBUILT_KERNEL_VIABLE_AND_ROLLED_BACK`
+- `PASS_R3C0_NORMALIZED_STOCK_CARRIER_AND_ROLLED_BACK`
+- `PASS_R3C1_UNPATCHED_REBUILT_KERNEL_VIABLE_AND_ROLLED_BACK`
+- `BLOCKED_R3C1_REQUIRES_R3C0_PASS`
 - `FAIL_PRELIVE_STATIC_GATE`
 - `NO_PROOF_CANDIDATE_TRANSFER_FAILED`
 - `NO_PROOF_NO_CANDIDATE_ANDROID_MILESTONE`
@@ -190,13 +240,14 @@ No result promotes R3B, R4, native PID1, or Debian automatically.
 
 ## Timeline
 
-The future helper must write only:
+Each rung's future helper must write only:
 
 ```json
 {"events":[{"name":"candidate_flash_start","timestamp_utc":"..."}]}
 ```
 
-It must include exactly one occurrence of each mandatory phase:
+Each separate R3C0 or R3C1 session must include exactly one occurrence of each
+mandatory phase:
 
 1. `live_session_start`
 2. `candidate_flash_start`
@@ -219,12 +270,16 @@ Before artifact implementation or live work:
 1. retrieve and independently hash the R2 artifact bytes;
 2. complete a clean one-shot R1/R2 reproduction or explicitly accept the
    current incremental-close evidence;
-3. implement and independently review the artifact/static checker;
-4. pin every resulting source and artifact hash;
-5. add a fresh narrow boot-only `AGENTS.md` exception;
-6. obtain fresh explicit operator approval while recovery is attended.
+3. implement and independently review the checker before artifact generation;
+4. construct and independently reproduce R3C0, then pin every source and
+   artifact hash;
+5. add a fresh narrow R3C0 boot-only `AGENTS.md` exception and obtain explicit
+   attended approval;
+6. only after R3C0 PASS and rollback, construct/review/pin R3C1 and add a
+   separate narrow exception and approval.
 
 This document grants none of those later permissions.
 
 Steps 1 and 2 above are complete for the corrected R1 v3/R2 v2 evidence.
-Steps 3 through 6 remain mandatory and incomplete.
+Steps 3 through 6 remain mandatory and incomplete. The checker contract is now
+specified; no checker source or artifact was created by the correcting audit.
