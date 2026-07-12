@@ -6,6 +6,11 @@ Target: `SM-S906N/g0q/S906NKSS7FYG8`
 
 Verdict: `PASS_R3C1_SOURCE_READY_PENDING_FRESH_ATTENDED_APPROVAL`
 
+Subsequent status: the attended run completed with
+`PASS_R3C1_UNPATCHED_REBUILT_KERNEL_VIABLE_AND_ROLLED_BACK`; this source-ready
+state is superseded by
+`docs/reports/S22PLUS_FYG8_R3C1_LIVE_RESULT_2026-07-12.md`.
+
 No reboot, Download transition, candidate transfer, or partition write occurred
 in this unit. Device contact was limited to one connected read-only baseline
 after the full host-only gate passed. The approval supplied before these gates
@@ -100,9 +105,8 @@ All pinned candidate, checker, rollback, and policy files currently exist, so
 the emergency-verification dependency is bounded and accepted for this attended
 one-shot design.
 
-## Remaining Gate
+## Closed Gate
 
-This helper is intentionally inert. After this source-ready unit is committed,
-the operator must give a new fresh attended approval. Only then may the PENDING
-line be replaced by the exact ACTIVE state and the exact helper be invoked once.
-This report itself grants no live authorization.
+The required fresh approval was subsequently supplied, the exact helper ran
+once, and the one-shot policy was retired after candidate PASS and verified
+Magisk rollback. This exception cannot be reactivated or reused.

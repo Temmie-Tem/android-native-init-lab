@@ -6,8 +6,8 @@ safety invariants and flash gates are binding and override any sub-goal.**
 
 > **S22+ ACTIVE FRONTIER (2026-07-12 KST) - CLEAN R1 V3 FULL-LTO, R2 V2,
 > R3 CHECKER, SYNTHETIC R3C0 ARTIFACT, AND R3C0 LIVE CONTROL PASS+ROLLBACK;
-> R3C0 RETIRED; R3C1 ARTIFACT+STATIC CONTRACT AND LIVE GATE SOURCE CLOSED;
-> R3C1 POLICY PENDING FRESH ATTENDED APPROVAL; LANE W DESIGN-ONLY.**
+> R3C0 RETIRED; R3C1 UNPATCHED REBUILT KERNEL LIVE PASS+ROLLBACK AND RETIRED;
+> R3 NARROW VIABILITY CLOSED; NEXT RUNG REQUIRES SEPARATE DESIGN.**
 > The Debian 13 FX-8300 host completed a separate clean Full-LTO build in
 > 33:47.58 with 24,252,508 KiB peak RSS and zero swaps. R1 v3 passed exact
 > source, output, module, provider, timestamp-restore, and 398-byte FYG8 banner
@@ -18,11 +18,11 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > evidence plus the 19-path R3-operational set were returned locally and
 > remote/local hashes matched. Record:
 > `docs/reports/S22PLUS_FYG8_R1V3_R2V2_CLEAN_REPRODUCTION_2026-07-12.md`.
-> No R3C1 transfer is authorized. R3C0 completed once and its policy is
-> retired. R3C1 host-only A/B/final-source C artifacts are byte-identical and
-> independently return `PASS_R3C1_STATIC_CONTRACT`. The live helper and policy
-> draft are source-ready but binding state remains
-> `PENDING_OPERATOR_APPROVAL`; no transfer is authorized. Exact stock boot
+> R3C0 and R3C1 each completed once and both policies are retired. R3C1
+> host-only A/B/final-source C artifacts are byte-identical and
+> independently return `PASS_R3C1_STATIC_CONTRACT`; the exact unpatched rebuilt
+> kernel then reached normal Android with three samples and exact Magisk
+> rollback. Exact stock boot
 > analysis found a 528-byte Samsung
 > `SignerVer02` record that MagiskBoot v30.7 replaces with only the 16-byte
 > `SEANDROIDENFORCE` marker while updating the AVB footer. The former
@@ -72,14 +72,19 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > final-source checker verdict is `PASS_R3C1_STATIC_CONTRACT`, and Claude Opus
 > returned GO after its LOW input-TOCTOU finding was fixed. Record:
 > `docs/reports/S22PLUS_FYG8_R3C1_ARTIFACT_REPRODUCTION_2026-07-12.md`.
-> The separate R3C1 live helper is now SHA-pinned at
+> The executed R3C1 live helper was SHA-pinned at
 > `2e6bf837...a6eb1`; 54 related tests, offline full gate, and connected
 > read-only dry-run passed. Claude Opus returned pre-live GO with no blocker.
 > The earlier approval was deliberately not retained because it preceded these
 > gates. Record:
 > `docs/reports/S22PLUS_FYG8_R3C1_LIVE_GATE_SOURCE_READY_2026-07-12.md`.
-> Next is a new fresh attended approval, then the exact whole-line ACTIVE flip
-> and one bounded run. No current PENDING text authorizes flashing.
+> The later fresh approval authorized one run. Candidate and rollback Odin
+> transfers both returned rc=0; the helper itself completed all eight events
+> and returned
+> `PASS_R3C1_UNPATCHED_REBUILT_KERNEL_VIABLE_AND_ROLLED_BACK`. Record:
+> `docs/reports/S22PLUS_FYG8_R3C1_LIVE_RESULT_2026-07-12.md`.
+> No R3B, R4, native PID1, or Debian rung is promoted automatically. The next
+> action is a separate evidence-driven target selection and design unit.
 > The ranked
 > pre-run hardening is now closed: baseline generation, R1, and R2 share one
 > LF/NUL-bounded exact-banner extractor; R1 consumes the pinned baseline; the

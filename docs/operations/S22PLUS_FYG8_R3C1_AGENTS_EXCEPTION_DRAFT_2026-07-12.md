@@ -1,21 +1,21 @@
 # S22+ FYG8 R3C1 AGENTS Exception Draft
 
-State: `DRAFT_INACTIVE`
+State: `RETIRED_AFTER_PASS`
 
-This document is review material only. It does not activate a live exception,
-authorize device writes, or preserve an approval supplied before the completed
-pre-live gates.
+This is the historical pre-live policy source. The exact approved helper ran
+once, R3C1 passed with verified Magisk rollback, and the binding exception is
+retired. This document authorizes no further device write.
 
 ## Proposed Narrow Exception
 
-After independent review, a future active exception may authorize one bounded
+After independent review, the consumed exception authorized one bounded
 attended `S22+ FYG8 R3C1 unpatched rebuilt-kernel boot-only live gate` on
 Samsung S22+ `SM-S906N` / `g0q` / `S906NKSS7FYG8`, using only helper
 `workspace/public/src/scripts/revalidation/s22plus_fyg8_r3c1_live_gate.py`
 SHA256
 `2e6bf83733685288d0289d175c9639858ae0d3c5f2fe06f83737bceb186a6eb1`.
-The future active clause must use the exact whole-line ACTIVE state. Live
-acknowledgement would be `S22PLUS-FYG8-R3C1-UNPATCHED-KERNEL-LIVE`; interrupted
+The consumed active clause used the exact whole-line ACTIVE state. Live
+acknowledgement was `S22PLUS-FYG8-R3C1-UNPATCHED-KERNEL-LIVE`; interrupted
 rollback from an already-started run would use
 `S22PLUS-FYG8-R3C1-MAGISK-ROLLBACK-FROM-DOWNLOAD`.
 
@@ -67,9 +67,11 @@ durably create it at `candidate_flash_start`. Emergency rollback remains
 available after consumption. Timeline is only `events:[{name,timestamp_utc}]`
 with the standard eight phases exactly once and in order.
 
-This proposal authorizes no device write while `DRAFT_INACTIVE`; no second
+This consumed exception authorizes no second
 candidate run, R3C0 reuse, R3B, native PID1, Debian, raw `dd`, fastboot, module,
 panic, RDX, dump, EUD/UART, format, partition-table action, non-boot partition
 write, or A90 action. Activation requires completed offline/connected gates,
 independent review, an exact helper SHA re-pin after every fix, and a new fresh
-attended approval supplied after those gates.
+attended approval supplied after those gates. Binding state is now
+`S22PLUS_FYG8_R3C1_POLICY_STATE=RETIRED` and must not be restored. See
+`docs/reports/S22PLUS_FYG8_R3C1_LIVE_RESULT_2026-07-12.md`.

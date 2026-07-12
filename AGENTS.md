@@ -110,9 +110,18 @@ BL, CP, CSC, userdata, or any non-boot flash.
    action, or write to recovery/vendor_boot/DTBO/vbmeta/BL/CP/CSC/super/
    userdata/persist/EFS/sec_efs/RPMB/keymaster/modem/bootloader or any
    partition other than boot. It grants no A90 action.
-   **Narrow operator-approval-pending exception (2026-07-12, S22+ FYG8 R3C1):**
+   **Consumed/retired exception (2026-07-12, S22+ FYG8 R3C1):** the exact
+   unpatched rebuilt-kernel boot-only AP flashed once with Odin rc=0. R3C1
+   reached normal FYG8 Android and passed three stable identity, boot-complete,
+   boot-animation, exact kernel release, exact `/proc/version`, and orange
+   verified-boot samples. The exact Magisk boot-only rollback flashed with Odin
+   rc=0. Final verification proved normal Android, Magisk root, exact known
+   Magisk boot, stock DTBO/recovery identities, and no Odin endpoint. The helper
+   completed all eight timeline events without host continuation. Durable
+   verdict is `PASS_R3C1_UNPATCHED_REBUILT_KERNEL_VIABLE_AND_ROLLED_BACK`.
+   The one-shot consumed state exists and this exception must not be reused.
    Policy marker: `S22+ FYG8 R3C1 unpatched rebuilt-kernel boot-only live gate`.
-   `S22PLUS_FYG8_R3C1_POLICY_STATE=PENDING_OPERATOR_APPROVAL`
+   `S22PLUS_FYG8_R3C1_POLICY_STATE=RETIRED`
    After helper tests, offline and connected read-only gates, and independent
    pre-live review pass, Codex may perform one bounded attended R3C1 run only
    after a new explicit operator approval given after those gates. The current

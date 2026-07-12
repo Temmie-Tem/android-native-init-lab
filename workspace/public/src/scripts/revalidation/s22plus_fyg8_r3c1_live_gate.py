@@ -59,6 +59,9 @@ EXPECTED_BUILDER_SHA256 = (
 EXPECTED_BUILDER_TEST_SHA256 = (
     "229ce3766d898cc5b93448be84dbc18ab798fac0724969dc030992caa5edda5d"
 )
+AUTHORIZED_LIVE_HELPER_SHA256 = (
+    "2e6bf83733685288d0289d175c9639858ae0d3c5f2fe06f83737bceb186a6eb1"
+)
 EXPECTED_CHECKER_SHA256 = common.EXPECTED_CHECKER_SHA256
 EXPECTED_R3C0_BOOT_SHA256 = common.EXPECTED_CANDIDATE_BOOT_SHA256
 EXPECTED_R3C0_AP_SHA256 = common.EXPECTED_CANDIDATE_AP_SHA256
@@ -258,11 +261,12 @@ def verify_policy_draft(root: Path) -> dict[str, Any]:
         raise GateError("R3C1 policy draft missing")
     text = path.read_text(encoding="utf-8")
     source_sha = common.sha256_file(root / SCRIPT_RELATIVE)
+    if "DRAFT_INACTIVE" not in text and "RETIRED_AFTER_PASS" not in text:
+        raise GateError("R3C1 policy document state is neither draft nor retired")
     required = (
-        "DRAFT_INACTIVE",
         POLICY_MARKER,
         str(SCRIPT_RELATIVE),
-        source_sha,
+        AUTHORIZED_LIVE_HELPER_SHA256,
         LIVE_ACK_TOKEN,
         ROLLBACK_ACK_TOKEN,
         EXPECTED_CANDIDATE_BOOT_SHA256,
@@ -276,6 +280,8 @@ def verify_policy_draft(root: Path) -> dict[str, Any]:
     return {
         "path": str(POLICY_DRAFT),
         "sha256": common.sha256_file(path),
+        "authorized_live_helper_sha256": AUTHORIZED_LIVE_HELPER_SHA256,
+        "current_source_sha256": source_sha,
         "active": policy_active(root),
     }
 

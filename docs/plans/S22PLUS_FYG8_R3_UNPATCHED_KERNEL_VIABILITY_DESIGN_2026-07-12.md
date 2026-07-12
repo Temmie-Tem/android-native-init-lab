@@ -6,10 +6,10 @@ Scope: R3C0 control close plus host-only R3C1 artifact contract
 
 Status: carrier design corrected after an actual MagiskBoot no-change repack;
 corrected R1 v3/R2 v2, checker, exact-input audit, and independently reproduced
-R3C0 synthetic control artifacts and its attended live control passed with
-verified rollback on 2026-07-12. The R3C0 exception is retired. R3C1 host-only
-artifacts now independently pass the exact kernel-only contract; R3C1 live
-policy and transfer remain separate and unauthorized.
+R3C0 synthetic control and R3C1 unpatched rebuilt-kernel attended controls both
+passed with verified rollback on 2026-07-12. Both one-shot exceptions are
+retired. The narrow R3 stock-userspace viability question is closed; this does
+not automatically promote R3B, R4, native PID1, or Debian.
 
 ## Decision
 
@@ -308,10 +308,13 @@ read-only host continuation are recorded in
 one-shot state are retired. Step 6 host construction and independent review are
 complete: three byte-identical reproductions return
 `PASS_R3C1_STATIC_CONTRACT`, recorded in
-`docs/reports/S22PLUS_FYG8_R3C1_ARTIFACT_REPRODUCTION_2026-07-12.md`. No R3C1
-transfer exists. The separate helper, PENDING exception, offline gate,
-connected read-only dry-run, and independent pre-live GO are source-closed in
+`docs/reports/S22PLUS_FYG8_R3C1_ARTIFACT_REPRODUCTION_2026-07-12.md`. The
+separate helper, PENDING exception, offline gate, connected read-only dry-run,
+and independent pre-live GO are source-closed in
 `docs/reports/S22PLUS_FYG8_R3C1_LIVE_GATE_SOURCE_READY_2026-07-12.md`. The
-pre-gate approval was not retained. Binding state remains
-`PENDING_OPERATOR_APPROVAL`; a new fresh attended approval and exact ACTIVE
-transition are still required before one live run.
+pre-gate approval was not retained. The later fresh approval authorized one
+live run. It completed with
+`PASS_R3C1_UNPATCHED_REBUILT_KERNEL_VIABLE_AND_ROLLED_BACK`, recorded in
+`docs/reports/S22PLUS_FYG8_R3C1_LIVE_RESULT_2026-07-12.md`. The R3C1 binding
+state and one-shot state are retired. Any next rung requires a separate design,
+artifact, policy, review, and approval.

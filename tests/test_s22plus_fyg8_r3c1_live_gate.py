@@ -129,13 +129,13 @@ class S22PlusFyg8R3C1LiveGateTest(unittest.TestCase):
             ):
                 self.assertEqual(self.module.main([mode, "--ack", token]), 2)
 
-    def test_real_policy_is_pending_and_not_active(self):
+    def test_real_policy_is_retired_and_not_active(self):
         root = Path.cwd()
         agents = (root / "AGENTS.md").read_text(encoding="utf-8")
         active_line = self.module.re.compile(
             rf"(?m)^\s*`?{self.module.re.escape(self.module.ACTIVE_SENTINEL)}`?\s*$"
         )
-        self.assertIn(self.module.PENDING_SENTINEL, agents)
+        self.assertIn("S22PLUS_FYG8_R3C1_POLICY_STATE=RETIRED", agents)
         self.assertIsNone(active_line.search(agents))
         self.assertFalse(self.module.policy_active(root))
 
