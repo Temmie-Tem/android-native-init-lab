@@ -4,10 +4,12 @@ Date: 2026-07-13 KST
 
 Target: `SM-S906N/g0q/S906NKSS7FYG8`
 
-Verdict: `A0_HOST_DESIGN_READY; A1_ORACLE_FEASIBILITY_OPEN; NO_ARTIFACT_OR_LIVE_AUTHORIZATION`
+Verdict: `A0_HOST_ARTIFACT_PASS; A1_ORACLE_HIGH_RISK_UNRESOLVED; NO_LIVE_AUTHORIZATION`
 
-This unit is host-only design. It creates no boot image, AP, live helper,
-policy exception, consumed state, device session, or flash authority.
+This document began as a host-only design and did not itself create a boot
+image, AP, live helper, policy exception, consumed state, device session, or
+flash authority. The later separately authorized A0 host implementation is
+recorded below; it still creates no live authority.
 
 ## Decision
 
@@ -192,11 +194,17 @@ Primary references:
 - AOSP BootReceiver tail capture:
   <https://android.googlesource.com/platform/frameworks/base/+/6193aa3/core/java/com/android/server/BootReceiver.java>
 
-Three clean outputs, including one from final checked source, must match on raw
-boot, LZ4, AP, and manifest before any live-helper implementation. Candidate
-hashes remain `TBD` until that separately authorized host construction unit.
-Artifact reproduction PASS does not override an
-`HIGH_RISK_UNRESOLVED` overwrite-budget result.
+Three clean outputs from final checked source match on raw boot, LZ4, AP, and
+manifest:
+
+- raw boot: `a2bba0ef907af14e57508ca55d247d571c3f89936dd7020293e51ebfa8f8d133`;
+- LZ4: `0bf83af2bb7167aae4a57be1686599aa99fe9e75ccd7aa89128da799a4c14a99`;
+- boot-only AP: `cb2c078f001af6e263dc3f533a2efe3294a5c80201f50952a45bb88254e4d895`;
+- manifest: `3b9b5c0f0d3bac818a010cb7682e1146eaa50d5feec8a16324a039bbd5d2f85b`.
+
+The independent checker returned `PASS_R4W1A_THREE_REPRO_STATIC_CONTRACT`.
+Artifact reproduction PASS does not override the overwrite-budget result:
+`HIGH_RISK_UNRESOLVED`, `a1_ready=false`.
 
 ## A1 Pre-Live Gates
 
@@ -352,12 +360,27 @@ checkpoint after `/init` acceptance, USB, native PID1 service readiness,
 Debian, hardware completeness, long-duration stability, or cross-host build
 reproducibility.
 
+## A0 Implementation Result
+
+The operator separately authorized A0 implementation after this design was
+committed. The bounded host-only unit added a dedicated builder, an independent
+checker, an overwrite-budget analyzer, and negative tests. It contacted no
+device and created no A1 helper or policy.
+
+The builder reads the carrier and Image once, executes only staged byte-exact
+copies of the pinned LZ4 and Odin tools, and uses Odin only with fixed nonexistent
+path `/dev/bus/usb/999/999`. The checker does not import the builder. It
+reconstructs the expected boot bytes itself, validates all three outputs,
+rechecks complete FYG8 firmware and rollback evidence, and verifies the exact
+witness source predicate. Seventy-two related R3/R4 tests pass.
+
+Result details and source/artifact pins are recorded in
+`docs/reports/S22PLUS_FYG8_R4W1A_A0_HOST_ARTIFACT_RESULT_2026-07-13.md`.
+
 ## Next Unit
 
-Independent review returned `GO` for A0 host-only design with no A0 blocker. It
-identified early-marker overwrite as the load-bearing A1 feasibility risk and
-required the overwrite-budget deliverable and exact candidate snapshot path
-above. The next bounded host-only unit may implement the A0 builder, checker,
-negative tests, three clean reproductions, and overwrite-budget analysis. This
-document does not authorize A0 packaging, connected dry-run, policy activation,
-device contact, or live execution.
+Independent review returned `GO` for committing the completed A0 host-only
+implementation with no blocker. Early-marker overwrite remains the load-bearing
+A1 feasibility risk. The next bounded unit is host-only oracle selection and
+proof. This document does not authorize an A1 helper, connected dry-run, policy
+activation, device contact, or live execution.
