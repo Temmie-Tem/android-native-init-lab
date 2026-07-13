@@ -355,18 +355,117 @@ class S22PlusFyg8R4W1ALiveGateTest(unittest.TestCase):
         ), mock.patch("builtins.print"):
             self.assertEqual(self.module.main(["--connected-dry-run"]), 2)
 
-    def test_real_policy_draft_pins_current_helper_and_is_inactive(self):
+    def test_real_policy_draft_pins_current_helper_and_reports_exact_state(self):
         policy = self.module.verify_policy_draft(Path.cwd())
         self.assertEqual(
             policy["current_source_sha256"], self.module.helper_sha256(Path.cwd())
         )
-        self.assertFalse(policy["oracle_policy_active"])
-        self.assertFalse(policy["candidate_policy_active"])
+        self.assertEqual(
+            policy["oracle_policy_active"],
+            self.module.active_policy(Path.cwd(), oracle_only=True),
+        )
+        self.assertEqual(
+            policy["candidate_policy_active"],
+            self.module.active_policy(Path.cwd(), oracle_only=False),
+        )
 
-    def test_real_agents_has_no_active_r4w1a_policy(self):
-        root = Path.cwd()
-        self.assertFalse(self.module.active_policy(root, oracle_only=True))
-        self.assertFalse(self.module.active_policy(root, oracle_only=False))
+    def test_oracle_policy_activation_requires_exact_connected_record_pin(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root, result_path = self._temporary_promotion_root(temporary)
+            result = {
+                "schema": self.module.SCHEMA,
+                "mode": "connected-dry-run",
+                "target": self.module.TARGET,
+                "device_writes": False,
+                "verdict": "PASS_R4W1A_CONNECTED_IDENTITY_DRY_RUN_READ_ONLY",
+            }
+            self.module.common.durable_write_json(result_path, result)
+            record_sha = self.module.create_pass_record(
+                root, "connected", result_path, result["verdict"]
+            )
+            required = (
+                self.module.ORACLE_ACTIVE_SENTINEL,
+                self.module.ORACLE_POLICY_MARKER,
+                str(self.module.SCRIPT_RELATIVE),
+                self.module.helper_sha256(root),
+                self.module.ORACLE_ACK_TOKEN,
+                self.module.EXPECTED_CANDIDATE_BOOT_SHA256,
+                self.module.EXPECTED_CANDIDATE_AP_SHA256,
+                self.module.EXPECTED_ORACLE_SHA256,
+                self.module.common.EXPECTED_MAGISK_AP_SHA256,
+                str(self.module.CONNECTED_PASS_STATE),
+                record_sha,
+            )
+            agents = root / "AGENTS.md"
+            agents.write_text("\n".join(required) + "\n", encoding="utf-8")
+            self.assertTrue(self.module.active_policy(root, oracle_only=True))
+            self.assertFalse(self.module.active_policy(root, oracle_only=False))
+            agents.write_text(
+                "\n".join(item for item in required if item != record_sha) + "\n",
+                encoding="utf-8",
+            )
+            self.assertFalse(self.module.active_policy(root, oracle_only=True))
+
+    def test_candidate_policy_activation_requires_exact_oracle_record_pin(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root, connected_result = self._temporary_promotion_root(temporary)
+            connected = {
+                "schema": self.module.SCHEMA,
+                "mode": "connected-dry-run",
+                "target": self.module.TARGET,
+                "device_writes": False,
+                "verdict": "PASS_R4W1A_CONNECTED_IDENTITY_DRY_RUN_READ_ONLY",
+            }
+            self.module.common.durable_write_json(connected_result, connected)
+            connected_sha = self.module.create_pass_record(
+                root, "connected", connected_result, connected["verdict"]
+            )
+            oracle_result = root / self.module.RUN_ROOT / "oracle-run/result.json"
+            oracle_result.parent.mkdir(parents=True)
+            oracle = {
+                "schema": self.module.SCHEMA,
+                "mode": "oracle-dry-run",
+                "target": self.module.TARGET,
+                "capture": {
+                    "success": True,
+                    "cleanup_verified": True,
+                    "parser_stream_identity_match": True,
+                    "parser": {
+                        "marker": {"classification": "MARKER_FAMILY_ABSENT"}
+                    },
+                },
+                "verdict": "PASS_R4W1A_ORACLE_DRY_RUN_EXACT_ZIP_AND_CLEANUP",
+            }
+            self.module.common.durable_write_json(oracle_result, oracle)
+            self.module.consume_oracle_exception(root, oracle_result.parent)
+            oracle_sha = self.module.create_pass_record(
+                root, "oracle", oracle_result, oracle["verdict"]
+            )
+            required = (
+                self.module.ACTIVE_SENTINEL,
+                self.module.POLICY_MARKER,
+                str(self.module.SCRIPT_RELATIVE),
+                self.module.helper_sha256(root),
+                self.module.LIVE_ACK_TOKEN,
+                self.module.EXPECTED_CANDIDATE_BOOT_SHA256,
+                self.module.EXPECTED_CANDIDATE_AP_SHA256,
+                self.module.EXPECTED_ORACLE_SHA256,
+                self.module.common.EXPECTED_MAGISK_AP_SHA256,
+                str(self.module.CONNECTED_PASS_STATE),
+                connected_sha,
+                self.module.ROLLBACK_ACK_TOKEN,
+                self.module.common.EXPECTED_STOCK_AP_SHA256,
+                str(self.module.ORACLE_PASS_STATE),
+                oracle_sha,
+            )
+            agents = root / "AGENTS.md"
+            agents.write_text("\n".join(required) + "\n", encoding="utf-8")
+            self.assertTrue(self.module.active_policy(root, oracle_only=False))
+            agents.write_text(
+                "\n".join(item for item in required if item != oracle_sha) + "\n",
+                encoding="utf-8",
+            )
+            self.assertFalse(self.module.active_policy(root, oracle_only=False))
 
     def test_one_shot_state_is_separate_and_durable(self):
         self.assertNotEqual(self.module.CONSUMED_STATE, self.module.common.CONSUMED_STATE)

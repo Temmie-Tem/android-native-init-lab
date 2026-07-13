@@ -9,9 +9,9 @@ active sentinel below is present in binding `AGENTS.md`.
 The proposed helper is
 `workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1a_live_gate.py`
 SHA256
-`a429d65a0c01a5d5e3dd2c0f328593ac6a132f33ed0928d930e389e7ad6d1a62`.
+`d541397c823b7c6311dbec950dd3a82dc6a5881984b45838c99ffedebc2d3d14`.
 Its focused test source currently has SHA256
-`386fca45a81e723cec6ab23abe26821d98b7724bba2e10a48d8aa176ab65721e`.
+`314b3efc9fec555b31bf6b926bcdbe4b34ebe75ad17bf1172d0e3027e52bf145`.
 Any helper edit invalidates this draft pin and requires a complete re-review.
 
 ## Common Preconditions
@@ -77,7 +77,7 @@ connected preflight and create host-side private evidence. It authorizes no
 device write, `bugreportz`, reboot, Download transition, Odin transfer, or
 consumed-state creation. Passing this mode does not activate either exception
 below. A PASS creates one immutable SHA-bound promotion record at
-`workspace/private/state/s22plus_fyg8_r4w1a_connected_dry_run_pass_v2.json`.
+`workspace/private/state/s22plus_fyg8_r4w1a_connected_dry_run_pass_v3.json`.
 The first 2026-07-13 connected dry-run passed under superseded helper SHA256
 `6dcf003c2c0ef186e4001af44da8cc526014d1704c8b25d7ba04788afd9ca577`.
 Its historical result SHA256 is
@@ -92,8 +92,11 @@ Its result SHA256 is
 `4ba372e52aaf0a5ba8d93dce6c8bb709677e70376ad5e025d40785dd40802879`
 and its v2 promotion-record SHA256 is
 `6db39d84d1dc855a68376f7d09a16022c2c39a581870e7331a209bf876025f16`.
-This draft remains inactive and authorizes no oracle capture or candidate
-action.
+That v2 record became historical when the policy-state tests were corrected to
+support a reviewed inactive-to-active transition without changing source at
+activation time. The current helper requires a new v3 connected record. The
+v1 and v2 records remain preserved but cannot activate it. This draft remains
+inactive and authorizes no oracle capture or candidate action.
 The future oracle ACTIVE clause must contain that exact record SHA, and the
 helper independently reopens the named private result and verifies its SHA,
 target, mode, verdict, helper identity, and `device_writes=false`. A missing,
@@ -105,8 +108,7 @@ Policy marker: `S22+ FYG8 R4W1-A bugreport oracle dry-run live gate`.
 
 Future binding activation would require the exact whole-line sentinel
 `S22PLUS_FYG8_R4W1A_ORACLE_DRY_POLICY_STATE=ACTIVE`, the exact helper SHA above,
-v2 connected promotion-record SHA
-`6db39d84d1dc855a68376f7d09a16022c2c39a581870e7331a209bf876025f16`,
+the not-yet-created exact v3 connected promotion-record SHA,
 independent review, and a fresh attended acknowledgement
 `S22PLUS-FYG8-R4W1A-BUGREPORT-ORACLE-DRY-RUN` supplied after that review.
 

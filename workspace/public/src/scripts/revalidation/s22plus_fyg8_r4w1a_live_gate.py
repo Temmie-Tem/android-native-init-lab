@@ -88,7 +88,7 @@ EXPECTED_BUILDER_TEST_SHA256 = (
     "bb0613a0546078d5c61cfb48957153772d0fd8e16ffd5fd5282ca987df4712f4"
 )
 EXPECTED_LIVE_TEST_SHA256 = (
-    "386fca45a81e723cec6ab23abe26821d98b7724bba2e10a48d8aa176ab65721e"
+    "314b3efc9fec555b31bf6b926bcdbe4b34ebe75ad17bf1172d0e3027e52bf145"
 )
 EXPECTED_COMMON_SHA256 = (
     "f10a30735882bbd59453471fe901b1cef11fdf42bcf3560a8ae61b4af361c4f4"
@@ -138,7 +138,7 @@ CONSUMED_STATE = Path(
     "workspace/private/state/s22plus_fyg8_r4w1a_live_exception_consumed.json"
 )
 CONNECTED_PASS_STATE = Path(
-    "workspace/private/state/s22plus_fyg8_r4w1a_connected_dry_run_pass_v2.json"
+    "workspace/private/state/s22plus_fyg8_r4w1a_connected_dry_run_pass_v3.json"
 )
 ORACLE_CONSUMED_STATE = Path(
     "workspace/private/state/s22plus_fyg8_r4w1a_oracle_dry_run_consumed.json"
@@ -388,7 +388,7 @@ def validate_pass_record(root: Path, kind: str) -> str:
     contracts = {
         "connected": (
             CONNECTED_PASS_STATE,
-            "s22plus_fyg8_r4w1a_connected_pass_v2",
+            "s22plus_fyg8_r4w1a_connected_pass_v3",
             "connected-dry-run",
             "PASS_R4W1A_CONNECTED_IDENTITY_DRY_RUN_READ_ONLY",
         ),
@@ -467,7 +467,7 @@ def validate_pass_record(root: Path, kind: str) -> str:
 
 def create_pass_record(root: Path, kind: str, result_path: Path, verdict: str) -> str:
     contracts = {
-        "connected": (CONNECTED_PASS_STATE, "s22plus_fyg8_r4w1a_connected_pass_v2"),
+        "connected": (CONNECTED_PASS_STATE, "s22plus_fyg8_r4w1a_connected_pass_v3"),
         "oracle": (ORACLE_PASS_STATE, "s22plus_fyg8_r4w1a_oracle_pass_v1"),
     }
     if kind not in contracts:

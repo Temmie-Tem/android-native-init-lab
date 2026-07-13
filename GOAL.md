@@ -4,27 +4,26 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ ACTIVE FRONTIER (2026-07-13 KST) - R4W1-A FIXED-HELPER V2 CONNECTED
-> IDENTITY DRY-RUN PASS; ORACLE ACTIVATION/CAPTURE AND CANDIDATE REMAIN
-> BLOCKED.** Exact helper SHA256 `a429d65a...6d1a62` passed the full static
-> checker and a fresh attended connected read-only run. It proved exact FYG8
-> Android/Magisk root, known boot, stock DTBO/recovery, no Odin endpoint, live
-> `sec_log_buf`, exact bind, two EOF-complete snapshots, and marker-family
-> absence. Device writes, `bugreportz`, reboot, Download, Odin transfer, and
-> flash were zero; Android/root remained healthy. Result SHA256 is
-> `4ba372e5...802879`; v2 promotion schema is
-> `s22plus_fyg8_r4w1a_connected_pass_v2` and record SHA256 is
-> `6db39d84...025f16`. The historical v1 record remains preserved but is inert
-> to the current helper. Oracle consumed/PASS and candidate consumed records
-> remain absent. Inactive policy draft SHA256 is `e4e177ac...f14d44` and binding
-> `AGENTS.md` still has no R4W1-A ACTIVE sentinel. Next is host-only independent
-> review and exact activation of only the zero-flash one-capture oracle clause,
-> pinned to the v2 record; only after that review is a new attended oracle
-> approval valid. Candidate remains blocked until oracle PASS and separate
-> review. Records:
-> `docs/reports/S22PLUS_FYG8_R4W1A_A2_PARSER_BINDING_FIX_SOURCE_READY_2026-07-13.md`
-> and
-> `docs/reports/S22PLUS_FYG8_R4W1A_CONNECTED_V2_IDENTITY_DRY_RUN_RESULT_2026-07-13.md`.
+> **S22+ ACTIVE FRONTIER (2026-07-13 KST) - R4W1-A A3 POLICY-ACTIVATION
+> CIRCULARITY FIX PASS HOST-ONLY; FRESH V3 CONNECTED DRY-RUN NEXT; ORACLE AND
+> CANDIDATE REMAIN BLOCKED.** Previous real-root tests permanently assumed both
+> policies inactive, so valid activation would have changed test/helper hashes
+> and invalidated its promotion record. Current helper SHA256
+> `d541397c...2d3d14` and test SHA256 `314b3efc...2bf145` replace those assertions
+> with exact state consistency and synthetic positive/negative activation tests
+> for both oracle and candidate. Removing the connected record SHA disables
+> oracle; removing the oracle record SHA disables candidate. Twenty-four
+> focused and 45 related tests plus the complete offline checker pass with zero
+> device contact/write/flash. Opus confirms no activation-time source/test
+> circularity remains and returns GO for host commit and a fresh v3 connected
+> read-only request. Historical v1/v2 records remain preserved but inert; the
+> current helper requires absent path
+> `s22plus_fyg8_r4w1a_connected_dry_run_pass_v3.json`. Inactive policy draft
+> SHA256 is `e7aa7c0c...ceb653`; binding `AGENTS.md` has no ACTIVE sentinel.
+> Next is fresh attended approval for the exact helper's connected read-only
+> dry-run only. Oracle activation/capture still requires the resulting v3 SHA
+> plus a separate clause review and later approval. Record:
+> `docs/reports/S22PLUS_FYG8_R4W1A_A3_POLICY_ACTIVATION_CYCLE_FIX_SOURCE_READY_2026-07-13.md`.
 >
 > **S22+ ACTIVE FRONTIER (2026-07-13 KST) - R4W1-A A0 ARTIFACT PASS AND
 > PRIMARY MARKER ORACLE SELECTED HOST-ONLY; A1 IMPLEMENTATION READY BUT LIVE
