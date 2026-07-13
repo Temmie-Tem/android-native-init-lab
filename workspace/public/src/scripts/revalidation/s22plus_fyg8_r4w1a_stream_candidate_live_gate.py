@@ -522,6 +522,14 @@ def live_run(root: Path, args: argparse.Namespace, artifacts: dict[str, Any]) ->
         result["pre_rollback_endpoint_error"] = str(exc)
     if len(existing) > 1:
         result["verdict"] = "FAIL_R4W1A_AMBIGUOUS_ROLLBACK_TARGET_RECOVERY_REQUIRED"
+        result["timeline_phase_semantics"] = {
+            "rollback_flash_start": (
+                "multiple Odin endpoints observed; no rollback flash started"
+            ),
+            "rollback_flash_done": "no rollback flash occurred",
+            "rollback_boot_ready": "rollback Android not observed",
+            "live_session_end": "recovery required because rollback target was ambiguous",
+        }
         append_remaining_events(timeline_path, timeline, 4)
         common.durable_write_json(run_dir / "result.json", result)
         return 20

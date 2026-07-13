@@ -218,6 +218,28 @@ class S22PlusFyg8R4W1AStreamCandidateLiveGateTest(unittest.TestCase):
         self.assertFalse(result["success"])
         self.assertFalse(result["parser_stream_identity_match"])
 
+    def test_stream_failure_is_durable_and_fails_closed(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            with mock.patch.object(
+                self.module.historical,
+                "stream_bugreport",
+                side_effect=self.module.GateError("synthetic stream failure"),
+            ), mock.patch.object(
+                self.module.historical, "remote_inventory", side_effect=[{}, {}]
+            ):
+                result = self.module.capture_stream_oracle(
+                    "SERIAL", run_dir, expectation="exact", timeout=30
+                )
+            durable = json.loads(
+                (run_dir / "oracle_capture.json").read_text(encoding="utf-8")
+            )
+        self.assertFalse(result["success"])
+        self.assertIsNone(result["stream"])
+        self.assertFalse(result["cleanup_attempted"])
+        self.assertIn("synthetic stream failure", result["errors"])
+        self.assertEqual(durable, result)
+
     def test_candidate_consumption_is_exclusive_and_rollback_bound(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -285,6 +307,11 @@ class S22PlusFyg8R4W1AStreamCandidateLiveGateTest(unittest.TestCase):
                     encoding="utf-8",
                 )
                 self.assertTrue(self.module.policy_active(root))
+                agents.write_text(
+                    self.module.ACTIVE_SENTINEL + "\n" + "\n".join(values[:-1]),
+                    encoding="utf-8",
+                )
+                self.assertFalse(self.module.policy_active(root))
 
     def test_real_policy_is_inactive_and_draft_is_self_consistent(self):
         root = Path.cwd()
@@ -292,6 +319,29 @@ class S22PlusFyg8R4W1AStreamCandidateLiveGateTest(unittest.TestCase):
         draft = self.module.verify_policy_draft(root)
         self.assertEqual(draft["state"], "DRAFT_INACTIVE")
         self.assertFalse(draft["active"])
+
+    def test_policy_draft_missing_pin_fails_closed(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            draft_path = root / self.module.POLICY_DRAFT
+            draft_path.parent.mkdir(parents=True)
+            draft = (Path.cwd() / self.module.POLICY_DRAFT).read_text(
+                encoding="utf-8"
+            )
+            draft_path.write_text(
+                draft.replace(self.module.QUALIFICATION_VERDICT, "", 1),
+                encoding="utf-8",
+            )
+            with mock.patch.object(
+                self.module,
+                "helper_sha256",
+                return_value=self.module.common.sha256_file(Path.cwd() / SCRIPT),
+            ), mock.patch.object(
+                self.module,
+                "test_sha256",
+                return_value=self.module.common.sha256_file(Path(__file__)),
+            ), self.assertRaises(self.module.GateError):
+                self.module.verify_policy_draft(root)
 
     def test_verdict_requires_magisk_android_and_exact_stream_marker(self):
         pass_case = self.module.classify_live_verdict(
@@ -321,6 +371,10 @@ class S22PlusFyg8R4W1AStreamCandidateLiveGateTest(unittest.TestCase):
         self.assertIn(
             'result["baseline_pstore_console_absent"] = '
             "historical.pstore_console_absent(serial)",
+            source,
+        )
+        self.assertIn(
+            '"multiple Odin endpoints observed; no rollback flash started"',
             source,
         )
 

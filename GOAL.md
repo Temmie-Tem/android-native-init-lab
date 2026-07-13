@@ -4,6 +4,27 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-13 20:27 KST / 2026-07-13 11:27 UTC) -
+> R4W1-A A6 A5-REVIEW LOW FINDINGS CLOSED HOST-ONLY; POLICY STILL
+> DRAFT_INACTIVE; INDEPENDENT ACTIVATION REVIEW NEXT.** The ambiguous rollback
+> target branch now records explicit no-transfer/recovery semantics without
+> changing the canonical eight-event timeline. Three missing fail-closed
+> negative cases now cover ACTIVE-with-missing-pin, draft-with-missing-pin, and
+> stream-capture exception durability/no-cleanup. Revised helper SHA256 is
+> `07d9133d...c5068`, focused-test SHA256 is `f618380b...e6319`, and inactive
+> draft SHA256 is `a8279424...d2f23`.
+>
+> Focused tests pass `17/17`; full R4W1-family tests pass `98/98`; builder tests
+> pass `8/8`, for `106/106` unique tests. Private offline result SHA256
+> `ff9908df...ea42` is `PASS_R4W1A_STREAM_CANDIDATE_OFFLINE_CHECK` with exact
+> A4/static PASS, `policy.active=false`, no consumed candidate state,
+> `device_contact=false`, `device_write=false`, and `flash=false`. Binding
+> `AGENTS.md` still contains no candidate ACTIVE sentinel. Next is an
+> independent adversarial review of this exact commit and proposed binding
+> text; only a separate reviewed policy commit may activate it, and any later
+> device run still requires fresh attended approval. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1A_A6_REVIEW_FINDINGS_CLOSED_SOURCE_READY_2026-07-13.md`.
+>
 > **S22+ ACTIVE FRONTIER (2026-07-13 19:44 KST / 2026-07-13 10:44 UTC) -
 > R4W1-A A5 STREAM-CANDIDATE SUCCESSOR SOURCE READY HOST-ONLY; POLICY DRAFT
 > INACTIVE; CANDIDATE STILL NO-GO.** Added new successor helper
