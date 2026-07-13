@@ -4,25 +4,27 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ ACTIVE FRONTIER (2026-07-13 KST) - R4W1-A A2 PARSER-STREAM BINDING
-> FIX PASS HOST-ONLY; FRESH V2 CONNECTED DRY-RUN NEXT; ORACLE AND CANDIDATE
-> REMAIN BLOCKED.** Adversarial review found that the old helper proved
-> `remote == stream` but did not rebind the parser's second-open input SHA/size
-> to that stream. Current helper SHA256 `a429d65a...6d1a62` now requires exact
-> `parser == stream == remote` both at capture time and promotion-record reopen.
-> The focused test SHA256 is `386fca45...65721e`; its new swap regression fails
-> closed. Twenty-three focused and 44 related tests pass, and the complete
-> offline checker again returns `PASS_R4W1A_LIVE_HELPER_OFFLINE_CHECK` with no
-> device contact/write/flash. Opus confirms the MUST-FIX closed and returns GO
-> for host commit plus a fresh connected read-only dry-run request, but NO-GO
-> for oracle activation/capture. The old connected PASS remains historical and
-> preserved; the current helper requires absent v2 path
-> `s22plus_fyg8_r4w1a_connected_dry_run_pass_v2.json`. Inactive policy draft
-> SHA256 is `c17942eb...daf334`; binding `AGENTS.md` still has no ACTIVE
-> sentinel. Next is a new attended approval for the exact helper's connected
-> read-only dry-run only. That run performs no `bugreportz`, reboot, Download,
-> Odin, or flash. Record:
-> `docs/reports/S22PLUS_FYG8_R4W1A_A2_PARSER_BINDING_FIX_SOURCE_READY_2026-07-13.md`.
+> **S22+ ACTIVE FRONTIER (2026-07-13 KST) - R4W1-A FIXED-HELPER V2 CONNECTED
+> IDENTITY DRY-RUN PASS; ORACLE ACTIVATION/CAPTURE AND CANDIDATE REMAIN
+> BLOCKED.** Exact helper SHA256 `a429d65a...6d1a62` passed the full static
+> checker and a fresh attended connected read-only run. It proved exact FYG8
+> Android/Magisk root, known boot, stock DTBO/recovery, no Odin endpoint, live
+> `sec_log_buf`, exact bind, two EOF-complete snapshots, and marker-family
+> absence. Device writes, `bugreportz`, reboot, Download, Odin transfer, and
+> flash were zero; Android/root remained healthy. Result SHA256 is
+> `4ba372e5...802879`; v2 promotion schema is
+> `s22plus_fyg8_r4w1a_connected_pass_v2` and record SHA256 is
+> `6db39d84...025f16`. The historical v1 record remains preserved but is inert
+> to the current helper. Oracle consumed/PASS and candidate consumed records
+> remain absent. Inactive policy draft SHA256 is `e4e177ac...f14d44` and binding
+> `AGENTS.md` still has no R4W1-A ACTIVE sentinel. Next is host-only independent
+> review and exact activation of only the zero-flash one-capture oracle clause,
+> pinned to the v2 record; only after that review is a new attended oracle
+> approval valid. Candidate remains blocked until oracle PASS and separate
+> review. Records:
+> `docs/reports/S22PLUS_FYG8_R4W1A_A2_PARSER_BINDING_FIX_SOURCE_READY_2026-07-13.md`
+> and
+> `docs/reports/S22PLUS_FYG8_R4W1A_CONNECTED_V2_IDENTITY_DRY_RUN_RESULT_2026-07-13.md`.
 >
 > **S22+ ACTIVE FRONTIER (2026-07-13 KST) - R4W1-A A0 ARTIFACT PASS AND
 > PRIMARY MARKER ORACLE SELECTED HOST-ONLY; A1 IMPLEMENTATION READY BUT LIVE

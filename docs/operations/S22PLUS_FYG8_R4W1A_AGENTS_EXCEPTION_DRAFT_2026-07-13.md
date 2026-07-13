@@ -87,8 +87,13 @@ and historical promotion-record SHA256 is
 An adversarial review then found that the parser input was not bound back to
 the original host stream SHA and size. The current helper closes that gap and
 requires a new v2 connected PASS record. The historical record cannot activate
-the current helper. This draft remains inactive and authorizes no oracle
-capture or candidate action.
+the current helper. The fixed helper's 2026-07-13 connected dry-run then passed.
+Its result SHA256 is
+`4ba372e52aaf0a5ba8d93dce6c8bb709677e70376ad5e025d40785dd40802879`
+and its v2 promotion-record SHA256 is
+`6db39d84d1dc855a68376f7d09a16022c2c39a581870e7331a209bf876025f16`.
+This draft remains inactive and authorizes no oracle capture or candidate
+action.
 The future oracle ACTIVE clause must contain that exact record SHA, and the
 helper independently reopens the named private result and verifies its SHA,
 target, mode, verdict, helper identity, and `device_writes=false`. A missing,
@@ -100,7 +105,8 @@ Policy marker: `S22+ FYG8 R4W1-A bugreport oracle dry-run live gate`.
 
 Future binding activation would require the exact whole-line sentinel
 `S22PLUS_FYG8_R4W1A_ORACLE_DRY_POLICY_STATE=ACTIVE`, the exact helper SHA above,
-the not-yet-created exact v2 connected promotion-record SHA,
+v2 connected promotion-record SHA
+`6db39d84d1dc855a68376f7d09a16022c2c39a581870e7331a209bf876025f16`,
 independent review, and a fresh attended acknowledgement
 `S22PLUS-FYG8-R4W1A-BUGREPORT-ORACLE-DRY-RUN` supplied after that review.
 
