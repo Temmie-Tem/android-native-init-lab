@@ -4,6 +4,38 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-13 19:20 KST / 2026-07-13 10:20 UTC) -
+> R4W1-A A4 STREAM-ONLY EVIDENCE QUALIFICATION PASS HOST-ONLY; SECOND BASELINE
+> LIVE RUN NOT REQUIRED; CANDIDATE CLAUSE DESIGN READY BUT STILL NO-GO.** New
+> transport-free validator
+> `s22plus_fyg8_r4w1a_stream_oracle_qualification.py` SHA256
+> `fa940a5f...bcf3c` independently pinned every retained oracle-run file, the
+> consumed record, historical helper/test, and parser source. It revalidated
+> the exact canonical timeline, one-shot consumption before capture, empty
+> before/after `/bugreports` inventories, rc=0 EOF-complete 14,461,892-byte
+> stream, empty stderr, baseline/final Android identity, raw observer marker
+> absence, pstore fallback selection, and no-Odin logs. It then reran the pinned
+> parser over the exact stream and reproduced the retained 315-entry CRC-valid
+> `/proc/last_kmsg` result byte-for-byte.
+>
+> The durable host-only qualification verdict is
+> `PASS_R4W1A_STREAM_ORACLE_EVIDENCE_QUALIFIED_HOST_ONLY`; result SHA256 is
+> `077885c4...6b12a`. It explicitly preserves historical live verdict
+> `FAIL_R4W1A_ORACLE_DRY_RUN_CLEANUP_OR_SHAPE`, creates no old oracle PASS or
+> candidate consumed record, and reports `second_live_baseline_required=false`,
+> `candidate_live_authorized=false`, `device_contact=false`, and `flash=false`.
+> Ten focused negative/integration tests pass. The information needed from a
+> corrected stream-only baseline is therefore already present and independently
+> qualified; repeating the device-side baseline would add no missing evidence.
+>
+> Next is host-only successor candidate-clause/helper design. It must consume
+> the exact A4 qualification record under a new schema/pin rather than synthesize
+> the retired v1 oracle PASS or modify the consumed helper. Candidate policy
+> activation, fresh attended approval, boot-only candidate transfer, mandatory
+> Magisk rollback, and the marker-positive stream proof remain separate future
+> gates. No live authorization is active. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1A_A4_STREAM_ORACLE_QUALIFICATION_2026-07-13.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-13 19:02 KST / 2026-07-13 10:02 UTC) -
 > R4W1-A ORACLE ONE-SHOT CONSUMED/RETIRED FAIL-CLOSED; STREAM ZIP AND LAST_KMSG
 > SHAPE PROVED HOST-ONLY; CANDIDATE REMAINS BLOCKED; NO RETRY.** Exact helper

@@ -158,6 +158,16 @@ post-return file. Any successor contract must require unchanged inventory,
 same-file stream SHA/size stability, and complete parser validation, with no
 remote deletion when no new entry exists.
 
+A4 host-only close: the exact retained run contains all data required by that
+corrected contract. A new transport-free validator pins every raw file and
+source, verifies the consumed failure and zero-flash timeline, and reruns the
+parser over the exact stream. It returned
+`PASS_R4W1A_STREAM_ORACLE_EVIDENCE_QUALIFIED_HOST_ONLY`, so a second baseline
+device run is not information-bearing and is not required. This is a new
+qualification contract, not a retroactive v1 oracle PASS. Candidate execution
+still requires a new helper/policy dependency on the exact A4 result plus fresh
+review and approval.
+
 ## A0 Artifact Contract
 
 The future builder is a new R4W1-A-specific program. Retired R3C0/R3C1 sources

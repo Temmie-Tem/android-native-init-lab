@@ -150,3 +150,11 @@ new file exists, and remain fail-closed on any changed or added entry.
 
 No successor helper, ACTIVE clause, acknowledgement, candidate transfer, or
 flash is authorized by this report.
+
+Post-A4 close: the host-only successor validator independently pinned and
+revalidated every retained raw input and returned
+`PASS_R4W1A_STREAM_ORACLE_EVIDENCE_QUALIFIED_HOST_ONLY`. It concluded that the
+existing stream contains the complete corrected baseline evidence and a second
+device-side baseline is not required. The historical live FAIL and retired
+policy remain unchanged. See
+`docs/reports/S22PLUS_FYG8_R4W1A_A4_STREAM_ORACLE_QUALIFICATION_2026-07-13.md`.
