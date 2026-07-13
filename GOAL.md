@@ -4,6 +4,24 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-13 21:29 KST / 2026-07-13 12:29 UTC) -
+> R4W1-A A10 FINAL TWO-REVIEWER VERDICT GO_TO_BINDING_POLICY_COMMIT;
+> POLICY STILL DRAFT_INACTIVE.** Two independent final read-only reviews of
+> exact A9 commit `d021e352` found no blocking issue and both returned
+> `GO_TO_BINDING_POLICY_COMMIT`. They independently verified full v2
+> consumed-state validation, both inherited `SystemExit` normalizations,
+> canonical recovery timelines, pre-contact outside-run-dir rejection, exact
+> helper/test/draft/A4 pins, and the corrected focused `26/26`, R4W1-pattern
+> `107/107`, builder `8/8`, combined `115/115` test evidence.
+>
+> Reviewed helper SHA256 is `9f3055e3...e3d7d7`, focused-test SHA256 is
+> `402382d8...d72b3`, and inactive draft SHA256 is `a4d72aaa...5960c`.
+> Offline gate remains PASS with `policy.active=false`, no consumed state, and
+> no device contact/write/flash. Review is complete; next is a separate exact
+> binding-policy commit. This entry does not activate policy or authorize live
+> work, and `AGENTS.md` remains unchanged. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1A_A10_FINAL_TWO_REVIEWER_BINDING_GO_2026-07-13.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-13 21:23 KST / 2026-07-13 12:23 UTC) -
 > R4W1-A A9 DELTA-REVIEW FINDINGS CLOSED HOST-ONLY; POLICY STILL
 > DRAFT_INACTIVE; FINAL DELTA VERDICT NEXT.** Both A8 delta reviewers confirmed
