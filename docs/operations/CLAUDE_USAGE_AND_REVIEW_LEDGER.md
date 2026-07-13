@@ -1,6 +1,6 @@
 # Claude Usage And Review Ledger
 
-Last updated: 2026-07-13 20:20 KST
+Last updated: 2026-07-13 20:43 KST
 
 ## Purpose
 
@@ -42,6 +42,7 @@ quota, token, time, or cost value is reconstructed from later observations.
 | 2026-07-12 | not recorded | Claude Opus | R3C1 one-shot live-gate source review | `76% -> 92%` | not recorded | `2026-07-13 01:50 KST` | GO with no blocking finding and four accepted LOW residuals. Approximate observed delta: `+16` points. See [R3C1 live-gate report](../reports/S22PLUS_FYG8_R3C1_LIVE_GATE_SOURCE_READY_2026-07-12.md). |
 | 2026-07-13 18:30 | `290dc782-0f91-41bf-b876-b7aedb9e0903` | Claude Opus, high effort | Resumed R4W1/R4W1A review context; account usage and context inspection only for this entry | snapshot `75%` | all models `77%`; Fable `2%` | session `2026-07-13 22:30 KST`; weekly all models `2026-07-14 05:00 KST`; Fable `2026-07-14 04:59 KST` | `/usage` and `/context` were inspected without a new technical review. The conversation was cleanly exited and remains resumable by UUID. |
 | 2026-07-13 20:02-20:19 | `290dc782-0f91-41bf-b876-b7aedb9e0903` | Claude Opus 4.8, high effort | Independent HOST-ONLY READ-ONLY adversarial review of R4W1A A5 commit `c889e14f` | `75% -> 85%` | all models `77% -> 79%` | session `2026-07-13 22:30 KST`; weekly all models `2026-07-14 05:00 KST` | `GO_TO_SEPARATE_POLICY_ACTIVATION_REVIEW`; no blocking finding, four LOW observations, 57 focused tests passed. Direct CLI metrics: `$4.76`, API `9m 15s`, wall `16m 55s`, `32.2k` output tokens. See [A5 adversarial review](../reports/S22PLUS_FYG8_R4W1A_A5_STREAM_CANDIDATE_ADVERSARIAL_REVIEW_2026-07-13.md). |
+| 2026-07-13 20:30-20:41 | `290dc782-0f91-41bf-b876-b7aedb9e0903` | Claude Opus 4.8, high effort | Independent HOST-ONLY READ-ONLY activation review attempt for R4W1A A6 commit `f9e49404` | approximately `93% -> 101%` | all models `79% -> 80%` | session `2026-07-13 22:30 KST`; weekly all models `2026-07-14 05:00 KST` | No formal verdict: repeated CLI command-classifier denials preceded session-limit exhaustion. LOW-1 and A6 report consistency were confirmed, but this is not binding approval. Cumulative CLI-counter delta from the immediately preceding snapshot: approximately `$2.93`, API `99 s`, wall `664 s`, `6.2k` output, `1.9m` cache read, and `182.5k` cache write. Codex independently found and fixed one activation-cycle blocker; see [A7 checkpoint](../reports/S22PLUS_FYG8_R4W1A_A7_ACTIVATION_CYCLE_CLOSED_REVIEW_PENDING_2026-07-13.md). |
 
 ## Current Context Snapshot
 
@@ -73,6 +74,7 @@ enough for a model-wide cost forecast:
 | R3C1 artifact review | approximately `+16` points | no token/cost/time record |
 | R3C1 live-gate review | approximately `+16` points | no token/cost/time record |
 | R4W1A A5 adversarial review | approximately `+10` session points; `+2` weekly points | `$4.76`; API `555 s`; wall `1,015 s`; `32.2k` output, `4.6m` cache read, `163.6k` cache write |
+| R4W1A A6 activation-review attempt | approximately `+8` session points; `+1` weekly point | no verdict; approximate direct counter delta: `$2.93`; API `99 s`; wall `664 s`; `6.2k` output, `1.9m` cache read, `182.5k` cache write |
 
 These deltas are not directly comparable: prompt size, attached evidence,
 output length, compaction state, and concurrent account activity were not held
@@ -137,9 +139,10 @@ commit:
 - When the current-session quota is near exhaustion, freeze the exact review
   packet and wait for reset rather than replacing a missing verdict with an
   assumption.
-- Weekly quota and the rolling session quota must both be checked. After the
-  A5 review, session usage was `85%` and weekly all-model usage was `79%`, so
-  further Opus calls should remain targeted until the recorded resets.
+- Weekly quota and the rolling session quota must both be checked. The A6
+  activation-review attempt exhausted the rolling session quota at `101%`
+  while weekly all-model usage reached `80%`; no further Opus call should run
+  before the recorded session reset.
 - Claude review never relaxes `AGENTS.md`, creates live authorization, or
   substitutes for static checks, connected preflight, explicit operator
   approval, rollback gates, or real-device evidence.

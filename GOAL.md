@@ -4,6 +4,28 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-13 20:43 KST / 2026-07-13 11:43 UTC) -
+> R4W1-A A7 ACTIVATION-CYCLE CLOSED HOST-ONLY; POLICY STILL DRAFT_INACTIVE;
+> INDEPENDENT VERDICT PENDING AFTER CLAUDE LIMIT RESET.** The focused suite's
+> real-repository test no longer hardcodes `policy_active(root)=false`, which
+> would have failed immediately after a valid binding commit and invalidated
+> its own pinned test hash. Synthetic tests still require the exact ACTIVE
+> sentinel plus every required pin. Helper SHA256 remains
+> `07d9133d...c5068`; focused-test SHA256 is `0539c839...7bde`; inactive
+> draft SHA256 is `456b7ded...2350`.
+>
+> Focused tests pass `17/17`; full R4W1-family tests pass `98/98`; builder tests
+> pass `8/8`, for `106/106` unique tests. Private offline result SHA256
+> `b1e15817...f341` is `PASS_R4W1A_STREAM_CANDIDATE_OFFLINE_CHECK` with exact
+> A4 qualification PASS, `policy.active=false`, no consumed state,
+> `device_contact=false`, `device_write=false`, and `flash=false`. A Claude
+> Opus activation review attempt confirmed LOW-1 and A6 report consistency but
+> exhausted the rolling session quota at `101%` before returning a formal
+> verdict; this is not approval. Next is a fresh independent review of the A7
+> commit after reset. `AGENTS.md` remains unmodified and no live action is
+> authorized. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1A_A7_ACTIVATION_CYCLE_CLOSED_REVIEW_PENDING_2026-07-13.md`.
+>
 > **S22+ ACTIVE FRONTIER (2026-07-13 20:27 KST / 2026-07-13 11:27 UTC) -
 > R4W1-A A6 A5-REVIEW LOW FINDINGS CLOSED HOST-ONLY; POLICY STILL
 > DRAFT_INACTIVE; INDEPENDENT ACTIVATION REVIEW NEXT.** The ambiguous rollback

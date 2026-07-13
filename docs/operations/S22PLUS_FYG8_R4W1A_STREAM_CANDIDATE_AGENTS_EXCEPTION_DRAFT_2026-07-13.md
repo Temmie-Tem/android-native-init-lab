@@ -29,7 +29,7 @@ The only executable helper is
 SHA256
 `07d9133dd01c26e9188c582226d1c0f647b6fa72935affd1fcfc99824e0c5068`.
 Its focused test source SHA256 is
-`f618380bc6341efc108792ee79e35800aa67968c013142d4c0a470b6047e6319`.
+`0539c8391701839034855a156227c8b6c08e2adfaa3a6f16aead682714297bde`.
 The fresh live acknowledgement is
 `S22PLUS-FYG8-R4W1A-STREAM-CANDIDATE-LIVE`. Interrupted recovery from an
 already-consumed run requires

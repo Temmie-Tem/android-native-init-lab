@@ -292,6 +292,15 @@ class S22PlusFyg8R4W1AStreamCandidateLiveGateTest(unittest.TestCase):
                 self.module.QUALIFICATION_VERDICT,
             )
             agents = root / "AGENTS.md"
+            draft = root / self.module.POLICY_DRAFT
+            draft.parent.mkdir(parents=True)
+            draft.write_text(
+                "DRAFT_INACTIVE\n"
+                + self.module.ACTIVE_SENTINEL
+                + "\n"
+                + "\n".join(values),
+                encoding="utf-8",
+            )
             agents.write_text(
                 "this prose mentions " + self.module.ACTIVE_SENTINEL + "\n" + "\n".join(values),
                 encoding="utf-8",
@@ -307,18 +316,20 @@ class S22PlusFyg8R4W1AStreamCandidateLiveGateTest(unittest.TestCase):
                     encoding="utf-8",
                 )
                 self.assertTrue(self.module.policy_active(root))
+                self.assertTrue(self.module.verify_policy_draft(root)["active"])
                 agents.write_text(
                     self.module.ACTIVE_SENTINEL + "\n" + "\n".join(values[:-1]),
                     encoding="utf-8",
                 )
                 self.assertFalse(self.module.policy_active(root))
+                self.assertFalse(self.module.verify_policy_draft(root)["active"])
 
-    def test_real_policy_is_inactive_and_draft_is_self_consistent(self):
+    def test_real_policy_state_and_draft_are_self_consistent(self):
         root = Path.cwd()
-        self.assertFalse(self.module.policy_active(root))
+        expected_active = self.module.policy_active(root)
         draft = self.module.verify_policy_draft(root)
         self.assertEqual(draft["state"], "DRAFT_INACTIVE")
-        self.assertFalse(draft["active"])
+        self.assertEqual(draft["active"], expected_active)
 
     def test_policy_draft_missing_pin_fails_closed(self):
         with tempfile.TemporaryDirectory() as temporary:
