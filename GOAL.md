@@ -4,9 +4,9 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ ACTIVE FRONTIER (2026-07-13 KST) - R4W1-A A0 HOST ARTIFACT AND
-> INDEPENDENT STATIC CONTRACT PASS; A1 BLOCKED BY HIGH-RISK MARKER ORACLE;
-> NO LIVE AUTHORIZATION.** The dedicated builder placed exact R4W1 Image
+> **S22+ ACTIVE FRONTIER (2026-07-13 KST) - R4W1-A A0 ARTIFACT PASS AND
+> PRIMARY MARKER ORACLE SELECTED HOST-ONLY; A1 IMPLEMENTATION READY BUT LIVE
+> BLOCKED; NO LIVE AUTHORIZATION.** The dedicated builder placed exact R4W1 Image
 > `9552653d...d844c` into the live-proven R3C0 carrier and changed only boot
 > kernel interval `[4096,41495040)`. Three final-source reproductions are
 > byte-identical: raw boot `a2bba0ef...8d133`, strict LZ4
@@ -17,15 +17,30 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > and returned `PASS_R4W1A_THREE_REPRO_STATIC_CONTRACT`; result SHA256 is
 > `fc528ba9...3a0b`. Seventy-two related R3/R4 tests pass. The overwrite-budget
 > analyzer pinned three 2,097,136-byte normal-boot captures whose oldest visible
-> timestamps are 3.34-3.54 seconds and deliberately returned
-> `HIGH_RISK_UNRESOLVED`, `a1_ready=false`; result SHA256 is
-> `ec6052c0...1301`. Opus returned A0 commit `GO` with no blocker; its tool
+> timestamps are 3.34-3.54 seconds and correctly rejected the original
+> rollback-ring-only oracle as `HIGH_RISK_UNRESOLVED`; result SHA256 is
+> `ec6052c0...1301`. A subsequent host-only extraction and static audit pinned
+> exact FYG8 effective SELinux policy `9f3060cc...7880`, `dumpstate`
+> `b5de4fb2...be96`, `bugreportz` `e10c143f...eaaa`, init service, file
+> contexts, and Samsung `sec_log_buf` sources. Exact policy denies `shell`
+> direct `proc_last_kmsg` reads but permits shell to start/connect to the root
+> init `dumpstate` service, transitions that executable to `dumpstate`, and
+> permits that domain to read the immutable module-probe snapshot. The audit
+> selected `BUGREPORTZ_STREAM_DUMPSTATE_LAST_KMSG` and returned
+> `PASS_R4W1A_PRIMARY_ORACLE_SELECTED_HOST_ONLY`; result SHA256 is
+> `f243191c...10dd`. A fail-closed ZIP parser now validates unique safe entries,
+> CRCs, `main_entry.txt`, exact `/proc/last_kmsg` section boundaries, and exact
+> marker cardinality across the whole archive. Opus returned A0 commit `GO`
+> with no blocker; its tool
 > TOCTOU note was closed by executing exact staged copies of pinned `lz4` and
 > `odin4`. A0 artifact construction does not activate A1. No live helper,
 > policy exception, connected dry-run, device contact, or flash is authorized.
-> Next is host-only selection and proof of a candidate marker oracle that cannot
-> lose the early record during full Android boot. Records:
+> A1 may now be implemented host-only, but it may not become live-ready until a
+> separately authorized FYG8 connected oracle dry-run proves the actual streamed
+> ZIP shape and explicitly inventories and cleans only the new `/bugreports`
+> side effects. Records:
 > `docs/reports/S22PLUS_FYG8_R4W1A_A0_HOST_ARTIFACT_RESULT_2026-07-13.md` and
+> `docs/reports/S22PLUS_FYG8_R4W1A_MARKER_ORACLE_STATIC_AUDIT_2026-07-13.md` and
 > `docs/plans/S22PLUS_FYG8_R4W1A_STOCK_ANDROID_POSITIVE_CONTROL_DESIGN_2026-07-13.md`.
 >
 > **S22+ ACTIVE FRONTIER (2026-07-13 KST) - R4W1 RETAINED PID1 WITNESS

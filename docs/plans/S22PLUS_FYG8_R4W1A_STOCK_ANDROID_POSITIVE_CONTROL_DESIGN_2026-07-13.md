@@ -4,7 +4,7 @@ Date: 2026-07-13 KST
 
 Target: `SM-S906N/g0q/S906NKSS7FYG8`
 
-Verdict: `A0_HOST_ARTIFACT_PASS; A1_ORACLE_HIGH_RISK_UNRESOLVED; NO_LIVE_AUTHORIZATION`
+Verdict: `A0_HOST_ARTIFACT_PASS; A0_PRIMARY_ORACLE_SELECTED_HOST_ONLY; A1_IMPLEMENTATION_READY; A1_LIVE_BLOCKED; NO_LIVE_AUTHORIZATION`
 
 This document began as a host-only design and did not itself create a boot
 image, AP, live helper, policy exception, consumed state, device session, or
@@ -20,8 +20,9 @@ will not add the nine Magisk DEFEX/PROCA kernel byte changes.
 The live proof is a conjunction:
 
 1. the exact boot-only candidate reaches stable FYG8 Android;
-2. the exact R4W1 marker is recovered from the first Magisk rollback boot's
-   `/proc/last_kmsg` after being absent at baseline; and
+2. the exact R4W1 marker is recovered from the candidate boot's immutable
+   `/proc/last_kmsg` snapshot through the A0-selected streamed dumpstate
+   oracle after the marker family was absent at baseline; and
 3. the exact Magisk boot, root, stock DTBO, and stock recovery return.
 
 Only this conjunction may return
@@ -64,7 +65,7 @@ Read-only host comparison already proves that the R4W1 Image, the unpatched R2
 Image, and the R3C0 carrier kernel have identical 64-byte ARM64 Image headers.
 All use the same `[4096,41495040)` boot kernel interval.
 
-## Why Rollback `last_kmsg` Is The Primary Oracle
+## Marker Oracle Risk And Resolution
 
 The witness appends this fully framed marker after PID 1 accepts `/init`:
 
@@ -86,11 +87,12 @@ not required, so reading that snapshot may be blocked by Android SELinux. The
 helper may attempt an unprivileged, bounded candidate read as corroboration,
 but failure or denial is not converted into a negative claim.
 
-The intended load-bearing oracle is the first rooted Magisk rollback boot. Its
-stock kernel cannot create the R4W1 marker, while its `sec_log_buf.ko` snapshots
-the retained ring into `/proc/last_kmsg`. V3428R proves the transition and
-persistence invariant for a marker armed immediately before Download. It does
-not prove survival of a marker written before a complete Android boot.
+The original intended load-bearing oracle was the first rooted Magisk rollback
+boot. Its stock kernel cannot create the R4W1 marker, while its
+`sec_log_buf.ko` snapshots the retained ring into `/proc/last_kmsg`. V3428R
+proves the transition and persistence invariant for a marker armed immediately
+before Download. It does not prove survival of a marker written before a
+complete Android boot.
 
 The ring is circular and an early marker can be overwritten by later logs.
 Existing exact snapshots establish a high feasibility risk:
@@ -111,11 +113,43 @@ three-plus seconds. The exact R4W1 marker time is not measured, so this is not
 proof of overwrite, but it is strong evidence that waiting for three stable
 Android samples may erase the physical-ring copy before rollback.
 
-The future helper must request Download immediately after its selected
-candidate milestone. Absence after rollback remains `NO_PROOF`; it is never
-evidence that `/init` was rejected. A1 implementation and live design remain
-blocked until A0 closes an observation path that does not depend on an
+The future helper must capture the selected candidate oracle immediately after
+its selected milestone, then request Download. Absence after rollback remains
+`NO_PROOF`; it is never evidence that `/init` was rejected. A1 implementation
+was blocked until A0 closed an observation path that did not depend on an
 unmeasured early marker surviving a full Android boot.
+
+That A0 host-only selection is now closed. The exact FYG8 effective policy
+binary labels `/proc/last_kmsg` as `proc_last_kmsg` and contains no shell read
+allow. It does allow shell to set `ctl_dumpstate_prop`, write the dumpstate
+socket, and connect to the `dumpstate` domain. Exact init configuration starts
+`/system/bin/dumpstate -s` as root, exact file contexts label that binary
+`dumpstate_exec`, and policy transitions `init + dumpstate_exec` to the
+`dumpstate` domain. That domain has exact read/open permission on
+`proc_last_kmsg`.
+
+The exact FYG8 binaries contain the `/proc/last_kmsg`, `LAST KMSG`, pstore
+fallback, `main_entry.txt`, stream, and control-service constants. Exact Samsung
+kernel source proves the candidate snapshot is copied into a private buffer,
+published as mode `0444`, and only afterward followed by current-ring import,
+logger registration, and `ap_klog` creation. Waiting for stable Android can
+overwrite the physical ring, but it cannot mutate the already copied candidate
+`/proc/last_kmsg` buffer.
+
+The selected primary oracle is therefore
+`BUGREPORTZ_STREAM_DUMPSTATE_LAST_KMSG`. The host parser requires a complete
+CRC-valid ZIP, unique safe entries, `main_entry.txt`, exactly one
+`LAST KMSG (/proc/last_kmsg)` section with a following section boundary, no
+dump error, and exact marker cardinality across the complete archive. It also
+supports a strict marker-absent baseline classification.
+
+This is a static selection, not a live authorization. No retained exact FYG8
+bugreport ZIP was available. A future separately authorized connected oracle
+dry-run must verify the real stream shape. `dumpstate -s` creates a local
+`/bugreports` ZIP before copying it to the control socket, so the future policy
+must inventory the directory before and after, identify only run-created files,
+authorize their exact cleanup, and prove that cleanup. Until then
+`a1_live_ready=false`.
 
 ## A0 Artifact Contract
 
@@ -178,12 +212,12 @@ oracle as `HIGH_RISK_UNRESOLVED` unless one of these is independently closed:
 4. a separately labeled Magisk-equivalent positive control whose nine-byte
    kernel delta and root semantics are not confused with the exact G/H Image.
 
-AOSP generic policy and tooling are supporting evidence only. AOSP shell policy
-allows a bounded set of proc reads, but Samsung's effective FYG8 policy is not
-pinned. AOSP dumpstate can fall back to `/proc/last_kmsg` when no pstore console
-file exists, but the exact Samsung binary, output shape, and temporary-file
-behavior are not yet verified. Android BootReceiver stores only a truncated
-tail and is not an acceptable early-marker oracle.
+AOSP generic policy and tooling are supporting evidence only. At the artifact
+checkpoint Samsung's effective FYG8 policy and binaries were not pinned. The
+subsequent host-only oracle audit pinned them and selected the dumpstate path as
+described above. The exact live output shape and temporary-file cleanup remain
+unverified. Android BootReceiver stores only a truncated tail and is not an
+acceptable early-marker oracle.
 
 Primary references:
 
@@ -203,15 +237,18 @@ manifest:
 - manifest: `3b9b5c0f0d3bac818a010cb7682e1146eaa50d5feec8a16324a039bbd5d2f85b`.
 
 The independent checker returned `PASS_R4W1A_THREE_REPRO_STATIC_CONTRACT`.
-Artifact reproduction PASS does not override the overwrite-budget result:
-`HIGH_RISK_UNRESOLVED`, `a1_ready=false`.
+The overwrite-budget result remains correctly
+`HIGH_RISK_UNRESOLVED` for the retired rollback-ring-only oracle. The subsequent
+static audit selected the immutable candidate dumpstate oracle and set
+`a1_implementation_ready=true`, `a1_live_ready=false`.
 
 ## A1 Pre-Live Gates
 
-The future live helper may be implemented only after the overwrite-budget gate
-selects a viable primary marker oracle. It must have separate R4W1-A constants, verdicts,
-acknowledgements, run directory, and consumed-state path. It may import only
-reviewed transport and read-only collection primitives.
+The future live helper may now be implemented because the overwrite-budget gate
+has selected the primary oracle above. It must have separate R4W1-A constants,
+verdicts, acknowledgements, run directory, and consumed-state path. It may
+import only reviewed transport and identity primitives plus the separately
+approved bugreport inventory and exact-cleanup operations.
 
 Before an exception can become ACTIVE, require:
 
@@ -224,8 +261,11 @@ Before an exception can become ACTIVE, require:
    state;
 4. offline check with zero device contact;
 5. independent read-only review of source, tests, artifacts, and policy draft;
-6. one connected read-only dry-run while policy remains inactive; and
-7. fresh attended approval supplied only after all preceding gates.
+6. one connected no-flash identity dry-run while policy remains inactive;
+7. a separately reviewed oracle dry-run policy that explicitly authorizes one
+   streamed bugreport, before/after `/bugreports` inventory, exact host ZIP
+   validation, and cleanup of only identified run-created files; and
+8. fresh attended approval supplied only after all preceding gates.
 
 The connected dry-run must prove one exact Magisk Android baseline:
 
@@ -257,43 +297,50 @@ delete, clear, rotate, or initialize the ring.
 7. Observe candidate Android for at most 300 seconds.
 8. Require three stable samples of exact model/device/build, completed boot,
    stopped boot animation, orange verified-boot state, exact FYG8 release, and
-   exact R4W1 `/proc/version`. Candidate root is not required.
-9. Capture the A0-selected candidate marker oracle. A direct non-root read,
-   dumpstate capture, or other path is not allowed merely as a best-effort
-   option; its exact bytes, permissions, bounds, and cleanup contract must have
-   been selected before policy activation.
+   exact R4W1 `/proc/version`. Candidate root is not required. Require both
+   `/sys/fs/pstore/console-ramoops` and `console-ramoops-0` to be absent so
+   exact dumpstate selection reaches `/proc/last_kmsg`.
+9. Run exactly one `bugreportz -s` candidate capture, stream it directly to a
+   new host file, validate the complete archive with the A0 parser, require the
+   exact marker once in the exact `/proc/last_kmsg` section, and execute the
+   separately approved exact `/bugreports` inventory and cleanup contract.
 10. Immediately request Download. If candidate ADB is absent, require attended
     physical Download entry.
 11. Flash the exact Magisk rollback AP once.
 12. On the first returned Magisk boot, verify exact baseline health and
     `sec_log_buf` readiness before any further reboot.
-13. Read `/proc/last_kmsg` twice to EOF through root, fsync both raw snapshots
-    and their classifications, and require byte-identical reads.
-14. Finish only after exact marker classification and final no-Odin check.
+13. Read `/proc/last_kmsg` twice to EOF through root only as non-load-bearing
+    rollback corroboration, fsync both raw snapshots and classifications, and
+    record whether they are byte-identical.
+14. Finish only after the candidate streamed-oracle classification, exact
+    rollback, verified bugreport cleanup, and final no-Odin check.
 
 Every event and result update is written atomically and fsynced before the next
 destructive transition. No candidate or rollback transfer is retried.
 
 ## Marker Classifier
 
-The classifier works on raw bytes, not decoded or line-truncated shell output.
+The load-bearing classifier works on raw ZIP and section bytes, not decoded or
+line-truncated shell output.
 It must require:
 
-- snapshot size greater than zero and no larger than the exact ring payload;
-- two post-rollback reads with clean EOF, identical size, bytes, and SHA256;
-- at least one complete newline-framed exact marker;
-- every `[[S22R4W1|` occurrence to be that exact expected frame;
+- archive size and total uncompressed size within fixed host bounds;
+- unique normalized entry names and successful CRC reads for every entry;
+- `main_entry.txt` to name one direct text entry;
+- exactly one complete `LAST KMSG (/proc/last_kmsg)` section;
+- exactly one complete exact marker in that section and across the archive;
+- every `[[S22R4W1` occurrence to be that exact expected frame;
 - no partial frame at either boundary;
 - no foreign ID, phase, PID, or path; and
-- baseline count zero in both proc snapshots.
+- baseline archive marker-family count zero.
 
-Multiple exact frames are allowed because an attended boot retry may execute
-the same exact kernel more than once. Their count is recorded. Any malformed
-or foreign frame blocks PASS.
+Multiple exact frames are not accepted. The candidate flash is one-shot and
+the exact marker must occur once. Any duplicate, malformed, partial, or foreign
+frame blocks PASS.
 
 ## Verdict Matrix
 
-| Candidate Android | Exact rollback marker | Magisk rollback | Verdict |
+| Candidate Android | Exact candidate-stream marker | Magisk rollback | Verdict |
 | --- | --- | --- | --- |
 | yes | yes | exact | `PASS_R4W1A_ANDROID_INIT_EXEC_WITNESS_RETAINED_AND_ROLLED_BACK` |
 | yes | no | exact | `NO_PROOF_R4W1A_ANDROID_VIABLE_WITNESS_NOT_RECOVERED` |
