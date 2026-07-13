@@ -17,16 +17,26 @@ BL, CP, CSC, userdata, or any non-boot flash.
 
 ## Safety invariants (NEVER violate)
 
-**Narrow operator-authorized exception (S22+ FYG8 R4W1-A stream-only retained
-PID1 witness boot-only live gate):** after an independent source/artifact/policy
-review and fresh attended approval, Codex may perform one bounded candidate run
-on Samsung S22+ `SM-S906N` / `g0q` / `S906NKSS7FYG8` using only the helper and
-pins below. Policy marker:
+**Consumed/retired exception (2026-07-13, S22+ FYG8 R4W1-A stream-only retained
+PID1 witness boot-only live gate):** the exact candidate boot-only AP transferred
+once with Odin success and reached normal FYG8 Android. Three stable samples
+passed, both pstore console paths were absent, and one canonical 11,632,546-byte
+`bugreportz -s` stream completed with rc=0, EOF, empty stderr, unchanged empty
+direct `/bugreports` inventories, exact stream/parser identity, all ZIP CRCs,
+and exactly one exact R4W1 marker in both the archive and complete
+`/proc/last_kmsg` section. The exact Magisk boot-only rollback then transferred
+successfully. Final Android, Magisk root, known boot, stock DTBO/recovery,
+orange state, and no-Odin health all passed. Durable verdict is
+`PASS_R4W1A_ANDROID_INIT_EXEC_WITNESS_RETAINED_AND_ROLLED_BACK`. The v2 consumed
+state exists, this exception must not be reused, and the policy is RETIRED.
+Before consumption, this clause permitted one bounded candidate run on Samsung
+S22+ `SM-S906N` / `g0q` / `S906NKSS7FYG8` using only the helper and pins below.
+Policy marker:
 `S22+ FYG8 R4W1-A stream-only retained PID1 witness boot-only live gate`.
 
-Future binding activation requires this exact whole-line sentinel:
+Consumed binding state:
 
-`S22PLUS_FYG8_R4W1A_STREAM_CANDIDATE_POLICY_STATE=ACTIVE`
+`S22PLUS_FYG8_R4W1A_STREAM_CANDIDATE_POLICY_STATE=RETIRED`
 
 The only executable helper is
 `workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1a_stream_candidate_live_gate.py`
@@ -165,8 +175,8 @@ Activation required a separate adversarial review of the final helper, tests,
 artifacts, exact draft, and binding text plus a committed exact ACTIVE clause.
 Those host-only review gates are recorded in commit `d021e352` and
 `docs/reports/S22PLUS_FYG8_R4W1A_A10_FINAL_TWO_REVIEWER_BINDING_GO_2026-07-13.md`.
-This binding makes the helper policy-active but authorizes no device contact or
-live action until the operator supplies the exact fresh attended acknowledgement.
+This binding is consumed and policy-inactive. It authorizes no further device
+contact, candidate run, rollback invocation, or reuse of the acknowledgement.
 
 **Consumed/retired exception (2026-07-13, S22+ FYG8 R4W1-A zero-flash
 bugreport oracle dry-run):** the exact one-shot helper consumed the exception,

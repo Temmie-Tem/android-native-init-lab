@@ -4,6 +4,29 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-13 23:24 KST / 2026-07-13 14:24 UTC) -
+> R4W1-A A12 STREAM-CANDIDATE LIVE PASS; EXACT RETAINED PID1 WITNESS PROVED;
+> MAGISK ROLLBACK COMPLETE; POLICY RETIRED.** The exact reviewed helper consumed
+> the one-shot state, transferred the exact boot-only candidate, reached three
+> stable exact FYG8 Android samples, and captured one canonical 11,632,546-byte
+> `bugreportz -s` stream with rc=0, EOF, empty stderr, unchanged empty direct
+> `/bugreports` inventories, exact parser identity, all 355 CRCs, and exactly
+> one exact R4W1 marker in both archive and complete `/proc/last_kmsg` section.
+>
+> The exact Magisk boot-only rollback completed automatically. Final Android,
+> Magisk root, known boot `2e541703...967e`, stock DTBO `97a4864f...bd0c`,
+> stock recovery `93fac06c...d4`, orange state, and no-Odin health all passed.
+> The attending operator then independently confirmed normal Android boot on
+> the physical display at `2026-07-13 23:27 KST`.
+> Durable verdict is
+> `PASS_R4W1A_ANDROID_INIT_EXEC_WITNESS_RETAINED_AND_ROLLED_BACK`; result SHA256
+> is `35d015d0...ad3e`, timeline SHA256 `134efa89...0ae`, oracle capture SHA256
+> `275db9c8...1512`, canonical ZIP SHA256 `b22cd16a...75c0`, and consumed-state
+> SHA256 `eb8fb255...681`. All eight timeline events completed in about
+> `145.74s`. The ACTIVE sentinel is now RETIRED and no reuse is authorized.
+> Report:
+> `docs/reports/S22PLUS_FYG8_R4W1A_A12_STREAM_CANDIDATE_LIVE_PASS_2026-07-13.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-13 22:57 KST / 2026-07-13 13:57 UTC) -
 > R4W1-A A11 LIVE POLICY BOUND; ACTIVE OFFLINE PASS; WAITING FOR FRESH
 > ATTENDED APPROVAL.** Exact reviewed stream-candidate clause was bound in
