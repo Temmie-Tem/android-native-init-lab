@@ -1,6 +1,6 @@
 # Claude Usage And Review Ledger
 
-Last updated: 2026-07-13 18:34 KST
+Last updated: 2026-07-13 20:20 KST
 
 ## Purpose
 
@@ -41,33 +41,29 @@ quota, token, time, or cost value is reconstructed from later observations.
 | 2026-07-12 | not recorded | Claude Opus | R3C1 artifact reproduction and builder audit | `60% -> 76%` | not recorded | `2026-07-13 01:50 KST` | GO with no high or critical finding. One LOW input-TOCTOU finding was fixed by reading and validating each artifact once. Approximate observed delta: `+16` points. See [R3C1 artifact report](../reports/S22PLUS_FYG8_R3C1_ARTIFACT_REPRODUCTION_2026-07-12.md). |
 | 2026-07-12 | not recorded | Claude Opus | R3C1 one-shot live-gate source review | `76% -> 92%` | not recorded | `2026-07-13 01:50 KST` | GO with no blocking finding and four accepted LOW residuals. Approximate observed delta: `+16` points. See [R3C1 live-gate report](../reports/S22PLUS_FYG8_R3C1_LIVE_GATE_SOURCE_READY_2026-07-12.md). |
 | 2026-07-13 18:30 | `290dc782-0f91-41bf-b876-b7aedb9e0903` | Claude Opus, high effort | Resumed R4W1/R4W1A review context; account usage and context inspection only for this entry | snapshot `75%` | all models `77%`; Fable `2%` | session `2026-07-13 22:30 KST`; weekly all models `2026-07-14 05:00 KST`; Fable `2026-07-14 04:59 KST` | `/usage` and `/context` were inspected without a new technical review. The conversation was cleanly exited and remains resumable by UUID. |
+| 2026-07-13 20:02-20:19 | `290dc782-0f91-41bf-b876-b7aedb9e0903` | Claude Opus 4.8, high effort | Independent HOST-ONLY READ-ONLY adversarial review of R4W1A A5 commit `c889e14f` | `75% -> 85%` | all models `77% -> 79%` | session `2026-07-13 22:30 KST`; weekly all models `2026-07-14 05:00 KST` | `GO_TO_SEPARATE_POLICY_ACTIVATION_REVIEW`; no blocking finding, four LOW observations, 57 focused tests passed. Direct CLI metrics: `$4.76`, API `9m 15s`, wall `16m 55s`, `32.2k` output tokens. See [A5 adversarial review](../reports/S22PLUS_FYG8_R4W1A_A5_STREAM_CANDIDATE_ADVERSARIAL_REVIEW_2026-07-13.md). |
 
 ## Current Context Snapshot
 
-The 2026-07-13 `/context` panel reported:
+The same conversation was measured before and after the 2026-07-13 A5 review:
 
-| Category | Tokens | Share |
+| Category | Before | After |
 |---|---:|---:|
-| Free space | `937.6k` | `93.8%` |
-| Memory files | `32.4k` | `3.2%` |
-| Messages | `14.6k` | `1.5%` |
-| Skills | `2.3k` | `0.2%` |
-| MCP tools | `0` loaded tokens | on-demand |
-| Custom agents | `83` | below displayed percentage precision |
+| Free space | `937.6k` (`93.8%`) | `823.5k` (`82.3%`) |
+| Memory files | `32.4k` (`3.2%`) | `32.4k` (`3.2%`) |
+| Messages | `14.6k` (`1.5%`) | `128.9k` (`12.9%`) |
+| Skills | `2.3k` (`0.2%`) | `2.3k` (`0.2%`) |
+| MCP tools | `0` loaded tokens | `0` loaded tokens |
+| Custom agents | `83` tokens | `83` tokens |
 
-The resumed conversation had already been compacted once. The compact summary
-preserved the active S22+ kernel-rebuild and R4W1 witness direction. The large
-free-space figure means another immediate compaction is not justified.
-
-The CLI session-cost panel for this inspection showed no meaningful new-call
-cost because the shell was opened to run `/usage` and `/context`; that value
-must not be interpreted as the cost of the earlier reviews retained in the
-conversation.
+The resumed conversation had already been compacted once. After the long A5
+review it still retained `823.5k` free tokens, so context pressure alone does
+not justify another immediate compaction.
 
 ## Observed Consumption
 
-The repository has enough paired measurements for four bounded observations,
-but not enough for a model-wide cost forecast:
+The repository has several paired measurements for bounded reviews, but not
+enough for a model-wide cost forecast:
 
 | Review unit | Observed current-session delta | Other direct measurement |
 |---|---:|---|
@@ -76,6 +72,7 @@ but not enough for a model-wide cost forecast:
 | R3C0 fix re-review | approximately `+12` points | no token/cost/time record |
 | R3C1 artifact review | approximately `+16` points | no token/cost/time record |
 | R3C1 live-gate review | approximately `+16` points | no token/cost/time record |
+| R4W1A A5 adversarial review | approximately `+10` session points; `+2` weekly points | `$4.76`; API `555 s`; wall `1,015 s`; `32.2k` output, `4.6m` cache read, `163.6k` cache write |
 
 These deltas are not directly comparable: prompt size, attached evidence,
 output length, compaction state, and concurrent account activity were not held
@@ -89,8 +86,8 @@ claim that one review class always consumes a fixed percentage.
 - The persistent 2026-07-10 conversation has no before/after usage values.
 - The 2026-07-12 reports do not record conversation UUIDs, weekly usage,
   context occupancy, elapsed time, output tokens, or cost.
-- The 2026-07-13 snapshot is not a before/after pair, so it cannot attribute
-  the `75%` session usage to R4W1 or R4W1A work.
+- The post-review Fable percentage was not captured; only the all-model weekly
+  before/after pair is attributable to the A5 review window.
 - UI percentages are rounded and account-wide; they are not an auditable token
   meter.
 
@@ -140,10 +137,9 @@ commit:
 - When the current-session quota is near exhaustion, freeze the exact review
   packet and wait for reset rather than replacing a missing verdict with an
   assumption.
-- Weekly quota is the harder constraint when it is closer to exhaustion than
-  the rolling session quota. At the 2026-07-13 snapshot, session usage was
-  `75%` and weekly all-model usage was `77%`, so future Opus calls should remain
-  targeted until the recorded weekly reset.
+- Weekly quota and the rolling session quota must both be checked. After the
+  A5 review, session usage was `85%` and weekly all-model usage was `79%`, so
+  further Opus calls should remain targeted until the recorded resets.
 - Claude review never relaxes `AGENTS.md`, creates live authorization, or
   substitutes for static checks, connected preflight, explicit operator
   approval, rollback gates, or real-device evidence.
