@@ -1,10 +1,12 @@
 import importlib.util
 import json
+import re
 import sys
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 
@@ -105,6 +107,34 @@ class S22PlusFyg8R4W1AStreamCandidateLiveGateTest(unittest.TestCase):
             }
 
         return fake
+
+    def _args(self, root: Path) -> SimpleNamespace:
+        return SimpleNamespace(
+            ack=self.module.LIVE_ACK_TOKEN,
+            odin=Path("odin4"),
+            run_dir=root / self.module.RUN_ROOT / "synthetic-live",
+            candidate_ap=Path("candidate.AP.tar.md5"),
+            download_wait_sec=1,
+            disconnect_wait_sec=1,
+            candidate_wait_sec=1,
+            manual_wait_sec=1,
+            android_wait_sec=1,
+            bugreport_wait_sec=1,
+            sample_count=3,
+            sample_interval_sec=0.01,
+        )
+
+    def _write_live_result(self, run_dir: Path) -> None:
+        run_dir.mkdir(parents=True, exist_ok=True)
+        self.module.common.durable_write_json(
+            run_dir / "result.json",
+            {
+                "schema": self.module.SCHEMA,
+                "mode": "live",
+                "target": self.module.TARGET,
+                "verdict": "INCOMPLETE",
+            },
+        )
 
     def test_exact_marker_stream_with_unchanged_inventory_passes(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -244,7 +274,7 @@ class S22PlusFyg8R4W1AStreamCandidateLiveGateTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             run_dir = root / "workspace/private/runs/run"
-            run_dir.mkdir(parents=True)
+            self._write_live_result(run_dir)
             with mock.patch.object(
                 self.module, "helper_sha256", return_value="a" * 64
             ):
@@ -256,6 +286,48 @@ class S22PlusFyg8R4W1AStreamCandidateLiveGateTest(unittest.TestCase):
                 )
                 with self.assertRaises(self.module.GateError):
                     self.module.consume_exception(root, run_dir)
+
+    def test_rollback_rejects_unbound_consumed_timestamp_run_dir_and_result(self):
+        mutations = {
+            "missing timestamp": lambda state: state.pop("consumed_at_utc"),
+            "malformed timestamp": lambda state: state.__setitem__(
+                "consumed_at_utc", "not-a-timestamp"
+            ),
+            "unsafe run directory": lambda state: state.__setitem__(
+                "run_dir", "../outside"
+            ),
+            "missing run directory": lambda state: state.pop("run_dir"),
+        }
+        for label, mutate in mutations.items():
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                run_dir = root / "workspace/private/runs/run"
+                self._write_live_result(run_dir)
+                with mock.patch.object(
+                    self.module, "helper_sha256", return_value="a" * 64
+                ):
+                    self.module.consume_exception(root, run_dir)
+                    path = root / self.module.CONSUMED_STATE
+                    state = json.loads(path.read_text(encoding="utf-8"))
+                    mutate(state)
+                    path.write_text(json.dumps(state), encoding="utf-8")
+                    with self.assertRaises(self.module.GateError):
+                        self.module.require_consumed_for_rollback(root)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            run_dir = root / "workspace/private/runs/run"
+            self._write_live_result(run_dir)
+            with mock.patch.object(
+                self.module, "helper_sha256", return_value="a" * 64
+            ):
+                self.module.consume_exception(root, run_dir)
+                result_path = run_dir / "result.json"
+                result = json.loads(result_path.read_text(encoding="utf-8"))
+                result["target"] = "wrong-target"
+                result_path.write_text(json.dumps(result), encoding="utf-8")
+                with self.assertRaises(self.module.GateError):
+                    self.module.require_consumed_for_rollback(root)
 
     def test_rollback_refuses_historical_or_malformed_consumed_state(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -326,7 +398,34 @@ class S22PlusFyg8R4W1AStreamCandidateLiveGateTest(unittest.TestCase):
 
     def test_real_policy_state_and_draft_are_self_consistent(self):
         root = Path.cwd()
-        expected_active = self.module.policy_active(root)
+        agents_text = (root / "AGENTS.md").read_text(encoding="utf-8")
+        exact_active_line = bool(
+            re.search(
+                rf"(?m)^\s*`?{re.escape(self.module.ACTIVE_SENTINEL)}`?\s*$",
+                agents_text,
+            )
+        )
+        required_pins = (
+            self.module.POLICY_MARKER,
+            str(self.module.SCRIPT_RELATIVE),
+            self.module.helper_sha256(root),
+            self.module.test_sha256(root),
+            self.module.LIVE_ACK_TOKEN,
+            self.module.ROLLBACK_ACK_TOKEN,
+            self.module.EXPECTED_CANDIDATE_BOOT_SHA256,
+            self.module.EXPECTED_CANDIDATE_AP_SHA256,
+            self.module.EXPECTED_MARKER_ORACLE_SHA256,
+            self.module.EXPECTED_MAGISK_ROLLBACK_AP_SHA256,
+            self.module.EXPECTED_STOCK_CLEANUP_AP_SHA256,
+            self.module.QUALIFICATION_SHA256,
+            self.module.QUALIFICATION_TEST_SHA256,
+            self.module.QUALIFICATION_RESULT_SHA256,
+            self.module.QUALIFICATION_VERDICT,
+        )
+        expected_active = exact_active_line and all(
+            value in agents_text for value in required_pins
+        )
+        self.assertEqual(self.module.policy_active(root), expected_active)
         draft = self.module.verify_policy_draft(root)
         self.assertEqual(draft["state"], "DRAFT_INACTIVE")
         self.assertEqual(draft["active"], expected_active)
@@ -356,21 +455,154 @@ class S22PlusFyg8R4W1AStreamCandidateLiveGateTest(unittest.TestCase):
 
     def test_verdict_requires_magisk_android_and_exact_stream_marker(self):
         pass_case = self.module.classify_live_verdict(
-            "magisk", "ignored", 0, True, [{"sample": "ok"}], True
+            "magisk", "ignored", 0, True, [{}, {}, {}], True
         )
         self.assertEqual(
             pass_case,
             ("PASS_R4W1A_ANDROID_INIT_EXEC_WITNESS_RETAINED_AND_ROLLED_BACK", 0),
         )
         no_marker = self.module.classify_live_verdict(
-            "magisk", "ignored", 0, True, [{"sample": "ok"}], False
+            "magisk", "ignored", 0, True, [{}, {}, {}], False
         )
         self.assertEqual(no_marker[1], 41)
         self.assertNotIn("PASS_", no_marker[0])
         stock = self.module.classify_live_verdict(
-            "stock", "CLEANUP_ONLY", 51, True, [{"sample": "ok"}], True
+            "stock", "CLEANUP_ONLY", 51, True, [{}, {}, {}], True
         )
         self.assertEqual(stock, ("CLEANUP_ONLY", 51))
+        for transfer_ok, samples in ((True, [{}]), (False, [{}, {}, {}])):
+            with self.subTest(transfer_ok=transfer_ok, samples=len(samples)):
+                verdict = self.module.classify_live_verdict(
+                    "magisk", "ignored", 0, transfer_ok, samples, True
+                )
+                self.assertNotIn("PASS_", verdict[0])
+
+    def test_cli_requires_exact_three_samples_and_300_second_candidate_bound(self):
+        parser = self.module.build_parser()
+        valid = parser.parse_args(["--offline-check"])
+        self.module.validate_runtime_args(valid)
+        for argv in (
+            ["--offline-check", "--sample-count", "1"],
+            ["--offline-check", "--sample-count", "4"],
+            ["--offline-check", "--candidate-wait-sec", "301"],
+        ):
+            with self.subTest(argv=argv), self.assertRaises(self.module.GateError):
+                self.module.validate_runtime_args(parser.parse_args(argv))
+
+    def test_preconsumption_failure_finishes_canonical_timeline(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            run_dir = root / self.module.RUN_ROOT / "synthetic-live"
+            args = self._args(root)
+            with mock.patch.object(
+                self.module, "policy_active", return_value=True
+            ), mock.patch.object(
+                self.module.historical,
+                "connected_preflight",
+                side_effect=self.module.GateError("synthetic preflight failure"),
+            ):
+                rc = self.module.live_run(root, args, {})
+            timeline = json.loads(
+                (run_dir / "timeline.json").read_text(encoding="utf-8")
+            )
+            result = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
+        self.assertEqual(rc, 20)
+        self.assertEqual(
+            [event["name"] for event in timeline["events"]],
+            list(self.module.TIMELINE_NAMES),
+        )
+        self.assertEqual(
+            result["verdict"], "FAIL_R4W1A_PRECONSUMPTION_NO_CANDIDATE_FLASH"
+        )
+
+    def test_postconsumption_oserror_enters_mandatory_rollback(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            run_dir = root / self.module.RUN_ROOT / "synthetic-live"
+            args = self._args(root)
+            with mock.patch.object(
+                self.module, "policy_active", return_value=True
+            ), mock.patch.object(
+                self.module, "helper_sha256", return_value="a" * 64
+            ), mock.patch.object(
+                self.module.historical,
+                "connected_preflight",
+                return_value=("SERIAL", {"baseline": True}),
+            ), mock.patch.object(
+                self.module.historical,
+                "pstore_console_absent",
+                return_value={"pstore": True},
+            ), mock.patch.object(
+                self.module.common,
+                "run",
+                return_value=SimpleNamespace(returncode=0),
+            ), mock.patch.object(
+                self.module.common, "wait_for_odin", return_value="ODIN"
+            ), mock.patch.object(
+                self.module.common,
+                "flash_exact",
+                side_effect=OSError("synthetic transfer transport failure"),
+            ), mock.patch.object(
+                self.module.common, "odin_devices", return_value=["ODIN"]
+            ), mock.patch.object(
+                self.module.common, "flash_rollback", return_value="magisk"
+            ) as rollback, mock.patch.object(
+                self.module.common,
+                "wait_final_android",
+                return_value=({"android": "healthy"}, "PASS_MAGISK_ROLLBACK", 0),
+            ), mock.patch.object(
+                self.module,
+                "collect_rollback_corroboration",
+                return_value={"load_bearing": False},
+            ), mock.patch.object(
+                self.module.common, "adb_serial", return_value="SERIAL"
+            ):
+                rc = self.module.live_run(root, args, {})
+            timeline = json.loads(
+                (run_dir / "timeline.json").read_text(encoding="utf-8")
+            )
+            result = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
+        rollback.assert_called_once()
+        self.assertEqual(rc, 31)
+        self.assertEqual(
+            result["verdict"],
+            "NO_PROOF_R4W1A_CANDIDATE_TRANSFER_FAILED_MAGISK_ROLLED_BACK",
+        )
+        self.assertEqual(
+            [event["name"] for event in timeline["events"]],
+            list(self.module.TIMELINE_NAMES),
+        )
+
+    def test_recovery_target_failure_finishes_canonical_timeline(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            original_run = root / self.module.RUN_ROOT / "original-live"
+            self._write_live_result(original_run)
+            args = self._args(root)
+            args.ack = self.module.ROLLBACK_ACK_TOKEN
+            args.run_dir = root / self.module.RUN_ROOT / "synthetic-rollback"
+            with mock.patch.object(
+                self.module, "helper_sha256", return_value="a" * 64
+            ):
+                self.module.consume_exception(root, original_run)
+                with mock.patch.object(
+                    self.module, "policy_active", return_value=True
+                ), mock.patch.object(self.module.common, "odin_devices", return_value=[]):
+                    rc = self.module.rollback_from_download(root, args)
+            timeline = json.loads(
+                (args.run_dir / "timeline.json").read_text(encoding="utf-8")
+            )
+            result = json.loads(
+                (args.run_dir / "result.json").read_text(encoding="utf-8")
+            )
+        self.assertEqual(rc, 20)
+        self.assertEqual(
+            [event["name"] for event in timeline["events"]],
+            list(self.module.TIMELINE_NAMES),
+        )
+        self.assertEqual(
+            result["verdict"], "FAIL_R4W1A_ROLLBACK_TARGET_RECOVERY_REQUIRED"
+        )
 
     def test_source_has_no_remote_delete_or_old_oracle_promotion(self):
         source = SCRIPT.read_text(encoding="utf-8")
@@ -379,11 +611,8 @@ class S22PlusFyg8R4W1AStreamCandidateLiveGateTest(unittest.TestCase):
         self.assertNotIn("create_pass_record", source)
         self.assertIn('expectation="exact"', source)
         self.assertIn("remote_cleanup_allowed\": False", source)
-        self.assertIn(
-            'result["baseline_pstore_console_absent"] = '
-            "historical.pstore_console_absent(serial)",
-            source,
-        )
+        self.assertIn('result["baseline_pstore_console_absent"]', source)
+        self.assertIn("historical.pstore_console_absent(", source)
         self.assertIn(
             '"multiple Odin endpoints observed; no rollback flash started"',
             source,

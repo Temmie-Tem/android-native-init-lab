@@ -4,6 +4,29 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-13 21:12 KST / 2026-07-13 12:12 UTC) -
+> R4W1-A A8 ADVERSARIAL MUST-FIX SET CLOSED HOST-ONLY; POLICY STILL
+> DRAFT_INACTIVE; TWO-REVIEWER DELTA VERDICT NEXT.** Two independent read-only
+> reviewers returned `GO_WITH_MUST_FIX` on A7. The helper now forces exactly
+> three candidate samples, caps observation at 300 seconds, directly includes
+> candidate-transfer success and three samples in PASS, routes candidate
+> transfer transport exceptions into mandatory rollback, binds consumed-state
+> timestamp/run-directory/live-result identity, and completes all eight
+> canonical timeline events on bounded failure paths. The real-policy test now
+> derives the exact whole-line sentinel and every pin independently.
+>
+> Revised helper SHA256 is `1cdd18ad...e9ad5`, focused-test SHA256 is
+> `e07447e5...54d0`, and inactive draft SHA256 is `13110c68...9a42e`.
+> Focused tests pass `22/22`; complete R4W1-family tests pass `111/111`;
+> `py_compile`, `git diff --check`, and the full offline artifact gate pass.
+> Offline state remains `policy.active=false`, `candidate_consumed=false`,
+> `device_contact=false`, `device_write=false`, and `flash=false`. `ruff` is
+> unavailable on this host. `AGENTS.md` is unchanged and no live action is
+> authorized. Next is an independent delta re-review of this exact source
+> checkpoint; only a clean verdict may advance to a separate binding commit.
+> Report:
+> `docs/reports/S22PLUS_FYG8_R4W1A_A8_ADVERSARIAL_MUST_FIX_CLOSED_2026-07-13.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-13 20:43 KST / 2026-07-13 11:43 UTC) -
 > R4W1-A A7 ACTIVATION-CYCLE CLOSED HOST-ONLY; POLICY STILL DRAFT_INACTIVE;
 > INDEPENDENT VERDICT PENDING AFTER CLAUDE LIMIT RESET.** The focused suite's

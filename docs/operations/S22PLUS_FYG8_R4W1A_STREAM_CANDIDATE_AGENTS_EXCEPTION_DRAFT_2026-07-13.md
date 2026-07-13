@@ -27,9 +27,9 @@ Future binding activation requires this exact whole-line sentinel:
 The only executable helper is
 `workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1a_stream_candidate_live_gate.py`
 SHA256
-`07d9133dd01c26e9188c582226d1c0f647b6fa72935affd1fcfc99824e0c5068`.
+`1cdd18ad1cbd3f75ecdd017cdb25b9e053e9f475e38812be446a0b18845e9ad5`.
 Its focused test source SHA256 is
-`0539c8391701839034855a156227c8b6c08e2adfaa3a6f16aead682714297bde`.
+`e07447e570c843d92d4d75823340580939354477376cce13e328b1fc348654d0`.
 The fresh live acknowledgement is
 `S22PLUS-FYG8-R4W1A-STREAM-CANDIDATE-LIVE`. Interrupted recovery from an
 already-consumed run requires

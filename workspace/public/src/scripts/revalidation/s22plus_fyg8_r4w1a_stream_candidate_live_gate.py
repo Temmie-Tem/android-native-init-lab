@@ -14,6 +14,7 @@ import argparse
 import json
 import re
 import subprocess
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -275,6 +276,49 @@ def consume_exception(root: Path, run_dir: Path) -> None:
     )
 
 
+def consumed_run_dir(root: Path, state: dict[str, Any]) -> Path:
+    raw_timestamp = state.get("consumed_at_utc")
+    if not isinstance(raw_timestamp, str):
+        raise GateError("candidate consumed timestamp is missing")
+    try:
+        datetime.strptime(raw_timestamp, "%Y-%m-%dT%H:%M:%S.%fZ")
+    except ValueError as exc:
+        raise GateError("candidate consumed timestamp is invalid") from exc
+
+    raw_run_dir = state.get("run_dir")
+    if not isinstance(raw_run_dir, str) or not raw_run_dir:
+        raise GateError("candidate consumed run directory is missing")
+    relative = Path(raw_run_dir)
+    if relative.is_absolute() or ".." in relative.parts:
+        raise GateError("candidate consumed run directory is unsafe")
+    expected_root = (root / RUN_ROOT).resolve()
+    unresolved_run_dir = root / relative
+    if unresolved_run_dir.is_symlink():
+        raise GateError("candidate consumed run directory is a symlink")
+    run_dir = unresolved_run_dir.resolve()
+    try:
+        run_dir.relative_to(expected_root)
+    except ValueError as exc:
+        raise GateError("candidate consumed run directory is outside run root") from exc
+    if not run_dir.is_dir():
+        raise GateError("candidate consumed run directory is unavailable")
+
+    result_path = run_dir / "result.json"
+    if result_path.is_symlink() or not result_path.is_file():
+        raise GateError("candidate consumed run result is unavailable")
+    try:
+        result = json.loads(result_path.read_text(encoding="utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise GateError("candidate consumed run result is invalid") from exc
+    if not isinstance(result, dict) or (
+        result.get("schema") != SCHEMA
+        or result.get("mode") != "live"
+        or result.get("target") != TARGET
+    ):
+        raise GateError("candidate consumed run result contract mismatch")
+    return run_dir
+
+
 def require_consumed_for_rollback(root: Path) -> dict[str, Any]:
     path = root / CONSUMED_STATE
     if path.is_symlink() or not path.is_file():
@@ -293,6 +337,7 @@ def require_consumed_for_rollback(root: Path) -> dict[str, Any]:
     )
     if not all(required):
         raise GateError("candidate consumed state contract mismatch")
+    consumed_run_dir(root, state)
     return state
 
 
@@ -415,7 +460,7 @@ def classify_live_verdict(
 ) -> tuple[str, int]:
     if rollback_target != "magisk":
         return rollback_verdict, rollback_rc
-    if samples and marker_proved:
+    if candidate_transfer_ok and len(samples) == 3 and marker_proved:
         return "PASS_R4W1A_ANDROID_INIT_EXEC_WITNESS_RETAINED_AND_ROLLED_BACK", 0
     if not candidate_transfer_ok:
         return "NO_PROOF_R4W1A_CANDIDATE_TRANSFER_FAILED_MAGISK_ROLLED_BACK", 31
@@ -425,10 +470,31 @@ def classify_live_verdict(
 
 
 def append_remaining_events(
-    timeline_path: Path, timeline: list[dict[str, str]], start_at: int
+    timeline_path: Path, timeline: list[dict[str, str]]
 ) -> None:
-    for name in TIMELINE_NAMES[start_at:]:
+    names = [event.get("name") for event in timeline]
+    if names != list(TIMELINE_NAMES[: len(names)]):
+        raise GateError("timeline is not a canonical ordered prefix")
+    for name in TIMELINE_NAMES[len(names) :]:
         common.append_event(timeline_path, timeline, name)
+
+
+def finish_failed_run(
+    run_dir: Path,
+    timeline_path: Path,
+    timeline: list[dict[str, str]],
+    result: dict[str, Any],
+    *,
+    verdict: str,
+    error: str,
+    semantics: dict[str, str],
+) -> int:
+    result["verdict"] = verdict
+    result["error"] = error
+    result.setdefault("timeline_phase_semantics", {}).update(semantics)
+    append_remaining_events(timeline_path, timeline)
+    common.durable_write_json(run_dir / "result.json", result)
+    return 20
 
 
 def collect_rollback_corroboration(serial: str, run_dir: Path) -> dict[str, Any]:
@@ -462,24 +528,74 @@ def live_run(root: Path, args: argparse.Namespace, artifacts: dict[str, Any]) ->
         "verdict": "INCOMPLETE",
     }
     common.append_event(timeline_path, timeline, "live_session_start")
-    serial, baseline = historical.connected_preflight(root, run_dir, odin)
-    result["baseline"] = baseline
-    result["baseline_pstore_console_absent"] = historical.pstore_console_absent(serial)
-    common.durable_write_json(run_dir / "result.json", result)
-
-    reboot = common.run(["adb", "-s", serial, "reboot", "download"], timeout=20)
-    if reboot.returncode != 0:
-        raise GateError("Android failed to request Download mode")
-    device = common.wait_for_odin(
-        odin, log_path, "r4w1a-stream-candidate", args.download_wait_sec
-    )
-    if device is None:
-        raise GateError("Download mode did not appear before candidate flash")
-    common.append_event(timeline_path, timeline, "candidate_flash_start")
-    consume_exception(root, run_dir)
-    result["candidate_flash_attempted"] = True
     common.durable_write_json(run_dir / "result.json", result)
     try:
+        serial, baseline = historical.connected_preflight(root, run_dir, odin)
+        result["baseline"] = baseline
+        result["baseline_pstore_console_absent"] = historical.pstore_console_absent(
+            serial
+        )
+        common.durable_write_json(run_dir / "result.json", result)
+
+        reboot = common.run(["adb", "-s", serial, "reboot", "download"], timeout=20)
+        if reboot.returncode != 0:
+            raise GateError("Android failed to request Download mode")
+        device = common.wait_for_odin(
+            odin, log_path, "r4w1a-stream-candidate", args.download_wait_sec
+        )
+        if device is None:
+            raise GateError("Download mode did not appear before candidate flash")
+    except (GateError, OSError, subprocess.SubprocessError) as exc:
+        return finish_failed_run(
+            run_dir,
+            timeline_path,
+            timeline,
+            result,
+            verdict="FAIL_R4W1A_PRECONSUMPTION_NO_CANDIDATE_FLASH",
+            error=str(exc),
+            semantics={
+                "candidate_flash_start": "pre-consumption failure; no candidate flash started",
+                "candidate_flash_done": "no candidate flash occurred",
+                "candidate_boot_ready": "candidate Android not observed",
+                "rollback_flash_start": "no consumed candidate run; no rollback flash started",
+                "rollback_flash_done": "no rollback flash occurred",
+                "rollback_boot_ready": "baseline Android state was not changed by candidate flash",
+                "live_session_end": "pre-consumption run ended fail-closed",
+            },
+        )
+
+    common.append_event(timeline_path, timeline, "candidate_flash_start")
+    consumption_error = None
+    try:
+        consume_exception(root, run_dir)
+    except (GateError, OSError) as exc:
+        if not (root / CONSUMED_STATE).is_file():
+            return finish_failed_run(
+                run_dir,
+                timeline_path,
+                timeline,
+                result,
+                verdict="FAIL_R4W1A_CONSUMPTION_NO_CANDIDATE_FLASH",
+                error=str(exc),
+                semantics={
+                    "candidate_flash_done": "consumption failed; no candidate flash occurred",
+                    "candidate_boot_ready": "candidate Android not observed",
+                    "rollback_flash_start": "no consumed candidate run; no rollback flash started",
+                    "rollback_flash_done": "no rollback flash occurred",
+                    "rollback_boot_ready": "candidate did not replace the baseline boot",
+                    "live_session_end": "consumption failure ended fail-closed",
+                },
+            )
+        consumption_error = str(exc)
+
+    result["candidate_flash_attempted"] = True
+    try:
+        if consumption_error is not None:
+            raise GateError(
+                "consumed state creation was not clean; candidate transfer suppressed: "
+                f"{consumption_error}"
+            )
+        common.durable_write_json(run_dir / "result.json", result)
         common.flash_exact(
             odin,
             common.resolve(root, args.candidate_ap),
@@ -488,7 +604,7 @@ def live_run(root: Path, args: argparse.Namespace, artifacts: dict[str, Any]) ->
             "r4w1a-stream-candidate",
         )
         result["candidate_transfer_ok"] = True
-    except GateError as exc:
+    except (GateError, OSError, subprocess.SubprocessError) as exc:
         result["candidate_transfer_error"] = str(exc)
     common.append_event(timeline_path, timeline, "candidate_flash_done")
     common.durable_write_json(run_dir / "result.json", result)
@@ -530,12 +646,15 @@ def live_run(root: Path, args: argparse.Namespace, artifacts: dict[str, Any]) ->
             "rollback_boot_ready": "rollback Android not observed",
             "live_session_end": "recovery required because rollback target was ambiguous",
         }
-        append_remaining_events(timeline_path, timeline, 4)
+        append_remaining_events(timeline_path, timeline)
         common.durable_write_json(run_dir / "result.json", result)
         return 20
     rollback_device = existing[0] if existing else None
     if rollback_device is None:
-        common.request_download_if_android()
+        try:
+            common.request_download_if_android()
+        except (GateError, OSError, subprocess.SubprocessError) as exc:
+            result["rollback_download_request_error"] = str(exc)
         print(
             "R4W1-A observation is complete. If Download mode does not appear "
             "automatically, enter physical Download mode for mandatory rollback.",
@@ -559,7 +678,7 @@ def live_run(root: Path, args: argparse.Namespace, artifacts: dict[str, Any]) ->
             "rollback_boot_ready": "rollback Android not observed",
             "live_session_end": "recovery requires rollback-from-download mode",
         }
-        append_remaining_events(timeline_path, timeline, 4)
+        append_remaining_events(timeline_path, timeline)
         common.durable_write_json(run_dir / "result.json", result)
         return 20
 
@@ -569,7 +688,7 @@ def live_run(root: Path, args: argparse.Namespace, artifacts: dict[str, Any]) ->
     except (GateError, OSError, subprocess.SubprocessError) as exc:
         result["rollback_error"] = str(exc)
         result["verdict"] = "FAIL_R4W1A_ROLLBACK_TRANSFER_RECOVERY_REQUIRED"
-        append_remaining_events(timeline_path, timeline, 5)
+        append_remaining_events(timeline_path, timeline)
         common.durable_write_json(run_dir / "result.json", result)
         return 20
     common.append_event(timeline_path, timeline, "rollback_flash_done")
@@ -581,7 +700,7 @@ def live_run(root: Path, args: argparse.Namespace, artifacts: dict[str, Any]) ->
         result["rollback_target"] = rollback_target
         result["rollback_health_error"] = str(exc)
         result["verdict"] = "FAIL_R4W1A_ROLLBACK_HEALTH_RECOVERY_REQUIRED"
-        append_remaining_events(timeline_path, timeline, 6)
+        append_remaining_events(timeline_path, timeline)
         common.durable_write_json(run_dir / "result.json", result)
         return 20
     common.append_event(timeline_path, timeline, "rollback_boot_ready")
@@ -644,15 +763,63 @@ def rollback_from_download(root: Path, args: argparse.Namespace) -> int:
     for name in TIMELINE_NAMES[:4]:
         common.append_event(timeline_path, timeline, name)
     common.durable_write_json(run_dir / "result.json", result)
-    devices = common.odin_devices(odin, log_path, "r4w1a-stream-recovery")
-    if len(devices) != 1:
-        raise GateError(f"rollback requires exactly one Odin endpoint, got {devices}")
+    try:
+        devices = common.odin_devices(odin, log_path, "r4w1a-stream-recovery")
+        if len(devices) != 1:
+            raise GateError(
+                f"rollback requires exactly one Odin endpoint, got {devices}"
+            )
+    except (GateError, OSError, subprocess.SubprocessError) as exc:
+        return finish_failed_run(
+            run_dir,
+            timeline_path,
+            timeline,
+            result,
+            verdict="FAIL_R4W1A_ROLLBACK_TARGET_RECOVERY_REQUIRED",
+            error=str(exc),
+            semantics={
+                "rollback_flash_start": "no unambiguous rollback endpoint; no flash started",
+                "rollback_flash_done": "no rollback flash occurred",
+                "rollback_boot_ready": "rollback Android not observed",
+                "live_session_end": "attended recovery remains required",
+            },
+        )
     common.append_event(timeline_path, timeline, "rollback_flash_start")
-    target = common.flash_rollback(root, odin, devices[0], log_path)
+    try:
+        target = common.flash_rollback(root, odin, devices[0], log_path)
+    except (GateError, OSError, subprocess.SubprocessError) as exc:
+        return finish_failed_run(
+            run_dir,
+            timeline_path,
+            timeline,
+            result,
+            verdict="FAIL_R4W1A_ROLLBACK_TRANSFER_RECOVERY_REQUIRED",
+            error=str(exc),
+            semantics={
+                "rollback_flash_done": "rollback transfer did not complete",
+                "rollback_boot_ready": "rollback Android not observed",
+                "live_session_end": "attended recovery remains required",
+            },
+        )
     common.append_event(timeline_path, timeline, "rollback_flash_done")
-    final, verdict, rc = common.wait_final_android(
-        target, args.android_wait_sec, odin, log_path
-    )
+    try:
+        final, verdict, rc = common.wait_final_android(
+            target, args.android_wait_sec, odin, log_path
+        )
+    except (GateError, OSError, subprocess.SubprocessError) as exc:
+        result["rollback_target"] = target
+        return finish_failed_run(
+            run_dir,
+            timeline_path,
+            timeline,
+            result,
+            verdict="FAIL_R4W1A_ROLLBACK_HEALTH_RECOVERY_REQUIRED",
+            error=str(exc),
+            semantics={
+                "rollback_boot_ready": "rollback Android health was not verified",
+                "live_session_end": "attended recovery remains required",
+            },
+        )
     common.append_event(timeline_path, timeline, "rollback_boot_ready")
     common.append_event(timeline_path, timeline, "live_session_end")
     if target == "magisk":
@@ -686,24 +853,28 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def validate_runtime_args(args: argparse.Namespace) -> None:
+    if args.sample_count != 3:
+        raise GateError("sample count must be exactly 3")
+    for label, value, maximum in (
+        ("download wait", args.download_wait_sec, 300),
+        ("disconnect wait", args.disconnect_wait_sec, 120),
+        ("candidate wait", args.candidate_wait_sec, 300),
+        ("manual wait", args.manual_wait_sec, 600),
+        ("Android wait", args.android_wait_sec, 600),
+        ("bugreport wait", args.bugreport_wait_sec, 900),
+    ):
+        if value < 1 or value > maximum:
+            raise GateError(f"{label} must be between 1 and {maximum} seconds")
+    if args.sample_interval_sec <= 0 or args.sample_interval_sec > 30:
+        raise GateError("sample interval must be in (0, 30] seconds")
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     root = common.repo_root()
     try:
-        if args.sample_count < 1 or args.sample_count > 5:
-            raise GateError("sample count must be between 1 and 5")
-        for label, value, maximum in (
-            ("download wait", args.download_wait_sec, 300),
-            ("disconnect wait", args.disconnect_wait_sec, 120),
-            ("candidate wait", args.candidate_wait_sec, 600),
-            ("manual wait", args.manual_wait_sec, 600),
-            ("Android wait", args.android_wait_sec, 600),
-            ("bugreport wait", args.bugreport_wait_sec, 900),
-        ):
-            if value < 1 or value > maximum:
-                raise GateError(f"{label} must be between 1 and {maximum} seconds")
-        if args.sample_interval_sec <= 0 or args.sample_interval_sec > 30:
-            raise GateError("sample interval must be in (0, 30] seconds")
+        validate_runtime_args(args)
         odin = common.resolve(root, args.odin)
         artifacts = verify_artifacts(
             root,
