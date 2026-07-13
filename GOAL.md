@@ -4,29 +4,26 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ ACTIVE FRONTIER (2026-07-13 KST) - R4W1-A A1 HOST HELPER OFFLINE
-> PASS; CONNECTED IDENTITY DRY-RUN IS NEXT; ORACLE WRITE AND CANDIDATE FLASH
-> REMAIN BLOCKED.** Dedicated helper
-> `s22plus_fyg8_r4w1a_live_gate.py` SHA256 `6dcf003c...9ca577` and 22 focused
-> tests SHA256 `c6b65002...3e78dd` now implement separately gated offline,
-> connected read-only, one-capture oracle rehearsal, one-shot candidate, and
-> emergency boot-only rollback modes. The helper pins the candidate, complete
-> three-reproduction checker result, marker oracle/audit, reviewed R3/Odin
-> dependencies, and both rollback chains. Its full offline run reran the
-> independent checker and returned `PASS_R4W1A_LIVE_HELPER_OFFLINE_CHECK` with
-> `device_contact=false`, `device_write=false`, and `flash=false`. The inactive
-> policy draft SHA256 is `a444cfd2...8b262e`. Host/remote bugreport equality
-> is mandatory before exact non-root cleanup; ambiguous or mismatched new files
-> are not deleted. No device was contacted. Binding `AGENTS.md` contains neither
-> R4W1-A ACTIVE sentinel, so `a1_live_ready=false`. SHA-bound connected and
-> oracle promotion records enforce the ordering in code; oracle capture also
-> has a separate one-shot consumed state. Next is an independent
-> read-only review, then one fresh-ack connected identity dry-run only. That
-> mode must not run bugreportz, reboot, or flash. Oracle rehearsal requires a
-> later separate policy activation and approval; candidate flash requires the
-> oracle rehearsal to PASS plus another review and fresh one-shot approval.
-> Record:
-> `docs/reports/S22PLUS_FYG8_R4W1A_A1_HOST_HELPER_RESULT_2026-07-13.md`.
+> **S22+ ACTIVE FRONTIER (2026-07-13 KST) - R4W1-A CONNECTED IDENTITY
+> DRY-RUN PASS; ORACLE REHEARSAL AND CANDIDATE FLASH REMAIN BLOCKED.** The
+> exact helper SHA256 `6dcf003c...9ca577` reran the complete static checker,
+> then passed one attended connected read-only preflight with verdict
+> `PASS_R4W1A_CONNECTED_IDENTITY_DRY_RUN_READ_ONLY`. It proved exact FYG8
+> Android/Magisk root, known Magisk boot, stock DTBO/recovery, no Odin endpoint,
+> live `sec_log_buf` with exact bind, and EOF-complete 2,097,136-byte reads of
+> both `/proc/ap_klog` and `/proc/last_kmsg` with the R4W1 marker family absent.
+> Device writes, `bugreportz`, reboot, Download transition, Odin transfer, and
+> flash were all zero. Result SHA256 is `1a338070...c193926`; the immutable
+> connected promotion-record SHA256 is `63dc2b8d...05db041`. The oracle
+> consumed/PASS records and candidate consumed record remain absent. The
+> inactive policy draft is updated with this prerequisite at SHA256
+> `2a97a632...9a68a`; binding `AGENTS.md` still contains no R4W1-A ACTIVE
+> sentinel. Next is host-only independent review and explicit activation of
+> only the one-capture, zero-flash oracle dry-run clause, followed by a fresh
+> attended oracle acknowledgement. Candidate activation remains forbidden
+> until the oracle rehearsal passes and is separately reviewed. Records:
+> `docs/reports/S22PLUS_FYG8_R4W1A_A1_HOST_HELPER_RESULT_2026-07-13.md` and
+> `docs/reports/S22PLUS_FYG8_R4W1A_CONNECTED_IDENTITY_DRY_RUN_RESULT_2026-07-13.md`.
 >
 > **S22+ ACTIVE FRONTIER (2026-07-13 KST) - R4W1-A A0 ARTIFACT PASS AND
 > PRIMARY MARKER ORACLE SELECTED HOST-ONLY; A1 IMPLEMENTATION READY BUT LIVE

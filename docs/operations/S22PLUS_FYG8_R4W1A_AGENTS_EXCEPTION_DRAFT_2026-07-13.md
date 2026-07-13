@@ -78,6 +78,12 @@ device write, `bugreportz`, reboot, Download transition, Odin transfer, or
 consumed-state creation. Passing this mode does not activate either exception
 below. A PASS creates one immutable SHA-bound promotion record at
 `workspace/private/state/s22plus_fyg8_r4w1a_connected_dry_run_pass.json`.
+The 2026-07-13 connected dry-run passed. Its result SHA256 is
+`1a338070008e06b4f8b0e62302c5099be82270c5893352b126dab4ae3c193926`
+and its promotion-record SHA256 is
+`63dc2b8d27ebd04ef66ce3cb8e3151a12e491fbf46e3242605a40694205db041`.
+This records a completed prerequisite only; this draft remains inactive and
+authorizes no oracle capture or candidate action.
 The future oracle ACTIVE clause must contain that exact record SHA, and the
 helper independently reopens the named private result and verifies its SHA,
 target, mode, verdict, helper identity, and `device_writes=false`. A missing,
@@ -89,7 +95,9 @@ Policy marker: `S22+ FYG8 R4W1-A bugreport oracle dry-run live gate`.
 
 Future binding activation would require the exact whole-line sentinel
 `S22PLUS_FYG8_R4W1A_ORACLE_DRY_POLICY_STATE=ACTIVE`, the exact helper SHA above,
-the exact connected promotion-record SHA, independent review, and a fresh attended acknowledgement
+connected promotion-record SHA
+`63dc2b8d27ebd04ef66ce3cb8e3151a12e491fbf46e3242605a40694205db041`,
+independent review, and a fresh attended acknowledgement
 `S22PLUS-FYG8-R4W1A-BUGREPORT-ORACLE-DRY-RUN` supplied after that review.
 
 This is a zero-flash, zero-reboot rehearsal. After the complete common
