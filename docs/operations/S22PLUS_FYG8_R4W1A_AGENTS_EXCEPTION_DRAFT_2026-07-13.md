@@ -1,10 +1,12 @@
 # S22+ FYG8 R4W1-A AGENTS Exception Draft
 
-State: `DRAFT_INACTIVE`
+State: `ORACLE_BOUND_ACTIVE_CANDIDATE_DRAFT_INACTIVE`
 
-This document is a review source only. It does not activate device contact,
-`bugreportz`, Download mode, Odin, a candidate transfer, or rollback. Neither
-active sentinel below is present in binding `AGENTS.md`.
+This document remains a review source and is not itself policy authority.
+Binding `AGENTS.md` now contains the exact oracle-dry ACTIVE clause and oracle
+sentinel below. The candidate ACTIVE sentinel is absent. Oracle execution is
+still blocked until that binding clause is committed and the operator supplies
+its exact fresh acknowledgement; this document authorizes no device action.
 
 The proposed helper is
 `workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1a_live_gate.py`
@@ -95,22 +97,28 @@ and its v2 promotion-record SHA256 is
 That v2 record became historical when the policy-state tests were corrected to
 support a reviewed inactive-to-active transition without changing source at
 activation time. The current helper requires a new v3 connected record. The
-v1 and v2 records remain preserved but cannot activate it. This draft remains
-inactive and authorizes no oracle capture or candidate action.
+v1 and v2 records remain preserved but cannot activate it. The candidate
+section remains inactive. The current helper's 2026-07-13 v3 connected dry-run
+passed. Its result SHA256 is
+`5e54811e8e3363fa372ca65e2938565e7465511b6b0e5bbe0754679ef7a5c5d3`
+and its v3 promotion-record SHA256 is
+`6b78cfb646432bb2dcb8f65a47a7e547d4b8a3862c72cb0ada2cc6237f2c4084`.
 The future oracle ACTIVE clause must contain that exact record SHA, and the
 helper independently reopens the named private result and verifies its SHA,
 target, mode, verdict, helper identity, and `device_writes=false`. A missing,
 stale, replaced, or mismatched record keeps the oracle policy inactive.
 
-## Proposed Oracle Dry-Run Exception
+## Oracle Dry-Run Exception Bound In AGENTS.md
 
 Policy marker: `S22+ FYG8 R4W1-A bugreport oracle dry-run live gate`.
 
-Future binding activation would require the exact whole-line sentinel
+Binding `AGENTS.md` now contains the exact whole-line sentinel
 `S22PLUS_FYG8_R4W1A_ORACLE_DRY_POLICY_STATE=ACTIVE`, the exact helper SHA above,
-the not-yet-created exact v3 connected promotion-record SHA,
-independent review, and a fresh attended acknowledgement
-`S22PLUS-FYG8-R4W1A-BUGREPORT-ORACLE-DRY-RUN` supplied after that review.
+v3 connected promotion-record SHA
+`6b78cfb646432bb2dcb8f65a47a7e547d4b8a3862c72cb0ada2cc6237f2c4084`,
+and the independently reviewed oracle contract. Execution still requires fresh
+attended acknowledgement `S22PLUS-FYG8-R4W1A-BUGREPORT-ORACLE-DRY-RUN`
+supplied after the binding policy commit.
 
 This is a zero-flash, zero-reboot rehearsal. After the complete common
 preflight it must prove both `/sys/fs/pstore/console-ramoops` and
@@ -207,6 +215,7 @@ super/userdata/persist/EFS/sec_efs/RPMB/keymaster/modem/bootloader write. Only
 the boot partition is in the future candidate/rollback envelope. No A90 action
 is authorized.
 
-Activation requires an exact helper SHA re-pin after every source fix, complete
-offline and connected evidence, independent review of source/tests/artifacts/
-this draft, and fresh attended approval. This draft remains inactive.
+Candidate activation requires an exact helper SHA re-pin after every source
+fix, complete offline and connected evidence, a successful immutable oracle
+record, independent review of source/tests/artifacts/this draft, and fresh
+candidate-specific attended approval. The candidate section remains inactive.

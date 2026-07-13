@@ -4,6 +4,38 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-13 18:48 KST / 2026-07-13 09:48 UTC) -
+> R4W1-A V3 CONNECTED IDENTITY PASS; ZERO-FLASH BUGREPORT ORACLE POLICY ACTIVE;
+> READY FOR ONE EXACT FRESH ACK; RETAINED-PID1 CANDIDATE REMAINS BLOCKED.**
+> Source-ready commit `6f78610b` pins helper SHA256
+> `d541397c...2d3d14` and focused-test SHA256 `314b3efc...bf145`. The fresh
+> activation-stable connected run
+> `s22plus_fyg8_r4w1a_connected_dry_run_20260713T091826Z` returned
+> `PASS_R4W1A_CONNECTED_IDENTITY_DRY_RUN_READ_ONLY`; result SHA256 is
+> `5e54811e...5c5d3` and immutable v3 promotion-record SHA256 is
+> `6b78cfb6...4084`. It proved exact FYG8 Android/Magisk identity, stock
+> DTBO/recovery, no Odin endpoint, live and bound `sec_log_buf`, EOF-complete
+> `/proc/ap_klog` and `/proc/last_kmsg`, marker-family absence, and zero device
+> writes, `bugreportz`, reboot, Download, Odin, or flash.
+>
+> Binding `AGENTS.md` now contains only the narrow oracle ACTIVE sentinel and
+> exact v3/result/helper/test pins. Forty-eight related R4W1-A tests and the
+> complete offline artifact gate pass in that state with
+> `oracle_policy_active=true`, `candidate_policy_active=false`,
+> `device_contact=false`, `device_write=false`, and `flash=false`. Oracle
+> consumed/PASS and candidate consumed records are absent. The next and only
+> executable live unit is one bounded zero-flash `bugreportz -s` oracle
+> rehearsal after the operator supplies the exact fresh acknowledgement
+> `S22PLUS-FYG8-R4W1A-BUGREPORT-ORACLE-DRY-RUN` following this policy commit.
+> It may create and exactly clean up only its one run-created bugreport; it may
+> not reboot, enter Download, invoke Odin, or flash. The R4W1-A retained-PID1
+> candidate remains NO-GO until this oracle passes, a separately reviewed
+> candidate clause is activated with the resulting immutable proof, and a new
+> candidate-specific approval is supplied. Records:
+> `docs/reports/S22PLUS_FYG8_R4W1A_CONNECTED_V3_IDENTITY_DRY_RUN_RESULT_2026-07-13.md`
+> and
+> `docs/operations/S22PLUS_FYG8_R4W1A_ORACLE_ACTIVE_CLAUSE_REVIEW_2026-07-13.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-13 KST) - R4W1-A A3 POLICY-ACTIVATION
 > CIRCULARITY FIX PASS HOST-ONLY; FRESH V3 CONNECTED DRY-RUN NEXT; ORACLE AND
 > CANDIDATE REMAIN BLOCKED.** Previous real-root tests permanently assumed both
