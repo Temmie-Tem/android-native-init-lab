@@ -4,6 +4,24 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-13 22:57 KST / 2026-07-13 13:57 UTC) -
+> R4W1-A A11 LIVE POLICY BOUND; ACTIVE OFFLINE PASS; WAITING FOR FRESH
+> ATTENDED APPROVAL.** Exact reviewed stream-candidate clause was bound in
+> `AGENTS.md` by commit `72921c06`; the whole-line ACTIVE sentinel occurs once.
+> `AGENTS.md` SHA256 is `79785eb7...84e7d7`, while reviewed helper/test/draft
+> pins remain `9f3055e3...e3d7d7`, `402382d8...d72b3`, and
+> `a4d72aaa...5960c`.
+>
+> ACTIVE-state validation passes focused `26/26`, R4W1-pattern `107/107`,
+> builder `8/8`, combined `115/115`, plus `git diff --check` and the complete
+> offline artifact gate. Runtime policy reports `active=true`, consumed state
+> is absent, and offline device contact/write/flash are all false. No further
+> source, build, artifact, or policy step remains before connected preflight.
+> Await exact fresh attended acknowledgement
+> `S22PLUS-FYG8-R4W1A-STREAM-CANDIDATE-LIVE`; the operator must remain present
+> for possible physical Download entry during mandatory rollback. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1A_A11_LIVE_POLICY_BOUND_READY_FOR_APPROVAL_2026-07-13.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-13 21:29 KST / 2026-07-13 12:29 UTC) -
 > R4W1-A A10 FINAL TWO-REVIEWER VERDICT GO_TO_BINDING_POLICY_COMMIT;
 > POLICY STILL DRAFT_INACTIVE.** Two independent final read-only reviews of
