@@ -426,8 +426,20 @@ Result details and source/artifact pins are recorded in
 
 ## Next Unit
 
-Independent review returned `GO` for committing the completed A0 host-only
-implementation with no blocker. Early-marker overwrite remains the load-bearing
-A1 feasibility risk. The next bounded unit is host-only oracle selection and
-proof. This document does not authorize an A1 helper, connected dry-run, policy
-activation, device contact, or live execution.
+The host-only oracle-selection unit chose the immutable dumpstate path and the
+subsequent A1 implementation unit added the dedicated live helper, 19 focused
+tests, and a SHA-pinned inactive policy draft. The helper reran the complete A0
+static checker and returned `PASS_R4W1A_LIVE_HELPER_OFFLINE_CHECK`; no device
+was contacted.
+
+Current state is `a1_helper_implemented_host_only=true` and
+`a1_live_ready=false`. Binding `AGENTS.md` has no R4W1-A ACTIVE sentinel. The
+next bounded device unit, only after independent read-only review and fresh
+attended acknowledgement, is the connected read-only identity dry-run. It must
+not run `bugreportz`, reboot, enter Download, invoke Odin transfer, or create
+consumed state. Only its durable PASS permits review of the separately gated
+zero-flash oracle dry-run. Candidate flash remains two gates later and is not
+authorized by this document.
+
+Implementation record:
+`docs/reports/S22PLUS_FYG8_R4W1A_A1_HOST_HELPER_RESULT_2026-07-13.md`.
