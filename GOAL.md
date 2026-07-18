@@ -6,6 +6,25 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-19 04:09 KST / 2026-07-18 19:09 UTC) -
+> R4W1-B TWO-CLEAN FULL-LTO REPRODUCIBILITY PASS; STATIC COMPATIBILITY PASS;
+> CANDIDATE CONSTRUCTION NEXT; NO LIVE AUTHORIZATION.** The recovered and
+> hardened host tools were committed as `e2599c06`. On the separate Debian
+> build host, two clean source trees with distinct inodes produced byte-identical
+> `41,490,944`-byte Images SHA256 `350bc718...80d3`. Image, vmlinux,
+> System.map, vmlinux.symvers, abi.xml, and generated config all reproduced
+> exactly. Both build provenance gates passed, both deep static audits returned
+> `PASS_R4W1B_STATIC_COMPATIBILITY`, and the final checker returned
+> `PASS_R4W1B_CLEAN_REPRODUCIBILITY` with zero blockers. The final ELF has one
+> exact marker, one exact success edge, no unsupported control transfer, exact
+> FIPS regeneration, unchanged KMI/ABI, exact ARM64 Image derivation, and the
+> required 1,536-byte kernel-slot gap. No device was contacted and no candidate
+> was promoted. Next is a separately bounded host-only candidate builder and
+> static checker using this exact reproduced Image plus the selected M4T2
+> carrier. No AP transfer, helper, ACTIVE policy, or live authorization exists.
+> Report:
+> `docs/reports/S22PLUS_FYG8_R4W1B_CLEAN_FULL_LTO_REPRO_PASS_2026-07-19.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-14 00:17 KST / 2026-07-13 15:17 UTC) -
 > R4W1-B DIRECT-PID1 EXEC-ACCEPTANCE HOST DESIGN PASS; M4T2 EXACT RAW-PARK
 > CARRIER SELECTED; SOURCE IMPLEMENTATION NEXT; NO LIVE AUTHORIZATION.**
