@@ -23,12 +23,31 @@ binding policy.
   `9bcade2532e77d538112836ebe9903bab832c1f2250151d3635260b6fd013725`;
 - core test SHA256:
   `b55db8579115ec437e7fe63b6a3b6ecef0d8cbcac54110599e85f310f3b2fd9d`.
+- live-binding packet generator SHA256:
+  `5834b0cc2113dc2fc7657a15a954d5b34dbfddefd37ce73a67fc61d4e72f53e6`;
+- generator test SHA256:
+  `831197ff7858b569eacac0458e8756a933abd57b8d36893ecdb73d1c5df8ed47`;
+- live-clause template SHA256:
+  `66b14fc1c87497346c4c6583f93d3e2c3bd4505c3a688837f91c540b2a7eb68f`.
 
-Any change to these four source identities invalidates a connected PASS and
-requires a new host qualification. Do not edit the helper between connected
-PASS and live.
+Any change to the first four execution identities invalidates a connected PASS
+and requires a new connected qualification. Any change to the packet
+generator, its test, or the clause template invalidates the packet-source
+qualification and requires a new host-only packet review; it does not
+retroactively alter already captured connected evidence. Do not edit the
+helper, focused helper test, core, or core test between connected PASS and
+live.
 
 ## Stage 1: Connected Read-Only Qualification
+
+The inert host-only promotion precheck must first return
+`PASS_R4W1B_LIVE_BINDING_PACKET_PRECONNECTED_READY`:
+
+```bash
+PYTHONPYCACHEPREFIX=/tmp/android_native_init_lab_pycache \
+python3 workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1b_live_binding_packet.py \
+  --preconnected-check
+```
 
 Required fresh operator acknowledgement:
 
@@ -73,6 +92,21 @@ Bind the exact connected PASS identities into that clause. The clause must add
 exactly one standalone live sentinel:
 
 `S22PLUS_FYG8_R4W1B_POLICY_STATE=ACTIVE`
+
+The deterministic host-only packet command performs the evidence reopen and
+template render without device enumeration or contact:
+
+```bash
+PYTHONPYCACHEPREFIX=/tmp/android_native_init_lab_pycache \
+python3 workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1b_live_binding_packet.py \
+  --emit-after-connected
+```
+
+It must return only
+`PASS_R4W1B_LIVE_BINDING_REVIEW_PACKET_EMITTED_HOST_ONLY`. Its private
+`packet.json`, `rendered_live_binding_clause.md`, and
+`exact_agents_clause.txt` become the exact independent-review inputs. The
+generator cannot edit `AGENTS.md` or activate policy.
 
 Before committing it, obtain an independent host-only binding review. The
 review must prove the connected PASS contract, source and artifact pins,

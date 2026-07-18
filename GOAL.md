@@ -34,6 +34,14 @@ are binding and override any sub-goal.**
 > transition, and emergency-recovery sequence is frozen in
 > `docs/operations/S22PLUS_FYG8_R4W1B_CONNECTED_TO_LIVE_RUNBOOK_2026-07-19.md`;
 > do not redesign or improvise the sequence between gates.
+> A deterministic host-only post-connected packet generator and hash-pinned
+> live-clause template are also ready. The generator reopens connected PASS and
+> result bytes around canonical validation and packet emission, validates every
+> rendered field, and cannot contact a device or edit `AGENTS.md`. Focused
+> tests pass `7/7`; the full R4W1-B suite passes `107/107` with 3 skips; the
+> current preconnected verdict is
+> `PASS_R4W1B_LIVE_BINDING_PACKET_PRECONNECTED_READY`. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1B_LIVE_BINDING_PACKET_PRECONNECTED_READY_HOST_PASS_2026-07-19.md`.
 
 > **S22+ ACTIVE FRONTIER (2026-07-19 06:01 KST / 2026-07-18 21:01 UTC) -
 > R4W1-B REUSABLE LIVE-GATE SOURCE READY HOST PASS; OPUS MUST-FIX CLOSED;
