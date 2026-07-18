@@ -1,8 +1,10 @@
-# Goal: autonomous native-init forward loop (Codex)
+# Goal: autonomous multi-device native-init forward loop (Codex)
 
-Drive the A90 native-init project forward one **bounded V-iteration at a time** using
-the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
-safety invariants and flash gates are binding and override any sub-goal.**
+Drive Android Native Init Lab forward one **bounded, target-specific iteration at a
+time** using the proven cycle below. The current targets are the Galaxy A90 5G and
+Galaxy S22+, and evidence or authorization never transfers between them. This file
+says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
+are binding and override any sub-goal.**
 
 > **S22+ ACTIVE FRONTIER (2026-07-14 00:17 KST / 2026-07-13 15:17 UTC) -
 > R4W1-B DIRECT-PID1 EXEC-ACCEPTANCE HOST DESIGN PASS; M4T2 EXACT RAW-PARK
