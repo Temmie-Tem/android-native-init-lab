@@ -4,7 +4,9 @@ Date: 2026-07-19 KST
 
 Target: `SM-S906N/g0q/S906NKSS7FYG8`
 
-Status: final host-only architecture design. Implementation has not started.
+Status: final host-only architecture design, implemented and qualified on
+2026-07-19 KST. See
+`docs/reports/S22PLUS_FYG8_R4W1B_REUSABLE_CANDIDATE_PIPELINE_HOST_PASS_2026-07-19.md`.
 
 Scope: reusable host-side construction and independent static qualification of
 boot-only S22+ candidates, beginning with R4W1-B. This document authorizes no

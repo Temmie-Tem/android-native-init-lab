@@ -6,6 +6,40 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-19 04:57 KST / 2026-07-18 19:57 UTC) -
+> R4W1-B REUSABLE CANDIDATE PIPELINE HOST PASS; THREE REPRODUCTIONS EXACT;
+> INDEPENDENT STATIC CONTRACT PASS; NO LIVE AUTHORIZATION.** The bounded
+> architecture from the 04:31 design is implemented without changing any
+> frozen R3/R4W1-A evidence program. New builder/checker primitives, the
+> R4W1-B builder, independent checker, historical fixture checker, and five
+> focused test files are present. The builder ran in three fresh processes;
+> all raw boots, LZ4 members, boot-only APs, and deterministic manifests were
+> byte-identical. Candidate raw boot is `100663296` bytes SHA256
+> `69690e68...3d44d`, LZ4 `be2265ae...09c9a`, AP `ae26340d...0f2c5`, and
+> manifest `46c29171...c65b0`.
+>
+> The checker independently reconstructed
+> `M4T2[:4096] + Image + M4T2[41495040:]`, preserved the explicit 1,536-byte
+> gap and opaque tail, parsed all AP/LZ4 bytes, required the expected stale AVB
+> outcome, and proved final rootfs order `generic -> vendor[0]`. Across 473
+> entries there is exactly one effective regular `/init`: generic, UID/GID
+> `0/0`, mode `0750`, size `544`, SHA256 `b8371e3a...83d12`; its complete
+> executable footprint is exactly `wfe; b`, with no interpreter, syscall,
+> duplicate, alias, vendor override, or `rdinit=` override. Durable checker
+> verdict is `PASS_R4W1B_CANDIDATE_THREE_REPRO_STATIC_CONTRACT`, blockers are
+> empty, and result SHA256 is `969b4a5d...85d47`. The new mechanics also
+> reproduced frozen R4W1-A raw boot/AP exactly with verdict
+> `PASS_R4W1B_BUILD_PRIMITIVES_R4W1A_FIXTURE`.
+>
+> Validation passed 34 focused tests, 72 focused-plus-frozen R3/R4W1-A tests,
+> `py_compile`, and `git diff --check`. `ruff` was unavailable on this host.
+> This unit performed no device contact, USB enumeration, ADB, real Odin
+> transfer, Download transition, flash, consumed state, timeline, helper, or
+> policy activation. Next is a separate adversarial review of the exact
+> implementation and private result before any new live-gate design; this PASS
+> itself authorizes no live action. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1B_REUSABLE_CANDIDATE_PIPELINE_HOST_PASS_2026-07-19.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-19 04:31 KST / 2026-07-18 19:31 UTC) -
 > R4W1-B MINIMAL REUSABLE CANDIDATE PIPELINE DESIGN FINAL;
 > `GO_WITH_MUST_FIX`; IMPLEMENTATION NEXT; NO LIVE AUTHORIZATION.** Repository
