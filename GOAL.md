@@ -6,6 +6,25 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-19 04:31 KST / 2026-07-18 19:31 UTC) -
+> R4W1-B MINIMAL REUSABLE CANDIDATE PIPELINE DESIGN FINAL;
+> `GO_WITH_MUST_FIX`; IMPLEMENTATION NEXT; NO LIVE AUTHORIZATION.** Repository
+> inspection and one Claude Opus 4.8 high-effort host-only architecture review
+> converged on a thin reusable slice rather than another standalone builder or
+> a broad manifest-driven framework. New candidate builders will share only
+> TOCTOU-stable pinned reads, fixed-slice mechanics, deterministic boot-only AP
+> construction, and marker classification. The R4W1-B static checker must not
+> import the builder or builder-side primitives and must independently derive
+> `M4T2[:4096] + Image + M4T2[41495040:]`, preserving the explicit 1,536-byte
+> gap and opaque tail. Generated manifests remain deterministic receipts, not
+> trust roots; load-bearing pins are independently duplicated in builder and
+> checker. Historical R3/R4W1-A/R4W1-B-kernel evidence remains frozen. Next is
+> host-only implementation in the ordered primitive -> historical fixture ->
+> R4W1-B builder x3 -> independent checker path. No helper, timeline,
+> consumed-state, AP transfer, policy activation, device contact, or live
+> authorization exists. Design:
+> `docs/plans/S22PLUS_FYG8_R4W1B_MINIMAL_REUSABLE_CANDIDATE_PIPELINE_DESIGN_2026-07-19.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-19 04:09 KST / 2026-07-18 19:09 UTC) -
 > R4W1-B TWO-CLEAN FULL-LTO REPRODUCIBILITY PASS; STATIC COMPATIBILITY PASS;
 > CANDIDATE CONSTRUCTION NEXT; NO LIVE AUTHORIZATION.** The recovered and
