@@ -6,6 +6,31 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-19 06:16 KST / 2026-07-18 21:16 UTC) -
+> R4W1-B CONNECTED-ONLY POLICY BOUND HOST GO; LIVE POLICY INACTIVE; FRESH
+> EXACT CONNECTED ACK NEXT.** Exact source commit `c744abb3` passed an
+> independent no-finding delta review with verdict
+> `GO_TO_SEPARATE_CONNECTED_POLICY_BINDING_REVIEW`. The separately drafted
+> connected-only clause SHA256 `c4a0f30c...b968048` then passed an independent
+> binding review with no HIGH, MEDIUM, or blocking LOW finding and verdict
+> `GO_TO_BIND_CONNECTED_ONLY_POLICY_COMMIT`.
+>
+> The exact reviewed block is now bound in `AGENTS.md`. It activates only
+> `S22PLUS_FYG8_R4W1B_CONNECTED_POLICY_STATE=ACTIVE`; the R4W1-B live sentinel
+> remains absent. Post-binding validation passed 38 focused tests, all 100
+> R4W1-B regression tests with 3 skips, `py_compile`, `git diff --check`, and
+> the complete 9.68GB offline artifact gate. The final offline result reports
+> `PASS_R4W1B_LIVE_GATE_OFFLINE_CHECK`, `connected_active=true`,
+> `live_active=false`, `connected_pass_present=false`,
+> `candidate_consumed=false`, and no device contact/write/flash.
+>
+> Next is exactly one connected read-only qualification, but only after the
+> attending operator freshly supplies
+> `S22PLUS-FYG8-R4W1B-CONNECTED-READ-ONLY-DRY-RUN`. Generic approval does not
+> satisfy this gate. No reboot, Download transition, Odin transfer, flash,
+> rollback, or partition write is authorized. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1B_CONNECTED_POLICY_BINDING_HOST_GO_2026-07-19.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-19 06:01 KST / 2026-07-18 21:01 UTC) -
 > R4W1-B REUSABLE LIVE-GATE SOURCE READY HOST PASS; OPUS MUST-FIX CLOSED;
 > POLICY INACTIVE; EXACT-COMMIT DELTA REVIEW NEXT.** A reusable mechanical core
