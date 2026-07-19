@@ -6,6 +6,24 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-19 23:44 KST / 2026-07-19 14:44 UTC) -
+> R4W1-B HARDENED CONNECTED PASS + LIVE POLICY BINDING HOST GO; FRESH EXACT
+> LIVE ACK NEXT.** The post-binding hardened connected run returned
+> `PASS_R4W1B_CONNECTED_BASELINE_READ_ONLY`. PASS SHA256 is
+> `186ff8a1...a90a25`; result SHA256 is `03cd2d67...e02c`; all mutation fields
+> are false and candidate state remains unconsumed. The host-only binding packet
+> emitted exact live clause SHA256 `d4aebf88...e3361f`.
+>
+> Independent review found no HIGH, MEDIUM, or blocking LOW issue and returned
+> `GO_TO_BIND_R4W1B_LIVE_POLICY`. The exact clause is now installed with one
+> connected and one live ACTIVE sentinel. Full R4W1-B tests pass `113/113` with
+> 3 skips; the 9.68GB offline gate returns
+> `PASS_R4W1B_LIVE_GATE_OFFLINE_CHECK` with connected/live active, exact PASS
+> present, candidate unconsumed, and no device contact/write/flash. Next requires
+> a new exact `S22PLUS-FYG8-R4W1B-DIRECT-PID1-LIVE`; the connected approval does
+> not authorize candidate transfer. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1B_CONNECTED_PASS_LIVE_POLICY_BINDING_HOST_GO_2026-07-19.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-19 16:49 KST / 2026-07-19 07:49 UTC) -
 > R4W1-B HARDENED CONNECTED REQUALIFICATION BINDING HOST GO; LIVE POLICY
 > INACTIVE; FRESH EXACT CONNECTED ACK NEXT.** Hardened source commit `0524f206`
