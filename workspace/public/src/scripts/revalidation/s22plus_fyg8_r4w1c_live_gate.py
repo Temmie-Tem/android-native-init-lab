@@ -43,19 +43,32 @@ TEST_RELATIVE = Path("tests/test_s22plus_fyg8_r4w1c_live_gate.py")
 POLICY_DRAFT = Path(
     "docs/operations/S22PLUS_FYG8_R4W1C_LIVE_EXCEPTION_DRAFT_2026-07-20.md"
 )
-EXPECTED_POLICY_TEMPLATE_SIZE = 9_637
+EXPECTED_POLICY_TEMPLATE_SIZE = 12_390
 EXPECTED_POLICY_TEMPLATE_SHA256 = (
-    "06f28538c4fa358dabd5e35c6bab5e0cd5a83c6e78c39d9ba1a6c1516ced5497"
+    "4bdba3b3cd2e08dd51f255c2a63bd6c160ee52235073686f150fdb375c47a3ca"
 )
 POLICY_MARKER = "S22+ FYG8 R4W1-C watchdog-carrier direct-PID1 boot-only live gate"
 POLICY_BEGIN = "BEGIN_S22PLUS_FYG8_R4W1C_LIVE_POLICY_V1"
 POLICY_END = "END_S22PLUS_FYG8_R4W1C_LIVE_POLICY_V1"
 ACTIVE_SENTINEL = "S22PLUS_FYG8_R4W1C_LIVE_POLICY_STATE=ACTIVE"
-LIVE_ACK_TOKEN = "S22PLUS-FYG8-R4W1C-DIRECT-PID1-LIVE"
-ROLLBACK_ACK_TOKEN = "S22PLUS-FYG8-R4W1C-MAGISK-ROLLBACK-FROM-DOWNLOAD"
-NORMAL_DOWNLOAD_CONFIRMATION = "S22PLUS-FYG8-R4W1C-NORMAL-DOWNLOAD-CONFIRMED"
+LIVE_ACK_TOKEN = (
+    "S22PLUS-FYG8-R4W1C-NOSERIAL-PHYSICAL-CONTINUITY-DIRECT-PID1-LIVE"
+)
+ROLLBACK_ACK_TOKEN = (
+    "S22PLUS-FYG8-R4W1C-NOSERIAL-PHYSICAL-CONTINUITY-"
+    "MAGISK-ROLLBACK-FROM-DOWNLOAD"
+)
+NORMAL_DOWNLOAD_CONFIRMATION = (
+    "S22PLUS-FYG8-R4W1C-NOSERIAL-PHYSICAL-CONTINUITY-"
+    "NORMAL-DOWNLOAD-CONFIRMED"
+)
+STOCK_CLEANUP_CONFIRMATION = (
+    "S22PLUS-FYG8-R4W1C-NOSERIAL-PHYSICAL-CONTINUITY-"
+    "STOCK-CLEANUP-CONFIRMED"
+)
 AMBIGUOUS_ROLLBACK_RETRY_ACK = (
-    "S22PLUS-FYG8-R4W1C-AMBIGUOUS-MAGISK-ROLLBACK-RETRY"
+    "S22PLUS-FYG8-R4W1C-NOSERIAL-PHYSICAL-CONTINUITY-"
+    "AMBIGUOUS-MAGISK-ROLLBACK-RETRY"
 )
 
 CONNECTED_HELPER_SHA256 = (
@@ -82,9 +95,20 @@ MAX_TRANSFER_OUTPUT_BYTES = 8 * 1024 * 1024
 MAX_RECOVERY_ATTEMPTS = 2
 USB_TOPOLOGY_RE = re.compile(r"[0-9]+-[0-9]+(?:\.[0-9]+)*")
 DOWNLOAD_USB_PRODUCT = "685d"
+DOWNLOAD_USB_PRODUCT_TEXT = "SAMSUNG USB"
+DOWNLOAD_USB_MANUFACTURER = "Samsung"
+DOWNLOAD_USB_SERIAL_STATE = "absent"
+PHYSICAL_CONTINUITY_BASIS = (
+    "operator-attested-same-attended-handset-cable-hub-host-port;"
+    "preflight-through-final-rollback-and-android-return;"
+    "not-host-intrinsically-verifiable"
+)
+USBFS_CHARACTER_MAJOR = 189
+USBFS_DEVICES_PER_BUS = 128
 DOWNLOAD_STABLE_SAMPLE_COUNT = 3
 DOWNLOAD_STABLE_POLL_SEC = 0.25
 USB_SYSFS_ROOT = Path("/sys/bus/usb/devices")
+STOCK_CLEANUP_INTENT_NAME = "rollback-stock-cleanup-intent.json"
 UTC_RE = re.compile(
     r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6}Z"
 )
@@ -147,8 +171,19 @@ def adb_usb_binding(serial: str) -> dict[str, str]:
         raise GateError("ADB and Android USB sysfs serials differ")
     return {
         "topology": topology,
-        "serial_sha256": core.sha256_bytes(usb_serial.encode("ascii")),
+        "serial_sha256": android_serial_sha256(usb_serial),
+        "download_serial_state": DOWNLOAD_USB_SERIAL_STATE,
     }
+
+
+def android_serial_sha256(serial: str) -> str:
+    try:
+        encoded = serial.encode("ascii")
+    except UnicodeEncodeError as exc:
+        raise GateError("Android serial is not ASCII") from exc
+    if re.fullmatch(r"[A-Za-z0-9._:-]{4,128}", serial) is None:
+        raise GateError("Android serial is not canonical")
+    return core.sha256_bytes(encoded)
 
 
 def endpoint_node_snapshot(device: str) -> tuple[os.stat_result, str]:
@@ -169,6 +204,83 @@ def endpoint_node_snapshot(device: str) -> tuple[os.stat_result, str]:
     return metadata, identity
 
 
+def require_usbfs_node_binding(
+    device: str, metadata: os.stat_result, identity: dict[str, str]
+) -> None:
+    try:
+        busnum = int(identity["busnum"])
+        devnum = int(identity["devnum"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise GateError("Download USB bus/device numbers are malformed") from exc
+    expected_device = f"/dev/bus/usb/{busnum:03d}/{devnum:03d}"
+    expected_minor = (busnum - 1) * USBFS_DEVICES_PER_BUS + (devnum - 1)
+    if (
+        device != expected_device
+        or os.major(metadata.st_rdev) != USBFS_CHARACTER_MAJOR
+        or os.minor(metadata.st_rdev) != expected_minor
+    ):
+        raise GateError("Odin endpoint is not the exact sysfs-bound usbfs node")
+
+
+def require_download_serial_absent(usb_device: Path) -> str:
+    serial_path = usb_device / "serial"
+    try:
+        os.stat(serial_path, follow_symlinks=False)
+    except FileNotFoundError:
+        return DOWNLOAD_USB_SERIAL_STATE
+    except OSError as exc:
+        raise GateError("Download USB serial state is unreadable") from exc
+    raise GateError("Download USB serial is unexpectedly present")
+
+
+def read_download_sysfs_identity(usb_device: Path) -> dict[str, str] | None:
+    try:
+        serial_state_before = require_download_serial_absent(usb_device)
+        values = {
+            "vendor": (usb_device / "idVendor").read_text(encoding="ascii").strip(),
+            "product": (usb_device / "idProduct").read_text(encoding="ascii").strip(),
+            "product_text": (usb_device / "product").read_text(encoding="ascii").strip(),
+            "manufacturer": (usb_device / "manufacturer")
+            .read_text(encoding="ascii")
+            .strip(),
+            "busnum": (usb_device / "busnum").read_text(encoding="ascii").strip(),
+            "devnum": (usb_device / "devnum").read_text(encoding="ascii").strip(),
+            "devpath": (usb_device / "devpath").read_text(encoding="ascii").strip(),
+        }
+        serial_state_after = require_download_serial_absent(usb_device)
+    except FileNotFoundError:
+        return None
+    except (OSError, UnicodeError) as exc:
+        raise GateError("Download USB sysfs identity is unreadable") from exc
+    if serial_state_before != serial_state_after:
+        raise GateError("Download USB serial state changed while reading identity")
+    values["serial_state"] = serial_state_after
+    return values
+
+
+def validate_download_sysfs_identity(
+    values: dict[str, str], expected_topology: str
+) -> None:
+    if USB_TOPOLOGY_RE.fullmatch(expected_topology) is None:
+        raise GateError("Download USB topology is malformed")
+    expected_busnum, expected_devpath = expected_topology.split("-", 1)
+    if (
+        values.get("vendor") != "04e8"
+        or values.get("product") != DOWNLOAD_USB_PRODUCT
+        or values.get("product_text") != DOWNLOAD_USB_PRODUCT_TEXT
+        or values.get("manufacturer") != DOWNLOAD_USB_MANUFACTURER
+        or values.get("serial_state") != DOWNLOAD_USB_SERIAL_STATE
+        or re.fullmatch(r"[1-9][0-9]*", values.get("busnum", "")) is None
+        or re.fullmatch(r"[1-9][0-9]*", values.get("devnum", "")) is None
+        or re.fullmatch(r"[0-9]+(?:\.[0-9]+)*", values.get("devpath", "")) is None
+        or values.get("busnum") != expected_busnum
+        or values.get("devpath") != expected_devpath
+        or not 1 <= int(values["busnum"]) <= 999
+        or not 1 <= int(values["devnum"]) <= 999
+    ):
+        raise GateError("Download USB identity is not exact Samsung/canonical")
+
+
 def endpoint_usb_identity(device: str) -> dict[str, str]:
     metadata, device_identity_before = endpoint_node_snapshot(device)
     sysfs_link = Path("/sys/dev/char") / (
@@ -185,32 +297,21 @@ def endpoint_usb_identity(device: str) -> dict[str, str]:
             break
     if usb_device is None:
         raise GateError("Odin endpoint lacks a canonical USB topology")
-    try:
-        vendor = (usb_device / "idVendor").read_text(encoding="ascii").strip()
-        product = (usb_device / "idProduct").read_text(encoding="ascii").strip()
-        busnum = (usb_device / "busnum").read_text(encoding="ascii").strip()
-        devpath = (usb_device / "devpath").read_text(encoding="ascii").strip()
-        usb_serial = (usb_device / "serial").read_text(encoding="ascii").strip()
-    except (OSError, UnicodeError) as exc:
-        raise GateError("Odin endpoint USB identity is unreadable") from exc
-    if (
-        vendor != "04e8"
-        or re.fullmatch(r"[0-9a-f]{4}", product) is None
-        or re.fullmatch(r"[1-9][0-9]*", busnum) is None
-        or re.fullmatch(r"[0-9]+(?:\.[0-9]+)*", devpath) is None
-        or re.fullmatch(r"[A-Za-z0-9._:-]{4,128}", usb_serial) is None
-    ):
-        raise GateError("Odin endpoint USB identity is not Samsung/canonical")
-    _metadata_after, device_identity_after = endpoint_node_snapshot(device)
+    identity_before = read_download_sysfs_identity(usb_device)
+    if identity_before is None:
+        raise GateError("Odin endpoint USB identity disappeared while reading")
+    validate_download_sysfs_identity(identity_before, usb_device.name)
+    require_usbfs_node_binding(device, metadata, identity_before)
+    identity_after = read_download_sysfs_identity(usb_device)
+    if identity_after is None or identity_after != identity_before:
+        raise GateError("Odin endpoint USB identity changed while reading")
+    metadata_after, device_identity_after = endpoint_node_snapshot(device)
+    require_usbfs_node_binding(device, metadata_after, identity_after)
     if device_identity_after != device_identity_before:
         raise GateError("Odin endpoint changed while reading its USB identity")
     return {
         "topology": usb_device.name,
-        "vendor": vendor,
-        "product": product,
-        "busnum": busnum,
-        "devpath": devpath,
-        "serial_sha256": core.sha256_bytes(usb_serial.encode("ascii")),
+        **identity_after,
         "sysfs_device": str(usb_device),
         "device_identity": device_identity_after,
     }
@@ -221,14 +322,17 @@ def require_ticket_usb_binding(
 ) -> dict[str, str]:
     expected_topology = str(expected.get("topology", ""))
     expected_serial = str(expected.get("serial_sha256", ""))
+    expected_download_serial = str(expected.get("download_serial_state", ""))
     if USB_TOPOLOGY_RE.fullmatch(expected_topology) is None:
         raise GateError("expected USB topology is malformed")
     if re.fullmatch(r"[0-9a-f]{64}", expected_serial) is None:
         raise GateError("expected USB serial binding is malformed")
+    if expected_download_serial != DOWNLOAD_USB_SERIAL_STATE:
+        raise GateError("expected Download USB serial state is malformed")
     identity = endpoint_usb_identity(ticket.device)
     if (
         identity["topology"] != expected_topology
-        or identity["serial_sha256"] != expected_serial
+        or identity["serial_state"] != expected_download_serial
         or identity["product"] != DOWNLOAD_USB_PRODUCT
         or identity["device_identity"] != ticket.device_identity
     ):
@@ -245,56 +349,51 @@ def bound_download_node_sample(
 ) -> dict[str, Any] | None:
     expected_topology = str(expected.get("topology", ""))
     expected_serial = str(expected.get("serial_sha256", ""))
+    expected_download_serial = str(expected.get("download_serial_state", ""))
     if USB_TOPOLOGY_RE.fullmatch(expected_topology) is None:
         raise GateError("expected USB topology is malformed")
     if re.fullmatch(r"[0-9a-f]{64}", expected_serial) is None:
         raise GateError("expected USB serial binding is malformed")
+    if expected_download_serial != DOWNLOAD_USB_SERIAL_STATE:
+        raise GateError("expected Download USB serial state is malformed")
 
     usb_device = sysfs_root / expected_topology
-    try:
-        vendor = (usb_device / "idVendor").read_text(encoding="ascii").strip()
-        product = (usb_device / "idProduct").read_text(encoding="ascii").strip()
-        usb_serial = (usb_device / "serial").read_text(encoding="ascii").strip()
-        busnum = (usb_device / "busnum").read_text(encoding="ascii").strip()
-        devnum = (usb_device / "devnum").read_text(encoding="ascii").strip()
-    except FileNotFoundError:
+    first_identity = read_download_sysfs_identity(usb_device)
+    if first_identity is None:
         return None
-    except (OSError, UnicodeError) as exc:
-        raise GateError("bound USB topology is unreadable") from exc
-
-    if vendor != "04e8":
+    if first_identity["vendor"] != "04e8":
         raise GateError("bound USB topology is no longer Samsung")
-    if re.fullmatch(r"[A-Za-z0-9._:-]{4,128}", usb_serial) is None:
-        raise GateError("bound USB serial is malformed")
-    serial_sha256 = core.sha256_bytes(usb_serial.encode("ascii"))
-    if serial_sha256 != expected_serial:
-        raise GateError("bound USB topology serial changed")
-    if product != DOWNLOAD_USB_PRODUCT:
+    if first_identity["product"] != DOWNLOAD_USB_PRODUCT:
         return None
-    if (
-        re.fullmatch(r"[1-9][0-9]*", busnum) is None
-        or re.fullmatch(r"[1-9][0-9]*", devnum) is None
-        or not 1 <= int(busnum) <= 999
-        or not 1 <= int(devnum) <= 999
-    ):
-        raise GateError("bound Download USB bus/device number is malformed")
+    validate_download_sysfs_identity(first_identity, expected_topology)
 
-    device = f"/dev/bus/usb/{int(busnum):03d}/{int(devnum):03d}"
+    device = (
+        f"/dev/bus/usb/{int(first_identity['busnum']):03d}/"
+        f"{int(first_identity['devnum']):03d}"
+    )
     if odin_core.ODIN_DEVICE_RE.fullmatch(device) is None:
         raise GateError("bound Download endpoint path is malformed")
     try:
-        metadata = os.stat(device, follow_symlinks=False)
+        metadata, device_identity_before = endpoint_node_snapshot(device)
     except FileNotFoundError:
         return None
     except OSError as exc:
         raise GateError("bound Download endpoint is unreadable") from exc
-    if not stat.S_ISCHR(metadata.st_mode):
-        raise GateError("bound Download endpoint is not a character device")
+    require_usbfs_node_binding(device, metadata, first_identity)
+    second_identity = read_download_sysfs_identity(usb_device)
+    if second_identity is None or second_identity != first_identity:
+        raise GateError("bound Download USB identity changed while sampling")
+    metadata_after, device_identity_after = endpoint_node_snapshot(device)
+    require_usbfs_node_binding(device, metadata_after, second_identity)
+    if device_identity_after != device_identity_before:
+        raise GateError("bound Download endpoint changed while sampling")
     return {
         "device": device,
         "topology": expected_topology,
-        "serial_sha256": serial_sha256,
-        "product": product,
+        "serial_state": first_identity["serial_state"],
+        "product": first_identity["product"],
+        "product_text": first_identity["product_text"],
+        "manufacturer": first_identity["manufacturer"],
         "node": {
             "st_dev": metadata.st_dev,
             "st_ino": metadata.st_ino,
@@ -330,7 +429,16 @@ def wait_for_stable_download_node(
         else:
             node = sample.get("node")
             if (
-                set(sample) != {"device", "topology", "serial_sha256", "product", "node"}
+                set(sample)
+                != {
+                    "device",
+                    "topology",
+                    "serial_state",
+                    "product",
+                    "product_text",
+                    "manufacturer",
+                    "node",
+                }
                 or not isinstance(node, dict)
                 or set(node) != {"st_dev", "st_ino", "st_rdev", "st_ctime_ns"}
                 or any(not isinstance(node[name], int) for name in node)
@@ -338,8 +446,10 @@ def wait_for_stable_download_node(
                 raise GateError("bound Download endpoint sample is malformed")
             if (
                 sample["topology"] != expected.get("topology")
-                or sample["serial_sha256"] != expected.get("serial_sha256")
+                or sample["serial_state"] != expected.get("download_serial_state")
                 or sample["product"] != DOWNLOAD_USB_PRODUCT
+                or sample["product_text"] != DOWNLOAD_USB_PRODUCT_TEXT
+                or sample["manufacturer"] != DOWNLOAD_USB_MANUFACTURER
                 or odin_core.ODIN_DEVICE_RE.fullmatch(str(sample["device"])) is None
             ):
                 raise GateError("bound Download endpoint sample does not match binding")
@@ -535,6 +645,7 @@ def policy_required_values(root: Path) -> tuple[str, ...]:
         LIVE_ACK_TOKEN,
         ROLLBACK_ACK_TOKEN,
         NORMAL_DOWNLOAD_CONFIRMATION,
+        STOCK_CLEANUP_CONFIRMATION,
         AMBIGUOUS_ROLLBACK_RETRY_ACK,
         str(POLICY_DRAFT),
         EXPECTED_POLICY_TEMPLATE_SHA256,
@@ -799,9 +910,20 @@ def consume_exception(
     path = root / CONSUMED_STATE
     if path.exists() or path.is_symlink():
         raise GateError("R4W1-C candidate exception is already consumed")
+    android_serial = str(baseline["android_serial"])
+    expected_usb_binding = {
+        "topology": str(usb_binding.get("topology", "")),
+        "serial_sha256": android_serial_sha256(android_serial),
+        "download_serial_state": DOWNLOAD_USB_SERIAL_STATE,
+    }
+    if (
+        USB_TOPOLOGY_RE.fullmatch(expected_usb_binding["topology"]) is None
+        or usb_binding != expected_usb_binding
+    ):
+        raise GateError("R4W1-C USB binding does not match the Android serial")
     prepared = prepared_binding(root, run_dir, baseline)
     record = {
-        "schema": "s22plus_fyg8_r4w1c_consumed_v2",
+        "schema": "s22plus_fyg8_r4w1c_consumed_v3",
         "target": TARGET,
         "reason": "candidate_flash_start",
         "consumed_at_utc": core.utc_now(),
@@ -817,9 +939,10 @@ def consume_exception(
         "policy_clause_sha256": core.sha256_bytes(clause.encode("utf-8")),
         "connected_binding": connected_evidence["binding"],
         "prepared": prepared,
-        "android_serial": str(baseline["android_serial"]),
+        "android_serial": android_serial,
         "android_boot_id": str(baseline["boot_id"]),
         "usb_binding": usb_binding,
+        "physical_continuity_basis": PHYSICAL_CONTINUITY_BASIS,
         "candidate_ap_sha256": connected.EXPECTED_CANDIDATE_AP_SHA256,
         "static_result_sha256": connected.EXPECTED_STATIC_RESULT_SHA256,
         "magisk_ap_sha256": connected.EXPECTED_MAGISK_AP_SHA256,
@@ -847,7 +970,7 @@ def require_consumed(
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise GateError("R4W1-C consumed state is invalid") from exc
     expected = {
-        "schema": "s22plus_fyg8_r4w1c_consumed_v2",
+        "schema": "s22plus_fyg8_r4w1c_consumed_v3",
         "target": TARGET,
         "reason": "candidate_flash_start",
         "helper_sha256": helper_sha256(root),
@@ -857,6 +980,7 @@ def require_consumed(
         "magisk_ap_sha256": connected.EXPECTED_MAGISK_AP_SHA256,
         "stock_ap_sha256": connected.EXPECTED_STOCK_AP_SHA256,
         "artifact_target": TARGET,
+        "physical_continuity_basis": PHYSICAL_CONTINUITY_BASIS,
         "policy_draft": {
             "path": policy["path"],
             "size": policy["size"],
@@ -882,16 +1006,21 @@ def require_consumed(
         or UTC_RE.fullmatch(str(record.get("consumed_at_utc", ""))) is None
         or UTC_RE.fullmatch(str(record.get("live_session_start_utc", ""))) is None
         or not isinstance(record.get("usb_binding"), dict)
-        or set(record.get("usb_binding", {})) != {"topology", "serial_sha256"}
+        or set(record.get("usb_binding", {}))
+        != {"topology", "serial_sha256", "download_serial_state"}
         or USB_TOPOLOGY_RE.fullmatch(
             str(record.get("usb_binding", {}).get("topology", ""))
         )
         is None
+        or record.get("usb_binding", {}).get("download_serial_state")
+        != DOWNLOAD_USB_SERIAL_STATE
         or re.fullmatch(
             r"[0-9a-f]{64}",
             str(record.get("usb_binding", {}).get("serial_sha256", "")),
         )
         is None
+        or record.get("usb_binding", {}).get("serial_sha256")
+        != android_serial_sha256(str(record.get("android_serial", "")))
         or re.fullmatch(
             r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}",
             str(record.get("android_boot_id", "")),
@@ -1064,12 +1193,27 @@ def read_fresh_confirmation(timeout_sec: float, descriptor: int) -> str:
 def confirm_normal_download(timeout_sec: float) -> None:
     descriptor = prepare_fresh_confirmation_input()
     print(
-        "Confirm that the screen is normal Samsung Download mode. Type the exact "
-        "R4W1-C temporal confirmation token to permit boot-only rollback.",
+        "Confirm that the original candidate handset remains on the same cable, "
+        "hub, and host port and that its screen is normal Samsung Download mode. "
+        "Type the exact R4W1-C physical-continuity temporal confirmation token "
+        "to permit boot-only rollback.",
         flush=True,
     )
     if read_fresh_confirmation(timeout_sec, descriptor) != NORMAL_DOWNLOAD_CONFIRMATION:
         raise GateError("normal Download confirmation mismatch")
+
+
+def confirm_stock_cleanup(timeout_sec: float) -> None:
+    descriptor = prepare_fresh_confirmation_input()
+    print(
+        "Magisk rollback returned a definite failure. Confirm that the original "
+        "candidate handset still remains on the same cable, hub, and host port "
+        "in normal Samsung Download mode. Type the exact R4W1-C stock-cleanup "
+        "physical-continuity confirmation token to permit the cleanup transfer.",
+        flush=True,
+    )
+    if read_fresh_confirmation(timeout_sec, descriptor) != STOCK_CLEANUP_CONFIRMATION:
+        raise GateError("stock cleanup confirmation mismatch")
 
 
 def observe_candidate(seconds: float) -> dict[str, Any]:
@@ -1428,6 +1572,72 @@ def create_ambiguous_retry_intent(
     return record
 
 
+def create_stock_cleanup_intent(
+    root: Path,
+    run_dir: Path,
+    *,
+    attempt: int,
+    ticket: odin_core.EndpointTicket,
+    topology: dict[str, str],
+) -> dict[str, Any]:
+    path = run_dir / STOCK_CLEANUP_INTENT_NAME
+    if path.exists() or path.is_symlink():
+        raise GateError("stock cleanup intent was already consumed")
+    record = {
+        "schema": "s22plus_fyg8_r4w1c_stock_cleanup_intent_v1",
+        "created_at_utc": core.utc_now(),
+        "attempt": attempt,
+        "ack": STOCK_CLEANUP_CONFIRMATION,
+        "ticket": _ticket_payload(ticket),
+        "usb_binding": topology,
+        "target": "stock",
+        "stock_ap_sha256": connected.EXPECTED_STOCK_AP_SHA256,
+        "magisk_failure": "definite-nonzero",
+    }
+    core.durable_create_json(path, record)
+    connected.require_direct_path(root, path, "stock cleanup intent")
+    return record
+
+
+def stock_cleanup_tainted(run_dir: Path) -> bool:
+    path = run_dir / STOCK_CLEANUP_INTENT_NAME
+    return path.exists() or path.is_symlink()
+
+
+def require_no_stock_cleanup_taint(run_dir: Path) -> None:
+    if stock_cleanup_tainted(run_dir):
+        raise GateError(
+            "stock cleanup intent permanently taints this transaction; "
+            "automatic recovery is forbidden"
+        )
+
+
+def stock_cleanup_evidence(root: Path, run_dir: Path) -> dict[str, Any] | None:
+    if not stock_cleanup_tainted(run_dir):
+        return None
+    intent = connected.require_direct_path(
+        root, run_dir / STOCK_CLEANUP_INTENT_NAME, "stock cleanup intent"
+    )
+    evidence: dict[str, Any] = {
+        "intent": {
+            "path": str(intent.relative_to(root)),
+            **core.hash_stable_file(intent),
+        },
+        "transfer_logs": [],
+    }
+    logs = sorted(run_dir.glob("odin-stock-attempt-*.json"))
+    if len(logs) > 1:
+        raise GateError("multiple stock cleanup transfer logs are forbidden")
+    for path in logs:
+        if re.fullmatch(r"odin-stock-attempt-[0-9]{2}\.json", path.name) is None:
+            raise GateError("stock cleanup transfer log name is malformed")
+        direct = connected.require_direct_path(root, path, "stock cleanup transfer log")
+        evidence["transfer_logs"].append(
+            {"path": str(direct.relative_to(root)), **core.hash_stable_file(direct)}
+        )
+    return evidence
+
+
 def transaction_evidence(root: Path, run_dir: Path) -> dict[str, Any]:
     snapshots = odin_core.list_snapshot_receipts(run_dir)
     phases = odin_core.list_phase_receipts(run_dir)
@@ -1486,6 +1696,7 @@ def transaction_evidence(root: Path, run_dir: Path) -> dict[str, Any]:
         "phases": [record for record in receipt_summaries if "phase" in record],
         "index_segments": segment_summaries,
         "record_count": len(records),
+        "stock_cleanup": stock_cleanup_evidence(root, run_dir),
     }
     if (
         odin_core.list_snapshot_receipts(run_dir) != snapshots
@@ -1570,6 +1781,10 @@ def _finish(
     error: str | None = None,
 ) -> int:
     append_timeline_event(timeline_path, timeline, "live_session_end")
+    if verdict == PASS_VERDICT and stock_cleanup_tainted(run_dir):
+        verdict = "FAIL_R4W1C_STOCK_CLEANUP_TAINTED"
+        rc = 34
+        error = "stock cleanup intent permanently forbids PASS"
     if verdict == PASS_VERDICT and [event["name"] for event in timeline] != list(
         core.TIMELINE_NAMES
     ):
@@ -1744,6 +1959,15 @@ def _rollback_sequence(
                     )
                     rollback_target = "magisk"
                 except OdinCommandFailed as magisk_error:
+                    confirm_stock_cleanup(args.confirmation_wait_sec)
+                    create_stock_cleanup_intent(
+                        root,
+                        run_dir,
+                        attempt=attempt,
+                        ticket=ticket,
+                        topology=topology,
+                    )
+
                     def cleanup_revalidation_action() -> tuple[str, dict[str, Any]]:
                         nonlocal sequence
                         device, sequence, record = revalidate_ticket(
@@ -1945,6 +2169,7 @@ def _live_run_with_odin(
         "artifacts": artifacts,
         "policy": policy,
         "connected_evidence": connected_evidence["binding"],
+        "physical_continuity_basis": PHYSICAL_CONTINUITY_BASIS,
         "candidate_transfer_attempted": False,
         "candidate_transfer_ok": False,
         "verdict": "INCOMPLETE",
@@ -2192,6 +2417,7 @@ def rollback_from_download(
     consumed, run_dir, connected_evidence = require_consumed(
         root, artifacts, policy, clause
     )
+    require_no_stock_cleanup_taint(run_dir)
     if consumed["artifact_target"] != artifacts["target"]:
         raise GateError("R4W1-C recovery artifact target mismatch")
     if phase_payload(root, run_dir, "classified") is not None:
@@ -2214,6 +2440,7 @@ def rollback_from_download(
             "connected_evidence": connected_evidence["binding"],
             "usb_binding": consumed["usb_binding"],
             "android_serial": consumed["android_serial"],
+            "physical_continuity_basis": PHYSICAL_CONTINUITY_BASIS,
             **state,
             "verdict": "INCOMPLETE",
         }

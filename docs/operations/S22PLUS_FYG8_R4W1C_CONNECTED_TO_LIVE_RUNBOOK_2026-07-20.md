@@ -5,13 +5,14 @@ Date: 2026-07-20 KST
 Target: `SM-S906N/g0q/S906NKSS7FYG8`
 
 State: connected policy ACTIVE; connected PASS present; serial-bound live policy
-RETIRED after one pre-consumption failure; candidate unconsumed; replacement
-topology/generation binding requires host redesign and requalification.
+RETIRED after one pre-consumption failure; candidate unconsumed; no-serial
+physical-continuity replacement source qualified `SOURCE_GO`; deterministic
+private binding packet and independent exact-clause review are next.
 
 This runbook freezes the remaining promotion sequence. It grants no device
 contact or live authorization. `AGENTS.md` remains the binding policy.
 
-## Frozen Preconnected Packet
+## Retired Serial-Bound Packet
 
 ```text
 connected source checkpoint  64d317ab
@@ -31,10 +32,34 @@ connected PASS record         4b8bd44ee171341592e987171137007376dec71432df05b39a
 connected result              f954c9b7238932f97d0a51c85cd5623ae2deced5b6d4c443992fb73bb0906e3a
 ```
 
-Do not modify the live helper/test/template, connected helper/test/core, or
-connected evidence after qualification. Any such change invalidates the
-promotion chain and requires host requalification; connected-source changes
-also require a new connected qualification.
+These live-source identities describe the retired serial-bound packet and must
+not be used for a new live run. The connected helper/test/core and connected
+evidence remain frozen and reusable by the separately qualified replacement.
+
+## Current No-Serial Source Packet
+
+```text
+live helper                   ce39196e58c6e7be83e8e8bcf7b56cb46e0e4ef22c05c1251f58b3310aae57ff
+live focused test             b0e8112ffb926505d625f1feb9d5343d316d9d158386bee98cba641dc5ef0987
+live policy template          4bdba3b3cd2e08dd51f255c2a63bd6c160ee52235073686f150fdb375c47a3ca
+binding packet generator      3d66c98423cbf5e3a7f5b6084a1f6c6f46d9f115e5692c57a935f16021e28381
+binding packet test           8c8a4edc01fa1814946c2e1a424bef501cb87bad152e9a39084877011305ffbd
+shared Odin core              ab418aac5ce4c854f433e2132bd9536a610991384ec82c50dc0ba063f1888a9b
+shared live core              9bcade2532e77d538112836ebe9903bab832c1f2250151d3635260b6fd013725
+focused live tests            57/57
+exact six-file tests          189/189
+full offline verdict          PASS_R4W1C_LIVE_GATE_OFFLINE_CHECK
+source review                 SOURCE_GO
+```
+
+The replacement accepts Download serial absence only as an exact measured
+property. It does not promote topology to a per-handset identity. The operator
+must freshly attest uninterrupted physical continuity of the same handset,
+cable, hub path, and host port through final rollback and Android return.
+
+After the source checkpoint commit, do not modify the live helper, focused test,
+template, binding generator, connected source, shared cores, or connected
+evidence. Any such change invalidates the replacement promotion chain.
 
 ## Stage 0: Host-Only Precheck
 
@@ -93,10 +118,10 @@ the exact `AGENTS.md` clause. The generator cannot contact a device or edit
 policy.
 
 Independently review the exact packet and clause. While the live policy is
-still inactive, rerun the packet source gate, syntax checks, 181 relevant
+still inactive, rerun the packet source gate, syntax checks, 189 relevant
 regression tests, and the complete offline artifact gate. Then copy the exact
 clause into `AGENTS.md` in a separate commit. After activation, rerun syntax
-checks, the 181 tests, and the live helper's complete `--offline-check`; do not
+checks, the 189 tests, and the live helper's complete `--offline-check`; do not
 rerun the packet generator because its source gate intentionally rejects an
 already-active live policy. Required final state is connected PASS present,
 candidate unconsumed, and both the connected and live policies ACTIVE.
@@ -121,15 +146,15 @@ replacement must be generated and reviewed from a helper that treats Download
 serial absence as an exact measured target property while retaining topology,
 arrival generation, node identity, hardened ticket, and final continuity gates.
 
-## Stage 3: Retired Live Entry
+## Stage 3: Replacement Not Yet Active
 
 The serial-bound helper, its exact live token, and its rollback tokens are
-retired and must not be invoked. There is no current executable Stage 3.
+retired and must not be invoked. The no-serial replacement source is qualified,
+but there is still no executable Stage 3 because no new clause is ACTIVE.
 
-A replacement Stage 3 requires corrected source and tests, a full source
-review, deterministic packet generation, independent binding review, a new
-separate ACTIVE policy commit, post-activation requalification, and a fresh
-token supplied only after that checkpoint.
+Remaining promotion steps are deterministic packet generation, independent
+binding review, a new separate ACTIVE policy commit, post-activation
+requalification, and a fresh exact token supplied only after that checkpoint.
 
 ## Stage 4: Recovery Not Applicable
 

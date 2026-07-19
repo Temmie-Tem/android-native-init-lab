@@ -6,30 +6,39 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
-> **S22+ ACTIVE FRONTIER (2026-07-20 06:14 KST / 2026-07-19 21:14 UTC) -
-> R4W1-C PRE-CONSUMPTION FAIL; FLASH 0; DOWNLOAD SERIAL ABSENT PROVED;
-> LIVE POLICY RETIRED; TOPOLOGY/GENERATION BINDING NEXT.** One newly approved
-> run completed the exact Android baseline and `adb reboot download` returned
-> success. The candidate gate then timed out before consumption with
-> `FAIL_R4W1C_PRECONSUMPTION_NO_CANDIDATE_FLASH`. Candidate transfer attempted
-> false, Odin transfer 0, boot write 0, and consumed state absent.
+> **S22+ ACTIVE FRONTIER (2026-07-20 06:48 KST / 2026-07-19 21:48 UTC) -
+> R4W1-C NO-SERIAL PHYSICAL-CONTINUITY SOURCE GO; 189/189 + FULL OFFLINE PASS;
+> LIVE POLICY RETIRED; NEW BINDING PACKET NEXT.** The replacement source retains
+> exact pre-reboot Android serial and topology binding, then requires measured
+> Download serial absence at that topology with exact `04e8:685d`, `SAMSUNG USB`,
+> `Samsung`, stable arrival generation, direct usbfs pathname, character major
+> 189, computed minor, complete node tuple, hardened Odin ticket equality, and
+> pre/post-sysfs continuity around every transfer launch.
 >
-> While the device remained in normal Samsung Download, host sysfs proved the
-> exact Android-bound topology `2-1.3`, Samsung product `04e8:685d`, and direct
-> character node `/dev/bus/usb/002/017`, but no `serial` attribute. The helper's
-> mandatory Android-serial digest therefore made a legitimate FYG8 Download
-> endpoint impossible to accept. After physical exit, exact FYG8 Android,
-> stopped boot animation, Magisk uid 0, known boot, stock vendor_boot/DTBO/
-> recovery, orange state, and Android USB `04e8:6860` serial `RFCT519XWGK`
-> all passed. Policy-only commit `47fbbc35` retires the impossible gate.
+> Download exposes no intrinsic per-handset serial, so same-model substitution at
+> the same physical port is not host-provably distinguishable. The source now
+> states this as a residual trust boundary and requires fresh operator physical-
+> continuity attestations through candidate, recovery, every rollback transfer,
+> stock cleanup, ambiguous retry, and final exact Android return. It does not
+> claim topology is a handset identity.
 >
-> Next is host-only redesign: retain pre-reboot Android serial and exact topology
-> binding, but accept measured Download serial absence only at that topology;
-> require `04e8:685d`, exclusive direct-node arrival generation, stable complete
-> node tuple, hardened Odin ticket equality, and pre/post-sysfs continuity at
-> every transfer. Full tests and independent review precede any new binding.
-> Report:
-> `docs/reports/S22PLUS_FYG8_R4W1C_DOWNLOAD_SERIAL_ABSENT_PRECONSUMPTION_2026-07-20.md`.
+> Stock cleanup now requires its own fresh confirmation and exclusive durable
+> intent before launch. Once that intent exists, the transaction is permanently
+> non-PASS and built-in recovery stops before endpoint discovery or Odin, closing
+> the post-intent crash ambiguity. Focused live tests pass `57/57`; the exact
+> six-file set passes `189/189`; syntax, ResourceWarning-fatal, diff, and full
+> 9.68GB artifact reopening pass. Independent xhigh review returned `SOURCE_GO`
+> with no HIGH, MEDIUM, or LOW finding. Candidate remains unconsumed and the live
+> policy remains RETIRED. Next: commit this source snapshot, emit a deterministic
+> private packet, independently review its exact clause, and activate only in a
+> separate policy commit. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1C_NOSERIAL_PHYSICAL_CONTINUITY_SOURCE_HOST_GO_2026-07-20.md`.
+>
+> **Prior live fact retained:** normal FYG8 Download at topology `2-1.3` exposed
+> `04e8:685d` and `/dev/bus/usb/002/017` with no sysfs serial. The serial-bound
+> gate stopped before consumption and transfer with flash 0, and exact FYG8/
+> Magisk Android returned. Commit `47fbbc35` retired that impossible policy;
+> its tokens remain forbidden.
 
 > **S22+ ACTIVE FRONTIER (2026-07-20 06:06 KST / 2026-07-19 21:06 UTC) -
 > R4W1-C HARDENED LIVE POLICY ACTIVE; POST-ACTIVATION GO; CANDIDATE
