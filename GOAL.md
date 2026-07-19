@@ -6,6 +6,27 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-20 06:57 KST / 2026-07-19 21:57 UTC) -
+> R4W1-C NO-SERIAL REPLACEMENT BINDING GO; EXACT ACTIVE CLAUSE READY; LIVE
+> POLICY STILL RETIRED.** Source checkpoint `841d046f` was reopened and the
+> deterministic host-only generator emitted packet SHA256
+> `3e9d5f1535be977a0e303898f1cf6f8f8272ecfea39b0831401198aad002af08`
+> plus exact 12,135-byte ACTIVE clause SHA256
+> `22255be65e282567827922acdc0b820d78f0fbf9f21b81425a40d6dfee384ba4`.
+> The packet binds the retained connected PASS/result, exact no-serial source,
+> artifact pins, one-member candidate and rollback APs, full FYG8 firmware, and
+> records false for every device-action field.
+>
+> Independent xhigh read-only review recomputed the packet and clause, connected
+> evidence tree, observers, archive members, source pins, and full firmware. It
+> found no HIGH, MEDIUM, or LOW finding and returned `BINDING_GO`. The current
+> `AGENTS.md` clause remains RETIRED, consumed state remains absent, and this
+> checkpoint grants no device contact. Next: commit this binding record, install
+> only the exact reviewed clause in a separate `AGENTS.md` commit, then rerun the
+> 189-test and full offline post-activation gates plus independent review before
+> requesting a fresh live token. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1C_NOSERIAL_PHYSICAL_CONTINUITY_LIVE_BINDING_GO_2026-07-20.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-20 06:48 KST / 2026-07-19 21:48 UTC) -
 > R4W1-C NO-SERIAL PHYSICAL-CONTINUITY SOURCE GO; 189/189 + FULL OFFLINE PASS;
 > LIVE POLICY RETIRED; NEW BINDING PACKET NEXT.** The replacement source retains

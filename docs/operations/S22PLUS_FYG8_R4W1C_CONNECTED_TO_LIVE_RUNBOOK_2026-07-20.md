@@ -6,8 +6,8 @@ Target: `SM-S906N/g0q/S906NKSS7FYG8`
 
 State: connected policy ACTIVE; connected PASS present; serial-bound live policy
 RETIRED after one pre-consumption failure; candidate unconsumed; no-serial
-physical-continuity replacement source qualified `SOURCE_GO`; deterministic
-private binding packet and independent exact-clause review are next.
+physical-continuity source commit `841d046f` qualified `SOURCE_GO`; deterministic
+packet and exact clause qualified `BINDING_GO`; separate policy activation next.
 
 This runbook freezes the remaining promotion sequence. It grants no device
 contact or live authorization. `AGENTS.md` remains the binding policy.
@@ -50,6 +50,10 @@ focused live tests            57/57
 exact six-file tests          189/189
 full offline verdict          PASS_R4W1C_LIVE_GATE_OFFLINE_CHECK
 source review                 SOURCE_GO
+source checkpoint commit      841d046f
+binding packet                3e9d5f1535be977a0e303898f1cf6f8f8272ecfea39b0831401198aad002af08
+rendered ACTIVE clause        22255be65e282567827922acdc0b820d78f0fbf9f21b81425a40d6dfee384ba4
+binding review                BINDING_GO
 ```
 
 The replacement accepts Download serial absence only as an exact measured
@@ -126,11 +130,9 @@ rerun the packet generator because its source gate intentionally rejects an
 already-active live policy. Required final state is connected PASS present,
 candidate unconsumed, and both the connected and live policies ACTIVE.
 
-The packet emitted at
-`workspace/private/outputs/s22plus-r4w1c-live-binding-20260719T205737Z`
-passed independent review with no HIGH, MEDIUM, or LOW finding and verdict
-`BINDING_GO`. Its exact identities are frozen above. Do not regenerate or
-substitute the clause during activation.
+The retired serial-bound packet emitted at
+`workspace/private/outputs/s22plus-r4w1c-live-binding-20260719T205737Z` is
+historical and must not be installed.
 
 Activation commit `38266106` changes only `AGENTS.md`. The installed fenced
 block is byte-identical to the reviewed clause. Post-activation `py_compile`,
@@ -145,6 +147,13 @@ retires that ACTIVE clause; Stage 3 must not be invoked with its token. A future
 replacement must be generated and reviewed from a helper that treats Download
 serial absence as an exact measured target property while retaining topology,
 arrival generation, node identity, hardened ticket, and final continuity gates.
+
+The replacement packet emitted at
+`workspace/private/outputs/s22plus-r4w1c-live-binding-20260719T215103Z` passed
+independent review with no HIGH, MEDIUM, or LOW finding and verdict
+`BINDING_GO`. Install only its exact 12,135-byte
+`AGENTS_R4W1C_LIVE_CLAUSE.md`; do not regenerate or substitute it during
+activation. Current `AGENTS.md` remains RETIRED until that separate commit.
 
 ## Stage 3: Replacement Not Yet Active
 
