@@ -4,10 +4,9 @@ Date: 2026-07-20 KST
 
 Target: `SM-S906N/g0q/S906NKSS7FYG8`
 
-State: connected policy ACTIVE; connected PASS present; replacement live source
-SOURCE GO; deterministic live binding BINDING GO; live policy ACTIVE;
-post-activation review GO; candidate unconsumed; fresh exact live acknowledgement
-required.
+State: connected policy ACTIVE; connected PASS present; serial-bound live policy
+RETIRED after one pre-consumption failure; candidate unconsumed; replacement
+topology/generation binding requires host redesign and requalification.
 
 This runbook freezes the remaining promotion sequence. It grants no device
 contact or live authorization. `AGENTS.md` remains the binding policy.
@@ -114,55 +113,28 @@ the exact 181-test set with ResourceWarning fatal, `git diff --check`, and the
 complete 9.68 GB `--offline-check` pass. Independent read-only review returned
 `POST_ACTIVATION_GO` with no HIGH, MEDIUM, or LOW blocker. Stage 2 is complete.
 
-## Stage 3: Attended One-Shot Live
+The later live attempt proved that normal FYG8 Download at exact topology
+`2-1.3` exposes `04e8:685d` and a direct character node but no sysfs `serial`
+attribute. It stopped before consumption and transfer. Commit `47fbbc35`
+retires that ACTIVE clause; Stage 3 must not be invoked with its token. A future
+replacement must be generated and reviewed from a helper that treats Download
+serial absence as an exact measured target property while retaining topology,
+arrival generation, node identity, hardened ticket, and final continuity gates.
 
-Only after Stage 2 is committed and requalified, request the fresh live token:
+## Stage 3: Retired Live Entry
 
-`S22PLUS-FYG8-R4W1C-DIRECT-PID1-LIVE`
+The serial-bound helper, its exact live token, and its rollback tokens are
+retired and must not be invoked. There is no current executable Stage 3.
 
-Command:
+A replacement Stage 3 requires corrected source and tests, a full source
+review, deterministic packet generation, independent binding review, a new
+separate ACTIVE policy commit, post-activation requalification, and a fresh
+token supplied only after that checkpoint.
 
-```bash
-PYTHONDONTWRITEBYTECODE=1 \
-python3 workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1c_live_gate.py \
-  --live \
-  --ack S22PLUS-FYG8-R4W1C-DIRECT-PID1-LIVE
-```
+## Stage 4: Recovery Not Applicable
 
-The helper repeats the complete baseline, binds the exact ADB serial and USB
-topology/serial digest, seals Odin for the whole invocation, consumes the
-one-shot immediately before candidate transfer, flashes only the exact
-boot-only candidate AP, and requires the complete 120-second observation.
-
-After candidate observation, the operator physically enters normal Samsung
-Download. Every actual rollback transfer requires the fresh temporal token:
-
-`S22PLUS-FYG8-R4W1C-NORMAL-DOWNLOAD-CONFIRMED`
-
-Exact Magisk boot-only rollback and final observer are mandatory. Stock boot is
-cleanup-only after a definite Magisk Odin nonzero return and can never PASS.
-
-## Stage 4: Interrupted Recovery
-
-Use recovery only after a valid consumed state exists and the device is in
-normal Samsung Download:
-
-`S22PLUS-FYG8-R4W1C-MAGISK-ROLLBACK-FROM-DOWNLOAD`
-
-```bash
-PYTHONDONTWRITEBYTECODE=1 \
-python3 workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1c_live_gate.py \
-  --rollback-from-download \
-  --ack S22PLUS-FYG8-R4W1C-MAGISK-ROLLBACK-FROM-DOWNLOAD
-```
-
-The temporal Download confirmation remains mandatory. If a prior Magisk
-transfer intent has ambiguous completion, only one retransmission is possible
-after exact Magisk Android is absent and the operator supplies:
-
-`S22PLUS-FYG8-R4W1C-AMBIGUOUS-MAGISK-ROLLBACK-RETRY`
-
-Recovery never retransfers candidate and stops after two numbered attempts.
+The failed run did not create a consumed state and did not attempt candidate
+transfer. No rollback or interrupted-recovery action is authorized or needed.
 
 ## Stop Conditions
 

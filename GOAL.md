@@ -6,6 +6,31 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-20 06:14 KST / 2026-07-19 21:14 UTC) -
+> R4W1-C PRE-CONSUMPTION FAIL; FLASH 0; DOWNLOAD SERIAL ABSENT PROVED;
+> LIVE POLICY RETIRED; TOPOLOGY/GENERATION BINDING NEXT.** One newly approved
+> run completed the exact Android baseline and `adb reboot download` returned
+> success. The candidate gate then timed out before consumption with
+> `FAIL_R4W1C_PRECONSUMPTION_NO_CANDIDATE_FLASH`. Candidate transfer attempted
+> false, Odin transfer 0, boot write 0, and consumed state absent.
+>
+> While the device remained in normal Samsung Download, host sysfs proved the
+> exact Android-bound topology `2-1.3`, Samsung product `04e8:685d`, and direct
+> character node `/dev/bus/usb/002/017`, but no `serial` attribute. The helper's
+> mandatory Android-serial digest therefore made a legitimate FYG8 Download
+> endpoint impossible to accept. After physical exit, exact FYG8 Android,
+> stopped boot animation, Magisk uid 0, known boot, stock vendor_boot/DTBO/
+> recovery, orange state, and Android USB `04e8:6860` serial `RFCT519XWGK`
+> all passed. Policy-only commit `47fbbc35` retires the impossible gate.
+>
+> Next is host-only redesign: retain pre-reboot Android serial and exact topology
+> binding, but accept measured Download serial absence only at that topology;
+> require `04e8:685d`, exclusive direct-node arrival generation, stable complete
+> node tuple, hardened Odin ticket equality, and pre/post-sysfs continuity at
+> every transfer. Full tests and independent review precede any new binding.
+> Report:
+> `docs/reports/S22PLUS_FYG8_R4W1C_DOWNLOAD_SERIAL_ABSENT_PRECONSUMPTION_2026-07-20.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-20 06:06 KST / 2026-07-19 21:06 UTC) -
 > R4W1-C HARDENED LIVE POLICY ACTIVE; POST-ACTIVATION GO; CANDIDATE
 > UNCONSUMED; FRESH EXACT LIVE ACK NEXT.** The independently reviewed 9,382-byte
