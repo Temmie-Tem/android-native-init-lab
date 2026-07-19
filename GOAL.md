@@ -6,6 +6,27 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-20 03:58 KST / 2026-07-19 18:58 UTC) -
+> R4W1-C CONNECTED POLICY BOUND HOST GO; LIVE POLICY ABSENT; FRESH EXACT
+> CONNECTED ACK NEXT.** Host source commit `64d317ab` fixed the reviewed helper,
+> tests, inactive draft, clause document, and source GO report. The complete
+> reviewed fenced block was then inserted byte-for-byte into `AGENTS.md`; its
+> installed SHA256 is `35f1d2cf...c17ffa` and only the R4W1-C connected policy
+> sentinel is ACTIVE.
+>
+> Post-binding tests pass `140/140`. The full 9.68GB offline gate returns
+> `PASS_R4W1C_CONNECTED_GATE_OFFLINE_CHECK`, `policy.active=true`, exact clause
+> identity, no connected PASS, and false for device contact, device writes,
+> reboot, Download transition, Odin transfer, and flash. The policy authorizes
+> no candidate execution or device mutation.
+>
+> Next requires a newly supplied exact
+> `S22PLUS-FYG8-R4W1C-CONNECTED-READ-ONLY-DRY-RUN`. Generic approval is not
+> enough. Only a successful connected result may feed a separately built,
+> independently reviewed, and separately committed live exception; no live
+> policy currently exists. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1C_CONNECTED_POLICY_BINDING_HOST_GO_2026-07-20.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-20 03:55 KST / 2026-07-19 18:55 UTC) -
 > R4W1-C CONNECTED SOURCE HOST GO; POLICY INACTIVE; SEPARATE BINDING NEXT;
 > NO DEVICE AUTHORIZATION.** A new target-specific helper now exposes only
