@@ -6,8 +6,8 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
-> **S22+ ACTIVE FRONTIER (2026-07-20 02:28 KST / 2026-07-19 17:28 UTC) -
-> R4W1-C ODIN TRANSITION CORE ADVERSARIAL CLOSE GO; WATCHDOG CARRIER NEXT;
+> **S22+ ACTIVE FRONTIER (2026-07-20 03:01 KST / 2026-07-19 18:01 UTC) -
+> R4W1-C WATCHDOG CARRIER TWO-REPRO STATIC PASS; CONNECTED GATE DESIGN NEXT;
 > NO LIVE AUTHORIZATION.** The R4W1-B evidence failure is now
 > separated from candidate behavior: stale Odin output was made fatal and
 > endpoint discovery consumed the shared 120-second human-confirmation budget,
@@ -35,16 +35,28 @@ are binding and override any sub-goal.**
 > `py_compile`, ResourceWarning-as-error, and `git diff --check` pass. No retired
 > helper/core was changed and no device contact occurred.
 >
-> Next is the host-only M31B-derived watchdog-managed R4W1-C carrier builder and
-> independent checker. It must fail closed on module load error, prove the exact
-> five expected names in `/proc/modules`, preserve the R4W1-B kernel witness,
-> and retain the no-USB/no-persistent-write park envelope. No candidate,
-> connected gate, ACTIVE policy, device action, or flash authorization exists.
+> The host-only M31B-derived carrier is now built and independently qualified.
+> `reproduction-h` and `reproduction-i` are complete byte-identical trees. The
+> exact candidate boot SHA256 is `1d394028...de704b0`; its one-member boot-only
+> AP SHA256 is `85514e79...4fd42f`; the static init SHA256 is
+> `6bf7c60c...97703d`. The independent checker returned
+> `PASS_R4W1C_WATCHDOG_CARRIER_TWO_REPRO_STATIC_CONTRACT`; focused tests pass
+> 15/15, core regressions pass 127 with 4 environment skips, and helper mock
+> regressions pass 43 with 1 private-fixture skip.
+>
+> The proof boundary is explicit: exact `finit_module()` success and exact
+> EOF-complete `/proc/modules` visibility prove the five-module load contract,
+> not watchdog driver bind or active pet ownership. The carrier records
+> `watchdog_ownership=not_directly_proven`; only a future bounded live-survival
+> gate can prove that behavior. Next is a new connected read-only gate design
+> binding these exact artifacts and the resumable transition core. No connected
+> helper, ACTIVE policy, device action, or flash authorization exists.
 > Reports/design:
 > `docs/reports/S22PLUS_FYG8_R4W1B_WEB_CLAUDE_REPOSITORY_POSTMORTEM_2026-07-20.md`,
 > `docs/plans/S22PLUS_FYG8_R4W1C_RESUMABLE_TRANSACTION_WATCHDOG_CARRIER_DESIGN_2026-07-20.md`,
 > `docs/reports/S22PLUS_FYG8_R4W1C_ODIN_TRANSITION_CORE_HOST_PASS_2026-07-20.md`,
-> `docs/reports/S22PLUS_FYG8_R4W1C_ODIN_TRANSITION_CORE_ADVERSARIAL_CLOSE_2026-07-20.md`.
+> `docs/reports/S22PLUS_FYG8_R4W1C_ODIN_TRANSITION_CORE_ADVERSARIAL_CLOSE_2026-07-20.md`,
+> `docs/reports/S22PLUS_FYG8_R4W1C_WATCHDOG_CARRIER_HOST_CLOSE_2026-07-20.md`.
 
 > **S22+ ACTIVE FRONTIER (2026-07-19 23:54 KST / 2026-07-19 14:54 UTC) -
 > R4W1-B ONE-SHOT CONSUMED; CANDIDATE TRANSFERRED; PID1 NO_PROOF; EXACT MAGISK

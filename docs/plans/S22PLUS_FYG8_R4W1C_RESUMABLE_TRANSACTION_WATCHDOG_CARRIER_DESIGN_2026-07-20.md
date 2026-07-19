@@ -2,9 +2,10 @@
 
 Date: 2026-07-20 KST
 
-Status: endpoint core adversarial review closed with GO; watchdog carrier is the
-next host-only unit. No candidate, live helper, ACTIVE policy, device contact,
-or flash authorization exists.
+Status: endpoint core and watchdog carrier host work are closed. Two complete
+carrier reproductions and the independent static contract pass. No connected
+helper, live helper, ACTIVE policy, device contact, or flash authorization
+exists.
 
 ## Objective
 
@@ -15,7 +16,7 @@ exec-accept witness and survive long enough for deterministic attended recovery.
 ## Non-goals
 
 - No R4W1-B rerun or helper modification.
-- No candidate build or transfer in this unit.
+- No candidate transfer or device contact in this unit.
 - No A/B slot emulation, SQLite database, pstore dependency, USB gadget bring-up,
   Debian handoff, partition expansion, or persistent device write.
 - No watchdog disable, broad module replay, or retained-marker cache change.
@@ -115,7 +116,13 @@ Keep the kernel-side R4W1-B witness placement semantics, but replace the raw
 3. verifies expected module visibility;
 4. performs no USB/configfs, Android handoff, persistent mount, block write, or
    reboot; and
-5. enters bounded park after watchdog ownership is established.
+5. enters park only after the exact loaded-module set is visible.
+
+`finit_module()` success plus an EOF-complete exact `/proc/modules` set proves
+module load and visibility. It does not directly prove driver bind, watchdog
+registration, or active kernel pet ownership. The carrier therefore emits
+`watchdog_ownership=not_directly_proven`; functional watchdog proof remains a
+future bounded live-survival observation past the prior reset window.
 
 This carrier does not strengthen the exec-accept proof. It removes the known
 post-exec survival confounder so attended recovery and retained observation are
@@ -130,12 +137,13 @@ userspace loader is already live-proven and has a smaller compatibility delta.
 2. Add deterministic fault tests for stale, disappearing, changed, and
    ambiguous endpoints plus interrupted receipt indexing.
 3. Independently review the core and this design.
-4. Build a new R4W1-C carrier from the M31B closure without changing the kernel
-   witness contract.
-5. Reproduce candidate artifacts and independently check the final rootfs,
-   module closure, kernel marker, rollback artifacts, and policy inactivity.
-6. Only then design a new connected read-only gate and separate one-shot live
-   exception.
+4. **Complete:** build a new R4W1-C carrier from the M31B closure without
+   changing the kernel witness contract.
+5. **Complete:** reproduce candidate artifacts and independently check the
+   final rootfs, module closure, kernel marker, boot-only AP, and policy
+   inactivity.
+6. **Next:** design a new connected read-only gate and, only after that passes,
+   a separate one-shot live exception.
 
 ## Stop Conditions
 
@@ -149,8 +157,14 @@ userspace loader is already live-proven and has a smaller compatibility delta.
 
 ## Current Unit Exit
 
-This unit exited with host-only adversarial GO after five review rounds. The
-core and tests prove pre/post USB identity attribution, stale-path tolerance,
-ambiguity rejection, generation revalidation, PID/thread-bound single-writer
-leases, crash reconciliation, bounded sealed receipts, and parseable append-only
-indexing. It authorizes no device action.
+The endpoint-core unit exited with host-only adversarial GO after five review
+rounds. The carrier unit then produced byte-identical `reproduction-h` and
+`reproduction-i` directories. The independent checker returned
+`PASS_R4W1C_WATCHDOG_CARRIER_TWO_REPRO_STATIC_CONTRACT` after deriving the
+five-module closure again, independently compiling `/init`, and reparsing boot
+v4, newc, LZ4, and the one-member Odin AP.
+
+The carrier requires exact `finit_module()` success, exact EOF-complete module
+visibility, and exact kmsg writes before its success park. It has no Android,
+USB/configfs, persistent mount, block-write, or reboot path. This is a host
+artifact close only; it authorizes no device action.
