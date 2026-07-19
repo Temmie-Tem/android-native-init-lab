@@ -6,6 +6,32 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-20 05:31 KST / 2026-07-19 20:31 UTC) -
+> R4W1-C LIVE FAILS-TWICE PRE-CONSUMPTION; FLASH 0; ONE-SHOT UNCONSUMED;
+> LIVE POLICY RETIRED; ENDPOINT-ARRIVAL STABILIZATION NEXT.** Two fresh exact
+> live acknowledgements reached the complete Android baseline and requested
+> normal Download, but both stopped before consumption and before Odin transfer
+> with `FAIL_R4W1C_PRECONSUMPTION_NO_CANDIDATE_FLASH`. The exact errors were
+> `Odin endpoint changed during enumeration: /dev/bus/usb/002/011` and the same
+> error for `/dev/bus/usb/002/014`.
+>
+> Both traces show the endpoint first appearing during the bounded `odin4 -l`
+> call: `enumerate_odin()` had no pre-call inventory identity and a live
+> post-call character node, while `wait_for_single_live_endpoint()` propagated
+> the fail-closed transition instead of taking a second stable snapshot. This is
+> a deterministic normal-arrival race, not candidate behavior. Candidate
+> transfer was never attempted, both timelines contain only session start/end,
+> and the consumed state remains absent.
+>
+> After both physical Download exits, exact FYG8 Android, stopped boot animation,
+> Magisk uid 0, known boot, stock vendor_boot/DTBO/recovery, and no Odin endpoint
+> were restored. Fails-twice-stop is now binding. The exact R4W1-C live policy is
+> RETIRED and must not be retried. Next is host-only implementation of a bounded
+> expected-topology/serial Download-node stabilization gate that preserves fatal
+> handling for endpoint replacement, followed by full tests, independent review,
+> deterministic rerendering, and a separate ACTIVE policy commit. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1C_PRECONSUMPTION_ENDPOINT_ARRIVAL_RACE_2026-07-20.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-20 03:58 KST / 2026-07-19 18:58 UTC) -
 > R4W1-C CONNECTED POLICY BOUND HOST GO; LIVE POLICY ABSENT; FRESH EXACT
 > CONNECTED ACK NEXT.** Host source commit `64d317ab` fixed the reviewed helper,
