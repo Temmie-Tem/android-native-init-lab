@@ -141,42 +141,37 @@ fresh exact live acknowledgement all exist.
 END_S22PLUS_FYG8_R4W1C_CONNECTED_POLICY_V1
 
 BEGIN_S22PLUS_FYG8_R4W1C_LIVE_POLICY_V1
-**Retired unconsumed exception (2026-07-20, S22+ FYG8 R4W1-C watchdog-carrier direct-PID1
+**Pending one-shot exception (S22+ FYG8 R4W1-C watchdog-carrier direct-PID1
 boot-only live gate):** this clause applies only to Samsung S22+
 `SM-S906N` / `g0q` / `S906NKSS7FYG8`. The exact policy state is
-`S22PLUS_FYG8_R4W1C_LIVE_POLICY_STATE=RETIRED`.
-
-One freshly acknowledged invocation completed the exact Android baseline and
-`adb reboot download` returned success, but failed closed before consumption
-with `FAIL_R4W1C_PRECONSUMPTION_NO_CANDIDATE_FLASH`. Normal Samsung Download
-appeared at the exact bound topology `2-1.3` as `04e8:685d` and direct character
-node `/dev/bus/usb/002/017`, but that Download sysfs device exposed no `serial`
-attribute. The helper therefore could not satisfy its Android-serial-digest
-requirement and timed out before ticketing. Candidate transfer was never
-attempted, no Odin transfer or partition write occurred, and
-`workspace/private/state/s22plus_fyg8_r4w1c_live_exception_consumed.json`
-remains absent. After physical Download exit, exact FYG8 Android, Magisk root,
-known boot, stock vendor_boot/DTBO/recovery, orange state, and Android USB
-`04e8:6860` with serial `RFCT519XWGK` were verified. This exact helper, clause,
-and acknowledgement must not be reused. A replacement must treat absent
-Samsung Download serial as a measured target property, preserve exact topology,
-product, direct-node generation, hardened ticket and final pre-Odin continuity,
-and pass full host qualification plus a separately committed ACTIVE rendering.
+`S22PLUS_FYG8_R4W1C_LIVE_POLICY_STATE=ACTIVE`.
 
 The only executable helper is
 `workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1c_live_gate.py`
-SHA256 `65c137586b2decf160800f841b7243f3332108332043dbcaa548d7698e080c99`; its focused test is
+SHA256 `ce39196e58c6e7be83e8e8bcf7b56cb46e0e4ef22c05c1251f58b3310aae57ff`; its focused test is
 `tests/test_s22plus_fyg8_r4w1c_live_gate.py` SHA256
-`c5966fb411983bed5b72e39400e8c8d15304ec0257e34e435ad5aae075ca1fbb`. The reviewed inert policy template is
+`b0e8112ffb926505d625f1feb9d5343d316d9d158386bee98cba641dc5ef0987`. The reviewed inert policy template is
 `docs/operations/S22PLUS_FYG8_R4W1C_LIVE_EXCEPTION_DRAFT_2026-07-20.md`
-SHA256 `06f28538c4fa358dabd5e35c6bab5e0cd5a83c6e78c39d9ba1a6c1516ced5497`. The live acknowledgement is
-`S22PLUS-FYG8-R4W1C-DIRECT-PID1-LIVE`. Interrupted recovery requires
-`S22PLUS-FYG8-R4W1C-MAGISK-ROLLBACK-FROM-DOWNLOAD`; every actual rollback
-transfer requires fresh temporal confirmation
-`S22PLUS-FYG8-R4W1C-NORMAL-DOWNLOAD-CONFIRMED`. A crash after rollback intent
-but before a completion receipt may retransmit Magisk at most once, only after
-exact Magisk Android postcondition fails and the operator supplies
-`S22PLUS-FYG8-R4W1C-AMBIGUOUS-MAGISK-ROLLBACK-RETRY`.
+SHA256 `4bdba3b3cd2e08dd51f255c2a63bd6c160ee52235073686f150fdb375c47a3ca`. The live acknowledgement is
+`S22PLUS-FYG8-R4W1C-NOSERIAL-PHYSICAL-CONTINUITY-DIRECT-PID1-LIVE`. Supplying
+that token is also the operator's load-bearing attestation that the same
+physically attended handset remains on the same cable, hub, and host port from
+the Android preflight through candidate observation, final rollback transfer,
+and exact Android return, with no unplug, substitution, topology reassignment,
+or custody gap. Interrupted recovery requires a renewed attestation through
+`S22PLUS-FYG8-R4W1C-NOSERIAL-PHYSICAL-CONTINUITY-MAGISK-ROLLBACK-FROM-DOWNLOAD`;
+every actual rollback transfer requires a fresh immediate attestation through
+`S22PLUS-FYG8-R4W1C-NOSERIAL-PHYSICAL-CONTINUITY-NORMAL-DOWNLOAD-CONFIRMED`.
+If that Magisk transfer returns a definite failure, the separate stock cleanup
+transfer requires another fresh immediate attestation through
+`S22PLUS-FYG8-R4W1C-NOSERIAL-PHYSICAL-CONTINUITY-STOCK-CLEANUP-CONFIRMED` and an
+exclusive durable stock-cleanup intent receipt before launch.
+A crash after rollback intent but before a completion receipt may retransmit
+Magisk at most once, only after exact Magisk Android postcondition fails and the
+operator renews the original-handset attestation through
+`S22PLUS-FYG8-R4W1C-NOSERIAL-PHYSICAL-CONTINUITY-AMBIGUOUS-MAGISK-ROLLBACK-RETRY`.
+If continuity cannot be attested at any one of these gates, no rollback or
+cleanup transfer is authorized.
 
 The frozen connected helper is
 `workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1c_connected_gate.py`
@@ -224,31 +219,47 @@ bind, complete clean `/proc/ap_klog` and duplicate `/proc/last_kmsg` reads,
 both pstore console paths absent, and clean-empty Odin evidence. Before reboot,
 the helper must bind the Android ADB `get-devpath` USB topology and require the
 selected ADB serial, `adb get-serialno`, and Android USB sysfs serial to agree.
-Candidate and rollback Odin endpoints must be Samsung USB character devices
-with both that topology and serial digest; a merely unique endpoint or same-port
-substitute is insufficient.
+Candidate and rollback Odin endpoints must be Samsung USB character devices at
+only that topology. FYG8 normal Download is measured to expose no sysfs
+`serial`; absence is mandatory, while any present serial is fatal. The host
+cannot cryptographically or intrinsically distinguish a same-model substitute
+handset placed on that port. The physical-continuity attestations are therefore
+an explicit residual trust assumption, not a host-measured identity proof. They
+cover initial candidate entry, interrupted recovery entry, every rollback
+transfer immediately before launch, the separate stock-cleanup transfer, and any
+ambiguous retransmission. If the operator cannot maintain or renew that custody,
+the run is forbidden.
 
 Before either ticketed endpoint wait, the helper must use the same finite wait
 deadline to observe that exact sysfs topology as Samsung Download product
-`685d`, require the bound serial digest, derive its direct USB character-device
-node, and obtain three consecutive identical node samples over at least 0.5
-seconds. A ctime-only udev transition resets the consecutive count. Node loss,
-wrong topology or serial, malformed sysfs, timeout, or any pathname, `st_dev`,
-inode, `st_rdev`, or ctime difference between the stabilized sample and hardened
-ticket is fatal. Ticket acceptance and every pre-transfer USB revalidation must
-again require the exact ticket node identity and product `685d`; the combined
-identity/binding check must stat the node both before and after its sysfs reads,
-require the complete tuples to match, and be the final device check before
-sealed Odin launch. Stabilization grants no endpoint authority by itself and
-does not weaken the hardened Odin core's inventory, ambiguity, generation,
-receipt, or final revalidation gates.
+`685d`, exact strings `SAMSUNG USB` and `Samsung`, matching `busnum`/`devpath`,
+and absent serial, derive its direct USB character-device node, and obtain three
+consecutive identical node samples over at least 0.5 seconds. The node pathname
+must equal the zero-padded sysfs `busnum`/`devnum`; its character-device identity
+must have usbfs major 189 and minor `(busnum - 1) * 128 + (devnum - 1)`. Every
+sample and final check must read the complete sysfs identity twice around two
+complete node snapshots and recheck that relation. A ctime-only udev transition
+resets the consecutive count. Node loss, wrong topology, present serial,
+descriptor mismatch, malformed sysfs, timeout, or any pathname, `st_dev`, inode,
+`st_rdev`, or ctime difference between the stabilized sample and hardened ticket
+is fatal. Ticket acceptance and every pre-transfer USB revalidation must again
+require that exact identity and product `685d`; the combined identity/binding
+check is the final device check before sealed Odin launch. Stabilization grants
+no endpoint authority by itself and does not weaken the hardened Odin core's
+inventory, ambiguity, generation, receipt, or final revalidation gates.
 
 Immediately before candidate transfer the helper must durably and exclusively
 create
 `workspace/private/state/s22plus_fyg8_r4w1c_live_exception_consumed.json`.
 It binds the helper/test, exact active clause and policy template, connected
 PASS/result, prepared transaction receipt, Android serial/boot ID and USB
-topology/serial binding, run directory, artifact contract, and rollback APs.
+topology/Android-serial-digest/Download-serial-absence binding, the operator's
+physical-continuity acknowledgement through final rollback and Android return
+through the active-clause hash, run directory, artifact contract, and rollback
+APs. The Android serial digest must
+be recomputed from the recorded serial at consumption and every recovery reopen;
+it is an Android-return binding and does not create Download-side intrinsic
+identity.
 Consumption
 occurs before candidate transfer and consumes the one-shot regardless of
 result. Recovery must reopen all these identities under this exact ACTIVE
@@ -256,9 +267,10 @@ clause before any device contact.
 
 The candidate, Magisk, stock, and Odin pathnames must be copied and hash-checked
 into write-sealed memfds. AP membership is rechecked from the sealed bytes.
-Endpoint generation, physical topology, and USB serial are revalidated only
-after sealing and immediately before invoking the sealed Odin binary. No durable write may
-occur between final endpoint revalidation and Odin launch.
+Endpoint generation and physical topology are revalidated only after sealing;
+Download serial absence and exact Samsung descriptors are revalidated
+immediately before invoking the sealed Odin binary. No durable write may occur
+between final endpoint revalidation and Odin launch.
 
 The helper may request normal Download and transfer the exact candidate AP once
 to boot only. It must require endpoint disappearance and then hold the passive
@@ -280,8 +292,16 @@ never overwrite each other. The same repeated recovery failure stops after two
 attempts.
 
 Magisk transfer is mandatory for PASS. Exact stock boot cleanup is permitted
-only after a definite failed Magisk transfer while the same endpoint generation
-and topology revalidate; stock cleanup can never produce PASS. Final health
+only after a definite failed Magisk transfer, a new stock-specific physical-
+continuity confirmation, an exclusive durable cleanup intent, and final same-
+ticket endpoint/topology revalidation. A preexisting cleanup intent forbids a
+second stock attempt and permanently taints the transaction as non-PASS. Any
+later built-in recovery invocation must detect that intent before opening an
+Odin session or waiting for an endpoint and stop without a transfer. A crash at
+or after stock intent requires a separately designed and reviewed recovery
+policy; it may not be reclassified as ambiguous Magisk by this helper. The
+intent and any completed stock transfer log are reopened into transaction
+evidence. Stock cleanup can never produce PASS. Final health
 requires exact normal Android, root, known Magisk boot, stock vendor_boot/DTBO/
 recovery, orange state, and no Odin endpoint. Before classification the first
 complete rollback `/proc/last_kmsg` observer must be read twice to EOF under
