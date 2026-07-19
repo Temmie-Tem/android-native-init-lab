@@ -6,6 +6,40 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-19 16:34 KST / 2026-07-19 07:34 UTC) -
+> R4W1-B CONNECTED READ-ONLY PASS; LIVE-BINDING INDEPENDENT REVIEW NO-GO;
+> TWO HARDENING REVIEW ROUNDS CLOSED HOST-ONLY; REQUALIFICATION POLICY NEXT.** The operator
+> supplied the exact connected acknowledgement and the one bounded read-only
+> run returned `PASS_R4W1B_CONNECTED_BASELINE_READ_ONLY`. Exact FYG8 Android,
+> Magisk/stock partition identities, live retained observers, pstore absence,
+> clean marker namespace, and byte-identical double `/proc/last_kmsg` were
+> proved; device writes, reboot, Download, Odin transfer, and flash were all
+> false. PASS record SHA256 is `dea44702...c067e`; result SHA256 is
+> `53db7c90...d920`.
+>
+> Independent review of the generated live-binding packet returned `NO_GO`:
+> the helper did not enforce the exact AGENTS-bound PASS/result identities,
+> did not re-enumerate the rollback endpoint after operator confirmation, and
+> allowed raw park after a false Odin-disconnect wait. All three source defects
+> are now closed host-only. The hardened helper directly rehashes bound PASS,
+> result, and raw observer receipts; requires exact Android/fresh-artifact
+> contracts; handles the transport's real `stderr=None` result, clears a TTY
+> input queue before the temporal prompt, revalidates the same single endpoint,
+> and refuses raw park unless Odin disappearance is proven. New focused tests
+> cover the production transport shape, PTY partial input, and final evidence
+> reread. Current pins are helper `3b42a52b...baec61`, helper test
+> `0016da20...0680a`, template `fdad6dad...956da`, and policy draft
+> `deb55b14...d0b31d`; core pins are unchanged. Full R4W1-B tests pass `113/113`
+> with 3 skips. The final independent follow-up found no blocking issue and
+> returned `GO_TO_HARDENED_SOURCE_COMMIT`. The old connected PASS is valid
+> historical evidence but cannot
+> promote the changed helper. Live policy remains inactive and candidate state
+> remains unconsumed. Next: exact hardened-source independent review, archive
+> the invalidated canonical PASS without deleting its run, retire the old
+> connected clause, bind one new connected-only requalification clause, then
+> request a fresh exact connected acknowledgement. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1B_CONNECTED_PASS_LIVE_BINDING_NO_GO_HARDENING_HOST_PASS_2026-07-19.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-19 06:16 KST / 2026-07-18 21:16 UTC) -
 > R4W1-B CONNECTED-ONLY POLICY BOUND HOST GO; LIVE POLICY INACTIVE; FRESH
 > EXACT CONNECTED ACK NEXT.** Exact source commit `c744abb3` passed an

@@ -1,7 +1,11 @@
 import importlib.util
 import json
+import os
+import pty
 import sys
 import tempfile
+import threading
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -149,12 +153,100 @@ class S22PlusFyg8R4W1BLiveGateTest(unittest.TestCase):
             self.assertEqual(state["static_result_sha256"], module.EXPECTED_STATIC_RESULT_SHA256)
 
     def test_normal_download_confirmation_is_temporal_input_gate(self):
-        with mock.patch("builtins.input", return_value=self.module.NORMAL_DOWNLOAD_CONFIRMATION):
-            self.module.confirm_normal_download()
-        with mock.patch("builtins.input", return_value="wrong"), self.assertRaises(
-            self.module.GateError
+        module = self.module
+        def delayed_write(descriptor, payload):
+            time.sleep(0.02)
+            os.write(descriptor, payload)
+
+        read_fd, write_fd = os.pipe()
+        with os.fdopen(read_fd, "r", encoding="ascii") as stdin, mock.patch.object(
+            module.sys, "stdin", stdin
         ):
-            self.module.confirm_normal_download()
+            writer = threading.Thread(
+                target=delayed_write,
+                args=(write_fd, (module.NORMAL_DOWNLOAD_CONFIRMATION + "\n").encode("ascii")),
+            )
+            writer.start()
+            module.confirm_normal_download(1)
+            writer.join()
+        os.close(write_fd)
+
+        master_fd, slave_fd = pty.openpty()
+        with os.fdopen(slave_fd, "r", encoding="ascii") as stdin, mock.patch.object(
+            module.sys, "stdin", stdin
+        ):
+            writer = threading.Thread(
+                target=delayed_write,
+                args=(master_fd, (module.NORMAL_DOWNLOAD_CONFIRMATION + "\n").encode("ascii")),
+            )
+            writer.start()
+            module.confirm_normal_download(1)
+            writer.join()
+        os.close(master_fd)
+
+        master_fd, slave_fd = pty.openpty()
+        prefix = module.NORMAL_DOWNLOAD_CONFIRMATION[:12].encode("ascii")
+        suffix = module.NORMAL_DOWNLOAD_CONFIRMATION[12:].encode("ascii") + b"\n"
+        os.write(master_fd, prefix)
+        with os.fdopen(slave_fd, "r", encoding="ascii") as stdin, mock.patch.object(
+            module.sys, "stdin", stdin
+        ):
+            writer = threading.Thread(target=delayed_write, args=(master_fd, suffix))
+            writer.start()
+            with self.assertRaises(module.GateError):
+                module.confirm_normal_download(1)
+            writer.join()
+        os.close(master_fd)
+
+        read_fd, write_fd = os.pipe()
+        os.write(write_fd, (module.NORMAL_DOWNLOAD_CONFIRMATION + "\n").encode("ascii"))
+        with os.fdopen(read_fd, "r", encoding="ascii") as stdin, mock.patch.object(
+            module.sys, "stdin", stdin
+        ), self.assertRaises(module.GateError):
+            module.confirm_normal_download(1)
+        os.close(write_fd)
+
+        read_fd, write_fd = os.pipe()
+        with os.fdopen(read_fd, "r", encoding="ascii") as stdin, mock.patch.object(
+            module.sys, "stdin", stdin
+        ):
+            writer = threading.Thread(target=delayed_write, args=(write_fd, b"partial"))
+            writer.start()
+            with self.assertRaises(module.GateError):
+                module.confirm_normal_download(0.05)
+            writer.join()
+        os.close(write_fd)
+
+    def test_confirmation_revalidates_same_single_odin_endpoint(self):
+        module = self.module
+        with mock.patch.object(
+            module, "strict_odin_devices", return_value=["expected"]
+        ) as devices:
+            observed = module.require_unchanged_odin_endpoint(
+                Path("odin4"),
+                Path("live.log"),
+                "expected",
+                label="revalidate",
+            )
+        self.assertEqual(observed, "expected")
+        devices.assert_called_once()
+        with mock.patch.object(
+            module, "strict_odin_devices", return_value=["changed"]
+        ), self.assertRaises(module.GateError):
+            module.require_unchanged_odin_endpoint(
+                Path("odin4"),
+                Path("live.log"),
+                "expected",
+                label="revalidate",
+            )
+
+    def test_strict_odin_enumeration_rejects_nonzero_empty_result(self):
+        module = self.module
+        failed = mock.Mock(returncode=1, stdout="", stderr=None)
+        with mock.patch.object(module.transport, "run", return_value=failed), mock.patch.object(
+            module.transport, "append_log"
+        ), self.assertRaises(module.GateError):
+            module.strict_odin_devices(Path("odin4"), Path("live.log"), "strict")
 
     def test_runtime_bounds_fix_park_and_transition_maximums(self):
         parser = self.module.build_parser()
@@ -169,29 +261,67 @@ class S22PlusFyg8R4W1BLiveGateTest(unittest.TestCase):
                 self.module.validate_runtime_args(parser.parse_args(argv))
 
     def connected_result(self):
-        marker = {
-            "baseline_absent": True,
-            "integrity_issue": False,
-        }
+        module = self.module
+        marker = module.classify_marker(b"ordinary retained log")
 
-        def observer(read_count):
-            receipt = {
+        def observer(name, read_count):
+            names = (
+                ["baseline_ap_klog.bin"]
+                if name == "ap_klog"
+                else ["baseline_last_kmsg_1.bin", "baseline_last_kmsg_2.bin"]
+            )
+            receipts = [{
+                "path": "/tmp/r4w1b/" + filename,
+                "read_to_eof": True,
+                "returncode": 0,
+                "stderr_bytes": 0,
+                "bytes": 1,
+                "sha256": "a" * 64,
+            } for filename in names]
+            return {
                 "read_to_eof": True,
                 "stderr_bytes": 0,
                 "bytes": 1,
-            }
-            return {
-                **receipt,
-                "reads": [dict(receipt) for _ in range(read_count)],
+                "sha256": "a" * 64,
+                "reads": receipts,
                 "read_count": read_count,
                 "byte_identical": True,
                 "marker": dict(marker),
             }
 
         return {
-            "schema": self.module.SCHEMA,
+            "schema": module.SCHEMA,
             "mode": "connected-read-only-dry-run",
-            "target": self.module.TARGET,
+            "target": module.TARGET,
+            "artifacts": {
+                "target": module.TARGET,
+                "identities": {
+                    "candidate_boot": {"size": module.EXPECTED_CANDIDATE_BOOT_SIZE, "sha256": module.EXPECTED_CANDIDATE_BOOT_SHA256},
+                    "candidate_lz4": {"size": module.EXPECTED_CANDIDATE_LZ4_SIZE, "sha256": module.EXPECTED_CANDIDATE_LZ4_SHA256},
+                    "candidate_ap": {"size": module.EXPECTED_CANDIDATE_AP_SIZE, "sha256": module.EXPECTED_CANDIDATE_AP_SHA256},
+                    "manifest": {"size": module.EXPECTED_MANIFEST_SIZE, "sha256": module.EXPECTED_MANIFEST_SHA256},
+                    "static_result": {"size": module.EXPECTED_STATIC_RESULT_SIZE, "sha256": module.EXPECTED_STATIC_RESULT_SHA256},
+                    "magisk_rollback_ap": {"size": module.EXPECTED_MAGISK_AP_SIZE, "sha256": module.EXPECTED_MAGISK_AP_SHA256},
+                    "stock_cleanup_ap": {"size": module.EXPECTED_STOCK_AP_SIZE, "sha256": module.EXPECTED_STOCK_AP_SHA256},
+                    "odin": {"size": module.EXPECTED_ODIN_SIZE, "sha256": module.EXPECTED_ODIN_SHA256},
+                    "full_firmware": {"size": module.EXPECTED_FULL_FIRMWARE_SIZE, "sha256": module.EXPECTED_FULL_FIRMWARE_SHA256},
+                },
+                "source_pins": {
+                    "static_checker": {"size": module.EXPECTED_STATIC_CHECKER_SIZE, "sha256": module.EXPECTED_STATIC_CHECKER_SHA256},
+                    "static_checker_test": {"size": module.EXPECTED_STATIC_CHECKER_TEST_SIZE, "sha256": module.EXPECTED_STATIC_CHECKER_TEST_SHA256},
+                    "builder": {"size": module.EXPECTED_BUILDER_SIZE, "sha256": module.EXPECTED_BUILDER_SHA256},
+                    "build_primitive": {"size": module.EXPECTED_BUILD_PRIMITIVE_SIZE, "sha256": module.EXPECTED_BUILD_PRIMITIVE_SHA256},
+                    "check_primitive": {"size": module.EXPECTED_CHECK_PRIMITIVE_SIZE, "sha256": module.EXPECTED_CHECK_PRIMITIVE_SHA256},
+                    "transport": {"size": module.EXPECTED_TRANSPORT_SIZE, "sha256": module.EXPECTED_TRANSPORT_SHA256},
+                },
+                "fresh_static_checker": {
+                    "size": module.EXPECTED_STATIC_RESULT_SIZE,
+                    "sha256": module.EXPECTED_STATIC_RESULT_SHA256,
+                    "schema": module.EXPECTED_STATIC_SCHEMA,
+                    "verdict": module.EXPECTED_STATIC_VERDICT,
+                },
+                "ap_members": ["boot.img.lz4"],
+            },
             "device_contact": True,
             "device_writes": False,
             "reboot": False,
@@ -200,15 +330,29 @@ class S22PlusFyg8R4W1BLiveGateTest(unittest.TestCase):
             "flash": False,
             "verdict": "PASS_R4W1B_CONNECTED_BASELINE_READ_ONLY",
             "baseline": {
-                "target": self.module.TARGET,
+                "target": module.TARGET,
+                "android": {
+                    "model": "SM-S906N",
+                    "device": "g0q",
+                    "bootloader": "S906NKSS7FYG8",
+                    "incremental": "S906NKSS7FYG8",
+                    "boot_completed": "1",
+                    "bootanim": "stopped",
+                    "verified_boot_state": "orange",
+                    "root": "uid=0(root)",
+                    "boot_sha256": module.EXPECTED_MAGISK_BOOT_SHA256,
+                    "dtbo_sha256": module.EXPECTED_DTBO_SHA256,
+                    "recovery_sha256": module.EXPECTED_RECOVERY_SHA256,
+                    "vendor_boot_sha256": module.EXPECTED_VENDOR_BOOT_SHA256,
+                },
                 "device_writes": False,
                 "one_shot_consumed": False,
                 "no_odin_endpoint": True,
                 "sec_log_buf_live": True,
                 "bind": self.module.EXPECTED_BIND,
                 "observers": {
-                    "ap_klog": observer(1),
-                    "last_kmsg": observer(2),
+                    "ap_klog": observer("ap_klog", 1),
+                    "last_kmsg": observer("last_kmsg", 2),
                 },
                 "pstore_console_absent": {
                     path: True for path in self.module.PSTORE_PATHS
@@ -222,6 +366,147 @@ class S22PlusFyg8R4W1BLiveGateTest(unittest.TestCase):
         result["baseline"]["observers"]["last_kmsg"]["read_to_eof"] = False
         with self.assertRaises(self.module.GateError):
             self.module.validate_connected_result_contract(result)
+
+    def test_connected_result_requires_android_artifacts_and_complete_receipts(self):
+        module = self.module
+        for mutate in (
+            lambda result: result.pop("artifacts"),
+            lambda result: result["baseline"].pop("android"),
+            lambda result: result["baseline"]["observers"]["ap_klog"]["reads"][0].pop("sha256"),
+            lambda result: result["baseline"]["observers"]["last_kmsg"]["reads"][1].update({"returncode": 1}),
+        ):
+            result = self.connected_result()
+            mutate(result)
+            with self.assertRaises(module.GateError):
+                module.validate_connected_result_contract(result)
+
+    def test_connected_pass_reopens_policy_bound_files_and_raw_receipts(self):
+        module = self.module
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            run_dir = root / module.RUN_ROOT / "connected"
+            run_dir.mkdir(parents=True)
+            result = self.connected_result()
+            for name, observer in result["baseline"]["observers"].items():
+                payload = b"stable-" + name.encode("ascii")
+                digest = module.core.sha256_bytes(payload)
+                for index, receipt in enumerate(observer["reads"]):
+                    path = run_dir / (
+                        "baseline_ap_klog.bin"
+                        if name == "ap_klog"
+                        else f"baseline_last_kmsg_{index + 1}.bin"
+                    )
+                    path.write_bytes(payload)
+                    receipt.update(
+                        {
+                            "path": str(path),
+                            "bytes": len(payload),
+                            "sha256": digest,
+                        }
+                    )
+                observer.update({"bytes": len(payload), "sha256": digest})
+            result_path = run_dir / "result.json"
+            module.core.durable_write_json(result_path, result)
+            result_identity = module.core.hash_stable_file(result_path)
+            created_at = "2026-07-19T06:43:18.380008Z"
+            record = {
+                "schema": "s22plus_fyg8_r4w1b_connected_pass_v1",
+                "target": module.TARGET,
+                "created_at_utc": created_at,
+                "helper_sha256": "a" * 64,
+                "test_sha256": "b" * 64,
+                "core_sha256": "c" * 64,
+                "core_test_sha256": "d" * 64,
+                "result_path": str(result_path.relative_to(root)),
+                "result_sha256": result_identity["sha256"],
+                "verdict": "PASS_R4W1B_CONNECTED_BASELINE_READ_ONLY",
+                "device_writes": False,
+            }
+            pass_path = root / module.CONNECTED_PASS_STATE
+            module.core.durable_create_json(pass_path, record)
+            pass_identity = module.core.hash_stable_file(pass_path)
+            (root / "AGENTS.md").write_text(
+                "The load-bearing connected PASS record is\n"
+                f"`{module.CONNECTED_PASS_STATE}`, created at `{created_at}`, size\n"
+                f"`{pass_identity['size']}`, SHA256\n"
+                f"`{pass_identity['sha256']}`. It binds connected result\n"
+                f"`{result_path.relative_to(root)}`, size `{result_identity['size']}`, SHA256\n"
+                f"`{result_identity['sha256']}`.\n",
+                encoding="utf-8",
+            )
+            hashes = (
+                mock.patch.object(module, "helper_sha256", return_value="a" * 64),
+                mock.patch.object(module, "test_sha256", return_value="b" * 64),
+                mock.patch.object(module, "core_sha256", return_value="c" * 64),
+                mock.patch.object(module, "core_test_sha256", return_value="d" * 64),
+            )
+            with hashes[0], hashes[1], hashes[2], hashes[3]:
+                reopened = module.validate_connected_pass(
+                    root,
+                    expected_artifacts=result["artifacts"],
+                    require_policy_identity=True,
+                )
+                self.assertEqual(reopened, record)
+                raw_path = run_dir / "baseline_last_kmsg_2.bin"
+                raw_payload = raw_path.read_bytes()
+                original_read = module.core.read_stable_file
+                mutated = False
+
+                def mutate_after_initial_read(path, *, maximum=None):
+                    nonlocal mutated
+                    payload = original_read(path, maximum=maximum)
+                    if Path(path) == raw_path and not mutated:
+                        mutated = True
+                        raw_path.write_bytes(payload + b"tamper")
+                    return payload
+
+                with mock.patch.object(
+                    module.core, "read_stable_file", side_effect=mutate_after_initial_read
+                ), self.assertRaises(module.GateError):
+                    module.validate_connected_pass(
+                        root,
+                        expected_artifacts=result["artifacts"],
+                        require_policy_identity=True,
+                    )
+                raw_path.write_bytes(raw_payload)
+                raw_path.write_bytes(raw_payload + b"tamper")
+                with self.assertRaises(module.GateError):
+                    module.validate_connected_pass(
+                        root,
+                        expected_artifacts=result["artifacts"],
+                        require_policy_identity=True,
+                    )
+
+    def test_connected_raw_bytes_recompute_marker_semantics(self):
+        module = self.module
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            run_dir = root / module.RUN_ROOT / "connected"
+            run_dir.mkdir(parents=True)
+            result_path = run_dir / "result.json"
+            result_path.write_text("{}", encoding="ascii")
+            result = self.connected_result()
+            for name, observer in result["baseline"]["observers"].items():
+                payload = module.MARKER if name == "last_kmsg" else b"ordinary retained log"
+                digest = module.core.sha256_bytes(payload)
+                for index, receipt in enumerate(observer["reads"]):
+                    path = run_dir / (
+                        "baseline_ap_klog.bin"
+                        if name == "ap_klog"
+                        else f"baseline_last_kmsg_{index + 1}.bin"
+                    )
+                    path.write_bytes(payload)
+                    receipt.update(
+                        {"path": str(path), "bytes": len(payload), "sha256": digest}
+                    )
+                observer.update({"bytes": len(payload), "sha256": digest})
+            with self.assertRaises(module.GateError):
+                module.validate_connected_result_contract(
+                    result,
+                    root=root,
+                    result_path=result_path,
+                    expected_artifacts=result["artifacts"],
+                )
 
     def test_connected_preflight_rehearses_double_last_kmsg_read(self):
         module = self.module
@@ -340,13 +625,13 @@ class S22PlusFyg8R4W1BLiveGateTest(unittest.TestCase):
     def test_policy_requires_exact_active_sentinel_line(self):
         module = self.module
         values = "\n".join(module.policy_required_values(Path.cwd()))
-        with mock.patch.object(
+        with mock.patch.object(module, "parse_live_connected_evidence_binding", return_value={}), mock.patch.object(
             Path,
             "read_text",
             return_value="prose " + module.LIVE_ACTIVE_SENTINEL + "\n" + values,
         ):
             self.assertFalse(module.policy_active(Path.cwd(), connected=False))
-        with mock.patch.object(
+        with mock.patch.object(module, "parse_live_connected_evidence_binding", return_value={}), mock.patch.object(
             Path,
             "read_text",
             return_value=module.LIVE_ACTIVE_SENTINEL + "\n" + values,
@@ -365,7 +650,7 @@ class S22PlusFyg8R4W1BLiveGateTest(unittest.TestCase):
             "/proc/sysrq-trigger",
         ):
             self.assertNotIn(forbidden, source)
-        self.assertEqual(source.count('confirm_normal_download()'), 3)
+        self.assertEqual(source.count("require_unchanged_odin_endpoint("), 3)
 
     def test_first_rollback_reads_are_load_bearing_and_identical(self):
         module = self.module
@@ -420,7 +705,7 @@ class S22PlusFyg8R4W1BLiveGateTest(unittest.TestCase):
             "flash_exact",
             side_effect=[magisk_failure, None],
         ) as flash, mock.patch.object(
-            module.transport, "odin_devices", return_value=["odin-device"]
+            module, "strict_odin_devices", return_value=["odin-device"]
         ):
             target = module.flash_rollback_exact(
                 Path.cwd(), args, Path("odin4"), "odin-device", Path("live.log")
@@ -436,7 +721,7 @@ class S22PlusFyg8R4W1BLiveGateTest(unittest.TestCase):
             "flash_exact",
             side_effect=module.transport.GateError("Odin flash failed rc=1"),
         ) as flash, mock.patch.object(
-            module.transport, "odin_devices", return_value=["different-device"]
+            module, "strict_odin_devices", return_value=["different-device"]
         ):
             with self.assertRaises(module.transport.GateError):
                 module.flash_rollback_exact(
@@ -490,11 +775,13 @@ class S22PlusFyg8R4W1BLiveGateTest(unittest.TestCase):
             ), mock.patch.object(
                 module.transport, "flash_exact"
             ) as candidate_flash, mock.patch.object(
-                module.transport, "wait_odin_absent", return_value=True
+                module, "wait_for_strict_odin_absence", return_value=True
             ), mock.patch.object(
                 module, "observe_raw_park", return_value={"bounded": True}
             ), mock.patch.object(
                 module, "confirm_normal_download"
+            ), mock.patch.object(
+                module, "require_unchanged_odin_endpoint", return_value="rollback"
             ), mock.patch.object(
                 module, "flash_rollback_exact", return_value="magisk"
             ), mock.patch.object(
@@ -514,6 +801,46 @@ class S22PlusFyg8R4W1BLiveGateTest(unittest.TestCase):
                 result["verdict"], "PASS_R4W1B_DIRECT_PID1_EXEC_ACCEPTED_AND_ROLLED_BACK"
             )
             self.assertTrue(result["candidate_transfer_ok"])
+            self.assertTrue(result["rollback_ok"])
+
+    def test_live_refuses_raw_park_until_candidate_odin_disconnects(self):
+        module = self.module
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            args = module.build_parser().parse_args(["--live", "--ack", module.LIVE_ACK_TOKEN])
+            completed = mock.Mock(returncode=0)
+            absent_observer = {"marker": module.classify_marker(b"ordinary")}
+            with mock.patch.object(module, "policy_active", return_value=True), mock.patch.object(
+                module, "validate_connected_pass"
+            ), mock.patch.object(
+                module, "connected_preflight", return_value=("serial", {"baseline": True})
+            ), mock.patch.object(
+                module, "helper_sha256", return_value="a" * 64
+            ), mock.patch.object(
+                module.transport, "run", return_value=completed
+            ), mock.patch.object(
+                module, "wait_for_one_odin", side_effect=["candidate", "rollback"]
+            ), mock.patch.object(
+                module.transport, "flash_exact"
+            ), mock.patch.object(
+                module, "wait_for_strict_odin_absence", return_value=False
+            ), mock.patch.object(module, "observe_raw_park") as raw_park, mock.patch.object(
+                module, "confirm_normal_download"
+            ), mock.patch.object(
+                module, "require_unchanged_odin_endpoint", return_value="rollback"
+            ), mock.patch.object(
+                module, "flash_rollback_exact", return_value="magisk"
+            ), mock.patch.object(
+                module, "wait_magisk_android_exact", return_value=("serial", {"exact": True})
+            ), mock.patch.object(
+                module, "collect_first_rollback_last_kmsg", return_value=absent_observer
+            ):
+                rc = module.live_run(root, args, {})
+            self.assertEqual(rc, 32)
+            raw_park.assert_not_called()
+            run_dir = next((root / module.RUN_ROOT).iterdir())
+            result = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
+            self.assertIn("did not disconnect", result["candidate_observation"]["error"])
             self.assertTrue(result["rollback_ok"])
 
     def test_failed_candidate_transfer_still_rolls_back_with_complete_timeline(self):
@@ -539,6 +866,8 @@ class S22PlusFyg8R4W1BLiveGateTest(unittest.TestCase):
                 side_effect=module.transport.GateError("candidate transfer failed"),
             ), mock.patch.object(
                 module, "confirm_normal_download"
+            ), mock.patch.object(
+                module, "require_unchanged_odin_endpoint", return_value="rollback"
             ), mock.patch.object(
                 module, "flash_rollback_exact", return_value="magisk"
             ), mock.patch.object(
@@ -577,11 +906,13 @@ class S22PlusFyg8R4W1BLiveGateTest(unittest.TestCase):
             ), mock.patch.object(
                 module.transport, "flash_exact"
             ), mock.patch.object(
-                module.transport, "wait_odin_absent", return_value=True
+                module, "wait_for_strict_odin_absence", return_value=True
             ), mock.patch.object(
                 module, "observe_raw_park", return_value={"bounded": True}
             ), mock.patch.object(
                 module, "confirm_normal_download"
+            ), mock.patch.object(
+                module, "require_unchanged_odin_endpoint", return_value="rollback"
             ), mock.patch.object(
                 module, "flash_rollback_exact", return_value="magisk"
             ), mock.patch.object(
@@ -613,8 +944,12 @@ class S22PlusFyg8R4W1BLiveGateTest(unittest.TestCase):
                 ["--rollback-from-download", "--ack", module.ROLLBACK_ACK_TOKEN]
             )
             with mock.patch.object(module, "policy_active") as policy, mock.patch.object(
-                module.transport, "odin_devices", return_value=["odin-device"]
-            ), mock.patch.object(module, "confirm_normal_download"), mock.patch.object(
+                module, "strict_odin_devices", return_value=["odin-device"]
+            ), mock.patch.object(
+                module, "confirm_normal_download"
+            ), mock.patch.object(
+                module, "require_unchanged_odin_endpoint", return_value="odin-device"
+            ), mock.patch.object(
                 module, "flash_rollback_exact", return_value="magisk"
             ), mock.patch.object(
                 module, "wait_magisk_android_exact", return_value=("serial", {"exact": True})

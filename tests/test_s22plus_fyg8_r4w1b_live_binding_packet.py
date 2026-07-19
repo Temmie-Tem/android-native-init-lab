@@ -210,6 +210,8 @@ class S22PlusFyg8R4W1BLiveBindingPacketTest(unittest.TestCase):
             ), mock.patch.object(
                 module.gate, "policy_active", side_effect=lambda _root, connected: connected
             ), mock.patch.object(
+                module.gate, "validate_connected_result_contract"
+            ) as contract, mock.patch.object(
                 module.gate, "validate_connected_pass", return_value=record
             ):
                 packet = module.emit_after_connected(root, requested)
@@ -221,6 +223,7 @@ class S22PlusFyg8R4W1BLiveBindingPacketTest(unittest.TestCase):
             self.assertEqual(packet["exact_agents_clause"]["live_active_sentinel_count"], 1)
             self.assertTrue((root / requested / "packet.json").is_file())
             self.assertFalse((root / module.gate.CONSUMED_STATE).exists())
+            self.assertEqual(contract.call_count, 2)
 
     def test_source_has_no_device_or_transfer_calls(self):
         source = SCRIPT.read_text(encoding="utf-8")

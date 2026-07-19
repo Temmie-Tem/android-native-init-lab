@@ -11,12 +11,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import select
 import shlex
 import subprocess
 import sys
 import tarfile
 import tempfile
+import termios
 import time
 from pathlib import Path
 from typing import Any
@@ -128,6 +131,15 @@ EXPECTED_ODIN_SHA256 = (
 EXPECTED_FULL_FIRMWARE_SHA256 = (
     "f831e5fb8abe1c7a9d8c38fe9c033a3fce7e77651776383641c385c2bb85a2c8"
 )
+EXPECTED_MAGISK_AP_SIZE = 23_367_721
+EXPECTED_STOCK_AP_SIZE = 100_669_481
+EXPECTED_FULL_FIRMWARE_SIZE = 9_680_091_538
+EXPECTED_STATIC_CHECKER_SIZE = 25_565
+EXPECTED_STATIC_CHECKER_TEST_SIZE = 5_930
+EXPECTED_BUILDER_SIZE = 14_597
+EXPECTED_BUILD_PRIMITIVE_SIZE = 8_739
+EXPECTED_CHECK_PRIMITIVE_SIZE = 26_866
+EXPECTED_TRANSPORT_SIZE = 35_401
 
 MARKER = (
     b"\n[[S22R4W1B|id=36dc5462adedcf136176f2ddcfee08a8|"
@@ -145,6 +157,7 @@ PSTORE_PATHS = (
     "/sys/fs/pstore/console-ramoops-0",
 )
 MAX_OBSERVER_BYTES = 64 * 1024 * 1024
+ODIN_DEVICE_RE = re.compile(r"/dev/bus/usb/\d+/\d+")
 
 DEFAULT_CANDIDATE_DIR = Path(
     "workspace/private/outputs/s22plus_fyg8_r4w1b_candidate/reproduction-c"
@@ -419,6 +432,48 @@ def policy_required_values(root: Path) -> tuple[str, ...]:
     )
 
 
+def parse_live_connected_evidence_binding(text: str) -> dict[str, Any]:
+    pattern = re.compile(
+        r"The load-bearing connected PASS record is\s+"
+        r"`(?P<pass_path>[^`]+)`,\s+created at `(?P<created_at>[^`]+)`, size\s+"
+        r"`(?P<pass_size>[1-9][0-9]*)`, SHA256\s+"
+        r"`(?P<pass_sha>[0-9a-f]{64})`\. It binds connected result\s+"
+        r"`(?P<result_path>[^`]+)`, size `(?P<result_size>[1-9][0-9]*)`, SHA256\s+"
+        r"`(?P<result_sha>[0-9a-f]{64})`\."
+    )
+    matches = list(pattern.finditer(text))
+    if len(matches) != 1:
+        raise GateError("R4W1-B live policy lacks one exact connected evidence binding")
+    values = matches[0].groupdict()
+    if values["pass_path"] != str(CONNECTED_PASS_STATE):
+        raise GateError("R4W1-B live policy connected PASS path mismatch")
+    if not re.fullmatch(
+        r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6}Z",
+        values["created_at"],
+    ):
+        raise GateError("R4W1-B live policy connected timestamp is not canonical UTC")
+    result_path = Path(values["result_path"])
+    if (
+        not re.fullmatch(r"[A-Za-z0-9._/-]+", values["result_path"])
+        or result_path.is_absolute()
+        or str(result_path) != values["result_path"]
+        or ".." in result_path.parts
+        or tuple(result_path.parts[:3]) != ("workspace", "private", "runs")
+        or len(result_path.parts) < 5
+        or result_path.name != "result.json"
+    ):
+        raise GateError("R4W1-B live policy connected result path is not canonical")
+    return {
+        "pass_path": values["pass_path"],
+        "created_at_utc": values["created_at"],
+        "pass_size": int(values["pass_size"]),
+        "pass_sha256": values["pass_sha"],
+        "result_path": values["result_path"],
+        "result_size": int(values["result_size"]),
+        "result_sha256": values["result_sha"],
+    }
+
+
 def policy_active(root: Path, *, connected: bool) -> bool:
     sentinel = CONNECTED_ACTIVE_SENTINEL if connected else LIVE_ACTIVE_SENTINEL
     try:
@@ -426,9 +481,16 @@ def policy_active(root: Path, *, connected: bool) -> bool:
     except OSError:
         return False
     active_line = re.compile(rf"(?m)^\s*`?{re.escape(sentinel)}`?\s*$")
-    if not active_line.search(text):
+    if len(active_line.findall(text)) != 1:
         return False
-    return all(value in text for value in policy_required_values(root))
+    if not all(value in text for value in policy_required_values(root)):
+        return False
+    if not connected:
+        try:
+            parse_live_connected_evidence_binding(text)
+        except GateError:
+            return False
+    return True
 
 
 def verify_policy_draft(root: Path) -> dict[str, Any]:
@@ -468,6 +530,25 @@ def sha256_output(value: str, label: str) -> str:
     return fields[0]
 
 
+def strict_odin_devices(odin: Path, log_path: Path, label: str) -> list[str]:
+    result = transport.run([odin, "-l"], timeout=10.0)
+    output = (result.stdout or "") + (result.stderr or "")
+    raw_devices = sorted(set(ODIN_DEVICE_RE.findall(output)))
+    devices = [device for device in raw_devices if Path(device).exists()]
+    stale_devices = [device for device in raw_devices if device not in devices]
+    transport.append_log(
+        log_path,
+        f"[{core.utc_now()}] {label} strict odin4 -l "
+        f"rc={result.returncode} devices={devices} stale={stale_devices}",
+    )
+    transport.append_log(log_path, output)
+    if result.returncode != 0:
+        raise GateError(f"Odin enumeration failed rc={result.returncode}: {label}")
+    if stale_devices:
+        raise GateError(f"Odin enumeration returned stale endpoints: {stale_devices}")
+    return devices
+
+
 def current_android_exact(odin: Path, log_path: Path) -> tuple[str, dict[str, str]]:
     serial, values = transport.current_android()
     vendor_boot = sha256_output(
@@ -486,7 +567,7 @@ def current_android_exact(odin: Path, log_path: Path) -> tuple[str, dict[str, st
         raise GateError("Android DTBO identity mismatch")
     if values.get("recovery_sha256") != EXPECTED_RECOVERY_SHA256:
         raise GateError("Android recovery identity mismatch")
-    devices = transport.odin_devices(odin, log_path, "r4w1b-android-no-odin")
+    devices = strict_odin_devices(odin, log_path, "r4w1b-android-no-odin")
     if devices:
         raise GateError(f"Android state has Odin endpoint: {devices}")
     values["vendor_boot_sha256"] = vendor_boot
@@ -590,7 +671,15 @@ def connected_preflight(
     return serial, summary
 
 
-def validate_connected_result_contract(result: Any) -> None:
+def validate_connected_result_contract(
+    result: Any,
+    *,
+    root: Path | None = None,
+    result_path: Path | None = None,
+    expected_artifacts: dict[str, Any] | None = None,
+) -> dict[Path, bytes]:
+    if (root is None) != (result_path is None):
+        raise GateError("R4W1-B connected receipt validation context is incomplete")
     if not isinstance(result, dict):
         raise GateError("R4W1-B connected result is not an object")
     result_expected = {
@@ -607,6 +696,79 @@ def validate_connected_result_contract(result: Any) -> None:
     }
     if any(result.get(key) != value for key, value in result_expected.items()):
         raise GateError("R4W1-B connected result contract mismatch")
+    artifacts = result.get("artifacts")
+    expected_identities = {
+        "candidate_boot": {
+            "size": EXPECTED_CANDIDATE_BOOT_SIZE,
+            "sha256": EXPECTED_CANDIDATE_BOOT_SHA256,
+        },
+        "candidate_lz4": {
+            "size": EXPECTED_CANDIDATE_LZ4_SIZE,
+            "sha256": EXPECTED_CANDIDATE_LZ4_SHA256,
+        },
+        "candidate_ap": {
+            "size": EXPECTED_CANDIDATE_AP_SIZE,
+            "sha256": EXPECTED_CANDIDATE_AP_SHA256,
+        },
+        "manifest": {
+            "size": EXPECTED_MANIFEST_SIZE,
+            "sha256": EXPECTED_MANIFEST_SHA256,
+        },
+        "static_result": {
+            "size": EXPECTED_STATIC_RESULT_SIZE,
+            "sha256": EXPECTED_STATIC_RESULT_SHA256,
+        },
+        "magisk_rollback_ap": {
+            "size": EXPECTED_MAGISK_AP_SIZE,
+            "sha256": EXPECTED_MAGISK_AP_SHA256,
+        },
+        "stock_cleanup_ap": {
+            "size": EXPECTED_STOCK_AP_SIZE,
+            "sha256": EXPECTED_STOCK_AP_SHA256,
+        },
+        "odin": {"size": EXPECTED_ODIN_SIZE, "sha256": EXPECTED_ODIN_SHA256},
+        "full_firmware": {
+            "size": EXPECTED_FULL_FIRMWARE_SIZE,
+            "sha256": EXPECTED_FULL_FIRMWARE_SHA256,
+        },
+    }
+    expected_sources = {
+        "static_checker": {
+            "size": EXPECTED_STATIC_CHECKER_SIZE,
+            "sha256": EXPECTED_STATIC_CHECKER_SHA256,
+        },
+        "static_checker_test": {
+            "size": EXPECTED_STATIC_CHECKER_TEST_SIZE,
+            "sha256": EXPECTED_STATIC_CHECKER_TEST_SHA256,
+        },
+        "builder": {"size": EXPECTED_BUILDER_SIZE, "sha256": EXPECTED_BUILDER_SHA256},
+        "build_primitive": {
+            "size": EXPECTED_BUILD_PRIMITIVE_SIZE,
+            "sha256": EXPECTED_BUILD_PRIMITIVE_SHA256,
+        },
+        "check_primitive": {
+            "size": EXPECTED_CHECK_PRIMITIVE_SIZE,
+            "sha256": EXPECTED_CHECK_PRIMITIVE_SHA256,
+        },
+        "transport": {"size": EXPECTED_TRANSPORT_SIZE, "sha256": EXPECTED_TRANSPORT_SHA256},
+    }
+    expected_fresh = {
+        "size": EXPECTED_STATIC_RESULT_SIZE,
+        "sha256": EXPECTED_STATIC_RESULT_SHA256,
+        "schema": EXPECTED_STATIC_SCHEMA,
+        "verdict": EXPECTED_STATIC_VERDICT,
+    }
+    if (
+        not isinstance(artifacts, dict)
+        or artifacts.get("target") != TARGET
+        or artifacts.get("identities") != expected_identities
+        or artifacts.get("source_pins") != expected_sources
+        or artifacts.get("fresh_static_checker") != expected_fresh
+        or artifacts.get("ap_members") != ["boot.img.lz4"]
+    ):
+        raise GateError("R4W1-B connected artifact contract mismatch")
+    if expected_artifacts is not None and artifacts != expected_artifacts:
+        raise GateError("R4W1-B connected artifacts differ from fresh live artifacts")
     baseline = result.get("baseline")
     if not isinstance(baseline, dict):
         raise GateError("R4W1-B connected result baseline is missing")
@@ -619,15 +781,40 @@ def validate_connected_result_contract(result: Any) -> None:
         or baseline.get("bind") != EXPECTED_BIND
     ):
         raise GateError("R4W1-B connected baseline contract mismatch")
+    android = baseline.get("android")
+    expected_android = {
+        "model": "SM-S906N",
+        "device": "g0q",
+        "bootloader": "S906NKSS7FYG8",
+        "incremental": "S906NKSS7FYG8",
+        "boot_completed": "1",
+        "bootanim": "stopped",
+        "verified_boot_state": "orange",
+        "root": "uid=0(root)",
+        "boot_sha256": EXPECTED_MAGISK_BOOT_SHA256,
+        "dtbo_sha256": EXPECTED_DTBO_SHA256,
+        "recovery_sha256": EXPECTED_RECOVERY_SHA256,
+        "vendor_boot_sha256": EXPECTED_VENDOR_BOOT_SHA256,
+    }
+    if android != expected_android:
+        raise GateError("R4W1-B connected Android baseline contract mismatch")
     observers = baseline.get("observers")
     if not isinstance(observers, dict) or set(observers) != {"ap_klog", "last_kmsg"}:
         raise GateError("R4W1-B connected observer contract mismatch")
+    expected_names = {
+        "ap_klog": ["baseline_ap_klog.bin"],
+        "last_kmsg": ["baseline_last_kmsg_1.bin", "baseline_last_kmsg_2.bin"],
+    }
+    reopened_payloads: dict[Path, bytes] = {}
     for name, observer in observers.items():
         if (
             not isinstance(observer, dict)
             or observer.get("read_to_eof") is not True
             or observer.get("stderr_bytes") != 0
-            or observer.get("bytes", 0) <= 0
+            or type(observer.get("bytes")) is not int
+            or observer["bytes"] <= 0
+            or observer["bytes"] > MAX_OBSERVER_BYTES
+            or not re.fullmatch(r"[0-9a-f]{64}", str(observer.get("sha256", "")))
         ):
             raise GateError("R4W1-B connected observer receipt mismatch")
         marker = observer.get("marker")
@@ -635,6 +822,15 @@ def validate_connected_result_contract(result: Any) -> None:
             not isinstance(marker, dict)
             or marker.get("baseline_absent") is not True
             or marker.get("integrity_issue") is not False
+            or marker.get("acceptance_present") is not False
+            or marker.get("exact_count") != 0
+            or marker.get("exact_record_count") != 0
+            or marker.get("family_count") != 0
+            or marker.get("foreign_count") != 0
+            or marker.get("delimiter_mismatch_count") != 0
+            or marker.get("partial_at_head") is not False
+            or marker.get("partial_at_tail") is not False
+            or marker.get("unterminated_offsets") != []
         ):
             raise GateError("R4W1-B connected marker baseline mismatch")
         expected_reads = 2 if name == "last_kmsg" else 1
@@ -644,28 +840,65 @@ def validate_connected_result_contract(result: Any) -> None:
             or observer.get("byte_identical") is not True
             or not isinstance(reads, list)
             or len(reads) != expected_reads
-            or any(
-                not isinstance(read, dict)
-                or read.get("read_to_eof") is not True
-                or read.get("stderr_bytes") != 0
-                or read.get("bytes", 0) <= 0
-                for read in reads
-            )
         ):
             raise GateError("R4W1-B connected observer rehearsal mismatch")
+        read_identities: list[dict[str, Any]] = []
+        for index, read in enumerate(reads):
+            if (
+                not isinstance(read, dict)
+                or read.get("read_to_eof") is not True
+                or read.get("returncode") != 0
+                or read.get("stderr_bytes") != 0
+                or type(read.get("bytes")) is not int
+                or read["bytes"] <= 0
+                or read["bytes"] > MAX_OBSERVER_BYTES
+                or not re.fullmatch(r"[0-9a-f]{64}", str(read.get("sha256", "")))
+            ):
+                raise GateError("R4W1-B connected observer read receipt mismatch")
+            receipt_path = Path(str(read.get("path", "")))
+            if not receipt_path.is_absolute() or receipt_path.name != expected_names[name][index]:
+                raise GateError("R4W1-B connected observer path mismatch")
+            identity = {"size": read["bytes"], "sha256": read["sha256"]}
+            if root is not None and result_path is not None:
+                if receipt_path.is_symlink() or not receipt_path.is_file():
+                    raise GateError("R4W1-B connected observer is missing or indirect")
+                reopened = receipt_path.resolve()
+                if reopened.parent != result_path.resolve().parent:
+                    raise GateError("R4W1-B connected observer escaped its result directory")
+                payload = core.read_stable_file(reopened, maximum=MAX_OBSERVER_BYTES)
+                if {"size": len(payload), "sha256": core.sha256_bytes(payload)} != identity:
+                    raise GateError("R4W1-B connected observer file identity mismatch")
+                if classify_marker(payload) != marker:
+                    raise GateError("R4W1-B connected observer marker semantics mismatch")
+                reopened_payloads[reopened] = payload
+            read_identities.append(identity)
+        if (
+            observer["bytes"] != read_identities[0]["size"]
+            or observer["sha256"] != read_identities[0]["sha256"]
+            or any(identity != read_identities[0] for identity in read_identities[1:])
+        ):
+            raise GateError("R4W1-B connected observer summary/receipt mismatch")
     pstore = baseline.get("pstore_console_absent")
     if not isinstance(pstore, dict) or set(pstore) != set(PSTORE_PATHS) or not all(
         value is True for value in pstore.values()
     ):
         raise GateError("R4W1-B connected pstore contract mismatch")
+    return reopened_payloads
 
 
-def validate_connected_pass(root: Path) -> dict[str, Any]:
+def validate_connected_pass(
+    root: Path,
+    *,
+    expected_artifacts: dict[str, Any] | None = None,
+    require_policy_identity: bool = False,
+) -> dict[str, Any]:
     path = root / CONNECTED_PASS_STATE
     if path.is_symlink() or not path.is_file():
         raise GateError("R4W1-B connected read-only PASS record is missing")
+    pass_payload = core.read_stable_file(path, maximum=1024 * 1024)
+    pass_identity = {"size": len(pass_payload), "sha256": core.sha256_bytes(pass_payload)}
     try:
-        record = json.loads(path.read_text(encoding="utf-8"))
+        record = json.loads(pass_payload.decode("utf-8"))
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise GateError("R4W1-B connected PASS record is invalid") from exc
     expected = {
@@ -678,18 +911,91 @@ def validate_connected_pass(root: Path) -> dict[str, Any]:
         "verdict": "PASS_R4W1B_CONNECTED_BASELINE_READ_ONLY",
         "device_writes": False,
     }
-    if any(record.get(key) != value for key, value in expected.items()):
+    if (
+        not isinstance(record, dict)
+        or set(record) != {
+            "schema",
+            "target",
+            "created_at_utc",
+            "helper_sha256",
+            "test_sha256",
+            "core_sha256",
+            "core_test_sha256",
+            "result_path",
+            "result_sha256",
+            "verdict",
+            "device_writes",
+        }
+        or any(record.get(key) != value for key, value in expected.items())
+        or not isinstance(record.get("created_at_utc"), str)
+        or not re.fullmatch(
+            r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6}Z",
+            str(record.get("created_at_utc", "")),
+        )
+        or not re.fullmatch(r"[0-9a-f]{64}", str(record.get("result_sha256", "")))
+    ):
         raise GateError("R4W1-B connected PASS record contract mismatch")
-    result_path = resolve(root, Path(str(record.get("result_path", ""))))
+    result_text = record["result_path"]
+    if not isinstance(result_text, str):
+        raise GateError("R4W1-B connected PASS result path is not text")
+    result_relative = Path(result_text)
+    if (
+        not re.fullmatch(r"[A-Za-z0-9._/-]+", result_text)
+        or result_relative.is_absolute()
+        or str(result_relative) != result_text
+        or ".." in result_relative.parts
+        or tuple(result_relative.parts[:3]) != ("workspace", "private", "runs")
+        or len(result_relative.parts) < 5
+        or result_relative.name != "result.json"
+    ):
+        raise GateError("R4W1-B connected PASS result path is not canonical")
+    unresolved_result_path = root / result_relative
+    if unresolved_result_path.is_symlink() or not unresolved_result_path.is_file():
+        raise GateError("R4W1-B connected result is missing or indirect")
+    result_path = unresolved_result_path.resolve()
     run_root = resolve(root, RUN_ROOT)
     if not result_path.is_relative_to(run_root):
         raise GateError("connected PASS result path is outside private runs")
-    require_sha(result_path, str(record.get("result_sha256", "")), "connected result")
+    result_payload = core.read_stable_file(result_path, maximum=8 * 1024 * 1024)
+    result_identity = {
+        "size": len(result_payload),
+        "sha256": core.sha256_bytes(result_payload),
+    }
+    if result_identity["sha256"] != record["result_sha256"]:
+        raise GateError("R4W1-B connected result differs from PASS record")
+    if require_policy_identity:
+        binding = parse_live_connected_evidence_binding(
+            (root / "AGENTS.md").read_text(encoding="utf-8")
+        )
+        if (
+            binding["pass_path"] != str(CONNECTED_PASS_STATE)
+            or binding["created_at_utc"] != record["created_at_utc"]
+            or binding["pass_size"] != pass_identity["size"]
+            or binding["pass_sha256"] != pass_identity["sha256"]
+            or binding["result_path"] != record["result_path"]
+            or binding["result_size"] != result_identity["size"]
+            or binding["result_sha256"] != result_identity["sha256"]
+        ):
+            raise GateError("R4W1-B connected evidence differs from live policy binding")
     try:
-        result = json.loads(result_path.read_text(encoding="utf-8"))
+        result = json.loads(result_payload.decode("utf-8"))
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise GateError("R4W1-B connected result is invalid") from exc
-    validate_connected_result_contract(result)
+    raw_payloads = validate_connected_result_contract(
+        result,
+        root=root,
+        result_path=result_path,
+        expected_artifacts=expected_artifacts,
+    )
+    if (
+        core.read_stable_file(path, maximum=1024 * 1024) != pass_payload
+        or core.read_stable_file(result_path, maximum=8 * 1024 * 1024) != result_payload
+        or any(
+            core.read_stable_file(raw_path, maximum=MAX_OBSERVER_BYTES) != payload
+            for raw_path, payload in raw_payloads.items()
+        )
+    ):
+        raise GateError("R4W1-B connected evidence changed during validation")
     return record
 
 
@@ -796,7 +1102,7 @@ def wait_for_one_odin(
 ) -> str | None:
     deadline = time.monotonic() + seconds
     while True:
-        devices = transport.odin_devices(odin, log_path, label)
+        devices = strict_odin_devices(odin, log_path, label)
         if len(devices) == 1:
             return devices[0]
         if len(devices) > 1:
@@ -806,18 +1112,102 @@ def wait_for_one_odin(
         time.sleep(1)
 
 
-def confirm_normal_download() -> None:
+def wait_for_strict_odin_absence(
+    odin: Path, log_path: Path, label: str, seconds: int
+) -> bool:
+    deadline = time.monotonic() + seconds
+    while True:
+        devices = strict_odin_devices(odin, log_path, label)
+        if not devices:
+            transport.append_log(log_path, f"{label}_strict_odin_absent=1")
+            return True
+        if len(devices) > 1:
+            raise GateError(f"ambiguous Odin endpoints while waiting for disconnect: {devices}")
+        if time.monotonic() >= deadline:
+            transport.append_log(
+                log_path, f"{label}_strict_odin_absent=0 still_present={devices}"
+            )
+            return False
+        time.sleep(1)
+
+
+def prepare_fresh_confirmation_input() -> int:
+    try:
+        descriptor = sys.stdin.fileno()
+    except (OSError, ValueError) as exc:
+        raise GateError("normal Download confirmation input is unavailable") from exc
+    if os.isatty(descriptor):
+        try:
+            termios.tcflush(descriptor, termios.TCIFLUSH)
+        except OSError as exc:
+            raise GateError("normal Download TTY input could not be flushed") from exc
+    else:
+        try:
+            prebuffered, _, _ = select.select([descriptor], [], [], 0)
+        except (OSError, ValueError) as exc:
+            raise GateError("normal Download confirmation input is unavailable") from exc
+        if prebuffered:
+            raise GateError("prebuffered normal Download confirmation is not fresh")
+    return descriptor
+
+
+def read_fresh_confirmation(timeout_sec: float, *, descriptor: int | None = None) -> str:
+    if timeout_sec <= 0:
+        raise GateError("normal Download confirmation window expired")
+    if descriptor is None:
+        descriptor = prepare_fresh_confirmation_input()
+    deadline = time.monotonic() + timeout_sec
+    payload = bytearray()
+    while b"\n" not in payload:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise GateError("normal Download confirmation timed out")
+        ready, _, _ = select.select([descriptor], [], [], remaining)
+        if not ready:
+            raise GateError("normal Download confirmation timed out")
+        chunk = os.read(descriptor, 256)
+        if not chunk:
+            raise GateError("normal Download confirmation was not provided")
+        payload.extend(chunk)
+        if len(payload) > 256:
+            raise GateError("normal Download confirmation is oversized")
+    line, separator, trailing = bytes(payload).partition(b"\n")
+    if separator != b"\n" or trailing:
+        raise GateError("normal Download confirmation has trailing input")
+    try:
+        return line.removesuffix(b"\r").decode("ascii")
+    except UnicodeDecodeError as exc:
+        raise GateError("normal Download confirmation is not ASCII") from exc
+
+
+def confirm_normal_download(timeout_sec: float) -> None:
+    descriptor = prepare_fresh_confirmation_input()
     print(
         "Confirm on the device that RDX has been exited and the screen is normal "
         "Samsung Download mode. Type the exact confirmation token to permit rollback.",
         flush=True,
     )
-    try:
-        value = input().strip()
-    except EOFError as exc:
-        raise GateError("normal Download confirmation was not provided") from exc
-    if value != NORMAL_DOWNLOAD_CONFIRMATION:
+    if (
+        read_fresh_confirmation(timeout_sec, descriptor=descriptor)
+        != NORMAL_DOWNLOAD_CONFIRMATION
+    ):
         raise GateError("normal Download confirmation mismatch")
+
+
+def require_unchanged_odin_endpoint(
+    odin: Path,
+    log_path: Path,
+    expected_device: str,
+    *,
+    label: str,
+) -> str:
+    devices = strict_odin_devices(odin, log_path, label)
+    if devices != [expected_device]:
+        raise GateError(
+            f"Odin endpoint changed before rollback transfer: "
+            f"expected {[expected_device]}, observed {devices}"
+        )
+    return expected_device
 
 
 def wait_magisk_android_exact(
@@ -851,7 +1241,7 @@ def flash_rollback_exact(
         )
         return "magisk"
     except transport.GateError:
-        devices = transport.odin_devices(odin, log_path, "r4w1b-stock-cleanup")
+        devices = strict_odin_devices(odin, log_path, "r4w1b-stock-cleanup")
         if devices != [device]:
             raise
         transport.flash_exact(
@@ -955,7 +1345,11 @@ def live_run(root: Path, args: argparse.Namespace, artifacts: dict[str, Any]) ->
         raise GateError("R4W1-B live policy is inactive")
     if args.ack != LIVE_ACK_TOKEN:
         raise GateError("R4W1-B live acknowledgement mismatch")
-    validate_connected_pass(root)
+    validate_connected_pass(
+        root,
+        expected_artifacts=artifacts,
+        require_policy_identity=True,
+    )
     if (root / CONSUMED_STATE).exists() or (root / CONSUMED_STATE).is_symlink():
         raise GateError("R4W1-B candidate exception is already consumed")
     run_dir = core.allocate_run_dir(root, RUN_ROOT, "s22plus-r4w1b-live", args.run_dir)
@@ -1025,9 +1419,11 @@ def live_run(root: Path, args: argparse.Namespace, artifacts: dict[str, Any]) ->
 
     if result["candidate_transfer_ok"]:
         try:
-            disconnected = transport.wait_odin_absent(
+            disconnected = wait_for_strict_odin_absence(
                 odin, log_path, "r4w1b-candidate-disconnect", args.disconnect_wait_sec
             )
+            if disconnected is not True:
+                raise GateError("candidate Odin endpoint did not disconnect; raw park refused")
             result["candidate_odin_disconnected"] = disconnected
             result["candidate_observation"] = observe_raw_park(args.park_wait_sec)
         except (GateError, transport.GateError, OSError, subprocess.SubprocessError) as exc:
@@ -1046,12 +1442,21 @@ def live_run(root: Path, args: argparse.Namespace, artifacts: dict[str, Any]) ->
         flush=True,
     )
     try:
+        transition_started = time.monotonic()
         rollback_device = wait_for_one_odin(
             odin, log_path, "r4w1b-mandatory-rollback", args.transition_wait_sec
         )
         if rollback_device is None:
             raise GateError("normal Download endpoint did not appear for rollback")
-        confirm_normal_download()
+        remaining = args.transition_wait_sec - (time.monotonic() - transition_started)
+        confirm_normal_download(remaining)
+        core.append_event(timeline_path, timeline, "rollback_flash_start")
+        rollback_device = require_unchanged_odin_endpoint(
+            odin,
+            log_path,
+            rollback_device,
+            label="r4w1b-mandatory-rollback-revalidate",
+        )
     except (GateError, transport.GateError, OSError, subprocess.SubprocessError) as exc:
         return finish_failed(
             run_dir,
@@ -1068,7 +1473,6 @@ def live_run(root: Path, args: argparse.Namespace, artifacts: dict[str, Any]) ->
             },
         )
 
-    core.append_event(timeline_path, timeline, "rollback_flash_start")
     try:
         rollback_target = flash_rollback_exact(
             root, args, odin, rollback_device, log_path
@@ -1149,10 +1553,19 @@ def rollback_from_download(root: Path, args: argparse.Namespace) -> int:
     core.durable_write_json(run_dir / "result.json", result)
     odin = resolve(root, args.odin)
     try:
-        devices = transport.odin_devices(odin, log_path, "r4w1b-recovery")
+        transition_started = time.monotonic()
+        devices = strict_odin_devices(odin, log_path, "r4w1b-recovery")
         if len(devices) != 1:
             raise GateError(f"recovery requires exactly one Odin endpoint: {devices}")
-        confirm_normal_download()
+        remaining = args.transition_wait_sec - (time.monotonic() - transition_started)
+        confirm_normal_download(remaining)
+        core.append_event(timeline_path, timeline, "rollback_flash_start")
+        device = require_unchanged_odin_endpoint(
+            odin,
+            log_path,
+            devices[0],
+            label="r4w1b-recovery-revalidate",
+        )
     except (GateError, transport.GateError, OSError, subprocess.SubprocessError) as exc:
         return finish_failed(
             run_dir,
@@ -1168,9 +1581,8 @@ def rollback_from_download(root: Path, args: argparse.Namespace) -> int:
                 "live_session_end": "attended recovery remains required",
             },
         )
-    core.append_event(timeline_path, timeline, "rollback_flash_start")
     try:
-        target = flash_rollback_exact(root, args, odin, devices[0], log_path)
+        target = flash_rollback_exact(root, args, odin, device, log_path)
         core.append_event(timeline_path, timeline, "rollback_flash_done")
         if target != "magisk":
             raise GateError("stock cleanup did not restore Magisk baseline")

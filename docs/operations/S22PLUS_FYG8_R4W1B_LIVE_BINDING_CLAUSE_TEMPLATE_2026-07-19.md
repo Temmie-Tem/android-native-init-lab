@@ -32,9 +32,9 @@ authority below; it removes or relaxes no connected-stage requirement.
 The executable helper remains
 `workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1b_live_gate.py`
 SHA256
-`734693c456d482e6a09360129ba74e9123017b5c42829518a23870d07465a95d`.
+`3b42a52b406b7c0073fc13b1df957b165193f20a75a9b6010c96131013baec61`.
 Its focused test SHA256 remains
-`87de80150d1962c5804471a8037657144a4c394cd8cba5c596947c0723be42c1`.
+`0016da20c765583e1adf15af105078ebefaf49ebf792fda328e25e4ba310680a`.
 The reusable core SHA256 remains
 `9bcade2532e77d538112836ebe9903bab832c1f2250151d3635260b6fd013725`;
 its focused test SHA256 remains
@@ -48,10 +48,11 @@ created at `{{CONNECTED_PASS_CREATED_AT_UTC}}`, size
 `{{CONNECTED_RESULT_PATH}}`, size `{{CONNECTED_RESULT_SIZE}}`, SHA256
 `{{CONNECTED_RESULT_SHA256}}`. Before candidate consumption, the helper must
 reopen and validate that exact PASS and result, including target,
-helper/test/core/core-test identities, complete observer receipts, byte-
-identical double `/proc/last_kmsg` reads, pstore absence, no Odin endpoint,
-and `device_writes=false`, `reboot=false`, `download_transition=false`,
-`odin_transfer=false`, and `flash=false`.
+helper/test/core/core-test identities, complete observer receipts, direct raw
+file identities within `64 MiB`, marker semantics recomputed from those raw
+bytes, byte-identical double `/proc/last_kmsg` reads, pstore absence, no Odin
+endpoint, and `device_writes=false`, `reboot=false`,
+`download_transition=false`, `odin_transfer=false`, and `flash=false`.
 
 Before any device contact, the helper must rerun its complete offline artifact
 gate and fresh deterministic static checker. Candidate raw boot SHA256 is
@@ -102,13 +103,20 @@ and binds target, helper, candidate AP, static result, and private run path. A
 preexisting or malformed consumed state stops the run.
 
 The helper may request normal Android Download and transfer the exact candidate
-AP once to boot only. After Odin disconnect, it may passively observe raw park
-for at most `90` seconds. Candidate ADB is neither required nor proof. The host
-sends no RDX command. The operator must physically exit any RDX screen and
-enter normal Samsung Download within the bounded transition window. Before any
-rollback transfer, the helper must receive exact temporal confirmation
-`S22PLUS-FYG8-R4W1B-NORMAL-DOWNLOAD-CONFIRMED`. Multiple, ambiguous, absent,
-or changed endpoints stop before transfer.
+AP once to boot only. It may passively observe raw park for at most `90` seconds
+only after the Odin endpoint is proven absent; a disconnect timeout or error
+must skip raw park and continue to mandatory rollback. Candidate ADB is neither
+required nor proof. The host sends no RDX command. The operator must physically
+exit any RDX screen and enter normal Samsung Download within the bounded
+transition window. Before any rollback transfer, the helper must receive exact
+temporal confirmation `S22PLUS-FYG8-R4W1B-NORMAL-DOWNLOAD-CONFIRMED` within the
+remaining window. Prebuffered, partial, trailing, oversized, non-ASCII, or
+late input is rejected. For a TTY, the helper clears the input queue before it
+displays the confirmation prompt, so no pre-prompt partial line can contribute
+to acceptance. The helper then immediately re-enumerates Odin with `odin4 -l`
+rc=0, rejects stale paths, and requires the same single endpoint; there is no
+durable write between that revalidation and transfer. Multiple, ambiguous,
+absent, or changed endpoints stop before transfer.
 
 Rollback is mandatory. The helper transfers the exact Magisk boot-only AP.
 Only a failed Magisk transfer while the same single endpoint remains may use

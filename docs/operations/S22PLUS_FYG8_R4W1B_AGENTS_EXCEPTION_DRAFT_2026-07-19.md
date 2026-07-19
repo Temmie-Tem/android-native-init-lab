@@ -30,14 +30,14 @@ Helper:
 `workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1b_live_gate.py`
 
 SHA256:
-`734693c456d482e6a09360129ba74e9123017b5c42829518a23870d07465a95d`
+`3b42a52b406b7c0073fc13b1df957b165193f20a75a9b6010c96131013baec61`
 
 Focused helper test:
 
 `tests/test_s22plus_fyg8_r4w1b_live_gate.py`
 
 SHA256:
-`87de80150d1962c5804471a8037657144a4c394cd8cba5c596947c0723be42c1`
+`0016da20c765583e1adf15af105078ebefaf49ebf792fda328e25e4ba310680a`
 
 Reusable mechanical core:
 
@@ -122,7 +122,13 @@ record. It authorizes no device write, reboot, Download, candidate transfer,
 rollback transfer, cleanup, or flash.
 
 PASS is only `PASS_R4W1B_CONNECTED_BASELINE_READ_ONLY` and must bind the exact
-helper, focused test, core, core test, result path, and result SHA256.
+helper, focused test, core, core test, result path, and result SHA256. Before a
+live candidate can consume the exception, the helper must stably reopen the
+exact PASS, result, and direct observer files; require every raw file to be a
+canonical private-run regular file no larger than `64 MiB`; verify its exact
+size and SHA256; recompute marker semantics from the raw bytes; require those
+semantics to equal the result; and recheck every PASS, result, and raw identity
+after validation. Result metadata alone is not evidence.
 
 ## One-Shot Live Stage
 
@@ -140,17 +146,26 @@ regardless of transfer result and binds target, helper, AP, static result, and
 run directory.
 
 The helper may request baseline Android Download and transfer the exact
-candidate AP once to boot only. After Odin disconnect it may passively observe
-raw park for at most `90` seconds. Candidate ADB is not required and is not
-proof. The host sends no RDX command. The operator physically exits any RDX
-screen and enters normal Samsung Download. Before any rollback transfer, the
-helper must receive the temporal operator input:
+candidate AP once to boot only. It may passively observe raw park for at most
+`90` seconds only after the Odin endpoint is proven absent; a disconnect
+timeout or error skips raw park and proceeds to mandatory rollback. Candidate
+ADB is not required and is not proof. The host sends no RDX command. The
+operator physically exits any RDX screen and enters normal Samsung Download.
+Before any rollback transfer, the helper must receive the temporal operator
+input:
 
 `S22PLUS-FYG8-R4W1B-NORMAL-DOWNLOAD-CONFIRMED`
 
 After bounded disconnect and raw-park phases close, the physical transition to
-confirmed normal Download is separately bounded to `120` seconds. Multiple,
-ambiguous, or changed endpoints stop before transfer.
+confirmed normal Download is separately bounded to `120` seconds. Confirmation
+must be fresh input received entirely within the remaining window; prebuffered,
+partial, trailing, oversized, non-ASCII, or late input is rejected. For a TTY,
+the helper clears the input queue before displaying the confirmation prompt so
+no pre-prompt partial line can contribute to acceptance. Immediately afterward
+the helper must run `odin4 -l`, require rc=0, reject stale endpoint paths, and
+require the same single endpoint. Multiple, absent, ambiguous, or changed
+endpoints stop before transfer. No durable write may occur between that
+successful revalidation and the rollback transfer call.
 
 The helper transfers the exact Magisk rollback AP. Only a failed Magisk
 transfer while the same single endpoint remains may use the exact stock cleanup
