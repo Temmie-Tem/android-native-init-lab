@@ -5,8 +5,9 @@ Date: 2026-07-20 KST
 Target: `SM-S906N/g0q/S906NKSS7FYG8`
 
 State: connected policy ACTIVE; connected PASS present; replacement live source
-SOURCE GO; deterministic live binding BINDING GO; live policy retired/inactive;
-candidate unconsumed.
+SOURCE GO; deterministic live binding BINDING GO; live policy ACTIVE;
+post-activation review GO; candidate unconsumed; fresh exact live acknowledgement
+required.
 
 This runbook freezes the remaining promotion sequence. It grants no device
 contact or live authorization. `AGENTS.md` remains the binding policy.
@@ -106,6 +107,12 @@ The packet emitted at
 passed independent review with no HIGH, MEDIUM, or LOW finding and verdict
 `BINDING_GO`. Its exact identities are frozen above. Do not regenerate or
 substitute the clause during activation.
+
+Activation commit `38266106` changes only `AGENTS.md`. The installed fenced
+block is byte-identical to the reviewed clause. Post-activation `py_compile`,
+the exact 181-test set with ResourceWarning fatal, `git diff --check`, and the
+complete 9.68 GB `--offline-check` pass. Independent read-only review returned
+`POST_ACTIVATION_GO` with no HIGH, MEDIUM, or LOW blocker. Stage 2 is complete.
 
 ## Stage 3: Attended One-Shot Live
 

@@ -6,6 +6,25 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-20 06:06 KST / 2026-07-19 21:06 UTC) -
+> R4W1-C HARDENED LIVE POLICY ACTIVE; POST-ACTIVATION GO; CANDIDATE
+> UNCONSUMED; FRESH EXACT LIVE ACK NEXT.** The independently reviewed 9,382-byte
+> clause was installed byte-for-byte in policy-only commit `38266106`; installed
+> SHA256 is `09a0388f...d90fe2`, with one begin, one end, one ACTIVE sentinel,
+> zero RETIRED sentinels, and no placeholder. The connected policy remains
+> singular and ACTIVE.
+>
+> Post-activation `py_compile`, ResourceWarning-as-error, `git diff --check`,
+> and the exact six-file `181/181` suite pass. The full 9.68GB gate returns
+> `PASS_R4W1C_LIVE_GATE_OFFLINE_CHECK` with policy active, connected PASS
+> present, candidate unconsumed, and every device-action field false. Independent
+> xhigh read-only review found no HIGH, MEDIUM, or LOW blocker and returned
+> `POST_ACTIVATION_GO`. No private R4W1-C live artifact is newer than activation.
+> The next and only live entry requires a newly supplied exact
+> `S22PLUS-FYG8-R4W1C-DIRECT-PID1-LIVE`; prior tokens and generic approval do
+> not carry forward. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1C_ENDPOINT_STABILIZATION_LIVE_POLICY_READY_2026-07-20.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-20 05:55 KST / 2026-07-19 20:55 UTC) -
 > R4W1-C ENDPOINT STABILIZATION SOURCE GO; CONNECTED PASS RETAINED; LIVE
 > POLICY INACTIVE; NEW BINDING PACKET NEXT.** The replacement live helper now
