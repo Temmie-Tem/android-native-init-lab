@@ -6,6 +6,28 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-20 05:55 KST / 2026-07-19 20:55 UTC) -
+> R4W1-C ENDPOINT STABILIZATION SOURCE GO; CONNECTED PASS RETAINED; LIVE
+> POLICY INACTIVE; NEW BINDING PACKET NEXT.** The replacement live helper now
+> waits for three identical expected-topology Samsung Download `685d` character
+> node samples, preserves one finite endpoint deadline, and then requires exact
+> pathname plus `st_dev`/inode/`st_rdev`/ctime continuity into the hardened Odin
+> ticket. Every final candidate, Magisk, and stock transfer callback brackets
+> its USB sysfs reads with complete node snapshots and requires both snapshots,
+> ticket identity, topology, serial digest, and product to match before sealed
+> Odin launch. The shared Odin core remains byte-identical.
+>
+> Independent read-only review found and closed three successive replacement
+> windows, then returned final `SOURCE_GO` with no HIGH, MEDIUM, or LOW blocker.
+> The exact six-file regression set passes `181/181`; `py_compile`,
+> ResourceWarning-as-error, `git diff --check`, and the full 9.68GB offline gate
+> pass. The gate reports connected PASS present, live policy inactive,
+> candidate unconsumed, and every device-action field false. Next: commit this
+> host-only source snapshot, emit the deterministic private binding packet,
+> independently review its exact clause, and activate only in a separate
+> `AGENTS.md` commit. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1C_ENDPOINT_STABILIZATION_SOURCE_HOST_GO_2026-07-20.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-20 05:31 KST / 2026-07-19 20:31 UTC) -
 > R4W1-C LIVE FAILS-TWICE PRE-CONSUMPTION; FLASH 0; ONE-SHOT UNCONSUMED;
 > LIVE POLICY RETIRED; ENDPOINT-ARRIVAL STABILIZATION NEXT.** Two fresh exact

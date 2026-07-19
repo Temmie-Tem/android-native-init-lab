@@ -43,9 +43,9 @@ TEST_RELATIVE = Path("tests/test_s22plus_fyg8_r4w1c_live_gate.py")
 POLICY_DRAFT = Path(
     "docs/operations/S22PLUS_FYG8_R4W1C_LIVE_EXCEPTION_DRAFT_2026-07-20.md"
 )
-EXPECTED_POLICY_TEMPLATE_SIZE = 8_584
+EXPECTED_POLICY_TEMPLATE_SIZE = 9_637
 EXPECTED_POLICY_TEMPLATE_SHA256 = (
-    "80a893773529c83dd677ee035cee3b0a6c32919bd98aa1bb016a9a79608e3492"
+    "06f28538c4fa358dabd5e35c6bab5e0cd5a83c6e78c39d9ba1a6c1516ced5497"
 )
 POLICY_MARKER = "S22+ FYG8 R4W1-C watchdog-carrier direct-PID1 boot-only live gate"
 POLICY_BEGIN = "BEGIN_S22PLUS_FYG8_R4W1C_LIVE_POLICY_V1"
@@ -81,6 +81,10 @@ DEFAULT_PARK_WAIT_SEC = 120.0
 MAX_TRANSFER_OUTPUT_BYTES = 8 * 1024 * 1024
 MAX_RECOVERY_ATTEMPTS = 2
 USB_TOPOLOGY_RE = re.compile(r"[0-9]+-[0-9]+(?:\.[0-9]+)*")
+DOWNLOAD_USB_PRODUCT = "685d"
+DOWNLOAD_STABLE_SAMPLE_COUNT = 3
+DOWNLOAD_STABLE_POLL_SEC = 0.25
+USB_SYSFS_ROOT = Path("/sys/bus/usb/devices")
 UTC_RE = re.compile(
     r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6}Z"
 )
@@ -147,12 +151,26 @@ def adb_usb_binding(serial: str) -> dict[str, str]:
     }
 
 
-def endpoint_usb_identity(device: str) -> dict[str, str]:
+def endpoint_node_snapshot(device: str) -> tuple[os.stat_result, str]:
     if odin_core.ODIN_DEVICE_RE.fullmatch(device) is None:
         raise GateError("Odin endpoint path is malformed")
     metadata = os.stat(device, follow_symlinks=False)
     if not stat.S_ISCHR(metadata.st_mode):
         raise GateError("Odin endpoint is not a character device")
+    identity = ":".join(
+        str(value)
+        for value in (
+            metadata.st_dev,
+            metadata.st_ino,
+            metadata.st_rdev,
+            metadata.st_ctime_ns,
+        )
+    )
+    return metadata, identity
+
+
+def endpoint_usb_identity(device: str) -> dict[str, str]:
+    metadata, device_identity_before = endpoint_node_snapshot(device)
     sysfs_link = Path("/sys/dev/char") / (
         f"{os.major(metadata.st_rdev)}:{os.minor(metadata.st_rdev)}"
     )
@@ -183,6 +201,9 @@ def endpoint_usb_identity(device: str) -> dict[str, str]:
         or re.fullmatch(r"[A-Za-z0-9._:-]{4,128}", usb_serial) is None
     ):
         raise GateError("Odin endpoint USB identity is not Samsung/canonical")
+    _metadata_after, device_identity_after = endpoint_node_snapshot(device)
+    if device_identity_after != device_identity_before:
+        raise GateError("Odin endpoint changed while reading its USB identity")
     return {
         "topology": usb_device.name,
         "vendor": vendor,
@@ -191,6 +212,7 @@ def endpoint_usb_identity(device: str) -> dict[str, str]:
         "devpath": devpath,
         "serial_sha256": core.sha256_bytes(usb_serial.encode("ascii")),
         "sysfs_device": str(usb_device),
+        "device_identity": device_identity_after,
     }
 
 
@@ -207,11 +229,145 @@ def require_ticket_usb_binding(
     if (
         identity["topology"] != expected_topology
         or identity["serial_sha256"] != expected_serial
+        or identity["product"] != DOWNLOAD_USB_PRODUCT
+        or identity["device_identity"] != ticket.device_identity
     ):
         raise GateError(
-            "Odin endpoint does not match the Android USB topology and serial"
+            "Odin endpoint does not match the bound Samsung Download identity"
         )
     return identity
+
+
+def bound_download_node_sample(
+    expected: dict[str, str],
+    *,
+    sysfs_root: Path = USB_SYSFS_ROOT,
+) -> dict[str, Any] | None:
+    expected_topology = str(expected.get("topology", ""))
+    expected_serial = str(expected.get("serial_sha256", ""))
+    if USB_TOPOLOGY_RE.fullmatch(expected_topology) is None:
+        raise GateError("expected USB topology is malformed")
+    if re.fullmatch(r"[0-9a-f]{64}", expected_serial) is None:
+        raise GateError("expected USB serial binding is malformed")
+
+    usb_device = sysfs_root / expected_topology
+    try:
+        vendor = (usb_device / "idVendor").read_text(encoding="ascii").strip()
+        product = (usb_device / "idProduct").read_text(encoding="ascii").strip()
+        usb_serial = (usb_device / "serial").read_text(encoding="ascii").strip()
+        busnum = (usb_device / "busnum").read_text(encoding="ascii").strip()
+        devnum = (usb_device / "devnum").read_text(encoding="ascii").strip()
+    except FileNotFoundError:
+        return None
+    except (OSError, UnicodeError) as exc:
+        raise GateError("bound USB topology is unreadable") from exc
+
+    if vendor != "04e8":
+        raise GateError("bound USB topology is no longer Samsung")
+    if re.fullmatch(r"[A-Za-z0-9._:-]{4,128}", usb_serial) is None:
+        raise GateError("bound USB serial is malformed")
+    serial_sha256 = core.sha256_bytes(usb_serial.encode("ascii"))
+    if serial_sha256 != expected_serial:
+        raise GateError("bound USB topology serial changed")
+    if product != DOWNLOAD_USB_PRODUCT:
+        return None
+    if (
+        re.fullmatch(r"[1-9][0-9]*", busnum) is None
+        or re.fullmatch(r"[1-9][0-9]*", devnum) is None
+        or not 1 <= int(busnum) <= 999
+        or not 1 <= int(devnum) <= 999
+    ):
+        raise GateError("bound Download USB bus/device number is malformed")
+
+    device = f"/dev/bus/usb/{int(busnum):03d}/{int(devnum):03d}"
+    if odin_core.ODIN_DEVICE_RE.fullmatch(device) is None:
+        raise GateError("bound Download endpoint path is malformed")
+    try:
+        metadata = os.stat(device, follow_symlinks=False)
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise GateError("bound Download endpoint is unreadable") from exc
+    if not stat.S_ISCHR(metadata.st_mode):
+        raise GateError("bound Download endpoint is not a character device")
+    return {
+        "device": device,
+        "topology": expected_topology,
+        "serial_sha256": serial_sha256,
+        "product": product,
+        "node": {
+            "st_dev": metadata.st_dev,
+            "st_ino": metadata.st_ino,
+            "st_rdev": metadata.st_rdev,
+            "st_ctime_ns": metadata.st_ctime_ns,
+        },
+    }
+
+
+def wait_for_stable_download_node(
+    expected: dict[str, str],
+    timeout_sec: float,
+    *,
+    sampler: Callable[[dict[str, str]], dict[str, Any] | None] = bound_download_node_sample,
+    monotonic: Callable[[], float] = time.monotonic,
+    sleep: Callable[[float], None] = time.sleep,
+) -> dict[str, Any]:
+    if not math.isfinite(timeout_sec) or timeout_sec <= 0:
+        raise GateError("Download endpoint stabilization timeout is invalid")
+    started = monotonic()
+    deadline = started + timeout_sec
+    stable_count = 0
+    observed: dict[str, Any] | None = None
+    while True:
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            raise GateError("bound Download endpoint did not stabilize in time")
+        sample = sampler(expected)
+        if sample is None:
+            if observed is not None:
+                raise GateError("bound Download endpoint disappeared while stabilizing")
+            stable_count = 0
+        else:
+            node = sample.get("node")
+            if (
+                set(sample) != {"device", "topology", "serial_sha256", "product", "node"}
+                or not isinstance(node, dict)
+                or set(node) != {"st_dev", "st_ino", "st_rdev", "st_ctime_ns"}
+                or any(not isinstance(node[name], int) for name in node)
+            ):
+                raise GateError("bound Download endpoint sample is malformed")
+            if (
+                sample["topology"] != expected.get("topology")
+                or sample["serial_sha256"] != expected.get("serial_sha256")
+                or sample["product"] != DOWNLOAD_USB_PRODUCT
+                or odin_core.ODIN_DEVICE_RE.fullmatch(str(sample["device"])) is None
+            ):
+                raise GateError("bound Download endpoint sample does not match binding")
+            if observed is None:
+                observed = sample
+                stable_count = 1
+            else:
+                prior_node = observed["node"]
+                immutable = ("st_dev", "st_ino", "st_rdev")
+                if sample["device"] != observed["device"] or any(
+                    node[name] != prior_node[name] for name in immutable
+                ):
+                    raise GateError("bound Download endpoint was replaced while stabilizing")
+                if sample != observed:
+                    observed = sample
+                    stable_count = 1
+                else:
+                    stable_count += 1
+            if stable_count >= DOWNLOAD_STABLE_SAMPLE_COUNT:
+                return {
+                    **sample,
+                    "stable_samples": stable_count,
+                    "elapsed_sec": round(monotonic() - started, 6),
+                }
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            raise GateError("bound Download endpoint did not stabilize in time")
+        sleep(min(DOWNLOAD_STABLE_POLL_SEC, remaining))
 
 
 @contextlib.contextmanager
@@ -808,17 +964,34 @@ def wait_for_endpoint(
     timeout_sec: float,
     sequence: int,
     lease: Any,
+    expected_usb_binding: dict[str, str],
 ) -> tuple[odin_core.EndpointTicket, int]:
+    started = time.monotonic()
+    stable = wait_for_stable_download_node(expected_usb_binding, timeout_sec)
+    remaining = timeout_sec - (time.monotonic() - started)
+    if remaining <= 0:
+        raise GateError("Download endpoint stabilization exhausted the wait deadline")
     result = odin_core.wait_for_single_live_endpoint(
         odin,
         run_dir,
-        timeout_sec=timeout_sec,
+        timeout_sec=remaining,
         sequence_start=sequence,
         poll_sec=1.0,
         lease=lease,
     )
     if result.ticket is None or result.timed_out:
         raise GateError("one normal Download endpoint did not appear in time")
+    stable_node = stable["node"]
+    stable_device_identity = ":".join(
+        str(stable_node[name])
+        for name in ("st_dev", "st_ino", "st_rdev", "st_ctime_ns")
+    )
+    if (
+        result.ticket.device != stable["device"]
+        or result.ticket.device_identity != stable_device_identity
+    ):
+        raise GateError("ticketed Odin endpoint differs from the stabilized endpoint")
+    require_ticket_usb_binding(result.ticket, expected_usb_binding)
     return result.ticket, result.next_sequence
 
 
@@ -1500,6 +1673,7 @@ def _rollback_sequence(
                     timeout_sec=args.rollback_endpoint_wait_sec,
                     sequence=sequence,
                     lease=lease,
+                    expected_usb_binding=dict(result["usb_binding"]),
                 )
                 topology = require_ticket_usb_binding(
                     ticket, dict(result["usb_binding"])
@@ -1800,6 +1974,7 @@ def _live_run_with_odin(
                 timeout_sec=args.candidate_endpoint_wait_sec,
                 sequence=sequence,
                 lease=lease,
+                expected_usb_binding=usb_binding,
             )
             candidate_usb = require_ticket_usb_binding(ticket, usb_binding)
         except (

@@ -81,6 +81,21 @@ Candidate and rollback Odin endpoints must be Samsung USB character devices
 with both that topology and serial digest; a merely unique endpoint or same-port
 substitute is insufficient.
 
+Before either ticketed endpoint wait, the helper must use the same finite wait
+deadline to observe that exact sysfs topology as Samsung Download product
+`685d`, require the bound serial digest, derive its direct USB character-device
+node, and obtain three consecutive identical node samples over at least 0.5
+seconds. A ctime-only udev transition resets the consecutive count. Node loss,
+wrong topology or serial, malformed sysfs, timeout, or any pathname, `st_dev`,
+inode, `st_rdev`, or ctime difference between the stabilized sample and hardened
+ticket is fatal. Ticket acceptance and every pre-transfer USB revalidation must
+again require the exact ticket node identity and product `685d`; the combined
+identity/binding check must stat the node both before and after its sysfs reads,
+require the complete tuples to match, and be the final device check before
+sealed Odin launch. Stabilization grants no endpoint authority by itself and
+does not weaken the hardened Odin core's inventory, ambiguity, generation,
+receipt, or final revalidation gates.
+
 Immediately before candidate transfer the helper must durably and exclusively
 create
 `workspace/private/state/s22plus_fyg8_r4w1c_live_exception_consumed.json`.

@@ -3,6 +3,7 @@ import contextlib
 import io
 import json
 import os
+import stat
 import sys
 import tarfile
 import tempfile
@@ -515,13 +516,48 @@ class S22PlusFyg8R4W1CLiveGateTest(unittest.TestCase):
             return_value={
                 "topology": "1-3",
                 "vendor": "04e8",
+                "product": module.DOWNLOAD_USB_PRODUCT,
                 "serial_sha256": "e" * 64,
+                "device_identity": ticket.device_identity,
             },
         ):
             with self.assertRaises(module.GateError):
                 module.require_ticket_usb_binding(
                     ticket, {"topology": "1-2", "serial_sha256": "e" * 64}
                 )
+
+    def test_endpoint_usb_identity_restats_after_sysfs_reads(self):
+        module = self.module
+        metadata = SimpleNamespace(st_rdev=os.makedev(189, 2))
+        sysfs_device = Path("/sys/devices/platform/usb1/1-2")
+        fields = ["04e8\n", "685d\n", "1\n", "2\n", "SERIAL123\n"]
+
+        with mock.patch.object(
+            module,
+            "endpoint_node_snapshot",
+            side_effect=[
+                (metadata, "1:2:3:4"),
+                (metadata, "1:2:3:4"),
+            ],
+        ) as snapshot, mock.patch.object(
+            Path, "resolve", return_value=sysfs_device
+        ), mock.patch.object(Path, "read_text", side_effect=fields):
+            identity = module.endpoint_usb_identity("/dev/bus/usb/001/002")
+        self.assertEqual(identity["device_identity"], "1:2:3:4")
+        self.assertEqual(snapshot.call_count, 2)
+
+        with mock.patch.object(
+            module,
+            "endpoint_node_snapshot",
+            side_effect=[
+                (metadata, "1:2:3:4"),
+                (metadata, "1:9:3:5"),
+            ],
+        ), mock.patch.object(
+            Path, "resolve", return_value=sysfs_device
+        ), mock.patch.object(Path, "read_text", side_effect=fields):
+            with self.assertRaisesRegex(module.GateError, "changed while reading"):
+                module.endpoint_usb_identity("/dev/bus/usb/001/002")
 
     def test_ticket_usb_binding_rejects_same_port_other_serial(self):
         module = self.module
@@ -539,10 +575,64 @@ class S22PlusFyg8R4W1CLiveGateTest(unittest.TestCase):
             return_value={
                 "topology": "1-2",
                 "vendor": "04e8",
+                "product": module.DOWNLOAD_USB_PRODUCT,
                 "serial_sha256": "f" * 64,
+                "device_identity": ticket.device_identity,
             },
         ):
             with self.assertRaises(module.GateError):
+                module.require_ticket_usb_binding(
+                    ticket, {"topology": "1-2", "serial_sha256": "e" * 64}
+                )
+
+    def test_ticket_usb_binding_requires_download_product(self):
+        module = self.module
+        ticket = module.odin_core.EndpointTicket(
+            device="/dev/bus/usb/001/002",
+            device_identity="identity",
+            generation=1,
+            snapshot_sequence=0,
+            snapshot_receipt="receipt",
+            snapshot_receipt_sha256="a" * 64,
+        )
+        with mock.patch.object(
+            module,
+            "endpoint_usb_identity",
+            return_value={
+                "topology": "1-2",
+                "vendor": "04e8",
+                "product": "6860",
+                "serial_sha256": "e" * 64,
+                "device_identity": ticket.device_identity,
+            },
+        ):
+            with self.assertRaisesRegex(module.GateError, "Download identity"):
+                module.require_ticket_usb_binding(
+                    ticket, {"topology": "1-2", "serial_sha256": "e" * 64}
+                )
+
+    def test_ticket_usb_binding_rejects_same_path_recreated_node(self):
+        module = self.module
+        ticket = module.odin_core.EndpointTicket(
+            device="/dev/bus/usb/001/002",
+            device_identity="1:2:3:4",
+            generation=1,
+            snapshot_sequence=0,
+            snapshot_receipt="receipt",
+            snapshot_receipt_sha256="a" * 64,
+        )
+        with mock.patch.object(
+            module,
+            "endpoint_usb_identity",
+            return_value={
+                "topology": "1-2",
+                "vendor": "04e8",
+                "product": module.DOWNLOAD_USB_PRODUCT,
+                "serial_sha256": "e" * 64,
+                "device_identity": "1:9:3:5",
+            },
+        ):
+            with self.assertRaisesRegex(module.GateError, "Download identity"):
                 module.require_ticket_usb_binding(
                     ticket, {"topology": "1-2", "serial_sha256": "e" * 64}
                 )
@@ -570,6 +660,280 @@ class S22PlusFyg8R4W1CLiveGateTest(unittest.TestCase):
         with mock.patch.object(module.transport, "run", return_value=bad):
             with self.assertRaises(module.GateError):
                 module.adb_usb_topology("serial")
+
+    def test_bound_download_sample_requires_expected_product_and_serial(self):
+        module = self.module
+        with tempfile.TemporaryDirectory() as temporary:
+            sysfs = Path(temporary)
+            device = sysfs / "2-1.3"
+            device.mkdir()
+            values = {
+                "idVendor": "04e8\n",
+                "idProduct": module.DOWNLOAD_USB_PRODUCT + "\n",
+                "serial": "SERIAL123\n",
+                "busnum": "2\n",
+                "devnum": "14\n",
+            }
+            for name, value in values.items():
+                (device / name).write_text(value)
+            expected = {
+                "topology": "2-1.3",
+                "serial_sha256": module.core.sha256_bytes(b"SERIAL123"),
+            }
+            metadata = SimpleNamespace(
+                st_mode=stat.S_IFCHR,
+                st_dev=1,
+                st_ino=2,
+                st_rdev=3,
+                st_ctime_ns=4,
+            )
+            with mock.patch.object(module.os, "stat", return_value=metadata):
+                sample = module.bound_download_node_sample(
+                    expected, sysfs_root=sysfs
+                )
+            self.assertEqual(sample["device"], "/dev/bus/usb/002/014")
+            self.assertEqual(sample["node"]["st_ctime_ns"], 4)
+            (device / "idProduct").write_text("6860\n")
+            self.assertIsNone(
+                module.bound_download_node_sample(expected, sysfs_root=sysfs)
+            )
+            (device / "idProduct").write_text(module.DOWNLOAD_USB_PRODUCT + "\n")
+            (device / "serial").write_text("OTHER123\n")
+            with self.assertRaisesRegex(module.GateError, "serial changed"):
+                module.bound_download_node_sample(expected, sysfs_root=sysfs)
+            (device / "serial").write_text("SERIAL123\n")
+            (device / "idVendor").write_text("1234\n")
+            with self.assertRaisesRegex(module.GateError, "no longer Samsung"):
+                module.bound_download_node_sample(expected, sysfs_root=sysfs)
+            (device / "idVendor").write_text("04e8\n")
+            metadata.st_mode = stat.S_IFREG
+            with mock.patch.object(module.os, "stat", return_value=metadata):
+                with self.assertRaisesRegex(module.GateError, "character device"):
+                    module.bound_download_node_sample(expected, sysfs_root=sysfs)
+
+    def test_download_stabilization_accepts_ctime_settle_only(self):
+        module = self.module
+        clock = SimpleNamespace(now=0.0)
+
+        def monotonic():
+            return clock.now
+
+        def sleep(seconds):
+            clock.now += seconds
+
+        def sample(ctime):
+            return {
+                "device": "/dev/bus/usb/002/014",
+                "topology": "2-1.3",
+                "serial_sha256": "e" * 64,
+                "product": module.DOWNLOAD_USB_PRODUCT,
+                "node": {
+                    "st_dev": 1,
+                    "st_ino": 2,
+                    "st_rdev": 3,
+                    "st_ctime_ns": ctime,
+                },
+            }
+
+        samples = iter([None, sample(10), sample(11), sample(11), sample(11)])
+        result = module.wait_for_stable_download_node(
+            {"topology": "2-1.3", "serial_sha256": "e" * 64},
+            5.0,
+            sampler=lambda _expected: next(samples),
+            monotonic=monotonic,
+            sleep=sleep,
+        )
+        self.assertEqual(result["stable_samples"], 3)
+        self.assertGreaterEqual(result["elapsed_sec"], 1.0)
+
+    def test_download_stabilization_rejects_replacement_and_disappearance(self):
+        module = self.module
+        base = {
+            "device": "/dev/bus/usb/002/014",
+            "topology": "2-1.3",
+            "serial_sha256": "e" * 64,
+            "product": module.DOWNLOAD_USB_PRODUCT,
+            "node": {"st_dev": 1, "st_ino": 2, "st_rdev": 3, "st_ctime_ns": 4},
+        }
+
+        class Clock:
+            now = 0.0
+
+            def monotonic(self):
+                return self.now
+
+            def sleep(self, seconds):
+                self.now += seconds
+
+        replacement = {**base, "node": {**base["node"], "st_ino": 9}}
+        clock = Clock()
+        samples = iter([base, replacement])
+        with self.assertRaisesRegex(module.GateError, "replaced"):
+            module.wait_for_stable_download_node(
+                {"topology": "2-1.3", "serial_sha256": "e" * 64},
+                5.0,
+                sampler=lambda _expected: next(samples),
+                monotonic=clock.monotonic,
+                sleep=clock.sleep,
+            )
+        clock = Clock()
+        samples = iter([base, None])
+        with self.assertRaisesRegex(module.GateError, "disappeared"):
+            module.wait_for_stable_download_node(
+                {"topology": "2-1.3", "serial_sha256": "e" * 64},
+                5.0,
+                sampler=lambda _expected: next(samples),
+                monotonic=clock.monotonic,
+                sleep=clock.sleep,
+            )
+
+    def test_download_stabilization_rejects_sampler_binding_mismatch(self):
+        module = self.module
+        sample = {
+            "device": "/dev/bus/usb/002/014",
+            "topology": "2-1.3",
+            "serial_sha256": "f" * 64,
+            "product": module.DOWNLOAD_USB_PRODUCT,
+            "node": {"st_dev": 1, "st_ino": 2, "st_rdev": 3, "st_ctime_ns": 4},
+        }
+        with self.assertRaisesRegex(module.GateError, "does not match binding"):
+            module.wait_for_stable_download_node(
+                {"topology": "2-1.3", "serial_sha256": "e" * 64},
+                1.0,
+                sampler=lambda _expected: sample,
+                monotonic=lambda: 0.0,
+                sleep=lambda _seconds: None,
+            )
+
+    def test_download_stabilization_times_out_without_endpoint(self):
+        module = self.module
+        clock = SimpleNamespace(now=0.0)
+
+        def sleep(seconds):
+            clock.now += seconds
+
+        with self.assertRaisesRegex(module.GateError, "did not stabilize"):
+            module.wait_for_stable_download_node(
+                {"topology": "2-1.3", "serial_sha256": "e" * 64},
+                0.5,
+                sampler=lambda _expected: None,
+                monotonic=lambda: clock.now,
+                sleep=sleep,
+            )
+
+    def test_wait_for_endpoint_shares_deadline_and_binds_stable_node(self):
+        module = self.module
+        node = {"st_dev": 1, "st_ino": 2, "st_rdev": 3, "st_ctime_ns": 4}
+        ticket = module.odin_core.EndpointTicket(
+            device="/dev/bus/usb/002/014",
+            device_identity="1:2:3:4",
+            generation=1,
+            snapshot_sequence=0,
+            snapshot_receipt="receipt",
+            snapshot_receipt_sha256="a" * 64,
+        )
+        result = module.odin_core.WaitResult(
+            ticket=ticket, next_sequence=1, timed_out=False
+        )
+        stable = {"device": ticket.device, "node": node}
+        binding = {"topology": "2-1.3", "serial_sha256": "e" * 64}
+        with mock.patch.object(
+            module, "wait_for_stable_download_node", return_value=stable
+        ) as stabilize, mock.patch.object(
+            module.odin_core, "wait_for_single_live_endpoint", return_value=result
+        ) as wait, mock.patch.object(
+            module, "require_ticket_usb_binding", return_value={"product": "685d"}
+        ) as usb_binding, mock.patch.object(
+            module.time, "monotonic", side_effect=[10.0, 12.0]
+        ):
+            returned, sequence = module.wait_for_endpoint(
+                Path("odin4"),
+                Path("run"),
+                timeout_sec=10.0,
+                sequence=0,
+                lease="lease",
+                expected_usb_binding=binding,
+            )
+        self.assertEqual(returned, ticket)
+        self.assertEqual(sequence, 1)
+        stabilize.assert_called_once_with(binding, 10.0)
+        self.assertEqual(wait.call_args.kwargs["timeout_sec"], 8.0)
+        usb_binding.assert_called_once_with(ticket, binding)
+
+    def test_wait_for_endpoint_rejects_different_ticketed_node(self):
+        module = self.module
+        ticket = module.odin_core.EndpointTicket(
+            device="/dev/bus/usb/002/015",
+            device_identity="identity",
+            generation=1,
+            snapshot_sequence=0,
+            snapshot_receipt="receipt",
+            snapshot_receipt_sha256="a" * 64,
+        )
+        result = module.odin_core.WaitResult(
+            ticket=ticket, next_sequence=1, timed_out=False
+        )
+        with mock.patch.object(
+            module,
+            "wait_for_stable_download_node",
+            return_value={
+                "device": "/dev/bus/usb/002/014",
+                "node": {"st_dev": 1, "st_ino": 2, "st_rdev": 3, "st_ctime_ns": 4},
+            },
+        ), mock.patch.object(
+            module.odin_core, "wait_for_single_live_endpoint", return_value=result
+        ), mock.patch.object(module.time, "monotonic", side_effect=[0.0, 1.0]):
+            with self.assertRaisesRegex(module.GateError, "differs"):
+                module.wait_for_endpoint(
+                    Path("odin4"),
+                    Path("run"),
+                    timeout_sec=10.0,
+                    sequence=0,
+                    lease="lease",
+                    expected_usb_binding={
+                        "topology": "2-1.3",
+                        "serial_sha256": "e" * 64,
+                    },
+                )
+
+    def test_wait_for_endpoint_rejects_same_path_replaced_identity(self):
+        module = self.module
+        ticket = module.odin_core.EndpointTicket(
+            device="/dev/bus/usb/002/014",
+            device_identity="1:9:3:4",
+            generation=1,
+            snapshot_sequence=0,
+            snapshot_receipt="receipt",
+            snapshot_receipt_sha256="a" * 64,
+        )
+        result = module.odin_core.WaitResult(
+            ticket=ticket, next_sequence=1, timed_out=False
+        )
+        with mock.patch.object(
+            module,
+            "wait_for_stable_download_node",
+            return_value={
+                "device": ticket.device,
+                "node": {"st_dev": 1, "st_ino": 2, "st_rdev": 3, "st_ctime_ns": 4},
+            },
+        ), mock.patch.object(
+            module.odin_core, "wait_for_single_live_endpoint", return_value=result
+        ), mock.patch.object(
+            module.time, "monotonic", side_effect=[0.0, 1.0]
+        ), mock.patch.object(module, "require_ticket_usb_binding") as usb_binding:
+            with self.assertRaisesRegex(module.GateError, "differs"):
+                module.wait_for_endpoint(
+                    Path("odin4"),
+                    Path("run"),
+                    timeout_sec=10.0,
+                    sequence=0,
+                    lease="lease",
+                    expected_usb_binding={
+                        "topology": "2-1.3",
+                        "serial_sha256": "e" * 64,
+                    },
+                )
+        usb_binding.assert_not_called()
 
     def test_sealed_memfd_rechecks_boot_only_bytes_and_write_seals(self):
         module = self.module
@@ -662,6 +1026,54 @@ class S22PlusFyg8R4W1CLiveGateTest(unittest.TestCase):
         self.assertEqual(validation, {"ok": True})
         self.assertEqual(subprocess_call["command"][0], "/proc/self/fd/9")
         self.assertEqual(subprocess_call["pass_fds"][0], 9)
+
+    def test_flash_sealed_does_not_launch_after_final_binding_node_change(self):
+        module = self.module
+        ticket = module.odin_core.EndpointTicket(
+            device="/dev/bus/usb/001/002",
+            device_identity="1:2:3:4",
+            generation=1,
+            snapshot_sequence=0,
+            snapshot_receipt="receipt",
+            snapshot_receipt_sha256="a" * 64,
+        )
+        binding = {"topology": "1-2", "serial_sha256": "e" * 64}
+
+        @contextlib.contextmanager
+        def fake_sealed(*_args, **_kwargs):
+            descriptor = os.memfd_create("test")
+            try:
+                yield descriptor
+            finally:
+                os.close(descriptor)
+
+        def revalidate():
+            module.require_ticket_usb_binding(ticket, binding)
+            return ticket.device, {"ok": True}
+
+        changed_identity = {
+            "topology": "1-2",
+            "vendor": "04e8",
+            "product": module.DOWNLOAD_USB_PRODUCT,
+            "serial_sha256": "e" * 64,
+            "device_identity": "1:9:3:5",
+        }
+        with tempfile.TemporaryDirectory() as temporary, mock.patch.object(
+            module, "sealed_memfd", side_effect=fake_sealed
+        ), mock.patch.object(
+            module, "endpoint_usb_identity", return_value=changed_identity
+        ), mock.patch.object(module.subprocess, "run") as run:
+            with self.assertRaisesRegex(module.GateError, "Download identity"):
+                module.flash_sealed_exact(
+                    9,
+                    Path("ap"),
+                    ap_size=1,
+                    ap_sha256="a" * 64,
+                    label="candidate",
+                    log_path=Path(temporary) / "transfer.json",
+                    revalidate=revalidate,
+                )
+        run.assert_not_called()
 
     def test_consumed_state_rejects_forged_connected_binding(self):
         module = self.module
@@ -937,7 +1349,7 @@ class S22PlusFyg8R4W1CLiveGateTest(unittest.TestCase):
                 module.transport, "run", side_effect=reboot
             ), mock.patch.object(
                 module, "wait_for_endpoint", return_value=(ticket, 1)
-            ), mock.patch.object(
+            ) as wait_endpoint, mock.patch.object(
                 module, "require_ticket_usb_binding", return_value={"topology": "1-2"}
             ), mock.patch.object(
                 module, "consume_exception", side_effect=consume
@@ -963,6 +1375,10 @@ class S22PlusFyg8R4W1CLiveGateTest(unittest.TestCase):
             self.assertEqual(rc, 0)
             self.assertEqual(order[:3], ["topology", "reboot", "consume"])
             self.assertEqual(order[3], "sealed-transfer")
+            self.assertEqual(
+                wait_endpoint.call_args.kwargs["expected_usb_binding"],
+                {"topology": "1-2", "serial_sha256": "e" * 64},
+            )
             rollback.assert_called_once()
 
     def test_rollback_sequence_happy_path_uses_same_topology_and_first_observer(self):
@@ -998,7 +1414,7 @@ class S22PlusFyg8R4W1CLiveGateTest(unittest.TestCase):
                     module.create_phase(run_dir, phase, payload, lease=lease)
                 with mock.patch.object(
                     module, "wait_for_endpoint", return_value=(ticket, 1)
-                ), mock.patch.object(
+                ) as wait_endpoint, mock.patch.object(
                     module, "require_ticket_usb_binding", return_value={"topology": "1-2"}
                 ) as topology, mock.patch.object(
                     module, "confirm_normal_download"
@@ -1049,6 +1465,10 @@ class S22PlusFyg8R4W1CLiveGateTest(unittest.TestCase):
                         result_name="result-live.json",
                     )
             self.assertEqual(rc, 0)
+            self.assertEqual(
+                wait_endpoint.call_args.kwargs["expected_usb_binding"],
+                {"topology": "1-2", "serial_sha256": "e" * 64},
+            )
             self.assertGreaterEqual(topology.call_count, 1)
             self.assertEqual(
                 module.phase_payload(root, run_dir, "classified")["verdict"],

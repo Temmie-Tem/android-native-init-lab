@@ -4,8 +4,8 @@ Date: 2026-07-20 KST
 
 Target: `SM-S906N/g0q/S906NKSS7FYG8`
 
-State: connected policy ACTIVE; connected PASS absent; live policy inactive;
-candidate unconsumed.
+State: connected policy ACTIVE; connected PASS present; replacement live source
+SOURCE GO; live policy retired/inactive; candidate unconsumed.
 
 This runbook freezes the remaining promotion sequence. It grants no device
 contact or live authorization. `AGENTS.md` remains the binding policy.
@@ -15,10 +15,10 @@ contact or live authorization. `AGENTS.md` remains the binding policy.
 ```text
 connected source checkpoint  64d317ab
 connected policy binding     686b57d7
-live helper                   db52c25340c9416e0b1c70bfc109b9389cd5010995ff00a6cb66e8b4a2cc69e5
-live focused test             560d6aac50a6e9fc7557e3c4d2d07966ad8c801f420b2b5b3350dfcc09772402
-live policy template          80a893773529c83dd677ee035cee3b0a6c32919bd98aa1bb016a9a79608e3492
-binding packet generator      40657d6f0fdbb4f776f411d08f34dba59dd7525eabfe71b3b1683e932b0ddccd
+live helper                   65c137586b2decf160800f841b7243f3332108332043dbcaa548d7698e080c99
+live focused test             c5966fb411983bed5b72e39400e8c8d15304ec0257e34e435ad5aae075ca1fbb
+live policy template          06f28538c4fa358dabd5e35c6bab5e0cd5a83c6e78c39d9ba1a6c1516ced5497
+binding packet generator      1a7ab0cd1ef1883e4db7e676203155a2ee402510914e7ccba5b749ed040e62e3
 binding packet test           8c8a4edc01fa1814946c2e1a424bef501cb87bad152e9a39084877011305ffbd
 connected helper              fa4e9b0a77032fbb8b17affb2ae985b80c990b6e4b07c0ee095328cfd80516b9
 connected focused test        98938da61fc6a3f95389a31f019950fa00b3e6575687aab8d1edf5d070240251
@@ -87,10 +87,10 @@ the exact `AGENTS.md` clause. The generator cannot contact a device or edit
 policy.
 
 Independently review the exact packet and clause. While the live policy is
-still inactive, rerun the packet source gate, syntax checks, 169 relevant
+still inactive, rerun the packet source gate, syntax checks, 181 relevant
 regression tests, and the complete offline artifact gate. Then copy the exact
 clause into `AGENTS.md` in a separate commit. After activation, rerun syntax
-checks, the 169 tests, and the live helper's complete `--offline-check`; do not
+checks, the 181 tests, and the live helper's complete `--offline-check`; do not
 rerun the packet generator because its source gate intentionally rejects an
 already-active live policy. Required final state is connected PASS present,
 candidate unconsumed, and both the connected and live policies ACTIVE.
