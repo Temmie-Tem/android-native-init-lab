@@ -141,34 +141,18 @@ fresh exact live acknowledgement all exist.
 END_S22PLUS_FYG8_R4W1C_CONNECTED_POLICY_V1
 
 BEGIN_S22PLUS_FYG8_R4W1C_LIVE_POLICY_V1
-**Retired unconsumed exception (2026-07-20, S22+ FYG8 R4W1-C watchdog-carrier direct-PID1
+**Pending one-shot exception (S22+ FYG8 R4W1-C watchdog-carrier direct-PID1
 boot-only live gate):** this clause applies only to Samsung S22+
 `SM-S906N` / `g0q` / `S906NKSS7FYG8`. The exact policy state is
-`S22PLUS_FYG8_R4W1C_LIVE_POLICY_STATE=RETIRED`.
-
-Two separately acknowledged invocations both completed the exact Android
-preflight, requested normal Download, and then failed closed before consumption
-with `FAIL_R4W1C_PRECONSUMPTION_NO_CANDIDATE_FLASH`. The first rejected
-`/dev/bus/usb/002/011`; the second rejected `/dev/bus/usb/002/014`. In each
-case the Download endpoint first appeared during the bounded `odin4 -l`
-enumeration, so the pre-enumeration inventory had no matching node while the
-post-stat did. Candidate transfer was never attempted, no Odin transfer or
-partition write occurred, and
-`workspace/private/state/s22plus_fyg8_r4w1c_live_exception_consumed.json`
-remains absent. After each physical Download exit, exact FYG8 Android, Magisk
-root, known boot, stock vendor_boot/DTBO/recovery, and no Odin endpoint were
-restored. Fails-twice-stop applies: this exact helper, clause, and acknowledgement
-must not be reused. A replacement requires bounded expected-topology endpoint
-stabilization, host validation, independent review, and a separately committed
-ACTIVE rendering.
+`S22PLUS_FYG8_R4W1C_LIVE_POLICY_STATE=ACTIVE`.
 
 The only executable helper is
 `workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1c_live_gate.py`
-SHA256 `db52c25340c9416e0b1c70bfc109b9389cd5010995ff00a6cb66e8b4a2cc69e5`; its focused test is
+SHA256 `65c137586b2decf160800f841b7243f3332108332043dbcaa548d7698e080c99`; its focused test is
 `tests/test_s22plus_fyg8_r4w1c_live_gate.py` SHA256
-`560d6aac50a6e9fc7557e3c4d2d07966ad8c801f420b2b5b3350dfcc09772402`. The reviewed inert policy template is
+`c5966fb411983bed5b72e39400e8c8d15304ec0257e34e435ad5aae075ca1fbb`. The reviewed inert policy template is
 `docs/operations/S22PLUS_FYG8_R4W1C_LIVE_EXCEPTION_DRAFT_2026-07-20.md`
-SHA256 `80a893773529c83dd677ee035cee3b0a6c32919bd98aa1bb016a9a79608e3492`. The live acknowledgement is
+SHA256 `06f28538c4fa358dabd5e35c6bab5e0cd5a83c6e78c39d9ba1a6c1516ced5497`. The live acknowledgement is
 `S22PLUS-FYG8-R4W1C-DIRECT-PID1-LIVE`. Interrupted recovery requires
 `S22PLUS-FYG8-R4W1C-MAGISK-ROLLBACK-FROM-DOWNLOAD`; every actual rollback
 transfer requires fresh temporal confirmation
@@ -226,6 +210,21 @@ selected ADB serial, `adb get-serialno`, and Android USB sysfs serial to agree.
 Candidate and rollback Odin endpoints must be Samsung USB character devices
 with both that topology and serial digest; a merely unique endpoint or same-port
 substitute is insufficient.
+
+Before either ticketed endpoint wait, the helper must use the same finite wait
+deadline to observe that exact sysfs topology as Samsung Download product
+`685d`, require the bound serial digest, derive its direct USB character-device
+node, and obtain three consecutive identical node samples over at least 0.5
+seconds. A ctime-only udev transition resets the consecutive count. Node loss,
+wrong topology or serial, malformed sysfs, timeout, or any pathname, `st_dev`,
+inode, `st_rdev`, or ctime difference between the stabilized sample and hardened
+ticket is fatal. Ticket acceptance and every pre-transfer USB revalidation must
+again require the exact ticket node identity and product `685d`; the combined
+identity/binding check must stat the node both before and after its sysfs reads,
+require the complete tuples to match, and be the final device check before
+sealed Odin launch. Stabilization grants no endpoint authority by itself and
+does not weaken the hardened Odin core's inventory, ambiguity, generation,
+receipt, or final revalidation gates.
 
 Immediately before candidate transfer the helper must durably and exclusively
 create
