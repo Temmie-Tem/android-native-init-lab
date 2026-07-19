@@ -17,13 +17,29 @@ BL, CP, CSC, userdata, or any non-boot flash.
 
 ## Safety invariants (NEVER violate)
 
-**Pending exception (2026-07-19, S22+ FYG8 R4W1-B connected read-only
-qualification):** after exact host source commit `c744abb3` passed an
-independent delta review with verdict
-`GO_TO_SEPARATE_CONNECTED_POLICY_BINDING_REVIEW`, Codex may perform one bounded
-connected read-only qualification on Samsung S22+ `SM-S906N` / `g0q` /
-`S906NKSS7FYG8` only after the attending operator supplies the exact fresh
-acknowledgement below. Policy marker:
+**Consumed/retired exception (2026-07-19, S22+ FYG8 R4W1-B original connected
+read-only qualification):** the exact helper SHA256
+`734693c456d482e6a09360129ba74e9123017b5c42829518a23870d07465a95d`
+completed one bounded connected read-only run with verdict
+`PASS_R4W1B_CONNECTED_BASELINE_READ_ONLY`. Result SHA256 was
+`53db7c900f681310a5225e98a537988874c9f9e40df46e9cffd53d452c7ad920`;
+PASS-record SHA256 was
+`dea447026c4aad259559c100698ee9463345026467b3cfccd90dfdcb466c067e`.
+No device write, reboot, Download transition, Odin transfer, flash, or candidate
+consumption occurred. The helper later changed after independent live-binding
+review, so the canonical PASS was invalidated and its exact bytes were retained
+at
+`workspace/private/state/s22plus_fyg8_r4w1b_connected_read_only_pass_invalidated_20260719T064318Z.json`.
+The original one-shot qualification must not be reused.
+
+`S22PLUS_FYG8_R4W1B_CONNECTED_V1_POLICY_STATE=RETIRED`
+
+**Pending exception (2026-07-19, S22+ FYG8 R4W1-B hardened connected read-only
+requalification):** exact host source commit `0524f206` passed independent
+adversarial review with verdict `GO_TO_HARDENED_SOURCE_COMMIT`. Codex may perform
+one bounded connected read-only requalification on Samsung S22+
+`SM-S906N` / `g0q` / `S906NKSS7FYG8` only after the attending operator supplies
+the exact fresh acknowledgement below. Policy marker:
 `S22+ FYG8 R4W1-B direct-PID1 retained witness boot-only live gate`.
 
 `S22PLUS_FYG8_R4W1B_CONNECTED_POLICY_STATE=ACTIVE`
@@ -31,9 +47,9 @@ acknowledgement below. Policy marker:
 The only executable helper is
 `workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1b_live_gate.py`
 SHA256
-`734693c456d482e6a09360129ba74e9123017b5c42829518a23870d07465a95d`.
+`3b42a52b406b7c0073fc13b1df957b165193f20a75a9b6010c96131013baec61`.
 Its focused test SHA256 is
-`87de80150d1962c5804471a8037657144a4c394cd8cba5c596947c0723be42c1`.
+`0016da20c765583e1adf15af105078ebefaf49ebf792fda328e25e4ba310680a`.
 The reusable core is
 `workspace/public/src/scripts/revalidation/s22plus_boot_only_live_core.py`
 SHA256
@@ -41,7 +57,15 @@ SHA256
 its focused test SHA256 is
 `b55db8579115ec437e7fe63b6a3b6ecef0d8cbcac54110599e85f310f3b2fd9d`.
 The reviewed inactive full exception draft SHA256 is
-`a757eb46d5adb9e77e42fc6290656f9b56e1d6c33ec5e0cba6930bcf8fb557e2`.
+`deb55b14ac6c7d08ee2fd19f05b88d884740f1f1450d59c73f37093368d0b31d`.
+
+The prior canonical PASS is invalid for this helper and must remain absent from
+`workspace/private/state/s22plus_fyg8_r4w1b_connected_read_only_pass.json`.
+Its historical bytes are retained only at
+`workspace/private/state/s22plus_fyg8_r4w1b_connected_read_only_pass_invalidated_20260719T064318Z.json`,
+SHA256
+`dea447026c4aad259559c100698ee9463345026467b3cfccd90dfdcb466c067e`.
+The candidate consumed state must remain absent.
 
 Before device contact, the helper must rerun its complete offline artifact gate
 and fresh deterministic static checker. It must require candidate raw boot
@@ -93,7 +117,8 @@ stock DTBO SHA256
 `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`,
 stock recovery SHA256
 `93fac06ca79bf4b365b25a8d49902bc41aba112ea253c30880c90e314d7895d4`,
-and no Odin endpoint.
+and no Odin endpoint. Odin listing must complete with rc=0; a failed or stale
+listing is not absence.
 
 It must prove live `sec_log_buf`, exact platform bind
 `/sys/bus/platform/drivers/samsung,kernel_log_buf/8.samsung,kernel_log_buf`,
@@ -111,8 +136,9 @@ exclusive host PASS record at
 `workspace/private/state/s22plus_fyg8_r4w1b_connected_read_only_pass.json`.
 PASS is only `PASS_R4W1B_CONNECTED_BASELINE_READ_ONLY` and must bind target,
 exact helper/test/core/core-test identities, result path and result SHA256,
-full observer receipts, pstore absence, `device_writes=false`, `reboot=false`,
-`download_transition=false`, `odin_transfer=false`, and `flash=false`.
+full observer receipts and direct raw-file identities, pstore absence,
+`device_writes=false`, `reboot=false`, `download_transition=false`,
+`odin_transfer=false`, and `flash=false`.
 
 This connected-only exception does not activate the one-shot live policy and
 authorizes no candidate run, consumed-state creation, reboot, Download
@@ -122,7 +148,7 @@ Firehose, EUD/UART write, format, cleanup, or A90 action. It authorizes no write
 to boot, recovery, vendor_boot, DTBO, vbmeta, BL, CP, CSC, super, userdata,
 persist, EFS, sec_efs, RPMB, keymaster, modem, bootloader, or any partition.
 Any mismatch fails closed before the host PASS record. A later live stage
-requires a separate exact connected PASS, independent policy-binding review,
+requires the exact new connected PASS, independent policy-binding review,
 separate `AGENTS.md` commit, and fresh live approval.
 
 **Consumed/retired exception (2026-07-13, S22+ FYG8 R4W1-A stream-only retained

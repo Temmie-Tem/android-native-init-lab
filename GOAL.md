@@ -6,6 +6,27 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-19 16:49 KST / 2026-07-19 07:49 UTC) -
+> R4W1-B HARDENED CONNECTED REQUALIFICATION BINDING HOST GO; LIVE POLICY
+> INACTIVE; FRESH EXACT CONNECTED ACK NEXT.** Hardened source commit `0524f206`
+> passed the final independent source review. The prior canonical PASS was
+> archived byte-identically as
+> `s22plus_fyg8_r4w1b_connected_read_only_pass_invalidated_20260719T064318Z.json`
+> with SHA256 `dea44702...c067e`, and the canonical path is absent.
+>
+> Exact replacement clause SHA256 `50a1e19f...e677112` passed independent
+> binding review with verdict `GO_TO_BIND_CONNECTED_REQUALIFICATION`. Its exact
+> payload replaced the old R4W1-B connected clause: the old run is RETIRED,
+> the new connected sentinel count is one, the live sentinel count is zero,
+> `policy_active(connected)=true`, `policy_active(live)=false`, and focused tests
+> pass `39/39`. Full R4W1-B tests pass `113/113` with 3 skips; the complete
+> offline artifact gate returns `PASS_R4W1B_LIVE_GATE_OFFLINE_CHECK` with no
+> connected PASS and no consumed candidate. No device contact occurred. Next
+> requires a newly supplied exact
+> `S22PLUS-FYG8-R4W1B-CONNECTED-READ-ONLY-DRY-RUN`; the earlier acknowledgement
+> was consumed by the archived run. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1B_CONNECTED_REQUALIFICATION_BINDING_HOST_GO_2026-07-19.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-19 16:34 KST / 2026-07-19 07:34 UTC) -
 > R4W1-B CONNECTED READ-ONLY PASS; LIVE-BINDING INDEPENDENT REVIEW NO-GO;
 > TWO HARDENING REVIEW ROUNDS CLOSED HOST-ONLY; REQUALIFICATION POLICY NEXT.** The operator
