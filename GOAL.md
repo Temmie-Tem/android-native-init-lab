@@ -6,6 +6,24 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-19 23:54 KST / 2026-07-19 14:54 UTC) -
+> R4W1-B ONE-SHOT CONSUMED; CANDIDATE TRANSFERRED; PID1 NO_PROOF; EXACT MAGISK
+> RECOVERY PASS; LIVE POLICY RETIRED.** The candidate boot-only AP transferred
+> once successfully. Candidate disconnect observation failed closed on an Odin
+> stale-path race before raw park, and normal Download appeared only at the end
+> of the 120-second rollback transition window. The original run therefore
+> ended `FAIL_R4W1B_ROLLBACK_NOT_VERIFIED_RECOVERY_REQUIRED` before rollback.
+>
+> The separately approved recovery-only path revalidated the same endpoint,
+> transferred exact Magisk boot with Odin rc=0, and returned exact FYG8 Android,
+> root, known boot, stock `vendor_boot`/DTBO/recovery, orange state, and no Odin
+> endpoint: `PASS_R4W1B_MAGISK_ROLLBACK_FROM_DOWNLOAD`. No post-candidate
+> `/proc/last_kmsg` was captured, so direct PID1 execution remains `NO_PROOF`.
+> The consumed state is retained, the live policy is RETIRED, and no candidate
+> rerun is authorized. Next work is host-only postmortem of the stale-endpoint
+> race and rollback time-budget design. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1B_LIVE_NO_PROOF_MAGISK_RECOVERY_PASS_2026-07-19.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-19 23:44 KST / 2026-07-19 14:44 UTC) -
 > R4W1-B HARDENED CONNECTED PASS + LIVE POLICY BINDING HOST GO; FRESH EXACT
 > LIVE ACK NEXT.** The post-binding hardened connected run returned

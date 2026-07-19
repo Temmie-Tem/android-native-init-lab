@@ -151,16 +151,24 @@ Any mismatch fails closed before the host PASS record. A later live stage
 requires the exact new connected PASS, independent policy-binding review,
 separate `AGENTS.md` commit, and fresh live approval.
 
-**Pending exception (2026-07-19, S22+ FYG8 R4W1-B direct-PID1 retained
-witness boot-only live gate):** after the separately bound connected-only
-policy produced one exact `PASS_R4W1B_CONNECTED_BASELINE_READ_ONLY`, and after
-the rendered clause and evidence packet pass an independent host-only review,
-Codex may perform one bounded attended candidate run on Samsung S22+
-`SM-S906N` / `g0q` / `S906NKSS7FYG8` only after the attending operator supplies
-the exact fresh live acknowledgement below. Policy marker:
+**Consumed/retired exception (2026-07-19, S22+ FYG8 R4W1-B direct-PID1 retained
+witness boot-only live gate):** the exact candidate boot-only AP transferred
+once with Odin success. Strict disconnect observation encountered a disappeared
+endpoint reported by `odin4 -l` as stale and therefore refused raw park. The
+operator entered normal Download, but its endpoint appeared at the end of the
+bounded transition window, leaving no temporal-confirmation time. The live run
+failed closed before rollback with
+`FAIL_R4W1B_ROLLBACK_NOT_VERIFIED_RECOVERY_REQUIRED`. A separately approved
+recovery-only run revalidated the same single endpoint, transferred the exact
+Magisk boot-only AP with Odin rc=0, and returned exact FYG8 Android, Magisk root,
+known boot, stock `vendor_boot`/DTBO/recovery, orange state, and no Odin endpoint
+with verdict `PASS_R4W1B_MAGISK_ROLLBACK_FROM_DOWNLOAD`. No post-candidate
+retained observer was captured, so direct PID1 execution remains `NO_PROOF`.
+The one-shot consumed state exists and this exception must not be reused. Policy
+marker:
 `S22+ FYG8 R4W1-B direct-PID1 retained witness boot-only live gate`.
 
-`S22PLUS_FYG8_R4W1B_POLICY_STATE=ACTIVE`
+`S22PLUS_FYG8_R4W1B_POLICY_STATE=RETIRED`
 
 The previously bound connected-only clause remains binding in full, including
 all source, candidate, firmware, rollback, baseline, observer, and prohibition
