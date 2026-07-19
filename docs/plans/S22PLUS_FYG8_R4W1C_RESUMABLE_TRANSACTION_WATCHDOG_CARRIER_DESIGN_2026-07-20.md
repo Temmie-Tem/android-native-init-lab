@@ -2,8 +2,9 @@
 
 Date: 2026-07-20 KST
 
-Status: host-only design. No candidate, live helper, ACTIVE policy, device
-contact, or flash authorization exists.
+Status: endpoint core adversarial review closed with GO; watchdog carrier is the
+next host-only unit. No candidate, live helper, ACTIVE policy, device contact,
+or flash authorization exists.
 
 ## Objective
 
@@ -23,23 +24,31 @@ exec-accept witness and survive long enough for deterministic attended recovery.
 
 ### 1. Endpoint evidence core
 
-Introduce a target-neutral host module that converts each `odin4 -l` call into
-an immutable snapshot:
+Introduce a target-neutral host module that converts each accepted `odin4 -l`
+call into a sealed snapshot:
 
 ```text
-raw paths -> filesystem existence split -> live paths + stale paths
-          -> immutable JSON receipt -> append-only JSONL index
+pre-run USB identity inventory -> bounded odin4 -l -> post-run identity check
+          -> live paths + stale paths -> sealed JSON receipt
+          -> append-only JSONL index
 ```
 
 Rules:
 
 - nonzero Odin enumeration is fatal;
+- a path that appears, disappears, or changes identity while `odin4 -l` runs is
+  fatal for that observation;
 - stale-only output means no live endpoint and is not fatal;
 - more than one live endpoint is ambiguous and fatal;
 - one live endpoint yields a generation-bound ticket;
 - transfer revalidation requires the same single live path in a fresh snapshot;
 - all snapshots are bounded and durably flushed;
-- immutable receipts are load-bearing; the JSONL file is a recoverable index.
+- exclusive-create mode-0400 receipts are load-bearing on trusted host storage;
+  the JSONL file is a recoverable advisory index.
+
+The resulting endpoint ticket is evidence only. It is not authorization to
+invoke Odin and cannot replace a target helper's artifact, policy, confirmation,
+or transfer gate.
 
 ### 2. Independent deadlines
 
@@ -57,8 +66,9 @@ immediately before transfer.
 ### 3. Forward-only transaction
 
 The consumed state binds one transaction ID, candidate, rollback artifacts,
-helper, and run directory. Each phase writes an immutable receipt before moving
-forward:
+helper, and run directory. One process/thread holds the transaction lease for
+the complete helper transaction. Each phase writes a sealed receipt before
+moving forward:
 
 ```text
 prepared
@@ -139,6 +149,8 @@ userspace loader is already live-proven and has a smaller compatibility delta.
 
 ## Current Unit Exit
 
-Host-only PASS requires the new endpoint core and focused tests to prove stale
-endpoint tolerance, ambiguity rejection, generation revalidation, immutable
-receipts, and parseable append-only indexing. It authorizes no device action.
+This unit exited with host-only adversarial GO after five review rounds. The
+core and tests prove pre/post USB identity attribution, stale-path tolerance,
+ambiguity rejection, generation revalidation, PID/thread-bound single-writer
+leases, crash reconciliation, bounded sealed receipts, and parseable append-only
+indexing. It authorizes no device action.

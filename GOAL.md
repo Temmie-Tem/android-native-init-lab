@@ -6,9 +6,9 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
-> **S22+ ACTIVE FRONTIER (2026-07-20 01:08 KST / 2026-07-19 16:08 UTC) -
-> R4W1-B WEB/CLAUDE/REPOSITORY POSTMORTEM COMPLETE; R4W1-C ODIN TRANSITION
-> CORE HOST PASS; NO LIVE AUTHORIZATION.** The R4W1-B evidence failure is now
+> **S22+ ACTIVE FRONTIER (2026-07-20 02:28 KST / 2026-07-19 17:28 UTC) -
+> R4W1-C ODIN TRANSITION CORE ADVERSARIAL CLOSE GO; WATCHDOG CARRIER NEXT;
+> NO LIVE AUTHORIZATION.** The R4W1-B evidence failure is now
 > separated from candidate behavior: stale Odin output was made fatal and
 > endpoint discovery consumed the shared 120-second human-confirmation budget,
 > while the recovery-only session restored Magisk without collecting the first
@@ -22,24 +22,29 @@ are binding and override any sub-goal.**
 > M31B also exposed RDX during later manual Download recovery after survival was
 > already proved.
 >
-> A new target-neutral host core now records bounded `odin4 -l` snapshots as
-> immutable fsynced receipts plus a recoverable append-only JSONL index. It
-> treats stale paths as non-live evidence, rejects ambiguous live endpoints,
-> binds a ticket to path plus device-node identity, requires fresh same-
-> generation revalidation, recovers receipts across a partial/missing index,
-> and enforces a forward-only phase prefix. Source SHA256 is
-> `05aae029...6402f8`; test SHA256 is `b4574461...00d469`. Focused tests pass
-> `18/18`; the retired R4W1-B suite passes `94/94` with 3 build-host skips; the
-> existing live core passes `12/12`; `py_compile` and `git diff --check` pass.
-> No retired helper/core was changed and no device contact occurred.
+> The target-neutral host core survived five independent read-only reviews. The
+> first four returned `NO-GO`; all blocking findings were fixed, and the fifth
+> returned `GO`. It inventories USB-node identities before the actual bounded
+> `odin4 -l`, post-stats every reported path, rejects appearance/disappearance/
+> replacement races, binds evidence tickets to generation plus sealed receipt,
+> holds a PID/thread-bound whole-transaction lease, prevalidates actual index
+> records, recovers one crash orphan, and applies finite deadlines and complete
+> subprocess cleanup. Source SHA256 is `ab418aac...1888a9b`; test SHA256 is
+> `560a6cef...9ac376`. Focused tests pass `61/61`; the retired R4W1-B suite
+> passes `94/94` with 3 build-host skips; the existing live core passes `12/12`.
+> `py_compile`, ResourceWarning-as-error, and `git diff --check` pass. No retired
+> helper/core was changed and no device contact occurred.
 >
-> Next is a separate host-only adversarial review. Only a clean review may
-> advance to an M31B-derived watchdog-managed R4W1-C carrier builder and
-> independent checker. No candidate, connected gate, ACTIVE policy, device
-> action, or flash authorization exists. Reports/design:
+> Next is the host-only M31B-derived watchdog-managed R4W1-C carrier builder and
+> independent checker. It must fail closed on module load error, prove the exact
+> five expected names in `/proc/modules`, preserve the R4W1-B kernel witness,
+> and retain the no-USB/no-persistent-write park envelope. No candidate,
+> connected gate, ACTIVE policy, device action, or flash authorization exists.
+> Reports/design:
 > `docs/reports/S22PLUS_FYG8_R4W1B_WEB_CLAUDE_REPOSITORY_POSTMORTEM_2026-07-20.md`,
 > `docs/plans/S22PLUS_FYG8_R4W1C_RESUMABLE_TRANSACTION_WATCHDOG_CARRIER_DESIGN_2026-07-20.md`,
-> `docs/reports/S22PLUS_FYG8_R4W1C_ODIN_TRANSITION_CORE_HOST_PASS_2026-07-20.md`.
+> `docs/reports/S22PLUS_FYG8_R4W1C_ODIN_TRANSITION_CORE_HOST_PASS_2026-07-20.md`,
+> `docs/reports/S22PLUS_FYG8_R4W1C_ODIN_TRANSITION_CORE_ADVERSARIAL_CLOSE_2026-07-20.md`.
 
 > **S22+ ACTIVE FRONTIER (2026-07-19 23:54 KST / 2026-07-19 14:54 UTC) -
 > R4W1-B ONE-SHOT CONSUMED; CANDIDATE TRANSFERRED; PID1 NO_PROOF; EXACT MAGISK

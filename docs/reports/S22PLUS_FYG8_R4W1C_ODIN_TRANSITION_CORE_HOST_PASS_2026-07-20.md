@@ -2,6 +2,17 @@
 
 Date: 2026-07-20 KST
 
+## Superseded Checkpoint
+
+This file records the initial `8510d771` checkpoint. Its source hashes, 18-test
+count, and initial PASS were accurate for that commit but are not the final
+reviewed core. Four successive adversarial reviews found blocking issues after
+this checkpoint. The corrected core, 61 focused tests, final independent GO,
+and current hashes are recorded in
+`S22PLUS_FYG8_R4W1C_ODIN_TRANSITION_CORE_ADVERSARIAL_CLOSE_2026-07-20.md`.
+
+Do not use the hashes below as current pins.
+
 ## Verdict
 
 `PASS_R4W1C_ODIN_TRANSITION_CORE_HOST_ONLY`
