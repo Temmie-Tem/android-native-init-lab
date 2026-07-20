@@ -18,45 +18,44 @@ BL, CP, CSC, userdata, or any non-boot flash.
 ## Safety invariants (NEVER violate)
 
 BEGIN_S22PLUS_FYG8_R4W1C_ENUM_DIFF_OBSERVER_POLICY_V1
-S22PLUS_FYG8_R4W1C_ENUM_DIFF_OBSERVER_POLICY_STATE=ACTIVE
-S22+ FYG8 R4W1-C Odin enumeration-diff observation gate
-helper_path=workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1c_odin_enumeration_diff_observer.py
-helper_sha256=90707b79c67080533c9c32f9d787f254d83c11ce98471b9a7bfb1c7d15871913
-test_path=tests/test_s22plus_fyg8_r4w1c_odin_enumeration_diff_observer.py
-test_sha256=510bf46191f05096d716409f29a754c928c1f332b8ada767819495235998a545
-draft_path=docs/operations/S22PLUS_FYG8_R4W1C_ODIN_ENUMERATION_DIFF_OBSERVER_EXCEPTION_DRAFT_2026-07-20.md
-draft_sha256=ddcf158a40d4cf56853340c8219535038afb99e99f21b81a9b5f42f902b02c4a
-odin_path=/usr/bin/odin4
-odin_size=3746744
-odin_sha256=6754aa54f2abe6e99ece32414cd34c8b23b28dbddde537a33203036813637c3b
-observe_ack=S22PLUS-FYG8-R4W1C-ODIN-ENUMERATION-DIFF-OBSERVE
-download_confirm=S22PLUS-FYG8-R4W1C-ODIN-ENUMERATION-DIFF-NORMAL-DOWNLOAD-CONFIRMED
-recovery_ack=S22PLUS-FYG8-R4W1C-ODIN-ENUMERATION-DIFF-RECOVER-CONSUMED-OBSERVER
-authorization=one-exact-android-baseline+one-adb-reboot-download+one-bounded-odin4-list+physical-exit+exact-android-return
-target=one-attended-SM-S906N+g0q+S906NKSS7FYG8+same-cable-hub-port
-android_baseline=boot-complete+bootanim-stopped+orange+magisk-uid0+exact-known-boot+stock-vendor_boot+stock-dtbo+stock-recovery+exact-adb-serial+usb-topology+no-download-endpoint
-odin_executable=open-no-follow+exact-size-sha+held-fd+execute-through-fd+same-path-inode-before-after
-one_shot=exclusive-durable-consume-before-adb-reboot-download-attempt+immediate-open-no-follow-pin+path-inode-sha-check-across-all-subsequent-actions-and-final-result
-download_endpoint=only-bound-topology+04e8:685d+SAMSUNG-USB+Samsung+serial-absent+unambiguous
-stabilization=SIGINT+SIGTERM+SIGHUP-masked-from-each-sample-read-through-exclusive-create-fsync+failure-or-interruption-preserves-every-collected-sample+last-stable-sample-is-immutable-pre-odin-baseline
-pre_odin_binding=first-complete-pre-listing-bundle-must-match-stable-topology+full-sysfs+path+all-immutable-node-fields;replacement-or-device-number-change-stops-before-odin
-listing=exactly-one-bounded-10s-odin4-minus-l+bounded-output+no-other-subprocess-execution-surface
-post_odin_order=SIGINT+SIGTERM+SIGHUP-masked-through-closure+partial-output-and-original-interruption-preserved-even-if-process-cleanup-fails+on-return+failure+timeout+output-bound+interruption:first-capture-complete-after-bundle;independently-attempt-after-bundle+command-outcome-including-cleanup-error-and-after-persist-error+raw-stdout+raw-stderr-so-one-write-failure-cannot-skip-the-others;any-write-failure-is-non-PASS;then-rehash-parse-classify;unmask-or-reraise-only-after-closure
-evidence=bracketed-all-download-sysfs+complete-bounded-usbfs+exact-node-stat-fields+all-races-errors+raw-output+return-timeout-truncation+parsed-paths+per-field-diff+exclusive-create+fsync
-odin_output=raw-strict-utf8-path-only-stdout+at-most-one-final-LF+no-blank-or-whitespace-normalization+byte-empty-stderr+exactly-one-expected-path
-unsafe=topology-or-descriptor-or-device-number-or-immutable-change+inventory-change+ambiguity+disappearance+capture-error+command-failure+malformed-output
-android_return=same-exact-serial+topology+complete-pre-run-FYG8+Magisk+partition-identities
-recovery=only-exact-consumed-run+pinned-open-no-follow-state-fd+path-inode-sha-check-before-and-after-every-Android-return-polling-attempt+after-preclosure-fsync+immediately-before-final-result+separate-token+no-reboot-or-odin-or-transfer+exclusive-intent-before-contact+attempt-specific-evidence+interrupted-intent-counts+maximum-two-bounded-attempts
-authority=whole-observation-or-recovery-session+single-writer-nonblocking-lease+pinned-lock-fd-and-path-inode+pinned-policy-helper-test-draft+checks-before-and-after-initial-Android-baseline+authority-and-consumed-pin-checks-before-and-after-adb-reboot-download+around-every-stabilization-sample+confirmation+odin-observation+Android-return-polling-attempt+after-non-PASS-preclosure-fsync+immediately-before-final-result
-partition_writes=false
-odin_transfer=false
-acceptance_decision=false
-pass=only-PASS_R4W1C_ENUM_DIFF_OBSERVER_EVIDENCE_CAPTURED-after-evidence-closure-and-exact-android-return;never-authorizes-candidate-or-second-observer
-timeline=only-events-name-timestamp_utc+canonical-eight-ordered-slots+zero-flash-semantics+non-PASS-preclosure-preserves-actual-prefix-before-placeholder-completion+recovery-never-relabels-placeholders+recovery-activity-uses-separate-noncanonical-result-field+result-maps-each-slot-to-reached-or-not-reached-no-action-placeholder
-result_closure=exclusive-non-PASS-preclosure+post-fsync-authority-and-consumed-state-validation+final-PASS-result-created-only-after-validation
-policy_digest_semantics=embedded-policy-clause-sha256-is-sha256-of-normalized-clause-template-containing-literal-placeholder;authority-receipt-policy-clause-sha256-is-sha256-of-final-rendered-block
-forbidden=candidate-ap,odin-transfer,flash,partition-write,raw-dd,fastboot,module,panic,sysrq,rdx,sboot,ramdump,qdl,sahara,firehose,eud,uart,format,cleanup,a90,boot,recovery,vendor_boot,dtbo,vbmeta,bl,cp,csc,super,userdata,persist,efs,sec_efs,rpmb,keymaster,modem,bootloader,all-other-partitions
-S22PLUS_FYG8_R4W1C_ENUM_DIFF_POLICY_CLAUSE_SHA256=93d8959a7df8b52574ed4d734122d5799b5f36d0077e82532feed49d75aa2677
+S22PLUS_FYG8_R4W1C_ENUM_DIFF_OBSERVER_POLICY_STATE=RETIRED
+**Consumed/retired exception (2026-07-20, S22+ FYG8 R4W1-C Odin
+enumeration-diff observation gate):** one freshly acknowledged attended run
+consumed the observer state before requesting normal Download, collected three
+stable exact endpoint samples, executed exactly one bounded `odin4 -l`, sealed
+complete pre/post evidence, and returned the exact handset to FYG8 Android.
+Durable verdict is `PASS_R4W1C_ENUM_DIFF_OBSERVER_EVIDENCE_CAPTURED`.
+
+The exact Odin command returned rc 0 without timeout, truncation, cleanup error,
+or stderr and reported exactly `/dev/bus/usb/002/021`. The bound endpoint stayed
+at topology `2-1.3` with exact Samsung `04e8:685d`, product `SAMSUNG USB`,
+manufacturer `Samsung`, and absent Download serial. No inventory member,
+descriptor, topology, device number, inode, `st_dev`, `st_rdev`, major/minor,
+mode, uid/gid, link count, or birth time changed. Only `st_atime_ns`,
+`st_ctime_ns`, and `st_mtime_ns` changed during the listing, producing
+classification `OBSERVED_METADATA_ONLY_MUTATION` with zero unsafe reasons.
+
+Result SHA256 is
+`c64e0873c722df56c4a4596c73d92367e6f9608dc6ab1cd1d076044a3e3f6ab0`;
+timeline SHA256 is
+`27111a3d4d4f7af3b2ba7351f3ee016796f0f4daa30c70e8c2d445a215627013`;
+classification SHA256 is
+`98f8b050b0c8d665719d1feaf92b02d232d4e7b4692c57e5e851c452b61525ae`;
+consumed-state SHA256 is
+`5e5be04786b7437bfb79c390132c0222f003df89e3973ff5ac3808f5a80f1c85`.
+The exact helper SHA256 was
+`90707b79c67080533c9c32f9d787f254d83c11ce98471b9a7bfb1c7d15871913`;
+the installed ACTIVE clause SHA256 was
+`9f42de1cb609f9897799f82d1e59f11fd1ec24cc018da3ed9099adb1e89d497e`.
+
+No Odin transfer, flash, partition write, candidate execution, cleanup,
+acceptance decision, or second observer occurred. Exact FYG8, Magisk uid 0,
+known boot, stock vendor_boot/DTBO/recovery, orange state, original Android
+serial, and topology returned. This one-shot state and all three acknowledgement
+tokens are permanently consumed and must never be reused. This retired record
+authorizes no device contact, observer recovery, candidate, transfer, flash,
+partition write, or relaxation of a future transfer gate. Any later policy must
+be separately designed, reviewed, committed, and freshly acknowledged.
 END_S22PLUS_FYG8_R4W1C_ENUM_DIFF_OBSERVER_POLICY_V1
 
 BEGIN_S22PLUS_FYG8_R4W1C_CONNECTED_POLICY_V1

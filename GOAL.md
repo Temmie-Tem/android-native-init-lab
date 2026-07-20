@@ -6,6 +6,43 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-20 23:57 KST / 2026-07-20 14:57 UTC) -
+> R4W1-C ZERO-TRANSFER ODIN ENUMERATION-DIFF OBSERVER LIVE PASS; ONE-SHOT
+> CONSUMED; POLICY RETIRED; TRANSFER-GATE REDESIGN NEXT.** One attended run
+> consumed the observation state, requested normal Download, captured three
+> stable samples at topology `2-1.3`, and executed exactly one bounded
+> `odin4 -l`. The command returned rc 0, exact path
+> `/dev/bus/usb/002/021`, empty stderr, no timeout/truncation/cleanup error,
+> and no transfer surface. Exact FYG8/Magisk Android then returned.
+>
+> The before/after evidence proves `OBSERVED_METADATA_ONLY_MUTATION`: only
+> `st_atime_ns`, `st_ctime_ns`, and `st_mtime_ns` changed. Inode, `st_dev`,
+> `st_rdev`, major/minor, mode, uid/gid, link count, birth time, complete sysfs
+> identity, endpoint membership, device number, and topology remained exact;
+> immutable changes, inventory additions/removals, and unsafe reasons are all
+> empty. This resolves the former enumeration error as the observed listing-time
+> node metadata mutation rather than endpoint replacement.
+>
+> Durable verdict is `PASS_R4W1C_ENUM_DIFF_OBSERVER_EVIDENCE_CAPTURED`.
+> Result SHA256 is
+> `c64e0873c722df56c4a4596c73d92367e6f9608dc6ab1cd1d076044a3e3f6ab0`;
+> timeline SHA256 is
+> `27111a3d4d4f7af3b2ba7351f3ee016796f0f4daa30c70e8c2d445a215627013`;
+> classification SHA256 is
+> `98f8b050b0c8d665719d1feaf92b02d232d4e7b4692c57e5e851c452b61525ae`;
+> consumed-state SHA256 is
+> `5e5be04786b7437bfb79c390132c0222f003df89e3973ff5ac3808f5a80f1c85`.
+>
+> No Odin transfer, flash, partition write, candidate, cleanup, acceptance
+> decision, or second observer occurred. The observer and its tokens are now
+> permanently consumed and its policy is RETIRED. Because the observer always
+> sets `acceptance_decision=false`, this evidence does not activate a candidate
+> or permit directly weakening the old gate. Next: host-only design and
+> independent review of a replacement transfer gate that treats only these
+> three measured time fields as mutable while keeping every immutable identity,
+> topology, inventory, command, and rollback check fail-closed. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1C_ODIN_ENUMERATION_DIFF_OBSERVER_LIVE_PASS_2026-07-20.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-20 23:13 KST / 2026-07-20 14:13 UTC) -
 > R4W1-C ZERO-TRANSFER ODIN ENUMERATION-DIFF OBSERVER POLICY ACTIVE;
 > POST-ACTIVATION GO; ONE-SHOT UNCONSUMED; FRESH EXACT OBSERVE TOKEN NEXT.**
