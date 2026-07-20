@@ -1,3 +1,4 @@
+import contextlib
 import importlib.util
 import json
 import os
@@ -101,6 +102,7 @@ class NoApRecoveryTests(unittest.TestCase):
                 "/dev/bus/usb/002/027",
                 stdout_path=Path(temporary) / "stdout",
                 stderr_path=Path(temporary) / "stderr",
+                outcome_path=Path(temporary) / "outcome.json",
                 runner=runner,
             )
         self.assertEqual(completed.returncode, 0)
@@ -109,6 +111,7 @@ class NoApRecoveryTests(unittest.TestCase):
             ["/proc/self/fd/9", "--reboot", "-d", "/dev/bus/usb/002/027"],
         )
         self.assertEqual(seen["kwargs"]["pass_fds"], (9,))
+        self.assertEqual(seen["kwargs"]["stdin"], subprocess.DEVNULL)
         for forbidden in ("-a", "-b", "-c", "-s", "-u", "-e", "-V"):
             self.assertNotIn(forbidden, command)
 
@@ -118,16 +121,21 @@ class NoApRecoveryTests(unittest.TestCase):
         def runner(command, **_kwargs):
             return subprocess.CompletedProcess(command, 1, b"fail\n", b"")
 
-        with tempfile.TemporaryDirectory() as temporary, self.assertRaisesRegex(
-            module.RecoveryError, "failed rc=1"
-        ):
-            module.run_noap_odin(
-                9,
-                "/dev/bus/usb/002/027",
-                stdout_path=Path(temporary) / "stdout",
-                stderr_path=Path(temporary) / "stderr",
-                runner=runner,
-            )
+        with tempfile.TemporaryDirectory() as temporary:
+            outcome_path = Path(temporary) / "outcome.json"
+            with self.assertRaisesRegex(module.RecoveryError, "failed rc=1"):
+                module.run_noap_odin(
+                    9,
+                    "/dev/bus/usb/002/027",
+                    stdout_path=Path(temporary) / "stdout",
+                    stderr_path=Path(temporary) / "stderr",
+                    outcome_path=outcome_path,
+                    runner=runner,
+                )
+            outcome = json.loads(outcome_path.read_text(encoding="utf-8"))
+            self.assertTrue(outcome["attempted"])
+            self.assertTrue(outcome["returned"])
+            self.assertEqual(outcome["returncode"], 1)
 
     def test_reboot_rejects_stderr(self):
         module = self.module
@@ -148,6 +156,7 @@ class NoApRecoveryTests(unittest.TestCase):
                 "/dev/bus/usb/002/027",
                 stdout_path=Path(temporary) / "stdout",
                 stderr_path=Path(temporary) / "stderr",
+                outcome_path=Path(temporary) / "outcome.json",
                 runner=runner,
             )
 
@@ -170,8 +179,186 @@ class NoApRecoveryTests(unittest.TestCase):
                 "/dev/bus/usb/002/027",
                 stdout_path=Path(temporary) / "stdout",
                 stderr_path=Path(temporary) / "stderr",
+                outcome_path=Path(temporary) / "outcome.json",
                 runner=runner,
             )
+
+    def test_bounded_runner_persists_at_most_exact_cap(self):
+        module = self.module
+        command = [
+            "/usr/bin/python3",
+            "-c",
+            f"import os; os.write(1, b'x' * {module.MAX_ODIN_OUTPUT + 8192})",
+        ]
+        with self.assertRaises(module.BoundedOdinError) as raised:
+            module.bounded_odin_runner(
+                command,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                pass_fds=(),
+                timeout=10,
+                check=False,
+            )
+        error = raised.exception
+        self.assertTrue(error.output_overflow)
+        self.assertEqual(len(error.stdout) + len(error.stderr), module.MAX_ODIN_OUTPUT)
+
+    def test_injected_oversize_result_is_capped_before_persistence(self):
+        module = self.module
+
+        def runner(command, **_kwargs):
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                b"x" * (module.MAX_ODIN_OUTPUT + 17),
+                b"overflow",
+            )
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            stdout_path = root / "stdout"
+            stderr_path = root / "stderr"
+            outcome_path = root / "outcome.json"
+            with self.assertRaisesRegex(module.RecoveryError, "exceeded"):
+                module.run_noap_odin(
+                    9,
+                    "/dev/bus/usb/002/027",
+                    stdout_path=stdout_path,
+                    stderr_path=stderr_path,
+                    outcome_path=outcome_path,
+                    runner=runner,
+                )
+            self.assertEqual(
+                stdout_path.stat().st_size + stderr_path.stat().st_size,
+                module.MAX_ODIN_OUTPUT,
+            )
+            outcome = json.loads(outcome_path.read_text(encoding="utf-8"))
+            self.assertTrue(outcome["output_overflow"])
+
+    def test_policy_must_equal_exact_draft_bytes(self):
+        module = self.module
+        draft = f"{module.POLICY_BEGIN}\nexact body\n{module.POLICY_END}\n".encode()
+        agents = draft.replace(b"exact body", b"changed body")
+
+        def stable(path, **_kwargs):
+            return agents if path.name == "AGENTS.md" else draft
+
+        with tempfile.TemporaryDirectory() as temporary, mock.patch.object(
+            module, "stable_bytes", side_effect=stable
+        ), mock.patch.object(
+            module, "helper_identity", return_value={"sha256": "a" * 64}
+        ), mock.patch.object(
+            module, "test_identity", return_value={"sha256": "b" * 64}
+        ), mock.patch.object(module, "dependency_identities", return_value={}):
+            with self.assertRaisesRegex(module.RecoveryError, "exact reviewed draft"):
+                module.policy_status(Path(temporary))
+
+    def test_dependency_graph_rejects_changed_bytes(self):
+        module = self.module
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            relative = Path("dependency.py")
+            (root / relative).write_bytes(b"other")
+            with mock.patch.object(
+                module,
+                "DEPENDENCY_FILES",
+                {"dependency": (relative, 5, module.sha256_bytes(b"exact"))},
+            ), mock.patch.object(module, "ABSOLUTE_DEPENDENCIES", {}):
+                with self.assertRaisesRegex(module.RecoveryError, "identity changed"):
+                    module.dependency_identities(root)
+
+    def test_consumes_before_first_endpoint_observation_and_cannot_retry(self):
+        module = self.module
+        offline = {
+            "recovery_consumed": False,
+            "incident": {
+                "android_serial": "RFCT519XWGK",
+                "usb_binding": {
+                    "topology": "2-1.3",
+                    "serial_sha256": "c" * 64,
+                    "download_serial_state": "absent",
+                },
+                "files": {
+                    "consumed": {"sha256": "d" * 64},
+                    "stock_intent": {"sha256": "e" * 64},
+                },
+            },
+            "helper": {"sha256": "1" * 64},
+            "test": {"sha256": "2" * 64},
+            "dependencies": {},
+            "policy_draft": {"sha256": "f" * 64},
+        }
+        policy = {"active": True, "sha256": "a" * 64}
+        args = SimpleNamespace(
+            ack=module.LIVE_ACK,
+            odin=module.connected.DEFAULT_ODIN,
+            endpoint_wait_sec=1.0,
+            android_wait_sec=1.0,
+            odin_absence_wait_sec=1.0,
+        )
+
+        @contextlib.contextmanager
+        def odin_session(_path):
+            yield 9, Path("/proc/self/fd/9")
+
+        @contextlib.contextmanager
+        def transaction(_run_dir):
+            yield object()
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / module.RECOVERY_RUN_ROOT).mkdir(parents=True)
+            original_strftime = module.time.strftime
+            run_names = iter(("run-one", "run-two"))
+
+            def named_runs(format_string, *values):
+                if format_string == "%Y%m%dT%H%M%SZ":
+                    return next(run_names)
+                return original_strftime(format_string, *values)
+
+            with mock.patch.object(module, "RECOVERY_STATE", Path("state/consumed.json")), mock.patch.object(
+                module, "offline_check", return_value=offline
+            ), mock.patch.object(
+                module, "policy_status", return_value=policy
+            ), mock.patch.object(
+                module, "helper_identity", return_value={"sha256": "1" * 64}
+            ), mock.patch.object(
+                module, "test_identity", return_value={"sha256": "2" * 64}
+            ), mock.patch.object(
+                module.measured, "pinned_odin_session", side_effect=odin_session
+            ), mock.patch.object(
+                module.odin_core, "transaction_session", side_effect=transaction
+            ), mock.patch.object(
+                module.measured,
+                "wait_for_endpoint",
+                side_effect=module.measured.GateError("endpoint unavailable"),
+            ) as wait, mock.patch.object(
+                module.time, "strftime", side_effect=named_runs
+            ):
+                self.assertEqual(module.live_run(root, args), 20)
+                first_run = root / module.RECOVERY_RUN_ROOT / (
+                    "s22plus-r4w1c2-noap-reboot-recovery-run-one"
+                )
+                first_result = json.loads(
+                    (first_run / "result.json").read_text(encoding="utf-8")
+                )
+                self.assertFalse(first_result["reboot_attempted"])
+                self.assertFalse(first_result["reboot_command_returned"])
+                self.assertEqual(
+                    [event["name"] for event in first_result["timeline"]["events"]],
+                    list(module.core.TIMELINE_NAMES),
+                )
+                state = root / module.RECOVERY_STATE
+                self.assertTrue(state.is_file())
+                record = json.loads(state.read_text(encoding="utf-8"))
+                self.assertEqual(
+                    record["physical_continuity_basis"],
+                    module.PHYSICAL_CONTINUITY_BASIS,
+                )
+                self.assertEqual(wait.call_count, 1)
+                self.assertEqual(module.live_run(root, args), 20)
+                self.assertEqual(wait.call_count, 1)
 
     def test_timeline_is_single_events_schema(self):
         events = self.module.exact_timeline(
@@ -215,8 +402,10 @@ class NoApRecoveryTests(unittest.TestCase):
                         }
                     },
                     run_dir=root,
-                    ticket=SimpleNamespace(),
-                    usb={},
+                    helper={"sha256": "1" * 64},
+                    test={"sha256": "2" * 64},
+                    dependencies={},
+                    policy_draft={"sha256": "d" * 64},
                 )
 
     def test_live_rejects_inactive_policy_before_device_contact(self):

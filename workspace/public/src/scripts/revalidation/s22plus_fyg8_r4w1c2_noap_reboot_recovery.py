@@ -28,9 +28,15 @@ SCRIPT_RELATIVE = Path(
     "s22plus_fyg8_r4w1c2_noap_reboot_recovery.py"
 )
 TEST_RELATIVE = Path("tests/test_s22plus_fyg8_r4w1c2_noap_reboot_recovery.py")
+POLICY_DRAFT_RELATIVE = Path(
+    "docs/operations/S22PLUS_FYG8_R4W1C2_NOAP_REBOOT_RECOVERY_EXCEPTION_DRAFT_2026-07-21.md"
+)
 POLICY_BEGIN = "BEGIN_S22PLUS_FYG8_R4W1C2_NOAP_REBOOT_RECOVERY_POLICY_V1"
 POLICY_END = "END_S22PLUS_FYG8_R4W1C2_NOAP_REBOOT_RECOVERY_POLICY_V1"
 POLICY_STATE = "S22PLUS_FYG8_R4W1C2_NOAP_REBOOT_RECOVERY_POLICY_STATE=ACTIVE"
+EXPECTED_POLICY_TEMPLATE_SHA256 = (
+    "9524e207e5949655af4c114afedc4d65aaef81e6513c5f7f7b34470b5b6bf72f"
+)
 LIVE_ACK = "S22PLUS-FYG8-R4W1C2-NOAP-REBOOT-RECOVERY-LIVE"
 PASS_VERDICT = "PASS_R4W1C2_NOAP_REBOOT_RECOVERY_EXACT_MAGISK_ANDROID"
 FAIL_VERDICT = "FAIL_R4W1C2_NOAP_REBOOT_RECOVERY_REQUIRED"
@@ -57,6 +63,11 @@ ODIN_SUCCESS_LINES = (
     "Close Connection",
 )
 MAX_ODIN_OUTPUT = 1024 * 1024
+PHYSICAL_CONTINUITY_BASIS = (
+    "operator-attested-original-r4w1c2-handset;same-cable-hub-host-port;"
+    "screen-normal-samsung-download-at-live-ack;download-serial-absent;"
+    "not-host-intrinsically-verifiable"
+)
 UTC_RE = re.compile(
     r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6}Z"
 )
@@ -109,6 +120,52 @@ PINNED_FILES: dict[str, tuple[Path, int, str]] = {
     ),
 }
 
+DEPENDENCY_FILES: dict[str, tuple[Path, int, str]] = {
+    "measured_helper": (
+        measured.SCRIPT_RELATIVE,
+        111396,
+        "22cba55a924e9c56e5d245114357921ebefc73460a673e40e22c7ecf2e145172",
+    ),
+    "connected_helper": (
+        connected.SCRIPT_RELATIVE,
+        54734,
+        "fa4e9b0a77032fbb8b17affb2ae985b80c990b6e4b07c0ee095328cfd80516b9",
+    ),
+    "odin_core": (
+        connected.ODIN_CORE_RELATIVE,
+        58423,
+        "c9abb179158bb45039574465e743f1f5bee18f993cbddd2f0b40e9048d1ca6b3",
+    ),
+    "live_core": (
+        connected.LIVE_CORE_RELATIVE,
+        12524,
+        "9bcade2532e77d538112836ebe9903bab832c1f2250151d3635260b6fd013725",
+    ),
+    "usbfs_identity": (
+        measured.USBFS_IDENTITY_RELATIVE,
+        18998,
+        "2d1310e129670e89862826bcacc3886820c60f2691f342720927e8e13bddfe10",
+    ),
+    "transport": (
+        connected.TRANSPORT_RELATIVE,
+        35401,
+        "f10a30735882bbd59453471fe901b1cef11fdf42bcf3560a8ae61b4af361c4f4",
+    ),
+}
+
+ABSOLUTE_DEPENDENCIES: dict[str, tuple[Path, int, str]] = {
+    "birth_time_stat": (
+        measured.STAT_BINARY,
+        11352352,
+        "48893b0fb21436b54619db80486e83ef39dfccaf1aefe83dfa00c02d6146e8c0",
+    ),
+    "odin": (
+        connected.DEFAULT_ODIN,
+        connected.EXPECTED_ODIN_SIZE,
+        connected.EXPECTED_ODIN_SHA256,
+    ),
+}
+
 FAILED_LOGS = {
     "candidate_log": ("r4w1c-candidate", connected.EXPECTED_CANDIDATE_AP_SHA256),
     "magisk_log": (
@@ -124,10 +181,20 @@ class RecoveryError(RuntimeError):
 
 
 class BoundedOdinError(RecoveryError):
-    def __init__(self, message: str, stdout: bytes, stderr: bytes):
+    def __init__(
+        self,
+        message: str,
+        stdout: bytes,
+        stderr: bytes,
+        *,
+        timed_out: bool = False,
+        output_overflow: bool = False,
+    ):
         super().__init__(message)
         self.stdout = stdout
         self.stderr = stderr
+        self.timed_out = timed_out
+        self.output_overflow = output_overflow
 
 
 def repo_root() -> Path:
@@ -207,6 +274,62 @@ def test_identity(root: Path) -> dict[str, Any]:
     return {"path": str(TEST_RELATIVE), **core.hash_stable_file(path)}
 
 
+def exact_file_identity(path: Path, *, size: int, digest: str) -> dict[str, Any]:
+    if path.is_symlink() or not path.is_file() or path.resolve() != path.absolute():
+        raise RecoveryError(f"runtime dependency is missing or indirect: {path}")
+    payload = stable_bytes(path, maximum=size + 1)
+    if len(payload) != size or sha256_bytes(payload) != digest:
+        raise RecoveryError(f"runtime dependency identity changed: {path}")
+    return {"path": str(path), "size": size, "sha256": digest}
+
+
+def dependency_identities(root: Path) -> dict[str, dict[str, Any]]:
+    identities: dict[str, dict[str, Any]] = {}
+    for name, (relative, size, digest) in DEPENDENCY_FILES.items():
+        identities[name] = exact_file_identity(
+            root / relative, size=size, digest=digest
+        )
+        identities[name]["path"] = str(relative)
+    for name, (path, size, digest) in ABSOLUTE_DEPENDENCIES.items():
+        identities[name] = exact_file_identity(path, size=size, digest=digest)
+    return identities
+
+
+def policy_draft_identity(root: Path) -> tuple[dict[str, Any], bytes]:
+    path = root / POLICY_DRAFT_RELATIVE
+    payload = stable_bytes(path, maximum=256 * 1024)
+    if not payload.endswith(b"\n"):
+        raise RecoveryError("no-AP recovery policy draft lacks its exact newline")
+    return (
+        {
+            "path": str(POLICY_DRAFT_RELATIVE),
+            "size": len(payload),
+            "sha256": sha256_bytes(payload),
+        },
+        payload,
+    )
+
+
+def canonical_policy_template(
+    payload: bytes,
+    *,
+    helper: dict[str, Any],
+    test: dict[str, Any],
+) -> bytes:
+    canonical = payload
+    replacements = (
+        (str(helper["size"]).encode("ascii"), b"<HELPER_SIZE>"),
+        (str(helper["sha256"]).encode("ascii"), b"<HELPER_SHA256>"),
+        (str(test["size"]).encode("ascii"), b"<TEST_SIZE>"),
+        (str(test["sha256"]).encode("ascii"), b"<TEST_SHA256>"),
+    )
+    for exact, placeholder in replacements:
+        if canonical.count(exact) != 1:
+            raise RecoveryError("policy draft dynamic identity is not unique and exact")
+        canonical = canonical.replace(exact, placeholder)
+    return canonical
+
+
 def extract_policy(text: str) -> str | None:
     start = text.find(POLICY_BEGIN)
     end = text.find(POLICY_END)
@@ -227,6 +350,15 @@ def policy_status(root: Path) -> dict[str, Any]:
         return {"active": False, "clause": None, "sha256": None}
     helper = helper_identity(root)
     test = test_identity(root)
+    dependencies = dependency_identities(root)
+    draft, draft_payload = policy_draft_identity(root)
+    if clause.encode("utf-8") + b"\n" != draft_payload:
+        raise RecoveryError("active no-AP recovery policy is not the exact reviewed draft")
+    template_sha256 = sha256_bytes(
+        canonical_policy_template(draft_payload, helper=helper, test=test)
+    )
+    if template_sha256 != EXPECTED_POLICY_TEMPLATE_SHA256:
+        raise RecoveryError("no-AP recovery policy template identity changed")
     required = (
         POLICY_STATE,
         LIVE_ACK,
@@ -236,6 +368,7 @@ def policy_status(root: Path) -> dict[str, Any]:
         PINNED_FILES["stock_intent"][2],
         PARSE_FAILURE_SHA256,
         connected.EXPECTED_ODIN_SHA256,
+        *(identity["sha256"] for identity in dependencies.values()),
     )
     if any(value not in clause for value in required):
         raise RecoveryError("active no-AP recovery policy does not bind exact inputs")
@@ -243,6 +376,9 @@ def policy_status(root: Path) -> dict[str, Any]:
         "active": True,
         "clause": clause,
         "sha256": sha256_bytes(clause.encode("utf-8")),
+        "draft": draft,
+        "template_sha256": template_sha256,
+        "dependencies": dependencies,
     }
 
 
@@ -265,8 +401,10 @@ def validate_failed_log(value: dict[str, Any], *, label: str, ap_sha256: str) ->
 def validate_incident(root: Path) -> dict[str, Any]:
     opened: dict[str, dict[str, Any]] = {}
     bindings: dict[str, dict[str, Any]] = {}
+    payloads: dict[str, bytes] = {}
     for key, (relative, size, digest) in PINNED_FILES.items():
         path, payload = pinned_file(root, key)
+        payloads[key] = payload
         bindings[key] = {"path": str(relative), "size": size, "sha256": digest}
         if path.suffix == ".json":
             opened[key] = parse_json(payload, key)
@@ -319,7 +457,7 @@ def validate_incident(root: Path) -> dict[str, Any]:
     ):
         raise RecoveryError("stock cleanup intent binding is not exact")
 
-    transaction = stable_bytes(root / PINNED_FILES["transaction"][0])
+    transaction = payloads["transaction"]
     if b'"phase":"rollback_transfer_finished"' in transaction:
         raise RecoveryError("incident unexpectedly contains a completed rollback transfer")
     if PARSE_FAILURE_SHA256 != "7f6162459d49213e9d36485eaa1e7748492b484f4538db45ef50ab4d9f31adb4":
@@ -343,14 +481,26 @@ def validate_incident(root: Path) -> dict[str, Any]:
 
 def offline_check(root: Path) -> dict[str, Any]:
     incident = validate_incident(root)
+    dependencies = dependency_identities(root)
+    helper = helper_identity(root)
+    test = test_identity(root)
+    draft, draft_payload = policy_draft_identity(root)
+    template_sha256 = sha256_bytes(
+        canonical_policy_template(draft_payload, helper=helper, test=test)
+    )
+    if template_sha256 != EXPECTED_POLICY_TEMPLATE_SHA256:
+        raise RecoveryError("no-AP recovery policy template identity changed")
+    draft["template_sha256"] = template_sha256
     policy = policy_status(root)
     state_path = root / RECOVERY_STATE
     return {
         "schema": "s22plus_fyg8_r4w1c2_noap_reboot_recovery_offline_v1",
         "verdict": "PASS_R4W1C2_NOAP_REBOOT_RECOVERY_SOURCE_HOST_ONLY",
         "target": TARGET,
-        "helper": helper_identity(root),
-        "test": test_identity(root),
+        "helper": helper,
+        "test": test,
+        "policy_draft": draft,
+        "dependencies": dependencies,
         "incident": incident,
         "policy": {key: value for key, value in policy.items() if key != "clause"},
         "recovery_consumed": state_path.exists() or state_path.is_symlink(),
@@ -362,7 +512,14 @@ def offline_check(root: Path) -> dict[str, Any]:
     }
 
 
-def exact_timeline(started: str, reboot_start: str, reboot_done: str, ready: str) -> list[dict[str, str]]:
+def exact_timeline(
+    started: str,
+    reboot_start: str,
+    reboot_done: str,
+    ready: str,
+    ended: str | None = None,
+) -> list[dict[str, str]]:
+    ended = ready if ended is None else ended
     return [
         {"name": "live_session_start", "timestamp_utc": started},
         {"name": "candidate_flash_start", "timestamp_utc": started},
@@ -371,7 +528,7 @@ def exact_timeline(started: str, reboot_start: str, reboot_done: str, ready: str
         {"name": "rollback_flash_start", "timestamp_utc": reboot_start},
         {"name": "rollback_flash_done", "timestamp_utc": reboot_done},
         {"name": "rollback_boot_ready", "timestamp_utc": ready},
-        {"name": "live_session_end", "timestamp_utc": ready},
+        {"name": "live_session_end", "timestamp_utc": ended},
     ]
 
 
@@ -402,11 +559,17 @@ def bounded_odin_runner(
     *,
     stdout: int,
     stderr: int,
+    stdin: int,
     pass_fds: tuple[int, ...],
     timeout: float,
     check: bool,
 ) -> subprocess.CompletedProcess[bytes]:
-    if stdout != subprocess.PIPE or stderr != subprocess.PIPE or check:
+    if (
+        stdout != subprocess.PIPE
+        or stderr != subprocess.PIPE
+        or stdin != subprocess.DEVNULL
+        or check
+    ):
         raise RecoveryError("bounded Odin runner contract is invalid")
     if not math.isfinite(timeout) or timeout <= 0:
         raise RecoveryError("bounded Odin timeout is invalid")
@@ -418,6 +581,7 @@ def bounded_odin_runner(
     try:
         process = subprocess.Popen(
             command,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             close_fds=True,
@@ -435,6 +599,7 @@ def bounded_odin_runner(
                     "no-AP Odin reboot timed out",
                     b"".join(streams["stdout"]),
                     b"".join(streams["stderr"]),
+                    timed_out=True,
                 )
             events = selector.select(remaining)
             if not events:
@@ -442,26 +607,31 @@ def bounded_odin_runner(
                     "no-AP Odin reboot timed out",
                     b"".join(streams["stdout"]),
                     b"".join(streams["stderr"]),
+                    timed_out=True,
                 )
             for key, _mask in events:
                 chunk = os.read(key.fd, 8192)
                 if not chunk:
                     selector.unregister(key.fileobj)
                     continue
-                total += len(chunk)
-                streams[str(key.data)].append(chunk)
-                if total > MAX_ODIN_OUTPUT:
+                remaining_capacity = MAX_ODIN_OUTPUT - total
+                if len(chunk) > remaining_capacity:
+                    streams[str(key.data)].append(chunk[:remaining_capacity])
                     raise BoundedOdinError(
                         "no-AP Odin reboot output exceeded its bound",
                         b"".join(streams["stdout"]),
                         b"".join(streams["stderr"]),
+                        output_overflow=True,
                     )
+                total += len(chunk)
+                streams[str(key.data)].append(chunk)
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise BoundedOdinError(
                 "no-AP Odin reboot timed out",
                 b"".join(streams["stdout"]),
                 b"".join(streams["stderr"]),
+                timed_out=True,
             )
         returncode = process.wait(timeout=remaining)
         return subprocess.CompletedProcess(
@@ -471,10 +641,14 @@ def bounded_odin_runner(
             stderr=b"".join(streams["stderr"]),
         )
     except subprocess.TimeoutExpired as exc:
+        if process is not None and process.poll() is None:
+            process.kill()
+            process.wait()
         raise BoundedOdinError(
             "no-AP Odin reboot timed out",
             b"".join(streams["stdout"]),
             b"".join(streams["stderr"]),
+            timed_out=True,
         ) from exc
     except BaseException:
         if process is not None and process.poll() is None:
@@ -497,6 +671,7 @@ def run_noap_odin(
     *,
     stdout_path: Path,
     stderr_path: Path,
+    outcome_path: Path,
     runner: Callable[..., subprocess.CompletedProcess[bytes]] = bounded_odin_runner,
 ) -> tuple[subprocess.CompletedProcess[bytes], list[str], list[str]]:
     command = [f"/proc/self/fd/{odin_fd}", "--reboot", "-d", device]
@@ -506,6 +681,7 @@ def run_noap_odin(
     try:
         completed = runner(
             command,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             pass_fds=(odin_fd,),
@@ -517,13 +693,78 @@ def run_noap_odin(
     except (subprocess.TimeoutExpired, BoundedOdinError) as exc:
         stdout = exc.stdout or b""
         stderr = exc.stderr or b""
-        durable_create_bytes(stdout_path, stdout)
-        durable_create_bytes(stderr_path, stderr)
+        stdout_record = durable_create_bytes(stdout_path, stdout)
+        stderr_record = durable_create_bytes(stderr_path, stderr)
+        core.durable_create_json(
+            outcome_path,
+            {
+                "schema": "s22plus_fyg8_r4w1c2_noap_reboot_outcome_v1",
+                "created_at_utc": core.utc_now(),
+                "attempted": True,
+                "returned": False,
+                "timed_out": bool(getattr(exc, "timed_out", True)),
+                "output_overflow": bool(getattr(exc, "output_overflow", False)),
+                "returncode": None,
+                "stdout": stdout_record,
+                "stderr": stderr_record,
+            },
+        )
         raise RecoveryError(str(exc)) from exc
+    except OSError as exc:
+        stdout_record = durable_create_bytes(stdout_path, b"")
+        stderr_record = durable_create_bytes(stderr_path, b"")
+        core.durable_create_json(
+            outcome_path,
+            {
+                "schema": "s22plus_fyg8_r4w1c2_noap_reboot_outcome_v1",
+                "created_at_utc": core.utc_now(),
+                "attempted": True,
+                "returned": False,
+                "timed_out": False,
+                "output_overflow": False,
+                "returncode": None,
+                "spawn_error": str(exc),
+                "stdout": stdout_record,
+                "stderr": stderr_record,
+            },
+        )
+        raise RecoveryError("no-AP Odin reboot process could not start") from exc
     if len(stdout) + len(stderr) > MAX_ODIN_OUTPUT:
+        bounded_stdout = stdout[:MAX_ODIN_OUTPUT]
+        bounded_stderr = stderr[: MAX_ODIN_OUTPUT - len(bounded_stdout)]
+        stdout_record = durable_create_bytes(stdout_path, bounded_stdout)
+        stderr_record = durable_create_bytes(stderr_path, bounded_stderr)
+        core.durable_create_json(
+            outcome_path,
+            {
+                "schema": "s22plus_fyg8_r4w1c2_noap_reboot_outcome_v1",
+                "created_at_utc": core.utc_now(),
+                "attempted": True,
+                "returned": True,
+                "timed_out": False,
+                "output_overflow": True,
+                "returncode": completed.returncode,
+                "stdout": stdout_record,
+                "stderr": stderr_record,
+            },
+        )
         raise RecoveryError("no-AP Odin reboot output exceeded its bound")
-    durable_create_bytes(stdout_path, stdout)
-    durable_create_bytes(stderr_path, stderr)
+    stdout_record = durable_create_bytes(stdout_path, stdout)
+    stderr_record = durable_create_bytes(stderr_path, stderr)
+    core.durable_create_json(
+        outcome_path,
+        {
+            "schema": "s22plus_fyg8_r4w1c2_noap_reboot_outcome_v1",
+            "created_at_utc": core.utc_now(),
+            "attempted": True,
+            "returned": True,
+            "timed_out": False,
+            "output_overflow": False,
+            "returncode": completed.returncode,
+            "stdout": stdout_record,
+            "stderr": stderr_record,
+        },
+    )
     if completed.returncode != 0:
         raise RecoveryError(f"no-AP Odin reboot failed rc={completed.returncode}")
     lines = validate_reboot_stdout(stdout, stderr, device)
@@ -536,8 +777,10 @@ def create_recovery_state(
     policy: dict[str, Any],
     incident: dict[str, Any],
     run_dir: Path,
-    ticket: odin_core.EndpointTicket,
-    usb: dict[str, str],
+    helper: dict[str, Any],
+    test: dict[str, Any],
+    dependencies: dict[str, dict[str, Any]],
+    policy_draft: dict[str, Any],
 ) -> dict[str, Any]:
     path = root / RECOVERY_STATE
     if path.exists() or path.is_symlink():
@@ -547,14 +790,18 @@ def create_recovery_state(
         "created_at_utc": core.utc_now(),
         "target": TARGET,
         "ack": LIVE_ACK,
-        "helper_sha256": helper_identity(root)["sha256"],
-        "test_sha256": test_identity(root)["sha256"],
+        "operator_attestation_ack": LIVE_ACK,
+        "physical_continuity_basis": PHYSICAL_CONTINUITY_BASIS,
+        "helper_sha256": helper["sha256"],
+        "test_sha256": test["sha256"],
         "policy_clause_sha256": policy["sha256"],
+        "policy_draft": policy_draft,
+        "runtime_dependencies": dependencies,
         "incident_consumed_sha256": incident["files"]["consumed"]["sha256"],
         "stock_intent_sha256": incident["files"]["stock_intent"]["sha256"],
         "run_dir": str(run_dir.relative_to(root)),
-        "ticket": measured._ticket_payload(ticket),
-        "usb_binding": usb,
+        "expected_usb_binding": incident["usb_binding"],
+        "consumption_timing": "before any device or USB observation",
         "action": "odin4 --reboot only; no AP and no partition payload",
     }
     core.durable_create_json(path, record)
@@ -578,6 +825,8 @@ def live_run(root: Path, args: argparse.Namespace) -> int:
     timeline_path = run_dir / "timeline.json"
     stdout_path = run_dir / "odin-reboot.stdout"
     stderr_path = run_dir / "odin-reboot.stderr"
+    attempt_path = run_dir / "odin-reboot-attempt.json"
+    outcome_path = run_dir / "odin-reboot-outcome.json"
     result: dict[str, Any] = {
         "schema": "s22plus_fyg8_r4w1c2_noap_reboot_recovery_live_v1",
         "target": TARGET,
@@ -588,11 +837,32 @@ def live_run(root: Path, args: argparse.Namespace) -> int:
         "partition_write": False,
         "odin_transfer": False,
         "flash": False,
-        "reboot": False,
+        "reboot": None,
+        "reboot_attempted": False,
+        "reboot_command_returned": False,
+        "physical_continuity_basis": PHYSICAL_CONTINUITY_BASIS,
     }
 
     odin = (root / args.odin).resolve() if not args.odin.is_absolute() else args.odin
+    reboot_start: str | None = None
+    reboot_done: str | None = None
+    ready: str | None = None
     try:
+        if odin != connected.DEFAULT_ODIN:
+            raise RecoveryError("no-AP recovery requires the exact default Odin path")
+        if offline_check(root) != offline:
+            raise RecoveryError("host evidence changed before recovery consumption")
+        state = create_recovery_state(
+            root,
+            policy=policy,
+            incident=offline["incident"],
+            run_dir=run_dir,
+            helper=offline["helper"],
+            test=offline["test"],
+            dependencies=offline["dependencies"],
+            policy_draft=offline["policy_draft"],
+        )
+        result["recovery_state"] = state
         with measured.pinned_odin_session(odin) as (odin_fd, external_odin):
             with odin_core.transaction_session(run_dir) as lease:
                 ticket, sequence = measured.wait_for_endpoint(
@@ -606,16 +876,6 @@ def live_run(root: Path, args: argparse.Namespace) -> int:
                 usb = measured.require_ticket_usb_binding(
                     ticket, dict(offline["incident"]["usb_binding"])
                 )
-                if offline_check(root) != offline:
-                    raise RecoveryError("host evidence changed before recovery consumption")
-                state = create_recovery_state(
-                    root,
-                    policy=policy,
-                    incident=offline["incident"],
-                    run_dir=run_dir,
-                    ticket=ticket,
-                    usb=usb,
-                )
                 device, sequence, revalidation = measured.revalidate_ticket(
                     external_odin,
                     run_dir,
@@ -628,13 +888,34 @@ def live_run(root: Path, args: argparse.Namespace) -> int:
                 ) != usb:
                     raise RecoveryError("Download USB binding changed before reboot")
                 reboot_start = core.utc_now()
+                command_shape = ["<sealed-odin-fd>", "--reboot", "-d", device]
+                core.durable_create_json(
+                    attempt_path,
+                    {
+                        "schema": "s22plus_fyg8_r4w1c2_noap_reboot_attempt_v1",
+                        "created_at_utc": reboot_start,
+                        "attempted": True,
+                        "operator_attestation_ack": LIVE_ACK,
+                        "physical_continuity_basis": PHYSICAL_CONTINUITY_BASIS,
+                        "command_shape": command_shape,
+                        "ticket": measured._ticket_payload(ticket),
+                        "usb_binding": usb,
+                        "device_writes": False,
+                        "partition_write": False,
+                        "odin_transfer": False,
+                        "flash": False,
+                    },
+                )
+                result["reboot_attempted"] = True
                 completed, command, lines = run_noap_odin(
                     odin_fd,
                     device,
                     stdout_path=stdout_path,
                     stderr_path=stderr_path,
+                    outcome_path=outcome_path,
                 )
                 reboot_done = core.utc_now()
+                result["reboot_command_returned"] = True
                 serial, android = measured.wait_magisk_android(
                     args.android_wait_sec,
                     expected_serial=str(offline["incident"]["android_serial"]),
@@ -661,15 +942,22 @@ def live_run(root: Path, args: argparse.Namespace) -> int:
                         "odin_transfer": False,
                         "flash": False,
                         "reboot": True,
-                        "recovery_state": state,
                         "ticket": measured._ticket_payload(ticket),
                         "usb_binding": usb,
                         "endpoint_revalidation": revalidation,
-                        "command_shape": ["<sealed-odin-fd>", "--reboot", "-d", device],
+                        "command_shape": command_shape,
                         "command_argument_count": len(command),
                         "ap_argument_present": False,
                         "odin": {
                             "returncode": completed.returncode,
+                            "attempt": {
+                                "path": str(attempt_path.relative_to(root)),
+                                **core.hash_stable_file(attempt_path),
+                            },
+                            "outcome": {
+                                "path": str(outcome_path.relative_to(root)),
+                                **core.hash_stable_file(outcome_path),
+                            },
                             "stdout": {"path": str(stdout_path.relative_to(root)), **core.hash_stable_file(stdout_path)},
                             "stderr": {"path": str(stderr_path.relative_to(root)), **core.hash_stable_file(stderr_path)},
                             "lines": lines,
@@ -703,9 +991,57 @@ def live_run(root: Path, args: argparse.Namespace) -> int:
         OSError,
         subprocess.SubprocessError,
     ) as exc:
+        ended = core.utc_now()
+        attempt: dict[str, Any] | None = None
+        outcome: dict[str, Any] | None = None
+        if attempt_path.is_file() and not attempt_path.is_symlink():
+            attempt = parse_json(stable_bytes(attempt_path), "reboot attempt")
+        if outcome_path.is_file() and not outcome_path.is_symlink():
+            outcome = parse_json(stable_bytes(outcome_path), "reboot outcome")
+        if attempt is not None:
+            reboot_start = str(attempt.get("created_at_utc") or reboot_start or ended)
+            result["reboot_attempted"] = attempt.get("attempted") is True
+        if outcome is not None:
+            reboot_done = str(outcome.get("created_at_utc") or reboot_done or ended)
+            result["reboot_command_returned"] = outcome.get("returned") is True
+        timeline = exact_timeline(
+            started,
+            reboot_start or ended,
+            reboot_done or ended,
+            ready or ended,
+            ended,
+        )
         result["verdict"] = FAIL_VERDICT
         result["error"] = str(exc)
         result["recovery_consumed"] = (root / RECOVERY_STATE).exists()
+        result["reboot"] = True if ready is not None else None
+        result["odin_attempt"] = attempt
+        result["odin_outcome"] = outcome
+        result["timeline_phase_semantics"] = {
+            "candidate_flash_start": "zero-action recovery placeholder",
+            "candidate_flash_done": "zero-action recovery placeholder",
+            "candidate_boot_ready": "zero-action recovery placeholder",
+            "rollback_flash_start": (
+                "no-AP reboot attempted; no flash"
+                if result["reboot_attempted"]
+                else "no reboot attempt; no flash"
+            ),
+            "rollback_flash_done": (
+                "no-AP reboot command returned; no flash"
+                if result["reboot_command_returned"]
+                else "no command return observed; no flash"
+            ),
+            "rollback_boot_ready": (
+                "exact Android ready"
+                if ready is not None
+                else "exact Android readiness not proven"
+            ),
+        }
+        core.durable_create_json(timeline_path, {"events": timeline})
+        result["timeline"] = {
+            "path": str(timeline_path.relative_to(root)),
+            "events": timeline,
+        }
         core.durable_create_json(result_path, result)
         print(json.dumps({"run_dir": str(run_dir), "verdict": FAIL_VERDICT}, indent=2))
         return 20

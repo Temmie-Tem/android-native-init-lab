@@ -8,13 +8,37 @@ Samsung S22+ `SM-S906N` / `g0q` / `S906NKSS7FYG8`. The exact policy state is
 
 The only executable helper is
 `workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1c2_noap_reboot_recovery.py`,
-size `28756`, SHA256
-`9c41b568b16078c6db7a17376bc607c9fdc018ed3bb1750c498bdd2440480198`.
+size `41971`, SHA256
+`98bd04ae429ad44d841b7794c61243aab9744204be1367b963b7db99e1147543`.
 Its focused test is
-`tests/test_s22plus_fyg8_r4w1c2_noap_reboot_recovery.py`, size `9020`, SHA256
-`245c560cf8aa4f2d81782fbeadb9d9e45588fde51b5b0d0ecd8ba21ae9231249`.
+`tests/test_s22plus_fyg8_r4w1c2_noap_reboot_recovery.py`, size `17301`, SHA256
+`233e0fefdef59ff87d81be575bb128e82d41ee04ec510df78b28d84345fa86d2`.
 The fresh live acknowledgement is
 `S22PLUS-FYG8-R4W1C2-NOAP-REBOOT-RECOVERY-LIVE`.
+The helper must require that the policy block installed in `AGENTS.md` is
+byte-for-byte equal to this complete draft, apart from the containing file's
+following newline. Substring presence is not sufficient.
+
+Before device contact and again immediately before one-shot consumption, the
+helper must pin the complete runtime dependency graph:
+
+- measured helper size `111396`, SHA256
+  `22cba55a924e9c56e5d245114357921ebefc73460a673e40e22c7ecf2e145172`;
+- connected helper size `54734`, SHA256
+  `fa4e9b0a77032fbb8b17affb2ae985b80c990b6e4b07c0ee095328cfd80516b9`;
+- Odin transition core size `58423`, SHA256
+  `c9abb179158bb45039574465e743f1f5bee18f993cbddd2f0b40e9048d1ca6b3`;
+- boot-only live core size `12524`, SHA256
+  `9bcade2532e77d538112836ebe9903bab832c1f2250151d3635260b6fd013725`;
+- USBFS identity observer size `18998`, SHA256
+  `2d1310e129670e89862826bcacc3886820c60f2691f342720927e8e13bddfe10`;
+- transport helper size `35401`, SHA256
+  `f10a30735882bbd59453471fe901b1cef11fdf42bcf3560a8ae61b4af361c4f4`;
+- birth-time `stat` executable size `11352352`, SHA256
+  `48893b0fb21436b54619db80486e83ef39dfccaf1aefe83dfa00c02d6146e8c0`;
+  and
+- Odin executable size `3746744`, SHA256
+  `6754aa54f2abe6e99ece32414cd34c8b23b28dbddde537a33203036813637c3b`.
 
 Before device contact, the helper must rerun its host-only incident gate and
 require all of the following exact evidence:
@@ -51,17 +75,24 @@ PIT, or partition payload may be opened, sealed, passed, or transferred.
 
 Live entry requires the attending operator to keep the original handset on the
 same cable, hub, and host port and to confirm that its screen remains normal
-Samsung Download mode. The helper must rediscover only topology `2-1.3`, exact
+Samsung Download mode. Supplying the exact fresh acknowledgement is the
+load-bearing attestation of those facts because Download exposes no serial and
+same-handset continuity is not intrinsically host-verifiable. The consumed
+state must preserve the acknowledgement and exact physical-continuity basis.
+The helper must rediscover only topology `2-1.3`, exact
 Samsung `04e8:685d`, product `SAMSUNG USB`, manufacturer `Samsung`, absent
 Download serial, usbfs major/minor consistency, and three stable measured node
 samples. It must execute one measured `odin4 -l`, bind the exact direct usbfs
 node and immutable digest, and revalidate both immediately before action.
 
-Immediately before the final endpoint revalidation, the helper must durably and
+After the fresh acknowledgement and final host-only evidence recheck, but
+before opening or observing any USB endpoint, the helper must durably and
 exclusively create
 `workspace/private/state/s22plus_fyg8_r4w1c2_noap_reboot_recovery_consumed.json`.
 Creation consumes this recovery exception regardless of result. After final
-revalidation there may be no durable write before launch.
+endpoint revalidation, the helper must durably record the exact no-AP launch
+attempt immediately before process creation. This action receipt is the only
+permitted durable write between final revalidation and launch.
 
 The only authorized device command shape is the sealed equivalent of:
 
@@ -69,12 +100,20 @@ The only authorized device command shape is the sealed equivalent of:
 
 The argv must contain exactly the executable, `--reboot`, `-d`, and the bound
 device path. `-a`, `-b`, `-c`, `-s`, `-u`, `-e`, `-V`, `--redownload`, and every
-other payload or mode option are forbidden. Only the sealed Odin fd may be
-inherited. stdout and stderr are bounded together to 1 MiB and 60 seconds,
-persisted durably before interpretation, and must show rc `0`, empty stderr,
+other payload or mode option are forbidden. stdin must be `/dev/null`; with
+standard fds excluded, only the sealed Odin fd may be inherited through
+`pass_fds`. stdout and stderr are bounded together to at most exactly 1 MiB and
+60 seconds, persisted durably before interpretation, and must show rc `0`, empty stderr,
 the exact bound node, and the ordered no-AP reboot success lines. Any timeout,
 output overflow, nonzero rc, stderr, missing line, endpoint change, or ambiguous
 USB state is non-PASS and authorizes no retry.
+
+Every invocation, including failure before USB discovery, must produce a result
+and canonical eight-event timeline. The durable launch-attempt and process-
+outcome receipts must truthfully distinguish no attempt, attempted but no
+return, returned nonzero, timeout, exact-cap overflow, and returned success.
+Failure results may not state `reboot=false`; they must use an unknown reboot
+outcome unless exact Android readiness is proven.
 
 PASS is only
 `PASS_R4W1C2_NOAP_REBOOT_RECOVERY_EXACT_MAGISK_ANDROID`. It requires exact
@@ -86,9 +125,9 @@ Odin endpoint. The result must state `device_writes=false`,
 `reboot=true`.
 
 Timeline output must contain only `events:[{name,timestamp_utc}]` with the exact
-canonical eight names. Candidate fields are explicit zero-action placeholders;
-rollback-flash fields bracket the no-AP reboot command and are explicitly
-no-flash semantics in the result.
+canonical eight names on PASS and failure. Candidate fields are explicit zero-
+action placeholders; rollback-flash fields bracket or truthfully close the no-
+AP reboot attempt and are explicitly no-flash semantics in the result.
 
 This exception authorizes no second invocation, AP/pathname-alias experiment,
 candidate, Magisk or stock transfer, flash, partition write, raw host `dd`,

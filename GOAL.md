@@ -6,6 +6,26 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-21 KST) - R4W1-C2 NO-AP RECOVERY
+> ADVERSARIAL NO-GO REPAIRED HOST-ONLY; POLICY STILL INACTIVE.** Independent
+> `gpt-5.6-sol` xhigh review session
+> `019f807c-c88c-7073-824b-7a1f4ecfec27` confirmed all three AP attempts stopped
+> before any Odin device session or partition transfer, but returned
+> `NO_GO_TO_POLICY_ACTIVATION` with seven MUST-FIX findings. The repaired helper
+> now binds its complete runtime graph and canonical policy template, sets child
+> stdin to `/dev/null`, consumes before any USB observation, removes the
+> transaction TOCTOU, records the load-bearing same-handset attestation, enforces
+> an exact 1 MiB cap, and durably records truthful attempt/outcome/timeline state
+> on failure.
+>
+> Focused tests pass `18/18`; the related suite passes `185/185`. Offline verdict
+> remains `PASS_R4W1C2_NOAP_REBOOT_RECOVERY_SOURCE_HOST_ONLY`, policy inactive,
+> recovery one-shot unconsumed, and all device-action fields false. Next is a
+> second independent review of the repaired exact bytes. Only a GO permits a
+> separate policy-only activation commit and subsequent fresh live
+> acknowledgement. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1C2_NOAP_RECOVERY_NO_GO_REPAIR_2026-07-21.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-21 02:02 KST / 2026-07-20 17:02 UTC) -
 > R4W1-C2 SEALED AP PATH ROOT CAUSE PROVEN; ZERO PARTITION TRANSFERS;
 > STOCK-INTENT BLOCKED; SEPARATE NO-AP REBOOT RECOVERY IN HOST REVIEW.** The
