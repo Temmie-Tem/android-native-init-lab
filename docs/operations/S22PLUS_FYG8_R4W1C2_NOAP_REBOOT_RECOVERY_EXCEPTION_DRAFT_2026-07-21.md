@@ -5,14 +5,19 @@ at
 `workspace/private/runs/s22plus-r4w1c2-measured-live-20260720T164444Z` on
 Samsung S22+ `SM-S906N` / `g0q` / `S906NKSS7FYG8`. The exact policy state is
 `S22PLUS_FYG8_R4W1C2_NOAP_REBOOT_RECOVERY_POLICY_STATE=ACTIVE`.
+Activation is valid only in the same policy-only commit that changes the
+consumed original clause to
+`S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_POLICY_STATE=RETIRED`; the old `ACTIVE`
+state must be absent. The helper must enforce that exact non-overlap before any
+device or USB contact.
 
 The only executable helper is
 `workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1c2_noap_reboot_recovery.py`,
-size `41971`, SHA256
-`98bd04ae429ad44d841b7794c61243aab9744204be1367b963b7db99e1147543`.
+size `47465`, SHA256
+`dd85eddca9d75376a248cfa77b143e52580b4d49a74dca9fb3ee93c48a77d263`.
 Its focused test is
-`tests/test_s22plus_fyg8_r4w1c2_noap_reboot_recovery.py`, size `17301`, SHA256
-`233e0fefdef59ff87d81be575bb128e82d41ee04ec510df78b28d84345fa86d2`.
+`tests/test_s22plus_fyg8_r4w1c2_noap_reboot_recovery.py`, size `22633`, SHA256
+`ca64906a889dca3cb3b4c5b958afb91c73ba204bab9cb284a1df200ce3847479`.
 The fresh live acknowledgement is
 `S22PLUS-FYG8-R4W1C2-NOAP-REBOOT-RECOVERY-LIVE`.
 The helper must require that the policy block installed in `AGENTS.md` is
@@ -34,6 +39,8 @@ helper must pin the complete runtime dependency graph:
   `2d1310e129670e89862826bcacc3886820c60f2691f342720927e8e13bddfe10`;
 - transport helper size `35401`, SHA256
   `f10a30735882bbd59453471fe901b1cef11fdf42bcf3560a8ae61b4af361c4f4`;
+- M3 observable helper size `24686`, SHA256
+  `1f093d78a110925440c98741399d8828201cce38265a5c941ac2f71b6c104305`;
 - birth-time `stat` executable size `11352352`, SHA256
   `48893b0fb21436b54619db80486e83ef39dfccaf1aefe83dfa00c02d6146e8c0`;
   and
@@ -89,6 +96,12 @@ After the fresh acknowledgement and final host-only evidence recheck, but
 before opening or observing any USB endpoint, the helper must durably and
 exclusively create
 `workspace/private/state/s22plus_fyg8_r4w1c2_noap_reboot_recovery_consumed.json`.
+Before publication, every repository-relative component through
+`workspace/private/runs` and `workspace/private/state` must be an existing
+direct directory, the run directory must be one new direct child of the run
+root, and its parent must be fsynced. The consumed state may be published only
+after that durable run directory exists; its direct state parent and the state
+file itself must be checked and durably fsynced.
 Creation consumes this recovery exception regardless of result. After final
 endpoint revalidation, the helper must durably record the exact no-AP launch
 attempt immediately before process creation. This action receipt is the only
@@ -108,8 +121,11 @@ the exact bound node, and the ordered no-AP reboot success lines. Any timeout,
 output overflow, nonzero rc, stderr, missing line, endpoint change, or ambiguous
 USB state is non-PASS and authorizes no retry.
 
-Every invocation, including failure before USB discovery, must produce a result
-and canonical eight-event timeline. The durable launch-attempt and process-
+Every invocation that durably creates the consumed state, including failure
+before USB discovery, must produce a result and canonical eight-event timeline.
+Host-only policy, acknowledgement, evidence, or run-directory setup failures
+before consumption authorize no contact and are not live invocations. The
+durable launch-attempt and process-
 outcome receipts must truthfully distinguish no attempt, attempted but no
 return, returned nonzero, timeout, exact-cap overflow, and returned success.
 Failure results may not state `reboot=false`; they must use an unknown reboot
@@ -129,7 +145,8 @@ canonical eight names on PASS and failure. Candidate fields are explicit zero-
 action placeholders; rollback-flash fields bracket or truthfully close the no-
 AP reboot attempt and are explicitly no-flash semantics in the result.
 
-This exception authorizes no second invocation, AP/pathname-alias experiment,
+After consumption this exception authorizes no second live invocation,
+AP/pathname-alias experiment,
 candidate, Magisk or stock transfer, flash, partition write, raw host `dd`,
 fastboot, Heimdall flash, RDX/S-Boot command, qdl/Sahara/Firehose, EUD/UART
 action, panic, SysRq, format, cleanup, or A90 action. It authorizes no write to

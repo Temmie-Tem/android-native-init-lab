@@ -236,6 +236,39 @@ class NoApRecoveryTests(unittest.TestCase):
             outcome = json.loads(outcome_path.read_text(encoding="utf-8"))
             self.assertTrue(outcome["output_overflow"])
 
+    def test_injected_oversize_timeout_is_capped_before_persistence(self):
+        module = self.module
+
+        def runner(command, **_kwargs):
+            raise subprocess.TimeoutExpired(
+                command,
+                60,
+                output=b"x" * (module.MAX_ODIN_OUTPUT + 23),
+                stderr=b"timeout-overflow",
+            )
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            stdout_path = root / "stdout"
+            stderr_path = root / "stderr"
+            outcome_path = root / "outcome.json"
+            with self.assertRaisesRegex(module.RecoveryError, "timed out"):
+                module.run_noap_odin(
+                    9,
+                    "/dev/bus/usb/002/027",
+                    stdout_path=stdout_path,
+                    stderr_path=stderr_path,
+                    outcome_path=outcome_path,
+                    runner=runner,
+                )
+            self.assertEqual(
+                stdout_path.stat().st_size + stderr_path.stat().st_size,
+                module.MAX_ODIN_OUTPUT,
+            )
+            outcome = json.loads(outcome_path.read_text(encoding="utf-8"))
+            self.assertTrue(outcome["timed_out"])
+            self.assertTrue(outcome["output_overflow"])
+
     def test_policy_must_equal_exact_draft_bytes(self):
         module = self.module
         draft = f"{module.POLICY_BEGIN}\nexact body\n{module.POLICY_END}\n".encode()
@@ -267,6 +300,41 @@ class NoApRecoveryTests(unittest.TestCase):
             ), mock.patch.object(module, "ABSOLUTE_DEPENDENCIES", {}):
                 with self.assertRaisesRegex(module.RecoveryError, "identity changed"):
                     module.dependency_identities(root)
+
+    def test_runtime_dependency_graph_rejects_unpinned_transitive_import(self):
+        module = self.module
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "src"
+            source.mkdir()
+            (source / "entry.py").write_text("import child\n", encoding="utf-8")
+            (source / "child.py").write_text("import unpinned\n", encoding="utf-8")
+            (source / "unpinned.py").write_text("VALUE = 1\n", encoding="utf-8")
+            with mock.patch.object(
+                module, "SCRIPT_RELATIVE", Path("src/entry.py")
+            ), mock.patch.object(
+                module,
+                "DEPENDENCY_FILES",
+                {
+                    "child": (
+                        Path("src/child.py"),
+                        len(b"import unpinned\n"),
+                        module.sha256_bytes(b"import unpinned\n"),
+                    )
+                },
+            ):
+                with self.assertRaisesRegex(module.RecoveryError, "unpinned"):
+                    module.validate_runtime_dependency_graph(root)
+
+    def test_runtime_dependency_graph_includes_m3_observable(self):
+        module = self.module
+        identity = module.DEPENDENCY_FILES["m3_observable"]
+        self.assertEqual(identity[1], 24686)
+        self.assertEqual(
+            identity[2],
+            "1f093d78a110925440c98741399d8828201cce38265a5c941ac2f71b6c104305",
+        )
+        module.validate_runtime_dependency_graph(ROOT)
 
     def test_consumes_before_first_endpoint_observation_and_cannot_retry(self):
         module = self.module
@@ -309,6 +377,7 @@ class NoApRecoveryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             (root / module.RECOVERY_RUN_ROOT).mkdir(parents=True)
+            (root / "state").mkdir()
             original_strftime = module.time.strftime
             run_names = iter(("run-one", "run-two"))
 
@@ -388,6 +457,8 @@ class NoApRecoveryTests(unittest.TestCase):
         module = self.module
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
+            run_dir = root / module.RECOVERY_RUN_ROOT / "run"
+            run_dir.mkdir(parents=True)
             state = root / module.RECOVERY_STATE
             state.parent.mkdir(parents=True)
             state.write_text("{}\n", encoding="ascii")
@@ -401,12 +472,65 @@ class NoApRecoveryTests(unittest.TestCase):
                             "stock_intent": {"sha256": "c" * 64},
                         }
                     },
-                    run_dir=root,
+                    run_dir=run_dir,
                     helper={"sha256": "1" * 64},
                     test={"sha256": "2" * 64},
                     dependencies={},
                     policy_draft={"sha256": "d" * 64},
                 )
+
+    def test_recovery_state_rejects_indirect_state_directory(self):
+        module = self.module
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            run_dir = root / module.RECOVERY_RUN_ROOT / "run"
+            run_dir.mkdir(parents=True)
+            outside = root / "outside"
+            outside.mkdir()
+            (root / "state").symlink_to(outside, target_is_directory=True)
+            with mock.patch.object(module, "RECOVERY_STATE", Path("state/consumed.json")):
+                with self.assertRaisesRegex(module.RecoveryError, "direct directory"):
+                    module.create_recovery_state(
+                        root,
+                        policy={"sha256": "a" * 64},
+                        incident={
+                            "files": {
+                                "consumed": {"sha256": "b" * 64},
+                                "stock_intent": {"sha256": "c" * 64},
+                            }
+                        },
+                        run_dir=run_dir,
+                        helper={"sha256": "1" * 64},
+                        test={"sha256": "2" * 64},
+                        dependencies={},
+                        policy_draft={"sha256": "d" * 64},
+                    )
+
+    def test_run_directory_rejects_indirect_run_root(self):
+        module = self.module
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "workspace" / "private").mkdir(parents=True)
+            outside = root / "outside"
+            outside.mkdir()
+            (root / module.RECOVERY_RUN_ROOT).symlink_to(
+                outside, target_is_directory=True
+            )
+            with self.assertRaisesRegex(module.RecoveryError, "direct directory"):
+                module.allocate_recovery_run_dir(root)
+
+    def test_old_consumed_policy_must_be_exactly_retired(self):
+        module = self.module
+        active = (
+            f"{module.OLD_POLICY_BEGIN}\n{module.OLD_POLICY_ACTIVE}\n"
+            f"{module.OLD_POLICY_END}\n"
+        )
+        with self.assertRaisesRegex(module.RecoveryError, "not exactly retired"):
+            module.require_old_policy_retired(active)
+        retired = active.replace(
+            module.OLD_POLICY_ACTIVE, module.OLD_POLICY_RETIRED
+        )
+        module.require_old_policy_retired(retired)
 
     def test_live_rejects_inactive_policy_before_device_contact(self):
         module = self.module

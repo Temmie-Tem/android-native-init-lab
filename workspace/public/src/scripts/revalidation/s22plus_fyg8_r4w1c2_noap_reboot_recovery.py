@@ -4,12 +4,14 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import json
 import math
 import os
 import re
 import selectors
+import stat
 import subprocess
 import sys
 import time
@@ -34,8 +36,12 @@ POLICY_DRAFT_RELATIVE = Path(
 POLICY_BEGIN = "BEGIN_S22PLUS_FYG8_R4W1C2_NOAP_REBOOT_RECOVERY_POLICY_V1"
 POLICY_END = "END_S22PLUS_FYG8_R4W1C2_NOAP_REBOOT_RECOVERY_POLICY_V1"
 POLICY_STATE = "S22PLUS_FYG8_R4W1C2_NOAP_REBOOT_RECOVERY_POLICY_STATE=ACTIVE"
+OLD_POLICY_BEGIN = "BEGIN_S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_POLICY_V1"
+OLD_POLICY_END = "END_S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_POLICY_V1"
+OLD_POLICY_ACTIVE = "S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_POLICY_STATE=ACTIVE"
+OLD_POLICY_RETIRED = "S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_POLICY_STATE=RETIRED"
 EXPECTED_POLICY_TEMPLATE_SHA256 = (
-    "9524e207e5949655af4c114afedc4d65aaef81e6513c5f7f7b34470b5b6bf72f"
+    "9eab648aec876d5e229e35926927dcf06cea8d1ab70c034df312b7e1a064d7f9"
 )
 LIVE_ACK = "S22PLUS-FYG8-R4W1C2-NOAP-REBOOT-RECOVERY-LIVE"
 PASS_VERDICT = "PASS_R4W1C2_NOAP_REBOOT_RECOVERY_EXACT_MAGISK_ANDROID"
@@ -151,6 +157,14 @@ DEPENDENCY_FILES: dict[str, tuple[Path, int, str]] = {
         35401,
         "f10a30735882bbd59453471fe901b1cef11fdf42bcf3560a8ae61b4af361c4f4",
     ),
+    "m3_observable": (
+        Path(
+            "workspace/public/src/scripts/revalidation/"
+            "s22plus_m3_observable_live_gate.py"
+        ),
+        24686,
+        "1f093d78a110925440c98741399d8828201cce38265a5c941ac2f71b6c104305",
+    ),
 }
 
 ABSOLUTE_DEPENDENCIES: dict[str, tuple[Path, int, str]] = {
@@ -213,7 +227,7 @@ def stable_bytes(path: Path, *, maximum: int = 4 * 1024 * 1024) -> bytes:
 
 
 def durable_create_bytes(path: Path, payload: bytes) -> dict[str, Any]:
-    path.parent.mkdir(parents=True, exist_ok=True)
+    require_direct_directory(path.parent)
     flags = (
         os.O_WRONLY
         | os.O_CREAT
@@ -226,6 +240,11 @@ def durable_create_bytes(path: Path, payload: bytes) -> dict[str, Any]:
     except FileExistsError as exc:
         raise RecoveryError(f"evidence already exists: {path}") from exc
     try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+            raise RecoveryError(
+                f"evidence target is not a private regular file: {path}"
+            )
         view = memoryview(payload)
         while view:
             written = os.write(descriptor, view)
@@ -235,12 +254,65 @@ def durable_create_bytes(path: Path, payload: bytes) -> dict[str, Any]:
         os.fsync(descriptor)
     finally:
         os.close(descriptor)
-    parent = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+    fsync_directory(path.parent)
+    return {
+        "path": str(path),
+        "size": len(payload),
+        "sha256": sha256_bytes(payload),
+    }
+
+
+def require_direct_directory(path: Path) -> os.stat_result:
     try:
-        os.fsync(parent)
+        metadata = os.stat(path, follow_symlinks=False)
+    except OSError as exc:
+        raise RecoveryError(f"direct directory is unavailable: {path}") from exc
+    if not stat.S_ISDIR(metadata.st_mode) or path.is_symlink():
+        raise RecoveryError(f"path is not a direct directory: {path}")
+    return metadata
+
+
+def require_direct_directory_chain(root: Path, path: Path) -> None:
+    direct_root = Path(os.path.abspath(root))
+    direct_path = Path(os.path.abspath(path))
+    try:
+        relative = direct_path.relative_to(direct_root)
+    except ValueError as exc:
+        raise RecoveryError(f"path escapes repository root: {path}") from exc
+    require_direct_directory(direct_root)
+    current = direct_root
+    for part in relative.parts:
+        current /= part
+        require_direct_directory(current)
+
+
+def fsync_directory(path: Path) -> None:
+    descriptor = os.open(
+        path,
+        os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0),
+    )
+    try:
+        os.fsync(descriptor)
     finally:
-        os.close(parent)
-    return {"path": str(path), "size": len(payload), "sha256": sha256_bytes(payload)}
+        os.close(descriptor)
+
+
+def allocate_recovery_run_dir(root: Path) -> Path:
+    base = Path(os.path.abspath(root / RECOVERY_RUN_ROOT))
+    require_direct_directory_chain(root, base)
+    run_dir = base / (
+        "s22plus-r4w1c2-noap-reboot-recovery-"
+        + time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    )
+    if run_dir.parent != base:
+        raise RecoveryError("recovery run directory is not a direct run-root child")
+    try:
+        run_dir.mkdir(mode=0o700, parents=False, exist_ok=False)
+    except FileExistsError as exc:
+        raise RecoveryError(f"recovery run directory already exists: {run_dir}") from exc
+    fsync_directory(base)
+    require_direct_directory(run_dir)
+    return run_dir
 
 
 def pinned_file(root: Path, key: str) -> tuple[Path, bytes]:
@@ -292,7 +364,43 @@ def dependency_identities(root: Path) -> dict[str, dict[str, Any]]:
         identities[name]["path"] = str(relative)
     for name, (path, size, digest) in ABSOLUTE_DEPENDENCIES.items():
         identities[name] = exact_file_identity(path, size=size, digest=digest)
+    validate_runtime_dependency_graph(root)
     return identities
+
+
+def validate_runtime_dependency_graph(root: Path) -> None:
+    source_root = SCRIPT_RELATIVE.parent
+    expected = {relative for relative, _size, _digest in DEPENDENCY_FILES.values()}
+    discovered: set[Path] = set()
+    pending = [SCRIPT_RELATIVE]
+    visited: set[Path] = set()
+    while pending:
+        relative = pending.pop()
+        if relative in visited:
+            continue
+        visited.add(relative)
+        payload = stable_bytes(root / relative, maximum=2 * 1024 * 1024)
+        try:
+            tree = ast.parse(payload, filename=str(relative))
+        except SyntaxError as exc:
+            raise RecoveryError(f"runtime dependency is not valid Python: {relative}") from exc
+        modules: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                modules.update(alias.name.split(".", 1)[0] for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                modules.add(node.module.split(".", 1)[0])
+        for module_name in modules:
+            candidate = source_root / f"{module_name}.py"
+            if (root / candidate).is_file():
+                discovered.add(candidate)
+                pending.append(candidate)
+    if discovered != expected:
+        missing = sorted(str(path) for path in discovered - expected)
+        surplus = sorted(str(path) for path in expected - discovered)
+        raise RecoveryError(
+            f"runtime dependency graph changed: unpinned={missing}, unused={surplus}"
+        )
 
 
 def policy_draft_identity(root: Path) -> tuple[dict[str, Any], bytes]:
@@ -343,6 +451,23 @@ def extract_policy(text: str) -> str | None:
     return text[start:end]
 
 
+def require_old_policy_retired(text: str) -> None:
+    start = text.find(OLD_POLICY_BEGIN)
+    end = text.find(OLD_POLICY_END)
+    if (
+        start < 0
+        or end < start
+        or text.find(OLD_POLICY_BEGIN, start + 1) >= 0
+    ):
+        raise RecoveryError("consumed R4W1-C2 measured policy markers are malformed")
+    end += len(OLD_POLICY_END)
+    if text.find(OLD_POLICY_END, end) >= 0:
+        raise RecoveryError("consumed R4W1-C2 measured policy marker is duplicated")
+    old_clause = text[start:end]
+    if OLD_POLICY_ACTIVE in old_clause or old_clause.count(OLD_POLICY_RETIRED) != 1:
+        raise RecoveryError("consumed R4W1-C2 measured policy is not exactly retired")
+
+
 def policy_status(root: Path) -> dict[str, Any]:
     text = stable_bytes(root / "AGENTS.md", maximum=2 * 1024 * 1024).decode("utf-8")
     clause = extract_policy(text)
@@ -354,6 +479,7 @@ def policy_status(root: Path) -> dict[str, Any]:
     draft, draft_payload = policy_draft_identity(root)
     if clause.encode("utf-8") + b"\n" != draft_payload:
         raise RecoveryError("active no-AP recovery policy is not the exact reviewed draft")
+    require_old_policy_retired(text)
     template_sha256 = sha256_bytes(
         canonical_policy_template(draft_payload, helper=helper, test=test)
     )
@@ -691,8 +817,9 @@ def run_noap_odin(
         stdout = completed.stdout or b""
         stderr = completed.stderr or b""
     except (subprocess.TimeoutExpired, BoundedOdinError) as exc:
-        stdout = exc.stdout or b""
-        stderr = exc.stderr or b""
+        stdout, stderr, overflow = cap_output_pair(
+            exc.stdout or b"", exc.stderr or b""
+        )
         stdout_record = durable_create_bytes(stdout_path, stdout)
         stderr_record = durable_create_bytes(stderr_path, stderr)
         core.durable_create_json(
@@ -703,7 +830,9 @@ def run_noap_odin(
                 "attempted": True,
                 "returned": False,
                 "timed_out": bool(getattr(exc, "timed_out", True)),
-                "output_overflow": bool(getattr(exc, "output_overflow", False)),
+                "output_overflow": bool(
+                    getattr(exc, "output_overflow", False) or overflow
+                ),
                 "returncode": None,
                 "stdout": stdout_record,
                 "stderr": stderr_record,
@@ -729,11 +858,10 @@ def run_noap_odin(
             },
         )
         raise RecoveryError("no-AP Odin reboot process could not start") from exc
-    if len(stdout) + len(stderr) > MAX_ODIN_OUTPUT:
-        bounded_stdout = stdout[:MAX_ODIN_OUTPUT]
-        bounded_stderr = stderr[: MAX_ODIN_OUTPUT - len(bounded_stdout)]
-        stdout_record = durable_create_bytes(stdout_path, bounded_stdout)
-        stderr_record = durable_create_bytes(stderr_path, bounded_stderr)
+    stdout, stderr, overflow = cap_output_pair(stdout, stderr)
+    if overflow:
+        stdout_record = durable_create_bytes(stdout_path, stdout)
+        stderr_record = durable_create_bytes(stderr_path, stderr)
         core.durable_create_json(
             outcome_path,
             {
@@ -771,6 +899,13 @@ def run_noap_odin(
     return completed, command, lines
 
 
+def cap_output_pair(stdout: bytes, stderr: bytes) -> tuple[bytes, bytes, bool]:
+    bounded_stdout = stdout[:MAX_ODIN_OUTPUT]
+    bounded_stderr = stderr[: MAX_ODIN_OUTPUT - len(bounded_stdout)]
+    overflow = len(stdout) + len(stderr) > MAX_ODIN_OUTPUT
+    return bounded_stdout, bounded_stderr, overflow
+
+
 def create_recovery_state(
     root: Path,
     *,
@@ -783,6 +918,13 @@ def create_recovery_state(
     policy_draft: dict[str, Any],
 ) -> dict[str, Any]:
     path = root / RECOVERY_STATE
+    require_direct_directory_chain(root, run_dir)
+    expected_run_root = Path(os.path.abspath(root / RECOVERY_RUN_ROOT))
+    if Path(os.path.abspath(run_dir)).parent != expected_run_root:
+        raise RecoveryError(
+            "recovery state run directory is outside the direct run root"
+        )
+    require_direct_directory_chain(root, path.parent)
     if path.exists() or path.is_symlink():
         raise RecoveryError("no-AP reboot recovery was already consumed")
     record = {
@@ -804,7 +946,11 @@ def create_recovery_state(
         "consumption_timing": "before any device or USB observation",
         "action": "odin4 --reboot only; no AP and no partition payload",
     }
-    core.durable_create_json(path, record)
+    payload = (
+        json.dumps(record, indent=2, sort_keys=True, ensure_ascii=True, allow_nan=False)
+        + "\n"
+    ).encode("utf-8")
+    durable_create_bytes(path, payload)
     return record
 
 
@@ -817,10 +963,7 @@ def live_run(root: Path, args: argparse.Namespace) -> int:
         raise RecoveryError("no-AP reboot recovery one-shot is already consumed")
 
     started = core.utc_now()
-    run_dir = root / RECOVERY_RUN_ROOT / (
-        "s22plus-r4w1c2-noap-reboot-recovery-" + time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
-    )
-    run_dir.mkdir(mode=0o700, parents=False, exist_ok=False)
+    run_dir = allocate_recovery_run_dir(root)
     result_path = run_dir / "result.json"
     timeline_path = run_dir / "timeline.json"
     stdout_path = run_dir / "odin-reboot.stdout"
