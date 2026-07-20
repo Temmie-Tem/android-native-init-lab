@@ -18,9 +18,9 @@ Do not add a device step when host-only work can answer the question.
 - The Process v2 H0 core and reusable D0 adapter are complete. One connected
   read-only D0 qualification passed with no F1 authority. The reusable F1
   adapter passed its host-only execution-closure review. The data-only canary
-  manifest is `ready-for-f1-approval`, but it has no prepared target binding.
-  Connected D0 preparation and later F1 remain separate actions; F1 still
-  requires one fresh exact-binding approval.
+  manifest is `ready-for-f1-approval`, and one connected D0 preparation produced
+  a private exact target binding without device writes. F1 remains inactive and
+  requires one fresh approval for that exact binding.
 
 ## Permanent Safety Boundaries
 

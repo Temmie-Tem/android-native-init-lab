@@ -128,9 +128,10 @@ verified Magisk rollback, final health, and the canonical eight events.
 
 The default manifest remains `draft-host-only` and `--prepare` refuses it before
 run allocation. A separately named data-only canary manifest now has
-`ready-for-f1-approval` status; it still has no connected preparation or target
-binding. `--execute` reopens only a prepared exact binding. No operator approval
-or F1 run occurred in this source gate or readiness promotion. See
+`ready-for-f1-approval` status. One connected D0 preparation passed and produced
+a private exact target binding without reboot, Odin, transfer, or device write.
+`--execute` reopens only that prepared binding. No operator approval or F1 run
+occurred in the source, readiness, or preparation units. See
 `docs/reports/DEVICE_ACTION_PROCESS_V2_F1_ADAPTER_HOST_PASS_2026-07-21.md`.
 
 ### Append-Only Journal

@@ -10,8 +10,8 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 ## Current Frontier - Process v2 Migration
 
 **State: HOST-ONLY. P2.1-P2.4, the P2.5 adapter source gate, and data-only
-manifest readiness are complete; connected preparation is pending. No active
-S22+ F1 authorization.**
+manifest readiness are complete. Connected D0 preparation passed without device
+writes; fresh exact-binding approval is pending. No active S22+ F1 authorization.**
 
 The R4W1-C2 run did not start an Odin device session: its candidate and rollback
 invocations were rejected while parsing `/proc/self/fd/7`. The R4W1-C3
@@ -64,9 +64,10 @@ Archived text is evidence only and grants no device authority.
 5. **P2.5 - F1 canary (current):** the reusable F1 adapter, focused tests, and
    independent execution-closure review are complete with
    `GO_HOST_SOURCE_TO_SEPARATE_MANIFEST_READINESS_AND_D0_PREPARE`. A separate
-   data-only canary manifest is `ready-for-f1-approval`; connected preparation,
-   exact binding, fresh approval, and the conservative boot-only canary remain
-   separate pending actions. The default draft manifest remains fail-closed.
+   data-only canary manifest is `ready-for-f1-approval`, and connected D0
+   preparation produced a private exact binding without device writes. Fresh
+   approval and the conservative boot-only canary remain pending. The default
+   draft manifest remains fail-closed.
 
 Do not activate C3, fork a C4 helper, or add another policy block. The source
 review does not promote the manifest or authorize device contact. P2.5 remains
