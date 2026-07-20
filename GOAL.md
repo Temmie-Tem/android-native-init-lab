@@ -6,6 +6,26 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-21 01:14 KST / 2026-07-20 16:14 UTC) -
+> R4W1-C2 OPUS ADVERSARIAL GO; MUST-FIX 0; EXACT POLICY ACTIVATION NEXT.**
+> Claude Opus 4.8 xhigh independently reviewed committed checkpoint `6861497d`,
+> its parent, the private binding packet, historical R4W1-C evidence, and exact
+> rendered clause SHA256 `6f0f0471...5c478f8f`. Verdict is
+> `GO_TO_EXACT_POLICY_ACTIVATION`; the clause may be committed unchanged. It
+> confirmed measured observer coverage at every ticketed transition, immutable
+> digest plus sysfs binding before sealed transfer, exact v1 historical evidence
+> reconstruction, boot-only sealed artifacts, pre-transfer durable one-shot
+> consumption, mandatory Magisk rollback, recovery/taint/timeline controls, no
+> retired live authority, and exact stat/runtime pins.
+>
+> Residual assumptions are explicit and non-blocking: physical continuity is
+> operator-attested, the stat pin is host-specific, and post-activation exact
+> policy acceptance must be rerun. Review consumption was `17% -> 81%` session,
+> `24% -> 27%` weekly; direct metrics were `893.689s`, `59877` output tokens,
+> and `$6.1275`. Policy remains inactive at this checkpoint; no device action
+> occurred. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_OPUS_ADVERSARIAL_GO_2026-07-21.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-21 00:58 KST / 2026-07-20 15:58 UTC) -
 > R4W1-C2 MEASURED LIVE SOURCE HOST GO; EXACT BINDING PACKET EMITTED; POLICY
 > INACTIVE; INDEPENDENT REVIEW NEXT.** A new target-specific helper preserves
