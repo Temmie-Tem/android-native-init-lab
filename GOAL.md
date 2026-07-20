@@ -6,6 +6,30 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-21 KST) - R4W1-C3 REGULAR-PATH F1
+> HOST-ONLY CHECKPOINT; POLICY INACTIVE; NO DEVICE CONTACT.** The unchanged
+> R4W1-C candidate and exact Magisk/stock rollback APs were reopened and passed
+> their full artifact/static contracts. A new common F1 transport keeps each
+> source descriptor open, verifies exact size/SHA and one regular
+> `boot.img.lz4` member, gives Odin the real absolute `.tar.md5` pathname, and
+> revalidates path/inode identity after subprocess return. It forbids
+> `/proc/self/fd` inputs, directly addressing the C2 pre-Setup-Connection parser
+> failure without rebuilding the kernel, ramdisk, or AP.
+>
+> The target-specific C3 adapter remains `DRAFT_INACTIVE`. Its candidate path is
+> consumed before transfer, binds one exact Samsung Download endpoint to the
+> Android USB topology, mandates Magisk-first rollback, permits stock only after
+> a definite Magisk transfer failure on the same endpoint, and requires exact
+> final Magisk health plus retained-marker acceptance for PASS. Related common,
+> transport, static-checker, and C3 tests pass `31/31`; the full offline gate
+> returns `PASS_R4W1C3_REGULAR_AP_F1_HOST_ONLY`, policy inactive, device contact
+> false, and Odin transfer false. An additional high-effort external review was
+> stopped before verdict when it became disproportionate; it contributes no GO.
+> No `AGENTS.md` authority was installed. Next device work is one fresh D0
+> read-only state check, followed by a bounded source/binding decision only if
+> D0 is clean. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1C3_REGULAR_AP_F1_HOST_ONLY_CHECKPOINT_2026-07-21.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-21 KST) - R4W1-C2 INCIDENT CLOSED;
 > NO-AP POLICY NEVER ACTIVATED; RETURN TO NATIVE-PID1 WITNESS WORK.** The
 > measured R4W1-C2 one-shot is consumed and its installed policy is RETIRED.
