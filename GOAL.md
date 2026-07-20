@@ -6,6 +6,40 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-20 16:16 KST / 2026-07-20 07:16 UTC) -
+> R4W1-C NO-SERIAL LIVE FAILED PRE-CONSUMPTION; FLASH 0; EXACT ANDROID
+> RESTORED; POLICY RETIRED; ENUMERATION-DIFF OBSERVER NEXT.** One fresh exact
+> acknowledgement passed the full Android/retained-log baseline and requested
+> normal Download. The target appeared at bound topology `2-1.3` as exact
+> Samsung `04e8:685d`, absent serial, and `/dev/bus/usb/002/019`, then the gate
+> failed closed with `Odin endpoint changed during enumeration` before the
+> one-shot state and before candidate transfer.
+>
+> Result SHA256 is
+> `73afc646b345e3e758bc151883509e4ee510fac8cf9bbe6dadece7a50c084da6`;
+> timeline SHA256 is
+> `28dc8113812f6a4dcbac9948f90b146df747806312081b5548619f42131d1383`.
+> `candidate_transfer_attempted=false`, transfer count and partition writes are
+> zero, the timeline contains only actual session start/end, and candidate
+> consumed state remains absent.
+>
+> Host kernel evidence shows one device-19 arrival at 16:10:24 KST and no later
+> disconnect or replacement before failure. The node birth time is
+> 16:10:24.751 and its final ctime is 16:10:25.488, immediately before the
+> 16:10:25.501 result. This strongly points to late metadata/ACL settling, but
+> the live helper did not persist the stabilized tuple or separate pre/post
+> enumeration inventories, so the exact changed field remains unproved. After
+> physical Download exit, read-only verification proved exact FYG8, stopped
+> boot animation, Magisk uid 0, known boot, stock vendor_boot/DTBO/recovery,
+> orange state, serial `RFCT519XWGK`, topology `2-1.3`, and Odin endpoint 0.
+>
+> The exact no-serial helper, clause, and token are now RETIRED. Do not retry.
+> Next is host-only design and implementation of a zero-transfer enumeration-
+> diff observer that durably records stabilized sysfs/node evidence plus
+> complete pre/post `odin4 -l` identity fields. It must keep immutable-node or
+> topology replacement fatal and may not activate a candidate policy. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1C_NOSERIAL_PRECONSUMPTION_ENUMERATION_MUTATION_2026-07-20.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-20 07:04 KST / 2026-07-19 22:04 UTC) -
 > R4W1-C NO-SERIAL PHYSICAL-CONTINUITY LIVE POLICY ACTIVE;
 > POST-ACTIVATION GO; CANDIDATE UNCONSUMED; FRESH EXACT LIVE ACK NEXT.**

@@ -141,10 +141,41 @@ fresh exact live acknowledgement all exist.
 END_S22PLUS_FYG8_R4W1C_CONNECTED_POLICY_V1
 
 BEGIN_S22PLUS_FYG8_R4W1C_LIVE_POLICY_V1
-**Pending one-shot exception (S22+ FYG8 R4W1-C watchdog-carrier direct-PID1
+**Retired unconsumed exception (2026-07-20, S22+ FYG8 R4W1-C no-serial
+physical-continuity watchdog-carrier direct-PID1
 boot-only live gate):** this clause applies only to Samsung S22+
 `SM-S906N` / `g0q` / `S906NKSS7FYG8`. The exact policy state is
-`S22PLUS_FYG8_R4W1C_LIVE_POLICY_STATE=ACTIVE`.
+`S22PLUS_FYG8_R4W1C_LIVE_POLICY_STATE=RETIRED`.
+
+One freshly acknowledged invocation passed the exact Android and retained-log
+baseline, requested normal Download, and observed exact topology `2-1.3`,
+Samsung `04e8:685d`, product `SAMSUNG USB`, manufacturer `Samsung`, absent
+Download serial, and direct character node `/dev/bus/usb/002/019`. It then
+failed closed before consumption with
+`FAIL_R4W1C_PRECONSUMPTION_NO_CANDIDATE_FLASH` and exact error
+`Odin endpoint changed during enumeration: /dev/bus/usb/002/019`. Candidate
+transfer was not attempted, no Odin transfer or partition write occurred, and
+`workspace/private/state/s22plus_fyg8_r4w1c_live_exception_consumed.json`
+remains absent. Result SHA256 is
+`73afc646b345e3e758bc151883509e4ee510fac8cf9bbe6dadece7a50c084da6`.
+
+Host kernel evidence records one Download arrival as device 19 at 16:10:24 KST
+and no later USB disconnect or replacement before the 16:10:25 failure. The
+surviving usbfs node has birth time 16:10:24.751 and ctime 16:10:25.488, only
+milliseconds before the result was sealed. This strongly indicates a late
+normal node-metadata transition, but the helper did not persist the stabilized
+pre-enumeration tuple or per-field before/after inventory, so the exact changed
+field is not load-bearing proof. After physical Download exit, exact FYG8
+Android, Magisk root, known boot, stock vendor_boot/DTBO/recovery, orange state,
+the original Android serial and topology, and no Odin endpoint were verified.
+
+This exact helper, clause, and all acknowledgements in this clause must not be
+reused. A replacement must first add a zero-transfer observation gate that
+durably records the stabilized sysfs and usbfs tuple, complete pre/post Odin
+enumeration inventories, and per-field differences. Only after host tests and
+independent review may a later design distinguish immutable node replacement
+from bounded metadata settling. No candidate policy may be activated directly
+from the current inference.
 
 The only executable helper is
 `workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1c_live_gate.py`

@@ -5,14 +5,12 @@ Date: 2026-07-20 KST
 Target: `SM-S906N/g0q/S906NKSS7FYG8`
 
 State: connected policy ACTIVE; connected PASS present; serial-bound live policy
-RETIRED after one pre-consumption failure; no-serial physical-continuity live
-policy ACTIVE in policy-only commit `43ea256b`; post-activation qualification
-`POST_ACTIVATION_GO`; candidate unconsumed; fresh exact live acknowledgement
-required next.
+RETIRED; no-serial physical-continuity live policy RETIRED after one
+pre-consumption enumeration-identity failure; candidate unconsumed; exact
+Android restored; zero-transfer enumeration-diff observer required next.
 
-This runbook freezes the completed promotion sequence and the remaining live
-entry. It grants no device contact by itself. `AGENTS.md` remains the binding
-policy and only a fresh exact acknowledgement can activate the one-shot run.
+This runbook freezes the completed promotion and failed live entry. It grants no
+new device contact, retry, or recovery authority. `AGENTS.md` remains binding.
 
 ## Retired Serial-Bound Packet
 
@@ -164,36 +162,34 @@ gate pass. Independent xhigh read-only review found no HIGH, MEDIUM, or LOW
 issue and returned `POST_ACTIVATION_GO`. Candidate consumed state remains
 absent. Stage 2 is complete.
 
-## Stage 3: No-Serial Live Entry Ready
+## Stage 3: No-Serial Live Entry Retired
 
 The serial-bound helper, token, and rollback tokens remain retired and must not
-be invoked. The no-serial replacement is ACTIVE and ready only after the
-operator supplies this fresh exact acknowledgement:
+be invoked. The no-serial replacement was invoked once with this exact token:
 
 `S22PLUS-FYG8-R4W1C-NOSERIAL-PHYSICAL-CONTINUITY-DIRECT-PID1-LIVE`
 
-That token is also the load-bearing attestation that the same attended handset
-remains on the same cable, hub path, and host port without unplug,
-substitution, topology reassignment, or custody gap from Android preflight
-through candidate observation, mandatory rollback, and exact Android return.
-The host cannot intrinsically distinguish a same-model handset substituted at
-the same Download topology because this FYG8 Download endpoint has no sysfs
-serial. Generic approval and every earlier R4W1-C token do not carry forward.
+The baseline and Download transition passed, but the helper stopped before
+consumption with `Odin endpoint changed during enumeration:
+/dev/bus/usb/002/019`. Candidate transfer was not attempted and no partition
+write occurred. The token, helper, and clause are now RETIRED and must not be
+reused even though candidate consumed state remains absent.
 
-Run only the checked helper pinned in the ACTIVE clause. It must independently
-reopen all source, policy, connected, artifact, topology, usbfs-node, and
-one-shot gates before contact and again before consumption. Candidate transfer
-is boot-only and one-shot; rollback is mandatory under the separate temporal
-acknowledgements in `AGENTS.md`.
+The next gate is not a candidate run. Design a zero-transfer observer that
+durably records the complete stabilized sysfs identity and usbfs node tuple,
+the complete inventory before `odin4 -l`, the inventory after it returns, and
+the exact per-field differences even on failure. Host tests must prove that it
+cannot transfer or invoke an AP-bearing Odin command. Independent review and a
+separate committed read-only policy are required before another Download
+observation.
 
-## Stage 4: Recovery Not Yet Applicable
+## Stage 4: Recovery Not Applicable
 
-The earlier serial-bound attempt did not create a consumed state or attempt a
-candidate transfer. The no-serial live policy has not run, so no rollback or
-interrupted-recovery action is currently authorized or needed. After a genuine
-candidate consumption, use only the exact recovery acknowledgements and state
-machine defined by the ACTIVE clause; never infer recovery authority from this
-runbook.
+The no-serial run did not create a consumed state or attempt a candidate
+transfer. After physical Download exit, exact FYG8 Android, Magisk root, known
+boot, stock vendor_boot/DTBO/recovery, original Android serial/topology, orange
+state, and no Odin endpoint were verified. No rollback or interrupted-recovery
+action is authorized or needed.
 
 ## Stop Conditions
 
