@@ -203,12 +203,14 @@ class BoundedOdinError(RecoveryError):
         *,
         timed_out: bool = False,
         output_overflow: bool = False,
+        runner_error: bool = False,
     ):
         super().__init__(message)
         self.stdout = stdout
         self.stderr = stderr
         self.timed_out = timed_out
         self.output_overflow = output_overflow
+        self.runner_error = runner_error
 
 
 def repo_root() -> Path:
@@ -776,6 +778,18 @@ def bounded_odin_runner(
             b"".join(streams["stderr"]),
             timed_out=True,
         ) from exc
+    except OSError as exc:
+        if process is None:
+            raise
+        if process.poll() is None:
+            process.kill()
+            process.wait()
+        raise BoundedOdinError(
+            "no-AP Odin reboot runner failed after process start",
+            b"".join(streams["stdout"]),
+            b"".join(streams["stderr"]),
+            runner_error=True,
+        ) from exc
     except BaseException:
         if process is not None and process.poll() is None:
             process.kill()
@@ -833,6 +847,9 @@ def run_noap_odin(
                 "output_overflow": bool(
                     getattr(exc, "output_overflow", False) or overflow
                 ),
+                "runner_error": (
+                    str(exc) if getattr(exc, "runner_error", False) else None
+                ),
                 "returncode": None,
                 "stdout": stdout_record,
                 "stderr": stderr_record,
@@ -852,12 +869,12 @@ def run_noap_odin(
                 "timed_out": False,
                 "output_overflow": False,
                 "returncode": None,
-                "spawn_error": str(exc),
+                "runner_error": str(exc),
                 "stdout": stdout_record,
                 "stderr": stderr_record,
             },
         )
-        raise RecoveryError("no-AP Odin reboot process could not start") from exc
+        raise RecoveryError("no-AP Odin reboot runner failed before a return") from exc
     stdout, stderr, overflow = cap_output_pair(stdout, stderr)
     if overflow:
         stdout_record = durable_create_bytes(stdout_path, stdout)
@@ -904,6 +921,29 @@ def cap_output_pair(stdout: bytes, stderr: bytes) -> tuple[bytes, bytes, bool]:
     bounded_stderr = stderr[: MAX_ODIN_OUTPUT - len(bounded_stdout)]
     overflow = len(stdout) + len(stderr) > MAX_ODIN_OUTPUT
     return bounded_stdout, bounded_stderr, overflow
+
+
+def durable_create_json_idempotent(path: Path, value: Any) -> None:
+    """Accept only the exact record if a completed create reports an error."""
+
+    expected = (
+        json.dumps(value, indent=2, sort_keys=True, ensure_ascii=True, allow_nan=False)
+        + "\n"
+    ).encode("utf-8")
+    try:
+        core.durable_create_json(path, value)
+        return
+    except (OSError, core.LiveCoreError) as exc:
+        if path.is_symlink() or not path.is_file():
+            raise
+        try:
+            actual = stable_bytes(path, maximum=max(len(expected), 4096))
+        except RecoveryError:
+            raise exc
+        if actual != expected:
+            raise RecoveryError(
+                f"existing durable JSON does not equal the attempted record: {path}"
+            ) from exc
 
 
 def create_recovery_state(
@@ -981,6 +1021,7 @@ def live_run(root: Path, args: argparse.Namespace) -> int:
         "odin_transfer": False,
         "flash": False,
         "reboot": None,
+        "no_odin_endpoint": None,
         "reboot_attempted": False,
         "reboot_command_returned": False,
         "physical_continuity_basis": PHYSICAL_CONTINUITY_BASIS,
@@ -990,6 +1031,7 @@ def live_run(root: Path, args: argparse.Namespace) -> int:
     reboot_start: str | None = None
     reboot_done: str | None = None
     ready: str | None = None
+    timeline_attempted: list[dict[str, str]] | None = None
     try:
         if odin != connected.DEFAULT_ODIN:
             raise RecoveryError("no-AP recovery requires the exact default Odin path")
@@ -1064,6 +1106,14 @@ def live_run(root: Path, args: argparse.Namespace) -> int:
                     expected_serial=str(offline["incident"]["android_serial"]),
                     expected_usb_binding=dict(offline["incident"]["usb_binding"]),
                 )
+                ready = core.utc_now()
+                result.update(
+                    {
+                        "reboot": True,
+                        "android_serial": serial,
+                        "final_android": android,
+                    }
+                )
                 absence = odin_core.wait_for_no_live_endpoint(
                     external_odin,
                     run_dir,
@@ -1074,8 +1124,9 @@ def live_run(root: Path, args: argparse.Namespace) -> int:
                     endpoint_observer_factory=odin_core.measured_usbfs_observer,
                 )
                 if not absence.absent or absence.timed_out:
+                    result["no_odin_endpoint"] = False
                     raise RecoveryError("exact Android return retained an Odin endpoint")
-                ready = core.utc_now()
+                result["no_odin_endpoint"] = True
                 timeline = exact_timeline(started, reboot_start, reboot_done, ready)
                 result.update(
                     {
@@ -1117,12 +1168,13 @@ def live_run(root: Path, args: argparse.Namespace) -> int:
                         },
                     }
                 )
-                core.durable_create_json(timeline_path, {"events": timeline})
+                timeline_attempted = timeline
+                durable_create_json_idempotent(timeline_path, {"events": timeline})
                 result["timeline"] = {
                     "path": str(timeline_path.relative_to(root)),
                     "events": timeline,
                 }
-                core.durable_create_json(result_path, result)
+                durable_create_json_idempotent(result_path, result)
                 print(json.dumps({"run_dir": str(run_dir), "verdict": PASS_VERDICT}, indent=2))
                 return 0
     except (
@@ -1147,7 +1199,7 @@ def live_run(root: Path, args: argparse.Namespace) -> int:
         if outcome is not None:
             reboot_done = str(outcome.get("created_at_utc") or reboot_done or ended)
             result["reboot_command_returned"] = outcome.get("returned") is True
-        timeline = exact_timeline(
+        failure_timeline = exact_timeline(
             started,
             reboot_start or ended,
             reboot_done or ended,
@@ -1180,12 +1232,19 @@ def live_run(root: Path, args: argparse.Namespace) -> int:
                 else "exact Android readiness not proven"
             ),
         }
-        core.durable_create_json(timeline_path, {"events": timeline})
+        if timeline_path.exists() or timeline_path.is_symlink():
+            if timeline_attempted is None:
+                raise RecoveryError("unexpected timeline appeared before publication")
+            timeline = timeline_attempted
+        else:
+            timeline = failure_timeline
+            timeline_attempted = timeline
+        durable_create_json_idempotent(timeline_path, {"events": timeline})
         result["timeline"] = {
             "path": str(timeline_path.relative_to(root)),
             "events": timeline,
         }
-        core.durable_create_json(result_path, result)
+        durable_create_json_idempotent(result_path, result)
         print(json.dumps({"run_dir": str(run_dir), "verdict": FAIL_VERDICT}, indent=2))
         return 20
 

@@ -204,6 +204,110 @@ class NoApRecoveryTests(unittest.TestCase):
         self.assertTrue(error.output_overflow)
         self.assertEqual(len(error.stdout) + len(error.stderr), module.MAX_ODIN_OUTPUT)
 
+    def test_post_spawn_read_error_preserves_output_and_truthful_outcome(self):
+        module = self.module
+
+        class Pipe:
+            def close(self):
+                pass
+
+        class Process:
+            def __init__(self):
+                self.stdout = Pipe()
+                self.stderr = Pipe()
+                self.returncode = None
+                self.killed = False
+                self.reaped = False
+
+            def poll(self):
+                return self.returncode
+
+            def kill(self):
+                self.killed = True
+
+            def wait(self, timeout=None):
+                self.reaped = True
+                self.returncode = -9
+                return self.returncode
+
+        class Selector:
+            def __init__(self):
+                self.key = SimpleNamespace(fd=101, fileobj=object(), data="stdout")
+                self.active = True
+
+            def register(self, *_args):
+                pass
+
+            def get_map(self):
+                return {101: self.key} if self.active else {}
+
+            def select(self, _timeout):
+                return [(self.key, 1)]
+
+            def unregister(self, _fileobj):
+                self.active = False
+
+            def close(self):
+                pass
+
+        process = Process()
+        observed = b"observed-before-error"
+        reads = iter((observed, OSError("injected pipe read failure")))
+
+        def read(_fd, _size):
+            value = next(reads)
+            if isinstance(value, BaseException):
+                raise value
+            return value
+
+        with tempfile.TemporaryDirectory() as temporary, mock.patch.object(
+            module.subprocess, "Popen", return_value=process
+        ), mock.patch.object(
+            module.selectors, "DefaultSelector", side_effect=Selector
+        ), mock.patch.object(module.os, "read", side_effect=read):
+            root = Path(temporary)
+            stdout_path = root / "stdout"
+            outcome_path = root / "outcome.json"
+            with self.assertRaisesRegex(module.RecoveryError, "after process start"):
+                module.run_noap_odin(
+                    9,
+                    "/dev/bus/usb/002/027",
+                    stdout_path=stdout_path,
+                    stderr_path=root / "stderr",
+                    outcome_path=outcome_path,
+                )
+            outcome = json.loads(outcome_path.read_text(encoding="utf-8"))
+            self.assertEqual(stdout_path.read_bytes(), observed)
+            self.assertEqual(
+                outcome["runner_error"],
+                "no-AP Odin reboot runner failed after process start",
+            )
+            self.assertNotIn("spawn_error", outcome)
+        self.assertTrue(process.killed)
+        self.assertTrue(process.reaped)
+
+    def test_injected_oserror_is_not_claimed_as_spawn_failure(self):
+        module = self.module
+
+        def runner(_command, **_kwargs):
+            raise OSError("injected runner failure")
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            outcome_path = root / "outcome.json"
+            with self.assertRaisesRegex(module.RecoveryError, "before a return"):
+                module.run_noap_odin(
+                    9,
+                    "/dev/bus/usb/002/027",
+                    stdout_path=root / "stdout",
+                    stderr_path=root / "stderr",
+                    outcome_path=outcome_path,
+                    runner=runner,
+                )
+            outcome = json.loads(outcome_path.read_text(encoding="utf-8"))
+            self.assertEqual(outcome["runner_error"], "injected runner failure")
+            self.assertNotIn("spawn_error", outcome)
+
     def test_injected_oversize_result_is_capped_before_persistence(self):
         module = self.module
 
@@ -335,6 +439,198 @@ class NoApRecoveryTests(unittest.TestCase):
             "1f093d78a110925440c98741399d8828201cce38265a5c941ac2f71b6c104305",
         )
         module.validate_runtime_dependency_graph(ROOT)
+
+    def run_mocked_post_android_live(
+        self,
+        root,
+        *,
+        absence_result=None,
+        absence_error=None,
+        durable_create=None,
+    ):
+        module = self.module
+        offline = {
+            "recovery_consumed": False,
+            "incident": {
+                "android_serial": "RFCT519XWGK",
+                "usb_binding": {
+                    "topology": "2-1.3",
+                    "serial_sha256": "c" * 64,
+                    "download_serial_state": "absent",
+                },
+                "files": {
+                    "consumed": {"sha256": "d" * 64},
+                    "stock_intent": {"sha256": "e" * 64},
+                },
+            },
+            "helper": {"sha256": "1" * 64},
+            "test": {"sha256": "2" * 64},
+            "dependencies": {},
+            "policy_draft": {"sha256": "f" * 64},
+        }
+        policy = {"active": True, "sha256": "a" * 64}
+        args = SimpleNamespace(
+            ack=module.LIVE_ACK,
+            odin=module.connected.DEFAULT_ODIN,
+            endpoint_wait_sec=1.0,
+            android_wait_sec=1.0,
+            odin_absence_wait_sec=1.0,
+        )
+        ticket = SimpleNamespace(
+            device="/dev/bus/usb/002/027",
+            device_identity="identity",
+            generation=1,
+            snapshot_sequence=0,
+            snapshot_receipt="mock",
+            snapshot_receipt_sha256="b" * 64,
+        )
+
+        @contextlib.contextmanager
+        def odin_session(_path):
+            yield 9, Path("/mock/sealed-odin")
+
+        @contextlib.contextmanager
+        def transaction(_run_dir):
+            yield object()
+
+        def noap(_fd, device, *, stdout_path, stderr_path, outcome_path):
+            module.durable_create_bytes(stdout_path, b"ok")
+            module.durable_create_bytes(stderr_path, b"")
+            module.core.durable_create_json(
+                outcome_path,
+                {
+                    "created_at_utc": module.core.utc_now(),
+                    "attempted": True,
+                    "returned": True,
+                    "returncode": 0,
+                },
+            )
+            command = ["/proc/self/fd/9", "--reboot", "-d", device]
+            return (
+                subprocess.CompletedProcess(command, 0, b"", b""),
+                command,
+                list(module.ODIN_SUCCESS_LINES),
+            )
+
+        (root / module.RECOVERY_RUN_ROOT).mkdir(parents=True)
+        (root / "state").mkdir()
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(
+                mock.patch.object(module, "RECOVERY_STATE", Path("state/consumed.json"))
+            )
+            stack.enter_context(mock.patch.object(module, "offline_check", return_value=offline))
+            stack.enter_context(mock.patch.object(module, "policy_status", return_value=policy))
+            stack.enter_context(mock.patch.object(module.time, "strftime", return_value="scenario"))
+            stack.enter_context(
+                mock.patch.object(
+                    module.measured, "pinned_odin_session", side_effect=odin_session
+                )
+            )
+            stack.enter_context(
+                mock.patch.object(
+                    module.odin_core, "transaction_session", side_effect=transaction
+                )
+            )
+            stack.enter_context(
+                mock.patch.object(
+                    module.measured, "wait_for_endpoint", return_value=(ticket, 1)
+                )
+            )
+            stack.enter_context(
+                mock.patch.object(
+                    module.measured,
+                    "require_ticket_usb_binding",
+                    return_value={"topology": "2-1.3"},
+                )
+            )
+            stack.enter_context(
+                mock.patch.object(
+                    module.measured,
+                    "revalidate_ticket",
+                    return_value=(ticket.device, 2, {"mock": True}),
+                )
+            )
+            stack.enter_context(mock.patch.object(module, "run_noap_odin", side_effect=noap))
+            stack.enter_context(
+                mock.patch.object(
+                    module.measured,
+                    "wait_magisk_android",
+                    return_value=(
+                        "RFCT519XWGK",
+                        {"model": "SM-S906N", "root": "uid=0(root)"},
+                    ),
+                )
+            )
+            absence = mock.patch.object(module.odin_core, "wait_for_no_live_endpoint")
+            absence_mock = stack.enter_context(absence)
+            if absence_error is not None:
+                absence_mock.side_effect = absence_error
+            else:
+                absence_mock.return_value = absence_result or SimpleNamespace(
+                    absent=True, timed_out=False
+                )
+            if durable_create is not None:
+                stack.enter_context(
+                    mock.patch.object(
+                        module.core, "durable_create_json", side_effect=durable_create
+                    )
+                )
+            return module.live_run(root, args)
+
+    def test_android_proof_survives_no_odin_observer_failure(self):
+        module = self.module
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            rc = self.run_mocked_post_android_live(
+                root,
+                absence_error=module.odin_core.OdinTransitionError(
+                    "injected no-Odin observer failure"
+                ),
+            )
+            run_dir = root / module.RECOVERY_RUN_ROOT / (
+                "s22plus-r4w1c2-noap-reboot-recovery-scenario"
+            )
+            result = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
+        self.assertEqual(rc, 20)
+        self.assertTrue(result["reboot"])
+        self.assertEqual(result["android_serial"], "RFCT519XWGK")
+        self.assertEqual(result["final_android"]["model"], "SM-S906N")
+        self.assertIsNone(result["no_odin_endpoint"])
+        self.assertEqual(
+            result["timeline_phase_semantics"]["rollback_boot_ready"],
+            "exact Android ready",
+        )
+
+    def test_result_publication_failure_reuses_timeline_and_records_failure(self):
+        module = self.module
+        real_create = module.core.durable_create_json
+        failed = False
+
+        def create(path, value):
+            nonlocal failed
+            if path.name == "result.json" and not failed:
+                failed = True
+                raise OSError("injected first result publication failure")
+            return real_create(path, value)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            rc = self.run_mocked_post_android_live(root, durable_create=create)
+            run_dir = root / module.RECOVERY_RUN_ROOT / (
+                "s22plus-r4w1c2-noap-reboot-recovery-scenario"
+            )
+            result = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
+            timeline = json.loads((run_dir / "timeline.json").read_text(encoding="utf-8"))
+            state_exists = (root / "state" / "consumed.json").is_file()
+        self.assertEqual(rc, 20)
+        self.assertTrue(failed)
+        self.assertTrue(state_exists)
+        self.assertEqual(result["verdict"], module.FAIL_VERDICT)
+        self.assertEqual(result["timeline"]["events"], timeline["events"])
+        self.assertEqual(
+            [event["name"] for event in timeline["events"]],
+            list(module.core.TIMELINE_NAMES),
+        )
 
     def test_consumes_before_first_endpoint_observation_and_cannot_retry(self):
         module = self.module

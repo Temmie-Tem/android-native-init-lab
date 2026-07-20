@@ -85,27 +85,60 @@ publish consumed state must emit a result and canonical timeline; host-only
 policy, acknowledgement, evidence, or run-directory setup failures before
 consumption authorize no contact and need not synthesize a live result.
 
+## Third independent review and repair
+
+Independent host-only read-only review session
+`019f80a0-0381-73c0-98ed-87a87d7585b6` reviewed commit `19906092` with
+`gpt-5.6-sol` at xhigh effort. It reran all 209 related tests and independently
+reconfirmed the complete runtime graph, exact incident evidence, zero prior
+partition transfers, inactive new policy, absent recovery state, and no device
+contact. Injected failure probes nevertheless returned
+`NO_GO_TO_POLICY_ACTIVATION` for three evidence-integrity defects:
+
+1. A transient `result.json` publication failure after `timeline.json` existed
+   retried exclusive timeline creation and escaped with consumed state but no
+   result. Final records now use exact-byte idempotent create: an existing direct
+   regular record is accepted only when it is byte-for-byte identical to the
+   attempted JSON. The failure handler reuses only the exact timeline attempted
+   by this invocation and then durably records the failure result.
+2. Exact Android/Magisk return was discarded if the later no-Odin observer
+   failed. Android readiness, serial, final health object, and `reboot=true` are
+   now committed to the in-memory result immediately after the exact Android
+   gate. The independent Odin-absence fact remains `null` until proven and
+   cannot turn an otherwise non-PASS result into PASS.
+3. An `OSError` after Odin child creation discarded already collected bytes and
+   falsely claimed the process could not start. The bounded runner now converts
+   post-spawn I/O failures into a bounded `runner_error`, kills and reaps the
+   direct child, and preserves all bytes observed before the error. A raw runner
+   `OSError` is also labeled neutrally as failure before return, never as a
+   claimed spawn failure.
+
+Four focused regressions cover post-spawn output preservation, neutral raw
+runner-error labeling, Android evidence preservation across a no-Odin observer
+failure, and idempotent result finalization after an injected first-publication
+failure.
+
 ## Exact repaired identities
 
-- helper: size `47465`, SHA256
-  `dd85eddca9d75376a248cfa77b143e52580b4d49a74dca9fb3ee93c48a77d263`
-- focused test: size `22633`, SHA256
-  `ca64906a889dca3cb3b4c5b958afb91c73ba204bab9cb284a1df200ce3847479`
+- helper: size `49707`, SHA256
+  `6efe8c8e8a4846b4adf9b1ecb7c335e5ab20cdf7a0a0b2c8845e2bc21e0b5c72`
+- focused test: size `33933`, SHA256
+  `3fee6484e075061dacebea80314e25325189c960845b68f571f24530efd26777`
 - policy draft: size `9001`, SHA256
-  `c72651e338576feddf43068479148db2e9b41da5d5e68a09a3a8c6aa030320a5`
+  `51a156baa2f0062ffbd8ee9c96c3f99d846fd14aea89fbd38a0b4fa9db840cec`
 - normalized policy template SHA256:
   `9eab648aec876d5e229e35926927dcf06cea8d1ab70c034df312b7e1a064d7f9`
 
 ## Host-only validation
 
-- focused no-AP recovery suite: `24/24` PASS
-- related helper/core/USBFS/connected/live-core/transport suite: `209/209` PASS
+- focused no-AP recovery suite: `28/28` PASS
+- related helper/core/USBFS/connected/live-core/transport suite: `213/213` PASS
 - offline verdict:
   `PASS_R4W1C2_NOAP_REBOOT_RECOVERY_SOURCE_HOST_ONLY`
 - policy active: `false`
 - recovery consumed: `false`
 - device contact/write/reboot/Odin transfer/flash: all `false`
 
-No device or USB command was executed during either review or repair. Exact
-policy activation remains blocked until a fresh independent adversarial review
+No device or USB command was executed during any review or repair. Exact policy
+activation remains blocked until a fresh independent adversarial review
 returns `GO_TO_EXACT_POLICY_ACTIVATION` on these repaired bytes.

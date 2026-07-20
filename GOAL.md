@@ -7,25 +7,32 @@ says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash 
 are binding and override any sub-goal.**
 
 > **S22+ ACTIVE FRONTIER (2026-07-21 KST) - R4W1-C2 NO-AP RECOVERY
-> SECOND ADVERSARIAL NO-GO REPAIRED HOST-ONLY; POLICY STILL INACTIVE.** The first
+> THIRD ADVERSARIAL NO-GO REPAIRED HOST-ONLY; POLICY STILL INACTIVE.** The first
 > independent review session `019f807c-c88c-7073-824b-7a1f4ecfec27` found seven
 > blockers. A second independent `gpt-5.6-sol` xhigh review session
 > `019f8090-9c52-71a1-b3c3-918c56c432f3` reviewed commit `f1e22994`, closed four,
 > reconfirmed zero prior Odin device sessions/partition transfers, and found the
 > remaining M3 runtime pin, timeout-exception cap, private run/state durability,
-> and old-policy retirement blockers.
+> and old-policy retirement blockers. A third independent `gpt-5.6-sol` xhigh
+> review session `019f80a0-0381-73c0-98ed-87a87d7585b6` reviewed commit
+> `19906092` and found three injected failure-path evidence defects: non-idempotent
+> final publication, discarded proven Android readiness before the no-Odin gate,
+> and post-spawn I/O errors mislabeled as spawn failures with lost output.
 >
 > The repaired helper now requires recursive local-import/pin equality, routes
 > every returned and exceptional Odin output through one exact combined 1 MiB
 > cap, rejects indirect run/state ancestry, fsyncs the direct run root before
 > consumed-state publication, and refuses activation unless the consumed old
-> measured-policy block is exactly `RETIRED`. The draft requires old retirement
-> and new activation in the same later policy-only commit.
+> measured-policy block is exactly `RETIRED`. It now also preserves bounded
+> post-spawn output under runner errors, records exact Android readiness before
+> independent Odin-absence observation, and idempotently accepts only exact
+> already-published timeline/result bytes. The draft requires old retirement and
+> new activation in the same later policy-only commit.
 >
-> Focused tests pass `24/24`; the related suite passes `209/209`. Offline verdict
+> Focused tests pass `28/28`; the related suite passes `213/213`. Offline verdict
 > remains `PASS_R4W1C2_NOAP_REBOOT_RECOVERY_SOURCE_HOST_ONLY`, policy inactive,
 > recovery one-shot unconsumed, and all device-action fields false. Next is a
-> fresh independent review of the repaired exact bytes. Only a GO permits a
+> fourth independent review of the repaired exact bytes. Only a GO permits a
 > separate policy-only activation commit and subsequent fresh live
 > acknowledgement. Report:
 > `docs/reports/S22PLUS_FYG8_R4W1C2_NOAP_RECOVERY_NO_GO_REPAIR_2026-07-21.md`.

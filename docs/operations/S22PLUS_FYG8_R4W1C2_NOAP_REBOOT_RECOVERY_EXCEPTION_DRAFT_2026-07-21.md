@@ -13,11 +13,11 @@ device or USB contact.
 
 The only executable helper is
 `workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1c2_noap_reboot_recovery.py`,
-size `47465`, SHA256
-`dd85eddca9d75376a248cfa77b143e52580b4d49a74dca9fb3ee93c48a77d263`.
+size `49707`, SHA256
+`6efe8c8e8a4846b4adf9b1ecb7c335e5ab20cdf7a0a0b2c8845e2bc21e0b5c72`.
 Its focused test is
-`tests/test_s22plus_fyg8_r4w1c2_noap_reboot_recovery.py`, size `22633`, SHA256
-`ca64906a889dca3cb3b4c5b958afb91c73ba204bab9cb284a1df200ce3847479`.
+`tests/test_s22plus_fyg8_r4w1c2_noap_reboot_recovery.py`, size `33933`, SHA256
+`3fee6484e075061dacebea80314e25325189c960845b68f571f24530efd26777`.
 The fresh live acknowledgement is
 `S22PLUS-FYG8-R4W1C2-NOAP-REBOOT-RECOVERY-LIVE`.
 The helper must require that the policy block installed in `AGENTS.md` is
