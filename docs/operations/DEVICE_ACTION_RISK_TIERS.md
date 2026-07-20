@@ -1,8 +1,9 @@
 # Device Action Risk Tiers
 
 This contract keeps validation effort proportional to the action. It is a
-classification and review rule, not blanket device authorization. An installed
-target-specific policy, an explicit prohibition, or `AGENTS.md` always wins.
+classification rule, not blanket device authorization. `AGENTS.md` and its
+permanent boundaries always win. Archived target-specific policies are evidence
+only and grant no authority.
 
 ## Threat Model
 
@@ -57,11 +58,17 @@ Examples: an attended reboot, request/exit Download mode, or exact Odin
 
 Examples: one checked candidate or rollback AP containing only `boot.img.lz4`.
 
-- Require exact artifact SHA256 and membership checks, full target preflight,
-  known rollback, fresh explicit approval, durable consumption before transfer,
-  bounded observation, and verified rollback/health.
-- Use a reviewed target-specific exception when the action is experimental or
-  one-shot. Retire it immediately after consumption or abandonment.
+- Use the reusable process in
+  `docs/operations/DEVICE_ACTION_PROCESS_V2.md`: exact artifact
+  SHA256 and membership checks, full target preflight, known rollback, one fresh
+  approval, append-only journal, bounded observation, and verified
+  rollback/health.
+- The approval binds one candidate attempt and its mandatory rollback. Recovery
+  must not wait for a second acknowledgement after candidate execution begins.
+- Record pre-session host failures precisely; do not permanently consume a
+  candidate merely because a dry-run or Odin local parser failed.
+- Do not create a candidate-specific helper, policy activation commit, or
+  repeated review ladder when the runner and hazard class are unchanged.
 - Missing evidence is no-proof and never weakens rollback requirements.
 
 ### X - Forbidden
@@ -82,5 +89,6 @@ debug state, introduces a new low-level transport primitive, or cannot bind one
 unambiguous target. A lower tier must never be used to split a higher-risk action
 into apparently harmless steps.
 
-Historical consumed policies remain evidence only. `RETIRED` or never-installed
-drafts grant no current authority and cannot be reactivated by these tiers.
+Historical consumed policies remain evidence only. `ACTIVE`, `RETIRED`, or
+never-installed text under `docs/archive/` grants no current authority and
+cannot be reactivated by these tiers.

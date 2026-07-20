@@ -110,10 +110,11 @@ vendor bootloader
 
 ## Near-Term Roadmap
 
-현재 활성 프론티어는 S22+ FYG8 R4W1-B direct-PID1 acceptance의
-호스트 소스/체커 구현이다. 정확한 상태와 다음 단계는 `GOAL.md`와
-`docs/plans/S22PLUS_FYG8_R4W1B_DIRECT_PID1_EXEC_ACCEPTANCE_DESIGN_2026-07-13.md`를
-기준으로 한다. 현재 live authorization은 없다.
+현재 활성 프론티어는 S22+ FYG8 direct-PID1 실험을 후보별 one-shot
+helper에서 재사용 가능한 Device Action Process v2로 옮기는 작업이다.
+정확한 상태와 다음 단계는 `GOAL.md`, 실행 규칙은 `AGENTS.md`, 공용 F1
+설계는 `docs/operations/DEVICE_ACTION_PROCESS_V2.md`를 기준으로 한다.
+현재 live authorization은 없다.
 
 A90은 이미 확보한 native-init/runtime 기반을 유지하는 안정화 대상이며,
 기기별 다음 작업은 각각의 rollback identity와 `AGENTS.md` 승인 경계를

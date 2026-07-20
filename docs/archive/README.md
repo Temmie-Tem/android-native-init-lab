@@ -1,5 +1,15 @@
 # Archive Index
 
+Nothing under this directory is an active source of device authorization.
+Historical `ACTIVE` strings and acknowledgement tokens are inert evidence.
+
+## Process v2 snapshots
+
+- `policy/AGENTS_PRE_PROCESS_V2_2026-07-21.md`: immutable Git blob, SHA256, and
+  retrieval commands for the complete pre-v2 operating contract.
+- `roadmaps/GOAL_PRE_PROCESS_V2_2026-07-21.md`: immutable Git blob, SHA256, and
+  retrieval commands for the complete pre-v2 accumulated roadmap.
+
 `docs/archive/legacy/`에는 이번 리셋 이전의 2025 방향 문서를 그대로 보관합니다.
 
 포함 범위:
