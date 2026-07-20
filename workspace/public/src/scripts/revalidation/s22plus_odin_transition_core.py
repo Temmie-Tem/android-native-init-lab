@@ -26,9 +26,11 @@ from pathlib import Path
 from typing import Any, Callable, Protocol
 
 import s22plus_boot_only_live_core as live_core
+import s22plus_odin_usbfs_identity as usbfs_identity
 
 
-SNAPSHOT_SCHEMA = "s22plus_odin_endpoint_snapshot_v1"
+SNAPSHOT_SCHEMA_V1 = "s22plus_odin_endpoint_snapshot_v1"
+SNAPSHOT_SCHEMA = "s22plus_odin_endpoint_snapshot_v2"
 INDEX_SCHEMA = "s22plus_odin_transaction_index_v1"
 PHASE_SCHEMA = "s22plus_odin_phase_receipt_v1"
 ODIN_DEVICE_RE = re.compile(
@@ -73,6 +75,19 @@ DeviceIdentity = Callable[[str], str | None]
 DeviceInventory = Callable[[], dict[str, str]]
 
 
+class EndpointIdentityObserver(Protocol):
+    def inventory(self) -> dict[str, str]: ...
+
+    def identity(self, path: str) -> str | None: ...
+
+    def evidence(self, live_devices: tuple[str, ...]) -> dict[str, Any]: ...
+
+    def revalidate(self, evidence: dict[str, Any]) -> None: ...
+
+
+EndpointObserverFactory = Callable[[], EndpointIdentityObserver]
+
+
 @dataclass(frozen=True)
 class OdinSnapshot:
     timestamp_utc: str
@@ -83,6 +98,7 @@ class OdinSnapshot:
     live_device_identities: tuple[tuple[str, str], ...]
     stdout: str
     stderr: str
+    endpoint_transition_evidence: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -297,12 +313,34 @@ def _validated_device_inventory(device_inventory: DeviceInventory) -> dict[str, 
     return inventory
 
 
+def measured_usbfs_observer() -> EndpointIdentityObserver:
+    """Return the opt-in R4W1-C-derived timestamp-aware identity observer."""
+
+    return usbfs_identity.MeasuredUsbfsIdentityObserver()
+
+
+def _new_endpoint_observer(
+    factory: EndpointObserverFactory,
+) -> EndpointIdentityObserver:
+    try:
+        observer = factory()
+    except (OSError, TypeError, usbfs_identity.UsbfsIdentityError) as exc:
+        raise OdinTransitionError("measured USB endpoint observer creation failed") from exc
+    if any(
+        not callable(getattr(observer, name, None))
+        for name in ("inventory", "identity", "evidence", "revalidate")
+    ):
+        raise OdinTransitionError("measured USB endpoint observer is invalid")
+    return observer
+
+
 def enumerate_odin(
     odin: Path,
     *,
     runner: Runner = _default_runner,
     device_identity: DeviceIdentity = _default_device_identity,
     device_inventory: DeviceInventory = _default_device_inventory,
+    endpoint_observer_factory: EndpointObserverFactory | None = None,
     timeout_sec: float = 10.0,
     timestamp: Callable[[], str] = live_core.utc_now,
 ) -> OdinSnapshot:
@@ -310,7 +348,24 @@ def enumerate_odin(
 
     if not math.isfinite(timeout_sec) or timeout_sec <= 0:
         raise OdinTransitionError("Odin enumeration timeout must be positive")
-    before = _validated_device_inventory(device_inventory)
+    observer: EndpointIdentityObserver | None = None
+    if endpoint_observer_factory is not None:
+        if (
+            device_identity is not _default_device_identity
+            or device_inventory is not _default_device_inventory
+        ):
+            raise OdinTransitionError(
+                "measured endpoint observer cannot be combined with legacy identity callbacks"
+            )
+        try:
+            observer = _new_endpoint_observer(endpoint_observer_factory)
+            before = _validated_device_inventory(observer.inventory)
+        except (OSError, usbfs_identity.UsbfsIdentityError) as exc:
+            raise OdinTransitionError("measured USB endpoint inventory failed") from exc
+        active_identity = observer.identity
+    else:
+        before = _validated_device_inventory(device_inventory)
+        active_identity = device_identity
     try:
         result = runner([str(odin), "-l"], timeout_sec)
     except (OSError, subprocess.SubprocessError) as exc:
@@ -330,7 +385,12 @@ def enumerate_odin(
     stale_list: list[str] = []
     for device in raw_devices:
         identity_before = before.get(device)
-        identity_after = device_identity(device)
+        try:
+            identity_after = active_identity(device)
+        except (OSError, usbfs_identity.UsbfsIdentityError) as exc:
+            raise OdinTransitionError(
+                f"Odin endpoint identity observation failed: {device}"
+            ) from exc
         if identity_before is None and identity_after is None:
             stale_list.append(device)
             continue
@@ -342,6 +402,10 @@ def enumerate_odin(
     identities = tuple(identities_list)
     live_devices = tuple(device for device, _identity in identities)
     stale_devices = tuple(stale_list)
+    try:
+        endpoint_evidence = observer.evidence(live_devices) if observer is not None else None
+    except (OSError, usbfs_identity.UsbfsIdentityError) as exc:
+        raise OdinTransitionError("measured USB endpoint evidence failed") from exc
     return OdinSnapshot(
         timestamp_utc=timestamp(),
         returncode=result.returncode,
@@ -351,6 +415,7 @@ def enumerate_odin(
         live_device_identities=identities,
         stdout=stdout,
         stderr=stderr,
+        endpoint_transition_evidence=endpoint_evidence,
     )
 
 
@@ -728,6 +793,7 @@ def _validate_snapshot_for_persistence(snapshot: OdinSnapshot) -> None:
     live = snapshot.live_devices
     stale = snapshot.stale_devices
     identities = snapshot.live_device_identities
+    evidence = snapshot.endpoint_transition_evidence
     if any(
         not isinstance(values, tuple)
         or any(not isinstance(value, str) for value in values)
@@ -751,6 +817,19 @@ def _validate_snapshot_for_persistence(snapshot: OdinSnapshot) -> None:
         or tuple(value[0] for value in identities) != live
     ):
         raise OdinTransitionError("snapshot endpoint identities are invalid")
+    if evidence is not None and not isinstance(evidence, dict):
+        raise OdinTransitionError("snapshot endpoint transition evidence is invalid")
+    try:
+        if evidence is not None:
+            usbfs_identity.validate_enumeration_evidence(evidence)
+            if evidence["live_devices"] != list(live):
+                raise OdinTransitionError(
+                    "snapshot endpoint transition evidence live binding is invalid"
+                )
+    except (AttributeError, TypeError, usbfs_identity.UsbfsIdentityError) as exc:
+        raise OdinTransitionError(
+            "snapshot endpoint transition evidence is invalid"
+        ) from exc
     if (
         snapshot.returncode != 0
         or not isinstance(snapshot.timestamp_utc, str)
@@ -933,7 +1012,8 @@ def list_snapshot_receipts(run_dir: Path) -> list[dict[str, Any]]:
                 f"snapshot receipt count exceeds {MAX_SNAPSHOT_RECEIPTS}"
             )
         payload, identity = _read_sealed_receipt(path)
-        if payload.get("schema") != SNAPSHOT_SCHEMA:
+        schema = payload.get("schema")
+        if schema not in {SNAPSHOT_SCHEMA_V1, SNAPSHOT_SCHEMA}:
             raise OdinTransitionError(f"invalid snapshot receipt schema: {path}")
         sequence = payload.get("sequence")
         if not isinstance(sequence, int) or path.name != f"odin-snapshot-{sequence:06d}.json":
@@ -942,6 +1022,7 @@ def list_snapshot_receipts(run_dir: Path) -> list[dict[str, Any]]:
         live = payload.get("live_devices")
         stale = payload.get("stale_devices")
         identities = payload.get("live_device_identities")
+        evidence = payload.get("endpoint_transition_evidence")
         if any(
             not isinstance(values, list)
             or any(not isinstance(value, str) for value in values)
@@ -963,6 +1044,27 @@ def list_snapshot_receipts(run_dir: Path) -> list[dict[str, Any]]:
             or [value[0] for value in identities] != live
         ):
             raise OdinTransitionError(f"snapshot receipt identities invalid: {path}")
+        if schema == SNAPSHOT_SCHEMA_V1 and "endpoint_transition_evidence" in payload:
+            raise OdinTransitionError(
+                f"legacy snapshot receipt has transition evidence: {path}"
+            )
+        if (
+            evidence is not None and not isinstance(evidence, dict)
+        ):
+            raise OdinTransitionError(
+                f"snapshot receipt transition evidence invalid: {path}"
+            )
+        try:
+            if evidence is not None:
+                usbfs_identity.validate_enumeration_evidence(evidence)
+                if evidence["live_devices"] != live:
+                    raise OdinTransitionError(
+                        f"snapshot receipt transition evidence binding invalid: {path}"
+                    )
+        except (AttributeError, TypeError, usbfs_identity.UsbfsIdentityError) as exc:
+            raise OdinTransitionError(
+                f"snapshot receipt transition evidence invalid: {path}"
+            ) from exc
         if (
             payload.get("returncode") != 0
             or not isinstance(payload.get("timestamp_utc"), str)
@@ -979,6 +1081,7 @@ def list_snapshot_receipts(run_dir: Path) -> list[dict[str, Any]]:
                 "sha256": identity["sha256"],
                 "live_devices": live,
                 "live_device_identities": identities,
+                "endpoint_transition_evidence": evidence,
                 "stale_devices": stale,
             }
         )
@@ -1164,6 +1267,7 @@ def _snapshot_and_record(
     runner: Runner,
     device_identity: DeviceIdentity,
     device_inventory: DeviceInventory,
+    endpoint_observer_factory: EndpointObserverFactory | None,
     timestamp: Callable[[], str],
     enumeration_timeout_sec: float,
     lease: _TransactionLease,
@@ -1173,15 +1277,30 @@ def _snapshot_and_record(
         runner=runner,
         device_identity=device_identity,
         device_inventory=device_inventory,
+        endpoint_observer_factory=endpoint_observer_factory,
         timeout_sec=enumeration_timeout_sec,
         timestamp=timestamp,
     )
     record = persist_snapshot(run_dir, sequence, snapshot, lease=lease)
-    for device, expected_identity in snapshot.live_device_identities:
-        if device_identity(device) != expected_identity:
+    if endpoint_observer_factory is None:
+        for device, expected_identity in snapshot.live_device_identities:
+            if device_identity(device) != expected_identity:
+                raise OdinTransitionError(
+                    f"Odin endpoint identity changed while recording snapshot: {device}"
+                )
+    else:
+        try:
+            revalidator = _new_endpoint_observer(endpoint_observer_factory)
+            evidence = snapshot.endpoint_transition_evidence
+            if evidence is None:
+                raise OdinTransitionError(
+                    "measured USB endpoint evidence is absent after receipt"
+                )
+            revalidator.revalidate(evidence)
+        except (OSError, usbfs_identity.UsbfsIdentityError) as exc:
             raise OdinTransitionError(
-                f"Odin endpoint identity changed while recording snapshot: {device}"
-            )
+                "measured USB endpoint changed while recording snapshot"
+            ) from exc
     return snapshot, record
 
 
@@ -1196,6 +1315,7 @@ def wait_for_single_live_endpoint(
     runner: Runner = _default_runner,
     device_identity: DeviceIdentity = _default_device_identity,
     device_inventory: DeviceInventory = _default_device_inventory,
+    endpoint_observer_factory: EndpointObserverFactory | None = None,
     timestamp: Callable[[], str] = live_core.utc_now,
     monotonic: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
@@ -1221,6 +1341,7 @@ def wait_for_single_live_endpoint(
             runner=runner,
             device_identity=device_identity,
             device_inventory=device_inventory,
+            endpoint_observer_factory=endpoint_observer_factory,
             timestamp=timestamp,
             enumeration_timeout_sec=min(DEFAULT_ENUM_TIMEOUT_SEC, remaining),
             lease=lease,
@@ -1259,6 +1380,7 @@ def wait_for_no_live_endpoint(
     runner: Runner = _default_runner,
     device_identity: DeviceIdentity = _default_device_identity,
     device_inventory: DeviceInventory = _default_device_inventory,
+    endpoint_observer_factory: EndpointObserverFactory | None = None,
     timestamp: Callable[[], str] = live_core.utc_now,
     monotonic: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
@@ -1284,6 +1406,7 @@ def wait_for_no_live_endpoint(
             runner=runner,
             device_identity=device_identity,
             device_inventory=device_inventory,
+            endpoint_observer_factory=endpoint_observer_factory,
             timestamp=timestamp,
             enumeration_timeout_sec=min(DEFAULT_ENUM_TIMEOUT_SEC, remaining),
             lease=lease,
@@ -1314,6 +1437,7 @@ def revalidate_endpoint_ticket(
     runner: Runner = _default_runner,
     device_identity: DeviceIdentity = _default_device_identity,
     device_inventory: DeviceInventory = _default_device_inventory,
+    endpoint_observer_factory: EndpointObserverFactory | None = None,
     timestamp: Callable[[], str] = live_core.utc_now,
     monotonic: Callable[[], float] = time.monotonic,
 ) -> dict[str, Any]:
@@ -1332,6 +1456,7 @@ def revalidate_endpoint_ticket(
         runner=runner,
         device_identity=device_identity,
         device_inventory=device_inventory,
+        endpoint_observer_factory=endpoint_observer_factory,
         timestamp=timestamp,
         enumeration_timeout_sec=min(DEFAULT_ENUM_TIMEOUT_SEC, remaining),
         lease=lease,

@@ -6,6 +6,30 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-21 00:12 KST / 2026-07-20 15:12 UTC) -
+> REUSABLE ODIN USBFS IDENTITY CORE IMPLEMENTED HOST-ONLY; INDEPENDENT REVIEW
+> NEXT; NO LIVE AUTHORITY.** The consumed R4W1-C observation is now represented
+> by an opt-in common mechanism rather than another one-shot helper.
+> `s22plus_odin_usbfs_identity.py` records complete before/after node evidence,
+> permits only `st_atime_ns`, `st_ctime_ns`, and `st_mtime_ns` to vary, and
+> rejects changes to path/dev/inode/rdev/link count/file type/mode/uid/gid/birth
+> time/major/minor or complete usbfs inventory membership. The existing transition
+> core persists this evidence in sealed
+> snapshot receipt v2, uses the immutable digest for generation tickets, performs
+> post-receipt revalidation, reads historical v1 receipts, and preserves its legacy
+> exact identity behavior unless the new factory is explicitly selected.
+>
+> ResourceWarning-fatal related validation passes `274/274`, including the common
+> core, new policy tests, connected/retired R4W1-C gates, retired observer and
+> bindings, and watchdog builder/static checker. `py_compile` and
+> `git diff --check` pass; Ruff is unavailable on this host. No device, USB, ADB,
+> reboot, Download transition, Odin execution, transfer, flash, artifact build,
+> policy activation, or retired-token reuse occurred. This source does not bind
+> target sysfs topology, strict Odin output, Odin binary, candidate/rollback
+> artifacts, or a live exception. Next: independent host-only adversarial review,
+> then exact source qualification and a separately bound target helper. Design:
+> `docs/plans/S22PLUS_REUSABLE_ODIN_USBFS_IDENTITY_CORE_DESIGN_2026-07-21.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-20 23:57 KST / 2026-07-20 14:57 UTC) -
 > R4W1-C ZERO-TRANSFER ODIN ENUMERATION-DIFF OBSERVER LIVE PASS; ONE-SHOT
 > CONSUMED; POLICY RETIRED; TRANSFER-GATE REDESIGN NEXT.** One attended run
