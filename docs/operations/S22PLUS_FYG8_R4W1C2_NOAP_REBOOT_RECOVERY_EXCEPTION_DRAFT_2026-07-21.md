@@ -13,11 +13,11 @@ device or USB contact.
 
 The only executable helper is
 `workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1c2_noap_reboot_recovery.py`,
-size `70128`, SHA256
-`df127ae706fb02d497462f78b5ca61e5a75113794a46969f0e4aeb749c6b1c02`.
+size `74463`, SHA256
+`e924aacf9b3f94c703e756fda30754a4f419557b378cecf524dc8fa69730ee09`.
 Its focused test is
-`tests/test_s22plus_fyg8_r4w1c2_noap_reboot_recovery.py`, size `48803`, SHA256
-`4f1f5d820525b7c22df4fda6f855f14ee44a1f124971568ea9a6f2aeeb65bb0c`.
+`tests/test_s22plus_fyg8_r4w1c2_noap_reboot_recovery.py`, size `55511`, SHA256
+`7af7a2706ac690034731fbd8544257724e815b3597f08d146ecbdeab933af928`.
 The fresh live acknowledgement is
 `S22PLUS-FYG8-R4W1C2-NOAP-REBOOT-RECOVERY-LIVE`.
 The helper must require that the policy block installed in `AGENTS.md` is
@@ -97,18 +97,21 @@ before opening or observing any USB endpoint, the helper must durably and
 exclusively create
 `workspace/private/state/s22plus_fyg8_r4w1c2_noap_reboot_recovery_consumed.json`.
 It must first publish the exact same bytes as the independent guard
-`workspace/private/.s22plus_fyg8_r4w1c2_noap_reboot_recovery_consumed.json.guard`.
+`.s22plus_fyg8_r4w1c2_noap_reboot_recovery_consumed.json.guard` at the direct
+repository root, outside `workspace/private`.
 Either record consumes the exception, and the offline gate must stop if either
 path exists or is indirect. A state-subdirectory replacement therefore cannot
-restore retry authority after an action.
+restore retry authority after an action. Replacing the common
+`workspace/private` parent also cannot remove the repository-root guard or
+restore retry authority.
 Before publication, every repository-relative component through
 `workspace/private/runs` and `workspace/private/state` must be an existing
 direct directory, the run directory must be one new direct child of the run
 root, and its parent must be fsynced. The consumed state may be published only
 after that durable run directory exists; its direct state parent and the state
 file itself must be checked and durably fsynced. The helper must hold direct
-file descriptors for the run directory, state directory, and guard parent for
-the complete live invocation. State, guard, attempt, process output, timeline,
+file descriptors for the run directory, state directory, and repository-root
+guard parent for the complete live invocation. State, guard, attempt, process output, timeline,
 and result publication
 must use descriptor-relative no-follow exclusive operations, and every accepted
 record must be a private regular file with link count exactly one. Existing
@@ -148,6 +151,9 @@ output overflow, nonzero rc, stderr, missing line, endpoint change, ambiguous
 USB state, or unreaped child is non-PASS and authorizes no retry.
 Every post-spawn exception class must be converted into a bounded outcome that
 preserves already captured stdout/stderr plus kill, reap, and cleanup status.
+Every prerequisite or revalidation enumeration must durably publish its own
+bounded stdout, stderr, and outcome record before its return or exception is
+interpreted, and the final result must bind those outcome records.
 
 Every invocation that durably creates the consumed state, including failure
 before USB discovery, must produce a result and canonical eight-event timeline.

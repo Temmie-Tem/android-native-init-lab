@@ -416,6 +416,7 @@ class NoApRecoveryTests(unittest.TestCase):
     def test_sealed_enumeration_runner_sanitizes_child_contract(self):
         module = self.module
         seen = {}
+        outcomes = []
 
         def bounded(command, **kwargs):
             seen["command"] = command
@@ -423,9 +424,23 @@ class NoApRecoveryTests(unittest.TestCase):
             return subprocess.CompletedProcess(command, 0, b"", b"")
 
         external = Path("/proc/123/fd/9")
-        with mock.patch.object(module, "bounded_odin_runner", side_effect=bounded):
-            completed = module.sealed_enumeration_runner(9, external)(
-                [str(external), "-l"], 10.0
+        with tempfile.TemporaryDirectory() as temporary, self.opened_directory(
+            temporary
+        ) as output_fd, mock.patch.object(
+            module, "bounded_odin_runner", side_effect=bounded
+        ):
+            output_dir = Path(temporary)
+            completed = module.sealed_enumeration_runner(
+                9,
+                external,
+                output_dir_fd=output_fd,
+                output_dir=output_dir,
+                outcomes=outcomes,
+            )([str(external), "-l"], 10.0)
+            outcome = json.loads(
+                (output_dir / "odin-enumeration-000000-outcome.json").read_text(
+                    encoding="utf-8"
+                )
             )
         self.assertEqual(completed.returncode, 0)
         self.assertEqual(seen["command"], ["/proc/self/fd/9", "-l"])
@@ -434,6 +449,53 @@ class NoApRecoveryTests(unittest.TestCase):
         self.assertEqual(seen["kwargs"]["env"], module.ODIN_ENV)
         self.assertNotIn("LD_PRELOAD", seen["kwargs"]["env"])
         self.assertNotIn("LD_LIBRARY_PATH", seen["kwargs"]["env"])
+        self.assertTrue(outcome["returned"])
+        self.assertTrue(outcome["reaped"])
+        self.assertFalse(outcome["output_overflow"])
+        self.assertEqual(outcomes[0]["returncode"], 0)
+
+    def test_sealed_enumeration_failure_persists_streams_and_cleanup(self):
+        module = self.module
+        external = Path("/proc/123/fd/9")
+        outcomes = []
+        error = module.BoundedOdinError(
+            "injected sealed enumeration selector fault",
+            b"enum-stdout-before-fault",
+            b"enum-stderr-before-fault",
+            runner_error=True,
+            kill_sent=True,
+            reaped=True,
+            cleanup_error=None,
+        )
+        with tempfile.TemporaryDirectory() as temporary, self.opened_directory(
+            temporary
+        ) as output_fd, mock.patch.object(
+            module, "bounded_odin_runner", side_effect=error
+        ):
+            output_dir = Path(temporary)
+            runner = module.sealed_enumeration_runner(
+                9,
+                external,
+                output_dir_fd=output_fd,
+                output_dir=output_dir,
+                outcomes=outcomes,
+            )
+            with self.assertRaisesRegex(module.BoundedOdinError, "selector fault"):
+                runner([str(external), "-l"], 10.0)
+            outcome = json.loads(
+                (output_dir / "odin-enumeration-000000-outcome.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            stdout = (output_dir / "odin-enumeration-000000.stdout").read_bytes()
+            stderr = (output_dir / "odin-enumeration-000000.stderr").read_bytes()
+        self.assertEqual(stdout, b"enum-stdout-before-fault")
+        self.assertEqual(stderr, b"enum-stderr-before-fault")
+        self.assertFalse(outcome["returned"])
+        self.assertTrue(outcome["kill_sent"])
+        self.assertTrue(outcome["reaped"])
+        self.assertIn("selector fault", outcome["runner_error"])
+        self.assertEqual(outcomes[0]["stdout"]["sha256"], module.sha256_bytes(stdout))
 
     def test_injected_oserror_is_not_claimed_as_spawn_failure(self):
         module = self.module
@@ -608,6 +670,8 @@ class NoApRecoveryTests(unittest.TestCase):
         absence_error=None,
         publish_bytes=None,
         transaction_error=None,
+        enumeration_error=None,
+        default_layout=False,
     ):
         module = self.module
         offline = {
@@ -696,11 +760,15 @@ class NoApRecoveryTests(unittest.TestCase):
             )
 
         (root / module.RECOVERY_RUN_ROOT).mkdir(parents=True)
-        (root / "state").mkdir()
+        state_relative = (
+            module.RECOVERY_STATE if default_layout else Path("state/consumed.json")
+        )
+        (root / state_relative.parent).mkdir(parents=True, exist_ok=True)
         with contextlib.ExitStack() as stack:
-            stack.enter_context(
-                mock.patch.object(module, "RECOVERY_STATE", Path("state/consumed.json"))
-            )
+            if not default_layout:
+                stack.enter_context(
+                    mock.patch.object(module, "RECOVERY_STATE", state_relative)
+                )
             stack.enter_context(mock.patch.object(module, "offline_check", return_value=offline))
             stack.enter_context(mock.patch.object(module, "policy_status", return_value=policy))
             stack.enter_context(mock.patch.object(module.time, "strftime", return_value="scenario"))
@@ -748,6 +816,17 @@ class NoApRecoveryTests(unittest.TestCase):
             absence_mock = stack.enter_context(absence)
             if absence_error is not None:
                 absence_mock.side_effect = absence_error
+            elif enumeration_error is not None:
+                stack.enter_context(
+                    mock.patch.object(
+                        module, "bounded_odin_runner", side_effect=enumeration_error
+                    )
+                )
+
+                def fail_enumeration(odin, _run_dir, *, runner, **_kwargs):
+                    return runner([str(odin), "-l"], 1.0)
+
+                absence_mock.side_effect = fail_enumeration
             else:
                 absence_mock.return_value = absence_result or SimpleNamespace(
                     absent=True, timed_out=False
@@ -783,6 +862,37 @@ class NoApRecoveryTests(unittest.TestCase):
             result["timeline_phase_semantics"]["rollback_boot_ready"],
             "exact Android ready",
         )
+
+    def test_failed_enumeration_evidence_is_bound_into_final_result(self):
+        module = self.module
+        error = module.BoundedOdinError(
+            "injected sealed enumeration selector fault",
+            b"enum-stdout-before-fault",
+            b"enum-stderr-before-fault",
+            runner_error=True,
+            kill_sent=True,
+            reaped=True,
+            cleanup_error=None,
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            rc = self.run_mocked_post_android_live(
+                root, enumeration_error=error
+            )
+            run_dir = root / module.RECOVERY_RUN_ROOT / (
+                "s22plus-r4w1c2-noap-reboot-recovery-scenario"
+            )
+            result = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
+            stdout = (run_dir / "odin-enumeration-000000.stdout").read_bytes()
+            stderr = (run_dir / "odin-enumeration-000000.stderr").read_bytes()
+        self.assertEqual(rc, 20)
+        self.assertEqual(stdout, b"enum-stdout-before-fault")
+        self.assertEqual(stderr, b"enum-stderr-before-fault")
+        self.assertEqual(len(result["odin_enumerations"]), 1)
+        enumeration = result["odin_enumerations"][0]
+        self.assertTrue(enumeration["kill_sent"])
+        self.assertTrue(enumeration["reaped"])
+        self.assertIn("selector fault", enumeration["runner_error"])
 
     def test_transient_result_publication_failure_is_retried_without_losing_pass(self):
         module = self.module
@@ -916,6 +1026,44 @@ class NoApRecoveryTests(unittest.TestCase):
         self.assertEqual(result["verdict"], module.FAIL_VERDICT)
         self.assertTrue(guard_exists)
         self.assertEqual(guard_bytes, held_state_bytes)
+
+    def test_common_private_parent_swap_cannot_restore_retry_authority(self):
+        module = self.module
+        real_revalidate = module.revalidate_bound_file_path
+        swapped = False
+
+        def revalidate(directory_fd, directory, name, payload):
+            nonlocal swapped
+            value = real_revalidate(directory_fd, directory, name, payload)
+            if name == "odin-reboot-attempt.json" and not swapped:
+                private = root / "workspace/private"
+                private.rename(root / "workspace/private-held")
+                (root / "workspace/private/runs").mkdir(parents=True)
+                (root / "workspace/private/state").mkdir()
+                swapped = True
+            return value
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with mock.patch.object(
+                module, "revalidate_bound_file_path", side_effect=revalidate
+            ):
+                rc = self.run_mocked_post_android_live(root, default_layout=True)
+            held_run = root / "workspace/private-held/runs" / (
+                "s22plus-r4w1c2-noap-reboot-recovery-scenario"
+            )
+            result = json.loads((held_run / "result.json").read_text(encoding="utf-8"))
+            guard = module.recovery_guard_path(root)
+            guard_exists = guard.is_file()
+            consumed = module.recovery_consumed(root)
+            canonical_state_exists = (root / module.RECOVERY_STATE).exists()
+        self.assertEqual(rc, 20)
+        self.assertTrue(swapped)
+        self.assertTrue(result["reboot_attempted"])
+        self.assertEqual(result["verdict"], module.FAIL_VERDICT)
+        self.assertTrue(guard_exists)
+        self.assertTrue(consumed)
+        self.assertFalse(canonical_state_exists)
 
     def test_run_parent_swap_after_observation_cannot_publish_pass(self):
         module = self.module
@@ -1200,6 +1348,10 @@ class NoApRecoveryTests(unittest.TestCase):
             module.OLD_POLICY_ACTIVE, module.OLD_POLICY_RETIRED
         )
         module.require_old_policy_retired(retired)
+        with self.assertRaisesRegex(module.RecoveryError, "not exactly retired"):
+            module.require_old_policy_retired(
+                retired + f"stray={module.OLD_POLICY_ACTIVE}\n"
+            )
 
     def test_live_rejects_inactive_policy_before_device_contact(self):
         module = self.module

@@ -167,6 +167,7 @@ NATIVE_WIFI_TARGET_ALLOWLIST*.local.json
 *.code-workspace
 .vs/
 .codex
+.s22plus_fyg8_r4w1c2_noap_reboot_recovery_consumed.json.guard
 
 # =================================
 # pmbootstrap (PostmarketOS)

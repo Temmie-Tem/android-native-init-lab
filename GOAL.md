@@ -7,7 +7,7 @@ says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash 
 are binding and override any sub-goal.**
 
 > **S22+ ACTIVE FRONTIER (2026-07-21 KST) - R4W1-C2 NO-AP RECOVERY
-> FIFTH ADVERSARIAL NO-GO REPAIRED HOST-ONLY; POLICY STILL INACTIVE.** The first
+> SIXTH ADVERSARIAL NO-GO REPAIRED HOST-ONLY; POLICY STILL INACTIVE.** The first
 > independent review session `019f807c-c88c-7073-824b-7a1f4ecfec27` found seven
 > blockers. A second independent `gpt-5.6-sol` xhigh review session
 > `019f8090-9c52-71a1-b3c3-918c56c432f3` reviewed commit `f1e22994`, closed four,
@@ -30,6 +30,13 @@ are binding and override any sub-goal.**
 > non-canonical PASS evidence, inherited environment and unbounded cleanup in
 > prerequisite `odin4 -l`, lost evidence for non-`OSError` post-spawn faults,
 > and PASS publication before reporting/context teardown completed.
+> A sixth independent `gpt-5.6-sol` xhigh review session
+> `019f80db-b155-7683-85b4-dce120a714d7` reviewed commit `92f99063`, reran the
+> isolated 224-test suite and exact offline evidence gate, and reproduced three
+> remaining defects: swapping the common `workspace/private` parent restored
+> canonical retry authority, failed sealed enumerations lost their captured
+> streams and kill/reap metadata from durable evidence, and a stray exact old
+> `ACTIVE` sentinel outside the retired block passed the non-overlap parser.
 >
 > The repaired helper now requires recursive local-import/pin equality, routes
 > every returned and exceptional Odin output through one exact combined 1 MiB
@@ -46,8 +53,8 @@ are binding and override any sub-goal.**
 > transient final publication independently, and bounds kill/reap inside the
 > original 60-second budget. The draft requires old retirement and new
 > activation in the same later policy-only commit.
-> The fifth repair adds an exact duplicate one-shot guard under
-> `workspace/private`, treats either state as permanently consumed, and verifies
+> The fifth repair initially added an exact duplicate one-shot guard under
+> `workspace/private`, treated either state as permanently consumed, and verified
 > guard/state/run identity again after action and before PASS. Every sealed Odin
 > enumeration now uses the same `/dev/null`, three-variable environment,
 > inherited-fd, output-cap, deadline, and bounded-reap runner as the no-AP action.
@@ -55,11 +62,18 @@ are binding and override any sub-goal.**
 > PASS publication occurs only after sealed-Odin and transaction teardown; the
 > result is the final load-bearing write and summary/descriptor close cannot
 > contradict it.
+> The sixth repair moves that guard to the direct repository root, outside the
+> swappable common private parent, and holds its root descriptor for the full
+> invocation. Each sealed `odin4 -l` child now durably publishes bounded stdout,
+> stderr, and an outcome containing return/timeout/overflow/kill/reap/cleanup
+> facts before interpretation; the final result binds every enumeration outcome.
+> Old-policy enforcement now requires the complete `AGENTS.md` to contain zero
+> exact old `ACTIVE` sentinels and exactly one old `RETIRED` sentinel.
 >
-> Focused tests pass `39/39`; the isolated related suite passes `224/224`.
+> Focused tests pass `42/42`; the isolated related suite passes `227/227`.
 > Offline verdict remains `PASS_R4W1C2_NOAP_REBOOT_RECOVERY_SOURCE_HOST_ONLY`, policy inactive,
 > recovery one-shot unconsumed, and all device-action fields false. Next is a
-> sixth independent review of the repaired exact bytes. Only a GO permits a
+> seventh independent review of the repaired exact bytes. Only a GO permits a
 > separate policy-only activation commit and subsequent fresh live
 > acknowledgement. Report:
 > `docs/reports/S22PLUS_FYG8_R4W1C2_NOAP_RECOVERY_NO_GO_REPAIR_2026-07-21.md`.

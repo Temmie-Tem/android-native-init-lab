@@ -192,22 +192,56 @@ Seven added focused regressions reproduce these boundaries, including the
 independent reviewer probes. No device, ADB, USB enumeration, Odin binary, or
 network command was executed.
 
+## Sixth independent review and repair
+
+Independent host-only read-only review session
+`019f80db-b155-7683-85b4-dce120a714d7` reviewed commit `92f99063` with
+`gpt-5.6-sol` at explicitly verified xhigh effort. It independently rehashed
+the incident, reran the isolated 224-test suite and offline checker, and used
+only temporary-directory mock fault injection. It returned
+`NO_GO_TO_POLICY_ACTIVATION` for three remaining enforcement defects:
+
+1. The duplicate guard still lived below the swappable common
+   `workspace/private` parent. Replacing that parent after the final prelaunch
+   check reached action and left both canonical consumption records absent,
+   restoring retry authority. The guard now lives directly at the repository
+   root, outside `workspace/private`, and its root descriptor remains held.
+   The exact common-parent replacement probe now reaches only a truthful FAIL
+   while the root guard remains and `recovery_consumed=true`.
+2. A bounded prerequisite/revalidation enumeration failure carried captured
+   streams and kill/reap status only in its exception object. The shared core
+   let that exception escape and the final result retained only its string.
+   Every sealed `odin4 -l` invocation now durably publishes its own bounded
+   stdout, stderr, and outcome record before return or re-raise. The final
+   result binds the complete enumeration-outcome list. Injected partial output,
+   `kill_sent=true`, and `reaped=true` survive in both durable files and the
+   canonical FAIL result.
+3. Old-policy retirement was enforced only inside the extracted old block, so
+   a stray exact old `ACTIVE` sentinel elsewhere in `AGENTS.md` was accepted.
+   Activation now requires exactly zero old `ACTIVE` sentinels and exactly one
+   old `RETIRED` sentinel in the complete file, in addition to exact block
+   shape.
+
+Three reviewer-derived regressions plus the expanded enumeration contract bring
+the focused suite to 42 tests. No device, ADB, real USB/Odin enumeration, Odin
+binary, connected mode, network command, or policy activation occurred.
+
 ## Exact repaired identities
 
-- helper: size `70128`, SHA256
-  `df127ae706fb02d497462f78b5ca61e5a75113794a46969f0e4aeb749c6b1c02`
-- focused test: size `48803`, SHA256
-  `4f1f5d820525b7c22df4fda6f855f14ee44a1f124971568ea9a6f2aeeb65bb0c`
-- policy draft: size `11844`, SHA256
-  `50fefbd3140078502f3a3bbdccd94783acd76406ae98614cac581034317d1160`
+- helper: size `74463`, SHA256
+  `e924aacf9b3f94c703e756fda30754a4f419557b378cecf524dc8fa69730ee09`
+- focused test: size `55511`, SHA256
+  `7af7a2706ac690034731fbd8544257724e815b3597f08d146ecbdeab933af928`
+- policy draft: size `12242`, SHA256
+  `6e7719efc7712d25a4253134e00a14514e46f9b5df369d2489c4d5001c98a957`
 - normalized policy template SHA256:
-  `f0dc64f34a35c820d8a277ed1033b4d1914286deb840174eedb74769cc98cef4`
+  `bf90b0c5ceeb7178491319cf4dae1e958e30a90c17e0c8badf30189cb13aecdf`
 
 ## Host-only validation
 
-- focused no-AP recovery suite: `39/39` PASS
+- focused no-AP recovery suite: `42/42` PASS
 - isolated related helper/core/USBFS/connected/live-core/transport suite:
-  `224/224` PASS
+  `227/227` PASS
 - offline verdict:
   `PASS_R4W1C2_NOAP_REBOOT_RECOVERY_SOURCE_HOST_ONLY`
 - policy active: `false`
@@ -215,5 +249,5 @@ network command was executed.
 - device contact/write/reboot/Odin transfer/flash: all `false`
 
 No device or USB command was executed during any review or repair. Exact policy
-activation remains blocked until a sixth independent adversarial review
+activation remains blocked until a seventh independent adversarial review
 returns `GO_TO_EXACT_POLICY_ACTIVATION` on these repaired bytes.

@@ -41,7 +41,7 @@ OLD_POLICY_END = "END_S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_POLICY_V1"
 OLD_POLICY_ACTIVE = "S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_POLICY_STATE=ACTIVE"
 OLD_POLICY_RETIRED = "S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_POLICY_STATE=RETIRED"
 EXPECTED_POLICY_TEMPLATE_SHA256 = (
-    "f0dc64f34a35c820d8a277ed1033b4d1914286deb840174eedb74769cc98cef4"
+    "bf90b0c5ceeb7178491319cf4dae1e958e30a90c17e0c8badf30189cb13aecdf"
 )
 LIVE_ACK = "S22PLUS-FYG8-R4W1C2-NOAP-REBOOT-RECOVERY-LIVE"
 PASS_VERDICT = "PASS_R4W1C2_NOAP_REBOOT_RECOVERY_EXACT_MAGISK_ANDROID"
@@ -224,7 +224,7 @@ class BoundedOdinError(RecoveryError):
 
 def recovery_guard_path(root: Path) -> Path:
     state_path = root / RECOVERY_STATE
-    return state_path.parent.parent / f".{state_path.name}.guard"
+    return root / f".{state_path.name}.guard"
 
 
 def close_noexcept(descriptor: int) -> None:
@@ -739,7 +739,12 @@ def require_old_policy_retired(text: str) -> None:
     if text.find(OLD_POLICY_END, end) >= 0:
         raise RecoveryError("consumed R4W1-C2 measured policy marker is duplicated")
     old_clause = text[start:end]
-    if OLD_POLICY_ACTIVE in old_clause or old_clause.count(OLD_POLICY_RETIRED) != 1:
+    if (
+        OLD_POLICY_ACTIVE in old_clause
+        or old_clause.count(OLD_POLICY_RETIRED) != 1
+        or text.count(OLD_POLICY_ACTIVE) != 0
+        or text.count(OLD_POLICY_RETIRED) != 1
+    ):
         raise RecoveryError("consumed R4W1-C2 measured policy is not exactly retired")
 
 
@@ -1140,22 +1145,138 @@ def bounded_odin_runner(
 
 
 def sealed_enumeration_runner(
-    odin_fd: int, external_odin: Path
+    odin_fd: int,
+    external_odin: Path,
+    *,
+    output_dir_fd: int,
+    output_dir: Path,
+    outcomes: list[dict[str, Any]],
 ) -> Callable[[list[str], float], subprocess.CompletedProcess[bytes]]:
     expected = [str(external_odin), "-l"]
+    invocation = 0
+
+    def persist(
+        index: int,
+        *,
+        stdout: bytes,
+        stderr: bytes,
+        returned: bool,
+        returncode: int | None,
+        timed_out: bool,
+        output_overflow: bool,
+        runner_error: str | None,
+        kill_sent: bool,
+        reaped: bool,
+        cleanup_error: str | None,
+    ) -> None:
+        prefix = f"odin-enumeration-{index:06d}"
+        stdout_path = output_dir / f"{prefix}.stdout"
+        stderr_path = output_dir / f"{prefix}.stderr"
+        outcome_path = output_dir / f"{prefix}-outcome.json"
+        stdout_record = durable_create_bytes_at_idempotent(
+            output_dir_fd, stdout_path.name, stdout, display_path=stdout_path
+        )
+        stderr_record = durable_create_bytes_at_idempotent(
+            output_dir_fd, stderr_path.name, stderr, display_path=stderr_path
+        )
+        value = {
+            "schema": "s22plus_fyg8_r4w1c2_noap_enumeration_outcome_v1",
+            "created_at_utc": core.utc_now(),
+            "invocation": index,
+            "command_shape": ["<sealed-odin-fd>", "-l"],
+            "attempted": True,
+            "returned": returned,
+            "returncode": returncode,
+            "timed_out": timed_out,
+            "output_overflow": output_overflow,
+            "runner_error": runner_error,
+            "kill_sent": kill_sent,
+            "reaped": reaped,
+            "cleanup_error": cleanup_error,
+            "stdout": stdout_record,
+            "stderr": stderr_record,
+        }
+        outcome_record = durable_create_json_at_idempotent(
+            output_dir_fd,
+            outcome_path.name,
+            value,
+            display_path=outcome_path,
+        )
+        outcomes.append({**value, "outcome": outcome_record})
 
     def run(argv: list[str], timeout: float) -> subprocess.CompletedProcess[bytes]:
+        nonlocal invocation
         if argv != expected:
             raise RecoveryError("sealed Odin enumeration command shape changed")
-        return bounded_odin_runner(
-            [f"/proc/self/fd/{odin_fd}", "-l"],
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            pass_fds=(odin_fd,),
-            env=dict(ODIN_ENV),
-            timeout=timeout,
-            check=False,
+        index = invocation
+        invocation += 1
+        try:
+            completed = bounded_odin_runner(
+                [f"/proc/self/fd/{odin_fd}", "-l"],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                pass_fds=(odin_fd,),
+                env=dict(ODIN_ENV),
+                timeout=timeout,
+                check=False,
+            )
+        except BoundedOdinError as exc:
+            bounded_stdout, bounded_stderr, overflow = cap_output_pair(
+                exc.stdout or b"", exc.stderr or b""
+            )
+            persist(
+                index,
+                stdout=bounded_stdout,
+                stderr=bounded_stderr,
+                returned=False,
+                returncode=None,
+                timed_out=exc.timed_out,
+                output_overflow=exc.output_overflow or overflow,
+                runner_error=str(exc) if exc.runner_error else None,
+                kill_sent=exc.kill_sent,
+                reaped=exc.reaped,
+                cleanup_error=exc.cleanup_error,
+            )
+            raise
+        except Exception as exc:
+            persist(
+                index,
+                stdout=b"",
+                stderr=b"",
+                returned=False,
+                returncode=None,
+                timed_out=False,
+                output_overflow=False,
+                runner_error=f"{type(exc).__name__}: {exc}",
+                kill_sent=False,
+                reaped=False,
+                cleanup_error=None,
+            )
+            raise
+        bounded_stdout, bounded_stderr, overflow = cap_output_pair(
+            completed.stdout or b"", completed.stderr or b""
+        )
+        persist(
+            index,
+            stdout=bounded_stdout,
+            stderr=bounded_stderr,
+            returned=True,
+            returncode=completed.returncode,
+            timed_out=False,
+            output_overflow=overflow,
+            runner_error=None,
+            kill_sent=False,
+            reaped=True,
+            cleanup_error=None,
+        )
+        if overflow:
+            raise RecoveryError("sealed Odin enumeration output exceeded its bound")
+        return subprocess.CompletedProcess(
+            completed.args,
+            completed.returncode,
+            stdout=bounded_stdout,
+            stderr=bounded_stderr,
         )
 
     return run
@@ -1522,6 +1643,7 @@ def live_run_bound(
     stderr_path = run_dir / "odin-reboot.stderr"
     attempt_path = run_dir / "odin-reboot-attempt.json"
     outcome_path = run_dir / "odin-reboot-outcome.json"
+    enumeration_outcomes: list[dict[str, Any]] = []
     result: dict[str, Any] = {
         "schema": "s22plus_fyg8_r4w1c2_noap_reboot_recovery_live_v1",
         "target": TARGET,
@@ -1536,6 +1658,7 @@ def live_run_bound(
         "no_odin_endpoint": None,
         "reboot_attempted": False,
         "reboot_command_returned": False,
+        "odin_enumerations": enumeration_outcomes,
         "physical_continuity_basis": PHYSICAL_CONTINUITY_BASIS,
     }
 
@@ -1574,7 +1697,13 @@ def live_run_bound(
         )
         revalidate_bound_directory(run_dir_fd, run_dir)
         with measured.pinned_odin_session(odin) as (odin_fd, external_odin):
-            enumeration_runner = sealed_enumeration_runner(odin_fd, external_odin)
+            enumeration_runner = sealed_enumeration_runner(
+                odin_fd,
+                external_odin,
+                output_dir_fd=run_dir_fd,
+                output_dir=run_dir,
+                outcomes=enumeration_outcomes,
+            )
             with odin_core.transaction_session(run_dir) as lease:
                 ticket, sequence = wait_for_endpoint_hardened(
                     external_odin,
