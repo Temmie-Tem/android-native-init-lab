@@ -15,8 +15,9 @@ Do not add a device step when host-only work can answer the question.
 - No S22+ F1 live run is currently authorized.
 - R4W1-C3 is an inactive host-only checkpoint, not an executable policy.
 - Retired helpers and acknowledgement strings cannot authorize a new run.
-- The next F1 may occur only after the reusable Process v2 runner, manifest,
-  journal, focused tests, and one independent safety review are complete.
+- The Process v2 H0 core, manifest/profile, journal, focused tests, and
+  independent safety review are complete. The next device rung is D0; no F1 may
+  occur before D0 qualification and a later fresh F1 approval.
 
 ## Permanent Safety Boundaries
 

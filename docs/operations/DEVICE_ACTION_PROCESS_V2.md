@@ -1,6 +1,6 @@
 # Device Action Process v2
 
-Status: design contract; host-only implementation pending.
+Status: P2.2/P2.3 host core and validation complete; D0/F1 adapters pending.
 
 This process replaces per-candidate live helpers, policy activation commits,
 per-run one-shot clauses, and repeated review ladders for ordinary boot-only
@@ -56,7 +56,14 @@ partition, slot, primitive, or exception.
 
 ### Generic Runner
 
-The runner owns:
+The H0 core is
+`workspace/public/src/scripts/revalidation/device_action_f1_v2.py`. It currently
+owns validation, plan rendering, and host-only simulations. It has no live or
+connected mode and does not expose the transport module's Odin execution
+function. Future D0/F1 adapters must reuse this core rather than add a
+candidate-specific runner.
+
+The complete runner will own:
 
 - H0 artifact and manifest validation;
 - D0 target preflight;
@@ -76,7 +83,14 @@ profile data. They are not reasons to fork the runner.
 The runner creates one exclusive run directory and appends immutable transition
 records. Each record contains a sequence number, UTC timestamp, state, action,
 artifact identities, target evidence digest, outcome class, and references to
-private raw logs.
+private raw logs. A separately fsynced high-water head records the latest
+sequence and record hash. A missing or shorter tail fails closed; a valid record
+written just before a crash may advance a lagging head during reopen.
+
+The journal is designed for accidental loss, interrupted writes, and ordinary
+operator mistakes on an operator-controlled host. Its SHA256 chain is not a
+keyed MAC and does not claim to resist a malicious host owner who can rewrite
+the chain and head together.
 
 At minimum, distinguish:
 
@@ -142,7 +156,9 @@ new approval. The process does not reactivate or reuse an old approval.
 - Pass Odin the real absolute `.tar.md5` pathname.
 - Forbid `/proc/self/fd`, memfd, extensionless aliases, and path rebinding.
 - Record whether Odin reached local parsing, endpoint setup, device session,
-  transfer start, and transfer completion.
+  transfer start, and transfer completion. Only a recognized local parse error
+  may be classified pre-session; every ambiguous failure is treated as a
+  possible device-session failure.
 - Recheck file descriptor identity and content after subprocess return.
 
 ## Recovery
@@ -206,5 +222,8 @@ No F1 live run is authorized until all of these pass host-only:
 9. structured result and canonical timeline validation; and
 10. one independent review of the execution-critical closure.
 
-The existing R4W1-C3 implementation is reference evidence for regular-path
-transport. It remains inactive and must not become an interim live exception.
+All ten host migration gates passed on 2026-07-21, including the independent
+review and remediation re-review. The verdict was
+`GO_HOST_CORE_TO_D0_IMPLEMENTATION`; it authorizes neither device contact nor
+F1. The existing R4W1-C3 implementation remains inactive reference evidence
+for regular-path transport and must not become an interim live exception.

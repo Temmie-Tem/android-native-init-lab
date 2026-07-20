@@ -1,6 +1,6 @@
 # Claude Usage And Review Ledger
 
-Last updated: 2026-07-21 01:39 KST
+Last updated: 2026-07-21 06:13 KST
 
 ## Purpose
 
@@ -51,6 +51,7 @@ quota, token, time, or cost value is reconstructed from later observations.
 | 2026-07-19 06:25-06:29 | `c7d10391-7bb6-4274-9e49-076007945b03` | Claude Opus 4.8 requested, high effort, read-only repository tools | Proposed R4W1-B post-connected packet generator and live-clause template review | snapshot `52%` | all models `11%` | session `2026-07-19 10:20 KST`; weekly all models `2026-07-21 05:00 KST` | No verdict. The resumed interactive turn produced no review output, and the explicit print-mode retry returned `You've hit your session limit`. No technical conclusion is attributed to Claude. Codex then performed its own adversarial review and fixed render-field injection, evidence TOCTOU, connected-clause inheritance, and success-path test gaps. See [preconnected packet report](../reports/S22PLUS_FYG8_R4W1B_LIVE_BINDING_PACKET_PRECONNECTED_READY_HOST_PASS_2026-07-19.md). No device action occurred. |
 | 2026-07-21 00:59-01:14 | `f89b5716-0573-42d1-9b8a-c7d7dcc58b3c` | Claude Opus 4.8, xhigh effort, plan mode, read-only repository tools | Exact committed `6861497d` R4W1-C2 measured-usbfs live helper and rendered one-shot policy adversarial review | `17% -> 81%` | all models `24% -> 27%` | session `2026-07-21 05:10 KST`; weekly all models `2026-07-21 05:00 KST` | `GO_TO_EXACT_POLICY_ACTIVATION`; no MUST-FIX. It approved rendered clause SHA256 `6f0f0471...5c478f8f` unchanged and confirmed all eight safety areas. Direct CLI metrics: `$6.1275`, API `886.095 s`, wall `893.689 s`, `59.9k` output, `5.58m` cache read, `183.9k` cache creation. Claude's Python test attempt was plan-sandbox denied; Codex had already passed `141/141` and actual offline/source gates. See [R4W1-C2 Opus review](../reports/S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_OPUS_ADVERSARIAL_GO_2026-07-21.md). No device action or repository edit was performed by Claude. |
 | 2026-07-21 01:33-01:35 | `55c500cb-3c9e-4405-a167-b297bef5f0c1` | Claude Opus 4.8, xhigh effort, plan mode, read-only repository tools | Bounded R4W1-C2 pre-consumption USBFS repair delta review | `81% -> 100%` | all models `27% -> 28%` | session `2026-07-21 05:10 KST`; weekly all models `2026-07-21 05:00 KST` | No verdict. The review made 11 analysis turns but hit HTTP 429 before rendering a final decision, so it is not activation authority. Direct CLI metrics: `$1.188329`, API `109.785 s`, wall `111.043 s`, `7,954` output, `212,578` cache read, and `88,314` cache creation. A separate ephemeral `gpt-5.6-sol` xhigh read-only review later returned GO; see [repair adversarial GO](../reports/S22PLUS_FYG8_R4W1C2_USBFS_REPAIR_CODEX_ADVERSARIAL_GO_2026-07-21.md). No device action or repository edit was performed by Claude. |
+| 2026-07-21 06:01-06:11 | ephemeral, persistence disabled | Claude Opus alias, high effort, plan mode, read-only tools | Process v2 H0 core adversarial review, remediation, and exact delta re-review | not recorded | not recorded | not recorded | Both rounds returned `GO_HOST_CORE_TO_D0_IMPLEMENTATION`. The first found journal-tail replay, fail-open ambiguous Odin classification, and run-path containment defects; all were fixed. Delta review found no new HIGH/MEDIUM issue. Combined direct metrics: `$1.897644`, API `464.217 s`, wall `464.759 s`, `32,549` output, `196,918` cache read, and `98,539` cache creation. See [Process v2 host-core report](../reports/DEVICE_ACTION_PROCESS_V2_HOST_CORE_PASS_2026-07-21.md). No device action, repository edit, test, build, or web action was performed by Claude. |
 
 ## Current Context Snapshot
 
@@ -88,6 +89,7 @@ enough for a model-wide cost forecast:
 | R4W1-B exact source-delta review | approximately `+16` session points; `+2` weekly points | cumulative `$15.91`; API `20m 29s`; wall `42m 44s`; `GO_TO_SEPARATE_CONNECTED_POLICY_BINDING_REVIEW` |
 | R4W1-B connected binding review | approximately `+17` session points; `+1` weekly point | delta `$4.40`; API `181 s`; wall `303 s`; about `13.3k` Opus output; `GO_TO_BIND_CONNECTED_ONLY_POLICY_COMMIT` |
 | R4W1-C2 measured live activation review | approximately `+64` session points; `+3` weekly points | `$6.13`; API `886 s`; wall `894 s`; `59.9k` output, `5.58m` cache read, `183.9k` cache creation; `GO_TO_EXACT_POLICY_ACTIVATION` |
+| Process v2 H0 core review plus remediation re-review | not recorded | `$1.90`; API `464 s`; wall `465 s`; `32.5k` output, `196.9k` cache read, `98.5k` cache creation; `GO_HOST_CORE_TO_D0_IMPLEMENTATION` |
 
 These deltas are not directly comparable: prompt size, attached evidence,
 output length, compaction state, and concurrent account activity were not held

@@ -1,0 +1,30 @@
+{
+  "schema": "device_action_f1_candidate_v2",
+  "manifest_id": "s22plus-fyg8-r4w1c-process-v2-draft",
+  "run_id": "s22plus-fyg8-r4w1c-canary-draft",
+  "status": "draft-host-only",
+  "target_profile": "workspace/public/src/device-action/profiles/s22plus_fyg8.json",
+  "candidate_ap": {
+    "path": "workspace/private/outputs/s22plus_fyg8_r4w1c_watchdog_carrier/reproduction-h/odin4/AP.tar.md5",
+    "size": 27064361,
+    "sha256": "85514e79e3400de30b7146606a9e86c3655fc7a8766daba5f054ae1bd54fd42f"
+  },
+  "rollback_ap": {
+    "path": "workspace/private/outputs/s22plus_magisk_root_boot_only/AP.tar.md5",
+    "size": 23367721,
+    "sha256": "d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56"
+  },
+  "allowed_member": "boot.img.lz4",
+  "observation": {
+    "timeout_sec": 120,
+    "acceptance": {
+      "kind": "retained_marker_after_rollback",
+      "source": "/proc/last_kmsg",
+      "marker": "[[S22R4W1B|id=36dc5462adedcf136176f2ddcfee08a8|phase=DIRECT_INIT_EXEC_ACCEPTED|pid=1|path=/init]]",
+      "family": "[[S22R4W1B|",
+      "exact_count": 1
+    }
+  },
+  "final_health_profile": "s22plus-fyg8-magisk",
+  "runner_version": "device-action-f1-v2-host-core-1"
+}

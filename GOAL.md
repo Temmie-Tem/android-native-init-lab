@@ -9,7 +9,7 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 
 ## Current Frontier - Process v2 Migration
 
-**State: HOST-ONLY. P2.1 complete; P2.2 is current. No active S22+ F1 authorization.**
+**State: HOST-ONLY. P2.1-P2.3 complete; P2.4 is current. No active S22+ F1 authorization.**
 
 The R4W1-C2 run did not start an Odin device session: its candidate and rollback
 invocations were rejected while parsing `/proc/self/fd/7`. The R4W1-C3
@@ -46,20 +46,23 @@ Archived text is evidence only and grants no device authority.
 
 1. **P2.1 - Active-contract cleanup (complete):** current rules and frontier are
    separated from retired policy/history, with focused regression coverage.
-2. **P2.2 - Reusable host implementation (current):** define target profile and
-   candidate manifest schemas, append-only journal, failure taxonomy, and one
-   generic F1 runner using regular paths.
-3. **P2.3 - Host validation:** test archive rejection, wrong target, changed
+2. **P2.2 - Reusable host implementation (complete):** target profile and
+   candidate manifest schemas, approval-bound append-only journal with durable
+   head, failure taxonomy, and one generic H0 core using regular paths.
+3. **P2.3 - Host validation (complete):** test archive rejection, wrong target, changed
    hash, missing rollback, Odin local-parse failure, timeout, interruption,
-   resume, and simulated transfer outcomes with device access hidden.
-4. **P2.4 - D0 qualification:** run one bounded connected read-only preflight
+   resume, simulated transfer outcomes, tail loss, and path containment with
+   device access hidden. Independent review and remediation re-review returned
+   `GO_HOST_CORE_TO_D0_IMPLEMENTATION`.
+4. **P2.4 - D0 qualification (current):** implement and run one bounded connected read-only preflight
    through the same runner. D0 must not create F1 authority.
 5. **P2.5 - F1 canary:** after one independent review and a fresh approval,
    execute one conservative boot-only candidate, bounded observation, mandatory
    physical Download rollback, and final health verification.
 
-Do not activate C3, fork a C4 helper, or add another policy block while P2.1-P2.4
-are incomplete.
+Do not activate C3, fork a C4 helper, or add another policy block. P2.4 remains
+host-only until its connected read-only command is separately selected and
+bounded under D0.
 
 ## Process
 

@@ -61,6 +61,12 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         ):
             self.assertIn(state, self.process)
 
+    def test_frontier_advances_to_d0_without_live_authority(self):
+        self.assertIn("P2.1-P2.3 complete; P2.4 is current", self.goal)
+        self.assertIn("P2.2/P2.3 host core and validation complete", self.process)
+        self.assertIn("The next device rung is D0", self.agents)
+        self.assertIn("No active S22+ F1 authorization", self.goal)
+
     def test_archived_policy_is_not_runtime_dependency(self):
         self.assertIn(
             "Unreachable retired helpers and historical reports are not",

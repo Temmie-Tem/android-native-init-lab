@@ -1,0 +1,67 @@
+{
+  "schema": "device_action_target_profile_v2",
+  "profile_id": "s22plus-fyg8",
+  "health_profile_id": "s22plus-fyg8-magisk",
+  "target": {
+    "model": "SM-S906N",
+    "device": "g0q",
+    "firmware_incremental": "S906NKSS7FYG8",
+    "android_transport": "adb",
+    "download": {
+      "usb_vendor_id": "04e8",
+      "usb_product_id": "685d",
+      "product": "SAMSUNG USB",
+      "manufacturer": "Samsung",
+      "serial_policy": "absent"
+    }
+  },
+  "transport": {
+    "kind": "odin4_boot_only",
+    "allowed_partition": "boot",
+    "allowed_member": "boot.img.lz4",
+    "odin": {
+      "path": "/usr/bin/odin4",
+      "size": 3746744,
+      "sha256": "6754aa54f2abe6e99ece32414cd34c8b23b28dbddde537a33203036813637c3b"
+    }
+  },
+  "rollback": {
+    "kind": "magisk_boot_only",
+    "ap": {
+      "path": "workspace/private/outputs/s22plus_magisk_root_boot_only/AP.tar.md5",
+      "size": 23367721,
+      "sha256": "d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56"
+    }
+  },
+  "start_health": {
+    "android_boot_completed": true,
+    "boot_animation_stopped": true,
+    "verified_boot_state": "orange",
+    "root_required": true,
+    "boot_sha256": "2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e",
+    "supporting_partition_sha256": {
+      "vendor_boot": "096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7",
+      "dtbo": "97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c",
+      "recovery": "93fac06ca79bf4b365b25a8d49902bc41aba112ea253c30880c90e314d7895d4"
+    },
+    "odin_endpoint_absent": true
+  },
+  "final_health": {
+    "android_boot_completed": true,
+    "boot_animation_stopped": true,
+    "verified_boot_state": "orange",
+    "root_required": true,
+    "boot_sha256": "2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e",
+    "supporting_partition_sha256": {
+      "vendor_boot": "096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7",
+      "dtbo": "97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c",
+      "recovery": "93fac06ca79bf4b365b25a8d49902bc41aba112ea253c30880c90e314d7895d4"
+    },
+    "odin_endpoint_absent": true
+  },
+  "recovery": {
+    "operator_attended": true,
+    "physical_download_required": true,
+    "rollback_preapproved": true
+  }
+}
