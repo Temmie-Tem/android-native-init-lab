@@ -6,6 +6,29 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-20 19:03 KST / 2026-07-20 10:03 UTC) -
+> R4W1-C ZERO-TRANSFER ODIN ENUMERATION-DIFF OBSERVER SOURCE GO; POLICY
+> INACTIVE; SEPARATE BINDING/POLICY REVIEW NEXT.** A host-only observer now
+> seals stabilized Download sysfs/node samples, complete pre/post inventories,
+> one bounded exact `odin4 -l` outcome, raw streams, cleanup/persistence errors,
+> consumed-state continuity, canonical timeline semantics, and exact Android
+> return. Every classification remains non-accepting; the source owns no AP,
+> transfer, flash, partition-write, or acceptance surface.
+>
+> Three independent review rounds found and closed ten HIGH and one MEDIUM
+> blockers across interrupt atomicity, partial-output preservation, authority
+> ordering, consumed-state pinning, recovery timeline truth, evidence closure,
+> and digest provenance. Final xhigh review found no HIGH or MEDIUM issue and
+> returned `SOURCE_GO`; two LOW direct-injection test gaps remain documented.
+> Focused tests pass `80/80`, adjacent R4W1-C tests pass `84/84`, syntax and
+> offline source gates pass, and all device-action fields are false.
+>
+> The exception draft remains explicitly inactive and `AGENTS.md` contains no
+> matching observer clause. No device contact or live execution is authorized.
+> Next: construct and independently review the exact deterministic binding and
+> rendered policy clause in a separate host-only unit. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1C_ODIN_ENUMERATION_DIFF_OBSERVER_SOURCE_HOST_GO_2026-07-20.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-20 16:16 KST / 2026-07-20 07:16 UTC) -
 > R4W1-C NO-SERIAL LIVE FAILED PRE-CONSUMPTION; FLASH 0; EXACT ANDROID
 > RESTORED; POLICY RETIRED; ENUMERATION-DIFF OBSERVER NEXT.** One fresh exact
