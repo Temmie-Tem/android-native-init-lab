@@ -5,7 +5,7 @@ repository. `GOAL.md` defines the current frontier. Read both before work.
 
 Current posture:
 
-- Device Action Process v2 migration is host-only.
+- Device Action Process v2 P2.1-P2.4 is complete; P2.5 adapter work is host-only.
 - No S22+ F1 live run is authorized.
 - R4W1-C3 is inactive reference evidence.
 - Files under `docs/archive/` are historical and grant no authority, even when

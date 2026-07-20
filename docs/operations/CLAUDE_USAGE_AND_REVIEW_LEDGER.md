@@ -1,6 +1,6 @@
 # Claude Usage And Review Ledger
 
-Last updated: 2026-07-21 06:13 KST
+Last updated: 2026-07-21 06:40 KST
 
 ## Purpose
 
@@ -52,6 +52,7 @@ quota, token, time, or cost value is reconstructed from later observations.
 | 2026-07-21 00:59-01:14 | `f89b5716-0573-42d1-9b8a-c7d7dcc58b3c` | Claude Opus 4.8, xhigh effort, plan mode, read-only repository tools | Exact committed `6861497d` R4W1-C2 measured-usbfs live helper and rendered one-shot policy adversarial review | `17% -> 81%` | all models `24% -> 27%` | session `2026-07-21 05:10 KST`; weekly all models `2026-07-21 05:00 KST` | `GO_TO_EXACT_POLICY_ACTIVATION`; no MUST-FIX. It approved rendered clause SHA256 `6f0f0471...5c478f8f` unchanged and confirmed all eight safety areas. Direct CLI metrics: `$6.1275`, API `886.095 s`, wall `893.689 s`, `59.9k` output, `5.58m` cache read, `183.9k` cache creation. Claude's Python test attempt was plan-sandbox denied; Codex had already passed `141/141` and actual offline/source gates. See [R4W1-C2 Opus review](../reports/S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_OPUS_ADVERSARIAL_GO_2026-07-21.md). No device action or repository edit was performed by Claude. |
 | 2026-07-21 01:33-01:35 | `55c500cb-3c9e-4405-a167-b297bef5f0c1` | Claude Opus 4.8, xhigh effort, plan mode, read-only repository tools | Bounded R4W1-C2 pre-consumption USBFS repair delta review | `81% -> 100%` | all models `27% -> 28%` | session `2026-07-21 05:10 KST`; weekly all models `2026-07-21 05:00 KST` | No verdict. The review made 11 analysis turns but hit HTTP 429 before rendering a final decision, so it is not activation authority. Direct CLI metrics: `$1.188329`, API `109.785 s`, wall `111.043 s`, `7,954` output, `212,578` cache read, and `88,314` cache creation. A separate ephemeral `gpt-5.6-sol` xhigh read-only review later returned GO; see [repair adversarial GO](../reports/S22PLUS_FYG8_R4W1C2_USBFS_REPAIR_CODEX_ADVERSARIAL_GO_2026-07-21.md). No device action or repository edit was performed by Claude. |
 | 2026-07-21 06:01-06:11 | ephemeral, persistence disabled | Claude Opus alias, high effort, plan mode, read-only tools | Process v2 H0 core adversarial review, remediation, and exact delta re-review | not recorded | not recorded | not recorded | Both rounds returned `GO_HOST_CORE_TO_D0_IMPLEMENTATION`. The first found journal-tail replay, fail-open ambiguous Odin classification, and run-path containment defects; all were fixed. Delta review found no new HIGH/MEDIUM issue. Combined direct metrics: `$1.897644`, API `464.217 s`, wall `464.759 s`, `32,549` output, `196,918` cache read, and `98,539` cache creation. See [Process v2 host-core report](../reports/DEVICE_ACTION_PROCESS_V2_HOST_CORE_PASS_2026-07-21.md). No device action, repository edit, test, build, or web action was performed by Claude. |
+| 2026-07-21 06:24-06:28 | ephemeral, persistence disabled | Claude Opus alias, high effort, plan mode, read-only tools | Reusable Process v2 D0 adapter adversarial review before connected read-only qualification | not recorded | not recorded | not recorded | `GO_D0_CONNECTED_READ_ONLY`; no HIGH finding. One MEDIUM bootloader/incremental overconstraint and LOW USB-root, empty-inventory, and output-cap findings were fixed before the D0 run. Direct metrics: `$0.970639`, API `240.993 s`, wall `241.125 s`, `17,323` output, `25,468` cache read, and `52,481` cache creation. See [D0 qualification report](../reports/DEVICE_ACTION_PROCESS_V2_D0_QUALIFICATION_PASS_2026-07-21.md). Claude performed no device action, repository edit, test, build, or web action. |
 
 ## Current Context Snapshot
 
@@ -90,6 +91,7 @@ enough for a model-wide cost forecast:
 | R4W1-B connected binding review | approximately `+17` session points; `+1` weekly point | delta `$4.40`; API `181 s`; wall `303 s`; about `13.3k` Opus output; `GO_TO_BIND_CONNECTED_ONLY_POLICY_COMMIT` |
 | R4W1-C2 measured live activation review | approximately `+64` session points; `+3` weekly points | `$6.13`; API `886 s`; wall `894 s`; `59.9k` output, `5.58m` cache read, `183.9k` cache creation; `GO_TO_EXACT_POLICY_ACTIVATION` |
 | Process v2 H0 core review plus remediation re-review | not recorded | `$1.90`; API `464 s`; wall `465 s`; `32.5k` output, `196.9k` cache read, `98.5k` cache creation; `GO_HOST_CORE_TO_D0_IMPLEMENTATION` |
+| Process v2 D0 adapter review | not recorded | `$0.97`; API `241 s`; wall `241 s`; `17.3k` output, `25.5k` cache read, `52.5k` cache creation; `GO_D0_CONNECTED_READ_ONLY` |
 
 These deltas are not directly comparable: prompt size, attached evidence,
 output length, compaction state, and concurrent account activity were not held

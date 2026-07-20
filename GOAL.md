@@ -9,7 +9,7 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 
 ## Current Frontier - Process v2 Migration
 
-**State: HOST-ONLY. P2.1-P2.3 complete; P2.4 is current. No active S22+ F1 authorization.**
+**State: HOST-ONLY. P2.1-P2.4 complete; P2.5 is current. No active S22+ F1 authorization.**
 
 The R4W1-C2 run did not start an Odin device session: its candidate and rollback
 invocations were rejected while parsing `/proc/self/fd/7`. The R4W1-C3
@@ -33,6 +33,8 @@ the reusable process defined in
 - R4W1-C2 proved the sealed-FD Odin path is invalid before device-session start;
   it produced no native-PID1 result and no partition transfer.
 - R4W1-C3 proved the ordinary regular-file transport contract host-only.
+- Process v2 D0 proved the reusable target/profile preflight on one connected
+  FYG8 device with bounded read-only collection and no F1 authority.
 
 Historical details and retired clauses are preserved in:
 
@@ -54,15 +56,18 @@ Archived text is evidence only and grants no device authority.
    resume, simulated transfer outcomes, tail loss, and path containment with
    device access hidden. Independent review and remediation re-review returned
    `GO_HOST_CORE_TO_D0_IMPLEMENTATION`.
-4. **P2.4 - D0 qualification (current):** implement and run one bounded connected read-only preflight
-   through the same runner. D0 must not create F1 authority.
-5. **P2.5 - F1 canary:** after one independent review and a fresh approval,
-   execute one conservative boot-only candidate, bounded observation, mandatory
-   physical Download rollback, and final health verification.
+4. **P2.4 - D0 qualification (complete):** the reusable D0 adapter passed
+   focused tests, independent review, strict result reopening, and one bounded
+   connected read-only preflight. It created no F1 authority.
+5. **P2.5 - F1 canary (current):** complete the reusable F1 adapter and its
+   independent execution-closure review. Only after those host gates and a
+   fresh approval, execute one conservative boot-only candidate, bounded
+   observation, mandatory physical Download rollback, and final health
+   verification.
 
-Do not activate C3, fork a C4 helper, or add another policy block. P2.4 remains
-host-only until its connected read-only command is separately selected and
-bounded under D0.
+Do not activate C3, fork a C4 helper, or add another policy block. P2.5 remains
+host-only until the reusable F1 adapter passes its execution-closure review and
+the operator gives one fresh approval for the exact binding.
 
 ## Process
 

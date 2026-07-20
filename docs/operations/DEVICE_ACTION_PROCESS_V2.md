@@ -1,6 +1,6 @@
 # Device Action Process v2
 
-Status: P2.2/P2.3 host core and validation complete; D0/F1 adapters pending.
+Status: P2.1-P2.4 complete; reusable F1 adapter and canary pending.
 
 This process replaces per-candidate live helpers, policy activation commits,
 per-run one-shot clauses, and repeated review ladders for ordinary boot-only
@@ -58,12 +58,14 @@ partition, slot, primitive, or exception.
 
 The H0 core is
 `workspace/public/src/scripts/revalidation/device_action_f1_v2.py`. It currently
-owns validation, plan rendering, and host-only simulations. It has no live or
-connected mode and does not expose the transport module's Odin execution
-function. Future D0/F1 adapters must reuse this core rather than add a
-candidate-specific runner.
+owns validation, plan rendering, and host-only simulations. The reusable D0
+adapter is
+`workspace/public/src/scripts/revalidation/device_action_d0_v2.py`. It reuses
+the H0 bundle validator and exposes only validation, plan rendering, and one
+connected read-only mode. Neither component exposes a live F1 transfer mode.
+The F1 adapter must reuse this core rather than add a candidate-specific runner.
 
-The complete runner will own:
+The F1 adapter will own:
 
 - H0 artifact and manifest validation;
 - D0 target preflight;
@@ -77,6 +79,31 @@ The complete runner will own:
 
 Candidate markers, hashes, timeouts, and acceptance predicates are manifest or
 profile data. They are not reasons to fork the runner.
+
+### D0 Qualification
+
+The reusable D0 adapter has no reboot, Download transition, Odin invocation,
+partition transfer, F1 authorization, or live authorization path. Its connected
+mode performs only bounded reads:
+
+- exact one-target ADB enumeration and topology continuity;
+- public target/profile properties and boot-health predicates;
+- root identity and hashes of boot plus supporting partitions;
+- one EOF-bounded manifest observer capture into a private run directory; and
+- initial and final host USB inventories proving no Download endpoint.
+
+Serial, topology, and boot identifiers are retained only as SHA256 digests in
+the structured result. The strict result validator reopens the private raw
+observer and proves its stable regular-file identity, size, hash, marker
+cardinality, target evidence, health, USB state, and all no-authority flags.
+
+On 2026-07-21 one connected FYG8 D0 run returned
+`PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY`. It read 2,097,136 observer
+bytes to EOF with empty stderr, zero marker-family matches, and zero Download
+endpoints before and after. The independently reviewed implementation and live
+evidence are recorded in
+`docs/reports/DEVICE_ACTION_PROCESS_V2_D0_QUALIFICATION_PASS_2026-07-21.md`.
+This PASS qualifies the reusable preflight only and creates no F1 authority.
 
 ### Append-Only Journal
 
@@ -227,3 +254,9 @@ review and remediation re-review. The verdict was
 `GO_HOST_CORE_TO_D0_IMPLEMENTATION`; it authorizes neither device contact nor
 F1. The existing R4W1-C3 implementation remains inactive reference evidence
 for regular-path transport and must not become an interim live exception.
+
+P2.4 then passed focused tests, independent D0 review, and one bounded connected
+read-only qualification. P2.5 may now implement the reusable F1 adapter
+host-only. No F1 run is authorized until that execution-critical closure passes
+independent review and the operator gives one fresh approval for the exact
+binding.
