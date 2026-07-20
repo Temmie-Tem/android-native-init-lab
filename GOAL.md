@@ -6,6 +6,39 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-20 23:13 KST / 2026-07-20 14:13 UTC) -
+> R4W1-C ZERO-TRANSFER ODIN ENUMERATION-DIFF OBSERVER POLICY ACTIVE;
+> POST-ACTIVATION GO; ONE-SHOT UNCONSUMED; FRESH EXACT OBSERVE TOKEN NEXT.**
+> Source, binding, and policy-only activation commits are `5056c2cd`,
+> `a0779ab1`, and `d939f84e`. The installed 5,444-byte clause is byte-identical
+> to the reviewed private clause, SHA256
+> `9f42de1cb609f9897799f82d1e59f11fd1ec24cc018da3ed9099adb1e89d497e`,
+> with one BEGIN, END, and ACTIVE sentinel, no RETIRED sentinel, and no
+> unresolved placeholder. The current `AGENTS.md` SHA256 is
+> `dd3fafe35416aaca74308147841ca3ea4a7048b7944cf511ef28f0ed57e32cb8`.
+>
+> Post-activation `py_compile`, ResourceWarning-fatal offline validation,
+> focused tests `80/80`, and the exact related suite `185/185` pass. The
+> offline verdict is
+> `PASS_R4W1C_ENUM_DIFF_OBSERVER_SOURCE_OFFLINE_CHECK`. Independent xhigh
+> reviews `019f7fd4-9527-7e23-92af-c48738894e33` and
+> `019f7fda-a51c-7d11-9055-59bc2f0327af` found no HIGH, MEDIUM, or LOW issue
+> and both returned `POST_ACTIVATION_GO`; the second reviewed committed object
+> `d939f84e` and its sole parent directly.
+>
+> No device, USB, ADB, reboot, Download transition, Odin execution, transfer,
+> flash, partition write, or observer run occurred after activation. Observer
+> consumed state, run directory, signature evidence, and lock are absent. The
+> active exception authorizes only one exact Android baseline, one
+> `adb reboot download`, one bounded exact `odin4 -l`, physical Download exit,
+> and exact Android return. It cannot authorize a candidate, transfer, flash,
+> cleanup, acceptance decision, or second observer. Next live entry requires a
+> newly supplied exact
+> `S22PLUS-FYG8-R4W1C-ODIN-ENUMERATION-DIFF-OBSERVE`; the separate physical
+> confirmation token is requested only after stable normal Download is
+> observed. Prior and generic approvals do not carry. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1C_ODIN_ENUMERATION_DIFF_OBSERVER_POLICY_READY_2026-07-20.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-20 22:53 KST / 2026-07-20 13:53 UTC) -
 > R4W1-C ZERO-TRANSFER ODIN ENUMERATION-DIFF OBSERVER BINDING GO; POLICY
 > INACTIVE; SEPARATE POLICY-ONLY ACTIVATION NEXT.** The deterministic host-only
