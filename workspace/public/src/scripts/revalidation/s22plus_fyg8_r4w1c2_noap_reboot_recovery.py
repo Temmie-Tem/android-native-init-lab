@@ -41,7 +41,7 @@ OLD_POLICY_END = "END_S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_POLICY_V1"
 OLD_POLICY_ACTIVE = "S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_POLICY_STATE=ACTIVE"
 OLD_POLICY_RETIRED = "S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_POLICY_STATE=RETIRED"
 EXPECTED_POLICY_TEMPLATE_SHA256 = (
-    "bf90b0c5ceeb7178491319cf4dae1e958e30a90c17e0c8badf30189cb13aecdf"
+    "98fc24be176f66a5832912be3a54f8519bd29a106c3b7592569755133fcedbe0"
 )
 LIVE_ACK = "S22PLUS-FYG8-R4W1C2-NOAP-REBOOT-RECOVERY-LIVE"
 PASS_VERDICT = "PASS_R4W1C2_NOAP_REBOOT_RECOVERY_EXACT_MAGISK_ANDROID"
@@ -54,6 +54,11 @@ RECOVERY_RUN_ROOT = Path("workspace/private/runs")
 RECOVERY_STATE = Path(
     "workspace/private/state/"
     "s22plus_fyg8_r4w1c2_noap_reboot_recovery_consumed.json"
+)
+EXTERNAL_GUARD_PARENT = Path("/home/temmie/.local/state")
+EXTERNAL_GUARD_NAME = (
+    "android-native-init-lab-s22plus-fyg8-r4w1c2-noap-reboot-"
+    "recovery-consumed.json.guard"
 )
 
 EMPTY_SHA256 = hashlib.sha256(b"").hexdigest()
@@ -223,8 +228,8 @@ class BoundedOdinError(RecoveryError):
 
 
 def recovery_guard_path(root: Path) -> Path:
-    state_path = root / RECOVERY_STATE
-    return root / f".{state_path.name}.guard"
+    del root
+    return EXTERNAL_GUARD_PARENT / EXTERNAL_GUARD_NAME
 
 
 def close_noexcept(descriptor: int) -> None:
@@ -292,6 +297,17 @@ def require_direct_directory_chain(root: Path, path: Path) -> None:
         require_direct_directory(current)
 
 
+def require_direct_absolute_directory_chain(path: Path) -> None:
+    direct_path = Path(os.path.abspath(path))
+    if not direct_path.is_absolute():
+        raise RecoveryError(f"external trust anchor is not absolute: {path}")
+    current = Path(direct_path.anchor)
+    require_direct_directory(current)
+    for part in direct_path.parts[1:]:
+        current /= part
+        require_direct_directory(current)
+
+
 def fsync_directory(path: Path) -> None:
     descriptor = os.open(
         path,
@@ -313,6 +329,28 @@ def open_bound_directory(root: Path, path: Path) -> int:
         raise RecoveryError(f"cannot hold direct directory: {path}") from exc
     try:
         revalidate_bound_directory(descriptor, path)
+    except BaseException:
+        os.close(descriptor)
+        raise
+    return descriptor
+
+
+def open_external_guard_directory(path: Path) -> int:
+    if Path(os.path.abspath(path)) != Path(os.path.abspath(EXTERNAL_GUARD_PARENT)):
+        raise RecoveryError("external guard parent differs from the fixed trust anchor")
+    require_direct_absolute_directory_chain(path)
+    flags = os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_CLOEXEC", 0)
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as exc:
+        raise RecoveryError(f"cannot hold external guard directory: {path}") from exc
+    try:
+        metadata = revalidate_bound_directory(descriptor, path)
+        if metadata.st_uid != os.getuid() or stat.S_IMODE(metadata.st_mode) & 0o022:
+            raise RecoveryError(
+                "external guard parent must be caller-owned and not group/other writable"
+            )
     except BaseException:
         os.close(descriptor)
         raise
@@ -428,6 +466,7 @@ def durable_create_bytes_at(
     payload: bytes,
     *,
     display_path: Path,
+    precommit: Callable[[], None] | None = None,
 ) -> dict[str, Any]:
     _validate_leaf_name(name)
     temporary = f".{name}.tmp-{os.getpid()}-{time.time_ns()}"
@@ -450,6 +489,8 @@ def durable_create_bytes_at(
         os.fsync(descriptor)
         os.close(descriptor)
         descriptor = None
+        if precommit is not None:
+            precommit()
         try:
             os.link(
                 temporary,
@@ -483,18 +524,26 @@ def durable_create_bytes_at_idempotent(
     *,
     display_path: Path,
     attempts: int = FINAL_PUBLISH_ATTEMPTS,
+    precommit: Callable[[], None] | None = None,
 ) -> dict[str, Any]:
     if attempts < 1:
         raise RecoveryError("descriptor-bound publication attempts are invalid")
     last_error: BaseException | None = None
     for attempt in range(attempts):
         try:
+            if precommit is None:
+                return durable_create_bytes_at(
+                    directory_fd, name, payload, display_path=display_path
+                )
             return durable_create_bytes_at(
-                directory_fd, name, payload, display_path=display_path
+                directory_fd, name, payload,
+                display_path=display_path, precommit=precommit
             )
         except (OSError, RecoveryError) as exc:
             last_error = exc
             try:
+                if precommit is not None:
+                    precommit()
                 return exact_record_at(
                     directory_fd, name, payload, display_path=display_path
                 )
@@ -527,13 +576,38 @@ def durable_create_json_at_idempotent(
     value: Any,
     *,
     display_path: Path,
+    precommit: Callable[[], None] | None = None,
 ) -> dict[str, Any]:
     return durable_create_bytes_at_idempotent(
         directory_fd,
         name,
         json_record_bytes(value),
         display_path=display_path,
+        precommit=precommit,
     )
+
+
+def revalidate_evidence_record_at(
+    directory_fd: int,
+    directory_path: Path,
+    record: dict[str, Any],
+    *,
+    expected_name: str,
+    maximum: int = 4 * 1024 * 1024,
+) -> None:
+    if set(record) != {"path", "size", "sha256"}:
+        raise RecoveryError(f"evidence record shape changed: {expected_name}")
+    if Path(str(record["path"])).name != expected_name:
+        raise RecoveryError(f"evidence record name changed: {expected_name}")
+    actual = existing_record_at(
+        directory_fd,
+        expected_name,
+        display_path=Path(str(record["path"])),
+        maximum=maximum,
+    )
+    if actual != record:
+        raise RecoveryError(f"evidence record identity changed: {expected_name}")
+    revalidate_bound_directory(directory_fd, directory_path)
 
 
 def parse_json_at(directory_fd: int, name: str, label: str) -> dict[str, Any]:
@@ -743,7 +817,6 @@ def require_old_policy_retired(text: str) -> None:
         OLD_POLICY_ACTIVE in old_clause
         or old_clause.count(OLD_POLICY_RETIRED) != 1
         or text.count(OLD_POLICY_ACTIVE) != 0
-        or text.count(OLD_POLICY_RETIRED) != 1
     ):
         raise RecoveryError("consumed R4W1-C2 measured policy is not exactly retired")
 
@@ -1282,6 +1355,41 @@ def sealed_enumeration_runner(
     return run
 
 
+def revalidate_enumeration_evidence(
+    run_dir_fd: int,
+    run_dir: Path,
+    outcomes: list[dict[str, Any]],
+) -> None:
+    for index, outcome in enumerate(outcomes):
+        if outcome.get("invocation") != index:
+            raise RecoveryError("sealed Odin enumeration sequence changed")
+        prefix = f"odin-enumeration-{index:06d}"
+        for key, suffix in (
+            ("stdout", ".stdout"),
+            ("stderr", ".stderr"),
+            ("outcome", "-outcome.json"),
+        ):
+            record = outcome.get(key)
+            if not isinstance(record, dict):
+                raise RecoveryError(
+                    f"sealed Odin enumeration {key} record is unavailable"
+                )
+            revalidate_evidence_record_at(
+                run_dir_fd,
+                run_dir,
+                record,
+                expected_name=prefix + suffix,
+                maximum=MAX_ODIN_OUTPUT if key != "outcome" else 4 * 1024 * 1024,
+            )
+        outcome_value = {key: value for key, value in outcome.items() if key != "outcome"}
+        revalidate_bound_file_path(
+            run_dir_fd,
+            run_dir,
+            prefix + "-outcome.json",
+            json_record_bytes(outcome_value),
+        )
+
+
 def wait_for_endpoint_hardened(
     odin: Path,
     run_dir: Path,
@@ -1556,7 +1664,12 @@ def create_recovery_state(
             "st_dev": run_metadata.st_dev,
             "st_ino": run_metadata.st_ino,
         },
-        "guard_path": str(guard_path.relative_to(root)),
+        "guard_path": str(guard_path),
+        "external_guard_parent": str(EXTERNAL_GUARD_PARENT),
+        "external_guard_trust_basis": (
+            "fixed caller-owned non-group/other-writable host state directory; "
+            "independent of the repository namespace"
+        ),
         "expected_usb_binding": incident["usb_binding"],
         "consumption_timing": "before any device or USB observation",
         "action": "odin4 --reboot only; no AP and no partition payload",
@@ -1601,7 +1714,7 @@ def live_run(root: Path, args: argparse.Namespace) -> int:
         close_noexcept(run_dir_fd)
         raise
     try:
-        guard_dir_fd = open_bound_directory(root, guard_dir)
+        guard_dir_fd = open_external_guard_directory(guard_dir)
     except BaseException:
         close_noexcept(state_dir_fd)
         close_noexcept(run_dir_fd)
@@ -1880,24 +1993,63 @@ def live_run_bound(
             "path": str(timeline_path.relative_to(root)),
             "events": timeline,
         }
-        # Result is the final load-bearing write. Nothing fallible follows it.
-        revalidate_bound_file_path(
-            state_dir_fd, state_path.parent, state_path.name, state_payload
-        )
-        revalidate_bound_file_path(
-            guard_dir_fd, guard_path.parent, guard_path.name, state_payload
-        )
-        revalidate_bound_file_path(
-            run_dir_fd,
-            run_dir,
-            timeline_path.name,
-            json_record_bytes(timeline_value),
-        )
+
+        def revalidate_pass_commit() -> None:
+            revalidate_bound_file_path(
+                state_dir_fd, state_path.parent, state_path.name, state_payload
+            )
+            revalidate_bound_file_path(
+                guard_dir_fd, guard_path.parent, guard_path.name, state_payload
+            )
+            revalidate_bound_file_path(
+                run_dir_fd,
+                run_dir,
+                timeline_path.name,
+                json_record_bytes(timeline_value),
+            )
+            revalidate_bound_file_path(
+                run_dir_fd,
+                run_dir,
+                attempt_path.name,
+                json_record_bytes(attempt_value),
+            )
+            odin_records = result.get("odin")
+            if not isinstance(odin_records, dict):
+                raise RecoveryError("final Odin evidence is unavailable")
+            for key, path, maximum in (
+                ("attempt", attempt_path, 4 * 1024 * 1024),
+                ("outcome", outcome_path, 4 * 1024 * 1024),
+                ("stdout", stdout_path, MAX_ODIN_OUTPUT),
+                ("stderr", stderr_path, MAX_ODIN_OUTPUT),
+            ):
+                record = odin_records.get(key)
+                if not isinstance(record, dict):
+                    raise RecoveryError(f"final Odin {key} record is unavailable")
+                revalidate_evidence_record_at(
+                    run_dir_fd,
+                    run_dir,
+                    record,
+                    expected_name=path.name,
+                    maximum=maximum,
+                )
+            revalidate_bound_file_path(
+                run_dir_fd, run_dir, stdout_path.name, completed.stdout or b""
+            )
+            revalidate_bound_file_path(
+                run_dir_fd, run_dir, stderr_path.name, completed.stderr or b""
+            )
+            revalidate_enumeration_evidence(
+                run_dir_fd, run_dir, enumeration_outcomes
+            )
+
+        # The validator runs inside final publication after its temporary file is
+        # durable and immediately before the canonical result link is created.
         durable_create_json_at_idempotent(
             run_dir_fd,
             result_path.name,
             result,
             display_path=result_path,
+            precommit=revalidate_pass_commit,
         )
         emit_summary({"run_dir": str(run_dir), "verdict": PASS_VERDICT})
         return 0

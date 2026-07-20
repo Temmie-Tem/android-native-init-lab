@@ -49,6 +49,15 @@ class NoApRecoveryTests(unittest.TestCase):
         finally:
             os.close(descriptor)
 
+    @contextlib.contextmanager
+    def external_guard_parent(self, root, parent=None):
+        module = self.module
+        guard_parent = Path(parent) if parent is not None else root / "external-state"
+        guard_parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        guard_parent.chmod(0o700)
+        with mock.patch.object(module, "EXTERNAL_GUARD_PARENT", guard_parent):
+            yield guard_parent
+
     def test_parse_failure_preimage_matches_live_digest(self):
         module = self.module
         self.assertEqual(len(module.PARSE_FAILURE_STDOUT), 51)
@@ -671,7 +680,9 @@ class NoApRecoveryTests(unittest.TestCase):
         publish_bytes=None,
         transaction_error=None,
         enumeration_error=None,
+        enumeration_completed=None,
         default_layout=False,
+        external_guard_parent=None,
     ):
         module = self.module
         offline = {
@@ -754,7 +765,7 @@ class NoApRecoveryTests(unittest.TestCase):
             )
             command = ["/proc/self/fd/9", "--reboot", "-d", device]
             return (
-                subprocess.CompletedProcess(command, 0, b"", b""),
+                subprocess.CompletedProcess(command, 0, b"ok", b""),
                 command,
                 list(module.ODIN_SUCCESS_LINES),
             )
@@ -765,6 +776,9 @@ class NoApRecoveryTests(unittest.TestCase):
         )
         (root / state_relative.parent).mkdir(parents=True, exist_ok=True)
         with contextlib.ExitStack() as stack:
+            stack.enter_context(
+                self.external_guard_parent(root, external_guard_parent)
+            )
             if not default_layout:
                 stack.enter_context(
                     mock.patch.object(module, "RECOVERY_STATE", state_relative)
@@ -827,6 +841,20 @@ class NoApRecoveryTests(unittest.TestCase):
                     return runner([str(odin), "-l"], 1.0)
 
                 absence_mock.side_effect = fail_enumeration
+            elif enumeration_completed is not None:
+                stack.enter_context(
+                    mock.patch.object(
+                        module,
+                        "bounded_odin_runner",
+                        return_value=enumeration_completed,
+                    )
+                )
+
+                def enumerate_then_absent(odin, _run_dir, *, runner, **_kwargs):
+                    runner([str(odin), "-l"], 1.0)
+                    return SimpleNamespace(absent=True, timed_out=False)
+
+                absence_mock.side_effect = enumerate_then_absent
             else:
                 absence_mock.return_value = absence_result or SimpleNamespace(
                     absent=True, timed_out=False
@@ -899,18 +927,25 @@ class NoApRecoveryTests(unittest.TestCase):
         real_publish = module.durable_create_bytes_at
         failed = False
 
-        def publish(directory_fd, name, payload, *, display_path):
+        def publish(directory_fd, name, payload, *, display_path, precommit=None):
             nonlocal failed
             if name == "result.json" and not failed:
                 failed = True
                 raise OSError("injected first result publication failure")
             return real_publish(
-                directory_fd, name, payload, display_path=display_path
+                directory_fd, name, payload,
+                display_path=display_path, precommit=precommit
             )
 
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            rc = self.run_mocked_post_android_live(root, publish_bytes=publish)
+            rc = self.run_mocked_post_android_live(
+                root,
+                publish_bytes=publish,
+                enumeration_completed=subprocess.CompletedProcess(
+                    ["/mock/sealed-odin", "-l"], 0, b"enum-ok", b""
+                ),
+            )
             run_dir = root / module.RECOVERY_RUN_ROOT / (
                 "s22plus-r4w1c2-noap-reboot-recovery-scenario"
             )
@@ -932,12 +967,13 @@ class NoApRecoveryTests(unittest.TestCase):
         real_publish = module.durable_create_bytes_at
         failed_names = set()
 
-        def publish(directory_fd, name, payload, *, display_path):
+        def publish(directory_fd, name, payload, *, display_path, precommit=None):
             if name in {"timeline.json", "result.json"} and name not in failed_names:
                 failed_names.add(name)
                 raise OSError(f"injected first {name} publication failure")
             return real_publish(
-                directory_fd, name, payload, display_path=display_path
+                directory_fd, name, payload,
+                display_path=display_path, precommit=precommit
             )
 
         with tempfile.TemporaryDirectory() as temporary:
@@ -964,10 +1000,11 @@ class NoApRecoveryTests(unittest.TestCase):
         real_publish = module.durable_create_bytes_at
         swapped = False
 
-        def publish(directory_fd, name, payload, *, display_path):
+        def publish(directory_fd, name, payload, *, display_path, precommit=None):
             nonlocal swapped
             record = real_publish(
-                directory_fd, name, payload, display_path=display_path
+                directory_fd, name, payload,
+                display_path=display_path, precommit=precommit
             )
             if name == "consumed.json" and not swapped:
                 swapped = True
@@ -1016,7 +1053,7 @@ class NoApRecoveryTests(unittest.TestCase):
                 "s22plus-r4w1c2-noap-reboot-recovery-scenario"
             )
             result = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
-            guard = root / ".consumed.json.guard"
+            guard = root / "external-state" / module.EXTERNAL_GUARD_NAME
             guard_exists = guard.is_file()
             guard_bytes = guard.read_bytes()
             held_state_bytes = (root / "state-held" / "consumed.json").read_bytes()
@@ -1053,9 +1090,12 @@ class NoApRecoveryTests(unittest.TestCase):
                 "s22plus-r4w1c2-noap-reboot-recovery-scenario"
             )
             result = json.loads((held_run / "result.json").read_text(encoding="utf-8"))
-            guard = module.recovery_guard_path(root)
+            guard = root / "external-state" / module.EXTERNAL_GUARD_NAME
             guard_exists = guard.is_file()
-            consumed = module.recovery_consumed(root)
+            with mock.patch.object(
+                module, "EXTERNAL_GUARD_PARENT", guard.parent
+            ):
+                consumed = module.recovery_consumed(root)
             canonical_state_exists = (root / module.RECOVERY_STATE).exists()
         self.assertEqual(rc, 20)
         self.assertTrue(swapped)
@@ -1064,6 +1104,141 @@ class NoApRecoveryTests(unittest.TestCase):
         self.assertTrue(guard_exists)
         self.assertTrue(consumed)
         self.assertFalse(canonical_state_exists)
+
+    def test_repository_root_swap_after_action_keeps_external_consumption(self):
+        module = self.module
+        real_revalidate = module.revalidate_bound_file_path
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            root = base / "repo"
+            root.mkdir()
+            external = base / "external-state"
+            held = base / "repo-held"
+            swapped = False
+
+            def revalidate(directory_fd, directory, name, payload):
+                nonlocal swapped
+                value = real_revalidate(directory_fd, directory, name, payload)
+                if name == "odin-reboot-attempt.json" and not swapped:
+                    root.rename(held)
+                    (root / "workspace/private/runs").mkdir(parents=True)
+                    (root / "workspace/private/state").mkdir()
+                    swapped = True
+                return value
+
+            with mock.patch.object(
+                module, "revalidate_bound_file_path", side_effect=revalidate
+            ):
+                rc = self.run_mocked_post_android_live(
+                    root,
+                    default_layout=True,
+                    external_guard_parent=external,
+                )
+            held_run = held / module.RECOVERY_RUN_ROOT / (
+                "s22plus-r4w1c2-noap-reboot-recovery-scenario"
+            )
+            result = json.loads((held_run / "result.json").read_text())
+            with mock.patch.object(module, "EXTERNAL_GUARD_PARENT", external):
+                consumed = module.recovery_consumed(root)
+        self.assertEqual(rc, 20)
+        self.assertTrue(swapped)
+        self.assertTrue(result["reboot_attempted"])
+        self.assertEqual(result["verdict"], module.FAIL_VERDICT)
+        self.assertTrue(consumed)
+
+    def test_repository_root_swap_before_result_cannot_publish_pass_or_restore_retry(self):
+        module = self.module
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            root = base / "repo"
+            root.mkdir()
+            external = base / "external-state"
+            held = base / "repo-held"
+            real_publish = module.durable_create_bytes_at
+            swapped = False
+
+            def publish(
+                directory_fd, name, payload, *, display_path, precommit=None
+            ):
+                nonlocal swapped
+                if name == "result.json" and not swapped:
+                    root.rename(held)
+                    (root / "workspace/private/runs").mkdir(parents=True)
+                    (root / "workspace/private/state").mkdir()
+                    swapped = True
+                return real_publish(
+                    directory_fd,
+                    name,
+                    payload,
+                    display_path=display_path,
+                    precommit=precommit,
+                )
+
+            rc = self.run_mocked_post_android_live(
+                root,
+                default_layout=True,
+                external_guard_parent=external,
+                publish_bytes=publish,
+            )
+            held_run = held / module.RECOVERY_RUN_ROOT / (
+                "s22plus-r4w1c2-noap-reboot-recovery-scenario"
+            )
+            result = json.loads((held_run / "result.json").read_text())
+            canonical_result = root / module.RECOVERY_RUN_ROOT / held_run.name / "result.json"
+            with mock.patch.object(module, "EXTERNAL_GUARD_PARENT", external):
+                consumed = module.recovery_consumed(root)
+        self.assertEqual(rc, 20)
+        self.assertTrue(swapped)
+        self.assertEqual(result["verdict"], module.FAIL_VERDICT)
+        self.assertFalse(canonical_result.exists())
+        self.assertTrue(consumed)
+
+    def test_final_result_precommit_rejects_deleted_child_evidence(self):
+        module = self.module
+        real_publish = module.durable_create_bytes_at
+        removed = []
+
+        def publish(directory_fd, name, payload, *, display_path, precommit=None):
+            if name == "result.json" and not removed:
+                for leaf in (
+                    "odin-enumeration-000000.stdout",
+                    "odin-enumeration-000000.stderr",
+                    "odin-enumeration-000000-outcome.json",
+                    "odin-reboot-attempt.json",
+                    "odin-reboot-outcome.json",
+                    "odin-reboot.stdout",
+                    "odin-reboot.stderr",
+                ):
+                    try:
+                        os.unlink(leaf, dir_fd=directory_fd)
+                        removed.append(leaf)
+                    except FileNotFoundError:
+                        pass
+            return real_publish(
+                directory_fd,
+                name,
+                payload,
+                display_path=display_path,
+                precommit=precommit,
+            )
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            rc = self.run_mocked_post_android_live(
+                root,
+                publish_bytes=publish,
+                enumeration_completed=subprocess.CompletedProcess(
+                    ["/mock/sealed-odin", "-l"], 0, b"enum-ok", b""
+                ),
+            )
+            run_dir = root / module.RECOVERY_RUN_ROOT / (
+                "s22plus-r4w1c2-noap-reboot-recovery-scenario"
+            )
+            result = json.loads((run_dir / "result.json").read_text())
+        self.assertEqual(rc, 20)
+        self.assertTrue(removed)
+        self.assertEqual(result["verdict"], module.FAIL_VERDICT)
+        self.assertIn("unavailable", result["error"])
 
     def test_run_parent_swap_after_observation_cannot_publish_pass(self):
         module = self.module
@@ -1172,6 +1347,7 @@ class NoApRecoveryTests(unittest.TestCase):
             root = Path(temporary)
             (root / module.RECOVERY_RUN_ROOT).mkdir(parents=True)
             (root / "state").mkdir()
+            guard_parent = root / "external-state"
             original_strftime = module.time.strftime
             run_names = iter(("run-one", "run-two"))
 
@@ -1180,7 +1356,7 @@ class NoApRecoveryTests(unittest.TestCase):
                     return next(run_names)
                 return original_strftime(format_string, *values)
 
-            with mock.patch.object(module, "RECOVERY_STATE", Path("state/consumed.json")), mock.patch.object(
+            with self.external_guard_parent(root, guard_parent), mock.patch.object(module, "RECOVERY_STATE", Path("state/consumed.json")), mock.patch.object(
                 module, "offline_check", return_value=offline
             ), mock.patch.object(
                 module, "policy_status", return_value=policy
@@ -1247,9 +1423,11 @@ class NoApRecoveryTests(unittest.TestCase):
             module, "RECOVERY_STATE", Path("state/consumed.json")
         ):
             root = Path(temporary)
-            guard = module.recovery_guard_path(root)
-            guard.write_text("consumed\n", encoding="ascii")
-            self.assertTrue(module.recovery_consumed(root))
+            with self.external_guard_parent(root) as guard_parent:
+                guard = module.recovery_guard_path(root)
+                guard.write_text("consumed\n", encoding="ascii")
+                self.assertEqual(guard.parent, guard_parent)
+                self.assertTrue(module.recovery_consumed(root))
             self.assertFalse((root / module.RECOVERY_STATE).exists())
 
     def test_duplicate_policy_marker_is_rejected(self):
@@ -1284,31 +1462,32 @@ class NoApRecoveryTests(unittest.TestCase):
             state = root / module.RECOVERY_STATE
             state.parent.mkdir(parents=True)
             state.write_text("{}\n", encoding="ascii")
-            with self.opened_directory(run_dir) as run_dir_fd, self.opened_directory(
-                state.parent
-            ) as state_dir_fd, self.opened_directory(
-                module.recovery_guard_path(root).parent
-            ) as guard_dir_fd, self.assertRaisesRegex(
-                module.RecoveryError, "already consumed"
-            ):
-                module.create_recovery_state(
-                    root,
-                    run_dir_fd=run_dir_fd,
-                    state_dir_fd=state_dir_fd,
-                    guard_dir_fd=guard_dir_fd,
-                    policy={"sha256": "a" * 64},
-                    incident={
-                        "files": {
-                            "consumed": {"sha256": "b" * 64},
-                            "stock_intent": {"sha256": "c" * 64},
-                        }
-                    },
-                    run_dir=run_dir,
-                    helper={"sha256": "1" * 64},
-                    test={"sha256": "2" * 64},
-                    dependencies={},
-                    policy_draft={"sha256": "d" * 64},
-                )
+            with self.external_guard_parent(root) as guard_parent:
+                with self.opened_directory(run_dir) as run_dir_fd, self.opened_directory(
+                    state.parent
+                ) as state_dir_fd, self.opened_directory(
+                    guard_parent
+                ) as guard_dir_fd, self.assertRaisesRegex(
+                    module.RecoveryError, "already consumed"
+                ):
+                    module.create_recovery_state(
+                        root,
+                        run_dir_fd=run_dir_fd,
+                        state_dir_fd=state_dir_fd,
+                        guard_dir_fd=guard_dir_fd,
+                        policy={"sha256": "a" * 64},
+                        incident={
+                            "files": {
+                                "consumed": {"sha256": "b" * 64},
+                                "stock_intent": {"sha256": "c" * 64},
+                            }
+                        },
+                        run_dir=run_dir,
+                        helper={"sha256": "1" * 64},
+                        test={"sha256": "2" * 64},
+                        dependencies={},
+                        policy_draft={"sha256": "d" * 64},
+                    )
 
     def test_recovery_state_rejects_indirect_state_directory(self):
         module = self.module
@@ -1352,6 +1531,36 @@ class NoApRecoveryTests(unittest.TestCase):
             module.require_old_policy_retired(
                 retired + f"stray={module.OLD_POLICY_ACTIVE}\n"
             )
+
+    def test_exact_draft_composes_with_one_retired_old_block(self):
+        module = self.module
+        draft = (ROOT / module.POLICY_DRAFT_RELATIVE).read_text(encoding="utf-8")
+        text = (
+            f"{module.OLD_POLICY_BEGIN}\n{module.OLD_POLICY_RETIRED}\n"
+            f"{module.OLD_POLICY_END}\n{draft}"
+        )
+        self.assertEqual(text.count(module.OLD_POLICY_ACTIVE), 0)
+        self.assertEqual(text.count(module.OLD_POLICY_RETIRED), 2)
+        module.require_old_policy_retired(text)
+
+    def test_policy_status_accepts_exact_draft_with_retired_old_block(self):
+        module = self.module
+        draft = (ROOT / module.POLICY_DRAFT_RELATIVE).read_bytes()
+        text = (
+            f"{module.OLD_POLICY_BEGIN}\n{module.OLD_POLICY_RETIRED}\n"
+            f"{module.OLD_POLICY_END}\n"
+        ).encode("utf-8") + draft
+        real_stable = module.stable_bytes
+
+        def stable(path, *, maximum=4 * 1024 * 1024):
+            if Path(path) == ROOT / "AGENTS.md":
+                return text
+            return real_stable(path, maximum=maximum)
+
+        with mock.patch.object(module, "stable_bytes", side_effect=stable):
+            status = module.policy_status(ROOT)
+        self.assertTrue(status["active"])
+        self.assertEqual(status["template_sha256"], module.EXPECTED_POLICY_TEMPLATE_SHA256)
 
     def test_live_rejects_inactive_policy_before_device_contact(self):
         module = self.module

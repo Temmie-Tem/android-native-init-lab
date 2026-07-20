@@ -7,7 +7,7 @@ says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash 
 are binding and override any sub-goal.**
 
 > **S22+ ACTIVE FRONTIER (2026-07-21 KST) - R4W1-C2 NO-AP RECOVERY
-> SIXTH ADVERSARIAL NO-GO REPAIRED HOST-ONLY; POLICY STILL INACTIVE.** The first
+> SEVENTH ADVERSARIAL NO-GO REPAIRED HOST-ONLY; POLICY STILL INACTIVE.** The first
 > independent review session `019f807c-c88c-7073-824b-7a1f4ecfec27` found seven
 > blockers. A second independent `gpt-5.6-sol` xhigh review session
 > `019f8090-9c52-71a1-b3c3-918c56c432f3` reviewed commit `f1e22994`, closed four,
@@ -37,6 +37,13 @@ are binding and override any sub-goal.**
 > canonical retry authority, failed sealed enumerations lost their captured
 > streams and kill/reap metadata from durable evidence, and a stray exact old
 > `ACTIVE` sentinel outside the retired block passed the non-overlap parser.
+> A seventh independent `gpt-5.6-sol` xhigh review session
+> `019f80ec-f6f4-7750-b609-ef11396f9d89` reviewed commit `7f51707c`, reran the
+> focused 42-test and isolated 227-test suites plus the exact offline gate, and
+> found three final composition/publication defects: the exact draft's quoted
+> old `RETIRED` sentinel made the global-count parser unstartable, replacing the
+> complete repository root still restored canonical retry authority, and PASS
+> could bind child evidence files deleted at the final publication boundary.
 >
 > The repaired helper now requires recursive local-import/pin equality, routes
 > every returned and exceptional Odin output through one exact combined 1 MiB
@@ -68,12 +75,21 @@ are binding and override any sub-goal.**
 > stderr, and an outcome containing return/timeout/overflow/kill/reap/cleanup
 > facts before interpretation; the final result binds every enumeration outcome.
 > Old-policy enforcement now requires the complete `AGENTS.md` to contain zero
-> exact old `ACTIVE` sentinels and exactly one old `RETIRED` sentinel.
+> exact old `ACTIVE` sentinels while requiring exactly one old `RETIRED`
+> sentinel inside the unique retired old block; the quoted requirement in the
+> new exact draft is permitted. The seventh repair moves the one-shot guard out
+> of the repository namespace to the explicit fixed mode-0700 trust anchor
+> `/home/temmie/.local/state`, so replacing `workspace/private` or the complete
+> repository root cannot restore retry authority. The final result publisher
+> now executes a pre-link validator after its temporary result is durable,
+> reopening the canonical root/state/guard/timeline plus every enumeration and
+> reboot attempt/output/outcome artifact by descriptor-relative identity,
+> exact size/SHA256, private-file shape, and held content.
 >
-> Focused tests pass `42/42`; the isolated related suite passes `227/227`.
+> Focused tests pass `47/47`; the isolated related suite passes `232/232`.
 > Offline verdict remains `PASS_R4W1C2_NOAP_REBOOT_RECOVERY_SOURCE_HOST_ONLY`, policy inactive,
 > recovery one-shot unconsumed, and all device-action fields false. Next is a
-> seventh independent review of the repaired exact bytes. Only a GO permits a
+> eighth independent review of the repaired exact bytes. Only a GO permits a
 > separate policy-only activation commit and subsequent fresh live
 > acknowledgement. Report:
 > `docs/reports/S22PLUS_FYG8_R4W1C2_NOAP_RECOVERY_NO_GO_REPAIR_2026-07-21.md`.

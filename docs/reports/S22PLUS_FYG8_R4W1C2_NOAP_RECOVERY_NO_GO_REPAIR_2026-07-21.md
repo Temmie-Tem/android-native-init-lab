@@ -226,22 +226,59 @@ Three reviewer-derived regressions plus the expanded enumeration contract bring
 the focused suite to 42 tests. No device, ADB, real USB/Odin enumeration, Odin
 binary, connected mode, network command, or policy activation occurred.
 
+## Seventh independent review and repair
+
+Independent host-only read-only review session
+`019f80ec-f6f4-7750-b609-ef11396f9d89` reviewed commit `7f51707c` with
+`gpt-5.6-sol` at explicitly verified xhigh effort. It independently matched all
+incident pins, ran the focused 42-test and isolated 227-test suites, reran the
+offline checker, and returned `NO_GO_TO_POLICY_ACTIVATION` for three defects:
+
+1. Exact activation was mechanically impossible. The new exact draft quotes
+   the old `RETIRED` sentinel, while the parser required that sentinel exactly
+   once globally. A correct old block plus exact new draft necessarily contains
+   it twice. The parser now requires one `RETIRED` only inside the unique old
+   block and zero old `ACTIVE` sentinels globally. A full `policy_status`
+   composition regression proves the exact draft and retired block activate
+   together.
+2. Moving the guard only to the repository root left the same authority race
+   one level higher. A complete root replacement after action restored a clean
+   canonical namespace, and a replacement during final publication could leave
+   PASS only under the renamed root. The guard now lives at the explicit fixed
+   external trust anchor `/home/temmie/.local/state`, whose direct caller-owned
+   mode-0700 parent is held and revalidated. Root-replacement regressions now
+   produce FAIL while the external guard keeps canonical retry consumed.
+3. PASS reopened neither enumeration child evidence nor all final reboot
+   evidence at its publication boundary. Deleting those files immediately
+   before `result.json` still produced PASS. Every enumeration stdout/stderr/
+   outcome and reboot attempt/stdout/stderr/outcome is now reopened and checked
+   for exact descriptor-relative name, size, SHA256, single-link regular-file
+   shape, and expected held content. The validator executes after the result
+   temporary file is durable and immediately before its canonical link, so the
+   reviewer deletion and root-swap injections both fail closed.
+
+Five direct regressions cover exact policy composition, root replacement after
+action, root replacement at result publication, deleted child evidence, and a
+transient final result retry with enumeration evidence. No device, ADB, USB,
+Odin binary, connected/live helper, policy activation, or network action
+occurred.
+
 ## Exact repaired identities
 
-- helper: size `74463`, SHA256
-  `e924aacf9b3f94c703e756fda30754a4f419557b378cecf524dc8fa69730ee09`
-- focused test: size `55511`, SHA256
-  `7af7a2706ac690034731fbd8544257724e815b3597f08d146ecbdeab933af928`
-- policy draft: size `12242`, SHA256
-  `6e7719efc7712d25a4253134e00a14514e46f9b5df369d2489c4d5001c98a957`
+- helper: size `80381`, SHA256
+  `76fa0c70d46fcff2863ac13a218cd616cf499de56e0c1e7cf4efd6c43b0a5025`
+- focused test: size `64594`, SHA256
+  `dd9c651e3e4e784dab733ae0a6f8015b21d32f429efed83678a5a7559cdd7fc4`
+- policy draft: size `13375`, SHA256
+  `7056dd454592e76821809c0bfdf890ed6e0487d7ee15041e4c5b57b24cfdf312`
 - normalized policy template SHA256:
-  `bf90b0c5ceeb7178491319cf4dae1e958e30a90c17e0c8badf30189cb13aecdf`
+  `98fc24be176f66a5832912be3a54f8519bd29a106c3b7592569755133fcedbe0`
 
 ## Host-only validation
 
-- focused no-AP recovery suite: `42/42` PASS
+- focused no-AP recovery suite: `47/47` PASS
 - isolated related helper/core/USBFS/connected/live-core/transport suite:
-  `227/227` PASS
+  `232/232` PASS
 - offline verdict:
   `PASS_R4W1C2_NOAP_REBOOT_RECOVERY_SOURCE_HOST_ONLY`
 - policy active: `false`
@@ -249,5 +286,5 @@ binary, connected mode, network command, or policy activation occurred.
 - device contact/write/reboot/Odin transfer/flash: all `false`
 
 No device or USB command was executed during any review or repair. Exact policy
-activation remains blocked until a seventh independent adversarial review
+activation remains blocked until an eighth independent adversarial review
 returns `GO_TO_EXACT_POLICY_ACTIVATION` on these repaired bytes.

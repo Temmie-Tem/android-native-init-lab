@@ -8,16 +8,18 @@ Samsung S22+ `SM-S906N` / `g0q` / `S906NKSS7FYG8`. The exact policy state is
 Activation is valid only in the same policy-only commit that changes the
 consumed original clause to
 `S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_POLICY_STATE=RETIRED`; the old `ACTIVE`
-state must be absent. The helper must enforce that exact non-overlap before any
-device or USB contact.
+state must be absent globally. The helper must enforce that exact old-block
+retirement and global non-overlap before any device or USB contact. The exact
+`RETIRED` sentinel in this new clause is a requirement quotation and does not
+constitute a second old policy block.
 
 The only executable helper is
 `workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1c2_noap_reboot_recovery.py`,
-size `74463`, SHA256
-`e924aacf9b3f94c703e756fda30754a4f419557b378cecf524dc8fa69730ee09`.
+size `80381`, SHA256
+`76fa0c70d46fcff2863ac13a218cd616cf499de56e0c1e7cf4efd6c43b0a5025`.
 Its focused test is
-`tests/test_s22plus_fyg8_r4w1c2_noap_reboot_recovery.py`, size `55511`, SHA256
-`7af7a2706ac690034731fbd8544257724e815b3597f08d146ecbdeab933af928`.
+`tests/test_s22plus_fyg8_r4w1c2_noap_reboot_recovery.py`, size `64594`, SHA256
+`dd9c651e3e4e784dab733ae0a6f8015b21d32f429efed83678a5a7559cdd7fc4`.
 The fresh live acknowledgement is
 `S22PLUS-FYG8-R4W1C2-NOAP-REBOOT-RECOVERY-LIVE`.
 The helper must require that the policy block installed in `AGENTS.md` is
@@ -97,22 +99,26 @@ before opening or observing any USB endpoint, the helper must durably and
 exclusively create
 `workspace/private/state/s22plus_fyg8_r4w1c2_noap_reboot_recovery_consumed.json`.
 It must first publish the exact same bytes as the independent guard
-`.s22plus_fyg8_r4w1c2_noap_reboot_recovery_consumed.json.guard` at the direct
-repository root, outside `workspace/private`.
+`/home/temmie/.local/state/android-native-init-lab-s22plus-fyg8-r4w1c2-noap-reboot-recovery-consumed.json.guard`.
+The existing direct `/home/temmie/.local/state` directory is the explicit
+operator-managed external trust anchor for this one-shot. It must be direct,
+caller-owned, and not group/other writable; it must not be renamed, replaced,
+or removed from activation through retirement. This assumption is external to
+the swappable repository namespace and is load-bearing.
 Either record consumes the exception, and the offline gate must stop if either
 path exists or is indirect. A state-subdirectory replacement therefore cannot
 restore retry authority after an action. Replacing the common
-`workspace/private` parent also cannot remove the repository-root guard or
-restore retry authority.
+`workspace/private` parent or the complete repository root also cannot remove
+the external guard or restore retry authority.
 Before publication, every repository-relative component through
 `workspace/private/runs` and `workspace/private/state` must be an existing
 direct directory, the run directory must be one new direct child of the run
 root, and its parent must be fsynced. The consumed state may be published only
 after that durable run directory exists; its direct state parent and the state
 file itself must be checked and durably fsynced. The helper must hold direct
-file descriptors for the run directory, state directory, and repository-root
-guard parent for the complete live invocation. State, guard, attempt, process output, timeline,
-and result publication
+file descriptors for the run directory, state directory, and fixed external
+guard parent for the complete live invocation. State, guard, attempt, process
+output, timeline, and result publication
 must use descriptor-relative no-follow exclusive operations, and every accepted
 record must be a private regular file with link count exactly one. Existing
 records are idempotently acceptable only when their descriptor-bound bytes are
@@ -153,7 +159,11 @@ Every post-spawn exception class must be converted into a bounded outcome that
 preserves already captured stdout/stderr plus kill, reap, and cleanup status.
 Every prerequisite or revalidation enumeration must durably publish its own
 bounded stdout, stderr, and outcome record before its return or exception is
-interpreted, and the final result must bind those outcome records.
+interpreted, and the final result must bind those outcome records. A PASS
+publication must reopen each enumeration stdout/stderr/outcome and each final
+reboot attempt/stdout/stderr/outcome, verify its exact descriptor-relative
+name, size, SHA256, private regular-file shape, and expected content where held
+in memory, and reject any missing or changed child evidence.
 
 Every invocation that durably creates the consumed state, including failure
 before USB discovery, must produce a result and canonical eight-event timeline.
@@ -174,9 +184,13 @@ device action.
 No canonical PASS result may be published until the sealed-Odin and transaction
 contexts have both exited normally. Immediately before the final result, the
 helper must reopen the canonical guard/state/run identities and the exact
-timeline. The result is the final load-bearing write; stdout summary reporting
-and descriptor close errors are non-load-bearing and cannot invalidate or
-contradict an already published exact PASS.
+timeline plus every child evidence record. This validator must execute inside
+the final exclusive publication after the temporary result is durable and
+immediately before its canonical link is created, so a repository-root swap or
+evidence deletion at the publication boundary cannot produce PASS. The result
+is the final load-bearing write; stdout summary reporting and descriptor close
+errors are non-load-bearing and cannot invalidate or contradict an already
+published exact PASS.
 
 PASS is only
 `PASS_R4W1C2_NOAP_REBOOT_RECOVERY_EXACT_MAGISK_ANDROID`. It requires exact
