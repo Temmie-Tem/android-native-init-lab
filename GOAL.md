@@ -6,6 +6,29 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-21 01:39 KST / 2026-07-20 16:39 UTC) -
+> R4W1-C2 USBFS REPAIR POLICY REACTIVATED; POST-ACTIVATION HOST GO;
+> ONE-SHOT UNCONSUMED; FRESH EXACT LIVE TOKEN NEXT.** Repair commit
+> `10d44120` closes the measured initial-node settle race and latent immutable-
+> digest schema mismatch. Independent ephemeral `gpt-5.6-sol` xhigh review
+> session `019f8060-e450-79a1-ae7c-170d4dcfbbc6` returned
+> `GO_TO_EXACT_REACTIVATION`, MUST-FIX 0. The exact reviewed clause was installed
+> in policy-only commit `1099b410`.
+>
+> Installed clause SHA256 is `cae20071...db1fe3b`; current `AGENTS.md` SHA256
+> is `632b78b7...acd539`. Post-activation related tests pass `162/162`, and the
+> exact helper returns `PASS_R4W1C2_LIVE_GATE_OFFLINE_CHECK` with the repaired
+> helper/test hashes, `policy.active=true`, `candidate_consumed=false`, and all
+> device contact, write, reboot, Download, Odin-transfer, and flash fields false.
+> The unique consumed state remains absent. The handset remains exact healthy
+> FYG8 Android/Magisk after the pre-consumption failure recovery.
+>
+> The prior acknowledgement was spent on the failed pre-consumption entry and
+> does not carry. The next and only live entry is a newly supplied exact
+> `S22PLUS-FYG8-R4W1C2-MEASURED-USBFS-PHYSICAL-CONTINUITY-DIRECT-PID1-LIVE`.
+> Report:
+> `docs/reports/S22PLUS_FYG8_R4W1C2_USBFS_REPAIR_POLICY_READY_2026-07-21.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-21 01:30 KST / 2026-07-20 16:30 UTC) -
 > R4W1-C2 LIVE FAILED CLOSED PRE-CONSUMPTION; NO CANDIDATE FLASH; USBFS
 > STABILIZATION REPAIR IMPLEMENTED HOST-ONLY; REBIND NEXT.** The fresh exact
