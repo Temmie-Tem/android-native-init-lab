@@ -136,6 +136,30 @@ class S22PlusOdinTransitionCoreTest(unittest.TestCase):
             receipts = self.module.list_snapshot_receipts(run_dir)
             self.assertEqual(receipts[0]["stale_devices"], ["/dev/bus/usb/002/007"])
 
+    def test_legacy_v1_receipt_preserves_historical_summary_shape(self):
+        module = self.module
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            receipt = run_dir / "receipts/odin-snapshot-000000.json"
+            module._create_sealed_receipt(
+                receipt,
+                {
+                    "schema": module.SNAPSHOT_SCHEMA_V1,
+                    "sequence": 0,
+                    "timestamp_utc": "2026-07-19T20:05:57.618067Z",
+                    "returncode": 0,
+                    "raw_devices": [],
+                    "live_devices": [],
+                    "stale_devices": [],
+                    "live_device_identities": [],
+                    "stdout": "",
+                    "stderr": "",
+                },
+            )
+            records = module.list_snapshot_receipts(run_dir)
+        self.assertEqual(len(records), 1)
+        self.assertNotIn("endpoint_transition_evidence", records[0])
+
     def test_wait_assigns_generation_after_stale_then_live(self):
         clock = FakeClock()
         outputs = ["/dev/bus/usb/002/007", "/dev/bus/usb/002/008"]

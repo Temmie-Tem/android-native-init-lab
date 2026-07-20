@@ -6,6 +6,30 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-21 00:58 KST / 2026-07-20 15:58 UTC) -
+> R4W1-C2 MEASURED LIVE SOURCE HOST GO; EXACT BINDING PACKET EMITTED; POLICY
+> INACTIVE; INDEPENDENT REVIEW NEXT.** A new target-specific helper preserves
+> the retired R4W1-C transaction and rollback state machine under a unique
+> R4W1-C2 namespace, while selecting the reusable timestamp-aware USBFS
+> observer for every ticketed candidate/rollback enumeration, pre-transfer
+> revalidation, candidate disappearance, and final Odin-absence check. It binds
+> the immutable digest to the existing exact Samsung sysfs topology and
+> descriptor checks and rechecks all candidate, rollback, firmware, Odin, core,
+> birth-time executable, and historical connected-PASS evidence before contact
+> and again before one-shot consumption.
+>
+> The related focused suite passes `141/141`; the R4W1-C2 live and binding
+> suites pass `59/59` and `7/7`; common transition/USBFS suites pass `75/75`.
+> Historical v1 receipt summaries now preserve their original shape, and the
+> exact historical R4W1-C Odin evidence reconstructs identically. Actual
+> host-only source and offline gates return
+> `PASS_R4W1C2_MEASURED_SOURCE_PACKET_HOST_ONLY` and
+> `PASS_R4W1C2_LIVE_GATE_OFFLINE_CHECK`. The rendered clause SHA256 is
+> `6f0f0471...5c478f8f`; policy remains absent/inactive and the candidate
+> one-shot state is absent. No device, USB, ADB, reboot, Download transition,
+> Odin execution, transfer, flash, or policy activation occurred. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_SOURCE_HOST_GO_2026-07-21.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-21 00:12 KST / 2026-07-20 15:12 UTC) -
 > REUSABLE ODIN USBFS IDENTITY CORE IMPLEMENTED HOST-ONLY; INDEPENDENT REVIEW
 > NEXT; NO LIVE AUTHORITY.** The consumed R4W1-C observation is now represented

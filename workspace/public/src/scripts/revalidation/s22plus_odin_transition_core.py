@@ -1072,19 +1072,21 @@ def list_snapshot_receipts(run_dir: Path) -> list[dict[str, Any]]:
             or not isinstance(payload.get("stderr"), str)
         ):
             raise OdinTransitionError(f"snapshot receipt observation invalid: {path}")
-        records.append(
-            {
-                "path": str(path),
-                "sequence": sequence,
-                "timestamp_utc": payload["timestamp_utc"],
-                "size": identity["size"],
-                "sha256": identity["sha256"],
-                "live_devices": live,
-                "live_device_identities": identities,
-                "endpoint_transition_evidence": evidence,
-                "stale_devices": stale,
-            }
-        )
+        record = {
+            "path": str(path),
+            "sequence": sequence,
+            "timestamp_utc": payload["timestamp_utc"],
+            "size": identity["size"],
+            "sha256": identity["sha256"],
+            "live_devices": live,
+            "live_device_identities": identities,
+            "stale_devices": stale,
+        }
+        # Preserve the exact historical v1 summary shape so evidence collected
+        # before measured endpoint support still reopens byte-for-byte.
+        if schema == SNAPSHOT_SCHEMA:
+            record["endpoint_transition_evidence"] = evidence
+        records.append(record)
     sequences = [record["sequence"] for record in records]
     if sequences != sorted(set(sequences)):
         raise OdinTransitionError("snapshot receipt sequence is invalid")

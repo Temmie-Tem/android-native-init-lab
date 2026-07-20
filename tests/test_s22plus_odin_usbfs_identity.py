@@ -379,7 +379,7 @@ class S22PlusOdinUsbfsIdentityTest(unittest.TestCase):
                 )
             receipts = core.list_snapshot_receipts(run_dir)
             self.assertEqual(receipts[0]["live_device_identities"], [[USB_008, "legacy-node"]])
-            self.assertIsNone(receipts[0]["endpoint_transition_evidence"])
+            self.assertNotIn("endpoint_transition_evidence", receipts[0])
 
     def test_post_receipt_immutable_replacement_is_rejected(self):
         module = self.module
