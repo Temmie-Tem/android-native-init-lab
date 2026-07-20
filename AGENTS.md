@@ -26,9 +26,9 @@ to Samsung S22+
 
 The only executable helper is
 `workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1c2_measured_live_gate.py`
-SHA256 `1454cb422b24a895df965d2e7838aaf9614381c3bde41bef64bd570cf970292f`; its focused test is
+SHA256 `22cba55a924e9c56e5d245114357921ebefc73460a673e40e22c7ecf2e145172`; its focused test is
 `tests/test_s22plus_fyg8_r4w1c2_measured_live_gate.py` SHA256
-`acdf862bb0433b7efcb9dfde834ec10bba735d0356e87ecb5f1342b5201557b0`. The reviewed inert policy template is
+`9ba6da5d1e72e030e3648297491dc8c745b33607b0ea08a37478eb2787c9cbdb`. The reviewed inert policy template is
 `docs/operations/S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_EXCEPTION_DRAFT_2026-07-21.md`
 SHA256 `710481ab970133232570baaf2aab9bcef73d82c217fb155a06feb3cbdd4d3d45`. The live acknowledgement is
 `S22PLUS-FYG8-R4W1C2-MEASURED-USBFS-PHYSICAL-CONTINUITY-DIRECT-PID1-LIVE`.
