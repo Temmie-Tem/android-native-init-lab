@@ -70,8 +70,8 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             self.assertIn(state, self.process)
 
     def test_frontier_advances_to_f1_adapter_without_live_authority(self):
-        self.assertIn("data-only\nmanifest readiness are complete", self.goal)
-        self.assertIn("Connected D0 preparation passed", self.goal)
+        self.assertIn("stopped before candidate\nattempt or transfer", self.goal)
+        self.assertIn("new D0 preparation are pending", self.goal)
         self.assertIn("P2.1-P2.4 complete", self.process)
         self.assertIn("reusable D0 adapter are complete", self.agents)
         self.assertIn("read-only D0 qualification passed", self.agents)
@@ -86,6 +86,7 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("default manifest remains `draft-host-only`", self.process)
         self.assertIn("`ready-for-f1-approval` status", self.process)
         self.assertIn("private exact target binding", self.process)
+        self.assertIn("aborted binding is not reusable", self.process)
         self.assertIn(
             "No active S22+ F1 authorization", " ".join(self.goal.split())
         )

@@ -134,6 +134,13 @@ a private exact target binding without reboot, Odin, transfer, or device write.
 occurred in the source, readiness, or preparation units. See
 `docs/reports/DEVICE_ACTION_PROCESS_V2_F1_ADAPTER_HOST_PASS_2026-07-21.md`.
 
+The first later approved invocation stopped before candidate attempt or Odin
+transfer when a Download node arrived between an empty snapshot receipt and its
+post-receipt revalidation. The minimal fix permits only endpoint-arrival polling
+to continue after that empty receipt; tickets and terminal absence remain
+strict. Tests and independent review passed. The aborted binding is not reusable.
+See `docs/reports/DEVICE_ACTION_PROCESS_V2_F1_CANARY_PRESESSION_USBFS_ARRIVAL_INCIDENT_2026-07-21.md`.
+
 ### Append-Only Journal
 
 The runner creates one exclusive run directory and appends immutable transition

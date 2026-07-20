@@ -356,6 +356,76 @@ class S22PlusOdinUsbfsIdentityTest(unittest.TestCase):
             )
         self.assertEqual(called, [])
 
+    def test_empty_snapshot_allows_endpoint_arrival_before_next_poll(self):
+        module = self.module
+        core = self.core
+        before = node(module)
+        after = dataclasses.replace(before, st_atime_ns=101, st_ctime_ns=201)
+        stable = dataclasses.replace(
+            before, st_atime_ns=102, st_ctime_ns=202, st_mtime_ns=301
+        )
+        observations = iter(
+            ({}, {}, {USB_008: before}, {USB_008: after}, {USB_008: stable})
+        )
+
+        def factory():
+            return module.MeasuredUsbfsIdentityObserver(
+                inventory_reader=lambda: dict(next(observations)),
+            )
+
+        outputs = iter(("", USB_008))
+
+        def runner(_argv, _timeout):
+            return SimpleNamespace(returncode=0, stdout=next(outputs), stderr="")
+
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            with core.transaction_session(run_dir) as lease:
+                waited = core.wait_for_single_live_endpoint(
+                    Path("odin4"),
+                    run_dir,
+                    timeout_sec=1,
+                    lease=lease,
+                    poll_sec=0,
+                    runner=runner,
+                    endpoint_observer_factory=factory,
+                )
+            self.assertFalse(waited.timed_out)
+            self.assertEqual(waited.ticket.device, USB_008)
+            receipts = core.list_snapshot_receipts(run_dir)
+            self.assertEqual(len(receipts), 2)
+            self.assertEqual(receipts[0]["live_devices"], [])
+            self.assertEqual(receipts[1]["live_devices"], [USB_008])
+
+    def test_terminal_absence_rejects_endpoint_arrival_after_empty_receipt(self):
+        module = self.module
+        core = self.core
+        before = node(module)
+        observations = iter(({}, {}, {USB_008: before}))
+
+        def factory():
+            return module.MeasuredUsbfsIdentityObserver(
+                inventory_reader=lambda: dict(next(observations)),
+            )
+
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            with core.transaction_session(run_dir) as lease:
+                with self.assertRaises(core.OdinTransitionError):
+                    core.wait_for_no_live_endpoint(
+                        Path("odin4"),
+                        run_dir,
+                        timeout_sec=1,
+                        lease=lease,
+                        runner=lambda _argv, _timeout: SimpleNamespace(
+                            returncode=0, stdout="", stderr=""
+                        ),
+                        endpoint_observer_factory=factory,
+                    )
+            receipts = core.list_snapshot_receipts(run_dir)
+            self.assertEqual(len(receipts), 1)
+            self.assertEqual(receipts[0]["live_devices"], [])
+
     def test_legacy_v1_snapshot_receipt_remains_readable(self):
         core = self.core
         with tempfile.TemporaryDirectory() as temporary:

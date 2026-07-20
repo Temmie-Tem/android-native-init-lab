@@ -1273,6 +1273,7 @@ def _snapshot_and_record(
     timestamp: Callable[[], str],
     enumeration_timeout_sec: float,
     lease: _TransactionLease,
+    allow_empty_post_receipt_change: bool = False,
 ) -> tuple[OdinSnapshot, dict[str, Any]]:
     snapshot = enumerate_odin(
         odin,
@@ -1292,13 +1293,16 @@ def _snapshot_and_record(
                 )
     else:
         try:
-            revalidator = _new_endpoint_observer(endpoint_observer_factory)
             evidence = snapshot.endpoint_transition_evidence
             if evidence is None:
                 raise OdinTransitionError(
                     "measured USB endpoint evidence is absent after receipt"
                 )
-            revalidator.revalidate(evidence)
+            # Only endpoint-arrival polling may carry an empty receipt forward.
+            # Tickets and terminal absence checks remain strictly revalidated.
+            if snapshot.live_devices or not allow_empty_post_receipt_change:
+                revalidator = _new_endpoint_observer(endpoint_observer_factory)
+                revalidator.revalidate(evidence)
         except (OSError, usbfs_identity.UsbfsIdentityError) as exc:
             raise OdinTransitionError(
                 "measured USB endpoint changed while recording snapshot"
@@ -1347,6 +1351,7 @@ def wait_for_single_live_endpoint(
             timestamp=timestamp,
             enumeration_timeout_sec=min(DEFAULT_ENUM_TIMEOUT_SEC, remaining),
             lease=lease,
+            allow_empty_post_receipt_change=True,
         )
         generation = tracker.observe(snapshot.live_device_identities)
         sequence += 1
