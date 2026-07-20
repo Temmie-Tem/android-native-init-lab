@@ -1,7 +1,11 @@
 # CLAUDE.md
 
-This is the active agent guide for this repository. Keep it short and current.
-For full history, read `docs/reports/`, `docs/overview/PROJECT_STATUS.md`, and
+This is a concise legacy orientation, not an authorization source. `AGENTS.md`
+is the canonical binding contract for every agent and overrides this file on
+all safety, device-action, flash, and current-frontier questions. Classify new
+device work with `docs/operations/DEVICE_ACTION_RISK_TIERS.md`; existing
+target-specific clauses still take precedence. For full history, read
+`docs/reports/`, `docs/overview/PROJECT_STATUS.md`, and
 `docs/archive/legacy/guides/CLAUDE_LEGACY_WIFI_RESEARCH_LOG_2026-06-07.md`.
 
 ## Current Project State

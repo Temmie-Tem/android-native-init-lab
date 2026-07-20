@@ -1,7 +1,8 @@
 # AGENTS.md — operating contract for autonomous Codex runs
 
 This is the binding contract for Codex working this repo, **including unattended /
-bypass runs**. It mirrors `CLAUDE.md`. `GOAL.md` says what to pursue; this file says how.
+bypass runs**. `CLAUDE.md` delegates authorization and safety decisions to this
+file. `GOAL.md` says what to pursue; this file says how.
 **Safety invariants and flash gates below are absolute and override any sub-goal.**
 
 The work cycle (STATE → SELECT → DESIGN → IMPLEMENT → STATIC VALIDATE → DEVICE → REPORT →
@@ -17,12 +18,34 @@ BL, CP, CSC, userdata, or any non-boot flash.
 
 ## Safety invariants (NEVER violate)
 
+### Proportional device-action gates
+
+Classify new work using
+`docs/operations/DEVICE_ACTION_RISK_TIERS.md`: H0 host-only, D0 connected
+read-only, D1 transient no-payload control, F1 boot-only transfer, or X
+forbidden. Validation effort must remain proportional to the action. Ordinary
+D1 recovery requires one fresh approval, exact target/argv bounds, a timeout,
+and a health check; it does not require a bespoke one-shot policy or repeated
+independent-model reviews unless an installed target-specific clause says so.
+Any payload, partition write, persistent/security-state change, new low-level
+transport, or ambiguous target escalates out of D1. Existing explicit clauses
+and absolute prohibitions override this classification.
+
 BEGIN_S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_POLICY_V1
-**Pending one-shot exception (S22+ FYG8 R4W1-C2 measured-usbfs
+**Consumed/retired exception (2026-07-21, S22+ FYG8 R4W1-C2 measured-usbfs
 watchdog-carrier direct-PID1 boot-only live gate):** this clause applies only
 to Samsung S22+
 `SM-S906N` / `g0q` / `S906NKSS7FYG8`. The exact policy state is
-`S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_POLICY_STATE=ACTIVE`.
+`S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_POLICY_STATE=RETIRED`.
+
+The one-shot state was consumed before the candidate launch. Candidate,
+Magisk, and stock AP invocations each failed in the host parser on the exact
+extensionless sealed path before `Setup Connection`; no Odin device session,
+payload transfer, or partition write occurred. This is no native-PID1 proof.
+The separate no-AP recovery policy was never installed, its ninth review was
+stopped before verdict, and that branch is closed. This clause and all of its
+acknowledgements are permanently retired and authorize no device contact,
+recovery invocation, transfer, retry, or policy reuse.
 
 The only executable helper is
 `workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1c2_measured_live_gate.py`
