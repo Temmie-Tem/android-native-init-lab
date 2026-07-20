@@ -6,6 +6,27 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-21 02:02 KST / 2026-07-20 17:02 UTC) -
+> R4W1-C2 SEALED AP PATH ROOT CAUSE PROVEN; ZERO PARTITION TRANSFERS;
+> STOCK-INTENT BLOCKED; SEPARATE NO-AP REBOOT RECOVERY IN HOST REVIEW.** The
+> candidate, Magisk, and stock AP attempts all returned rc `1`, identical
+> 51-byte stdout SHA256 `7f616245...f31adb4`, and empty stderr. The digest is
+> exactly `Reboot into normal mode\nFail parse /proc/self/fd/7\n`; there is no
+> `Setup Connection` or completed-transfer receipt. A USB-hidden host sandbox
+> independently reproduced that extensionless AP paths fail parsing before the
+> Odin device session. This is a host sealed-path bug, not native-PID1 evidence.
+>
+> The durable stock intent correctly blocks built-in recovery. A new dedicated
+> helper permits only sealed `odin4 --reboot -d <measured-node>` with no AP or
+> payload option, exact incident pins, same-topology USBFS revalidation,
+> separate one-shot state, bounded durable output, and exact Android/Magisk
+> return. Its focused tests pass `13/13`; actual offline verdict is
+> `PASS_R4W1C2_NOAP_REBOOT_RECOVERY_SOURCE_HOST_ONLY`, policy inactive,
+> one-shot unconsumed, and all device-action fields false. Next is independent
+> review, exact policy activation, fresh recovery acknowledgement, one no-AP
+> reboot, health proof, and immediate retirement. Design/report:
+> `docs/reports/S22PLUS_FYG8_R4W1C2_SEALED_AP_PARSE_FAILURE_AND_NOAP_RECOVERY_DESIGN_2026-07-21.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-21 01:39 KST / 2026-07-20 16:39 UTC) -
 > R4W1-C2 USBFS REPAIR POLICY REACTIVATED; POST-ACTIVATION HOST GO;
 > ONE-SHOT UNCONSUMED; FRESH EXACT LIVE TOKEN NEXT.** Repair commit
