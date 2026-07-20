@@ -13,11 +13,11 @@ device or USB contact.
 
 The only executable helper is
 `workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1c2_noap_reboot_recovery.py`,
-size `49707`, SHA256
-`6efe8c8e8a4846b4adf9b1ecb7c335e5ab20cdf7a0a0b2c8845e2bc21e0b5c72`.
+size `63483`, SHA256
+`fa5d2d7c1a16b5aa08278f5c63d98b4289f92a71a4d052a055abd7483ce12257`.
 Its focused test is
-`tests/test_s22plus_fyg8_r4w1c2_noap_reboot_recovery.py`, size `33933`, SHA256
-`3fee6484e075061dacebea80314e25325189c960845b68f571f24530efd26777`.
+`tests/test_s22plus_fyg8_r4w1c2_noap_reboot_recovery.py`, size `40489`, SHA256
+`32771a0568856c18b8808ec248106f8643991d7466f8bc03820d41b65ee3e323`.
 The fresh live acknowledgement is
 `S22PLUS-FYG8-R4W1C2-NOAP-REBOOT-RECOVERY-LIVE`.
 The helper must require that the policy block installed in `AGENTS.md` is
@@ -101,7 +101,16 @@ Before publication, every repository-relative component through
 direct directory, the run directory must be one new direct child of the run
 root, and its parent must be fsynced. The consumed state may be published only
 after that durable run directory exists; its direct state parent and the state
-file itself must be checked and durably fsynced.
+file itself must be checked and durably fsynced. The helper must hold direct
+file descriptors for both the run and state directories for the complete live
+invocation. State, attempt, process output, timeline, and result publication
+must use descriptor-relative no-follow exclusive operations, and every accepted
+record must be a private regular file with link count exactly one. Existing
+records are idempotently acceptable only when their descriptor-bound bytes are
+exactly equal to the bytes being published. The canonical state-parent, state
+file, run-directory, and launch-attempt inode identities must be revalidated
+from their held descriptors before USB contact or process launch; a renamed or
+symlink-substituted parent is non-PASS and stops before launch.
 Creation consumes this recovery exception regardless of result. After final
 endpoint revalidation, the helper must durably record the exact no-AP launch
 attempt immediately before process creation. This action receipt is the only
@@ -115,11 +124,17 @@ The argv must contain exactly the executable, `--reboot`, `-d`, and the bound
 device path. `-a`, `-b`, `-c`, `-s`, `-u`, `-e`, `-V`, `--redownload`, and every
 other payload or mode option are forbidden. stdin must be `/dev/null`; with
 standard fds excluded, only the sealed Odin fd may be inherited through
-`pass_fds`. stdout and stderr are bounded together to at most exactly 1 MiB and
-60 seconds, persisted durably before interpretation, and must show rc `0`, empty stderr,
-the exact bound node, and the ordered no-AP reboot success lines. Any timeout,
-output overflow, nonzero rc, stderr, missing line, endpoint change, or ambiguous
-USB state is non-PASS and authorizes no retry.
+`pass_fds`. The child environment must be exactly `PATH=/usr/bin:/bin`,
+`LANG=C`, and `LC_ALL=C`; inherited loader, library, locale, Python, or other
+caller variables are forbidden. stdout and stderr are bounded together to at
+most exactly 1 MiB. The 60-second total process budget includes a reserved,
+bounded kill-and-reap interval; no timeout or exception path may call an
+unbounded wait. Outcome evidence must state whether kill was sent, whether the
+direct child was reaped, and any bounded cleanup error. Captured output is
+persisted durably before interpretation and must show rc `0`, empty stderr, the
+exact bound node, and the ordered no-AP reboot success lines. Any timeout,
+output overflow, nonzero rc, stderr, missing line, endpoint change, ambiguous
+USB state, or unreaped child is non-PASS and authorizes no retry.
 
 Every invocation that durably creates the consumed state, including failure
 before USB discovery, must produce a result and canonical eight-event timeline.
@@ -130,6 +145,12 @@ outcome receipts must truthfully distinguish no attempt, attempted but no
 return, returned nonzero, timeout, exact-cap overflow, and returned success.
 Failure results may not state `reboot=false`; they must use an unknown reboot
 outcome unless exact Android readiness is proven.
+Canonical timeline and result publication must independently retry one
+transient host publication failure and may accept only the exact bytes from the
+same invocation. A result failure must not suppress the timeline attempt, and a
+timeline failure must not suppress the result attempt. Repeated publication
+failure remains non-PASS and must be reported without performing another
+device action.
 
 PASS is only
 `PASS_R4W1C2_NOAP_REBOOT_RECOVERY_EXACT_MAGISK_ANDROID`. It requires exact

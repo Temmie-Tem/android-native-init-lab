@@ -41,7 +41,7 @@ OLD_POLICY_END = "END_S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_POLICY_V1"
 OLD_POLICY_ACTIVE = "S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_POLICY_STATE=ACTIVE"
 OLD_POLICY_RETIRED = "S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_POLICY_STATE=RETIRED"
 EXPECTED_POLICY_TEMPLATE_SHA256 = (
-    "9eab648aec876d5e229e35926927dcf06cea8d1ab70c034df312b7e1a064d7f9"
+    "533eb79e4d1327618491f87cdd37be61cacd543dfe4dc222ef6e9003226c86ac"
 )
 LIVE_ACK = "S22PLUS-FYG8-R4W1C2-NOAP-REBOOT-RECOVERY-LIVE"
 PASS_VERDICT = "PASS_R4W1C2_NOAP_REBOOT_RECOVERY_EXACT_MAGISK_ANDROID"
@@ -69,6 +69,9 @@ ODIN_SUCCESS_LINES = (
     "Close Connection",
 )
 MAX_ODIN_OUTPUT = 1024 * 1024
+ODIN_CLEANUP_GRACE_SEC = 2.0
+FINAL_PUBLISH_ATTEMPTS = 2
+ODIN_ENV = {"PATH": "/usr/bin:/bin", "LANG": "C", "LC_ALL": "C"}
 PHYSICAL_CONTINUITY_BASIS = (
     "operator-attested-original-r4w1c2-handset;same-cable-hub-host-port;"
     "screen-normal-samsung-download-at-live-ack;download-serial-absent;"
@@ -204,6 +207,9 @@ class BoundedOdinError(RecoveryError):
         timed_out: bool = False,
         output_overflow: bool = False,
         runner_error: bool = False,
+        kill_sent: bool = False,
+        reaped: bool = False,
+        cleanup_error: str | None = None,
     ):
         super().__init__(message)
         self.stdout = stdout
@@ -211,6 +217,9 @@ class BoundedOdinError(RecoveryError):
         self.timed_out = timed_out
         self.output_overflow = output_overflow
         self.runner_error = runner_error
+        self.kill_sent = kill_sent
+        self.reaped = reaped
+        self.cleanup_error = cleanup_error
 
 
 def repo_root() -> Path:
@@ -226,42 +235,6 @@ def stable_bytes(path: Path, *, maximum: int = 4 * 1024 * 1024) -> bytes:
         return core.read_stable_file(path, maximum=maximum)
     except (OSError, core.LiveCoreError) as exc:
         raise RecoveryError(f"pinned file is unavailable: {path}") from exc
-
-
-def durable_create_bytes(path: Path, payload: bytes) -> dict[str, Any]:
-    require_direct_directory(path.parent)
-    flags = (
-        os.O_WRONLY
-        | os.O_CREAT
-        | os.O_EXCL
-        | getattr(os, "O_CLOEXEC", 0)
-        | getattr(os, "O_NOFOLLOW", 0)
-    )
-    try:
-        descriptor = os.open(path, flags, 0o600)
-    except FileExistsError as exc:
-        raise RecoveryError(f"evidence already exists: {path}") from exc
-    try:
-        metadata = os.fstat(descriptor)
-        if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
-            raise RecoveryError(
-                f"evidence target is not a private regular file: {path}"
-            )
-        view = memoryview(payload)
-        while view:
-            written = os.write(descriptor, view)
-            if written <= 0:
-                raise RecoveryError(f"evidence write stalled: {path}")
-            view = view[written:]
-        os.fsync(descriptor)
-    finally:
-        os.close(descriptor)
-    fsync_directory(path.parent)
-    return {
-        "path": str(path),
-        "size": len(payload),
-        "sha256": sha256_bytes(payload),
-    }
 
 
 def require_direct_directory(path: Path) -> os.stat_result:
@@ -297,6 +270,275 @@ def fsync_directory(path: Path) -> None:
         os.fsync(descriptor)
     finally:
         os.close(descriptor)
+
+
+def open_bound_directory(root: Path, path: Path) -> int:
+    require_direct_directory_chain(root, path)
+    flags = os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_CLOEXEC", 0)
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as exc:
+        raise RecoveryError(f"cannot hold direct directory: {path}") from exc
+    try:
+        revalidate_bound_directory(descriptor, path)
+    except BaseException:
+        os.close(descriptor)
+        raise
+    return descriptor
+
+
+def revalidate_bound_directory(descriptor: int, path: Path) -> os.stat_result:
+    try:
+        held = os.fstat(descriptor)
+        current = os.stat(path, follow_symlinks=False)
+    except OSError as exc:
+        raise RecoveryError(f"bound directory is unavailable: {path}") from exc
+    if (
+        not stat.S_ISDIR(held.st_mode)
+        or not stat.S_ISDIR(current.st_mode)
+        or path.is_symlink()
+        or (held.st_dev, held.st_ino) != (current.st_dev, current.st_ino)
+    ):
+        raise RecoveryError(f"bound directory identity changed: {path}")
+    return held
+
+
+def _validate_leaf_name(name: str) -> None:
+    if not name or name in {".", ".."} or "/" in name or "\x00" in name:
+        raise RecoveryError(f"invalid descriptor-bound evidence name: {name!r}")
+
+
+def read_bytes_at(directory_fd: int, name: str, *, maximum: int) -> bytes:
+    _validate_leaf_name(name)
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(name, flags, dir_fd=directory_fd)
+    except OSError as exc:
+        raise RecoveryError(f"descriptor-bound evidence is unavailable: {name}") from exc
+    try:
+        before = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or before.st_nlink != 1
+            or before.st_size < 0
+            or before.st_size > maximum
+        ):
+            raise RecoveryError(f"descriptor-bound evidence is not private: {name}")
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            chunk = os.read(descriptor, min(65536, maximum + 1 - total))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            total += len(chunk)
+            if total > maximum:
+                raise RecoveryError(f"descriptor-bound evidence exceeds bound: {name}")
+        after = os.fstat(descriptor)
+        if (
+            (before.st_dev, before.st_ino, before.st_size)
+            != (after.st_dev, after.st_ino, after.st_size)
+            or after.st_nlink != 1
+            or total != before.st_size
+        ):
+            raise RecoveryError(f"descriptor-bound evidence changed while read: {name}")
+        return b"".join(chunks)
+    finally:
+        os.close(descriptor)
+
+
+def leaf_exists_at(directory_fd: int, name: str) -> bool:
+    _validate_leaf_name(name)
+    try:
+        os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+    except FileNotFoundError:
+        return False
+    except OSError as exc:
+        raise RecoveryError(f"cannot inspect descriptor-bound evidence: {name}") from exc
+    return True
+
+
+def exact_record_at(
+    directory_fd: int,
+    name: str,
+    payload: bytes,
+    *,
+    display_path: Path,
+) -> dict[str, Any]:
+    actual = read_bytes_at(directory_fd, name, maximum=max(len(payload), 1))
+    if actual != payload:
+        raise RecoveryError(f"descriptor-bound evidence content changed: {display_path}")
+    return {
+        "path": str(display_path),
+        "size": len(payload),
+        "sha256": sha256_bytes(payload),
+    }
+
+
+def existing_record_at(
+    directory_fd: int,
+    name: str,
+    *,
+    display_path: Path,
+    maximum: int = 4 * 1024 * 1024,
+) -> dict[str, Any]:
+    payload = read_bytes_at(directory_fd, name, maximum=maximum)
+    return {
+        "path": str(display_path),
+        "size": len(payload),
+        "sha256": sha256_bytes(payload),
+    }
+
+
+def durable_create_bytes_at(
+    directory_fd: int,
+    name: str,
+    payload: bytes,
+    *,
+    display_path: Path,
+) -> dict[str, Any]:
+    _validate_leaf_name(name)
+    temporary = f".{name}.tmp-{os.getpid()}-{time.time_ns()}"
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_CLOEXEC", 0)
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    descriptor: int | None = None
+    temporary_exists = False
+    try:
+        descriptor = os.open(temporary, flags, 0o600, dir_fd=directory_fd)
+        temporary_exists = True
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+            raise RecoveryError(f"temporary evidence is not private: {display_path}")
+        view = memoryview(payload)
+        while view:
+            written = os.write(descriptor, view)
+            if written <= 0:
+                raise RecoveryError(f"evidence write stalled: {display_path}")
+            view = view[written:]
+        os.fsync(descriptor)
+        os.close(descriptor)
+        descriptor = None
+        try:
+            os.link(
+                temporary,
+                name,
+                src_dir_fd=directory_fd,
+                dst_dir_fd=directory_fd,
+                follow_symlinks=False,
+            )
+        except FileExistsError as exc:
+            raise RecoveryError(f"evidence already exists: {display_path}") from exc
+        os.unlink(temporary, dir_fd=directory_fd)
+        temporary_exists = False
+        os.fsync(directory_fd)
+        return exact_record_at(
+            directory_fd, name, payload, display_path=display_path
+        )
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        if temporary_exists:
+            try:
+                os.unlink(temporary, dir_fd=directory_fd)
+            except FileNotFoundError:
+                pass
+
+
+def durable_create_bytes_at_idempotent(
+    directory_fd: int,
+    name: str,
+    payload: bytes,
+    *,
+    display_path: Path,
+    attempts: int = FINAL_PUBLISH_ATTEMPTS,
+) -> dict[str, Any]:
+    if attempts < 1:
+        raise RecoveryError("descriptor-bound publication attempts are invalid")
+    last_error: BaseException | None = None
+    for attempt in range(attempts):
+        try:
+            return durable_create_bytes_at(
+                directory_fd, name, payload, display_path=display_path
+            )
+        except (OSError, RecoveryError) as exc:
+            last_error = exc
+            try:
+                return exact_record_at(
+                    directory_fd, name, payload, display_path=display_path
+                )
+            except RecoveryError:
+                if attempt + 1 >= attempts:
+                    raise exc
+    assert last_error is not None
+    raise last_error
+
+
+def json_record_bytes(value: Any) -> bytes:
+    try:
+        return (
+            json.dumps(
+                value,
+                indent=2,
+                sort_keys=True,
+                ensure_ascii=True,
+                allow_nan=False,
+            )
+            + "\n"
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise RecoveryError("evidence JSON is not finite and serializable") from exc
+
+
+def durable_create_json_at_idempotent(
+    directory_fd: int,
+    name: str,
+    value: Any,
+    *,
+    display_path: Path,
+) -> dict[str, Any]:
+    return durable_create_bytes_at_idempotent(
+        directory_fd,
+        name,
+        json_record_bytes(value),
+        display_path=display_path,
+    )
+
+
+def parse_json_at(directory_fd: int, name: str, label: str) -> dict[str, Any]:
+    return parse_json(read_bytes_at(directory_fd, name, maximum=4 * 1024 * 1024), label)
+
+
+def revalidate_bound_file_path(
+    directory_fd: int,
+    directory_path: Path,
+    name: str,
+    payload: bytes,
+) -> None:
+    held_directory = revalidate_bound_directory(directory_fd, directory_path)
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        by_name = os.open(name, flags, dir_fd=directory_fd)
+        by_path = os.open(directory_path / name, flags)
+    except OSError as exc:
+        raise RecoveryError(f"bound evidence path is unavailable: {directory_path / name}") from exc
+    try:
+        name_stat = os.fstat(by_name)
+        path_stat = os.fstat(by_path)
+        if (
+            not stat.S_ISREG(name_stat.st_mode)
+            or name_stat.st_nlink != 1
+            or (name_stat.st_dev, name_stat.st_ino)
+            != (path_stat.st_dev, path_stat.st_ino)
+            or name_stat.st_dev != held_directory.st_dev
+        ):
+            raise RecoveryError(f"bound evidence path identity changed: {directory_path / name}")
+    finally:
+        os.close(by_name)
+        os.close(by_path)
+    exact_record_at(
+        directory_fd, name, payload, display_path=directory_path / name
+    )
 
 
 def allocate_recovery_run_dir(root: Path) -> Path:
@@ -682,6 +924,30 @@ def validate_reboot_stdout(stdout: bytes, stderr: bytes, device: str) -> list[st
     return lines
 
 
+def bounded_kill_reap(
+    process: subprocess.Popen[bytes], deadline: float
+) -> tuple[bool, bool, str | None]:
+    kill_sent = False
+    cleanup_error: str | None = None
+    try:
+        if process.poll() is None:
+            process.kill()
+            kill_sent = True
+    except OSError as exc:
+        cleanup_error = f"kill failed: {exc}"
+    remaining = max(0.0, deadline - time.monotonic())
+    try:
+        if process.poll() is None and remaining > 0:
+            process.wait(timeout=remaining)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        detail = f"bounded reap failed: {exc}"
+        cleanup_error = detail if cleanup_error is None else f"{cleanup_error}; {detail}"
+    reaped = process.poll() is not None
+    if not reaped and cleanup_error is None:
+        cleanup_error = "child was not reaped within the total timeout"
+    return kill_sent, reaped, cleanup_error
+
+
 def bounded_odin_runner(
     command: list[str],
     *,
@@ -689,6 +955,7 @@ def bounded_odin_runner(
     stderr: int,
     stdin: int,
     pass_fds: tuple[int, ...],
+    env: dict[str, str],
     timeout: float,
     check: bool,
 ) -> subprocess.CompletedProcess[bytes]:
@@ -696,16 +963,18 @@ def bounded_odin_runner(
         stdout != subprocess.PIPE
         or stderr != subprocess.PIPE
         or stdin != subprocess.DEVNULL
+        or env != ODIN_ENV
         or check
     ):
         raise RecoveryError("bounded Odin runner contract is invalid")
-    if not math.isfinite(timeout) or timeout <= 0:
+    if not math.isfinite(timeout) or timeout <= ODIN_CLEANUP_GRACE_SEC:
         raise RecoveryError("bounded Odin timeout is invalid")
     process: subprocess.Popen[bytes] | None = None
     selector: selectors.BaseSelector | None = None
     streams: dict[str, list[bytes]] = {"stdout": [], "stderr": []}
     total = 0
     deadline = time.monotonic() + timeout
+    work_deadline = deadline - ODIN_CLEANUP_GRACE_SEC
     try:
         process = subprocess.Popen(
             command,
@@ -714,6 +983,7 @@ def bounded_odin_runner(
             stderr=subprocess.PIPE,
             close_fds=True,
             pass_fds=pass_fds,
+            env=dict(env),
         )
         selector = selectors.DefaultSelector()
         assert process.stdout is not None
@@ -721,7 +991,7 @@ def bounded_odin_runner(
         selector.register(process.stdout, selectors.EVENT_READ, "stdout")
         selector.register(process.stderr, selectors.EVENT_READ, "stderr")
         while selector.get_map():
-            remaining = deadline - time.monotonic()
+            remaining = work_deadline - time.monotonic()
             if remaining <= 0:
                 raise BoundedOdinError(
                     "no-AP Odin reboot timed out",
@@ -753,7 +1023,7 @@ def bounded_odin_runner(
                     )
                 total += len(chunk)
                 streams[str(key.data)].append(chunk)
-        remaining = deadline - time.monotonic()
+        remaining = work_deadline - time.monotonic()
         if remaining <= 0:
             raise BoundedOdinError(
                 "no-AP Odin reboot timed out",
@@ -768,32 +1038,45 @@ def bounded_odin_runner(
             stdout=b"".join(streams["stdout"]),
             stderr=b"".join(streams["stderr"]),
         )
+    except BoundedOdinError as exc:
+        if process is not None:
+            exc.kill_sent, exc.reaped, exc.cleanup_error = bounded_kill_reap(
+                process, deadline
+            )
+        raise
     except subprocess.TimeoutExpired as exc:
-        if process is not None and process.poll() is None:
-            process.kill()
-            process.wait()
+        kill_sent = False
+        reaped = False
+        cleanup_error = None
+        if process is not None:
+            kill_sent, reaped, cleanup_error = bounded_kill_reap(process, deadline)
         raise BoundedOdinError(
             "no-AP Odin reboot timed out",
             b"".join(streams["stdout"]),
             b"".join(streams["stderr"]),
             timed_out=True,
+            kill_sent=kill_sent,
+            reaped=reaped,
+            cleanup_error=cleanup_error,
         ) from exc
     except OSError as exc:
         if process is None:
             raise
-        if process.poll() is None:
-            process.kill()
-            process.wait()
+        kill_sent, reaped, cleanup_error = bounded_kill_reap(process, deadline)
         raise BoundedOdinError(
             "no-AP Odin reboot runner failed after process start",
             b"".join(streams["stdout"]),
             b"".join(streams["stderr"]),
             runner_error=True,
+            kill_sent=kill_sent,
+            reaped=reaped,
+            cleanup_error=cleanup_error,
         ) from exc
-    except BaseException:
-        if process is not None and process.poll() is None:
-            process.kill()
-            process.wait()
+    except BaseException as exc:
+        if process is not None:
+            _kill_sent, _reaped, cleanup_error = bounded_kill_reap(process, deadline)
+            if cleanup_error is not None:
+                exc.add_note(cleanup_error)
         raise
     finally:
         if selector is not None:
@@ -809,6 +1092,7 @@ def run_noap_odin(
     odin_fd: int,
     device: str,
     *,
+    output_dir_fd: int,
     stdout_path: Path,
     stderr_path: Path,
     outcome_path: Path,
@@ -825,6 +1109,7 @@ def run_noap_odin(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             pass_fds=(odin_fd,),
+            env=dict(ODIN_ENV),
             timeout=60,
             check=False,
         )
@@ -834,10 +1119,15 @@ def run_noap_odin(
         stdout, stderr, overflow = cap_output_pair(
             exc.stdout or b"", exc.stderr or b""
         )
-        stdout_record = durable_create_bytes(stdout_path, stdout)
-        stderr_record = durable_create_bytes(stderr_path, stderr)
-        core.durable_create_json(
-            outcome_path,
+        stdout_record = durable_create_bytes_at_idempotent(
+            output_dir_fd, stdout_path.name, stdout, display_path=stdout_path
+        )
+        stderr_record = durable_create_bytes_at_idempotent(
+            output_dir_fd, stderr_path.name, stderr, display_path=stderr_path
+        )
+        durable_create_json_at_idempotent(
+            output_dir_fd,
+            outcome_path.name,
             {
                 "schema": "s22plus_fyg8_r4w1c2_noap_reboot_outcome_v1",
                 "created_at_utc": core.utc_now(),
@@ -850,17 +1140,26 @@ def run_noap_odin(
                 "runner_error": (
                     str(exc) if getattr(exc, "runner_error", False) else None
                 ),
+                "kill_sent": bool(getattr(exc, "kill_sent", False)),
+                "reaped": bool(getattr(exc, "reaped", False)),
+                "cleanup_error": getattr(exc, "cleanup_error", None),
                 "returncode": None,
                 "stdout": stdout_record,
                 "stderr": stderr_record,
             },
+            display_path=outcome_path,
         )
         raise RecoveryError(str(exc)) from exc
     except OSError as exc:
-        stdout_record = durable_create_bytes(stdout_path, b"")
-        stderr_record = durable_create_bytes(stderr_path, b"")
-        core.durable_create_json(
-            outcome_path,
+        stdout_record = durable_create_bytes_at_idempotent(
+            output_dir_fd, stdout_path.name, b"", display_path=stdout_path
+        )
+        stderr_record = durable_create_bytes_at_idempotent(
+            output_dir_fd, stderr_path.name, b"", display_path=stderr_path
+        )
+        durable_create_json_at_idempotent(
+            output_dir_fd,
+            outcome_path.name,
             {
                 "schema": "s22plus_fyg8_r4w1c2_noap_reboot_outcome_v1",
                 "created_at_utc": core.utc_now(),
@@ -870,17 +1169,26 @@ def run_noap_odin(
                 "output_overflow": False,
                 "returncode": None,
                 "runner_error": str(exc),
+                "kill_sent": False,
+                "reaped": False,
+                "cleanup_error": None,
                 "stdout": stdout_record,
                 "stderr": stderr_record,
             },
+            display_path=outcome_path,
         )
         raise RecoveryError("no-AP Odin reboot runner failed before a return") from exc
     stdout, stderr, overflow = cap_output_pair(stdout, stderr)
     if overflow:
-        stdout_record = durable_create_bytes(stdout_path, stdout)
-        stderr_record = durable_create_bytes(stderr_path, stderr)
-        core.durable_create_json(
-            outcome_path,
+        stdout_record = durable_create_bytes_at_idempotent(
+            output_dir_fd, stdout_path.name, stdout, display_path=stdout_path
+        )
+        stderr_record = durable_create_bytes_at_idempotent(
+            output_dir_fd, stderr_path.name, stderr, display_path=stderr_path
+        )
+        durable_create_json_at_idempotent(
+            output_dir_fd,
+            outcome_path.name,
             {
                 "schema": "s22plus_fyg8_r4w1c2_noap_reboot_outcome_v1",
                 "created_at_utc": core.utc_now(),
@@ -889,15 +1197,24 @@ def run_noap_odin(
                 "timed_out": False,
                 "output_overflow": True,
                 "returncode": completed.returncode,
+                "kill_sent": False,
+                "reaped": True,
+                "cleanup_error": None,
                 "stdout": stdout_record,
                 "stderr": stderr_record,
             },
+            display_path=outcome_path,
         )
         raise RecoveryError("no-AP Odin reboot output exceeded its bound")
-    stdout_record = durable_create_bytes(stdout_path, stdout)
-    stderr_record = durable_create_bytes(stderr_path, stderr)
-    core.durable_create_json(
-        outcome_path,
+    stdout_record = durable_create_bytes_at_idempotent(
+        output_dir_fd, stdout_path.name, stdout, display_path=stdout_path
+    )
+    stderr_record = durable_create_bytes_at_idempotent(
+        output_dir_fd, stderr_path.name, stderr, display_path=stderr_path
+    )
+    durable_create_json_at_idempotent(
+        output_dir_fd,
+        outcome_path.name,
         {
             "schema": "s22plus_fyg8_r4w1c2_noap_reboot_outcome_v1",
             "created_at_utc": core.utc_now(),
@@ -906,9 +1223,13 @@ def run_noap_odin(
             "timed_out": False,
             "output_overflow": False,
             "returncode": completed.returncode,
+            "kill_sent": False,
+            "reaped": True,
+            "cleanup_error": None,
             "stdout": stdout_record,
             "stderr": stderr_record,
         },
+        display_path=outcome_path,
     )
     if completed.returncode != 0:
         raise RecoveryError(f"no-AP Odin reboot failed rc={completed.returncode}")
@@ -923,32 +1244,11 @@ def cap_output_pair(stdout: bytes, stderr: bytes) -> tuple[bytes, bytes, bool]:
     return bounded_stdout, bounded_stderr, overflow
 
 
-def durable_create_json_idempotent(path: Path, value: Any) -> None:
-    """Accept only the exact record if a completed create reports an error."""
-
-    expected = (
-        json.dumps(value, indent=2, sort_keys=True, ensure_ascii=True, allow_nan=False)
-        + "\n"
-    ).encode("utf-8")
-    try:
-        core.durable_create_json(path, value)
-        return
-    except (OSError, core.LiveCoreError) as exc:
-        if path.is_symlink() or not path.is_file():
-            raise
-        try:
-            actual = stable_bytes(path, maximum=max(len(expected), 4096))
-        except RecoveryError:
-            raise exc
-        if actual != expected:
-            raise RecoveryError(
-                f"existing durable JSON does not equal the attempted record: {path}"
-            ) from exc
-
-
 def create_recovery_state(
     root: Path,
     *,
+    run_dir_fd: int,
+    state_dir_fd: int,
     policy: dict[str, Any],
     incident: dict[str, Any],
     run_dir: Path,
@@ -958,14 +1258,18 @@ def create_recovery_state(
     policy_draft: dict[str, Any],
 ) -> dict[str, Any]:
     path = root / RECOVERY_STATE
-    require_direct_directory_chain(root, run_dir)
+    revalidate_bound_directory(run_dir_fd, run_dir)
     expected_run_root = Path(os.path.abspath(root / RECOVERY_RUN_ROOT))
     if Path(os.path.abspath(run_dir)).parent != expected_run_root:
         raise RecoveryError(
             "recovery state run directory is outside the direct run root"
         )
-    require_direct_directory_chain(root, path.parent)
-    if path.exists() or path.is_symlink():
+    revalidate_bound_directory(state_dir_fd, path.parent)
+    try:
+        os.stat(path.name, dir_fd=state_dir_fd, follow_symlinks=False)
+    except FileNotFoundError:
+        pass
+    else:
         raise RecoveryError("no-AP reboot recovery was already consumed")
     record = {
         "schema": "s22plus_fyg8_r4w1c2_noap_reboot_recovery_consumed_v1",
@@ -986,11 +1290,15 @@ def create_recovery_state(
         "consumption_timing": "before any device or USB observation",
         "action": "odin4 --reboot only; no AP and no partition payload",
     }
-    payload = (
-        json.dumps(record, indent=2, sort_keys=True, ensure_ascii=True, allow_nan=False)
-        + "\n"
-    ).encode("utf-8")
-    durable_create_bytes(path, payload)
+    payload = json_record_bytes(record)
+    durable_create_bytes_at_idempotent(
+        state_dir_fd,
+        path.name,
+        payload,
+        display_path=path,
+    )
+    revalidate_bound_file_path(state_dir_fd, path.parent, path.name, payload)
+    revalidate_bound_directory(run_dir_fd, run_dir)
     return record
 
 
@@ -1004,6 +1312,40 @@ def live_run(root: Path, args: argparse.Namespace) -> int:
 
     started = core.utc_now()
     run_dir = allocate_recovery_run_dir(root)
+    run_dir_fd = open_bound_directory(root, run_dir)
+    state_dir = root / RECOVERY_STATE.parent
+    try:
+        state_dir_fd = open_bound_directory(root, state_dir)
+    except BaseException:
+        os.close(run_dir_fd)
+        raise
+    try:
+        return live_run_bound(
+            root,
+            args,
+            offline=offline,
+            policy=policy,
+            started=started,
+            run_dir=run_dir,
+            run_dir_fd=run_dir_fd,
+            state_dir_fd=state_dir_fd,
+        )
+    finally:
+        os.close(state_dir_fd)
+        os.close(run_dir_fd)
+
+
+def live_run_bound(
+    root: Path,
+    args: argparse.Namespace,
+    *,
+    offline: dict[str, Any],
+    policy: dict[str, Any],
+    started: str,
+    run_dir: Path,
+    run_dir_fd: int,
+    state_dir_fd: int,
+) -> int:
     result_path = run_dir / "result.json"
     timeline_path = run_dir / "timeline.json"
     stdout_path = run_dir / "odin-reboot.stdout"
@@ -1039,6 +1381,8 @@ def live_run(root: Path, args: argparse.Namespace) -> int:
             raise RecoveryError("host evidence changed before recovery consumption")
         state = create_recovery_state(
             root,
+            run_dir_fd=run_dir_fd,
+            state_dir_fd=state_dir_fd,
             policy=policy,
             incident=offline["incident"],
             run_dir=run_dir,
@@ -1048,6 +1392,12 @@ def live_run(root: Path, args: argparse.Namespace) -> int:
             policy_draft=offline["policy_draft"],
         )
         result["recovery_state"] = state
+        state_path = root / RECOVERY_STATE
+        state_payload = json_record_bytes(state)
+        revalidate_bound_file_path(
+            state_dir_fd, state_path.parent, state_path.name, state_payload
+        )
+        revalidate_bound_directory(run_dir_fd, run_dir)
         with measured.pinned_odin_session(odin) as (odin_fd, external_odin):
             with odin_core.transaction_session(run_dir) as lease:
                 ticket, sequence = measured.wait_for_endpoint(
@@ -1074,27 +1424,40 @@ def live_run(root: Path, args: argparse.Namespace) -> int:
                     raise RecoveryError("Download USB binding changed before reboot")
                 reboot_start = core.utc_now()
                 command_shape = ["<sealed-odin-fd>", "--reboot", "-d", device]
-                core.durable_create_json(
-                    attempt_path,
-                    {
-                        "schema": "s22plus_fyg8_r4w1c2_noap_reboot_attempt_v1",
-                        "created_at_utc": reboot_start,
-                        "attempted": True,
-                        "operator_attestation_ack": LIVE_ACK,
-                        "physical_continuity_basis": PHYSICAL_CONTINUITY_BASIS,
-                        "command_shape": command_shape,
-                        "ticket": measured._ticket_payload(ticket),
-                        "usb_binding": usb,
-                        "device_writes": False,
-                        "partition_write": False,
-                        "odin_transfer": False,
-                        "flash": False,
-                    },
+                attempt_value = {
+                    "schema": "s22plus_fyg8_r4w1c2_noap_reboot_attempt_v1",
+                    "created_at_utc": reboot_start,
+                    "attempted": True,
+                    "operator_attestation_ack": LIVE_ACK,
+                    "physical_continuity_basis": PHYSICAL_CONTINUITY_BASIS,
+                    "command_shape": command_shape,
+                    "ticket": measured._ticket_payload(ticket),
+                    "usb_binding": usb,
+                    "device_writes": False,
+                    "partition_write": False,
+                    "odin_transfer": False,
+                    "flash": False,
+                }
+                durable_create_json_at_idempotent(
+                    run_dir_fd,
+                    attempt_path.name,
+                    attempt_value,
+                    display_path=attempt_path,
+                )
+                revalidate_bound_file_path(
+                    state_dir_fd, state_path.parent, state_path.name, state_payload
+                )
+                revalidate_bound_file_path(
+                    run_dir_fd,
+                    run_dir,
+                    attempt_path.name,
+                    json_record_bytes(attempt_value),
                 )
                 result["reboot_attempted"] = True
                 completed, command, lines = run_noap_odin(
                     odin_fd,
                     device,
+                    output_dir_fd=run_dir_fd,
                     stdout_path=stdout_path,
                     stderr_path=stderr_path,
                     outcome_path=outcome_path,
@@ -1144,16 +1507,28 @@ def live_run(root: Path, args: argparse.Namespace) -> int:
                         "ap_argument_present": False,
                         "odin": {
                             "returncode": completed.returncode,
-                            "attempt": {
-                                "path": str(attempt_path.relative_to(root)),
-                                **core.hash_stable_file(attempt_path),
-                            },
-                            "outcome": {
-                                "path": str(outcome_path.relative_to(root)),
-                                **core.hash_stable_file(outcome_path),
-                            },
-                            "stdout": {"path": str(stdout_path.relative_to(root)), **core.hash_stable_file(stdout_path)},
-                            "stderr": {"path": str(stderr_path.relative_to(root)), **core.hash_stable_file(stderr_path)},
+                            "attempt": existing_record_at(
+                                run_dir_fd,
+                                attempt_path.name,
+                                display_path=attempt_path.relative_to(root),
+                            ),
+                            "outcome": existing_record_at(
+                                run_dir_fd,
+                                outcome_path.name,
+                                display_path=outcome_path.relative_to(root),
+                            ),
+                            "stdout": existing_record_at(
+                                run_dir_fd,
+                                stdout_path.name,
+                                display_path=stdout_path.relative_to(root),
+                                maximum=MAX_ODIN_OUTPUT,
+                            ),
+                            "stderr": existing_record_at(
+                                run_dir_fd,
+                                stderr_path.name,
+                                display_path=stderr_path.relative_to(root),
+                                maximum=MAX_ODIN_OUTPUT,
+                            ),
                             "lines": lines,
                         },
                         "android_serial": serial,
@@ -1169,12 +1544,22 @@ def live_run(root: Path, args: argparse.Namespace) -> int:
                     }
                 )
                 timeline_attempted = timeline
-                durable_create_json_idempotent(timeline_path, {"events": timeline})
+                durable_create_json_at_idempotent(
+                    run_dir_fd,
+                    timeline_path.name,
+                    {"events": timeline},
+                    display_path=timeline_path,
+                )
                 result["timeline"] = {
                     "path": str(timeline_path.relative_to(root)),
                     "events": timeline,
                 }
-                durable_create_json_idempotent(result_path, result)
+                durable_create_json_at_idempotent(
+                    run_dir_fd,
+                    result_path.name,
+                    result,
+                    display_path=result_path,
+                )
                 print(json.dumps({"run_dir": str(run_dir), "verdict": PASS_VERDICT}, indent=2))
                 return 0
     except (
@@ -1189,10 +1574,10 @@ def live_run(root: Path, args: argparse.Namespace) -> int:
         ended = core.utc_now()
         attempt: dict[str, Any] | None = None
         outcome: dict[str, Any] | None = None
-        if attempt_path.is_file() and not attempt_path.is_symlink():
-            attempt = parse_json(stable_bytes(attempt_path), "reboot attempt")
-        if outcome_path.is_file() and not outcome_path.is_symlink():
-            outcome = parse_json(stable_bytes(outcome_path), "reboot outcome")
+        if leaf_exists_at(run_dir_fd, attempt_path.name):
+            attempt = parse_json_at(run_dir_fd, attempt_path.name, "reboot attempt")
+        if leaf_exists_at(run_dir_fd, outcome_path.name):
+            outcome = parse_json_at(run_dir_fd, outcome_path.name, "reboot outcome")
         if attempt is not None:
             reboot_start = str(attempt.get("created_at_utc") or reboot_start or ended)
             result["reboot_attempted"] = attempt.get("attempted") is True
@@ -1208,7 +1593,9 @@ def live_run(root: Path, args: argparse.Namespace) -> int:
         )
         result["verdict"] = FAIL_VERDICT
         result["error"] = str(exc)
-        result["recovery_consumed"] = (root / RECOVERY_STATE).exists()
+        result["recovery_consumed"] = leaf_exists_at(
+            state_dir_fd, RECOVERY_STATE.name
+        )
         result["reboot"] = True if ready is not None else None
         result["odin_attempt"] = attempt
         result["odin_outcome"] = outcome
@@ -1232,19 +1619,39 @@ def live_run(root: Path, args: argparse.Namespace) -> int:
                 else "exact Android readiness not proven"
             ),
         }
-        if timeline_path.exists() or timeline_path.is_symlink():
+        if leaf_exists_at(run_dir_fd, timeline_path.name):
             if timeline_attempted is None:
                 raise RecoveryError("unexpected timeline appeared before publication")
             timeline = timeline_attempted
         else:
             timeline = failure_timeline
             timeline_attempted = timeline
-        durable_create_json_idempotent(timeline_path, {"events": timeline})
+        timeline_publication_error: str | None = None
+        try:
+            durable_create_json_at_idempotent(
+                run_dir_fd,
+                timeline_path.name,
+                {"events": timeline},
+                display_path=timeline_path,
+            )
+        except (OSError, RecoveryError) as publication_exc:
+            timeline_publication_error = str(publication_exc)
+            result["timeline_publication_error"] = timeline_publication_error
         result["timeline"] = {
             "path": str(timeline_path.relative_to(root)),
             "events": timeline,
         }
-        durable_create_json_idempotent(result_path, result)
+        durable_create_json_at_idempotent(
+            run_dir_fd,
+            result_path.name,
+            result,
+            display_path=result_path,
+        )
+        if timeline_publication_error is not None:
+            raise RecoveryError(
+                "failure result recorded but canonical timeline publication failed: "
+                + timeline_publication_error
+            )
         print(json.dumps({"run_dir": str(run_dir), "verdict": FAIL_VERDICT}, indent=2))
         return 20
 

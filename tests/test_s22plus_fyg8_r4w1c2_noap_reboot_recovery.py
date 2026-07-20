@@ -35,6 +35,20 @@ class NoApRecoveryTests(unittest.TestCase):
     def setUpClass(cls):
         cls.module = load_module()
 
+    @contextlib.contextmanager
+    def opened_directory(self, path):
+        descriptor = os.open(
+            path,
+            os.O_RDONLY
+            | os.O_DIRECTORY
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0),
+        )
+        try:
+            yield descriptor
+        finally:
+            os.close(descriptor)
+
     def test_parse_failure_preimage_matches_live_digest(self):
         module = self.module
         self.assertEqual(len(module.PARSE_FAILURE_STDOUT), 51)
@@ -96,10 +110,13 @@ class NoApRecoveryTests(unittest.TestCase):
             )
             return subprocess.CompletedProcess(command, 0, stdout, b"")
 
-        with tempfile.TemporaryDirectory() as temporary:
+        with tempfile.TemporaryDirectory() as temporary, self.opened_directory(
+            temporary
+        ) as output_fd:
             completed, command, _ = module.run_noap_odin(
                 9,
                 "/dev/bus/usb/002/027",
+                output_dir_fd=output_fd,
                 stdout_path=Path(temporary) / "stdout",
                 stderr_path=Path(temporary) / "stderr",
                 outcome_path=Path(temporary) / "outcome.json",
@@ -112,6 +129,9 @@ class NoApRecoveryTests(unittest.TestCase):
         )
         self.assertEqual(seen["kwargs"]["pass_fds"], (9,))
         self.assertEqual(seen["kwargs"]["stdin"], subprocess.DEVNULL)
+        self.assertEqual(seen["kwargs"]["env"], module.ODIN_ENV)
+        self.assertNotIn("LD_PRELOAD", seen["kwargs"]["env"])
+        self.assertNotIn("LD_LIBRARY_PATH", seen["kwargs"]["env"])
         for forbidden in ("-a", "-b", "-c", "-s", "-u", "-e", "-V"):
             self.assertNotIn(forbidden, command)
 
@@ -121,12 +141,15 @@ class NoApRecoveryTests(unittest.TestCase):
         def runner(command, **_kwargs):
             return subprocess.CompletedProcess(command, 1, b"fail\n", b"")
 
-        with tempfile.TemporaryDirectory() as temporary:
+        with tempfile.TemporaryDirectory() as temporary, self.opened_directory(
+            temporary
+        ) as output_fd:
             outcome_path = Path(temporary) / "outcome.json"
             with self.assertRaisesRegex(module.RecoveryError, "failed rc=1"):
                 module.run_noap_odin(
                     9,
                     "/dev/bus/usb/002/027",
+                    output_dir_fd=output_fd,
                     stdout_path=Path(temporary) / "stdout",
                     stderr_path=Path(temporary) / "stderr",
                     outcome_path=outcome_path,
@@ -136,6 +159,7 @@ class NoApRecoveryTests(unittest.TestCase):
             self.assertTrue(outcome["attempted"])
             self.assertTrue(outcome["returned"])
             self.assertEqual(outcome["returncode"], 1)
+            self.assertTrue(outcome["reaped"])
 
     def test_reboot_rejects_stderr(self):
         module = self.module
@@ -148,12 +172,13 @@ class NoApRecoveryTests(unittest.TestCase):
         def runner(command, **_kwargs):
             return subprocess.CompletedProcess(command, 0, stdout, b"warning\n")
 
-        with tempfile.TemporaryDirectory() as temporary, self.assertRaisesRegex(
-            module.RecoveryError, "stderr"
-        ):
+        with tempfile.TemporaryDirectory() as temporary, self.opened_directory(
+            temporary
+        ) as output_fd, self.assertRaisesRegex(module.RecoveryError, "stderr"):
             module.run_noap_odin(
                 9,
                 "/dev/bus/usb/002/027",
+                output_dir_fd=output_fd,
                 stdout_path=Path(temporary) / "stdout",
                 stderr_path=Path(temporary) / "stderr",
                 outcome_path=Path(temporary) / "outcome.json",
@@ -171,12 +196,13 @@ class NoApRecoveryTests(unittest.TestCase):
                 b"",
             )
 
-        with tempfile.TemporaryDirectory() as temporary, self.assertRaisesRegex(
-            module.RecoveryError, "success shape"
-        ):
+        with tempfile.TemporaryDirectory() as temporary, self.opened_directory(
+            temporary
+        ) as output_fd, self.assertRaisesRegex(module.RecoveryError, "success shape"):
             module.run_noap_odin(
                 9,
                 "/dev/bus/usb/002/027",
+                output_dir_fd=output_fd,
                 stdout_path=Path(temporary) / "stdout",
                 stderr_path=Path(temporary) / "stderr",
                 outcome_path=Path(temporary) / "outcome.json",
@@ -197,12 +223,42 @@ class NoApRecoveryTests(unittest.TestCase):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 pass_fds=(),
+                env=dict(module.ODIN_ENV),
                 timeout=10,
                 check=False,
             )
         error = raised.exception
         self.assertTrue(error.output_overflow)
         self.assertEqual(len(error.stdout) + len(error.stderr), module.MAX_ODIN_OUTPUT)
+
+    def test_bounded_cleanup_never_uses_unbounded_wait(self):
+        module = self.module
+
+        class StuckProcess:
+            def __init__(self):
+                self.killed = False
+                self.wait_timeouts = []
+
+            def poll(self):
+                return None
+
+            def kill(self):
+                self.killed = True
+
+            def wait(self, timeout=None):
+                self.wait_timeouts.append(timeout)
+                raise subprocess.TimeoutExpired(["odin4"], timeout)
+
+        process = StuckProcess()
+        with mock.patch.object(module.time, "monotonic", return_value=10.25):
+            kill_sent, reaped, cleanup_error = module.bounded_kill_reap(
+                process, 11.0
+            )
+        self.assertTrue(kill_sent)
+        self.assertFalse(reaped)
+        self.assertTrue(process.killed)
+        self.assertEqual(process.wait_timeouts, [0.75])
+        self.assertIn("bounded reap failed", cleanup_error)
 
     def test_post_spawn_read_error_preserves_output_and_truthful_outcome(self):
         module = self.module
@@ -253,14 +309,19 @@ class NoApRecoveryTests(unittest.TestCase):
         process = Process()
         observed = b"observed-before-error"
         reads = iter((observed, OSError("injected pipe read failure")))
+        real_read = module.os.read
 
-        def read(_fd, _size):
+        def read(fd, size):
+            if fd != 101:
+                return real_read(fd, size)
             value = next(reads)
             if isinstance(value, BaseException):
                 raise value
             return value
 
-        with tempfile.TemporaryDirectory() as temporary, mock.patch.object(
+        with tempfile.TemporaryDirectory() as temporary, self.opened_directory(
+            temporary
+        ) as output_fd, mock.patch.object(
             module.subprocess, "Popen", return_value=process
         ), mock.patch.object(
             module.selectors, "DefaultSelector", side_effect=Selector
@@ -272,6 +333,7 @@ class NoApRecoveryTests(unittest.TestCase):
                 module.run_noap_odin(
                     9,
                     "/dev/bus/usb/002/027",
+                    output_dir_fd=output_fd,
                     stdout_path=stdout_path,
                     stderr_path=root / "stderr",
                     outcome_path=outcome_path,
@@ -282,6 +344,9 @@ class NoApRecoveryTests(unittest.TestCase):
                 outcome["runner_error"],
                 "no-AP Odin reboot runner failed after process start",
             )
+            self.assertTrue(outcome["kill_sent"])
+            self.assertTrue(outcome["reaped"])
+            self.assertIsNone(outcome["cleanup_error"])
             self.assertNotIn("spawn_error", outcome)
         self.assertTrue(process.killed)
         self.assertTrue(process.reaped)
@@ -292,13 +357,16 @@ class NoApRecoveryTests(unittest.TestCase):
         def runner(_command, **_kwargs):
             raise OSError("injected runner failure")
 
-        with tempfile.TemporaryDirectory() as temporary:
+        with tempfile.TemporaryDirectory() as temporary, self.opened_directory(
+            temporary
+        ) as output_fd:
             root = Path(temporary)
             outcome_path = root / "outcome.json"
             with self.assertRaisesRegex(module.RecoveryError, "before a return"):
                 module.run_noap_odin(
                     9,
                     "/dev/bus/usb/002/027",
+                    output_dir_fd=output_fd,
                     stdout_path=root / "stdout",
                     stderr_path=root / "stderr",
                     outcome_path=outcome_path,
@@ -306,6 +374,8 @@ class NoApRecoveryTests(unittest.TestCase):
                 )
             outcome = json.loads(outcome_path.read_text(encoding="utf-8"))
             self.assertEqual(outcome["runner_error"], "injected runner failure")
+            self.assertFalse(outcome["kill_sent"])
+            self.assertFalse(outcome["reaped"])
             self.assertNotIn("spawn_error", outcome)
 
     def test_injected_oversize_result_is_capped_before_persistence(self):
@@ -319,7 +389,9 @@ class NoApRecoveryTests(unittest.TestCase):
                 b"overflow",
             )
 
-        with tempfile.TemporaryDirectory() as temporary:
+        with tempfile.TemporaryDirectory() as temporary, self.opened_directory(
+            temporary
+        ) as output_fd:
             root = Path(temporary)
             stdout_path = root / "stdout"
             stderr_path = root / "stderr"
@@ -328,6 +400,7 @@ class NoApRecoveryTests(unittest.TestCase):
                 module.run_noap_odin(
                     9,
                     "/dev/bus/usb/002/027",
+                    output_dir_fd=output_fd,
                     stdout_path=stdout_path,
                     stderr_path=stderr_path,
                     outcome_path=outcome_path,
@@ -351,7 +424,9 @@ class NoApRecoveryTests(unittest.TestCase):
                 stderr=b"timeout-overflow",
             )
 
-        with tempfile.TemporaryDirectory() as temporary:
+        with tempfile.TemporaryDirectory() as temporary, self.opened_directory(
+            temporary
+        ) as output_fd:
             root = Path(temporary)
             stdout_path = root / "stdout"
             stderr_path = root / "stderr"
@@ -360,6 +435,7 @@ class NoApRecoveryTests(unittest.TestCase):
                 module.run_noap_odin(
                     9,
                     "/dev/bus/usb/002/027",
+                    output_dir_fd=output_fd,
                     stdout_path=stdout_path,
                     stderr_path=stderr_path,
                     outcome_path=outcome_path,
@@ -446,7 +522,7 @@ class NoApRecoveryTests(unittest.TestCase):
         *,
         absence_result=None,
         absence_error=None,
-        durable_create=None,
+        publish_bytes=None,
     ):
         module = self.module
         offline = {
@@ -493,17 +569,37 @@ class NoApRecoveryTests(unittest.TestCase):
         def transaction(_run_dir):
             yield object()
 
-        def noap(_fd, device, *, stdout_path, stderr_path, outcome_path):
-            module.durable_create_bytes(stdout_path, b"ok")
-            module.durable_create_bytes(stderr_path, b"")
-            module.core.durable_create_json(
-                outcome_path,
+        def noap(
+            _fd,
+            device,
+            *,
+            output_dir_fd,
+            stdout_path,
+            stderr_path,
+            outcome_path,
+        ):
+            module.durable_create_bytes_at_idempotent(
+                output_dir_fd,
+                stdout_path.name,
+                b"ok",
+                display_path=stdout_path,
+            )
+            module.durable_create_bytes_at_idempotent(
+                output_dir_fd,
+                stderr_path.name,
+                b"",
+                display_path=stderr_path,
+            )
+            module.durable_create_json_at_idempotent(
+                output_dir_fd,
+                outcome_path.name,
                 {
                     "created_at_utc": module.core.utc_now(),
                     "attempted": True,
                     "returned": True,
                     "returncode": 0,
                 },
+                display_path=outcome_path,
             )
             command = ["/proc/self/fd/9", "--reboot", "-d", device]
             return (
@@ -569,10 +665,10 @@ class NoApRecoveryTests(unittest.TestCase):
                 absence_mock.return_value = absence_result or SimpleNamespace(
                     absent=True, timed_out=False
                 )
-            if durable_create is not None:
+            if publish_bytes is not None:
                 stack.enter_context(
                     mock.patch.object(
-                        module.core, "durable_create_json", side_effect=durable_create
+                        module, "durable_create_bytes_at", side_effect=publish_bytes
                     )
                 )
             return module.live_run(root, args)
@@ -601,36 +697,102 @@ class NoApRecoveryTests(unittest.TestCase):
             "exact Android ready",
         )
 
-    def test_result_publication_failure_reuses_timeline_and_records_failure(self):
+    def test_transient_result_publication_failure_is_retried_without_losing_pass(self):
         module = self.module
-        real_create = module.core.durable_create_json
+        real_publish = module.durable_create_bytes_at
         failed = False
 
-        def create(path, value):
+        def publish(directory_fd, name, payload, *, display_path):
             nonlocal failed
-            if path.name == "result.json" and not failed:
+            if name == "result.json" and not failed:
                 failed = True
                 raise OSError("injected first result publication failure")
-            return real_create(path, value)
+            return real_publish(
+                directory_fd, name, payload, display_path=display_path
+            )
 
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            rc = self.run_mocked_post_android_live(root, durable_create=create)
+            rc = self.run_mocked_post_android_live(root, publish_bytes=publish)
             run_dir = root / module.RECOVERY_RUN_ROOT / (
                 "s22plus-r4w1c2-noap-reboot-recovery-scenario"
             )
             result = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
             timeline = json.loads((run_dir / "timeline.json").read_text(encoding="utf-8"))
             state_exists = (root / "state" / "consumed.json").is_file()
-        self.assertEqual(rc, 20)
+        self.assertEqual(rc, 0)
         self.assertTrue(failed)
         self.assertTrue(state_exists)
-        self.assertEqual(result["verdict"], module.FAIL_VERDICT)
+        self.assertEqual(result["verdict"], module.PASS_VERDICT)
         self.assertEqual(result["timeline"]["events"], timeline["events"])
         self.assertEqual(
             [event["name"] for event in timeline["events"]],
             list(module.core.TIMELINE_NAMES),
         )
+
+    def test_failure_finalization_retries_transient_timeline_and_result_errors(self):
+        module = self.module
+        real_publish = module.durable_create_bytes_at
+        failed_names = set()
+
+        def publish(directory_fd, name, payload, *, display_path):
+            if name in {"timeline.json", "result.json"} and name not in failed_names:
+                failed_names.add(name)
+                raise OSError(f"injected first {name} publication failure")
+            return real_publish(
+                directory_fd, name, payload, display_path=display_path
+            )
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            rc = self.run_mocked_post_android_live(
+                root,
+                absence_error=module.odin_core.OdinTransitionError(
+                    "injected no-Odin observer failure"
+                ),
+                publish_bytes=publish,
+            )
+            run_dir = root / module.RECOVERY_RUN_ROOT / (
+                "s22plus-r4w1c2-noap-reboot-recovery-scenario"
+            )
+            result = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
+            timeline = json.loads((run_dir / "timeline.json").read_text(encoding="utf-8"))
+        self.assertEqual(rc, 20)
+        self.assertEqual(failed_names, {"timeline.json", "result.json"})
+        self.assertEqual(result["verdict"], module.FAIL_VERDICT)
+        self.assertEqual(result["timeline"]["events"], timeline["events"])
+
+    def test_state_parent_swap_after_publish_stops_before_usb_observation(self):
+        module = self.module
+        real_publish = module.durable_create_bytes_at
+        swapped = False
+
+        def publish(directory_fd, name, payload, *, display_path):
+            nonlocal swapped
+            record = real_publish(
+                directory_fd, name, payload, display_path=display_path
+            )
+            if name == "consumed.json" and not swapped:
+                swapped = True
+                state_dir = display_path.parent
+                moved = state_dir.with_name("state-held")
+                state_dir.rename(moved)
+                state_dir.mkdir()
+            return record
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            rc = self.run_mocked_post_android_live(
+                root, publish_bytes=publish
+            )
+            run_dir = root / module.RECOVERY_RUN_ROOT / (
+                "s22plus-r4w1c2-noap-reboot-recovery-scenario"
+            )
+            result = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
+        self.assertEqual(rc, 20)
+        self.assertTrue(swapped)
+        self.assertFalse(result["reboot_attempted"])
+        self.assertFalse((run_dir / "odin-reboot-attempt.json").exists())
 
     def test_consumes_before_first_endpoint_observation_and_cannot_retry(self):
         module = self.module
@@ -749,6 +911,23 @@ class NoApRecoveryTests(unittest.TestCase):
         with self.assertRaisesRegex(module.RecoveryError, "duplicate"):
             module.extract_policy(text)
 
+    def test_descriptor_evidence_rejects_hardlink_alias(self):
+        module = self.module
+        with tempfile.TemporaryDirectory() as temporary, self.opened_directory(
+            temporary
+        ) as directory_fd:
+            root = Path(temporary)
+            payload = b"private-evidence"
+            (root / "record").write_bytes(payload)
+            os.link(root / "record", root / "alias")
+            with self.assertRaisesRegex(module.RecoveryError, "not private"):
+                module.exact_record_at(
+                    directory_fd,
+                    "record",
+                    payload,
+                    display_path=root / "record",
+                )
+
     def test_recovery_state_is_exclusive(self):
         module = self.module
         with tempfile.TemporaryDirectory() as temporary:
@@ -758,9 +937,15 @@ class NoApRecoveryTests(unittest.TestCase):
             state = root / module.RECOVERY_STATE
             state.parent.mkdir(parents=True)
             state.write_text("{}\n", encoding="ascii")
-            with self.assertRaisesRegex(module.RecoveryError, "already consumed"):
+            with self.opened_directory(run_dir) as run_dir_fd, self.opened_directory(
+                state.parent
+            ) as state_dir_fd, self.assertRaisesRegex(
+                module.RecoveryError, "already consumed"
+            ):
                 module.create_recovery_state(
                     root,
+                    run_dir_fd=run_dir_fd,
+                    state_dir_fd=state_dir_fd,
                     policy={"sha256": "a" * 64},
                     incident={
                         "files": {
@@ -786,21 +971,7 @@ class NoApRecoveryTests(unittest.TestCase):
             (root / "state").symlink_to(outside, target_is_directory=True)
             with mock.patch.object(module, "RECOVERY_STATE", Path("state/consumed.json")):
                 with self.assertRaisesRegex(module.RecoveryError, "direct directory"):
-                    module.create_recovery_state(
-                        root,
-                        policy={"sha256": "a" * 64},
-                        incident={
-                            "files": {
-                                "consumed": {"sha256": "b" * 64},
-                                "stock_intent": {"sha256": "c" * 64},
-                            }
-                        },
-                        run_dir=run_dir,
-                        helper={"sha256": "1" * 64},
-                        test={"sha256": "2" * 64},
-                        dependencies={},
-                        policy_draft={"sha256": "d" * 64},
-                    )
+                    module.open_bound_directory(root, root / "state")
 
     def test_run_directory_rejects_indirect_run_root(self):
         module = self.module

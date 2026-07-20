@@ -118,21 +118,56 @@ runner-error labeling, Android evidence preservation across a no-Odin observer
 failure, and idempotent result finalization after an injected first-publication
 failure.
 
+## Fourth independent review and repair
+
+Independent host-only read-only review session
+`019f80b0-5bf6-75d0-bba4-7bcdfccedd03` reviewed commit `7ffb2857` with
+`gpt-5.6-sol` at explicitly verified xhigh effort. It reran the related suite,
+reopened the exact incident and policy inputs, and returned
+`NO_GO_TO_POLICY_ACTIVATION` for five remaining host-integrity defects:
+
+1. State publication could race a state-parent replacement. The helper now
+   opens and holds direct run/state directory descriptors before consumption,
+   publishes relative to those descriptors, and revalidates canonical parent,
+   state, run, and launch-attempt inode identity before USB observation or Odin
+   launch. An injected post-publication parent replacement stops before the
+   launch receipt or endpoint observation.
+2. A transient publication failure inside an already-failing invocation could
+   still suppress timeline or result evidence. Exact-byte idempotent
+   publication now makes two bounded attempts independently for each canonical
+   record. An injected first failure for both records leaves both exact records
+   and the truthful FAIL verdict.
+3. Path-based final evidence could accept hardlinks or follow a replaced parent.
+   All state, action, process-output, timeline, and result records now use
+   descriptor-relative no-follow creation and reopening. Every accepted file
+   must be regular with `st_nlink == 1`; hardlink aliases are rejected.
+4. Odin inherited the complete caller environment. Its environment is now
+   exactly `PATH=/usr/bin:/bin`, `LANG=C`, and `LC_ALL=C`; loader, library,
+   Python, locale, and all other caller variables are absent.
+5. Timeout/error cleanup used an unbounded child wait. The single 60-second
+   budget now reserves a bounded cleanup interval, sends kill if needed, waits
+   only for the remaining deadline, and records kill, reap, and cleanup-error
+   status. A stuck-child regression proves no unbounded wait is issued.
+
+The focused regressions additionally preserve bytes observed before a
+post-spawn error, reject hardlink evidence, and verify the sanitized runner
+contract. No device or USB command was executed.
+
 ## Exact repaired identities
 
-- helper: size `49707`, SHA256
-  `6efe8c8e8a4846b4adf9b1ecb7c335e5ab20cdf7a0a0b2c8845e2bc21e0b5c72`
-- focused test: size `33933`, SHA256
-  `3fee6484e075061dacebea80314e25325189c960845b68f571f24530efd26777`
-- policy draft: size `9001`, SHA256
-  `51a156baa2f0062ffbd8ee9c96c3f99d846fd14aea89fbd38a0b4fa9db840cec`
+- helper: size `63483`, SHA256
+  `fa5d2d7c1a16b5aa08278f5c63d98b4289f92a71a4d052a055abd7483ce12257`
+- focused test: size `40489`, SHA256
+  `32771a0568856c18b8808ec248106f8643991d7466f8bc03820d41b65ee3e323`
+- policy draft: size `10565`, SHA256
+  `f089a11df61a371fc975ba03f38fce5b0c8aa93ac1b74a6b2d93d40cd73f76e0`
 - normalized policy template SHA256:
-  `9eab648aec876d5e229e35926927dcf06cea8d1ab70c034df312b7e1a064d7f9`
+  `533eb79e4d1327618491f87cdd37be61cacd543dfe4dc222ef6e9003226c86ac`
 
 ## Host-only validation
 
-- focused no-AP recovery suite: `28/28` PASS
-- related helper/core/USBFS/connected/live-core/transport suite: `213/213` PASS
+- focused no-AP recovery suite: `32/32` PASS
+- related helper/core/USBFS/connected/live-core/transport suite: `217/217` PASS
 - offline verdict:
   `PASS_R4W1C2_NOAP_REBOOT_RECOVERY_SOURCE_HOST_ONLY`
 - policy active: `false`
