@@ -6,7 +6,27 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
-> **S22+ ACTIVE FRONTIER (2026-07-21 KST) - R4W1-C2 NO-AP RECOVERY
+> **S22+ CURRENT FRONTIER (2026-07-21 KST) - R4W1-C2 INCIDENT CLOSED;
+> NO-AP POLICY NEVER ACTIVATED; RETURN TO NATIVE-PID1 WITNESS WORK.** The
+> measured R4W1-C2 one-shot is consumed and its installed policy is RETIRED.
+> Candidate, Magisk, and stock AP invocations all stopped in the host parser on
+> the extensionless sealed path before `Setup Connection`; no Odin device
+> session, payload transfer, or partition write occurred. This run produced no
+> native-PID1 execution result.
+>
+> The proposed no-AP reboot policy was never installed or authorized. Its ninth
+> independent review was intentionally interrupted before verdict because the
+> accumulating one-shot authority and publication machinery was
+> disproportionate to a transient no-payload reboot. The branch is closed, not
+> pending. Its last complete host-only implementation remains recoverable at
+> commit `eea4c23c`; the active helper, focused test, and policy draft have been
+> removed. Reports remain as historical evidence. Future device work starts
+> with the smallest applicable tier in
+> `docs/operations/DEVICE_ACTION_RISK_TIERS.md`; the next S22+ device contact
+> must begin with a fresh D0 read-only state check and then select a bounded
+> forward native-init witness unit. No current handset state is asserted here.
+
+> **S22+ CLOSED BRANCH HISTORY (2026-07-21 KST) - R4W1-C2 NO-AP RECOVERY
 > EIGHTH ADVERSARIAL NO-GO REPAIRED HOST-ONLY; POLICY STILL INACTIVE.** The first
 > independent review session `019f807c-c88c-7073-824b-7a1f4ecfec27` found seven
 > blockers. A second independent `gpt-5.6-sol` xhigh review session
@@ -96,17 +116,15 @@ are binding and override any sub-goal.**
 > success files contain no PASS verdict. Root or child substitution inside the
 > later receipt-link interval therefore cannot move or alter the copied proof.
 >
-> Focused tests pass `48/48`; the isolated related suite passes `233/233`.
-> Offline verdict remains `PASS_R4W1C2_NOAP_REBOOT_RECOVERY_SOURCE_HOST_ONLY`, policy inactive,
-> recovery one-shot unconsumed, and all device-action fields false. Next is a
-> ninth independent review of the repaired exact bytes. Only a GO permits a
-> separate policy-only activation commit and subsequent fresh live
-> acknowledgement. Report:
+> At the final host-only checkpoint, focused tests passed `48/48`; the isolated
+> related suite passed `233/233`, and all device-action fields were false. The
+> ninth review was interrupted before verdict and no policy-only activation or
+> live acknowledgement followed. This branch is permanently closed. Report:
 > `docs/reports/S22PLUS_FYG8_R4W1C2_NOAP_RECOVERY_NO_GO_REPAIR_2026-07-21.md`.
 
-> **S22+ ACTIVE FRONTIER (2026-07-21 02:02 KST / 2026-07-20 17:02 UTC) -
+> **S22+ INCIDENT HISTORY (2026-07-21 02:02 KST / 2026-07-20 17:02 UTC) -
 > R4W1-C2 SEALED AP PATH ROOT CAUSE PROVEN; ZERO PARTITION TRANSFERS;
-> STOCK-INTENT BLOCKED; SEPARATE NO-AP REBOOT RECOVERY IN HOST REVIEW.** The
+> STOCK-INTENT BLOCKED; NO-AP REBOOT RECOVERY LATER PARKED.** The
 > candidate, Magisk, and stock AP attempts all returned rc `1`, identical
 > 51-byte stdout SHA256 `7f616245...f31adb4`, and empty stderr. The digest is
 > exactly `Reboot into normal mode\nFail parse /proc/self/fd/7\n`; there is no
@@ -114,15 +132,10 @@ are binding and override any sub-goal.**
 > independently reproduced that extensionless AP paths fail parsing before the
 > Odin device session. This is a host sealed-path bug, not native-PID1 evidence.
 >
-> The durable stock intent correctly blocks built-in recovery. A new dedicated
-> helper permits only sealed `odin4 --reboot -d <measured-node>` with no AP or
-> payload option, exact incident pins, same-topology USBFS revalidation,
-> separate one-shot state, bounded durable output, and exact Android/Magisk
-> return. Its focused tests pass `13/13`; actual offline verdict is
-> `PASS_R4W1C2_NOAP_REBOOT_RECOVERY_SOURCE_HOST_ONLY`, policy inactive,
-> one-shot unconsumed, and all device-action fields false. Next is independent
-> review, exact policy activation, fresh recovery acknowledgement, one no-AP
-> reboot, health proof, and immediate retirement. Design/report:
+> The durable stock intent correctly blocked the built-in recovery path. A
+> dedicated sealed no-payload reboot helper was developed and repeatedly
+> hardened host-only, but its policy was never installed and the branch was
+> later closed as disproportionate. Design/report:
 > `docs/reports/S22PLUS_FYG8_R4W1C2_SEALED_AP_PARSE_FAILURE_AND_NOAP_RECOVERY_DESIGN_2026-07-21.md`.
 
 > **S22+ ACTIVE FRONTIER (2026-07-21 01:39 KST / 2026-07-20 16:39 UTC) -

@@ -85,3 +85,11 @@ The exact policy draft is
 `docs/operations/S22PLUS_FYG8_R4W1C2_NOAP_REBOOT_RECOVERY_EXCEPTION_DRAFT_2026-07-21.md`.
 It is not live authority until independently reviewed and installed exactly in
 `AGENTS.md` with a new operator acknowledgement.
+
+## Later Disposition
+
+The policy was never installed. After eight repair rounds, the ninth review was
+intentionally stopped before verdict and the no-AP branch was closed as
+disproportionate to a transient no-payload reboot. The final implementation is
+preserved in commit `eea4c23c`; its helper, test, and draft were removed from
+the active tree. This design is historical evidence and grants no authority.

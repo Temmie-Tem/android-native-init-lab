@@ -359,6 +359,23 @@ canonical retry authority consumed.
 - device contact/write/reboot/Odin transfer/flash: all `false`
 
 No device, ADB, USB enumeration, Odin execution, network action, policy
-activation, or live helper occurred. Policy activation remains blocked until a
-ninth independent xhigh adversarial review returns exact GO on the committed
-bytes.
+activation, or live helper occurred. At that checkpoint, policy activation was
+blocked pending a ninth independent xhigh adversarial review.
+
+## Final Disposition
+
+The ninth independent xhigh review session
+`019f8114-7224-74d2-965e-969f4dd9fb24` was intentionally interrupted before a
+verdict at operator direction. It did not produce GO, activate policy, contact
+the device, enumerate USB, execute Odin, or run this helper live.
+
+The no-AP recovery branch is closed because its one-shot authority and evidence
+publication machinery became disproportionate to the intended transient
+no-payload reboot. The final complete host-only implementation and its `48/48`
+focused tests remain recoverable from commit `eea4c23c`. The helper, focused
+test, and never-installed policy draft were then removed from the active tree.
+The consumed R4W1-C2 measured live policy was separately retired.
+
+This report is historical evidence, not a pending activation packet. Future
+work uses `docs/operations/DEVICE_ACTION_RISK_TIERS.md`; no statement here
+authorizes device contact, recovery, reboot, Odin execution, transfer, or flash.
