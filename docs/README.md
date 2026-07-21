@@ -43,6 +43,12 @@ R4W1-E retained checkpoint carrier의 exact ABI, 커널 소스 게이트, E1-E4
 기록합니다. 이 결과는 host-only이며 아직 kernel build나 candidate가
 아닙니다.
 
+R4W1-E E1 static PID1 runtime, exact child, checkpoint client, clean staged
+two-build reproduction, syscall/요청-byte 감사와 20개 adversarial test 결과는
+`reports/S22PLUS_FYG8_R4W1E_E1_RUNTIME_HOST_CONTRACT_PASS_2026-07-21.md`에
+기록합니다. 이 결과도 host-only이며 kernel build, ramdisk, candidate,
+device contact 또는 live 권한을 만들지 않았습니다.
+
 ## Claude review usage ledger
 
 Claude Opus 검토의 세션, 호출 전후 사용률, 리셋 시각, 컨텍스트 여유량,

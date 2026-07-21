@@ -334,12 +334,21 @@ patch/source hashes, profiles, and validation are recorded in
 `docs/reports/S22PLUS_FYG8_R4W1E_CHECKPOINT_CARRIER_HOST_CONTRACT_PASS_2026-07-21.md`.
 No kernel build, image, device contact, or live authority was produced.
 
+P2.8 completed the exact E1 runtime, child, checkpoint client, and host contract
+on 2026-07-21. The result includes exact source identity, clean staged
+two-build reproduction, AArch64 syscall disassembly audit, dynamic child proof,
+and byte-exact request comparison with the P2.7 carrier model. Details are in
+`docs/reports/S22PLUS_FYG8_R4W1E_E1_RUNTIME_HOST_CONTRACT_PASS_2026-07-21.md`.
+No kernel build, ramdisk, candidate, device contact, or live authority was
+produced.
+
 ## Next bounded unit
 
-Implement and host-test the E1 static PID1 runtime, exact child, checkpoint
-client, and independent control-flow checker. This remains host-only and must
-not produce a final kernel build, candidate package, live policy, or device
-action.
+Adapt the existing clean R4W1 Full-LTO build, source-restoration, FIPS,
+reproduction, candidate-builder, and independent-checker path to the exact
+R4W1-E carrier and E1 sources. Produce one clean kernel build plus an offline
+E1 ramdisk/candidate contract with a fresh manifest-bound run ID. This remains
+host-only and must not create live policy, contact a device, or flash.
 
 ## External references
 

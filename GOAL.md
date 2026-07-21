@@ -76,13 +76,20 @@ Archived text is evidence only and grants no device authority.
    PID1-only kernel gates, E1-E4 profiles, a host codec/static checker, and 23
    passing adversarial tests. No kernel build, image, device contact, or live
    authority was created.
-5. **P2.8 next, host-only:** implement the E1 static PID1 runtime, exact child,
-   checkpoint client, and independent control-flow checker. Cover
-   mounts/readbacks, token/exit/reap, five-module watchdog closure, bounded
-   quiet park, and terminal checkpoint without building a final kernel image.
-6. **E2 later:** generated exact USB closure, per-module result, platform bind,
+5. **P2.8 complete, host-only:** the exact E1 static PID1 runtime, child,
+   checkpoint client, and independent host contract now cover mount readbacks,
+   token/exit/reap, five-module watchdog closure, bounded quiet park, terminal
+   publication, exact syscall authority, and byte-exact P2.7 request
+   compatibility. Twenty focused adversarial tests and final independent
+   review pass. No kernel build, image, device contact, or live authority was
+   created.
+6. **P2.9 next, host-only:** adapt the existing clean Full-LTO R4W1 build and
+   candidate audit path to the exact R4W1-E carrier and E1 sources. Produce one
+   clean kernel build and an offline E1 ramdisk/candidate contract with a fresh
+   manifest-bound run ID. Do not contact or flash a device in this unit.
+7. **E2 later:** generated exact USB closure, per-module result, platform bind,
    DWC3 child, and exact UDC as separate checkpoints.
-7. **E3/E4 later:** one exact ACM banner, then one fixed nonce-bound exchange.
+8. **E3/E4 later:** one exact ACM banner, then one fixed nonce-bound exchange.
    No shell, arbitrary command, NCM, storage, Debian handoff, or hot reload.
 
 Do not reactivate R4W1-C3, fork a C4 helper, add another per-candidate policy
