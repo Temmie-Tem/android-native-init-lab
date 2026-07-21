@@ -24,8 +24,11 @@ Do not add a device step when host-only work can answer the question.
   `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. USBFS arrival handling and exact
   measured Odin-node departure are host-qualified; unrelated membership
   changes, replacement, ambiguity, tickets, and terminal absence remain
-  fail-closed. The completed binding cannot be reused. F1 remains inactive and
-  requires a new host-qualified candidate, D0 preparation, and fresh approval.
+  fail-closed. The completed binding cannot be reused. The exact R4W1-E0 ready
+  manifest has now passed one connected read-only D0
+  preparation with a clean retained baseline and strict prepared-record reopen.
+  F1 remains inactive and requires a fresh exact approval for that prepared
+  binding.
 
 ## Permanent Safety Boundaries
 

@@ -83,6 +83,12 @@ Process v2에 연결한 P2.14 host 결과는
 기록합니다. 세 결과 모두 host-only이며 ready manifest, device contact, D0
 또는 F1 권한은 없습니다.
 
+후속 P2.15에서 exact ready manifest를 세 필드 data-only 승격으로 만들고,
+하나의 healthy FYG8 Android/Magisk target에 connected read-only D0 preparation을
+실행했습니다. clean retained baseline과 strict prepared-record reopen이
+통과했으며 device write, reboot, Odin, partition transfer 또는 F1 권한은
+발생하지 않았습니다. 구조화된 D0 증거는 `workspace/private/`에만 있습니다.
+
 ## Claude review usage ledger
 
 Claude Opus 검토의 세션, 호출 전후 사용률, 리셋 시각, 컨텍스트 여유량,

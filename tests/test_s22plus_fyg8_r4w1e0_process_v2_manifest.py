@@ -14,6 +14,10 @@ DRAFT_MANIFEST = ROOT / (
     "workspace/public/src/device-action/manifests/"
     "s22plus_fyg8_r4w1e0_process_v2_draft.json"
 )
+READY_MANIFEST = ROOT / (
+    "workspace/public/src/device-action/manifests/"
+    "s22plus_fyg8_r4w1e0_process_v2_ready_1.json"
+)
 
 
 def load(name: str, filename: str):
@@ -160,15 +164,30 @@ class S22PlusFyg8R4W1E0ProcessV2ManifestTest(unittest.TestCase):
                 candidate_ap=bundle.receipt["candidate_ap"],
             )
 
-    def test_no_ready_manifest_or_device_authority_is_created(self):
-        ready = DRAFT_MANIFEST.with_name(
-            "s22plus_fyg8_r4w1e0_process_v2_ready_1.json"
+    def test_ready_manifest_is_data_only_promotion_without_live_authority(self):
+        draft = self.core.verify_bundle(ROOT, DRAFT_MANIFEST)
+        ready = self.core.verify_bundle(ROOT, READY_MANIFEST)
+        mutable = {"manifest_id", "run_id", "status"}
+        self.assertEqual(
+            {
+                key
+                for key in draft.manifest
+                if draft.manifest[key] != ready.manifest[key]
+            },
+            mutable,
         )
-        self.assertFalse(ready.exists())
-        bundle = self.core.verify_bundle(ROOT, DRAFT_MANIFEST)
-        self.assertFalse(bundle.receipt["device_contact"])
-        self.assertFalse(bundle.receipt["odin_invoked"])
-        self.assertFalse(bundle.receipt["live_authorized"])
+        self.assertEqual(ready.manifest["status"], "ready-for-f1-approval")
+        self.assertEqual(
+            ready.manifest["observation"]["acceptance"]["kind"],
+            "retained_pid1_userspace_after_rollback",
+        )
+        self.assertEqual(
+            ready.sha256,
+            "f1c2715dc244c9a6822aed19a8bc1e28a40a118ba4a073bf66d8b7dd74ee191a",
+        )
+        self.assertFalse(ready.receipt["device_contact"])
+        self.assertFalse(ready.receipt["odin_invoked"])
+        self.assertFalse(ready.receipt["live_authorized"])
 
 
 if __name__ == "__main__":

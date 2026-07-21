@@ -9,7 +9,7 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 
 ## Current Frontier
 
-**State: R4W1-D DIRECT PID1 PROVEN AND ROLLED BACK; R4W1-E0 PROCESS V2 HOST BINDING READY.** Process v2 transferred
+**State: R4W1-D DIRECT PID1 PROVEN AND ROLLED BACK; R4W1-E0 D0 PREPARED.** Process v2 transferred
 the exact boot-only candidate once, two complete post-rollback
 `/proc/last_kmsg` reads retained one exact contiguous proof, the exact Magisk
 boot rollback completed, and final Android/root/supporting-partition health
@@ -31,8 +31,11 @@ post-exec ENTRY from the exact first PID1 proc checkpoint without the unproved
 E carrier gates. The independent static checker passes, and Process v2 now
 validates the exact offline contract and classifies retained evidence as
 absent, entry-only, userspace-callback-reached, or family-integrity-failure.
-This is still host-only evidence: no ready manifest, D0 preparation, or live
-authorization exists.
+The exact data-only ready manifest and one connected read-only D0 preparation
+now pass. The retained baseline contains no E0 family marker, the device is a
+healthy FYG8 Android/Magisk target, and strict prepared-record reopen passes.
+No device write, reboot, Odin invocation, partition transfer, F1 approval, or
+live authorization occurred.
 
 The controlling next-stage design is
 `docs/plans/S22PLUS_FYG8_POST_PID1_OBSERVABLE_RUNTIME_ARCHITECTURE_2026-07-21.md`.
@@ -84,10 +87,14 @@ Archived text is evidence only and grants no device authority.
 4. **P2.12-P2.14 complete, H0 only:** R4W1-E0 reduced the question to ENTRY vs
    first userspace proc checkpoint, built a byte-identical exact candidate, and
    bound a four-state fail-closed classifier into the unchanged common runner.
-   No ready manifest, device contact, D0, F1 approval, or Odin invocation exists.
-5. **P2.15 next, D0 only:** promote one exact data-only ready manifest and run
-   connected read-only preparation. F1 still requires fresh exact approval.
-6. **E2-E4 later:** prove module closure, platform bind and UDC, then one ACM
+   That H0 unit created no ready manifest, device contact, or live authority.
+5. **P2.15 complete, D0 only:** the three-field ready-manifest promotion and one
+   connected read-only preparation passed with a clean retained baseline and
+   strict prepared-record reopen. F1 remains inactive.
+6. **P2.16 next, F1 only:** after one fresh exact approval, execute the prepared
+   candidate once, classify absent vs ENTRY vs USERSPACE, then perform the
+   already-bound exact rollback and final health verification.
+7. **E2-E4 later:** prove module closure, platform bind and UDC, then one ACM
    banner and one nonce-bound exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a C4 helper, add another per-candidate policy

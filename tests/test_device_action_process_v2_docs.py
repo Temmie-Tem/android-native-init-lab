@@ -80,9 +80,10 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("P2.6-P2.10 complete", self.goal)
         self.assertIn("P2.11 F1 closed, no proof", self.goal)
         self.assertIn("P2.12-P2.14 complete, H0 only", self.goal)
-        self.assertIn("P2.15 next, D0 only", self.goal)
+        self.assertIn("P2.15 complete, D0 only", self.goal)
+        self.assertIn("P2.16 next, F1 only", self.goal)
         self.assertIn(
-            "No ready manifest, device contact, D0, F1 approval, or Odin invocation",
+            "No device write, reboot, Odin invocation, partition transfer, F1 approval",
             normalized_goal,
         )
         self.assertIn("P2.1-P2.5 complete", self.process)
