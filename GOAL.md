@@ -9,7 +9,7 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 
 ## Current Frontier - Process v2 Migration
 
-**State: F1 PREPARED, NOT AUTHORIZED. The first Process v2 device-session canary completed the
+**State: R4W1-D DIRECT PID1 PROVEN AND ROLLED BACK. The first Process v2 device-session canary completed the
 exact candidate transfer and exact Magisk rollback, but retained only an
 unterminated R4W1-B marker prefix. The durable verdict is
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. Final health passed. The exact USBFS
@@ -28,8 +28,10 @@ carrier in distinct directories. Raw boot, LZ4, single-member AP, and manifest
 outputs are byte-identical. The independent candidate checker passes. One
 connected read-only D0 against the draft and the preparation D0 against the
 data-only ready manifest both passed with a clean retained observer. The exact
-prepared binding exists, but no approval has been supplied and no reboot,
-Download transition, Odin invocation, or transfer has occurred.**
+prepared binding was approved once. Process v2 transferred the exact candidate,
+retained one exact contiguous D proof with no integrity issue, restored the
+exact Magisk boot, and verified final Android/root/partition health. Durable
+verdict: `PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK`.**
 
 The R4W1-C2 run did not start an Odin device session: its candidate and rollback
 invocations were rejected while parsing `/proc/self/fd/7`. The R4W1-C3
@@ -95,7 +97,13 @@ the reusable process defined in
   count zero, exact Magisk/stock partition health, and no Download endpoint.
   The ready manifest differs only in ID, run ID, and readiness status. Its
   preparation D0 also passed and created exact approval binding
-  `16640f55...6530392`; it did not authorize or execute F1.
+  `16640f55...6530392`. The operator supplied that exact token once. Candidate
+  and rollback Odin transfers each completed exactly once. Two complete final
+  `/proc/last_kmsg` reads were byte-identical at SHA256 `ed4a24e7...d0aac5a`
+  and contained exactly one D proof/family with zero foreign, partial, delimiter,
+  historical, or integrity findings. Final Magisk Android health passed and the
+  canonical eight-event run closed with
+  `PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK`.
 
 Historical details and retired clauses are preserved in:
 
@@ -120,7 +128,7 @@ Archived text is evidence only and grants no device authority.
 4. **P2.4 - D0 qualification (complete):** the reusable D0 adapter passed
    focused tests, independent review, strict result reopening, and one bounded
    connected read-only preflight. It created no F1 authority.
-5. **P2.5 - F1 canary (current):** the reusable runner completed one exact
+5. **P2.5 - F1 canary (complete):** the reusable runner completed one exact
    candidate and rollback cycle and closed its journal, but the 99-byte witness
    crossed a retained-ring boundary and only its 73-byte first segment
    survived. USB arrival and exact-departure races are now narrowly closed.
@@ -137,17 +145,19 @@ Archived text is evidence only and grants no device authority.
    part of those full-build results. The adapted full static audits pass for A
    and B, and the durable verdict is `PASS_R4W1D_CLEAN_REPRODUCIBILITY` with
    blocker count zero. Three deterministic R4W1-D boot-only candidate
-   reproductions and their independent static audit now pass. Connected D0,
-   data-only readiness promotion, and F1 preparation have completed against the
-   exact candidate and rollback bundle. The next unit is the single bounded F1
-   execution after the operator supplies the exact fresh approval token from
-   the prepared binding. No candidate transfer is currently authorized.
+   reproductions and their independent static audit pass. Connected D0,
+   data-only readiness promotion, F1 preparation, exact candidate transfer,
+   retained proof validation, exact rollback, and final health verification all
+   completed. The direct-PID1 rung is closed. The next substantive unit should
+   grow the proven native entry point into the smallest observable runtime,
+   reusing Process v2 rather than repeating PID1 proof infrastructure.
 
 Do not activate C3, fork a C4 helper, or add another policy block. The source
-review does not authorize F1 execution. The prepared binding may proceed only
-after the operator supplies its exact fresh approval token. That one approval
-includes the candidate attempt and mandatory exact Magisk rollback; no second
-approval may block rollback once the candidate attempt starts.
+Do not reactivate or replay this closed binding. Any new candidate requires new
+data, a new connected D0/preparation, and fresh exact approval. The normal
+post-transfer disappearance of the Odin USB node also exposed a reusable
+endpoint-observation false error; fix it as a bounded Process v2 maintenance
+unit without weakening identity or replacement-device checks.
 
 ## Process
 

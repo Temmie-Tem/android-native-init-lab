@@ -1,7 +1,6 @@
 # Device Action Process v2
 
-Status: P2.1-P2.4 complete; reusable F1 adapter source gate complete; R4W1-D
-connected D0 and F1 preparation passed; exact fresh approval pending.
+Status: P2.1-P2.5 complete; R4W1-D exact candidate proof and rollback passed.
 
 This process replaces per-candidate live helpers, policy activation commits,
 per-run one-shot clauses, and repeated review ladders for ordinary boot-only
@@ -154,6 +153,20 @@ See
 `docs/reports/S22PLUS_FYG8_R4W1D_PROCESS_V2_CANDIDATE_HOST_CLOSE_2026-07-21.md`.
 The connected/prepared close is recorded in
 `docs/reports/S22PLUS_FYG8_R4W1D_CONNECTED_D0_PREPARED_PASS_2026-07-21.md`.
+
+The exact R4W1-D prepared binding was approved once. Candidate and Magisk
+rollback transfers each completed exactly once, two final retained-log reads
+were byte-identical and contained one exact D proof, and final Android/Magisk
+health passed. The journal closed with the canonical eight events and verdict
+`PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK`. See
+`docs/reports/S22PLUS_FYG8_R4W1D_F1_LIVE_PASS_2026-07-21.md`.
+
+Both successful Odin transfers were followed by a false endpoint-identity
+observation exception while the completed transfer reboot removed the USBFS
+node. Durable transfer receipts allowed `--recover` to resume without
+retransmission and complete the run. This is a Process v2 maintenance defect,
+not an ambiguity in either transfer result; it remains to be fixed without
+relaxing endpoint-arrival or replacement-device identity gates.
 
 ### Append-Only Journal
 
