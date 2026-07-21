@@ -7,10 +7,15 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "workspace/public/src/scripts/revalidation"
-MANIFEST = (
+DRAFT_MANIFEST = (
     ROOT
     / "workspace/public/src/device-action/manifests/"
     "s22plus_fyg8_r4w1d_process_v2_draft.json"
+)
+READY_MANIFEST = (
+    ROOT
+    / "workspace/public/src/device-action/manifests/"
+    "s22plus_fyg8_r4w1d_process_v2_ready_1.json"
 )
 
 
@@ -35,7 +40,7 @@ class S22PlusFyg8R4W1DProcessV2ManifestTest(unittest.TestCase):
         sys.path.remove(str(SCRIPTS))
 
     def test_exact_draft_bundle_passes_host_validation(self):
-        bundle = self.core.verify_bundle(ROOT, MANIFEST)
+        bundle = self.core.verify_bundle(ROOT, DRAFT_MANIFEST)
         self.assertEqual(bundle.manifest["status"], "draft-host-only")
         self.assertEqual(
             bundle.receipt["candidate_ap"]["sha256"],
@@ -47,7 +52,7 @@ class S22PlusFyg8R4W1DProcessV2ManifestTest(unittest.TestCase):
         )
 
     def test_acceptance_is_exact_compact_d_marker(self):
-        bundle = self.core.verify_bundle(ROOT, MANIFEST)
+        bundle = self.core.verify_bundle(ROOT, DRAFT_MANIFEST)
         acceptance = bundle.manifest["observation"]["acceptance"]
         marker = acceptance["marker"].encode()
         record = b"\n" + marker + b"\n"
@@ -57,7 +62,7 @@ class S22PlusFyg8R4W1DProcessV2ManifestTest(unittest.TestCase):
         )
 
     def test_draft_is_rejected_before_connected_prepare_allocation(self):
-        bundle = self.core.verify_bundle(ROOT, MANIFEST)
+        bundle = self.core.verify_bundle(ROOT, DRAFT_MANIFEST)
         with tempfile.TemporaryDirectory() as temporary:
             run_dir = Path(temporary) / "must-not-exist"
             with self.assertRaisesRegex(
@@ -65,6 +70,24 @@ class S22PlusFyg8R4W1DProcessV2ManifestTest(unittest.TestCase):
             ):
                 self.live.prepare_connected(ROOT, bundle, run_dir, object())
             self.assertFalse(run_dir.exists())
+
+    def test_ready_manifest_is_data_only_promotion(self):
+        draft = self.core.verify_bundle(ROOT, DRAFT_MANIFEST)
+        ready = self.core.verify_bundle(ROOT, READY_MANIFEST)
+        mutable = {"manifest_id", "run_id", "status"}
+        self.assertEqual(
+            {
+                key
+                for key in draft.manifest
+                if draft.manifest[key] != ready.manifest[key]
+            },
+            mutable,
+        )
+        self.assertEqual(ready.manifest["status"], "ready-for-f1-approval")
+        self.assertEqual(
+            ready.sha256,
+            "872da8ec972a230d928779cc78ba52cfc4d2a12f07013559baa7dae93614eb4e",
+        )
 
 
 if __name__ == "__main__":

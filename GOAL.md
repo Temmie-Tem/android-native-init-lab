@@ -9,7 +9,7 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 
 ## Current Frontier - Process v2 Migration
 
-**State: HOST-ONLY. The first Process v2 device-session canary completed the
+**State: F1 PREPARED, NOT AUTHORIZED. The first Process v2 device-session canary completed the
 exact candidate transfer and exact Magisk rollback, but retained only an
 unterminated R4W1-B marker prefix. The durable verdict is
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. Final health passed. The exact USBFS
@@ -25,10 +25,11 @@ builds. Adapted full static audits of both builds and the durable A/B
 reproducibility gate now pass with blocker count zero. Three separate
 invocations inserted the exact R4W1-D Image into the exact R4W1-C watchdog
 carrier in distinct directories. Raw boot, LZ4, single-member AP, and manifest
-outputs are byte-identical;
-the independent candidate checker and Process v2 offline D0 gate pass. The
-manifest remains `draft-host-only`: no connected D0, preparation binding, or
-live authority exists.**
+outputs are byte-identical. The independent candidate checker passes. One
+connected read-only D0 against the draft and the preparation D0 against the
+data-only ready manifest both passed with a clean retained observer. The exact
+prepared binding exists, but no approval has been supplied and no reboot,
+Download transition, Odin invocation, or transfer has occurred.**
 
 The R4W1-C2 run did not start an Odin device session: its candidate and rollback
 invocations were rejected while parsing `/proc/self/fd/7`. The R4W1-C3
@@ -89,7 +90,12 @@ the reusable process defined in
   the watchdog carrier `/init`, D marker cardinality, fixed kernel replacement,
   stale AVB preservation, AP shape, and three-way byte identity. Process v2
   offline D0 returned `PASS_DEVICE_ACTION_D0_V2_OFFLINE_READY` for bundle
-  `3a068ce7...01aa498`; the data manifest is intentionally not live-ready.
+  `3a068ce7...01aa498`. A later connected D0 strictly reopened its private
+  evidence and passed with the complete 2,097,136-byte observer, marker family
+  count zero, exact Magisk/stock partition health, and no Download endpoint.
+  The ready manifest differs only in ID, run ID, and readiness status. Its
+  preparation D0 also passed and created exact approval binding
+  `16640f55...6530392`; it did not authorize or execute F1.
 
 Historical details and retired clauses are preserved in:
 
@@ -131,17 +137,17 @@ Archived text is evidence only and grants no device authority.
    part of those full-build results. The adapted full static audits pass for A
    and B, and the durable verdict is `PASS_R4W1D_CLEAN_REPRODUCIBILITY` with
    blocker count zero. Three deterministic R4W1-D boot-only candidate
-   reproductions and their independent static audit now pass; a Process v2
-   `draft-host-only` manifest also passes offline D0 validation. The next unit
-   is one separately approved connected read-only D0 against this exact bundle,
-   followed by data-only readiness promotion and F1 preparation. No live
-   manifest or candidate transfer is currently authorized.
+   reproductions and their independent static audit now pass. Connected D0,
+   data-only readiness promotion, and F1 preparation have completed against the
+   exact candidate and rollback bundle. The next unit is the single bounded F1
+   execution after the operator supplies the exact fresh approval token from
+   the prepared binding. No candidate transfer is currently authorized.
 
 Do not activate C3, fork a C4 helper, or add another policy block. The source
-review does not promote the manifest or authorize device contact. P2.5 remains
-host-only until a separately approved connected D0 is completed, the manifest
-is explicitly promoted, and the operator gives one fresh approval for that
-exact prepared binding.
+review does not authorize F1 execution. The prepared binding may proceed only
+after the operator supplies its exact fresh approval token. That one approval
+includes the candidate attempt and mandatory exact Magisk rollback; no second
+approval may block rollback once the candidate attempt starts.
 
 ## Process
 

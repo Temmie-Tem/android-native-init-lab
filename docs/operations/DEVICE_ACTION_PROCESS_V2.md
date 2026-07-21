@@ -1,7 +1,7 @@
 # Device Action Process v2
 
 Status: P2.1-P2.4 complete; reusable F1 adapter source gate complete; R4W1-D
-candidate host-qualified; connected D0 pending.
+connected D0 and F1 preparation passed; exact fresh approval pending.
 
 This process replaces per-candidate live helpers, policy activation commits,
 per-run one-shot clauses, and repeated review ladders for ordinary boot-only
@@ -146,10 +146,14 @@ The next candidate, R4W1-D, was constructed without another runner or policy
 fork. Thin data-contract adapters reuse the existing fixed-interval builder and
 independent checker. Three distinct reproductions are byte-identical, the
 independent static contract passes, and the Process v2 offline D0 gate accepts
-the exact boot-only AP and rollback bundle. Its manifest remains
-`draft-host-only`; this host qualification creates no connected D0 evidence,
-prepared binding, approval token, or F1 authority. See
+the exact boot-only AP and rollback bundle. A later connected D0 passed, a
+data-only ready manifest changed only IDs and readiness state, and F1
+preparation repeated the read-only D0 and created an exact binding. No reboot,
+Download transition, Odin invocation, transfer, or F1 authorization occurred.
+See
 `docs/reports/S22PLUS_FYG8_R4W1D_PROCESS_V2_CANDIDATE_HOST_CLOSE_2026-07-21.md`.
+The connected/prepared close is recorded in
+`docs/reports/S22PLUS_FYG8_R4W1D_CONNECTED_D0_PREPARED_PASS_2026-07-21.md`.
 
 ### Append-Only Journal
 
