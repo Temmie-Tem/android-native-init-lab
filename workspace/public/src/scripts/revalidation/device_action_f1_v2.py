@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import device_action_f1_evidence_v2 as typed_evidence
 from s22plus_boot_only_f1_transport import (
     BOOT_MEMBER,
     F1TransportError,
@@ -316,11 +317,10 @@ def validate_manifest(manifest: dict[str, Any], profile: dict[str, Any]) -> dict
     observation = _exact(manifest["observation"], {"timeout_sec", "acceptance"}, "observation")
     if isinstance(observation["timeout_sec"], bool) or not isinstance(observation["timeout_sec"], int) or not 1 <= observation["timeout_sec"] <= 600:
         raise F1V2Error("observation timeout is invalid")
-    acceptance = _exact(observation["acceptance"], {"kind", "source", "marker", "family", "exact_count"}, "acceptance")
-    if (acceptance["kind"], acceptance["source"], acceptance["exact_count"]) != ("retained_marker_after_rollback", "/proc/last_kmsg", 1):
-        raise F1V2Error("observation acceptance is invalid")
-    _text(acceptance["marker"], "acceptance.marker", 512)
-    _text(acceptance["family"], "acceptance.family", 128)
+    try:
+        typed_evidence.validate_acceptance(observation["acceptance"])
+    except typed_evidence.EvidenceError as exc:
+        raise F1V2Error(str(exc)) from exc
     if manifest["final_health_profile"] != profile["health_profile_id"] or manifest["runner_version"] != RUNNER_VERSION:
         raise F1V2Error("manifest health profile or runner version mismatch")
     return manifest
@@ -365,6 +365,49 @@ def verify_bundle(root: Path, manifest_path: Path) -> Bundle:
             expected_sha256=item["sha256"],
         ) as pinned:
             receipts[label] = pinned.receipt()
+    acceptance = manifest["observation"]["acceptance"]
+    try:
+        contract_items = typed_evidence.contract_artifacts(acceptance)
+    except typed_evidence.EvidenceError as exc:
+        raise F1V2Error(str(exc)) from exc
+    if contract_items:
+        contract_payloads: dict[str, bytes] = {}
+        contract_receipts: dict[str, dict[str, Any]] = {}
+        for name, item in contract_items.items():
+            with pin_regular_file(
+                _artifact_path(root, item, f"observation contract {name}"),
+                label=f"observation contract {name}",
+                expected_size=item["size"],
+                expected_sha256=item["sha256"],
+            ) as pinned:
+                os.lseek(pinned.descriptor, 0, os.SEEK_SET)
+                chunks: list[bytes] = []
+                remaining = pinned.size + 1
+                while remaining:
+                    chunk = os.read(pinned.descriptor, remaining)
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+                    remaining -= len(chunk)
+                payload = b"".join(chunks)
+                os.lseek(pinned.descriptor, 0, os.SEEK_SET)
+                if len(payload) != pinned.size:
+                    raise F1V2Error(f"observation contract {name} read is short")
+                contract_payloads[name] = payload
+                contract_receipts[name] = pinned.receipt()
+        try:
+            verification = typed_evidence.verify_offline_contract(
+                acceptance,
+                payloads=contract_payloads,
+                receipts=contract_receipts,
+                candidate_ap=receipts["candidate_ap"],
+            )
+        except typed_evidence.EvidenceError as exc:
+            raise F1V2Error(str(exc)) from exc
+        receipts["observation_contract"] = {
+            "artifacts": contract_receipts,
+            "verification": verification,
+        }
     odin = profile["transport"]["odin"]
     with pin_regular_file(
         _artifact_path(root, odin, "odin"),
@@ -376,6 +419,12 @@ def verify_bundle(root: Path, manifest_path: Path) -> Bundle:
             raise F1V2Error("pinned Odin4 is not executable")
         receipts["odin"] = pinned.receipt()
     runner_receipt = _stable_read(Path(__file__).resolve(), "F1 v2 runner")[1]
+    evidence_receipt = _stable_read(
+        Path(typed_evidence.__file__).resolve(), "typed evidence runner"
+    )[1]
+    checkpoint_receipt = _stable_read(
+        Path(typed_evidence.checkpoint.__file__).resolve(), "checkpoint decoder"
+    )[1]
     transport_receipt = _stable_read(
         Path(__file__).with_name("s22plus_boot_only_f1_transport.py").resolve(),
         "regular-path transport",
@@ -386,7 +435,12 @@ def verify_bundle(root: Path, manifest_path: Path) -> Bundle:
         "profile": profile_receipt,
         "manifest": manifest_receipt,
         **receipts,
-        "execution_critical_sources": {"runner": runner_receipt, "regular_path_transport": transport_receipt},
+        "execution_critical_sources": {
+            "runner": runner_receipt,
+            "typed_evidence": evidence_receipt,
+            "checkpoint_decoder": checkpoint_receipt,
+            "regular_path_transport": transport_receipt,
+        },
         "device_contact": False,
         "odin_invoked": False,
         "live_authorized": False,

@@ -55,6 +55,13 @@ manifest-bound offline E1 boot-only candidate, independent checker와 143개
 `reports/S22PLUS_FYG8_R4W1E_P2_9_OFFLINE_E1_CANDIDATE_HOST_PASS_2026-07-21.md`에
 기록합니다. 이 결과는 host-only이며 D0/F1 또는 live 권한을 만들지 않습니다.
 
+R4W1-E P2.10의 Process v2 typed retained-checkpoint acceptance, P2.9
+offline-contract/AP/run-ID binding, legacy marker 무회귀, 62개 focused test와
+독립 검토 결과는
+`reports/S22PLUS_FYG8_R4W1E_E1_PROCESS_V2_TYPED_EVIDENCE_HOST_PASS_2026-07-22.md`에
+기록합니다. 이 결과도 host-only이며 connected D0와 fresh F1 승인은 아직
+별도 단계입니다.
+
 ## Claude review usage ledger
 
 Claude Opus 검토의 세션, 호출 전후 사용률, 리셋 시각, 컨텍스트 여유량,

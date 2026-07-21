@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, ContextManager, Protocol
 
 import device_action_d0_v2 as d0
+import device_action_f1_evidence_v2 as typed_evidence
 import device_action_f1_v2 as core
 import s22plus_boot_only_f1_transport as transport
 import s22plus_boot_only_live_core as live_core
@@ -157,6 +158,8 @@ def _closure(root: Path) -> dict[str, Any]:
     paths = {
         "adapter": Path(__file__).resolve(),
         "f1_core": scripts / "device_action_f1_v2.py",
+        "typed_evidence": scripts / "device_action_f1_evidence_v2.py",
+        "checkpoint_decoder": scripts / "s22plus_fyg8_r4w1e_checkpoint_contract.py",
         "d0_adapter": scripts / "device_action_d0_v2.py",
         "regular_path_transport": scripts / "s22plus_boot_only_f1_transport.py",
         "live_core": scripts / "s22plus_boot_only_live_core.py",
@@ -485,6 +488,11 @@ def validate_download_endpoint(
 
 
 def classify_acceptance(payload: bytes, acceptance: dict[str, Any]) -> dict[str, Any]:
+    if acceptance.get("kind") == typed_evidence.CHECKPOINT_KIND:
+        try:
+            return typed_evidence.classify_checkpoint(payload, acceptance)
+        except typed_evidence.EvidenceError as exc:
+            raise F1LiveError(str(exc)) from exc
     marker = acceptance["marker"].encode()
     family = acceptance["family"].encode()
     classification = live_core.classify_marker_family(

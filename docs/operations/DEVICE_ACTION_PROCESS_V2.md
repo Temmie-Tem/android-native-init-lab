@@ -1,6 +1,7 @@
 # Device Action Process v2
 
-Status: P2.1-P2.5 complete; R4W1-D exact candidate proof and rollback passed.
+Status: P2.1-P2.5 complete; P2.6-P2.10 host path complete; R4W1-D exact
+candidate proof and rollback passed. No S22+ F1 run is currently authorized.
 
 This process replaces per-candidate live helpers, policy activation commits,
 per-run one-shot clauses, and repeated review ladders for ordinary boot-only
@@ -170,6 +171,30 @@ complete inventory transition equal to `baseline - exact Odin node` is emitted
 as a persisted live-empty receipt. Strict post-receipt revalidation rejects a
 replacement before acceptance. Incomplete inventory, arrivals, replacements,
 and all default callers remain fail-closed. No repeat device run was needed.
+
+### Typed Retained Evidence
+
+P2.10 extends only the observation contract. The legacy exact-marker kind is
+still accepted with its original bounded-string schema and classification. The
+new `retained_checkpoint_after_rollback` kind is restricted to the reviewed
+R4W1-E E1 decoder and pins both the P2.9 run manifest and independent static
+checker result as regular files with exact sizes and SHA256 values.
+
+Bundle validation recomputes the canonical run-manifest identity, binds its
+16-byte run ID to the exact boot-only candidate AP, and includes the typed
+evidence helper plus checkpoint decoder in the execution-critical closure. D0
+continues to require the complete marker family to be absent before approval.
+After rollback, acceptance requires one exact retained entry, no duplicate or
+partial family, the expected run ID, terminal E1 success, and two CRC-valid A/B
+slots with adjacent generations and a self-consistent saturated boot identity.
+Progress, explicit failure, one-slot fallback, corrupt committed slots, stale
+run IDs, and truncated regions are diagnostic only and cannot produce PASS.
+
+The exact draft and ready manifests differ only in IDs and readiness state.
+The focused 62-test execution-closure suite and independent H0 review pass.
+This is a host-only capability change: it did not contact a device, perform D0,
+invoke Odin, authorize F1, or flash. A connected D0 preparation and fresh exact
+approval remain separate requirements.
 
 ### Append-Only Journal
 

@@ -88,12 +88,18 @@ Archived text is evidence only and grants no device authority.
    independent offline checker pass are recorded. The integrated relevant
    suite passes 143 tests. No device contact, Odin invocation, flash, D0, or F1
    authority occurred.
-7. **P2.10 next:** prepare the unchanged Process v2 manifest/profile for the
-   exact P2.9 E1 AP. Connected D0 qualification and any fresh F1 approval remain
-   separate future actions; this checkpoint does not activate either.
-8. **E2 later:** generated exact USB closure, per-module result, platform bind,
+7. **P2.10 complete, host-only:** Process v2 now validates the pinned P2.9
+   offline contract and decodes the R4W1-E A/B checkpoint as typed evidence.
+   Only one exact E1 terminal-success record with two valid adjacent slots and
+   the manifest-bound run ID can pass. The legacy marker path remains
+   unchanged. Focused tests and independent review pass. No device contact,
+   D0, F1 approval, Odin invocation, or flash occurred.
+8. **P2.11 next:** run one connected read-only D0 preparation for the exact
+   ready E1 manifest, verify the fresh private binding, and stop at the exact
+   approval token. F1 remains inactive until the operator returns that token.
+9. **E2 later:** generated exact USB closure, per-module result, platform bind,
    DWC3 child, and exact UDC as separate checkpoints.
-9. **E3/E4 later:** one exact ACM banner, then one fixed nonce-bound exchange.
+10. **E3/E4 later:** one exact ACM banner, then one fixed nonce-bound exchange.
    No shell, arbitrary command, NCM, storage, Debian handoff, or hot reload.
 
 Do not reactivate R4W1-C3, fork a C4 helper, add another per-candidate policy

@@ -48,7 +48,7 @@ class S22PlusFyg8R4W1DProcessV2ManifestTest(unittest.TestCase):
         )
         self.assertEqual(
             bundle.sha256,
-            "3a068ce78d045e943b878fa841593baad81c6e92c3153cf06e88bc15001aa498",
+            "2f53bfd36913779e677f7749715c7600b7df17fb007d61f76dae100fdf32e730",
         )
 
     def test_acceptance_is_exact_compact_d_marker(self):
@@ -86,7 +86,7 @@ class S22PlusFyg8R4W1DProcessV2ManifestTest(unittest.TestCase):
         self.assertEqual(ready.manifest["status"], "ready-for-f1-approval")
         self.assertEqual(
             ready.sha256,
-            "872da8ec972a230d928779cc78ba52cfc4d2a12f07013559baa7dae93614eb4e",
+            "94714137f77ad9be4713b89ff0f61900e221d06af2ec32807be2a3e35ecb2fb9",
         )
 
 
