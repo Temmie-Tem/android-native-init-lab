@@ -82,6 +82,10 @@ class EndpointIdentityObserver(Protocol):
 
     def evidence(self, live_devices: tuple[str, ...]) -> dict[str, Any]: ...
 
+    def identity_or_exact_departure(self, path: str) -> str | None: ...
+
+    def evidence_after_exact_departure(self, path: str) -> dict[str, Any]: ...
+
     def revalidate(self, evidence: dict[str, Any]) -> None: ...
 
     def revalidate_or_departure(self, evidence: dict[str, Any]) -> None: ...
@@ -334,6 +338,8 @@ def _new_endpoint_observer(
             "inventory",
             "identity",
             "evidence",
+            "identity_or_exact_departure",
+            "evidence_after_exact_departure",
             "revalidate",
             "revalidate_or_departure",
         )
@@ -349,6 +355,7 @@ def enumerate_odin(
     device_identity: DeviceIdentity = _default_device_identity,
     device_inventory: DeviceInventory = _default_device_inventory,
     endpoint_observer_factory: EndpointObserverFactory | None = None,
+    allow_live_departure_race: bool = False,
     timeout_sec: float = 10.0,
     timestamp: Callable[[], str] = live_core.utc_now,
 ) -> OdinSnapshot:
@@ -370,7 +377,11 @@ def enumerate_odin(
             before = _validated_device_inventory(observer.inventory)
         except (OSError, usbfs_identity.UsbfsIdentityError) as exc:
             raise OdinTransitionError("measured USB endpoint inventory failed") from exc
-        active_identity = observer.identity
+        active_identity = (
+            observer.identity_or_exact_departure
+            if allow_live_departure_race
+            else observer.identity
+        )
     else:
         before = _validated_device_inventory(device_inventory)
         active_identity = device_identity
@@ -399,6 +410,34 @@ def enumerate_odin(
             raise OdinTransitionError(
                 f"Odin endpoint identity observation failed: {device}"
             ) from exc
+        if identity_before is not None and identity_after is None:
+            if (
+                allow_live_departure_race
+                and observer is not None
+                and raw_devices == (device,)
+            ):
+                try:
+                    endpoint_evidence = observer.evidence_after_exact_departure(
+                        device
+                    )
+                except (OSError, usbfs_identity.UsbfsIdentityError) as exc:
+                    raise OdinTransitionError(
+                        f"Odin endpoint changed during enumeration: {device}"
+                    ) from exc
+                return OdinSnapshot(
+                    timestamp_utc=timestamp(),
+                    returncode=result.returncode,
+                    raw_devices=raw_devices,
+                    live_devices=(),
+                    stale_devices=raw_devices,
+                    live_device_identities=(),
+                    stdout=stdout,
+                    stderr=stderr,
+                    endpoint_transition_evidence=endpoint_evidence,
+                )
+            raise OdinTransitionError(
+                f"Odin endpoint changed during enumeration: {device}"
+            )
         if identity_before is None and identity_after is None:
             stale_list.append(device)
             continue
@@ -1292,6 +1331,7 @@ def _snapshot_and_record(
         device_identity=device_identity,
         device_inventory=device_inventory,
         endpoint_observer_factory=endpoint_observer_factory,
+        allow_live_departure_race=allow_live_departure,
         timeout_sec=enumeration_timeout_sec,
         timestamp=timestamp,
     )
@@ -1401,6 +1441,7 @@ def wait_for_no_live_endpoint(
     device_identity: DeviceIdentity = _default_device_identity,
     device_inventory: DeviceInventory = _default_device_inventory,
     endpoint_observer_factory: EndpointObserverFactory | None = None,
+    allow_live_departure: bool = False,
     timestamp: Callable[[], str] = live_core.utc_now,
     monotonic: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
@@ -1430,7 +1471,7 @@ def wait_for_no_live_endpoint(
             timestamp=timestamp,
             enumeration_timeout_sec=min(DEFAULT_ENUM_TIMEOUT_SEC, remaining),
             lease=lease,
-            allow_live_departure=True,
+            allow_live_departure=allow_live_departure,
         )
         sequence += 1
         if len(snapshot.live_devices) > 1:

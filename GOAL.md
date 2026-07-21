@@ -9,12 +9,13 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 
 ## Current Frontier - Process v2 Migration
 
-**State: R4W1-D DIRECT PID1 PROVEN AND ROLLED BACK. The first Process v2 device-session canary completed the
-exact candidate transfer and exact Magisk rollback, but retained only an
-unterminated R4W1-B marker prefix. The durable verdict is
-`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. Final health passed. The exact USBFS
-departure fix is tested and independently reviewed. No active S22+ F1
-authorization. R4W1-D contiguous-proof implementation has passed one
+**State: R4W1-D DIRECT PID1 PROVEN AND ROLLED BACK. The exact R4W1-D
+candidate and Magisk rollback each transferred once, retained proof passed,
+and final health passed with durable verdict
+`PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK`. The post-transfer USBFS
+departure-observation defect is host-fixed, focused-tested, and independently
+reviewed; only the two Process v2 post-transfer absence checks opt in. No active
+S22+ F1 authorization. R4W1-D contiguous-proof implementation has passed one
 complete-overlay clean Full-LTO build and output gate. That first
 build exposed a vendor-build rewrite of three archive-owned source symlinks;
 the adapter now pins and restores all five absolute archive symlinks, and a
@@ -155,9 +156,11 @@ Archived text is evidence only and grants no device authority.
 Do not activate C3, fork a C4 helper, or add another policy block. The source
 Do not reactivate or replay this closed binding. Any new candidate requires new
 data, a new connected D0/preparation, and fresh exact approval. The normal
-post-transfer disappearance of the Odin USB node also exposed a reusable
-endpoint-observation false error; fix it as a bounded Process v2 maintenance
-unit without weakening identity or replacement-device checks.
+post-transfer disappearance of the Odin USB node exposed a reusable
+endpoint-observation false error. The bounded host maintenance unit now accepts
+only a complete exact single-node departure and strictly revalidates its
+persisted absence receipt; incomplete inventory, arrival, replacement, and
+non-opted-in callers remain fail-closed. No repeat live run was performed.
 
 ## Process
 

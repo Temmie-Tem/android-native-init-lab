@@ -100,6 +100,12 @@ closed the transaction.
 
 This false post-transfer error did not weaken or create the PASS. The strict
 validator independently requires both transfer receipts, exact marker evidence,
-rollback completion, final health, and canonical timeline. The endpoint-session
-teardown behavior remains a reusable Process v2 defect to fix before the next
-candidate.
+rollback completion, final health, and canonical timeline.
+
+The follow-up host maintenance unit accepts only a complete measured transition
+where the single raw Odin node is the sole removed inventory member. It records
+that same observation as a live-empty receipt and strictly revalidates it before
+returning absence. The behavior is opt-in only at Process v2 candidate and
+rollback post-transfer checks; incomplete observations and replacement or
+unrelated changes remain fatal. Focused tests and independent adversarial
+re-review returned `GO`. No device action was repeated for this host-only fix.

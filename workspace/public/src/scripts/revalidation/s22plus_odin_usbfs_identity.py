@@ -495,12 +495,21 @@ class MeasuredUsbfsIdentityObserver:
         self._baseline = dict(baseline)
         return identities
 
-    def _after_inventory(self) -> dict[str, UsbfsNodeSnapshot]:
+    def _after_inventory(
+        self, *, allow_membership_change: bool = False
+    ) -> dict[str, UsbfsNodeSnapshot]:
         if self._baseline is None:
             raise UsbfsIdentityError("usbfs observer inventory was not captured")
         if self._after is None:
             after = self._inventory_reader()
-            enumeration_evidence(self._baseline, after, ())
+            if not isinstance(after, dict) or len(after) > MAX_INVENTORY_ENTRIES:
+                raise UsbfsIdentityError("usbfs observer inventory is invalid")
+            for path, snapshot in sorted(after.items()):
+                _validate_snapshot(snapshot)
+                if path != snapshot.path:
+                    raise UsbfsIdentityError("usbfs observer inventory path mismatch")
+            if not allow_membership_change:
+                enumeration_evidence(self._baseline, after, ())
             self._after = dict(after)
         return self._after
 
@@ -516,6 +525,42 @@ class MeasuredUsbfsIdentityObserver:
             self._after_inventory(),
             live_devices,
         )
+
+    def identity_or_exact_departure(self, path: str) -> str | None:
+        """Return identity or accept removal of only the named baseline node."""
+
+        _validated_usbfs_coordinates(path)
+        if self._baseline is None or path not in self._baseline:
+            raise UsbfsIdentityError("usbfs departure baseline is invalid")
+        after = self._after_inventory(allow_membership_change=True)
+        current = after.get(path)
+        if current is not None:
+            return immutable_identity(current)
+        expected = {
+            current_path: snapshot
+            for current_path, snapshot in self._baseline.items()
+            if current_path != path
+        }
+        if tuple(sorted(after)) != tuple(sorted(expected)):
+            raise UsbfsIdentityError(
+                "usbfs inventory is not an exact during-enumeration departure"
+            )
+        enumeration_evidence(expected, after, ())
+        return None
+
+    def evidence_after_exact_departure(self, path: str) -> dict[str, Any]:
+        """Describe the already-validated inventory after one exact removal."""
+
+        _validated_usbfs_coordinates(path)
+        if self._baseline is None or path not in self._baseline:
+            raise UsbfsIdentityError("usbfs departure baseline is invalid")
+        after = self._after_inventory(allow_membership_change=True)
+        if path in after:
+            raise UsbfsIdentityError("usbfs departed endpoint is still present")
+        expected_paths = tuple(sorted(set(self._baseline) - {path}))
+        if tuple(sorted(after)) != expected_paths:
+            raise UsbfsIdentityError("usbfs exact departure evidence changed")
+        return enumeration_evidence(after, after, ())
 
     def revalidate(self, evidence: dict[str, Any]) -> None:
         validate_enumeration_evidence(evidence)

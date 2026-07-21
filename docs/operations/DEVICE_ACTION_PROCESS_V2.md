@@ -164,9 +164,12 @@ health passed. The journal closed with the canonical eight events and verdict
 Both successful Odin transfers were followed by a false endpoint-identity
 observation exception while the completed transfer reboot removed the USBFS
 node. Durable transfer receipts allowed `--recover` to resume without
-retransmission and complete the run. This is a Process v2 maintenance defect,
-not an ambiguity in either transfer result; it remains to be fixed without
-relaxing endpoint-arrival or replacement-device identity gates.
+retransmission and complete the run. The host maintenance fix is now closed:
+only the candidate and rollback post-transfer checks opt in, and only a
+complete inventory transition equal to `baseline - exact Odin node` is emitted
+as a persisted live-empty receipt. Strict post-receipt revalidation rejects a
+replacement before acceptance. Incomplete inventory, arrivals, replacements,
+and all default callers remain fail-closed. No repeat device run was needed.
 
 ### Append-Only Journal
 

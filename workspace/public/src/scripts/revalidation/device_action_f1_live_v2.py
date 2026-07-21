@@ -815,6 +815,7 @@ class SamsungOdinBackend:
             sequence_start=sequence,
             poll_sec=0.5,
             endpoint_observer_factory=odin_core.measured_usbfs_observer,
+            allow_live_departure=True,
         )
         timeout = prepared.bundle.manifest["observation"]["timeout_sec"]
         started = time.monotonic()
@@ -877,6 +878,7 @@ class SamsungOdinBackend:
             sequence_start=sequence,
             poll_sec=0.5,
             endpoint_observer_factory=odin_core.measured_usbfs_observer,
+            allow_live_departure=True,
         )
         if not absent.absent:
             raise F1LiveError("rollback Odin endpoint did not disappear")
