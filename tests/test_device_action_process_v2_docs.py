@@ -69,10 +69,20 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         ):
             self.assertIn(state, self.process)
 
-    def test_frontier_advances_to_f1_adapter_without_live_authority(self):
-        self.assertIn("stopped before candidate\nattempt or transfer", self.goal)
-        self.assertIn("new D0 preparation are pending", self.goal)
-        self.assertIn("P2.1-P2.4 complete", self.process)
+    def test_frontier_advances_past_direct_pid1_without_live_authority(self):
+        normalized_goal = " ".join(self.goal.split())
+        self.assertIn(
+            "R4W1-D DIRECT PID1 PROVEN AND ROLLED BACK", normalized_goal
+        )
+        self.assertIn(
+            "PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK", self.goal
+        )
+        self.assertIn("P2.7 next, host-only", self.goal)
+        self.assertIn(
+            "No full build, packaging, device contact, or policy activation",
+            normalized_goal,
+        )
+        self.assertIn("P2.1-P2.5 complete", self.process)
         self.assertIn("reusable D0 adapter are complete", self.agents)
         self.assertIn("read-only D0 qualification passed", self.agents)
         self.assertIn(

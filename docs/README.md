@@ -31,6 +31,12 @@ host-only 소스 게이트 결과는
 `reports/DEVICE_ACTION_PROCESS_V2_F1_ADAPTER_HOST_PASS_2026-07-21.md`에
 기록하며, production manifest와 실기기 F1 권한은 여전히 비활성입니다.
 
+R4W1-D가 증명한 PID1 진입 이후의 최소 runtime, retained A/B checkpoint,
+child exec/reap, USB bind/UDC, ACM 단방향, 고정 1회 왕복 순서는
+`plans/S22PLUS_FYG8_POST_PID1_OBSERVABLE_RUNTIME_ARCHITECTURE_2026-07-21.md`에
+정리합니다. 이 설계는 pstore/pmsg/ramoops를 재사용하지 않으며 현재 live
+권한을 만들지 않습니다.
+
 ## Claude review usage ledger
 
 Claude Opus 검토의 세션, 호출 전후 사용률, 리셋 시각, 컨텍스트 여유량,
