@@ -432,6 +432,45 @@ def verify_run_manifest(
     return manifest, encoded, run_id
 
 
+def classify_image(image: bytes) -> dict[str, Any]:
+    if (
+        image.count(checkpoint.ENTRY_PROOF) != 1
+        or image.count(checkpoint.ENTRY_FAMILY) != 1
+        or any(
+            image.count(value)
+            for value in (b"[[S22P1D|", b"[[S22R4W1B|", b"[[S22R4W1|")
+        )
+    ):
+        raise CheckError("R4W1-E Image marker contract mismatch")
+    return {"verified": True}
+
+
+def verify_candidate_run_binding(
+    binding: Any, run_encoded: bytes, run_id: bytes
+) -> None:
+    if not isinstance(binding, dict):
+        raise CheckError("candidate run binding is not an object")
+    if (
+        binding.get("run_id") != run_id.hex()
+        or binding.get("canonical_manifest_size") != len(run_encoded)
+        or binding.get("canonical_manifest_sha256")
+        != hashlib.sha256(run_encoded).hexdigest()
+        or binding.get("derivation") != "sha256(canonical-run-manifest)[:16]"
+        or binding.get("p2_7_model_id_reused") is not False
+    ):
+        raise CheckError("candidate run binding mismatch")
+
+
+def run_binding_evidence(run_encoded: bytes, run_id: bytes) -> dict[str, Any]:
+    return {
+        "run_id": run_id.hex(),
+        "canonical_manifest_size": len(run_encoded),
+        "canonical_manifest_sha256": hashlib.sha256(run_encoded).hexdigest(),
+        "fresh_non_model_id": True,
+        "verified": True,
+    }
+
+
 def run_checked(argv: list[str | Path], cwd: Path, label: str) -> None:
     result = subprocess.run(
         [str(value) for value in argv],
@@ -705,12 +744,7 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
     if image_receipt["size"] != KERNEL_SIZE:
         raise CheckError("R4W1-E Image size mismatch")
     verify.parse_arm64_header(image)
-    if (
-        image.count(checkpoint.ENTRY_PROOF) != 1
-        or image.count(checkpoint.ENTRY_FAMILY) != 1
-        or any(image.count(value) for value in (b"[[S22P1D|", b"[[S22R4W1B|", b"[[S22R4W1|"))
-    ):
-        raise CheckError("R4W1-E Image marker contract mismatch")
+    classify_image(image)
     kernel_result_receipt, kernel_result_data = file_receipt(
         resolve(root, args.kernel_result), "R4W1-E kernel result"
     )
@@ -787,16 +821,7 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
         if manifest.get(name) != expected:
             raise CheckError(f"candidate manifest {name} mismatch")
     binding = manifest.get("run_binding")
-    if not isinstance(binding, dict):
-        raise CheckError("candidate run binding is not an object")
-    if (
-        binding.get("run_id") != run_id.hex()
-        or binding.get("canonical_manifest_size") != len(run_encoded)
-        or binding.get("canonical_manifest_sha256") != hashlib.sha256(run_encoded).hexdigest()
-        or binding.get("derivation") != "sha256(canonical-run-manifest)[:16]"
-        or binding.get("p2_7_model_id_reused") is not False
-    ):
-        raise CheckError("candidate run binding mismatch")
+    verify_candidate_run_binding(binding, run_encoded, run_id)
     if manifest.get("host_contract") != {"schema": e1.SCHEMA, "verdict": e1.VERDICT}:
         raise CheckError("candidate host-contract binding mismatch")
     expected_blockers = [
@@ -908,13 +933,7 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
             "sources": source_receipts,
             "host_tools": actual_tool_receipts,
         },
-        "run_binding": {
-            "run_id": run_id.hex(),
-            "canonical_manifest_size": len(run_encoded),
-            "canonical_manifest_sha256": hashlib.sha256(run_encoded).hexdigest(),
-            "fresh_non_model_id": True,
-            "verified": True,
-        },
+        "run_binding": run_binding_evidence(run_encoded, run_id),
         "candidate": {
             "artifacts": receipts,
             "independent_carrier_reconstruction": reconstruction,

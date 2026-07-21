@@ -74,7 +74,10 @@ R4W1-E0는 위 no-proof를 좁히기 위해 R4W1-D의 proven 45-byte slot을
 slot의 두 상태로 분리합니다. 새 probe-bound runtime, clean Full-LTO build,
 linked-code audit와 127개 관련 test 결과는
 `reports/S22PLUS_FYG8_R4W1E0_PID1_USERSPACE_PROOF_HOST_BUILD_PASS_2026-07-22.md`에
-기록합니다. 아직 candidate, device contact, D0 또는 F1 권한은 없습니다.
+기록합니다. 이를 기존 P2.9 packager/checker에 얇게 연결한 deterministic
+boot-only offline candidate, A/B byte identity와 독립 검사 결과는
+`reports/S22PLUS_FYG8_R4W1E0_OFFLINE_CANDIDATE_HOST_PASS_2026-07-22.md`에
+기록합니다. 둘 다 host-only이며 device contact, D0 또는 F1 권한은 없습니다.
 
 ## Claude review usage ledger
 

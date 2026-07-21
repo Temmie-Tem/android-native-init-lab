@@ -9,7 +9,7 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 
 ## Current Frontier
 
-**State: R4W1-D DIRECT PID1 PROVEN; R4W1-E0 HOST DIAGNOSTIC BUILT.** Process v2 transferred
+**State: R4W1-D DIRECT PID1 PROVEN; R4W1-E0 OFFLINE CANDIDATE READY.** Process v2 transferred
 the exact boot-only candidate once, two complete post-rollback
 `/proc/last_kmsg` reads retained one exact contiguous proof, the exact Magisk
 boot rollback completed, and final Android/root/supporting-partition health
@@ -25,10 +25,11 @@ D0 and preparation, fresh exact approval, one candidate attempt, mandatory
 rollback, and final health under Process v2.
 
 After R4W1-E closed with no retained carrier, the R4W1-E0 H0 diagnostic was
-built cleanly with Full LTO. It reuses R4W1-D's proven 45-byte slot and can
-distinguish post-exec ENTRY from the exact first PID1 proc checkpoint without
-the unproved E carrier gates. This is a host artifact only, not a candidate or
-live authorization.
+built cleanly with Full LTO and packaged twice as a byte-identical boot-only
+offline candidate. It reuses R4W1-D's proven 45-byte slot and can distinguish
+post-exec ENTRY from the exact first PID1 proc checkpoint without the unproved
+E carrier gates. The independent static checker passes. This is still
+host-only evidence, not D0 preparation or live authorization.
 
 The controlling next-stage design is
 `docs/plans/S22PLUS_FYG8_POST_PID1_OBSERVABLE_RUNTIME_ARCHITECTURE_2026-07-21.md`.
@@ -107,12 +108,17 @@ Archived text is evidence only and grants no device authority.
    diagnostic, a newly bound exact PID1 runtime, clean Full-LTO build, linked
    code audit, and 127 passing related tests. It reuses the proven R4W1-D slot
    and removes the unproved E carrier gates from this diagnostic.
-10. **P2.13 next, H0 only:** adapt the existing P2.9 boot-only packager and
-   static checker to the exact R4W1-E0 kernel/runtime identities and clean
-   baseline classifier. Do not fork the runner or create D0/F1 authority.
-11. **E2 later:** generated exact USB closure, per-module result, platform bind,
+10. **P2.13 complete, H0 only:** a thin adapter reuses the P2.9 boot-only
+   packager and independent checker for the exact R4W1-E0 kernel, runtime,
+   fixed probe, and clean baseline. Two builds are byte-identical; focused
+   tests and independent review pass. No runner fork, device contact, D0, or
+   F1 authority was created.
+11. **P2.14 next, H0 only:** bind this exact offline contract and the two-state
+   clean-baseline classifier into unchanged Process v2 machinery. Reuse the
+   common runner and observer; do not prepare D0 or request F1 in this unit.
+12. **E2 later:** generated exact USB closure, per-module result, platform bind,
    DWC3 child, and exact UDC as separate checkpoints.
-12. **E3/E4 later:** one exact ACM banner, then one fixed nonce-bound exchange.
+13. **E3/E4 later:** one exact ACM banner, then one fixed nonce-bound exchange.
    No shell, arbitrary command, NCM, storage, Debian handoff, or hot reload.
 
 Do not reactivate R4W1-C3, fork a C4 helper, add another per-candidate policy

@@ -359,6 +359,16 @@ def parse_nonce(value: str | None) -> bytes:
         raise BuildError("--nonce-hex is not hexadecimal") from exc
 
 
+def candidate_run_binding(run_manifest_bytes: bytes, run_id: bytes) -> dict[str, Any]:
+    return {
+        "run_id": run_id.hex(),
+        "canonical_manifest_size": len(run_manifest_bytes),
+        "canonical_manifest_sha256": hashlib.sha256(run_manifest_bytes).hexdigest(),
+        "derivation": "sha256(canonical-run-manifest)[:16]",
+        "p2_7_model_id_reused": False,
+    }
+
+
 def build(args: argparse.Namespace) -> dict[str, Any]:
     root = carrier_engine.repo_root()
     output = carrier_engine.resolve(root, args.out)
@@ -629,13 +639,7 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
             "target": TARGET,
             "rung": RUNG,
             "verdict": VERDICT,
-            "run_binding": {
-                "run_id": run_id.hex(),
-                "canonical_manifest_size": len(run_manifest_bytes),
-                "canonical_manifest_sha256": hashlib.sha256(run_manifest_bytes).hexdigest(),
-                "derivation": "sha256(canonical-run-manifest)[:16]",
-                "p2_7_model_id_reused": False,
-            },
+            "run_binding": candidate_run_binding(run_manifest_bytes, run_id),
             "kernel_build": kernel_result,
             "host_contract": {
                 "schema": host_contract["schema"],
