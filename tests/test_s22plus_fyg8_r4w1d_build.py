@@ -226,6 +226,117 @@ class S22PlusFyg8R4W1DBuildTest(unittest.TestCase):
                     os.readlink(work_tree / row["path"]), row["link_target"]
                 )
 
+    def test_source_symlink_control_applies_runtime_override_then_restores(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            work_tree, source_overlay, rows = self.make_symlink_control(root)
+            runtime_target = root / "runtime-toolchain"
+            runtime_target.mkdir()
+            control = self.module.inspect_source_symlink_control(
+                work_tree, source_overlay
+            )
+            relative = rows[1]["path"]
+            path = work_tree / relative
+            with self.module.preserve_source_symlinks(
+                work_tree,
+                control,
+                runtime_target_overrides={relative: str(runtime_target)},
+            ) as runtime:
+                self.assertEqual(os.readlink(path), str(runtime_target))
+            self.assertTrue(runtime["verified"])
+            self.assertEqual(runtime["runtime_override_count"], 1)
+            self.assertTrue(
+                next(
+                    row
+                    for row in runtime["links"]
+                    if row["relative_path"] == relative
+                )["runtime_override_applied"]
+            )
+            self.assertEqual(os.readlink(path), rows[1]["link_target"])
+
+    def test_source_clang_link_is_separately_qualified(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            work_tree, source_overlay, _ = self.make_symlink_control(root)
+            clang_link = work_tree / self.module.SOURCE_CLANG_LINK
+            clang_link.parent.mkdir(parents=True)
+            recorded_target = Path("/archive-owner").joinpath(
+                *self.module.SOURCE_CLANG_RECORDED_TARGET_SUFFIX
+            )
+            clang_link.symlink_to(recorded_target)
+            archive_control = self.module.inspect_source_symlink_control(
+                work_tree, source_overlay
+            )
+            control = self.module.qualify_recorded_source_clang_link(
+                work_tree, archive_control
+            )
+            self.assertTrue(control["verified"])
+            self.assertEqual(control["archive_absolute_symlink_count"], 2)
+            self.assertEqual(control["qualified_external_symlink_count"], 1)
+            self.assertEqual(control["absolute_symlink_count"], 3)
+            row = next(
+                row
+                for row in control["links"]
+                if row["relative_path"] == str(self.module.SOURCE_CLANG_LINK)
+            )
+            self.assertEqual(row["provenance"], "separately-pinned-toolchain-link")
+            self.assertEqual(row["actual_target"], str(recorded_target))
+            self.assertEqual(row["expected_target"], str(recorded_target))
+
+            runtime_target = root / "runtime-toolchain"
+            runtime_target.mkdir()
+            with self.module.preserve_source_symlinks(
+                work_tree,
+                control,
+                runtime_target_overrides={
+                    str(self.module.SOURCE_CLANG_LINK): str(runtime_target)
+                },
+            ) as runtime:
+                self.assertEqual(os.readlink(clang_link), str(runtime_target))
+            self.assertTrue(runtime["verified"])
+            self.assertEqual(os.readlink(clang_link), str(recorded_target))
+
+    def test_source_clang_link_rejects_relative_recorded_target(self):
+        target = Path(*self.module.SOURCE_CLANG_RECORDED_TARGET_SUFFIX)
+        self.assertFalse(
+            self.module.recorded_source_clang_target_matches(str(target))
+        )
+
+    def test_source_clang_link_rejects_wrong_target(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            work_tree, source_overlay, _ = self.make_symlink_control(root)
+            clang_link = work_tree / self.module.SOURCE_CLANG_LINK
+            clang_link.parent.mkdir(parents=True)
+            clang_link.symlink_to("/tmp/unqualified-clang")
+            control = self.module.qualify_recorded_source_clang_link(
+                work_tree,
+                self.module.inspect_source_symlink_control(
+                    work_tree, source_overlay
+                ),
+            )
+            self.assertFalse(control["verified"])
+            self.assertEqual(control["reason"], "clang-link-target-mismatch")
+
+    def test_source_symlink_control_rejects_unknown_runtime_override(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            work_tree, source_overlay, _ = self.make_symlink_control(root)
+            runtime_target = root / "runtime-toolchain"
+            runtime_target.mkdir()
+            control = self.module.inspect_source_symlink_control(
+                work_tree, source_overlay
+            )
+            with self.assertRaises(self.module.BuildError):
+                with self.module.preserve_source_symlinks(
+                    work_tree,
+                    control,
+                    runtime_target_overrides={
+                        "not/archive-owned": str(runtime_target)
+                    },
+                ):
+                    pass
+
     def test_source_symlink_control_rejects_dirty_preflight(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

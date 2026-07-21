@@ -83,13 +83,17 @@ Archived text is evidence only and grants no device authority.
    compatibility. Twenty focused adversarial tests and final independent
    review pass. No kernel build, image, device contact, or live authority was
    created.
-6. **P2.9 next, host-only:** adapt the existing clean Full-LTO R4W1 build and
-   candidate audit path to the exact R4W1-E carrier and E1 sources. Produce one
-   clean kernel build and an offline E1 ramdisk/candidate contract with a fresh
-   manifest-bound run ID. Do not contact or flash a device in this unit.
-7. **E2 later:** generated exact USB closure, per-module result, platform bind,
+6. **P2.9 complete, host-only:** one clean Full-LTO R4W1-E kernel build, pinned
+   build-artifact contract, fresh manifest-bound E1 boot-only candidate, and
+   independent offline checker pass are recorded. The integrated relevant
+   suite passes 143 tests. No device contact, Odin invocation, flash, D0, or F1
+   authority occurred.
+7. **P2.10 next:** prepare the unchanged Process v2 manifest/profile for the
+   exact P2.9 E1 AP. Connected D0 qualification and any fresh F1 approval remain
+   separate future actions; this checkpoint does not activate either.
+8. **E2 later:** generated exact USB closure, per-module result, platform bind,
    DWC3 child, and exact UDC as separate checkpoints.
-8. **E3/E4 later:** one exact ACM banner, then one fixed nonce-bound exchange.
+9. **E3/E4 later:** one exact ACM banner, then one fixed nonce-bound exchange.
    No shell, arbitrary command, NCM, storage, Debian handoff, or hot reload.
 
 Do not reactivate R4W1-C3, fork a C4 helper, add another per-candidate policy

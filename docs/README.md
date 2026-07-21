@@ -49,6 +49,12 @@ two-build reproduction, syscall/요청-byte 감사와 20개 adversarial test 결
 기록합니다. 이 결과도 host-only이며 kernel build, ramdisk, candidate,
 device contact 또는 live 권한을 만들지 않았습니다.
 
+R4W1-E P2.9의 clean Full-LTO kernel build, pinned build-artifact contract,
+manifest-bound offline E1 boot-only candidate, independent checker와 143개
+통합 관련 test 결과는
+`reports/S22PLUS_FYG8_R4W1E_P2_9_OFFLINE_E1_CANDIDATE_HOST_PASS_2026-07-21.md`에
+기록합니다. 이 결과는 host-only이며 D0/F1 또는 live 권한을 만들지 않습니다.
+
 ## Claude review usage ledger
 
 Claude Opus 검토의 세션, 호출 전후 사용률, 리셋 시각, 컨텍스트 여유량,

@@ -24,16 +24,39 @@ import s22plus_fyg8_r4w1d_witness_contract as contract  # noqa: E402
 
 SCHEMA = "s22plus_fyg8_r4w1d_build_v1"
 TARGET = base.TARGET
+EXECUTION_SCRIPT = Path(__file__)
 DEFAULT_RESULT_DIR = Path(
     "workspace/private/outputs/s22plus_fyg8_r4w1d_build/build"
 )
 PROOF_BYTES = contract.PROOF.encode("ascii")
 PROOF_FAMILY = contract.PROOF_FAMILY.encode("ascii")
 HISTORICAL_FAMILIES = (b"[[S22R4W1B|", b"[[S22R4W1|")
+HISTORICAL_CONFIGS = ("CONFIG_S22PLUS_FYG8_RETAINED_WITNESS",)
+CONTRACT_RESULT_KEY = "r4w1d_witness_contract"
+BUILD_PASS_KEY = "r4w1d_build_pass"
+SOURCE_CLANG_LINK = Path(
+    "kernel_platform/prebuilts-master/clang/host/linux-x86/clang-r416183b"
+)
+SOURCE_CLANG_RECORDED_TARGET_SUFFIX = (
+    "toolchains",
+    "aosp-clang-android12-release",
+    "clang-r416183b",
+)
 
 
 class BuildError(ValueError):
     pass
+
+
+def recorded_source_clang_target_matches(target: str | None) -> bool:
+    if target is None:
+        return False
+    path = Path(target)
+    suffix_size = len(SOURCE_CLANG_RECORDED_TARGET_SUFFIX)
+    return (
+        path.is_absolute()
+        and path.parts[-suffix_size:] == SOURCE_CLANG_RECORDED_TARGET_SUFFIX
+    )
 
 
 @contextmanager
@@ -174,6 +197,63 @@ def inspect_source_symlink_control(
     }
 
 
+def qualify_recorded_source_clang_link(
+    work_tree: Path, control: dict[str, Any]
+) -> dict[str, Any]:
+    """Add the separately pinned, non-archive clang link to the source guard."""
+
+    if control.get("verified") is not True:
+        return {**control, "verified": False, "reason": "archive-link-gate-failed"}
+    links = [dict(row) for row in control["links"]]
+    relative_text = str(SOURCE_CLANG_LINK)
+    if any(row.get("relative_path") == relative_text for row in links):
+        return {**control, "verified": False, "reason": "clang-link-duplicate"}
+    root_fd = os.open(work_tree, _directory_flags(nofollow=False))
+    try:
+        root_metadata = os.fstat(root_fd)
+        if (
+            root_metadata.st_dev != control.get("work_tree_device")
+            or root_metadata.st_ino != control.get("work_tree_inode")
+        ):
+            return {
+                **control,
+                "verified": False,
+                "reason": "clang-link-work-tree-identity-mismatch",
+            }
+        parent_fd, name = _open_parent_at(root_fd, SOURCE_CLANG_LINK)
+        try:
+            parent_metadata = os.fstat(parent_fd)
+            actual, metadata = _symlink_state_at(parent_fd, name)
+        finally:
+            os.close(parent_fd)
+    except OSError:
+        return {**control, "verified": False, "reason": "clang-link-unreadable"}
+    finally:
+        os.close(root_fd)
+    row = {
+        "relative_path": relative_text,
+        "expected_target": actual,
+        "expected_target_suffix": "/".join(SOURCE_CLANG_RECORDED_TARGET_SUFFIX),
+        "actual_target": actual,
+        "parent_device": parent_metadata.st_dev,
+        "parent_inode": parent_metadata.st_ino,
+        "original_atime_ns": metadata.st_atime_ns if metadata is not None else None,
+        "original_mtime_ns": metadata.st_mtime_ns if metadata is not None else None,
+        "provenance": "separately-pinned-toolchain-link",
+        "verified": recorded_source_clang_target_matches(actual),
+    }
+    links.append(row)
+    return {
+        **control,
+        "archive_absolute_symlink_count": control["absolute_symlink_count"],
+        "qualified_external_symlink_count": 1,
+        "absolute_symlink_count": len(links),
+        "links": links,
+        "verified": row["verified"],
+        **({} if row["verified"] else {"reason": "clang-link-target-mismatch"}),
+    }
+
+
 def _atomic_restore_symlink_at(parent_fd: int, name: str, target: str) -> None:
     temporary: str | None = None
     for _ in range(16):
@@ -202,7 +282,10 @@ def _atomic_restore_symlink_at(parent_fd: int, name: str, target: str) -> None:
 
 @contextmanager
 def preserve_source_symlinks(
-    work_tree: Path, control: dict[str, Any]
+    work_tree: Path,
+    control: dict[str, Any],
+    *,
+    runtime_target_overrides: dict[str, str] | None = None,
 ) -> Iterator[dict[str, Any]]:
     """Restore source-archive symlinks even when the vendor build rewrites them."""
 
@@ -212,8 +295,22 @@ def preserve_source_symlinks(
         **control,
         "links": [dict(row) for row in control["links"]],
         "applied": True,
+        "runtime_override_count": 0,
         "restored": False,
     }
+    overrides = dict(runtime_target_overrides or {})
+    known_paths = {row["relative_path"] for row in runtime["links"]}
+    unknown_overrides = sorted(set(overrides) - known_paths)
+    if unknown_overrides:
+        raise BuildError(
+            f"runtime source symlink override is not archive-owned: {unknown_overrides}"
+        )
+    for relative, target in overrides.items():
+        target_path = Path(target)
+        if not target_path.is_absolute() or not target_path.is_dir():
+            raise BuildError(
+                f"runtime source symlink override target is not a directory: {relative}"
+            )
     root_fd = os.open(work_tree, _directory_flags(nofollow=False))
     root_metadata = os.fstat(root_fd)
     if (
@@ -238,10 +335,49 @@ def preserve_source_symlinks(
                     f"source symlink changed before build: {row['relative_path']}"
                 )
             handles.append((parent_fd, name, row))
-    except BaseException:
-        for parent_fd, _, _ in handles:
+            runtime_target = overrides.get(row["relative_path"])
+            if runtime_target is not None:
+                _atomic_restore_symlink_at(parent_fd, name, runtime_target)
+                applied_target, applied_metadata = _symlink_state_at(parent_fd, name)
+                if applied_target != runtime_target or applied_metadata is None:
+                    raise BuildError(
+                        f"runtime source symlink override failed: {row['relative_path']}"
+                    )
+                row["runtime_override_applied"] = True
+                row["runtime_target"] = runtime_target
+                row["runtime_atime_ns"] = applied_metadata.st_atime_ns
+                row["runtime_mtime_ns"] = applied_metadata.st_mtime_ns
+                runtime["runtime_override_count"] += 1
+            else:
+                row["runtime_override_applied"] = False
+    except BaseException as setup_error:
+        cleanup_errors = []
+        for parent_fd, name, row in handles:
+            try:
+                target, _ = _symlink_state_at(parent_fd, name)
+                if target != row["expected_target"]:
+                    _atomic_restore_symlink_at(
+                        parent_fd, name, row["expected_target"]
+                    )
+                os.utime(
+                    name,
+                    ns=(row["original_atime_ns"], row["original_mtime_ns"]),
+                    dir_fd=parent_fd,
+                    follow_symlinks=False,
+                )
+            except BaseException as cleanup_error:
+                cleanup_errors.append(
+                    f"{row['relative_path']}: {type(cleanup_error).__name__}: "
+                    f"{cleanup_error}"
+                )
             os.close(parent_fd)
         os.close(root_fd)
+        if cleanup_errors:
+            raise BuildError(
+                "runtime source symlink override setup failed "
+                f"({type(setup_error).__name__}: {setup_error}); cleanup failed: "
+                + "; ".join(cleanup_errors)
+            ) from setup_error
         raise
 
     body_error: BaseException | None = None
@@ -260,11 +396,20 @@ def preserve_source_symlinks(
             try:
                 observed, observed_metadata = _symlink_state_at(parent_fd, name)
                 row["post_build_target"] = observed
-                target_mutated = observed != row["expected_target"]
+                expected_runtime_target = row.get(
+                    "runtime_target", row["expected_target"]
+                )
+                target_mutated = observed != expected_runtime_target
+                expected_atime_ns = row.get(
+                    "runtime_atime_ns", row["original_atime_ns"]
+                )
+                expected_mtime_ns = row.get(
+                    "runtime_mtime_ns", row["original_mtime_ns"]
+                )
                 metadata_mutated = (
                     observed_metadata is None
-                    or observed_metadata.st_atime_ns != row["original_atime_ns"]
-                    or observed_metadata.st_mtime_ns != row["original_mtime_ns"]
+                    or observed_metadata.st_atime_ns != expected_atime_ns
+                    or observed_metadata.st_mtime_ns != expected_mtime_ns
                 )
                 row["target_mutated_by_build"] = target_mutated
                 row["metadata_mutated_by_build"] = metadata_mutated
@@ -272,7 +417,7 @@ def preserve_source_symlinks(
                 mutation_count += int(row["mutated_by_build"])
                 target_mutation_count += int(target_mutated)
                 metadata_mutation_count += int(metadata_mutated)
-                if target_mutated:
+                if observed != row["expected_target"]:
                     _atomic_restore_symlink_at(
                         parent_fd, name, row["expected_target"]
                     )
@@ -418,6 +563,9 @@ def witness_output_gate(work_tree: Path) -> dict[str, Any]:
             for family in HISTORICAL_FAMILIES
         },
         "config_enable_count": config_lines.count(f"{contract.CONFIG}=y"),
+        "historical_config_enable_counts": {
+            name: config_lines.count(f"{name}=y") for name in HISTORICAL_CONFIGS
+        },
         "legacy_config_enable_count": config_lines.count(
             "CONFIG_S22PLUS_FYG8_RETAINED_WITNESS=y"
         ),
@@ -437,7 +585,10 @@ def witness_output_gate(work_tree: Path) -> dict[str, Any]:
             for row in result["historical_family_counts"].values()
         )
         and result["config_enable_count"] == 1
-        and result["legacy_config_enable_count"] == 0
+        and all(
+            count == 0
+            for count in result["historical_config_enable_counts"].values()
+        )
         and result["fips_enable_count"] == 1
     )
     return result
@@ -532,7 +683,7 @@ def main() -> int:
         raise BuildError("R4W1-D isolated execution requires repo-relative paths")
     reexecuted = engine.reexec_in_private_repo_namespace(
         root,
-        script=Path(__file__),
+        script=EXECUTION_SCRIPT,
         arguments=sys.argv[1:],
         compatibility_work_tree=args.work_tree,
     )
@@ -563,7 +714,10 @@ def main() -> int:
         base.resolve(root, args.delta_archive),
         base.resolve(root, args.overlay_audit),
     )
-    source_symlink_control = inspect_source_symlink_control(work_tree, source_overlay)
+    source_symlink_control = qualify_recorded_source_clang_link(
+        work_tree,
+        inspect_source_symlink_control(work_tree, source_overlay),
+    )
     timestamp = base.inspect_timestamp_control(work_tree)
     kmi_path_control = engine.inspect_kmi_path_control(work_tree)
     kernel_debug_control = engine.inspect_kernel_debug_control(work_tree)
@@ -610,7 +764,7 @@ def main() -> int:
         **preflight,
         "schema": SCHEMA,
         "base_schema": preflight["schema"],
-        "r4w1d_witness_contract": witness_contract,
+        CONTRACT_RESULT_KEY: witness_contract,
         "mode": args.mode,
         "result_directory": {
             "path": str(result_dir),
@@ -646,7 +800,13 @@ def main() -> int:
     ) as output_root_runtime:
         bound_work_tree = Path(output_root_runtime["_work_tree_fd_path"])
         with preserve_source_symlinks(
-            bound_work_tree, source_symlink_control
+            bound_work_tree,
+            source_symlink_control,
+            runtime_target_overrides={
+                str(SOURCE_CLANG_LINK): str(
+                    (clang_repo / "clang-r416183b").resolve(strict=True)
+                )
+            },
         ) as source_symlink_runtime:
             with apply_checked_patch(bound_work_tree, source_patch) as source_delta:
                 incremental = base.prepare_incremental_dist_refresh(bound_work_tree)
@@ -805,7 +965,7 @@ def main() -> int:
             "provider_module_closure": providers,
             "symvers_files": symvers_files,
             "incremental_dist_refresh": incremental,
-            "r4w1d_build_pass": effective == 0,
+            BUILD_PASS_KEY: effective == 0,
             "interpretation": (
                 "host build only; the contiguous proof is not reset-atomic; generated "
                 "packaging outputs are not promoted; reproducibility, static audit, "
