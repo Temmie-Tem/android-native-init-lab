@@ -69,6 +69,13 @@ slot magic이 모두 0개였습니다. `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`
 `reports/S22PLUS_FYG8_R4W1E_E1_F1_LIVE_NO_PROOF_ROLLBACK_PASS_2026-07-22.md`에
 기록합니다. 해당 binding은 소모됐고 새 F1 권한은 없습니다.
 
+R4W1-E0는 위 no-proof를 좁히기 위해 R4W1-D의 proven 45-byte slot을
+재사용하고 post-exec ENTRY와 PID1의 exact first proc checkpoint를 같은
+slot의 두 상태로 분리합니다. 새 probe-bound runtime, clean Full-LTO build,
+linked-code audit와 127개 관련 test 결과는
+`reports/S22PLUS_FYG8_R4W1E0_PID1_USERSPACE_PROOF_HOST_BUILD_PASS_2026-07-22.md`에
+기록합니다. 아직 candidate, device contact, D0 또는 F1 권한은 없습니다.
+
 ## Claude review usage ledger
 
 Claude Opus 검토의 세션, 호출 전후 사용률, 리셋 시각, 컨텍스트 여유량,
