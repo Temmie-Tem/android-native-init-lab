@@ -30,9 +30,26 @@ M4T2_BOOT_SHA256 = "8103bce76fb3e41d71b64735a64d2f2f29431a44ea1c9a85dc0bc151d71a
 R4W1B_IMAGE_SHA256 = "350bc71815a7dbf22caf5d42434e4f99ace846329fd11e599b3be2d9c5e080d3"
 REPRO_RESULT_SIZE = 314_695
 REPRO_RESULT_SHA256 = "1b1124c828243772cb48cf8aa7f6667e88cd9ac5443164e2042243510d833eb1"
+CANDIDATE_SCHEMA = "s22plus_fyg8_r4w1b_candidate_build_v1"
+CANDIDATE_VERDICT = "PASS_R4W1B_CANDIDATE_BUILT_HOST_ONLY"
+RUNG = "R4W1-B"
+CARRIER_SHA256 = M4T2_BOOT_SHA256
+IMAGE_SHA256 = R4W1B_IMAGE_SHA256
+REPRO_SCHEMA = "s22plus_fyg8_r4w1b_repro_check_v1"
+REPRO_VERDICT = "PASS_R4W1B_CLEAN_REPRODUCIBILITY"
+CARRIER_LABEL = "M4T2 carrier"
+IMAGE_LABEL = "R4W1-B Image"
+REPRO_LABEL = "kernel reproduction result"
+CARRIER_INPUT_KEY = "m4t2_carrier"
+IMAGE_INPUT_KEY = "r4w1b_image"
+REPRO_INPUT_KEY = "r4w1b_reproduction_result"
+RESULT_REPRO_INPUT_KEY = "kernel_reproduction_result"
 M4T2_INIT_SIZE = 544
 M4T2_INIT_MODE = 0o750
 M4T2_INIT_SHA256 = "b8371e3ac671ff71e9be752b8ff1087a4f20811c871a43ca8e698eee47783d12"
+INIT_SIZE = M4T2_INIT_SIZE
+INIT_MODE = M4T2_INIT_MODE
+INIT_SHA256 = M4T2_INIT_SHA256
 VENDOR_BOOT_SIZE = 100_663_296
 VENDOR_BOOT_SHA256 = "096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7"
 LZ4_SIZE = 218_696
@@ -47,6 +64,7 @@ MARKER = (
 )
 MARKER_FAMILY = b"[[S22R4W1B|"
 HISTORICAL_FAMILY = b"[[S22R4W1|"
+INIT_INSPECTOR = verify.inspect_aarch64_static_init
 
 DEFAULT_CARRIER = Path(
     "workspace/private/outputs/s22plus_fyg8_r4w1b_candidate_inputs/m4t2-carrier/boot.img"
@@ -144,9 +162,9 @@ def verify_reproduction_result(encoded: bytes) -> dict[str, Any]:
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise CheckError("invalid kernel reproduction result JSON") from exc
     expected = {
-        "schema": "s22plus_fyg8_r4w1b_repro_check_v1",
+        "schema": REPRO_SCHEMA,
         "target": TARGET,
-        "verdict": "PASS_R4W1B_CLEAN_REPRODUCIBILITY",
+        "verdict": REPRO_VERDICT,
         "blockers": [],
         "reproducible": True,
         "image_byte_identical": True,
@@ -160,7 +178,7 @@ def verify_reproduction_result(encoded: bytes) -> dict[str, Any]:
     for image in images:
         if (
             image.get("size") != KERNEL_SIZE
-            or image.get("sha256") != R4W1B_IMAGE_SHA256
+            or image.get("sha256") != IMAGE_SHA256
             or image.get("marker_count") != 1
             or image.get("family_count") != 1
             or image.get("historical_family_count") != 0
@@ -207,11 +225,11 @@ def validate_manifest(
         data = json.loads(encoded.decode("ascii"))
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise CheckError("invalid candidate manifest JSON") from exc
-    if data.get("schema") != "s22plus_fyg8_r4w1b_candidate_build_v1":
+    if data.get("schema") != CANDIDATE_SCHEMA:
         raise CheckError("candidate manifest schema mismatch")
-    if data.get("target") != TARGET or data.get("rung") != "R4W1-B":
+    if data.get("target") != TARGET or data.get("rung") != RUNG:
         raise CheckError("candidate manifest target/rung mismatch")
-    if data.get("verdict") != "PASS_R4W1B_CANDIDATE_BUILT_HOST_ONLY" or data.get("blockers") != []:
+    if data.get("verdict") != CANDIDATE_VERDICT or data.get("blockers") != []:
         raise CheckError("candidate manifest verdict mismatch")
     geometry = data.get("geometry", {})
     expected_geometry = {
@@ -227,9 +245,9 @@ def validate_manifest(
         raise CheckError("candidate manifest geometry mismatch")
     inputs = data.get("inputs", {})
     expected_inputs = {
-        "m4t2_carrier": (BOOT_SIZE, M4T2_BOOT_SHA256),
-        "r4w1b_image": (KERNEL_SIZE, R4W1B_IMAGE_SHA256),
-        "r4w1b_reproduction_result": (REPRO_RESULT_SIZE, REPRO_RESULT_SHA256),
+        CARRIER_INPUT_KEY: (BOOT_SIZE, CARRIER_SHA256),
+        IMAGE_INPUT_KEY: (KERNEL_SIZE, IMAGE_SHA256),
+        REPRO_INPUT_KEY: (REPRO_RESULT_SIZE, REPRO_RESULT_SHA256),
         "lz4": (LZ4_SIZE, LZ4_SHA256),
         "odin4": (ODIN_SIZE, ODIN_SHA256),
     }
@@ -381,9 +399,9 @@ def audit_rootfs(
         or init.file_type != "regular"
         or init.uid != 0
         or init.gid != 0
-        or stat.S_IMODE(init.mode) != M4T2_INIT_MODE
-        or len(init.data) != M4T2_INIT_SIZE
-        or verify.sha256_bytes(init.data) != M4T2_INIT_SHA256
+        or stat.S_IMODE(init.mode) != INIT_MODE
+        or len(init.data) != INIT_SIZE
+        or verify.sha256_bytes(init.data) != INIT_SHA256
     ):
         raise CheckError("effective /init identity or metadata mismatch")
     rdinit_sources = {
@@ -404,7 +422,7 @@ def audit_rootfs(
         "effective_init": {
             "layer": init_layer,
             **init.summary(),
-            "entrypoint": verify.inspect_aarch64_static_init(init.data),
+            "entrypoint": INIT_INSPECTOR(init.data),
         },
         "vendor_boot": {
             "header": vendor.header,
@@ -429,16 +447,16 @@ def audit_rootfs(
 def audit(args: argparse.Namespace) -> dict[str, Any]:
     root = repo_root()
     carrier_pin, carrier = verify.read_pinned_stable(
-        resolve(root, args.carrier), BOOT_SIZE, M4T2_BOOT_SHA256, "M4T2 carrier"
+        resolve(root, args.carrier), BOOT_SIZE, CARRIER_SHA256, CARRIER_LABEL
     )
     image_pin, image = verify.read_pinned_stable(
-        resolve(root, args.image), KERNEL_SIZE, R4W1B_IMAGE_SHA256, "R4W1-B Image"
+        resolve(root, args.image), KERNEL_SIZE, IMAGE_SHA256, IMAGE_LABEL
     )
     repro_pin, repro_bytes = verify.read_pinned_stable(
         resolve(root, args.repro_result),
         REPRO_RESULT_SIZE,
         REPRO_RESULT_SHA256,
-        "kernel reproduction result",
+        REPRO_LABEL,
     )
     repro = verify_reproduction_result(repro_bytes)
     vendor_pin, vendor_boot = verify.read_pinned_stable(
@@ -462,11 +480,11 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
     if not marker["valid_single_exact"]:
         raise CheckError(f"qualified Image marker mismatch: {marker}")
     if candidate[:HEADER_END] != carrier[:HEADER_END]:
-        raise CheckError("independent candidate changed Android header")
+        raise CheckError(f"independent candidate changed {CARRIER_LABEL} Android header")
     if candidate[GAP_START:GAP_END] != carrier[GAP_START:GAP_END]:
-        raise CheckError("independent candidate changed explicit alignment gap")
+        raise CheckError(f"independent candidate changed explicit {CARRIER_LABEL} alignment gap")
     if candidate[KERNEL_END:] != carrier[KERNEL_END:]:
-        raise CheckError("independent candidate changed opaque carrier tail")
+        raise CheckError(f"independent candidate changed opaque {CARRIER_LABEL} tail")
     carrier_boot = verify.parse_boot_v4(carrier)
     candidate_boot = verify.parse_boot_v4(candidate)
     if carrier_boot.header != candidate_boot.header:
@@ -524,7 +542,7 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
     start = carrier_footer["vbmeta_offset"]
     end = start + carrier_footer["vbmeta_size"]
     if candidate[start:end] != carrier[start:end]:
-        raise CheckError("candidate vbmeta differs from M4T2")
+        raise CheckError(f"candidate vbmeta differs from {CARRIER_LABEL}")
     public_reproductions = []
     for index, item in enumerate(reproductions):
         public_reproductions.append(
@@ -540,9 +558,9 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
         "schema": SCHEMA,
         "target": TARGET,
         "inputs": {
-            "m4t2_carrier": carrier_pin,
-            "r4w1b_image": image_pin,
-            "kernel_reproduction_result": {**repro_pin, **repro},
+            CARRIER_INPUT_KEY: carrier_pin,
+            IMAGE_INPUT_KEY: image_pin,
+            RESULT_REPRO_INPUT_KEY: {**repro_pin, **repro},
             "stock_vendor_boot": vendor_pin,
             "lz4": lz4_pin,
             "avbtool": avbtool_pin,

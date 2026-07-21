@@ -101,6 +101,8 @@ class S22PlusFyg8R4W1BCandidateStaticCheckerTest(unittest.TestCase):
         self.assertEqual(result["verdict"], self.module.VERDICT)
         self.assertEqual(result["blockers"], [])
         self.assertTrue(result["three_reproductions_byte_identical"])
+        self.assertIn("kernel_reproduction_result", result["inputs"])
+        self.assertNotIn("r4w1b_reproduction_result", result["inputs"])
 
     def test_checker_is_evidence_isolated_and_host_only(self):
         source = SCRIPT.read_text(encoding="utf-8")

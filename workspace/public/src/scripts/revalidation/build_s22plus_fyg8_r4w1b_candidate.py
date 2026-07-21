@@ -33,6 +33,16 @@ M4T2_BOOT_SHA256 = "8103bce76fb3e41d71b64735a64d2f2f29431a44ea1c9a85dc0bc151d71a
 R4W1B_IMAGE_SHA256 = "350bc71815a7dbf22caf5d42434e4f99ace846329fd11e599b3be2d9c5e080d3"
 REPRO_RESULT_SIZE = 314_695
 REPRO_RESULT_SHA256 = "1b1124c828243772cb48cf8aa7f6667e88cd9ac5443164e2042243510d833eb1"
+CARRIER_SHA256 = M4T2_BOOT_SHA256
+IMAGE_SHA256 = R4W1B_IMAGE_SHA256
+REPRO_SCHEMA = "s22plus_fyg8_r4w1b_repro_check_v1"
+REPRO_VERDICT = "PASS_R4W1B_CLEAN_REPRODUCIBILITY"
+CARRIER_LABEL = "M4T2 carrier"
+IMAGE_LABEL = "R4W1-B Image"
+REPRO_LABEL = "R4W1-B reproduction result"
+CARRIER_INPUT_KEY = "m4t2_carrier"
+IMAGE_INPUT_KEY = "r4w1b_image"
+REPRO_INPUT_KEY = "r4w1b_reproduction_result"
 LZ4_SIZE = 218_696
 LZ4_SHA256 = "91975bf197d485b81475dfa6267aa2284550b844e8e8d64a4e7e35d9a1fa9fb8"
 ODIN_SIZE = 3_746_744
@@ -88,18 +98,18 @@ def verify_reproduction_result(encoded: bytes) -> dict[str, Any]:
     try:
         data = json.loads(encoded.decode("utf-8"))
     except (UnicodeError, json.JSONDecodeError) as exc:
-        raise BuildError("invalid R4W1-B reproduction result JSON") from exc
+        raise BuildError(f"invalid {REPRO_LABEL} JSON") from exc
     expected = {
-        "schema": "s22plus_fyg8_r4w1b_repro_check_v1",
+        "schema": REPRO_SCHEMA,
         "target": TARGET,
-        "verdict": "PASS_R4W1B_CLEAN_REPRODUCIBILITY",
+        "verdict": REPRO_VERDICT,
         "blockers": [],
         "reproducible": True,
         "image_byte_identical": True,
     }
     for key, value in expected.items():
         if data.get(key) != value:
-            raise BuildError(f"R4W1-B reproduction result {key} mismatch")
+            raise BuildError(f"{REPRO_LABEL} {key} mismatch")
     safety = data.get("safety", {})
     required_safety = {
         "host_only": True,
@@ -109,23 +119,23 @@ def verify_reproduction_result(encoded: bytes) -> dict[str, Any]:
         "live_authorized": False,
     }
     if any(safety.get(key) != value for key, value in required_safety.items()):
-        raise BuildError("R4W1-B reproduction result safety mismatch")
+        raise BuildError(f"{REPRO_LABEL} safety mismatch")
     images = data.get("images")
     if not isinstance(images, list) or len(images) != 2:
-        raise BuildError("R4W1-B reproduction result requires two Image records")
+        raise BuildError(f"{REPRO_LABEL} requires two Image records")
     for index, image in enumerate(images):
         required = {
             "size": KERNEL_SIZE,
-            "sha256": R4W1B_IMAGE_SHA256,
+            "sha256": IMAGE_SHA256,
             "marker_count": 1,
             "family_count": 1,
             "historical_family_count": 0,
             "verified": True,
         }
         if any(image.get(key) != value for key, value in required.items()):
-            raise BuildError(f"R4W1-B reproduction Image {index} mismatch")
+            raise BuildError(f"{REPRO_LABEL} Image {index} mismatch")
         if image.get("arm64_header", {}).get("verified") is not True:
-            raise BuildError(f"R4W1-B reproduction Image {index} header not verified")
+            raise BuildError(f"{REPRO_LABEL} Image {index} header not verified")
     return {
         "size": len(encoded),
         "sha256": boot_slice.sha256_bytes(encoded),
@@ -137,11 +147,11 @@ def verify_reproduction_result(encoded: bytes) -> dict[str, Any]:
 
 def validate_carrier_header(carrier: bytes) -> dict[str, Any]:
     if len(carrier) != BOOT_SIZE or carrier[:8] != b"ANDROID!":
-        raise BuildError("M4T2 carrier is not the pinned-size Android boot image")
+        raise BuildError(f"{CARRIER_LABEL} is not the pinned-size Android boot image")
     kernel_size, ramdisk_size, _os_version, header_size = struct.unpack_from("<4I", carrier, 8)
     header_version = struct.unpack_from("<I", carrier, 40)[0]
     if header_version != 4 or header_size != 1584 or kernel_size != KERNEL_SIZE:
-        raise BuildError("M4T2 carrier boot-v4 geometry mismatch")
+        raise BuildError(f"{CARRIER_LABEL} boot-v4 geometry mismatch")
     return {
         "header_version": header_version,
         "header_size": header_size,
@@ -153,19 +163,19 @@ def validate_carrier_header(carrier: bytes) -> dict[str, Any]:
 def build_candidate_bytes(carrier: bytes, image: bytes) -> tuple[bytes, dict[str, Any]]:
     carrier_header = validate_carrier_header(carrier)
     if len(image) != KERNEL_SIZE:
-        raise BuildError(f"R4W1-B Image size mismatch: {len(image)} != {KERNEL_SIZE}")
+        raise BuildError(f"{IMAGE_LABEL} size mismatch: {len(image)} != {KERNEL_SIZE}")
     image_header = boot_slice.parse_arm64_header(image)
     marker = boot_slice.classify_marker_family(image, MARKER, MARKER_FAMILY)
     if not marker["valid_single_exact"]:
-        raise BuildError(f"R4W1-B marker contract mismatch: {marker}")
+        raise BuildError(f"{IMAGE_LABEL} marker contract mismatch: {marker}")
     candidate = boot_slice.replace_fixed_interval(carrier, image, KERNEL_START, KERNEL_END)
     difference = boot_slice.diff_outside_interval(carrier, candidate, KERNEL_START, KERNEL_END)
     if candidate[:HEADER_END] != carrier[:HEADER_END]:
-        raise BuildError("candidate changed the M4T2 Android header")
+        raise BuildError(f"candidate changed the {CARRIER_LABEL} Android header")
     if candidate[GAP_START:GAP_END] != carrier[GAP_START:GAP_END]:
-        raise BuildError("candidate changed the explicit M4T2 alignment gap")
+        raise BuildError(f"candidate changed the explicit {CARRIER_LABEL} alignment gap")
     if candidate[KERNEL_END:] != carrier[KERNEL_END:]:
-        raise BuildError("candidate changed opaque M4T2 post-kernel bytes")
+        raise BuildError(f"candidate changed opaque {CARRIER_LABEL} post-kernel bytes")
     if candidate[KERNEL_START:KERNEL_END] != image:
         raise BuildError("candidate kernel interval differs from qualified Image")
     if boot_slice.parse_arm64_header(candidate[KERNEL_START:KERNEL_END]) != image_header:
@@ -203,16 +213,16 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
         raise BuildError(f"output path already exists: {output}")
     validate_patch_vbmeta_flag()
     carrier_pin, carrier = boot_slice.read_pinned_stable(
-        resolve(root, args.carrier), BOOT_SIZE, M4T2_BOOT_SHA256, "M4T2 carrier"
+        resolve(root, args.carrier), BOOT_SIZE, CARRIER_SHA256, CARRIER_LABEL
     )
     image_pin, image = boot_slice.read_pinned_stable(
-        resolve(root, args.image), KERNEL_SIZE, R4W1B_IMAGE_SHA256, "R4W1-B Image"
+        resolve(root, args.image), KERNEL_SIZE, IMAGE_SHA256, IMAGE_LABEL
     )
     repro_pin, repro_bytes = boot_slice.read_pinned_stable(
         resolve(root, args.repro_result),
         REPRO_RESULT_SIZE,
         REPRO_RESULT_SHA256,
-        "R4W1-B reproduction result",
+        REPRO_LABEL,
     )
     repro = verify_reproduction_result(repro_bytes)
     lz4_pin, lz4_bytes = boot_slice.read_pinned_stable(
@@ -280,9 +290,9 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
             "target": TARGET,
             "rung": RUNG,
             "inputs": {
-                "m4t2_carrier": carrier_pin,
-                "r4w1b_image": image_pin,
-                "r4w1b_reproduction_result": {**repro_pin, **repro},
+                CARRIER_INPUT_KEY: carrier_pin,
+                IMAGE_INPUT_KEY: image_pin,
+                REPRO_INPUT_KEY: {**repro_pin, **repro},
                 "lz4": lz4_pin,
                 "odin4": odin_pin,
             },

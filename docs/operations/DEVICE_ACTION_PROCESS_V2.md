@@ -1,6 +1,7 @@
 # Device Action Process v2
 
-Status: P2.1-P2.4 complete; reusable F1 adapter source gate complete; canary pending.
+Status: P2.1-P2.4 complete; reusable F1 adapter source gate complete; R4W1-D
+candidate host-qualified; connected D0 pending.
 
 This process replaces per-candidate live helpers, policy activation commits,
 per-run one-shot clauses, and repeated review ladders for ordinary boot-only
@@ -140,6 +141,15 @@ post-receipt revalidation. The minimal fix permits only endpoint-arrival polling
 to continue after that empty receipt; tickets and terminal absence remain
 strict. Tests and independent review passed. The aborted binding is not reusable.
 See `docs/reports/DEVICE_ACTION_PROCESS_V2_F1_CANARY_PRESESSION_USBFS_ARRIVAL_INCIDENT_2026-07-21.md`.
+
+The next candidate, R4W1-D, was constructed without another runner or policy
+fork. Thin data-contract adapters reuse the existing fixed-interval builder and
+independent checker. Three distinct reproductions are byte-identical, the
+independent static contract passes, and the Process v2 offline D0 gate accepts
+the exact boot-only AP and rollback bundle. Its manifest remains
+`draft-host-only`; this host qualification creates no connected D0 evidence,
+prepared binding, approval token, or F1 authority. See
+`docs/reports/S22PLUS_FYG8_R4W1D_PROCESS_V2_CANDIDATE_HOST_CLOSE_2026-07-21.md`.
 
 ### Append-Only Journal
 

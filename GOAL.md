@@ -22,8 +22,13 @@ second independent clean build proved that restoration plus byte-identical GKI
 outputs. The final descriptor-bound restoration hardening passed local and
 build-host focused tests plus independent review; it postdates both full
 builds. Adapted full static audits of both builds and the durable A/B
-reproducibility gate now pass with blocker count zero. No R4W1-D candidate
-manifest or live authority exists.**
+reproducibility gate now pass with blocker count zero. Three separate
+invocations inserted the exact R4W1-D Image into the exact R4W1-C watchdog
+carrier in distinct directories. Raw boot, LZ4, single-member AP, and manifest
+outputs are byte-identical;
+the independent candidate checker and Process v2 offline D0 gate pass. The
+manifest remains `draft-host-only`: no connected D0, preparation binding, or
+live authority exists.**
 
 The R4W1-C2 run did not start an Odin device session: its candidate and rollback
 invocations were rejected while parsing `/proc/self/fd/7`. The R4W1-C3
@@ -77,6 +82,14 @@ the reusable process defined in
   gate and exactly rebound the one recorded runtime symlink restoration to the
   current five-link manifest identity. Both static results and the durable
   reproducibility result have blocker count zero.
+- R4W1-D candidate construction reuses the existing fixed-interval builder and
+  independent checker through contract-bound adapters. Three distinct output
+  directories produced exact raw boot SHA256 `18db8c8d...0b0e6fa0` and exact
+  boot-only AP SHA256 `e35cee4c...a915d649`. The checker independently proved
+  the watchdog carrier `/init`, D marker cardinality, fixed kernel replacement,
+  stale AVB preservation, AP shape, and three-way byte identity. Process v2
+  offline D0 returned `PASS_DEVICE_ACTION_D0_V2_OFFLINE_READY` for bundle
+  `3a068ce7...01aa498`; the data manifest is intentionally not live-ready.
 
 Historical details and retired clauses are preserved in:
 
@@ -117,14 +130,18 @@ Archived text is evidence only and grants no device authority.
    hardening was added afterward and is focused-tested rather than claimed as
    part of those full-build results. The adapted full static audits pass for A
    and B, and the durable verdict is `PASS_R4W1D_CLEAN_REPRODUCIBILITY` with
-   blocker count zero. The next unit is host-only Process v2 candidate-manifest
-   construction and D0 preparation against these exact results. No manifest is
-   currently ready or authorized.
+   blocker count zero. Three deterministic R4W1-D boot-only candidate
+   reproductions and their independent static audit now pass; a Process v2
+   `draft-host-only` manifest also passes offline D0 validation. The next unit
+   is one separately approved connected read-only D0 against this exact bundle,
+   followed by data-only readiness promotion and F1 preparation. No live
+   manifest or candidate transfer is currently authorized.
 
 Do not activate C3, fork a C4 helper, or add another policy block. The source
 review does not promote the manifest or authorize device contact. P2.5 remains
-host-only until a separately selected D0 preparation is completed and the
-operator gives one fresh approval for that exact binding.
+host-only until a separately approved connected D0 is completed, the manifest
+is explicitly promoted, and the operator gives one fresh approval for that
+exact prepared binding.
 
 ## Process
 
