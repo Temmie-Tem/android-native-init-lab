@@ -94,12 +94,13 @@ Archived text is evidence only and grants no device authority.
    the manifest-bound run ID can pass. The legacy marker path remains
    unchanged. Focused tests and independent review pass. No device contact,
    D0, F1 approval, Odin invocation, or flash occurred.
-8. **P2.11 next:** run one connected read-only D0 preparation for the exact
-   ready E1 manifest, verify the fresh private binding, and stop at the exact
-   approval token. F1 remains inactive until the operator returns that token.
-9. **E2 later:** generated exact USB closure, per-module result, platform bind,
+8. **P2.11 complete, connected read-only:** exact-target D0 passed with healthy
+   Android/root, a complete clean baseline, no Download endpoint, and a private
+   binding that reopens cleanly. No reboot, write, Odin, transfer, or F1 occurred.
+9. **F1 next, inactive:** execute only after the fresh exact operator token; one candidate attempt includes exact rollback and final health.
+10. **E2 later:** generated exact USB closure, per-module result, platform bind,
    DWC3 child, and exact UDC as separate checkpoints.
-10. **E3/E4 later:** one exact ACM banner, then one fixed nonce-bound exchange.
+11. **E3/E4 later:** one exact ACM banner, then one fixed nonce-bound exchange.
    No shell, arbitrary command, NCM, storage, Debian handoff, or hot reload.
 
 Do not reactivate R4W1-C3, fork a C4 helper, add another per-candidate policy

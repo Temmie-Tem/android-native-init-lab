@@ -81,7 +81,8 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("P2.8 complete, host-only", self.goal)
         self.assertIn("P2.9 complete, host-only", self.goal)
         self.assertIn("P2.10 complete, host-only", self.goal)
-        self.assertIn("P2.11 next", self.goal)
+        self.assertIn("P2.11 complete, connected read-only", self.goal)
+        self.assertIn("F1 next, inactive", self.goal)
         self.assertIn(
             "No kernel build, image, device contact, or live authority",
             normalized_goal,
