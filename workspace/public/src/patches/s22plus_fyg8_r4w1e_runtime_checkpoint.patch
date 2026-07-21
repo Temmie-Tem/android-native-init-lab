@@ -1,0 +1,509 @@
+diff --git a/kernel_platform/common/arch/arm64/configs/gki_defconfig b/kernel_platform/common/arch/arm64/configs/gki_defconfig
+--- a/kernel_platform/common/arch/arm64/configs/gki_defconfig
++++ b/kernel_platform/common/arch/arm64/configs/gki_defconfig
+@@ -737,6 +737,7 @@ CONFIG_CRYPTO_FIPS=y
+ 
+ 
+ # CONFIG_RKP_TEST is not set
++CONFIG_S22PLUS_FYG8_RUNTIME_CHECKPOINT=y
+ 
+ 
+ 
+diff --git a/kernel_platform/common/init/Kconfig b/kernel_platform/common/init/Kconfig
+--- a/kernel_platform/common/init/Kconfig
++++ b/kernel_platform/common/init/Kconfig
+@@ -2443,5 +2443,16 @@ config ARCH_HAS_SYNC_CORE_BEFORE_USERMODE
+ config ARCH_HAS_SYSCALL_WRAPPER
+ 	def_bool n
+ 
++config S22PLUS_FYG8_RUNTIME_CHECKPOINT
++	bool "Samsung S22+ FYG8 retained runtime checkpoint"
++	depends on OF && OF_ADDRESS
++	select CRC32
++	default n
++	help
++	  Seed one immutable PID 1 entry proof and two fixed-width alternating
++	  checkpoint slots in the Samsung retained log. A guarded write-only proc
++	  node accepts bounded monotonic progress from PID 1 without publishing a
++	  log-ring index. This research-only option is specific to SM-S906N FYG8.
++
+ source "init/Kconfig.gki"
+ source "init/Kconfig.gki-debug"
+diff --git a/kernel_platform/common/init/main.c b/kernel_platform/common/init/main.c
+--- a/kernel_platform/common/init/main.c
++++ b/kernel_platform/common/init/main.c
+@@ -17,6 +17,9 @@
+ #include <linux/module.h>
+ #include <linux/proc_fs.h>
+ #include <linux/binfmts.h>
++#include <linux/crc32.h>
++#include <linux/of.h>
++#include <linux/of_address.h>
+ #include <linux/kernel.h>
+ #include <linux/syscalls.h>
+ #include <linux/stackprotector.h>
+@@ -91,6 +92,7 @@
+ #include <linux/kcsan.h>
+ #include <linux/init_syscalls.h>
+ #include <linux/stackdepot.h>
++#include <linux/uaccess.h>
+ 
+ #include <asm/io.h>
+ #include <asm/setup.h>
+@@ -1376,6 +1378,448 @@ static int run_init_process(const char *init_filename)
+ 	return kernel_execve(init_filename, argv_init, envp_init);
+ }
+ 
++#ifdef CONFIG_S22PLUS_FYG8_RUNTIME_CHECKPOINT
++#define S22PLUS_FYG8_CP_LOG_BASE	0x800200000ULL
++#define S22PLUS_FYG8_CP_LOG_SIZE	0x200000U
++#define S22PLUS_FYG8_CP_LOG_MAGIC	0x4d474f4cU
++#define S22PLUS_FYG8_CP_REQUEST_SIZE	32U
++#define S22PLUS_FYG8_CP_SLOT_SIZE	64U
++#define S22PLUS_FYG8_CP_ENTRY_SIZE	45U
++#define S22PLUS_FYG8_CP_COMMIT	0xa5U
++#define S22PLUS_FYG8_CP_VERSION	1U
++#define S22PLUS_FYG8_CP_OUTCOME_PROGRESS	0U
++#define S22PLUS_FYG8_CP_OUTCOME_SUCCESS	1U
++#define S22PLUS_FYG8_CP_OUTCOME_FAILURE	2U
++#define S22PLUS_FYG8_CP_PROFILE_E1	1U
++#define S22PLUS_FYG8_CP_PROFILE_E2	2U
++#define S22PLUS_FYG8_CP_PROFILE_E3	3U
++#define S22PLUS_FYG8_CP_PROFILE_E4	4U
++#define S22PLUS_FYG8_CP_STAGE_MODULE_FIRST	0x40U
++#define S22PLUS_FYG8_CP_STAGE_MODULE_LAST	0x7aU
++
++struct s22plus_fyg8_cp_log_head {
++	u32 boot_cnt;
++	u32 magic;
++	u32 idx;
++	u32 prev_idx;
++	char buf[];
++};
++
++struct s22plus_fyg8_cp_request {
++	u8 magic[4];
++	u8 version;
++	u8 profile;
++	u8 stage;
++	u8 outcome;
++	__le16 detail;
++	u8 item_index;
++	u8 reserved;
++	u8 run_id[16];
++	__le32 crc32;
++} __packed;
++
++struct s22plus_fyg8_cp_slot {
++	u8 magic[4];
++	u8 version;
++	u8 slot_id;
++	u8 profile;
++	u8 stage;
++	u8 outcome;
++	u8 item_index;
++	__le16 detail;
++	__le32 generation;
++	u8 carrier_id[16];
++	u8 run_id[16];
++	__le32 seed_idx;
++	__le32 boot_cnt;
++	__le32 crc32;
++	u8 reserved1[3];
++	u8 commit;
++} __packed;
++
++struct s22plus_fyg8_cp_region {
++	u8 entry[S22PLUS_FYG8_CP_ENTRY_SIZE];
++	struct s22plus_fyg8_cp_slot slots[2];
++} __packed;
++
++struct s22plus_fyg8_cp_state {
++	bool initialized;
++	bool terminal;
++	u8 active_slot;
++	u8 profile;
++	u8 stage;
++	u32 generation;
++	u32 seed_idx;
++	u32 seed_boot_cnt;
++	size_t region_pos;
++	u8 run_id[16];
++};
++
++static struct s22plus_fyg8_cp_state s22plus_fyg8_cp_state;
++
++static const u8 s22plus_fyg8_cp_carrier_id[16] = {
++	0x9a, 0xc6, 0x0d, 0xac, 0x17, 0xba, 0xf3, 0x9c,
++	0x32, 0xad, 0x46, 0xa6, 0x91, 0x74, 0xed, 0xc7,
++};
++
++static const char s22plus_fyg8_cp_entry[] =
++	"\n[[S22P1E|9ac60dac17baf39c32ad46a69174edc7]]\n";
++
++static u32 s22plus_fyg8_cp_crc32(const void *data, size_t size)
++{
++	return crc32_le(~0U, data, size) ^ ~0U;
++}
++
++static bool s22plus_fyg8_cp_all_zero(const u8 *value, size_t size)
++{
++	size_t index;
++
++	for (index = 0; index < size; ++index) {
++		if (value[index])
++			return false;
++	}
++	return true;
++}
++
++static bool s22plus_fyg8_cp_target_allowed(void)
++{
++	struct device_node *log_node;
++	struct device_node *memory_node;
++	struct resource log_resource;
++	struct resource memory_resource;
++	u32 strategy;
++	bool allowed = false;
++
++	if (!of_machine_is_compatible("qcom,waipio-mtp"))
++		return false;
++	log_node = of_find_compatible_node(NULL, NULL,
++			"samsung,kernel_log_buf");
++	if (!log_node)
++		return false;
++	if (!of_device_is_available(log_node) ||
++			of_address_to_resource(log_node, 0, &log_resource) ||
++			log_resource.start != S22PLUS_FYG8_CP_LOG_BASE ||
++			resource_size(&log_resource) != S22PLUS_FYG8_CP_LOG_SIZE ||
++			of_property_read_u32(log_node, "sec,strategy", &strategy) ||
++			strategy != 3 ||
++			!of_property_read_bool(log_node,
++					"sec,use-partial_reserved_mem"))
++		goto out_log;
++
++	memory_node = of_parse_phandle(log_node, "memory-region", 0);
++	if (!memory_node)
++		goto out_log;
++	if (of_device_is_compatible(memory_node, "samsung,carve-out") &&
++			!of_property_read_bool(memory_node, "no-map") &&
++			!of_address_to_resource(memory_node, 0, &memory_resource) &&
++			memory_resource.start <= S22PLUS_FYG8_CP_LOG_BASE &&
++			memory_resource.end >= S22PLUS_FYG8_CP_LOG_BASE +
++				S22PLUS_FYG8_CP_LOG_SIZE - 1)
++		allowed = true;
++	of_node_put(memory_node);
++out_log:
++	of_node_put(log_node);
++	return allowed;
++}
++
++static u8 s22plus_fyg8_cp_terminal_stage(u8 profile)
++{
++	switch (profile) {
++	case S22PLUS_FYG8_CP_PROFILE_E1:
++		return 0x3f;
++	case S22PLUS_FYG8_CP_PROFILE_E2:
++		return 0x7f;
++	case S22PLUS_FYG8_CP_PROFILE_E3:
++		return 0x8f;
++	case S22PLUS_FYG8_CP_PROFILE_E4:
++		return 0x9f;
++	default:
++		return 0;
++	}
++}
++
++static u8 s22plus_fyg8_cp_next_stage(u8 stage)
++{
++	switch (stage) {
++	case 0x00: return 0x10;
++	case 0x10: return 0x11;
++	case 0x11: return 0x12;
++	case 0x12: return 0x13;
++	case 0x13: return 0x14;
++	case 0x14: return 0x20;
++	case 0x20: return 0x21;
++	case 0x21: return 0x22;
++	case 0x22: return 0x30;
++	case 0x30: return 0x31;
++	case 0x31: return 0x32;
++	case 0x32: return 0x33;
++	case 0x33: return 0x34;
++	case 0x34: return 0x35;
++	case 0x35: return 0x3f;
++	case 0x3f: return 0x40;
++	case 0x7a: return 0x7b;
++	case 0x7b: return 0x7c;
++	case 0x7c: return 0x7d;
++	case 0x7d: return 0x7e;
++	case 0x7e: return 0x7f;
++	case 0x7f: return 0x80;
++	case 0x80: return 0x81;
++	case 0x81: return 0x82;
++	case 0x82: return 0x83;
++	case 0x83: return 0x84;
++	case 0x84: return 0x85;
++	case 0x85: return 0x8f;
++	case 0x8f: return 0x90;
++	case 0x90: return 0x91;
++	case 0x91: return 0x92;
++	case 0x92: return 0x9f;
++	default:
++		if (stage >= S22PLUS_FYG8_CP_STAGE_MODULE_FIRST &&
++				stage < S22PLUS_FYG8_CP_STAGE_MODULE_LAST)
++			return stage + 1;
++		return 0;
++	}
++}
++
++static bool s22plus_fyg8_cp_request_allowed(
++		const struct s22plus_fyg8_cp_request *request)
++{
++	u8 terminal = s22plus_fyg8_cp_terminal_stage(request->profile);
++	u8 expected = s22plus_fyg8_cp_next_stage(s22plus_fyg8_cp_state.stage);
++	s16 detail = (s16)le16_to_cpu(request->detail);
++
++	if (!terminal || !expected || request->stage != expected ||
++			request->stage > terminal ||
++			request->outcome > S22PLUS_FYG8_CP_OUTCOME_FAILURE)
++		return false;
++	if (request->stage >= S22PLUS_FYG8_CP_STAGE_MODULE_FIRST &&
++			request->stage <= S22PLUS_FYG8_CP_STAGE_MODULE_LAST) {
++		if (request->item_index != request->stage -
++				S22PLUS_FYG8_CP_STAGE_MODULE_FIRST)
++			return false;
++	} else if (request->item_index) {
++		return false;
++	}
++	if (request->outcome == S22PLUS_FYG8_CP_OUTCOME_SUCCESS)
++		return request->stage == terminal && detail == 0;
++	if (request->outcome == S22PLUS_FYG8_CP_OUTCOME_PROGRESS)
++		return request->stage != terminal && detail == 0;
++	return detail != 0;
++}
++
++static struct s22plus_fyg8_cp_log_head *s22plus_fyg8_cp_head(void)
++{
++	return phys_to_virt((phys_addr_t)S22PLUS_FYG8_CP_LOG_BASE);
++}
++
++static struct s22plus_fyg8_cp_region *s22plus_fyg8_cp_region(
++		struct s22plus_fyg8_cp_log_head *head)
++{
++	return (struct s22plus_fyg8_cp_region *)
++		&head->buf[s22plus_fyg8_cp_state.region_pos];
++}
++
++static void s22plus_fyg8_cp_build_slot(struct s22plus_fyg8_cp_slot *slot,
++		u8 slot_id, u32 generation, u8 profile, u8 stage,
++		u8 outcome, u8 item_index, s16 detail, const u8 run_id[16])
++{
++	memset(slot, 0, sizeof(*slot));
++	memcpy(slot->magic, "S22C", 4);
++	slot->version = S22PLUS_FYG8_CP_VERSION;
++	slot->slot_id = slot_id;
++	slot->profile = profile;
++	slot->stage = stage;
++	slot->outcome = outcome;
++	slot->item_index = item_index;
++	slot->detail = cpu_to_le16((u16)detail);
++	slot->generation = cpu_to_le32(generation);
++	memcpy(slot->carrier_id, s22plus_fyg8_cp_carrier_id,
++	       sizeof(slot->carrier_id));
++	memcpy(slot->run_id, run_id, sizeof(slot->run_id));
++	slot->seed_idx = cpu_to_le32(s22plus_fyg8_cp_state.seed_idx);
++	slot->boot_cnt = cpu_to_le32(s22plus_fyg8_cp_state.seed_boot_cnt);
++	slot->crc32 = cpu_to_le32(s22plus_fyg8_cp_crc32(slot,
++			offsetof(struct s22plus_fyg8_cp_slot, crc32)));
++}
++
++static void s22plus_fyg8_cp_commit_slot(struct s22plus_fyg8_cp_slot *target,
++		const struct s22plus_fyg8_cp_slot *source)
++{
++	WRITE_ONCE(target->commit, 0);
++	smp_wmb();
++	memcpy(target, source, offsetof(struct s22plus_fyg8_cp_slot, commit));
++	smp_wmb();
++	WRITE_ONCE(target->commit, S22PLUS_FYG8_CP_COMMIT);
++	smp_wmb();
++}
++
++static bool s22plus_fyg8_cp_header_unchanged(
++		struct s22plus_fyg8_cp_log_head *head)
++{
++	return READ_ONCE(head->magic) == S22PLUS_FYG8_CP_LOG_MAGIC &&
++		READ_ONCE(head->idx) == s22plus_fyg8_cp_state.seed_idx &&
++		READ_ONCE(head->boot_cnt) == s22plus_fyg8_cp_state.seed_boot_cnt;
++}
++
++static void s22plus_fyg8_checkpoint_init_exec(const char *init_filename)
++{
++	static const u8 zero_run_id[16];
++	struct s22plus_fyg8_cp_log_head *head;
++	struct s22plus_fyg8_cp_region *region;
++	struct s22plus_fyg8_cp_slot initial;
++	size_t payload_size = S22PLUS_FYG8_CP_LOG_SIZE - sizeof(*head);
++	size_t cursor;
++	u32 seed_idx;
++
++	memset(&s22plus_fyg8_cp_state, 0, sizeof(s22plus_fyg8_cp_state));
++	if (strcmp(init_filename, "/init") || task_pid_nr(current) != 1)
++		return;
++	if (!s22plus_fyg8_cp_target_allowed())
++		return;
++
++	head = s22plus_fyg8_cp_head();
++	seed_idx = READ_ONCE(head->idx);
++	if (READ_ONCE(head->magic) != S22PLUS_FYG8_CP_LOG_MAGIC ||
++			seed_idx < payload_size ||
++			sizeof(*region) > payload_size)
++		return;
++
++	cursor = seed_idx % payload_size;
++	s22plus_fyg8_cp_state.seed_idx = seed_idx;
++	s22plus_fyg8_cp_state.seed_boot_cnt = READ_ONCE(head->boot_cnt);
++	s22plus_fyg8_cp_state.region_pos =
++		cursor >= sizeof(*region) ? cursor - sizeof(*region) :
++		payload_size - sizeof(*region);
++	region = s22plus_fyg8_cp_region(head);
++	memset(region, 0, sizeof(*region));
++	memcpy(region->entry, s22plus_fyg8_cp_entry,
++	       sizeof(s22plus_fyg8_cp_entry) - 1);
++	s22plus_fyg8_cp_build_slot(&initial, 0, 0, 0, 0,
++			S22PLUS_FYG8_CP_OUTCOME_PROGRESS, 0, 0, zero_run_id);
++	s22plus_fyg8_cp_commit_slot(&region->slots[0], &initial);
++	if (!s22plus_fyg8_cp_header_unchanged(head)) {
++		WRITE_ONCE(region->slots[0].commit, 0);
++		smp_wmb();
++		return;
++	}
++	s22plus_fyg8_cp_state.initialized = true;
++}
++
++static ssize_t s22plus_fyg8_checkpoint_write(struct file *file,
++		const char __user *buffer, size_t count, loff_t *position)
++{
++	struct s22plus_fyg8_cp_request request;
++	struct s22plus_fyg8_cp_log_head *head;
++	struct s22plus_fyg8_cp_region *region;
++	struct s22plus_fyg8_cp_slot next;
++	u32 request_crc;
++	u32 next_generation;
++	u8 profile;
++	u8 next_slot;
++
++	(void)file;
++	if (task_pid_nr(current) != 1)
++		return -EPERM;
++	if (!s22plus_fyg8_cp_state.initialized)
++		return -ENODEV;
++	if (s22plus_fyg8_cp_state.terminal)
++		return -EALREADY;
++	if (*position != 0 || count != sizeof(request))
++		return -EINVAL;
++	if (copy_from_user(&request, buffer, sizeof(request)))
++		return -EFAULT;
++	if (memcmp(request.magic, "S22Q", 4) ||
++			request.version != S22PLUS_FYG8_CP_VERSION ||
++			request.reserved)
++		return -EINVAL;
++	request_crc = s22plus_fyg8_cp_crc32(&request,
++			offsetof(struct s22plus_fyg8_cp_request, crc32));
++	if (le32_to_cpu(request.crc32) != request_crc)
++		return -EBADMSG;
++	if (s22plus_fyg8_cp_all_zero(request.run_id,
++				sizeof(request.run_id)))
++		return -EKEYREJECTED;
++	if (!s22plus_fyg8_cp_request_allowed(&request))
++		return -ERANGE;
++	if (!s22plus_fyg8_cp_state.profile) {
++		profile = request.profile;
++	} else if (request.profile == s22plus_fyg8_cp_state.profile &&
++			!memcmp(request.run_id, s22plus_fyg8_cp_state.run_id,
++				sizeof(s22plus_fyg8_cp_state.run_id))) {
++		profile = s22plus_fyg8_cp_state.profile;
++	}
++	else
++		return -EXDEV;
++
++	head = s22plus_fyg8_cp_head();
++	region = s22plus_fyg8_cp_region(head);
++	if (!s22plus_fyg8_cp_header_unchanged(head) ||
++			memcmp(region->entry, s22plus_fyg8_cp_entry,
++			       sizeof(s22plus_fyg8_cp_entry) - 1))
++		return -ESTALE;
++
++	next_slot = s22plus_fyg8_cp_state.active_slot ^ 1U;
++	next_generation = s22plus_fyg8_cp_state.generation + 1U;
++	if (!next_generation)
++		return -EOVERFLOW;
++	s22plus_fyg8_cp_build_slot(&next, next_slot, next_generation,
++			profile, request.stage, request.outcome,
++			request.item_index, (s16)le16_to_cpu(request.detail),
++			request.run_id);
++	s22plus_fyg8_cp_commit_slot(&region->slots[next_slot], &next);
++	if (!s22plus_fyg8_cp_header_unchanged(head)) {
++		WRITE_ONCE(region->slots[next_slot].commit, 0);
++		smp_wmb();
++		return -ESTALE;
++	}
++
++	if (!s22plus_fyg8_cp_state.profile) {
++		memcpy(s22plus_fyg8_cp_state.run_id, request.run_id,
++		       sizeof(s22plus_fyg8_cp_state.run_id));
++		s22plus_fyg8_cp_state.profile = profile;
++	}
++	s22plus_fyg8_cp_state.active_slot = next_slot;
++	s22plus_fyg8_cp_state.generation = next_generation;
++	s22plus_fyg8_cp_state.stage = request.stage;
++	s22plus_fyg8_cp_state.terminal =
++		request.outcome != S22PLUS_FYG8_CP_OUTCOME_PROGRESS;
++	*position += count;
++	return count;
++}
++
++static const struct proc_ops s22plus_fyg8_checkpoint_ops = {
++	.proc_write = s22plus_fyg8_checkpoint_write,
++};
++
++static int __init s22plus_fyg8_checkpoint_proc_init(void)
++{
++	BUILD_BUG_ON(sizeof(struct s22plus_fyg8_cp_request) !=
++			S22PLUS_FYG8_CP_REQUEST_SIZE);
++	BUILD_BUG_ON(sizeof(struct s22plus_fyg8_cp_slot) !=
++			S22PLUS_FYG8_CP_SLOT_SIZE);
++	BUILD_BUG_ON(offsetof(struct s22plus_fyg8_cp_request, detail) != 8);
++	BUILD_BUG_ON(offsetof(struct s22plus_fyg8_cp_request, run_id) != 12);
++	BUILD_BUG_ON(offsetof(struct s22plus_fyg8_cp_request, crc32) != 28);
++	BUILD_BUG_ON(offsetof(struct s22plus_fyg8_cp_slot, detail) != 10);
++	BUILD_BUG_ON(offsetof(struct s22plus_fyg8_cp_slot, generation) != 12);
++	BUILD_BUG_ON(offsetof(struct s22plus_fyg8_cp_slot, run_id) != 32);
++	BUILD_BUG_ON(offsetof(struct s22plus_fyg8_cp_slot, crc32) != 56);
++	BUILD_BUG_ON(offsetof(struct s22plus_fyg8_cp_slot, commit) != 63);
++	BUILD_BUG_ON(sizeof(s22plus_fyg8_cp_entry) - 1 !=
++			S22PLUS_FYG8_CP_ENTRY_SIZE);
++	BUILD_BUG_ON(sizeof(struct s22plus_fyg8_cp_region) !=
++			S22PLUS_FYG8_CP_ENTRY_SIZE + 2 * S22PLUS_FYG8_CP_SLOT_SIZE);
++	if (!proc_create("s22_checkpoint", 0200, NULL,
++			&s22plus_fyg8_checkpoint_ops))
++		return -ENOMEM;
++	return 0;
++}
++late_initcall(s22plus_fyg8_checkpoint_proc_init);
++#else
++static inline void s22plus_fyg8_checkpoint_init_exec(
++		const char *init_filename) { }
++#endif
++
+ static int try_to_run_init_process(const char *init_filename)
+ {
+ 	int ret;
+@@ -1465,6 +1911,7 @@ static int __ref kernel_init(void *unused)
+ 	if (ramdisk_execute_command) {
+ 		ret = run_init_process(ramdisk_execute_command);
+ 		if (!ret) {
++			s22plus_fyg8_checkpoint_init_exec(ramdisk_execute_command);
+ #ifdef CONFIG_RKP
+ 			rkp_deferred_init();
+ #endif

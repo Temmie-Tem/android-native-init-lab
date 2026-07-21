@@ -37,6 +37,12 @@ child exec/reap, USB bind/UDC, ACM 단방향, 고정 1회 왕복 순서는
 정리합니다. 이 설계는 pstore/pmsg/ramoops를 재사용하지 않으며 현재 live
 권한을 만들지 않습니다.
 
+R4W1-E retained checkpoint carrier의 exact ABI, 커널 소스 게이트, E1-E4
+프로필, host codec과 23개 adversarial test 결과는
+`reports/S22PLUS_FYG8_R4W1E_CHECKPOINT_CARRIER_HOST_CONTRACT_PASS_2026-07-21.md`에
+기록합니다. 이 결과는 host-only이며 아직 kernel build나 candidate가
+아닙니다.
+
 ## Claude review usage ledger
 
 Claude Opus 검토의 세션, 호출 전후 사용률, 리셋 시각, 컨텍스트 여유량,

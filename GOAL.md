@@ -71,13 +71,15 @@ Archived text is evidence only and grants no device authority.
 3. **P2.6 complete:** post-PID1 architecture review. Three repository reviews
    and one persistent Claude discussion converged on one reusable R4W1-E
    retained carrier and four separate evidence rungs.
-4. **P2.7 next, host-only:** implement and test the R4W1-E carrier contract:
-   immutable PID1 entry, A/B committed checkpoint slots, unchanged Samsung-ring
-   cursor gate, PID1-only write interface, host decoder, adversarial tests, and
-   E1-E4 profile schema. No full build, packaging, device contact, or policy
-   activation in this unit.
-5. **E1 later:** mounts/readbacks, exact static child token/exit/reap, five-module
-   watchdog closure, bounded quiet park, and terminal retained checkpoint.
+4. **P2.7 complete, host-only:** R4W1-E now has an exact retained-region
+   geometry, immutable PID1 entry, A/B commit-last slots, unchanged-cursor and
+   PID1-only kernel gates, E1-E4 profiles, a host codec/static checker, and 23
+   passing adversarial tests. No kernel build, image, device contact, or live
+   authority was created.
+5. **P2.8 next, host-only:** implement the E1 static PID1 runtime, exact child,
+   checkpoint client, and independent control-flow checker. Cover
+   mounts/readbacks, token/exit/reap, five-module watchdog closure, bounded
+   quiet park, and terminal checkpoint without building a final kernel image.
 6. **E2 later:** generated exact USB closure, per-module result, platform bind,
    DWC3 child, and exact UDC as separate checkpoints.
 7. **E3/E4 later:** one exact ACM banner, then one fixed nonce-bound exchange.

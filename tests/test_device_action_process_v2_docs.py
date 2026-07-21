@@ -77,9 +77,10 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn(
             "PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK", self.goal
         )
-        self.assertIn("P2.7 next, host-only", self.goal)
+        self.assertIn("P2.7 complete, host-only", self.goal)
+        self.assertIn("P2.8 next, host-only", self.goal)
         self.assertIn(
-            "No full build, packaging, device contact, or policy activation",
+            "No kernel build, image, device contact, or live authority",
             normalized_goal,
         )
         self.assertIn("P2.1-P2.5 complete", self.process)

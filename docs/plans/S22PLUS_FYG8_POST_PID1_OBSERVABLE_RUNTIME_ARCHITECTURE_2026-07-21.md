@@ -80,14 +80,18 @@ carve-out would be incorrect.
 
 R4W1-E can safely reuse this geometry only under all of these invariants:
 
-1. The exec hook snapshots `magic`, `idx`, and the selected contiguous region.
-2. The native candidate never loads `sec_log_buf.ko`. Loading it installs the
+1. Before dereferencing retained RAM, the exec hook proves the exact enabled
+   DT log node, address/size, strategy, partial-reserved-memory property, and
+   containing direct-mapped reserved-memory node.
+2. The exec hook snapshots `magic`, `idx`, `boot_cnt`, and the selected
+   contiguous region.
+3. The native candidate never loads `sec_log_buf.ko`. Loading it installs the
    Samsung printk writer and can advance or rewrite the same ring.
-3. Every checkpoint update reopens the header and refuses unless `magic` and
-   `idx` still equal the exec-hook snapshot.
-4. The combined proof region is selected once and never recomputed from a
+4. Every checkpoint update reopens the header and refuses unless `magic`,
+   `idx`, and `boot_cnt` still equal the exec-hook snapshot.
+5. The combined proof region is selected once and never recomputed from a
    later cursor.
-5. The candidate becomes quiet after its terminal checkpoint and remains in a
+6. The candidate becomes quiet after its terminal checkpoint and remains in a
    bounded park until attended Download and rollback.
 
 The existing FYG8 driver supports this distinction. Its module probe maps the
@@ -114,10 +118,12 @@ the prior valid generation intact:
 4. publish the commit byte last;
 5. make the newly committed slot the active generation.
 
-The host validates both slots and selects the highest valid generation. A torn
-new slot therefore leaves the prior phase usable. Exact sizes and offsets are
-an implementation result, not a design assumption; the complete combined
-region must be compact, contiguous, and accepted by the adapted static auditor.
+The host validates each slot independently and selects the highest valid
+generation. A committed slot with a bad body or checksum is invalid by itself;
+it does not discard the other valid slot. A torn new slot therefore leaves the
+prior phase usable. Exact sizes and offsets are an implementation result, not a
+design assumption; the complete combined region must be compact, contiguous,
+and accepted by the adapted static auditor.
 
 ### Write-only PID1 checkpoint API
 
@@ -127,22 +133,27 @@ flag is enabled. Its handler must require:
 - `task_pid_nr(current) == 1`;
 - the exec hook initialized this boot's carrier;
 - exact fixed request length and reserved fields equal zero;
-- unchanged Samsung log `magic` and `idx` snapshot;
-- a candidate profile ID that remains constant after its first accepted write;
-- a monotonic stage tuple and kernel-assigned generation;
+- unchanged Samsung log `magic`, `idx`, and `boot_cnt` snapshot;
+- one E1-E4 profile kind that remains constant after its first accepted write;
+- one nonzero dynamic run ID that remains constant and is later matched to an
+  exact host manifest;
+- the exact next profile stage, profile-derived generation, and module index;
+- success only at the terminal stage and nonzero detail for failure;
 - no second terminal record.
 
-Userspace does not provide the immutable entry marker or slot address. The
-profile ID binds, through the host manifest and checker, the full Image, init,
-child, stage table, and static control-flow result. The kernel gate is not a
-cryptographic attestation of userspace behavior; artifact identity and the
-independent checker remain load-bearing.
+Userspace does not provide the immutable entry marker or slot address. Profile
+kind selects the fixed kernel state machine. The dynamic run ID is an opaque
+key mapped by an exact-hash host manifest to the Image, init, child, closure,
+stage schema, and static control-flow result. It is not a self-referential hash
+of binaries that embed it. The kernel gate is not a cryptographic attestation
+of userspace behavior; exact artifact identity, preflight family absence,
+one-shot chronology, and the independent checker remain load-bearing.
 
-Each slot needs at least `magic`, format version, carrier ID, profile ID,
-generation, stage, outcome, item index, signed detail/errno, checksum, and a
-commit byte. The host must reject invalid checksum, missing commit, duplicate
-generation, nonmonotonic stage, unknown profile, foreign carrier, and any
-partial family token.
+Each slot needs at least `magic`, format version, carrier ID, profile kind,
+run ID, generation, stage, outcome, item index, signed detail/errno, checksum,
+and a commit byte. The host must reject invalid checksum, missing commit,
+duplicate or impossible generation, non-successor stage, unknown profile kind,
+unexpected run or boot identity, foreign carrier, and any partial family token.
 
 ## Runtime shape
 
@@ -170,7 +181,7 @@ audio, network, or service inventory.
 - platform bind gates and `a600000.dwc3` UDC identity;
 - forced-peripheral sysfs path, if and only if the DWC3 platform already bound;
 - configfs ACM descriptors and sysfs-derived `ttyGS0` major/minor;
-- stage/profile IDs and the expected host evidence.
+- stage schema, dynamic run ID, and expected host evidence.
 
 Do not add a plugin framework, service registry, arbitrary command table, NCM,
 mass storage, persistent rootfs, hot reload, or `switch_root` to this unit.
@@ -284,10 +295,12 @@ for each rung.
 1. Prove the exact R4W1-D log geometry and FYG8 `sec_log_buf` writer behavior.
 2. Implement A/B encode, commit, decode, and highest-valid-generation logic as
    a pure host-tested unit.
-3. Test torn body, missing commit, stale generation, checksum mismatch,
-   changed cursor, unknown profile, foreign family, and terminal replay.
-4. Define E1-E4 stage/profile tables and bind each profile to full artifact
-   identities in the manifest/checker.
+3. Test torn body, committed bad checksum with prior-slot fallback, no-valid
+   slot, stale/impossible generation, changed cursor, unknown profile kind,
+   unexpected run/boot identity, foreign family, and terminal replay.
+4. Define E1-E4 exact stage tables. Bind each future dynamic run ID to full
+   artifact identities in the exact manifest/checker; P2.7 model IDs are never
+   live evidence.
 5. Implement the guarded kernel source and proc API, but perform no device
    action in the same unit.
 6. Implement the E1 runtime source and exact child with compile/static tests.
@@ -314,20 +327,19 @@ canary is not required unless static evidence reveals broader kernel impact.
 - The design begins adding shell, NCM, Debian, or a general supervisor before
   E4 closes.
 
+## Implementation status
+
+P2.7 completed the carrier source and host contract on 2026-07-21. Exact ABI,
+patch/source hashes, profiles, and validation are recorded in
+`docs/reports/S22PLUS_FYG8_R4W1E_CHECKPOINT_CARRIER_HOST_CONTRACT_PASS_2026-07-21.md`.
+No kernel build, image, device contact, or live authority was produced.
+
 ## Next bounded unit
 
-Implement and host-test the R4W1-E carrier contract only:
-
-- exact combined-region geometry spec;
-- immutable entry plus A/B slot codec;
-- guarded PID1-only proc writer with unchanged-cursor gate;
-- host decoder and adversarial tests;
-- E1-E4 stage/profile schema;
-- adapted static auditor inputs.
-
-This unit may edit source and tests but performs no full kernel build, candidate
-packaging, device contact, or policy activation. The E1 runtime source follows
-only after the carrier contract passes.
+Implement and host-test the E1 static PID1 runtime, exact child, checkpoint
+client, and independent control-flow checker. This remains host-only and must
+not produce a final kernel build, candidate package, live policy, or device
+action.
 
 ## External references
 
