@@ -77,14 +77,12 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn(
             "PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK", self.goal
         )
-        self.assertIn("P2.7 complete, host-only", self.goal)
-        self.assertIn("P2.8 complete, host-only", self.goal)
-        self.assertIn("P2.9 complete, host-only", self.goal)
-        self.assertIn("P2.10 complete, host-only", self.goal)
+        self.assertIn("P2.6-P2.10 complete", self.goal)
         self.assertIn("P2.11 F1 closed, no proof", self.goal)
-        self.assertIn("P2.12 next, H0 only", self.goal)
+        self.assertIn("P2.12-P2.14 complete, H0 only", self.goal)
+        self.assertIn("P2.15 next, D0 only", self.goal)
         self.assertIn(
-            "No kernel build, image, device contact, or live authority",
+            "No ready manifest, device contact, D0, F1 approval, or Odin invocation",
             normalized_goal,
         )
         self.assertIn("P2.1-P2.5 complete", self.process)

@@ -77,7 +77,11 @@ linked-code audit와 127개 관련 test 결과는
 기록합니다. 이를 기존 P2.9 packager/checker에 얇게 연결한 deterministic
 boot-only offline candidate, A/B byte identity와 독립 검사 결과는
 `reports/S22PLUS_FYG8_R4W1E0_OFFLINE_CANDIDATE_HOST_PASS_2026-07-22.md`에
-기록합니다. 둘 다 host-only이며 device contact, D0 또는 F1 권한은 없습니다.
+기록합니다. 이 exact contract와 clean-baseline retained classifier를 unchanged
+Process v2에 연결한 P2.14 host 결과는
+`reports/S22PLUS_FYG8_R4W1E0_PROCESS_V2_TYPED_EVIDENCE_HOST_PASS_2026-07-22.md`에
+기록합니다. 세 결과 모두 host-only이며 ready manifest, device contact, D0
+또는 F1 권한은 없습니다.
 
 ## Claude review usage ledger
 

@@ -9,7 +9,7 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 
 ## Current Frontier
 
-**State: R4W1-D DIRECT PID1 PROVEN; R4W1-E0 OFFLINE CANDIDATE READY.** Process v2 transferred
+**State: R4W1-D DIRECT PID1 PROVEN AND ROLLED BACK; R4W1-E0 PROCESS V2 HOST BINDING READY.** Process v2 transferred
 the exact boot-only candidate once, two complete post-rollback
 `/proc/last_kmsg` reads retained one exact contiguous proof, the exact Magisk
 boot rollback completed, and final Android/root/supporting-partition health
@@ -28,8 +28,11 @@ After R4W1-E closed with no retained carrier, the R4W1-E0 H0 diagnostic was
 built cleanly with Full LTO and packaged twice as a byte-identical boot-only
 offline candidate. It reuses R4W1-D's proven 45-byte slot and can distinguish
 post-exec ENTRY from the exact first PID1 proc checkpoint without the unproved
-E carrier gates. The independent static checker passes. This is still
-host-only evidence, not D0 preparation or live authorization.
+E carrier gates. The independent static checker passes, and Process v2 now
+validates the exact offline contract and classifies retained evidence as
+absent, entry-only, userspace-callback-reached, or family-integrity-failure.
+This is still host-only evidence: no ready manifest, D0 preparation, or live
+authorization exists.
 
 The controlling next-stage design is
 `docs/plans/S22PLUS_FYG8_POST_PID1_OBSERVABLE_RUNTIME_ARCHITECTURE_2026-07-21.md`.
@@ -71,55 +74,21 @@ Archived text is evidence only and grants no device authority.
 
 ## Immediate Roadmap
 
-1. **P2.1-P2.4 complete:** active-contract cleanup, reusable host core, host
-   validation, and connected read-only D0 qualification.
-2. **P2.5 complete:** Process v2 F1 canary, R4W1-D contiguous witness, exact
-   rollback, final health, and post-transfer USBFS departure repair.
-3. **P2.6 complete:** post-PID1 architecture review. Three repository reviews
-   and one persistent Claude discussion converged on one reusable R4W1-E
-   retained carrier and four separate evidence rungs.
-4. **P2.7 complete, host-only:** R4W1-E now has an exact retained-region
-   geometry, immutable PID1 entry, A/B commit-last slots, unchanged-cursor and
-   PID1-only kernel gates, E1-E4 profiles, a host codec/static checker, and 23
-   passing adversarial tests. No kernel build, image, device contact, or live
-   authority was created.
-5. **P2.8 complete, host-only:** the exact E1 static PID1 runtime, child,
-   checkpoint client, and independent host contract now cover mount readbacks,
-   token/exit/reap, five-module watchdog closure, bounded quiet park, terminal
-   publication, exact syscall authority, and byte-exact P2.7 request
-   compatibility. Twenty focused adversarial tests and final independent
-   review pass. No kernel build, image, device contact, or live authority was
-   created.
-6. **P2.9 complete, host-only:** one clean Full-LTO R4W1-E kernel build, pinned
-   build-artifact contract, fresh manifest-bound E1 boot-only candidate, and
-   independent offline checker pass are recorded. The integrated relevant
-   suite passes 143 tests. No device contact, Odin invocation, flash, D0, or F1
-   authority occurred.
-7. **P2.10 complete, host-only:** Process v2 now validates the pinned P2.9
-   offline contract and decodes the R4W1-E A/B checkpoint as typed evidence.
-   Only one exact E1 terminal-success record with two valid adjacent slots and
-   the manifest-bound run ID can pass. The legacy marker path remains
-   unchanged. Focused tests and independent review pass. No device contact,
-   D0, F1 approval, Odin invocation, or flash occurred.
-8. **P2.11 F1 closed, no proof:** exact candidate and rollback each transferred
-   once; final health passed, but two retained reads had zero E1 carrier/slot
-   magic. `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; binding consumed.
-9. **P2.12 complete, H0 only:** R4W1-E0 now has a minimal two-state retained
-   diagnostic, a newly bound exact PID1 runtime, clean Full-LTO build, linked
-   code audit, and 127 passing related tests. It reuses the proven R4W1-D slot
-   and removes the unproved E carrier gates from this diagnostic.
-10. **P2.13 complete, H0 only:** a thin adapter reuses the P2.9 boot-only
-   packager and independent checker for the exact R4W1-E0 kernel, runtime,
-   fixed probe, and clean baseline. Two builds are byte-identical; focused
-   tests and independent review pass. No runner fork, device contact, D0, or
-   F1 authority was created.
-11. **P2.14 next, H0 only:** bind this exact offline contract and the two-state
-   clean-baseline classifier into unchanged Process v2 machinery. Reuse the
-   common runner and observer; do not prepare D0 or request F1 in this unit.
-12. **E2 later:** generated exact USB closure, per-module result, platform bind,
-   DWC3 child, and exact UDC as separate checkpoints.
-13. **E3/E4 later:** one exact ACM banner, then one fixed nonce-bound exchange.
-   No shell, arbitrary command, NCM, storage, Debian handoff, or hot reload.
+1. **P2.1-P2.5 complete:** active-contract cleanup, reusable D0/F1 core,
+   connected read-only qualification, R4W1-D live proof, rollback, and health.
+2. **P2.6-P2.10 complete:** post-PID1 architecture, E1 runtime and carrier,
+   deterministic candidate, exact offline binding, and typed Process v2
+   evidence were built and reviewed host-only.
+3. **P2.11 F1 closed, no proof:** candidate and rollback transferred once and
+   final health passed, but retained E1 carrier count was zero. Binding consumed.
+4. **P2.12-P2.14 complete, H0 only:** R4W1-E0 reduced the question to ENTRY vs
+   first userspace proc checkpoint, built a byte-identical exact candidate, and
+   bound a four-state fail-closed classifier into the unchanged common runner.
+   No ready manifest, device contact, D0, F1 approval, or Odin invocation exists.
+5. **P2.15 next, D0 only:** promote one exact data-only ready manifest and run
+   connected read-only preparation. F1 still requires fresh exact approval.
+6. **E2-E4 later:** prove module closure, platform bind and UDC, then one ACM
+   banner and one nonce-bound exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a C4 helper, add another per-candidate policy
 block, reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing

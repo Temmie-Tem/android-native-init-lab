@@ -13,8 +13,15 @@ import s22plus_fyg8_r4w1e_checkpoint_contract as checkpoint
 
 MARKER_KIND = "retained_marker_after_rollback"
 CHECKPOINT_KIND = "retained_checkpoint_after_rollback"
+PID1_USERSPACE_KIND = "retained_pid1_userspace_after_rollback"
 CHECKPOINT_DECODER = "s22plus_fyg8_r4w1e_checkpoint_v1"
+PID1_USERSPACE_DECODER = "s22plus_fyg8_r4w1e0_pid1_userspace_v1"
 CHECKPOINT_SOURCE = "/proc/last_kmsg"
+PID1_USERSPACE_TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
+PID1_USERSPACE_ENTRY = b"\n[[S22P1U|ba234c7de4105b2a23222436284605f2]]\n"
+PID1_USERSPACE_PROOF = b"\n[[S22P1U|ec8d029b05288644bbe7b5f7c7af190c]]\n"
+PID1_USERSPACE_FAMILY = b"[[S22P1U|"
+PID1_USERSPACE_PROBE_ID = "64554e8469385878c5bf8d57c44edeea"
 OUTCOME_NAMES = {
     checkpoint.OUTCOME_PROGRESS: "progress",
     checkpoint.OUTCOME_SUCCESS: "success",
@@ -49,6 +56,14 @@ def _artifact(value: Any, label: str) -> dict[str, Any]:
     return item
 
 
+def _artifact_matches(value: Any, expected: dict[str, Any]) -> bool:
+    return (
+        isinstance(value, dict)
+        and value.get("size") == expected.get("size")
+        and value.get("sha256") == expected.get("sha256")
+    )
+
+
 def _bounded_text(value: Any, label: str, maximum: int) -> str:
     if (
         not isinstance(value, str)
@@ -74,6 +89,40 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
             raise EvidenceError("marker acceptance source or count is invalid")
         _bounded_text(item["marker"], "acceptance.marker", 512)
         _bounded_text(item["family"], "acceptance.family", 128)
+        return item
+    if kind == PID1_USERSPACE_KIND:
+        item = _exact(
+            value,
+            {
+                "kind",
+                "source",
+                "marker",
+                "family",
+                "exact_count",
+                "decoder",
+                "probe_id",
+                "entry_marker",
+                "contract",
+            },
+            "PID1 userspace acceptance",
+        )
+        if (
+            item["source"] != CHECKPOINT_SOURCE
+            or item["marker"] != PID1_USERSPACE_PROOF.decode("ascii")
+            or item["entry_marker"] != PID1_USERSPACE_ENTRY.decode("ascii")
+            or item["family"] != PID1_USERSPACE_FAMILY.decode("ascii")
+            or item["exact_count"] != 1
+            or item["decoder"] != PID1_USERSPACE_DECODER
+            or item["probe_id"] != PID1_USERSPACE_PROBE_ID
+        ):
+            raise EvidenceError("PID1 userspace acceptance identity is invalid")
+        contract = _exact(
+            item["contract"],
+            {"run_manifest", "static_check"},
+            "PID1 userspace contract",
+        )
+        _artifact(contract["run_manifest"], "PID1 userspace contract run_manifest")
+        _artifact(contract["static_check"], "PID1 userspace contract static_check")
         return item
     if kind != CHECKPOINT_KIND:
         raise EvidenceError("acceptance kind is not allowlisted")
@@ -123,7 +172,7 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
 
 def contract_artifacts(acceptance: dict[str, Any]) -> dict[str, dict[str, Any]]:
     item = validate_acceptance(acceptance)
-    if item["kind"] != CHECKPOINT_KIND:
+    if item["kind"] not in {CHECKPOINT_KIND, PID1_USERSPACE_KIND}:
         return {}
     return {
         name: dict(value)
@@ -159,7 +208,7 @@ def _canonical(value: Any) -> bytes:
         raise EvidenceError("run manifest is not canonical ASCII JSON") from exc
 
 
-def verify_offline_contract(
+def _verify_checkpoint_offline_contract(
     acceptance: dict[str, Any],
     *,
     payloads: dict[str, bytes],
@@ -220,12 +269,10 @@ def verify_offline_contract(
         or binding.get("fresh_non_model_id") is not True
         or binding.get("verified") is not True
         or not isinstance(artifacts, dict)
-        or artifacts.get("ap", {}).get("size") != candidate_ap.get("size")
-        or artifacts.get("ap", {}).get("sha256") != candidate_ap.get("sha256")
-        or artifacts.get("run_manifest", {}).get("size")
-        != receipts["run_manifest"].get("size")
-        or artifacts.get("run_manifest", {}).get("sha256")
-        != receipts["run_manifest"].get("sha256")
+        or not _artifact_matches(artifacts.get("ap"), candidate_ap)
+        or not _artifact_matches(
+            artifacts.get("run_manifest"), receipts["run_manifest"]
+        )
         or candidate.get("boot_only_ap") is not True
         or not isinstance(safety, dict)
         or safety.get("host_only") is not True
@@ -254,6 +301,129 @@ def verify_offline_contract(
         "static_check_sha256": receipts["static_check"]["sha256"],
         "verified": True,
     }
+
+
+def _verify_pid1_userspace_offline_contract(
+    acceptance: dict[str, Any],
+    *,
+    payloads: dict[str, bytes],
+    receipts: dict[str, dict[str, Any]],
+    candidate_ap: dict[str, Any],
+) -> dict[str, Any]:
+    item = validate_acceptance(acceptance)
+    if item["kind"] != PID1_USERSPACE_KIND:
+        raise EvidenceError("offline PID1 userspace contract is not applicable")
+    if set(payloads) != {"run_manifest", "static_check"} or set(receipts) != set(
+        payloads
+    ):
+        raise EvidenceError("offline PID1 userspace artifacts are incomplete")
+    for name, payload in payloads.items():
+        pin = item["contract"][name]
+        receipt = receipts[name]
+        if (
+            len(payload) != pin["size"]
+            or hashlib.sha256(payload).hexdigest() != pin["sha256"]
+            or receipt.get("size") != pin["size"]
+            or receipt.get("sha256") != pin["sha256"]
+        ):
+            raise EvidenceError(f"offline PID1 userspace contract {name} changed")
+
+    run_manifest = _json(payloads["run_manifest"], "run manifest")
+    static_result = _json(payloads["static_check"], "static checker result")
+    canonical = _canonical(run_manifest)
+    canonical_sha256 = hashlib.sha256(canonical).hexdigest()
+    observation = run_manifest.get("observation_contract")
+    if (
+        run_manifest.get("schema") != "s22plus_fyg8_r4w1e0_run_manifest_v1"
+        or run_manifest.get("target") != PID1_USERSPACE_TARGET
+        or run_manifest.get("profile") != "E0"
+        or run_manifest.get("probe_id") != item["probe_id"]
+        or run_manifest.get("entry_proof")
+        != PID1_USERSPACE_ENTRY.decode("ascii").strip()
+        or run_manifest.get("userspace_proof")
+        != PID1_USERSPACE_PROOF.decode("ascii").strip()
+        or observation
+        != {
+            "accepted_identity": "USERSPACE_CALLBACK_REACHED",
+            "baseline_family_count": 0,
+            "post_family_count": 1,
+        }
+    ):
+        raise EvidenceError("run manifest does not bind PID1 userspace acceptance")
+
+    binding = static_result.get("run_binding")
+    candidate = static_result.get("candidate")
+    artifacts = candidate.get("artifacts") if isinstance(candidate, dict) else None
+    blockers = static_result.get("blockers")
+    safety = static_result.get("safety")
+    if (
+        static_result.get("schema")
+        != "s22plus_fyg8_r4w1e0_candidate_static_checker_v1"
+        or static_result.get("target") != PID1_USERSPACE_TARGET
+        or static_result.get("verdict")
+        != "PASS_R4W1E0_OFFLINE_CANDIDATE_STATIC_CONTRACT"
+        or blockers != []
+        or not isinstance(binding, dict)
+        or binding.get("run_id") != item["probe_id"]
+        or binding.get("canonical_manifest_size") != len(canonical)
+        or binding.get("canonical_manifest_sha256") != canonical_sha256
+        or binding.get("fixed_probe_id") is not True
+        or binding.get("clean_baseline_required") is not True
+        or binding.get("verified") is not True
+        or not isinstance(artifacts, dict)
+        or not _artifact_matches(artifacts.get("ap"), candidate_ap)
+        or not _artifact_matches(
+            artifacts.get("run_manifest"), receipts["run_manifest"]
+        )
+        or candidate.get("boot_only_ap") is not True
+        or not isinstance(safety, dict)
+        or safety.get("host_only") is not True
+        or any(
+            safety.get(key) is not False
+            for key in (
+                "device_contact",
+                "device_write",
+                "odin_invoked",
+                "odin_transfer",
+                "flash",
+                "partition_write",
+                "live_authorized",
+            )
+        )
+    ):
+        raise EvidenceError("static checker result does not bind E0 candidate")
+    return {
+        "schema": "device_action_f1_pid1_userspace_offline_contract_v2",
+        "decoder": item["decoder"],
+        "probe_id": item["probe_id"],
+        "candidate_ap_sha256": candidate_ap["sha256"],
+        "run_manifest_sha256": receipts["run_manifest"]["sha256"],
+        "static_check_sha256": receipts["static_check"]["sha256"],
+        "clean_baseline_required": True,
+        "verified": True,
+    }
+
+
+def verify_offline_contract(
+    acceptance: dict[str, Any],
+    *,
+    payloads: dict[str, bytes],
+    receipts: dict[str, dict[str, Any]],
+    candidate_ap: dict[str, Any],
+) -> dict[str, Any]:
+    if acceptance.get("kind") == PID1_USERSPACE_KIND:
+        return _verify_pid1_userspace_offline_contract(
+            acceptance,
+            payloads=payloads,
+            receipts=receipts,
+            candidate_ap=candidate_ap,
+        )
+    return _verify_checkpoint_offline_contract(
+        acceptance,
+        payloads=payloads,
+        receipts=receipts,
+        candidate_ap=candidate_ap,
+    )
 
 
 def _base_classification(
@@ -374,4 +544,67 @@ def classify_checkpoint(payload: bytes, acceptance: dict[str, Any]) -> dict[str,
         "two_valid_slots": two_slots,
         "boot_identity_self_consistent": two_slots,
     }
+    return result
+
+
+def classify_pid1_userspace(
+    payload: bytes, acceptance: dict[str, Any]
+) -> dict[str, Any]:
+    item = validate_acceptance(acceptance)
+    if item["kind"] != PID1_USERSPACE_KIND:
+        raise EvidenceError("PID1 userspace classifier received another evidence kind")
+    entry_count = payload.count(PID1_USERSPACE_ENTRY)
+    userspace_count = payload.count(PID1_USERSPACE_PROOF)
+    family_count = payload.count(PID1_USERSPACE_FAMILY)
+    markers = (PID1_USERSPACE_ENTRY, PID1_USERSPACE_PROOF)
+    partial_head = any(
+        payload.startswith(marker[-length:])
+        for marker in markers
+        for length in range(len(b"[[S22P1"), len(marker))
+    )
+    partial_tail = any(
+        payload.endswith(marker[:length])
+        for marker in markers
+        for length in range(len(b"[[S22P1"), len(marker))
+    )
+    if family_count == 0 and not partial_head and not partial_tail:
+        result = _base_classification(
+            classification="PID1_USERSPACE_ABSENT",
+            exact_count=0,
+            family_count=0,
+            integrity_issue=False,
+        )
+    elif (
+        family_count != 1
+        or entry_count + userspace_count != 1
+        or partial_head
+        or partial_tail
+    ):
+        result = _base_classification(
+            classification="PID1_USERSPACE_FAMILY_INTEGRITY_FAILURE",
+            exact_count=userspace_count,
+            family_count=family_count,
+            integrity_issue=True,
+        )
+        result["partial_at_head"] = partial_head
+        result["partial_at_tail"] = partial_tail
+    elif userspace_count == 1:
+        result = _base_classification(
+            classification="PID1_USERSPACE_CALLBACK_REACHED",
+            exact_count=1,
+            family_count=1,
+            integrity_issue=False,
+        )
+        result["acceptance_present"] = True
+        result["accepted"] = True
+    else:
+        result = _base_classification(
+            classification="PID1_ENTRY_ONLY",
+            exact_count=0,
+            family_count=1,
+            integrity_issue=False,
+        )
+    result["entry_count"] = entry_count
+    result["userspace_count"] = userspace_count
+    result["probe_id"] = item["probe_id"]
     return result
