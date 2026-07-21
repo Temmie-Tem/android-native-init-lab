@@ -357,6 +357,46 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
                 ]["classification"]
                 self.assertTrue(classification["integrity_issue"])
 
+    def test_compact_proof_is_data_only(self):
+        marker = "[[S22P1D|0e13f28e8558dde01ce3345f16408673]]"
+        family = "[[S22P1D|"
+        acceptance = {
+            "marker": marker,
+            "family": family,
+            "exact_count": 1,
+        }
+        accepted = self.module.classify_acceptance(
+            f"prefix\n{marker}\nsuffix".encode(),
+            acceptance,
+        )
+        self.assertTrue(accepted["accepted"])
+        self.assertEqual(accepted["exact_count"], 1)
+        self.assertEqual(accepted["family_count"], 1)
+
+        historical = self.module.classify_acceptance(
+            ("[[S22R4W1B|id=historical-partial\n" f"{marker}\n").encode(),
+            acceptance,
+        )
+        self.assertTrue(historical["accepted"])
+
+        partial_proof = self.module.classify_acceptance(
+            f"prefix\n{marker[:24]}".encode(), acceptance
+        )
+        self.assertFalse(partial_proof["accepted"])
+        self.assertTrue(partial_proof["integrity_issue"])
+
+        duplicate = self.module.classify_acceptance(
+            f"\n{marker}\n\n{marker}\n".encode(), acceptance
+        )
+        self.assertFalse(duplicate["accepted"])
+        self.assertEqual(duplicate["exact_count"], 2)
+
+        foreign = self.module.classify_acceptance(
+            f"\n{family}foreign]]\n".encode(), acceptance
+        )
+        self.assertFalse(foreign["accepted"])
+        self.assertEqual(foreign["foreign_count"], 1)
+
     def test_rollback_failure_remains_recoverable_without_candidate_replay(self):
         temporary, prepared = self.prepared()
         self.addCleanup(temporary.cleanup)

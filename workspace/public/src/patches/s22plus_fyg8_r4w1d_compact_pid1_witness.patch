@@ -1,0 +1,106 @@
+diff --git a/kernel_platform/common/arch/arm64/configs/gki_defconfig b/kernel_platform/common/arch/arm64/configs/gki_defconfig
+--- a/kernel_platform/common/arch/arm64/configs/gki_defconfig
++++ b/kernel_platform/common/arch/arm64/configs/gki_defconfig
+@@ -737,6 +737,7 @@ CONFIG_CRYPTO_FIPS=y
+ 
+ 
+ # CONFIG_RKP_TEST is not set
++CONFIG_S22PLUS_FYG8_COMPACT_RETAINED_WITNESS=y
+ 
+ 
+ 
+diff --git a/kernel_platform/common/init/Kconfig b/kernel_platform/common/init/Kconfig
+--- a/kernel_platform/common/init/Kconfig
++++ b/kernel_platform/common/init/Kconfig
+@@ -2443,5 +2443,13 @@ config ARCH_HAS_SYNC_CORE_BEFORE_USERMODE
+ config ARCH_HAS_SYSCALL_WRAPPER
+ 	def_bool n
+ 
++config S22PLUS_FYG8_COMPACT_RETAINED_WITNESS
++	bool "Samsung S22+ FYG8 contiguous retained init witness"
++	default n
++	help
++	  Backfill one compact build-bound proof token into a contiguous retained
++	  ring region after PID 1 accepts /init. This narrow research witness is
++	  for SM-S906N S906NKSS7FYG8 and must remain disabled elsewhere.
++
+ source "init/Kconfig.gki"
+ source "init/Kconfig.gki-debug"
+diff --git a/kernel_platform/common/init/main.c b/kernel_platform/common/init/main.c
+--- a/kernel_platform/common/init/main.c
++++ b/kernel_platform/common/init/main.c
+@@ -1376,6 +1376,66 @@ static int run_init_process(const char *init_filename)
+ 	return kernel_execve(init_filename, argv_init, envp_init);
+ }
+ 
++#ifdef CONFIG_S22PLUS_FYG8_COMPACT_RETAINED_WITNESS
++#define S22PLUS_FYG8_LOG_BASE		0x800200000ULL
++#define S22PLUS_FYG8_LOG_SIZE		0x200000U
++#define S22PLUS_FYG8_LOG_MAGIC		0x4d474f4cU
++
++struct s22plus_fyg8_log_head {
++	u32 boot_cnt;
++	u32 magic;
++	u32 idx;
++	u32 prev_idx;
++	char buf[];
++};
++
++static bool s22plus_fyg8_backfill_proof(struct s22plus_fyg8_log_head *head,
++		size_t payload_size, const char *proof, size_t proof_size)
++{
++	u32 idx;
++	size_t pos;
++	size_t proof_pos;
++
++	idx = READ_ONCE(head->idx);
++	if (idx < payload_size || proof_size > payload_size)
++		return false;
++
++	pos = idx % payload_size;
++	proof_pos = pos >= proof_size ? pos - proof_size :
++		payload_size - proof_size;
++	memcpy(&head->buf[proof_pos], proof, proof_size);
++	smp_wmb();
++	return true;
++}
++
++static void s22plus_fyg8_record_init_exec(const char *init_filename)
++{
++	static const char proof[] =
++		"\n[[S22P1D|0e13f28e8558dde01ce3345f16408673]]\n";
++	struct s22plus_fyg8_log_head *head;
++	size_t payload_size = S22PLUS_FYG8_LOG_SIZE - sizeof(*head);
++
++	if (strcmp(init_filename, "/init") || task_pid_nr(current) != 1)
++		return;
++
++	head = phys_to_virt((phys_addr_t)S22PLUS_FYG8_LOG_BASE);
++	if (READ_ONCE(head->magic) != S22PLUS_FYG8_LOG_MAGIC) {
++		pr_warn("S22R4W1D retained witness refused invalid log magic\n");
++		return;
++	}
++
++	/* Keep the load-bearing token contiguous and behind the append cursor. */
++	if (!s22plus_fyg8_backfill_proof(head, payload_size, proof,
++			sizeof(proof) - 1)) {
++		pr_warn("S22R4W1D retained witness refused unsaturated log ring\n");
++		return;
++	}
++	pr_info("S22R4W1D contiguous proof committed after /init exec acceptance\n");
++}
++#else
++static inline void s22plus_fyg8_record_init_exec(const char *init_filename) { }
++#endif
++
+ static int try_to_run_init_process(const char *init_filename)
+ {
+ 	int ret;
+@@ -1465,6 +1525,7 @@ static int __ref kernel_init(void *unused)
+ 	if (ramdisk_execute_command) {
+ 		ret = run_init_process(ramdisk_execute_command);
+ 		if (!ret) {
++			s22plus_fyg8_record_init_exec(ramdisk_execute_command);
+ #ifdef CONFIG_RKP
+ 			rkp_deferred_init();
+ #endif

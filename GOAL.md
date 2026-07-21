@@ -14,7 +14,14 @@ exact candidate transfer and exact Magisk rollback, but retained only an
 unterminated R4W1-B marker prefix. The durable verdict is
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. Final health passed. The exact USBFS
 departure fix is tested and independently reviewed. No active S22+ F1
-authorization.**
+authorization. R4W1-D contiguous-proof implementation is host-tested but has
+passed one complete-overlay clean Full-LTO build and output gate. That first
+build exposed a vendor-build rewrite of three archive-owned source symlinks;
+the adapter now pins and restores all five absolute archive symlinks, and a
+second independent clean build proved that restoration plus byte-identical GKI
+outputs. The final descriptor-bound restoration hardening passed local and
+build-host focused tests plus independent review; it postdates both full
+builds. The adapted full static audit remains pending.**
 
 The R4W1-C2 run did not start an Odin device session: its candidate and rollback
 invocations were rejected while parsing `/proc/self/fd/7`. The R4W1-C3
@@ -47,6 +54,20 @@ the reusable process defined in
   unterminated R4W1-B prefix, so the result remains no-proof. Exact measured
   Odin-node departure is now host-qualified without relaxing unrelated USB or
   replacement failures.
+- The retained bytes match the R4W1-B record being split after 73 of 99 bytes;
+  the wrapped suffix was replaced by following boot-log content. R4W1-D now
+  backfills one 45-byte proof into a contiguous pre-cursor region without
+  changing the ring index. Its host contract directly reopens the carrier
+  boot/init inputs and requires current-overlay DT/vendor validation. A full
+  build and output audit passed once. The first build left three audio-header
+  symlinks pointing at the work tree; they were restored to archive values and
+  a new manifest-derived automatic restoration gate passes focused tests. A
+  second clean build observed those exact three mutations, restored all five
+  archive-owned absolute symlinks, and reproduced every core GKI artifact. A
+  later failure-path review hardened restoration around pinned root/parent
+  descriptors, no-follow traversal, complete cleanup attempts, exact metadata
+  restoration, and combined error reporting. The final revision passed 52
+  local combined tests, 23 build-host focused tests, and independent re-review.
 
 Historical details and retired clauses are preserved in:
 
@@ -73,10 +94,21 @@ Archived text is evidence only and grants no device authority.
    connected read-only preflight. It created no F1 authority.
 5. **P2.5 - F1 canary (current):** the reusable runner completed one exact
    candidate and rollback cycle and closed its journal, but the 99-byte witness
-   was overwritten after a valid prefix. USB arrival and exact-departure races
-   are now narrowly closed. The next host-only unit is an R4W1-D compact proof
-   token committed before a separate diagnostic record, reusing the unchanged
-   Process v2 runner and R4W1-C carrier. No manifest is ready or authorized.
+   crossed a retained-ring boundary and only its 73-byte first segment
+   survived. USB arrival and exact-departure races are now narrowly closed.
+   R4W1-D uses one contiguous 45-byte proof backfilled behind a saturated-ring
+   cursor, with no diagnostic record and no index mutation. Focused host tests
+   pass. One complete-overlay clean Full-LTO build passed: exact stock Image
+   geometry, one-proof cardinality, banner, provider closure, 2,397 generated
+   modules, and separate ELF `sec_log_buf.ko` all verified. The build exposed
+   and the adapter now closes a vendor symlink-restoration gap. A second clean
+   build proved the runtime restoration and reproduced `.config`, `Image`,
+   `Image.lz4`, `vmlinux`, `System.map`, `vmlinux.symvers`, `abi.xml`, and both
+   `modules.builtin` files byte-for-byte. Descriptor-bound failure-path
+   hardening was added afterward and is focused-tested rather than claimed as
+   part of those full-build results. The next host-only gate is the adapted full
+   static audit and its durable reproducibility verdict. No manifest is ready
+   or authorized.
 
 Do not activate C3, fork a C4 helper, or add another policy block. The source
 review does not promote the manifest or authorize device contact. P2.5 remains
