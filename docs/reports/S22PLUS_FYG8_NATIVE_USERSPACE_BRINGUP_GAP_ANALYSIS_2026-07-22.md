@@ -23,6 +23,12 @@ Samsung ring index already be at least one complete payload. The post-rollback
 `/proc/last_kmsg` size does not reveal the candidate-time header or index, and
 the gate records no refusal reason. This is a hypothesis, not a proof.
 
+Chronology matters here. R4W1-E E1 first transferred a candidate carrying one
+173-byte contiguous retained region and closed without proof. R4W1-E0 was then
+built as a separate 45-byte redesign and later also completed one candidate
+transfer plus rollback, again without proof. E0 was host-only only during its
+earlier design/build checkpoint; that state was superseded by its live close.
+
 Exact candidate selection and execution also remain unproven. The bootloader
 trace is consistent with an unlocked boot continuing into a kernel, but it
 does not bind that boot to the candidate Image hash. The current evidence
@@ -266,6 +272,13 @@ These are immediate diagnostic gaps, ordered by value:
    physical retained carrier and one eligibility gate. A single refusal makes
    both disappear and defeats the intended two-state diagnosis.
 
+The 73-byte prefix observed in R4W1-B is not a retained-window size limit. It
+was the first fragment of a 99-byte append that crossed the circular payload
+boundary. R4W1-D, E, and E0 instead use checked contiguous pre-cursor placement;
+E's 173-byte contract already rejects a region larger than the full payload and
+rejects a truncated observer region. A generic `<=73` candidate gate would
+therefore encode the wrong model and is not part of the next design.
+
 Do not retry the byte-identical E0 candidate. Its binding is consumed and the
 observation ambiguity is now known.
 
@@ -452,6 +465,8 @@ storage writes, panic/RDX, or a general init framework.
 
 - `GOAL.md`
 - `docs/reports/S22PLUS_FYG8_NATIVE_PID1_USERSPACE_EXPERIMENT_EVIDENCE_LEDGER_2026-07-22.md`
+- `docs/reports/S22PLUS_FYG8_RETENTION_DISCRIMINATOR_FEEDBACK_REASSESSMENT_2026-07-22.md`
+- `docs/module-map/s22plus-fyg8/subsystem-retention.md`
 - `docs/reports/S22PLUS_FYG8_R4W1D_F1_LIVE_PASS_2026-07-21.md`
 - `docs/reports/S22PLUS_FYG8_R4W1E0_PID1_USERSPACE_PROOF_HOST_BUILD_PASS_2026-07-22.md`
 - `docs/reports/S22PLUS_FYG8_R4W1E0_F1_LIVE_NO_PROOF_ROLLBACK_PASS_2026-07-22.md`
@@ -467,6 +482,7 @@ storage writes, panic/RDX, or a general init framework.
 ## Investigation boundary
 
 This checkpoint is based on host-side source, artifact, report, and retained
-evidence review. No file outside this report was changed, no build was run, no
-candidate was generated, and no device was contacted. It narrows the next
-question but does not authorize or claim another live run.
+evidence review. The later feedback reassessment changed tracked documentation
+only; no build was run, no candidate was generated, and no device was
+contacted. It narrows the next question but does not authorize or claim another
+live run.
