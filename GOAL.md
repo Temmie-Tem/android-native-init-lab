@@ -10,7 +10,7 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 ## Current Frontier
 
 **State: R4W1-D DIRECT PID1 PROVEN; P2.37 E1A LOCAL RUNTIME LIVE PASS;
-EXACT CANDIDATE AND MAGISK ROLLBACK CLOSED HEALTHY; F1 INACTIVE.**
+P2.38 E1B H0 READINESS CLOSED; F1 INACTIVE.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -60,6 +60,13 @@ failure, foreign, malformed, historical, or partial record. Final Android,
 FYG8, root, supporting partitions, and Odin absence passed. The transaction is
 closed, its binding is consumed, and no active S22+ F1 authorization exists.
 
+P2.38 then completed a focused H0 E1B readiness audit. The current E1B runtime,
+five-module dependency order, exact FYG8 vendor-ramdisk bytes, and P2.34
+kernel/module ABI are compatible. The modules remain in unchanged stock
+`vendor_boot`; they must not be injected into the boot-only AP. The remaining
+work is a profile-2 candidate pipeline and independent effective-rootfs audit,
+not broader research or a device action. No candidate or authority was created.
+
 The controlling next-stage design is
 `docs/plans/S22PLUS_FYG8_POST_PID1_OBSERVABLE_RUNTIME_ARCHITECTURE_2026-07-21.md`.
 
@@ -106,6 +113,10 @@ The controlling next-stage design is
   terminal E1A A/B record proved the local mounts, device-node check, static
   child execution, token verification, and reap path. Final health and all
   canonical timeline events passed; the binding is consumed.
+- P2.38 E1B readiness: the runtime contract, exact five-module stock closure,
+  15-file symvers identity, full R2 module-CRC closure, vendor-rootfs composition,
+  and 93 focused regressions passed H0. Implementation remains; no candidate or
+  live authority exists.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
   rollback, and final health are proven.
 - V3439: pstore, pmsg, ramoops, and DTBO-based retention remain retired.
@@ -129,6 +140,7 @@ Load-bearing details are in:
 - `docs/reports/S22PLUS_FYG8_P235_CONNECTED_D0_PREPARED_PASS_2026-07-23.md`
 - `docs/reports/S22PLUS_FYG8_P235_F1_PRE_CANDIDATE_USBFS_ARRIVAL_ABORT_2026-07-23.md`
 - `docs/reports/S22PLUS_FYG8_P237_E1A_F1_LIVE_PASS_2026-07-23.md`
+- `docs/reports/S22PLUS_FYG8_P238_E1B_FOCUSED_READINESS_AUDIT_2026-07-23.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
 
@@ -166,9 +178,12 @@ reports grant no device authority.
     weakening ambiguity, replacement, absence, or revalidation gates.
 16. **P2.37 complete, F1:** E1A terminal success, exact rollback, final health,
     and the canonical timeline passed; authority is consumed.
-17. **P2.38 next, H0:** prepare E1B to repeat E1A and add the five watchdog
-    modules under a new candidate identity. No live authority exists.
-18. **E2-E4 later:** prove platform bind and UDC, then one ACM banner and nonce
+17. **P2.38 complete, H0:** E1B runtime, module, ABI, and effective-rootfs
+    readiness passed; no build, candidate, device action, or authority occurred.
+18. **P2.39 next, H0:** implement the profile-2 candidate pipeline, preserve a
+    boot-only AP, and independently bind its effective rootfs to stock
+    `vendor_boot`. No live authority exists.
+19. **E2-E4 later:** prove platform bind and UDC, then one ACM banner and nonce
     exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
