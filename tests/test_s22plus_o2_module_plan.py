@@ -218,6 +218,24 @@ class S22PlusO2ModulePlanTest(unittest.TestCase):
         ]:
             self.assertIn(name, plan.modules)
 
+    @unittest.skipUnless(FYG8_METADATA.is_dir(), "FYG8 module metadata is not present")
+    def test_real_fyg8_e2_profile_identity_and_foundation(self):
+        metadata = self.module.load_metadata(FYG8_METADATA.resolve())
+        self.module.verify_fyg8_pins(metadata)
+        plan = self.module.build_e2_profile_plan(metadata)
+        self.module.validate_plan_contract(metadata, plan)
+        self.module.verify_e2_profile_plan_identity(metadata, plan)
+        self.assertEqual(
+            plan.modules[: len(self.module.E2_PROVEN_E1B_FOUNDATION)],
+            self.module.E2_PROVEN_E1B_FOUNDATION,
+        )
+        self.assertEqual(len(plan.modules), self.module.EXPECTED_E2_PROFILE_PLAN_COUNT)
+        self.assertEqual(len(plan.constraints), 210)
+        self.assertEqual(
+            self.module.sha256_text(self.module.render_plan_tsv(metadata, plan)),
+            self.module.EXPECTED_E2_PROFILE_PLAN_TSV_SHA256,
+        )
+
     def test_source_has_no_device_or_flash_command(self):
         text = SCRIPT.read_text(encoding="utf-8")
         for forbidden in ["adb reboot", "odin4 -a", "fastboot flash", "dd of=/dev/block"]:

@@ -20,9 +20,9 @@ Use one new target-guarded kernel evidence carrier for all of these rungs. Keep
 the rungs as separate Process v2 transactions. No current device action is
 authorized by this design.
 
-P2.32 instantiates that carrier only for E1A and E1B. E2-E4 remain later
-profile extensions and gain no implementation or live authority from the E1
-layout decision.
+P2.32 originally instantiated that carrier only for E1A and E1B. P2.41 now
+adds E2 profile 3 while preserving the same layout and both earlier profiles.
+E3-E4 remain later extensions, and P2.41 creates no build or live authority.
 
 P2.31 updates the evidence boundary without changing the ladder: the exact
 P2.26/P2.29 candidate reached the first E1 checkpoint after procfs mount and
@@ -394,13 +394,21 @@ successful `dwc3-msm` probe to DWC3 child and UDC initialization; and compact
 profile 3 fits 76 stages and 307,201 reachable slot variants. Direct-PID1 bind
 and UDC remain unproved until a later separately authorized E2 live rung.
 
+P2.41 implements the E2 source closure. The generated 59-module table,
+profile-3 kernel/client sequence, static PID 1 runtime, exact shipped module
+bytes, direct 11-entry DTBO parser, 307,201 E2 variants, 90,114 E1 regressions,
+and independent review pass H0. The gate phase is read-only and uses one global
+20-second deadline. No kernel or candidate was built and no device was
+contacted. Details are in
+`docs/reports/S22PLUS_FYG8_P241_E2_SOURCE_IMPLEMENTATION_HOST_PASS_2026-07-23.md`.
+
 ## Next bounded unit
 
-Implement P2.41 host-only E2 profile 3: extend the existing planner, compact
-carrier, runtime, decoder, and independent effective-rootfs checker with the
-P2.40 contract. Cross-compile and statically validate it while preserving E1A
-and E1B identities. Do not build a live candidate, contact a device, invoke
-Odin, write sysfs/configfs, or create F1 authority in the same unit.
+P2.42 is the separate host-only build and artifact-closure unit. Produce two
+clean byte-identical Full-LTO E2 kernel builds, link the exact P2.41 runtime and
+child, package one deterministic boot-only AP, reconstruct it independently,
+and promote only the exact candidate-bound Process v2 offline evidence. Do not
+contact a device, invoke Odin, begin connected D0, or create F1 authority.
 
 ## External references
 

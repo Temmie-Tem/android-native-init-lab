@@ -28,11 +28,12 @@ import s22plus_fyg8_r4w1e_e1_host_contract as legacy_e1  # noqa: E402
 SCHEMA = "s22plus_fyg8_p233_e1_static_checker_v1"
 VERDICT = "PASS_P233_E1_SOURCE_IMPLEMENTATION_HOST_ONLY"
 TARGET = model.TARGET
+SOURCE_CHECK_PROFILES = ("E1A", "E1B")
 SOURCE_CHECK_RUN_IDS = {
     profile: hashlib.sha256(
         f"S22PLUS-FYG8-P233-SOURCE-CHECK:{profile}".encode("ascii")
     ).digest()[: model.RUN_ID_SIZE]
-    for profile in model.PROFILE_NUMBERS
+    for profile in SOURCE_CHECK_PROFILES
 }
 
 DEFAULT_SOURCE = Path("workspace/private/work/s22plus_fyg8_kernel_rebuild_r0")

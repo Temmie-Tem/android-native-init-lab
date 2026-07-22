@@ -56,6 +56,18 @@ EXPECTED_O3_MINIMAL_ACM_PLAN_COUNT = 59
 EXPECTED_O3_MINIMAL_ACM_PLAN_TSV_SHA256 = (
     "a34ebbad3b5d770f133e37a450cc3007e4a84ab831788484680e88aad6b3d534"
 )
+E2_PROVEN_E1B_FOUNDATION = (
+    "qcom_hwspinlock.ko",
+    "smem.ko",
+    "minidump.ko",
+    "qcom-scm.ko",
+    "qcom_wdt_core.ko",
+    "gh_virt_wdt.ko",
+)
+EXPECTED_E2_PROFILE_PLAN_COUNT = 59
+EXPECTED_E2_PROFILE_PLAN_TSV_SHA256 = (
+    "fc8169da1036ae8ba76e81ffe6afb17d063d114735a427e858afeeaa82a2218e"
+)
 TOLERATED_FYG8_UNRESOLVED_SOFTDEPS = {
     "pinctrl-waipio.ko": frozenset({"pre:qcom_tlmm_vm_irqchip"}),
 }
@@ -671,6 +683,51 @@ def verify_o3_minimal_acm_plan_identity(metadata: ModuleMetadata, plan: ModulePl
         )
 
 
+def build_e2_profile_plan(metadata: ModuleMetadata) -> ModulePlan:
+    """Preserve the proven E1B foundation without violating O3 dependencies."""
+    canonical = build_plan(metadata, O3_MINIMAL_ACM_ROOTS)
+    canonical_set = set(canonical.modules)
+    if any(module not in canonical_set for module in E2_PROVEN_E1B_FOUNDATION):
+        raise PlanError("E2 proven E1B foundation escaped the canonical O3 closure")
+    modules = E2_PROVEN_E1B_FOUNDATION + tuple(
+        module
+        for module in canonical.modules
+        if module not in E2_PROVEN_E1B_FOUNDATION
+    )
+    positions = {module: index for index, module in enumerate(modules)}
+    violations = [
+        constraint
+        for constraint in canonical.constraints
+        if positions[constraint["before"]] >= positions[constraint["after"]]
+    ]
+    if violations:
+        raise PlanError(f"E2 profile order violates dependency metadata: {violations}")
+    return ModulePlan(
+        requested_roots=canonical.requested_roots,
+        resolved_roots=canonical.resolved_roots,
+        modules=modules,
+        constraints=canonical.constraints,
+        provenance=canonical.provenance,
+        tolerated_unresolved_softdeps=canonical.tolerated_unresolved_softdeps,
+    )
+
+
+def verify_e2_profile_plan_identity(metadata: ModuleMetadata, plan: ModulePlan) -> None:
+    if plan.modules[: len(E2_PROVEN_E1B_FOUNDATION)] != E2_PROVEN_E1B_FOUNDATION:
+        raise PlanError("E2 profile lost the proven E1B foundation prefix")
+    actual_count = len(plan.modules)
+    actual_sha = sha256_text(render_plan_tsv(metadata, plan))
+    if (
+        actual_count != EXPECTED_E2_PROFILE_PLAN_COUNT
+        or actual_sha != EXPECTED_E2_PROFILE_PLAN_TSV_SHA256
+    ):
+        raise PlanError(
+            "E2 profile plan identity drifted: "
+            f"count={actual_count}/{EXPECTED_E2_PROFILE_PLAN_COUNT} "
+            f"sha256={actual_sha}/{EXPECTED_E2_PROFILE_PLAN_TSV_SHA256}"
+        )
+
+
 def c_string(value: str) -> str:
     return json.dumps(value, ensure_ascii=True)
 
@@ -869,7 +926,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument(
         "--profile",
-        choices=("o2-default", "o3-minimal-acm"),
+        choices=("o2-default", "o3-minimal-acm", "e2-profile"),
         default="o2-default",
     )
     parser.add_argument("--root", action="append", dest="roots")
@@ -885,10 +942,21 @@ def main(argv: list[str] | None = None) -> int:
     out_dir = resolve(root, args.out)
     metadata = load_metadata(metadata_dir)
     verify_fyg8_pins(metadata)
-    profile_roots = O3_MINIMAL_ACM_ROOTS if args.profile == "o3-minimal-acm" else DEFAULT_ROOTS
-    plan = build_plan(metadata, args.roots or profile_roots)
+    profile_roots = (
+        O3_MINIMAL_ACM_ROOTS
+        if args.profile in {"o3-minimal-acm", "e2-profile"}
+        else DEFAULT_ROOTS
+    )
+    plan = (
+        build_e2_profile_plan(metadata)
+        if args.profile == "e2-profile"
+        else build_plan(metadata, args.roots or profile_roots)
+    )
     verify_default_plan_identity(metadata, plan)
-    verify_o3_minimal_acm_plan_identity(metadata, plan)
+    if args.profile == "o3-minimal-acm":
+        verify_o3_minimal_acm_plan_identity(metadata, plan)
+    if args.profile == "e2-profile":
+        verify_e2_profile_plan_identity(metadata, plan)
     manifest = write_outputs(root, out_dir, metadata, plan)
     print(
         json.dumps(

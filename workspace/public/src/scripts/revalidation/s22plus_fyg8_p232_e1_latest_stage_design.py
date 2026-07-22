@@ -41,7 +41,7 @@ OUTCOME_PROGRESS = 0
 OUTCOME_SUCCESS = 1
 OUTCOME_FAILURE = 2
 
-PROFILE_NUMBERS = {"E1A": 1, "E1B": 2}
+PROFILE_NUMBERS = {"E1A": 1, "E1B": 2, "E2": 3}
 PROFILE_BY_NUMBER = {value: key for key, value in PROFILE_NUMBERS.items()}
 
 STAGES = {
@@ -62,6 +62,11 @@ STAGES = {
     "WDT_MODULE_4": 0x34,
     "WDT_MODULES_VERIFIED": 0x35,
     "E1B_SUCCESS": 0x3F,
+    "E2_MODULE_0": 0x40,
+    "E2_MODULE_58": 0x7A,
+    "E2_GATE_0": 0x7B,
+    "E2_GATE_7": 0x82,
+    "E2_SUCCESS": 0x8F,
 }
 
 E1_LOCAL_SEQUENCE = (
@@ -86,10 +91,15 @@ PROFILE_STAGE_SEQUENCES = {
         STAGES["WDT_MODULES_VERIFIED"],
         STAGES["E1B_SUCCESS"],
     ),
+    "E2": E1_LOCAL_SEQUENCE
+    + tuple(range(STAGES["E2_MODULE_0"], STAGES["E2_MODULE_58"] + 1))
+    + tuple(range(STAGES["E2_GATE_0"], STAGES["E2_GATE_7"] + 1))
+    + (STAGES["E2_SUCCESS"],),
 }
 PROFILE_TERMINALS = {
     "E1A": STAGES["E1A_SUCCESS"],
     "E1B": STAGES["E1B_SUCCESS"],
+    "E2": STAGES["E2_SUCCESS"],
 }
 
 REQUEST_STRUCT = struct.Struct("<4sBBBBHBB16sI")
@@ -159,6 +169,10 @@ def _stage_generation(profile: str, stage: int) -> int:
 def _expected_item_index(stage: int) -> int:
     if STAGES["WDT_MODULE_0"] <= stage <= STAGES["WDT_MODULE_4"]:
         return stage - STAGES["WDT_MODULE_0"]
+    if STAGES["E2_MODULE_0"] <= stage <= STAGES["E2_MODULE_58"]:
+        return stage - STAGES["E2_MODULE_0"]
+    if STAGES["E2_GATE_0"] <= stage <= STAGES["E2_GATE_7"]:
+        return stage - STAGES["E2_GATE_0"]
     return 0
 
 

@@ -1,0 +1,609 @@
+diff --git a/kernel_platform/common/init/Kconfig b/kernel_platform/common/init/Kconfig
+--- a/kernel_platform/common/init/Kconfig
++++ b/kernel_platform/common/init/Kconfig
+@@ -2443,5 +2443,39 @@ config ARCH_HAS_SYNC_CORE_BEFORE_USERMODE
+ config ARCH_HAS_SYSCALL_WRAPPER
+ 	def_bool n
+ 
++config S22PLUS_FYG8_E1_LATEST_STAGE
++	bool "Samsung S22+ FYG8 compact E1 latest-stage evidence"
++	depends on OF
++	select CRC32
++	default n
++	help
++	  Publish one 45-byte candidate-bound E1A/E1B/E2 A/B checkpoint in the
++	  Samsung retained log. The write-only proc API accepts only PID 1,
++	  fixed version-2 requests, and exact monotonic profile stages.
++
++config S22PLUS_FYG8_E1_PROFILE
++	int "S22+ FYG8 compact E1 profile"
++	depends on S22PLUS_FYG8_E1_LATEST_STAGE
++	range 1 3
++	default 1
++	help
++	  Select E1A (1), E1B (2), or E2 (3). Candidate construction binds this
++	  value to the userspace runtime and immutable run manifest.
++
++config S22PLUS_FYG8_E1_RUN_ID_HEX
++	string "S22+ FYG8 compact E1 128-bit run ID"
++	depends on S22PLUS_FYG8_E1_LATEST_STAGE
++	default ""
++	help
++	  Exactly 32 lowercase hexadecimal digits. Empty or malformed values
++	  make the evidence hook fail closed without writing retained memory.
++
++config S22PLUS_FYG8_E1_UNSAT_TAG_HEX
++	string "S22+ FYG8 compact E1 128-bit UNSAT tag"
++	depends on S22PLUS_FYG8_E1_LATEST_STAGE
++	default ""
++	help
++	  Candidate-specific 32-digit tag derived by the reviewed host model.
++
+ source "init/Kconfig.gki"
+ source "init/Kconfig.gki-debug"
+diff --git a/kernel_platform/common/init/main.c b/kernel_platform/common/init/main.c
+--- a/kernel_platform/common/init/main.c
++++ b/kernel_platform/common/init/main.c
+@@ -91,6 +91,9 @@
+ #include <linux/kcsan.h>
+ #include <linux/init_syscalls.h>
+ #include <linux/stackdepot.h>
++#include <linux/crc32.h>
++#include <linux/of.h>
++#include <linux/uaccess.h>
+ 
+ #include <asm/io.h>
+ #include <asm/setup.h>
+@@ -1376,6 +1379,544 @@ static int run_init_process(const char *init_filename)
+ 	return kernel_execve(init_filename, argv_init, envp_init);
+ }
+ 
++#ifdef CONFIG_S22PLUS_FYG8_E1_LATEST_STAGE
++#define S22_FYG8_E1_LOG_BASE		0x800200000ULL
++#define S22_FYG8_E1_LOG_SIZE		0x200000U
++#define S22_FYG8_E1_LOG_MAGIC		0x4d474f4cU
++#define S22_FYG8_E1_LONG_SIZE		45U
++#define S22_FYG8_E1_HEADER_SIZE		25U
++#define S22_FYG8_E1_SLOT_SIZE		10U
++#define S22_FYG8_E1_UNSAT_SIZE		24U
++#define S22_FYG8_E1_REQUEST_SIZE	32U
++#define S22_FYG8_E1_REQUEST_VERSION	2U
++#define S22_FYG8_E1_FORMAT_VERSION	1U
++#define S22_FYG8_E1_PROFILE_E1A		1U
++#define S22_FYG8_E1_PROFILE_E1B		2U
++#define S22_FYG8_E1_PROFILE_E2		3U
++#define S22_FYG8_E1_PROGRESS		0U
++#define S22_FYG8_E1_SUCCESS		1U
++#define S22_FYG8_E1_FAILURE		2U
++#define S22_FYG8_E1_STRATEGY		3U
++#define S22_FYG8_E1_ADDRESS_CELLS	2U
++#define S22_FYG8_E1_SIZE_CELLS		2U
++
++struct s22_fyg8_e1_log_head {
++	u32 boot_cnt;
++	u32 magic;
++	u32 idx;
++	u32 prev_idx;
++	char buf[];
++};
++
++struct s22_fyg8_e1_slot {
++	u8 generation;
++	u8 stage;
++	u8 outcome;
++	u8 item_index;
++	__le16 detail;
++	__le32 commit_crc;
++} __packed;
++
++struct s22_fyg8_e1_record {
++	u8 header[S22_FYG8_E1_HEADER_SIZE];
++	struct s22_fyg8_e1_slot slots[2];
++} __packed;
++
++struct s22_fyg8_e1_request {
++	u8 magic[4];
++	u8 version;
++	u8 profile;
++	u8 stage;
++	u8 outcome;
++	__le16 detail;
++	u8 item_index;
++	u8 reserved;
++	u8 run_id[16];
++	__le32 crc32;
++} __packed;
++
++struct s22_fyg8_e1_state {
++	bool ready;
++	bool terminal;
++	u8 active_slot;
++	u8 profile;
++	u8 generation;
++	u8 stage;
++	u8 item_index;
++	u32 seed_idx;
++	u32 seed_boot_cnt;
++	size_t proof_pos;
++	u8 header[S22_FYG8_E1_HEADER_SIZE];
++};
++
++static struct s22_fyg8_e1_state s22_fyg8_e1_state;
++
++static const u8 s22_fyg8_e1_long_family[] = "S22E1L1|";
++static const u8 s22_fyg8_e1_unsat_family[] = "S22E1U1|";
++static const u8 s22_fyg8_e1_legacy_long[] = "[[S22P1U|";
++static const u8 s22_fyg8_e1_legacy_unsat[] = "S22UNS1|";
++static const u8 s22_fyg8_e1_crc_domain[] =
++	"S22PLUS-FYG8-P232-SLOT-V1";
++
++static const u8 s22_fyg8_e1a_sequence[] = {
++	0x10, 0x11, 0x12, 0x13, 0x14, 0x20, 0x21, 0x22, 0x2f,
++};
++static const u8 s22_fyg8_e1b_sequence[] = {
++	0x10, 0x11, 0x12, 0x13, 0x14, 0x20, 0x21, 0x22,
++	0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x3f,
++};
++static const u8 s22_fyg8_e2_sequence[] = {
++	0x10, 0x11, 0x12, 0x13, 0x14, 0x20, 0x21, 0x22,
++	0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47,
++	0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f,
++	0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57,
++	0x58, 0x59, 0x5a, 0x5b, 0x5c, 0x5d, 0x5e, 0x5f,
++	0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67,
++	0x68, 0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e, 0x6f,
++	0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77,
++	0x78, 0x79, 0x7a, 0x7b, 0x7c, 0x7d, 0x7e, 0x7f,
++	0x80, 0x81, 0x82, 0x8f,
++};
++
++static bool s22_fyg8_e1_parse_reg(struct device_node *node,
++		u64 *base, u64 *size)
++{
++	const __be32 *reg;
++	u32 address_cells;
++	u32 size_cells;
++	int length;
++
++	if (of_property_read_u32(node, "#address-cells", &address_cells) ||
++			of_property_read_u32(node, "#size-cells", &size_cells) ||
++			address_cells != S22_FYG8_E1_ADDRESS_CELLS ||
++			size_cells != S22_FYG8_E1_SIZE_CELLS)
++		return false;
++	reg = of_get_property(node, "reg", &length);
++	if (!reg || length != (address_cells + size_cells) * sizeof(*reg))
++		return false;
++	*base = of_read_number(reg, address_cells);
++	*size = of_read_number(reg + address_cells, size_cells);
++	return true;
++}
++
++static struct s22_fyg8_e1_log_head *s22_fyg8_e1_head(void)
++{
++	struct device_node *log_node = NULL;
++	struct device_node *root = NULL;
++	const char *model;
++	u64 base;
++	u64 size;
++	u32 strategy;
++	struct s22_fyg8_e1_log_head *head = NULL;
++
++	root = of_find_node_by_path("/");
++	if (!root)
++		return NULL;
++	if (of_property_read_string(root, "model", &model) ||
++			strcmp(model, "Samsung G0Q PROJECT (board-id,12)"))
++		goto out;
++	log_node = of_find_compatible_node(NULL, NULL,
++			"samsung,kernel_log_buf");
++	if (!log_node || !of_device_is_available(log_node))
++		goto out;
++	if (of_property_read_u32(log_node, "sec,strategy", &strategy) ||
++			strategy != S22_FYG8_E1_STRATEGY)
++		goto out;
++	if (!s22_fyg8_e1_parse_reg(log_node, &base, &size) ||
++			base != S22_FYG8_E1_LOG_BASE ||
++			size != S22_FYG8_E1_LOG_SIZE)
++		goto out;
++	head = phys_to_virt((phys_addr_t)base);
++out:
++	of_node_put(log_node);
++	of_node_put(root);
++	return head;
++}
++
++static int s22_fyg8_e1_hex_nibble(char value)
++{
++	if (value >= '0' && value <= '9')
++		return value - '0';
++	if (value >= 'a' && value <= 'f')
++		return value - 'a' + 10;
++	return -1;
++}
++
++static bool s22_fyg8_e1_parse_hex(const char *text, u8 output[16])
++{
++	size_t index;
++	u8 combined = 0;
++
++	if (strlen(text) != 32)
++		return false;
++	for (index = 0; index < 16; ++index) {
++		int high = s22_fyg8_e1_hex_nibble(text[index * 2]);
++		int low = s22_fyg8_e1_hex_nibble(text[index * 2 + 1]);
++
++		if (high < 0 || low < 0)
++			return false;
++		output[index] = (u8)((high << 4) | low);
++		combined |= output[index];
++	}
++	return combined != 0;
++}
++
++static bool s22_fyg8_e1_header_matches(
++		struct s22_fyg8_e1_log_head *head)
++{
++	return READ_ONCE(head->magic) == S22_FYG8_E1_LOG_MAGIC &&
++		READ_ONCE(head->idx) == s22_fyg8_e1_state.seed_idx &&
++		READ_ONCE(head->boot_cnt) == s22_fyg8_e1_state.seed_boot_cnt;
++}
++
++static bool s22_fyg8_e1_contains(const u8 *value, size_t value_size,
++		const u8 *needle, size_t needle_size)
++{
++	size_t offset;
++
++	if (!needle_size || needle_size > value_size)
++		return false;
++	for (offset = 0; offset <= value_size - needle_size; ++offset) {
++		if (!memcmp(value + offset, needle, needle_size))
++			return true;
++	}
++	return false;
++}
++
++static bool s22_fyg8_e1_record_families_allowed(const u8 record[45])
++{
++	if (memcmp(record, s22_fyg8_e1_long_family,
++			sizeof(s22_fyg8_e1_long_family) - 1))
++		return false;
++	if (s22_fyg8_e1_contains(record + 1, S22_FYG8_E1_LONG_SIZE - 1,
++			s22_fyg8_e1_long_family,
++			sizeof(s22_fyg8_e1_long_family) - 1))
++		return false;
++	return !s22_fyg8_e1_contains(record, S22_FYG8_E1_LONG_SIZE,
++			s22_fyg8_e1_unsat_family,
++			sizeof(s22_fyg8_e1_unsat_family) - 1) &&
++		!s22_fyg8_e1_contains(record, S22_FYG8_E1_LONG_SIZE,
++			s22_fyg8_e1_legacy_long,
++			sizeof(s22_fyg8_e1_legacy_long) - 1) &&
++		!s22_fyg8_e1_contains(record, S22_FYG8_E1_LONG_SIZE,
++			s22_fyg8_e1_legacy_unsat,
++			sizeof(s22_fyg8_e1_legacy_unsat) - 1);
++}
++
++static bool s22_fyg8_e1_unsat_families_allowed(const u8 record[24])
++{
++	if (memcmp(record, s22_fyg8_e1_unsat_family,
++		   sizeof(s22_fyg8_e1_unsat_family) - 1))
++		return false;
++	if (s22_fyg8_e1_contains(record + 1, S22_FYG8_E1_UNSAT_SIZE - 1,
++			s22_fyg8_e1_unsat_family,
++			sizeof(s22_fyg8_e1_unsat_family) - 1))
++		return false;
++	return !s22_fyg8_e1_contains(record, S22_FYG8_E1_UNSAT_SIZE,
++			s22_fyg8_e1_long_family,
++			sizeof(s22_fyg8_e1_long_family) - 1) &&
++		!s22_fyg8_e1_contains(record, S22_FYG8_E1_UNSAT_SIZE,
++			s22_fyg8_e1_legacy_long,
++			sizeof(s22_fyg8_e1_legacy_long) - 1) &&
++		!s22_fyg8_e1_contains(record, S22_FYG8_E1_UNSAT_SIZE,
++			s22_fyg8_e1_legacy_unsat,
++			sizeof(s22_fyg8_e1_legacy_unsat) - 1);
++}
++
++static u32 s22_fyg8_e1_crc32(const void *data, size_t size)
++{
++	return crc32_le(~0U, data, size) ^ ~0U;
++}
++
++static u32 s22_fyg8_e1_slot_crc(const u8 header[25], u8 slot_id,
++		const struct s22_fyg8_e1_slot *slot)
++{
++	u32 value = ~0U;
++
++	value = crc32_le(value, s22_fyg8_e1_crc_domain,
++			sizeof(s22_fyg8_e1_crc_domain));
++	value = crc32_le(value, header, S22_FYG8_E1_HEADER_SIZE);
++	value = crc32_le(value, &slot_id, sizeof(slot_id));
++	value = crc32_le(value, (const u8 *)slot,
++			offsetof(struct s22_fyg8_e1_slot, commit_crc));
++	return value ^ ~0U;
++}
++
++static bool s22_fyg8_e1_build_slot(struct s22_fyg8_e1_slot *slot,
++		u8 slot_id, u8 generation, u8 stage, u8 outcome,
++		u8 item_index, u16 detail, const u8 header[25])
++{
++	u32 crc;
++
++	memset(slot, 0, sizeof(*slot));
++	slot->generation = generation;
++	slot->stage = stage;
++	slot->outcome = outcome;
++	slot->item_index = item_index;
++	slot->detail = cpu_to_le16(detail);
++	crc = s22_fyg8_e1_slot_crc(header, slot_id, slot);
++	if (!crc)
++		return false;
++	slot->commit_crc = cpu_to_le32(crc);
++	return true;
++}
++
++static bool s22_fyg8_e1_store(void *target, const void *source, size_t size)
++{
++	memcpy(target, source, size);
++	__flush_dcache_area(target, size);
++	smp_wmb();
++	return !memcmp(target, source, size);
++}
++
++static const u8 *s22_fyg8_e1_sequence(u8 profile, size_t *count)
++{
++	if (profile == S22_FYG8_E1_PROFILE_E1A) {
++		*count = ARRAY_SIZE(s22_fyg8_e1a_sequence);
++		return s22_fyg8_e1a_sequence;
++	}
++	if (profile == S22_FYG8_E1_PROFILE_E1B) {
++		*count = ARRAY_SIZE(s22_fyg8_e1b_sequence);
++		return s22_fyg8_e1b_sequence;
++	}
++	if (profile == S22_FYG8_E1_PROFILE_E2) {
++		*count = ARRAY_SIZE(s22_fyg8_e2_sequence);
++		return s22_fyg8_e2_sequence;
++	}
++	return NULL;
++}
++
++static bool s22_fyg8_e1_request_allowed(
++		const struct s22_fyg8_e1_request *request)
++{
++	const u8 *sequence;
++	size_t count;
++	u16 detail = le16_to_cpu(request->detail);
++	u8 expected_item = 0;
++	u8 terminal;
++
++	sequence = s22_fyg8_e1_sequence(request->profile, &count);
++	if (!sequence || s22_fyg8_e1_state.generation >= count ||
++			request->stage != sequence[s22_fyg8_e1_state.generation] ||
++			detail > 4095)
++		return false;
++	if (request->stage >= 0x30 && request->stage <= 0x34)
++		expected_item = request->stage - 0x30;
++	if (request->stage >= 0x40 && request->stage <= 0x7a)
++		expected_item = request->stage - 0x40;
++	if (request->stage >= 0x7b && request->stage <= 0x82)
++		expected_item = request->stage - 0x7b;
++	if (request->item_index != expected_item)
++		return false;
++	terminal = sequence[count - 1];
++	if (request->stage == terminal)
++		return request->outcome == S22_FYG8_E1_SUCCESS && !detail;
++	if (request->outcome == S22_FYG8_E1_PROGRESS)
++		return !detail;
++	return request->outcome == S22_FYG8_E1_FAILURE && detail;
++}
++
++static void s22_fyg8_e1_record_entry(const char *init_filename)
++{
++	struct s22_fyg8_e1_log_head *head;
++	struct s22_fyg8_e1_record record;
++	u8 run_id[16];
++	u8 unsat_tag[16];
++	u8 unsat[S22_FYG8_E1_UNSAT_SIZE];
++	size_t payload_size = S22_FYG8_E1_LOG_SIZE - sizeof(*head);
++	size_t cursor;
++	u32 seed_idx;
++
++	memset(&s22_fyg8_e1_state, 0, sizeof(s22_fyg8_e1_state));
++	if (strcmp(init_filename, "/init") || task_pid_nr(current) != 1)
++		return;
++	if (CONFIG_S22PLUS_FYG8_E1_PROFILE != S22_FYG8_E1_PROFILE_E1A &&
++			CONFIG_S22PLUS_FYG8_E1_PROFILE != S22_FYG8_E1_PROFILE_E1B &&
++			CONFIG_S22PLUS_FYG8_E1_PROFILE != S22_FYG8_E1_PROFILE_E2)
++		return;
++	if (!s22_fyg8_e1_parse_hex(CONFIG_S22PLUS_FYG8_E1_RUN_ID_HEX,
++			run_id) ||
++			!s22_fyg8_e1_parse_hex(CONFIG_S22PLUS_FYG8_E1_UNSAT_TAG_HEX,
++				unsat_tag))
++		return;
++	head = s22_fyg8_e1_head();
++	if (!head || READ_ONCE(head->magic) != S22_FYG8_E1_LOG_MAGIC)
++		return;
++	seed_idx = READ_ONCE(head->idx);
++	s22_fyg8_e1_state.seed_idx = seed_idx;
++	s22_fyg8_e1_state.seed_boot_cnt = READ_ONCE(head->boot_cnt);
++	cursor = seed_idx % payload_size;
++	if (seed_idx < S22_FYG8_E1_UNSAT_SIZE)
++		return;
++	if (seed_idx < S22_FYG8_E1_LONG_SIZE) {
++		memcpy(unsat, s22_fyg8_e1_unsat_family,
++		       sizeof(s22_fyg8_e1_unsat_family) - 1);
++		memcpy(unsat + sizeof(s22_fyg8_e1_unsat_family) - 1,
++		       unsat_tag, sizeof(unsat_tag));
++		if (!s22_fyg8_e1_unsat_families_allowed(unsat))
++			return;
++		s22_fyg8_e1_state.proof_pos = cursor - sizeof(unsat);
++		if (!s22_fyg8_e1_header_matches(head))
++			return;
++		if (!s22_fyg8_e1_store(
++				&head->buf[s22_fyg8_e1_state.proof_pos], unsat,
++				sizeof(unsat)) ||
++				!s22_fyg8_e1_header_matches(head))
++			return;
++		return;
++	}
++
++	memset(&record, 0, sizeof(record));
++	memcpy(record.header, s22_fyg8_e1_long_family,
++	       sizeof(s22_fyg8_e1_long_family) - 1);
++	record.header[8] =
++		(S22_FYG8_E1_FORMAT_VERSION << 4) |
++		CONFIG_S22PLUS_FYG8_E1_PROFILE;
++	memcpy(&record.header[9], run_id, sizeof(run_id));
++	if (!s22_fyg8_e1_build_slot(&record.slots[0], 0, 0, 0,
++			S22_FYG8_E1_PROGRESS, 0, 0, record.header) ||
++			!s22_fyg8_e1_record_families_allowed((const u8 *)&record))
++		return;
++	s22_fyg8_e1_state.proof_pos = cursor >= sizeof(record) ?
++		cursor - sizeof(record) : payload_size - sizeof(record);
++	if (!s22_fyg8_e1_header_matches(head) ||
++			!s22_fyg8_e1_store(
++				&head->buf[s22_fyg8_e1_state.proof_pos],
++				&record, sizeof(record)) ||
++			!s22_fyg8_e1_header_matches(head))
++		return;
++	memcpy(s22_fyg8_e1_state.header, record.header, sizeof(record.header));
++	s22_fyg8_e1_state.profile = CONFIG_S22PLUS_FYG8_E1_PROFILE;
++	s22_fyg8_e1_state.ready = true;
++}
++
++static ssize_t s22_fyg8_e1_write(struct file *file,
++		const char __user *buffer, size_t count, loff_t *position)
++{
++	struct s22_fyg8_e1_request request;
++	struct s22_fyg8_e1_log_head *head;
++	struct s22_fyg8_e1_record *record;
++	struct s22_fyg8_e1_slot active;
++	struct s22_fyg8_e1_slot next;
++	struct s22_fyg8_e1_record prospective;
++	u32 request_crc;
++	u8 next_slot;
++
++	(void)file;
++	if (task_pid_nr(current) != 1)
++		return -EPERM;
++	if (!s22_fyg8_e1_state.ready)
++		return -ENODEV;
++	if (s22_fyg8_e1_state.terminal)
++		return -EALREADY;
++	if (*position != 0 || count != sizeof(request))
++		return -EINVAL;
++	if (copy_from_user(&request, buffer, sizeof(request)))
++		return -EFAULT;
++	if (memcmp(request.magic, "S22Q", 4) ||
++			request.version != S22_FYG8_E1_REQUEST_VERSION ||
++			request.profile != s22_fyg8_e1_state.profile ||
++			request.reserved ||
++			memcmp(request.run_id, &s22_fyg8_e1_state.header[9], 16))
++		return -EKEYREJECTED;
++	request_crc = s22_fyg8_e1_crc32(&request,
++			offsetof(struct s22_fyg8_e1_request, crc32));
++	if (le32_to_cpu(request.crc32) != request_crc)
++		return -EBADMSG;
++	if (!s22_fyg8_e1_request_allowed(&request))
++		return -ERANGE;
++
++	head = s22_fyg8_e1_head();
++	if (!head || !s22_fyg8_e1_header_matches(head))
++		return -ESTALE;
++	record = (struct s22_fyg8_e1_record *)
++		&head->buf[s22_fyg8_e1_state.proof_pos];
++	if (memcmp(record->header, s22_fyg8_e1_state.header,
++		   sizeof(record->header)) ||
++			!s22_fyg8_e1_build_slot(&active,
++				s22_fyg8_e1_state.active_slot,
++				s22_fyg8_e1_state.generation,
++				s22_fyg8_e1_state.stage,
++				S22_FYG8_E1_PROGRESS,
++				s22_fyg8_e1_state.item_index, 0,
++				s22_fyg8_e1_state.header) ||
++			memcmp(&record->slots[s22_fyg8_e1_state.active_slot],
++			       &active, sizeof(active)))
++		return -ESTALE;
++
++	next_slot = s22_fyg8_e1_state.active_slot ^ 1U;
++	if (!s22_fyg8_e1_build_slot(&next, next_slot,
++			s22_fyg8_e1_state.generation + 1U,
++			request.stage, request.outcome, request.item_index,
++			le16_to_cpu(request.detail), s22_fyg8_e1_state.header))
++		return -EKEYREJECTED;
++	memcpy(&prospective, record, sizeof(prospective));
++	memcpy(&prospective.slots[next_slot], &next, sizeof(next));
++	if (!s22_fyg8_e1_record_families_allowed((const u8 *)&prospective))
++		return -EKEYREJECTED;
++
++	memset(&record->slots[next_slot].commit_crc, 0,
++	       sizeof(record->slots[next_slot].commit_crc));
++	__flush_dcache_area(&record->slots[next_slot].commit_crc,
++			    sizeof(record->slots[next_slot].commit_crc));
++	smp_wmb();
++	memcpy(&record->slots[next_slot], &next,
++	       offsetof(struct s22_fyg8_e1_slot, commit_crc));
++	__flush_dcache_area(&record->slots[next_slot],
++			    offsetof(struct s22_fyg8_e1_slot, commit_crc));
++	smp_wmb();
++	if (!s22_fyg8_e1_header_matches(head) ||
++			memcmp(record->header, s22_fyg8_e1_state.header,
++			       sizeof(record->header)) ||
++			memcmp(&record->slots[s22_fyg8_e1_state.active_slot],
++			       &active, sizeof(active)))
++		return -ESTALE;
++	memcpy(&record->slots[next_slot].commit_crc, &next.commit_crc,
++	       sizeof(next.commit_crc));
++	__flush_dcache_area(&record->slots[next_slot].commit_crc,
++			    sizeof(record->slots[next_slot].commit_crc));
++	smp_wmb();
++	if (!s22_fyg8_e1_header_matches(head) ||
++			memcmp(record->header, s22_fyg8_e1_state.header,
++			       sizeof(record->header)) ||
++			memcmp(&record->slots[next_slot], &next, sizeof(next)))
++		return -ESTALE;
++
++	s22_fyg8_e1_state.active_slot = next_slot;
++	s22_fyg8_e1_state.generation++;
++	s22_fyg8_e1_state.stage = request.stage;
++	s22_fyg8_e1_state.item_index = request.item_index;
++	s22_fyg8_e1_state.terminal =
++		request.outcome != S22_FYG8_E1_PROGRESS;
++	*position += count;
++	return count;
++}
++
++static const struct proc_ops s22_fyg8_e1_ops = {
++	.proc_write = s22_fyg8_e1_write,
++};
++
++static int __init s22_fyg8_e1_proc_init(void)
++{
++	BUILD_BUG_ON(sizeof(struct s22_fyg8_e1_record) !=
++			S22_FYG8_E1_LONG_SIZE);
++	BUILD_BUG_ON(sizeof(struct s22_fyg8_e1_slot) !=
++			S22_FYG8_E1_SLOT_SIZE);
++	BUILD_BUG_ON(sizeof(struct s22_fyg8_e1_request) !=
++			S22_FYG8_E1_REQUEST_SIZE);
++	BUILD_BUG_ON(offsetof(struct s22_fyg8_e1_slot, commit_crc) != 6);
++	BUILD_BUG_ON(offsetof(struct s22_fyg8_e1_request, run_id) != 12);
++	BUILD_BUG_ON(offsetof(struct s22_fyg8_e1_request, crc32) != 28);
++	if (!proc_create("s22_checkpoint", 0200, NULL, &s22_fyg8_e1_ops))
++		return -ENOMEM;
++	return 0;
++}
++late_initcall(s22_fyg8_e1_proc_init);
++#else
++static inline void s22_fyg8_e1_record_entry(
++		const char *init_filename) { }
++#endif
++
+ static int try_to_run_init_process(const char *init_filename)
+ {
+ 	int ret;
+@@ -1465,6 +2003,7 @@ static int __ref kernel_init(void *unused)
+ 	if (ramdisk_execute_command) {
+ 		ret = run_init_process(ramdisk_execute_command);
+ 		if (!ret) {
++			s22_fyg8_e1_record_entry(ramdisk_execute_command);
+ #ifdef CONFIG_RKP
+ 			rkp_deferred_init();
+ #endif

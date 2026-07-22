@@ -94,8 +94,8 @@ class P232E1LatestStageDesignTest(unittest.TestCase):
                 ),
             )
 
-    def test_both_profiles_reach_only_their_exact_terminal(self):
-        for profile in ("E1A", "E1B"):
+    def test_all_profiles_reach_only_their_exact_terminal(self):
+        for profile in ("E1A", "E1B", "E2"):
             with self.subTest(profile=profile):
                 run_id = self.module.model_run_id(profile)
                 record = self.module.initialize_record(profile, run_id)
@@ -123,6 +123,17 @@ class P232E1LatestStageDesignTest(unittest.TestCase):
                     decoded["active"]["stage"],
                     self.module.PROFILE_TERMINALS[profile],
                 )
+
+    def test_e2_profile_has_exact_capacity_and_item_indices(self):
+        sequence = self.module.PROFILE_STAGE_SEQUENCES["E2"]
+        self.assertEqual(len(sequence), 76)
+        self.assertEqual(len(set(sequence)), 76)
+        self.assertEqual(sequence[-1], 0x8F)
+        self.assertEqual(max(sequence), 0x8F)
+        for index, stage in enumerate(range(0x40, 0x7B)):
+            self.assertEqual(self.module._expected_item_index(stage), index)
+        for index, stage in enumerate(range(0x7B, 0x83)):
+            self.assertEqual(self.module._expected_item_index(stage), index)
 
     def test_torn_inactive_slot_preserves_prior_valid_stage(self):
         first = self.module.apply_request(

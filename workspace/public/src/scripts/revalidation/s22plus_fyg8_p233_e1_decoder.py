@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Decode P2.33 compact E1A/E1B records from raw retained bytes."""
+"""Decode compact E1A/E1B/E2 records from raw retained bytes."""
 
 from __future__ import annotations
 

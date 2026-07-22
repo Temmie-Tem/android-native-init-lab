@@ -10,7 +10,7 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 ## Current Frontier
 
 **State: R4W1-D DIRECT PID1 PROVEN; P2.37 E1A LOCAL RUNTIME LIVE PASS;
-P2.39 E1B MODULE RUNTIME LIVE PASS; P2.40 E2 READINESS H0 PASS;
+P2.39 E1B MODULE RUNTIME LIVE PASS; P2.41 E2 SOURCE IMPLEMENTATION H0 PASS;
 F1 CLOSED HEALTHY.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
@@ -114,6 +114,15 @@ without a parent mode or configfs write. The unchanged compact carrier has
 capacity for profile 3: 76 stages and 307,201 reachable slot variants. This is
 implementation readiness only; direct-PID1 bind and UDC remain live unknowns.
 
+P2.41 now implements that contract without building a live candidate. The
+planner, profile-3 kernel/client state machine, static runtime, direct exact-
+DTBO parser, and independent effective-rootfs checker pass H0. The runtime
+requires the exact module prefix after every insertion, rejects `-EEXIST` and
+foreign modules, and observes all eight gates under one 20-second read-only
+deadline. All 307,201 E2 variants and the 90,114 E1A/E1B regression domain
+pass. Independent review returned GO after two diagnostic/DTBO nits were fixed.
+Direct-PID1 module execution, bind, child creation, and UDC remain live unknowns.
+
 ## Established Evidence
 
 - R4W1-A: custom Android `/init` marker retained and rollback passed.
@@ -173,6 +182,10 @@ implementation readiness only; direct-PID1 bind and UDC remain live unknowns.
   constraints, the exact source/ELF/DT path reaches child and UDC initialization
   without an E2 write, and profile-3 stage capacity passes H0. No implementation,
   build, candidate, device action, or authority was created.
+- P2.41 E2 source implementation: the exact generated plan, profile-3 patch,
+  checkpoint client, static runtime, direct 11-entry DTBO parser, shipped
+  module bytes, 307,201 E2 variants, 90,114 E1 regressions, 55 focused tests,
+  and independent review pass H0. No build, candidate, D0, or authority exists.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
   rollback, and final health are proven.
 - V3439: pstore, pmsg, ramoops, and DTBO-based retention remain retired.
@@ -201,6 +214,7 @@ Load-bearing details are in:
 - `docs/reports/S22PLUS_FYG8_P239_CONNECTED_D0_PREPARED_PASS_2026-07-23.md`
 - `docs/reports/S22PLUS_FYG8_P239_E1B_F1_LIVE_PASS_2026-07-23.md`
 - `docs/reports/S22PLUS_FYG8_P240_E2_FOCUSED_READINESS_AUDIT_2026-07-23.md`
+- `docs/reports/S22PLUS_FYG8_P241_E2_SOURCE_IMPLEMENTATION_HOST_PASS_2026-07-23.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
 
@@ -247,9 +261,13 @@ reports grant no device authority.
 19. **P2.40 complete, H0:** exact E2 module order, bind/UDC source path,
     bounded gate semantics, and profile-3 capacity passed. No implementation or
     device authority was created.
-20. **P2.41 next, H0:** implement and statically validate E2 profile 3. Do not
-    build a live candidate or begin connected D0 in the same unit.
-21. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
+20. **P2.41 complete, H0:** profile-3 source, exact runtime/module/gate
+    semantics, direct DTBO closure, exhaustive records, regressions, and review
+    passed. No kernel build, candidate, D0, or authority was created.
+21. **P2.42 next, H0:** produce reproducible Full-LTO E2 builds, one
+    deterministic boot-only candidate, independent artifact closure, and
+    offline Process v2 evidence promotion. Do not contact the device.
+22. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed

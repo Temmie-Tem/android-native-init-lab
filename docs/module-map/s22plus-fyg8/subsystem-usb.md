@@ -8,8 +8,8 @@
 - PDIC-to-Type-C-manager relay: `LIVE_OBSERVED`; the same-boot USB attach event
   through `usb_notifier_qcom` to DWC3 was `NOT_CAPTURED_THIS_BOOT`.
 - Direct-PID1 module execution and bind sequence: `UNVERIFIABLE` after O3/O3F.
-- Direct-PID1 E2 implementation readiness: `H0_VERIFIED` by P2.40; live bind
-  remains unproved.
+- Direct-PID1 E2 source implementation: `H0_VERIFIED` by P2.41; live module
+  execution, bind, child creation, and UDC remain unproved.
 
 The current O3 minimal-ACM metadata plan contains 59 modules and
 passes recursive hard dependency, softdep pre/post, stock-order, alias,
@@ -20,6 +20,12 @@ the live-proven E1B five-module order, and then appends the remaining canonical
 O3 entries. All 59 modules are unique, all 210 constraints pass, and the
 reordered TSV SHA256 is
 `fc8169da1036ae8ba76e81ffe6afb17d063d114735a427e858afeeaa82a2218e`.
+
+P2.41 generates that exact table into the runtime, verifies the exact 59
+shipped module files, and checks `/proc/modules` to EOF after every successful
+insertion. Missing, duplicate, already-loaded, or foreign modules fail closed.
+The eight bind predicates are separately observed under one global 20-second
+deadline; no sysfs/configfs write is used.
 
 The exact FYG8 automatic cable/role path is:
 
@@ -58,6 +64,12 @@ role-switch setup defaults to peripheral, queues `dwc3_set_mode()`, and reaches
 child and exact UDC without writing the parent `mode` attribute or configfs.
 This is source/ELF/DT closure only; direct-PID1 success remains a live unknown.
 
+P2.41 closes the earlier private decompile gap by parsing the exact SHA-pinned
+DTBO directly. All 11 entries require the same role-switch, OTG, MAX77705,
+notifier, and UCSI topology and reject explicit `extcon` and
+`role-switch-default-mode` properties. This remains static topology evidence,
+not bind evidence.
+
 ## Functional Gates
 
 | Order | Gate | Provider | Required path | Direct-PID1 status |
@@ -77,8 +89,8 @@ a framed host/device ACM request-response plus device-reported bind state, not
 enumeration or survival.
 
 O0 stock control, O1.1 stock-first-stage control, O2 loader parity, the compact
-retained carrier, and E1A/E1B live foundations are complete. P2.40 scopes the
-next work to E2 host implementation: exact module registration followed by
-eight read-only bind/UDC predicates. No direct-PID1 USB candidate is authorized
-by this map. The latest stock read-only evidence is maintained separately in
+retained carrier, E1A/E1B live foundations, and P2.41 E2 source implementation
+are complete. The next unit is a separate reproducible Full-LTO build and
+offline candidate closure. No direct-PID1 USB candidate is authorized by this
+map. The latest stock read-only evidence is maintained separately in
 `stock-usb-runtime-topology.json`.
