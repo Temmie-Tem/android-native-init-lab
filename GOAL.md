@@ -9,7 +9,8 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 
 ## Current Frontier
 
-**State: R4W1-D DIRECT PID1 PROVEN AND ROLLED BACK; R4W1-E0 F1 CLOSED NO PROOF.** Process v2 transferred
+**State: R4W1-D DIRECT PID1 PROVEN AND ROLLED BACK; R4W1-E0 F1 CLOSED NO
+PROOF; P2.21 HOST ARTIFACT CLOSURE PASS.** Process v2 transferred
 the exact boot-only candidate once, two complete post-rollback
 `/proc/last_kmsg` reads retained one exact contiguous proof, the exact Magisk
 boot rollback completed, and final Android/root/supporting-partition health
@@ -33,9 +34,12 @@ USERSPACE, or family bytes. Durable verdict:
 reused. Candidate boot survival was observed by the operator, but no retained
 bytes prove kernel selection, successful exec, or userspace entry.
 
+P2.21 independently qualified the corrected Image, vmlinux, config, pinned
+`/init`, no-ring-writer runtime, boot, and one-member AP. No ready manifest,
+device contact, transfer, F1 approval, or live authority was created.
+
 The controlling next-stage design is
 `docs/plans/S22PLUS_FYG8_POST_PID1_OBSERVABLE_RUNTIME_ARCHITECTURE_2026-07-21.md`.
-
 ## Established Evidence
 
 - R3C1: source-matched unpatched rebuilt kernel booted FYG8 Android and rolled
@@ -46,6 +50,8 @@ The controlling next-stage design is
 - R4W1-D: one 45-byte contiguous pre-cursor proof, no index mutation, clean
   Full-LTO reproducibility, deterministic candidate construction, live proof,
   and rollback all passed.
+- P2.21: kernel, config, pinned `/init`, no-ring-writer runtime, boot, and AP
+  passed independent host closure. No manifest or live authority exists.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
   exact post-transfer departure handling, rollback, and final health are proven.
 - V3439: a correctly bound ramoops/pmsg backend retained zero current-run
@@ -54,11 +60,11 @@ The controlling next-stage design is
   no-enumeration result cannot identify module, bind, UDC, or gadget progress.
 - Stock FYG8 proves the complete USB stack under Android only. Bare-PID1 bind
   remains the largest functional unknown.
-
 Load-bearing details are in:
 
 - `docs/reports/S22PLUS_FYG8_R4W1D_F1_LIVE_PASS_2026-07-21.md`
 - `docs/reports/S22PLUS_FYG8_R4W1D_CONTIGUOUS_PROOF_HOST_DESIGN_2026-07-21.md`
+- `docs/reports/S22PLUS_FYG8_P221_ARTIFACT_CLOSURE_HOST_PASS_2026-07-22.md`
 - `docs/reports/NATIVE_INIT_V3439_S22PLUS_CORRECTED_RAMOOPS_LIVE_NO_PROOF_2026-07-11.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
@@ -68,39 +74,33 @@ reports grant no device authority.
 
 ## Immediate Roadmap
 
-1. **P2.1-P2.5 complete:** active-contract cleanup, reusable D0/F1 core,
-   connected read-only qualification, R4W1-D live proof, rollback, and health.
-2. **P2.6-P2.10 complete:** post-PID1 architecture, E1 runtime and carrier,
-   deterministic candidate, exact offline binding, and typed Process v2
-   evidence were built and reviewed host-only.
+1. **P2.1-P2.5 complete:** reusable D0/F1, R4W1-D proof, rollback, and health.
+2. **P2.6-P2.10 complete:** E1 runtime, candidate, offline binding, and typed
+   Process v2 evidence were built and reviewed host-only.
 3. **P2.11 F1 closed, no proof:** candidate and rollback transferred once and
    final health passed, but retained E1 carrier count was zero. Binding consumed.
-4. **P2.12-P2.14 complete, H0 only:** R4W1-E0 reduced the question to ENTRY vs
-   first userspace proc checkpoint, built a byte-identical exact candidate, and
-   bound a four-state fail-closed classifier into the unchanged common runner.
-   That H0 unit created no ready manifest, device contact, or live authority.
-5. **P2.15 complete, D0 only:** the three-field ready-manifest promotion and one
-   connected read-only preparation passed with a clean retained baseline and
-   strict prepared-record reopen. F1 remains inactive.
+4. **P2.12-P2.14 complete, H0 only:** E0 built an exact ENTRY/USERSPACE
+   candidate and four-state classifier; no manifest, device, or authority.
+5. **P2.15 complete, D0 only:** ready-manifest promotion and connected prepare
+   passed with a clean baseline. F1 remained inactive.
 6. **P2.16 F1 closed, no proof:** candidate and rollback each transferred once,
    final health passed, and two retained reads were identical, but ENTRY,
    USERSPACE, and family counts were all zero. Binding consumed.
-7. **P2.17 complete, H0 only:** exact FYG8 source and a tested model prove that
-   valid magic plus `idx >= record_size` is sufficient; full ring saturation is
-   not required. No usable independent candidate-selection witness was found
-   in the current safety envelope.
+7. **P2.17 complete, H0 only:** source/model prove valid magic plus
+   `idx >= record_size` is sufficient; no independent selection witness exists.
 8. **P2.18 complete, H0 only:** preserve 45-byte ENTRY/USERSPACE, add one
    candidate-bound 24-byte UNSAT for `24 <= idx < 45`, and keep every smaller,
    invalid, nonselected, or lost result as `ZERO_AMBIGUOUS`; no live authority.
-9. **P2.19 complete, H0 only:** implemented the corrected target/layout guard,
-   candidate-bound records, artifact closure checker, five-state typed raw-byte
-   observer, typed D0 baseline, and minimal runner dispatch. Focused tests pass;
-   no candidate or live authority was created.
+9. **P2.19 complete, H0 only:** corrected guard, records, closure checker,
+   five-state observer, typed D0, and runner dispatch; no candidate or authority.
 10. **P2.20 complete, H0 only:** independent Opus review of the execution
     closure found no MUST-FIX; no build, artifact, device, or authority occurred.
-11. **P2.21 next, H0 only:** build and independently bind vmlinux, Image, boot
-    AP, pinned `/init`, no ring writer, and config; no manifest, D0, F1, transfer.
-12. **E2-E4 later:** prove module closure, platform bind and UDC, then one ACM
+11. **P2.21 complete, H0 only:** clean Full-LTO and independent closure bind
+    kernel, config, `/init`, no-ring-writer runtime, boot, and AP; no manifest/live.
+12. **P2.22 next, D0 only:** prepare a fresh candidate-specific ready manifest
+    and perform connected read-only target, health, and clean-baseline
+    qualification. No candidate transfer or F1 approval.
+13. **E2-E4 later:** prove module closure, platform bind and UDC, then one ACM
     banner and nonce exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a C4 helper, add another per-candidate policy

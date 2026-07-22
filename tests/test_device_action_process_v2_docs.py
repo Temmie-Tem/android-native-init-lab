@@ -86,7 +86,8 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("P2.18 complete, H0 only", self.goal)
         self.assertIn("P2.19 complete, H0 only", self.goal)
         self.assertIn("P2.20 complete, H0 only", self.goal)
-        self.assertIn("P2.21 next, H0 only", self.goal)
+        self.assertIn("P2.21 complete, H0 only", self.goal)
+        self.assertIn("P2.22 next, D0 only", self.goal)
         self.assertIn("idx >= record_size", self.goal)
         self.assertIn(
             "The binding is consumed and cannot be reused",
