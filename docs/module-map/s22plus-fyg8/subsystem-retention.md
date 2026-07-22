@@ -6,7 +6,8 @@
 kernel write into the existing retained ring is also `LIVE_PROVEN` for the
 R4W1-D 45-byte contiguous pre-cursor witness, even though the candidate did not
 load the owner module. Direct candidate `printk` capture without the owner and
-the E/E0 zero-carrier branches remain `UNVERIFIABLE`.
+the E0 zero-carrier branch remain `UNVERIFIABLE`; P2.24 isolated E1 and P2.23 at
+their pre-store target guard.
 
 | Module | Stock order | Hard deps | Softdeps | Role | Runtime proof |
 |---|---:|---|---|---|---|
@@ -30,6 +31,23 @@ sec_debug.ko   9936d5622f55530480bd167ba4ca000cbc7c6dbb2bc9c99623b895a4ae087d3d
 4. A valid DT `memory-region` reserved-memory phandle and range.
 5. Successful platform-driver probe and procfs registration.
 
+## FYG8 `reg` Encoding Trap
+
+The merged FYG8 node is `/soc/samsung,kernel_log_buf`. Its `reg` property is
+four cells (`0x8 0x200000 0x0 0x200000`), the node declares current-node
+`#address-cells=2` and `#size-cells=2`, while parent `/soc` declares `1/1`.
+
+Samsung's `sec_of_parse_reg_prop()` intentionally uses the current node's cell
+counts and obtains physical base `0x800200000`, size `0x200000`. Generic
+`of_address_to_resource()` uses the parent bus counts and obtains resource index
+zero at `0x8`, size `0x200000`. The live platform name
+`8.samsung,kernel_log_buf` is consistent with the generic resource value.
+
+R4W1-E E1 and P2.23 used the generic helper and therefore rejected the target
+before touching retained magic, index, or payload. Future direct-ring guards
+must use an exact current-node 2/2-cell parser and must regression-test this
+semantic difference against the stock DT artifacts.
+
 `sec_debug.ko` separately requires DT compatible `samsung,sec_debug` and
 `sec,panic_notifier-priority`. MID can affect Samsung panic/upload behavior but
 does not instantiate the retained printk ring.
@@ -50,7 +68,7 @@ window:
 |---|---|---|---|
 | R4W1-B | append 99 bytes at `idx % payload_size`, publish `idx + 99` | first 73 bytes retained, final 26 replaced | the append crossed the circular payload boundary; 73 is the first-fragment length, not a window limit |
 | R4W1-D | 45 contiguous bytes before the cursor, no index mutation | one exact marker in two complete byte-identical reads | this exact guarded geometry survived and proved post-exec PID 1 |
-| R4W1-E E1 | 173 contiguous bytes before the cursor, no index mutation | zero entry family and zero `S22C` slot magic | carrier initialization, candidate selection, and later visibility remain inseparable |
+| R4W1-E E1 | 173 contiguous bytes before the cursor, no index mutation | zero entry family and zero `S22C` slot magic | P2.24 proved the generic OF parser rejects the Samsung `reg` encoding before carrier initialization |
 | R4W1-E0 | 45 contiguous bytes using the D placement rule, ENTRY later replaced in place by USERSPACE | zero ENTRY, USERSPACE, and family bytes | size alone cannot explain absence because D used the same 45-byte geometry |
 
 For the observed R4W1-B 73/26 split, the reconstructed append cursor is
@@ -125,6 +143,10 @@ Detailed source audit:
 
 `docs/reports/NATIVE_INIT_V3421_S22PLUS_RETENTION_MODULE_CLOSURE_HOST_AUDIT_2026-07-10.md`
 
+P2.24 target-guard root cause and implementation boundary:
+
+`docs/reports/S22PLUS_FYG8_P224_GUARD_ROOT_CAUSE_H0_2026-07-22.md`
+
 Geometry and feedback reassessment:
 
 `docs/reports/S22PLUS_FYG8_RETENTION_DISCRIMINATOR_FEEDBACK_REASSESSMENT_2026-07-22.md`
@@ -141,11 +163,10 @@ host-only. It creates no candidate or live authority:
 P2.19 implements that exact state partition in a source-pinned kernel patch,
 candidate-contract checker, typed raw-byte observer, and one common-runner
 dispatch. Connected D0 baseline checking uses the same typed decoder for both
-families and edge partials. The patch validates the exact FYG8 model, DT
-compatible, strategy, physical base, and range before accessing the retained
-header. It never loads
-the owner module or writes header metadata. Its host-only implementation pass
-does not include a kernel build, candidate artifact, manifest, device contact,
-or live authority. Independent review remains required before any build:
+families and edge partials. It never loads the owner module or writes header
+metadata. P2.20-P2.23 subsequently reviewed, built, transferred, and observed
+that closure. P2.24 then proved that its generic OF resource helper rejects the
+Samsung current-node `reg` encoding before accessing the retained header; the
+checker had required the wrong helper as a positive source marker.
 
 `docs/reports/S22PLUS_FYG8_P219_SAME_RING_IMPLEMENTATION_HOST_PASS_2026-07-22.md`
