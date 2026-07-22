@@ -9,8 +9,8 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 
 ## Current Frontier
 
-**State: R4W1-D DIRECT PID1 PROVEN; P2.23 F1 CLOSED NO PROOF; P2.28
-CONNECTED D0 PREPARED; F1 INACTIVE.** R4W1-D transferred the
+**State: R4W1-D DIRECT PID1 PROVEN; P2.29 F1 CLOSED DUPLICATE USERSPACE
+NO PROOF; F1 INACTIVE.** R4W1-D transferred the
 exact boot-only candidate once, two complete post-rollback `/proc/last_kmsg`
 reads retained one exact contiguous proof, the exact Magisk boot rollback
 completed, and final health passed. Its durable verdict was
@@ -36,10 +36,12 @@ did not test record storage or cache-to-DRAM persistence.
 
 P2.25 implements the exact current-node parser and linked cache-flush PoC.
 P2.26 independently closed one boot-only AP around that exact Image. P2.27
-promoted its typed offline evidence, and P2.28 passed connected target, health,
-clean-baseline, candidate, rollback, manifest, and execution-closure checks.
-The private prepared binding exists, but no transfer, reboot, Odin invocation,
-or F1 authority exists until the operator supplies its fresh exact token.
+promoted its typed offline evidence, and P2.28 passed connected preparation.
+P2.29 transferred candidate and rollback once each and verified final health.
+Its clean-baseline retained result contained two exact USERSPACE records in
+different warm-reset generations. The immutable exact-one contract therefore
+rejected the result as `AMBIGUOUS_INTEGRITY_FAILURE`; the approval is consumed
+and no retry is authorized.
 
 The controlling next-stage design is
 `docs/plans/S22PLUS_FYG8_POST_PID1_OBSERVABLE_RUNTIME_ARCHITECTURE_2026-07-21.md`.
@@ -57,9 +59,10 @@ The controlling next-stage design is
 - P2.25: exact Samsung-style target parsing, stock-DT direct-map premises,
   clean Full-LTO output, and cross-tool linked cache-flush PoC audit pass H0;
   reset retention remains a live unknown.
-- P2.26-P2.28: deterministic boot-only AP, independent kernel/rootfs/writer
-  closure, typed evidence promotion, and connected clean-baseline D0 all pass;
-  the prepared binding remains unauthorized for F1.
+- P2.26-P2.29: deterministic boot-only AP, independent kernel/rootfs/writer
+  closure, typed evidence promotion, connected clean-baseline D0, one exact
+  candidate transfer, one exact rollback, and final health all pass. Two exact
+  USERSPACE records violate the exact-one live contract, so F1 remains no-proof.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
   exact post-transfer departure handling, rollback, and final health are proven.
 - V3439: a correctly bound ramoops/pmsg backend retained zero current-run
@@ -75,6 +78,7 @@ Load-bearing details are in:
 - `docs/reports/S22PLUS_FYG8_P224_GUARD_ROOT_CAUSE_H0_2026-07-22.md`
 - `docs/reports/S22PLUS_FYG8_P225_GUARD_POC_FLUSH_HOST_PASS_2026-07-22.md`
 - `docs/reports/S22PLUS_FYG8_P226_P228_LIVE_READY_2026-07-22.md`
+- `docs/reports/S22PLUS_FYG8_P229_F1_LIVE_DUPLICATE_USERSPACE_NO_PROOF_2026-07-22.md`
 - `docs/reports/NATIVE_INIT_V3439_S22PLUS_CORRECTED_RAMOOPS_LIVE_NO_PROOF_2026-07-11.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
@@ -97,10 +101,13 @@ reports grant no device authority.
    kernel, ramdisk, `/init`, child, AP, and writer-exclusion closure pass.
 6. **P2.27 complete, H0:** typed Process v2 offline evidence promotion passes.
 7. **P2.28 complete, D0:** connected exact-target, health, clean-baseline, and
-   prepared-binding checks pass with no device write or Odin invocation.
-8. **P2.29 gated, F1:** execute only after one fresh exact operator approval;
-   candidate attempt, mandatory rollback, observation, and final health remain.
-9. **E2-E4 later:** prove module closure, platform bind and UDC, then one ACM
+   prepared-binding checks passed with no device write or Odin invocation.
+8. **P2.29 complete/closed, F1:** candidate and rollback transferred once and
+   final health passed. Two exact USERSPACE records in distinct warm-reset
+   contexts violated the immutable exact-one contract; verdict is no-proof.
+9. **P2.30 next, H0:** model recovery-induced multi-boot cardinality and design
+   a bounded positive rule without changing the archived P2.29 verdict.
+10. **E2-E4 later:** prove module closure, platform bind and UDC, then one ACM
     banner and nonce exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a C4 helper, add another per-candidate policy

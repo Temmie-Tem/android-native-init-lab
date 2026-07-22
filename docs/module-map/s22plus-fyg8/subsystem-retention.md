@@ -184,11 +184,20 @@ authority exists.
 P2.26 packages that exact Image into the previously qualified fixed boot
 interval and independently reopens the AP, kernel, ramdisk, static `/init`,
 child, and no-ring-writer closure. P2.27 promotes the unchanged ENTRY,
-USERSPACE, and UNSAT observation contract. P2.28 then passes connected
-read-only target, health, and clean-baseline preparation. The resulting private
-binding is ready for one fresh exact approval, but no F1 authority or device
-write exists until the operator supplies it.
+USERSPACE, and UNSAT observation contract, and P2.28 passes connected
+read-only target, health, and clean-baseline preparation.
+
+P2.29 then executed that binding once. Candidate and rollback each transferred
+once and final health passed. The retained observation contained two exact
+USERSPACE records at different offsets in different warm-reset generations.
+Because the kernel state permits one USERSPACE replacement per boot, this is
+strong evidence of multiple candidate boots during physical recovery. The
+immutable contract required exactly one record, so the durable result remains
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. Future H0 work must model multiplicity;
+it must not reinterpret the archived verdict in place.
 
 `docs/reports/S22PLUS_FYG8_P226_P228_LIVE_READY_2026-07-22.md`
+
+`docs/reports/S22PLUS_FYG8_P229_F1_LIVE_DUPLICATE_USERSPACE_NO_PROOF_2026-07-22.md`
 
 `docs/reports/S22PLUS_FYG8_P219_SAME_RING_IMPLEMENTATION_HOST_PASS_2026-07-22.md`
