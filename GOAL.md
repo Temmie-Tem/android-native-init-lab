@@ -10,8 +10,8 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 ## Current Frontier
 
 **State: R4W1-D DIRECT PID1 PROVEN; P2.31 FIRST E1 PROCFS CHECKPOINT
-TECHNICALLY PROVEN; P2.34 CANDIDATE ARTIFACT CLOSURE PASS; P2.35 PREP
-ADAPTER FIX PASS; F1 INACTIVE.**
+TECHNICALLY PROVEN; P2.34 CANDIDATE ARTIFACT CLOSURE PASS; P2.35 CONNECTED
+D0 PREPARED; F1 INACTIVE.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -44,9 +44,12 @@ host-only manifest rejections without device contact. The second rejection
 exposed a two-field binary identity versus path-bearing pinned-receipt mismatch;
 the bounded adapter fix, actual-bundle H0 replay, 124-test superset, and
 independent review passed. That stopped line and its private manifests remain
-closed. No active S22+ F1 authorization. Any future
-candidate run requires connected D0 preparation, fresh exact approval, one
-candidate attempt, mandatory rollback, and final health under Process v2.
+closed. The next connected D0 initially rejected two exact legacy P2.29
+USERSPACE records in the retained baseline. One bounded normal Android reboot
+returned healthy and rotated them out; a fresh manifest and run directory then
+passed connected D0 and produced one private prepared binding. No active S22+
+F1 authorization. The next candidate run requires the fresh exact approval,
+one candidate attempt, mandatory rollback, and final health under Process v2.
 
 The controlling next-stage design is
 `docs/plans/S22PLUS_FYG8_POST_PID1_OBSERVABLE_RUNTIME_ARCHITECTURE_2026-07-21.md`.
@@ -81,6 +84,10 @@ The controlling next-stage design is
 - P2.35 prep fix: two pre-device manifest rejections stopped the first line;
   the receipt-shape adapter defect was fixed and independently validated H0.
   No D0 command, device action, journal, binding, or approval occurred.
+- P2.35 connected D0: the first baseline read stopped on known legacy evidence;
+  one normal reboot restored a clean retained baseline, and a fresh D0 run
+  bound one healthy target, exact artifacts, and the current execution closure.
+  F1 remains inactive and no transaction or transfer attempt exists.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
   rollback, and final health are proven.
 - V3439: pstore, pmsg, ramoops, and DTBO-based retention remain retired.
@@ -101,6 +108,7 @@ Load-bearing details are in:
 - `docs/reports/S22PLUS_FYG8_P233_E1_SOURCE_IMPLEMENTATION_HOST_PASS_2026-07-22.md`
 - `docs/reports/S22PLUS_FYG8_P234_CANDIDATE_ARTIFACT_CLOSURE_HOST_PASS_2026-07-23.md`
 - `docs/reports/S22PLUS_FYG8_P235_PREPARATION_ADAPTER_FIX_HOST_PASS_2026-07-23.md`
+- `docs/reports/S22PLUS_FYG8_P235_CONNECTED_D0_PREPARED_PASS_2026-07-23.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
 
@@ -132,10 +140,12 @@ reports grant no device authority.
 12. **P2.33 complete, H0:** source closure passed; no build or candidate.
 13. **P2.34 complete, H0:** two clean reproducible Full-LTO builds, boot-only
     AP, independent artifact closure, and offline Process v2 binding passed.
-14. **P2.35 next, fresh D0 line:** connected read-only target, health, clean
-    baseline, rollback, ordinary-path, recovery, and new-journal qualification.
-    Do not reuse either rejected private preparation manifest.
-15. **E2-E4 later:** prove platform bind and UDC, then one ACM banner and nonce
+14. **P2.35 prepared, D0:** exact target, health, clean baseline, artifacts,
+    recovery, ordinary paths, and execution closure are bound privately. F1 is
+    inactive until the operator supplies the fresh exact approval token.
+15. **P2.36 next, F1 after approval:** one candidate attempt, mandatory exact
+    rollback, bounded observation, final health, and canonical journal.
+16. **E2-E4 later:** prove platform bind and UDC, then one ACM banner and nonce
     exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
