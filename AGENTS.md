@@ -15,18 +15,17 @@ Do not add a device step when host-only work can answer the question.
 - No S22+ F1 live run is currently authorized.
 - R4W1-C3 is an inactive host-only checkpoint, not an executable policy.
 - Retired helpers and acknowledgement strings cannot authorize a new run.
-- P2.35 accepted one exact F1 approval, but stopped in `ABORTED` before
-  `DOWNLOAD_IDENTIFIED`, `candidate_flash_start`, or any AP transfer when a
-  normal USBFS endpoint arrival was classified as a fatal enumeration race.
-  The candidate was not attempted and no rollback transfer was needed. One
-  separately approved no-payload Odin reboot returned the unchanged Magisk
-  boot to Android; connected read-only D0 then passed FYG8, root, supporting
-  partitions, clean retained baseline, and Odin-endpoint absence.
-- The measured arrival path now retries only one exact added USBFS node during
-  bounded endpoint-arrival polling. Ambiguity, replacement, removal, terminal
-  absence, and ticket revalidation remain fail-closed. The old binding is
-  consumed and also names the previous execution closure. Another candidate
-  requires new H0 evidence, connected D0 preparation, and fresh exact approval.
+- P2.35 stopped before candidate transfer on a USBFS-arrival classification
+  defect and returned healthy. P2.36 bounded exactly one measured arrival
+  without weakening ambiguity, replacement, removal, absence, or ticket gates.
+- P2.37 then used a fresh H0 closure, connected D0 binding, and exact approval.
+  One candidate and one exact Magisk rollback transfer completed. The retained
+  result contained one clean E1A terminal-success record, final Android/FYG8/
+  root health passed, the canonical timeline closed, and the durable verdict is
+  `PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK`.
+- The P2.37 binding and approval are consumed. E1A is complete; E1B and USB
+  remain unproved. Any later candidate requires a new H0 closure, connected D0
+  preparation, and fresh exact approval.
 
 ## Permanent Safety Boundaries
 

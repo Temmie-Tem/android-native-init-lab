@@ -276,12 +276,17 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
         temporary, prepared = self.prepared()
         self.addCleanup(temporary.cleanup)
         backend = FakeBackend(self.module)
-        result = self.module.execute_prepared(
-            prepared, prepared.approval_token, backend
-        )
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            result = self.module.execute_prepared(
+                prepared, prepared.approval_token, backend
+            )
         self.assertEqual(
             result["verdict"], "PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK"
         )
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertIn("Enter physical Download mode", stderr.getvalue())
         self.assertEqual(
             [event["name"] for event in result["timeline"]["events"]],
             list(self.module.core.TIMELINE),

@@ -1350,6 +1350,7 @@ def _finish_rollback(
         print(
             "Candidate observation is closed. Enter physical Download mode for "
             "the preapproved exact Magisk rollback.",
+            file=os.sys.stderr,
             flush=True,
         )
         rollback_endpoint = backend.wait_download(

@@ -9,9 +9,8 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 
 ## Current Frontier
 
-**State: R4W1-D DIRECT PID1 PROVEN; P2.31 FIRST E1 PROCFS CHECKPOINT
-TECHNICALLY PROVEN; P2.34 CANDIDATE ARTIFACT CLOSURE PASS; P2.35 PRE-CANDIDATE
-F1 ABORT RETURNED HEALTHY; USBFS ARRIVAL FIX HOST PASS; F1 INACTIVE.**
+**State: R4W1-D DIRECT PID1 PROVEN; P2.37 E1A LOCAL RUNTIME LIVE PASS;
+EXACT CANDIDATE AND MAGISK ROLLBACK CLOSED HEALTHY; F1 INACTIVE.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -54,7 +53,12 @@ no-payload Odin reboot returned the unchanged Magisk boot, and a separate D0
 verified Android, FYG8, root, supporting partitions, clean retained baseline,
 and no Odin endpoint. The arrival race is fixed and independently reviewed H0.
 The consumed binding names the old execution closure and is not reusable.
-No active S22+ F1 authorization exists.
+P2.37 created a fresh closure and D0 binding after the USBFS-arrival fix. Its
+single candidate and rollback transfers completed, and two byte-identical
+retained reads contained one exact E1A terminal-success record with no UNSAT,
+failure, foreign, malformed, historical, or partial record. Final Android,
+FYG8, root, supporting partitions, and Odin absence passed. The transaction is
+closed, its binding is consumed, and no active S22+ F1 authorization exists.
 
 The controlling next-stage design is
 `docs/plans/S22PLUS_FYG8_POST_PID1_OBSERVABLE_RUNTIME_ARCHITECTURE_2026-07-21.md`.
@@ -98,6 +102,10 @@ The controlling next-stage design is
   no-payload reboot and fresh D0 returned healthy. The measured observer now
   retries only one exact arrival during arrival polling; focused tests and
   independent review passed. F1 remains inactive.
+- P2.37 E1A F1: one exact candidate and rollback transfer completed. One clean
+  terminal E1A A/B record proved the local mounts, device-node check, static
+  child execution, token verification, and reap path. Final health and all
+  canonical timeline events passed; the binding is consumed.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
   rollback, and final health are proven.
 - V3439: pstore, pmsg, ramoops, and DTBO-based retention remain retired.
@@ -120,6 +128,7 @@ Load-bearing details are in:
 - `docs/reports/S22PLUS_FYG8_P235_PREPARATION_ADAPTER_FIX_HOST_PASS_2026-07-23.md`
 - `docs/reports/S22PLUS_FYG8_P235_CONNECTED_D0_PREPARED_PASS_2026-07-23.md`
 - `docs/reports/S22PLUS_FYG8_P235_F1_PRE_CANDIDATE_USBFS_ARRIVAL_ABORT_2026-07-23.md`
+- `docs/reports/S22PLUS_FYG8_P237_E1A_F1_LIVE_PASS_2026-07-23.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
 
@@ -155,10 +164,11 @@ reports grant no device authority.
     transfer occurred; bounded return and post-abort D0 passed healthy.
 15. **P2.36 complete, H0:** exact measured USBFS arrival is bounded without
     weakening ambiguity, replacement, absence, or revalidation gates.
-16. **P2.37 next, D0 then F1:** create a fresh execution closure and connected
-    binding, obtain fresh exact approval, then perform one candidate attempt,
-    mandatory rollback, bounded observation, and final health.
-17. **E2-E4 later:** prove platform bind and UDC, then one ACM banner and nonce
+16. **P2.37 complete, F1:** E1A terminal success, exact rollback, final health,
+    and the canonical timeline passed; authority is consumed.
+17. **P2.38 next, H0:** prepare E1B to repeat E1A and add the five watchdog
+    modules under a new candidate identity. No live authority exists.
+18. **E2-E4 later:** prove platform bind and UDC, then one ACM banner and nonce
     exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
