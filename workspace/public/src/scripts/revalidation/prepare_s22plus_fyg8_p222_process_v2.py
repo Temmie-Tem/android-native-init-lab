@@ -22,6 +22,7 @@ import s22plus_fyg8_p219_same_ring_contract as contract  # noqa: E402
 
 
 SCHEMA = "s22plus_fyg8_p222_process_v2_promotion_v1"
+VERDICT = "PASS_P222_PROCESS_V2_OFFLINE_EVIDENCE_PROMOTION"
 P221_SCHEMA = "s22plus_fyg8_p221_candidate_static_checker_v1"
 P221_VERDICT = "PASS_P221_INDEPENDENT_ARTIFACT_CLOSURE_HOST_ONLY"
 P221_STATIC_SIZE = 8_477
@@ -300,7 +301,7 @@ def main(argv: list[str] | None = None) -> int:
                     "odin_invoked": False,
                     "flash": False,
                     "live_authorized": False,
-                    "verdict": "PASS_P222_PROCESS_V2_OFFLINE_EVIDENCE_PROMOTION",
+                    "verdict": VERDICT,
                 },
                 indent=2,
                 sort_keys=True,

@@ -181,4 +181,14 @@ authority exists.
 
 `docs/reports/S22PLUS_FYG8_P225_GUARD_POC_FLUSH_HOST_PASS_2026-07-22.md`
 
+P2.26 packages that exact Image into the previously qualified fixed boot
+interval and independently reopens the AP, kernel, ramdisk, static `/init`,
+child, and no-ring-writer closure. P2.27 promotes the unchanged ENTRY,
+USERSPACE, and UNSAT observation contract. P2.28 then passes connected
+read-only target, health, and clean-baseline preparation. The resulting private
+binding is ready for one fresh exact approval, but no F1 authority or device
+write exists until the operator supplies it.
+
+`docs/reports/S22PLUS_FYG8_P226_P228_LIVE_READY_2026-07-22.md`
+
 `docs/reports/S22PLUS_FYG8_P219_SAME_RING_IMPLEMENTATION_HOST_PASS_2026-07-22.md`

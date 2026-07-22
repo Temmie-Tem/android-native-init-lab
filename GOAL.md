@@ -9,8 +9,8 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 
 ## Current Frontier
 
-**State: R4W1-D DIRECT PID1 PROVEN AND ROLLED BACK; P2.23 F1 CLOSED NO
-PROOF; P2.25 H0 STATIC CLOSURE PASS; F1 INACTIVE.** R4W1-D transferred the
+**State: R4W1-D DIRECT PID1 PROVEN; P2.23 F1 CLOSED NO PROOF; P2.28
+CONNECTED D0 PREPARED; F1 INACTIVE.** R4W1-D transferred the
 exact boot-only candidate once, two complete post-rollback `/proc/last_kmsg`
 reads retained one exact contiguous proof, the exact Magisk boot rollback
 completed, and final health passed. Its durable verdict was
@@ -24,10 +24,6 @@ No active S22+ F1 authorization. Any new candidate requires new data, connected
 D0 and preparation, fresh exact approval, one candidate attempt, mandatory
 rollback, and final health under Process v2.
 
-R4W1-E0 transferred its exact candidate and rollback once and passed final
-health, but two byte-identical retained reads contained no proof family. Its
-`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` binding remains consumed.
-
 P2.21 qualified the corrected kernel-to-AP closure and P2.22 passed its ready
 data and D0. P2.23 transferred candidate/rollback once and passed final health,
 but two byte-identical reads classified `ZERO_AMBIGUOUS`. Binding consumed.
@@ -38,19 +34,17 @@ guard used parent-cell `of_address_to_resource()` on a Samsung current-node
 required `0x800200000` before reading retained magic or index. P2.23 therefore
 did not test record storage or cache-to-DRAM persistence.
 
-P2.25 implements the exact current-node parser, binds its direct-map premise to
-both applicable stock merged DTs, and builds the corrected Full-LTO Image.
-GNU and pinned LLVM linked audits agree on the guarded copy, one cache flush,
-and readback sequence in both store paths. This is H0 PoC closure only;
-reset-survival remains unproved and no candidate, manifest, D0, or live
-authority exists.
+P2.25 implements the exact current-node parser and linked cache-flush PoC.
+P2.26 independently closed one boot-only AP around that exact Image. P2.27
+promoted its typed offline evidence, and P2.28 passed connected target, health,
+clean-baseline, candidate, rollback, manifest, and execution-closure checks.
+The private prepared binding exists, but no transfer, reboot, Odin invocation,
+or F1 authority exists until the operator supplies its fresh exact token.
 
 The controlling next-stage design is
 `docs/plans/S22PLUS_FYG8_POST_PID1_OBSERVABLE_RUNTIME_ARCHITECTURE_2026-07-21.md`.
 ## Established Evidence
 
-- R3C1: source-matched unpatched rebuilt kernel booted FYG8 Android and rolled
-  back cleanly.
 - R4W1-A: custom Android `/init` marker retained and rollback passed.
 - R4W1-B: a 99-byte ring-crossing marker retained only its 73-byte prefix;
   append-at-cursor evidence is not accepted.
@@ -63,12 +57,13 @@ The controlling next-stage design is
 - P2.25: exact Samsung-style target parsing, stock-DT direct-map premises,
   clean Full-LTO output, and cross-tool linked cache-flush PoC audit pass H0;
   reset retention remains a live unknown.
+- P2.26-P2.28: deterministic boot-only AP, independent kernel/rootfs/writer
+  closure, typed evidence promotion, and connected clean-baseline D0 all pass;
+  the prepared binding remains unauthorized for F1.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
   exact post-transfer departure handling, rollback, and final health are proven.
 - V3439: a correctly bound ramoops/pmsg backend retained zero current-run
   records; pstore, pmsg, ramoops, and DTBO-based retention remain retired.
-- O3F and earlier S22+ USB runs retained no internal phase. Their
-  no-enumeration result cannot identify module, bind, UDC, or gadget progress.
 - Stock FYG8 proves the complete USB stack under Android only. Bare-PID1 bind
   remains the largest functional unknown.
 Load-bearing details are in:
@@ -79,6 +74,7 @@ Load-bearing details are in:
 - `docs/reports/S22PLUS_FYG8_P223_F1_LIVE_NO_PROOF_2026-07-22.md`
 - `docs/reports/S22PLUS_FYG8_P224_GUARD_ROOT_CAUSE_H0_2026-07-22.md`
 - `docs/reports/S22PLUS_FYG8_P225_GUARD_POC_FLUSH_HOST_PASS_2026-07-22.md`
+- `docs/reports/S22PLUS_FYG8_P226_P228_LIVE_READY_2026-07-22.md`
 - `docs/reports/NATIVE_INIT_V3439_S22PLUS_CORRECTED_RAMOOPS_LIVE_NO_PROOF_2026-07-11.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
@@ -88,43 +84,23 @@ reports grant no device authority.
 
 ## Immediate Roadmap
 
-1. **P2.1-P2.5 complete:** reusable D0/F1, R4W1-D proof, rollback, and health.
-2. **P2.6-P2.10 complete:** E1 runtime, candidate, offline binding, and typed
-   Process v2 evidence were built and reviewed host-only.
-3. **P2.11 F1 closed, no proof:** candidate and rollback transferred once and
-   final health passed, but retained E1 carrier count was zero. Binding consumed.
-4. **P2.12-P2.14 complete, H0 only:** E0 built an exact ENTRY/USERSPACE
-   candidate and four-state classifier; no manifest, device, or authority.
-5. **P2.15 complete, D0 only:** ready-manifest promotion and connected prepare
-   passed with a clean baseline. F1 remained inactive.
-6. **P2.16 F1 closed, no proof:** candidate and rollback each transferred once,
-   final health passed, and two retained reads were identical, but ENTRY,
-   USERSPACE, and family counts were all zero. Binding consumed.
-7. **P2.17 complete, H0 only:** source/model prove valid magic plus
-   `idx >= record_size` is sufficient; no independent selection witness exists.
-8. **P2.18 complete, H0 only:** preserve 45-byte ENTRY/USERSPACE, add one
-   candidate-bound 24-byte UNSAT for `24 <= idx < 45`, and keep every smaller,
-   invalid, nonselected, or lost result as `ZERO_AMBIGUOUS`; no live authority.
-9. **P2.19 complete, H0 only:** corrected guard, records, closure checker,
-   five-state observer, typed D0, and runner dispatch; no candidate or authority.
-10. **P2.20 complete, H0 only:** independent Opus review of the execution
-    closure found no MUST-FIX; no build, artifact, device, or authority occurred.
-11. **P2.21 complete, H0 only:** clean Full-LTO and independent closure bind
-    kernel, config, `/init`, no-ring-writer runtime, boot, and AP; no manifest/live.
-12. **P2.22 complete, D0 only:** ready data, connected target/health, and clean
-    baseline passed; no transfer, F1 approval, or live authority occurred.
-13. **P2.23 F1 closed, no proof:** exact candidate/rollback transferred once,
-    final health passed, and two identical reads were `ZERO_AMBIGUOUS`.
-14. **P2.24 complete, H0 only:** exact stock DT reconstruction isolated a
-    current-node versus parent-cell parser mismatch that rejects P2.23 before
-    any retained access; cache and selection were not exercised by that run.
-15. **P2.25 complete, H0 only:** exact current-node parser, direct-map DT
-    premises, bounded cache-flush PoC, Full-LTO Image, and GNU/LLVM linked audit
-    pass. Reset survival remains unproved; no candidate or live authority.
-16. **P2.26 next, H0 only:** construct one deterministic boot-only candidate
-    from the exact P2.25 Image and independently re-derive artifact closure. No
-    ready manifest, connected D0, approval, transfer, or live authority.
-17. **E2-E4 later:** prove module closure, platform bind and UDC, then one ACM
+1. **P2.1-P2.16 complete/closed:** Process v2, direct PID1 proof, E1/E0
+   experiments, rollback, and health evidence are preserved in their reports;
+   all earlier F1 bindings are consumed.
+2. **P2.17-P2.20 complete, H0:** exact snapshot model, bounded same-ring
+   discriminator, implementation, and independent review pass.
+3. **P2.21-P2.23 complete/closed:** first same-ring artifact/D0 closure ran once;
+   final health passed but observation was `ZERO_AMBIGUOUS`.
+4. **P2.24-P2.25 complete, H0:** parser root cause, exact 2/2-cell fix,
+   direct-map premises, Full-LTO build, and GNU/LLVM cache-flush PoC audit pass.
+5. **P2.26 complete, H0:** one deterministic boot-only AP and independent
+   kernel, ramdisk, `/init`, child, AP, and writer-exclusion closure pass.
+6. **P2.27 complete, H0:** typed Process v2 offline evidence promotion passes.
+7. **P2.28 complete, D0:** connected exact-target, health, clean-baseline, and
+   prepared-binding checks pass with no device write or Odin invocation.
+8. **P2.29 gated, F1:** execute only after one fresh exact operator approval;
+   candidate attempt, mandatory rollback, observation, and final health remain.
+9. **E2-E4 later:** prove module closure, platform bind and UDC, then one ACM
     banner and nonce exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a C4 helper, add another per-candidate policy

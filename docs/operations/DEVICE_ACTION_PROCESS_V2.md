@@ -208,6 +208,13 @@ separate runtime target/header gate refusal from loss of the larger retained
 region before another candidate is designed. See
 `docs/reports/S22PLUS_FYG8_R4W1E_E1_F1_LIVE_NO_PROOF_ROLLBACK_PASS_2026-07-22.md`.
 
+P2.24-P2.25 later isolated and fixed the P2.23 current-node `reg` parser defect
+and linked a bounded cache-flush PoC. P2.26 independently closed one new
+boot-only candidate, P2.27 promoted its typed evidence, and P2.28 passed the
+reusable live adapter's connected read-only preparation. That prepared binding
+does not authorize F1: `--execute` remains unavailable until the operator
+supplies the fresh exact token emitted into private preparation evidence.
+
 ### Append-Only Journal
 
 The runner creates one exclusive run directory and appends immutable transition

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from pathlib import Path
 from typing import Any
 
 
@@ -47,8 +48,14 @@ def _require_identity(data: bytes, size: int, digest: str, label: str) -> dict[s
 
 
 def verify(
-    *, image: bytes, vmlinux: bytes, config: bytes, build_result: bytes
+    *,
+    image: bytes,
+    vmlinux: bytes,
+    config: bytes,
+    build_result: bytes,
+    vmlinux_path: Path | None = None,
 ) -> dict[str, Any]:
+    del vmlinux_path
     identities = {
         "Image": _require_identity(image, IMAGE_SIZE, IMAGE_SHA256, "Image"),
         "vmlinux": _require_identity(

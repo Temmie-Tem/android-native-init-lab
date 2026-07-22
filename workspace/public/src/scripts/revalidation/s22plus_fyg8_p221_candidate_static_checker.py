@@ -217,6 +217,7 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
         vmlinux=build_inputs["vmlinux"][1],
         config=build_inputs[".config"][1],
         build_result=build_inputs["build_result"][1],
+        vmlinux_path=resolve(root, args.vmlinux),
     )
     carrier_receipt, carrier = boot_verify.read_pinned_stable(
         resolve(root, args.carrier),

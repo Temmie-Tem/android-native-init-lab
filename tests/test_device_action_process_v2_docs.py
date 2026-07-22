@@ -73,34 +73,28 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         normalized_goal = " ".join(self.goal.split())
         normalized_agents = " ".join(self.agents.split())
         self.assertIn(
-            "R4W1-D DIRECT PID1 PROVEN AND ROLLED BACK", normalized_goal
+            "R4W1-D DIRECT PID1 PROVEN", normalized_goal
         )
         self.assertIn(
             "PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK", self.goal
         )
-        self.assertIn("P2.6-P2.10 complete", self.goal)
-        self.assertIn("P2.11 F1 closed, no proof", self.goal)
-        self.assertIn("P2.12-P2.14 complete, H0 only", self.goal)
-        self.assertIn("P2.15 complete, D0 only", self.goal)
-        self.assertIn("P2.16 F1 closed, no proof", self.goal)
-        self.assertIn("P2.17 complete, H0 only", self.goal)
-        self.assertIn("P2.18 complete, H0 only", self.goal)
-        self.assertIn("P2.19 complete, H0 only", self.goal)
-        self.assertIn("P2.20 complete, H0 only", self.goal)
-        self.assertIn("P2.21 complete, H0 only", self.goal)
-        self.assertIn("P2.22 complete, D0 only", self.goal)
-        self.assertIn("P2.23 F1 closed, no proof", self.goal)
-        self.assertIn("P2.24 next, H0 only", self.goal)
-        self.assertIn("idx >= record_size", self.goal)
+        self.assertIn("P2.1-P2.16 complete/closed", self.goal)
+        self.assertIn("P2.17-P2.20 complete, H0", self.goal)
+        self.assertIn("P2.21-P2.23 complete/closed", self.goal)
+        self.assertIn("P2.24-P2.25 complete, H0", self.goal)
+        self.assertIn("P2.26 complete, H0", self.goal)
+        self.assertIn("P2.27 complete, H0", self.goal)
+        self.assertIn("P2.28 complete, D0", self.goal)
+        self.assertIn("P2.29 gated, F1", self.goal)
         self.assertIn("The F1 binding is consumed", normalized_goal)
         self.assertIn("P2.1-P2.5 complete", self.process)
         self.assertIn("P2.6-P2.10 host path complete", self.process)
         self.assertIn("Typed Retained Evidence", self.process)
         self.assertIn("NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK", self.process)
         self.assertIn("reusable D0/F1 adapters are complete", self.agents)
-        self.assertIn("P2.23 then transferred that exact candidate", self.agents)
+        self.assertIn("P2.28 passed connected read-only preparation", self.agents)
         self.assertIn(
-            "The binding is consumed, F1 is inactive", normalized_agents
+            "Until then F1 is inactive", normalized_agents
         )
         self.assertIn(
             "PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY", self.process

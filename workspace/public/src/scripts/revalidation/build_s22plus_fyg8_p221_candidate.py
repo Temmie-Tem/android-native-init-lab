@@ -124,6 +124,7 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
         vmlinux=inputs["vmlinux"][1],
         config=inputs[".config"][1],
         build_result=inputs["build_result"][1],
+        vmlinux_path=resolve(root, args.vmlinux),
     )
     image = inputs["Image"][1]
     boot_verify.parse_arm64_header(image)
