@@ -379,12 +379,20 @@ The checker clean-applies the patch, links both runtime profiles, and exhausts
 all reachable compact slot values. The typed path cannot pass Process v2
 offline verification until a future candidate-specific build binds it.
 
+P2.34 completes that candidate-specific H0 binding. It derives one non-model
+E1A identity, produces two clean byte-identical Full-LTO kernel builds, links
+the exact runtime and child, packages two byte-identical boot-only APs, passes
+independent reconstruction and linked audits, and promotes the exact
+three-payload Process v2 offline contract. It creates no connected target
+binding, ready manifest, approval, or live authority.
+
 ## Next bounded unit
 
-Implement P2.34 host-only: derive one non-model identity and UNSAT tag, bind
-kernel and userspace profile configuration, perform one clean Full-LTO build,
-link the exact runtime and child, package one boot-only AP, and add the
-candidate-bound offline verifier. Do not contact a device or start E2 USB work.
+Prepare P2.35 connected D0: bind one exact healthy S22+ target to the P2.34
+candidate and exact Magisk rollback, verify a clean retained baseline, ordinary
+regular AP paths, physical Download recovery, and a new empty journal. Do not
+start F1, invoke Odin, or begin E2 USB work without a later fresh exact
+approval.
 
 ## External references
 

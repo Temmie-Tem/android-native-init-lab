@@ -171,7 +171,7 @@ class DeviceActionF1V2Test(unittest.TestCase):
             contracts.mkdir()
 
             artifacts = {}
-            for name in ("run_manifest", "static_check"):
+            for name in ("candidate_static", "run_manifest", "static_check"):
                 path = contracts / f"{name}.json"
                 payload = b"{}"
                 path.write_bytes(payload)

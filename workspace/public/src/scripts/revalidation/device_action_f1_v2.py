@@ -406,9 +406,6 @@ def execution_critical_source_receipts(
             "e1_latest_stage_design_model": Path(
                 typed_evidence.e1_latest_stage.model.__file__
             ),
-            "e1_latest_stage_static_checker": Path(__file__).with_name(
-                "s22plus_fyg8_p233_e1_static_checker.py"
-            ),
         }
         for name, path in e1_latest_stage_sources.items():
             receipts[name] = _stable_read(path.resolve(), name.replace("_", " "))[1]

@@ -65,6 +65,7 @@ class P233E1ImplementationTest(unittest.TestCase):
             "minimum_success_count": 1,
             "clean_baseline_required": True,
             "contract": {
+                "candidate_static": dict(artifact),
                 "run_manifest": dict(artifact),
                 "static_check": dict(artifact),
             },
@@ -112,7 +113,7 @@ class P233E1ImplementationTest(unittest.TestCase):
             ]
         )
         for profile, run_id in result["reachable_record_contract"][
-            "source_check_run_ids"
+            "checked_run_ids"
         ].items():
             self.assertNotEqual(run_id, self.model.model_run_id(profile).hex())
         self.assertTrue(result["safety"]["host_only"])
@@ -123,6 +124,12 @@ class P233E1ImplementationTest(unittest.TestCase):
                 if name != "host_only"
             )
         )
+
+    def test_reachable_contract_accepts_one_candidate_identity(self):
+        result = self.checker.validate_reachable_records({"E1A": self.run_id})
+        self.assertEqual(result["profiles"], ["E1A"])
+        self.assertEqual(result["checked_run_ids"], {"E1A": self.run_id.hex()})
+        self.assertEqual(result["reachable_slot_variants"], 32769)
 
     def test_e1a_excludes_and_e1b_includes_exact_watchdog_closure(self):
         linked = self.check_result["linked_userspace"]

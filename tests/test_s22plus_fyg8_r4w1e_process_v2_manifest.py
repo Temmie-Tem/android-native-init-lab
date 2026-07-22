@@ -52,7 +52,7 @@ class S22PlusFyg8R4W1EProcessV2ManifestTest(unittest.TestCase):
         )
         self.assertEqual(
             bundle.sha256,
-            "d83dcc6415dad1c4efcf54409df6128cfac938998f384c3754e7b9b6ca3d0484",
+            "e25e07c4a6d29e1e4d5988284d71bcee762a8e1d1c0197575059eb8795267587",
         )
 
     def test_draft_remains_rejected_before_connected_prepare(self):
@@ -108,7 +108,7 @@ class S22PlusFyg8R4W1EProcessV2ManifestTest(unittest.TestCase):
         )
         self.assertEqual(
             ready.sha256,
-            "c5b5cab64eb92fc9826884470c719f342c8893b49fa90f20e831b0cf9ff78f0d",
+            "c01097d34d5661da8b3d3ccb7705798bc58da6190db27b1a961ca4609f39ae7f",
         )
 
 

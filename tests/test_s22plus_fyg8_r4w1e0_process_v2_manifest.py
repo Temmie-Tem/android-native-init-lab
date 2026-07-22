@@ -64,7 +64,7 @@ class S22PlusFyg8R4W1E0ProcessV2ManifestTest(unittest.TestCase):
         self.assertTrue(verification["verified"])
         self.assertEqual(
             bundle.sha256,
-            "deb4f24c399e1d0c3d9e5e3a0f867ee89dc65e2f61aa1a5bcd1bbf2625c20928",
+            "3a851e2661c75aee19c8d99fff44c82aabf1fe43b152761f5932048e9129ee27",
         )
 
     def test_draft_cannot_allocate_connected_prepare(self):
@@ -239,7 +239,7 @@ class S22PlusFyg8R4W1E0ProcessV2ManifestTest(unittest.TestCase):
         )
         self.assertEqual(
             ready.sha256,
-            "6694f7c00307cf1b9f20e3c778f3d72817240202a465bbc8c038fbfbd415e0a3",
+            "986182adeebe9deec67c90e4927a6c870c6ba3215d14ca8d475d48513309259e",
         )
         self.assertFalse(ready.receipt["device_contact"])
         self.assertFalse(ready.receipt["odin_invoked"])

@@ -27,6 +27,22 @@ PID1_USERSPACE_DECODER = "s22plus_fyg8_r4w1e0_pid1_userspace_v1"
 SAME_RING_DECODER = "s22plus_fyg8_p219_same_ring_v1"
 SAME_RING_MULTIBOOT_DECODER = "s22plus_fyg8_p230_same_ring_multiboot_v1"
 E1_LATEST_STAGE_DECODER = e1_latest_stage.DECODER_ID
+E1_LATEST_STAGE_RUN_MANIFEST_SCHEMA = "s22plus_fyg8_p234_run_manifest_v1"
+E1_LATEST_STAGE_STATIC_SCHEMA = "s22plus_fyg8_p234_process_v2_static_result_v1"
+E1_LATEST_STAGE_STATIC_VERDICT = "PASS_P234_PROCESS_V2_OFFLINE_EVIDENCE_PROMOTION"
+E1_LATEST_STAGE_CANDIDATE_STATIC_SCHEMA = (
+    "s22plus_fyg8_p234_candidate_static_checker_v1"
+)
+E1_LATEST_STAGE_CANDIDATE_STATIC_VERDICT = (
+    "PASS_P234_INDEPENDENT_ARTIFACT_CLOSURE_HOST_ONLY"
+)
+E1_LATEST_STAGE_CANDIDATE_CONTRACT_SCHEMA = (
+    "s22plus_fyg8_p234_candidate_contract_v1"
+)
+E1_LATEST_STAGE_CANDIDATE_CONTRACT_VERDICT = (
+    "PASS_P234_CANDIDATE_CONTRACT_HOST_ONLY"
+)
+E1_LATEST_STAGE_KERNEL_INTERVAL = (4096, 41495040)
 CHECKPOINT_SOURCE = "/proc/last_kmsg"
 PID1_USERSPACE_TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
 PID1_USERSPACE_ENTRY = b"\n[[S22P1U|ba234c7de4105b2a23222436284605f2]]\n"
@@ -45,6 +61,17 @@ OUTCOME_NAMES = {
 }
 HEX32_RE = re.compile(r"[0-9a-f]{32}")
 HASH_RE = re.compile(r"[0-9a-f]{64}")
+E1_LATEST_STAGE_BASE_FILES = {
+    "kernel_platform/common/arch/arm64/configs/gki_defconfig": (
+        "12661b7d249fb8f80135c3fdcd331733b86d5215f2f4e88e356d1516831ab493"
+    ),
+    "kernel_platform/common/init/Kconfig": (
+        "8273d233a441c21df2fcb1d5d17a590321d758205fd5babd8b8dcb4e6a334019"
+    ),
+    "kernel_platform/common/init/main.c": (
+        "7d281c86ca63646083b9f489eed28281c7d2518f397f34ceccf34c223eaa663a"
+    ),
+}
 
 
 class EvidenceError(ValueError):
@@ -293,9 +320,10 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
             raise EvidenceError("E1 latest-stage acceptance identity is invalid")
         contract = _exact(
             item["contract"],
-            {"run_manifest", "static_check"},
+            {"candidate_static", "run_manifest", "static_check"},
             "E1 latest-stage contract",
         )
+        _artifact(contract["candidate_static"], "E1 latest-stage candidate_static")
         _artifact(contract["run_manifest"], "E1 latest-stage run_manifest")
         _artifact(contract["static_check"], "E1 latest-stage static_check")
         return item
@@ -810,6 +838,521 @@ def _verify_same_ring_offline_contract(
     return result
 
 
+def _verify_e1_latest_stage_offline_contract(
+    acceptance: dict[str, Any],
+    *,
+    payloads: dict[str, bytes],
+    receipts: dict[str, dict[str, Any]],
+    candidate_ap: dict[str, Any],
+) -> dict[str, Any]:
+    item = validate_acceptance(acceptance)
+    if item["kind"] != E1_LATEST_STAGE_KIND:
+        raise EvidenceError("offline E1 latest-stage contract is not applicable")
+    if item["profile"] != "E1A":
+        raise EvidenceError("P2.34 offline evidence is restricted to E1A")
+    if set(payloads) != {
+        "candidate_static",
+        "run_manifest",
+        "static_check",
+    } or set(receipts) != set(payloads):
+        raise EvidenceError(
+            "P2.34 E1 latest-stage evidence has no candidate-bound offline contract"
+        )
+    for name, payload in payloads.items():
+        pin = item["contract"][name]
+        value = receipts[name]
+        if (
+            len(payload) != pin["size"]
+            or hashlib.sha256(payload).hexdigest() != pin["sha256"]
+            or value.get("size") != pin["size"]
+            or value.get("sha256") != pin["sha256"]
+        ):
+            raise EvidenceError(f"offline E1 latest-stage contract {name} changed")
+
+    run_manifest = _json(payloads["run_manifest"], "E1 latest-stage run manifest")
+    static_result = _json(payloads["static_check"], "E1 latest-stage static result")
+    if (
+        run_manifest.get("schema") != E1_LATEST_STAGE_RUN_MANIFEST_SCHEMA
+        or static_result.get("schema") != E1_LATEST_STAGE_STATIC_SCHEMA
+    ):
+        raise EvidenceError(
+            "P2.34 E1 latest-stage evidence has no candidate-bound offline contract"
+        )
+    canonical = _canonical(run_manifest)
+    canonical_sha256 = hashlib.sha256(canonical).hexdigest()
+    expected_records = {
+        "long_family_hex": e1_latest_stage.model.LONG_FAMILY.hex(),
+        "unsat_family_hex": e1_latest_stage.model.UNSAT_FAMILY.hex(),
+        "terminal_stage": item["terminal_stage"],
+    }
+    expected_observation = {
+        "accepted_identity": "E1A_TERMINAL_SUCCESS_REACHED",
+        "minimum_success_count": 1,
+        "clean_baseline_required": True,
+    }
+    if (
+        set(run_manifest)
+        != {
+            "schema",
+            "target",
+            "profile",
+            "run_id",
+            "decoder",
+            "policy_id",
+            "records",
+            "observation_contract",
+            "candidate_ap",
+            "candidate_static",
+        }
+        or run_manifest.get("schema") != E1_LATEST_STAGE_RUN_MANIFEST_SCHEMA
+        or run_manifest.get("target") != PID1_USERSPACE_TARGET
+        or run_manifest.get("profile") != item["profile"]
+        or run_manifest.get("run_id") != item["run_id"]
+        or run_manifest.get("decoder") != E1_LATEST_STAGE_DECODER
+        or run_manifest.get("policy_id") != e1_latest_stage.POLICY_ID
+        or run_manifest.get("records") != expected_records
+        or run_manifest.get("observation_contract") != expected_observation
+        or not _artifact_matches(run_manifest.get("candidate_ap"), candidate_ap)
+        or payloads["run_manifest"] != canonical
+    ):
+        raise EvidenceError("run manifest does not bind the E1A candidate")
+    candidate_static = _binary_identity(
+        run_manifest.get("candidate_static"), "E1A candidate static result"
+    )
+    if candidate_static != receipts["candidate_static"]:
+        raise EvidenceError("run manifest does not bind the candidate static payload")
+
+    candidate_static_result = _json(
+        payloads["candidate_static"], "E1A candidate static result"
+    )
+    if (
+        set(candidate_static_result)
+        != {
+            "schema",
+            "target",
+            "verdict",
+            "candidate_contract",
+            "build_repro",
+            "candidate",
+            "tools",
+            "limits",
+            "safety",
+        }
+        or candidate_static_result.get("schema")
+        != E1_LATEST_STAGE_CANDIDATE_STATIC_SCHEMA
+        or candidate_static_result.get("target") != PID1_USERSPACE_TARGET
+        or candidate_static_result.get("verdict")
+        != E1_LATEST_STAGE_CANDIDATE_STATIC_VERDICT
+    ):
+        raise EvidenceError("candidate static result header is not accepted")
+    source_contract = _exact(
+        candidate_static_result.get("candidate_contract"),
+        {
+            "schema",
+            "target",
+            "verdict",
+            "profile",
+            "profile_number",
+            "run_id",
+            "unsat_record_hex",
+            "unsat_tag_hex",
+            "decoder_id",
+            "decoder_policy_id",
+            "intent",
+            "patch",
+            "base_files",
+            "patched_files",
+            "config_lines",
+            "reachable_record_contract",
+            "verified",
+            "safety",
+        },
+        "E1A candidate source contract",
+    )
+    run_id = bytes.fromhex(item["run_id"])
+    unsat_record = e1_latest_stage.model.unsat_record("E1A", run_id)
+    unsat_tag = unsat_record[len(e1_latest_stage.model.UNSAT_FAMILY) :]
+    expected_config_lines = [
+        "CONFIG_S22PLUS_FYG8_E1_LATEST_STAGE=y",
+        "CONFIG_S22PLUS_FYG8_E1_PROFILE=1",
+        f'CONFIG_S22PLUS_FYG8_E1_RUN_ID_HEX="{item["run_id"]}"',
+        f'CONFIG_S22PLUS_FYG8_E1_UNSAT_TAG_HEX="{unsat_tag.hex()}"',
+    ]
+    source_intent = _binary_identity(
+        source_contract["intent"], "E1A candidate intent"
+    )
+    source_base_files = _exact(
+        source_contract["base_files"],
+        set(E1_LATEST_STAGE_BASE_FILES),
+        "E1A candidate base files",
+    )
+    source_patched_files = _exact(
+        source_contract["patched_files"],
+        set(E1_LATEST_STAGE_BASE_FILES),
+        "E1A candidate patched files",
+    )
+    source_patch = _exact(
+        source_contract["patch"],
+        {
+            "size",
+            "sha256",
+            "targets",
+            "base_files",
+            "patched_files",
+            "config_lines",
+            "clean_apply",
+            "verified",
+        },
+        "E1A candidate patch",
+    )
+    _binary_identity(
+        {name: source_patch[name] for name in ("size", "sha256")},
+        "E1A candidate patch",
+    )
+    source_reachable = _exact(
+        source_contract["reachable_record_contract"],
+        {
+            "reachable_slot_variants",
+            "profiles",
+            "checked_run_ids",
+            "adjacent_slot_combinations_verified",
+            "zero_crc_count",
+            "family_collision_count",
+            "decoder_policy_id",
+            "verified",
+        },
+        "E1A reachable-record contract",
+    )
+    source_contract_safety = _exact(
+        source_contract["safety"],
+        {
+            "host_only",
+            "device_contact",
+            "device_write",
+            "odin_invoked",
+            "live_authorized",
+        },
+        "E1A candidate contract safety",
+    )
+    if (
+        source_contract.get("schema")
+        != E1_LATEST_STAGE_CANDIDATE_CONTRACT_SCHEMA
+        or source_contract.get("target") != PID1_USERSPACE_TARGET
+        or source_contract.get("verdict")
+        != E1_LATEST_STAGE_CANDIDATE_CONTRACT_VERDICT
+        or source_contract.get("profile") != item["profile"]
+        or type(source_contract.get("profile_number")) is not int
+        or source_contract.get("profile_number") != 1
+        or source_contract.get("run_id") != item["run_id"]
+        or source_contract.get("unsat_record_hex") != unsat_record.hex()
+        or source_contract.get("unsat_tag_hex") != unsat_tag.hex()
+        or source_contract.get("decoder_id") != E1_LATEST_STAGE_DECODER
+        or source_contract.get("decoder_policy_id") != e1_latest_stage.POLICY_ID
+        or source_base_files != E1_LATEST_STAGE_BASE_FILES
+        or any(
+            not isinstance(value, str) or HASH_RE.fullmatch(value) is None
+            for value in source_patched_files.values()
+        )
+        or source_patch["targets"] != sorted(E1_LATEST_STAGE_BASE_FILES)
+        or source_patch["base_files"] != source_base_files
+        or source_patch["patched_files"] != source_patched_files
+        or source_patch["config_lines"] != expected_config_lines
+        or source_patch["clean_apply"] is not True
+        or source_patch["verified"] is not True
+        or source_contract["config_lines"] != expected_config_lines
+        or any(
+            type(source_reachable[name]) is not int
+            for name in (
+                "reachable_slot_variants",
+                "zero_crc_count",
+                "family_collision_count",
+            )
+        )
+        or source_reachable
+        != {
+            "reachable_slot_variants": 32769,
+            "profiles": ["E1A"],
+            "checked_run_ids": {"E1A": item["run_id"]},
+            "adjacent_slot_combinations_verified": True,
+            "zero_crc_count": 0,
+            "family_collision_count": 0,
+            "decoder_policy_id": e1_latest_stage.POLICY_ID,
+            "verified": True,
+        }
+        or any(type(value) is not bool for value in source_contract_safety.values())
+        or source_contract_safety
+        != {
+            "host_only": True,
+            "device_contact": False,
+            "device_write": False,
+            "odin_invoked": False,
+            "live_authorized": False,
+        }
+        or source_contract.get("verified") is not True
+    ):
+        raise EvidenceError("candidate static source contract is not E1A-bound")
+    source_build = _exact(
+        candidate_static_result.get("build_repro"),
+        {
+            "result",
+            "image",
+            "fresh_reverification",
+            "two_clean_builds_byte_identical",
+            "linked_audit_verified",
+        },
+        "E1A candidate static build closure",
+    )
+    if (
+        not isinstance(source_build, dict)
+        or source_build.get("fresh_reverification") is not True
+        or source_build.get("two_clean_builds_byte_identical") is not True
+        or source_build.get("linked_audit_verified") is not True
+    ):
+        raise EvidenceError("candidate static build closure is incomplete")
+    source_result_identity = _binary_identity(
+        source_build.get("result"), "E1A build reproducibility result"
+    )
+    source_image_identity = _binary_identity(
+        source_build.get("image"), "E1A kernel Image"
+    )
+    source_candidate = _exact(
+        candidate_static_result.get("candidate"),
+        {
+            "artifacts",
+            "candidate_b_artifacts",
+            "base_boot",
+            "ap",
+            "fixed_interval",
+            "userspace",
+            "independent_reconstruction",
+            "independent_lz4_roundtrip",
+            "independent_magiskboot_unpack",
+            "writer_exclusion_verified",
+            "two_package_builds_byte_identical",
+            "manifest_absent",
+            "boot_only_ap",
+            "verified",
+        },
+        "E1A candidate static artifact closure",
+    )
+    source_artifacts = _exact(
+        source_candidate["artifacts"],
+        {"artifact_result", "boot_img", "boot_img_lz4", "ap_tar_md5"},
+        "E1A source artifacts",
+    )
+    source_b_artifacts = _exact(
+        source_candidate["candidate_b_artifacts"],
+        set(source_artifacts),
+        "E1A source candidate-B artifacts",
+    )
+    normalized_source_artifacts = {
+        name: _binary_identity(value, f"E1A source {name}")
+        for name, value in source_artifacts.items()
+    }
+    normalized_source_b_artifacts = {
+        name: _binary_identity(value, f"E1A source candidate-B {name}")
+        for name, value in source_b_artifacts.items()
+    }
+    source_userspace = _exact(
+        source_candidate["userspace"],
+        {"result", "init", "child", "two_build_byte_identical", "verified"},
+        "E1A source userspace",
+    )
+    normalized_source_userspace = {
+        name: _binary_identity(source_userspace[name], f"E1A userspace {name}")
+        for name in ("result", "init", "child")
+    }
+    source_base_boot = _binary_identity(
+        source_candidate["base_boot"], "E1A source base boot"
+    )
+    source_ap = _exact(
+        source_candidate["ap"], {"tar_md5", "member"}, "E1A source AP"
+    )
+    source_member = _exact(
+        source_ap["member"],
+        {"name", "size", "mode", "uid", "gid", "mtime", "uname", "gname"},
+        "E1A source AP member",
+    )
+    source_fixed_interval = _exact(
+        source_candidate["fixed_interval"],
+        {
+            "kernel_start",
+            "kernel_end_exclusive",
+            "header_preserved",
+            "ramdisk_preserved",
+            "outside_interval_changed_byte_count",
+            "verified",
+        },
+        "E1A source fixed interval",
+    )
+    source_tools = _exact(
+        candidate_static_result["tools"],
+        {"lz4", "magiskboot", "qemu_aarch64"},
+        "E1A candidate static tools",
+    )
+    for name, value in source_tools.items():
+        _binary_identity(value, f"E1A source tool {name}")
+    expected_limits = [
+        "host-only artifact qualification grants no D0, D1, F1, or live authority",
+        "candidate execution and retained observation remain unproved",
+    ]
+    if (
+        normalized_source_b_artifacts != normalized_source_artifacts
+        or not _artifact_matches(source_artifacts["ap_tar_md5"], candidate_ap)
+        or source_member
+        != {
+            "name": "boot.img.lz4",
+            "size": normalized_source_artifacts["boot_img_lz4"]["size"],
+            "mode": 0o644,
+            "uid": 0,
+            "gid": 0,
+            "mtime": 0,
+            "uname": "",
+            "gname": "",
+        }
+        or not isinstance(source_ap["tar_md5"], str)
+        or HEX32_RE.fullmatch(source_ap["tar_md5"]) is None
+        or source_fixed_interval
+        != {
+            "kernel_start": E1_LATEST_STAGE_KERNEL_INTERVAL[0],
+            "kernel_end_exclusive": E1_LATEST_STAGE_KERNEL_INTERVAL[1],
+            "header_preserved": True,
+            "ramdisk_preserved": True,
+            "outside_interval_changed_byte_count": 0,
+            "verified": True,
+        }
+        or source_userspace.get("two_build_byte_identical") is not True
+        or source_userspace.get("verified") is not True
+        or source_candidate.get("boot_only_ap") is not True
+        or source_candidate.get("independent_reconstruction") is not True
+        or source_candidate.get("independent_lz4_roundtrip") is not True
+        or source_candidate.get("independent_magiskboot_unpack") is not True
+        or source_candidate.get("writer_exclusion_verified") is not True
+        or source_candidate.get("two_package_builds_byte_identical") is not True
+        or source_candidate.get("manifest_absent") is not True
+        or source_candidate.get("verified") is not True
+        or candidate_static_result.get("limits") != expected_limits
+    ):
+        raise EvidenceError("candidate static artifact closure is not accepted")
+    source_safety = candidate_static_result.get("safety")
+    expected_source_safety = {
+        "host_only": True,
+        "device_contact": False,
+        "device_write": False,
+        "odin_invoked": False,
+        "flash": False,
+        "partition_write": False,
+        "manifest_created": False,
+        "live_authorized": False,
+    }
+    if source_safety != expected_source_safety:
+        raise EvidenceError("candidate static safety contract changed")
+
+    if (
+        set(static_result)
+        != {
+            "schema",
+            "target",
+            "verdict",
+            "profile",
+            "run_id",
+            "decoder",
+            "policy_id",
+            "run_binding",
+            "candidate",
+            "safety",
+        }
+        or static_result.get("schema") != E1_LATEST_STAGE_STATIC_SCHEMA
+        or static_result.get("target") != PID1_USERSPACE_TARGET
+        or static_result.get("verdict") != E1_LATEST_STAGE_STATIC_VERDICT
+        or static_result.get("profile") != item["profile"]
+        or static_result.get("run_id") != item["run_id"]
+        or static_result.get("decoder") != E1_LATEST_STAGE_DECODER
+        or static_result.get("policy_id") != e1_latest_stage.POLICY_ID
+        or static_result.get("run_binding")
+        != {
+            "canonical_manifest_size": len(canonical),
+            "canonical_manifest_sha256": canonical_sha256,
+            "verified": True,
+        }
+    ):
+        raise EvidenceError("static checker header does not bind the E1A candidate")
+    candidate_result = _exact(
+        static_result["candidate"],
+        {
+            "artifacts",
+            "boot_only_ap",
+            "two_clean_builds_byte_identical",
+            "two_package_builds_byte_identical",
+            "linked_audit_verified",
+            "independent_reconstruction",
+            "writer_exclusion_verified",
+            "verified",
+        },
+        "E1A candidate result",
+    )
+    artifacts = _exact(
+        candidate_result["artifacts"],
+        {"ap", "candidate_static", "image", "boot_image", "init", "child"},
+        "E1A candidate artifacts",
+    )
+    for name, value in artifacts.items():
+        artifacts[name] = _binary_identity(value, f"E1A {name}")
+    expected_artifacts = {
+        "ap": normalized_source_artifacts["ap_tar_md5"],
+        "candidate_static": candidate_static,
+        "image": source_image_identity,
+        "boot_image": normalized_source_artifacts["boot_img"],
+        "init": normalized_source_userspace["init"],
+        "child": normalized_source_userspace["child"],
+    }
+    safety = _exact(
+        static_result["safety"],
+        {
+            "host_only",
+            "device_contact",
+            "device_write",
+            "odin_invoked",
+            "odin_transfer",
+            "flash",
+            "partition_write",
+            "live_authorized",
+        },
+        "E1A static safety",
+    )
+    if (
+        artifacts != expected_artifacts
+        or source_result_identity["size"] <= 0
+        or source_base_boot["size"] <= 0
+        or candidate_result["boot_only_ap"] is not True
+        or candidate_result["two_clean_builds_byte_identical"] is not True
+        or candidate_result["two_package_builds_byte_identical"] is not True
+        or candidate_result["linked_audit_verified"] is not True
+        or candidate_result["independent_reconstruction"] is not True
+        or candidate_result["writer_exclusion_verified"] is not True
+        or candidate_result["verified"] is not True
+        or safety["host_only"] is not True
+        or any(value is not False for name, value in safety.items() if name != "host_only")
+    ):
+        raise EvidenceError("static checker result does not bind the E1A candidate")
+    return {
+        "schema": "device_action_f1_e1_latest_stage_offline_contract_v1",
+        "decoder": item["decoder"],
+        "policy_id": item["policy_id"],
+        "profile": item["profile"],
+        "run_id": item["run_id"],
+        "terminal_stage": item["terminal_stage"],
+        "candidate_ap_sha256": candidate_ap["sha256"],
+        "candidate_static_sha256": candidate_static["sha256"],
+        "candidate_static_payload_sha256": receipts["candidate_static"]["sha256"],
+        "run_manifest_sha256": receipts["run_manifest"]["sha256"],
+        "static_check_sha256": receipts["static_check"]["sha256"],
+        "clean_baseline_required": True,
+        "minimum_success_count": 1,
+        "verified": True,
+    }
+
+
 def verify_offline_contract(
     acceptance: dict[str, Any],
     *,
@@ -818,9 +1361,11 @@ def verify_offline_contract(
     candidate_ap: dict[str, Any],
 ) -> dict[str, Any]:
     if acceptance.get("kind") == E1_LATEST_STAGE_KIND:
-        raise EvidenceError(
-            "P2.33 E1 latest-stage evidence has no candidate-bound offline "
-            "contract; source-only implementation cannot become live-ready"
+        return _verify_e1_latest_stage_offline_contract(
+            acceptance,
+            payloads=payloads,
+            receipts=receipts,
+            candidate_ap=candidate_ap,
         )
     if acceptance.get("kind") in {SAME_RING_KIND, SAME_RING_MULTIBOOT_KIND}:
         return _verify_same_ring_offline_contract(

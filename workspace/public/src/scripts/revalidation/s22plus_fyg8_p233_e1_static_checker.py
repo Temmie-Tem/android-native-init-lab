@@ -408,12 +408,22 @@ def compile_userspace(
     return outputs
 
 
-def validate_reachable_records() -> dict[str, Any]:
+def validate_reachable_records(
+    run_ids: dict[str, bytes] | None = None,
+) -> dict[str, Any]:
+    selected_run_ids = dict(SOURCE_CHECK_RUN_IDS if run_ids is None else run_ids)
+    if not selected_run_ids or any(
+        profile not in model.PROFILE_NUMBERS for profile in selected_run_ids
+    ):
+        raise CheckError("reachable-record profile selection is invalid")
     checked = 0
-    for profile, sequence in model.PROFILE_STAGE_SEQUENCES.items():
-        run_id = SOURCE_CHECK_RUN_IDS[profile]
+    for profile in sorted(selected_run_ids):
+        sequence = model.PROFILE_STAGE_SEQUENCES[profile]
+        run_id = selected_run_ids[profile]
+        if len(run_id) != model.RUN_ID_SIZE:
+            raise CheckError(f"{profile} run ID size changed")
         if not any(run_id) or run_id == model.model_run_id(profile):
-            raise CheckError(f"{profile} source-check run ID is not independent")
+            raise CheckError(f"{profile} run ID is zero or a model identity")
         record = model.initialize_record(profile, run_id)
         model.unsat_record(profile, run_id)
         for stage in sequence:
@@ -450,10 +460,10 @@ def validate_reachable_records() -> dict[str, Any]:
                 )
     return {
         "reachable_slot_variants": checked,
-        "profiles": sorted(model.PROFILE_NUMBERS),
-        "source_check_run_ids": {
+        "profiles": sorted(selected_run_ids),
+        "checked_run_ids": {
             profile: value.hex()
-            for profile, value in sorted(SOURCE_CHECK_RUN_IDS.items())
+            for profile, value in sorted(selected_run_ids.items())
         },
         "adjacent_slot_combinations_verified": True,
         "zero_crc_count": 0,
