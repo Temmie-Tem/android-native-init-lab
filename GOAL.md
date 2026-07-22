@@ -10,7 +10,7 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 ## Current Frontier
 
 **State: R4W1-D DIRECT PID1 PROVEN AND ROLLED BACK; R4W1-E0 F1 CLOSED NO
-PROOF; P2.21 HOST ARTIFACT CLOSURE PASS.** Process v2 transferred
+PROOF; P2.22 CONNECTED D0 PASS; F1 INACTIVE.** Process v2 transferred
 the exact boot-only candidate once, two complete post-rollback
 `/proc/last_kmsg` reads retained one exact contiguous proof, the exact Magisk
 boot rollback completed, and final Android/root/supporting-partition health
@@ -34,9 +34,9 @@ USERSPACE, or family bytes. Durable verdict:
 reused. Candidate boot survival was observed by the operator, but no retained
 bytes prove kernel selection, successful exec, or userspace entry.
 
-P2.21 independently qualified the corrected Image, vmlinux, config, pinned
-`/init`, no-ring-writer runtime, boot, and one-member AP. No ready manifest,
-device contact, transfer, F1 approval, or live authority was created.
+P2.21 independently qualified the corrected kernel-to-AP closure. P2.22
+promoted its offline same-ring contract and passed connected target, health,
+and clean-baseline D0. No transfer, F1 approval, or live authority occurred.
 
 The controlling next-stage design is
 `docs/plans/S22PLUS_FYG8_POST_PID1_OBSERVABLE_RUNTIME_ARCHITECTURE_2026-07-21.md`.
@@ -50,8 +50,8 @@ The controlling next-stage design is
 - R4W1-D: one 45-byte contiguous pre-cursor proof, no index mutation, clean
   Full-LTO reproducibility, deterministic candidate construction, live proof,
   and rollback all passed.
-- P2.21: kernel, config, pinned `/init`, no-ring-writer runtime, boot, and AP
-  passed independent host closure. No manifest or live authority exists.
+- P2.21/P2.22: the kernel-to-AP closure passed independent host validation;
+  its ready data and connected clean-baseline D0 passed with F1 still inactive.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
   exact post-transfer departure handling, rollback, and final health are proven.
 - V3439: a correctly bound ramoops/pmsg backend retained zero current-run
@@ -97,10 +97,10 @@ reports grant no device authority.
     closure found no MUST-FIX; no build, artifact, device, or authority occurred.
 11. **P2.21 complete, H0 only:** clean Full-LTO and independent closure bind
     kernel, config, `/init`, no-ring-writer runtime, boot, and AP; no manifest/live.
-12. **P2.22 next, D0 only:** prepare a fresh candidate-specific ready manifest
-    and perform connected read-only target, health, and clean-baseline
-    qualification. No candidate transfer or F1 approval.
-13. **E2-E4 later:** prove module closure, platform bind and UDC, then one ACM
+12. **P2.22 complete, D0 only:** ready data, connected target/health, and clean
+    baseline passed; no transfer, F1 approval, or live authority occurred.
+13. **P2.23 gated:** F1 remains inactive pending one fresh exact approval.
+14. **E2-E4 later:** prove module closure, platform bind and UDC, then one ACM
     banner and nonce exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a C4 helper, add another per-candidate policy

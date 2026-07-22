@@ -15,15 +15,14 @@ Do not add a device step when host-only work can answer the question.
 - No S22+ F1 live run is currently authorized.
 - R4W1-C3 is an inactive host-only checkpoint, not an executable policy.
 - Retired helpers and acknowledgement strings cannot authorize a new run.
-- The Process v2 H0 core and reusable D0/F1 adapters are complete. The latest
-  R4W1-E0 connected read-only D0 qualification passed before its binding
-  closed after one exact candidate transfer, one exact Magisk
-  rollback, and final health verification. Two byte-identical retained reads
-  contained neither ENTRY nor USERSPACE family bytes, so its durable verdict is
-  `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. The binding is consumed and cannot be
-  reused. USBFS arrival and exact measured Odin-node departure remain
-  fail-closed. F1 is inactive; another candidate requires new H0 evidence,
-  connected D0 preparation, and fresh exact approval.
+- The Process v2 H0 core and reusable D0/F1 adapters are complete. P2.21's
+  corrected same-ring candidate passed independent host artifact closure, and
+  P2.22 promoted fresh ready data and passed connected read-only target,
+  health, and clean-baseline qualification. No candidate transfer or F1
+  approval occurred; F1 remains inactive pending fresh exact approval. The
+  earlier R4W1-E0 binding remains consumed with durable verdict
+  `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. USBFS arrival and exact measured
+  Odin-node departure remain fail-closed.
 
 ## Permanent Safety Boundaries
 

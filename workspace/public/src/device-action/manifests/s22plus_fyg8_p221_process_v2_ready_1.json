@@ -1,0 +1,52 @@
+{
+  "schema": "device_action_f1_candidate_v2",
+  "manifest_id": "s22plus-fyg8-p221-process-v2-ready-1",
+  "run_id": "s22plus-fyg8-p221-live-1",
+  "status": "ready-for-f1-approval",
+  "target_profile": "workspace/public/src/device-action/profiles/s22plus_fyg8.json",
+  "candidate_ap": {
+    "path": "workspace/private/outputs/s22plus_fyg8_p221_candidate/artifacts/odin4/AP.tar.md5",
+    "size": 27064361,
+    "sha256": "73e550d53bb0c2f4a8d69fd85829a1fe65e8e1af39069e9e749fe8e81956342e"
+  },
+  "rollback_ap": {
+    "path": "workspace/private/outputs/s22plus_magisk_root_boot_only/AP.tar.md5",
+    "size": 23367721,
+    "sha256": "d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56"
+  },
+  "allowed_member": "boot.img.lz4",
+  "observation": {
+    "timeout_sec": 120,
+    "acceptance": {
+      "kind": "retained_pid1_same_ring_discriminator_after_rollback",
+      "source": "/proc/last_kmsg",
+      "decoder": "s22plus_fyg8_p219_same_ring_v1",
+      "contract_id": "a01800f437cf129e693f32b7199ea6a6",
+      "records": {
+        "entry_hex": "0a5b5b5332325031557c62316533616633626162303239366362373030383564343030323636363363665d5d0a",
+        "userspace_hex": "0a5b5b5332325031557c64663336323733643534363561393736336365376230646638656237356338345d5d0a",
+        "unsat_hex": "533232554e53317c7a8c535f3154ebbeb185f9fb45126cae"
+      },
+      "families": {
+        "long_hex": "5b5b5332325031557c",
+        "unsat_hex": "533232554e53317c"
+      },
+      "accepted_identity": "USERSPACE_CALLBACK_REACHED",
+      "exact_count": 1,
+      "contract": {
+        "run_manifest": {
+          "path": "workspace/private/outputs/s22plus_fyg8_p222_process_v2/run-manifest.json",
+          "size": 909,
+          "sha256": "b49fed3541ac83b4fab97f16ee080dace040ac8b59dcbd187b38c851ad2d9d21"
+        },
+        "static_check": {
+          "path": "workspace/private/outputs/s22plus_fyg8_p222_process_v2/static-check-result.json",
+          "size": 2374,
+          "sha256": "b457be28a86810cdef9bec52ac4dba0aa430b13765070c4368a883c35eafca9d"
+        }
+      }
+    }
+  },
+  "final_health_profile": "s22plus-fyg8-magisk",
+  "runner_version": "device-action-f1-v2-host-core-1"
+}

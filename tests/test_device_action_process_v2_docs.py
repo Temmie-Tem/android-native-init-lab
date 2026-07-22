@@ -87,7 +87,8 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("P2.19 complete, H0 only", self.goal)
         self.assertIn("P2.20 complete, H0 only", self.goal)
         self.assertIn("P2.21 complete, H0 only", self.goal)
-        self.assertIn("P2.22 next, D0 only", self.goal)
+        self.assertIn("P2.22 complete, D0 only", self.goal)
+        self.assertIn("P2.23 gated", self.goal)
         self.assertIn("idx >= record_size", self.goal)
         self.assertIn(
             "The binding is consumed and cannot be reused",
@@ -98,7 +99,8 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("Typed Retained Evidence", self.process)
         self.assertIn("NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK", self.process)
         self.assertIn("reusable D0/F1 adapters are complete", self.agents)
-        self.assertIn("connected read-only D0 qualification passed", self.agents)
+        self.assertIn("P2.22 promoted fresh ready data", self.agents)
+        self.assertIn("F1 remains inactive pending fresh exact approval", self.agents)
         self.assertIn(
             "PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY", self.process
         )
