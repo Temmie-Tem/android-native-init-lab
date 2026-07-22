@@ -169,4 +169,16 @@ that closure. P2.24 then proved that its generic OF resource helper rejects the
 Samsung current-node `reg` encoding before accessing the retained header; the
 checker had required the wrong helper as a positive source marker.
 
+P2.25 replaces that helper with the exact current-node 2/2-cell parser. Its
+stock-DT contract also binds the log node's `memory-region` to the containing
+`samsung,carve-out` reserved range and proves that range has no `no-map`
+property on both applicable Waipio bases. The exact Full-LTO vmlinux contains
+one `__flush_dcache_area()` call in each store path, ordered after the payload
+copy and before readback; GNU and pinned LLVM audits agree on the reviewed
+function bytes. This is host proof of the linked guard and cache-flush PoC. It
+does not prove that the payload survives reset, and no P2.25 device run or live
+authority exists.
+
+`docs/reports/S22PLUS_FYG8_P225_GUARD_POC_FLUSH_HOST_PASS_2026-07-22.md`
+
 `docs/reports/S22PLUS_FYG8_P219_SAME_RING_IMPLEMENTATION_HOST_PASS_2026-07-22.md`

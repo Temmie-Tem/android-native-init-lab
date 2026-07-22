@@ -1,0 +1,295 @@
+diff --git a/kernel_platform/common/arch/arm64/configs/gki_defconfig b/kernel_platform/common/arch/arm64/configs/gki_defconfig
+--- a/kernel_platform/common/arch/arm64/configs/gki_defconfig
++++ b/kernel_platform/common/arch/arm64/configs/gki_defconfig
+@@ -737,6 +737,7 @@ CONFIG_CRYPTO_FIPS=y
+ 
+ 
+ # CONFIG_RKP_TEST is not set
++CONFIG_S22PLUS_FYG8_PID1_SAME_RING_DISCRIMINATOR=y
+ 
+ 
+ 
+diff --git a/kernel_platform/common/init/Kconfig b/kernel_platform/common/init/Kconfig
+--- a/kernel_platform/common/init/Kconfig
++++ b/kernel_platform/common/init/Kconfig
+@@ -2443,5 +2443,14 @@ config ARCH_HAS_SYNC_CORE_BEFORE_USERMODE
+ config ARCH_HAS_SYSCALL_WRAPPER
+ 	def_bool n
+ 
++config S22PLUS_FYG8_PID1_SAME_RING_DISCRIMINATOR
++	bool "Samsung S22+ FYG8 PID 1 same-ring discriminator"
++	default n
++	help
++	  Write one candidate-bound retained record after PID 1 accepts /init.
++	  Use the established 45-byte entry/userspace slot when it fits, or a
++	  24-byte diagnostic record when only that shorter prefix is visible.
++	  This option is specific to SM-S906N FYG8 and exposes no command shell.
++
+ source "init/Kconfig.gki"
+ source "init/Kconfig.gki-debug"
+diff --git a/kernel_platform/common/init/main.c b/kernel_platform/common/init/main.c
+--- a/kernel_platform/common/init/main.c
++++ b/kernel_platform/common/init/main.c
+@@ -91,6 +91,8 @@
+ #include <linux/kcsan.h>
+ #include <linux/init_syscalls.h>
+ #include <linux/stackdepot.h>
++#include <linux/of.h>
++#include <linux/uaccess.h>
+ 
+ #include <asm/io.h>
+ #include <asm/setup.h>
+@@ -1376,6 +1378,245 @@ static int run_init_process(const char *init_filename)
+ 	return kernel_execve(init_filename, argv_init, envp_init);
+ }
+ 
++#ifdef CONFIG_S22PLUS_FYG8_PID1_SAME_RING_DISCRIMINATOR
++#define S22PLUS_FYG8_P1S_LOG_BASE	0x800200000ULL
++#define S22PLUS_FYG8_P1S_LOG_SIZE	0x200000U
++#define S22PLUS_FYG8_P1S_LOG_MAGIC	0x4d474f4cU
++#define S22PLUS_FYG8_P1S_ENTRY_SIZE	45U
++#define S22PLUS_FYG8_P1S_UNSAT_SIZE	24U
++#define S22PLUS_FYG8_P1S_REQUEST_SIZE	32U
++#define S22PLUS_FYG8_P1S_STRATEGY	3U
++#define S22PLUS_FYG8_P1S_ADDRESS_CELLS	2U
++#define S22PLUS_FYG8_P1S_SIZE_CELLS	2U
++
++struct s22plus_fyg8_p1s_log_head {
++	u32 boot_cnt;
++	u32 magic;
++	u32 idx;
++	u32 prev_idx;
++	char buf[];
++};
++
++struct s22plus_fyg8_p1s_state {
++	bool ready;
++	bool userspace_proven;
++	u32 seed_idx;
++	u32 seed_boot_cnt;
++	size_t proof_pos;
++};
++
++static struct s22plus_fyg8_p1s_state s22plus_fyg8_p1s_state;
++
++static const char s22plus_fyg8_p1s_entry[] =
++	"\n[[S22P1U|b1e3af3bab0296cb70085d40026663cf]]\n";
++static const char s22plus_fyg8_p1s_userspace[] =
++	"\n[[S22P1U|df36273d5465a9763ce7b0df8eb75c84]]\n";
++static const u8 s22plus_fyg8_p1s_unsat[S22PLUS_FYG8_P1S_UNSAT_SIZE] = {
++	0x53, 0x32, 0x32, 0x55, 0x4e, 0x53, 0x31, 0x7c,
++	0x7a, 0x8c, 0x53, 0x5f, 0x31, 0x54, 0xeb, 0xbe,
++	0xb1, 0x85, 0xf9, 0xfb, 0x45, 0x12, 0x6c, 0xae,
++};
++static const u8 s22plus_fyg8_p1s_request[S22PLUS_FYG8_P1S_REQUEST_SIZE] = {
++	0x53, 0x32, 0x32, 0x51, 0x01, 0x01, 0x10, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x64, 0x55, 0x4e, 0x84,
++	0x69, 0x38, 0x58, 0x78, 0xc5, 0xbf, 0x8d, 0x57,
++	0xc4, 0x4e, 0xde, 0xea, 0xfd, 0x11, 0x8a, 0x62,
++};
++
++static bool s22plus_fyg8_p1s_parse_reg(struct device_node *node,
++		u64 *base, u64 *size)
++{
++	const __be32 *reg;
++	u32 address_cells;
++	u32 size_cells;
++	int length;
++
++	if (of_property_read_u32(node, "#address-cells", &address_cells) ||
++			of_property_read_u32(node, "#size-cells", &size_cells) ||
++			address_cells != S22PLUS_FYG8_P1S_ADDRESS_CELLS ||
++			size_cells != S22PLUS_FYG8_P1S_SIZE_CELLS)
++		return false;
++	reg = of_get_property(node, "reg", &length);
++	if (!reg || length != (address_cells + size_cells) * sizeof(*reg))
++		return false;
++	*base = of_read_number(reg, address_cells);
++	*size = of_read_number(reg + address_cells, size_cells);
++	return true;
++}
++
++static struct s22plus_fyg8_p1s_log_head *s22plus_fyg8_p1s_head(void)
++{
++	struct device_node *log_node = NULL;
++	struct device_node *root = NULL;
++	const char *model;
++	u64 base;
++	u64 size;
++	u32 strategy;
++	struct s22plus_fyg8_p1s_log_head *head = NULL;
++
++	root = of_find_node_by_path("/");
++	if (!root)
++		return NULL;
++	if (of_property_read_string(root, "model", &model) ||
++			strcmp(model, "Samsung G0Q PROJECT (board-id,12)"))
++		goto out;
++	log_node = of_find_compatible_node(NULL, NULL,
++			"samsung,kernel_log_buf");
++	if (!log_node || !of_device_is_available(log_node))
++		goto out;
++	if (of_property_read_u32(log_node, "sec,strategy", &strategy) ||
++			strategy != S22PLUS_FYG8_P1S_STRATEGY)
++		goto out;
++	if (!s22plus_fyg8_p1s_parse_reg(log_node, &base, &size) ||
++			base != S22PLUS_FYG8_P1S_LOG_BASE ||
++			size != S22PLUS_FYG8_P1S_LOG_SIZE)
++		goto out;
++	head = phys_to_virt((phys_addr_t)base);
++out:
++	of_node_put(log_node);
++	of_node_put(root);
++	return head;
++}
++
++static bool s22plus_fyg8_p1s_header_matches(
++		struct s22plus_fyg8_p1s_log_head *head, u32 idx, u32 boot_cnt)
++{
++	return READ_ONCE(head->magic) == S22PLUS_FYG8_P1S_LOG_MAGIC &&
++		READ_ONCE(head->idx) == idx &&
++		READ_ONCE(head->boot_cnt) == boot_cnt;
++}
++
++static bool s22plus_fyg8_p1s_store(
++		struct s22plus_fyg8_p1s_log_head *head, size_t position,
++		const void *proof, size_t proof_size)
++{
++	char *slot = &head->buf[position];
++
++	memcpy(slot, proof, proof_size);
++	__flush_dcache_area(slot, proof_size);
++	return !memcmp(slot, proof, proof_size);
++}
++
++static void s22plus_fyg8_p1s_record_entry(const char *init_filename)
++{
++	struct s22plus_fyg8_p1s_log_head *head;
++	size_t payload_size = S22PLUS_FYG8_P1S_LOG_SIZE - sizeof(*head);
++	const void *proof;
++	size_t cursor;
++	size_t proof_pos;
++	size_t proof_size;
++	u32 seed_boot_cnt;
++	u32 seed_idx;
++	bool arm_userspace;
++
++	memset(&s22plus_fyg8_p1s_state, 0,
++	       sizeof(s22plus_fyg8_p1s_state));
++	if (strcmp(init_filename, "/init") || task_pid_nr(current) != 1)
++		return;
++	head = s22plus_fyg8_p1s_head();
++	if (!head)
++		return;
++	seed_idx = READ_ONCE(head->idx);
++	seed_boot_cnt = READ_ONCE(head->boot_cnt);
++	if (READ_ONCE(head->magic) != S22PLUS_FYG8_P1S_LOG_MAGIC)
++		return;
++	if (seed_idx >= S22PLUS_FYG8_P1S_ENTRY_SIZE) {
++		proof = s22plus_fyg8_p1s_entry;
++		proof_size = S22PLUS_FYG8_P1S_ENTRY_SIZE;
++		arm_userspace = true;
++	} else if (seed_idx >= S22PLUS_FYG8_P1S_UNSAT_SIZE) {
++		proof = s22plus_fyg8_p1s_unsat;
++		proof_size = S22PLUS_FYG8_P1S_UNSAT_SIZE;
++		arm_userspace = false;
++	} else {
++		return;
++	}
++	cursor = seed_idx % payload_size;
++	proof_pos = cursor >= proof_size ?
++		cursor - proof_size : payload_size - proof_size;
++	if (!s22plus_fyg8_p1s_header_matches(head, seed_idx, seed_boot_cnt))
++		return;
++	if (!s22plus_fyg8_p1s_store(head, proof_pos, proof, proof_size))
++		return;
++	if (!s22plus_fyg8_p1s_header_matches(head, seed_idx, seed_boot_cnt))
++		return;
++	if (!arm_userspace)
++		return;
++	s22plus_fyg8_p1s_state.seed_idx = seed_idx;
++	s22plus_fyg8_p1s_state.seed_boot_cnt = seed_boot_cnt;
++	s22plus_fyg8_p1s_state.proof_pos = proof_pos;
++	s22plus_fyg8_p1s_state.ready = true;
++}
++
++static ssize_t s22plus_fyg8_p1s_write(struct file *file,
++		const char __user *buffer, size_t count, loff_t *position)
++{
++	struct s22plus_fyg8_p1s_log_head *head;
++	u8 request[S22PLUS_FYG8_P1S_REQUEST_SIZE];
++	char *slot;
++
++	(void)file;
++	if (task_pid_nr(current) != 1)
++		return -EPERM;
++	if (!s22plus_fyg8_p1s_state.ready)
++		return -ENODEV;
++	if (s22plus_fyg8_p1s_state.userspace_proven)
++		return -EALREADY;
++	if (*position != 0 || count != sizeof(request))
++		return -EINVAL;
++	if (copy_from_user(request, buffer, sizeof(request)))
++		return -EFAULT;
++	if (memcmp(request, s22plus_fyg8_p1s_request, sizeof(request)))
++		return -EKEYREJECTED;
++	head = s22plus_fyg8_p1s_head();
++	if (!head)
++		return -ENODEV;
++	slot = &head->buf[s22plus_fyg8_p1s_state.proof_pos];
++	if (!s22plus_fyg8_p1s_header_matches(head,
++			s22plus_fyg8_p1s_state.seed_idx,
++			s22plus_fyg8_p1s_state.seed_boot_cnt) ||
++			memcmp(slot, s22plus_fyg8_p1s_entry,
++			       S22PLUS_FYG8_P1S_ENTRY_SIZE))
++		return -ESTALE;
++	if (!s22plus_fyg8_p1s_store(head,
++			s22plus_fyg8_p1s_state.proof_pos,
++			s22plus_fyg8_p1s_userspace,
++			S22PLUS_FYG8_P1S_ENTRY_SIZE))
++		return -ESTALE;
++	if (!s22plus_fyg8_p1s_header_matches(head,
++			s22plus_fyg8_p1s_state.seed_idx,
++			s22plus_fyg8_p1s_state.seed_boot_cnt))
++		return -ESTALE;
++	s22plus_fyg8_p1s_state.userspace_proven = true;
++	*position += count;
++	return count;
++}
++
++static const struct proc_ops s22plus_fyg8_p1s_ops = {
++	.proc_write = s22plus_fyg8_p1s_write,
++};
++
++static int __init s22plus_fyg8_p1s_proc_init(void)
++{
++	BUILD_BUG_ON(sizeof(s22plus_fyg8_p1s_entry) - 1 !=
++			S22PLUS_FYG8_P1S_ENTRY_SIZE);
++	BUILD_BUG_ON(sizeof(s22plus_fyg8_p1s_userspace) - 1 !=
++			S22PLUS_FYG8_P1S_ENTRY_SIZE);
++	BUILD_BUG_ON(sizeof(s22plus_fyg8_p1s_unsat) !=
++			S22PLUS_FYG8_P1S_UNSAT_SIZE);
++	BUILD_BUG_ON(sizeof(s22plus_fyg8_p1s_request) !=
++			S22PLUS_FYG8_P1S_REQUEST_SIZE);
++	if (!proc_create("s22_checkpoint", 0200, NULL,
++			&s22plus_fyg8_p1s_ops))
++		return -ENOMEM;
++	return 0;
++}
++late_initcall(s22plus_fyg8_p1s_proc_init);
++#else
++static inline void s22plus_fyg8_p1s_record_entry(
++		const char *init_filename) { }
++#endif
++
+ static int try_to_run_init_process(const char *init_filename)
+ {
+ 	int ret;
+@@ -1465,6 +1706,7 @@ static int __ref kernel_init(void *unused)
+ 	if (ramdisk_execute_command) {
+ 		ret = run_init_process(ramdisk_execute_command);
+ 		if (!ret) {
++			s22plus_fyg8_p1s_record_entry(ramdisk_execute_command);
+ #ifdef CONFIG_RKP
+ 			rkp_deferred_init();
+ #endif
