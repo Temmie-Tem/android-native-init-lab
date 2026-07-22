@@ -10,7 +10,7 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 ## Current Frontier
 
 **State: R4W1-D DIRECT PID1 PROVEN; P2.37 E1A LOCAL RUNTIME LIVE PASS;
-P2.39 E1B CANDIDATE H0 PASS; CLEAN D0 PENDING; F1 INACTIVE.**
+P2.39 E1B CONNECTED D0 PREPARED; F1 AWAITS EXACT APPROVAL.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -79,6 +79,15 @@ terminal-success record. No journal, approval, Odin session, reboot, or device
 write occurred. One approved D1 normal reboot and a fresh connected D0 are
 required before any E1B F1 approval can be requested.
 
+The operator then confirmed that all pre-F1 preparation, including one bounded
+D1 normal reboot, was approved. Exactly one `adb reboot` rotated the historical
+E1A record out and returned healthy Android. A fresh manifest and run directory
+passed connected D0 with Android/root/boot health, exact supporting partitions,
+clean retained baseline, exact candidate and rollback APs, and the current
+execution closure. One private prepared binding now exists. No Odin invocation,
+Download transition, partition transfer, or F1 authorization occurred. The next
+action is one exact E1B F1 approval; the candidate must not run before it.
+
 The controlling next-stage design is
 `docs/plans/S22PLUS_FYG8_POST_PID1_OBSERVABLE_RUNTIME_ARCHITECTURE_2026-07-21.md`.
 
@@ -132,8 +141,10 @@ The controlling next-stage design is
 - P2.39 E1B candidate H0: profile-2 source and userspace, two clean byte-identical
   Full-LTO builds, deterministic boot-only packaging, effective-rootfs module
   closure, exact offline evidence, 142 tests, and independent review passed.
-  Connected D0 stopped read-only on the historical P2.37 E1A terminal record;
-  no prepared binding or live authority exists.
+  The first connected D0 stopped read-only on the historical P2.37 E1A terminal
+  record. One approved normal reboot rotated it out; a fresh connected D0 then
+  passed and produced one private prepared binding. F1 remains unexecuted and
+  requires its exact approval.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
   rollback, and final health are proven.
 - V3439: pstore, pmsg, ramoops, and DTBO-based retention remain retired.
@@ -159,6 +170,7 @@ Load-bearing details are in:
 - `docs/reports/S22PLUS_FYG8_P237_E1A_F1_LIVE_PASS_2026-07-23.md`
 - `docs/reports/S22PLUS_FYG8_P238_E1B_FOCUSED_READINESS_AUDIT_2026-07-23.md`
 - `docs/reports/S22PLUS_FYG8_P239_E1B_CANDIDATE_H0_PASS_D0_BASELINE_STOP_2026-07-23.md`
+- `docs/reports/S22PLUS_FYG8_P239_CONNECTED_D0_PREPARED_PASS_2026-07-23.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
 
@@ -198,12 +210,13 @@ reports grant no device authority.
     and the canonical timeline passed; authority is consumed.
 17. **P2.38 complete, H0:** E1B runtime, module, ABI, and effective-rootfs
     readiness passed; no build, candidate, device action, or authority occurred.
-18. **P2.39 H0 complete, D0 pending:** the profile-2 candidate, boot-only AP,
-    stock-`vendor_boot` effective rootfs, and offline contract passed. One
-    historical E1A record blocks the clean baseline; perform one approved D1
-    normal reboot, then prepare a fresh connected D0 binding. F1 is inactive.
-19. **P2.39 F1 next only after D0:** request one fresh exact approval for the
-    bound E1B candidate and mandatory Magisk rollback.
+18. **P2.39 H0 and D0 complete:** the profile-2 candidate, boot-only AP,
+    stock-`vendor_boot` effective rootfs, offline contract, one normal baseline
+    rotation, and a fresh connected D0 binding passed. The device remains on
+    healthy Android and F1 is inactive.
+19. **P2.39 F1 next:** request one fresh exact approval for the bound E1B
+    candidate and mandatory Magisk rollback. Do not rebuild, rebind, or reuse
+    the stopped baseline manifest.
 20. **E2-E4 later:** prove platform bind and UDC, then one ACM banner and nonce
     exchange. No shell, NCM, Debian, or hot reload.
 
