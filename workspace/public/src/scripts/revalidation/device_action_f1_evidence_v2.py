@@ -919,7 +919,7 @@ def _verify_e1_latest_stage_offline_contract(
     candidate_static = _binary_identity(
         run_manifest.get("candidate_static"), "E1A candidate static result"
     )
-    if candidate_static != receipts["candidate_static"]:
+    if not _artifact_matches(receipts["candidate_static"], candidate_static):
         raise EvidenceError("run manifest does not bind the candidate static payload")
 
     candidate_static_result = _json(

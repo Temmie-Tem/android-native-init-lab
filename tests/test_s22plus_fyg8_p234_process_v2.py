@@ -268,6 +268,23 @@ class P234ProcessV2Test(unittest.TestCase):
             result["candidate_static_sha256"], candidate_static["sha256"]
         )
 
+    def test_offline_verifier_accepts_common_core_path_bearing_receipts(self):
+        _static, candidate_static, ap, payloads, receipts, acceptance = self.fixture()
+        pinned_receipts = {
+            name: {"path": f"/private/contracts/{name}.json", **receipt}
+            for name, receipt in receipts.items()
+        }
+        result = self.evidence.verify_offline_contract(
+            acceptance,
+            payloads=payloads,
+            receipts=pinned_receipts,
+            candidate_ap=ap,
+        )
+        self.assertTrue(result["verified"])
+        self.assertEqual(
+            result["candidate_static_sha256"], candidate_static["sha256"]
+        )
+
     def test_offline_verifier_rejects_changed_candidate_ap(self):
         _static, _candidate_static, ap, payloads, receipts, acceptance = self.fixture()
         changed = copy.deepcopy(ap)

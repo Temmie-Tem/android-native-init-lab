@@ -66,7 +66,7 @@ class S22PlusFyg8P227ProcessV2Test(unittest.TestCase):
         )
         self.assertEqual(
             bundle.sha256,
-            "ea6b06e26e7c2b14890da3cd9dfc05c9fa6d38c31ed5726716856be135714a00",
+            "0dbf9c5154c96624913a4451d1fbee8ccc86ba0183e6d55c0bbd0db33c643f65",
         )
         self.assertFalse(bundle.receipt["device_contact"])
         self.assertFalse(bundle.receipt["live_authorized"])
