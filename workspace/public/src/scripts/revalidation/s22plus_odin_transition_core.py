@@ -64,6 +64,10 @@ class OdinTransitionError(RuntimeError):
     pass
 
 
+class OdinEndpointArrivalRace(OdinTransitionError):
+    """The endpoint appeared between inventory capture and Odin enumeration."""
+
+
 class RunResult(Protocol):
     returncode: int
     stdout: str | bytes | None
@@ -356,6 +360,7 @@ def enumerate_odin(
     device_inventory: DeviceInventory = _default_device_inventory,
     endpoint_observer_factory: EndpointObserverFactory | None = None,
     allow_live_departure_race: bool = False,
+    allow_live_arrival_race: bool = False,
     timeout_sec: float = 10.0,
     timestamp: Callable[[], str] = live_core.utc_now,
 ) -> OdinSnapshot:
@@ -401,11 +406,20 @@ def enumerate_odin(
         sorted(set(ODIN_DEVICE_RE.findall(stdout)) | set(ODIN_DEVICE_RE.findall(stderr)))
     )
     identities_list: list[tuple[str, str]] = []
+    arrival_list: list[str] = []
     stale_list: list[str] = []
     for device in raw_devices:
         identity_before = before.get(device)
         try:
             identity_after = active_identity(device)
+        except usbfs_identity.UsbfsInventoryArrival as exc:
+            if allow_live_arrival_race and raw_devices == (exc.path,):
+                raise OdinEndpointArrivalRace(
+                    f"Odin endpoint arrived during enumeration: {exc.path}"
+                ) from exc
+            raise OdinTransitionError(
+                f"unexpected USB endpoint arrival during enumeration: {exc.path}"
+            ) from exc
         except (OSError, usbfs_identity.UsbfsIdentityError) as exc:
             raise OdinTransitionError(
                 f"Odin endpoint identity observation failed: {device}"
@@ -441,16 +455,35 @@ def enumerate_odin(
         if identity_before is None and identity_after is None:
             stale_list.append(device)
             continue
-        if identity_before is None or identity_after != identity_before:
+        if identity_before is None:
+            arrival_list.append(device)
+            continue
+        if identity_after != identity_before:
             raise OdinTransitionError(
                 f"Odin endpoint changed during enumeration: {device}"
             )
         identities_list.append((device, identity_after))
+    if arrival_list:
+        if len(arrival_list) == 1 and not identities_list:
+            raise OdinEndpointArrivalRace(
+                f"Odin endpoint arrived during enumeration: {arrival_list[0]}"
+            )
+        raise OdinTransitionError(
+            "ambiguous live Odin endpoints during enumeration"
+        )
     identities = tuple(identities_list)
     live_devices = tuple(device for device, _identity in identities)
     stale_devices = tuple(stale_list)
     try:
         endpoint_evidence = observer.evidence(live_devices) if observer is not None else None
+    except usbfs_identity.UsbfsInventoryArrival as exc:
+        if allow_live_arrival_race and not raw_devices:
+            raise OdinEndpointArrivalRace(
+                f"USB endpoint arrived after empty Odin enumeration: {exc.path}"
+            ) from exc
+        raise OdinTransitionError(
+            f"unexpected USB endpoint arrival during enumeration: {exc.path}"
+        ) from exc
     except (OSError, usbfs_identity.UsbfsIdentityError) as exc:
         raise OdinTransitionError("measured USB endpoint evidence failed") from exc
     return OdinSnapshot(
@@ -1332,6 +1365,7 @@ def _snapshot_and_record(
         device_inventory=device_inventory,
         endpoint_observer_factory=endpoint_observer_factory,
         allow_live_departure_race=allow_live_departure,
+        allow_live_arrival_race=allow_empty_post_receipt_change,
         timeout_sec=enumeration_timeout_sec,
         timestamp=timestamp,
     )
@@ -1393,19 +1427,26 @@ def wait_for_single_live_endpoint(
         remaining = deadline - _monotonic_now(monotonic)
         if remaining <= 0:
             return WaitResult(ticket=None, next_sequence=sequence, timed_out=True)
-        snapshot, record = _snapshot_and_record(
-            odin,
-            run_dir,
-            sequence,
-            runner=runner,
-            device_identity=device_identity,
-            device_inventory=device_inventory,
-            endpoint_observer_factory=endpoint_observer_factory,
-            timestamp=timestamp,
-            enumeration_timeout_sec=min(DEFAULT_ENUM_TIMEOUT_SEC, remaining),
-            lease=lease,
-            allow_empty_post_receipt_change=True,
-        )
+        try:
+            snapshot, record = _snapshot_and_record(
+                odin,
+                run_dir,
+                sequence,
+                runner=runner,
+                device_identity=device_identity,
+                device_inventory=device_inventory,
+                endpoint_observer_factory=endpoint_observer_factory,
+                timestamp=timestamp,
+                enumeration_timeout_sec=min(DEFAULT_ENUM_TIMEOUT_SEC, remaining),
+                lease=lease,
+                allow_empty_post_receipt_change=True,
+            )
+        except OdinEndpointArrivalRace:
+            remaining = deadline - _monotonic_now(monotonic)
+            if remaining <= 0:
+                return WaitResult(ticket=None, next_sequence=sequence, timed_out=True)
+            sleep(min(poll_sec, remaining))
+            continue
         generation = tracker.observe(snapshot.live_device_identities)
         sequence += 1
         if _monotonic_now(monotonic) >= deadline:

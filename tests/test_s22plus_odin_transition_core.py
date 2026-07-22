@@ -206,6 +206,96 @@ class S22PlusOdinTransitionCoreTest(unittest.TestCase):
             self.assertTrue(index["complete"])
             self.assertEqual(len(index["records"]), 2)
 
+    def test_wait_retries_endpoint_arrival_during_enumeration(self):
+        module = self.module
+        clock = FakeClock()
+        inventory_calls = {"count": 0}
+        runner = SequenceRunner([USB_008, USB_008])
+
+        def device_inventory():
+            inventory_calls["count"] += 1
+            if inventory_calls["count"] == 1:
+                return {}
+            return {USB_008: "node-008"}
+
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            with module.transaction_session(run_dir) as lease:
+                result = module.wait_for_single_live_endpoint(
+                    Path("odin4"),
+                    run_dir,
+                    timeout_sec=1,
+                    lease=lease,
+                    poll_sec=0.1,
+                    runner=runner,
+                    device_identity=lambda _path: "node-008",
+                    device_inventory=device_inventory,
+                    monotonic=clock.monotonic,
+                    sleep=clock.sleep,
+                )
+
+            self.assertFalse(result.timed_out)
+            self.assertEqual(result.ticket.device, USB_008)
+            self.assertEqual(result.next_sequence, 1)
+            self.assertEqual(runner.index, 2)
+            self.assertEqual(len(module.list_snapshot_receipts(run_dir)), 1)
+
+    def test_wait_does_not_retry_arrival_with_existing_live_endpoint(self):
+        module = self.module
+        clock = FakeClock()
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            with module.transaction_session(run_dir) as lease:
+                with self.assertRaisesRegex(
+                    module.OdinTransitionError, "ambiguous live Odin endpoints"
+                ):
+                    module.wait_for_single_live_endpoint(
+                        Path("odin4"),
+                        run_dir,
+                        timeout_sec=1,
+                        lease=lease,
+                        poll_sec=0.1,
+                        runner=SequenceRunner([f"{USB_008} {USB_009}"]),
+                        device_identity=lambda path: f"node:{path}",
+                        device_inventory=fixed_inventory(
+                            (USB_009, f"node:{USB_009}")
+                        ),
+                        monotonic=clock.monotonic,
+                        sleep=clock.sleep,
+                    )
+            self.assertEqual(len(module.list_snapshot_receipts(run_dir)), 0)
+
+    def test_wait_does_not_hide_replacement_behind_arrival(self):
+        module = self.module
+        clock = FakeClock()
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            with module.transaction_session(run_dir) as lease:
+                with self.assertRaisesRegex(
+                    module.OdinTransitionError, "changed during enumeration"
+                ):
+                    module.wait_for_single_live_endpoint(
+                        Path("odin4"),
+                        run_dir,
+                        timeout_sec=1,
+                        lease=lease,
+                        poll_sec=0.1,
+                        runner=SequenceRunner([f"{USB_008} {USB_009}"]),
+                        device_identity=(
+                            lambda path: (
+                                "new-node"
+                                if path == USB_008
+                                else "replacement-node"
+                            )
+                        ),
+                        device_inventory=fixed_inventory(
+                            (USB_009, "original-node")
+                        ),
+                        monotonic=clock.monotonic,
+                        sleep=clock.sleep,
+                    )
+            self.assertEqual(len(module.list_snapshot_receipts(run_dir)), 0)
+
     def test_generation_resumes_across_live_absent_live_calls(self):
         module = self.module
         with tempfile.TemporaryDirectory() as temporary:
@@ -1374,7 +1464,7 @@ class S22PlusOdinTransitionCoreTest(unittest.TestCase):
 
     def test_new_endpoint_during_enumeration_is_rejected(self):
         with self.assertRaisesRegex(
-            self.module.OdinTransitionError, "changed during enumeration"
+            self.module.OdinEndpointArrivalRace, "arrived during enumeration"
         ):
             self.module.enumerate_odin(
                 Path("odin4"),

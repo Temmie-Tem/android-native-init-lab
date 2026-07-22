@@ -14,6 +14,7 @@ SCRIPT_DIR = Path("workspace/public/src/scripts/revalidation")
 IDENTITY_SCRIPT = SCRIPT_DIR / "s22plus_odin_usbfs_identity.py"
 CORE_SCRIPT = SCRIPT_DIR / "s22plus_odin_transition_core.py"
 USB_008 = "/dev/bus/usb/002/008"
+USB_009 = "/dev/bus/usb/002/009"
 
 
 def load_module(name, path):
@@ -237,6 +238,17 @@ class S22PlusOdinUsbfsIdentityTest(unittest.TestCase):
         with self.assertRaises(module.UsbfsIdentityError):
             observer.identity(USB_008)
 
+    def test_observer_classifies_only_one_exact_inventory_arrival(self):
+        module = self.module
+        arrived = node(module)
+        observer = module.MeasuredUsbfsIdentityObserver(
+            inventory_reader=sequence_inventory({}, {USB_008: arrived}),
+        )
+        observer.inventory()
+        with self.assertRaises(module.UsbfsInventoryArrival) as raised:
+            observer.identity(USB_008)
+        self.assertEqual(raised.exception.path, USB_008)
+
     def test_inventory_membership_and_unrelated_replacement_are_rejected(self):
         module = self.module
         before = node(module)
@@ -396,6 +408,87 @@ class S22PlusOdinUsbfsIdentityTest(unittest.TestCase):
             self.assertEqual(len(receipts), 2)
             self.assertEqual(receipts[0]["live_devices"], [])
             self.assertEqual(receipts[1]["live_devices"], [USB_008])
+
+    def test_empty_odin_snapshot_retries_exact_arrival_during_same_poll(self):
+        module = self.module
+        core = self.core
+        before = node(module)
+        after = dataclasses.replace(before, st_atime_ns=101, st_ctime_ns=201)
+        stable = dataclasses.replace(
+            before, st_atime_ns=102, st_ctime_ns=202, st_mtime_ns=301
+        )
+        observations = iter(
+            (
+                {},
+                {USB_008: before},
+                {USB_008: before},
+                {USB_008: after},
+                {USB_008: stable},
+            )
+        )
+
+        def factory():
+            return module.MeasuredUsbfsIdentityObserver(
+                inventory_reader=lambda: dict(next(observations)),
+            )
+
+        outputs = iter(("", USB_008))
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            with core.transaction_session(run_dir) as lease:
+                waited = core.wait_for_single_live_endpoint(
+                    Path("odin4"),
+                    run_dir,
+                    timeout_sec=1,
+                    lease=lease,
+                    poll_sec=0,
+                    runner=lambda _argv, _timeout: SimpleNamespace(
+                        returncode=0, stdout=next(outputs), stderr=""
+                    ),
+                    endpoint_observer_factory=factory,
+                )
+            self.assertFalse(waited.timed_out)
+            self.assertEqual(waited.ticket.device, USB_008)
+            self.assertEqual(len(core.list_snapshot_receipts(run_dir)), 1)
+
+    def test_arrival_wait_rejects_measured_arrival_with_existing_live(self):
+        module = self.module
+        core = self.core
+        existing = node(
+            module,
+            path=USB_009,
+            st_ino=109,
+            st_rdev=os.makedev(189, 136),
+            device_minor=136,
+        )
+        arrived = node(module)
+        observations = iter(
+            ({USB_009: existing}, {USB_008: arrived, USB_009: existing})
+        )
+
+        def factory():
+            return module.MeasuredUsbfsIdentityObserver(
+                inventory_reader=lambda: dict(next(observations)),
+            )
+
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            with core.transaction_session(run_dir) as lease:
+                with self.assertRaises(core.OdinTransitionError):
+                    core.wait_for_single_live_endpoint(
+                        Path("odin4"),
+                        run_dir,
+                        timeout_sec=1,
+                        lease=lease,
+                        poll_sec=0,
+                        runner=lambda _argv, _timeout: SimpleNamespace(
+                            returncode=0,
+                            stdout=f"{USB_008} {USB_009}",
+                            stderr="",
+                        ),
+                        endpoint_observer_factory=factory,
+                    )
+            self.assertEqual(core.list_snapshot_receipts(run_dir), [])
 
     def test_live_snapshot_allows_exact_departure_before_absence_poll(self):
         module = self.module
@@ -608,33 +701,47 @@ class S22PlusOdinUsbfsIdentityTest(unittest.TestCase):
                     )
             self.assertEqual(core.list_snapshot_receipts(run_dir), [])
 
-    def test_arrival_during_enumeration_remains_fatal(self):
+    def test_arrival_during_enumeration_is_retried_by_arrival_wait_only(self):
         module = self.module
         core = self.core
         before = node(module)
-        observations = iter(({}, {USB_008: before}))
+        after = dataclasses.replace(before, st_atime_ns=101, st_ctime_ns=201)
+        stable = dataclasses.replace(
+            before, st_atime_ns=102, st_ctime_ns=202, st_mtime_ns=301
+        )
+        observations = iter(
+            (
+                {},
+                {USB_008: before},
+                {USB_008: before},
+                {USB_008: after},
+                {USB_008: stable},
+            )
+        )
 
         def factory():
             return module.MeasuredUsbfsIdentityObserver(
                 inventory_reader=lambda: dict(next(observations)),
             )
 
+        outputs = iter((USB_008, USB_008))
         with tempfile.TemporaryDirectory() as temporary:
             run_dir = Path(temporary)
             with core.transaction_session(run_dir) as lease:
-                with self.assertRaises(core.OdinTransitionError):
-                    core.wait_for_single_live_endpoint(
-                        Path("odin4"),
-                        run_dir,
-                        timeout_sec=1,
-                        lease=lease,
-                        poll_sec=0,
-                        runner=lambda _argv, _timeout: SimpleNamespace(
-                            returncode=0, stdout=USB_008, stderr=""
-                        ),
-                        endpoint_observer_factory=factory,
-                    )
-            self.assertEqual(core.list_snapshot_receipts(run_dir), [])
+                waited = core.wait_for_single_live_endpoint(
+                    Path("odin4"),
+                    run_dir,
+                    timeout_sec=1,
+                    lease=lease,
+                    poll_sec=0,
+                    runner=lambda _argv, _timeout: SimpleNamespace(
+                        returncode=0, stdout=next(outputs), stderr=""
+                    ),
+                    endpoint_observer_factory=factory,
+                )
+            self.assertFalse(waited.timed_out)
+            self.assertEqual(waited.ticket.device, USB_008)
+            self.assertEqual(len(core.list_snapshot_receipts(run_dir)), 1)
 
     def test_absence_poll_allows_live_endpoint_to_remain_before_departure(self):
         module = self.module

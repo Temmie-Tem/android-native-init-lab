@@ -57,6 +57,14 @@ class UsbfsIdentityError(RuntimeError):
     pass
 
 
+class UsbfsInventoryArrival(UsbfsIdentityError):
+    """One new usbfs node appeared while all baseline nodes stayed stable."""
+
+    def __init__(self, path: str):
+        super().__init__(f"usbfs node arrived during enumeration: {path}")
+        self.path = path
+
+
 @dataclass(frozen=True)
 class UsbfsNodeSnapshot:
     path: str
@@ -468,6 +476,24 @@ def validate_enumeration_evidence(evidence: Any) -> None:
         raise UsbfsIdentityError("usbfs enumeration transition order is invalid")
 
 
+def _exact_single_arrival_path(
+    before: dict[str, UsbfsNodeSnapshot],
+    after: dict[str, UsbfsNodeSnapshot],
+) -> str | None:
+    before_paths = set(before)
+    after_paths = set(after)
+    arrivals = after_paths - before_paths
+    if len(arrivals) != 1 or before_paths != after_paths - arrivals:
+        return None
+    for path in sorted(before_paths):
+        transition_evidence(before[path], after[path])
+    arrival = next(iter(arrivals))
+    _validate_snapshot(after[arrival])
+    if after[arrival].path != arrival:
+        raise UsbfsIdentityError("usbfs arrival path/snapshot mismatch")
+    return arrival
+
+
 class MeasuredUsbfsIdentityObserver:
     """Stateful adapter for one bounded Odin enumeration invocation."""
 
@@ -509,6 +535,9 @@ class MeasuredUsbfsIdentityObserver:
                 if path != snapshot.path:
                     raise UsbfsIdentityError("usbfs observer inventory path mismatch")
             if not allow_membership_change:
+                arrival = _exact_single_arrival_path(self._baseline, after)
+                if arrival is not None:
+                    raise UsbfsInventoryArrival(arrival)
                 enumeration_evidence(self._baseline, after, ())
             self._after = dict(after)
         return self._after

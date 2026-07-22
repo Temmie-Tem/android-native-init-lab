@@ -15,24 +15,18 @@ Do not add a device step when host-only work can answer the question.
 - No S22+ F1 live run is currently authorized.
 - R4W1-C3 is an inactive host-only checkpoint, not an executable policy.
 - Retired helpers and acknowledgement strings cannot authorize a new run.
-- The Process v2 H0 core and reusable D0/F1 adapters are complete. P2.29 used
-  its binding once and closed healthy after exact candidate and rollback
-  transfers. Its two USERSPACE records remain formally no-proof under the
-  immutable exact-one contract, although the operator-confirmed two candidate
-  boots and one-write-per-boot source guard establish userspace callback
-  execution. P2.30 adds a separately pinned, opt-in multiboot policy: after a
-  separately clean baseline, only one or more pure exact USERSPACE records are
-  positive; mixed, foreign, partial, and zero observations fail closed. The
-  old decoder and P2.29 verdict are unchanged. P2.31 host correlation further
-  establishes PID1 procfs mount, `statfs(PROC_SUPER_MAGIC)`, and storage of the
-  first exact E1 request, but not its userspace return or any later E1 stage.
-  P2.32 fixes a 45-byte compact A/B latest-stage design for E1A/E1B, but no
-  candidate exists. P2.33 implements the default-disabled kernel source,
-  E1A/E1B userspace, decoder, and typed evidence path H0. Its offline verifier
-  deliberately rejects because no candidate-bound build or artifact closure
-  exists. No manifest selects it, all bindings are consumed, and F1 remains
-  inactive. USBFS arrival and exact measured Odin-node departure remain
-  fail-closed.
+- P2.35 accepted one exact F1 approval, but stopped in `ABORTED` before
+  `DOWNLOAD_IDENTIFIED`, `candidate_flash_start`, or any AP transfer when a
+  normal USBFS endpoint arrival was classified as a fatal enumeration race.
+  The candidate was not attempted and no rollback transfer was needed. One
+  separately approved no-payload Odin reboot returned the unchanged Magisk
+  boot to Android; connected read-only D0 then passed FYG8, root, supporting
+  partitions, clean retained baseline, and Odin-endpoint absence.
+- The measured arrival path now retries only one exact added USBFS node during
+  bounded endpoint-arrival polling. Ambiguity, replacement, removal, terminal
+  absence, and ticket revalidation remain fail-closed. The old binding is
+  consumed and also names the previous execution closure. Another candidate
+  requires new H0 evidence, connected D0 preparation, and fresh exact approval.
 
 ## Permanent Safety Boundaries
 
