@@ -96,11 +96,12 @@ reports grant no device authority.
    candidate-bound records, artifact closure checker, five-state typed raw-byte
    observer, typed D0 baseline, and minimal runner dispatch. Focused tests pass;
    no candidate or live authority was created.
-10. **P2.20 next, H0 only:** independently review the actual execution-critical
-    patch, contract checker, evidence schema, and runner dispatch. Close any
-    finding before a kernel build or candidate artifact is allowed.
-11. **E2-E4 later:** prove module closure, platform bind and UDC, then one ACM
-   banner and one nonce-bound exchange. No shell, NCM, Debian, or hot reload.
+10. **P2.20 complete, H0 only:** independent Opus review of the execution
+    closure found no MUST-FIX; no build, artifact, device, or authority occurred.
+11. **P2.21 next, H0 only:** build and independently bind vmlinux, Image, boot
+    AP, pinned `/init`, no ring writer, and config; no manifest, D0, F1, transfer.
+12. **E2-E4 later:** prove module closure, platform bind and UDC, then one ACM
+    banner and nonce exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a C4 helper, add another per-candidate policy
 block, reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing
