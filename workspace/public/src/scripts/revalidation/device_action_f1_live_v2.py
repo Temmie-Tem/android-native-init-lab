@@ -498,6 +498,11 @@ def classify_acceptance(payload: bytes, acceptance: dict[str, Any]) -> dict[str,
             return typed_evidence.classify_same_ring_multiboot(payload, acceptance)
         except typed_evidence.EvidenceError as exc:
             raise F1LiveError(str(exc)) from exc
+    if acceptance.get("kind") == typed_evidence.E1_LATEST_STAGE_KIND:
+        try:
+            return typed_evidence.classify_e1_latest_stage(payload, acceptance)
+        except typed_evidence.EvidenceError as exc:
+            raise F1LiveError(str(exc)) from exc
     if acceptance.get("kind") == typed_evidence.PID1_USERSPACE_KIND:
         try:
             return typed_evidence.classify_pid1_userspace(payload, acceptance)

@@ -163,6 +163,48 @@ class DeviceActionF1V2Test(unittest.TestCase):
             self.assertFalse(plan["odin_invoked"])
             self.assertFalse(plan["live_authorized"])
 
+    def test_p233_source_only_evidence_is_rejected_by_full_bundle_path(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            _, manifest, _, manifest_path = self.fixture(root)
+            contracts = root / "contracts"
+            contracts.mkdir()
+
+            artifacts = {}
+            for name in ("run_manifest", "static_check"):
+                path = contracts / f"{name}.json"
+                payload = b"{}"
+                path.write_bytes(payload)
+                artifacts[name] = {
+                    "path": str(path.relative_to(root)),
+                    "size": len(payload),
+                    "sha256": hashlib.sha256(payload).hexdigest(),
+                }
+
+            decoder = self.module.typed_evidence.e1_latest_stage
+            model = decoder.model
+            run_id = hashlib.sha256(b"P233-BUNDLE-BLOCK-TEST").digest()[:16]
+            self.assertNotEqual(run_id, model.model_run_id("E1A"))
+            manifest["observation"]["acceptance"] = {
+                "kind": self.module.typed_evidence.E1_LATEST_STAGE_KIND,
+                "source": self.module.typed_evidence.CHECKPOINT_SOURCE,
+                "decoder": decoder.DECODER_ID,
+                "policy_id": decoder.POLICY_ID,
+                "profile": "E1A",
+                "run_id": run_id.hex(),
+                "long_family_hex": model.LONG_FAMILY.hex(),
+                "unsat_family_hex": model.UNSAT_FAMILY.hex(),
+                "terminal_stage": model.PROFILE_TERMINALS["E1A"],
+                "minimum_success_count": 1,
+                "clean_baseline_required": True,
+                "contract": artifacts,
+            }
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            with self.assertRaisesRegex(
+                self.module.F1V2Error, "no candidate-bound offline contract"
+            ):
+                self.module.verify_bundle(root, manifest_path)
+
     def test_manifest_readiness_state_is_explicit_and_bounded(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

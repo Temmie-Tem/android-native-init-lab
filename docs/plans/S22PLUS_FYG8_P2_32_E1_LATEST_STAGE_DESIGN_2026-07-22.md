@@ -205,9 +205,9 @@ multiboot recovery states, and invalid-magic/nonselection controls:
 
 `tests/test_s22plus_fyg8_p232_e1_latest_stage_design.py`
 
-## P2.33 Changed Closure
+## P2.33 Implemented Closure
 
-P2.33 may implement and statically validate only:
+P2.33 implements and statically validates only:
 
 1. one P2.25-derived guarded kernel patch with exact 45/24-byte layouts,
    compact A/B writes, cache flushes, and header checks;
@@ -219,6 +219,11 @@ P2.33 may implement and statically validate only:
 5. focused adversarial tests plus one independent review of that changed
    execution-critical closure.
 
-P2.33 remains H0. It must not build a kernel or image, create a ready manifest,
-contact a device, invoke Odin, or authorize F1. Clean build, artifact closure,
-D0, approval, and live execution remain later separate units.
+The implementation passes as
+`PASS_P233_E1_SOURCE_IMPLEMENTATION_HOST_ONLY`. The typed adapter deliberately
+rejects offline promotion until a future candidate-bound contract exists.
+P2.33 remains H0: it built no kernel or image, created no ready manifest,
+contacted no device, invoked no Odin, and authorized no F1. Clean build,
+artifact closure, D0, approval, and live execution remain separate units.
+
+`docs/reports/S22PLUS_FYG8_P233_E1_SOURCE_IMPLEMENTATION_HOST_PASS_2026-07-22.md`

@@ -398,6 +398,20 @@ def execution_critical_source_receipts(
         }
         for name, path in same_ring_multiboot_sources.items():
             receipts[name] = _stable_read(path.resolve(), name.replace("_", " "))[1]
+    if acceptance.get("kind") == typed_evidence.E1_LATEST_STAGE_KIND:
+        e1_latest_stage_sources = {
+            "e1_latest_stage_decoder": Path(
+                typed_evidence.e1_latest_stage.__file__
+            ),
+            "e1_latest_stage_design_model": Path(
+                typed_evidence.e1_latest_stage.model.__file__
+            ),
+            "e1_latest_stage_static_checker": Path(__file__).with_name(
+                "s22plus_fyg8_p233_e1_static_checker.py"
+            ),
+        }
+        for name, path in e1_latest_stage_sources.items():
+            receipts[name] = _stable_read(path.resolve(), name.replace("_", " "))[1]
     return receipts
 
 

@@ -27,9 +27,12 @@ Do not add a device step when host-only work can answer the question.
   establishes PID1 procfs mount, `statfs(PROC_SUPER_MAGIC)`, and storage of the
   first exact E1 request, but not its userspace return or any later E1 stage.
   P2.32 fixes a 45-byte compact A/B latest-stage design for E1A/E1B, but no
-  kernel/userspace implementation or candidate exists. No manifest selects
-  P2.30 or P2.32, all bindings are consumed, and F1 remains inactive. USBFS
-  arrival and exact measured Odin-node departure remain fail-closed.
+  candidate exists. P2.33 implements the default-disabled kernel source,
+  E1A/E1B userspace, decoder, and typed evidence path H0. Its offline verifier
+  deliberately rejects because no candidate-bound build or artifact closure
+  exists. No manifest selects it, all bindings are consumed, and F1 remains
+  inactive. USBFS arrival and exact measured Odin-node departure remain
+  fail-closed.
 
 ## Permanent Safety Boundaries
 

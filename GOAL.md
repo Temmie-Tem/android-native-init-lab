@@ -10,7 +10,7 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 ## Current Frontier
 
 **State: R4W1-D DIRECT PID1 PROVEN; P2.31 FIRST E1 PROCFS CHECKPOINT
-TECHNICALLY PROVEN; P2.32 COMPACT E1A/E1B A/B DESIGN PASS; F1 INACTIVE.**
+TECHNICALLY PROVEN; P2.33 COMPACT E1 SOURCE IMPLEMENTATION PASS; F1 INACTIVE.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -32,8 +32,9 @@ P2.30 adds an opt-in multiboot evidence policy without changing P2.29. P2.32
 now fixes a 45-byte shared-header plus compact A/B latest-stage record, strict
 E1A/E1B transitions, torn-update fallback, and multiboot decoding in an
 executable H0 model. No implementation, candidate, approval, or live authority
-was created.
-
+was created by P2.32. P2.33 now implements the default-disabled kernel source,
+E1A/E1B userspace, decoder, typed evidence path, and static checker. It creates
+no build or candidate, and its offline verifier deliberately refuses promotion.
 No active S22+ F1 authorization. Any future candidate requires new data,
 connected D0 preparation, fresh exact approval, one candidate attempt,
 mandatory rollback, and final health under Process v2.
@@ -63,6 +64,8 @@ The controlling next-stage design is
   gate, and raw replay close the first procfs checkpoint semantics H0.
 - P2.32: compact 45-byte A/B layout, strict E1A/E1B stage model, torn fallback,
   and fail-closed multiboot policy passed H0.
+- P2.33: kernel/client/runtime/decoder source closure, 90,114 adjacent A/B
+  variants, static AArch64 links, review, and Process v2 refusal passed H0.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
   rollback, and final health are proven.
 - V3439: pstore, pmsg, ramoops, and DTBO-based retention remain retired.
@@ -80,6 +83,7 @@ Load-bearing details are in:
 - `docs/reports/S22PLUS_FYG8_P230_MULTIBOOT_EVIDENCE_POLICY_HOST_PASS_2026-07-22.md`
 - `docs/reports/S22PLUS_FYG8_P231_E1_PROC_MOUNTED_SEMANTIC_CLOSURE_2026-07-22.md`
 - `docs/plans/S22PLUS_FYG8_P2_32_E1_LATEST_STAGE_DESIGN_2026-07-22.md`
+- `docs/reports/S22PLUS_FYG8_P233_E1_SOURCE_IMPLEMENTATION_HOST_PASS_2026-07-22.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
 
@@ -106,13 +110,12 @@ reports grant no device authority.
    operator-confirmed two-boot USERSPACE callback evidence.
 9. **P2.30 complete, H0:** opt-in one-or-more USERSPACE policy, strict clean
    baseline, fail-closed matrix, archived replay, and review passed.
-10. **P2.31 complete, H0:** first procfs mount/readback and exact kernel-store
-    semantics closed without changing P2.29's formal verdict.
-11. **P2.32 complete, H0:** compact A/B latest-stage layout, E1A/E1B profiles,
-    torn fallback, multiboot policy, model, and adversarial tests passed.
-12. **P2.33 next, H0:** implement only kernel/client/decoder/static-checker
-    closure and independently review it. No build or candidate yet.
-13. **E2-E4 later:** prove platform bind and UDC, then one ACM banner and nonce
+10. **P2.31 complete, H0:** first procfs checkpoint semantics closed.
+11. **P2.32 complete, H0:** compact E1A/E1B A/B model and tests passed.
+12. **P2.33 complete, H0:** source closure passed; no build or candidate.
+13. **P2.34 next, H0:** one candidate-specific clean build, boot-only AP, and
+    offline artifact binding. No device contact.
+14. **E2-E4 later:** prove platform bind and UDC, then one ACM banner and nonce
     exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed

@@ -11,6 +11,7 @@ from typing import Any
 import s22plus_fyg8_r4w1e_checkpoint_contract as checkpoint
 import s22plus_fyg8_p219_same_ring_decoder as same_ring
 import s22plus_fyg8_p230_same_ring_multiboot_decoder as same_ring_multiboot
+import s22plus_fyg8_p233_e1_decoder as e1_latest_stage
 
 
 MARKER_KIND = "retained_marker_after_rollback"
@@ -20,10 +21,12 @@ SAME_RING_KIND = "retained_pid1_same_ring_discriminator_after_rollback"
 SAME_RING_MULTIBOOT_KIND = (
     "retained_pid1_same_ring_multiboot_discriminator_after_rollback"
 )
+E1_LATEST_STAGE_KIND = "retained_e1_latest_stage_multiboot_after_rollback"
 CHECKPOINT_DECODER = "s22plus_fyg8_r4w1e_checkpoint_v1"
 PID1_USERSPACE_DECODER = "s22plus_fyg8_r4w1e0_pid1_userspace_v1"
 SAME_RING_DECODER = "s22plus_fyg8_p219_same_ring_v1"
 SAME_RING_MULTIBOOT_DECODER = "s22plus_fyg8_p230_same_ring_multiboot_v1"
+E1_LATEST_STAGE_DECODER = e1_latest_stage.DECODER_ID
 CHECKPOINT_SOURCE = "/proc/last_kmsg"
 PID1_USERSPACE_TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
 PID1_USERSPACE_ENTRY = b"\n[[S22P1U|ba234c7de4105b2a23222436284605f2]]\n"
@@ -250,6 +253,52 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
             "same-ring multiboot contract static_check",
         )
         return item
+    if kind == E1_LATEST_STAGE_KIND:
+        item = _exact(
+            value,
+            {
+                "kind",
+                "source",
+                "decoder",
+                "policy_id",
+                "profile",
+                "run_id",
+                "long_family_hex",
+                "unsat_family_hex",
+                "terminal_stage",
+                "minimum_success_count",
+                "clean_baseline_required",
+                "contract",
+            },
+            "E1 latest-stage acceptance",
+        )
+        profile = item["profile"]
+        model = e1_latest_stage.model
+        model_ids = {model.model_run_id(name).hex() for name in model.PROFILE_NUMBERS}
+        if (
+            item["source"] != CHECKPOINT_SOURCE
+            or item["decoder"] != E1_LATEST_STAGE_DECODER
+            or item["policy_id"] != e1_latest_stage.POLICY_ID
+            or profile not in model.PROFILE_NUMBERS
+            or not isinstance(item["run_id"], str)
+            or HEX32_RE.fullmatch(item["run_id"]) is None
+            or item["run_id"] == "0" * 32
+            or item["run_id"] in model_ids
+            or item["long_family_hex"] != model.LONG_FAMILY.hex()
+            or item["unsat_family_hex"] != model.UNSAT_FAMILY.hex()
+            or item["terminal_stage"] != model.PROFILE_TERMINALS.get(profile)
+            or item["minimum_success_count"] != 1
+            or item["clean_baseline_required"] is not True
+        ):
+            raise EvidenceError("E1 latest-stage acceptance identity is invalid")
+        contract = _exact(
+            item["contract"],
+            {"run_manifest", "static_check"},
+            "E1 latest-stage contract",
+        )
+        _artifact(contract["run_manifest"], "E1 latest-stage run_manifest")
+        _artifact(contract["static_check"], "E1 latest-stage static_check")
+        return item
     if kind == PID1_USERSPACE_KIND:
         item = _exact(
             value,
@@ -337,6 +386,7 @@ def contract_artifacts(acceptance: dict[str, Any]) -> dict[str, dict[str, Any]]:
         PID1_USERSPACE_KIND,
         SAME_RING_KIND,
         SAME_RING_MULTIBOOT_KIND,
+        E1_LATEST_STAGE_KIND,
     }:
         return {}
     return {
@@ -767,6 +817,11 @@ def verify_offline_contract(
     receipts: dict[str, dict[str, Any]],
     candidate_ap: dict[str, Any],
 ) -> dict[str, Any]:
+    if acceptance.get("kind") == E1_LATEST_STAGE_KIND:
+        raise EvidenceError(
+            "P2.33 E1 latest-stage evidence has no candidate-bound offline "
+            "contract; source-only implementation cannot become live-ready"
+        )
     if acceptance.get("kind") in {SAME_RING_KIND, SAME_RING_MULTIBOOT_KIND}:
         return _verify_same_ring_offline_contract(
             acceptance,
@@ -1050,10 +1105,71 @@ def classify_same_ring_multiboot(
     return result
 
 
+def classify_e1_latest_stage(
+    payload: bytes, acceptance: dict[str, Any]
+) -> dict[str, Any]:
+    item = validate_acceptance(acceptance)
+    if item["kind"] != E1_LATEST_STAGE_KIND:
+        raise EvidenceError("E1 latest-stage classifier received another kind")
+    try:
+        decoded = e1_latest_stage.classify_observation(
+            payload,
+            expected_profile=item["profile"],
+            expected_run_id=bytes.fromhex(item["run_id"]),
+        )
+    except e1_latest_stage.DecodeError as exc:
+        raise EvidenceError(str(exc)) from exc
+
+    model = e1_latest_stage.model
+    long_family_count = payload.count(model.LONG_FAMILY)
+    unsat_family_count = payload.count(model.UNSAT_FAMILY)
+    family_count = long_family_count + unsat_family_count
+    exact_record_count = decoded["long_record_count"] + decoded["unsat_count"]
+    result = _base_classification(
+        classification=decoded["classification"],
+        exact_count=decoded["success_count"],
+        family_count=family_count,
+        integrity_issue=decoded["integrity_issue"],
+    )
+    result["exact_record_count"] = exact_record_count
+    result["foreign_count"] = max(0, family_count - exact_record_count)
+    result["baseline_absent"] = decoded["classification"] == "ZERO_AMBIGUOUS"
+    result["acceptance_present"] = decoded["accepted"]
+    result["accepted"] = decoded["accepted"]
+    result["long_record_count"] = decoded["long_record_count"]
+    result["unsat_count"] = decoded["unsat_count"]
+    result["entry_count"] = decoded["entry_count"]
+    result["progress_count"] = decoded["progress_count"]
+    result["failure_count"] = decoded["failure_count"]
+    result["success_count"] = decoded["success_count"]
+    result["fallback_record_count"] = decoded["fallback_record_count"]
+    result["minimum_candidate_boots"] = decoded["minimum_candidate_boots"]
+    result["records"] = decoded["records"]
+    result["integrity_issues"] = decoded["integrity_issues"]
+    result["policy_id"] = item["policy_id"]
+    result["profile"] = item["profile"]
+    result["run_id"] = item["run_id"]
+    result["residual_zero_meanings"] = decoded["residual_zero_meanings"]
+    return result
+
+
 def classify_clean_baseline(
     payload: bytes, acceptance: dict[str, Any]
 ) -> dict[str, Any]:
     item = validate_acceptance(acceptance)
+    if item["kind"] == E1_LATEST_STAGE_KIND:
+        baseline = e1_latest_stage.classify_clean_baseline(
+            payload,
+            expected_profile=item["profile"],
+            expected_run_id=bytes.fromhex(item["run_id"]),
+        )
+        return {
+            "classification": baseline["classification"],
+            "exact_record_count": 0,
+            "family_count": 0 if baseline["baseline_clean"] else 1,
+            "integrity_issue": baseline["integrity_issue"],
+            "baseline_clean": baseline["baseline_clean"],
+        }
     if item["kind"] in {SAME_RING_KIND, SAME_RING_MULTIBOOT_KIND}:
         result = (
             classify_same_ring_multiboot(payload, item)

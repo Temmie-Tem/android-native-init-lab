@@ -230,4 +230,14 @@ kernel implementation, candidate, or live authority exists.
 
 `docs/plans/S22PLUS_FYG8_P2_32_E1_LATEST_STAGE_DESIGN_2026-07-22.md`
 
+P2.33 implements that design as a default-disabled kernel patch, compact
+version-2 client, profile-selectable E1A/E1B runtime, raw decoder, and opt-in
+typed evidence path. The host checker proves clean patch application, exact
+profile closure, and all reachable adjacent A/B record variants using non-model
+source-check identities. No kernel/image/candidate build exists, and the typed
+path deliberately refuses offline promotion until a candidate-bound contract
+is added.
+
+`docs/reports/S22PLUS_FYG8_P233_E1_SOURCE_IMPLEMENTATION_HOST_PASS_2026-07-22.md`
+
 `docs/reports/S22PLUS_FYG8_P219_SAME_RING_IMPLEMENTATION_HOST_PASS_2026-07-22.md`

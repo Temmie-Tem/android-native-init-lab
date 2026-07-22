@@ -373,12 +373,18 @@ shared-header A/B record, version-2 fixed requests, E1A/E1B stage tables,
 torn-write fallback, and multiboot success policy. It creates no implementation
 patch, build, candidate, manifest, approval, or device authority.
 
+P2.33 implements the source closure: a default-disabled kernel patch, compact
+client, E1A/E1B runtime, raw decoder, typed evidence path, and static checker.
+The checker clean-applies the patch, links both runtime profiles, and exhausts
+all reachable compact slot values. The typed path cannot pass Process v2
+offline verification until a future candidate-specific build binds it.
+
 ## Next bounded unit
 
-Implement P2.33 host-only: one P2.25-derived kernel patch, version-2 E1A/E1B
-client/runtime profiles, raw decoder/evidence adapter, static control-flow
-checker, adversarial tests, and one independent review. Do not build a kernel
-or image, create a candidate, contact a device, or start E2 USB work.
+Implement P2.34 host-only: derive one non-model identity and UNSAT tag, bind
+kernel and userspace profile configuration, perform one clean Full-LTO build,
+link the exact runtime and child, package one boot-only AP, and add the
+candidate-bound offline verifier. Do not contact a device or start E2 USB work.
 
 ## External references
 
