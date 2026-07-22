@@ -9,8 +9,8 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 
 ## Current Frontier
 
-**State: R4W1-D DIRECT PID1 PROVEN; P2.29 FORMAL NO-PROOF WITH USERSPACE
-CALLBACK OBSERVED; P2.30 H0 MULTIBOOT POLICY PASS; F1 INACTIVE.**
+**State: R4W1-D DIRECT PID1 PROVEN; P2.29 FORMAL NO-PROOF; P2.31 FIRST E1
+PROCFS CHECKPOINT TECHNICALLY PROVEN; F1 INACTIVE.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -22,9 +22,11 @@ USERSPACE replacement per boot.
 
 P2.29's immutable exact-one contract correctly rejected two records as
 `AMBIGUOUS_INTEGRITY_FAILURE`, so its durable verdict remains
-`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. The same evidence nevertheless proves
-that the PID 1 userspace callback ran in at least one candidate boot. It does
-not prove later mounts, child execution, module bind, USB, or a control loop.
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. P2.31 binds the exact candidate,
+control flow, request ABI, kernel writer, and P2.30 replay. It establishes that
+PID 1 mounted procfs, verified `PROC_SUPER_MAGIC`, and caused the kernel to
+store the exact first E1 request. It does not prove that write returned or any
+later E1 stage.
 
 P2.30 adds a separate opt-in typed evidence policy for future runs. Given a
 separately clean baseline, one or more pure exact USERSPACE records are
@@ -59,6 +61,8 @@ The controlling next-stage design is
   under the immutable exact-one contract.
 - P2.30: a separate fixed multiboot policy, strict baseline dispatch, archived
   P2.29 replay, focused tests, and independent safety review passed H0.
+- P2.31: exact artifact/transfer, request ABI, userspace control flow, kernel
+  gate, and raw replay close the first procfs checkpoint semantics H0.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
   rollback, and final health are proven.
 - V3439: pstore, pmsg, ramoops, and DTBO-based retention remain retired.
@@ -74,6 +78,7 @@ Load-bearing details are in:
 - `docs/reports/S22PLUS_FYG8_P226_P228_LIVE_READY_2026-07-22.md`
 - `docs/reports/S22PLUS_FYG8_P229_F1_LIVE_DUPLICATE_USERSPACE_NO_PROOF_2026-07-22.md`
 - `docs/reports/S22PLUS_FYG8_P230_MULTIBOOT_EVIDENCE_POLICY_HOST_PASS_2026-07-22.md`
+- `docs/reports/S22PLUS_FYG8_P231_E1_PROC_MOUNTED_SEMANTIC_CLOSURE_2026-07-22.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
 
@@ -100,9 +105,11 @@ reports grant no device authority.
    operator-confirmed two-boot USERSPACE callback evidence.
 9. **P2.30 complete, H0:** opt-in one-or-more USERSPACE policy, strict clean
    baseline, fail-closed matrix, archived replay, and review passed.
-10. **E2 next, H0:** design the smallest module-closure observation rung from
-    the now-proven userspace callback. Do not create a live candidate yet.
-11. **E3-E4 later:** prove platform bind and UDC, then one ACM banner and nonce
+10. **P2.31 complete, H0:** first procfs mount/readback and exact kernel-store
+    semantics closed without changing P2.29's formal verdict.
+11. **P2.32 next, H0:** design compact latest-stage evidence for remaining E1A
+    mounts/child, then E1B watchdog closure. Do not create a candidate yet.
+12. **E2-E4 later:** prove platform bind and UDC, then one ACM banner and nonce
     exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
@@ -116,7 +123,7 @@ DEVICE only when required and authorized, REPORT, then scoped COMMIT.
 
 ## Success Conditions
 
-The direct-PID1 and first userspace-callback rungs are evidenced. The remaining
+The direct-PID1 and first procfs checkpoint are evidenced. The remaining
 post-PID1 frontier closes only through separate Process v2 rungs that prove:
 
 - mounts/readbacks plus one exact static child token, exit, and reap;

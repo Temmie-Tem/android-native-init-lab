@@ -213,4 +213,13 @@ No ready manifest or live authority was created.
 
 `docs/reports/S22PLUS_FYG8_P230_MULTIBOOT_EVIDENCE_POLICY_HOST_PASS_2026-07-22.md`
 
+P2.31 correlates the exact P2.26 AP and P2.29 transfer with the request ABI,
+userspace control flow, kernel exact-write gate, and P2.30 raw replay. The pure
+USERSPACE record therefore closes PID1 procfs mount plus
+`statfs(PROC_SUPER_MAGIC)` and storage of the first E1 progress request. It
+does not prove the write returned to userspace or any later E1 stage. The next
+carrier work remains E1 continuation, not USB.
+
+`docs/reports/S22PLUS_FYG8_P231_E1_PROC_MOUNTED_SEMANTIC_CLOSURE_2026-07-22.md`
+
 `docs/reports/S22PLUS_FYG8_P219_SAME_RING_IMPLEMENTATION_HOST_PASS_2026-07-22.md`

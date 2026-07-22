@@ -23,9 +23,12 @@ Do not add a device step when host-only work can answer the question.
   execution. P2.30 adds a separately pinned, opt-in multiboot policy: after a
   separately clean baseline, only one or more pure exact USERSPACE records are
   positive; mixed, foreign, partial, and zero observations fail closed. The
-  old decoder and P2.29 verdict are unchanged. No manifest selects P2.30, all
-  bindings are consumed, and F1 remains inactive. USBFS arrival and exact
-  measured Odin-node departure remain fail-closed.
+  old decoder and P2.29 verdict are unchanged. P2.31 host correlation further
+  establishes PID1 procfs mount, `statfs(PROC_SUPER_MAGIC)`, and storage of the
+  first exact E1 request, but not its userspace return or any later E1 stage.
+  No manifest selects P2.30, all bindings are consumed, and F1 remains
+  inactive. USBFS arrival and exact measured Odin-node departure remain
+  fail-closed.
 
 ## Permanent Safety Boundaries
 

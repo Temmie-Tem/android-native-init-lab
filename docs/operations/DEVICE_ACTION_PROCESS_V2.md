@@ -228,6 +228,12 @@ closure binds both the P2.30 policy decoder and the unchanged P2.19 record
 decoder. Archived P2.29 raw bytes replay positive only under P2.30; this is H0
 analysis, not a retroactive F1 PASS. No ready manifest or live authority exists.
 
+P2.31 correlates that accepted H0 replay with the exact P2.26 AP, completed
+P2.29 transfer, request ABI, userspace control flow, and kernel gate. This
+technically establishes PID1 procfs mount, `statfs(PROC_SUPER_MAGIC)`, and the
+kernel store of the first E1 request. It does not change P2.29's formal verdict,
+prove the write returned, or authorize a later E1 or E2 rung.
+
 ### Append-Only Journal
 
 The runner creates one exclusive run directory and appends immutable transition

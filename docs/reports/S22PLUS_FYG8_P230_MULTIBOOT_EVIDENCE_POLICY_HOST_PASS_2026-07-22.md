@@ -74,6 +74,10 @@ The focused follow-up review found no remaining issue and issued `GO`.
 ## Boundary And Next Unit
 
 P2.30 is an H0 evidence capability only. F1 remains inactive and all previous
-bindings are consumed. The next unit is E2 H0 design for the smallest
-module-closure observation based on the now-evidenced userspace callback; it
-must not create a live candidate or infer platform bind from module presence.
+bindings are consumed.
+
+Planning correction from P2.31: advancing directly to E2 would skip unfinished
+E1 work. The observation closes only the first procfs checkpoint. P2.32 must
+first design continued E1 evidence for the remaining mounts, child lifecycle,
+watchdog closure, and terminal success. It must not create a live candidate or
+infer platform bind from module presence.

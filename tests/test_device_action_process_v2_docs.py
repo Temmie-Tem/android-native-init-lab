@@ -87,6 +87,8 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("P2.28 complete, D0", self.goal)
         self.assertIn("P2.29 complete/closed, F1", self.goal)
         self.assertIn("P2.30 complete, H0", self.goal)
+        self.assertIn("P2.31 complete, H0", self.goal)
+        self.assertIn("P2.32 next, H0", self.goal)
         self.assertIn("all bindings are consumed", normalized_agents)
         self.assertIn("P2.1-P2.5 complete", self.process)
         self.assertIn("P2.6-P2.10 host path complete", self.process)
@@ -95,6 +97,7 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("reusable D0/F1 adapters are complete", self.agents)
         self.assertIn("P2.29 used its binding once", normalized_agents)
         self.assertIn("P2.30 adds a separately pinned", normalized_agents)
+        self.assertIn("P2.31 host correlation", normalized_agents)
         self.assertIn("F1 remains inactive", normalized_agents)
         self.assertIn(
             "PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY", self.process

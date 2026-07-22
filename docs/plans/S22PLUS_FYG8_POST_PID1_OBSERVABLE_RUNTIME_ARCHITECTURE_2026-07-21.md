@@ -20,6 +20,11 @@ Use one new target-guarded kernel evidence carrier for all of these rungs. Keep
 the rungs as separate Process v2 transactions. No current device action is
 authorized by this design.
 
+P2.31 updates the evidence boundary without changing the ladder: the exact
+P2.26/P2.29 candidate reached the first E1 checkpoint after procfs mount and
+`statfs(PROC_SUPER_MAGIC)`. The remaining local-runtime work is still E1; it
+must not be relabeled or skipped as E2 module work.
+
 ## Evidence baseline
 
 ### Proven
@@ -29,6 +34,9 @@ authorized by this design.
 - R4W1-D proved `kernel_execve("/init") == 0` while `current` was PID 1. Two
   complete post-rollback `/proc/last_kmsg` reads retained one exact contiguous
   proof and no foreign or partial proof.
+- P2.31 binds the exact later candidate and pure USERSPACE observation to PID1
+  procfs mount, filesystem-magic readback, and kernel storage of the first E1
+  progress request.
 - The R4W1-C carrier remained alive long enough for attended recovery while
   containing the exact five-module watchdog closure.
 - Stock FYG8 proves that `sec_log_buf`, `dwc3-msm`, the UDC, and the MAX77705
@@ -36,9 +44,9 @@ authorized by this design.
 
 ### Not proven
 
-- No R4W1-D evidence comes from userspace. It does not prove `_start`, a mount,
-  `finit_module`, child execution, bind, UDC creation, USB enumeration, or a
-  control loop.
+- P2.31 does not prove successful return from the first checkpoint write,
+  sysfs/tmpfs setup, `finit_module`, child execution, bind, UDC creation, USB
+  enumeration, or a control loop.
 - O3F and the earlier S22+ USB candidates did not retain an internal phase.
   Their no-enumeration result cannot identify which internal operation ran.
 - Module registration in `/proc/modules` is not driver probe or platform bind.
@@ -342,13 +350,19 @@ and byte-exact request comparison with the P2.7 carrier model. Details are in
 No kernel build, ramdisk, candidate, device contact, or live authority was
 produced.
 
+P2.21-P2.30 subsequently built, bound, executed, rolled back, and reclassified
+the compact first-checkpoint candidate. P2.31 host correlation establishes the
+first procfs checkpoint semantics while preserving P2.29's formal no-proof
+verdict. The current one-write-per-boot carrier cannot expose later E1 stages.
+
 ## Next bounded unit
 
-Adapt the existing clean R4W1 Full-LTO build, source-restoration, FIPS,
-reproduction, candidate-builder, and independent-checker path to the exact
-R4W1-E carrier and E1 sources. Produce one clean kernel build plus an offline
-E1 ramdisk/candidate contract with a fresh manifest-bound run ID. This remains
-host-only and must not create live policy, contact a device, or flash.
+Design P2.32 host-only: retain the proven compact frozen-cursor geometry while
+encoding the latest accepted E1 stage with exact candidate/run identity,
+strict successor checks, and fail-closed integrity handling. Split continued
+E1 proof into E1A (remaining mounts, node, child lifecycle) and E1B (watchdog
+closure and terminal success). Do not build an image, contact a device, or
+start E2 USB work in that unit.
 
 ## External references
 
