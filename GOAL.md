@@ -10,7 +10,7 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 ## Current Frontier
 
 **State: R4W1-D DIRECT PID1 PROVEN; P2.37 E1A LOCAL RUNTIME LIVE PASS;
-P2.39 E1B CONNECTED D0 PREPARED; F1 AWAITS EXACT APPROVAL.**
+P2.39 E1B MODULE RUNTIME LIVE PASS; F1 CLOSED HEALTHY.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -88,6 +88,18 @@ execution closure. One private prepared binding now exists. No Odin invocation,
 Download transition, partition transfer, or F1 authorization occurred. The next
 action is one exact E1B F1 approval; the candidate must not run before it.
 
+That exact approval was supplied and consumed. One candidate transfer completed,
+the operator observed no boot loop, and the transaction reached `OBSERVED`.
+The first recovery inventory check stopped before the physical Download endpoint
+was available; it did not retry the candidate. Once the exact endpoint appeared,
+the same durable transaction resumed with the preapproved Magisk rollback. Two
+byte-identical retained reads contained one exact E1B terminal-success record:
+generation 14 had reached `WDT_MODULES_VERIFIED` stage `0x35`, and generation 15
+reached E1B success `0x3f`. UNSAT, failure, foreign, malformed, historical,
+partial, and fallback counts were zero. Final Android, FYG8, root, boot,
+supporting partitions, Odin absence, and all eight timeline events passed. The
+state is `CLOSED`, the binding is consumed, and no S22+ F1 authority remains.
+
 The controlling next-stage design is
 `docs/plans/S22PLUS_FYG8_POST_PID1_OBSERVABLE_RUNTIME_ARCHITECTURE_2026-07-21.md`.
 
@@ -138,13 +150,14 @@ The controlling next-stage design is
   15-file symvers identity, full R2 module-CRC closure, vendor-rootfs composition,
   and 93 focused regressions passed H0. Implementation remains; no candidate or
   live authority exists.
-- P2.39 E1B candidate H0: profile-2 source and userspace, two clean byte-identical
+- P2.39 E1B F1: profile-2 source and userspace, two clean byte-identical
   Full-LTO builds, deterministic boot-only packaging, effective-rootfs module
   closure, exact offline evidence, 142 tests, and independent review passed.
   The first connected D0 stopped read-only on the historical P2.37 E1A terminal
   record. One approved normal reboot rotated it out; a fresh connected D0 then
-  passed and produced one private prepared binding. F1 remains unexecuted and
-  requires its exact approval.
+  passed. One candidate and rollback transfer completed, one exact terminal E1B
+  record proved all five module loads plus `/proc/modules` visibility, and final
+  health passed. The transaction and authority are closed.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
   rollback, and final health are proven.
 - V3439: pstore, pmsg, ramoops, and DTBO-based retention remain retired.
@@ -171,6 +184,7 @@ Load-bearing details are in:
 - `docs/reports/S22PLUS_FYG8_P238_E1B_FOCUSED_READINESS_AUDIT_2026-07-23.md`
 - `docs/reports/S22PLUS_FYG8_P239_E1B_CANDIDATE_H0_PASS_D0_BASELINE_STOP_2026-07-23.md`
 - `docs/reports/S22PLUS_FYG8_P239_CONNECTED_D0_PREPARED_PASS_2026-07-23.md`
+- `docs/reports/S22PLUS_FYG8_P239_E1B_F1_LIVE_PASS_2026-07-23.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
 
@@ -210,14 +224,11 @@ reports grant no device authority.
     and the canonical timeline passed; authority is consumed.
 17. **P2.38 complete, H0:** E1B runtime, module, ABI, and effective-rootfs
     readiness passed; no build, candidate, device action, or authority occurred.
-18. **P2.39 H0 and D0 complete:** the profile-2 candidate, boot-only AP,
-    stock-`vendor_boot` effective rootfs, offline contract, one normal baseline
-    rotation, and a fresh connected D0 binding passed. The device remains on
-    healthy Android and F1 is inactive.
-19. **P2.39 F1 next:** request one fresh exact approval for the bound E1B
-    candidate and mandatory Magisk rollback. Do not rebuild, rebind, or reuse
-    the stopped baseline manifest.
-20. **E2-E4 later:** prove platform bind and UDC, then one ACM banner and nonce
+18. **P2.39 complete/closed, F1:** the profile-2 candidate, exact five-module
+    load sequence, `/proc/modules` verification, terminal E1B success, mandatory
+    rollback, final health, and canonical timeline passed. The binding and
+    approval are consumed.
+19. **E2-E4 next:** prove platform bind and UDC, then one ACM banner and nonce
     exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
