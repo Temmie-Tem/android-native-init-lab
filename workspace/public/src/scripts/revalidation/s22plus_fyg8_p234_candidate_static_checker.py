@@ -225,8 +225,10 @@ def verify_artifact_result(
         ):
             raise CheckError("E1B stock vendor module closure mismatch")
     elif profile == "E2":
-        closure_api = p245_e2_closure.select(
-            exact_contract.get("source_contract_id")
+        closure_api = (
+            p245_e2_closure
+            if exact_contract.get("source_contract_id") is not None
+            else e2_closure
         )
         try:
             closure_api.validate_module_closure(value.get("module_closure"))
@@ -608,13 +610,20 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
         )
     elif exact_contract["profile"] == "E2":
         source_contract_id = exact_contract.get("source_contract_id")
-        closure_api = p245_e2_closure.select(source_contract_id)
+        closure_api = (
+            p245_e2_closure
+            if source_contract_id is not None
+            else e2_closure
+        )
         plan_header = None
         if source_contract_id is not None:
+            selected_contract = contract.intent.selected_source_contract(
+                source_contract_id, "E2"
+            )
             plan_header = (
                 resolve(root, args.intent).parent
                 / "materialized-sources"
-                / contract.intent.p245.MATERIALIZED_FILENAMES["plan_header"]
+                / selected_contract.materialized_filenames["plan_header"]
             )
         module_closure = closure_api.derive_module_closure(
             root,

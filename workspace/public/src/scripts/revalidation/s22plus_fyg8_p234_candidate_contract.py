@@ -97,13 +97,16 @@ def verify(
     if not isinstance(preimage, dict):
         raise ContractError("candidate identity preimage is missing")
     source_contract_id = preimage.get("source_contract_id")
-    if source_contract_id is not None:
-        intent.p245.require(source_contract_id, profile)
+    selected_contract = (
+        intent.selected_source_contract(source_contract_id, profile)
+        if source_contract_id is not None
+        else None
+    )
     expected_schema = (
-        intent.p245.INTENT_SCHEMA if source_contract_id else intent.SCHEMA
+        selected_contract.intent_schema if selected_contract else intent.SCHEMA
     )
     expected_verdict = (
-        intent.p245.INTENT_VERDICT if source_contract_id else intent.VERDICT
+        selected_contract.intent_verdict if selected_contract else intent.VERDICT
     )
     if (
         value.get("schema") != expected_schema
@@ -150,8 +153,8 @@ def verify(
     if value.get("patch") != expected_patch_row:
         raise ContractError("candidate patch audit receipt mismatch")
     reachable = (
-        intent.p245.validate_reachable_records(run_id)
-        if source_contract_id is not None
+        selected_contract.validate_reachable_records(run_id)
+        if selected_contract is not None
         else intent.p233.validate_reachable_records({profile: run_id})
     )
     if value.get("reachable_record_contract") != reachable:
@@ -160,28 +163,38 @@ def verify(
     if source_contract_id is not None:
         materialized_dir = intent_path.parent / "materialized-sources"
         if materialized_dir.is_symlink() or not materialized_dir.is_dir():
-            raise ContractError("P2.45 materialized source directory is invalid")
-        expected_names = set(intent.p245.MATERIALIZED_FILENAMES.values())
+            raise ContractError(
+                "versioned materialized source directory is invalid"
+            )
+        expected_names = set(selected_contract.materialized_filenames.values())
         if {path.name for path in materialized_dir.iterdir()} != expected_names:
-            raise ContractError("P2.45 materialized source inventory mismatch")
+            raise ContractError(
+                "versioned materialized source inventory mismatch"
+            )
         materialized_rows = {}
         for name, filename in sorted(
-            intent.p245.MATERIALIZED_FILENAMES.items()
+            selected_contract.materialized_filenames.items()
         ):
             data = stable_read(
                 materialized_dir / filename,
-                f"P2.45 materialized {name}",
+                f"versioned materialized {name}",
             )
             if data != _source_data[name]:
-                raise ContractError(f"P2.45 materialized source mismatch: {name}")
+                raise ContractError(
+                    f"versioned materialized source mismatch: {name}"
+                )
             materialized_rows[name] = {
                 "path": f"materialized-sources/{filename}",
                 **intent.receipt(data),
             }
         if value.get("materialized_sources") != materialized_rows:
-            raise ContractError("P2.45 materialized source receipts mismatch")
+            raise ContractError(
+                "versioned materialized source receipts mismatch"
+            )
     elif "materialized_sources" in value or "source_contract_id" in value:
-        raise ContractError("legacy candidate intent contains P2.45 fields")
+        raise ContractError(
+            "legacy candidate intent contains versioned source fields"
+        )
     selected_decoder = intent.decoder_for(profile, source_contract_id)
     safety = _exact(
         value.get("safety"),
@@ -204,11 +217,11 @@ def verify(
         raise ContractError("candidate intent safety boundary changed")
     result = {
         "schema": (
-            intent.p245.CONTRACT_SCHEMA if source_contract_id else SCHEMA
+            selected_contract.contract_schema if selected_contract else SCHEMA
         ),
         "target": TARGET,
         "verdict": (
-            intent.p245.CONTRACT_VERDICT if source_contract_id else VERDICT
+            selected_contract.contract_verdict if selected_contract else VERDICT
         ),
         "profile": profile,
         "profile_number": number,

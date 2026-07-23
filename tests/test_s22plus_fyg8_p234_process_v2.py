@@ -1386,6 +1386,16 @@ class P234ProcessV2Test(unittest.TestCase):
                 acceptance, verification, sources
             )
 
+    def test_p245_approval_binding_pins_versioned_selector(self):
+        source_contract_id = (
+            self.module.static_checker.contract.intent.p245.CONTRACT_ID
+        )
+        _static, _candidate_static, _ap, _payloads, _receipts, acceptance = (
+            self.fixture("E2", source_contract_id)
+        )
+        sources = self.core.execution_critical_source_receipts(acceptance)
+        self.assertIn("source_contract_selector", sources)
+
 
 if __name__ == "__main__":
     unittest.main()

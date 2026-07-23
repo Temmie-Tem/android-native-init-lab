@@ -14,7 +14,7 @@ import s22plus_fyg8_p230_same_ring_multiboot_decoder as same_ring_multiboot
 import s22plus_fyg8_p233_e1_decoder as e1_latest_stage
 import s22plus_fyg8_p242_e2_stock_closure as e2_closure
 import s22plus_fyg8_p245_e2_stock_closure as p245_e2_closure
-import s22plus_fyg8_p245_source_contract as p245
+import s22plus_fyg8_source_contracts as source_contracts
 
 
 MARKER_KIND = "retained_marker_after_rollback"
@@ -191,7 +191,9 @@ def _e1_reachable_slot_variant_count(
     profile: str, source_contract_id: str | None = None
 ) -> int:
     if source_contract_id is not None:
-        return _p245_contract(source_contract_id, profile).reachable_variants
+        return _selected_contract(
+            source_contract_id, profile
+        ).contract.reachable_variants
     model = e1_latest_stage.model
     sequence = model.PROFILE_STAGE_SEQUENCES.get(profile)
     terminal = model.PROFILE_TERMINALS.get(profile)
@@ -204,12 +206,12 @@ class EvidenceError(ValueError):
     pass
 
 
-def _p245_contract(
+def _selected_contract(
     source_contract_id: str | None, profile: str
-) -> p245.SourceContract:
+) -> source_contracts.SelectedSourceContract:
     try:
-        return p245.require(source_contract_id, profile)
-    except p245.SourceContractError as exc:
+        return source_contracts.select(source_contract_id, profile)
+    except source_contracts.SourceContractSelectionError as exc:
         raise EvidenceError(str(exc)) from exc
 
 
@@ -218,8 +220,7 @@ def _latest_stage_decoder(
 ):
     if source_contract_id is None:
         return e1_latest_stage
-    _p245_contract(source_contract_id, profile)
-    return p245.decoder
+    return _selected_contract(source_contract_id, profile).decoder
 
 
 def _exact(value: Any, keys: set[str], label: str) -> dict[str, Any]:
@@ -281,7 +282,7 @@ def validate_candidate_source_preimage(
         "sources",
     }
     if source_contract_id is not None:
-        _p245_contract(source_contract_id, profile)
+        _selected_contract(source_contract_id, profile)
         preimage_keys.add("source_contract_id")
     preimage = _exact(
         contract.get("identity_preimage"),
@@ -289,7 +290,7 @@ def validate_candidate_source_preimage(
         "candidate identity preimage",
     )
     source_keys = (
-        _p245_contract(source_contract_id, profile).source_keys
+        _selected_contract(source_contract_id, profile).source_keys
         if source_contract_id is not None
         else E1_LATEST_STAGE_SOURCE_KEYS.get(profile)
     )
@@ -303,12 +304,12 @@ def validate_candidate_source_preimage(
     preimage_sha256 = hashlib.sha256(_canonical(preimage)).hexdigest()
     nonce = preimage.get("nonce")
     expected_schema = (
-        p245.PREIMAGE_SCHEMA
+        _selected_contract(source_contract_id, profile).preimage_schema
         if source_contract_id is not None
         else E1_LATEST_STAGE_PREIMAGE_SCHEMA
     )
     run_id_domain = (
-        _p245_contract(source_contract_id, profile).run_id_domain
+        _selected_contract(source_contract_id, profile).run_id_domain
         if source_contract_id is not None
         else E1_LATEST_STAGE_RUN_ID_DOMAINS[profile]
     )
@@ -353,9 +354,11 @@ def validate_e2_ap_payload(
         "effective_rootfs",
     }
     if source_contract_id is not None:
-        _p245_contract(source_contract_id, "E2")
+        _selected_contract(source_contract_id, "E2")
         expected_keys.add("source_contract_id")
-    closure_api = p245_e2_closure.select(source_contract_id)
+    closure_api = (
+        p245_e2_closure if source_contract_id is not None else e2_closure
+    )
     expected = _exact(
         closure,
         expected_keys,
@@ -1404,16 +1407,17 @@ def _verify_e1_latest_stage_offline_contract(
         source_contract, profile, item["run_id"]
     )
     if source_contract_id is not None:
+        selected_contract = _selected_contract(source_contract_id, profile)
         materialized = _exact(
             source_contract.get("materialized_sources"),
-            set(p245.MATERIALIZED_FILENAMES),
-            "P2.45 materialized source contract",
+            set(selected_contract.materialized_filenames),
+            "versioned materialized source contract",
         )
-        for name, filename in p245.MATERIALIZED_FILENAMES.items():
+        for name, filename in selected_contract.materialized_filenames.items():
             row = _exact(
                 materialized.get(name),
                 {"path", "size", "sha256"},
-                f"P2.45 materialized source {name}",
+                f"versioned materialized source {name}",
             )
             if (
                 row.get("path") != f"materialized-sources/{filename}"
@@ -1423,7 +1427,7 @@ def _verify_e1_latest_stage_offline_contract(
                 != candidate_source_receipts[name]
             ):
                 raise EvidenceError(
-                    f"P2.45 materialized source identity mismatch: {name}"
+                    f"versioned materialized source identity mismatch: {name}"
                 )
     unsat_record = selected_decoder.model.unsat_record(profile, run_id)
     unsat_tag = unsat_record[len(selected_decoder.model.UNSAT_FAMILY) :]
@@ -1490,12 +1494,16 @@ def _verify_e1_latest_stage_offline_contract(
         "E1A candidate contract safety",
     )
     expected_contract_schema = (
-        p245.CONTRACT_SCHEMA
+        _selected_contract(
+            source_contract_id, profile
+        ).contract_schema
         if source_contract_id is not None
         else E1_LATEST_STAGE_CANDIDATE_CONTRACT_SCHEMA
     )
     expected_contract_verdict = (
-        p245.CONTRACT_VERDICT
+        _selected_contract(
+            source_contract_id, profile
+        ).contract_verdict
         if source_contract_id is not None
         else E1_LATEST_STAGE_CANDIDATE_CONTRACT_VERDICT
     )
@@ -1668,7 +1676,11 @@ def _verify_e1_latest_stage_offline_contract(
             expected_child=normalized_source_userspace["child"],
         )
     elif profile == "E2":
-        closure_api = p245_e2_closure.select(source_contract_id)
+        closure_api = (
+            p245_e2_closure
+            if source_contract_id is not None
+            else e2_closure
+        )
         try:
             closure = closure_api.validate_module_closure(
                 source_candidate.get("module_closure")

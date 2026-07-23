@@ -420,23 +420,26 @@ def execution_critical_source_receipts(
         }
         if source_contract_id is not None:
             try:
-                candidate_intent.p245.require(source_contract_id, profile)
-                source_data = candidate_intent.p245.source_bytes(
-                    candidate_intent.repo_root()
+                selected = candidate_intent.selected_source_contract(
+                    source_contract_id, profile
                 )
+                source_data = selected.source_bytes(candidate_intent.repo_root())
             except (
-                candidate_intent.p245.SourceContractError,
+                candidate_intent.IntentError,
                 candidate_intent.p233.CheckError,
                 OSError,
             ) as exc:
                 raise F1V2Error(
-                    "P2.45 execution-critical source closure failed"
+                    "versioned execution-critical source closure failed"
                 ) from exc
             for name, data in source_data.items():
                 receipts[f"candidate_source_{name}"] = {
                     "size": len(data),
                     "sha256": hashlib.sha256(data).hexdigest(),
                 }
+            e1_latest_stage_sources["source_contract_selector"] = Path(
+                candidate_intent.source_contracts.__file__
+            )
         elif profile in candidate_intent.SUPPORTED_PROFILES:
             for name, path in candidate_intent.source_paths_for_profile(
                 profile
@@ -473,10 +476,10 @@ def verify_candidate_source_binding(
         raise F1V2Error("candidate source contract selector changed")
     if source_contract_id is not None:
         try:
-            expected_keys = candidate_intent.p245.require(
+            expected_keys = candidate_intent.selected_source_contract(
                 source_contract_id, acceptance.get("profile")
             ).source_keys
-        except candidate_intent.p245.SourceContractError as exc:
+        except candidate_intent.IntentError as exc:
             raise F1V2Error(str(exc)) from exc
     else:
         expected_keys = typed_evidence.E1_LATEST_STAGE_SOURCE_KEYS.get(

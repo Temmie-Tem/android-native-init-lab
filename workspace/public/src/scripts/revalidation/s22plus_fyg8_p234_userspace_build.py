@@ -95,12 +95,20 @@ class BuildError(ValueError):
     pass
 
 
+def _selected(source_contract_id: str, profile: str):
+    try:
+        return candidate_contract.intent.selected_source_contract(
+            source_contract_id, profile
+        )
+    except candidate_contract.intent.IntentError as exc:
+        raise BuildError(str(exc)) from exc
+
+
 def verdict_for_profile(
     profile: str, source_contract_id: str | None = None
 ) -> str:
     if source_contract_id is not None:
-        candidate_contract.intent.p245.require(source_contract_id, profile)
-        return P245_E2_VERDICT
+        return _selected(source_contract_id, profile).userspace_verdict
     if profile == "E1A":
         return VERDICT
     if profile == "E1B":
@@ -116,10 +124,10 @@ def _profile_sources(
     materialized_dir: Path | None = None,
 ) -> tuple[Path, Path]:
     if source_contract_id is not None:
-        candidate_contract.intent.p245.require(source_contract_id, profile)
+        selected = _selected(source_contract_id, profile)
         if materialized_dir is None:
-            raise BuildError("P2.45 materialized source directory is missing")
-        names = candidate_contract.intent.p245.MATERIALIZED_FILENAMES
+            raise BuildError("versioned materialized source directory is missing")
+        names = selected.materialized_filenames
         return (
             materialized_dir / names["runtime_wrapper"],
             materialized_dir / names["checkpoint_client"],
@@ -137,12 +145,12 @@ def _e2_module_files(
     materialized_dir: Path | None = None,
 ) -> tuple[str, ...]:
     if source_contract_id is not None:
-        candidate_contract.intent.p245.require(source_contract_id, "E2")
+        selected = _selected(source_contract_id, "E2")
         if materialized_dir is None:
-            raise BuildError("P2.45 materialized plan directory is missing")
+            raise BuildError("versioned materialized plan directory is missing")
         plan_path = (
             materialized_dir
-            / candidate_contract.intent.p245.MATERIALIZED_FILENAMES["plan_header"]
+            / selected.materialized_filenames["plan_header"]
         )
     else:
         plan_path = root / p241.DEFAULT_PLAN_HEADER
@@ -169,19 +177,22 @@ def audit_profile_sources(
     runtime = p233.read_direct(root / runtime_path, "runtime wrapper")
     if profile == "E2":
         if source_contract_id is not None:
+            selected = _selected(source_contract_id, profile)
             plan_path = (
                 materialized_dir
-                / candidate_contract.intent.p245.MATERIALIZED_FILENAMES[
-                    "plan_header"
-                ]
+                / selected.materialized_filenames["plan_header"]
             )
-            header = p233.read_direct(plan_path, "P2.45 E2 plan header")
-            implementation = candidate_contract.intent.p245.implementation_result(root)
+            header = p233.read_direct(
+                plan_path, "versioned E2 plan header"
+            )
+            implementation = selected.implementation_result(root)
             if (
                 implementation.get("verdict")
-                != candidate_contract.intent.p245.p244_checker.VERDICT
+                != selected.implementation_verdict
             ):
-                raise BuildError("P2.44 source implementation no longer passes")
+                raise BuildError(
+                    "selected source implementation no longer passes"
+                )
             return {
                 "profile": profile,
                 "source_contract_id": source_contract_id,
@@ -348,7 +359,14 @@ def _compile_once(
         *(p233.model.model_run_id(name) for name in candidate_contract.intent.SUPPORTED_PROFILES),
         *p233.SOURCE_CHECK_RUN_IDS.values(),
         p241.RUN_ID,
-        candidate_contract.intent.p245.p244_checker.RUN_ID,
+        *(
+            candidate_contract.intent.source_contracts.select(
+                contract_id, "E2"
+            ).source_check_run_id
+            for contract_id in (
+                candidate_contract.intent.source_contracts.contract_ids()
+            )
+        ),
     )
     module_files = (
         _e2_module_files(root, source_contract_id, materialized_dir)
@@ -499,6 +517,7 @@ def main(argv: list[str] | None = None) -> int:
         candidate_contract.ContractError,
         candidate_contract.intent.IntentError,
         candidate_contract.intent.p245.SourceContractError,
+        candidate_contract.intent.source_contracts.SourceContractSelectionError,
         p233.CheckError,
         subprocess.TimeoutExpired,
         OSError,

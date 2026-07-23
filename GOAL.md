@@ -14,7 +14,8 @@ P2.39 E1B MODULE RUNTIME LIVE PASS; P2.42 E2 LIVE DIAGNOSTIC FAILURE AT
 DISPLAY-RSC BIND; P2.43 RPMH DEPENDENCY H0 PASS; P2.44 12-GATE E2
 IMPLEMENTATION H0 PASS; P2.45 REPRODUCIBLE E2 CANDIDATE H0 PASS; P2.46 E2
 LIVE PROGRESS THROUGH APPS-RPMH-MXLVL; P2.47 GATE-RANGE FOCUSED AUDIT H0
-PASS; EXACT ROLLBACK AND FINAL HEALTH PASS.**
+PASS; P2.48 DERIVED VALIDATOR IMPLEMENTATION H0 PASS; EXACT ROLLBACK AND
+FINAL HEALTH PASS.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -220,6 +221,21 @@ new record. Neither defect proves why the P2.46 boot stopped after `0x82`.
 P2.48 must preserve historical bytes, derive item indices from the exact
 sequence ordinal instead of another fixed upper bound, decide the bounded
 prior-gate regression outcome, and add source plus Full-LTO semantic checks.
+
+P2.48 now implements that correction as a new versioned source contract. One
+80-step descriptor drives stage order, item indices, gate identity, terminal
+semantics, generated checkpoint tables, kernel tables, and the decoder.
+Failure detail is partitioned into errno `0x001..0x7ff`, prior-gate regression
+`0x800..0x8ff`, gate read error `0x900..0x9ff`, and rejected reserved values
+`0xa00..0xfff`. A prior completed gate that disappears is recorded at the
+current monotonic frontier while its low detail byte identifies the earliest
+regressed gate. The linked audit now requires exact descriptor bytes, a
+writer-to-derived-validator call, and an exact item-table address dataflow into
+the validator byte load; stale compare-against-eight logic is rejected in both
+the helper and writer. P2.44 generation and P2.45 source bytes remain
+byte-exact. Clean patch application, two reproducible static AArch64 userspace
+links, 180 regression tests, mutation checks, and independent review pass.
+P2.48 built no kernel, image, package, or candidate and contacted no device.
 
 ## Established Evidence
 
@@ -428,11 +444,16 @@ reports grant no device authority.
     compare against eight are proven; all other 12-gate layers agree, existing
     coverage misses the mismatch, and the prior-gate regression path has a
     separate no-record gap. No candidate or authority was created.
-27. **P2.48 next, H0:** add a versioned adapter that derives item indices from
-    exact sequence ordinals, preserve historical P2.44/P2.45 bytes, close the
-    prior-gate regression outcome, and add source, mutation, and linked-binary
-    semantic checks before any build.
-28. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
+27. **P2.48 complete, H0:** the versioned adapter derives stage/item semantics
+    from one descriptor, records prior-gate regression at the monotonic
+    frontier, pins all delegated sources and the selector, and adds fail-closed
+    source, mutation, and linked-validator checks. Historical bytes are
+    unchanged; no kernel or candidate was built.
+28. **P2.49 next, H0:** perform two clean Full-LTO builds with the P2.48
+    contract, require byte reproducibility and the new linked-validator audit,
+    then run deterministic boot-only packaging and offline closure only if
+    those gates pass.
+29. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed

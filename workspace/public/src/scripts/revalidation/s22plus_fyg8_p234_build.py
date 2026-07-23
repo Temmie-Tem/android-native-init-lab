@@ -80,11 +80,11 @@ class _ContractAdapter:
             expected_schema = candidate_contract.SCHEMA
             expected_verdict = candidate_contract.VERDICT
         else:
-            candidate_contract.intent.p245.require(
+            selected = candidate_contract.intent.selected_source_contract(
                 source_contract_id, result.get("profile")
             )
-            expected_schema = candidate_contract.intent.p245.CONTRACT_SCHEMA
-            expected_verdict = candidate_contract.intent.p245.CONTRACT_VERDICT
+            expected_schema = selected.contract_schema
+            expected_verdict = selected.contract_verdict
         if (
             result.get("schema") != expected_schema
             or result.get("verdict") != expected_verdict

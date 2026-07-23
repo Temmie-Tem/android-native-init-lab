@@ -471,6 +471,52 @@ def _calls(disassembly: str) -> list[str]:
     return result
 
 
+def _dump_symbol_bytes(
+    objdump: Path,
+    vmlinux: Path,
+    ranges: dict[str, tuple[int, int]],
+    symbol: str,
+    size: int,
+) -> bytes:
+    if symbol not in ranges:
+        raise CheckError(f"required linked data symbol missing: {symbol}")
+    start = ranges[symbol][0]
+    text = _run(
+        [
+            str(objdump),
+            "-s",
+            f"--start-address=0x{start:x}",
+            f"--stop-address=0x{start + size:x}",
+            str(vmlinux),
+        ],
+        f"objdump data {symbol}",
+    )
+    addressed: dict[int, int] = {}
+    for line in text.splitlines():
+        match = re.match(
+            r"^\s*([0-9a-fA-F]+)\s+(.+)$", line
+        )
+        if match is None:
+            continue
+        cursor = int(match.group(1), 16)
+        hex_columns = re.split(r"\s{2,}", match.group(2), maxsplit=1)[0]
+        for token in hex_columns.split():
+            if (
+                re.fullmatch(r"[0-9a-fA-F]{2,8}", token) is None
+                or len(token) % 2
+            ):
+                break
+            for value in bytes.fromhex(token):
+                addressed[cursor] = value
+                cursor += 1
+    try:
+        return bytes(addressed[start + offset] for offset in range(size))
+    except KeyError as exc:
+        raise CheckError(
+            f"linked data symbol dump is short: {symbol}"
+        ) from exc
+
+
 def _subsequence(actual: list[str], expected: tuple[str, ...], label: str) -> None:
     cursor = 0
     for name in actual:
@@ -487,6 +533,7 @@ def audit_linked(
     nm: Path,
     objdump: Path,
     expected_vmlinux: dict[str, Any],
+    source_contract_id: str | None = None,
 ) -> dict[str, Any]:
     captured = {
         "vmlinux": candidate_contract.stable_read(
@@ -503,6 +550,9 @@ def audit_linked(
     }
     if captured_receipts["vmlinux"] != expected_vmlinux:
         raise CheckError("P2.34 linked audit vmlinux changed after build hashing")
+    linked_contract_audit = None
+    linked_validator_audit = None
+    selected_contract_module = None
     with tempfile.TemporaryDirectory(prefix="s22-p234-linked-") as temporary:
         staged = {}
         for name, data in captured.items():
@@ -519,7 +569,53 @@ def audit_linked(
             )
             for symbol in REQUIRED_SYMBOLS
         }
+        if source_contract_id is not None:
+            selected = candidate_contract.intent.selected_source_contract(
+                source_contract_id, "E2"
+            )
+            selected_contract_module = selected.module
+            if hasattr(selected.module, "linked_table_bytes"):
+                expected_tables = selected.module.linked_table_bytes()
+                actual_tables = {
+                    symbol: _dump_symbol_bytes(
+                        staged["objdump"],
+                        staged["vmlinux"],
+                        ranges,
+                        symbol,
+                        len(expected),
+                    )
+                    for symbol, expected in expected_tables.items()
+                }
+                try:
+                    linked_contract_audit = (
+                        selected.module.audit_linked_tables(actual_tables)
+                    )
+                except selected.module.SourceContractError as exc:
+                    raise CheckError(str(exc)) from exc
+            for symbol in getattr(
+                selected.module, "LINKED_VALIDATOR_SYMBOLS", ()
+            ):
+                disassembly[symbol] = _disassemble(
+                    staged["objdump"], staged["vmlinux"], ranges, symbol
+                )
     calls = {symbol: _calls(text) for symbol, text in disassembly.items()}
+    if (
+        selected_contract_module is not None
+        and hasattr(selected_contract_module, "audit_linked_validator")
+    ):
+        try:
+            linked_validator_audit = (
+                selected_contract_module.audit_linked_validator(
+                    disassembly,
+                    calls,
+                    {
+                        symbol: ranges[symbol][0]
+                        for symbol in selected_contract_module.linked_table_bytes()
+                    },
+                )
+            )
+        except selected_contract_module.SourceContractError as exc:
+            raise CheckError(str(exc)) from exc
     _subsequence(
         calls["kernel_init"],
         (
@@ -554,7 +650,7 @@ def audit_linked(
     flush = disassembly["__pi___flush_dcache_area"]
     if not re.search(r"\bdc\s+civac\b", flush) or not re.search(r"\bdsb\s+sy\b", flush):
         raise CheckError("linked cache flush helper lacks dc civac plus dsb sy")
-    return {
+    result = {
         "required_symbols": list(REQUIRED_SYMBOLS),
         "call_chains": calls,
         "retained_flush_calls": flush_calls,
@@ -568,6 +664,11 @@ def audit_linked(
         "staged_input_receipts": captured_receipts,
         "verified": True,
     }
+    if linked_contract_audit is not None:
+        result["source_contract_semantics"] = linked_contract_audit
+    if linked_validator_audit is not None:
+        result["source_contract_validator"] = linked_validator_audit
+    return result
 
 
 def check(args: argparse.Namespace) -> dict[str, Any]:
@@ -595,6 +696,7 @@ def check(args: argparse.Namespace) -> dict[str, Any]:
         resolve(root, args.nm),
         resolve(root, args.objdump),
         build_a["artifacts"]["vmlinux"],
+        exact_contract.get("source_contract_id"),
     )
     return {
         "schema": SCHEMA,

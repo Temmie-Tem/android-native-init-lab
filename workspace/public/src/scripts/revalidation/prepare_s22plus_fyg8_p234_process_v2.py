@@ -168,8 +168,10 @@ def validate_static(
                 "E1B effective stock rootfs closure is incomplete"
             ) from exc
     elif profile == "E2":
-        closure_api = p245_e2_closure.select(
-            candidate_contract.get("source_contract_id")
+        closure_api = (
+            p245_e2_closure
+            if candidate_contract.get("source_contract_id") is not None
+            else evidence.e2_closure
         )
         try:
             module_closure = closure_api.validate_module_closure(

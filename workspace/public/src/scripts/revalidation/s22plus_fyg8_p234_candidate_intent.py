@@ -24,6 +24,7 @@ import s22plus_fyg8_p233_e1_decoder as decoder  # noqa: E402
 import s22plus_fyg8_p233_e1_static_checker as p233  # noqa: E402
 import s22plus_fyg8_p241_e2_static_checker as p241  # noqa: E402
 import s22plus_fyg8_p245_source_contract as p245  # noqa: E402
+import s22plus_fyg8_source_contracts as source_contracts  # noqa: E402
 import s22plus_fyg8_r4w1b_patch_check as source_base  # noqa: E402
 
 
@@ -101,6 +102,16 @@ class IntentError(ValueError):
     pass
 
 
+def selected_source_contract(
+    source_contract_id: str | None,
+    profile: str,
+) -> source_contracts.SelectedSourceContract:
+    try:
+        return source_contracts.select(source_contract_id, profile)
+    except source_contracts.SourceContractSelectionError as exc:
+        raise IntentError(str(exc)) from exc
+
+
 def repo_root() -> Path:
     return p233.repo_root()
 
@@ -145,8 +156,9 @@ def source_receipts(
     source_contract_id: str | None = None,
 ) -> tuple[dict[str, bytes], dict[str, Any]]:
     if source_contract_id is not None:
-        p245.require(source_contract_id, profile)
-        return p245.source_receipts(root)
+        return selected_source_contract(
+            source_contract_id, profile
+        ).source_receipts(root)
     data: dict[str, bytes] = {}
     rows: dict[str, Any] = {}
     for name, relative in source_paths_for_profile(profile).items():
@@ -166,8 +178,7 @@ def decoder_for(profile: str, source_contract_id: str | None = None):
     profile_number(profile)
     if source_contract_id is None:
         return decoder
-    p245.require(source_contract_id, profile)
-    return p245.decoder
+    return selected_source_contract(source_contract_id, profile).decoder
 
 
 def source_check_run_id(
@@ -175,8 +186,9 @@ def source_check_run_id(
 ) -> bytes:
     profile_number(profile)
     if source_contract_id is not None:
-        p245.require(source_contract_id, profile)
-        return p245.p244_checker.RUN_ID
+        return selected_source_contract(
+            source_contract_id, profile
+        ).source_check_run_id
     if profile == "E2":
         return p241.RUN_ID
     return p233.SOURCE_CHECK_RUN_IDS[profile]
@@ -201,8 +213,8 @@ def identity_preimage(
         "sources": sources,
     }
     if source_contract_id is not None:
-        p245.require(source_contract_id, profile)
-        result["schema"] = p245.PREIMAGE_SCHEMA
+        selected = selected_source_contract(source_contract_id, profile)
+        result["schema"] = selected.preimage_schema
         result["source_contract_id"] = source_contract_id
     return result
 
@@ -216,7 +228,9 @@ def derive_run_id(preimage: dict[str, Any]) -> bytes:
     source_contract_id = preimage.get("source_contract_id")
     domain = RUN_ID_DOMAINS[profile]
     if source_contract_id is not None:
-        domain = p245.require(source_contract_id, profile).run_id_domain
+        domain = selected_source_contract(
+            source_contract_id, profile
+        ).run_id_domain
     run_id = hashlib.sha256(domain + canonical(preimage)).digest()[:16]
     rejected = {
         bytes(16),
@@ -360,19 +374,26 @@ def create(args: argparse.Namespace) -> dict[str, Any]:
     )
     run_id = derive_run_id(preimage)
     selected_decoder = decoder_for(profile, source_contract_id)
+    selected_contract = (
+        selected_source_contract(source_contract_id, profile)
+        if source_contract_id is not None
+        else None
+    )
     unsat = selected_decoder.model.unsat_record(profile, run_id)
     unsat_tag = unsat[len(selected_decoder.model.UNSAT_FAMILY) :]
     reachable = (
-        p245.validate_reachable_records(run_id)
-        if source_contract_id is not None
+        selected_contract.validate_reachable_records(run_id)
+        if selected_contract is not None
         else p233.validate_reachable_records({profile: run_id})
     )
     patch = build_patch(source_data["base_patch"], run_id, unsat_tag, profile)
     patch_audit = audit_patch(source, patch, run_id, unsat_tag, profile)
     result: dict[str, Any] = {
-        "schema": p245.INTENT_SCHEMA if source_contract_id else SCHEMA,
+        "schema": selected_contract.intent_schema if selected_contract else SCHEMA,
         "target": TARGET,
-        "verdict": p245.INTENT_VERDICT if source_contract_id else VERDICT,
+        "verdict": (
+            selected_contract.intent_verdict if selected_contract else VERDICT
+        ),
         "profile": profile,
         "profile_number": number,
         "identity_preimage": preimage,
@@ -402,7 +423,9 @@ def create(args: argparse.Namespace) -> dict[str, Any]:
                 "path": f"materialized-sources/{filename}",
                 **receipt(source_data[name]),
             }
-            for name, filename in sorted(p245.MATERIALIZED_FILENAMES.items())
+            for name, filename in sorted(
+                selected_contract.materialized_filenames.items()
+            )
         }
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(
@@ -413,7 +436,7 @@ def create(args: argparse.Namespace) -> dict[str, Any]:
         if source_contract_id is not None:
             materialized = staging / "materialized-sources"
             materialized.mkdir()
-            for name, filename in p245.MATERIALIZED_FILENAMES.items():
+            for name, filename in selected_contract.materialized_filenames.items():
                 durable_write(materialized / filename, source_data[name])
         durable_write(
             staging / "candidate-intent.json",
@@ -435,11 +458,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--profile", choices=SUPPORTED_PROFILES, default=PROFILE)
     parser.add_argument(
         "--source-contract-id",
-        choices=(p245.CONTRACT_ID,),
+        choices=source_contracts.contract_ids(),
     )
     args = parser.parse_args(argv)
     if args.source_contract_id is not None:
-        p245.require(args.source_contract_id, args.profile)
+        selected_source_contract(args.source_contract_id, args.profile)
     expected_patch = (
         source_paths_for_profile(args.profile)["base_patch"]
         if args.source_contract_id is None
@@ -456,6 +479,7 @@ def main(argv: list[str] | None = None) -> int:
     except (
         IntentError,
         p245.SourceContractError,
+        source_contracts.SourceContractSelectionError,
         p233.CheckError,
         decoder.model.DesignError,
         OSError,

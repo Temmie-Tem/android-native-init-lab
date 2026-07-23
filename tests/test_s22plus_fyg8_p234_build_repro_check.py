@@ -34,6 +34,30 @@ class S22PlusFyg8P234BuildReproCheckTest(unittest.TestCase):
 """
         self.assertEqual(MODULE._calls(text), ["__flush_dcache_area", "memcpy"])
 
+    def test_linked_data_symbol_dump_is_exact_and_bounded(self):
+        dump = """
+Contents of section .rodata:
+ 100 10111213 14151617 18191a1b 1c1d1e1f  ................
+"""
+        with mock.patch.object(MODULE, "_run", return_value=dump):
+            data = MODULE._dump_symbol_bytes(
+                Path("/tool/objdump"),
+                Path("/tmp/vmlinux"),
+                {"table": (0x100, 0x120)},
+                "table",
+                10,
+            )
+        self.assertEqual(data, bytes(range(0x10, 0x1A)))
+        with mock.patch.object(MODULE, "_run", return_value=" 100 10111213\n"):
+            with self.assertRaisesRegex(MODULE.CheckError, "dump is short"):
+                MODULE._dump_symbol_bytes(
+                    Path("/tool/objdump"),
+                    Path("/tmp/vmlinux"),
+                    {"table": (0x100, 0x120)},
+                    "table",
+                    8,
+                )
+
     def test_wrapper_result_accepts_only_final_or_exact_legacy_false_negative(self):
         final = {
             "returncode": 0,
