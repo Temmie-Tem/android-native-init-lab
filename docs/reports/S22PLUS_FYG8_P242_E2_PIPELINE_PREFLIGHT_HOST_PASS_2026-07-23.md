@@ -6,6 +6,10 @@ Status: `PASS_P242_E2_PIPELINE_PREFLIGHT_HOST_ONLY`
 Device contact: none
 Live authority: none
 
+Current-state note: this preflight checkpoint was subsequently completed by
+`S22PLUS_FYG8_P242_E2_CANDIDATE_H0_PASS_2026-07-23.md`. The boundary below
+describes this earlier checkpoint, not the current frontier.
+
 ## Result
 
 The profile-driven P2.34 candidate pipeline now accepts the P2.41 E2 source

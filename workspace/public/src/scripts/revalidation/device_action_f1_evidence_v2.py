@@ -340,7 +340,7 @@ def validate_e2_ap_payload(
         boot = e2_closure.boot_verify.parse_boot_v4(boot_payload)
         if e2_closure.receipt(boot.kernel) != identities["image"]:
             raise EvidenceError("E2 AP kernel identity mismatch")
-        ramdisk = e2_closure.boot_verify.decompress_lz4_frame_python(
+        ramdisk = e2_closure.boot_verify.decompress_lz4_stream_python(
             boot.ramdisk, maximum=128 * 1024 * 1024
         )
         entries = e2_closure.boot_verify.parse_newc(ramdisk)

@@ -2,6 +2,7 @@ import hashlib
 import importlib.util
 import io
 import struct
+import subprocess
 import sys
 import tarfile
 import unittest
@@ -167,8 +168,8 @@ class S22PlusBootVerifyTest(unittest.TestCase):
         self.assertEqual(
             self.module.decompress_lz4_frame_python(frame), b"raw-boot"
         )
-        compressed_block = b"\x44abcd\x04\x00"
-        descriptor = bytes((0x68, 0x70)) + (12).to_bytes(8, "little")
+        compressed_block = b"\x44abcd\x04\x00\x50efghi"
+        descriptor = bytes((0x68, 0x70)) + (17).to_bytes(8, "little")
         compressed_frame = (
             b"\x04\x22\x4d\x18"
             + descriptor
@@ -179,7 +180,7 @@ class S22PlusBootVerifyTest(unittest.TestCase):
         )
         self.assertEqual(
             self.module.decompress_lz4_frame_python(compressed_frame),
-            b"abcdabcdabcd",
+            b"abcdabcdabcdefghi",
         )
         with self.assertRaises(self.module.BootVerifyError):
             self.module.parse_lz4_frame(frame + b"trailing")
@@ -249,6 +250,58 @@ class S22PlusBootVerifyTest(unittest.TestCase):
         with self.assertRaisesRegex(self.module.BootVerifyError, "dependent"):
             self.module.parse_lz4_frame(dependent_frame)
 
+    def test_legacy_lz4_stream_decode_and_fail_closed_geometry(self):
+        compressed_block = b"\x44abcd\x04\x00\x50efghi"
+        stream = (
+            self.module.LZ4_LEGACY_MAGIC
+            + len(compressed_block).to_bytes(4, "little")
+            + compressed_block
+        )
+        self.assertEqual(
+            self.module.decompress_lz4_legacy_python(stream),
+            b"abcdabcdabcdefghi",
+        )
+        self.assertEqual(
+            self.module.decompress_lz4_stream_python(stream + stream[4:]),
+            b"abcdabcdabcdefghi" * 2,
+        )
+        with self.assertRaisesRegex(self.module.BootVerifyError, "no blocks"):
+            self.module.decompress_lz4_legacy_python(
+                self.module.LZ4_LEGACY_MAGIC
+            )
+        with self.assertRaisesRegex(self.module.BootVerifyError, "block size"):
+            self.module.decompress_lz4_legacy_python(
+                self.module.LZ4_LEGACY_MAGIC + b"\0\0\0\0"
+            )
+        with self.assertRaisesRegex(self.module.BootVerifyError, "truncated"):
+            self.module.decompress_lz4_legacy_python(stream[:-1])
+        with self.assertRaisesRegex(self.module.BootVerifyError, "output bound"):
+            self.module.decompress_lz4_legacy_python(stream, maximum=16)
+
+    def test_legacy_lz4_rejects_match_terminated_block_like_external_decoder(self):
+        malformed_block = b"\x44abcd\x04\x00"
+        stream = (
+            self.module.LZ4_LEGACY_MAGIC
+            + len(malformed_block).to_bytes(4, "little")
+            + malformed_block
+        )
+        with self.assertRaisesRegex(self.module.BootVerifyError, "ends with a match"):
+            self.module.decompress_lz4_legacy_python(stream)
+
+        lz4 = ROOT / (
+            "workspace/private/work/s22plus_fyg8_kernel_rebuild_r0/"
+            "kernel_platform/prebuilts/kernel-build-tools/linux-x86/bin/lz4"
+        )
+        if lz4.is_file():
+            result = subprocess.run(
+                [str(lz4), "-d", "-c"],
+                input=stream,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+            self.assertNotEqual(result.returncode, 0)
+
     def test_ap_rejects_extra_unsafe_and_bad_md5(self):
         frame = self.p3.lz4_frame_store(b"raw")
         with self.assertRaises(self.module.BootVerifyError):
@@ -296,6 +349,26 @@ class S22PlusBootVerifyTest(unittest.TestCase):
                     self.module.decompress_lz4_frame_python(frame),
                     self.module.decompress_lz4(lz4, frame),
                 )
+
+    def test_real_e2_legacy_ramdisk_matches_external_lz4_decoder(self):
+        lz4 = ROOT / (
+            "workspace/private/work/s22plus_fyg8_kernel_rebuild_r0/"
+            "kernel_platform/prebuilts/kernel-build-tools/linux-x86/bin/lz4"
+        )
+        candidate = ROOT / (
+            "workspace/private/outputs/s22plus_fyg8_p242/"
+            "candidate-a/odin4/AP.tar.md5"
+        )
+        if not lz4.is_file() or not candidate.is_file():
+            self.skipTest("exact E2 AP or pinned external LZ4 is unavailable")
+        _structure, frame = self.module.parse_ap_tar_md5(candidate.read_bytes())
+        boot = self.module.parse_boot_v4(
+            self.module.decompress_lz4_frame_python(frame)
+        )
+        self.assertTrue(boot.ramdisk.startswith(self.module.LZ4_LEGACY_MAGIC))
+        decoded = self.module.decompress_lz4_stream_python(boot.ramdisk)
+        self.assertEqual(decoded, self.module.decompress_lz4(lz4, boot.ramdisk))
+        self.assertTrue(decoded.startswith(b"070701"))
 
     def test_newc_rejects_nonzero_padding(self):
         archive = bytearray(newc([("aa", 0o100644, b"x")]))

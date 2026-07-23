@@ -27,6 +27,20 @@ def lz4_store(payload):
     )
 
 
+def lz4_legacy(payload):
+    if len(payload) < 15:
+        block = bytes((len(payload) << 4,)) + payload
+    else:
+        remaining = len(payload) - 15
+        lengths = bytearray()
+        while remaining >= 255:
+            lengths.append(255)
+            remaining -= 255
+        lengths.append(remaining)
+        block = b"\xf0" + bytes(lengths) + payload
+    return b"\x02\x21\x4c\x18" + len(block).to_bytes(4, "little") + block
+
+
 def newc(entries):
     output = bytearray()
     for index, item in enumerate([*entries, ("TRAILER!!!", 0, b"")], 1):
@@ -965,7 +979,7 @@ class P234ProcessV2Test(unittest.TestCase):
             ("s22-e1-child", 0o100750, child),
             *[(f"fixture-{index}", 0o040755, b"") for index in range(20)],
         ]
-        ramdisk = lz4_store(
+        ramdisk = lz4_legacy(
             newc(generic_entries)
         )
         boot = boot_v4(image, ramdisk)
@@ -1023,7 +1037,7 @@ class P234ProcessV2Test(unittest.TestCase):
 
         forged_entries = list(generic_entries)
         forged_entries[0] = ("init", 0o100750, b"not-an-elf")
-        forged_boot = boot_v4(image, lz4_store(newc(forged_entries)))
+        forged_boot = boot_v4(image, lz4_legacy(newc(forged_entries)))
         forged_frame = lz4_store(forged_boot)
         forged_closure = copy.deepcopy(closure)
         forged_closure["boot_img_lz4"] = self.identity(
@@ -1054,7 +1068,7 @@ class P234ProcessV2Test(unittest.TestCase):
             init_payload=init,
             child_payload=child,
         ):
-            mutated_boot = boot_v4(image, lz4_store(newc(entries)))
+            mutated_boot = boot_v4(image, lz4_legacy(newc(entries)))
             mutated_frame = lz4_store(mutated_boot)
             mutated_closure = copy.deepcopy(closure)
             mutated_closure["boot_img_lz4"] = self.identity(

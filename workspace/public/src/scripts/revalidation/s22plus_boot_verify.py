@@ -20,6 +20,12 @@ ANDROID_MAGIC = b"ANDROID!"
 VENDOR_BOOT_MAGIC = b"VNDRBOOT"
 CPIO_MAGICS = {b"070701", b"070702"}
 AP_TRAILER_RE = re.compile(rb"([0-9a-f]{32})  AP\.tar\n")
+LZ4_FRAME_MAGIC = b"\x04\x22\x4d\x18"
+LZ4_LEGACY_MAGIC = b"\x02\x21\x4c\x18"
+LZ4_LEGACY_BLOCK_MAX = 8 * 1024 * 1024
+LZ4_LEGACY_COMPRESSED_BLOCK_MAX = (
+    LZ4_LEGACY_BLOCK_MAX + LZ4_LEGACY_BLOCK_MAX // 255 + 16
+)
 
 
 class BootVerifyError(ValueError):
@@ -513,7 +519,7 @@ def parse_ap_tar_md5(
 def _parse_lz4_frame_layout(
     frame: bytes,
 ) -> tuple[dict[str, Any], tuple[tuple[bool, bytes], ...], int | None]:
-    if len(frame) < 11 or frame[:4] != b"\x04\x22\x4d\x18":
+    if len(frame) < 11 or frame[:4] != LZ4_FRAME_MAGIC:
         raise BootVerifyError("LZ4 frame magic missing")
     position = 4
     descriptor_start = position
@@ -597,7 +603,11 @@ def parse_lz4_frame(frame: bytes) -> dict[str, Any]:
 def _decompress_lz4_block(block: bytes, maximum: int) -> bytes:
     output = bytearray()
     position = 0
+    sequence_count = 0
+    final_literal_size: int | None = None
+    last_match_start: int | None = None
     while position < len(block):
+        sequence_count += 1
         token = block[position]
         position += 1
         literal_size = token >> 4
@@ -617,6 +627,7 @@ def _decompress_lz4_block(block: bytes, maximum: int) -> bytes:
         output.extend(block[position : position + literal_size])
         position += literal_size
         if position == len(block):
+            final_literal_size = literal_size
             break
         if position + 2 > len(block):
             raise BootVerifyError("truncated LZ4 match offset")
@@ -637,8 +648,60 @@ def _decompress_lz4_block(block: bytes, maximum: int) -> bytes:
         match_size += 4
         if len(output) + match_size > maximum:
             raise BootVerifyError("LZ4 block exceeds output bound")
+        last_match_start = len(output)
         for _ in range(match_size):
             output.append(output[-offset])
+    if final_literal_size is None:
+        raise BootVerifyError("LZ4 block ends with a match")
+    if len(output) >= 5:
+        if final_literal_size < 5:
+            raise BootVerifyError("LZ4 block has fewer than 5 final literals")
+    elif sequence_count != 1 or final_literal_size != len(output):
+        raise BootVerifyError("invalid short LZ4 block termination")
+    if last_match_start is not None and last_match_start > len(output) - 12:
+        raise BootVerifyError("last LZ4 match starts too close to block end")
+    return bytes(output)
+
+
+def decompress_lz4_legacy_python(
+    stream: bytes,
+    *,
+    expected_size: int | None = None,
+    maximum: int = 256 * 1024 * 1024,
+) -> bytes:
+    """Decode one bounded legacy LZ4 stream without an external tool."""
+    if maximum <= 0 or maximum > 1024 * 1024 * 1024:
+        raise BootVerifyError("invalid LZ4 output bound")
+    if not stream.startswith(LZ4_LEGACY_MAGIC):
+        raise BootVerifyError("legacy LZ4 magic missing")
+    position = len(LZ4_LEGACY_MAGIC)
+    output = bytearray()
+    block_count = 0
+    while position < len(stream):
+        if position + 4 > len(stream):
+            raise BootVerifyError("truncated legacy LZ4 block size")
+        block_size = struct.unpack_from("<I", stream, position)[0]
+        position += 4
+        if not block_size or block_size > LZ4_LEGACY_COMPRESSED_BLOCK_MAX:
+            raise BootVerifyError("invalid legacy LZ4 block size")
+        block_end = position + block_size
+        if block_end > len(stream):
+            raise BootVerifyError("truncated legacy LZ4 block")
+        remaining = maximum - len(output)
+        if remaining <= 0:
+            raise BootVerifyError("legacy LZ4 stream exceeds output bound")
+        decoded = _decompress_lz4_block(
+            stream[position:block_end], min(LZ4_LEGACY_BLOCK_MAX, remaining)
+        )
+        output.extend(decoded)
+        position = block_end
+        block_count += 1
+    if block_count == 0:
+        raise BootVerifyError("legacy LZ4 stream has no blocks")
+    if expected_size is not None and len(output) != expected_size:
+        raise BootVerifyError(
+            f"LZ4 decoded size mismatch: {len(output)} != {expected_size}"
+        )
     return bytes(output)
 
 
@@ -694,6 +757,24 @@ def decompress_lz4_frame_python(
         expected_size=expected_size,
         maximum=maximum,
     )
+
+
+def decompress_lz4_stream_python(
+    stream: bytes,
+    *,
+    expected_size: int | None = None,
+    maximum: int = 256 * 1024 * 1024,
+) -> bytes:
+    """Decode one bounded modern-frame or legacy LZ4 stream."""
+    if stream.startswith(LZ4_FRAME_MAGIC):
+        return decompress_lz4_frame_python(
+            stream, expected_size=expected_size, maximum=maximum
+        )
+    if stream.startswith(LZ4_LEGACY_MAGIC):
+        return decompress_lz4_legacy_python(
+            stream, expected_size=expected_size, maximum=maximum
+        )
+    raise BootVerifyError("recognized LZ4 stream magic missing")
 
 
 def decompress_lz4(tool: Path, frame: bytes, expected_size: int | None = None) -> bytes:
