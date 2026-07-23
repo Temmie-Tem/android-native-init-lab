@@ -13,8 +13,8 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 P2.39 E1B MODULE RUNTIME LIVE PASS; P2.42 E2 LIVE DIAGNOSTIC FAILURE AT
 DISPLAY-RSC BIND; P2.43 RPMH DEPENDENCY H0 PASS; P2.44 12-GATE E2
 IMPLEMENTATION H0 PASS; P2.45 REPRODUCIBLE E2 CANDIDATE H0 PASS; P2.46 E2
-LIVE PROGRESS THROUGH APPS-RPMH-MXLVL; EXACT ROLLBACK AND FINAL HEALTH
-PASS.**
+LIVE PROGRESS THROUGH APPS-RPMH-MXLVL; P2.47 GATE-RANGE FOCUSED AUDIT H0
+PASS; EXACT ROLLBACK AND FINAL HEALTH PASS.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -208,6 +208,19 @@ that this boot submitted that request and provides no `gcc-waipio` result.
 Exact rollback, final health, and all eight timeline events passed. The
 transaction is `CLOSED`; its binding and authority are consumed.
 
+P2.47 closes the focused host audit of that boundary. The generated plan,
+runtime, checkpoint client, decoder, and 80-stage kernel sequence all implement
+12 gates, but the kernel request validator alone retains the old `0x82` upper
+bound. Both reproducible P2.45 builds contain the same Full-LTO compare against
+eight, so the defect reached the flashed binary. Existing source and linked
+checks do not cover that semantic and all 20 focused regressions still pass.
+The runtime also has a separate telemetry gap: disappearance of a previously
+completed gate attempts a non-monotonic failure checkpoint and parks without a
+new record. Neither defect proves why the P2.46 boot stopped after `0x82`.
+P2.48 must preserve historical bytes, derive item indices from the exact
+sequence ordinal instead of another fixed upper bound, decide the bounded
+prior-gate regression outcome, and add source plus Full-LTO semantic checks.
+
 ## Established Evidence
 
 - R4W1-A: custom Android `/init` marker retained and rollback passed.
@@ -297,6 +310,11 @@ transaction is `CLOSED`; its binding and authority are consumed.
   the live record does not prove that request was submitted. Terminal E2
   remains unproven. Final health and the canonical timeline passed; the
   transaction and authority are closed.
+- P2.47 gate-range focused audit H0: all 12-gate layers except the kernel
+  request validator agree through `0x86`; the final reproducible `vmlinux`
+  implements the stale offset comparison against eight. Existing tests and
+  linked checks miss it, and prior-gate regression is separately unrecordable.
+  No build, image, candidate, device action, or authority was created.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
   rollback, and final health are proven.
 - V3439: pstore, pmsg, ramoops, and DTBO-based retention remain retired.
@@ -331,6 +349,7 @@ Load-bearing details are in:
 - `docs/reports/S22PLUS_FYG8_P243_RPMH_DEPENDENCY_AUDIT_H0_2026-07-23.md`
 - `docs/reports/S22PLUS_FYG8_P244_E2_PROVIDER_IMPLEMENTATION_H0_2026-07-23.md`
 - `docs/reports/S22PLUS_FYG8_P246_E2_PROVIDER_F1_LIVE_PROGRESS_2026-07-24.md`
+- `docs/reports/S22PLUS_FYG8_P247_GATE_RANGE_FOCUSED_AUDIT_H0_2026-07-24.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
 
@@ -405,10 +424,15 @@ reports grant no device authority.
     `0x82`; the stale kernel item-index range makes the next normal checkpoint
     unrecordable, while the live result does not prove that it was submitted.
     Final health passed and authority is consumed.
-26. **P2.47 next, H0:** extend the kernel request item-index range through
-    `0x86`, add generated-source and linked-binary closure for every gate, replay
-    the captured progress record, and independently review the bounded fix.
-27. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
+26. **P2.47 complete, H0:** the stale kernel item-range and final Full-LTO
+    compare against eight are proven; all other 12-gate layers agree, existing
+    coverage misses the mismatch, and the prior-gate regression path has a
+    separate no-record gap. No candidate or authority was created.
+27. **P2.48 next, H0:** add a versioned adapter that derives item indices from
+    exact sequence ordinals, preserve historical P2.44/P2.45 bytes, close the
+    prior-gate regression outcome, and add source, mutation, and linked-binary
+    semantic checks before any build.
+28. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
