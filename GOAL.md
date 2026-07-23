@@ -12,8 +12,9 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 **State: R4W1-D DIRECT PID1 PROVEN; P2.37 E1A LOCAL RUNTIME LIVE PASS;
 P2.39 E1B MODULE RUNTIME LIVE PASS; P2.42 E2 LIVE DIAGNOSTIC FAILURE AT
 DISPLAY-RSC BIND; P2.43 RPMH DEPENDENCY H0 PASS; P2.44 12-GATE E2
-IMPLEMENTATION H0 PASS; P2.45 REPRODUCIBLE E2 CANDIDATE H0 PASS; P2.46
-CONNECTED D0 PREPARED; EXACT ROLLBACK AND FINAL HEALTH PASS.**
+IMPLEMENTATION H0 PASS; P2.45 REPRODUCIBLE E2 CANDIDATE H0 PASS; P2.46 E2
+LIVE PROGRESS THROUGH APPS-RPMH-MXLVL; EXACT ROLLBACK AND FINAL HEALTH
+PASS.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -193,6 +194,20 @@ Odin invocation, Download transition, partition transfer, candidate attempt, or
 F1 authorization occurred. The next action requires the fresh exact approval
 token emitted by that binding.
 
+That exact approval was supplied and consumed. One candidate and one rollback
+transfer completed. Two byte-identical retained reads contained one exact E2
+progress record: generation 74 passed `apps-rpmh-cxlvl` at stage `0x81`, and
+generation 75 passed `apps-rpmh-mxlvl` at stage `0x82`. This proves the P2.43
+provider correction passed the old P2.42 RPMh timeout boundary. No `0x83`
+outcome was stored. Separately, P2.44 extended the kernel stage sequence
+through `0x86` but left the kernel request validator's gate item-index range
+capped at `0x82`. That stale validator must reject every normal
+`stage=0x83,item=8` checkpoint with `-ERANGE`, so it is a deterministic
+source-contract blocker for later evidence. The retained record does not prove
+that this boot submitted that request and provides no `gcc-waipio` result.
+Exact rollback, final health, and all eight timeline events passed. The
+transaction is `CLOSED`; its binding and authority are consumed.
+
 ## Established Evidence
 
 - R4W1-A: custom Android `/init` marker retained and rollback passed.
@@ -275,11 +290,13 @@ token emitted by that binding.
   artifacts, two byte-identical boot-only packages, exact 59-module rootfs
   closure, linked flush audit, and Process v2 offline promotion pass. No
   device authority exists.
-- P2.46 connected D0: the first clean-baseline check rejected historical
-  evidence without creating a binding. One approved normal reboot rotated it
-  out, and a fresh D0 bound the healthy FYG8 target, exact candidate and
-  rollback, clean retained baseline, and current execution closure. F1 remains
-  unauthorized pending the exact emitted approval token.
+- P2.46 E2 F1: after one baseline rotation and clean connected D0, one exact
+  candidate and rollback transfer completed. One clean progress record proves
+  all 59 modules and gates through `apps-rpmh-mxlvl` at `0x82`. A stale kernel
+  item-index range makes every normal `0x83,item=8` checkpoint unrecordable;
+  the live record does not prove that request was submitted. Terminal E2
+  remains unproven. Final health and the canonical timeline passed; the
+  transaction and authority are closed.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
   rollback, and final health are proven.
 - V3439: pstore, pmsg, ramoops, and DTBO-based retention remain retired.
@@ -313,6 +330,7 @@ Load-bearing details are in:
 - `docs/reports/S22PLUS_FYG8_P242_E2_F1_LIVE_RPMH_TIMEOUT_2026-07-23.md`
 - `docs/reports/S22PLUS_FYG8_P243_RPMH_DEPENDENCY_AUDIT_H0_2026-07-23.md`
 - `docs/reports/S22PLUS_FYG8_P244_E2_PROVIDER_IMPLEMENTATION_H0_2026-07-23.md`
+- `docs/reports/S22PLUS_FYG8_P246_E2_PROVIDER_F1_LIVE_PROGRESS_2026-07-24.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
 
@@ -382,12 +400,15 @@ reports grant no device authority.
     versioned source contract and decoder; two clean reproducible Full-LTO
     builds, two deterministic boot-only packages, effective-rootfs closure,
     linked audit, independent review, and Process v2 offline promotion pass.
-25. **P2.46 prepared, D0 complete:** one approved normal reboot rotated the
-    historical evidence family out, and a fresh connected D0 created one
-    immutable Process v2 binding for the exact target, candidate, rollback,
-    and execution closure. Stop for its exact candidate-plus-rollback approval;
-    D0 does not authorize F1.
-26. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
+25. **P2.46 complete/closed, F1:** one exact candidate and rollback transfer
+    completed. The provider correction passed through `apps-rpmh-mxlvl` at
+    `0x82`; the stale kernel item-index range makes the next normal checkpoint
+    unrecordable, while the live result does not prove that it was submitted.
+    Final health passed and authority is consumed.
+26. **P2.47 next, H0:** extend the kernel request item-index range through
+    `0x86`, add generated-source and linked-binary closure for every gate, replay
+    the captured progress record, and independently review the bounded fix.
+27. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
