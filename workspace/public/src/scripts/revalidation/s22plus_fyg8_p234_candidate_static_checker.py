@@ -26,6 +26,7 @@ import s22plus_fyg8_p234_build_repro_check as repro  # noqa: E402
 import s22plus_fyg8_p234_candidate_contract as contract  # noqa: E402
 import s22plus_fyg8_p234_userspace_build as userspace  # noqa: E402
 import s22plus_fyg8_p242_e2_stock_closure as e2_closure  # noqa: E402
+import s22plus_fyg8_p245_e2_stock_closure as p245_e2_closure  # noqa: E402
 import s22plus_fyg8_r4w1e_e1_candidate_static_checker as e1_static  # noqa: E402
 
 
@@ -224,8 +225,11 @@ def verify_artifact_result(
         ):
             raise CheckError("E1B stock vendor module closure mismatch")
     elif profile == "E2":
+        closure_api = p245_e2_closure.select(
+            exact_contract.get("source_contract_id")
+        )
         try:
-            e2_closure.validate_module_closure(value.get("module_closure"))
+            closure_api.validate_module_closure(value.get("module_closure"))
         except e2_closure.ClosureError as exc:
             raise CheckError("E2 stock vendor module closure mismatch") from exc
         if (
@@ -269,7 +273,10 @@ def verify_artifact_result(
 
 
 def verify_userspace(
-    root: Path, directory: Path, exact_contract: dict[str, Any]
+    root: Path,
+    directory: Path,
+    exact_contract: dict[str, Any],
+    intent_path: Path,
 ) -> tuple[dict[str, bytes], dict[str, Any], dict[str, Any]]:
     if directory.is_symlink() or not directory.is_dir():
         raise CheckError("P2.34 userspace directory missing or indirect")
@@ -286,7 +293,10 @@ def verify_userspace(
         result.get("schema") != userspace.SCHEMA
         or result.get("target") != TARGET
         or result.get("verdict")
-        != userspace.verdict_for_profile(exact_contract["profile"])
+        != userspace.verdict_for_profile(
+            exact_contract["profile"],
+            exact_contract.get("source_contract_id"),
+        )
         or result.get("candidate_contract") != exact_contract
         or result.get("run_id") != exact_contract["run_id"]
         or result.get("profile") != exact_contract["profile"]
@@ -307,7 +317,15 @@ def verify_userspace(
     child = payloads["child"]
     profile = exact_contract["profile"]
     module_files = (
-        userspace._e2_module_files(root)
+        userspace._e2_module_files(
+            root,
+            exact_contract.get("source_contract_id"),
+            (
+                intent_path.parent / "materialized-sources"
+                if exact_contract.get("source_contract_id") is not None
+                else None
+            ),
+        )
         if profile == "E2"
         else userspace.FORBIDDEN_MODULE_NAMES
     )
@@ -332,7 +350,17 @@ def verify_userspace(
             f"FYG8 {exact_contract['profile']} binary closure mismatch"
         )
     source = result.get("source_contract")
-    fresh_source = userspace.audit_profile_sources(root, profile)
+    materialized_dir = (
+        intent_path.parent / "materialized-sources"
+        if exact_contract.get("source_contract_id") is not None
+        else None
+    )
+    fresh_source = userspace.audit_profile_sources(
+        root,
+        profile,
+        exact_contract.get("source_contract_id"),
+        materialized_dir,
+    )
     if (
         not isinstance(source, dict)
         or source != fresh_source
@@ -434,7 +462,10 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
         raise CheckError("P2.34 Image differs from reproducibility result")
     boot_verify.parse_arm64_header(image)
     userspace_payloads, userspace_closure, qemu_receipt = verify_userspace(
-        root, resolve(root, args.userspace), exact_contract
+        root,
+        resolve(root, args.userspace),
+        exact_contract,
+        resolve(root, args.intent),
     )
 
     directory = resolve(root, args.candidate)
@@ -576,10 +607,20 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
             "pinned stock vendor_boot",
         )
     elif exact_contract["profile"] == "E2":
-        module_closure = e2_closure.derive_module_closure(
+        source_contract_id = exact_contract.get("source_contract_id")
+        closure_api = p245_e2_closure.select(source_contract_id)
+        plan_header = None
+        if source_contract_id is not None:
+            plan_header = (
+                resolve(root, args.intent).parent
+                / "materialized-sources"
+                / contract.intent.p245.MATERIALIZED_FILENAMES["plan_header"]
+            )
+        module_closure = closure_api.derive_module_closure(
             root,
             resolve(root, getattr(args, "vendor_ramdisk", DEFAULT_VENDOR_RAMDISK)),
             resolve(root, args.lz4),
+            plan_header=plan_header,
         )
         if artifact_result.get("module_closure") != module_closure:
             raise CheckError("E2 module closure differs from fresh stock derivation")
@@ -720,7 +761,7 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
             )
         elif vendor_boot is not None and exact_contract["profile"] == "E2":
             try:
-                effective_rootfs = e2_closure.rootfs_audit(
+                effective_rootfs = closure_api.rootfs_audit(
                     payloads["boot_img"],
                     vendor_boot,
                     lz4_path,
@@ -859,6 +900,7 @@ def main(argv: list[str] | None = None) -> int:
         repro.CheckError,
         contract.ContractError,
         contract.intent.IntentError,
+        contract.intent.p245.SourceContractError,
         userspace.p233.CheckError,
         e1_static.CheckError,
         e2_closure.ClosureError,

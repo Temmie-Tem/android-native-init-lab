@@ -1,9 +1,12 @@
 import argparse
 import importlib
+import io
 import sys
 import tempfile
 import unittest
+from contextlib import ExitStack, redirect_stdout
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -154,6 +157,171 @@ class S22PlusFyg8P234BuildTest(unittest.TestCase):
             result["candidate_binary_counts"]["image"]["source_check_run_id"],
             0,
         )
+
+    def test_adapter_accepts_exact_p245_contract(self):
+        parent = Path(self.temporary.name)
+        relative = Path(parent.relative_to(ROOT)) / "p245-intent"
+        INTENT.create(
+            argparse.Namespace(
+                source=INTENT.DEFAULT_SOURCE,
+                base_patch=INTENT.DEFAULT_BASE_PATCH,
+                out=relative,
+                nonce_hex="77" * 16,
+                profile="E2",
+                source_contract_id=INTENT.p245.CONTRACT_ID,
+            )
+        )
+        intent_dir = ROOT / relative
+        contract = CONTRACT.verify(
+            ROOT,
+            INTENT.resolve(ROOT, INTENT.DEFAULT_SOURCE),
+            intent_dir / "candidate-intent.json",
+            intent_dir / "candidate.patch",
+        )
+        BUILD._ContractAdapter.bind(
+            contract, intent_dir / "candidate-intent.json"
+        )
+        self.assertEqual(contract["schema"], INTENT.p245.CONTRACT_SCHEMA)
+        self.assertEqual(contract["verdict"], INTENT.p245.CONTRACT_VERDICT)
+        self.assertEqual(
+            BUILD._ContractAdapter._bound_result["source_contract_id"],
+            INTENT.p245.CONTRACT_ID,
+        )
+        self.assertEqual(
+            BUILD._ContractAdapter.VERDICT, INTENT.p245.CONTRACT_VERDICT
+        )
+
+        with self.assertRaises(BUILD.BuildError):
+            BUILD._ContractAdapter.bind(
+                {**contract, "verdict": CONTRACT.VERDICT},
+                intent_dir / "candidate-intent.json",
+            )
+
+    def test_p245_main_preflight_composes_parser_binding_and_verdict_gate(self):
+        parent = Path(self.temporary.name)
+        relative = Path(parent.relative_to(ROOT)) / "p245-main-intent"
+        INTENT.create(
+            argparse.Namespace(
+                source=INTENT.DEFAULT_SOURCE,
+                base_patch=INTENT.DEFAULT_BASE_PATCH,
+                out=relative,
+                nonce_hex="88" * 16,
+                profile="E2",
+                source_contract_id=INTENT.p245.CONTRACT_ID,
+            )
+        )
+        intent_path = relative / "candidate-intent.json"
+        patch_path = relative / "candidate.patch"
+
+        result_dir = Path(parent.relative_to(ROOT)) / "real-main-preflight"
+        argv = [
+            str(BUILD.__file__),
+            "--mode",
+            "preflight",
+            "--work-tree",
+            str(INTENT.DEFAULT_SOURCE),
+            "--intent",
+            str(intent_path),
+            "--patch",
+            str(patch_path),
+            "--result-dir",
+            str(result_dir),
+        ]
+        verified = {"verified": True}
+        clean = {"verified": True, "path": "bounded-fixture-output"}
+        preflight = {
+            "schema": "bounded-preflight-fixture",
+            "build_allowed": True,
+            "provenance": {},
+        }
+        with ExitStack() as stack:
+            stack.enter_context(
+                mock.patch.object(
+                    BUILD.engine.engine,
+                    "reexec_in_private_repo_namespace",
+                    return_value=None,
+                )
+            )
+            stack.enter_context(
+                mock.patch.object(
+                    BUILD.engine.engine,
+                    "inspect_private_namespace",
+                    return_value={
+                        "verified": True,
+                        "recorded_repo": str(ROOT),
+                    },
+                )
+            )
+            stack.enter_context(
+                mock.patch.object(
+                    BUILD.engine.engine,
+                    "create_exclusive_result_dir",
+                    side_effect=lambda path: path.mkdir(parents=True),
+                )
+            )
+            stack.enter_context(
+                mock.patch.object(
+                    BUILD.engine.engine,
+                    "inspect_clean_output_precondition",
+                    return_value=clean,
+                )
+            )
+            for name in (
+                "inspect_kmi_path_control",
+                "inspect_kernel_debug_control",
+                "inspect_vdso_debug_control",
+            ):
+                stack.enter_context(
+                    mock.patch.object(
+                        BUILD.engine.engine, name, return_value=verified
+                    )
+                )
+            stack.enter_context(
+                mock.patch.object(
+                    BUILD.engine.engine,
+                    "rebase_recorded_paths",
+                    side_effect=lambda value, **_kwargs: value,
+                )
+            )
+            for name in (
+                "prepare_host_tool_overrides",
+                "run_overlay_audit",
+                "inspect_timestamp_control",
+                "inspect_stock_baseline",
+            ):
+                stack.enter_context(
+                    mock.patch.object(
+                        BUILD.engine.base, name, return_value=verified
+                    )
+                )
+            stack.enter_context(
+                mock.patch.object(
+                    BUILD.engine.base,
+                    "preflight",
+                    return_value=preflight,
+                )
+            )
+            stack.enter_context(
+                mock.patch.object(BUILD.engine.base, "write_json")
+            )
+            stack.enter_context(
+                mock.patch.object(
+                    BUILD.engine,
+                    "inspect_source_symlink_control",
+                    return_value=verified,
+                )
+            )
+            stack.enter_context(
+                mock.patch.object(
+                    BUILD.engine,
+                    "qualify_recorded_source_clang_link",
+                    return_value=verified,
+                )
+            )
+            stack.enter_context(mock.patch.object(sys, "argv", argv))
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(BUILD.main(), 0)
+        self.assertEqual(BUILD._ContractAdapter.VERDICT, INTENT.p245.CONTRACT_VERDICT)
 
     def test_engine_binding_is_scoped(self):
         original = {

@@ -4,6 +4,7 @@ import importlib.util
 import json
 import struct
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -221,20 +222,25 @@ class P234ProcessV2Test(unittest.TestCase):
             "verified": True,
         }
 
-    def fixture(self, profile="E1A"):
-        model = self.evidence.e1_latest_stage.model
+    def fixture(self, profile="E1A", source_contract_id=None):
+        selected_decoder = self.evidence._latest_stage_decoder(
+            source_contract_id, profile
+        )
+        model = selected_decoder.model
         profile_number = model.PROFILE_NUMBERS[profile]
         terminal = model.PROFILE_TERMINALS[profile]
-        reachable_slot_variants = sum(
-            1 if stage == terminal else 1 + 4095
-            for stage in model.PROFILE_STAGE_SEQUENCES[profile]
+        reachable_slot_variants = self.evidence._e1_reachable_slot_variant_count(
+            profile, source_contract_id
         )
         intent = self.module.static_checker.contract.intent
-        _source_data, source_rows = intent.source_receipts(ROOT, profile)
+        source_data, source_rows = intent.source_receipts(
+            ROOT, profile, source_contract_id
+        )
         preimage = intent.identity_preimage(
             bytes.fromhex("1234567890abcdef1234567890abcdef"),
             source_rows,
             profile,
+            source_contract_id,
         )
         preimage_sha256 = hashlib.sha256(intent.canonical(preimage)).hexdigest()
         run_id = intent.derive_run_id(preimage).hex()
@@ -252,14 +258,18 @@ class P234ProcessV2Test(unittest.TestCase):
             "two_build_byte_identical": True,
             "verified": True,
         }
-        static_result = {
-            "schema": self.module.static_checker.SCHEMA,
-            "target": self.module.TARGET,
-            "verdict": self.module.static_checker.VERDICT,
-            "candidate_contract": {
-                "schema": self.evidence.E1_LATEST_STAGE_CANDIDATE_CONTRACT_SCHEMA,
+        candidate_contract = {
+                "schema": (
+                    intent.p245.CONTRACT_SCHEMA
+                    if source_contract_id is not None
+                    else self.evidence.E1_LATEST_STAGE_CANDIDATE_CONTRACT_SCHEMA
+                ),
                 "target": self.module.TARGET,
-                "verdict": self.evidence.E1_LATEST_STAGE_CANDIDATE_CONTRACT_VERDICT,
+                "verdict": (
+                    intent.p245.CONTRACT_VERDICT
+                    if source_contract_id is not None
+                    else self.evidence.E1_LATEST_STAGE_CANDIDATE_CONTRACT_VERDICT
+                ),
                 "profile": profile,
                 "profile_number": profile_number,
                 "run_id": run_id,
@@ -269,8 +279,8 @@ class P234ProcessV2Test(unittest.TestCase):
                 "unsat_tag_hex": self.evidence.e1_latest_stage.model.unsat_record(
                     profile, bytes.fromhex(run_id)
                 )[len(self.evidence.e1_latest_stage.model.UNSAT_FAMILY) :].hex(),
-                "decoder_id": self.evidence.E1_LATEST_STAGE_DECODER,
-                "decoder_policy_id": self.evidence.e1_latest_stage.POLICY_ID,
+                "decoder_id": selected_decoder.DECODER_ID,
+                "decoder_policy_id": selected_decoder.POLICY_ID,
                 "identity_preimage": preimage,
                 "identity_preimage_sha256": preimage_sha256,
                 "intent": self.identity(b"candidate-intent"),
@@ -317,7 +327,7 @@ class P234ProcessV2Test(unittest.TestCase):
                     "adjacent_slot_combinations_verified": True,
                     "zero_crc_count": 0,
                     "family_collision_count": 0,
-                    "decoder_policy_id": self.evidence.e1_latest_stage.POLICY_ID,
+                    "decoder_policy_id": selected_decoder.POLICY_ID,
                     "verified": True,
                 },
                 "verified": True,
@@ -328,7 +338,23 @@ class P234ProcessV2Test(unittest.TestCase):
                     "odin_invoked": False,
                     "live_authorized": False,
                 },
-            },
+            }
+        if source_contract_id is not None:
+            candidate_contract["source_contract_id"] = source_contract_id
+            candidate_contract["materialized_sources"] = {
+                name: {
+                    "path": f"materialized-sources/{filename}",
+                    **self.module.receipt(source_data[name]),
+                }
+                for name, filename in sorted(
+                    intent.p245.MATERIALIZED_FILENAMES.items()
+                )
+            }
+        static_result = {
+            "schema": self.module.static_checker.SCHEMA,
+            "target": self.module.TARGET,
+            "verdict": self.module.static_checker.VERDICT,
+            "candidate_contract": candidate_contract,
             "build_repro": {
                 "result": self.identity(b"build-repro-result"),
                 "image": self.identity(b"Image"),
@@ -463,11 +489,25 @@ class P234ProcessV2Test(unittest.TestCase):
             )
             if not all((ROOT / path).exists() for path in required):
                 self.skipTest("exact FYG8 private inputs are unavailable")
-            closure = self.module.e2_closure.derive_module_closure(
-                ROOT,
-                ROOT / self.module.e2_closure.DEFAULT_VENDOR_RAMDISK,
-                ROOT / self.module.e2_closure.DEFAULT_LZ4,
-            )
+            if source_contract_id is not None:
+                with tempfile.TemporaryDirectory() as temporary:
+                    plan_header = (
+                        Path(temporary)
+                        / intent.p245.MATERIALIZED_FILENAMES["plan_header"]
+                    )
+                    plan_header.write_bytes(source_data["plan_header"])
+                    closure = self.module.p245_e2_closure.derive_module_closure(
+                        ROOT,
+                        ROOT / self.module.e2_closure.DEFAULT_VENDOR_RAMDISK,
+                        ROOT / self.module.e2_closure.DEFAULT_LZ4,
+                        plan_header=plan_header,
+                    )
+            else:
+                closure = self.module.e2_closure.derive_module_closure(
+                    ROOT,
+                    ROOT / self.module.e2_closure.DEFAULT_VENDOR_RAMDISK,
+                    ROOT / self.module.e2_closure.DEFAULT_LZ4,
+                )
             init_elf = {
                 "verified": True,
                 "machine": "AArch64",
@@ -546,8 +586,8 @@ class P234ProcessV2Test(unittest.TestCase):
         acceptance = {
             "kind": self.evidence.E1_LATEST_STAGE_KIND,
             "source": self.evidence.CHECKPOINT_SOURCE,
-            "decoder": self.evidence.E1_LATEST_STAGE_DECODER,
-            "policy_id": self.evidence.e1_latest_stage.POLICY_ID,
+            "decoder": selected_decoder.DECODER_ID,
+            "policy_id": selected_decoder.POLICY_ID,
             "profile": profile,
             "run_id": run_id,
             "long_family_hex": self.evidence.e1_latest_stage.model.LONG_FAMILY.hex(),
@@ -562,6 +602,8 @@ class P234ProcessV2Test(unittest.TestCase):
                 for name, value in receipts.items()
             },
         }
+        if source_contract_id is not None:
+            acceptance["source_contract_id"] = source_contract_id
         return static_result, candidate_static, ap, payloads, receipts, acceptance
 
     def coherently_repin_candidate_static(self, static_result, payloads, acceptance):
@@ -908,6 +950,32 @@ class P234ProcessV2Test(unittest.TestCase):
         self.assertEqual(result["profile"], "E2")
         self.assertEqual(result["terminal_stage"], 0x8F)
         self.assertEqual(result["candidate_static_sha256"], candidate_static["sha256"])
+
+    def test_p245_e2_promotion_binds_explicit_source_contract(self):
+        p245 = self.module.static_checker.contract.intent.p245
+        static, candidate_static, ap, payloads, receipts, acceptance = self.fixture(
+            "E2", p245.CONTRACT_ID
+        )
+        result = self.evidence.verify_offline_contract(
+            acceptance,
+            payloads=payloads,
+            receipts=receipts,
+            candidate_ap=ap,
+        )
+        self.assertEqual(result["source_contract_id"], p245.CONTRACT_ID)
+        self.assertEqual(
+            result["ap_payload_closure"]["source_contract_id"],
+            p245.CONTRACT_ID,
+        )
+        self.assertEqual(
+            static["candidate_contract"]["reachable_record_contract"][
+                "reachable_slot_variants"
+            ],
+            323_585,
+        )
+        self.assertEqual(
+            result["candidate_static_sha256"], candidate_static["sha256"]
+        )
 
     def test_offline_verifier_rejects_repinned_e2_module_tampering(self):
         _static, _candidate_static, ap, payloads, _receipts, acceptance = self.fixture(

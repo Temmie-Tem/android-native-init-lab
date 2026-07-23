@@ -27,6 +27,7 @@ import s22plus_fyg8_p234_build_repro_check as repro  # noqa: E402
 import s22plus_fyg8_p234_candidate_contract as candidate_contract  # noqa: E402
 import s22plus_fyg8_p234_userspace_build as userspace  # noqa: E402
 import s22plus_fyg8_p242_e2_stock_closure as e2_closure  # noqa: E402
+import s22plus_fyg8_p245_e2_stock_closure as p245_e2_closure  # noqa: E402
 
 
 SCHEMA = "s22plus_fyg8_p234_candidate_artifact_result_v1"
@@ -112,7 +113,10 @@ def verify_userspace(
         value.get("schema") != userspace.SCHEMA
         or value.get("target") != TARGET
         or value.get("verdict")
-        != userspace.verdict_for_profile(exact_contract["profile"])
+        != userspace.verdict_for_profile(
+            exact_contract["profile"],
+            exact_contract.get("source_contract_id"),
+        )
         or value.get("candidate_contract") != exact_contract
         or value.get("run_id") != exact_contract["run_id"]
         or value.get("profile") != exact_contract["profile"]
@@ -223,12 +227,25 @@ def build_candidate(args: argparse.Namespace) -> dict[str, Any]:
                 Path(name),
             )
     elif exact_contract["profile"] == "E2":
-        module_closure = e2_closure.derive_module_closure(
+        closure_api = p245_e2_closure.select(
+            exact_contract.get("source_contract_id")
+        )
+        plan_header = None
+        if exact_contract.get("source_contract_id") is not None:
+            plan_header = (
+                candidate_contract.intent.resolve(root, args.intent).parent
+                / "materialized-sources"
+                / candidate_contract.intent.p245.MATERIALIZED_FILENAMES[
+                    "plan_header"
+                ]
+            )
+        module_closure = closure_api.derive_module_closure(
             root,
             candidate_contract.intent.resolve(
                 root, getattr(args, "vendor_ramdisk", DEFAULT_VENDOR_RAMDISK)
             ),
             candidate_contract.intent.resolve(root, args.lz4),
+            plan_header=plan_header,
         )
 
     output.parent.mkdir(parents=True, exist_ok=True)

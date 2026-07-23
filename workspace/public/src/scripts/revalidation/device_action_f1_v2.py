@@ -401,17 +401,43 @@ def execution_critical_source_receipts(
         for name, path in same_ring_multiboot_sources.items():
             receipts[name] = _stable_read(path.resolve(), name.replace("_", " "))[1]
     if acceptance.get("kind") == typed_evidence.E1_LATEST_STAGE_KIND:
+        profile = acceptance.get("profile")
+        source_contract_id = acceptance.get("source_contract_id")
+        try:
+            selected_decoder = typed_evidence._latest_stage_decoder(
+                source_contract_id, profile
+            )
+        except typed_evidence.EvidenceError as exc:
+            raise F1V2Error(str(exc)) from exc
         e1_latest_stage_sources = {
             "e1_latest_stage_decoder": Path(
-                typed_evidence.e1_latest_stage.__file__
+                selected_decoder.__file__
             ),
             "e1_latest_stage_design_model": Path(
                 typed_evidence.e1_latest_stage.model.__file__
             ),
             "candidate_intent": Path(candidate_intent.__file__),
         }
-        profile = acceptance.get("profile")
-        if profile in candidate_intent.SUPPORTED_PROFILES:
+        if source_contract_id is not None:
+            try:
+                candidate_intent.p245.require(source_contract_id, profile)
+                source_data = candidate_intent.p245.source_bytes(
+                    candidate_intent.repo_root()
+                )
+            except (
+                candidate_intent.p245.SourceContractError,
+                candidate_intent.p233.CheckError,
+                OSError,
+            ) as exc:
+                raise F1V2Error(
+                    "P2.45 execution-critical source closure failed"
+                ) from exc
+            for name, data in source_data.items():
+                receipts[f"candidate_source_{name}"] = {
+                    "size": len(data),
+                    "sha256": hashlib.sha256(data).hexdigest(),
+                }
+        elif profile in candidate_intent.SUPPORTED_PROFILES:
             for name, path in candidate_intent.source_paths_for_profile(
                 profile
             ).items():
@@ -442,9 +468,20 @@ def verify_candidate_source_binding(
     if acceptance.get("kind") != typed_evidence.E1_LATEST_STAGE_KIND:
         return
     expected_sources = verification.get("candidate_source_receipts")
-    expected_keys = typed_evidence.E1_LATEST_STAGE_SOURCE_KEYS.get(
-        acceptance.get("profile")
-    )
+    source_contract_id = acceptance.get("source_contract_id")
+    if verification.get("source_contract_id") != source_contract_id:
+        raise F1V2Error("candidate source contract selector changed")
+    if source_contract_id is not None:
+        try:
+            expected_keys = candidate_intent.p245.require(
+                source_contract_id, acceptance.get("profile")
+            ).source_keys
+        except candidate_intent.p245.SourceContractError as exc:
+            raise F1V2Error(str(exc)) from exc
+    else:
+        expected_keys = typed_evidence.E1_LATEST_STAGE_SOURCE_KEYS.get(
+            acceptance.get("profile")
+        )
     if (
         expected_keys is None
         or not isinstance(expected_sources, dict)

@@ -83,13 +83,8 @@ def verify(
         raise ContractError("candidate intent is not valid ASCII JSON") from exc
     if not isinstance(value, dict):
         raise ContractError("candidate intent root is not an object")
-    for name, expected in {
-        "schema": intent.SCHEMA,
-        "target": TARGET,
-        "verdict": intent.VERDICT,
-    }.items():
-        if value.get(name) != expected:
-            raise ContractError(f"candidate intent identity mismatch: {name}")
+    if value.get("target") != TARGET:
+        raise ContractError("candidate intent identity mismatch: target")
 
     profile = value.get("profile")
     if not isinstance(profile, str) or profile not in intent.SUPPORTED_PROFILES:
@@ -101,6 +96,21 @@ def verify(
     preimage = value.get("identity_preimage")
     if not isinstance(preimage, dict):
         raise ContractError("candidate identity preimage is missing")
+    source_contract_id = preimage.get("source_contract_id")
+    if source_contract_id is not None:
+        intent.p245.require(source_contract_id, profile)
+    expected_schema = (
+        intent.p245.INTENT_SCHEMA if source_contract_id else intent.SCHEMA
+    )
+    expected_verdict = (
+        intent.p245.INTENT_VERDICT if source_contract_id else intent.VERDICT
+    )
+    if (
+        value.get("schema") != expected_schema
+        or value.get("verdict") != expected_verdict
+        or value.get("source_contract_id") != source_contract_id
+    ):
+        raise ContractError("candidate intent source-contract identity mismatch")
     nonce_text = preimage.get("nonce")
     if not isinstance(nonce_text, str):
         raise ContractError("candidate nonce is missing")
@@ -108,8 +118,12 @@ def verify(
         nonce = intent.parse_nonce(nonce_text)
     except intent.IntentError as exc:
         raise ContractError(str(exc)) from exc
-    _source_data, source_rows = intent.source_receipts(root, profile)
-    expected_preimage = intent.identity_preimage(nonce, source_rows, profile)
+    _source_data, source_rows = intent.source_receipts(
+        root, profile, source_contract_id
+    )
+    expected_preimage = intent.identity_preimage(
+        nonce, source_rows, profile, source_contract_id
+    )
     if preimage != expected_preimage:
         raise ContractError("candidate identity preimage does not bind current sources")
     preimage_sha256 = hashlib.sha256(intent.canonical(preimage)).hexdigest()
@@ -135,9 +149,40 @@ def verify(
     expected_patch_row = {**intent.receipt(patch), **patch_audit}
     if value.get("patch") != expected_patch_row:
         raise ContractError("candidate patch audit receipt mismatch")
-    reachable = intent.p233.validate_reachable_records({profile: run_id})
+    reachable = (
+        intent.p245.validate_reachable_records(run_id)
+        if source_contract_id is not None
+        else intent.p233.validate_reachable_records({profile: run_id})
+    )
     if value.get("reachable_record_contract") != reachable:
         raise ContractError("candidate reachable-record contract mismatch")
+    materialized_rows = None
+    if source_contract_id is not None:
+        materialized_dir = intent_path.parent / "materialized-sources"
+        if materialized_dir.is_symlink() or not materialized_dir.is_dir():
+            raise ContractError("P2.45 materialized source directory is invalid")
+        expected_names = set(intent.p245.MATERIALIZED_FILENAMES.values())
+        if {path.name for path in materialized_dir.iterdir()} != expected_names:
+            raise ContractError("P2.45 materialized source inventory mismatch")
+        materialized_rows = {}
+        for name, filename in sorted(
+            intent.p245.MATERIALIZED_FILENAMES.items()
+        ):
+            data = stable_read(
+                materialized_dir / filename,
+                f"P2.45 materialized {name}",
+            )
+            if data != _source_data[name]:
+                raise ContractError(f"P2.45 materialized source mismatch: {name}")
+            materialized_rows[name] = {
+                "path": f"materialized-sources/{filename}",
+                **intent.receipt(data),
+            }
+        if value.get("materialized_sources") != materialized_rows:
+            raise ContractError("P2.45 materialized source receipts mismatch")
+    elif "materialized_sources" in value or "source_contract_id" in value:
+        raise ContractError("legacy candidate intent contains P2.45 fields")
+    selected_decoder = intent.decoder_for(profile, source_contract_id)
     safety = _exact(
         value.get("safety"),
         {
@@ -157,17 +202,21 @@ def verify(
         safety[name] is not False for name in safety if name != "host_only"
     ):
         raise ContractError("candidate intent safety boundary changed")
-    return {
-        "schema": SCHEMA,
+    result = {
+        "schema": (
+            intent.p245.CONTRACT_SCHEMA if source_contract_id else SCHEMA
+        ),
         "target": TARGET,
-        "verdict": VERDICT,
+        "verdict": (
+            intent.p245.CONTRACT_VERDICT if source_contract_id else VERDICT
+        ),
         "profile": profile,
         "profile_number": number,
         "run_id": run_id.hex(),
         "unsat_record_hex": unsat.hex(),
         "unsat_tag_hex": unsat_tag.hex(),
-        "decoder_id": intent.decoder.DECODER_ID,
-        "decoder_policy_id": intent.decoder.POLICY_ID,
+        "decoder_id": selected_decoder.DECODER_ID,
+        "decoder_policy_id": selected_decoder.POLICY_ID,
         "identity_preimage": preimage,
         "identity_preimage_sha256": preimage_sha256,
         "intent": intent.receipt(intent_bytes),
@@ -185,6 +234,10 @@ def verify(
             "live_authorized": False,
         },
     }
+    if source_contract_id is not None:
+        result["source_contract_id"] = source_contract_id
+        result["materialized_sources"] = materialized_rows
+    return result
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -208,6 +261,7 @@ def main(argv: list[str] | None = None) -> int:
     except (
         ContractError,
         intent.IntentError,
+        intent.p245.SourceContractError,
         intent.p233.CheckError,
         intent.decoder.model.DesignError,
         OSError,

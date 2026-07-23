@@ -29,6 +29,7 @@ SCHEMA = "s22plus_fyg8_p234_userspace_build_v1"
 VERDICT = "PASS_P234_E1A_USERSPACE_TWO_BUILD_REPRO_HOST_ONLY"
 E1B_VERDICT = "PASS_P239_E1B_USERSPACE_TWO_BUILD_REPRO_HOST_ONLY"
 E2_VERDICT = "PASS_P242_E2_USERSPACE_TWO_BUILD_REPRO_HOST_ONLY"
+P245_E2_VERDICT = "PASS_P245_E2_USERSPACE_TWO_BUILD_REPRO_HOST_ONLY"
 TARGET = candidate_contract.TARGET
 DEFAULT_INTENT = candidate_contract.DEFAULT_INTENT
 DEFAULT_PATCH = candidate_contract.DEFAULT_PATCH
@@ -94,7 +95,12 @@ class BuildError(ValueError):
     pass
 
 
-def verdict_for_profile(profile: str) -> str:
+def verdict_for_profile(
+    profile: str, source_contract_id: str | None = None
+) -> str:
+    if source_contract_id is not None:
+        candidate_contract.intent.p245.require(source_contract_id, profile)
+        return P245_E2_VERDICT
     if profile == "E1A":
         return VERDICT
     if profile == "E1B":
@@ -104,7 +110,20 @@ def verdict_for_profile(profile: str) -> str:
     raise BuildError(f"unsupported userspace profile: {profile}")
 
 
-def _profile_sources(profile: str) -> tuple[Path, Path]:
+def _profile_sources(
+    profile: str,
+    source_contract_id: str | None = None,
+    materialized_dir: Path | None = None,
+) -> tuple[Path, Path]:
+    if source_contract_id is not None:
+        candidate_contract.intent.p245.require(source_contract_id, profile)
+        if materialized_dir is None:
+            raise BuildError("P2.45 materialized source directory is missing")
+        names = candidate_contract.intent.p245.MATERIALIZED_FILENAMES
+        return (
+            materialized_dir / names["runtime_wrapper"],
+            materialized_dir / names["checkpoint_client"],
+        )
     if profile == "E2":
         return p241.DEFAULT_RUNTIME, p241.DEFAULT_CLIENT
     if profile in {"E1A", "E1B"}:
@@ -112,8 +131,22 @@ def _profile_sources(profile: str) -> tuple[Path, Path]:
     raise BuildError(f"unsupported userspace profile: {profile}")
 
 
-def _e2_module_files(root: Path) -> tuple[str, ...]:
-    data = p233.read_direct(root / p241.DEFAULT_PLAN_HEADER, "E2 plan header")
+def _e2_module_files(
+    root: Path,
+    source_contract_id: str | None = None,
+    materialized_dir: Path | None = None,
+) -> tuple[str, ...]:
+    if source_contract_id is not None:
+        candidate_contract.intent.p245.require(source_contract_id, "E2")
+        if materialized_dir is None:
+            raise BuildError("P2.45 materialized plan directory is missing")
+        plan_path = (
+            materialized_dir
+            / candidate_contract.intent.p245.MATERIALIZED_FILENAMES["plan_header"]
+        )
+    else:
+        plan_path = root / p241.DEFAULT_PLAN_HEADER
+    data = p233.read_direct(plan_path, "E2 plan header")
     names = tuple(
         value.decode("ascii")
         for value in re.findall(rb'^\s+\{"([^"]+\.ko)",', data, re.MULTILINE)
@@ -123,12 +156,53 @@ def _e2_module_files(root: Path) -> tuple[str, ...]:
     return names
 
 
-def audit_profile_sources(root: Path, profile: str) -> dict[str, Any]:
-    runtime_path, client_path = _profile_sources(profile)
+def audit_profile_sources(
+    root: Path,
+    profile: str,
+    source_contract_id: str | None = None,
+    materialized_dir: Path | None = None,
+) -> dict[str, Any]:
+    runtime_path, client_path = _profile_sources(
+        profile, source_contract_id, materialized_dir
+    )
     client = p233.read_direct(root / client_path, "checkpoint client")
     runtime = p233.read_direct(root / runtime_path, "runtime wrapper")
     if profile == "E2":
-        header = p233.read_direct(root / p241.DEFAULT_PLAN_HEADER, "E2 plan header")
+        if source_contract_id is not None:
+            plan_path = (
+                materialized_dir
+                / candidate_contract.intent.p245.MATERIALIZED_FILENAMES[
+                    "plan_header"
+                ]
+            )
+            header = p233.read_direct(plan_path, "P2.45 E2 plan header")
+            implementation = candidate_contract.intent.p245.implementation_result(root)
+            if (
+                implementation.get("verdict")
+                != candidate_contract.intent.p245.p244_checker.VERDICT
+            ):
+                raise BuildError("P2.44 source implementation no longer passes")
+            return {
+                "profile": profile,
+                "source_contract_id": source_contract_id,
+                "source": {
+                    "runtime": receipt(runtime),
+                    "checkpoint": receipt(client),
+                    "implementation_verdict": implementation["verdict"],
+                    "terminal_dominance_verified": True,
+                    "verified": True,
+                },
+                "plan_header": receipt(header),
+                "module_files": list(
+                    _e2_module_files(
+                        root, source_contract_id, materialized_dir
+                    )
+                ),
+                "verified": True,
+            }
+        header = p233.read_direct(
+            root / p241.DEFAULT_PLAN_HEADER, "E2 plan header"
+        )
         result = p241.audit_sources(client, runtime)
         return {
             "profile": profile,
@@ -187,20 +261,26 @@ def _compile_once(
     run_id: bytes,
     tools: dict[str, str],
     profile: str = candidate_contract.intent.PROFILE,
+    source_contract_id: str | None = None,
+    materialized_dir: Path | None = None,
 ) -> dict[str, Any]:
     init_path = directory / "init"
     child_path = directory / "s22-e1-child"
     include = root / "workspace/public/src/native-init"
     define = p233._run_id_define(run_id)
-    runtime_source, client_source = _profile_sources(profile)
+    runtime_source, client_source = _profile_sources(
+        profile, source_contract_id, materialized_dir
+    )
+    include_flags: list[str | Path] = ["-I", include]
+    if source_contract_id is not None:
+        include_flags = ["-I", materialized_dir, *include_flags]
     _run(
         [
             tools["aarch64-linux-gnu-gcc"],
             *COMPILE_FLAGS,
             f"-DS22PLUS_FYG8_P233_PROFILE={candidate_contract.intent.profile_number(profile)}",
             f"-DS22PLUS_FYG8_P233_RUN_ID_BYTES={define}",
-            "-I",
-            include,
+            *include_flags,
             root / runtime_source,
             root / client_source,
             "-o",
@@ -268,9 +348,12 @@ def _compile_once(
         *(p233.model.model_run_id(name) for name in candidate_contract.intent.SUPPORTED_PROFILES),
         *p233.SOURCE_CHECK_RUN_IDS.values(),
         p241.RUN_ID,
+        candidate_contract.intent.p245.p244_checker.RUN_ID,
     )
     module_files = (
-        _e2_module_files(root) if profile == "E2" else FORBIDDEN_MODULE_NAMES
+        _e2_module_files(root, source_contract_id, materialized_dir)
+        if profile == "E2"
+        else FORBIDDEN_MODULE_NAMES
     )
     expected_present = set() if profile == "E1A" else set(module_files)
     complete_module_counts = {
@@ -317,21 +400,46 @@ def build_userspace(args: argparse.Namespace) -> dict[str, Any]:
         candidate_contract.intent.resolve(root, args.patch),
     )
     profile = exact_contract["profile"]
-    verdict = verdict_for_profile(profile)
+    source_contract_id = exact_contract.get("source_contract_id")
+    verdict = verdict_for_profile(profile, source_contract_id)
     run_id = bytes.fromhex(exact_contract["run_id"])
     tools = require_tools()
-    source_result = audit_profile_sources(root, profile)
+    materialized_dir = (
+        candidate_contract.intent.resolve(root, args.intent).parent
+        / "materialized-sources"
+        if source_contract_id is not None
+        else None
+    )
+    source_result = audit_profile_sources(
+        root, profile, source_contract_id, materialized_dir
+    )
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="s22-p234-userspace-a-") as first_name:
         first_dir = Path(first_name)
-        first = _compile_once(root, first_dir, run_id, tools, profile)
+        first = _compile_once(
+            root,
+            first_dir,
+            run_id,
+            tools,
+            profile,
+            source_contract_id,
+            materialized_dir,
+        )
         first_bytes = {
             "init": (first_dir / "init").read_bytes(),
             "child": (first_dir / "s22-e1-child").read_bytes(),
         }
     with tempfile.TemporaryDirectory(prefix="s22-p234-userspace-b-") as second_name:
         second_dir = Path(second_name)
-        second = _compile_once(root, second_dir, run_id, tools, profile)
+        second = _compile_once(
+            root,
+            second_dir,
+            run_id,
+            tools,
+            profile,
+            source_contract_id,
+            materialized_dir,
+        )
         second_bytes = {
             "init": (second_dir / "init").read_bytes(),
             "child": (second_dir / "s22-e1-child").read_bytes(),
@@ -390,6 +498,7 @@ def main(argv: list[str] | None = None) -> int:
         BuildError,
         candidate_contract.ContractError,
         candidate_contract.intent.IntentError,
+        candidate_contract.intent.p245.SourceContractError,
         p233.CheckError,
         subprocess.TimeoutExpired,
         OSError,

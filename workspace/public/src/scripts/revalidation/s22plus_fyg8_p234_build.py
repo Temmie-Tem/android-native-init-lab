@@ -75,8 +75,23 @@ class _ContractAdapter:
 
     @classmethod
     def bind(cls, result: dict[str, Any], intent_path: Path) -> None:
-        if result.get("verdict") != cls.VERDICT or result.get("verified") is not True:
+        source_contract_id = result.get("source_contract_id")
+        if source_contract_id is None:
+            expected_schema = candidate_contract.SCHEMA
+            expected_verdict = candidate_contract.VERDICT
+        else:
+            candidate_contract.intent.p245.require(
+                source_contract_id, result.get("profile")
+            )
+            expected_schema = candidate_contract.intent.p245.CONTRACT_SCHEMA
+            expected_verdict = candidate_contract.intent.p245.CONTRACT_VERDICT
+        if (
+            result.get("schema") != expected_schema
+            or result.get("verdict") != expected_verdict
+            or result.get("verified") is not True
+        ):
             raise BuildError("P2.34 candidate contract did not verify")
+        cls.VERDICT = expected_verdict
         cls.PATCH_SHA256 = result["patch"]["sha256"]
         cls.BASE_FILES = dict(result["base_files"])
         cls.PATCHED_FILES = dict(result["patched_files"])
@@ -150,7 +165,9 @@ def output_gate(work_tree: Path) -> dict[str, Any]:
     if bound is None:
         raise BuildError("candidate identity disappeared before output gate")
     profile = bound["profile"]
-    source_check_run_id = candidate_contract.intent.source_check_run_id(profile)
+    source_check_run_id = candidate_contract.intent.source_check_run_id(
+        profile, bound.get("source_contract_id")
+    )
     binaries = {"image": image, "vmlinux": vmlinux}
     identity_counts = {
         name: {

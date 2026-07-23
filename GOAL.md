@@ -12,7 +12,8 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 **State: R4W1-D DIRECT PID1 PROVEN; P2.37 E1A LOCAL RUNTIME LIVE PASS;
 P2.39 E1B MODULE RUNTIME LIVE PASS; P2.42 E2 LIVE DIAGNOSTIC FAILURE AT
 DISPLAY-RSC BIND; P2.43 RPMH DEPENDENCY H0 PASS; P2.44 12-GATE E2
-IMPLEMENTATION H0 PASS; EXACT ROLLBACK AND FINAL HEALTH PASS.**
+IMPLEMENTATION H0 PASS; P2.45 REPRODUCIBLE E2 CANDIDATE H0 PASS; EXACT
+ROLLBACK AND FINAL HEALTH PASS.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -174,6 +175,14 @@ clean-apply, static AArch64 link, vendor-rootfs, and P2.41-P2.44 focused
 regressions pass. P2.44 created no kernel build, image, candidate, device
 action, or live authority.
 
+P2.45 now binds those generated outputs through one explicit versioned source
+contract without mutating the historical P2.42 path. A P2.45-only decoder
+covers all 80 stages and exhaustively accepts the 323,585 reachable records.
+Two clean Full-LTO builds, two deterministic package runs, independent linked
+and rootfs audits, and Process v2 offline promotion passed. The exact boot-only
+AP is closed under private output storage. P2.45 contacted no device and
+created no D0 binding, F1 approval, or live authority.
+
 ## Established Evidence
 
 - R4W1-A: custom Android `/init` marker retained and rollback passed.
@@ -251,6 +260,11 @@ action, or live authority.
   210 constraints, static linkage, vendor-rootfs bytes, expanded record
   exhaustiveness, and E1 regressions pass. Replacement live state remains
   unknown.
+- P2.45 E2 candidate H0: the explicit provider source contract, versioned
+  80-stage decoder, two clean Full-LTO builds, six byte-identical build
+  artifacts, two byte-identical boot-only packages, exact 59-module rootfs
+  closure, linked flush audit, and Process v2 offline promotion pass. No
+  device authority exists.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
   rollback, and final health are proven.
 - V3439: pstore, pmsg, ramoops, and DTBO-based retention remain retired.
@@ -349,11 +363,14 @@ reports grant no device authority.
     (`0x7b..0x86`), terminal `0x8f`, and the expanded profile-3 transition
     model. Generated-source, linked-runtime, vendor-rootfs, focused, and
     regression checks pass. No build, candidate, device action, or authority.
-24. **P2.45 next, H0:** materialize only the verified P2.44 outputs, run two
-    clean reproducible final Full-LTO builds, package one deterministic
-    boot-only AP, close its effective rootfs and artifact identities, and
-    prepare the offline Process v2 manifest. Do not contact the device.
-25. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
+24. **P2.45 complete, H0:** the verified P2.44 outputs are bound by one
+    versioned source contract and decoder; two clean reproducible Full-LTO
+    builds, two deterministic boot-only packages, effective-rootfs closure,
+    linked audit, independent review, and Process v2 offline promotion pass.
+25. **P2.46 next, D0 then F1 gate:** qualify the explicitly identified S22+
+    target read-only, create one fresh immutable Process v2 binding, and stop
+    for the exact candidate-plus-rollback approval. D0 does not authorize F1.
+26. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed

@@ -23,6 +23,7 @@ if str(SCRIPT_DIR) not in sys.path:
 import s22plus_fyg8_p233_e1_decoder as decoder  # noqa: E402
 import s22plus_fyg8_p233_e1_static_checker as p233  # noqa: E402
 import s22plus_fyg8_p241_e2_static_checker as p241  # noqa: E402
+import s22plus_fyg8_p245_source_contract as p245  # noqa: E402
 import s22plus_fyg8_r4w1b_patch_check as source_base  # noqa: E402
 
 
@@ -139,8 +140,13 @@ def source_paths_for_profile(profile: str) -> dict[str, Path]:
 
 
 def source_receipts(
-    root: Path, profile: str = PROFILE
+    root: Path,
+    profile: str = PROFILE,
+    source_contract_id: str | None = None,
 ) -> tuple[dict[str, bytes], dict[str, Any]]:
+    if source_contract_id is not None:
+        p245.require(source_contract_id, profile)
+        return p245.source_receipts(root)
     data: dict[str, bytes] = {}
     rows: dict[str, Any] = {}
     for name, relative in source_paths_for_profile(profile).items():
@@ -156,27 +162,49 @@ def profile_number(profile: str) -> int:
     return decoder.model.PROFILE_NUMBERS[profile]
 
 
-def source_check_run_id(profile: str) -> bytes:
+def decoder_for(profile: str, source_contract_id: str | None = None):
     profile_number(profile)
+    if source_contract_id is None:
+        return decoder
+    p245.require(source_contract_id, profile)
+    return p245.decoder
+
+
+def source_check_run_id(
+    profile: str, source_contract_id: str | None = None
+) -> bytes:
+    profile_number(profile)
+    if source_contract_id is not None:
+        p245.require(source_contract_id, profile)
+        return p245.p244_checker.RUN_ID
     if profile == "E2":
         return p241.RUN_ID
     return p233.SOURCE_CHECK_RUN_IDS[profile]
 
 
 def identity_preimage(
-    nonce: bytes, sources: dict[str, Any], profile: str = PROFILE
+    nonce: bytes,
+    sources: dict[str, Any],
+    profile: str = PROFILE,
+    source_contract_id: str | None = None,
 ) -> dict[str, Any]:
-    return {
+    selected_decoder = decoder_for(profile, source_contract_id)
+    result = {
         "schema": PREIMAGE_SCHEMA,
         "target": TARGET,
         "profile": profile,
         "profile_number": profile_number(profile),
         "nonce": nonce.hex(),
-        "decoder_id": decoder.DECODER_ID,
-        "decoder_policy_id": decoder.POLICY_ID,
+        "decoder_id": selected_decoder.DECODER_ID,
+        "decoder_policy_id": selected_decoder.POLICY_ID,
         "record_layout": "S22E1L1-45-ab-crc32",
         "sources": sources,
     }
+    if source_contract_id is not None:
+        p245.require(source_contract_id, profile)
+        result["schema"] = p245.PREIMAGE_SCHEMA
+        result["source_contract_id"] = source_contract_id
+    return result
 
 
 def derive_run_id(preimage: dict[str, Any]) -> bytes:
@@ -185,7 +213,11 @@ def derive_run_id(preimage: dict[str, Any]) -> bytes:
         profile
     ):
         raise IntentError("candidate preimage profile binding is invalid")
-    run_id = hashlib.sha256(RUN_ID_DOMAINS[profile] + canonical(preimage)).digest()[:16]
+    source_contract_id = preimage.get("source_contract_id")
+    domain = RUN_ID_DOMAINS[profile]
+    if source_contract_id is not None:
+        domain = p245.require(source_contract_id, profile).run_id_domain
+    run_id = hashlib.sha256(domain + canonical(preimage)).digest()[:16]
     rejected = {
         bytes(16),
         *(decoder.model.model_run_id(name) for name in SUPPORTED_PROFILES),
@@ -317,20 +349,30 @@ def create(args: argparse.Namespace) -> dict[str, Any]:
         raise IntentError(f"output already exists: {output}")
     source = resolve(root, args.source)
     profile = getattr(args, "profile", PROFILE)
-    source_data, source_rows = source_receipts(root, profile)
+    source_contract_id = getattr(args, "source_contract_id", None)
+    source_data, source_rows = source_receipts(
+        root, profile, source_contract_id
+    )
     nonce = parse_nonce(args.nonce_hex)
     number = profile_number(profile)
-    preimage = identity_preimage(nonce, source_rows, profile)
+    preimage = identity_preimage(
+        nonce, source_rows, profile, source_contract_id
+    )
     run_id = derive_run_id(preimage)
-    unsat = decoder.model.unsat_record(profile, run_id)
-    unsat_tag = unsat[len(decoder.model.UNSAT_FAMILY) :]
-    reachable = p233.validate_reachable_records({profile: run_id})
+    selected_decoder = decoder_for(profile, source_contract_id)
+    unsat = selected_decoder.model.unsat_record(profile, run_id)
+    unsat_tag = unsat[len(selected_decoder.model.UNSAT_FAMILY) :]
+    reachable = (
+        p245.validate_reachable_records(run_id)
+        if source_contract_id is not None
+        else p233.validate_reachable_records({profile: run_id})
+    )
     patch = build_patch(source_data["base_patch"], run_id, unsat_tag, profile)
     patch_audit = audit_patch(source, patch, run_id, unsat_tag, profile)
-    result = {
-        "schema": SCHEMA,
+    result: dict[str, Any] = {
+        "schema": p245.INTENT_SCHEMA if source_contract_id else SCHEMA,
         "target": TARGET,
-        "verdict": VERDICT,
+        "verdict": p245.INTENT_VERDICT if source_contract_id else VERDICT,
         "profile": profile,
         "profile_number": number,
         "identity_preimage": preimage,
@@ -353,12 +395,26 @@ def create(args: argparse.Namespace) -> dict[str, Any]:
             "live_authorized": False,
         },
     }
+    if source_contract_id is not None:
+        result["source_contract_id"] = source_contract_id
+        result["materialized_sources"] = {
+            name: {
+                "path": f"materialized-sources/{filename}",
+                **receipt(source_data[name]),
+            }
+            for name, filename in sorted(p245.MATERIALIZED_FILENAMES.items())
+        }
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(
         prefix=f".{output.name}.", dir=output.parent
     ) as temporary:
         staging = Path(temporary)
         durable_write(staging / "candidate.patch", patch)
+        if source_contract_id is not None:
+            materialized = staging / "materialized-sources"
+            materialized.mkdir()
+            for name, filename in p245.MATERIALIZED_FILENAMES.items():
+                durable_write(materialized / filename, source_data[name])
         durable_write(
             staging / "candidate-intent.json",
             json.dumps(result, indent=2, sort_keys=True, allow_nan=False).encode(
@@ -377,8 +433,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--nonce-hex")
     parser.add_argument("--profile", choices=SUPPORTED_PROFILES, default=PROFILE)
+    parser.add_argument(
+        "--source-contract-id",
+        choices=(p245.CONTRACT_ID,),
+    )
     args = parser.parse_args(argv)
-    expected_patch = source_paths_for_profile(args.profile)["base_patch"]
+    if args.source_contract_id is not None:
+        p245.require(args.source_contract_id, args.profile)
+    expected_patch = (
+        source_paths_for_profile(args.profile)["base_patch"]
+        if args.source_contract_id is None
+        else None
+    )
     if args.base_patch is not None and args.base_patch != expected_patch:
         raise IntentError("alternate base patch is not supported for this profile")
     return args
@@ -387,20 +453,24 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     try:
         result = create(parse_args(argv))
-    except (IntentError, p233.CheckError, decoder.model.DesignError, OSError) as exc:
+    except (
+        IntentError,
+        p245.SourceContractError,
+        p233.CheckError,
+        decoder.model.DesignError,
+        OSError,
+    ) as exc:
         print(json.dumps({"schema": SCHEMA, "verdict": "FAIL_CLOSED", "error": str(exc)}))
         return 1
-    print(
-        json.dumps(
-            {
-                "schema": SCHEMA,
-                "verdict": result["verdict"],
-                "run_id": result["run_id"],
-                "patch_sha256": result["patch"]["sha256"],
-            },
-            sort_keys=True,
-        )
-    )
+    summary = {
+        "schema": result["schema"],
+        "verdict": result["verdict"],
+        "run_id": result["run_id"],
+        "patch_sha256": result["patch"]["sha256"],
+    }
+    if result.get("source_contract_id") is not None:
+        summary["source_contract_id"] = result["source_contract_id"]
+    print(json.dumps(summary, sort_keys=True))
     return 0
 
 

@@ -20,6 +20,7 @@ import device_action_f1_evidence_v2 as evidence  # noqa: E402
 import s22plus_boot_verify as boot_verify  # noqa: E402
 import s22plus_fyg8_p234_candidate_static_checker as static_checker  # noqa: E402
 import s22plus_fyg8_p242_e2_stock_closure as e2_closure  # noqa: E402
+import s22plus_fyg8_p245_e2_stock_closure as p245_e2_closure  # noqa: E402
 
 
 SCHEMA = "s22plus_fyg8_p234_process_v2_promotion_v1"
@@ -90,12 +91,23 @@ def validate_static(
         if isinstance(candidate_contract, dict)
         else None
     )
+    source_contract_id = (
+        candidate_contract.get("source_contract_id")
+        if isinstance(candidate_contract, dict)
+        else None
+    )
+    try:
+        selected_decoder = evidence._latest_stage_decoder(
+            source_contract_id, profile
+        )
+    except evidence.EvidenceError as exc:
+        raise PromotionError(str(exc)) from exc
     if (
         not isinstance(candidate_contract, dict)
         or profile not in evidence.e1_latest_stage.model.PROFILE_NUMBERS
-        or candidate_contract.get("decoder_id") != evidence.E1_LATEST_STAGE_DECODER
+        or candidate_contract.get("decoder_id") != selected_decoder.DECODER_ID
         or candidate_contract.get("decoder_policy_id")
-        != evidence.e1_latest_stage.POLICY_ID
+        != selected_decoder.POLICY_ID
         or candidate_contract.get("verified") is not True
     ):
         raise PromotionError("candidate contract is not supported-profile-bound")
@@ -107,7 +119,11 @@ def validate_static(
             candidate_contract, profile, run_id
         )
         _source_data, current_source_receipts = (
-            static_checker.contract.intent.source_receipts(repo_root(), profile)
+            static_checker.contract.intent.source_receipts(
+                repo_root(),
+                profile,
+                candidate_contract.get("source_contract_id"),
+            )
         )
     except (evidence.EvidenceError, static_checker.contract.intent.IntentError) as exc:
         raise PromotionError("candidate source preimage is invalid") from exc
@@ -152,11 +168,14 @@ def validate_static(
                 "E1B effective stock rootfs closure is incomplete"
             ) from exc
     elif profile == "E2":
+        closure_api = p245_e2_closure.select(
+            candidate_contract.get("source_contract_id")
+        )
         try:
-            module_closure = e2_closure.validate_module_closure(
+            module_closure = closure_api.validate_module_closure(
                 candidate.get("module_closure")
             )
-            e2_closure.validate_effective_rootfs(
+            closure_api.validate_effective_rootfs(
                 candidate.get("effective_rootfs"),
                 expected_init=exact_identity(userspace.get("init"), "candidate init"),
                 expected_child=exact_identity(
@@ -225,14 +244,18 @@ def derive(
     )
     run_id = candidate_contract["run_id"]
     profile = candidate_contract["profile"]
-    model = evidence.e1_latest_stage.model
+    source_contract_id = candidate_contract.get("source_contract_id")
+    selected_decoder = evidence._latest_stage_decoder(
+        source_contract_id, profile
+    )
+    model = selected_decoder.model
     run_manifest = {
         "schema": evidence.E1_LATEST_STAGE_RUN_MANIFEST_SCHEMA,
         "target": TARGET,
         "profile": profile,
         "run_id": run_id,
-        "decoder": evidence.E1_LATEST_STAGE_DECODER,
-        "policy_id": evidence.e1_latest_stage.POLICY_ID,
+        "decoder": selected_decoder.DECODER_ID,
+        "policy_id": selected_decoder.POLICY_ID,
         "records": {
             "long_family_hex": model.LONG_FAMILY.hex(),
             "unsat_family_hex": model.UNSAT_FAMILY.hex(),
@@ -246,6 +269,8 @@ def derive(
         "candidate_ap": candidate_ap_identity,
         "candidate_static": static_receipt,
     }
+    if source_contract_id is not None:
+        run_manifest["source_contract_id"] = source_contract_id
     run_payload = canonical(run_manifest)
     static_result = {
         "schema": evidence.E1_LATEST_STAGE_STATIC_SCHEMA,
@@ -253,8 +278,8 @@ def derive(
         "verdict": VERDICT,
         "profile": profile,
         "run_id": run_id,
-        "decoder": evidence.E1_LATEST_STAGE_DECODER,
-        "policy_id": evidence.e1_latest_stage.POLICY_ID,
+        "decoder": selected_decoder.DECODER_ID,
+        "policy_id": selected_decoder.POLICY_ID,
         "run_binding": {
             "canonical_manifest_size": len(run_payload),
             "canonical_manifest_sha256": hashlib.sha256(run_payload).hexdigest(),
@@ -281,6 +306,8 @@ def derive(
             "live_authorized": False,
         },
     }
+    if source_contract_id is not None:
+        static_result["source_contract_id"] = source_contract_id
     return run_payload, canonical(static_result)
 
 
@@ -359,6 +386,16 @@ def main(argv: list[str] | None = None) -> int:
                     "effective_rootfs": static_result["candidate"][
                         "effective_rootfs"
                     ],
+                    **(
+                        {
+                            "source_contract_id": process_static_value[
+                                "source_contract_id"
+                            ]
+                        }
+                        if process_static_value.get("source_contract_id")
+                        is not None
+                        else {}
+                    ),
                 },
             )
         output = resolve(root, args.out)

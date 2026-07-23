@@ -13,6 +13,8 @@ import s22plus_fyg8_p219_same_ring_decoder as same_ring
 import s22plus_fyg8_p230_same_ring_multiboot_decoder as same_ring_multiboot
 import s22plus_fyg8_p233_e1_decoder as e1_latest_stage
 import s22plus_fyg8_p242_e2_stock_closure as e2_closure
+import s22plus_fyg8_p245_e2_stock_closure as p245_e2_closure
+import s22plus_fyg8_p245_source_contract as p245
 
 
 MARKER_KIND = "retained_marker_after_rollback"
@@ -185,7 +187,11 @@ E1B_STOCK_VENDOR_BOOT = {
 }
 
 
-def _e1_reachable_slot_variant_count(profile: str) -> int:
+def _e1_reachable_slot_variant_count(
+    profile: str, source_contract_id: str | None = None
+) -> int:
+    if source_contract_id is not None:
+        return _p245_contract(source_contract_id, profile).reachable_variants
     model = e1_latest_stage.model
     sequence = model.PROFILE_STAGE_SEQUENCES.get(profile)
     terminal = model.PROFILE_TERMINALS.get(profile)
@@ -196,6 +202,24 @@ def _e1_reachable_slot_variant_count(profile: str) -> int:
 
 class EvidenceError(ValueError):
     pass
+
+
+def _p245_contract(
+    source_contract_id: str | None, profile: str
+) -> p245.SourceContract:
+    try:
+        return p245.require(source_contract_id, profile)
+    except p245.SourceContractError as exc:
+        raise EvidenceError(str(exc)) from exc
+
+
+def _latest_stage_decoder(
+    source_contract_id: str | None, profile: str
+):
+    if source_contract_id is None:
+        return e1_latest_stage
+    _p245_contract(source_contract_id, profile)
+    return p245.decoder
 
 
 def _exact(value: Any, keys: set[str], label: str) -> dict[str, Any]:
@@ -243,22 +267,32 @@ def _binary_identity(value: Any, label: str) -> dict[str, Any]:
 def validate_candidate_source_preimage(
     contract: dict[str, Any], profile: str, run_id: str
 ) -> dict[str, dict[str, Any]]:
+    source_contract_id = contract.get("source_contract_id")
+    selected_decoder = _latest_stage_decoder(source_contract_id, profile)
+    preimage_keys = {
+        "schema",
+        "target",
+        "profile",
+        "profile_number",
+        "nonce",
+        "decoder_id",
+        "decoder_policy_id",
+        "record_layout",
+        "sources",
+    }
+    if source_contract_id is not None:
+        _p245_contract(source_contract_id, profile)
+        preimage_keys.add("source_contract_id")
     preimage = _exact(
         contract.get("identity_preimage"),
-        {
-            "schema",
-            "target",
-            "profile",
-            "profile_number",
-            "nonce",
-            "decoder_id",
-            "decoder_policy_id",
-            "record_layout",
-            "sources",
-        },
+        preimage_keys,
         "candidate identity preimage",
     )
-    source_keys = E1_LATEST_STAGE_SOURCE_KEYS.get(profile)
+    source_keys = (
+        _p245_contract(source_contract_id, profile).source_keys
+        if source_contract_id is not None
+        else E1_LATEST_STAGE_SOURCE_KEYS.get(profile)
+    )
     sources = preimage.get("sources")
     if source_keys is None or not isinstance(sources, dict) or set(sources) != source_keys:
         raise EvidenceError("candidate identity source set is invalid")
@@ -268,22 +302,33 @@ def validate_candidate_source_preimage(
     }
     preimage_sha256 = hashlib.sha256(_canonical(preimage)).hexdigest()
     nonce = preimage.get("nonce")
+    expected_schema = (
+        p245.PREIMAGE_SCHEMA
+        if source_contract_id is not None
+        else E1_LATEST_STAGE_PREIMAGE_SCHEMA
+    )
+    run_id_domain = (
+        _p245_contract(source_contract_id, profile).run_id_domain
+        if source_contract_id is not None
+        else E1_LATEST_STAGE_RUN_ID_DOMAINS[profile]
+    )
     if (
-        preimage.get("schema") != E1_LATEST_STAGE_PREIMAGE_SCHEMA
+        preimage.get("schema") != expected_schema
+        or preimage.get("source_contract_id") != source_contract_id
         or preimage.get("target") != PID1_USERSPACE_TARGET
         or preimage.get("profile") != profile
         or type(preimage.get("profile_number")) is not int
         or preimage.get("profile_number")
-        != e1_latest_stage.model.PROFILE_NUMBERS[profile]
+        != selected_decoder.model.PROFILE_NUMBERS[profile]
         or not isinstance(nonce, str)
         or HEX32_RE.fullmatch(nonce) is None
         or nonce == "0" * 32
-        or preimage.get("decoder_id") != E1_LATEST_STAGE_DECODER
-        or preimage.get("decoder_policy_id") != e1_latest_stage.POLICY_ID
+        or preimage.get("decoder_id") != selected_decoder.DECODER_ID
+        or preimage.get("decoder_policy_id") != selected_decoder.POLICY_ID
         or preimage.get("record_layout") != "S22E1L1-45-ab-crc32"
         or contract.get("identity_preimage_sha256") != preimage_sha256
         or hashlib.sha256(
-            E1_LATEST_STAGE_RUN_ID_DOMAINS[profile] + _canonical(preimage)
+            run_id_domain + _canonical(preimage)
         ).digest()[:16].hex()
         != run_id
     ):
@@ -294,18 +339,26 @@ def validate_candidate_source_preimage(
 def validate_e2_ap_payload(
     frame: bytes, closure: Any
 ) -> dict[str, Any]:
+    source_contract_id = (
+        closure.get("source_contract_id") if isinstance(closure, dict) else None
+    )
+    expected_keys = {
+        "boot_img_lz4",
+        "boot_image",
+        "image",
+        "init",
+        "child",
+        "run_id",
+        "module_closure",
+        "effective_rootfs",
+    }
+    if source_contract_id is not None:
+        _p245_contract(source_contract_id, "E2")
+        expected_keys.add("source_contract_id")
+    closure_api = p245_e2_closure.select(source_contract_id)
     expected = _exact(
         closure,
-        {
-            "boot_img_lz4",
-            "boot_image",
-            "image",
-            "init",
-            "child",
-            "run_id",
-            "module_closure",
-            "effective_rootfs",
-        },
+        expected_keys,
         "E2 AP payload closure",
     )
     identities = {
@@ -317,10 +370,10 @@ def validate_e2_ap_payload(
     if not isinstance(run_id, str) or HEX32_RE.fullmatch(run_id) is None:
         raise EvidenceError("E2 AP run ID is invalid")
     try:
-        module_closure = e2_closure.validate_module_closure(
+        module_closure = closure_api.validate_module_closure(
             expected.get("module_closure")
         )
-        effective_rootfs = e2_closure.validate_effective_rootfs(
+        effective_rootfs = closure_api.validate_effective_rootfs(
             expected.get("effective_rootfs"),
             expected_init=identities["init"],
             expected_child=identities["child"],
@@ -344,7 +397,7 @@ def validate_e2_ap_payload(
             boot.ramdisk, maximum=128 * 1024 * 1024
         )
         entries = e2_closure.boot_verify.parse_newc(ramdisk)
-        generic_rootfs = e2_closure.audit_candidate_generic_rootfs(
+        generic_rootfs = closure_api.audit_candidate_generic_rootfs(
             boot,
             entries,
             expected_init=identities["init"],
@@ -642,31 +695,36 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
         )
         return item
     if kind == E1_LATEST_STAGE_KIND:
+        source_contract_id = value.get("source_contract_id")
+        expected_keys = {
+            "kind",
+            "source",
+            "decoder",
+            "policy_id",
+            "profile",
+            "run_id",
+            "long_family_hex",
+            "unsat_family_hex",
+            "terminal_stage",
+            "minimum_success_count",
+            "clean_baseline_required",
+            "contract",
+        }
+        if source_contract_id is not None:
+            expected_keys.add("source_contract_id")
         item = _exact(
             value,
-            {
-                "kind",
-                "source",
-                "decoder",
-                "policy_id",
-                "profile",
-                "run_id",
-                "long_family_hex",
-                "unsat_family_hex",
-                "terminal_stage",
-                "minimum_success_count",
-                "clean_baseline_required",
-                "contract",
-            },
+            expected_keys,
             "E1 latest-stage acceptance",
         )
         profile = item["profile"]
-        model = e1_latest_stage.model
+        selected_decoder = _latest_stage_decoder(source_contract_id, profile)
+        model = selected_decoder.model
         model_ids = {model.model_run_id(name).hex() for name in model.PROFILE_NUMBERS}
         if (
             item["source"] != CHECKPOINT_SOURCE
-            or item["decoder"] != E1_LATEST_STAGE_DECODER
-            or item["policy_id"] != e1_latest_stage.POLICY_ID
+            or item["decoder"] != selected_decoder.DECODER_ID
+            or item["policy_id"] != selected_decoder.POLICY_ID
             or profile not in model.PROFILE_NUMBERS
             or not isinstance(item["run_id"], str)
             or HEX32_RE.fullmatch(item["run_id"]) is None
@@ -1208,6 +1266,8 @@ def _verify_e1_latest_stage_offline_contract(
     if item["kind"] != E1_LATEST_STAGE_KIND:
         raise EvidenceError("offline E1 latest-stage contract is not applicable")
     profile = item["profile"]
+    source_contract_id = item.get("source_contract_id")
+    selected_decoder = _latest_stage_decoder(source_contract_id, profile)
     if set(payloads) != {
         "candidate_static",
         "run_manifest",
@@ -1239,8 +1299,8 @@ def _verify_e1_latest_stage_offline_contract(
     canonical = _canonical(run_manifest)
     canonical_sha256 = hashlib.sha256(canonical).hexdigest()
     expected_records = {
-        "long_family_hex": e1_latest_stage.model.LONG_FAMILY.hex(),
-        "unsat_family_hex": e1_latest_stage.model.UNSAT_FAMILY.hex(),
+        "long_family_hex": selected_decoder.model.LONG_FAMILY.hex(),
+        "unsat_family_hex": selected_decoder.model.UNSAT_FAMILY.hex(),
         "terminal_stage": item["terminal_stage"],
     }
     expected_observation = {
@@ -1248,26 +1308,29 @@ def _verify_e1_latest_stage_offline_contract(
         "minimum_success_count": 1,
         "clean_baseline_required": True,
     }
+    run_manifest_keys = {
+        "schema",
+        "target",
+        "profile",
+        "run_id",
+        "decoder",
+        "policy_id",
+        "records",
+        "observation_contract",
+        "candidate_ap",
+        "candidate_static",
+    }
+    if source_contract_id is not None:
+        run_manifest_keys.add("source_contract_id")
     if (
-        set(run_manifest)
-        != {
-            "schema",
-            "target",
-            "profile",
-            "run_id",
-            "decoder",
-            "policy_id",
-            "records",
-            "observation_contract",
-            "candidate_ap",
-            "candidate_static",
-        }
+        set(run_manifest) != run_manifest_keys
         or run_manifest.get("schema") != E1_LATEST_STAGE_RUN_MANIFEST_SCHEMA
         or run_manifest.get("target") != PID1_USERSPACE_TARGET
         or run_manifest.get("profile") != item["profile"]
+        or run_manifest.get("source_contract_id") != source_contract_id
         or run_manifest.get("run_id") != item["run_id"]
-        or run_manifest.get("decoder") != E1_LATEST_STAGE_DECODER
-        or run_manifest.get("policy_id") != e1_latest_stage.POLICY_ID
+        or run_manifest.get("decoder") != selected_decoder.DECODER_ID
+        or run_manifest.get("policy_id") != selected_decoder.POLICY_ID
         or run_manifest.get("records") != expected_records
         or run_manifest.get("observation_contract") != expected_observation
         or not _artifact_matches(run_manifest.get("candidate_ap"), candidate_ap)
@@ -1303,41 +1366,70 @@ def _verify_e1_latest_stage_offline_contract(
         != E1_LATEST_STAGE_CANDIDATE_STATIC_VERDICT
     ):
         raise EvidenceError("candidate static result header is not accepted")
+    source_contract_keys = {
+        "schema",
+        "target",
+        "verdict",
+        "profile",
+        "profile_number",
+        "run_id",
+        "unsat_record_hex",
+        "unsat_tag_hex",
+        "decoder_id",
+        "decoder_policy_id",
+        "identity_preimage",
+        "identity_preimage_sha256",
+        "intent",
+        "patch",
+        "base_files",
+        "patched_files",
+        "config_lines",
+        "reachable_record_contract",
+        "verified",
+        "safety",
+    }
+    if source_contract_id is not None:
+        source_contract_keys.update(
+            {"source_contract_id", "materialized_sources"}
+        )
     source_contract = _exact(
         candidate_static_result.get("candidate_contract"),
-        {
-            "schema",
-            "target",
-            "verdict",
-            "profile",
-            "profile_number",
-            "run_id",
-            "unsat_record_hex",
-            "unsat_tag_hex",
-            "decoder_id",
-            "decoder_policy_id",
-            "identity_preimage",
-            "identity_preimage_sha256",
-            "intent",
-            "patch",
-            "base_files",
-            "patched_files",
-            "config_lines",
-            "reachable_record_contract",
-            "verified",
-            "safety",
-        },
+        source_contract_keys,
         "E1A candidate source contract",
     )
+    if source_contract.get("source_contract_id") != source_contract_id:
+        raise EvidenceError("candidate source contract selector mismatch")
     run_id = bytes.fromhex(item["run_id"])
     candidate_source_receipts = validate_candidate_source_preimage(
         source_contract, profile, item["run_id"]
     )
-    unsat_record = e1_latest_stage.model.unsat_record(profile, run_id)
-    unsat_tag = unsat_record[len(e1_latest_stage.model.UNSAT_FAMILY) :]
+    if source_contract_id is not None:
+        materialized = _exact(
+            source_contract.get("materialized_sources"),
+            set(p245.MATERIALIZED_FILENAMES),
+            "P2.45 materialized source contract",
+        )
+        for name, filename in p245.MATERIALIZED_FILENAMES.items():
+            row = _exact(
+                materialized.get(name),
+                {"path", "size", "sha256"},
+                f"P2.45 materialized source {name}",
+            )
+            if (
+                row.get("path") != f"materialized-sources/{filename}"
+                or {
+                    key: row.get(key) for key in ("size", "sha256")
+                }
+                != candidate_source_receipts[name]
+            ):
+                raise EvidenceError(
+                    f"P2.45 materialized source identity mismatch: {name}"
+                )
+    unsat_record = selected_decoder.model.unsat_record(profile, run_id)
+    unsat_tag = unsat_record[len(selected_decoder.model.UNSAT_FAMILY) :]
     expected_config_lines = [
         "CONFIG_S22PLUS_FYG8_E1_LATEST_STAGE=y",
-        f"CONFIG_S22PLUS_FYG8_E1_PROFILE={e1_latest_stage.model.PROFILE_NUMBERS[profile]}",
+        f"CONFIG_S22PLUS_FYG8_E1_PROFILE={selected_decoder.model.PROFILE_NUMBERS[profile]}",
         f'CONFIG_S22PLUS_FYG8_E1_RUN_ID_HEX="{item["run_id"]}"',
         f'CONFIG_S22PLUS_FYG8_E1_UNSAT_TAG_HEX="{unsat_tag.hex()}"',
     ]
@@ -1397,21 +1489,30 @@ def _verify_e1_latest_stage_offline_contract(
         },
         "E1A candidate contract safety",
     )
+    expected_contract_schema = (
+        p245.CONTRACT_SCHEMA
+        if source_contract_id is not None
+        else E1_LATEST_STAGE_CANDIDATE_CONTRACT_SCHEMA
+    )
+    expected_contract_verdict = (
+        p245.CONTRACT_VERDICT
+        if source_contract_id is not None
+        else E1_LATEST_STAGE_CANDIDATE_CONTRACT_VERDICT
+    )
     if (
-        source_contract.get("schema")
-        != E1_LATEST_STAGE_CANDIDATE_CONTRACT_SCHEMA
+        source_contract.get("schema") != expected_contract_schema
         or source_contract.get("target") != PID1_USERSPACE_TARGET
-        or source_contract.get("verdict")
-        != E1_LATEST_STAGE_CANDIDATE_CONTRACT_VERDICT
+        or source_contract.get("verdict") != expected_contract_verdict
         or source_contract.get("profile") != item["profile"]
         or type(source_contract.get("profile_number")) is not int
         or source_contract.get("profile_number")
-        != e1_latest_stage.model.PROFILE_NUMBERS[profile]
+        != selected_decoder.model.PROFILE_NUMBERS[profile]
         or source_contract.get("run_id") != item["run_id"]
         or source_contract.get("unsat_record_hex") != unsat_record.hex()
         or source_contract.get("unsat_tag_hex") != unsat_tag.hex()
-        or source_contract.get("decoder_id") != E1_LATEST_STAGE_DECODER
-        or source_contract.get("decoder_policy_id") != e1_latest_stage.POLICY_ID
+        or source_contract.get("decoder_id") != selected_decoder.DECODER_ID
+        or source_contract.get("decoder_policy_id")
+        != selected_decoder.POLICY_ID
         or source_base_files != E1_LATEST_STAGE_BASE_FILES
         or any(
             not isinstance(value, str) or HASH_RE.fullmatch(value) is None
@@ -1434,13 +1535,15 @@ def _verify_e1_latest_stage_offline_contract(
         )
         or source_reachable
         != {
-            "reachable_slot_variants": _e1_reachable_slot_variant_count(profile),
+            "reachable_slot_variants": _e1_reachable_slot_variant_count(
+                profile, source_contract_id
+            ),
             "profiles": [profile],
             "checked_run_ids": {profile: item["run_id"]},
             "adjacent_slot_combinations_verified": True,
             "zero_crc_count": 0,
             "family_collision_count": 0,
-            "decoder_policy_id": e1_latest_stage.POLICY_ID,
+            "decoder_policy_id": selected_decoder.POLICY_ID,
             "verified": True,
         }
         or any(type(value) is not bool for value in source_contract_safety.values())
@@ -1565,11 +1668,12 @@ def _verify_e1_latest_stage_offline_contract(
             expected_child=normalized_source_userspace["child"],
         )
     elif profile == "E2":
+        closure_api = p245_e2_closure.select(source_contract_id)
         try:
-            closure = e2_closure.validate_module_closure(
+            closure = closure_api.validate_module_closure(
                 source_candidate.get("module_closure")
             )
-            e2_closure.validate_effective_rootfs(
+            closure_api.validate_effective_rootfs(
                 source_candidate.get("effective_rootfs"),
                 expected_init=normalized_source_userspace["init"],
                 expected_child=normalized_source_userspace["child"],
@@ -1656,27 +1760,30 @@ def _verify_e1_latest_stage_offline_contract(
     if source_safety != expected_source_safety:
         raise EvidenceError("candidate static safety contract changed")
 
+    static_result_keys = {
+        "schema",
+        "target",
+        "verdict",
+        "profile",
+        "run_id",
+        "decoder",
+        "policy_id",
+        "run_binding",
+        "candidate",
+        "safety",
+    }
+    if source_contract_id is not None:
+        static_result_keys.add("source_contract_id")
     if (
-        set(static_result)
-        != {
-            "schema",
-            "target",
-            "verdict",
-            "profile",
-            "run_id",
-            "decoder",
-            "policy_id",
-            "run_binding",
-            "candidate",
-            "safety",
-        }
+        set(static_result) != static_result_keys
         or static_result.get("schema") != E1_LATEST_STAGE_STATIC_SCHEMA
         or static_result.get("target") != PID1_USERSPACE_TARGET
         or static_result.get("verdict") != E1_LATEST_STAGE_STATIC_VERDICT
         or static_result.get("profile") != item["profile"]
+        or static_result.get("source_contract_id") != source_contract_id
         or static_result.get("run_id") != item["run_id"]
-        or static_result.get("decoder") != E1_LATEST_STAGE_DECODER
-        or static_result.get("policy_id") != e1_latest_stage.POLICY_ID
+        or static_result.get("decoder") != selected_decoder.DECODER_ID
+        or static_result.get("policy_id") != selected_decoder.POLICY_ID
         or static_result.get("run_binding")
         != {
             "canonical_manifest_size": len(canonical),
@@ -1769,6 +1876,8 @@ def _verify_e1_latest_stage_offline_contract(
         "minimum_success_count": 1,
         "verified": True,
     }
+    if source_contract_id is not None:
+        result["source_contract_id"] = source_contract_id
     if profile == "E2":
         result["ap_payload_closure"] = {
             "boot_img_lz4": normalized_source_artifacts["boot_img_lz4"],
@@ -1780,6 +1889,10 @@ def _verify_e1_latest_stage_offline_contract(
             "module_closure": source_candidate["module_closure"],
             "effective_rootfs": source_candidate["effective_rootfs"],
         }
+        if source_contract_id is not None:
+            result["ap_payload_closure"][
+                "source_contract_id"
+            ] = source_contract_id
     return result
 
 
@@ -2086,16 +2199,19 @@ def classify_e1_latest_stage(
     item = validate_acceptance(acceptance)
     if item["kind"] != E1_LATEST_STAGE_KIND:
         raise EvidenceError("E1 latest-stage classifier received another kind")
+    selected_decoder = _latest_stage_decoder(
+        item.get("source_contract_id"), item["profile"]
+    )
     try:
-        decoded = e1_latest_stage.classify_observation(
+        decoded = selected_decoder.classify_observation(
             payload,
             expected_profile=item["profile"],
             expected_run_id=bytes.fromhex(item["run_id"]),
         )
-    except e1_latest_stage.DecodeError as exc:
+    except selected_decoder.DecodeError as exc:
         raise EvidenceError(str(exc)) from exc
 
-    model = e1_latest_stage.model
+    model = selected_decoder.model
     long_family_count = payload.count(model.LONG_FAMILY)
     unsat_family_count = payload.count(model.UNSAT_FAMILY)
     family_count = long_family_count + unsat_family_count
@@ -2133,7 +2249,10 @@ def classify_clean_baseline(
 ) -> dict[str, Any]:
     item = validate_acceptance(acceptance)
     if item["kind"] == E1_LATEST_STAGE_KIND:
-        baseline = e1_latest_stage.classify_clean_baseline(
+        selected_decoder = _latest_stage_decoder(
+            item.get("source_contract_id"), item["profile"]
+        )
+        baseline = selected_decoder.classify_clean_baseline(
             payload,
             expected_profile=item["profile"],
             expected_run_id=bytes.fromhex(item["run_id"]),
