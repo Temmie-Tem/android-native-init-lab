@@ -22,15 +22,17 @@ from pathlib import Path
 from typing import Any
 
 import device_action_f1_evidence_v2 as typed_evidence
+import s22plus_fyg8_p234_candidate_intent as candidate_intent
 from s22plus_boot_only_f1_transport import (
     BOOT_MEMBER,
     F1TransportError,
     pin_boot_only_ap,
     pin_regular_file,
+    read_boot_only_member,
 )
 
 
-RUNNER_VERSION = "device-action-f1-v2-host-core-1"
+RUNNER_VERSION = "device-action-f1-v2-host-core-2"
 PROFILE_SCHEMA = "device_action_target_profile_v2"
 MANIFEST_SCHEMA = "device_action_f1_candidate_v2"
 TARGET_EVIDENCE_SCHEMA = "device_action_target_evidence_v2"
@@ -406,10 +408,59 @@ def execution_critical_source_receipts(
             "e1_latest_stage_design_model": Path(
                 typed_evidence.e1_latest_stage.model.__file__
             ),
+            "candidate_intent": Path(candidate_intent.__file__),
         }
+        profile = acceptance.get("profile")
+        if profile in candidate_intent.SUPPORTED_PROFILES:
+            for name, path in candidate_intent.source_paths_for_profile(
+                profile
+            ).items():
+                e1_latest_stage_sources[f"candidate_source_{name}"] = (
+                    candidate_intent.resolve(candidate_intent.repo_root(), path)
+                )
+        if profile == "E2":
+            e1_latest_stage_sources.update(
+                {
+                    "e2_boot_verify": Path(
+                        typed_evidence.e2_closure.boot_verify.__file__
+                    ),
+                    "e2_legacy_static_elf": Path(
+                        typed_evidence.e2_closure.e1_static.__file__
+                    ),
+                }
+            )
         for name, path in e1_latest_stage_sources.items():
             receipts[name] = _stable_read(path.resolve(), name.replace("_", " "))[1]
     return receipts
+
+
+def verify_candidate_source_binding(
+    acceptance: dict[str, Any],
+    verification: dict[str, Any],
+    execution_sources: dict[str, dict[str, Any]],
+) -> None:
+    if acceptance.get("kind") != typed_evidence.E1_LATEST_STAGE_KIND:
+        return
+    expected_sources = verification.get("candidate_source_receipts")
+    expected_keys = typed_evidence.E1_LATEST_STAGE_SOURCE_KEYS.get(
+        acceptance.get("profile")
+    )
+    if (
+        expected_keys is None
+        or not isinstance(expected_sources, dict)
+        or set(expected_sources) != expected_keys
+    ):
+        raise F1V2Error("candidate source preimage is incomplete")
+    for name, source_receipt in expected_sources.items():
+        actual = execution_sources.get(f"candidate_source_{name}")
+        if (
+            not isinstance(actual, dict)
+            or {key: actual.get(key) for key in ("size", "sha256")}
+            != source_receipt
+        ):
+            raise F1V2Error(
+                "candidate source preimage differs from execution-critical sources"
+            )
 
 
 def verify_bundle(root: Path, manifest_path: Path) -> Bundle:
@@ -421,15 +472,25 @@ def verify_bundle(root: Path, manifest_path: Path) -> Bundle:
     profile = validate_profile(profile_raw)
     manifest = validate_manifest(manifest_raw, profile)
     receipts: dict[str, Any] = {}
+    candidate_ap_frame: bytes | None = None
     for label, item in (("candidate_ap", manifest["candidate_ap"]), ("rollback_ap", manifest["rollback_ap"])):
         with pin_boot_only_ap(
             _artifact_path(root, item, label),
             label=label,
             expected_size=item["size"],
             expected_sha256=item["sha256"],
+            require_deterministic_metadata=label == "candidate_ap",
         ) as pinned:
             receipts[label] = pinned.receipt()
+            if label == "candidate_ap":
+                candidate_ap_frame = read_boot_only_member(pinned, label=label)
+                receipts[label]["member"] = {
+                    "name": BOOT_MEMBER,
+                    "size": len(candidate_ap_frame),
+                    "sha256": hashlib.sha256(candidate_ap_frame).hexdigest(),
+                }
     acceptance = manifest["observation"]["acceptance"]
+    execution_sources = execution_critical_source_receipts(acceptance)
     try:
         contract_items = typed_evidence.contract_artifacts(acceptance)
     except typed_evidence.EvidenceError as exc:
@@ -472,6 +533,18 @@ def verify_bundle(root: Path, manifest_path: Path) -> Bundle:
             "artifacts": contract_receipts,
             "verification": verification,
         }
+        verify_candidate_source_binding(
+            acceptance, verification, execution_sources
+        )
+        if acceptance.get("profile") == "E2":
+            if candidate_ap_frame is None:
+                raise F1V2Error("candidate AP boot member was not retained for E2 audit")
+            try:
+                typed_evidence.validate_e2_ap_payload(
+                    candidate_ap_frame, verification.get("ap_payload_closure")
+                )
+            except typed_evidence.EvidenceError as exc:
+                raise F1V2Error(str(exc)) from exc
     odin = profile["transport"]["odin"]
     with pin_regular_file(
         _artifact_path(root, odin, "odin"),
@@ -488,9 +561,7 @@ def verify_bundle(root: Path, manifest_path: Path) -> Bundle:
         "profile": profile_receipt,
         "manifest": manifest_receipt,
         **receipts,
-        "execution_critical_sources": execution_critical_source_receipts(
-            acceptance
-        ),
+        "execution_critical_sources": execution_sources,
         "device_contact": False,
         "odin_invoked": False,
         "live_authorized": False,

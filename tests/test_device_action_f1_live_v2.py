@@ -891,26 +891,25 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
         options = self.module.build_parser()._option_string_actions
         for expected in ("--prepare", "--execute", "--recover", "--approval"):
             self.assertIn(expected, options)
-        plan = self.module.render_plan(ROOT, self.module.core.verify_bundle(ROOT, self.module.core.DEFAULT_MANIFEST))
+        temporary, prepared = self.prepared()
+        self.addCleanup(temporary.cleanup)
+        prepared.bundle.manifest["status"] = "draft-host-only"
+        plan = self.module.render_plan(ROOT, prepared.bundle)
         self.assertTrue(plan["prepare_is_d0_only"])
         self.assertTrue(plan["execute_requires_fresh_exact_approval"])
         self.assertFalse(plan["recover_can_transfer_candidate"])
         self.assertEqual(plan["manifest_status"], "draft-host-only")
 
-    def test_data_only_canary_manifest_is_explicitly_ready(self):
+    def test_historical_core1_canary_is_not_reusable_by_core2(self):
         manifest = (
             ROOT
             / "workspace/public/src/device-action/manifests/"
             "s22plus_fyg8_r4w1c_process_v2_canary_1.json"
         )
-        bundle = self.module.core.verify_bundle(ROOT, manifest)
-        plan = self.module.render_plan(ROOT, bundle)
-        self.assertEqual(plan["manifest_status"], "ready-for-f1-approval")
-        self.assertEqual(
-            plan["manifest_id"], "s22plus-fyg8-r4w1c-process-v2-canary-1"
-        )
-        self.assertFalse(plan["f1_authorized"])
-        self.assertFalse(plan["live_authorized"])
+        with self.assertRaisesRegex(
+            self.module.core.F1V2Error, "runner version mismatch"
+        ):
+            self.module.core.verify_bundle(ROOT, manifest)
 
     def test_cli_refuses_draft_prepare_before_run_allocation(self):
         with mock.patch.object(

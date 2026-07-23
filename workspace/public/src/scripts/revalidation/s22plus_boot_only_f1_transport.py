@@ -15,10 +15,11 @@ import os
 import re
 import stat
 import subprocess
-import tarfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
+
+import s22plus_boot_verify as boot_verify
 
 
 ODIN_DEVICE_RE = re.compile(r"/dev/bus/usb/[0-9]{3}/[0-9]{3}")
@@ -53,6 +54,62 @@ class PinnedRegularFile:
             "size": self.size,
             "sha256": self.sha256,
         }
+
+
+def read_boot_only_member(
+    pinned: PinnedRegularFile,
+    *,
+    label: str,
+    require_deterministic_metadata: bool = True,
+    maximum: int = 512 * 1024 * 1024,
+) -> bytes:
+    """Read and strictly parse one canonical boot-only Odin AP."""
+    if maximum <= 0:
+        raise F1TransportError(f"{label} boot member bound is invalid")
+    os.lseek(pinned.descriptor, 0, os.SEEK_SET)
+    try:
+        archive = bytearray()
+        while True:
+            chunk = os.read(pinned.descriptor, 1024 * 1024)
+            if not chunk:
+                break
+            archive.extend(chunk)
+            if len(archive) > pinned.size:
+                raise F1TransportError(f"{label} archive exceeds its pin")
+        if len(archive) != pinned.size:
+            raise F1TransportError(f"{label} archive read was short")
+        _structure, payload = boot_verify.parse_ap_tar_md5(
+            bytes(archive),
+            require_deterministic_metadata=require_deterministic_metadata,
+        )
+        if len(payload) > maximum:
+            raise F1TransportError(f"{label} boot member exceeds its bound")
+        return payload
+    except F1TransportError:
+        raise
+    except (OSError, boot_verify.BootVerifyError) as exc:
+        raise F1TransportError(f"{label} is not a canonical boot-only AP") from exc
+    finally:
+        os.lseek(pinned.descriptor, 0, os.SEEK_SET)
+
+
+def boot_only_member_receipt(
+    pinned: PinnedRegularFile,
+    *,
+    label: str,
+    require_deterministic_metadata: bool = True,
+) -> dict[str, str | int]:
+    """Hash the exact regular boot member through the pinned descriptor."""
+    payload = read_boot_only_member(
+        pinned,
+        label=label,
+        require_deterministic_metadata=require_deterministic_metadata,
+    )
+    return {
+        "name": BOOT_MEMBER,
+        "size": len(payload),
+        "sha256": hashlib.sha256(payload).hexdigest(),
+    }
 
 
 def _direct_absolute_path(path: Path, label: str) -> Path:
@@ -138,6 +195,7 @@ def pin_boot_only_ap(
     label: str,
     expected_size: int,
     expected_sha256: str,
+    require_deterministic_metadata: bool = True,
 ) -> Iterator[PinnedRegularFile]:
     if not path.name.endswith(".tar.md5"):
         raise F1TransportError(f"{label} must use a .tar.md5 pathname")
@@ -147,21 +205,11 @@ def pin_boot_only_ap(
         expected_size=expected_size,
         expected_sha256=expected_sha256,
     ) as pinned:
-        os.lseek(pinned.descriptor, 0, os.SEEK_SET)
-        try:
-            with os.fdopen(os.dup(pinned.descriptor), "rb") as stream:
-                with tarfile.open(fileobj=stream, mode="r:*") as archive:
-                    members = archive.getmembers()
-        except (OSError, tarfile.TarError) as exc:
-            raise F1TransportError(f"{label} is not a readable AP archive") from exc
-        finally:
-            os.lseek(pinned.descriptor, 0, os.SEEK_SET)
-        if (
-            len(members) != 1
-            or members[0].name != BOOT_MEMBER
-            or not members[0].isfile()
-        ):
-            raise F1TransportError(f"{label} is not exactly boot-only")
+        read_boot_only_member(
+            pinned,
+            label=label,
+            require_deterministic_metadata=require_deterministic_metadata,
+        )
         revalidate_pinned_path(pinned)
         yield pinned
 
@@ -190,6 +238,7 @@ def execute_odin_boot_only(
     ap_size: int,
     ap_sha256: str,
     label: str,
+    require_deterministic_metadata: bool = True,
     timeout: float = 240.0,
     maximum_output: int = 8 * 1024 * 1024,
 ) -> tuple[dict[str, object], bytes, bytes]:
@@ -205,6 +254,7 @@ def execute_odin_boot_only(
         label=label,
         expected_size=ap_size,
         expected_sha256=ap_sha256,
+        require_deterministic_metadata=require_deterministic_metadata,
     ) as ap:
         if not os.access(odin.path, os.X_OK):
             raise F1TransportError("pinned Odin4 is not executable")

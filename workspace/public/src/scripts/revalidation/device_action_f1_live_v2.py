@@ -789,6 +789,7 @@ class SamsungOdinBackend:
                 ap_size=item["size"],
                 ap_sha256=item["sha256"],
                 label=kind,
+                require_deterministic_metadata=kind == "candidate",
                 timeout=ODIN_TIMEOUT_SEC,
                 maximum_output=MAX_ODIN_OUTPUT,
             )

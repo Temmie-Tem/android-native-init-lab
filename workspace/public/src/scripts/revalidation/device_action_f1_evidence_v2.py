@@ -12,6 +12,7 @@ import s22plus_fyg8_r4w1e_checkpoint_contract as checkpoint
 import s22plus_fyg8_p219_same_ring_decoder as same_ring
 import s22plus_fyg8_p230_same_ring_multiboot_decoder as same_ring_multiboot
 import s22plus_fyg8_p233_e1_decoder as e1_latest_stage
+import s22plus_fyg8_p242_e2_stock_closure as e2_closure
 
 
 MARKER_KIND = "retained_marker_after_rollback"
@@ -42,6 +43,54 @@ E1_LATEST_STAGE_CANDIDATE_CONTRACT_SCHEMA = (
 E1_LATEST_STAGE_CANDIDATE_CONTRACT_VERDICT = (
     "PASS_P234_CANDIDATE_CONTRACT_HOST_ONLY"
 )
+E1_LATEST_STAGE_PREIMAGE_SCHEMA = (
+    "s22plus_fyg8_p234_candidate_identity_preimage_v1"
+)
+E1_LATEST_STAGE_RUN_ID_DOMAINS = {
+    "E1A": b"S22PLUS-FYG8-P234-E1A-RUN-ID-V1\0",
+    "E1B": b"S22PLUS-FYG8-P239-E1B-RUN-ID-V1\0",
+    "E2": b"S22PLUS-FYG8-P242-E2-RUN-ID-V1\0",
+}
+E1_LATEST_STAGE_SOURCE_KEYS = {
+    "E1A": {
+        "base_patch",
+        "checkpoint_client",
+        "runtime_wrapper",
+        "legacy_runtime",
+        "legacy_header",
+        "child",
+        "decoder",
+        "design_model",
+        "source_checker",
+    },
+    "E1B": {
+        "base_patch",
+        "checkpoint_client",
+        "runtime_wrapper",
+        "legacy_runtime",
+        "legacy_header",
+        "child",
+        "decoder",
+        "design_model",
+        "source_checker",
+    },
+    "E2": {
+        "base_patch",
+        "checkpoint_client",
+        "runtime_wrapper",
+        "plan_header",
+        "loader_core",
+        "legacy_runtime",
+        "legacy_header",
+        "child",
+        "decoder",
+        "design_model",
+        "source_checker",
+        "planner",
+        "dtbo_contract",
+        "stock_closure",
+    },
+}
 E1_LATEST_STAGE_KERNEL_INTERVAL = (4096, 41495040)
 CHECKPOINT_SOURCE = "/proc/last_kmsg"
 PID1_USERSPACE_TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
@@ -189,6 +238,127 @@ def _binary_identity(value: Any, label: str) -> dict[str, Any]:
     ):
         raise EvidenceError(f"{label} identity is invalid")
     return item
+
+
+def validate_candidate_source_preimage(
+    contract: dict[str, Any], profile: str, run_id: str
+) -> dict[str, dict[str, Any]]:
+    preimage = _exact(
+        contract.get("identity_preimage"),
+        {
+            "schema",
+            "target",
+            "profile",
+            "profile_number",
+            "nonce",
+            "decoder_id",
+            "decoder_policy_id",
+            "record_layout",
+            "sources",
+        },
+        "candidate identity preimage",
+    )
+    source_keys = E1_LATEST_STAGE_SOURCE_KEYS.get(profile)
+    sources = preimage.get("sources")
+    if source_keys is None or not isinstance(sources, dict) or set(sources) != source_keys:
+        raise EvidenceError("candidate identity source set is invalid")
+    normalized_sources = {
+        name: _binary_identity(value, f"candidate source {name}")
+        for name, value in sources.items()
+    }
+    preimage_sha256 = hashlib.sha256(_canonical(preimage)).hexdigest()
+    nonce = preimage.get("nonce")
+    if (
+        preimage.get("schema") != E1_LATEST_STAGE_PREIMAGE_SCHEMA
+        or preimage.get("target") != PID1_USERSPACE_TARGET
+        or preimage.get("profile") != profile
+        or type(preimage.get("profile_number")) is not int
+        or preimage.get("profile_number")
+        != e1_latest_stage.model.PROFILE_NUMBERS[profile]
+        or not isinstance(nonce, str)
+        or HEX32_RE.fullmatch(nonce) is None
+        or nonce == "0" * 32
+        or preimage.get("decoder_id") != E1_LATEST_STAGE_DECODER
+        or preimage.get("decoder_policy_id") != e1_latest_stage.POLICY_ID
+        or preimage.get("record_layout") != "S22E1L1-45-ab-crc32"
+        or contract.get("identity_preimage_sha256") != preimage_sha256
+        or hashlib.sha256(
+            E1_LATEST_STAGE_RUN_ID_DOMAINS[profile] + _canonical(preimage)
+        ).digest()[:16].hex()
+        != run_id
+    ):
+        raise EvidenceError("candidate source preimage or run ID derivation is invalid")
+    return normalized_sources
+
+
+def validate_e2_ap_payload(
+    frame: bytes, closure: Any
+) -> dict[str, Any]:
+    expected = _exact(
+        closure,
+        {
+            "boot_img_lz4",
+            "boot_image",
+            "image",
+            "init",
+            "child",
+            "run_id",
+            "module_closure",
+            "effective_rootfs",
+        },
+        "E2 AP payload closure",
+    )
+    identities = {
+        name: _binary_identity(value, f"E2 AP {name}")
+        for name, value in expected.items()
+        if name in {"boot_img_lz4", "boot_image", "image", "init", "child"}
+    }
+    run_id = expected.get("run_id")
+    if not isinstance(run_id, str) or HEX32_RE.fullmatch(run_id) is None:
+        raise EvidenceError("E2 AP run ID is invalid")
+    try:
+        module_closure = e2_closure.validate_module_closure(
+            expected.get("module_closure")
+        )
+        effective_rootfs = e2_closure.validate_effective_rootfs(
+            expected.get("effective_rootfs"),
+            expected_init=identities["init"],
+            expected_child=identities["child"],
+            module_closure=module_closure,
+        )
+    except e2_closure.ClosureError as exc:
+        raise EvidenceError("E2 AP semantic closure is invalid") from exc
+    if e2_closure.receipt(frame) != identities["boot_img_lz4"]:
+        raise EvidenceError("E2 AP boot member identity mismatch")
+    try:
+        boot_payload = e2_closure.boot_verify.decompress_lz4_frame_python(
+            frame,
+            expected_size=identities["boot_image"]["size"],
+        )
+        if e2_closure.receipt(boot_payload) != identities["boot_image"]:
+            raise EvidenceError("E2 AP decoded boot identity mismatch")
+        boot = e2_closure.boot_verify.parse_boot_v4(boot_payload)
+        if e2_closure.receipt(boot.kernel) != identities["image"]:
+            raise EvidenceError("E2 AP kernel identity mismatch")
+        ramdisk = e2_closure.boot_verify.decompress_lz4_frame_python(
+            boot.ramdisk, maximum=128 * 1024 * 1024
+        )
+        entries = e2_closure.boot_verify.parse_newc(ramdisk)
+        generic_rootfs = e2_closure.audit_candidate_generic_rootfs(
+            boot,
+            entries,
+            expected_init=identities["init"],
+            expected_child=identities["child"],
+            run_id=bytes.fromhex(run_id),
+            module_closure=module_closure,
+        )
+    except e2_closure.boot_verify.BootVerifyError as exc:
+        raise EvidenceError("E2 AP payload cannot be independently decoded") from exc
+    except e2_closure.ClosureError as exc:
+        raise EvidenceError("E2 AP executable semantics mismatch") from exc
+    if _canonical(generic_rootfs) != _canonical(effective_rootfs["generic_rootfs"]):
+        raise EvidenceError("E2 AP generic rootfs differs from static closure")
+    return {"verified": True, **identities, "generic_rootfs": generic_rootfs}
 
 
 def validate_e1b_stock_closure(
@@ -735,8 +905,6 @@ def _verify_checkpoint_offline_contract(
         "static_check_sha256": receipts["static_check"]["sha256"],
         "verified": True,
     }
-
-
 def _verify_pid1_userspace_offline_contract(
     acceptance: dict[str, Any],
     *,
@@ -1148,6 +1316,8 @@ def _verify_e1_latest_stage_offline_contract(
             "unsat_tag_hex",
             "decoder_id",
             "decoder_policy_id",
+            "identity_preimage",
+            "identity_preimage_sha256",
             "intent",
             "patch",
             "base_files",
@@ -1160,6 +1330,9 @@ def _verify_e1_latest_stage_offline_contract(
         "E1A candidate source contract",
     )
     run_id = bytes.fromhex(item["run_id"])
+    candidate_source_receipts = validate_candidate_source_preimage(
+        source_contract, profile, item["run_id"]
+    )
     unsat_record = e1_latest_stage.model.unsat_record(profile, run_id)
     unsat_tag = unsat_record[len(e1_latest_stage.model.UNSAT_FAMILY) :]
     expected_config_lines = [
@@ -1282,7 +1455,7 @@ def _verify_e1_latest_stage_offline_contract(
         or source_contract.get("verified") is not True
     ):
         raise EvidenceError(
-            "candidate static source contract is not E1A-bound or E1B-bound"
+            "candidate static source contract is not E1A-bound, E1B-bound, or E2-bound"
         )
     source_build = _exact(
         candidate_static_result.get("build_repro"),
@@ -1324,7 +1497,7 @@ def _verify_e1_latest_stage_offline_contract(
         "boot_only_ap",
         "verified",
     }
-    if profile == "E1B":
+    if profile in {"E1B", "E2"}:
         candidate_keys.update(
             {"module_closure", "effective_rootfs", "stock_vendor_boot"}
         )
@@ -1391,6 +1564,27 @@ def _verify_e1_latest_stage_offline_contract(
             expected_init=normalized_source_userspace["init"],
             expected_child=normalized_source_userspace["child"],
         )
+    elif profile == "E2":
+        try:
+            closure = e2_closure.validate_module_closure(
+                source_candidate.get("module_closure")
+            )
+            e2_closure.validate_effective_rootfs(
+                source_candidate.get("effective_rootfs"),
+                expected_init=normalized_source_userspace["init"],
+                expected_child=normalized_source_userspace["child"],
+                module_closure=closure,
+            )
+        except e2_closure.ClosureError as exc:
+            raise EvidenceError("E2 stock rootfs closure is invalid") from exc
+        if (
+            _binary_identity(
+                source_candidate.get("stock_vendor_boot"),
+                "E2 stock vendor_boot",
+            )
+            != E1B_STOCK_VENDOR_BOOT
+        ):
+            raise EvidenceError("E2 stock vendor_boot identity mismatch")
     source_tools = _exact(
         candidate_static_result["tools"],
         {"lz4", "magiskboot", "qemu_aarch64"},
@@ -1405,6 +1599,14 @@ def _verify_e1_latest_stage_offline_contract(
     if (
         normalized_source_b_artifacts != normalized_source_artifacts
         or not _artifact_matches(source_artifacts["ap_tar_md5"], candidate_ap)
+        or (
+            profile == "E2"
+            and candidate_ap.get("member")
+            != {
+                "name": "boot.img.lz4",
+                **normalized_source_artifacts["boot_img_lz4"],
+            }
+        )
         or source_member
         != {
             "name": "boot.img.lz4",
@@ -1499,7 +1701,15 @@ def _verify_e1_latest_stage_offline_contract(
     )
     artifacts = _exact(
         candidate_result["artifacts"],
-        {"ap", "candidate_static", "image", "boot_image", "init", "child"},
+        {
+            "ap",
+            "candidate_static",
+            "image",
+            "boot_image",
+            "boot_img_lz4",
+            "init",
+            "child",
+        },
         "E1A candidate artifacts",
     )
     for name, value in artifacts.items():
@@ -1509,6 +1719,7 @@ def _verify_e1_latest_stage_offline_contract(
         "candidate_static": candidate_static,
         "image": source_image_identity,
         "boot_image": normalized_source_artifacts["boot_img"],
+        "boot_img_lz4": normalized_source_artifacts["boot_img_lz4"],
         "init": normalized_source_userspace["init"],
         "child": normalized_source_userspace["child"],
     }
@@ -1541,7 +1752,7 @@ def _verify_e1_latest_stage_offline_contract(
         or any(value is not False for name, value in safety.items() if name != "host_only")
     ):
         raise EvidenceError("static checker result does not bind the E1A candidate")
-    return {
+    result = {
         "schema": "device_action_f1_e1_latest_stage_offline_contract_v1",
         "decoder": item["decoder"],
         "policy_id": item["policy_id"],
@@ -1551,12 +1762,25 @@ def _verify_e1_latest_stage_offline_contract(
         "candidate_ap_sha256": candidate_ap["sha256"],
         "candidate_static_sha256": candidate_static["sha256"],
         "candidate_static_payload_sha256": receipts["candidate_static"]["sha256"],
+        "candidate_source_receipts": candidate_source_receipts,
         "run_manifest_sha256": receipts["run_manifest"]["sha256"],
         "static_check_sha256": receipts["static_check"]["sha256"],
         "clean_baseline_required": True,
         "minimum_success_count": 1,
         "verified": True,
     }
+    if profile == "E2":
+        result["ap_payload_closure"] = {
+            "boot_img_lz4": normalized_source_artifacts["boot_img_lz4"],
+            "boot_image": normalized_source_artifacts["boot_img"],
+            "image": source_image_identity,
+            "init": normalized_source_userspace["init"],
+            "child": normalized_source_userspace["child"],
+            "run_id": item["run_id"],
+            "module_closure": source_candidate["module_closure"],
+            "effective_rootfs": source_candidate["effective_rootfs"],
+        }
+    return result
 
 
 def verify_offline_contract(

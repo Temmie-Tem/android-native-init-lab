@@ -122,6 +122,39 @@ class S22PlusFyg8P234BuildTest(unittest.TestCase):
             result["candidate_binary_counts"]["image"]["run_id_hex"], 2
         )
 
+    def test_output_gate_accepts_profile3_and_uses_e2_source_check_id(self):
+        parent = Path(self.temporary.name)
+        relative = Path(parent.relative_to(ROOT)) / "e2-intent"
+        INTENT.create(
+            argparse.Namespace(
+                source=INTENT.DEFAULT_SOURCE,
+                base_patch=INTENT.E2_SOURCE_PATHS["base_patch"],
+                out=relative,
+                nonce_hex="66" * 16,
+                profile="E2",
+            )
+        )
+        intent_dir = ROOT / relative
+        self.contract = CONTRACT.verify(
+            ROOT,
+            INTENT.resolve(ROOT, INTENT.DEFAULT_SOURCE),
+            intent_dir / "candidate-intent.json",
+            intent_dir / "candidate.patch",
+        )
+        BUILD._ContractAdapter.bind(
+            self.contract, intent_dir / "candidate-intent.json"
+        )
+        result = self._gate(self._tree())
+        self.assertTrue(result["verified"])
+        self.assertEqual(self.contract["profile"], "E2")
+        self.assertEqual(
+            INTENT.source_check_run_id("E2"), INTENT.p241.RUN_ID
+        )
+        self.assertEqual(
+            result["candidate_binary_counts"]["image"]["source_check_run_id"],
+            0,
+        )
+
     def test_engine_binding_is_scoped(self):
         original = {
             "schema": BUILD.engine.SCHEMA,

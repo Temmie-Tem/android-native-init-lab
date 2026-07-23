@@ -11,7 +11,7 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 
 **State: R4W1-D DIRECT PID1 PROVEN; P2.37 E1A LOCAL RUNTIME LIVE PASS;
 P2.39 E1B MODULE RUNTIME LIVE PASS; P2.41 E2 SOURCE IMPLEMENTATION H0 PASS;
-F1 CLOSED HEALTHY.**
+P2.42 E2 PIPELINE PREFLIGHT H0 PASS; F1 CLOSED HEALTHY.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -122,6 +122,15 @@ foreign modules, and observes all eight gates under one 20-second read-only
 deadline. All 307,201 E2 variants and the 90,114 E1A/E1B regression domain
 pass. Independent review returned GO after two diagnostic/DTBO nits were fixed.
 Direct-PID1 module execution, bind, child creation, and UDC remain live unknowns.
+
+P2.42 has closed the host pipeline before spending two final-candidate builds.
+The exact AP member is now independently parsed as MD5-valid canonical USTAR,
+decoded with full LZ4 checksum enforcement, and audited through boot-v4 and
+actual CPIO executable semantics. The exact 59-module stock/effective-rootfs
+closure, nested JSON types, source preimage, and host-core-2 F1 execution
+closure are fail-closed. Actual prior candidate and proven rollback decoder
+parity, 187 tests, and independent review passed. No E2 kernel build, candidate,
+manifest, connected binding, approval, or device contact has occurred yet.
 
 ## Established Evidence
 
@@ -264,9 +273,11 @@ reports grant no device authority.
 20. **P2.41 complete, H0:** profile-3 source, exact runtime/module/gate
     semantics, direct DTBO closure, exhaustive records, regressions, and review
     passed. No kernel build, candidate, D0, or authority was created.
-21. **P2.42 next, H0:** produce reproducible Full-LTO E2 builds, one
-    deterministic boot-only candidate, independent artifact closure, and
-    offline Process v2 evidence promotion. Do not contact the device.
+21. **P2.42 in progress, H0:** pipeline preflight, strict AP/LZ4 parsing,
+    actual CPIO semantics, stock closure, regressions, and review passed. Next
+    produce two reproducible Full-LTO E2 builds, one deterministic boot-only
+    candidate, independent artifact closure, and offline Process v2 evidence
+    promotion. Do not contact the device.
 22. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 

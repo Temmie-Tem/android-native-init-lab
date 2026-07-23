@@ -103,6 +103,39 @@ class S22PlusFyg8P234CandidateIdentityTest(unittest.TestCase):
                 57345,
             )
 
+    def test_e2_uses_profile3_sources_and_reachable_contract(self):
+        private_tmp = ROOT / "workspace/private/tmp"
+        private_tmp.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=private_tmp) as temporary:
+            parent = Path(temporary)
+            e1b, _e1b_dir = self._create(
+                parent, "e1b", self.NONCE_A, profile="E1B"
+            )
+            e2, e2_dir = self._create(
+                parent, "e2", self.NONCE_A, profile="E2"
+            )
+            verified = self._verify(e2_dir)
+            self.assertNotEqual(e1b["run_id"], e2["run_id"])
+            self.assertEqual(verified["profile"], "E2")
+            self.assertEqual(verified["profile_number"], 3)
+            self.assertIn(
+                "CONFIG_S22PLUS_FYG8_E1_PROFILE=3", verified["config_lines"]
+            )
+            self.assertEqual(
+                verified["reachable_record_contract"]["profiles"], ["E2"]
+            )
+            self.assertEqual(
+                verified["reachable_record_contract"]["reachable_slot_variants"],
+                307201,
+            )
+            sources = e2["identity_preimage"]["sources"]
+            self.assertIn("plan_header", sources)
+            self.assertIn("stock_closure", sources)
+            self.assertNotEqual(
+                sources["base_patch"],
+                e1b["identity_preimage"]["sources"]["base_patch"],
+            )
+
     def test_tampered_intent_and_patch_fail_closed(self):
         private_tmp = ROOT / "workspace/private/tmp"
         private_tmp.mkdir(parents=True, exist_ok=True)
@@ -203,6 +236,36 @@ class S22PlusFyg8P234CandidateIdentityTest(unittest.TestCase):
             self.assertEqual(
                 result["outputs"]["init"]["module_string_counts"],
                 {name: 1 for name in USERSPACE.FORBIDDEN_MODULE_NAMES},
+            )
+
+    def test_e2_userspace_two_builds_bind_all_plan_modules(self):
+        private_tmp = ROOT / "workspace/private/tmp"
+        private_tmp.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=private_tmp) as temporary:
+            parent = Path(temporary)
+            _intent, intent_dir = self._create(
+                parent, "intent", self.NONCE_B, profile="E2"
+            )
+            output = parent / "userspace"
+            result = USERSPACE.build_userspace(
+                argparse.Namespace(
+                    source=INTENT.DEFAULT_SOURCE,
+                    intent=intent_dir / "candidate-intent.json",
+                    patch=intent_dir / "candidate.patch",
+                    out=output,
+                )
+            )
+            module_files = USERSPACE._e2_module_files(ROOT)
+            self.assertEqual(result["profile"], "E2")
+            self.assertEqual(result["verdict"], USERSPACE.E2_VERDICT)
+            self.assertTrue(result["two_build_byte_identical"])
+            self.assertEqual(len(module_files), 59)
+            self.assertEqual(
+                result["outputs"]["init"]["module_string_counts"],
+                {name: 1 for name in module_files},
+            )
+            self.assertEqual(
+                result["source_contract"]["module_files"], list(module_files)
             )
 
 

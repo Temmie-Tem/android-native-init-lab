@@ -25,6 +25,7 @@ import s22plus_boot_verify as boot_verify  # noqa: E402
 import s22plus_fyg8_p234_build_repro_check as repro  # noqa: E402
 import s22plus_fyg8_p234_candidate_contract as contract  # noqa: E402
 import s22plus_fyg8_p234_userspace_build as userspace  # noqa: E402
+import s22plus_fyg8_p242_e2_stock_closure as e2_closure  # noqa: E402
 import s22plus_fyg8_r4w1e_e1_candidate_static_checker as e1_static  # noqa: E402
 
 
@@ -222,6 +223,16 @@ def verify_artifact_result(
             or construction.get("vendor_ramdisk_modules_reused") is not True
         ):
             raise CheckError("E1B stock vendor module closure mismatch")
+    elif profile == "E2":
+        try:
+            e2_closure.validate_module_closure(value.get("module_closure"))
+        except e2_closure.ClosureError as exc:
+            raise CheckError("E2 stock vendor module closure mismatch") from exc
+        if (
+            construction.get("module_binaries_injected") != 0
+            or construction.get("vendor_ramdisk_modules_reused") is not True
+        ):
+            raise CheckError("E2 module composition contract mismatch")
     elif "module_closure" in value or any(
         name in construction
         for name in ("module_binaries_injected", "vendor_ramdisk_modules_reused")
@@ -239,10 +250,19 @@ def verify_artifact_result(
         "boot_only_ap": True,
         "ap_members": ["boot.img.lz4"],
         "no_shell": True,
-        "no_usb_or_configfs": True,
         "no_block_write": True,
         "no_reboot_syscall": True,
     }
+    if profile == "E2":
+        expected_safety.update(
+            {
+                "no_userspace_sysfs_or_configfs_write": True,
+                "usb_scope": "active-module-init-probe-and-read-only-bind-gates",
+                "module_init_probe_authority": "active-live-unproved",
+            }
+        )
+    else:
+        expected_safety["no_usb_or_configfs"] = True
     if safety != expected_safety:
         raise CheckError("candidate artifact safety contract mismatch")
     return {"verified": True}
@@ -285,15 +305,23 @@ def verify_userspace(
     run_id = bytes.fromhex(exact_contract["run_id"])
     init = payloads["init"]
     child = payloads["child"]
+    profile = exact_contract["profile"]
+    module_files = (
+        userspace._e2_module_files(root)
+        if profile == "E2"
+        else userspace.FORBIDDEN_MODULE_NAMES
+    )
     module_counts = {
-        name: init.count(name.encode("ascii"))
-        for name in userspace.FORBIDDEN_MODULE_NAMES
+        name: init.count(name.encode("ascii")) for name in module_files
     }
     forbidden = (b"sec_log_buf.ko", b"/dev/mem", b"/dev/block", b"/bin/sh")
-    expected_module_count = 0 if exact_contract["profile"] == "E1A" else 1
+    expected_present = set() if profile == "E1A" else set(module_files)
     if (
         init.count(run_id) != 1
-        or any(count != expected_module_count for count in module_counts.values())
+        or any(
+            count != (1 if name in expected_present else 0)
+            for name, count in module_counts.items()
+        )
         or any(token in init for token in forbidden)
         or init.count(b"/proc/s22_checkpoint") != 1
         or init.count(b"/s22-e1-child") != 1
@@ -304,31 +332,28 @@ def verify_userspace(
             f"FYG8 {exact_contract['profile']} binary closure mismatch"
         )
     source = result.get("source_contract")
-    fresh_source = userspace.p233.audit_sources(
-        userspace.p233.read_direct(
-            root / userspace.p233.DEFAULT_CLIENT, "P2.34 checkpoint client"
-        ),
-        userspace.p233.read_direct(
-            root / userspace.p233.DEFAULT_RUNTIME, "P2.34 runtime wrapper"
-        ),
-        userspace.p233.read_direct(
-            root / userspace.p233.DEFAULT_LEGACY_RUNTIME, "P2.34 legacy runtime"
-        ),
-        userspace.p233.read_direct(
-            root / userspace.p233.DEFAULT_HEADER, "P2.34 checkpoint header"
-        ),
-        userspace.p233.read_direct(
-            root / userspace.p233.DEFAULT_CHILD, "P2.34 child source"
-        ),
-    )
+    fresh_source = userspace.audit_profile_sources(root, profile)
     if (
         not isinstance(source, dict)
         or source != fresh_source
         or source.get("verified") is not True
-        or source.get("sec_log_buf_absent") is not True
-        or source.get("terminal_dominance_verified") is not True
+        or (
+            profile != "E2"
+            and (
+                source.get("sec_log_buf_absent") is not True
+                or source.get("terminal_dominance_verified") is not True
+            )
+        )
+        or (
+            profile == "E2"
+            and (
+                source.get("source", {}).get("verified") is not True
+                or source.get("source", {}).get("terminal_dominance_verified")
+                is not True
+            )
+        )
     ):
-        raise CheckError("P2.34 E1A source closure mismatch")
+        raise CheckError(f"P2.34 {profile} source closure mismatch")
     qemu_path = Path(userspace.require_tools()["qemu-aarch64"])
     qemu = stable_read(qemu_path, "P2.34 qemu-aarch64", 32 * 1024 * 1024)
     with tempfile.TemporaryDirectory(prefix="s22-p234-child-audit-") as temporary:
@@ -550,6 +575,20 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
             e1_static.base_static.VENDOR_BOOT_SHA256,
             "pinned stock vendor_boot",
         )
+    elif exact_contract["profile"] == "E2":
+        module_closure = e2_closure.derive_module_closure(
+            root,
+            resolve(root, getattr(args, "vendor_ramdisk", DEFAULT_VENDOR_RAMDISK)),
+            resolve(root, args.lz4),
+        )
+        if artifact_result.get("module_closure") != module_closure:
+            raise CheckError("E2 module closure differs from fresh stock derivation")
+        vendor_boot = carrier.read_exact_file(
+            resolve(root, getattr(args, "vendor_boot", DEFAULT_VENDOR_BOOT)),
+            e1_static.base_static.VENDOR_BOOT_SIZE,
+            e1_static.base_static.VENDOR_BOOT_SHA256,
+            "pinned stock vendor_boot",
+        )
     ap_info, ap_frame = boot_verify.parse_ap_tar_md5(payloads["ap_tar_md5"])
     if ap_frame != payloads["boot_img_lz4"] or ap_info["member"]["name"] != "boot.img.lz4":
         raise CheckError("P2.34 AP member mismatch")
@@ -670,7 +709,7 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
         ):
             raise CheckError("P2.34 extracted candidate closure mismatch")
 
-        if vendor_boot is not None:
+        if vendor_boot is not None and exact_contract["profile"] == "E1B":
             effective_rootfs = e1_static.rootfs_audit(
                 payloads["boot_img"],
                 vendor_boot,
@@ -679,6 +718,19 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
                 expected_child=receipt(userspace_payloads["child"]),
                 run_id=bytes.fromhex(exact_contract["run_id"]),
             )
+        elif vendor_boot is not None and exact_contract["profile"] == "E2":
+            try:
+                effective_rootfs = e2_closure.rootfs_audit(
+                    payloads["boot_img"],
+                    vendor_boot,
+                    lz4_path,
+                    expected_init=receipt(userspace_payloads["init"]),
+                    expected_child=receipt(userspace_payloads["child"]),
+                    run_id=bytes.fromhex(exact_contract["run_id"]),
+                    module_closure=module_closure,
+                )
+            except e2_closure.ClosureError as exc:
+                raise CheckError("E2 effective stock rootfs audit failed") from exc
 
     result = {
         "schema": SCHEMA,
@@ -809,6 +861,7 @@ def main(argv: list[str] | None = None) -> int:
         contract.intent.IntentError,
         userspace.p233.CheckError,
         e1_static.CheckError,
+        e2_closure.ClosureError,
         subprocess.TimeoutExpired,
         OSError,
     ) as exc:

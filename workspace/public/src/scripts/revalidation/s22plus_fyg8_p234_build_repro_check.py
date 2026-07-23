@@ -234,6 +234,7 @@ def _verify_final_candidate_output(
     run_id = exact_contract["run_id"].encode("ascii")
     unsat_tag = exact_contract["unsat_tag_hex"].encode("ascii")
     profile = exact_contract["profile"]
+    source_check_run_id = build.candidate_contract.intent.source_check_run_id(profile)
     expected_counts = {
         "long_family": 1,
         "unsat_family": 1,
@@ -257,7 +258,7 @@ def _verify_final_candidate_output(
                 ).hex().encode("ascii")
             ),
             "source_check_run_id": data.count(
-                build.p233.SOURCE_CHECK_RUN_IDS[profile].hex().encode("ascii")
+                source_check_run_id.hex().encode("ascii")
             ),
         }
         if row != expected_counts:

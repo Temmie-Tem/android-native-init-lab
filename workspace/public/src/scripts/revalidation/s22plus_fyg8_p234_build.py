@@ -150,6 +150,7 @@ def output_gate(work_tree: Path) -> dict[str, Any]:
     if bound is None:
         raise BuildError("candidate identity disappeared before output gate")
     profile = bound["profile"]
+    source_check_run_id = candidate_contract.intent.source_check_run_id(profile)
     binaries = {"image": image, "vmlinux": vmlinux}
     identity_counts = {
         name: {
@@ -164,7 +165,7 @@ def output_gate(work_tree: Path) -> dict[str, Any]:
                 )
             ),
             "source_check_run_id": data.count(
-                p233.SOURCE_CHECK_RUN_IDS[profile].hex().encode("ascii")
+                source_check_run_id.hex().encode("ascii")
             ),
         }
         for name, data in binaries.items()

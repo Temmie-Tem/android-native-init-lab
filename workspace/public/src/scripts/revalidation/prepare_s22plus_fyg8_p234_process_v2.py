@@ -19,6 +19,7 @@ if str(SCRIPT_DIR) not in sys.path:
 import device_action_f1_evidence_v2 as evidence  # noqa: E402
 import s22plus_boot_verify as boot_verify  # noqa: E402
 import s22plus_fyg8_p234_candidate_static_checker as static_checker  # noqa: E402
+import s22plus_fyg8_p242_e2_stock_closure as e2_closure  # noqa: E402
 
 
 SCHEMA = "s22plus_fyg8_p234_process_v2_promotion_v1"
@@ -101,6 +102,17 @@ def validate_static(
     run_id = candidate_contract.get("run_id")
     if not isinstance(run_id, str) or evidence.HEX32_RE.fullmatch(run_id) is None:
         raise PromotionError("P2.34 candidate run ID is malformed")
+    try:
+        source_receipts = evidence.validate_candidate_source_preimage(
+            candidate_contract, profile, run_id
+        )
+        _source_data, current_source_receipts = (
+            static_checker.contract.intent.source_receipts(repo_root(), profile)
+        )
+    except (evidence.EvidenceError, static_checker.contract.intent.IntentError) as exc:
+        raise PromotionError("candidate source preimage is invalid") from exc
+    if source_receipts != current_source_receipts:
+        raise PromotionError("candidate source preimage differs from current sources")
     candidate = result.get("candidate")
     if (
         not isinstance(candidate, dict)
@@ -139,16 +151,50 @@ def validate_static(
             raise PromotionError(
                 "E1B effective stock rootfs closure is incomplete"
             ) from exc
+    elif profile == "E2":
+        try:
+            module_closure = e2_closure.validate_module_closure(
+                candidate.get("module_closure")
+            )
+            e2_closure.validate_effective_rootfs(
+                candidate.get("effective_rootfs"),
+                expected_init=exact_identity(userspace.get("init"), "candidate init"),
+                expected_child=exact_identity(
+                    userspace.get("child"), "candidate child"
+                ),
+                module_closure=module_closure,
+            )
+            stock_vendor_boot = exact_identity(
+                candidate.get("stock_vendor_boot"), "stock vendor_boot"
+            )
+            if stock_vendor_boot != evidence.E1B_STOCK_VENDOR_BOOT:
+                raise PromotionError("E2 stock vendor_boot identity mismatch")
+        except (e2_closure.ClosureError, evidence.EvidenceError) as exc:
+            raise PromotionError(
+                "E2 effective stock rootfs closure is incomplete"
+            ) from exc
     identities = {
         "ap": exact_identity(artifacts.get("ap_tar_md5"), "candidate AP"),
         "candidate_static": exact_identity(static_receipt, "candidate static result"),
         "image": exact_identity(build.get("image"), "candidate Image"),
         "boot_image": exact_identity(artifacts.get("boot_img"), "candidate boot"),
+        "boot_img_lz4": exact_identity(
+            artifacts.get("boot_img_lz4"), "candidate boot LZ4"
+        ),
         "init": exact_identity(userspace.get("init"), "candidate init"),
         "child": exact_identity(userspace.get("child"), "candidate child"),
     }
-    if identities["ap"] != ap_receipt:
+    candidate_ap_identity = exact_identity(
+        {name: ap_receipt.get(name) for name in ("size", "sha256")},
+        "submitted candidate AP",
+    )
+    if identities["ap"] != candidate_ap_identity:
         raise PromotionError("P2.34 candidate AP changed after static verification")
+    if profile == "E2" and ap_receipt.get("member") != {
+        "name": "boot.img.lz4",
+        **identities["boot_img_lz4"],
+    }:
+        raise PromotionError("E2 candidate AP boot member differs from static closure")
     safety = result.get("safety")
     expected_safety = {
         "host_only": True,
@@ -173,6 +219,10 @@ def derive(
     candidate_contract, identities = validate_static(
         static_result, static_receipt, candidate_ap
     )
+    candidate_ap_identity = exact_identity(
+        {name: candidate_ap.get(name) for name in ("size", "sha256")},
+        "submitted candidate AP",
+    )
     run_id = candidate_contract["run_id"]
     profile = candidate_contract["profile"]
     model = evidence.e1_latest_stage.model
@@ -193,7 +243,7 @@ def derive(
             "minimum_success_count": 1,
             "clean_baseline_required": True,
         },
-        "candidate_ap": candidate_ap,
+        "candidate_ap": candidate_ap_identity,
         "candidate_static": static_receipt,
     }
     run_payload = canonical(run_manifest)
@@ -278,14 +328,39 @@ def main(argv: list[str] | None = None) -> int:
             "P2.34 candidate AP",
             static_checker.ARTIFACT_LIMITS["ap_tar_md5"],
         )
-        ap_info, _frame = boot_verify.parse_ap_tar_md5(ap_payload)
+        ap_info, frame = boot_verify.parse_ap_tar_md5(ap_payload)
         if ap_info["member"]["name"] != "boot.img.lz4":
             raise PromotionError("P2.34 candidate AP is not boot-only")
         static_receipt = receipt(static_payload)
-        ap_receipt = receipt(ap_payload)
+        ap_receipt = {
+            **receipt(ap_payload),
+            "member": {"name": "boot.img.lz4", **receipt(frame)},
+        }
         run_payload, process_static = derive(
             static_result, static_receipt, ap_receipt
         )
+        process_static_value = json.loads(process_static.decode("ascii"))
+        if process_static_value.get("profile") == "E2":
+            evidence.validate_e2_ap_payload(
+                frame,
+                {
+                    **{
+                        name: process_static_value["candidate"]["artifacts"][name]
+                        for name in (
+                            "boot_img_lz4",
+                            "boot_image",
+                            "image",
+                            "init",
+                            "child",
+                        )
+                    },
+                    "run_id": process_static_value["run_id"],
+                    "module_closure": static_result["candidate"]["module_closure"],
+                    "effective_rootfs": static_result["candidate"][
+                        "effective_rootfs"
+                    ],
+                },
+            )
         output = resolve(root, args.out)
         output.mkdir(mode=0o700, parents=True)
         durable_create(output / "run-manifest.json", run_payload)
@@ -319,6 +394,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     except (
         PromotionError,
+        evidence.EvidenceError,
         static_checker.CheckError,
         boot_verify.BootVerifyError,
         OSError,

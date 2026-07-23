@@ -108,7 +108,7 @@ def verify(
         nonce = intent.parse_nonce(nonce_text)
     except intent.IntentError as exc:
         raise ContractError(str(exc)) from exc
-    _source_data, source_rows = intent.source_receipts(root)
+    _source_data, source_rows = intent.source_receipts(root, profile)
     expected_preimage = intent.identity_preimage(nonce, source_rows, profile)
     if preimage != expected_preimage:
         raise ContractError("candidate identity preimage does not bind current sources")
@@ -168,6 +168,8 @@ def verify(
         "unsat_tag_hex": unsat_tag.hex(),
         "decoder_id": intent.decoder.DECODER_ID,
         "decoder_policy_id": intent.decoder.POLICY_ID,
+        "identity_preimage": preimage,
+        "identity_preimage_sha256": preimage_sha256,
         "intent": intent.receipt(intent_bytes),
         "patch": expected_patch_row,
         "base_files": patch_audit["base_files"],

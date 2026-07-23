@@ -164,8 +164,90 @@ class S22PlusBootVerifyTest(unittest.TestCase):
         self.assertEqual(extracted, frame)
         lz4 = self.module.parse_lz4_frame(frame)
         self.assertEqual(lz4["content_size"], len(b"raw-boot"))
+        self.assertEqual(
+            self.module.decompress_lz4_frame_python(frame), b"raw-boot"
+        )
+        compressed_block = b"\x44abcd\x04\x00"
+        descriptor = bytes((0x68, 0x70)) + (12).to_bytes(8, "little")
+        compressed_frame = (
+            b"\x04\x22\x4d\x18"
+            + descriptor
+            + bytes(((self.module.xxh32(descriptor) >> 8) & 0xFF,))
+            + len(compressed_block).to_bytes(4, "little")
+            + compressed_block
+            + b"\x00\x00\x00\x00"
+        )
+        self.assertEqual(
+            self.module.decompress_lz4_frame_python(compressed_frame),
+            b"abcdabcdabcd",
+        )
         with self.assertRaises(self.module.BootVerifyError):
             self.module.parse_lz4_frame(frame + b"trailing")
+
+    def test_lz4_rejects_header_block_and_content_checksum_corruption(self):
+        payload = b"checksum-payload"
+        flg = 0x7C
+        descriptor = bytes((flg, 0x70)) + len(payload).to_bytes(8, "little")
+        frame = (
+            b"\x04\x22\x4d\x18"
+            + descriptor
+            + bytes(((self.module.xxh32(descriptor) >> 8) & 0xFF,))
+            + (0x80000000 | len(payload)).to_bytes(4, "little")
+            + payload
+            + self.module.xxh32(payload).to_bytes(4, "little")
+            + b"\x00\x00\x00\x00"
+            + self.module.xxh32(payload).to_bytes(4, "little")
+        )
+        self.assertEqual(self.module.decompress_lz4_frame_python(frame), payload)
+        corruptions = {
+            "header": 14,
+            "block": 19 + len(payload),
+            "content": len(frame) - 1,
+        }
+        for name, offset in corruptions.items():
+            with self.subTest(name=name):
+                changed = bytearray(frame)
+                changed[offset] ^= 1
+                with self.assertRaises(self.module.BootVerifyError):
+                    self.module.decompress_lz4_frame_python(bytes(changed))
+                with self.assertRaises(self.module.BootVerifyError):
+                    self.module.parse_lz4_frame(bytes(changed))
+
+    def test_lz4_rejects_dictionary_and_dependent_block_frames(self):
+        payload = b"x"
+        dictionary_descriptor = (
+            bytes((0x69, 0x70))
+            + len(payload).to_bytes(8, "little")
+            + (7).to_bytes(4, "little")
+        )
+        dictionary_frame = (
+            b"\x04\x22\x4d\x18"
+            + dictionary_descriptor
+            + bytes(
+                ((self.module.xxh32(dictionary_descriptor) >> 8) & 0xFF,)
+            )
+            + (0x80000001).to_bytes(4, "little")
+            + payload
+            + b"\x00\x00\x00\x00"
+        )
+        with self.assertRaisesRegex(self.module.BootVerifyError, "dictionary"):
+            self.module.decompress_lz4_frame_python(dictionary_frame)
+
+        dependent_descriptor = bytes((0x48, 0x70)) + len(payload).to_bytes(
+            8, "little"
+        )
+        dependent_frame = (
+            b"\x04\x22\x4d\x18"
+            + dependent_descriptor
+            + bytes(((self.module.xxh32(dependent_descriptor) >> 8) & 0xFF,))
+            + (0x80000001).to_bytes(4, "little")
+            + payload
+            + b"\x00\x00\x00\x00"
+        )
+        with self.assertRaisesRegex(self.module.BootVerifyError, "dependent"):
+            self.module.decompress_lz4_frame_python(dependent_frame)
+        with self.assertRaisesRegex(self.module.BootVerifyError, "dependent"):
+            self.module.parse_lz4_frame(dependent_frame)
 
     def test_ap_rejects_extra_unsafe_and_bad_md5(self):
         frame = self.p3.lz4_frame_store(b"raw")
@@ -175,10 +257,45 @@ class S22PlusBootVerifyTest(unittest.TestCase):
             )
         with self.assertRaises(self.module.BootVerifyError):
             self.module.parse_ap_tar_md5(ap_with_members([("../bad", frame)]))
+        with self.assertRaisesRegex(self.module.BootVerifyError, "prefix"):
+            self.module.parse_ap_tar_md5(
+                ap_with_members([("a" * 101 + "/boot.img.lz4", frame)])
+            )
         valid = bytearray(ap_with_members([("boot.img.lz4", frame)]))
         valid[-41] = ord("0") if valid[-41] != ord("0") else ord("1")
         with self.assertRaises(self.module.BootVerifyError):
             self.module.parse_ap_tar_md5(bytes(valid))
+
+    def test_real_candidate_and_rollback_match_external_lz4_decoder(self):
+        lz4 = ROOT / (
+            "workspace/private/work/s22plus_fyg8_kernel_rebuild_r0/"
+            "kernel_platform/prebuilts/kernel-build-tools/linux-x86/bin/lz4"
+        )
+        cases = (
+            (
+                ROOT
+                / "workspace/private/outputs/s22plus_fyg8_p234/"
+                "candidate-a/odin4/AP.tar.md5",
+                True,
+            ),
+            (
+                ROOT
+                / "workspace/private/outputs/s22plus_magisk_root_boot_only/"
+                "AP.tar.md5",
+                False,
+            ),
+        )
+        if not lz4.is_file() or not all(path.is_file() for path, _strict in cases):
+            self.skipTest("exact private APs or pinned external LZ4 are unavailable")
+        for path, strict in cases:
+            with self.subTest(path=path.name, deterministic_metadata=strict):
+                _structure, frame = self.module.parse_ap_tar_md5(
+                    path.read_bytes(), require_deterministic_metadata=strict
+                )
+                self.assertEqual(
+                    self.module.decompress_lz4_frame_python(frame),
+                    self.module.decompress_lz4(lz4, frame),
+                )
 
     def test_newc_rejects_nonzero_padding(self):
         archive = bytearray(newc([("aa", 0o100644, b"x")]))

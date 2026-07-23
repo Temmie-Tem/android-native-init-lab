@@ -99,6 +99,68 @@ def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def _rotl32(value: int, count: int) -> int:
+    value &= 0xFFFFFFFF
+    return ((value << count) | (value >> (32 - count))) & 0xFFFFFFFF
+
+
+def xxh32(data: bytes, seed: int = 0) -> int:
+    """Return the LZ4 frame checksum primitive without an external dependency."""
+    prime1 = 0x9E3779B1
+    prime2 = 0x85EBCA77
+    prime3 = 0xC2B2AE3D
+    prime4 = 0x27D4EB2F
+    prime5 = 0x165667B1
+
+    def round_acc(accumulator: int, lane: int) -> int:
+        accumulator = (accumulator + lane * prime2) & 0xFFFFFFFF
+        accumulator = _rotl32(accumulator, 13)
+        return (accumulator * prime1) & 0xFFFFFFFF
+
+    offset = 0
+    length = len(data)
+    if length >= 16:
+        values = [
+            (seed + prime1 + prime2) & 0xFFFFFFFF,
+            (seed + prime2) & 0xFFFFFFFF,
+            seed & 0xFFFFFFFF,
+            (seed - prime1) & 0xFFFFFFFF,
+        ]
+        limit = length - 16
+        while offset <= limit:
+            for index in range(4):
+                values[index] = round_acc(
+                    values[index], struct.unpack_from("<I", data, offset)[0]
+                )
+                offset += 4
+        result = (
+            _rotl32(values[0], 1)
+            + _rotl32(values[1], 7)
+            + _rotl32(values[2], 12)
+            + _rotl32(values[3], 18)
+        ) & 0xFFFFFFFF
+    else:
+        result = (seed + prime5) & 0xFFFFFFFF
+
+    result = (result + length) & 0xFFFFFFFF
+    while offset + 4 <= length:
+        result = (
+            result + struct.unpack_from("<I", data, offset)[0] * prime3
+        ) & 0xFFFFFFFF
+        result = (_rotl32(result, 17) * prime4) & 0xFFFFFFFF
+        offset += 4
+    while offset < length:
+        result = (result + data[offset] * prime5) & 0xFFFFFFFF
+        result = (_rotl32(result, 11) * prime1) & 0xFFFFFFFF
+        offset += 1
+    result ^= result >> 15
+    result = (result * prime2) & 0xFFFFFFFF
+    result ^= result >> 13
+    result = (result * prime3) & 0xFFFFFFFF
+    result ^= result >> 16
+    return result & 0xFFFFFFFF
+
+
 def _identity(value: os.stat_result) -> tuple[int, int, int, int, int]:
     return (
         value.st_dev,
@@ -359,7 +421,9 @@ def _tar_text(field: bytes, label: str) -> str:
         raise BootVerifyError(f"non-ASCII tar field: {label}") from exc
 
 
-def parse_single_boot_tar(prefix: bytes) -> tuple[dict[str, Any], bytes]:
+def parse_single_boot_tar(
+    prefix: bytes, *, require_deterministic_metadata: bool = True
+) -> tuple[dict[str, Any], bytes]:
     if len(prefix) % 512:
         raise BootVerifyError("AP tar prefix is not block aligned")
     members: list[dict[str, Any]] = []
@@ -380,6 +444,9 @@ def parse_single_boot_tar(prefix: bytes) -> tuple[dict[str, Any], bytes]:
         if header[257:263] != b"ustar\0" or header[263:265] != b"00":
             raise BootVerifyError("AP tar is not canonical USTAR")
         name = _tar_text(header[:100], "name")
+        path_prefix = _tar_text(header[345:500], "prefix")
+        if path_prefix:
+            raise BootVerifyError("AP member USTAR prefix must be empty")
         if name != "boot.img.lz4" or name.startswith("/") or ".." in Path(name).parts:
             raise BootVerifyError(f"forbidden AP member: {name!r}")
         if header[156:157] not in (b"0", b"\0") or _tar_text(header[157:257], "linkname"):
@@ -395,10 +462,20 @@ def parse_single_boot_tar(prefix: bytes) -> tuple[dict[str, Any], bytes]:
             "uname": _tar_text(header[265:297], "uname"),
             "gname": _tar_text(header[297:329], "gname"),
         }
-        expected_metadata = {"mode": 0o644, "uid": 0, "gid": 0, "mtime": 0, "uname": "", "gname": ""}
-        for key, expected in expected_metadata.items():
-            if member[key] != expected:
-                raise BootVerifyError(f"AP deterministic metadata mismatch: {key}")
+        if require_deterministic_metadata:
+            expected_metadata = {
+                "mode": 0o644,
+                "uid": 0,
+                "gid": 0,
+                "mtime": 0,
+                "uname": "",
+                "gname": "",
+            }
+            for key, expected in expected_metadata.items():
+                if member[key] != expected:
+                    raise BootVerifyError(
+                        f"AP deterministic metadata mismatch: {key}"
+                    )
         data_start = offset + 512
         data_end = data_start + size
         padded_end = align(data_end, 512)
@@ -414,7 +491,9 @@ def parse_single_boot_tar(prefix: bytes) -> tuple[dict[str, Any], bytes]:
     return members[0], payloads[0]
 
 
-def parse_ap_tar_md5(data: bytes) -> tuple[dict[str, Any], bytes]:
+def parse_ap_tar_md5(
+    data: bytes, *, require_deterministic_metadata: bool = True
+) -> tuple[dict[str, Any], bytes]:
     if len(data) < 41:
         raise BootVerifyError("AP is too short for MD5 trailer")
     prefix, trailer = data[:-41], data[-41:]
@@ -424,18 +503,26 @@ def parse_ap_tar_md5(data: bytes) -> tuple[dict[str, Any], bytes]:
     actual_md5 = hashlib.md5(prefix).hexdigest()
     if match.group(1).decode("ascii") != actual_md5:
         raise BootVerifyError("AP tar MD5 mismatch")
-    member, frame = parse_single_boot_tar(prefix)
+    member, frame = parse_single_boot_tar(
+        prefix,
+        require_deterministic_metadata=require_deterministic_metadata,
+    )
     return {"tar_md5": actual_md5, "member": member}, frame
 
 
-def parse_lz4_frame(frame: bytes) -> dict[str, Any]:
+def _parse_lz4_frame_layout(
+    frame: bytes,
+) -> tuple[dict[str, Any], tuple[tuple[bool, bytes], ...], int | None]:
     if len(frame) < 11 or frame[:4] != b"\x04\x22\x4d\x18":
         raise BootVerifyError("LZ4 frame magic missing")
     position = 4
+    descriptor_start = position
     flg, bd = frame[position], frame[position + 1]
     position += 2
     if (flg >> 6) != 1 or flg & 0x02:
         raise BootVerifyError(f"invalid LZ4 FLG: 0x{flg:02x}")
+    if flg & 0x01:
+        raise BootVerifyError("LZ4 dictionary frames are not accepted")
     block_max = {4: 65536, 5: 262144, 6: 1048576, 7: 4194304}.get((bd >> 4) & 7)
     if block_max is None or bd & 0x8F:
         raise BootVerifyError(f"invalid LZ4 BD: 0x{bd:02x}")
@@ -445,12 +532,13 @@ def parse_lz4_frame(frame: bytes) -> dict[str, Any]:
             raise BootVerifyError("truncated LZ4 content size")
         content_size = struct.unpack_from("<Q", frame, position)[0]
         position += 8
-    if flg & 0x01:
-        position += 4
     if position >= len(frame):
         raise BootVerifyError("truncated LZ4 header")
+    descriptor = frame[descriptor_start:position]
+    if frame[position] != (xxh32(descriptor) >> 8) & 0xFF:
+        raise BootVerifyError("LZ4 header checksum mismatch")
     position += 1
-    blocks = 0
+    blocks: list[tuple[bool, bytes]] = []
     while True:
         if position + 4 > len(frame):
             raise BootVerifyError("truncated LZ4 block size")
@@ -461,24 +549,151 @@ def parse_lz4_frame(frame: bytes) -> dict[str, Any]:
         block_size = encoded_size & 0x7FFFFFFF
         if not block_size or block_size > block_max or position + block_size > len(frame):
             raise BootVerifyError("invalid or truncated LZ4 block")
+        uncompressed = bool(encoded_size & 0x80000000)
+        block = frame[position : position + block_size]
         position += block_size
         if flg & 0x10:
+            if position + 4 > len(frame):
+                raise BootVerifyError("truncated LZ4 block checksum")
+            checksum = struct.unpack_from("<I", frame, position)[0]
+            if checksum != xxh32(block):
+                raise BootVerifyError("LZ4 block checksum mismatch")
             position += 4
-        if position > len(frame):
-            raise BootVerifyError("truncated LZ4 block checksum")
-        blocks += 1
+        blocks.append((uncompressed, block))
+    content_checksum = None
     if flg & 0x04:
+        if position + 4 > len(frame):
+            raise BootVerifyError("truncated LZ4 content checksum")
+        content_checksum = struct.unpack_from("<I", frame, position)[0]
         position += 4
     if position != len(frame):
         raise BootVerifyError("trailing or concatenated LZ4 data")
-    return {
+    info = {
         "flg": flg,
         "bd": bd,
         "content_size": content_size,
-        "block_count": blocks,
+        "block_count": len(blocks),
         "frame_size": len(frame),
+        "header_checksum_valid": True,
+        "block_checksums_valid": True,
+        "content_checksum_present": content_checksum is not None,
         "single_frame_no_trailing_data": True,
     }
+    return info, tuple(blocks), content_checksum
+
+
+def parse_lz4_frame(frame: bytes) -> dict[str, Any]:
+    info, blocks, content_checksum = _parse_lz4_frame_layout(frame)
+    _decompress_lz4_layout(
+        info,
+        blocks,
+        content_checksum,
+        expected_size=info["content_size"],
+        maximum=256 * 1024 * 1024,
+    )
+    return info
+
+
+def _decompress_lz4_block(block: bytes, maximum: int) -> bytes:
+    output = bytearray()
+    position = 0
+    while position < len(block):
+        token = block[position]
+        position += 1
+        literal_size = token >> 4
+        if literal_size == 15:
+            while True:
+                if position >= len(block):
+                    raise BootVerifyError("truncated LZ4 literal length")
+                value = block[position]
+                position += 1
+                literal_size += value
+                if value != 255:
+                    break
+        if position + literal_size > len(block):
+            raise BootVerifyError("truncated LZ4 literals")
+        if len(output) + literal_size > maximum:
+            raise BootVerifyError("LZ4 block exceeds output bound")
+        output.extend(block[position : position + literal_size])
+        position += literal_size
+        if position == len(block):
+            break
+        if position + 2 > len(block):
+            raise BootVerifyError("truncated LZ4 match offset")
+        offset = int.from_bytes(block[position : position + 2], "little")
+        position += 2
+        if offset == 0 or offset > len(output):
+            raise BootVerifyError("invalid LZ4 match offset")
+        match_size = token & 0x0F
+        if match_size == 15:
+            while True:
+                if position >= len(block):
+                    raise BootVerifyError("truncated LZ4 match length")
+                value = block[position]
+                position += 1
+                match_size += value
+                if value != 255:
+                    break
+        match_size += 4
+        if len(output) + match_size > maximum:
+            raise BootVerifyError("LZ4 block exceeds output bound")
+        for _ in range(match_size):
+            output.append(output[-offset])
+    return bytes(output)
+
+
+def _decompress_lz4_layout(
+    info: dict[str, Any],
+    blocks: tuple[tuple[bool, bytes], ...],
+    content_checksum: int | None,
+    *,
+    expected_size: int | None = None,
+    maximum: int = 256 * 1024 * 1024,
+) -> bytes:
+    if maximum <= 0 or maximum > 1024 * 1024 * 1024:
+        raise BootVerifyError("invalid LZ4 output bound")
+    flg = info["flg"]
+    if not flg & 0x20:
+        raise BootVerifyError("dependent-block LZ4 frames are not accepted")
+    block_max = {4: 65536, 5: 262144, 6: 1048576, 7: 4194304}[
+        (info["bd"] >> 4) & 7
+    ]
+    content_size = info["content_size"]
+    output = bytearray()
+    for uncompressed, block in blocks:
+        decoded = (
+            block
+            if uncompressed
+            else _decompress_lz4_block(block, block_max)
+        )
+        if len(decoded) > block_max or len(output) + len(decoded) > maximum:
+            raise BootVerifyError("LZ4 frame exceeds output bound")
+        output.extend(decoded)
+    if content_checksum is not None and content_checksum != xxh32(bytes(output)):
+        raise BootVerifyError("LZ4 content checksum mismatch")
+    required_size = expected_size if expected_size is not None else content_size
+    if required_size is not None and len(output) != required_size:
+        raise BootVerifyError(
+            f"LZ4 decoded size mismatch: {len(output)} != {required_size}"
+        )
+    return bytes(output)
+
+
+def decompress_lz4_frame_python(
+    frame: bytes,
+    *,
+    expected_size: int | None = None,
+    maximum: int = 256 * 1024 * 1024,
+) -> bytes:
+    """Decode one bounded independent-block LZ4 frame without an external tool."""
+    info, blocks, content_checksum = _parse_lz4_frame_layout(frame)
+    return _decompress_lz4_layout(
+        info,
+        blocks,
+        content_checksum,
+        expected_size=expected_size,
+        maximum=maximum,
+    )
 
 
 def decompress_lz4(tool: Path, frame: bytes, expected_size: int | None = None) -> bytes:

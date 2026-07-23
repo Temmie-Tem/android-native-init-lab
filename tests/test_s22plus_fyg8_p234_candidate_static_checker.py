@@ -149,6 +149,43 @@ class P234CandidateStaticCheckerTest(unittest.TestCase):
         with self.assertRaisesRegex(self.module.CheckError, "module closure"):
             self.module.verify_artifact_result(result, **inputs)
 
+    def test_e2_artifact_requires_exact_59_module_closure_and_scoped_safety(self):
+        required = (
+            self.module.e2_closure.DEFAULT_VENDOR_RAMDISK,
+            self.module.e2_closure.DEFAULT_LZ4,
+        )
+        if not all((ROOT / path).exists() for path in required):
+            self.skipTest("exact FYG8 private inputs are unavailable")
+        closure = self.module.e2_closure.derive_module_closure(
+            ROOT,
+            ROOT / self.module.e2_closure.DEFAULT_VENDOR_RAMDISK,
+            ROOT / self.module.e2_closure.DEFAULT_LZ4,
+        )
+        result, inputs = self.fixture()
+        inputs["exact_contract"]["profile"] = "E2"
+        result["candidate_contract"]["profile"] = "E2"
+        result["module_closure"] = closure
+        result["construction"].update(
+            {
+                "module_binaries_injected": 0,
+                "vendor_ramdisk_modules_reused": True,
+            }
+        )
+        result["safety"].pop("no_usb_or_configfs")
+        result["safety"].update(
+            {
+                "no_userspace_sysfs_or_configfs_write": True,
+                "usb_scope": "active-module-init-probe-and-read-only-bind-gates",
+                "module_init_probe_authority": "active-live-unproved",
+            }
+        )
+        self.assertTrue(
+            self.module.verify_artifact_result(result, **inputs)["verified"]
+        )
+        result["module_closure"]["modules"][0]["sha256"] = "0" * 64
+        with self.assertRaisesRegex(self.module.CheckError, "module closure"):
+            self.module.verify_artifact_result(result, **inputs)
+
     def test_stable_read_rejects_symlink(self):
         with tempfile.TemporaryDirectory() as name:
             root = Path(name)

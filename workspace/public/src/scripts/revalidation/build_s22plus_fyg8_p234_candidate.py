@@ -26,6 +26,7 @@ import s22plus_boot_verify as boot_verify  # noqa: E402
 import s22plus_fyg8_p234_build_repro_check as repro  # noqa: E402
 import s22plus_fyg8_p234_candidate_contract as candidate_contract  # noqa: E402
 import s22plus_fyg8_p234_userspace_build as userspace  # noqa: E402
+import s22plus_fyg8_p242_e2_stock_closure as e2_closure  # noqa: E402
 
 
 SCHEMA = "s22plus_fyg8_p234_candidate_artifact_result_v1"
@@ -221,6 +222,14 @@ def build_candidate(args: argparse.Namespace) -> dict[str, Any]:
                 candidate_contract.intent.resolve(root, args.lz4),
                 Path(name),
             )
+    elif exact_contract["profile"] == "E2":
+        module_closure = e2_closure.derive_module_closure(
+            root,
+            candidate_contract.intent.resolve(
+                root, getattr(args, "vendor_ramdisk", DEFAULT_VENDOR_RAMDISK)
+            ),
+            candidate_contract.intent.resolve(root, args.lz4),
+        )
 
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(
@@ -375,6 +384,30 @@ def build_candidate(args: argparse.Namespace) -> dict[str, Any]:
         shutil.rmtree(nochange)
         shutil.rmtree(final_unpack)
         shutil.rmtree(audit)
+        safety = {
+            "host_only": True,
+            "device_contact": False,
+            "device_write": False,
+            "odin_invoked": False,
+            "flash": False,
+            "partition_write": False,
+            "live_authorized": False,
+            "boot_only_ap": True,
+            "ap_members": ["boot.img.lz4"],
+            "no_shell": True,
+            "no_block_write": True,
+            "no_reboot_syscall": True,
+        }
+        if exact_contract["profile"] == "E2":
+            safety.update(
+                {
+                    "no_userspace_sysfs_or_configfs_write": True,
+                    "usb_scope": "active-module-init-probe-and-read-only-bind-gates",
+                    "module_init_probe_authority": "active-live-unproved",
+                }
+            )
+        else:
+            safety["no_usb_or_configfs"] = True
         result = {
             "schema": SCHEMA,
             "target": TARGET,
@@ -397,21 +430,7 @@ def build_candidate(args: argparse.Namespace) -> dict[str, Any]:
                 "ap_structure": ap_structure,
             },
             "manifest_created": False,
-            "safety": {
-                "host_only": True,
-                "device_contact": False,
-                "device_write": False,
-                "odin_invoked": False,
-                "flash": False,
-                "partition_write": False,
-                "live_authorized": False,
-                "boot_only_ap": True,
-                "ap_members": ["boot.img.lz4"],
-                "no_shell": True,
-                "no_usb_or_configfs": True,
-                "no_block_write": True,
-                "no_reboot_syscall": True,
-            },
+            "safety": safety,
         }
         if module_closure is not None:
             result["module_closure"] = module_closure
@@ -454,6 +473,7 @@ def main(argv: list[str] | None = None) -> int:
         BuildError,
         candidate_contract.ContractError,
         candidate_contract.intent.IntentError,
+        e2_closure.ClosureError,
         carrier.BuildError,
         boot_slice.BootSliceError,
         boot_verify.BootVerifyError,

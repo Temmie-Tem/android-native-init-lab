@@ -2,6 +2,7 @@ import copy
 import hashlib
 import importlib.util
 import json
+import struct
 import sys
 import unittest
 from pathlib import Path
@@ -9,6 +10,116 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "workspace/public/src/scripts/revalidation"
+if str(SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS))
+import s22plus_boot_verify as boot_verify_fixture  # noqa: E402
+
+
+def lz4_store(payload):
+    descriptor = bytes((0x68, 0x70)) + len(payload).to_bytes(8, "little")
+    return (
+        b"\x04\x22\x4d\x18"
+        + descriptor
+        + bytes(((boot_verify_fixture.xxh32(descriptor) >> 8) & 0xFF,))
+        + (0x80000000 | len(payload)).to_bytes(4, "little")
+        + payload
+        + b"\x00\x00\x00\x00"
+    )
+
+
+def newc(entries):
+    output = bytearray()
+    for index, item in enumerate([*entries, ("TRAILER!!!", 0, b"")], 1):
+        if len(item) == 3:
+            name, mode, payload = item
+            uid = gid = 0
+            nlink = 1
+        elif len(item) == 6:
+            name, mode, payload, uid, gid, nlink = item
+        else:
+            raise ValueError("newc fixture entry shape is invalid")
+        encoded = name.encode("ascii") + b"\0"
+        fields = (
+            index,
+            mode,
+            uid,
+            gid,
+            nlink,
+            0,
+            len(payload),
+            0,
+            0,
+            0,
+            0,
+            len(encoded),
+            0,
+        )
+        output += b"070701" + b"".join(
+            f"{value:08x}".encode("ascii") for value in fields
+        )
+        output += encoded
+        output += bytes((-len(output)) % 4)
+        output += payload
+        output += bytes((-len(output)) % 4)
+    return bytes(output)
+
+
+def boot_v4(kernel, ramdisk):
+    kernel_start = 4096
+    ramdisk_start = (kernel_start + len(kernel) + 4095) // 4096 * 4096
+    total = (ramdisk_start + len(ramdisk) + 4095) // 4096 * 4096
+    output = bytearray(total)
+    output[:8] = b"ANDROID!"
+    struct.pack_into("<4I", output, 8, len(kernel), len(ramdisk), 0, 1584)
+    struct.pack_into("<I", output, 40, 4)
+    struct.pack_into("<I", output, 1580, 0)
+    output[kernel_start : kernel_start + len(kernel)] = kernel
+    output[ramdisk_start : ramdisk_start + len(ramdisk)] = ramdisk
+    return bytes(output)
+
+
+def static_aarch64_elf(entrypoint, suffix=b""):
+    base = 0x400000
+    entry_offset = entrypoint - base
+    if entry_offset < 120:
+        raise ValueError("fixture entrypoint overlaps the ELF headers")
+    data = bytearray(max(0x1200, entry_offset + 4))
+    data.extend(suffix)
+    ident = b"\x7fELF\x02\x01\x01" + bytes(9)
+    struct.pack_into(
+        "<16sHHIQQQIHHHHHH",
+        data,
+        0,
+        ident,
+        2,
+        183,
+        1,
+        entrypoint,
+        64,
+        0,
+        0,
+        64,
+        56,
+        1,
+        0,
+        0,
+        0,
+    )
+    struct.pack_into(
+        "<IIQQQQQQ",
+        data,
+        64,
+        1,
+        5,
+        0,
+        base,
+        base,
+        len(data),
+        len(data),
+        0x1000,
+    )
+    struct.pack_into("<I", data, entry_offset, 0xD503201F)
+    return bytes(data)
 
 
 def load_module(name):
@@ -68,6 +179,34 @@ class P234ProcessV2Test(unittest.TestCase):
         }
         return receipts
 
+    def generic_rootfs(self, init, child, init_elf, child_elf):
+        return {
+            "entry_count": self.module.e2_closure.EXPECTED_GENERIC_ENTRY_COUNT,
+            "no_duplicate_or_alias": True,
+            "init": {
+                **init,
+                "uid": 0,
+                "gid": 0,
+                "mode": 0o750,
+                "nlink": 1,
+                "elf": init_elf,
+                "run_id_count": 1,
+                "required_strings_complete": True,
+                "forbidden_authority_absent": True,
+            },
+            "child": {
+                **child,
+                "uid": 0,
+                "gid": 0,
+                "mode": 0o750,
+                "nlink": 1,
+                "elf": child_elf,
+                "token_count": 1,
+            },
+            "rdinit_override_absent": True,
+            "verified": True,
+        }
+
     def fixture(self, profile="E1A"):
         model = self.evidence.e1_latest_stage.model
         profile_number = model.PROFILE_NUMBERS[profile]
@@ -76,7 +215,15 @@ class P234ProcessV2Test(unittest.TestCase):
             1 if stage == terminal else 1 + 4095
             for stage in model.PROFILE_STAGE_SEQUENCES[profile]
         )
-        run_id = hashlib.sha256(b"P234-PROCESS-V2-TEST").hexdigest()[:32]
+        intent = self.module.static_checker.contract.intent
+        _source_data, source_rows = intent.source_receipts(ROOT, profile)
+        preimage = intent.identity_preimage(
+            bytes.fromhex("1234567890abcdef1234567890abcdef"),
+            source_rows,
+            profile,
+        )
+        preimage_sha256 = hashlib.sha256(intent.canonical(preimage)).hexdigest()
+        run_id = intent.derive_run_id(preimage).hex()
         ap = self.identity(b"ap", 456)
         identities = {
             "artifact_result": self.identity(b"artifact-result"),
@@ -110,6 +257,8 @@ class P234ProcessV2Test(unittest.TestCase):
                 )[len(self.evidence.e1_latest_stage.model.UNSAT_FAMILY) :].hex(),
                 "decoder_id": self.evidence.E1_LATEST_STAGE_DECODER,
                 "decoder_policy_id": self.evidence.e1_latest_stage.POLICY_ID,
+                "identity_preimage": preimage,
+                "identity_preimage_sha256": preimage_sha256,
                 "intent": self.identity(b"candidate-intent"),
                 "patch": {
                     **self.identity(b"candidate-patch"),
@@ -293,6 +442,78 @@ class P234ProcessV2Test(unittest.TestCase):
                     ),
                 }
             )
+        elif profile == "E2":
+            required = (
+                self.module.e2_closure.DEFAULT_VENDOR_RAMDISK,
+                self.module.e2_closure.DEFAULT_LZ4,
+            )
+            if not all((ROOT / path).exists() for path in required):
+                self.skipTest("exact FYG8 private inputs are unavailable")
+            closure = self.module.e2_closure.derive_module_closure(
+                ROOT,
+                ROOT / self.module.e2_closure.DEFAULT_VENDOR_RAMDISK,
+                ROOT / self.module.e2_closure.DEFAULT_LZ4,
+            )
+            init_elf = {
+                "verified": True,
+                "machine": "AArch64",
+                "entrypoint": self.module.e2_closure.EXPECTED_ELF_ENTRYPOINTS["init"],
+                "interpreter": False,
+                "dynamic": False,
+                "executable_stack": False,
+                "entrypoint_mapped": True,
+            }
+            child_elf = {
+                **init_elf,
+                "entrypoint": self.module.e2_closure.EXPECTED_ELF_ENTRYPOINTS["child"],
+            }
+            static_result["candidate"].update(
+                {
+                    "module_closure": closure,
+                    "effective_rootfs": {
+                        "composition_order": ["generic", "vendor[0]/"],
+                        "entry_count": 474,
+                        "generic_rootfs": self.generic_rootfs(
+                            userspace["init"],
+                            userspace["child"],
+                            init_elf,
+                            child_elf,
+                        ),
+                        "no_duplicate_override_or_alias": True,
+                        "init": {
+                            **userspace["init"],
+                            "elf": init_elf,
+                            "run_id_count": 1,
+                        },
+                        "child": {
+                            **userspace["child"],
+                            "elf": child_elf,
+                        },
+                        "modules": [
+                            {
+                                "file": row["file"],
+                                "runtime": row["runtime_name"],
+                                "layer": "vendor[0]/",
+                            }
+                            for row in closure["modules"]
+                        ],
+                        "module_count": 59,
+                        "module_closure_sha256": (
+                            self.module.e2_closure.closure_sha256(closure)
+                        ),
+                        "rdinit_override_absent": True,
+                        "verified": True,
+                    },
+                    "stock_vendor_boot": copy.deepcopy(
+                        self.evidence.E1B_STOCK_VENDOR_BOOT
+                    ),
+                }
+            )
+        if profile == "E2":
+            ap = {
+                **ap,
+                "member": {"name": "boot.img.lz4", **identities["boot_img_lz4"]},
+            }
         candidate_static_payload = (
             json.dumps(static_result, indent=2, sort_keys=True).encode("ascii") + b"\n"
         )
@@ -659,6 +880,298 @@ class P234ProcessV2Test(unittest.TestCase):
         self.assertEqual(result["terminal_stage"], 0x3F)
         self.assertEqual(result["candidate_static_sha256"], candidate_static["sha256"])
 
+    def test_offline_verifier_accepts_coherent_e2_profile(self):
+        _static, candidate_static, ap, payloads, receipts, acceptance = self.fixture(
+            "E2"
+        )
+        result = self.evidence.verify_offline_contract(
+            acceptance,
+            payloads=payloads,
+            receipts=receipts,
+            candidate_ap=ap,
+        )
+        self.assertTrue(result["verified"])
+        self.assertEqual(result["profile"], "E2")
+        self.assertEqual(result["terminal_stage"], 0x8F)
+        self.assertEqual(result["candidate_static_sha256"], candidate_static["sha256"])
+
+    def test_offline_verifier_rejects_repinned_e2_module_tampering(self):
+        _static, _candidate_static, ap, payloads, _receipts, acceptance = self.fixture(
+            "E2"
+        )
+        receipts = self.repin_candidate_static(
+            payloads,
+            acceptance,
+            lambda value: value["candidate"]["module_closure"]["modules"][
+                0
+            ].__setitem__("sha256", "0" * 64),
+        )
+        with self.assertRaisesRegex(
+            self.evidence.EvidenceError, "E2 stock rootfs closure"
+        ):
+            self.evidence.verify_offline_contract(
+                acceptance,
+                payloads=payloads,
+                receipts=receipts,
+                candidate_ap=ap,
+            )
+
+    def test_e2_rejects_substituted_ap_boot_member(self):
+        static, candidate_static, ap, payloads, receipts, acceptance = self.fixture("E2")
+        changed = copy.deepcopy(ap)
+        changed["member"]["sha256"] = "0" * 64
+        with self.assertRaisesRegex(
+            self.module.PromotionError, "AP boot member"
+        ):
+            self.module.derive(static, candidate_static, changed)
+        with self.assertRaisesRegex(
+            self.evidence.EvidenceError, "artifact closure"
+        ):
+            self.evidence.verify_offline_contract(
+                acceptance,
+                payloads=payloads,
+                receipts=receipts,
+                candidate_ap=changed,
+            )
+
+    def test_e2_ap_payload_is_independently_decoded_to_kernel_and_userspace(self):
+        self.fixture("E2")
+        module_closure = self.module.e2_closure.derive_module_closure(
+            ROOT,
+            ROOT / self.module.e2_closure.DEFAULT_VENDOR_RAMDISK,
+            ROOT / self.module.e2_closure.DEFAULT_LZ4,
+        )
+        run_id = bytes.fromhex("1234567890abcdef1234567890abcdef")
+        image = b"synthetic-image"
+        required_strings = [
+            b"/proc/s22_checkpoint",
+            b"/proc/modules",
+            b"/sys/class/udc",
+            b"a600000.dwc3",
+            b"/s22-e1-child",
+            *(row["file"].encode("ascii") for row in module_closure["modules"]),
+        ]
+        init = static_aarch64_elf(
+            self.module.e2_closure.EXPECTED_ELF_ENTRYPOINTS["init"],
+            b"\0".join([run_id, *required_strings]),
+        )
+        child_token = self.module.e2_closure.p241.p233.legacy_e1.CHILD_TOKEN
+        child = static_aarch64_elf(
+            self.module.e2_closure.EXPECTED_ELF_ENTRYPOINTS["child"],
+            child_token,
+        )
+        generic_entries = [
+            ("init", 0o100750, init),
+            ("s22-e1-child", 0o100750, child),
+            *[(f"fixture-{index}", 0o040755, b"") for index in range(20)],
+        ]
+        ramdisk = lz4_store(
+            newc(generic_entries)
+        )
+        boot = boot_v4(image, ramdisk)
+        frame = lz4_store(boot)
+        init_identity = self.identity(init, len(init))
+        child_identity = self.identity(child, len(child))
+        init_elf = self.module.e2_closure.e1_static.inspect_static_elf(
+            init, "fixture init"
+        )
+        child_elf = self.module.e2_closure.e1_static.inspect_static_elf(
+            child, "fixture child"
+        )
+        generic_rootfs = self.generic_rootfs(
+            init_identity, child_identity, init_elf, child_elf
+        )
+        effective_rootfs = {
+            "composition_order": ["generic", "vendor[0]/"],
+            "entry_count": 474,
+            "generic_rootfs": generic_rootfs,
+            "no_duplicate_override_or_alias": True,
+            "init": {**init_identity, "elf": init_elf, "run_id_count": 1},
+            "child": {**child_identity, "elf": child_elf},
+            "modules": [
+                {
+                    "file": row["file"],
+                    "runtime": row["runtime_name"],
+                    "layer": "vendor[0]/",
+                }
+                for row in module_closure["modules"]
+            ],
+            "module_count": 59,
+            "module_closure_sha256": self.module.e2_closure.closure_sha256(
+                module_closure
+            ),
+            "rdinit_override_absent": True,
+            "verified": True,
+        }
+        closure = {
+            "boot_img_lz4": self.identity(frame, len(frame)),
+            "boot_image": self.identity(boot, len(boot)),
+            "image": self.identity(image, len(image)),
+            "init": init_identity,
+            "child": child_identity,
+            "run_id": run_id.hex(),
+            "module_closure": module_closure,
+            "effective_rootfs": effective_rootfs,
+        }
+        self.assertTrue(
+            self.evidence.validate_e2_ap_payload(frame, closure)["verified"]
+        )
+        changed = copy.deepcopy(closure)
+        changed["image"]["sha256"] = "0" * 64
+        with self.assertRaisesRegex(self.evidence.EvidenceError, "kernel identity"):
+            self.evidence.validate_e2_ap_payload(frame, changed)
+
+        forged_entries = list(generic_entries)
+        forged_entries[0] = ("init", 0o100750, b"not-an-elf")
+        forged_boot = boot_v4(image, lz4_store(newc(forged_entries)))
+        forged_frame = lz4_store(forged_boot)
+        forged_closure = copy.deepcopy(closure)
+        forged_closure["boot_img_lz4"] = self.identity(
+            forged_frame, len(forged_frame)
+        )
+        forged_closure["boot_image"] = self.identity(
+            forged_boot, len(forged_boot)
+        )
+        forged_init = self.identity(b"not-an-elf", len(b"not-an-elf"))
+        forged_closure["init"] = forged_init
+        for rootfs_init in (
+            forged_closure["effective_rootfs"]["init"],
+            forged_closure["effective_rootfs"]["generic_rootfs"]["init"],
+        ):
+            rootfs_init.update(forged_init)
+        with self.assertRaisesRegex(
+            self.evidence.EvidenceError, "executable semantics"
+        ):
+            self.evidence.validate_e2_ap_payload(forged_frame, forged_closure)
+
+        directories = [
+            (f"fixture-{index}", 0o040755, b"") for index in range(20)
+        ]
+
+        def repinned_payload(
+            entries,
+            *,
+            init_payload=init,
+            child_payload=child,
+        ):
+            mutated_boot = boot_v4(image, lz4_store(newc(entries)))
+            mutated_frame = lz4_store(mutated_boot)
+            mutated_closure = copy.deepcopy(closure)
+            mutated_closure["boot_img_lz4"] = self.identity(
+                mutated_frame, len(mutated_frame)
+            )
+            mutated_closure["boot_image"] = self.identity(
+                mutated_boot, len(mutated_boot)
+            )
+            for name, payload in (("init", init_payload), ("child", child_payload)):
+                identity = self.identity(payload, len(payload))
+                mutated_closure[name] = identity
+                mutated_closure["effective_rootfs"][name].update(identity)
+                mutated_closure["effective_rootfs"]["generic_rootfs"][name].update(
+                    identity
+                )
+            return mutated_frame, mutated_closure
+
+        duplicate_run_init = static_aarch64_elf(
+            self.module.e2_closure.EXPECTED_ELF_ENTRYPOINTS["init"],
+            b"\0".join([run_id, run_id, *required_strings]),
+        )
+        missing_required_init = static_aarch64_elf(
+            self.module.e2_closure.EXPECTED_ELF_ENTRYPOINTS["init"],
+            b"\0".join(
+                [
+                    run_id,
+                    *(value for value in required_strings if value != b"/sys/class/udc"),
+                ]
+            ),
+        )
+        forbidden_init = static_aarch64_elf(
+            self.module.e2_closure.EXPECTED_ELF_ENTRYPOINTS["init"],
+            b"\0".join([run_id, *required_strings, b"/dev/block"]),
+        )
+        duplicate_token_child = static_aarch64_elf(
+            self.module.e2_closure.EXPECTED_ELF_ENTRYPOINTS["child"],
+            child_token + b"\0" + child_token,
+        )
+        semantic_mutations = {
+            "init_uid": (
+                [("init", 0o100750, init, 1, 0, 1), ("s22-e1-child", 0o100750, child), *directories],
+                init,
+                child,
+            ),
+            "init_gid": (
+                [("init", 0o100750, init, 0, 1, 1), ("s22-e1-child", 0o100750, child), *directories],
+                init,
+                child,
+            ),
+            "init_mode": (
+                [("init", 0o100755, init), ("s22-e1-child", 0o100750, child), *directories],
+                init,
+                child,
+            ),
+            "init_nlink": (
+                [("init", 0o100750, init, 0, 0, 2), ("s22-e1-child", 0o100750, child), *directories],
+                init,
+                child,
+            ),
+            "run_id_cardinality": (
+                [("init", 0o100750, duplicate_run_init), ("s22-e1-child", 0o100750, child), *directories],
+                duplicate_run_init,
+                child,
+            ),
+            "required_string_missing": (
+                [("init", 0o100750, missing_required_init), ("s22-e1-child", 0o100750, child), *directories],
+                missing_required_init,
+                child,
+            ),
+            "forbidden_string_present": (
+                [("init", 0o100750, forbidden_init), ("s22-e1-child", 0o100750, child), *directories],
+                forbidden_init,
+                child,
+            ),
+            "child_token_cardinality": (
+                [("init", 0o100750, init), ("s22-e1-child", 0o100750, duplicate_token_child), *directories],
+                init,
+                duplicate_token_child,
+            ),
+        }
+        for name, (entries, init_payload, child_payload) in semantic_mutations.items():
+            with self.subTest(actual_cpio_mutation=name):
+                mutated_frame, mutated_closure = repinned_payload(
+                    entries,
+                    init_payload=init_payload,
+                    child_payload=child_payload,
+                )
+                with self.assertRaisesRegex(
+                    self.evidence.EvidenceError, "executable semantics"
+                ):
+                    self.evidence.validate_e2_ap_payload(
+                        mutated_frame, mutated_closure
+                    )
+
+    def test_e2_rejects_repinned_source_preimage_without_matching_run_id(self):
+        _static, _candidate_static, ap, payloads, _receipts, acceptance = self.fixture(
+            "E2"
+        )
+
+        def mutate(value):
+            preimage = value["candidate_contract"]["identity_preimage"]
+            preimage["sources"]["runtime_wrapper"]["sha256"] = "0" * 64
+            value["candidate_contract"]["identity_preimage_sha256"] = hashlib.sha256(
+                self.evidence._canonical(preimage)
+            ).hexdigest()
+
+        receipts = self.repin_candidate_static(payloads, acceptance, mutate)
+        with self.assertRaisesRegex(
+            self.evidence.EvidenceError, "source preimage or run ID"
+        ):
+            self.evidence.verify_offline_contract(
+                acceptance,
+                payloads=payloads,
+                receipts=receipts,
+                candidate_ap=ap,
+            )
+
     def test_offline_verifier_rejects_repinned_impossible_e1b_closures(self):
         cases = {
             "empty_stock_derivation": lambda value: (
@@ -726,6 +1239,16 @@ class P234ProcessV2Test(unittest.TestCase):
                 ):
                     self.module.derive(static, candidate_static, ap)
 
+    def test_promotion_rejects_e2_rootfs_identity_tampering(self):
+        static, candidate_static, ap, _payloads, _receipts, _acceptance = (
+            self.fixture("E2")
+        )
+        static["candidate"]["effective_rootfs"]["modules"][0]["layer"] = (
+            "vendor[1]/forged"
+        )
+        with self.assertRaisesRegex(self.module.PromotionError, "E2 effective"):
+            self.module.derive(static, candidate_static, ap)
+
     def test_promotion_rejects_unverified_writer_exclusion(self):
         static_result, candidate_static, ap, _payloads, _receipts, _acceptance = (
             self.fixture()
@@ -744,6 +1267,42 @@ class P234ProcessV2Test(unittest.TestCase):
         self.assertNotIn("e1_latest_stage_static_checker", sources)
         self.assertNotIn("e1_candidate_static_checker", sources)
         self.assertNotIn("e1_process_v2_promotion", sources)
+
+    def test_e2_approval_binding_includes_exact_source_and_validator_closure(self):
+        _static, _candidate_static, _ap, _payloads, _receipts, acceptance = (
+            self.fixture("E2")
+        )
+        sources = self.core.execution_critical_source_receipts(acceptance)
+        contract_sources = _static["candidate_contract"]["identity_preimage"][
+            "sources"
+        ]
+        for name, expected in contract_sources.items():
+            actual = sources[f"candidate_source_{name}"]
+            self.assertEqual(
+                {key: actual[key] for key in ("size", "sha256")}, expected
+            )
+        self.assertIn("candidate_intent", sources)
+        self.assertIn("e2_boot_verify", sources)
+        self.assertIn("e2_legacy_static_elf", sources)
+        verification = {
+            "candidate_source_receipts": copy.deepcopy(contract_sources)
+        }
+        self.core.verify_candidate_source_binding(
+            acceptance, verification, sources
+        )
+        changed = copy.deepcopy(sources)
+        changed["candidate_source_runtime_wrapper"]["sha256"] = "0" * 64
+        with self.assertRaisesRegex(
+            self.core.F1V2Error, "execution-critical sources"
+        ):
+            self.core.verify_candidate_source_binding(
+                acceptance, verification, changed
+            )
+        verification["candidate_source_receipts"].pop("runtime_wrapper")
+        with self.assertRaisesRegex(self.core.F1V2Error, "incomplete"):
+            self.core.verify_candidate_source_binding(
+                acceptance, verification, sources
+            )
 
 
 if __name__ == "__main__":

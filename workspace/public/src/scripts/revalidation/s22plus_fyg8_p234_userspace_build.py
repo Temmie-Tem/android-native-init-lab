@@ -22,11 +22,13 @@ if str(SCRIPT_DIR) not in sys.path:
 
 import s22plus_fyg8_p233_e1_static_checker as p233  # noqa: E402
 import s22plus_fyg8_p234_candidate_contract as candidate_contract  # noqa: E402
+import s22plus_fyg8_p241_e2_static_checker as p241  # noqa: E402
 
 
 SCHEMA = "s22plus_fyg8_p234_userspace_build_v1"
 VERDICT = "PASS_P234_E1A_USERSPACE_TWO_BUILD_REPRO_HOST_ONLY"
 E1B_VERDICT = "PASS_P239_E1B_USERSPACE_TWO_BUILD_REPRO_HOST_ONLY"
+E2_VERDICT = "PASS_P242_E2_USERSPACE_TWO_BUILD_REPRO_HOST_ONLY"
 TARGET = candidate_contract.TARGET
 DEFAULT_INTENT = candidate_contract.DEFAULT_INTENT
 DEFAULT_PATCH = candidate_contract.DEFAULT_PATCH
@@ -97,7 +99,51 @@ def verdict_for_profile(profile: str) -> str:
         return VERDICT
     if profile == "E1B":
         return E1B_VERDICT
+    if profile == "E2":
+        return E2_VERDICT
     raise BuildError(f"unsupported userspace profile: {profile}")
+
+
+def _profile_sources(profile: str) -> tuple[Path, Path]:
+    if profile == "E2":
+        return p241.DEFAULT_RUNTIME, p241.DEFAULT_CLIENT
+    if profile in {"E1A", "E1B"}:
+        return p233.DEFAULT_RUNTIME, p233.DEFAULT_CLIENT
+    raise BuildError(f"unsupported userspace profile: {profile}")
+
+
+def _e2_module_files(root: Path) -> tuple[str, ...]:
+    data = p233.read_direct(root / p241.DEFAULT_PLAN_HEADER, "E2 plan header")
+    names = tuple(
+        value.decode("ascii")
+        for value in re.findall(rb'^\s+\{"([^"]+\.ko)",', data, re.MULTILINE)
+    )
+    if len(names) != 59 or len(set(names)) != 59:
+        raise BuildError("E2 plan header module inventory mismatch")
+    return names
+
+
+def audit_profile_sources(root: Path, profile: str) -> dict[str, Any]:
+    runtime_path, client_path = _profile_sources(profile)
+    client = p233.read_direct(root / client_path, "checkpoint client")
+    runtime = p233.read_direct(root / runtime_path, "runtime wrapper")
+    if profile == "E2":
+        header = p233.read_direct(root / p241.DEFAULT_PLAN_HEADER, "E2 plan header")
+        result = p241.audit_sources(client, runtime)
+        return {
+            "profile": profile,
+            "source": result,
+            "plan_header": p241.receipt(header),
+            "module_files": list(_e2_module_files(root)),
+            "verified": True,
+        }
+    return p233.audit_sources(
+        client,
+        runtime,
+        p233.read_direct(root / p233.DEFAULT_LEGACY_RUNTIME, "legacy runtime"),
+        p233.read_direct(root / p233.DEFAULT_HEADER, "checkpoint header"),
+        p233.read_direct(root / p233.DEFAULT_CHILD, "child"),
+    )
 
 
 def require_tools() -> dict[str, str]:
@@ -146,6 +192,7 @@ def _compile_once(
     child_path = directory / "s22-e1-child"
     include = root / "workspace/public/src/native-init"
     define = p233._run_id_define(run_id)
+    runtime_source, client_source = _profile_sources(profile)
     _run(
         [
             tools["aarch64-linux-gnu-gcc"],
@@ -154,8 +201,8 @@ def _compile_once(
             f"-DS22PLUS_FYG8_P233_RUN_ID_BYTES={define}",
             "-I",
             include,
-            root / p233.DEFAULT_RUNTIME,
-            root / p233.DEFAULT_CLIENT,
+            root / runtime_source,
+            root / client_source,
             "-o",
             init_path,
         ],
@@ -220,19 +267,26 @@ def _compile_once(
     forbidden_ids = (
         *(p233.model.model_run_id(name) for name in candidate_contract.intent.SUPPORTED_PROFILES),
         *p233.SOURCE_CHECK_RUN_IDS.values(),
+        p241.RUN_ID,
     )
-    module_counts = {
-        name: init_data.count(name.encode("ascii"))
-        for name in FORBIDDEN_MODULE_NAMES
+    module_files = (
+        _e2_module_files(root) if profile == "E2" else FORBIDDEN_MODULE_NAMES
+    )
+    expected_present = set() if profile == "E1A" else set(module_files)
+    complete_module_counts = {
+        name: init_data.count(name.encode("ascii")) for name in module_files
     }
-    expected_module_count = 0 if profile == "E1A" else 1
+    module_counts = dict(complete_module_counts)
     if (
         init_data.count(run_id) != 1
         or init_data.count(b"/proc/s22_checkpoint") != 1
         or init_data.count(b"/s22-e1-child") != 1
         or init_data.count(CHILD_TOKEN) != 1
         or any(init_data.count(value) for value in forbidden_ids)
-        or any(count != expected_module_count for count in module_counts.values())
+        or any(
+            count != (1 if name in expected_present else 0)
+            for name, count in complete_module_counts.items()
+        )
         or child_data.count(CHILD_TOKEN) != 1
     ):
         raise BuildError(f"FYG8 {profile} candidate identity or closure mismatch")
@@ -266,13 +320,7 @@ def build_userspace(args: argparse.Namespace) -> dict[str, Any]:
     verdict = verdict_for_profile(profile)
     run_id = bytes.fromhex(exact_contract["run_id"])
     tools = require_tools()
-    source_result = p233.audit_sources(
-        p233.read_direct(root / p233.DEFAULT_CLIENT, "checkpoint client"),
-        p233.read_direct(root / p233.DEFAULT_RUNTIME, "runtime wrapper"),
-        p233.read_direct(root / p233.DEFAULT_LEGACY_RUNTIME, "legacy runtime"),
-        p233.read_direct(root / p233.DEFAULT_HEADER, "checkpoint header"),
-        p233.read_direct(root / p233.DEFAULT_CHILD, "child"),
-    )
+    source_result = audit_profile_sources(root, profile)
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="s22-p234-userspace-a-") as first_name:
         first_dir = Path(first_name)

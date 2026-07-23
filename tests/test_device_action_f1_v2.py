@@ -8,6 +8,7 @@ import tarfile
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,13 +31,21 @@ def load_module():
 
 def write_ap(path: Path, members=("boot.img.lz4",)) -> dict:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with tarfile.open(path, "w") as archive:
+    stream = io.BytesIO()
+    with tarfile.open(
+        fileobj=stream, mode="w", format=tarfile.USTAR_FORMAT
+    ) as archive:
         for member in members:
             payload = f"payload:{path.name}:{member}".encode()
             info = tarfile.TarInfo(member)
             info.size = len(payload)
+            info.mode = 0o644
+            info.uid = info.gid = info.mtime = 0
+            info.uname = info.gname = ""
             archive.addfile(info, io.BytesIO(payload))
-    payload = path.read_bytes()
+    prefix = stream.getvalue()
+    payload = prefix + f"{hashlib.md5(prefix).hexdigest()}  AP.tar\n".encode()
+    path.write_bytes(payload)
     return {
         "path": str(path.absolute()),
         "size": len(payload),
@@ -229,6 +238,58 @@ class DeviceActionF1V2Test(unittest.TestCase):
             )
             with self.assertRaises(self.module.F1TransportError):
                 self.module.verify_bundle(root, manifest_path)
+
+    def test_e2_bundle_always_audits_the_exact_ap_boot_member(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            _, manifest, _, manifest_path = self.fixture(root)
+            manifest["observation"]["acceptance"] = {"profile": "E2"}
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            contract = root / "contracts/fixture.json"
+            contract.parent.mkdir()
+            contract.write_bytes(b"{}")
+            contract_receipt = {
+                "path": str(contract.relative_to(root)),
+                "size": 2,
+                "sha256": hashlib.sha256(b"{}").hexdigest(),
+            }
+            expected_member = b"payload:candidate.tar.md5:boot.img.lz4"
+            semantic_error = self.module.typed_evidence.EvidenceError(
+                "E2 AP executable semantics mismatch"
+            )
+            with (
+                mock.patch.object(
+                    self.module,
+                    "validate_manifest",
+                    return_value=manifest,
+                ),
+                mock.patch.object(
+                    self.module.typed_evidence,
+                    "contract_artifacts",
+                    return_value={"fixture": contract_receipt},
+                ),
+                mock.patch.object(
+                    self.module.typed_evidence,
+                    "verify_offline_contract",
+                    return_value={"ap_payload_closure": {}},
+                ),
+                mock.patch.object(
+                    self.module,
+                    "execution_critical_source_receipts",
+                    return_value={},
+                ),
+                mock.patch.object(self.module, "verify_candidate_source_binding"),
+                mock.patch.object(
+                    self.module.typed_evidence,
+                    "validate_e2_ap_payload",
+                    side_effect=semantic_error,
+                ) as audit,
+            ):
+                with self.assertRaisesRegex(
+                    self.module.F1V2Error, "executable semantics"
+                ):
+                    self.module.verify_bundle(root, manifest_path)
+            self.assertEqual(audit.call_args.args[0], expected_member)
 
     def test_profile_rejects_non_boot_partition_and_wrong_download_identity(self):
         with tempfile.TemporaryDirectory() as temporary:

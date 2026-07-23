@@ -22,6 +22,7 @@ if str(SCRIPT_DIR) not in sys.path:
 
 import s22plus_fyg8_p233_e1_decoder as decoder  # noqa: E402
 import s22plus_fyg8_p233_e1_static_checker as p233  # noqa: E402
+import s22plus_fyg8_p241_e2_static_checker as p241  # noqa: E402
 import s22plus_fyg8_r4w1b_patch_check as source_base  # noqa: E402
 
 
@@ -32,10 +33,11 @@ TARGET = p233.TARGET
 PROFILE = "E1A"
 PROFILE_NUMBER = decoder.model.PROFILE_NUMBERS[PROFILE]
 RUN_ID_DOMAIN = b"S22PLUS-FYG8-P234-E1A-RUN-ID-V1\0"
-SUPPORTED_PROFILES = ("E1A", "E1B")
+SUPPORTED_PROFILES = ("E1A", "E1B", "E2")
 RUN_ID_DOMAINS = {
     "E1A": RUN_ID_DOMAIN,
     "E1B": b"S22PLUS-FYG8-P239-E1B-RUN-ID-V1\0",
+    "E2": b"S22PLUS-FYG8-P242-E2-RUN-ID-V1\0",
 }
 DEFAULT_SOURCE = p233.DEFAULT_SOURCE
 DEFAULT_BASE_PATCH = p233.DEFAULT_PATCH
@@ -61,6 +63,35 @@ SOURCE_PATHS = {
     "source_checker": Path(
         "workspace/public/src/scripts/revalidation/"
         "s22plus_fyg8_p233_e1_static_checker.py"
+    ),
+}
+E2_SOURCE_PATHS = {
+    "base_patch": p241.DEFAULT_PATCH,
+    "checkpoint_client": p241.DEFAULT_CLIENT,
+    "runtime_wrapper": p241.DEFAULT_RUNTIME,
+    "plan_header": p241.DEFAULT_PLAN_HEADER,
+    "loader_core": Path(
+        "workspace/public/src/native-init/s22plus_o2_loader_core.h"
+    ),
+    "legacy_runtime": p233.DEFAULT_LEGACY_RUNTIME,
+    "legacy_header": p233.DEFAULT_HEADER,
+    "child": p241.DEFAULT_CHILD,
+    "decoder": SOURCE_PATHS["decoder"],
+    "design_model": SOURCE_PATHS["design_model"],
+    "source_checker": Path(
+        "workspace/public/src/scripts/revalidation/"
+        "s22plus_fyg8_p241_e2_static_checker.py"
+    ),
+    "planner": Path(
+        "workspace/public/src/scripts/revalidation/s22plus_o2_module_plan.py"
+    ),
+    "dtbo_contract": Path(
+        "workspace/public/src/scripts/revalidation/"
+        "s22plus_fyg8_p241_dtbo_role_contract.py"
+    ),
+    "stock_closure": Path(
+        "workspace/public/src/scripts/revalidation/"
+        "s22plus_fyg8_p242_e2_stock_closure.py"
     ),
 }
 
@@ -102,10 +133,17 @@ def parse_nonce(value: str | None) -> bytes:
     return nonce
 
 
-def source_receipts(root: Path) -> tuple[dict[str, bytes], dict[str, Any]]:
+def source_paths_for_profile(profile: str) -> dict[str, Path]:
+    profile_number(profile)
+    return E2_SOURCE_PATHS if profile == "E2" else SOURCE_PATHS
+
+
+def source_receipts(
+    root: Path, profile: str = PROFILE
+) -> tuple[dict[str, bytes], dict[str, Any]]:
     data: dict[str, bytes] = {}
     rows: dict[str, Any] = {}
-    for name, relative in SOURCE_PATHS.items():
+    for name, relative in source_paths_for_profile(profile).items():
         value = p233.read_direct(resolve(root, relative), name)
         data[name] = value
         rows[name] = receipt(value)
@@ -114,8 +152,15 @@ def source_receipts(root: Path) -> tuple[dict[str, bytes], dict[str, Any]]:
 
 def profile_number(profile: str) -> int:
     if profile not in SUPPORTED_PROFILES:
-        raise IntentError(f"unsupported E1 candidate profile: {profile}")
+        raise IntentError(f"unsupported candidate profile: {profile}")
     return decoder.model.PROFILE_NUMBERS[profile]
+
+
+def source_check_run_id(profile: str) -> bytes:
+    profile_number(profile)
+    if profile == "E2":
+        return p241.RUN_ID
+    return p233.SOURCE_CHECK_RUN_IDS[profile]
 
 
 def identity_preimage(
@@ -145,6 +190,7 @@ def derive_run_id(preimage: dict[str, Any]) -> bytes:
         bytes(16),
         *(decoder.model.model_run_id(name) for name in SUPPORTED_PROFILES),
         *p233.SOURCE_CHECK_RUN_IDS.values(),
+        p241.RUN_ID,
     }
     if run_id in rejected:
         raise IntentError("derived run ID collides with a forbidden identity")
@@ -270,9 +316,9 @@ def create(args: argparse.Namespace) -> dict[str, Any]:
     if output.exists() or output.is_symlink():
         raise IntentError(f"output already exists: {output}")
     source = resolve(root, args.source)
-    source_data, source_rows = source_receipts(root)
-    nonce = parse_nonce(args.nonce_hex)
     profile = getattr(args, "profile", PROFILE)
+    source_data, source_rows = source_receipts(root, profile)
+    nonce = parse_nonce(args.nonce_hex)
     number = profile_number(profile)
     preimage = identity_preimage(nonce, source_rows, profile)
     run_id = derive_run_id(preimage)
@@ -327,13 +373,14 @@ def create(args: argparse.Namespace) -> dict[str, Any]:
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=DEFAULT_SOURCE)
-    parser.add_argument("--base-patch", type=Path, default=DEFAULT_BASE_PATCH)
+    parser.add_argument("--base-patch", type=Path)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--nonce-hex")
     parser.add_argument("--profile", choices=SUPPORTED_PROFILES, default=PROFILE)
     args = parser.parse_args(argv)
-    if args.base_patch != DEFAULT_BASE_PATCH:
-        raise IntentError("alternate base patch is not supported")
+    expected_patch = source_paths_for_profile(args.profile)["base_patch"]
+    if args.base_patch is not None and args.base_patch != expected_patch:
+        raise IntentError("alternate base patch is not supported for this profile")
     return args
 
 
