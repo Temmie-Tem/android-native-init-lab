@@ -11,7 +11,8 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 
 **State: R4W1-D DIRECT PID1 PROVEN; P2.37 E1A LOCAL RUNTIME LIVE PASS;
 P2.39 E1B MODULE RUNTIME LIVE PASS; P2.42 E2 LIVE DIAGNOSTIC FAILURE AT
-RPMH BIND; EXACT ROLLBACK AND FINAL HEALTH PASS.**
+DISPLAY-RSC BIND; P2.43 RPMH DEPENDENCY H0 PASS; EXACT ROLLBACK AND FINAL
+HEALTH PASS.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -154,6 +155,16 @@ boot loop. Exact Magisk rollback, Android/root/boot/supporting-partition health,
 Odin absence, and all eight timeline events passed. The transaction is
 `CLOSED`, its binding is consumed, and no S22+ F1 authority exists.
 
+P2.43 now proves that P2.42's `af20000.rsc` predicate selected the display RSC,
+not the USB-relevant apps RSC. All four exact vendor DTBs give the display RSC
+no power domain and require an omitted `dispcc-waipio.ko` clock supplier.
+Strict source-default `fw_devlink` checks that supplier before
+`rpmh_rsc_probe()`. This is a strong source-and-artifact-closed explanation,
+not a direct observation of P2.42 runtime supplier state. The corrected bounded
+contract adds no module and observes the built-in PSCI provider, apps RSC, RPMh
+clock/regulator children, and GCC in order. P2.43 created no image, candidate,
+device action, or live authority.
+
 ## Established Evidence
 
 - R4W1-A: custom Android `/init` marker retained and rollback passed.
@@ -222,6 +233,10 @@ Odin absence, and all eight timeline events passed. The transaction is
   verifications plus `hwspinlock`, `smem`, and `cmd-db` binds. The `rpmh`
   bind predicate timed out at stage `0x7e` with detail 110. Final health and
   the canonical timeline passed; the transaction and authority are closed.
+- P2.43 RPMh dependency H0: exact source, config, DTB/DTBO, boot arguments,
+  module plan, and metadata prove the display/apps RSC split, built-in PSCI
+  provider path, strict pre-probe supplier semantics, and one 12-gate
+  replacement contract. Replacement live state remains unknown.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
   rollback, and final health are proven.
 - V3439: pstore, pmsg, ramoops, and DTBO-based retention remain retired.
@@ -253,6 +268,7 @@ Load-bearing details are in:
 - `docs/reports/S22PLUS_FYG8_P241_E2_SOURCE_IMPLEMENTATION_HOST_PASS_2026-07-23.md`
 - `docs/reports/S22PLUS_FYG8_P242_E2_CANDIDATE_H0_PASS_2026-07-23.md`
 - `docs/reports/S22PLUS_FYG8_P242_E2_F1_LIVE_RPMH_TIMEOUT_2026-07-23.md`
+- `docs/reports/S22PLUS_FYG8_P243_RPMH_DEPENDENCY_AUDIT_H0_2026-07-23.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
 
@@ -309,10 +325,15 @@ reports grant no device authority.
     rotation and fresh connected D0 passed. The exact F1 then proved 59 module
     operations and the first three bind gates before `rpmh` timed out at stage
     `0x7e`; exact rollback and final health passed. The binding is consumed.
-22. **P2.43 next, H0:** isolate the exact `rpmh_rsc_probe()` dependency missing
-    after `cmd-db` bind and design one bounded discriminator. Do not retry E2
-    unchanged or proceed to downstream USB gates.
-23. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
+22. **P2.43 complete, H0:** the exact display/apps RSC split, PSCI provider,
+    strict pre-probe supplier behavior, omitted display-clock explanation, and
+    bounded no-module-growth replacement chain pass. P2.42 runtime supplier
+    state remains unobserved; no candidate or live authority was created.
+23. **P2.44 next, H0:** replace the historical `rpmh` plus `gcc-waipio` gates
+    with the six-predicate PSCI/apps-RSC/RPMh-provider/GCC chain, update the
+    profile-3 transition model to 12 total gates (`0x7b..0x86`), and run focused
+    source/model tests. Do not build a candidate or proceed to USB live work.
+24. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed

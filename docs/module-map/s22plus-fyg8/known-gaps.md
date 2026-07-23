@@ -17,6 +17,11 @@
 - DT clocks, regulators, interconnects, IOMMUs, reserved-memory regions, device
   links, and deferred-probe causes are not derivable from depmod alone. They
   require subsystem source review and runtime bind gates.
+- P2.43 demonstrates that limitation directly: the P2.42 depmod-complete plan
+  waited on a display RSC whose DT clock supplier was intentionally outside the
+  module set. Exact source and DT now close the static explanation and the
+  USB-relevant PSCI -> apps-RSC -> RPMh-provider -> GCC chain, but none of those
+  replacement binds is yet observed under direct PID 1.
 - Display, GPU, audio, storage, networking, and power subsystem maps are not yet
   curated. Add them one subsystem at a time with a named discriminator.
 - This directory is not a live snapshot. A `LIVE_BOUND` claim must cite a report

@@ -10,6 +10,9 @@
 - Direct-PID1 module execution and bind sequence: `UNVERIFIABLE` after O3/O3F.
 - Direct-PID1 E2 source implementation: `H0_VERIFIED` by P2.41; live module
   execution, bind, child creation, and UDC remain unproved.
+- P2.43 RPMh dependency split: `H0_VERIFIED`; the P2.42 display-RSC gate is
+  retired from the proposed USB contract, while replacement provider binds
+  remain live-unknown.
 
 The current O3 minimal-ACM metadata plan contains 59 modules and
 passes recursive hard dependency, softdep pre/post, stock-order, alias,
@@ -76,7 +79,16 @@ proves all 59 module insertions and prefix checks, then exact `hwspinlock`,
 stage `0x7e`, item index 3, detail 110 (`ETIMEDOUT`). Downstream gates were not
 reached. Exact rollback and final Android health passed.
 
-## Functional Gates
+P2.43 resolves the dependency mismatch behind that boundary. `af20000.rsc` is
+the display RSC: it has no power domain and is held behind the omitted
+`dispcc-waipio.ko` clock supplier. The USB-relevant RSC is `17a00000.rsc`,
+which depends on the built-in PSCI `cluster-pd` provider and then creates the
+RPMh clock/regulator providers consumed by GCC. Strict `fw_devlink` can defer
+the display consumer before `rpmh_rsc_probe()`; this is a strong static
+explanation, not a direct observation of the P2.42 runtime supplier state.
+Adding the display module is explicitly out of scope.
+
+## P2.42 Historical Gates
 
 | Order | Gate | Provider | Required path | Direct-PID1 status |
 |---:|---|---|---|---|
@@ -89,6 +101,27 @@ reached. Exact rollback and final Android health passed.
 | 7 | `dwc3-core` | built-in | `/sys/bus/platform/drivers/dwc3/a600000.dwc3` | `NOT REACHED` in P2.42 |
 | 8 | `udc` | built-in | `/sys/class/udc/a600000.dwc3` | `NOT REACHED` in P2.42 |
 
+The display-RSC row above is retained only as historical P2.42 evidence. It is
+not a gate for a future USB candidate.
+
+## P2.43 Proposed Provider Gates
+
+P2.44 should preserve the first three and last three historical gates, replace
+the `rpmh` plus `gcc-waipio` pair with this ordered six-predicate chain, and
+add no module:
+
+| Order within chain | Gate | Required path | Direct-PID1 status |
+|---:|---|---|---|
+| 1 | `psci-domain` | `/sys/bus/platform/drivers/psci-cpuidle-domain/soc:psci` | `UNKNOWN` |
+| 2 | `apps-rsc` | `/sys/bus/platform/drivers/rpmh/17a00000.rsc` | `UNKNOWN` |
+| 3 | `apps-rpmh-clock` | `/sys/bus/platform/drivers/clk-rpmh/17a00000.rsc:qcom,rpmhclk` | `UNKNOWN` |
+| 4 | `apps-rpmh-cxlvl` | `/sys/bus/platform/drivers/qcom,rpmh-regulator/17a00000.rsc:rpmh-regulator-cxlvl` | `UNKNOWN` |
+| 5 | `apps-rpmh-mxlvl` | `/sys/bus/platform/drivers/qcom,rpmh-regulator/17a00000.rsc:rpmh-regulator-mxlvl` | `UNKNOWN` |
+| 6 | `gcc-waipio` | `/sys/bus/platform/drivers/gcc-waipio/100000.clock-controller` | `UNKNOWN` |
+
+The resulting full gate count is 12. With the existing profile-3 base, its
+gate stages are `0x7b..0x86`, leaving terminal success at `0x8f`.
+
 A `finit_module` return code or `/proc/modules` name proves registration only.
 The next gate advances only after its driver/device path exists. O3 PASS remains
 a framed host/device ACM request-response plus device-reported bind state, not
@@ -96,7 +129,9 @@ enumeration or survival.
 
 O0 stock control, O1.1 stock-first-stage control, O2 loader parity, the compact
 retained carrier, E1A/E1B live foundations, P2.41 E2 source implementation, and
-the P2.42 live failure boundary are complete. The next unit is an H0-only
-`rpmh_rsc_probe()` prerequisite audit and bounded discriminator design. Do not
-retry E2 unchanged or infer downstream USB state. The latest stock read-only
-evidence is maintained separately in `stock-usb-runtime-topology.json`.
+the P2.42 live failure boundary are complete. P2.43 closes the exact H0
+dependency split and bounded discriminator design. The next unit is P2.44 H0:
+implement the 12-gate source and transition model without building a candidate.
+Do not retry E2 unchanged or infer downstream USB state. The latest stock
+read-only evidence is maintained separately in
+`stock-usb-runtime-topology.json`.
