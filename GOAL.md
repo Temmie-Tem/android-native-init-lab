@@ -11,7 +11,7 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 
 **State: R4W1-D DIRECT PID1 PROVEN; P2.37 E1A LOCAL RUNTIME LIVE PASS;
 P2.39 E1B MODULE RUNTIME LIVE PASS; P2.41 E2 SOURCE IMPLEMENTATION H0 PASS;
-P2.42 E2 CANDIDATE H0 PASS; F1 CLOSED HEALTHY.**
+P2.42 E2 CONNECTED D0 PASS; F1 AWAITING EXACT APPROVAL.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -131,7 +131,17 @@ initially stopped on the Samsung legacy-LZ4 inner ramdisk; the bounded decoder
 was extended with canonical block termination checks, matched the pinned
 external decoder and actual E2 ramdisk, and passed independent re-review. The
 191-test regression set and exact retained promotion replay passed. No device
-contact, connected binding, approval, Odin session, or live E2 claim exists.
+contact, Odin session, or live E2 claim occurred in that H0 unit.
+
+The first P2.42 connected D0 stopped read-only because `/proc/last_kmsg`
+contained a related historical evidence family. No prepared binding, Odin
+session, reboot, or transfer was created by that attempt. One freshly approved
+D1 normal reboot then completed exactly once with no payload or Download
+request and returned the same healthy FYG8 Android target. A fresh connected D0
+verified Android, root, boot and supporting partition identities, clean
+retained baseline, Odin absence, and the current core-2 execution closure. One
+private prepared binding now exists. No F1 authority or transfer exists; the
+next action is the binding's fresh exact F1 approval.
 
 ## Established Evidence
 
@@ -277,9 +287,10 @@ reports grant no device authority.
 21. **P2.42 complete, H0:** two clean reproducible Full-LTO builds, two
     byte-identical package runs, one deterministic boot-only E2 candidate,
     independent AP/rootfs closure, bounded modern and Samsung legacy LZ4
-    decoding, and offline Process v2 promotion passed. Next create the immutable
-    ready manifest and run one connected read-only D0 preparation. No F1 action
-    exists without the resulting fresh exact approval.
+    decoding, and offline Process v2 promotion passed. One approved D1 baseline
+    rotation and a fresh connected D0 then returned healthy and created one
+    private prepared core-2 binding. No F1 action exists without its fresh exact
+    approval.
 22. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 
