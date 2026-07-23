@@ -10,8 +10,8 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 ## Current Frontier
 
 **State: R4W1-D DIRECT PID1 PROVEN; P2.37 E1A LOCAL RUNTIME LIVE PASS;
-P2.39 E1B MODULE RUNTIME LIVE PASS; P2.41 E2 SOURCE IMPLEMENTATION H0 PASS;
-P2.42 E2 CONNECTED D0 PASS; F1 AWAITING EXACT APPROVAL.**
+P2.39 E1B MODULE RUNTIME LIVE PASS; P2.42 E2 LIVE DIAGNOSTIC FAILURE AT
+RPMH BIND; EXACT ROLLBACK AND FINAL HEALTH PASS.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -140,8 +140,19 @@ D1 normal reboot then completed exactly once with no payload or Download
 request and returned the same healthy FYG8 Android target. A fresh connected D0
 verified Android, root, boot and supporting partition identities, clean
 retained baseline, Odin absence, and the current core-2 execution closure. One
-private prepared binding now exists. No F1 authority or transfer exists; the
-next action is the binding's fresh exact F1 approval.
+private prepared binding was created.
+
+The binding's exact F1 approval was then supplied and consumed. One candidate
+and one rollback transfer completed. Two byte-identical retained reads
+contained one exact E2 terminal-failure record: generation 70 had reached
+`cmd-db` bind stage `0x7d`, and generation 71 failed at `rpmh` bind stage
+`0x7e`, item index 3, detail 110 (`ETIMEDOUT`). The strict sequence proves all
+59 exact module insertions and prefix checks plus the `hwspinlock`, `smem`, and
+`cmd-db` bind gates. It does not prove `rpmh` bind or any downstream
+`gcc-waipio`, SSUSB, DWC3, UDC, or USB state. The operator observed no candidate
+boot loop. Exact Magisk rollback, Android/root/boot/supporting-partition health,
+Odin absence, and all eight timeline events passed. The transaction is
+`CLOSED`, its binding is consumed, and no S22+ F1 authority exists.
 
 ## Established Evidence
 
@@ -206,6 +217,11 @@ next action is the binding's fresh exact F1 approval.
   checkpoint client, static runtime, direct 11-entry DTBO parser, shipped
   module bytes, 307,201 E2 variants, 90,114 E1 regressions, 55 focused tests,
   and independent review pass H0. No build, candidate, D0, or authority exists.
+- P2.42 E2 F1: one exact candidate and rollback transfer completed. One clean
+  terminal E2 failure record proves all 59 exact module loads and prefix
+  verifications plus `hwspinlock`, `smem`, and `cmd-db` binds. The `rpmh`
+  bind predicate timed out at stage `0x7e` with detail 110. Final health and
+  the canonical timeline passed; the transaction and authority are closed.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
   rollback, and final health are proven.
 - V3439: pstore, pmsg, ramoops, and DTBO-based retention remain retired.
@@ -235,6 +251,8 @@ Load-bearing details are in:
 - `docs/reports/S22PLUS_FYG8_P239_E1B_F1_LIVE_PASS_2026-07-23.md`
 - `docs/reports/S22PLUS_FYG8_P240_E2_FOCUSED_READINESS_AUDIT_2026-07-23.md`
 - `docs/reports/S22PLUS_FYG8_P241_E2_SOURCE_IMPLEMENTATION_HOST_PASS_2026-07-23.md`
+- `docs/reports/S22PLUS_FYG8_P242_E2_CANDIDATE_H0_PASS_2026-07-23.md`
+- `docs/reports/S22PLUS_FYG8_P242_E2_F1_LIVE_RPMH_TIMEOUT_2026-07-23.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
 
@@ -284,14 +302,17 @@ reports grant no device authority.
 20. **P2.41 complete, H0:** profile-3 source, exact runtime/module/gate
     semantics, direct DTBO closure, exhaustive records, regressions, and review
     passed. No kernel build, candidate, D0, or authority was created.
-21. **P2.42 complete, H0:** two clean reproducible Full-LTO builds, two
+21. **P2.42 complete/closed, F1:** two clean reproducible Full-LTO builds, two
     byte-identical package runs, one deterministic boot-only E2 candidate,
     independent AP/rootfs closure, bounded modern and Samsung legacy LZ4
     decoding, and offline Process v2 promotion passed. One approved D1 baseline
-    rotation and a fresh connected D0 then returned healthy and created one
-    private prepared core-2 binding. No F1 action exists without its fresh exact
-    approval.
-22. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
+    rotation and fresh connected D0 passed. The exact F1 then proved 59 module
+    operations and the first three bind gates before `rpmh` timed out at stage
+    `0x7e`; exact rollback and final health passed. The binding is consumed.
+22. **P2.43 next, H0:** isolate the exact `rpmh_rsc_probe()` dependency missing
+    after `cmd-db` bind and design one bounded discriminator. Do not retry E2
+    unchanged or proceed to downstream USB gates.
+23. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
