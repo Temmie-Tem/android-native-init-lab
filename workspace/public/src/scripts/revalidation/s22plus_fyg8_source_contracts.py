@@ -9,6 +9,7 @@ from typing import Any
 
 import s22plus_fyg8_p245_source_contract as p245
 import s22plus_fyg8_p248_source_contract as p248
+import s22plus_fyg8_p252_source_contract as p252
 
 
 class SourceContractSelectionError(ValueError):
@@ -99,12 +100,21 @@ def _selection_for(module: ModuleType, contract: Any) -> SelectedSourceContract:
             source_check_run_id=p248.SOURCE_CHECK_RUN_ID,
             userspace_verdict=p248.USERSPACE_VERDICT,
         )
+    if module is p252:
+        return SelectedSourceContract(
+            module=module,
+            contract=contract,
+            implementation_verdict=p252.IMPLEMENTATION_VERDICT,
+            source_check_run_id=p252.SOURCE_CHECK_RUN_ID,
+            userspace_verdict=p252.USERSPACE_VERDICT,
+        )
     raise SourceContractSelectionError("unregistered source-contract module")
 
 
 REGISTRY = {
     p245.CONTRACT_ID: p245,
     p248.CONTRACT_ID: p248,
+    p252.CONTRACT_ID: p252,
 }
 
 
@@ -124,6 +134,10 @@ def select(
         )
     try:
         contract = module.require(source_contract_id, profile)
-    except (p245.SourceContractError, p248.SourceContractError) as exc:
+    except (
+        p245.SourceContractError,
+        p248.SourceContractError,
+        p252.SourceContractError,
+    ) as exc:
         raise SourceContractSelectionError(str(exc)) from exc
     return _selection_for(module, contract)

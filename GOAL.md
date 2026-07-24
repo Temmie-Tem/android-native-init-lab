@@ -512,17 +512,22 @@ reports grant no device authority.
     the matched source's tuning branch. The SS failed-probe cleanup asymmetry
     is a conditional later lead, not a live result. No module or stage growth
     is justified.
-32. **P2.52 design complete; implementation next, H0:** preserve the P2.48
-    80-step sequence, stage `0x84`/item 9, 59 modules, and the global
-    20-second deadline. One versioned descriptor defines 15 ordered exact bind
-    checks and details `0xa01..0xa0d`, `0xa20..0xa21`, `0xa10`, and `0xa30`;
-    every other `0xa00..0xfff` value stays rejected. The generated runtime,
-    checkpoint/kernel validators, and decoder must share that descriptor.
-    Parent rechecks close `waiting_for_supplier` removal races, prior-gate
-    regression remains active, and one non-resetting five-second SSUSB-only
-    grace ends with a full rescan before `0xa30`. Add no module or stage, and
-    do not build a candidate until the H0 implementation closure passes.
-33. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
+32. **P2.52 implementation complete, H0:** one versioned descriptor now
+    generates 15 ordered exact bind checks, the userspace and kernel exact
+    detail whitelists, decoder semantics, linked-table expectations, and
+    mutation tests. Only details `0xa01..0xa0d`, `0xa20..0xa21`, `0xa10`, and
+    `0xa30` are added at stage `0x84`/item 9; all other reserved values remain
+    rejected. The parent/prior-gate finalizer, strict waiting parser,
+    non-resetting five-second grace, exit rescan, and checked zero-wait
+    downstream drain passed focused tests.
+    P2.48 generation and the 80-step/59-module plan remain unchanged; the
+    kernel patch applies cleanly and two static AArch64 links are byte-identical.
+    No kernel, image, candidate, connected read, or device action occurred.
+33. **P2.53 next, H0:** perform one final Full-LTO build and linked audit of
+    exact classifier table bytes plus writer-to-detail-validator dataflow.
+    Reproducible boot-only candidate packaging and any later D0/F1 preparation
+    remain separate gates; P2.52 itself grants no device authority.
+34. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
