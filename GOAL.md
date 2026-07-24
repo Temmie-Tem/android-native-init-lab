@@ -692,7 +692,10 @@ reports grant no device authority.
     missing durable inner exception.
 38. **P2.57 design complete, H0:** implement two independent bounded subunits,
     not one coupled redesign. First implement the bounded stock-pivot reader;
-    its D0 result must verify display enabled before Unit A is implemented.
+    its two source-derived polarity vectors must pass, and its D0 result must
+    verify display enabled before Unit A is implemented. A no-display result
+    on this display-capable profile is a target contradiction requiring
+    host-side re-audit, not permission to invert polarity or continue.
     Unit A is then a new versioned 60-module, 81-step source contract with
     exact display-clock/RSC/voter coordinates before mc_virt. Independently,
     Unit B persists one typed final-evidence diagnostic without changing

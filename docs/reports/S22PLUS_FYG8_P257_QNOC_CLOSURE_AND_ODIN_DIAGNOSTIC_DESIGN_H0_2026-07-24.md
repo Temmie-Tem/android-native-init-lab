@@ -241,13 +241,39 @@ implementation:
 ```
 
 3. require byte-identical first/second reads;
-4. parse `display` only as exact `0x[0-9a-f]+\n`;
-5. parse `subset_parts` only as exact `[0-9a-f]+\n`; and
+4. parse `display` only as exact `0x[0-9a-f]{1,8}\n`;
+5. parse `subset_parts` only as exact `[0-9a-f]{1,8}\n`; and
 6. persist target-bound raw evidence only under `workspace/private/`.
 
 These attributes are source-defined mode `0444`; no root-only fallback,
 debugfs mount, dmesg scraping, write, reboot, or Download transition is part of
 this measurement.
+
+### Polarity contract
+
+The reader must derive polarity from the pinned FYG8 source, not from naming or
+physical-screen inference:
+
+1. `socinfo_get_subset_parts()` sets bit `i` when raw subpart entry `i` is
+   nonzero;
+2. `PART_DISPLAY == 4`, so a nonzero display entry sets bit `0x10`;
+3. `socinfo_get_part_info(PART_DISPLAY)` returns that bit; and
+4. `icc-rpmh.c:is_voter_disabled()` returns true for the `"disp"` voter when
+   that result is true.
+
+The static reader tests must include both exact positive vectors:
+
+```text
+display=b"0x0\n", subset_parts=b"0\n"
+  -> DISPLAY_ENABLED_VERIFIED
+
+display=b"0x1\n", subset_parts=b"10\n"
+  -> NO_DISPLAY_SUBSET_VERIFIED
+```
+
+They must also reject both crossed vectors (`0x0` plus bit `0x10`, and nonzero
+plus bit clear), uppercase, prefixes on `subset_parts`, over-wide integers,
+extra whitespace, missing newline, duplicate lines, and changed second reads.
 
 ### Decision table
 
@@ -257,6 +283,16 @@ this measurement.
 | nonzero | set | `NO_DISPLAY_SUBSET_VERIFIED`; stop the dispcc-as-qnoc-fix branch before Full-LTO |
 | mismatch | either | `INCONSISTENT`; no inference and no automatic Full-LTO |
 | unavailable/malformed/changed | unknown | `INCONCLUSIVE`; no inference and no automatic Full-LTO |
+
+This S22+ target profile is display-capable, and working stock display is
+supporting evidence. Therefore a consistent `NO_DISPLAY_SUBSET_VERIFIED`
+source result additionally yields `TARGET_CONTRADICTION` for this target. It
+must not be silently inverted, relabeled as enabled, or used to promote Unit
+A. Stop before Full-LTO and recheck exact target/FYG8 identity, source
+identity, sysfs paths, and the two polarity fixtures. Only after that
+host-side re-audit may the no-display branch be accepted as genuine or
+attributed to a reader defect. No additional device action follows
+automatically.
 
 Stock qnoc bind or BCM-voter presence may be captured as supporting topology,
 but neither substitutes for these two socinfo values.
@@ -482,7 +518,7 @@ Expected pre-pivot H0 addition:
 
 ```text
 workspace/public/src/scripts/revalidation/s22plus_fyg8_p257_stock_pivot_d0.py
-focused parser and read-bound tests
+focused parser, polarity-vector, target-sanity, and read-bound tests
 ```
 
 Expected Unit A additions or bounded registrations, only after
