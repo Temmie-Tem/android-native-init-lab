@@ -374,6 +374,39 @@ class S22PlusFyg8P258SourceContractTest(unittest.TestCase):
                 verified["schema"], p258.CONTRACT_SCHEMA
             )
 
+    def test_template_patch_equality_does_not_allow_candidate_image_reuse(self):
+        self.assertEqual(self.generated["patch"], self.historical["patch"])
+        private_tmp = ROOT / "workspace/private/tmp"
+        private_tmp.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(
+            dir=private_tmp, prefix="p258-cross-contract-"
+        ) as name:
+            parent = Path(name).relative_to(ROOT)
+
+            def create(contract_id: str, output: str):
+                return candidate_intent.create(
+                    argparse.Namespace(
+                        source=candidate_intent.DEFAULT_SOURCE,
+                        base_patch=candidate_intent.DEFAULT_BASE_PATCH,
+                        out=parent / output,
+                        nonce_hex="58" * 16,
+                        profile="E2",
+                        source_contract_id=contract_id,
+                    )
+                )
+
+            historical = create(p257.CONTRACT_ID, "p257")
+            current = create(p258.CONTRACT_ID, "p258a")
+
+        self.assertNotEqual(historical["run_id"], current["run_id"])
+        self.assertNotEqual(
+            historical["patch"]["sha256"], current["patch"]["sha256"]
+        )
+        self.assertNotEqual(
+            historical["patch"]["config_lines"],
+            current["patch"]["config_lines"],
+        )
+
     def test_materialized_userspace_plan_remains_60_modules(self):
         with tempfile.TemporaryDirectory(prefix="s22-p258-plan-") as name:
             directory = Path(name)

@@ -100,13 +100,19 @@ The generator must prove:
 ```text
 plan(P2.58A)       == plan(P2.57)
 checkpoint(P2.58A) == checkpoint(P2.57)
-kernel patch(P2.58A) == kernel patch(P2.57)
+base/template kernel patch(P2.58A) == base/template kernel patch(P2.57)
 runtime(P2.58A)    != runtime(P2.57)
 ```
 
-Consequently no Full-LTO kernel build is required for this unit. A later
-candidate may reuse the already verified P2.57 Image only after the linked
-audit proves exact Image identity and the newly built userspace is reproducible.
+That equality closes the H0 implementation boundary only. It does not authorize
+reuse of the P2.57 candidate Image. A final candidate derives its run ID and
+UNSAT tag from the selected source-contract domain and bound source receipts,
+then adds those values to the final kernel config patch. P2.58A therefore must
+derive a fresh intent before its candidate build lane is selected.
+
+If the fresh run ID, config lines, or final candidate patch differ from P2.57,
+the P2.57 Image cannot satisfy the P2.58A output gate and clean Full-LTO A/B
+builds are required. A focused test must prove this cross-contract distinction.
 Boot repacking, manifest creation, D0, F1 approval, and live work remain
 separate later units.
 
@@ -146,6 +152,7 @@ H0 implementation is complete when:
 - every semantic fixture passes and required mutations fail;
 - two source generations and two userspace builds are byte-identical;
 - the linked static AArch64 runtime passes;
-- plan, checkpoint, and kernel patch are byte-identical to P2.57;
+- plan, checkpoint, and base/template kernel patch are byte-identical to P2.57;
+- a fresh candidate intent is derived before any Image-reuse decision;
 - no candidate or device action occurred; and
 - focused and historical regression tests pass.

@@ -31,6 +31,24 @@ failure does not retroactively invalidate a successful kernel build. P2.55 is
 the reference case: its typed-evidence verifier fix required tests and
 downstream host validation, but no P2.54 kernel rebuild.
 
+Do not confuse a versioned contract's generated **base/template kernel patch**
+with the final candidate patch. Candidate intent derives the run ID and
+UNSAT tag from the selected source-contract ID and its bound source receipts,
+then adds both values to kernel config. Therefore:
+
+```text
+template patch byte-identical
+    does not imply
+final candidate patch or Image byte-identical
+```
+
+After any source-contract ID or identity-input change, derive the fresh intent
+before choosing the build lane. Compare its exact final patch, config lines,
+and run ID with the qualified candidate. If any differ, the existing Image
+cannot satisfy the new candidate contract and clean Full-LTO A/B builds are
+required. This decision must be covered by a focused test; prose comparison of
+the template patches is not sufficient.
+
 The candidate wrapper is deliberately a Full-LTO qualification tool. Do not
 add a convenience no-LTO switch to it. Development builds, focused static
 cross-compiles, and unit tests are non-promotable evidence and must use
@@ -360,6 +378,7 @@ not hypothetical policy requirements.
 | A clean build used a different absolute source-tree name | Source path and build-ID inputs changed, so linked bytes differed despite equivalent sources | Re-run B from the same canonical path after a clean preflight | Pin one canonical absolute source path in both build invocations |
 | A new source contract added a reachable-record field that the generic evidence verifier did not recognize | Kernel, userspace, packages, and static closure were already valid; the downstream verifier had a stale hard-coded shape | Fix the typed verifier, run focused plus historical compatibility tests, and re-run host-ready validation | Derive the expected record from the selected versioned source contract; use the lane table and do not rebuild qualified kernel bundles |
 | Full-LTO build output was quiet for an extended period | Full LTO can spend a long time in a link with little stdout; silence alone is not a failure | Inspect the detached session and process/resource state read-only; wait for authoritative completion records | Always launch with tmux, `/usr/bin/time -v`, and a validated completion hook; never start a duplicate build from silence |
+| A new source contract had a byte-identical template patch, so an earlier Image was selected for reuse | Candidate identity also binds the source-contract domain, source receipts, derived run ID, UNSAT tag, and final config patch; template equality is below the actual candidate boundary | Derive and verify the fresh intent first; compare final patch/config/run ID, and rebuild when they differ | Keep a focused cross-contract identity test and make fresh intent derivation precede every build-lane decision |
 
 ## Time and resource expectations
 

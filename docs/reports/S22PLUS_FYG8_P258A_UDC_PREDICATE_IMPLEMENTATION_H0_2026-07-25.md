@@ -19,11 +19,19 @@ P2.58A implements the bounded repair selected by P2.58:
 - successful DWC3-core observation starts one fresh five-second UDC dwell
   instead of consuming only the remainder of the shared deadline.
 
-The exact 60-module plan, checkpoint ABI, stage/detail geometry, and kernel
-patch are byte-identical to P2.57. Only the static PID1 runtime changes.
-Therefore this H0 unit does not require another kernel Full-LTO build. It does
-not yet prove that a packaged candidate reuses the exact P2.57 Image; that
-identity must be checked by the linked candidate audit before packaging.
+The exact 60-module plan, checkpoint ABI, stage/detail geometry, and generated
+base/template kernel patch are byte-identical to P2.57. Only the static PID1
+runtime changes at this H0 implementation boundary.
+
+The earlier conclusion that a later P2.58A candidate could therefore reuse the
+P2.57 Image was incorrect. Candidate intent binds the selected source-contract
+domain and source receipts into a fresh run ID and UNSAT tag, then embeds both
+in the final kernel config patch. A fresh P2.58A intent produced run ID
+`deef1386c0e1c857e69f9107297d5dd6` and final patch SHA256
+`a6984ff80351c215ce50bae3ecdb9441038ad486c4b1ca825510ddddb6ca6230`;
+both differ from P2.57. Its clean-build preflight passed, so the actual
+candidate boundary requires new Full-LTO A/B qualification. This correction
+does not invalidate the completed H0 predicate implementation.
 
 No image, AP archive, manifest, device binding, approval, Odin session, or live
 run was created.
@@ -98,7 +106,7 @@ The source contract produced:
 
 - unchanged P2.57 checkpoint receipt:
   `00c98bce5cdedf16718269667490a2f09f33894a8ab5469d02d80a6cdf5ca644`;
-- unchanged P2.57 kernel-patch receipt:
+- unchanged P2.57 base/template kernel-patch receipt:
   `f0b355de0fb82a7f18ed4b744fe4f925b72fcf736b120dbd313099cf0b32ae2a`;
 - unchanged P2.57 60-module plan receipt:
   `b68a6c4d5bafa864f91e0be21c53aefc5a288741c0b8870833ea603a26e3f015`;
@@ -119,8 +127,8 @@ adapter all recognize the versioned P2.58A contract.
 Focused validation passed:
 
 ```text
-P2.57 + P2.58A combined: 31 tests
-historical source/pivot contracts plus stock collector: 87 tests
+P2.57 + P2.58A combined: 32 tests
+historical source/pivot contracts plus stock collector: 88 tests
 stock collector focused: 7 tests
 ```
 
@@ -171,7 +179,8 @@ configfs write follows from this H0 result.
 
 ## Next Bounded Unit
 
-Materialize the static userspace payload and prove through the linked audit
-that the packaged candidate uses the exact already-qualified P2.57 kernel
-Image. Only after deterministic boot-only packaging, Process v2 preflight,
-connected D0, and fresh exact approval may a new F1 be considered.
+Complete two clean P2.58A Full-LTO builds from the fresh intent, require all six
+qualified artifacts to be byte-identical, then materialize the static userspace
+and run the versioned linked audit. Only after deterministic boot-only
+packaging, Process v2 preflight, connected D0, and fresh exact approval may a
+new F1 be considered.

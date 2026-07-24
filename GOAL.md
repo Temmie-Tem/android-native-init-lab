@@ -793,10 +793,13 @@ reports grant no device authority.
     The initial independent review exposed four execution-closure gaps. Exact
     generated-C execution/mutations, topology source receipts, corrected
     adapter labels, and fail-closed direct-collector envelope checks close
-    them; final independent review returned `GO`. The final 87-test
-    source/pivot/collector set passes. Next is userspace materialization and
-    linked proof that packaging reuses the exact qualified P2.57 Image; no
-    Full-LTO rebuild is selected for this unit.
+    them; final independent review returned `GO`. A later build-boundary audit
+    corrected one stale conclusion: byte-identical base/template patches do
+    not imply candidate Image reuse because the source-contract domain and
+    receipts derive a new run ID, UNSAT tag, and final config patch. Fresh
+    P2.58A intent `deef1386c0e1c857e69f9107297d5dd6` produced final patch
+    SHA256 `a6984ff80351c215ce50bae3ecdb9441038ad486c4b1ca825510ddddb6ca6230`;
+    clean-build preflight passed and Full-LTO A/B qualification is selected.
 42. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 
