@@ -13,19 +13,25 @@ Do not add a device step when host-only work can answer the question.
 ## Current Live Posture
 
 - No S22+ F1 live run is currently authorized.
-- R4W1-C3 is an inactive host-only checkpoint, not an executable policy.
-- Retired helpers and acknowledgement strings cannot authorize a new run.
-- P2.35 stopped before candidate transfer on a USBFS-arrival classification
-  defect and returned healthy. P2.36 bounded exactly one measured arrival
-  without weakening ambiguity, replacement, removal, absence, or ticket gates.
-- P2.37 then used a fresh H0 closure, connected D0 binding, and exact approval.
-  One candidate and one exact Magisk rollback transfer completed. The retained
-  result contained one clean E1A terminal-success record, final Android/FYG8/
-  root health passed, the canonical timeline closed, and the durable verdict is
-  `PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK`.
-- The P2.37 binding and approval are consumed. E1A is complete; E1B and USB
-  remain unproved. Any later candidate requires a new H0 closure, connected D0
-  preparation, and fresh exact approval.
+- P2.54 has one exact host-qualified proof-bound SSUSB classifier candidate.
+  P2.55 fixed the downstream versioned reachable-record verifier without
+  changing the kernel, userspace, boot image, candidate AP, or rollback AP.
+- The first P2.55 connected D0 stopped read-only on a historical retained
+  family. It created no prepared binding, transaction, Odin session, or
+  transfer.
+- One operator-preapproved normal Android reboot ran exactly once. The target
+  disconnected and reconnected, but the D1 recorder rejected an empty
+  early-boot `sys.boot_completed` value before completing its timeline. No
+  second reboot ran. A private incident record preserves that reporting
+  deviation, and the fresh D0 below independently proves final health.
+- The second P2.55 connected D0 passed exact target, Android/FYG8/root/boot
+  health, rollback, candidate, clean retained baseline, Odin absence, and the
+  current execution closure. Its private prepared binding reopens cleanly and
+  has no transaction. It is unconsumed but grants no F1 authority.
+- The operator's standing approval explicitly excludes a new-build flash.
+  Only the exact fresh token from that prepared binding can authorize one
+  candidate attempt and its mandatory rollback. Do not place that token in
+  tracked files.
 
 ## Permanent Safety Boundaries
 
