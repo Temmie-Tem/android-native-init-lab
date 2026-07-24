@@ -5,6 +5,16 @@ Tier: H0
 Status: `PASS_P240_E2_FOCUSED_READINESS_H0`
 Live authority: none
 
+## Post-Analysis Erratum (2026-07-25)
+
+The UDC gate designed below is retired. Requiring one and only one non-dot
+entry in `/sys/class/udc` conflicts with the already observed FYG8 stock
+topology, where `dummy_udc.0` and `a600000.dwc3` coexist, and with the exact
+candidate's `CONFIG_USB_DUMMY_HCD=y`. The correct invariant is exact
+membership and identity of `a600000.dwc3`, independent of unrelated UDC
+entries. See P2.58 for the full reconstruction. The source/DT/module closure
+in this report remains historical evidence; the singleton predicate does not.
+
 ## Verdict
 
 E2 is ready for one bounded host implementation unit. The exact FYG8 module

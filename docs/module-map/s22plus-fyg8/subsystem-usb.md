@@ -8,8 +8,9 @@
 - PDIC-to-Type-C-manager relay: `LIVE_OBSERVED`; the same-boot USB attach event
   through `usb_notifier_qcom` to DWC3 was `NOT_CAPTURED_THIS_BOOT`.
 - Direct-PID1 module execution: `LIVE_VERIFIED` through all 59 P2.50 entries.
-- Direct-PID1 bind sequence: `LIVE_VERIFIED` through `gcc-waipio`; the SSUSB
-  parent timed out next. Child creation and UDC remain unproved.
+- Direct-PID1 bind sequence: `LIVE_VERIFIED` through SSUSB and the DWC3 child
+  in P2.57; the following UDC singleton predicate failed, but it cannot prove
+  whether the exact DWC3 UDC was present.
 - P2.43 RPMh dependency split: `H0_VERIFIED`; the P2.42 display-RSC gate is
   retired from the proposed USB contract. Its then-unknown replacement binds
   are superseded by P2.50 evidence.
@@ -27,6 +28,13 @@
   shipped ELF, source, and plan converge on the omitted display-clock module,
   but `PART_DISPLAY`, intermediate binds, and the qnoc return code were not
   retained.
+- P2.57 display-closure execution: `LIVE_VERIFIED` through DWC3 core stage
+  `0x86`; UDC stage `0x87` recorded `ETIMEDOUT`, with exact rollback and final
+  health.
+- P2.58 UDC focused analysis: `H0_VERIFIED`; the gate incorrectly requires
+  global UDC singleton cardinality although FYG8 normally has both
+  `dummy_udc.0` and `a600000.dwc3`. DWC3 bind also precedes queued
+  role/gadget work, and the shared deadline leaves its dwell ambiguous.
 
 The current O3 minimal-ACM metadata plan contains 59 modules and
 passes recursive hard dependency, softdep pre/post, stock-order, alias,
@@ -79,7 +87,9 @@ exact DT's child `usb-role-switch` and `dr_mode = "otg"`, the built-in DWC3
 role-switch setup defaults to peripheral, queues `dwc3_set_mode()`, and reaches
 `dwc3_gadget_init()` plus `usb_add_gadget()`. Consequently E2 can observe the
 child and exact UDC without writing the parent `mode` attribute or configfs.
-This is source/ELF/DT closure only; direct-PID1 success remains a live unknown.
+P2.57 proves the child bind but not the queued work's completion. The source
+path establishes that UDC creation is scheduled automatically; it does not
+make the child bind symlink a completion fence.
 
 P2.41 closes the earlier private decompile gap by parsing the exact SHA-pinned
 DTBO directly. All 11 entries require the same role-switch, OTG, MAX77705,
@@ -218,3 +228,32 @@ complete. P2.51 closes the focused SSUSB dependency analysis, not the live
 root cause. Do not retry E2 unchanged or infer downstream USB state. The
 latest stock read-only evidence is maintained separately in
 `stock-usb-runtime-topology.json`.
+
+## P2.57/P2.58 DWC3-To-UDC Frontier
+
+P2.57 advances the direct-PID1 live frontier through the SSUSB parent and
+DWC3 child. The retained result ends with DWC3 success at `0x86` and UDC-gate
+`ETIMEDOUT` at `0x87`.
+
+The gate's exact implementation counts all non-dot entries in
+`/sys/class/udc` and passes only for `entries == 1 && exact == 1`. This is
+incompatible with the stock-observed and candidate-compiled topology:
+`CONFIG_USB_DUMMY_HCD=y` normally publishes `dummy_udc.0` alongside
+`a600000.dwc3`. The desired two-entry state fails the predicate. P2.57
+therefore does not establish that the exact DWC3 UDC was absent.
+
+Exact FYG8 source shows that child role-switch setup queues
+`__dwc3_set_mode()` on `system_freezable_wq`. The DWC3 probe can return and
+publish its bind symlink before that worker calls `dwc3_gadget_init()` and
+`usb_add_gadget()`. Gadget-init failure logs an error but does not unbind the
+core.
+
+The P2.57 runtime also has no per-gate timestamp or UDC-specific deadline. A
+late SSUSB bind during classifier grace activates a zero-wait downstream
+drain. The next bounded contract must first replace singleton cardinality with
+exact target membership, validate the target symlink, and give only that
+corrected DWC3-to-UDC boundary one fresh five-second read-only dwell. Semantic
+tests must include `dummy_udc.0 + a600000.dwc3` as success. It must not add
+modules, force role, or create configfs state. If the corrected dedicated
+dwell still fails, instrument only role-work entry and the PM/reset/gadget-init
+return codes.

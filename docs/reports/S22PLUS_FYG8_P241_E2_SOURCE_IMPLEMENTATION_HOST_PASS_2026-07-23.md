@@ -6,6 +6,16 @@ Status: `PASS_P241_E2_SOURCE_IMPLEMENTATION_HOST_ONLY`
 Device contact: none
 Live authority: none
 
+## Post-Analysis Erratum (2026-07-25)
+
+The implemented UDC singleton predicate and the static check that accepted it
+are retired. The checker proved token presence and binary closure but did not
+exercise topology semantics. On FYG8 the expected stock/candidate state
+includes `dummy_udc.0` alongside `a600000.dwc3`, so
+`entries == 1 && exact == 1` rejects the desired state. A successor must test
+exact target membership and include dummy-plus-real topology fixtures. See
+P2.58 for the complete evidence and bounded replacement design.
+
 ## Result
 
 P2.41 implements the bounded P2.40 E2 contract without building a kernel or

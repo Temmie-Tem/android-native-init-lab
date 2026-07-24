@@ -1,4 +1,4 @@
-# S22+ FYG8 P2.57 F1 live DWC3 core pass and UDC timeout
+# S22+ FYG8 P2.57 F1 live DWC3 core pass and UDC-gate timeout
 
 Date: 2026-07-25 KST
 Tier: F1
@@ -40,10 +40,23 @@ P2.55 qnoc MC virtual blocking boundary. The retained record does not directly
 encode separate display or qnoc bind checkpoints.
 
 It does not prove UDC publication, USB device enumeration, ACM, or terminal
-stage `0x8f`. Detail 110 says only that the UDC class device did not appear
-within the bounded gate deadline. It does not by itself identify role state,
-gadget registration, deferred work, runtime-PM state, or another DWC3-internal
-condition as the permanent cause.
+stage `0x8f`. Post-live P2.58 H0 analysis found that the stage `0x87`
+predicate did not test only the exact target. It required
+`/sys/class/udc` to contain one and only one entry and for that entry to be
+`a600000.dwc3`.
+
+That predicate conflicts with both `CONFIG_USB_DUMMY_HCD=y` in the exact
+candidate and the stock-observed coexistence of `dummy_udc.0` and
+`a600000.dwc3`. The desired two-entry topology is rejected. Detail 110
+therefore proves only that the flawed singleton predicate did not pass; it
+does not prove that the exact DWC3 UDC was absent.
+
+P2.58 also found a secondary observation ambiguity. A late SSUSB bind during
+the five-second classifier grace enters a zero-wait downstream drain, and the
+retained ABI does not encode whether that branch ran. The corrected exact
+membership predicate therefore also needs its own bounded dwell. The focused
+correction is documented in
+`S22PLUS_FYG8_P258_UDC_FRONTIER_FOCUSED_ANALYSIS_H0_2026-07-25.md`.
 
 The manifest requires a terminal-success record. The formal verdict is
 therefore no-proof even though the failure record proves substantial new
@@ -97,12 +110,12 @@ recovery_required=false
 
 The binding and approval are consumed. No S22+ F1 authority remains.
 
-## Next Bounded Unit
+## Post-Live Disposition
 
-P2.58 is H0 only:
-
-1. reconstruct the exact FYG8 DWC3 core-to-UDC publication control flow;
-2. identify the smallest read-only discriminator for role, gadget, deferred
-   work, and runtime-PM conditions after the proven core bind; and
-3. do not add modules or build another candidate until that boundary is
-   source-, DT-, and artifact-closed.
+P2.58 H0 found a deterministic contract bug before attributing the result to
+DWC3 internals. The next bounded unit is P2.58A design and host implementation:
+replace global UDC singleton cardinality with exact target membership,
+independently validate the target symlink, and give that corrected predicate
+one fresh five-second deadline after DWC3 bind. Do not add modules, force role,
+create configfs state, or build another candidate until that versioned
+contract and its semantic topology fixtures are complete.

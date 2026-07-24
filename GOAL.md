@@ -25,8 +25,8 @@ P2.55 F1 QNOC-MC-VIRT BIND ABSENT; EXACT ROLLBACK AND FINAL HEALTH PASS;
     P2.57 STOCK-PIVOT READER AND ODIN DIAGNOSTIC UNIT B H0 PASS;
     DISPLAY-ENABLED STOCK D0 PASS; UNIT A IMPLEMENTATION AND INDEPENDENT
     RE-REVIEW H0 PASS; REPRODUCIBLE FULL-LTO CANDIDATE H0 PASS;
-    P2.57 E2 LIVE DWC3-CORE PASS AND UDC TIMEOUT; EXACT ROLLBACK AND FINAL
-    HEALTH PASS.**
+    P2.57 E2 LIVE DWC3-CORE PASS AND UDC-GATE TIMEOUT; EXACT ROLLBACK AND FINAL
+    HEALTH PASS; P2.58 UDC FRONTIER FOCUSED ANALYSIS H0 PASS.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -425,6 +425,22 @@ not required; the formal verdict is
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. No active S22+ F1 authorization
 exists.
 
+P2.58 found that the P2.57 UDC gate is structurally wrong for FYG8. It requires
+`/sys/class/udc` to contain one and only one entry named `a600000.dwc3`, while
+the exact candidate has `CONFIG_USB_DUMMY_HCD=y` and stock evidence records
+both `dummy_udc.0` and `a600000.dwc3`. The expected successful state is
+therefore rejected. Stage `0x87 detail=110` proves only that this singleton
+predicate failed, not that the exact DWC3 UDC was absent.
+
+Exact source also shows a secondary observation defect: child role setup queues
+`__dwc3_set_mode()` asynchronously, while the shared deadline and zero-wait
+post-grace drain can leave the UDC little or no dwell. The next bounded unit
+preserves the 60-module/no-write contract, replaces global cardinality with
+exact target membership and identity, adds semantic two-UDC fixtures, and
+grants only that corrected frontier one fresh five-second read-only dwell.
+Role forcing, configfs, new modules, ACM, and broad tracing remain out of
+scope.
+
 ## Established Evidence
 
 - R4W1-A: custom Android `/init` marker retained and rollback passed.
@@ -753,7 +769,16 @@ reports grant no device authority.
     all eight timeline events passed after journal-based recovery from a
     post-rollback USB inventory error. The formal verdict is no-proof because
     terminal success was not observed. Binding and approval are consumed.
-40. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
+40. **P2.58 complete, H0:** P2.57's
+    `entries == 1 && exact == 1` UDC predicate conflicts with the compiled and
+    stock-observed `dummy_udc.0 + a600000.dwc3` topology. Its timeout cannot
+    prove exact-target absence. Exact source separately proves DWC3 bind
+    precedes queued role-worker completion, and the shared deadline can reduce
+    UDC dwell to one check. The next host unit changes observation only:
+    exact-target membership and symlink identity regardless of unrelated UDCs,
+    semantic topology fixtures, and one fresh five-second UDC deadline after
+    DWC3 success. No role/configfs write or module addition.
+41. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
