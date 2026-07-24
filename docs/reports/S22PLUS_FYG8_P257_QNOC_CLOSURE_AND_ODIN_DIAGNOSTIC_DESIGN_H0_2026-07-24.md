@@ -565,9 +565,45 @@ The second independent review found no remaining `MUST-FIX` or `WARN` item and
 returned `GO` for implementation. This review grants no device or F1
 authority.
 
+## Implementation Result
+
+The pre-pivot reader and Unit B are implemented and H0-validated.
+
+The stock reader:
+
+- accepts only the exact S22+ FYG8 target profile;
+- reads only the two allowlisted stock sysfs nodes, twice, with a 32-byte
+  bound;
+- preserves raw values only in sealed private receipts;
+- proves both source-derived polarity vectors and the display-capable target
+  contradiction rule; and
+- owns no reboot, Odin, transfer, or F1 authority.
+
+Unit B:
+
+- adds one canonical bounded membership-change exception;
+- normalizes only the final `observer.evidence(live_devices)` failure;
+- requires the same active transaction lease before diagnostic publication;
+- writes at most one sealed diagnostic attempt outside snapshot receipts and
+  the transaction index;
+- preserves exact-arrival retry and the original fail-closed outer error;
+- leaves public wait sequence, generation, and ticket issuance unchanged; and
+- is ignored by recovery from durable `ROLLBACK_FLASHED`, including absent,
+  canonical, and malformed diagnostic cases.
+
+Focused validation passed 135 USBFS identity, Odin transition-core, and F1
+recovery tests, plus Python compilation and `git diff --check`. The first
+implementation review found an unleased diagnostic write and missing public
+wait/recovery regressions. Those were fixed. A follow-up found that the
+valid-present recovery fixture was not canonical; that was fixed as well. The
+final restricted review found no remaining issue and returned `GO`.
+
+No connected stock D0 has run. This implementation result does not authorize
+Unit A, a kernel build, an image, a candidate, or F1.
+
 ## Exit State
 
-This design is `DESIGN_COMPLETE_IMPLEMENTATION_PENDING`.
+This unit is `PIVOT_READER_AND_UNIT_B_IMPLEMENTED_H0_PASS_STOCK_D0_NEXT`.
 
-No kernel, userspace binary, image, candidate, manifest, D0 receipt, approval,
-or F1 authority exists from this unit.
+No kernel, userspace binary, image, candidate, manifest, connected D0 receipt,
+approval, or F1 authority exists from this unit.

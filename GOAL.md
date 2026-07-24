@@ -21,8 +21,9 @@ CLASSIFIER IMPLEMENTATION H0 PASS; P2.53 FINAL-PROOF GAP CAUGHT H0;
 P2.54 PROOF-BOUND REPRODUCIBLE CLASSIFIER CANDIDATE H0 PASS; P2.55
 REACHABLE-CONTRACT VERIFIER FIX H0 PASS; P2.55 CONNECTED D0 PREPARED PASS;
 P2.55 F1 QNOC-MC-VIRT BIND ABSENT; EXACT ROLLBACK AND FINAL HEALTH PASS;
-P2.56 QNOC FOCUSED HYPOTHESIS AND ODIN OBSERVER ANALYSIS H0 PASS;
-P2.57 BOUNDED QNOC/ODIN DESIGN H0 PASS; IMPLEMENTATION NEXT.**
+    P2.56 QNOC FOCUSED HYPOTHESIS AND ODIN OBSERVER ANALYSIS H0 PASS;
+    P2.57 STOCK-PIVOT READER AND ODIN DIAGNOSTIC UNIT B H0 PASS; STOCK D0
+    NEXT.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -385,6 +386,17 @@ successful snapshot sequence, endpoint generation, the transaction index, and
 recovery decisions. Diagnostic publication never replaces the original
 fail-closed error.
 
+The stock-pivot reader now passes its H0 parser, polarity, target-sanity,
+bounded-read, and no-authority tests. Unit B now retains only the allowlisted
+final-evidence failure class and bounded membership delta in one lease-bound,
+sealed diagnostic outside snapshot receipts and the transaction index. Public
+wait replay proves a diagnostic failure consumes no snapshot sequence,
+generation, or ticket. F1 recovery replay from durable `ROLLBACK_FLASHED`
+ignores absent, canonical, and malformed diagnostics and performs no candidate
+or rollback transfer. The final independent execution-critical review returned
+`GO`. No connected stock D0 has run, so Unit A remains blocked.
+No active S22+ F1 authorization exists.
+
 ## Established Evidence
 
 - R4W1-A: custom Android `/init` marker retained and rollback passed.
@@ -690,19 +702,16 @@ reports grant no device authority.
     and the qnoc return code remain unobserved. Exact USBFS receipt replay also
     reproduces the generic post-rollback observer error and identifies the
     missing durable inner exception.
-38. **P2.57 design complete, H0:** implement two independent bounded subunits,
-    not one coupled redesign. First implement the bounded stock-pivot reader;
-    its two source-derived polarity vectors must pass, and its D0 result must
-    verify display enabled before Unit A is implemented. A no-display result
-    on this display-capable profile is a target contradiction requiring
-    host-side re-audit, not permission to invert polarity or continue.
-    Unit A is then a new versioned 60-module, 81-step source contract with
-    exact display-clock/RSC/voter coordinates before mc_virt. Independently,
-    Unit B persists one typed final-evidence diagnostic without changing
-    snapshot sequence, generation, index, recovery, or the original outer
-    error. One independent safety review covers Unit B and, if Unit A is
-    promoted, the display-clock side effects. Full-LTO remains after both
-    applicable H0 closures.
+38. **P2.57 pivot reader and Unit B complete, H0:** run the bounded connected
+    stock D0 next. Only `DISPLAY_ENABLED_VERIFIED` permits Unit A. A no-display
+    result on this display-capable profile is a target contradiction requiring
+    host-side re-audit, not permission to invert polarity or continue. If
+    promoted, Unit A is a new versioned 60-module, 81-step source contract with
+    exact display-clock/RSC/voter coordinates before mc_virt. Unit B is already
+    independently reviewed and retains one typed final-evidence diagnostic
+    without changing snapshot sequence, generation, index, recovery, or the
+    original outer error. Review the display-clock side effects if Unit A is
+    promoted. Full-LTO remains after all applicable H0 closures.
 39. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 

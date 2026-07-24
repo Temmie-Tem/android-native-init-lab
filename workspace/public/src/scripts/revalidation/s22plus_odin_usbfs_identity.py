@@ -65,6 +65,28 @@ class UsbfsInventoryArrival(UsbfsIdentityError):
         self.path = path
 
 
+class UsbfsInventoryMembershipChanged(UsbfsIdentityError):
+    """Bounded canonical inventory delta from the final evidence read."""
+
+    def __init__(self, removed: tuple[str, ...], added: tuple[str, ...]):
+        if (
+            not isinstance(removed, tuple)
+            or not isinstance(added, tuple)
+            or (not removed and not added)
+            or any(not isinstance(path, str) for path in (*removed, *added))
+            or removed != tuple(sorted(set(removed)))
+            or added != tuple(sorted(set(added)))
+            or set(removed) & set(added)
+            or len(removed) + len(added) > MAX_INVENTORY_ENTRIES
+        ):
+            raise UsbfsIdentityError("usbfs inventory membership delta is invalid")
+        for path in (*removed, *added):
+            _validated_usbfs_coordinates(path)
+        super().__init__("usbfs inventory membership changed during enumeration")
+        self.removed = removed
+        self.added = added
+
+
 @dataclass(frozen=True)
 class UsbfsNodeSnapshot:
     path: str
@@ -424,7 +446,12 @@ def enumeration_evidence(
     before_paths = tuple(sorted(before))
     after_paths = tuple(sorted(after))
     if before_paths != after_paths:
-        raise UsbfsIdentityError("usbfs inventory membership changed during enumeration")
+        before_set = set(before_paths)
+        after_set = set(after_paths)
+        raise UsbfsInventoryMembershipChanged(
+            tuple(sorted(before_set - after_set)),
+            tuple(sorted(after_set - before_set)),
+        )
     if tuple(sorted(set(live_devices))) != live_devices or not set(live_devices) <= set(
         before_paths
     ):

@@ -249,7 +249,7 @@ class S22PlusOdinUsbfsIdentityTest(unittest.TestCase):
             observer.identity(USB_008)
         self.assertEqual(raised.exception.path, USB_008)
 
-    def test_inventory_membership_and_unrelated_replacement_are_rejected(self):
+    def test_inventory_membership_delta_is_typed_and_canonical(self):
         module = self.module
         before = node(module)
         other_path = "/dev/bus/usb/001/001"
@@ -260,12 +260,68 @@ class S22PlusOdinUsbfsIdentityTest(unittest.TestCase):
             st_rdev=os.makedev(189, 0),
             device_minor=0,
         )
-        with self.assertRaises(module.UsbfsIdentityError):
+        with self.assertRaises(
+            module.UsbfsInventoryMembershipChanged
+        ) as added:
             module.enumeration_evidence(
                 {USB_008: before},
                 {USB_008: before, other_path: other},
                 (USB_008,),
             )
+        self.assertEqual(added.exception.removed, ())
+        self.assertEqual(added.exception.added, (other_path,))
+
+        replacement = node(
+            module,
+            path=USB_009,
+            st_ino=56,
+            st_rdev=os.makedev(189, 136),
+            device_minor=136,
+        )
+        with self.assertRaises(
+            module.UsbfsInventoryMembershipChanged
+        ) as changed:
+            module.enumeration_evidence(
+                {USB_008: before},
+                {USB_009: replacement},
+                (),
+            )
+        self.assertEqual(changed.exception.removed, (USB_008,))
+        self.assertEqual(changed.exception.added, (USB_009,))
+
+    def test_inventory_membership_delta_constructor_is_bounded(self):
+        module = self.module
+        invalid = (
+            ((USB_009, USB_008), ()),
+            ((USB_008, USB_008), ()),
+            ((USB_008,), (USB_008,)),
+            (("/tmp/not-usbfs",), ()),
+            ((), ()),
+            ((1,), ()),
+            ([], ()),
+        )
+        for removed, added in invalid:
+            with self.subTest(removed=removed, added=added):
+                with self.assertRaises(module.UsbfsIdentityError):
+                    module.UsbfsInventoryMembershipChanged(removed, added)
+        oversized = tuple(
+            f"/dev/bus/usb/{number // 999 + 1:03d}/{number % 999 + 1:03d}"
+            for number in range(module.MAX_INVENTORY_ENTRIES + 1)
+        )
+        with self.assertRaises(module.UsbfsIdentityError):
+            module.UsbfsInventoryMembershipChanged(oversized, ())
+
+    def test_unrelated_same_path_replacement_remains_identity_failure(self):
+        module = self.module
+        before = node(module)
+        other_path = "/dev/bus/usb/001/001"
+        other = node(
+            module,
+            path=other_path,
+            st_ino=55,
+            st_rdev=os.makedev(189, 0),
+            device_minor=0,
+        )
         with self.assertRaises(module.UsbfsIdentityError):
             module.enumeration_evidence(
                 {USB_008: before, other_path: other},

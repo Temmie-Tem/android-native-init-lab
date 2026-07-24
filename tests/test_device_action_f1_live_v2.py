@@ -669,6 +669,74 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
         self.assertEqual(result["current_state"], "CLOSED")
         self.assertEqual(backend.calls.count("transfer-rollback"), 1)
 
+    def test_rollback_flashed_recovery_ignores_diagnostic_files(self):
+        for diagnostic in ("absent", "present", "malformed"):
+            with self.subTest(diagnostic=diagnostic):
+                temporary, prepared = self.prepared()
+                self.addCleanup(temporary.cleanup)
+                backend = FakeBackend(self.module)
+                original = self.module.core.Journal.event
+                interrupted = False
+
+                def interrupt_after_rollback_flashed(
+                    journal, name, details=None
+                ):
+                    nonlocal interrupted
+                    if name == "rollback_flash_done" and not interrupted:
+                        interrupted = True
+                        raise KeyboardInterrupt("at durable ROLLBACK_FLASHED")
+                    return original(journal, name, details)
+
+                with mock.patch.object(
+                    self.module.core.Journal,
+                    "event",
+                    new=interrupt_after_rollback_flashed,
+                ):
+                    with self.assertRaises(KeyboardInterrupt):
+                        self.module.execute_prepared(
+                            prepared, prepared.approval_token, backend
+                        )
+                journal = self.module.core.Journal.reopen(
+                    prepared.run_dir / "transaction",
+                    prepared.binding_sha256,
+                )
+                self.assertEqual(journal.state(), "ROLLBACK_FLASHED")
+                if diagnostic != "absent":
+                    directory = (
+                        prepared.run_dir / "odin-endpoints" / "diagnostics"
+                    )
+                    directory.mkdir(parents=True)
+                    path = (
+                        directory / "odin-diagnostic-failure-000000.json"
+                    )
+                    if diagnostic == "present":
+                        self.module.odin_core._create_sealed_receipt(
+                            path,
+                            {
+                                "schema": self.module.odin_core.DIAGNOSTIC_SCHEMA,
+                                "ordinal": 0,
+                                "timestamp_utc": "2026-07-24T00:00:00.000000Z",
+                                "attempted_snapshot_sequence": 0,
+                                "observation_stage": (
+                                    self.module.odin_core
+                                    .DIAGNOSTIC_OBSERVATION_STAGE
+                                ),
+                                "failure_kind": "usbfs-identity-failed",
+                                "inner_exception_class": "UsbfsIdentityError",
+                                "removed": [],
+                                "added": [],
+                                "snapshot_persisted": False,
+                            },
+                        )
+                    else:
+                        path.write_bytes(b"{malformed")
+                        path.chmod(0o400)
+                recovery = FakeBackend(self.module)
+                result = self.module.recover_prepared(prepared, recovery)
+                self.assertEqual(result["current_state"], "CLOSED")
+                self.assertNotIn("transfer-candidate", recovery.calls)
+                self.assertNotIn("transfer-rollback", recovery.calls)
+
     def test_rollback_event_gaps_resume_without_reflash(self):
         for event_name in (
             "rollback_flash_start",

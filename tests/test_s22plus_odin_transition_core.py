@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import ExitStack
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
@@ -58,6 +59,32 @@ class SequenceRunner:
             output = self.outputs[self.index]
         self.index += 1
         return SimpleNamespace(returncode=0, stdout=output, stderr=None)
+
+
+class FinalEvidenceFailureObserver:
+    def __init__(self, error):
+        self.error = error
+
+    def inventory(self):
+        return {}
+
+    def identity(self, _path):
+        return None
+
+    def evidence(self, _live_devices):
+        raise self.error
+
+    def identity_or_exact_departure(self, _path):
+        return None
+
+    def evidence_after_exact_departure(self, _path):
+        raise AssertionError("departure evidence is outside this fixture")
+
+    def revalidate(self, _evidence):
+        raise AssertionError("no snapshot may reach revalidation")
+
+    def revalidate_or_departure(self, _evidence):
+        raise AssertionError("no snapshot may reach departure revalidation")
 
 
 class S22PlusOdinTransitionCoreTest(unittest.TestCase):
@@ -1580,6 +1607,366 @@ class S22PlusOdinTransitionCoreTest(unittest.TestCase):
                         run_dir, "prepared", {"invalid": float("nan")}, lease=lease
                     )
             self.assertFalse((run_dir / "receipts" / "phase-prepared.json").exists())
+
+    def _final_evidence_failure(self, error):
+        module = self.module
+        return module.enumerate_odin(
+            Path("odin4"),
+            runner=SequenceRunner([""]),
+            endpoint_observer_factory=lambda: FinalEvidenceFailureObserver(error),
+            timestamp=lambda: "2026-07-24T00:00:00.000000Z",
+        )
+
+    def _record_final_evidence_failure(self, run_dir, lease, error):
+        module = self.module
+        return module._snapshot_and_record(
+            Path("odin4"),
+            run_dir,
+            78,
+            runner=SequenceRunner([""]),
+            device_identity=module._default_device_identity,
+            device_inventory=module._default_device_inventory,
+            endpoint_observer_factory=lambda: FinalEvidenceFailureObserver(error),
+            timestamp=lambda: "2026-07-24T00:00:00.000000Z",
+            enumeration_timeout_sec=1,
+            lease=lease,
+        )
+
+    def test_final_evidence_exception_normalization_is_exact_and_top_level_only(self):
+        module = self.module
+        identity_with_io_cause = module.usbfs_identity.UsbfsIdentityError(
+            "wrapped I/O details must not escape"
+        )
+        identity_with_io_cause.__cause__ = OSError("private direct I/O detail")
+        cases = (
+            (
+                module.usbfs_identity.UsbfsInventoryMembershipChanged(
+                    (USB_007,), (USB_009,)
+                ),
+                "inventory-membership-changed",
+                "UsbfsInventoryMembershipChanged",
+                (USB_007,),
+                (USB_009,),
+            ),
+            (
+                identity_with_io_cause,
+                "usbfs-identity-failed",
+                "UsbfsIdentityError",
+                (),
+                (),
+            ),
+            (
+                PermissionError("private errno detail"),
+                "direct-io-failed",
+                "OSError",
+                (),
+                (),
+            ),
+        )
+        for error, kind, class_name, removed, added in cases:
+            with self.subTest(kind=kind):
+                with self.assertRaises(
+                    module.OdinMeasuredEvidenceFailure
+                ) as raised:
+                    self._final_evidence_failure(error)
+                failure = raised.exception
+                self.assertEqual(str(failure), "measured USB endpoint evidence failed")
+                self.assertEqual(failure.failure_kind, kind)
+                self.assertEqual(failure.inner_exception_class, class_name)
+                self.assertEqual(failure.removed, removed)
+                self.assertEqual(failure.added, added)
+
+    def test_final_evidence_failure_writes_one_unindexed_sealed_diagnostic(self):
+        module = self.module
+        failure = module.usbfs_identity.UsbfsInventoryMembershipChanged(
+            (USB_007,), (USB_009,)
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            with module.transaction_session(run_dir) as lease:
+                with self.assertRaisesRegex(
+                    module.OdinMeasuredEvidenceFailure,
+                    "^measured USB endpoint evidence failed$",
+                ):
+                    self._record_final_evidence_failure(run_dir, lease, failure)
+            path = (
+                run_dir
+                / "diagnostics"
+                / "odin-diagnostic-failure-000000.json"
+            )
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(path.stat().st_mode & 0o777, 0o400)
+            self.assertEqual(
+                payload,
+                {
+                    "schema": module.DIAGNOSTIC_SCHEMA,
+                    "ordinal": 0,
+                    "timestamp_utc": "2026-07-24T00:00:00.000000Z",
+                    "attempted_snapshot_sequence": 78,
+                    "observation_stage": module.DIAGNOSTIC_OBSERVATION_STAGE,
+                    "failure_kind": "inventory-membership-changed",
+                    "inner_exception_class": "UsbfsInventoryMembershipChanged",
+                    "removed": [USB_007],
+                    "added": [USB_009],
+                    "snapshot_persisted": False,
+                },
+            )
+            self.assertFalse((run_dir / "receipts").exists())
+            self.assertFalse((run_dir / "transaction.jsonl").exists())
+
+    def test_expired_lease_cannot_publish_diagnostic(self):
+        module = self.module
+        failure = module.usbfs_identity.UsbfsIdentityError(
+            "private evidence detail"
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            with module.transaction_session(run_dir) as lease:
+                expired = lease
+            with self.assertRaisesRegex(
+                module.OdinMeasuredEvidenceFailure,
+                "^measured USB endpoint evidence failed$",
+            ):
+                self._record_final_evidence_failure(run_dir, expired, failure)
+            self.assertFalse((run_dir / "diagnostics").exists())
+            self.assertFalse((run_dir / "receipts").exists())
+            self.assertFalse((run_dir / "transaction.jsonl").exists())
+
+    def test_diagnostic_publication_failure_never_replaces_or_retries_outer(self):
+        module = self.module
+        original = module.usbfs_identity.UsbfsIdentityError("private evidence detail")
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            with module.transaction_session(run_dir) as lease, mock.patch.object(
+                module,
+                "_persist_measured_evidence_diagnostic",
+                side_effect=OSError("private publication detail"),
+            ) as publish:
+                with self.assertRaises(
+                    module.OdinMeasuredEvidenceFailure
+                ) as raised:
+                    self._record_final_evidence_failure(run_dir, lease, original)
+            self.assertEqual(publish.call_count, 1)
+            failure = raised.exception
+            self.assertEqual(str(failure), "measured USB endpoint evidence failed")
+            self.assertIsInstance(
+                failure.__cause__, module.usbfs_identity.UsbfsIdentityError
+            )
+            self.assertNotIsInstance(failure.__cause__, OSError)
+            self.assertFalse((run_dir / "receipts").exists())
+            self.assertFalse((run_dir / "transaction.jsonl").exists())
+
+    def test_each_diagnostic_publication_boundary_preserves_original_failure(self):
+        module = self.module
+        stages = (
+            "serialization",
+            "create",
+            "write",
+            "file-fsync",
+            "link",
+            "directory-fsync",
+            "readback",
+        )
+        for stage in stages:
+            with self.subTest(stage=stage), tempfile.TemporaryDirectory() as temporary:
+                run_dir = Path(temporary)
+                diagnostics = run_dir / "diagnostics"
+                diagnostic_path = (
+                    diagnostics / "odin-diagnostic-failure-000000.json"
+                )
+                original = module.usbfs_identity.UsbfsIdentityError(
+                    "private evidence detail"
+                )
+                with module.transaction_session(run_dir) as lease:
+                    diagnostics.mkdir()
+                    real_publish = module._persist_measured_evidence_diagnostic
+                    with ExitStack() as stack:
+                        publish = stack.enter_context(
+                            mock.patch.object(
+                                module,
+                                "_persist_measured_evidence_diagnostic",
+                                wraps=real_publish,
+                            )
+                        )
+                        if stage == "serialization":
+                            stack.enter_context(
+                                mock.patch.object(
+                                    module,
+                                    "_json_receipt_bytes",
+                                    side_effect=module.OdinTransitionError(
+                                        "private serialization detail"
+                                    ),
+                                )
+                            )
+                        elif stage == "create":
+                            stack.enter_context(
+                                mock.patch.object(
+                                    module.os,
+                                    "open",
+                                    side_effect=OSError("private create detail"),
+                                )
+                            )
+                        elif stage == "write":
+                            stack.enter_context(
+                                mock.patch.object(
+                                    module.os,
+                                    "write",
+                                    side_effect=OSError("private write detail"),
+                                )
+                            )
+                        elif stage == "file-fsync":
+                            stack.enter_context(
+                                mock.patch.object(
+                                    module.os,
+                                    "fsync",
+                                    side_effect=OSError("private file fsync detail"),
+                                )
+                            )
+                        elif stage == "link":
+                            stack.enter_context(
+                                mock.patch.object(
+                                    module.os,
+                                    "link",
+                                    side_effect=OSError("private link detail"),
+                                )
+                            )
+                        elif stage == "directory-fsync":
+                            stack.enter_context(
+                                mock.patch.object(
+                                    module,
+                                    "_fsync_directory",
+                                    side_effect=OSError(
+                                        "private directory fsync detail"
+                                    ),
+                                )
+                            )
+                        elif stage == "readback":
+                            stack.enter_context(
+                                mock.patch.object(
+                                    module.live_core,
+                                    "read_stable_file",
+                                    side_effect=OSError("private readback detail"),
+                                )
+                            )
+                        with self.assertRaises(
+                            module.OdinMeasuredEvidenceFailure
+                        ) as raised:
+                            self._record_final_evidence_failure(
+                                run_dir, lease, original
+                            )
+                    self.assertEqual(publish.call_count, 1)
+                failure = raised.exception
+                self.assertEqual(
+                    str(failure), "measured USB endpoint evidence failed"
+                )
+                self.assertIs(failure.__cause__, original)
+                self.assertFalse((run_dir / "receipts").exists())
+                self.assertFalse((run_dir / "transaction.jsonl").exists())
+                if stage in {"directory-fsync", "readback"}:
+                    self.assertTrue(diagnostic_path.is_file())
+                else:
+                    self.assertFalse(diagnostic_path.exists())
+
+    def test_exact_final_inventory_arrival_remains_retry_signal_not_diagnostic(self):
+        module = self.module
+        arrival = module.usbfs_identity.UsbfsInventoryArrival(USB_008)
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            with module.transaction_session(run_dir) as lease:
+                with self.assertRaises(module.OdinEndpointArrivalRace):
+                    module._snapshot_and_record(
+                        Path("odin4"),
+                        run_dir,
+                        0,
+                        runner=SequenceRunner([""]),
+                        device_identity=module._default_device_identity,
+                        device_inventory=module._default_device_inventory,
+                        endpoint_observer_factory=lambda: FinalEvidenceFailureObserver(
+                            arrival
+                        ),
+                        timestamp=lambda: "2026-07-24T00:00:00.000000Z",
+                        enumeration_timeout_sec=1,
+                        lease=lease,
+                        allow_empty_post_receipt_change=True,
+                    )
+            self.assertFalse((run_dir / "diagnostics").exists())
+            self.assertFalse((run_dir / "receipts").exists())
+            self.assertFalse((run_dir / "transaction.jsonl").exists())
+
+    def test_public_wait_failure_does_not_consume_sequence_or_issue_ticket(self):
+        module = self.module
+        failure = module.usbfs_identity.UsbfsIdentityError(
+            "private evidence detail"
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            with module.transaction_session(run_dir) as lease:
+                original_ticket = module.EndpointTicket
+                with mock.patch.object(
+                    module, "EndpointTicket", wraps=original_ticket
+                ) as ticket_factory:
+                    with self.assertRaises(module.OdinMeasuredEvidenceFailure):
+                        module.wait_for_single_live_endpoint(
+                            Path("odin4"),
+                            run_dir,
+                            timeout_sec=1,
+                            lease=lease,
+                            sequence_start=0,
+                            poll_sec=0,
+                            runner=SequenceRunner([""]),
+                            endpoint_observer_factory=lambda: FinalEvidenceFailureObserver(
+                                failure
+                            ),
+                        )
+                self.assertEqual(ticket_factory.call_count, 0)
+                result = module.wait_for_single_live_endpoint(
+                    Path("odin4"),
+                    run_dir,
+                    timeout_sec=1,
+                    lease=lease,
+                    sequence_start=0,
+                    poll_sec=0,
+                    runner=SequenceRunner([USB_008]),
+                    device_identity=lambda _path: "node-008",
+                    device_inventory=fixed_inventory((USB_008, "node-008")),
+                )
+            self.assertFalse(result.timed_out)
+            self.assertIsNotNone(result.ticket)
+            self.assertEqual(result.ticket.snapshot_sequence, 0)
+            self.assertEqual(result.ticket.generation, 1)
+            self.assertEqual(result.next_sequence, 1)
+            self.assertEqual(len(module.list_snapshot_receipts(run_dir)), 1)
+
+    def test_diagnostic_capacity_counts_present_malformed_slots_without_parsing(self):
+        module = self.module
+        failure = module.OdinMeasuredEvidenceFailure(
+            "usbfs-identity-failed", "UsbfsIdentityError"
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            diagnostics = run_dir / "diagnostics"
+            diagnostics.mkdir()
+            for ordinal in range(module.MAX_DIAGNOSTIC_RECEIPTS):
+                (
+                    diagnostics
+                    / f"odin-diagnostic-failure-{ordinal:06d}.json"
+                ).write_bytes(b"malformed")
+            with module.transaction_session(run_dir) as lease:
+                with self.assertRaisesRegex(
+                    module.OdinTransitionError, "capacity exhausted"
+                ):
+                    module._persist_measured_evidence_diagnostic(
+                        run_dir,
+                        0,
+                        failure,
+                        timestamp=lambda: "2026-07-24T00:00:00.000000Z",
+                        lease=lease,
+                    )
+            self.assertEqual(
+                len(list(diagnostics.glob("odin-diagnostic-failure-*.json"))),
+                module.MAX_DIAGNOSTIC_RECEIPTS,
+            )
+            self.assertEqual(module.list_snapshot_receipts(run_dir), [])
 
 
 if __name__ == "__main__":

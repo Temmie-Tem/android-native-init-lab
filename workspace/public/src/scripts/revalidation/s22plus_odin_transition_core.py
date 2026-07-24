@@ -56,8 +56,16 @@ MAX_INDEX_TOTAL_BYTES = 32 * 1024 * 1024
 MAX_RECEIPT_BYTES = 512 * 1024
 MAX_INDEX_SEGMENTS = 64
 MAX_SNAPSHOT_RECEIPTS = 4096
+MAX_DIAGNOSTIC_RECEIPTS = 64
 DEFAULT_ENUM_TIMEOUT_SEC = 10.0
 INDEX_RESUME_RE = re.compile(r"transaction-resume-(\d{6})\.jsonl")
+DIAGNOSTIC_SCHEMA = "s22plus_odin_diagnostic_failure_v1"
+DIAGNOSTIC_OBSERVATION_STAGE = "enumeration-evidence-before-snapshot"
+DIAGNOSTIC_FAILURE_CLASSES = {
+    "inventory-membership-changed": "UsbfsInventoryMembershipChanged",
+    "usbfs-identity-failed": "UsbfsIdentityError",
+    "direct-io-failed": "OSError",
+}
 
 
 class OdinTransitionError(RuntimeError):
@@ -66,6 +74,43 @@ class OdinTransitionError(RuntimeError):
 
 class OdinEndpointArrivalRace(OdinTransitionError):
     """The endpoint appeared between inventory capture and Odin enumeration."""
+
+
+class OdinMeasuredEvidenceFailure(OdinTransitionError):
+    """Allowlisted final-evidence failure, before any snapshot is persisted."""
+
+    def __init__(
+        self,
+        failure_kind: str,
+        inner_exception_class: str,
+        *,
+        removed: tuple[str, ...] = (),
+        added: tuple[str, ...] = (),
+    ):
+        if (
+            DIAGNOSTIC_FAILURE_CLASSES.get(failure_kind) != inner_exception_class
+            or not isinstance(removed, tuple)
+            or not isinstance(added, tuple)
+            or any(not isinstance(path, str) for path in (*removed, *added))
+            or removed != tuple(sorted(set(removed)))
+            or added != tuple(sorted(set(added)))
+            or set(removed) & set(added)
+            or len(removed) + len(added)
+            > usbfs_identity.MAX_INVENTORY_ENTRIES
+            or (
+                failure_kind != "inventory-membership-changed"
+                and (removed or added)
+            )
+        ):
+            raise OdinTransitionError("measured USB endpoint failure is invalid")
+        for path in (*removed, *added):
+            usbfs_identity._validated_usbfs_coordinates(path)
+        super().__init__("measured USB endpoint evidence failed")
+        self.observation_stage = DIAGNOSTIC_OBSERVATION_STAGE
+        self.failure_kind = failure_kind
+        self.inner_exception_class = inner_exception_class
+        self.removed = removed
+        self.added = added
 
 
 class RunResult(Protocol):
@@ -484,8 +529,21 @@ def enumerate_odin(
         raise OdinTransitionError(
             f"unexpected USB endpoint arrival during enumeration: {exc.path}"
         ) from exc
-    except (OSError, usbfs_identity.UsbfsIdentityError) as exc:
-        raise OdinTransitionError("measured USB endpoint evidence failed") from exc
+    except usbfs_identity.UsbfsInventoryMembershipChanged as exc:
+        raise OdinMeasuredEvidenceFailure(
+            "inventory-membership-changed",
+            "UsbfsInventoryMembershipChanged",
+            removed=exc.removed,
+            added=exc.added,
+        ) from exc
+    except usbfs_identity.UsbfsIdentityError as exc:
+        raise OdinMeasuredEvidenceFailure(
+            "usbfs-identity-failed", "UsbfsIdentityError"
+        ) from exc
+    except OSError as exc:
+        raise OdinMeasuredEvidenceFailure(
+            "direct-io-failed", "OSError"
+        ) from exc
     return OdinSnapshot(
         timestamp_utc=timestamp(),
         returncode=result.returncode,
@@ -655,6 +713,57 @@ def _create_sealed_receipt(path: Path, value: Any) -> dict[str, Any]:
     if actual != expected:
         raise OdinTransitionError(f"receipt serialization mismatch: {path}")
     return {"size": len(actual), "sha256": live_core.sha256_bytes(actual)}
+
+
+def _persist_measured_evidence_diagnostic(
+    run_dir: Path,
+    sequence: int,
+    failure: OdinMeasuredEvidenceFailure,
+    *,
+    timestamp: Callable[[], str],
+    lease: _TransactionLease,
+) -> dict[str, Any]:
+    if (
+        not isinstance(run_dir, Path)
+        or not isinstance(sequence, int)
+        or isinstance(sequence, bool)
+        or sequence < 0
+        or not isinstance(failure, OdinMeasuredEvidenceFailure)
+    ):
+        raise OdinTransitionError("diagnostic failure input is invalid")
+    _require_active_lease(run_dir, lease)
+    diagnostics = run_dir / "diagnostics"
+    _require_direct_directory(diagnostics, create=True)
+    ordinal = None
+    path = None
+    for candidate in range(MAX_DIAGNOSTIC_RECEIPTS):
+        candidate_path = (
+            diagnostics / f"odin-diagnostic-failure-{candidate:06d}.json"
+        )
+        if not candidate_path.exists() and not candidate_path.is_symlink():
+            ordinal = candidate
+            path = candidate_path
+            break
+    if ordinal is None or path is None:
+        raise OdinTransitionError("diagnostic receipt capacity exhausted")
+    payload = {
+        "schema": DIAGNOSTIC_SCHEMA,
+        "ordinal": ordinal,
+        "timestamp_utc": timestamp(),
+        "attempted_snapshot_sequence": sequence,
+        "observation_stage": failure.observation_stage,
+        "failure_kind": failure.failure_kind,
+        "inner_exception_class": failure.inner_exception_class,
+        "removed": list(failure.removed),
+        "added": list(failure.added),
+        "snapshot_persisted": False,
+    }
+    receipt = _create_sealed_receipt(path, payload)
+    return {
+        "path": str(path),
+        "size": receipt["size"],
+        "sha256": receipt["sha256"],
+    }
 
 
 def _read_sealed_receipt(path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -1358,17 +1467,30 @@ def _snapshot_and_record(
 ) -> tuple[OdinSnapshot, dict[str, Any]]:
     if allow_empty_post_receipt_change and allow_live_departure:
         raise OdinTransitionError("snapshot transition policy is ambiguous")
-    snapshot = enumerate_odin(
-        odin,
-        runner=runner,
-        device_identity=device_identity,
-        device_inventory=device_inventory,
-        endpoint_observer_factory=endpoint_observer_factory,
-        allow_live_departure_race=allow_live_departure,
-        allow_live_arrival_race=allow_empty_post_receipt_change,
-        timeout_sec=enumeration_timeout_sec,
-        timestamp=timestamp,
-    )
+    try:
+        snapshot = enumerate_odin(
+            odin,
+            runner=runner,
+            device_identity=device_identity,
+            device_inventory=device_inventory,
+            endpoint_observer_factory=endpoint_observer_factory,
+            allow_live_departure_race=allow_live_departure,
+            allow_live_arrival_race=allow_empty_post_receipt_change,
+            timeout_sec=enumeration_timeout_sec,
+            timestamp=timestamp,
+        )
+    except OdinMeasuredEvidenceFailure as failure:
+        try:
+            _persist_measured_evidence_diagnostic(
+                run_dir,
+                sequence,
+                failure,
+                timestamp=timestamp,
+                lease=lease,
+            )
+        except Exception:
+            pass
+        raise
     record = persist_snapshot(run_dir, sequence, snapshot, lease=lease)
     if endpoint_observer_factory is None:
         for device, expected_identity in snapshot.live_device_identities:
