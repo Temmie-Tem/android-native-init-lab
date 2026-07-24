@@ -10,7 +10,8 @@ import s22plus_fyg8_p258_source_contract as source_contract
 
 
 ClosureError = p257.ClosureError
-SCHEMA = p257.SCHEMA
+SCHEMA = "s22plus_fyg8_p258_stock_closure_h0_v1"
+VERDICT = "PASS_P258A_STOCK_CLOSURE_HOST_ONLY"
 ORDER_MODEL = p257.ORDER_MODEL
 EXPECTED_ELF_ENTRYPOINTS = p257.EXPECTED_ELF_ENTRYPOINTS
 EXPECTED_GENERIC_ENTRY_COUNT = p257.EXPECTED_GENERIC_ENTRY_COUNT
@@ -103,8 +104,12 @@ def validate_effective_rootfs(
 
 
 def build_result(root=None):
-    return p257.build_result(root)
-
-
-if __name__ == "__main__":
-    raise SystemExit(p257.main())
+    result = dict(p257.build_result(root))
+    result.update(
+        {
+            "schema": SCHEMA,
+            "verdict": VERDICT,
+            "contract_id": source_contract.CONTRACT_ID,
+        }
+    )
+    return result

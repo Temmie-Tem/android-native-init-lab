@@ -43,6 +43,13 @@ class S22PlusStockUsbTopologyReadonlyTest(unittest.TestCase):
         good["ssusb_of_node"]["stdout"] = "/sys/firmware/devicetree/base/soc/ssusb@a600000\n"
         good["dwc3_of_node"]["stdout"] = "/sys/firmware/devicetree/base/soc/ssusb@a600000/dwc3@a600000\n"
         good["ssusb_role"]["stdout"] = "device\n"
+        good["udc_entries"]["stdout"] = (
+            "a600000.dwc3\ndummy_udc.0\n"
+        )
+        good["udc_target_link"]["stdout"] = (
+            "../../devices/platform/soc/a600000.ssusb/"
+            "a600000.dwc3/gadget/a600000.dwc3\n"
+        )
         good["udc_state"]["stdout"] = "configured\n"
         good["gadget_udc"]["stdout"] = "a600000.dwc3\n"
         good["typec_port_path"]["stdout"] = (
@@ -99,6 +106,36 @@ class S22PlusStockUsbTopologyReadonlyTest(unittest.TestCase):
         self.assertEqual(result["typec"]["power_role"], "sink")
         self.assertEqual(result["typec"]["port_type"], "dual")
         self.assertTrue(result["typec"]["max77705_usbc_provider"])
+        self.assertEqual(
+            result["sysfs"]["udc_entries"],
+            ["a600000.dwc3", "dummy_udc.0"],
+        )
+        self.assertTrue(result["sysfs"]["udc_entries_read_ok"])
+        self.assertTrue(result["sysfs"]["udc_target_is_symlink"])
+        self.assertEqual(
+            result["sysfs"]["udc_entries_provenance"],
+            {
+                "kind": "direct_readonly_collection",
+                "collector": self.module.SCHEMA,
+            },
+        )
+
+    def test_udc_entry_partial_output_with_failed_read_is_rejected(self):
+        commands = self.fixture_commands()
+        commands["udc_entries"]["rc"] = 2
+        result = self.module.summarize(
+            {
+                "ro.product.model": "SM-S906N",
+                "ro.product.device": "g0q",
+                "ro.build.version.incremental": "S906NKSS7FYG8",
+                "sys.boot_completed": "1",
+                "init.svc.bootanim": "stopped",
+            },
+            commands,
+            {"usb_id": "04e8:6860", "sysfs_path": "/sys/mock", "udev": {}},
+        )
+        self.assertEqual(result["result"], "fail")
+        self.assertFalse(result["sysfs"]["udc_entries_read_ok"])
 
     def test_of_node_falls_back_to_observed_symlink(self):
         commands = self.fixture_commands()

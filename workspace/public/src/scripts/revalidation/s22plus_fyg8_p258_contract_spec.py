@@ -10,6 +10,7 @@ import s22plus_fyg8_p257_contract_spec as p257
 
 SCHEMA = "s22plus_fyg8_p258_contract_spec_v1"
 PROFILE = p257.PROFILE
+TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
 
 Step = p257.Step
 SpecError = p257.SpecError
@@ -68,6 +69,13 @@ UDC_TARGET_PATH = f"/sys/class/udc/{UDC_TARGET_NAME}"
 UDC_STOCK_PEER = "dummy_udc.0"
 STOCK_TOPOLOGY_PATH = (
     "docs/module-map/s22plus-fyg8/stock-usb-runtime-topology.json"
+)
+STOCK_TOPOLOGY_EVIDENCE_PATH = (
+    "docs/reports/"
+    "S22PLUS_NATIVE_INIT_M5_USB_ACM_ROOTCAUSE_HOSTANALYSIS_2026-07-07.md"
+)
+STOCK_TOPOLOGY_COLLECTOR_SCHEMA = (
+    "s22plus_stock_usb_topology_readonly_v1"
 )
 
 

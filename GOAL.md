@@ -440,10 +440,14 @@ the 60-module/no-write contract, replaces global cardinality with exact target
 membership and symlink identity, promotes the stock two-UDC state to an
 executable semantic fixture, and grants only that corrected frontier one fresh
 five-second read-only dwell. P2.57's plan, checkpoint, stage/detail geometry,
-and kernel patch remain byte-identical; two static AArch64 userspace links are
-reproducible. No kernel Full-LTO build, candidate, device action, or live
-authority was created. Role forcing, configfs, new modules, ACM, and broad
-tracing remain out of scope.
+    and kernel patch remain byte-identical; two static AArch64 userspace links are
+    reproducible. Independent review initially found generated-C fixture,
+    candidate-receipt, closure-label, and collector fail-open gaps; the repaired
+    contract executes the exact generated helper, binds both topology sources,
+    fail-closes direct collector envelopes, and received final `GO`. No kernel
+    Full-LTO build, candidate, device action, or live authority was created.
+    Role forcing, configfs, new modules, ACM, and broad tracing remain out of
+    scope.
 
 ## Established Evidence
 
@@ -786,9 +790,13 @@ reports grant no device authority.
     execute during contract validation. Mutation checks reject missing target
     or peer ground truth. P2.57 plan/checkpoint/kernel patch are byte-identical;
     only the static userspace runtime changes, and two links are reproducible.
-    Historical P2.45-P2.58A regression tests pass. Next is a bounded independent
-    runtime-delta review and linked proof that packaging reuses the exact
-    qualified P2.57 Image; no Full-LTO rebuild is selected for this unit.
+    The initial independent review exposed four execution-closure gaps. Exact
+    generated-C execution/mutations, topology source receipts, corrected
+    adapter labels, and fail-closed direct-collector envelope checks close
+    them; final independent review returned `GO`. The final 87-test
+    source/pivot/collector set passes. Next is userspace materialization and
+    linked proof that packaging reuses the exact qualified P2.57 Image; no
+    Full-LTO rebuild is selected for this unit.
 42. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 

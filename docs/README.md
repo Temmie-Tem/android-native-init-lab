@@ -74,7 +74,9 @@ exact-membership + 5초 전용 read-only 판별 범위는
 
 P2.58A의 exact UDC membership/symlink 판정, DWC3 이후 전용 5초 dwell,
 stock two-UDC 실행 fixture와 mutation guard, P2.57 plan/checkpoint/kernel
-patch 불변성, userspace-only 재현 링크 결과는
+patch 불변성, generated-C native fixture, candidate identity source binding,
+stock collector fail-closed 보강, 최종 독립 리뷰 `GO`와 userspace-only
+재현 링크 결과는
 `reports/S22PLUS_FYG8_P258A_UDC_PREDICATE_IMPLEMENTATION_H0_2026-07-25.md`에
 기록합니다. 상세 설계는
 `plans/S22PLUS_FYG8_P258A_UDC_PREDICATE_REPAIR_DESIGN_2026-07-25.md`입니다.

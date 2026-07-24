@@ -1,3 +1,4 @@
+import argparse
 import json
 import sys
 import tempfile
@@ -13,6 +14,8 @@ if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
 import s22plus_fyg8_p234_build_repro_check as repro  # noqa: E402
+import s22plus_fyg8_p234_candidate_contract as candidate_contract  # noqa: E402
+import s22plus_fyg8_p234_candidate_intent as candidate_intent  # noqa: E402
 import s22plus_fyg8_p234_userspace_build as userspace  # noqa: E402
 import s22plus_fyg8_p253_e2_stock_closure as closure_selector  # noqa: E402
 import s22plus_fyg8_p257_source_contract as p257  # noqa: E402
@@ -44,6 +47,10 @@ class S22PlusFyg8P258SourceContractTest(unittest.TestCase):
         self.assertEqual(
             value["sysfs"]["udc_entries"],
             [spec.UDC_TARGET_NAME, spec.UDC_STOCK_PEER],
+        )
+        self.assertEqual(
+            value["sysfs"]["udc_entries_provenance"]["source"],
+            spec.STOCK_TOPOLOGY_EVIDENCE_PATH,
         )
         oracle = self.implementation["semantic_oracle"]
         self.assertTrue(oracle["known_good_passed"])
@@ -103,7 +110,27 @@ class S22PlusFyg8P258SourceContractTest(unittest.TestCase):
                     root = Path(name)
                     path = root / spec.STOCK_TOPOLOGY_PATH
                     path.parent.mkdir(parents=True)
-                    value = {"sysfs": {}}
+                    evidence_path = (
+                        root / spec.STOCK_TOPOLOGY_EVIDENCE_PATH
+                    )
+                    evidence_path.parent.mkdir(parents=True)
+                    evidence_path.write_text(
+                        "/sys/class/udc/ "
+                        f"{spec.UDC_TARGET_NAME} {spec.UDC_STOCK_PEER}\n",
+                        encoding="ascii",
+                    )
+                    value = {
+                        "sysfs": {
+                            "udc_entries_provenance": {
+                                "kind": (
+                                    "backfilled_from_tracked_live_report"
+                                ),
+                                "source": (
+                                    spec.STOCK_TOPOLOGY_EVIDENCE_PATH
+                                ),
+                            }
+                        }
+                    }
                     if entries is not None:
                         value["sysfs"]["udc_entries"] = entries
                     path.write_text(
@@ -129,18 +156,57 @@ class S22PlusFyg8P258SourceContractTest(unittest.TestCase):
     def test_generated_runtime_removes_singleton_and_resets_udc_dwell(self):
         runtime = self.generated["runtime"].decode("ascii")
         self.assertNotIn("entries == 1U", runtime)
-        self.assertIn("if (exact == 0U) {", runtime)
-        self.assertIn("if (exact != 1U) {", runtime)
+        self.assertIn("p258_udc_decision(exact, 1, 1)", runtime)
+        self.assertIn("p258_should_start_udc_dwell(completed)", runtime)
         self.assertIn(
-            "if (completed == S22_P258_UDC_GATE_INDEX) {", runtime
+            "if (p258_should_start_udc_dwell(completed)) {", runtime
         )
         reset = runtime.index(
-            "if (completed == S22_P258_UDC_GATE_INDEX) {"
+            "if (p258_should_start_udc_dwell(completed)) {"
         )
         clear = runtime.index("post_grace_drain = 0;", reset)
         advanced = runtime.index("advanced = 1;", clear)
         self.assertLess(reset, clear)
         self.assertLess(clear, advanced)
+
+    def test_generated_c_mutations_fail_closed(self):
+        historical = p257.generate(ROOT)
+        runtime = self.generated["runtime"]
+        inverted_identity = runtime.replace(
+            b"!target_basename_matches) {",
+            b"target_basename_matches) {",
+            1,
+        )
+        self.assertNotEqual(inverted_identity, runtime)
+        mutated = dict(self.generated)
+        mutated["runtime"] = inverted_identity
+        with self.assertRaises(p258.SourceContractError):
+            p258._generated_semantics(mutated, historical)
+
+        restored_drain = runtime.replace(
+            b"                    post_grace_drain = 0;\n"
+            b"                }\n"
+            b"                advanced = 1;\n",
+            b"                    post_grace_drain = 0;\n"
+            b"                    post_grace_drain = 1;\n"
+            b"                }\n"
+            b"                advanced = 1;\n",
+            1,
+        )
+        self.assertNotEqual(restored_drain, runtime)
+        mutated = dict(self.generated)
+        mutated["runtime"] = restored_drain
+        with self.assertRaises(p258.SourceContractError):
+            p258._generated_semantics(mutated, historical)
+
+    def test_generated_c_semantic_harness_executes_all_cases(self):
+        harness = self.implementation["generated_semantics"][
+            "generated_c_semantic_harness"
+        ]
+        self.assertTrue(harness["executed"])
+        self.assertTrue(harness["verified"])
+        self.assertEqual(harness["case_count"], 7)
+        self.assertEqual(harness["dwell_trigger_cases"], 3)
 
     def test_record_geometry_and_reachable_domain_are_unchanged(self):
         self.assertEqual(spec.STAGE_SEQUENCE, p257.spec.STAGE_SEQUENCE)
@@ -167,6 +233,146 @@ class S22PlusFyg8P258SourceContractTest(unittest.TestCase):
         self.assertEqual(linked.EXPECTED_SOURCE_CONTRACT_ID, p258.CONTRACT_ID)
         source, _receipts = p258.source_receipts(ROOT)
         self.assertEqual(set(source), p258.SOURCE_KEYS)
+        self.assertIn("stock_topology_oracle", source)
+        self.assertIn("stock_topology_evidence", source)
+
+    def test_stock_closure_adapter_relabels_p257_result(self):
+        historical = {
+            "schema": "s22plus_fyg8_p257_stock_closure_h0_v1",
+            "verdict": "PASS_P257_STOCK_CLOSURE_HOST_ONLY",
+            "contract_id": p257.CONTRACT_ID,
+            "verified": True,
+        }
+        with mock.patch.object(
+            closure.p257, "build_result", return_value=historical
+        ):
+            result = closure.build_result(ROOT)
+        self.assertEqual(result["schema"], closure.SCHEMA)
+        self.assertEqual(result["verdict"], closure.VERDICT)
+        self.assertEqual(result["contract_id"], p258.CONTRACT_ID)
+        source = (
+            ROOT
+            / "workspace/public/src/scripts/revalidation/"
+            "s22plus_fyg8_p258_e2_stock_closure.py"
+        ).read_text(encoding="ascii")
+        self.assertNotIn("p257.main()", source)
+
+    def test_stock_collector_captures_future_udc_oracle_fields(self):
+        source = (
+            ROOT
+            / "workspace/public/src/scripts/revalidation/"
+            "s22plus_stock_usb_topology_readonly.py"
+        ).read_text(encoding="ascii")
+        for token in (
+            '"udc_entries"',
+            '"udc_target_link"',
+            '"udc_target_is_symlink"',
+            '"direct_readonly_collection"',
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, source)
+
+    def test_direct_collector_oracle_requires_symlink_identity(self):
+        with tempfile.TemporaryDirectory(
+            prefix="s22-p258-direct-topology-"
+        ) as name:
+            root = Path(name)
+            evidence_path = root / spec.STOCK_TOPOLOGY_EVIDENCE_PATH
+            evidence_path.parent.mkdir(parents=True)
+            evidence_path.write_text(
+                "/sys/class/udc/ "
+                f"{spec.UDC_TARGET_NAME} {spec.UDC_STOCK_PEER}\n",
+                encoding="ascii",
+            )
+            topology_path = root / spec.STOCK_TOPOLOGY_PATH
+            topology_path.parent.mkdir(parents=True)
+            value = {
+                "schema": spec.STOCK_TOPOLOGY_COLLECTOR_SCHEMA,
+                "result": "pass-stock-topology-partial",
+                "target": spec.TARGET,
+                "stock_state": {"identity_exact": True},
+                "sysfs": {
+                    "udc_entries": [
+                        spec.UDC_TARGET_NAME,
+                        spec.UDC_STOCK_PEER,
+                    ],
+                    "udc_entries_provenance": {
+                        "kind": "direct_readonly_collection",
+                        "collector": (
+                            spec.STOCK_TOPOLOGY_COLLECTOR_SCHEMA
+                        ),
+                    },
+                    "udc_entries_read_ok": True,
+                    "udc_target_is_symlink": True,
+                    "udc_target_link": (
+                        "../../devices/mock/" + spec.UDC_TARGET_NAME
+                    ),
+                }
+            }
+            topology_path.write_text(
+                json.dumps(value, sort_keys=True),
+                encoding="ascii",
+            )
+            self.assertTrue(
+                p258._topology_oracle_audit(root)["verified"]
+            )
+            mutations = (
+                ("schema", "wrong-schema"),
+                ("result", "fail"),
+                ("target", "wrong-target"),
+                ("stock_state.identity_exact", False),
+                ("sysfs.udc_entries_read_ok", False),
+                ("sysfs.udc_target_is_symlink", False),
+            )
+            for key, replacement in mutations:
+                with self.subTest(key=key):
+                    mutated = json.loads(json.dumps(value))
+                    cursor = mutated
+                    parts = key.split(".")
+                    for part in parts[:-1]:
+                        cursor = cursor[part]
+                    cursor[parts[-1]] = replacement
+                    topology_path.write_text(
+                        json.dumps(mutated, sort_keys=True),
+                        encoding="ascii",
+                    )
+                    with self.assertRaises(p258.SourceContractError):
+                        p258._topology_oracle_audit(root)
+
+    def test_candidate_identity_binds_topology_and_evidence_receipts(self):
+        private_tmp = ROOT / "workspace/private/tmp"
+        private_tmp.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(
+            dir=private_tmp, prefix="p258-intent-"
+        ) as name:
+            relative = Path(name).relative_to(ROOT) / "intent"
+            result = candidate_intent.create(
+                argparse.Namespace(
+                    source=candidate_intent.DEFAULT_SOURCE,
+                    base_patch=candidate_intent.DEFAULT_BASE_PATCH,
+                    out=relative,
+                    nonce_hex="58" * 16,
+                    profile="E2",
+                    source_contract_id=p258.CONTRACT_ID,
+                )
+            )
+            sources = result["identity_preimage"]["sources"]
+            self.assertIn("stock_topology_oracle", sources)
+            self.assertIn("stock_topology_evidence", sources)
+            verified = candidate_contract.verify(
+                ROOT,
+                candidate_intent.resolve(
+                    ROOT, candidate_intent.DEFAULT_SOURCE
+                ),
+                ROOT / relative / "candidate-intent.json",
+                ROOT / relative / "candidate.patch",
+            )
+            self.assertEqual(
+                verified["source_contract_id"], p258.CONTRACT_ID
+            )
+            self.assertEqual(
+                verified["schema"], p258.CONTRACT_SCHEMA
+            )
 
     def test_materialized_userspace_plan_remains_60_modules(self):
         with tempfile.TemporaryDirectory(prefix="s22-p258-plan-") as name:

@@ -77,6 +77,10 @@
       "a600000.dwc3",
       "dummy_udc.0"
     ],
+    "udc_entries_provenance": {
+      "kind": "backfilled_from_tracked_live_report",
+      "source": "docs/reports/S22PLUS_NATIVE_INIT_M5_USB_ACM_ROOTCAUSE_HOSTANALYSIS_2026-07-07.md"
+    },
     "udc_state": "configured"
   },
   "target": "SM-S906N/g0q/S906NKSS7FYG8",

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -88,6 +89,10 @@ COMMON_SOURCE_PATHS.update(
             "workspace/public/src/scripts/revalidation/"
             "s22plus_fyg8_p258_linked_audit.py"
         ),
+        "stock_topology_oracle": Path(spec.STOCK_TOPOLOGY_PATH),
+        "stock_topology_evidence": Path(
+            spec.STOCK_TOPOLOGY_EVIDENCE_PATH
+        ),
     }
 )
 SOURCE_KEYS = frozenset((*GENERATED_KEYS, *COMMON_SOURCE_PATHS))
@@ -157,10 +162,31 @@ def _replace_span(
     return data[:first] + replacement + data[last:]
 
 
+def _render_semantic_helpers() -> bytes:
+    return b"""static long p258_udc_decision(
+    unsigned int exact,
+    int target_is_symlink,
+    int target_basename_matches) {
+    if (exact == 0U) {
+        return -ENODEV;
+    }
+    if (exact != 1U || !target_is_symlink || !target_basename_matches) {
+        return -EIO;
+    }
+    return 0;
+}
+
+static int p258_should_start_udc_dwell(unsigned int completed) {
+    return completed == S22_P258_UDC_GATE_INDEX;
+}
+
+"""
+
+
 def _render_udc_predicate() -> bytes:
     target = spec.UDC_TARGET_NAME
     path = spec.UDC_TARGET_PATH
-    return f"""static long p241_check_udc(void) {{
+    return _render_semantic_helpers() + f"""static long p241_check_udc(void) {{
     uint8_t buffer[S22_P241_DIRENT_BUFFER_SIZE];
     unsigned int exact = 0;
     long fd = sys_openat("/sys/class/udc", O_RDONLY | O_CLOEXEC, 0);
@@ -208,11 +234,9 @@ def _render_udc_predicate() -> bytes:
     if (close_rc != 0) {{
         return close_rc;
     }}
-    if (exact == 0U) {{
-        return -ENODEV;
-    }}
-    if (exact != 1U) {{
-        return -EIO;
+    long decision = p258_udc_decision(exact, 1, 1);
+    if (decision != 0) {{
+        return decision;
     }}
 
     struct s22_p241_kernel_stat stat_buffer = {{0}};
@@ -223,7 +247,7 @@ def _render_udc_predicate() -> bytes:
         return stat_rc == -ENOENT ? -ENODEV : stat_rc;
     }}
     if ((stat_buffer.st_mode & S_IFMT) != S_IFLNK) {{
-        return -EIO;
+        return p258_udc_decision(exact, 0, 0);
     }}
     long target_size = p241_readlinkat(
         "{path}", link_target, sizeof(link_target));
@@ -233,11 +257,33 @@ def _render_udc_predicate() -> bytes:
     if (target_size <= 0 || target_size >= (long)sizeof(link_target)) {{
         return target_size < 0 ? target_size : -EIO;
     }}
-    return p241_basename_equals(
-        link_target, (size_t)target_size, "{target}") ? 0 : -EIO;
+    return p258_udc_decision(
+        exact,
+        1,
+        p241_basename_equals(
+            link_target, (size_t)target_size, "{target}"));
 }}
 
 """.encode("ascii")
+
+
+def _render_udc_progress() -> bytes:
+    return (
+        b"                ++completed;\n"
+        b"                if (p258_should_start_udc_dwell(completed)) {\n"
+        b"                    if (p241_clock_gettime(&deadline) != 0 ||\n"
+        b"                        deadline.tv_sec > 0x7fffffffffffffffLL -\n"
+        b"                            S22_P258_UDC_DWELL_SEC) {\n"
+        b"                        fail_at(\n"
+        b"                            S22_P258_UDC_STAGE,\n"
+        b"                            S22_P258_UDC_GATE_INDEX,\n"
+        b"                            -EIO);\n"
+        b"                    }\n"
+        b"                    deadline.tv_sec += S22_P258_UDC_DWELL_SEC;\n"
+        b"                    post_grace_drain = 0;\n"
+        b"                }\n"
+        b"                advanced = 1;\n"
+    )
 
 
 def _transform_runtime(data: bytes) -> bytes:
@@ -270,26 +316,10 @@ def _transform_runtime(data: bytes) -> bytes:
         b"                ++completed;\n"
         b"                advanced = 1;\n"
     )
-    new_progress = (
-        b"                ++completed;\n"
-        b"                if (completed == S22_P258_UDC_GATE_INDEX) {\n"
-        b"                    if (p241_clock_gettime(&deadline) != 0 ||\n"
-        b"                        deadline.tv_sec > 0x7fffffffffffffffLL -\n"
-        b"                            S22_P258_UDC_DWELL_SEC) {\n"
-        b"                        fail_at(\n"
-        b"                            S22_P258_UDC_STAGE,\n"
-        b"                            S22_P258_UDC_GATE_INDEX,\n"
-        b"                            -EIO);\n"
-        b"                    }\n"
-        b"                    deadline.tv_sec += S22_P258_UDC_DWELL_SEC;\n"
-        b"                    post_grace_drain = 0;\n"
-        b"                }\n"
-        b"                advanced = 1;\n"
-    )
     return _replace_exact(
         value,
         old_progress,
-        new_progress,
+        _render_udc_progress(),
         label="P2.58A dedicated UDC dwell",
     )
 
@@ -343,6 +373,10 @@ def _historical_audit(root: Path) -> dict[str, Any]:
 def _topology_oracle_audit(root: Path) -> dict[str, Any]:
     path = root / spec.STOCK_TOPOLOGY_PATH
     data = p252.p233.read_direct(path, "P2.58A stock topology oracle")
+    evidence_path = root / spec.STOCK_TOPOLOGY_EVIDENCE_PATH
+    evidence = p252.p233.read_direct(
+        evidence_path, "P2.58A stock topology evidence"
+    )
     try:
         value = json.loads(data.decode("ascii"))
     except (UnicodeError, json.JSONDecodeError) as exc:
@@ -350,10 +384,47 @@ def _topology_oracle_audit(root: Path) -> dict[str, Any]:
             "P2.58A stock topology oracle is not ASCII JSON"
         ) from exc
     entries = value.get("sysfs", {}).get("udc_entries")
+    provenance = value.get("sysfs", {}).get("udc_entries_provenance")
     expected = [spec.UDC_TARGET_NAME, spec.UDC_STOCK_PEER]
     if entries != expected:
         raise SourceContractError(
             "P2.58A stock topology does not pin the two-UDC oracle"
+        )
+    backfilled_provenance = {
+        "kind": "backfilled_from_tracked_live_report",
+        "source": spec.STOCK_TOPOLOGY_EVIDENCE_PATH,
+    }
+    direct_provenance = {
+        "kind": "direct_readonly_collection",
+        "collector": spec.STOCK_TOPOLOGY_COLLECTOR_SCHEMA,
+    }
+    if provenance not in (backfilled_provenance, direct_provenance):
+        raise SourceContractError(
+            "P2.58A stock topology provenance changed"
+        )
+    evidence_text = evidence.decode("utf-8")
+    if (
+        "/sys/class/udc/" not in evidence_text
+        or spec.UDC_TARGET_NAME not in evidence_text
+        or spec.UDC_STOCK_PEER not in evidence_text
+    ):
+        raise SourceContractError(
+            "P2.58A tracked stock evidence lost the two-UDC claim"
+        )
+    if provenance == direct_provenance and (
+        value.get("schema") != spec.STOCK_TOPOLOGY_COLLECTOR_SCHEMA
+        or value.get("result") != "pass-stock-topology-partial"
+        or value.get("target") != spec.TARGET
+        or value.get("stock_state", {}).get("identity_exact") is not True
+        or value.get("sysfs", {}).get("udc_entries_read_ok") is not True
+        or value.get("sysfs", {}).get("udc_target_is_symlink") is not True
+        or Path(
+            value.get("sysfs", {}).get("udc_target_link", "")
+        ).name
+        != spec.UDC_TARGET_NAME
+    ):
+        raise SourceContractError(
+            "P2.58A direct stock topology identity is incomplete"
         )
     cases = []
     for case in spec.UDC_ORACLE_CASES:
@@ -374,11 +445,106 @@ def _topology_oracle_audit(root: Path) -> dict[str, Any]:
         )
     return {
         "topology": receipt(data),
+        "evidence": receipt(evidence),
+        "provenance": provenance,
         "known_good_entries": entries,
         "cases": cases,
         "case_count": len(cases),
         "known_good_passed": True,
         "unrelated_peer_passed": True,
+        "verified": True,
+    }
+
+
+def _native_semantic_audit(runtime: bytes) -> dict[str, Any]:
+    helper = _render_semantic_helpers()
+    if runtime.count(helper) != 1:
+        raise SourceContractError(
+            "P2.58A generated semantic helper is not exact"
+        )
+    checks = []
+    for index, case in enumerate(spec.UDC_ORACLE_CASES, start=1):
+        exact = case.entries.count(spec.UDC_TARGET_NAME)
+        basename_matches = (
+            case.target_basename == spec.UDC_TARGET_NAME
+        )
+        expected = 1 if case.expected else 0
+        checks.append(
+            "    if ((p258_udc_decision("
+            f"{exact}U, {int(case.target_is_symlink)}, "
+            f"{int(basename_matches)}) == 0) != {expected}) "
+            f"return {index};"
+        )
+    checks.extend(
+        (
+            "    if (!p258_should_start_udc_dwell("
+            "S22_P258_UDC_GATE_INDEX)) return 20;",
+            "    if (p258_should_start_udc_dwell("
+            "S22_P258_UDC_GATE_INDEX - 1U)) return 21;",
+            "    if (p258_should_start_udc_dwell("
+            "S22_P258_UDC_GATE_INDEX + 1U)) return 22;",
+        )
+    )
+    source = (
+        "#define ENODEV 19\n"
+        "#define EIO 5\n"
+        f"#define S22_P258_UDC_GATE_INDEX {spec.UDC_GATE_INDEX}U\n"
+        + helper.decode("ascii")
+        + "int main(void) {\n"
+        + "\n".join(checks)
+        + "\n    return 0;\n}\n"
+    ).encode("ascii")
+    compiler = shutil.which("cc")
+    if compiler is None:
+        raise SourceContractError(
+            "P2.58A native semantic C compiler is unavailable"
+        )
+    with tempfile.TemporaryDirectory(
+        prefix="s22-p258-semantic-"
+    ) as name:
+        directory = Path(name)
+        source_path = directory / "semantic.c"
+        binary_path = directory / "semantic"
+        source_path.write_bytes(source)
+        compile_run = subprocess.run(
+            [
+                compiler,
+                "-std=c11",
+                "-O2",
+                "-Wall",
+                "-Wextra",
+                "-Werror",
+                str(source_path),
+                "-o",
+                str(binary_path),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if compile_run.returncode != 0:
+            raise SourceContractError(
+                "P2.58A native semantic C harness did not compile: "
+                + compile_run.stderr.strip()
+            )
+        execute_run = subprocess.run(
+            [str(binary_path)],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if execute_run.returncode != 0:
+            raise SourceContractError(
+                "P2.58A generated C semantic fixture failed: "
+                f"rc={execute_run.returncode}"
+            )
+        binary = binary_path.read_bytes()
+    return {
+        "source": receipt(source),
+        "binary": receipt(binary),
+        "case_count": len(spec.UDC_ORACLE_CASES),
+        "dwell_trigger_cases": 3,
+        "executed": True,
         "verified": True,
     }
 
@@ -398,12 +564,11 @@ def _generated_semantics(
         "unsigned int exact = 0;",
         'token_equals(entry->d_name, name_size, "a600000.dwc3")',
         '"/sys/class/udc/a600000.dwc3", &stat_buffer,',
-        "if (exact == 0U) {",
-        "if (exact != 1U) {",
+        "long decision = p258_udc_decision(exact, 1, 1);",
         "#define S22_P258_UDC_GATE_INDEX 11U",
         "#define S22_P258_UDC_STAGE 0x87U",
         "#define S22_P258_UDC_DWELL_SEC 5LL",
-        "if (completed == S22_P258_UDC_GATE_INDEX) {",
+        "if (p258_should_start_udc_dwell(completed)) {",
         "deadline.tv_sec += S22_P258_UDC_DWELL_SEC;",
     )
     if any(runtime.count(token) != 1 for token in required):
@@ -414,10 +579,16 @@ def _generated_semantics(
     )
     if any(token in runtime for token in forbidden):
         raise SourceContractError("P2.58A retained global UDC cardinality")
+    predicate = _render_udc_predicate().decode("ascii")
+    progress = _render_udc_progress().decode("ascii")
+    if runtime.count(predicate) != 1 or runtime.count(progress) != 1:
+        raise SourceContractError(
+            "P2.58A generated critical block drifted"
+        )
     if runtime.count("post_grace_drain = 0;") != 2:
         raise SourceContractError("P2.58A UDC drain reset drifted")
     reset = runtime.index(
-        "if (completed == S22_P258_UDC_GATE_INDEX) {"
+        "if (p258_should_start_udc_dwell(completed)) {"
     )
     clear = runtime.index("post_grace_drain = 0;", reset)
     advanced = runtime.index("advanced = 1;", clear)
@@ -431,6 +602,9 @@ def _generated_semantics(
         "global_udc_cardinality_removed": True,
         "exact_membership_and_identity_required": True,
         "dedicated_udc_dwell_seconds": spec.UDC_DWELL_SECONDS,
+        "generated_c_semantic_harness": _native_semantic_audit(
+            generated["runtime"]
+        ),
         "verified": True,
     }
 

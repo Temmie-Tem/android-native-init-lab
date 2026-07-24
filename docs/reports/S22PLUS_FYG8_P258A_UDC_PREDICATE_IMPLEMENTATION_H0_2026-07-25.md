@@ -2,7 +2,8 @@
 
 Date: 2026-07-25 KST
 Tier: H0
-Status: `PASS_P258A_UDC_PREDICATE_IMPLEMENTATION_HOST_ONLY`
+Status: `PASS_P258A_UDC_PREDICATE_IMPLEMENTATION_HOST_ONLY`;
+`INDEPENDENT_REVIEW_GO`
 Live authority: none
 
 ## Result
@@ -38,17 +39,23 @@ review and static check.
 P2.58A closes that class of failure with executable external ground truth:
 
 1. `stock-usb-runtime-topology.json` now records the complete known-good UDC
-   member set, not only the selected gadget UDC.
+   member set and explicitly identifies the earlier tracked live report from
+   which that field was backfilled. Both files are candidate source receipts.
 2. `s22plus_fyg8_p258_contract_spec.py` is the single semantic oracle for the
    target name, symlink identity, dwell, and fixture expectations.
-3. Contract generation refuses to proceed unless the canonical stock topology
-   is exactly the measured `a600000.dwc3 + dummy_udc.0` state.
-4. The oracle executes known-good, negative, malformed, duplicate, and
-   unrelated-peer cases. It explicitly demonstrates that the retired
-   singleton predicate rejects the known-good stock state.
+3. Implementation and candidate qualification refuse to proceed unless the
+   canonical stock topology and its cited evidence agree on
+   `a600000.dwc3 + dummy_udc.0`.
+4. The decision helper embedded in the generated runtime is compiled for the
+   host and executes known-good, negative, duplicate, identity, and
+   unrelated-peer cases plus three dwell-trigger cases. It explicitly
+   demonstrates that the retired singleton predicate rejects the known-good
+   stock state.
 5. Mutation tests remove the target or peer from the canonical topology and
    require fail-closed rejection.
-6. P2.57 checkpoint, plan, and kernel-patch SHA256 values are pinned. Any
+6. Mutation tests reject inverted identity logic, drain re-enable, missing
+   topology members, and changed expected results.
+7. P2.57 checkpoint, plan, and kernel-patch SHA256 values are pinned. Any
    accidental kernel-contract drift fails generation instead of silently
    triggering another expensive build.
 
@@ -75,6 +82,11 @@ The host oracle fixes the intended truth table:
 | duplicate target model input | fail |
 | wrong target type or symlink identity | fail |
 
+The two UDC names are historical live evidence. The symlink-type and basename
+rows are executable contract fixtures, not claims that the July 9 collector
+captured those metadata. The read-only stock collector now records entry names,
+target link type, and target destination for future refreshes.
+
 After gate index 10, DWC3 core stage `0x86`, succeeds, the runtime resets its
 monotonic deadline to five seconds and disables the inherited zero-wait drain.
 Earlier regression checks remain active. No sleep or deadline is added to the
@@ -91,11 +103,14 @@ The source contract produced:
 - unchanged P2.57 60-module plan receipt:
   `b68a6c4d5bafa864f91e0be21c53aefc5a288741c0b8870833ea603a26e3f015`;
 - new P2.58A runtime receipt:
-  `70866617ae90b0aecba444dfb2bb2f11ca500828ada8207b29cc0d8e3bb75284`;
+  `c6e36729b7603caacc1c026a57b163678bb749ae2a578da9f8eebdb6af63cfa6`;
 - linked static userspace receipt:
   `db4b19caf659d8bc4a8fe872b3a446cc4510acafbfb712ed524c82c59672a362`;
   and
 - byte-identical output from two independent static AArch64 userspace links.
+  The linked binary remains identical to the pre-hardening P2.58A result
+  because the compiler inlines the new pure helpers into equivalent runtime
+  code.
 
 The materialized kernel patch clean-applies to the pinned source. The source
 contract, stock-closure selector, linked-audit selector, and proof-bound build
@@ -104,9 +119,38 @@ adapter all recognize the versioned P2.58A contract.
 Focused validation passed:
 
 ```text
-P2.57 + P2.58A combined: 25 tests
-P2.45/P2.48/P2.52/P2.54/P2.57/P2.58A historical set: 74 tests
+P2.57 + P2.58A combined: 31 tests
+historical source/pivot contracts plus stock collector: 87 tests
+stock collector focused: 7 tests
 ```
+
+## Independent Review And Repair
+
+The first independent execution-closure review returned `NO-GO` despite the
+current runtime itself tracing correctly. It found that:
+
+- Python fixtures did not execute or exactly bind the generated C;
+- the topology oracle and its source report were absent from candidate identity
+  receipts;
+- the P2.58A closure adapter returned P2.57 labels and had a broken standalone
+  entrypoint; and
+- the newly extended stock collector initially violated its own shell-token
+  rule and later accepted partial stdout despite a failed directory read.
+
+The repair embeds pure decision and dwell-trigger helpers in the production
+generated runtime, executes those exact bytes in a host-native C harness,
+requires exact critical blocks, and rejects the reviewer-provided identity and
+drain mutations. Candidate-intent integration now proves that both topology
+sources are identity inputs. The closure adapter has version-correct labels.
+
+The collector now requires successful UDC-directory read, exact two-member
+topology, symlink status, and target basename. Directly collected topology is
+accepted only with exact collector schema, pass result, target, stock identity,
+read success, and link identity. Historical backfill remains separately and
+honestly labeled.
+
+After those repairs the same reviewer returned `GO` with no remaining
+actionable finding. No device or image work occurred during either review.
 
 ## Proof Boundary
 
@@ -127,8 +171,7 @@ configfs write follows from this H0 result.
 
 ## Next Bounded Unit
 
-Run one independent execution-closure review of the runtime-only delta, then
-materialize the static userspace payload and prove through the linked audit
+Materialize the static userspace payload and prove through the linked audit
 that the packaged candidate uses the exact already-qualified P2.57 kernel
 Image. Only after deterministic boot-only packaging, Process v2 preflight,
 connected D0, and fresh exact approval may a new F1 be considered.

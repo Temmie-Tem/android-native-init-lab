@@ -39,9 +39,14 @@ or internal descriptor consistency is insufficient.
 
 For P2.58A the canonical stock snapshot is
 `docs/module-map/s22plus-fyg8/stock-usb-runtime-topology.json`. Its
-`sysfs.udc_entries` field must contain both observed UDC names. Source-contract
-validation fails if the field is absent, malformed, or differs from the
-descriptor's known-good fixture.
+`sysfs.udc_entries` field must contain both observed UDC names and identify the
+tracked live report from which that field was backfilled. Both the snapshot and
+the cited report are bound into candidate source receipts. Source-contract
+validation fails if either source is absent, malformed, loses the two names, or
+differs from the descriptor's known-good fixture. Symlink type and basename
+remain synthetic negative/positive contract fixtures until a future D0
+collector refreshes those fields; they are not misrepresented as July 9
+measurements.
 
 This is intentionally a focused guard, not a new repository-wide policy
 engine. Future classifier families should reuse the same positive/negative/
@@ -121,7 +126,10 @@ Required cases:
 
 Mutation validation must show that removing the peer case, changing its
 expected result, changing the target name, or restoring global singleton
-cardinality is rejected.
+cardinality is rejected. The decision helper embedded in the actual generated
+runtime must also compile and execute natively against all seven cases. Exact
+critical-block validation must reject an inverted identity condition or a
+post-clear drain re-enable.
 
 ## Safety Boundary
 

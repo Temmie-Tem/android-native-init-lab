@@ -20,6 +20,7 @@ EXPECTED_MODEL = "SM-S906N"
 EXPECTED_DEVICE = "g0q"
 EXPECTED_INCREMENTAL = "S906NKSS7FYG8"
 EXPECTED_USB_ID = "04e8:6860"
+SCHEMA = "s22plus_stock_usb_topology_readonly_v1"
 DEFAULT_RUN_ROOT = Path("workspace/private/runs")
 DEFAULT_PUBLISH = Path("docs/module-map/s22plus-fyg8/stock-usb-runtime-topology.json")
 
@@ -88,6 +89,11 @@ DEVICE_COMMANDS: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
         "dwc3_role_object",
         ("su", "-c", "ls -la /sys/class/usb_role/a600000.dwc3-role-switch/"),
+    ),
+    ("udc_entries", ("su", "-c", "ls -1 /sys/class/udc")),
+    (
+        "udc_target_link",
+        ("su", "-c", "readlink /sys/class/udc/a600000.dwc3"),
     ),
     ("udc_state", ("su", "-c", "cat /sys/class/udc/a600000.dwc3/state")),
     ("typec_port_path", ("su", "-c", "readlink -f /sys/class/typec/port0")),
@@ -291,6 +297,17 @@ def summarize(
     dwc3_of_node = commands["dwc3_of_node"]["stdout"].strip() or symlink_target(
         commands["dwc3_platform"]["stdout"], "of_node"
     )
+    udc_entries = sorted(
+        line.strip()
+        for line in commands["udc_entries"]["stdout"].splitlines()
+        if line.strip()
+    )
+    udc_entries_read_ok = commands["udc_entries"]["rc"] == 0
+    udc_target_link = commands["udc_target_link"]["stdout"].strip()
+    udc_target_is_symlink = (
+        commands["udc_target_link"]["rc"] == 0
+        and bool(udc_target_link)
+    )
     sysfs = {
         "ssusb_driver": commands["ssusb_driver"]["stdout"].strip(),
         "dwc3_driver": commands["dwc3_driver"]["stdout"].strip(),
@@ -299,6 +316,14 @@ def summarize(
         "ssusb_role_switch_present": "a600000.ssusb-role-switch" in role_listing,
         "dwc3_role_switch_present": "a600000.dwc3-role-switch" in role_listing,
         "ssusb_role": commands["ssusb_role"]["stdout"].strip(),
+        "udc_entries": udc_entries,
+        "udc_entries_read_ok": udc_entries_read_ok,
+        "udc_entries_provenance": {
+            "kind": "direct_readonly_collection",
+            "collector": SCHEMA,
+        },
+        "udc_target_is_symlink": udc_target_is_symlink,
+        "udc_target_link": udc_target_link,
         "udc_state": commands["udc_state"]["stdout"].strip(),
         "gadget_udc": commands["gadget_udc"]["stdout"].strip(),
         "ssusb_suppliers": sorted(set(re.findall(r"supplier:[^\s]+", commands["ssusb_platform"]["stdout"]))),
@@ -341,6 +366,10 @@ def summarize(
         sysfs["ssusb_role_switch_present"],
         sysfs["dwc3_role_switch_present"],
         sysfs["ssusb_role"] == "device",
+        sysfs["udc_entries_read_ok"],
+        sysfs["udc_entries"] == ["a600000.dwc3", "dummy_udc.0"],
+        sysfs["udc_target_is_symlink"],
+        Path(sysfs["udc_target_link"]).name == "a600000.dwc3",
         sysfs["udc_state"] == "configured",
         sysfs["gadget_udc"] == "a600000.dwc3",
         typec_state["data_role"] == "device",
@@ -478,7 +507,7 @@ def main(argv: list[str] | None = None) -> int:
     summary, commands = collect(serial)
     summary.update(
         {
-            "schema": "s22plus_stock_usb_topology_readonly_v1",
+            "schema": SCHEMA,
             "captured_at_utc": utc_now(),
             "serial": "<S22_SERIAL_REDACTED>",
             "private_run": rel(run_dir),
