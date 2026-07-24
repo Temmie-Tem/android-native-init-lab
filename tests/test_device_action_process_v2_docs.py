@@ -3,6 +3,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+GOAL_REVIEW_THRESHOLD_LINES = 800
+GOAL_HARD_MAX_LINES = 900
 
 
 class DeviceActionProcessV2DocsTest(unittest.TestCase):
@@ -26,7 +28,14 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
 
     def test_active_contracts_remain_small(self):
         self.assertLessEqual(len(self.agents.splitlines()), 220)
-        self.assertLessEqual(len(self.goal.splitlines()), 150)
+        self.assertLessEqual(
+            len(self.goal.splitlines()),
+            GOAL_HARD_MAX_LINES,
+            (
+                "GOAL.md exceeds its hard limit; review completed history for "
+                f"archival after {GOAL_REVIEW_THRESHOLD_LINES} lines"
+            ),
+        )
         self.assertLessEqual(len(self.claude.splitlines()), 40)
 
     def test_no_candidate_policy_is_active(self):

@@ -163,6 +163,8 @@ the known healthy state. Candidate boot or Odin success alone is not PASS.
 ## Development and Commit Discipline
 
 - Read `GOAL.md`, inspect `git status --short`, and keep edits scoped.
+- Keep `GOAL.md` near a 500-700 line working target. Review completed history
+  for archival above 800 lines; 900 lines is the hard limit.
 - Use canonical paths under `workspace/public/src/`, `workspace/private/`, and
   `docs/`. Do not recreate legacy root trees.
 - Validate touched Python with `py_compile` and focused tests. Cross-compile
