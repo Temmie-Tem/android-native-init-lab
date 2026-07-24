@@ -42,6 +42,11 @@ P2.55의 versioned evidence verifier 수정, 첫 retained-baseline 중단, 한
 `reports/S22PLUS_FYG8_P255_CONNECTED_D0_PREPARED_PASS_2026-07-24.md`에
 기록합니다. prepared binding 자체는 F1 권한이 아닙니다.
 
+그 binding을 소비한 P2.55 F1의 exact `0xa04` qnoc MC virtual bind 부재,
+rollback 후 USB 측정 편차, journal recovery, 최종 건강 결과는
+`reports/S22PLUS_FYG8_P255_F1_LIVE_QNOC_MC_VIRT_ABSENT_2026-07-24.md`에
+기록합니다.
+
 R4W1-D가 증명한 PID1 진입 이후의 최소 runtime, retained A/B checkpoint,
 child exec/reap, USB bind/UDC, ACM 단방향, 고정 1회 왕복 순서는
 `plans/S22PLUS_FYG8_POST_PID1_OBSERVABLE_RUNTIME_ARCHITECTURE_2026-07-21.md`에

@@ -13,25 +13,27 @@ Do not add a device step when host-only work can answer the question.
 ## Current Live Posture
 
 - No S22+ F1 live run is currently authorized.
-- P2.54 has one exact host-qualified proof-bound SSUSB classifier candidate.
-  P2.55 fixed the downstream versioned reachable-record verifier without
-  changing the kernel, userspace, boot image, candidate AP, or rollback AP.
-- The first P2.55 connected D0 stopped read-only on a historical retained
-  family. It created no prepared binding, transaction, Odin session, or
-  transfer.
-- One operator-preapproved normal Android reboot ran exactly once. The target
-  disconnected and reconnected, but the D1 recorder rejected an empty
-  early-boot `sys.boot_completed` value before completing its timeline. No
-  second reboot ran. A private incident record preserves that reporting
-  deviation, and the fresh D0 below independently proves final health.
-- The second P2.55 connected D0 passed exact target, Android/FYG8/root/boot
-  health, rollback, candidate, clean retained baseline, Odin absence, and the
-  current execution closure. Its private prepared binding reopens cleanly and
-  has no transaction. It is unconsumed but grants no F1 authority.
-- The operator's standing approval explicitly excludes a new-build flash.
-  Only the exact fresh token from that prepared binding can authorize one
-  candidate attempt and its mandatory rollback. Do not place that token in
-  tracked files.
+- P2.55 consumed one exact approval and transferred the P2.54 proof-bound
+  SSUSB classifier candidate once. The operator observed no candidate boot
+  loop.
+- Two byte-identical retained reads contain one exact E2 terminal-failure
+  record. Generation 76 passed `gcc-waipio` at stage `0x83`; generation 77
+  failed the stage `0x84`, item 9 SSUSB frontier with detail `0xa04`,
+  `qnoc-mc-virt-bind-absent`. This is the classifier-time absence of the exact
+  qnoc MC virtual bind symlink, not a permanent-root-cause verdict.
+- One exact Magisk rollback transfer completed. The first execution process
+  then stopped fail-closed on a post-rollback measured-USB evidence error
+  after the durable journal had reached `ROLLBACK_FLASHED`. It did not retry
+  the candidate or rollback. Recovery resumed from that journal state and
+  performed final verification only.
+- The transaction is `CLOSED`. Android/FYG8/root/boot and supporting-partition
+  health, Odin absence, byte-identical retained reads, and all eight canonical
+  timeline events passed. The durable verdict is
+  `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; recovery is not required.
+- The binding and approval are consumed. Before another F1, use H0 to analyze
+  the qnoc MC virtual bind boundary and the unpreserved inner cause of the
+  post-rollback USB measurement failure. A new candidate still requires a new
+  H0 closure, D0 preparation, and exact approval.
 
 ## Permanent Safety Boundaries
 

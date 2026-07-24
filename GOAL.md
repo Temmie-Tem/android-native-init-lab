@@ -20,7 +20,8 @@ AND SSUSB TIMEOUT; EXACT ROLLBACK AND FINAL HEALTH PASS; P2.52 SSUSB
 CLASSIFIER IMPLEMENTATION H0 PASS; P2.53 FINAL-PROOF GAP CAUGHT H0;
 P2.54 PROOF-BOUND REPRODUCIBLE CLASSIFIER CANDIDATE H0 PASS; P2.55
 REACHABLE-CONTRACT VERIFIER FIX H0 PASS; P2.55 CONNECTED D0 PREPARED PASS;
-EXACT F1 APPROVAL NEXT.**
+P2.55 F1 QNOC-MC-VIRT BIND ABSENT; EXACT ROLLBACK AND FINAL HEALTH PASS;
+P2.56 FOCUSED H0 ANALYSIS NEXT.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -325,6 +326,28 @@ F1 authority. The operator's standing approval excludes a new-build flash;
 the next action requires the exact fresh approval token emitted by this
 binding.
 
+That exact approval was supplied and consumed. One exact P2.54 candidate
+transfer completed, and the operator observed no candidate boot loop. Two
+byte-identical retained reads contain one exact E2 terminal-failure record:
+generation 76 passed `gcc-waipio` at stage `0x83`, item 8; generation 77
+failed at the stage `0x84`, item 9 SSUSB frontier with detail `0xa04`,
+`qnoc-mc-virt-bind-absent`. The record has no integrity, foreign, historical,
+partial, fallback, or UNSAT issue. It proves that the candidate reached the
+classifier and that the exact qnoc MC virtual bind symlink was absent at the
+settled classification instant. It does not prove a permanent root cause,
+SSUSB bind, DWC3, UDC, USB, or terminal success.
+
+One exact Magisk rollback transfer completed. The initial execution process
+then stopped fail-closed on `measured USB endpoint evidence failed` while
+checking post-rollback endpoint departure. The journal was already durable at
+`ROLLBACK_FLASHED`; neither candidate nor rollback was repeated. Android MTP
+returned, and Process v2 recovery resumed from that state to perform final
+verification only. Android/FYG8/root/boot and supporting-partition health,
+Odin absence, byte-identical retained reads, and all eight timeline events
+passed. The transaction is `CLOSED`, recovery is not required, and the formal
+verdict is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. The binding and approval
+are consumed.
+
 ## Established Evidence
 
 - R4W1-A: custom Android `/init` marker retained and rollback passed.
@@ -470,6 +493,7 @@ Load-bearing details are in:
 - `docs/reports/S22PLUS_FYG8_P254_PROOF_BOUND_SSUSB_CLASSIFIER_CANDIDATE_H0_PASS_2026-07-24.md`
 - `docs/reports/S22PLUS_FYG8_P255_REACHABLE_CONTRACT_VERIFIER_FIX_H0_2026-07-24.md`
 - `docs/reports/S22PLUS_FYG8_P255_CONNECTED_D0_PREPARED_PASS_2026-07-24.md`
+- `docs/reports/S22PLUS_FYG8_P255_F1_LIVE_QNOC_MC_VIRT_ABSENT_2026-07-24.md`
 - `docs/operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
@@ -610,10 +634,20 @@ reports grant no device authority.
     exact health, rollback, candidate, clean baseline, Odin absence, and the
     current closure. One private prepared binding exists and reopens cleanly.
     It has no transaction and grants no F1 authority.
-36. **P2.55 exact F1 approval next:** only the exact token emitted by the
-    prepared binding may start one P2.54 candidate attempt and its mandatory
-    rollback. The standing non-flash approval does not cover this transfer.
-37. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
+36. **P2.55 complete/closed, F1:** one exact candidate and rollback transfer
+    completed. Two byte-identical retained reads contain one exact failure:
+    generation 76 passed `0x83`; generation 77 failed stage `0x84`, item 9
+    with classifier detail `0xa04`, `qnoc-mc-virt-bind-absent`. Final health
+    and all eight timeline events passed after journal-based recovery from a
+    post-rollback USB measurement error. The formal verdict is no-proof
+    because terminal success was not observed. Binding and approval are
+    consumed.
+37. **P2.56 next, H0:** close the exact qnoc MC virtual DT/source/module/probe
+    boundary and determine whether the missing bind is dependency, ordering,
+    node-selection, or timing evidence. Separately preserve and classify the
+    inner post-rollback USB measurement exception before another F1. Do not
+    build or flash until those bounded host questions are closed.
+38. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
