@@ -53,6 +53,13 @@ rollback 후 USBFS inventory 전환 재구성과 fail-closed 관측 보강안은
 `reports/S22PLUS_FYG8_P256_QNOC_MC_VIRT_AND_ODIN_OBSERVER_H0_2026-07-24.md`에
 기록합니다.
 
+P2.57의 Unit A 구현 전 `PART_DISPLAY` stock D0 판정, 조건부 versioned
+60-module/81-step qnoc display closure, transaction/recovery와 분리되고
+원래 outer error를 보존하는 Odin USBFS diagnostic receipt, 정적 검증 및
+독립 안전 검토 범위는
+`reports/S22PLUS_FYG8_P257_QNOC_CLOSURE_AND_ODIN_DIAGNOSTIC_DESIGN_H0_2026-07-24.md`에
+정의합니다.
+
 R4W1-D가 증명한 PID1 진입 이후의 최소 runtime, retained A/B checkpoint,
 child exec/reap, USB bind/UDC, ACM 단방향, 고정 1회 왕복 순서는
 `plans/S22PLUS_FYG8_POST_PID1_OBSERVABLE_RUNTIME_ARCHITECTURE_2026-07-21.md`에

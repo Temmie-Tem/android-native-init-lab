@@ -22,7 +22,7 @@ P2.54 PROOF-BOUND REPRODUCIBLE CLASSIFIER CANDIDATE H0 PASS; P2.55
 REACHABLE-CONTRACT VERIFIER FIX H0 PASS; P2.55 CONNECTED D0 PREPARED PASS;
 P2.55 F1 QNOC-MC-VIRT BIND ABSENT; EXACT ROLLBACK AND FINAL HEALTH PASS;
 P2.56 QNOC FOCUSED HYPOTHESIS AND ODIN OBSERVER ANALYSIS H0 PASS;
-P2.57 BOUNDED H0 DESIGN NEXT.**
+P2.57 BOUNDED QNOC/ODIN DESIGN H0 PASS; IMPLEMENTATION NEXT.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -373,6 +373,18 @@ rather than a direct record. The next runner change must preserve a typed
 bounded failure receipt without weakening endpoint acceptance or changing
 transfer/recovery behavior.
 
+P2.57 defines two independent implementation units. A minimal stock-pivot
+reader and focused D0 first read `/sys/devices/soc0/display` and
+`subset_parts`; only a stable display-enabled result permits Unit A. That new
+versioned E2 source contract inserts only `dispcc-waipio.ko` between
+`icc-rpmh.ko` and `qnoc-waipio.ko`, derives an 81-step sequence, and adds exact
+display-clock, display-RSC, and display-BCM-voter classifier coordinates before
+the existing mc_virt check. Independently, the Odin observer records a sealed
+bounded diagnostic failure for the exact final-evidence boundary outside
+successful snapshot sequence, endpoint generation, the transaction index, and
+recovery decisions. Diagnostic publication never replaces the original
+fail-closed error.
+
 ## Established Evidence
 
 - R4W1-A: custom Android `/init` marker retained and rollback passed.
@@ -678,13 +690,16 @@ reports grant no device authority.
     and the qnoc return code remain unobserved. Exact USBFS receipt replay also
     reproduces the generic post-rollback observer error and identifies the
     missing durable inner exception.
-38. **P2.57 next, H0:** execute two independent bounded subunits, not one
-    coupled redesign. First add `dispcc-waipio.ko` plus exact
-    display-clock/RSC/voter classifier coordinates before mc_virt. Separately
-    persist a typed USBFS diagnostic failure receipt without changing
-    acceptance, retry, transfer, or recovery semantics. One independent safety
-    review is required for the runner evidence change. Do not build until both
-    host closures pass.
+38. **P2.57 design complete, H0:** implement two independent bounded subunits,
+    not one coupled redesign. First implement the bounded stock-pivot reader;
+    its D0 result must verify display enabled before Unit A is implemented.
+    Unit A is then a new versioned 60-module, 81-step source contract with
+    exact display-clock/RSC/voter coordinates before mc_virt. Independently,
+    Unit B persists one typed final-evidence diagnostic without changing
+    snapshot sequence, generation, index, recovery, or the original outer
+    error. One independent safety review covers Unit B and, if Unit A is
+    promoted, the display-clock side effects. Full-LTO remains after both
+    applicable H0 closures.
 39. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 
