@@ -110,11 +110,13 @@ vendor bootloader
 
 ## Near-Term Roadmap
 
-현재 활성 프론티어는 S22+ FYG8 direct-PID1 실험을 후보별 one-shot
-helper에서 재사용 가능한 Device Action Process v2로 옮기는 작업이다.
-정확한 상태와 다음 단계는 `GOAL.md`, 실행 규칙은 `AGENTS.md`, 공용 F1
-설계는 `docs/operations/DEVICE_ACTION_PROCESS_V2.md`를 기준으로 한다.
-현재 live authorization은 없다.
+S22+ FYG8에서 custom PID 1과 최소 native userspace runtime은 이미 검증됐고,
+현재 활성 프론티어는 그 위에서 USB device-controller/gadget 경로(UDC
+bring-up)를 boot-only F1로 관측·확보하는 작업이다. 공용 F1 실행 구조인
+Device Action Process v2는 완료돼 재사용 어댑터로 쓰인다. 정확한 상태와
+다음 bounded unit은 `GOAL.md`, 절대 실행 규칙은 `AGENTS.md`, 공용 F1 설계는
+`docs/operations/DEVICE_ACTION_PROCESS_V2.md`를 기준으로 한다. 현재 live
+authorization은 없다.
 
 A90은 이미 확보한 native-init/runtime 기반을 유지하는 안정화 대상이며,
 기기별 다음 작업은 각각의 rollback identity와 `AGENTS.md` 승인 경계를
@@ -123,7 +125,7 @@ A90은 이미 확보한 native-init/runtime 기반을 유지하는 안정화 대
 ## Repository Layout
 
 - `docs/`
-  현재 문서 인덱스, 프로젝트 상태, v39/v40/v41/v42 상태 보고서, 다음 작업 목록
+  현재 문서 인덱스, 프로젝트 상태, 사이클별 리포트(`docs/reports/`), 다음 작업 목록
 - `workspace/public/src/native-init/`
   current native init source closure
 - `workspace/public/src/scripts/revalidation/`
@@ -137,16 +139,16 @@ A90은 이미 확보한 native-init/runtime 기반을 유지하는 안정화 대
 
 ## Active Documents
 
-전체 문서 목록과 읽는 순서, 사이클별 리포트(v40–V2168+)는 `docs/README.md`를
-정식 인덱스로 한다. 여기서는 자주 여는 진입점만 추린다.
+전체 문서 목록과 읽는 순서, 사이클별 리포트는 `docs/README.md`를 정식
+인덱스로 한다. 여기서는 자주 여는 진입점만 추린다.
 
 현재 상태 / 연구:
 
 - `GOAL.md` — 현재 활성 타깃, frontier, 다음 bounded unit
 - `AGENTS.md` / `CLAUDE.md` — 기기 작업 절대 안전 경계와 운영 계약
-- `docs/plans/S22PLUS_FYG8_R4W1B_DIRECT_PID1_EXEC_ACCEPTANCE_DESIGN_2026-07-13.md`
-  — S22+ 현재 frontier 설계
-- `docs/plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md` — 다음 작업 큐
+- `docs/module-map/s22plus-fyg8/subsystem-usb.md` — S22+ 현재 frontier(USB
+  gadget/UDC bring-up) 서브시스템 맵과 게이트 상태 (frontier·다음 unit 자체는
+  `GOAL.md` 기준)
 - `docs/overview/PROJECT_STATUS.md` — 디바이스 상태 + 버전별 검증 이력
 - `docs/overview/PROGRESS_LOG.md` — 진행 로그
 
@@ -177,7 +179,9 @@ A90은 이미 확보한 native-init/runtime 기반을 유지하는 안정화 대
 - `/data` 암호화 영역은 명확한 목적과 복구 계획 없이는 건드리지 않는다.
 - 파티션은 by-name과 `/sys/class/block/<name>/dev` 기준으로 식별하고 major/minor를 hardcode하지 않는다.
 - 원본 로그와 실험 산출물은 `/cache`, `tmp/wifi/{runs,cache,bench,scratch,archive}`, `workspace/private/`에 남기고, 공개 가능한 redacted 요약만 `docs/reports`, `docs/artifacts`, `workspace/public/`에 남긴다.
-- ADB 안정화는 후순위로 두고, serial/HUD/log/menu 안정화를 먼저 진행한다.
+- (A90 한정) ADB 안정화는 후순위로 두고 serial/HUD/log/menu 안정화를 먼저
+  진행한다. S22+는 시리얼 콘솔이 없어 이 규칙이 적용되지 않으며, 관측은
+  타깃별 검증 채널(S22+는 retained-log/USB gate)을 따른다.
 
 ## Safety Note
 
