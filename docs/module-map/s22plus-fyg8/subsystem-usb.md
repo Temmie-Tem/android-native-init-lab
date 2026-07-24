@@ -160,6 +160,39 @@ failure. That band is currently reserved/rejected, so P2.52 must define the
 exact subset through the existing descriptor SoT and derive both kernel and
 decoder acceptance. It adds no modules and no provider checkpoint stages.
 
+P2.51b closes the lower graph below those two PHY binds. All four FYG8 vendor
+DTBs agree:
+
+```text
+HS PHY:
+  ref_clk_src -> apps RPMh clock
+  ref_clk + reset -> GCC
+  vdd/vdda18/vdda33 -> RPMh ldob5/ldoc1/ldob2
+
+SS PHY:
+  clocks + resets -> GCC and apps RPMh clock
+  vdd/core -> RPMh ldob1/ldob6
+  pinctrl-0 -> f000000.pinctrl
+```
+
+The Waipio TLMM path and five RPMh LDO wrapper paths are now branch-only
+P2.52 classifier inputs at details `0xa08..0xa0d`. They are not new stages.
+Their exact provider modules and recursive hard dependencies are already in
+the 59-module plan.
+
+The USB3 GDSC has no external clock/reset/interconnect/power-domain supplier.
+Its `proxy-supply` points to itself, and matched OF source rejects that
+self-link. Missing GDSC bind therefore remains an internal GDSC probe branch.
+Exact HS/SS module ELF lacks both sysfs imports used by the matched source's
+tuning branch, ruling out `CONFIG_USB_PHY_TUNING_QCOM` as this candidate's bind
+blocker.
+
+One source-visible asymmetry remains only as a conditional lead: HS removes a
+registered PHY when later regulator setup fails, while SS registers before
+regulator acquisition and has no failed-probe `usb_remove_phy()` path. This is
+not live proof of a stale SS PHY. Follow it only if P2.52 proves every nested
+provider bound while SS PHY remains absent.
+
 A `finit_module` return code or `/proc/modules` name proves registration only.
 The next gate advances only after its driver/device path exists. O3 PASS remains
 a framed host/device ACM request-response plus device-reported bind state, not

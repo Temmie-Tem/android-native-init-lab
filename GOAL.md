@@ -501,16 +501,25 @@ reports grant no device authority.
     redriver, and fatal in-probe ICC-get explanations are ruled out. The
     20-second deadline is shared across all gates, so SSUSB had an unknown
     `0..20` second dwell.
-31. **P2.52 next, H0:** implement and statically validate one timeout
+31. **P2.51b complete, H0:** all four vendor DTBs have the same nested
+    HS/SS-PHY closure: five RPMh LDO wrappers plus Waipio TLMM, with GCC and
+    RPMh clocks/resets already upstream. Exact packaged module bytes and every
+    recursive hard dependency are in the existing 59-module plan. GDSC has no
+    external supplier, and exact PHY ELF lacks both sysfs imports required by
+    the matched source's tuning branch. The SS failed-probe cleanup asymmetry
+    is a conditional later lead, not a live result. No module or stage growth
+    is justified.
+32. **P2.52 next, H0:** implement and statically validate one timeout
     classifier at the existing monotonic `0x84` frontier. Read
-    `waiting_for_supplier`, seven fixed provider binds, and two PHY binds;
-    define the exact classifier subset of the currently reserved/rejected
-    `0xa00..0xaff` range in the descriptor SoT, and derive kernel-validator
-    plus host-decoder acceptance. Add no modules or stages. When all
-    dependencies are ready, allow one bounded five-second SSUSB-only grace to
-    distinguish shared-deadline late bind from stable internal failure. Do not
-    build a candidate until this closure passes.
-32. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
+    `waiting_for_supplier`, seven fixed provider binds, six nested TLMM/LDO
+    binds, and two PHY binds as branch-only timeout reads. Define details
+    `0xa01..0xa0d`, `0xa10`, `0xa20..0xa21`, and `0xa30` once in the
+    descriptor SoT, then derive kernel-validator and host-decoder acceptance.
+    Add no modules or stages. When all dependencies are ready, allow one
+    bounded five-second SSUSB-only grace to distinguish shared-deadline late
+    bind from stable internal failure. Do not build a candidate until this
+    closure passes.
+33. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed

@@ -297,3 +297,18 @@ Expected checker verdict:
 ```text
 PASS_P251_SSUSB_DEPENDENCY_AUDIT_HOST_ONLY
 ```
+
+## P2.51b Refinement
+
+The later P2.51b nested-closure audit preserves this verdict but refines the
+bounded discriminator. The SS PHY also has a strict `pinctrl-0` dependency on
+Waipio TLMM, and the two PHYs consume five exact RPMh LDO wrapper devices.
+Those six paths use details `0xa08..0xa0d` as branch-only timeout reads before
+the existing `0xa10`, `0xa20..0xa21`, and `0xa30` outcomes.
+
+No module or stage is added. Exact shipped PHY ELF lacks both sysfs imports
+used by the matched source's `CONFIG_USB_PHY_TUNING_QCOM` branch, so tuning is
+not a bind blocker.
+See
+`S22PLUS_FYG8_P251B_PHY_NESTED_CLOSURE_H0_2026-07-24.md`
+for the source, DT, module, and cleanup-path evidence.
