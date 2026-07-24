@@ -13,7 +13,7 @@ import s22plus_fyg8_p219_same_ring_decoder as same_ring
 import s22plus_fyg8_p230_same_ring_multiboot_decoder as same_ring_multiboot
 import s22plus_fyg8_p233_e1_decoder as e1_latest_stage
 import s22plus_fyg8_p242_e2_stock_closure as e2_closure
-import s22plus_fyg8_p245_e2_stock_closure as p245_e2_closure
+import s22plus_fyg8_p253_e2_stock_closure as e2_closure_selector
 import s22plus_fyg8_source_contracts as source_contracts
 
 
@@ -356,9 +356,7 @@ def validate_e2_ap_payload(
     if source_contract_id is not None:
         _selected_contract(source_contract_id, "E2")
         expected_keys.add("source_contract_id")
-    closure_api = (
-        p245_e2_closure if source_contract_id is not None else e2_closure
-    )
+    closure_api = e2_closure_selector.select(source_contract_id)
     expected = _exact(
         closure,
         expected_keys,
@@ -1676,11 +1674,7 @@ def _verify_e1_latest_stage_offline_contract(
             expected_child=normalized_source_userspace["child"],
         )
     elif profile == "E2":
-        closure_api = (
-            p245_e2_closure
-            if source_contract_id is not None
-            else e2_closure
-        )
+        closure_api = e2_closure_selector.select(source_contract_id)
         try:
             closure = closure_api.validate_module_closure(
                 source_candidate.get("module_closure")

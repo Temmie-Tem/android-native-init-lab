@@ -27,7 +27,7 @@ import s22plus_fyg8_p234_build_repro_check as repro  # noqa: E402
 import s22plus_fyg8_p234_candidate_contract as candidate_contract  # noqa: E402
 import s22plus_fyg8_p234_userspace_build as userspace  # noqa: E402
 import s22plus_fyg8_p242_e2_stock_closure as e2_closure  # noqa: E402
-import s22plus_fyg8_p245_e2_stock_closure as p245_e2_closure  # noqa: E402
+import s22plus_fyg8_p253_e2_stock_closure as e2_closure_selector  # noqa: E402
 
 
 SCHEMA = "s22plus_fyg8_p234_candidate_artifact_result_v1"
@@ -86,6 +86,18 @@ def verify_repro_result(
         or any(item is not True for item in value["byte_identical_artifacts"].values())
     ):
         raise BuildError("P2.34 build reproducibility result is not accepted")
+    if exact_contract.get("source_contract_id") == (
+        "s22plus-fyg8-p254-e2-proof-bound-v1"
+    ) and (
+        value.get("linked_audit", {}).get("audit_adapter")
+        != "s22plus-fyg8-p253-linked-audit-v2"
+        or value.get("linked_audit", {})
+        .get("source_contract_validator", {})
+        .get("writer_guard", {})
+        .get("guard_dominates_retained_stores")
+        is not True
+    ):
+        raise BuildError("P2.54 linked audit adapter mismatch")
     expected_image = value.get("build_a", {}).get("artifacts", {}).get("Image")
     if expected_image != image_receipt:
         raise BuildError("P2.34 supplied Image differs from reproducibility closure")
@@ -228,11 +240,7 @@ def build_candidate(args: argparse.Namespace) -> dict[str, Any]:
             )
     elif exact_contract["profile"] == "E2":
         source_contract_id = exact_contract.get("source_contract_id")
-        closure_api = (
-            p245_e2_closure
-            if source_contract_id is not None
-            else e2_closure
-        )
+        closure_api = e2_closure_selector.select(source_contract_id)
         plan_header = None
         if source_contract_id is not None:
             selected_contract = (

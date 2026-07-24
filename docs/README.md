@@ -31,6 +31,12 @@ host-only 소스 게이트 결과는
 `reports/DEVICE_ACTION_PROCESS_V2_F1_ADAPTER_HOST_PASS_2026-07-21.md`에
 기록하며, production manifest와 실기기 F1 권한은 여전히 비활성입니다.
 
+S22+ FYG8 최종 후보의 preflight, 동일 경로 A/B Full-LTO, linked proof,
+boot-only 패키징, 독립 closure와 offline promotion 순서는
+`operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`에
+고정합니다. 구현 반복에서는 이 전체 빌드를 사용하지 않으며, frozen
+후보의 최종 H0 qualification에만 적용합니다.
+
 R4W1-D가 증명한 PID1 진입 이후의 최소 runtime, retained A/B checkpoint,
 child exec/reap, USB bind/UDC, ACM 단방향, 고정 1회 왕복 순서는
 `plans/S22PLUS_FYG8_POST_PID1_OBSERVABLE_RUNTIME_ARCHITECTURE_2026-07-21.md`에

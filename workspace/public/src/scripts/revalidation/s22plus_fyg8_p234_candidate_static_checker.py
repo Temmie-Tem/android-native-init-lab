@@ -26,7 +26,7 @@ import s22plus_fyg8_p234_build_repro_check as repro  # noqa: E402
 import s22plus_fyg8_p234_candidate_contract as contract  # noqa: E402
 import s22plus_fyg8_p234_userspace_build as userspace  # noqa: E402
 import s22plus_fyg8_p242_e2_stock_closure as e2_closure  # noqa: E402
-import s22plus_fyg8_p245_e2_stock_closure as p245_e2_closure  # noqa: E402
+import s22plus_fyg8_p253_e2_stock_closure as e2_closure_selector  # noqa: E402
 import s22plus_fyg8_r4w1e_e1_candidate_static_checker as e1_static  # noqa: E402
 
 
@@ -225,10 +225,8 @@ def verify_artifact_result(
         ):
             raise CheckError("E1B stock vendor module closure mismatch")
     elif profile == "E2":
-        closure_api = (
-            p245_e2_closure
-            if exact_contract.get("source_contract_id") is not None
-            else e2_closure
+        closure_api = e2_closure_selector.select(
+            exact_contract.get("source_contract_id")
         )
         try:
             closure_api.validate_module_closure(value.get("module_closure"))
@@ -610,11 +608,7 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
         )
     elif exact_contract["profile"] == "E2":
         source_contract_id = exact_contract.get("source_contract_id")
-        closure_api = (
-            p245_e2_closure
-            if source_contract_id is not None
-            else e2_closure
-        )
+        closure_api = e2_closure_selector.select(source_contract_id)
         plan_header = None
         if source_contract_id is not None:
             selected_contract = contract.intent.selected_source_contract(

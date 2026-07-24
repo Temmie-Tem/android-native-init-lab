@@ -73,6 +73,49 @@ class P234CandidateBuilderTest(unittest.TestCase):
             with self.assertRaisesRegex(self.module.BuildError, "not accepted"):
                 self.module.verify_repro_result(path, image, exact_contract)
 
+    def test_p254_requires_exact_linked_adapter_and_store_dominance(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            path, exact_contract, image = self.fixture(root)
+            exact_contract["source_contract_id"] = (
+                "s22plus-fyg8-p254-e2-proof-bound-v1"
+            )
+            result = json.loads(path.read_text(encoding="ascii"))
+            result["candidate_contract"] = exact_contract
+            result["linked_audit"].update(
+                {
+                    "audit_adapter": (
+                        "s22plus-fyg8-p253-linked-audit-v2"
+                    ),
+                    "source_contract_validator": {
+                        "writer_guard": {
+                            "guard_dominates_retained_stores": True
+                        }
+                    },
+                }
+            )
+            path.write_text(json.dumps(result), encoding="ascii")
+            self.module.verify_repro_result(path, image, exact_contract)
+
+            for mutation in (
+                lambda value: value["linked_audit"].pop("audit_adapter"),
+                lambda value: value["linked_audit"][
+                    "source_contract_validator"
+                ]["writer_guard"].update(
+                    {"guard_dominates_retained_stores": False}
+                ),
+            ):
+                with self.subTest(mutation=mutation):
+                    changed = copy.deepcopy(result)
+                    mutation(changed)
+                    path.write_text(json.dumps(changed), encoding="ascii")
+                    with self.assertRaisesRegex(
+                        self.module.BuildError, "P2.54 linked"
+                    ):
+                        self.module.verify_repro_result(
+                            path, image, exact_contract
+                        )
+
     def test_repro_result_rejects_partial_or_extra_artifact_map(self):
         with tempfile.TemporaryDirectory() as name:
             root = Path(name)

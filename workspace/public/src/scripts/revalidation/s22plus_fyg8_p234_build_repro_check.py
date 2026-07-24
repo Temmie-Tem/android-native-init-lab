@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib
 import json
 import os
 import re
@@ -62,6 +63,11 @@ REQUIRED_SYMBOLS = (
     "s22_fyg8_e1_write",
 )
 RANDOM_PRIVATE_PATH_PREFIX = b"/tmp/s22-r4w1b-private-"
+LINKED_VALIDATOR_ADAPTERS = {
+    "s22plus-fyg8-p254-e2-proof-bound-v1": (
+        "s22plus_fyg8_p253_linked_audit"
+    ),
+}
 
 
 class CheckError(ValueError):
@@ -553,6 +559,8 @@ def audit_linked(
     linked_contract_audit = None
     linked_validator_audit = None
     selected_contract_module = None
+    selected_validator_module = None
+    linked_validator_adapter = None
     with tempfile.TemporaryDirectory(prefix="s22-p234-linked-") as temporary:
         staged = {}
         for name, data in captured.items():
@@ -574,6 +582,30 @@ def audit_linked(
                 source_contract_id, "E2"
             )
             selected_contract_module = selected.module
+            selected_validator_module = selected_contract_module
+            adapter_name = LINKED_VALIDATOR_ADAPTERS.get(source_contract_id)
+            if adapter_name is not None:
+                selected_validator_module = importlib.import_module(
+                    adapter_name
+                )
+                if (
+                    getattr(
+                        selected_validator_module,
+                        "EXPECTED_SOURCE_CONTRACT_ID",
+                        None,
+                    )
+                    != source_contract_id
+                ):
+                    raise CheckError(
+                        "linked validator adapter contract mismatch"
+                    )
+                linked_validator_adapter = getattr(
+                    selected_validator_module, "ADAPTER_ID", None
+                )
+                if not isinstance(linked_validator_adapter, str):
+                    raise CheckError(
+                        "linked validator adapter identity is missing"
+                    )
             if hasattr(selected.module, "linked_table_bytes"):
                 expected_tables = selected.module.linked_table_bytes()
                 actual_tables = {
@@ -600,12 +632,12 @@ def audit_linked(
                 )
     calls = {symbol: _calls(text) for symbol, text in disassembly.items()}
     if (
-        selected_contract_module is not None
-        and hasattr(selected_contract_module, "audit_linked_validator")
+        selected_validator_module is not None
+        and hasattr(selected_validator_module, "audit_linked_validator")
     ):
         try:
             linked_validator_audit = (
-                selected_contract_module.audit_linked_validator(
+                selected_validator_module.audit_linked_validator(
                     disassembly,
                     calls,
                     {
@@ -614,8 +646,16 @@ def audit_linked(
                     },
                 )
             )
-        except selected_contract_module.SourceContractError as exc:
+        except selected_validator_module.SourceContractError as exc:
             raise CheckError(str(exc)) from exc
+    if (
+        source_contract_id in LINKED_VALIDATOR_ADAPTERS
+        and (
+            linked_validator_audit is None
+            or linked_validator_adapter is None
+        )
+    ):
+        raise CheckError("linked validator adapter is required but absent")
     _subsequence(
         calls["kernel_init"],
         (
@@ -668,6 +708,8 @@ def audit_linked(
         result["source_contract_semantics"] = linked_contract_audit
     if linked_validator_audit is not None:
         result["source_contract_validator"] = linked_validator_audit
+    if linked_validator_adapter is not None:
+        result["audit_adapter"] = linked_validator_adapter
     return result
 
 

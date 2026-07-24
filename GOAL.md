@@ -16,7 +16,9 @@ IMPLEMENTATION H0 PASS; P2.45 REPRODUCIBLE E2 CANDIDATE H0 PASS; P2.46 E2
 LIVE PROGRESS THROUGH APPS-RPMH-MXLVL; P2.47 GATE-RANGE FOCUSED AUDIT H0
 PASS; P2.48 DERIVED VALIDATOR IMPLEMENTATION H0 PASS; P2.49 REPRODUCIBLE
 DERIVED-VALIDATOR CANDIDATE AND CONNECTED D0 PASS; P2.50 E2 LIVE GCC PASS
-AND SSUSB TIMEOUT; EXACT ROLLBACK AND FINAL HEALTH PASS.**
+AND SSUSB TIMEOUT; EXACT ROLLBACK AND FINAL HEALTH PASS; P2.52 SSUSB
+CLASSIFIER IMPLEMENTATION H0 PASS; P2.53 FINAL-PROOF GAP CAUGHT H0;
+P2.54 PROOF-BOUND REPRODUCIBLE CLASSIFIER CANDIDATE H0 PASS.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -263,6 +265,33 @@ It does not prove SSUSB, DWC3, UDC, or terminal `0x8f`. Exact rollback, final
 health, and all eight timeline events passed. The transaction is `CLOSED` and
 its authority is consumed.
 
+P2.51 and P2.51b then closed the known SSUSB supplier and nested-PHY topology
+from exact source, DTB, module, and P2.50 evidence. P2.52 implemented one
+versioned bounded classifier at the existing SSUSB frontier. Its exact
+descriptor generates the userspace checks, kernel whitelist, decoder
+semantics, and linked-table expectations. The result remains a settled
+snapshot pointer rather than a permanent-root-cause verdict; run-to-run
+variation is a timing signal, and the five-second grace is a bounded bet.
+
+P2.53 then exposed two host-proof gaps before qualification. Its linked audit
+recognized the validator and exact tables but did not prove that validator
+success dominated every retained write or that the failure edge could not
+rejoin one. Its stock-rootfs adapter also managed imported historical module
+state in place. No P2.53 candidate was promoted.
+
+P2.54 replaces those proof surfaces with source-bound adapters. The CFG-aware
+linked audit proves the validator guard dominates the retained head, every
+retained flush, and all retained stores, while the negative failure edge cannot
+rejoin a write. The isolated stock closure preserves historical dispatch and
+selects exact P2.54 entrypoints without mutating historical modules. The new
+source contract binds both adapters, their dispatch, and candidate enforcement.
+Two canonical-path clean Full-LTO builds have six byte-identical artifacts;
+two deterministic boot-only packages, independent effective-rootfs closure,
+and Process v2 offline promotion pass. The reusable build/qualification
+sequence is recorded in
+`docs/operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`.
+No device contact, manifest binding, approval, or live authority exists.
+
 ## Established Evidence
 
 - R4W1-A: custom Android `/init` marker retained and rollback passed.
@@ -405,6 +434,8 @@ Load-bearing details are in:
 - `docs/reports/S22PLUS_FYG8_P251_SSUSB_DEPENDENCY_AUDIT_H0_2026-07-24.md`
 - `docs/reports/S22PLUS_FYG8_P251B_PHY_NESTED_CLOSURE_H0_2026-07-24.md`
 - `docs/reports/S22PLUS_FYG8_P252_SSUSB_TIMEOUT_CLASSIFIER_DESIGN_H0_2026-07-24.md`
+- `docs/reports/S22PLUS_FYG8_P254_PROOF_BOUND_SSUSB_CLASSIFIER_CANDIDATE_H0_PASS_2026-07-24.md`
+- `docs/operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
 
@@ -523,11 +554,22 @@ reports grant no device authority.
     P2.48 generation and the 80-step/59-module plan remain unchanged; the
     kernel patch applies cleanly and two static AArch64 links are byte-identical.
     No kernel, image, candidate, connected read, or device action occurred.
-33. **P2.53 next, H0:** perform one final Full-LTO build and linked audit of
-    exact classifier table bytes plus writer-to-detail-validator dataflow.
-    Reproducible boot-only candidate packaging and any later D0/F1 preparation
-    remain separate gates; P2.52 itself grants no device authority.
-34. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
+33. **P2.53 complete, H0 proof-gap catch:** the first final linked adapter did
+    not prove validator dominance over all retained writes, and the first
+    stock-rootfs adapter did not isolate historical module state. Qualification
+    stopped host-only; no P2.53 candidate was promoted.
+34. **P2.54 complete, H0:** one new source contract binds CFG-aware linked
+    validation, isolated stock closure, dispatch, and candidate enforcement.
+    Two canonical-path clean Full-LTO builds have six byte-identical artifacts.
+    Exact retained-write dominance, deterministic boot-only packaging,
+    effective 59-module rootfs closure, independent checking, and Process v2
+    offline promotion pass. Historical routing remains unchanged; the moving
+    selector registry means tests prove behavior, not immutable old selector
+    receipts. No device authority exists.
+35. **P2.55 next, D0:** perform one connected read-only qualification for the
+    exact P2.54 candidate and rollback. A passing D0 may create one fresh
+    prepared binding but grants no F1 authority.
+36. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed

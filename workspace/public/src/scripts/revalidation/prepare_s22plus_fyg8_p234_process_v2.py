@@ -20,7 +20,10 @@ import device_action_f1_evidence_v2 as evidence  # noqa: E402
 import s22plus_boot_verify as boot_verify  # noqa: E402
 import s22plus_fyg8_p234_candidate_static_checker as static_checker  # noqa: E402
 import s22plus_fyg8_p242_e2_stock_closure as e2_closure  # noqa: E402
-import s22plus_fyg8_p245_e2_stock_closure as p245_e2_closure  # noqa: E402
+import s22plus_fyg8_p253_e2_stock_closure as e2_closure_selector  # noqa: E402
+
+
+p245_e2_closure = e2_closure_selector.p245
 
 
 SCHEMA = "s22plus_fyg8_p234_process_v2_promotion_v1"
@@ -168,10 +171,8 @@ def validate_static(
                 "E1B effective stock rootfs closure is incomplete"
             ) from exc
     elif profile == "E2":
-        closure_api = (
-            p245_e2_closure
-            if candidate_contract.get("source_contract_id") is not None
-            else evidence.e2_closure
+        closure_api = e2_closure_selector.select(
+            candidate_contract.get("source_contract_id")
         )
         try:
             module_closure = closure_api.validate_module_closure(
