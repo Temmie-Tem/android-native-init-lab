@@ -22,8 +22,9 @@ P2.54 PROOF-BOUND REPRODUCIBLE CLASSIFIER CANDIDATE H0 PASS; P2.55
 REACHABLE-CONTRACT VERIFIER FIX H0 PASS; P2.55 CONNECTED D0 PREPARED PASS;
 P2.55 F1 QNOC-MC-VIRT BIND ABSENT; EXACT ROLLBACK AND FINAL HEALTH PASS;
     P2.56 QNOC FOCUSED HYPOTHESIS AND ODIN OBSERVER ANALYSIS H0 PASS;
-    P2.57 STOCK-PIVOT READER AND ODIN DIAGNOSTIC UNIT B H0 PASS; STOCK D0
-    NEXT.**
+    P2.57 STOCK-PIVOT READER AND ODIN DIAGNOSTIC UNIT B H0 PASS;
+    DISPLAY-ENABLED STOCK D0 PASS; UNIT A IMPLEMENTATION AND INDEPENDENT
+    RE-REVIEW H0 PASS; FINAL FULL-LTO QUALIFICATION NEXT.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -702,16 +703,20 @@ reports grant no device authority.
     and the qnoc return code remain unobserved. Exact USBFS receipt replay also
     reproduces the generic post-rollback observer error and identifies the
     missing durable inner exception.
-38. **P2.57 pivot reader and Unit B complete, H0:** run the bounded connected
-    stock D0 next. Only `DISPLAY_ENABLED_VERIFIED` permits Unit A. A no-display
-    result on this display-capable profile is a target contradiction requiring
-    host-side re-audit, not permission to invert polarity or continue. If
-    promoted, Unit A is a new versioned 60-module, 81-step source contract with
-    exact display-clock/RSC/voter coordinates before mc_virt. Unit B is already
-    independently reviewed and retains one typed final-evidence diagnostic
-    without changing snapshot sequence, generation, index, recovery, or the
-    original outer error. Review the display-clock side effects if Unit A is
-    promoted. Full-LTO remains after all applicable H0 closures.
+38. **P2.57 pivot, Unit B, and Unit A implementation complete, H0+D0:**
+    connected stock D0 returned `DISPLAY_ENABLED_VERIFIED` with exact `0`/`0`
+    source values and healthy Android, so Unit A was eligible. The exact
+    `s22plus-fyg8-p257-e2-qnoc-display-closure-v1` contract inserts only the
+    pinned stock `dispcc-waipio.ko`, derives 60 modules/81 steps, and adds
+    display-clock/RSC/voter classifier coordinates before mc_virt. Generation,
+    patch/link, stock closure, exhaustive record, historical SHA, reserved
+    detail, and stale 59-module/80-step/generation-80 rejection checks pass.
+    Source review corrected an MMIO-only assumption: probe performs transient
+    standard regulator and ICC votes, with proxy/error-path state potentially
+    retained until sync-state or reboot, but has no persistent-storage, fuse,
+    bootloader, partition, or raw PMIC write path. Unit B remains unchanged.
+    Restricted independent re-review returned GO with no finding. No Full-LTO
+    build, image, candidate, manifest, approval, or F1 authority exists.
 39. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 

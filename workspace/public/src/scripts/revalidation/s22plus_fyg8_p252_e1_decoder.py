@@ -37,6 +37,48 @@ class DecodeError(ValueError):
     pass
 
 
+def _validate_stage_for_spec(
+    stage: int,
+    outcome: int,
+    item_index: int,
+    detail: int,
+    contract_spec=spec,
+) -> int:
+    try:
+        generation = contract_spec.ordinal_for_stage(stage) + 1
+        contract_spec.validate_slot(
+            generation=generation,
+            stage=stage,
+            outcome=outcome,
+            item_index=item_index,
+            detail=detail,
+        )
+    except contract_spec.SpecError as exc:
+        raise p245.DecodeError(str(exc)) from exc
+    return generation
+
+
+def _validate_layout_for_spec(
+    stage: int,
+    outcome: int,
+    item_index: int,
+    detail: int,
+    contract_spec=spec,
+) -> int:
+    try:
+        generation = contract_spec.ordinal_for_stage(stage) + 1
+        expected_item = contract_spec.expected_item(stage)
+    except contract_spec.SpecError as exc:
+        raise p245.DecodeError(str(exc)) from exc
+    if item_index != expected_item:
+        raise p245.DecodeError(
+            "checkpoint item index does not match its stage"
+        )
+    if not 0 <= outcome <= model.OUTCOME_FAILURE or not 0 <= detail <= 4095:
+        raise p245.DecodeError("checkpoint slot fields are out of range")
+    return generation
+
+
 def _require_identity(profile: str, run_id: bytes) -> None:
     if profile != PROFILE:
         raise DecodeError(f"unsupported P2.52 profile: {profile}")
@@ -44,7 +86,7 @@ def _require_identity(profile: str, run_id: bytes) -> None:
         raise DecodeError("P2.52 run ID must be one nonzero 128-bit value")
 
 
-def _validate_slot_dict(slot: dict[str, Any]) -> None:
+def _validate_slot_dict(slot: dict[str, Any], contract_spec=spec) -> None:
     generation = slot.get("generation")
     if generation == 0:
         if slot != {
@@ -58,14 +100,14 @@ def _validate_slot_dict(slot: dict[str, Any]) -> None:
             raise DecodeError("generation zero is not the kernel ENTRY state")
         return
     try:
-        spec.validate_slot(
+        contract_spec.validate_slot(
             generation=generation,
             stage=slot["stage"],
             outcome=slot["outcome"],
             item_index=slot["item_index"],
             detail=slot["detail"],
         )
-    except (KeyError, TypeError, spec.SpecError) as exc:
+    except (KeyError, TypeError, contract_spec.SpecError) as exc:
         raise DecodeError(str(exc)) from exc
 
 
@@ -77,17 +119,18 @@ def encode_slot(
     outcome: int,
     item_index: int,
     detail: int,
+    _contract_spec=spec,
 ) -> bytes:
     if generation != 0:
         try:
-            spec.validate_slot(
+            _contract_spec.validate_slot(
                 generation=generation,
                 stage=stage,
                 outcome=outcome,
                 item_index=item_index,
                 detail=detail,
             )
-        except spec.SpecError as exc:
+        except _contract_spec.SpecError as exc:
             raise DecodeError(str(exc)) from exc
     try:
         return p245.encode_slot(
@@ -97,6 +140,15 @@ def encode_slot(
             outcome=outcome,
             item_index=item_index,
             detail=detail,
+            _validate_stage_fn=lambda stage, outcome, item, value: (
+                _validate_stage_for_spec(
+                    stage,
+                    outcome,
+                    item,
+                    value,
+                    _contract_spec,
+                )
+            ),
         )
     except p245.DecodeError as exc:
         raise DecodeError(str(exc)) from exc
@@ -107,21 +159,32 @@ def decode_record(
     *,
     expected_profile: str = PROFILE,
     expected_run_id: bytes | None = None,
+    _contract_spec=spec,
 ) -> dict[str, Any]:
     try:
         result = p245.decode_record(
             record,
             expected_profile=expected_profile,
             expected_run_id=expected_run_id,
+            _validate_stage_fn=lambda stage, outcome, item, value: (
+                _validate_layout_for_spec(
+                    stage,
+                    outcome,
+                    item,
+                    value,
+                    _contract_spec,
+                )
+            ),
+            _terminal_stage=_contract_spec.TERMINAL_STAGE,
         )
     except p245.DecodeError as exc:
         raise DecodeError(str(exc)) from exc
     for slot in result["valid_slots"]:
-        _validate_slot_dict(slot)
+        _validate_slot_dict(slot, _contract_spec)
     active = result["active"]
     result["active_semantics"] = {
-        "detail_kind": spec.detail_kind(active["detail"]),
-        "detail_name": spec.detail_name(active["detail"]),
+        "detail_kind": _contract_spec.detail_kind(active["detail"]),
+        "detail_name": _contract_spec.detail_name(active["detail"]),
     }
     return result
 
@@ -132,6 +195,7 @@ def _classify(
     *,
     expected_profile: str,
     expected_run_id: bytes,
+    contract_spec=spec,
 ) -> dict[str, Any]:
     _require_identity(expected_profile, expected_run_id)
     all_families = (
@@ -156,6 +220,7 @@ def _classify(
                 observed[position:end],
                 expected_profile=expected_profile,
                 expected_run_id=expected_run_id,
+                _contract_spec=contract_spec,
             )
             decoded["observer_offset"] = position
             records.append(decoded)
@@ -234,7 +299,11 @@ def _classify(
 
 
 def classify_clean_baseline(
-    payload: bytes, *, expected_profile: str, expected_run_id: bytes
+    payload: bytes,
+    *,
+    expected_profile: str,
+    expected_run_id: bytes,
+    _contract_spec=spec,
 ) -> dict[str, Any]:
     try:
         _classify(
@@ -242,6 +311,7 @@ def classify_clean_baseline(
             b"",
             expected_profile=expected_profile,
             expected_run_id=expected_run_id,
+            contract_spec=_contract_spec,
         )
     except DecodeError as exc:
         return {
@@ -259,11 +329,16 @@ def classify_clean_baseline(
 
 
 def classify_observation(
-    payload: bytes, *, expected_profile: str, expected_run_id: bytes
+    payload: bytes,
+    *,
+    expected_profile: str,
+    expected_run_id: bytes,
+    _contract_spec=spec,
 ) -> dict[str, Any]:
     return _classify(
         b"",
         payload,
         expected_profile=expected_profile,
         expected_run_id=expected_run_id,
+        contract_spec=_contract_spec,
     )

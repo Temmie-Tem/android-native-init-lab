@@ -67,6 +67,9 @@ LINKED_VALIDATOR_ADAPTERS = {
     "s22plus-fyg8-p254-e2-proof-bound-v1": (
         "s22plus_fyg8_p253_linked_audit"
     ),
+    "s22plus-fyg8-p257-e2-qnoc-display-closure-v1": (
+        "s22plus_fyg8_p257_linked_audit"
+    ),
 }
 
 

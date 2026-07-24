@@ -86,18 +86,31 @@ def verify_repro_result(
         or any(item is not True for item in value["byte_identical_artifacts"].values())
     ):
         raise BuildError("P2.34 build reproducibility result is not accepted")
-    if exact_contract.get("source_contract_id") == (
-        "s22plus-fyg8-p254-e2-proof-bound-v1"
-    ) and (
+    proof_bound_adapters = {
+        "s22plus-fyg8-p254-e2-proof-bound-v1": (
+            "s22plus-fyg8-p253-linked-audit-v2"
+        ),
+        "s22plus-fyg8-p257-e2-qnoc-display-closure-v1": (
+            "s22plus-fyg8-p257-linked-audit-v1"
+        ),
+    }
+    required_adapter = proof_bound_adapters.get(
+        exact_contract.get("source_contract_id")
+    )
+    if required_adapter is not None and (
         value.get("linked_audit", {}).get("audit_adapter")
-        != "s22plus-fyg8-p253-linked-audit-v2"
+        != required_adapter
         or value.get("linked_audit", {})
         .get("source_contract_validator", {})
         .get("writer_guard", {})
         .get("guard_dominates_retained_stores")
         is not True
     ):
-        raise BuildError("P2.54 linked audit adapter mismatch")
+        if exact_contract.get("source_contract_id") == (
+            "s22plus-fyg8-p254-e2-proof-bound-v1"
+        ):
+            raise BuildError("P2.54 linked audit adapter mismatch")
+        raise BuildError("P2.57 linked audit adapter mismatch")
     expected_image = value.get("build_a", {}).get("artifacts", {}).get("Image")
     if expected_image != image_receipt:
         raise BuildError("P2.34 supplied Image differs from reproducibility closure")

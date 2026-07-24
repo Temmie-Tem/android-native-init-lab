@@ -40,7 +40,7 @@ class Step:
     gate_index: int | None = None
 
 
-def _build_steps(
+def build_steps(
     *,
     local_stages: Iterable[int] = model.E1_LOCAL_SEQUENCE,
     module_stages: Iterable[int] = range(
@@ -73,7 +73,7 @@ def _build_steps(
     )
 
 
-STEPS = _build_steps()
+STEPS = build_steps()
 STAGE_SEQUENCE = tuple(step.stage for step in STEPS)
 TERMINAL_STAGE = STEPS[-1].stage
 MODULE_START_ORDINAL = next(

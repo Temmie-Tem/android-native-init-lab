@@ -322,7 +322,12 @@ def _checkpoint_detail_helper(gate_count: int = spec.GATE_COUNT) -> bytes:
     ).encode("ascii")
 
 
-def transform_checkpoint(data: bytes) -> bytes:
+def transform_checkpoint(
+    data: bytes,
+    steps: tuple[spec.Step, ...] = spec.STEPS,
+) -> bytes:
+    spec.validate_steps(steps)
+    gate_count = sum(step.kind == spec.KIND_GATE for step in steps)
     value = _replace_exact(
         data,
         b"#define S22_P241_STAGE_E2_MODULE_0 0x40U\n",
@@ -350,7 +355,7 @@ def transform_checkpoint(data: bytes) -> bytes:
     value = _replace_exact(
         value,
         b"#define S22_P241_STAGE_E2_SUCCESS 0x8fU\n",
-        _render_checkpoint_steps() + b"\n",
+        _render_checkpoint_steps(steps) + b"\n",
         label="checkpoint descriptor insertion",
     )
     value = _replace_exact(
@@ -382,7 +387,7 @@ def transform_checkpoint(data: bytes) -> bytes:
     value = _replace_exact(
         value,
         b"static long publish(\n",
-        _checkpoint_detail_helper() + b"static long publish(\n",
+        _checkpoint_detail_helper(gate_count) + b"static long publish(\n",
         label="checkpoint detail helper",
     )
     old_outcome = (

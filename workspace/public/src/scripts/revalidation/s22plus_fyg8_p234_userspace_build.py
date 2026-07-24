@@ -144,8 +144,10 @@ def _e2_module_files(
     source_contract_id: str | None = None,
     materialized_dir: Path | None = None,
 ) -> tuple[str, ...]:
+    expected_count = 59
     if source_contract_id is not None:
         selected = _selected(source_contract_id, "E2")
+        expected_count = getattr(selected.module, "MODULE_PLAN_COUNT", 59)
         if materialized_dir is None:
             raise BuildError("versioned materialized plan directory is missing")
         plan_path = (
@@ -159,7 +161,12 @@ def _e2_module_files(
         value.decode("ascii")
         for value in re.findall(rb'^\s+\{"([^"]+\.ko)",', data, re.MULTILINE)
     )
-    if len(names) != 59 or len(set(names)) != 59:
+    if (
+        type(expected_count) is not int
+        or expected_count <= 0
+        or len(names) != expected_count
+        or len(set(names)) != expected_count
+    ):
         raise BuildError("E2 plan header module inventory mismatch")
     return names
 

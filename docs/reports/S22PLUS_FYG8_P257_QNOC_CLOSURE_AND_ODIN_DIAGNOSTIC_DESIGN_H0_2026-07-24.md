@@ -477,8 +477,15 @@ exact shipped module and source closure for these concrete effects:
 - `disp_cc_waipio_probe()` maps only the display-clock controller resource;
 - its two PLL configurations and clock-gating register writes are bounded to
   that controller;
-- `qcom_cc_really_probe()` registers the provider without persistent-storage,
-  fuse, PMIC, regulator, bootloader, or partition writes;
+- the common-clock path acquires `vdd_mm` and `vdd_mxa`, issues standard
+  regulator-framework voltage votes and an ICC bandwidth vote, and may retain
+  the proxy vote until `sync_state` or reboot;
+- those framework-managed power votes are not raw PMIC access, but they are
+  real transient hardware state and must not be described as MMIO-only;
+- no source-reachable persistent-storage, fuse, bootloader, partition, or raw
+  PMIC write exists in the exact probe closure;
+- success drops the runtime-PM voltage/ICC vote, while the proxy vote and
+  post-`pm_runtime_get_sync()` error paths rely on sync-state or reboot cleanup;
 - the module is not unloaded in the candidate;
 - no DRM/panel/display-userspace actor is introduced;
 - candidate failure still leaves the attended physical Download recovery path;
@@ -598,12 +605,21 @@ wait/recovery regressions. Those were fixed. A follow-up found that the
 valid-present recovery fixture was not canonical; that was fixed as well. The
 final restricted review found no remaining issue and returned `GO`.
 
-No connected stock D0 has run. This implementation result does not authorize
-Unit A, a kernel build, an image, a candidate, or F1.
+The connected stock D0 subsequently completed with
+`DISPLAY_ENABLED_VERIFIED`. Both bounded reads of `/sys/devices/soc0/display`
+were exact `0`, both reads of `/sys/devices/soc0/subset_parts` were exact `0`,
+the target sanity rule returned `DISPLAY_CAPABLE_CONSISTENT`, and Android/root/
+boot/supporting-partition health remained verified. The sealed raw receipt is
+private. No reboot, Download transition, Odin invocation, partition transfer,
+or device write occurred.
+
+That D0 result opens Unit A implementation. It does not authorize a kernel
+build, image, candidate, or F1.
 
 ## Exit State
 
-This unit is `PIVOT_READER_AND_UNIT_B_IMPLEMENTED_H0_PASS_STOCK_D0_NEXT`.
+This unit is
+`PIVOT_READER_AND_UNIT_B_IMPLEMENTED_H0_PASS_DISPLAY_ENABLED_D0_PASS`.
 
-No kernel, userspace binary, image, candidate, manifest, connected D0 receipt,
-approval, or F1 authority exists from this unit.
+No kernel, userspace binary, image, candidate, manifest, approval, or F1
+authority exists from this unit.

@@ -598,7 +598,12 @@ def audit_linked_validator(
     disassembly: dict[str, str],
     calls: dict[str, list[str]],
     symbol_addresses: dict[str, int],
+    *,
+    source_contract_module=p252,
+    adapter_id: str = ADAPTER_ID,
 ) -> dict[str, Any]:
+    if not isinstance(adapter_id, str) or not adapter_id:
+        raise AuditError("linked validator adapter identity is invalid")
     required = (
         "s22_fyg8_e1_expected_item",
         "s22_fyg8_e1_request_allowed",
@@ -622,7 +627,7 @@ def audit_linked_validator(
             "P2.53 linked request validator does not call both validators"
         )
 
-    expected_tables = p252.linked_table_bytes()
+    expected_tables = source_contract_module.linked_table_bytes()
     table_requirements = (
         (
             "item",
@@ -673,7 +678,7 @@ def audit_linked_validator(
     writer_guard = _audit_writer_guard(disassembly["s22_fyg8_e1_write"])
 
     return {
-        "audit_adapter": ADAPTER_ID,
+        "audit_adapter": adapter_id,
         "writer_calls_request_validator": True,
         "request_calls_item_validator": True,
         "request_calls_detail_validator": True,

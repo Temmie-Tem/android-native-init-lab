@@ -117,6 +117,7 @@ def encode_slot(
     outcome: int,
     item_index: int,
     detail: int,
+    _validate_stage_fn=_validate_stage,
 ) -> bytes:
     slot_id = generation & 1
     if generation == 0:
@@ -127,7 +128,9 @@ def encode_slot(
             or detail != 0
         ):
             raise DecodeError("generation zero must be the kernel ENTRY state")
-    elif generation != _validate_stage(stage, outcome, item_index, detail):
+    elif generation != _validate_stage_fn(
+        stage, outcome, item_index, detail
+    ):
         raise DecodeError("slot generation does not match P2.45 stage ordinal")
     body = model.SLOT_BODY_STRUCT.pack(
         generation,
@@ -140,7 +143,10 @@ def encode_slot(
 
 
 def _decode_slot(
-    header: bytes, slot_id: int, raw: bytes
+    header: bytes,
+    slot_id: int,
+    raw: bytes,
+    validate_stage_fn=_validate_stage,
 ) -> tuple[model.Slot | None, str]:
     if len(raw) != model.SLOT_SIZE:
         raise DecodeError("compact slot size mismatch")
@@ -167,6 +173,7 @@ def _decode_slot(
             outcome=outcome,
             item_index=item_index,
             detail=detail,
+            _validate_stage_fn=validate_stage_fn,
         )
     except DecodeError:
         return None, "bad-body"
@@ -183,6 +190,8 @@ def decode_record(
     *,
     expected_profile: str = PROFILE,
     expected_run_id: bytes | None = None,
+    _validate_stage_fn=_validate_stage,
+    _terminal_stage: int = TERMINAL_STAGE,
 ) -> dict[str, Any]:
     if len(record) != model.LONG_RECORD_SIZE or not record.startswith(
         model.LONG_FAMILY
@@ -209,7 +218,10 @@ def decode_record(
     for slot_id in range(model.SLOT_COUNT):
         start = model.LONG_HEADER_SIZE + slot_id * model.SLOT_SIZE
         slot, status = _decode_slot(
-            header, slot_id, record[start : start + model.SLOT_SIZE]
+            header,
+            slot_id,
+            record[start : start + model.SLOT_SIZE],
+            _validate_stage_fn,
         )
         slot_status.append(status)
         if slot is not None:
@@ -235,7 +247,7 @@ def decode_record(
         "terminal": terminal,
         "terminal_success": (
             active.outcome == model.OUTCOME_SUCCESS
-            and active.stage == TERMINAL_STAGE
+            and active.stage == _terminal_stage
         ),
     }
 

@@ -149,14 +149,18 @@ def _replace_span(
     return data[:begin] + replacement + data[end:]
 
 
-def _classifier_rows() -> tuple[spec.ClassifierDetail, ...]:
-    spec.validate_classifier_details()
-    return spec.CLASSIFIER_DETAILS
+def _classifier_rows(
+    contract_spec=spec,
+) -> tuple[spec.ClassifierDetail, ...]:
+    contract_spec.validate_classifier_details()
+    return contract_spec.CLASSIFIER_DETAILS
 
 
-def _render_checkpoint_classifier_tables() -> bytes:
-    rows = _classifier_rows()
-    stages = ", ".join(f"0x{spec.SSUSB_STAGE:02x}U" for _row in rows)
+def _render_checkpoint_classifier_tables(contract_spec=spec) -> bytes:
+    rows = _classifier_rows(contract_spec)
+    stages = ", ".join(
+        f"0x{contract_spec.SSUSB_STAGE:02x}U" for _row in rows
+    )
     details = ", ".join(f"0x{row.value:03x}U" for row in rows)
     return (
         "static const uint8_t k_p252_classifier_stages[] = {\n"
@@ -173,7 +177,7 @@ def _render_checkpoint_classifier_tables() -> bytes:
     ).encode("ascii")
 
 
-def _render_checkpoint_detail_helper() -> bytes:
+def _render_checkpoint_detail_helper(contract_spec=spec) -> bytes:
     return f"""static int p252_detail_allowed(
     uint8_t stage, uint8_t outcome, uint16_t detail) {{
 #if S22PLUS_FYG8_P233_PROFILE == 3
@@ -205,14 +209,14 @@ def _render_checkpoint_detail_helper() -> bytes:
         detail >= S22_P248_DETAIL_REGRESSION_BASE &&
         detail <= S22_P248_DETAIL_REGRESSION_MAX) {{
         uint8_t encoded_index = (uint8_t)(detail & 0xffU);
-        return encoded_index < {spec.GATE_COUNT}U &&
+        return encoded_index < {contract_spec.GATE_COUNT}U &&
             encoded_index < step->item_index;
     }}
     if (step->kind == S22_P248_STEP_GATE &&
         detail >= S22_P248_DETAIL_READ_ERROR_BASE &&
         detail <= S22_P248_DETAIL_READ_ERROR_MAX) {{
         uint8_t encoded_index = (uint8_t)(detail & 0xffU);
-        return encoded_index < {spec.GATE_COUNT}U &&
+        return encoded_index < {contract_spec.GATE_COUNT}U &&
             encoded_index <= step->item_index;
     }}
     for (size_t index = 0;
@@ -269,11 +273,11 @@ def _render_checkpoint_failure() -> bytes:
 """
 
 
-def transform_checkpoint(data: bytes) -> bytes:
+def transform_checkpoint(data: bytes, contract_spec=spec) -> bytes:
     value = _replace_exact(
         data,
         b"static int p248_detail_allowed(\n",
-        _render_checkpoint_classifier_tables()
+        _render_checkpoint_classifier_tables(contract_spec)
         + b"static int p248_detail_allowed(\n",
         label="checkpoint classifier-table insertion",
     )
@@ -281,7 +285,7 @@ def transform_checkpoint(data: bytes) -> bytes:
         value,
         b"static int p248_detail_allowed(\n",
         b"static long publish(\n",
-        _render_checkpoint_detail_helper(),
+        _render_checkpoint_detail_helper(contract_spec),
         label="checkpoint detail validator",
     )
     value = _replace_exact(
@@ -299,7 +303,7 @@ def transform_checkpoint(data: bytes) -> bytes:
     )
 
 
-def _render_runtime_classifier_table() -> bytes:
+def _render_runtime_classifier_table(contract_spec=spec) -> bytes:
     lines = [
         "struct s22_p252_bind_classifier {",
         "    const char *path;",
@@ -310,7 +314,7 @@ def _render_runtime_classifier_table() -> bytes:
         "static const struct s22_p252_bind_classifier "
         "k_p252_bind_classifiers[] = {",
     ]
-    for row in spec.BIND_CLASSIFIERS:
+    for row in contract_spec.BIND_CLASSIFIERS:
         assert row.path is not None
         assert row.expected_symlink_basename is not None
         lines.extend(
@@ -328,7 +332,8 @@ def _render_runtime_classifier_table() -> bytes:
             "",
             "_Static_assert(",
             "    sizeof(k_p252_bind_classifiers) /",
-            "        sizeof(k_p252_bind_classifiers[0]) == 15U,",
+            "        sizeof(k_p252_bind_classifiers[0]) == "
+            f"{len(contract_spec.BIND_CLASSIFIERS)}U,",
             '    "P2.52 bind classifier count");',
             "",
         )
@@ -336,9 +341,9 @@ def _render_runtime_classifier_table() -> bytes:
     return "\n".join(lines).encode("ascii")
 
 
-def _render_runtime_helpers() -> bytes:
-    waiting = spec.CLASSIFIER_BY_VALUE[0xA10].value
-    grace = spec.CLASSIFIER_BY_VALUE[0xA30].value
+def _render_runtime_helpers(contract_spec=spec) -> bytes:
+    waiting = contract_spec.CLASSIFIER_BY_VALUE[0xA10].value
+    grace = contract_spec.CLASSIFIER_BY_VALUE[0xA30].value
     return f"""static long p252_check_driver_symlink(
     const char *path, const char *expected_basename) {{
     struct s22_p241_kernel_stat stat_buffer = {{0}};
@@ -365,7 +370,7 @@ def _render_runtime_helpers() -> bytes:
 
 static long p252_read_waiting_for_supplier(int *waiting) {{
     static const char path[] =
-        "{spec.WAITING_FOR_SUPPLIER_PATH}";
+        "{contract_spec.WAITING_FOR_SUPPLIER_PATH}";
     char value[3] = {{0}};
     char extra = 0;
     long fd = sys_openat(path, O_RDONLY | O_CLOEXEC, 0);
@@ -519,13 +524,15 @@ static int p252_classify_ssusb(int allow_grace) {{
 """.encode("ascii")
 
 
-def transform_runtime(data: bytes) -> bytes:
+def transform_runtime(data: bytes, contract_spec=spec) -> bytes:
     definitions = (
-        f"#define S22_P252_SSUSB_STAGE 0x{spec.SSUSB_STAGE:02x}U\n"
-        f"#define S22_P252_SSUSB_GATE_INDEX {spec.SSUSB_GATE_INDEX}U\n"
+        f"#define S22_P252_SSUSB_STAGE "
+        f"0x{contract_spec.SSUSB_STAGE:02x}U\n"
+        f"#define S22_P252_SSUSB_GATE_INDEX "
+        f"{contract_spec.SSUSB_GATE_INDEX}U\n"
         f"#define S22_P252_SSUSB_READ_ERROR_DETAIL "
-        f"0x{spec.WAITING_READ_ERROR_DETAIL:03x}L\n"
-        f"#define S22_P252_GRACE_SEC {spec.GRACE_SECONDS}LL\n"
+        f"0x{contract_spec.WAITING_READ_ERROR_DETAIL:03x}L\n"
+        f"#define S22_P252_GRACE_SEC {contract_spec.GRACE_SECONDS}LL\n"
     ).encode("ascii")
     value = _replace_exact(
         data,
@@ -536,14 +543,14 @@ def transform_runtime(data: bytes) -> bytes:
     value = _replace_exact(
         value,
         b"static long p241_check_gate(size_t index) {\n",
-        _render_runtime_classifier_table()
+        _render_runtime_classifier_table(contract_spec)
         + b"static long p241_check_gate(size_t index) {\n",
         label="runtime classifier table",
     )
     value = _replace_exact(
         value,
         b"static __attribute__((noreturn)) void p241_run(void) {\n",
-        _render_runtime_helpers()
+        _render_runtime_helpers(contract_spec)
         + b"static __attribute__((noreturn)) void p241_run(void) {\n",
         label="runtime classifier helpers",
     )
@@ -623,9 +630,11 @@ def _kernel_prefixed(lines: list[str]) -> bytes:
     return ("\n".join(f"+{line}" for line in lines) + "\n").encode("ascii")
 
 
-def _render_kernel_classifier_tables() -> bytes:
-    rows = _classifier_rows()
-    stages = ", ".join(f"0x{spec.SSUSB_STAGE:02x}" for _row in rows)
+def _render_kernel_classifier_tables(contract_spec=spec) -> bytes:
+    rows = _classifier_rows(contract_spec)
+    stages = ", ".join(
+        f"0x{contract_spec.SSUSB_STAGE:02x}" for _row in rows
+    )
     details = ", ".join(f"0x{row.value:03x}" for row in rows)
     return _kernel_prefixed(
         [
@@ -640,7 +649,7 @@ def _render_kernel_classifier_tables() -> bytes:
     )
 
 
-def _render_kernel_detail_validator() -> bytes:
+def _render_kernel_detail_validator(contract_spec=spec) -> bytes:
     return _kernel_prefixed(
         [
             "static noinline __used bool s22_fyg8_e1_detail_allowed(",
@@ -666,12 +675,12 @@ def _render_kernel_detail_validator() -> bytes:
             "\tgate_index = s22_fyg8_e2_items[ordinal];",
             "\tif (detail >= 0x800 && detail <= 0x8ff) {",
             "\t\tencoded_index = detail & 0xff;",
-            f"\t\treturn encoded_index < {spec.GATE_COUNT} &&",
+            f"\t\treturn encoded_index < {contract_spec.GATE_COUNT} &&",
             "\t\t\tencoded_index < gate_index;",
             "\t}",
             "\tif (detail >= 0x900 && detail <= 0x9ff) {",
             "\t\tencoded_index = detail & 0xff;",
-            f"\t\treturn encoded_index < {spec.GATE_COUNT} &&",
+            f"\t\treturn encoded_index < {contract_spec.GATE_COUNT} &&",
             "\t\t\tencoded_index <= gate_index;",
             "\t}",
             "\tfor (index = 0;",
@@ -734,12 +743,12 @@ def _recount_kernel_patch_hunks(data: bytes) -> bytes:
     return b"".join(lines)
 
 
-def transform_patch(data: bytes) -> bytes:
+def transform_patch(data: bytes, contract_spec=spec) -> bytes:
     value = _replace_exact(
         data,
         b"+\n+static bool s22_fyg8_e1_parse_reg",
         b"+\n"
-        + _render_kernel_classifier_tables()
+        + _render_kernel_classifier_tables(contract_spec)
         + b"+static bool s22_fyg8_e1_parse_reg",
         label="kernel classifier-table insertion",
     )
@@ -747,7 +756,7 @@ def transform_patch(data: bytes) -> bytes:
         value,
         b"+static bool s22_fyg8_e1_detail_allowed(\n",
         b"+static bool s22_fyg8_e1_request_allowed(\n",
-        _render_kernel_detail_validator(),
+        _render_kernel_detail_validator(contract_spec),
         label="kernel classifier validator",
     )
     value = _replace_exact(
@@ -835,15 +844,20 @@ def _audit_patch(root: Path, patch: bytes, directory: Path) -> dict[str, Any]:
 
 
 def _audit_userspace(
-    root: Path, generated: dict[str, bytes], directory: Path
+    root: Path,
+    generated: dict[str, bytes],
+    directory: Path,
+    *,
+    materialized_filenames: dict[str, str] = MATERIALIZED_FILENAMES,
+    source_check_run_id: bytes = SOURCE_CHECK_RUN_ID,
 ) -> dict[str, Any]:
-    plan = directory / MATERIALIZED_FILENAMES["plan_header"]
-    runtime = directory / MATERIALIZED_FILENAMES["runtime_wrapper"]
-    checkpoint = directory / MATERIALIZED_FILENAMES["checkpoint_client"]
+    plan = directory / materialized_filenames["plan_header"]
+    runtime = directory / materialized_filenames["runtime_wrapper"]
+    checkpoint = directory / materialized_filenames["checkpoint_client"]
     plan.write_bytes(generated["plan"])
     runtime.write_bytes(generated["runtime"])
     checkpoint.write_bytes(generated["checkpoint"])
-    define = p233._run_id_define(SOURCE_CHECK_RUN_ID)
+    define = p233._run_id_define(source_check_run_id)
     outputs: list[bytes] = []
     for suffix in ("a", "b"):
         output = directory / f"init-{suffix}"
@@ -1070,7 +1084,13 @@ def implementation_result(root: Path) -> dict[str, Any]:
     }
 
 
-def validate_reachable_records(run_id: bytes) -> dict[str, Any]:
+def validate_reachable_records(
+    run_id: bytes,
+    *,
+    contract_spec=spec,
+    decoder_module=decoder,
+    expected_variants: int = REACHABLE_VARIANTS,
+) -> dict[str, Any]:
     if len(run_id) != model.RUN_ID_SIZE or not any(run_id):
         raise SourceContractError("P2.52 run ID must be one nonzero 128-bit value")
     header = (
@@ -1083,7 +1103,7 @@ def validate_reachable_records(run_id: bytes) -> dict[str, Any]:
         )
         + run_id
     )
-    entry = decoder.encode_slot(
+    entry = decoder_module.encode_slot(
         header,
         generation=0,
         stage=model.STAGES["ENTRY"],
@@ -1093,28 +1113,30 @@ def validate_reachable_records(run_id: bytes) -> dict[str, Any]:
     )
     record = header + entry + bytes(model.SLOT_SIZE)
     checked = 0
-    for generation, step in enumerate(spec.STEPS, 1):
+    for generation, step in enumerate(contract_spec.STEPS, 1):
         cases = (
             ((model.OUTCOME_SUCCESS, 0),)
-            if step.kind == spec.KIND_TERMINAL
+            if step.kind == contract_spec.KIND_TERMINAL
             else ((model.OUTCOME_PROGRESS, 0),)
             + tuple(
                 (model.OUTCOME_FAILURE, detail)
-                for detail in spec.failure_details(step)
+                for detail in contract_spec.failure_details(step)
             )
         )
         for outcome, detail in cases:
             candidate = bytearray(record)
             start = model.LONG_HEADER_SIZE + (generation & 1) * model.SLOT_SIZE
-            candidate[start : start + model.SLOT_SIZE] = decoder.encode_slot(
+            candidate[start : start + model.SLOT_SIZE] = (
+                decoder_module.encode_slot(
                 header,
                 generation=generation,
                 stage=step.stage,
                 outcome=outcome,
                 item_index=step.item_index,
                 detail=detail,
+                )
             )
-            decoded = decoder.decode_record(
+            decoded = decoder_module.decode_record(
                 bytes(candidate),
                 expected_profile=PROFILE,
                 expected_run_id=run_id,
@@ -1131,42 +1153,66 @@ def validate_reachable_records(run_id: bytes) -> dict[str, Any]:
                     "P2.52 decoder changed a reachable active slot"
                 )
             checked += 1
-        if step.kind != spec.KIND_TERMINAL:
+        if step.kind != contract_spec.KIND_TERMINAL:
             start = model.LONG_HEADER_SIZE + (generation & 1) * model.SLOT_SIZE
             updated = bytearray(record)
-            updated[start : start + model.SLOT_SIZE] = decoder.encode_slot(
+            updated[start : start + model.SLOT_SIZE] = (
+                decoder_module.encode_slot(
                 header,
                 generation=generation,
                 stage=step.stage,
                 outcome=model.OUTCOME_PROGRESS,
                 item_index=step.item_index,
                 detail=0,
+                )
             )
             record = bytes(updated)
-    if checked != REACHABLE_VARIANTS:
+    if checked != expected_variants:
         raise SourceContractError("P2.52 reachable-record count mismatch")
     return {
         "reachable_slot_variants": checked,
-        "classifier_detail_count": len(spec.CLASSIFIER_DETAILS),
+        "classifier_detail_count": len(contract_spec.CLASSIFIER_DETAILS),
         "profiles": [PROFILE],
         "checked_run_ids": {PROFILE: run_id.hex()},
         "adjacent_slot_combinations_verified": True,
         "zero_crc_count": 0,
         "family_collision_count": 0,
-        "decoder_policy_id": decoder.POLICY_ID,
+        "decoder_policy_id": decoder_module.POLICY_ID,
         "verified": True,
     }
 
 
-def linked_table_bytes() -> dict[str, bytes]:
-    result = dict(p248.linked_table_bytes())
+def linked_table_bytes_for(contract_spec=spec) -> dict[str, bytes]:
+    kind_values = {
+        contract_spec.KIND_LOCAL: 0,
+        contract_spec.KIND_MODULE: 0,
+        contract_spec.KIND_GATE: 1,
+        contract_spec.KIND_TERMINAL: 2,
+    }
+    result = {
+        "s22_fyg8_e2_sequence": bytes(
+            step.stage for step in contract_spec.STEPS
+        ),
+        "s22_fyg8_e2_items": bytes(
+            step.item_index for step in contract_spec.STEPS
+        ),
+        "s22_fyg8_e2_kinds": bytes(
+            kind_values[step.kind] for step in contract_spec.STEPS
+        ),
+    }
     result["s22_fyg8_e2_classifier_stages"] = bytes(
-        spec.SSUSB_STAGE for _row in spec.CLASSIFIER_DETAILS
+        contract_spec.SSUSB_STAGE
+        for _row in contract_spec.CLASSIFIER_DETAILS
     )
     result["s22_fyg8_e2_classifier_details"] = b"".join(
-        row.value.to_bytes(2, "little") for row in spec.CLASSIFIER_DETAILS
+        row.value.to_bytes(2, "little")
+        for row in contract_spec.CLASSIFIER_DETAILS
     )
     return result
+
+
+def linked_table_bytes() -> dict[str, bytes]:
+    return linked_table_bytes_for()
 
 
 def audit_linked_tables(actual: dict[str, bytes]) -> dict[str, Any]:
