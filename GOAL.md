@@ -14,8 +14,8 @@ P2.39 E1B MODULE RUNTIME LIVE PASS; P2.42 E2 LIVE DIAGNOSTIC FAILURE AT
 DISPLAY-RSC BIND; P2.43 RPMH DEPENDENCY H0 PASS; P2.44 12-GATE E2
 IMPLEMENTATION H0 PASS; P2.45 REPRODUCIBLE E2 CANDIDATE H0 PASS; P2.46 E2
 LIVE PROGRESS THROUGH APPS-RPMH-MXLVL; P2.47 GATE-RANGE FOCUSED AUDIT H0
-PASS; P2.48 DERIVED VALIDATOR IMPLEMENTATION H0 PASS; EXACT ROLLBACK AND
-FINAL HEALTH PASS.**
+PASS; P2.48 DERIVED VALIDATOR IMPLEMENTATION H0 PASS; P2.49 REPRODUCIBLE
+DERIVED-VALIDATOR CANDIDATE AND CONNECTED D0 PASS; EXACT ROLLBACK PINNED.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -234,8 +234,23 @@ writer-to-derived-validator call, and an exact item-table address dataflow into
 the validator byte load; stale compare-against-eight logic is rejected in both
 the helper and writer. P2.44 generation and P2.45 source bytes remain
 byte-exact. Clean patch application, two reproducible static AArch64 userspace
-links, 180 regression tests, mutation checks, and independent review pass.
+links, the original 180-test regression run, mutation checks, and independent
+review pass. The later patch-boundary fix passed a selected 126-test closure.
 P2.48 built no kernel, image, package, or candidate and contacted no device.
+
+P2.49 then caught and fixed one host-only patch-generation boundary defect
+before any Image was produced. Two subsequent clean Full-LTO builds and two
+boot-only package runs are byte-identical. The new linked audit proves the
+writer-to-validator call, exact linked item-table dataflow, and absence of the
+stale compare against eight in both final kernels. Independent artifact
+closure and Process v2 offline promotion passed.
+
+The first connected D0 preparation stopped read-only on a historical retained
+E1 family and invoked no Odin session or transfer. One approved normal Android
+reboot rotated it out. A fresh run directory then passed exact target, health,
+rollback, clean-baseline, artifact, and execution-closure checks and produced
+one private prepared binding. No F1 authority exists until its fresh exact
+approval is supplied.
 
 ## Established Evidence
 
@@ -331,6 +346,10 @@ P2.48 built no kernel, image, package, or candidate and contacted no device.
   implements the stale offset comparison against eight. Existing tests and
   linked checks miss it, and prior-gate regression is separately unrecordable.
   No build, image, candidate, device action, or authority was created.
+- P2.48-P2.49 derived-validator closure: one descriptor now drives the
+  80-stage contract. Two clean Full-LTO builds, linked semantic audits,
+  deterministic boot-only packaging, offline closure, baseline rotation, and
+  a fresh connected D0 pass. One private binding awaits exact F1 approval.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
   rollback, and final health are proven.
 - V3439: pstore, pmsg, ramoops, and DTBO-based retention remain retired.
@@ -366,6 +385,8 @@ Load-bearing details are in:
 - `docs/reports/S22PLUS_FYG8_P244_E2_PROVIDER_IMPLEMENTATION_H0_2026-07-23.md`
 - `docs/reports/S22PLUS_FYG8_P246_E2_PROVIDER_F1_LIVE_PROGRESS_2026-07-24.md`
 - `docs/reports/S22PLUS_FYG8_P247_GATE_RANGE_FOCUSED_AUDIT_H0_2026-07-24.md`
+- `docs/reports/S22PLUS_FYG8_P248_DERIVED_VALIDATOR_IMPLEMENTATION_H0_2026-07-24.md`
+- `docs/reports/S22PLUS_FYG8_P249_DERIVED_VALIDATOR_CANDIDATE_D0_READY_2026-07-24.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
 
@@ -449,11 +470,15 @@ reports grant no device authority.
     frontier, pins all delegated sources and the selector, and adds fail-closed
     source, mutation, and linked-validator checks. Historical bytes are
     unchanged; no kernel or candidate was built.
-28. **P2.49 next, H0:** perform two clean Full-LTO builds with the P2.48
-    contract, require byte reproducibility and the new linked-validator audit,
-    then run deterministic boot-only packaging and offline closure only if
-    those gates pass.
-29. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
+28. **P2.49 complete, H0+D0:** after one host-only compile catch, two corrected
+    clean Full-LTO builds, linked-validator audits, deterministic boot-only
+    packages, independent closure, and offline promotion passed. One baseline
+    rotation and fresh connected D0 passed; a private binding awaits exact F1
+    approval.
+29. **P2.50 next, F1:** consume that fresh approval once, transfer only the
+    exact P2.49 boot candidate, observe the bounded E2 record, perform the
+    already-authorized exact Magisk rollback, and verify final health.
+30. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed

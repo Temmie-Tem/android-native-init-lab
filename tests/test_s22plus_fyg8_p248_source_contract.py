@@ -166,6 +166,14 @@ class S22PlusFyg8P248SourceContractTest(unittest.TestCase):
         self.assertNotIn(
             "request->stage >= 0x7b && request->stage <= 0x82", patch
         )
+        self.assertEqual(
+            patch.count("static bool s22_fyg8_e1_parse_reg("), 1
+        )
+        self.assertEqual(
+            patch.count("static void s22_fyg8_e1_record_entry("), 1
+        )
+        self.assertNotIn("s22_fyg8_e1_parse_reg+", patch)
+        self.assertNotIn("s22_fyg8_e1_record_entry+", patch)
 
     def test_decoder_accepts_structured_detail_and_rejects_reserved_band(self):
         model = decoder.model

@@ -707,16 +707,14 @@ def transform_patch(
         data,
         b"+static const u8 s22_fyg8_e2_sequence[] = {\n",
         b"+\n+static bool s22_fyg8_e1_parse_reg",
-        _render_kernel_tables(steps)
-        + b"+\n+static bool s22_fyg8_e1_parse_reg",
+        _render_kernel_tables(steps) + b"+\n",
         label="kernel descriptor tables",
     )
     value = _replace_span(
         value,
         b"+static bool s22_fyg8_e1_request_allowed(\n",
         b"+static void s22_fyg8_e1_record_entry",
-        _render_kernel_validator(gate_count)
-        + b"+static void s22_fyg8_e1_record_entry",
+        _render_kernel_validator(gate_count),
         label="kernel derived validator",
     )
     return _recount_kernel_patch_hunks(value)

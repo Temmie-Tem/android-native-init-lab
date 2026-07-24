@@ -70,18 +70,23 @@ without changing a separate validator range.
 - generated patch: clean apply;
 - generated userspace: static AArch64, two links byte-identical;
 - generated patch SHA256:
-  `c3da45a2902a792ef04931d7811404411fc7ba128338e265fa2ab7403673edf0`;
-- focused and affected regression total: 180 tests passed;
+  `5ab7ac478a290f3387e8100b447feb8da54c86591128710451b61f201e14cb9b`;
+- original focused and affected regression total: 180 tests passed;
+- post-boundary-fix selected regression closure: 126 tests passed;
 - Python compilation and `git diff --check`: passed; and
 - independent execution-critical review: `GO` after linked-audit source
   identity and dataflow blockers were corrected.
 
-The linked semantic audit is implemented but has not yet run against a P2.48
-Full-LTO `vmlinux`. That is the next bounded unit, not evidence that the
-currently built P2.45 kernel changed.
+The first P2.49 compile exposed a source-generation boundary defect: the
+replacement helper preserved its stop marker while the caller appended the
+same marker again. The host build stopped at C compilation before producing an
+Image. P2.48 now emits each preserved helper marker exactly once, and its
+regression test rejects both duplicate helper declarations and the observed
+`function+static` splice. P2.49 subsequently ran the linked semantic audit
+against two clean byte-identical Full-LTO `vmlinux` files.
 
 ## Next Bounded Unit
 
-P2.49 remains H0: two clean Full-LTO builds, byte reproducibility, execution of
-the P2.48 linked-validator audit against both final kernels, then deterministic
-boot-only packaging and offline closure only after those checks pass.
+P2.49 completed two clean Full-LTO builds, byte reproducibility, linked-validator
+audits, deterministic boot-only packaging, offline closure, and a connected
+read-only D0 preparation. Its separate report carries the current state.
