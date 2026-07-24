@@ -73,6 +73,10 @@
       "supplier:platform:soc:interconnect@1",
       "supplier:regulator:regulator.2"
     ],
+    "udc_entries": [
+      "a600000.dwc3",
+      "dummy_udc.0"
+    ],
     "udc_state": "configured"
   },
   "target": "SM-S906N/g0q/S906NKSS7FYG8",

@@ -35,6 +35,11 @@
   global UDC singleton cardinality although FYG8 normally has both
   `dummy_udc.0` and `a600000.dwc3`. DWC3 bind also precedes queued
   role/gadget work, and the shared deadline leaves its dwell ambiguous.
+- P2.58A UDC observation repair: `H0_IMPLEMENTED_AND_STATIC_VERIFIED`; exact
+  target membership and symlink identity replace global singleton cardinality,
+  the stock two-UDC topology is an executable semantic fixture, and DWC3
+  success starts one fresh five-second UDC dwell. The 60-module plan,
+  checkpoint ABI, and kernel patch remain byte-identical to P2.57.
 
 The current O3 minimal-ACM metadata plan contains 59 modules and
 passes recursive hard dependency, softdep pre/post, stock-order, alias,
@@ -229,7 +234,7 @@ root cause. Do not retry E2 unchanged or infer downstream USB state. The
 latest stock read-only evidence is maintained separately in
 `stock-usb-runtime-topology.json`.
 
-## P2.57/P2.58 DWC3-To-UDC Frontier
+## P2.57-P2.58A DWC3-To-UDC Frontier
 
 P2.57 advances the direct-PID1 live frontier through the SSUSB parent and
 DWC3 child. The retained result ends with DWC3 success at `0x86` and UDC-gate
@@ -250,10 +255,18 @@ core.
 
 The P2.57 runtime also has no per-gate timestamp or UDC-specific deadline. A
 late SSUSB bind during classifier grace activates a zero-wait downstream
-drain. The next bounded contract must first replace singleton cardinality with
-exact target membership, validate the target symlink, and give only that
-corrected DWC3-to-UDC boundary one fresh five-second read-only dwell. Semantic
-tests must include `dummy_udc.0 + a600000.dwc3` as success. It must not add
-modules, force role, or create configfs state. If the corrected dedicated
-dwell still fails, instrument only role-work entry and the PM/reset/gadget-init
-return codes.
+drain.
+
+P2.58A repairs both observation defects without changing the kernel contract.
+It accepts the exact target plus unrelated peers, validates the target symlink
+and basename, and gives only the DWC3-to-UDC boundary a fresh five-second
+read-only dwell. The semantic oracle requires
+`dummy_udc.0 + a600000.dwc3` to pass and rejects target absence, duplicate
+target model input, wrong type, and wrong identity. The exact P2.57 plan,
+checkpoint, and kernel patch receipts are pinned byte-for-byte; two independent
+static AArch64 userspace links are reproducible.
+
+This remains H0 evidence. A linked candidate audit must still prove reuse of
+the exact qualified kernel Image before packaging. If a future corrected dwell
+still fails, instrument only role-work entry and the PM/reset/gadget-init
+return codes. Do not add modules, force role, or create configfs state.

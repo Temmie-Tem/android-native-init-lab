@@ -70,6 +70,9 @@ LINKED_VALIDATOR_ADAPTERS = {
     "s22plus-fyg8-p257-e2-qnoc-display-closure-v1": (
         "s22plus_fyg8_p257_linked_audit"
     ),
+    "s22plus-fyg8-p258a-e2-exact-udc-membership-v1": (
+        "s22plus_fyg8_p258_linked_audit"
+    ),
 }
 
 

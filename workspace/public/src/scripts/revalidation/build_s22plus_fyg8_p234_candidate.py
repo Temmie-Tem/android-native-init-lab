@@ -93,6 +93,9 @@ def verify_repro_result(
         "s22plus-fyg8-p257-e2-qnoc-display-closure-v1": (
             "s22plus-fyg8-p257-linked-audit-v1"
         ),
+        "s22plus-fyg8-p258a-e2-exact-udc-membership-v1": (
+            "s22plus-fyg8-p258-linked-audit-v1"
+        ),
     }
     required_adapter = proof_bound_adapters.get(
         exact_contract.get("source_contract_id")
@@ -110,7 +113,11 @@ def verify_repro_result(
             "s22plus-fyg8-p254-e2-proof-bound-v1"
         ):
             raise BuildError("P2.54 linked audit adapter mismatch")
-        raise BuildError("P2.57 linked audit adapter mismatch")
+        if exact_contract.get("source_contract_id") == (
+            "s22plus-fyg8-p257-e2-qnoc-display-closure-v1"
+        ):
+            raise BuildError("P2.57 linked audit adapter mismatch")
+        raise BuildError("P2.58A linked audit adapter mismatch")
     expected_image = value.get("build_a", {}).get("artifacts", {}).get("Image")
     if expected_image != image_receipt:
         raise BuildError("P2.34 supplied Image differs from reproducibility closure")

@@ -72,6 +72,13 @@ exact-membership + 5초 전용 read-only 판별 범위는
 `reports/S22PLUS_FYG8_P258_UDC_FRONTIER_FOCUSED_ANALYSIS_H0_2026-07-25.md`에
 기록합니다.
 
+P2.58A의 exact UDC membership/symlink 판정, DWC3 이후 전용 5초 dwell,
+stock two-UDC 실행 fixture와 mutation guard, P2.57 plan/checkpoint/kernel
+patch 불변성, userspace-only 재현 링크 결과는
+`reports/S22PLUS_FYG8_P258A_UDC_PREDICATE_IMPLEMENTATION_H0_2026-07-25.md`에
+기록합니다. 상세 설계는
+`plans/S22PLUS_FYG8_P258A_UDC_PREDICATE_REPAIR_DESIGN_2026-07-25.md`입니다.
+
 R4W1-D가 증명한 PID1 진입 이후의 최소 runtime, retained A/B checkpoint,
 child exec/reap, USB bind/UDC, ACM 단방향, 고정 1회 왕복 순서는
 `plans/S22PLUS_FYG8_POST_PID1_OBSERVABLE_RUNTIME_ARCHITECTURE_2026-07-21.md`에

@@ -26,7 +26,8 @@ P2.55 F1 QNOC-MC-VIRT BIND ABSENT; EXACT ROLLBACK AND FINAL HEALTH PASS;
     DISPLAY-ENABLED STOCK D0 PASS; UNIT A IMPLEMENTATION AND INDEPENDENT
     RE-REVIEW H0 PASS; REPRODUCIBLE FULL-LTO CANDIDATE H0 PASS;
     P2.57 E2 LIVE DWC3-CORE PASS AND UDC-GATE TIMEOUT; EXACT ROLLBACK AND FINAL
-    HEALTH PASS; P2.58 UDC FRONTIER FOCUSED ANALYSIS H0 PASS.**
+    HEALTH PASS; P2.58 UDC FRONTIER FOCUSED ANALYSIS H0 PASS;
+    P2.58A EXACT-UDC PREDICATE AND DEDICATED-DWELL IMPLEMENTATION H0 PASS.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -434,12 +435,15 @@ predicate failed, not that the exact DWC3 UDC was absent.
 
 Exact source also shows a secondary observation defect: child role setup queues
 `__dwc3_set_mode()` asynchronously, while the shared deadline and zero-wait
-post-grace drain can leave the UDC little or no dwell. The next bounded unit
-preserves the 60-module/no-write contract, replaces global cardinality with
-exact target membership and identity, adds semantic two-UDC fixtures, and
-grants only that corrected frontier one fresh five-second read-only dwell.
-Role forcing, configfs, new modules, ACM, and broad tracing remain out of
-scope.
+post-grace drain can leave the UDC little or no dwell. P2.58A now preserves
+the 60-module/no-write contract, replaces global cardinality with exact target
+membership and symlink identity, promotes the stock two-UDC state to an
+executable semantic fixture, and grants only that corrected frontier one fresh
+five-second read-only dwell. P2.57's plan, checkpoint, stage/detail geometry,
+and kernel patch remain byte-identical; two static AArch64 userspace links are
+reproducible. No kernel Full-LTO build, candidate, device action, or live
+authority was created. Role forcing, configfs, new modules, ACM, and broad
+tracing remain out of scope.
 
 ## Established Evidence
 
@@ -774,11 +778,18 @@ reports grant no device authority.
     stock-observed `dummy_udc.0 + a600000.dwc3` topology. Its timeout cannot
     prove exact-target absence. Exact source separately proves DWC3 bind
     precedes queued role-worker completion, and the shared deadline can reduce
-    UDC dwell to one check. The next host unit changes observation only:
-    exact-target membership and symlink identity regardless of unrelated UDCs,
-    semantic topology fixtures, and one fresh five-second UDC deadline after
-    DWC3 success. No role/configfs write or module addition.
-41. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
+    UDC dwell to one check.
+41. **P2.58A complete, H0:** the versioned observation contract now requires
+    exact-target membership and symlink identity while permitting unrelated
+    UDC peers, and starts one fresh five-second UDC deadline after DWC3 success.
+    The canonical stock topology plus seven positive/negative semantic cases
+    execute during contract validation. Mutation checks reject missing target
+    or peer ground truth. P2.57 plan/checkpoint/kernel patch are byte-identical;
+    only the static userspace runtime changes, and two links are reproducible.
+    Historical P2.45-P2.58A regression tests pass. Next is a bounded independent
+    runtime-delta review and linked proof that packaging reuses the exact
+    qualified P2.57 Image; no Full-LTO rebuild is selected for this unit.
+42. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed

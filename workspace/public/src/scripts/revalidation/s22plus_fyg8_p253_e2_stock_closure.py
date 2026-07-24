@@ -21,6 +21,7 @@ ClosureError = legacy.ClosureError
 EXPECTED_ELF_ENTRYPOINTS = {"init": 0x4014F0, "child": 0x4000CC}
 P254_CONTRACT_ID = "s22plus-fyg8-p254-e2-proof-bound-v1"
 P257_CONTRACT_ID = "s22plus-fyg8-p257-e2-qnoc-display-closure-v1"
+P258_CONTRACT_ID = "s22plus-fyg8-p258a-e2-exact-udc-membership-v1"
 _ISOLATED_MODULE_NAME = "_s22plus_fyg8_p253_isolated_p242_stock_closure"
 
 
@@ -61,6 +62,10 @@ def select(source_contract_id: str | None):
         import s22plus_fyg8_p257_e2_stock_closure as p257
 
         return p257
+    if source_contract_id == P258_CONTRACT_ID:
+        import s22plus_fyg8_p258_e2_stock_closure as p258
+
+        return p258
     raise ClosureError(
         f"unsupported E2 stock-closure source contract: {source_contract_id!r}"
     )
