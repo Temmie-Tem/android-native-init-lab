@@ -15,7 +15,8 @@ DISPLAY-RSC BIND; P2.43 RPMH DEPENDENCY H0 PASS; P2.44 12-GATE E2
 IMPLEMENTATION H0 PASS; P2.45 REPRODUCIBLE E2 CANDIDATE H0 PASS; P2.46 E2
 LIVE PROGRESS THROUGH APPS-RPMH-MXLVL; P2.47 GATE-RANGE FOCUSED AUDIT H0
 PASS; P2.48 DERIVED VALIDATOR IMPLEMENTATION H0 PASS; P2.49 REPRODUCIBLE
-DERIVED-VALIDATOR CANDIDATE AND CONNECTED D0 PASS; EXACT ROLLBACK PINNED.**
+DERIVED-VALIDATOR CANDIDATE AND CONNECTED D0 PASS; P2.50 E2 LIVE GCC PASS
+AND SSUSB TIMEOUT; EXACT ROLLBACK AND FINAL HEALTH PASS.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -249,8 +250,18 @@ The first connected D0 preparation stopped read-only on a historical retained
 E1 family and invoked no Odin session or transfer. One approved normal Android
 reboot rotated it out. A fresh run directory then passed exact target, health,
 rollback, clean-baseline, artifact, and execution-closure checks and produced
-one private prepared binding. No F1 authority exists until its fresh exact
-approval is supplied.
+one private prepared binding. At that checkpoint no F1 authority existed.
+
+That approval was supplied and consumed by P2.50. One exact candidate and one
+exact rollback transfer completed. Two byte-identical retained reads contain
+one exact E2 record: generation 76 passed `gcc-waipio` at stage `0x83`, item
+8; generation 77 failed `ssusb` at stage `0x84`, item 9, with
+`ETIMEDOUT` (110). The record has no integrity, foreign-family, partial,
+fallback, or adjacency issue. It proves the P2.48 validator correction reached
+the flashed kernel and moved the live frontier beyond P2.46's `0x82` boundary.
+It does not prove SSUSB, DWC3, UDC, or terminal `0x8f`. Exact rollback, final
+health, and all eight timeline events passed. The transaction is `CLOSED` and
+its authority is consumed.
 
 ## Established Evidence
 
@@ -349,7 +360,10 @@ approval is supplied.
 - P2.48-P2.49 derived-validator closure: one descriptor now drives the
   80-stage contract. Two clean Full-LTO builds, linked semantic audits,
   deterministic boot-only packaging, offline closure, baseline rotation, and
-  a fresh connected D0 pass. One private binding awaits exact F1 approval.
+  a fresh connected D0 pass produced the private binding consumed by P2.50.
+- P2.50 E2 F1: one exact candidate and rollback transfer completed. The
+  corrected validator records `gcc-waipio` success at `0x83`, then `ssusb`
+  timeout at `0x84`. Final health and timeline passed; authority is consumed.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
   rollback, and final health are proven.
 - V3439: pstore, pmsg, ramoops, and DTBO-based retention remain retired.
@@ -387,6 +401,7 @@ Load-bearing details are in:
 - `docs/reports/S22PLUS_FYG8_P247_GATE_RANGE_FOCUSED_AUDIT_H0_2026-07-24.md`
 - `docs/reports/S22PLUS_FYG8_P248_DERIVED_VALIDATOR_IMPLEMENTATION_H0_2026-07-24.md`
 - `docs/reports/S22PLUS_FYG8_P249_DERIVED_VALIDATOR_CANDIDATE_D0_READY_2026-07-24.md`
+- `docs/reports/S22PLUS_FYG8_P250_E2_F1_GCC_PASS_SSUSB_TIMEOUT_2026-07-24.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
 
@@ -475,10 +490,14 @@ reports grant no device authority.
     packages, independent closure, and offline promotion passed. One baseline
     rotation and fresh connected D0 passed; a private binding awaits exact F1
     approval.
-29. **P2.50 next, F1:** consume that fresh approval once, transfer only the
-    exact P2.49 boot candidate, observe the bounded E2 record, perform the
-    already-authorized exact Magisk rollback, and verify final health.
-30. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
+29. **P2.50 complete/closed, F1:** one exact candidate and rollback transfer
+    completed. The E2 record proves `gcc-waipio` at `0x83` and records
+    `ssusb` timeout at `0x84`; final health and timeline passed. The binding
+    and authority are consumed.
+30. **P2.51 next, H0:** focus on the exact `a600000.ssusb` probe dependencies,
+    source, DT, and carried module state. Produce a bounded discriminator or
+    correction before another candidate.
+31. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
