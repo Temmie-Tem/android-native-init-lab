@@ -24,7 +24,9 @@ P2.55 F1 QNOC-MC-VIRT BIND ABSENT; EXACT ROLLBACK AND FINAL HEALTH PASS;
     P2.56 QNOC FOCUSED HYPOTHESIS AND ODIN OBSERVER ANALYSIS H0 PASS;
     P2.57 STOCK-PIVOT READER AND ODIN DIAGNOSTIC UNIT B H0 PASS;
     DISPLAY-ENABLED STOCK D0 PASS; UNIT A IMPLEMENTATION AND INDEPENDENT
-    RE-REVIEW H0 PASS; FINAL FULL-LTO QUALIFICATION NEXT.**
+    RE-REVIEW H0 PASS; REPRODUCIBLE FULL-LTO CANDIDATE H0 PASS;
+    P2.57 E2 LIVE DWC3-CORE PASS AND UDC TIMEOUT; EXACT ROLLBACK AND FINAL
+    HEALTH PASS.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -395,8 +397,33 @@ wait replay proves a diagnostic failure consumes no snapshot sequence,
 generation, or ticket. F1 recovery replay from durable `ROLLBACK_FLASHED`
 ignores absent, canonical, and malformed diagnostics and performs no candidate
 or rollback transfer. The final independent execution-critical review returned
-`GO`. No connected stock D0 has run, so Unit A remains blocked.
-No active S22+ F1 authorization exists.
+`GO`. Connected stock D0 then returned `DISPLAY_ENABLED_VERIFIED`, enabling
+Unit A. Two clean Full-LTO builds and two boot-only package runs were byte
+identical. The linked audit, independent closure, Process v2 offline
+promotion, host-ready validation, one bounded normal reboot, and a fresh
+connected D0 passed.
+
+That exact approval was supplied and consumed. One exact P2.57 candidate and
+one exact Magisk rollback transfer completed, and the operator observed a
+successful candidate boot with no boot loop. Two byte-identical retained reads
+contain one exact E2 terminal-failure record: generation 79 passed stage
+`0x86`, item 10, the DWC3 core bind gate; generation 80 failed stage `0x87`,
+item 11, the UDC class-device gate with detail 110 (`ETIMEDOUT`). The strict
+sequence proves the 60 modules and all standard gates through SSUSB and DWC3
+core. Together with the source-closed dependency chain, that clears the old
+qnoc MC virtual blocking boundary without claiming separate retained
+display/qnoc bind checkpoints. It does not prove UDC publication, USB
+enumeration, ACM, or terminal stage `0x8f`.
+
+After the durable journal reached `ROLLBACK_FLASHED`, the initial process
+stopped fail-closed on a final USB endpoint inventory error. It repeated
+neither transfer. Android ADB returned, and Process v2 recovery resumed from
+that journal state for final verification only. Android/FYG8/root/boot and
+supporting-partition health, Odin absence, byte-identical retained reads, and
+all eight timeline events passed. The transaction is `CLOSED`; recovery is
+not required; the formal verdict is
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. No active S22+ F1 authorization
+exists.
 
 ## Established Evidence
 
@@ -703,7 +730,8 @@ reports grant no device authority.
     and the qnoc return code remain unobserved. Exact USBFS receipt replay also
     reproduces the generic post-rollback observer error and identifies the
     missing durable inner exception.
-38. **P2.57 pivot, Unit B, and Unit A implementation complete, H0+D0:**
+38. **P2.57 pivot, Unit B, Unit A, and candidate qualification complete,
+    H0+D0:**
     connected stock D0 returned `DISPLAY_ENABLED_VERIFIED` with exact `0`/`0`
     source values and healthy Android, so Unit A was eligible. The exact
     `s22plus-fyg8-p257-e2-qnoc-display-closure-v1` contract inserts only the
@@ -715,9 +743,17 @@ reports grant no device authority.
     standard regulator and ICC votes, with proxy/error-path state potentially
     retained until sync-state or reboot, but has no persistent-storage, fuse,
     bootloader, partition, or raw PMIC write path. Unit B remains unchanged.
-    Restricted independent re-review returned GO with no finding. No Full-LTO
-    build, image, candidate, manifest, approval, or F1 authority exists.
-39. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
+    Restricted independent re-review returned GO with no finding. Two clean
+    Full-LTO builds, deterministic package runs, linked/independent closure,
+    Process v2 offline promotion, host-ready validation, and connected D0
+    passed.
+39. **P2.57 complete/closed, F1:** one exact candidate and rollback transfer
+    completed. Generation 79 passed DWC3 core at `0x86`; generation 80 failed
+    the final UDC gate at `0x87`, item 11 with `ETIMEDOUT`. Final health and
+    all eight timeline events passed after journal-based recovery from a
+    post-rollback USB inventory error. The formal verdict is no-proof because
+    terminal success was not observed. Binding and approval are consumed.
+40. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed

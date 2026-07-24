@@ -13,16 +13,17 @@ Do not add a device step when host-only work can answer the question.
 ## Current Live Posture
 
 - No S22+ F1 live run is currently authorized.
-- P2.55 consumed one exact approval and transferred the P2.54 proof-bound
-  SSUSB classifier candidate once. The operator observed no candidate boot
-  loop.
+- P2.57 consumed one exact approval and transferred the display-closure E2
+  candidate once. The operator observed a successful candidate boot and no
+  boot loop.
 - Two byte-identical retained reads contain one exact E2 terminal-failure
-  record. Generation 76 passed `gcc-waipio` at stage `0x83`; generation 77
-  failed the stage `0x84`, item 9 SSUSB frontier with detail `0xa04`,
-  `qnoc-mc-virt-bind-absent`. This is the classifier-time absence of the exact
-  qnoc MC virtual bind symlink, not a permanent-root-cause verdict.
+  record. Generation 79 passed `dwc3-core` at stage `0x86`; generation 80
+  failed the stage `0x87`, item 11 UDC frontier with detail 110
+  (`ETIMEDOUT`). This proves the exact 60-module sequence and gates through
+  SSUSB and DWC3 core, but not `/sys/class/udc/a600000.dwc3`, USB enumeration,
+  ACM, or terminal stage `0x8f`.
 - One exact Magisk rollback transfer completed. The first execution process
-  then stopped fail-closed on a post-rollback measured-USB evidence error
+  then stopped fail-closed on a post-rollback USB endpoint inventory error
   after the durable journal had reached `ROLLBACK_FLASHED`. It did not retry
   the candidate or rollback. Recovery resumed from that journal state and
   performed final verification only.
@@ -31,9 +32,8 @@ Do not add a device step when host-only work can answer the question.
   timeline events passed. The durable verdict is
   `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; recovery is not required.
 - The binding and approval are consumed. Before another F1, use H0 to analyze
-  the qnoc MC virtual bind boundary and the unpreserved inner cause of the
-  post-rollback USB measurement failure. A new candidate still requires a new
-  H0 closure, D0 preparation, and exact approval.
+  why the bound DWC3 core did not publish its UDC class device. A new candidate
+  still requires a new H0 closure, D0 preparation, and exact approval.
 
 ## Permanent Safety Boundaries
 
