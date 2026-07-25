@@ -6,6 +6,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import json
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -123,6 +124,33 @@ def require(contract_id: str | None, profile: str) -> SourceContract:
 
 def candidate_observer(run_id: bytes) -> dict[str, str]:
     return spec.candidate_observer(run_id)
+
+
+def _validate_authoritative_runtime_constants(include: bytes) -> None:
+    for name, expected_value in spec.RUNTIME_EXTERNAL_CONSTANTS:
+        pattern = re.compile(
+            rb"^#define[ \t]+"
+            + re.escape(name.encode("ascii"))
+            + rb"[ \t]+(0[xX][0-9a-fA-F]+|0[0-7]*|[1-9][0-9]*)"
+            + rb"[lLuU]*[ \t]*$",
+            re.MULTILINE,
+        )
+        matches = pattern.findall(include)
+        if len(matches) != 1:
+            raise SourceContractError(
+                f"P2.60 authoritative constant {name} cardinality drifted"
+            )
+        literal = matches[0].decode("ascii")
+        if literal.lower().startswith("0x"):
+            actual_value = int(literal, 16)
+        elif len(literal) > 1 and literal.startswith("0"):
+            actual_value = int(literal, 8)
+        else:
+            actual_value = int(literal, 10)
+        if actual_value != expected_value:
+            raise SourceContractError(
+                f"P2.60 authoritative constant {name} value drifted"
+            )
 
 
 def _replace_exact(
@@ -398,6 +426,7 @@ def _generated_semantics(
     ):
         raise SourceContractError("P2.60 linked geometry drifted")
     include = source_bytes_for_runtime_include()
+    _validate_authoritative_runtime_constants(include)
     if hashlib.sha256(include).hexdigest() != spec.E3_RUNTIME_INCLUDE_SHA256:
         raise SourceContractError("P2.60 E3 runtime source identity drifted")
     required_include = (

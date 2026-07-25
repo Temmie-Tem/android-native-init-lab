@@ -155,6 +155,53 @@ class S22PlusFyg8P260SourceContractTest(unittest.TestCase):
         )
         self.assertEqual(runtime.count(b"p260_e3_run();"), 1)
 
+    def test_configfs_magic_is_authoritative_and_sysfs_mutation_fails(self):
+        include = p260.source_bytes_for_runtime_include(ROOT)
+        self.assertEqual(spec.CONFIGFS_MAGIC, 0x62656570)
+        self.assertEqual(spec.SYSFS_MAGIC, 0x62656572)
+        self.assertNotEqual(spec.CONFIGFS_MAGIC, spec.SYSFS_MAGIC)
+        self.assertEqual(
+            len(spec.RUNTIME_EXTERNAL_CONSTANTS),
+            len(dict(spec.RUNTIME_EXTERNAL_CONSTANTS)),
+        )
+        p260._validate_authoritative_runtime_constants(include)
+
+        expected = (
+            f"#define P260_CONFIGFS_MAGIC 0x{spec.CONFIGFS_MAGIC:08x}L"
+        ).encode("ascii")
+        wrong_sysfs = (
+            f"#define P260_CONFIGFS_MAGIC 0x{spec.SYSFS_MAGIC:08x}L"
+        ).encode("ascii")
+        self.assertEqual(include.count(expected), 1)
+        mutated = include.replace(expected, wrong_sysfs)
+        with self.assertRaisesRegex(
+            p260.SourceContractError,
+            "P260_CONFIGFS_MAGIC value drifted",
+        ):
+            p260._validate_authoritative_runtime_constants(mutated)
+        with (
+            mock.patch.object(
+                p260,
+                "source_bytes_for_runtime_include",
+                return_value=mutated,
+            ),
+            self.assertRaisesRegex(
+                p260.SourceContractError,
+                "P260_CONFIGFS_MAGIC value drifted",
+            ),
+        ):
+            p260._generated_semantics(self.generated, self.historical)
+
+        for malformed in (
+            include.replace(expected, b"", 1),
+            include.replace(expected, expected + b"\n" + expected, 1),
+        ):
+            with self.assertRaisesRegex(
+                p260.SourceContractError,
+                "P260_CONFIGFS_MAGIC cardinality drifted",
+            ):
+                p260._validate_authoritative_runtime_constants(malformed)
+
     def test_materialized_runtime_include_is_source_bound(self):
         source, receipts = p260.source_receipts(ROOT)
         self.assertEqual(

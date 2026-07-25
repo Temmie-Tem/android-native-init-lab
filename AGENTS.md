@@ -32,9 +32,14 @@ Do not add a device step when host-only work can answer the question.
   health, Odin absence, byte-identical retained reads, and all eight canonical
   timeline events passed. The durable verdict is
   `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; recovery is not required.
-- The binding and approval are consumed. Before another F1, correct and
-  source-test the configfs magic under H0, derive fresh artifacts and
-  authority, complete D0, and obtain one fresh exact approval.
+- P2.68 corrected the configfs magic to `0x62656570`. The pre-LTO source
+  contract now parses all 16 E3 runtime external ABI constants against one
+  authoritative table, and a sysfs-magic mutation fails before the generic
+  source-identity check. Focused Python, mutation, and no-LTO two-link tests
+  pass. No new intent, kernel, image, D0, approval, or device action exists.
+- The binding and approval are consumed. Before another F1, derive fresh
+  artifacts and authority from the corrected source, complete D0, and obtain
+  one fresh exact approval.
 
 ## Permanent Safety Boundaries
 

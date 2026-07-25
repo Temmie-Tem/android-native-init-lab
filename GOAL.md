@@ -31,8 +31,16 @@ that the candidate compares `statfs` against `0x62656572`, the sysfs magic,
 while Linux configfs uses `0x62656570`. A correct configfs mount therefore
 cannot satisfy this candidate. Detail 5 alone does not distinguish the magic
 mismatch from an `EIO` returned directly by mount/statfs, so the narrow live
-fact remains "configfs stage failed"; the deterministic source defect is the
-mandatory next correction.
+fact remains "configfs stage failed".
+
+P2.68 corrected the runtime constant to `0x62656570` and added an explicit
+pre-LTO semantic gate. The selected source contract now parses all 16 external
+ABI constants used by the E3 runtime and compares them with one authoritative
+contract table before checking the runtime SHA. Mutation to sysfs magic
+`0x62656572` is rejected as a semantic-value drift through the real pre-LTO
+call path; missing and duplicate definitions are also rejected. Focused
+Python, mutation, and no-LTO userspace two-link tests pass. No new intent,
+kernel, image, D0, approval, or device action exists.
 
 One candidate transfer and one exact Magisk rollback completed. The initial
 final-health pass stopped at `ROLLBACK_FLASHED` on a measured USB inventory
@@ -574,6 +582,20 @@ reports grant no device authority.
     verdict is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, authority is consumed,
     and the next unit is only the narrow H0 constant correction plus a
     semantic source-contract test before any fresh build, D0, or approval.
+57. **P2.68 configfs semantic-gate correction complete, H0:** change only
+    `P260_CONFIGFS_MAGIC` from sysfs `0x62656572` to configfs `0x62656570`,
+    update its source receipt, and add an external-constant parser for all 16
+    E3 runtime ABI literals to the selected pre-LTO source contract. The gate
+    compares against one contract table before generic SHA identity, requires
+    one exact definition per macro, and rejects wrong-value, missing, and
+    duplicate mutations through the real `_generated_semantics()` path. The
+    build runbook now records that byte identity and token presence do not
+    validate external semantics and requires load-bearing literals to be
+    registered and mutation-tested.
+    Python compilation, the focused mutation, all 14 P2.60 contract tests,
+    and the actual no-LTO userspace two-link closure pass. No Full-LTO build,
+    intent, image, package, D0, approval, or device action occurred. Next is a
+    fresh source-bound intent and final qualification, not more USB analysis.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or
