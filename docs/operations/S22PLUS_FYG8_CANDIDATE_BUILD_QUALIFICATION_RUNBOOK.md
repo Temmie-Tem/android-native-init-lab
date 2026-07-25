@@ -79,9 +79,19 @@ Require all of the following before spending a Full-LTO build:
 - no existing `out/` tree and a new result directory; and
 - no source, intent, patch, adapter, dispatcher, or candidate-enforcement
   change after intent derivation.
+- the exact two-link userspace build has passed its source-contract-specific
+  stock-closure entrypoint check before kernel build A.
 
 The exact resource and provenance predicates are owned by the build wrapper.
 Do not bypass a failed preflight based on a manual estimate.
+
+The userspace/closure check is deliberately before Full LTO. An executable
+entrypoint is a linked-output property and may move when a versioned runtime
+changes even if file size and the kernel template patch do not. A contract
+must not inherit a previous runtime's numeric entrypoint without rebuilding
+the current exact userspace and comparing both `init` and child ELF metadata.
+If this check fails, fix the source-bound closure adapter, derive a new intent,
+and repeat the cheap userspace check before starting either kernel build.
 
 ## Build record before preflight
 
@@ -379,6 +389,7 @@ not hypothetical policy requirements.
 | A new source contract added a reachable-record field that the generic evidence verifier did not recognize | Kernel, userspace, packages, and static closure were already valid; the downstream verifier had a stale hard-coded shape | Fix the typed verifier, run focused plus historical compatibility tests, and re-run host-ready validation | Derive the expected record from the selected versioned source contract; use the lane table and do not rebuild qualified kernel bundles |
 | Full-LTO build output was quiet for an extended period | Full LTO can spend a long time in a link with little stdout; silence alone is not a failure | Inspect the detached session and process/resource state read-only; wait for authoritative completion records | Always launch with tmux, `/usr/bin/time -v`, and a validated completion hook; never start a duplicate build from silence |
 | A new source contract had a byte-identical template patch, so an earlier Image was selected for reuse | Candidate identity also binds the source-contract domain, source receipts, derived run ID, UNSAT tag, and final config patch; template equality is below the actual candidate boundary | Derive and verify the fresh intent first; compare final patch/config/run ID, and rebuild when they differ | Keep a focused cross-contract identity test and make fresh intent derivation precede every build-lane decision |
+| P2.58A userspace linked reproducibly, but the stock-closure adapter inherited P2.57's older `/init` entrypoint and rejected the packaged candidate only after two Full-LTO builds | The kernel and packages were reproducible, but a source-bound host proof adapter was stale; a downstream-only shim would split static, promotion, and evidence semantics | Fix the P2.58A adapter itself, derive a new intent because its source receipt changes, and rebuild the invalidated candidate | Before Full LTO, build the exact userspace twice and compare both ELF entrypoints with the selected stock-closure adapter; test scoped adapter state restoration and historical-contract isolation |
 
 ## Time and resource expectations
 
@@ -398,6 +409,8 @@ Before build A:
 
 - [ ] The lane table says a kernel rebuild is required.
 - [ ] Candidate source contract, intent, patch, and userspace are frozen.
+- [ ] Exact two-link userspace entrypoints match the selected stock-closure
+      adapter before kernel build A.
 - [ ] Canonical source realpath, clang pin, jobs, and private output paths are
       recorded.
 - [ ] Fresh preflight passes with absent `out/` and a new result directory.

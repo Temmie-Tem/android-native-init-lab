@@ -24,6 +24,7 @@ import s22plus_fyg8_p258_e2_stock_closure as closure  # noqa: E402
 import s22plus_fyg8_p258_linked_audit as linked  # noqa: E402
 import s22plus_fyg8_p258_source_contract as p258  # noqa: E402
 import s22plus_fyg8_source_contracts as contracts  # noqa: E402
+import s22plus_fyg8_r4w1e_e1_candidate_static_checker as e1_static  # noqa: E402
 
 
 class S22PlusFyg8P258SourceContractTest(unittest.TestCase):
@@ -256,6 +257,123 @@ class S22PlusFyg8P258SourceContractTest(unittest.TestCase):
             "s22plus_fyg8_p258_e2_stock_closure.py"
         ).read_text(encoding="ascii")
         self.assertNotIn("p257.main()", source)
+
+    def test_stock_closure_uses_p258_entrypoints_without_history_leak(self):
+        historical = closure.p253.isolated_legacy
+        self.assertEqual(
+            historical.EXPECTED_ELF_ENTRYPOINTS,
+            {"init": 0x4014F0, "child": 0x4000CC},
+        )
+        self.assertEqual(
+            closure.isolated_legacy.EXPECTED_ELF_ENTRYPOINTS,
+            {"init": 0x401580, "child": 0x4000CC},
+        )
+
+        calls = (
+            (
+                "audit_candidate_generic_rootfs",
+                (object(), object()),
+                {
+                    "expected_init": {},
+                    "expected_child": {},
+                    "run_id": b"R" * 16,
+                    "module_closure": {},
+                },
+            ),
+            (
+                "rootfs_audit",
+                (b"candidate", b"vendor", Path("/unused/lz4")),
+                {
+                    "expected_init": {},
+                    "expected_child": {},
+                    "run_id": b"R" * 16,
+                    "module_closure": {},
+                },
+            ),
+            (
+                "validate_effective_rootfs",
+                ({},),
+                {
+                    "expected_init": {},
+                    "expected_child": {},
+                    "module_closure": {},
+                },
+            ),
+        )
+        for name, args, kwargs in calls:
+            with self.subTest(name=name):
+                observed = {}
+
+                def capture(*_args, **_kwargs):
+                    observed["module"] = closure.p253.isolated_legacy
+                    return {"verified": True}
+
+                with mock.patch.object(closure.p257, name, side_effect=capture):
+                    self.assertEqual(
+                        getattr(closure, name)(*args, **kwargs),
+                        {"verified": True},
+                    )
+                self.assertIs(observed["module"], closure.isolated_legacy)
+                self.assertIs(closure.p253.isolated_legacy, historical)
+
+    def test_stock_closure_restores_history_after_failure(self):
+        historical = closure.p253.isolated_legacy
+        with mock.patch.object(
+            closure.p257,
+            "rootfs_audit",
+            side_effect=closure.ClosureError("synthetic"),
+        ):
+            with self.assertRaisesRegex(closure.ClosureError, "synthetic"):
+                closure.rootfs_audit(
+                    b"candidate",
+                    b"vendor",
+                    Path("/unused/lz4"),
+                    expected_init={},
+                    expected_child={},
+                    run_id=b"R" * 16,
+                    module_closure={},
+                )
+        self.assertIs(closure.p253.isolated_legacy, historical)
+
+    def test_exact_userspace_entrypoints_match_stock_closure_before_full_lto(self):
+        private_tmp = ROOT / "workspace/private/tmp"
+        private_tmp.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(
+            dir=private_tmp, prefix="p258-entrypoint-prebuild-"
+        ) as name:
+            parent = Path(name)
+            intent_dir = parent / "intent"
+            candidate_intent.create(
+                argparse.Namespace(
+                    source=candidate_intent.DEFAULT_SOURCE,
+                    base_patch=candidate_intent.DEFAULT_BASE_PATCH,
+                    out=intent_dir.relative_to(ROOT),
+                    nonce_hex="58" * 16,
+                    profile="E2",
+                    source_contract_id=p258.CONTRACT_ID,
+                )
+            )
+            output = parent / "userspace"
+            result = userspace.build_userspace(
+                argparse.Namespace(
+                    source=candidate_intent.DEFAULT_SOURCE,
+                    intent=intent_dir / "candidate-intent.json",
+                    patch=intent_dir / "candidate.patch",
+                    out=output,
+                )
+            )
+            observed = {
+                "init": e1_static.inspect_static_elf(
+                    (output / "init").read_bytes(), "P2.58A test init"
+                )["entrypoint"],
+                "child": e1_static.inspect_static_elf(
+                    (output / "s22-e1-child").read_bytes(),
+                    "P2.58A test child",
+                )["entrypoint"],
+            }
+
+        self.assertTrue(result["two_build_byte_identical"])
+        self.assertEqual(observed, closure.EXPECTED_ELF_ENTRYPOINTS)
 
     def test_stock_collector_captures_future_udc_oracle_fields(self):
         source = (

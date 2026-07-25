@@ -619,6 +619,8 @@ def _registration_audit(root: Path) -> dict[str, Any]:
         "stock_closure_adapter": (
             b"source_contract.require(source_contract_id, \"E2\")",
             b"p257.validate_module_closure",
+            b"EXPECTED_ELF_ENTRYPOINTS = {\"init\": 0x401580, \"child\": 0x4000CC}",
+            b"_call_with_p258_entrypoints",
         ),
         "linked_validator_adapter": (
             b'ADAPTER_ID = "s22plus-fyg8-p258-linked-audit-v1"',
