@@ -467,6 +467,17 @@ reports grant no device authority.
     mutations pass, and final independent review returned `GO`. The first
     intent and builds are not promotable because the corrected adapter is
     source-receipted. Derive a new intent and repeat A/B.
+50. **P2.62 v2 Build A complete; Build B preflight stopped, H0:** the fresh
+    intent, two-link userspace/entrypoint/authority closure, Build A preflight,
+    and clean Full-LTO Build A passed. Its immutable bundle was locally
+    rehashed. Build B preflight then rejected twice because the operator
+    removed repository-root `out/` instead of the wrapper-owned
+    `$SOURCE_TREE/out`; the second durable stderr proved the same exact clean
+    gate. No Build B or device action started. Fails-twice stops that unit.
+    The runbook now requires canonical-parent verification and names only
+    `$SOURCE_TREE/out`. Resume, if any, is a new H0 recovery unit from the
+    unchanged intent and frozen Build A, never a reuse of either failed
+    preflight directory.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or

@@ -76,7 +76,7 @@ Require all of the following before spending a Full-LTO build:
 - a nominal 32 GiB build host, with at least 30 GiB visible physical memory;
 - at least 8 GiB swap and 30 GiB free disk;
 - the pinned stock baseline and both source archives;
-- no existing `out/` tree and a new result directory; and
+- no existing `$SOURCE_TREE/out` tree and a new result directory; and
 - no source, intent, patch, adapter, dispatcher, or candidate-enforcement
   change after intent derivation.
 - the exact two-link userspace build has passed its source-contract-specific
@@ -241,14 +241,28 @@ build-result.json
 Verify every copied file against the size and SHA256 recorded in
 `result.json` before deleting generated output.
 
-Do not delete `out/` until the immutable bundle copy and hash verification have
-both passed. A missing bundle artifact after deleting `out/` requires a new
-clean build; a post-build audit or packaging failure does not.
+Do not delete `$SOURCE_TREE/out` until the immutable bundle copy and hash
+verification have both passed. A missing bundle artifact after deleting that
+tree requires a new clean build; a post-build audit or packaging failure does
+not. A repository-root `out/` is unrelated and must not be used as the
+clean-build predicate.
 
 ## 3. Clean build B
 
-Remove only the generated source-tree `out/`. Keep the A bundle and all
-receipts.
+Resolve both paths before cleanup and require the generated tree's parent to
+be the canonical source tree:
+
+```bash
+source_real=$(realpath -e -- "$SOURCE_TREE")
+output_real=$(realpath -e -- "$SOURCE_TREE/out")
+test "$(dirname -- "$output_real")" = "$source_real"
+rm -rf --one-file-system -- "$output_real"
+test ! -e "$SOURCE_TREE/out"
+```
+
+Remove only that generated `$SOURCE_TREE/out`. Keep the A bundle and all
+receipts. If the exact tree is already absent, do not substitute another
+`out/` path.
 
 Run a fresh B preflight. It must independently prove the same run ID,
 canonical source path, source-overlay identity, symlink controls, clean output,
@@ -344,8 +358,8 @@ listed regular files from the pinned base/delta archive that owns their final
 content. Before replacement, prove the extracted bytes equal the reconstructed
 final-members manifest. Then rerun preflight from a new result directory.
 
-Do not continue from partial `out/`, manually edit read-only archive files, or
-reuse a failed result directory.
+Do not continue from partial `$SOURCE_TREE/out`, manually edit read-only
+archive files, or reuse a failed result directory.
 
 ## Failure triage before rebuilding
 
@@ -354,10 +368,11 @@ Classify a failure by the earliest authoritative boundary:
 1. **Preflight/source failure:** no build is valid. Repair the named host input,
    use a new result directory, and rerun preflight.
 2. **Compile/link/provider failure:** preserve logs and partial receipts,
-   restore the source tree, remove only generated `out/`, and run a new clean
-   build after the cause is fixed.
+   restore the source tree, remove only generated `$SOURCE_TREE/out`, and run
+   a new clean build after the cause is fixed.
 3. **Bundle-copy/hash failure:** the completed wrapper result may still be
-   valid, but do not delete `out/`. Repair the copy step and verify again.
+   valid, but do not delete `$SOURCE_TREE/out`. Repair the copy step and verify
+   again.
 4. **Reproducibility mismatch:** both builds are evidence, not a candidate.
    Compare canonical paths, toolchain/environment, source identities, and all
    six artifact hashes before rebuilding.
@@ -381,14 +396,15 @@ not hypothetical policy requirements.
 
 | Symptom | Correct interpretation | Recovery | Recurrence control |
 |---|---|---|---|
-| Preflight reported five source-overlay mismatches after an interrupted build | The old wrapper stopped after editing reproducibility controls | Restore only `_setup_env.sh`, `build.sh`, the common `Makefile`, and the two VDSO Makefiles named by preflight from the hash-verified pinned archive; discard partial `out/` | Never start Full LTO until a fresh preflight reports zero overlay mismatch; verify post-build source restoration |
+| Preflight reported five source-overlay mismatches after an interrupted build | The old wrapper stopped after editing reproducibility controls | Restore only `_setup_env.sh`, `build.sh`, the common `Makefile`, and the two VDSO Makefiles named by preflight from the hash-verified pinned archive; discard partial `$SOURCE_TREE/out` | Never start Full LTO until a fresh preflight reports zero overlay mismatch; verify post-build source restoration |
 | Detached-build completion file contained literal `$?` or was empty | The shell hook was quoted incorrectly; it did not by itself invalidate a complete wrapper result | Judge the finished build from the wrapper result, its two return codes, and `/usr/bin/time`; repair the hook before another build | Use the single-encoding Python launcher above and reject malformed completion files |
 | Build host lacked GNU AArch64 `nm`/`objdump`; LLVM substitution consumed over 24 GiB for more than 25 minutes | The versioned audit is qualified against GNU binutils, not that LLVM range-disassembly behavior | Stop the non-authoritative LLVM run and audit the copied immutable bundles on a controlled GNU-binutils host | Check GNU tools before build or reserve a verification host; do not select tools by basename fallback |
 | Offline promotion was given `candidate-a/AP.tar.md5` | Candidate generation succeeded, but the caller used the wrong path | Re-run only the host promotion with `candidate-a/odin4/AP.tar.md5`; do not rebuild or repackage | Treat `odin4/AP.tar.md5` as the candidate-builder output contract and verify it before promotion |
 | A clean build used a different absolute source-tree name | Source path and build-ID inputs changed, so linked bytes differed despite equivalent sources | Re-run B from the same canonical path after a clean preflight | Pin one canonical absolute source path in both build invocations |
 | A new source contract added a reachable-record field that the generic evidence verifier did not recognize | Kernel, userspace, packages, and static closure were already valid; the downstream verifier had a stale hard-coded shape | Fix the typed verifier, run focused plus historical compatibility tests, and re-run host-ready validation | Derive the expected record from the selected versioned source contract; use the lane table and do not rebuild qualified kernel bundles |
 | Full-LTO build output was quiet for an extended period | Full LTO can spend a long time in a link with little stdout; silence alone is not a failure | Inspect the detached session and process/resource state read-only; wait for authoritative completion records | Always launch with tmux, `/usr/bin/time -v`, and a validated completion hook; never start a duplicate build from silence |
-| An SSH-inline nested shell expanded `rc=$?` and `"$rc"` before tmux started | The build had a malformed completion hook even though the visible command looked correct | Stop an immediately detected host-only attempt, preserve its launcher receipt, remove only partial generated `out/`, and rerun fresh preflight | Copy or generate the reviewed Python `shlex.join()` launcher on the build host; inspect the running `/proc/<pid>/cmdline` and require literal `rc=$?` plus `"$rc"` before allowing the long build to continue |
+| An SSH-inline nested shell expanded `rc=$?` and `"$rc"` before tmux started | The build had a malformed completion hook even though the visible command looked correct | Stop an immediately detected host-only attempt, preserve its launcher receipt, remove only partial generated `$SOURCE_TREE/out`, and rerun fresh preflight | Copy or generate the reviewed Python `shlex.join()` launcher on the build host; inspect the running `/proc/<pid>/cmdline` and require literal `rc=$?` plus `"$rc"` before allowing the long build to continue |
+| Build B preflight twice reported `clean build requires absent output tree: <canonical-source>/out` after a repository-root `out/` was removed | The operator cleaned the wrong path; Build A correctly writes under `$SOURCE_TREE/out`, and the wrapper's fail-closed clean gate prevented a non-clean B | Stop after the second identical rejection, preserve the empty failed result directories, verify Build A's immutable bundle, then remove only the exact canonical `$SOURCE_TREE/out` in a new H0 recovery unit | Spell every cleanup/check as `$SOURCE_TREE/out`, verify `dirname(realpath($SOURCE_TREE/out)) == realpath($SOURCE_TREE)` before deletion, and never use repository-root `out/` as evidence |
 | A monitor used `tmux has-session -t build-name`, then outlived the build because its own `build-name-monitor` session prefix matched | `tmux -t` accepts unique prefixes; the monitor was observing itself, not a running build | Stop only the monitor after the build result and time receipt are complete; preserve all build artifacts | Compare exact names from `tmux list-sessions -F '#{session_name}'`; never use prefix matching as a completion predicate |
 | A 4.4 GHz Full-LTO link burst reached 69.1 C while the host critical point was 70 C | The overclocked P-state has insufficient sustained thermal margin even under a mostly single-thread link | Return to the stable 2.9 GHz cap, finish the build, and restore the normal governor afterward | Default candidate qualification to the stable cap; use no high-clock burst unless cooling or an intermediate P-state is separately qualified |
 | A new source contract had a byte-identical template patch, so an earlier Image was selected for reuse | Candidate identity also binds the source-contract domain, source receipts, derived run ID, UNSAT tag, and final config patch; template equality is below the actual candidate boundary | Derive and verify the fresh intent first; compare final patch/config/run ID, and rebuild when they differ | Keep a focused cross-contract identity test and make fresh intent derivation precede every build-lane decision |
@@ -423,7 +439,8 @@ Before build A:
       adapter before kernel build A.
 - [ ] Canonical source realpath, clang pin, jobs, and private output paths are
       recorded.
-- [ ] Fresh preflight passes with absent `out/` and a new result directory.
+- [ ] Fresh preflight passes with absent `$SOURCE_TREE/out` and a new result
+      directory.
 - [ ] Memory, swap, disk, and GNU linked-audit tools are available.
 - [ ] One detached launcher has a validated completion hook.
 
@@ -432,7 +449,8 @@ Between A and B:
 - [ ] Build A wrapper result and return codes pass.
 - [ ] Source restoration passes.
 - [ ] All six artifacts plus `build-result.json` are copied and hash-verified.
-- [ ] Only generated `out/` is removed.
+- [ ] Only generated `$SOURCE_TREE/out` is removed after its canonical parent
+      check.
 - [ ] B uses the same canonical source path and arguments.
 
 After B:
