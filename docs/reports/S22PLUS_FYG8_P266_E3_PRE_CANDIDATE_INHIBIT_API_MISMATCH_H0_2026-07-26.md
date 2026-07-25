@@ -122,5 +122,16 @@ contact by the exact user-namespace lifecycle test; the earlier aborted F1
 already proved the production `pkexec` path reaches a root process.
 
 No kernel, native userspace, candidate AP, rollback AP, manifest schema, Odin
-wrapper, device partition, or firmware artifact changed. A new execution
-closure and fresh approval are still required before another F1.
+wrapper, device partition, or firmware artifact changed.
+
+## Fresh closure and D0
+
+Implementation commit `f270e859` passed offline validation with live adapter
+`device-action-f1-live-v2-3` and the unchanged candidate bundle. A new private
+run then passed `PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY`, binding one
+healthy target, the exact rollback, and the new execution closure. The run has
+no transaction; device write, reboot request, Odin invocation, partition
+transfer, F1 authorization, and live authorization are all false.
+
+One fresh exact approval token now exists only in private evidence. No F1 is
+authorized until the operator submits that exact token.

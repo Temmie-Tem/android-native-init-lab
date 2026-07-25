@@ -552,8 +552,11 @@ reports grant no device authority.
     current-instance-bound and part of normal/resumed proof, stale or nonzero
     cleanup forces no-proof after rollback, and an isolated uid-0 lifecycle
     test proves verify/reload/release/unlink/reload ordering. Final independent
-    review is `GO` and 109 focused Process v2 tests pass. Regenerate the
-    execution closure and D0; no kernel or candidate rebuild is needed.
+    review is `GO` and 109 focused Process v2 tests pass. Commit `f270e859`,
+    offline adapter-v3 closure, and a fresh connected D0 all pass against the
+    unchanged candidate bundle. The new private run has no transaction, Odin,
+    transfer, reboot, or device write and holds one fresh exact approval
+    binding. No F1 is authorized until that token is submitted.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or
