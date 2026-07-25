@@ -9,445 +9,39 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 
 ## Current Frontier
 
-**State: R4W1-D DIRECT PID1 PROVEN; P2.37 E1A LOCAL RUNTIME LIVE PASS;
-P2.39 E1B MODULE RUNTIME LIVE PASS; P2.42 E2 LIVE DIAGNOSTIC FAILURE AT
-DISPLAY-RSC BIND; P2.43 RPMH DEPENDENCY H0 PASS; P2.44 12-GATE E2
-IMPLEMENTATION H0 PASS; P2.45 REPRODUCIBLE E2 CANDIDATE H0 PASS; P2.46 E2
-LIVE PROGRESS THROUGH APPS-RPMH-MXLVL; P2.47 GATE-RANGE FOCUSED AUDIT H0
-PASS; P2.48 DERIVED VALIDATOR IMPLEMENTATION H0 PASS; P2.49 REPRODUCIBLE
-DERIVED-VALIDATOR CANDIDATE AND CONNECTED D0 PASS; P2.50 E2 LIVE GCC PASS
-AND SSUSB TIMEOUT; EXACT ROLLBACK AND FINAL HEALTH PASS; P2.52 SSUSB
-CLASSIFIER IMPLEMENTATION H0 PASS; P2.53 FINAL-PROOF GAP CAUGHT H0;
-P2.54 PROOF-BOUND REPRODUCIBLE CLASSIFIER CANDIDATE H0 PASS; P2.55
-REACHABLE-CONTRACT VERIFIER FIX H0 PASS; P2.55 CONNECTED D0 PREPARED PASS;
-P2.55 F1 QNOC-MC-VIRT BIND ABSENT; EXACT ROLLBACK AND FINAL HEALTH PASS;
-    P2.56 QNOC FOCUSED HYPOTHESIS AND ODIN OBSERVER ANALYSIS H0 PASS;
-    P2.57 STOCK-PIVOT READER AND ODIN DIAGNOSTIC UNIT B H0 PASS;
-    DISPLAY-ENABLED STOCK D0 PASS; UNIT A IMPLEMENTATION AND INDEPENDENT
-    RE-REVIEW H0 PASS; REPRODUCIBLE FULL-LTO CANDIDATE H0 PASS;
-    P2.57 E2 LIVE DWC3-CORE PASS AND UDC-GATE TIMEOUT; EXACT ROLLBACK AND FINAL
-    HEALTH PASS; P2.58 UDC FRONTIER FOCUSED ANALYSIS H0 PASS;
-    P2.58A EXACT-UDC PREDICATE AND DEDICATED-DWELL IMPLEMENTATION H0 PASS.**
+**State: direct PID1, E1A local runtime, and E1B module runtime are live
+proven. P2.57 reached bound DWC3 core but its invalid singleton UDC predicate
+timed out; rollback and final health passed. P2.58A replaces that predicate
+with exact-target membership plus dedicated dwell. Its source-bound
+entrypoint adapter is corrected and a fresh qualification build is active
+H0. No F1 run is authorized.**
 
-R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
-P2.29 later transferred one exact P2.26 boot-only candidate and one exact
-Magisk rollback, then verified final health. Its clean-baseline retained result
-contained two exact USERSPACE records and no ENTRY, UNSAT, foreign, malformed,
-or partial record. The operator confirmed that the first physical Download
-attempt was missed and the candidate booted twice; the source permits one
-USERSPACE replacement per boot.
+The P2.57 transaction is closed with durable verdict
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; its approval and binding are consumed.
+Generation 79 passed DWC3 core at stage `0x86`, and generation 80 failed the
+old stage `0x87` UDC frontier with `ETIMEDOUT`. That record proves the exact
+60-module sequence through DWC3 core, not UDC publication or USB enumeration.
 
-P2.29's immutable exact-one contract correctly rejected two records as
-`AMBIGUOUS_INTEGRITY_FAILURE`, so its durable verdict remains
-`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. P2.31 binds the exact candidate,
-control flow, request ABI, kernel writer, and P2.30 replay. It establishes that
-PID 1 mounted procfs, verified `PROC_SUPER_MAGIC`, and caused the kernel to
-store the exact first E1 request. It does not prove that write returned or any
-later E1 stage.
+P2.58 established that `/sys/class/udc` legitimately contains both
+`a600000.dwc3` and `dummy_udc.0`, so P2.57's global cardinality requirement
+could never pass. P2.58A keeps the same module/step geometry, accepts unrelated
+UDC peers, requires one exact symlinked target, and grants a fresh five-second
+UDC dwell after DWC3 success.
 
-P2.30 adds an opt-in multiboot evidence policy without changing P2.29. P2.32
-now fixes a 45-byte shared-header plus compact A/B latest-stage record, strict
-E1A/E1B transitions, torn-update fallback, and multiboot decoding in an
-executable H0 model. No implementation, candidate, approval, or live authority
-was created by P2.32. P2.33 now implements the default-disabled kernel source,
-E1A/E1B userspace, decoder, typed evidence path, and static checker. It creates
-no build or candidate, and its offline verifier deliberately refuses promotion.
-P2.34 derives one private candidate identity, completes two clean reproducible
-Full-LTO builds, independently closes one deterministic boot-only AP, and
-promotes the exact three-payload offline evidence contract. It creates no ready
-manifest or device binding. The first P2.35 preparation line stopped after two
-host-only manifest rejections without device contact. The second rejection
-exposed a two-field binary identity versus path-bearing pinned-receipt mismatch;
-the bounded adapter fix, actual-bundle H0 replay, 124-test superset, and
-independent review passed. That stopped line and its private manifests remain
-closed. The next connected D0 initially rejected two exact legacy P2.29
-USERSPACE records in the retained baseline. One bounded normal Android reboot
-returned healthy and rotated them out; a fresh manifest and run directory then
-passed connected D0 and produced one private prepared binding. Its exact F1
-approval was accepted, but a measured USBFS arrival race stopped the run before
-endpoint identification, candidate attempt, or AP transfer. A bounded
-no-payload Odin reboot returned the unchanged Magisk boot, and a separate D0
-verified Android, FYG8, root, supporting partitions, clean retained baseline,
-and no Odin endpoint. The arrival race is fixed and independently reviewed H0.
-The consumed binding names the old execution closure and is not reusable.
-P2.37 created a fresh closure and D0 binding after the USBFS-arrival fix. Its
-single candidate and rollback transfers completed, and two byte-identical
-retained reads contained one exact E1A terminal-success record with no UNSAT,
-failure, foreign, malformed, historical, or partial record. Final Android,
-FYG8, root, supporting partitions, and Odin absence passed. The transaction is
-closed, its binding is consumed, and no active S22+ F1 authorization exists.
+The first P2.58A A/B kernel and package qualification was reproducible, but
+the independent rootfs checker caught a source-bound host proof defect before
+Process v2 promotion: the P2.58A adapter inherited P2.57's `/init` entrypoint
+`0x4014f0`, while the exact two-link P2.58A userspace is `0x401580`. A
+downstream-only shim was rejected because promotion and evidence verification
+consume the same adapter. Commit `fe12b94c` gives P2.58A an isolated exact
+entrypoint contract, tests all success/failure restoration paths, and adds a
+pre-Full-LTO userspace check to the qualification runbook.
 
-P2.38 then completed a focused H0 E1B readiness audit. The current E1B runtime,
-five-module dependency order, exact FYG8 vendor-ramdisk bytes, and P2.34
-kernel/module ABI are compatible. The modules remain in unchanged stock
-`vendor_boot`; they must not be injected into the boot-only AP. The remaining
-work is a profile-2 candidate pipeline and independent effective-rootfs audit,
-not broader research or a device action. No candidate or authority was created.
-
-P2.39 implemented that profile-2 pipeline while preserving the E1A identity
-domain. Two clean Full-LTO builds and two package runs were byte identical. The
-independent checker composed the candidate boot ramdisk with the pinned stock
-`vendor_boot`, verified the exact five-module closure, and promoted the E1B
-terminal `0x3f` offline contract. The common verifier now derives the reachable
-slot count per profile: E1A remains 32,769 and E1B is 57,345. The 142-test
-focused set and independent review passed. A connected D0 preparation then
-stopped read-only because `/proc/last_kmsg` still contains P2.37's valid E1A
-terminal-success record. No journal, approval, Odin session, reboot, or device
-write occurred. One approved D1 normal reboot and a fresh connected D0 are
-required before any E1B F1 approval can be requested.
-
-The operator then confirmed that all pre-F1 preparation, including one bounded
-D1 normal reboot, was approved. Exactly one `adb reboot` rotated the historical
-E1A record out and returned healthy Android. A fresh manifest and run directory
-passed connected D0 with Android/root/boot health, exact supporting partitions,
-clean retained baseline, exact candidate and rollback APs, and the current
-execution closure. One private prepared binding now exists. No Odin invocation,
-Download transition, partition transfer, or F1 authorization occurred. The next
-action is one exact E1B F1 approval; the candidate must not run before it.
-
-That exact approval was supplied and consumed. One candidate transfer completed,
-the operator observed no boot loop, and the transaction reached `OBSERVED`.
-The first recovery inventory check stopped before the physical Download endpoint
-was available; it did not retry the candidate. Once the exact endpoint appeared,
-the same durable transaction resumed with the preapproved Magisk rollback. Two
-byte-identical retained reads contained one exact E1B terminal-success record:
-generation 14 had reached `WDT_MODULES_VERIFIED` stage `0x35`, and generation 15
-reached E1B success `0x3f`. UNSAT, failure, foreign, malformed, historical,
-partial, and fallback counts were zero. Final Android, FYG8, root, boot,
-supporting partitions, Odin absence, and all eight timeline events passed. The
-state is `CLOSED`, the binding is consumed, and no S22+ F1 authority remains.
-
-The controlling next-stage design is
-`docs/plans/S22PLUS_FYG8_POST_PID1_OBSERVABLE_RUNTIME_ARCHITECTURE_2026-07-21.md`.
-
-P2.40 completed the focused E2 H0 audit. The exact 59-module FYG8 closure has
-one dependency-valid order that prepends `qcom_hwspinlock` to the proven E1B
-five-module foundation and then appends the remaining O3 entries. All 210
-constraints pass. Source-matched DWC3 control flow and exact-module ELF
-relocations prove that successful `dwc3-msm` probe queues child creation, and
-the exact child DT plus built-in dual-role configuration can publish the UDC
-without a parent mode or configfs write. The unchanged compact carrier has
-capacity for profile 3: 76 stages and 307,201 reachable slot variants. This is
-implementation readiness only; direct-PID1 bind and UDC remain live unknowns.
-
-P2.41 now implements that contract without building a live candidate. The
-planner, profile-3 kernel/client state machine, static runtime, direct exact-
-DTBO parser, and independent effective-rootfs checker pass H0. The runtime
-requires the exact module prefix after every insertion, rejects `-EEXIST` and
-foreign modules, and observes all eight gates under one 20-second read-only
-deadline. All 307,201 E2 variants and the 90,114 E1A/E1B regression domain
-pass. Independent review returned GO after two diagnostic/DTBO nits were fixed.
-Direct-PID1 module execution, bind, child creation, and UDC remain live unknowns.
-
-P2.42 has completed the E2 candidate H0 closure. Two clean Full-LTO builds and
-two package runs are byte-identical, the independent checker reconstructed the
-boot-only AP through boot-v4 and the actual generic CPIO, and the exact
-59-module stock/effective-rootfs closure passed. Process v2 offline promotion
-initially stopped on the Samsung legacy-LZ4 inner ramdisk; the bounded decoder
-was extended with canonical block termination checks, matched the pinned
-external decoder and actual E2 ramdisk, and passed independent re-review. The
-191-test regression set and exact retained promotion replay passed. No device
-contact, Odin session, or live E2 claim occurred in that H0 unit.
-
-The first P2.42 connected D0 stopped read-only because `/proc/last_kmsg`
-contained a related historical evidence family. No prepared binding, Odin
-session, reboot, or transfer was created by that attempt. One freshly approved
-D1 normal reboot then completed exactly once with no payload or Download
-request and returned the same healthy FYG8 Android target. A fresh connected D0
-verified Android, root, boot and supporting partition identities, clean
-retained baseline, Odin absence, and the current core-2 execution closure. One
-private prepared binding was created.
-
-The binding's exact F1 approval was then supplied and consumed. One candidate
-and one rollback transfer completed. Two byte-identical retained reads
-contained one exact E2 terminal-failure record: generation 70 had reached
-`cmd-db` bind stage `0x7d`, and generation 71 failed at `rpmh` bind stage
-`0x7e`, item index 3, detail 110 (`ETIMEDOUT`). The strict sequence proves all
-59 exact module insertions and prefix checks plus the `hwspinlock`, `smem`, and
-`cmd-db` bind gates. It does not prove `rpmh` bind or any downstream
-`gcc-waipio`, SSUSB, DWC3, UDC, or USB state. The operator observed no candidate
-boot loop. Exact Magisk rollback, Android/root/boot/supporting-partition health,
-Odin absence, and all eight timeline events passed. The transaction is
-`CLOSED`, its binding is consumed, and no S22+ F1 authority exists.
-
-P2.43 now proves that P2.42's `af20000.rsc` predicate selected the display RSC,
-not the USB-relevant apps RSC. All four exact vendor DTBs give the display RSC
-no power domain and require an omitted `dispcc-waipio.ko` clock supplier.
-Strict source-default `fw_devlink` checks that supplier before
-`rpmh_rsc_probe()`. This is a strong source-and-artifact-closed explanation,
-not a direct observation of P2.42 runtime supplier state. The corrected bounded
-contract adds no module and observes the built-in PSCI provider, apps RSC, RPMh
-clock/regulator children, and GCC in order. P2.43 created no image, candidate,
-device action, or live authority.
-
-P2.44 now implements that replacement as one SHA-pinned host transformation
-of the historical P2.41 plan, runtime, checkpoint, and kernel patch. The exact
-59-module order and 210 constraints remain unchanged. Twelve read-only gates
-occupy `0x7b..0x86`, terminal success remains `0x8f`, and the expanded
-profile-3 model has 323,585 reachable record variants. Generated-source,
-clean-apply, static AArch64 link, vendor-rootfs, and P2.41-P2.44 focused
-regressions pass. P2.44 created no kernel build, image, candidate, device
-action, or live authority.
-
-P2.45 now binds those generated outputs through one explicit versioned source
-contract without mutating the historical P2.42 path. A P2.45-only decoder
-covers all 80 stages and exhaustively accepts the 323,585 reachable records.
-Two clean Full-LTO builds, two deterministic package runs, independent linked
-and rootfs audits, and Process v2 offline promotion passed. The exact boot-only
-AP is closed under private output storage.
-
-P2.46's first connected D0 attempt stopped read-only because
-`/proc/last_kmsg` contained a related historical evidence family. It created no
-prepared binding, Odin session, or transfer. One operator-approved normal
-Android reboot then completed exactly once and returned the same healthy FYG8
-target. A fresh connected D0 verified Android/root/boot health, exact supporting
-partition identities, Odin absence, a complete clean retained baseline, and
-the current execution closure. One private prepared binding now exists. No
-Odin invocation, Download transition, partition transfer, candidate attempt, or
-F1 authorization occurred. The next action requires the fresh exact approval
-token emitted by that binding.
-
-That exact approval was supplied and consumed. One candidate and one rollback
-transfer completed. Two byte-identical retained reads contained one exact E2
-progress record: generation 74 passed `apps-rpmh-cxlvl` at stage `0x81`, and
-generation 75 passed `apps-rpmh-mxlvl` at stage `0x82`. This proves the P2.43
-provider correction passed the old P2.42 RPMh timeout boundary. No `0x83`
-outcome was stored. Separately, P2.44 extended the kernel stage sequence
-through `0x86` but left the kernel request validator's gate item-index range
-capped at `0x82`. That stale validator must reject every normal
-`stage=0x83,item=8` checkpoint with `-ERANGE`, so it is a deterministic
-source-contract blocker for later evidence. The retained record does not prove
-that this boot submitted that request and provides no `gcc-waipio` result.
-Exact rollback, final health, and all eight timeline events passed. The
-transaction is `CLOSED`; its binding and authority are consumed.
-
-P2.47 closes the focused host audit of that boundary. The generated plan,
-runtime, checkpoint client, decoder, and 80-stage kernel sequence all implement
-12 gates, but the kernel request validator alone retains the old `0x82` upper
-bound. Both reproducible P2.45 builds contain the same Full-LTO compare against
-eight, so the defect reached the flashed binary. Existing source and linked
-checks do not cover that semantic and all 20 focused regressions still pass.
-The runtime also has a separate telemetry gap: disappearance of a previously
-completed gate attempts a non-monotonic failure checkpoint and parks without a
-new record. Neither defect proves why the P2.46 boot stopped after `0x82`.
-P2.48 must preserve historical bytes, derive item indices from the exact
-sequence ordinal instead of another fixed upper bound, decide the bounded
-prior-gate regression outcome, and add source plus Full-LTO semantic checks.
-
-P2.48 now implements that correction as a new versioned source contract. One
-80-step descriptor drives stage order, item indices, gate identity, terminal
-semantics, generated checkpoint tables, kernel tables, and the decoder.
-Failure detail is partitioned into errno `0x001..0x7ff`, prior-gate regression
-`0x800..0x8ff`, gate read error `0x900..0x9ff`, and rejected reserved values
-`0xa00..0xfff`. A prior completed gate that disappears is recorded at the
-current monotonic frontier while its low detail byte identifies the earliest
-regressed gate. The linked audit now requires exact descriptor bytes, a
-writer-to-derived-validator call, and an exact item-table address dataflow into
-the validator byte load; stale compare-against-eight logic is rejected in both
-the helper and writer. P2.44 generation and P2.45 source bytes remain
-byte-exact. Clean patch application, two reproducible static AArch64 userspace
-links, the original 180-test regression run, mutation checks, and independent
-review pass. The later patch-boundary fix passed a selected 126-test closure.
-P2.48 built no kernel, image, package, or candidate and contacted no device.
-
-P2.49 then caught and fixed one host-only patch-generation boundary defect
-before any Image was produced. Two subsequent clean Full-LTO builds and two
-boot-only package runs are byte-identical. The new linked audit proves the
-writer-to-validator call, exact linked item-table dataflow, and absence of the
-stale compare against eight in both final kernels. Independent artifact
-closure and Process v2 offline promotion passed.
-
-The first connected D0 preparation stopped read-only on a historical retained
-E1 family and invoked no Odin session or transfer. One approved normal Android
-reboot rotated it out. A fresh run directory then passed exact target, health,
-rollback, clean-baseline, artifact, and execution-closure checks and produced
-one private prepared binding. At that checkpoint no F1 authority existed.
-
-That approval was supplied and consumed by P2.50. One exact candidate and one
-exact rollback transfer completed. Two byte-identical retained reads contain
-one exact E2 record: generation 76 passed `gcc-waipio` at stage `0x83`, item
-8; generation 77 failed `ssusb` at stage `0x84`, item 9, with
-`ETIMEDOUT` (110). The record has no integrity, foreign-family, partial,
-fallback, or adjacency issue. It proves the P2.48 validator correction reached
-the flashed kernel and moved the live frontier beyond P2.46's `0x82` boundary.
-It does not prove SSUSB, DWC3, UDC, or terminal `0x8f`. Exact rollback, final
-health, and all eight timeline events passed. The transaction is `CLOSED` and
-its authority is consumed.
-
-P2.51 and P2.51b then closed the known SSUSB supplier and nested-PHY topology
-from exact source, DTB, module, and P2.50 evidence. P2.52 implemented one
-versioned bounded classifier at the existing SSUSB frontier. Its exact
-descriptor generates the userspace checks, kernel whitelist, decoder
-semantics, and linked-table expectations. The result remains a settled
-snapshot pointer rather than a permanent-root-cause verdict; run-to-run
-variation is a timing signal, and the five-second grace is a bounded bet.
-
-P2.53 then exposed two host-proof gaps before qualification. Its linked audit
-recognized the validator and exact tables but did not prove that validator
-success dominated every retained write or that the failure edge could not
-rejoin one. Its stock-rootfs adapter also managed imported historical module
-state in place. No P2.53 candidate was promoted.
-
-P2.54 replaces those proof surfaces with source-bound adapters. The CFG-aware
-linked audit proves the validator guard dominates the retained head, every
-retained flush, and all retained stores, while the negative failure edge cannot
-rejoin a write. The isolated stock closure preserves historical dispatch and
-selects exact P2.54 entrypoints without mutating historical modules. The new
-source contract binds both adapters, their dispatch, and candidate enforcement.
-Two canonical-path clean Full-LTO builds have six byte-identical artifacts;
-two deterministic boot-only packages, independent effective-rootfs closure,
-and Process v2 offline promotion pass. The reusable build/qualification
-sequence is recorded in
-`docs/operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`.
-No device contact, manifest binding, approval, or live authority exists.
-
-P2.55 host validation then caught one execution-verifier compatibility defect
-before connected D0. P2.52/P2.54 add `classifier_detail_count` to the
-source-bound reachable-record contract, but the generic Process v2 verifier
-still required the older fixed key set. The verifier now recomputes the exact
-expected dict through the selected versioned source contract and compares
-keys, top-level types, and values fail-closed. The no-source-contract legacy
-shape remains explicit and unchanged. Focused P2.54, historical Process v2,
-and live-adapter regressions pass; independent review returned GO. The exact
-P2.54 ready manifest now passes host validation and plan rendering. This host
-fix changes no kernel, userspace, boot image, AP, or rollback artifact and
-requires no candidate rebuild.
-
-The first P2.55 connected D0 stopped read-only because the retained baseline
-still contained a historical related family. It created no prepared binding,
-transaction, Odin session, or transfer. One operator-preapproved normal
-Android reboot then ran exactly once. The target disconnected and the same
-target reconnected, but the D1 recorder polled properties before
-`sys.boot_completed` became nonempty and stopped with an incomplete timeline.
-No second reboot ran. The reporting deviation is preserved in a private
-incident record; subsequent read-only boot-ready checks and the fresh D0 prove
-the returned target's health.
-
-The second P2.55 connected D0 passed exact target, Android/FYG8/root/boot and
-supporting-partition health, rollback and candidate identity, clean retained
-baseline, Odin absence, and the current execution closure. The private
-prepared binding reopens cleanly and has no transaction, Odin invocation,
-Download transition, candidate attempt, or partition transfer. It grants no
-F1 authority. The operator's standing approval excludes a new-build flash;
-the next action requires the exact fresh approval token emitted by this
-binding.
-
-That exact approval was supplied and consumed. One exact P2.54 candidate
-transfer completed, and the operator observed no candidate boot loop. Two
-byte-identical retained reads contain one exact E2 terminal-failure record:
-generation 76 passed `gcc-waipio` at stage `0x83`, item 8; generation 77
-failed at the stage `0x84`, item 9 SSUSB frontier with detail `0xa04`,
-`qnoc-mc-virt-bind-absent`. The record has no integrity, foreign, historical,
-partial, fallback, or UNSAT issue. It proves that the candidate reached the
-classifier and that the exact qnoc MC virtual bind symlink was absent at the
-settled classification instant. It does not prove a permanent root cause,
-SSUSB bind, DWC3, UDC, USB, or terminal success.
-
-One exact Magisk rollback transfer completed. The initial execution process
-then stopped fail-closed on `measured USB endpoint evidence failed` while
-checking post-rollback endpoint departure. The journal was already durable at
-`ROLLBACK_FLASHED`; neither candidate nor rollback was repeated. Android MTP
-returned, and Process v2 recovery resumed from that state to perform final
-verification only. Android/FYG8/root/boot and supporting-partition health,
-Odin absence, byte-identical retained reads, and all eight timeline events
-passed. The transaction is `CLOSED`, recovery is not required, and the formal
-verdict is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. The binding and approval
-are consumed.
-
-P2.56 closes a strong static hypothesis behind `0xa04`. The exact mc_virt
-descriptor and shipped ELF require both apps and display BCM voters unless
-the runtime `PART_DISPLAY` subset disables the latter. The display voter is
-created only after `af20000.rsc` completes probe, while strict `fw_devlink`
-holds that RSC behind `/soc/clock-controller@af00000`. The exact 59-module
-plan contains every hard dependency of the matching stock
-`dispcc-waipio.ko` but omits the module itself, and the candidate has no
-built-in QCOM clock provider. If the display voter is enabled, the current
-candidate cannot converge by waiting: no display voter appears and mc_virt
-returns `-EPROBE_DEFER`. This corrects P2.43's earlier global conclusion that
-the display module was irrelevant while preserving its direct apps-RSC/GCC
-gate replacement. It is not a live root-cause proof because the subset value,
-intermediate binds, and qnoc return code were not retained.
-
-P2.56 separately reconstructs the rollback observer deviation. Durable USBFS
-receipts show measured Odin node A before rollback and post-rollback node B in
-the first later Android inventory, with zero immutable changes among all 15
-common nodes. Replaying that exact shape reproduces the lost inner
-membership-change exception and the same generic outer error. The failed
-in-flight inventory was not persisted, so this is a strong reconstruction
-rather than a direct record. The next runner change must preserve a typed
-bounded failure receipt without weakening endpoint acceptance or changing
-transfer/recovery behavior.
-
-P2.57 defines two independent implementation units. A minimal stock-pivot
-reader and focused D0 first read `/sys/devices/soc0/display` and
-`subset_parts`; only a stable display-enabled result permits Unit A. That new
-versioned E2 source contract inserts only `dispcc-waipio.ko` between
-`icc-rpmh.ko` and `qnoc-waipio.ko`, derives an 81-step sequence, and adds exact
-display-clock, display-RSC, and display-BCM-voter classifier coordinates before
-the existing mc_virt check. Independently, the Odin observer records a sealed
-bounded diagnostic failure for the exact final-evidence boundary outside
-successful snapshot sequence, endpoint generation, the transaction index, and
-recovery decisions. Diagnostic publication never replaces the original
-fail-closed error.
-
-The stock-pivot reader now passes its H0 parser, polarity, target-sanity,
-bounded-read, and no-authority tests. Unit B now retains only the allowlisted
-final-evidence failure class and bounded membership delta in one lease-bound,
-sealed diagnostic outside snapshot receipts and the transaction index. Public
-wait replay proves a diagnostic failure consumes no snapshot sequence,
-generation, or ticket. F1 recovery replay from durable `ROLLBACK_FLASHED`
-ignores absent, canonical, and malformed diagnostics and performs no candidate
-or rollback transfer. The final independent execution-critical review returned
-`GO`. Connected stock D0 then returned `DISPLAY_ENABLED_VERIFIED`, enabling
-Unit A. Two clean Full-LTO builds and two boot-only package runs were byte
-identical. The linked audit, independent closure, Process v2 offline
-promotion, host-ready validation, one bounded normal reboot, and a fresh
-connected D0 passed.
-
-That exact approval was supplied and consumed. One exact P2.57 candidate and
-one exact Magisk rollback transfer completed, and the operator observed a
-successful candidate boot with no boot loop. Two byte-identical retained reads
-contain one exact E2 terminal-failure record: generation 79 passed stage
-`0x86`, item 10, the DWC3 core bind gate; generation 80 failed stage `0x87`,
-item 11, the UDC class-device gate with detail 110 (`ETIMEDOUT`). The strict
-sequence proves the 60 modules and all standard gates through SSUSB and DWC3
-core. Together with the source-closed dependency chain, that clears the old
-qnoc MC virtual blocking boundary without claiming separate retained
-display/qnoc bind checkpoints. It does not prove UDC publication, USB
-enumeration, ACM, or terminal stage `0x8f`.
-
-After the durable journal reached `ROLLBACK_FLASHED`, the initial process
-stopped fail-closed on a final USB endpoint inventory error. It repeated
-neither transfer. Android ADB returned, and Process v2 recovery resumed from
-that journal state for final verification only. Android/FYG8/root/boot and
-supporting-partition health, Odin absence, byte-identical retained reads, and
-all eight timeline events passed. The transaction is `CLOSED`; recovery is
-not required; the formal verdict is
-`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. No active S22+ F1 authorization
-exists.
-
-P2.58 found that the P2.57 UDC gate is structurally wrong for FYG8. It requires
-`/sys/class/udc` to contain one and only one entry named `a600000.dwc3`, while
-the exact candidate has `CONFIG_USB_DUMMY_HCD=y` and stock evidence records
-both `dummy_udc.0` and `a600000.dwc3`. The expected successful state is
-therefore rejected. Stage `0x87 detail=110` proves only that this singleton
-predicate failed, not that the exact DWC3 UDC was absent.
-
-Exact source also shows a secondary observation defect: child role setup queues
-`__dwc3_set_mode()` asynchronously, while the shared deadline and zero-wait
-post-grace drain can leave the UDC little or no dwell. P2.58A now preserves
-the 60-module/no-write contract, replaces global cardinality with exact target
-membership and symlink identity, promotes the stock two-UDC state to an
-executable semantic fixture, and grants only that corrected frontier one fresh
-five-second read-only dwell. P2.57's plan, checkpoint, stage/detail geometry,
-    and kernel patch remain byte-identical; two static AArch64 userspace links are
-    reproducible. Independent review initially found generated-C fixture,
-    candidate-receipt, closure-label, and collector fail-open gaps; the repaired
-    contract executes the exact generated helper, binds both topology sources,
-    fail-closes direct collector envelopes, and received final `GO`. No kernel
-    Full-LTO build, candidate, device action, or live authority was created.
-    Role forcing, configfs, new modules, ACM, and broad tracing remain out of
-    scope.
+Fresh H0 intent `5e2636acd5010b749b7e28a3ed37bf37` has final patch SHA256
+`61cd6913ea88a1de6d5989d4f0e99c1988dc1e64da255c87fe60c0f51df33b1d`.
+Exact userspace two-link reproducibility and entrypoint checks passed.
+Canonical build-host preflight passed; clean Full-LTO build A is running.
+No candidate AP from this corrected intent has been created or promoted.
 
 ## Established Evidence
 
@@ -783,7 +377,8 @@ reports grant no device authority.
     prove exact-target absence. Exact source separately proves DWC3 bind
     precedes queued role-worker completion, and the shared deadline can reduce
     UDC dwell to one check.
-41. **P2.58A complete, H0:** the versioned observation contract now requires
+41. **P2.58A implementation complete; corrected qualification active, H0:**
+    the versioned observation contract now requires
     exact-target membership and symlink identity while permitting unrelated
     UDC peers, and starts one fresh five-second UDC deadline after DWC3 success.
     The canonical stock topology plus seven positive/negative semantic cases
@@ -796,10 +391,15 @@ reports grant no device authority.
     them; final independent review returned `GO`. A later build-boundary audit
     corrected one stale conclusion: byte-identical base/template patches do
     not imply candidate Image reuse because the source-contract domain and
-    receipts derive a new run ID, UNSAT tag, and final config patch. Fresh
-    P2.58A intent `deef1386c0e1c857e69f9107297d5dd6` produced final patch
-    SHA256 `a6984ff80351c215ce50bae3ecdb9441038ad486c4b1ca825510ddddb6ca6230`;
-    clean-build preflight passed and Full-LTO A/B qualification is selected.
+    receipts derive a new run ID, UNSAT tag, and final config patch. The first
+    reproducible A/B and package pair then exposed a strict host-only
+    entrypoint mismatch: the P2.58A adapter inherited P2.57's init address.
+    The corrected source-bound adapter owns an isolated `0x401580` init and
+    `0x4000cc` child contract, restores historical state on every path, and is
+    checked against a real two-link userspace build before Full LTO. Fresh
+    intent `5e2636acd5010b749b7e28a3ed37bf37` and patch
+    `61cd6913ea88a1de6d5989d4f0e99c1988dc1e64da255c87fe60c0f51df33b1d`
+    passed preflight; build A is active. No device authority exists.
 42. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 
