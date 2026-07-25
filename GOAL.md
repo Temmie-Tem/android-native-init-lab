@@ -427,16 +427,25 @@ reports grant no device authority.
     identity, is ruled out by the exact accepted
     `msm-dwc3/a600000.ssusb` gate and matching FYG8 source. Do not reopen that
     provider question.
-46. **P2.60 next, H0:** freeze the versioned E3 stage/detail contract and one
-    bounded post-bind diagnostic, raw one-FD banner lifetime, exact
-    candidate-bound descriptor/banner identity, idempotent role selection and
-    UDC recheck, bounded Process v2 ACM observer with host-interference
-    control, durable evidence and resume re-derivation, and an exhaustive
-    `all_of`/diagnostic verdict matrix. The descriptor change requires a new
-    kernel and reproducible Full-LTO A/B pair later, but P2.60 itself remains
-    design-only. Reuse the current runner and rollback core; do not build,
-    contact a device, add Samsung ACM modules, or widen to E4 until the design
-    closes.
+46. **P2.60 E3 ACM-banner design complete, H0:** preserve the exact P2.58A
+    prefix and append stages `0x88..0x8f`, then move terminal to `0x90`
+    (generation 89). The candidate creates one high-speed generic ACM gadget,
+    opens `ttyGS0` raw without flush, queues one run-ID-derived 49-byte banner,
+    keeps that FD open, uses idempotent peripheral role selection, binds the
+    exact UDC, and requires `state=configured/current_speed=high-speed`.
+    Process v2 gains one optional typed ACM observer, device-scoped
+    ModemManager inhibition, exact topology/TTY ownership, an immutable raw
+    receipt, resume re-derivation, and strict retained-plus-ACM `all_of`.
+    Retained-only and ACM-only results are named diagnostics. Odin, rollback,
+    the 60-module plan, the state machine, and the eight timeline names remain
+    unchanged.
+47. **P2.61 next, H0:** implement and statically validate only the P2.60
+    source-contract extension, generic CDC-ACM observer, manifest binding,
+    durable receipt/resume, and verdict matrix. Use no-LTO/thin iterations,
+    semantic fixtures, crash injection, and legacy retained-only regression.
+    One independent review is required after implementation. Do not start a
+    Full-LTO candidate, contact a device, prepare D0, or request F1 authority
+    in P2.61.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or
