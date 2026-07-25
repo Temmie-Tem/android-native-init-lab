@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import importlib.util
+import stat
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -52,12 +53,191 @@ def _load_isolated_legacy() -> ModuleType:
 isolated_legacy = _load_isolated_legacy()
 
 
+def _printable_strings(data: bytes) -> frozenset[str]:
+    result = set()
+    start = None
+    for index, value in enumerate(data + b"\0"):
+        if 0x20 <= value <= 0x7E:
+            if start is None:
+                start = index
+            continue
+        if start is not None and index - start >= 1:
+            result.add(data[start:index].decode("ascii"))
+        start = None
+    return frozenset(result)
+
+
+def _validate_p260_authority_strings(data: bytes) -> None:
+    strings = _printable_strings(data)
+    absolute_paths = frozenset(
+        value for value in strings if value.startswith("/")
+    )
+    if absolute_paths != source_contract.spec.ALLOWED_ABSOLUTE_PATH_STRINGS:
+        raise ClosureError("P2.60 candidate absolute-path authority mismatch")
+    if not source_contract.spec.E3_REQUIRED_CONTROL_STRINGS.issubset(strings):
+        raise ClosureError("P2.60 candidate E3 control strings are incomplete")
+
+    hex_controls = frozenset(
+        value
+        for value in strings
+        if value[:2].lower() == "0x"
+        and len(value) > 2
+        and all(character in "0123456789abcdefABCDEF" for character in value[2:])
+    )
+    function_targets = frozenset(
+        value for value in strings if "functions/" in value
+    )
+    speed_controls = frozenset(
+        value for value in strings if value.endswith("-speed")
+    )
+    role_controls = frozenset(
+        value
+        for value in strings
+        if value in {"device", "host", "none", "otg", "peripheral"}
+    )
+    udc_names = frozenset(
+        value
+        for value in strings
+        if "/" not in value and value.endswith(".dwc3")
+    )
+    expected = (
+        (
+            hex_controls,
+            source_contract.spec.E3_HEX_CONTROL_STRINGS,
+            "hex control",
+        ),
+        (
+            function_targets,
+            source_contract.spec.E3_FUNCTION_TARGET_STRINGS,
+            "function target",
+        ),
+        (
+            speed_controls,
+            source_contract.spec.E3_SPEED_CONTROL_STRINGS,
+            "speed control",
+        ),
+        (
+            role_controls,
+            source_contract.spec.E3_ROLE_CONTROL_STRINGS,
+            "role control",
+        ),
+        (
+            udc_names,
+            source_contract.spec.E3_UDC_NAME_STRINGS,
+            "UDC name",
+        ),
+    )
+    for actual, allowed, label in expected:
+        if actual != allowed:
+            raise ClosureError(f"P2.60 candidate {label} authority mismatch")
+
+
+def _p260_audit_candidate_generic_rootfs(
+    boot,
+    entries,
+    *,
+    expected_init,
+    expected_child,
+    run_id,
+    module_closure,
+):
+    closure = isolated_legacy.validate_module_closure(module_closure)
+    if len(run_id) != 16:
+        raise ClosureError("P2.60 candidate run ID length mismatch")
+    seen = {}
+    for entry in entries:
+        if entry.name in seen:
+            raise ClosureError(f"P2.60 candidate rootfs duplicate: {entry.name}")
+        if entry.file_type == "symlink" or entry.nlink != 1:
+            raise ClosureError(f"P2.60 candidate rootfs alias: {entry.name}")
+        seen[entry.name] = ("generic", entry)
+    init = isolated_legacy._exact_executable(seen, "init", expected_init)
+    child = isolated_legacy._exact_executable(
+        seen, "s22-e1-child", expected_child
+    )
+    try:
+        init_elf = isolated_legacy.e1_static.inspect_static_elf(
+            init.data, "P2.60 /init"
+        )
+        child_elf = isolated_legacy.e1_static.inspect_static_elf(
+            child.data, "P2.60 child"
+        )
+    except isolated_legacy.e1_static.CheckError as exc:
+        raise ClosureError(
+            "P2.60 candidate executable ELF contract mismatch"
+        ) from exc
+    if (
+        init_elf.get("entrypoint") != EXPECTED_ELF_ENTRYPOINTS["init"]
+        or child_elf.get("entrypoint") != EXPECTED_ELF_ENTRYPOINTS["child"]
+    ):
+        raise ClosureError("P2.60 candidate executable entrypoint mismatch")
+    if init.data.count(run_id) != 1:
+        raise ClosureError("P2.60 candidate /init run ID cardinality mismatch")
+    required = (
+        b"/proc/s22_checkpoint",
+        b"/proc/modules",
+        b"/sys/class/udc",
+        b"a600000.dwc3",
+        b"/s22-e1-child",
+        *(
+            value.encode("ascii")
+            for value in source_contract.spec.E3_AUTHORITY_STRINGS
+        ),
+        *(row["file"].encode("ascii") for row in closure["modules"]),
+    )
+    if any(value not in init.data for value in required):
+        raise ClosureError(
+            "P2.60 candidate /init runtime or E3 authority is incomplete"
+        )
+    _validate_p260_authority_strings(init.data)
+    forbidden = (b"/dev/block", b"/bin/sh", b"sec_log_buf.ko")
+    if any(value in init.data for value in forbidden):
+        raise ClosureError("P2.60 candidate /init contains forbidden authority")
+    child_token = isolated_legacy.p241.p233.legacy_e1.CHILD_TOKEN
+    if child.data.count(child_token) != 1:
+        raise ClosureError("P2.60 candidate child token cardinality mismatch")
+    if b"rdinit=" in boot.header["cmdline"].encode("ascii"):
+        raise ClosureError("P2.60 candidate boot cmdline has an rdinit override")
+
+    def executable_record(entry, identity, elf):
+        return {
+            **identity,
+            "uid": entry.uid,
+            "gid": entry.gid,
+            "mode": stat.S_IMODE(entry.mode),
+            "nlink": entry.nlink,
+            "elf": elf,
+        }
+
+    return {
+        "entry_count": len(entries),
+        "no_duplicate_or_alias": True,
+        "init": {
+            **executable_record(init, expected_init, init_elf),
+            "run_id_count": 1,
+            "required_strings_complete": True,
+            "forbidden_authority_absent": True,
+        },
+        "child": {
+            **executable_record(child, expected_child, child_elf),
+            "token_count": 1,
+        },
+        "rdinit_override_absent": True,
+        "verified": True,
+    }
+
+
 def _call_with_p260_entrypoints(function, *args, **kwargs):
     previous = p253.isolated_legacy
+    previous_audit = isolated_legacy.audit_candidate_generic_rootfs
     p253.isolated_legacy = isolated_legacy
+    isolated_legacy.audit_candidate_generic_rootfs = (
+        _p260_audit_candidate_generic_rootfs
+    )
     try:
         return function(*args, **kwargs)
     finally:
+        isolated_legacy.audit_candidate_generic_rootfs = previous_audit
         p253.isolated_legacy = previous
 
 

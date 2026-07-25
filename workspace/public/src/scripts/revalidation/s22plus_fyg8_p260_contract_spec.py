@@ -88,6 +88,130 @@ USB_SERIAL_PREFIX = "S22E3"
 BANNER_PREFIX = "S22PLUS-FYG8-E3:"
 USB_SERIAL_SIZE = len(USB_SERIAL_PREFIX) + 32
 BANNER_SIZE = len(BANNER_PREFIX) + 32 + 1
+E3_RUNTIME_INCLUDE_SHA256 = (
+    "750e7c70cbb05e6364a833e8f891916164ae9d535a8878467bd1c1ec7941720e"
+)
+ELF_SLASH_ARTIFACT_STRINGS = ("/", "/8@", "/@")
+E3_AUTHORITY_STRINGS = (
+    "/config",
+    "configfs",
+    "/config/usb_gadget/g1",
+    "/config/usb_gadget/g1/UDC",
+    "/config/usb_gadget/g1/strings/0x409",
+    "/config/usb_gadget/g1/configs/b.1",
+    "/config/usb_gadget/g1/configs/b.1/strings/0x409",
+    "/config/usb_gadget/g1/functions/acm.usb0",
+    "/config/usb_gadget/g1/configs/b.1/acm.usb0",
+    "/config/usb_gadget/g1/idVendor",
+    "/config/usb_gadget/g1/idProduct",
+    "/config/usb_gadget/g1/bcdUSB",
+    "/config/usb_gadget/g1/bcdDevice",
+    "/config/usb_gadget/g1/max_speed",
+    "/config/usb_gadget/g1/strings/0x409/manufacturer",
+    "/config/usb_gadget/g1/strings/0x409/product",
+    "/config/usb_gadget/g1/strings/0x409/serialnumber",
+    "/config/usb_gadget/g1/configs/b.1/bmAttributes",
+    "/config/usb_gadget/g1/configs/b.1/MaxPower",
+    "/config/usb_gadget/g1/configs/b.1/strings/0x409/configuration",
+    "/sys/class/tty/ttyGS0/dev",
+    "/dev/ttyGS0",
+    "/sys/class/udc/a600000.dwc3/state",
+    "/sys/class/udc/a600000.dwc3/current_speed",
+    "/sys/devices/platform/soc/a600000.ssusb/mode",
+)
+BASE_ABSOLUTE_PATH_STRINGS = (
+    "/dev/null",
+    "/lib/modules/",
+    "/proc",
+    "/proc/modules",
+    "/proc/s22_checkpoint",
+    "/run",
+    "/s22-e1-child",
+    "/sys",
+    "/sys/bus/platform/drivers/bcm_voter/af20000.rsc:bcm_voter",
+    "/sys/bus/platform/drivers/clk-rpmh/17a00000.rsc:qcom,rpmhclk",
+    "/sys/bus/platform/drivers/cmd-db/80860000.aop_cmd_db_region",
+    "/sys/bus/platform/drivers/disp_cc-waipio/af00000.clock-controller",
+    "/sys/bus/platform/drivers/dwc3/a600000.dwc3",
+    "/sys/bus/platform/drivers/gcc-waipio/100000.clock-controller",
+    "/sys/bus/platform/drivers/gdsc/149004.qcom,gdsc",
+    "/sys/bus/platform/drivers/msm-dwc3/a600000.ssusb",
+    "/sys/bus/platform/drivers/msm-eud/88e0000.qcom,msm-eud",
+    "/sys/bus/platform/drivers/msm-usb-hsphy/88e3000.hsphy",
+    "/sys/bus/platform/drivers/msm-usb-ssphy-qmp/88e8000.ssphy",
+    "/sys/bus/platform/drivers/psci-cpuidle-domain/soc:psci",
+    "/sys/bus/platform/drivers/qcom,rpmh-regulator/"
+    "17a00000.rsc:rpmh-regulator-cxlvl",
+    "/sys/bus/platform/drivers/qcom,rpmh-regulator/"
+    "17a00000.rsc:rpmh-regulator-ldob1",
+    "/sys/bus/platform/drivers/qcom,rpmh-regulator/"
+    "17a00000.rsc:rpmh-regulator-ldob2",
+    "/sys/bus/platform/drivers/qcom,rpmh-regulator/"
+    "17a00000.rsc:rpmh-regulator-ldob5",
+    "/sys/bus/platform/drivers/qcom,rpmh-regulator/"
+    "17a00000.rsc:rpmh-regulator-ldob6",
+    "/sys/bus/platform/drivers/qcom,rpmh-regulator/"
+    "17a00000.rsc:rpmh-regulator-ldoc1",
+    "/sys/bus/platform/drivers/qcom,rpmh-regulator/"
+    "17a00000.rsc:rpmh-regulator-mxlvl",
+    "/sys/bus/platform/drivers/qcom-pdc/b220000.interrupt-controller",
+    "/sys/bus/platform/drivers/qcom-smem/soc:qcom,smem",
+    "/sys/bus/platform/drivers/qcom_hwspinlock/soc:hwlock",
+    "/sys/bus/platform/drivers/qnoc-waipio/1500000.interconnect",
+    "/sys/bus/platform/drivers/qnoc-waipio/16e0000.interconnect",
+    "/sys/bus/platform/drivers/qnoc-waipio/19100000.interconnect",
+    "/sys/bus/platform/drivers/qnoc-waipio/soc:interconnect@1",
+    "/sys/bus/platform/drivers/rpmh/17a00000.rsc",
+    "/sys/bus/platform/drivers/rpmh/af20000.rsc",
+    "/sys/bus/platform/drivers/waipio-pinctrl/f000000.pinctrl",
+    "/sys/class/udc",
+    "/sys/class/udc/a600000.dwc3",
+    "/sys/devices/platform/soc/a600000.ssusb/waiting_for_supplier",
+)
+ALLOWED_ABSOLUTE_PATH_STRINGS = frozenset(
+    (
+        *ELF_SLASH_ARTIFACT_STRINGS,
+        *BASE_ABSOLUTE_PATH_STRINGS,
+        *(
+            value
+            for value in E3_AUTHORITY_STRINGS
+            if value.startswith("/")
+        ),
+    )
+)
+E3_REQUIRED_CONTROL_STRINGS = frozenset(
+    (
+        "configfs",
+        "../../functions/acm.usb0",
+        "0x0003",
+        "0x0200",
+        "0x04e8",
+        "0x6861",
+        "0x80",
+        "500",
+        "Android Native Init Lab",
+        "S22+ E3 ACM",
+        "acm",
+        "a600000.dwc3",
+        "configured",
+        "high-speed",
+        "host",
+        "none",
+        "peripheral",
+    )
+)
+E3_HEX_CONTROL_STRINGS = frozenset(
+    ("0x0003", "0x0200", "0x04e8", "0x6861", "0x80")
+)
+E3_FUNCTION_TARGET_STRINGS = frozenset(
+    (
+        "../../functions/acm.usb0",
+        "/config/usb_gadget/g1/functions/acm.usb0",
+    )
+)
+E3_SPEED_CONTROL_STRINGS = frozenset(("high-speed",))
+E3_ROLE_CONTROL_STRINGS = frozenset(("host", "none", "peripheral"))
+E3_UDC_NAME_STRINGS = frozenset(("a600000.dwc3",))
 
 
 def usb_serial(run_id: bytes) -> str:

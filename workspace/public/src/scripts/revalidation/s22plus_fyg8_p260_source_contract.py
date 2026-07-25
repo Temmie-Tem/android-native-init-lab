@@ -397,6 +397,8 @@ def _generated_semantics(
     ):
         raise SourceContractError("P2.60 linked geometry drifted")
     include = source_bytes_for_runtime_include()
+    if hashlib.sha256(include).hexdigest() != spec.E3_RUNTIME_INCLUDE_SHA256:
+        raise SourceContractError("P2.60 E3 runtime source identity drifted")
     required_include = (
         b"p260_derive_identity();",
         b"p260_write_all(\n        tty_fd, p260_banner",

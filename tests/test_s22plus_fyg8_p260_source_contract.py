@@ -1,8 +1,11 @@
 import argparse
+import stat
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -14,6 +17,7 @@ import s22plus_fyg8_p234_candidate_intent as candidate_intent  # noqa: E402
 import s22plus_fyg8_p234_userspace_build as userspace  # noqa: E402
 import s22plus_fyg8_p253_e2_stock_closure as closure_selector  # noqa: E402
 import s22plus_fyg8_p258_source_contract as p258  # noqa: E402
+import s22plus_fyg8_p258_e2_stock_closure as p258_closure  # noqa: E402
 import s22plus_fyg8_p260_contract_spec as spec  # noqa: E402
 import s22plus_fyg8_p260_e2_stock_closure as closure  # noqa: E402
 import s22plus_fyg8_p260_linked_audit as linked  # noqa: E402
@@ -176,6 +180,177 @@ class S22PlusFyg8P260SourceContractTest(unittest.TestCase):
         self.assertEqual(
             linked.repro.LINKED_VALIDATOR_ADAPTERS[p260.CONTRACT_ID],
             "s22plus_fyg8_p260_linked_audit",
+        )
+
+    def test_stock_closure_allows_only_exact_e3_authority(self):
+        module = {"file": "test-module.ko"}
+        authority_strings = frozenset(
+            (
+                *spec.ALLOWED_ABSOLUTE_PATH_STRINGS,
+                *spec.E3_REQUIRED_CONTROL_STRINGS,
+                module["file"],
+            )
+        )
+        init_data = (
+            self.RUN_ID
+            + b"\0"
+            + b"\0".join(
+                value.encode("ascii") for value in sorted(authority_strings)
+            )
+            + b"\0"
+        )
+        child_data = closure.isolated_legacy.p241.p233.legacy_e1.CHILD_TOKEN
+        child = SimpleNamespace(
+            name="s22-e1-child",
+            data=child_data,
+            file_type="regular",
+            uid=0,
+            gid=0,
+            nlink=1,
+            mode=stat.S_IFREG | 0o750,
+        )
+        boot = SimpleNamespace(header={"cmdline": ""})
+        expected_child = closure.receipt(child_data)
+
+        def audit(data):
+            init = SimpleNamespace(
+                name="init",
+                data=data,
+                file_type="regular",
+                uid=0,
+                gid=0,
+                nlink=1,
+                mode=stat.S_IFREG | 0o750,
+            )
+            with (
+                mock.patch.object(
+                    closure.isolated_legacy,
+                    "validate_module_closure",
+                    return_value={"modules": [module]},
+                ),
+                mock.patch.object(
+                    closure.isolated_legacy.e1_static,
+                    "inspect_static_elf",
+                    side_effect=(
+                        {
+                            "entrypoint":
+                            closure.EXPECTED_ELF_ENTRYPOINTS["init"]
+                        },
+                        {
+                            "entrypoint":
+                            closure.EXPECTED_ELF_ENTRYPOINTS["child"]
+                        },
+                    ),
+                ),
+            ):
+                return closure._p260_audit_candidate_generic_rootfs(
+                    boot,
+                    (init, child),
+                    expected_init=closure.receipt(data),
+                    expected_child=expected_child,
+                    run_id=self.RUN_ID,
+                    module_closure={},
+                )
+
+        result = audit(init_data)
+        self.assertTrue(result["verified"])
+        self.assertTrue(result["init"]["forbidden_authority_absent"])
+
+        for missing in spec.E3_AUTHORITY_STRINGS:
+            missing_data = (
+                self.RUN_ID
+                + b"\0"
+                + b"\0".join(
+                    value.encode("ascii")
+                    for value in sorted(authority_strings - {missing})
+                )
+                + b"\0"
+            )
+            with self.subTest(missing=missing), self.assertRaises(
+                closure.ClosureError
+            ):
+                audit(missing_data)
+
+        unauthorized = (
+            "/config/usb_gadget/g2/functions/mass_storage.0",
+            "/config/usb_gadget/g1/functions/rndis.0",
+            "/dev/ttyGS1",
+            "/sys/power/state",
+            "/x",
+            "/ab",
+            "../../functions/rndis.0",
+            "0xffff",
+            "0Xffff",
+            "0x04E8",
+            "super-speed",
+            "otg",
+            "b600000.dwc3",
+        )
+        for added in unauthorized:
+            with self.subTest(added=added), self.assertRaises(
+                closure.ClosureError
+            ):
+                audit(init_data + added.encode("ascii") + b"\0")
+
+        with self.assertRaises(closure.ClosureError):
+            audit(init_data + b"/dev/block\0")
+
+    def test_p260_audit_override_is_scoped_and_historical_is_unchanged(self):
+        original_selector = closure.p253.isolated_legacy
+        original_audit = closure.isolated_legacy.audit_candidate_generic_rootfs
+        observed = {}
+
+        def inspect_override():
+            observed["selector"] = closure.p253.isolated_legacy
+            observed["audit"] = (
+                closure.isolated_legacy.audit_candidate_generic_rootfs
+            )
+            return "ok"
+
+        self.assertEqual(
+            closure._call_with_p260_entrypoints(inspect_override), "ok"
+        )
+        self.assertIs(observed["selector"], closure.isolated_legacy)
+        self.assertIs(
+            observed["audit"], closure._p260_audit_candidate_generic_rootfs
+        )
+        self.assertIs(closure.p253.isolated_legacy, original_selector)
+        self.assertIs(
+            closure.isolated_legacy.audit_candidate_generic_rootfs,
+            original_audit,
+        )
+        self.assertIsNot(
+            p258_closure.isolated_legacy.audit_candidate_generic_rootfs,
+            closure._p260_audit_candidate_generic_rootfs,
+        )
+
+        def fail():
+            raise RuntimeError("expected")
+
+        with self.assertRaisesRegex(RuntimeError, "expected"):
+            closure._call_with_p260_entrypoints(fail)
+        self.assertIs(closure.p253.isolated_legacy, original_selector)
+        self.assertIs(
+            closure.isolated_legacy.audit_candidate_generic_rootfs,
+            original_audit,
+        )
+
+        def nested():
+            self.assertEqual(
+                closure._call_with_p260_entrypoints(lambda: "nested"),
+                "nested",
+            )
+            self.assertIs(
+                closure.isolated_legacy.audit_candidate_generic_rootfs,
+                closure._p260_audit_candidate_generic_rootfs,
+            )
+            return "outer"
+
+        self.assertEqual(closure._call_with_p260_entrypoints(nested), "outer")
+        self.assertIs(closure.p253.isolated_legacy, original_selector)
+        self.assertIs(
+            closure.isolated_legacy.audit_candidate_generic_rootfs,
+            original_audit,
         )
 
     def test_no_lto_userspace_entrypoint_matches_closure(self):

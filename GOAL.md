@@ -453,6 +453,20 @@ reports grant no device authority.
     linked audits, deterministic package pair, and private E3 Process v2
     manifest/offline promotion. Then run connected D0 and stop at a fresh
     exact F1 approval token. No F1 transfer occurs without that new token.
+49. **P2.62 first qualification stopped, H0:** two clean Full-LTO builds and
+    deterministic AP archives were byte-identical, but independent static
+    closure correctly stopped promotion. The P2.60 adapter still inherited
+    P2.42's blanket configfs/`ttyGS` prohibition even though the exact P2.60
+    source-bound runtime requires that bounded E3 authority. This is a stale
+    versioned host-contract defect, not unexpected candidate authority.
+    P2.60 now owns an exact 67-string absolute-path inventory, exact sensitive
+    hex/function/speed/role/UDC sets, and a pinned E3 runtime-source SHA; it
+    keeps block, shell, and `sec_log_buf.ko` authority forbidden, scopes its
+    override with `finally`, and leaves P2.42/P2.58A unchanged. Removal,
+    sibling-capability, short-path, uppercase-hex, exception, and nested-call
+    mutations pass, and final independent review returned `GO`. The first
+    intent and builds are not promotable because the corrected adapter is
+    source-receipted. Derive a new intent and repeat A/B.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or
