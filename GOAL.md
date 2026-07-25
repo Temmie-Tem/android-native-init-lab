@@ -408,6 +408,21 @@ reports grant no device authority.
 43. **E3-E4 next:** design one bounded ACM banner over the now-proven real UDC,
     then separately prove one nonce exchange. Do not infer enumeration or ACM
     from E2, and do not expand to shell, NCM, Debian, or hot reload.
+44. **P2.59 E3 focused analysis complete, H0:** the exact qualified kernel has
+    configfs, libcomposite, generic ACM, and gadget serial built in; its exact
+    binary proves function creation registers `ttyGS0`, disconnected writes
+    queue in the TTY FIFO, and later `gserial_connect` starts transmission.
+    Keep the 60-module plan. Queue one exact banner before peripheral-mode and
+    UDC bind, keep the gadget-side FD open, and use the spare `0x88..0x8e`
+    stages before terminal `0x8f`. Historical M34/O3F misses do not contradict
+    this path because they predate the proven provider chain or lack internal
+    coordinates. The remaining structural gap is a typed Process v2 ACM
+    observer plus strict retained-terminal-and-host-bytes `all_of` acceptance.
+45. **P2.60 next, H0:** freeze the versioned E3 stage/detail contract, one-FD
+    banner lifetime, exact descriptor/banner identity, bounded Process v2 ACM
+    observer, durable evidence and resume semantics, and `all_of` verdict.
+    Reuse the current runner and rollback core; do not build, contact a device,
+    add Samsung ACM modules, or widen to E4 until the design closes.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or
