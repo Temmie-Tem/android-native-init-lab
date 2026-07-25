@@ -164,6 +164,58 @@ corrected, because the expected two-UDC state fails immediately and forever.
 It should nevertheless be fixed in the same versioned contract to avoid
 spending another Full-LTO/F1 cycle on a known ambiguity.
 
+## Pre-F1 Role-Path Recheck
+
+A focused pre-F1 recheck tested whether the corrected predicate would still be
+deterministically blocked because bare PID 1 cannot select peripheral role.
+The exact FYG8 `dtbo.img` remains SHA-pinned at
+`97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`.
+The direct binary parser passed all 11 entries and found the same topology in
+each:
+
+```text
+parent usb-role-switch
+child usb-role-switch
+child dr_mode = "otg"
+no role-switch-default-mode
+no explicit extcon property
+```
+
+`dr_mode = "otg"` does not by itself imply that Android userspace must choose
+the initial child role. In the source-matched built-in DWC3 driver,
+`dwc3_setup_role_switch()` treats the absent `role-switch-default-mode` as
+peripheral, calls `dwc3_set_mode(DWC3_GCTL_PRTCAP_DEVICE)`, and queues
+`__dwc3_set_mode()` on `system_freezable_wq`. The queued worker calls
+`dwc3_gadget_init()`, which calls `usb_add_gadget()`. The latter creates the
+UDC class device named from the DWC3 parent kobject. This is the exact path to
+`/sys/class/udc/a600000.dwc3`.
+
+The P2.58A module closure contains the SS, HS, and eUSB2 PHY drivers, repeater,
+redriver, clock, regulator, interconnect, and `dwc3-msm.ko`. More importantly,
+P2.57 already proved the DWC3 child bind. A missing required generic PHY would
+have deferred or failed that probe before its bind symlink became the retained
+success frontier. The remaining post-bind failure points are runtime return
+values inside the queued mode worker and `dwc3_gadget_init()`, not an
+unconditionally missing module inferred from the current closure.
+
+The Samsung Max77705/Type-C/notifier path remains relevant to automatic cable
+role, VBUS state, peripheral start, pull-up, and later host enumeration. It is
+not a prerequisite for registering the child UDC class device after the
+built-in role-switch setup has selected its default peripheral mode. P2.58A is
+therefore a meaningful UDC-publication PASS attempt, not a known role-policy
+failure. It still does not prove that configfs, pull-up, enumeration, or ACM
+will work.
+
+One archival reproducibility caveat was exposed by this recheck. The older
+`s22plus_fyg8_usb_role_static_re.py --check` expects all 11 source-expanded g0q
+DTS files, while the current private source input retains only the later r12
+file after storage cleanup. That aggregate source-side regeneration now stops
+fail-closed. The independent exact-binary
+`s22plus_fyg8_p241_dtbo_role_contract.py --check` still parses the pinned stock
+DTBO directly and passed all 11 entries. Restoring the deleted source-expanded
+DTS set is unnecessary for P2.58A qualification, but is required before
+claiming the older aggregate generator is currently reproducible.
+
 ## Why Static Validation Missed It
 
 The P2.41 checker verifies that the runtime contains:
@@ -234,6 +286,8 @@ dwc3_gadget_init return
 | P2.57 UDC predicate conflicts with stock/candidate topology | `CONFIRMED` |
 | `dummy_udc.0` is expected in this candidate | `STRONGLY_VERIFIED` |
 | DWC3 core bind completed | `LIVE_VERIFIED` |
+| Child role-switch defaults to device and queues mode work | `STATIC_VERIFIED` |
+| Samsung notifier policy is required to publish the UDC class device | `RULED_OUT` |
 | DWC3 role/gadget work completed | `UNRESOLVED` |
 | Real DWC3 UDC was published during P2.57 | `UNRESOLVED` |
 | P2.57 granted a dedicated UDC timeout | `RULED_OUT` |
