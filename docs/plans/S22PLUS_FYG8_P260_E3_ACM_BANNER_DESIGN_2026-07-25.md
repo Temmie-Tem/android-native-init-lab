@@ -284,49 +284,67 @@ being migrated.
 
 ## Host interference guard
 
-The current host runs ModemManager, and its ACM device is a probe candidate.
-Opening with `TIOCEXCL` after enumeration is insufficient because ModemManager
-may win first.
+The current host runs ModemManager, and the E3 ACM interface has the
+class/subclass/protocol shape that the strict filter accepts as an AT-capable
+candidate. Opening with `TIOCEXCL` after enumeration is insufficient because
+ModemManager may win first.
 
-E3 uses ModemManager's device-scoped inhibition, not a global service stop or a
-temporary udev-rule installation:
+The original design used manager-level `InhibitDevice`. Two pre-candidate live
+aborts corrected that design:
+
+1. the installed D-Bus policy permits `InhibitDevice` only to root; and
+2. after root authorization, ModemManager returned
+   `WrongState: Modem not exported in the bus`.
+
+The second result is structural. Upstream `mm_device_inhibit()` explicitly
+rejects a device until a modem object has completed probing and is exported,
+because inhibition during probing would split port ownership. Therefore that
+API cannot protect a future ACM interface before ModemManager probes it.
+
+E3 instead installs one transient, candidate-exact udev filter before Download:
 
 ```text
-/usr/bin/pkexec /usr/bin/setpriv --pdeathsig SIGKILL \
-    /bin/bash <fixed-supervisor> --inhibit-device=<physical-device-UID>
-        -> /usr/bin/setpriv --pdeathsig SIGKILL \
-           /usr/bin/mmcli --inhibit-device=<physical-device-UID>
+/usr/bin/pkexec /usr/bin/setpriv --pdeathsig SIGTERM \
+    /usr/bin/python3 -I -B -c <closure-bound-root-helper> \
+    <base64-exact-rule> <rule-sha256>
 ```
 
-The UID is derived from the exact prepared Android physical USB path:
-`ID_MM_PHYSDEV_UID` when present, otherwise the canonical full sysfs path, as
-specified by the installed `mmcli` contract. The attended root broker is
-required because the installed system D-Bus policy permits the manager-level
-`InhibitDevice` method only to root. The outer root `setpriv` protects a fixed
-supervisor after the credential transition; the supervisor launches `mmcli`
-through a second root `setpriv`. A control pipe permits the ordinary runner to
-request normal release without signaling a root process directly, while both
-parent-death edges remain fail-safe. The runner arms inhibition after approval
-and the repeated Android health check but before requesting Download. It
-requires the explicit successful-inhibition line while the child remains
-alive. Launch and inhibition failures retain at most 16 KiB of raw output and
-a structured failure receipt under the private run directory.
+The unprivileged observer renders and hashes the exact rule before launching
+`pkexec`. The root process receives an immutable argv snapshot of the embedded
+stdlib-only helper and rule payload; it does not import or execute a
+user-writable repository file after authorization. The helper validates the
+payload against a strict grammar and hash, creates one fixed file under
+`/run/udev/rules.d`, verifies it with absolute-path `udevadm verify`, reloads
+udev rules, and prints one hash-bound arm line. The two rules match only the
+approved candidate's exact VID, PID, serial, interface, and prepared physical
+topology. They set
+`ID_MM_DEVICE_IGNORE=1` on the USB device and both
+`ID_MM_DEVICE_IGNORE=1` and `ID_MM_PORT_IGNORE=1` on its TTY. No current
+Android identity matches this rule.
+
+The helper removes the file and reloads udev on normal release, EOF,
+`SIGTERM`/`SIGINT`/`SIGHUP`, or a 300-second self-deadline. Parent death sends
+`SIGTERM`. A stale or changed fixed rule is fail-closed rather than overwritten.
+Launch and arm failures retain at most 16 KiB of raw output and a structured
+failure receipt under the private run directory.
 
 Rules:
 
-- if ModemManager is active, failure to arm is a pre-candidate abort;
-- if ModemManager is absent/inactive, record `not-required` and recheck that
-  state before opening the candidate TTY;
-- the inhibition UID must remain the same physical path through Android,
-  Download, and candidate modes;
-- both the root supervisor and inhibiting child receive parent-death
-  protection and are held through candidate observation;
+- install the exact temporary rule regardless of the service's current active
+  state, because activation can race future enumeration;
+- failure to install, verify, reload, retain, or cleanly release the exact
+  temporary rule is fail-closed and never treated as an armed guard;
+- the candidate endpoint must retain both udev ignore properties and its exact
+  physical path and USB identity before the TTY is opened;
+- the root helper receives parent-death protection and is held through
+  candidate observation;
 - early child exit invalidates ACM acceptance;
-- normal release uses the supervisor control pipe and is bounded; a release
-  problem is recorded and never blocks the already authorized rollback.
+- normal release uses the helper control pipe and is bounded; a release
+  problem is recorded and never blocks the already authorized rollback, but
+  it prevents E3 PASS.
 
-No global `systemctl stop`, daemon configuration edit, or persistent udev
-change belongs in E3.
+No global `systemctl stop`, daemon configuration edit, `/etc` or `/usr` udev
+change, or persistent host policy change belongs in E3.
 
 ## Exact host endpoint selection
 
@@ -408,10 +426,13 @@ Recovery reopens observation evidence before normalizing `CANDIDATE_FLASHED`.
 - missing evidence: record `interrupted-before-receipt`;
 - malformed or binding-mismatched evidence: fail closed for proof while
   continuing the preauthorized rollback path.
+- missing, malformed, stale-instance, or nonzero guard-release evidence:
+  re-derive `candidate_observer_guard_released=false`, continue rollback, and
+  refuse E3 PASS.
 
-The resumed `candidate_boot_ready` event uses the re-derived value. It must not
-unconditionally write `proof:false`, repeat candidate observation, or repeat
-candidate transfer.
+The resumed `candidate_boot_ready` event uses both re-derived ACM and
+guard-release values. It must not unconditionally write `proof:false`, repeat
+candidate observation, or repeat candidate transfer.
 
 A parser/report failure after a valid receipt cannot downgrade the evidence or
 cause another live transition.
@@ -424,25 +445,28 @@ For E3 define:
 C = exact candidate transfer completed
 D = Download endpoint departed
 A = exact bound ACM receipt accepted
+G = exact current-instance guard release accepted
 R = post-rollback retained E3 terminal accepted
 K = exact rollback and final health complete
 ```
 
 `K` is mandatory for every closed non-recovery result.
 
-| C/D | A | R | Closed verdict |
-|---|---:|---:|---|
-| true | true | true | `PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK` |
-| true | false | true | `DIAGNOSTIC_F1_V2_RETAINED_ONLY_ROLLED_BACK` |
-| true | true | false | `DIAGNOSTIC_F1_V2_ACM_ONLY_ROLLED_BACK` |
-| otherwise | false | false | `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` |
+| C/D | A | G | R | Closed verdict |
+|---|---:|---:|---:|---|
+| true | true | true | true | `PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK` |
+| true | false | true | true | `DIAGNOSTIC_F1_V2_RETAINED_ONLY_ROLLED_BACK` |
+| true | true | true | false | `DIAGNOSTIC_F1_V2_ACM_ONLY_ROLLED_BACK` |
+| any | any | false | any | `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` |
+| otherwise | any | true | any | `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` |
 
 Impossible combinations, such as accepted ACM evidence without the bound
 candidate transfer or Download departure, are result-validation errors and
 cannot close.
 
-`candidate_boot_ready.proof` means `C && D && A`. Retained acceptance is not
-available until after rollback and therefore belongs only in the final verdict.
+`candidate_boot_ready.proof` means `C && D && A && G`. Retained acceptance is
+not available until after rollback and therefore belongs only in the final
+verdict.
 
 For manifests without `candidate_observer`, the current retained-only PASS and
 no-proof rules remain unchanged. The implementation must branch by observer
@@ -493,8 +517,11 @@ Implementation is not complete until all of the following pass.
 - partial, mismatch, extra-byte, timeout, disconnect, and identity-change
   fixtures;
 - mandatory `TIOCEXCL` failure;
-- ModemManager inactive, successful inhibit, refused inhibit, early exit, and
-  cleanup fixtures;
+- exact transient-rule arm, embedded-helper compilation, payload/hash binding,
+  verify/reload failure, early or nonzero helper exit, missing ignore
+  properties, collision, and cleanup fixtures;
+- exact embedded-helper lifecycle in an isolated user namespace, with ordered
+  `verify`, arm reload, release unlink, and cleanup reload calls;
 - immutable raw/receipt ordering and crash injection at each boundary;
 - accepted, diagnostic, missing, malformed, and stale receipt resume cases;
 - exhaustive E3 verdict truth table and legacy retained-only regression;

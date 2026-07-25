@@ -3,6 +3,7 @@ import importlib.util
 import json
 import os
 import pty
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -120,9 +121,15 @@ class CdcAcmObserverV1Test(unittest.TestCase):
             run_dir / "candidate-observer-guard.json",
             {
                 "schema": self.module.GUARD_SCHEMA,
-                "status": "not-required",
-                "uid_sha256": "4" * 64,
-                "active_rechecked": True,
+                "status": "armed",
+                "spec_sha256": self.module.digest(self.spec()),
+                "topology_sha256": hashlib.sha256(b"1-1").hexdigest(),
+                "rule_sha256": hashlib.sha256(
+                    self.module._guard_rule(self.spec(), "usb:1-1")
+                ).hexdigest(),
+                "instance_sha256": "5" * 64,
+                "output_sha256": "4" * 64,
+                "child_alive": True,
             },
         )
         return self.module.ObserverSession(
@@ -360,19 +367,42 @@ class CdcAcmObserverV1Test(unittest.TestCase):
                 topology="usb:1-1",
             )
 
-    def test_inactive_modemmanager_is_rechecked_before_open(self):
-        with (
-            mock.patch.object(
-                self.module, "_modemmanager_active", return_value=False
-            ) as active,
-            mock.patch.object(
-                self.module, "modemmanager_uid", return_value="/sys/device"
-            ),
+    def test_guard_semantics_remain_bound_after_receipt_rehash(self):
+        temporary, master, slave, class_tty, dev_root, run_dir = self.fixture()
+        self.addCleanup(temporary.cleanup)
+        self.addCleanup(os.close, master)
+        self.addCleanup(os.close, slave)
+        os.write(master, bytes.fromhex(self.spec()["banner_hex"]))
+        session = self.session(class_tty, dev_root, run_dir)
+        session.observe(
+            timeout_sec=2,
+            download_departure=self.departure(),
+        )
+        guard_path = run_dir / "candidate-observer-guard.json"
+        guard = json.loads(guard_path.read_text(encoding="utf-8"))
+        guard["spec_sha256"] = "0" * 64
+        guard_payload = (
+            json.dumps(guard, indent=2, sort_keys=True).encode() + b"\n"
+        )
+        guard_path.chmod(0o600)
+        guard_path.write_bytes(guard_payload)
+        receipt_path = run_dir / "candidate-observer.json"
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        receipt["guard_sha256"] = hashlib.sha256(guard_payload).hexdigest()
+        receipt_path.chmod(0o600)
+        receipt_path.write_text(
+            json.dumps(receipt, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(
+            self.module.ObserverError, "guard semantics"
         ):
-            guard = self.module.ModemManagerGuard.arm("usb:1-1")
-            self.assertEqual(guard.arm_receipt["status"], "not-required")
-            self.assertTrue(guard.healthy())
-            self.assertEqual(active.call_count, 2)
+            self.module.validate_receipt(
+                receipt_path,
+                spec=self.spec(),
+                binding=session.binding,
+                topology="usb:1-1",
+            )
 
     def test_active_modemmanager_refusal_fails_closed(self):
         process = mock.Mock()
@@ -386,12 +416,6 @@ class CdcAcmObserverV1Test(unittest.TestCase):
             evidence_dir = Path(temporary)
             with (
                 mock.patch.object(
-                    self.module, "_modemmanager_active", return_value=True
-                ),
-                mock.patch.object(
-                    self.module, "modemmanager_uid", return_value="/sys/device"
-                ),
-                mock.patch.object(
                     self.module.subprocess, "Popen", return_value=process
                 ) as popen,
                 mock.patch.object(
@@ -400,7 +424,7 @@ class CdcAcmObserverV1Test(unittest.TestCase):
             ):
                 with self.assertRaises(self.module.ObserverError):
                     self.module.ModemManagerGuard.arm(
-                        "usb:1-1", evidence_dir=evidence_dir
+                        self.spec(), "usb:1-1", evidence_dir=evidence_dir
                     )
             failure = json.loads(
                 (
@@ -408,7 +432,7 @@ class CdcAcmObserverV1Test(unittest.TestCase):
                     / "candidate-observer-guard-arm-failure.json"
                 ).read_text(encoding="utf-8")
             )
-            self.assertEqual(failure["status"], "inhibit-failed")
+            self.assertEqual(failure["status"], "guard-arm-failed")
             self.assertEqual(failure["returncode"], 1)
             self.assertFalse(failure["truncated"])
             self.assertEqual(
@@ -419,53 +443,53 @@ class CdcAcmObserverV1Test(unittest.TestCase):
             )
         command = popen.call_args.args[0]
         self.assertEqual(
-            command,
+            command[:9],
             [
                 "/usr/bin/pkexec",
                 "/usr/bin/setpriv",
                 "--pdeathsig",
-                "SIGKILL",
-                "/bin/bash",
+                "SIGTERM",
+                "/usr/bin/python3",
+                "-I",
+                "-B",
                 "-c",
-                self.module.GUARD_SUPERVISOR,
-                "device-action-mm-guard",
-                "/usr/bin/mmcli",
-                "--inhibit-device=/sys/device",
+                self.module.ROOT_UDEV_GUARD_CODE,
             ],
         )
-        self.assertIn(
-            '/usr/bin/setpriv --pdeathsig SIGKILL "$1" "$2"',
-            self.module.GUARD_SUPERVISOR,
+        payload = self.module.base64.b64decode(command[9], validate=True)
+        self.assertEqual(
+            payload, self.module._guard_rule(self.spec(), "usb:1-1")
         )
+        self.assertEqual(command[10], hashlib.sha256(payload).hexdigest())
+        self.assertEqual(len(command), 11)
 
     def test_active_modemmanager_success_requires_line_and_live_child(self):
         read_fd, write_fd = os.pipe()
         self.addCleanup(os.close, write_fd)
         stream = os.fdopen(read_fd, "rb", buffering=0)
         self.addCleanup(stream.close)
-        uid = "/sys/device"
+        rule_sha256 = hashlib.sha256(
+            self.module._guard_rule(self.spec(), "usb:1-1")
+        ).hexdigest()
         os.write(
             write_fd,
-            f"successfully inhibited device with uid '{uid}'\n".encode(),
+            (
+                self.module.GUARD_ARM_PREFIX + rule_sha256 + "\n"
+            ).encode(),
         )
         process = mock.Mock()
         process.stdin = mock.Mock()
         process.stdout = stream
         process.poll.return_value = None
         process.pid = 123
-        with (
-            mock.patch.object(
-                self.module, "_modemmanager_active", return_value=True
-            ),
-            mock.patch.object(
-                self.module, "modemmanager_uid", return_value=uid
-            ),
-            mock.patch.object(
-                self.module.subprocess, "Popen", return_value=process
-            ),
+        with mock.patch.object(
+            self.module.subprocess, "Popen", return_value=process
         ):
-            guard = self.module.ModemManagerGuard.arm("usb:1-1")
+            guard = self.module.ModemManagerGuard.arm(
+                self.spec(), "usb:1-1"
+            )
         self.assertEqual(guard.arm_receipt["status"], "armed")
+        self.assertEqual(guard.arm_receipt["rule_sha256"], rule_sha256)
         self.assertTrue(guard.arm_receipt["child_alive"])
         self.assertTrue(guard.healthy())
 
@@ -475,7 +499,7 @@ class CdcAcmObserverV1Test(unittest.TestCase):
         process.poll.return_value = None
         process.wait.return_value = 0
         process.returncode = 0
-        guard = self.module.ModemManagerGuard("/sys/device", True)
+        guard = self.module.ModemManagerGuard(self.spec(), "usb:1-1")
         guard.process = process
         result = guard.release()
         process.stdin.write.assert_called_once_with(b"release\n")
@@ -490,7 +514,7 @@ class CdcAcmObserverV1Test(unittest.TestCase):
         process.stdin = mock.Mock()
         process.stdin.write.side_effect = BrokenPipeError("fixture")
         process.poll.return_value = None
-        guard = self.module.ModemManagerGuard("/sys/device", True)
+        guard = self.module.ModemManagerGuard(self.spec(), "usb:1-1")
         guard.process = process
         result = guard.release()
         self.assertEqual(result["status"], "release-failed")
@@ -502,76 +526,171 @@ class CdcAcmObserverV1Test(unittest.TestCase):
         process.stdin = mock.Mock()
         process.poll.return_value = None
         process.wait.side_effect = subprocess.TimeoutExpired("guard", 10)
-        guard = self.module.ModemManagerGuard("/sys/device", True)
+        guard = self.module.ModemManagerGuard(self.spec(), "usb:1-1")
         guard.process = process
         result = guard.release()
         self.assertEqual(result["status"], "release-failed")
         self.assertEqual(result["error_type"], "TimeoutExpired")
         self.assertFalse(result["released"])
 
-    def test_supervisor_executes_handshake_and_bounded_release(self):
+    def test_transient_rule_is_exact_and_valid_udev_syntax(self):
+        payload = self.module._guard_rule(self.spec(), "usb:1-1")
+        text = payload.decode("ascii")
+        self.assertIn('SUBSYSTEM=="usb"', text)
+        self.assertIn('KERNEL=="1-1"', text)
+        self.assertIn('ATTR{idVendor}=="04e8"', text)
+        self.assertIn('ATTR{idProduct}=="6861"', text)
+        self.assertIn(
+            f'ATTR{{serial}}=="{self.spec()["usb_serial"]}"', text
+        )
+        self.assertIn('ENV{ID_USB_INTERFACE_NUM}=="00"', text)
+        self.assertIn('ENV{ID_MM_DEVICE_IGNORE}="1"', text)
+        self.assertIn('ENV{ID_MM_PORT_IGNORE}="1"', text)
         with tempfile.TemporaryDirectory() as temporary:
-            helper = Path(temporary) / "fake-mmcli"
-            helper.write_text(
-                "#!/usr/bin/python3\n"
-                "import signal, sys, time\n"
-                "signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))\n"
-                "uid = sys.argv[1].split('=', 1)[1]\n"
-                "print(f\"successfully inhibited device with uid '{uid}'\", flush=True)\n"
-                "while True:\n"
-                "    time.sleep(1)\n",
-                encoding="utf-8",
-            )
-            helper.chmod(0o700)
-            process = subprocess.Popen(
-                [
-                    "/bin/bash",
-                    "-c",
-                    self.module.GUARD_SUPERVISOR,
-                    "device-action-mm-guard-test",
-                    str(helper),
-                    "--inhibit-device=/sys/device",
-                ],
-                stdin=subprocess.PIPE,
+            path = Path(temporary) / "guard.rules"
+            path.write_bytes(payload)
+            completed = subprocess.run(
+                ["/usr/bin/udevadm", "verify", str(path)],
+                stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                start_new_session=True,
-                env={**os.environ, "LC_ALL": "C"},
+                stderr=subprocess.PIPE,
+                check=False,
             )
-            self.addCleanup(
-                lambda: process.poll() is None and process.kill()
-            )
-            assert process.stdout is not None
             self.assertEqual(
-                process.stdout.readline(),
-                b"successfully inhibited device with uid '/sys/device'\n",
+                completed.returncode,
+                0,
+                completed.stderr.decode("utf-8", "replace"),
             )
-            self.assertIsNone(process.poll())
-            output, _ = process.communicate(b"release\n", timeout=10)
-            self.assertEqual(output, b"")
-            self.assertEqual(process.returncode, 0)
+
+    def test_root_udev_guard_embedded_source_compiles(self):
+        compile(
+            self.module.ROOT_UDEV_GUARD_CODE,
+            "<device-action-root-udev-guard>",
+            "exec",
+        )
+
+    def test_root_udev_guard_lifecycle_in_user_namespace(self):
+        bwrap = shutil.which("bwrap")
+        if bwrap is None:
+            self.skipTest("bubblewrap is unavailable")
+        payload = self.module._guard_rule(self.spec(), "usb:1-1")
+        payload_sha256 = hashlib.sha256(payload).hexdigest()
+        with tempfile.TemporaryDirectory() as temporary:
+            evidence = Path(temporary)
+            fake_udevadm = evidence / "udevadm"
+            fake_udevadm.write_text(
+                "#!/bin/sh\n"
+                "printf '%s\\n' \"$*\" >> /tmp/evidence/udevadm.log\n",
+                encoding="ascii",
+            )
+            fake_udevadm.chmod(0o700)
+            command = [
+                bwrap,
+                "--unshare-user",
+                "--uid",
+                "0",
+                "--gid",
+                "0",
+                "--unshare-pid",
+                "--ro-bind",
+                "/",
+                "/",
+                "--dev",
+                "/dev",
+                "--tmpfs",
+                "/run",
+                "--dir",
+                "/run/udev",
+                "--dir",
+                "/run/udev/rules.d",
+                "--tmpfs",
+                "/tmp",
+                "--dir",
+                "/tmp/evidence",
+                "--bind",
+                str(evidence),
+                "/tmp/evidence",
+                "--ro-bind",
+                str(fake_udevadm),
+                "/usr/bin/udevadm",
+                "--",
+                "/usr/bin/python3",
+                "-I",
+                "-B",
+                "-c",
+                self.module.ROOT_UDEV_GUARD_CODE,
+                self.module.base64.b64encode(payload).decode("ascii"),
+                payload_sha256,
+            ]
+            completed = subprocess.run(
+                command,
+                input=b"release\n",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=15,
+                check=False,
+                env={"LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+            )
+            if completed.returncode == 1 and b"Creating new namespace" in (
+                completed.stderr
+            ):
+                self.skipTest("unprivileged user namespace is unavailable")
+            self.assertEqual(
+                completed.returncode,
+                0,
+                completed.stderr.decode("utf-8", "replace"),
+            )
+            self.assertEqual(
+                completed.stdout,
+                (
+                    self.module.GUARD_ARM_PREFIX
+                    + payload_sha256
+                    + "\n"
+                ).encode(),
+            )
+            self.assertEqual(
+                (evidence / "udevadm.log").read_text(
+                    encoding="ascii"
+                ).splitlines(),
+                [
+                    "verify /run/udev/rules.d/"
+                    "79-device-action-f1-cdc-acm-guard.rules",
+                    "control --reload",
+                    "control --reload",
+                ],
+            )
+
+    def test_active_guard_requires_udev_ignore_properties_on_tty(self):
+        guard = self.module.ModemManagerGuard(self.spec(), "usb:1-1")
+        with mock.patch.object(
+            self.module,
+            "_udev_properties",
+            return_value={
+                "ID_MM_DEVICE_IGNORE": "1",
+                "ID_MM_PORT_IGNORE": "1",
+            },
+        ):
+            self.assertTrue(guard.matches_node(Path("/")))
+        with mock.patch.object(
+            self.module,
+            "_udev_properties",
+            return_value={"ID_MM_DEVICE_IGNORE": "1"},
+        ):
+            self.assertFalse(guard.matches_node(Path("/")))
 
     def test_modemmanager_launch_failure_is_durable(self):
         with tempfile.TemporaryDirectory() as temporary:
             evidence_dir = Path(temporary)
-            with (
-                mock.patch.object(
-                    self.module, "_modemmanager_active", return_value=True
-                ),
-                mock.patch.object(
-                    self.module, "modemmanager_uid", return_value="/sys/device"
-                ),
-                mock.patch.object(
-                    self.module.subprocess,
-                    "Popen",
-                    side_effect=FileNotFoundError("fixture"),
-                ),
+            with mock.patch.object(
+                self.module.subprocess,
+                "Popen",
+                side_effect=FileNotFoundError("fixture"),
             ):
                 with self.assertRaisesRegex(
                     self.module.ObserverError, "launch failed"
                 ):
                     self.module.ModemManagerGuard.arm(
-                        "usb:1-1", evidence_dir=evidence_dir
+                        self.spec(), "usb:1-1", evidence_dir=evidence_dir
                     )
             failure = json.loads(
                 (
@@ -589,7 +708,7 @@ class CdcAcmObserverV1Test(unittest.TestCase):
             evidence_dir = Path(temporary)
             payload = b"x" * (20 * 1024)
             self.module._persist_guard_arm_failure(
-                evidence_dir, payload, 1, "inhibit-failed"
+                evidence_dir, payload, 1, "guard-arm-failed"
             )
             raw = (
                 evidence_dir / "candidate-observer-guard-arm.raw"
@@ -610,24 +729,16 @@ class CdcAcmObserverV1Test(unittest.TestCase):
             (
                 evidence_dir / "candidate-observer-guard-arm.raw"
             ).write_bytes(b"collision")
-            with (
-                mock.patch.object(
-                    self.module, "_modemmanager_active", return_value=True
-                ),
-                mock.patch.object(
-                    self.module, "modemmanager_uid", return_value="/sys/device"
-                ),
-                mock.patch.object(
-                    self.module.subprocess,
-                    "Popen",
-                    side_effect=FileNotFoundError("fixture"),
-                ),
+            with mock.patch.object(
+                self.module.subprocess,
+                "Popen",
+                side_effect=FileNotFoundError("fixture"),
             ):
                 with self.assertRaisesRegex(
-                    self.module.ObserverError, "inhibition launch failed"
+                    self.module.ObserverError, "guard launch failed"
                 ):
                     self.module.ModemManagerGuard.arm(
-                        "usb:1-1", evidence_dir=evidence_dir
+                        self.spec(), "usb:1-1", evidence_dir=evidence_dir
                     )
 
     def test_active_modemmanager_handshake_fault_releases_child(self):
@@ -637,12 +748,6 @@ class CdcAcmObserverV1Test(unittest.TestCase):
         process.poll.return_value = None
         process.pid = 123
         with (
-            mock.patch.object(
-                self.module, "_modemmanager_active", return_value=True
-            ),
-            mock.patch.object(
-                self.module, "modemmanager_uid", return_value="/sys/device"
-            ),
             mock.patch.object(
                 self.module.subprocess, "Popen", return_value=process
             ),
@@ -656,8 +761,99 @@ class CdcAcmObserverV1Test(unittest.TestCase):
             ) as release,
         ):
             with self.assertRaises(OSError):
-                self.module.ModemManagerGuard.arm("usb:1-1")
+                self.module.ModemManagerGuard.arm(
+                    self.spec(), "usb:1-1"
+                )
         release.assert_called_once()
+
+    def test_modemmanager_release_nonzero_exit_is_fail_closed(self):
+        process = mock.Mock()
+        process.poll.return_value = 1
+        process.returncode = 1
+        guard = self.module.ModemManagerGuard(self.spec(), "usb:1-1")
+        guard.process = process
+        result = guard.release()
+        self.assertEqual(result["status"], "release-failed")
+        self.assertEqual(result["returncode"], 1)
+        self.assertFalse(result["released"])
+
+    def test_guard_release_validator_accepts_only_exact_success(self):
+        valid = {
+            "schema": self.module.GUARD_SCHEMA,
+            "status": "released",
+            "instance_sha256": "5" * 64,
+            "returncode": 0,
+            "released": True,
+        }
+        mutations = (
+            {**valid, "schema": "wrong"},
+            {**valid, "status": "release-failed"},
+            {**valid, "returncode": 1},
+            {**valid, "returncode": False},
+            {**valid, "returncode": 0.0},
+            {**valid, "instance_sha256": "6" * 64},
+            {**valid, "released": False},
+            {**valid, "extra": True},
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "release.json"
+            arm_path = Path(temporary) / "arm.json"
+            arm_path.write_text(
+                json.dumps(
+                    {
+                        "schema": self.module.GUARD_SCHEMA,
+                        "status": "armed",
+                        "spec_sha256": "1" * 64,
+                        "topology_sha256": "2" * 64,
+                        "rule_sha256": "3" * 64,
+                        "instance_sha256": "5" * 64,
+                        "output_sha256": "4" * 64,
+                        "child_alive": True,
+                    },
+                    sort_keys=True,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            path.write_text(
+                json.dumps(valid, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                self.module.validate_guard_release(path, arm_path), valid
+            )
+            for mutation in mutations:
+                with self.subTest(mutation=mutation):
+                    path.write_text(
+                        json.dumps(mutation, sort_keys=True) + "\n",
+                        encoding="utf-8",
+                    )
+                    with self.assertRaises(self.module.ObserverError):
+                        self.module.validate_guard_release(path, arm_path)
+            path.unlink()
+            with self.assertRaises(self.module.ObserverError):
+                self.module.validate_guard_release(path, arm_path)
+
+    def test_stale_guard_release_stops_before_guard_arm(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            (run_dir / "candidate-observer-guard-release.json").write_text(
+                "{}\n", encoding="utf-8"
+            )
+            with mock.patch.object(
+                self.module.ModemManagerGuard, "arm"
+            ) as arm:
+                with self.assertRaisesRegex(
+                    self.module.ObserverError, "already exists"
+                ):
+                    with self.module.observer_session(
+                        self.spec(),
+                        "usb:1-1",
+                        run_dir,
+                        {"binding": "fixture"},
+                    ):
+                        pass
+            arm.assert_not_called()
 
     def test_guard_is_released_when_guard_receipt_persistence_fails(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -672,8 +868,11 @@ class CdcAcmObserverV1Test(unittest.TestCase):
             guard.arm_receipt = {
                 "schema": self.module.GUARD_SCHEMA,
                 "status": "armed",
-                "uid_sha256": "1" * 64,
-                "output_sha256": "2" * 64,
+                "spec_sha256": "1" * 64,
+                "topology_sha256": "2" * 64,
+                "rule_sha256": "3" * 64,
+                "instance_sha256": "5" * 64,
+                "output_sha256": "4" * 64,
                 "child_alive": True,
             }
             baseline = {

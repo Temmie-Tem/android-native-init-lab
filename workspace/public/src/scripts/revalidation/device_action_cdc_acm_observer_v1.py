@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import base64
 import contextlib
 import fcntl
 import hashlib
@@ -22,7 +23,7 @@ from typing import Any, Iterator
 
 SCHEMA = "device_action_cdc_acm_observer_v1"
 BASELINE_SCHEMA = "device_action_cdc_acm_baseline_v1"
-GUARD_SCHEMA = "device_action_modemmanager_guard_v1"
+GUARD_SCHEMA = "device_action_modemmanager_guard_v2"
 RECEIPT_SCHEMA = "device_action_cdc_acm_receipt_v1"
 KIND = "exact_cdc_acm_banner_v1"
 SPEC_KEYS = {
@@ -59,37 +60,149 @@ SETTLE_SEC = 0.250
 GUARD_ARM_SEC = 30.0
 PKEXEC = "/usr/bin/pkexec"
 SETPRIV = "/usr/bin/setpriv"
-MMCLI = "/usr/bin/mmcli"
-BASH = "/bin/bash"
-GUARD_SUPERVISOR = """set -u
-exec 3<&0
-/usr/bin/setpriv --pdeathsig SIGKILL "$1" "$2" < /dev/null &
-child=$!
-(
-    IFS= read -r command <&3 || command=release
-    test "$command" = release
-) &
-control=$!
-exec 3<&-
-set +e
-wait -n "$child" "$control"
-if kill -0 "$child" 2>/dev/null; then
-    /bin/kill -TERM "$child"
-    /usr/bin/setpriv --pdeathsig SIGKILL /bin/sleep 5 &
-    deadline=$!
-    wait -n "$child" "$deadline"
-    if kill -0 "$child" 2>/dev/null; then
-        /bin/kill -KILL "$child"
-    fi
-    /bin/kill -TERM "$deadline" 2>/dev/null
-    wait "$deadline" 2>/dev/null
-fi
-wait "$child"
-child_rc=$?
-/bin/kill -TERM "$control" 2>/dev/null
-wait "$control" 2>/dev/null
-exit "$child_rc"
-"""
+PYTHON = "/usr/bin/python3"
+UDEVADM = "/usr/bin/udevadm"
+GUARD_ARM_PREFIX = "device-action udev guard armed sha256="
+ROOT_UDEV_GUARD_CODE = r'''
+import base64
+import hashlib
+import os
+import re
+import select
+import signal
+import stat
+import subprocess
+import sys
+import time
+
+UDEVADM = "/usr/bin/udevadm"
+RULE_DIR = "/run/udev/rules.d"
+RULE_NAME = "79-device-action-f1-cdc-acm-guard.rules"
+OVERRIDE_RULE = "/etc/udev/rules.d/" + RULE_NAME
+ARM_PREFIX = "device-action udev guard armed sha256="
+MAX_SEC = 300.0
+RULE_RE = re.compile(
+    rb'# Transient Device Action F1 CDC ACM guard; removed after observation\.\n'
+    rb'ACTION=="add\|change\|move\|bind", SUBSYSTEM=="usb", '
+    rb'KERNEL=="(?P<top>[0-9]+-[0-9]+(?:\.[0-9]+)*)", '
+    rb'ATTR\{idVendor\}=="(?P<vid>[0-9a-f]{4})", '
+    rb'ATTR\{idProduct\}=="(?P<pid>[0-9a-f]{4})", '
+    rb'ATTR\{serial\}=="(?P<serial>[A-Za-z0-9._-]{1,64})", '
+    rb'ENV\{ID_MM_DEVICE_IGNORE\}="1"\n'
+    rb'ACTION=="add\|change\|move\|bind", SUBSYSTEM=="tty", '
+    rb'KERNEL=="ttyACM\*", KERNELS=="(?P=top)", '
+    rb'ATTRS\{idVendor\}=="(?P=vid)", ATTRS\{idProduct\}=="(?P=pid)", '
+    rb'ATTRS\{serial\}=="(?P=serial)", '
+    rb'ENV\{ID_USB_INTERFACE_NUM\}=="[0-9a-f]{2}", '
+    rb'ENV\{ID_MM_DEVICE_IGNORE\}="1", ENV\{ID_MM_PORT_IGNORE\}="1"\n'
+)
+
+
+def fsync_dir(path):
+    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def run_udevadm(binary, *args):
+    completed = subprocess.run(
+        [binary, *args],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        timeout=5,
+        check=False,
+        env={"LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+    )
+    if completed.returncode != 0:
+        raise RuntimeError("udevadm operation failed")
+
+
+def main():
+    if len(sys.argv) != 3 or os.geteuid() != 0:
+        raise RuntimeError("root udev guard invocation rejected")
+    payload = base64.b64decode(sys.argv[1].encode("ascii"), validate=True)
+    expected_sha256 = sys.argv[2]
+    if (
+        re.fullmatch(r"[0-9a-f]{64}", expected_sha256) is None
+        or hashlib.sha256(payload).hexdigest() != expected_sha256
+        or RULE_RE.fullmatch(payload) is None
+    ):
+        raise RuntimeError("root udev guard payload rejected")
+    os.makedirs(RULE_DIR, mode=0o755, exist_ok=True)
+    direct = os.path.abspath(RULE_DIR)
+    if (
+        os.path.islink(direct)
+        or not os.path.isdir(direct)
+        or os.path.realpath(direct) != direct
+    ):
+        raise RuntimeError("udev runtime rule directory is indirect")
+    path = os.path.join(direct, RULE_NAME)
+    if os.path.lexists(OVERRIDE_RULE):
+        raise RuntimeError("higher-priority udev guard rule exists")
+    installed = False
+    stop = False
+
+    def request_stop(_signum, _frame):
+        nonlocal stop
+        stop = True
+
+    previous = {
+        number: signal.signal(number, request_stop)
+        for number in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)
+    }
+    try:
+        descriptor = os.open(
+            path,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+            0o644,
+        )
+        try:
+            if os.write(descriptor, payload) != len(payload):
+                raise RuntimeError("short udev guard rule write")
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+        installed = True
+        fsync_dir(direct)
+        run_udevadm(UDEVADM, "verify", path)
+        run_udevadm(UDEVADM, "control", "--reload")
+        print(ARM_PREFIX + expected_sha256, flush=True)
+        deadline = time.monotonic() + MAX_SEC
+        while not stop and time.monotonic() < deadline:
+            readable, _, _ = select.select(
+                [sys.stdin.buffer], [], [], min(0.2, deadline - time.monotonic())
+            )
+            if not readable:
+                continue
+            command = sys.stdin.buffer.readline()
+            if command in (b"", b"release\n"):
+                break
+            raise RuntimeError("udev guard control command is invalid")
+        return 0
+    finally:
+        if installed:
+            info = os.lstat(path)
+            if not stat.S_ISREG(info.st_mode):
+                raise RuntimeError("udev guard rule changed type")
+            with open(path, "rb") as stream:
+                if stream.read() != payload:
+                    raise RuntimeError("udev guard rule changed content")
+            os.unlink(path)
+            fsync_dir(direct)
+            run_udevadm(UDEVADM, "control", "--reload")
+        for number, handler in previous.items():
+            signal.signal(number, handler)
+
+
+try:
+    raise SystemExit(main())
+except (OSError, RuntimeError, subprocess.SubprocessError, ValueError) as exc:
+    print(f"device-action udev guard error: {exc}", file=sys.stderr)
+    raise SystemExit(1)
+'''
 
 
 class ObserverError(RuntimeError):
@@ -347,18 +460,66 @@ def persist_json(path: Path, value: Any) -> dict[str, Any]:
     )
 
 
-def _guard_command(uid: str) -> list[str]:
+def _guard_identity(
+    vendor: str,
+    product: str,
+    serial: str,
+    interface: str,
+    topology: str,
+) -> tuple[str, str, str, str, str]:
+    if (
+        HEX4_RE.fullmatch(vendor) is None
+        or HEX4_RE.fullmatch(product) is None
+        or SERIAL_RE.fullmatch(serial) is None
+        or INTERFACE_RE.fullmatch(interface) is None
+        or re.fullmatch(r"[0-9]+-[0-9]+(?:\.[0-9]+)*", topology) is None
+    ):
+        raise ObserverError("udev guard identity is invalid")
+    return vendor, product, serial, interface, topology
+
+
+def _guard_rule(spec: dict[str, str], topology: str) -> bytes:
+    validate_spec(spec)
+    topology_match = TOPOLOGY_RE.fullmatch(topology)
+    if topology_match is None:
+        raise ObserverError("prepared physical topology is invalid")
+    vendor, product, serial, interface, usb_node = _guard_identity(
+        spec["usb_vendor_id"],
+        spec["usb_product_id"],
+        spec["usb_serial"],
+        spec["usb_interface_number"],
+        topology_match.group(1),
+    )
+    return (
+        "# Transient Device Action F1 CDC ACM guard; removed after observation.\n"
+        f'ACTION=="add|change|move|bind", SUBSYSTEM=="usb", '
+        f'KERNEL=="{usb_node}", ATTR{{idVendor}}=="{vendor}", '
+        f'ATTR{{idProduct}}=="{product}", ATTR{{serial}}=="{serial}", '
+        'ENV{ID_MM_DEVICE_IGNORE}="1"\n'
+        f'ACTION=="add|change|move|bind", SUBSYSTEM=="tty", '
+        f'KERNEL=="ttyACM*", KERNELS=="{usb_node}", '
+        f'ATTRS{{idVendor}}=="{vendor}", ATTRS{{idProduct}}=="{product}", '
+        f'ATTRS{{serial}}=="{serial}", '
+        f'ENV{{ID_USB_INTERFACE_NUM}}=="{interface}", '
+        'ENV{ID_MM_DEVICE_IGNORE}="1", ENV{ID_MM_PORT_IGNORE}="1"\n'
+    ).encode("ascii")
+
+
+def _guard_command(spec: dict[str, str], topology: str) -> list[str]:
+    payload = _guard_rule(spec, topology)
+    payload_sha256 = hashlib.sha256(payload).hexdigest()
     return [
         PKEXEC,
         SETPRIV,
         "--pdeathsig",
-        "SIGKILL",
-        BASH,
+        "SIGTERM",
+        PYTHON,
+        "-I",
+        "-B",
         "-c",
-        GUARD_SUPERVISOR,
-        "device-action-mm-guard",
-        MMCLI,
-        f"--inhibit-device={uid}",
+        ROOT_UDEV_GUARD_CODE,
+        base64.b64encode(payload).decode("ascii"),
+        payload_sha256,
     ]
 
 
@@ -404,7 +565,7 @@ def _udev_properties(sysfs_path: Path) -> dict[str, str]:
     try:
         completed = subprocess.run(
             [
-                "udevadm",
+                UDEVADM,
                 "info",
                 "--query=property",
                 f"--path={sysfs_path}",
@@ -414,6 +575,7 @@ def _udev_properties(sysfs_path: Path) -> dict[str, str]:
             stderr=subprocess.PIPE,
             timeout=5,
             check=False,
+            env={"LC_ALL": "C", "PATH": "/usr/bin:/bin"},
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise ObserverError("udev property query failed") from exc
@@ -431,64 +593,38 @@ def _udev_properties(sysfs_path: Path) -> dict[str, str]:
     return values
 
 
-def _modemmanager_uid_for_node(node: Path) -> str:
-    node = node.resolve(strict=True)
-    properties = _udev_properties(node)
-    return properties.get("ID_MM_PHYSDEV_UID") or str(node)
-
-
-def modemmanager_uid(topology: str, usb_root: Path = Path("/sys/bus/usb/devices")) -> str:
-    match = TOPOLOGY_RE.fullmatch(topology)
-    if match is None:
-        raise ObserverError("prepared physical topology is invalid")
-    return _modemmanager_uid_for_node(usb_root / match.group(1))
-
-
-def _modemmanager_active() -> bool:
-    try:
-        completed = subprocess.run(
-            ["systemctl", "is-active", "--quiet", "ModemManager.service"],
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=5,
-            check=False,
-        )
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise ObserverError("ModemManager state query failed") from exc
-    return completed.returncode == 0
-
-
 class ModemManagerGuard:
-    def __init__(self, uid: str, active: bool):
-        self.uid = uid
-        self.active = active
+    def __init__(
+        self,
+        spec: dict[str, str],
+        topology: str,
+    ):
+        self.spec = dict(spec)
+        self.topology = topology
+        self.instance_sha256 = hashlib.sha256(os.urandom(32)).hexdigest()
         self.process: subprocess.Popen[bytes] | None = None
         self.arm_receipt: dict[str, Any] | None = None
 
     @classmethod
     def arm(
         cls,
+        spec: dict[str, str],
         topology: str,
-        usb_root: Path = Path("/sys/bus/usb/devices"),
         evidence_dir: Path | None = None,
     ):
-        active = _modemmanager_active()
-        uid = modemmanager_uid(topology, usb_root)
-        guard = cls(uid, active)
-        if not active:
-            if _modemmanager_active():
-                raise ObserverError("ModemManager activated during guard setup")
-            guard.arm_receipt = {
-                "schema": GUARD_SCHEMA,
-                "status": "not-required",
-                "uid_sha256": hashlib.sha256(uid.encode()).hexdigest(),
-                "active_rechecked": True,
-            }
-            return guard
+        validate_spec(spec)
+        topology_match = TOPOLOGY_RE.fullmatch(topology)
+        if topology_match is None:
+            raise ObserverError("prepared physical topology is invalid")
+        guard = cls(spec, topology)
+        spec_sha256 = digest(spec)
+        topology_sha256 = hashlib.sha256(
+            topology_match.group(1).encode()
+        ).hexdigest()
+        rule_sha256 = hashlib.sha256(_guard_rule(spec, topology)).hexdigest()
         try:
             process = subprocess.Popen(
-                _guard_command(uid),
+                _guard_command(spec, topology),
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
@@ -499,10 +635,10 @@ class ModemManagerGuard:
             _try_persist_guard_arm_failure(
                 evidence_dir, b"", None, "launch-failed"
             )
-            raise ObserverError("ModemManager inhibition launch failed") from exc
+            raise ObserverError("ModemManager guard launch failed") from exc
         guard.process = process
         assert process.stdout is not None
-        expected = f"successfully inhibited device with uid '{uid}'".encode()
+        expected = (GUARD_ARM_PREFIX + rule_sha256).encode()
         deadline = time.monotonic() + GUARD_ARM_SEC
         output = bytearray()
         armed = False
@@ -520,7 +656,10 @@ class ModemManagerGuard:
                         guard.arm_receipt = {
                             "schema": GUARD_SCHEMA,
                             "status": "armed",
-                            "uid_sha256": hashlib.sha256(uid.encode()).hexdigest(),
+                            "spec_sha256": spec_sha256,
+                            "topology_sha256": topology_sha256,
+                            "rule_sha256": rule_sha256,
+                            "instance_sha256": guard.instance_sha256,
                             "output_sha256": hashlib.sha256(output).hexdigest(),
                             "child_alive": process.poll() is None,
                         }
@@ -532,9 +671,9 @@ class ModemManagerGuard:
                 evidence_dir,
                 bytes(output),
                 process.poll(),
-                "inhibit-failed",
+                "guard-arm-failed",
             )
-            raise ObserverError("ModemManager device inhibition failed")
+            raise ObserverError("ModemManager udev guard failed")
         finally:
             if not armed:
                 try:
@@ -543,21 +682,24 @@ class ModemManagerGuard:
                     pass
 
     def healthy(self, *, recheck: bool = False) -> bool:
-        if not self.active:
-            return not _modemmanager_active() if recheck else True
         return self.process is not None and self.process.poll() is None
 
     def matches_node(self, node: Path) -> bool:
         try:
-            return _modemmanager_uid_for_node(node) == self.uid
-        except ObserverError:
+            properties = _udev_properties(node.resolve(strict=True))
+            return (
+                properties.get("ID_MM_DEVICE_IGNORE") == "1"
+                and properties.get("ID_MM_PORT_IGNORE") == "1"
+            )
+        except (ObserverError, OSError):
             return False
 
     def release(self) -> dict[str, Any]:
         if self.process is None:
             return {
                 "schema": GUARD_SCHEMA,
-                "status": "not-required",
+                "status": "not-armed",
+                "instance_sha256": self.instance_sha256,
                 "released": True,
             }
         if self.process.poll() is None:
@@ -572,12 +714,22 @@ class ModemManagerGuard:
                 return {
                     "schema": GUARD_SCHEMA,
                     "status": "release-failed",
+                    "instance_sha256": self.instance_sha256,
                     "error_type": type(exc).__name__,
                     "released": False,
                 }
+        if self.process.returncode != 0:
+            return {
+                "schema": GUARD_SCHEMA,
+                "status": "release-failed",
+                "instance_sha256": self.instance_sha256,
+                "returncode": self.process.returncode,
+                "released": False,
+            }
         return {
             "schema": GUARD_SCHEMA,
             "status": "released",
+            "instance_sha256": self.instance_sha256,
             "returncode": self.process.returncode,
             "released": True,
         }
@@ -630,7 +782,7 @@ class ObserverSession:
         path = self.dev_root / endpoint.tty_name
         if not self.guard.healthy(recheck=True):
             return "guard-lost", b""
-        if not self.guard.matches_node(endpoint.usb_path):
+        if not self.guard.matches_node(endpoint.device_path):
             return "identity-mismatch", b""
         try:
             info = path.stat()
@@ -691,7 +843,7 @@ class ObserverSession:
                     break
             if not self.guard.healthy(recheck=True):
                 return "guard-lost", bytes(payload)
-            if not self.guard.matches_node(endpoint.usb_path):
+            if not self.guard.matches_node(endpoint.device_path):
                 return "identity-mismatch", bytes(payload)
             identity, repeated = _resolve_endpoint(endpoint.tty_class)
             topology = TOPOLOGY_RE.fullmatch(self.topology)
@@ -807,9 +959,12 @@ def observer_session(
     usb_root: Path = Path("/sys/bus/usb/devices"),
 ) -> Iterator[ObserverSession]:
     validate_spec(spec)
+    release_path = run_dir / "candidate-observer-guard-release.json"
+    if release_path.exists() or release_path.is_symlink():
+        raise ObserverError("candidate observer guard release already exists")
     baseline = capture_baseline(spec, topology, class_tty=class_tty)
     baseline_receipt = persist_json(run_dir / "candidate-observer-baseline.json", baseline)
-    guard = ModemManagerGuard.arm(topology, usb_root, run_dir)
+    guard = ModemManagerGuard.arm(spec, topology, run_dir)
     try:
         guard_receipt = persist_json(
             run_dir / "candidate-observer-guard.json", guard.arm_receipt
@@ -837,7 +992,6 @@ def observer_session(
                 "error_type": type(exc).__name__,
                 "released": False,
             }
-        release_path = run_dir / "candidate-observer-guard-release.json"
         if not release_path.exists():
             try:
                 persist_json(release_path, release)
@@ -1016,41 +1170,42 @@ def validate_receipt(
     ):
         raise ObserverError("candidate observer departure semantics mismatch")
     guard = supporting["candidate-observer-guard.json"]
+    expected_spec_sha256 = digest(spec)
+    expected_rule_sha256 = hashlib.sha256(
+        _guard_rule(spec, topology)
+    ).hexdigest()
     armed = (
         isinstance(guard, dict)
         and set(guard)
         == {
             "schema",
             "status",
-            "uid_sha256",
+            "spec_sha256",
+            "topology_sha256",
+            "rule_sha256",
+            "instance_sha256",
             "output_sha256",
             "child_alive",
         }
         and guard["schema"] == GUARD_SCHEMA
         and guard["status"] == "armed"
         and guard["child_alive"] is True
+        and guard["spec_sha256"] == expected_spec_sha256
+        and guard["topology_sha256"] == topology_sha256
+        and guard["rule_sha256"] == expected_rule_sha256
         and all(
             isinstance(guard[name], str)
             and DIGEST_RE.fullmatch(guard[name]) is not None
-            for name in ("uid_sha256", "output_sha256")
+            for name in (
+                "spec_sha256",
+                "topology_sha256",
+                "rule_sha256",
+                "instance_sha256",
+                "output_sha256",
+            )
         )
     )
-    not_required = (
-        isinstance(guard, dict)
-        and set(guard)
-        == {
-            "schema",
-            "status",
-            "uid_sha256",
-            "active_rechecked",
-        }
-        and guard["schema"] == GUARD_SCHEMA
-        and guard["status"] == "not-required"
-        and guard["active_rechecked"] is True
-        and isinstance(guard["uid_sha256"], str)
-        and DIGEST_RE.fullmatch(guard["uid_sha256"]) is not None
-    )
-    if not armed and not not_required:
+    if not armed:
         raise ObserverError("candidate observer guard semantics mismatch")
     if value["topology_sha256"] != topology_sha256:
         raise ObserverError("candidate observer topology binding mismatch")
@@ -1091,4 +1246,64 @@ def validate_receipt(
         )
     ):
         raise ObserverError("candidate observer raw evidence changed")
+    return value
+
+
+def validate_guard_release(path: Path, arm_path: Path) -> dict[str, Any]:
+    def unique_object(items: list[tuple[str, Any]]) -> dict[str, Any]:
+        value: dict[str, Any] = {}
+        for key, item in items:
+            if key in value:
+                raise ObserverError("candidate observer guard release has duplicate keys")
+            value[key] = item
+        return value
+
+    try:
+        arm_info = arm_path.lstat()
+        if not stat.S_ISREG(arm_info.st_mode):
+            raise ObserverError("candidate observer guard arm is not regular")
+        arm = json.loads(
+            arm_path.read_bytes(), object_pairs_hook=unique_object
+        )
+        info = path.lstat()
+        if not stat.S_ISREG(info.st_mode):
+            raise ObserverError("candidate observer guard release is not regular")
+        value = json.loads(path.read_bytes(), object_pairs_hook=unique_object)
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ObserverError("candidate observer guard release is unreadable") from exc
+    if (
+        not isinstance(arm, dict)
+        or set(arm)
+        != {
+            "schema",
+            "status",
+            "spec_sha256",
+            "topology_sha256",
+            "rule_sha256",
+            "instance_sha256",
+            "output_sha256",
+            "child_alive",
+        }
+        or arm["schema"] != GUARD_SCHEMA
+        or arm["status"] != "armed"
+        or arm["child_alive"] is not True
+        or not isinstance(arm["instance_sha256"], str)
+        or DIGEST_RE.fullmatch(arm["instance_sha256"]) is None
+        or not isinstance(value, dict)
+        or set(value)
+        != {
+            "schema",
+            "status",
+            "instance_sha256",
+            "returncode",
+            "released",
+        }
+        or value["schema"] != GUARD_SCHEMA
+        or value["status"] != "released"
+        or value["instance_sha256"] != arm["instance_sha256"]
+        or type(value["returncode"]) is not int
+        or value["returncode"] != 0
+        or value["released"] is not True
+    ):
+        raise ObserverError("candidate observer guard release semantics mismatch")
     return value

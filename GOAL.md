@@ -433,9 +433,10 @@ reports grant no device authority.
     opens `ttyGS0` raw without flush, queues one run-ID-derived 49-byte banner,
     keeps that FD open, uses idempotent peripheral role selection, binds the
     exact UDC, and requires `state=configured/current_speed=high-speed`.
-    Process v2 gains one optional typed ACM observer, device-scoped
-    ModemManager inhibition, exact topology/TTY ownership, an immutable raw
-    receipt, resume re-derivation, and strict retained-plus-ACM `all_of`.
+    Process v2 gains one optional typed ACM observer, a candidate-exact
+    transient ModemManager udev exclusion, exact topology/TTY ownership, an
+    immutable raw receipt, resume re-derivation, and strict
+    retained-plus-ACM `all_of`.
     Retained-only and ACM-only results are named diagnostics. Odin, rollback,
     the 60-module plan, the state machine, and the eight timeline names remain
     unchanged.
@@ -529,9 +530,30 @@ reports grant no device authority.
     inhibition and adding bounded private failure evidence. Python
     compilation, 24 observer tests, 61 Process v2 core/live integration tests,
     and one harmless attended root-broker/control-pipe host probe pass. The
-    aborted transaction and approval token are not reusable. Next is final
-    delta review, regenerated execution closure, a new D0 run, and one fresh
-    exact F1 approval; no kernel or candidate rebuild is needed.
+    aborted transaction and approval token are not reusable. This fixed the
+    authorization defect but not the deeper API mismatch; item 55 supersedes
+    its device-scoped inhibition strategy.
+55. **P2.66 E3 second pre-candidate host-guard abort, F1 then H0:** a fresh
+    exact approval and execution D0 recheck passed, but root `mmcli` returned
+    `WrongState: Modem not exported in the bus`. The runner again stopped at
+    `APPROVED`: candidate `not-attempted`, no Download/Odin/transfer, no
+    rollback, and healthy Android retained. Upstream source proves
+    `InhibitDevice` only accepts an already probed and exported modem, so it
+    cannot protect a future ACM interface. Replace that invalid assumption
+    with one `/run/udev/rules.d` candidate-exact transient rule, always armed
+    before Download and removed on release, parent death, or bounded
+    self-timeout. The root process executes only an argv-frozen, stdlib-only
+    `python3 -I -B -c` helper, validates the exact rule grammar/hash, and uses
+    absolute privileged binaries. The endpoint must expose both ModemManager
+    ignore properties before open. No global service stop or persistent host
+    policy change is allowed. The first independent review returned `NO-GO`
+    on inactive-state false-arm, nonzero cleanup, writable-script TOCTOU, and
+    privileged path resolution; all four are repaired. Release cleanup is now
+    current-instance-bound and part of normal/resumed proof, stale or nonzero
+    cleanup forces no-proof after rollback, and an isolated uid-0 lifecycle
+    test proves verify/reload/release/unlink/reload ordering. Final independent
+    review is `GO` and 109 focused Process v2 tests pass. Regenerate the
+    execution closure and D0; no kernel or candidate rebuild is needed.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or

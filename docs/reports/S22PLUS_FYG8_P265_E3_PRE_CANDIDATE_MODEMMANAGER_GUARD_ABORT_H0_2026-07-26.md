@@ -1,5 +1,11 @@
 # S22+ FYG8 P2.65 E3 pre-candidate ModemManager guard abort
 
+> Follow-up correction: the root authorization fix in this report was
+> necessary but insufficient. A fresh run reached ModemManager and proved that
+> `InhibitDevice` cannot arm against this not-yet-exported future ACM device.
+> The transient candidate-exact udev guard and second abort are recorded in the
+> P2.66 report.
+
 Date: 2026-07-26 KST
 
 Verdict: `FAIL_F1_V2_PRE_CANDIDATE_DOWNLOAD_EXPLAINED_HOST_GUARD`

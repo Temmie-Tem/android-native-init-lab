@@ -84,9 +84,17 @@ class FakeCandidateObserver:
             self.prepared.run_dir / "candidate-observer-guard.json",
             {
                 "schema": self.module.cdc_acm_observer.GUARD_SCHEMA,
-                "status": "not-required",
-                "uid_sha256": "4" * 64,
-                "active_rechecked": True,
+                "status": "armed",
+                "spec_sha256": self.module.cdc_acm_observer.digest(spec),
+                "topology_sha256": hashlib.sha256(b"1-1").hexdigest(),
+                "rule_sha256": hashlib.sha256(
+                    self.module.cdc_acm_observer._guard_rule(
+                        spec, "usb:1-1"
+                    )
+                ).hexdigest(),
+                "instance_sha256": "5" * 64,
+                "output_sha256": "4" * 64,
+                "child_alive": True,
             },
         )
         value = {
@@ -134,6 +142,7 @@ class FakeBackend:
         recheck_failures=0,
         acm=None,
         observer_arm_error=False,
+        observer_release="released",
     ):
         self.module = module
         self.candidate = candidate
@@ -146,6 +155,7 @@ class FakeBackend:
         self.recheck_failures = recheck_failures
         self.acm = acm
         self.observer_arm_error = observer_arm_error
+        self.observer_release = observer_release
         self.calls = []
 
     def recheck_android(self, _prepared, destination):
@@ -177,11 +187,37 @@ class FakeBackend:
         )
         if spec is None:
             return contextlib.nullcontext(None)
-        return contextlib.nullcontext(
-            FakeCandidateObserver(
-                self.module, prepared, self.acm or "accepted"
-            )
-        )
+        @contextlib.contextmanager
+        def observing():
+            try:
+                yield FakeCandidateObserver(
+                    self.module, prepared, self.acm or "accepted"
+                )
+            finally:
+                release = (
+                    {
+                        "schema": self.module.cdc_acm_observer.GUARD_SCHEMA,
+                        "status": "released",
+                        "instance_sha256": "5" * 64,
+                        "returncode": 0,
+                        "released": True,
+                    }
+                    if self.observer_release == "released"
+                    else {
+                        "schema": self.module.cdc_acm_observer.GUARD_SCHEMA,
+                        "status": "release-failed",
+                        "instance_sha256": "5" * 64,
+                        "returncode": 1,
+                        "released": False,
+                    }
+                )
+                self.module.cdc_acm_observer.persist_json(
+                    prepared.run_dir
+                    / "candidate-observer-guard-release.json",
+                    release,
+                )
+
+        return observing()
 
     def wait_download(self, _prepared, _run_dir, _lease, _timeout):
         self.calls.append("wait-download")
@@ -565,6 +601,75 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
         self.assertFalse(
             result["live_state"]["download_endpoint_absent"]
         )
+
+    def test_e3_guard_release_failure_rolls_back_once_and_refuses_pass(self):
+        temporary, prepared = self.prepared(e3=True)
+        self.addCleanup(temporary.cleanup)
+        backend = FakeBackend(
+            self.module,
+            acm="accepted",
+            marker=True,
+            observer_release="release-failed",
+        )
+        result = self.module.execute_prepared(
+            prepared, prepared.approval_token, backend
+        )
+        self.assertEqual(
+            result["verdict"], "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK"
+        )
+        self.assertEqual(
+            result["outcome_class"],
+            "candidate_observer_guard_release_failed_rollback_verified",
+        )
+        self.assertFalse(
+            result["live_state"]["candidate_observer_guard_released"]
+        )
+        self.assertEqual(
+            [call for call in backend.calls if call.startswith("transfer-")],
+            ["transfer-candidate", "transfer-rollback"],
+        )
+
+    def test_e3_resume_after_observed_keeps_failed_release_proof_false(self):
+        temporary, prepared = self.prepared(e3=True)
+        self.addCleanup(temporary.cleanup)
+        backend = FakeBackend(
+            self.module,
+            acm="accepted",
+            marker=True,
+            observer_release="release-failed",
+        )
+        original = self.module.core.Journal.event
+
+        def interrupt_before_boot_ready(journal, action, details):
+            if action == "candidate_boot_ready":
+                raise KeyboardInterrupt("after OBSERVED")
+            return original(journal, action, details)
+
+        with mock.patch.object(
+            self.module.core.Journal,
+            "event",
+            new=interrupt_before_boot_ready,
+        ):
+            with self.assertRaises(KeyboardInterrupt):
+                self.module.execute_prepared(
+                    prepared, prepared.approval_token, backend
+                )
+        result = self.module.recover_prepared(
+            prepared, FakeBackend(self.module, marker=True)
+        )
+        self.assertEqual(
+            result["verdict"], "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK"
+        )
+        boot_ready = next(
+            item
+            for item in self.module.core.Journal.reopen(
+                prepared.run_dir / "transaction",
+                prepared.binding_sha256,
+            ).records()
+            if item["kind"] == "event"
+            and item["action"] == "candidate_boot_ready"
+        )
+        self.assertFalse(boot_ready["details"]["proof"])
 
     def test_e3_pre_candidate_abort_and_local_parse_are_reportable(self):
         cases = (
