@@ -418,11 +418,25 @@ reports grant no device authority.
     this path because they predate the proven provider chain or lack internal
     coordinates. The remaining structural gap is a typed Process v2 ACM
     observer plus strict retained-terminal-and-host-bytes `all_of` acceptance.
-45. **P2.60 next, H0:** freeze the versioned E3 stage/detail contract, one-FD
-    banner lifetime, exact descriptor/banner identity, bounded Process v2 ACM
-    observer, durable evidence and resume semantics, and `all_of` verdict.
-    Reuse the current runner and rollback core; do not build, contact a device,
-    add Samsung ACM modules, or widen to E4 until the design closes.
+45. **P2.59 independent adversarial review complete, H0:** a same-session
+    Claude Opus 5 `xhigh` pass returned `GO_WITH_MUST_FIX`. Independent
+    reconciliation accepted four execution gaps: the current runner cannot
+    express E3 `all_of`, gadget-side termios is not raw, the host ACM observer
+    lacks interference/exclusive-ownership control, and resume cannot yet
+    re-derive a durable ACM receipt. Its fifth claim, unresolved SSUSB driver
+    identity, is ruled out by the exact accepted
+    `msm-dwc3/a600000.ssusb` gate and matching FYG8 source. Do not reopen that
+    provider question.
+46. **P2.60 next, H0:** freeze the versioned E3 stage/detail contract and one
+    bounded post-bind diagnostic, raw one-FD banner lifetime, exact
+    candidate-bound descriptor/banner identity, idempotent role selection and
+    UDC recheck, bounded Process v2 ACM observer with host-interference
+    control, durable evidence and resume re-derivation, and an exhaustive
+    `all_of`/diagnostic verdict matrix. The descriptor change requires a new
+    kernel and reproducible Full-LTO A/B pair later, but P2.60 itself remains
+    design-only. Reuse the current runner and rollback core; do not build,
+    contact a device, add Samsung ACM modules, or widen to E4 until the design
+    closes.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or
