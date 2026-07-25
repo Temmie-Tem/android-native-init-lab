@@ -73,6 +73,9 @@ LINKED_VALIDATOR_ADAPTERS = {
     "s22plus-fyg8-p258a-e2-exact-udc-membership-v1": (
         "s22plus_fyg8_p258_linked_audit"
     ),
+    "s22plus-fyg8-p260-e3-exact-acm-banner-v1": (
+        "s22plus_fyg8_p260_linked_audit"
+    ),
 }
 
 
