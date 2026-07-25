@@ -44,7 +44,7 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertNotIn("BEGIN_S22PLUS", active_text)
         self.assertIn("No S22+ F1 live run is currently authorized", self.agents)
         self.assertIn(
-            "No active S22+ F1 authorization", " ".join(self.goal.split())
+            "No F1 run is authorized", " ".join(self.goal.split())
         )
 
     def test_archives_are_explicitly_inert(self):
@@ -78,39 +78,21 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         ):
             self.assertIn(state, self.process)
 
-    def test_frontier_advances_past_direct_pid1_without_live_authority(self):
+    def test_frontier_records_terminal_e2_without_live_authority(self):
         normalized_goal = " ".join(self.goal.split())
         normalized_agents = " ".join(self.agents.split())
-        self.assertIn(
-            "R4W1-D DIRECT PID1 PROVEN", normalized_goal
-        )
+        self.assertIn("direct PID1", normalized_goal)
+        self.assertIn("P2.58A passed terminal stage", normalized_goal)
         self.assertIn(
             "PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK", self.goal
         )
-        self.assertIn("P2.1-P2.16 complete/closed", self.goal)
-        self.assertIn("P2.17-P2.20 complete, H0", self.goal)
-        self.assertIn("P2.21-P2.23 complete/closed", self.goal)
-        self.assertIn("P2.24-P2.25 complete, H0", self.goal)
-        self.assertIn("P2.26 complete, H0", self.goal)
-        self.assertIn("P2.27 complete, H0", self.goal)
-        self.assertIn("P2.28 complete, D0", self.goal)
-        self.assertIn("P2.29 complete/closed, F1", self.goal)
-        self.assertIn("P2.30 complete, H0", self.goal)
-        self.assertIn("P2.31 complete, H0", self.goal)
-        self.assertIn("P2.32 complete, H0", self.goal)
-        self.assertIn("P2.33 complete, H0", self.goal)
-        self.assertIn("P2.34 next, H0", self.goal)
-        self.assertIn("all bindings are consumed", normalized_agents)
-        self.assertIn("P2.1-P2.5 complete", self.process)
-        self.assertIn("P2.6-P2.10 host path complete", self.process)
+        self.assertIn("P2.58A complete/closed, F1", self.goal)
+        self.assertIn("E3-E4 next", self.goal)
+        self.assertIn("P2.58A consumed one exact approval", normalized_agents)
+        self.assertIn("terminal stage `0x8f`", self.agents)
+        self.assertIn("not USB host enumeration", normalized_agents)
         self.assertIn("Typed Retained Evidence", self.process)
         self.assertIn("NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK", self.process)
-        self.assertIn("reusable D0/F1 adapters are complete", self.agents)
-        self.assertIn("P2.29 used its binding once", normalized_agents)
-        self.assertIn("P2.30 adds a separately pinned", normalized_agents)
-        self.assertIn("P2.31 host correlation", normalized_agents)
-        self.assertIn("P2.33 implements the default-disabled", normalized_agents)
-        self.assertIn("F1 remains inactive", normalized_agents)
         self.assertIn(
             "PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY", self.process
         )
@@ -124,7 +106,7 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("private exact target binding", self.process)
         self.assertIn("aborted binding is not reusable", self.process)
         self.assertIn(
-            "No active S22+ F1 authorization", " ".join(self.goal.split())
+            "No F1 run is authorized", normalized_goal
         )
 
     def test_archived_policy_is_not_runtime_dependency(self):

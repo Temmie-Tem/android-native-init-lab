@@ -9,12 +9,11 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 
 ## Current Frontier
 
-**State: direct PID1, E1A local runtime, and E1B module runtime are live
-proven. P2.57 reached bound DWC3 core but its invalid singleton UDC predicate
-timed out; rollback and final health passed. P2.58A replaces that predicate
-with exact-target membership plus dedicated dwell. Its source-bound
-entrypoint adapter is corrected and a fresh qualification build is active
-H0. No F1 run is authorized.**
+**State: direct PID1, E1A local runtime, E1B module runtime, and the E2
+module-to-real-UDC frontier are live proven. P2.58A passed terminal stage
+`0x8f` after exact `a600000.dwc3` membership at stage `0x87`; exact rollback
+and final health passed. The binding and approval are consumed. No F1 run is
+authorized.**
 
 The P2.57 transaction is closed with durable verdict
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; its approval and binding are consumed.
@@ -23,25 +22,23 @@ old stage `0x87` UDC frontier with `ETIMEDOUT`. That record proves the exact
 60-module sequence through DWC3 core, not UDC publication or USB enumeration.
 
 P2.58 established that `/sys/class/udc` legitimately contains both
-`a600000.dwc3` and `dummy_udc.0`, so P2.57's global cardinality requirement
-could never pass. P2.58A keeps the same module/step geometry, accepts unrelated
-UDC peers, requires one exact symlinked target, and grants a fresh five-second
-UDC dwell after DWC3 success.
+`a600000.dwc3` and `dummy_udc.0`, so P2.57's global singleton predicate could
+never pass. P2.58A kept the same 60-module and 81-step geometry, accepted
+unrelated UDC peers, required one exact symlinked target, and granted a fresh
+five-second UDC dwell after DWC3 success.
 
-The first P2.58A A/B kernel and package qualification was reproducible, but
-the independent rootfs checker caught a source-bound host proof defect before
-Process v2 promotion: the P2.58A adapter inherited P2.57's `/init` entrypoint
-`0x4014f0`, while the exact two-link P2.58A userspace is `0x401580`. A
-downstream-only shim was rejected because promotion and evidence verification
-consume the same adapter. Commit `fe12b94c` gives P2.58A an isolated exact
-entrypoint contract, tests all success/failure restoration paths, and adds a
-pre-Full-LTO userspace check to the qualification runbook.
+The corrected source-bound entrypoint adapter, two clean Full-LTO builds, six
+byte-identical artifacts, two byte-identical boot-only packages, independent
+closure, Process v2 promotion, baseline rotation, and clean connected D0 all
+passed. One exact F1 then retained generation 80 at stage `0x87`, item 11,
+followed by generation 81 terminal success at `0x8f`. Two post-rollback reads
+are byte-identical and classify the one exact record as
+`E2_SUCCESS_ONE_OR_MORE_BOOTS`.
 
-Fresh H0 intent `5e2636acd5010b749b7e28a3ed37bf37` has final patch SHA256
-`61cd6913ea88a1de6d5989d4f0e99c1988dc1e64da255c87fe60c0f51df33b1d`.
-Exact userspace two-link reproducibility and entrypoint checks passed.
-Canonical build-host preflight passed; clean Full-LTO build A is running.
-No candidate AP from this corrected intent has been created or promoted.
+One candidate transfer and one exact Magisk rollback completed. Android,
+FYG8/root/boot, supporting partitions, Odin absence, and all eight canonical
+timeline events passed. The durable verdict is
+`PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK`; recovery is not required.
 
 ## Established Evidence
 
@@ -144,6 +141,9 @@ No candidate AP from this corrected intent has been created or promoted.
 - P2.50 E2 F1: one exact candidate and rollback transfer completed. The
   corrected validator records `gcc-waipio` success at `0x83`, then `ssusb`
   timeout at `0x84`. Final health and timeline passed; authority is consumed.
+- P2.58A E2 F1: exact UDC target membership passed at `0x87`, terminal stage
+  `0x8f` followed, one exact record was accepted, and exact rollback, final
+  health, and the canonical timeline passed. Authority is consumed.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
   rollback, and final health are proven.
 - V3439: pstore, pmsg, ramoops, and DTBO-based retention remain retired.
@@ -190,6 +190,7 @@ Load-bearing details are in:
 - `docs/reports/S22PLUS_FYG8_P255_CONNECTED_D0_PREPARED_PASS_2026-07-24.md`
 - `docs/reports/S22PLUS_FYG8_P255_F1_LIVE_QNOC_MC_VIRT_ABSENT_2026-07-24.md`
 - `docs/reports/S22PLUS_FYG8_P256_QNOC_MC_VIRT_AND_ODIN_OBSERVER_H0_2026-07-24.md`
+- `docs/reports/S22PLUS_FYG8_P258A_F1_LIVE_TERMINAL_UDC_PASS_2026-07-25.md`
 - `docs/operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
@@ -377,7 +378,7 @@ reports grant no device authority.
     prove exact-target absence. Exact source separately proves DWC3 bind
     precedes queued role-worker completion, and the shared deadline can reduce
     UDC dwell to one check.
-41. **P2.58A implementation complete; corrected qualification active, H0:**
+41. **P2.58A implementation and qualification complete, H0:**
     the versioned observation contract now requires
     exact-target membership and symlink identity while permitting unrelated
     UDC peers, and starts one fresh five-second UDC deadline after DWC3 success.
@@ -397,11 +398,16 @@ reports grant no device authority.
     The corrected source-bound adapter owns an isolated `0x401580` init and
     `0x4000cc` child contract, restores historical state on every path, and is
     checked against a real two-link userspace build before Full LTO. Fresh
-    intent `5e2636acd5010b749b7e28a3ed37bf37` and patch
-    `61cd6913ea88a1de6d5989d4f0e99c1988dc1e64da255c87fe60c0f51df33b1d`
-    passed preflight; build A is active. No device authority exists.
-42. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
-    then one nonce exchange. No shell, NCM, Debian, or hot reload.
+    intent, two clean byte-identical builds, deterministic package pair,
+    independent closure, offline promotion, and connected D0 passed.
+42. **P2.58A complete/closed, F1:** one exact candidate and rollback transfer
+    completed. Generation 80 passed exact real-UDC membership at `0x87`;
+    generation 81 reached terminal `0x8f`. Two byte-identical retained reads
+    contain one accepted exact record. Final health and all eight timeline
+    events passed; authority is consumed.
+43. **E3-E4 next:** design one bounded ACM banner over the now-proven real UDC,
+    then separately prove one nonce exchange. Do not infer enumeration or ACM
+    from E2, and do not expand to shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or

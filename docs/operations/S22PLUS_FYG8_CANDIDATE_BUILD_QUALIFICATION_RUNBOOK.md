@@ -388,6 +388,8 @@ not hypothetical policy requirements.
 | A clean build used a different absolute source-tree name | Source path and build-ID inputs changed, so linked bytes differed despite equivalent sources | Re-run B from the same canonical path after a clean preflight | Pin one canonical absolute source path in both build invocations |
 | A new source contract added a reachable-record field that the generic evidence verifier did not recognize | Kernel, userspace, packages, and static closure were already valid; the downstream verifier had a stale hard-coded shape | Fix the typed verifier, run focused plus historical compatibility tests, and re-run host-ready validation | Derive the expected record from the selected versioned source contract; use the lane table and do not rebuild qualified kernel bundles |
 | Full-LTO build output was quiet for an extended period | Full LTO can spend a long time in a link with little stdout; silence alone is not a failure | Inspect the detached session and process/resource state read-only; wait for authoritative completion records | Always launch with tmux, `/usr/bin/time -v`, and a validated completion hook; never start a duplicate build from silence |
+| A monitor used `tmux has-session -t build-name`, then outlived the build because its own `build-name-monitor` session prefix matched | `tmux -t` accepts unique prefixes; the monitor was observing itself, not a running build | Stop only the monitor after the build result and time receipt are complete; preserve all build artifacts | Compare exact names from `tmux list-sessions -F '#{session_name}'`; never use prefix matching as a completion predicate |
+| A 4.4 GHz Full-LTO link burst reached 69.1 C while the host critical point was 70 C | The overclocked P-state has insufficient sustained thermal margin even under a mostly single-thread link | Return to the stable 2.9 GHz cap, finish the build, and restore the normal governor afterward | Default candidate qualification to the stable cap; use no high-clock burst unless cooling or an intermediate P-state is separately qualified |
 | A new source contract had a byte-identical template patch, so an earlier Image was selected for reuse | Candidate identity also binds the source-contract domain, source receipts, derived run ID, UNSAT tag, and final config patch; template equality is below the actual candidate boundary | Derive and verify the fresh intent first; compare final patch/config/run ID, and rebuild when they differ | Keep a focused cross-contract identity test and make fresh intent derivation precede every build-lane decision |
 | P2.58A userspace linked reproducibly, but the stock-closure adapter inherited P2.57's older `/init` entrypoint and rejected the packaged candidate only after two Full-LTO builds | The kernel and packages were reproducible, but a source-bound host proof adapter was stale; a downstream-only shim would split static, promotion, and evidence semantics | Fix the P2.58A adapter itself, derive a new intent because its source receipt changes, and rebuild the invalidated candidate | Before Full LTO, build the exact userspace twice and compare both ELF entrypoints with the selected stock-closure adapter; test scoped adapter state restoration and historical-contract isolation |
 
@@ -398,6 +400,13 @@ The qualified P2.54 pair took `38:11.82` and `38:27.73`, peaked at about
 baseline, not pass criteria. A large timing change should trigger inspection of
 jobs, memory pressure, source path, toolchain, and whether an audit was
 accidentally run concurrently.
+
+The corrected P2.58A pair took `39:05.92` and `39:34.50`, with Build B peaking
+at about `24.26 GiB` RSS and no process swaps. A measured 4.4 GHz link burst
+reached `69.1 C` and did not reduce total wall time relative to Build A.
+This host therefore uses the stable 2.9 GHz cap for sustained qualification
+and restores `schedutil` after the build. The high-clock result is a negative
+thermal/performance finding, not a default optimization.
 
 Do not spend this cost during source iteration. The candidate source contract,
 userspace, proof adapters, selector, and enforcement must be frozen first.

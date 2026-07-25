@@ -13,27 +13,23 @@ Do not add a device step when host-only work can answer the question.
 ## Current Live Posture
 
 - No S22+ F1 live run is currently authorized.
-- P2.57 consumed one exact approval and transferred the display-closure E2
+- P2.58A consumed one exact approval and transferred the corrected E2
   candidate once. The operator observed a successful candidate boot and no
   boot loop.
-- Two byte-identical retained reads contain one exact E2 terminal-failure
-  record. Generation 79 passed `dwc3-core` at stage `0x86`; generation 80
-  failed the stage `0x87`, item 11 UDC frontier with detail 110
-  (`ETIMEDOUT`). This proves the exact 60-module sequence and gates through
-  SSUSB and DWC3 core, but not `/sys/class/udc/a600000.dwc3`, USB enumeration,
-  ACM, or terminal stage `0x8f`.
-- One exact Magisk rollback transfer completed. The first execution process
-  then stopped fail-closed on a post-rollback USB endpoint inventory error
-  after the durable journal had reached `ROLLBACK_FLASHED`. It did not retry
-  the candidate or rollback. Recovery resumed from that journal state and
-  performed final verification only.
+- Two byte-identical retained reads contain one exact E2 terminal-success
+  record. Generation 80 passed exact `a600000.dwc3` UDC membership at stage
+  `0x87`, item 11; generation 81 reached terminal stage `0x8f`. This proves
+  the exact 60-module sequence, real-UDC publication, and terminal userspace
+  path, but not USB host enumeration, configfs binding, ACM, or NCM.
+- One exact Magisk rollback transfer completed. No candidate or rollback
+  transfer was repeated, and there was no recovery deviation.
 - The transaction is `CLOSED`. Android/FYG8/root/boot and supporting-partition
   health, Odin absence, byte-identical retained reads, and all eight canonical
   timeline events passed. The durable verdict is
-  `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; recovery is not required.
-- The binding and approval are consumed. Before another F1, use H0 to analyze
-  why the bound DWC3 core did not publish its UDC class device. A new candidate
-  still requires a new H0 closure, D0 preparation, and exact approval.
+  `PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK`; recovery is not required.
+- The binding and approval are consumed. Before another F1, use H0 to design
+  the bounded E3 ACM-banner rung. A new candidate still requires a new H0
+  closure, D0 preparation, and exact approval.
 
 ## Permanent Safety Boundaries
 
