@@ -491,6 +491,19 @@ reports grant no device authority.
     final re-review is `GO`. Compilation, 31 focused tests, and diff checks
     pass. Because the builder is source-bound, v2 remains diagnostic only.
     Derive v3 and repeat A/B before package, D0, and F1 preparation.
+52. **P2.63 v3 E3 candidate approval-ready, H0+D0:** one fresh corrected intent
+    passed the exact two-link userspace closure. Clean Full-LTO builds A and B
+    completed in `38:25.60` and `39:03.99`; all six reproducibility artifacts
+    were byte-identical, neither build swapped, and the P2.60 linked audit
+    passed. Two deterministic boot-only packages, independent artifact
+    closure, offline Process v2 promotion, ready-manifest validation, and live
+    plan rendering passed. The first connected D0 stopped read-only because a
+    historical E2 marker remained in the baseline; no Odin or transfer began.
+    One authorized normal Android reboot rotated it out. A new D0 then proved
+    one healthy FYG8 target, clean baseline, exact rollback, and unchanged
+    execution closure and emitted one fresh private approval binding. No F1 is
+    authorized or executed. Next is only the exact P2.60 E3 approval token,
+    followed by one boot-only candidate attempt and mandatory rollback.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or
