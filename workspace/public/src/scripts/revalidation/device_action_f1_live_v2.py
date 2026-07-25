@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, ContextManager, Protocol
 
 import device_action_d0_v2 as d0
+import device_action_cdc_acm_observer_v1 as cdc_acm_observer
 import device_action_f1_evidence_v2 as typed_evidence
 import device_action_f1_v2 as core
 import s22plus_boot_only_f1_transport as transport
@@ -24,7 +25,7 @@ import s22plus_odin_transition_core as odin_core
 import s22plus_odin_usbfs_identity as usbfs_identity
 
 
-ADAPTER_VERSION = "device-action-f1-live-v2-1"
+ADAPTER_VERSION = "device-action-f1-live-v2-2"
 PREPARED_SCHEMA = "device_action_f1_prepared_v2"
 PRIVATE_TARGET_SCHEMA = "device_action_f1_private_target_v2"
 LIVE_STATE_SCHEMA = "device_action_f1_live_state_v2"
@@ -89,6 +90,10 @@ class LiveBackend(Protocol):
 
     def endpoint_session(self, run_dir: Path) -> ContextManager[Any]: ...
 
+    def candidate_observer_session(
+        self, prepared: PreparedRun
+    ) -> ContextManager[Any]: ...
+
     def wait_download(
         self,
         prepared: PreparedRun,
@@ -112,6 +117,7 @@ class LiveBackend(Protocol):
         prepared: PreparedRun,
         run_dir: Path,
         lease: Any,
+        observer_session: Any,
     ) -> dict[str, Any]: ...
 
     def verify_final(
@@ -157,6 +163,7 @@ def _closure(root: Path) -> dict[str, Any]:
     scripts = Path(__file__).resolve().parent
     paths = {
         "adapter": Path(__file__).resolve(),
+        "cdc_acm_observer": Path(cdc_acm_observer.__file__).resolve(),
         "f1_core": scripts / "device_action_f1_v2.py",
         "typed_evidence": scripts / "device_action_f1_evidence_v2.py",
         "checkpoint_decoder": scripts / "s22plus_fyg8_r4w1e_checkpoint_contract.py",
@@ -701,6 +708,22 @@ class SamsungOdinBackend:
     def endpoint_session(self, run_dir: Path) -> ContextManager[Any]:
         return odin_core.transaction_session(run_dir)
 
+    def candidate_observer_session(
+        self, prepared: PreparedRun
+    ) -> ContextManager[Any]:
+        spec = prepared.bundle.manifest["observation"].get(
+            "candidate_observer"
+        )
+        if spec is None:
+            return contextlib.nullcontext(None)
+        return cdc_acm_observer.observer_session(
+            spec,
+            prepared.private_target["topology"],
+            prepared.run_dir,
+            _candidate_observer_binding(prepared),
+            usb_root=self.usb_root,
+        )
+
     def wait_download(
         self,
         prepared: PreparedRun,
@@ -834,6 +857,7 @@ class SamsungOdinBackend:
         prepared: PreparedRun,
         run_dir: Path,
         lease: Any,
+        observer_session: Any,
     ) -> dict[str, Any]:
         sequence = len(odin_core.list_snapshot_receipts(run_dir))
         absent = odin_core.wait_for_no_live_endpoint(
@@ -848,6 +872,39 @@ class SamsungOdinBackend:
         )
         timeout = prepared.bundle.manifest["observation"]["timeout_sec"]
         started = time.monotonic()
+        departure = {
+            "download_endpoint_absent": absent.absent,
+            "absence_timed_out": absent.timed_out,
+            "sequence": absent.next_sequence,
+        }
+        spec = prepared.bundle.manifest["observation"].get(
+            "candidate_observer"
+        )
+        if spec is not None:
+            if observer_session is not None:
+                try:
+                    observer_session.observe(
+                        timeout_sec=timeout,
+                        download_departure=departure,
+                    )
+                except (cdc_acm_observer.ObserverError, OSError):
+                    pass
+            durable = _reopen_candidate_observation(prepared)
+            return {
+                "bounded": True,
+                "download_endpoint_absent": absent.absent,
+                "absence_timed_out": absent.timed_out,
+                "requested_sec": timeout,
+                "elapsed_sec": round(time.monotonic() - started, 6),
+                "candidate_execution_proven": durable["accepted"],
+                "candidate_observer_classification": durable[
+                    "classification"
+                ],
+                "candidate_observer_accepted": durable["accepted"],
+                "candidate_observer_receipt_sha256": durable[
+                    "receipt_sha256"
+                ],
+            }
         if absent.absent:
             time.sleep(timeout)
         return {
@@ -965,6 +1022,61 @@ class SamsungOdinBackend:
 
 def _live_state_path(prepared: PreparedRun) -> Path:
     return prepared.run_dir / "live-state.json"
+
+
+def _candidate_observer_binding(prepared: PreparedRun) -> dict[str, str]:
+    return {
+        "approval_binding_sha256": prepared.binding_sha256,
+        "bundle_sha256": prepared.bundle.sha256,
+        "manifest_id": prepared.bundle.manifest["manifest_id"],
+        "candidate_ap_sha256": prepared.bundle.manifest["candidate_ap"][
+            "sha256"
+        ],
+    }
+
+
+def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
+    spec = prepared.bundle.manifest["observation"].get("candidate_observer")
+    if spec is None:
+        return {
+            "classification": "not-required",
+            "accepted": False,
+            "receipt_sha256": None,
+            "valid_receipt": False,
+            "download_endpoint_absent": False,
+        }
+    path = prepared.run_dir / "candidate-observer.json"
+    if not path.is_file() or path.is_symlink():
+        return {
+            "classification": "interrupted-before-receipt",
+            "accepted": False,
+            "receipt_sha256": None,
+            "valid_receipt": False,
+            "download_endpoint_absent": False,
+        }
+    try:
+        value = cdc_acm_observer.validate_receipt(
+            path,
+            spec=spec,
+            binding=_candidate_observer_binding(prepared),
+            topology=prepared.private_target["topology"],
+        )
+        receipt = _receipt(path, "candidate observer receipt")
+    except (cdc_acm_observer.ObserverError, F1LiveError, core.F1V2Error):
+        return {
+            "classification": "interrupted-before-receipt",
+            "accepted": False,
+            "receipt_sha256": None,
+            "valid_receipt": False,
+            "download_endpoint_absent": False,
+        }
+    return {
+        "classification": value["classification"],
+        "accepted": value["accepted"],
+        "receipt_sha256": receipt["sha256"],
+        "valid_receipt": True,
+        "download_endpoint_absent": value["download_endpoint_absent"],
+    }
 
 
 def _state(prepared: PreparedRun) -> dict[str, Any]:
@@ -1180,6 +1292,30 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
         raise F1LiveError("final observer semantics mismatch")
 
 
+def _validate_candidate_observer_state(
+    prepared: PreparedRun, state: dict[str, Any]
+) -> None:
+    spec = prepared.bundle.manifest["observation"].get("candidate_observer")
+    if spec is None:
+        return
+    durable = _reopen_candidate_observation(prepared)
+    if (
+        state.get("candidate_observer_classification")
+        != durable["classification"]
+        or state.get("candidate_observer_accepted") is not durable["accepted"]
+        or state.get("candidate_observer_receipt_sha256")
+        != durable["receipt_sha256"]
+        or state.get("download_endpoint_absent")
+        is not durable["download_endpoint_absent"]
+    ):
+        raise F1LiveError("candidate observer durable state mismatch")
+    if durable["accepted"] is True and (
+        state.get("candidate_completed") is not True
+        or durable["download_endpoint_absent"] is not True
+    ):
+        raise F1LiveError("candidate observer acceptance lacks transfer continuity")
+
+
 def validate_live_result(
     result: dict[str, Any], prepared: PreparedRun
 ) -> dict[str, Any]:
@@ -1231,6 +1367,11 @@ def validate_live_result(
         candidate_classification == "odin_transfer_completed"
     ):
         raise F1LiveError("candidate completion semantics mismatch")
+    if candidate_classification not in {
+        "not-attempted",
+        "odin_local_parse_failure",
+    }:
+        _validate_candidate_observer_state(prepared, state)
     rollback_classification = state.get("rollback_classification")
     if rollback_classification is not None:
         rollback = _validate_transfer_evidence(prepared, "rollback")
@@ -1246,6 +1387,12 @@ def validate_live_result(
         _validate_final_observer(prepared, state)
     verdict = result["verdict"]
     names = [event["name"] for event in result["timeline"]["events"]]
+    observer_required = (
+        prepared.bundle.manifest["observation"].get("candidate_observer")
+        is not None
+    )
+    acm = state.get("candidate_observer_accepted") is True
+    departed = state.get("download_endpoint_absent") is True
     if verdict == "PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK":
         if (
             journal.state() != "CLOSED"
@@ -1255,8 +1402,40 @@ def validate_live_result(
             or state.get("final_verified") is not True
             or state.get("marker_accepted") is not True
             or result["recovery_required"] is not False
+            or (
+                observer_required
+                and (acm is not True or departed is not True)
+            )
         ):
             raise F1LiveError("F1 PASS semantics are incomplete")
+    elif verdict == "DIAGNOSTIC_F1_V2_RETAINED_ONLY_ROLLED_BACK":
+        if (
+            not observer_required
+            or journal.state() != "CLOSED"
+            or names != list(core.TIMELINE)
+            or state.get("candidate_completed") is not True
+            or departed is not True
+            or acm is not False
+            or state.get("marker_accepted") is not True
+            or state.get("rollback_completed") is not True
+            or state.get("final_verified") is not True
+            or result["recovery_required"] is not False
+        ):
+            raise F1LiveError("F1 retained-only diagnostic semantics are incomplete")
+    elif verdict == "DIAGNOSTIC_F1_V2_ACM_ONLY_ROLLED_BACK":
+        if (
+            not observer_required
+            or journal.state() != "CLOSED"
+            or names != list(core.TIMELINE)
+            or state.get("candidate_completed") is not True
+            or departed is not True
+            or acm is not True
+            or state.get("marker_accepted") is not False
+            or state.get("rollback_completed") is not True
+            or state.get("final_verified") is not True
+            or result["recovery_required"] is not False
+        ):
+            raise F1LiveError("F1 ACM-only diagnostic semantics are incomplete")
     elif verdict == "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK":
         if (
             journal.state() != "CLOSED"
@@ -1265,7 +1444,17 @@ def validate_live_result(
             or state.get("final_verified") is not True
             or result["recovery_required"] is not False
             or (
-                state.get("candidate_completed") is True
+                observer_required
+                and state.get("candidate_completed") is True
+                and departed is True
+                and (
+                    state.get("marker_accepted") is True
+                    or acm is True
+                )
+            )
+            or (
+                not observer_required
+                and state.get("candidate_completed") is True
                 and state.get("marker_accepted") is True
             )
         ):
@@ -1328,13 +1517,66 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
     if state == "CANDIDATE_FLASHED":
         if "candidate_flash_done" not in _events(journal):
             journal.event("candidate_flash_done", {"proof": False, "resumed": True})
-        journal.transition(
-            "OBSERVED", "interrupted_candidate_no_proof", {"proof": False}
+        observer_spec = prepared.bundle.manifest["observation"].get(
+            "candidate_observer"
         )
-        journal.event("candidate_boot_ready", {"proof": False, "resumed": True})
+        proof = False
+        details: dict[str, Any] = {"proof": False}
+        if observer_spec is not None:
+            durable = _reopen_candidate_observation(prepared)
+            current = _state(prepared)
+            current.update(
+                {
+                    "download_endpoint_absent": durable[
+                        "download_endpoint_absent"
+                    ],
+                    "candidate_observer_classification": durable[
+                        "classification"
+                    ],
+                    "candidate_observer_accepted": durable["accepted"],
+                    "candidate_observer_receipt_sha256": durable[
+                        "receipt_sha256"
+                    ],
+                }
+            )
+            _save_state(prepared, current)
+            proof = (
+                current.get("candidate_completed") is True
+                and durable["download_endpoint_absent"] is True
+                and durable["accepted"] is True
+            )
+            details = {
+                "proof": proof,
+                "candidate_observer_classification": durable[
+                    "classification"
+                ],
+                "candidate_observer_receipt_sha256": durable[
+                    "receipt_sha256"
+                ],
+            }
+        journal.transition(
+            "OBSERVED",
+            (
+                "recovered_candidate_observation"
+                if observer_spec is not None
+                else "interrupted_candidate_no_proof"
+            ),
+            details,
+        )
+        journal.event(
+            "candidate_boot_ready", {"proof": proof, "resumed": True}
+        )
         state = "OBSERVED"
     if state == "OBSERVED" and "candidate_boot_ready" not in _events(journal):
-        journal.event("candidate_boot_ready", {"proof": False, "resumed": True})
+        current = _state(prepared)
+        proof = (
+            current.get("candidate_completed") is True
+            and current.get("download_endpoint_absent") is True
+            and current.get("candidate_observer_accepted") is True
+        )
+        journal.event(
+            "candidate_boot_ready", {"proof": proof, "resumed": True}
+        )
     return True
 
 
@@ -1466,13 +1708,52 @@ def _finish_rollback(
         current = _state(prepared)
         marker = current.get("marker_accepted") is True
         candidate = current.get("candidate_completed") is True
-        journal.transition("CLOSED", "run_complete", {"marker_accepted": marker})
-        if marker and candidate:
+        observer_required = (
+            prepared.bundle.manifest["observation"].get(
+                "candidate_observer"
+            )
+            is not None
+        )
+        acm = current.get("candidate_observer_accepted") is True
+        departed = current.get("download_endpoint_absent") is True
+        if observer_required and acm and (not candidate or not departed):
+            raise F1LiveError(
+                "candidate observer acceptance lacks transfer continuity"
+            )
+        journal.transition(
+            "CLOSED",
+            "run_complete",
+            {
+                "marker_accepted": marker,
+                "candidate_observer_accepted": (
+                    acm if observer_required else None
+                ),
+            },
+        )
+        if marker and candidate and (
+            not observer_required or (departed and acm)
+        ):
             return _result(
                 prepared,
                 journal,
                 "PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK",
                 "candidate_proven_rollback_verified",
+                False,
+            )
+        if observer_required and candidate and departed and marker and not acm:
+            return _result(
+                prepared,
+                journal,
+                "DIAGNOSTIC_F1_V2_RETAINED_ONLY_ROLLED_BACK",
+                "retained_only_rollback_verified",
+                False,
+            )
+        if observer_required and candidate and departed and acm and not marker:
+            return _result(
+                prepared,
+                journal,
+                "DIAGNOSTIC_F1_V2_ACM_ONLY_ROLLED_BACK",
+                "acm_only_rollback_verified",
                 False,
             )
         return _result(
@@ -1513,103 +1794,171 @@ def _execute_prepared_locked(
         },
     )
     endpoint_dir = prepared.run_dir / "odin-endpoints"
-    try:
-        backend.request_download(prepared)
-    except Exception as exc:
-        journal.transition(
-            "ABORTED",
-            "download_request_failed_before_candidate",
-            {"error_type": type(exc).__name__, "candidate_attempted": False},
-        )
-        return _result(
-            prepared,
-            journal,
-            "FAIL_F1_V2_PRE_CANDIDATE_DOWNLOAD",
-            "download_request_failed_before_candidate",
-            False,
-        )
     with backend.endpoint_session(endpoint_dir) as lease:
-        try:
-            endpoint = backend.wait_download(
-                prepared, endpoint_dir, lease, DOWNLOAD_WAIT_SEC
-            )
-        except Exception as exc:
+        with contextlib.ExitStack() as observer_stack:
+            try:
+                observer_session = observer_stack.enter_context(
+                    backend.candidate_observer_session(prepared)
+                )
+            except Exception as exc:
+                journal.transition(
+                    "ABORTED",
+                    "candidate_observer_arm_failed_before_candidate",
+                    {
+                        "error_type": type(exc).__name__,
+                        "candidate_attempted": False,
+                    },
+                )
+                return _result(
+                    prepared,
+                    journal,
+                    "FAIL_F1_V2_PRE_CANDIDATE_DOWNLOAD",
+                    "candidate_observer_arm_failed_before_candidate",
+                    False,
+                )
+            try:
+                backend.request_download(prepared)
+            except Exception as exc:
+                journal.transition(
+                    "ABORTED",
+                    "download_request_failed_before_candidate",
+                    {
+                        "error_type": type(exc).__name__,
+                        "candidate_attempted": False,
+                    },
+                )
+                return _result(
+                    prepared,
+                    journal,
+                    "FAIL_F1_V2_PRE_CANDIDATE_DOWNLOAD",
+                    "download_request_failed_before_candidate",
+                    False,
+                )
+            try:
+                endpoint = backend.wait_download(
+                    prepared, endpoint_dir, lease, DOWNLOAD_WAIT_SEC
+                )
+            except Exception as exc:
+                journal.transition(
+                    "ABORTED",
+                    "download_endpoint_unavailable_before_candidate",
+                    {
+                        "error_type": type(exc).__name__,
+                        "candidate_attempted": False,
+                    },
+                )
+                return _result(
+                    prepared,
+                    journal,
+                    "FAIL_F1_V2_PRE_CANDIDATE_DOWNLOAD",
+                    "download_endpoint_unavailable_before_candidate",
+                    False,
+                )
             journal.transition(
-                "ABORTED",
-                "download_endpoint_unavailable_before_candidate",
-                {"error_type": type(exc).__name__, "candidate_attempted": False},
+                "DOWNLOAD_IDENTIFIED",
+                "candidate_endpoint_identified",
+                {"endpoint_identity_sha256": endpoint.identity_sha256},
             )
-            return _result(
+            attempt, prefix, _start = _begin_transfer_attempt(
+                prepared, journal, "candidate"
+            )
+            journal.event("candidate_flash_start", {"attempt": attempt})
+            candidate = backend.transfer(
                 prepared,
-                journal,
-                "FAIL_F1_V2_PRE_CANDIDATE_DOWNLOAD",
-                "download_endpoint_unavailable_before_candidate",
-                False,
+                endpoint,
+                "candidate",
+                prepared.run_dir,
+                attempt,
+                prefix,
             )
-        journal.transition(
-            "DOWNLOAD_IDENTIFIED",
-            "candidate_endpoint_identified",
-            {"endpoint_identity_sha256": endpoint.identity_sha256},
-        )
-        attempt, prefix, _start = _begin_transfer_attempt(
-            prepared, journal, "candidate"
-        )
-        journal.event("candidate_flash_start", {"attempt": attempt})
-        candidate = backend.transfer(
-            prepared,
-            endpoint,
-            "candidate",
-            prepared.run_dir,
-            attempt,
-            prefix,
-        )
-        _save_state(
-            prepared,
-            {
-                "candidate_classification": candidate.classification,
-                "candidate_completed": candidate.completed,
-                "rollback_completed": False,
-                "final_verified": False,
-            },
-        )
-        if candidate.classification == "odin_local_parse_failure":
+            _save_state(
+                prepared,
+                {
+                    "candidate_classification": candidate.classification,
+                    "candidate_completed": candidate.completed,
+                    "rollback_completed": False,
+                    "final_verified": False,
+                },
+            )
+            if candidate.classification == "odin_local_parse_failure":
+                journal.transition(
+                    "ABORTED",
+                    "odin_local_parse_failure",
+                    {
+                        "device_session_started": False,
+                        "partition_transfer": False,
+                    },
+                )
+                return _result(
+                    prepared,
+                    journal,
+                    "FAIL_F1_V2_ODIN_LOCAL_PARSE_NO_DEVICE_SESSION",
+                    "odin_local_parse_failure",
+                    False,
+                )
             journal.transition(
-                "ABORTED",
-                "odin_local_parse_failure",
-                {"device_session_started": False, "partition_transfer": False},
+                "CANDIDATE_FLASHED",
+                candidate.classification,
+                {
+                    "completed": candidate.completed,
+                    "possible_device_session": candidate.possible_device_session,
+                },
             )
-            return _result(
-                prepared,
-                journal,
-                "FAIL_F1_V2_ODIN_LOCAL_PARSE_NO_DEVICE_SESSION",
-                "odin_local_parse_failure",
-                False,
+            journal.event(
+                "candidate_flash_done", {"completed": candidate.completed}
             )
-        journal.transition(
-            "CANDIDATE_FLASHED",
-            candidate.classification,
-            {
-                "completed": candidate.completed,
-                "possible_device_session": candidate.possible_device_session,
-            },
-        )
-        journal.event(
-            "candidate_flash_done", {"completed": candidate.completed}
-        )
-        observation = backend.observe_candidate(prepared, endpoint_dir, lease)
-        journal.transition(
-            "OBSERVED",
-            "bounded_candidate_observation_closed",
-            observation,
-        )
-        journal.event(
-            "candidate_boot_ready",
-            {
-                "proof": candidate.completed
+            observation = backend.observe_candidate(
+                prepared, endpoint_dir, lease, observer_session
+            )
+            current = _state(prepared)
+            current["download_endpoint_absent"] = observation.get(
+                "download_endpoint_absent"
+            )
+            if (
+                prepared.bundle.manifest["observation"].get(
+                    "candidate_observer"
+                )
+                is not None
+            ):
+                durable = _reopen_candidate_observation(prepared)
+                current.update(
+                    {
+                        "download_endpoint_absent": durable[
+                            "download_endpoint_absent"
+                        ],
+                        "candidate_observer_classification": durable[
+                            "classification"
+                        ],
+                        "candidate_observer_accepted": durable["accepted"],
+                        "candidate_observer_receipt_sha256": durable[
+                            "receipt_sha256"
+                        ],
+                    }
+                )
+            _save_state(prepared, current)
+            journal.transition(
+                "OBSERVED",
+                "bounded_candidate_observation_closed",
+                observation,
+            )
+            proof = (
+                candidate.completed
                 and observation.get("download_endpoint_absent") is True
-            },
+                and (
+                    prepared.bundle.manifest["observation"].get(
+                        "candidate_observer"
+                    )
+                    is None
+                    or observation.get("candidate_observer_accepted") is True
+                )
+            )
+            journal.event(
+                "candidate_boot_ready",
+                {"proof": proof},
+            )
+        return _finish_rollback(
+            prepared, backend, journal, endpoint_dir, lease
         )
-        return _finish_rollback(prepared, backend, journal, endpoint_dir, lease)
 
 
 def execute_prepared(

@@ -230,6 +230,50 @@ class DeviceActionF1V2Test(unittest.TestCase):
             with self.assertRaises(self.module.F1V2Error):
                 self.module.verify_bundle(root, manifest_path)
 
+    def test_candidate_observer_is_derived_from_versioned_source_contract(self):
+        contract_id = (
+            self.module.candidate_intent.source_contracts.p260.CONTRACT_ID
+        )
+        run_id = hashlib.sha256(b"P260-OBSERVER-BINDING-TEST").digest()[:16]
+        acceptance = {
+            "source_contract_id": contract_id,
+            "profile": "E2",
+            "run_id": run_id.hex(),
+        }
+        observer = (
+            self.module.candidate_intent.source_contracts.p260
+            .candidate_observer(run_id)
+        )
+        self.module.verify_candidate_observer_binding(
+            acceptance, observer
+        )
+        with self.assertRaisesRegex(
+            self.module.F1V2Error, "differs from the source contract"
+        ):
+            self.module.verify_candidate_observer_binding(
+                acceptance, {**observer, "usb_product_id": "0001"}
+            )
+        with self.assertRaisesRegex(
+            self.module.F1V2Error, "requires a candidate observer"
+        ):
+            self.module.verify_candidate_observer_binding(acceptance, None)
+
+    def test_legacy_contract_rejects_unbound_candidate_observer(self):
+        acceptance = {
+            "source_contract_id": None,
+            "profile": "E1A",
+            "run_id": "1" * 32,
+        }
+        with self.assertRaisesRegex(
+            self.module.F1V2Error, "no versioned source contract"
+        ):
+            self.module.verify_candidate_observer_binding(
+                acceptance,
+                {
+                    "kind": "exact_cdc_acm_banner_v1",
+                },
+            )
+
     def test_candidate_ap_rejects_extra_member(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 import device_action_f1_evidence_v2 as typed_evidence
+import device_action_cdc_acm_observer_v1 as cdc_acm_observer
 import s22plus_fyg8_p234_candidate_intent as candidate_intent
 from s22plus_boot_only_f1_transport import (
     BOOT_MEMBER,
@@ -32,7 +33,7 @@ from s22plus_boot_only_f1_transport import (
 )
 
 
-RUNNER_VERSION = "device-action-f1-v2-host-core-2"
+RUNNER_VERSION = "device-action-f1-v2-host-core-3"
 PROFILE_SCHEMA = "device_action_target_profile_v2"
 MANIFEST_SCHEMA = "device_action_f1_candidate_v2"
 TARGET_EVIDENCE_SCHEMA = "device_action_target_evidence_v2"
@@ -316,13 +317,23 @@ def validate_manifest(manifest: dict[str, Any], profile: dict[str, Any]) -> dict
         raise F1V2Error("manifest rollback identity is invalid")
     if manifest["allowed_member"] != profile["transport"]["allowed_member"]:
         raise F1V2Error("manifest member differs from the profile")
-    observation = _exact(manifest["observation"], {"timeout_sec", "acceptance"}, "observation")
+    observation = manifest["observation"]
+    if not isinstance(observation, dict) or frozenset(observation) not in {
+        frozenset({"timeout_sec", "acceptance"}),
+        frozenset({"timeout_sec", "acceptance", "candidate_observer"}),
+    }:
+        raise F1V2Error("observation shape mismatch")
     if isinstance(observation["timeout_sec"], bool) or not isinstance(observation["timeout_sec"], int) or not 1 <= observation["timeout_sec"] <= 600:
         raise F1V2Error("observation timeout is invalid")
     try:
         typed_evidence.validate_acceptance(observation["acceptance"])
     except typed_evidence.EvidenceError as exc:
         raise F1V2Error(str(exc)) from exc
+    if "candidate_observer" in observation:
+        try:
+            cdc_acm_observer.validate_spec(observation["candidate_observer"])
+        except cdc_acm_observer.ObserverError as exc:
+            raise F1V2Error(str(exc)) from exc
     if manifest["final_health_profile"] != profile["health_profile_id"] or manifest["runner_version"] != RUNNER_VERSION:
         raise F1V2Error("manifest health profile or runner version mismatch")
     return manifest
@@ -355,6 +366,10 @@ def execution_critical_source_receipts(
 ) -> dict[str, dict[str, Any]]:
     receipts = {
         "runner": _stable_read(Path(__file__).resolve(), "F1 v2 runner")[1],
+        "cdc_acm_observer": _stable_read(
+            Path(cdc_acm_observer.__file__).resolve(),
+            "CDC ACM observer",
+        )[1],
         "typed_evidence": _stable_read(
             Path(typed_evidence.__file__).resolve(), "typed evidence runner"
         )[1],
@@ -503,6 +518,40 @@ def verify_candidate_source_binding(
             )
 
 
+def verify_candidate_observer_binding(
+    acceptance: dict[str, Any],
+    observer: dict[str, Any] | None,
+) -> None:
+    source_contract_id = acceptance.get("source_contract_id")
+    profile = acceptance.get("profile")
+    if source_contract_id is None:
+        if observer is not None:
+            raise F1V2Error("candidate observer has no versioned source contract")
+        return
+    try:
+        selected = candidate_intent.selected_source_contract(
+            source_contract_id, profile
+        )
+    except candidate_intent.IntentError as exc:
+        raise F1V2Error(str(exc)) from exc
+    derive = getattr(selected.module, "candidate_observer", None)
+    if derive is None:
+        if observer is not None:
+            raise F1V2Error("source contract does not define a candidate observer")
+        return
+    if observer is None:
+        raise F1V2Error("source contract requires a candidate observer")
+    run_id_hex = acceptance.get("run_id")
+    if not isinstance(run_id_hex, str) or re.fullmatch(r"[0-9a-f]{32}", run_id_hex) is None:
+        raise F1V2Error("candidate observer run ID is invalid")
+    try:
+        expected = derive(bytes.fromhex(run_id_hex))
+    except (TypeError, ValueError) as exc:
+        raise F1V2Error("candidate observer derivation failed") from exc
+    if observer != expected:
+        raise F1V2Error("candidate observer differs from the source contract")
+
+
 def verify_bundle(root: Path, manifest_path: Path) -> Bundle:
     root = root.resolve()
     manifest_file = manifest_path if manifest_path.is_absolute() else root / manifest_path
@@ -530,6 +579,9 @@ def verify_bundle(root: Path, manifest_path: Path) -> Bundle:
                     "sha256": hashlib.sha256(candidate_ap_frame).hexdigest(),
                 }
     acceptance = manifest["observation"]["acceptance"]
+    verify_candidate_observer_binding(
+        acceptance, manifest["observation"].get("candidate_observer")
+    )
     execution_sources = execution_critical_source_receipts(acceptance)
     try:
         contract_items = typed_evidence.contract_artifacts(acceptance)

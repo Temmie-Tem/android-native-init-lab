@@ -439,13 +439,20 @@ reports grant no device authority.
     Retained-only and ACM-only results are named diagnostics. Odin, rollback,
     the 60-module plan, the state machine, and the eight timeline names remain
     unchanged.
-47. **P2.61 next, H0:** implement and statically validate only the P2.60
-    source-contract extension, generic CDC-ACM observer, manifest binding,
-    durable receipt/resume, and verdict matrix. Use no-LTO/thin iterations,
-    semantic fixtures, crash injection, and legacy retained-only regression.
-    One independent review is required after implementation. Do not start a
-    Full-LTO candidate, contact a device, prepare D0, or request F1 authority
-    in P2.61.
+47. **P2.61 complete, H0:** the P2.60 source contract, generic exact CDC-ACM
+    observer, source-derived manifest binding, ModemManager/UID continuity,
+    raw-first receipt, durable resume, E3 verdict matrix, and legacy
+    retained-only regression are implemented. Real-pty and mutation fixtures
+    cover prequeued/split/extra bytes, exact endpoint ownership, malformed
+    evidence, crash/abort/report paths, and rollback-safe observer faults.
+    Focused integration passed 112 tests. GPT-5.6-sol and Claude Opus 5
+    independent reviews both returned `GO` after their findings were repaired.
+    No kernel, image, device, D0, or live authority was created.
+48. **P2.62 next, H0 then D0:** derive one fresh P2.60 intent, pass the cheap
+    linked userspace closure, run the final clean Full-LTO A/B qualification,
+    linked audits, deterministic package pair, and private E3 Process v2
+    manifest/offline promotion. Then run connected D0 and stop at a fresh
+    exact F1 approval token. No F1 transfer occurs without that new token.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or

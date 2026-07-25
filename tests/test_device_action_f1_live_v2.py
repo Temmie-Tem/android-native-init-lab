@@ -5,6 +5,7 @@ import io
 import json
 import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -35,6 +36,89 @@ def load_module():
         sys.path.remove(str(REVALIDATION))
 
 
+class FakeCandidateObserver:
+    def __init__(self, module, prepared, classification):
+        self.module = module
+        self.prepared = prepared
+        self.classification = classification
+
+    def observe(self, *, timeout_sec, download_departure):
+        if self.classification == "fault":
+            raise self.module.cdc_acm_observer.ObserverError(
+                "fixture observer fault"
+            )
+        spec = self.prepared.bundle.manifest["observation"][
+            "candidate_observer"
+        ]
+        payload = (
+            bytes.fromhex(spec["banner_hex"])
+            if self.classification == "accepted"
+            else b""
+        )
+        raw = self.module.cdc_acm_observer._write_exclusive(
+            self.prepared.run_dir / "candidate-observer.raw", payload
+        )
+        baseline = self.module.cdc_acm_observer.persist_json(
+            self.prepared.run_dir / "candidate-observer-baseline.json",
+            {
+                "schema": self.module.cdc_acm_observer.BASELINE_SCHEMA,
+                "spec_sha256": self.module.cdc_acm_observer.digest(spec),
+                "topology_sha256": hashlib.sha256(b"1-1").hexdigest(),
+                "identity_sha256": [],
+                "exact_candidate_absent": True,
+            },
+        )
+        download_departure = {
+            "download_endpoint_absent": download_departure[
+                "download_endpoint_absent"
+            ],
+            "absence_timed_out": False,
+            "sequence": 1,
+        }
+        departure = self.module.cdc_acm_observer.persist_json(
+            self.prepared.run_dir
+            / "candidate-observer-download-departure.json",
+            download_departure,
+        )
+        guard = self.module.cdc_acm_observer.persist_json(
+            self.prepared.run_dir / "candidate-observer-guard.json",
+            {
+                "schema": self.module.cdc_acm_observer.GUARD_SCHEMA,
+                "status": "not-required",
+                "uid_sha256": "4" * 64,
+                "active_rechecked": True,
+            },
+        )
+        value = {
+            "schema": self.module.cdc_acm_observer.RECEIPT_SCHEMA,
+            "kind": self.module.cdc_acm_observer.KIND,
+            "binding": self.module._candidate_observer_binding(self.prepared),
+            "spec_sha256": self.module.cdc_acm_observer.digest(spec),
+            "baseline_sha256": baseline["sha256"],
+            "download_departure_sha256": departure["sha256"],
+            "download_endpoint_absent": (
+                download_departure["download_endpoint_absent"] is True
+            ),
+            "topology_sha256": hashlib.sha256(b"1-1").hexdigest(),
+            "endpoint_identity_sha256": (
+                "3" * 64 if self.classification == "accepted" else None
+            ),
+            "guard_sha256": guard["sha256"],
+            "raw": raw,
+            "expected_size": len(bytes.fromhex(spec["banner_hex"])),
+            "exact": self.classification == "accepted",
+            "extra_byte": self.classification == "extra-byte",
+            "classification": self.classification,
+            "accepted": self.classification == "accepted",
+            "bounded": True,
+            "elapsed_sec": min(timeout_sec, 0.01),
+        }
+        self.module.cdc_acm_observer.persist_json(
+            self.prepared.run_dir / "candidate-observer.json", value
+        )
+        return value
+
+
 class FakeBackend:
     def __init__(
         self,
@@ -48,6 +132,8 @@ class FakeBackend:
         crash_candidate=False,
         crash_rollback_attempt=None,
         recheck_failures=0,
+        acm=None,
+        observer_arm_error=False,
     ):
         self.module = module
         self.candidate = candidate
@@ -58,6 +144,8 @@ class FakeBackend:
         self.crash_candidate = crash_candidate
         self.crash_rollback_attempt = crash_rollback_attempt
         self.recheck_failures = recheck_failures
+        self.acm = acm
+        self.observer_arm_error = observer_arm_error
         self.calls = []
 
     def recheck_android(self, _prepared, destination):
@@ -75,6 +163,25 @@ class FakeBackend:
 
     def endpoint_session(self, _run_dir):
         return contextlib.nullcontext(object())
+
+    def candidate_observer_session(self, prepared):
+        if self.observer_arm_error:
+            @contextlib.contextmanager
+            def failed():
+                raise RuntimeError("fixture observer arm failure")
+                yield
+
+            return failed()
+        spec = prepared.bundle.manifest["observation"].get(
+            "candidate_observer"
+        )
+        if spec is None:
+            return contextlib.nullcontext(None)
+        return contextlib.nullcontext(
+            FakeCandidateObserver(
+                self.module, prepared, self.acm or "accepted"
+            )
+        )
 
     def wait_download(self, _prepared, _run_dir, _lease, _timeout):
         self.calls.append("wait-download")
@@ -125,8 +232,32 @@ class FakeBackend:
             receipt,
         )
 
-    def observe_candidate(self, _prepared, _run_dir, _lease):
+    def observe_candidate(
+        self, prepared, _run_dir, _lease, observer_session
+    ):
         self.calls.append("observe")
+        if observer_session is not None:
+            try:
+                receipt = observer_session.observe(
+                    timeout_sec=prepared.bundle.manifest["observation"][
+                        "timeout_sec"
+                    ],
+                    download_departure={"download_endpoint_absent": True},
+                )
+            except self.module.cdc_acm_observer.ObserverError:
+                receipt = {
+                    "classification": "interrupted-before-receipt",
+                    "accepted": False,
+                }
+            return {
+                "bounded": True,
+                "download_endpoint_absent": True,
+                "candidate_execution_proven": receipt["accepted"],
+                "candidate_observer_classification": receipt[
+                    "classification"
+                ],
+                "candidate_observer_accepted": receipt["accepted"],
+            }
         return {
             "bounded": True,
             "download_endpoint_absent": True,
@@ -212,7 +343,7 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
     def setUpClass(cls):
         cls.module = load_module()
 
-    def prepared(self):
+    def prepared(self, *, e3=False):
         temporary = tempfile.TemporaryDirectory()
         root = Path(temporary.name)
         run_dir = root / "run"
@@ -251,6 +382,7 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
         manifest = {
             "manifest_id": "fixture-manifest",
             "status": "ready-for-f1-approval",
+            "candidate_ap": {"sha256": "9" * 64},
             "observation": {
                 "timeout_sec": 1,
                 "acceptance": {
@@ -261,6 +393,18 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
                 },
             },
         }
+        if e3:
+            manifest["observation"]["candidate_observer"] = {
+                "kind": "exact_cdc_acm_banner_v1",
+                "usb_vendor_id": "04e8",
+                "usb_product_id": "6861",
+                "usb_serial": "S22E3" + "1" * 32,
+                "usb_driver": "cdc_acm",
+                "usb_interface_number": "00",
+                "banner_hex": (
+                    b"S22PLUS-FYG8-E3:" + b"1" * 32 + b"\n"
+                ).hex(),
+            }
         bundle = self.module.core.Bundle(profile, manifest, {}, "e" * 64)
         prepared_dict = {"approval_binding_sha256": "f" * 64}
         prepared = self.module.PreparedRun(
@@ -295,6 +439,183 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
             [call for call in backend.calls if call.startswith("transfer-")],
             ["transfer-candidate", "transfer-rollback"],
         )
+
+    def test_e3_all_of_verdict_matrix(self):
+        cases = (
+            (
+                "accepted",
+                True,
+                "PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK",
+            ),
+            (
+                "read-timeout",
+                True,
+                "DIAGNOSTIC_F1_V2_RETAINED_ONLY_ROLLED_BACK",
+            ),
+            (
+                "accepted",
+                False,
+                "DIAGNOSTIC_F1_V2_ACM_ONLY_ROLLED_BACK",
+            ),
+            (
+                "read-timeout",
+                False,
+                "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK",
+            ),
+        )
+        for acm, marker, verdict in cases:
+            with self.subTest(acm=acm, marker=marker):
+                temporary, prepared = self.prepared(e3=True)
+                self.addCleanup(temporary.cleanup)
+                result = self.module.execute_prepared(
+                    prepared,
+                    prepared.approval_token,
+                    FakeBackend(self.module, acm=acm, marker=marker),
+                )
+                self.assertEqual(result["verdict"], verdict)
+
+    def test_e3_acm_acceptance_cannot_outvote_failed_candidate_transfer(self):
+        temporary, prepared = self.prepared(e3=True)
+        self.addCleanup(temporary.cleanup)
+        with self.assertRaisesRegex(
+            self.module.F1LiveError, "lacks transfer continuity"
+        ):
+            self.module.execute_prepared(
+                prepared,
+                prepared.approval_token,
+                FakeBackend(
+                    self.module,
+                    candidate="odin_device_session_failure_or_unknown",
+                    acm="accepted",
+                ),
+            )
+
+    def test_e3_resume_reopens_durable_observer_without_reobservation(self):
+        temporary, prepared = self.prepared(e3=True)
+        self.addCleanup(temporary.cleanup)
+        backend = FakeBackend(self.module, acm="accepted")
+        original = self.module._save_state
+
+        def interrupt_after_receipt(target, value):
+            if "candidate_observer_classification" in value:
+                raise KeyboardInterrupt("after observer receipt")
+            return original(target, value)
+
+        with mock.patch.object(
+            self.module, "_save_state", new=interrupt_after_receipt
+        ):
+            with self.assertRaises(KeyboardInterrupt):
+                self.module.execute_prepared(
+                    prepared, prepared.approval_token, backend
+                )
+        recovery = FakeBackend(self.module, acm="read-timeout")
+        result = self.module.recover_prepared(prepared, recovery)
+        self.assertEqual(
+            result["verdict"],
+            "PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK",
+        )
+        self.assertNotIn("observe", recovery.calls)
+        self.assertNotIn("transfer-candidate", recovery.calls)
+
+    def test_e3_observer_fault_after_transfer_degrades_to_diagnostic(self):
+        temporary, prepared = self.prepared(e3=True)
+        self.addCleanup(temporary.cleanup)
+        backend = object.__new__(self.module.SamsungOdinBackend)
+        backend.odin = Path("/fixture/odin")
+        failed = mock.Mock()
+        failed.observe.side_effect = (
+            self.module.cdc_acm_observer.ObserverError("fixture fault")
+        )
+        absence = types.SimpleNamespace(
+            absent=True, timed_out=False, next_sequence=7
+        )
+        with (
+            mock.patch.object(
+                self.module.odin_core,
+                "list_snapshot_receipts",
+                return_value=[],
+            ),
+            mock.patch.object(
+                self.module.odin_core,
+                "wait_for_no_live_endpoint",
+                return_value=absence,
+            ),
+        ):
+            result = backend.observe_candidate(
+                prepared, prepared.run_dir, object(), failed
+            )
+        self.assertEqual(
+            result["candidate_observer_classification"],
+            "interrupted-before-receipt",
+        )
+        self.assertFalse(result["candidate_observer_accepted"])
+
+    def test_e3_observer_fault_closes_after_verified_rollback(self):
+        temporary, prepared = self.prepared(e3=True)
+        self.addCleanup(temporary.cleanup)
+        result = self.module.execute_prepared(
+            prepared,
+            prepared.approval_token,
+            FakeBackend(self.module, acm="fault", marker=True),
+        )
+        self.assertEqual(
+            result["verdict"], "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK"
+        )
+        self.assertEqual(result["current_state"], "CLOSED")
+        self.assertFalse(
+            result["live_state"]["download_endpoint_absent"]
+        )
+
+    def test_e3_pre_candidate_abort_and_local_parse_are_reportable(self):
+        cases = (
+            (
+                {"observer_arm_error": True},
+                "FAIL_F1_V2_PRE_CANDIDATE_DOWNLOAD",
+            ),
+            (
+                {"request_error": True},
+                "FAIL_F1_V2_PRE_CANDIDATE_DOWNLOAD",
+            ),
+            (
+                {"candidate": "odin_local_parse_failure"},
+                "FAIL_F1_V2_ODIN_LOCAL_PARSE_NO_DEVICE_SESSION",
+            ),
+        )
+        for backend_args, verdict in cases:
+            with self.subTest(verdict=verdict):
+                temporary, prepared = self.prepared(e3=True)
+                self.addCleanup(temporary.cleanup)
+                result = self.module.execute_prepared(
+                    prepared,
+                    prepared.approval_token,
+                    FakeBackend(self.module, **backend_args),
+                )
+                self.assertEqual(result["verdict"], verdict)
+                self.assertEqual(result["current_state"], "ABORTED")
+
+    def test_e3_malformed_receipt_is_fail_closed_without_parser_escape(self):
+        temporary, prepared = self.prepared(e3=True)
+        self.addCleanup(temporary.cleanup)
+        observer = FakeCandidateObserver(
+            self.module, prepared, "accepted"
+        )
+        observer.observe(
+            timeout_sec=1,
+            download_departure={"download_endpoint_absent": True},
+        )
+        path = prepared.run_dir / "candidate-observer.json"
+        value = json.loads(path.read_text(encoding="utf-8"))
+        value["classification"] = []
+        path.chmod(0o600)
+        path.write_text(
+            json.dumps(value, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        reopened = self.module._reopen_candidate_observation(prepared)
+        self.assertEqual(
+            reopened["classification"], "interrupted-before-receipt"
+        )
+        self.assertFalse(reopened["accepted"])
 
     def test_approval_mismatch_stops_before_backend(self):
         temporary, prepared = self.prepared()
