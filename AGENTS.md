@@ -13,23 +13,28 @@ Do not add a device step when host-only work can answer the question.
 ## Current Live Posture
 
 - No S22+ F1 live run is currently authorized.
-- P2.58A consumed one exact approval and transferred the corrected E2
-  candidate once. The operator observed a successful candidate boot and no
-  boot loop.
-- Two byte-identical retained reads contain one exact E2 terminal-success
-  record. Generation 80 passed exact `a600000.dwc3` UDC membership at stage
-  `0x87`, item 11; generation 81 reached terminal stage `0x8f`. This proves
-  the exact 60-module sequence, real-UDC publication, and terminal userspace
-  path, but not USB host enumeration, configfs binding, ACM, or NCM.
-- One exact Magisk rollback transfer completed. No candidate or rollback
-  transfer was repeated, and there was no recovery deviation.
+- P2.67 consumed one exact approval and transferred the P2.60 v3 E3 candidate
+  once. The operator observed a successful candidate boot and no boot loop.
+- Two byte-identical retained reads contain one exact terminal-failure record.
+  Generation 80 again passed exact `a600000.dwc3` UDC membership at stage
+  `0x87`, item 11. Generation 81 failed at the first E3-local configfs stage
+  `0x88`, item 0, with errno-form detail 5. No ACM endpoint was observed.
+- Post-live source analysis found a deterministic blocker:
+  `P260_CONFIGFS_MAGIC` is incorrectly set to sysfs magic `0x62656572`;
+  configfs uses `0x62656570`. A correct configfs mount therefore cannot pass
+  the candidate's `statfs` check. The retained detail alone does not
+  distinguish that mismatch from an `EIO` returned directly by mount/statfs.
+- One exact Magisk rollback transfer completed. The first final-health pass
+  stopped at `ROLLBACK_FLASHED` on a measured USB inventory error. Durable
+  recovery resumed only final verification; neither candidate nor rollback
+  was repeated.
 - The transaction is `CLOSED`. Android/FYG8/root/boot and supporting-partition
   health, Odin absence, byte-identical retained reads, and all eight canonical
   timeline events passed. The durable verdict is
-  `PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK`; recovery is not required.
-- The binding and approval are consumed. Before another F1, use H0 to design
-  the bounded E3 ACM-banner rung. A new candidate still requires a new H0
-  closure, D0 preparation, and exact approval.
+  `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; recovery is not required.
+- The binding and approval are consumed. Before another F1, correct and
+  source-test the configfs magic under H0, derive fresh artifacts and
+  authority, complete D0, and obtain one fresh exact approval.
 
 ## Permanent Safety Boundaries
 

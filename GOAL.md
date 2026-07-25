@@ -10,35 +10,37 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 ## Current Frontier
 
 **State: direct PID1, E1A local runtime, E1B module runtime, and the E2
-module-to-real-UDC frontier are live proven. P2.58A passed terminal stage
-`0x8f` after exact `a600000.dwc3` membership at stage `0x87`; exact rollback
-and final health passed. The binding and approval are consumed. No F1 run is
-authorized.**
+module-to-real-UDC frontier are live proven. P2.67 reached the first E3-local
+stage after exact `a600000.dwc3` membership, then failed configfs validation at
+stage `0x88` with detail 5. Exact rollback and final health passed. The
+binding and approval are consumed. No F1 run is authorized.**
 
-The P2.57 transaction is closed with durable verdict
-`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; its approval and binding are consumed.
-Generation 79 passed DWC3 core at stage `0x86`, and generation 80 failed the
-old stage `0x87` UDC frontier with `ETIMEDOUT`. That record proves the exact
-60-module sequence through DWC3 core, not UDC publication or USB enumeration.
+P2.58A remains the accepted E2 proof: generation 80 passed exact
+`a600000.dwc3` membership at stage `0x87`, and generation 81 reached terminal
+stage `0x8f`. That proves the exact 60-module sequence, real-UDC publication,
+and the terminal userspace path before E3.
 
-P2.58 established that `/sys/class/udc` legitimately contains both
-`a600000.dwc3` and `dummy_udc.0`, so P2.57's global singleton predicate could
-never pass. P2.58A kept the same 60-module and 81-step geometry, accepted
-unrelated UDC peers, required one exact symlinked target, and granted a fresh
-five-second UDC dwell after DWC3 success.
+P2.67 transferred the exact P2.60 v3 E3 candidate once. The operator observed
+a successful candidate boot and no boot loop, but the host ACM observer timed
+out. Two byte-identical retained reads contain generation 80 at stage `0x87`,
+item 11, followed by generation 81 terminal failure at stage `0x88`, item 0,
+outcome 2, detail 5.
 
-The corrected source-bound entrypoint adapter, two clean Full-LTO builds, six
-byte-identical artifacts, two byte-identical boot-only packages, independent
-closure, Process v2 promotion, baseline rotation, and clean connected D0 all
-passed. One exact F1 then retained generation 80 at stage `0x87`, item 11,
-followed by generation 81 terminal success at `0x8f`. Two post-rollback reads
-are byte-identical and classify the one exact record as
-`E2_SUCCESS_ONE_OR_MORE_BOOTS`.
+Stage `0x88` maps to `p260_mount_configfs()`. Post-live source analysis found
+that the candidate compares `statfs` against `0x62656572`, the sysfs magic,
+while Linux configfs uses `0x62656570`. A correct configfs mount therefore
+cannot satisfy this candidate. Detail 5 alone does not distinguish the magic
+mismatch from an `EIO` returned directly by mount/statfs, so the narrow live
+fact remains "configfs stage failed"; the deterministic source defect is the
+mandatory next correction.
 
-One candidate transfer and one exact Magisk rollback completed. Android,
-FYG8/root/boot, supporting partitions, Odin absence, and all eight canonical
-timeline events passed. The durable verdict is
-`PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK`; recovery is not required.
+One candidate transfer and one exact Magisk rollback completed. The initial
+final-health pass stopped at `ROLLBACK_FLASHED` on a measured USB inventory
+error. Durable recovery resumed final verification only and repeated no
+transfer. Android, FYG8/root/boot, supporting partitions, Odin absence,
+byte-identical retained reads, and all eight canonical timeline events passed.
+The durable verdict is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; recovery is not
+required.
 
 ## Established Evidence
 
@@ -557,6 +559,21 @@ reports grant no device authority.
     unchanged candidate bundle. The new private run has no transaction, Odin,
     transfer, reboot, or device write and holds one fresh exact approval
     binding. No F1 is authorized until that token is submitted.
+56. **P2.67 E3 configfs-stage failure, F1 then H0:** one exact P2.60 v3
+    candidate and one exact Magisk rollback transferred once. The operator
+    observed a successful candidate boot and no boot loop, but no ACM endpoint
+    appeared. Two byte-identical retained reads preserve the proven real-UDC
+    stage `0x87`, item 11, then terminal failure at the first E3-local stage
+    `0x88`, item 0, with detail 5. Source mapping identifies
+    `p260_mount_configfs()`. Its expected magic is incorrectly the sysfs value
+    `0x62656572`; Linux configfs uses `0x62656570`, so the candidate cannot
+    pass a correct configfs `statfs` result. The retained detail cannot
+    separately identify a syscall-returned `EIO`. The initial final-health
+    pass stopped after rollback on measured USB inventory; durable recovery
+    repeated no transfer and closed final Android/root/partition health. The
+    verdict is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, authority is consumed,
+    and the next unit is only the narrow H0 constant correction plus a
+    semantic source-contract test before any fresh build, D0, or approval.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or
