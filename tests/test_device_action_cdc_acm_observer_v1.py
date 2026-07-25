@@ -3,6 +3,7 @@ import importlib.util
 import json
 import os
 import pty
+import subprocess
 import sys
 import tempfile
 import threading
@@ -375,29 +376,67 @@ class CdcAcmObserverV1Test(unittest.TestCase):
 
     def test_active_modemmanager_refusal_fails_closed(self):
         process = mock.Mock()
+        process.stdin = mock.Mock()
         process.stdout = mock.Mock()
         process.stdout.fileno.return_value = 9
         process.poll.return_value = 1
         process.pid = 123
         process.returncode = 1
-        with (
-            mock.patch.object(
-                self.module, "_modemmanager_active", return_value=True
-            ),
-            mock.patch.object(
-                self.module, "modemmanager_uid", return_value="/sys/device"
-            ),
-            mock.patch.object(
-                self.module.subprocess, "Popen", return_value=process
-            ) as popen,
-            mock.patch.object(
-                self.module.ModemManagerGuard, "release", return_value={}
-            ),
-        ):
-            with self.assertRaises(self.module.ObserverError):
-                self.module.ModemManagerGuard.arm("usb:1-1")
+        with tempfile.TemporaryDirectory() as temporary:
+            evidence_dir = Path(temporary)
+            with (
+                mock.patch.object(
+                    self.module, "_modemmanager_active", return_value=True
+                ),
+                mock.patch.object(
+                    self.module, "modemmanager_uid", return_value="/sys/device"
+                ),
+                mock.patch.object(
+                    self.module.subprocess, "Popen", return_value=process
+                ) as popen,
+                mock.patch.object(
+                    self.module.ModemManagerGuard, "release", return_value={}
+                ),
+            ):
+                with self.assertRaises(self.module.ObserverError):
+                    self.module.ModemManagerGuard.arm(
+                        "usb:1-1", evidence_dir=evidence_dir
+                    )
+            failure = json.loads(
+                (
+                    evidence_dir
+                    / "candidate-observer-guard-arm-failure.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertEqual(failure["status"], "inhibit-failed")
+            self.assertEqual(failure["returncode"], 1)
+            self.assertFalse(failure["truncated"])
+            self.assertEqual(
+                (
+                    evidence_dir / "candidate-observer-guard-arm.raw"
+                ).read_bytes(),
+                b"",
+            )
         command = popen.call_args.args[0]
-        self.assertEqual(command[:3], ["setpriv", "--pdeathsig", "SIGKILL"])
+        self.assertEqual(
+            command,
+            [
+                "/usr/bin/pkexec",
+                "/usr/bin/setpriv",
+                "--pdeathsig",
+                "SIGKILL",
+                "/bin/bash",
+                "-c",
+                self.module.GUARD_SUPERVISOR,
+                "device-action-mm-guard",
+                "/usr/bin/mmcli",
+                "--inhibit-device=/sys/device",
+            ],
+        )
+        self.assertIn(
+            '/usr/bin/setpriv --pdeathsig SIGKILL "$1" "$2"',
+            self.module.GUARD_SUPERVISOR,
+        )
 
     def test_active_modemmanager_success_requires_line_and_live_child(self):
         read_fd, write_fd = os.pipe()
@@ -410,6 +449,7 @@ class CdcAcmObserverV1Test(unittest.TestCase):
             f"successfully inhibited device with uid '{uid}'\n".encode(),
         )
         process = mock.Mock()
+        process.stdin = mock.Mock()
         process.stdout = stream
         process.poll.return_value = None
         process.pid = 123
@@ -428,6 +468,167 @@ class CdcAcmObserverV1Test(unittest.TestCase):
         self.assertEqual(guard.arm_receipt["status"], "armed")
         self.assertTrue(guard.arm_receipt["child_alive"])
         self.assertTrue(guard.healthy())
+
+    def test_modemmanager_release_uses_control_pipe(self):
+        process = mock.Mock()
+        process.stdin = mock.Mock()
+        process.poll.return_value = None
+        process.wait.return_value = 0
+        process.returncode = 0
+        guard = self.module.ModemManagerGuard("/sys/device", True)
+        guard.process = process
+        result = guard.release()
+        process.stdin.write.assert_called_once_with(b"release\n")
+        process.stdin.flush.assert_called_once_with()
+        process.stdin.close.assert_called_once_with()
+        process.wait.assert_called_once_with(timeout=10)
+        self.assertEqual(result["status"], "released")
+        self.assertTrue(result["released"])
+
+    def test_modemmanager_release_pipe_failure_is_fail_closed(self):
+        process = mock.Mock()
+        process.stdin = mock.Mock()
+        process.stdin.write.side_effect = BrokenPipeError("fixture")
+        process.poll.return_value = None
+        guard = self.module.ModemManagerGuard("/sys/device", True)
+        guard.process = process
+        result = guard.release()
+        self.assertEqual(result["status"], "release-failed")
+        self.assertEqual(result["error_type"], "BrokenPipeError")
+        self.assertFalse(result["released"])
+
+    def test_modemmanager_release_timeout_is_fail_closed(self):
+        process = mock.Mock()
+        process.stdin = mock.Mock()
+        process.poll.return_value = None
+        process.wait.side_effect = subprocess.TimeoutExpired("guard", 10)
+        guard = self.module.ModemManagerGuard("/sys/device", True)
+        guard.process = process
+        result = guard.release()
+        self.assertEqual(result["status"], "release-failed")
+        self.assertEqual(result["error_type"], "TimeoutExpired")
+        self.assertFalse(result["released"])
+
+    def test_supervisor_executes_handshake_and_bounded_release(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            helper = Path(temporary) / "fake-mmcli"
+            helper.write_text(
+                "#!/usr/bin/python3\n"
+                "import signal, sys, time\n"
+                "signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))\n"
+                "uid = sys.argv[1].split('=', 1)[1]\n"
+                "print(f\"successfully inhibited device with uid '{uid}'\", flush=True)\n"
+                "while True:\n"
+                "    time.sleep(1)\n",
+                encoding="utf-8",
+            )
+            helper.chmod(0o700)
+            process = subprocess.Popen(
+                [
+                    "/bin/bash",
+                    "-c",
+                    self.module.GUARD_SUPERVISOR,
+                    "device-action-mm-guard-test",
+                    str(helper),
+                    "--inhibit-device=/sys/device",
+                ],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+                env={**os.environ, "LC_ALL": "C"},
+            )
+            self.addCleanup(
+                lambda: process.poll() is None and process.kill()
+            )
+            assert process.stdout is not None
+            self.assertEqual(
+                process.stdout.readline(),
+                b"successfully inhibited device with uid '/sys/device'\n",
+            )
+            self.assertIsNone(process.poll())
+            output, _ = process.communicate(b"release\n", timeout=10)
+            self.assertEqual(output, b"")
+            self.assertEqual(process.returncode, 0)
+
+    def test_modemmanager_launch_failure_is_durable(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            evidence_dir = Path(temporary)
+            with (
+                mock.patch.object(
+                    self.module, "_modemmanager_active", return_value=True
+                ),
+                mock.patch.object(
+                    self.module, "modemmanager_uid", return_value="/sys/device"
+                ),
+                mock.patch.object(
+                    self.module.subprocess,
+                    "Popen",
+                    side_effect=FileNotFoundError("fixture"),
+                ),
+            ):
+                with self.assertRaisesRegex(
+                    self.module.ObserverError, "launch failed"
+                ):
+                    self.module.ModemManagerGuard.arm(
+                        "usb:1-1", evidence_dir=evidence_dir
+                    )
+            failure = json.loads(
+                (
+                    evidence_dir
+                    / "candidate-observer-guard-arm-failure.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertEqual(failure["status"], "launch-failed")
+            self.assertIsNone(failure["returncode"])
+            self.assertTrue(failure["bounded"])
+            self.assertFalse(failure["truncated"])
+
+    def test_modemmanager_failure_evidence_is_bounded(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            evidence_dir = Path(temporary)
+            payload = b"x" * (20 * 1024)
+            self.module._persist_guard_arm_failure(
+                evidence_dir, payload, 1, "inhibit-failed"
+            )
+            raw = (
+                evidence_dir / "candidate-observer-guard-arm.raw"
+            ).read_bytes()
+            failure = json.loads(
+                (
+                    evidence_dir
+                    / "candidate-observer-guard-arm-failure.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertEqual(len(raw), 16 * 1024)
+            self.assertTrue(failure["bounded"])
+            self.assertTrue(failure["truncated"])
+
+    def test_failure_evidence_collision_does_not_mask_launch_error(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            evidence_dir = Path(temporary)
+            (
+                evidence_dir / "candidate-observer-guard-arm.raw"
+            ).write_bytes(b"collision")
+            with (
+                mock.patch.object(
+                    self.module, "_modemmanager_active", return_value=True
+                ),
+                mock.patch.object(
+                    self.module, "modemmanager_uid", return_value="/sys/device"
+                ),
+                mock.patch.object(
+                    self.module.subprocess,
+                    "Popen",
+                    side_effect=FileNotFoundError("fixture"),
+                ),
+            ):
+                with self.assertRaisesRegex(
+                    self.module.ObserverError, "inhibition launch failed"
+                ):
+                    self.module.ModemManagerGuard.arm(
+                        "usb:1-1", evidence_dir=evidence_dir
+                    )
 
     def test_active_modemmanager_handshake_fault_releases_child(self):
         process = mock.Mock()

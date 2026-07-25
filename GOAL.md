@@ -518,6 +518,20 @@ reports grant no device authority.
     implement that split before the prepared E3 transaction closes: the exact
     candidate, D0 result, approval binding, and execution closure remain
     unchanged. See the P2.64 qualification-latency postmortem.
+54. **P2.65 E3 pre-candidate host-guard abort, F1 then H0:** one exact P2.60
+    approval matched and the execution D0 recheck passed, but the runner
+    aborted at `APPROVED` before Download because the ordinary-user `mmcli`
+    inhibition call was rejected by the installed root-only ModemManager
+    D-Bus policy. The durable journal proves candidate `not-attempted`, no
+    Download/Odin/transfer, no rollback required, and the device remained
+    healthy FYG8 Android with root. The observer now uses attended
+    `pkexec -> root setpriv(PDEATHSIG) -> mmcli`, preserving device-scoped
+    inhibition and adding bounded private failure evidence. Python
+    compilation, 24 observer tests, 61 Process v2 core/live integration tests,
+    and one harmless attended root-broker/control-pipe host probe pass. The
+    aborted transaction and approval token are not reusable. Next is final
+    delta review, regenerated execution closure, a new D0 run, and one fresh
+    exact F1 approval; no kernel or candidate rebuild is needed.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or

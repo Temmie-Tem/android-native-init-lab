@@ -292,15 +292,25 @@ E3 uses ModemManager's device-scoped inhibition, not a global service stop or a
 temporary udev-rule installation:
 
 ```text
-mmcli --inhibit-device=<physical-device-UID>
+/usr/bin/pkexec /usr/bin/setpriv --pdeathsig SIGKILL \
+    /bin/bash <fixed-supervisor> --inhibit-device=<physical-device-UID>
+        -> /usr/bin/setpriv --pdeathsig SIGKILL \
+           /usr/bin/mmcli --inhibit-device=<physical-device-UID>
 ```
 
 The UID is derived from the exact prepared Android physical USB path:
 `ID_MM_PHYSDEV_UID` when present, otherwise the canonical full sysfs path, as
-specified by the installed `mmcli` contract. The runner arms inhibition after
-approval and the repeated Android health check but before requesting Download.
-It requires the explicit successful-inhibition line while the child remains
-alive.
+specified by the installed `mmcli` contract. The attended root broker is
+required because the installed system D-Bus policy permits the manager-level
+`InhibitDevice` method only to root. The outer root `setpriv` protects a fixed
+supervisor after the credential transition; the supervisor launches `mmcli`
+through a second root `setpriv`. A control pipe permits the ordinary runner to
+request normal release without signaling a root process directly, while both
+parent-death edges remain fail-safe. The runner arms inhibition after approval
+and the repeated Android health check but before requesting Download. It
+requires the explicit successful-inhibition line while the child remains
+alive. Launch and inhibition failures retain at most 16 KiB of raw output and
+a structured failure receipt under the private run directory.
 
 Rules:
 
@@ -309,11 +319,11 @@ Rules:
   state before opening the candidate TTY;
 - the inhibition UID must remain the same physical path through Android,
   Download, and candidate modes;
-- the child receives a parent-death signal and is held through candidate
-  observation;
+- both the root supervisor and inhibiting child receive parent-death
+  protection and are held through candidate observation;
 - early child exit invalidates ACM acceptance;
-- release is recorded and bounded; a release problem never blocks the already
-  authorized rollback.
+- normal release uses the supervisor control pipe and is bounded; a release
+  problem is recorded and never blocks the already authorized rollback.
 
 No global `systemctl stop`, daemon configuration edit, or persistent udev
 change belongs in E3.

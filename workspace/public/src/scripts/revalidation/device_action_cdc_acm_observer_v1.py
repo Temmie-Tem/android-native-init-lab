@@ -10,7 +10,6 @@ import json
 import os
 import re
 import select
-import signal
 import stat
 import subprocess
 import termios
@@ -57,6 +56,40 @@ TOPOLOGY_RE = re.compile(r"usb:([0-9]+-[0-9]+(?:\.[0-9]+)*)")
 DIGEST_RE = re.compile(r"[0-9a-f]{64}")
 MAX_BANNER = 4096
 SETTLE_SEC = 0.250
+GUARD_ARM_SEC = 30.0
+PKEXEC = "/usr/bin/pkexec"
+SETPRIV = "/usr/bin/setpriv"
+MMCLI = "/usr/bin/mmcli"
+BASH = "/bin/bash"
+GUARD_SUPERVISOR = """set -u
+exec 3<&0
+/usr/bin/setpriv --pdeathsig SIGKILL "$1" "$2" < /dev/null &
+child=$!
+(
+    IFS= read -r command <&3 || command=release
+    test "$command" = release
+) &
+control=$!
+exec 3<&-
+set +e
+wait -n "$child" "$control"
+if kill -0 "$child" 2>/dev/null; then
+    /bin/kill -TERM "$child"
+    /usr/bin/setpriv --pdeathsig SIGKILL /bin/sleep 5 &
+    deadline=$!
+    wait -n "$child" "$deadline"
+    if kill -0 "$child" 2>/dev/null; then
+        /bin/kill -KILL "$child"
+    fi
+    /bin/kill -TERM "$deadline" 2>/dev/null
+    wait "$deadline" 2>/dev/null
+fi
+wait "$child"
+child_rc=$?
+/bin/kill -TERM "$control" 2>/dev/null
+wait "$control" 2>/dev/null
+exit "$child_rc"
+"""
 
 
 class ObserverError(RuntimeError):
@@ -314,6 +347,59 @@ def persist_json(path: Path, value: Any) -> dict[str, Any]:
     )
 
 
+def _guard_command(uid: str) -> list[str]:
+    return [
+        PKEXEC,
+        SETPRIV,
+        "--pdeathsig",
+        "SIGKILL",
+        BASH,
+        "-c",
+        GUARD_SUPERVISOR,
+        "device-action-mm-guard",
+        MMCLI,
+        f"--inhibit-device={uid}",
+    ]
+
+
+def _persist_guard_arm_failure(
+    evidence_dir: Path,
+    output: bytes,
+    returncode: int | None,
+    status: str,
+) -> None:
+    retained = output[: 16 * 1024]
+    raw = _write_exclusive(
+        evidence_dir / "candidate-observer-guard-arm.raw", retained
+    )
+    persist_json(
+        evidence_dir / "candidate-observer-guard-arm-failure.json",
+        {
+            "schema": GUARD_SCHEMA,
+            "status": status,
+            "returncode": returncode,
+            "raw": raw,
+            "bounded": len(retained) <= 16 * 1024,
+            "truncated": len(retained) != len(output),
+        },
+    )
+
+
+def _try_persist_guard_arm_failure(
+    evidence_dir: Path | None,
+    output: bytes,
+    returncode: int | None,
+    status: str,
+) -> bool:
+    if evidence_dir is None:
+        return False
+    try:
+        _persist_guard_arm_failure(evidence_dir, output, returncode, status)
+    except (OSError, ObserverError):
+        return False
+    return True
+
+
 def _udev_properties(sysfs_path: Path) -> dict[str, str]:
     try:
         completed = subprocess.run(
@@ -381,7 +467,12 @@ class ModemManagerGuard:
         self.arm_receipt: dict[str, Any] | None = None
 
     @classmethod
-    def arm(cls, topology: str, usb_root: Path = Path("/sys/bus/usb/devices")):
+    def arm(
+        cls,
+        topology: str,
+        usb_root: Path = Path("/sys/bus/usb/devices"),
+        evidence_dir: Path | None = None,
+    ):
         active = _modemmanager_active()
         uid = modemmanager_uid(topology, usb_root)
         guard = cls(uid, active)
@@ -395,24 +486,24 @@ class ModemManagerGuard:
                 "active_rechecked": True,
             }
             return guard
-        process = subprocess.Popen(
-            [
-                "setpriv",
-                "--pdeathsig",
-                "SIGKILL",
-                "mmcli",
-                f"--inhibit-device={uid}",
-            ],
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            start_new_session=True,
-            env={**os.environ, "LC_ALL": "C"},
-        )
+        try:
+            process = subprocess.Popen(
+                _guard_command(uid),
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+                env={**os.environ, "LC_ALL": "C"},
+            )
+        except OSError as exc:
+            _try_persist_guard_arm_failure(
+                evidence_dir, b"", None, "launch-failed"
+            )
+            raise ObserverError("ModemManager inhibition launch failed") from exc
         guard.process = process
         assert process.stdout is not None
         expected = f"successfully inhibited device with uid '{uid}'".encode()
-        deadline = time.monotonic() + 10
+        deadline = time.monotonic() + GUARD_ARM_SEC
         output = bytearray()
         armed = False
         try:
@@ -437,6 +528,12 @@ class ModemManagerGuard:
                             armed = True
                             return guard
                         break
+            _try_persist_guard_arm_failure(
+                evidence_dir,
+                bytes(output),
+                process.poll(),
+                "inhibit-failed",
+            )
             raise ObserverError("ModemManager device inhibition failed")
         finally:
             if not armed:
@@ -464,12 +561,20 @@ class ModemManagerGuard:
                 "released": True,
             }
         if self.process.poll() is None:
-            os.killpg(self.process.pid, signal.SIGINT)
             try:
-                self.process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                os.killpg(self.process.pid, signal.SIGKILL)
-                self.process.wait(timeout=5)
+                if self.process.stdin is None:
+                    raise OSError("ModemManager guard control pipe is absent")
+                self.process.stdin.write(b"release\n")
+                self.process.stdin.flush()
+                self.process.stdin.close()
+                self.process.wait(timeout=10)
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                return {
+                    "schema": GUARD_SCHEMA,
+                    "status": "release-failed",
+                    "error_type": type(exc).__name__,
+                    "released": False,
+                }
         return {
             "schema": GUARD_SCHEMA,
             "status": "released",
@@ -704,7 +809,7 @@ def observer_session(
     validate_spec(spec)
     baseline = capture_baseline(spec, topology, class_tty=class_tty)
     baseline_receipt = persist_json(run_dir / "candidate-observer-baseline.json", baseline)
-    guard = ModemManagerGuard.arm(topology, usb_root)
+    guard = ModemManagerGuard.arm(topology, usb_root, run_dir)
     try:
         guard_receipt = persist_json(
             run_dir / "candidate-observer-guard.json", guard.arm_receipt
