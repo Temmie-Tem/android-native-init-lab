@@ -504,6 +504,20 @@ reports grant no device authority.
     execution closure and emitted one fresh private approval binding. No F1 is
     authorized or executed. Next is only the exact P2.60 E3 approval token,
     followed by one boot-only candidate attempt and mandatory rollback.
+53. **P2.64 qualification-latency postmortem, H0:** detailed source and history
+    reconstruction plus one persistent-session Claude Opus 5 maximum-effort
+    adversarial review confirm that four of six Full-LTO builds were avoidable.
+    The line failed closed safely; no device-safety defect was found. The two
+    rejected pairs were decidable from the frozen intent or already-linked
+    `/init` before Build A, but host verifier, package-metadata, and evidence
+    receipts currently feed the run-ID preimage and turn their correction into
+    a kernel-config change. The post-F1 remediation is deliberately staged:
+    first correct the runbook lane table, then add one pre-LTO rehearsal, then
+    split payload identity from qualification/provenance and package/live
+    identity with exhaustive mutation tests and independent review. Do not
+    implement that split before the prepared E3 transaction closes: the exact
+    candidate, D0 result, approval binding, and execution closure remain
+    unchanged. See the P2.64 qualification-latency postmortem.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or
