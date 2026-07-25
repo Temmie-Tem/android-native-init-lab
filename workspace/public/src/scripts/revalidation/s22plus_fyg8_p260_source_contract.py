@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 import subprocess
@@ -468,6 +469,9 @@ def _registration_audit(root: Path) -> dict[str, Any]:
         "candidate_repro_enforcement": (
             CONTRACT_ID.encode("ascii"),
             b"P2.60 linked audit adapter mismatch",
+            b"def artifact_safety(",
+            b"source-contract-bound-p260-e3-acm-and-peripheral-role",
+            b"bounded-configfs-cdc-acm-banner-and-peripheral-role",
         ),
     }
     for name, tokens in required.items():
@@ -475,9 +479,47 @@ def _registration_audit(root: Path) -> dict[str, Any]:
             raise SourceContractError(
                 f"P2.60 execution registration is incomplete: {name}"
             )
+    try:
+        candidate_tree = ast.parse(
+            sources["candidate_repro_enforcement"].decode("ascii")
+        )
+    except (UnicodeError, SyntaxError) as exc:
+        raise SourceContractError(
+            "P2.60 candidate enforcement is not valid Python"
+        ) from exc
+    build_functions = [
+        node
+        for node in candidate_tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name == "build_candidate"
+    ]
+    if len(build_functions) != 1:
+        raise SourceContractError("P2.60 candidate build function drifted")
+    safety_calls = [
+        node
+        for node in ast.walk(build_functions[0])
+        if isinstance(node, ast.Assign)
+        and len(node.targets) == 1
+        and isinstance(node.targets[0], ast.Name)
+        and node.targets[0].id == "safety"
+        and isinstance(node.value, ast.Call)
+        and isinstance(node.value.func, ast.Name)
+        and node.value.func.id == "artifact_safety"
+        and len(node.value.args) == 1
+        and isinstance(node.value.args[0], ast.Name)
+        and node.value.args[0].id == "exact_contract"
+        and not node.value.keywords
+    ]
+    if len(safety_calls) != 1:
+        raise SourceContractError(
+            "P2.60 candidate build does not consume exact artifact safety"
+        )
     return {
         name: receipt(sources[name]) for name in sorted(required)
-    } | {"verified": True}
+    } | {
+        "artifact_safety_callsite_verified": True,
+        "verified": True,
+    }
 
 
 def implementation_result(root: Path) -> dict[str, Any]:

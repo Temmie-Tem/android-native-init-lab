@@ -242,32 +242,7 @@ def verify_artifact_result(
         for name in ("module_binaries_injected", "vendor_ramdisk_modules_reused")
     ):
         raise CheckError("E1A unexpectedly carries the E1B module closure")
-    safety = value.get("safety")
-    expected_safety = {
-        "host_only": True,
-        "device_contact": False,
-        "device_write": False,
-        "odin_invoked": False,
-        "flash": False,
-        "partition_write": False,
-        "live_authorized": False,
-        "boot_only_ap": True,
-        "ap_members": ["boot.img.lz4"],
-        "no_shell": True,
-        "no_block_write": True,
-        "no_reboot_syscall": True,
-    }
-    if profile == "E2":
-        expected_safety.update(
-            {
-                "no_userspace_sysfs_or_configfs_write": True,
-                "usb_scope": "active-module-init-probe-and-read-only-bind-gates",
-                "module_init_probe_authority": "active-live-unproved",
-            }
-        )
-    else:
-        expected_safety["no_usb_or_configfs"] = True
-    if safety != expected_safety:
+    if value.get("safety") != candidate.artifact_safety(exact_contract):
         raise CheckError("candidate artifact safety contract mismatch")
     return {"verified": True}
 

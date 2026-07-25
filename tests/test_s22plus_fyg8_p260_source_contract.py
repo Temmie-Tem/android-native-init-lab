@@ -181,6 +181,27 @@ class S22PlusFyg8P260SourceContractTest(unittest.TestCase):
             linked.repro.LINKED_VALIDATOR_ADAPTERS[p260.CONTRACT_ID],
             "s22plus_fyg8_p260_linked_audit",
         )
+        self.assertTrue(
+            self.implementation["registrations"][
+                "artifact_safety_callsite_verified"
+            ]
+        )
+
+    def test_candidate_artifact_safety_callsite_mutation_fails_closed(self):
+        sources = p260.source_bytes(ROOT)
+        candidate = sources["candidate_repro_enforcement"]
+        expected = b"safety = artifact_safety(exact_contract)"
+        self.assertEqual(candidate.count(expected), 1)
+        changed = dict(sources)
+        changed["candidate_repro_enforcement"] = candidate.replace(
+            expected,
+            b"safety = artifact_safety({})",
+        )
+        with mock.patch.object(p260, "source_bytes", return_value=changed):
+            with self.assertRaisesRegex(
+                p260.SourceContractError, "does not consume"
+            ):
+                p260._registration_audit(ROOT)
 
     def test_stock_closure_allows_only_exact_e3_authority(self):
         module = {"file": "test-module.ko"}

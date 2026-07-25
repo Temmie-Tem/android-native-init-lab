@@ -131,6 +131,57 @@ class P234CandidateBuilderTest(unittest.TestCase):
             with self.assertRaisesRegex(self.module.BuildError, "not accepted"):
                 self.module.verify_repro_result(path, image, exact_contract)
 
+    def test_artifact_safety_preserves_historical_and_scopes_p260_writes(self):
+        common = {
+            "host_only": True,
+            "device_contact": False,
+            "device_write": False,
+            "odin_invoked": False,
+            "flash": False,
+            "partition_write": False,
+            "live_authorized": False,
+            "boot_only_ap": True,
+            "ap_members": ["boot.img.lz4"],
+            "no_shell": True,
+            "no_block_write": True,
+            "no_reboot_syscall": True,
+        }
+        self.assertEqual(
+            self.module.artifact_safety({"profile": "E1A"}),
+            {**common, "no_usb_or_configfs": True},
+        )
+        self.assertEqual(
+            self.module.artifact_safety(
+                {"profile": "E2", "source_contract_id": "historical"}
+            ),
+            {
+                **common,
+                "no_userspace_sysfs_or_configfs_write": True,
+                "usb_scope": (
+                    "active-module-init-probe-and-read-only-bind-gates"
+                ),
+                "module_init_probe_authority": "active-live-unproved",
+            },
+        )
+        self.assertEqual(
+            self.module.artifact_safety(
+                {
+                    "profile": "E2",
+                    "source_contract_id": self.module.P260_SOURCE_CONTRACT_ID,
+                }
+            ),
+            {
+                **common,
+                "userspace_sysfs_configfs_write_scope": (
+                    "source-contract-bound-p260-e3-acm-and-peripheral-role"
+                ),
+                "usb_scope": (
+                    "bounded-configfs-cdc-acm-banner-and-peripheral-role"
+                ),
+                "module_init_probe_authority": "active-live-unproved",
+            },
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

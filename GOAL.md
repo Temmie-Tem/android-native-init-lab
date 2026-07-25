@@ -478,6 +478,19 @@ reports grant no device authority.
     `$SOURCE_TREE/out`. Resume, if any, is a new H0 recovery unit from the
     unchanged intent and frozen Build A, never a reuse of either failed
     preflight directory.
+51. **P2.63 artifact-safety closure, H0:** the recovered v2 Build B completed,
+    all six linked artifacts matched Build A byte-for-byte, and the P2.60
+    linked audit passed. Promotion then stopped before candidate packaging:
+    the generic E2 package metadata falsely claimed no userspace sysfs or
+    configfs writes, while exact P2.60 intentionally performs bounded SSUSB
+    role and CDC-ACM configfs writes. The builder now selects safety by exact
+    source contract, the static checker consumes that single definition,
+    historical E2 semantics remain unchanged, and P2.60 source-receipts both
+    E3 scope strings. Complete independent map fixtures, every-field mutation,
+    and an AST call-site mutation close the first independent-review finding;
+    final re-review is `GO`. Compilation, 31 focused tests, and diff checks
+    pass. Because the builder is source-bound, v2 remains diagnostic only.
+    Derive v3 and repeat A/B before package, D0, and F1 preparation.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or

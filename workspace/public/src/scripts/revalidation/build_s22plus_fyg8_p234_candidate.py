@@ -33,6 +33,7 @@ import s22plus_fyg8_p253_e2_stock_closure as e2_closure_selector  # noqa: E402
 SCHEMA = "s22plus_fyg8_p234_candidate_artifact_result_v1"
 VERDICT = "PASS_P234_DETERMINISTIC_BOOT_ONLY_CANDIDATE_HOST_ONLY"
 TARGET = candidate_contract.TARGET
+P260_SOURCE_CONTRACT_ID = "s22plus-fyg8-p260-e3-exact-acm-banner-v1"
 DEFAULT_IMAGE = repro.DEFAULT_BUILD_A / "Image"
 DEFAULT_REPRO_RESULT = Path(
     "workspace/private/outputs/s22plus_fyg8_p234/build-repro-result.json"
@@ -55,6 +56,48 @@ class BuildError(ValueError):
 
 def receipt(data: bytes) -> dict[str, Any]:
     return {"size": len(data), "sha256": hashlib.sha256(data).hexdigest()}
+
+
+def artifact_safety(exact_contract: dict[str, Any]) -> dict[str, Any]:
+    safety = {
+        "host_only": True,
+        "device_contact": False,
+        "device_write": False,
+        "odin_invoked": False,
+        "flash": False,
+        "partition_write": False,
+        "live_authorized": False,
+        "boot_only_ap": True,
+        "ap_members": ["boot.img.lz4"],
+        "no_shell": True,
+        "no_block_write": True,
+        "no_reboot_syscall": True,
+    }
+    if exact_contract.get("profile") != "E2":
+        safety["no_usb_or_configfs"] = True
+    elif exact_contract.get("source_contract_id") == P260_SOURCE_CONTRACT_ID:
+        safety.update(
+            {
+                "userspace_sysfs_configfs_write_scope": (
+                    "source-contract-bound-p260-e3-acm-and-peripheral-role"
+                ),
+                "usb_scope": (
+                    "bounded-configfs-cdc-acm-banner-and-peripheral-role"
+                ),
+                "module_init_probe_authority": "active-live-unproved",
+            }
+        )
+    else:
+        safety.update(
+            {
+                "no_userspace_sysfs_or_configfs_write": True,
+                "usb_scope": (
+                    "active-module-init-probe-and-read-only-bind-gates"
+                ),
+                "module_init_probe_authority": "active-live-unproved",
+            }
+        )
+    return safety
 
 
 def _read_json(path: Path, label: str, maximum: int = 16 * 1024 * 1024):
@@ -442,30 +485,7 @@ def build_candidate(args: argparse.Namespace) -> dict[str, Any]:
         shutil.rmtree(nochange)
         shutil.rmtree(final_unpack)
         shutil.rmtree(audit)
-        safety = {
-            "host_only": True,
-            "device_contact": False,
-            "device_write": False,
-            "odin_invoked": False,
-            "flash": False,
-            "partition_write": False,
-            "live_authorized": False,
-            "boot_only_ap": True,
-            "ap_members": ["boot.img.lz4"],
-            "no_shell": True,
-            "no_block_write": True,
-            "no_reboot_syscall": True,
-        }
-        if exact_contract["profile"] == "E2":
-            safety.update(
-                {
-                    "no_userspace_sysfs_or_configfs_write": True,
-                    "usb_scope": "active-module-init-probe-and-read-only-bind-gates",
-                    "module_init_probe_authority": "active-live-unproved",
-                }
-            )
-        else:
-            safety["no_usb_or_configfs"] = True
+        safety = artifact_safety(exact_contract)
         result = {
             "schema": SCHEMA,
             "target": TARGET,

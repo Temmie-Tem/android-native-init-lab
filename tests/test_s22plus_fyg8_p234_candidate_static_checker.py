@@ -186,6 +186,82 @@ class P234CandidateStaticCheckerTest(unittest.TestCase):
         with self.assertRaisesRegex(self.module.CheckError, "module closure"):
             self.module.verify_artifact_result(result, **inputs)
 
+    def test_p260_artifact_requires_bounded_write_safety(self):
+        required = (
+            self.module.e2_closure.DEFAULT_VENDOR_RAMDISK,
+            self.module.e2_closure.DEFAULT_LZ4,
+        )
+        if not all((ROOT / path).exists() for path in required):
+            self.skipTest("exact FYG8 private inputs are unavailable")
+        result, inputs = self.fixture()
+        exact_contract = inputs["exact_contract"]
+        exact_contract.update(
+            {
+                "profile": "E2",
+                "source_contract_id": (
+                    self.module.candidate.P260_SOURCE_CONTRACT_ID
+                ),
+            }
+        )
+        result["candidate_contract"] = exact_contract
+        result["module_closure"] = (
+            self.module.e2_closure_selector.select(
+                exact_contract["source_contract_id"]
+            ).derive_module_closure(
+                ROOT,
+                ROOT / self.module.e2_closure.DEFAULT_VENDOR_RAMDISK,
+                ROOT / self.module.e2_closure.DEFAULT_LZ4,
+            )
+        )
+        result["construction"].update(
+            {
+                "module_binaries_injected": 0,
+                "vendor_ramdisk_modules_reused": True,
+            }
+        )
+        result["safety"] = {
+            "host_only": True,
+            "device_contact": False,
+            "device_write": False,
+            "odin_invoked": False,
+            "flash": False,
+            "partition_write": False,
+            "live_authorized": False,
+            "boot_only_ap": True,
+            "ap_members": ["boot.img.lz4"],
+            "no_shell": True,
+            "no_block_write": True,
+            "no_reboot_syscall": True,
+            "userspace_sysfs_configfs_write_scope": (
+                "source-contract-bound-p260-e3-acm-and-peripheral-role"
+            ),
+            "usb_scope": (
+                "bounded-configfs-cdc-acm-banner-and-peripheral-role"
+            ),
+            "module_init_probe_authority": "active-live-unproved",
+        }
+        self.assertTrue(
+            self.module.verify_artifact_result(result, **inputs)["verified"]
+        )
+
+        expected = result["safety"]
+        for key in tuple(expected):
+            with self.subTest(key=key):
+                result["safety"] = copy.deepcopy(expected)
+                result["safety"][key] = (
+                    not result["safety"][key]
+                    if isinstance(result["safety"][key], bool)
+                    else "changed"
+                )
+                with self.assertRaisesRegex(self.module.CheckError, "safety"):
+                    self.module.verify_artifact_result(result, **inputs)
+        result["safety"] = {
+            **expected,
+            "no_userspace_sysfs_or_configfs_write": True,
+        }
+        with self.assertRaisesRegex(self.module.CheckError, "safety"):
+            self.module.verify_artifact_result(result, **inputs)
+
     def test_stable_read_rejects_symlink(self):
         with tempfile.TemporaryDirectory() as name:
             root = Path(name)
