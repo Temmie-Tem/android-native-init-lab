@@ -758,14 +758,14 @@ reports grant no device authority.
     trace the asynchronous `mode_store -> sm_work -> start_peripheral` path.
     Stage `0x8e` proves the synchronous initial pull-up returned success, not
     later host attach or enumeration.
-68. **P2.78 three-lane USB analysis, H0:** exact stock rc/HAL needs no hidden
-    enable write for minimal ACM, but P2.76 can skip its active role write when
-    mode already reads peripheral; `0x8d` therefore does not prove the forced
-    bypass executed or settled. The initial bind already performs DWC3 reset
-    and RUN_STOP, while `soft_connect` discards reconnect errors. Preserve
-    initial/write/final role evidence, terminal UDC state/speed, optional
-    link/IPC markers, and require a durable armed host kernel/udev trace before
-    another F1. Keep firmware, modules, composition, and reconnect unchanged.
+68. **P2.78 three-lane USB analysis, H0:** stock needs no hidden minimal-ACM
+    enable write, while P2.76 does not prove that its parent role transition
+    executed or settled. Preserve exact role/UDC state and armed host tracing.
+69. **P2.79 role-settle closure, H0:** UCSI reaches the same parent role
+    callback and can reassert DEVICE, but no stable parent-work completion
+    attribute exists. Use bounded NONE stability evidence, one final
+    peripheral write, explicitly non-proof settle slack, existing UDC
+    regression semantics, and a recalculated 240-second observer manifest.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or
