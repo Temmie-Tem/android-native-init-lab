@@ -76,6 +76,10 @@ Require all of the following before spending a Full-LTO build:
 - a nominal 32 GiB build host, with at least 30 GiB visible physical memory;
 - at least 8 GiB swap and 30 GiB free disk;
 - the pinned stock baseline and both source archives;
+- either GNU AArch64 `nm`/`objdump` on the build host, or a named controlled
+  verification host that has them, decided before build A;
+- the CPU frequency lane recorded below, including the privilege to apply a
+  frequency cap when that lane is selected;
 - no existing `$SOURCE_TREE/out` tree and a new result directory; and
 - no source, intent, patch, adapter, dispatcher, or candidate-enforcement
   change after intent derivation.
@@ -124,7 +128,8 @@ canonical source-tree realpath
 pinned clang repository and commit
 jobs
 physical RAM, swap total, and free disk
-GNU AArch64 nm/objdump availability
+GNU AArch64 nm/objdump availability and the selected audit host
+CPU frequency lane
 build A/B result and immutable-bundle paths
 tmux session names
 ```
@@ -323,6 +328,11 @@ more than 24 GiB RSS without completing in 25 minutes. The GNU tools completed
 the same versioned audit in seconds. Treat a future LLVM qualification as a
 separate H0 tool-compatibility unit.
 
+Supplying `LD_LIBRARY_PATH` is not an approved substitution. It only makes the
+unqualified tool load, after which the documented range-disassembly cost
+returns. When the build host has no GNU AArch64 binutils, the prescribed
+recovery is the verification host above, not a library-path workaround.
+
 Do not accept a generic linked audit when the source contract requires the
 versioned adapter.
 
@@ -424,7 +434,7 @@ not hypothetical policy requirements.
 | An SSH-inline nested shell expanded `rc=$?` and `"$rc"` before tmux started | The build had a malformed completion hook even though the visible command looked correct | Stop an immediately detected host-only attempt, preserve its launcher receipt, remove only partial generated `$SOURCE_TREE/out`, and rerun fresh preflight | Copy or generate the reviewed Python `shlex.join()` launcher on the build host; inspect the running `/proc/<pid>/cmdline` and require literal `rc=$?` plus `"$rc"` before allowing the long build to continue |
 | Build B preflight twice reported `clean build requires absent output tree: <canonical-source>/out` after a repository-root `out/` was removed | The operator cleaned the wrong path; Build A correctly writes under `$SOURCE_TREE/out`, and the wrapper's fail-closed clean gate prevented a non-clean B | Stop after the second identical rejection, preserve the empty failed result directories, verify Build A's immutable bundle, then remove only the exact canonical `$SOURCE_TREE/out` in a new H0 recovery unit | Spell every cleanup/check as `$SOURCE_TREE/out`, verify `dirname(realpath($SOURCE_TREE/out)) == realpath($SOURCE_TREE)` before deletion, and never use repository-root `out/` as evidence |
 | A monitor used `tmux has-session -t build-name`, then outlived the build because its own `build-name-monitor` session prefix matched | `tmux -t` accepts unique prefixes; the monitor was observing itself, not a running build | Stop only the monitor after the build result and time receipt are complete; preserve all build artifacts | Compare exact names from `tmux list-sessions -F '#{session_name}'`; never use prefix matching as a completion predicate |
-| A 4.4 GHz Full-LTO link burst reached 69.1 C while the host critical point was 70 C | The overclocked P-state has insufficient sustained thermal margin even under a mostly single-thread link | Return to the stable 2.9 GHz cap, finish the build, and restore the normal governor afterward | Default candidate qualification to the stable cap; use no high-clock burst unless cooling or an intermediate P-state is separately qualified |
+| A 4.4 GHz Full-LTO link burst reached 69.1 C while the host critical point was 70 C | The overclocked P-state has insufficient sustained thermal margin even under a mostly single-thread link | Return to the stable 2.9 GHz cap, finish the build, and restore the normal governor afterward | Select and record a CPU frequency lane; never pin a high P-state manually unless cooling or an intermediate P-state is separately qualified |
 | A new source contract had a byte-identical template patch, so an earlier Image was selected for reuse | Candidate identity also binds the source-contract domain, source receipts, derived run ID, UNSAT tag, and final config patch; template equality is below the actual candidate boundary | Derive and verify the fresh intent first; compare final patch/config/run ID, and rebuild when they differ | Keep a focused cross-contract identity test and make fresh intent derivation precede every build-lane decision |
 | P2.58A userspace linked reproducibly, but the stock-closure adapter inherited P2.57's older `/init` entrypoint and rejected the packaged candidate only after two Full-LTO builds | The kernel and packages were reproducible, but a source-bound host proof adapter was stale; a downstream-only shim would split static, promotion, and evidence semantics | Fix the P2.58A adapter itself, derive a new intent because its source receipt changes, and rebuild the invalidated candidate | Before Full LTO, build the exact userspace twice and compare both ELF entrypoints with the selected stock-closure adapter; test scoped adapter state restoration and historical-contract isolation |
 | A new E2 runtime intentionally wrote bounded sysfs/configfs state, but the generic package metadata still claimed `no_userspace_sysfs_or_configfs_write=true` | Candidate safety was selected only by broad profile and duplicated in builder and checker, so a reproducible package could carry a false authority statement | Stop before packaging, move safety selection to one exact-source-contract function, make the checker consume it, source-receipt that selector, and derive a fresh intent | Before Full LTO, evaluate the exact candidate contract's generated safety dictionary and mutation-test both the new bounded authority and unchanged historical profile behavior |
@@ -433,6 +443,8 @@ not hypothetical policy requirements.
 | P2.60 Process v2 promotion emitted terminal `0x8f` although its selected decoder defines `0x90` | Two downstream consumers read the shared legacy E2 model's profile terminal instead of the selected versioned decoder terminal; the already-qualified kernel and package bytes were unaffected | Quarantine only the stale promotion/ready outputs, preserve immutable A/B bundles and AP, fix the host consumers, run legacy plus versioned compatibility tests, then re-promote the same AP | Resolve terminal stage through one version-aware selector: selected decoder terminal first, legacy profile fallback only when no versioned terminal exists; require legacy E2=`0x8f`, P2.60=`0x90`, and reject a stale P2.60 `0x8f` mutation |
 | Remote preflight failed after only the intent JSON and patch were copied | The intent contract also owns its complete `materialized-sources/` tree; transferring two visible files produced an incomplete candidate input without starting a build | Preserve the failed preflight, copy the complete immutable intent directory, and rerun only preflight in a new result directory | Transfer and rehash the complete intent directory as one unit; never reconstruct its required members from a hand-written file list |
 | A long shell invocation was submitted twice and the second package/static helper collided with an already-complete output | Output paths were exclusive, so the duplicate stopped safely, but command submission was not serialized and made a valid first result look ambiguous | Do not regenerate; validate the existing result, all receipts, and byte equality, then retain the first complete output | Wrap each output-producing post-build helper in a nonblocking `flock`, use a unique output directory, and treat an existing output as read-only evidence to validate rather than overwrite |
+| The independent closure rejected a P2.70 candidate for an absolute-path authority mismatch, missing one expected string that a compiler had incidentally emitted into the earlier binary | The candidate contained no new forbidden path. The adapter asserted exact-set equality over a set that also held incidental link artifacts, so a benign code-layout change failed it | Split the assertion into required, optional, and forbidden sets; because the adapter is source-bound, derive a new intent and rebuild the invalidated candidate | Never assert set or count equality over values that are not invariants, such as compiler-emitted strings, unrelated sibling devices, or inherited numeric addresses. Assert required membership, permit unrelated members, and reject only registered-forbidden ones |
+| The linked audit stopped before starting because an isolated copy of the LLVM tools could not find `libc++.so.1` | A tool-loading failure, not an artifact verification failure. Supplying the library path then reproduced the documented range-disassembly cost instead of fixing it | Run the versioned audit against the copied immutable bundles on a verification host that has GNU AArch64 binutils | Decide the audit host before build A and record GNU tool availability in the build record; treat a library-path workaround for the unqualified tool pair as a stop condition |
 
 ## Time and resource expectations
 
@@ -444,10 +456,28 @@ accidentally run concurrently.
 
 The corrected P2.58A pair took `39:05.92` and `39:34.50`, with Build B peaking
 at about `24.26 GiB` RSS and no process swaps. A measured 4.4 GHz link burst
-reached `69.1 C` and did not reduce total wall time relative to Build A.
-This host therefore uses the stable 2.9 GHz cap for sustained qualification
-and restores `schedutil` after the build. The high-clock result is a negative
-thermal/performance finding, not a default optimization.
+reached `69.1 C` and did not reduce total wall time relative to Build A. The
+high-clock result is a negative thermal/performance finding, not a default
+optimization.
+
+### CPU frequency lanes
+
+Clock policy changes wall time and temperature only. It does not change the
+built bytes, so it never affects reproducibility or A/B equality. Record which
+lane a qualification pair used.
+
+| Lane | Setting | Requires | Notes |
+|---|---|---|---|
+| Capped | `performance` with `scaling_max_freq` at the stable cap, restored to `schedutil` afterwards | root on the build host | Preferred when the privilege is available; avoids sustained operation near the critical point |
+| Default | `schedutil` with the stock maximum and kernel/hardware throttling | none | Acceptable. Temperature must be recorded read-only, with no automatic build kill |
+
+Do not pin a high P-state manually unless cooling or an intermediate P-state
+has been separately qualified. Do not block a qualification build only because
+the capped lane cannot be applied; select the default lane and record it.
+
+A P2.70 pair ran the default lane and reached a `69.5 C` peak under kernel
+throttling, above the `69.1 C` burst recorded for the capped decision. That is
+a thermal observation about this host, not a build defect.
 
 The corrected P2.60 v4 pair took `40:43.23` and `40:45.31`, peaked near
 `24.25 GiB` RSS, and completed without swap. A later Process v2 terminal-stage
@@ -470,7 +500,10 @@ Before build A:
       recorded.
 - [ ] Fresh preflight passes with absent `$SOURCE_TREE/out` and a new result
       directory.
-- [ ] Memory, swap, disk, and GNU linked-audit tools are available.
+- [ ] Memory, swap, and disk gates pass.
+- [ ] GNU AArch64 linked-audit tools are available on the build host, or the
+      verification host that has them is named.
+- [ ] The CPU frequency lane is selected and recorded.
 - [ ] One detached launcher has a validated completion hook.
 
 Between A and B:
