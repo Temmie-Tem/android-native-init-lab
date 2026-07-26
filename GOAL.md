@@ -21,8 +21,10 @@ packaging, independent closure, and offline promotion. P2.72 creates and
 independently validates one data-only ready manifest for that exact candidate
 and rollback. P2.73 freezes the complete execution line and rehearses the
 unchanged live adapter. P2.74 adds a private, non-authoritative host USB trace
-sidecar without changing that frozen closure. No D0 exists. No F1 run is
-authorized.**
+sidecar without changing that frozen closure. P2.75 adversarially reopens the
+full host, recovery, observation, and evidence path, closes two docs-only
+pre-live defects, and leaves the candidate closure unchanged. No D0 exists. No
+F1 run is authorized.**
 
 P2.58A passed terminal stage `0x8f` and remains the accepted E2 proof:
 generation 80 passed exact `a600000.dwc3` membership at stage `0x87`, and
@@ -117,6 +119,14 @@ before `--execute` through rollback, optional same-run recovery, and final
 health. It never opens candidate ACM, is not an acceptance gate, writes only
 private evidence, and marks raw public export forbidden. The P2.72 bundle and
 execution-closure hashes are unchanged.
+
+P2.75 adversarially reviews approval binding, archive/Odin pinning, target and
+Download continuity, CDC-ACM ownership, retained acceptance, journal resume,
+rollback, final health, and sidecar behavior. It restores the active-contract
+line-count test without weakening its limit and corrects the P2.73 rehearsal's
+incomplete recovery-state description. The full FYG8 stock ZIP matches policy,
+all historical journals are terminal, and the frozen bundle/closure still
+validate. Connected D0 and fresh exact approval remain separate.
 
 One candidate transfer and one exact Magisk rollback completed. The initial
 final-health pass stopped at `ROLLBACK_FLASHED` on a measured USB inventory
@@ -742,6 +752,14 @@ reports grant no device authority.
     in private evidence with public export forbidden. Python compilation and
     five focused tests pass. No D0, approval, transaction, Download request,
     Odin session, transfer, reboot, device contact, or write occurred.
+64. **P2.75 P2.72 F1 adversarial preflight, H0:** inspect the complete frozen
+    execution and recovery path, exact host artifacts, sidecar prerequisites,
+    stock recovery evidence, and historical journals. Close the stale
+    `AGENTS.md` line-count failure by reflow only, and document all recoverable
+    journal states rather than only the known `ROLLBACK_FLASHED` deviation.
+    Focused tests and exact bundle/closure validation pass. No D0, approval,
+    transaction, Download request, Odin session, transfer, reboot, device
+    contact, or write occurred.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or

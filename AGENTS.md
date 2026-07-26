@@ -13,20 +13,15 @@ Do not add a device step when host-only work can answer the question.
 ## Current Live Posture
 
 - No S22+ F1 live run is currently authorized.
-- P2.58A consumed one exact approval and proved terminal stage `0x8f` after
-  exact `a600000.dwc3` membership. This proves the real UDC and terminal
-  userspace path, not USB host enumeration.
-- P2.67 consumed one exact approval and transferred the P2.60 v3 E3 candidate
-  once. The operator observed a successful candidate boot and no boot loop.
+- P2.58A consumed one exact approval and proved terminal stage `0x8f` after exact
+  `a600000.dwc3` membership: real UDC and terminal userspace, not USB host enumeration.
+- P2.67 transferred the P2.60 v3 E3 candidate once; it booted without a boot loop.
 - Two byte-identical retained reads contain one exact terminal-failure record.
-  Generation 80 again passed exact `a600000.dwc3` UDC membership at stage
-  `0x87`, item 11. Generation 81 failed at the first E3-local configfs stage
-  `0x88`, item 0, with errno-form detail 5. No ACM endpoint was observed.
-- Post-live source analysis found a deterministic blocker:
-  `P260_CONFIGFS_MAGIC` is incorrectly set to sysfs magic `0x62656572`;
-  configfs uses `0x62656570`. A correct configfs mount therefore cannot pass
-  the candidate's `statfs` check. The retained detail alone does not
-  distinguish that mismatch from an `EIO` returned directly by mount/statfs.
+  Generation 80 passed UDC membership at stage `0x87`, item 11; generation 81
+  failed at configfs stage `0x88`, item 0, with detail 5. No ACM was observed.
+- Source analysis found `P260_CONFIGFS_MAGIC=0x62656572` (sysfs), while configfs
+  uses `0x62656570`; retained detail cannot distinguish this deterministic
+  `statfs` mismatch from an `EIO` returned directly by mount/statfs.
 - One exact Magisk rollback transfer completed. The first final-health pass
   stopped at `ROLLBACK_FLASHED` on a measured USB inventory error. Durable
   recovery resumed only final verification; neither candidate nor rollback
@@ -39,14 +34,11 @@ Do not add a device step when host-only work can answer the question.
   contract now parses all 16 E3 runtime external ABI constants against one
   authoritative table, and a sysfs-magic mutation fails before the generic
   source-identity check.
-- P2.69 derived a fresh source-bound intent and completed two clean Full-LTO
-  builds, six-artifact byte equality, linked audit, deterministic package
-  equality, independent static closure, and offline Process v2 promotion.
-  A downstream bug initially inherited legacy E2 terminal `0x8f` instead of
-  the selected P2.60 decoder terminal `0x90`; it was caught before D0, the
-  rejected host outputs were quarantined, and promotion/acceptance now share
-  one version-aware terminal selector. The same candidate AP was re-promoted
-  and its host-ready bundle validates with terminal `0x90`.
+- P2.69 completed two clean Full-LTO builds, six-artifact equality, linked
+  audit, deterministic packaging, static closure, and offline promotion. A
+  downstream legacy terminal `0x8f` bug was caught before D0; rejected outputs
+  were quarantined, promotion/acceptance now share one selector, and the
+  re-promoted bundle validates with terminal `0x90`.
 - P2.69 is retired before D0. An exact generic-arm64 QEMU execution found that
   its configfs link target was resolved from PID1's `/` working directory and
   failed with `ENOENT`; the candidate also expected a non-canonical readlink

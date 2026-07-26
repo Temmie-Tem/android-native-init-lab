@@ -95,17 +95,31 @@ execution starts, rollback is already authorized.
 
 ### 4. Recovery branch
 
-If execution stops after the journal has durably reached
-`ROLLBACK_FLASHED`, do not repeat `--execute`, the candidate, or rollback.
-Resume only from the same run directory:
+If `--execute` exits with a non-terminal journal, do not invoke `--execute`
+again. Inspect the durable journal and candidate-attempt ledger, then use only
+the same run directory:
 
 ```bash
 PYTHONPYCACHEPREFIX=/tmp/p270_f1 python3 "$LIVE" --recover --manifest "$MANIFEST" --run-dir "$RUN_DIR"
 ```
 
-Recovery takes no second approval and cannot transfer the candidate. A
-different unexplained failure or an earlier journal state is a stop, not a
-license to force this branch.
+Recovery takes no second approval and cannot transfer the candidate. Its
+state-dependent behavior is:
+
+| Durable evidence | Recovery meaning |
+|---|---|
+| No candidate-attempt start | closes an interrupted pre-candidate transaction as `ABORTED`; it performs no transfer |
+| Candidate-attempt start at `DOWNLOAD_IDENTIFIED` or later | treats candidate outcome conservatively and resumes only observation/rollback |
+| `OBSERVED` | waits for attended physical Download and sends the preapproved rollback |
+| `RECOVERY_DOWNLOAD` | may consume only the remaining exact rollback attempt within the durable two-attempt bound |
+| `ROLLBACK_FLASHED` or `HEALTH_VERIFIED` | resumes final verification/closure without retransmitting candidate or rollback |
+| `ABORTED` or `CLOSED` | not recoverable; do not retry or reuse the binding |
+
+If a pre-candidate abort leaves the phone in Download mode, return it physically
+to normal Android and run a fresh D0 health check; the F1 runner does not claim
+that return-health step. A malformed/inconsistent journal is an immediate stop,
+but it does not cancel rollback authority already established by a valid
+candidate-attempt ledger.
 
 ## Repeated rollback deviation
 

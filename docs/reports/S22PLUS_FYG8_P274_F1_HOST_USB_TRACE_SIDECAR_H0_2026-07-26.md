@@ -54,7 +54,7 @@ terminal:
 TRACE=workspace/public/src/scripts/revalidation/device_action_usb_trace_sidecar_v1.py
 PYTHONPYCACHEPREFIX=/tmp/p274_usb_trace python3 "$TRACE" \
   --output-dir "$RUN_DIR/host-usb-trace" \
-  --duration-sec 2700
+  --duration-sec 3600
 ```
 
 The foreground process prints one start record. Leave it running across:
@@ -70,7 +70,7 @@ sidecar running while invoking the exact P2.73 `--recover` command against the
 same run directory. Do not repeat the candidate or rollback.
 
 Stop the sidecar with `Ctrl-C` only after the journal reaches `CLOSED` or an
-operator stop has reached a known stable state. Its 45-minute absolute bound
+operator stop has reached a known stable state. Its 60-minute absolute bound
 prevents an orphaned capture. A duration expiry is diagnostic loss, not an F1
 failure.
 
@@ -80,6 +80,11 @@ failure.
 - Do not insert or remove a hub, change ports, or reconnect during the run.
 - Keep the cable connected throughout candidate boot, rollback, recovery, and
   final health.
+- Keep the attended host awake for the entire transaction.
+- Confirm the graphical polkit agent is available before `--execute`. The
+  candidate observer arms its transient udev guard before Download and requires
+  the attended host-root prompt to complete within 30 seconds. Guard-arm
+  failure is pre-candidate and must not be bypassed.
 - Do not start a second ACM reader, serial terminal, `screen`, `minicom`, or
   repeated `lsusb` scanner.
 
@@ -97,11 +102,15 @@ port. The D0-bound stable topology is authoritative.
 | E3 stage, `0x8xx`/`0x9xx` detail | an earlier E2 gate regressed or became unreadable | decoded gate index |
 | stage `0x88..0x8c`, errno | real-kernel E3 path diverged from generic QEMU | exact syscall/errno and harness boundary |
 | terminal `0x90`, ACM observer rejected | device queued the banner and reached high-speed configured; host receipt failed | observer classification plus host trace |
+| terminal `0x90`, observer `guard-lost` | device terminal path completed but the transient host guard died or exceeded its 300-second lifetime | host-observer failure; rollback, then inspect timing/guard evidence |
 | terminal `0x90`, exact ACM banner | E3 live path proven | mandatory rollback and final health |
 
 `ETIMEDOUT` alone never proves that the host saw no connect. `EPROTO` does not
 by itself exonerate candidate or PHY code. Terminal `0x90` with no exact banner
-is diagnostic proof of the device-side terminal path, not E3 PASS.
+is diagnostic proof of the device-side terminal path, not E3 PASS. The guard's
+300-second self-deadline is shorter than the sum of all independent outer
+timeouts; an abnormally slow run can therefore lose host proof without implying
+a candidate failure.
 
 ## Private evidence and redaction
 
