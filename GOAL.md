@@ -9,48 +9,14 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 
 ## Current Frontier
 
-**State: direct PID1, E1A local runtime, E1B module runtime, and the E2
-module-to-real-UDC frontier are live proven. P2.67 reached the first E3-local
-stage after exact `a600000.dwc3` membership, then failed configfs validation at
-stage `0x88` with detail 5. P2.69 was qualified on the host but retired before
-D0 after exact generic-arm64 QEMU execution exposed a second deterministic
-configfs blocker. P2.70 corrects that link contract and passes the exact
-generic E3 execution path. P2.71 corrects a late host-only authority-checker
-false rejection and completes fresh Full-LTO A/B, linked audit, deterministic
-packaging, independent closure, and offline promotion. P2.72 creates and
-independently validates one data-only ready manifest for that exact candidate
-and rollback. P2.73 freezes the complete execution line and rehearses the
-unchanged live adapter. P2.74 adds a private, non-authoritative host USB trace
-sidecar without changing that frozen closure. P2.75 adversarially reopens the
-full host, recovery, observation, and evidence path, closes two docs-only
-pre-live defects, and leaves the candidate closure unchanged. No D0 exists. No
-F1 run is authorized.**
-
-P2.58A passed terminal stage `0x8f` and remains the accepted E2 proof:
-generation 80 passed exact `a600000.dwc3` membership at stage `0x87`, and
-generation 81 reached terminal stage `0x8f`. That proves the exact 60-module
-sequence, real-UDC publication, and the terminal userspace path before E3.
-
-P2.67 transferred the exact P2.60 v3 E3 candidate once. The operator observed
-a successful candidate boot and no boot loop, but the host ACM observer timed
-out. Two byte-identical retained reads contain generation 80 at stage `0x87`,
-item 11, followed by generation 81 terminal failure at stage `0x88`, item 0,
-outcome 2, detail 5.
-
-Stage `0x88` maps to `p260_mount_configfs()`. Post-live source analysis found
-that the candidate compares `statfs` against `0x62656572`, the sysfs magic,
-while Linux configfs uses `0x62656570`. A correct configfs mount therefore
-cannot satisfy this candidate. Detail 5 alone does not distinguish the magic
-mismatch from an `EIO` returned directly by mount/statfs, so the narrow live
-fact remains "configfs stage failed".
-
-P2.68 corrected the runtime constant to `0x62656570` and added an explicit
-pre-LTO semantic gate. The selected source contract now parses all 16 external
-ABI constants used by the E3 runtime and compares them with one authoritative
-contract table before checking the runtime SHA. Mutation to sysfs magic
-`0x62656572` is rejected as a semantic-value drift through the real pre-LTO
-call path; missing and duplicate definitions are also rejected. Focused
-Python, mutation, and no-LTO userspace two-link tests pass.
+**State: direct PID1, E1A local runtime, E1B module runtime, E2 through the
+real UDC, and E3 through exact configfs UDC binding are live proven. One P2.76
+ready2 F1 reached stage `0x8e`, then timed out at configured-state stage
+`0x8f` with no host ACM endpoint. The exact rollback and final Android/FYG8
+health passed and the transaction is `CLOSED`. P2.77 rules out missing
+firmware files in the selected 60-module closure and localizes the frontier to
+the asynchronous DWC3-MSM/device-to-host transition after successful gadget
+bind. No F1 run is authorized.**
 
 P2.69 derived the fresh v4 intent, completed two clean Full-LTO builds in
 `40:43.23` and `40:45.31` with no swap, and proved byte equality for all six
@@ -128,13 +94,28 @@ incomplete recovery-state description. The full FYG8 stock ZIP matches policy,
 all historical journals are terminal, and the frozen bundle/closure still
 validate. Connected D0 and fresh exact approval remain separate.
 
-One candidate transfer and one exact Magisk rollback completed. The initial
-final-health pass stopped at `ROLLBACK_FLASHED` on a measured USB inventory
-error. Durable recovery resumed final verification only and repeated no
-transfer. Android, FYG8/root/boot, supporting partitions, Odin absence,
-byte-identical retained reads, and all eight canonical timeline events passed.
-The durable verdict is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; recovery is not
-required.
+P2.76 then used the exact ready2 manifest once. The host observer ran for the
+full 180-second bound and found no candidate endpoint. Two byte-identical
+retained reads preserve generation 87 progress at UDC-bind stage `0x8e`,
+followed by generation 88 failure at configured-state stage `0x8f` with
+`ETIMEDOUT`. The operator observed a successful candidate boot and no boot
+loop. One exact rollback restored Android, FYG8 kernel, root, boot, and
+supporting-partition health; the durable verdict is
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. The P2.74 diagnostic sidecar was not
+running, so this run has no independent host connect/reset trace.
+
+P2.77 H0 reconstructs the combined retained buffer and the exact FYG8 source
+path. Candidate kernel printk is absent: ABL reports no `KlogOffset` before the
+checkpoint, while matching USB and Max77705 strings elsewhere are stale
+Android or bootloader data. Exact extraction of the 60 selected vendor
+modules finds no firmware metadata or undefined firmware-request API, and the
+Max77705 firmware-bearing modules are not selected. In the exact driver,
+`mode_store()` queues the DWC3-MSM state machine and returns before it
+completes; mode readback and pre-existing UDC membership are not completion
+fences. Stage `0x8e` does prove configfs bind and a synchronous DWC3 pull-up
+request returned success. The next unit must preserve the last UDC state and
+speed, optionally classify existing DWC3 IPC markers, and actually run the
+host USB sidecar before changing modules, firmware, or gadget composition.
 
 ## Established Evidence
 
@@ -237,9 +218,9 @@ required.
 - P2.50 E2 F1: one exact candidate and rollback transfer completed. The
   corrected validator records `gcc-waipio` success at `0x83`, then `ssusb`
   timeout at `0x84`. Final health and timeline passed; authority is consumed.
-- P2.58A E2 F1: exact UDC target membership passed at `0x87`, terminal stage
-  `0x8f` followed, one exact record was accepted, and exact rollback, final
-  health, and the canonical timeline passed. Authority is consumed.
+- P2.58A passed terminal stage `0x8f` after exact UDC target membership at
+  `0x87`; one exact record was accepted, and exact rollback, final health, and
+  the canonical timeline passed. Authority is consumed.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
   rollback, and final health are proven.
 - V3439: pstore, pmsg, ramoops, and DTBO-based retention remain retired.
@@ -767,6 +748,21 @@ reports grant no device authority.
     Candidate, rollback, observer identity, and execution closure are unchanged;
     offline bundle validation and focused regressions pass. Next is connected
     D0 against ready2 only; no device contact or authority occurred.
+66. **P2.76 E3 post-bind configured timeout, F1:** use ready2 once under one
+    exact approval. Configfs, gadget, `ttyGS0`, banner queue, peripheral-role
+    readback, exact UDC membership, and exact UDC bind reach stage `0x8e`.
+    Stage `0x8f` times out before configured/high-speed and the 180-second host
+    observer sees no candidate endpoint. One exact rollback and final health
+    pass; the transaction is closed and authority consumed.
+67. **P2.77 post-bind focused analysis, H0:** separate stale retained Android
+    and bootloader text from the candidate checkpoint, rule out external
+    firmware requests in the exact 60-module closure, and trace the FYG8
+    `mode_store -> sm_work -> start_peripheral` path. The current role and UDC
+    predicates can pass before parent state-machine completion, while stage
+    `0x8e` proves synchronous gadget connect returned success. Design the next
+    bounded discriminator around final UDC state/speed, optional existing DWC3
+    IPC markers, and the already-built host sidecar; do not widen modules or
+    gadget composition first.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or
