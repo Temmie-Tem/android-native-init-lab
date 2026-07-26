@@ -760,6 +760,13 @@ reports grant no device authority.
     Focused tests and exact bundle/closure validation pass. No D0, approval,
     transaction, Download request, Odin session, transfer, reboot, device
     contact, or write occurred.
+65. **P2.76 E3 observation-margin correction, H0:** the P2.58A retained record
+    has no timestamp, so it cannot prove margin inside the old 120-second host
+    window. The E3 runtime can add up to 45 seconds after E2. Retire ready1
+    before D0 and select data-only ready2 with a 180-second observer bound.
+    Candidate, rollback, observer identity, and execution closure are unchanged;
+    offline bundle validation and focused regressions pass. Next is connected
+    D0 against ready2 only; no device contact or authority occurred.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or

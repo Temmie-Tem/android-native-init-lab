@@ -5,6 +5,10 @@ Date: 2026-07-26 KST
 Scope: H0 host-only. No D0, approval, transaction, Download request, Odin
 session, transfer, reboot, device contact, or device write occurred.
 
+Status: superseded before D0 by the P2.76 ready2 manifest. The commands and
+P2.72 bundle hash below are historical rehearsal evidence and must not be used
+for a new D0 or F1. Use the P2.76 report and ready2 manifest.
+
 ## Freeze
 
 The P2.72 execution line is frozen through the next attended transaction:
@@ -58,6 +62,11 @@ The rollback AP is exactly:
 
 The manifest pins both hashes and sizes. Do not substitute
 `candidate-a/AP.tar.md5`, `candidate-b`, a symlink, or another rollback.
+
+The candidate parks indefinitely after either terminal success or failure. It
+does not reboot itself. After observation closes, the attended operator must
+physically enter Download mode for the already-authorized rollback; do not wait
+for an automatic reboot.
 
 ### 1. Host reopen
 

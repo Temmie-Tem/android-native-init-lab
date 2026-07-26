@@ -6,6 +6,9 @@ Scope: H0 host-only adversarial review. No connected D0, approval, transaction,
 Download request, Odin session, transfer, reboot, device contact, or device
 write occurred.
 
+Status: superseded before D0 by P2.76. Its ready2 manifest changes only the
+observation timeout and preserves the exact APs and execution closure.
+
 ## Verdict
 
 `GO_TO_CONNECTED_D0_WITH_PRELIVE_CONDITIONS`
