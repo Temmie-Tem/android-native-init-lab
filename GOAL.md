@@ -20,7 +20,9 @@ false rejection and completes fresh Full-LTO A/B, linked audit, deterministic
 packaging, independent closure, and offline promotion. P2.72 creates and
 independently validates one data-only ready manifest for that exact candidate
 and rollback. P2.73 freezes the complete execution line and rehearses the
-unchanged live adapter. No D0 exists. No F1 run is authorized.**
+unchanged live adapter. P2.74 adds a private, non-authoritative host USB trace
+sidecar without changing that frozen closure. No D0 exists. No F1 run is
+authorized.**
 
 P2.58A passed terminal stage `0x8f` and remains the accepted E2 proof:
 generation 80 passed exact `a600000.dwc3` membership at stage `0x87`, and
@@ -108,6 +110,13 @@ Download-to-Android USBFS baseline-inventory race before any snapshot receipt;
 the exact inner exception remains unrecorded. Do not patch the bound runner
 now. If the same exact error recurs after durable `ROLLBACK_FLASHED`, resume
 the same journal with `--recover`; never repeat candidate or rollback.
+
+P2.74 adds a bounded host-only sidecar for the attended F1 window. It records
+kernel USB messages, USB/TTY udev events, and start/end `lsusb` snapshots from
+before `--execute` through rollback, optional same-run recovery, and final
+health. It never opens candidate ACM, is not an acceptance gate, writes only
+private evidence, and marks raw public export forbidden. The P2.72 bundle and
+execution-closure hashes are unchanged.
 
 One candidate transfer and one exact Magisk rollback completed. The initial
 final-health pass stopped at `ROLLBACK_FLASHED` on a measured USB inventory
@@ -725,6 +734,14 @@ reports grant no device authority.
     one-request/nonce-response sketch only. No D0, approval, transaction,
     Download request, Odin session, transfer, reboot, device contact, or write
     occurred.
+63. **P2.74 host USB trace sidecar, H0:** add one bounded non-authoritative
+    sidecar for kernel USB messages, USB/TTY udev events, and start/end `lsusb`
+    snapshots. Keep it alive across candidate observation, rollback, same-run
+    recovery when applicable, and final health. It never opens candidate ACM,
+    changes no frozen P2.72 execution source, and stores raw identifiers only
+    in private evidence with public export forbidden. Python compilation and
+    five focused tests pass. No D0, approval, transaction, Download request,
+    Odin session, transfer, reboot, device contact, or write occurred.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or
