@@ -352,6 +352,34 @@ class S22PlusFyg8P260SourceContractTest(unittest.TestCase):
         self.assertTrue(result["verified"])
         self.assertTrue(result["init"]["forbidden_authority_absent"])
 
+        required_only_data = (
+            self.RUN_ID
+            + b"\0"
+            + b"\0".join(
+                value.encode("ascii")
+                for value in sorted(
+                    frozenset(
+                        (
+                            *spec.REQUIRED_ABSOLUTE_PATH_STRINGS,
+                            *spec.E3_REQUIRED_CONTROL_STRINGS,
+                            module["file"],
+                        )
+                    )
+                )
+            )
+            + b"\0"
+        )
+        self.assertTrue(audit(required_only_data)["verified"])
+
+        missing_base_path = next(iter(spec.BASE_ABSOLUTE_PATH_STRINGS))
+        missing_base_data = required_only_data.replace(
+            missing_base_path.encode("ascii") + b"\0", b"", 1
+        )
+        with self.assertRaisesRegex(
+            closure.ClosureError, "required absolute path is missing"
+        ):
+            audit(missing_base_data)
+
         for missing in spec.E3_AUTHORITY_STRINGS:
             missing_data = (
                 self.RUN_ID

@@ -58,10 +58,14 @@ Do not add a device step when host-only work can answer the question.
   gadget construction, `ttyGS0`, pre-bind queuing, dummy-UDC bind, configured
   state, and exact 49-byte `ttyACM0` receipt. Focused and historical host tests
   pass, and a fresh source-bound intent plus userspace two-link build pass.
-- P2.70 has no Full-LTO A/B pair or downstream candidate bundle yet. No D0,
-  approval, transaction, Odin session, transfer, reboot, or device write
-  occurred. The next work is Full-LTO A/B on the qualified build host, then
-  the unchanged downstream qualification line.
+- P2.71 separates required absolute runtime paths from optional compiler/link
+  slash artifacts after `"/8@"` caused a false late closure rejection. Fresh
+  Full-LTO A/B, six-artifact equality, the P2.60 GNU linked audit,
+  deterministic boot-only package equality, independent effective-rootfs
+  closure, and offline Process v2 promotion pass.
+- P2.71 has no ready manifest, D0, approval, transaction, Odin session,
+  transfer, reboot, or device write. The next H0 boundary is a data-only ready
+  manifest and independent validation from the promoted AP and exact rollback.
 
 ## Permanent Safety Boundaries
 

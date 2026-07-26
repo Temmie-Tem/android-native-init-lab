@@ -200,9 +200,8 @@ BASE_ABSOLUTE_PATH_STRINGS = (
     "/sys/class/udc/a600000.dwc3",
     "/sys/devices/platform/soc/a600000.ssusb/waiting_for_supplier",
 )
-ALLOWED_ABSOLUTE_PATH_STRINGS = frozenset(
+REQUIRED_ABSOLUTE_PATH_STRINGS = frozenset(
     (
-        *ELF_SLASH_ARTIFACT_STRINGS,
         *BASE_ABSOLUTE_PATH_STRINGS,
         *(
             value
@@ -210,6 +209,9 @@ ALLOWED_ABSOLUTE_PATH_STRINGS = frozenset(
             if value.startswith("/")
         ),
     )
+)
+ALLOWED_ABSOLUTE_PATH_STRINGS = frozenset(
+    (*REQUIRED_ABSOLUTE_PATH_STRINGS, *ELF_SLASH_ARTIFACT_STRINGS)
 )
 E3_REQUIRED_CONTROL_STRINGS = frozenset(
     (

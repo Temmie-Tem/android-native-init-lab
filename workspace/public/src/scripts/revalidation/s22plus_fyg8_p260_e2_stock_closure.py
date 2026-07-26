@@ -72,8 +72,14 @@ def _validate_p260_authority_strings(data: bytes) -> None:
     absolute_paths = frozenset(
         value for value in strings if value.startswith("/")
     )
-    if absolute_paths != source_contract.spec.ALLOWED_ABSOLUTE_PATH_STRINGS:
+    if not absolute_paths.issubset(
+        source_contract.spec.ALLOWED_ABSOLUTE_PATH_STRINGS
+    ):
         raise ClosureError("P2.60 candidate absolute-path authority mismatch")
+    if not source_contract.spec.REQUIRED_ABSOLUTE_PATH_STRINGS.issubset(
+        absolute_paths
+    ):
+        raise ClosureError("P2.60 candidate required absolute path is missing")
     if not source_contract.spec.E3_REQUIRED_CONTROL_STRINGS.issubset(strings):
         raise ClosureError("P2.60 candidate E3 control strings are incomplete")
 

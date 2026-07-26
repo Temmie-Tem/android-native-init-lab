@@ -15,9 +15,10 @@ stage after exact `a600000.dwc3` membership, then failed configfs validation at
 stage `0x88` with detail 5. P2.69 was qualified on the host but retired before
 D0 after exact generic-arm64 QEMU execution exposed a second deterministic
 configfs blocker. P2.70 corrects that link contract and passes the exact
-generic E3 execution path. Its new source-bound intent and userspace closure
-pass, but Full-LTO A/B has not run. No D0 is authorized. No F1 run is
-authorized.**
+generic E3 execution path. P2.71 corrects a late host-only authority-checker
+false rejection and completes fresh Full-LTO A/B, linked audit, deterministic
+packaging, independent closure, and offline promotion. No ready manifest or
+D0 exists. No F1 run is authorized.**
 
 P2.58A passed terminal stage `0x8f` and remains the accepted E2 proof:
 generation 80 passed exact `a600000.dwc3` membership at stage `0x87`, and
@@ -73,8 +74,19 @@ stages `0x88..0x8f`, including pre-bind `ttyGS0` queuing and exact 49-byte
 receipt through `ttyACM0`. The corrected runtime source, fresh intent,
 two-link userspace build, focused tests, and historical host regression suite
 pass. QEMU does not prove Qualcomm DWC3-MSM, PHY, Type-C/VBUS, Samsung
-notifiers, or physical enumeration. Full-LTO A/B and downstream qualification
-remain pending because the qualified build host is not currently accessible.
+notifiers, or physical enumeration.
+
+P2.71 found that the independent stock-closure checker treated incidental ELF
+slash strings as mandatory authority. The current linked `/init` correctly
+omitted `"/8@"`, so an otherwise reproducible first pair was retired before
+D0. Required runtime paths and optional ELF artifacts are now separate;
+required omission and unregistered addition still fail. A fresh source-bound
+intent and userspace rehearsal pass. Clean Full-LTO A/B complete in
+`39:30.23` and `38:20.13`, use no swap, peak at `69.5 C` on the documented
+default throttle lane, and match across all six linked artifacts. The
+versioned GNU linked audit, deterministic boot-only package pair, independent
+effective-rootfs closure, and offline Process v2 promotion pass. No ready
+manifest, D0, approval, or device action occurred.
 
 One candidate transfer and one exact Magisk rollback completed. The initial
 final-health pass stopped at `ROLLBACK_FLASHED` on a measured USB inventory
@@ -661,6 +673,19 @@ reports grant no device authority.
     Full-LTO, D0, approval, Odin, transfer, reboot, or device write occurred.
     Next is clean Full-LTO A/B on the qualified build host, then linked audit,
     deterministic package/static closure, and offline promotion.
+60. **P2.71 ELF-authority correction and E3 candidate host-ready, H0:** the
+    first P2.70 pair reaches independent closure, which falsely requires the
+    incidental ELF string `"/8@"`. A diagnostic correction proves no later
+    blocker. Split required paths from optional ELF artifacts while retaining
+    fail-closed rejection of missing required and unregistered paths. Focused
+    mutation tests and the exact new linked userspace pass before Full LTO.
+    Fresh Builds A/B finish in `39:30.23`/`38:20.13`, use no swap, peak at
+    `69.5 C`, and match for all six linked artifacts. GNU linked audit,
+    deterministic boot-only packages, independent closure, and offline
+    Process v2 promotion pass. An earlier LLVM substitution is recorded as a
+    runbook violation; immutable bundles were instead audited with GNU tools
+    in about 21 seconds. No ready manifest, D0, approval, Odin, transfer,
+    reboot, or device write occurred.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or
