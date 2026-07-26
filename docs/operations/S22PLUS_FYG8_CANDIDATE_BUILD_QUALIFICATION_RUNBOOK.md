@@ -81,6 +81,9 @@ Require all of the following before spending a Full-LTO build:
   change after intent derivation.
 - the exact two-link userspace build has passed its source-contract-specific
   stock-closure entrypoint check before kernel build A.
+- when the selected runtime changes generic configfs/libcomposite/gadget-serial
+  behavior covered by a checked QEMU harness, its exact non-overlay execution
+  verdict has passed before kernel build A.
 
 The exact resource and provenance predicates are owned by the build wrapper.
 Do not bypass a failed preflight based on a manual estimate.
@@ -92,6 +95,21 @@ must not inherit a previous runtime's numeric entrypoint without rebuilding
 the current exact userspace and comparing both `init` and child ELF metadata.
 If this check fails, fix the source-bound closure adapter, derive a new intent,
 and repeat the cheap userspace check before starting either kernel build.
+
+### Generic userspace execution gate
+
+For P2.60-style E3 changes, run the checked generic-arm64 QEMU harness before
+Full LTO. It includes the exact candidate runtime and uses real configfs,
+libcomposite, dummy-hcd, gadget serial, `ttyGS0`, and host-side `ttyACM0`.
+Only the exact verdict is qualification evidence. Temporary syscall or
+readback overlays may localize a defect, but they are forensic evidence only
+and must never qualify a candidate.
+
+This gate proves the generic runtime sequence and catches dynamic ordering,
+value, symlink, queueing, and error-path mistakes that token/static checks
+cannot. It does not emulate or prove Qualcomm DWC3-MSM, SS/HS/eUSB2 PHY,
+peripheral-role control, VBUS/Type-C, Samsung notifier behavior, or physical
+host enumeration. Those remain target-specific F1 evidence.
 
 ## Build record before preflight
 
@@ -411,6 +429,7 @@ not hypothetical policy requirements.
 | P2.58A userspace linked reproducibly, but the stock-closure adapter inherited P2.57's older `/init` entrypoint and rejected the packaged candidate only after two Full-LTO builds | The kernel and packages were reproducible, but a source-bound host proof adapter was stale; a downstream-only shim would split static, promotion, and evidence semantics | Fix the P2.58A adapter itself, derive a new intent because its source receipt changes, and rebuild the invalidated candidate | Before Full LTO, build the exact userspace twice and compare both ELF entrypoints with the selected stock-closure adapter; test scoped adapter state restoration and historical-contract isolation |
 | A new E2 runtime intentionally wrote bounded sysfs/configfs state, but the generic package metadata still claimed `no_userspace_sysfs_or_configfs_write=true` | Candidate safety was selected only by broad profile and duplicated in builder and checker, so a reproducible package could carry a false authority statement | Stop before packaging, move safety selection to one exact-source-contract function, make the checker consume it, source-receipt that selector, and derive a fresh intent | Before Full LTO, evaluate the exact candidate contract's generated safety dictionary and mutation-test both the new bounded authority and unchanged historical profile behavior |
 | P2.60 reached configfs stage `0x88` and failed because `P260_CONFIGFS_MAGIC` used sysfs magic `0x62656572` instead of configfs magic `0x62656570` | The source contract SHA-pinned the runtime and checked that the operation existed, but never compared the external semantic constant with its authoritative kernel definition | Correct the constant, invalidate the source receipt, and stop before Full LTO unless the versioned source contract parses and verifies the exact value | Register every load-bearing external literal in the selected source contract and mutation-test a plausible sibling value; byte identity and token presence are not semantic validation |
+| P2.69 passed static and Full-LTO qualification, but exact QEMU gadget creation failed with `ENOENT`; an absolute target then exposed a second readback mismatch | Configfs resolves a symlink target through `kern_path()` from the process working directory and returns a canonical configfs-relative readlink. The candidate assumed ordinary link-relative creation plus a shorter readback target | Retire the frozen candidate before D0, separate absolute creation and canonical readback values, source-bind both, and derive a new intent | Run exact generic configfs/ACM QEMU execution before Full LTO for covered runtimes; authoritative string checks and mutation tests remain required, while diagnostic overlays never qualify |
 | P2.60 Process v2 promotion emitted terminal `0x8f` although its selected decoder defines `0x90` | Two downstream consumers read the shared legacy E2 model's profile terminal instead of the selected versioned decoder terminal; the already-qualified kernel and package bytes were unaffected | Quarantine only the stale promotion/ready outputs, preserve immutable A/B bundles and AP, fix the host consumers, run legacy plus versioned compatibility tests, then re-promote the same AP | Resolve terminal stage through one version-aware selector: selected decoder terminal first, legacy profile fallback only when no versioned terminal exists; require legacy E2=`0x8f`, P2.60=`0x90`, and reject a stale P2.60 `0x8f` mutation |
 | Remote preflight failed after only the intent JSON and patch were copied | The intent contract also owns its complete `materialized-sources/` tree; transferring two visible files produced an incomplete candidate input without starting a build | Preserve the failed preflight, copy the complete immutable intent directory, and rerun only preflight in a new result directory | Transfer and rehash the complete intent directory as one unit; never reconstruct its required members from a hand-written file list |
 | A long shell invocation was submitted twice and the second package/static helper collided with an already-complete output | Output paths were exclusive, so the duplicate stopped safely, but command submission was not serialized and made a valid first result look ambiguous | Do not regenerate; validate the existing result, all receipts, and byte equality, then retain the first complete output | Wrap each output-producing post-build helper in a nonblocking `flock`, use a unique output directory, and treat an existing output as read-only evidence to validate rather than overwrite |

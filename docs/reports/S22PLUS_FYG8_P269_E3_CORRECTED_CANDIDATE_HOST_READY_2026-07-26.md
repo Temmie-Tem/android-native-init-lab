@@ -5,6 +5,11 @@ Date: 2026-07-26 KST
 Scope: H0 host-only. No device contact, D0, approval, Odin session, transfer,
 reboot, or device write occurred.
 
+> **Superseded before D0:** P2.70 exact generic-arm64 QEMU execution found a
+> deterministic configfs link creation/readback defect in this frozen
+> candidate. Its AP and host-ready bundle remain immutable but are retired
+> from D0 and F1 use.
+
 ## Result
 
 The corrected P2.60 E3 ACM-banner candidate completed the full host
@@ -92,13 +97,10 @@ It cannot validate the remaining target-specific boundary:
 - physical USB host enumeration on this S22+.
 
 Therefore the harness is a reusable semantic pre-LTO test, not a device-proof
-substitute and not a new prerequisite for the already qualified P2.69
-transaction. Implement it after this transaction closes, or earlier only if
-it exposes a concrete defect in the frozen candidate.
+substitute. P2.70 implemented it before D0 and it exposed a concrete defect in
+this frozen candidate.
 
 ## Next attended action
 
-Run connected D0 against the qualified host bundle. If D0 passes, derive one
-fresh exact approval for the existing candidate identity and execute one
-bounded F1 candidate attempt with mandatory rollback. No live authority exists
-until that sequence is completed.
+Do not run D0 or F1 with this candidate. Continue from P2.70's corrected source
+identity and repeat the required host qualification line first.

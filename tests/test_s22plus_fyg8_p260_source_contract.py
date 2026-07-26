@@ -202,6 +202,34 @@ class S22PlusFyg8P260SourceContractTest(unittest.TestCase):
             ):
                 p260._validate_authoritative_runtime_constants(malformed)
 
+    def test_configfs_link_targets_are_authoritative(self):
+        include = p260.source_bytes_for_runtime_include(ROOT)
+        self.assertEqual(
+            len(spec.RUNTIME_EXTERNAL_STRINGS),
+            len(dict(spec.RUNTIME_EXTERNAL_STRINGS)),
+        )
+        p260._validate_authoritative_runtime_strings(include)
+
+        for name, value in spec.RUNTIME_EXTERNAL_STRINGS:
+            declaration = (
+                f"static const char {name}[] =\n"
+                f'    "{value}";'
+            ).encode("ascii")
+            self.assertEqual(include.count(declaration), 1)
+            mutated = include.replace(
+                declaration,
+                (
+                    f"static const char {name}[] =\n"
+                    '    "../../functions/acm.usb0";'
+                ).encode("ascii"),
+                1,
+            )
+            with self.assertRaisesRegex(
+                p260.SourceContractError,
+                f"{name} value drifted",
+            ):
+                p260._validate_authoritative_runtime_strings(mutated)
+
     def test_materialized_runtime_include_is_source_bound(self):
         source, receipts = p260.source_receipts(ROOT)
         self.assertEqual(

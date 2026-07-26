@@ -12,14 +12,17 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 **State: direct PID1, E1A local runtime, E1B module runtime, and the E2
 module-to-real-UDC frontier are live proven. P2.67 reached the first E3-local
 stage after exact `a600000.dwc3` membership, then failed configfs validation at
-stage `0x88` with detail 5. P2.69 now has one fresh corrected E3 candidate
-qualified through clean Full-LTO A/B, deterministic packaging, independent
-closure, and offline Process v2 promotion. No D0 or F1 run is authorized.**
+stage `0x88` with detail 5. P2.69 was qualified on the host but retired before
+D0 after exact generic-arm64 QEMU execution exposed a second deterministic
+configfs blocker. P2.70 corrects that link contract and passes the exact
+generic E3 execution path. Its new source-bound intent and userspace closure
+pass, but Full-LTO A/B has not run. No D0 is authorized. No F1 run is
+authorized.**
 
-P2.58A remains the accepted E2 proof: generation 80 passed exact
-`a600000.dwc3` membership at stage `0x87`, and generation 81 reached terminal
-stage `0x8f`. That proves the exact 60-module sequence, real-UDC publication,
-and the terminal userspace path before E3.
+P2.58A passed terminal stage `0x8f` and remains the accepted E2 proof:
+generation 80 passed exact `a600000.dwc3` membership at stage `0x87`, and
+generation 81 reached terminal stage `0x8f`. That proves the exact 60-module
+sequence, real-UDC publication, and the terminal userspace path before E3.
 
 P2.67 transferred the exact P2.60 v3 E3 candidate once. The operator observed
 a successful candidate boot and no boot loop, but the host ACM observer timed
@@ -53,7 +56,25 @@ host outputs were quarantined; one version-aware selector now serves both
 consumers, legacy E2 remains `0x8f`, P2.60 requires `0x90`, and a stale
 P2.60 `0x8f` acceptance is rejected. The same candidate AP was re-promoted
 and its host-ready bundle validates. No device contact or live authority
-exists.
+exists. Exact generic-arm64 QEMU execution then invalidated the candidate
+before D0: configfs resolves the supplied symlink target from PID1's `/`
+working directory, so `../../functions/acm.usb0` fails with `ENOENT`. A
+diagnostic absolute creation target succeeded, but configfs canonicalized the
+readback as `../../../../usb_gadget/g1/functions/acm.usb0`, which the candidate
+also rejected. The frozen P2.69 AP and bundle were not modified and are
+retired from live use.
+
+P2.70 separates the absolute configfs creation target from the canonical
+readback target and binds both values into the versioned source contract.
+A bounded generic-arm64 QEMU harness boots an official Debian arm64 kernel,
+loads configfs/libcomposite/dummy-hcd/ACM modules, includes the exact P2.60
+runtime, and adapts only the Qualcomm role/UDC boundary. Exact execution passes
+stages `0x88..0x8f`, including pre-bind `ttyGS0` queuing and exact 49-byte
+receipt through `ttyACM0`. The corrected runtime source, fresh intent,
+two-link userspace build, focused tests, and historical host regression suite
+pass. QEMU does not prove Qualcomm DWC3-MSM, PHY, Type-C/VBUS, Samsung
+notifiers, or physical enumeration. Full-LTO A/B and downstream qualification
+remain pending because the qualified build host is not currently accessible.
 
 One candidate transfer and one exact Magisk rollback completed. The initial
 final-health pass stopped at `ROLLBACK_FLASHED` on a measured USB inventory
@@ -622,7 +643,24 @@ reports grant no device authority.
     regenerate those outputs. Focused 28+17 tests pass, the new bundle
     validates with `0x90`, and a stale `0x8f` mutation is rejected. No D0,
     approval, Odin, transfer, reboot, or device write occurred. The next
-    attended step is connected D0 and one fresh exact F1 approval.
+    attended step was connected D0 and one fresh exact F1 approval. This
+    candidate was instead retired before D0 by P2.70's exact QEMU result.
+59. **P2.70 generic E3 execution and configfs-link correction, H0:** execute
+    the exact P2.60 configfs/ACM helpers in a generic-arm64 QEMU guest before
+    spending another F1. The P2.69 runtime fails gadget creation because
+    configfs resolves `../../functions/acm.usb0` from PID1's `/` working
+    directory. An absolute creation target reaches configfs, whose canonical
+    readback is `../../../../usb_gadget/g1/functions/acm.usb0`; the old
+    candidate rejects that value too. Split creation/readback strings, bind
+    both into the authoritative source contract, and retain only an exact
+    promotable QEMU verdict. The corrected runtime passes configfs mount,
+    gadget construction, `ttyGS0`, pre-bind banner queuing, dummy-UDC bind,
+    configured state, and exact 49-byte `ttyACM0` receipt. Focused tests,
+    historical host regressions, fresh intent, and two-link userspace closure
+    pass. P2.69's frozen outputs remain untouched and live-ineligible. No
+    Full-LTO, D0, approval, Odin, transfer, reboot, or device write occurred.
+    Next is clean Full-LTO A/B on the qualified build host, then linked audit,
+    deterministic package/static closure, and offline promotion.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or

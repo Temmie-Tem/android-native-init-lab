@@ -153,6 +153,25 @@ def _validate_authoritative_runtime_constants(include: bytes) -> None:
             )
 
 
+def _validate_authoritative_runtime_strings(include: bytes) -> None:
+    for name, expected_value in spec.RUNTIME_EXTERNAL_STRINGS:
+        pattern = re.compile(
+            rb"static[ \t]+const[ \t]+char[ \t]+"
+            + re.escape(name.encode("ascii"))
+            + rb"\[\][ \t]*=[ \t\r\n]*\"([^\"]*)\"[ \t]*;",
+            re.MULTILINE,
+        )
+        matches = pattern.findall(include)
+        if len(matches) != 1:
+            raise SourceContractError(
+                f"P2.60 authoritative string {name} cardinality drifted"
+            )
+        if matches[0].decode("ascii") != expected_value:
+            raise SourceContractError(
+                f"P2.60 authoritative string {name} value drifted"
+            )
+
+
 def _replace_exact(
     data: bytes,
     old: bytes,
@@ -427,6 +446,7 @@ def _generated_semantics(
         raise SourceContractError("P2.60 linked geometry drifted")
     include = source_bytes_for_runtime_include()
     _validate_authoritative_runtime_constants(include)
+    _validate_authoritative_runtime_strings(include)
     if hashlib.sha256(include).hexdigest() != spec.E3_RUNTIME_INCLUDE_SHA256:
         raise SourceContractError("P2.60 E3 runtime source identity drifted")
     required_include = (

@@ -13,6 +13,9 @@ Do not add a device step when host-only work can answer the question.
 ## Current Live Posture
 
 - No S22+ F1 live run is currently authorized.
+- P2.58A consumed one exact approval and proved terminal stage `0x8f` after
+  exact `a600000.dwc3` membership. This proves the real UDC and terminal
+  userspace path, not USB host enumeration.
 - P2.67 consumed one exact approval and transferred the P2.60 v3 E3 candidate
   once. The operator observed a successful candidate boot and no boot loop.
 - Two byte-identical retained reads contain one exact terminal-failure record.
@@ -44,9 +47,21 @@ Do not add a device step when host-only work can answer the question.
   rejected host outputs were quarantined, and promotion/acceptance now share
   one version-aware terminal selector. The same candidate AP was re-promoted
   and its host-ready bundle validates with terminal `0x90`.
-- No D0, approval, transaction, Odin session, transfer, reboot, or device
-  write occurred for P2.69. The next attended work is connected D0, then one
-  fresh exact approval for the already qualified candidate.
+- P2.69 is retired before D0. An exact generic-arm64 QEMU execution found that
+  its configfs link target was resolved from PID1's `/` working directory and
+  failed with `ENOENT`; the candidate also expected a non-canonical readlink
+  value. Its frozen AP and qualification bundle remain untouched and must not
+  be used for D0 or F1.
+- P2.70 separates the configfs link creation target from its canonical
+  readback target, binds both strings into the source contract, and adds a
+  bounded generic-arm64 QEMU harness. The exact runtime passes configfs,
+  gadget construction, `ttyGS0`, pre-bind queuing, dummy-UDC bind, configured
+  state, and exact 49-byte `ttyACM0` receipt. Focused and historical host tests
+  pass, and a fresh source-bound intent plus userspace two-link build pass.
+- P2.70 has no Full-LTO A/B pair or downstream candidate bundle yet. No D0,
+  approval, transaction, Odin session, transfer, reboot, or device write
+  occurred. The next work is Full-LTO A/B on the qualified build host, then
+  the unchanged downstream qualification line.
 
 ## Permanent Safety Boundaries
 

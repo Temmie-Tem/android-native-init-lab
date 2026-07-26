@@ -43,6 +43,10 @@ static const char p260_gadget_root[] = "/config/usb_gadget/g1";
 static const char p260_udc_name[] = "a600000.dwc3";
 static const char p260_role_path[] =
     "/sys/devices/platform/soc/a600000.ssusb/mode";
+static const char p260_link_create_target[] =
+    "/config/usb_gadget/g1/functions/acm.usb0";
+static const char p260_link_readback_target[] =
+    "../../../../usb_gadget/g1/functions/acm.usb0";
 static char p260_usb_serial[38];
 static char p260_banner[50];
 
@@ -377,9 +381,10 @@ static long p260_create_gadget(void) {
     }
     static const char link_path[] =
         "/config/usb_gadget/g1/configs/b.1/acm.usb0";
-    static const char link_target[] = "../../functions/acm.usb0";
-    long rc = p260_symlinkat(link_target, link_path);
-    return rc != 0 ? rc : p260_verify_link(link_path, link_target);
+    long rc = p260_symlinkat(p260_link_create_target, link_path);
+    return rc != 0
+        ? rc
+        : p260_verify_link(link_path, p260_link_readback_target);
 }
 
 static long p260_parse_dev(

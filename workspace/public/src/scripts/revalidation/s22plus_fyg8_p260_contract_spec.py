@@ -102,6 +102,16 @@ RUNTIME_EXTERNAL_CONSTANTS = (
     ("P260_PARENB", 0o0000400),
     ("P260_CLOCAL", 0o0004000),
 )
+CONFIGFS_FUNCTION_LINK_CREATE_TARGET = (
+    "/config/usb_gadget/g1/functions/acm.usb0"
+)
+CONFIGFS_FUNCTION_LINK_READBACK_TARGET = (
+    "../../../../usb_gadget/g1/functions/acm.usb0"
+)
+RUNTIME_EXTERNAL_STRINGS = (
+    ("p260_link_create_target", CONFIGFS_FUNCTION_LINK_CREATE_TARGET),
+    ("p260_link_readback_target", CONFIGFS_FUNCTION_LINK_READBACK_TARGET),
+)
 USB_VENDOR_ID = "04e8"
 USB_PRODUCT_ID = "6861"
 USB_DRIVER = "cdc_acm"
@@ -111,7 +121,7 @@ BANNER_PREFIX = "S22PLUS-FYG8-E3:"
 USB_SERIAL_SIZE = len(USB_SERIAL_PREFIX) + 32
 BANNER_SIZE = len(BANNER_PREFIX) + 32 + 1
 E3_RUNTIME_INCLUDE_SHA256 = (
-    "b24fddee3e2c7ea34000e1a2ba088e2abd71c1851fd3cc09764bff9316670c46"
+    "767bd359de56cb24be84c4479cd01d4f710a676490c23f966617b996fe5cc612"
 )
 ELF_SLASH_ARTIFACT_STRINGS = ("/", "/8@", "/@")
 E3_AUTHORITY_STRINGS = (
@@ -204,7 +214,8 @@ ALLOWED_ABSOLUTE_PATH_STRINGS = frozenset(
 E3_REQUIRED_CONTROL_STRINGS = frozenset(
     (
         "configfs",
-        "../../functions/acm.usb0",
+        CONFIGFS_FUNCTION_LINK_CREATE_TARGET,
+        CONFIGFS_FUNCTION_LINK_READBACK_TARGET,
         "0x0003",
         "0x0200",
         "0x04e8",
@@ -227,8 +238,8 @@ E3_HEX_CONTROL_STRINGS = frozenset(
 )
 E3_FUNCTION_TARGET_STRINGS = frozenset(
     (
-        "../../functions/acm.usb0",
-        "/config/usb_gadget/g1/functions/acm.usb0",
+        CONFIGFS_FUNCTION_LINK_CREATE_TARGET,
+        CONFIGFS_FUNCTION_LINK_READBACK_TARGET,
     )
 )
 E3_SPEED_CONTROL_STRINGS = frozenset(("high-speed",))
