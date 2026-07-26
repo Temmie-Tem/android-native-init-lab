@@ -12,8 +12,9 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 **State: direct PID1, E1A local runtime, E1B module runtime, and the E2
 module-to-real-UDC frontier are live proven. P2.67 reached the first E3-local
 stage after exact `a600000.dwc3` membership, then failed configfs validation at
-stage `0x88` with detail 5. Exact rollback and final health passed. The
-binding and approval are consumed. No F1 run is authorized.**
+stage `0x88` with detail 5. P2.69 now has one fresh corrected E3 candidate
+qualified through clean Full-LTO A/B, deterministic packaging, independent
+closure, and offline Process v2 promotion. No D0 or F1 run is authorized.**
 
 P2.58A remains the accepted E2 proof: generation 80 passed exact
 `a600000.dwc3` membership at stage `0x87`, and generation 81 reached terminal
@@ -39,8 +40,20 @@ ABI constants used by the E3 runtime and compares them with one authoritative
 contract table before checking the runtime SHA. Mutation to sysfs magic
 `0x62656572` is rejected as a semantic-value drift through the real pre-LTO
 call path; missing and duplicate definitions are also rejected. Focused
-Python, mutation, and no-LTO userspace two-link tests pass. No new intent,
-kernel, image, D0, approval, or device action exists.
+Python, mutation, and no-LTO userspace two-link tests pass.
+
+P2.69 derived the fresh v4 intent, completed two clean Full-LTO builds in
+`40:43.23` and `40:45.31` with no swap, and proved byte equality for all six
+linked artifacts. The P2.60 linked audit, two deterministic boot-only package
+runs, independent static closure, and offline Process v2 promotion pass.
+Before D0, a downstream host-contract audit found that promotion and
+acceptance inherited legacy E2 terminal `0x8f` instead of P2.60 terminal
+`0x90`. Kernel, `/init`, package, and AP bytes were unaffected. The invalid
+host outputs were quarantined; one version-aware selector now serves both
+consumers, legacy E2 remains `0x8f`, P2.60 requires `0x90`, and a stale
+P2.60 `0x8f` acceptance is rejected. The same candidate AP was re-promoted
+and its host-ready bundle validates. No device contact or live authority
+exists.
 
 One candidate transfer and one exact Magisk rollback completed. The initial
 final-health pass stopped at `ROLLBACK_FLASHED` on a measured USB inventory
@@ -596,6 +609,20 @@ reports grant no device authority.
     and the actual no-LTO userspace two-link closure pass. No Full-LTO build,
     intent, image, package, D0, approval, or device action occurred. Next is a
     fresh source-bound intent and final qualification, not more USB analysis.
+58. **P2.69 corrected E3 candidate host-ready, H0:** derive one fresh P2.60
+    intent and run two clean same-path Full-LTO builds. Builds A/B finish in
+    `40:43.23`/`40:45.31`, peak near 24.25 GiB, use no swap, and match across
+    `.config`, `Image`, `System.map`, `abi.xml`, `vmlinux`, and
+    `vmlinux.symvers`. Linked semantics, deterministic boot-only package
+    equality, independent closure, and offline promotion pass. A final host
+    audit catches promotion/acceptance using legacy terminal `0x8f` rather
+    than selected P2.60 terminal `0x90`. This is downstream-only: preserve the
+    immutable candidate and A/B bundles, quarantine only the stale Process v2
+    and ready-manifest outputs, fix one version-aware terminal selector, and
+    regenerate those outputs. Focused 28+17 tests pass, the new bundle
+    validates with `0x90`, and a stale `0x8f` mutation is rejected. No D0,
+    approval, Odin, transfer, reboot, or device write occurred. The next
+    attended step is connected D0 and one fresh exact F1 approval.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or

@@ -252,6 +252,7 @@ def derive(
         source_contract_id, profile
     )
     model = selected_decoder.model
+    terminal_stage = evidence._latest_stage_terminal(selected_decoder, profile)
     run_manifest = {
         "schema": evidence.E1_LATEST_STAGE_RUN_MANIFEST_SCHEMA,
         "target": TARGET,
@@ -262,7 +263,7 @@ def derive(
         "records": {
             "long_family_hex": model.LONG_FAMILY.hex(),
             "unsat_family_hex": model.UNSAT_FAMILY.hex(),
-            "terminal_stage": model.PROFILE_TERMINALS[profile],
+            "terminal_stage": terminal_stage,
         },
         "observation_contract": {
             "accepted_identity": f"{profile}_TERMINAL_SUCCESS_REACHED",

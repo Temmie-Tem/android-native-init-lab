@@ -496,6 +496,44 @@ class DeviceActionF1EvidenceV2Test(unittest.TestCase):
         with self.assertRaises(self.module.EvidenceError):
             self.module.validate_acceptance(changed)
 
+    def test_p260_acceptance_requires_versioned_terminal_stage(self):
+        selected = self.module.source_contracts.p260
+        decoder = self.module._latest_stage_decoder(selected.CONTRACT_ID, "E2")
+        artifact = {
+            "path": "workspace/private/contract.json",
+            "size": 1,
+            "sha256": "1" * 64,
+        }
+        acceptance = {
+            "kind": self.module.E1_LATEST_STAGE_KIND,
+            "source": self.module.CHECKPOINT_SOURCE,
+            "decoder": decoder.DECODER_ID,
+            "policy_id": decoder.POLICY_ID,
+            "profile": "E2",
+            "run_id": RUN_ID.hex(),
+            "long_family_hex": decoder.model.LONG_FAMILY.hex(),
+            "unsat_family_hex": decoder.model.UNSAT_FAMILY.hex(),
+            "terminal_stage": 0x90,
+            "minimum_success_count": 1,
+            "clean_baseline_required": True,
+            "source_contract_id": selected.CONTRACT_ID,
+            "contract": {
+                "candidate_static": artifact,
+                "run_manifest": artifact,
+                "static_check": artifact,
+            },
+        }
+        result = self.module.validate_acceptance(acceptance)
+        self.assertEqual(result["terminal_stage"], 0x90)
+
+        stale = copy.deepcopy(acceptance)
+        stale["terminal_stage"] = 0x8F
+        with self.assertRaisesRegex(
+            self.module.EvidenceError,
+            "acceptance identity",
+        ):
+            self.module.validate_acceptance(stale)
+
     def test_same_ring_offline_contract_binds_candidate_and_records(self):
         bundle = self.same_ring_offline_bundle()
         result = self.module.verify_offline_contract(**bundle)

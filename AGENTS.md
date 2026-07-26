@@ -35,11 +35,18 @@ Do not add a device step when host-only work can answer the question.
 - P2.68 corrected the configfs magic to `0x62656570`. The pre-LTO source
   contract now parses all 16 E3 runtime external ABI constants against one
   authoritative table, and a sysfs-magic mutation fails before the generic
-  source-identity check. Focused Python, mutation, and no-LTO two-link tests
-  pass. No new intent, kernel, image, D0, approval, or device action exists.
-- The binding and approval are consumed. Before another F1, derive fresh
-  artifacts and authority from the corrected source, complete D0, and obtain
-  one fresh exact approval.
+  source-identity check.
+- P2.69 derived a fresh source-bound intent and completed two clean Full-LTO
+  builds, six-artifact byte equality, linked audit, deterministic package
+  equality, independent static closure, and offline Process v2 promotion.
+  A downstream bug initially inherited legacy E2 terminal `0x8f` instead of
+  the selected P2.60 decoder terminal `0x90`; it was caught before D0, the
+  rejected host outputs were quarantined, and promotion/acceptance now share
+  one version-aware terminal selector. The same candidate AP was re-promoted
+  and its host-ready bundle validates with terminal `0x90`.
+- No D0, approval, transaction, Odin session, transfer, reboot, or device
+  write occurred for P2.69. The next attended work is connected D0, then one
+  fresh exact approval for the already qualified candidate.
 
 ## Permanent Safety Boundaries
 

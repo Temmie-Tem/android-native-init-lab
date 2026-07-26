@@ -14,6 +14,7 @@ SCRIPTS = ROOT / "workspace/public/src/scripts/revalidation"
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 import s22plus_boot_verify as boot_verify_fixture  # noqa: E402
+import s22plus_fyg8_p260_source_contract as p260  # noqa: E402
 
 
 def lz4_store(payload):
@@ -228,7 +229,9 @@ class P234ProcessV2Test(unittest.TestCase):
         )
         model = selected_decoder.model
         profile_number = model.PROFILE_NUMBERS[profile]
-        terminal = model.PROFILE_TERMINALS[profile]
+        terminal = self.evidence._latest_stage_terminal(
+            selected_decoder, profile
+        )
         reachable_slot_variants = self.evidence._e1_reachable_slot_variant_count(
             profile, source_contract_id
         )
@@ -592,9 +595,9 @@ class P234ProcessV2Test(unittest.TestCase):
             "run_id": run_id,
             "long_family_hex": self.evidence.e1_latest_stage.model.LONG_FAMILY.hex(),
             "unsat_family_hex": self.evidence.e1_latest_stage.model.UNSAT_FAMILY.hex(),
-            "terminal_stage": self.evidence.e1_latest_stage.model.PROFILE_TERMINALS[
-                profile
-            ],
+            "terminal_stage": self.evidence._latest_stage_terminal(
+                selected_decoder, profile
+            ),
             "minimum_success_count": 1,
             "clean_baseline_required": True,
             "contract": {
@@ -975,6 +978,18 @@ class P234ProcessV2Test(unittest.TestCase):
         )
         self.assertEqual(
             result["candidate_static_sha256"], candidate_static["sha256"]
+        )
+
+    def test_p260_e3_uses_versioned_terminal_stage(self):
+        legacy = self.evidence._latest_stage_decoder(None, "E2")
+        selected = self.evidence._latest_stage_decoder(p260.CONTRACT_ID, "E2")
+        self.assertEqual(
+            self.evidence._latest_stage_terminal(legacy, "E2"),
+            0x8F,
+        )
+        self.assertEqual(
+            self.evidence._latest_stage_terminal(selected, "E2"),
+            0x90,
         )
 
     def test_offline_verifier_rejects_repinned_e2_module_tampering(self):

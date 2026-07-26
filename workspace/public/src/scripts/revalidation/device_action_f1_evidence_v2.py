@@ -223,6 +223,19 @@ def _latest_stage_decoder(
     return _selected_contract(source_contract_id, profile).decoder
 
 
+def _latest_stage_terminal(selected_decoder, profile: str) -> int:
+    terminal = getattr(selected_decoder, "TERMINAL_STAGE", None)
+    if terminal is None:
+        terminal = selected_decoder.model.PROFILE_TERMINALS.get(profile)
+    if (
+        isinstance(terminal, bool)
+        or not isinstance(terminal, int)
+        or not 0 <= terminal <= 0xFF
+    ):
+        raise EvidenceError("selected decoder terminal stage is invalid")
+    return terminal
+
+
 def _expected_reachable_record_contract(
     profile: str,
     source_contract_id: str | None,
@@ -780,6 +793,7 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
         profile = item["profile"]
         selected_decoder = _latest_stage_decoder(source_contract_id, profile)
         model = selected_decoder.model
+        terminal_stage = _latest_stage_terminal(selected_decoder, profile)
         model_ids = {model.model_run_id(name).hex() for name in model.PROFILE_NUMBERS}
         if (
             item["source"] != CHECKPOINT_SOURCE
@@ -792,7 +806,7 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
             or item["run_id"] in model_ids
             or item["long_family_hex"] != model.LONG_FAMILY.hex()
             or item["unsat_family_hex"] != model.UNSAT_FAMILY.hex()
-            or item["terminal_stage"] != model.PROFILE_TERMINALS.get(profile)
+            or item["terminal_stage"] != terminal_stage
             or item["minimum_success_count"] != 1
             or item["clean_baseline_required"] is not True
         ):
