@@ -5,6 +5,12 @@ Tier: H0
 Status: `FOCUSED_ANALYSIS_COMPLETE`
 Device contact: none
 
+Supersession note: P2.78 narrows this report's parent-role interpretation.
+Stage `0x8d` can pass without executing `mode_store("peripheral")` when the
+initial mode read already returns `peripheral`; that readback is not a
+state-machine completion fence. The firmware, retained-buffer, UDC-bind, and
+post-bind observation findings below remain valid.
+
 ## Question
 
 P2.76 reached UDC-bind stage `0x8e`, then timed out at configured-state stage

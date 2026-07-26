@@ -748,21 +748,24 @@ reports grant no device authority.
     Candidate, rollback, observer identity, and execution closure are unchanged;
     offline bundle validation and focused regressions pass. Next is connected
     D0 against ready2 only; no device contact or authority occurred.
-66. **P2.76 E3 post-bind configured timeout, F1:** use ready2 once under one
-    exact approval. Configfs, gadget, `ttyGS0`, banner queue, peripheral-role
-    readback, exact UDC membership, and exact UDC bind reach stage `0x8e`.
-    Stage `0x8f` times out before configured/high-speed and the 180-second host
-    observer sees no candidate endpoint. One exact rollback and final health
-    pass; the transaction is closed and authority consumed.
-67. **P2.77 post-bind focused analysis, H0:** separate stale retained Android
-    and bootloader text from the candidate checkpoint, rule out external
-    firmware requests in the exact 60-module closure, and trace the FYG8
-    `mode_store -> sm_work -> start_peripheral` path. The current role and UDC
-    predicates can pass before parent state-machine completion, while stage
-    `0x8e` proves synchronous gadget connect returned success. Design the next
-    bounded discriminator around final UDC state/speed, optional existing DWC3
-    IPC markers, and the already-built host sidecar; do not widen modules or
-    gadget composition first.
+66. **P2.76 E3 post-bind timeout, F1:** ready2 reaches configfs, gadget,
+    `ttyGS0`, queued banner, peripheral readback, exact UDC membership, and
+    exact UDC bind at `0x8e`; `0x8f` times out before configured/high-speed and
+    no ACM endpoint is accepted. Exact rollback and final health pass; the
+    transaction closes and authority is consumed.
+67. **P2.77 post-bind source analysis, H0:** separate stale retained text,
+    rule out external firmware requests in the exact 60-module closure, and
+    trace the asynchronous `mode_store -> sm_work -> start_peripheral` path.
+    Stage `0x8e` proves the synchronous initial pull-up returned success, not
+    later host attach or enumeration.
+68. **P2.78 three-lane USB analysis, H0:** exact stock rc/HAL needs no hidden
+    enable write for minimal ACM, but P2.76 can skip its active role write when
+    mode already reads peripheral; `0x8d` therefore does not prove the forced
+    bypass executed or settled. The initial bind already performs DWC3 reset
+    and RUN_STOP, while `soft_connect` discards reconnect errors. Preserve
+    initial/write/final role evidence, terminal UDC state/speed, optional
+    link/IPC markers, and require a durable armed host kernel/udev trace before
+    another F1. Keep firmware, modules, composition, and reconnect unchanged.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or

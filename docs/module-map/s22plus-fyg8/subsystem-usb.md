@@ -270,3 +270,72 @@ This remains H0 evidence. A linked candidate audit must still prove reuse of
 the exact qualified kernel Image before packaging. If a future corrected dwell
 still fails, instrument only role-work entry and the PM/reset/gadget-init
 return codes. Do not add modules, force role, or create configfs state.
+
+## P2.76-P2.78 Post-Bind Frontier
+
+P2.76 later proves the exact E3 path through configfs gadget construction,
+`ttyGS0`, pre-bind banner queue, exact real UDC membership, and exact UDC bind.
+It then times out at stage `0x8f` before exact `configured` plus `high-speed`.
+The candidate boots without a boot loop, exact rollback and final health pass,
+and the transaction closes. No host ACM bytes are accepted.
+
+P2.77 rules out a direct external firmware-file dependency in the exact
+60-module closure and establishes an asynchronous boundary between the
+DWC3-MSM parent role callback and its queued peripheral-start work. It also
+proves that stage `0x8e` includes a synchronous initial DWC3 pull-up request,
+core soft reset, and RUN_STOP request. It does not prove host attach or
+enumeration.
+
+P2.78 corrects one stronger reading of the role evidence. The exact runtime
+writes `peripheral` only when the first parent-mode read is `none` or `host`.
+If it already reads `peripheral`, stage `0x8d` skips `mode_store()` and passes
+after exact UDC membership. Exact FYG8 `mode_show()` reflects
+`vbus_active`/`id_state`, not `drd_state`, `in_device_mode`, or completion of
+the newly queued `sm_work`. P2.76 therefore does not prove that the explicit
+forced-role bypass actually executed.
+
+The P2.60 source contract proves the write token exists but not which runtime
+branch takes it. The generic-arm64 P2.70 QEMU harness intentionally replaces
+the Qualcomm role/UDC boundary. It remains authoritative for generic configfs
+and ACM behavior but cannot close this semantic gap.
+
+The exact stock rc remains a normal configfs composition with the UDC write
+last. It contains no parent-mode, `dr_mode`, or `usb_role` write. Stock reaches
+peripheral role through the Max77705/PDIC and notifier chain. That automatic
+chain is not required if the explicit parent-mode callback is proved to run
+and settle; P2.76 simply did not establish that precondition.
+
+The exact initial UDC bind already traverses DWC3 core soft reset and RUN_STOP.
+The generic UDC `soft_connect` attribute accepts `connect`/`disconnect`, but
+its store callback discards the underlying reconnect return code. A successful
+write is therefore non-proof. Treat a disconnect/reconnect only as a later,
+isolated recovery experiment after state capture, not the next blind fix.
+
+The next bounded discriminator records:
+
+```text
+initial parent mode
+explicit role-write attempted/result
+final parent mode
+final UDC state/current_speed
+optional one-shot DWC3 link_state
+optional exact DWC3-MSM IPC marker bitmap
+```
+
+At the host, the P2.74 sidecar must produce a durable armed receipt after both
+kernel and udev sources are live. Optional bounded usbmon can enrich reset and
+descriptor analysis when attended root access is available, but kernel/udev
+events remain the primary attach discriminator. Odin success is only a
+physical-path positive control because Download mode uses different USB
+firmware and controller state.
+
+Do not add firmware, Max77705 modules, Android gadget daemons, a larger
+composition, or a soft-connect retry before this discriminator. The current
+open coordinates are:
+
+```text
+role write skipped
+role write queued but parent work incomplete
+parent started but host saw no attach
+host began enumeration but reset/descriptors failed
+```
