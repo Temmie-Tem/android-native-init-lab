@@ -71,6 +71,15 @@ Do not add a device step when host-only work can answer the question.
 - P2.72 performed no D0, approval, transaction, Odin session, transfer, reboot,
   device contact, or device write. The next bounded step is connected D0
   against this immutable ready manifest.
+- The complete P2.72 manifest-bound and live execution closure is frozen
+  through the next attended transaction. Do not change candidate sources,
+  contracts, decoders, checkers, runner/adapter code, D0, CDC-ACM, Odin, USBFS,
+  or transport code. A newly found candidate defect postpones F1; it does not
+  justify an expedited rebuild.
+- P2.73 host rehearsal passes with the same bundle and execution-closure
+  hashes. The repeated post-rollback inventory deviation is strongly localized
+  to a pre-snapshot USBFS baseline race. Until a post-transaction fix, only the
+  exact `ROLLBACK_FLASHED` recovery branch may resume it without retransmission.
 
 ## Permanent Safety Boundaries
 

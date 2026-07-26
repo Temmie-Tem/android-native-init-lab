@@ -19,7 +19,8 @@ generic E3 execution path. P2.71 corrects a late host-only authority-checker
 false rejection and completes fresh Full-LTO A/B, linked audit, deterministic
 packaging, independent closure, and offline promotion. P2.72 creates and
 independently validates one data-only ready manifest for that exact candidate
-and rollback. No D0 exists. No F1 run is authorized.**
+and rollback. P2.73 freezes the complete execution line and rehearses the
+unchanged live adapter. No D0 exists. No F1 run is authorized.**
 
 P2.58A passed terminal stage `0x8f` and remains the accepted E2 proof:
 generation 80 passed exact `a600000.dwc3` membership at stage `0x87`, and
@@ -98,6 +99,15 @@ pins the exact bundle and all no-live-authority flags. An initial host-only
 draft with historical runner `host-core-1` was rejected and corrected to the
 current `host-core-3` before acceptance. No D0, approval, Odin session, device
 contact, transfer, reboot, or write occurred.
+
+P2.73 freezes every manifest-bound and live execution-critical source through
+the next attended transaction. The unchanged live adapter reopens the exact
+bundle and renders the D0/approval/execute/recover sequence with all authority
+flags false. Two prior post-rollback deviations are strongly localized to a
+Download-to-Android USBFS baseline-inventory race before any snapshot receipt;
+the exact inner exception remains unrecorded. Do not patch the bound runner
+now. If the same exact error recurs after durable `ROLLBACK_FLASHED`, resume
+the same journal with `--recover`; never repeat candidate or rollback.
 
 One candidate transfer and one exact Magisk rollback completed. The initial
 final-health pass stopped at `ROLLBACK_FLASHED` on a measured USB inventory
@@ -706,6 +716,15 @@ reports grant no device authority.
     before acceptance. No D0, approval, Odin session, transfer, reboot, device
     contact, or write occurred. Next is connected D0 against this immutable
     manifest.
+62. **P2.73 freeze and attended rehearsal, H0:** freeze the complete P2.72
+    candidate and live execution closure. Reopen the exact bundle with the
+    unchanged live adapter, pin the command/path/hash sequence, and preserve
+    the journal-only recovery branch. Localize the repeated rollback deviation
+    to a pre-snapshot USBFS baseline scan during Download-to-Android
+    re-enumeration; exact inner exception remains unresolved. Record an E4
+    one-request/nonce-response sketch only. No D0, approval, transaction,
+    Download request, Odin session, transfer, reboot, device contact, or write
+    occurred.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or
