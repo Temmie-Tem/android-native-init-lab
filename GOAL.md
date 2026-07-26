@@ -17,8 +17,9 @@ D0 after exact generic-arm64 QEMU execution exposed a second deterministic
 configfs blocker. P2.70 corrects that link contract and passes the exact
 generic E3 execution path. P2.71 corrects a late host-only authority-checker
 false rejection and completes fresh Full-LTO A/B, linked audit, deterministic
-packaging, independent closure, and offline promotion. No ready manifest or
-D0 exists. No F1 run is authorized.**
+packaging, independent closure, and offline promotion. P2.72 creates and
+independently validates one data-only ready manifest for that exact candidate
+and rollback. No D0 exists. No F1 run is authorized.**
 
 P2.58A passed terminal stage `0x8f` and remains the accepted E2 proof:
 generation 80 passed exact `a600000.dwc3` membership at stage `0x87`, and
@@ -87,6 +88,16 @@ default throttle lane, and match across all six linked artifacts. The
 versioned GNU linked audit, deterministic boot-only package pair, independent
 effective-rootfs closure, and offline Process v2 promotion pass. No ready
 manifest, D0, approval, or device action occurred.
+
+P2.72 binds that exact promoted AP, the target profile's exact Magisk rollback,
+the three offline evidence contracts, E2 terminal `0x90`, the versioned P2.60
+source closure, and its source-derived CDC-ACM observer into one data-only
+ready manifest. The unchanged common runner reopens the complete bundle and
+returns `PASS_DEVICE_ACTION_F1_V2_HOST_PREFLIGHT`; a separate regression test
+pins the exact bundle and all no-live-authority flags. An initial host-only
+draft with historical runner `host-core-1` was rejected and corrected to the
+current `host-core-3` before acceptance. No D0, approval, Odin session, device
+contact, transfer, reboot, or write occurred.
 
 One candidate transfer and one exact Magisk rollback completed. The initial
 final-health pass stopped at `ROLLBACK_FLASHED` on a measured USB inventory
@@ -686,6 +697,15 @@ reports grant no device authority.
     runbook violation; immutable bundles were instead audited with GNU tools
     in about 21 seconds. No ready manifest, D0, approval, Odin, transfer,
     reboot, or device write occurred.
+61. **P2.72 E3 data-only ready manifest, H0:** bind the exact P2.71-promoted
+    boot-only AP, exact Magisk rollback, three offline contracts, terminal
+    `0x90`, versioned source closure, and source-derived CDC-ACM observer into
+    one reusable Process v2 manifest. The unchanged common runner independently
+    reopens the complete bundle and passes host preflight; an exact-bundle
+    regression test also passes. A stale runner-version draft is rejected
+    before acceptance. No D0, approval, Odin session, transfer, reboot, device
+    contact, or write occurred. Next is connected D0 against this immutable
+    manifest.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or

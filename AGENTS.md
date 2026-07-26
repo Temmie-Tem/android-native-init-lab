@@ -63,9 +63,14 @@ Do not add a device step when host-only work can answer the question.
   Full-LTO A/B, six-artifact equality, the P2.60 GNU linked audit,
   deterministic boot-only package equality, independent effective-rootfs
   closure, and offline Process v2 promotion pass.
-- P2.71 has no ready manifest, D0, approval, transaction, Odin session,
-  transfer, reboot, or device write. The next H0 boundary is a data-only ready
-  manifest and independent validation from the promoted AP and exact rollback.
+- P2.72 adds one data-only ready manifest for the exact P2.71-promoted E3
+  candidate and Magisk rollback. The unchanged common runner independently
+  reopens the AP member, typed observation, versioned source closure, E2
+  effective rootfs, CDC-ACM observer, profile, rollback, and pinned Odin; exact
+  bundle regression passes.
+- P2.72 performed no D0, approval, transaction, Odin session, transfer, reboot,
+  device contact, or device write. The next bounded step is connected D0
+  against this immutable ready manifest.
 
 ## Permanent Safety Boundaries
 
