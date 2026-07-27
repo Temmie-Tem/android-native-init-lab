@@ -733,21 +733,16 @@ reports grant no device authority.
     in private evidence with public export forbidden. Python compilation and
     five focused tests pass. No D0, approval, transaction, Download request,
     Odin session, transfer, reboot, device contact, or write occurred.
-64. **P2.75 P2.72 F1 adversarial preflight, H0:** inspect the complete frozen
-    execution and recovery path, exact host artifacts, sidecar prerequisites,
-    stock recovery evidence, and historical journals. Close the stale
-    `AGENTS.md` line-count failure by reflow only, and document all recoverable
-    journal states rather than only the known `ROLLBACK_FLASHED` deviation.
-    Focused tests and exact bundle/closure validation pass. No D0, approval,
-    transaction, Download request, Odin session, transfer, reboot, device
-    contact, or write occurred.
+64. **P2.75 P2.72 F1 adversarial preflight, H0:** inspect the frozen execution,
+    recovery, artifacts, sidecar, stock evidence, and journals; document every
+    recoverable state. Focused tests and exact bundle/closure validation pass.
+    No device contact, authority, transaction, reboot, or write occurred.
 65. **P2.76 E3 observation-margin correction, H0:** the P2.58A retained record
     has no timestamp, so it cannot prove margin inside the old 120-second host
     window. The E3 runtime can add up to 45 seconds after E2. Retire ready1
-    before D0 and select data-only ready2 with a 180-second observer bound.
-    Candidate, rollback, observer identity, and execution closure are unchanged;
-    offline bundle validation and focused regressions pass. Next is connected
-    D0 against ready2 only; no device contact or authority occurred.
+    and select data-only ready2 with a 180-second observer bound. Execution
+    artifacts are unchanged and offline validation passes; no device contact
+    or authority occurred.
 66. **P2.76 E3 post-bind timeout, F1:** ready2 reaches configfs, gadget,
     `ttyGS0`, queued banner, peripheral readback, exact UDC membership, and
     exact UDC bind at `0x8e`; `0x8f` times out before configured/high-speed and
@@ -761,11 +756,16 @@ reports grant no device authority.
 68. **P2.78 three-lane USB analysis, H0:** stock needs no hidden minimal-ACM
     enable write, while P2.76 does not prove that its parent role transition
     executed or settled. Preserve exact role/UDC state and armed host tracing.
-69. **P2.79 role-settle closure, H0:** UCSI reaches the same parent role
-    callback and can reassert DEVICE, but no stable parent-work completion
-    attribute exists. Use bounded NONE stability evidence, one final
-    peripheral write, explicitly non-proof settle slack, existing UDC
-    regression semantics, and a recalculated 240-second observer manifest.
+69. **P2.79 role-settle closure, H0:** UCSI can structurally reach the parent
+    callback, but no stable parent-work completion attribute exists. Its
+    activation in the exact candidate remained untested.
+70. **P2.79A PMIC GLINK/UCSI activation closure, H0:** both modules are in the
+    exact 60-module plan, but their ADSP RPMSG owner `qcom_q6v5_pas.ko`, GLINK
+    subdevice registration, and firmware path are absent. Extcon/default and
+    Samsung-notifier producers are also inactive, so P2.76's PID1 peripheral
+    write is source-deduced but not separately live-proved. Retire UCSI-race
+    and role-retrigger as the P2.80 headline; design a minimal parent-worker
+    progress discriminator next. No device contact or authority occurred.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or
