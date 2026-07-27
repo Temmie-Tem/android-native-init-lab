@@ -395,6 +395,17 @@ cap. Reject a stale, lower, manually copied, or guard-overrunning timeout. Do
 not derive a target timeout by scaling generic QEMU time, and do not rebuild
 qualified kernel bundles for a data-only timeout correction.
 
+The host guard must also prove its actual lifetime independently of that budget.
+Its helper returns zero only after the exact parent release command and uses a
+dedicated nonzero status for TTL expiry. A child already exited when release
+begins is uncommanded, even with status zero. Persist the exact result before
+proof classification; expiry or an invalid release receipt makes candidate ACM
+evidence no-proof but never suppresses the already-authorized rollback.
+The helper must recheck termination state and its monotonic deadline after
+readiness and after command input; a concurrently readable release cannot
+outvote an earlier signal or an expired deadline. Exercise that exact ordering
+in the real isolated helper, not only with mocked child return codes.
+
 ## Interrupted-build recovery
 
 An interrupted wrapper can leave temporary reproducibility-control edits in
@@ -466,6 +477,7 @@ not hypothetical policy requirements.
 | A long shell invocation was submitted twice and the second package/static helper collided with an already-complete output | Output paths were exclusive, so the duplicate stopped safely, but command submission was not serialized and made a valid first result look ambiguous | Do not regenerate; validate the existing result, all receipts, and byte equality, then retain the first complete output | Wrap each output-producing post-build helper in a nonblocking `flock`, use a unique output directory, and treat an existing output as read-only evidence to validate rather than overwrite |
 | The independent closure rejected a P2.70 candidate for an absolute-path authority mismatch, missing one expected string that a compiler had incidentally emitted into the earlier binary | The candidate contained no new forbidden path. The adapter asserted exact-set equality over a set that also held incidental link artifacts, so a benign code-layout change failed it | Split the assertion into required, optional, and forbidden sets; because the adapter is source-bound, derive a new intent and rebuild the invalidated candidate | Never assert set or count equality over values that are not invariants, such as compiler-emitted strings, unrelated sibling devices, or inherited numeric addresses. Assert required membership, permit unrelated members, and reject only registered-forbidden ones |
 | The linked audit stopped before starting because an isolated copy of the LLVM tools could not find `libc++.so.1` | A tool-loading failure, not an artifact verification failure. Supplying the library path then reproduced the documented range-disassembly cost instead of fixing it | Run the versioned audit against the copied immutable bundles on a verification host that has GNU AArch64 binutils | Decide the audit host before build A and record GNU tool availability in the build record; treat a library-path workaround for the unqualified tool pair as a stop condition |
+| The transient udev guard returned zero after either commanded release or its TTL, so an already-expired rule could look successfully released | Cleanup success and full-window observation protection are different facts; expiry can let another process consume ACM while preserving a misleading endpoint timeout | Preserve the exact helper exit reason, invalidate candidate proof, complete only the preauthorized rollback, and classify exact expiry separately | Return zero only for the parent command, reserve distinct TTL and uncommanded exits, mutation-test release receipts, and exercise interruption recovery before F1 |
 
 ## Time and resource expectations
 

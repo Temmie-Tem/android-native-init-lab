@@ -55,15 +55,18 @@ INTERFACE_RE = re.compile(r"[0-9a-f]{2}")
 TTY_RE = re.compile(r"ttyACM[0-9]+")
 TOPOLOGY_RE = re.compile(r"usb:([0-9]+-[0-9]+(?:\.[0-9]+)*)")
 DIGEST_RE = re.compile(r"[0-9a-f]{64}")
+ERROR_TYPE_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]{0,127}")
 MAX_BANNER = 4096
 SETTLE_SEC = 0.250
 GUARD_ARM_SEC = 30.0
+GUARD_EXPIRED_EXIT = 3
+GUARD_UNCOMMANDED_EXIT = 4
 PKEXEC = "/usr/bin/pkexec"
 SETPRIV = "/usr/bin/setpriv"
 PYTHON = "/usr/bin/python3"
 UDEVADM = "/usr/bin/udevadm"
 GUARD_ARM_PREFIX = "device-action udev guard armed sha256="
-ROOT_UDEV_GUARD_CODE = r'''
+_ROOT_UDEV_GUARD_TEMPLATE = r'''
 import base64
 import hashlib
 import os
@@ -81,6 +84,8 @@ RULE_NAME = "79-device-action-f1-cdc-acm-guard.rules"
 OVERRIDE_RULE = "/etc/udev/rules.d/" + RULE_NAME
 ARM_PREFIX = "device-action udev guard armed sha256="
 MAX_SEC = 300.0
+EXPIRED_EXIT = __GUARD_EXPIRED_EXIT__
+UNCOMMANDED_EXIT = __GUARD_UNCOMMANDED_EXIT__
 RULE_RE = re.compile(
     rb'# Transient Device Action F1 CDC ACM guard; removed after observation\.\n'
     rb'ACTION=="add\|change\|move\|bind", SUBSYSTEM=="usb", '
@@ -171,17 +176,31 @@ def main():
         run_udevadm(UDEVADM, "control", "--reload")
         print(ARM_PREFIX + expected_sha256, flush=True)
         deadline = time.monotonic() + MAX_SEC
-        while not stop and time.monotonic() < deadline:
+        while True:
+            if stop:
+                return UNCOMMANDED_EXIT
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return EXPIRED_EXIT
             readable, _, _ = select.select(
-                [sys.stdin.buffer], [], [], min(0.2, deadline - time.monotonic())
+                [sys.stdin.buffer], [], [], min(0.2, remaining)
             )
+            if stop:
+                return UNCOMMANDED_EXIT
+            if time.monotonic() >= deadline:
+                return EXPIRED_EXIT
             if not readable:
                 continue
             command = sys.stdin.buffer.readline()
-            if command in (b"", b"release\n"):
-                break
+            if stop:
+                return UNCOMMANDED_EXIT
+            if time.monotonic() >= deadline:
+                return EXPIRED_EXIT
+            if command == b"release\n":
+                return 0
+            if command == b"":
+                return UNCOMMANDED_EXIT
             raise RuntimeError("udev guard control command is invalid")
-        return 0
     finally:
         if installed:
             info = os.lstat(path)
@@ -203,6 +222,14 @@ except (OSError, RuntimeError, subprocess.SubprocessError, ValueError) as exc:
     print(f"device-action udev guard error: {exc}", file=sys.stderr)
     raise SystemExit(1)
 '''
+if (
+    _ROOT_UDEV_GUARD_TEMPLATE.count("__GUARD_EXPIRED_EXIT__") != 1
+    or _ROOT_UDEV_GUARD_TEMPLATE.count("__GUARD_UNCOMMANDED_EXIT__") != 1
+):
+    raise RuntimeError("root udev guard exit-code template is invalid")
+ROOT_UDEV_GUARD_CODE = _ROOT_UDEV_GUARD_TEMPLATE.replace(
+    "__GUARD_EXPIRED_EXIT__", str(GUARD_EXPIRED_EXIT)
+).replace("__GUARD_UNCOMMANDED_EXIT__", str(GUARD_UNCOMMANDED_EXIT))
 
 
 class ObserverError(RuntimeError):
@@ -702,35 +729,77 @@ class ModemManagerGuard:
                 "instance_sha256": self.instance_sha256,
                 "released": True,
             }
-        if self.process.poll() is None:
+        returncode = self.process.poll()
+        if returncode is not None:
+            return {
+                "schema": GUARD_SCHEMA,
+                "status": (
+                    "guard-expired"
+                    if returncode == GUARD_EXPIRED_EXIT
+                    else "guard-exited-uncommanded"
+                ),
+                "instance_sha256": self.instance_sha256,
+                "returncode": returncode,
+                "released": False,
+            }
+        try:
+            if self.process.stdin is None:
+                raise OSError("ModemManager guard control pipe is absent")
+            self.process.stdin.write(b"release\n")
+            self.process.stdin.flush()
+            self.process.stdin.close()
+            self.process.wait(timeout=10)
+        except OSError as exc:
             try:
-                if self.process.stdin is None:
-                    raise OSError("ModemManager guard control pipe is absent")
-                self.process.stdin.write(b"release\n")
-                self.process.stdin.flush()
-                self.process.stdin.close()
                 self.process.wait(timeout=10)
-            except (OSError, subprocess.TimeoutExpired) as exc:
+            except subprocess.TimeoutExpired:
+                pass
+            returncode = self.process.poll()
+            if returncode == GUARD_EXPIRED_EXIT:
                 return {
                     "schema": GUARD_SCHEMA,
-                    "status": "release-failed",
+                    "status": "guard-expired",
                     "instance_sha256": self.instance_sha256,
-                    "error_type": type(exc).__name__,
+                    "returncode": returncode,
                     "released": False,
                 }
-        if self.process.returncode != 0:
             return {
                 "schema": GUARD_SCHEMA,
                 "status": "release-failed",
                 "instance_sha256": self.instance_sha256,
-                "returncode": self.process.returncode,
+                "error_type": type(exc).__name__,
+                "released": False,
+            }
+        except subprocess.TimeoutExpired as exc:
+            return {
+                "schema": GUARD_SCHEMA,
+                "status": "release-failed",
+                "instance_sha256": self.instance_sha256,
+                "error_type": type(exc).__name__,
+                "released": False,
+            }
+        returncode = self.process.returncode
+        if returncode == GUARD_EXPIRED_EXIT:
+            return {
+                "schema": GUARD_SCHEMA,
+                "status": "guard-expired",
+                "instance_sha256": self.instance_sha256,
+                "returncode": returncode,
+                "released": False,
+            }
+        if returncode != 0:
+            return {
+                "schema": GUARD_SCHEMA,
+                "status": "release-failed",
+                "instance_sha256": self.instance_sha256,
+                "returncode": returncode,
                 "released": False,
             }
         return {
             "schema": GUARD_SCHEMA,
             "status": "released",
             "instance_sha256": self.instance_sha256,
-            "returncode": self.process.returncode,
+            "returncode": returncode,
             "released": True,
         }
 
@@ -989,6 +1058,7 @@ def observer_session(
             release = {
                 "schema": GUARD_SCHEMA,
                 "status": "release-failed",
+                "instance_sha256": guard.instance_sha256,
                 "error_type": type(exc).__name__,
                 "released": False,
             }
@@ -1249,7 +1319,7 @@ def validate_receipt(
     return value
 
 
-def validate_guard_release(path: Path, arm_path: Path) -> dict[str, Any]:
+def read_guard_release(path: Path, arm_path: Path) -> dict[str, Any]:
     def unique_object(items: list[tuple[str, Any]]) -> dict[str, Any]:
         value: dict[str, Any] = {}
         for key, item in items:
@@ -1290,20 +1360,60 @@ def validate_guard_release(path: Path, arm_path: Path) -> dict[str, Any]:
         or not isinstance(arm["instance_sha256"], str)
         or DIGEST_RE.fullmatch(arm["instance_sha256"]) is None
         or not isinstance(value, dict)
-        or set(value)
-        != {
+        or not {
             "schema",
             "status",
             "instance_sha256",
-            "returncode",
             "released",
-        }
+        }.issubset(value)
         or value["schema"] != GUARD_SCHEMA
-        or value["status"] != "released"
         or value["instance_sha256"] != arm["instance_sha256"]
-        or type(value["returncode"]) is not int
-        or value["returncode"] != 0
-        or value["released"] is not True
     ):
         raise ObserverError("candidate observer guard release semantics mismatch")
+    common = {"schema", "status", "instance_sha256", "released"}
+    status = value.get("status")
+    if status == "released":
+        valid = (
+            set(value) == common | {"returncode"}
+            and type(value.get("returncode")) is int
+            and value["returncode"] == 0
+            and value.get("released") is True
+        )
+    elif status == "guard-expired":
+        valid = (
+            set(value) == common | {"returncode"}
+            and type(value.get("returncode")) is int
+            and value["returncode"] == GUARD_EXPIRED_EXIT
+            and value.get("released") is False
+        )
+    elif status == "guard-exited-uncommanded":
+        valid = (
+            set(value) == common | {"returncode"}
+            and type(value.get("returncode")) is int
+            and value["returncode"] != GUARD_EXPIRED_EXIT
+            and value.get("released") is False
+        )
+    elif status == "release-failed" and set(value) == common | {"returncode"}:
+        valid = (
+            type(value.get("returncode")) is int
+            and value["returncode"] not in {0, GUARD_EXPIRED_EXIT}
+            and value.get("released") is False
+        )
+    elif status == "release-failed" and set(value) == common | {"error_type"}:
+        valid = (
+            isinstance(value.get("error_type"), str)
+            and ERROR_TYPE_RE.fullmatch(value["error_type"]) is not None
+            and value.get("released") is False
+        )
+    else:
+        valid = False
+    if not valid:
+        raise ObserverError("candidate observer guard release semantics mismatch")
+    return value
+
+
+def validate_guard_release(path: Path, arm_path: Path) -> dict[str, Any]:
+    value = read_guard_release(path, arm_path)
+    if value["status"] != "released" or value["released"] is not True:
+        raise ObserverError("candidate observer guard release was not commanded")
     return value

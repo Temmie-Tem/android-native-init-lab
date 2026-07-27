@@ -656,6 +656,19 @@ An observer timeout still cannot prove a USB defect; it is a bounded no-proof
 if target trace-control work exceeds the reviewed allowance. This later
 manifest choice grants no authority by itself.
 
+Guard-cap qualification is necessary but not evidence that the guard remained
+active. Before P2.80 runtime implementation, the observer contract must
+distinguish exact parent-commanded release from helper TTL expiry. Commanded
+release alone returns zero; TTL expiry returns the dedicated status `3`, and
+control EOF or signal exit returns `4`. A child that exited before the parent
+sent `release\n` is never a successful release, even if its status is zero.
+After `select()` wakes and after the command read, signal state and the
+monotonic deadline are checked before accepting release; expiry or an earlier
+signal wins a concurrent readiness race.
+Exact expiry is durable `guard-expired`, invalidates ACM acceptance as candidate
+proof, and remains distinct through journal recovery and final no-proof
+classification. Successful rule cleanup does not restore evidence validity.
+
 ## Safety and Failure Containment
 
 Dynamic kprobes are a new instrumentation hazard class. They temporarily
@@ -843,18 +856,25 @@ Implementation is complete only when H0 validation proves:
     mutations, and proves the selected value fits below the compatible
     300-second guard cap. It must not present QEMU time as an FYG8 upper bound;
     the existing one-pair control alone cannot satisfy this gate.
-19. The runtime cross-compiles as static AArch64 and two links are
+19. The exact udev-guard lifecycle proves commanded release `0`, TTL expiry
+    `3`, and uncommanded exit `4`; expiry before or racing with release remains
+    durable across Process v2 recovery. Real helper schedules make both
+    post-select and post-read deadline/signal checks defeat a concurrently
+    readable command, and direct `CANDIDATE_FLASHED` recovery reopens the expiry
+    receipt without replay. Expiry invalidates candidate proof and cannot
+    become endpoint-only timeout or successful release.
+20. The runtime cross-compiles as static AArch64 and two links are
     byte-identical.
-20. The hash-pinned generic-arm64 Kprobe control must pass one ordered PID1
+21. The hash-pinned generic-arm64 Kprobe control must pass one ordered PID1
     entry and return with exact signed `:s32` value `-EBADF`, zero missed
     probes, and verified full cleanup under bounded host commands. The
     existing generic-arm64 QEMU E3 path must also remain green. Neither result
     is labeled as S22+ SCS/PAC or Qualcomm USB proof.
-21. The kernel patch applies cleanly and the generated exact detail table is
+22. The kernel patch applies cleanly and the generated exact detail table is
     present in the linked image.
-22. A GNU `nm`/`objdump` linked audit passes on the controlled verification
+23. A GNU `nm`/`objdump` linked audit passes on the controlled verification
     host; the prohibited high-RSS LLVM substitution is not used.
-23. Independent safety review finds no widened device or partition authority
+24. Independent safety review finds no widened device or partition authority
     and confirms the generated safety map describes every bounded runtime
     write and dynamic-instrumentation effect.
 

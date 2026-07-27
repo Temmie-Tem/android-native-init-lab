@@ -751,21 +751,17 @@ reports grant no device authority.
     and role-retrigger as the P2.80 headline; design a minimal parent-worker
     progress discriminator next. No device contact or authority occurred.
 71. **P2.80 parent/pull-up discriminator design, H0:** retain the exact module
-    closure and E3 stage geometry. Use two bounded tracefs kprobe windows to
-    observe parent PM results, `start_peripheral`, child pull-up/run-stop, and
-    canonical UDC state. PID1 bounds the synchronous role write through one
-    no-retry helper; signed fetches, globally ordered same-PID traces, exact
-    `0xbXX` descriptors, per-phase cleanup, clean profiles, host sidecar, and
-    independent instrumentation review are mandatory. Exact arm64 source and
-    target disassembly rule out the proposed SCS return-probe bypass; the
-    implementation must reject CFI thunks during exact body selection. A
-    kernel/config/QEMU-pinned generic-arm64 control now passes one PID1
-    entry/return with signed `:s32` `-EBADF`, zero misses, bounded host
-    commands, full cleanup, and direct timeout/version-mismatch tests. P2.80
-    keeps clean setup loss and post-bind Phase-B trace loss subordinate to E3
-    through propagated warnings; cleanup failure and Phase-R post-action
-    ambiguity remain fail-closed. H0 implementation must bind tracefs/Kprobe
-    authority and a measured observer budget. No device authority exists.
+    closure and E3 geometry. Two bounded tracefs kprobe windows observe parent
+    PM, `start_peripheral`, child pull-up/run-stop, and canonical UDC state.
+    One no-retry helper, signed fetches, globally ordered same-PID traces, exact
+    `0xbXX` descriptors, per-phase cleanup, host sidecar, and independent
+    review are mandatory. Arm64 disassembly rules out SCS return-probe bypass
+    and exact-body selection rejects CFI thunks. A pinned generic-arm64 control
+    proves signed `:s32` `-EBADF`, zero misses, bounded commands, full cleanup,
+    and timeout/version mismatch. Clean trace loss stays subordinate to E3;
+    cleanup and Phase-R ambiguity remain fail-closed. The observer distinguishes
+    commanded release from TTL/signal races as durable no-proof. H0 binds the
+    new authority and measured budget; no device authority.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
 reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing

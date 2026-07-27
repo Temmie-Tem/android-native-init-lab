@@ -46,6 +46,11 @@ class MismatchedGuard(HealthyGuard):
         return False
 
 
+class LostGuard(HealthyGuard):
+    def healthy(self, *, recheck=False):
+        return False
+
+
 class CdcAcmObserverV1Test(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -186,6 +191,27 @@ class CdcAcmObserverV1Test(unittest.TestCase):
             topology="usb:1-1",
         )
         self.assertTrue(reopened["accepted"])
+
+    def test_guard_loss_preempts_endpoint_timeout(self):
+        temporary, master, slave, class_tty, dev_root, run_dir = self.fixture()
+        self.addCleanup(temporary.cleanup)
+        self.addCleanup(os.close, master)
+        self.addCleanup(os.close, slave)
+        session = self.session(class_tty, dev_root, run_dir)
+        session.guard = LostGuard()
+        receipt = session.observe(
+            timeout_sec=1,
+            download_departure=self.departure(),
+        )
+        self.assertEqual(receipt["classification"], "guard-lost")
+        self.assertFalse(receipt["accepted"])
+        reopened = self.module.validate_receipt(
+            run_dir / "candidate-observer.json",
+            spec=self.spec(),
+            binding=session.binding,
+            topology="usb:1-1",
+        )
+        self.assertFalse(reopened["accepted"])
 
     def test_split_delayed_banner_is_reassembled_exactly(self):
         temporary, master, slave, class_tty, dev_root, run_dir = self.fixture()
@@ -509,6 +535,32 @@ class CdcAcmObserverV1Test(unittest.TestCase):
         self.assertEqual(result["status"], "released")
         self.assertTrue(result["released"])
 
+    def test_modemmanager_expiry_before_release_is_not_success(self):
+        process = mock.Mock()
+        process.poll.return_value = self.module.GUARD_EXPIRED_EXIT
+        process.returncode = self.module.GUARD_EXPIRED_EXIT
+        guard = self.module.ModemManagerGuard(self.spec(), "usb:1-1")
+        guard.process = process
+        result = guard.release()
+        process.stdin.write.assert_not_called()
+        self.assertEqual(result["status"], "guard-expired")
+        self.assertEqual(
+            result["returncode"], self.module.GUARD_EXPIRED_EXIT
+        )
+        self.assertFalse(result["released"])
+
+    def test_modemmanager_uncommanded_zero_exit_is_not_success(self):
+        process = mock.Mock()
+        process.poll.return_value = 0
+        process.returncode = 0
+        guard = self.module.ModemManagerGuard(self.spec(), "usb:1-1")
+        guard.process = process
+        result = guard.release()
+        process.stdin.write.assert_not_called()
+        self.assertEqual(result["status"], "guard-exited-uncommanded")
+        self.assertEqual(result["returncode"], 0)
+        self.assertFalse(result["released"])
+
     def test_modemmanager_release_pipe_failure_is_fail_closed(self):
         process = mock.Mock()
         process.stdin = mock.Mock()
@@ -519,6 +571,42 @@ class CdcAcmObserverV1Test(unittest.TestCase):
         result = guard.release()
         self.assertEqual(result["status"], "release-failed")
         self.assertEqual(result["error_type"], "BrokenPipeError")
+        self.assertFalse(result["released"])
+
+    def test_modemmanager_release_pipe_expiry_race_is_classified(self):
+        process = mock.Mock()
+        process.stdin = mock.Mock()
+        process.stdin.write.side_effect = BrokenPipeError("fixture")
+        process.poll.side_effect = [None, self.module.GUARD_EXPIRED_EXIT]
+        process.returncode = self.module.GUARD_EXPIRED_EXIT
+        guard = self.module.ModemManagerGuard(self.spec(), "usb:1-1")
+        guard.process = process
+        result = guard.release()
+        self.assertEqual(result["status"], "guard-expired")
+        self.assertEqual(
+            result["returncode"], self.module.GUARD_EXPIRED_EXIT
+        )
+        self.assertFalse(result["released"])
+
+    def test_modemmanager_release_wait_expiry_race_is_classified(self):
+        process = mock.Mock()
+        process.stdin = mock.Mock()
+        process.poll.return_value = None
+        process.returncode = None
+
+        def expire(*, timeout):
+            self.assertEqual(timeout, 10)
+            process.returncode = self.module.GUARD_EXPIRED_EXIT
+            return process.returncode
+
+        process.wait.side_effect = expire
+        guard = self.module.ModemManagerGuard(self.spec(), "usb:1-1")
+        guard.process = process
+        result = guard.release()
+        self.assertEqual(result["status"], "guard-expired")
+        self.assertEqual(
+            result["returncode"], self.module.GUARD_EXPIRED_EXIT
+        )
         self.assertFalse(result["released"])
 
     def test_modemmanager_release_timeout_is_fail_closed(self):
@@ -631,8 +719,9 @@ class CdcAcmObserverV1Test(unittest.TestCase):
                 check=False,
                 env={"LC_ALL": "C", "PATH": "/usr/bin:/bin"},
             )
-            if completed.returncode == 1 and b"Creating new namespace" in (
-                completed.stderr
+            if (
+                completed.returncode == 1
+                and b"new namespace" in completed.stderr
             ):
                 self.skipTest("unprivileged user namespace is unavailable")
             self.assertEqual(
@@ -658,6 +747,197 @@ class CdcAcmObserverV1Test(unittest.TestCase):
                     "control --reload",
                     "control --reload",
                 ],
+            )
+            uncommanded = subprocess.run(
+                command,
+                input=b"",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=15,
+                check=False,
+                env={"LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+            )
+            self.assertEqual(
+                uncommanded.returncode,
+                self.module.GUARD_UNCOMMANDED_EXIT,
+                uncommanded.stderr.decode("utf-8", "replace"),
+            )
+            self.assertEqual(
+                len(
+                    (evidence / "udevadm.log").read_text(
+                        encoding="ascii"
+                    ).splitlines()
+                ),
+                6,
+            )
+            expiry_code = self.module.ROOT_UDEV_GUARD_CODE.replace(
+                "MAX_SEC = 300.0", "MAX_SEC = 0.0"
+            )
+            self.assertNotEqual(
+                expiry_code, self.module.ROOT_UDEV_GUARD_CODE
+            )
+            expiry_command = list(command)
+            expiry_command[expiry_command.index("-c") + 1] = expiry_code
+            expired = subprocess.run(
+                expiry_command,
+                input=b"",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=15,
+                check=False,
+                env={"LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+            )
+            self.assertEqual(
+                expired.returncode,
+                self.module.GUARD_EXPIRED_EXIT,
+                expired.stderr.decode("utf-8", "replace"),
+            )
+            self.assertEqual(
+                (evidence / "udevadm.log").read_text(
+                    encoding="ascii"
+                ).splitlines(),
+                [
+                    "verify /run/udev/rules.d/"
+                    "79-device-action-f1-cdc-acm-guard.rules",
+                    "control --reload",
+                    "control --reload",
+                    "verify /run/udev/rules.d/"
+                    "79-device-action-f1-cdc-acm-guard.rules",
+                    "control --reload",
+                    "control --reload",
+                    "verify /run/udev/rules.d/"
+                    "79-device-action-f1-cdc-acm-guard.rules",
+                    "control --reload",
+                    "control --reload",
+                ],
+            )
+            select_block = (
+                "            readable, _, _ = select.select(\n"
+                "                [sys.stdin.buffer], [], [], "
+                "min(0.2, remaining)\n"
+                "            )\n"
+            )
+            post_select_expiry = (
+                self.module.ROOT_UDEV_GUARD_CODE.replace(
+                    "MAX_SEC = 300.0", "MAX_SEC = 0.02"
+                ).replace(
+                    select_block,
+                    "            time.sleep(0.05)\n"
+                    "            readable = [sys.stdin.buffer]\n",
+                )
+            )
+            self.assertNotEqual(
+                post_select_expiry, self.module.ROOT_UDEV_GUARD_CODE
+            )
+            expiry_race_command = list(command)
+            expiry_race_command[
+                expiry_race_command.index("-c") + 1
+            ] = post_select_expiry
+            expiry_race = subprocess.run(
+                expiry_race_command,
+                input=b"release\n",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=15,
+                check=False,
+                env={"LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+            )
+            self.assertEqual(
+                expiry_race.returncode,
+                self.module.GUARD_EXPIRED_EXIT,
+                expiry_race.stderr.decode("utf-8", "replace"),
+            )
+            post_select_signal = self.module.ROOT_UDEV_GUARD_CODE.replace(
+                select_block,
+                "            request_stop(signal.SIGTERM, None)\n"
+                "            readable = [sys.stdin.buffer]\n",
+            )
+            self.assertNotEqual(
+                post_select_signal, self.module.ROOT_UDEV_GUARD_CODE
+            )
+            signal_race_command = list(command)
+            signal_race_command[
+                signal_race_command.index("-c") + 1
+            ] = post_select_signal
+            signal_race = subprocess.run(
+                signal_race_command,
+                input=b"release\n",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=15,
+                check=False,
+                env={"LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+            )
+            self.assertEqual(
+                signal_race.returncode,
+                self.module.GUARD_UNCOMMANDED_EXIT,
+                signal_race.stderr.decode("utf-8", "replace"),
+            )
+            read_block = (
+                "            command = sys.stdin.buffer.readline()\n"
+            )
+            post_read_expiry = (
+                self.module.ROOT_UDEV_GUARD_CODE.replace(
+                    "MAX_SEC = 300.0", "MAX_SEC = 0.02"
+                ).replace(
+                    read_block,
+                    read_block + "            time.sleep(0.05)\n",
+                )
+            )
+            self.assertNotEqual(
+                post_read_expiry, self.module.ROOT_UDEV_GUARD_CODE
+            )
+            post_read_expiry_command = list(command)
+            post_read_expiry_command[
+                post_read_expiry_command.index("-c") + 1
+            ] = post_read_expiry
+            post_read_expired = subprocess.run(
+                post_read_expiry_command,
+                input=b"release\n",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=15,
+                check=False,
+                env={"LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+            )
+            self.assertEqual(
+                post_read_expired.returncode,
+                self.module.GUARD_EXPIRED_EXIT,
+                post_read_expired.stderr.decode("utf-8", "replace"),
+            )
+            post_read_signal = self.module.ROOT_UDEV_GUARD_CODE.replace(
+                read_block,
+                read_block
+                + "            request_stop(signal.SIGTERM, None)\n",
+            )
+            self.assertNotEqual(
+                post_read_signal, self.module.ROOT_UDEV_GUARD_CODE
+            )
+            post_read_signal_command = list(command)
+            post_read_signal_command[
+                post_read_signal_command.index("-c") + 1
+            ] = post_read_signal
+            post_read_signaled = subprocess.run(
+                post_read_signal_command,
+                input=b"release\n",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=15,
+                check=False,
+                env={"LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+            )
+            self.assertEqual(
+                post_read_signaled.returncode,
+                self.module.GUARD_UNCOMMANDED_EXIT,
+                post_read_signaled.stderr.decode("utf-8", "replace"),
+            )
+            self.assertEqual(
+                len(
+                    (evidence / "udevadm.log").read_text(
+                        encoding="ascii"
+                    ).splitlines()
+                ),
+                21,
             )
 
     def test_active_guard_requires_udev_ignore_properties_on_tty(self):
@@ -773,7 +1053,7 @@ class CdcAcmObserverV1Test(unittest.TestCase):
         guard = self.module.ModemManagerGuard(self.spec(), "usb:1-1")
         guard.process = process
         result = guard.release()
-        self.assertEqual(result["status"], "release-failed")
+        self.assertEqual(result["status"], "guard-exited-uncommanded")
         self.assertEqual(result["returncode"], 1)
         self.assertFalse(result["released"])
 
@@ -833,6 +1113,56 @@ class CdcAcmObserverV1Test(unittest.TestCase):
             path.unlink()
             with self.assertRaises(self.module.ObserverError):
                 self.module.validate_guard_release(path, arm_path)
+
+    def test_guard_release_reader_preserves_expiry_but_validator_rejects_it(
+        self,
+    ):
+        expired = {
+            "schema": self.module.GUARD_SCHEMA,
+            "status": "guard-expired",
+            "instance_sha256": "5" * 64,
+            "returncode": self.module.GUARD_EXPIRED_EXIT,
+            "released": False,
+        }
+        arm = {
+            "schema": self.module.GUARD_SCHEMA,
+            "status": "armed",
+            "spec_sha256": "1" * 64,
+            "topology_sha256": "2" * 64,
+            "rule_sha256": "3" * 64,
+            "instance_sha256": "5" * 64,
+            "output_sha256": "4" * 64,
+            "child_alive": True,
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "release.json"
+            arm_path = Path(temporary) / "arm.json"
+            path.write_text(
+                json.dumps(expired, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            arm_path.write_text(
+                json.dumps(arm, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                self.module.read_guard_release(path, arm_path), expired
+            )
+            with self.assertRaisesRegex(
+                self.module.ObserverError, "was not commanded"
+            ):
+                self.module.validate_guard_release(path, arm_path)
+            for mutation in (
+                {**expired, "returncode": 0},
+                {**expired, "released": True},
+                {**expired, "status": "released"},
+            ):
+                path.write_text(
+                    json.dumps(mutation, sort_keys=True) + "\n",
+                    encoding="utf-8",
+                )
+                with self.assertRaises(self.module.ObserverError):
+                    self.module.read_guard_release(path, arm_path)
 
     def test_stale_guard_release_stops_before_guard_arm(self):
         with tempfile.TemporaryDirectory() as temporary:

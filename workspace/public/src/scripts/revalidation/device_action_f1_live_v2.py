@@ -1092,7 +1092,7 @@ def _reopen_candidate_guard_release(prepared: PreparedRun) -> dict[str, Any]:
     path = prepared.run_dir / "candidate-observer-guard-release.json"
     arm_path = prepared.run_dir / "candidate-observer-guard.json"
     try:
-        cdc_acm_observer.validate_guard_release(path, arm_path)
+        value = cdc_acm_observer.read_guard_release(path, arm_path)
         receipt = _receipt(path, "candidate observer guard release")
     except (cdc_acm_observer.ObserverError, F1LiveError, core.F1V2Error):
         return {
@@ -1101,10 +1101,16 @@ def _reopen_candidate_guard_release(prepared: PreparedRun) -> dict[str, Any]:
             "receipt_sha256": None,
         }
     return {
-        "status": "released",
-        "released": True,
+        "status": value["status"],
+        "released": value["released"],
         "receipt_sha256": receipt["sha256"],
     }
+
+
+def _guard_release_failure_outcome(status: Any) -> str:
+    if status == "guard-expired":
+        return "candidate_observer_guard_expired_rollback_verified"
+    return "candidate_observer_guard_release_failed_rollback_verified"
 
 
 def _state(prepared: PreparedRun) -> dict[str, Any]:
@@ -1504,6 +1510,12 @@ def validate_live_result(
             )
         ):
             raise F1LiveError("F1 no-proof semantics are incomplete")
+        if observer_required and not guard_released and result[
+            "outcome_class"
+        ] != _guard_release_failure_outcome(
+            state.get("candidate_observer_guard_release_status")
+        ):
+            raise F1LiveError("F1 guard failure outcome is inconsistent")
     elif verdict == "RECOVERY_REQUIRED_F1_V2_ROLLBACK_NOT_VERIFIED":
         if journal.state() != "RECOVERY_DOWNLOAD" or result[
             "recovery_required"
@@ -1608,6 +1620,9 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
                 ],
                 "candidate_observer_receipt_sha256": durable[
                     "receipt_sha256"
+                ],
+                "candidate_observer_guard_release_status": guard_release[
+                    "status"
                 ],
                 "candidate_observer_guard_released": guard_release[
                     "released"
@@ -1801,7 +1816,9 @@ def _finish_rollback(
                 prepared,
                 journal,
                 "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK",
-                "candidate_observer_guard_release_failed_rollback_verified",
+                _guard_release_failure_outcome(
+                    current.get("candidate_observer_guard_release_status")
+                ),
                 False,
             )
         if marker and candidate and (
@@ -2033,6 +2050,9 @@ def _execute_prepared_locked(
             observation["candidate_observer_guard_released"] = guard_release[
                 "released"
             ]
+            observation[
+                "candidate_observer_guard_release_status"
+            ] = guard_release["status"]
         journal.transition(
             "OBSERVED",
             "bounded_candidate_observation_closed",

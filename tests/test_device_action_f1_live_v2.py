@@ -194,23 +194,32 @@ class FakeBackend:
                     self.module, prepared, self.acm or "accepted"
                 )
             finally:
-                release = (
-                    {
+                if self.observer_release == "released":
+                    release = {
                         "schema": self.module.cdc_acm_observer.GUARD_SCHEMA,
                         "status": "released",
                         "instance_sha256": "5" * 64,
                         "returncode": 0,
                         "released": True,
                     }
-                    if self.observer_release == "released"
-                    else {
+                elif self.observer_release == "guard-expired":
+                    release = {
+                        "schema": self.module.cdc_acm_observer.GUARD_SCHEMA,
+                        "status": "guard-expired",
+                        "instance_sha256": "5" * 64,
+                        "returncode": (
+                            self.module.cdc_acm_observer.GUARD_EXPIRED_EXIT
+                        ),
+                        "released": False,
+                    }
+                else:
+                    release = {
                         "schema": self.module.cdc_acm_observer.GUARD_SCHEMA,
                         "status": "release-failed",
                         "instance_sha256": "5" * 64,
                         "returncode": 1,
                         "released": False,
                     }
-                )
                 self.module.cdc_acm_observer.persist_json(
                     prepared.run_dir
                     / "candidate-observer-guard-release.json",
@@ -553,6 +562,80 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
         self.assertNotIn("observe", recovery.calls)
         self.assertNotIn("transfer-candidate", recovery.calls)
 
+    def test_e3_candidate_flashed_recovery_reopens_guard_expiry(self):
+        temporary, prepared = self.prepared(e3=True)
+        self.addCleanup(temporary.cleanup)
+        backend = FakeBackend(
+            self.module,
+            acm="accepted",
+            marker=True,
+            observer_release="guard-expired",
+        )
+        original = self.module._save_state
+
+        def interrupt_before_observed(target, value):
+            if (
+                "candidate_observer_classification" in value
+                and "candidate_observer_guard_release_status" not in value
+            ):
+                raise KeyboardInterrupt("before OBSERVED")
+            return original(target, value)
+
+        with mock.patch.object(
+            self.module, "_save_state", new=interrupt_before_observed
+        ):
+            with self.assertRaises(KeyboardInterrupt):
+                self.module.execute_prepared(
+                    prepared, prepared.approval_token, backend
+                )
+        journal = self.module.core.Journal.reopen(
+            prepared.run_dir / "transaction", prepared.binding_sha256
+        )
+        self.assertEqual(journal.state(), "CANDIDATE_FLASHED")
+        self.assertTrue(
+            (
+                prepared.run_dir
+                / "candidate-observer-guard-release.json"
+            ).is_file()
+        )
+
+        recovery = FakeBackend(self.module, marker=True)
+        result = self.module.recover_prepared(prepared, recovery)
+        self.assertEqual(
+            result["verdict"], "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK"
+        )
+        self.assertEqual(
+            result["outcome_class"],
+            "candidate_observer_guard_expired_rollback_verified",
+        )
+        self.assertEqual(
+            result["live_state"][
+                "candidate_observer_guard_release_status"
+            ],
+            "guard-expired",
+        )
+        self.assertFalse(
+            result["live_state"]["candidate_observer_guard_released"]
+        )
+        self.assertNotIn("observe", recovery.calls)
+        self.assertNotIn("transfer-candidate", recovery.calls)
+        observed = next(
+            item
+            for item in self.module.core.Journal.reopen(
+                prepared.run_dir / "transaction",
+                prepared.binding_sha256,
+            ).records()
+            if item["kind"] == "transition"
+            and item["state"] == "OBSERVED"
+        )
+        self.assertEqual(
+            observed["details"][
+                "candidate_observer_guard_release_status"
+            ],
+            "guard-expired",
+        )
+        self.assertFalse(observed["details"]["proof"])
+
     def test_e3_observer_fault_after_transfer_degrades_to_diagnostic(self):
         temporary, prepared = self.prepared(e3=True)
         self.addCleanup(temporary.cleanup)
@@ -629,47 +712,106 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
             ["transfer-candidate", "transfer-rollback"],
         )
 
-    def test_e3_resume_after_observed_keeps_failed_release_proof_false(self):
+    def test_e3_guard_expiry_is_preserved_and_refuses_pass(self):
         temporary, prepared = self.prepared(e3=True)
         self.addCleanup(temporary.cleanup)
         backend = FakeBackend(
             self.module,
             acm="accepted",
             marker=True,
-            observer_release="release-failed",
+            observer_release="guard-expired",
         )
-        original = self.module.core.Journal.event
-
-        def interrupt_before_boot_ready(journal, action, details):
-            if action == "candidate_boot_ready":
-                raise KeyboardInterrupt("after OBSERVED")
-            return original(journal, action, details)
-
-        with mock.patch.object(
-            self.module.core.Journal,
-            "event",
-            new=interrupt_before_boot_ready,
-        ):
-            with self.assertRaises(KeyboardInterrupt):
-                self.module.execute_prepared(
-                    prepared, prepared.approval_token, backend
-                )
-        result = self.module.recover_prepared(
-            prepared, FakeBackend(self.module, marker=True)
+        result = self.module.execute_prepared(
+            prepared, prepared.approval_token, backend
         )
         self.assertEqual(
             result["verdict"], "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK"
         )
-        boot_ready = next(
-            item
-            for item in self.module.core.Journal.reopen(
-                prepared.run_dir / "transaction",
-                prepared.binding_sha256,
-            ).records()
-            if item["kind"] == "event"
-            and item["action"] == "candidate_boot_ready"
+        self.assertEqual(
+            result["outcome_class"],
+            "candidate_observer_guard_expired_rollback_verified",
         )
-        self.assertFalse(boot_ready["details"]["proof"])
+        self.assertEqual(
+            result["live_state"][
+                "candidate_observer_guard_release_status"
+            ],
+            "guard-expired",
+        )
+        self.assertFalse(
+            result["live_state"]["candidate_observer_guard_released"]
+        )
+        mutation = dict(result)
+        mutation["outcome_class"] = (
+            "candidate_observer_guard_release_failed_rollback_verified"
+        )
+        with self.assertRaisesRegex(
+            self.module.F1LiveError, "guard failure outcome"
+        ):
+            self.module.validate_live_result(mutation, prepared)
+
+    def test_e3_resume_after_observed_keeps_failed_release_proof_false(self):
+        cases = (
+            (
+                "release-failed",
+                "candidate_observer_guard_release_failed_rollback_verified",
+            ),
+            (
+                "guard-expired",
+                "candidate_observer_guard_expired_rollback_verified",
+            ),
+        )
+        for release_status, outcome in cases:
+            with self.subTest(release_status=release_status):
+                temporary, prepared = self.prepared(e3=True)
+                self.addCleanup(temporary.cleanup)
+                backend = FakeBackend(
+                    self.module,
+                    acm="accepted",
+                    marker=True,
+                    observer_release=release_status,
+                )
+                original = self.module.core.Journal.event
+
+                def interrupt_before_boot_ready(
+                    journal, action, details, original_event=original
+                ):
+                    if action == "candidate_boot_ready":
+                        raise KeyboardInterrupt("after OBSERVED")
+                    return original_event(journal, action, details)
+
+                with mock.patch.object(
+                    self.module.core.Journal,
+                    "event",
+                    new=interrupt_before_boot_ready,
+                ):
+                    with self.assertRaises(KeyboardInterrupt):
+                        self.module.execute_prepared(
+                            prepared, prepared.approval_token, backend
+                        )
+                result = self.module.recover_prepared(
+                    prepared, FakeBackend(self.module, marker=True)
+                )
+                self.assertEqual(
+                    result["verdict"],
+                    "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK",
+                )
+                self.assertEqual(result["outcome_class"], outcome)
+                self.assertEqual(
+                    result["live_state"][
+                        "candidate_observer_guard_release_status"
+                    ],
+                    release_status,
+                )
+                boot_ready = next(
+                    item
+                    for item in self.module.core.Journal.reopen(
+                        prepared.run_dir / "transaction",
+                        prepared.binding_sha256,
+                    ).records()
+                    if item["kind"] == "event"
+                    and item["action"] == "candidate_boot_ready"
+                )
+                self.assertFalse(boot_ready["details"]["proof"])
 
     def test_e3_pre_candidate_abort_and_local_parse_are_reportable(self):
         cases = (
