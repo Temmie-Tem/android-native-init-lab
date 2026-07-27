@@ -31,7 +31,7 @@ def line(pid: int, counter: int, event: str, fields: str = "") -> str:
     suffix = f" {fields}" if fields else ""
     return (
         f" <...>-{pid} [000] d..2 {counter}: "
-        f"p280_{event}: (ffffffff){suffix}"
+        f"{event}: (ffffffff){suffix}\n"
     )
 
 
@@ -132,6 +132,15 @@ class P280TraceContractTest(unittest.TestCase):
             len(result["event_definitions"][spec.PHASE_BIND]), 6
         )
 
+    def test_module_only_contract_derives_same_offsets(self) -> None:
+        if not MODULE.is_file():
+            self.skipTest("private exact module is absent")
+        result = trace.derive_module_contract(module=MODULE)
+        self.assertEqual(
+            result["parent_pm_post_call_offsets"], [0x34, 0x450]
+        )
+        self.assertEqual(result["module_sha256"], spec.EXACT_DWC3_MSM_SHA256)
+
     def test_offset_extractor_rejects_missing_second_call(self) -> None:
         if not MODULE.is_file():
             self.skipTest("private exact module is absent")
@@ -155,7 +164,7 @@ class P280TraceContractTest(unittest.TestCase):
             )
 
     def test_role_trace_complete_and_negative_pm(self) -> None:
-        complete = "\n".join(
+        complete = "".join(
             (
                 line(7, 10, "start_in", "on=1"),
                 line(7, 11, "parent_pm_out", "rc=0"),
@@ -173,7 +182,7 @@ class P280TraceContractTest(unittest.TestCase):
         )
 
     def test_role_trace_ignores_older_stop_side_worker(self) -> None:
-        value = "\n".join(
+        value = "".join(
             (
                 line(4, 1, "start_in", "on=0"),
                 line(4, 2, "start_out", "rc=0"),
@@ -188,7 +197,7 @@ class P280TraceContractTest(unittest.TestCase):
         self.assertEqual(result["pid"], 9)
 
     def test_bind_trace_source_valid_variants(self) -> None:
-        no_run = "\n".join(
+        no_run = "".join(
             (
                 line(1, 1, "pull_in", "on=1"),
                 line(1, 2, "pull_out", "rc=0"),
@@ -198,7 +207,7 @@ class P280TraceContractTest(unittest.TestCase):
             trace.parse_bind_trace(no_run)["classification"],
             "pullup-without-run-stop",
         )
-        nested_failure = "\n".join(
+        nested_failure = "".join(
             (
                 line(1, 1, "pull_in", "on=1"),
                 line(1, 2, "resume_in"),
@@ -214,7 +223,7 @@ class P280TraceContractTest(unittest.TestCase):
         )
 
     def test_bind_trace_rejects_non_pid1_and_missing_return(self) -> None:
-        value = "\n".join(
+        value = "".join(
             (
                 line(2, 1, "pull_in", "on=1"),
                 line(2, 2, "pull_out", "rc=0"),
@@ -225,6 +234,43 @@ class P280TraceContractTest(unittest.TestCase):
         missing = line(1, 1, "pull_in", "on=1")
         with self.assertRaisesRegex(trace.TraceContractError, "pull-up pair"):
             trace.parse_bind_trace(missing)
+
+    def test_owned_trace_rejects_truncation_unknown_and_malformed_field(
+        self,
+    ) -> None:
+        with self.assertRaisesRegex(trace.TraceContractError, "truncated"):
+            trace.parse_trace(line(1, 1, "pull_in", "on=1").rstrip("\n"))
+        with self.assertRaisesRegex(trace.TraceContractError, "unknown"):
+            trace.parse_trace(line(1, 1, "unexpected", "on=1"))
+        with self.assertRaisesRegex(trace.TraceContractError, "malformed"):
+            trace.parse_trace(line(1, 1, "pull_in", "on=1junk"))
+
+    def test_bind_trace_rejects_events_outside_pull_and_resume_nesting(
+        self,
+    ) -> None:
+        run_outside_pull = "".join(
+            (
+                line(1, 1, "run_in", "on=1"),
+                line(1, 2, "run_out", "rc=0"),
+                line(1, 3, "pull_in", "on=1"),
+                line(1, 4, "pull_out", "rc=0"),
+            )
+        )
+        with self.assertRaisesRegex(trace.TraceContractError, "run-stop"):
+            trace.parse_bind_trace(run_outside_pull)
+
+        run_outside_resume = "".join(
+            (
+                line(1, 1, "pull_in", "on=1"),
+                line(1, 2, "run_in", "on=1"),
+                line(1, 3, "resume_in"),
+                line(1, 4, "run_out", "rc=0"),
+                line(1, 5, "resume_out", "rc=0"),
+                line(1, 6, "pull_out", "rc=0"),
+            )
+        )
+        with self.assertRaisesRegex(trace.TraceContractError, "nested"):
+            trace.parse_bind_trace(run_outside_resume)
 
     def test_timeout_detail_priority(self) -> None:
         self.assertEqual(

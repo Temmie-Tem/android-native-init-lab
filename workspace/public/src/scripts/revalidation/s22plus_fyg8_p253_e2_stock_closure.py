@@ -23,6 +23,7 @@ P254_CONTRACT_ID = "s22plus-fyg8-p254-e2-proof-bound-v1"
 P257_CONTRACT_ID = "s22plus-fyg8-p257-e2-qnoc-display-closure-v1"
 P258_CONTRACT_ID = "s22plus-fyg8-p258a-e2-exact-udc-membership-v1"
 P260_CONTRACT_ID = "s22plus-fyg8-p260-e3-exact-acm-banner-v1"
+P280_CONTRACT_ID = "s22plus-fyg8-p280-parent-pullup-discriminator-v1"
 _ISOLATED_MODULE_NAME = "_s22plus_fyg8_p253_isolated_p242_stock_closure"
 
 
@@ -71,6 +72,10 @@ def select(source_contract_id: str | None):
         import s22plus_fyg8_p260_e2_stock_closure as p260
 
         return p260
+    if source_contract_id == P280_CONTRACT_ID:
+        import s22plus_fyg8_p280_e2_stock_closure as p280
+
+        return p280
     raise ClosureError(
         f"unsupported E2 stock-closure source contract: {source_contract_id!r}"
     )

@@ -1,8 +1,10 @@
 import importlib
+import json
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 
@@ -16,6 +18,36 @@ finally:
 
 
 class S22PlusFyg8P234BuildReproCheckTest(unittest.TestCase):
+    def p280_contract(self):
+        return {
+            "run_id": "ab" * 16,
+            "source_contract_id": MODULE.P280_SOURCE_CONTRACT_ID,
+        }
+
+    def p280_qualification(self):
+        return {
+            "schema": MODULE.P280_QUALIFICATION_SCHEMA,
+            "verdict": MODULE.P280_QUALIFICATION_VERDICT,
+            "build_allowed": True,
+            "run_id": "ab" * 16,
+            "source_contract_id": MODULE.P280_SOURCE_CONTRACT_ID,
+            "qualification_repo_path": "workspace/private/qualification.json",
+            "intent_repo_path": "workspace/private/intent.json",
+            "patch_repo_path": "workspace/private/candidate.patch",
+            "qualification": {
+                "path": "/namespace/qualification.json",
+                "size": 10,
+                "sha256": "1" * 64,
+            },
+            "gate_result_receipts": {
+                name: {"size": 11, "sha256": str(index) * 64}
+                for index, name in enumerate(
+                    sorted(MODULE.P280_GATE_RESULTS), start=2
+                )
+            },
+            "verified": True,
+        }
+
     def test_symbol_ranges_use_next_distinct_address(self):
         symbols = "10 t first\n10 t alias\n20 t second\n30 t last\n"
         self.assertEqual(
@@ -124,6 +156,114 @@ Contents of section .rodata:
         rows["init/main.c"]["sha256"] = "bad"
         with self.assertRaises(MODULE.CheckError):
             MODULE._source_delta_hashes(rows, "test")
+
+    def test_p280_qualification_normalizes_paths_but_binds_receipts(self):
+        first = self.p280_qualification()
+        second = self.p280_qualification()
+        second["qualification"]["path"] = "/other/qualification.json"
+        self.assertEqual(
+            MODULE.p280_qualification_identity(first, self.p280_contract()),
+            MODULE.p280_qualification_identity(second, self.p280_contract()),
+        )
+        second["gate_result_receipts"]["userspace"]["sha256"] = "f" * 64
+        self.assertNotEqual(
+            MODULE.p280_qualification_identity(first, self.p280_contract()),
+            MODULE.p280_qualification_identity(second, self.p280_contract()),
+        )
+
+    def test_p280_qualification_rejects_missing_gate_provenance(self):
+        value = self.p280_qualification()
+        value["gate_result_receipts"].pop("userspace")
+        with self.assertRaisesRegex(MODULE.CheckError, "incomplete"):
+            MODULE.p280_qualification_identity(value, self.p280_contract())
+
+    def test_p280_qualification_file_rejects_forged_summary_receipt(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            relative = Path("workspace/private/qualification.json")
+            path = root / relative
+            path.parent.mkdir(parents=True)
+            path.write_text(
+                json.dumps(
+                    {
+                        "candidate": {
+                            "intent_repo_path": "workspace/private/intent.json",
+                            "patch_repo_path": "workspace/private/patch",
+                        }
+                    }
+                ),
+                encoding="ascii",
+            )
+            value = self.p280_qualification()
+            value["qualification_repo_path"] = str(relative)
+            with self.assertRaisesRegex(
+                MODULE.CheckError, "file receipt mismatch"
+            ):
+                MODULE.verify_p280_qualification_file(
+                    value,
+                    self.p280_contract(),
+                    intent_path=root / "workspace/private/intent.json",
+                    patch_path=root / "workspace/private/candidate.patch",
+                    root=root,
+                )
+
+    def test_p280_qualification_rejects_different_selected_input_path(self):
+        value = self.p280_qualification()
+        with self.assertRaisesRegex(
+            MODULE.CheckError, "differs from selection"
+        ):
+            MODULE.verify_p280_qualification_file(
+                value,
+                self.p280_contract(),
+                intent_path=Path("/tmp/repo/workspace/private/other.json"),
+                patch_path=Path("/tmp/repo/workspace/private/candidate.patch"),
+                root=Path("/tmp/repo"),
+            )
+
+    def test_repro_check_rejects_different_ab_qualifications(self):
+        qualification_a = MODULE.p280_qualification_identity(
+            self.p280_qualification(), self.p280_contract()
+        )
+        changed = self.p280_qualification()
+        changed["qualification"]["sha256"] = "f" * 64
+        qualification_b = MODULE.p280_qualification_identity(
+            changed, self.p280_contract()
+        )
+        artifacts = {
+            name: {"size": 1, "sha256": "a" * 64}
+            for name in MODULE.ARTIFACT_LIMITS
+            if name != "build-result.json"
+        }
+        bundles = [
+            {
+                "artifacts": artifacts,
+                "pre_lto_qualification": qualification_a,
+            },
+            {
+                "artifacts": artifacts,
+                "pre_lto_qualification": qualification_b,
+            },
+        ]
+        args = SimpleNamespace(
+            source=Path("source"),
+            intent=Path("intent"),
+            patch=Path("patch"),
+            build_a=Path("a"),
+            build_b=Path("b"),
+            nm=Path("nm"),
+            objdump=Path("objdump"),
+        )
+        with mock.patch.object(
+            MODULE.candidate_contract,
+            "verify",
+            return_value=self.p280_contract(),
+        ), mock.patch.object(
+            MODULE, "verify_bundle", side_effect=bundles
+        ):
+            with self.assertRaisesRegex(
+                MODULE.CheckError, "A/B pre-LTO qualification mismatch"
+            ):
+                MODULE.check(args)
 
     def test_call_subsequence_is_ordered(self):
         MODULE._subsequence(["first", "noise", "second"], ("first", "second"), "x")

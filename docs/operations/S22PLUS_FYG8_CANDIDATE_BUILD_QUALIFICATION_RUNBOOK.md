@@ -128,6 +128,35 @@ cleanup timing. Generic timing is a sanity measurement, not a target-device
 upper bound; a ready-manifest timeout must use reviewed contract waits and
 explicit allowances.
 
+### Structurally enforced P2.80 qualification
+
+P2.80 does not rely on the checklist alone. Before either Full-LTO build,
+assemble one private `s22plus_fyg8_p280_pre_lto_qualification_v1` receipt from
+the exact current intent and patch, exact two-link userspace result, generic
+E3 QEMU result, one-pair Kprobe control, and five-sample shared trace lifecycle
+result. The assembler reopens their files, checks their schemas and verdicts,
+derives both ELF entrypoints, evaluates the complete safety dictionary, and
+pins the guest kernel, QEMU binary/version, and all nine compressed and
+decompressed generic USB modules.
+
+Pass that receipt to the P2.34 build wrapper with
+`--pre-lto-qualification`. When P2.80 is selected, both `preflight` and
+`build` refuse a missing receipt. The wrapper reopens the selected intent and
+patch, recomputes the current source implementation, reopens each portable
+gate JSON, rejects extra schema fields, and re-evaluates its exact argv, pins,
+timing, digest, source receipts, and result shape. Large QEMU kernel, module,
+and initramfs bytes are read at qualification assembly. Build-host consumption
+must also reopen the exact pinned 36 MB QEMU binary at
+`workspace/private/tools/qemu-arm64-10.2.1/root/usr/bin/qemu-system-aarch64`;
+copy that private file when the build mirror lacks it. Both A/B build records
+must carry the same normalized qualification, selected repository-relative
+intent and patch paths, and gate-result receipts. The reproducibility result
+must pass that identity to final candidate packaging, which reopens it against
+the same selected paths.
+A source, intent, patch, gate result, substrate, executor, qualification
+implementation, or build-wrapper change invalidates the receipt; regenerate
+it before Full LTO. Historical source contracts do not consume this receipt.
+
 ## Build record before preflight
 
 Create one private run directory and record these values before build A:
@@ -533,6 +562,8 @@ Before build A:
 - [ ] Candidate source contract, intent, patch, and userspace are frozen.
 - [ ] Exact two-link userspace entrypoints match the selected stock-closure
       adapter before kernel build A.
+- [ ] The pinned private QEMU binary is present at its canonical repository
+      path and its SHA256 passes qualification revalidation.
 - [ ] Canonical source realpath, clang pin, jobs, and private output paths are
       recorded.
 - [ ] Fresh preflight passes with absent `$SOURCE_TREE/out` and a new result

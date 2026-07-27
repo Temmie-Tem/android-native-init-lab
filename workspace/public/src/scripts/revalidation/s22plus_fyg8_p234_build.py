@@ -15,8 +15,8 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-import s22plus_fyg8_p233_e1_static_checker as p233  # noqa: E402
 import s22plus_fyg8_p234_candidate_contract as candidate_contract  # noqa: E402
+import s22plus_fyg8_p280_pre_lto_qualification as p280_qualification  # noqa: E402
 import s22plus_fyg8_r4w1d_build as engine  # noqa: E402
 
 
@@ -25,6 +25,7 @@ DEFAULT_RESULT_DIR = Path("workspace/private/outputs/s22plus_fyg8_p234/build-a")
 DEFAULT_INTENT = candidate_contract.DEFAULT_INTENT
 DEFAULT_PATCH = candidate_contract.DEFAULT_PATCH
 BASE_OUTPUT_GATE = engine.witness_output_gate
+BASE_PREFLIGHT = engine.base.preflight
 
 CONFIG = "CONFIG_S22PLUS_FYG8_E1_LATEST_STAGE"
 LONG_FAMILY = b"S22E1L1|"
@@ -60,6 +61,10 @@ P234_KERNEL_DEBUG_PATH_REPRODUCIBLE = (
 
 class BuildError(ValueError):
     pass
+
+
+_bound_pre_lto_qualification: dict[str, Any] | None = None
+_active_base_preflight = BASE_PREFLIGHT
 
 
 class _ContractAdapter:
@@ -126,6 +131,8 @@ class _ContractAdapter:
 
 
 def _configure_contract(args: argparse.Namespace) -> dict[str, Any]:
+    global _bound_pre_lto_qualification
+
     root = candidate_contract.intent.repo_root()
     paths = (args.work_tree, args.intent, args.patch)
     if any(path.is_absolute() for path in paths):
@@ -138,6 +145,56 @@ def _configure_contract(args: argparse.Namespace) -> dict[str, Any]:
         candidate_contract.intent.resolve(root, args.patch),
     )
     _ContractAdapter.bind(result, intent_path)
+    _bound_pre_lto_qualification = None
+    if result.get("source_contract_id") == p280_qualification.p280.CONTRACT_ID:
+        qualification_path = getattr(args, "pre_lto_qualification", None)
+        if qualification_path is None:
+            raise BuildError(
+                "P2.80 build requires --pre-lto-qualification"
+            )
+        if qualification_path.is_absolute():
+            raise BuildError(
+                "P2.80 pre-LTO qualification must be repository-relative"
+            )
+        try:
+            _bound_pre_lto_qualification = (
+                p280_qualification.verify_receipt(
+                    candidate_contract.intent.resolve(
+                        root, qualification_path
+                    ),
+                    result,
+                    intent_path=intent_path,
+                    patch_path=candidate_contract.intent.resolve(
+                        root, args.patch
+                    ),
+                )
+            )
+        except p280_qualification.QualificationError as exc:
+            raise BuildError(str(exc)) from exc
+    return result
+
+
+def qualified_preflight(*args: Any, **kwargs: Any) -> dict[str, Any]:
+    result = _active_base_preflight(*args, **kwargs)
+    bound = _ContractAdapter._bound_result
+    if (
+        bound is not None
+        and bound.get("source_contract_id")
+        == p280_qualification.p280.CONTRACT_ID
+    ):
+        if (
+            _bound_pre_lto_qualification is None
+            or _bound_pre_lto_qualification.get("verified") is not True
+        ):
+            raise BuildError("P2.80 pre-LTO qualification is not bound")
+        result["build_allowed"] = (
+            result.get("build_allowed") is True
+            and _bound_pre_lto_qualification["build_allowed"] is True
+        )
+        provenance = result.setdefault("provenance", {})
+        provenance["p280_pre_lto_qualification"] = (
+            _bound_pre_lto_qualification
+        )
     return result
 
 
@@ -247,6 +304,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--stock-baseline", type=Path, default=engine.base.DEFAULT_STOCK_BASELINE)
     parser.add_argument("--intent", type=Path, default=DEFAULT_INTENT)
     parser.add_argument("--patch", type=Path, default=DEFAULT_PATCH)
+    parser.add_argument("--pre-lto-qualification", type=Path)
     args = parser.parse_args()
     args.inherited_result = args.intent
     args.carrier_boot = args.patch
@@ -257,6 +315,8 @@ def parse_args() -> argparse.Namespace:
 
 @contextmanager
 def bind_engine() -> Iterator[None]:
+    global _active_base_preflight
+
     replacements = {
         "SCHEMA": SCHEMA,
         "EXECUTION_SCRIPT": Path(__file__),
@@ -273,14 +333,24 @@ def bind_engine() -> Iterator[None]:
     }
     previous = {name: getattr(engine, name) for name in replacements}
     previous_kernel_debug = engine.engine.KERNEL_DEBUG_PATH_REPRODUCIBLE
+    previous_preflight = engine.base.preflight
+    previous_active_preflight = _active_base_preflight
     try:
         for name, value in replacements.items():
             setattr(engine, name, value)
         engine.engine.KERNEL_DEBUG_PATH_REPRODUCIBLE = (
             P234_KERNEL_DEBUG_PATH_REPRODUCIBLE
         )
+        _active_base_preflight = (
+            BASE_PREFLIGHT
+            if previous_preflight is qualified_preflight
+            else previous_preflight
+        )
+        engine.base.preflight = qualified_preflight
         yield
     finally:
+        engine.base.preflight = previous_preflight
+        _active_base_preflight = previous_active_preflight
         engine.engine.KERNEL_DEBUG_PATH_REPRODUCIBLE = previous_kernel_debug
         for name, value in previous.items():
             setattr(engine, name, value)

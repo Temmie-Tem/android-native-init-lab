@@ -16,6 +16,8 @@ Step = p260.Step
 SpecError = p260.SpecError
 
 KIND_LOCAL = p260.KIND_LOCAL
+KIND_MODULE = p260.KIND_MODULE
+KIND_GATE = p260.KIND_GATE
 KIND_TERMINAL = p260.KIND_TERMINAL
 
 STEPS = p260.STEPS
@@ -23,6 +25,14 @@ STAGE_SEQUENCE = p260.STAGE_SEQUENCE
 TERMINAL_STAGE = p260.TERMINAL_STAGE
 TERMINAL_ORDINAL = p260.TERMINAL_ORDINAL
 GATE_COUNT = p260.GATE_COUNT
+CLASSIFIER_DETAILS = p260.CLASSIFIER_DETAILS
+CLASSIFIER_BY_VALUE = p260.CLASSIFIER_BY_VALUE
+BIND_CLASSIFIERS = p260.BIND_CLASSIFIERS
+GRACE_SECONDS = p260.p258.GRACE_SECONDS
+SSUSB_STAGE = p260.SSUSB_STAGE
+SSUSB_GATE_INDEX = p260.SSUSB_GATE_INDEX
+WAITING_FOR_SUPPLIER_PATH = p260.p258.WAITING_FOR_SUPPLIER_PATH
+WAITING_READ_ERROR_DETAIL = p260.p258.WAITING_READ_ERROR_DETAIL
 
 ROLE_UDC_STAGE = p260.ROLE_UDC_STAGE
 UDC_BIND_STAGE = p260.UDC_BIND_STAGE
@@ -93,7 +103,7 @@ TRACE_EVENTS = (
         PARENT_SYMBOL,
         MODULE_RUNTIME_NAME,
         " rc=%x0:s32",
-        "1",
+        "common_pid > 0",
         post_call_ordinal=0,
     ),
     TraceEvent(
@@ -103,7 +113,7 @@ TRACE_EVENTS = (
         PARENT_SYMBOL,
         MODULE_RUNTIME_NAME,
         " rc=%x0:s32",
-        "1",
+        "common_pid > 0",
         post_call_ordinal=1,
     ),
     TraceEvent(
@@ -113,7 +123,7 @@ TRACE_EVENTS = (
         PARENT_SYMBOL,
         MODULE_RUNTIME_NAME,
         " rc=$retval:s32",
-        "1",
+        "common_pid > 0",
     ),
     TraceEvent(
         PHASE_BIND,
@@ -390,6 +400,82 @@ RUNTIME_AUTHORITY_ITEMS = (
 )
 RUNTIME_AUTHORITY = dict(RUNTIME_AUTHORITY_ITEMS)
 
+RUNTIME_EXTERNAL_CONSTANTS = (
+    ("P280_NR_UNLINKAT", 35),
+    ("P280_NR_UMOUNT2", 39),
+    ("P280_AT_REMOVEDIR", 0x200),
+    ("P280_O_WRONLY", 0o00000001),
+    ("P280_O_TRUNC", 0o00001000),
+    ("P280_S_IFREG", 0o100000),
+    ("P280_TRACEFS_MAGIC", 0x74726163),
+    ("P280_TRACE_CAPACITY", 64 * 1024),
+    ("P280_PROFILE_CAPACITY", 64 * 1024),
+    ("P280_DEFINITIONS_CAPACITY", 32 * 1024),
+    ("P280_PATH_CAPACITY", 256),
+    ("P280_RECORD_CAPACITY", 64),
+    ("P280_HELPER_MAGIC", 0x50323830),
+    ("P280_HELPER_VERSION", 1),
+    ("P280_HELPER_OPERATION_ROLE_WRITE", 1),
+)
+
+TRACEFS_ABSOLUTE_PATHS = (
+    "/sys/kernel/tracing",
+    "/sys/kernel/tracing/events/p280",
+    "/sys/kernel/tracing/instances/p280",
+    "/sys/kernel/tracing/instances/p280/buffer_size_kb",
+    "/sys/kernel/tracing/instances/p280/events/p280/",
+    "/sys/kernel/tracing/instances/p280/events/p280/enable",
+    "/sys/kernel/tracing/instances/p280/trace",
+    "/sys/kernel/tracing/instances/p280/trace_clock",
+    "/sys/kernel/tracing/instances/p280/tracing_on",
+    "/sys/kernel/tracing/kprobe_events",
+    "/sys/kernel/tracing/kprobe_profile",
+)
+
+RUNTIME_OPERATION_TOKENS = (
+    ("mount", "sys_mount(", 1),
+    (
+        "owned-unmount",
+        (
+            "if (control->mount_owned) {\n"
+            "        long rc = p280_umount2(p280_trace_root, 0);"
+        ),
+        1,
+    ),
+    ("instance-create", "sys_mkdirat(p280_instance_root, 0700)", 1),
+    (
+        "instance-remove",
+        (
+            "if (control->instance_owned) {\n"
+            "        long rc = p280_unlinkat("
+            "p280_instance_root, P280_AT_REMOVEDIR);"
+        ),
+        1,
+    ),
+    (
+        "event-register",
+        (
+            "p280_global_events_path,\n"
+            "                events[index].definition)"
+        ),
+        1,
+    ),
+    ("event-remove", '"-:p280/"', 1),
+    ("instance-trace-clear", "p280_clear_trace();", 1),
+    ("counter-clock", '"counter\\n"', 1),
+    (
+        "counter-marker-inclusive",
+        "cursor <= marker && *cursor == ':'",
+        1,
+    ),
+    ("bounded-buffer", '"64\\n"', 1),
+    (
+        "owned-event-remove-loop",
+        "while (control->registered_count != 0U) {",
+        1,
+    ),
+)
+
 
 def events_for_phase(phase: str) -> tuple[TraceEvent, ...]:
     events = tuple(event for event in TRACE_EVENTS if event.phase == phase)
@@ -420,6 +506,41 @@ def detail_allowed(stage: int, outcome: int, value: int) -> bool:
             and p260.failure_detail_allowed(step, value)
         )
     return stage in detail.stages and outcome in detail.outcomes
+
+
+def ordinal_for_stage(
+    stage: int, steps: tuple[Step, ...] = STEPS
+) -> int:
+    return p260.ordinal_for_stage(stage, steps)
+
+
+def step_for_stage(
+    stage: int, steps: tuple[Step, ...] = STEPS
+) -> Step:
+    return p260.step_for_stage(stage, steps)
+
+
+def expected_item(stage: int) -> int:
+    return p260.expected_item(stage)
+
+
+def validate_classifier_details(*args, **kwargs) -> None:
+    p260.validate_classifier_details(*args, **kwargs)
+
+
+def failure_detail_allowed(step: Step, value: int) -> bool:
+    return detail_allowed(step.stage, OUTCOME_FAILURE, value)
+
+
+def failure_details(step: Step) -> tuple[int, ...]:
+    historical = p260.failure_details(step)
+    exact = tuple(
+        detail.value
+        for detail in DIAGNOSTIC_DETAILS
+        if step.stage in detail.stages
+        and OUTCOME_FAILURE in detail.outcomes
+    )
+    return historical + exact
 
 
 def validate_slot(
@@ -470,12 +591,26 @@ def validate() -> None:
         raise SpecError("P2.80 bind event order changed")
     if RUNTIME_AUTHORITY != dict(RUNTIME_AUTHORITY_ITEMS):
         raise SpecError("P2.80 runtime authority map changed")
+    if len(dict(RUNTIME_EXTERNAL_CONSTANTS)) != len(
+        RUNTIME_EXTERNAL_CONSTANTS
+    ):
+        raise SpecError("P2.80 runtime constants are not unique")
+    if len(set(TRACEFS_ABSOLUTE_PATHS)) != len(TRACEFS_ABSOLUTE_PATHS):
+        raise SpecError("P2.80 tracefs paths are not unique")
+    if len({name for name, _token, _count in RUNTIME_OPERATION_TOKENS}) != len(
+        RUNTIME_OPERATION_TOKENS
+    ):
+        raise SpecError("P2.80 runtime operation names are not unique")
     for detail in DIAGNOSTIC_DETAILS:
         for stage in detail.stages:
             p260.step_for_stage(stage)
             for outcome in detail.outcomes:
                 if not detail_allowed(stage, outcome, detail.value):
                     raise SpecError("P2.80 detail self-validation failed")
+    for step in STEPS:
+        for detail in failure_details(step):
+            if not failure_detail_allowed(step, detail):
+                raise SpecError("P2.80 generated failure detail drifted")
 
 
 validate()

@@ -28,6 +28,18 @@ import s22plus_fyg8_p234_candidate_contract as candidate_contract  # noqa: E402
 SCHEMA = "s22plus_fyg8_p234_build_repro_check_v1"
 VERDICT = "PASS_P234_TWO_CLEAN_BUILD_REPRO_AND_LINKED_AUDIT_HOST_ONLY"
 TARGET = candidate_contract.TARGET
+P280_SOURCE_CONTRACT_ID = "s22plus-fyg8-p280-parent-pullup-discriminator-v1"
+P280_QUALIFICATION_SCHEMA = "s22plus_fyg8_p280_pre_lto_qualification_v1"
+P280_QUALIFICATION_VERDICT = (
+    "PASS_P280_PRE_FULL_LTO_QUALIFICATION_HOST_ONLY"
+)
+P280_GATE_RESULTS = {
+    "userspace",
+    "p260_generic_qemu",
+    "kprobe_control_qemu",
+    "trace_lifecycle_qemu",
+}
+P280_QUALIFICATION_MAX_SIZE = 8 * 1024 * 1024
 DEFAULT_BUILD_A = Path("workspace/private/outputs/s22plus_fyg8_p234/artifacts-a")
 DEFAULT_BUILD_B = Path("workspace/private/outputs/s22plus_fyg8_p234/artifacts-b")
 DEFAULT_INTENT = candidate_contract.DEFAULT_INTENT
@@ -75,6 +87,9 @@ LINKED_VALIDATOR_ADAPTERS = {
     ),
     "s22plus-fyg8-p260-e3-exact-acm-banner-v1": (
         "s22plus_fyg8_p260_linked_audit"
+    ),
+    "s22plus-fyg8-p280-parent-pullup-discriminator-v1": (
+        "s22plus_fyg8_p280_linked_audit"
     ),
 }
 
@@ -173,6 +188,192 @@ def _source_delta_hashes(value: Any, label: str) -> dict[str, str]:
             raise CheckError(f"P2.34 source delta {label} is malformed")
         result[name] = row["sha256"]
     return result
+
+
+def _receipt_identity(value: Any, label: str) -> dict[str, Any]:
+    if (
+        not isinstance(value, dict)
+        or type(value.get("size")) is not int
+        or value["size"] <= 0
+        or not isinstance(value.get("sha256"), str)
+        or re.fullmatch(r"[0-9a-f]{64}", value["sha256"]) is None
+    ):
+        raise CheckError(f"{label} receipt is invalid")
+    return {"size": value["size"], "sha256": value["sha256"]}
+
+
+def p280_qualification_identity(
+    value: Any, exact_contract: dict[str, Any]
+) -> dict[str, Any]:
+    if exact_contract.get("source_contract_id") != P280_SOURCE_CONTRACT_ID:
+        raise CheckError("P2.80 qualification used for a different contract")
+    if (
+        not isinstance(value, dict)
+        or set(value)
+        != {
+            "build_allowed",
+            "gate_result_receipts",
+            "intent_repo_path",
+            "patch_repo_path",
+            "qualification",
+            "qualification_repo_path",
+            "run_id",
+            "schema",
+            "source_contract_id",
+            "verified",
+            "verdict",
+        }
+        or value.get("schema") != P280_QUALIFICATION_SCHEMA
+        or value.get("verdict") != P280_QUALIFICATION_VERDICT
+        or value.get("build_allowed") is not True
+        or value.get("verified") is not True
+        or value.get("run_id") != exact_contract.get("run_id")
+        or value.get("source_contract_id") != P280_SOURCE_CONTRACT_ID
+    ):
+        raise CheckError("P2.80 pre-LTO qualification provenance is invalid")
+    relative = value.get("qualification_repo_path")
+    input_paths = {
+        "qualification_repo_path": relative,
+        "intent_repo_path": value.get("intent_repo_path"),
+        "patch_repo_path": value.get("patch_repo_path"),
+    }
+    for label, selected in input_paths.items():
+        if (
+            not isinstance(selected, str)
+            or not selected
+            or Path(selected).is_absolute()
+            or ".." in Path(selected).parts
+        ):
+            raise CheckError(f"P2.80 {label} is invalid")
+    gate_results = value.get("gate_result_receipts")
+    if not isinstance(gate_results, dict) or set(gate_results) != P280_GATE_RESULTS:
+        raise CheckError("P2.80 qualification gate receipts are incomplete")
+    return {
+        "schema": P280_QUALIFICATION_SCHEMA,
+        "verdict": P280_QUALIFICATION_VERDICT,
+        "build_allowed": True,
+        "run_id": exact_contract["run_id"],
+        "source_contract_id": P280_SOURCE_CONTRACT_ID,
+        "qualification_repo_path": relative,
+        "intent_repo_path": input_paths["intent_repo_path"],
+        "patch_repo_path": input_paths["patch_repo_path"],
+        "qualification": _receipt_identity(
+            value.get("qualification"), "P2.80 qualification"
+        ),
+        "gate_result_receipts": {
+            name: _receipt_identity(
+                gate_results[name], f"P2.80 {name} gate result"
+            )
+            for name in sorted(P280_GATE_RESULTS)
+        },
+        "verified": True,
+    }
+
+
+def verify_p280_qualification_file(
+    value: Any,
+    exact_contract: dict[str, Any],
+    *,
+    intent_path: Path,
+    patch_path: Path,
+    root: Path | None = None,
+) -> dict[str, Any]:
+    identity = p280_qualification_identity(value, exact_contract)
+    repository = repo_root() if root is None else root.resolve()
+    selected_intent = intent_path.resolve()
+    selected_patch = patch_path.resolve()
+    for selected, label in (
+        (selected_intent, "intent"),
+        (selected_patch, "patch"),
+    ):
+        try:
+            selected.relative_to(repository)
+        except ValueError as exc:
+            raise CheckError(
+                f"P2.80 selected {label} escapes the repository"
+            ) from exc
+    expected_intent = str(selected_intent.relative_to(repository))
+    expected_patch = str(selected_patch.relative_to(repository))
+    if (
+        identity["intent_repo_path"] != expected_intent
+        or identity["patch_repo_path"] != expected_patch
+    ):
+        raise CheckError(
+            "P2.80 qualification build-input path differs from selection"
+        )
+    path = (repository / identity["qualification_repo_path"]).resolve()
+    try:
+        path.relative_to(repository)
+    except ValueError as exc:
+        raise CheckError("P2.80 qualification escapes the repository") from exc
+    data = candidate_contract.stable_read(
+        path,
+        "P2.80 pre-LTO qualification",
+        P280_QUALIFICATION_MAX_SIZE,
+    )
+    actual_receipt = candidate_contract.intent.receipt(data)
+    if actual_receipt != identity["qualification"]:
+        raise CheckError("P2.80 qualification file receipt mismatch")
+    try:
+        document = json.loads(data.decode("ascii"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise CheckError("P2.80 qualification file is not ASCII JSON") from exc
+    candidate = document.get("candidate") if isinstance(document, dict) else None
+    if not isinstance(candidate, dict):
+        raise CheckError("P2.80 qualification candidate binding is missing")
+    intent_relative = candidate.get("intent_repo_path")
+    patch_relative = candidate.get("patch_repo_path")
+    if any(
+        not isinstance(relative, str)
+        or not relative
+        or Path(relative).is_absolute()
+        or ".." in Path(relative).parts
+        for relative in (intent_relative, patch_relative)
+    ):
+        raise CheckError("P2.80 qualification build-input path is invalid")
+    if (
+        intent_relative != expected_intent
+        or patch_relative != expected_patch
+    ):
+        raise CheckError(
+            "P2.80 qualification file build-input path differs from selection"
+        )
+    import s22plus_fyg8_p280_pre_lto_qualification as qualification
+
+    try:
+        verified = qualification.verify_receipt(
+            path,
+            exact_contract,
+            intent_path=selected_intent,
+            patch_path=selected_patch,
+        )
+    except qualification.QualificationError as exc:
+        raise CheckError(str(exc)) from exc
+    current = p280_qualification_identity(verified, exact_contract)
+    if current != identity:
+        raise CheckError("P2.80 qualification summary differs from its file")
+    return identity
+
+
+def _bundle_p280_qualification(
+    result: dict[str, Any],
+    exact_contract: dict[str, Any],
+    *,
+    intent_path: Path,
+    patch_path: Path,
+) -> dict[str, Any] | None:
+    if exact_contract.get("source_contract_id") != P280_SOURCE_CONTRACT_ID:
+        return None
+    provenance = result.get("provenance")
+    if not isinstance(provenance, dict):
+        raise CheckError("P2.80 build provenance is missing")
+    return verify_p280_qualification_file(
+        provenance.get("p280_pre_lto_qualification"),
+        exact_contract,
+        intent_path=intent_path,
+        patch_path=patch_path,
+        root=repo_root(),
+    )
 
 
 def _classify_wrapper_result(result: dict[str, Any]) -> str:
@@ -328,7 +529,11 @@ def _verify_final_candidate_output(
 
 
 def verify_bundle(
-    directory: Path, exact_contract: dict[str, Any]
+    directory: Path,
+    exact_contract: dict[str, Any],
+    *,
+    intent_path: Path,
+    patch_path: Path,
 ) -> dict[str, Any]:
     if directory.is_symlink() or not directory.is_dir():
         raise CheckError(f"build artifact directory missing or indirect: {directory}")
@@ -413,12 +618,19 @@ def verify_bundle(
     final_candidate_output_gate = _verify_final_candidate_output(
         directory, exact_contract
     )
+    pre_lto_qualification = _bundle_p280_qualification(
+        result,
+        exact_contract,
+        intent_path=intent_path,
+        patch_path=patch_path,
+    )
     return {
         "directory": str(directory),
         "wrapper_result_class": wrapper_result_class,
         "build_result": result_receipt,
         "artifacts": receipts,
         "final_candidate_output_gate": final_candidate_output_gate,
+        "pre_lto_qualification": pre_lto_qualification,
         "run_id": exact_contract["run_id"],
         "verified": True,
     }
@@ -633,9 +845,17 @@ def audit_linked(
                     )
                 except selected.module.SourceContractError as exc:
                     raise CheckError(str(exc)) from exc
-            for symbol in getattr(
-                selected.module, "LINKED_VALIDATOR_SYMBOLS", ()
-            ):
+            validator_symbols = {
+                *getattr(
+                    selected.module, "LINKED_VALIDATOR_SYMBOLS", ()
+                ),
+                *getattr(
+                    selected_validator_module,
+                    "LINKED_VALIDATOR_SYMBOLS",
+                    (),
+                ),
+            }
+            for symbol in sorted(validator_symbols):
                 disassembly[symbol] = _disassemble(
                     staged["objdump"], staged["vmlinux"], ranges, symbol
                 )
@@ -724,18 +944,32 @@ def audit_linked(
 
 def check(args: argparse.Namespace) -> dict[str, Any]:
     root = repo_root()
+    intent_path = resolve(root, args.intent)
+    patch_path = resolve(root, args.patch)
     exact_contract = candidate_contract.verify(
         root,
         resolve(root, args.source),
-        resolve(root, args.intent),
-        resolve(root, args.patch),
+        intent_path,
+        patch_path,
     )
     directory_a = resolve(root, args.build_a)
     directory_b = resolve(root, args.build_b)
     if directory_a.resolve() == directory_b.resolve():
         raise CheckError("P2.34 reproducibility inputs must be distinct directories")
-    build_a = verify_bundle(directory_a, exact_contract)
-    build_b = verify_bundle(directory_b, exact_contract)
+    build_a = verify_bundle(
+        directory_a,
+        exact_contract,
+        intent_path=intent_path,
+        patch_path=patch_path,
+    )
+    build_b = verify_bundle(
+        directory_b,
+        exact_contract,
+        intent_path=intent_path,
+        patch_path=patch_path,
+    )
+    if build_a["pre_lto_qualification"] != build_b["pre_lto_qualification"]:
+        raise CheckError("P2.80 A/B pre-LTO qualification mismatch")
     compared = {}
     for name in sorted(set(ARTIFACT_LIMITS) - {"build-result.json"}):
         equal = build_a["artifacts"][name] == build_b["artifacts"][name]
@@ -756,6 +990,7 @@ def check(args: argparse.Namespace) -> dict[str, Any]:
         "candidate_contract": exact_contract,
         "build_a": build_a,
         "build_b": build_b,
+        "pre_lto_qualification": build_a["pre_lto_qualification"],
         "byte_identical_artifacts": compared,
         "linked_audit": linked,
         "safety": {

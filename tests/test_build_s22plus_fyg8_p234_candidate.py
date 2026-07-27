@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -72,6 +73,11 @@ class P234CandidateBuilderTest(unittest.TestCase):
             path.write_text(json.dumps(result), encoding="ascii")
             with self.assertRaisesRegex(self.module.BuildError, "not accepted"):
                 self.module.verify_repro_result(path, image, exact_contract)
+            result["byte_identical_artifacts"]["abi.xml"] = True
+            result["byte_identical_artifacts"]["extra"] = True
+            path.write_text(json.dumps(result), encoding="ascii")
+            with self.assertRaisesRegex(self.module.BuildError, "not accepted"):
+                self.module.verify_repro_result(path, image, exact_contract)
 
     def test_p254_requires_exact_linked_adapter_and_store_dominance(self):
         with tempfile.TemporaryDirectory() as name:
@@ -125,11 +131,79 @@ class P234CandidateBuilderTest(unittest.TestCase):
             path.write_text(json.dumps(result), encoding="ascii")
             with self.assertRaisesRegex(self.module.BuildError, "not accepted"):
                 self.module.verify_repro_result(path, image, exact_contract)
-            result["byte_identical_artifacts"]["abi.xml"] = True
-            result["byte_identical_artifacts"]["extra"] = True
-            path.write_text(json.dumps(result), encoding="ascii")
-            with self.assertRaisesRegex(self.module.BuildError, "not accepted"):
-                self.module.verify_repro_result(path, image, exact_contract)
+
+    def test_p280_repro_requires_pre_lto_qualification_provenance(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            path, exact_contract, image = self.fixture(root)
+            exact_contract["source_contract_id"] = (
+                self.module.repro.P280_SOURCE_CONTRACT_ID
+            )
+            value = json.loads(path.read_text(encoding="ascii"))
+            value["candidate_contract"] = exact_contract
+            value["linked_audit"].update(
+                {
+                    "audit_adapter": "s22plus-fyg8-p280-linked-audit-v1",
+                    "source_contract_validator": {
+                        "writer_guard": {
+                            "guard_dominates_retained_stores": True
+                        }
+                    },
+                }
+            )
+            path.write_text(json.dumps(value), encoding="ascii")
+            with self.assertRaisesRegex(
+                self.module.BuildError, "qualification provenance"
+            ):
+                self.module.verify_repro_result(
+                    path,
+                    image,
+                    exact_contract,
+                    intent_path=root / "workspace/private/intent.json",
+                    patch_path=root / "workspace/private/candidate.patch",
+                )
+
+            value["pre_lto_qualification"] = {
+                "schema": self.module.repro.P280_QUALIFICATION_SCHEMA,
+                "verdict": self.module.repro.P280_QUALIFICATION_VERDICT,
+                "build_allowed": True,
+                "run_id": exact_contract["run_id"],
+                "source_contract_id": self.module.repro.P280_SOURCE_CONTRACT_ID,
+                "qualification_repo_path": (
+                    "workspace/private/qualification.json"
+                ),
+                "intent_repo_path": "workspace/private/intent.json",
+                "patch_repo_path": "workspace/private/candidate.patch",
+                "qualification": {"size": 10, "sha256": "1" * 64},
+                "gate_result_receipts": {
+                    gate: {"size": 11, "sha256": str(index) * 64}
+                    for index, gate in enumerate(
+                        sorted(self.module.repro.P280_GATE_RESULTS), start=2
+                    )
+                },
+                "verified": True,
+            }
+            path.write_text(json.dumps(value), encoding="ascii")
+            normalized = (
+                self.module.repro.p280_qualification_identity(
+                    value["pre_lto_qualification"], exact_contract
+                )
+            )
+            with mock.patch.object(
+                self.module.repro,
+                "verify_p280_qualification_file",
+                return_value=normalized,
+            ):
+                result = self.module.verify_repro_result(
+                    path,
+                    image,
+                    exact_contract,
+                    intent_path=root / "workspace/private/intent.json",
+                    patch_path=root / "workspace/private/candidate.patch",
+                )
+            self.assertTrue(
+                result["pre_lto_qualification"]["verified"]
+            )
 
     def test_artifact_safety_preserves_historical_and_scopes_p260_writes(self):
         common = {

@@ -30,7 +30,7 @@ _RELOCATION = re.compile(
 _TRACE_LINE = re.compile(
     r"^(?P<prefix>.*?)-(?P<pid>[0-9]+)\s+\[[^\]]+\]\s+\S+\s+"
     r"(?P<counter>[0-9]+):\s+"
-    r"(?P<event>p280_[a-z0-9_]+):\s*(?P<fields>.*)$"
+    r"(?P<event>[a-z0-9_]+):\s*(?P<fields>.*)$"
 )
 _FIELD = re.compile(r"(?:^|\s)(?P<name>[a-z_]+)=(?P<value>-?[0-9]+)")
 
@@ -199,6 +199,41 @@ def derive_contract(
     }
 
 
+def derive_module_contract(
+    *,
+    module: Path,
+    nm: str = "aarch64-linux-gnu-nm",
+    objdump: str = "aarch64-linux-gnu-objdump",
+) -> dict[str, Any]:
+    module_sha256 = sha256_path(module)
+    if module_sha256 != spec.EXACT_DWC3_MSM_SHA256:
+        raise TraceContractError("exact dwc3-msm module hash mismatch")
+    offsets = derive_parent_post_call_offsets(
+        nm_text=_run([nm, "-an", str(module)]),
+        disassembly=_run(
+            [
+                objdump,
+                "-dr",
+                f"--disassemble={spec.PARENT_SYMBOL}",
+                str(module),
+            ]
+        ),
+    )
+    return {
+        "schema": "s22plus_fyg8_p280_module_trace_contract_v1",
+        "module_sha256": module_sha256,
+        "parent_symbol": spec.PARENT_SYMBOL,
+        "parent_pm_post_call_offsets": list(offsets),
+        "event_definitions": {
+            phase: [
+                event.definition(offsets)
+                for event in spec.events_for_phase(phase)
+            ]
+            for phase in (spec.PHASE_ROLE, spec.PHASE_BIND)
+        },
+    }
+
+
 def _run(command: list[str]) -> str:
     try:
         result = subprocess.run(
@@ -223,23 +258,40 @@ def _run(command: list[str]) -> str:
 
 def parse_trace(text: str) -> tuple[TraceRecord, ...]:
     records = []
-    known = {f"p280_{event.name}" for event in spec.TRACE_EVENTS}
-    for line in text.splitlines():
+    known = {event.name for event in spec.TRACE_EVENTS}
+    for raw_line in text.splitlines(keepends=True):
+        terminated = raw_line.endswith("\n")
+        line = raw_line[:-1] if terminated else raw_line
+        owned = any(f": {name}:" in line for name in known)
+        if owned and not terminated:
+            raise TraceContractError("owned trace line is truncated")
         match = _TRACE_LINE.fullmatch(line.rstrip())
         if match is None:
+            if owned:
+                raise TraceContractError("owned trace line is malformed")
             continue
         event = match.group("event")
         if event not in known:
-            continue
+            raise TraceContractError("owned trace event is unknown")
+        fields_text = match.group("fields")
+        for name in ("on", "rc"):
+            for token in re.findall(
+                rf"(?:^|\s){name}=([^\s]+)",
+                fields_text,
+            ):
+                if re.fullmatch(r"-?[0-9]+", token) is None:
+                    raise TraceContractError(
+                        f"owned trace field {name} is malformed"
+                    )
         fields = {
             field.group("name"): int(field.group("value"))
-            for field in _FIELD.finditer(match.group("fields"))
+            for field in _FIELD.finditer(fields_text)
         }
         records.append(
             TraceRecord(
                 pid=int(match.group("pid")),
                 counter=int(match.group("counter")),
-                event=event.removeprefix("p280_"),
+                event=event,
                 fields=fields,
             )
         )
@@ -337,7 +389,12 @@ def parse_bind_trace(text: str) -> dict[str, Any]:
     if len(resume_in) > 1 or len(run_in) > 1:
         raise TraceContractError("bind trace has duplicate nested pairs")
     if resume_in:
-        if resume_in[0].counter >= resume_out[0].counter:
+        if not (
+            pulls_in[0].counter
+            < resume_in[0].counter
+            < resume_out[0].counter
+            < pulls_out[0].counter
+        ):
             raise TraceContractError("runtime resume return precedes entry")
         resume_rc = resume_out[0].fields.get("rc")
         if resume_rc is None or resume_rc < 0:
@@ -350,11 +407,25 @@ def parse_bind_trace(text: str) -> dict[str, Any]:
     if run_in:
         if run_in[0].fields.get("on") != 1:
             raise TraceContractError("run-stop argument is not one")
-        if run_in[0].counter >= run_out[0].counter:
+        if not (
+            pulls_in[0].counter
+            < run_in[0].counter
+            < run_out[0].counter
+            < pulls_out[0].counter
+        ):
             raise TraceContractError("run-stop return precedes entry")
         run_rc = run_out[0].fields.get("rc")
         if run_rc is None:
             raise TraceContractError("run-stop return lacks signed result")
+        if resume_in and not (
+            resume_in[0].counter
+            < run_in[0].counter
+            < run_out[0].counter
+            < resume_out[0].counter
+        ):
+            raise TraceContractError(
+                "run-stop is not nested inside runtime resume"
+            )
         if run_rc != 0:
             if not resume_in or not (
                 resume_in[0].counter
