@@ -212,6 +212,14 @@ class FakeBackend:
                         ),
                         "released": False,
                     }
+                elif self.observer_release == "guard-exited-uncommanded":
+                    release = {
+                        "schema": self.module.cdc_acm_observer.GUARD_SCHEMA,
+                        "status": "guard-exited-uncommanded",
+                        "instance_sha256": "5" * 64,
+                        "returncode": 0,
+                        "released": False,
+                    }
                 else:
                     release = {
                         "schema": self.module.cdc_acm_observer.GUARD_SCHEMA,
@@ -562,7 +570,7 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
         self.assertNotIn("observe", recovery.calls)
         self.assertNotIn("transfer-candidate", recovery.calls)
 
-    def test_e3_candidate_flashed_recovery_reopens_guard_expiry(self):
+    def test_e3_candidate_flashed_recovery_keeps_acm_after_expiry(self):
         temporary, prepared = self.prepared(e3=True)
         self.addCleanup(temporary.cleanup)
         backend = FakeBackend(
@@ -602,11 +610,12 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
         recovery = FakeBackend(self.module, marker=True)
         result = self.module.recover_prepared(prepared, recovery)
         self.assertEqual(
-            result["verdict"], "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK"
+            result["verdict"],
+            "PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK",
         )
         self.assertEqual(
             result["outcome_class"],
-            "candidate_observer_guard_expired_rollback_verified",
+            "candidate_proven_rollback_verified",
         )
         self.assertEqual(
             result["live_state"][
@@ -616,6 +625,10 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
         )
         self.assertFalse(
             result["live_state"]["candidate_observer_guard_released"]
+        )
+        self.assertEqual(
+            result["live_state"]["candidate_observer_guard_warning"],
+            "guard-expired",
         )
         self.assertNotIn("observe", recovery.calls)
         self.assertNotIn("transfer-candidate", recovery.calls)
@@ -634,7 +647,7 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
             ],
             "guard-expired",
         )
-        self.assertFalse(observed["details"]["proof"])
+        self.assertTrue(observed["details"]["proof"])
 
     def test_e3_observer_fault_after_transfer_degrades_to_diagnostic(self):
         temporary, prepared = self.prepared(e3=True)
@@ -712,17 +725,71 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
             ["transfer-candidate", "transfer-rollback"],
         )
 
-    def test_e3_guard_expiry_is_preserved_and_refuses_pass(self):
+    def test_e3_exact_acm_survives_cleanup_confirmed_guard_loss(self):
+        for release_status in (
+            "guard-expired",
+            "guard-exited-uncommanded",
+        ):
+            with self.subTest(release_status=release_status):
+                temporary, prepared = self.prepared(e3=True)
+                self.addCleanup(temporary.cleanup)
+                result = self.module.execute_prepared(
+                    prepared,
+                    prepared.approval_token,
+                    FakeBackend(
+                        self.module,
+                        acm="accepted",
+                        marker=True,
+                        observer_release=release_status,
+                    ),
+                )
+                self.assertEqual(
+                    result["verdict"],
+                    "PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK",
+                )
+                self.assertEqual(
+                    result["outcome_class"],
+                    "candidate_proven_rollback_verified",
+                )
+                self.assertEqual(
+                    result["live_state"][
+                        "candidate_observer_guard_release_status"
+                    ],
+                    release_status,
+                )
+                self.assertFalse(
+                    result["live_state"][
+                        "candidate_observer_guard_released"
+                    ]
+                )
+                self.assertEqual(
+                    result["live_state"][
+                        "candidate_observer_guard_warning"
+                    ],
+                    release_status,
+                )
+                mutation = dict(result["live_state"])
+                mutation["candidate_observer_guard_warning"] = None
+                with self.assertRaisesRegex(
+                    self.module.F1LiveError,
+                    "candidate observer durable state mismatch",
+                ):
+                    self.module._validate_candidate_observer_state(
+                        prepared, mutation
+                    )
+
+    def test_e3_absent_acm_with_guard_expiry_remains_indeterminate(self):
         temporary, prepared = self.prepared(e3=True)
         self.addCleanup(temporary.cleanup)
-        backend = FakeBackend(
-            self.module,
-            acm="accepted",
-            marker=True,
-            observer_release="guard-expired",
-        )
         result = self.module.execute_prepared(
-            prepared, prepared.approval_token, backend
+            prepared,
+            prepared.approval_token,
+            FakeBackend(
+                self.module,
+                acm="read-timeout",
+                marker=True,
+                observer_release="guard-expired",
+            ),
         )
         self.assertEqual(
             result["verdict"], "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK"
@@ -732,13 +799,8 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
             "candidate_observer_guard_expired_rollback_verified",
         )
         self.assertEqual(
-            result["live_state"][
-                "candidate_observer_guard_release_status"
-            ],
+            result["live_state"]["candidate_observer_guard_warning"],
             "guard-expired",
-        )
-        self.assertFalse(
-            result["live_state"]["candidate_observer_guard_released"]
         )
         mutation = dict(result)
         mutation["outcome_class"] = (
@@ -749,18 +811,40 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
         ):
             self.module.validate_live_result(mutation, prepared)
 
-    def test_e3_resume_after_observed_keeps_failed_release_proof_false(self):
+    def test_e3_acm_only_survives_guard_expiry(self):
+        temporary, prepared = self.prepared(e3=True)
+        self.addCleanup(temporary.cleanup)
+        result = self.module.execute_prepared(
+            prepared,
+            prepared.approval_token,
+            FakeBackend(
+                self.module,
+                acm="accepted",
+                marker=False,
+                observer_release="guard-expired",
+            ),
+        )
+        self.assertEqual(
+            result["verdict"],
+            "DIAGNOSTIC_F1_V2_ACM_ONLY_ROLLED_BACK",
+        )
+
+    def test_e3_resume_after_observed_rederives_asymmetric_guard_proof(self):
         cases = (
             (
                 "release-failed",
+                "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK",
                 "candidate_observer_guard_release_failed_rollback_verified",
+                False,
             ),
             (
                 "guard-expired",
-                "candidate_observer_guard_expired_rollback_verified",
+                "PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK",
+                "candidate_proven_rollback_verified",
+                True,
             ),
         )
-        for release_status, outcome in cases:
+        for release_status, verdict, outcome, proof in cases:
             with self.subTest(release_status=release_status):
                 temporary, prepared = self.prepared(e3=True)
                 self.addCleanup(temporary.cleanup)
@@ -793,7 +877,7 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
                 )
                 self.assertEqual(
                     result["verdict"],
-                    "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK",
+                    verdict,
                 )
                 self.assertEqual(result["outcome_class"], outcome)
                 self.assertEqual(
@@ -811,7 +895,7 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
                     if item["kind"] == "event"
                     and item["action"] == "candidate_boot_ready"
                 )
-                self.assertFalse(boot_ready["details"]["proof"])
+                self.assertIs(boot_ready["details"]["proof"], proof)
 
     def test_e3_pre_candidate_abort_and_local_parse_are_reportable(self):
         cases = (

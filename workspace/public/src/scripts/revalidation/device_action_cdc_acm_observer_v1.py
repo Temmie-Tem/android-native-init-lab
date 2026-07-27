@@ -721,6 +721,23 @@ class ModemManagerGuard:
         except (ObserverError, OSError):
             return False
 
+    @staticmethod
+    def _uncommanded_exit_status(returncode: int) -> str:
+        if returncode == GUARD_EXPIRED_EXIT:
+            return "guard-expired"
+        if returncode in {0, GUARD_UNCOMMANDED_EXIT}:
+            return "guard-exited-uncommanded"
+        return "release-failed"
+
+    def _uncommanded_exit_receipt(self, returncode: int) -> dict[str, Any]:
+        return {
+            "schema": GUARD_SCHEMA,
+            "status": self._uncommanded_exit_status(returncode),
+            "instance_sha256": self.instance_sha256,
+            "returncode": returncode,
+            "released": False,
+        }
+
     def release(self) -> dict[str, Any]:
         if self.process is None:
             return {
@@ -731,17 +748,7 @@ class ModemManagerGuard:
             }
         returncode = self.process.poll()
         if returncode is not None:
-            return {
-                "schema": GUARD_SCHEMA,
-                "status": (
-                    "guard-expired"
-                    if returncode == GUARD_EXPIRED_EXIT
-                    else "guard-exited-uncommanded"
-                ),
-                "instance_sha256": self.instance_sha256,
-                "returncode": returncode,
-                "released": False,
-            }
+            return self._uncommanded_exit_receipt(returncode)
         try:
             if self.process.stdin is None:
                 raise OSError("ModemManager guard control pipe is absent")
@@ -755,14 +762,8 @@ class ModemManagerGuard:
             except subprocess.TimeoutExpired:
                 pass
             returncode = self.process.poll()
-            if returncode == GUARD_EXPIRED_EXIT:
-                return {
-                    "schema": GUARD_SCHEMA,
-                    "status": "guard-expired",
-                    "instance_sha256": self.instance_sha256,
-                    "returncode": returncode,
-                    "released": False,
-                }
+            if returncode is not None:
+                return self._uncommanded_exit_receipt(returncode)
             return {
                 "schema": GUARD_SCHEMA,
                 "status": "release-failed",
@@ -779,22 +780,8 @@ class ModemManagerGuard:
                 "released": False,
             }
         returncode = self.process.returncode
-        if returncode == GUARD_EXPIRED_EXIT:
-            return {
-                "schema": GUARD_SCHEMA,
-                "status": "guard-expired",
-                "instance_sha256": self.instance_sha256,
-                "returncode": returncode,
-                "released": False,
-            }
         if returncode != 0:
-            return {
-                "schema": GUARD_SCHEMA,
-                "status": "release-failed",
-                "instance_sha256": self.instance_sha256,
-                "returncode": returncode,
-                "released": False,
-            }
+            return self._uncommanded_exit_receipt(returncode)
         return {
             "schema": GUARD_SCHEMA,
             "status": "released",
@@ -910,10 +897,12 @@ class ObserverSession:
                             payload.extend(extra)
                             break
                     break
-            if not self.guard.healthy(recheck=True):
-                return "guard-lost", bytes(payload)
-            if not self.guard.matches_node(endpoint.device_path):
-                return "identity-mismatch", bytes(payload)
+            guard_healthy = self.guard.healthy(recheck=True)
+            guard_matches = (
+                self.guard.matches_node(endpoint.device_path)
+                if guard_healthy
+                else False
+            )
             identity, repeated = _resolve_endpoint(endpoint.tty_class)
             topology = TOPOLOGY_RE.fullmatch(self.topology)
             assert topology is not None
@@ -927,6 +916,10 @@ class ObserverSession:
                 return "extra-byte", bytes(payload)
             if bytes(payload) == expected:
                 return "accepted", bytes(payload)
+            if guard_healthy and not guard_matches:
+                return "identity-mismatch", bytes(payload)
+            if not guard_healthy:
+                return "guard-lost", bytes(payload)
             if time.monotonic() >= deadline and not payload:
                 return "read-timeout", bytes(payload)
             return "byte-mismatch", bytes(payload)
@@ -983,8 +976,6 @@ class ObserverSession:
             classification, payload = self._read_endpoint(endpoint, deadline)
         raw_path = self.run_dir / "candidate-observer.raw"
         raw_receipt = _write_exclusive(raw_path, payload)
-        if classification == "accepted" and not self.guard.healthy(recheck=True):
-            classification = "guard-lost"
         value = {
             "schema": RECEIPT_SCHEMA,
             "kind": KIND,
@@ -1390,13 +1381,14 @@ def read_guard_release(path: Path, arm_path: Path) -> dict[str, Any]:
         valid = (
             set(value) == common | {"returncode"}
             and type(value.get("returncode")) is int
-            and value["returncode"] != GUARD_EXPIRED_EXIT
+            and value["returncode"] in {0, GUARD_UNCOMMANDED_EXIT}
             and value.get("released") is False
         )
     elif status == "release-failed" and set(value) == common | {"returncode"}:
         valid = (
             type(value.get("returncode")) is int
-            and value["returncode"] not in {0, GUARD_EXPIRED_EXIT}
+            and value["returncode"]
+            not in {0, GUARD_EXPIRED_EXIT, GUARD_UNCOMMANDED_EXIT}
             and value.get("released") is False
         )
     elif status == "release-failed" and set(value) == common | {"error_type"}:

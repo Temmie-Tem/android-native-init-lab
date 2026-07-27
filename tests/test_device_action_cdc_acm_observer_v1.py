@@ -51,6 +51,25 @@ class LostGuard(HealthyGuard):
         return False
 
 
+class ExpiringGuard(HealthyGuard):
+    def __init__(self, healthy_calls):
+        self.healthy_calls = healthy_calls
+        self.calls = 0
+
+    def healthy(self, *, recheck=False):
+        self.calls += 1
+        return self.calls <= self.healthy_calls
+
+
+class FinalPropertyLossGuard(HealthyGuard):
+    def __init__(self):
+        self.match_calls = 0
+
+    def matches_node(self, _node):
+        self.match_calls += 1
+        return self.match_calls == 1
+
+
 class CdcAcmObserverV1Test(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -212,6 +231,45 @@ class CdcAcmObserverV1Test(unittest.TestCase):
             topology="usb:1-1",
         )
         self.assertFalse(reopened["accepted"])
+
+    def test_exact_banner_survives_guard_loss_after_open(self):
+        temporary, master, slave, class_tty, dev_root, run_dir = self.fixture()
+        self.addCleanup(temporary.cleanup)
+        self.addCleanup(os.close, master)
+        self.addCleanup(os.close, slave)
+        os.write(master, bytes.fromhex(self.spec()["banner_hex"]))
+        session = self.session(class_tty, dev_root, run_dir)
+        session.guard = ExpiringGuard(healthy_calls=3)
+        receipt = session.observe(
+            timeout_sec=2,
+            download_departure=self.departure(),
+        )
+        self.assertEqual(receipt["classification"], "accepted")
+        self.assertTrue(receipt["accepted"])
+        self.assertGreater(session.guard.calls, 3)
+        reopened = self.module.validate_receipt(
+            run_dir / "candidate-observer.json",
+            spec=self.spec(),
+            binding=session.binding,
+            topology="usb:1-1",
+        )
+        self.assertTrue(reopened["accepted"])
+
+    def test_exact_banner_survives_final_guard_property_loss(self):
+        temporary, master, slave, class_tty, dev_root, run_dir = self.fixture()
+        self.addCleanup(temporary.cleanup)
+        self.addCleanup(os.close, master)
+        self.addCleanup(os.close, slave)
+        os.write(master, bytes.fromhex(self.spec()["banner_hex"]))
+        session = self.session(class_tty, dev_root, run_dir)
+        session.guard = FinalPropertyLossGuard()
+        receipt = session.observe(
+            timeout_sec=2,
+            download_departure=self.departure(),
+        )
+        self.assertEqual(receipt["classification"], "accepted")
+        self.assertTrue(receipt["accepted"])
+        self.assertEqual(session.guard.match_calls, 2)
 
     def test_split_delayed_banner_is_reassembled_exactly(self):
         temporary, master, slave, class_tty, dev_root, run_dir = self.fixture()
@@ -588,6 +646,24 @@ class CdcAcmObserverV1Test(unittest.TestCase):
         )
         self.assertFalse(result["released"])
 
+    def test_modemmanager_release_pipe_uncommanded_race_is_classified(self):
+        process = mock.Mock()
+        process.stdin = mock.Mock()
+        process.stdin.write.side_effect = BrokenPipeError("fixture")
+        process.poll.side_effect = [
+            None,
+            self.module.GUARD_UNCOMMANDED_EXIT,
+        ]
+        process.returncode = self.module.GUARD_UNCOMMANDED_EXIT
+        guard = self.module.ModemManagerGuard(self.spec(), "usb:1-1")
+        guard.process = process
+        result = guard.release()
+        self.assertEqual(result["status"], "guard-exited-uncommanded")
+        self.assertEqual(
+            result["returncode"], self.module.GUARD_UNCOMMANDED_EXIT
+        )
+        self.assertFalse(result["released"])
+
     def test_modemmanager_release_wait_expiry_race_is_classified(self):
         process = mock.Mock()
         process.stdin = mock.Mock()
@@ -606,6 +682,27 @@ class CdcAcmObserverV1Test(unittest.TestCase):
         self.assertEqual(result["status"], "guard-expired")
         self.assertEqual(
             result["returncode"], self.module.GUARD_EXPIRED_EXIT
+        )
+        self.assertFalse(result["released"])
+
+    def test_modemmanager_release_wait_uncommanded_race_is_classified(self):
+        process = mock.Mock()
+        process.stdin = mock.Mock()
+        process.poll.return_value = None
+        process.returncode = None
+
+        def exit_uncommanded(*, timeout):
+            self.assertEqual(timeout, 10)
+            process.returncode = self.module.GUARD_UNCOMMANDED_EXIT
+            return process.returncode
+
+        process.wait.side_effect = exit_uncommanded
+        guard = self.module.ModemManagerGuard(self.spec(), "usb:1-1")
+        guard.process = process
+        result = guard.release()
+        self.assertEqual(result["status"], "guard-exited-uncommanded")
+        self.assertEqual(
+            result["returncode"], self.module.GUARD_UNCOMMANDED_EXIT
         )
         self.assertFalse(result["released"])
 
@@ -1053,7 +1150,7 @@ class CdcAcmObserverV1Test(unittest.TestCase):
         guard = self.module.ModemManagerGuard(self.spec(), "usb:1-1")
         guard.process = process
         result = guard.release()
-        self.assertEqual(result["status"], "guard-exited-uncommanded")
+        self.assertEqual(result["status"], "release-failed")
         self.assertEqual(result["returncode"], 1)
         self.assertFalse(result["released"])
 
@@ -1163,6 +1260,55 @@ class CdcAcmObserverV1Test(unittest.TestCase):
                 )
                 with self.assertRaises(self.module.ObserverError):
                     self.module.read_guard_release(path, arm_path)
+
+    def test_guard_release_reader_rejects_uncommanded_cleanup_failure(self):
+        arm = {
+            "schema": self.module.GUARD_SCHEMA,
+            "status": "armed",
+            "spec_sha256": "1" * 64,
+            "topology_sha256": "2" * 64,
+            "rule_sha256": "3" * 64,
+            "instance_sha256": "5" * 64,
+            "output_sha256": "4" * 64,
+            "child_alive": True,
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "release.json"
+            arm_path = Path(temporary) / "arm.json"
+            arm_path.write_text(
+                json.dumps(arm, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            for returncode in (0, self.module.GUARD_UNCOMMANDED_EXIT):
+                value = {
+                    "schema": self.module.GUARD_SCHEMA,
+                    "status": "guard-exited-uncommanded",
+                    "instance_sha256": "5" * 64,
+                    "returncode": returncode,
+                    "released": False,
+                }
+                path.write_text(
+                    json.dumps(value, sort_keys=True) + "\n",
+                    encoding="utf-8",
+                )
+                self.assertEqual(
+                    self.module.read_guard_release(path, arm_path), value
+                )
+            value["returncode"] = 1
+            path.write_text(
+                json.dumps(value, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            with self.assertRaises(self.module.ObserverError):
+                self.module.read_guard_release(path, arm_path)
+            failed = {
+                **value,
+                "status": "release-failed",
+                "returncode": self.module.GUARD_UNCOMMANDED_EXIT,
+            }
+            path.write_text(
+                json.dumps(failed, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            with self.assertRaises(self.module.ObserverError):
+                self.module.read_guard_release(path, arm_path)
 
     def test_stale_guard_release_stops_before_guard_arm(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -426,9 +426,12 @@ Recovery reopens observation evidence before normalizing `CANDIDATE_FLASHED`.
 - missing evidence: record `interrupted-before-receipt`;
 - malformed or binding-mismatched evidence: fail closed for proof while
   continuing the preauthorized rollback path.
-- missing, malformed, stale-instance, or nonzero guard-release evidence:
-  re-derive `candidate_observer_guard_released=false`, continue rollback, and
-  refuse E3 PASS.
+- cleanup-confirmed guard expiry or uncommanded exit: preserve an already
+  accepted exact ACM receipt with `candidate_observer_guard_warning`; if ACM
+  is absent, classify the observation as indeterminate and refuse E3 PASS;
+- missing, malformed, stale-instance, or cleanup-uncertain guard-release
+  evidence: re-derive `candidate_observer_guard_released=false`, continue
+  rollback, and refuse E3 PASS.
 
 The resumed `candidate_boot_ready` event uses both re-derived ACM and
 guard-release values. It must not unconditionally write `proof:false`, repeat
@@ -445,7 +448,8 @@ For E3 define:
 C = exact candidate transfer completed
 D = Download endpoint departed
 A = exact bound ACM receipt accepted
-G = exact current-instance guard release accepted
+G = guard result supports the observation: commanded release, or exact ACM
+    plus cleanup-confirmed expiry/uncommanded-exit warning
 R = post-rollback retained E3 terminal accepted
 K = exact rollback and final health complete
 ```
@@ -457,7 +461,8 @@ K = exact rollback and final health complete
 | true | true | true | true | `PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK` |
 | true | false | true | true | `DIAGNOSTIC_F1_V2_RETAINED_ONLY_ROLLED_BACK` |
 | true | true | true | false | `DIAGNOSTIC_F1_V2_ACM_ONLY_ROLLED_BACK` |
-| any | any | false | any | `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` |
+| any | false | false | any | `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` |
+| otherwise | any | false | any | `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` |
 | otherwise | any | true | any | `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` |
 
 Impossible combinations, such as accepted ACM evidence without the bound

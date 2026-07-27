@@ -760,8 +760,9 @@ reports grant no device authority.
     proves signed `:s32` `-EBADF`, zero misses, bounded commands, full cleanup,
     and timeout/version mismatch. Clean trace loss stays subordinate to E3;
     cleanup and Phase-R ambiguity remain fail-closed. The observer distinguishes
-    commanded release from TTL/signal races as durable no-proof. H0 binds the
-    new authority and measured budget; no device authority.
+    commanded release from TTL/signal races: exact run-bound ACM bytes survive
+    cleanup-confirmed loss with a warning, while absence remains indeterminate.
+    H0 binds the new authority and measured budget; no device authority.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
 reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing

@@ -43,6 +43,10 @@ ANDROID_WAIT_SEC = 420
 DISCONNECT_WAIT_SEC = 120
 ODIN_TIMEOUT_SEC = 240
 ENDPOINT_REVALIDATE_SEC = 20
+NON_TAINTING_GUARD_WARNINGS = {
+    "guard-expired",
+    "guard-exited-uncommanded",
+}
 
 
 class F1LiveError(RuntimeError):
@@ -1079,6 +1083,21 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
     }
 
 
+def _guard_warning(status: Any) -> str | None:
+    return status if status in NON_TAINTING_GUARD_WARNINGS else None
+
+
+def _observer_guard_supports_result(
+    *,
+    accepted: bool,
+    status: Any,
+    released: bool,
+) -> bool:
+    return released is True or (
+        accepted is True and status in NON_TAINTING_GUARD_WARNINGS
+    )
+
+
 def _reopen_candidate_guard_release(prepared: PreparedRun) -> dict[str, Any]:
     if (
         prepared.bundle.manifest["observation"].get("candidate_observer")
@@ -1087,6 +1106,7 @@ def _reopen_candidate_guard_release(prepared: PreparedRun) -> dict[str, Any]:
         return {
             "status": "not-required",
             "released": True,
+            "warning": None,
             "receipt_sha256": None,
         }
     path = prepared.run_dir / "candidate-observer-guard-release.json"
@@ -1098,11 +1118,13 @@ def _reopen_candidate_guard_release(prepared: PreparedRun) -> dict[str, Any]:
         return {
             "status": "invalid-or-failed",
             "released": False,
+            "warning": None,
             "receipt_sha256": None,
         }
     return {
         "status": value["status"],
         "released": value["released"],
+        "warning": _guard_warning(value["status"]),
         "receipt_sha256": receipt["sha256"],
     }
 
@@ -1346,6 +1368,8 @@ def _validate_candidate_observer_state(
         != guard_release["status"]
         or state.get("candidate_observer_guard_released")
         is not guard_release["released"]
+        or state.get("candidate_observer_guard_warning")
+        != guard_release["warning"]
         or state.get("candidate_observer_guard_release_receipt_sha256")
         != guard_release["receipt_sha256"]
     ):
@@ -1437,6 +1461,15 @@ def validate_live_result(
     guard_released = (
         state.get("candidate_observer_guard_released") is True
     )
+    guard_status = state.get("candidate_observer_guard_release_status")
+    guard_warning = state.get("candidate_observer_guard_warning")
+    guard_supports_result = _observer_guard_supports_result(
+        accepted=acm,
+        status=guard_status,
+        released=guard_released,
+    )
+    if observer_required and guard_warning != _guard_warning(guard_status):
+        raise F1LiveError("F1 observer guard warning is inconsistent")
     if verdict == "PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK":
         if (
             journal.state() != "CLOSED"
@@ -1451,7 +1484,7 @@ def validate_live_result(
                 and (
                     acm is not True
                     or departed is not True
-                    or guard_released is not True
+                    or guard_supports_result is not True
                 )
             )
         ):
@@ -1479,7 +1512,7 @@ def validate_live_result(
             or state.get("candidate_completed") is not True
             or departed is not True
             or acm is not True
-            or guard_released is not True
+            or guard_supports_result is not True
             or state.get("marker_accepted") is not False
             or state.get("rollback_completed") is not True
             or state.get("final_verified") is not True
@@ -1495,7 +1528,7 @@ def validate_live_result(
             or result["recovery_required"] is not False
             or (
                 observer_required
-                and guard_released is True
+                and guard_supports_result is True
                 and state.get("candidate_completed") is True
                 and departed is True
                 and (
@@ -1510,10 +1543,10 @@ def validate_live_result(
             )
         ):
             raise F1LiveError("F1 no-proof semantics are incomplete")
-        if observer_required and not guard_released and result[
+        if observer_required and not guard_supports_result and result[
             "outcome_class"
         ] != _guard_release_failure_outcome(
-            state.get("candidate_observer_guard_release_status")
+            guard_status
         ):
             raise F1LiveError("F1 guard failure outcome is inconsistent")
     elif verdict == "RECOVERY_REQUIRED_F1_V2_ROLLBACK_NOT_VERIFIED":
@@ -1601,6 +1634,9 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
                     "candidate_observer_guard_released": guard_release[
                         "released"
                     ],
+                    "candidate_observer_guard_warning": guard_release[
+                        "warning"
+                    ],
                     "candidate_observer_guard_release_receipt_sha256": (
                         guard_release["receipt_sha256"]
                     ),
@@ -1611,7 +1647,11 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
                 current.get("candidate_completed") is True
                 and durable["download_endpoint_absent"] is True
                 and durable["accepted"] is True
-                and guard_release["released"] is True
+                and _observer_guard_supports_result(
+                    accepted=True,
+                    status=guard_release["status"],
+                    released=guard_release["released"],
+                )
             )
             details = {
                 "proof": proof,
@@ -1627,6 +1667,7 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
                 "candidate_observer_guard_released": guard_release[
                     "released"
                 ],
+                "candidate_observer_guard_warning": guard_release["warning"],
             }
         journal.transition(
             "OBSERVED",
@@ -1647,7 +1688,15 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
             current.get("candidate_completed") is True
             and current.get("download_endpoint_absent") is True
             and current.get("candidate_observer_accepted") is True
-            and current.get("candidate_observer_guard_released") is True
+            and _observer_guard_supports_result(
+                accepted=True,
+                status=current.get(
+                    "candidate_observer_guard_release_status"
+                ),
+                released=(
+                    current.get("candidate_observer_guard_released") is True
+                ),
+            )
         )
         journal.event(
             "candidate_boot_ready", {"proof": proof, "resumed": True}
@@ -1794,6 +1843,14 @@ def _finish_rollback(
         guard_released = (
             current.get("candidate_observer_guard_released") is True
         )
+        guard_status = current.get(
+            "candidate_observer_guard_release_status"
+        )
+        guard_supports_result = _observer_guard_supports_result(
+            accepted=acm,
+            status=guard_status,
+            released=guard_released,
+        )
         if observer_required and acm and (not candidate or not departed):
             raise F1LiveError(
                 "candidate observer acceptance lacks transfer continuity"
@@ -1809,15 +1866,20 @@ def _finish_rollback(
                 "candidate_observer_guard_released": (
                     guard_released if observer_required else None
                 ),
+                "candidate_observer_guard_warning": (
+                    current.get("candidate_observer_guard_warning")
+                    if observer_required
+                    else None
+                ),
             },
         )
-        if observer_required and not guard_released:
+        if observer_required and not guard_supports_result:
             return _result(
                 prepared,
                 journal,
                 "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK",
                 _guard_release_failure_outcome(
-                    current.get("candidate_observer_guard_release_status")
+                    guard_status
                 ),
                 False,
             )
@@ -2041,6 +2103,9 @@ def _execute_prepared_locked(
                     "candidate_observer_guard_released": guard_release[
                         "released"
                     ],
+                    "candidate_observer_guard_warning": guard_release[
+                        "warning"
+                    ],
                     "candidate_observer_guard_release_receipt_sha256": (
                         guard_release["receipt_sha256"]
                     ),
@@ -2049,6 +2114,9 @@ def _execute_prepared_locked(
             _save_state(prepared, current)
             observation["candidate_observer_guard_released"] = guard_release[
                 "released"
+            ]
+            observation["candidate_observer_guard_warning"] = guard_release[
+                "warning"
             ]
             observation[
                 "candidate_observer_guard_release_status"
@@ -2068,10 +2136,18 @@ def _execute_prepared_locked(
                 is None
                 or (
                     observation.get("candidate_observer_accepted") is True
-                    and observation.get(
-                        "candidate_observer_guard_released"
+                    and _observer_guard_supports_result(
+                        accepted=True,
+                        status=observation.get(
+                            "candidate_observer_guard_release_status"
+                        ),
+                        released=(
+                            observation.get(
+                                "candidate_observer_guard_released"
+                            )
+                            is True
+                        ),
                     )
-                    is True
                 )
             )
         )

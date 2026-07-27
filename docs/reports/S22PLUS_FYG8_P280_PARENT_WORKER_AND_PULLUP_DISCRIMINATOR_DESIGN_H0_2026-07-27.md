@@ -665,9 +665,12 @@ sent `release\n` is never a successful release, even if its status is zero.
 After `select()` wakes and after the command read, signal state and the
 monotonic deadline are checked before accepting release; expiry or an earlier
 signal wins a concurrent readiness race.
-Exact expiry is durable `guard-expired`, invalidates ACM acceptance as candidate
-proof, and remains distinct through journal recovery and final no-proof
-classification. Successful rule cleanup does not restore evidence validity.
+Exact expiry is durable `guard-expired` and remains distinct through journal
+recovery. Its evidence effect is asymmetric: an already captured exact,
+run-bound ACM banner remains valid with a guard warning because guard loss can
+consume bytes but cannot synthesize that payload; banner absence becomes
+indeterminate and no-proof. Invalid release evidence or cleanup-uncertain
+failure remains fail-closed.
 
 ## Safety and Failure Containment
 
@@ -861,8 +864,9 @@ Implementation is complete only when H0 validation proves:
     durable across Process v2 recovery. Real helper schedules make both
     post-select and post-read deadline/signal checks defeat a concurrently
     readable command, and direct `CANDIDATE_FLASHED` recovery reopens the expiry
-    receipt without replay. Expiry invalidates candidate proof and cannot
-    become endpoint-only timeout or successful release.
+    receipt without replay. Exact ACM bytes survive cleanup-confirmed expiry
+    with a warning; absent ACM remains indeterminate, and expiry cannot become
+    endpoint-only timeout or successful release.
 20. The runtime cross-compiles as static AArch64 and two links are
     byte-identical.
 21. The hash-pinned generic-arm64 Kprobe control must pass one ordered PID1
