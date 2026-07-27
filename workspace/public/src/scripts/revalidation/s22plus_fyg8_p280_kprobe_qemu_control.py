@@ -128,6 +128,56 @@ def _run(command: list[str], *, cwd: Path | None = None) -> str:
     return result.stdout
 
 
+def verify_qemu_version_result(returncode: int, output: str) -> str:
+    version_line = output.splitlines()[0] if output else ""
+    if returncode != 0 or version_line != PINNED_QEMU_VERSION:
+        raise HarnessError(
+            "QEMU version mismatch: "
+            f"expected {PINNED_QEMU_VERSION!r}, got {version_line!r}"
+        )
+    return version_line
+
+
+def query_qemu_version(binary: Path, env: dict[str, str]) -> str:
+    try:
+        result = subprocess.run(
+            [str(binary), "--version"],
+            env=env,
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=10,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise HarnessError("QEMU version query timed out") from error
+    return verify_qemu_version_result(result.returncode, result.stdout)
+
+
+def build_cpio(rootfs: Path, initramfs: Path) -> None:
+    shell = (
+        "find . -print0 | LC_ALL=C sort -z | "
+        "cpio --null --reproducible -o -H newc"
+    )
+    with initramfs.open("wb") as stream:
+        try:
+            result = subprocess.run(
+                ["bash", "-c", shell],
+                cwd=rootfs,
+                check=False,
+                stdout=stream,
+                stderr=subprocess.PIPE,
+                timeout=HOST_COMMAND_TIMEOUT_SEC,
+            )
+        except subprocess.TimeoutExpired as error:
+            raise HarnessError("cpio timed out") from error
+    if result.returncode != 0:
+        raise HarnessError(
+            f"cpio failed ({result.returncode}): "
+            f"{result.stderr.decode('utf-8', 'replace')}"
+        )
+
+
 def require_sha256(path: Path, expected: str, label: str) -> str:
     actual = sha256_path(path)
     if actual != expected:
@@ -183,27 +233,7 @@ def _build_initramfs(
         os.utime(path, (0, 0), follow_symlinks=False)
     os.utime(rootfs, (0, 0), follow_symlinks=False)
     initramfs = output / "p280-kprobe-qemu-initramfs.cpio"
-    shell = (
-        "find . -print0 | LC_ALL=C sort -z | "
-        "cpio --null --reproducible -o -H newc"
-    )
-    with initramfs.open("wb") as stream:
-        try:
-            result = subprocess.run(
-                ["bash", "-c", shell],
-                cwd=rootfs,
-                check=False,
-                stdout=stream,
-                stderr=subprocess.PIPE,
-                timeout=HOST_COMMAND_TIMEOUT_SEC,
-            )
-        except subprocess.TimeoutExpired as error:
-            raise HarnessError("cpio timed out") from error
-    if result.returncode != 0:
-        raise HarnessError(
-            f"cpio failed ({result.returncode}): "
-            f"{result.stderr.decode('utf-8', 'replace')}"
-        )
+    build_cpio(rootfs, initramfs)
     file_output = _run(["file", str(init)]).strip()
     if "ARM aarch64" not in file_output or "statically linked" not in file_output:
         raise HarnessError(f"unexpected guest init type: {file_output}")
@@ -238,28 +268,7 @@ def _qemu_command(
     qemu_sha256 = require_sha256(
         binary, PINNED_QEMU_SHA256, "QEMU binary"
     )
-    try:
-        version_result = subprocess.run(
-            [str(binary), "--version"],
-            env=env,
-            check=False,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            timeout=10,
-        )
-    except subprocess.TimeoutExpired as error:
-        raise HarnessError("QEMU version query timed out") from error
-    version_line = (
-        version_result.stdout.splitlines()[0]
-        if version_result.stdout
-        else ""
-    )
-    if version_result.returncode != 0 or version_line != PINNED_QEMU_VERSION:
-        raise HarnessError(
-            "QEMU version mismatch: "
-            f"expected {PINNED_QEMU_VERSION!r}, got {version_line!r}"
-        )
+    version_line = query_qemu_version(binary, env)
     return (
         [
             str(binary),

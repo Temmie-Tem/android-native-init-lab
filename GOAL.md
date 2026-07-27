@@ -761,9 +761,11 @@ reports grant no device authority.
     implementation must reject CFI thunks during exact body selection. A
     kernel/config/QEMU-pinned generic-arm64 control now passes one PID1
     entry/return with signed `:s32` `-EBADF`, zero misses, bounded host
-    commands, and full cleanup, and is a mandatory pre-LTO gate. A 240-second
-    future manifest target remains provisional until implementation timing.
-    Next is versioned H0 implementation; no device authority exists.
+    commands, full cleanup, and direct timeout/version-mismatch tests. P2.80
+    keeps clean setup loss and post-bind Phase-B trace loss subordinate to E3
+    through propagated warnings; cleanup failure and Phase-R post-action
+    ambiguity remain fail-closed. Next is versioned H0 implementation; no
+    device authority exists.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
 reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing

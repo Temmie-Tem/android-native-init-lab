@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import importlib.util
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 REPO = Path(__file__).resolve().parents[1]
@@ -88,6 +90,59 @@ class S22PlusFyg8P280KprobeQemuControlTest(unittest.TestCase):
                     "0" * 64,
                     "fixture",
                 )
+
+    def test_host_command_timeout_fails_closed(self) -> None:
+        with mock.patch.object(
+            self.module.subprocess,
+            "run",
+            side_effect=subprocess.TimeoutExpired(["fixture"], 1),
+        ):
+            with self.assertRaisesRegex(
+                self.module.HarnessError, "command timed out: fixture"
+            ):
+                self.module._run(["fixture"])
+
+    def test_qemu_version_mismatch_fails_closed(self) -> None:
+        with self.assertRaisesRegex(
+            self.module.HarnessError, "QEMU version mismatch"
+        ):
+            self.module.verify_qemu_version_result(
+                0,
+                "QEMU emulator version 0.0.0\n",
+            )
+
+    def test_exact_qemu_version_passes(self) -> None:
+        self.assertEqual(
+            self.module.verify_qemu_version_result(
+                0,
+                self.module.PINNED_QEMU_VERSION + "\n",
+            ),
+            self.module.PINNED_QEMU_VERSION,
+        )
+
+    def test_qemu_version_query_timeout_fails_closed(self) -> None:
+        with mock.patch.object(
+            self.module.subprocess,
+            "run",
+            side_effect=subprocess.TimeoutExpired(["qemu", "--version"], 10),
+        ):
+            with self.assertRaisesRegex(
+                self.module.HarnessError, "QEMU version query timed out"
+            ):
+                self.module.query_qemu_version(Path("/qemu"), {})
+
+    def test_cpio_timeout_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with mock.patch.object(
+                self.module.subprocess,
+                "run",
+                side_effect=subprocess.TimeoutExpired(["cpio"], 1),
+            ):
+                with self.assertRaisesRegex(
+                    self.module.HarnessError, "cpio timed out"
+                ):
+                    self.module.build_cpio(root, root / "initramfs.cpio")
 
 
 if __name__ == "__main__":

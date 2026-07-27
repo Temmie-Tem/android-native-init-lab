@@ -127,11 +127,12 @@ The design keeps these states separate:
 
 | State | P2.80 interpretation |
 |---|---|
-| registration or readback failure | instrumentation failure `0xb02` |
+| registration or readback failure before action, followed by clean ownership | progress warning `0xb02` |
 | registered, no decisive Phase-R entry | pre-entry boundary `0xb12` or `0xb13` |
 | entry, no return by the Phase-R deadline | active worker boundary `0xb14` |
-| missing synchronous Phase-B return | contradiction `0xb03` |
-| nonzero `nmissed` or malformed trace | instrumentation failure `0xb03` |
+| missing synchronous Phase-B return after bind and clean ownership | progress warning `0xb03` |
+| nonzero `nmissed` or malformed Phase-B trace after clean ownership | progress warning `0xb03` |
+| malformed or missed Phase-R trace after action | terminal ambiguity `0xb18` |
 | ordered entry and return | function-specific result is eligible |
 
 A new live control return probe is not added. It would prove only its own
@@ -256,9 +257,10 @@ The implementation was corrected to enforce all execution pins, use exact
 active profile contains exactly one intended close, bound every subprocess,
 and mark CFI extraction as the next implementation gate.
 
-The same reviewer then returned `GO` with no `MUST-FIX`. The only residual
-`LOW` gap is that version-mismatch and subprocess-timeout branches are
-visibly fail-closed but do not each have a dedicated mocked unit test.
+The same reviewer then returned `GO` with no `MUST-FIX`. A follow-up added
+direct mocked tests for the general host-command, cpio, and QEMU-version-query
+timeout paths, QEMU-version mismatch, plus an exact-version positive fixture.
+The previously reported `LOW` test gap is closed.
 
 ## Result
 
@@ -271,6 +273,10 @@ instrumentation:
 - registration/no-fire/fire states remain distinct;
 - the QEMU mechanism path is mandatory, no longer optional; and
 - no additional live control probe is introduced.
+
+The later diagnostic-precedence amendment keeps instrumentation subordinate to
+the primary E3 mission where ownership can be proved clean. It does not change
+this control's requirement for exact trace and cleanup success.
 
 P2.80 remains `GO` for versioned H0 implementation. It is not ready for D0 or
 F1 merely because this generic control passed.

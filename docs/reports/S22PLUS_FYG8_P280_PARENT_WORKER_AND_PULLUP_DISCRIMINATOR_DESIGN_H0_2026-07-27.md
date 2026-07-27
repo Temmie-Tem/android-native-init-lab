@@ -24,10 +24,11 @@ PID1 peripheral request
 
 The selected mechanism is a small, versioned tracefs kprobe-event set. It is
 armed only around those two transitions and parsed into an exact retained
-detail. Every quiescent path completes verified cleanup before ordinary
-progress. A specifically classified Phase R deadline may retain RAM-only probe
-state until the mandatory reboot rather than risk unregistering an active
-kretprobe.
+functional detail or progress warning. Instrumentation setup loss does not
+block the primary E3 mission after verified clean ownership. Phase B trace loss
+after its synchronous bind is also diagnostic-only. A specifically classified
+Phase R post-action ambiguity may retain RAM-only probe state until the
+mandatory reboot rather than risk unregistering an active kretprobe.
 
 This design grants no build, D0, approval, transaction, reboot, flash, or
 device-write authority.
@@ -46,7 +47,8 @@ P2.80 preserves:
 - Process v2 journaling, rollback, final-health, and fresh-approval rules.
 
 P2.80 adds no checkpoint stage or retained-record field. It adds exact
-structured details at the current frontiers only.
+structured details plus a versioned nonterminal progress-warning semantic at
+the current frontiers only. Terminal success remains zero-detail.
 
 ## Adversarial Corrections
 
@@ -243,13 +245,15 @@ validate S22+ SCS.
 The event set already pairs every decisive return probe with its entry probe.
 Its three states remain distinct:
 
-- registration or exact readback failure is `0xb02`;
+- registration or exact readback failure before action is progress warning
+  `0xb02` after clean ownership;
 - registered but no decisive entry is a source-defined pre-entry outcome
   (`0xb12` or `0xb13` in Phase R);
-- entry without its required return is `0xb14` in Phase R or instrumentation
-  contradiction `0xb03` after the synchronous Phase B bind.
+- entry without its required return is `0xb14` in Phase R or progress warning
+  `0xb03` after the synchronous Phase B bind and clean ownership.
 
-Any nonzero missed count is also `0xb03`. A separate live control return probe
+Any nonzero missed count is `0xb03` in quiescent Phase B but terminal `0xb18`
+after the asynchronous Phase R action. A separate live control return probe
 would not prove that a different target returned and would enlarge the
 instrumentation hazard, so P2.80 does not add one.
 
@@ -316,9 +320,12 @@ same exact names only after Phase R has verified their absence.
 
 Registration, readback, parse, missed-event, or overrun ambiguity is an
 instrumentation failure. It must never be decoded as a USB hardware failure.
-Verified cleanup is required for normal progress. If bounded cleanup itself
-cannot be verified on a quiescent path, the candidate records `0xb04`, parks,
-and does not claim a clean instrumentation exit.
+Setup failure before a phase action is fail-soft only after the candidate
+proves that no owned event, instance, or mount remains. Phase B post-bind trace
+loss is fail-soft only after its synchronous bind returned and cleanup passed.
+The first diagnostic warning is propagated through later progress records.
+If bounded cleanup itself cannot be verified on a quiescent path, the candidate
+records `0xb04`, parks, and does not claim a clean instrumentation exit.
 
 A Phase R deadline after a probe target entered is different: unregistering an
 active kretprobe can itself wait. PID1 performs a best-effort disable, does not
@@ -380,7 +387,14 @@ gadget-resume error before pull-up returns zero.
 ### Phase R: parent role work
 
 1. Prepare tracefs and arm the four Phase R events before reading or writing
-   the parent role.
+   the parent role. A pre-action `0xb01` or `0xb02` setup failure may continue
+   only after verified cleanup. That path stores the first warning and uses the
+   already exercised P2.60 final role/UDC predicate with a P2.80 exact-`none`
+   precondition. It never accepts or writes from initial `host` and makes no
+   trace-derived conclusion. Because arming failed before the role action and
+   ownership cleanup passed, no P2.80 probe can be active. This degraded path
+   intentionally does not prove parent-worker quiescence; it reuses the
+   P2.76 ordering that already reached exact `0x8e` without a boot loop.
 2. Read `/sys/devices/platform/soc/a600000.ssusb/mode` exactly.
 3. Accept only exact `none`.
    - `peripheral` is an external-producer/model contradiction.
@@ -400,14 +414,16 @@ gadget-resume error before pull-up returns zero.
 7. A valid helper record with a negative write result stops waiting
    immediately. PID1 performs quiescent cleanup and fails at `0x8d` with that
    existing positive errno detail. Cleanup failure instead produces `0xb04`.
-   A nonnegative result with a non-exact byte count is `0xb03`.
+   A nonnegative result with a non-exact byte count is `0xb17`.
 8. Require ordered `start_in(on=1)`, both PM post-call records, and
    `start_out(rc=0)` from one `common_pid`.
 9. A negative parent or child PM return is a structured H11 result.
 10. On a quiescent outcome, stop tracing, verify zero missed events, parse once
-   more, and verify full event/instance/mount cleanup.
+    more, and verify full event/instance/mount cleanup. Post-action malformed,
+    missed, or source-incomplete Phase R trace is `0xb18` and does not continue.
 11. Revalidate exact `peripheral`, exact `a600000.dwc3` membership, and all
-    earlier E2 gates before publishing ordinary progress at `0x8d`.
+    earlier E2 gates before publishing progress at `0x8d`, carrying the first
+    diagnostic warning when the clean setup fallback was used.
 
 If the child remains in the sysfs write at the deadline, PID1 sends one
 `SIGKILL` and never performs a blocking wait. No `start_in(on=1)` classifies
@@ -425,6 +441,8 @@ effect.
 ### Phase B: UDC bind and pull-up
 
 1. Arm the six Phase B events and require their exact registration readback.
+   A pre-bind `0xb01` or `0xb02` setup failure may continue uninstrumented only
+   after verified cleanup.
 2. Clear only the owned instance buffer and enable that instance.
 3. Run the unchanged exact configfs UDC bind.
 4. Disable tracing immediately after the synchronous bind returns.
@@ -432,16 +450,21 @@ effect.
 6. Verify full Phase B event/instance/mount cleanup. Keep only the parsed
    bounded result in ordinary memory.
 7. On bind error, fail at `0x8e` with the existing errno after cleanup.
-8. On trace/source contradiction, fail with `0xb03`; on cleanup failure, fail
-   with `0xb04`. Neither is decoded as USB hardware behavior.
-9. On bind success plus valid trace and cleanup, publish ordinary progress at
-   `0x8e`.
+8. On trace loss, missed events, or a source contradiction after the
+   synchronous bind, store progress warning `0xb03` only after verified
+   cleanup. Cleanup failure remains terminal `0xb04`.
+9. On bind success and clean ownership, publish progress at `0x8e`, carrying
+   the first diagnostic warning when one exists.
 10. Preserve the parsed Phase B result while running the unchanged
    30-second configured/high-speed loop.
-11. High-speed configuration remains normal success. Configured at another
-   speed remains `EPROTO`.
+11. High-speed configuration remains normal success. Progress at `0x8f`
+    propagates the warning before zero-detail terminal `0x90`. Configured at
+    another speed remains `EPROTO`.
 12. At timeout, revalidate earlier gates, re-read exact parent mode, UDC state,
-    and speed, then select one exact P2.80 detail.
+    and speed, then select one exact P2.80 detail. A clean trace is mandatory
+    for `0xb20..0xb22`; specifically, Phase B must be clean. A Phase R warning
+    alone does not invalidate Phase B pull-up/run-stop evidence. If Phase B is
+    not clean, `not attached` becomes `0xb27`.
 
 Because the bind is synchronous, a successful `p260_bind_udc()` return closes
 the Phase B trace interval. Missing nested returns are therefore
@@ -452,32 +475,44 @@ post-bind dwell is added.
 ## Exact Structured Detail Contract
 
 P2.80 reserves no broad `0xbXX` range. Only the descriptors below are valid,
-and only at their listed stages.
+and only for their listed outcome and stages.
 
-| Detail | Allowed stage | Exact meaning |
-|---:|---:|---|
-| `0xb01` | `0x8d`, `0x8e` | tracefs absent, wrong type, or required control ABI unavailable |
-| `0xb02` | `0x8d`, `0x8e` | one exact probe could not be registered or read back |
-| `0xb03` | `0x8d`, `0x8e` | trace/helper malformed, lost, missed, or source-contradictory |
-| `0xb04` | `0x8d`, `0x8e` | quiescent-path trace cleanup could not be verified |
-| `0xb10` | `0x8d` | initial parent role was already `peripheral` |
-| `0xb11` | `0x8d` | initial parent role was `host`; candidate stopped before writing |
-| `0xb12` | `0x8d` | role-write helper missed the deadline before DEVICE start entry |
-| `0xb13` | `0x8d` | role write returned, but DEVICE start never entered by the deadline |
-| `0xb14` | `0x8d` | DEVICE start entered but did not return by the one deadline |
-| `0xb15` | `0x8d` | parent runtime-PM call returned a negative value |
-| `0xb16` | `0x8d` | child runtime-PM call returned a negative value |
-| `0xb17` | `0x8d` | helper/start return or ordering contradicted the exact source |
-| `0xb20` | `0x8f` | pull-up returned zero without a run-stop call and state stayed `not attached` |
-| `0xb21` | `0x8f` | nested run-stop failed, error was swallowed, state stayed `not attached` |
-| `0xb22` | `0x8f` | run-stop returned zero and final UDC state was `not attached` |
-| `0xb23` | `0x8f` | final UDC state was `attached` or `powered` |
-| `0xb24` | `0x8f` | final UDC state was `default` |
-| `0xb25` | `0x8f` | final UDC state was `addressed` |
-| `0xb26` | `0x8f` | final state was `reconnecting`, `unauthenticated`, or `suspended` |
+| Detail | Outcome | Allowed stage | Exact meaning |
+|---:|---|---:|---|
+| `0xb01` | progress warning | `0x8d..0x8f` | tracefs or required control ABI was unavailable before action |
+| `0xb02` | progress warning | `0x8d..0x8f` | exact probe registration/readback failed before action |
+| `0xb03` | progress warning | `0x8e..0x8f` | Phase B trace was malformed, lost, missed, or source-contradictory after synchronous bind |
+| `0xb04` | failure | `0x8d`, `0x8e` | quiescent-path trace cleanup could not be verified |
+| `0xb10` | failure | `0x8d` | initial parent role was already `peripheral` |
+| `0xb11` | failure | `0x8d` | initial parent role was `host`; candidate stopped before writing |
+| `0xb12` | failure | `0x8d` | role-write helper missed the deadline before DEVICE start entry |
+| `0xb13` | failure | `0x8d` | role write returned, but DEVICE start never entered by the deadline |
+| `0xb14` | failure | `0x8d` | DEVICE start entered but did not return by the one deadline |
+| `0xb15` | failure | `0x8d` | parent runtime-PM call returned a negative value |
+| `0xb16` | failure | `0x8d` | child runtime-PM call returned a negative value |
+| `0xb17` | failure | `0x8d` | helper/start return or ordering contradicted the exact source |
+| `0xb18` | failure | `0x8d` | Phase R post-action trace could not prove quiescent worker completion |
+| `0xb20` | failure | `0x8f` | pull-up returned zero without a run-stop call and state stayed `not attached` |
+| `0xb21` | failure | `0x8f` | nested run-stop failed, error was swallowed, state stayed `not attached` |
+| `0xb22` | failure | `0x8f` | run-stop returned zero and final UDC state was `not attached` |
+| `0xb23` | failure | `0x8f` | final UDC state was `attached` or `powered` |
+| `0xb24` | failure | `0x8f` | final UDC state was `default` |
+| `0xb25` | failure | `0x8f` | final UDC state was `addressed` |
+| `0xb26` | failure | `0x8f` | final state was `reconnecting`, `unauthenticated`, or `suspended` |
+| `0xb27` | failure | `0x8f` | final state was `not attached`, but clean Phase-B trace evidence was unavailable |
 
-The descriptor must contain value, name, category, allowed stages, event
-requirements, and optional canonical UDC state strings. It generates:
+The first warning class wins and is propagated through each later progress
+slot. This keeps it in the older A/B slot beside either terminal `0x90`
+success or a failure at `0x8f`. Because `0xb01` and `0xb02` are shared by both
+phases, the retained warning does not identify its origin phase; the decoder
+must report origin as `unknown`, not infer it from the propagated stage.
+Terminal success remains zero-detail. A primary failure at `0x8d` or `0x8e`
+remains authoritative even when a same-stage setup warning cannot also be
+represented.
+
+The descriptor must contain value, name, category, allowed outcomes, allowed
+stages, event requirements, and optional canonical UDC state strings. It
+generates:
 
 1. runtime constants and classification tables;
 2. userspace checkpoint validation;
@@ -498,14 +533,16 @@ At `0x8f`, priority is:
 3. configured at the wrong speed (`EPROTO`);
 4. canonical bus-progress state (`attached`, `powered`, `default`,
    `addressed`, `reconnecting`, `unauthenticated`, or `suspended`);
-5. nested run-stop failure swallowed by runtime resume;
-6. pull-up zero with no run-stop boundary; and
-7. run-stop zero with `not attached`.
+5. Phase-B-diagnostic-incomplete `not attached` (`0xb27`);
+6. nested run-stop failure swallowed by runtime resume;
+7. pull-up zero with no run-stop boundary; and
+8. run-stop zero with `not attached`.
 
-Trace integrity and cleanup have already passed before ordinary `0x8e`
-progress. Physical UDC bus progress therefore outranks the stored clean-trace
-result. For `not attached`, that stored result identifies the deepest software
-boundary.
+Cleanup has passed before `0x8e` progress, and any diagnostic warning is
+retained separately in the previous A/B slot. Physical UDC bus progress
+therefore outranks trace quality. For `not attached`, only clean Phase-B trace
+may identify the deepest software boundary; otherwise the result is `0xb27`.
+A Phase R-only warning does not discard independently clean Phase-B evidence.
 
 An unknown UDC state string is `EPROTO`, not an invented ordinal. Canonical
 strings come from the kernel's `usb_state_string()` vocabulary.
@@ -553,7 +590,7 @@ Containment is:
 - each phase is disabled, removed, and verified before normal progress;
 - an active-probe deadline parks without potentially blocking unregister and
   records that non-clean state explicitly;
-- setup failure before role action when Phase R cannot be armed;
+- setup failure before action continues only through the exact clean fallback;
 - reboot clears all RAM-only trace state; and
 - the permanent boot-only rollback envelope remains unchanged.
 
@@ -570,14 +607,19 @@ P2.60 in place:
 - `s22plus_fyg8_p280_source_contract.py`;
 - `s22plus_fyg8_p280_e1_decoder.py`;
 - one P2.80 native runtime include;
+- one P2.80-only progress-warning publisher entry point, while the historical
+  zero-detail progress entry point remains byte-identical;
 - one exact module probe-site extractor/auditor;
 - one generic-arm64 Kprobe mechanism control and runner;
 - focused parser, contract, runtime, mutation, and decoder tests; and
 - one selector registration.
 
 The source adapter delegates unchanged P2.60 generation and performs bounded,
-count-checked transforms. P2.60 generated output and historical decoder
-behavior must remain byte-identical.
+count-checked transforms. It adds the warning publisher only to P2.80 output;
+P2.60 generated output, its zero-detail progress API, and historical decoder
+behavior must remain byte-identical. The P2.80 decoder reads both valid A/B
+slots and reports a progress warning separately from the active functional
+outcome.
 
 The new exact `0xbXX` whitelist changes the checkpoint validators and therefore
 the final kernel image. A qualified P2.80 candidate requires one fresh
@@ -604,9 +646,10 @@ Implementation is complete only when H0 validation proves:
    disassembly; changing either call, order, or following instruction fails.
 6. Runtime event strings, parser rules, detail whitelist, decoder, and linked
    audit all derive from one descriptor.
-7. Only the listed `0xbXX` values are accepted at only the listed stages;
-   every reserved neighbor is rejected.
-8. Event registration/readback, instance ownership, `TRACEFS_MAGIC`,
+7. Only the listed `0xbXX` values are accepted for only their listed outcomes
+   and stages; every reserved neighbor and outcome mutation is rejected.
+8. Event registration/readback, clean fail-soft setup fallback, instance
+   ownership, `TRACEFS_MAGIC`,
    `trace_clock=counter`, signed `:s32` fetches, filters, buffer bound,
    cleanup, default-maxactive use, and `nmissed` handling are mutation-tested.
 9. The parser accepts irrelevant extra events but rejects missing, reordered,
@@ -615,8 +658,8 @@ Implementation is complete only when H0 validation proves:
 10. Phase B accepts only PID1 events. Phase R requires exact `on=1` and one
     captured `common_pid` through its decisive return.
 11. The role-write helper is tested for exact success, errno, short/malformed
-    report, pre-entry stall, post-entry stall, one `SIGKILL`, nonblocking
-    reap, and no retry.
+    report, pre-entry stall, post-entry stall, one `SIGKILL`, nonblocking reap,
+    no retry, and terminal `0xb18` for post-action trace-quality loss.
 12. Every quiescent exit performs ordered cleanup before ordinary progress;
     an injected cleanup failure produces `0xb04`. A simulated active-probe
     deadline never calls unregister and produces only its exact deadline
@@ -626,19 +669,26 @@ Implementation is complete only when H0 validation proves:
     strings.
 15. Phase B fixtures cover direct run-stop, no run-stop, run-stop nested in
     runtime resume, and swallowed nested run-stop failure. Missing synchronous
-    returns and impossible propagated returns fail as `0xb03`.
-16. The runtime cross-compiles as static AArch64 and two links are
+    returns and impossible propagated returns become `0xb03` only after the
+    bind returned and cleanup passed.
+16. Progress-warning fixtures prove first-warning propagation through `0x8f`,
+    zero-detail terminal success, A/B retention beside success and failure,
+    and `0xb27` instead of trace-derived `0xb20..0xb22` when Phase-B quality is
+    not clean. A Phase R-only warning must preserve clean Phase-B
+    classification. The decoder must report the origin phase of propagated
+    `0xb01`/`0xb02` as `unknown`.
+17. The runtime cross-compiles as static AArch64 and two links are
     byte-identical.
-17. The hash-pinned generic-arm64 Kprobe control must pass one ordered PID1
+18. The hash-pinned generic-arm64 Kprobe control must pass one ordered PID1
     entry and return with exact signed `:s32` value `-EBADF`, zero missed
     probes, and verified full cleanup under bounded host commands. The
     existing generic-arm64 QEMU E3 path must also remain green. Neither result
     is labeled as S22+ SCS/PAC or Qualcomm USB proof.
-18. The kernel patch applies cleanly and the generated exact detail table is
+19. The kernel patch applies cleanly and the generated exact detail table is
     present in the linked image.
-19. A GNU `nm`/`objdump` linked audit passes on the controlled verification
+20. A GNU `nm`/`objdump` linked audit passes on the controlled verification
     host; the prohibited high-RSS LLVM substitution is not used.
-20. Independent safety review finds no widened device or partition authority.
+21. Independent safety review finds no widened device or partition authority.
 
 Only after all pre-LTO checks pass may one final source-bound Full-LTO A/B,
 six-artifact equality, deterministic boot-only packaging, closure audit, and
@@ -652,11 +702,13 @@ offline Process v2 promotion begin.
 | `0xb13` | role write returned, but parent DEVICE start was not reached |
 | `0xb14` | parent DEVICE start entered and did not return by the absolute deadline |
 | `0xb15` / `0xb16` | H11 is directly supported at parent or child runtime PM |
+| `0xb18` | Phase R trace loss left asynchronous worker quiescence unproved |
 | parent start returns | parent device-start call sites were reached, not electrically proved |
 | `0xb20` | pull-up API returned zero through a branch that did not enter run-stop |
 | `0xb21` | a nested run-stop failure was swallowed by runtime resume |
 | `0xb22` | run-stop returned zero but no host bus state reached the UDC |
 | `0xb23..0xb26` | electrical/protocol progress occurred; the final canonical state locates it |
+| `0xb27` | E3 did not configure and no clean trace supports a software-boundary claim |
 | configured/high-speed | E3 functional success, subject to exact host banner and rollback |
 
 No trace event proves host enumeration by itself. A later F1 still requires
@@ -684,6 +736,11 @@ P2.80 does not add or perform:
 - A zero run-stop return can still be the runtime-suspended early return.
 - Absence is meaningful only with successful probe registration, clean
   profiles, no overflow, and an unambiguous bounded trace.
+- `0xb01..0xb03` are diagnostic-quality warnings, not claims about USB target
+  execution. The active functional result remains authoritative.
+- A Phase R setup fallback proves only clean P2.80 probe ownership plus the
+  later primary E3 result. It does not prove parent-worker completion before
+  bind; that is the explicitly retained P2.76 ordering limitation.
 - A Phase R deadline intentionally leaves possibly active RAM-only probe state
   for reboot rather than claiming verified cleanup.
 - `SIGKILL` cannot promptly reap a child blocked in an uninterruptible kernel
