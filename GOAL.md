@@ -12,9 +12,8 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 **State: direct PID1, E1A/E1B, E2 through the real UDC, and E3 through exact
 configfs UDC binding are live proven. P2.76 stopped at configured-state stage
 `0x8f` with no host ACM endpoint, then exact rollback and final health passed.
-P2.80 now implements its discriminator and a current-intent-bound pre-LTO
-qualification. Exact userspace, safety, generic E3 QEMU, Kprobe ABI, and 5/5
-lifecycle gates pass H0. Full-LTO, D0, F1, and device authority have not occurred.**
+P2.80 has bound qualification, byte-identical Full-LTO/package pairs, static
+closure, promotion, and validated ready1; D0, F1, and device authority have not occurred.**
 
 P2.69 derived the fresh v4 intent, completed two clean Full-LTO builds in
 `40:43.23` and `40:45.31` with no swap, and proved byte equality for all six
@@ -748,8 +747,8 @@ reports grant no device authority.
     write is source-deduced but not separately live-proved. Retire UCSI-race
     and role-retrigger as the P2.80 headline; design a minimal parent-worker
     progress discriminator next. No device contact or authority occurred.
-71. **P2.80 parent/pull-up discriminator and pre-LTO closure, H0:** retain the exact module
-    closure and E3 geometry. Two bounded tracefs kprobe windows observe parent
+71. **P2.80 parent/pull-up discriminator and build closure, H0:** retain the
+    exact module closure and E3 geometry. Two bounded tracefs windows observe parent
     PM, `start_peripheral`, child pull-up/run-stop, and canonical UDC state.
     One no-retry helper, signed fetches, globally ordered same-PID traces, exact
     `0xbXX` descriptors, per-phase cleanup, host sidecar, and independent
@@ -760,12 +759,13 @@ reports grant no device authority.
     cleanup and Phase-R ambiguity remain fail-closed. The observer distinguishes
     commanded release from TTL/signal races: exact run-bound ACM bytes survive
     cleanup-confirmed loss with a warning, while absence remains indeterminate.
-    Final source/adapters/closure and four-plus-six event code pass focused
-    tests and 5/5 cold QEMU runs. A P2.80-only qualification binds exact
-    intent, patch, run ID, sources, ELF entrypoints, safety, pinned generic E3
-    substrate, trace results, and executors. The wrapper reopens/re-evaluates
-    it; A/B and packaging require the same identity. Historical contracts are
-    unchanged; Full-LTO and device work remain.
+    Source closure, focused tests, 5/5 QEMU runs, and one exact qualification
+    bind intent, run ID, ELF, safety, substrates, traces, and executors.
+    Full-LTO A/B finish in `37:47.60`/`38:14.53`, use no swap, and match all
+    six artifacts. A host audit omitted the P2.80 struct's AArch64 tail pad;
+    its corrected adapter verifies 21 six-byte entries and the 126-byte range.
+    Package A/B and static/effective-rootfs closure pass; ready1 binds exact Process v2 promotion and ACM observation for 240 seconds and
+    validates host-only; D0, F1, and device work have not occurred.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
 reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing

@@ -409,6 +409,47 @@ def validate_candidate_source_preimage(
     return normalized_sources
 
 
+def _generic_rootfs_module_closure(
+    source_contract_id: str | None,
+    closure_api: Any,
+    module_closure: dict[str, Any],
+) -> dict[str, Any]:
+    if source_contract_id != e2_closure_selector.P280_CONTRACT_ID:
+        return module_closure
+    try:
+        p257_adapter = closure_api.isolated_p260.p257
+        p253_adapter = closure_api.isolated_p260.p253
+        full_count = module_closure.get("count")
+        if (
+            isinstance(full_count, bool)
+            or not isinstance(full_count, int)
+            or full_count != closure_api.EXPECTED_MODULE_COUNT
+        ):
+            raise EvidenceError(
+                "P2.80 full module closure count is invalid"
+            )
+        expected_count = full_count - 1
+        adapted = p253_adapter._legacy_view(
+            p257_adapter._legacy_view(module_closure)
+        )
+    except (AttributeError, e2_closure.ClosureError) as exc:
+        raise EvidenceError(
+            "P2.80 generic-rootfs module adapter is unavailable"
+        ) from exc
+    adapted_modules = adapted.get("modules") if isinstance(adapted, dict) else None
+    if (
+        not isinstance(adapted, dict)
+        or adapted is module_closure
+        or adapted.get("count") != expected_count
+        or not isinstance(adapted_modules, list)
+        or len(adapted_modules) != expected_count
+    ):
+        raise EvidenceError(
+            "P2.80 generic-rootfs module adapter result is invalid"
+        )
+    return adapted
+
+
 def validate_e2_ap_payload(
     frame: bytes, closure: Any
 ) -> dict[str, Any]:
@@ -470,13 +511,16 @@ def validate_e2_ap_payload(
             boot.ramdisk, maximum=128 * 1024 * 1024
         )
         entries = e2_closure.boot_verify.parse_newc(ramdisk)
+        generic_module_closure = _generic_rootfs_module_closure(
+            source_contract_id, closure_api, module_closure
+        )
         generic_rootfs = closure_api.audit_candidate_generic_rootfs(
             boot,
             entries,
             expected_init=identities["init"],
             expected_child=identities["child"],
             run_id=bytes.fromhex(run_id),
-            module_closure=module_closure,
+            module_closure=generic_module_closure,
         )
     except e2_closure.boot_verify.BootVerifyError as exc:
         raise EvidenceError("E2 AP payload cannot be independently decoded") from exc

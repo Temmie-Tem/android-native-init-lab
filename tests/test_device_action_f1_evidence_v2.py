@@ -3,6 +3,7 @@ import hashlib
 import importlib.util
 import json
 import sys
+import types
 import unittest
 from pathlib import Path
 
@@ -533,6 +534,57 @@ class DeviceActionF1EvidenceV2Test(unittest.TestCase):
             "acceptance identity",
         ):
             self.module.validate_acceptance(stale)
+
+    def test_p280_generic_rootfs_uses_exact_legacy_module_view(self):
+        full = {"count": 60}
+        intermediate = {"count": 59, "view": "p257"}
+        legacy = {
+            "count": 59,
+            "modules": [{} for _ in range(59)],
+            "view": "p253",
+        }
+        closure = types.SimpleNamespace(
+            EXPECTED_MODULE_COUNT=60,
+            isolated_p260=types.SimpleNamespace(
+                p257=types.SimpleNamespace(
+                    _legacy_view=lambda value: intermediate
+                    if value is full
+                    else self.fail("different full closure supplied")
+                ),
+                p253=types.SimpleNamespace(
+                    _legacy_view=lambda value: legacy
+                    if value is intermediate
+                    else self.fail("different intermediate closure supplied")
+                ),
+            )
+        )
+        self.assertIs(
+            self.module._generic_rootfs_module_closure(
+                self.module.e2_closure_selector.P280_CONTRACT_ID,
+                closure,
+                full,
+            ),
+            legacy,
+        )
+
+    def test_historical_generic_rootfs_keeps_full_module_closure(self):
+        full = {"count": 60}
+        self.assertIs(
+            self.module._generic_rootfs_module_closure(
+                "historical-contract", types.SimpleNamespace(), full
+            ),
+            full,
+        )
+
+    def test_p280_generic_rootfs_rejects_missing_adapter(self):
+        with self.assertRaisesRegex(
+            self.module.EvidenceError, "adapter is unavailable"
+        ):
+            self.module._generic_rootfs_module_closure(
+                self.module.e2_closure_selector.P280_CONTRACT_ID,
+                types.SimpleNamespace(),
+                {"count": 60},
+            )
 
     def test_same_ring_offline_contract_binds_candidate_and_records(self):
         bundle = self.same_ring_offline_bundle()

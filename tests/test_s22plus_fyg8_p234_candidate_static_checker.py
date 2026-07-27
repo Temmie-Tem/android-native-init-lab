@@ -2,8 +2,11 @@ import copy
 import importlib.util
 import sys
 import tempfile
+import types
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -297,6 +300,137 @@ class P234CandidateStaticCheckerTest(unittest.TestCase):
         self.assertNotEqual(
             self.module.DEFAULT_CANDIDATE, self.module.DEFAULT_CANDIDATE_B
         )
+
+    def test_verify_repro_selects_registered_adapter(self):
+        source_contract_id = "test-static-adapter-contract"
+        adapter_name = "test_static_repro_adapter"
+        exact_contract = {
+            "run_id": "12" * 16,
+            "profile": "E2",
+            "source_contract_id": source_contract_id,
+        }
+        fresh = {"candidate_contract": exact_contract, "verified": True}
+        encoded = (self.module.json.dumps(fresh) + "\n").encode()
+        adapter = types.SimpleNamespace(
+            EXPECTED_SOURCE_CONTRACT_ID=source_contract_id,
+            check=lambda _args: fresh,
+        )
+        original_read_json = self.module.read_json
+        original_repro_check = self.module.repro.check
+        self.module.repro.LINKED_VALIDATOR_ADAPTERS[source_contract_id] = adapter_name
+        sys.modules[adapter_name] = adapter
+        self.module.read_json = lambda *_args: (fresh, encoded)
+        self.module.repro.check = lambda _args: self.fail(
+            "registered adapter was bypassed"
+        )
+        try:
+            result, result_receipt = self.module.verify_repro(
+                ROOT, self.module.parse_args([]), exact_contract
+            )
+        finally:
+            self.module.read_json = original_read_json
+            self.module.repro.check = original_repro_check
+            self.module.repro.LINKED_VALIDATOR_ADAPTERS.pop(
+                source_contract_id, None
+            )
+            sys.modules.pop(adapter_name, None)
+        self.assertEqual(result, fresh)
+        self.assertEqual(result_receipt, self.module.receipt(encoded))
+
+    def test_verify_repro_rejects_mismatched_adapter_contract(self):
+        source_contract_id = "test-static-adapter-contract"
+        adapter_name = "test_static_repro_adapter"
+        exact_contract = {
+            "run_id": "12" * 16,
+            "profile": "E2",
+            "source_contract_id": source_contract_id,
+        }
+        fresh = {"candidate_contract": exact_contract, "verified": True}
+        original_read_json = self.module.read_json
+        self.module.repro.LINKED_VALIDATOR_ADAPTERS[source_contract_id] = adapter_name
+        sys.modules[adapter_name] = types.SimpleNamespace(
+            EXPECTED_SOURCE_CONTRACT_ID="different-contract",
+            check=lambda _args: fresh,
+        )
+        self.module.read_json = lambda *_args: (fresh, b"fresh\n")
+        try:
+            with self.assertRaisesRegex(
+                self.module.CheckError, "adapter contract mismatch"
+            ):
+                self.module.verify_repro(
+                    ROOT, self.module.parse_args([]), exact_contract
+                )
+        finally:
+            self.module.read_json = original_read_json
+            self.module.repro.LINKED_VALIDATOR_ADAPTERS.pop(
+                source_contract_id, None
+            )
+            sys.modules.pop(adapter_name, None)
+
+    def test_p280_rootfs_entrypoint_context_wraps_exact_userspace(self):
+        source_contract_id = self.module.repro.P280_SOURCE_CONTRACT_ID
+        state = {"active": False}
+
+        @contextmanager
+        def expected_entrypoints(values):
+            self.assertEqual(
+                values, {"init": 0x403B20, "child": 0x4000CC}
+            )
+            state["active"] = True
+            try:
+                yield
+            finally:
+                state["active"] = False
+
+        closure = types.SimpleNamespace(
+            source_contract=types.SimpleNamespace(
+                CONTRACT_ID=source_contract_id
+            ),
+            _expected_entrypoints=expected_entrypoints,
+        )
+        with mock.patch.object(
+            self.module.e1_static,
+            "inspect_static_elf",
+            side_effect=[
+                {"entrypoint": 0x403B20},
+                {"entrypoint": 0x4000CC},
+            ],
+        ):
+            context = self.module.rootfs_entrypoint_context(
+                closure,
+                {"source_contract_id": source_contract_id},
+                {"init": b"init", "child": b"child"},
+            )
+            with context:
+                self.assertTrue(state["active"])
+        self.assertFalse(state["active"])
+
+    def test_p280_rootfs_entrypoint_context_rejects_wrong_adapter(self):
+        with self.assertRaisesRegex(
+            self.module.CheckError, "entrypoint adapter mismatch"
+        ):
+            self.module.rootfs_entrypoint_context(
+                types.SimpleNamespace(),
+                {
+                    "source_contract_id": (
+                        self.module.repro.P280_SOURCE_CONTRACT_ID
+                    )
+                },
+                {"init": b"init", "child": b"child"},
+            )
+
+    def test_historical_rootfs_entrypoint_context_is_noop(self):
+        with mock.patch.object(
+            self.module.e1_static,
+            "inspect_static_elf",
+            side_effect=AssertionError("historical path inspected ELF"),
+        ):
+            with self.module.rootfs_entrypoint_context(
+                types.SimpleNamespace(),
+                {"source_contract_id": "historical-contract"},
+                {"init": b"init", "child": b"child"},
+            ):
+                pass
 
 
 if __name__ == "__main__":

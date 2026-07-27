@@ -274,9 +274,109 @@ class P280RegistrationTests(unittest.TestCase):
         table_loads.assert_called_once_with(
             "disassembly",
             0x1000,
-            len(p280.linked_table_bytes()["s22_fyg8_p280_details"]),
+            len(
+                linked.linked_table_storage_bytes(
+                    p280.linked_table_bytes()
+                )["s22_fyg8_p280_details"]
+            ),
             "halfword",
         )
+
+    def test_linked_detail_storage_normalizes_exact_abi_padding(self):
+        logical = p280.linked_table_bytes()
+        physical = linked.linked_table_storage_bytes(logical)
+        detail = physical[linked.P280_DETAIL_TABLE]
+        self.assertEqual(
+            len(detail),
+            len(p280.spec.DIAGNOSTIC_DETAILS)
+            * linked.P280_DETAIL_STORAGE_STRIDE,
+        )
+        self.assertEqual(
+            detail[linked.P280_DETAIL_LOGICAL_STRIDE :: linked.P280_DETAIL_STORAGE_STRIDE],
+            b"\0" * len(p280.spec.DIAGNOSTIC_DETAILS),
+        )
+        normalized, evidence = linked.normalize_linked_table_storage(
+            physical, logical
+        )
+        self.assertEqual(normalized, logical)
+        self.assertTrue(evidence["zero_tail_padding_verified"])
+        self.assertTrue(evidence["verified"])
+
+    def test_linked_detail_storage_rejects_nonzero_padding(self):
+        logical = p280.linked_table_bytes()
+        physical = linked.linked_table_storage_bytes(logical)
+        changed = bytearray(physical[linked.P280_DETAIL_TABLE])
+        changed[linked.P280_DETAIL_LOGICAL_STRIDE] = 1
+        with self.assertRaisesRegex(linked.AuditError, "padding is nonzero"):
+            linked.normalize_linked_table_storage(
+                {**physical, linked.P280_DETAIL_TABLE: bytes(changed)},
+                logical,
+            )
+
+    def test_linked_detail_storage_rejects_packed_or_mutated_bytes(self):
+        logical = p280.linked_table_bytes()
+        physical = linked.linked_table_storage_bytes(logical)
+        with self.assertRaisesRegex(linked.AuditError, "size differs"):
+            linked.normalize_linked_table_storage(logical, logical)
+        changed = bytearray(physical[linked.P280_DETAIL_TABLE])
+        changed[0] ^= 1
+        with self.assertRaisesRegex(linked.AuditError, "bytes differ"):
+            linked.normalize_linked_table_storage(
+                {**physical, linked.P280_DETAIL_TABLE: bytes(changed)},
+                logical,
+            )
+
+    def test_linked_adapter_scopes_and_restores_physical_contract(self):
+        logical_builder = linked.p280.linked_table_bytes
+        logical_auditor = linked.p280.audit_linked_tables
+        seen = {}
+
+        def fake_linked_audit():
+            physical = linked.p280.linked_table_bytes()
+            seen["detail_size"] = len(physical[linked.P280_DETAIL_TABLE])
+            semantics = linked.p280.audit_linked_tables(physical)
+            seen["layout"] = semantics["physical_storage_layout"]
+            return semantics
+
+        result = linked._audit_linked_with_physical_tables(
+            fake_linked_audit
+        )
+        self.assertEqual(
+            seen["detail_size"],
+            len(p280.spec.DIAGNOSTIC_DETAILS)
+            * linked.P280_DETAIL_STORAGE_STRIDE,
+        )
+        self.assertTrue(seen["layout"]["zero_tail_padding_verified"])
+        self.assertTrue(result["verified"])
+        self.assertIs(linked.p280.linked_table_bytes, logical_builder)
+        self.assertIs(linked.p280.audit_linked_tables, logical_auditor)
+
+    def test_linked_adapter_restores_both_layers_after_exceptions(self):
+        logical_builder = linked.p280.linked_table_bytes
+        logical_auditor = linked.p280.audit_linked_tables
+        common_audit = linked.repro.audit_linked
+
+        def fail_inside_linked_audit():
+            self.assertIsNot(
+                linked.p280.linked_table_bytes, logical_builder
+            )
+            raise RuntimeError("injected linked failure")
+
+        with self.assertRaisesRegex(RuntimeError, "injected linked failure"):
+            linked._audit_linked_with_physical_tables(
+                fail_inside_linked_audit
+            )
+        self.assertIs(linked.p280.linked_table_bytes, logical_builder)
+        self.assertIs(linked.p280.audit_linked_tables, logical_auditor)
+
+        with mock.patch.object(
+            linked.repro,
+            "check",
+            side_effect=RuntimeError("injected common failure"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "injected common failure"):
+                linked.check(object())
+        self.assertIs(linked.repro.audit_linked, common_audit)
 
     def test_candidate_repro_requires_p280_linked_adapter(self):
         exact_contract = {

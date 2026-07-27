@@ -5,12 +5,14 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib
 import json
 import os
 import stat
 import subprocess
 import sys
 import tempfile
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
 
@@ -404,20 +406,66 @@ def verify_repro(
         "P2.34 build reproducibility result",
         16 * 1024 * 1024,
     )
-    fresh = repro.check(
-        argparse.Namespace(
-            build_a=args.build_a,
-            build_b=args.build_b,
-            source=args.source,
-            intent=args.intent,
-            patch=args.patch,
-            nm=args.nm,
-            objdump=args.objdump,
-        )
+    check_args = argparse.Namespace(
+        build_a=args.build_a,
+        build_b=args.build_b,
+        source=args.source,
+        intent=args.intent,
+        patch=args.patch,
+        nm=args.nm,
+        objdump=args.objdump,
     )
+    source_contract_id = exact_contract.get("source_contract_id")
+    adapter_name = repro.LINKED_VALIDATOR_ADAPTERS.get(source_contract_id)
+    checker = repro.check
+    if adapter_name is not None:
+        adapter = importlib.import_module(adapter_name)
+        if (
+            getattr(adapter, "EXPECTED_SOURCE_CONTRACT_ID", None)
+            != source_contract_id
+            or not callable(getattr(adapter, "check", None))
+        ):
+            raise CheckError("P2.34 reproducibility adapter contract mismatch")
+        checker = adapter.check
+    fresh = checker(check_args)
     if result != fresh or result.get("candidate_contract") != exact_contract:
         raise CheckError("P2.34 reproducibility result differs from fresh verification")
     return result, receipt(payload)
+
+
+def rootfs_entrypoint_context(
+    closure_api: Any,
+    exact_contract: dict[str, Any],
+    userspace_payloads: dict[str, bytes],
+):
+    if (
+        exact_contract.get("source_contract_id")
+        != repro.P280_SOURCE_CONTRACT_ID
+    ):
+        return nullcontext()
+    if (
+        getattr(getattr(closure_api, "source_contract", None), "CONTRACT_ID", None)
+        != repro.P280_SOURCE_CONTRACT_ID
+        or not callable(getattr(closure_api, "_expected_entrypoints", None))
+    ):
+        raise CheckError("P2.80 stock-closure entrypoint adapter mismatch")
+    try:
+        entrypoints = {
+            "init": e1_static.inspect_static_elf(
+                userspace_payloads["init"], "P2.80 exact /init"
+            )["entrypoint"],
+            "child": e1_static.inspect_static_elf(
+                userspace_payloads["child"], "P2.80 exact child"
+            )["entrypoint"],
+        }
+    except (KeyError, e1_static.CheckError) as exc:
+        raise CheckError("P2.80 exact userspace entrypoint is invalid") from exc
+    if any(
+        isinstance(value, bool) or not isinstance(value, int)
+        for value in entrypoints.values()
+    ):
+        raise CheckError("P2.80 exact userspace entrypoint is malformed")
+    return closure_api._expected_entrypoints(entrypoints)
 
 
 def audit(args: argparse.Namespace) -> dict[str, Any]:
@@ -739,15 +787,18 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
             )
         elif vendor_boot is not None and exact_contract["profile"] == "E2":
             try:
-                effective_rootfs = closure_api.rootfs_audit(
-                    payloads["boot_img"],
-                    vendor_boot,
-                    lz4_path,
-                    expected_init=receipt(userspace_payloads["init"]),
-                    expected_child=receipt(userspace_payloads["child"]),
-                    run_id=bytes.fromhex(exact_contract["run_id"]),
-                    module_closure=module_closure,
-                )
+                with rootfs_entrypoint_context(
+                    closure_api, exact_contract, userspace_payloads
+                ):
+                    effective_rootfs = closure_api.rootfs_audit(
+                        payloads["boot_img"],
+                        vendor_boot,
+                        lz4_path,
+                        expected_init=receipt(userspace_payloads["init"]),
+                        expected_child=receipt(userspace_payloads["child"]),
+                        run_id=bytes.fromhex(exact_contract["run_id"]),
+                        module_closure=module_closure,
+                    )
             except e2_closure.ClosureError as exc:
                 raise CheckError("E2 effective stock rootfs audit failed") from exc
 
