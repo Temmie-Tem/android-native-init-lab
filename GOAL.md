@@ -756,9 +756,14 @@ reports grant no device authority.
     canonical UDC state. PID1 bounds the synchronous role write through one
     no-retry helper; signed fetches, globally ordered same-PID traces, exact
     `0xbXX` descriptors, per-phase cleanup, clean profiles, host sidecar, and
-    independent instrumentation review are mandatory. A 240-second future
-    manifest target remains provisional until implementation timing. Next is
-    versioned H0 implementation; no device authority exists.
+    independent instrumentation review are mandatory. Exact arm64 source and
+    target disassembly rule out the proposed SCS return-probe bypass; the
+    implementation must reject CFI thunks during exact body selection. A
+    kernel/config/QEMU-pinned generic-arm64 control now passes one PID1
+    entry/return with signed `:s32` `-EBADF`, zero misses, bounded host
+    commands, and full cleanup, and is a mandatory pre-LTO gate. A 240-second
+    future manifest target remains provisional until implementation timing.
+    Next is versioned H0 implementation; no device authority exists.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
 reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing

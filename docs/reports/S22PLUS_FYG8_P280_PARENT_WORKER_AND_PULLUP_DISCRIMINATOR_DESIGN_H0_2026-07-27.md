@@ -211,6 +211,82 @@ can collapse its context to a dummy logger, so marker absence is not evidence.
 The DWC3 `link_state` debugfs read remains excluded because it runtime-resumes
 the controller and perturbs the state being diagnosed.
 
+### Shadow Call Stack, pointer authentication, and CFI
+
+An adversarial follow-up raised a valid failure-mode question: a silently
+bypassed return probe would turn "return instrumentation did not fire" into a
+false claim that the target did not return. Exact FYG8 source and linked-code
+inspection rule out the proposed Shadow Call Stack mechanism.
+
+The exact arm64 Kprobe core calls the return-probe entry handler and then
+`arch_prepare_kretprobe()` before the target's first instruction.
+`arch_prepare_kretprobe()` saves live `x30` and replaces live `x30` with
+`kretprobe_trampoline`; it does not patch a saved return address on the normal
+stack. The exact `dwc3_otg_start_peripheral()` body then executes:
+
+```text
+paciasp
+str x30, [x18], #8
+...
+ldr x30, [x18, #-8]!
+autiasp
+ret
+```
+
+The substituted trampoline is therefore what pointer authentication signs and
+what Shadow Call Stack stores. The exact arm64 trampoline later restores the
+original return target into `lr`. SCS bypass of this return probe is
+`RULED_OUT` for the inspected FYG8 source and object. This conclusion is
+source/disassembly-specific; the generic QEMU control below does not claim to
+validate S22+ SCS.
+
+The event set already pairs every decisive return probe with its entry probe.
+Its three states remain distinct:
+
+- registration or exact readback failure is `0xb02`;
+- registered but no decisive entry is a source-defined pre-entry outcome
+  (`0xb12` or `0xb13` in Phase R);
+- entry without its required return is `0xb14` in Phase R or instrumentation
+  contradiction `0xb03` after the synchronous Phase B bind.
+
+Any nonzero missed count is also `0xb03`. A separate live control return probe
+would not prove that a different target returned and would enlarge the
+instrumentation hazard, so P2.80 does not add one.
+
+CFI symbols must be resolved by exact name and body address. The exact vendor
+module contains the local body
+`dwc3_msm_usb_role_switch_set_role` and a distinct global
+`dwc3_msm_usb_role_switch_set_role.cfi_jt`; P2.80 does not probe either one.
+Its parent target `dwc3_otg_start_peripheral` has one local body and no
+same-name `.cfi_jt`. The three built-in Phase B targets likewise resolve to
+exact local bodies without same-name `.cfi_jt` symbols. The site extractor
+must reject a suffix match, a CFI thunk, an alias, or an address outside the
+expected text section.
+
+### Mandatory generic-arm64 mechanism control
+
+The pinned Debian generic-arm64 guest enables Kprobes, Kretprobes, Kprobe
+events, Ftrace, tracing, and full kallsyms. P2.80 adds a standalone control:
+
+- `s22plus_fyg8_p280_kprobe_qemu_control.c`;
+- `s22plus_fyg8_p280_kprobe_qemu_control.py`; and
+- focused source/config mutation tests.
+
+It hash-pins the guest kernel and config plus the QEMU binary/version, mounts
+tracefs, creates one isolated instance and group, and registers one
+entry/return pair on exact `__arm64_sys_close`. It filters to PID1, selects the
+counter clock, invokes `close(-1)`, requires one ordered entry and return with
+exact signed `:s32` value `-EBADF`, requires zero missed probes, removes both
+events and the instance, unmounts tracefs, and verifies cleanup. Compilation,
+archive construction, QEMU identity, and guest execution all have explicit
+host deadlines.
+
+This control is mandatory before Full LTO. It validates the tracefs ABI,
+event syntax, return-value fetch, instance/filter behavior, profile parsing,
+and cleanup path that P2.80 will reuse. It does not validate Qualcomm targets,
+target SCS/PAC, DWC3 behavior, or physical USB enumeration; those remain
+covered by exact source/object gates and, later, the bounded F1 observation.
+
 ### Tracefs ownership
 
 Each phase has a separate complete ownership lifecycle. The candidate will:
@@ -495,6 +571,7 @@ P2.60 in place:
 - `s22plus_fyg8_p280_e1_decoder.py`;
 - one P2.80 native runtime include;
 - one exact module probe-site extractor/auditor;
+- one generic-arm64 Kprobe mechanism control and runner;
 - focused parser, contract, runtime, mutation, and decoder tests; and
 - one selector registration.
 
@@ -517,8 +594,12 @@ Implementation is complete only when H0 validation proves:
    caller of `dwc_msm_vbus_event` and `dwc_msm_id_event`.
 3. The default-peripheral source branch remains excluded by registration
    order and exact DT role-switch topology.
-4. Every event target exists in the exact module or final `System.map`, is not
-   a `NOKPROBE_SYMBOL`, and the linked image retains trace-instance support.
+4. Every event target resolves to one exact function body in the expected text
+   section, not a suffix, alias, or `.cfi_jt`; it exists in the exact module or
+   final `System.map`, is not a `NOKPROBE_SYMBOL`, and the linked image retains
+   trace-instance support. Exact arm64 Kprobe source plus target
+   prologue/epilogue disassembly must continue to prove that live `x30` is
+   replaced before PAC/SCS stores and restored through the trampoline.
 5. The two PM post-call sites are derived from exact relocations and
    disassembly; changing either call, order, or following instruction fails.
 6. Runtime event strings, parser rules, detail whitelist, decoder, and linked
@@ -548,9 +629,11 @@ Implementation is complete only when H0 validation proves:
     returns and impossible propagated returns fail as `0xb03`.
 16. The runtime cross-compiles as static AArch64 and two links are
     byte-identical.
-17. The existing generic-arm64 QEMU E3 path remains green; where its guest
-    supports Kprobe events, a focused Phase B trace integration test also
-    passes. Lack of that optional guest feature is reported, not mislabeled.
+17. The hash-pinned generic-arm64 Kprobe control must pass one ordered PID1
+    entry and return with exact signed `:s32` value `-EBADF`, zero missed
+    probes, and verified full cleanup under bounded host commands. The
+    existing generic-arm64 QEMU E3 path must also remain green. Neither result
+    is labeled as S22+ SCS/PAC or Qualcomm USB proof.
 18. The kernel patch applies cleanly and the generated exact detail table is
     present in the linked image.
 19. A GNU `nm`/`objdump` linked audit passes on the controlled verification
