@@ -764,8 +764,8 @@ reports grant no device authority.
     Full-LTO A/B finish in `37:47.60`/`38:14.53`, use no swap, and match all
     six artifacts. A host audit omitted the P2.80 struct's AArch64 tail pad;
     its corrected adapter verifies 21 six-byte entries and the 126-byte range.
-    Package A/B and static/effective-rootfs closure pass; ready1 binds exact Process v2 promotion and ACM observation for 240 seconds and
-    validates host-only; D0, F1, and device work have not occurred.
+    Package A/B and static/effective-rootfs closure pass; ready1 binds exact Process v2 promotion and 240-second ACM observation. First D0 stopped on one historical retained family; one bounded normal reboot rotated it out.
+    The single D0 retry passed exact health, clean baseline, and immutable closure and emitted a fresh private approval binding. No F1, Download, Odin, transfer, or device write occurred.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
 reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing
