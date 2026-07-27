@@ -708,41 +708,25 @@ reports grant no device authority.
     in about 21 seconds. No ready manifest, D0, approval, Odin, transfer,
     reboot, or device write occurred.
 61. **P2.72 E3 data-only ready manifest, H0:** bind the exact P2.71-promoted
-    boot-only AP, exact Magisk rollback, three offline contracts, terminal
-    `0x90`, versioned source closure, and source-derived CDC-ACM observer into
-    one reusable Process v2 manifest. The unchanged common runner independently
-    reopens the complete bundle and passes host preflight; an exact-bundle
-    regression test also passes. A stale runner-version draft is rejected
-    before acceptance. No D0, approval, Odin session, transfer, reboot, device
-    contact, or write occurred. Next is connected D0 against this immutable
-    manifest.
+    AP, rollback, offline contracts, terminal `0x90`, source closure, and
+    CDC-ACM observer into one reusable Process v2 manifest. Common-runner
+    preflight and exact-bundle regression pass; a stale runner draft is
+    rejected. No device contact or authority occurred.
 62. **P2.73 freeze and attended rehearsal, H0:** freeze the complete P2.72
-    candidate and live execution closure. Reopen the exact bundle with the
-    unchanged live adapter, pin the command/path/hash sequence, and preserve
-    the journal-only recovery branch. Localize the repeated rollback deviation
-    to a pre-snapshot USBFS baseline scan during Download-to-Android
-    re-enumeration; exact inner exception remains unresolved. Record an E4
-    one-request/nonce-response sketch only. No D0, approval, transaction,
-    Download request, Odin session, transfer, reboot, device contact, or write
-    occurred.
+    execution closure, pin its command/path/hash sequence, and preserve the
+    journal-only recovery branch. Localize the repeated rollback deviation to
+    a pre-snapshot USBFS race; exact inner exception remains unresolved. No
+    device contact or authority occurred.
 63. **P2.74 host USB trace sidecar, H0:** add one bounded non-authoritative
-    sidecar for kernel USB messages, USB/TTY udev events, and start/end `lsusb`
-    snapshots. Keep it alive across candidate observation, rollback, same-run
-    recovery when applicable, and final health. It never opens candidate ACM,
-    changes no frozen P2.72 execution source, and stores raw identifiers only
-    in private evidence with public export forbidden. Python compilation and
-    five focused tests pass. No D0, approval, transaction, Download request,
-    Odin session, transfer, reboot, device contact, or write occurred.
+    kernel/udev/`lsusb` sidecar across candidate, rollback, recovery, and final
+    health. It never opens candidate ACM; raw identifiers remain private.
+    Python compilation and five focused tests pass.
 64. **P2.75 P2.72 F1 adversarial preflight, H0:** inspect the frozen execution,
-    recovery, artifacts, sidecar, stock evidence, and journals; document every
-    recoverable state. Focused tests and exact bundle/closure validation pass.
-    No device contact, authority, transaction, reboot, or write occurred.
+    recovery, artifacts, sidecar, stock evidence, and journal states. Focused
+    tests plus exact bundle/closure validation pass; no authority occurred.
 65. **P2.76 E3 observation-margin correction, H0:** the P2.58A retained record
-    has no timestamp, so it cannot prove margin inside the old 120-second host
-    window. The E3 runtime can add up to 45 seconds after E2. Retire ready1
-    and select data-only ready2 with a 180-second observer bound. Execution
-    artifacts are unchanged and offline validation passes; no device contact
-    or authority occurred.
+    cannot prove margin in 120 seconds. Retire ready1 and select unchanged
+    ready2 with a 180-second bound; offline validation passes.
 66. **P2.76 E3 post-bind timeout, F1:** ready2 reaches configfs, gadget,
     `ttyGS0`, queued banner, peripheral readback, exact UDC membership, and
     exact UDC bind at `0x8e`; `0x8f` times out before configured/high-speed and
@@ -766,10 +750,20 @@ reports grant no device authority.
     write is source-deduced but not separately live-proved. Retire UCSI-race
     and role-retrigger as the P2.80 headline; design a minimal parent-worker
     progress discriminator next. No device contact or authority occurred.
+71. **P2.80 parent/pull-up discriminator design, H0:** retain the exact module
+    closure and E3 stage geometry. Use two bounded tracefs kprobe windows to
+    observe parent PM results, `start_peripheral`, child pull-up/run-stop, and
+    canonical UDC state. PID1 bounds the synchronous role write through one
+    no-retry helper; signed fetches, globally ordered same-PID traces, exact
+    `0xbXX` descriptors, per-phase cleanup, clean profiles, host sidecar, and
+    independent instrumentation review are mandatory. A 240-second future
+    manifest target remains provisional until implementation timing. Next is
+    versioned H0 implementation; no device authority exists.
 
-Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
-approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or
-infer bind from module registration.
+Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
+reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing
+native candidate, or infer bind from module registration. The bounded
+in-runtime P2.80 write child is not a separate execution helper.
 
 ## Process
 
