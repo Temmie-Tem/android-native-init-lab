@@ -85,6 +85,10 @@ Require all of the following before spending a Full-LTO build:
   change after intent derivation.
 - the exact two-link userspace build has passed its source-contract-specific
   stock-closure entrypoint check before kernel build A.
+- the exact source-contract safety dictionary has been evaluated before kernel
+  build A; every new bounded authority and effect is present, every field is
+  mutation-tested against the runtime authority descriptor and an independent
+  expected map, and historical contract maps are unchanged.
 - when the selected runtime changes generic configfs/libcomposite/gadget-serial
   behavior covered by a checked QEMU harness, its exact non-overlay execution
   verdict has passed before kernel build A.
@@ -114,6 +118,15 @@ value, symlink, queueing, and error-path mistakes that token/static checks
 cannot. It does not emulate or prove Qualcomm DWC3-MSM, SS/HS/eUSB2 PHY,
 peripheral-role control, VBUS/Type-C, Samsung notifier behavior, or physical
 host enumeration. Those remain target-specific F1 evidence.
+
+For a runtime that adds dynamic trace instrumentation, also execute the exact
+shared trace-control implementation with its full event lifecycle under a
+source-bound generic descriptor. A one-pair Kprobe ABI control is necessary
+mechanism evidence but cannot qualify a multi-event lifecycle or its timing.
+Keep guest boot/startup timing separate from trace setup, action, parse, and
+cleanup timing. Generic timing is a sanity measurement, not a target-device
+upper bound; a ready-manifest timeout must use reviewed contract waits and
+explicit allowances.
 
 ## Build record before preflight
 
@@ -374,6 +387,14 @@ Require:
 Only then run the Process v2 offline promotion. Offline promotion still creates
 no D0/F1 binding or authority.
 
+When a candidate adds a bounded runtime control lifecycle, a later ready
+manifest must consume a versioned timing receipt produced by the exact runtime
+harness. The receipt must bind raw samples, runtime/tool hashes, a reviewed
+budget formula, the selected observation timeout, and any enclosing host-guard
+cap. Reject a stale, lower, manually copied, or guard-overrunning timeout. Do
+not derive a target timeout by scaling generic QEMU time, and do not rebuild
+qualified kernel bundles for a data-only timeout correction.
+
 ## Interrupted-build recovery
 
 An interrupted wrapper can leave temporary reproducibility-control edits in
@@ -437,7 +458,7 @@ not hypothetical policy requirements.
 | A 4.4 GHz Full-LTO link burst reached 69.1 C while the host critical point was 70 C | The overclocked P-state has insufficient sustained thermal margin even under a mostly single-thread link | Return to the stable 2.9 GHz cap, finish the build, and restore the normal governor afterward | Select and record a CPU frequency lane; never pin a high P-state manually unless cooling or an intermediate P-state is separately qualified |
 | A new source contract had a byte-identical template patch, so an earlier Image was selected for reuse | Candidate identity also binds the source-contract domain, source receipts, derived run ID, UNSAT tag, and final config patch; template equality is below the actual candidate boundary | Derive and verify the fresh intent first; compare final patch/config/run ID, and rebuild when they differ | Keep a focused cross-contract identity test and make fresh intent derivation precede every build-lane decision |
 | P2.58A userspace linked reproducibly, but the stock-closure adapter inherited P2.57's older `/init` entrypoint and rejected the packaged candidate only after two Full-LTO builds | The kernel and packages were reproducible, but a source-bound host proof adapter was stale; a downstream-only shim would split static, promotion, and evidence semantics | Fix the P2.58A adapter itself, derive a new intent because its source receipt changes, and rebuild the invalidated candidate | Before Full LTO, build the exact userspace twice and compare both ELF entrypoints with the selected stock-closure adapter; test scoped adapter state restoration and historical-contract isolation |
-| A new E2 runtime intentionally wrote bounded sysfs/configfs state, but the generic package metadata still claimed `no_userspace_sysfs_or_configfs_write=true` | Candidate safety was selected only by broad profile and duplicated in builder and checker, so a reproducible package could carry a false authority statement | Stop before packaging, move safety selection to one exact-source-contract function, make the checker consume it, source-receipt that selector, and derive a fresh intent | Before Full LTO, evaluate the exact candidate contract's generated safety dictionary and mutation-test both the new bounded authority and unchanged historical profile behavior |
+| A new E2 runtime intentionally wrote bounded sysfs/configfs state, but the generic package metadata still claimed `no_userspace_sysfs_or_configfs_write=true` | Candidate safety was selected only by broad profile and duplicated in builder and checker, so a reproducible package could carry a false authority statement | Stop before packaging, move safety selection to one exact-source-contract function, make the checker consume it, source-receipt that selector, and derive a fresh intent | Before Full LTO, verify runtime operations against one authority descriptor, evaluate the generated safety dictionary against an independently fixed complete map, mutate both runtime operations and fields, and prove historical profile behavior unchanged |
 | P2.60 reached configfs stage `0x88` and failed because `P260_CONFIGFS_MAGIC` used sysfs magic `0x62656572` instead of configfs magic `0x62656570` | The source contract SHA-pinned the runtime and checked that the operation existed, but never compared the external semantic constant with its authoritative kernel definition | Correct the constant, invalidate the source receipt, and stop before Full LTO unless the versioned source contract parses and verifies the exact value | Register every load-bearing external literal in the selected source contract and mutation-test a plausible sibling value; byte identity and token presence are not semantic validation |
 | P2.69 passed static and Full-LTO qualification, but exact QEMU gadget creation failed with `ENOENT`; an absolute target then exposed a second readback mismatch | Configfs resolves a symlink target through `kern_path()` from the process working directory and returns a canonical configfs-relative readlink. The candidate assumed ordinary link-relative creation plus a shorter readback target | Retire the frozen candidate before D0, separate absolute creation and canonical readback values, source-bind both, and derive a new intent | Run exact generic configfs/ACM QEMU execution before Full LTO for covered runtimes; authoritative string checks and mutation tests remain required, while diagnostic overlays never qualify |
 | P2.60 Process v2 promotion emitted terminal `0x8f` although its selected decoder defines `0x90` | Two downstream consumers read the shared legacy E2 model's profile terminal instead of the selected versioned decoder terminal; the already-qualified kernel and package bytes were unaffected | Quarantine only the stale promotion/ready outputs, preserve immutable A/B bundles and AP, fix the host consumers, run legacy plus versioned compatibility tests, then re-promote the same AP | Resolve terminal stage through one version-aware selector: selected decoder terminal first, legacy profile fallback only when no versioned terminal exists; require legacy E2=`0x8f`, P2.60=`0x90`, and reject a stale P2.60 `0x8f` mutation |

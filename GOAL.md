@@ -764,8 +764,8 @@ reports grant no device authority.
     commands, full cleanup, and direct timeout/version-mismatch tests. P2.80
     keeps clean setup loss and post-bind Phase-B trace loss subordinate to E3
     through propagated warnings; cleanup failure and Phase-R post-action
-    ambiguity remain fail-closed. Next is versioned H0 implementation; no
-    device authority exists.
+    ambiguity remain fail-closed. H0 implementation must bind tracefs/Kprobe
+    authority and a measured observer budget. No device authority exists.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
 reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing

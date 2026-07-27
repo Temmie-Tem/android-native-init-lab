@@ -555,19 +555,106 @@ It covers the synchronous sysfs write, its pending-work flush, and the newly
 queued DEVICE worker. Trace setup and quiescent cleanup are separate control
 operations; they do not reset the parent deadline or configured deadline.
 
-The future ready manifest must be regenerated after exact implementation
-timings are fixed. The design target is:
+The future ready manifest must be regenerated only after the exact
+implementation emits a versioned timing receipt. The old planning value:
 
 ```text
 observation.timeout_sec = 240
 ```
 
-This is provisional, not qualified. Implementation timing must measure the
-trace-control lifecycle and helper ceiling before the value can be selected.
-The target retains the P2.79 conservative pre-E3 allowance, covers the new
-parent deadline, and remains below the 300-second transient udev guard. It is a
-later data-only manifest choice, not authority to regenerate or execute one
-now.
+remains provisional and cannot be copied into a manifest by convention.
+
+At least five clean cold executions must run a generic-arm64 build that
+compiles the same P2.80 trace-control implementation and exact four-plus-six
+event lifecycle as the candidate. Only its target descriptor may substitute
+safe generic symbols and actions. It records Phase R setup and cleanup, Phase B
+setup and cleanup, and action time separately from guest monotonic timestamps.
+The existing one-pair Kprobe mechanism control remains necessary but cannot
+qualify this two-phase lifecycle.
+
+These samples prove shared control ordering and provide an implementation
+sanity measurement only. They are not an FYG8 wall-time upper bound and are not
+scaled into the manifest timeout. Guest boot and host QEMU startup are also
+excluded. Every attempt is recorded; a timeout, mechanism failure, or unclean
+teardown fails the gate rather than being discarded as an outlier.
+
+The manifest budget instead uses contract maxima plus a separately reviewed
+fixed trace allowance:
+
+```text
+contract_waits =
+  120 pre-E3 + 5 tty + 5 banner + 30 parent + 30 configured = 190
+trace_control_allowance =
+  15 Phase-R control + 15 Phase-B control = 30
+residual_margin = 20
+selected_timeout =
+  round_up_to_10(contract_waits + trace_control_allowance + residual_margin)
+  = 240
+guard_cap =
+  floor_to_10(300 - max(conservative pre-observation overhead) - 30)
+```
+
+The 120-second term is the conservative retained-evidence baseline, not a
+measured P2.80 timestamp. Each 15-second trace allowance covers only fixed-count
+mount/setup/readback/disable/parse/cleanup work; parent action and configured
+waits are already counted and must not be double-counted. The allowance is an
+explicit planning bound, not a claim that QEMU proves FYG8 speed. Each clean
+generic phase must finish its control-only work within five seconds or the
+allowance requires re-review. The separate 20-second residual margin covers
+the synchronous configfs UDC bind and other fixed operations without explicit
+dwell; it is not reassigned to trace control.
+
+The guard itself does not persist its arm timestamp. Do not invent one. For
+each durable sample, derive a conservative pre-observation overhead from
+existing evidence:
+
+```text
+observation_start =
+  candidate_boot_ready timestamp - candidate-observer elapsed_sec
+pre_observation_overhead =
+  observation_start - live_session_start timestamp
+```
+
+`live_session_start` precedes guard arming, so this is at least as conservative
+as the unavailable guard-arm-to-observation-start interval. A negative value,
+missing event, noncanonical event order, or observer elapsed value outside its
+bounded receipt rejects the sample.
+
+The overhead maximum must come from every available durable transaction sample
+matching one machine-checked compatibility key:
+
+```text
+target-profile SHA
+F1 runner execution-closure SHA and runner version
+observer source SHA and embedded guard-payload SHA
+Odin binary SHA and version
+Download identity/profile SHA
+private stable host USB-controller/topology identity digest
+one regular boot.img.lz4 member
+historical boot.img.lz4 size >= current boot.img.lz4 size
+```
+
+Any missing or unequal identity field, smaller historical transfer member,
+incomplete timeline, or non-successful candidate transfer rejects that sample.
+At least one compatible sample is required; absence stops ready-manifest
+generation and does not authorize a device run to manufacture timing evidence.
+The final 30 seconds is a fixed guard-lifetime reserve for host scheduling,
+udev processing, and guard release, not candidate runtime.
+
+The timing receipt binds the compatibility key and accepted/rejected input
+receipts, every QEMU attempt and raw phase sample, formula inputs and derived
+values, tool identities, shared implementation hash, descriptor hash, and
+runtime hash.
+
+Qualification requires `selected_timeout <= guard_cap`. If it does not fit,
+the line stops before a ready manifest; it must not silently extend the
+300-second udev guard or clip the observation window. Changing that guard is a
+separate reviewed observer unit. A versioned data-only ready-manifest builder
+must consume and hash-verify the timing receipt, reproduce
+`selected_timeout`, and reject a lower, stale, or manually supplied value.
+An observer timeout still cannot prove a USB defect; it is a bounded no-proof
+if target trace-control work exceeds the reviewed allowance. This later
+manifest choice grants no authority by itself.
 
 ## Safety and Failure Containment
 
@@ -609,8 +696,11 @@ P2.60 in place:
 - one P2.80 native runtime include;
 - one P2.80-only progress-warning publisher entry point, while the historical
   zero-detail progress entry point remains byte-identical;
+- one runtime-authority descriptor plus exact artifact-safety selector;
 - one exact module probe-site extractor/auditor;
 - one generic-arm64 Kprobe mechanism control and runner;
+- one shared four-plus-six-event generic lifecycle harness;
+- one observation-budget calculator and hash-bound timing receipt;
 - focused parser, contract, runtime, mutation, and decoder tests; and
 - one selector registration.
 
@@ -620,6 +710,70 @@ P2.60 generated output, its zero-detail progress API, and historical decoder
 behavior must remain byte-identical. The P2.80 decoder reads both valid A/B
 slots and reports a progress warning separately from the active functional
 outcome.
+
+### Artifact-safety metadata gate
+
+P2.80 adds runtime authority that P2.60's artifact-safety map does not describe:
+an owned tracefs mount lifecycle, writes to the dynamic `kprobe_events`
+interface and one isolated instance, and temporary standard Kprobe
+instrumentation of exact source-bound sites. Reusing the P2.60 map would repeat
+the P2.63 false-authority incident even if every runtime and linked test passed.
+
+One P2.80 runtime-authority descriptor is the source of truth for the new
+operations. The source contract verifies the runtime paths and operations
+against it; the candidate builder's exact-contract selector renders its safety
+fields; and the static checker consumes the builder selector. The selected
+P2.80 map must preserve every P2.60 field and add exactly:
+
+```text
+userspace_tracefs_mount_scope =
+  source-contract-bound-p280-mount-if-absent-owned-unmount-only
+userspace_tracefs_global_event_scope =
+  source-contract-bound-p280-exact-group-event-register-readback-and-remove
+userspace_tracefs_instance_control_scope =
+  source-contract-bound-p280-isolated-instance-create-remove-filter-enable-clock-buffer-trace-and-tracing-on
+dynamic_kernel_text_instrumentation_scope =
+  standard-tracefs-kprobe-events-at-exact-source-bound-sites
+no_global_tracer_or_global_buffer_reset = true
+```
+
+Dynamic event definitions live in tracefs's global `kprobe_events` namespace;
+instance isolation limits enablement and trace-buffer ownership, not event
+registration. "Owned" therefore means exact source-bound group and event names
+with readback and deletion, not a private kernel namespace.
+
+It must not regain `no_userspace_sysfs_or_configfs_write`, claim no tracefs
+write, or imply that a pre-existing tracefs mount is owned. The static checker
+must consume the builder selector, not reproduce this map. The P2.80 source
+receipt must bind the authority descriptor, selector, and all five exact
+values.
+
+Before Full LTO, complete-map fixtures must prove:
+
+1. every P2.80 safety field fails independently when removed or mutated;
+2. adding historical `no_usb_or_configfs` or
+   `no_userspace_sysfs_or_configfs_write` fails;
+3. E1, historical E2, and P2.60 maps remain exactly unchanged;
+4. the builder call site still selects safety from the exact contract;
+5. an independently fixed complete expected map catches coordinated
+   builder/checker drift;
+6. adding, removing, or changing a runtime mount, path, control write, event
+   registration, or dynamic-probe operation without the matching authority
+   descriptor change fails the source contract; and
+7. a plausible broadening to a global tracer, arbitrary events, a global
+   buffer reset, or unconditional unmount fails.
+
+This is metadata truthfulness, not new device authority. Failure blocks intent
+qualification and Full LTO.
+
+The independent amendment review initially returned `NO-GO`: the first draft
+understated global event registration, let builder and checker drift together,
+and incorrectly scaled generic QEMU time into an FYG8 timeout. A second review
+required instance create/remove authority and a machine-checkable historical
+sample key. The corrections above separate all authority surfaces, add
+runtime-operation mutations and an independent map, limit QEMU timing to a
+sanity gate, derive guard overhead from existing durable events, and reject
+incompatible samples. Final read-only re-review returned `GO`.
 
 The new exact `0xbXX` whitelist changes the checkpoint validators and therefore
 the final kernel image. A qualified P2.80 candidate requires one fresh
@@ -677,18 +831,32 @@ Implementation is complete only when H0 validation proves:
     not clean. A Phase R-only warning must preserve clean Phase-B
     classification. The decoder must report the origin phase of propagated
     `0xb01`/`0xb02` as `unknown`.
-17. The runtime cross-compiles as static AArch64 and two links are
+17. The exact-contract artifact-safety selector emits the five P2.80 trace
+    authority fields from the runtime-authority descriptor, rejects every
+    runtime-operation, field, and broadening mutation, and leaves E1,
+    historical E2, and P2.60 maps unchanged. Builder and checker use the same
+    selector while an independently fixed expected map catches shared drift.
+18. At least five clean cold shared-control QEMU samples exercise the shared
+    four-plus-six-event control lifecycle and keep each phase's control-only
+    work below the five-second sanity threshold. A hash-bound budget receipt
+    reproduces the fixed-allowance formula, rejects stale or lowered timeout
+    mutations, and proves the selected value fits below the compatible
+    300-second guard cap. It must not present QEMU time as an FYG8 upper bound;
+    the existing one-pair control alone cannot satisfy this gate.
+19. The runtime cross-compiles as static AArch64 and two links are
     byte-identical.
-18. The hash-pinned generic-arm64 Kprobe control must pass one ordered PID1
+20. The hash-pinned generic-arm64 Kprobe control must pass one ordered PID1
     entry and return with exact signed `:s32` value `-EBADF`, zero missed
     probes, and verified full cleanup under bounded host commands. The
     existing generic-arm64 QEMU E3 path must also remain green. Neither result
     is labeled as S22+ SCS/PAC or Qualcomm USB proof.
-19. The kernel patch applies cleanly and the generated exact detail table is
+21. The kernel patch applies cleanly and the generated exact detail table is
     present in the linked image.
-20. A GNU `nm`/`objdump` linked audit passes on the controlled verification
+22. A GNU `nm`/`objdump` linked audit passes on the controlled verification
     host; the prohibited high-RSS LLVM substitution is not used.
-21. Independent safety review finds no widened device or partition authority.
+23. Independent safety review finds no widened device or partition authority
+    and confirms the generated safety map describes every bounded runtime
+    write and dynamic-instrumentation effect.
 
 Only after all pre-LTO checks pass may one final source-bound Full-LTO A/B,
 six-artifact equality, deterministic boot-only packaging, closure audit, and
