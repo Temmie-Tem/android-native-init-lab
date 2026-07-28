@@ -20,8 +20,10 @@ Do not add a device step when host-only work can answer the question.
   (`none-readback-not-reached`). No accepted ACM endpoint appeared.
 - The result proves the unchanged P2.80 prefix again reached initial parent
   `peripheral` mode plus exact real-UDC membership. The bounded helper then
-  completed the exact `none` write operation, but the parent mode never read
-  back as exact `none` before the stop deadline.
+  completed the exact `none` write operation. It does not prove whether the
+  parent mode changed: the reader stripped the required sysfs newline and then
+  compared against a newline-bearing P2.82 constant, making exact readback
+  impossible and converting every valid value into retryable mismatch.
 - Child suspend, DEVICE restart, child PHY reinitialization, configfs UDC bind,
   final bus-state sampling, and host ACM receipt were not reached. Do not read
   this result as evidence for or against those later P2.82 boundaries.
@@ -30,11 +32,17 @@ Do not add a device step when host-only work can answer the question.
   canonical events passed.
 - The transaction is `CLOSED` with verdict
   `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; recovery is not required.
-- Do not repeat P2.82 or alter the later child-reinit classifier yet. The next
-  H0 is a focused audit of the parent `mode_store -> dwc3_msm_set_role ->
-  dwc3_ext_event_notify` NONE boundary, including DP-session refusal, external
-  role reassertion, and worker scheduling. A physical cable replug is not an
-  accepted substitute for the missing exact NONE readback.
+- P2.84 is the host-only versioned correction. It keeps P2.82 kernel inputs,
+  classifier, retained ABI, module plan, and linked tables byte-identical,
+  derives readback tokens separately from newline-bearing write wire, and adds
+  a source-bound AArch64 ingestion oracle as pre-LTO gate 20. Its userspace
+  two-build and `20/20` pre-LTO qualification pass. The oracle is qualification
+  evidence, not candidate identity, and P2.84 owns a distinct userspace
+  source-check ID. No Full-LTO kernel, AP, device action, or F1 authority exists
+  for P2.84.
+- Do not repeat P2.82. The next candidate step is P2.84 Full-LTO A/B on the
+  qualified build host, followed by the ordinary static/package gates. Any
+  later F1 still requires a new immutable manifest, D0, and fresh approval.
 
 ## Permanent Safety Boundaries
 

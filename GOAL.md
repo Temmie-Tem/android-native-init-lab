@@ -795,12 +795,21 @@ reports grant no device authority.
     completed with no candidate replay. Two byte-identical retained reads show
     `0x8d/detail=0`, then terminal `0x8e/detail=0xc10`
     (`none-readback-not-reached`). The exact NONE-write helper completed, but
-    parent mode never read back as `none` before the 30-second stop deadline;
-    child suspend/reinit, gadget bind, and final bus sampling were not reached.
-    ACM timed out as expected at that earlier boundary. Exact rollback, final
-    Android/root/boot/supporting-partition health, and all eight timeline events
-    passed. The transaction is closed and authority consumed. Next is a focused
-    H0 audit of DP refusal, external reassertion, and NONE worker scheduling.
+    the reader stripped sysfs newline before comparing with newline-bearing
+    readback constants, so `0xc10` is a comparator false negative and says
+    nothing about whether NONE was reached. Later child-reinit and E3 boundaries
+    remain unexecuted. Exact rollback and final health passed; authority is
+    consumed.
+82. **P2.84 sysfs ingestion correction, H0:** preserve P2.82 kernel inputs,
+    classifier, retained ABI, module plan, and linked tables byte-identically;
+    derive newline-bearing write wire and normalized readback from one token.
+    Exact FYG8 `mode_show` and `runtime_status_show` sources plus the unchanged
+    reader are pinned and executed in an AArch64 oracle. Userspace two-build,
+    current generic QEMU receipts, linked audit, and all `20/20` pre-LTO gates
+    pass. Independent review also separated the qualification-only oracle from
+    candidate identity, bound the P2.84 source-check ID, and added relocation,
+    tamper, runtime-mutation, and historical-receipt rejection tests.
+    Full-LTO/AP/device/F1 remain undone and unauthorized.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
 reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing

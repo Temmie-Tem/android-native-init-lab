@@ -98,10 +98,11 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         )
         self.assertIn("P2.58A complete/closed, F1", self.goal)
         self.assertIn("E3-E4 next", self.goal)
-        self.assertIn("P2.80 consumed one exact approval", normalized_agents)
-        self.assertIn("DSTS `DEVCTRLHLT` clear", self.agents)
-        self.assertIn("UDC state remained `not attached`", normalized_agents)
-        self.assertIn("femto-HS source", self.agents)
+        self.assertIn("P2.82 consumed one exact approval", normalized_agents)
+        self.assertIn("terminal failure `0x8e/detail=0xc10`", normalized_agents)
+        self.assertIn("No accepted ACM endpoint appeared", normalized_agents)
+        self.assertIn("Child suspend", normalized_agents)
+        self.assertIn("were not reached", normalized_agents)
         self.assertIn("swallowed clock errors", self.goal)
         self.assertIn(
             "PASS_P280_RESUME_FEMTO_EUD_INSTRUMENTATION_AUDIT_HOST_ONLY",

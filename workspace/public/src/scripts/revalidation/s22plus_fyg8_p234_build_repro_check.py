@@ -48,6 +48,9 @@ P282_QUALIFICATION_MODULE = (
 )
 P282_QUALIFICATION_PROVENANCE_KEY = "p282_pre_lto_qualification"
 P282_QUALIFICATION_MAX_SIZE = 8 * 1024 * 1024
+P284_SOURCE_CONTRACT_ID = "s22plus-fyg8-p284-sysfs-ingestion-correction-v1"
+P284_QUALIFICATION_MODULE = "s22plus_fyg8_p284_pre_lto_qualification"
+P284_QUALIFICATION_PROVENANCE_KEY = "p284_pre_lto_qualification"
 DEFAULT_BUILD_A = Path("workspace/private/outputs/s22plus_fyg8_p234/artifacts-a")
 DEFAULT_BUILD_B = Path("workspace/private/outputs/s22plus_fyg8_p234/artifacts-b")
 DEFAULT_INTENT = candidate_contract.DEFAULT_INTENT
@@ -100,6 +103,7 @@ LINKED_VALIDATOR_ADAPTERS = {
         "s22plus_fyg8_p280_linked_audit"
     ),
     P282_SOURCE_CONTRACT_ID: "s22plus_fyg8_p282_linked_audit",
+    P284_SOURCE_CONTRACT_ID: "s22plus_fyg8_p284_linked_audit",
 }
 
 
@@ -385,41 +389,47 @@ def _bundle_p280_qualification(
     )
 
 
-def verify_p282_qualification_file(
+def _verify_versioned_qualification_file(
     value: Any,
     exact_contract: dict[str, Any],
     *,
     intent_path: Path,
     patch_path: Path,
+    source_contract_id: str,
+    qualification_module: str,
+    contract_attribute: str,
+    label: str,
     root: Path | None = None,
 ) -> dict[str, Any]:
-    if exact_contract.get("source_contract_id") != P282_SOURCE_CONTRACT_ID:
-        raise CheckError("P2.82 qualification used for a different contract")
+    if exact_contract.get("source_contract_id") != source_contract_id:
+        raise CheckError(f"{label} qualification used for a different contract")
     if not isinstance(value, dict):
-        raise CheckError("P2.82 pre-LTO qualification provenance is invalid")
+        raise CheckError(f"{label} pre-LTO qualification provenance is invalid")
     repository = repo_root() if root is None else root.resolve()
     selected_intent = intent_path.resolve()
     selected_patch = patch_path.resolve()
     expected_paths = {}
-    for selected, label in (
+    for selected, item_label in (
         (selected_intent, "intent"),
         (selected_patch, "patch"),
     ):
         try:
-            expected_paths[label] = str(selected.relative_to(repository))
+            expected_paths[item_label] = str(
+                selected.relative_to(repository)
+            )
         except ValueError as exc:
             raise CheckError(
-                f"P2.82 selected {label} escapes the repository"
+                f"{label} selected {item_label} escapes the repository"
             ) from exc
     if (
         value.get("build_allowed") is not True
         or value.get("verified") is not True
         or value.get("run_id") != exact_contract.get("run_id")
-        or value.get("source_contract_id") != P282_SOURCE_CONTRACT_ID
+        or value.get("source_contract_id") != source_contract_id
         or value.get("intent_repo_path") != expected_paths["intent"]
         or value.get("patch_repo_path") != expected_paths["patch"]
     ):
-        raise CheckError("P2.82 pre-LTO qualification provenance is invalid")
+        raise CheckError(f"{label} pre-LTO qualification provenance is invalid")
     relative = value.get("qualification_repo_path")
     if (
         not isinstance(relative, str)
@@ -427,36 +437,40 @@ def verify_p282_qualification_file(
         or Path(relative).is_absolute()
         or ".." in Path(relative).parts
     ):
-        raise CheckError("P2.82 qualification_repo_path is invalid")
+        raise CheckError(f"{label} qualification_repo_path is invalid")
     path = (repository / relative).resolve()
     try:
         path.relative_to(repository)
     except ValueError as exc:
-        raise CheckError("P2.82 qualification escapes the repository") from exc
+        raise CheckError(f"{label} qualification escapes the repository") from exc
     data = candidate_contract.stable_read(
         path,
-        "P2.82 pre-LTO qualification",
+        f"{label} pre-LTO qualification",
         P282_QUALIFICATION_MAX_SIZE,
     )
     if (
         candidate_contract.intent.receipt(data)
-        != _receipt_identity(value.get("qualification"), "P2.82 qualification")
+        != _receipt_identity(value.get("qualification"), f"{label} qualification")
     ):
-        raise CheckError("P2.82 qualification file receipt mismatch")
+        raise CheckError(f"{label} qualification file receipt mismatch")
     try:
-        qualification = importlib.import_module(P282_QUALIFICATION_MODULE)
+        qualification = importlib.import_module(qualification_module)
     except ImportError as exc:
-        raise CheckError("P2.82 qualification module is unavailable") from exc
+        raise CheckError(f"{label} qualification module is unavailable") from exc
     if (
-        getattr(getattr(qualification, "p282", None), "CONTRACT_ID", None)
-        != P282_SOURCE_CONTRACT_ID
+        getattr(
+            getattr(qualification, contract_attribute, None),
+            "CONTRACT_ID",
+            None,
+        )
+        != source_contract_id
     ):
-        raise CheckError("P2.82 qualification module contract mismatch")
+        raise CheckError(f"{label} qualification module contract mismatch")
     if (
         value.get("schema") != getattr(qualification, "SCHEMA", None)
         or value.get("verdict") != getattr(qualification, "VERDICT", None)
     ):
-        raise CheckError("P2.82 qualification schema or verdict mismatch")
+        raise CheckError(f"{label} qualification schema or verdict mismatch")
     try:
         verified = qualification.verify_receipt(
             path,
@@ -467,15 +481,57 @@ def verify_p282_qualification_file(
     except qualification.QualificationError as exc:
         raise CheckError(str(exc)) from exc
     if verified != value:
-        raise CheckError("P2.82 qualification summary differs from its file")
+        raise CheckError(f"{label} qualification summary differs from its file")
     gate_receipts = value.get("gate_result_receipts")
     if not isinstance(gate_receipts, dict) or not gate_receipts:
-        raise CheckError("P2.82 qualification gate receipts are incomplete")
+        raise CheckError(f"{label} qualification gate receipts are incomplete")
     for name, receipt_value in gate_receipts.items():
         if not isinstance(name, str) or not name:
-            raise CheckError("P2.82 qualification gate name is invalid")
-        _receipt_identity(receipt_value, f"P2.82 {name} gate result")
+            raise CheckError(f"{label} qualification gate name is invalid")
+        _receipt_identity(receipt_value, f"{label} {name} gate result")
     return value
+
+
+def verify_p282_qualification_file(
+    value: Any,
+    exact_contract: dict[str, Any],
+    *,
+    intent_path: Path,
+    patch_path: Path,
+    root: Path | None = None,
+) -> dict[str, Any]:
+    return _verify_versioned_qualification_file(
+        value,
+        exact_contract,
+        intent_path=intent_path,
+        patch_path=patch_path,
+        source_contract_id=P282_SOURCE_CONTRACT_ID,
+        qualification_module=P282_QUALIFICATION_MODULE,
+        contract_attribute="p282",
+        label="P2.82",
+        root=root,
+    )
+
+
+def verify_p284_qualification_file(
+    value: Any,
+    exact_contract: dict[str, Any],
+    *,
+    intent_path: Path,
+    patch_path: Path,
+    root: Path | None = None,
+) -> dict[str, Any]:
+    return _verify_versioned_qualification_file(
+        value,
+        exact_contract,
+        intent_path=intent_path,
+        patch_path=patch_path,
+        source_contract_id=P284_SOURCE_CONTRACT_ID,
+        qualification_module=P284_QUALIFICATION_MODULE,
+        contract_attribute="p284",
+        label="P2.84",
+        root=root,
+    )
 
 
 def _bundle_pre_lto_qualification(
@@ -493,13 +549,26 @@ def _bundle_pre_lto_qualification(
             intent_path=intent_path,
             patch_path=patch_path,
         )
-    if source_contract_id != P282_SOURCE_CONTRACT_ID:
+    if source_contract_id not in {
+        P282_SOURCE_CONTRACT_ID,
+        P284_SOURCE_CONTRACT_ID,
+    }:
         return None
     provenance = result.get("provenance")
     if not isinstance(provenance, dict):
         raise CheckError("P2.82 build provenance is missing")
-    return verify_p282_qualification_file(
-        provenance.get(P282_QUALIFICATION_PROVENANCE_KEY),
+    verify = (
+        verify_p282_qualification_file
+        if source_contract_id == P282_SOURCE_CONTRACT_ID
+        else verify_p284_qualification_file
+    )
+    provenance_key = (
+        P282_QUALIFICATION_PROVENANCE_KEY
+        if source_contract_id == P282_SOURCE_CONTRACT_ID
+        else P284_QUALIFICATION_PROVENANCE_KEY
+    )
+    return verify(
+        provenance.get(provenance_key),
         exact_contract,
         intent_path=intent_path,
         patch_path=patch_path,

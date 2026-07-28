@@ -61,6 +61,7 @@ P234_KERNEL_DEBUG_PATH_REPRODUCIBLE = (
 P282_SOURCE_CONTRACT_ID = (
     "s22plus-fyg8-p282-prebind-child-reinit-decision-v1"
 )
+P284_SOURCE_CONTRACT_ID = "s22plus-fyg8-p284-sysfs-ingestion-correction-v1"
 QUALIFICATION_MODULES = {
     p280_qualification.p280.CONTRACT_ID: (
         "s22plus_fyg8_p280_pre_lto_qualification",
@@ -71,6 +72,11 @@ QUALIFICATION_MODULES = {
         "s22plus_fyg8_p282_pre_lto_qualification",
         "p282_pre_lto_qualification",
         "P2.82",
+    ),
+    P284_SOURCE_CONTRACT_ID: (
+        "s22plus_fyg8_p284_pre_lto_qualification",
+        "p284_pre_lto_qualification",
+        "P2.84",
     ),
 }
 

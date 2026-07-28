@@ -16,6 +16,7 @@ import s22plus_fyg8_p258_source_contract as p258
 import s22plus_fyg8_p260_source_contract as p260
 import s22plus_fyg8_p280_source_contract as p280
 import s22plus_fyg8_p282_source_contract as p282
+import s22plus_fyg8_p284_source_contract as p284
 
 
 class SourceContractSelectionError(ValueError):
@@ -162,6 +163,14 @@ def _selection_for(module: ModuleType, contract: Any) -> SelectedSourceContract:
             source_check_run_id=p282.SOURCE_CHECK_RUN_ID,
             userspace_verdict=p282.USERSPACE_VERDICT,
         )
+    if module is p284:
+        return SelectedSourceContract(
+            module=module,
+            contract=contract,
+            implementation_verdict=p284.IMPLEMENTATION_VERDICT,
+            source_check_run_id=p284.SOURCE_CHECK_RUN_ID,
+            userspace_verdict=p284.USERSPACE_VERDICT,
+        )
     raise SourceContractSelectionError("unregistered source-contract module")
 
 
@@ -175,6 +184,7 @@ REGISTRY = {
     p260.CONTRACT_ID: p260,
     p280.CONTRACT_ID: p280,
     p282.CONTRACT_ID: p282,
+    p284.CONTRACT_ID: p284,
 }
 
 
@@ -204,6 +214,7 @@ def select(
         p260.SourceContractError,
         p280.SourceContractError,
         p282.SourceContractError,
+        p284.SourceContractError,
     ) as exc:
         raise SourceContractSelectionError(str(exc)) from exc
     return _selection_for(module, contract)

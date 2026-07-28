@@ -442,12 +442,20 @@ def rootfs_entrypoint_context(
     if source_contract_id not in {
         repro.P280_SOURCE_CONTRACT_ID,
         repro.P282_SOURCE_CONTRACT_ID,
+        repro.P284_SOURCE_CONTRACT_ID,
     }:
         return nullcontext()
     entrypoint_api = closure_api
     label = "P2.80"
-    if source_contract_id == repro.P282_SOURCE_CONTRACT_ID:
-        label = "P2.82"
+    if source_contract_id in {
+        repro.P282_SOURCE_CONTRACT_ID,
+        repro.P284_SOURCE_CONTRACT_ID,
+    }:
+        label = (
+            "P2.82"
+            if source_contract_id == repro.P282_SOURCE_CONTRACT_ID
+            else "P2.84"
+        )
         entrypoint_api = getattr(closure_api, "p280", None)
         if (
             getattr(
@@ -455,7 +463,7 @@ def rootfs_entrypoint_context(
                 "CONTRACT_ID",
                 None,
             )
-            != repro.P282_SOURCE_CONTRACT_ID
+            != source_contract_id
             or getattr(
                 getattr(entrypoint_api, "source_contract", None),
                 "CONTRACT_ID",
@@ -463,7 +471,9 @@ def rootfs_entrypoint_context(
             )
             != repro.P280_SOURCE_CONTRACT_ID
         ):
-            raise CheckError("P2.82 stock-closure entrypoint adapter mismatch")
+            raise CheckError(
+                f"{label} stock-closure entrypoint adapter mismatch"
+            )
     if (
         getattr(
             getattr(entrypoint_api, "source_contract", None),
