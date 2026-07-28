@@ -19,6 +19,12 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         cls.risk = (
             ROOT / "docs/operations/DEVICE_ACTION_RISK_TIERS.md"
         ).read_text(encoding="utf-8")
+        cls.p280_resume_femto_audit = (
+            ROOT
+            / "docs/reports/"
+            "S22PLUS_FYG8_P280_RESUME_FEMTO_EUD_"
+            "INSTRUMENTATION_AUDIT_H0_2026-07-28.md"
+        ).read_text(encoding="utf-8")
         cls.archived_agents = (
             ROOT / "docs/archive/policy/AGENTS_PRE_PROCESS_V2_2026-07-21.md"
         ).read_text(encoding="utf-8")
@@ -82,6 +88,9 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
     def test_frontier_records_terminal_e2_without_live_authority(self):
         normalized_goal = " ".join(self.goal.split())
         normalized_agents = " ".join(self.agents.split())
+        normalized_p280_audit = " ".join(
+            self.p280_resume_femto_audit.split()
+        )
         self.assertIn("direct PID1", normalized_goal)
         self.assertIn("P2.58A passed terminal stage", normalized_goal)
         self.assertIn(
@@ -92,6 +101,24 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("P2.80 consumed one exact approval", normalized_agents)
         self.assertIn("DSTS `DEVCTRLHLT` clear", self.agents)
         self.assertIn("UDC state remained `not attached`", normalized_agents)
+        self.assertIn("femto-HS source", self.agents)
+        self.assertIn("swallowed clock errors", self.goal)
+        self.assertIn(
+            "PASS_P280_RESUME_FEMTO_EUD_INSTRUMENTATION_AUDIT_HOST_ONLY",
+            self.p280_resume_femto_audit,
+        )
+        self.assertIn(
+            "does not prove that `dwc3_msm_runtime_resume()`",
+            normalized_p280_audit,
+        )
+        self.assertIn(
+            "It does not update `usb_phy.flags`",
+            normalized_p280_audit,
+        )
+        self.assertIn(
+            "P2.80 itself is closed and immutable",
+            normalized_p280_audit,
+        )
         self.assertIn("Typed Retained Evidence", self.process)
         self.assertIn("NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK", self.process)
         self.assertIn(

@@ -747,25 +747,23 @@ reports grant no device authority.
     write is source-deduced but not separately live-proved. Retire UCSI-race
     and role-retrigger as the P2.80 headline; design a minimal parent-worker
     progress discriminator next. No device contact or authority occurred.
-71. **P2.80 parent/pull-up discriminator host closure, H0+D0:** two bounded
-    tracefs windows observe parent PM/`start_peripheral` and child pull-up/
-    run-stop while preserving the exact E3 geometry and module closure.
-    Source-bound no-retry, signed-return, same-PID ordering, exact `0xbXX`,
-    cleanup, guard-loss, sidecar, and pinned QEMU controls pass, including 5/5
-    lifecycle boots. Full-LTO A/B finish in `37:47.60`/`38:14.53`, match all
-    six artifacts, and the corrected ABI adapter verifies 21 six-byte entries.
-    Package/static/promotion/ready1 pass. One historical baseline stop, one
-    bounded reboot, and one D0 retry produce a clean private approval binding.
-72. **P2.80 complete/closed plus post-live correction, F1+H0:** candidate and
-    exact rollback transfer once each; no boot loop, but ACM observation times
-    out. Retained `0x8e/detail=0` then `0x8f/detail=0xb22` proves clean parent
-    and child PM, pull-up, DCTL RUN_STOP, and DSTS `DEVCTRLHLT` clear while UDC
-    remains `not attached`. Exact FYG8 DTB/DTBO analysis rules out the proposed
-    external eUSB2 repeater: DWC3 selects the femto HS and QMP SS PHYs, with no
-    eUSB2/repeater node or override. Timeout code discards `current_speed`; the
-    original host exit remains unresolved with no OOM/coredump evidence.
-    `--recover` performed rollback only; final health and all eight events pass.
-    Next H0 targets the active femto-HS/connect/VBUS electrical boundary.
+71. **P2.80 parent/pull-up discriminator host closure, H0+D0:** bounded
+    tracefs windows preserve E3 while observing parent PM/start and child
+    pull-up/run-stop. Source, QEMU 5/5, Full-LTO A/B six-artifact equality,
+    21-entry ABI, package/static/promotion, ready1, and D0 gates pass.
+72. **P2.80 complete/closed plus post-live correction, F1+H0:** one candidate
+    and rollback transfer yield retained `0x8e/detail=0` then
+    `0x8f/detail=0xb22`: DCTL RUN_STOP and DSTS `DEVCTRLHLT` clear while UDC is
+    `not attached`. DTB/DTBO rules out the proposed external eUSB2 repeater;
+    timeout discards `current_speed`, and the host exit cause remains open.
+    Rollback, final health, and all eight events pass.
+73. **P2.80 resume/femto/EUD instrumentation audit, H0:** exact FYG8 OSRC
+    contains femto-HS, DWC3-MSM, and EUD sources plus unstripped module symbols.
+    Nonnegative parent PM does not prove its resume callback. One
+    `hs_phy->flags` sample cannot prove femto clocking, connect-notify, or VBUS
+    override; it only gives bounded EUD state. Reuse P2.80 trace lifecycle in a
+    versioned ordered discriminator, retain `current_speed`, and do not infer
+    electrical readiness from the femto callback's swallowed clock errors.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
 reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing

@@ -30,8 +30,12 @@ Do not add a device step when host-only work can answer the question.
   Odin absence, and all eight canonical events passed.
 - The transaction is `CLOSED` with verdict
   `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; recovery is not required.
-- Do not repeat P2.80 or add the inactive eUSB2 repeater closure. The next H0
-  frontier is the exact femto-HS/connect/VBUS electrical attach path.
+- Follow-up H0 found the FYG8 femto-HS source and exact module symbols locally.
+  A nonnegative parent PM result does not prove `dwc3_msm_resume()` ran, and
+  `hs_phy->flags` cannot prove femto connect-notify or VBUS override. Do not
+  repeat P2.80 or add the inactive eUSB2 repeater closure. The next H0 is a
+  versioned, ordered resume/femto/connect/VBUS discriminator design; EUD flags
+  are secondary exact-point evidence only.
 
 ## Permanent Safety Boundaries
 
