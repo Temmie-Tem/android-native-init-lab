@@ -24,6 +24,19 @@ class P284LinkedAuditTests(unittest.TestCase):
             p284_audit.ADAPTER_ID, "s22plus-fyg8-p284-linked-audit-v1"
         )
 
+    def test_adapter_includes_inherited_validator_functions(self) -> None:
+        self.assertEqual(
+            p284_audit.LINKED_VALIDATOR_SYMBOLS,
+            tuple(
+                dict.fromkeys(
+                    (
+                        *p284.LINKED_VALIDATOR_SYMBOLS,
+                        *p282_audit.P282_VALIDATOR_FUNCTIONS,
+                    )
+                )
+            ),
+        )
+
     def test_storage_normalization_is_p282_identical(self) -> None:
         logical = p284.linked_table_bytes()
         self.assertEqual(

@@ -14,7 +14,14 @@ import s22plus_fyg8_p284_source_contract as p284
 ADAPTER_ID = "s22plus-fyg8-p284-linked-audit-v1"
 EXPECTED_SOURCE_CONTRACT_ID = p284.CONTRACT_ID
 ADAPTER_MODULE = "s22plus_fyg8_p284_linked_audit"
-LINKED_VALIDATOR_SYMBOLS = p284.LINKED_VALIDATOR_SYMBOLS
+LINKED_VALIDATOR_SYMBOLS = tuple(
+    dict.fromkeys(
+        (
+            *p284.LINKED_VALIDATOR_SYMBOLS,
+            *p282_audit.P282_VALIDATOR_FUNCTIONS,
+        )
+    )
+)
 
 
 @contextmanager
