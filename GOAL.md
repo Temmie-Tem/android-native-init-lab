@@ -747,23 +747,23 @@ reports grant no device authority.
     write is source-deduced but not separately live-proved. Retire UCSI-race
     and role-retrigger as the P2.80 headline; design a minimal parent-worker
     progress discriminator next. No device contact or authority occurred.
-71. **P2.80 parent/pull-up discriminator host closure, H0+D0:** bounded
-    tracefs windows preserve E3 while observing parent PM/start and child
-    pull-up/run-stop. Source, QEMU 5/5, Full-LTO A/B six-artifact equality,
-    21-entry ABI, package/static/promotion, ready1, and D0 gates pass.
-72. **P2.80 complete/closed plus post-live correction, F1+H0:** one candidate
-    and rollback transfer yield retained `0x8e/detail=0` then
-    `0x8f/detail=0xb22`: DCTL RUN_STOP and DSTS `DEVCTRLHLT` clear while UDC is
-    `not attached`. DTB/DTBO rules out the proposed external eUSB2 repeater;
-    timeout discards `current_speed`, and the host exit cause remains open.
-    Rollback, final health, and all eight events pass.
-73. **P2.80 resume/femto/EUD instrumentation audit, H0:** exact FYG8 OSRC
-    contains femto-HS, DWC3-MSM, and EUD sources plus unstripped module symbols.
-    Nonnegative parent PM does not prove its resume callback. One
-    `hs_phy->flags` sample cannot prove femto clocking, connect-notify, or VBUS
-    override; it only gives bounded EUD state. Reuse P2.80 trace lifecycle in a
-    versioned ordered discriminator, retain `current_speed`, and do not infer
-    electrical readiness from the femto callback's swallowed clock errors.
+71. **P2.80 parent/pull-up discriminator, H0+D0:** source, QEMU 5/5, Full-LTO
+    A/B equality, linked/package/static/promotion, ready1, and D0 gates pass.
+72. **P2.80 closed plus correction, F1+H0:** retained `0x8e/detail=0` then
+    `0x8f/detail=0xb22` proves RUN_STOP plus `DEVCTRLHLT` clear while UDC stays
+    `not attached`; exact rollback/final health pass. External eUSB2 repeater
+    is ruled out, while discarded `current_speed` and host exit cause remain.
+73. **P2.80 resume/femto/EUD audit, H0:** exact source and modules reject a
+    parent-PM sign or one `hs_phy->flags` sample as electrical proof. Reuse the
+    trace lifecycle only through a versioned ordered discriminator; do not
+    infer electrical readiness from swallowed clock errors.
+74. **P2.80 femto LDO-drop hypothesis audit, H0:** disconnect-suspend can turn
+    femto clocks/regulator votes off, while runtime resume restores clocks
+    only. P2.80's exact initial role was `none`, but its tracing started after
+    module/gate setup and could not observe the proposed drop. A late
+    `power/control=on` cannot restore it. Next design uses an early pre-DWC3
+    window plus the role window, permits repeated init calls, and treats helper
+    success as software power-state evidence rather than analog rail proof.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
 reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing
