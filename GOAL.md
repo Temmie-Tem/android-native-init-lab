@@ -762,9 +762,9 @@ reports grant no device authority.
     bounded lever is parent `peripheral -> none -> peripheral`, fenced on exact
     child suspended/active status and never read as analog-rail proof.
 75. **P2.82 decision contract, H0:** freeze mechanism search and classify every
-    stop/suspend/resume/init/bind/state/speed outcome. FYG8 mode writes enter
-    the vendor `B_SESS_VLD` state machine; 567 generated final tuples plus
-    exhaustive pre-LTO mutations close the classifier gap. No live authority.
+    stop/suspend/resume/init/bind/state/speed outcome. The proven 45-byte A/B
+    geometry stays fixed; pinned AArch64 must execute the shared production C
+    classifier `46/46`, plus all 567 tuples. No live authority.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
 reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing

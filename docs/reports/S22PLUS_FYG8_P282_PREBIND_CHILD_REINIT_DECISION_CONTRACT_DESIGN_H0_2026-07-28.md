@@ -6,6 +6,10 @@ Date: 2026-07-28 KST
 
 `DESIGN_COMPLETE_P282_PREBIND_CHILD_REINIT_DECISION_CONTRACT_HOST_ONLY`
 
+Implementation gates are amended by
+`S22PLUS_FYG8_P282_CLASSIFIER_COVERAGE_RETAINED_GEOMETRY_REVIEW_H0_2026-07-28.md`.
+The mechanism, stages, and detail meanings remain frozen.
+
 The mechanism analysis is frozen. The exact FYG8 source supports one bounded
 pre-bind parent-role cycle:
 
@@ -177,6 +181,12 @@ adjacency rule remains valid. A `0x92` configured/high-speed progress record
 is followed by `0x93`; a `0x92` failure remains adjacent to the `0x91` bind
 record.
 
+The carrier remains exactly 45 bytes: one 25-byte run-bound header and two
+10-byte A/B slots. Checkpoints replace the inactive slot in place and do not
+advance the Samsung ring index or append another record. Generation 92 fits
+the `u8` field. Implementation must prove this geometry and stale-run
+rejection for every P2.82 success and failure stage before Full LTO.
+
 All inserted steps are local item index zero. Module/gate item indices and
 their existing regression/read-error bands remain unchanged.
 
@@ -200,9 +210,10 @@ The exact runtime order is:
 12. Set up the existing versioned bind trace.
 13. Perform exactly one configfs UDC bind.
 14. Preserve direct versus resume-nested run-stop.
-15. Read two consecutive exact `(UDC state, current speed)` pairs until they
+15. Read exact `(UDC state, current speed)` pairs until two consecutive reads
     are byte-identical and configured/high-speed, or until the bounded
-    deadline.
+    deadline. At the deadline, a byte-identical final pair becomes its exact
+    tuple; a changing canonical pair becomes `0xc4b`.
 16. Publish the generated tuple and, on configured/high-speed, terminal
     `0x93`. The host observer independently receives the banner queued at
     step 2.
@@ -619,7 +630,10 @@ Full LTO is forbidden until one immutable pre-LTO receipt proves:
 2. two same-path userspace links with byte-identical `/init` and derived
    entrypoint rather than a literal address;
 3. all 567 generated tuples round-trip through C and Python decoders;
-4. every C-band detail is accepted only at its declared stage/outcome;
+4. one pinned AArch64 fixture executes the same production C classifier used
+   by the runtime and emits all 46 C-band details, each only at its declared
+   stage/outcome; this is reported separately from `0/46` FYG8 end-to-end
+   device coverage;
 5. every decision-table headline path reaches exactly one classification;
 6. direct and resume-nested run-stop mutations decode differently;
 7. child-no-suspend, no-resume, power-off-negative, power-on-negative,
@@ -636,16 +650,20 @@ Full LTO is forbidden until one immutable pre-LTO receipt proves:
     writes (`none`, `peripheral`) and no new power authority;
 15. generic tracefs/QEMU lifecycle tests with pinned substrate;
 16. static AArch64 compile/link and exact module-qualified symbol resolution;
-17. observation/guard timing receipt covers the complete worst case; and
-18. focused plus historical Process v2 tests.
+17. a fixed 45-byte A/B geometry receipt covers every success/failure stage,
+   generation through 92, stale-run rejection, and unsaturated boundaries;
+18. observation/guard timing receipt covers the complete worst case; and
+19. focused plus historical Process v2 tests.
 
 The known-good P2.80 linked artifact and synthetic fixtures are meta-test
 inputs. A new checker that rejects an applicable known-good shape, or accepts
 its intended mutation, blocks Full LTO before any kernel build.
 
 QEMU can validate tracefs mechanics, parser behavior, configfs/gadget ordering,
-and exact host receipt. It cannot prove Qualcomm DWC3-MSM, femto PHY,
-electrical attach, or the controlled hardware cycle.
+exact host receipt, and all shared production C classifier outputs under
+synthetic observations. It cannot prove Qualcomm DWC3-MSM, femto PHY,
+electrical attach, the controlled hardware cycle, or any FYG8 end-to-end
+C-band path.
 
 ## Safety and Timing
 
