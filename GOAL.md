@@ -747,25 +747,25 @@ reports grant no device authority.
     write is source-deduced but not separately live-proved. Retire UCSI-race
     and role-retrigger as the P2.80 headline; design a minimal parent-worker
     progress discriminator next. No device contact or authority occurred.
-71. **P2.80 parent/pull-up discriminator and build closure, H0:** retain the
-    exact module closure and E3 geometry. Two bounded tracefs windows observe parent
-    PM, `start_peripheral`, child pull-up/run-stop, and canonical UDC state.
-    One no-retry helper, signed fetches, globally ordered same-PID traces, exact
-    `0xbXX` descriptors, per-phase cleanup, host sidecar, and independent
-    review are mandatory. Arm64 disassembly rules out SCS return-probe bypass
-    and exact-body selection rejects CFI thunks. A pinned generic-arm64 control
-    proves signed `:s32` `-EBADF`, zero misses, bounded commands, full cleanup,
-    and timeout/version mismatch. Clean trace loss stays subordinate to E3;
-    cleanup and Phase-R ambiguity remain fail-closed. The observer distinguishes
-    commanded release from TTL/signal races: exact run-bound ACM bytes survive
-    cleanup-confirmed loss with a warning, while absence remains indeterminate.
-    Source closure, focused tests, 5/5 QEMU runs, and one exact qualification
-    bind intent, run ID, ELF, safety, substrates, traces, and executors.
-    Full-LTO A/B finish in `37:47.60`/`38:14.53`, use no swap, and match all
-    six artifacts. A host audit omitted the P2.80 struct's AArch64 tail pad;
-    its corrected adapter verifies 21 six-byte entries and the 126-byte range.
-    Package A/B and static/effective-rootfs closure pass; ready1 binds exact Process v2 promotion and 240-second ACM observation. First D0 stopped on one historical retained family; one bounded normal reboot rotated it out.
-    The single D0 retry passed exact health, clean baseline, and immutable closure and emitted a fresh private approval binding. No F1, Download, Odin, transfer, or device write occurred.
+71. **P2.80 parent/pull-up discriminator host closure, H0+D0:** two bounded
+    tracefs windows observe parent PM/`start_peripheral` and child pull-up/
+    run-stop while preserving the exact E3 geometry and module closure.
+    Source-bound no-retry, signed-return, same-PID ordering, exact `0xbXX`,
+    cleanup, guard-loss, sidecar, and pinned QEMU controls pass, including 5/5
+    lifecycle boots. Full-LTO A/B finish in `37:47.60`/`38:14.53`, match all
+    six artifacts, and the corrected ABI adapter verifies 21 six-byte entries.
+    Package/static/promotion/ready1 pass. One historical baseline stop, one
+    bounded reboot, and one D0 retry produce a clean private approval binding.
+72. **P2.80 complete/closed, F1:** candidate and exact rollback transfer once
+    each; no boot loop is observed, but ACM endpoint observation times out.
+    Byte-identical retained reads contain progress `0x8e/detail=0`, then failure
+    `0x8f/detail=0xb22` (`run-stop-zero-no-bus-state`). Clean traces prove the
+    parent role path, non-negative parent/child PM, pull-up, and nested run-stop
+    all return successfully while UDC remains `not attached`. The first host
+    invocation ends at durable `OBSERVED`; `--recover` resumes only rollback
+    without candidate replay. Final health and all eight events pass; verdict
+    is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. Next is focused H0 analysis of
+    the post-run-stop electrical boundary, not a P2.80 retry.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
 reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing
