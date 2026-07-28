@@ -757,13 +757,13 @@ reports grant no device authority.
     parent-PM sign or one `hs_phy->flags` sample as electrical proof. Reuse the
     trace lifecycle only through a versioned ordered discriminator; do not
     infer electrical readiness from swallowed clock errors.
-74. **P2.80 femto LDO-drop hypothesis audit, H0:** disconnect-suspend can turn
-    femto clocks/regulator votes off, while runtime resume restores clocks
-    only. P2.80's exact initial role was `none`, but its tracing started after
-    module/gate setup and could not observe the proposed drop. A late
-    `power/control=on` cannot restore it. Next design uses an early pre-DWC3
-    window plus the role window, permits repeated init calls, and treats helper
-    success as software power-state evidence rather than analog rail proof.
+74. **P2.80 femto and child-reinit audits, H0:** natural parent resume restores
+    femto clocks only, but a child DEVICE runtime suspend/resume performs full
+    PHY reinitialization. Detail `0xb22` collapses direct and resume-nested
+    run-stop, so it does not prove resume absence. The source-backed lever is
+    bounded parent `peripheral -> none -> peripheral`, fenced on exact child
+    `runtime_status=suspended`; next design combines early diagnosis with that
+    pre-bind cycle and never infers analog rail state from helper success.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
 reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing
