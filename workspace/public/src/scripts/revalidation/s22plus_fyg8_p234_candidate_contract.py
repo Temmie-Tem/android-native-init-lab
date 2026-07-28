@@ -97,11 +97,16 @@ def verify(
     if not isinstance(preimage, dict):
         raise ContractError("candidate identity preimage is missing")
     source_contract_id = preimage.get("source_contract_id")
-    selected_contract = (
-        intent.selected_source_contract(source_contract_id, profile)
-        if source_contract_id is not None
-        else None
-    )
+    try:
+        selected_contract = (
+            intent.selected_source_contract_for_candidate(
+                source_contract_id, profile
+            )
+            if source_contract_id is not None
+            else None
+        )
+    except intent.IntentError as exc:
+        raise ContractError(str(exc)) from exc
     expected_schema = (
         selected_contract.intent_schema if selected_contract else intent.SCHEMA
     )

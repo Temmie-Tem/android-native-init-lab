@@ -808,7 +808,11 @@ reports grant no device authority.
     current generic QEMU receipts, linked audit, and all `20/20` pre-LTO gates
     pass. Independent review also separated the qualification-only oracle from
     candidate identity, bound the P2.84 source-check ID, and added relocation,
-    tamper, runtime-mutation, and historical-receipt rejection tests.
+    tamper, runtime-mutation, and historical-receipt rejection tests. P2.82
+    remains registered for historical evidence parsing but is mechanically
+    rejected by new-candidate selection, intent parsing, and contract
+    verification as superseded by P2.84. Fresh run
+    `023060c8dd0ab036f8547a816624356f` passes the production `20/20` gate.
     Full-LTO/AP/device/F1 remain undone and unauthorized.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import sys
 import tempfile
 import unittest
@@ -13,6 +14,8 @@ SCRIPTS = ROOT / "workspace/public/src/scripts/revalidation"
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
+import s22plus_fyg8_p234_candidate_contract as candidate_contract  # noqa: E402
+import s22plus_fyg8_p234_candidate_intent as intent  # noqa: E402
 import s22plus_fyg8_p282_source_contract as p282  # noqa: E402
 import s22plus_fyg8_p284_contract_spec as spec  # noqa: E402
 import s22plus_fyg8_p284_source_contract as p284  # noqa: E402
@@ -25,6 +28,60 @@ class P284ContractSourceTests(unittest.TestCase):
         self.assertIs(selected.module, p284)
         self.assertIn(p282.CONTRACT_ID, registry.REGISTRY)
         self.assertIs(registry.REGISTRY[p282.CONTRACT_ID], p282)
+
+    def test_p282_is_historical_only_and_new_candidates_require_p284(
+        self,
+    ) -> None:
+        self.assertIs(
+            registry.select(p282.CONTRACT_ID, p282.PROFILE).module,
+            p282,
+        )
+        self.assertNotIn(p282.CONTRACT_ID, intent.candidate_contract_ids())
+        self.assertIn(p284.CONTRACT_ID, intent.candidate_contract_ids())
+        with self.assertRaisesRegex(
+            intent.IntentError, "superseded for new candidates"
+        ):
+            intent.selected_source_contract_for_candidate(
+                p282.CONTRACT_ID, p282.PROFILE
+            )
+        self.assertIs(
+            intent.selected_source_contract_for_candidate(
+                p284.CONTRACT_ID, p284.PROFILE
+            ).module,
+            p284,
+        )
+
+    def test_candidate_contract_rejects_crafted_p282_intent(self) -> None:
+        value = {
+            "target": candidate_contract.TARGET,
+            "profile": p282.PROFILE,
+            "profile_number": intent.profile_number(p282.PROFILE),
+            "identity_preimage": {
+                "source_contract_id": p282.CONTRACT_ID,
+            },
+        }
+        with tempfile.TemporaryDirectory(
+            prefix="p284-superseded-",
+            dir=ROOT / "workspace/private",
+        ) as raw:
+            directory = Path(raw)
+            intent_path = directory / "candidate-intent.json"
+            patch_path = directory / "candidate.patch"
+            intent_path.write_text(
+                json.dumps(value, sort_keys=True) + "\n",
+                encoding="ascii",
+            )
+            patch_path.write_bytes(b"not-reached\n")
+            with self.assertRaisesRegex(
+                candidate_contract.ContractError,
+                "superseded for new candidates",
+            ):
+                candidate_contract.verify(
+                    ROOT,
+                    intent.resolve(ROOT, intent.DEFAULT_SOURCE),
+                    intent_path,
+                    patch_path,
+                )
 
     def test_generated_kernel_inputs_and_linked_tables_are_p282_identical(
         self,

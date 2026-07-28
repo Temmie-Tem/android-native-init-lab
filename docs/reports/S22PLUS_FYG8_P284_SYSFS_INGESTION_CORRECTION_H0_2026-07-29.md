@@ -79,7 +79,7 @@ The result is
 
 ## Production-Path Validation
 
-The end-to-end qualification and independent review exposed and closed six host
+The end-to-end qualification and independent review exposed and closed seven host
 integration defects before any kernel build:
 
 1. a stale Process-v2 docs assertion still named the older P2.80 frontier;
@@ -92,15 +92,24 @@ integration defects before any kernel build:
 5. the qualification-only ingestion oracle was incorrectly included in the
    candidate source preimage; and
 6. the new receipt path lacked direct relocation, tamper, runtime-mutation, and
-   historical-receipt-injection regression tests.
+   historical-receipt-injection regression tests; and
+7. the generic historical registry was also used directly as the
+   new-candidate choice set, leaving defective P2.82 selectable.
 
 P2.84 now owns its userspace source-check identity. The oracle remains
 cryptographically bound to pre-LTO gate 20, but changing the qualification tool
 alone cannot change candidate identity or force Full LTO.
 
+The generic registry still resolves P2.82 for historical evidence. A separate
+new-candidate selector excludes it, reports P2.84 as its successor, and is
+enforced by CLI choices, intent creation/parsing, and candidate-contract
+verification. A crafted P2.82 intent therefore fails loudly before build or
+execution validation instead of silently bypassing the P2.84 oracle.
+
 After correction:
 
-- current P2.82/P2.84 contract plus Process-v2 regression: `126 tests`, pass;
+- current focused P2.82/P2.84 contract, build, package, and Process-v2 docs
+  regression: `71 tests`, pass;
 - P2.84 userspace A/B: byte-identical;
 - current generic P2.60, kprobe, lifecycle, and classifier QEMU receipts: pass;
 - P2.84 linked-audit meta receipt: pass;
@@ -108,10 +117,22 @@ After correction:
 - Python bytecode compilation: pass; and
 - pinned Ruff `0.6.9`: pass.
 
-The post-fix independent review returned `GO` with no remaining correctness
-finding or scope warning. A fresh private v2 intent, userspace result,
-linked-audit receipt, and `20/20` qualification replaced the now-stale v1
-identity.
+The first retirement review rejected placing admission policy in the historical
+selector because that file is candidate-identity material. The final change
+keeps the generic registry byte-stable and moves supersession into the
+candidate-intent admission boundary. Existing private v2 run
+`023060c8dd0ab036f8547a816624356f`, userspace result, linked-audit receipt,
+lifecycle receipt, and `20/20` qualification therefore remain current and
+reverify successfully.
+
+The consumed P2.82 ready manifest is not requalified against the now-current
+P2.84 execution-source selector. Its historical raw manifest and evidence
+remain records, but current execution verification rejects that stale source
+preimage. This is expected and must not be treated as authority to replay
+P2.82.
+
+The final independent re-review returned `GO`: no remaining correctness,
+historical-evidence, or scope finding was identified.
 
 The actual build wrapper successfully rehydrated and accepted the P2.84
 qualification in its isolated temporary repository after the review fixes. Its

@@ -38,8 +38,12 @@ Do not add a device step when host-only work can answer the question.
   a source-bound AArch64 ingestion oracle as pre-LTO gate 20. Its userspace
   two-build and `20/20` pre-LTO qualification pass. The oracle is qualification
   evidence, not candidate identity, and P2.84 owns a distinct userspace
-  source-check ID. No Full-LTO kernel, AP, device action, or F1 authority exists
-  for P2.84.
+  source-check ID.
+- P2.82 remains readable only for historical evidence. The candidate selector,
+  intent creator/parser, and candidate-contract verifier reject it as
+  superseded by P2.84; do not restore it to the new-candidate choice set. Fresh
+  P2.84 run `023060c8dd0ab036f8547a816624356f` passes all `20/20` pre-LTO gates.
+  No Full-LTO kernel, AP, device action, or F1 authority exists for P2.84.
 - Do not repeat P2.82. The next candidate step is P2.84 Full-LTO A/B on the
   qualified build host, followed by the ordinary static/package gates. Any
   later F1 still requires a new immutable manifest, D0, and fresh approval.

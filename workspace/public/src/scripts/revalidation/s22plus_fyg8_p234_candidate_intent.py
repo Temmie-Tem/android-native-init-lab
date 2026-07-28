@@ -24,6 +24,8 @@ import s22plus_fyg8_p233_e1_decoder as decoder  # noqa: E402
 import s22plus_fyg8_p233_e1_static_checker as p233  # noqa: E402
 import s22plus_fyg8_p241_e2_static_checker as p241  # noqa: E402
 import s22plus_fyg8_p245_source_contract as p245  # noqa: E402
+import s22plus_fyg8_p282_source_contract as p282  # noqa: E402
+import s22plus_fyg8_p284_source_contract as p284  # noqa: E402
 import s22plus_fyg8_source_contracts as source_contracts  # noqa: E402
 import s22plus_fyg8_r4w1b_patch_check as source_base  # noqa: E402
 
@@ -102,10 +104,39 @@ class IntentError(ValueError):
     pass
 
 
+SUPERSEDED_FOR_NEW_CANDIDATES = {
+    p282.CONTRACT_ID: p284.CONTRACT_ID,
+}
+
+
+def candidate_contract_ids() -> tuple[str, ...]:
+    return tuple(
+        contract_id
+        for contract_id in source_contracts.contract_ids()
+        if contract_id not in SUPERSEDED_FOR_NEW_CANDIDATES
+    )
+
+
 def selected_source_contract(
     source_contract_id: str | None,
     profile: str,
 ) -> source_contracts.SelectedSourceContract:
+    try:
+        return source_contracts.select(source_contract_id, profile)
+    except source_contracts.SourceContractSelectionError as exc:
+        raise IntentError(str(exc)) from exc
+
+
+def selected_source_contract_for_candidate(
+    source_contract_id: str | None,
+    profile: str,
+) -> source_contracts.SelectedSourceContract:
+    replacement = SUPERSEDED_FOR_NEW_CANDIDATES.get(source_contract_id)
+    if replacement is not None:
+        raise IntentError(
+            f"source contract {source_contract_id!r} is superseded for new "
+            f"candidates by {replacement!r}"
+        )
     try:
         return source_contracts.select(source_contract_id, profile)
     except source_contracts.SourceContractSelectionError as exc:
@@ -364,6 +395,10 @@ def create(args: argparse.Namespace) -> dict[str, Any]:
     source = resolve(root, args.source)
     profile = getattr(args, "profile", PROFILE)
     source_contract_id = getattr(args, "source_contract_id", None)
+    if source_contract_id is not None:
+        selected_source_contract_for_candidate(
+            source_contract_id, profile
+        )
     source_data, source_rows = source_receipts(
         root, profile, source_contract_id
     )
@@ -458,11 +493,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--profile", choices=SUPPORTED_PROFILES, default=PROFILE)
     parser.add_argument(
         "--source-contract-id",
-        choices=source_contracts.contract_ids(),
+        choices=candidate_contract_ids(),
     )
     args = parser.parse_args(argv)
     if args.source_contract_id is not None:
-        selected_source_contract(args.source_contract_id, args.profile)
+        selected_source_contract_for_candidate(
+            args.source_contract_id, args.profile
+        )
     expected_patch = (
         source_paths_for_profile(args.profile)["base_patch"]
         if args.source_contract_id is None
