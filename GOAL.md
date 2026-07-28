@@ -10,10 +10,11 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 ## Current Frontier
 
 **State: direct PID1, E1A/E1B, E2 through the real UDC, and E3 through exact
-configfs UDC binding are live proven. P2.80 F1 is closed after one candidate
-and one exact rollback transfer: controller-running evidence passed, UDC
-remained `not attached`, ACM was absent, and final health passed. No S22+ F1
-live run is currently authorized.**
+configfs UDC binding are live proven. P2.82 F1 is closed after one candidate
+and one exact rollback transfer: initial `peripheral` plus exact real UDC
+passed, but the requested NONE role never read back before the stop deadline.
+No later child-reinit or gadget-bind boundary ran, ACM was absent, and final
+health passed. No S22+ F1 live run is currently authorized.**
 
 P2.69 derived the fresh v4 intent, completed two clean Full-LTO builds in
 `40:43.23` and `40:45.31` with no swap, and proved byte equality for all six
@@ -790,6 +791,16 @@ reports grant no device authority.
     exact D1 Android reboot rotated that history with return health intact;
     repeated D0 passed and emitted a private fresh F1 approval binding. No
     Download, Odin, transfer, candidate boot, or F1 authority occurred.
+81. **P2.82 controlled-reinit F1:** one exact candidate and rollback transfer
+    completed with no candidate replay. Two byte-identical retained reads show
+    `0x8d/detail=0`, then terminal `0x8e/detail=0xc10`
+    (`none-readback-not-reached`). The exact NONE-write helper completed, but
+    parent mode never read back as `none` before the 30-second stop deadline;
+    child suspend/reinit, gadget bind, and final bus sampling were not reached.
+    ACM timed out as expected at that earlier boundary. Exact rollback, final
+    Android/root/boot/supporting-partition health, and all eight timeline events
+    passed. The transaction is closed and authority consumed. Next is a focused
+    H0 audit of DP refusal, external reassertion, and NONE worker scheduling.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
 reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing

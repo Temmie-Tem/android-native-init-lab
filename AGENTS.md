@@ -13,29 +13,28 @@ Do not add a device step when host-only work can answer the question.
 ## Current Live Posture
 
 - No S22+ F1 live run is currently authorized.
-- P2.80 consumed one exact approval. Its candidate and exact Magisk rollback
+- P2.82 consumed one exact approval. Its candidate and exact Magisk rollback
   each completed one boot-only transfer; no candidate replay occurred.
-- Two byte-identical retained reads contain progress `0x8e/detail=0`, followed
-  by terminal failure `0x8f/detail=0xb22`
-  (`run-stop-zero-no-bus-state`). No accepted ACM endpoint appeared.
-- Exact trace plus FYG8 source proves the parent and child PM path, pull-up,
-  DCTL RUN_STOP write, and DSTS `DEVCTRLHLT` clear. The controller ran while
-  the canonical UDC state remained `not attached`.
-- Post-live H0 rules out the proposed external eUSB2 repeater as this target's
-  active path. All four vendor DTBs select the femto HS and QMP SS PHYs; all 11
-  DTBO entries contain no eUSB2/repeater node or DWC3 PHY override.
-- The original host invocation ended after durable `OBSERVED`; `--recover`
-  resumed rollback only. The exit cause remains unresolved, with no host
-  OOM/coredump evidence. Final Android/root/boot/supporting-partition health,
-  Odin absence, and all eight canonical events passed.
+- Two byte-identical retained reads contain progress `0x8d/detail=0`, followed
+  by terminal failure `0x8e/detail=0xc10`
+  (`none-readback-not-reached`). No accepted ACM endpoint appeared.
+- The result proves the unchanged P2.80 prefix again reached initial parent
+  `peripheral` mode plus exact real-UDC membership. The bounded helper then
+  completed the exact `none` write operation, but the parent mode never read
+  back as exact `none` before the stop deadline.
+- Child suspend, DEVICE restart, child PHY reinitialization, configfs UDC bind,
+  final bus-state sampling, and host ACM receipt were not reached. Do not read
+  this result as evidence for or against those later P2.82 boundaries.
+- The runner completed normally. Exact rollback restored Android, FYG8 kernel,
+  root, boot, and supporting-partition health; Odin was absent and all eight
+  canonical events passed.
 - The transaction is `CLOSED` with verdict
   `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; recovery is not required.
-- Follow-up H0 found the FYG8 femto-HS source and exact module symbols locally.
-  A nonnegative parent PM result does not prove `dwc3_msm_resume()` ran, and
-  `hs_phy->flags` cannot prove femto connect-notify or VBUS override. Do not
-  repeat P2.80 or add the inactive eUSB2 repeater closure. The next H0 is a
-  versioned, ordered resume/femto/connect/VBUS discriminator design; EUD flags
-  are secondary exact-point evidence only.
+- Do not repeat P2.82 or alter the later child-reinit classifier yet. The next
+  H0 is a focused audit of the parent `mode_store -> dwc3_msm_set_role ->
+  dwc3_ext_event_notify` NONE boundary, including DP-session refusal, external
+  role reassertion, and worker scheduling. A physical cable replug is not an
+  accepted substitute for the missing exact NONE readback.
 
 ## Permanent Safety Boundaries
 
