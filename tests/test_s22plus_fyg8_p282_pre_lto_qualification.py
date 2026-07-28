@@ -74,6 +74,126 @@ class P282QualificationTests(unittest.TestCase):
             encoding="ascii",
         )
 
+    def test_candidate_binding_is_portable_across_repo_copies(self) -> None:
+        exact = self._exact_contract()
+        intent_relative = Path("workspace/private/candidate-intent.json")
+        patch_relative = Path("workspace/private/candidate.patch")
+        with tempfile.TemporaryDirectory(
+            prefix="p282-binding-a-"
+        ) as raw_a, tempfile.TemporaryDirectory(
+            prefix="p282-binding-b-"
+        ) as raw_b:
+            root_a = Path(raw_a)
+            root_b = Path(raw_b)
+            for root in (root_a, root_b):
+                self._write_json(
+                    root / intent_relative,
+                    {"contract": "portable", "run_id": exact["run_id"]},
+                )
+                (root / patch_relative).write_bytes(b"portable patch\n")
+
+            with mock.patch.object(
+                qualification.candidate_contract.intent,
+                "repo_root",
+                return_value=root_a,
+            ):
+                binding_a = qualification._candidate_binding(
+                    exact,
+                    root_a / intent_relative,
+                    root_a / patch_relative,
+                )
+            with mock.patch.object(
+                qualification.candidate_contract.intent,
+                "repo_root",
+                return_value=root_b,
+            ):
+                binding_b = qualification._candidate_binding(
+                    exact,
+                    root_b / intent_relative,
+                    root_b / patch_relative,
+                )
+
+            self.assertEqual(binding_a, binding_b)
+            self.assertEqual(binding_a["intent"]["path"], str(intent_relative))
+            self.assertEqual(binding_a["patch"]["path"], str(patch_relative))
+
+            (root_b / patch_relative).write_bytes(b"changed patch\n")
+            with mock.patch.object(
+                qualification.candidate_contract.intent,
+                "repo_root",
+                return_value=root_b,
+            ):
+                changed = qualification._candidate_binding(
+                    exact,
+                    root_b / intent_relative,
+                    root_b / patch_relative,
+                )
+            self.assertNotEqual(binding_a, changed)
+
+    def test_gate_implementation_is_portable_across_repo_copies(self) -> None:
+        relative_sources = {
+            "qualification": Path("workspace/public/qualification.py"),
+            "runtime": Path("workspace/public/runtime.inc.c"),
+        }
+
+        def gate_for(root: Path) -> dict:
+            paths = {
+                name: root / relative
+                for name, relative in relative_sources.items()
+            }
+            linked = root / "workspace/public/linked.py"
+            for name, path in {**paths, "linked": linked}.items():
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(f"{name}\n".encode("ascii"))
+            with mock.patch.object(
+                qualification.candidate_contract.intent,
+                "repo_root",
+                return_value=root,
+            ), mock.patch.object(
+                qualification,
+                "GATE_IMPLEMENTATION_SOURCES",
+                paths,
+            ), mock.patch.object(
+                qualification,
+                "_load_linked_audit_module",
+                return_value=SimpleNamespace(__file__=str(linked)),
+            ):
+                return qualification._gate_implementation()
+
+        with tempfile.TemporaryDirectory(
+            prefix="p282-gate-a-"
+        ) as raw_a, tempfile.TemporaryDirectory(
+            prefix="p282-gate-b-"
+        ) as raw_b:
+            first = gate_for(Path(raw_a))
+            second = gate_for(Path(raw_b))
+
+        self.assertEqual(first, second)
+        self.assertEqual(
+            first["qualification"]["path"],
+            str(relative_sources["qualification"]),
+        )
+        self.assertEqual(
+            first["linked_audit"]["path"],
+            "workspace/public/linked.py",
+        )
+
+    def test_portable_paths_preserve_external_material_identity(self) -> None:
+        root = Path("/repo")
+        value = {
+            "inside": {"path": "/repo/workspace/private/result.json"},
+            "outside": {"path": "/usr/bin/python3"},
+            "command": ["/repo/workspace/private/result.json"],
+        }
+        self.assertEqual(
+            qualification._portable_repo_paths(root, value),
+            {
+                "inside": {"path": "workspace/private/result.json"},
+                "outside": {"path": "/usr/bin/python3"},
+                "command": ["/repo/workspace/private/result.json"],
+            },
+        )
+
     def test_exact_gate_inventory_is_19_and_ordered(self) -> None:
         self.assertEqual(len(qualification.GATE_NAMES), 19)
         self.assertEqual(len(set(qualification.GATE_NAMES)), 19)
@@ -349,6 +469,15 @@ class P282QualificationTests(unittest.TestCase):
         self.assertEqual(captured, contract)
 
     def _classifier_report(self) -> dict:
+        source_root = ROOT
+        kernel = (
+            source_root
+            / qualification.CLASSIFIER_SUBSTRATE_REPO_PATHS["kernel"]
+        )
+        qemu = (
+            source_root
+            / qualification.CLASSIFIER_SUBSTRATE_REPO_PATHS["qemu"]
+        )
         return {
             "schema": qualification.classifier_qemu.SCHEMA,
             "verdict": qualification.classifier_qemu.VERDICT,
@@ -356,25 +485,30 @@ class P282QualificationTests(unittest.TestCase):
             "tuple_count": 567,
             "elapsed_sec": 1.5,
             "command": [
-                "/qemu",
+                str(qemu),
                 "-kernel",
-                "/kernel",
+                str(kernel),
                 "-initrd",
                 "/initramfs",
             ],
             "substrate": {
                 "kernel": {
-                    "path": "/kernel",
+                    "path": str(kernel),
                     "sha256": qualification.classifier_qemu.PINNED_KERNEL_SHA256,
                     "version": qualification.classifier_qemu.KERNEL_VERSION,
                 },
                 "config": {
-                    "path": "/config",
+                    "path": str(
+                        source_root
+                        / qualification.CLASSIFIER_SUBSTRATE_REPO_PATHS[
+                            "config"
+                        ]
+                    ),
                     "sha256": qualification.classifier_qemu.PINNED_CONFIG_SHA256,
                     "version": qualification.classifier_qemu.KERNEL_VERSION,
                 },
                 "qemu": {
-                    "path": "/qemu",
+                    "path": str(qemu),
                     "sha256": qualification.classifier_qemu.PINNED_QEMU_SHA256,
                     "version": qualification.classifier_qemu.PINNED_QEMU_VERSION,
                 },
@@ -444,6 +578,42 @@ class P282QualificationTests(unittest.TestCase):
             result = qualification._verify_classifier_qemu(Path("/result"))
         self.assertTrue(result["verified"])
         self.assertEqual(result["semantics"]["details_covered"], 46)
+        self.assertEqual(
+            result["semantics"]["substrate"]["kernel"]["path"],
+            str(qualification.CLASSIFIER_SUBSTRATE_REPO_PATHS["kernel"]),
+        )
+
+        def tracked_only_material(_path: Path, label: str) -> dict:
+            mapping = {
+                "P2.82 production classifier": "66" * 32,
+                "P2.82 classifier contract spec": "77" * 32,
+            }
+            return {
+                "path": f"/{label}",
+                "size": 1,
+                "sha256": mapping[label],
+            }
+
+        with mock.patch.object(
+            qualification,
+            "_load_json",
+            return_value=(
+                self._classifier_report(),
+                {"path": "/result", "size": 1, "sha256": "dd" * 32},
+            ),
+        ), mock.patch.object(
+            qualification,
+            "_material",
+            side_effect=tracked_only_material,
+        ), mock.patch.object(
+            qualification,
+            "_result_binding",
+            return_value={"result": {}, "result_repo_path": "result"},
+        ):
+            rehydrated = qualification._verify_classifier_qemu(
+                Path("/result"), verify_materials=False
+            )
+        self.assertTrue(rehydrated["verified"])
 
         report["production_classifier_sha256"] = "ee" * 32
         with mock.patch.object(
@@ -459,6 +629,64 @@ class P282QualificationTests(unittest.TestCase):
             qualification.QualificationError, "source binding changed"
         ):
             qualification._verify_classifier_qemu(Path("/result"))
+
+        report = self._classifier_report()
+        report["substrate"]["kernel"]["path"] = "/wrong/kernel"
+        with mock.patch.object(
+            qualification,
+            "_load_json",
+            return_value=(
+                report,
+                {"path": "/result", "size": 1, "sha256": "dd" * 32},
+            ),
+        ), mock.patch.object(
+            qualification, "_material", side_effect=material
+        ), self.assertRaisesRegex(
+            qualification.QualificationError, "path drifted"
+        ):
+            qualification._verify_classifier_qemu(Path("/result"))
+
+        report = self._classifier_report()
+        report["substrate"]["kernel"]["path"] = str(
+            Path("/wrong")
+            / qualification.CLASSIFIER_SUBSTRATE_REPO_PATHS["kernel"]
+        )
+        with mock.patch.object(
+            qualification,
+            "_load_json",
+            return_value=(
+                report,
+                {"path": "/result", "size": 1, "sha256": "dd" * 32},
+            ),
+        ), mock.patch.object(
+            qualification, "_material", side_effect=material
+        ), self.assertRaisesRegex(
+            qualification.QualificationError, "path drifted"
+        ):
+            qualification._verify_classifier_qemu(Path("/result"))
+
+        for field in ("qemu", "kernel"):
+            report = self._classifier_report()
+            command_index = (
+                0
+                if field == "qemu"
+                else report["command"].index("-kernel") + 1
+            )
+            report["command"][command_index] = "/wrong"
+            with mock.patch.object(
+                qualification,
+                "_load_json",
+                return_value=(
+                    report,
+                    {"path": "/result", "size": 1, "sha256": "dd" * 32},
+                ),
+            ), mock.patch.object(
+                qualification, "_material", side_effect=material
+            ), self.assertRaisesRegex(
+                qualification.QualificationError,
+                "command substrate drifted",
+            ):
+                qualification._verify_classifier_qemu(Path("/result"))
 
     def test_userspace_gate_uses_derived_entrypoints_and_authority(self) -> None:
         contract = self._exact_contract()

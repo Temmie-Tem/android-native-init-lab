@@ -763,7 +763,8 @@ reports grant no device authority.
     geometry, and execute classifier `46/46` plus 567 tuples. No live authority.
 76. **P2.82 implementation and pre-LTO qualification, H0:** generated
     classifier `46/46`, tuples `567/567`, lifecycle `5/5`, and all `19/19`
-    gates pass, including producer-to-consumer. Full-LTO/AP/F1 remain undone.
+    gates pass, including portable temp-repo producer-to-consumer preflight.
+    Full-LTO/AP/F1 remain undone.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
 reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing

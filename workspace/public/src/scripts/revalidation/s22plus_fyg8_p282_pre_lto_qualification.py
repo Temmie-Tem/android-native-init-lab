@@ -62,6 +62,17 @@ DEFAULT_USERSPACE_RESULT = Path(
 DEFAULT_CLASSIFIER_RESULT = Path(
     "workspace/private/outputs/s22plus_fyg8_p282_classifier_qemu/result.json"
 )
+CLASSIFIER_SUBSTRATE_REPO_PATHS = {
+    "kernel": Path(
+        "workspace/private/tools/generic-arm64-guest/root/boot/"
+        "vmlinuz-6.12.94+deb13-arm64"
+    ),
+    "config": Path(
+        "workspace/private/tools/generic-arm64-guest/root/boot/"
+        "config-6.12.94+deb13-arm64"
+    ),
+    "qemu": p280q.PINNED_QEMU_REPO_PATH,
+}
 DEFAULT_P260_QEMU_RESULT = p280q.DEFAULT_P260_QEMU_RESULT
 DEFAULT_KPROBE_RESULT = p280q.DEFAULT_KPROBE_RESULT
 DEFAULT_LIFECYCLE_RESULT = p280q.DEFAULT_LIFECYCLE_RESULT
@@ -249,6 +260,34 @@ def _repo_relative(root: Path, path: Path, label: str) -> str:
         raise QualificationError(str(exc)) from exc
 
 
+def _repo_material(root: Path, path: Path, label: str) -> dict[str, Any]:
+    material = _material(path, label)
+    return {
+        **material,
+        "path": _repo_relative(root, Path(material["path"]), label),
+    }
+
+
+def _portable_repo_paths(root: Path, value: Any) -> Any:
+    if isinstance(value, dict):
+        result = {
+            key: _portable_repo_paths(root, item)
+            for key, item in value.items()
+        }
+        path = result.get("path")
+        if isinstance(path, str) and Path(path).is_absolute():
+            try:
+                result["path"] = str(
+                    Path(path).resolve().relative_to(root.resolve())
+                )
+            except ValueError:
+                pass
+        return result
+    if isinstance(value, list):
+        return [_portable_repo_paths(root, item) for item in value]
+    return value
+
+
 def _receipt_identity(row: Any, label: str) -> dict[str, Any]:
     try:
         return p280q._receipt_identity(row, label)
@@ -291,7 +330,7 @@ def _run_test_command(
     if not paths or len(set(paths)) != len(paths):
         raise QualificationError(f"{label} test inventory is invalid")
     materials = {
-        str(path): _material(root / path, f"{label} test {path}")
+        str(path): _repo_material(root, root / path, f"{label} test {path}")
         for path in paths
     }
     command = [
@@ -339,7 +378,7 @@ def _verify_test_gate(
         *(str(path) for path in paths),
     ]
     expected_sources = {
-        str(path): _material(root / path, f"{label} test {path}")
+        str(path): _repo_material(root, root / path, f"{label} test {path}")
         for path in paths
     }
     if (
@@ -368,7 +407,7 @@ def _verify_test_gate(
 def create_linked_audit_receipt(root: Path) -> dict[str, Any]:
     module = _load_linked_audit_module()
     test = _run_test_command(root, (LINKED_AUDIT_TEST,), "P2.82 linked audit")
-    payload = {
+    payload = _portable_repo_paths(root, {
         "schema": LINKED_META_SCHEMA,
         "verdict": LINKED_META_VERDICT,
         "source_contract_id": p282.CONTRACT_ID,
@@ -382,7 +421,7 @@ def create_linked_audit_receipt(root: Path) -> dict[str, Any]:
         "known_good": _known_good_linked_binding(root),
         "test": test,
         "verified": True,
-    }
+    })
     return {
         **payload,
         "payload_sha256": hashlib.sha256(_canonical(payload)).hexdigest(),
@@ -417,7 +456,8 @@ def _verify_linked_audit_receipt(path: Path) -> dict[str, Any]:
         or value.get("verified") is not True
     ):
         raise QualificationError("P2.82 linked-audit receipt is not current")
-    expected_module = _material(
+    expected_module = _repo_material(
+        root,
         root
         / "workspace/public/src/scripts/revalidation/"
         "s22plus_fyg8_p282_linked_audit.py",
@@ -436,8 +476,10 @@ def _verify_linked_audit_receipt(path: Path) -> dict[str, Any]:
         str(LINKED_AUDIT_TEST),
     ]
     expected_test_source = {
-        str(LINKED_AUDIT_TEST): _material(
-            root / LINKED_AUDIT_TEST, "P2.82 linked-audit test"
+        str(LINKED_AUDIT_TEST): _repo_material(
+            root,
+            root / LINKED_AUDIT_TEST,
+            "P2.82 linked-audit test",
         )
     }
     if (
@@ -513,7 +555,7 @@ def _known_good_linked_binding(root: Path) -> dict[str, Any]:
         raise QualificationError(
             "P2.80 known-good linked artifacts do not match their result"
         )
-    return {
+    return _portable_repo_paths(root, {
         "result": result_receipt,
         "result_repo_path": _repo_relative(
             root, result_path, "P2.80 known-good linked result"
@@ -528,7 +570,7 @@ def _known_good_linked_binding(root: Path) -> dict[str, Any]:
         ),
         "linked_adapter": linked["audit_adapter"],
         "verified": True,
-    }
+    })
 
 
 def _verify_userspace(
@@ -644,7 +686,9 @@ def _expected_safety(exact_contract: dict[str, Any]) -> dict[str, Any]:
     return actual
 
 
-def _verify_classifier_qemu(path: Path) -> dict[str, Any]:
+def _verify_classifier_qemu(
+    path: Path, *, verify_materials: bool = True
+) -> dict[str, Any]:
     root = candidate_contract.intent.repo_root()
     value, receipt = _load_json(path, "P2.82 classifier QEMU result")
     try:
@@ -677,19 +721,39 @@ def _verify_classifier_qemu(path: Path) -> dict[str, Any]:
         "config": classifier_qemu.PINNED_CONFIG_SHA256,
         "qemu": classifier_qemu.PINNED_QEMU_SHA256,
     }
+    portable_substrate = {"compiler": substrate["compiler"]}
     for name, digest in expected_pins.items():
         if substrate[name].get("sha256") != digest:
             raise QualificationError(
                 f"P2.82 classifier QEMU {name} pin drifted"
             )
-        material = _material(
-            Path(substrate[name]["path"]),
-            f"P2.82 classifier QEMU {name}",
+        reported = Path(substrate[name]["path"])
+        relative = CLASSIFIER_SUBSTRATE_REPO_PATHS[name]
+        expected = (root / relative).resolve()
+        portable_match = (
+            reported.is_absolute()
+            and len(reported.parts) >= len(relative.parts)
+            and reported.parts[-len(relative.parts) :] == relative.parts
         )
-        if material["sha256"] != digest:
+        if not portable_match or (
+            verify_materials and reported.resolve() != expected
+        ):
             raise QualificationError(
-                f"P2.82 classifier QEMU {name} material changed"
+                f"P2.82 classifier QEMU {name} path drifted"
             )
+        if verify_materials:
+            material = _material(
+                expected,
+                f"P2.82 classifier QEMU {name}",
+            )
+            if material["sha256"] != digest:
+                raise QualificationError(
+                    f"P2.82 classifier QEMU {name} material changed"
+                )
+        portable_substrate[name] = {
+            **substrate[name],
+            "path": str(relative),
+        }
     command = value.get("command")
     if (
         not isinstance(command, list)
@@ -698,12 +762,38 @@ def _verify_classifier_qemu(path: Path) -> dict[str, Any]:
         or command.count("-kernel") != 1
     ):
         raise QualificationError("P2.82 classifier QEMU command drifted")
-    initramfs = _material(
-        Path(command[command.index("-initrd") + 1]),
-        "P2.82 classifier QEMU initramfs",
-    )
-    if initramfs["sha256"] != value.get("initramfs_sha256"):
-        raise QualificationError("P2.82 classifier QEMU initramfs changed")
+    command_qemu = Path(command[0])
+    command_kernel = Path(command[command.index("-kernel") + 1])
+    expected_qemu = (root / CLASSIFIER_SUBSTRATE_REPO_PATHS["qemu"]).resolve()
+    expected_kernel = (
+        root / CLASSIFIER_SUBSTRATE_REPO_PATHS["kernel"]
+    ).resolve()
+    if verify_materials:
+        command_paths_match = (
+            command_qemu.resolve() == expected_qemu
+            and command_kernel.resolve() == expected_kernel
+        )
+    else:
+        command_paths_match = all(
+            path.is_absolute()
+            and len(path.parts) >= len(relative.parts)
+            and path.parts[-len(relative.parts) :] == relative.parts
+            for path, relative in (
+                (command_qemu, CLASSIFIER_SUBSTRATE_REPO_PATHS["qemu"]),
+                (command_kernel, CLASSIFIER_SUBSTRATE_REPO_PATHS["kernel"]),
+            )
+        )
+    if not command_paths_match:
+        raise QualificationError(
+            "P2.82 classifier QEMU command substrate drifted"
+        )
+    if verify_materials:
+        initramfs = _material(
+            Path(command[command.index("-initrd") + 1]),
+            "P2.82 classifier QEMU initramfs",
+        )
+        if initramfs["sha256"] != value.get("initramfs_sha256"):
+            raise QualificationError("P2.82 classifier QEMU initramfs changed")
     return {
         **_result_binding(root, path, receipt, "P2.82 classifier QEMU result"),
         "semantics": {
@@ -715,7 +805,7 @@ def _verify_classifier_qemu(path: Path) -> dict[str, Any]:
             "guest_source_sha256": value["guest_source_sha256"],
             "qemu_output_sha256": value["qemu_output_sha256"],
             "elapsed_sec": value["elapsed_sec"],
-            "substrate": substrate,
+            "substrate": portable_substrate,
         },
         "verified": True,
     }
@@ -756,13 +846,18 @@ def _timing_gate() -> dict[str, Any]:
 
 
 def _gate_implementation() -> dict[str, Any]:
+    root = candidate_contract.intent.repo_root()
     result = {
-        name: _material(path, f"P2.82 gate implementation {name}")
+        name: _repo_material(
+            root, path, f"P2.82 gate implementation {name}"
+        )
         for name, path in GATE_IMPLEMENTATION_SOURCES.items()
     }
     linked = _load_linked_audit_module()
-    result["linked_audit"] = _material(
-        Path(linked.__file__), "P2.82 linked-audit implementation"
+    result["linked_audit"] = _repo_material(
+        root,
+        Path(linked.__file__),
+        "P2.82 linked-audit implementation",
     )
     result["verified"] = True
     return result
@@ -774,8 +869,10 @@ def _candidate_binding(
     patch_path: Path,
 ) -> dict[str, Any]:
     root = candidate_contract.intent.repo_root()
-    intent = _material(intent_path, "P2.82 candidate intent")
-    patch = _material(patch_path, "P2.82 candidate patch")
+    intent = _repo_material(
+        root, intent_path, "P2.82 candidate intent"
+    )
+    patch = _repo_material(root, patch_path, "P2.82 candidate patch")
     return {
         "run_id": exact_contract["run_id"],
         "profile": exact_contract["profile"],
@@ -915,19 +1012,22 @@ def _current_evidence(
         p260_gate = p280q._verify_p260_qemu(
             _stored_result_path(
                 root, stored.get("p260_qemu"), "P2.60 QEMU"
-            )
+            ),
+            verify_materials=False,
         )
         kprobe_gate = p280q._verify_kprobe_qemu(
             _stored_result_path(
                 root, stored.get("kprobe_qemu"), "P2.80 Kprobe QEMU"
-            )
+            ),
+            verify_materials=False,
         )
         lifecycle_gate = p280q._verify_lifecycle_qemu(
             _stored_result_path(
                 root,
                 stored.get("lifecycle_qemu"),
                 "P2.80 lifecycle QEMU",
-            )
+            ),
+            verify_materials=False,
         )
     except p280q.QualificationError as exc:
         raise QualificationError(str(exc)) from exc
@@ -964,7 +1064,8 @@ def _current_evidence(
                 root,
                 stored.get("classifier_qemu"),
                 "P2.82 classifier QEMU",
-            )
+            ),
+            verify_materials=False,
         ),
         "focused_tests": _verify_test_gate(
             stored.get("focused_tests"), root, FOCUSED_TESTS, "P2.82 focused"
@@ -992,6 +1093,7 @@ def _current_evidence(
             "P2.82 Process v2 regression",
         ),
     }
+    current = _portable_repo_paths(root, current)
     if set(current) != set(stored):
         raise QualificationError("P2.82 evidence inventory drifted")
     return current
@@ -1091,6 +1193,7 @@ def create(
         "timing": timing,
         "historical_tests": historical,
     }
+    evidence = _portable_repo_paths(root, evidence)
     gates = _gate_matrix(evidence)
     payload = {
         "schema": SCHEMA,
