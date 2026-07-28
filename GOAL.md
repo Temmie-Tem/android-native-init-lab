@@ -10,10 +10,10 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 ## Current Frontier
 
 **State: direct PID1, E1A/E1B, E2 through the real UDC, and E3 through exact
-configfs UDC binding are live proven. P2.76 stopped at configured-state stage
-`0x8f` with no host ACM endpoint, then exact rollback and final health passed.
-P2.80 has bound qualification, byte-identical Full-LTO/package pairs, static
-closure, promotion, and validated ready1; D0, F1, and device authority have not occurred.**
+configfs UDC binding are live proven. P2.80 F1 is closed after one candidate
+and one exact rollback transfer: controller-running evidence passed, UDC
+remained `not attached`, ACM was absent, and final health passed. No S22+ F1
+live run is currently authorized.**
 
 P2.69 derived the fresh v4 intent, completed two clean Full-LTO builds in
 `40:43.23` and `40:45.31` with no swap, and proved byte equality for all six
@@ -110,9 +110,9 @@ Max77705 firmware-bearing modules are not selected. In the exact driver,
 `mode_store()` queues the DWC3-MSM state machine and returns before it
 completes; mode readback and pre-existing UDC membership are not completion
 fences. Stage `0x8e` does prove configfs bind and a synchronous DWC3 pull-up
-request returned success. The next unit must preserve the last UDC state and
-speed, optionally classify existing DWC3 IPC markers, and actually run the
-host USB sidecar before changing modules, firmware, or gadget composition.
+request returned success. That analysis selected P2.80 to preserve the last
+UDC state and speed, classify bounded DWC3 progress, and run the host USB
+sidecar before changing modules, firmware, or gadget composition.
 
 ## Established Evidence
 
@@ -756,16 +756,16 @@ reports grant no device authority.
     six artifacts, and the corrected ABI adapter verifies 21 six-byte entries.
     Package/static/promotion/ready1 pass. One historical baseline stop, one
     bounded reboot, and one D0 retry produce a clean private approval binding.
-72. **P2.80 complete/closed, F1:** candidate and exact rollback transfer once
-    each; no boot loop is observed, but ACM endpoint observation times out.
-    Byte-identical retained reads contain progress `0x8e/detail=0`, then failure
-    `0x8f/detail=0xb22` (`run-stop-zero-no-bus-state`). Clean traces prove the
-    parent role path, non-negative parent/child PM, pull-up, and nested run-stop
-    all return successfully while UDC remains `not attached`. The first host
-    invocation ends at durable `OBSERVED`; `--recover` resumes only rollback
-    without candidate replay. Final health and all eight events pass; verdict
-    is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. Next is focused H0 analysis of
-    the post-run-stop electrical boundary, not a P2.80 retry.
+72. **P2.80 complete/closed plus post-live correction, F1+H0:** candidate and
+    exact rollback transfer once each; no boot loop, but ACM observation times
+    out. Retained `0x8e/detail=0` then `0x8f/detail=0xb22` proves clean parent
+    and child PM, pull-up, DCTL RUN_STOP, and DSTS `DEVCTRLHLT` clear while UDC
+    remains `not attached`. Exact FYG8 DTB/DTBO analysis rules out the proposed
+    external eUSB2 repeater: DWC3 selects the femto HS and QMP SS PHYs, with no
+    eUSB2/repeater node or override. Timeout code discards `current_speed`; the
+    original host exit remains unresolved with no OOM/coredump evidence.
+    `--recover` performed rollback only; final health and all eight events pass.
+    Next H0 targets the active femto-HS/connect/VBUS electrical boundary.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
 reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing

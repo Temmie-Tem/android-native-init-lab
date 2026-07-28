@@ -75,11 +75,16 @@ run-stop returned an error.
 
 ## What it does not prove
 
-Return zero from `dwc3_gadget_run_stop()` is a software/control-path result. It
-does not prove that a physical attach reached the host, that the PHY or
-redriver produced the required electrical state, that VBUS override and
-connect notifications reached every downstream block, or that the link left
-its pre-attach state.
+Post-live exact-source review corrected an underclaim here. Return zero from
+`dwc3_gadget_run_stop()` means DCTL RUN_STOP was written and the bounded DSTS
+poll observed `DEVCTRLHLT` clear. The traced caller also excludes the
+runtime-suspended early return and proves the preceding core soft reset
+returned success. This is hardware-backed controller-running evidence.
+
+It still does not prove that a physical attach reached the host, that the
+active femto-HS PHY or redriver produced the required electrical state, that
+VBUS override and connect notifications reached every downstream block, or
+that the link advanced beyond the retained UDC state `not attached`.
 
 The result therefore narrows the next H0 question to the post-run-stop
 electrical boundary. It does not identify one permanent root cause inside that
@@ -92,6 +97,10 @@ The original host invocation ended after durable state `OBSERVED` and before a
 rollback attempt was journaled. The exact cause of that host-process exit is
 not established. No candidate replay or rollback attempt occurred in the
 interrupted invocation.
+
+Post-live host-journal review found no OOM kill, coredump, or process segfault
+in the relevant interval. No launcher exit receipt survived, so the cause
+remains a tracked host-tooling gap rather than a device conclusion.
 
 `--recover` reopened the same immutable binding and journal, resumed only the
 preapproved rollback path, transferred the rollback once, and completed final
@@ -117,8 +126,13 @@ FYG8 kernel and partition identities, and no Download endpoint.
 
 ## Next
 
-Do not repeat P2.80. Perform a focused H0 source/disassembly analysis of the
-exact path after successful `dwc3_gadget_run_stop(on=1)` and before a physical
-UDC attach. The next discriminator, if one is needed, must separate PHY,
-redriver/connect-notify, VBUS-override, and controller/link-state boundaries
-without treating another zero return as physical proof.
+Do not repeat P2.80. Post-live H0 ruled out the proposed external eUSB2
+repeater closure: the exact FYG8 DWC3 path uses the femto HS PHY and QMP SS PHY,
+and neither the four vendor DTBs nor 11 DTBO entries select an eUSB2/repeater
+node. Perform focused analysis of that exact active PHY/connect/VBUS electrical
+path after the now-proven running controller. If another discriminator is
+needed, retain the already-read `current_speed` value and preserve an explicit
+host launcher exit receipt.
+
+See
+`S22PLUS_FYG8_P280_POST_LIVE_EVIDENCE_CORRECTION_H0_2026-07-28.md`.

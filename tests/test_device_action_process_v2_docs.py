@@ -44,7 +44,8 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertNotIn("BEGIN_S22PLUS", active_text)
         self.assertIn("No S22+ F1 live run is currently authorized", self.agents)
         self.assertIn(
-            "No F1 run is authorized", " ".join(self.goal.split())
+            "No S22+ F1 live run is currently authorized",
+            " ".join(self.goal.split()),
         )
 
     def test_archives_are_explicitly_inert(self):
@@ -88,9 +89,9 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         )
         self.assertIn("P2.58A complete/closed, F1", self.goal)
         self.assertIn("E3-E4 next", self.goal)
-        self.assertIn("P2.58A consumed one exact approval", normalized_agents)
-        self.assertIn("terminal stage `0x8f`", self.agents)
-        self.assertIn("not USB host enumeration", normalized_agents)
+        self.assertIn("P2.80 consumed one exact approval", normalized_agents)
+        self.assertIn("DSTS `DEVCTRLHLT` clear", self.agents)
+        self.assertIn("UDC state remained `not attached`", normalized_agents)
         self.assertIn("Typed Retained Evidence", self.process)
         self.assertIn("NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK", self.process)
         self.assertIn(
@@ -106,7 +107,7 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("private exact target binding", self.process)
         self.assertIn("aborted binding is not reusable", self.process)
         self.assertIn(
-            "No F1 run is authorized", normalized_goal
+            "No S22+ F1 live run is currently authorized", normalized_goal
         )
 
     def test_archived_policy_is_not_runtime_dependency(self):

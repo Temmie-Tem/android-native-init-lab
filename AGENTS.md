@@ -13,64 +13,25 @@ Do not add a device step when host-only work can answer the question.
 ## Current Live Posture
 
 - No S22+ F1 live run is currently authorized.
-- P2.58A consumed one exact approval and proved terminal stage `0x8f` after exact
-  `a600000.dwc3` membership: real UDC and terminal userspace, not USB host enumeration.
-- P2.67 transferred the P2.60 v3 E3 candidate once; it booted without a boot loop.
-- Two byte-identical retained reads contain one exact terminal-failure record.
-  Generation 80 passed UDC membership at stage `0x87`, item 11; generation 81
-  failed at configfs stage `0x88`, item 0, with detail 5. No ACM was observed.
-- Source analysis found `P260_CONFIGFS_MAGIC=0x62656572` (sysfs), while configfs
-  uses `0x62656570`; retained detail cannot distinguish this deterministic
-  `statfs` mismatch from an `EIO` returned directly by mount/statfs.
-- One exact Magisk rollback transfer completed. The first final-health pass
-  stopped at `ROLLBACK_FLASHED` on a measured USB inventory error. Durable
-  recovery resumed only final verification; neither candidate nor rollback
-  was repeated.
-- The transaction is `CLOSED`. Android/FYG8/root/boot and supporting-partition
-  health, Odin absence, byte-identical retained reads, and all eight canonical
-  timeline events passed. The durable verdict is
+- P2.80 consumed one exact approval. Its candidate and exact Magisk rollback
+  each completed one boot-only transfer; no candidate replay occurred.
+- Two byte-identical retained reads contain progress `0x8e/detail=0`, followed
+  by terminal failure `0x8f/detail=0xb22`
+  (`run-stop-zero-no-bus-state`). No accepted ACM endpoint appeared.
+- Exact trace plus FYG8 source proves the parent and child PM path, pull-up,
+  DCTL RUN_STOP write, and DSTS `DEVCTRLHLT` clear. The controller ran while
+  the canonical UDC state remained `not attached`.
+- Post-live H0 rules out the proposed external eUSB2 repeater as this target's
+  active path. All four vendor DTBs select the femto HS and QMP SS PHYs; all 11
+  DTBO entries contain no eUSB2/repeater node or DWC3 PHY override.
+- The original host invocation ended after durable `OBSERVED`; `--recover`
+  resumed rollback only. The exit cause remains unresolved, with no host
+  OOM/coredump evidence. Final Android/root/boot/supporting-partition health,
+  Odin absence, and all eight canonical events passed.
+- The transaction is `CLOSED` with verdict
   `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; recovery is not required.
-- P2.68 corrected the configfs magic to `0x62656570`. The pre-LTO source
-  contract now parses all 16 E3 runtime external ABI constants against one
-  authoritative table, and a sysfs-magic mutation fails before the generic
-  source-identity check.
-- P2.69 completed two clean Full-LTO builds, six-artifact equality, linked
-  audit, deterministic packaging, static closure, and offline promotion. A
-  downstream legacy terminal `0x8f` bug was caught before D0; rejected outputs
-  were quarantined, promotion/acceptance now share one selector, and the
-  re-promoted bundle validates with terminal `0x90`.
-- P2.69 is retired before D0. An exact generic-arm64 QEMU execution found that
-  its configfs link target was resolved from PID1's `/` working directory and
-  failed with `ENOENT`; the candidate also expected a non-canonical readlink
-  value. Its frozen AP and qualification bundle remain untouched and must not
-  be used for D0 or F1.
-- P2.70 separates the configfs link creation target from its canonical
-  readback target, binds both strings into the source contract, and adds a
-  bounded generic-arm64 QEMU harness. The exact runtime passes configfs,
-  gadget construction, `ttyGS0`, pre-bind queuing, dummy-UDC bind, configured
-  state, and exact 49-byte `ttyACM0` receipt. Focused and historical host tests
-  pass, and a fresh source-bound intent plus userspace two-link build pass.
-- P2.71 separates required absolute runtime paths from optional compiler/link
-  slash artifacts after `"/8@"` caused a false late closure rejection. Fresh
-  Full-LTO A/B, six-artifact equality, the P2.60 GNU linked audit,
-  deterministic boot-only package equality, independent effective-rootfs
-  closure, and offline Process v2 promotion pass.
-- P2.72's data-only ready1 manifest is retired before D0. Its 120-second
-  observer bound began only after Download departure, while the retained
-  checkpoint has no timestamp and the E3 runtime can add up to 45 seconds.
-- P2.76 preserves the exact candidate AP, rollback AP, observer identity, and
-  execution closure while selecting a new immutable ready2 manifest with a
-  180-second observation bound. Bundle regression and offline validation pass.
-- P2.76 performed no D0, approval, transaction, Odin session, transfer, reboot,
-  device contact, or device write. The next bounded step is connected D0
-  against ready2 only.
-- The complete P2.76 manifest-bound and live execution closure is frozen
-  through the next attended transaction. A newly found candidate defect
-  postpones F1; it does not justify an expedited rebuild.
-- P2.73 historically rehearsed ready1. The repeated post-rollback inventory
-  deviation is strongly localized to a pre-snapshot USBFS baseline race. Until
-  a post-transaction fix, only the exact `ROLLBACK_FLASHED` recovery branch may
-  resume it without retransmission.
+- Do not repeat P2.80 or add the inactive eUSB2 repeater closure. The next H0
+  frontier is the exact femto-HS/connect/VBUS electrical attach path.
 
 ## Permanent Safety Boundaries
 

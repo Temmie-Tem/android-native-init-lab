@@ -190,13 +190,19 @@ peripheral, calls `dwc3_set_mode(DWC3_GCTL_PRTCAP_DEVICE)`, and queues
 UDC class device named from the DWC3 parent kobject. This is the exact path to
 `/sys/class/udc/a600000.dwc3`.
 
-The P2.58A module closure contains the SS, HS, and eUSB2 PHY drivers, repeater,
-redriver, clock, regulator, interconnect, and `dwc3-msm.ko`. More importantly,
-P2.57 already proved the DWC3 child bind. A missing required generic PHY would
-have deferred or failed that probe before its bind symlink became the retained
-success frontier. The remaining post-bind failure points are runtime return
-values inside the queued mode worker and `dwc3_gadget_init()`, not an
-unconditionally missing module inferred from the current closure.
+The P2.58A module closure contains the SS, HS, and eUSB2 PHY drivers, the
+generic repeater registry, redriver, clock, regulator, interconnect, and
+`dwc3-msm.ko`. Post-P2.80 review corrected an ambiguity in this statement:
+`repeater.ko` is the registry, not the external I2C repeater device driver.
+That device driver is absent from the candidate closure.
+
+The omission is nevertheless not an active FYG8 dependency. All four exact
+vendor DTBs route the DWC3 child to `/soc/hsphy@88e3000`
+(`qcom,usb-hsphy-snps-femto`) and `/soc/ssphy@88e8000`; neither those DTBs nor
+the 11 DTBO entries select an eUSB2/repeater node. P2.57 already proved the
+DWC3 child bind against those direct PHY providers. The remaining post-bind
+failure points are not an unconditionally missing eUSB2 module inferred from
+the image-wide module inventory.
 
 The Samsung Max77705/Type-C/notifier path remains relevant to automatic cable
 role, VBUS state, peripheral start, pull-up, and later host enumeration. It is
