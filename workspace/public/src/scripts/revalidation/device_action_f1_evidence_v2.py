@@ -414,11 +414,28 @@ def _generic_rootfs_module_closure(
     closure_api: Any,
     module_closure: dict[str, Any],
 ) -> dict[str, Any]:
-    if source_contract_id != e2_closure_selector.P280_CONTRACT_ID:
+    if source_contract_id not in {
+        e2_closure_selector.P280_CONTRACT_ID,
+        e2_closure_selector.P282_CONTRACT_ID,
+    }:
         return module_closure
+    adapter_api = closure_api
+    label = "P2.80"
+    if source_contract_id == e2_closure_selector.P282_CONTRACT_ID:
+        adapter_api = getattr(closure_api, "p280", None)
+        label = "P2.82"
     try:
-        p257_adapter = closure_api.isolated_p260.p257
-        p253_adapter = closure_api.isolated_p260.p253
+        if (
+            getattr(
+                getattr(adapter_api, "source_contract", None),
+                "CONTRACT_ID",
+                None,
+            )
+            != e2_closure_selector.P280_CONTRACT_ID
+        ):
+            raise AttributeError
+        p257_adapter = adapter_api.isolated_p260.p257
+        p253_adapter = adapter_api.isolated_p260.p253
         full_count = module_closure.get("count")
         if (
             isinstance(full_count, bool)
@@ -426,7 +443,7 @@ def _generic_rootfs_module_closure(
             or full_count != closure_api.EXPECTED_MODULE_COUNT
         ):
             raise EvidenceError(
-                "P2.80 full module closure count is invalid"
+                f"{label} full module closure count is invalid"
             )
         expected_count = full_count - 1
         adapted = p253_adapter._legacy_view(
@@ -434,7 +451,7 @@ def _generic_rootfs_module_closure(
         )
     except (AttributeError, e2_closure.ClosureError) as exc:
         raise EvidenceError(
-            "P2.80 generic-rootfs module adapter is unavailable"
+            f"{label} generic-rootfs module adapter is unavailable"
         ) from exc
     adapted_modules = adapted.get("modules") if isinstance(adapted, dict) else None
     if (
@@ -445,7 +462,7 @@ def _generic_rootfs_module_closure(
         or len(adapted_modules) != expected_count
     ):
         raise EvidenceError(
-            "P2.80 generic-rootfs module adapter result is invalid"
+            f"{label} generic-rootfs module adapter result is invalid"
         )
     return adapted
 

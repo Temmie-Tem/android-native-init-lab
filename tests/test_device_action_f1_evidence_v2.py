@@ -545,6 +545,9 @@ class DeviceActionF1EvidenceV2Test(unittest.TestCase):
         }
         closure = types.SimpleNamespace(
             EXPECTED_MODULE_COUNT=60,
+            source_contract=types.SimpleNamespace(
+                CONTRACT_ID=self.module.e2_closure_selector.P280_CONTRACT_ID
+            ),
             isolated_p260=types.SimpleNamespace(
                 p257=types.SimpleNamespace(
                     _legacy_view=lambda value: intermediate
@@ -567,6 +570,41 @@ class DeviceActionF1EvidenceV2Test(unittest.TestCase):
             legacy,
         )
 
+    def test_p282_generic_rootfs_uses_inherited_p280_legacy_module_view(self):
+        full = {"count": 60}
+        intermediate = {"count": 59, "view": "p257"}
+        legacy = {
+            "count": 59,
+            "modules": [{} for _ in range(59)],
+            "view": "p253",
+        }
+        p280 = types.SimpleNamespace(
+            source_contract=types.SimpleNamespace(
+                CONTRACT_ID=self.module.e2_closure_selector.P280_CONTRACT_ID
+            ),
+            isolated_p260=types.SimpleNamespace(
+                p257=types.SimpleNamespace(
+                    _legacy_view=lambda value: intermediate
+                    if value is full
+                    else self.fail("different full closure supplied")
+                ),
+                p253=types.SimpleNamespace(
+                    _legacy_view=lambda value: legacy
+                    if value is intermediate
+                    else self.fail("different intermediate closure supplied")
+                ),
+            ),
+        )
+        closure = types.SimpleNamespace(EXPECTED_MODULE_COUNT=60, p280=p280)
+        self.assertIs(
+            self.module._generic_rootfs_module_closure(
+                self.module.e2_closure_selector.P282_CONTRACT_ID,
+                closure,
+                full,
+            ),
+            legacy,
+        )
+
     def test_historical_generic_rootfs_keeps_full_module_closure(self):
         full = {"count": 60}
         self.assertIs(
@@ -583,6 +621,16 @@ class DeviceActionF1EvidenceV2Test(unittest.TestCase):
             self.module._generic_rootfs_module_closure(
                 self.module.e2_closure_selector.P280_CONTRACT_ID,
                 types.SimpleNamespace(),
+                {"count": 60},
+            )
+
+    def test_p282_generic_rootfs_rejects_missing_inherited_adapter(self):
+        with self.assertRaisesRegex(
+            self.module.EvidenceError, "P2.82.*adapter is unavailable"
+        ):
+            self.module._generic_rootfs_module_closure(
+                self.module.e2_closure_selector.P282_CONTRACT_ID,
+                types.SimpleNamespace(EXPECTED_MODULE_COUNT=60),
                 {"count": 60},
             )
 

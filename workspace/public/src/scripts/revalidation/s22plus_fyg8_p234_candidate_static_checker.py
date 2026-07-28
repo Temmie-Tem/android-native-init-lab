@@ -438,34 +438,59 @@ def rootfs_entrypoint_context(
     exact_contract: dict[str, Any],
     userspace_payloads: dict[str, bytes],
 ):
-    if (
-        exact_contract.get("source_contract_id")
-        != repro.P280_SOURCE_CONTRACT_ID
-    ):
+    source_contract_id = exact_contract.get("source_contract_id")
+    if source_contract_id not in {
+        repro.P280_SOURCE_CONTRACT_ID,
+        repro.P282_SOURCE_CONTRACT_ID,
+    }:
         return nullcontext()
+    entrypoint_api = closure_api
+    label = "P2.80"
+    if source_contract_id == repro.P282_SOURCE_CONTRACT_ID:
+        label = "P2.82"
+        entrypoint_api = getattr(closure_api, "p280", None)
+        if (
+            getattr(
+                getattr(closure_api, "source_contract", None),
+                "CONTRACT_ID",
+                None,
+            )
+            != repro.P282_SOURCE_CONTRACT_ID
+            or getattr(
+                getattr(entrypoint_api, "source_contract", None),
+                "CONTRACT_ID",
+                None,
+            )
+            != repro.P280_SOURCE_CONTRACT_ID
+        ):
+            raise CheckError("P2.82 stock-closure entrypoint adapter mismatch")
     if (
-        getattr(getattr(closure_api, "source_contract", None), "CONTRACT_ID", None)
+        getattr(
+            getattr(entrypoint_api, "source_contract", None),
+            "CONTRACT_ID",
+            None,
+        )
         != repro.P280_SOURCE_CONTRACT_ID
-        or not callable(getattr(closure_api, "_expected_entrypoints", None))
+        or not callable(getattr(entrypoint_api, "_expected_entrypoints", None))
     ):
-        raise CheckError("P2.80 stock-closure entrypoint adapter mismatch")
+        raise CheckError(f"{label} stock-closure entrypoint adapter mismatch")
     try:
         entrypoints = {
             "init": e1_static.inspect_static_elf(
-                userspace_payloads["init"], "P2.80 exact /init"
+                userspace_payloads["init"], f"{label} exact /init"
             )["entrypoint"],
             "child": e1_static.inspect_static_elf(
-                userspace_payloads["child"], "P2.80 exact child"
+                userspace_payloads["child"], f"{label} exact child"
             )["entrypoint"],
         }
     except (KeyError, e1_static.CheckError) as exc:
-        raise CheckError("P2.80 exact userspace entrypoint is invalid") from exc
+        raise CheckError(f"{label} exact userspace entrypoint is invalid") from exc
     if any(
         isinstance(value, bool) or not isinstance(value, int)
         for value in entrypoints.values()
     ):
-        raise CheckError("P2.80 exact userspace entrypoint is malformed")
-    return closure_api._expected_entrypoints(entrypoints)
+        raise CheckError(f"{label} exact userspace entrypoint is malformed")
+    return entrypoint_api._expected_entrypoints(entrypoints)
 
 
 def audit(args: argparse.Namespace) -> dict[str, Any]:

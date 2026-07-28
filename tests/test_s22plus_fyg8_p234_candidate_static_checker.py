@@ -419,6 +419,53 @@ class P234CandidateStaticCheckerTest(unittest.TestCase):
                 {"init": b"init", "child": b"child"},
             )
 
+    def test_p282_rootfs_entrypoint_context_uses_inherited_p280_adapter(self):
+        state = {"active": False}
+
+        @contextmanager
+        def expected_entrypoints(values):
+            self.assertEqual(
+                values, {"init": 0x40474C, "child": 0x4000CC}
+            )
+            state["active"] = True
+            try:
+                yield
+            finally:
+                state["active"] = False
+
+        p280 = types.SimpleNamespace(
+            source_contract=types.SimpleNamespace(
+                CONTRACT_ID=self.module.repro.P280_SOURCE_CONTRACT_ID
+            ),
+            _expected_entrypoints=expected_entrypoints,
+        )
+        closure = types.SimpleNamespace(
+            source_contract=types.SimpleNamespace(
+                CONTRACT_ID=self.module.repro.P282_SOURCE_CONTRACT_ID
+            ),
+            p280=p280,
+        )
+        with mock.patch.object(
+            self.module.e1_static,
+            "inspect_static_elf",
+            side_effect=[
+                {"entrypoint": 0x40474C},
+                {"entrypoint": 0x4000CC},
+            ],
+        ):
+            context = self.module.rootfs_entrypoint_context(
+                closure,
+                {
+                    "source_contract_id": (
+                        self.module.repro.P282_SOURCE_CONTRACT_ID
+                    )
+                },
+                {"init": b"init", "child": b"child"},
+            )
+            with context:
+                self.assertTrue(state["active"])
+        self.assertFalse(state["active"])
+
     def test_historical_rootfs_entrypoint_context_is_noop(self):
         with mock.patch.object(
             self.module.e1_static,

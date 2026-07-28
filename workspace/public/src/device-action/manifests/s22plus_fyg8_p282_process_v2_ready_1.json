@@ -1,0 +1,63 @@
+{
+  "allowed_member": "boot.img.lz4",
+  "candidate_ap": {
+    "path": "workspace/private/outputs/s22plus_fyg8_p282_v4/candidate-a/odin4/AP.tar.md5",
+    "sha256": "23a9bdee16c122fb7217d1cbb15df6a55c13cce8b7fc7c50cc6030cf04681b3b",
+    "size": 27095081
+  },
+  "final_health_profile": "s22plus-fyg8-magisk",
+  "manifest_id": "s22plus-fyg8-p282-process-v2-ready-1",
+  "observation": {
+    "acceptance": {
+      "clean_baseline_required": true,
+      "contract": {
+        "candidate_static": {
+          "path": "workspace/private/outputs/s22plus_fyg8_p282_v4/process-v2/candidate-static.json",
+          "sha256": "df87772e5dd71c0d8d5f0f78a12dac5fef6f3e28ff5c43d66fb756ab308686b5",
+          "size": 47597
+        },
+        "run_manifest": {
+          "path": "workspace/private/outputs/s22plus_fyg8_p282_v4/process-v2/run-manifest.json",
+          "sha256": "14239beb7d49cb5a25115691f9b587d533df91316ee4f6ae456c2782a7595976",
+          "size": 777
+        },
+        "static_check": {
+          "path": "workspace/private/outputs/s22plus_fyg8_p282_v4/process-v2/static-check-result.json",
+          "sha256": "d9eedfabad1861bd833be4d40f4dd4c9b8d70cc683f040a46ad4eb76d371162b",
+          "size": 1687
+        }
+      },
+      "decoder": "s22plus_fyg8_p282_prebind_child_reinit_v1",
+      "kind": "retained_e1_latest_stage_multiboot_after_rollback",
+      "long_family_hex": "53323245314c317c",
+      "minimum_success_count": 1,
+      "policy_id": "9121086763c721fde6cc22ea91ee5ce3",
+      "profile": "E2",
+      "run_id": "5525fada87150ec7d94c208f7875b83f",
+      "source": "/proc/last_kmsg",
+      "source_contract_id": "s22plus-fyg8-p282-prebind-child-reinit-decision-v1",
+      "terminal_stage": 147,
+      "unsat_family_hex": "533232453155317c"
+    },
+    "candidate_observer": {
+      "banner_hex": "533232504c55532d465947382d45333a35353235666164613837313530656337643934633230386637383735623833660a",
+      "kind": "exact_cdc_acm_banner_v1",
+      "usb_driver": "cdc_acm",
+      "usb_interface_number": "00",
+      "usb_product_id": "6861",
+      "usb_serial": "S22E35525fada87150ec7d94c208f7875b83f",
+      "usb_vendor_id": "04e8"
+    },
+    "timeout_sec": 300
+  },
+  "rollback_ap": {
+    "path": "workspace/private/outputs/s22plus_magisk_root_boot_only/AP.tar.md5",
+    "sha256": "d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56",
+    "size": 23367721
+  },
+  "run_id": "s22plus-fyg8-p282-live-1",
+  "runner_version": "device-action-f1-v2-host-core-3",
+  "schema": "device_action_f1_candidate_v2",
+  "status": "ready-for-f1-approval",
+  "target_profile": "workspace/public/src/device-action/profiles/s22plus_fyg8.json"
+}

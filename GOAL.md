@@ -780,6 +780,16 @@ reports grant no device authority.
     physical reconnect captured the same 14-event success suffix at high
     speed. Original super-speed-plus configuration, active SuperSpeed,
     tracefs, and Android/root health were all restored.
+80. **P2.82 candidate closure and connected preparation, H0+D0+D1:** Full-LTO A/B,
+    GNU linked audit, deterministic AP A/B, independent static closure,
+    offline promotion, exact ready manifest, and common-runner host preflight
+    pass. Two host adapters now preserve the inherited P2.80 entrypoint and
+    60-to-59 module view for P2.82 without changing candidate identity. The
+    connected D0 found one stale same-family retained record but no exact
+    P2.82 run ID, so it stopped before preparation or authority. One fresh
+    exact D1 Android reboot rotated that history with return health intact;
+    repeated D0 passed and emitted a private fresh F1 approval binding. No
+    Download, Odin, transfer, candidate boot, or F1 authority occurred.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
 reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing
