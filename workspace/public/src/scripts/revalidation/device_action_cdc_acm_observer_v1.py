@@ -83,7 +83,7 @@ RULE_DIR = "/run/udev/rules.d"
 RULE_NAME = "79-device-action-f1-cdc-acm-guard.rules"
 OVERRIDE_RULE = "/etc/udev/rules.d/" + RULE_NAME
 ARM_PREFIX = "device-action udev guard armed sha256="
-MAX_SEC = 300.0
+MAX_SEC = 360.0
 EXPIRED_EXIT = __GUARD_EXPIRED_EXIT__
 UNCOMMANDED_EXIT = __GUARD_UNCOMMANDED_EXIT__
 RULE_RE = re.compile(

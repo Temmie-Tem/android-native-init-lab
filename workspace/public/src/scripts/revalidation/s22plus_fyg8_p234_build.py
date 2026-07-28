@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib
 import os
 import sys
 from contextlib import contextmanager
@@ -57,13 +58,54 @@ PRIVATE_REPO_DEBUG_MAP = (
 P234_KERNEL_DEBUG_PATH_REPRODUCIBLE = (
     engine.engine.KERNEL_DEBUG_PATH_REPRODUCIBLE + PRIVATE_REPO_DEBUG_MAP
 )
+P282_SOURCE_CONTRACT_ID = (
+    "s22plus-fyg8-p282-prebind-child-reinit-decision-v1"
+)
+QUALIFICATION_MODULES = {
+    p280_qualification.p280.CONTRACT_ID: (
+        "s22plus_fyg8_p280_pre_lto_qualification",
+        "p280_pre_lto_qualification",
+        "P2.80",
+    ),
+    P282_SOURCE_CONTRACT_ID: (
+        "s22plus_fyg8_p282_pre_lto_qualification",
+        "p282_pre_lto_qualification",
+        "P2.82",
+    ),
+}
 
 
 class BuildError(ValueError):
     pass
 
 
+def _qualification_module(
+    source_contract_id: str, module_name: str
+) -> Any:
+    try:
+        qualification = (
+            p280_qualification
+            if module_name == p280_qualification.__name__
+            else importlib.import_module(module_name)
+        )
+    except ImportError as exc:
+        raise BuildError(
+            f"qualification module unavailable for {source_contract_id}"
+        ) from exc
+    if (
+        not callable(getattr(qualification, "verify_receipt", None))
+        or not isinstance(
+            getattr(qualification, "QualificationError", None), type
+        )
+    ):
+        raise BuildError(
+            f"qualification module interface mismatch for {source_contract_id}"
+        )
+    return qualification
+
+
 _bound_pre_lto_qualification: dict[str, Any] | None = None
+_bound_pre_lto_provenance_key: str | None = None
 _active_base_preflight = BASE_PREFLIGHT
 
 
@@ -131,7 +173,7 @@ class _ContractAdapter:
 
 
 def _configure_contract(args: argparse.Namespace) -> dict[str, Any]:
-    global _bound_pre_lto_qualification
+    global _bound_pre_lto_qualification, _bound_pre_lto_provenance_key
 
     root = candidate_contract.intent.repo_root()
     paths = (args.work_tree, args.intent, args.patch)
@@ -146,19 +188,33 @@ def _configure_contract(args: argparse.Namespace) -> dict[str, Any]:
     )
     _ContractAdapter.bind(result, intent_path)
     _bound_pre_lto_qualification = None
-    if result.get("source_contract_id") == p280_qualification.p280.CONTRACT_ID:
+    _bound_pre_lto_provenance_key = None
+    source_contract_id = result.get("source_contract_id")
+    selection = QUALIFICATION_MODULES.get(source_contract_id)
+    if selection is not None:
+        module_name, provenance_key, label = selection
         qualification_path = getattr(args, "pre_lto_qualification", None)
         if qualification_path is None:
             raise BuildError(
-                "P2.80 build requires --pre-lto-qualification"
+                f"{label} build requires --pre-lto-qualification"
             )
         if qualification_path.is_absolute():
             raise BuildError(
-                "P2.80 pre-LTO qualification must be repository-relative"
+                f"{label} pre-LTO qualification must be repository-relative"
             )
+        qualification = _qualification_module(
+            source_contract_id, module_name
+        )
+        qualification_contract = getattr(
+            getattr(qualification, "p282", None), "CONTRACT_ID", None
+        )
+        if source_contract_id == P282_SOURCE_CONTRACT_ID and (
+            qualification_contract != P282_SOURCE_CONTRACT_ID
+        ):
+            raise BuildError("P2.82 qualification module contract mismatch")
         try:
             _bound_pre_lto_qualification = (
-                p280_qualification.verify_receipt(
+                qualification.verify_receipt(
                     candidate_contract.intent.resolve(
                         root, qualification_path
                     ),
@@ -169,32 +225,45 @@ def _configure_contract(args: argparse.Namespace) -> dict[str, Any]:
                     ),
                 )
             )
-        except p280_qualification.QualificationError as exc:
+        except qualification.QualificationError as exc:
             raise BuildError(str(exc)) from exc
+        if source_contract_id == P282_SOURCE_CONTRACT_ID and (
+            _bound_pre_lto_qualification.get("source_contract_id")
+            != source_contract_id
+            or _bound_pre_lto_qualification.get("run_id")
+            != result.get("run_id")
+        ):
+            raise BuildError(f"{label} qualification identity mismatch")
+        _bound_pre_lto_provenance_key = provenance_key
     return result
 
 
 def qualified_preflight(*args: Any, **kwargs: Any) -> dict[str, Any]:
     result = _active_base_preflight(*args, **kwargs)
     bound = _ContractAdapter._bound_result
-    if (
-        bound is not None
-        and bound.get("source_contract_id")
-        == p280_qualification.p280.CONTRACT_ID
-    ):
+    if bound is not None and bound.get("source_contract_id") in QUALIFICATION_MODULES:
+        _module_name, expected_key, label = QUALIFICATION_MODULES[
+            bound["source_contract_id"]
+        ]
+        bound_key = _bound_pre_lto_provenance_key
+        if (
+            bound_key is None
+            and bound["source_contract_id"]
+            == p280_qualification.p280.CONTRACT_ID
+        ):
+            bound_key = expected_key
         if (
             _bound_pre_lto_qualification is None
+            or bound_key != expected_key
             or _bound_pre_lto_qualification.get("verified") is not True
         ):
-            raise BuildError("P2.80 pre-LTO qualification is not bound")
+            raise BuildError(f"{label} pre-LTO qualification is not bound")
         result["build_allowed"] = (
             result.get("build_allowed") is True
             and _bound_pre_lto_qualification["build_allowed"] is True
         )
         provenance = result.setdefault("provenance", {})
-        provenance["p280_pre_lto_qualification"] = (
-            _bound_pre_lto_qualification
-        )
+        provenance[expected_key] = _bound_pre_lto_qualification
     return result
 
 

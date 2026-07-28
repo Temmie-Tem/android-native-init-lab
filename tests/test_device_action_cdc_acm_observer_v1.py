@@ -868,7 +868,7 @@ class CdcAcmObserverV1Test(unittest.TestCase):
                 6,
             )
             expiry_code = self.module.ROOT_UDEV_GUARD_CODE.replace(
-                "MAX_SEC = 300.0", "MAX_SEC = 0.0"
+                "MAX_SEC = 360.0", "MAX_SEC = 0.0"
             )
             self.assertNotEqual(
                 expiry_code, self.module.ROOT_UDEV_GUARD_CODE
@@ -916,7 +916,7 @@ class CdcAcmObserverV1Test(unittest.TestCase):
             )
             post_select_expiry = (
                 self.module.ROOT_UDEV_GUARD_CODE.replace(
-                    "MAX_SEC = 300.0", "MAX_SEC = 0.02"
+                    "MAX_SEC = 360.0", "MAX_SEC = 0.02"
                 ).replace(
                     select_block,
                     "            time.sleep(0.05)\n"
@@ -975,7 +975,7 @@ class CdcAcmObserverV1Test(unittest.TestCase):
             )
             post_read_expiry = (
                 self.module.ROOT_UDEV_GUARD_CODE.replace(
-                    "MAX_SEC = 300.0", "MAX_SEC = 0.02"
+                    "MAX_SEC = 360.0", "MAX_SEC = 0.02"
                 ).replace(
                     read_block,
                     read_block + "            time.sleep(0.05)\n",

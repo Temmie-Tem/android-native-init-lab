@@ -326,49 +326,23 @@ class P280RegistrationTests(unittest.TestCase):
                 logical,
             )
 
-    def test_linked_adapter_scopes_and_restores_physical_contract(self):
-        logical_builder = linked.p280.linked_table_bytes
-        logical_auditor = linked.p280.audit_linked_tables
-        seen = {}
-
-        def fake_linked_audit():
-            physical = linked.p280.linked_table_bytes()
-            seen["detail_size"] = len(physical[linked.P280_DETAIL_TABLE])
-            semantics = linked.p280.audit_linked_tables(physical)
-            seen["layout"] = semantics["physical_storage_layout"]
-            return semantics
-
-        result = linked._audit_linked_with_physical_tables(
-            fake_linked_audit
+    def test_central_auditor_owns_one_physical_storage_transform(self):
+        logical, physical = linked.repro._linked_table_storage_bytes(
+            linked.p280, linked
         )
         self.assertEqual(
-            seen["detail_size"],
+            len(logical[linked.P280_DETAIL_TABLE]),
+            len(p280.spec.DIAGNOSTIC_DETAILS)
+            * linked.P280_DETAIL_LOGICAL_STRIDE,
+        )
+        self.assertEqual(
+            len(physical[linked.P280_DETAIL_TABLE]),
             len(p280.spec.DIAGNOSTIC_DETAILS)
             * linked.P280_DETAIL_STORAGE_STRIDE,
         )
-        self.assertTrue(seen["layout"]["zero_tail_padding_verified"])
-        self.assertTrue(result["verified"])
-        self.assertIs(linked.p280.linked_table_bytes, logical_builder)
-        self.assertIs(linked.p280.audit_linked_tables, logical_auditor)
 
-    def test_linked_adapter_restores_both_layers_after_exceptions(self):
-        logical_builder = linked.p280.linked_table_bytes
-        logical_auditor = linked.p280.audit_linked_tables
+    def test_linked_adapter_does_not_mutate_central_auditor(self):
         common_audit = linked.repro.audit_linked
-
-        def fail_inside_linked_audit():
-            self.assertIsNot(
-                linked.p280.linked_table_bytes, logical_builder
-            )
-            raise RuntimeError("injected linked failure")
-
-        with self.assertRaisesRegex(RuntimeError, "injected linked failure"):
-            linked._audit_linked_with_physical_tables(
-                fail_inside_linked_audit
-            )
-        self.assertIs(linked.p280.linked_table_bytes, logical_builder)
-        self.assertIs(linked.p280.audit_linked_tables, logical_auditor)
-
         with mock.patch.object(
             linked.repro,
             "check",

@@ -757,14 +757,13 @@ reports grant no device authority.
     parent-PM sign or one `hs_phy->flags` sample as electrical proof. Reuse the
     trace lifecycle only through a versioned ordered discriminator; do not
     infer electrical readiness from swallowed clock errors.
-74. **P2.80 child-reinit closure, H0:** child DEVICE suspend/resume performs
-    full PHY reinit; `0xb22` collapses direct and resume-nested run-stop. The
-    bounded lever is parent `peripheral -> none -> peripheral`, fenced on exact
-    child suspended/active status and never read as analog-rail proof.
-75. **P2.82 decision contract, H0:** freeze mechanism search and classify every
-    stop/suspend/resume/init/bind/state/speed outcome. The proven 45-byte A/B
-    geometry stays fixed; pinned AArch64 must execute the shared production C
-    classifier `46/46`, plus all 567 tuples. No live authority.
+74. **P2.80 child-reinit closure, H0:** child DEVICE suspend/resume fully
+    reinitializes PHY; use one fenced parent role cycle, never as rail proof.
+75. **P2.82 decision contract, H0:** freeze mechanism search, keep the 45-byte
+    geometry, and execute classifier `46/46` plus 567 tuples. No live authority.
+76. **P2.82 implementation and pre-LTO qualification, H0:** generated
+    classifier `46/46`, tuples `567/567`, lifecycle `5/5`, and all `19/19`
+    gates pass, including producer-to-consumer. Full-LTO/AP/F1 remain undone.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
 reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing

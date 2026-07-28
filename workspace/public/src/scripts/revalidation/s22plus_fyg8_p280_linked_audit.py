@@ -32,7 +32,6 @@ P280_DETAIL_TABLE = "s22_fyg8_p280_details"
 P280_DETAIL_LOGICAL_STRIDE = 5
 P280_DETAIL_STORAGE_STRIDE = 6
 _P280_LINKED_TABLE_BYTES = p280.linked_table_bytes
-_P280_AUDIT_LINKED_TABLES = p280.audit_linked_tables
 
 
 def linked_table_storage_bytes(
@@ -102,46 +101,6 @@ def normalize_linked_table_storage(
     }
 
 
-def _audit_physical_linked_tables(
-    actual_storage: dict[str, bytes],
-) -> dict[str, Any]:
-    logical_tables = _P280_LINKED_TABLE_BYTES()
-    normalized, evidence = normalize_linked_table_storage(
-        actual_storage, logical_tables
-    )
-    physical_table_builder = p280.linked_table_bytes
-    p280.linked_table_bytes = _P280_LINKED_TABLE_BYTES
-    try:
-        result = _P280_AUDIT_LINKED_TABLES(normalized)
-    finally:
-        p280.linked_table_bytes = physical_table_builder
-    result["physical_storage_layout"] = evidence
-    return result
-
-
-def _audit_linked_with_physical_tables(
-    original_audit,
-    *args,
-    **kwargs,
-) -> dict[str, Any]:
-    original_table_builder = p280.linked_table_bytes
-    original_table_auditor = p280.audit_linked_tables
-    if (
-        original_table_builder is not _P280_LINKED_TABLE_BYTES
-        or original_table_auditor is not _P280_AUDIT_LINKED_TABLES
-    ):
-        raise AuditError("P2.80 linked source contract was already adapted")
-    p280.linked_table_bytes = lambda: linked_table_storage_bytes(
-        _P280_LINKED_TABLE_BYTES()
-    )
-    p280.audit_linked_tables = _audit_physical_linked_tables
-    try:
-        return original_audit(*args, **kwargs)
-    finally:
-        p280.linked_table_bytes = original_table_builder
-        p280.audit_linked_tables = original_table_auditor
-
-
 def audit_linked_validator(
     disassembly: dict[str, str],
     calls: dict[str, list[str]],
@@ -185,18 +144,7 @@ def audit_linked_validator(
 
 
 def check(args) -> dict[str, Any]:
-    original_audit = repro.audit_linked
-    if getattr(original_audit, "__module__", None) != repro.__name__:
-        raise AuditError("P2.80 linked audit entrypoint was already adapted")
-    repro.audit_linked = lambda *call_args, **call_kwargs: (
-        _audit_linked_with_physical_tables(
-            original_audit, *call_args, **call_kwargs
-        )
-    )
-    try:
-        result = repro.check(args)
-    finally:
-        repro.audit_linked = original_audit
+    result = repro.check(args)
     linked = result.get("linked_audit")
     if (
         not isinstance(linked, dict)

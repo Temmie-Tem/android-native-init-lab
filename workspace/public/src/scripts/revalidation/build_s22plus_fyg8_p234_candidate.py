@@ -29,6 +29,7 @@ import s22plus_fyg8_p234_userspace_build as userspace  # noqa: E402
 import s22plus_fyg8_p242_e2_stock_closure as e2_closure  # noqa: E402
 import s22plus_fyg8_p253_e2_stock_closure as e2_closure_selector  # noqa: E402
 import s22plus_fyg8_p280_contract_spec as p280_spec  # noqa: E402
+import s22plus_fyg8_p282_contract_spec as p282_spec  # noqa: E402
 
 
 SCHEMA = "s22plus_fyg8_p234_candidate_artifact_result_v1"
@@ -36,6 +37,9 @@ VERDICT = "PASS_P234_DETERMINISTIC_BOOT_ONLY_CANDIDATE_HOST_ONLY"
 TARGET = candidate_contract.TARGET
 P260_SOURCE_CONTRACT_ID = "s22plus-fyg8-p260-e3-exact-acm-banner-v1"
 P280_SOURCE_CONTRACT_ID = "s22plus-fyg8-p280-parent-pullup-discriminator-v1"
+P282_SOURCE_CONTRACT_ID = (
+    "s22plus-fyg8-p282-prebind-child-reinit-decision-v1"
+)
 DEFAULT_IMAGE = repro.DEFAULT_BUILD_A / "Image"
 DEFAULT_REPRO_RESULT = Path(
     "workspace/private/outputs/s22plus_fyg8_p234/build-repro-result.json"
@@ -77,6 +81,17 @@ def artifact_safety(exact_contract: dict[str, Any]) -> dict[str, Any]:
     }
     if exact_contract.get("profile") != "E2":
         safety["no_usb_or_configfs"] = True
+    elif exact_contract.get("source_contract_id") == P282_SOURCE_CONTRACT_ID:
+        safety.update(
+            {
+                "userspace_sysfs_configfs_write_scope": (
+                    p282_spec.SAFETY_USERSPACE_WRITE_SCOPE
+                ),
+                "usb_scope": p282_spec.SAFETY_USB_SCOPE,
+                "module_init_probe_authority": "active-live-unproved",
+                **p282_spec.RUNTIME_AUTHORITY,
+            }
+        )
     elif exact_contract.get("source_contract_id") == P280_SOURCE_CONTRACT_ID:
         safety.update(
             {
@@ -163,6 +178,7 @@ def verify_repro_result(
         "s22plus-fyg8-p280-parent-pullup-discriminator-v1": (
             "s22plus-fyg8-p280-linked-audit-v1"
         ),
+        P282_SOURCE_CONTRACT_ID: "s22plus-fyg8-p282-linked-audit-v1",
     }
     required_adapter = proof_bound_adapters.get(
         exact_contract.get("source_contract_id")
@@ -192,22 +208,51 @@ def verify_repro_result(
             "s22plus-fyg8-p280-parent-pullup-discriminator-v1"
         ):
             raise BuildError("P2.80 linked audit adapter mismatch")
+        if (
+            exact_contract.get("source_contract_id")
+            == P282_SOURCE_CONTRACT_ID
+        ):
+            raise BuildError("P2.82 linked audit adapter mismatch")
         raise BuildError("P2.58A linked audit adapter mismatch")
     expected_image = value.get("build_a", {}).get("artifacts", {}).get("Image")
     if expected_image != image_receipt:
         raise BuildError("P2.34 supplied Image differs from reproducibility closure")
     pre_lto_qualification = None
-    if exact_contract.get("source_contract_id") == repro.P280_SOURCE_CONTRACT_ID:
+    source_contract_id = exact_contract.get("source_contract_id")
+    if source_contract_id in {
+        repro.P280_SOURCE_CONTRACT_ID,
+        repro.P282_SOURCE_CONTRACT_ID,
+    }:
         if intent_path is None or patch_path is None:
-            raise BuildError("P2.80 selected build-input paths are missing")
-        try:
-            pre_lto_qualification = repro.verify_p280_qualification_file(
-                value.get("pre_lto_qualification"),
-                exact_contract,
-                intent_path=intent_path,
-                patch_path=patch_path,
-                root=candidate_contract.intent.repo_root(),
+            label = (
+                "P2.82"
+                if source_contract_id == repro.P282_SOURCE_CONTRACT_ID
+                else "P2.80"
             )
+            raise BuildError(
+                f"{label} selected build-input paths are missing"
+            )
+        try:
+            if source_contract_id == repro.P282_SOURCE_CONTRACT_ID:
+                pre_lto_qualification = (
+                    repro.verify_p282_qualification_file(
+                        value.get("pre_lto_qualification"),
+                        exact_contract,
+                        intent_path=intent_path,
+                        patch_path=patch_path,
+                        root=candidate_contract.intent.repo_root(),
+                    )
+                )
+            else:
+                pre_lto_qualification = (
+                    repro.verify_p280_qualification_file(
+                        value.get("pre_lto_qualification"),
+                        exact_contract,
+                        intent_path=intent_path,
+                        patch_path=patch_path,
+                        root=candidate_contract.intent.repo_root(),
+                    )
+                )
         except repro.CheckError as exc:
             raise BuildError(str(exc)) from exc
     return {

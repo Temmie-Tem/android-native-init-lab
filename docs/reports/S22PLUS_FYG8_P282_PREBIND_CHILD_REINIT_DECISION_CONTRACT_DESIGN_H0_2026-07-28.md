@@ -231,6 +231,11 @@ recompute the manifest observation bound from the complete worst-case runtime
 and guard lifetime before packaging; it must not reuse the previous value by
 convention.
 
+The derived execution bounds are `observation.timeout_sec=300` and a
+360-second transient udev guard lifetime. The extra 60 seconds keeps guard
+arming and host-side transition overhead outside the negative-observation
+window; exact banner receipt remains valid if guard health later degrades.
+
 ## Trace Contract
 
 Reuse P2.80's isolated tracefs instance, 64-KiB per-CPU buffer, counter clock,
@@ -390,7 +395,7 @@ therefore never erase `0xc28` or `0xc29`.
 | `0xc44` | degraded-direct-run-stop | progress at `0x91` |
 | `0xc45` | degraded-resume-run-stop | progress at `0x91` |
 | `0xc46` | bind-diagnostic-branch-unknown | progress warning at `0x91` |
-| `0xc47` | pullup-zero-without-run-stop | failure at `0x91` |
+| `0xc47` | bind-pullup-zero-without-run-stop | failure at `0x91` |
 | `0xc48` | nested-run-stop-negative | failure at `0x91` |
 | `0xc49` | bind-trace-source-contradiction | failure at `0x91` |
 | `0xc4a` | bind-trace-cleanup-unverified | failure at `0x91` |
@@ -707,7 +712,7 @@ The next work is bounded and ordered:
    exhaustive decision-table tests, and source/safety contract.
 2. **P2.82 runtime only:** one continuous cycle trace, the two parent writes,
    exact child fences, inherited bind trace, and tuple publication.
-3. **Pre-LTO qualification:** all 18 gates above plus one changed-closure
+3. **Pre-LTO qualification:** all 19 gates above plus one changed-closure
    adversarial review.
 4. **Only then Full-LTO A/B:** no exploratory build and no checker repair
    after the pair.

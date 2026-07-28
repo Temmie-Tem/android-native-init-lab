@@ -40,6 +40,14 @@ P280_GATE_RESULTS = {
     "trace_lifecycle_qemu",
 }
 P280_QUALIFICATION_MAX_SIZE = 8 * 1024 * 1024
+P282_SOURCE_CONTRACT_ID = (
+    "s22plus-fyg8-p282-prebind-child-reinit-decision-v1"
+)
+P282_QUALIFICATION_MODULE = (
+    "s22plus_fyg8_p282_pre_lto_qualification"
+)
+P282_QUALIFICATION_PROVENANCE_KEY = "p282_pre_lto_qualification"
+P282_QUALIFICATION_MAX_SIZE = 8 * 1024 * 1024
 DEFAULT_BUILD_A = Path("workspace/private/outputs/s22plus_fyg8_p234/artifacts-a")
 DEFAULT_BUILD_B = Path("workspace/private/outputs/s22plus_fyg8_p234/artifacts-b")
 DEFAULT_INTENT = candidate_contract.DEFAULT_INTENT
@@ -91,6 +99,7 @@ LINKED_VALIDATOR_ADAPTERS = {
     "s22plus-fyg8-p280-parent-pullup-discriminator-v1": (
         "s22plus_fyg8_p280_linked_audit"
     ),
+    P282_SOURCE_CONTRACT_ID: "s22plus_fyg8_p282_linked_audit",
 }
 
 
@@ -376,6 +385,128 @@ def _bundle_p280_qualification(
     )
 
 
+def verify_p282_qualification_file(
+    value: Any,
+    exact_contract: dict[str, Any],
+    *,
+    intent_path: Path,
+    patch_path: Path,
+    root: Path | None = None,
+) -> dict[str, Any]:
+    if exact_contract.get("source_contract_id") != P282_SOURCE_CONTRACT_ID:
+        raise CheckError("P2.82 qualification used for a different contract")
+    if not isinstance(value, dict):
+        raise CheckError("P2.82 pre-LTO qualification provenance is invalid")
+    repository = repo_root() if root is None else root.resolve()
+    selected_intent = intent_path.resolve()
+    selected_patch = patch_path.resolve()
+    expected_paths = {}
+    for selected, label in (
+        (selected_intent, "intent"),
+        (selected_patch, "patch"),
+    ):
+        try:
+            expected_paths[label] = str(selected.relative_to(repository))
+        except ValueError as exc:
+            raise CheckError(
+                f"P2.82 selected {label} escapes the repository"
+            ) from exc
+    if (
+        value.get("build_allowed") is not True
+        or value.get("verified") is not True
+        or value.get("run_id") != exact_contract.get("run_id")
+        or value.get("source_contract_id") != P282_SOURCE_CONTRACT_ID
+        or value.get("intent_repo_path") != expected_paths["intent"]
+        or value.get("patch_repo_path") != expected_paths["patch"]
+    ):
+        raise CheckError("P2.82 pre-LTO qualification provenance is invalid")
+    relative = value.get("qualification_repo_path")
+    if (
+        not isinstance(relative, str)
+        or not relative
+        or Path(relative).is_absolute()
+        or ".." in Path(relative).parts
+    ):
+        raise CheckError("P2.82 qualification_repo_path is invalid")
+    path = (repository / relative).resolve()
+    try:
+        path.relative_to(repository)
+    except ValueError as exc:
+        raise CheckError("P2.82 qualification escapes the repository") from exc
+    data = candidate_contract.stable_read(
+        path,
+        "P2.82 pre-LTO qualification",
+        P282_QUALIFICATION_MAX_SIZE,
+    )
+    if (
+        candidate_contract.intent.receipt(data)
+        != _receipt_identity(value.get("qualification"), "P2.82 qualification")
+    ):
+        raise CheckError("P2.82 qualification file receipt mismatch")
+    try:
+        qualification = importlib.import_module(P282_QUALIFICATION_MODULE)
+    except ImportError as exc:
+        raise CheckError("P2.82 qualification module is unavailable") from exc
+    if (
+        getattr(getattr(qualification, "p282", None), "CONTRACT_ID", None)
+        != P282_SOURCE_CONTRACT_ID
+    ):
+        raise CheckError("P2.82 qualification module contract mismatch")
+    if (
+        value.get("schema") != getattr(qualification, "SCHEMA", None)
+        or value.get("verdict") != getattr(qualification, "VERDICT", None)
+    ):
+        raise CheckError("P2.82 qualification schema or verdict mismatch")
+    try:
+        verified = qualification.verify_receipt(
+            path,
+            exact_contract,
+            intent_path=selected_intent,
+            patch_path=selected_patch,
+        )
+    except qualification.QualificationError as exc:
+        raise CheckError(str(exc)) from exc
+    if verified != value:
+        raise CheckError("P2.82 qualification summary differs from its file")
+    gate_receipts = value.get("gate_result_receipts")
+    if not isinstance(gate_receipts, dict) or not gate_receipts:
+        raise CheckError("P2.82 qualification gate receipts are incomplete")
+    for name, receipt_value in gate_receipts.items():
+        if not isinstance(name, str) or not name:
+            raise CheckError("P2.82 qualification gate name is invalid")
+        _receipt_identity(receipt_value, f"P2.82 {name} gate result")
+    return value
+
+
+def _bundle_pre_lto_qualification(
+    result: dict[str, Any],
+    exact_contract: dict[str, Any],
+    *,
+    intent_path: Path,
+    patch_path: Path,
+) -> dict[str, Any] | None:
+    source_contract_id = exact_contract.get("source_contract_id")
+    if source_contract_id == P280_SOURCE_CONTRACT_ID:
+        return _bundle_p280_qualification(
+            result,
+            exact_contract,
+            intent_path=intent_path,
+            patch_path=patch_path,
+        )
+    if source_contract_id != P282_SOURCE_CONTRACT_ID:
+        return None
+    provenance = result.get("provenance")
+    if not isinstance(provenance, dict):
+        raise CheckError("P2.82 build provenance is missing")
+    return verify_p282_qualification_file(
+        provenance.get(P282_QUALIFICATION_PROVENANCE_KEY),
+        exact_contract,
+        intent_path=intent_path,
+        patch_path=patch_path,
+        root=repo_root(),
+    )
+
+
 def _classify_wrapper_result(result: dict[str, Any]) -> str:
     witness = result.get("witness_output_gate")
     if not isinstance(witness, dict):
@@ -618,7 +749,7 @@ def verify_bundle(
     final_candidate_output_gate = _verify_final_candidate_output(
         directory, exact_contract
     )
-    pre_lto_qualification = _bundle_p280_qualification(
+    pre_lto_qualification = _bundle_pre_lto_qualification(
         result,
         exact_contract,
         intent_path=intent_path,
@@ -755,6 +886,19 @@ def _subsequence(actual: list[str], expected: tuple[str, ...], label: str) -> No
         )
 
 
+def _linked_table_storage_bytes(
+    source_contract_module,
+    validator_module,
+) -> tuple[dict[str, bytes], dict[str, bytes]]:
+    logical_tables = source_contract_module.linked_table_bytes()
+    storage_tables = logical_tables
+    if hasattr(validator_module, "linked_table_storage_bytes"):
+        storage_tables = validator_module.linked_table_storage_bytes(
+            logical_tables
+        )
+    return logical_tables, storage_tables
+
+
 def audit_linked(
     vmlinux: Path,
     nm: Path,
@@ -806,9 +950,14 @@ def audit_linked(
             selected_validator_module = selected_contract_module
             adapter_name = LINKED_VALIDATOR_ADAPTERS.get(source_contract_id)
             if adapter_name is not None:
-                selected_validator_module = importlib.import_module(
-                    adapter_name
-                )
+                try:
+                    selected_validator_module = importlib.import_module(
+                        adapter_name
+                    )
+                except ImportError as exc:
+                    raise CheckError(
+                        "linked validator adapter is unavailable"
+                    ) from exc
                 if (
                     getattr(
                         selected_validator_module,
@@ -828,23 +977,47 @@ def audit_linked(
                         "linked validator adapter identity is missing"
                     )
             if hasattr(selected.module, "linked_table_bytes"):
-                expected_tables = selected.module.linked_table_bytes()
-                actual_tables = {
-                    symbol: _dump_symbol_bytes(
-                        staged["objdump"],
-                        staged["vmlinux"],
-                        ranges,
-                        symbol,
-                        len(expected),
-                    )
-                    for symbol, expected in expected_tables.items()
-                }
+                expected_tables, storage_tables = _linked_table_storage_bytes(
+                    selected.module, selected_validator_module
+                )
+                physical_storage_layout = None
                 try:
+                    actual_tables = {
+                        symbol: _dump_symbol_bytes(
+                            staged["objdump"],
+                            staged["vmlinux"],
+                            ranges,
+                            symbol,
+                            len(storage_tables[symbol]),
+                        )
+                        for symbol in expected_tables
+                    }
+                    if hasattr(
+                        selected_validator_module,
+                        "normalize_linked_table_storage",
+                    ):
+                        actual_tables, physical_storage_layout = (
+                            selected_validator_module.normalize_linked_table_storage(
+                                actual_tables,
+                                expected_tables,
+                            )
+                        )
                     linked_contract_audit = (
                         selected.module.audit_linked_tables(actual_tables)
                     )
-                except selected.module.SourceContractError as exc:
+                except (
+                    selected.module.SourceContractError,
+                    getattr(
+                        selected_validator_module,
+                        "SourceContractError",
+                        selected.module.SourceContractError,
+                    ),
+                ) as exc:
                     raise CheckError(str(exc)) from exc
+                if physical_storage_layout is not None:
+                    linked_contract_audit["physical_storage_layout"] = (
+                        physical_storage_layout
+                    )
             validator_symbols = {
                 *getattr(
                     selected.module, "LINKED_VALIDATOR_SYMBOLS", ()
@@ -969,7 +1142,7 @@ def check(args: argparse.Namespace) -> dict[str, Any]:
         patch_path=patch_path,
     )
     if build_a["pre_lto_qualification"] != build_b["pre_lto_qualification"]:
-        raise CheckError("P2.80 A/B pre-LTO qualification mismatch")
+        raise CheckError("A/B pre-LTO qualification mismatch")
     compared = {}
     for name in sorted(set(ARTIFACT_LIMITS) - {"build-result.json"}):
         equal = build_a["artifacts"][name] == build_b["artifacts"][name]

@@ -105,6 +105,13 @@ generated final tuple design entries:         567 / 567
 Calling the existing tracefs QEMU tests `46/46` coverage would be false. They
 validate the transport and parser substrate, not the new P2.82 decisions.
 
+This paragraph records the pre-implementation review state. It is superseded
+for production-classifier fixture coverage by the later P2.82 implementation:
+the shared generated C classifier now passes `46/46`, and all `567/567`
+generated tuples round-trip under pinned AArch64 QEMU. FYG8 vendor
+end-to-end C-band coverage remains `0/46` until a separately authorized live
+run; the host fixture result must not be reported as device coverage.
+
 ### Required pre-LTO correction
 
 Implementation must not encode 46 unrelated test-only predicates. One
