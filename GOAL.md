@@ -757,13 +757,14 @@ reports grant no device authority.
     parent-PM sign or one `hs_phy->flags` sample as electrical proof. Reuse the
     trace lifecycle only through a versioned ordered discriminator; do not
     infer electrical readiness from swallowed clock errors.
-74. **P2.80 femto and child-reinit audits, H0:** natural parent resume restores
-    femto clocks only, but a child DEVICE runtime suspend/resume performs full
-    PHY reinitialization. Detail `0xb22` collapses direct and resume-nested
-    run-stop, so it does not prove resume absence. The source-backed lever is
-    bounded parent `peripheral -> none -> peripheral`, fenced on exact child
-    `runtime_status=suspended`; next design combines early diagnosis with that
-    pre-bind cycle and never infers analog rail state from helper success.
+74. **P2.80 child-reinit closure, H0:** child DEVICE suspend/resume performs
+    full PHY reinit; `0xb22` collapses direct and resume-nested run-stop. The
+    bounded lever is parent `peripheral -> none -> peripheral`, fenced on exact
+    child suspended/active status and never read as analog-rail proof.
+75. **P2.82 decision contract, H0:** freeze mechanism search and classify every
+    stop/suspend/resume/init/bind/state/speed outcome. FYG8 mode writes enter
+    the vendor `B_SESS_VLD` state machine; 567 generated final tuples plus
+    exhaustive pre-LTO mutations close the classifier gap. No live authority.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
 reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing
