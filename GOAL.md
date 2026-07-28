@@ -765,6 +765,21 @@ reports grant no device authority.
     classifier `46/46`, tuples `567/567`, lifecycle `5/5`, and all `19/19`
     gates pass, including portable temp-repo producer-to-consumer preflight.
     Full-LTO/AP/F1 remain undone.
+77. **P2.83 stock USB reset trace, D0+D1:** stock EUD enable is `0`, both
+    vendor-module hashes match P2.82, and all probe targets exist. One bounded
+    `resetUsbGadget` returned zero but produced no ADB, host-USB, or trace
+    transition; cleanup and Android/root health passed. Treat it as a no-op,
+    not a positive control. A physical reconnect requires a fresh D1 approval.
+78. **P2.83 stock physical-reconnect trace, D1:** one fresh approval captured
+    50 balanced events and real SuperSpeed return. The successful suffix is
+    parent resume, child resume, femto-HS init, RUN_STOP on, then
+    notify-connect; cleanup and Android/root health pass. This supports the
+    P2.82 child-reinit mechanism but does not alter or authorize its F1.
+79. **P2.83 stock high-speed control, D1:** after one guarded active-bind
+    refusal and clean removal, a fresh approved UDC unbind/HS/rebind plus
+    physical reconnect captured the same 14-event success suffix at high
+    speed. Original super-speed-plus configuration, active SuperSpeed,
+    tracefs, and Android/root health were all restored.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
 reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing
