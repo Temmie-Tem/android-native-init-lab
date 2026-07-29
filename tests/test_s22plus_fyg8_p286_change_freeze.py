@@ -1043,6 +1043,50 @@ int main(void)
                 "modules": [],
             },
         )
+        ingestion = {
+            "harness": {
+                "substrate": {
+                    "compiler": {
+                        "path": (
+                            "/home/build/repo/workspace/private/tools/"
+                            "cross/usr/bin/aarch64-linux-gnu-gcc"
+                        ),
+                        "sha256": "a" * 64,
+                    },
+                    "qemu": {
+                        "path": "/usr/bin/qemu-aarch64",
+                        "sha256": "b" * 64,
+                    },
+                },
+            },
+        }
+        self.assertEqual(
+            qualification._normalize_ingestion_substrate_paths(ingestion),
+            {
+                "harness": {
+                    "substrate": {
+                        "compiler": {
+                            "path": (
+                                "workspace/private/tools/cross/usr/bin/"
+                                "aarch64-linux-gnu-gcc"
+                            ),
+                            "sha256": "a" * 64,
+                        },
+                        "qemu": {
+                            "path": "/usr/bin/qemu-aarch64",
+                            "sha256": "b" * 64,
+                        },
+                    },
+                },
+            },
+        )
+        self.assertEqual(
+            ingestion["harness"]["substrate"]["compiler"]["path"],
+            (
+                "/home/build/repo/workspace/private/tools/cross/usr/bin/"
+                "aarch64-linux-gnu-gcc"
+            ),
+        )
         self.assertEqual(
             safety["userspace_parent_runtime_status_gate"],
             spec.RUNTIME_AUTHORITY[

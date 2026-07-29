@@ -116,6 +116,30 @@ def _normalize_module_trace(value: Any) -> dict[str, Any]:
     return result
 
 
+def _normalize_ingestion_substrate_paths(
+    value: dict[str, Any],
+) -> dict[str, Any]:
+    result = dict(value)
+    harness = dict(result.get("harness", {}))
+    substrate = dict(harness.get("substrate", {}))
+    for name in ("compiler", "qemu"):
+        row = dict(substrate.get(name, {}))
+        raw_path = row.get("path")
+        if isinstance(raw_path, str):
+            parts = Path(raw_path).parts
+            matches = [
+                index
+                for index in range(len(parts) - 1)
+                if parts[index : index + 2] == ("workspace", "private")
+            ]
+            if len(matches) == 1:
+                row["path"] = str(Path(*parts[matches[0] :]))
+        substrate[name] = row
+    harness["substrate"] = substrate
+    result["harness"] = harness
+    return result
+
+
 @contextmanager
 def _base_context() -> Iterator[None]:
     replacements = {
@@ -466,7 +490,10 @@ def create(
             payload["evidence"].get("module_trace")
         ),
         "sysfs_ingestion": base._portable_repo_paths(
-            root, _verify_ingestion_oracle(ingestion_result)
+            root,
+            _normalize_ingestion_substrate_paths(
+                _verify_ingestion_oracle(ingestion_result)
+            ),
         ),
     }
     payload["gates"] = _gate_matrix(payload["evidence"])
@@ -489,13 +516,15 @@ def _current_evidence(
     current["module_trace"] = _normalize_module_trace(
         current.get("module_trace")
     )
-    current["sysfs_ingestion"] = _verify_ingestion_oracle(
-        base._stored_result_path(
-            candidate_contract.intent.repo_root(),
-            ingestion_stored,
-            "P2.84 ingestion",
-        ),
-        verify_materials=False,
+    current["sysfs_ingestion"] = _normalize_ingestion_substrate_paths(
+        _verify_ingestion_oracle(
+            base._stored_result_path(
+                candidate_contract.intent.repo_root(),
+                ingestion_stored,
+                "P2.84 ingestion",
+            ),
+            verify_materials=False,
+        )
     )
     return base._portable_repo_paths(
         candidate_contract.intent.repo_root(), current
