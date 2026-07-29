@@ -45,7 +45,6 @@ class P286ChangeFreezeTests(unittest.TestCase):
             {
                 "p286_contract_spec",
                 "p286_source_contract",
-                "p286_source_contract_selector",
                 "p286_candidate_intent",
                 "p286_e3_runtime_include",
                 "p286_classifier_include",
@@ -62,6 +61,7 @@ class P286ChangeFreezeTests(unittest.TestCase):
                 "p286_change_freeze",
                 "p286_freeze_report",
                 "p286_candidate_contract",
+                "p286_source_contract_selector",
                 "p286_build_repro_check",
                 "p286_candidate_static_checker",
                 "p286_e2_stock_closure",
@@ -72,8 +72,8 @@ class P286ChangeFreezeTests(unittest.TestCase):
         )
         payload_paths = set(freeze.PAYLOAD_SOURCE_PATHS.values())
         support_paths = set(freeze.NON_IDENTITY_SUPPORT_PATHS.values())
-        self.assertEqual(len(payload_paths), 11)
-        self.assertEqual(len(support_paths), 9)
+        self.assertEqual(len(payload_paths), 10)
+        self.assertEqual(len(support_paths), 10)
         self.assertTrue(payload_paths.isdisjoint(support_paths))
 
     def test_p284_is_inherited_without_a_mutation_path(self):
@@ -94,11 +94,11 @@ class P286ChangeFreezeTests(unittest.TestCase):
         rows = {
             row["source_key"]: row["path"] for row in result["source_keys"]
         }
-        self.assertEqual(result["source_key_counts"]["planned_payload"], 11)
-        self.assertEqual(result["source_key_counts"]["planned_total"], 71)
+        self.assertEqual(result["source_key_counts"]["planned_payload"], 10)
+        self.assertEqual(result["source_key_counts"]["planned_total"], 70)
         self.assertEqual(
             result["source_key_counts"]["bundle_bound_support"],
-            9,
+            10,
         )
         for key, path in freeze.PAYLOAD_SOURCE_PATHS.items():
             self.assertEqual(rows[key], path.as_posix())
@@ -208,8 +208,8 @@ class P286ChangeFreezeTests(unittest.TestCase):
         self.assertFalse(result["build_executed"])
         self.assertFalse(result["device_contact"])
         self.assertFalse(result["live_authorized"])
-        self.assertEqual(len(result["missing_payload_source_paths"]), 11)
-        self.assertEqual(len(result["missing_bundle_bound_support_paths"]), 7)
+        self.assertEqual(len(result["missing_payload_source_paths"]), 10)
+        self.assertEqual(len(result["missing_bundle_bound_support_paths"]), 8)
         self.assertEqual(len(result["missing_planned_paths"]), 18)
         self.assertIn(
             "workspace/public/src/scripts/revalidation/"

@@ -61,8 +61,8 @@ Do not add a device step when host-only work can answer the question.
   one-line patch. Also repair the generic blocking-`wait4` helper deadline and
   fault-test it. No new stock D1 is required before that H0 implementation.
 - P2.86 Stage A change closure is frozen before intent: 60 P2.84 SOURCE_KEYS
-  are inherited byte-for-byte and only 11 byte-affecting overlays join them
-  (`71` total). Nine verifier/evidence support files stay outside SOURCE_KEYS
+  are inherited byte-for-byte and only 10 byte-affecting overlays join them
+  (`70` total). Ten verifier/evidence support files stay outside SOURCE_KEYS
   and are later bound by `bundle.sha256`. Git-derived tracked changes since
   the frozen base must equal their declaration in both directions. Four D1
   repairs remain private and disjoint. Intent/build stay forbidden until all

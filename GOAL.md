@@ -87,13 +87,13 @@ later steps.
 
 ### Candidate identity closure
 
-P2.86 inherits all 60 P2.84 SOURCE_KEYS byte-for-byte and adds exactly 11
-versioned payload-determining SOURCE_KEYS, for 71 total. Existing P2.84 source
+P2.86 inherits all 60 P2.84 SOURCE_KEYS byte-for-byte and adds exactly 10
+versioned payload-determining SOURCE_KEYS, for 70 total. Existing P2.84 source
 files are forbidden mutation targets.
 
-The 11 additions are the contract spec, source contract, selector, candidate
-intent, E3 runtime include, classifier include, trace contract, userspace
-build, candidate builder, build orchestrator, and boot-only packager.
+The 10 additions are the contract spec, source contract, candidate intent, E3
+runtime include, classifier include, trace contract, userspace build,
+candidate builder, build orchestrator, and boot-only packager.
 
 The candidate requirements are frozen:
 
@@ -110,15 +110,20 @@ The candidate requirements are frozen:
 
 The machine-readable authority is
 `workspace/public/src/scripts/revalidation/s22plus_fyg8_p286_change_freeze.py`.
-It prints all 71 planned SOURCE_KEY-to-path rows.
+It prints all 70 planned SOURCE_KEY-to-path rows.
 
 ### Bundle-bound support closure
 
-Nine verifier/evidence files cannot change `boot.img` bytes and stay outside
-SOURCE_KEYS: change freeze, freeze report, candidate-contract verifier,
-build-repro checker, candidate static checker, E2 stock closure, linked audit,
-pre-LTO qualification, and decoder adapter. They remain fail-closed because
-the approval bundle binds them through `bundle.sha256`.
+Ten verifier/evidence files cannot change `boot.img` bytes and stay outside
+SOURCE_KEYS: source-contract selector, change freeze, freeze report,
+candidate-contract verifier, build-repro checker, candidate static checker,
+E2 stock closure, linked audit, pre-LTO qualification, and decoder adapter.
+They remain fail-closed because the approval bundle binds them through
+`bundle.sha256`.
+
+The selector stays outside identity because registering a later P2.88 contract
+must not rewrite P2.86's historical run ID. The preimage records the selected
+contract ID explicitly; the contract/spec receipts remain payload-bound.
 
 The freeze gate derives tracked changes from the union of
 `git diff --name-only <base>..HEAD` and `git status --porcelain`, including
@@ -146,16 +151,16 @@ private repair list grants no D1 authority and is not a reason to rebuild.
 
 Do not derive intent until:
 
-- all 11 payload sources and all nine bundle-bound support files exist;
+- all 10 payload sources and all ten bundle-bound support files exist;
 - the freeze tool reports `pre_intent_ready: true`;
-- the successor contract reports exactly 71 SOURCE_KEYS;
+- the successor contract reports exactly 70 SOURCE_KEYS;
 - P2.84 receipts still match its frozen intent `60/60`;
 - the Git-derived and declared tracked change sets are exactly equal;
 - semantic and fault-injection tests cover all seven candidate requirements;
 - D1 paths remain private with zero overlap; and
 - `git status --short` is clean.
 
-After intent, all 71 selected source receipts are immutable. A later payload
+After intent, all 70 selected source receipts are immutable. A later payload
 source change invalidates the A/B pair and requires a fresh intent. A
 non-identity support change does not alter boot identity, but its validators
 must be rerun and its final bytes rebound by `bundle.sha256` before approval.
@@ -166,7 +171,7 @@ must be rerun and its final bytes rebound by `bundle.sha256` before approval.
 2. Cross-compile the touched C and inspect the static AArch64 output.
 3. Run focused semantics, fault injection, attachment-name, source-closure,
    userspace two-build, QEMU, and pre-LTO qualification.
-4. Print all 71 SOURCE_KEY-to-path rows and compare them with a clean status.
+4. Print all 70 SOURCE_KEY-to-path rows and compare them with a clean status.
 5. Derive one fresh intent only after the closure is complete.
 6. Run one clean Full-LTO A/B pair and prove all linked artifacts byte-equal.
 7. Run linked audit, deterministic boot-only package A/B, static closure, and

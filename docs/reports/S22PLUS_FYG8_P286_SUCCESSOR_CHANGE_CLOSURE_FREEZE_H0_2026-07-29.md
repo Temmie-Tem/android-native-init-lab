@@ -6,9 +6,9 @@ Date: 2026-07-29 KST
 
 `PASS_P286_PRE_INTENT_CHANGE_CLOSURE_FROZEN_HOST_ONLY`
 
-P2.86 inherits all 60 P2.84 SOURCE_KEYS byte-for-byte. Eleven new files that
-can affect `boot.img` bytes join the source preimage, producing 71 planned
-SOURCE_KEYS. Nine verifier/evidence files that cannot affect those bytes stay
+P2.86 inherits all 60 P2.84 SOURCE_KEYS byte-for-byte. Ten new files that can
+affect `boot.img` bytes join the source preimage, producing 70 planned
+SOURCE_KEYS. Ten verifier/evidence files that cannot affect those bytes stay
 outside SOURCE_KEYS and must instead be bound by the final approval
 `bundle.sha256`.
 
@@ -19,8 +19,8 @@ with the declaration frozen in the gate. The old caller-supplied mutation
 arguments are removed, so an empty or incomplete CLI declaration cannot hide
 a changed file.
 
-This is still not pre-intent readiness. Eleven payload sources and seven
-support files do not yet exist, so no P2.86 intent or Full-LTO build may begin.
+This is still not pre-intent readiness. Ten payload sources and eight support
+files do not yet exist, so no P2.86 intent or Full-LTO build may begin.
 This H0 unit performs no build, package creation, device contact, D0, D1, F1,
 reboot, transfer, or partition action and grants no live authority.
 
@@ -84,11 +84,11 @@ The identity partition is:
 inherited P2.84 SOURCE_KEYS       60
   inherited direct paths         55
   inherited generated inputs      5
-new payload SOURCE_KEYS           11
-planned P2.86 SOURCE_KEYS total   71
+new payload SOURCE_KEYS           10
+planned P2.86 SOURCE_KEYS total   70
 ```
 
-The eleven new payload paths are:
+The ten new payload paths are:
 
 ```text
 workspace/public/src/native-init/s22plus_fyg8_p286_classifier.inc.c
@@ -99,7 +99,6 @@ workspace/public/src/scripts/revalidation/s22plus_fyg8_p286_build.py
 workspace/public/src/scripts/revalidation/s22plus_fyg8_p286_candidate_intent.py
 workspace/public/src/scripts/revalidation/s22plus_fyg8_p286_contract_spec.py
 workspace/public/src/scripts/revalidation/s22plus_fyg8_p286_source_contract.py
-workspace/public/src/scripts/revalidation/s22plus_fyg8_p286_source_contracts.py
 workspace/public/src/scripts/revalidation/s22plus_fyg8_p286_trace_contract.py
 workspace/public/src/scripts/revalidation/s22plus_fyg8_p286_userspace_build.py
 ```
@@ -109,7 +108,7 @@ ID preimage.
 
 ## Bundle-bound non-identity support
 
-These nine files cannot alter `boot.img` bytes and must not enter SOURCE_KEYS:
+These ten files cannot alter `boot.img` bytes and must not enter SOURCE_KEYS:
 
 ```text
 docs/reports/S22PLUS_FYG8_P286_SUCCESSOR_CHANGE_CLOSURE_FREEZE_H0_2026-07-29.md
@@ -121,7 +120,14 @@ workspace/public/src/scripts/revalidation/s22plus_fyg8_p286_e1_decoder.py
 workspace/public/src/scripts/revalidation/s22plus_fyg8_p286_e2_stock_closure.py
 workspace/public/src/scripts/revalidation/s22plus_fyg8_p286_linked_audit.py
 workspace/public/src/scripts/revalidation/s22plus_fyg8_p286_pre_lto_qualification.py
+workspace/public/src/scripts/revalidation/s22plus_fyg8_p286_source_contracts.py
 ```
+
+The selector is deliberately non-identity. A later P2.88 registration must be
+able to edit it without changing P2.86's historical run ID or invalidating
+P2.86 evidence receipts. The candidate preimage records `source_contract_id`
+explicitly, while `p286_source_contract` and `p286_contract_spec` remain
+payload-bound and catch a redirected contract implementation.
 
 This follows the P2.82 retirement-guard precedent: a guard or verifier may
 remain outside the source preimage while its exact final bytes are still
@@ -131,7 +137,7 @@ and final support bytes must be rebound before approval.
 
 ## Git-derived change window
 
-The reviewed base is:
+The reviewed base is pinned in the validator with no CLI override:
 
 ```text
 7929e9f7d7fea1eb99ab43dcd841c5a9c3b6ef94
@@ -194,16 +200,16 @@ does not authorize another D1.
 
 Intent derivation and Full-LTO are forbidden until all of the following hold:
 
-- all 11 payload sources and all nine bundle-bound support files exist;
+- all 10 payload sources and all ten bundle-bound support files exist;
 - the freeze validator reports `pre_intent_ready: true`;
-- the successor source contract reports exactly 71 SOURCE_KEYS;
+- the successor source contract reports exactly 70 SOURCE_KEYS;
 - current P2.84 receipts still match its frozen intent `60/60`;
 - Git-derived and declared tracked change sets match exactly;
 - focused semantic/fault-injection tests cover all seven requirements;
 - the four D1 repair paths remain private with overlap count zero; and
 - `git status --short` is clean at intent derivation.
 
-After intent, the 71 source receipts are immutable. Any payload-source byte
+After intent, the 70 source receipts are immutable. Any payload-source byte
 change invalidates the A/B pair. Support-file correction does not change
 candidate identity, but it remains blocked from approval until validation and
 bundle binding are refreshed.
@@ -213,10 +219,10 @@ bundle binding are refreshed.
 At publication:
 
 - the P2.84 partition is `55 direct + 5 generated = 60`;
-- the P2.86 identity plan is `60 inherited + 11 payload = 71`;
-- nine non-identity support paths are disjoint from SOURCE_KEYS;
+- the P2.86 identity plan is `60 inherited + 10 payload = 70`;
+- ten non-identity support paths are disjoint from SOURCE_KEYS;
 - candidate and private-D1 ancestor/equality overlap count is zero;
-- pre-intent readiness is false with `11 + 7 = 18` files missing;
+- pre-intent readiness is false with `10 + 8 = 18` files missing;
 - the Git derivation test covers committed, dirty, and untracked changes;
 - bidirectional tests reject omission, overdeclaration, and an unfrozen path;
 - rename parsing retains both source and destination; and

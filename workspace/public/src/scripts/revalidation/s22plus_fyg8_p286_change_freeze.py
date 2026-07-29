@@ -42,10 +42,6 @@ PAYLOAD_SOURCE_PATHS = MappingProxyType(
             "workspace/public/src/scripts/revalidation/"
             "s22plus_fyg8_p286_source_contract.py"
         ),
-        "p286_source_contract_selector": Path(
-            "workspace/public/src/scripts/revalidation/"
-            "s22plus_fyg8_p286_source_contracts.py"
-        ),
         "p286_candidate_intent": Path(
             "workspace/public/src/scripts/revalidation/"
             "s22plus_fyg8_p286_candidate_intent.py"
@@ -98,6 +94,10 @@ NON_IDENTITY_SUPPORT_PATHS = MappingProxyType(
         "p286_candidate_contract": Path(
             "workspace/public/src/scripts/revalidation/"
             "s22plus_fyg8_p286_candidate_contract.py"
+        ),
+        "p286_source_contract_selector": Path(
+            "workspace/public/src/scripts/revalidation/"
+            "s22plus_fyg8_p286_source_contracts.py"
         ),
         "p286_build_repro_check": Path(
             "workspace/public/src/scripts/revalidation/"
@@ -417,11 +417,11 @@ def validate_freeze(root: Path) -> dict[str, Any]:
     planned = planned_direct_source_paths()
     if len(GENERATED_SOURCE_KEYS) != 5 or len(inherited) != 55:
         raise FreezeError("P2.84 generated/direct partition drifted")
-    if len(PAYLOAD_SOURCE_PATHS) != 11:
+    if len(PAYLOAD_SOURCE_PATHS) != 10:
         raise FreezeError("planned payload-source count drifted")
-    if len(NON_IDENTITY_SUPPORT_PATHS) != 9:
+    if len(NON_IDENTITY_SUPPORT_PATHS) != 10:
         raise FreezeError("non-identity support count drifted")
-    if len(PLANNED_SOURCE_KEYS) != 71 or len(planned) != 66:
+    if len(PLANNED_SOURCE_KEYS) != 70 or len(planned) != 65:
         raise FreezeError("planned SOURCE_KEY count drifted")
 
     inherited_paths = {_pure(path) for path in inherited.values()}
@@ -517,11 +517,6 @@ def main() -> int:
         default=Path(__file__).resolve().parents[5],
     )
     parser.add_argument(
-        "--base-commit",
-        default=CHANGE_WINDOW_BASE_COMMIT,
-        help="reviewed commit preceding the current pre-intent change window",
-    )
-    parser.add_argument(
         "--require-pre-intent-ready",
         action="store_true",
         help="fail until every frozen successor overlay exists",
@@ -529,7 +524,7 @@ def main() -> int:
     args = parser.parse_args()
     derived_paths = git_derived_changed_paths(
         args.repo_root,
-        args.base_commit,
+        CHANGE_WINDOW_BASE_COMMIT,
     )
     change_window = validate_declared_change_set(
         derived_paths=derived_paths,
@@ -537,7 +532,7 @@ def main() -> int:
     )
     result = validate_freeze(args.repo_root.resolve())
     result["change_window"] = {
-        "base_commit": args.base_commit,
+        "base_commit": CHANGE_WINDOW_BASE_COMMIT,
         **change_window,
     }
     print(json.dumps(result, indent=2, sort_keys=True))
