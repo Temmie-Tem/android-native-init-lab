@@ -33,9 +33,19 @@ a bounded classified PERIPHERAL helper with a closed post-kill reap deadline.
 No kernel change is selected.
 
 No S22+ F1 live run is currently authorized. Both P2.84 stock-D1 approvals and
-the P2.84 F1 approval are consumed. Do not repeat P2.82, replay or rebuild
-P2.84, derive a P2.86 intent, or begin Full-LTO until the frozen pre-intent
-closure passes.
+the P2.84 F1 approval are consumed. Do not repeat P2.82 or replay/rebuild
+P2.84.
+
+P2.86 run `c6cde593033d6f1be93f82c8ff5a81e8` passed its frozen pre-intent
+closure and pre-LTO qualification. Its first Full-LTO A/B pair failed closed:
+`vmlinux` differed by exactly 138 eight-byte random private-path tokens in
+`.debug_line` plus the derived 20-byte GNU build ID; `Image` differed only by
+that build ID. The pair is invalid and no promotion occurred.
+
+The selected correction changes no source byte or intent. A real copy of the
+pinned clang repository is placed below the work tree's mapped parent and only
+the private `--clang-repo` argument changes. Corrected A must show zero random
+private-root and absolute clang-resource leaks before B may start.
 
 ## Durable Established Evidence
 
@@ -60,6 +70,9 @@ closure passes.
 - P2.84 corrected that comparator, passed `20/20` pre-LTO, Full-LTO A/B,
   linked/package/static closure, one candidate transfer, one exact rollback,
   and final health. It is closed no-proof and immutable.
+- P2.86's first Full-LTO pair failed closed with a completely attributed
+  build-layout path leak. `1,124 = 138 * 8 + 20`; the 20-byte residual is
+  exactly the GNU build ID, and Image has no other difference.
 - Exact source rejects treating a parent-PM sign or PHY flag as electrical
   proof; swallowed clock errors remain non-proof.
 - Process v2 common D0/F1 execution, regular-path boot-only Odin transport,
@@ -72,6 +85,7 @@ Load-bearing current reports:
 - `docs/reports/S22PLUS_FYG8_P284_STOCK_OUTER_D1_V2_LIVE_NO_PROOF_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P284_STOCK_TRACE_PM_ORDER_CORRECTION_H0_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P286_SUCCESSOR_CHANGE_CLOSURE_FREEZE_H0_2026-07-29.md`
+- `docs/reports/S22PLUS_FYG8_P286_FULL_LTO_PRIVATE_PATH_REPRO_FAILURE_H0_2026-07-30.md`
 - `docs/operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 
@@ -171,8 +185,10 @@ must be rerun and its final bytes rebound by `bundle.sha256` before approval.
 ### P2.86 implementation validation
 
 The frozen 18-file overlay implementation is complete. No P2.84 source was
-modified, no P2.86 intent was derived, no kernel or candidate image was built,
-and no device was contacted.
+modified. The P2.86 intent and pre-LTO qualification are complete; the first
+Full-LTO pair was retained as invalid diagnostic evidence after its exact
+private-path attribution. No candidate was promoted and no device was
+contacted.
 
 The runtime now:
 
@@ -214,15 +230,20 @@ review of these results; intent derivation remains a later bounded unit.
 
 ## Ordered Execution
 
-1. Review the completed P2.86 implementation and static/fault evidence.
-2. Re-run the frozen closure immediately before intent derivation.
-3. Print all 70 SOURCE_KEY-to-path rows and compare them with a clean status.
-4. Derive one fresh intent only after the closure is complete.
-5. Run one clean Full-LTO A/B pair and prove all linked artifacts byte-equal.
-6. Run linked audit, deterministic boot-only package A/B, static closure, and
+1. Finalize the two pending H0 reports and private-path failure record.
+2. Verify the relocated clang copy by commit, clean state, version, and
+   effective-tool bytes.
+3. Print all 70 SOURCE_KEY-to-path rows, verify all intent receipts, and compare
+   them with a clean status.
+4. Run corrected Full-LTO A only.
+5. Require zero random-private-root and absolute clang-resource leaks in A;
+   stop without B on any leak.
+6. Only after that gate, run one clean B and prove all linked artifacts
+   byte-equal.
+7. Run linked audit, deterministic boot-only package A/B, static closure, and
    offline promotion.
-7. Create a fresh ready manifest, then perform separate D0.
-8. Request fresh live authority only after all host and D0 gates pass.
+8. Create a fresh ready manifest, then perform separate D0.
+9. Request fresh live authority only after all host and D0 gates pass.
 
 No device step is added when H0 can answer the question.
 
@@ -253,6 +274,7 @@ journal. No later rung may infer an earlier unproved result.
 - A permanent boundary in `AGENTS.md` would need to change.
 - A P2.84 frozen source would need modification.
 - A P2.86 payload source changes or is added after intent.
+- Corrected A retains a random private-root or absolute clang-resource path.
 - Candidate and D1 path closures overlap.
 - Recovery, rollback, target identity, or Odin endpoint is unavailable.
 - An unexplained device-session failure or repeated material failure occurs.
