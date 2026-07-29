@@ -254,6 +254,46 @@ def _validate_runtime_authority_source(include: bytes) -> None:
             raise SourceContractError(
                 "P2.86 trace cleanup can override terminal evidence"
             )
+    capture = include.index(b"static long p286_cycle_capture(")
+    capture_end = include.index(
+        b"static long p286_cycle_cleanup_after_marker(",
+        capture,
+    )
+    capture_body = include[capture:capture_end]
+    disable = capture_body.find(b"p282_trace_disable(&cycle->trace)")
+    snapshot = capture_body.find(
+        b"p282_trace_read_snapshot(&cycle->trace, 1)"
+    )
+    parse = capture_body.find(
+        b"p282_parse_cycle_result(\n"
+        b"        &cycle->trace, final_result)"
+    )
+    if not disable < snapshot < parse:
+        raise SourceContractError(
+            "P2.86 final trace capture order drifted"
+        )
+    cleanup_end = include.index(
+        b"static long p282_exact_udc_present(",
+        capture_end,
+    )
+    cleanup_body = include[capture_end:cleanup_end]
+    marker = cleanup_body.find(
+        b"p282_progress(\n"
+        b"        P282_STAGE_RESTART,\n"
+        b"        P282_DETAIL_RESTART_TRACE_CLEANUP_PENDING);"
+    )
+    disarm = cleanup_body.find(b"cycle->armed = 0;")
+    normal_cleanup = cleanup_body.find(
+        b"p282_trace_cleanup(&cycle->trace)"
+    )
+    if not marker < disarm < normal_cleanup:
+        raise SourceContractError(
+            "P2.86 normal cleanup marker does not precede trace cleanup"
+        )
+    if b"p282_trace_finish(" in capture_body + cleanup_body:
+        raise SourceContractError(
+            "P2.86 normal cycle finish bypassed the cleanup marker"
+        )
     restart = include.index(b"static unsigned int p282_cycle_restart(")
     pre_dispatch_refresh = include.index(
         b"p282_cycle_refresh(cycle, P282_STAGE_RESTART);",
@@ -271,6 +311,34 @@ def _validate_runtime_authority_source(include: bytes) -> None:
     if not pre_dispatch_refresh < residual_snapshot < peripheral_dispatch:
         raise SourceContractError(
             "P2.86 residual outer state is not frozen before dispatch"
+        )
+    final_capture = include.index(
+        b"capture_rc = p286_cycle_capture(cycle, &final_result);",
+        peripheral_dispatch,
+    )
+    restart_classification = include.index(
+        b"classified = p282_classify_restart(",
+        final_capture,
+    )
+    cleanup_dispatch = include.index(
+        b"cleanup_rc = p286_cycle_cleanup_after_marker(cycle);",
+        restart_classification,
+    )
+    if not final_capture < restart_classification < cleanup_dispatch:
+        raise SourceContractError(
+            "P2.86 restart classification does not precede cleanup marker"
+        )
+    restart_end = include.index(
+        b"static unsigned int p282_phase_bind(",
+        cleanup_dispatch,
+    )
+    restart_body = include[restart:restart_end]
+    if (
+        b"p282_publish_classification(\n"
+        b"        P282_STAGE_RESTART,"
+    ) in restart_body:
+        raise SourceContractError(
+            "P2.86 restart stage is published more than once"
         )
 
 

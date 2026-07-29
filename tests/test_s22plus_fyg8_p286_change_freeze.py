@@ -368,6 +368,55 @@ class P286ChangeFreezeTests(unittest.TestCase):
         )
         self.assertNotIn("P282_CONTROL_TRACE_CLEANUP_UNVERIFIED", abort)
         self.assertNotIn("fail_at(stage, 0U, detail);", abort)
+        capture = runtime.index(
+            "capture_rc = p286_cycle_capture(cycle, &final_result);",
+            restart,
+        )
+        classification = runtime.index(
+            "classified = p282_classify_restart(",
+            capture,
+        )
+        cleanup_dispatch = runtime.index(
+            "cleanup_rc = p286_cycle_cleanup_after_marker(cycle);",
+            classification,
+        )
+        self.assertLess(capture, classification)
+        self.assertLess(classification, cleanup_dispatch)
+        restart_body = runtime[
+            restart:
+            runtime.index(
+                "static unsigned int p282_phase_bind(",
+                cleanup_dispatch,
+            )
+        ]
+        self.assertNotIn(
+            "p282_publish_classification(\n"
+            "        P282_STAGE_RESTART,",
+            restart_body,
+        )
+        normal_cleanup = runtime[
+            runtime.index(
+                "static long p286_cycle_cleanup_after_marker("
+            ):
+            runtime.index(
+                "static long p282_exact_udc_present("
+            )
+        ]
+        self.assertLess(
+            normal_cleanup.index(
+                "P282_DETAIL_RESTART_TRACE_CLEANUP_PENDING"
+            ),
+            normal_cleanup.index("p282_trace_cleanup(&cycle->trace)"),
+        )
+        self.assertNotIn("p282_trace_finish(", normal_cleanup)
+        marker = next(
+            detail
+            for detail in spec.P286_DIAGNOSTIC_DETAILS
+            if detail.name == "restart-trace-cleanup-pending"
+        )
+        self.assertEqual(marker.value, 0xC5C)
+        self.assertEqual(marker.outcomes, (spec.OUTCOME_PROGRESS,))
+        self.assertEqual(marker.stages, (spec.RESTART_STAGE,))
 
     def test_runtime_classifier_and_packager_mutations_fail_closed(self):
         source = source_contract.source_bytes(ROOT)
@@ -411,6 +460,39 @@ class P286ChangeFreezeTests(unittest.TestCase):
                 runtime[:abort_start]
                 + reordered_abort
                 + runtime[abort_end:]
+            )
+        normal_start = runtime.index(
+            b"static long p286_cycle_cleanup_after_marker("
+        )
+        normal_end = runtime.index(
+            b"static long p282_exact_udc_present(",
+            normal_start,
+        )
+        normal = runtime[normal_start:normal_end]
+        marker_start = normal.index(b"    p282_progress(")
+        disarm_start = normal.index(b"    cycle->armed = 0;")
+        cleanup_start = normal.index(
+            b"    long cleanup_rc = p282_trace_cleanup("
+        )
+        reordered_normal = (
+            normal[:marker_start]
+            + normal[disarm_start:cleanup_start]
+            + normal[cleanup_start:]
+        )
+        reordered_normal = reordered_normal.replace(
+            b"    return cleanup_rc == 0",
+            normal[marker_start:disarm_start]
+            + b"    return cleanup_rc == 0",
+            1,
+        )
+        with self.assertRaisesRegex(
+            source_contract.SourceContractError,
+            "normal cleanup marker does not precede trace cleanup",
+        ):
+            source_contract._validate_runtime_authority_source(
+                runtime[:normal_start]
+                + reordered_normal
+                + runtime[normal_end:]
             )
         classifier = source["p286_classifier_include"]
         with self.assertRaisesRegex(
@@ -504,6 +586,112 @@ int main(void)
             temporary = Path(directory)
             source = temporary / "abort-fault.c"
             binary = temporary / "abort-fault"
+            source.write_text(harness, encoding="ascii")
+            compiled = subprocess.run(
+                (
+                    "aarch64-linux-gnu-gcc",
+                    "-static",
+                    "-Os",
+                    "-Wall",
+                    "-Wextra",
+                    "-Werror",
+                    str(source),
+                    "-o",
+                    str(binary),
+                ),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+            self.assertEqual(
+                compiled.returncode,
+                0,
+                compiled.stdout.decode("utf-8", errors="replace"),
+            )
+            identity = subprocess.run(
+                ("file", str(binary)),
+                check=True,
+                text=True,
+                stdout=subprocess.PIPE,
+            ).stdout
+            self.assertIn("ARM aarch64", identity)
+            process = subprocess.Popen(
+                ("qemu-aarch64", str(binary)),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+            try:
+                with self.assertRaises(subprocess.TimeoutExpired) as blocked:
+                    process.communicate(timeout=5)
+                self.assertEqual(blocked.exception.output, b"PC")
+                self.assertIsNone(process.poll())
+            finally:
+                process.kill()
+                process.communicate()
+
+    def test_normal_marker_survives_permanently_blocked_trace_cleanup(self):
+        runtime = (
+            ROOT
+            / freeze.PAYLOAD_SOURCE_PATHS["p286_e3_runtime_include"]
+        ).read_text(encoding="utf-8")
+        cleanup_start = runtime.index(
+            "static long p286_cycle_cleanup_after_marker("
+        )
+        cleanup_end = runtime.index(
+            "static long p282_exact_udc_present(",
+            cleanup_start,
+        )
+        production_cleanup = runtime[cleanup_start:cleanup_end]
+        harness = r'''
+#include <stdint.h>
+#include <unistd.h>
+
+#define P282_STAGE_RESTART 0x90U
+#define P282_DETAIL_RESTART_TRACE_CLEANUP_PENDING 0xc5cU
+#define P282_CONTROL_TRACE_CLEANUP_UNVERIFIED 9L
+
+struct p282_trace_control {
+    unsigned int marker;
+};
+
+struct p282_cycle_context {
+    struct p282_trace_control trace;
+    unsigned int armed;
+};
+
+static void p282_progress(uint8_t stage, uint16_t detail)
+{
+    if (stage != P282_STAGE_RESTART ||
+        detail != P282_DETAIL_RESTART_TRACE_CLEANUP_PENDING)
+        _exit(90);
+    if (write(STDOUT_FILENO, "P", 1) != 1)
+        _exit(91);
+}
+
+static __attribute__((noreturn)) long p282_trace_cleanup(
+    struct p282_trace_control *trace)
+{
+    (void)trace;
+    if (write(STDOUT_FILENO, "C", 1) != 1)
+        _exit(92);
+    for (;;)
+        __asm__ volatile("" ::: "memory");
+}
+
+'''
+        harness += production_cleanup
+        harness += r'''
+int main(void)
+{
+    struct p282_cycle_context cycle = {0};
+    cycle.armed = 1U;
+    (void)p286_cycle_cleanup_after_marker(&cycle);
+    return 93;
+}
+'''
+        with tempfile.TemporaryDirectory() as directory:
+            temporary = Path(directory)
+            source = temporary / "normal-cleanup-fault.c"
+            binary = temporary / "normal-cleanup-fault"
             source.write_text(harness, encoding="ascii")
             compiled = subprocess.run(
                 (
@@ -678,7 +866,7 @@ int main(void)
     def test_generated_checkpoint_and_kernel_accept_all_new_details(self):
         generated = source_contract.generate(ROOT)
         linked = source_contract.linked_table_bytes()
-        for value in range(0xC50, 0xC5C):
+        for value in range(0xC50, 0xC5D):
             checkpoint = f"0x{value:03x}U".encode("ascii")
             kernel = f"0x{value:03x}".encode("ascii")
             self.assertEqual(generated["checkpoint"].count(checkpoint), 1)
@@ -762,7 +950,7 @@ int main(void)
             "s22plus_fyg8_p286_boot_only_package_v1",
         )
 
-    def test_linked_adapter_accepts_58_detail_layout_and_restores_base(self):
+    def test_linked_adapter_accepts_59_detail_layout_and_restores_base(self):
         from tests.test_s22plus_fyg8_p282_linked_audit import (
             P282LinkedAuditTests,
         )
@@ -782,7 +970,7 @@ int main(void)
             fixture.addresses,
         )
         self.assertTrue(result["verified"])
-        self.assertEqual(result["p282_exact_c_detail_count"], 58)
+        self.assertEqual(result["p282_exact_c_detail_count"], 59)
         self.assertEqual(
             linked_audit.EXPECTED_SOURCE_CONTRACT_ID,
             source_contract.CONTRACT_ID,

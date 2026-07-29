@@ -2493,18 +2493,16 @@ static long p282_cycle_refresh(
     return 0;
 }
 
-static long p282_cycle_finish(
+static long p286_cycle_capture(
     struct p282_cycle_context *cycle,
     struct p282_cycle_trace_result *final_result) {
     *final_result = cycle->observed;
     if (!cycle->armed) {
         return 0;
     }
-    long quality = 0;
-    long finish_rc = p282_trace_finish(&cycle->trace, &quality);
-    cycle->armed = 0;
-    if (finish_rc != 0) {
-        return P282_CONTROL_TRACE_CLEANUP_UNVERIFIED;
+    long quality = p282_trace_disable(&cycle->trace);
+    if (quality == 0) {
+        quality = p282_trace_read_snapshot(&cycle->trace, 1);
     }
     if (quality != 0) {
         p282_set_cycle_warning(
@@ -2518,6 +2516,21 @@ static long p282_cycle_finish(
     return parse_rc == 0
         ? 0
         : P282_CONTROL_TRACE_SOURCE_CONTRADICTION;
+}
+
+static long p286_cycle_cleanup_after_marker(
+    struct p282_cycle_context *cycle) {
+    p282_progress(
+        P282_STAGE_RESTART,
+        P282_DETAIL_RESTART_TRACE_CLEANUP_PENDING);
+    if (!cycle->armed) {
+        return 0;
+    }
+    cycle->armed = 0;
+    long cleanup_rc = p282_trace_cleanup(&cycle->trace);
+    return cleanup_rc == 0
+        ? 0
+        : P282_CONTROL_TRACE_CLEANUP_UNVERIFIED;
 }
 
 static long p282_exact_udc_present(void) {
@@ -2811,28 +2824,15 @@ static unsigned int p282_cycle_restart(
     }
 
     struct p282_cycle_trace_result final_result = cycle->observed;
-    long finish_rc = p282_cycle_finish(cycle, &final_result);
-    if (finish_rc == P282_CONTROL_TRACE_CLEANUP_UNVERIFIED) {
-        struct p282_classification classification = {0};
-        int classified = p282_control_classification(
+    long capture_rc = p286_cycle_capture(cycle, &final_result);
+    if (capture_rc == P282_CONTROL_TRACE_SOURCE_CONTRADICTION) {
+        p282_cycle_abort_condition(
+            cycle,
             P282_STAGE_RESTART,
-            (unsigned int)finish_rc,
-            &classification);
-        if (classified > 0) {
-            p282_fail_classification(&classification);
-        }
-        quiet_park();
+            (unsigned int)capture_rc);
     }
-    if (finish_rc == P282_CONTROL_TRACE_SOURCE_CONTRADICTION) {
-        struct p282_classification classification = {0};
-        int classified = p282_control_classification(
-            P282_STAGE_RESTART,
-            (unsigned int)finish_rc,
-            &classification);
-        if (classified > 0) {
-            p282_fail_classification(&classification);
-        }
-        quiet_park();
+    if (capture_rc != 0) {
+        p282_cycle_abort(cycle, P282_STAGE_RESTART, capture_rc);
     }
     cycle->observed = final_result;
 
@@ -2901,21 +2901,24 @@ static unsigned int p282_cycle_restart(
             : P282_REPAIR_SOFTWARE_REINIT;
     }
     if (classified < 0) {
-        struct p282_classification contradiction = {0};
-        int contradiction_rc = p282_control_classification(
+        p282_cycle_abort_condition(
+            cycle,
             P282_STAGE_RESTART,
-            P282_CONTROL_TRACE_SOURCE_CONTRADICTION,
-            &contradiction);
-        if (contradiction_rc > 0) {
-            p282_fail_classification(&contradiction);
-        }
+            P282_CONTROL_TRACE_SOURCE_CONTRADICTION);
+    }
+    if (
+        classified > 0
+        && classification.outcome == P282_OUTCOME_FAILURE
+    ) {
+        p282_cycle_abort(
+            cycle,
+            P282_STAGE_RESTART,
+            (long)classification.detail);
+    }
+    long cleanup_rc = p286_cycle_cleanup_after_marker(cycle);
+    if (cleanup_rc != 0) {
         quiet_park();
     }
-    p282_publish_classification(
-        P282_STAGE_RESTART,
-        classified,
-        &classification,
-        p282_cycle_warning_detail(cycle, P282_STAGE_RESTART));
     return repair_class;
 }
 

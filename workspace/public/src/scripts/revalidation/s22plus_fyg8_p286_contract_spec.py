@@ -116,6 +116,12 @@ def _p286_details():
             OUTCOME_FAILURE,  # noqa: F405
             (RESTART_STAGE,),  # noqa: F405
         ),
+        (
+            "restart-trace-cleanup-pending",
+            "trace-cleanup-boundary",
+            OUTCOME_PROGRESS,  # noqa: F405
+            (RESTART_STAGE,),  # noqa: F405
+        ),
     )
     return tuple(
         p284.DiagnosticDetail(
@@ -159,6 +165,10 @@ RUNTIME_AUTHORITY_ITEMS = (
         "userspace_terminal_checkpoint_order",
         "exact-terminal-failure-before-best-effort-trace-cleanup",
     ),
+    (
+        "userspace_restart_cleanup_checkpoint",
+        "restart-classified-progress-before-kprobe-unregister-cleanup",
+    ),
 )
 RUNTIME_AUTHORITY = dict(RUNTIME_AUTHORITY_ITEMS)
 
@@ -182,7 +192,9 @@ RUNTIME_OPERATION_TOKENS = (
             count,
         )
         for name, token, count in p284.RUNTIME_OPERATION_TOKENS
+        if name != "cycle-trace-cleanup"
     ),
+    ("cycle-trace-cleanup", "p282_trace_cleanup(", 3),
     (
         "parent-runtime-suspended-wait",
         "p282_wait_exact_value(\n"
@@ -223,6 +235,13 @@ RUNTIME_OPERATION_TOKENS = (
         1,
     ),
     ("legacy-cleanup-before-terminal-publish", "fail_at(stage, 0U, detail);", 0),
+    (
+        "restart-cleanup-pending-progress",
+        "p282_progress(\n"
+        "        P282_STAGE_RESTART,\n"
+        "        P282_DETAIL_RESTART_TRACE_CLEANUP_PENDING);",
+        1,
+    ),
 )
 
 
@@ -309,7 +328,7 @@ def render_classifier_contract_c() -> str:
 def validate() -> None:
     p284.validate()
     if tuple(detail.value for detail in P286_DIAGNOSTIC_DETAILS) != tuple(
-        range(0xC50, 0xC5C)
+        range(0xC50, 0xC5D)
     ):
         raise SpecError("P2.86 diagnostic detail domain drifted")  # noqa: F405
     if len(DETAIL_BY_VALUE) != len(DIAGNOSTIC_DETAILS):

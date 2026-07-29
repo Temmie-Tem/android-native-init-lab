@@ -100,7 +100,9 @@ The candidate requirements are frozen:
 1. wait for exact parent suspended on the existing stop deadline;
 2. fix the final timeout class before kill/reap, use `WNOHANG` plus an
    auxiliary reap deadline, classify an unreaped child, and publish the exact
-   terminal checkpoint before potentially blocking trace cleanup;
+   terminal checkpoint before potentially blocking trace cleanup; on the
+   normal restart path publish one cleanup-pending progress marker after final
+   trace capture/classification and before kprobe unregister/RCU cleanup;
 3. attach outer entry/return probes to actual `dwc3_otg_sm_work`;
 4. distinguish helper dispatch and completion;
 5. distinguish flush timeout, completed write, start-peripheral entry without
@@ -182,6 +184,10 @@ The runtime now:
 - publishes each exact terminal failure once before best-effort trace cleanup,
   so kretprobe unregister/RCU/tracefs cleanup cannot suppress or replace the
   original stage/detail;
+- splits normal cycle finalization into capture/classification and cleanup,
+  then publishes one `restart-trace-cleanup-pending` progress detail before
+  kprobe unregister/RCU cleanup; at that boundary the two retained slots are
+  the prior `0x8f` result and this `0x90` marker;
 - records actual `dwc3_otg_sm_work` entry/return separately from the renamed
   `dwc3_otg_start_peripheral` entry/return pair;
 - snapshots residual outer work before PERIPHERAL dispatch so a pre-existing
@@ -192,8 +198,8 @@ The runtime now:
 
 The source contract resolves exactly `60 + 10 = 70` keys. The selector and all
 other pure verifier/evidence support remain outside identity. Generated
-checkpoint and kernel validators accept the twelve new exact details
-`0xc50..0xc5b`; the linked adapter uses a 58-entry four-byte detail table. The
+checkpoint and kernel validators accept the thirteen new exact details
+`0xc50..0xc5c`; the linked adapter uses a 59-entry four-byte detail table. The
 freeze gate also reopens run `023060c8dd0ab036f8547a816624356f` and verifies
 all inherited P2.84 source receipts `60/60` with zero changed keys.
 
