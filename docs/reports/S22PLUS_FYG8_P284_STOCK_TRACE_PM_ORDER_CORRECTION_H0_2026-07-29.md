@@ -235,9 +235,9 @@ Full-LTO, packaging, D0, approval, and F1 remain later, separate steps.
   and `restore-out < outer5-in` pass;
 - the frozen P2.84 source receipts match the intent `60/60`;
 - all 40 focused P2.84 contract, pre-LTO, D1-spec, and attachment-name tests,
-  seven P2.86 freeze tests, and eight active-contract tests pass;
-- `AGENTS.md` is 217 lines and the archived 899-line goal payload is preserved
-  byte-for-byte while active `GOAL.md` is reduced to 189 lines; and
+  ten P2.86 freeze tests, and eight active-contract tests pass;
+- `AGENTS.md` is 220 lines and the archived 899-line goal payload is preserved
+  byte-for-byte while active `GOAL.md` is 210 lines; and
 - `git diff --check` passes.
 
 ## Superseded claims

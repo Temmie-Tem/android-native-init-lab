@@ -60,11 +60,14 @@ Do not add a device step when host-only work can answer the question.
   P2.84 lacks the parent path and failure semantic, so this is not an in-place
   one-line patch. Also repair the generic blocking-`wait4` helper deadline and
   fault-test it. No new stock D1 is required before that H0 implementation.
-- P2.86 change closure is frozen before intent: 60 P2.84 SOURCE_KEYS are
-  inherited byte-for-byte, and 20 new versioned overlays must contain every
-  successor mutation. The four D1-runner corrections are confined to one
-  private v3 output root and mechanically disjoint. Intent and build remain
-  forbidden until all frozen overlays exist and the pre-intent gate passes.
+- P2.86 Stage A change closure is frozen before intent: 60 P2.84 SOURCE_KEYS
+  are inherited byte-for-byte and only 11 byte-affecting overlays join them
+  (`71` total). Nine verifier/evidence support files stay outside SOURCE_KEYS
+  and are later bound by `bundle.sha256`. Git-derived tracked changes since
+  the frozen base must equal their declaration in both directions. Four D1
+  repairs remain private and disjoint. Intent/build stay forbidden until all
+  frozen files exist and the pre-intent gate passes. P2.64 Stage C is deferred
+  until after P2.86.
 - Do not repeat P2.82, replay or rebuild P2.84, or seek live authority during
   this H0 unit. `persist.adb.tcp.port` remains forbidden.
 - Every new S22+ USB trace contract must pass the attachment-name gate with

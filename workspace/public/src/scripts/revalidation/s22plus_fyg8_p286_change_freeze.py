@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 from pathlib import Path, PurePosixPath
 from types import MappingProxyType
 from typing import Any
@@ -17,31 +18,22 @@ import s22plus_fyg8_p282_source_contract as p282
 import s22plus_fyg8_p284_source_contract as p284
 
 
-SCHEMA = "s22plus_fyg8_p286_change_closure_freeze_v1"
+SCHEMA = "s22plus_fyg8_p286_change_closure_freeze_v2"
 VERDICT = "PASS_P286_PRE_INTENT_CHANGE_CLOSURE_FROZEN_HOST_ONLY"
 PROFILE = p284.PROFILE
 INHERITED_CONTRACT_ID = p284.CONTRACT_ID
 PLANNED_CONTRACT_ID = "s22plus-fyg8-p286-parent-tail-bounded-restart-v1"
+CHANGE_WINDOW_BASE_COMMIT = "7929e9f7d7fea1eb99ab43dcd841c5a9c3b6ef94"
 INTENT_DERIVED = False
 BUILD_EXECUTED = False
 DEVICE_CONTACT = False
 LIVE_AUTHORIZED = False
 
-# Every file created or changed for the successor candidate must be one of
-# these new versioned overlays and must become a SOURCE_KEY before intent
-# derivation.  Existing P2.84 direct sources are inherited byte-for-byte and
-# are forbidden mutation targets.
-PLANNED_OVERLAY_SOURCE_PATHS = MappingProxyType(
+# These overlays can affect candidate boot.img bytes and therefore must become
+# SOURCE_KEY inputs before intent derivation. Existing P2.84 direct sources are
+# inherited byte-for-byte and are forbidden mutation targets.
+PAYLOAD_SOURCE_PATHS = MappingProxyType(
     {
-        "p286_change_freeze": Path(
-            "workspace/public/src/scripts/revalidation/"
-            "s22plus_fyg8_p286_change_freeze.py"
-        ),
-        "p286_freeze_report": Path(
-            "docs/reports/"
-            "S22PLUS_FYG8_P286_SUCCESSOR_CHANGE_CLOSURE_FREEZE_H0_"
-            "2026-07-29.md"
-        ),
         "p286_contract_spec": Path(
             "workspace/public/src/scripts/revalidation/"
             "s22plus_fyg8_p286_contract_spec.py"
@@ -58,17 +50,9 @@ PLANNED_OVERLAY_SOURCE_PATHS = MappingProxyType(
             "workspace/public/src/scripts/revalidation/"
             "s22plus_fyg8_p286_candidate_intent.py"
         ),
-        "p286_candidate_contract": Path(
-            "workspace/public/src/scripts/revalidation/"
-            "s22plus_fyg8_p286_candidate_contract.py"
-        ),
         "p286_build": Path(
             "workspace/public/src/scripts/revalidation/"
             "s22plus_fyg8_p286_build.py"
-        ),
-        "p286_build_repro_check": Path(
-            "workspace/public/src/scripts/revalidation/"
-            "s22plus_fyg8_p286_build_repro_check.py"
         ),
         "p286_candidate_builder": Path(
             "workspace/public/src/scripts/revalidation/"
@@ -81,6 +65,43 @@ PLANNED_OVERLAY_SOURCE_PATHS = MappingProxyType(
         "p286_boot_only_packager": Path(
             "workspace/public/src/scripts/revalidation/"
             "s22plus_fyg8_p286_boot_only_packager.py"
+        ),
+        "p286_trace_contract": Path(
+            "workspace/public/src/scripts/revalidation/"
+            "s22plus_fyg8_p286_trace_contract.py"
+        ),
+        "p286_e3_runtime_include": Path(
+            "workspace/public/src/native-init/"
+            "s22plus_fyg8_p286_e3_runtime.inc.c"
+        ),
+        "p286_classifier_include": Path(
+            "workspace/public/src/native-init/"
+            "s22plus_fyg8_p286_classifier.inc.c"
+        ),
+    }
+)
+
+# These files verify or document the candidate but cannot alter boot.img
+# bytes. They remain outside SOURCE_KEYS and are bound by bundle.sha256 before
+# approval, matching the existing retirement-guard separation.
+NON_IDENTITY_SUPPORT_PATHS = MappingProxyType(
+    {
+        "p286_change_freeze": Path(
+            "workspace/public/src/scripts/revalidation/"
+            "s22plus_fyg8_p286_change_freeze.py"
+        ),
+        "p286_freeze_report": Path(
+            "docs/reports/"
+            "S22PLUS_FYG8_P286_SUCCESSOR_CHANGE_CLOSURE_FREEZE_H0_"
+            "2026-07-29.md"
+        ),
+        "p286_candidate_contract": Path(
+            "workspace/public/src/scripts/revalidation/"
+            "s22plus_fyg8_p286_candidate_contract.py"
+        ),
+        "p286_build_repro_check": Path(
+            "workspace/public/src/scripts/revalidation/"
+            "s22plus_fyg8_p286_build_repro_check.py"
         ),
         "p286_candidate_static_checker": Path(
             "workspace/public/src/scripts/revalidation/"
@@ -102,19 +123,30 @@ PLANNED_OVERLAY_SOURCE_PATHS = MappingProxyType(
             "workspace/public/src/scripts/revalidation/"
             "s22plus_fyg8_p286_e1_decoder.py"
         ),
-        "p286_trace_contract": Path(
-            "workspace/public/src/scripts/revalidation/"
-            "s22plus_fyg8_p286_trace_contract.py"
-        ),
-        "p286_e3_runtime_include": Path(
-            "workspace/public/src/native-init/"
-            "s22plus_fyg8_p286_e3_runtime.inc.c"
-        ),
-        "p286_classifier_include": Path(
-            "workspace/public/src/native-init/"
-            "s22plus_fyg8_p286_classifier.inc.c"
-        ),
     }
+)
+
+STAGE_A_GOVERNANCE_PATHS = frozenset(
+    {
+        Path("AGENTS.md"),
+        Path("GOAL.md"),
+        Path(
+            "docs/reports/"
+            "S22PLUS_FYG8_P284_STOCK_TRACE_PM_ORDER_CORRECTION_H0_"
+            "2026-07-29.md"
+        ),
+        Path("tests/test_s22plus_fyg8_p286_change_freeze.py"),
+    }
+)
+STAGE_A_DECLARED_CHANGED_PATHS = tuple(
+    sorted(
+        path.as_posix()
+        for path in (
+            *STAGE_A_GOVERNANCE_PATHS,
+            NON_IDENTITY_SUPPORT_PATHS["p286_change_freeze"],
+            NON_IDENTITY_SUPPORT_PATHS["p286_freeze_report"],
+        )
+    )
 )
 
 CANDIDATE_CHANGE_REQUIREMENTS = (
@@ -147,8 +179,8 @@ CANDIDATE_CHANGE_REQUIREMENTS = (
     ),
     (
         "identity-closure-enforcement",
-        "bind every candidate implementation, verifier, decoder, builder, "
-        "packager, static checker, and freeze document before intent",
+        "bind every payload-determining implementation/build input in the "
+        "source preimage and bind verifier/evidence support in bundle.sha256",
     ),
 )
 
@@ -187,7 +219,7 @@ GENERATED_SOURCE_KEYS = frozenset(
     (*p282.GENERATED_KEYS, "trace_descriptor_header")
 )
 PLANNED_SOURCE_KEYS = frozenset(
-    (*p284.SOURCE_KEYS, *PLANNED_OVERLAY_SOURCE_PATHS)
+    (*p284.SOURCE_KEYS, *PAYLOAD_SOURCE_PATHS)
 )
 
 
@@ -220,9 +252,9 @@ def inherited_direct_source_paths() -> dict[str, Path]:
 
 def planned_direct_source_paths() -> dict[str, Path]:
     paths = inherited_direct_source_paths()
-    if set(paths) & set(PLANNED_OVERLAY_SOURCE_PATHS):
-        raise FreezeError("planned overlay SOURCE_KEY collides with P2.84")
-    paths.update(PLANNED_OVERLAY_SOURCE_PATHS)
+    if set(paths) & set(PAYLOAD_SOURCE_PATHS):
+        raise FreezeError("planned payload SOURCE_KEY collides with P2.84")
+    paths.update(PAYLOAD_SOURCE_PATHS)
     expected = PLANNED_SOURCE_KEYS - GENERATED_SOURCE_KEYS
     if set(paths) != expected:
         raise FreezeError("planned direct SOURCE_KEY path inventory drifted")
@@ -242,50 +274,139 @@ def source_key_rows() -> tuple[dict[str, str], ...]:
     return tuple(rows)
 
 
-def missing_planned_overlays(root: Path) -> tuple[str, ...]:
+def _missing_paths(root: Path, paths: tuple[Path, ...]) -> tuple[str, ...]:
     return tuple(
         path.as_posix()
-        for path in PLANNED_OVERLAY_SOURCE_PATHS.values()
+        for path in paths
         if not (root / path).is_file()
     )
 
 
-def validate_declared_mutations(
-    *,
-    candidate_paths: tuple[str, ...] = (),
-    d1_paths: tuple[str, ...] = (),
-) -> dict[str, tuple[str, ...]]:
-    allowed_candidate = {
-        _pure(path) for path in PLANNED_OVERLAY_SOURCE_PATHS.values()
+def missing_payload_paths(root: Path) -> tuple[str, ...]:
+    return _missing_paths(root, tuple(PAYLOAD_SOURCE_PATHS.values()))
+
+
+def missing_support_paths(root: Path) -> tuple[str, ...]:
+    return _missing_paths(root, tuple(NON_IDENTITY_SUPPORT_PATHS.values()))
+
+
+def _run_git(root: Path, *args: str) -> bytes:
+    try:
+        completed = subprocess.run(
+            ("git", *args),
+            cwd=root,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except OSError as exc:
+        raise FreezeError(f"git invocation failed: {exc}") from exc
+    if completed.returncode != 0:
+        stderr = completed.stderr.decode("utf-8", errors="replace").strip()
+        raise FreezeError(
+            f"git {' '.join(args)} failed ({completed.returncode}): {stderr}"
+        )
+    return completed.stdout
+
+
+def _decode_git_path(value: bytes) -> str:
+    return value.decode("utf-8", errors="surrogateescape")
+
+
+def _porcelain_paths(output: bytes) -> set[str]:
+    fields = output.split(b"\0")
+    paths: set[str] = set()
+    index = 0
+    while index < len(fields):
+        record = fields[index]
+        index += 1
+        if not record:
+            continue
+        if len(record) < 4 or record[2:3] != b" ":
+            raise FreezeError("unexpected git status --porcelain=v1 -z record")
+        status = record[:2]
+        paths.add(_decode_git_path(record[3:]))
+        if b"R" in status or b"C" in status:
+            if index >= len(fields) or not fields[index]:
+                raise FreezeError("truncated git rename/copy status record")
+            paths.add(_decode_git_path(fields[index]))
+            index += 1
+    return paths
+
+
+def git_derived_changed_paths(
+    root: Path,
+    base_commit: str,
+) -> tuple[str, ...]:
+    root = root.resolve()
+    top = Path(
+        _decode_git_path(
+            _run_git(root, "rev-parse", "--show-toplevel")
+        ).strip()
+    ).resolve()
+    if top != root:
+        raise FreezeError(f"repo root mismatch: expected {root}, git reports {top}")
+    _run_git(root, "rev-parse", "--verify", f"{base_commit}^{{commit}}")
+    _run_git(root, "merge-base", "--is-ancestor", base_commit, "HEAD")
+    committed = {
+        _decode_git_path(path)
+        for path in _run_git(
+            root,
+            "diff",
+            "--name-only",
+            "-z",
+            f"{base_commit}..HEAD",
+            "--",
+        ).split(b"\0")
+        if path
     }
-    allowed_d1 = {_pure(path) for path in D1_PRIVATE_MUTATION_PATHS}
-    actual_candidate = {_pure(PurePosixPath(path)) for path in candidate_paths}
-    actual_d1 = {_pure(PurePosixPath(path)) for path in d1_paths}
-    unexpected_candidate = actual_candidate - allowed_candidate
-    unexpected_d1 = actual_d1 - allowed_d1
-    if unexpected_candidate:
-        raise FreezeError(
-            "candidate mutation is outside frozen overlays: "
-            f"{sorted(path.as_posix() for path in unexpected_candidate)}"
+    worktree = _porcelain_paths(
+        _run_git(
+            root,
+            "status",
+            "--porcelain=v1",
+            "-z",
+            "--untracked-files=all",
         )
-    if unexpected_d1:
-        raise FreezeError(
-            "D1 mutation is outside frozen private files: "
-            f"{sorted(path.as_posix() for path in unexpected_d1)}"
-        )
-    overlaps = tuple(
-        (candidate.as_posix(), d1.as_posix())
-        for candidate in actual_candidate
-        for d1 in actual_d1
-        if _overlap(candidate, d1)
     )
-    if overlaps:
-        raise FreezeError(f"declared candidate/D1 mutation overlap: {overlaps}")
+    return tuple(sorted(committed | worktree))
+
+
+def validate_declared_change_set(
+    *,
+    derived_paths: tuple[str, ...],
+    declared_paths: tuple[str, ...],
+) -> dict[str, tuple[str, ...]]:
+    derived = {_pure(PurePosixPath(path)) for path in derived_paths}
+    declared = {_pure(PurePosixPath(path)) for path in declared_paths}
+    missing_declarations = derived - declared
+    overdeclared = declared - derived
+    if missing_declarations or overdeclared:
+        raise FreezeError(
+            "declared/Git-derived change set mismatch: "
+            "missing_declarations="
+            f"{sorted(path.as_posix() for path in missing_declarations)}; "
+            "overdeclared="
+            f"{sorted(path.as_posix() for path in overdeclared)}"
+        )
+    allowed = {
+        _pure(path)
+        for path in (
+            *PAYLOAD_SOURCE_PATHS.values(),
+            *NON_IDENTITY_SUPPORT_PATHS.values(),
+            *STAGE_A_GOVERNANCE_PATHS,
+        )
+    }
+    unexpected = derived - allowed
+    if unexpected:
+        raise FreezeError(
+            "Git-derived change is outside the frozen change window: "
+            f"{sorted(path.as_posix() for path in unexpected)}"
+        )
+    exact = tuple(sorted(path.as_posix() for path in derived))
     return {
-        "candidate_paths": tuple(
-            sorted(path.as_posix() for path in actual_candidate)
-        ),
-        "d1_paths": tuple(sorted(path.as_posix() for path in actual_d1)),
+        "git_derived_paths": exact,
+        "declared_paths": exact,
     }
 
 
@@ -296,21 +417,37 @@ def validate_freeze(root: Path) -> dict[str, Any]:
     planned = planned_direct_source_paths()
     if len(GENERATED_SOURCE_KEYS) != 5 or len(inherited) != 55:
         raise FreezeError("P2.84 generated/direct partition drifted")
-    if len(PLANNED_OVERLAY_SOURCE_PATHS) != 20:
-        raise FreezeError("planned overlay count drifted")
-    if len(PLANNED_SOURCE_KEYS) != 80 or len(planned) != 75:
+    if len(PAYLOAD_SOURCE_PATHS) != 11:
+        raise FreezeError("planned payload-source count drifted")
+    if len(NON_IDENTITY_SUPPORT_PATHS) != 9:
+        raise FreezeError("non-identity support count drifted")
+    if len(PLANNED_SOURCE_KEYS) != 71 or len(planned) != 66:
         raise FreezeError("planned SOURCE_KEY count drifted")
 
     inherited_paths = {_pure(path) for path in inherited.values()}
-    mutation_paths = {
-        _pure(path) for path in PLANNED_OVERLAY_SOURCE_PATHS.values()
+    payload_paths = {
+        _pure(path) for path in PAYLOAD_SOURCE_PATHS.values()
     }
-    if inherited_paths & mutation_paths:
+    support_paths = {
+        _pure(path) for path in NON_IDENTITY_SUPPORT_PATHS.values()
+    }
+    if len(payload_paths) != len(PAYLOAD_SOURCE_PATHS):
+        raise FreezeError("payload SOURCE_KEY paths are not unique")
+    if len(support_paths) != len(NON_IDENTITY_SUPPORT_PATHS):
+        raise FreezeError("non-identity support paths are not unique")
+    if inherited_paths & payload_paths:
         raise FreezeError("successor would mutate an inherited P2.84 source")
+    if support_paths & {_pure(path) for path in planned.values()}:
+        raise FreezeError("non-identity support leaked into SOURCE_KEYS")
+    if payload_paths & support_paths:
+        raise FreezeError("payload/support path partition overlaps")
 
     d1_paths = tuple(_pure(path) for path in D1_PRIVATE_MUTATION_PATHS)
     private_root = _pure(D1_PRIVATE_ROOT)
-    if any(path.parts[: len(private_root.parts)] != private_root.parts for path in d1_paths):
+    if any(
+        path.parts[: len(private_root.parts)] != private_root.parts
+        for path in d1_paths
+    ):
         raise FreezeError("D1 mutation escaped its frozen private root")
 
     candidate_paths = tuple(_pure(path) for path in planned.values())
@@ -323,7 +460,9 @@ def validate_freeze(root: Path) -> dict[str, Any]:
     if overlaps:
         raise FreezeError(f"candidate/D1 path overlap: {overlaps}")
 
-    missing = missing_planned_overlays(root)
+    missing_payload = missing_payload_paths(root)
+    missing_support = missing_support_paths(root)
+    missing = tuple(sorted((*missing_payload, *missing_support)))
     return {
         "schema": SCHEMA,
         "verdict": VERDICT,
@@ -342,19 +481,26 @@ def validate_freeze(root: Path) -> dict[str, Any]:
             "inherited": len(p284.SOURCE_KEYS),
             "inherited_direct": len(inherited),
             "generated": len(GENERATED_SOURCE_KEYS),
-            "planned_overlay": len(PLANNED_OVERLAY_SOURCE_PATHS),
+            "planned_payload": len(PAYLOAD_SOURCE_PATHS),
             "planned_total": len(PLANNED_SOURCE_KEYS),
+            "bundle_bound_support": len(NON_IDENTITY_SUPPORT_PATHS),
         },
         "source_keys": list(source_key_rows()),
-        "candidate_mutation_paths": sorted(
+        "payload_source_paths": sorted(
             path.as_posix()
-            for path in PLANNED_OVERLAY_SOURCE_PATHS.values()
+            for path in PAYLOAD_SOURCE_PATHS.values()
+        ),
+        "bundle_bound_support_paths": sorted(
+            path.as_posix()
+            for path in NON_IDENTITY_SUPPORT_PATHS.values()
         ),
         "d1_private_mutation_paths": [
             path.as_posix() for path in D1_PRIVATE_MUTATION_PATHS
         ],
         "candidate_d1_overlap_count": 0,
-        "missing_planned_overlay_paths": list(missing),
+        "missing_payload_source_paths": list(missing_payload),
+        "missing_bundle_bound_support_paths": list(missing_support),
+        "missing_planned_paths": list(missing),
         "pre_intent_ready": not missing,
         "intent_derived": INTENT_DERIVED,
         "build_executed": BUILD_EXECUTED,
@@ -371,28 +517,29 @@ def main() -> int:
         default=Path(__file__).resolve().parents[5],
     )
     parser.add_argument(
+        "--base-commit",
+        default=CHANGE_WINDOW_BASE_COMMIT,
+        help="reviewed commit preceding the current pre-intent change window",
+    )
+    parser.add_argument(
         "--require-pre-intent-ready",
         action="store_true",
         help="fail until every frozen successor overlay exists",
     )
-    parser.add_argument(
-        "--candidate-changed-path",
-        action="append",
-        default=[],
-        help="assert one actual candidate mutation is in the frozen overlays",
-    )
-    parser.add_argument(
-        "--d1-changed-path",
-        action="append",
-        default=[],
-        help="assert one actual D1 mutation is in the frozen private file set",
-    )
     args = parser.parse_args()
-    validate_declared_mutations(
-        candidate_paths=tuple(args.candidate_changed_path),
-        d1_paths=tuple(args.d1_changed_path),
+    derived_paths = git_derived_changed_paths(
+        args.repo_root,
+        args.base_commit,
+    )
+    change_window = validate_declared_change_set(
+        derived_paths=derived_paths,
+        declared_paths=STAGE_A_DECLARED_CHANGED_PATHS,
     )
     result = validate_freeze(args.repo_root.resolve())
+    result["change_window"] = {
+        "base_commit": args.base_commit,
+        **change_window,
+    }
     print(json.dumps(result, indent=2, sort_keys=True))
     if args.require_pre_intent_ready and not result["pre_intent_ready"]:
         return 1
