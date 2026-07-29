@@ -19,6 +19,8 @@ import s22plus_fyg8_p286_candidate_contract as candidate_contract
 import s22plus_fyg8_p286_contract_spec as spec
 import s22plus_fyg8_p286_e2_stock_closure as closure
 import s22plus_fyg8_p286_source_contract as p286
+import s22plus_fyg8_p286_trace_contract as trace_contract
+import s22plus_fyg8_p286_userspace_build as userspace
 
 
 SCHEMA = "s22plus_fyg8_p286_pre_lto_qualification_v1"
@@ -62,12 +64,56 @@ GATE_IMPLEMENTATION_SOURCES = {
     "p286_linked_audit": (
         base.SCRIPT_DIR / "s22plus_fyg8_p286_linked_audit.py"
     ),
+    "p286_candidate_builder": (
+        base.SCRIPT_DIR / "build_s22plus_fyg8_p286_candidate.py"
+    ),
+    "p286_userspace_builder": (
+        base.SCRIPT_DIR / "s22plus_fyg8_p286_userspace_build.py"
+    ),
+    "p286_trace_contract": (
+        base.SCRIPT_DIR / "s22plus_fyg8_p286_trace_contract.py"
+    ),
+    "p286_decoder": (
+        base.SCRIPT_DIR / "s22plus_fyg8_p286_e1_decoder.py"
+    ),
     "p284_sysfs_ingestion_oracle": (
         base.SCRIPT_DIR / "s22plus_fyg8_p284_sysfs_ingestion_oracle.py"
     ),
 }
 
 QualificationError = base.QualificationError
+BASE_MODULE_TRACE_SCHEMA = "s22plus_fyg8_p282_module_trace_contract_v1"
+P286_MODULE_TRACE_SCHEMA = "s22plus_fyg8_p286_module_trace_contract_v1"
+
+
+class _BaseTraceContractAdapter:
+    delegate = trace_contract
+
+    @staticmethod
+    def derive_module_contract(**kwargs: Any) -> dict[str, Any]:
+        result = dict(trace_contract.derive_module_contract(**kwargs))
+        if result.get("schema") != P286_MODULE_TRACE_SCHEMA:
+            raise QualificationError(
+                "P2.86 module trace contract schema drifted"
+            )
+        result["schema"] = BASE_MODULE_TRACE_SCHEMA
+        return result
+
+
+BASE_TRACE_CONTRACT = _BaseTraceContractAdapter()
+
+
+def _normalize_module_trace(value: Any) -> dict[str, Any]:
+    if (
+        not isinstance(value, dict)
+        or value.get("schema") != BASE_MODULE_TRACE_SCHEMA
+    ):
+        raise QualificationError(
+            "P2.86 base module trace adaptation is invalid"
+        )
+    result = dict(value)
+    result["schema"] = P286_MODULE_TRACE_SCHEMA
+    return result
 
 
 @contextmanager
@@ -78,6 +124,8 @@ def _base_context() -> Iterator[None]:
         "closure": closure,
         "candidate_contract": candidate_contract,
         "candidate_builder": candidate_builder,
+        "userspace": userspace,
+        "trace_contract": BASE_TRACE_CONTRACT,
         "SCHEMA": SCHEMA,
         "VERDICT": VERDICT,
         "FOCUSED_TESTS": FOCUSED_TESTS,
@@ -414,6 +462,9 @@ def create(
     payload.pop("payload_sha256")
     payload["evidence"] = {
         **payload["evidence"],
+        "module_trace": _normalize_module_trace(
+            payload["evidence"].get("module_trace")
+        ),
         "sysfs_ingestion": base._portable_repo_paths(
             root, _verify_ingestion_oracle(ingestion_result)
         ),
@@ -435,6 +486,9 @@ def _current_evidence(
     ingestion_stored = base_stored.pop("sysfs_ingestion", None)
     with _base_context():
         current = base._current_evidence(exact_contract, base_stored)
+    current["module_trace"] = _normalize_module_trace(
+        current.get("module_trace")
+    )
     current["sysfs_ingestion"] = _verify_ingestion_oracle(
         base._stored_result_path(
             candidate_contract.intent.repo_root(),
@@ -614,6 +668,7 @@ def main(argv: list[str] | None = None) -> int:
         candidate_contract.ContractError,
         candidate_contract.intent.IntentError,
         p286.SourceContractError,
+        trace_contract.TraceContractError,
         closure.ClosureError,
         OSError,
         subprocess.TimeoutExpired,

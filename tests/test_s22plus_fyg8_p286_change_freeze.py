@@ -25,6 +25,7 @@ import s22plus_fyg8_p286_pre_lto_qualification as qualification  # noqa: E402
 import s22plus_fyg8_p286_source_contract as source_contract  # noqa: E402
 import s22plus_fyg8_p286_source_contracts as selectors  # noqa: E402
 import s22plus_fyg8_p286_trace_contract as trace_contract  # noqa: E402
+import s22plus_fyg8_p286_userspace_build as userspace_build  # noqa: E402
 
 
 class P286ChangeFreezeTests(unittest.TestCase):
@@ -933,6 +934,31 @@ int main(void)
             contract_id,
         )
         self.assertEqual(
+            {
+                key: path.name
+                for key, path in
+                qualification.GATE_IMPLEMENTATION_SOURCES.items()
+                if key.startswith("p286_")
+            },
+            {
+                "p286_candidate_builder":
+                    "build_s22plus_fyg8_p286_candidate.py",
+                "p286_contract_spec":
+                    "s22plus_fyg8_p286_contract_spec.py",
+                "p286_decoder": "s22plus_fyg8_p286_e1_decoder.py",
+                "p286_linked_audit":
+                    "s22plus_fyg8_p286_linked_audit.py",
+                "p286_qualification":
+                    "s22plus_fyg8_p286_pre_lto_qualification.py",
+                "p286_source_contract":
+                    "s22plus_fyg8_p286_source_contract.py",
+                "p286_trace_contract":
+                    "s22plus_fyg8_p286_trace_contract.py",
+                "p286_userspace_builder":
+                    "s22plus_fyg8_p286_userspace_build.py",
+            },
+        )
+        self.assertEqual(
             static_checker.p286_closure.source_contract.CONTRACT_ID,
             contract_id,
         )
@@ -940,10 +966,24 @@ int main(void)
             {"profile": "E2", "source_contract_id": contract_id}
         )
         previous_builder = qualification.base.candidate_builder
+        previous_userspace = qualification.base.userspace
+        previous_trace = qualification.base.trace_contract
         with qualification._base_context():
             self.assertIs(
                 qualification.base.candidate_builder,
                 candidate_builder,
+            )
+            self.assertIs(
+                qualification.base.userspace,
+                userspace_build,
+            )
+            self.assertIs(
+                qualification.base.trace_contract,
+                qualification.BASE_TRACE_CONTRACT,
+            )
+            self.assertIs(
+                qualification.BASE_TRACE_CONTRACT.delegate,
+                trace_contract,
             )
             self.assertEqual(
                 qualification.base._expected_safety(
@@ -954,6 +994,54 @@ int main(void)
         self.assertIs(
             qualification.base.candidate_builder,
             previous_builder,
+        )
+        self.assertIs(qualification.base.userspace, previous_userspace)
+        self.assertIs(qualification.base.trace_contract, previous_trace)
+        p286_closure = static_checker.p286_closure
+        self.assertEqual(
+            p286_closure.REQUIRED_ABSOLUTE_PATH_STRINGS
+            - p286_closure.p282.REQUIRED_ABSOLUTE_PATH_STRINGS,
+            {spec.PARENT_RUNTIME_STATUS_PATH},
+        )
+        self.assertEqual(
+            p286_closure.ALLOWED_ABSOLUTE_PATH_STRINGS
+            - p286_closure.p282.ALLOWED_ABSOLUTE_PATH_STRINGS,
+            {spec.PARENT_RUNTIME_STATUS_PATH},
+        )
+        previous_required = (
+            p286_closure.p282.REQUIRED_ABSOLUTE_PATH_STRINGS
+        )
+        previous_allowed = (
+            p286_closure.p282.ALLOWED_ABSOLUTE_PATH_STRINGS
+        )
+        with p286_closure._p286_authority_paths():
+            self.assertEqual(
+                p286_closure.p282.REQUIRED_ABSOLUTE_PATH_STRINGS,
+                p286_closure.REQUIRED_ABSOLUTE_PATH_STRINGS,
+            )
+            self.assertEqual(
+                p286_closure.p282.ALLOWED_ABSOLUTE_PATH_STRINGS,
+                p286_closure.ALLOWED_ABSOLUTE_PATH_STRINGS,
+            )
+        self.assertIs(
+            p286_closure.p282.REQUIRED_ABSOLUTE_PATH_STRINGS,
+            previous_required,
+        )
+        self.assertIs(
+            p286_closure.p282.ALLOWED_ABSOLUTE_PATH_STRINGS,
+            previous_allowed,
+        )
+        self.assertEqual(
+            qualification._normalize_module_trace(
+                {
+                    "schema": qualification.BASE_MODULE_TRACE_SCHEMA,
+                    "modules": [],
+                }
+            ),
+            {
+                "schema": qualification.P286_MODULE_TRACE_SCHEMA,
+                "modules": [],
+            },
         )
         self.assertEqual(
             safety["userspace_parent_runtime_status_gate"],
