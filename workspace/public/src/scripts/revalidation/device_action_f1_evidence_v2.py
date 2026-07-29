@@ -417,11 +417,16 @@ def _generic_rootfs_module_closure(
     if source_contract_id not in {
         e2_closure_selector.P280_CONTRACT_ID,
         e2_closure_selector.P282_CONTRACT_ID,
+        e2_closure_selector.P284_CONTRACT_ID,
     }:
         return module_closure
     adapter_api = closure_api
     label = "P2.80"
-    if source_contract_id == e2_closure_selector.P282_CONTRACT_ID:
+    if source_contract_id == e2_closure_selector.P284_CONTRACT_ID:
+        inherited_p282 = getattr(closure_api, "p282", None)
+        adapter_api = getattr(inherited_p282, "p280", None)
+        label = "P2.84"
+    elif source_contract_id == e2_closure_selector.P282_CONTRACT_ID:
         adapter_api = getattr(closure_api, "p280", None)
         label = "P2.82"
     try:
