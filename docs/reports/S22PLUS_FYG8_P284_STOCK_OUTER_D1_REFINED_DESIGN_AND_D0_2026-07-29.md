@@ -28,7 +28,11 @@ The D1 design now:
   offsets; and
 - excludes TCP ADB because the connected device has no usable network address.
 
-A fresh exact D1 approval is still required before any live mutation.
+At design publication a fresh exact D1 approval was required. A later
+commit-bound approval reached trace setup only and aborted before instance or
+control because kernel readback normalized return probes as `r16:`. See
+`S22PLUS_FYG8_P284_STOCK_OUTER_D1_PRECONTROL_ABORT_2026-07-29.md`. That
+approval is consumed; the corrected design again requires fresh approval.
 
 ## Frozen P2.84 identity was not touched
 
@@ -279,5 +283,6 @@ cleared. That future possibility grants no authority now.
 - All 11 in-body marker instruction words match the exact module.
 - The connected actions in this unit were D0 reads only.
 
-No D1 has been approved or executed. No successor candidate, F1 manifest, or
-F1 authority is created.
+The subsequent D1 setup disposition is recorded separately; it performed zero
+role writes, control attempts, challenge attempts, watchdog arms, and reboots.
+No successor candidate, F1 manifest, or F1 authority is created.

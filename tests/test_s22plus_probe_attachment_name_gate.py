@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import sys
 import unittest
 from dataclasses import replace
@@ -15,6 +16,21 @@ import s22plus_fyg8_p280_contract_spec as p280  # noqa: E402
 import s22plus_fyg8_p282_contract_spec as p282  # noqa: E402
 import s22plus_fyg8_p284_stock_outer_d1_spec as d1_spec  # noqa: E402
 import s22plus_probe_attachment_name_gate as gate  # noqa: E402
+
+
+def _kernel_readback(events):
+    lines = []
+    for event in events:
+        prefix = "r16" if event.probe_kind == "return" else "p"
+        symbol = event.symbol
+        if event.offset is not None:
+            symbol = f"{symbol}+{event.offset}"
+        target = f"{event.module}:{symbol}" if event.module else symbol
+        lines.append(
+            f"{prefix}:{d1_spec.TRACE_GROUP}/{event.name} "
+            f"{target}{event.fetch}"
+        )
+    return "\n".join(lines) + "\n"
 
 
 class ProbeAttachmentNameGateTests(unittest.TestCase):
@@ -81,6 +97,40 @@ class ProbeAttachmentNameGateTests(unittest.TestCase):
 
     def test_stock_d1_descriptors_match_every_actual_attachment(self):
         gate.require_clean(d1_spec.TRACE_EVENTS)
+
+    def test_kernel_normalized_kretprobe_maxactive_readback_is_accepted(self):
+        readback = _kernel_readback(d1_spec.TRACE_EVENTS)
+        gate.require_tracefs_readback_clean(
+            readback,
+            d1_spec.TRACE_EVENTS,
+            group=d1_spec.TRACE_GROUP,
+        )
+        legacy_count = sum(
+            bool(re.match(r"^[pr]:p284stock/", line))
+            for line in readback.splitlines()
+        )
+        self.assertEqual(legacy_count, 19)
+        self.assertEqual(len(d1_spec.TRACE_EVENTS), 27)
+
+    def test_missing_kernel_normalized_return_probe_fails_readback_gate(self):
+        readback = _kernel_readback(d1_spec.TRACE_EVENTS)
+        lines = readback.splitlines()
+        missing = next(
+            line for line in lines
+            if line.startswith("r16:p284stock/parent_suspend_out ")
+        )
+        issues = gate.audit_tracefs_readback(
+            "\n".join(line for line in lines if line != missing) + "\n",
+            d1_spec.TRACE_EVENTS,
+            group=d1_spec.TRACE_GROUP,
+        )
+        self.assertEqual(
+            tuple(
+                (issue.code, issue.event_name)
+                for issue in issues
+            ),
+            (("readback-event-missing", "parent_suspend_out"),),
+        )
 
     def test_mode_store_writer_identity_label_is_symbol_exact(self):
         entry = next(

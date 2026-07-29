@@ -27,6 +27,11 @@ _DEFINITION = re.compile(
     r"(?P<name>[A-Za-z0-9_]+) "
     r"(?P<target>\S+)(?: .*)?$"
 )
+_TRACEFS_READBACK = re.compile(
+    r"^(?P<prefix>p|r(?P<maxactive>[1-9][0-9]*)?):"
+    r"(?P<group>[A-Za-z0-9_]+)/(?P<name>[A-Za-z0-9_]+) "
+    r"(?P<target>\S+)(?: .*)?$"
+)
 
 # Every actual attachment symbol must opt in to every permitted evidence-facing
 # stem.  Generic labels such as "worker" are deliberately absent.
@@ -110,6 +115,26 @@ def _render_definition(
 def _attached_symbol(target: str) -> str:
     unqualified = target.rsplit(":", 1)[-1]
     return unqualified.split("+", 1)[0]
+
+
+def _target_components(target: str) -> tuple[str | None, str, int | None]:
+    if ":" in target:
+        module, unqualified = target.rsplit(":", 1)
+    else:
+        module = None
+        unqualified = target
+    if "+" in unqualified:
+        symbol, raw_offset = unqualified.split("+", 1)
+        try:
+            offset = int(raw_offset, 0)
+        except ValueError as error:
+            raise ProbeNameGateError(
+                f"invalid tracefs readback offset {raw_offset!r}"
+            ) from error
+    else:
+        symbol = unqualified
+        offset = None
+    return module, symbol, offset
 
 
 def audit_events(
@@ -218,6 +243,137 @@ def audit_events(
     return tuple(issues)
 
 
+def audit_tracefs_readback(
+    text: str,
+    events: Iterable[Any],
+    *,
+    group: str,
+) -> tuple[AuditIssue, ...]:
+    """Compare kernel-normalized kprobe_events readback to the declarations.
+
+    Kretprobe input uses ``r:`` when maxactive is omitted.  The kernel fills
+    the default during registration and renders it back as, for example,
+    ``r16:``.  Readback validation must normalize that field rather than
+    treating the input spelling as invariant.
+    """
+
+    if not isinstance(text, str):
+        raise ProbeNameGateError("tracefs readback is not text")
+    if not isinstance(group, str) or not group:
+        raise ProbeNameGateError("tracefs readback group is empty")
+
+    declared = tuple(events)
+    expected = {str(event.name): event for event in declared}
+    if len(expected) != len(declared):
+        raise ProbeNameGateError("declared event names are not unique")
+
+    issues: list[AuditIssue] = []
+    observed: dict[str, int] = {}
+    marker = f":{group}/"
+    for line in text.splitlines():
+        if marker not in line:
+            continue
+        match = _TRACEFS_READBACK.fullmatch(line)
+        if match is None:
+            issues.append(
+                AuditIssue(
+                    "readback-definition-malformed",
+                    "",
+                    "",
+                    "",
+                    "",
+                    line,
+                )
+            )
+            continue
+        name = match.group("name")
+        event = expected.get(name)
+        if event is None:
+            issues.append(
+                AuditIssue(
+                    "readback-event-unexpected",
+                    "",
+                    name,
+                    "",
+                    _attached_symbol(match.group("target")),
+                    line,
+                )
+            )
+            continue
+
+        observed[name] = observed.get(name, 0) + 1
+        if observed[name] > 1:
+            issues.append(
+                AuditIssue(
+                    "readback-event-duplicate",
+                    str(getattr(event, "phase", "")),
+                    name,
+                    str(getattr(event, "symbol", "")),
+                    _attached_symbol(match.group("target")),
+                    line,
+                )
+            )
+            continue
+
+        prefix = match.group("prefix")
+        actual_kind = "return" if prefix.startswith("r") else "entry"
+        declared_kind = str(getattr(event, "probe_kind", ""))
+        module, symbol, offset = _target_components(match.group("target"))
+        declared_module = getattr(event, "module", None)
+        declared_symbol = str(getattr(event, "symbol", ""))
+        declared_offset = getattr(event, "offset", None)
+        phase = str(getattr(event, "phase", ""))
+
+        if actual_kind != declared_kind:
+            issues.append(
+                AuditIssue(
+                    "readback-probe-kind-mismatch",
+                    phase,
+                    name,
+                    declared_symbol,
+                    symbol,
+                    f"readback kind is {actual_kind!r}",
+                )
+            )
+        if symbol != declared_symbol or module != declared_module:
+            issues.append(
+                AuditIssue(
+                    "readback-attachment-mismatch",
+                    phase,
+                    name,
+                    declared_symbol,
+                    symbol,
+                    f"readback target is {match.group('target')!r}",
+                )
+            )
+        if offset != declared_offset:
+            issues.append(
+                AuditIssue(
+                    "readback-offset-mismatch",
+                    phase,
+                    name,
+                    declared_symbol,
+                    symbol,
+                    f"readback offset is {offset!r}, expected {declared_offset!r}",
+                )
+            )
+
+    for name, event in expected.items():
+        if name not in observed:
+            issues.append(
+                AuditIssue(
+                    "readback-event-missing",
+                    str(getattr(event, "phase", "")),
+                    name,
+                    str(getattr(event, "symbol", "")),
+                    "",
+                    f"no {group!r} readback entry",
+                )
+            )
+
+    return tuple(issues)
+
+
 def require_clean(
     events: Iterable[Any],
     *,
@@ -233,6 +389,22 @@ def require_clean(
         first = issues[0]
         raise ProbeNameGateError(
             f"{len(issues)} probe attachment-name issue(s); "
+            f"first={first.code}:{first.event_name}:"
+            f"{first.attached_symbol}"
+        )
+
+
+def require_tracefs_readback_clean(
+    text: str,
+    events: Iterable[Any],
+    *,
+    group: str,
+) -> None:
+    issues = audit_tracefs_readback(text, events, group=group)
+    if issues:
+        first = issues[0]
+        raise ProbeNameGateError(
+            f"{len(issues)} tracefs readback issue(s); "
             f"first={first.code}:{first.event_name}:"
             f"{first.attached_symbol}"
         )

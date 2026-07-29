@@ -76,7 +76,18 @@ Do not add a device step when host-only work can answer the question.
   not clear bare PID1. A hang requires the predeclared exact normal-reboot
   recovery and final health check.
 - Connected D0 found no usable Wi-Fi address, so TCP ADB, property mutation,
-  and `adbd` restart are excluded. No stock D1 is currently authorized.
+  and `adbd` restart were excluded.
+- One commit-bound stock D1 approval reached trace setup only. All 27 probe
+  definitions registered, but the verifier counted `^[pr]:` and missed the
+  eight kernel-normalized `r16:` kretprobe readbacks. It stopped before trace
+  instance creation: control/challenge, role writes, watchdogs, and reboots
+  were all zero. The first cleanup inherited the same count bug; an exact group
+  search caught and removed all eight returns. Final trace cleanup and
+  Android/root/USB health passed.
+- That D1 approval is consumed and must not be retried. The permanent gate now
+  normalizes `rN:` readback while preserving exact name/kind/module/symbol/
+  offset checks. The corrected private runner is host-validated but unexecuted.
+  No stock D1 is currently authorized.
 - Every new S22+ USB trace contract must pass the attachment-name gate with
   zero issues; frozen P2.82/P2.84 remain historical mismatches, not exceptions
   reusable by a new candidate.
