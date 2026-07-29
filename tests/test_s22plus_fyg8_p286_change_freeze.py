@@ -939,6 +939,22 @@ int main(void)
         safety = candidate_builder.artifact_safety(
             {"profile": "E2", "source_contract_id": contract_id}
         )
+        previous_builder = qualification.base.candidate_builder
+        with qualification._base_context():
+            self.assertIs(
+                qualification.base.candidate_builder,
+                candidate_builder,
+            )
+            self.assertEqual(
+                qualification.base._expected_safety(
+                    {"profile": "E2", "source_contract_id": contract_id}
+                ),
+                safety,
+            )
+        self.assertIs(
+            qualification.base.candidate_builder,
+            previous_builder,
+        )
         self.assertEqual(
             safety["userspace_parent_runtime_status_gate"],
             spec.RUNTIME_AUTHORITY[

@@ -12,6 +12,7 @@ from pathlib import Path
 import subprocess
 from typing import Any, Iterator
 
+import build_s22plus_fyg8_p286_candidate as candidate_builder
 import s22plus_fyg8_p282_pre_lto_qualification as base
 import s22plus_fyg8_p284_sysfs_ingestion_oracle as ingestion
 import s22plus_fyg8_p286_candidate_contract as candidate_contract
@@ -76,6 +77,7 @@ def _base_context() -> Iterator[None]:
         "spec": spec,
         "closure": closure,
         "candidate_contract": candidate_contract,
+        "candidate_builder": candidate_builder,
         "SCHEMA": SCHEMA,
         "VERDICT": VERDICT,
         "FOCUSED_TESTS": FOCUSED_TESTS,
