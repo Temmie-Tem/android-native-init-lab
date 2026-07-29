@@ -12,7 +12,7 @@ import stat
 import subprocess
 import sys
 import tempfile
-from contextlib import nullcontext
+from contextlib import ExitStack, nullcontext
 from pathlib import Path
 from typing import Any
 
@@ -531,7 +531,20 @@ def rootfs_entrypoint_context(
         for value in entrypoints.values()
     ):
         raise CheckError(f"{label} exact userspace entrypoint is malformed")
-    return entrypoint_api._expected_entrypoints(entrypoints)
+    entrypoint_context = entrypoint_api._expected_entrypoints(entrypoints)
+    if source_contract_id != repro.P286_SOURCE_CONTRACT_ID:
+        return entrypoint_context
+    authority_context = getattr(closure_api, "_p286_authority_paths", None)
+    if not callable(authority_context):
+        raise CheckError("P2.86 stock-closure authority adapter mismatch")
+    stack = ExitStack()
+    try:
+        stack.enter_context(entrypoint_context)
+        stack.enter_context(authority_context())
+    except BaseException:
+        stack.close()
+        raise
+    return stack
 
 
 def audit(args: argparse.Namespace) -> dict[str, Any]:
