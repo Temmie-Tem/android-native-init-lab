@@ -30,9 +30,12 @@ NONE
 
 An exact parent `suspended` read cannot occur while
 `dwc3_msm_runtime_suspend()` or `dwc3_msm_suspend()` is still executing. It
-therefore removes the parent-suspend overlap that P2.84 left open and converts
-a parent-suspend wedge into a pre-write timeout. No kernel change or outer-work
-probe is required for that ordering repair.
+therefore removes the callback-and-mutex portion of the parent-suspend overlap
+that P2.84 left open and converts a parent-callback wedge into a pre-write
+timeout. It does not prove that the enclosing `dwc3_otg_sm_work` returned:
+optional requeue bookkeeping and the worker return remain after PM core marks
+the parent suspended. No kernel change is required, but outer-work probes and
+a bounded classified PERIPHERAL-write helper remain required.
 
 This is a conditional mechanism validation, not retrospective root-cause
 proof. P2.84 retained no parent-suspend marker, so it remains unknown whether
@@ -177,17 +180,22 @@ return. Therefore an exact `suspended` read proves both:
 - `suspend_resume_mutex` is no longer held by that suspend.
 
 The callback clears `WAIT_FOR_LPM` and may queue one final `sm_work` before it
-returns. That does not require a separate outer fence. On a subsequent
-PERIPHERAL write, `dwc3_ext_event_notify()` flushes any such old work before
-installing DEVICE inputs. The residual work therefore observes the old NONE
-state and takes the short IDLE path; only after it drains are DEVICE inputs
-installed and new work queued.
+returns. On a subsequent PERIPHERAL write, `dwc3_ext_event_notify()` flushes
+any such old work before installing DEVICE inputs. This establishes ordering,
+not liveness: userspace may observe parent `suspended` while the enclosing
+outer worker still has its requeue-and-return tail. The stock trace places the
+next observed boundary only `0.019 ms` after `parent_suspend_out`, suggesting a
+much smaller window than the callback body, but it cannot prove that the bare
+tail is absent or bounded.
 
 If the parent callback wedges, its status remains `suspending`. The existing
 `p282_wait_exact_value()` treats the resulting value mismatch as retryable
 `-EIO` and continues to the existing deadline. A successor must convert
 `matched == 0` into a stage-`0x8f` failure and must not call
-`p282_cycle_restart()`.
+`p282_cycle_restart()`. If parent `suspended` is observed, the following
+PERIPHERAL helper must still have a closed deadline and distinguish dispatch,
+flush wait, write completion, actual start-peripheral entry/return, and later
+readback failure.
 
 ## Exact successor scope
 
@@ -202,15 +210,17 @@ edit. A correct successor must:
    before any PERIPHERAL write;
 5. preserve the same 30-second stop deadline rather than creating an
    additional wait budget;
-6. test `active`, `suspending`, `error`, timeout, and successful suspended
-   transitions; and
-7. derive a new source contract and run ID. Never edit or rebuild P2.84.
+6. retain actual `dwc3_otg_sm_work` entry/return probes and a bounded
+   classified PERIPHERAL-write path for the residual outer tail;
+7. test `active`, `suspending`, `error`, timeout, successful suspended, and
+   unreturned-helper transitions; and
+8. derive a new source contract and run ID. Never edit or rebuild P2.84.
 
 Separately, the restart helper must stop using blocking `wait4` after a
 deadline. Fault injection must prove PID1 can publish the classified failure
 when a role-write child remains indefinitely uninterruptible. The parent gate
-prevents the identified PM overlap; it does not justify leaving a generic
-unbounded helper path.
+removes the callback/mutex portion of the overlap; it does not close the
+outer-tail window or justify leaving a generic unbounded helper path.
 
 No new stock D1 is needed to validate this ordering gate. The next bounded
 unit is H0 implementation and static validation of a versioned successor.
@@ -224,11 +234,10 @@ Full-LTO, packaging, D0, approval, and F1 remain later, separate steps.
   `outer2-out < child1-in < child1-out < parent1-in < parent1-out < outer3-in`
   and `restore-out < outer5-in` pass;
 - the frozen P2.84 source receipts match the intent `60/60`;
-- all 40 focused P2.84 contract, pre-LTO, D1-spec, and attachment-name tests
-  pass;
-- all eight active-contract/Process-v2 document tests pass;
-- `AGENTS.md` is 211 lines and `GOAL.md` is 899 lines, within their enforced
-  limits; and
+- all 40 focused P2.84 contract, pre-LTO, D1-spec, and attachment-name tests,
+  seven P2.86 freeze tests, and eight active-contract tests pass;
+- `AGENTS.md` is 217 lines and the archived 899-line goal payload is preserved
+  byte-for-byte while active `GOAL.md` is reduced to 189 lines; and
 - `git diff --check` passes.
 
 ## Superseded claims

@@ -52,13 +52,19 @@ Do not add a device step when host-only work can answer the question.
 - The selected successor gate is H0-only: after exact child `suspended`, wait
   on the same deadline for exact parent `runtime_status=suspended` before any
   PERIPHERAL write. Parent success implies the callback returned and
-  `suspend_resume_mutex` was released; a wedge must time out before the write.
-  A residual old SM work is drained by the driver's pre-input flush under the
-  old NONE state. No outer probe or kernel change is required.
+  `suspend_resume_mutex` was released; a callback wedge must time out before
+  the write. It does not prove outer-work return: requeue bookkeeping and the
+  worker tail remain. Keep actual outer entry/return probes and a bounded,
+  classified PERIPHERAL-write helper. No kernel change is required.
 - Implement that gate only in a fresh versioned source contract and run ID.
   P2.84 lacks the parent path and failure semantic, so this is not an in-place
   one-line patch. Also repair the generic blocking-`wait4` helper deadline and
   fault-test it. No new stock D1 is required before that H0 implementation.
+- P2.86 change closure is frozen before intent: 60 P2.84 SOURCE_KEYS are
+  inherited byte-for-byte, and 20 new versioned overlays must contain every
+  successor mutation. The four D1-runner corrections are confined to one
+  private v3 output root and mechanically disjoint. Intent and build remain
+  forbidden until all frozen overlays exist and the pre-intent gate passes.
 - Do not repeat P2.82, replay or rebuild P2.84, or seek live authority during
   this H0 unit. `persist.adb.tcp.port` remains forbidden.
 - Every new S22+ USB trace contract must pass the attachment-name gate with
