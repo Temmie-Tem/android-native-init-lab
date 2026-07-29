@@ -35,28 +35,40 @@ Do not add a device step when host-only work can answer the question.
 - P2.84 is the versioned correction. It keeps P2.82 kernel inputs,
   classifier, retained ABI, module plan, and linked tables byte-identical,
   derives readback tokens separately from newline-bearing write wire, and adds
-  a source-bound AArch64 ingestion oracle as pre-LTO gate 20. Its userspace
-  two-build and `20/20` pre-LTO qualification pass. The oracle is qualification
-  evidence, not candidate identity, and P2.84 owns a distinct userspace
-  source-check ID.
+  a source-bound AArch64 ingestion oracle as pre-LTO gate 20. The oracle is
+  qualification evidence, not candidate identity, and P2.84 owns a distinct
+  userspace source-check ID.
 - P2.82 remains readable only for historical evidence. The candidate selector,
   intent creator/parser, and candidate-contract verifier reject it as
   superseded by P2.84; do not restore it to the new-candidate choice set. Fresh
   P2.84 run `023060c8dd0ab036f8547a816624356f` passes all `20/20` pre-LTO gates,
   clean Full-LTO A/B, GNU linked audit, byte-identical boot-only package A/B,
   independent static closure, and Process v2 offline promotion.
-- The immutable P2.84 ready manifest and common-runner host preflight pass.
-  The first connected D0 stopped on the exact consumed P2.82 retained failure,
-  with zero exact P2.84 records. One freshly approved normal Android reboot
-  rotated that baseline, returned the same FYG8 target with Android/root/boot/
-  supporting-partition health intact, and invoked no Odin or payload transfer.
-  The repeated connected D0 passes with a clean `0/0` baseline and emits a
-  private approval binding. Device writes, Odin, partition transfer, F1
-  authority, and live authority remain false.
-- Do not repeat P2.82 or rebuild P2.84. The next action is the operator's fresh
-  exact P2.84 F1 approval bound to the private prepared run. Until that approval
-  is returned, do not invoke Download mode, Odin, candidate transfer, or
-  rollback transfer.
+- P2.84 consumed one exact approval. Its candidate and exact Magisk rollback
+  each completed one boot-only transfer; no candidate replay occurred. The
+  operator reported a normal candidate boot with no boot loop, but the
+  300-second observer accepted no ACM endpoint.
+- Two byte-identical retained reads contain progress `0x8e/detail=0`, followed
+  by progress `0x8f/detail=0xc18`
+  (`suspended-power-helper-off-zero`). The first record proves the corrected
+  normalized NONE readback plus an authoritative stop-worker entry, return,
+  and zero result. The second proves the controlled child suspend callback
+  entered and returned nonnegative, the child read back exactly `suspended`,
+  and the power-off helper entered and returned zero. It does not prove that
+  the helper changed hardware state or an analog rail voltage.
+- No `0x90` or later P2.84 checkpoint survived. DEVICE restart readback, child
+  resume, femto PHY reinitialization, configfs UDC bind, final bus-state
+  sampling, and host ACM receipt remain unproved. Do not infer a precise
+  restart failure or stall from the absence of a later retained checkpoint.
+- The runner completed normally. Exact rollback restored Android, FYG8 kernel,
+  root, boot, and supporting-partition health; Odin was absent and all eight
+  canonical events passed. The transaction is `CLOSED` with verdict
+  `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; recovery is not required and the
+  approval is consumed.
+- Do not repeat P2.82, replay P2.84, or rebuild P2.84. The next bounded unit is
+  H0 analysis of the exact post-`0x8f`/pre-`0x90` restart boundary. Any
+  successor candidate requires a new versioned source contract, immutable
+  manifest, connected D0, and fresh approval.
 
 ## Permanent Safety Boundaries
 

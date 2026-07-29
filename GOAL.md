@@ -10,13 +10,12 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 ## Current Frontier
 
 **State: direct PID1, E1A/E1B, E2 through the real UDC, and E3 through exact
-configfs UDC binding are live proven. P2.82 F1 is closed after one candidate
-and one exact rollback transfer: initial `peripheral` plus exact real UDC
-passed, but the requested NONE role never read back before the stop deadline.
-No later child-reinit or gadget-bind boundary ran, ACM was absent, and final
-health passed. P2.84 Full-LTO A/B, package/static closure, immutable ready
-manifest, one approved D1 baseline rotation, and clean connected D0 now pass.
-No S22+ F1 live run is currently authorized.**
+configfs UDC binding are live proven. P2.84 F1 is closed after one candidate
+and one exact rollback transfer. Retained `0x8e/detail=0` proves corrected
+NONE readback and the stop worker; `0x8f/detail=0xc18` proves controlled child
+suspend plus a zero-return power-off helper, not an electrical rail change.
+No restart-or-later checkpoint or ACM endpoint was accepted. Exact rollback
+and final health passed. No S22+ F1 live run is currently authorized.**
 
 P2.69 derived the fresh v4 intent, completed two clean Full-LTO builds in
 `40:43.23` and `40:45.31` with no swap, and proved byte equality for all six
@@ -823,8 +822,19 @@ reports grant no device authority.
     before preparation. One freshly approved exact normal reboot returned the
     same healthy FYG8 Android/root target and rotated that history. Repeated D0
     passes with a clean `0/0` baseline and a private immutable approval binding.
-    No Download, Odin, payload transfer, F1 authority, or live authority exists;
-    the next action is fresh exact P2.84 F1 approval.
+    No Download, Odin, payload transfer, F1 authority, or live authority occurred
+    in this preparation unit; its binding was later consumed by unit 83.
+83. **P2.84 controlled-suspend boundary, F1:** one exact candidate and rollback
+    transfer completed with no candidate replay. The operator reported a normal
+    candidate boot with no boot loop, while the 300-second observer accepted no
+    ACM endpoint. Two byte-identical retained reads show progress
+    `0x8e/detail=0`, then `0x8f/detail=0xc18`: corrected NONE readback, the
+    authoritative stop worker, exact child `suspended` status, and the
+    zero-return power-off helper are proven. Helper electrical effect, DEVICE
+    restart/readback, child resume, PHY reinit, bind, final bus state, and ACM
+    remain unproved because no `0x90` or later checkpoint survived. Exact
+    rollback and final health passed; the transaction is closed, recovery is
+    unnecessary, and approval is consumed. Do not replay P2.84.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
 reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing
