@@ -13,96 +13,54 @@ Do not add a device step when host-only work can answer the question.
 ## Current Live Posture
 
 - No S22+ F1 live run is currently authorized.
-- P2.82 consumed one exact candidate/rollback approval with no replay. Its
-  byte-identical reads end at `0x8e/detail=0xc10`; a newline-bearing comparator
-  made NONE readback impossible, so no later boundary is proved.
-- P2.82 rollback/final health passed and its transaction is `CLOSED` with
-  verdict `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`.
-- P2.84 is the versioned correction. It keeps P2.82 kernel inputs,
-  classifier, retained ABI, module plan, and linked tables byte-identical,
-  derives readback tokens separately from newline-bearing write wire, and adds
-  a source-bound AArch64 ingestion oracle as pre-LTO gate 20. The oracle is
-  qualification evidence, not candidate identity, and P2.84 owns a distinct
-  userspace source-check ID.
-- P2.82 remains readable only for historical evidence. The candidate selector,
-  intent creator/parser, and candidate-contract verifier reject it as
-  superseded by P2.84; do not restore it to the new-candidate choice set. Fresh
-  P2.84 run `023060c8dd0ab036f8547a816624356f` passes all `20/20` pre-LTO gates,
-  clean Full-LTO A/B, GNU linked audit, byte-identical boot-only package A/B,
-  independent static closure, and Process v2 offline promotion.
-- P2.84 consumed one exact approval. Its candidate and exact Magisk rollback
-  each completed one boot-only transfer; no candidate replay occurred. The
-  operator reported a normal candidate boot with no boot loop, but the
-  300-second observer accepted no ACM endpoint.
-- Two byte-identical retained reads contain progress `0x8e/detail=0`, followed
-  by progress `0x8f/detail=0xc18`
-  (`suspended-power-helper-off-zero`). The first record proves the corrected
-  normalized NONE readback plus entry, return, and zero result from
-  `dwc3_otg_start_peripheral(..., 0)`. The second proves the controlled child
-  suspend callback returned nonnegative, exact child `suspended` status, and
-  a zero-return power-off helper. Neither record proves analog change.
-- No `0x90` or later P2.84 checkpoint survived. DEVICE restart readback, child
-  resume, femto PHY reinitialization, configfs UDC bind, final bus-state
-  sampling, and host ACM receipt remain unproved.
-- Focused H0 analysis corrects the `stop_worker` label: its probes target
-  `dwc3_otg_start_peripheral`, not outer `dwc3_otg_sm_work`; outer-work
-  quiescence was never proven. The immediate DEVICE write synchronously
-  flushes that prior work. Its helper timeout sends `SIGKILL` and then performs
-  blocking `wait4`, so a stuck uninterruptible flush can prevent all `0x90`
-  checkpointing. This fits the evidence but does not explain which stop-side
-  PM primitive wedged; a quiescence fence would classify, not repair, that case.
-- Exact ordering rejects a PID1 `power-off`-after-stop model. The traced
-  HS-PHY power call is nested in child runtime suspend, before
-  `dwc3_otg_start_peripheral` and the later outer parent suspend return.
-  Moving a userspace fence before it is impossible without a kernel-order
-  change.
-- Exact FYG8 source and module disprove the proposed same-queue perf-work
-  deadlock: outer SM work uses ordered `k_sm_usb`, `perf_vote_work` uses
-  `system_wq`, the already-returned stop helper synchronously cancelled that
-  work, and no enable follows before parent suspend. Parent-boundary diagnostic
-  priority is mutex, IRQ drain, clock/GDSC frameworks, bus, PHY, perf cancel,
-  then the skipped wake block; this is a probe priority, not a root-cause
-  verdict.
-- The runner completed normally. Exact rollback restored Android, FYG8 kernel,
-  root, boot, and supporting-partition health; Odin was absent and all eight
-  canonical events passed. The transaction is `CLOSED` with verdict
-  `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; recovery is not required and the
-  approval is consumed.
-- Do not repeat P2.82, replay P2.84, or rebuild P2.84. The prepared stock-D1
-  design reproduces `NONE -> suspended poll -> PERIPHERAL` without trace
-  gating, admits challenge only when the control measures
-  `W >= max(10 ms, 4R)`, and treats any non-owned `mode_store` comm/PID as
-  no-proof. Positive reproduction is decisive; a negative stock result does
-  not clear bare PID1. Recovery is predeclared as one normal reboot, then, only
-  if no operator-visible Samsung boot splash occurs within 45 seconds, one
-  attended Side/Power+Volume-Down restart. A second restart is forbidden.
-- One commit-bound stock D1 approval reached trace setup only. All 27 probe
-  definitions registered, but the verifier counted `^[pr]:` and missed the
-  eight kernel-normalized `r16:` kretprobe readbacks. It stopped before trace
-  instance creation: control/challenge, role writes, watchdogs, and reboots
-  were all zero. The first cleanup inherited the same count bug; an exact group
-  search caught and removed all eight returns. Final trace cleanup and
-  Android/root/USB health passed.
-- That D1 approval is consumed and must not be retried. The permanent gate now
-  normalizes `rN:` readback while preserving exact name/kind/module/symbol/
-  offset checks.
-- A fresh v2 stock D1 then set volatile TCP ADB once, restarted `adbd` once,
-  matched the private TCP/USB target fingerprint, and registered/audited all
-  27 probes. One control wrote NONE once and restored PERIPHERAL once.
-- The actual 83-entry trace contains six balanced outer-work pairs. The first
-  NONE `mode_store`, stop helper, and stop-to-outer suffix returned in
-  `0.091 ms`, `0.087 ms`, and `0.020 ms`; child and parent suspend returned by
-  `16.653 ms` and `19.504 ms`. Every parent completion marker was observed.
-- The runner's timeout was false: it searched for a group prefix omitted by
-  instance trace text, watchdog disarm waited about 20 seconds after returned
-  writes, and a newline-bearing comm write split the trace header. Thus the
-  result is `CONTROL_OUTER_RETURNED_BEFORE_REACTOR_READY`; challenge was
-  forbidden and executed zero times.
-- Trace cleanup, one normal cleanup reboot, volatile-property removal, exact
-  temporary-file cleanup, final D0, and operator splash/normal-Android checks
-  passed. Watchdog fires and hardware restarts were zero. The v2 approval is
-  consumed; no stock D1 is authorized. Correct all execution defects H0 before
-  seeking another approval. `persist.adb.tcp.port` remains forbidden.
+- P2.82 consumed one exact approval. Its byte-identical reads end in terminal
+  failure `0x8e/detail=0xc10`; the newline-bearing comparator made exact NONE
+  readback impossible. No accepted ACM endpoint appeared. Child suspend,
+  DEVICE restart, child PHY reinitialization, configfs UDC bind, final bus
+  sampling, and host ACM receipt were not reached. Rollback/final health passed
+  and the transaction is `CLOSED`.
+- P2.84 supersedes P2.82 for new-candidate selection. Run
+  `023060c8dd0ab036f8547a816624356f` passed `20/20` pre-LTO, Full-LTO A/B,
+  linked/package/static closure, and offline promotion. P2.82 remains
+  historical evidence only.
+- P2.84 then consumed one exact approval. Candidate and exact rollback each
+  completed one boot-only transfer with no replay; the transaction closed
+  `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` with final health restored.
+- Retained `0x8e/detail=0` proves normalized NONE readback and inner
+  `dwc3_otg_start_peripheral(..., 0)` return. Retained `0x8f/detail=0xc18`
+  proves child suspend and the zero-return PHY power helper nested in that
+  helper; it does not prove analog change. No `0x90` or later checkpoint
+  survived, so DEVICE restart and all later E3/ACM boundaries remain unproved.
+- The restart helper has an unclosed deadline: after `SIGKILL` it blocks in
+  `wait4`. Both retained slots staying CRC-valid proves no generation-89 write
+  reached its first durable CRC clear.
+- Exact source rejects the same-queue `perf_vote_work` deadlock. Outer SM work
+  uses `k_sm_usb`; perf work uses `system_wq`.
+- Both stock-D1 approvals are consumed. V2 registered all 27 probes, executed
+  one control NONE/restore pair and no challenge, then returned healthy. Its
+  false timeout came from trace spelling and two watchdog-disarm waits.
+- Raw-trace correction: on stock, the first two outer invocations returned by
+  `0.291 ms`; child and parent suspend callbacks then ran asynchronously on
+  `kworker/0:*`, with parent `dwc3_msm_suspend` at
+  `17.873..19.504 ms`. Thus the first-outer-return window and a generic outer
+  fence are not the load-bearing PM boundary.
+- This stock ordering does not transfer unchanged to bare PID1. P2.84's
+  accepted `0xc18` required the child suspend and PHY power-off pairs to use
+  the stop-helper PID and be nested inside
+  `dwc3_otg_start_peripheral(..., 0)`. PM reference/child-count state selected
+  different stock and bare execution.
+- The selected successor gate is H0-only: after exact child `suspended`, wait
+  on the same deadline for exact parent `runtime_status=suspended` before any
+  PERIPHERAL write. Parent success implies the callback returned and
+  `suspend_resume_mutex` was released; a wedge must time out before the write.
+  A residual old SM work is drained by the driver's pre-input flush under the
+  old NONE state. No outer probe or kernel change is required.
+- Implement that gate only in a fresh versioned source contract and run ID.
+  P2.84 lacks the parent path and failure semantic, so this is not an in-place
+  one-line patch. Also repair the generic blocking-`wait4` helper deadline and
+  fault-test it. No new stock D1 is required before that H0 implementation.
+- Do not repeat P2.82, replay or rebuild P2.84, or seek live authority during
+  this H0 unit. `persist.adb.tcp.port` remains forbidden.
 - Every new S22+ USB trace contract must pass the attachment-name gate with
   zero issues; frozen P2.82/P2.84 remain historical mismatches, not exceptions
   reusable by a new candidate.

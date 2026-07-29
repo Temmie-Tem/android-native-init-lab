@@ -10,21 +10,19 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 ## Current Frontier
 
 **State: direct PID1, E1A/E1B, E2 through the real UDC, and E3 through exact
-configfs UDC binding are live proven. P2.84 F1 is closed after one candidate
-and one exact rollback transfer. Retained `0x8e/detail=0` proves corrected
-NONE readback and `dwc3_otg_start_peripheral(off)` return, not outer
-`dwc3_otg_sm_work` quiescence. `0x8f/detail=0xc18` proves controlled child
-suspend plus a zero-return power-off helper, not electrical rail change.
-Focused H0 analysis finds the immediate DEVICE write can block flushing that
-outer work and the nominal helper timeout then blocks in `wait4`; this exactly
-fits the no-`0x90` shape but neither identifies the parent-suspend wedge nor
-repairs it with a fence. The power call is nested in child suspend before the
-later parent suspend, so it cannot be moved after outer return by a PID1 fence.
-Exact rollback and final health passed. Exact source also rules out a
-same-queue `perf_vote_work` self-deadlock. Stock D1 v2 traced six balanced
-outer pairs and all parent boundaries returning by 19.504 ms. Three runner
-defects caused a false timeout; challenge stayed zero and cleanup passed.
-The approval is consumed and no live run is authorized.**
+configfs UDC binding are live proven. P2.84 F1 is closed healthy/no-proof.
+Retained `0x8e/detail=0` proves corrected NONE readback and inner stop-helper
+return; `0x8f/detail=0xc18` proves the bare-PID1 child suspend and PHY
+power-off were nested inside that helper, not electrical rail change. No
+`0x90` survived, and the restart helper still has unbounded post-kill `wait4`.
+Stock D1 v2 instead shows its first two outer works ended by `0.291 ms`, then
+child/parent PM callbacks ran asynchronously through `19.504 ms`; its first
+outer window was the wrong target. Different PM reference state explains the
+stock/bare split. The selected successor waits, on the existing deadline, for
+both child and parent exact `runtime_status=suspended` before PERIPHERAL.
+That removes the parent-suspend overlap without a kernel change, but needs a
+fresh versioned contract plus the generic helper-bound fix. No live run is
+authorized. No S22+ F1 live run is currently authorized.**
 
 P2.69 derived the fresh v4 intent, completed two clean Full-LTO builds in
 `40:43.23` and `40:45.31` with no swap, and proved byte equality for all six
@@ -844,28 +842,29 @@ reports grant no device authority.
     final bus state, and ACM remain unproved because no `0x90` or later
     checkpoint survived. Exact rollback/final health passed; the transaction is
     closed and approval consumed. Do not replay P2.84.
-84. **P2.84 post-`0x8f` restart-gap localization, H0:** exact descriptors prove
-    the so-called worker probe is only `dwc3_otg_start_peripheral`, leaving the
-    enclosing stop-side `dwc3_otg_sm_work` unmeasured. The immediate DEVICE
-    write synchronously flushes that prior work; its helper's 30-second expiry
-    then sends `SIGKILL` followed by unbounded blocking `wait4`. Both retained
-    slots remain valid, proving no `0x90` write reached its first durable
-    CRC-clear. This path explains the silence but not why the parent stop
-    worker failed to return. A fence is diagnostic if that worker is wedged.
+84. **P2.84 post-`0x8f` restart-gap localization, H0:** the so-called worker
+    probe is only `dwc3_otg_start_peripheral`; outer quiescence is unmeasured.
+    The helper's 30-second expiry sends `SIGKILL` then blocks in `wait4`.
+    Both retained slots stay CRC-valid, so no `0x90` reached its first durable
+    CRC clear. The original unconditional nested-PM/outer-flush model is
+    corrected by item 86; the helper and CRC findings remain.
 85. **P2.84 stock outer discriminator closed no-proof, H0+D0+D1:** exact source
-    rejects the perf-work self-deadlock and ranks parent boundaries. The first
-    approval aborted before control on `r16:` readback and was consumed. V2
-    used one volatile TCP prelude and live-audited all 27 probes. One control
-    wrote NONE and restored PERIPHERAL; challenge remained zero. The trace has
-    six balanced outer pairs, with NONE `mode_store` at `0.091 ms`, stop helper
-    at `0.087 ms`, stop-to-outer at `0.020 ms`, child suspend at `16.653 ms`,
-    and every parent marker through return by `19.504 ms`. Outer returned before
-    the reactor could observe suspend. A wrong group-qualified trace search,
-    20-second watchdog-disarm wait, and newline-bearing comm produced the false
-    internal timeout. Cleanup, one normal reboot, TCP-property removal, final
-    health, and operator boot confirmation passed; no watchdog/hardware restart
-    fired. V2 is consumed. Fix the execution defects H0 before any fresh D1;
-    no D1 or F1 authority exists.
+    rejects the perf-work self-deadlock. One control wrote NONE/restored
+    PERIPHERAL; challenge stayed zero. Six outer pairs and every parent marker
+    balanced. Wrong trace spelling, two 20-second watchdog-disarm waits, and a
+    newline comm caused false timeout and a 41-second-late restoration.
+    Cleanup/reboot/final health passed with no watchdog or hardware restart.
+    Both approvals are consumed; no D1 or F1 authority exists.
+86. **P2.84 stock-trace PM-order correction, H0:** raw trace proves stock child
+    and parent callbacks ran later on `kworker/0:*`, not inside its first outer
+    work. P2.84 `0xc18` separately proves bare child suspend nested in the inner
+    helper, so stock ordering cannot clear bare PID1. Select a successor-only
+    bounded parent `runtime_status=suspended` gate after child suspend and
+    before PERIPHERAL. It proves parent callback/mutex completion and turns a
+    wedge into a pre-write timeout; residual old SM work is safely flushed
+    under NONE. No kernel change or new stock D1 is needed. The parent path,
+    failure semantic, helper-bound repair, new contract/run ID, and static
+    tests remain the next H0 implementation.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
 reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing

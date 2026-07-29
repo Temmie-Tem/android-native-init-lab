@@ -2,6 +2,14 @@
 
 Date: 2026-07-29 KST
 
+Correction notice: the later D1 v2 raw trace disproves this report's
+unconditional claim that stock child and parent runtime-suspend callbacks are
+nested in the stop-side outer work. The corrected context-dependent PM model
+and selected parent-runtime-status gate are in
+`S22PLUS_FYG8_P284_STOCK_TRACE_PM_ORDER_CORRECTION_H0_2026-07-29.md`.
+The helper/wait4, retained-slot CRC, attachment-name, and non-replay findings
+below remain valid.
+
 ## Verdict
 
 `PASS_P284_POST_0X8F_GAP_LOCALIZED_HOST_ONLY`

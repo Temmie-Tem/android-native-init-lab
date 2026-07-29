@@ -2,6 +2,13 @@
 
 Date: 2026-07-29 KST
 
+Post-publication correction: the raw trace proves that the stock child and
+parent runtime-suspend callbacks ran asynchronously after the first two outer
+work invocations returned. The first-outer-return window is therefore not the
+load-bearing PM overlap. See
+`S22PLUS_FYG8_P284_STOCK_TRACE_PM_ORDER_CORRECTION_H0_2026-07-29.md`.
+The raw timings, action counts, cleanup, and health result below remain valid.
+
 Scope: one approved stock-Android D1 under
 `DEVICE-ACTION-D1-P284-STOCK-OUTER-V2-APPROVE:0766047f20233f9462aeac490d81c7e413e25fb3`.
 No payload, partition action, F1 action, candidate replay, or P2.84 rebuild
