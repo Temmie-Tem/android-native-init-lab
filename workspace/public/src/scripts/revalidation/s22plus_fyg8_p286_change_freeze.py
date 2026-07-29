@@ -140,6 +140,21 @@ STAGE_A_GOVERNANCE_PATHS = frozenset(
             "S22PLUS_FYG8_P284_STOCK_TRACE_PM_ORDER_CORRECTION_H0_"
             "2026-07-29.md"
         ),
+        Path(
+            "docs/reports/"
+            "S22PLUS_FYG8_P286_DEEP_SUSPEND_GUARD_REACHABILITY_H0_"
+            "2026-07-29.md"
+        ),
+        Path(
+            "docs/reports/"
+            "S22PLUS_FYG8_P286_FULL_LTO_PRIVATE_PATH_REPRO_FAILURE_H0_"
+            "2026-07-30.md"
+        ),
+        Path(
+            "docs/reports/"
+            "S22PLUS_FYG8_P286_RECOVERY_USB_MODULE_REFERENCE_AUDIT_H0_"
+            "2026-07-29.md"
+        ),
         Path("tests/test_s22plus_fyg8_p286_change_freeze.py"),
     }
 )

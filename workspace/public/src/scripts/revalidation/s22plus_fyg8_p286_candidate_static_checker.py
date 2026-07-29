@@ -444,7 +444,18 @@ def verify_repro(
             or not callable(getattr(adapter, "check", None))
         ):
             raise CheckError("P2.34 reproducibility adapter contract mismatch")
-        checker = adapter.check
+        if source_contract_id == repro.P286_SOURCE_CONTRACT_ID:
+            require_tools = getattr(
+                adapter, "require_gnu_aarch64_tools", None
+            )
+            if not callable(require_tools):
+                raise CheckError("P2.86 GNU linked-audit tool gate is missing")
+            try:
+                require_tools(check_args)
+            except ValueError as exc:
+                raise CheckError(str(exc)) from exc
+        else:
+            checker = adapter.check
     fresh = checker(check_args)
     if result != fresh or result.get("candidate_contract") != exact_contract:
         raise CheckError("P2.34 reproducibility result differs from fresh verification")
