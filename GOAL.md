@@ -14,7 +14,9 @@ configfs UDC binding are live proven. P2.82 F1 is closed after one candidate
 and one exact rollback transfer: initial `peripheral` plus exact real UDC
 passed, but the requested NONE role never read back before the stop deadline.
 No later child-reinit or gadget-bind boundary ran, ACM was absent, and final
-health passed. No S22+ F1 live run is currently authorized.**
+health passed. P2.84 Full-LTO A/B, package/static closure, immutable ready
+manifest, one approved D1 baseline rotation, and clean connected D0 now pass.
+No S22+ F1 live run is currently authorized.**
 
 P2.69 derived the fresh v4 intent, completed two clean Full-LTO builds in
 `40:43.23` and `40:45.31` with no swap, and proved byte equality for all six
@@ -800,7 +802,8 @@ reports grant no device authority.
     nothing about whether NONE was reached. Later child-reinit and E3 boundaries
     remain unexecuted. Exact rollback and final health passed; authority is
     consumed.
-82. **P2.84 sysfs ingestion correction, H0:** preserve P2.82 kernel inputs,
+82. **P2.84 sysfs ingestion correction and prepared candidate, H0+D0+D1:**
+    preserve P2.82 kernel inputs,
     classifier, retained ABI, module plan, and linked tables byte-identically;
     derive newline-bearing write wire and normalized readback from one token.
     Exact FYG8 `mode_show` and `runtime_status_show` sources plus the unchanged
@@ -813,7 +816,15 @@ reports grant no device authority.
     rejected by new-candidate selection, intent parsing, and contract
     verification as superseded by P2.84. Fresh run
     `023060c8dd0ab036f8547a816624356f` passes the production `20/20` gate.
-    Full-LTO/AP/device/F1 remain undone and unauthorized.
+    Clean Full-LTO A/B match across all six artifacts; boot-only AP A/B,
+    independent static closure, offline promotion, exact ready manifest, and
+    common-runner host preflight pass. The first D0 found the exact consumed
+    P2.82 `0x8e/detail=0xc10` record and zero exact P2.84 records, then stopped
+    before preparation. One freshly approved exact normal reboot returned the
+    same healthy FYG8 Android/root target and rotated that history. Repeated D0
+    passes with a clean `0/0` baseline and a private immutable approval binding.
+    No Download, Odin, payload transfer, F1 authority, or live authority exists;
+    the next action is fresh exact P2.84 F1 approval.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
 reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing

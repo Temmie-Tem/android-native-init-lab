@@ -32,7 +32,7 @@ Do not add a device step when host-only work can answer the question.
   canonical events passed.
 - The transaction is `CLOSED` with verdict
   `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; recovery is not required.
-- P2.84 is the host-only versioned correction. It keeps P2.82 kernel inputs,
+- P2.84 is the versioned correction. It keeps P2.82 kernel inputs,
   classifier, retained ABI, module plan, and linked tables byte-identical,
   derives readback tokens separately from newline-bearing write wire, and adds
   a source-bound AArch64 ingestion oracle as pre-LTO gate 20. Its userspace
@@ -42,11 +42,21 @@ Do not add a device step when host-only work can answer the question.
 - P2.82 remains readable only for historical evidence. The candidate selector,
   intent creator/parser, and candidate-contract verifier reject it as
   superseded by P2.84; do not restore it to the new-candidate choice set. Fresh
-  P2.84 run `023060c8dd0ab036f8547a816624356f` passes all `20/20` pre-LTO gates.
-  No Full-LTO kernel, AP, device action, or F1 authority exists for P2.84.
-- Do not repeat P2.82. The next candidate step is P2.84 Full-LTO A/B on the
-  qualified build host, followed by the ordinary static/package gates. Any
-  later F1 still requires a new immutable manifest, D0, and fresh approval.
+  P2.84 run `023060c8dd0ab036f8547a816624356f` passes all `20/20` pre-LTO gates,
+  clean Full-LTO A/B, GNU linked audit, byte-identical boot-only package A/B,
+  independent static closure, and Process v2 offline promotion.
+- The immutable P2.84 ready manifest and common-runner host preflight pass.
+  The first connected D0 stopped on the exact consumed P2.82 retained failure,
+  with zero exact P2.84 records. One freshly approved normal Android reboot
+  rotated that baseline, returned the same FYG8 target with Android/root/boot/
+  supporting-partition health intact, and invoked no Odin or payload transfer.
+  The repeated connected D0 passes with a clean `0/0` baseline and emits a
+  private approval binding. Device writes, Odin, partition transfer, F1
+  authority, and live authority remain false.
+- Do not repeat P2.82 or rebuild P2.84. The next action is the operator's fresh
+  exact P2.84 F1 approval bound to the private prepared run. Until that approval
+  is returned, do not invoke Download mode, Odin, candidate transfer, or
+  rollback transfer.
 
 ## Permanent Safety Boundaries
 
