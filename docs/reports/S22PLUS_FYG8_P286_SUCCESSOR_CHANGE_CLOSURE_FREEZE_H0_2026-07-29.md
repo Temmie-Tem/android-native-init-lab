@@ -228,3 +228,229 @@ At publication:
 - rename parsing retains both source and destination; and
 - current P2.84 receipts, focused tests, Python compilation, line limits, and
   `git diff --check` pass.
+
+## Post-intent HSPHY source-comparison addendum
+
+This addendum is non-identity H0 analysis. It does not change the selected
+P2.86 contract, any of its 70 `SOURCE_KEYS`, or the already-derived intent.
+The report remains bundle-bound support. P2.86 stays selected; P2.88 is only a
+conditional paper design below and has not been implemented.
+
+### Source provenance and fixed FYG8 correspondence
+
+The reconstructed FYG8 source file
+`kernel_platform/msm-kernel/drivers/usb/phy/phy-msm-snps-hs.c` is 50,240 bytes
+and has SHA256
+`7823f9efd310b350169d84ba824e715b31ef3065e6a280ffc502dac6985124eb`.
+Extracting the same member directly from
+`SM-S906N_15_base_osrc/Kernel.tar.gz` produces that exact hash. The FYG8 delta
+archive contains zero members ending in
+`drivers/usb/phy/phy-msm-snps-hs.c`; therefore the fixed reconstruction uses
+the byte-identical base-source implementation for this driver.
+
+The shipped FYG8 `phy-msm-snps-hs.ko` independently retains real local symbols
+at `msm_hsphy_enable_power=0xd80`, `msm_hsphy_init=0x11f4`, and
+`msm_hsphy_set_suspend=0x19d4`. These addresses and the offsets below describe
+that exact stock module, not a source-name assumption.
+
+### Cold-init comparison and SIDDQ dependency
+
+The independent Qualcomm femto-v2 cold-init implementation performs the same
+essential sequence as vendor `msm_hsphy_init`: enable supplies, enable clocks,
+assert/deassert `phy_reset`, program the UTMI/HS-PHY registers, release POR,
+and release the override. Its explicit write clearing `SIDDQ` in
+`HS_PHY_CTRL_COMMON0` is absent from the vendor implementation; the vendor
+file does not define `SIDDQ`.
+
+The vendor sequence instead depends on `msm_hsphy_reset()` asserting the PHY
+reset for 100 microseconds and then deasserting it before the register writes.
+This is a recorded reset/default-state dependency, not evidence that the
+vendor sequence is defective. Comparison references are the U-Boot Qualcomm
+USB support series and the upstream
+[`phy-qcom-snps-femto-v2.c`](https://android.googlesource.com/kernel/common/+/4c75bf7e4a0e5472bd8f0bf0a4a418ac717a9b70/drivers/phy/qualcomm/phy-qcom-snps-femto-v2.c).
+
+### Suspend/resume asymmetry and P2.86 relevance
+
+Vendor `msm_hsphy_set_suspend(..., 1)` has two materially different paths:
+
+- with a connected cable or host mode, it disables clocks only;
+- on cable disconnect, subject to the DPDM and EUD guards, it disables clocks
+  and calls `msm_hsphy_enable_power(..., false)`.
+
+`msm_hsphy_set_suspend(..., 0)` only enables clocks and clears the software
+`suspended` flag. It neither restores power nor calls `msm_hsphy_init`.
+Consequently the relevant PHY reinitialization comes from
+`dwc3_core_init -> usb_phy_init -> msm_hsphy_init`, not from the PHY driver's
+resume half of `set_suspend`.
+
+This source fact raises confidence in the already-selected P2.80 through P2.86
+strategy: a completed deep suspend followed by the DWC3 core restart is the
+driver-supported route that can re-run PHY initialization. It does not change
+P2.86's success criteria and does not prove that a physical rail changed.
+
+### Idempotent guard and the optional deep-off boundary
+
+`msm_hsphy_enable_power()` first returns zero when
+`phy->power_enabled == on`. Therefore an entry/return pair alone cannot
+distinguish the idempotent guard from execution of the regulator-disable
+sequence.
+
+In the exact FYG8 module, the comparison is at function offset `+0x58`, its
+equal branch reaches the guard return, and the subsequent `tbz` selects the
+`!on` path at `msm_hsphy_enable_power+0x14c`. The `+0x14c` instruction is
+four-byte aligned, follows the idempotent guard, and precedes the regulator
+disable chain. A probe there would prove entry into the driver's real
+disable sequence.
+
+That probe would still not prove electrical rail collapse. The vendor source
+explicitly documents targets where the 3.3 V EUD supply is shared with eMMC
+and remains on after this driver removes its vote. Other consumers can
+similarly keep a regulator enabled. The software boundary is therefore
+diagnostic insurance only.
+
+### Conditional P2.88 paper design
+
+P2.88 is not selected and no source, contract, probe table, decoder, or
+packager implementation is authorized by this section. Preserve the following
+design only for the specific trigger `0x90 passed and 0x91 failed
+ambiguously`:
+
+1. confirm the exact FYG8 `msm_hsphy_enable_power` symbol and disassembly
+   receipt again;
+2. retain the existing function entry/return observation;
+3. add one instruction-aligned attachment at the exact `+0x14c` deep-off
+   boundary and require the attachment-name positive/negative controls;
+4. classify guard-return separately from disable-sequence entry and return;
+5. state explicitly that neither class proves electrical rail collapse.
+
+The decision rule is:
+
+- a failure before or at `0x90` does not activate this design;
+- `0x90` success plus an ambiguous `0x91` failure may activate a fresh P2.88
+  design/review/intent cycle;
+- a complete P2.86 pass retires the need for this probe.
+
+The diagnostic branch is estimated to matter only in the latter ambiguous
+case. It does not improve P2.86's chance of crossing the current `0x90`
+boundary, so reopening the reviewed identity closure before that evidence
+would add contract risk without changing the selected behavior.
+
+## Regulator D0 no-proof and runtime-predicate design
+
+### Connected read-only result
+
+An attended D0 contacted one boot-complete FYG8 `g0q`. Operator-enabled
+Android wireless debugging produced an authorized TCP ADB transport; its
+device serial, product, and boot-complete values matched the existing USB
+transport. No endpoint or raw device identifier is recorded in tracked
+evidence.
+
+The HSPHY consumer links resolved:
+
+| Supply | Runtime class | RPMh provider |
+| --- | --- | --- |
+| `vdda33` | `regulator.27` | `ldob2` |
+| `vdd` | `regulator.29` | `ldob5` |
+| `vdda18` | `regulator.39` | `ldoc1` |
+
+No `88e3000.hsphy-refgen` consumer link exists. This matches the source's
+optional `refgen` handling and is recorded as target configuration, not a
+defect.
+
+Each mapped class device contains `state`, `num_users`, `microvolts`,
+`requested_microamps`, and `opmode`, but both Android `shell` and Magisk UID 0
+received `EACCES` when reading them. The files are mode `0444`, Android is
+enforcing, the Magisk process is in `u:r:magisk:s0`, and no relevant AVC was
+visible; a dontaudit rule may suppress it. Exact FYG8
+`regulator_state_show()` and `num_users_show()` contain no capability check,
+so this is an Android MAC boundary rather than absence of the attributes.
+
+Debugfs is not mounted and there is no existing read-only regulator summary
+mirror. Tracefs contains regulator tracepoint definitions but no historical
+state; enabling them would be a write. The physical cable was therefore not
+disconnected: the post-disconnect predicates would remain unreadable, so the
+second half could not add evidence.
+
+The structured private verdict is
+`NO_PROOF_P286_REGULATOR_SYSFS_READ_DENIED_D0`. No device setting, mount,
+SELinux rule, trace enable, reboot, or payload action was performed by the
+agent.
+
+### Exact DT and environment-transfer limits
+
+The exact Waipio USB DT assigns `vdd=pm8350_l5`, `vdda18=pm8350c_l1`, and
+`vdda33=pm8350_l2`. Those regulator definitions contain neither
+`regulator-always-on` nor `regulator-boot-on`; an off request is therefore not
+excluded by their static constraints.
+
+The stock `vdda33` provider also exposes a DP consumer, while `vdd` exposes
+UFS, PCIe, camera, display, and other consumers. Their live stock votes are
+not a transferable invariant for bare PID1: the fixed P2.86 60-module plan
+does not load those stock consumer driver sets. Thus a stock disconnected
+`disabled/use_count=0` result would be useful positive evidence, but a stock
+`enabled/use_count>0` result would not by itself prove that bare PID1 retains
+the same vote.
+
+Likewise, a retained rail would disprove a literal full-power-cycle claim but
+would not invalidate the whole restart strategy. The selected mechanism also
+re-enters `dwc3_core_init -> usb_phy_init -> msm_hsphy_init`, including the
+PHY reset and register-init sequence.
+
+### Bare-PID1 predicate feasibility
+
+The candidate does not load Android SELinux policy. Its already-proven
+tracefs kprobe registration and SSUSB sysfs access are consistent with this
+environment distinction. It can therefore use the existing freestanding
+`getdents64`, `readlinkat`, and newline-normalizing `p260_read_value`
+primitives to observe regulator sysfs without an Android policy workaround.
+
+A correct resolver must not freeze `regulator.N`. It must:
+
+1. enumerate `/sys/class/regulator/regulator.*`;
+2. require exactly one directory containing the exact consumer-link basename
+   `88e3000.hsphy-vdda33`;
+3. verify that link resolves to the exact HSPHY platform device;
+4. construct `state` and `num_users` paths under that class device;
+5. parse exactly `disabled`, `enabled`, or `unknown` plus a bounded decimal
+   `num_users`; and
+6. classify zero matches, multiple matches, malformed values, and read errors
+   separately.
+
+One stock reboot is not needed to make this resolver safe and would not prove
+bare enumeration stability. Dynamic exact-link resolution removes that
+assumption directly.
+
+`state` is still a software/provider fact. Exact RPMh
+`rpmh_regulator_is_enabled()` returns the cached aggregate enable request.
+The debugfs summary similarly reports framework counts and
+`regulator_get_voltage_rdev()` output; that voltage is provider-reported, not
+an ADC measurement.
+
+### Checkpoint and identity consequence
+
+Adding a third progress write would damage two-slot retention. The useful
+placement is to refine the existing suspended-stage `0x8f` classification:
+
+- exact resolver/read failure;
+- provider `unknown`;
+- provider `enabled`, with parsed `num_users`;
+- provider `disabled` with nonzero `num_users` contradiction; or
+- provider `disabled` with `num_users=0`.
+
+That preserves the load-bearing pair: refined `0x8f` followed by the existing
+`0x90/restart-trace-cleanup-pending` marker if cleanup blocks. On later
+restart failures, the regulator class must be folded into the restart
+classification rather than relying on a third retained slot.
+
+This is feasible, but it changes the runtime include, classifier, detail ABI,
+contract, tests, and generated payload. The P2.86 intent has already fixed all
+70 `SOURCE_KEYS`; implementing this design in P2.86 would invalidate its
+identity and require a new intent plus a new Full-LTO A/B pair. It is therefore
+paper design only under the current P2.86 decision.
+
+`magiskpolicy --live` is not an available D1 workaround under the active risk
+tier: even when RAM-only it changes SELinux security state, which ordinary D1
+explicitly forbids. A separately approved plain debugfs
+mount/read/unmount could be designed as transient D1, but no forced
+`context=` relabel is selected. If the ordinary mount remains unreadable, that
+D1 must end no-proof rather than modify MAC policy.
