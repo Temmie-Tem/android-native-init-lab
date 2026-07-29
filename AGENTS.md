@@ -56,16 +56,27 @@ Do not add a device step when host-only work can answer the question.
   `dwc3_otg_start_peripheral` and the later outer parent suspend return.
   Moving a userspace fence before it is impossible without a kernel-order
   change.
+- Exact FYG8 source and module disprove the proposed same-queue perf-work
+  deadlock: outer SM work uses ordered `k_sm_usb`, `perf_vote_work` uses
+  `system_wq`, the already-returned stop helper synchronously cancelled that
+  work, and no enable follows before parent suspend. Parent-boundary diagnostic
+  priority is mutex, IRQ drain, clock/GDSC frameworks, bus, PHY, perf cancel,
+  then the skipped wake block; this is a probe priority, not a root-cause
+  verdict.
 - The runner completed normally. Exact rollback restored Android, FYG8 kernel,
   root, boot, and supporting-partition health; Odin was absent and all eight
   canonical events passed. The transaction is `CLOSED` with verdict
   `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; recovery is not required and the
   approval is consumed.
-- Do not repeat P2.82, replay P2.84, or rebuild P2.84. Before selecting a
-  successor, prepare a fresh-approved stock D1 that measures actual outer-work
-  and parent-suspend return. Positive reproduction is decisive; a negative
-  stock result does not clear bare PID1. A hang requires the predeclared exact
-  normal-reboot recovery and final health check.
+- Do not repeat P2.82, replay P2.84, or rebuild P2.84. The prepared stock-D1
+  design reproduces `NONE -> suspended poll -> PERIPHERAL` without trace
+  gating, admits challenge only when the control measures
+  `W >= max(10 ms, 4R)`, and treats any non-owned `mode_store` comm/PID as
+  no-proof. Positive reproduction is decisive; a negative stock result does
+  not clear bare PID1. A hang requires the predeclared exact normal-reboot
+  recovery and final health check.
+- Connected D0 found no usable Wi-Fi address, so TCP ADB, property mutation,
+  and `adbd` restart are excluded. No stock D1 is currently authorized.
 - Every new S22+ USB trace contract must pass the attachment-name gate with
   zero issues; frozen P2.82/P2.84 remain historical mismatches, not exceptions
   reusable by a new candidate.

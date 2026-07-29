@@ -168,16 +168,39 @@ return from dwc3_otg_sm_work
 
 The parent runtime callback is not, however, one atomic primitive. The exact
 module expands it through `dwc3_msm_runtime_suspend()` and
-`dwc3_msm_suspend()`. Its possible synchronous boundaries include:
+`dwc3_msm_suspend()`. Static review before D1 changes the priority of its eight
+synchronous boundaries.
 
-1. `suspend_resume_mutex`;
-2. `cancel_delayed_work_sync(perf_vote_work)`;
-3. `disable_irq(PWR_EVNT_IRQ)`;
-4. HS- and optional SS-PHY suspend callbacks;
-5. clock disable/rate changes;
-6. controller GDSC power collapse, including `regulator_disable`;
-7. interconnect bandwidth votes through `icc_set_bw`; and
-8. wake-IRQ setup before the final mutex release.
+The tempting first hypothesis,
+`cancel_delayed_work_sync(perf_vote_work)`, is not a same-workqueue
+self-deadlock in this build. Exact source initializes `sm_work` and queues it
+on the ordered `k_sm_usb` workqueue, but every `perf_vote_work` submission uses
+`schedule_delayed_work()`, hence `system_wq`. Exact module disassembly confirms
+the latter with a `system_wq` relocation in `msm_dwc3_perf_vote_work`.
+Moreover, the already-returned
+`dwc3_otg_start_peripheral(..., 0)` synchronously executes the same
+`msm_dwc3_perf_vote_enable(..., false)` cancellation, and no enable occurs
+between that proven return and the later parent suspend. The same-queue
+premise is false and the later cancellation should find no pending or running
+perf work.
+
+The measurement priority is therefore:
+
+| Rank | Boundary | Exact-build reason |
+| ---: | --- | --- |
+| 1 | `suspend_resume_mutex` acquisition | mutex acquisition has no local deadline; absence of the first post-lock marker localizes the entry-to-post-lock interval, dominated by this wait |
+| 2 | `disable_irq(PWR_EVNT_IRQ)` | synchronous IRQ drain has no local deadline, although the exact non-LPM handler is finite and does not take the suspend mutex |
+| 3 | clock disable/rate framework | provider and framework lock waits have no local bound |
+| 4 | GDSC/regulator collapse | framework waits remain possible, while the GDSC hardware poll itself is bounded to 1.5 ms |
+| 5 | `icc_set_bw` bus votes | exact RPMh waits have a 10-second bound; ordinary write returns `-ETIMEDOUT` and batch write BUGs, unlike a silent 270-second wait |
+| 6 | HS/SS PHY suspend callbacks | child suspend already put both PHYs into suspend; both exact callbacks fast-return when already suspended |
+| 7 | `cancel_delayed_work_sync(perf_vote_work)` | distinct `system_wq`, prior synchronous cancel returned, and no intervening re-enable |
+| 8 | wake-IRQ setup | the stopped state has neither host nor device mode, so this conditional block is skipped |
+
+This ranks probe interpretation; it does not assert a root cause. The exact
+offset markers remain necessary for every boundary, including the demoted
+perf cancellation, so a surprising live path fails closed instead of being
+explained away.
 
 The usual L2 wait is not an unbounded candidate in this exact state.
 `dwc3_otg_start_peripheral(..., 0)` has already set
@@ -390,42 +413,76 @@ approval. It is a one-way discriminator:
 
 The bounded trace must distinguish:
 
-1. actual `dwc3_otg_sm_work` entry and return, with no return-value claim for
+1. module-qualified `mode_store` entry/return, retaining the trace header's
+   caller `comm` and PID;
+2. actual `dwc3_otg_sm_work` entry and return, with no return-value claim for
    the void function;
-2. `dwc3_otg_start_peripheral(..., 0)` entry and return;
-3. child runtime-suspend and nested HS-PHY power-off entry/return;
-4. `dwc3_msm_runtime_suspend` and `dwc3_msm_suspend` entry/return; and
-5. exact parent-suspend progress markers after mutex acquisition, perf-work
+3. `dwc3_otg_start_peripheral(..., 0)` entry and return;
+4. child runtime-suspend and nested HS-PHY power-off entry/return;
+5. `dwc3_msm_runtime_suspend` and `dwc3_msm_suspend` entry/return; and
+6. exact parent-suspend progress markers after mutex acquisition, perf-work
    cancellation, prepare-suspend, IRQ disable, PHY callbacks, clocks, GDSC,
-   and bus-vote boundaries.
+   bus-vote, wake-IRQ, and final mutex-release boundaries.
 
 One approved transaction may contain a fenced control lane followed by one
-racy challenge lane, with stop-on-first-ambiguity:
+racy challenge lane, with stop-on-first-ambiguity. The challenge is not
+trace-gated:
 
 ```text
 control:
-  NONE -> actual outer return (bounded) -> PERIPHERAL -> health
+  NONE
+    -> poll child runtime_status until exact "suspended"
+    -> wait for actual outer return (bounded)
+    -> final suspended read immediately followed by PERIPHERAL restore
+    -> health
+  then classify the completed trace and timing
 
 challenge:
-  NONE -> nested child power-off/start-peripheral return
-       -> if outer return is not yet present, one PERIPHERAL write
-       -> bounded result or predeclared normal-reboot recovery
+  NONE
+    -> poll child runtime_status until exact "suspended"
+    -> one immediate PERIPHERAL write
+    -> bounded result or predeclared normal-reboot recovery
+  only then classify whether the write actually overlapped outer work
 ```
 
 The challenge does not call power-off separately; it observes the nested
-power-off performed by NONE. Its authoritative measurements are:
+power-off performed by NONE. It neither polls the trace nor branches on an
+outer-return event before the PERIPHERAL write. Its authoritative measurements
+are:
 
 - NONE dispatch to outer return;
-- power-off return to parent-suspend entry and outer return;
+- first exact child-suspended read completion to outer return;
+- the control restoration's final suspended-read completion to its
+  module-qualified `mode_store` entry;
 - PERIPHERAL dispatch to write return; and
 - the last completed parent-suspend sub-boundary if outer return is absent.
+
+The control gates challenge eligibility quantitatively. Let `W` be
+`outer-return - first-suspended-observation` and let `R` be the measured
+control restoration latency from its final suspended-read completion to the
+known writer's `mode_store` entry. Challenge is permitted only when
+`W >= max(10 ms, 4 * R)`. If outer return precedes the suspended observation,
+if the total NONE-to-outer interval cannot expose that window, or if this
+margin fails, the transaction records `CONTROL_WINDOW_TOO_SHORT`, restores
+health, and ends without challenge. A 15-second missing control return is
+already a positive non-return reproduction and also suppresses challenge.
+
+Each lane binds the one writer's exact `comm` and PID before its first role
+write. The long-lived lane process performs its own `open`/`write`; it does not
+fork an `echo` or shell-redirection helper. Any `mode_store` entry from a
+different pair is observed Android
+interference, produces no-proof, and stops the transaction after cleanup.
+Thus a negative result cannot silently assume the framework stayed idle.
 
 The on-device trace capture must be detached and durable across expected ADB
 loss. A recovery watchdog, one exact normal Android reboot contingency,
 physical attendance, cleanup, and final FYG8 Android/root health must all be
 declared in the fresh D1 approval. If the outer worker or writer remains
 blocked, the candidate test stops and the exact recovery executes; there is no
-same-approval challenge retry. No such D1 approval exists in this H0 unit.
+same-approval challenge retry. TCP ADB may be added only if a connected D0
+first proves a usable network address; only the volatile
+`service.adb.tcp.port` plus an `adbd` restart may be considered, never the
+persistent property. No such D1 approval exists in this H0 unit.
 
 Only after this control is classified may a successor design decide between:
 
@@ -475,5 +532,8 @@ qualification.
   frozen post-B identity preimage; and
 - `git diff --check` passed.
 
-No successor candidate, D0, D1 execution, F1 manifest, or live approval is
-created here.
+This focused-analysis unit created no successor candidate, D0, D1 execution,
+F1 manifest, or live approval. The later source-priority correction,
+quantitative lane design, and read-only transport D0 are recorded in
+`S22PLUS_FYG8_P284_STOCK_OUTER_D1_REFINED_DESIGN_AND_D0_2026-07-29.md`;
+they do not retroactively authorize a live action.

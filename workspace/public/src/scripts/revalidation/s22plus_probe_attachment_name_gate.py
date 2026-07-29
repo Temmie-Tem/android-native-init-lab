@@ -42,6 +42,7 @@ DEFAULT_ALLOWED_STEMS = MappingProxyType(
             )
         ),
         "dwc3_otg_sm_work": frozenset(("outer_sm_work",)),
+        "mode_store": frozenset(("mode_store",)),
         "dwc3_msm_runtime_suspend": frozenset(
             ("parent_runtime_suspend",)
         ),
@@ -66,6 +67,8 @@ DEFAULT_ALLOWED_STEMS = MappingProxyType(
                 "parent_clocks_done",
                 "parent_gdsc_done",
                 "parent_bus_vote_done",
+                "parent_wake_irq_done",
+                "parent_mutex_released",
             )
         ),
     }

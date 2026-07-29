@@ -13,6 +13,7 @@ if str(SCRIPTS) not in sys.path:
 
 import s22plus_fyg8_p280_contract_spec as p280  # noqa: E402
 import s22plus_fyg8_p282_contract_spec as p282  # noqa: E402
+import s22plus_fyg8_p284_stock_outer_d1_spec as d1_spec  # noqa: E402
 import s22plus_probe_attachment_name_gate as gate  # noqa: E402
 
 
@@ -77,6 +78,32 @@ class ProbeAttachmentNameGateTests(unittest.TestCase):
             and event.name.startswith("worker_")
         )
         gate.require_clean(worker_events)
+
+    def test_stock_d1_descriptors_match_every_actual_attachment(self):
+        gate.require_clean(d1_spec.TRACE_EVENTS)
+
+    def test_mode_store_writer_identity_label_is_symbol_exact(self):
+        entry = next(
+            event for event in d1_spec.TRACE_EVENTS
+            if event.name == "mode_store_in"
+        )
+        self.assertEqual(
+            entry.definition(),
+            "p:p284stock/mode_store_in dwc3_msm:mode_store\n",
+        )
+        gate.require_clean((entry,))
+
+    def test_semantic_writer_alias_does_not_hide_mode_store_attachment(self):
+        entry = next(
+            event for event in d1_spec.TRACE_EVENTS
+            if event.name == "mode_store_in"
+        )
+        misleading = replace(entry, name="android_writer_in")
+        with self.assertRaisesRegex(
+            gate.ProbeNameGateError,
+            "descriptor-semantic-mismatch",
+        ):
+            gate.require_clean((misleading,))
 
     def test_generic_worker_label_is_rejected_for_both_possible_symbols(self):
         current = next(

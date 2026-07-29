@@ -20,8 +20,10 @@ outer work and the nominal helper timeout then blocks in `wait4`; this exactly
 fits the no-`0x90` shape but neither identifies the parent-suspend wedge nor
 repairs it with a fence. The power call is nested in child suspend before the
 later parent suspend, so it cannot be moved after outer return by a PID1 fence.
-Exact rollback and final health passed. The next discriminator is fresh-approved
-stock D1; no S22+ live run is currently authorized.**
+Exact rollback and final health passed. Exact source also rules out a
+same-queue `perf_vote_work` self-deadlock. The next discriminator is the
+refined, fresh-approved stock D1; connected D0 found no TCP-ADB transport and
+no S22+ live run is currently authorized.**
 
 P2.69 derived the fresh v4 intent, completed two clean Full-LTO builds in
 `40:43.23` and `40:45.31` with no swap, and proved byte equality for all six
@@ -849,15 +851,17 @@ reports grant no device authority.
     slots remain valid, proving no `0x90` write reached its first durable
     CRC-clear. This path explains the silence but not why the parent stop
     worker failed to return. A fence is diagnostic if that worker is wedged.
-85. **P2.84 gap-review correction and stock discriminator, H0:** exact source
+85. **P2.84 gap-review correction and stock discriminator, H0+D0:** exact source
     proves HS-PHY power-off is nested inside child runtime suspend, before
     stop-peripheral return and the later outer parent suspend; a PID1 fence
-    cannot reorder it. The exact module retains probeable outer-work and parent
-    suspend bodies. A permanent gate now rejects evidence names that do not
-    match rendered attachment symbols, detecting the two frozen `worker`
-    mismatches while P2.80 passes. Before successor selection, run a separately
-    approved stock D1 outer/parent trace; positive is decisive, negative is not
-    a bare-PID1 clearance. No D1 or F1 authority exists.
+    cannot reorder it. `perf_vote_work` uses `system_wq`, not ordered
+    `k_sm_usb`; its prior cancel returned and no re-enable follows. The refined
+    stock D1 ranks exact parent offsets, uses ungated
+    `NONE -> suspended -> PERIPHERAL`, suppresses a too-short control window,
+    and records every `mode_store` comm/PID. The permanent attachment-name gate
+    passes the new contract. D0 found no network address, so TCP ADB is
+    excluded. Positive is decisive; negative is not bare-PID1 clearance. No D1
+    or F1 authority exists.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
 reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing
