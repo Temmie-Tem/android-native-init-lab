@@ -13,25 +13,11 @@ Do not add a device step when host-only work can answer the question.
 ## Current Live Posture
 
 - No S22+ F1 live run is currently authorized.
-- P2.82 consumed one exact approval. Its candidate and exact Magisk rollback
-  each completed one boot-only transfer; no candidate replay occurred.
-- Two byte-identical retained reads contain progress `0x8d/detail=0`, followed
-  by terminal failure `0x8e/detail=0xc10`
-  (`none-readback-not-reached`). No accepted ACM endpoint appeared.
-- The result proves the unchanged P2.80 prefix again reached initial parent
-  `peripheral` mode plus exact real-UDC membership. The bounded helper then
-  completed the exact `none` write operation. It does not prove whether the
-  parent mode changed: the reader stripped the required sysfs newline and then
-  compared against a newline-bearing P2.82 constant, making exact readback
-  impossible and converting every valid value into retryable mismatch.
-- Child suspend, DEVICE restart, child PHY reinitialization, configfs UDC bind,
-  final bus-state sampling, and host ACM receipt were not reached. Do not read
-  this result as evidence for or against those later P2.82 boundaries.
-- The runner completed normally. Exact rollback restored Android, FYG8 kernel,
-  root, boot, and supporting-partition health; Odin was absent and all eight
-  canonical events passed.
-- The transaction is `CLOSED` with verdict
-  `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; recovery is not required.
+- P2.82 consumed one exact candidate/rollback approval with no replay. Its
+  byte-identical reads end at `0x8e/detail=0xc10`; a newline-bearing comparator
+  made NONE readback impossible, so no later boundary is proved.
+- P2.82 rollback/final health passed and its transaction is `CLOSED` with
+  verdict `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`.
 - P2.84 is the versioned correction. It keeps P2.82 kernel inputs,
   classifier, retained ABI, module plan, and linked tables byte-identical,
   derives readback tokens separately from newline-bearing write wire, and adds
@@ -63,16 +49,26 @@ Do not add a device step when host-only work can answer the question.
   quiescence was never proven. The immediate DEVICE write synchronously
   flushes that prior work. Its helper timeout sends `SIGKILL` and then performs
   blocking `wait4`, so a stuck uninterruptible flush can prevent all `0x90`
-  checkpointing. This exactly fits the evidence but is not unique live proof.
+  checkpointing. This fits the evidence but does not explain which stop-side
+  PM primitive wedged; a quiescence fence would classify, not repair, that case.
+- Exact ordering rejects a PID1 `power-off`-after-stop model. The traced
+  HS-PHY power call is nested in child runtime suspend, before
+  `dwc3_otg_start_peripheral` and the later outer parent suspend return.
+  Moving a userspace fence before it is impossible without a kernel-order
+  change.
 - The runner completed normally. Exact rollback restored Android, FYG8 kernel,
   root, boot, and supporting-partition health; Odin was absent and all eight
   canonical events passed. The transaction is `CLOSED` with verdict
   `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; recovery is not required and the
   approval is consumed.
-- Do not repeat P2.82, replay P2.84, or rebuild P2.84. The next bounded unit is
-  a new-version H0 successor design that separately proves actual outer-work
-  quiescence and cannot block on helper reap. Any successor candidate requires
-  a new source contract, immutable manifest, connected D0, and fresh approval.
+- Do not repeat P2.82, replay P2.84, or rebuild P2.84. Before selecting a
+  successor, prepare a fresh-approved stock D1 that measures actual outer-work
+  and parent-suspend return. Positive reproduction is decisive; a negative
+  stock result does not clear bare PID1. A hang requires the predeclared exact
+  normal-reboot recovery and final health check.
+- Every new S22+ USB trace contract must pass the attachment-name gate with
+  zero issues; frozen P2.82/P2.84 remain historical mismatches, not exceptions
+  reusable by a new candidate.
 
 ## Permanent Safety Boundaries
 

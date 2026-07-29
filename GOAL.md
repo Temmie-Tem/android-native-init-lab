@@ -17,8 +17,11 @@ NONE readback and `dwc3_otg_start_peripheral(off)` return, not outer
 suspend plus a zero-return power-off helper, not electrical rail change.
 Focused H0 analysis finds the immediate DEVICE write can block flushing that
 outer work and the nominal helper timeout then blocks in `wait4`; this exactly
-fits the no-`0x90` shape but is not unique live proof. Exact rollback and final
-health passed. No S22+ F1 live run is currently authorized.**
+fits the no-`0x90` shape but neither identifies the parent-suspend wedge nor
+repairs it with a fence. The power call is nested in child suspend before the
+later parent suspend, so it cannot be moved after outer return by a PID1 fence.
+Exact rollback and final health passed. The next discriminator is fresh-approved
+stock D1; no S22+ live run is currently authorized.**
 
 P2.69 derived the fresh v4 intent, completed two clean Full-LTO builds in
 `40:43.23` and `40:45.31` with no swap, and proved byte equality for all six
@@ -844,9 +847,17 @@ reports grant no device authority.
     write synchronously flushes that prior work; its helper's 30-second expiry
     then sends `SIGKILL` followed by unbounded blocking `wait4`. Both retained
     slots remain valid, proving no `0x90` write reached its first durable
-    CRC-clear. This path fully explains the evidence shape but is not unique
-    live root-cause proof. Next design a new versioned quiescence probe and
-    nonblocking timeout discriminator; no candidate or live authority exists.
+    CRC-clear. This path explains the silence but not why the parent stop
+    worker failed to return. A fence is diagnostic if that worker is wedged.
+85. **P2.84 gap-review correction and stock discriminator, H0:** exact source
+    proves HS-PHY power-off is nested inside child runtime suspend, before
+    stop-peripheral return and the later outer parent suspend; a PID1 fence
+    cannot reorder it. The exact module retains probeable outer-work and parent
+    suspend bodies. A permanent gate now rejects evidence names that do not
+    match rendered attachment symbols, detecting the two frozen `worker`
+    mismatches while P2.80 passes. Before successor selection, run a separately
+    approved stock D1 outer/parent trace; positive is decisive, negative is not
+    a bare-PID1 clearance. No D1 or F1 authority exists.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
 reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing
