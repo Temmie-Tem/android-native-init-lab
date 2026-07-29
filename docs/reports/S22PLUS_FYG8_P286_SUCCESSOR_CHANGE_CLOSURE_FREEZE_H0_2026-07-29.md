@@ -426,16 +426,43 @@ The debugfs summary similarly reports framework counts and
 `regulator_get_voltage_rdev()` output; that voltage is provider-reported, not
 an ADC measurement.
 
+The three rails must not share one pass predicate. Their consumer profiles
+differ:
+
+- `vdda33/ldob2` has the HSPHY and a stock DP consumer;
+- `vdda18/ldoc1` has no other enumerated stock consumer; and
+- `vdd/ldob5` has UFS, PCIe, camera, display, and other stock consumers.
+
+Bare PID1 removes many stock consumers, but storage-related activity can still
+make `vdd` remain enabled after the HSPHY correctly removes its own vote.
+Therefore `vdd=disabled` must never be a success requirement. A complete-off
+observation is most informative for the narrower `vdda33` and `vdda18`
+providers, and even those values must remain rail-specific facts rather than a
+single all-rails invariant.
+
+`num_users` is also aggregate `rdev->use_count`. It cannot identify whether
+the HSPHY's individual regulator handle decremented its own `enable_count`
+when another consumer remains. Per-consumer `enable_count` is present only in
+the debugfs `regulator_summary`, not in the regulator class sysfs attributes.
+The exact sysfs proof boundary is consequently:
+
+- `state=disabled` (especially for `vdda33` or `vdda18`) strongly proves that
+  the provider/framework considers the entire rail off; but
+- `state=enabled` or nonzero `num_users` cannot prove that the HSPHY failed to
+  remove its own vote.
+
+No refined checkpoint may label the second case as a failed HSPHY disable.
+
 ### Checkpoint and identity consequence
 
 Adding a third progress write would damage two-slot retention. The useful
 placement is to refine the existing suspended-stage `0x8f` classification:
 
 - exact resolver/read failure;
-- provider `unknown`;
-- provider `enabled`, with parsed `num_users`;
-- provider `disabled` with nonzero `num_users` contradiction; or
-- provider `disabled` with `num_users=0`.
+- rail-specific provider `unknown`;
+- rail-specific provider `enabled`, with aggregate `num_users`;
+- `vdda33` or `vdda18` provider `disabled`; or
+- `vdd` provider state as non-gating telemetry.
 
 That preserves the load-bearing pair: refined `0x8f` followed by the existing
 `0x90/restart-trace-cleanup-pending` marker if cleanup blocks. On later
@@ -447,6 +474,28 @@ contract, tests, and generated payload. The P2.86 intent has already fixed all
 70 `SOURCE_KEYS`; implementing this design in P2.86 would invalidate its
 identity and require a new intent plus a new Full-LTO A/B pair. It is therefore
 paper design only under the current P2.86 decision.
+
+### Exact `+0x14c` control-flow position
+
+The shipped FYG8 module places the proposed boundary before the refgen choice,
+not inside only one disable leg:
+
+```text
++0x058  cmp   power_enabled, on
++0x05c  b.eq  idempotent-return
++0x060  tbz   on, #0, +0x14c
++0x14c  ldr   refgen
++0x150  cbz   refgen, +0x180
++0x154  bl    regulator_disable(refgen)
+...
++0x180  bl    regulator_disable(vdda33)
+```
+
+Thus `+0x14c` is the first instruction after the `!on` selection and fires
+for both refgen-present and refgen-absent executions. On this target the live
+consumer mapping and exact DT show no refgen; the `cbz` therefore takes the
+`+0x180` `disable_vdda33` leg. The offset remains a disable-sequence-entry
+fact, not an electrical or per-consumer-vote proof.
 
 `magiskpolicy --live` is not an available D1 workaround under the active risk
 tier: even when RAM-only it changes SELinux security state, which ordinary D1
