@@ -23,6 +23,11 @@ VERDICT = "PASS_P286_PRE_INTENT_CHANGE_CLOSURE_FROZEN_HOST_ONLY"
 PROFILE = p284.PROFILE
 INHERITED_CONTRACT_ID = p284.CONTRACT_ID
 PLANNED_CONTRACT_ID = "s22plus-fyg8-p286-parent-tail-bounded-restart-v1"
+P284_FROZEN_RUN_ID = "023060c8dd0ab036f8547a816624356f"
+P284_FROZEN_INTENT = Path(
+    "workspace/private/outputs/s22plus_fyg8_p284_v4/"
+    "intent/candidate-intent.json"
+)
 CHANGE_WINDOW_BASE_COMMIT = "7929e9f7d7fea1eb99ab43dcd841c5a9c3b6ef94"
 INTENT_DERIVED = False
 BUILD_EXECUTED = False
@@ -143,8 +148,8 @@ STAGE_A_DECLARED_CHANGED_PATHS = tuple(
         path.as_posix()
         for path in (
             *STAGE_A_GOVERNANCE_PATHS,
-            NON_IDENTITY_SUPPORT_PATHS["p286_change_freeze"],
-            NON_IDENTITY_SUPPORT_PATHS["p286_freeze_report"],
+            *PAYLOAD_SOURCE_PATHS.values(),
+            *NON_IDENTITY_SUPPORT_PATHS.values(),
         )
     )
 )
@@ -248,6 +253,52 @@ def inherited_direct_source_paths() -> dict[str, Path]:
     if set(paths) != expected:
         raise FreezeError("P2.84 direct SOURCE_KEY path inventory drifted")
     return paths
+
+
+def validate_inherited_receipts(root: Path) -> dict[str, Any]:
+    path = root / P284_FROZEN_INTENT
+    if path.is_symlink() or not path.is_file():
+        raise FreezeError("frozen P2.84 intent is missing or indirect")
+    try:
+        value = json.loads(path.read_text(encoding="ascii"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise FreezeError("frozen P2.84 intent is not ASCII JSON") from exc
+    preimage = value.get("identity_preimage")
+    expected = (
+        preimage.get("sources")
+        if isinstance(preimage, dict)
+        else None
+    )
+    if (
+        value.get("run_id") != P284_FROZEN_RUN_ID
+        or value.get("source_contract_id") != p284.CONTRACT_ID
+        or not isinstance(preimage, dict)
+        or preimage.get("source_contract_id") != p284.CONTRACT_ID
+        or not isinstance(expected, dict)
+        or len(expected) != 60
+    ):
+        raise FreezeError("frozen P2.84 intent identity is invalid")
+    _source, actual = p284.source_receipts(root)
+    changed = tuple(
+        sorted(
+            key
+            for key in set(expected) | set(actual)
+            if expected.get(key) != actual.get(key)
+        )
+    )
+    if changed:
+        raise FreezeError(
+            "frozen P2.84 source receipts changed: "
+            + ",".join(changed)
+        )
+    return {
+        "intent_path": P284_FROZEN_INTENT.as_posix(),
+        "run_id": P284_FROZEN_RUN_ID,
+        "source_contract_id": p284.CONTRACT_ID,
+        "receipt_count": len(actual),
+        "changed_keys": [],
+        "verified": True,
+    }
 
 
 def planned_direct_source_paths() -> dict[str, Path]:
@@ -463,11 +514,13 @@ def validate_freeze(root: Path) -> dict[str, Any]:
     missing_payload = missing_payload_paths(root)
     missing_support = missing_support_paths(root)
     missing = tuple(sorted((*missing_payload, *missing_support)))
+    inherited_receipts = validate_inherited_receipts(root)
     return {
         "schema": SCHEMA,
         "verdict": VERDICT,
         "profile": PROFILE,
         "inherited_contract_id": INHERITED_CONTRACT_ID,
+        "inherited_receipts": inherited_receipts,
         "planned_contract_id": PLANNED_CONTRACT_ID,
         "candidate_requirements": [
             {"id": key, "requirement": value}

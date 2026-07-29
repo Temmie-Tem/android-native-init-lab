@@ -165,19 +165,52 @@ source change invalidates the A/B pair and requires a fresh intent. A
 non-identity support change does not alter boot identity, but its validators
 must be rerun and its final bytes rebound by `bundle.sha256` before approval.
 
+### P2.86 implementation validation
+
+The frozen 18-file overlay implementation is complete. No P2.84 source was
+modified, no P2.86 intent was derived, no kernel or candidate image was built,
+and no device was contacted.
+
+The runtime now:
+
+- waits for exact parent `runtime_status=suspended` on the existing stop
+  deadline after the inherited child-suspended boundary;
+- fixes timeout state before kill/reap, eliminates the blocking specific-child
+  `wait4`, and uses `WNOHANG` under a 1000 ms auxiliary reap deadline with an
+  exact unreaped-child class;
+- records actual `dwc3_otg_sm_work` entry/return separately from the renamed
+  `dwc3_otg_start_peripheral` entry/return pair;
+- snapshots residual outer work before PERIPHERAL dispatch so a pre-existing
+  tail, a flush timeout, and a newly entered start-peripheral no-return remain
+  distinct; and
+- separates helper dispatch, completion, write error, completed write plus
+  failed readback, and the inherited later restart postconditions.
+
+The source contract resolves exactly `60 + 10 = 70` keys. The selector and all
+other pure verifier/evidence support remain outside identity. Generated
+checkpoint and kernel validators accept the twelve new exact details
+`0xc50..0xc5b`; the linked adapter uses a 58-entry four-byte detail table. The
+freeze gate also reopens run `023060c8dd0ab036f8547a816624356f` and verifies
+all inherited P2.84 source receipts `60/60` with zero changed keys.
+
+Static and fault validation passes the P2.86 focused suite, its full inherited
+pre-LTO focused inventory, source/packager mutation rejection, deterministic
+one-member `boot.img.lz4` packaging, AArch64 static classifier execution under
+QEMU, deterministic userspace two-link/source implementation audit, clean
+kernel-patch application, and the Git-derived freeze gate. The next action is
+review of these results; intent derivation remains a later bounded unit.
+
 ## Ordered Execution
 
-1. Complete the frozen P2.86 implementation H0.
-2. Cross-compile the touched C and inspect the static AArch64 output.
-3. Run focused semantics, fault injection, attachment-name, source-closure,
-   userspace two-build, QEMU, and pre-LTO qualification.
-4. Print all 70 SOURCE_KEY-to-path rows and compare them with a clean status.
-5. Derive one fresh intent only after the closure is complete.
-6. Run one clean Full-LTO A/B pair and prove all linked artifacts byte-equal.
-7. Run linked audit, deterministic boot-only package A/B, static closure, and
+1. Review the completed P2.86 implementation and static/fault evidence.
+2. Re-run the frozen closure immediately before intent derivation.
+3. Print all 70 SOURCE_KEY-to-path rows and compare them with a clean status.
+4. Derive one fresh intent only after the closure is complete.
+5. Run one clean Full-LTO A/B pair and prove all linked artifacts byte-equal.
+6. Run linked audit, deterministic boot-only package A/B, static closure, and
    offline promotion.
-8. Create a fresh ready manifest, then perform separate D0.
-9. Request fresh live authority only after all host and D0 gates pass.
+7. Create a fresh ready manifest, then perform separate D0.
+8. Request fresh live authority only after all host and D0 gates pass.
 
 No device step is added when H0 can answer the question.
 
