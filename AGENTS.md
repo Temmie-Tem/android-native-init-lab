@@ -51,24 +51,28 @@ Do not add a device step when host-only work can answer the question.
 - Two byte-identical retained reads contain progress `0x8e/detail=0`, followed
   by progress `0x8f/detail=0xc18`
   (`suspended-power-helper-off-zero`). The first record proves the corrected
-  normalized NONE readback plus an authoritative stop-worker entry, return,
-  and zero result. The second proves the controlled child suspend callback
-  entered and returned nonnegative, the child read back exactly `suspended`,
-  and the power-off helper entered and returned zero. It does not prove that
-  the helper changed hardware state or an analog rail voltage.
+  normalized NONE readback plus entry, return, and zero result from
+  `dwc3_otg_start_peripheral(..., 0)`. The second proves the controlled child
+  suspend callback returned nonnegative, exact child `suspended` status, and
+  a zero-return power-off helper. Neither record proves analog change.
 - No `0x90` or later P2.84 checkpoint survived. DEVICE restart readback, child
   resume, femto PHY reinitialization, configfs UDC bind, final bus-state
-  sampling, and host ACM receipt remain unproved. Do not infer a precise
-  restart failure or stall from the absence of a later retained checkpoint.
+  sampling, and host ACM receipt remain unproved.
+- Focused H0 analysis corrects the `stop_worker` label: its probes target
+  `dwc3_otg_start_peripheral`, not outer `dwc3_otg_sm_work`; outer-work
+  quiescence was never proven. The immediate DEVICE write synchronously
+  flushes that prior work. Its helper timeout sends `SIGKILL` and then performs
+  blocking `wait4`, so a stuck uninterruptible flush can prevent all `0x90`
+  checkpointing. This exactly fits the evidence but is not unique live proof.
 - The runner completed normally. Exact rollback restored Android, FYG8 kernel,
   root, boot, and supporting-partition health; Odin was absent and all eight
   canonical events passed. The transaction is `CLOSED` with verdict
   `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; recovery is not required and the
   approval is consumed.
 - Do not repeat P2.82, replay P2.84, or rebuild P2.84. The next bounded unit is
-  H0 analysis of the exact post-`0x8f`/pre-`0x90` restart boundary. Any
-  successor candidate requires a new versioned source contract, immutable
-  manifest, connected D0, and fresh approval.
+  a new-version H0 successor design that separately proves actual outer-work
+  quiescence and cannot block on helper reap. Any successor candidate requires
+  a new source contract, immutable manifest, connected D0, and fresh approval.
 
 ## Permanent Safety Boundaries
 

@@ -67,7 +67,13 @@ versioned P2.84 correction. In the exact source-bound runtime it establishes:
    real-UDC membership;
 2. the bounded helper completed the exact `none` write;
 3. the normalized parent-mode readback matched exact `none`; and
-4. the authoritative stop worker entered, returned, and reported zero.
+4. the traced `dwc3_otg_start_peripheral(..., 0)` function entered, returned,
+   and reported zero.
+
+The generated event names call that pair `worker_in/worker_out`, but their
+actual probe target is `dwc3_otg_start_peripheral`, not the enclosing
+`dwc3_otg_sm_work`. The result therefore does not prove outer-worker return or
+delayed-work quiescence. The post-close H0 analysis records that correction.
 
 Stage `0x8f/detail=0xc18` then establishes:
 
@@ -89,6 +95,7 @@ No `0x90`, `0x91`, `0x92`, or terminal `0x93` checkpoint survived. Therefore
 the retained evidence does not prove:
 
 - exact DEVICE restart write or `peripheral` readback;
+- completion or quiescence of the stop-side outer `dwc3_otg_sm_work`;
 - child resume or femto-HS PHY reinitialization;
 - configfs UDC bind;
 - final UDC state or speed; or
@@ -97,7 +104,9 @@ the retained evidence does not prove:
 The runtime calls the restart phase immediately after publishing `0x8f`, but
 absence of a later retained checkpoint does not identify whether execution
 stalled, reset, lost retainable state, or failed before a checkpoint could
-survive. No precise restart cause is inferred.
+survive. The later focused H0 analysis localizes a source-complete unbounded
+helper/outer-work path that fits this shape, but does not promote it to unique
+live root-cause proof.
 
 ## Rollback and health
 
