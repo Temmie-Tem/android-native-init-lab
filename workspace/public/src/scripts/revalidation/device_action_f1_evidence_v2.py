@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from contextlib import nullcontext
 from typing import Any
 
 import s22plus_fyg8_r4w1e_checkpoint_contract as checkpoint
@@ -14,7 +15,8 @@ import s22plus_fyg8_p230_same_ring_multiboot_decoder as same_ring_multiboot
 import s22plus_fyg8_p233_e1_decoder as e1_latest_stage
 import s22plus_fyg8_p242_e2_stock_closure as e2_closure
 import s22plus_fyg8_p253_e2_stock_closure as e2_closure_selector
-import s22plus_fyg8_source_contracts as source_contracts
+import s22plus_fyg8_p286_e2_stock_closure as p286_e2_closure
+import s22plus_fyg8_p286_source_contracts as source_contracts
 
 
 MARKER_KIND = "retained_marker_after_rollback"
@@ -39,6 +41,13 @@ E1_LATEST_STAGE_CANDIDATE_STATIC_SCHEMA = (
 E1_LATEST_STAGE_CANDIDATE_STATIC_VERDICT = (
     "PASS_P234_INDEPENDENT_ARTIFACT_CLOSURE_HOST_ONLY"
 )
+P286_CANDIDATE_STATIC_SCHEMA = (
+    "s22plus_fyg8_p286_candidate_static_checker_v1"
+)
+P286_CANDIDATE_STATIC_VERDICT = (
+    "PASS_P286_INDEPENDENT_ARTIFACT_CLOSURE_HOST_ONLY"
+)
+P286_SOURCE_CONTRACT_ID = p286_e2_closure.source_contract.CONTRACT_ID
 E1_LATEST_STAGE_CANDIDATE_CONTRACT_SCHEMA = (
     "s22plus_fyg8_p234_candidate_contract_v1"
 )
@@ -221,6 +230,21 @@ def _latest_stage_decoder(
     if source_contract_id is None:
         return e1_latest_stage
     return _selected_contract(source_contract_id, profile).decoder
+
+
+def _select_e2_closure(source_contract_id: str | None):
+    if source_contract_id == P286_SOURCE_CONTRACT_ID:
+        return p286_e2_closure.select(source_contract_id)
+    return e2_closure_selector.select(source_contract_id)
+
+
+def _e2_authority_context(source_contract_id: str | None, closure_api: Any):
+    if source_contract_id != P286_SOURCE_CONTRACT_ID:
+        return nullcontext()
+    authority_context = getattr(closure_api, "_p286_authority_paths", None)
+    if not callable(authority_context):
+        raise EvidenceError("P2.86 stock-closure authority adapter is unavailable")
+    return authority_context()
 
 
 def _latest_stage_terminal(selected_decoder, profile: str) -> int:
@@ -418,14 +442,22 @@ def _generic_rootfs_module_closure(
         e2_closure_selector.P280_CONTRACT_ID,
         e2_closure_selector.P282_CONTRACT_ID,
         e2_closure_selector.P284_CONTRACT_ID,
+        P286_SOURCE_CONTRACT_ID,
     }:
         return module_closure
     adapter_api = closure_api
     label = "P2.80"
-    if source_contract_id == e2_closure_selector.P284_CONTRACT_ID:
+    if source_contract_id in {
+        e2_closure_selector.P284_CONTRACT_ID,
+        P286_SOURCE_CONTRACT_ID,
+    }:
         inherited_p282 = getattr(closure_api, "p282", None)
         adapter_api = getattr(inherited_p282, "p280", None)
-        label = "P2.84"
+        label = (
+            "P2.86"
+            if source_contract_id == P286_SOURCE_CONTRACT_ID
+            else "P2.84"
+        )
     elif source_contract_id == e2_closure_selector.P282_CONTRACT_ID:
         adapter_api = getattr(closure_api, "p280", None)
         label = "P2.82"
@@ -491,7 +523,7 @@ def validate_e2_ap_payload(
     if source_contract_id is not None:
         _selected_contract(source_contract_id, "E2")
         expected_keys.add("source_contract_id")
-    closure_api = e2_closure_selector.select(source_contract_id)
+    closure_api = _select_e2_closure(source_contract_id)
     expected = _exact(
         closure,
         expected_keys,
@@ -536,14 +568,15 @@ def validate_e2_ap_payload(
         generic_module_closure = _generic_rootfs_module_closure(
             source_contract_id, closure_api, module_closure
         )
-        generic_rootfs = closure_api.audit_candidate_generic_rootfs(
-            boot,
-            entries,
-            expected_init=identities["init"],
-            expected_child=identities["child"],
-            run_id=bytes.fromhex(run_id),
-            module_closure=generic_module_closure,
-        )
+        with _e2_authority_context(source_contract_id, closure_api):
+            generic_rootfs = closure_api.audit_candidate_generic_rootfs(
+                boot,
+                entries,
+                expected_init=identities["init"],
+                expected_child=identities["child"],
+                run_id=bytes.fromhex(run_id),
+                module_closure=generic_module_closure,
+            )
     except e2_closure.boot_verify.BootVerifyError as exc:
         raise EvidenceError("E2 AP payload cannot be independently decoded") from exc
     except e2_closure.ClosureError as exc:
@@ -1486,6 +1519,16 @@ def _verify_e1_latest_stage_offline_contract(
     candidate_static_result = _json(
         payloads["candidate_static"], "E1A candidate static result"
     )
+    expected_candidate_static_schema = (
+        P286_CANDIDATE_STATIC_SCHEMA
+        if source_contract_id == P286_SOURCE_CONTRACT_ID
+        else E1_LATEST_STAGE_CANDIDATE_STATIC_SCHEMA
+    )
+    expected_candidate_static_verdict = (
+        P286_CANDIDATE_STATIC_VERDICT
+        if source_contract_id == P286_SOURCE_CONTRACT_ID
+        else E1_LATEST_STAGE_CANDIDATE_STATIC_VERDICT
+    )
     if (
         set(candidate_static_result)
         != {
@@ -1500,10 +1543,10 @@ def _verify_e1_latest_stage_offline_contract(
             "safety",
         }
         or candidate_static_result.get("schema")
-        != E1_LATEST_STAGE_CANDIDATE_STATIC_SCHEMA
+        != expected_candidate_static_schema
         or candidate_static_result.get("target") != PID1_USERSPACE_TARGET
         or candidate_static_result.get("verdict")
-        != E1_LATEST_STAGE_CANDIDATE_STATIC_VERDICT
+        != expected_candidate_static_verdict
     ):
         raise EvidenceError("candidate static result header is not accepted")
     source_contract_keys = {
@@ -1784,7 +1827,7 @@ def _verify_e1_latest_stage_offline_contract(
             expected_child=normalized_source_userspace["child"],
         )
     elif profile == "E2":
-        closure_api = e2_closure_selector.select(source_contract_id)
+        closure_api = _select_e2_closure(source_contract_id)
         try:
             closure = closure_api.validate_module_closure(
                 source_candidate.get("module_closure")

@@ -23,7 +23,7 @@ from typing import Any
 
 import device_action_f1_evidence_v2 as typed_evidence
 import device_action_cdc_acm_observer_v1 as cdc_acm_observer
-import s22plus_fyg8_p234_candidate_intent as candidate_intent
+import s22plus_fyg8_p286_candidate_intent as candidate_intent
 from s22plus_boot_only_f1_transport import (
     BOOT_MEMBER,
     F1TransportError,
@@ -455,6 +455,13 @@ def execution_critical_source_receipts(
             e1_latest_stage_sources["source_contract_selector"] = Path(
                 candidate_intent.source_contracts.__file__
             )
+            if source_contract_id == candidate_intent.p286.CONTRACT_ID:
+                import s22plus_fyg8_p286_change_freeze as p286_freeze
+
+                for name, path in p286_freeze.NON_IDENTITY_SUPPORT_PATHS.items():
+                    e1_latest_stage_sources[f"p286_support_{name}"] = (
+                        candidate_intent.repo_root() / path
+                    )
         elif profile in candidate_intent.SUPPORTED_PROFILES:
             for name, path in candidate_intent.source_paths_for_profile(
                 profile

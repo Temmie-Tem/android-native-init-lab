@@ -20,6 +20,10 @@ def contract_ids() -> tuple[str, ...]:
     return tuple(REGISTRY)
 
 
+def __getattr__(name: str):
+    return getattr(historical, name)
+
+
 def _p286_selection(contract) -> SelectedSourceContract:  # noqa: ANN001
     return SelectedSourceContract(
         module=p286,

@@ -131,10 +131,12 @@ It prints all 70 planned SOURCE_KEY-to-path rows.
 
 ### Bundle-bound support closure
 
-Ten verifier/evidence files cannot change `boot.img` bytes and stay outside
+Twelve verifier/evidence files cannot change `boot.img` bytes and stay outside
 SOURCE_KEYS: source-contract selector, change freeze, freeze report,
 candidate-contract verifier, build-repro checker, candidate static checker,
 E2 stock closure, linked audit, pre-LTO qualification, and decoder adapter.
+The common typed-evidence validator and host-only Process v2 core are also
+outside identity and are bundle-bound for the P2.86 registration path.
 They remain fail-closed because the approval bundle binds them through
 `bundle.sha256`.
 
@@ -168,7 +170,7 @@ private repair list grants no D1 authority and is not a reason to rebuild.
 
 Do not derive intent until:
 
-- all 10 payload sources and all ten bundle-bound support files exist;
+- all 10 payload sources and all twelve bundle-bound support files exist;
 - the freeze tool reports `pre_intent_ready: true`;
 - the successor contract reports exactly 70 SOURCE_KEYS;
 - P2.84 receipts still match its frozen intent `60/60`;

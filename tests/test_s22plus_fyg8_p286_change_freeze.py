@@ -81,12 +81,14 @@ class P286ChangeFreezeTests(unittest.TestCase):
                 "p286_linked_audit",
                 "p286_pre_lto_qualification",
                 "p286_decoder_adapter",
+                "p286_typed_evidence",
+                "p286_process_v2_host_core",
             },
         )
         payload_paths = set(freeze.PAYLOAD_SOURCE_PATHS.values())
         support_paths = set(freeze.NON_IDENTITY_SUPPORT_PATHS.values())
         self.assertEqual(len(payload_paths), 10)
-        self.assertEqual(len(support_paths), 10)
+        self.assertEqual(len(support_paths), 12)
         self.assertTrue(payload_paths.isdisjoint(support_paths))
 
     def test_p284_is_inherited_without_a_mutation_path(self):
@@ -111,7 +113,7 @@ class P286ChangeFreezeTests(unittest.TestCase):
         self.assertEqual(result["source_key_counts"]["planned_total"], 70)
         self.assertEqual(
             result["source_key_counts"]["bundle_bound_support"],
-            10,
+            12,
         )
         for key, path in freeze.PAYLOAD_SOURCE_PATHS.items():
             self.assertEqual(rows[key], path.as_posix())

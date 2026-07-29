@@ -128,6 +128,14 @@ NON_IDENTITY_SUPPORT_PATHS = MappingProxyType(
             "workspace/public/src/scripts/revalidation/"
             "s22plus_fyg8_p286_e1_decoder.py"
         ),
+        "p286_typed_evidence": Path(
+            "workspace/public/src/scripts/revalidation/"
+            "device_action_f1_evidence_v2.py"
+        ),
+        "p286_process_v2_host_core": Path(
+            "workspace/public/src/scripts/revalidation/"
+            "device_action_f1_v2.py"
+        ),
     }
 )
 
@@ -488,7 +496,7 @@ def validate_freeze(root: Path) -> dict[str, Any]:
         raise FreezeError("P2.84 generated/direct partition drifted")
     if len(PAYLOAD_SOURCE_PATHS) != 10:
         raise FreezeError("planned payload-source count drifted")
-    if len(NON_IDENTITY_SUPPORT_PATHS) != 10:
+    if len(NON_IDENTITY_SUPPORT_PATHS) != 12:
         raise FreezeError("non-identity support count drifted")
     if len(PLANNED_SOURCE_KEYS) != 70 or len(planned) != 65:
         raise FreezeError("planned SOURCE_KEY count drifted")
