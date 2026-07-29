@@ -2446,23 +2446,17 @@ static __attribute__((noreturn)) void p282_cycle_abort(
     struct p282_cycle_context *cycle,
     uint8_t stage,
     long detail) {
+    long publish_rc = s22_r4w1e_checkpoint_failure(
+        &g_checkpoint, stage, 0U, detail);
+    if (publish_rc != 0) {
+        quiet_park();
+    }
     if (cycle->armed) {
         long quality = 0;
-        long finish_rc = p282_trace_finish(&cycle->trace, &quality);
         cycle->armed = 0;
-        if (finish_rc != 0) {
-            struct p282_classification classification = {0};
-            int classified = p282_control_classification(
-                P282_STAGE_RESTART,
-                P282_CONTROL_TRACE_CLEANUP_UNVERIFIED,
-                &classification);
-            if (classified > 0) {
-                p282_fail_classification(&classification);
-            }
-            quiet_park();
-        }
+        (void)p282_trace_finish(&cycle->trace, &quality);
     }
-    fail_at(stage, 0U, detail);
+    quiet_park();
 }
 
 static __attribute__((noreturn)) void p282_cycle_abort_condition(

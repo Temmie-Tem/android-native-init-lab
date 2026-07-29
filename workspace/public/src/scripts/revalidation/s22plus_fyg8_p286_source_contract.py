@@ -222,6 +222,38 @@ def _validate_runtime_authority_source(include: bytes) -> None:
         raise SourceContractError(
             "P2.86 timeout classification does not precede bounded reap"
         )
+    abort = include.index(
+        b"static __attribute__((noreturn)) void p282_cycle_abort("
+    )
+    abort_end = include.index(
+        b"static __attribute__((noreturn)) void "
+        b"p282_cycle_abort_condition(",
+        abort,
+    )
+    abort_body = include[abort:abort_end]
+    publish = abort_body.find(
+        b"long publish_rc = s22_r4w1e_checkpoint_failure("
+    )
+    publish_failure_park = abort_body.find(
+        b"if (publish_rc != 0) {\n        quiet_park();\n    }",
+    )
+    cleanup = abort_body.find(
+        b"(void)p282_trace_finish(&cycle->trace, &quality);",
+    )
+    terminal_park = abort_body.rfind(b"quiet_park();")
+    if not publish < publish_failure_park < cleanup < terminal_park:
+        raise SourceContractError(
+            "P2.86 terminal checkpoint does not precede trace cleanup"
+        )
+    for forbidden in (
+        b"P282_CONTROL_TRACE_CLEANUP_UNVERIFIED",
+        b"p282_fail_classification(",
+        b"fail_at(stage, 0U, detail);",
+    ):
+        if forbidden in abort_body:
+            raise SourceContractError(
+                "P2.86 trace cleanup can override terminal evidence"
+            )
     restart = include.index(b"static unsigned int p282_cycle_restart(")
     pre_dispatch_refresh = include.index(
         b"p282_cycle_refresh(cycle, P282_STAGE_RESTART);",

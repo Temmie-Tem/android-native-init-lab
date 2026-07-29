@@ -161,8 +161,9 @@ CANDIDATE_CHANGE_REQUIREMENTS = (
     ),
     (
         "bounded-helper-reap",
-        "publish before reap; use WNOHANG plus an auxiliary deadline and "
-        "classify an unreaped child",
+        "fix timeout state before kill/reap; use WNOHANG plus an auxiliary "
+        "deadline, classify an unreaped child, and publish the exact terminal "
+        "checkpoint before best-effort trace cleanup",
     ),
     (
         "actual-outer-work-probes",

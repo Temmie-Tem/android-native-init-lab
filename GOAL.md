@@ -98,8 +98,9 @@ candidate builder, build orchestrator, and boot-only packager.
 The candidate requirements are frozen:
 
 1. wait for exact parent suspended on the existing stop deadline;
-2. publish timeout classification before reap, then use `WNOHANG` plus an
-   auxiliary reap deadline and classify an unreaped child;
+2. fix the final timeout class before kill/reap, use `WNOHANG` plus an
+   auxiliary reap deadline, classify an unreaped child, and publish the exact
+   terminal checkpoint before potentially blocking trace cleanup;
 3. attach outer entry/return probes to actual `dwc3_otg_sm_work`;
 4. distinguish helper dispatch and completion;
 5. distinguish flush timeout, completed write, start-peripheral entry without
@@ -178,6 +179,9 @@ The runtime now:
 - fixes timeout state before kill/reap, eliminates the blocking specific-child
   `wait4`, and uses `WNOHANG` under a 1000 ms auxiliary reap deadline with an
   exact unreaped-child class;
+- publishes each exact terminal failure once before best-effort trace cleanup,
+  so kretprobe unregister/RCU/tracefs cleanup cannot suppress or replace the
+  original stage/detail;
 - records actual `dwc3_otg_sm_work` entry/return separately from the renamed
   `dwc3_otg_start_peripheral` entry/return pair;
 - snapshots residual outer work before PERIPHERAL dispatch so a pre-existing
@@ -197,7 +201,9 @@ Static and fault validation passes the P2.86 focused suite, its full inherited
 pre-LTO focused inventory, source/packager mutation rejection, deterministic
 one-member `boot.img.lz4` packaging, AArch64 static classifier execution under
 QEMU, deterministic userspace two-link/source implementation audit, clean
-kernel-patch application, and the Git-derived freeze gate. The next action is
+kernel-patch application, and the Git-derived freeze gate. An AArch64 harness
+extracts the production abort function and proves `publish -> cleanup entry`
+before remaining blocked forever in injected trace cleanup. The next action is
 review of these results; intent derivation remains a later bounded unit.
 
 ## Ordered Execution

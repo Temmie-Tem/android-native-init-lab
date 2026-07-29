@@ -353,6 +353,21 @@ class P286ChangeFreezeTests(unittest.TestCase):
         self.assertLess(kill, bounded_reap)
         self.assertIn("observation->unreaped = 1;", runtime)
         self.assertIn("p286_classify_peripheral_readback(", runtime)
+        abort = runtime[
+            runtime.index(
+                "static __attribute__((noreturn)) void p282_cycle_abort("
+            ):
+            runtime.index(
+                "static __attribute__((noreturn)) void "
+                "p282_cycle_abort_condition("
+            )
+        ]
+        self.assertLess(
+            abort.index("s22_r4w1e_checkpoint_failure("),
+            abort.index("(void)p282_trace_finish("),
+        )
+        self.assertNotIn("P282_CONTROL_TRACE_CLEANUP_UNVERIFIED", abort)
+        self.assertNotIn("fail_at(stage, 0U, detail);", abort)
 
     def test_runtime_classifier_and_packager_mutations_fail_closed(self):
         source = source_contract.source_bytes(ROOT)
@@ -369,6 +384,33 @@ class P286ChangeFreezeTests(unittest.TestCase):
                     b"pid, &child_status, WNOHANG | 0)",
                     1,
                 )
+            )
+        abort_start = runtime.index(
+            b"static __attribute__((noreturn)) void p282_cycle_abort("
+        )
+        abort_end = runtime.index(
+            b"static __attribute__((noreturn)) void "
+            b"p282_cycle_abort_condition(",
+            abort_start,
+        )
+        abort = runtime[abort_start:abort_end]
+        publish_start = abort.index(b"    long publish_rc")
+        cleanup_start = abort.index(b"    if (cycle->armed)")
+        terminal_park = abort.rindex(b"    quiet_park();")
+        reordered_abort = (
+            abort[:publish_start]
+            + abort[cleanup_start:terminal_park]
+            + abort[publish_start:cleanup_start]
+            + abort[terminal_park:]
+        )
+        with self.assertRaisesRegex(
+            source_contract.SourceContractError,
+            "terminal checkpoint does not precede trace cleanup",
+        ):
+            source_contract._validate_runtime_authority_source(
+                runtime[:abort_start]
+                + reordered_abort
+                + runtime[abort_end:]
             )
         classifier = source["p286_classifier_include"]
         with self.assertRaisesRegex(
@@ -391,6 +433,118 @@ class P286ChangeFreezeTests(unittest.TestCase):
             "builder dispatch",
         ):
             source_contract._validate_packager_integration(mutated)
+
+    def test_terminal_checkpoint_survives_permanently_blocked_trace_finish(self):
+        runtime = (
+            ROOT
+            / freeze.PAYLOAD_SOURCE_PATHS["p286_e3_runtime_include"]
+        ).read_text(encoding="utf-8")
+        abort_start = runtime.index(
+            "static __attribute__((noreturn)) void p282_cycle_abort("
+        )
+        abort_end = runtime.index(
+            "static __attribute__((noreturn)) void "
+            "p282_cycle_abort_condition(",
+            abort_start,
+        )
+        production_abort = runtime[abort_start:abort_end]
+        harness = r'''
+#include <stdint.h>
+#include <unistd.h>
+
+struct p282_trace_control {
+    unsigned int marker;
+};
+
+struct p282_cycle_context {
+    struct p282_trace_control trace;
+    unsigned int armed;
+};
+
+static int g_checkpoint;
+
+static __attribute__((noreturn)) void quiet_park(void)
+{
+    _exit(0);
+}
+
+static long s22_r4w1e_checkpoint_failure(
+    void *client, uint8_t stage, uint8_t item_index, long detail)
+{
+    if (client != &g_checkpoint || stage != 0x90U ||
+        item_index != 0U || detail != 0xc59L)
+        _exit(90);
+    if (write(STDOUT_FILENO, "P", 1) != 1)
+        _exit(91);
+    return 0;
+}
+
+static __attribute__((noreturn)) long p282_trace_finish(
+    struct p282_trace_control *trace, long *quality)
+{
+    (void)trace;
+    (void)quality;
+    if (write(STDOUT_FILENO, "C", 1) != 1)
+        _exit(92);
+    for (;;)
+        __asm__ volatile("" ::: "memory");
+}
+
+'''
+        harness += production_abort
+        harness += r'''
+int main(void)
+{
+    struct p282_cycle_context cycle = {0};
+    cycle.armed = 1U;
+    p282_cycle_abort(&cycle, 0x90U, 0xc59L);
+}
+'''
+        with tempfile.TemporaryDirectory() as directory:
+            temporary = Path(directory)
+            source = temporary / "abort-fault.c"
+            binary = temporary / "abort-fault"
+            source.write_text(harness, encoding="ascii")
+            compiled = subprocess.run(
+                (
+                    "aarch64-linux-gnu-gcc",
+                    "-static",
+                    "-Os",
+                    "-Wall",
+                    "-Wextra",
+                    "-Werror",
+                    str(source),
+                    "-o",
+                    str(binary),
+                ),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+            self.assertEqual(
+                compiled.returncode,
+                0,
+                compiled.stdout.decode("utf-8", errors="replace"),
+            )
+            identity = subprocess.run(
+                ("file", str(binary)),
+                check=True,
+                text=True,
+                stdout=subprocess.PIPE,
+            ).stdout
+            self.assertIn("ARM aarch64", identity)
+            process = subprocess.Popen(
+                ("qemu-aarch64", str(binary)),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+            try:
+                with self.assertRaises(subprocess.TimeoutExpired) as blocked:
+                    process.communicate(timeout=5)
+                self.assertEqual(blocked.exception.output, b"PC")
+                self.assertIsNone(process.poll())
+            finally:
+                process.kill()
+                process.communicate()
 
     def test_classifier_fault_partition_cross_compiles_and_runs(self):
         header = source_contract.trace_descriptor_header(ROOT)

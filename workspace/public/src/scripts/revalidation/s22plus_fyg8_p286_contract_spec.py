@@ -155,6 +155,10 @@ RUNTIME_AUTHORITY_ITEMS = (
         "userspace_restart_helper_reap",
         "kill-plus-bounded-wnohang-with-explicit-unreaped-failure",
     ),
+    (
+        "userspace_terminal_checkpoint_order",
+        "exact-terminal-failure-before-best-effort-trace-cleanup",
+    ),
 )
 RUNTIME_AUTHORITY = dict(RUNTIME_AUTHORITY_ITEMS)
 
@@ -208,6 +212,17 @@ RUNTIME_OPERATION_TOKENS = (
         "residual_outer_open = cycle->observed.outer_open;",
         1,
     ),
+    (
+        "terminal-checkpoint-before-trace-cleanup",
+        "long publish_rc = s22_r4w1e_checkpoint_failure(",
+        1,
+    ),
+    (
+        "terminal-best-effort-trace-cleanup",
+        "(void)p282_trace_finish(&cycle->trace, &quality);",
+        1,
+    ),
+    ("legacy-cleanup-before-terminal-publish", "fail_at(stage, 0U, detail);", 0),
 )
 
 
