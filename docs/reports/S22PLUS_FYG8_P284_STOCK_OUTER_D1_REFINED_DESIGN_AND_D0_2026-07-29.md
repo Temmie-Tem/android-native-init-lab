@@ -31,11 +31,12 @@ The D1 design now:
 - binds one volatile TCP ADB prelude and reboot-cleared cleanup after D0 proved
   a reachable Wi-Fi address.
 
-At design publication a fresh exact D1 approval was required. A later
-commit-bound approval reached trace setup only and aborted before instance or
-control because kernel readback normalized return probes as `r16:`. See
-`S22PLUS_FYG8_P284_STOCK_OUTER_D1_PRECONTROL_ABORT_2026-07-29.md`. That
-approval is consumed; the corrected design again requires fresh approval.
+At design publication a fresh exact D1 approval was required. The first
+commit-bound approval aborted during setup on normalized `r16:` readback; see
+`S22PLUS_FYG8_P284_STOCK_OUTER_D1_PRECONTROL_ABORT_2026-07-29.md`. A later v2
+approval executed one control and closed no-proof; see
+`S22PLUS_FYG8_P284_STOCK_OUTER_D1_V2_LIVE_NO_PROOF_2026-07-29.md`. Both
+approvals are consumed.
 
 ## Frozen P2.84 identity was not touched
 
@@ -335,6 +336,6 @@ exact D1 approval.
 - All 11 in-body marker instruction words match the exact module.
 - Both connected checks in this unit were D0 reads only.
 
-The subsequent D1 setup disposition is recorded separately; it performed zero
-role writes, control attempts, challenge attempts, watchdog arms, and reboots.
-No successor candidate, F1 manifest, or F1 authority is created.
+The v1 setup abort and v2 live disposition are recorded separately. V2
+performed one control, skipped challenge, completed exact cleanup/reboot/final
+health, and exposed three observer defects. No D1 or F1 authority remains.

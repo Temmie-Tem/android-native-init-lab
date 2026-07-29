@@ -21,10 +21,10 @@ fits the no-`0x90` shape but neither identifies the parent-suspend wedge nor
 repairs it with a fence. The power call is nested in child suspend before the
 later parent suspend, so it cannot be moved after outer return by a PID1 fence.
 Exact rollback and final health passed. Exact source also rules out a
-same-queue `perf_vote_work` self-deadlock. A commit-bound stock D1 then aborted
-before instance/control because its readback count missed normalized `r16:`
-returns. Role writes/reboots were zero; cleanup passed. Recovery is two-stage;
-operator-linked Wi-Fi now passes D0. No live run is authorized.**
+same-queue `perf_vote_work` self-deadlock. Stock D1 v2 traced six balanced
+outer pairs and all parent boundaries returning by 19.504 ms. Three runner
+defects caused a false timeout; challenge stayed zero and cleanup passed.
+The approval is consumed and no live run is authorized.**
 
 P2.69 derived the fresh v4 intent, completed two clean Full-LTO builds in
 `40:43.23` and `40:45.31` with no swap, and proved byte equality for all six
@@ -852,20 +852,20 @@ reports grant no device authority.
     slots remain valid, proving no `0x90` write reached its first durable
     CRC-clear. This path explains the silence but not why the parent stop
     worker failed to return. A fence is diagnostic if that worker is wedged.
-85. **P2.84 gap-review correction and stock discriminator, H0+D0+D1:** exact source
-    proves HS-PHY power-off is nested inside child runtime suspend, before
-    stop-peripheral return and the later outer parent suspend; a PID1 fence
-    cannot reorder it. `perf_vote_work` uses `system_wq`, not ordered
-    `k_sm_usb`; its prior cancel returned and no re-enable follows. The refined
-    stock D1 ranks exact parent offsets, uses ungated
-    `NONE -> suspended -> PERIPHERAL`, suppresses a too-short control window,
-    and records every `mode_store` comm/PID. The permanent attachment-name gate
-    passes the new contract. D0 excluded TCP ADB. The approved setup registered
-    all 27 events but counted only 19 because kernel readback rendered eight
-    returns as `r16:`. It stopped before instance/control with zero role writes
-    or reboots. Exact cleanup and health passed; approval is consumed. The gate
-    normalizes `rN:`. Recovery is two-stage; D0 now permits one volatile TCP-ADB
-    prelude under fresh approval. No property mutation or D1/F1 authority exists.
+85. **P2.84 stock outer discriminator closed no-proof, H0+D0+D1:** exact source
+    rejects the perf-work self-deadlock and ranks parent boundaries. The first
+    approval aborted before control on `r16:` readback and was consumed. V2
+    used one volatile TCP prelude and live-audited all 27 probes. One control
+    wrote NONE and restored PERIPHERAL; challenge remained zero. The trace has
+    six balanced outer pairs, with NONE `mode_store` at `0.091 ms`, stop helper
+    at `0.087 ms`, stop-to-outer at `0.020 ms`, child suspend at `16.653 ms`,
+    and every parent marker through return by `19.504 ms`. Outer returned before
+    the reactor could observe suspend. A wrong group-qualified trace search,
+    20-second watchdog-disarm wait, and newline-bearing comm produced the false
+    internal timeout. Cleanup, one normal reboot, TCP-property removal, final
+    health, and operator boot confirmation passed; no watchdog/hardware restart
+    fired. V2 is consumed. Fix the execution defects H0 before any fresh D1;
+    no D1 or F1 authority exists.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
 reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing

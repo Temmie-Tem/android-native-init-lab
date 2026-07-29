@@ -76,10 +76,6 @@ Do not add a device step when host-only work can answer the question.
   not clear bare PID1. Recovery is predeclared as one normal reboot, then, only
   if no operator-visible Samsung boot splash occurs within 45 seconds, one
   attended Side/Power+Volume-Down restart. A second restart is forbidden.
-- After operator AP association, repeated D0 found one host-reachable Wi-Fi
-  address. A future exact D1 may set volatile `service.adb.tcp.port=5555` once,
-  restart `adbd` once, verify the TCP/USB target fingerprint, then clear the
-  listener through its one mandatory normal cleanup/recovery reboot.
 - One commit-bound stock D1 approval reached trace setup only. All 27 probe
   definitions registered, but the verifier counted `^[pr]:` and missed the
   eight kernel-normalized `r16:` kretprobe readbacks. It stopped before trace
@@ -89,9 +85,24 @@ Do not add a device step when host-only work can answer the question.
   Android/root/USB health passed.
 - That D1 approval is consumed and must not be retried. The permanent gate now
   normalizes `rN:` readback while preserving exact name/kind/module/symbol/
-  offset checks. The corrected recovery-aware private runner is host-validated
-  but unexecuted. No TCP property or `adbd` mutation has occurred, and no stock
-  D1 is currently authorized. `persist.adb.tcp.port` remains forbidden.
+  offset checks.
+- A fresh v2 stock D1 then set volatile TCP ADB once, restarted `adbd` once,
+  matched the private TCP/USB target fingerprint, and registered/audited all
+  27 probes. One control wrote NONE once and restored PERIPHERAL once.
+- The actual 83-entry trace contains six balanced outer-work pairs. The first
+  NONE `mode_store`, stop helper, and stop-to-outer suffix returned in
+  `0.091 ms`, `0.087 ms`, and `0.020 ms`; child and parent suspend returned by
+  `16.653 ms` and `19.504 ms`. Every parent completion marker was observed.
+- The runner's timeout was false: it searched for a group prefix omitted by
+  instance trace text, watchdog disarm waited about 20 seconds after returned
+  writes, and a newline-bearing comm write split the trace header. Thus the
+  result is `CONTROL_OUTER_RETURNED_BEFORE_REACTOR_READY`; challenge was
+  forbidden and executed zero times.
+- Trace cleanup, one normal cleanup reboot, volatile-property removal, exact
+  temporary-file cleanup, final D0, and operator splash/normal-Android checks
+  passed. Watchdog fires and hardware restarts were zero. The v2 approval is
+  consumed; no stock D1 is authorized. Correct all execution defects H0 before
+  seeking another approval. `persist.adb.tcp.port` remains forbidden.
 - Every new S22+ USB trace contract must pass the attachment-name gate with
   zero issues; frozen P2.82/P2.84 remain historical mismatches, not exceptions
   reusable by a new candidate.
