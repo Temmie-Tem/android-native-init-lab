@@ -137,7 +137,23 @@ ROLE_WRITE_RETURN_DEADLINE_SEC = 15
 CHILD_SUSPENDED_DEADLINE_SEC = 15
 CONTROL_OUTER_RETURN_DEADLINE_SEC = 15
 RECOVERY_WATCHDOG_DEADLINE_SEC = 20
+NORMAL_REBOOT_BOOT_START_DEADLINE_SEC = 45
+HARD_RESTART_BOOT_START_DEADLINE_SEC = 45
+HARD_RESTART_MAX_ATTEMPTS = 1
+HARD_RESTART_BUTTON_CHORD = "SIDE_POWER+VOLUME_DOWN"
+HARD_RESTART_HOLD_LIMIT_SEC = 15
+BOOT_START_SIGNAL = "OPERATOR_OBSERVED_SAMSUNG_BOOT_SPLASH"
 FINAL_HEALTH_DEADLINE_SEC = 240
+TCP_ADB_VOLATILE_PROPERTY = "service.adb.tcp.port"
+TCP_ADB_PORT = 5555
+TCP_ADB_RESTART_CONTROL_PROPERTY = "ctl.restart"
+TCP_ADB_RESTART_SERVICE = "adbd"
+TCP_ADB_CONNECT_DEADLINE_SEC = 15
+TCP_ADB_PROPERTY_SET_MAX = 1
+TCP_ADB_RESTART_MAX = 1
+TCP_ADB_PERSIST_PROPERTY = "persist.adb.tcp.port"
+TCP_ADB_PERSIST_PROPERTY_FORBIDDEN = True
+TCP_ADB_CLEANUP = "ONE_NORMAL_REBOOT_CLEARS_VOLATILE_PROPERTY"
 REACTION_MARGIN_MULTIPLIER = 4
 MIN_INTERVENTION_MARGIN_NS = 10_000_000
 
@@ -434,6 +450,60 @@ def classify_mode_store_callers(
     }
 
 
+def classify_recovery_stage(
+    *,
+    normal_reboot_issued: bool,
+    boot_start_observed: bool,
+    elapsed_since_last_recovery_action_sec: int,
+    hard_restart_attempts: int,
+) -> str:
+    """Select the predeclared recovery branch without granting authority.
+
+    Before a hard restart, elapsed time is measured from the durable normal
+    reboot issue record.  After the one allowed hard restart, it is measured
+    from the operator's durable chord timestamp.  USB disappearance and TCP
+    transport loss are deliberately not boot-start signals because the
+    experiment itself may cause either one.
+    """
+
+    if not isinstance(normal_reboot_issued, bool):
+        raise ValueError("normal_reboot_issued must be bool")
+    if not isinstance(boot_start_observed, bool):
+        raise ValueError("boot_start_observed must be bool")
+    if (
+        isinstance(elapsed_since_last_recovery_action_sec, bool)
+        or not isinstance(elapsed_since_last_recovery_action_sec, int)
+        or elapsed_since_last_recovery_action_sec < 0
+    ):
+        raise ValueError("recovery elapsed time must be a nonnegative integer")
+    if (
+        isinstance(hard_restart_attempts, bool)
+        or not isinstance(hard_restart_attempts, int)
+        or not 0 <= hard_restart_attempts <= HARD_RESTART_MAX_ATTEMPTS
+    ):
+        raise ValueError("hard restart attempts exceed the frozen one-shot bound")
+    if boot_start_observed and not normal_reboot_issued:
+        return "SPONTANEOUS_REBOOT_STOP"
+    if boot_start_observed:
+        return "BOOT_START_OBSERVED_WAIT_FINAL_HEALTH"
+    if not normal_reboot_issued:
+        return "WAIT_NORMAL_REBOOT_ISSUE"
+    deadline = (
+        NORMAL_REBOOT_BOOT_START_DEADLINE_SEC
+        if hard_restart_attempts == 0
+        else HARD_RESTART_BOOT_START_DEADLINE_SEC
+    )
+    if elapsed_since_last_recovery_action_sec < deadline:
+        return (
+            "WAIT_NORMAL_REBOOT_BOOT_START"
+            if hard_restart_attempts == 0
+            else "WAIT_HARD_RESTART_BOOT_START"
+        )
+    if hard_restart_attempts == 0:
+        return "OPERATOR_HARD_RESTART_ONCE_REQUIRED"
+    return "HARD_RESTART_FAILED_STOP"
+
+
 def validate_static_spec() -> None:
     if set(PARENT_SUSPEND_BOUNDARY_OFFSETS) != set(
         PARENT_SUSPEND_BOUNDARY_WORDS
@@ -458,6 +528,29 @@ def validate_static_spec() -> None:
     for _, _, marker_csv, _ in ranking:
         if not set(marker_csv.split(",")).issubset(known_markers):
             raise ValueError("ranked parent boundary lacks an exact marker")
+    if (
+        NORMAL_REBOOT_BOOT_START_DEADLINE_SEC <= 0
+        or HARD_RESTART_BOOT_START_DEADLINE_SEC <= 0
+        or HARD_RESTART_MAX_ATTEMPTS != 1
+        or not HARD_RESTART_BUTTON_CHORD
+        or not 0 < HARD_RESTART_HOLD_LIMIT_SEC < FINAL_HEALTH_DEADLINE_SEC
+        or not BOOT_START_SIGNAL
+    ):
+        raise ValueError("two-stage recovery contract is not bounded")
+    if (
+        TCP_ADB_VOLATILE_PROPERTY != "service.adb.tcp.port"
+        or TCP_ADB_PORT != 5555
+        or TCP_ADB_RESTART_CONTROL_PROPERTY != "ctl.restart"
+        or TCP_ADB_RESTART_SERVICE != "adbd"
+        or TCP_ADB_CONNECT_DEADLINE_SEC <= 0
+        or TCP_ADB_PROPERTY_SET_MAX != 1
+        or TCP_ADB_RESTART_MAX != 1
+        or TCP_ADB_PERSIST_PROPERTY != "persist.adb.tcp.port"
+        or TCP_ADB_PERSIST_PROPERTY_FORBIDDEN is not True
+        or TCP_ADB_CLEANUP
+        != "ONE_NORMAL_REBOOT_CLEARS_VOLATILE_PROPERTY"
+    ):
+        raise ValueError("TCP ADB contract is not volatile and one-shot")
     if not (
         CONTROL_OUTER_RETURN_DEADLINE_SEC
         < RECOVERY_WATCHDOG_DEADLINE_SEC

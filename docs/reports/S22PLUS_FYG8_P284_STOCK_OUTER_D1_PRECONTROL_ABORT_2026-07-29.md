@@ -134,9 +134,13 @@ fails closed.
 
 The private runner now uses `^(p|r[0-9]*):p284stock/` for setup, precondition,
 cleanup, and final cardinality, and propagates setup exit status explicitly.
-Its corrected SHA256 is
+The first readback-corrected SHA256 was
 `e9bf998fb8a419a812e57404e86d38586d0fc9693ba11da267c52299ca1d3cf7`.
-It passed host syntax and exact-definition checks but was not executed.
+It passed host syntax and exact-definition checks but was not executed. A later
+H0 recovery-contract revision durably records `normal_reboot_issued` before
+the reboot syscall; its SHA256 is
+`8c653b7612e46c694f83c63c67266735d4a9eb02fcf89ad21ad0f3b663f8c001`.
+That revision is also unexecuted and does not reuse this approval.
 
 This is another input-spelling-versus-readback-invariant defect. Future
 tracefs live gates must validate the kernel's normalized readback, not count

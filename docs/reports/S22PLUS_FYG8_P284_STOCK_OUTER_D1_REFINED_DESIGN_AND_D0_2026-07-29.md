@@ -9,7 +9,7 @@ or F1 action occurred.
 
 ## Verdict
 
-`STATIC_DESIGN_PASS; TCP_ADB_UNAVAILABLE; D1_NOT_AUTHORIZED`
+`STATIC_DESIGN_PASS; TWO_STAGE_RECOVERY_BOUND; TCP_ADB_D0_READY; D1_NOT_AUTHORIZED`
 
 The proposed `perf_vote_work` same-ordered-workqueue self-deadlock is ruled out
 for the exact FYG8 source and module. It cannot remain the first-ranked
@@ -25,8 +25,11 @@ The D1 design now:
   overlap window;
 - records `mode_store` caller `comm` and PID to detect Android interference;
 - uses exact module-qualified symbols and instruction-verified in-body
-  offsets; and
-- excludes TCP ADB because the connected device has no usable network address.
+  offsets;
+- escalates a wedged normal reboot to one predeclared attended hardware restart;
+  and
+- binds one volatile TCP ADB prelude and reboot-cleared cleanup after D0 proved
+  a reachable Wi-Fi address.
 
 At design publication a fresh exact D1 approval was required. A later
 commit-bound approval reached trace setup only and aborted before instance or
@@ -213,29 +216,62 @@ classification.
 The capture and lane state must be detached on-device and durably flushed
 before the USB role transition. A detached watchdog is armed for each risky
 stage and disarmed or rearmed only after its completion; at most one watchdog
-may actually invoke the approved reboot. The fixed time bounds are:
+may actually invoke the approved reboot. Whether invoked by a watchdog or by
+normal transaction cleanup, at most one normal reboot occurs. The fixed time
+bounds are:
 
 - each role write: 15 seconds;
 - child-suspended observation: 15 seconds;
 - control outer return: 15 seconds;
-- detached normal-reboot watchdog: 20 seconds; and
+- detached normal-reboot watchdog: 20 seconds;
+- normal-reboot issue to visible boot-start signal: 45 seconds;
+- hardware-restart issue to visible boot-start signal: 45 seconds; and
 - final Android/root health: 240 seconds.
 
 If control non-return or challenge write non-return occurs, no later lane
 action is attempted. The predeclared detached watchdog performs one normal
-Android reboot, which is the recoverable P2.81 D1 precedent. Physical
-attendance is required. A spontaneous reboot, panic evidence, ambiguous trace
-identity, cleanup failure, or failed final health stops the unit; it does not
-permit a second reboot or challenge retry under the approval.
+Android reboot, which is the recoverable P2.81 D1 precedent. Before invoking
+`/system/bin/reboot`, it durably records `normal_reboot_issued` and flushes
+lane state. Normal reboot is not assumed infallible: `kernel_restart()` reaches
+`device_shutdown()`, whose device callbacks can encounter the same wedged DWC3
+parent being diagnosed.
+
+Physical attendance is therefore part of the recovery contract, not merely an
+observation convenience. The only accepted boot-start signal is an
+operator-observed Samsung boot splash, timestamped against the host recovery
+record. USB disappearance, USB ADB loss, or TCP ADB loss alone is not accepted
+because the experiment itself can cause each.
+
+If no accepted boot-start signal occurs within 45 seconds of the durable
+normal-reboot issue record, the operator performs exactly one hardware restart:
+hold Side/Power plus Volume Down until the Samsung boot splash appears, for at
+most 15 seconds, then release. This is
+`OPERATOR_HARD_RESTART_ONCE_REQUIRED`. If no splash appears within 45 seconds
+of that one chord, the result is `HARD_RESTART_FAILED_STOP`; no second chord,
+normal reboot, lane, or challenge is authorized. Once either recovery stage
+produces the splash, the same 240-second final-health gate applies.
+
+A spontaneous reboot, panic evidence, ambiguous trace identity, cleanup
+failure, or failed final health stops the unit. It does not permit a second
+normal reboot, second hardware restart, or challenge retry under the approval.
+
+The volatile TCP listener is cleared only by that one normal reboot; the design
+does not perform a second property mutation or second `adbd` restart. If no
+watchdog fires, the host transaction first retrieves the durably closed final
+trace, records `normal_reboot_issued`, then issues the same normal reboot as
+mandatory cleanup. If the TCP prelude fails after its property write or `adbd`
+restart but before control, the lane is not started and the same cleanup reboot
+is required. The two-stage boot-start contract applies to cleanup reboot
+exactly as it does to watchdog reboot.
 
 The trace instance and events are removed after a returned lane or after
 recovery. Final checks require the exact FYG8 identity, boot completion,
 stopped boot animation, root UID 0, parent `peripheral`, child `active`, and no
 remaining `p284stock` trace object.
 
-## TCP ADB D0
+## TCP ADB D0 and proposed D1 prelude
 
-The connected read-only check found:
+The initial connected read-only check found:
 
 - exactly one target matching `SM-S906N/g0q/S906NKSS7FYG8`;
 - healthy Android boot, stopped boot animation, and root UID 0;
@@ -243,21 +279,37 @@ The connected read-only check found:
 - readable tracefs/kprobe substrate and unique module-qualified target
   symbols;
 - exact live module hashes matching the source contract;
-- Wi-Fi enabled in framework state, but no usable `wlan0` link in the final
-  snapshot and zero global IPv4 or IPv6 addresses; and
+- Wi-Fi enabled in framework state, but `wlan0` was dormant and had zero global
+  IPv4 or IPv6 addresses; and
 - unset `service.adb.tcp.port`, `persist.adb.tcp.port`, and
   `service.adb.listen_addrs`.
 
-TCP ADB is therefore unavailable for this D1. Setting a listen port and
-restarting `adbd` without a network address would add mutation without a
-transport benefit. Both actions are excluded from the current approval
-candidate.
+After the operator associated the phone with the AP, repeated D0 found exactly
+one global IPv4 address on `wlan0`, `operstate=up`, carrier present, and bounded
+host ICMP reachability. The exact target identity, Android/root/USB health,
+live module hashes, and clean tracefs state still passed. No IP address, SSID,
+BSSID, MAC, or device serial is placed in tracked evidence.
 
-If a future read-only D0 finds a reachable Wi-Fi address, the design may be
-rebound under a new exact approval to the volatile
-`service.adb.tcp.port` change and one `adbd` restart. It must never set
-`persist.adb.tcp.port`; the volatile setting must be documented as reboot
-cleared. That future possibility grants no authority now.
+The next fresh D1 approval may therefore bind this exact prelude:
+
+1. recheck one FYG8 USB target and one host-reachable `wlan0` address;
+2. set `service.adb.tcp.port=5555` exactly once;
+3. request `ctl.restart=adbd` exactly once;
+4. within 15 seconds, connect through that private address and prove its
+   private target fingerprint equals the USB-bound target; and
+5. only then enter trace setup and control.
+
+`persist.adb.tcp.port` remains forbidden and must be unset before and after the
+transaction. `service.adb.listen_addrs` is not changed. A TCP connection or
+identity failure is pre-control no-proof and enters the one-normal-reboot
+cleanup path. After reboot, final health additionally requires
+`service.adb.tcp.port`, `persist.adb.tcp.port`, and
+`service.adb.listen_addrs` all unset before host-side TCP disconnect.
+
+The AP association was operator action. Every agent command in both D0 checks
+was read-only: no property, `adbd`, role, tracefs, reboot, or payload action
+occurred. The verified prelude still grants no live authority without a new
+exact D1 approval.
 
 ## One-way result interpretation
 
@@ -275,13 +327,13 @@ cleared. That future possibility grants no authority now.
 
 - Python compilation passes for the specification, attachment-name gate, and
   their tests.
-- All 18 directly touched specification/name-gate tests pass; the combined
-  P2.80/P2.82/new trace-contract set passes 41 tests.
+- The focused specification tests include one-shot recovery branch coverage;
+  the combined P2.80/P2.82/new trace-contract set passes 52 tests.
 - All eight P2.84 source-contract tests pass, and all 60 frozen source receipts
   remain exact.
 - Every new trace descriptor passes the permanent attachment-name gate.
 - All 11 in-body marker instruction words match the exact module.
-- The connected actions in this unit were D0 reads only.
+- Both connected checks in this unit were D0 reads only.
 
 The subsequent D1 setup disposition is recorded separately; it performed zero
 role writes, control attempts, challenge attempts, watchdog arms, and reboots.

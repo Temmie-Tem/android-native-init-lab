@@ -58,6 +58,97 @@ class P284StockOuterD1SpecTests(unittest.TestCase):
                 )
             )
         )
+        self.assertEqual(spec.NORMAL_REBOOT_BOOT_START_DEADLINE_SEC, 45)
+        self.assertEqual(spec.HARD_RESTART_BOOT_START_DEADLINE_SEC, 45)
+        self.assertEqual(spec.HARD_RESTART_MAX_ATTEMPTS, 1)
+        self.assertEqual(spec.HARD_RESTART_HOLD_LIMIT_SEC, 15)
+        self.assertEqual(
+            spec.BOOT_START_SIGNAL,
+            "OPERATOR_OBSERVED_SAMSUNG_BOOT_SPLASH",
+        )
+
+    def test_two_stage_recovery_waits_then_requests_one_hard_restart(self):
+        self.assertEqual(
+            spec.classify_recovery_stage(
+                normal_reboot_issued=True,
+                boot_start_observed=False,
+                elapsed_since_last_recovery_action_sec=44,
+                hard_restart_attempts=0,
+            ),
+            "WAIT_NORMAL_REBOOT_BOOT_START",
+        )
+        self.assertEqual(
+            spec.classify_recovery_stage(
+                normal_reboot_issued=True,
+                boot_start_observed=False,
+                elapsed_since_last_recovery_action_sec=45,
+                hard_restart_attempts=0,
+            ),
+            "OPERATOR_HARD_RESTART_ONCE_REQUIRED",
+        )
+        self.assertEqual(
+            spec.classify_recovery_stage(
+                normal_reboot_issued=True,
+                boot_start_observed=False,
+                elapsed_since_last_recovery_action_sec=44,
+                hard_restart_attempts=1,
+            ),
+            "WAIT_HARD_RESTART_BOOT_START",
+        )
+        self.assertEqual(
+            spec.classify_recovery_stage(
+                normal_reboot_issued=True,
+                boot_start_observed=False,
+                elapsed_since_last_recovery_action_sec=45,
+                hard_restart_attempts=1,
+            ),
+            "HARD_RESTART_FAILED_STOP",
+        )
+
+    def test_recovery_accepts_only_declared_boot_start_and_one_attempt(self):
+        self.assertEqual(
+            spec.classify_recovery_stage(
+                normal_reboot_issued=False,
+                boot_start_observed=True,
+                elapsed_since_last_recovery_action_sec=0,
+                hard_restart_attempts=0,
+            ),
+            "SPONTANEOUS_REBOOT_STOP",
+        )
+        self.assertEqual(
+            spec.classify_recovery_stage(
+                normal_reboot_issued=True,
+                boot_start_observed=True,
+                elapsed_since_last_recovery_action_sec=1,
+                hard_restart_attempts=0,
+            ),
+            "BOOT_START_OBSERVED_WAIT_FINAL_HEALTH",
+        )
+        with self.assertRaisesRegex(ValueError, "one-shot bound"):
+            spec.classify_recovery_stage(
+                normal_reboot_issued=True,
+                boot_start_observed=False,
+                elapsed_since_last_recovery_action_sec=0,
+                hard_restart_attempts=2,
+            )
+
+    def test_tcp_adb_prelude_is_volatile_one_shot_and_reboot_cleared(self):
+        spec.validate_static_spec()
+        self.assertEqual(
+            spec.TCP_ADB_VOLATILE_PROPERTY,
+            "service.adb.tcp.port",
+        )
+        self.assertEqual(spec.TCP_ADB_PORT, 5555)
+        self.assertEqual(spec.TCP_ADB_RESTART_CONTROL_PROPERTY, "ctl.restart")
+        self.assertEqual(spec.TCP_ADB_RESTART_SERVICE, "adbd")
+        self.assertEqual(spec.TCP_ADB_PROPERTY_SET_MAX, 1)
+        self.assertEqual(spec.TCP_ADB_RESTART_MAX, 1)
+        self.assertEqual(spec.TCP_ADB_PERSIST_PROPERTY, "persist.adb.tcp.port")
+        self.assertTrue(spec.TCP_ADB_PERSIST_PROPERTY_FORBIDDEN)
+        self.assertEqual(
+            spec.TCP_ADB_CLEANUP,
+            "ONE_NORMAL_REBOOT_CLEARS_VOLATILE_PROPERTY",
+        )
 
     def test_challenge_stops_when_outer_precedes_suspended_observation(self):
         result = spec.challenge_eligibility(

@@ -73,10 +73,13 @@ Do not add a device step when host-only work can answer the question.
   gating, admits challenge only when the control measures
   `W >= max(10 ms, 4R)`, and treats any non-owned `mode_store` comm/PID as
   no-proof. Positive reproduction is decisive; a negative stock result does
-  not clear bare PID1. A hang requires the predeclared exact normal-reboot
-  recovery and final health check.
-- Connected D0 found no usable Wi-Fi address, so TCP ADB, property mutation,
-  and `adbd` restart were excluded.
+  not clear bare PID1. Recovery is predeclared as one normal reboot, then, only
+  if no operator-visible Samsung boot splash occurs within 45 seconds, one
+  attended Side/Power+Volume-Down restart. A second restart is forbidden.
+- After operator AP association, repeated D0 found one host-reachable Wi-Fi
+  address. A future exact D1 may set volatile `service.adb.tcp.port=5555` once,
+  restart `adbd` once, verify the TCP/USB target fingerprint, then clear the
+  listener through its one mandatory normal cleanup/recovery reboot.
 - One commit-bound stock D1 approval reached trace setup only. All 27 probe
   definitions registered, but the verifier counted `^[pr]:` and missed the
   eight kernel-normalized `r16:` kretprobe readbacks. It stopped before trace
@@ -86,8 +89,9 @@ Do not add a device step when host-only work can answer the question.
   Android/root/USB health passed.
 - That D1 approval is consumed and must not be retried. The permanent gate now
   normalizes `rN:` readback while preserving exact name/kind/module/symbol/
-  offset checks. The corrected private runner is host-validated but unexecuted.
-  No stock D1 is currently authorized.
+  offset checks. The corrected recovery-aware private runner is host-validated
+  but unexecuted. No TCP property or `adbd` mutation has occurred, and no stock
+  D1 is currently authorized. `persist.adb.tcp.port` remains forbidden.
 - Every new S22+ USB trace contract must pass the attachment-name gate with
   zero issues; frozen P2.82/P2.84 remain historical mismatches, not exceptions
   reusable by a new candidate.

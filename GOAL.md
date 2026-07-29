@@ -23,8 +23,8 @@ later parent suspend, so it cannot be moved after outer return by a PID1 fence.
 Exact rollback and final health passed. Exact source also rules out a
 same-queue `perf_vote_work` self-deadlock. A commit-bound stock D1 then aborted
 before instance/control because its readback count missed normalized `r16:`
-returns. Role writes/reboots were zero; exact cleanup and health passed. The
-approval is consumed, the gate is corrected, and no live run is authorized.**
+returns. Role writes/reboots were zero; cleanup passed. Recovery is two-stage;
+operator-linked Wi-Fi now passes D0. No live run is authorized.**
 
 P2.69 derived the fresh v4 intent, completed two clean Full-LTO builds in
 `40:43.23` and `40:45.31` with no swap, and proved byte equality for all six
@@ -864,7 +864,8 @@ reports grant no device authority.
     all 27 events but counted only 19 because kernel readback rendered eight
     returns as `r16:`. It stopped before instance/control with zero role writes
     or reboots. Exact cleanup and health passed; approval is consumed. The gate
-    now normalizes `rN:`. No D1 or F1 authority exists.
+    normalizes `rN:`. Recovery is two-stage; D0 now permits one volatile TCP-ADB
+    prelude under fresh approval. No property mutation or D1/F1 authority exists.
 
 Do not reactivate R4W1-C3, create a per-candidate host/live execution helper,
 reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing
