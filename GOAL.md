@@ -169,7 +169,22 @@ connected evidence, candidate, exact V2321 rollback, staging adapter, and
 orchestrator. Both host inspections report zero issues. One private mode-0600
 approval receipt is prepared with all authority false. No staging, flash, or
 reboot has occurred; the next gate is one fresh exact operator acknowledgement
-of that receipt's token.**
+of that receipt's token. That exact approval was consumed. The unique rootfs
+staged and rehashed successfully, and one candidate boot transfer completed.
+V3403 returned its exact `0.11.159` build banner, but automatic menu output
+interleaved after the version body and the required frame END was lost.
+Candidate selftest, source preflight, handoff, `switch_root`, and Debian SSH
+observation were never reached. One exact V2321 rollback then completed. Its
+first final-health read met the same frame loss without repeating the transfer.
+After one operator-approved low-risk menu hide, health-only recovery proved
+exact V2321, selftest failure count zero, and zero pstore entries. The journal
+closed `ABORTED_F1_V2_CANDIDATE_UNCERTAIN_ROLLED_BACK`; durable candidate and
+rollback start/completion records each occur once, candidate replay is false,
+final health is restored, and internal userdata is untouched. The run and
+approval are non-reusable. The selected successor is a future-only,
+predeclared operator-attended observation window with bounded pre-handoff
+channel/health retries, exactly one handoff attempt, and unchanged mandatory
+rollback. It must not be applied retroactively to this closed run.**
 
 Stock D1 v2 and P2.84 selected different runtime-PM paths. Stock's first two
 outer works ended by `0.291 ms`, followed by deferred child and parent PM
