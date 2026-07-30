@@ -2,7 +2,7 @@
 
 Date: 2026-07-30 KST
 
-Status: `CLOSED_ABORTED_BEFORE_CANDIDATE_V2321_HEALTH_RESTORED`
+Status: `CLOSED_ABORTED_BEFORE_CANDIDATE_SUCCESSOR_APPROVAL_PREPARED`
 
 ## Disposition
 
@@ -71,8 +71,22 @@ as the sole NCM function under the same USB parent as the manifest-bound A90
 ACM bridge, requires the expected host CIDR, and requires one successful
 device ping. The first bounded review rejected VID/PID-only target matching;
 the topology-bound remediation closes that split-target path. The changed
-focused closure passes `105/105`; independent re-review remains required
-before a new final manifest.
+focused closure passes `105/105`; independent re-review returned `GO`.
+
+## Successor preparation
+
+New run `a90-v3403-debian-f1-20260730-03` reuses the byte-identical keyed
+rootfs and observer key through new single-link files. Fresh exact V2321
+health, all three absent device paths, direct host NCM readiness, and the
+topology-bound gate passed. Its final manifest passed host-only inspection
+with no contract issue and created one new approval receipt.
+
+The successor remains non-self-authorizing:
+
+- `ready_for_live_f1=false`;
+- `manifest_grants_live_authority=false`;
+- device contact/write during approval preparation: false; and
+- a fresh exact operator approval is still required.
 
 ## Durable evidence
 
@@ -87,12 +101,9 @@ The F1 journal records `staging-failed` followed by
 
 ## Next gate
 
-No candidate recovery or rollback is needed because candidate intent was never
-recorded. Before any new experiment:
-
-1. independently review the changed staging execution closure;
-2. bind its exact accepted source identity in a new run and final manifest;
-3. repeat exact V2321, path-absence, and host NCM D0 evidence; and
-4. obtain one fresh exact F1 approval.
+No candidate recovery or rollback is needed for the closed run because
+candidate intent was never recorded. The successor has completed review,
+fresh D0, final-manifest inspection, and approval preparation. Its only
+remaining gate is one fresh exact F1 approval for that new binding.
 
 No flash, reboot, or candidate replay is authorized by this report.

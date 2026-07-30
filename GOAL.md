@@ -92,7 +92,11 @@ pass. The first bounded review rejected a VID/PID-only NCM gate because another
 Samsung target could satisfy it separately from the ACM bridge. The remediation
 requires the sole NCM interface under the same USB parent as the manifest-bound
 A90 ACM endpoint and passes the `105/105` focused closure. Independent
-re-review remains. Debian PID1 is unproved and internal userdata is untouched.**
+re-review returned `GO`. New run `a90-v3403-debian-f1-20260730-03` has a
+new-inode exact rootfs/key pair, fresh V2321/path/NCM D0, a passing final
+manifest inspection, and a host-only approval receipt. It remains
+non-self-authorizing and awaits one fresh exact approval. Debian PID1 is
+unproved and internal userdata is untouched.**
 
 Stock D1 v2 and P2.84 selected different runtime-PM paths. Stock's first two
 outer works ended by `0.291 ms`, followed by deferred child and parent PM
@@ -267,7 +271,11 @@ corrected A/B pair then matched.
   approved D1 later restored exact V2321 health and removed only the empty
   run-owned stage directory. Host NCM now passes direct-route/CIDR/ping
   readiness; the topology-bound pre-reservation gate passes `105/105` and
-  awaits independent re-review.
+  independent re-review.
+- Successor run `a90-v3403-debian-f1-20260730-03` passes fresh exact V2321,
+  three-path absence, topology-bound NCM D0, and host-only final-manifest
+  inspection. Its approval receipt grants no live authority; one fresh exact
+  operator approval remains.
 
 Load-bearing current reports:
 
