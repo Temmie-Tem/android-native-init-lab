@@ -5,6 +5,14 @@ Date: 2026-07-30 KST
 Status:
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK; TRANSACTION_CLOSED`
 
+Correction notice: the later focused H0 source/slot audit proves that P2.86
+withheld this run's `0x8f/detail=0xc18` publication until exact parent
+`runtime_status=suspended` readback succeeded. The same audit rules out a torn
+generation-89 write and in-run retained-log `idx` drift, and identifies the
+unmarked pre-dispatch tracefs snapshot as the first unbounded restart
+boundary. See
+`S22PLUS_FYG8_P286_POST_0X8F_SILENCE_ATTRIBUTION_H0_2026-07-30.md`.
+
 ## Scope
 
 This report records one authorized P2.86 Process v2 candidate attempt, its
@@ -77,15 +85,17 @@ success, or later progress record survived.
 
 ## What the result proves
 
-The retained `0x8f/detail=0xc18` follows the unchanged P2.84 prefix. In the
-exact source-bound runtime it establishes:
+The retained detail preserves the P2.84 child/power-helper semantics, but
+P2.86 moved its publication after a new parent-status gate. In the exact
+source-bound runtime it establishes:
 
 1. initial parent `peripheral` mode and exact real-UDC membership were reached;
 2. the bounded NONE helper completed its exact write and normalized readback;
 3. the traced `dwc3_otg_start_peripheral(..., 0)` pair returned zero;
 4. the child suspend callback returned nonnegative;
-5. child runtime status read back exactly `suspended`; and
-6. the traced power-off helper entered, returned, and reported zero.
+5. child runtime status read back exactly `suspended`;
+6. the traced power-off helper entered, returned, and reported zero; and
+7. parent runtime status read back exactly `suspended`.
 
 As before, the power-helper return is software progress, not electrical proof.
 It does not prove a regulator vote changed or a physical rail lost voltage.
@@ -93,13 +103,13 @@ It does not prove a regulator vote changed or a physical rail lost voltage.
 ## What the result does not prove
 
 No later P2.86 checkpoint survived. In particular, there is no `0x90`
-restart-trace-cleanup-pending marker, no new exact failure detail
-`0xc50..0xc5c`, and no terminal `0x93`.
+restart-trace-cleanup-pending marker, no new exact detail `0xc50..0xc5c`, and
+no terminal `0x93`.
 
 Therefore the retained evidence does not prove:
 
-- exact parent `runtime_status=suspended` readback;
 - completion or quiescence of the stop-side outer `dwc3_otg_sm_work`;
+- entry to or return from the first restart tracefs snapshot;
 - bounded PERIPHERAL helper dispatch or completion;
 - DEVICE restart write or `peripheral` readback;
 - child resume or femto-HS PHY reinitialization;
@@ -108,10 +118,11 @@ Therefore the retained evidence does not prove:
 - host ACM receipt.
 
 The P2.86 bounded failure machinery was intended to make those later outcomes
-classifiable. Absence of its later checkpoint does not uniquely distinguish a
-blocked syscall, a blocked trace operation, failure before publication, or
-loss of the newer slot before rollback. H0 analysis is required before any
-successor is selected.
+classifiable. The focused H0 audit shows that unbounded tracefs and sysfs
+operations still precede those publications. Both slots remain valid, and the
+raw ring bytes prove no indexed retained-log write occurred before the next
+boot, so a torn newer slot or header-drift rejection is not the explanation.
+The exact live blocking primitive remains unproved.
 
 ## Rollback recovery deviation
 
@@ -185,11 +196,12 @@ The final verdict is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, with outcome
 
 ## Disposition
 
-The approval is consumed. Do not replay or rebuild P2.86. The next bounded unit
-is H0 analysis of why no P2.86 checkpoint after `0x8f/detail=0xc18` survived,
-including the publication boundary that should have classified a bounded
-helper timeout. Do not select or implement P2.88 until that evidence gap is
-source-complete.
+The approval is consumed. Do not replay or rebuild P2.86. The focused H0 gap
+analysis is complete in
+`S22PLUS_FYG8_P286_POST_0X8F_SILENCE_ATTRIBUTION_H0_2026-07-30.md`.
+Do not implement P2.88 until a host-only successor design places attributable
+evidence before every unbounded restart snapshot/read and solves the
+single-publication stage constraint.
 
 Any later live candidate requires a new versioned source contract, fresh
 identity, ordinary Full-LTO/package/static gates, a new ready manifest,

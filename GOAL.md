@@ -14,9 +14,10 @@ configfs UDC binding are live proven. P2.86 F1 is closed healthy/no-proof.
 Candidate and exact Magisk rollback each completed one boot-only transfer.
 Two byte-identical retained reads contain one exact P2.86 progress record:
 `0x8f/detail=0xc18`. It proves the unchanged normalized NONE, child-suspend,
-and zero-return PHY power-helper prefix again; it does not prove analog change.
-No P2.86 `0x90`, `0xc50..0xc5c`, or terminal `0x93` survived. Exact rollback
-and final health passed.**
+zero-return PHY power-helper prefix, and the new exact parent
+`runtime_status=suspended` gate; it does not prove outer-work return or analog
+change. No P2.86 `0x90`, `0xc50..0xc5c`, or terminal `0x93` survived. Exact
+rollback and final health passed.**
 
 Stock D1 v2 and P2.84 selected different runtime-PM paths. Stock's first two
 outer works ended by `0.291 ms`, followed by deferred child and parent PM
@@ -27,11 +28,22 @@ execution.
 
 P2.86 added exact parent-suspended wait, actual outer-work probes, bounded
 classified PERIPHERAL handling, closed post-kill reap, and publish-before-trace
-cleanup. Its live result retained none of those later classifications. The
-candidate observer closed as a bounded `endpoint-timeout`; the operator
-reported a normal candidate boot without a boot loop. Absence of a later slot
-does not uniquely identify a blocked syscall, blocked trace cleanup, failure
-before publication, or loss of the newer slot before rollback.
+cleanup. Exact source order proves its retained `0xc18` was withheld until the
+parent gate passed. Its live result does not prove entry into the restart
+helper: the first post-`0x8f` unbounded boundary is an inherited, unmarked
+tracefs snapshot before helper dispatch. If the helper does run, another
+unbounded snapshot still precedes helper classification. The cleanup-pending
+marker is only after all restart reads and final trace capture.
+
+Both retained slots are valid. Generation 89 left no target-slot
+commit-CRC-clear mutation on the retained medium. Raw ring adjacency is exact:
+the byte after the record begins the next warm-reset XBL stream, with zero
+Samsung kernel timestamp prefixes in between. Retained-log `idx` therefore did
+not drift during the candidate run, and neither a torn newer slot nor
+header-drift `-ESTALE` explains the silence.
+The exact live blocking primitive remains unproved. The candidate observer
+closed as a bounded `endpoint-timeout`; the operator reported a normal
+candidate boot without a boot loop.
 
 No S22+ F1 live run is currently authorized. Both P2.84 stock-D1 approvals and
 the P2.84 and P2.86 F1 approvals are consumed. Do not repeat P2.82 or
@@ -43,10 +55,11 @@ closure and pre-LTO qualification. Its first Full-LTO A/B pair failed closed:
 `.debug_line` plus the derived 20-byte GNU build ID; `Image` differed only by
 that build ID. The pair is invalid and no promotion occurred.
 
-The selected correction changes no source byte or intent. A real copy of the
-pinned clang repository is placed below the work tree's mapped parent and only
-the private `--clang-repo` argument changes. Corrected A must show zero random
-private-root and absolute clang-resource leaks before B may start.
+The selected correction changed no source byte or intent. A real copy of the
+pinned clang repository was placed below the work tree's mapped parent and
+only the private `--clang-repo` argument changed. Corrected A showed zero
+random private-root and absolute clang-resource leaks before B started; the
+corrected A/B pair then matched.
 
 ## Durable Established Evidence
 
@@ -81,6 +94,10 @@ private-root and absolute clang-resource leaks before B may start.
 - P2.86 recovery resumed rollback-only after a USB inventory-membership race
   interrupted the first physical-Download endpoint snapshot. No candidate
   replay or rollback retry occurred.
+- P2.86 focused H0 proves exact parent suspended, rules out torn generation 89
+  and in-run retained-header drift, and localizes the first unbounded
+  post-`0x8f` boundary to the pre-dispatch tracefs snapshot. Helper dispatch
+  remains unproved.
 - Exact source rejects treating a parent-PM sign or PHY flag as electrical
   proof; swallowed clock errors remain non-proof.
 - Process v2 common D0/F1 execution, regular-path boot-only Odin transport,
@@ -95,6 +112,7 @@ Load-bearing current reports:
 - `docs/reports/S22PLUS_FYG8_P286_SUCCESSOR_CHANGE_CLOSURE_FREEZE_H0_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P286_FULL_LTO_PRIVATE_PATH_REPRO_FAILURE_H0_2026-07-30.md`
 - `docs/reports/S22PLUS_FYG8_P286_PARENT_TAIL_BOUNDED_RESTART_F1_CLOSED_2026-07-30.md`
+- `docs/reports/S22PLUS_FYG8_P286_POST_0X8F_SILENCE_ATTRIBUTION_H0_2026-07-30.md`
 - `docs/operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 
@@ -102,11 +120,11 @@ The previous 899-line goal snapshot is preserved at
 `docs/archive/roadmaps/GOAL_THROUGH_P284_PM_ORDER_2026-07-29.md`.
 Archived text is evidence only; it grants no device authority.
 
-## P2.86 Pre-Intent Change Freeze
+## P2.86 Frozen Identity and Implemented Closure
 
-The next bounded unit is host-only implementation and static validation of the
-already-frozen P2.86 successor closure. Intent derivation and Full-LTO are
-later steps.
+P2.86 was selected and implemented through a host-only, pre-intent frozen
+closure. Its intent, corrected Full-LTO pair, static/package closure, F1, exact
+rollback, and final health are now complete historical evidence.
 
 ### Candidate identity closure
 
@@ -157,8 +175,8 @@ The freeze gate derives tracked changes from the union of
 `git diff --name-only <base>..HEAD` and `git status --porcelain`, including
 untracked files. That Git-derived set must equal the frozen declaration in
 both directions; an omitted or overdeclared path fails. This is P2.64 Stage A.
-The execution-identity split and independent-review Stage C are deferred until
-after P2.86.
+The execution-identity split and independent-review Stage C remain a
+post-P2.86 identity-design debt; this H0 does not implement them.
 
 ### Private D1 runner closure
 
@@ -175,9 +193,9 @@ The gate rejects equality and ancestor/descendant overlap between any D1 path
 and candidate direct source path. It currently reports zero overlap. This
 private repair list grants no D1 authority and is not a reason to rebuild.
 
-### Intent stop gate
+### Intent stop gate (satisfied before derivation)
 
-Do not derive intent until:
+Intent derivation was prohibited until:
 
 - all 10 payload sources and all twelve bundle-bound support files exist;
 - the freeze tool reports `pre_intent_ready: true`;
@@ -198,8 +216,9 @@ must be rerun and its final bytes rebound by `bundle.sha256` before approval.
 The frozen 18-file overlay implementation is complete. No P2.84 source was
 modified. The P2.86 intent and pre-LTO qualification are complete; the first
 Full-LTO pair was retained as invalid diagnostic evidence after its exact
-private-path attribution. No candidate was promoted and no device was
-contacted.
+private-path attribution. At that failed-pair boundary no candidate was
+promoted and no device was contacted. A later source-identical corrected pair
+passed and supported the closed F1 recorded above.
 
 The runtime now:
 
@@ -236,19 +255,22 @@ one-member `boot.img.lz4` packaging, AArch64 static classifier execution under
 QEMU, deterministic userspace two-link/source implementation audit, clean
 kernel-patch application, and the Git-derived freeze gate. An AArch64 harness
 extracts the production abort function and proves `publish -> cleanup entry`
-before remaining blocked forever in injected trace cleanup. The next action is
-review of these results; intent derivation remains a later bounded unit.
+before remaining blocked forever in injected trace cleanup. The later live gap
+does not invalidate those local assertions; it exposes untested blocking
+operations before the asserted publication boundaries.
 
 ## Ordered Execution
 
 1. Preserve the closed P2.86 journal, structured result, and raw evidence.
-2. Reopen the exact P2.86 source and map the interval after
-   `0x8f/detail=0xc18` to the first possible later publication.
-3. Explain why no bounded timeout/failure checkpoint survived despite
-   publish-before-cleanup and the closed reap deadline.
-4. Separate a blocked operation from a publication/retention loss using H0
-   source, decoder, and slot-order evidence before changing a candidate.
-5. Do not select or implement P2.88 until the gap analysis is source-complete.
+2. Keep P2.86 closed and immutable; do not replay or rebuild it.
+3. Design, host-only, a successor that places durable attribution before the
+   first restart trace snapshot and publishes a bounded helper result before
+   any post-helper trace operation.
+4. Treat sysfs/trace deadlines checked only after a blocking syscall as
+   non-preemptive, and cover each such boundary with independent permanent-
+   block fault injection.
+5. Solve the current ABI's one-publication-per-stage and two-slot evidence
+   constraints before selecting or implementing P2.88.
 6. Any later candidate must repeat immutable identity, Full-LTO/package/static
    closure, ready manifest, D0, and fresh exact F1 approval.
 
