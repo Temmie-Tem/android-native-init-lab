@@ -211,9 +211,23 @@ staging/orchestrator sources. Both host inspectors and strict local closure
 report zero issues. The final manifest SHA256 is
 `efc18c20a97d2c2a4418009d4202dc9dd85b7c61a83d563e70c3b0d225222206`.
 A private mode-0600 receipt is reopened successfully by both approval
-validators with exact `900/3/1` and all authority false. No staging, flash,
-reboot, candidate attempt, continuation receipt, or live authority exists;
-the next gate is one fresh exact F1 approval.**
+validators with exact `900/3/1` and all authority false. One exact F1 approval
+and one attended continuation were then consumed. Rootfs staging, one candidate
+boot transfer, candidate health, source preflight, and the first pre-handoff
+attempt passed. The single handoff stopped in strict display cleanup before
+storage or `switch_root`. A DRM owner remained alive at its one-second
+per-owner deadline and produced `-EBUSY`; the immediately following
+authoritative scan nevertheless proved zero remaining non-preserved owners.
+The stale per-owner error stayed in `final_rc`, so the source was rehashed
+unchanged and the handoff returned. Candidate native-init return passed. One
+exact rollback transfer completed; its first final-health `hide` was corrupted
+to `hidAe` by menu interleaving, after which health-only recovery performed no
+transfer and proved exact V2321, selftest failure count zero, and zero pstore
+entries. The transaction closed
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` with candidate/rollback `1/1`, no replay,
+one handoff attempt, Debian PID1 unproved, and the canonical eight-event
+timeline. The run and approvals are non-reusable; no A90 live authority
+exists.**
 
 Stock D1 v2 and P2.84 selected different runtime-PM paths. Stock's first two
 outer works ended by `0.291 ms`, followed by deferred child and parent PM
@@ -494,8 +508,11 @@ corrected A/B pair then matched.
   the mismatch and passed independent re-review, but creates no new authority.
 - Fresh successor `a90-v3403-debian-f1-20260731-03` passes exact V2321 D0,
   three-path absence, topology-bound NCM, both host inspectors, strict local
-  closure, and cross-validator receipt reopening. Its approval receipt grants
-  no live authority; one fresh exact F1 approval remains.
+  closure, and cross-validator receipt reopening. Its approval and attended
+  continuation are consumed. Staging and candidate health passed, but the one
+  handoff retained a per-owner `-EBUSY` after its final owner rescan reached
+  zero, so `switch_root` was not reached. Candidate/rollback are `1/1`, no
+  replay, exact V2321 health is restored, and the run is closed.
 
 Load-bearing current reports:
 
@@ -707,9 +724,13 @@ The A90 branch proceeds independently:
    recovery gates.
 6. Preserve closed run `a90-v3403-debian-f1-20260731-02`, its consumed
    approval, `0/0` transfer counts, and before-device failure evidence.
-7. Preserve prepared successor `a90-v3403-debian-f1-20260731-03` and obtain
-   one fresh exact F1 approval before staging or live execution. No earlier
-   run, receipt, or approval may be reused.
+7. Preserve closed run `a90-v3403-debian-f1-20260731-03`, its consumed
+   approval and continuation, `1/1` transfers, one handoff, source-unchanged
+   failure, final V2321 health, and no-proof verdict.
+8. In H0, make the final zero-owner rescan authoritative for a resolved
+   per-owner timeout without masking other display-service or scan failures.
+   Build and independently review a fresh versioned successor before preparing
+   any later run or requesting another F1 approval.
 
 No device step is added when H0 can answer the question.
 

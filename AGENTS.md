@@ -34,10 +34,17 @@ Do not add a device step when host-only work can answer the question.
   Fresh successor `a90-v3403-debian-f1-20260731-03` now binds a new-inode
   rootfs/key, exact V2321 D0, three-path absence, topology-bound NCM, and a
   zero-issue final manifest. Both the orchestrator and staging validator reopen
-  its private approval receipt with exact `900/3/1`; all authority remains
-  false. No staging, flash, reboot, candidate attempt, continuation receipt, or
-  live authority exists. The next gate is one fresh exact F1 approval. This
-  successor never applies retroactively to a consumed run.
+  its private approval receipt with exact `900/3/1`. One exact approval and one
+  attended continuation were consumed. Staging, candidate boot, and the first
+  pre-handoff attempt passed. The single handoff stopped before storage or
+  `switch_root`: one DRM-owner stop timed out `-EBUSY`, while the immediately
+  following authoritative rescan proved zero remaining owners. The source
+  stayed byte-identical. Candidate and exact rollback transfers are `1/1` with
+  no replay; health-only recovery after one corrupted post-rollback `hide`
+  frame closed `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` with exact V2321 health
+  and the canonical eight-event timeline. The run and approvals are
+  non-reusable. No A90 live authority exists. This successor never applies
+  retroactively to a consumed run.
 - P2.82 consumed one exact approval. Its byte-identical reads end in terminal
   failure `0x8e/detail=0xc10`; the newline-bearing comparator made exact NONE
   readback impossible. No accepted ACM endpoint appeared. Child suspend,
