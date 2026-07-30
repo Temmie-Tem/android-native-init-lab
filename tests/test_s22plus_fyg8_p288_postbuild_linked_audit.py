@@ -18,7 +18,7 @@ import s22plus_fyg8_p288_postbuild_linked_audit as audit  # noqa: E402
 
 
 REQUEST_ALLOWED = """
-ffffffc008020580: 39401400 ldrb w0, [x0, #0x5]
+ffffffc008020580: 39401400 ldrb w0, [x0, #5]
 ffffffc008020590: 51000409 sub w9, w0, #0x1
 ffffffc008020594: 7100093f cmp w9, #0x2
 ffffffc008020598: 54000408 b.hi ffffffc008020618
@@ -31,7 +31,7 @@ ffffffc0080205b0: 54000329 b.ls ffffffc008020614
 ffffffc0080205b4: f000f589 adrp x9, ffffffc009ed3000 <nearby>
 ffffffc0080205b8: 91162129 add x9, x9, #0x588
 ffffffc0080205bc: f8687928 ldr x8, [x9, x8, lsl #3]
-ffffffc0080205c0: 39401a83 ldrb w3, [x20, #0x6]
+ffffffc0080205c0: 39401a83 ldrb w3, [x20, #6]
 ffffffc0080205c4: 38756908 ldrb w8, [x8, x21]
 ffffffc0080205c8: 6b08007f cmp w3, w8
 ffffffc0080205cc: 54000241 b.ne ffffffc008020614

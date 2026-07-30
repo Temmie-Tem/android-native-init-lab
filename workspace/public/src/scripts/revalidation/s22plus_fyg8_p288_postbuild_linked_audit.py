@@ -125,7 +125,7 @@ def _switch_table_structure(disassembly: str) -> dict[str, Any]:
     rows = _instructions(disassembly)
     profile = _unique_index(
         rows,
-        r"ldrb\s+w0,\s*\[x0,\s*#0x5\]",
+        r"ldrb\s+w0,\s*\[x0,\s*#(?:0x)?5\]",
         "request profile load",
     )
     subtract = _unique_index(
@@ -177,7 +177,7 @@ def _switch_table_structure(disassembly: str) -> dict[str, Any]:
     )
     request_stage = _unique_index(
         rows,
-        r"ldrb\s+w3,\s*\[x20,\s*#0x6\]",
+        r"ldrb\s+w3,\s*\[x20,\s*#(?:0x)?6\]",
         "request stage load",
         start=pointer_load + 1,
     )
