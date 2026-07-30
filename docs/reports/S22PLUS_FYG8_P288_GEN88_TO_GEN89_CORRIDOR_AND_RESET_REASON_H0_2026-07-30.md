@@ -7,6 +7,11 @@ Status:
 
 Tier: H0
 
+Correction: the reset-reason result and exact 12-gate materialized count remain
+valid. The causal treatment of returned gate failures and the proposed
+close-error client-divergence model are superseded by
+`S22PLUS_FYG8_P288_NO_SILENT_PARK_AND_LINKED_VALIDATOR_H0_2026-07-30.md`.
+
 ## Result
 
 P2.88's live run added no surviving pair-indexed coordinate after generation
@@ -20,19 +25,22 @@ earlier watchdog, panic, oops, or reset boot between the candidate record and
 that operator action. An asynchronous SoC reset during the candidate run is
 therefore rejected.
 
-The remaining corridor is wider than the initial source-level count of one
-return, one call, and one `clock_gettime`. The first P2.88 marker wrapper runs
-the complete 12-gate sysfs revalidation before it writes generation 89. The
-missing generation 89 therefore cannot distinguish:
+The remaining attribution corridor is wider than the initial source-level
+count of one return, one call, and one `clock_gettime`. The first P2.88 marker
+wrapper runs the exact candidate's 12-gate sysfs revalidation before it writes
+generation 89. The missing generation 89 therefore cannot distinguish:
 
 1. the generation-88 publisher's post-commit return/error tail;
 2. the straight-line returns and direct `clock_gettime` syscall;
-3. the hidden 12-gate revalidation inside the first P2.88 marker; or
+3. a non-returning syscall in the hidden 12-gate revalidation; or
 4. the generation-89 checkpoint publication itself.
 
-No successor F1 should be requested until a new position is placed immediately
-after the generation-88 publisher returns and its publication path contains no
-unrelated sysfs revalidation before the durable write.
+An ordinary returned gate failure is not an independent recordless cause:
+`p260_revalidate_or_fail()` calls `fail_at()`, which attempts a generation-89
+`0x800+index` or `0x900+index` failure. The priority unresolved class is now
+publication non-return or primary-plus-fallback publication failure. No
+successor F1 should be requested until that no-silent-park gap and the intended
+adjacent position placement are both handled.
 
 ## Exact retained and reset evidence
 
@@ -114,10 +122,16 @@ s22_p288_checkpoint_progress_position(...);
   it, then performs `newfstatat` and `readlinkat` for the exact UDC.
 
 Every syscall is before the generation-89 checkpoint write and has no
-userspace-preemptive deadline. P2.88's static source-order gate proves only
-the order of the `p288_progress_position()` call sites. It does not prove
-adjacency between the preceding operation and the durable checkpoint inside
-that wrapper.
+userspace-preemptive deadline. P2.88's static source-order gate proves only the
+order of the `p288_progress_position()` call sites. It does not prove adjacency
+between the preceding operation and the durable checkpoint inside that
+wrapper.
+
+But a returned error from any gate routes through `fail_at()` and attempts a
+generation-89 failure publication. The gate scan is therefore an attribution
+surface only for a non-returning VFS operation or for a subsequent publication
+failure. A normal returned mismatch cannot alone explain the retained
+generation 88.
 
 Thus the name `restart_helper_dispatch` is aspirational at generation 89: a
 surviving record would prove the pre-dispatch revalidation and publication
@@ -150,16 +164,22 @@ The userspace client then:
    `p282_cycle_suspend()`.
 
 A CRC-valid retained generation 88 proves the kernel commit, but not every
-later item in that userspace return tail. If the completed kernel write is
-followed by a userspace-visible error before the client advances its local
-generation, the generic `quiet_park()` fallback is also unable to repair the
-record: the userspace client still targets ordinal 87 while the kernel has
-already advanced to ordinal 88. The fallback request is rejected and the
-retained record remains generation 88.
+later item in that return path. Exact common-kernel source rejects the earlier
+close-error counterexample: `filp_close()` gets a nonzero return only from
+`file_operations.flush`, while the procfs regular operations have no
+`.flush`, and this checkpoint proc entry has no custom release.
 
-That is a specific limitation of the existing “publication-dominated park”
-claim. It covers failures before a normal next-position publisher, but cannot
-make the publisher that just diverged from kernel state diagnose itself.
+The kernel writer can instead return `-ESTALE` after committing the target CRC
+but before advancing its in-kernel generation. There is no error return after
+that state update. In the post-commit-error case the kernel and userspace both
+still target the same next generation, so the fallback is not sequence-stale.
+If it succeeded, it would replace the target with an unclassified failure.
+The retained progress generation 88 proves only that no such fallback
+successfully committed.
+
+The concrete limitation of the “publication-dominated park” claim is simpler:
+the generic wrapper discards the fallback return and raw-parks even when both
+the primary and fallback publications fail.
 
 ## Corrected corridor
 
@@ -180,8 +200,11 @@ kernel generation-88 CRC commit
 ```
 
 The direct `clock_gettime` path is a single non-sleeping time read and is a
-lower-priority block candidate. The publisher tail and the hidden sysfs gate
-scan remain the two important unbounded regions.
+lower-priority block candidate. A gate syscall that never returns remains
+possible, but gate 0 through 10 perform link metadata operations and gate 11
+enumerates `/sys/class/udc`; none reads a runtime-PM device attribute. A
+returned gate error attempts a classified record. Publication acceptance,
+return, and fallback failure are therefore the priority unresolved region.
 
 Consequently the live F1 produced zero new coordinate-level discrimination.
 The reset-reason H0 and wrapper expansion, however, reject asynchronous reset
@@ -208,15 +231,18 @@ A useful sequence remains:
 (0x90,0) immediately before the helper boundary
 ```
 
-The adjacent marker must use a versioned direct position publisher without
-the inherited `p260_revalidate_or_fail()` preamble. This does not make a
-publisher capable of proving its own non-return: absence of `(0x8f,1)` would
-still only strengthen a generation-88 publisher-tail attribution. Presence
-would reject it and advance the boundary.
+The adjacent marker should use a versioned direct position publisher without
+the inherited `p260_revalidate_or_fail()` preamble. That placement correction
+is necessary but not sufficient. The publisher cannot prove its own persistent
+failure, and the current unclassified fallback silently discards its error.
+Absence of `(0x8f,1)` would therefore still cover both publisher non-return and
+primary-plus-fallback failure; presence would reject those earlier paths and
+advance the boundary.
 
 The static gate must inspect the full marker wrapper and the code between the
 last proven publication and the first new durable write. Counting symbolic
-call sites alone is insufficient.
+call sites alone is insufficient. It must also distinguish “publication was
+attempted” from “a durable publication was confirmed before raw park.”
 
 ## Intentional P2.88 behavior change confirmed
 

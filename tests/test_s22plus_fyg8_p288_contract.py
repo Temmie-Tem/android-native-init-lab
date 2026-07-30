@@ -524,8 +524,11 @@ class P288PairContractTests(unittest.TestCase):
         self.assertEqual(result["undeclared_active_routes"], [])
         self.assertTrue(result["bidirectional_exact_tuple_coverage"])
 
-    def test_every_park_is_routed_or_preinit_unreachable(self):
+    def test_every_raw_park_is_topologically_routed(self):
         result = source_contract._audit_park_routes(self.source)
+        # The historical field name says "publication_dominated", but this
+        # gate proves wrapper topology and a fallback attempt only.  The
+        # post-live no-silent-park audit separately rejects durable dominance.
         self.assertTrue(result["raw_sinks_publication_dominated"])
         self.assertTrue(result["unclassified_before_generic_park"])
         self.assertTrue(

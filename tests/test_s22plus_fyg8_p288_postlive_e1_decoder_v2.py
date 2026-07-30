@@ -141,9 +141,12 @@ class P288PostliveDecoderV2Tests(unittest.TestCase):
         )
         self.assertEqual(spec.GATE_COUNT, 12)
 
-    def test_postcommit_stale_client_fallback_cannot_advance_kernel_record(
+    def test_abstract_model_rejects_request_for_already_advanced_record(
         self,
     ):
+        # This checks the decoded-record transition model only.  It does not
+        # model the exact writer's pre-state-update post-commit -ESTALE path,
+        # where kernel and userspace generations have not advanced yet.
         kernel_record = advance_to(88)
         stale_position = spec.POSITIONS[87]
         stale_fallback = model.encode_request(

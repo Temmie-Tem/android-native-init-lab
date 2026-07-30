@@ -37,10 +37,12 @@ far side of the unresolved corridor. Its wrapper runs all 12 sysfs bind-gate
 checks before the generation-89 checkpoint write. The static source-order
 gate checked marker-call order, not adjacency to the durable write. Missing
 generation 89 therefore still spans the generation-88 publisher return tail,
-straight-line return and `clock_gettime`, the hidden gate scan, and the next
-checkpoint publication. No successor F1 may be requested until the first new
-position immediately follows the generation-88 publisher return and has no
-unrelated revalidation before its durable write.
+straight-line return and `clock_gettime`, a non-returning gate syscall, and the
+next checkpoint publication. An ordinary returned gate failure calls
+`fail_at()` and attempts a generation-89 `0x800/0x900` detail, so it is not an
+independent recordless cause. No successor F1 may be requested until the
+publication-failure silence path and adjacent first-position placement are
+both handled.
 
 The live transaction exercised the durable recovery design. Initial rollback
 endpoint discovery stopped on a measured USB membership race. Rollback-only
@@ -101,13 +103,15 @@ a bidirectional active-producer route gate keyed by exact
 `c57/c58/c59` details and the superseded `c5c` cleanup marker have zero active
 P2.88 routes.
 
-P2.88 also makes silence-park prohibition an invariant. Every historical local
-park site is either statically unreachable or publication-dominated;
-classifier-zero paths publish a reserved `unclassified` failure at the
-descriptor-derived next position. Raw `quiet_park()` is available only through
-one audited evidence-park primitive. Regulator predicates are explicitly
-excluded because they would add new sysfs/blocking failure surfaces rather
-than improve location attribution.
+P2.88 intended to make silence-park prohibition an invariant, but post-live H0
+refutes that claim. Every raw park is topologically behind an exact or
+reserved-unclassified publication *attempt*, yet both wrappers discard the
+fallback return. If primary and fallback publications both fail, execution
+raw-parks without a new record. Of the 16 inherited P2.86 park sites, only two
+are dominated by a publication that already returned success; 14 are
+attempt-only or unproved. Regulator predicates remain excluded because they
+would add new sysfs/blocking failure surfaces rather than improve location
+attribution.
 
 The pre-intent P2.88 implementation now exists as a versioned overlay. Its
 pair-aware model, generated userspace/kernel tables, runtime transformation,
@@ -115,8 +119,9 @@ decoder, and typed-evidence selection agree on 103 exact positions. The
 runtime source-order gate rejects removal, reorder, duplication, and rename
 mutations. Its bidirectional producer audit currently reports
 `61 declared == 61 active`, with zero missing or undeclared suffix routes.
-All raw parks remain behind exact/reserved publication wrappers, and the
-helper-returned marker precedes every restart readback.
+All raw parks remain behind exact/reserved publication wrappers, but that gate
+proved only wrapper topology and publication attempt, not a successful durable
+fallback. The helper-returned marker still precedes every restart readback.
 
 The planned P2.88 identity is 83 SOURCE_KEYS: all 70 P2.86 receipts unchanged,
 9 new direct payload sources, and 4 new generated keys. Nine keys in the full
@@ -133,16 +138,36 @@ producer routes, publication-order mutation rejection, silence-park routing,
 and the 103-position terminal bound. The freeze reports inherited `70/70`
 with no changed key, 83 planned SOURCE_KEYS, and exact equality between all 24
 Git-derived and declared change-window paths. A clean scoped implementation
-commit and post-commit freeze/source-key print remain before intent.
+commit and post-commit freeze/source-key print remained before intent. The
+post-live finding does not invalidate those recorded checks; it corrects the
+proof scope of “silence-park routing” from durable dominance to attempted
+fallback topology.
 
 Both retained slots are valid. Generation 89 left no target-slot
 commit-CRC-clear mutation on the retained medium. Raw ring adjacency is exact:
 the byte after the record begins the next warm-reset XBL stream, with zero
 Samsung kernel timestamp prefixes in between. Retained-log `idx` therefore did
-not drift during the candidate run, and neither a torn newer slot nor
-header-drift `-ESTALE` explains the silence. The exact live blocking primitive
-remains unproved, but an asynchronous reset is no longer in the live candidate
+not drift in the surviving evidence, and a torn newer slot is rejected. This
+does not statically exclude a transient post-commit `-ESTALE` before the
+writer's in-kernel state advance. The exact live blocking primitive remains
+unproved, but an asynchronous reset is no longer in the live candidate
 explanation set.
+
+Commit `6fc2881e`'s register-allocation-independent post-build proof did run and
+pass formal static closure. It exhaustively checked all `6,815,744`
+generation/stage/item inputs with the production validator functions, accepted
+exactly 103, compared linked ELF table bytes, and was freshly replayed by the
+independent candidate-static checker. This strongly rejects a source/table
+validator mismatch, but does not cover runtime open/write return or retained
+writer/client state.
+
+Exact VFS source also rejects a successful-write-then-close-error client
+divergence: the procfs file operations have no `.flush`, and the checkpoint
+proc entry has no custom release. The kernel may return post-commit `-ESTALE`
+before advancing its in-kernel generation, but has no error return after that
+advance. A successful fallback would have left a replacement or later failure
+record; the retained progress generation 88 proves no fallback commit, not why
+it failed or did not return.
 
 P2.88's removal of the pre-helper and immediate post-helper trace snapshots
 was intentional, not an instrumentation-only drift. `residual_outer_open` and
@@ -220,7 +245,11 @@ corrected A/B pair then matched.
   P2.88 coordinate remain unproved.
 - P2.88 post-live H0 proves the first next-boot reason is the operator's
   `PS_HOLD`/S2 warm reset rather than a candidate-time watchdog/panic reset,
-  and exposes the 12-gate sysfs revalidation hidden before generation 89.
+  and exposes the exact candidate's 12-gate revalidation before generation 89.
+- P2.88 no-silent-park H0 confirms the formal `6fc2881e` linked-validator proof
+  passed, distinguishes the historical eight-gate plan from the exact
+  twelve-gate candidate, and refutes durable publication dominance: only an
+  attempted fallback precedes 14 of the 16 inherited park sites.
 - Exact source rejects treating a parent-PM sign or PHY flag as electrical
   proof; swallowed clock errors remain non-proof.
 - Process v2 common D0/F1 execution, regular-path boot-only Odin transport,
@@ -241,6 +270,7 @@ Load-bearing current reports:
 - `docs/reports/S22PLUS_FYG8_P288_PAIR_ATTRIBUTABLE_IMPLEMENTATION_H0_2026-07-30.md`
 - `docs/reports/S22PLUS_FYG8_P288_PAIR_ATTRIBUTABLE_RESTART_F1_CLOSED_2026-07-30.md`
 - `docs/reports/S22PLUS_FYG8_P288_GEN88_TO_GEN89_CORRIDOR_AND_RESET_REASON_H0_2026-07-30.md`
+- `docs/reports/S22PLUS_FYG8_P288_NO_SILENT_PARK_AND_LINKED_VALIDATOR_H0_2026-07-30.md`
 - `docs/operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 
@@ -394,17 +424,23 @@ operations before the asserted publication boundaries.
 2. Keep P2.88 closed and immutable; do not replay or rebuild it.
 3. Preserve the H0 reset-reason result: no candidate-time asynchronous reset
    preceded the operator's `PS_HOLD`/S2 Download entry.
-4. Design the next first subposition immediately after the accepted
+4. Preserve the formal `6fc2881e` result: source/table validator mismatch is
+   strongly rejected, while runtime publication return/state remains open.
+5. Before placing another marker, replace the false no-silent-park claim with
+   a mechanically checked policy that distinguishes attempted fallback from a
+   confirmed durable record. If the sole retained channel cannot report its
+   own persistent failure, state that limitation explicitly.
+6. Design the next first subposition immediately after the accepted
    generation-88 publisher return, with no gate revalidation or other
    unrelated syscall before its durable write. Inspect the full publisher
    wrapper, not only symbolic call order.
-5. Keep the post-live v2 semantic renderer analysis-only. Do not rewrite the
+7. Keep the post-live v2 semantic renderer analysis-only. Do not rewrite the
    approval-bound P2.88 decoder or reinterpret the closed live verdict.
-6. Keep the CDC-ACM `endpoint-timeout` as downstream corroboration only. It
+8. Keep the CDC-ACM `endpoint-timeout` as downstream corroboration only. It
    does not identify the missing generation-89 boundary.
-7. Before selecting a successor, close the generation-88 publisher's local
+9. Before selecting a successor, close the generation-88 publisher's local
    state/update/error semantics and add a static adjacency mutation gate.
-8. Any later successor needs a fresh frozen identity, deterministic
+10. Any later successor needs a fresh frozen identity, deterministic
    Full-LTO/package/static closure, ready manifest, D0, and exact F1 approval.
 
 No device step is added when H0 can answer the question.
