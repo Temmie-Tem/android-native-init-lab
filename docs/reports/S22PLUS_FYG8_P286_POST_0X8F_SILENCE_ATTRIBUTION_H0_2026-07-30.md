@@ -436,11 +436,11 @@ path from the last progress record to the next publication was bounded.
 No P2.88 implementation is selected by this report. A source-complete
 successor design must satisfy all of the following before intent derivation:
 
-1. place an attributable durable boundary before the first restart tracefs
-   open/read;
-2. never put a trace refresh, trace cleanup, blocking reap, or blocking sysfs
-   read between a completed/timed-out helper observation and its failure
-   publication;
+1. remove the classification-only pre-dispatch and immediate post-helper
+   snapshots from the early restart corridor;
+2. classify and publish the parent-owned bounded-helper outcome before any
+   optional trace refresh, trace cleanup, blocking reap, or blocking sysfs
+   read;
 3. treat a userspace deadline checked after a blocking syscall as
    non-preemptive, not bounded;
 4. place a durable boundary before final trace disable/snapshot/profile
@@ -450,18 +450,16 @@ successor design must satisfy all of the following before intent derivation:
    and cleanup;
 6. preserve the two-slot evidence budget so the last two records remain the
    most diagnostic pair; and
-7. explicitly solve the stage-sequence problem.
+7. consider a stage or slot redesign only for a later boundary that cannot be
+   removed, reordered, or isolated.
 
-The current retained ABI permits one monotonic publication at stage `0x90`.
-Moving `0xc5c` to restart entry would consume that stage and prevent a later
-stage-`0x90` failure. Multiple early boundaries therefore require a reviewed
-stage/ABI redesign, a separately bounded evidence channel, or removal of the
-unbounded operation—not merely one additional detail constant.
-
-The cheapest first design question is whether restart diagnostics need a
-pre-dispatch trace snapshot at all. If they do, it must be isolated so its
-failure cannot block PID1's durable progress. If they do not, helper dispatch
-and its bounded outcome should precede optional trace enrichment.
+The follow-up load-bearing audit answers the cheapest first question: neither
+early snapshot is required for restart actuation or successful-path trace
+evidence. They refine timeout subtypes only. The selected paper design removes
+both from the corridor and publishes a generic bounded-helper timeout before
+trace enrichment. It therefore does not require early intent markers, a stage
+redesign, or slot expansion. See
+`S22PLUS_FYG8_P286_EARLY_RESTART_TRACE_LOAD_BEARING_AUDIT_H0_2026-07-30.md`.
 
 ## Host validation
 

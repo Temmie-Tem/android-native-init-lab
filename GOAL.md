@@ -35,6 +35,15 @@ tracefs snapshot before helper dispatch. If the helper does run, another
 unbounded snapshot still precedes helper classification. The cleanup-pending
 marker is only after all restart reads and final trace capture.
 
+Follow-up data-flow H0 proves both early snapshots are classification-only.
+The first freezes only `residual_outer_open`; the second supplies only
+`restart_worker.entered/returned`. All three fields refine a helper timeout
+into `c57/c58/c59` and do not control dispatch or a successful restart. The
+cheapest successor design removes both snapshots from the early corridor,
+classifies the parent-owned bounded-helper result first, and uses one honest
+generic timeout semantic. No early intent markers or slot expansion are
+selected.
+
 Both retained slots are valid. Generation 89 left no target-slot
 commit-CRC-clear mutation on the retained medium. Raw ring adjacency is exact:
 the byte after the record begins the next warm-reset XBL stream, with zero
@@ -98,6 +107,9 @@ corrected A/B pair then matched.
   and in-run retained-header drift, and localizes the first unbounded
   post-`0x8f` boundary to the pre-dispatch tracefs snapshot. Helper dispatch
   remains unproved.
+- P2.86 follow-up data-flow H0 proves both trace snapshots around helper
+  dispatch are timeout-classification enrichment only. Removing them from the
+  early corridor is cheaper and stronger than adding intent markers.
 - Exact source rejects treating a parent-PM sign or PHY flag as electrical
   proof; swallowed clock errors remain non-proof.
 - Process v2 common D0/F1 execution, regular-path boot-only Odin transport,
@@ -113,6 +125,7 @@ Load-bearing current reports:
 - `docs/reports/S22PLUS_FYG8_P286_FULL_LTO_PRIVATE_PATH_REPRO_FAILURE_H0_2026-07-30.md`
 - `docs/reports/S22PLUS_FYG8_P286_PARENT_TAIL_BOUNDED_RESTART_F1_CLOSED_2026-07-30.md`
 - `docs/reports/S22PLUS_FYG8_P286_POST_0X8F_SILENCE_ATTRIBUTION_H0_2026-07-30.md`
+- `docs/reports/S22PLUS_FYG8_P286_EARLY_RESTART_TRACE_LOAD_BEARING_AUDIT_H0_2026-07-30.md`
 - `docs/operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 
@@ -263,14 +276,15 @@ operations before the asserted publication boundaries.
 
 1. Preserve the closed P2.86 journal, structured result, and raw evidence.
 2. Keep P2.86 closed and immutable; do not replay or rebuild it.
-3. Design, host-only, a successor that places durable attribution before the
-   first restart trace snapshot and publishes a bounded helper result before
-   any post-helper trace operation.
-4. Treat sysfs/trace deadlines checked only after a blocking syscall as
-   non-preemptive, and cover each such boundary with independent permanent-
-   block fault injection.
-5. Solve the current ABI's one-publication-per-stage and two-slot evidence
-   constraints before selecting or implementing P2.88.
+3. Design, host-only, a successor that removes both early restart snapshots,
+   dispatches the bounded helper immediately, and publishes any parent-owned
+   helper failure before optional trace enrichment.
+4. Replace the trace-dependent `c57/c58/c59` early split with one honest
+   versioned generic helper-timeout semantic; do not expand slots for those
+   removed boundaries.
+5. Treat later sysfs/trace deadlines checked only after a blocking syscall as
+   non-preemptive. Remove, reorder, or isolate those operations before
+   considering any stage/slot expansion.
 6. Any later candidate must repeat immutable identity, Full-LTO/package/static
    closure, ready manifest, D0, and fresh exact F1 approval.
 
