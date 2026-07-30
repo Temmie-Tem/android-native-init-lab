@@ -146,9 +146,17 @@ direct no-retry handoff, and first-byte deadline reservation. It rejects the
 old 45-second handoff timeout and requires at least 905 seconds to preserve a
 900-second full-path response window. Exact loader/runtime gates and mutation
 checks bind that calculation. The focused closure passes `124/124`, and final
-independent review returned `GO` with no device contact. The next unit is a
-fresh run/manifest and connected D0 preparation; no old approval or run may be
-reused.**
+independent review returned `GO` with no device contact. A fresh connected-D0
+attempt then proved exact A90 binding, healthy V2321, zero selftest failures,
+zero pstore entries, and repaired the host-only topology-bound NCM profile.
+Its serial SD-path read was rejected busy. A missing host fail-fast check then
+passed an empty tcpctl token and triggered one unapproved automatic-menu
+`hide`; the following tcpctl shell failed to parse before its body or any file
+operation. Exact V2321 return health passed. The unit is stopped as
+`STOP_UNAPPROVED_D1_HIDE_RETURN_HEALTH_PASS`: SD path state is unproved and no
+new run, manifest, approval, staging, flash, or live authority exists. Resume
+requires operator direction and a no-menu-control D0 path; no old approval or
+run may be reused.**
 
 Stock D1 v2 and P2.84 selected different runtime-PM paths. Stock's first two
 outer works ended by `0.291 ms`, followed by deferred child and parent PM
