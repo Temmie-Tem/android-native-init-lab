@@ -10,14 +10,26 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 ## Current Frontier
 
 **State: direct PID1, E1A/E1B, E2 through the real UDC, and E3 through exact
-configfs UDC binding are live proven. P2.86 F1 is closed healthy/no-proof.
+configfs UDC binding are live proven. P2.88 F1 is closed healthy/no-proof.
 Candidate and exact Magisk rollback each completed one boot-only transfer.
-Two byte-identical retained reads contain one exact P2.86 progress record:
-`0x8f/detail=0xc18`. It proves the unchanged normalized NONE, child-suspend,
-zero-return PHY power-helper prefix, and the new exact parent
-`runtime_status=suspended` gate; it does not prove outer-work return or analog
-change. No P2.86 `0x90`, `0xc50..0xc5c`, or terminal `0x93` survived. Exact
-rollback and final health passed.**
+Two byte-identical retained reads contain one exact P2.88 progress record with
+CRC-valid generations 87 and 88. The active slot remains
+`0x8f/item=0/detail=0xc18`; no new pair-indexed generation 89 survived. Exact
+rollback, final Android/Magisk health, and the canonical eight-event timeline
+passed.**
+
+P2.88's exact CDC-ACM observer closed as `endpoint-timeout`. The operator
+observed a normal candidate boot without a boot loop. The formal verdict is
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`: no restart-helper dispatch, return,
+later readback, configfs bind, final sampling, ACM receipt, or terminal success
+may be inferred from the missing generation 89.
+
+The live transaction exercised the durable recovery design. Initial rollback
+endpoint discovery stopped on a measured USB membership race. Rollback-only
+recovery transferred the exact rollback once, durably reached
+`ROLLBACK_FLASHED`, then met the known post-transfer USBFS departure race. A
+final recovery performed no transfer and closed final health. Candidate and
+rollback counts are exactly one each; there was no replay or retransmission.
 
 Stock D1 v2 and P2.84 selected different runtime-PM paths. Stock's first two
 outer works ended by `0.291 ms`, followed by deferred child and parent PM
@@ -116,8 +128,8 @@ closed as a bounded `endpoint-timeout`; the operator reported a normal
 candidate boot without a boot loop.
 
 No S22+ F1 live run is currently authorized. Both P2.84 stock-D1 approvals and
-the P2.84 and P2.86 F1 approvals are consumed. Do not repeat P2.82 or
-replay/rebuild P2.84 or P2.86.
+the P2.84, P2.86, and P2.88 F1 approvals are consumed. Do not repeat P2.82 or
+replay/rebuild P2.84, P2.86, or P2.88.
 
 P2.86 run `c6cde593033d6f1be93f82c8ff5a81e8` passed its frozen pre-intent
 closure and pre-LTO qualification. Its first Full-LTO A/B pair failed closed:
@@ -171,6 +183,11 @@ corrected A/B pair then matched.
 - P2.86 follow-up data-flow H0 proves both trace snapshots around helper
   dispatch are timeout-classification enrichment only. Removing them from the
   early corridor is cheaper and stronger than adding intent markers.
+- P2.88 implemented the 103-position pair-aware channel, removed both early
+  classification-only snapshots, passed deterministic Full-LTO/package/static
+  closure, and completed one candidate plus one exact rollback. Its retained
+  state still ends at inherited generation 88; generation 89 and every new
+  P2.88 coordinate remain unproved.
 - Exact source rejects treating a parent-PM sign or PHY flag as electrical
   proof; swallowed clock errors remain non-proof.
 - Process v2 common D0/F1 execution, regular-path boot-only Odin transport,
@@ -189,6 +206,7 @@ Load-bearing current reports:
 - `docs/reports/S22PLUS_FYG8_P286_EARLY_RESTART_TRACE_LOAD_BEARING_AUDIT_H0_2026-07-30.md`
 - `docs/reports/S22PLUS_FYG8_P288_ITEM_INDEX_SUBPOSITION_SUCCESSOR_DESIGN_H0_2026-07-30.md`
 - `docs/reports/S22PLUS_FYG8_P288_PAIR_ATTRIBUTABLE_IMPLEMENTATION_H0_2026-07-30.md`
+- `docs/reports/S22PLUS_FYG8_P288_PAIR_ATTRIBUTABLE_RESTART_F1_CLOSED_2026-07-30.md`
 - `docs/operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 
@@ -337,36 +355,22 @@ operations before the asserted publication boundaries.
 
 ## Ordered Execution
 
-1. Preserve the closed P2.86 journal, structured result, and raw evidence.
-2. Keep P2.86 closed and immutable; do not replay or rebuild it.
-3. Design, host-only, a successor that removes both early restart snapshots,
-   dispatches the bounded helper immediately, and publishes any parent-owned
-   helper failure before optional trace enrichment.
-4. Replace the trace-dependent `c57/c58/c59` early split with one honest
-   versioned generic helper-timeout semantic and retire the superseded `c5c`
-   marker.
-5. Implement the frozen finite P2.88 position table from generation 89 through
-   103. Use a pair-aware versioned model, derive the next wire pair from the
-   checkpoint client's generation, and prove actual runtime publication call
-   order equals the descriptor order. Never number runtime call sites by hand.
-6. Add bidirectional active-producer coverage. A decodable tuple is not by
-   itself a runtime-reachable tuple; every active detail needs an exact
-   production route and every exact route must be declared.
-7. Gate every park site: unreachable or preceded by exact/reserved evidence.
-   No classifier-zero or publication-order error may fall into a silent park.
-8. Version the typed F1 evidence selection for P2.88 and prove two adjacent
-   subposition slots in one record still imply one candidate boot. Preserve
-   inherited generation-87 `0x8e/detail=0` as valid zero-detail progress.
-9. Treat later sysfs/trace deadlines checked only after a blocking syscall as
-   non-preemptive. Mark each selected logical boundary before entry and keep
-   every polling loop independently bounded.
-10. Freeze the complete successor identity closure before intent. P2.86 remains
-   immutable and no P2.88 implementation may be derived piecemeal after
-   intent.
-11. After Full-LTO A and before B, require zero private/absolute clang-resource
-    path leaks. Any later candidate must repeat immutable
-    identity, Full-LTO/package/static
-   closure, ready manifest, D0, and fresh exact F1 approval.
+1. Preserve the closed P2.88 journal, structured result, transfer receipts,
+   retained reads, and USBFS diagnostics.
+2. Keep P2.88 closed and immutable; do not replay or rebuild it.
+3. Audit, host-only, the exact production corridor from accepted generation 88
+   through the first generated generation-89 publication.
+4. Prove whether the first new publisher is reached, whether the checkpoint
+   client derives the expected `(stage,item_index)` pair, and how any
+   publication failure reaches the evidence-park invariant.
+5. Reconcile inherited generation-87 `0x8e/detail=0`: it is accepted without an
+   integrity issue but its P2.88 semantic rendering still calls detail zero
+   `invalid`.
+6. Keep the CDC-ACM `endpoint-timeout` as downstream corroboration only. It
+   does not identify the missing generation-89 boundary.
+7. Do not select, implement, or build another candidate until this H0 corridor
+   is closed. Any later successor needs a fresh frozen identity, deterministic
+   Full-LTO/package/static closure, ready manifest, D0, and exact F1 approval.
 
 No device step is added when H0 can answer the question.
 
