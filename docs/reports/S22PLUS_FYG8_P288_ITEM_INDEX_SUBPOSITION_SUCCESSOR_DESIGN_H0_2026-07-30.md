@@ -54,22 +54,28 @@ Profile is in the 25-byte record header, not in the slot body. The matching
 kernel structure in the exact P2.86 patch has the same five fields.
 
 `item_index` is therefore available for local-stage subpositions, but it does
-not multiply the record capacity by 256. `generation` is also one byte, is
-bound to slot parity, and orders the two retained slots. The whole boot has at
-most 255 committed generations.
+not multiply the record capacity by 256. More importantly, `generation` is not
+a free-running publication counter. It is the one-based index of the exact
+declared position sequence.
 
-P2.86 has:
+The historical model makes that binding explicit:
 
 ```text
-step count              92
-terminal generation     92
-remaining u8 headroom  163
+_stage_generation(profile, stage) = _sequence(profile).index(stage) + 1
+apply_request() requires request.stage == sequence[active.generation]
 ```
 
-The finite sequence below ends at generation 103 and leaves 152 unused
-generation values. There is no wrap case to support. A successor must reject
-at generation time, build time, and decoder initialization time if its
-position count exceeds 255.
+Consequently a second publication with the same stage and a different item is
+rejected by the historical contract. The stage-only `.index()` lookup would
+also silently select the first occurrence if a duplicate stage were inserted.
+P2.88 must not modify that historical model. It needs a versioned position
+model whose sequence elements are exact `(stage, item_index)` pairs.
+
+P2.86's sequence length and terminal generation are both 92. P2.88's sequence
+length and terminal generation are both exactly 103. The meaningful upper
+bound is therefore `len(POSITION_SEQUENCE) == 103`, not “152 spare generation
+values.” The one-byte representation remains a compile-time size guard, but
+no accepted P2.88 transition exists beyond position 103.
 
 ## Why the current API cannot merely receive a nonzero index
 
@@ -96,6 +102,19 @@ four implementations consume that same sequence:
 - kernel request validator;
 - retained-record decoder/model; and
 - linked/static auditors.
+
+The versioned host model must replace every stage-only position operation with
+pair-aware equivalents:
+
+- `generation_for_position(stage, item_index)`;
+- exact-next comparison in `apply_request()`;
+- pair uniqueness rather than stage uniqueness;
+- a terminal position `(0x93, 0)` in addition to the compatible terminal stage
+  byte;
+- terminal success requiring the exact terminal generation and pair; and
+- decoder validation of generation, stage, and item together.
+
+Historical P2.32/P2.45/P2.86 records and decoders remain untouched.
 
 ## Frozen minimum position sequence
 
@@ -263,8 +282,29 @@ outcome/detail routes. Generators derive:
 - active-producer coverage fixtures.
 
 Runtime code refers only to named position constants. The source contract
-checks their control-flow order and exact cardinality. The generated contract
-rejects:
+checks their control-flow order and exact cardinality.
+
+The runtime API is stricter than passing the generated stage and item back to
+the client. A P2.88 publication names a symbolic position. The checkpoint
+client uses its current generation to obtain the exact next stage/item pair
+from the generated descriptor table. The runtime cannot choose those two wire
+fields. The symbolic label must equal that same next descriptor ordinal.
+
+Thus a source-order mistake cannot write a plausible but false location:
+
+1. the label/ordinal mismatch is rejected before the requested progress write;
+2. the fallback publisher derives the real next pair from the client
+   generation; and
+3. it publishes the reserved `unclassified` terminal failure at that real
+   position before parking.
+
+The source gate independently extracts the named publication calls from the
+actual runtime functions, follows the declared success-path call order, and
+requires exact equality with the ordered position declarations. Mutation
+fixtures remove, duplicate, reorder, and rename one call each. All must fail.
+Lexical presence alone is insufficient.
+
+The generated contract rejects:
 
 - duplicate `(stage, item_index)` pairs;
 - non-monotonic item indices within a repeated local stage;
@@ -279,6 +319,108 @@ The decoder must select the active slot by adjacent generation as before, then
 validate both stored `stage` and stored `item_index` against that generation's
 declared position. Slot parity, CRC-zero commit, adjacent-slot fallback, and
 terminal immutability tests remain unchanged.
+
+## Silence-park invariant
+
+P2.88 adds a source and control-flow invariant:
+
+```text
+no raw quiet_park() is callable except through the evidence-park primitive
+```
+
+Every one of the 16 P2.86 local park sites is assigned exactly one successor
+route:
+
+- statically unreachable under the bound input/state contract;
+- immediately preceded by an exact successful failure/success publication; or
+- immediately preceded by an attempt to publish the reserved `unclassified`
+  failure at the descriptor-derived next position.
+
+The generated runtime contains one raw park primitive. All inherited and local
+call sites are routed through checked wrappers. Classification functions that
+return zero or a structurally inconsistent result cannot park directly; they
+publish `unclassified` first. Publication-call failure retains the immediately
+preceding committed position, while a sequence-label failure gets an
+`unclassified` publication at the actual next position. The generation-zero
+kernel ENTRY record remains the fail-closed floor before the first userspace
+publication.
+
+A static park-route table names every site and its dominating publication.
+The gate fails for an unlisted park, a direct raw-park call, a park whose
+publication edge was removed, or a classifier-zero path without the reserved
+route.
+
+Terminal immutability and generation exhaustion are not new mechanisms:
+
+- an accepted terminal outcome already prohibits later publication; and
+- `generation >= len(POSITION_SEQUENCE)` already rejects advancement, so u8
+  wrap cannot occur.
+
+P2.88 gates the stronger statement that every successful control-flow path
+ends at generation 103 and no path can request a 104th position. A malformed
+attempt at the terminal boundary is handled by the same descriptor-derived
+`unclassified` failure route rather than being misdescribed as u8 wrap.
+
+## Decoder multiplicity and evidence-layer closure
+
+The repeated positions do not change boot multiplicity. The three historical
+classifiers compute `minimum_candidate_boots` from the number of independent
+45-byte long records plus exact UNSAT records. They do not count slot
+generation or the two committed slots as boots.
+
+P2.88 nevertheless versions the evidence-selection closure and adds focused
+fixtures:
+
+- one 45-byte record containing adjacent `(0x90,0)` and `(0x90,1)` slots must
+  report one minimum candidate boot;
+- two independent records must report two;
+- a torn-slot fallback remains one record and one boot; and
+- the Device Action F1 evidence adapter must pass through the selected P2.88
+  decoder result without deriving multiplicity from generation.
+
+`device_action_f1_evidence_v2.py` currently imports the P2.86 selector and has
+P2.86-specific stock-closure and candidate-static branches. Decoder selection
+alone is therefore insufficient. P2.88 support must include that typed evidence
+layer and its stock-closure/static-schema dispatch. This tooling is not a
+boot-byte input, but it must be approval-bundle-bound and independently
+reviewed before any later F1.
+
+## Inherited `0x8e/detail=0` check
+
+The suspected P2.86 mismatch is not present in the checked source. A focused
+fixture encoded generation 87 as:
+
+```text
+stage=0x8e outcome=progress item_index=0 detail=0
+```
+
+Both `s22plus_fyg8_p286_contract_spec.validate_slot()` and the exact P2.86
+decoder accepted it, and the P2.86 post-F1 report independently decoded the
+same tuple as valid. It is ordinary zero-detail progress, not an exact
+diagnostic-detail row. P2.88 carries this prefix position unchanged and adds a
+regression fixture so the issue cannot be reintroduced.
+
+## Build-layout leak gate
+
+P2.88 remains subject to the P2.86 private clang-resource path incident. The
+new candidate build cannot infer reproducibility from source receipts alone.
+After Full-LTO A and before starting B, the procedure must scan `vmlinux` for:
+
+- the random private namespace prefix; and
+- absolute host/tmp clang resource paths.
+
+Both counts must be zero, and the stable mapped toolchain path must be present.
+Failure stops the pair before B. A future depth-independent mapping is a
+candidate-byte change and belongs in a separately frozen P2.88 build input;
+until selected and implemented, the proven real-directory relocation remains
+the required build-host layout.
+
+## Explicitly excluded scope
+
+The regulator predicates from the HSPHY paper design are not part of P2.88.
+They would add sysfs reads, new blocking boundaries, new failure routes, and a
+different proof objective. P2.88 is limited to making the existing restart,
+readback, trace, bind, and final-sampling path attributable.
 
 ## Successor scope and stop gate
 
@@ -296,17 +438,33 @@ At minimum the candidate identity closure will include the successor:
 
 Verifier-only producer-coverage tooling may remain outside candidate identity
 only if the approval bundle binds it and it cannot change `boot.img` bytes.
+The same exclusion applies to reports, selector/retirement registration,
+decoder adapters, typed-evidence adapters, static checkers, linked auditors,
+freeze reports, and qualification reports. They must not be added to
+`SOURCE_KEYS` merely because they validate the candidate. Each P2.88 key must
+have a demonstrated boot-byte influence or be an inherited payload input.
 
 Intent derivation is forbidden until:
 
 - the exact position table above is implemented and no unbounded boundary is
   silently added between named positions;
-- terminal generation is statically below 256;
+- terminal generation equals the exact 103-position sequence length on every
+  success path;
+- the pair-aware model, client, kernel validator, decoder, and typed evidence
+  adapter agree;
+- runtime publication call order equals declaration order under the static
+  success-path gate;
+- every park site is unreachable or publication-dominated and no classifier
+  zero path parks silently;
 - the active producer-route equality gate passes;
 - `c57/c58/c59/c5c` have zero active routes;
 - the known-good prefix through generation 88 is byte-semantically unchanged;
 - decoder, userspace client, and kernel validator reject all position
   mutations; and
+- one-record/two-slot evidence remains one inferred candidate boot;
+- `0x8e/detail=0` remains a valid inherited progress tuple;
+- the Full-LTO A-before-B private-path leak gate is part of the build
+  procedure; and
 - the new SOURCE_KEYS are printed and compared with a clean Git state.
 
 No device step is authorized by this selection.
@@ -316,11 +474,16 @@ No device step is authorized by this selection.
 This H0 used only tracked source and retained private build products.
 
 - P2.86 exact source receipts remained `70/70`, with `CHANGED_KEYS=[]`.
-- P2.86 terminal generation is 92 and u8 headroom is 163.
+- P2.86 terminal generation and sequence length are both 92.
 - A standalone layout check packed CRC-valid repeated stage `0x90` values
   with adjacent generations and distinct item indices while preserving the
-  exact 45-byte record and 10-byte slots. The current decoder correctly
-  rejects that new semantic until its position-aware successor exists.
+  exact 45-byte record and 10-byte slots. A pair-aware validation callback
+  accepted generation 89 `(0x90,0)` followed by generation 90 `(0x90,1)` and
+  rejected generation 90 with the stale item 0. The current historical
+  decoder correctly rejects that new semantic until its position-aware
+  successor exists.
+- A direct P2.86 fixture verified generation 87
+  `(0x8e,progress,item=0,detail=0)` is valid.
 - The exact P2.86 trace descriptor has 16 cycle events and 6 bind events;
   their existence does not make dynamic per-iteration generation consumption
   acceptable.

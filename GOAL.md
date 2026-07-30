@@ -48,10 +48,21 @@ local-stage `item_index`. P2.88 is selected to use one finite, generated
 `(stage,item_index)` position sequence after the unchanged generation-88
 `0x8f` prefix. The 45-byte/two-slot layout, CRC protocol, and numeric
 `0x8d..0x93` stages remain. Terminal generation rises only from 92 to 103, so
-the u8 generation never wraps and retains 152 values of headroom. This
+the exact accepted sequence length and generation upper bound are both 103.
+Generation is a sequence index, not a free counter; the earlier “152 values
+of headroom” framing was wrong. This
 position channel marks helper dispatch, immediate helper return, later
 readback/trace/cleanup, bind, and final-sampling boundaries without expanding
 the record.
+
+The historical stage-only model cannot accept that sequence:
+`_stage_generation()` uses `sequence.index(stage)` and `apply_request()`
+requires the next stage byte. P2.88 therefore needs a versioned pair-aware
+model and must validate generation, stage, and item together. Runtime
+publishers do not choose numeric wire coordinates: the checkpoint client
+derives the exact next pair from generation, while generated symbolic labels
+and a static success-path source-order gate prevent missing, repeated, or
+reordered calls from being misattributed.
 
 The current `validate_reachable_records()` is only an encodability/decoder
 domain check; it does not inspect runtime or classifier source. P2.88 must add
@@ -59,6 +70,14 @@ a bidirectional active-producer route gate keyed by exact
 `(stage,item_index,outcome,detail)`. The trace-dependent
 `c57/c58/c59` details and the superseded `c5c` cleanup marker have zero active
 P2.88 routes.
+
+P2.88 also makes silence-park prohibition an invariant. Every historical local
+park site is either statically unreachable or publication-dominated;
+classifier-zero paths publish a reserved `unclassified` failure at the
+descriptor-derived next position. Raw `quiet_park()` is available only through
+one audited evidence-park primitive. Regulator predicates are explicitly
+excluded because they would add new sysfs/blocking failure surfaces rather
+than improve location attribution.
 
 Both retained slots are valid. Generation 89 left no target-slot
 commit-CRC-clear mutation on the retained medium. Raw ring adjacency is exact:
@@ -300,18 +319,26 @@ operations before the asserted publication boundaries.
    versioned generic helper-timeout semantic and retire the superseded `c5c`
    marker.
 5. Implement the frozen finite P2.88 position table from generation 89 through
-   103. Generate all numeric item indices from one descriptor; never number
-   runtime call sites by hand and never permit generation wrap.
+   103. Use a pair-aware versioned model, derive the next wire pair from the
+   checkpoint client's generation, and prove actual runtime publication call
+   order equals the descriptor order. Never number runtime call sites by hand.
 6. Add bidirectional active-producer coverage. A decodable tuple is not by
    itself a runtime-reachable tuple; every active detail needs an exact
    production route and every exact route must be declared.
-7. Treat later sysfs/trace deadlines checked only after a blocking syscall as
+7. Gate every park site: unreachable or preceded by exact/reserved evidence.
+   No classifier-zero or publication-order error may fall into a silent park.
+8. Version the typed F1 evidence selection for P2.88 and prove two adjacent
+   subposition slots in one record still imply one candidate boot. Preserve
+   inherited generation-87 `0x8e/detail=0` as valid zero-detail progress.
+9. Treat later sysfs/trace deadlines checked only after a blocking syscall as
    non-preemptive. Mark each selected logical boundary before entry and keep
    every polling loop independently bounded.
-8. Freeze the complete successor identity closure before intent. P2.86 remains
+10. Freeze the complete successor identity closure before intent. P2.86 remains
    immutable and no P2.88 implementation may be derived piecemeal after
    intent.
-9. Any later candidate must repeat immutable identity, Full-LTO/package/static
+11. After Full-LTO A and before B, require zero private/absolute clang-resource
+    path leaks. Any later candidate must repeat immutable
+    identity, Full-LTO/package/static
    closure, ready manifest, D0, and fresh exact F1 approval.
 
 No device step is added when H0 can answer the question.
