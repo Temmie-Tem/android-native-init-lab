@@ -347,15 +347,13 @@ advance. A successful fallback would have left a replacement or later failure
 record; the retained progress generation 88 proves no fallback commit, not why
 it failed or did not return.
 
-P2.90 is the selected host-only successor. Its predesign audit reads the exact
-retained bytes and writer protocol rather than inferring from stage names.
-Generation 89 targets slot 1, but the valid generation-87 slot 1 remains
-unchanged. Because the writer has no separate persistent staging area and
-first clears that target slot's commit CRC, generation 89 never reached its
-first persistent mutation. A generation-89 post-commit `-ESTALE` is therefore
-rejected. The remaining publication class is a non-return/error before the
-generation-89 target mutation, including a possible generation-88 primary
-error followed by fallback failure or non-return.
+P2.90 F1 is closed healthy/no-proof. One exact candidate and one exact Magisk
+rollback transferred with no replay. Its exact retained record again ends at
+valid generations 87 and 88; the immediately adjacent generation-89
+`(0x8f,item=1)` publication never reached its target-slot CRC clear. This
+rejects the P2.88 explanation that the first new coordinate was merely too far
+away. The remaining class is a non-return after the generation-88 durable
+commit and before the adjacent publication begins.
 
 The P2.90 runtime implementation repairs the contract before another F1. It
 inserts `(0x8f,item=1..4)` immediately after the accepted generation-88
@@ -401,8 +399,8 @@ nonzero details, and the closed F1 verdict are unchanged. Current and frozen
 P2.88 SOURCE_KEYS remain exact `83/83` with no changed receipt.
 
 No S22+ F1 live run is currently authorized. Both P2.84 stock-D1 approvals and
-the P2.84, P2.86, and P2.88 F1 approvals are consumed. Do not repeat P2.82 or
-replay/rebuild P2.84, P2.86, or P2.88.
+the P2.84, P2.86, P2.88, and P2.90 F1 approvals are consumed. Do not repeat
+P2.82 or replay/rebuild P2.84, P2.86, P2.88, or P2.90.
 
 P2.86 run `c6cde593033d6f1be93f82c8ff5a81e8` passed its frozen pre-intent
 closure and pre-LTO qualification. Its first Full-LTO A/B pair failed closed:
@@ -477,6 +475,10 @@ corrected A/B pair then matched.
 - P2.90 host validation accounts for all 16 historical parks, compiles two
   byte-identical static AArch64 userspace links, and exhaustively checks
   `7,077,888` validator inputs with exactly 107 accepted pairs.
+- P2.90 completed one candidate and one exact rollback with no replay and final
+  health pass. Its retained state still ends at generation 88, proving the
+  adjacent generation-89 publication did not begin and localizing the stop to
+  the generation-88 post-commit return boundary.
 - Exact source rejects treating a parent-PM sign or PHY flag as electrical
   proof; swallowed clock errors remain non-proof.
 - Process v2 common D0/F1 execution, regular-path boot-only Odin transport,
@@ -696,32 +698,20 @@ operations before the asserted publication boundaries.
 
 ## Ordered Execution
 
-1. Preserve the closed P2.88 journal, structured result, transfer receipts,
-   retained reads, and USBFS diagnostics.
-2. Keep P2.88 closed and immutable; do not replay or rebuild it.
-3. Preserve the H0 reset-reason result: no candidate-time asynchronous reset
-   preceded the operator's `PS_HOLD`/S2 Download entry.
-4. Preserve the formal `6fc2881e` result: source/table validator mismatch is
-   strongly rejected, while runtime publication return/state remains open.
-5. Preserve the P2.90 H0 result: all historical parks are accounted, generic
-   fallbacks are checked, and total checkpoint-channel failure remains one
-   explicit non-self-reporting sink.
-6. Preserve the P2.90 adjacency result: generation 89 is immediately after the
-   accepted generation-88 publisher return, and helper dispatch is generation
-   93 at exact pair `(0x90,0)`.
-7. Complete the Git-derived pre-intent freeze with exact `83/83` inherited
-   receipts, 94/94 planned source keys, and exact declared-path equality.
-8. After a clean scoped implementation commit, derive one new P2.90 intent.
-   From that point no selected SOURCE_KEY may change.
-9. Run pre-LTO qualification, then Full-LTO A. Start B only after A has zero
-   random-private and absolute clang-resource path leaks. Require byte-identical
-   A/B plus fresh linked/package/static closure before any ready manifest.
-10. Keep the post-live v2 semantic renderer analysis-only. Do not rewrite the
-   approval-bound P2.88 decoder or reinterpret the closed live verdict.
-11. Keep the CDC-ACM `endpoint-timeout` as downstream corroboration only. It
-   does not identify the missing generation-89 boundary.
-12. No S22+ device action or F1 request is permitted by this H0 unit. A later
-    successor requires a fresh ready manifest, D0, and exact F1 approval.
+1. Preserve the closed P2.90 journal, structured result, transfer receipts,
+   byte-identical retained reads, USBFS diagnostic, and final health.
+2. Keep P2.84, P2.86, P2.88, and P2.90 closed and immutable. Do not replay or
+   rebuild them.
+3. Preserve the P2.90 live attribution: generation 88 committed, while the
+   immediately adjacent generation 89 did not begin its target-slot mutation.
+4. Audit the exact post-commit tail of the generation-88 retained writer and
+   its procfs/VFS return path before selecting another successor.
+5. Distinguish a checkpoint-write non-return from an immediate userspace-tail
+   non-return without relying on the same retained channel as its sole witness.
+6. Keep CDC-ACM `endpoint-timeout` as downstream corroboration only.
+7. No new S22+ device action or F1 request is permitted by the closed P2.90
+   unit. A successor requires fresh H0 design, identity, A/B, manifest, D0, and
+   exact approval.
 
 The A90 branch proceeds independently:
 
