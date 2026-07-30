@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import os
 import stat
 import subprocess
 import tempfile
@@ -1046,6 +1047,61 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                 obscured_history,
             )
             self.assertFalse(obscured_allowed)
+            nested_only_history = {
+                "schema": records[-1]["schema"],
+                "sequence": 0,
+                "timestamp_utc": records[-1]["timestamp_utc"],
+                "run_id": records[-1]["run_id"],
+                "manifest_sha256": records[-1]["manifest_sha256"],
+                "state": "APPROVED",
+                "action": "renamed-history",
+                "record": {"process_started": True},
+            }
+            nested_latest_intent = copy.deepcopy(records[-2])
+            nested_latest_intent["sequence"] = 1
+            nested_latest_rejection = copy.deepcopy(records[-1])
+            nested_latest_rejection["sequence"] = 2
+            nested_allowed, _, _ = f1.rollback_pre_spawn_retry(
+                spec,
+                transaction,
+                [
+                    nested_only_history,
+                    nested_latest_intent,
+                    nested_latest_rejection,
+                ],
+            )
+            self.assertFalse(nested_allowed)
+            candidate_record = {
+                "schema": records[-1]["schema"],
+                "sequence": 0,
+                "timestamp_utc": records[-1]["timestamp_utc"],
+                "run_id": records[-1]["run_id"],
+                "manifest_sha256": records[-1]["manifest_sha256"],
+                "state": "CANDIDATE_FLASHED",
+                "action": "candidate-flashed",
+                "candidate_sha256": spec.candidate.sha256,
+                "candidate_transfer_count": 1,
+                "candidate_replay": False,
+                "rollback_required": True,
+                "record": {"process_started": True},
+            }
+            candidate_latest_intent = copy.deepcopy(records[-2])
+            candidate_latest_intent["sequence"] = 1
+            candidate_latest_rejection = copy.deepcopy(records[-1])
+            candidate_latest_rejection["sequence"] = 2
+            candidate_history_allowed, _, candidate_history_count = (
+                f1.rollback_pre_spawn_retry(
+                    spec,
+                    transaction,
+                    [
+                        candidate_record,
+                        candidate_latest_intent,
+                        candidate_latest_rejection,
+                    ],
+                )
+            )
+            self.assertTrue(candidate_history_allowed)
+            self.assertEqual(candidate_history_count, 1)
 
             retry_log = (
                 transaction
@@ -1071,8 +1127,17 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
             self.assertTrue(repeated_allowed)
             self.assertEqual(repeated_mode, "from-native")
             self.assertEqual(repeated_count, 2)
-
             raw_log = Path(str(records[-1]["record"]["raw_log"]))
+            retry_log.unlink()
+            os.link(raw_log, retry_log)
+            hardlink_allowed, _, _ = f1.rollback_pre_spawn_retry(
+                spec,
+                transaction,
+                [*records, second_intent, second_rejection],
+            )
+            self.assertFalse(hardlink_allowed)
+            retry_log.unlink()
+
             symlink_target = transaction / "other-empty-private.raw.log"
             symlink_target.write_bytes(b"")
             symlink_target.chmod(0o600)
@@ -1300,6 +1365,92 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                     invoke.call_args.kwargs["pre_spawn_retry_index"],
                     1,
                 )
+
+                base_records = f1.read_journal(spec, transaction)
+                hardlink_retry_log = (
+                    transaction
+                    / "rollback-flash-pre-spawn-retry-0001.raw.log"
+                )
+                os.link(raw_log, hardlink_retry_log)
+                hardlink_intent = copy.deepcopy(base_records[-2])
+                hardlink_intent["sequence"] += 2
+                hardlink_intent["prior_pre_spawn_rejections"] = 1
+                hardlink_rejection = copy.deepcopy(base_records[-1])
+                hardlink_rejection["sequence"] += 2
+                hardlink_rejection["record"].update(
+                    f1.command_record(hardlink_retry_log, 125)
+                )
+                hardlink_records = [
+                    *base_records,
+                    hardlink_intent,
+                    hardlink_rejection,
+                ]
+                with (
+                    mock.patch.object(f1, "verify_local_closure"),
+                    mock.patch.object(
+                        f1,
+                        "read_journal",
+                        return_value=hardlink_records,
+                    ),
+                    mock.patch.object(
+                        f1,
+                        "verify_final_health",
+                        side_effect=f1.ContractError(
+                            "hardlinked retry evidence is non-authoritative"
+                        ),
+                    ),
+                    mock.patch.object(f1, "invoke_rollback") as hardlink_invoke,
+                    self.assertRaisesRegex(
+                        f1.ContractError,
+                        "hardlinked retry evidence",
+                    ),
+                ):
+                    f1.recover_approved_rollback(spec, args)
+                hardlink_invoke.assert_not_called()
+                hardlink_retry_log.unlink()
+
+                nested_history = {
+                    "schema": base_records[-1]["schema"],
+                    "sequence": base_records[-2]["sequence"],
+                    "timestamp_utc": base_records[-1]["timestamp_utc"],
+                    "run_id": base_records[-1]["run_id"],
+                    "manifest_sha256": base_records[-1]["manifest_sha256"],
+                    "state": "APPROVED",
+                    "action": "renamed-history",
+                    "record": {"process_started": True},
+                }
+                nested_intent = copy.deepcopy(base_records[-2])
+                nested_intent["sequence"] = nested_history["sequence"] + 1
+                nested_rejection = copy.deepcopy(base_records[-1])
+                nested_rejection["sequence"] = nested_intent["sequence"] + 1
+                nested_records = [
+                    *base_records[:-2],
+                    nested_history,
+                    nested_intent,
+                    nested_rejection,
+                ]
+                with (
+                    mock.patch.object(f1, "verify_local_closure"),
+                    mock.patch.object(
+                        f1,
+                        "read_journal",
+                        return_value=nested_records,
+                    ),
+                    mock.patch.object(
+                        f1,
+                        "verify_final_health",
+                        side_effect=f1.ContractError(
+                            "nested started rollback cannot be retried"
+                        ),
+                    ),
+                    mock.patch.object(f1, "invoke_rollback") as nested_invoke,
+                    self.assertRaisesRegex(
+                        f1.ContractError,
+                        "nested started rollback",
+                    ),
+                ):
+                    f1.recover_approved_rollback(spec, args)
+                nested_invoke.assert_not_called()
 
                 f1.append_record(
                     journal,

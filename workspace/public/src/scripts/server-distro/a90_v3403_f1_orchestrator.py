@@ -1625,11 +1625,13 @@ def rollback_pre_spawn_pair_is_exact(
     raw_log_path = Path(raw_log_value)
     try:
         require_private_regular(raw_log_path)
+        raw_log_stat = os.lstat(raw_log_path)
         actual_log = raw_log_path.resolve(strict=True)
     except (FileNotFoundError, ContractError):
         return False, recovery_mode
     if (
-        actual_log != expected_log
+        raw_log_stat.st_nlink != 1
+        or actual_log != expected_log
         or actual_log.stat().st_size != execution["raw_log_size"]
         or sha256_file(actual_log) != execution["raw_log_sha256"]
     ):
@@ -1656,9 +1658,65 @@ def rollback_pre_spawn_retry(
         "rollback_transfer_count",
         "rollback_retry_preserved",
     }
+    common_record_keys = {
+        "schema",
+        "sequence",
+        "timestamp_utc",
+        "run_id",
+        "manifest_sha256",
+        "state",
+        "action",
+    }
+    known_nonrollback_process_shapes = {
+        "staging-failed": common_record_keys
+        | {"candidate_attempted", "rollback_required", "record"},
+        "rootfs-staged": common_record_keys
+        | {"candidate_attempted", "rootfs_sha256", "record"},
+        "candidate-host-rejected": common_record_keys
+        | {
+            "candidate_transfer_count",
+            "candidate_replay",
+            "rollback_required",
+            "record",
+        },
+        "candidate-invocation-failed": common_record_keys
+        | {
+            "candidate_attempted",
+            "candidate_replay",
+            "rollback_required",
+            "record",
+        },
+        "candidate-flashed": common_record_keys
+        | {
+            "candidate_sha256",
+            "candidate_transfer_count",
+            "candidate_replay",
+            "rollback_required",
+            "record",
+        },
+    }
+    known_nonrollback_process_states = {
+        "staging-failed": "ABORTED",
+        "rootfs-staged": "APPROVED",
+        "candidate-host-rejected": "ABORTED",
+        "candidate-invocation-failed": "APPROVED",
+        "candidate-flashed": "CANDIDATE_FLASHED",
+    }
     related_positions: list[int] = []
     for index, record in enumerate(records):
         action = record.get("action")
+        nested_record = record.get("record")
+        nested_process_marker = (
+            isinstance(nested_record, dict)
+            and "process_started" in nested_record
+        )
+        known_nonrollback_shape = (
+            isinstance(action, str)
+            and action in known_nonrollback_process_shapes
+            and set(record) == known_nonrollback_process_shapes[action]
+            and record.get("state")
+            == known_nonrollback_process_states[action]
+        )
         if (
             action in {"health-verified", "closed"}
             or (
@@ -1667,6 +1725,10 @@ def rollback_pre_spawn_retry(
             )
             or record.get("state") in rollback_states
             or rollback_marker_keys.intersection(record)
+            or (
+                nested_process_marker
+                and not known_nonrollback_shape
+            )
         ):
             related_positions.append(index)
     if not related_positions:

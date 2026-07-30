@@ -71,12 +71,18 @@ rollback remained hidden behind a later exact pair. The sixth host-only
 remediation keeps the expected lexical leaf unresolved through its `lstat`
 check and requires the complete rollback-history suffix to consist only of
 exact adjacent pre-spawn pairs with one recovery mode and unique ordinal log
-names. The combined closure passes `101/101` and contains no concrete network
-address. It has not staged a byte or invoked a flash. The changed closure still
-needs independent re-review and a fresh exact three-path D0 before
-final-manifest promotion. The private manifest therefore remains a
-non-approvable draft. Debian PID1 is still unproved, internal userdata remains
-untouched, and no A90 live authority exists.**
+names. The seventh independent review correctly returned `NO_GO`: distinct
+expected names could still hardlink one empty inode, and a renamed historical
+record retaining only nested `process_started=true` escaped top-level suffix
+discovery. The seventh host-only remediation requires every retry log to have
+one link and treats any nested process-start marker as rollback-related unless
+the complete outer record is one exact known non-rollback process shape/state.
+The combined closure passes `101/101` and contains no concrete network address.
+It has not staged a byte or invoked a flash. The changed closure still needs
+independent re-review and a fresh exact three-path D0 before final-manifest
+promotion. The private manifest therefore remains a non-approvable draft.
+Debian PID1 is still unproved, internal userdata remains untouched, and no A90
+live authority exists.**
 
 Stock D1 v2 and P2.84 selected different runtime-PM paths. Stock's first two
 outer works ended by `0.291 ms`, followed by deferred child and parent PM

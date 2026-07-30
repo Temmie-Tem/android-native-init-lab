@@ -3,7 +3,7 @@
 Date: 2026-07-30 KST
 
 Status:
-`PASS_HOST_SIXTH_REMEDIATION_RE_REVIEW_PENDING_NO_LIVE_AUTHORITY`
+`PASS_HOST_SEVENTH_REMEDIATION_RE_REVIEW_PENDING_NO_LIVE_AUTHORITY`
 
 ## Scope
 
@@ -19,9 +19,9 @@ rollback transfer, mount, `switch_root`, or userdata operation occurred.
 
 - Orchestrator:
   `workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py`
-- Size: `88845`
+- Size: `90880`
 - SHA256:
-  `372fbf62668bc58ec899fd7d20c7671fb37a743465e41982213b0c69f0800528`
+  `d95121073eeb05d4cfa19e2b5b233fceec367b00ab61dbbeaad6f38e89aef6fb`
 - Focused tests:
   `tests/test_server_distro_a90_v3403_f1_orchestrator.py`
 - Staging adapter SHA256:
@@ -205,6 +205,29 @@ health closure, malformed pair, renamed rollback marker, or unrelated suffix
 record makes retry non-authoritative. Multiple genuine pre-spawn pairs remain
 accepted and advance only the unique next log ordinal.
 
+The seventh independent review of remediation commit
+`d2196bff88e9718c5994965c11d5c1485802abcf` confirmed both sixth-review
+attacks now return false with zero full-recovery invocations. It also passed
+the exact `101/101` snapshot, every prior 33 isolated and 22 full-recovery
+mutation, one through three genuine pairs, and the earlier timeout, mode,
+ordinal, completion, approval, privacy, staging, and target invariants. It
+returned `NO_GO` on two deeper evidence-identity paths. Distinct expected retry
+log names could be hardlinks to the same empty inode, and a historical started
+record whose outer action/state/markers were renamed away but whose nested
+`record.process_started=true` remained could be ignored before a later exact
+pair. Both reached `invoke_rollback` in full recovery.
+
+The seventh remediation rejects any retry raw log whose `lstat` link count is
+not exactly one, preventing distinct names from reusing one inode. Suffix
+discovery now treats a nested `record.process_started` key as rollback-related
+unless the complete outer key set, action, and state exactly match one known
+non-rollback process-bearing journal shape (`staging-failed`, `rootfs-staged`,
+`candidate-host-rejected`, `candidate-invocation-failed`, or
+`candidate-flashed`). Thus a renamed or stripped historical started record
+begins a malformed rollback suffix and closes retry, while an exact candidate
+process record followed by one or more genuine pre-spawn pairs remains
+accepted.
+
 ## Validation
 
 - Python compilation passed.
@@ -256,6 +279,11 @@ accepted and advance only the unique next log ordinal.
   in the predicate and full recovery, including when its action/state names are
   obscured but rollback marker fields remain. A history made only of multiple
   exact pre-spawn pairs remains retryable with the next unique ordinal.
+- Distinct expected retry names hardlinked to one inode are rejected by both
+  the predicate and full recovery.
+- A renamed historical record retaining only nested `process_started=true` is
+  rejected by both the predicate and full recovery; exact known candidate
+  process-record shapes remain valid pre-rollback history.
 - The private draft inspection reports `device_contact=false` and
   `device_write=false`.
 - A forced live invocation with the draft is rejected before creating either
@@ -263,7 +291,7 @@ accepted and advance only the unique next log ordinal.
 
 ## Remaining gate
 
-All six earlier review rounds are closed `NO_GO`; the sixth remediation has
+All seven earlier review rounds are closed `NO_GO`; the seventh remediation has
 not yet passed the required independent re-review. The current private draft
 remains deliberately non-approvable.
 
