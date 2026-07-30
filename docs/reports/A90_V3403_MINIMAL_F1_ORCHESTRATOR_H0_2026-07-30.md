@@ -3,7 +3,7 @@
 Date: 2026-07-30 KST
 
 Status:
-`PASS_HOST_REMEDIATED_RE_REVIEW_PENDING_NO_LIVE_AUTHORITY`
+`PASS_HOST_SECOND_REMEDIATION_RE_REVIEW_PENDING_NO_LIVE_AUTHORITY`
 
 ## Scope
 
@@ -19,22 +19,28 @@ rollback transfer, mount, `switch_root`, or userdata operation occurred.
 
 - Orchestrator:
   `workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py`
-- Size: `68088`
+- Size: `77243`
 - SHA256:
-  `a5309337853f5d8845c45411694b44703b1044afc900e75aef6ae89642857065`
+  `332e789945f7dc234aa988386912102dc79d6e196a1a94753f2449f15f9ba5bc`
 - Focused tests:
   `tests/test_server_distro_a90_v3403_f1_orchestrator.py`
 - Staging adapter SHA256:
-  `93a3bf1cbf7a2af0745c3296dde62e01650a6db42b3e9b32695a85f8e19f9c8f`
+  `f09ccd62da1b741e7eda7596bf9092e405553827100015ed1c7c366b49cca7b3`
 - Checked flash helper SHA256:
   `366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53`
 
 ## Transaction boundary
 
-The live path is unavailable by default. It requires a final
-`a90_native_init_f1_prepared_v2` manifest, `ready-for-f1-approval` status, the
-exact manifest/orchestrator/run bindings, passed independent reviews, and an
-exact private transaction directory.
+The live path is unavailable by default. A final
+`a90_native_init_f1_prepared_v2` manifest keeps candidate, staging, F1, and
+live authority false. After passed independent review and fresh D0 evidence,
+host-only `--prepare-approval` may create one exclusive mode-`0600` receipt
+whose token binds the exact manifest, run, orchestrator, staging adapter, flash
+runner, candidate, rollback, rootfs, D0/path evidence, and recovery target
+digest. Initial execution requires the operator to return that exact token and
+an empty exact private transaction directory. Rollback recovery refuses a
+second token and reopens only the binding recorded when the initial token was
+consumed.
 
 The remediated orchestrator performs only this sequence:
 
@@ -87,12 +93,34 @@ payload transfer, boot write, and readback are distinct. Timeline recovery is
 derived idempotently from the durable journal; missing reporting events do not
 repeat a device transition.
 
+The second independent review of remediation commit
+`581e5a14d6a6380c746d76d897768906d1e12bbe` also returned `NO_GO`. It found
+four remaining blockers:
+
+1. the final manifest's true authority flags and public hash arguments could
+   authorize execution without a fresh approval receipt;
+2. the staging result could be created mode `0664` and immediately rejected;
+3. a crash during a single direct journal write could expose a zero-length or
+   partial final `*.json`, preventing safe rollback recovery; and
+4. subprocess timeout/exec failures escaped without a structured phase result,
+   while raw-log privacy depended on a later chmod.
+
+The second remediation keeps every manifest authority field false, separates
+host-only approval preparation from exact-token execution, and records only a
+hash of the consumed token in the durable journal. Exclusive result/journal
+writers create a mode-`0600` temporary file, complete and `fsync` it, then
+publish the absent final name with a hard link and directory `fsync`.
+Replaceable timeline snapshots use the same private temporary-file discipline
+with atomic replacement. Raw logs are opened mode `0600` before subprocess
+launch, and timeout or `OSError` becomes a structured nonzero record that
+flows through the existing phase classifier and durable failure path.
+
 ## Validation
 
 - Python compilation passed.
-- The orchestrator suite passes `32/32`.
+- The orchestrator suite passes `38/38`.
 - The orchestrator, staging adapter, V3403 build, D3 handoff, and rootfs group
-  passes `85/85`.
+  passes `94/94`.
 - Every modeled candidate-intent failure selects rollback-only recovery.
 - A previously started rollback is never invoked twice.
 - Durable completion records repair missing ordered timeline events without
@@ -106,6 +134,17 @@ repeat a device transition.
 - The exact remote rootfs size/SHA and work-path absence are rechecked directly
   before candidate intent.
 - The changed tracked closure contains no concrete network address.
+- Approval preparation leaves `device_contact`, `device_write`,
+  `f1_authorized`, and `live_authorized` false, writes its exact private
+  receipt mode `0600`, and cannot overwrite an earlier receipt.
+- Initial F1 rejects a missing or different exact token. Rollback recovery
+  rejects any second token and requires the original binding/token hashes in
+  the durable approval record.
+- Journal/result final names are never opened for in-place writing. An
+  interrupted temporary journal file cannot enter the contiguous `*.json`
+  sequence, and timeline repair atomically replaces only a complete snapshot.
+- Timeout and missing-executable fault tests produce private mode-`0600` raw
+  logs and structured return codes without losing phase classification.
 - The private draft inspection reports `device_contact=false` and
   `device_write=false`.
 - A forced live invocation with the draft is rejected before creating either
@@ -113,9 +152,9 @@ repeat a device transition.
 
 ## Remaining gate
 
-The initial review is closed `NO_GO`; the remediation has not yet passed the
-required independent re-review. The current private draft remains deliberately
-non-approvable.
+Both earlier review rounds are closed `NO_GO`; the second remediation has not
+yet passed the required independent re-review. The current private draft
+remains deliberately non-approvable.
 
 The remaining sequence is:
 

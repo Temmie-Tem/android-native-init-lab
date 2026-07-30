@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import stat
+import subprocess
 import tempfile
 import types
 import unittest
@@ -34,6 +36,18 @@ def sample_stage() -> object:
         local_size=2147483648,
         remote_final="/mnt/sdext/a90/runtime/rootfs.img",
         remote_work="/mnt/sdext/a90/runtime/work.img",
+        bound_files=(
+            sample_bound(
+                "target.connected_d0_result",
+                "/private/connected-d0.json",
+                "1" * 64,
+            ),
+            sample_bound(
+                "target.connected_path_preflight",
+                "/private/connected-paths.json",
+                "2" * 64,
+            ),
+        ),
     )
 
 
@@ -74,9 +88,7 @@ def sample_spec() -> object:
 
 def sample_args() -> object:
     return types.SimpleNamespace(
-        approved_manifest_sha256="a" * 64,
-        approved_orchestrator_sha256=f1.sha256_file(SOURCE.resolve()),
-        approved_run_id="a90-v3403-debian-f1-20260730-02",
+        approval="test-approval-token",
         bridge_host="localhost",
         bridge_port=54321,
         bridge_timeout=180.0,
@@ -85,6 +97,27 @@ def sample_args() -> object:
         ssh_connect_timeout=8.0,
         recovery_path=None,
     )
+
+
+def write_approval_prepared(base: Path, spec: object) -> dict[str, object]:
+    binding = f1.approval_binding(spec)
+    binding_sha256 = f1.json_sha256(binding)
+    value: dict[str, object] = {
+        "schema": f1.APPROVAL_PREPARED_SCHEMA,
+        "created_utc": "2026-07-30T00:00:00Z",
+        "run_id": spec.stage.run_id,
+        "manifest_sha256": spec.stage.manifest_sha256,
+        "approval_binding": binding,
+        "approval_binding_sha256": binding_sha256,
+        "approval_token": f1.APPROVAL_PREFIX + binding_sha256,
+        "device_contact": False,
+        "device_write": False,
+        "f1_authorized": False,
+        "live_authorized": False,
+    }
+    path = base / spec.stage.run_id / "approval-prepared.json"
+    f1.write_private_json_exclusive(path, value)
+    return value
 
 
 def write_stage_success(base: Path, spec: object) -> dict[str, object]:
@@ -240,6 +273,8 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
         self.assertIn("a" * 64, command)
         self.assertIn("b" * 64, command)
         self.assertIn("staging-live", " ".join(command))
+        self.assertIn("--approval", command)
+        self.assertIn("test-approval-token", command)
         self.assertNotIn("candidate.img", " ".join(command))
 
     def test_remote_source_preflight_has_no_write_primitive(self) -> None:
@@ -254,13 +289,77 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
         spec = sample_spec()
         spec.manifest["schema"] = "a90_native_init_f1_draft_v1"
         with self.assertRaisesRegex(f1.ContractError, "non-final"):
-            f1.approved_bindings(spec, sample_args())
+            f1.approved_bindings(spec, sample_args(), recovery=False)
 
-    def test_approved_binding_rejects_wrong_exact_hash(self) -> None:
-        args = sample_args()
-        args.approved_orchestrator_sha256 = "0" * 64
-        with self.assertRaisesRegex(f1.ContractError, "orchestrator"):
-            f1.approved_bindings(sample_spec(), args)
+    def test_approved_binding_requires_fresh_exact_token(self) -> None:
+        spec = sample_spec()
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            old_base = f1.PRIVATE_RUN_BASE
+            try:
+                f1.PRIVATE_RUN_BASE = Path(temp_dir)
+                prepared = write_approval_prepared(Path(temp_dir), spec)
+                args = sample_args()
+                with self.assertRaisesRegex(f1.ContractError, "token mismatch"):
+                    f1.approved_bindings(spec, args, recovery=False)
+                args.approval = prepared["approval_token"]
+                accepted = f1.approved_bindings(spec, args, recovery=False)
+                self.assertEqual(
+                    accepted["approval_binding_sha256"],
+                    prepared["approval_binding_sha256"],
+                )
+            finally:
+                f1.PRIVATE_RUN_BASE = old_base
+
+    def test_approval_preparation_keeps_authority_false(self) -> None:
+        spec = sample_spec()
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            old_base = f1.PRIVATE_RUN_BASE
+            try:
+                f1.PRIVATE_RUN_BASE = Path(temp_dir)
+                with mock.patch.object(f1, "verify_local_closure"):
+                    prepared = f1.prepare_approval(spec)
+                self.assertTrue(
+                    str(prepared["approval_token"]).startswith(f1.APPROVAL_PREFIX)
+                )
+                self.assertFalse(prepared["f1_authorized"])
+                self.assertFalse(prepared["live_authorized"])
+                mode = stat.S_IMODE(
+                    (
+                        Path(temp_dir)
+                        / spec.stage.run_id
+                        / "approval-prepared.json"
+                    ).stat().st_mode
+                )
+                self.assertEqual(mode, 0o600)
+            finally:
+                f1.PRIVATE_RUN_BASE = old_base
+
+    def test_rollback_recovery_reopens_binding_without_second_token(self) -> None:
+        spec = sample_spec()
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            old_base = f1.PRIVATE_RUN_BASE
+            try:
+                f1.PRIVATE_RUN_BASE = Path(temp_dir)
+                write_approval_prepared(Path(temp_dir), spec)
+                args = sample_args()
+                args.approval = None
+                accepted = f1.approved_bindings(spec, args, recovery=True)
+                self.assertFalse(accepted["live_authorized"])
+                args.approval = "second-token"
+                with self.assertRaisesRegex(f1.ContractError, "second approval"):
+                    f1.approved_bindings(spec, args, recovery=True)
+            finally:
+                f1.PRIVATE_RUN_BASE = old_base
+
+    def test_final_manifest_authority_must_remain_false_until_token(self) -> None:
+        source = SOURCE.read_text(encoding="utf-8")
+        authority = source[
+            source.index('authority = _dict(manifest.get("authority")'):
+            source.index('orchestrator = manifest.get("f1_orchestrator")')
+        ]
+        self.assertIn("must remain false before approval", authority)
+        self.assertIn("fresh_operator_approval_required", authority)
+        self.assertIn("manifest_grants_live_authority", authority)
 
     def test_recovery_serial_is_derived_from_two_digest_bound_logs(self) -> None:
         with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
@@ -590,8 +689,62 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
         )
         self.assertFalse(args.execute_approved_f1)
         self.assertFalse(args.recover_approved_rollback)
-        self.assertEqual(args.approved_manifest_sha256, "")
+        self.assertFalse(args.prepare_approval)
+        self.assertIsNone(args.approval)
         self.assertIsNone(args.recovery_path)
+
+    def test_run_logged_timeout_is_private_and_structured(self) -> None:
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            log = Path(temp_dir) / "flash.raw.log"
+            with mock.patch.object(
+                f1.subprocess,
+                "run",
+                side_effect=subprocess.TimeoutExpired(["private-command"], 3.0),
+            ):
+                record = f1.run_logged(
+                    ["private-command"],
+                    log_path=log,
+                    timeout=3.0,
+                )
+            self.assertEqual(record["returncode"], 124)
+            self.assertEqual(record["execution_error"]["type"], "TimeoutExpired")
+            self.assertEqual(stat.S_IMODE(log.stat().st_mode), 0o600)
+
+    def test_run_logged_exec_error_is_private_and_structured(self) -> None:
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            log = Path(temp_dir) / "flash.raw.log"
+            with mock.patch.object(
+                f1.subprocess,
+                "run",
+                side_effect=FileNotFoundError(2, "missing executable"),
+            ):
+                record = f1.run_logged(
+                    ["private-command"],
+                    log_path=log,
+                    timeout=3.0,
+                )
+            self.assertEqual(record["returncode"], 125)
+            self.assertEqual(record["execution_error"]["type"], "FileNotFoundError")
+            self.assertEqual(record["execution_error"]["errno"], 2)
+            self.assertEqual(stat.S_IMODE(log.stat().st_mode), 0o600)
+
+    def test_incomplete_journal_temp_is_ignored_by_sequence(self) -> None:
+        spec = sample_spec()
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            transaction = Path(temp_dir)
+            journal = transaction / "journal"
+            journal.mkdir()
+            (journal / ".0000-preflight.json.tmp-interrupted").write_bytes(b"{")
+            path = f1.append_record(
+                journal,
+                "PREFLIGHT",
+                "preflight",
+                {},
+                manifest_sha256=spec.stage.manifest_sha256,
+                run_id=spec.stage.run_id,
+            )
+            self.assertEqual(path.name, "0000-preflight.json")
+            self.assertEqual(len(f1.read_journal(spec, transaction)), 1)
 
     def test_recovery_source_has_no_candidate_invocation(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")

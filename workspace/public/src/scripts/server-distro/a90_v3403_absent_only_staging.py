@@ -24,6 +24,7 @@ import shlex
 import stat
 import subprocess
 import sys
+import time
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -73,6 +74,8 @@ D0_RESULT_OUTCOME = (
     "PASS_A90_V3403_CONNECTED_READ_ONLY_AWAITING_STAGING_CONTRACT_AND_F1_MANIFEST"
 )
 PATH_PREFLIGHT_SCHEMA = "a90_v3403_d3_path_preflight_v1"
+APPROVAL_PREPARED_SCHEMA = "a90_v3403_f1_approval_prepared_v1"
+APPROVAL_PREFIX = "A90-F1-V2-APPROVE:"
 STAGE_STEPS = (
     "validate_local",
     "connected_preflight",
@@ -91,6 +94,60 @@ STAGE_STEPS = (
 
 class ContractError(RuntimeError):
     """Raised when an immutable staging contract does not validate."""
+
+
+def _private_json_bytes(payload: Any) -> bytes:
+    return (
+        json.dumps(
+            payload,
+            indent=2,
+            sort_keys=True,
+            ensure_ascii=False,
+            allow_nan=False,
+        )
+        + "\n"
+    ).encode("utf-8")
+
+
+def _write_all(descriptor: int, payload: bytes) -> None:
+    offset = 0
+    while offset < len(payload):
+        written = os.write(descriptor, payload[offset:])
+        if written <= 0:
+            raise ContractError("short private JSON write")
+        offset += written
+
+
+def _fsync_directory(path: Path) -> None:
+    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def write_private_json_exclusive(path: Path, payload: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    temporary = path.with_name(
+        f".{path.name}.tmp-{os.getpid()}-{time.time_ns()}"
+    )
+    descriptor = os.open(
+        temporary,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+        0o600,
+    )
+    try:
+        _write_all(descriptor, _private_json_bytes(payload))
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    try:
+        os.link(temporary, path, follow_symlinks=False)
+        _fsync_directory(path.parent)
+    except FileExistsError as exc:
+        raise ContractError(f"private JSON already exists: {path}") from exc
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 @dataclass(frozen=True)
@@ -229,6 +286,98 @@ def load_bound_json(bound: BoundFile) -> dict[str, Any]:
         raise ContractError(f"{bound.label} is not valid UTF-8 JSON: {exc}") from exc
     if not isinstance(value, dict):
         raise ContractError(f"{bound.label} root must be an object")
+    return value
+
+
+def json_sha256(value: Any) -> str:
+    encoded = json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def validate_parent_approval(
+    spec: StageSpec,
+    manifest: dict[str, Any],
+    approval: str | None,
+) -> dict[str, Any]:
+    path = (
+        PRIVATE_RUN_BASE / spec.run_id / "approval-prepared.json"
+    ).resolve()
+    require_below(path, PRIVATE_RUN_BASE, "approval-prepared")
+    info = path.lstat()
+    if not stat.S_ISREG(info.st_mode) or path.is_symlink() or info.st_mode & 0o077:
+        raise ContractError("approval-prepared is not an exact private regular file")
+    value = json.loads(path.read_text(encoding="utf-8"))
+    binding = value.get("approval_binding") if isinstance(value, dict) else None
+    if not isinstance(binding, dict):
+        raise ContractError("approval-prepared binding is missing")
+    target = _dict(manifest.get("target"), "target")
+    connected_d0 = _dict(target.get("connected_d0_result"), "connected_d0_result")
+    connected_paths = _dict(
+        target.get("connected_path_preflight"),
+        "connected_path_preflight",
+    )
+    binding_sha256 = json_sha256(binding)
+    candidate = _dict(manifest.get("candidate_boot"), "candidate_boot")
+    rollback = _dict(manifest.get("rollback_boot"), "rollback_boot")
+    orchestrator = _dict(manifest.get("f1_orchestrator"), "f1_orchestrator")
+    transport = _dict(manifest.get("transport"), "transport")
+    expected_binding = {
+        "schema": "a90_v3403_f1_approval_binding_v1",
+        "run_id": spec.run_id,
+        "manifest_sha256": spec.manifest_sha256,
+        "orchestrator_sha256": orchestrator.get("sha256"),
+        "staging_adapter_sha256": spec.adapter_sha256,
+        "flash_runner_sha256": transport.get("runner_sha256"),
+        "candidate_boot_sha256": candidate.get("sha256"),
+        "rollback_boot_sha256": rollback.get("sha256"),
+        "rootfs_sha256": spec.local_sha256,
+        "connected_d0_sha256": connected_d0.get("sha256"),
+        "connected_path_preflight_sha256": connected_paths.get("sha256"),
+        "recovery_adb_serial_sha256": target.get("recovery_adb_serial_sha256"),
+        "candidate_attempt_limit": 1,
+        "mandatory_rollback_preapproved_after_candidate_start": True,
+        "candidate_replay": False,
+        "only_partition_payload": "boot",
+    }
+    expected_keys = {
+        "schema",
+        "created_utc",
+        "run_id",
+        "manifest_sha256",
+        "approval_binding",
+        "approval_binding_sha256",
+        "approval_token",
+        "device_contact",
+        "device_write",
+        "f1_authorized",
+        "live_authorized",
+    }
+    if (
+        set(value) != expected_keys
+        or value.get("schema") != APPROVAL_PREPARED_SCHEMA
+        or value.get("run_id") != spec.run_id
+        or value.get("manifest_sha256") != spec.manifest_sha256
+        or value.get("approval_binding_sha256") != binding_sha256
+        or value.get("approval_token") != APPROVAL_PREFIX + binding_sha256
+        or approval != value.get("approval_token")
+        or binding != expected_binding
+        or any(
+            value.get(name) is not False
+            for name in (
+                "device_contact",
+                "device_write",
+                "f1_authorized",
+                "live_authorized",
+            )
+        )
+    ):
+        raise ContractError("parent approval does not match exact staging closure")
     return value
 
 
@@ -881,8 +1030,10 @@ def simulate_stage(
 def source_contract_issues(source: str) -> tuple[str, ...]:
     issues: list[str] = []
     functions = {
+        "private JSON": "def write_private_json_exclusive(",
         "connected D0 evidence": "def validate_connected_d0_evidence(",
         "path preflight evidence": "def validate_path_preflight_evidence(",
+        "parent approval": "def validate_parent_approval(",
         "preflight": "def remote_readonly_preflight_script(",
         "reserve": "def remote_reserve_script(",
         "verify": "def remote_verify_payload_script(",
@@ -926,6 +1077,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
     else:
         execute = source[execute_start:inspect_start]
         ordered = (
+            "validate_parent_approval(",
             "verify_local_closure(spec)",
             "require_exact_bridge(spec, args)",
             "require_baseline(args)",
@@ -941,6 +1093,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             "remote_publish_script(spec)",
             "published = True",
             '"candidate_allowed": True',
+            'write_private_json_exclusive(run_dir / "result.json", result)',
         )
         cursor = -1
         for token in ordered:
@@ -949,6 +1102,14 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
                 issues.append(f"execute contract missing or out of order: {token}")
                 continue
             cursor = position
+    append_start = source.find("\ndef append_record(")
+    exact_dir_start = source.find("\ndef exact_live_run_dir(", append_start + 1)
+    if append_start < 0 or exact_dir_start < 0:
+        issues.append("missing append-record source boundary")
+    elif "write_private_json_exclusive(path, body)" not in source[
+        append_start:exact_dir_start
+    ]:
+        issues.append("staging journal does not use atomic exclusive publication")
     return tuple(issues)
 
 
@@ -972,18 +1133,7 @@ def append_record(
         "manifest_sha256": manifest_sha256,
         "run_id": run_id,
     }
-    encoded = (json.dumps(body, indent=2, sort_keys=True) + "\n").encode("utf-8")
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    try:
-        os.write(fd, encoded)
-        os.fsync(fd)
-    finally:
-        os.close(fd)
-    dir_fd = os.open(journal_dir, os.O_RDONLY | os.O_DIRECTORY)
-    try:
-        os.fsync(dir_fd)
-    finally:
-        os.close(dir_fd)
+    write_private_json_exclusive(path, body)
     return path
 
 
@@ -1097,6 +1247,11 @@ def execute_approved_stage(
         raise ContractError("approved adapter sha256 does not match")
     if args.approved_run_id != spec.run_id:
         raise ContractError("approved run_id does not match")
+    approval_prepared = validate_parent_approval(
+        spec,
+        manifest,
+        args.approval,
+    )
 
     verify_local_closure(spec)
     run_dir = exact_live_run_dir(spec, args.run_dir)
@@ -1118,6 +1273,9 @@ def execute_approved_stage(
             "manifest_sha256": spec.manifest_sha256,
             "adapter_sha256": adapter_sha,
             "rootfs_sha256": spec.local_sha256,
+            "approval_binding_sha256": approval_prepared[
+                "approval_binding_sha256"
+            ],
             "device_write": False,
         },
     )
@@ -1218,7 +1376,7 @@ def execute_approved_stage(
                 "selftest_fail_zero": True,
             },
         }
-        d1.write_json(run_dir / "result.json", result)
+        write_private_json_exclusive(run_dir / "result.json", result)
         record("closed", {"result": result})
         return result
     except Exception as exc:
@@ -1277,7 +1435,9 @@ def inspect_manifest(spec: StageSpec, issues: list[str]) -> dict[str, Any]:
             "publication": "hardlink-no-clobber",
         },
         "contract_issues": all_issues,
-        "ready_for_live_staging": not all_issues,
+        "ready_for_parent_approval": not all_issues,
+        "ready_for_live_staging": False,
+        "fresh_parent_approval_required": True,
         "device_contact": False,
         "device_write": False,
     }
@@ -1292,6 +1452,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--approved-manifest-sha256", default="")
     parser.add_argument("--approved-adapter-sha256", default="")
     parser.add_argument("--approved-run-id", default="")
+    parser.add_argument("--approval")
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--bridge-host", default="localhost")
     parser.add_argument("--bridge-port", type=int, default=54321)
@@ -1322,6 +1483,8 @@ def main(argv: list[str] | None = None) -> int:
         raise ContractError("--run-dir is required for approved staging")
     if not args.device_ip:
         raise ContractError("--device-ip is required for approved staging")
+    if not args.approval:
+        raise ContractError("--approval is required for approved staging")
     result = execute_approved_stage(spec, manifest, args)
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0

@@ -43,6 +43,8 @@ import run_d1_chroot_mvp as d1  # noqa: E402
 
 ORCHESTRATOR_SCHEMA = "a90_v3403_f1_orchestrator_v1"
 JOURNAL_SCHEMA = "a90_v3403_f1_journal_v1"
+APPROVAL_PREPARED_SCHEMA = "a90_v3403_f1_approval_prepared_v1"
+APPROVAL_PREFIX = "A90-F1-V2-APPROVE:"
 FINAL_MANIFEST_SCHEMA = staging.FINAL_MANIFEST_SCHEMA
 FINAL_MANIFEST_STATUS = staging.FINAL_MANIFEST_STATUS
 PRIVATE_RUN_BASE = staging.PRIVATE_RUN_BASE
@@ -137,6 +139,84 @@ def utc_now() -> str:
     return dt.datetime.now(dt.UTC).replace(microsecond=0).isoformat().replace(
         "+00:00", "Z"
     )
+
+
+def _private_json_bytes(payload: Any) -> bytes:
+    return (
+        json.dumps(
+            payload,
+            indent=2,
+            sort_keys=True,
+            ensure_ascii=False,
+            allow_nan=False,
+        )
+        + "\n"
+    ).encode("utf-8")
+
+
+def _write_all(descriptor: int, payload: bytes) -> None:
+    offset = 0
+    while offset < len(payload):
+        written = os.write(descriptor, payload[offset:])
+        if written <= 0:
+            raise ContractError("short private JSON write")
+        offset += written
+
+
+def _fsync_directory(path: Path) -> None:
+    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def write_private_json_exclusive(path: Path, payload: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    temporary = path.with_name(
+        f".{path.name}.tmp-{os.getpid()}-{time.time_ns()}"
+    )
+    descriptor = os.open(
+        temporary,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+        0o600,
+    )
+    try:
+        _write_all(descriptor, _private_json_bytes(payload))
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    try:
+        os.link(temporary, path, follow_symlinks=False)
+        _fsync_directory(path.parent)
+    except FileExistsError as exc:
+        raise ContractError(f"private JSON already exists: {path}") from exc
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def write_private_json_atomic(path: Path, payload: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if path.is_symlink():
+        raise ContractError(f"private JSON destination is a symlink: {path}")
+    temporary = path.with_name(
+        f".{path.name}.tmp-{os.getpid()}-{time.time_ns()}"
+    )
+    descriptor = os.open(
+        temporary,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+        0o600,
+    )
+    try:
+        _write_all(descriptor, _private_json_bytes(payload))
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    try:
+        os.replace(temporary, path)
+        _fsync_directory(path.parent)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def sha256_file(path: Path) -> str:
@@ -390,10 +470,17 @@ def load_spec(
         "candidate_transfer_authorized",
         "live_authority",
         "rootfs_staging_authorized",
+    ):
+        if authority.get(name) is not False:
+            issues.append(f"authority.{name} must remain false before approval")
+    for name in (
+        "fresh_operator_approval_required",
         "rollback_authority_activates_after_candidate_start",
     ):
         if authority.get(name) is not True:
             issues.append(f"authority.{name} is not true")
+    if authority.get("manifest_grants_live_authority") is not False:
+        issues.append("authority.manifest_grants_live_authority must be false")
 
     orchestrator = manifest.get("f1_orchestrator")
     orchestrator_size = 0
@@ -535,18 +622,7 @@ def append_record(
         "state": state,
         "action": action,
     }
-    encoded = (json.dumps(body, indent=2, sort_keys=True) + "\n").encode("utf-8")
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    try:
-        os.write(fd, encoded)
-        os.fsync(fd)
-    finally:
-        os.close(fd)
-    dir_fd = os.open(journal_dir, os.O_RDONLY | os.O_DIRECTORY)
-    try:
-        os.fsync(dir_fd)
-    finally:
-        os.close(dir_fd)
+    write_private_json_exclusive(path, body)
     return path
 
 
@@ -577,8 +653,7 @@ def read_journal(spec: F1Spec, transaction_dir: Path) -> list[dict[str, Any]]:
 
 
 def write_private_json(path: Path, payload: Any) -> None:
-    d1.write_json(path, payload)
-    path.chmod(0o600)
+    write_private_json_atomic(path, payload)
 
 
 def load_timeline(transaction_dir: Path) -> list[dict[str, str]]:
@@ -724,33 +799,170 @@ def run_logged(
     log_path: Path,
     timeout: float,
 ) -> dict[str, Any]:
-    with log_path.open("xb") as output:
-        completed = subprocess.run(
-            command,
-            cwd=REPO_ROOT,
-            stdout=output,
-            stderr=subprocess.STDOUT,
-            timeout=timeout,
-            check=False,
+    descriptor = os.open(
+        log_path,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+        0o600,
+    )
+    execution_error: dict[str, Any] | None = None
+    returncode: int
+    with os.fdopen(descriptor, "wb") as output:
+        try:
+            completed = subprocess.run(
+                command,
+                cwd=REPO_ROOT,
+                stdout=output,
+                stderr=subprocess.STDOUT,
+                timeout=timeout,
+                check=False,
+            )
+            returncode = completed.returncode
+        except subprocess.TimeoutExpired:
+            returncode = 124
+            execution_error = {
+                "type": "TimeoutExpired",
+                "timeout_sec": timeout,
+            }
+        except OSError as exc:
+            returncode = 125
+            execution_error = {
+                "type": type(exc).__name__,
+                "errno": exc.errno,
+            }
+        finally:
+            output.flush()
+            os.fsync(output.fileno())
+    record = command_record(log_path, returncode)
+    if execution_error is not None:
+        record["execution_error"] = execution_error
+    return record
+
+
+def json_sha256(value: Any) -> str:
+    encoded = json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def approval_binding(spec: F1Spec) -> dict[str, Any]:
+    connected_d0 = bound_by_label(spec.stage, "target.connected_d0_result")
+    connected_paths = bound_by_label(
+        spec.stage,
+        "target.connected_path_preflight",
+    )
+    return {
+        "schema": "a90_v3403_f1_approval_binding_v1",
+        "run_id": spec.stage.run_id,
+        "manifest_sha256": spec.stage.manifest_sha256,
+        "orchestrator_sha256": sha256_file(Path(__file__).resolve()),
+        "staging_adapter_sha256": spec.stage.adapter_sha256,
+        "flash_runner_sha256": spec.flash_runner.sha256,
+        "candidate_boot_sha256": spec.candidate.sha256,
+        "rollback_boot_sha256": spec.rollback.sha256,
+        "rootfs_sha256": spec.stage.local_sha256,
+        "connected_d0_sha256": connected_d0.sha256,
+        "connected_path_preflight_sha256": connected_paths.sha256,
+        "recovery_adb_serial_sha256": spec.recovery_serial_sha256,
+        "candidate_attempt_limit": 1,
+        "mandatory_rollback_preapproved_after_candidate_start": True,
+        "candidate_replay": False,
+        "only_partition_payload": "boot",
+    }
+
+
+def approval_prepared_path(spec: F1Spec) -> Path:
+    return (
+        PRIVATE_RUN_BASE
+        / spec.stage.run_id
+        / "approval-prepared.json"
+    ).resolve()
+
+
+def prepare_approval(spec: F1Spec) -> dict[str, Any]:
+    verify_local_closure(spec)
+    binding = approval_binding(spec)
+    binding_sha256 = json_sha256(binding)
+    prepared = {
+        "schema": APPROVAL_PREPARED_SCHEMA,
+        "created_utc": utc_now(),
+        "run_id": spec.stage.run_id,
+        "manifest_sha256": spec.stage.manifest_sha256,
+        "approval_binding": binding,
+        "approval_binding_sha256": binding_sha256,
+        "approval_token": APPROVAL_PREFIX + binding_sha256,
+        "device_contact": False,
+        "device_write": False,
+        "f1_authorized": False,
+        "live_authorized": False,
+    }
+    write_private_json_exclusive(approval_prepared_path(spec), prepared)
+    return prepared
+
+
+def load_approval_prepared(spec: F1Spec) -> dict[str, Any]:
+    path = approval_prepared_path(spec)
+    require_private_regular(path)
+    value = json.loads(path.read_text(encoding="utf-8"))
+    expected_keys = {
+        "schema",
+        "created_utc",
+        "run_id",
+        "manifest_sha256",
+        "approval_binding",
+        "approval_binding_sha256",
+        "approval_token",
+        "device_contact",
+        "device_write",
+        "f1_authorized",
+        "live_authorized",
+    }
+    binding = approval_binding(spec)
+    binding_sha256 = json_sha256(binding)
+    if (
+        not isinstance(value, dict)
+        or set(value) != expected_keys
+        or value.get("schema") != APPROVAL_PREPARED_SCHEMA
+        or value.get("run_id") != spec.stage.run_id
+        or value.get("manifest_sha256") != spec.stage.manifest_sha256
+        or value.get("approval_binding") != binding
+        or value.get("approval_binding_sha256") != binding_sha256
+        or value.get("approval_token") != APPROVAL_PREFIX + binding_sha256
+        or any(
+            value.get(name) is not False
+            for name in (
+                "device_contact",
+                "device_write",
+                "f1_authorized",
+                "live_authorized",
+            )
         )
-        output.flush()
-        os.fsync(output.fileno())
-    log_path.chmod(0o600)
-    return command_record(log_path, completed.returncode)
+    ):
+        raise ContractError("prepared approval binding does not match exact closure")
+    return value
 
 
-def approved_bindings(spec: F1Spec, args: argparse.Namespace) -> None:
+def approved_bindings(
+    spec: F1Spec,
+    args: argparse.Namespace,
+    *,
+    recovery: bool,
+) -> dict[str, Any]:
     if spec.manifest.get("schema") != FINAL_MANIFEST_SCHEMA:
         raise ContractError("live F1 refuses a non-final manifest schema")
     if spec.manifest.get("status") != FINAL_MANIFEST_STATUS:
         raise ContractError("live F1 refuses a non-ready manifest status")
-    if args.approved_manifest_sha256 != spec.stage.manifest_sha256:
-        raise ContractError("approved manifest sha256 does not match")
-    current_sha = sha256_file(Path(__file__).resolve())
-    if args.approved_orchestrator_sha256 != current_sha:
-        raise ContractError("approved orchestrator sha256 does not match")
-    if args.approved_run_id != spec.stage.run_id:
-        raise ContractError("approved run_id does not match")
+    prepared = load_approval_prepared(spec)
+    if recovery:
+        if args.approval is not None:
+            raise ContractError("rollback recovery must not require a second approval")
+    elif args.approval != prepared["approval_token"]:
+        raise ContractError("fresh exact F1 approval token mismatch")
+    return prepared
 
 
 def stage_command(spec: F1Spec, args: argparse.Namespace) -> list[str]:
@@ -768,6 +980,8 @@ def stage_command(spec: F1Spec, args: argparse.Namespace) -> list[str]:
         spec.stage.adapter_sha256,
         "--approved-run-id",
         spec.stage.run_id,
+        "--approval",
+        args.approval,
         "--run-dir",
         str(PRIVATE_RUN_BASE / spec.stage.run_id / "staging-live"),
         "--bridge-host",
@@ -1063,7 +1277,7 @@ def observe_candidate(spec: F1Spec, args: argparse.Namespace, transaction_dir: P
                 "type": type(exc).__name__,
                 "message": str(exc),
             }
-    write_private_json(transaction_dir / "observation.json", result)
+    write_private_json_exclusive(transaction_dir / "observation.json", result)
     return result
 
 
@@ -1235,7 +1449,7 @@ def close_transaction(
         "final_health_restored": bool(final_health),
         "timeline_events": names,
     }
-    write_private_json(transaction_dir / "result.json", result)
+    write_private_json_exclusive(transaction_dir / "result.json", result)
     append_record(
         journal_dir,
         "CLOSED",
@@ -1269,7 +1483,7 @@ def abort_before_candidate(
         "error": {"type": type(exc).__name__, "message": str(exc)},
         "timeline_events": [event["name"] for event in events],
     }
-    write_private_json(transaction_dir / "result.json", result)
+    write_private_json_exclusive(transaction_dir / "result.json", result)
     append_record(
         journal_dir,
         "ABORTED",
@@ -1281,7 +1495,7 @@ def abort_before_candidate(
 
 
 def execute_approved_f1(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
-    approved_bindings(spec, args)
+    approval_prepared = approved_bindings(spec, args, recovery=False)
     verify_local_closure(spec)
     transaction_dir = exact_transaction_dir(spec, args.transaction_dir)
     transaction_dir.mkdir(parents=True, exist_ok=False, mode=0o700)
@@ -1310,6 +1524,12 @@ def execute_approved_f1(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any
             "approval_consumed": True,
             "candidate_attempted": False,
             "rollback_pre_authorized": True,
+            "approval_token_sha256": hashlib.sha256(
+                args.approval.encode("utf-8")
+            ).hexdigest(),
+            "approval_binding_sha256": approval_prepared[
+                "approval_binding_sha256"
+            ],
             "orchestrator_sha256": spec.orchestrator_sha256,
         },
         manifest_sha256=spec.stage.manifest_sha256,
@@ -1552,7 +1772,7 @@ def action_names(records: list[dict[str, Any]]) -> list[str]:
 
 
 def recover_approved_rollback(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
-    approved_bindings(spec, args)
+    approval_prepared = approved_bindings(spec, args, recovery=True)
     verify_local_closure(spec)
     transaction_dir = exact_transaction_dir(spec, args.transaction_dir)
     records = read_journal(spec, transaction_dir)
@@ -1566,6 +1786,19 @@ def recover_approved_rollback(spec: F1Spec, args: argparse.Namespace) -> dict[st
         raise ContractError("pre-session abort has no rollback authority to exercise")
     if "closed" in actions:
         raise ContractError("transaction is already closed")
+    approved_records = [
+        record for record in records if record.get("action") == "approved"
+    ]
+    if (
+        len(approved_records) != 1
+        or approved_records[0].get("approval_binding_sha256")
+        != approval_prepared["approval_binding_sha256"]
+        or approved_records[0].get("approval_token_sha256")
+        != hashlib.sha256(
+            str(approval_prepared["approval_token"]).encode("utf-8")
+        ).hexdigest()
+    ):
+        raise ContractError("transaction lacks the exact consumed approval binding")
     events = repair_timeline_from_journal(transaction_dir, records)
     journal_dir = transaction_dir / "journal"
 
@@ -1720,6 +1953,8 @@ def simulate_transaction(
 def source_contract_issues(source: str) -> tuple[str, ...]:
     issues: list[str] = []
     required_functions = (
+        "def prepare_approval(",
+        "def load_approval_prepared(",
         "def execute_approved_f1(",
         "def recover_approved_rollback(",
         "def invoke_rollback(",
@@ -1736,7 +1971,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         return tuple(issues)
     execute = source[execute_start:recover_start]
     ordered = (
-        "approved_bindings(spec, args)",
+        "approved_bindings(spec, args, recovery=False)",
         "verify_local_closure(spec)",
         "validate_stage_result(spec)",
         "staging.require_baseline(args)",
@@ -1780,6 +2015,20 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         issues.append("execute path may reuse preexisting staging output")
     if "repair_timeline_from_journal(transaction_dir, records)" not in recover:
         issues.append("recovery does not rebuild timeline from durable journal")
+    if "approved_bindings(spec, args, recovery=True)" not in recover:
+        issues.append("recovery does not reopen the consumed approval binding")
+    append_start = source.find("def append_record(")
+    read_start = source.find("def read_journal(", append_start + 1)
+    if append_start < 0 or read_start < 0:
+        issues.append("journal source boundary is missing")
+    elif "write_private_json_exclusive(path, body)" not in source[
+        append_start:read_start
+    ]:
+        issues.append("journal does not use atomic exclusive publication")
+    if "fresh exact F1 approval token mismatch" not in source:
+        issues.append("fresh exact approval token gate is missing")
+    if 'mode.add_argument("--prepare-approval"' not in source:
+        issues.append("separate approval preparation mode is missing")
     return tuple(issues)
 
 
@@ -1798,7 +2047,10 @@ def inspect_manifest(spec: F1Spec, issues: list[str]) -> dict[str, Any]:
         "rollback_sha256": spec.rollback.sha256,
         "rootfs_sha256": spec.stage.local_sha256,
         "contract_issues": all_issues,
-        "ready_for_live_f1": not all_issues,
+        "ready_for_approval_preparation": not all_issues,
+        "ready_for_live_f1": False,
+        "fresh_operator_approval_required": True,
+        "manifest_grants_live_authority": False,
         "device_contact": False,
         "device_write": False,
         "candidate_route_in_recovery": False,
@@ -1810,11 +2062,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--expect-manifest-sha256", required=True)
     mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--prepare-approval", action="store_true")
     mode.add_argument("--execute-approved-f1", action="store_true")
     mode.add_argument("--recover-approved-rollback", action="store_true")
-    parser.add_argument("--approved-manifest-sha256", default="")
-    parser.add_argument("--approved-orchestrator-sha256", default="")
-    parser.add_argument("--approved-run-id", default="")
+    parser.add_argument("--approval")
     parser.add_argument("--transaction-dir", type=Path)
     parser.add_argument(
         "--recovery-path",
@@ -1839,22 +2090,33 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     live = args.execute_approved_f1 or args.recover_approved_rollback
+    final_only = live or args.prepare_approval
     spec, issues = load_spec(
         args.manifest,
         args.expect_manifest_sha256,
-        allow_draft=not live,
+        allow_draft=not final_only,
     )
-    if not live:
+    if not final_only:
         result = inspect_manifest(spec, issues)
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0 if not result["contract_issues"] else 2
+    if args.prepare_approval:
+        if args.approval is not None:
+            raise ContractError("approval preparation does not accept --approval")
+        result = prepare_approval(spec)
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
     if args.transaction_dir is None:
         raise ContractError("--transaction-dir is required for live F1")
     if args.execute_approved_f1:
         if args.recovery_path is not None:
             raise ContractError("initial execution does not accept --recovery-path")
+        if args.approval is None:
+            raise ContractError("initial execution requires --approval")
         result = execute_approved_f1(spec, args)
     else:
+        if args.approval is not None:
+            raise ContractError("rollback recovery does not accept --approval")
         result = recover_approved_rollback(spec, args)
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0

@@ -3,7 +3,7 @@
 Date: 2026-07-30 KST
 
 Status:
-`PASS_HOST_REMEDIATED_RE_REVIEW_PENDING_NO_LIVE_AUTHORITY`
+`PASS_HOST_SECOND_REMEDIATION_RE_REVIEW_PENDING_NO_LIVE_AUTHORITY`
 
 ## Scope
 
@@ -15,8 +15,8 @@ grant live authority.
 The write-capable mode refuses the current private draft. It requires a final
 `a90_native_init_f1_prepared_v2` manifest, status
 `ready-for-f1-approval`, exact manifest and adapter hashes, the exact run ID,
-an exact private journal path, and a fresh connected preflight before its first
-device write.
+an exact private parent-approval receipt and token, an exact private journal
+path, and a fresh connected preflight before its first device write.
 
 ## Selected publication contract
 
@@ -45,9 +45,9 @@ removes a published final and never uses recursive deletion.
 
 - Adapter:
   `workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py`
-- Size: `47163`
+- Size: `53141`
 - SHA256:
-  `93a3bf1cbf7a2af0745c3296dde62e01650a6db42b3e9b32695a85f8e19f9c8f`
+  `f09ccd62da1b741e7eda7596bf9092e405553827100015ed1c7c366b49cca7b3`
 - Tests:
   `tests/test_server_distro_a90_v3403_absent_only_staging.py`
 - Inner payload transport:
@@ -74,9 +74,10 @@ The keyed rootfs remains:
 ## Validation
 
 - Python compilation passed.
-- The focused suite passes `28/28`.
+- The focused suite passes `31/31`.
 - The new adapter plus V3403 build, D3 handoff, and D3 rootfs focused group
-  passes `53/53`.
+  passes `56/56`.
+- The complete adapter/orchestrator/V3403 focused group passes `94/94`.
 - Every declared prepublication fault leaves the final path absent.
 - Every modeled postpublication fault preserves the exact final identity but
   keeps `candidate_allowed=false`.
@@ -92,6 +93,14 @@ The keyed rootfs remains:
 - Every successful staging journal record carries the exact run ID and
   manifest SHA; the orchestrator accepts only the full contiguous success
   sequence.
+- The staging result and each journal record are created mode `0600` even
+  under umask `0002`; a final JSON name appears only after the complete
+  temporary file has been written and `fsync`ed.
+- An interrupted temporary journal write is ignored by sequence recovery
+  because no incomplete `*.json` final name exists.
+- Live staging reopens the exact private approval receipt, recomputes its full
+  manifest/runner/artifact/D0/recovery binding, and requires the same fresh
+  token passed by the parent orchestrator.
 - No concrete USB-local device address remains in the tracked adapter or test
   closure.
 - The static execution-order gate proves local closure validation, exact
@@ -112,11 +121,28 @@ That evidence predates the stable run-ID stage path and therefore does not
 satisfy the new three-path semantic gate. A fresh D0 check remains required.
 No device write occurred during the earlier check.
 
+## Second independent review remediation
+
+The second independent review of commit
+`581e5a14d6a6380c746d76d897768906d1e12bbe` returned `NO_GO`. Two findings
+directly affected this adapter:
+
+1. the final manifest still acted as its own live authorization rather than
+   requiring a fresh operator approval receipt; and
+2. `result.json` inherited umask `0002` through the older JSON helper and was
+   then rejected by the parent as non-private.
+
+The changed adapter now requires the exact parent-prepared approval token,
+recomputes the complete binding locally, and creates its result and journal
+with an exclusive private writer. The other two review findings—durable F1
+journal publication and structured subprocess failures—are closed in the
+orchestrator report. No live action was used to make or test these changes.
+
 ## Remaining gates
 
 This unit is not an execution-ready F1 closure.
 
-1. The remediated combined closure must pass independent re-review.
+1. The second-remediated combined closure must pass independent re-review.
 2. The exact target and all three absent paths must be refreshed with D0
    evidence for the stable run-ID stage path.
 3. Only then may a final manifest replace the private draft.

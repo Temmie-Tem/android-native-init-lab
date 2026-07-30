@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
 import tempfile
 import types
 import unittest
@@ -399,6 +400,7 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
         self.assertEqual(args.approved_run_id, "")
         self.assertEqual(args.bridge_host, "localhost")
         self.assertIsNone(args.device_ip)
+        self.assertIsNone(args.approval)
 
     def test_tracked_closure_has_no_concrete_network_address(self) -> None:
         text = SOURCE.read_text(encoding="utf-8")
@@ -472,6 +474,100 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
                 first_payload["run_id"],
                 "a90-v3403-debian-f1-20260730-02",
             )
+
+    def test_private_result_writer_is_0600_under_permissive_umask(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "result.json"
+            previous = os.umask(0o002)
+            try:
+                stage.write_private_json_exclusive(path, {"status": "PASS"})
+            finally:
+                os.umask(previous)
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+            self.assertEqual(json.loads(path.read_text())["status"], "PASS")
+
+    def test_incomplete_journal_temp_is_ignored(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            journal = Path(temp_dir) / "journal"
+            journal.mkdir()
+            (journal / ".0000-first.json.tmp-interrupted").write_bytes(b"{")
+            path = stage.append_record(
+                journal,
+                "first",
+                {"value": 1},
+                manifest_sha256="a" * 64,
+                run_id="a90-v3403-debian-f1-20260730-02",
+            )
+            self.assertEqual(path.name, "0000-first.json")
+            self.assertEqual(json.loads(path.read_text())["sequence"], 0)
+
+    def test_live_staging_reopens_exact_parent_approval(self) -> None:
+        run_id = "a90-v3403-debian-f1-20260730-02"
+        spec = types.SimpleNamespace(
+            run_id=run_id,
+            manifest_sha256="a" * 64,
+            adapter_sha256="b" * 64,
+            local_sha256="c" * 64,
+        )
+        manifest = {
+            "target": {
+                "connected_d0_result": {"sha256": "1" * 64},
+                "connected_path_preflight": {"sha256": "2" * 64},
+                "recovery_adb_serial_sha256": "3" * 64,
+            },
+            "candidate_boot": {"sha256": "d" * 64},
+            "rollback_boot": {"sha256": "e" * 64},
+            "f1_orchestrator": {"sha256": "f" * 64},
+            "transport": {"runner_sha256": "4" * 64},
+        }
+        binding = {
+            "schema": "a90_v3403_f1_approval_binding_v1",
+            "run_id": run_id,
+            "manifest_sha256": "a" * 64,
+            "orchestrator_sha256": "f" * 64,
+            "staging_adapter_sha256": "b" * 64,
+            "flash_runner_sha256": "4" * 64,
+            "candidate_boot_sha256": "d" * 64,
+            "rollback_boot_sha256": "e" * 64,
+            "rootfs_sha256": "c" * 64,
+            "connected_d0_sha256": "1" * 64,
+            "connected_path_preflight_sha256": "2" * 64,
+            "recovery_adb_serial_sha256": "3" * 64,
+            "candidate_attempt_limit": 1,
+            "mandatory_rollback_preapproved_after_candidate_start": True,
+            "candidate_replay": False,
+            "only_partition_payload": "boot",
+        }
+        binding_sha = stage.json_sha256(binding)
+        prepared = {
+            "schema": stage.APPROVAL_PREPARED_SCHEMA,
+            "created_utc": "2026-07-30T00:00:00Z",
+            "run_id": run_id,
+            "manifest_sha256": "a" * 64,
+            "approval_binding": binding,
+            "approval_binding_sha256": binding_sha,
+            "approval_token": stage.APPROVAL_PREFIX + binding_sha,
+            "device_contact": False,
+            "device_write": False,
+            "f1_authorized": False,
+            "live_authorized": False,
+        }
+        with tempfile.TemporaryDirectory(dir=stage.PRIVATE_ROOT) as temp_dir:
+            old_base = stage.PRIVATE_RUN_BASE
+            try:
+                stage.PRIVATE_RUN_BASE = Path(temp_dir)
+                path = Path(temp_dir) / run_id / "approval-prepared.json"
+                stage.write_private_json_exclusive(path, prepared)
+                accepted = stage.validate_parent_approval(
+                    spec,
+                    manifest,
+                    prepared["approval_token"],
+                )
+                self.assertEqual(accepted["approval_binding_sha256"], binding_sha)
+                with self.assertRaisesRegex(stage.ContractError, "does not match"):
+                    stage.validate_parent_approval(spec, manifest, "wrong-token")
+            finally:
+                stage.PRIVATE_RUN_BASE = old_base
 
 
 if __name__ == "__main__":
