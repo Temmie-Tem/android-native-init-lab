@@ -85,8 +85,12 @@ connection timed out because the host NCM link had no expected IPv4 address or
 route. Candidate and rollback transfer counts are both zero. A later exact
 health read repeated the blocked command-channel timeout, so the line is
 stopped under the two-failure rule. The approval and run are non-reusable.
-Debian PID1 remains unproved, internal userdata remains untouched, and a
-separate bounded D1 recovery is required before any new experiment.**
+A separately approved D1 released the blocked receiver, removed only the empty
+run-owned stage directory, and restored exact V2321 health. The stale
+host-profile USB-path binding was repaired and direct NCM route/CIDR/ping now
+pass. A minimal pre-reservation NCM gate passes the `104/104` focused closure
+and awaits one independent review. Debian PID1 remains unproved and internal
+userdata remains untouched.**
 
 Stock D1 v2 and P2.84 selected different runtime-PM paths. Stock's first two
 outer works ended by `0.291 ms`, followed by deferred child and parent PM
@@ -257,7 +261,10 @@ corrected A/B pair then matched.
   but aborted during SD staging before candidate intent. Candidate and rollback
   transfer counts are zero; the run is closed and non-reusable. The host NCM
   link lacked its expected USB-local IPv4 address/route, and the blocked
-  receiver left command-channel health unverified.
+  receiver initially left command-channel health unverified. A separately
+  approved D1 later restored exact V2321 health and removed only the empty
+  run-owned stage directory. Host NCM now passes direct-route/CIDR/ping
+  readiness; the new pre-reservation gate awaits independent review.
 
 Load-bearing current reports:
 

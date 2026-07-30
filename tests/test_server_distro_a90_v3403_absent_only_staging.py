@@ -12,6 +12,7 @@ import unittest
 from contextlib import redirect_stderr
 from io import StringIO
 from pathlib import Path
+from unittest import mock
 
 from _loader import load_script
 
@@ -38,6 +39,7 @@ def sample_spec() -> object:
             "/mnt/sdext/a90/runtime/.a90-stage-"
             "a90-v3403-debian-f1-20260730-02/payload.img"
         ),
+        observer_device=".".join(("192", "168", "7", "2")),
         tcpctl_host=Path("workspace/public/src/scripts/revalidation/tcpctl_host.py"),
         local_image=Path("/private/keyed.img"),
     )
@@ -221,6 +223,74 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
         self.assertIsNotNone(stage.PSTORE_ZERO_RE.search(healthy))
         self.assertIsNone(stage.PSTORE_ZERO_RE.search(unhealthy))
         self.assertIsNone(stage.PSTORE_ZERO_RE.search(missing))
+
+    def test_host_ncm_preflight_requires_direct_verified_route_addr_and_ping(self) -> None:
+        device = ".".join(("192", "168", "7", "2"))
+        host = ".".join(("192", "168", "7", "1"))
+
+        def run(command: list[str], **_kwargs: object) -> object:
+            if command[:4] == ["ip", "-4", "route", "get"]:
+                return types.SimpleNamespace(
+                    returncode=0,
+                    stdout=(
+                        f"{device} dev enx-test src {host} uid 1000\n"
+                        "    cache\n"
+                    ),
+                )
+            if command[:5] == ["ip", "-4", "-o", "addr", "show"]:
+                return types.SimpleNamespace(
+                    returncode=0,
+                    stdout=f"7: enx-test inet {host}/24 scope global enx-test\n",
+                )
+            if command[0] == "ping":
+                return types.SimpleNamespace(returncode=0, stdout="")
+            raise AssertionError(command)
+
+        with (
+            mock.patch.object(stage.subprocess, "run", side_effect=run),
+            mock.patch.object(
+                stage,
+                "host_interface_is_exact_a90_ncm",
+                return_value=True,
+            ) as identity,
+        ):
+            result = stage.require_host_ncm_ready(device)
+        self.assertEqual(
+            result,
+            {
+                "verified_a90_ncm": True,
+                "direct_route": True,
+                "host_cidr_present": True,
+                "device_ping": True,
+            },
+        )
+        identity.assert_called_once_with("enx-test")
+
+    def test_host_ncm_preflight_rejects_gateway_route_before_ping(self) -> None:
+        device = ".".join(("192", "168", "7", "2"))
+        host = ".".join(("192", "168", "7", "1"))
+        gateway = ".".join(("192", "168", "0", "1"))
+        route = types.SimpleNamespace(
+            returncode=0,
+            stdout=(
+                f"{device} via {gateway} dev enx-lan src {host} uid 1000\n"
+            ),
+        )
+        with mock.patch.object(stage.subprocess, "run", return_value=route) as run:
+            with self.assertRaisesRegex(stage.ContractError, "not direct USB-local"):
+                stage.require_host_ncm_ready(device)
+        run.assert_called_once()
+
+    def test_source_contract_requires_host_ncm_before_bridge_and_reserve(self) -> None:
+        source = SOURCE.read_text(encoding="utf-8")
+        issues = stage.source_contract_issues(
+            source.replace(
+                "    host_ncm = require_host_ncm_ready(spec.observer_device)\n",
+                "    host_ncm = {}\n",
+                1,
+            )
+        )
+        self.assertTrue(any("require_host_ncm_ready" in issue for issue in issues))
 
     def test_preflight_is_read_only_and_requires_ext4_rw_and_absence(self) -> None:
         script = stage.remote_readonly_preflight_script(sample_spec())

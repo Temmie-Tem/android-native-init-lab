@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import hashlib
+import ipaddress
 import json
 import os
 import re
@@ -76,6 +77,11 @@ D0_RESULT_OUTCOME = (
 PATH_PREFLIGHT_SCHEMA = "a90_v3403_d3_path_preflight_v1"
 APPROVAL_PREPARED_SCHEMA = "a90_v3403_f1_approval_prepared_v1"
 APPROVAL_PREFIX = "A90-F1-V2-APPROVE:"
+HOST_NCM_PREFIX = 24
+HOST_NCM_DRIVER = "cdc_ncm"
+HOST_NCM_VENDOR_ID = "04e8"
+HOST_NCM_PRODUCT_ID = "6861"
+HOST_IFACE_RE = re.compile(r"^[A-Za-z0-9_.:-]+$")
 STAGE_STEPS = (
     "validate_local",
     "connected_preflight",
@@ -172,6 +178,7 @@ class StageSpec:
     remote_payload: str
     bridge_device: str
     bridge_realpath: str
+    observer_device: str
     adapter_size: int
     adapter_sha256: str
     tcpctl_host: Path
@@ -236,6 +243,21 @@ def validate_remote_final(value: Any) -> str:
     if path != REMOTE_FINAL or path.parent != REMOTE_ROOT:
         raise ContractError(f"remote final path is not the V3403 fixed path: {value}")
     return str(path)
+
+
+def validate_observer_device(value: Any) -> str:
+    if not isinstance(value, str):
+        raise ContractError("observer device address must be a string")
+    try:
+        address = ipaddress.IPv4Address(value)
+    except ipaddress.AddressValueError as exc:
+        raise ContractError("observer device address must be canonical IPv4") from exc
+    if str(address) != value or address.is_unspecified or address.is_multicast:
+        raise ContractError("observer device address must be canonical unicast IPv4")
+    network = ipaddress.IPv4Network(f"{address}/{HOST_NCM_PREFIX}", strict=False)
+    if address in (network.network_address, network.broadcast_address):
+        raise ContractError("observer device address is not a usable host address")
+    return value
 
 
 def derive_stage_dir(run_id: str) -> PurePosixPath:
@@ -569,6 +591,8 @@ def stage_spec_from_manifest(
 
     rootfs = _dict(manifest.get("debian_rootfs"), "debian_rootfs")
     keyed = _dict(rootfs.get("keyed_source"), "debian_rootfs.keyed_source")
+    observer = _dict(rootfs.get("observer"), "debian_rootfs.observer")
+    observer_device = validate_observer_device(observer.get("device_ip"))
     local_path_value = keyed.get("local_path")
     if not isinstance(local_path_value, str):
         raise ContractError("keyed rootfs local_path is missing")
@@ -726,6 +750,7 @@ def stage_spec_from_manifest(
         remote_payload=str(stage_dir / STAGE_PAYLOAD_NAME),
         bridge_device=bridge_device,
         bridge_realpath=bridge_realpath,
+        observer_device=observer_device,
         adapter_size=adapter_size_value if isinstance(adapter_size_value, int) else 0,
         adapter_sha256=adapter_sha_value if isinstance(adapter_sha_value, str) else "",
         tcpctl_host=tcpctl_path,
@@ -1034,6 +1059,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         "connected D0 evidence": "def validate_connected_d0_evidence(",
         "path preflight evidence": "def validate_path_preflight_evidence(",
         "parent approval": "def validate_parent_approval(",
+        "host NCM": "def require_host_ncm_ready(",
         "preflight": "def remote_readonly_preflight_script(",
         "reserve": "def remote_reserve_script(",
         "verify": "def remote_verify_payload_script(",
@@ -1079,6 +1105,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         ordered = (
             "validate_parent_approval(",
             "verify_local_closure(spec)",
+            "require_host_ncm_ready(spec.observer_device)",
             "require_exact_bridge(spec, args)",
             "require_baseline(args)",
             "remote_readonly_preflight_script(spec)",
@@ -1231,6 +1258,112 @@ def require_exact_bridge(spec: StageSpec, args: argparse.Namespace) -> dict[str,
     return payload
 
 
+def _read_sysfs_text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8", errors="strict").strip()
+    except OSError:
+        return ""
+
+
+def host_interface_is_exact_a90_ncm(interface: str) -> bool:
+    if HOST_IFACE_RE.fullmatch(interface) is None or interface in {".", ".."}:
+        return False
+    netdev = Path("/sys/class/net") / interface
+    try:
+        resolved = netdev.resolve(strict=True)
+        driver = (netdev / "device" / "driver").resolve(strict=True).name
+    except OSError:
+        return False
+    if driver != HOST_NCM_DRIVER:
+        return False
+    vendor = ""
+    product = ""
+    for parent in (resolved, *resolved.parents):
+        if not vendor:
+            vendor = _read_sysfs_text(parent / "idVendor").lower()
+        if not product:
+            product = _read_sysfs_text(parent / "idProduct").lower()
+        if vendor and product:
+            break
+    return vendor == HOST_NCM_VENDOR_ID and product == HOST_NCM_PRODUCT_ID
+
+
+def _route_token(tokens: list[str], name: str) -> str:
+    if tokens.count(name) != 1:
+        raise ContractError(f"host NCM route lacks one exact {name} field")
+    index = tokens.index(name)
+    if index + 1 >= len(tokens):
+        raise ContractError(f"host NCM route has an incomplete {name} field")
+    return tokens[index + 1]
+
+
+def require_host_ncm_ready(device_ip: str) -> dict[str, bool]:
+    device = ipaddress.IPv4Address(validate_observer_device(device_ip))
+    network = ipaddress.IPv4Network(f"{device}/{HOST_NCM_PREFIX}", strict=False)
+    host = ipaddress.IPv4Address(int(device) - 1)
+    if host not in network or host == network.network_address:
+        raise ContractError("observer device address has no expected host peer")
+    host_cidr = f"{host}/{HOST_NCM_PREFIX}"
+
+    try:
+        route = subprocess.run(
+            ["ip", "-4", "route", "get", str(device)],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            timeout=5.0,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise ContractError("host NCM direct-route check failed") from exc
+    route_lines = [line for line in route.stdout.splitlines() if line.strip()]
+    if (
+        route.returncode != 0
+        or not route_lines
+        or any(line.strip() != "cache" for line in route_lines[1:])
+    ):
+        raise ContractError("host NCM direct route is unavailable")
+    tokens = route_lines[0].split()
+    if not tokens or tokens[0] != str(device) or "via" in tokens:
+        raise ContractError("observer route is not direct USB-local")
+    interface = _route_token(tokens, "dev")
+    source = _route_token(tokens, "src")
+    if source != str(host):
+        raise ContractError("observer route does not use the expected host peer")
+    if not host_interface_is_exact_a90_ncm(interface):
+        raise ContractError("observer route is not on the exact A90 NCM interface")
+
+    try:
+        address = subprocess.run(
+            ["ip", "-4", "-o", "addr", "show", "dev", interface],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            timeout=5.0,
+            check=False,
+        )
+        ping = subprocess.run(
+            ["ping", "-n", "-c", "1", "-W", "2", str(device)],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            timeout=5.0,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise ContractError("host NCM address or reachability check failed") from exc
+    if address.returncode != 0 or host_cidr not in address.stdout.split():
+        raise ContractError("exact A90 NCM interface lacks the expected host CIDR")
+    if ping.returncode != 0:
+        raise ContractError("observer device is not reachable on USB-local NCM")
+    return {
+        "verified_a90_ncm": True,
+        "direct_route": True,
+        "host_cidr_present": True,
+        "device_ping": True,
+    }
+
+
 def execute_approved_stage(
     spec: StageSpec,
     manifest: dict[str, Any],
@@ -1247,6 +1380,8 @@ def execute_approved_stage(
         raise ContractError("approved adapter sha256 does not match")
     if args.approved_run_id != spec.run_id:
         raise ContractError("approved run_id does not match")
+    if args.device_ip != spec.observer_device:
+        raise ContractError("staging device address does not match the manifest observer")
     approval_prepared = validate_parent_approval(
         spec,
         manifest,
@@ -1280,6 +1415,7 @@ def execute_approved_stage(
         },
     )
 
+    host_ncm = require_host_ncm_ready(spec.observer_device)
     exact_bridge = require_exact_bridge(spec, args)
     baseline = require_baseline(args)
     readonly = run_remote(args, remote_readonly_preflight_script(spec))
@@ -1291,6 +1427,7 @@ def execute_approved_stage(
             "baseline_version": EXPECTED_BASELINE_VERSION,
             "baseline_build": EXPECTED_BASELINE_BUILD,
             "selftest_fail_zero": True,
+            "host_ncm": host_ncm,
             "remote_preflight": readonly,
             "device_write": False,
         },
