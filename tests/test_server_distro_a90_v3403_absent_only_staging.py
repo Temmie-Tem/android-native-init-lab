@@ -24,6 +24,7 @@ SOURCE = Path(
     "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py"
 )
 TEST_RUN_ID = "a90-v3403-debian-f1-20260730-02"
+TEST_RUN_ID_V3404 = "a90-v3404-debian-f1-20260731-04"
 
 
 def sample_spec() -> object:
@@ -118,6 +119,31 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
             stage.derive_stage_dir("b" * 64)
         with self.assertRaises(stage.ContractError):
             stage.derive_remote_final("b" * 64)
+
+    def test_v3404_run_derives_cycle_bound_final_and_stage_paths(self) -> None:
+        self.assertEqual(
+            str(stage.derive_remote_final(TEST_RUN_ID_V3404)),
+            (
+                "/mnt/sdext/a90/runtime/"
+                "debian-bookworm-arm64-d3-sysvinit-v3404-keyed-"
+                "20260731-04.img"
+            ),
+        )
+        self.assertEqual(
+            str(stage.derive_stage_dir(TEST_RUN_ID_V3404)),
+            (
+                "/mnt/sdext/a90/runtime/.a90-stage-"
+                f"{TEST_RUN_ID_V3404}"
+            ),
+        )
+        for unsupported in (
+            "a90-v3402-debian-f1-20260731-04",
+            "a90-v3405-debian-f1-20260731-04",
+            "a90-v3404-debian-f1-20260731-4",
+        ):
+            with self.subTest(run_id=unsupported):
+                with self.assertRaises(stage.ContractError):
+                    stage.derive_remote_final(unsupported)
 
     def test_connected_d0_semantics_bind_target_health_and_boot_artifacts(self) -> None:
         candidate = stage.BoundFile("candidate", Path("/private/candidate"), 4096, "a" * 64)
@@ -251,6 +277,14 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
             with self.subTest(value=value):
                 with self.assertRaises(stage.ContractError):
                     stage.validate_remote_final(value, TEST_RUN_ID)
+
+    def test_remote_final_rejects_cross_cycle_path(self) -> None:
+        v3403_path = str(stage.derive_remote_final(TEST_RUN_ID))
+        v3404_path = str(stage.derive_remote_final(TEST_RUN_ID_V3404))
+        with self.assertRaises(stage.ContractError):
+            stage.validate_remote_final(v3403_path, TEST_RUN_ID_V3404)
+        with self.assertRaises(stage.ContractError):
+            stage.validate_remote_final(v3404_path, TEST_RUN_ID)
 
     def test_manifest_must_not_be_group_or_world_writable(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -530,6 +564,22 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
     def test_source_contract_binds_manifest_final_to_exact_run_id(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")
         mutated = source.replace(
+            "(?P<cycle>v3403|v3404)",
+            "(?P<cycle>v3403|v3404|v3405)",
+            1,
+        )
+        issues = stage.source_contract_issues(mutated)
+        self.assertTrue(any("versioned run identity" in issue for issue in issues))
+
+        mutated = source.replace(
+            'return match.group("cycle"), match.group("suffix")',
+            'return "v3404", match.group("suffix")',
+            1,
+        )
+        issues = stage.source_contract_issues(mutated)
+        self.assertTrue(any("run identity contract" in issue for issue in issues))
+
+        mutated = source.replace(
             'remote_final = validate_remote_final(keyed.get("device_path"), run_id)',
             "remote_final = str(derive_remote_final(run_id))",
             1,
@@ -546,8 +596,16 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
         self.assertTrue(any("remote final validator" in issue for issue in issues))
 
         mutated = source.replace(
-            "suffix = run_id.removeprefix(RUN_ID_PREFIX)",
-            'suffix = "fixed"',
+            "cycle, suffix = exact_run_id_parts(run_id)",
+            'cycle, suffix = "v3404", "fixed"',
+            1,
+        )
+        issues = stage.source_contract_issues(mutated)
+        self.assertTrue(any("remote final derivation" in issue for issue in issues))
+
+        mutated = source.replace(
+            "prefix = REMOTE_FINAL_PREFIX_BY_CYCLE[cycle]",
+            'prefix = REMOTE_FINAL_PREFIX_BY_CYCLE["v3403"]',
             1,
         )
         issues = stage.source_contract_issues(mutated)

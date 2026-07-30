@@ -520,7 +520,10 @@ corrected A/B pair then matched.
   inherited D3/HUD regressions, AArch64 static build, boot packaging, marker
   audit, and independent review pass. The private boot artifact is
   hash-identified by the generated source-build report; no run or live
-  authority exists.
+  authority exists. The reusable staging adapter now accepts exactly V3403
+  and V3404 cycle-bound run IDs, derives distinct final paths, and rejects
+  cross-cycle pairing. Its focused `41/41` plus unchanged orchestrator `72/72`
+  pass independent review; no execution or approval has occurred.
 
 Load-bearing current reports:
 
@@ -530,6 +533,7 @@ Load-bearing current reports:
 - `docs/reports/A90_V3403_MINIMAL_F1_ORCHESTRATOR_H0_2026-07-30.md`
 - `docs/reports/NATIVE_INIT_V3403_D3_IMMUTABLE_HANDOFF_H0_CLOSURE_2026-07-30.md`
 - `docs/reports/NATIVE_INIT_V3404_D3_RESOLVED_OWNER_TIMEOUT_SOURCE_BUILD_2026-07-31.md`
+- `docs/reports/A90_V3404_REUSABLE_F1_STAGING_BINDING_H0_2026-07-31.md`
 - `docs/reports/S22PLUS_FYG8_P284_CONTROLLED_SUSPEND_F1_CLOSED_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P284_POST_SUSPEND_RESTART_GAP_FOCUSED_ANALYSIS_H0_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P284_STOCK_OUTER_D1_V2_LIVE_NO_PROOF_2026-07-29.md`
@@ -739,10 +743,12 @@ The A90 branch proceeds independently:
 8. Preserve V3404's completed H0 closure: only strict-D3 per-owner `-EBUSY`
    may be resolved by a successful zero-owner rescan; D4, service, scan,
    non-timeout owner, and nonzero-owner results remain fatal.
-9. In H0, bind the reviewed V3404 artifact to a fresh run/manifest and the
-   existing attended rollback machinery, then complete exact preflight before
-   requesting one new F1 approval. No V3403 run, receipt, continuation, or
-   approval may be reused.
+9. Preserve the reviewed reusable staging closure: exact V3403/V3404 run IDs
+   select distinct final paths, cross-cycle pairing fails, and the unchanged
+   attended orchestrator remains manifest-bound.
+10. Create a fresh V3404 run/rootfs/manifest, complete exact D0 and path
+    preflight, and stop before staging at one new F1 approval. No V3403 run,
+    receipt, continuation, or approval may be reused.
 
 No device step is added when H0 can answer the question.
 

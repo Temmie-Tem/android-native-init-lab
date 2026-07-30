@@ -35,18 +35,18 @@ Do not add a device step when host-only work can answer the question.
   rootfs/key, exact V2321 D0, three-path absence, topology-bound NCM, and a
   zero-issue final manifest. One exact approval and attended continuation were
   consumed. Staging, candidate boot, and the first pre-handoff attempt passed.
-  The single handoff stopped before storage or
-  `switch_root`: one DRM-owner stop timed out `-EBUSY`, while the immediately
-  following authoritative rescan proved zero remaining owners. The source
+  The single handoff stopped before storage or `switch_root`: one DRM-owner stop timed out `-EBUSY`, while the immediately following authoritative
+  rescan proved zero remaining owners. The source
   stayed byte-identical. Candidate and exact rollback transfers are `1/1` with
   no replay; health-only recovery after one corrupted post-rollback `hide`
   frame closed `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` with exact V2321 health
   and the canonical eight-event timeline. The run and approvals are
   non-reusable. H0 successor V3404 defers only strict-D3 per-owner `-EBUSY` to
   a successful zero-owner rescan; service, scan, other-owner, D4, and nonzero
-  owner results remain fatal. Focused `16/16`, inherited regressions,
-  cross-build/package audit, and independent review pass. No A90 live
-  authority exists; neither successor applies retroactively to a consumed run.
+  owner results remain fatal. Focused `16/16`, cross-build/package audit, and
+  independent review pass. The reviewed reusable staging adapter accepts only
+  exact cycle-bound V3403/V3404 IDs, rejects cross-cycle final paths, and leaves
+  the orchestrator unchanged. No A90 live authority exists; neither successor applies retroactively.
 - P2.82 consumed one exact approval. Its byte-identical reads end in terminal
   failure `0x8e/detail=0xc10`; the newline-bearing comparator made exact NONE
   readback impossible. No accepted ACM endpoint appeared. Child suspend,

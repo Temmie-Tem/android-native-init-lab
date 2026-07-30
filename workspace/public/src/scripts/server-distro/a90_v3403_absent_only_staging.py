@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Absent-only SD rootfs staging adapter for the A90 V3403 F1 transaction.
+"""Absent-only SD rootfs staging adapter for A90 V3403/V3404 F1 transactions.
 
 The default mode is host-only inspection.  The write-capable mode is usable
 only with a final prepared manifest and explicit exact manifest/adapter
@@ -50,8 +50,10 @@ EXPECTED_BASELINE_BUILD = "v2321-usb-clean-identity-rodata"
 REMOTE_ROOT = PurePosixPath("/mnt/sdext/a90/runtime")
 REMOTE_MOUNT = PurePosixPath("/mnt/sdext")
 REMOTE_WORK = REMOTE_ROOT / "d3-handoff-work.img"
-RUN_ID_PREFIX = "a90-v3403-debian-f1-"
-REMOTE_FINAL_PREFIX = "debian-bookworm-arm64-d3-sysvinit-v3403-keyed-"
+REMOTE_FINAL_PREFIX_BY_CYCLE = {
+    "v3403": "debian-bookworm-arm64-d3-sysvinit-v3403-keyed-",
+    "v3404": "debian-bookworm-arm64-d3-sysvinit-v3404-keyed-",
+}
 STAGE_PREFIX = ".a90-stage-"
 STAGE_PAYLOAD_NAME = "payload.img"
 REQUIRED_FS_TYPE = "ext4"
@@ -68,7 +70,10 @@ REQUIRED_SUPPORT_FILES = (
     REPO_ROOT / "workspace" / "public" / "src" / "harness" / "a90harness" / "evidence.py",
 )
 HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
-RUN_ID_RE = re.compile(r"^a90-v3403-debian-f1-[0-9]{8}-[0-9]{2}$")
+RUN_ID_RE = re.compile(
+    r"^a90-(?P<cycle>v3403|v3404)-debian-f1-"
+    r"(?P<suffix>[0-9]{8}-[0-9]{2})$"
+)
 PSTORE_ZERO_RE = re.compile(r"^pstore=[^\r\n]*\bentries=0\b", re.MULTILINE)
 D0_RESULT_SCHEMA = "a90-v3403-connected-d0-v1"
 D0_RESULT_OUTCOME = (
@@ -244,11 +249,19 @@ def validate_sha256(value: Any, label: str) -> str:
     return value
 
 
+def exact_run_id_parts(run_id: str) -> tuple[str, str]:
+    match = RUN_ID_RE.fullmatch(run_id)
+    if match is None:
+        raise ContractError(
+            "run_id must be an exact supported A90 V3403/V3404 form"
+        )
+    return match.group("cycle"), match.group("suffix")
+
+
 def derive_remote_final(run_id: str) -> PurePosixPath:
-    if RUN_ID_RE.fullmatch(run_id) is None:
-        raise ContractError("remote final path requires an exact A90 V3403 run_id")
-    suffix = run_id.removeprefix(RUN_ID_PREFIX)
-    return REMOTE_ROOT / f"{REMOTE_FINAL_PREFIX}{suffix}.img"
+    cycle, suffix = exact_run_id_parts(run_id)
+    prefix = REMOTE_FINAL_PREFIX_BY_CYCLE[cycle]
+    return REMOTE_ROOT / f"{prefix}{suffix}.img"
 
 
 def validate_remote_final(value: Any, run_id: str) -> str:
@@ -284,8 +297,7 @@ def validate_observer_device(value: Any) -> str:
 
 
 def derive_stage_dir(run_id: str) -> PurePosixPath:
-    if RUN_ID_RE.fullmatch(run_id) is None:
-        raise ContractError("stage directory requires an exact A90 V3403 run_id")
+    exact_run_id_parts(run_id)
     return REMOTE_ROOT / f"{STAGE_PREFIX}{run_id}"
 
 
@@ -662,7 +674,7 @@ def stage_spec_from_manifest(
 
     run_id = manifest.get("run_id")
     if not isinstance(run_id, str) or RUN_ID_RE.fullmatch(run_id) is None:
-        raise ContractError("run_id is not the exact A90 V3403 F1 form")
+        raise ContractError("run_id is not an exact supported A90 F1 form")
     run_root = (PRIVATE_RUN_BASE / run_id).resolve()
     if manifest_path.resolve().parent != run_root:
         raise ContractError("manifest must be directly inside its exact private run directory")
@@ -701,7 +713,7 @@ def stage_spec_from_manifest(
 
     work = _dict(rootfs.get("work_copy"), "debian_rootfs.work_copy")
     if work.get("device_path") != str(REMOTE_WORK):
-        raise ContractError("fixed V3403 work-copy path mismatch")
+        raise ContractError("fixed D3 work-copy path mismatch")
     if work.get("must_be_absent_before_handoff") is not True:
         raise ContractError("work-copy absence requirement missing")
 
@@ -1148,8 +1160,23 @@ def simulate_stage(
 
 def source_contract_issues(source: str) -> tuple[str, ...]:
     issues: list[str] = []
+    identity_start = source.find("REMOTE_FINAL_PREFIX_BY_CYCLE = {")
+    identity_end = source.find("PSTORE_ZERO_RE =", identity_start + 1)
+    if identity_start < 0 or identity_end < 0:
+        issues.append("versioned run identity constant boundary is missing")
+    else:
+        identity = source[identity_start:identity_end]
+        for token in (
+            '"v3403": "debian-bookworm-arm64-d3-sysvinit-v3403-keyed-"',
+            '"v3404": "debian-bookworm-arm64-d3-sysvinit-v3404-keyed-"',
+            'r"^a90-(?P<cycle>v3403|v3404)-debian-f1-"',
+            'r"(?P<suffix>[0-9]{8}-[0-9]{2})$"',
+        ):
+            if identity.count(token) != 1:
+                issues.append(f"versioned run identity is not exact: {token}")
     functions = {
         "private JSON": "def write_private_json_exclusive(",
+        "run identity": "def exact_run_id_parts(",
         "approval binding": "def canonical_f1_approval_binding(",
         "connected D0 evidence": "def validate_connected_d0_evidence(",
         "path preflight evidence": "def validate_path_preflight_evidence(",
@@ -1168,6 +1195,19 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             issues.append(f"missing {label} function")
         positions[label] = pos
     if not issues:
+        run_identity = source[
+            positions["run identity"]:source.find(
+                "\ndef derive_remote_final(",
+                positions["run identity"] + 1,
+            )
+        ]
+        for token in (
+            "match = RUN_ID_RE.fullmatch(run_id)",
+            "if match is None:",
+            'return match.group("cycle"), match.group("suffix")',
+        ):
+            if token not in run_identity:
+                issues.append(f"run identity contract missing: {token}")
         parent_approval = source[
             positions["parent approval"]:positions["connected D0 evidence"]
         ]
@@ -1211,9 +1251,9 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
     else:
         derivation = source[derivation_start:derivation_end]
         for token in (
-            "if RUN_ID_RE.fullmatch(run_id) is None:",
-            "suffix = run_id.removeprefix(RUN_ID_PREFIX)",
-            'return REMOTE_ROOT / f"{REMOTE_FINAL_PREFIX}{suffix}.img"',
+            "cycle, suffix = exact_run_id_parts(run_id)",
+            "prefix = REMOTE_FINAL_PREFIX_BY_CYCLE[cycle]",
+            'return REMOTE_ROOT / f"{prefix}{suffix}.img"',
         ):
             if token not in derivation:
                 issues.append(f"remote final derivation contract missing: {token}")
