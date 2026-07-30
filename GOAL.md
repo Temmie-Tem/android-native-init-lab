@@ -78,11 +78,15 @@ discovery. The seventh host-only remediation requires every retry log to have
 one link and treats any nested process-start marker as rollback-related unless
 the complete outer record is one exact known non-rollback process shape/state.
 The combined closure passes `101/101` and contains no concrete network address.
-It has not staged a byte or invoked a flash. The changed closure still needs
-independent re-review and a fresh exact three-path D0 before final-manifest
-promotion. The private manifest therefore remains a non-approvable draft.
-Debian PID1 is still unproved, internal userdata remains untouched, and no A90
-live authority exists.**
+The bounded attended-device review passed, fresh exact D0 and three-path
+absence passed, and one exact V3403 approval was consumed. The transaction
+aborted during rootfs staging before candidate intent: the USB-local payload
+connection timed out because the host NCM link had no expected IPv4 address or
+route. Candidate and rollback transfer counts are both zero. A later exact
+health read repeated the blocked command-channel timeout, so the line is
+stopped under the two-failure rule. The approval and run are non-reusable.
+Debian PID1 remains unproved, internal userdata remains untouched, and a
+separate bounded D1 recovery is required before any new experiment.**
 
 Stock D1 v2 and P2.84 selected different runtime-PM paths. Stock's first two
 outer works ended by `0.291 ms`, followed by deferred child and parent PM
@@ -248,11 +252,17 @@ corrected A/B pair then matched.
 - A90 V3403 closes the selected H0 successor: strict display cleanup occurs
   before storage, only a verified work copy can be mounted rw, every modeled
   pre-switch failure preserves the source, and a fresh authenticated D3
-  sysvinit image is privately hash-bound. It grants no live authority.
+  sysvinit image is privately hash-bound.
+- A90 V3403 run `a90-v3403-debian-f1-20260730-02` consumed one exact approval
+  but aborted during SD staging before candidate intent. Candidate and rollback
+  transfer counts are zero; the run is closed and non-reusable. The host NCM
+  link lacked its expected USB-local IPv4 address/route, and the blocked
+  receiver left command-channel health unverified.
 
 Load-bearing current reports:
 
 - `docs/reports/A90_DEBIAN_REACTIVATION_F1_CLOSED_2026-07-30.md`
+- `docs/reports/A90_V3403_F1_STAGING_ABORTED_BEFORE_CANDIDATE_2026-07-30.md`
 - `docs/reports/A90_V3403_ABSENT_ONLY_STAGING_ADAPTER_H0_2026-07-30.md`
 - `docs/reports/A90_V3403_MINIMAL_F1_ORCHESTRATOR_H0_2026-07-30.md`
 - `docs/reports/NATIVE_INIT_V3403_D3_IMMUTABLE_HANDOFF_H0_CLOSURE_2026-07-30.md`
