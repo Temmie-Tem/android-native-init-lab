@@ -29,8 +29,14 @@ def sample_spec() -> object:
         local_sha256="a" * 64,
         remote_final=str(stage.REMOTE_FINAL),
         remote_work=str(stage.REMOTE_WORK),
-        remote_stage_dir="/mnt/sdext/a90/runtime/.a90-stage-" + "b" * 16,
-        remote_payload="/mnt/sdext/a90/runtime/.a90-stage-" + "b" * 16 + "/payload.img",
+        remote_stage_dir=(
+            "/mnt/sdext/a90/runtime/.a90-stage-"
+            "a90-v3403-debian-f1-20260730-02"
+        ),
+        remote_payload=(
+            "/mnt/sdext/a90/runtime/.a90-stage-"
+            "a90-v3403-debian-f1-20260730-02/payload.img"
+        ),
         tcpctl_host=Path("workspace/public/src/scripts/revalidation/tcpctl_host.py"),
         local_image=Path("/private/keyed.img"),
     )
@@ -62,9 +68,121 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
             "/mnt/sdext/a90/runtime/d3-handoff-work.img",
         )
         self.assertEqual(
-            str(stage.derive_stage_dir("b" * 64)),
-            "/mnt/sdext/a90/runtime/.a90-stage-" + "b" * 16,
+            str(stage.derive_stage_dir("a90-v3403-debian-f1-20260730-02")),
+            (
+                "/mnt/sdext/a90/runtime/.a90-stage-"
+                "a90-v3403-debian-f1-20260730-02"
+            ),
         )
+        with self.assertRaises(stage.ContractError):
+            stage.derive_stage_dir("b" * 64)
+
+    def test_connected_d0_semantics_bind_target_health_and_boot_artifacts(self) -> None:
+        candidate = stage.BoundFile("candidate", Path("/private/candidate"), 4096, "a" * 64)
+        rollback = stage.BoundFile("rollback", Path("/private/rollback"), 8192, "b" * 64)
+        runner = stage.BoundFile("runner", Path("/public/runner"), 1024, "c" * 64)
+        value = {
+            "schema": stage.D0_RESULT_SCHEMA,
+            "outcome": stage.D0_RESULT_OUTCOME,
+            "target": {
+                "profile": stage.TARGET_PROFILE,
+                "matching_a90_usb_devices": 1,
+                "bridge_selected_realpath": "/dev/exact-private-binding",
+            },
+            "health": {
+                "bridge_exact": True,
+                "bridge_running": True,
+                "version": stage.EXPECTED_BASELINE_VERSION,
+                "version_build": stage.EXPECTED_BASELINE_BUILD,
+                "pstore_entries": 0,
+                "selftest": {"fail": 0},
+            },
+            "safety": {
+                "device_write": False,
+                "flash": False,
+                "payload_sent": False,
+                "reboot_requested": False,
+                "rootfs_staged": False,
+                "userdata_touched": False,
+            },
+            "artifacts": {
+                "candidate_boot": {"size": 4096, "sha256": "a" * 64},
+                "rollback_boot": {"size": 8192, "sha256": "b" * 64},
+            },
+            "repository": {"runner_sha256": "c" * 64},
+        }
+        stage.validate_connected_d0_evidence(
+            value,
+            expected_realpath="/dev/exact-private-binding",
+            candidate=candidate,
+            rollback=rollback,
+            flash_runner=runner,
+        )
+        value["target"]["matching_a90_usb_devices"] = 2
+        with self.assertRaisesRegex(stage.ContractError, "target binding"):
+            stage.validate_connected_d0_evidence(
+                value,
+                expected_realpath="/dev/exact-private-binding",
+                candidate=candidate,
+                rollback=rollback,
+                flash_runner=runner,
+            )
+
+    def test_path_preflight_semantics_require_all_three_exact_paths(self) -> None:
+        run_id = "a90-v3403-debian-f1-20260730-02"
+        connected = stage.BoundFile(
+            "connected",
+            Path("/private/connected.json"),
+            100,
+            "d" * 64,
+        )
+        stage_dir = str(stage.derive_stage_dir(run_id))
+        value = {
+            "schema": stage.PATH_PREFLIGHT_SCHEMA,
+            "run_id": run_id,
+            "target_binding": {
+                "connected_d0_result": str(connected.path),
+                "connected_d0_result_sha256": connected.sha256,
+                "target_profile": stage.TARGET_PROFILE,
+                "exact_a90_bridge": True,
+            },
+            "read": {
+                "kind": "bounded-connected-read-only",
+                "framed_command": "run",
+                "framed_rc": 0,
+                "framed_status": "ok",
+                "paths": {
+                    str(stage.REMOTE_FINAL): "absent",
+                    str(stage.REMOTE_WORK): "absent",
+                    stage_dir: "absent",
+                },
+            },
+            "safety": {
+                "device_write": False,
+                "payload_sent": False,
+                "reboot_requested": False,
+                "flash": False,
+                "userdata_touched": False,
+            },
+        }
+        stage.validate_path_preflight_evidence(
+            value,
+            run_id=run_id,
+            connected_d0=connected,
+            remote_final=str(stage.REMOTE_FINAL),
+            remote_work=str(stage.REMOTE_WORK),
+            remote_stage_dir=stage_dir,
+        )
+        del value["read"]["paths"][stage_dir]
+        with self.assertRaisesRegex(stage.ContractError, "all exact paths"):
+            stage.validate_path_preflight_evidence(
+                value,
+                run_id=run_id,
+                connected_d0=connected,
+                remote_final=str(stage.REMOTE_FINAL),
+                remote_work=str(stage.REMOTE_WORK),
+                remote_stage_dir=stage_dir,
+            )
 
     def test_remote_final_rejects_every_other_path(self) -> None:
         self.assertEqual(
@@ -156,9 +274,9 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
     def test_transfer_targets_only_the_exclusive_stage_payload(self) -> None:
         spec = sample_spec()
         args = types.SimpleNamespace(
-            bridge_host="127.0.0.1",
+            bridge_host="localhost",
             bridge_port=54321,
-            device_ip="192.168.7.2",
+            device_ip="usb-local-device",
             bridge_timeout=120.0,
             connect_timeout=10.0,
             tcp_timeout=60.0,
@@ -279,6 +397,12 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
         self.assertEqual(args.approved_manifest_sha256, "")
         self.assertEqual(args.approved_adapter_sha256, "")
         self.assertEqual(args.approved_run_id, "")
+        self.assertEqual(args.bridge_host, "localhost")
+        self.assertIsNone(args.device_ip)
+
+    def test_tracked_closure_has_no_concrete_network_address(self) -> None:
+        text = SOURCE.read_text(encoding="utf-8")
+        self.assertNotRegex(text, r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b")
 
     def test_live_gate_rejects_draft_before_device_calls(self) -> None:
         spec = types.SimpleNamespace(
@@ -323,14 +447,31 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
     def test_journal_records_are_exclusive_and_ordered(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             journal = Path(temp_dir) / "journal"
-            first = stage.append_record(journal, "first", {"value": 1})
-            second = stage.append_record(journal, "second", {"value": 2})
+            first = stage.append_record(
+                journal,
+                "first",
+                {"value": 1},
+                manifest_sha256="a" * 64,
+                run_id="a90-v3403-debian-f1-20260730-02",
+            )
+            second = stage.append_record(
+                journal,
+                "second",
+                {"value": 2},
+                manifest_sha256="a" * 64,
+                run_id="a90-v3403-debian-f1-20260730-02",
+            )
             self.assertEqual(first.name, "0000-first.json")
             self.assertEqual(second.name, "0001-second.json")
             first_payload = json.loads(first.read_text())
             second_payload = json.loads(second.read_text())
             self.assertEqual(first_payload["sequence"], 0)
             self.assertEqual(second_payload["sequence"], 1)
+            self.assertEqual(first_payload["manifest_sha256"], "a" * 64)
+            self.assertEqual(
+                first_payload["run_id"],
+                "a90-v3403-debian-f1-20260730-02",
+            )
 
 
 if __name__ == "__main__":

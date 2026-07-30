@@ -27,17 +27,22 @@ failure leaves the source byte-identical. V3403 passes the focused `41/41`
 suite and AArch64 compile. A fresh, package-authenticated, clean 2 GiB D3
 sysvinit rootfs and the exact V2321 rollback are hash-verified. A host-only
 absent-only SD staging adapter now uses an exclusive ext4 directory and
-hard-link no-clobber publication; its fault model, source-order gate, and
-connected read-only preflight pass. A minimal manifest-driven F1 orchestrator
-now delegates to that adapter and the existing checked `native_init_flash.py`;
-it durably limits candidate and rollback invocation to one each, keeps the
-candidate out of recovery, and owns bounded observation plus final health. The
-combined host-only closure passes `78/78`. It has not staged a byte or invoked
-a flash. The new execution closure still needs one independent safety review
-and an exact recovery-ADB digest before final-manifest promotion. The private
-manifest therefore remains a non-approvable draft. Debian PID1 is still
-unproved, internal userdata remains untouched, and no A90 live authority
-exists.**
+hard-link no-clobber publication. The first independent review correctly
+returned `NO_GO`: normal flashes did not pin recovery ADB, both boot helpers
+used a nonexistent combined marker, one journal/timeline gap blocked recovery,
+the stage-path D0 was circular and semantically weak, stale staging could be
+reused without a candidate-time remote hash, and the tracked closure contained
+a concrete device address. The host-only remediation now derives the stage
+path from stable run ID, semantically validates D0, reconstructs the exact
+private recovery target for every boot transfer, separates version/build
+checks, repairs timelines from durable journal state, refuses preexisting
+staging output, and rehashes the remote rootfs immediately before candidate
+intent. The combined closure passes `85/85` and contains no concrete network
+address. It has not staged a byte or invoked a flash. The changed closure still
+needs independent re-review and a fresh exact three-path D0 before
+final-manifest promotion. The private manifest therefore remains a
+non-approvable draft. Debian PID1 is still unproved, internal userdata remains
+untouched, and no A90 live authority exists.**
 
 Stock D1 v2 and P2.84 selected different runtime-PM paths. Stock's first two
 outer works ended by `0.291 ms`, followed by deferred child and parent PM

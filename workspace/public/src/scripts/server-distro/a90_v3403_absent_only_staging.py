@@ -68,6 +68,11 @@ REQUIRED_SUPPORT_FILES = (
 HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 RUN_ID_RE = re.compile(r"^a90-v3403-debian-f1-[0-9]{8}-[0-9]{2}$")
 PSTORE_ZERO_RE = re.compile(r"^pstore=[^\r\n]*\bentries=0\b", re.MULTILINE)
+D0_RESULT_SCHEMA = "a90-v3403-connected-d0-v1"
+D0_RESULT_OUTCOME = (
+    "PASS_A90_V3403_CONNECTED_READ_ONLY_AWAITING_STAGING_CONTRACT_AND_F1_MANIFEST"
+)
+PATH_PREFLIGHT_SCHEMA = "a90_v3403_d3_path_preflight_v1"
 STAGE_STEPS = (
     "validate_local",
     "connected_preflight",
@@ -176,9 +181,10 @@ def validate_remote_final(value: Any) -> str:
     return str(path)
 
 
-def derive_stage_dir(manifest_sha256: str) -> PurePosixPath:
-    validate_sha256(manifest_sha256, "manifest sha256")
-    return REMOTE_ROOT / f"{STAGE_PREFIX}{manifest_sha256[:16]}"
+def derive_stage_dir(run_id: str) -> PurePosixPath:
+    if RUN_ID_RE.fullmatch(run_id) is None:
+        raise ContractError("stage directory requires an exact A90 V3403 run_id")
+    return REMOTE_ROOT / f"{STAGE_PREFIX}{run_id}"
 
 
 def _dict(value: Any, label: str) -> dict[str, Any]:
@@ -209,6 +215,131 @@ def _bound_file(
         size=size_value,
         sha256=validate_sha256(sha_value, f"{label}.{sha_key}"),
     )
+
+
+def load_bound_json(bound: BoundFile) -> dict[str, Any]:
+    require_regular_file(
+        bound.path,
+        expected_size=bound.size,
+        expected_sha256=bound.sha256,
+    )
+    try:
+        value = json.loads(bound.path.read_text(encoding="utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ContractError(f"{bound.label} is not valid UTF-8 JSON: {exc}") from exc
+    if not isinstance(value, dict):
+        raise ContractError(f"{bound.label} root must be an object")
+    return value
+
+
+def validate_connected_d0_evidence(
+    value: dict[str, Any],
+    *,
+    expected_realpath: str,
+    candidate: BoundFile,
+    rollback: BoundFile,
+    flash_runner: BoundFile,
+) -> None:
+    target = _dict(value.get("target"), "connected D0 target")
+    health = _dict(value.get("health"), "connected D0 health")
+    selftest = _dict(health.get("selftest"), "connected D0 selftest")
+    safety = _dict(value.get("safety"), "connected D0 safety")
+    artifacts = _dict(value.get("artifacts"), "connected D0 artifacts")
+    repository = _dict(value.get("repository"), "connected D0 repository")
+    candidate_value = _dict(
+        artifacts.get("candidate_boot"),
+        "connected D0 candidate_boot",
+    )
+    rollback_value = _dict(
+        artifacts.get("rollback_boot"),
+        "connected D0 rollback_boot",
+    )
+    if value.get("schema") != D0_RESULT_SCHEMA:
+        raise ContractError("connected D0 schema mismatch")
+    if value.get("outcome") != D0_RESULT_OUTCOME:
+        raise ContractError("connected D0 outcome mismatch")
+    if (
+        target.get("profile") != TARGET_PROFILE
+        or target.get("matching_a90_usb_devices") != 1
+        or target.get("bridge_selected_realpath") != expected_realpath
+    ):
+        raise ContractError("connected D0 exact target binding mismatch")
+    if (
+        health.get("bridge_exact") is not True
+        or health.get("bridge_running") is not True
+        or health.get("version") != EXPECTED_BASELINE_VERSION
+        or health.get("version_build") != EXPECTED_BASELINE_BUILD
+        or health.get("pstore_entries") != 0
+        or selftest.get("fail") != 0
+    ):
+        raise ContractError("connected D0 baseline health mismatch")
+    for name in (
+        "device_write",
+        "flash",
+        "payload_sent",
+        "reboot_requested",
+        "rootfs_staged",
+        "userdata_touched",
+    ):
+        if safety.get(name) is not False:
+            raise ContractError(f"connected D0 safety.{name} is not false")
+    for label, item, bound in (
+        ("candidate", candidate_value, candidate),
+        ("rollback", rollback_value, rollback),
+    ):
+        if item.get("size") != bound.size or item.get("sha256") != bound.sha256:
+            raise ContractError(f"connected D0 {label} artifact mismatch")
+    if repository.get("runner_sha256") != flash_runner.sha256:
+        raise ContractError("connected D0 flash runner mismatch")
+
+
+def validate_path_preflight_evidence(
+    value: dict[str, Any],
+    *,
+    run_id: str,
+    connected_d0: BoundFile,
+    remote_final: str,
+    remote_work: str,
+    remote_stage_dir: str,
+) -> None:
+    target = _dict(value.get("target_binding"), "path preflight target_binding")
+    read = _dict(value.get("read"), "path preflight read")
+    paths = _dict(read.get("paths"), "path preflight paths")
+    safety = _dict(value.get("safety"), "path preflight safety")
+    if value.get("schema") != PATH_PREFLIGHT_SCHEMA:
+        raise ContractError("connected path preflight schema mismatch")
+    if value.get("run_id") != run_id:
+        raise ContractError("connected path preflight run_id mismatch")
+    if (
+        target.get("connected_d0_result") != str(connected_d0.path)
+        or target.get("connected_d0_result_sha256") != connected_d0.sha256
+        or target.get("target_profile") != TARGET_PROFILE
+        or target.get("exact_a90_bridge") is not True
+    ):
+        raise ContractError("connected path preflight target binding mismatch")
+    if (
+        read.get("kind") != "bounded-connected-read-only"
+        or read.get("framed_command") != "run"
+        or read.get("framed_rc") != 0
+        or read.get("framed_status") != "ok"
+    ):
+        raise ContractError("connected path preflight read result mismatch")
+    expected_paths = {
+        remote_final: "absent",
+        remote_work: "absent",
+        remote_stage_dir: "absent",
+    }
+    if paths != expected_paths:
+        raise ContractError("connected path preflight does not prove all exact paths absent")
+    for name in (
+        "device_write",
+        "payload_sent",
+        "reboot_requested",
+        "flash",
+        "userdata_touched",
+    ):
+        if safety.get(name) is not False:
+            raise ContractError(f"connected path preflight safety.{name} is not false")
 
 
 def require_below(path: Path, root: Path, label: str) -> None:
@@ -362,14 +493,6 @@ def stage_spec_from_manifest(
     for item in support_files:
         require_below(item.path, PUBLIC_ROOT, item.label)
 
-    connected_d0 = _bound_file(
-        target.get("connected_d0_result"),
-        "target.connected_d0_result",
-    )
-    connected_paths = _bound_file(
-        target.get("connected_path_preflight"),
-        "target.connected_path_preflight",
-    )
     candidate = _bound_file(manifest.get("candidate_boot"), "candidate_boot")
     rollback = _bound_file(manifest.get("rollback_boot"), "rollback_boot")
     if _dict(manifest.get("candidate_boot"), "candidate_boot").get("partition") != "boot":
@@ -385,6 +508,14 @@ def stage_spec_from_manifest(
     )
     if flash_runner.path != (REVAL_DIR / "native_init_flash.py").resolve(strict=True):
         raise ContractError("candidate/rollback runner is not native_init_flash.py")
+    connected_d0 = _bound_file(
+        target.get("connected_d0_result"),
+        "target.connected_d0_result",
+    )
+    connected_paths = _bound_file(
+        target.get("connected_path_preflight"),
+        "target.connected_path_preflight",
+    )
     host_preparation = _bound_file(
         manifest.get("host_preparation"),
         "host_preparation",
@@ -398,10 +529,41 @@ def stage_spec_from_manifest(
     ):
         require_below(item.path, PRIVATE_ROOT, item.label)
 
+    stage_dir = derive_stage_dir(run_id)
+    evidence_checks = (
+        (
+            "connected D0 evidence",
+            lambda: validate_connected_d0_evidence(
+                load_bound_json(connected_d0),
+                expected_realpath=bridge_realpath,
+                candidate=candidate,
+                rollback=rollback,
+                flash_runner=flash_runner,
+            ),
+        ),
+        (
+            "connected path preflight evidence",
+            lambda: validate_path_preflight_evidence(
+                load_bound_json(connected_paths),
+                run_id=run_id,
+                connected_d0=connected_d0,
+                remote_final=remote_final,
+                remote_work=str(REMOTE_WORK),
+                remote_stage_dir=str(stage_dir),
+            ),
+        ),
+    )
+    for label, check in evidence_checks:
+        try:
+            check()
+        except ContractError as exc:
+            if not allow_draft:
+                raise
+            issues.append(f"{label} is not final: {exc}")
+
     if not allow_draft and issues:
         raise ContractError("; ".join(issues))
 
-    stage_dir = derive_stage_dir(actual_manifest_sha)
     spec = StageSpec(
         run_id=run_id,
         manifest_path=manifest_path.resolve(),
@@ -719,6 +881,8 @@ def simulate_stage(
 def source_contract_issues(source: str) -> tuple[str, ...]:
     issues: list[str] = []
     functions = {
+        "connected D0 evidence": "def validate_connected_d0_evidence(",
+        "path preflight evidence": "def validate_path_preflight_evidence(",
         "preflight": "def remote_readonly_preflight_script(",
         "reserve": "def remote_reserve_script(",
         "verify": "def remote_verify_payload_script(",
@@ -753,6 +917,8 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         ):
             if forbidden in publish:
                 issues.append(f"publish contract contains forbidden token: {forbidden}")
+    if "stage_dir = derive_stage_dir(run_id)" not in source:
+        issues.append("stage path is not derived from the stable run_id")
     execute_start = source.find("\ndef execute_approved_stage(")
     inspect_start = source.find("\ndef inspect_manifest(", execute_start + 1)
     if execute_start < 0 or inspect_start < 0:
@@ -786,16 +952,25 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
     return tuple(issues)
 
 
-def append_record(journal_dir: Path, state_name: str, payload: dict[str, Any]) -> Path:
+def append_record(
+    journal_dir: Path,
+    state_name: str,
+    payload: dict[str, Any],
+    *,
+    manifest_sha256: str,
+    run_id: str,
+) -> Path:
     journal_dir.mkdir(parents=True, exist_ok=True)
     sequence = len(list(journal_dir.glob("*.json")))
     path = journal_dir / f"{sequence:04d}-{state_name}.json"
     body = {
+        **payload,
         "schema": "a90_v3403_absent_only_stage_journal_v1",
         "sequence": sequence,
         "timestamp_utc": utc_now(),
         "state": state_name,
-        **payload,
+        "manifest_sha256": manifest_sha256,
+        "run_id": run_id,
     }
     encoded = (json.dumps(body, indent=2, sort_keys=True) + "\n").encode("utf-8")
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -927,8 +1102,16 @@ def execute_approved_stage(
     run_dir = exact_live_run_dir(spec, args.run_dir)
     run_dir.mkdir(parents=True, exist_ok=False, mode=0o700)
     journal_dir = run_dir / "journal"
-    append_record(
-        journal_dir,
+    def record(state_name: str, payload: dict[str, Any]) -> Path:
+        return append_record(
+            journal_dir,
+            state_name,
+            payload,
+            manifest_sha256=spec.manifest_sha256,
+            run_id=spec.run_id,
+        )
+
+    record(
         "approval-binding-reopened",
         {
             "run_id": spec.run_id,
@@ -942,8 +1125,7 @@ def execute_approved_stage(
     exact_bridge = require_exact_bridge(spec, args)
     baseline = require_baseline(args)
     readonly = run_remote(args, remote_readonly_preflight_script(spec))
-    append_record(
-        journal_dir,
+    record(
         "connected-preflight",
         {
             "exact_bridge": True,
@@ -961,18 +1143,16 @@ def execute_approved_stage(
     publish_attempted = False
     transfer_result: dict[str, Any] | None = None
     try:
-        append_record(
-            journal_dir,
+        record(
             "stage-reserve-start",
             {"device_write_may_follow": True},
         )
         reserve = run_remote(args, remote_reserve_script(spec))
         stage_reserved = True
-        append_record(journal_dir, "stage-reserved", {"record": reserve})
+        record("stage-reserved", {"record": reserve})
 
         command = transfer_command(spec, args)
-        append_record(
-            journal_dir,
+        record(
             "payload-transfer-start",
             {
                 "device_path": spec.remote_payload,
@@ -996,19 +1176,18 @@ def execute_approved_stage(
         }
         if completed.returncode != 0:
             raise RuntimeError(f"payload transfer failed rc={completed.returncode}")
-        append_record(journal_dir, "payload-transfer-complete", transfer_result)
+        record("payload-transfer-complete", transfer_result)
 
         payload = run_remote(args, remote_verify_payload_script(spec))
-        append_record(journal_dir, "payload-verified", {"record": payload})
-        append_record(
-            journal_dir,
+        record("payload-verified", {"record": payload})
+        record(
             "publish-start",
             {"primitive": "hardlink-no-clobber", "final": spec.remote_final},
         )
         publish_attempted = True
         publish = run_remote(args, remote_publish_script(spec))
         published = True
-        append_record(journal_dir, "published", {"record": publish})
+        record("published", {"record": publish})
         require_baseline(args)
         result = {
             "schema": ADAPTER_SCHEMA,
@@ -1040,7 +1219,7 @@ def execute_approved_stage(
             },
         }
         d1.write_json(run_dir / "result.json", result)
-        append_record(journal_dir, "closed", {"result": result})
+        record("closed", {"result": result})
         return result
     except Exception as exc:
         cleanup: dict[str, Any] | None = None
@@ -1056,8 +1235,7 @@ def execute_approved_stage(
                     "error": type(cleanup_exc).__name__,
                     "message": str(cleanup_exc),
                 }
-        append_record(
-            journal_dir,
+        record(
             "aborted",
             {
                 "error": type(exc).__name__,
@@ -1115,9 +1293,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--approved-adapter-sha256", default="")
     parser.add_argument("--approved-run-id", default="")
     parser.add_argument("--run-dir", type=Path)
-    parser.add_argument("--bridge-host", default="127.0.0.1")
+    parser.add_argument("--bridge-host", default="localhost")
     parser.add_argument("--bridge-port", type=int, default=54321)
-    parser.add_argument("--device-ip", default="192.168.7.2")
+    parser.add_argument("--device-ip")
     parser.add_argument("--toybox", default="/bin/toybox")
     parser.add_argument("--remote-timeout", type=float, default=180.0)
     parser.add_argument("--bridge-timeout", type=float, default=120.0)
@@ -1142,6 +1320,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.run_dir is None:
         raise ContractError("--run-dir is required for approved staging")
+    if not args.device_ip:
+        raise ContractError("--device-ip is required for approved staging")
     result = execute_approved_stage(spec, manifest, args)
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0

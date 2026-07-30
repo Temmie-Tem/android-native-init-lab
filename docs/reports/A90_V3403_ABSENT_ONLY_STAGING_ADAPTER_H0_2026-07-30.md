@@ -3,7 +3,7 @@
 Date: 2026-07-30 KST
 
 Status:
-`PASS_HOST_IMPLEMENTED_REVIEW_PENDING_NO_LIVE_AUTHORITY`
+`PASS_HOST_REMEDIATED_RE_REVIEW_PENDING_NO_LIVE_AUTHORITY`
 
 ## Scope
 
@@ -21,7 +21,7 @@ device write.
 ## Selected publication contract
 
 The connected A90 reports `/mnt/sdext` as read-write ext4. The adapter therefore
-uses one manifest-derived, absent-only directory below
+uses one stable run-ID-derived, absent-only directory below
 `/mnt/sdext/a90/runtime/`. The existing TCP transfer helper may publish only
 the payload inside that exclusive directory. It never receives the final
 rootfs path.
@@ -45,9 +45,9 @@ removes a published final and never uses recursive deletion.
 
 - Adapter:
   `workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py`
-- Size: `40644`
+- Size: `47163`
 - SHA256:
-  `9cc9bc2eb77e4c6ec7b3cbf0e8d978bc051a9a1b3410a716e75d0773c7a486b2`
+  `93a3bf1cbf7a2af0745c3296dde62e01650a6db42b3e9b32695a85f8e19f9c8f`
 - Tests:
   `tests/test_server_distro_a90_v3403_absent_only_staging.py`
 - Inner payload transport:
@@ -74,9 +74,9 @@ The keyed rootfs remains:
 ## Validation
 
 - Python compilation passed.
-- The new focused suite passes `25/25`.
+- The focused suite passes `28/28`.
 - The new adapter plus V3403 build, D3 handoff, and D3 rootfs focused group
-  passes `50/50`.
+  passes `53/53`.
 - Every declared prepublication fault leaves the final path absent.
 - Every modeled postpublication fault preserves the exact final identity but
   keeps `candidate_allowed=false`.
@@ -85,37 +85,42 @@ The keyed rootfs remains:
 - Source mutations replacing hard-link publication with `mv -f` or removing
   inode-identity proof are rejected.
 - All five generated remote shell contracts pass `/bin/sh -n`.
+- The connected D0 JSON must semantically prove one exact A90, exact V2321
+  health, exact candidate/rollback/runner hashes, and no-write safety.
+- The path-preflight JSON must semantically prove the exact final, work, and
+  stable run-ID stage paths all absent.
+- Every successful staging journal record carries the exact run ID and
+  manifest SHA; the orchestrator accepts only the full contiguous success
+  sequence.
+- No concrete USB-local device address remains in the tracked adapter or test
+  closure.
 - The static execution-order gate proves local closure validation, exact
   bridge and V2321 health, read-only path preflight, durable reserve/transfer
   records, payload verification, publish intent, hard-link publication, and
   candidate eligibility occur in that order.
 
-The connected read-only check passed on the exact A90 bridge:
+The earlier connected read-only check passed on the exact A90 bridge:
 
 - V2321 version/build exact;
 - `selftest pass=11 warn=1 fail=0`;
 - pstore `entries=0`;
 - SD filesystem ext4 and read-write;
 - required BusyBox applets present;
-- final rootfs, fixed V3403 work path, and manifest-derived staging directory
-  absent.
+- final rootfs and fixed V3403 work path absent.
 
-No device write occurred during that check.
+That evidence predates the stable run-ID stage path and therefore does not
+satisfy the new three-path semantic gate. A fresh D0 check remains required.
+No device write occurred during the earlier check.
 
 ## Remaining gates
 
 This unit is not an execution-ready F1 closure.
 
-1. One independent safety review is required for the new staging execution
-   closure.
-2. A manifest-driven A90 F1 orchestrator must be implemented and independently
-   reviewed. It must consume the staging result and own candidate transfer,
-   bounded Debian PID1 observation, mandatory exact rollback, final health,
-   and no-replay journaling.
+1. The remediated combined closure must pass independent re-review.
+2. The exact target and all three absent paths must be refreshed with D0
+   evidence for the stable run-ID stage path.
 3. Only then may a final manifest replace the private draft.
-4. The exact target and all three absent paths must be rechecked against that
-   final manifest.
-5. One fresh approval must bind that final manifest and reviewed execution
+4. One fresh approval must bind that final manifest and reviewed execution
    closure.
 
 The current private draft is deliberately not approvalable and its hash must

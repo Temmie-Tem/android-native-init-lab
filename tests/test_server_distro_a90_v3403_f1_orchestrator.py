@@ -65,6 +65,8 @@ def sample_spec() -> object:
         observer_port=2222,
         orchestrator_sha256=f1.sha256_file(SOURCE.resolve()),
         recovery_serial_sha256=hashlib.sha256(b"recovery-target").hexdigest(),
+        recovery_serial="recovery-target",
+        recovery_evidence=(),
         candidate_boot_timeout=300,
         rollback_boot_timeout=300,
     )
@@ -81,7 +83,46 @@ def sample_args() -> object:
         remote_timeout=180.0,
         transfer_timeout=1200.0,
         ssh_connect_timeout=8.0,
+        recovery_path=None,
     )
+
+
+def write_stage_success(base: Path, spec: object) -> dict[str, object]:
+    result_dir = base / spec.stage.run_id / "staging-live"
+    result_dir.mkdir(parents=True)
+    result: dict[str, object] = {
+        "schema": f1.staging.ADAPTER_SCHEMA,
+        "run_id": spec.stage.run_id,
+        "status": "PASS_ABSENT_ONLY_ROOTFS_STAGED",
+        "manifest_sha256": spec.stage.manifest_sha256,
+        "adapter_sha256": spec.stage.adapter_sha256,
+        "rootfs": {
+            "device_path": spec.stage.remote_final,
+            "size": spec.stage.local_size,
+            "sha256": spec.stage.local_sha256,
+        },
+        "publication": {"candidate_allowed": True},
+    }
+    path = result_dir / "result.json"
+    path.write_text(json.dumps(result), encoding="utf-8")
+    path.chmod(0o600)
+    journal = result_dir / "journal"
+    journal.mkdir()
+    for sequence, state in enumerate(f1.SUCCESSFUL_STAGE_STATES):
+        record: dict[str, object] = {
+            "schema": "a90_v3403_absent_only_stage_journal_v1",
+            "sequence": sequence,
+            "timestamp_utc": "2026-07-30T00:00:00Z",
+            "state": state,
+            "run_id": spec.stage.run_id,
+            "manifest_sha256": spec.stage.manifest_sha256,
+        }
+        if state == "closed":
+            record["result"] = result
+        journal_record = journal / f"{sequence:04d}-{state}.json"
+        journal_record.write_text(json.dumps(record), encoding="utf-8")
+        journal_record.chmod(0o600)
+    return result
 
 
 class A90V3403F1OrchestratorTests(unittest.TestCase):
@@ -151,18 +192,29 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
         marker = "def simulate_transaction("
         mutated = source.replace(
             marker,
-            "    flash_command(spec, args, rollback=False)\n\n" + marker,
+            (
+                "    flash_command(spec, args, rollback=False, from_native=True)"
+                "\n\n" + marker
+            ),
             1,
         )
         issues = f1.source_contract_issues(mutated)
         self.assertIn("recovery contains a candidate execution route", issues)
 
     def test_candidate_flash_command_is_exact_and_boot_only(self) -> None:
-        command = f1.flash_command(sample_spec(), sample_args(), rollback=False)
+        command = f1.flash_command(
+            sample_spec(),
+            sample_args(),
+            rollback=False,
+            from_native=True,
+        )
         self.assertEqual(command[1], str(f1.NATIVE_FLASH_PATH))
         self.assertIn("/private/candidate.img", command)
         self.assertIn("d" * 64, command)
-        self.assertIn("candidate-version build=candidate-build", command)
+        self.assertIn("candidate-version", command)
+        self.assertNotIn("candidate-version build=candidate-build", command)
+        self.assertIn("--serial", command)
+        self.assertIn("recovery-target", command)
         self.assertIn("--from-native", command)
         self.assertNotIn("--allow-unpinned-image", command)
         self.assertNotIn("--boot-block", command)
@@ -173,7 +225,7 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
             sample_spec(),
             sample_args(),
             rollback=True,
-            recovery_serial="recovery-target",
+            from_native=False,
         )
         self.assertIn("/private/rollback.img", command)
         self.assertIn("e" * 64, command)
@@ -210,14 +262,38 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
         with self.assertRaisesRegex(f1.ContractError, "orchestrator"):
             f1.approved_bindings(sample_spec(), args)
 
-    def test_recovery_serial_is_digest_bound(self) -> None:
-        spec = sample_spec()
-        self.assertEqual(
-            f1.validate_recovery_serial(spec, "recovery-target"),
-            "recovery-target",
-        )
-        with self.assertRaisesRegex(f1.ContractError, "does not match"):
-            f1.validate_recovery_serial(spec, "other-target")
+    def test_recovery_serial_is_derived_from_two_digest_bound_logs(self) -> None:
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            root = Path(temp_dir)
+            evidence = []
+            for name in ("candidate.log", "rollback.log"):
+                path = root / name
+                path.write_text(
+                    "[native-init-flash 00:00:00] "
+                    "ADB ready: recovery-target recovery\n",
+                    encoding="utf-8",
+                )
+                path.chmod(0o600)
+                evidence.append(
+                    f1.staging.BoundFile(
+                        label=name,
+                        path=path,
+                        size=path.stat().st_size,
+                        sha256=f1.sha256_file(path),
+                    )
+                )
+            self.assertEqual(
+                f1.recovery_serial_from_evidence(
+                    tuple(evidence),
+                    hashlib.sha256(b"recovery-target").hexdigest(),
+                ),
+                "recovery-target",
+            )
+            with self.assertRaisesRegex(f1.ContractError, "manifest digest"):
+                f1.recovery_serial_from_evidence(
+                    tuple(evidence),
+                    hashlib.sha256(b"other-target").hexdigest(),
+                )
 
     def test_exact_transaction_dir_rejects_every_other_location(self) -> None:
         spec = sample_spec()
@@ -236,7 +312,7 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
 
     def test_journal_is_exclusive_contiguous_and_manifest_bound(self) -> None:
         spec = sample_spec()
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
             transaction = Path(temp_dir)
             journal = transaction / "journal"
             first = f1.append_record(
@@ -262,7 +338,7 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
             self.assertTrue(all(record["manifest_sha256"] == "a" * 64 for record in records))
 
     def test_timeline_accepts_ordered_failure_subset(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
             transaction = Path(temp_dir)
             events: list[dict[str, str]] = []
             for name in (
@@ -281,7 +357,7 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
             )
 
     def test_timeline_rejects_duplicate_and_reverse_order(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
             transaction = Path(temp_dir)
             events: list[dict[str, str]] = []
             f1.add_event(transaction, events, "live_session_start")
@@ -296,44 +372,101 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
             with self.assertRaisesRegex(f1.ContractError, "out of order"):
                 f1.add_event(transaction, events, "candidate_flash_done")
 
+    def test_timeline_repairs_every_durable_completion_without_replay(self) -> None:
+        spec = sample_spec()
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            transaction = Path(temp_dir)
+            journal = transaction / "journal"
+            actions = (
+                ("PREFLIGHT", "preflight"),
+                ("APPROVED", "candidate-transfer-started"),
+                ("CANDIDATE_FLASHED", "candidate-flashed"),
+                ("CANDIDATE_FLASHED", "candidate-boot-ready"),
+                ("RECOVERY_ROLLBACK", "rollback-transfer-started"),
+                ("ROLLBACK_FLASHED", "rollback-flashed"),
+                ("ROLLBACK_FLASHED", "rollback-boot-ready"),
+            )
+            for state, action in actions:
+                f1.append_record(
+                    journal,
+                    state,
+                    action,
+                    {},
+                    manifest_sha256=spec.stage.manifest_sha256,
+                    run_id=spec.stage.run_id,
+                )
+            events = f1.repair_timeline_from_journal(
+                transaction,
+                f1.read_journal(spec, transaction),
+            )
+            self.assertEqual(
+                [event["name"] for event in events],
+                list(f1.CANONICAL_EVENTS[:-1]),
+            )
+
+    def test_stray_rollback_start_event_does_not_block_idempotent_recovery(self) -> None:
+        spec = sample_spec()
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            transaction = Path(temp_dir)
+            events: list[dict[str, str]] = []
+            f1.add_event(transaction, events, "live_session_start")
+            f1.add_event(transaction, events, "candidate_flash_start")
+            f1.add_event(transaction, events, "rollback_flash_start")
+            journal = transaction / "journal"
+            for state, action in (
+                ("PREFLIGHT", "preflight"),
+                ("APPROVED", "candidate-transfer-started"),
+            ):
+                f1.append_record(
+                    journal,
+                    state,
+                    action,
+                    {},
+                    manifest_sha256=spec.stage.manifest_sha256,
+                    run_id=spec.stage.run_id,
+                )
+            repaired = f1.repair_timeline_from_journal(
+                transaction,
+                f1.read_journal(spec, transaction),
+            )
+            self.assertNotIn(
+                "rollback_flash_start",
+                [event["name"] for event in repaired],
+            )
+            f1.ensure_event(transaction, repaired, "rollback_flash_start")
+            f1.ensure_event(transaction, repaired, "rollback_flash_start")
+            self.assertEqual(
+                [event["name"] for event in repaired].count("rollback_flash_start"),
+                1,
+            )
+
+    def test_flash_log_classifies_host_rejection_separately(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "flash.log"
+            path.write_text(
+                "[native-init-flash 00:00:00] "
+                "phase.native_init_flash.inspect_local_image.elapsed_sec=0.1 ok=0\n",
+                encoding="utf-8",
+            )
+            classification = f1.classify_flash_log(path)
+            self.assertFalse(classification["local_image_validated"])
+            self.assertFalse(classification["native_recovery_requested"])
+            self.assertFalse(classification["recovery_endpoint_selected"])
+            self.assertFalse(classification["boot_write_started"])
+
     def test_stage_result_must_allow_the_exact_candidate(self) -> None:
         spec = sample_spec()
         with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
             old_base = f1.PRIVATE_RUN_BASE
             try:
                 f1.PRIVATE_RUN_BASE = Path(temp_dir)
-                result_dir = Path(temp_dir) / spec.stage.run_id / "staging-live"
-                result_dir.mkdir(parents=True)
-                result = {
-                    "schema": f1.staging.ADAPTER_SCHEMA,
-                    "run_id": spec.stage.run_id,
-                    "status": "PASS_ABSENT_ONLY_ROOTFS_STAGED",
-                    "manifest_sha256": spec.stage.manifest_sha256,
-                    "adapter_sha256": spec.stage.adapter_sha256,
-                    "rootfs": {
-                        "device_path": spec.stage.remote_final,
-                        "size": spec.stage.local_size,
-                        "sha256": spec.stage.local_sha256,
-                    },
-                    "publication": {"candidate_allowed": True},
-                }
-                path = result_dir / "result.json"
-                path.write_text(json.dumps(result), encoding="utf-8")
-                path.chmod(0o600)
-                journal = result_dir / "journal"
-                journal.mkdir()
-                journal_record = journal / "0000-closed.json"
-                journal_record.write_text(
-                    json.dumps(
-                        {
-                            "schema": "a90_v3403_absent_only_stage_journal_v1",
-                            "state": "closed",
-                            "result": result,
-                        }
-                    ),
-                    encoding="utf-8",
+                result = write_stage_success(Path(temp_dir), spec)
+                path = (
+                    Path(temp_dir)
+                    / spec.stage.run_id
+                    / "staging-live"
+                    / "result.json"
                 )
-                journal_record.chmod(0o600)
                 self.assertTrue(f1.validate_stage_result(spec)["publication"]["candidate_allowed"])
                 result["publication"]["candidate_allowed"] = False
                 path.write_text(json.dumps(result), encoding="utf-8")
@@ -366,7 +499,30 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                 path = result_dir / "result.json"
                 path.write_text(json.dumps(result), encoding="utf-8")
                 path.chmod(0o600)
-                with self.assertRaisesRegex(f1.ContractError, "journal is absent"):
+                with self.assertRaisesRegex(f1.ContractError, "success closure"):
+                    f1.validate_stage_result(spec)
+            finally:
+                f1.PRIVATE_RUN_BASE = old_base
+
+    def test_stage_result_rejects_unbound_or_noncontiguous_journal(self) -> None:
+        spec = sample_spec()
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            old_base = f1.PRIVATE_RUN_BASE
+            try:
+                base = Path(temp_dir)
+                f1.PRIVATE_RUN_BASE = base
+                write_stage_success(base, spec)
+                first = (
+                    base
+                    / spec.stage.run_id
+                    / "staging-live"
+                    / "journal"
+                    / "0000-approval-binding-reopened.json"
+                )
+                value = json.loads(first.read_text())
+                value["manifest_sha256"] = "0" * 64
+                first.write_text(json.dumps(value), encoding="utf-8")
+                with self.assertRaisesRegex(f1.ContractError, "exact bound"):
                     f1.validate_stage_result(spec)
             finally:
                 f1.PRIVATE_RUN_BASE = old_base
@@ -435,6 +591,7 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
         self.assertFalse(args.execute_approved_f1)
         self.assertFalse(args.recover_approved_rollback)
         self.assertEqual(args.approved_manifest_sha256, "")
+        self.assertIsNone(args.recovery_path)
 
     def test_recovery_source_has_no_candidate_invocation(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")

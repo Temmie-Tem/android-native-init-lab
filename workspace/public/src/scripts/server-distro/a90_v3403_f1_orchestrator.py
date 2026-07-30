@@ -71,6 +71,22 @@ OBSERVATION_OUTPUT_MARKERS = (
     "work_copy=ready",
     "exec_switch_root_now",
 )
+RECOVERY_ADB_MARKER_RE = re.compile(
+    r"(?:^|\] )ADB ready: ([^\s]+) recovery\r?$",
+    re.MULTILINE,
+)
+SUCCESSFUL_STAGE_STATES = (
+    "approval-binding-reopened",
+    "connected-preflight",
+    "stage-reserve-start",
+    "stage-reserved",
+    "payload-transfer-start",
+    "payload-transfer-complete",
+    "payload-verified",
+    "publish-start",
+    "published",
+    "closed",
+)
 
 
 class ContractError(RuntimeError):
@@ -99,6 +115,8 @@ class F1Spec:
     candidate_return_timeout: int
     rollback_boot_timeout: int
     recovery_serial_sha256: str
+    recovery_serial: str
+    recovery_evidence: tuple[staging.BoundFile, ...]
     orchestrator_size: int
     orchestrator_sha256: str
 
@@ -157,6 +175,55 @@ def bound_by_label(stage_spec: staging.StageSpec, label: str) -> staging.BoundFi
     if len(matches) != 1:
         raise ContractError(f"bound closure must contain one {label}")
     return matches[0]
+
+
+def private_bound_file(value: Any, label: str) -> staging.BoundFile:
+    item = _dict(value, label)
+    path_value = item.get("path")
+    size_value = item.get("size")
+    if not isinstance(path_value, str):
+        raise ContractError(f"{label}.path is missing")
+    if not isinstance(size_value, int) or size_value <= 0:
+        raise ContractError(f"{label}.size must be positive")
+    bound = staging.BoundFile(
+        label=label,
+        path=Path(path_value).resolve(strict=True),
+        size=size_value,
+        sha256=validate_sha256(item.get("sha256"), f"{label}.sha256"),
+    )
+    staging.require_below(bound.path, staging.PRIVATE_ROOT, label)
+    return bound
+
+
+def recovery_serial_from_evidence(
+    evidence: tuple[staging.BoundFile, ...],
+    expected_sha256: str,
+) -> str:
+    if len(evidence) != 2:
+        raise ContractError("recovery ADB identity requires exactly two evidence logs")
+    serials: list[str] = []
+    for bound in evidence:
+        staging.require_regular_file(
+            bound.path,
+            expected_size=bound.size,
+            expected_sha256=bound.sha256,
+        )
+        try:
+            text = bound.path.read_text(encoding="utf-8")
+        except UnicodeDecodeError as exc:
+            raise ContractError(f"{bound.label} is not UTF-8 text") from exc
+        matches = RECOVERY_ADB_MARKER_RE.findall(text)
+        if len(matches) != 1:
+            raise ContractError(
+                f"{bound.label} must contain exactly one recovery ADB marker"
+            )
+        serials.append(matches[0])
+    if serials[0] != serials[1]:
+        raise ContractError("recovery ADB evidence logs select different targets")
+    actual = hashlib.sha256(serials[0].encode("utf-8")).hexdigest()
+    if actual != expected_sha256:
+        raise ContractError("recovery ADB serial does not match the manifest digest")
+    return serials[0]
 
 
 def _dict(value: Any, label: str) -> dict[str, Any]:
@@ -278,6 +345,8 @@ def load_spec(
 
     target = _dict(manifest.get("target"), "target")
     recovery_serial_sha256_value = target.get("recovery_adb_serial_sha256")
+    recovery_evidence: tuple[staging.BoundFile, ...] = ()
+    recovery_serial = ""
     if recovery_serial_sha256_value is None and allow_draft:
         recovery_serial_sha256 = ""
         issues.append("final manifest lacks recovery_adb_serial_sha256")
@@ -286,6 +355,31 @@ def load_spec(
             recovery_serial_sha256_value,
             "target.recovery_adb_serial_sha256",
         )
+    evidence_value = target.get("recovery_adb_identity_evidence")
+    if not isinstance(evidence_value, dict):
+        issues.append("final manifest lacks bound recovery ADB identity evidence")
+    elif recovery_serial_sha256:
+        try:
+            recovery_evidence = (
+                private_bound_file(
+                    evidence_value.get("candidate_recovery_log"),
+                    "target.recovery_adb_identity_evidence.candidate_recovery_log",
+                ),
+                private_bound_file(
+                    evidence_value.get("rollback_recovery_log"),
+                    "target.recovery_adb_identity_evidence.rollback_recovery_log",
+                ),
+            )
+            recovery_serial = recovery_serial_from_evidence(
+                recovery_evidence,
+                recovery_serial_sha256,
+            )
+        except (ContractError, FileNotFoundError) as exc:
+            if not allow_draft:
+                raise
+            issues.append(f"recovery ADB identity evidence is not final: {exc}")
+            recovery_evidence = ()
+            recovery_serial = ""
 
     rootfs_staging = _dict(manifest.get("rootfs_staging"), "rootfs_staging")
     if rootfs_staging.get("independent_review_passed") is not True:
@@ -362,6 +456,8 @@ def load_spec(
             candidate_return_timeout=candidate_return_timeout,
             rollback_boot_timeout=rollback_boot_timeout,
             recovery_serial_sha256=recovery_serial_sha256,
+            recovery_serial=recovery_serial,
+            recovery_evidence=recovery_evidence,
             orchestrator_size=orchestrator_size,
             orchestrator_sha256=orchestrator_sha256,
         ),
@@ -386,6 +482,19 @@ def verify_local_closure(spec: F1Spec) -> None:
         expected_size=spec.flash_runner.size,
         expected_sha256=spec.flash_runner.sha256,
     )
+    for item in spec.recovery_evidence:
+        staging.require_regular_file(
+            item.path,
+            expected_size=item.size,
+            expected_sha256=item.sha256,
+        )
+    if not spec.recovery_serial:
+        raise ContractError("exact recovery ADB target is not available")
+    if (
+        hashlib.sha256(spec.recovery_serial.encode("utf-8")).hexdigest()
+        != spec.recovery_serial_sha256
+    ):
+        raise ContractError("in-memory recovery ADB target lost its manifest binding")
     staging.require_regular_file(
         Path(__file__).resolve(),
         expected_size=spec.orchestrator_size,
@@ -417,6 +526,7 @@ def append_record(
     sequence = len(existing)
     path = journal_dir / f"{sequence:04d}-{action}.json"
     body = {
+        **payload,
         "schema": JOURNAL_SCHEMA,
         "sequence": sequence,
         "timestamp_utc": utc_now(),
@@ -424,7 +534,6 @@ def append_record(
         "manifest_sha256": manifest_sha256,
         "state": state,
         "action": action,
-        **payload,
     }
     encoded = (json.dumps(body, indent=2, sort_keys=True) + "\n").encode("utf-8")
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -451,6 +560,7 @@ def read_journal(spec: F1Spec, transaction_dir: Path) -> list[dict[str, Any]]:
         expected_prefix = f"{sequence:04d}-"
         if not path.name.startswith(expected_prefix):
             raise ContractError("transaction journal sequence is not contiguous")
+        require_private_regular(path)
         value = json.loads(path.read_text(encoding="utf-8"))
         if (
             not isinstance(value, dict)
@@ -460,6 +570,8 @@ def read_journal(spec: F1Spec, transaction_dir: Path) -> list[dict[str, Any]]:
             or value.get("manifest_sha256") != spec.stage.manifest_sha256
         ):
             raise ContractError(f"invalid journal record: {path}")
+        if path.name != f"{sequence:04d}-{value.get('action')}.json":
+            raise ContractError(f"journal filename/action mismatch: {path}")
         records.append(value)
     return records
 
@@ -511,12 +623,98 @@ def add_event(
     write_private_json(transaction_dir / "timeline.json", {"events": events})
 
 
+def ensure_event(
+    transaction_dir: Path,
+    events: list[dict[str, str]],
+    name: str,
+) -> None:
+    if name in [event.get("name") for event in events]:
+        return
+    add_event(transaction_dir, events, name)
+
+
+JOURNAL_EVENT_ACTIONS = {
+    "live_session_start": ("preflight",),
+    "candidate_flash_start": ("candidate-transfer-started",),
+    "candidate_flash_done": ("candidate-flashed",),
+    "candidate_boot_ready": ("candidate-boot-ready",),
+    "rollback_flash_start": ("rollback-transfer-started",),
+    "rollback_flash_done": (
+        "rollback-flashed",
+        "rollback-completion-recovered-by-health",
+    ),
+    "rollback_boot_ready": ("rollback-boot-ready",),
+    "live_session_end": ("closed", "aborted-before-candidate"),
+}
+
+
+def repair_timeline_from_journal(
+    transaction_dir: Path,
+    records: list[dict[str, Any]],
+) -> list[dict[str, str]]:
+    existing = load_timeline(transaction_dir)
+    existing_by_name = {event["name"]: event["timestamp_utc"] for event in existing}
+    timestamps: dict[str, str] = {}
+    for event_name, actions in JOURNAL_EVENT_ACTIONS.items():
+        for record in records:
+            if record.get("action") in actions:
+                timestamps[event_name] = str(record["timestamp_utc"])
+                break
+    repaired: list[dict[str, str]] = []
+    for name in CANONICAL_EVENTS:
+        if name not in timestamps:
+            continue
+        repaired.append(
+            {
+                "name": name,
+                "timestamp_utc": existing_by_name.get(name, timestamps[name]),
+            }
+        )
+    if repaired != existing:
+        write_private_json(transaction_dir / "timeline.json", {"events": repaired})
+    return repaired
+
+
 def command_record(path: Path, returncode: int) -> dict[str, Any]:
     return {
         "returncode": returncode,
         "raw_log": str(path),
         "raw_log_size": path.stat().st_size,
         "raw_log_sha256": sha256_file(path),
+    }
+
+
+def classify_flash_log(path: Path) -> dict[str, bool]:
+    text = path.read_text(encoding="utf-8", errors="replace")
+    return {
+        "local_image_validated": (
+            "phase.native_init_flash.inspect_local_image." in text
+            and "phase.native_init_flash.inspect_local_image.elapsed_sec=" in text
+            and "ok=1" in text.split(
+                "phase.native_init_flash.inspect_local_image.elapsed_sec=",
+                1,
+            )[1].splitlines()[0]
+        ),
+        "native_recovery_requested": (
+            "phase.native_init_flash.native_to_recovery.elapsed_sec=" in text
+        ),
+        "recovery_endpoint_selected": RECOVERY_ADB_MARKER_RE.search(text) is not None,
+        "payload_transfer_started": "phase.native_init_flash.adb_push.elapsed_sec=" in text,
+        "boot_write_started": "phase.native_init_flash.boot_dd_write.elapsed_sec=" in text,
+        "boot_write_completed": (
+            "phase.native_init_flash.boot_dd_write.elapsed_sec=" in text
+            and "ok=1" in text.split(
+                "phase.native_init_flash.boot_dd_write.elapsed_sec=",
+                1,
+            )[1].splitlines()[0]
+        ),
+        "readback_completed": (
+            "phase.native_init_flash.boot_readback_sha256.elapsed_sec=" in text
+            and "ok=1" in text.split(
+                "phase.native_init_flash.boot_readback_sha256.elapsed_sec=",
+                1,
+            )[1].splitlines()[0]
+        ),
     }
 
 
@@ -592,11 +790,10 @@ def flash_command(
     args: argparse.Namespace,
     *,
     rollback: bool,
-    recovery_serial: str | None = None,
+    from_native: bool,
 ) -> list[str]:
     bound = spec.rollback if rollback else spec.candidate
     version = spec.rollback_version if rollback else spec.candidate_version
-    build = spec.rollback_build if rollback else spec.candidate_build
     timeout = spec.rollback_boot_timeout if rollback else spec.candidate_boot_timeout
     command = [
         sys.executable,
@@ -613,14 +810,14 @@ def flash_command(
         "--expect-sha256",
         bound.sha256,
         "--expect-version",
-        f"{version} build={build}",
+        version,
         "--verify-protocol",
         "selftest",
+        "--serial",
+        spec.recovery_serial,
     ]
-    if recovery_serial is None:
+    if from_native:
         command.append("--from-native")
-    else:
-        command.extend(["--serial", recovery_serial])
     return command
 
 
@@ -646,16 +843,27 @@ def validate_stage_result(spec: F1Spec) -> dict[str, Any]:
     ):
         raise ContractError("staging result does not authorize this exact candidate")
     journal_paths = sorted((stage_dir / "journal").glob("*.json"))
-    if not journal_paths:
-        raise ContractError("staging journal is absent")
-    require_private_regular(journal_paths[-1])
-    last = json.loads(journal_paths[-1].read_text(encoding="utf-8"))
-    if (
-        not isinstance(last, dict)
-        or last.get("schema") != "a90_v3403_absent_only_stage_journal_v1"
-        or last.get("state") != "closed"
-        or last.get("result") != value
-    ):
+    if len(journal_paths) != len(SUCCESSFUL_STAGE_STATES):
+        raise ContractError("staging journal does not have the exact success closure")
+    records: list[dict[str, Any]] = []
+    for sequence, journal_path in enumerate(journal_paths):
+        require_private_regular(journal_path)
+        if not journal_path.name.startswith(f"{sequence:04d}-"):
+            raise ContractError("staging journal sequence is not contiguous")
+        record = json.loads(journal_path.read_text(encoding="utf-8"))
+        if (
+            not isinstance(record, dict)
+            or record.get("schema") != "a90_v3403_absent_only_stage_journal_v1"
+            or record.get("sequence") != sequence
+            or record.get("run_id") != spec.stage.run_id
+            or record.get("manifest_sha256") != spec.stage.manifest_sha256
+            or record.get("state") != SUCCESSFUL_STAGE_STATES[sequence]
+        ):
+            raise ContractError("staging journal is not the exact bound success sequence")
+        if journal_path.name != f"{sequence:04d}-{record.get('state')}.json":
+            raise ContractError("staging journal filename/state mismatch")
+        records.append(record)
+    if records[-1].get("result") != value:
         raise ContractError("staging journal is not durably closed on the exact result")
     return value
 
@@ -688,6 +896,36 @@ def remote_source_preflight(spec: F1Spec, args: argparse.Namespace) -> dict[str,
         args.remote_timeout,
         script,
     )
+
+
+def verify_candidate_health(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
+    bridge = staging.require_exact_bridge(spec.stage, args)
+    version = d1.run_cmd(
+        args.bridge_host,
+        args.bridge_port,
+        args.remote_timeout,
+        ["version"],
+    )
+    selftest = d1.run_cmd(
+        args.bridge_host,
+        args.bridge_port,
+        args.remote_timeout,
+        ["selftest"],
+    )
+    version_text = str(version.get("text") or "")
+    if (
+        spec.candidate_version not in version_text
+        or spec.candidate_build not in version_text
+    ):
+        raise ContractError("candidate boot identity lacks exact version/build")
+    if "fail=0" not in str(selftest.get("text") or ""):
+        raise ContractError("candidate boot selftest is not fail=0")
+    return {
+        "exact_bridge": True,
+        "selected_realpath": bridge.get("selected_realpath"),
+        "version": version,
+        "selftest": selftest,
+    }
 
 
 def run_handoff(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
@@ -870,17 +1108,6 @@ def require_rollback_source_native(spec: F1Spec, args: argparse.Namespace) -> di
     return {"version": version, "selftest": selftest}
 
 
-def validate_recovery_serial(spec: F1Spec, serial: str | None) -> str | None:
-    if serial is None:
-        return None
-    if not spec.recovery_serial_sha256:
-        raise ContractError("manifest does not bind a recovery ADB serial digest")
-    actual = hashlib.sha256(serial.encode("utf-8")).hexdigest()
-    if actual != spec.recovery_serial_sha256:
-        raise ContractError("recovery ADB serial does not match the manifest binding")
-    return serial
-
-
 def invoke_rollback(
     spec: F1Spec,
     args: argparse.Namespace,
@@ -888,9 +1115,9 @@ def invoke_rollback(
     journal_dir: Path,
     events: list[dict[str, str]],
     *,
-    recovery_serial: str | None,
+    from_native: bool,
 ) -> dict[str, Any]:
-    add_event(transaction_dir, events, "rollback_flash_start")
+    ensure_event(transaction_dir, events, "rollback_flash_start")
     append_record(
         journal_dir,
         "RECOVERY_ROLLBACK",
@@ -899,7 +1126,7 @@ def invoke_rollback(
             "rollback_sha256": spec.rollback.sha256,
             "rollback_attempt_count": 1,
             "candidate_replay": False,
-            "recovery_mode": "adb-recovery" if recovery_serial else "from-native",
+            "recovery_mode": "from-native" if from_native else "adb-recovery",
         },
         manifest_sha256=spec.stage.manifest_sha256,
         run_id=spec.stage.run_id,
@@ -909,12 +1136,15 @@ def invoke_rollback(
             spec,
             args,
             rollback=True,
-            recovery_serial=recovery_serial,
+            from_native=from_native,
         ),
         log_path=transaction_dir / "rollback-flash.raw.log",
         timeout=args.flash_command_timeout,
     )
     if record["returncode"] != 0:
+        record["phase_classification"] = classify_flash_log(
+            Path(str(record["raw_log"]))
+        )
         append_record(
             journal_dir,
             "RECOVERY_ROLLBACK",
@@ -928,6 +1158,7 @@ def invoke_rollback(
             run_id=spec.stage.run_id,
         )
         raise RuntimeError("rollback invocation failed; do not repeat it automatically")
+    record["phase_classification"] = classify_flash_log(Path(str(record["raw_log"])))
     append_record(
         journal_dir,
         "ROLLBACK_FLASHED",
@@ -941,7 +1172,7 @@ def invoke_rollback(
         manifest_sha256=spec.stage.manifest_sha256,
         run_id=spec.stage.run_id,
     )
-    add_event(transaction_dir, events, "rollback_flash_done")
+    ensure_event(transaction_dir, events, "rollback_flash_done")
     health = verify_final_health(spec, args)
     append_record(
         journal_dir,
@@ -955,7 +1186,7 @@ def invoke_rollback(
         manifest_sha256=spec.stage.manifest_sha256,
         run_id=spec.stage.run_id,
     )
-    add_event(transaction_dir, events, "rollback_boot_ready")
+    ensure_event(transaction_dir, events, "rollback_boot_ready")
     append_record(
         journal_dir,
         "HEALTH_VERIFIED",
@@ -977,7 +1208,11 @@ def close_transaction(
     final_health: dict[str, Any],
     candidate_complete: bool,
 ) -> dict[str, Any]:
-    add_event(transaction_dir, events, "live_session_end")
+    events[:] = repair_timeline_from_journal(
+        transaction_dir,
+        read_journal(spec, transaction_dir),
+    )
+    ensure_event(transaction_dir, events, "live_session_end")
     names = [event["name"] for event in events]
     if candidate_complete and names != list(CANONICAL_EVENTS):
         raise ContractError("completed candidate transaction lacks the canonical timeline")
@@ -1020,7 +1255,7 @@ def abort_before_candidate(
     exc: Exception,
 ) -> None:
     if "live_session_end" not in [event.get("name") for event in events]:
-        add_event(transaction_dir, events, "live_session_end")
+        ensure_event(transaction_dir, events, "live_session_end")
     result = {
         "schema": ORCHESTRATOR_SCHEMA,
         "run_id": spec.stage.run_id,
@@ -1089,35 +1324,36 @@ def execute_approved_f1(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any
         manifest_sha256=spec.stage.manifest_sha256,
         run_id=spec.stage.run_id,
     )
-    stage_result_path = PRIVATE_RUN_BASE / spec.stage.run_id / "staging-live" / "result.json"
-    if stage_result_path.exists():
-        stage_record = {"reused_exact_closed_result": True}
-    else:
-        try:
-            stage_record = run_logged(
-                stage_command(spec, args),
-                log_path=transaction_dir / "staging.raw.log",
-                timeout=args.staging_command_timeout,
-            )
-        except Exception as exc:
-            abort_before_candidate(spec, transaction_dir, journal_dir, events, exc)
-            raise
-        if stage_record["returncode"] != 0:
-            append_record(
-                journal_dir,
-                "ABORTED",
-                "staging-failed",
-                {
-                    "candidate_attempted": False,
-                    "rollback_required": False,
-                    "record": stage_record,
-                },
-                manifest_sha256=spec.stage.manifest_sha256,
-                run_id=spec.stage.run_id,
-            )
-            exc = RuntimeError("rootfs staging failed before candidate attempt")
-            abort_before_candidate(spec, transaction_dir, journal_dir, events, exc)
-            raise exc
+    stage_live_dir = PRIVATE_RUN_BASE / spec.stage.run_id / "staging-live"
+    if stage_live_dir.exists():
+        exc = ContractError("preexisting staging-live state is never reusable")
+        abort_before_candidate(spec, transaction_dir, journal_dir, events, exc)
+        raise exc
+    try:
+        stage_record = run_logged(
+            stage_command(spec, args),
+            log_path=transaction_dir / "staging.raw.log",
+            timeout=args.staging_command_timeout,
+        )
+    except Exception as exc:
+        abort_before_candidate(spec, transaction_dir, journal_dir, events, exc)
+        raise
+    if stage_record["returncode"] != 0:
+        append_record(
+            journal_dir,
+            "ABORTED",
+            "staging-failed",
+            {
+                "candidate_attempted": False,
+                "rollback_required": False,
+                "record": stage_record,
+            },
+            manifest_sha256=spec.stage.manifest_sha256,
+            run_id=spec.stage.run_id,
+        )
+        exc = RuntimeError("rootfs staging failed before candidate attempt")
+        abort_before_candidate(spec, transaction_dir, journal_dir, events, exc)
+        raise exc
     try:
         validate_stage_result(spec)
         append_record(
@@ -1135,6 +1371,22 @@ def execute_approved_f1(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any
         staging.require_exact_bridge(spec.stage, args)
         staging.require_baseline(args)
         verify_local_closure(spec)
+        source_preflight = remote_source_preflight(spec, args)
+        append_record(
+            journal_dir,
+            "APPROVED",
+            "rootfs-candidate-preflight",
+            {
+                "candidate_attempted": False,
+                "final_regular": True,
+                "work_absent": True,
+                "rootfs_size": spec.stage.local_size,
+                "rootfs_sha256": spec.stage.local_sha256,
+                "record": source_preflight,
+            },
+            manifest_sha256=spec.stage.manifest_sha256,
+            run_id=spec.stage.run_id,
+        )
     except Exception as exc:
         abort_before_candidate(spec, transaction_dir, journal_dir, events, exc)
         raise
@@ -1155,11 +1407,43 @@ def execute_approved_f1(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any
         run_id=spec.stage.run_id,
     )
     candidate_record = run_logged(
-        flash_command(spec, args, rollback=False),
+        flash_command(spec, args, rollback=False, from_native=True),
         log_path=transaction_dir / "candidate-flash.raw.log",
         timeout=args.flash_command_timeout,
     )
+    candidate_record["phase_classification"] = classify_flash_log(
+        Path(str(candidate_record["raw_log"]))
+    )
     if candidate_record["returncode"] != 0:
+        classification = candidate_record["phase_classification"]
+        device_session_started = any(
+            classification[name]
+            for name in (
+                "native_recovery_requested",
+                "recovery_endpoint_selected",
+                "payload_transfer_started",
+                "boot_write_started",
+            )
+        )
+        if not device_session_started:
+            append_record(
+                journal_dir,
+                "ABORTED",
+                "candidate-host-rejected",
+                {
+                    "candidate_transfer_count": 0,
+                    "candidate_replay": False,
+                    "rollback_required": False,
+                    "record": candidate_record,
+                },
+                manifest_sha256=spec.stage.manifest_sha256,
+                run_id=spec.stage.run_id,
+            )
+            exc = RuntimeError(
+                "candidate was rejected before a device session; fresh approval required"
+            )
+            abort_before_candidate(spec, transaction_dir, journal_dir, events, exc)
+            raise exc
         append_record(
             journal_dir,
             "APPROVED",
@@ -1185,7 +1469,7 @@ def execute_approved_f1(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any
             transaction_dir,
             journal_dir,
             events,
-            recovery_serial=None,
+            from_native=True,
         )
         return close_transaction(
             spec,
@@ -1210,7 +1494,8 @@ def execute_approved_f1(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any
         manifest_sha256=spec.stage.manifest_sha256,
         run_id=spec.stage.run_id,
     )
-    add_event(transaction_dir, events, "candidate_flash_done")
+    ensure_event(transaction_dir, events, "candidate_flash_done")
+    candidate_health = verify_candidate_health(spec, args)
     append_record(
         journal_dir,
         "CANDIDATE_FLASHED",
@@ -1219,11 +1504,12 @@ def execute_approved_f1(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any
             "candidate_version": spec.candidate_version,
             "candidate_build": spec.candidate_build,
             "selftest_fail_zero": True,
+            "health": candidate_health,
         },
         manifest_sha256=spec.stage.manifest_sha256,
         run_id=spec.stage.run_id,
     )
-    add_event(transaction_dir, events, "candidate_boot_ready")
+    ensure_event(transaction_dir, events, "candidate_boot_ready")
 
     observation = observe_candidate(spec, args, transaction_dir)
     append_record(
@@ -1248,7 +1534,7 @@ def execute_approved_f1(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any
         transaction_dir,
         journal_dir,
         events,
-        recovery_serial=None,
+        from_native=True,
     )
     return close_transaction(
         spec,
@@ -1273,13 +1559,24 @@ def recover_approved_rollback(spec: F1Spec, args: argparse.Namespace) -> dict[st
     actions = action_names(records)
     if "candidate-transfer-started" not in actions:
         raise ContractError("rollback recovery requires durable candidate intent")
+    if (
+        "candidate-host-rejected" in actions
+        or "aborted-before-candidate" in actions
+    ):
+        raise ContractError("pre-session abort has no rollback authority to exercise")
     if "closed" in actions:
         raise ContractError("transaction is already closed")
-    events = load_timeline(transaction_dir)
+    events = repair_timeline_from_journal(transaction_dir, records)
     journal_dir = transaction_dir / "journal"
 
     rollback_started = "rollback-transfer-started" in actions
-    rollback_flashed = "rollback-flashed" in actions
+    rollback_flashed = any(
+        action in actions
+        for action in (
+            "rollback-flashed",
+            "rollback-completion-recovered-by-health",
+        )
+    )
     if rollback_started and not rollback_flashed:
         health = verify_final_health(spec, args)
         append_record(
@@ -1293,17 +1590,59 @@ def recover_approved_rollback(spec: F1Spec, args: argparse.Namespace) -> dict[st
             manifest_sha256=spec.stage.manifest_sha256,
             run_id=spec.stage.run_id,
         )
-        if "rollback_flash_done" not in [event.get("name") for event in events]:
-            add_event(transaction_dir, events, "rollback_flash_done")
-        if "rollback_boot_ready" not in [event.get("name") for event in events]:
-            add_event(transaction_dir, events, "rollback_boot_ready")
+        append_record(
+            journal_dir,
+            "ROLLBACK_FLASHED",
+            "rollback-boot-ready",
+            {
+                "rollback_version": spec.rollback_version,
+                "rollback_build": spec.rollback_build,
+                "selftest_fail_zero": True,
+                "recovered_from_health": True,
+            },
+            manifest_sha256=spec.stage.manifest_sha256,
+            run_id=spec.stage.run_id,
+        )
+        append_record(
+            journal_dir,
+            "HEALTH_VERIFIED",
+            "health-verified",
+            health,
+            manifest_sha256=spec.stage.manifest_sha256,
+            run_id=spec.stage.run_id,
+        )
     elif rollback_flashed:
         health = verify_final_health(spec, args)
-        if "rollback_boot_ready" not in [event.get("name") for event in events]:
-            add_event(transaction_dir, events, "rollback_boot_ready")
+        if "rollback-boot-ready" not in actions:
+            append_record(
+                journal_dir,
+                "ROLLBACK_FLASHED",
+                "rollback-boot-ready",
+                {
+                    "rollback_version": spec.rollback_version,
+                    "rollback_build": spec.rollback_build,
+                    "selftest_fail_zero": True,
+                    "recovered_from_health": True,
+                },
+                manifest_sha256=spec.stage.manifest_sha256,
+                run_id=spec.stage.run_id,
+            )
+        if "health-verified" not in actions:
+            append_record(
+                journal_dir,
+                "HEALTH_VERIFIED",
+                "health-verified",
+                health,
+                manifest_sha256=spec.stage.manifest_sha256,
+                run_id=spec.stage.run_id,
+            )
     else:
-        recovery_serial = validate_recovery_serial(spec, args.recovery_serial)
-        if recovery_serial is None:
+        if args.recovery_path not in ("from-native", "adb-recovery"):
+            raise ContractError(
+                "rollback recovery requires --recovery-path from-native|adb-recovery"
+            )
+        from_native = args.recovery_path == "from-native"
+        if from_native:
             require_rollback_source_native(spec, args)
         health = invoke_rollback(
             spec,
@@ -1311,7 +1650,7 @@ def recover_approved_rollback(spec: F1Spec, args: argparse.Namespace) -> dict[st
             transaction_dir,
             journal_dir,
             events,
-            recovery_serial=recovery_serial,
+            from_native=from_native,
         )
 
     observation_proven = "observation-proven" in actions
@@ -1401,8 +1740,9 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         "verify_local_closure(spec)",
         "validate_stage_result(spec)",
         "staging.require_baseline(args)",
+        "remote_source_preflight(spec, args)",
         '"candidate-transfer-started"',
-        "flash_command(spec, args, rollback=False)",
+        "flash_command(spec, args, rollback=False, from_native=True)",
         '"candidate-flashed"',
         "observe_candidate(spec, args, transaction_dir)",
         "invoke_rollback(",
@@ -1420,6 +1760,26 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         issues.append("recovery contains a candidate execution route")
     if "rollback_retry_forbidden" not in source:
         issues.append("rollback ambiguity stop is missing")
+    flash_start = source.find("def flash_command(")
+    stage_result_start = source.find("def validate_stage_result(", flash_start + 1)
+    if flash_start < 0 or stage_result_start < 0:
+        issues.append("flash-command source boundary is missing")
+    else:
+        flash = source[flash_start:stage_result_start]
+        for token in (
+            '"--serial"',
+            "spec.recovery_serial",
+            '"--expect-version"',
+            "if from_native:",
+        ):
+            if token not in flash:
+                issues.append(f"flash command lacks exact target/version gate: {token}")
+        if 'f"{version} build=' in flash:
+            issues.append("flash command uses a nonexistent combined image marker")
+    if "preexisting staging-live state is never reusable" not in execute:
+        issues.append("execute path may reuse preexisting staging output")
+    if "repair_timeline_from_journal(transaction_dir, records)" not in recover:
+        issues.append("recovery does not rebuild timeline from durable journal")
     return tuple(issues)
 
 
@@ -1456,7 +1816,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--approved-orchestrator-sha256", default="")
     parser.add_argument("--approved-run-id", default="")
     parser.add_argument("--transaction-dir", type=Path)
-    parser.add_argument("--recovery-serial")
+    parser.add_argument(
+        "--recovery-path",
+        choices=("from-native", "adb-recovery"),
+        help=(
+            "rollback-only recovery origin; the exact recovery ADB target is always "
+            "loaded from manifest-bound private evidence"
+        ),
+    )
     parser.add_argument("--bridge-host", default=a90ctl.DEFAULT_HOST)
     parser.add_argument("--bridge-port", type=int, default=54321)
     parser.add_argument("--remote-timeout", type=float, default=180.0)
@@ -1484,8 +1851,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.transaction_dir is None:
         raise ContractError("--transaction-dir is required for live F1")
     if args.execute_approved_f1:
-        if args.recovery_serial is not None:
-            raise ContractError("initial execution does not accept --recovery-serial")
+        if args.recovery_path is not None:
+            raise ContractError("initial execution does not accept --recovery-path")
         result = execute_approved_f1(spec, args)
     else:
         result = recover_approved_rollback(spec, args)
