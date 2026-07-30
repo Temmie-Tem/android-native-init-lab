@@ -88,9 +88,11 @@ stopped under the two-failure rule. The approval and run are non-reusable.
 A separately approved D1 released the blocked receiver, removed only the empty
 run-owned stage directory, and restored exact V2321 health. The stale
 host-profile USB-path binding was repaired and direct NCM route/CIDR/ping now
-pass. A minimal pre-reservation NCM gate passes the `104/104` focused closure
-and awaits one independent review. Debian PID1 remains unproved and internal
-userdata remains untouched.**
+pass. The first bounded review rejected a VID/PID-only NCM gate because another
+Samsung target could satisfy it separately from the ACM bridge. The remediation
+requires the sole NCM interface under the same USB parent as the manifest-bound
+A90 ACM endpoint and passes the `105/105` focused closure. Independent
+re-review remains. Debian PID1 is unproved and internal userdata is untouched.**
 
 Stock D1 v2 and P2.84 selected different runtime-PM paths. Stock's first two
 outer works ended by `0.291 ms`, followed by deferred child and parent PM
@@ -264,7 +266,8 @@ corrected A/B pair then matched.
   receiver initially left command-channel health unverified. A separately
   approved D1 later restored exact V2321 health and removed only the empty
   run-owned stage directory. Host NCM now passes direct-route/CIDR/ping
-  readiness; the new pre-reservation gate awaits independent review.
+  readiness; the topology-bound pre-reservation gate passes `105/105` and
+  awaits independent re-review.
 
 Load-bearing current reports:
 

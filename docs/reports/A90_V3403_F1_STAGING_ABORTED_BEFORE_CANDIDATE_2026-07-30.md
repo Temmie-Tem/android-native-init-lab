@@ -67,9 +67,12 @@ samples then passed.
 The selected staging remediation adds a fail-closed host NCM gate before stage
 reservation. It derives the host peer from the manifest-bound observer
 address, requires a direct route with no gateway, verifies the route interface
-as the exact Samsung A90 NCM function, requires the expected host CIDR, and
-requires one successful device ping. The changed focused closure passes
-`104/104`; independent review remains required before a new final manifest.
+as the sole NCM function under the same USB parent as the manifest-bound A90
+ACM bridge, requires the expected host CIDR, and requires one successful
+device ping. The first bounded review rejected VID/PID-only target matching;
+the topology-bound remediation closes that split-target path. The changed
+focused closure passes `105/105`; independent re-review remains required
+before a new final manifest.
 
 ## Durable evidence
 

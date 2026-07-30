@@ -82,6 +82,9 @@ HOST_NCM_DRIVER = "cdc_ncm"
 HOST_NCM_VENDOR_ID = "04e8"
 HOST_NCM_PRODUCT_ID = "6861"
 HOST_IFACE_RE = re.compile(r"^[A-Za-z0-9_.:-]+$")
+BRIDGE_REALPATH_RE = re.compile(r"^/dev/ttyACM[0-9]+$")
+SYS_CLASS_NET = Path("/sys/class/net")
+SYS_CLASS_TTY = Path("/sys/class/tty")
 STAGE_STEPS = (
     "validate_local",
     "connected_preflight",
@@ -1105,7 +1108,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         ordered = (
             "validate_parent_approval(",
             "verify_local_closure(spec)",
-            "require_host_ncm_ready(spec.observer_device)",
+            "host_ncm = require_host_ncm_ready(",
             "require_exact_bridge(spec, args)",
             "require_baseline(args)",
             "remote_readonly_preflight_script(spec)",
@@ -1265,27 +1268,61 @@ def _read_sysfs_text(path: Path) -> str:
         return ""
 
 
-def host_interface_is_exact_a90_ncm(interface: str) -> bool:
+def _usb_device_parent(path: Path) -> Path | None:
+    try:
+        resolved = path.resolve(strict=True)
+    except OSError:
+        return None
+    for parent in (resolved, *resolved.parents):
+        vendor = _read_sysfs_text(parent / "idVendor").lower()
+        product = _read_sysfs_text(parent / "idProduct").lower()
+        if vendor and product:
+            return parent
+    return None
+
+
+def exact_a90_ncm_interfaces(bridge_realpath: str) -> tuple[str, ...]:
+    if BRIDGE_REALPATH_RE.fullmatch(bridge_realpath) is None:
+        return ()
+    bridge_parent = _usb_device_parent(
+        SYS_CLASS_TTY / Path(bridge_realpath).name
+    )
+    if bridge_parent is None:
+        return ()
+    if (
+        _read_sysfs_text(bridge_parent / "idVendor").lower()
+        != HOST_NCM_VENDOR_ID
+        or _read_sysfs_text(bridge_parent / "idProduct").lower()
+        != HOST_NCM_PRODUCT_ID
+    ):
+        return ()
+    try:
+        netdevs = tuple(SYS_CLASS_NET.iterdir())
+    except OSError:
+        return ()
+    matches: list[str] = []
+    for netdev in netdevs:
+        if HOST_IFACE_RE.fullmatch(netdev.name) is None:
+            continue
+        try:
+            driver = (netdev / "device" / "driver").resolve(strict=True).name
+        except OSError:
+            continue
+        if (
+            driver == HOST_NCM_DRIVER
+            and _usb_device_parent(netdev) == bridge_parent
+        ):
+            matches.append(netdev.name)
+    return tuple(sorted(matches))
+
+
+def host_interface_is_exact_a90_ncm(
+    interface: str,
+    bridge_realpath: str,
+) -> bool:
     if HOST_IFACE_RE.fullmatch(interface) is None or interface in {".", ".."}:
         return False
-    netdev = Path("/sys/class/net") / interface
-    try:
-        resolved = netdev.resolve(strict=True)
-        driver = (netdev / "device" / "driver").resolve(strict=True).name
-    except OSError:
-        return False
-    if driver != HOST_NCM_DRIVER:
-        return False
-    vendor = ""
-    product = ""
-    for parent in (resolved, *resolved.parents):
-        if not vendor:
-            vendor = _read_sysfs_text(parent / "idVendor").lower()
-        if not product:
-            product = _read_sysfs_text(parent / "idProduct").lower()
-        if vendor and product:
-            break
-    return vendor == HOST_NCM_VENDOR_ID and product == HOST_NCM_PRODUCT_ID
+    return exact_a90_ncm_interfaces(bridge_realpath) == (interface,)
 
 
 def _route_token(tokens: list[str], name: str) -> str:
@@ -1297,7 +1334,10 @@ def _route_token(tokens: list[str], name: str) -> str:
     return tokens[index + 1]
 
 
-def require_host_ncm_ready(device_ip: str) -> dict[str, bool]:
+def require_host_ncm_ready(
+    device_ip: str,
+    bridge_realpath: str,
+) -> dict[str, bool]:
     device = ipaddress.IPv4Address(validate_observer_device(device_ip))
     network = ipaddress.IPv4Network(f"{device}/{HOST_NCM_PREFIX}", strict=False)
     host = ipaddress.IPv4Address(int(device) - 1)
@@ -1330,7 +1370,7 @@ def require_host_ncm_ready(device_ip: str) -> dict[str, bool]:
     source = _route_token(tokens, "src")
     if source != str(host):
         raise ContractError("observer route does not use the expected host peer")
-    if not host_interface_is_exact_a90_ncm(interface):
+    if not host_interface_is_exact_a90_ncm(interface, bridge_realpath):
         raise ContractError("observer route is not on the exact A90 NCM interface")
 
     try:
@@ -1415,7 +1455,10 @@ def execute_approved_stage(
         },
     )
 
-    host_ncm = require_host_ncm_ready(spec.observer_device)
+    host_ncm = require_host_ncm_ready(
+        spec.observer_device,
+        spec.bridge_realpath,
+    )
     exact_bridge = require_exact_bridge(spec, args)
     baseline = require_baseline(args)
     readonly = run_remote(args, remote_readonly_preflight_script(spec))

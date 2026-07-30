@@ -227,6 +227,7 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
     def test_host_ncm_preflight_requires_direct_verified_route_addr_and_ping(self) -> None:
         device = ".".join(("192", "168", "7", "2"))
         host = ".".join(("192", "168", "7", "1"))
+        bridge = "/dev/" + "ttyACM" + "9"
 
         def run(command: list[str], **_kwargs: object) -> object:
             if command[:4] == ["ip", "-4", "route", "get"]:
@@ -254,7 +255,7 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
                 return_value=True,
             ) as identity,
         ):
-            result = stage.require_host_ncm_ready(device)
+            result = stage.require_host_ncm_ready(device, bridge)
         self.assertEqual(
             result,
             {
@@ -264,12 +265,13 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
                 "device_ping": True,
             },
         )
-        identity.assert_called_once_with("enx-test")
+        identity.assert_called_once_with("enx-test", bridge)
 
     def test_host_ncm_preflight_rejects_gateway_route_before_ping(self) -> None:
         device = ".".join(("192", "168", "7", "2"))
         host = ".".join(("192", "168", "7", "1"))
         gateway = ".".join(("192", "168", "0", "1"))
+        bridge = "/dev/" + "ttyACM" + "9"
         route = types.SimpleNamespace(
             returncode=0,
             stdout=(
@@ -278,15 +280,39 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
         )
         with mock.patch.object(stage.subprocess, "run", return_value=route) as run:
             with self.assertRaisesRegex(stage.ContractError, "not direct USB-local"):
-                stage.require_host_ncm_ready(device)
+                stage.require_host_ncm_ready(device, bridge)
         run.assert_called_once()
+
+    def test_host_ncm_identity_requires_one_interface_on_bridge_usb_parent(self) -> None:
+        bridge = "/dev/" + "ttyACM" + "9"
+        with mock.patch.object(
+            stage,
+            "exact_a90_ncm_interfaces",
+            return_value=("enx-test",),
+        ):
+            self.assertTrue(
+                stage.host_interface_is_exact_a90_ncm("enx-test", bridge)
+            )
+        for candidates in ((), ("enx-other",), ("enx-test", "enx-test2")):
+            with self.subTest(candidates=candidates):
+                with mock.patch.object(
+                    stage,
+                    "exact_a90_ncm_interfaces",
+                    return_value=candidates,
+                ):
+                    self.assertFalse(
+                        stage.host_interface_is_exact_a90_ncm(
+                            "enx-test",
+                            bridge,
+                        )
+                    )
 
     def test_source_contract_requires_host_ncm_before_bridge_and_reserve(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")
         issues = stage.source_contract_issues(
             source.replace(
-                "    host_ncm = require_host_ncm_ready(spec.observer_device)\n",
-                "    host_ncm = {}\n",
+                "    host_ncm = require_host_ncm_ready(\n",
+                "    host_ncm = missing_host_ncm_gate(\n",
                 1,
             )
         )
