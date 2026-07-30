@@ -30,22 +30,30 @@ classification. The final cycle capture later reads and parses the cumulative
 trace again, so the immediate post-helper snapshot is not needed to preserve
 successful-path trace evidence.
 
-The cheapest successor order is therefore:
+The cheapest data-flow correction is therefore:
 
 ```text
 exact parent suspended; publish 0x8f
 run bounded PERIPHERAL helper immediately
 classify parent-owned helper fields without a trace read
   failure -> publish exact stage-0x90 failure before trace cleanup
-  success -> continue without either early snapshot
+  success -> publish an immediate helper-returned position
+             before continuing without either early snapshot
 perform any later trace enrichment only outside this failure-publication path
 ```
 
 This removes both early unbounded tracefs syscalls rather than marking them.
-It needs no retained-slot expansion. A successor must use an honest generic
-PERIPHERAL-helper-timeout detail instead of calling a no-trace timeout a
-`flush-timeout`; preserving the P2.86 `c57/c58/c59` subtype split is not worth
-placing an unbounded trace read before durable failure evidence.
+It needs no retained-slot expansion. Follow-up H0 selected the already-wired
+`item_index` byte as a finite subposition channel, including a
+helper-returned position before readback. A successor must use an honest
+generic PERIPHERAL-helper-timeout detail instead of calling a no-trace timeout
+a `flush-timeout`; preserving the P2.86 `c57/c58/c59` subtype split is not
+worth placing an unbounded trace read before durable failure evidence.
+
+The selected position-aware contract is
+`S22PLUS_FYG8_P288_ITEM_INDEX_SUBPOSITION_SUCCESSOR_DESIGN_H0_2026-07-30.md`.
+It keeps the 45-byte/two-slot layout and numeric stages, but uses a finite
+ordered `(stage, item_index)` sequence after the unchanged `0x8f` prefix.
 
 This is a paper design result only. It changes no P2.86 source, selects no
 P2.88 implementation, and grants no device authority.
@@ -191,8 +199,9 @@ snapshot. It is:
 3. classify the parent-owned fields immediately;
 4. on any failure, publish through the existing publish-before-cleanup abort
    path before any trace operation; and
-5. on success, omit the current immediate post-helper refresh because final
-   capture can reconstruct the cumulative trace.
+5. on success, publish the helper-returned position before any readback; and
+6. omit the current immediate post-helper refresh because final capture can
+   reconstruct the cumulative trace.
 
 The existing classifier mechanically maps a timeout with all trace-enrichment
 fields zero to `0xc57`. A successor must not retain the misleading
@@ -200,16 +209,19 @@ fields zero to `0xc57`. A successor must not retain the misleading
 versioned generic timeout semantic, such as `peripheral-helper-timeout`, and
 retire the early live routing to the more specific `c58/c59` classes.
 
-This preserves the 45-byte record layout, stage sequence, generation count,
-and two-slot commit protocol. It changes candidate semantics and therefore
-still requires a fresh versioned contract and intent; it is not an in-place
-P2.86 edit.
+This preserves the 45-byte record layout, numeric stage values, and two-slot
+commit protocol. The selected follow-up deliberately increases the finite
+generation sequence by using item-indexed subpositions; it does not preserve
+P2.86's one-generation-per-stage assumption. It changes candidate semantics
+and therefore requires a fresh versioned contract and intent; it is not an
+in-place P2.86 edit.
 
 ## Slot expansion decision
 
 The condition for evaluating a 2-to-6/8 in-place slot expansion is not met.
-The two proposed early markers become unnecessary because both early
-unbounded operations can be removed from the critical corridor.
+Both early unbounded operations can be removed, and the already-wired
+`item_index` byte gives the remaining finite boundaries subposition identity
+without growing the record.
 
 No raw-ring headroom calculation is performed in this bounded unit. The
 append design remains rejected, and the in-place expansion remains an
@@ -225,8 +237,8 @@ evidence problem.
   userspace deadline check.
 - The later restart-worker polling refresh and final capture are still
   unbounded tracefs operations.
-- A successful helper has no durable success marker before those later
-  operations.
+- P2.86 has no successful-helper marker before those later operations. The
+  selected successor closes that gap with an item-indexed position.
 
 Those later boundaries should first be removed from the decisive path or run
 behind a bounded parent/child isolation boundary. Slot or stage expansion

@@ -41,8 +41,24 @@ The first freezes only `residual_outer_open`; the second supplies only
 into `c57/c58/c59` and do not control dispatch or a successful restart. The
 cheapest successor design removes both snapshots from the early corridor,
 classifies the parent-owned bounded-helper result first, and uses one honest
-generic timeout semantic. No early intent markers or slot expansion are
-selected.
+generic timeout semantic.
+
+Follow-up contract H0 found that the retained slot already carries an unused
+local-stage `item_index`. P2.88 is selected to use one finite, generated
+`(stage,item_index)` position sequence after the unchanged generation-88
+`0x8f` prefix. The 45-byte/two-slot layout, CRC protocol, and numeric
+`0x8d..0x93` stages remain. Terminal generation rises only from 92 to 103, so
+the u8 generation never wraps and retains 152 values of headroom. This
+position channel marks helper dispatch, immediate helper return, later
+readback/trace/cleanup, bind, and final-sampling boundaries without expanding
+the record.
+
+The current `validate_reachable_records()` is only an encodability/decoder
+domain check; it does not inspect runtime or classifier source. P2.88 must add
+a bidirectional active-producer route gate keyed by exact
+`(stage,item_index,outcome,detail)`. The trace-dependent
+`c57/c58/c59` details and the superseded `c5c` cleanup marker have zero active
+P2.88 routes.
 
 Both retained slots are valid. Generation 89 left no target-slot
 commit-CRC-clear mutation on the retained medium. Raw ring adjacency is exact:
@@ -126,6 +142,7 @@ Load-bearing current reports:
 - `docs/reports/S22PLUS_FYG8_P286_PARENT_TAIL_BOUNDED_RESTART_F1_CLOSED_2026-07-30.md`
 - `docs/reports/S22PLUS_FYG8_P286_POST_0X8F_SILENCE_ATTRIBUTION_H0_2026-07-30.md`
 - `docs/reports/S22PLUS_FYG8_P286_EARLY_RESTART_TRACE_LOAD_BEARING_AUDIT_H0_2026-07-30.md`
+- `docs/reports/S22PLUS_FYG8_P288_ITEM_INDEX_SUBPOSITION_SUCCESSOR_DESIGN_H0_2026-07-30.md`
 - `docs/operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 
@@ -280,12 +297,21 @@ operations before the asserted publication boundaries.
    dispatches the bounded helper immediately, and publishes any parent-owned
    helper failure before optional trace enrichment.
 4. Replace the trace-dependent `c57/c58/c59` early split with one honest
-   versioned generic helper-timeout semantic; do not expand slots for those
-   removed boundaries.
-5. Treat later sysfs/trace deadlines checked only after a blocking syscall as
-   non-preemptive. Remove, reorder, or isolate those operations before
-   considering any stage/slot expansion.
-6. Any later candidate must repeat immutable identity, Full-LTO/package/static
+   versioned generic helper-timeout semantic and retire the superseded `c5c`
+   marker.
+5. Implement the frozen finite P2.88 position table from generation 89 through
+   103. Generate all numeric item indices from one descriptor; never number
+   runtime call sites by hand and never permit generation wrap.
+6. Add bidirectional active-producer coverage. A decodable tuple is not by
+   itself a runtime-reachable tuple; every active detail needs an exact
+   production route and every exact route must be declared.
+7. Treat later sysfs/trace deadlines checked only after a blocking syscall as
+   non-preemptive. Mark each selected logical boundary before entry and keep
+   every polling loop independently bounded.
+8. Freeze the complete successor identity closure before intent. P2.86 remains
+   immutable and no P2.88 implementation may be derived piecemeal after
+   intent.
+9. Any later candidate must repeat immutable identity, Full-LTO/package/static
    closure, ready manifest, D0, and fresh exact F1 approval.
 
 No device step is added when H0 can answer the question.
