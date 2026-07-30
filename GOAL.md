@@ -194,9 +194,17 @@ with no device contact. Fresh run
 fresh exact V2321 health and three-path absence, repaired topology-bound NCM,
 and the reviewed `900/3/1` machinery. Both host inspectors and the strict local
 closure report zero issues. A private mode-0600 approval receipt is prepared
-with all authority false. No staging, flash, reboot, candidate attempt,
-continuation receipt, or live authority exists; the next gate is one fresh
-exact F1 approval. It cannot be applied retroactively to the closed run.**
+with all authority false. One exact approval was consumed, but the staging
+child rejected it before NCM, bridge, or device contact: its duplicated
+approval-binding builder omitted the new attended `900/3/1` fields. The
+durable transaction closed `ABORTED_F1_V2_BEFORE_CANDIDATE` with candidate and
+rollback counts `0/0`, no rootfs staging, no reboot, and no continuation
+receipt. The run and approval are non-reusable. The H0 repair now gives
+staging and the orchestrator one canonical approval-binding builder with exact
+run/hash and attended/unattended policy validation. Focused `111/111`, related
+`157/157`, `py_compile`, and independent re-review passed with no Critical,
+High, or Medium finding and no device contact. No new run, manifest, approval,
+or live authority exists.**
 
 Stock D1 v2 and P2.84 selected different runtime-PM paths. Stock's first two
 outer works ended by `0.291 ms`, followed by deferred child and parent PM
@@ -470,9 +478,11 @@ corrected A/B pair then matched.
   independent re-review.
 - Fresh attended successor run `a90-v3403-debian-f1-20260731-02` passes exact
   V2321 health, three-path absence, topology-bound NCM readiness, both
-  host-only inspectors, and strict local-closure validation. Its mode-0600
-  approval receipt grants no live authority; one fresh exact F1 approval
-  remains.
+  host-only inspectors, and strict local-closure validation. One exact approval
+  was consumed, but staging rejected the receipt before any device contact
+  because its approval-binding copy lacked `900/3/1`. Candidate/rollback are
+  `0/0`; the run is closed and non-reusable. A shared canonical builder fixes
+  the mismatch and passed independent re-review, but creates no new authority.
 
 Load-bearing current reports:
 
@@ -682,11 +692,11 @@ The A90 branch proceeds independently:
 5. Preserve the independently reviewed attended-orchestrator closure and its
    exact `900/3/1`, candidate-one/no-replay, durable-intent, and rollback-only
    recovery gates.
-6. Preserve prepared run `a90-v3403-debian-f1-20260731-02` and its immutable
-   target, V3403 boot, fresh rootfs, exact V2321 rollback, current runner,
-   attended observation, recovery-ADB digest, D0, and path bindings.
-7. Obtain one fresh exact F1 approval for that receipt before staging or live
-   execution. No earlier run, receipt, or approval may be reused.
+6. Preserve closed run `a90-v3403-debian-f1-20260731-02`, its consumed
+   approval, `0/0` transfer counts, and before-device failure evidence.
+7. Create a new immutable run with the reviewed canonical builder, fresh
+   rootfs/key, D0/path evidence, manifest, and approval receipt. No earlier
+   run, receipt, or approval may be reused.
 
 No device step is added when H0 can answer the question.
 

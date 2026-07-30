@@ -77,6 +77,11 @@ D0_RESULT_OUTCOME = (
 PATH_PREFLIGHT_SCHEMA = "a90_v3403_d3_path_preflight_v1"
 APPROVAL_PREPARED_SCHEMA = "a90_v3403_f1_approval_prepared_v1"
 APPROVAL_PREFIX = "A90-F1-V2-APPROVE:"
+UNATTENDED_OBSERVATION_MODE = "unattended-single-shot-v1"
+ATTENDED_OBSERVATION_MODE = "operator-attended-v1"
+ATTENDED_WINDOW_SEC = 900
+ATTENDED_PRE_HANDOFF_ATTEMPT_LIMIT = 3
+ATTENDED_HANDOFF_ATTEMPT_LIMIT = 1
 HOST_NCM_PREFIX = 24
 HOST_NCM_DRIVER = "cdc_ncm"
 HOST_NCM_VENDOR_ID = "04e8"
@@ -340,6 +345,75 @@ def json_sha256(value: Any) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def canonical_f1_approval_binding(
+    *,
+    run_id: str,
+    manifest_sha256: str,
+    orchestrator_sha256: str,
+    staging_adapter_sha256: str,
+    flash_runner_sha256: str,
+    candidate_boot_sha256: str,
+    rollback_boot_sha256: str,
+    rootfs_sha256: str,
+    connected_d0_sha256: str,
+    connected_path_preflight_sha256: str,
+    recovery_adb_serial_sha256: str,
+    observation_mode: str,
+    attended_window_sec: int,
+    pre_handoff_attempt_limit: int,
+    handoff_attempt_limit: int,
+) -> dict[str, Any]:
+    if RUN_ID_RE.fullmatch(run_id) is None:
+        raise ContractError("approval binding run_id is not exact")
+    hashes = {
+        "manifest_sha256": manifest_sha256,
+        "orchestrator_sha256": orchestrator_sha256,
+        "staging_adapter_sha256": staging_adapter_sha256,
+        "flash_runner_sha256": flash_runner_sha256,
+        "candidate_boot_sha256": candidate_boot_sha256,
+        "rollback_boot_sha256": rollback_boot_sha256,
+        "rootfs_sha256": rootfs_sha256,
+        "connected_d0_sha256": connected_d0_sha256,
+        "connected_path_preflight_sha256": connected_path_preflight_sha256,
+        "recovery_adb_serial_sha256": recovery_adb_serial_sha256,
+    }
+    for label, value in hashes.items():
+        validate_sha256(value, f"approval binding {label}")
+    if observation_mode == ATTENDED_OBSERVATION_MODE:
+        expected_policy = (
+            ATTENDED_WINDOW_SEC,
+            ATTENDED_PRE_HANDOFF_ATTEMPT_LIMIT,
+            ATTENDED_HANDOFF_ATTEMPT_LIMIT,
+        )
+    elif observation_mode == UNATTENDED_OBSERVATION_MODE:
+        expected_policy = (0, 1, 1)
+    else:
+        raise ContractError("approval binding observation mode is not exact")
+    policy = (
+        attended_window_sec,
+        pre_handoff_attempt_limit,
+        handoff_attempt_limit,
+    )
+    if (
+        any(type(value) is not int for value in policy)
+        or policy != expected_policy
+    ):
+        raise ContractError("approval binding observation policy is not exact")
+    return {
+        "schema": "a90_v3403_f1_approval_binding_v1",
+        "run_id": run_id,
+        **hashes,
+        "observation_mode": observation_mode,
+        "attended_window_sec": attended_window_sec,
+        "pre_handoff_attempt_limit": pre_handoff_attempt_limit,
+        "handoff_attempt_limit": handoff_attempt_limit,
+        "candidate_attempt_limit": 1,
+        "mandatory_rollback_preapproved_after_candidate_start": True,
+        "candidate_replay": False,
+        "only_partition_payload": "boot",
+    }
+
+
 def validate_parent_approval(
     spec: StageSpec,
     manifest: dict[str, Any],
@@ -367,24 +441,26 @@ def validate_parent_approval(
     rollback = _dict(manifest.get("rollback_boot"), "rollback_boot")
     orchestrator = _dict(manifest.get("f1_orchestrator"), "f1_orchestrator")
     transport = _dict(manifest.get("transport"), "transport")
-    expected_binding = {
-        "schema": "a90_v3403_f1_approval_binding_v1",
-        "run_id": spec.run_id,
-        "manifest_sha256": spec.manifest_sha256,
-        "orchestrator_sha256": orchestrator.get("sha256"),
-        "staging_adapter_sha256": spec.adapter_sha256,
-        "flash_runner_sha256": transport.get("runner_sha256"),
-        "candidate_boot_sha256": candidate.get("sha256"),
-        "rollback_boot_sha256": rollback.get("sha256"),
-        "rootfs_sha256": spec.local_sha256,
-        "connected_d0_sha256": connected_d0.get("sha256"),
-        "connected_path_preflight_sha256": connected_paths.get("sha256"),
-        "recovery_adb_serial_sha256": target.get("recovery_adb_serial_sha256"),
-        "candidate_attempt_limit": 1,
-        "mandatory_rollback_preapproved_after_candidate_start": True,
-        "candidate_replay": False,
-        "only_partition_payload": "boot",
-    }
+    observation = _dict(manifest.get("observation"), "observation")
+    expected_binding = canonical_f1_approval_binding(
+        run_id=spec.run_id,
+        manifest_sha256=spec.manifest_sha256,
+        orchestrator_sha256=orchestrator.get("sha256"),
+        staging_adapter_sha256=spec.adapter_sha256,
+        flash_runner_sha256=transport.get("runner_sha256"),
+        candidate_boot_sha256=candidate.get("sha256"),
+        rollback_boot_sha256=rollback.get("sha256"),
+        rootfs_sha256=spec.local_sha256,
+        connected_d0_sha256=connected_d0.get("sha256"),
+        connected_path_preflight_sha256=connected_paths.get("sha256"),
+        recovery_adb_serial_sha256=target.get("recovery_adb_serial_sha256"),
+        observation_mode=observation.get("mode"),
+        attended_window_sec=observation.get("attended_window_sec"),
+        pre_handoff_attempt_limit=observation.get(
+            "pre_handoff_attempt_limit"
+        ),
+        handoff_attempt_limit=observation.get("handoff_attempt_limit"),
+    )
     expected_keys = {
         "schema",
         "created_utc",
@@ -1074,6 +1150,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
     issues: list[str] = []
     functions = {
         "private JSON": "def write_private_json_exclusive(",
+        "approval binding": "def canonical_f1_approval_binding(",
         "connected D0 evidence": "def validate_connected_d0_evidence(",
         "path preflight evidence": "def validate_path_preflight_evidence(",
         "parent approval": "def validate_parent_approval(",
@@ -1091,6 +1168,21 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             issues.append(f"missing {label} function")
         positions[label] = pos
     if not issues:
+        parent_approval = source[
+            positions["parent approval"]:positions["connected D0 evidence"]
+        ]
+        for token in (
+            "expected_binding = canonical_f1_approval_binding(",
+            'observation_mode=observation.get("mode")',
+            'attended_window_sec=observation.get("attended_window_sec")',
+            '"pre_handoff_attempt_limit"',
+            'handoff_attempt_limit=observation.get("handoff_attempt_limit")',
+            "binding != expected_binding",
+        ):
+            if token not in parent_approval:
+                issues.append(
+                    f"parent approval lacks canonical observation binding: {token}"
+                )
         publish = source[positions["publish"]:positions["cleanup"]]
         for token in (
             '/bin/busybox ln "$PAYLOAD" "$FINAL"',

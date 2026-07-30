@@ -377,6 +377,20 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
             (),
         )
 
+    def test_source_contract_requires_shared_approval_binding(self) -> None:
+        source = SOURCE.read_text(encoding="utf-8")
+        mutated = source.replace(
+            "return staging.canonical_f1_approval_binding(",
+            "return {",
+            1,
+        )
+        self.assertTrue(
+            any(
+                "canonical observation gate" in issue
+                for issue in f1.source_contract_issues(mutated)
+            )
+        )
+
     def test_source_gate_rejects_candidate_route_in_recovery(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")
         marker = "def simulate_transaction("

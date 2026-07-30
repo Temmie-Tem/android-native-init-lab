@@ -25,12 +25,14 @@ Do not add a device step when host-only work can answer the question.
   operator-attended pre-handoff window, at most three health/channel attempts,
   exactly one handoff, and unchanged mandatory rollback. Runner/schema
   implementation, focused tests, and independent review passed. Fresh run
-  `a90-v3403-debian-f1-20260731-02` now binds a new-inode keyed rootfs and key,
-  exact V2321 health, three-path absence, topology-bound NCM readiness, and a
-  zero-issue immutable manifest. Its private approval receipt has all authority
-  false. No staging, flash, reboot, candidate attempt, continuation receipt, or
-  live authority exists; the next gate is one fresh exact F1 approval. This
-  successor never applies retroactively to a consumed run.
+  `a90-v3403-debian-f1-20260731-02` consumed one exact approval but its staging
+  child rejected the receipt before NCM, bridge, or device contact because the
+  staging-side binding omitted the attended `900/3/1` fields. Candidate and
+  rollback counts are `0/0`; the run is closed and non-reusable. The H0 repair
+  now makes staging and the orchestrator share one canonical approval-binding
+  builder. Related `157/157`, `py_compile`, and independent re-review passed.
+  No new run, manifest, approval, continuation receipt, or live authority
+  exists. This successor never applies retroactively to a consumed run.
 - P2.82 consumed one exact approval. Its byte-identical reads end in terminal
   failure `0x8e/detail=0xc10`; the newline-bearing comparator made exact NONE
   readback impossible. No accepted ACM endpoint appeared. Child suspend,

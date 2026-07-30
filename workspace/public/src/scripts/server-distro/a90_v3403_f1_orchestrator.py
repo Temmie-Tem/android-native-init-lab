@@ -1017,28 +1017,23 @@ def approval_binding(spec: F1Spec) -> dict[str, Any]:
         spec.stage,
         "target.connected_path_preflight",
     )
-    return {
-        "schema": "a90_v3403_f1_approval_binding_v1",
-        "run_id": spec.stage.run_id,
-        "manifest_sha256": spec.stage.manifest_sha256,
-        "orchestrator_sha256": sha256_file(Path(__file__).resolve()),
-        "staging_adapter_sha256": spec.stage.adapter_sha256,
-        "flash_runner_sha256": spec.flash_runner.sha256,
-        "candidate_boot_sha256": spec.candidate.sha256,
-        "rollback_boot_sha256": spec.rollback.sha256,
-        "rootfs_sha256": spec.stage.local_sha256,
-        "connected_d0_sha256": connected_d0.sha256,
-        "connected_path_preflight_sha256": connected_paths.sha256,
-        "recovery_adb_serial_sha256": spec.recovery_serial_sha256,
-        "observation_mode": spec.observation_mode,
-        "attended_window_sec": spec.attended_window_sec,
-        "pre_handoff_attempt_limit": spec.pre_handoff_attempt_limit,
-        "handoff_attempt_limit": spec.handoff_attempt_limit,
-        "candidate_attempt_limit": 1,
-        "mandatory_rollback_preapproved_after_candidate_start": True,
-        "candidate_replay": False,
-        "only_partition_payload": "boot",
-    }
+    return staging.canonical_f1_approval_binding(
+        run_id=spec.stage.run_id,
+        manifest_sha256=spec.stage.manifest_sha256,
+        orchestrator_sha256=sha256_file(Path(__file__).resolve()),
+        staging_adapter_sha256=spec.stage.adapter_sha256,
+        flash_runner_sha256=spec.flash_runner.sha256,
+        candidate_boot_sha256=spec.candidate.sha256,
+        rollback_boot_sha256=spec.rollback.sha256,
+        rootfs_sha256=spec.stage.local_sha256,
+        connected_d0_sha256=connected_d0.sha256,
+        connected_path_preflight_sha256=connected_paths.sha256,
+        recovery_adb_serial_sha256=spec.recovery_serial_sha256,
+        observation_mode=spec.observation_mode,
+        attended_window_sec=spec.attended_window_sec,
+        pre_handoff_attempt_limit=spec.pre_handoff_attempt_limit,
+        handoff_attempt_limit=spec.handoff_attempt_limit,
+    )
 
 
 def approval_prepared_path(spec: F1Spec) -> Path:
@@ -3363,6 +3358,7 @@ def simulate_transaction(
 def source_contract_issues(source: str) -> tuple[str, ...]:
     issues: list[str] = []
     required_functions = (
+        "def approval_binding(",
         "def prepare_approval(",
         "def load_approval_prepared(",
         "def candidate_failure_is_definite_pre_session(",
@@ -3383,6 +3379,23 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
     for token in required_functions:
         if token not in source:
             issues.append(f"missing function: {token}")
+    approval_start = source.find("def approval_binding(")
+    approval_end = source.find("\ndef approval_prepared_path(", approval_start + 1)
+    if approval_start < 0 or approval_end < 0:
+        issues.append("approval binding source boundary is missing")
+    else:
+        approval = source[approval_start:approval_end]
+        for token in (
+            "return staging.canonical_f1_approval_binding(",
+            "observation_mode=spec.observation_mode",
+            "attended_window_sec=spec.attended_window_sec",
+            "pre_handoff_attempt_limit=spec.pre_handoff_attempt_limit",
+            "handoff_attempt_limit=spec.handoff_attempt_limit",
+        ):
+            if approval.count(token) != 1:
+                issues.append(
+                    f"approval binding lacks canonical observation gate: {token}"
+                )
     constants_start = source.find('F1_SERIAL_INPUT_MODE = "slow"')
     constants_end = source.find("RECOVERY_ADB_MARKER_RE", constants_start + 1)
     if constants_start < 0 or constants_end < 0:

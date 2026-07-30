@@ -699,25 +699,38 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
             "rollback_boot": {"sha256": "e" * 64},
             "f1_orchestrator": {"sha256": "f" * 64},
             "transport": {"runner_sha256": "4" * 64},
+            "observation": {
+                "mode": stage.ATTENDED_OBSERVATION_MODE,
+                "attended_window_sec": stage.ATTENDED_WINDOW_SEC,
+                "pre_handoff_attempt_limit": (
+                    stage.ATTENDED_PRE_HANDOFF_ATTEMPT_LIMIT
+                ),
+                "handoff_attempt_limit": stage.ATTENDED_HANDOFF_ATTEMPT_LIMIT,
+            },
         }
-        binding = {
-            "schema": "a90_v3403_f1_approval_binding_v1",
-            "run_id": run_id,
-            "manifest_sha256": "a" * 64,
-            "orchestrator_sha256": "f" * 64,
-            "staging_adapter_sha256": "b" * 64,
-            "flash_runner_sha256": "4" * 64,
-            "candidate_boot_sha256": "d" * 64,
-            "rollback_boot_sha256": "e" * 64,
-            "rootfs_sha256": "c" * 64,
-            "connected_d0_sha256": "1" * 64,
-            "connected_path_preflight_sha256": "2" * 64,
-            "recovery_adb_serial_sha256": "3" * 64,
-            "candidate_attempt_limit": 1,
-            "mandatory_rollback_preapproved_after_candidate_start": True,
-            "candidate_replay": False,
-            "only_partition_payload": "boot",
-        }
+        binding = stage.canonical_f1_approval_binding(
+            run_id=run_id,
+            manifest_sha256="a" * 64,
+            orchestrator_sha256="f" * 64,
+            staging_adapter_sha256="b" * 64,
+            flash_runner_sha256="4" * 64,
+            candidate_boot_sha256="d" * 64,
+            rollback_boot_sha256="e" * 64,
+            rootfs_sha256="c" * 64,
+            connected_d0_sha256="1" * 64,
+            connected_path_preflight_sha256="2" * 64,
+            recovery_adb_serial_sha256="3" * 64,
+            observation_mode=stage.ATTENDED_OBSERVATION_MODE,
+            attended_window_sec=stage.ATTENDED_WINDOW_SEC,
+            pre_handoff_attempt_limit=(
+                stage.ATTENDED_PRE_HANDOFF_ATTEMPT_LIMIT
+            ),
+            handoff_attempt_limit=stage.ATTENDED_HANDOFF_ATTEMPT_LIMIT,
+        )
+        self.assertEqual(binding["observation_mode"], "operator-attended-v1")
+        self.assertEqual(binding["attended_window_sec"], 900)
+        self.assertEqual(binding["pre_handoff_attempt_limit"], 3)
+        self.assertEqual(binding["handoff_attempt_limit"], 1)
         binding_sha = stage.json_sha256(binding)
         prepared = {
             "schema": stage.APPROVAL_PREPARED_SCHEMA,
@@ -748,6 +761,50 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
                     stage.validate_parent_approval(spec, manifest, "wrong-token")
             finally:
                 stage.PRIVATE_RUN_BASE = old_base
+
+    def test_canonical_f1_approval_binding_rejects_policy_mutation(self) -> None:
+        values = {
+            "run_id": "a90-v3403-debian-f1-20260730-02",
+            "manifest_sha256": "a" * 64,
+            "orchestrator_sha256": "b" * 64,
+            "staging_adapter_sha256": "c" * 64,
+            "flash_runner_sha256": "d" * 64,
+            "candidate_boot_sha256": "e" * 64,
+            "rollback_boot_sha256": "f" * 64,
+            "rootfs_sha256": "1" * 64,
+            "connected_d0_sha256": "2" * 64,
+            "connected_path_preflight_sha256": "3" * 64,
+            "recovery_adb_serial_sha256": "4" * 64,
+            "observation_mode": stage.ATTENDED_OBSERVATION_MODE,
+            "attended_window_sec": 900,
+            "pre_handoff_attempt_limit": 3,
+            "handoff_attempt_limit": 1,
+        }
+        for key, value in (
+            ("observation_mode", "legacy-unbound"),
+            ("attended_window_sec", 901),
+            ("pre_handoff_attempt_limit", 4),
+            ("handoff_attempt_limit", 2),
+            ("handoff_attempt_limit", True),
+        ):
+            with self.subTest(key=key, value=value):
+                malformed = {**values, key: value}
+                with self.assertRaises(stage.ContractError):
+                    stage.canonical_f1_approval_binding(**malformed)
+
+    def test_source_contract_requires_canonical_parent_approval_binding(
+        self,
+    ) -> None:
+        source = SOURCE.read_text(encoding="utf-8")
+        mutated = source.replace(
+            "expected_binding = canonical_f1_approval_binding(",
+            "expected_binding = {",
+            1,
+        )
+        issues = stage.source_contract_issues(mutated)
+        self.assertTrue(
+            any("canonical observation binding" in issue for issue in issues)
+        )
 
 
 if __name__ == "__main__":
