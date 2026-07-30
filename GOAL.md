@@ -94,9 +94,22 @@ requires the sole NCM interface under the same USB parent as the manifest-bound
 A90 ACM endpoint and passes the `105/105` focused closure. Independent
 re-review returned `GO`. New run `a90-v3403-debian-f1-20260730-03` has a
 new-inode exact rootfs/key pair, fresh V2321/path/NCM D0, a passing final
-manifest inspection, and a host-only approval receipt. It remains
-non-self-authorizing and awaits one fresh exact approval. Debian PID1 is
-unproved and internal userdata is untouched.**
+manifest inspection, and a host-only approval receipt. One exact approval was
+then consumed. The 2 GiB rootfs staged through the topology-bound NCM path and
+was rehashed immediately before intent. V3403 completed one checked boot
+write/readback, booted with exact version/build, and passed selftest. The
+Debian handoff observer command was corrupted by console/menu interference
+before a valid framed handoff ran, so Debian PID1 remains unproved. V3403
+returned healthy and the exact V2321 rollback completed one checked
+write/readback. The initial final-health selftest lost its frame terminator
+after rollback, but durable state already proved `rollback-flashed`; the
+approved rollback-recovery path therefore performed read-only health checks
+without reinvoking rollback and closed the transaction
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. Candidate/rollback counts are `1/1`,
+candidate replay is false, exact V2321 final health passed, and internal
+userdata is untouched. The run and approval are non-reusable. The selected
+successor is H0 diagnosis and remediation of command/menu serialization before
+any fresh manifest, D0, or approval.**
 
 Stock D1 v2 and P2.84 selected different runtime-PM paths. Stock's first two
 outer works ended by `0.291 ms`, followed by deferred child and parent PM
