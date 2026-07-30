@@ -7,6 +7,34 @@ AGENTS_REVIEW_THRESHOLD_LINES = 220
 AGENTS_HARD_MAX_LINES = 260
 GOAL_REVIEW_THRESHOLD_LINES = 800
 GOAL_HARD_MAX_LINES = 900
+ATTENDED_REQUIRED_CLAUSES = (
+    "Status: `H0_DESIGN_SELECTED_IMPLEMENTATION_REQUIRED`",
+    "It is not live authority and cannot be applied to a candidate after candidate intent.",
+    '"attended_window_sec": 900',
+    '"pre_handoff_attempt_limit": 3',
+    '"handoff_attempt_limit": 1',
+    "The F1 approval binding must include all four values.",
+    "Version 1 accepts no window above 900 seconds, no pre-handoff budget above three, and no handoff limit other than one.",
+    "no handoff intent was recorded;",
+    "the handoff command was not sent;",
+    "Expiry, attempt exhaustion, target ambiguity, health mismatch, lost recovery, or an unclassified error closes continuation authority. Only rollback recovery may follow.",
+    "the runner durably commits `attended-handoff-started` and fsyncs its journal record before dispatching the first byte",
+    "After that durable intent, observation and rollback form a one-way path; no health, channel, or handoff command may be retried.",
+    "This standing treatment does not cover reboot, Download/recovery entry, service start or stop, mount, network reconfiguration, file mutation, payload transfer, or any action that can remove the recovery path.",
+    "Rollback must not wait for an attended-continuation acknowledgement and must never repeat the candidate.",
+    "This contract cannot reactivate, extend, or reinterpret a consumed or failed run.",
+)
+
+
+def normalized(text):
+    return " ".join(text.split())
+
+
+def attended_contract_issues(text):
+    value = normalized(text)
+    return tuple(
+        clause for clause in ATTENDED_REQUIRED_CLAUSES if clause not in value
+    )
 
 
 class DeviceActionProcessV2DocsTest(unittest.TestCase):
@@ -20,6 +48,9 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         cls.risk = (
             ROOT / "docs/operations/DEVICE_ACTION_RISK_TIERS.md"
+        ).read_text(encoding="utf-8")
+        cls.a90_attended = (
+            ROOT / "docs/operations/A90_F1_ATTENDED_OBSERVATION_V1.md"
         ).read_text(encoding="utf-8")
         cls.p280_resume_femto_audit = (
             ROOT
@@ -93,6 +124,39 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             "CLOSED",
         ):
             self.assertIn(state, self.process)
+
+    def test_a90_attended_mode_is_predeclared_bounded_and_nonretroactive(self):
+        combined = "\n".join(
+            (self.agents, self.process, self.risk, self.a90_attended)
+        )
+        for token in (
+            "operator-attended-v1",
+            "attended_window_sec",
+            "pre_handoff_attempt_limit",
+            "handoff_attempt_limit",
+            "attended-window-open",
+            "attended-handoff-started",
+            "cannot be added after candidate intent",
+            "must never retry the candidate",
+        ):
+            self.assertIn(token, combined)
+        self.assertEqual(attended_contract_issues(self.a90_attended), ())
+
+    def test_a90_attended_contract_rejects_each_load_bearing_mutation(self):
+        source = normalized(self.a90_attended)
+        for index, clause in enumerate(ATTENDED_REQUIRED_CLAUSES):
+            with self.subTest(clause=clause):
+                mutated = source.replace(clause, f"removed-clause-{index}", 1)
+                self.assertIn(clause, attended_contract_issues(mutated))
+
+    def test_low_risk_hide_is_narrow_and_other_d1_stays_fresh(self):
+        combined = "\n".join((self.agents, self.risk, self.a90_attended))
+        self.assertIn("UI-only native-init `hide`", combined)
+        self.assertIn(
+            "Require one fresh explicit operator approval for every other",
+            self.risk,
+        )
+        self.assertIn("service start or stop", self.a90_attended)
 
     def test_frontier_records_terminal_e2_without_live_authority(self):
         normalized_goal = " ".join(self.goal.split())

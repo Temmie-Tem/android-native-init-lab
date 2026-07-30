@@ -305,6 +305,23 @@ Preflight, dry-run, and local Odin parser failures are durable run outcomes but
 not permanent one-shot consumption. A later attempt is a new run and requires a
 new approval. The process does not reactivate or reuse an old approval.
 
+### Operator-Attended Observation
+
+The default observation remains unattended and fail-fast. A target-specific,
+independently reviewed extension may pause after durable candidate completion
+only when its mode, deadline, command allowlist, attempt budget, and handoff
+limit were included in the immutable manifest and original F1 approval.
+
+An attended continuation creates no new candidate or partition authority.
+Positively classified pre-handoff channel failures may be retried only inside
+the original budget and only with proof that no handoff intent or dispatch
+occurred. Once handoff intent exists, no observation command may be retried;
+the mandatory rollback path remains the only recovery transition.
+
+An attended mode cannot be created after candidate intent or applied to a
+consumed run. The selected A90 design and its implementation gate are in
+`docs/operations/A90_F1_ATTENDED_OBSERVATION_V1.md`.
+
 ## Regular-Path Transport
 
 - Open candidate, rollback, and Odin files before Download transition.

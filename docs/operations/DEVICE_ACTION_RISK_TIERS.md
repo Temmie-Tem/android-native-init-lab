@@ -43,7 +43,11 @@ and `odin4 -l` when a target-specific rule permits it.
 Examples: an attended reboot, request/exit Download mode, or exact Odin
 `--reboot` with no AP or other payload option.
 
-- Require one fresh explicit operator approval for the bounded action.
+- Exact UI-only native-init `hide` may use the operator's standing direction
+  while the operator is actively attending. Announce it, send it once to the
+  exact target, and require a complete framed success response.
+- Require one fresh explicit operator approval for every other bounded D1
+  action.
 - Pin the exact target/topology, use an argv allowlist, bound output and time,
   and verify the expected healthy return state.
 - No partition payload, persistent configuration change, or security-state

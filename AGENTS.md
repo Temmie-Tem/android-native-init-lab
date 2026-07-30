@@ -13,31 +13,19 @@ Do not add a device step when host-only work can answer the question.
 ## Current Live Posture
 
 - No S22+ F1 live run is currently authorized.
-- No A90 F1 live run is currently authorized. A90 run
-  `a90-debian-reactivation-f1-20260730-01` consumed its exact approval.
-  V3402 candidate and exact V2321 rollback each completed one checked boot-only
-  transfer with no candidate replay. The transaction is `CLOSED` with verdict
-  `NO_PROOF_DEBIAN_HANDOFF_CANDIDATE_ROLLED_BACK` and final V2321 health
-  restored.
-- A90's first SD-backed Debian handoff validated the bound rootfs SHA, attached
-  the loop, mounted ext4, and validated `/sbin/init`, then stopped before
-  `switch_root` at display-owner cleanup `-EBUSY`. That rw mount/unmount changed
-  the rootfs image bytes. The one bounded corrected handoff stopped at the
-  immutable SHA gate before mount. Debian PID1 was not reached, internal
-  userdata was not touched, and the changed rootfs was not accepted.
-- The selected A90 H0 successor is implemented as V3403. Strict display-owner
-  cleanup precedes loop attachment and rw mount; the manifest-bound source is
-  rehashed, copied to one absent-only work image, and never mounted rw. Every
-  modeled pre-`switch_root` failure cleans only the work resources and leaves
-  the source byte-identical. The focused suite passes `41/41`, and the source
-  cross-compiles to AArch64.
-- A fresh private 2 GiB D3 sysvinit rootfs exists with SHA256
-  `16c504a8b1860fcc56272140b48d27a015bab1748b6c6be10fdb958bcdd7d749`.
-  Its Debian package trust chain, clean ext4 state, root-owned init contract,
-  locked root password, and credential/key absence passed host verification.
-  V3403 boot and exact V2321 rollback were also reopened and hash-verified.
-  This is H0 input closure only: no rootfs staging, target selection, prepared
-  F1 manifest, approval, or live authority exists. Do not replay V3402.
+- No A90 F1 live run is currently authorized. V3403 run
+  `a90-v3403-debian-f1-20260731-01` staged its unique rootfs and completed one
+  candidate and one exact V2321 rollback transfer with no replay. V3403 booted,
+  but automatic-menu interleaving removed the version frame END before
+  selftest; source preflight, handoff, and `switch_root` were not attempted.
+  After one low-risk menu hide, health-only recovery closed
+  `ABORTED_F1_V2_CANDIDATE_UNCERTAIN_ROLLED_BACK` with exact V2321 health.
+- The future-only A90 successor is the H0 design in
+  `docs/operations/A90_F1_ATTENDED_OBSERVATION_V1.md`: a predeclared bounded
+  operator-attended pre-handoff window, at most three health/channel attempts,
+  exactly one handoff, and unchanged mandatory rollback. It is not executable
+  until runner/schema implementation, focused tests, and independent review
+  pass. It never applies retroactively to a consumed run.
 - P2.82 consumed one exact approval. Its byte-identical reads end in terminal
   failure `0x8e/detail=0xc10`; the newline-bearing comparator made exact NONE
   readback impossible. No accepted ACM endpoint appeared. Child suspend,
@@ -121,7 +109,11 @@ Do not add a device step when host-only work can answer the question.
    stop. The same material host-side or pre-session failure twice also stops the
    line of work. This stops candidate experimentation; it does not cancel the
    already-authorized exact rollback path. Rollback recovery may resume only
-   from durable journal state and must never retry the candidate.
+   from durable journal state and must never retry the candidate. A
+   predeclared, reviewed attended contract may classify and retry only a
+   positively proven pre-handoff channel failure within its original deadline
+   and attempt budget. It cannot be added after candidate intent, and any
+   handoff intent or ambiguity ends retry authority.
 8. Do not commit firmware, boot images, ramdisks, compiled payloads, raw device
    logs, credentials, device serials, PARTUUIDs, MAC/BSSID/IP values, KASLR
    slides, or tunnel URLs. Keep private inputs and run evidence under
@@ -138,8 +130,10 @@ Classify every action using
 
 - **H0:** host-only work. No device approval.
 - **D0:** connected read-only work. Unambiguous target and bounded reads.
-- **D1:** transient no-payload control. One fresh approval, bounded exact
-  command, and return-health check.
+- **D1:** transient no-payload control. UI-only native-init `hide` is covered
+  by active operator attendance and standing direction when announced, sent
+  once to the exact target, and return-checked. Other D1 actions require one
+  fresh approval, bounded exact command, and return-health check.
 - **F1:** one boot-only candidate transfer plus its mandatory rollback under
   Process v2.
 - **X:** forbidden by the permanent boundaries.
