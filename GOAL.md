@@ -19,6 +19,14 @@ zero-return PHY power-helper prefix, and the new exact parent
 change. No P2.86 `0x90`, `0xc50..0xc5c`, or terminal `0x93` survived. Exact
 rollback and final health passed.**
 
+**A90 parallel state: run `a90-debian-reactivation-f1-20260730-01` is closed
+healthy/no-proof. V3402 and exact V2321 rollback each completed one checked
+boot-only transfer. The first SD-backed Debian handoff stopped before
+`switch_root` at display-owner cleanup `-EBUSY`; its prior rw mount/unmount
+changed the bound rootfs image. The corrected handoff then failed closed at the
+immutable SHA gate. Debian PID1 is unproved, internal userdata was untouched,
+and V2321 final health passed. No A90 live authority remains.**
+
 Stock D1 v2 and P2.84 selected different runtime-PM paths. Stock's first two
 outer works ended by `0.291 ms`, followed by deferred child and parent PM
 callbacks through `19.504 ms`. P2.84 `0xc18` instead proves its child callback
@@ -175,9 +183,15 @@ corrected A/B pair then matched.
   proof; swallowed clock errors remain non-proof.
 - Process v2 common D0/F1 execution, regular-path boot-only Odin transport,
   journal recovery, rollback, and final health are proven.
+- A90 run `a90-debian-reactivation-f1-20260730-01` proves one exact V3402
+  checked boot transfer, one exact V2321 checked rollback, and restored final
+  health with no candidate replay. It also proves the current D3 handoff can
+  mutate the bound SD rootfs before a later display-owner failure, so Debian
+  PID1 remains unproved for this run.
 
 Load-bearing current reports:
 
+- `docs/reports/A90_DEBIAN_REACTIVATION_F1_CLOSED_2026-07-30.md`
 - `docs/reports/S22PLUS_FYG8_P284_CONTROLLED_SUSPEND_F1_CLOSED_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P284_POST_SUSPEND_RESTART_GAP_FOCUSED_ANALYSIS_H0_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P284_STOCK_OUTER_D1_V2_LIVE_NO_PROOF_2026-07-29.md`
@@ -368,6 +382,20 @@ operations before the asserted publication boundaries.
     identity, Full-LTO/package/static
    closure, ready manifest, D0, and fresh exact F1 approval.
 
+The A90 branch proceeds independently:
+
+1. Preserve the closed A90 journal, structured result, raw private evidence,
+   and exact V2321 final-health state.
+2. Do not replay V3402 or reuse the consumed approval.
+3. Design an H0 successor that completes display-owner cleanup before
+   `d3_attach_loop()` and `d3_mount_root()`.
+4. Require a fresh immutable SD rootfs input and prove every pre-`switch_root`
+   failure leaves it byte-identical; a retry must never depend on accepting a
+   post-mount hash.
+5. Build and statically validate a fresh versioned A90 candidate. Any later
+   device step requires exact target selection, exact rollback, a new manifest,
+   and fresh approval.
+
 No device step is added when H0 can answer the question.
 
 ## Process
@@ -402,4 +430,5 @@ journal. No later rung may infer an earlier unproved result.
 - Recovery, rollback, target identity, or Odin endpoint is unavailable.
 - An unexplained device-session failure or repeated material failure occurs.
 - Three consecutive units add only policy or review with no tested behavior.
-- Scope grows to shell, NCM, Debian, or a supervisor before E4 closes.
+- The S22+ branch grows to shell, NCM, Debian, or a supervisor before E4
+  closes. A90 remains a separately authorized target and evidence line.

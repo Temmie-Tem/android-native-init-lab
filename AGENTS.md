@@ -13,6 +13,24 @@ Do not add a device step when host-only work can answer the question.
 ## Current Live Posture
 
 - No S22+ F1 live run is currently authorized.
+- No A90 F1 live run is currently authorized. A90 run
+  `a90-debian-reactivation-f1-20260730-01` consumed its exact approval.
+  V3402 candidate and exact V2321 rollback each completed one checked boot-only
+  transfer with no candidate replay. The transaction is `CLOSED` with verdict
+  `NO_PROOF_DEBIAN_HANDOFF_CANDIDATE_ROLLED_BACK` and final V2321 health
+  restored.
+- A90's first SD-backed Debian handoff validated the bound rootfs SHA, attached
+  the loop, mounted ext4, and validated `/sbin/init`, then stopped before
+  `switch_root` at display-owner cleanup `-EBUSY`. That rw mount/unmount changed
+  the rootfs image bytes. The one bounded corrected handoff stopped at the
+  immutable SHA gate before mount. Debian PID1 was not reached, internal
+  userdata was not touched, and the changed rootfs was not accepted.
+- The selected A90 successor is H0-only: move display-owner cleanup before loop
+  attachment/rw mount, preserve a fresh immutable SD rootfs input for each
+  attempt, and make every pre-`switch_root` failure leave that input
+  byte-identical. Do not replay V3402 or seek live authority until a fresh
+  versioned candidate, static validation, exact rollback, and new approval
+  exist.
 - P2.82 consumed one exact approval. Its byte-identical reads end in terminal
   failure `0x8e/detail=0xc10`; the newline-bearing comparator made exact NONE
   readback impossible. No accepted ACM endpoint appeared. Child suspend,
