@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""Post-build P2.88 audit for the Full-LTO switch-table lowering."""
+"""Post-build P2.88 audit using source semantics and direct ELF data."""
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
+import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -12,7 +15,6 @@ from pathlib import Path
 from typing import Any
 
 import s22plus_fyg8_p253_linked_audit as cfg_audit
-import s22plus_fyg8_p282_linked_audit as p282_audit
 import s22plus_fyg8_p288_build_repro_check as repro
 import s22plus_fyg8_p288_change_freeze as freeze
 import s22plus_fyg8_p288_linked_audit as legacy
@@ -22,13 +24,9 @@ import s22plus_fyg8_p288_source_contract as p288
 SCHEMA = repro.SCHEMA
 VERDICT = repro.VERDICT
 TARGET = repro.TARGET
-
-# The immutable candidate builder accepts this semantic adapter identity.  The
-# implementation identity below distinguishes this post-build verifier and is
-# included, with its exact material receipt, in the result it emits.
 ADAPTER_ID = legacy.ADAPTER_ID
 IMPLEMENTATION_ID = (
-    "s22plus-fyg8-p288-postbuild-switch-table-linked-audit-v2"
+    "s22plus-fyg8-p288-source-exhaustive-and-elf-data-audit-v3"
 )
 EXPECTED_SOURCE_CONTRACT_ID = p288.CONTRACT_ID
 ADAPTER_MODULE = "s22plus_fyg8_p288_postbuild_linked_audit"
@@ -47,6 +45,20 @@ EXPECTED_SUPPORT_PATHS = (
     ),
 )
 
+HOST_GENERATIONS = 104
+PAIR_DOMAIN_SIZE = 1 << 16
+HOST_CASE_COUNT = HOST_GENERATIONS * PAIR_DOMAIN_SIZE
+HOST_ACCEPT_COUNT = len(p288.spec.POSITIONS)
+HOST_OUTPUT = (
+    f"checked={HOST_CASE_COUNT} accepted={HOST_ACCEPT_COUNT}\n"
+).encode("ascii")
+LINKED_DATA_SYMBOLS = (
+    "s22_fyg8_e2_sequence",
+    "s22_fyg8_e2_items",
+    "s22_fyg8_e2_kinds",
+    "s22_fyg8_p288_detail_rules",
+)
+
 AuditError = legacy.AuditError
 SourceContractError = AuditError
 require_gnu_aarch64_tools = legacy.require_gnu_aarch64_tools
@@ -54,480 +66,434 @@ linked_table_storage_bytes = legacy.linked_table_storage_bytes
 normalize_linked_table_storage = legacy.normalize_linked_table_storage
 
 
-def _instructions(disassembly: str) -> tuple[str, ...]:
-    rows: list[str] = []
-    for line in disassembly.splitlines():
-        match = re.match(
-            r"^\s*[0-9a-fA-F]+:\s+[0-9a-fA-F]{8}\s+(.+?)\s*$",
-            line,
-        )
-        if match is not None:
-            rows.append(match.group(1).split("//", 1)[0].strip())
-    if not rows:
-        raise AuditError("P2.88 request validator disassembly is empty")
-    return tuple(rows)
-
-
-def _unique_index(
-    rows: tuple[str, ...],
-    pattern: str,
-    label: str,
-    *,
-    start: int = 0,
-    stop: int | None = None,
-) -> int:
-    upper = len(rows) if stop is None else stop
-    matches = tuple(
-        index
-        for index in range(start, upper)
-        if re.fullmatch(pattern, rows[index])
+def _added_span(patch: bytes, begin: bytes, end: bytes) -> bytes:
+    lines = patch.splitlines(keepends=True)
+    starts = tuple(
+        index for index, line in enumerate(lines) if line.startswith(begin)
     )
-    if len(matches) != 1:
+    stops = tuple(
+        index for index, line in enumerate(lines) if line.startswith(end)
+    )
+    if len(starts) != 1 or len(stops) != 1 or starts[0] >= stops[0]:
         raise AuditError(
-            f"P2.88 switch-table {label} is not unique: {len(matches)}"
+            "P2.88 production validator source span is not unique"
         )
-    return matches[0]
-
-
-def _indexed_table_base(
-    rows: tuple[str, ...],
-    destination: str,
-    label: str,
-) -> tuple[int, int]:
-    matches: list[tuple[int, int]] = []
-    load_pattern = re.compile(
-        rf"ldr\s+{destination},\s*\[x9,\s*x8,\s*lsl\s+#3\]"
-    )
-    for index in range(2, len(rows)):
-        if load_pattern.fullmatch(rows[index]) is None:
-            continue
-        page = re.fullmatch(
-            r"adrp\s+x9,\s*([0-9a-fA-F]+)(?:\s+<[^>]+>)?",
-            rows[index - 2],
-        )
-        offset = re.fullmatch(
-            r"add\s+x9,\s*x9,\s*#(0x[0-9a-fA-F]+|\d+)",
-            rows[index - 1],
-        )
-        if page is not None and offset is not None:
-            matches.append(
-                (int(page.group(1), 16) + int(offset.group(1), 0), index)
-            )
-    if len(matches) != 1:
+    selected = lines[starts[0] : stops[0]]
+    if any(not line.startswith(b"+") for line in selected):
         raise AuditError(
-            f"P2.88 switch-table {label} base is not unique: "
-            f"{len(matches)}"
+            "P2.88 production validator span contains non-added source"
         )
-    return matches[0]
+    return b"".join(line[1:] for line in selected)
 
 
-def _switch_table_structure(disassembly: str) -> dict[str, Any]:
-    rows = _instructions(disassembly)
-    profile = _unique_index(
-        rows,
-        r"ldrb\s+w0,\s*\[x0,\s*#(?:0x)?5\]",
-        "request profile load",
+def production_validator_source(patch: bytes) -> bytes:
+    structures = _added_span(
+        patch,
+        b"+struct s22_fyg8_e1_request {\n",
+        b"+static const u8 s22_fyg8_e1_long_family[]",
     )
-    subtract = _unique_index(
-        rows,
-        r"sub\s+w9,\s*w0,\s*#0x1",
-        "profile bias",
-        start=profile + 1,
+    sequences = _added_span(
+        patch,
+        b"+static const u8 s22_fyg8_e1a_sequence[]",
+        b"+static bool s22_fyg8_e1_parse_reg(",
     )
-    upper = _unique_index(
-        rows,
-        r"cmp\s+w9,\s*#0x2",
-        "profile upper bound",
-        start=subtract + 1,
+    selector = _added_span(
+        patch,
+        b"+static const u8 *s22_fyg8_e1_sequence(",
+        b"+static noinline __used bool s22_fyg8_e1_expected_item(",
     )
-    index = _unique_index(
-        rows,
-        r"sxtb\s+x8,\s*w9",
-        "profile index materialization",
-        start=upper + 1,
+    expected_item = _added_span(
+        patch,
+        b"+static noinline __used bool s22_fyg8_e1_expected_item(",
+        b"+struct s22_fyg8_p288_detail_rule {\n",
     )
-    reject_profile = _unique_index(
-        rows,
-        r"b\.hi\s+.*",
-        "profile rejection branch",
-        start=upper + 1,
-        stop=index,
+    classifiers = _added_span(
+        patch,
+        b"+struct s22_fyg8_p288_detail_rule {\n",
+        b"+static void s22_fyg8_e1_record_entry(",
     )
-    count_base, count_load = _indexed_table_base(
-        rows, "x22", "sequence-count"
-    )
-    pointer_base, pointer_load = _indexed_table_base(
-        rows, "x8", "sequence-pointer"
-    )
-    if not index < count_load < pointer_load:
-        raise AuditError("P2.88 switch-table load order differs")
-    count_compare = _unique_index(
-        rows,
-        r"cmp\s+x22,\s*x21",
-        "generation/count comparison",
-        start=count_load + 1,
-        stop=pointer_load,
-    )
-    count_reject = _unique_index(
-        rows,
-        r"b\.ls\s+.*",
-        "generation/count rejection branch",
-        start=count_compare + 1,
-        stop=pointer_load,
-    )
-    request_stage = _unique_index(
-        rows,
-        r"ldrb\s+w3,\s*\[x20,\s*#(?:0x)?6\]",
-        "request stage load",
-        start=pointer_load + 1,
-    )
-    table_stage = _unique_index(
-        rows,
-        r"ldrb\s+w8,\s*\[x8,\s*x21\]",
-        "generation-indexed sequence byte load",
-        start=request_stage + 1,
-    )
-    stage_compare = _unique_index(
-        rows,
-        r"cmp\s+w3,\s*w8",
-        "request/sequence stage comparison",
-        start=table_stage + 1,
-    )
-    _unique_index(
-        rows,
-        r"b\.ne\s+.*",
-        "stage mismatch rejection branch",
-        start=stage_compare + 1,
-        stop=stage_compare + 2,
-    )
-    return {
-        "count_base": count_base,
-        "pointer_base": pointer_base,
-        "profile_domain": [1, 3],
-        "profile_index_bias": 1,
-        "profile_table_index_register": "x8",
-        "generation_register": "x21",
-        "entry_width": 8,
-        "count_guard_before_pointer_load": count_reject < pointer_load,
-        "generation_indexed_byte_load": True,
-        "request_stage_compare": True,
-        "structural_verified": True,
-    }
-
-
-def _fallback_validator(
-    disassembly: dict[str, str],
-    calls: dict[str, list[str]],
-    symbol_addresses: dict[str, int],
-) -> dict[str, Any]:
     required = (
-        "s22_fyg8_e1_expected_item",
-        "s22_fyg8_e1_request_allowed",
-        "s22_fyg8_e1_detail_allowed",
-        "s22_fyg8_p288_tuple_allowed",
-        "s22_fyg8_e1_write",
+        b"static const u8 s22_fyg8_e2_sequence[] __used",
+        b"static const u8 s22_fyg8_e2_items[] __used",
+        b"static const u8 s22_fyg8_e2_kinds[] __used",
+        b"static noinline __used bool s22_fyg8_e1_expected_item(",
+        b"static noinline __used bool s22_fyg8_e1_detail_allowed(",
+        b"static noinline __used bool s22_fyg8_e1_request_allowed(",
+        b"request->stage != sequence[ordinal]",
+        b"request->item_index != expected_item",
     )
-    if any(not isinstance(disassembly.get(name), str) for name in required):
-        raise AuditError("P2.88 linked validator evidence is incomplete")
-    legacy._require_call(
-        calls, "s22_fyg8_e1_write", "s22_fyg8_e1_request_allowed"
-    )
-    legacy._require_call(
-        calls,
-        "s22_fyg8_e1_request_allowed",
-        "s22_fyg8_e1_expected_item",
-    )
-    legacy._require_call(
-        calls,
-        "s22_fyg8_e1_request_allowed",
-        "s22_fyg8_e1_detail_allowed",
-    )
-    legacy._require_call(
-        calls,
-        "s22_fyg8_e1_detail_allowed",
-        "s22_fyg8_p288_tuple_allowed",
-    )
+    source = structures + sequences + selector + expected_item + classifiers
+    if any(source.count(token) != 1 for token in required):
+        raise AuditError("P2.88 production validator source is incomplete")
+    return source
 
-    expected = p288.linked_table_bytes()
-    structure = _switch_table_structure(
-        disassembly["s22_fyg8_e1_request_allowed"]
+
+def _c_u8_array(name: str, values: tuple[int, ...]) -> str:
+    body = ", ".join(f"0x{value:02x}" for value in values)
+    return f"static const u8 {name}[] = {{{body}}};\n"
+
+
+def host_validator_tu(patch: bytes) -> bytes:
+    production = production_validator_source(patch).decode("ascii")
+    expected_stages = tuple(
+        position.stage for position in p288.spec.POSITIONS
     )
-    loads = {
-        "sequence": {
-            "form": "profile-indexed-switch-table",
-            "exact_binding_deferred_to_postbuild": True,
-            "structure": {
-                key: value
-                for key, value in structure.items()
-                if key not in {"count_base", "pointer_base"}
-            },
-        },
-        "items": p282_audit._require_load(
-            disassembly,
-            symbol_addresses,
-            "s22_fyg8_e1_expected_item",
-            "s22_fyg8_e2_items",
-            len(expected["s22_fyg8_e2_items"]),
-            "byte",
-        ),
-        "kinds": p282_audit._require_load(
-            disassembly,
-            symbol_addresses,
-            "s22_fyg8_e1_detail_allowed",
-            "s22_fyg8_e2_kinds",
-            len(expected["s22_fyg8_e2_kinds"]),
-            "byte",
-        ),
-        "exact_rule_bytes": p282_audit._require_load(
-            disassembly,
-            symbol_addresses,
-            "s22_fyg8_e1_detail_allowed",
-            "s22_fyg8_p288_detail_rules",
-            len(expected["s22_fyg8_p288_detail_rules"]),
-            "byte",
-        ),
-        "exact_rule_halfwords": p282_audit._require_load(
-            disassembly,
-            symbol_addresses,
-            "s22_fyg8_e1_detail_allowed",
-            "s22_fyg8_p288_detail_rules",
-            len(expected["s22_fyg8_p288_detail_rules"]),
-            "halfword",
-        ),
-    }
-    tuple_immediates = p282_audit._immediates(
-        disassembly["s22_fyg8_p288_tuple_allowed"]
+    expected_items = tuple(
+        position.item_index for position in p288.spec.POSITIONS
     )
-    tuple_span = p288.spec.TUPLE_LAST - p288.spec.TUPLE_FIRST
+    prelude = f"""
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint16_t __le16;
+typedef uint32_t __le32;
+
+#define __packed __attribute__((packed))
+#define noinline __attribute__((noinline))
+#define __used __attribute__((used))
+#define ARRAY_SIZE(value) (sizeof(value) / sizeof((value)[0]))
+#define READ_ONCE(value) (value)
+#define le16_to_cpu(value) (value)
+#if __BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__
+#error "P2.88 host validator requires a little-endian execution host"
+#endif
+#define S22_FYG8_E1_HEADER_SIZE {p288.decoder.model.LONG_HEADER_SIZE}
+#define S22_FYG8_E1_PROFILE_E1A 1U
+#define S22_FYG8_E1_PROFILE_E1B 2U
+#define S22_FYG8_E1_PROFILE_E2 3U
+#define S22_FYG8_E1_PROGRESS 0U
+#define S22_FYG8_E1_SUCCESS 1U
+#define S22_FYG8_E1_FAILURE 2U
+"""
+    oracle = (
+        _c_u8_array("p288_expected_stage", expected_stages)
+        + _c_u8_array("p288_expected_item", expected_items)
+    )
+    main = f"""
+int main(void)
+{{
+    struct s22_fyg8_e1_request request;
+    uint64_t checked = 0;
+    uint64_t accepted = 0;
+    unsigned int generation;
+    unsigned int stage;
+    unsigned int item;
+
+    memset(&request, 0, sizeof(request));
+    request.profile = S22_FYG8_E1_PROFILE_E2;
+    request.detail = 0;
+    for (generation = 0; generation < {HOST_GENERATIONS}; ++generation) {{
+        s22_fyg8_e1_state.generation = (u8)generation;
+        request.outcome = generation + 1U == {HOST_ACCEPT_COUNT}
+            ? S22_FYG8_E1_SUCCESS : S22_FYG8_E1_PROGRESS;
+        for (stage = 0; stage < 256U; ++stage) {{
+            request.stage = (u8)stage;
+            for (item = 0; item < 256U; ++item) {{
+                bool expected;
+                bool actual;
+
+                request.item_index = (u8)item;
+                expected = generation < {HOST_ACCEPT_COUNT} &&
+                    request.stage == p288_expected_stage[generation] &&
+                    request.item_index == p288_expected_item[generation];
+                actual = s22_fyg8_e1_request_allowed(&request);
+                ++checked;
+                if (actual)
+                    ++accepted;
+                if (actual != expected) {{
+                    fprintf(stderr,
+                        "mismatch generation=%u stage=%u item=%u "
+                        "actual=%u expected=%u\\n",
+                        generation, stage, item, actual, expected);
+                    return 10;
+                }}
+            }}
+        }}
+    }}
+    if (checked != {HOST_CASE_COUNT} || accepted != {HOST_ACCEPT_COUNT})
+        return 11;
+    printf("checked=%llu accepted=%llu\\n",
+        (unsigned long long)checked, (unsigned long long)accepted);
+    return 0;
+}}
+"""
+    return (prelude + production + oracle + main).encode("ascii")
+
+
+def _stable_tool(path: Path, label: str) -> dict[str, Any]:
+    data = repro.candidate_contract.stable_read(
+        path, label, 128 * 1024 * 1024
+    )
+    return repro.candidate_contract.intent.receipt(data)
+
+
+def run_host_validator_tu(tu: bytes) -> dict[str, Any]:
+    compiler_name = shutil.which("cc")
+    if compiler_name is None:
+        raise AuditError("P2.88 host C compiler is unavailable")
+    compiler = Path(compiler_name).resolve()
+    compiler_receipt = _stable_tool(compiler, "P2.88 host C compiler")
+    version = subprocess.run(
+        (str(compiler), "--version"),
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        timeout=30,
+    )
+    if version.returncode != 0 or not version.stdout:
+        raise AuditError("P2.88 host C compiler identity is unavailable")
+    with tempfile.TemporaryDirectory(
+        prefix="s22-p288-host-validator-"
+    ) as temporary:
+        source = Path(temporary) / "validator.c"
+        binary = Path(temporary) / "validator"
+        source.write_bytes(tu)
+        compiled = subprocess.run(
+            (
+                str(compiler),
+                "-std=c11",
+                "-O2",
+                "-fno-lto",
+                "-Wall",
+                "-Wextra",
+                "-Werror",
+                str(source),
+                "-o",
+                str(binary),
+            ),
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=60,
+        )
+        if compiled.returncode != 0:
+            raise AuditError(
+                "P2.88 host validator compile failed: "
+                + compiled.stdout[-2000:].decode("utf-8", "replace")
+            )
+        executed = subprocess.run(
+            (str(binary),),
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=30,
+        )
     if (
-        p288.spec.ordinal_for_position(p288.spec.FINAL_STAGE, 1)
-        not in tuple_immediates
-        or p288.spec.TUPLE_FIRST not in tuple_immediates
-        or not (
-            p288.spec.TUPLE_LAST in tuple_immediates
-            or tuple_span in tuple_immediates
-        )
+        executed.returncode != 0
+        or executed.stdout != HOST_OUTPUT
+        or executed.stderr
     ):
-        raise AuditError("P2.88 linked tuple range dispatch differs")
-    return {
-        "audit_adapter": ADAPTER_ID,
-        "audit_implementation": IMPLEMENTATION_ID,
-        "writer_calls_request_validator": True,
-        "request_calls_item_validator": True,
-        "request_calls_detail_validator": True,
-        "detail_calls_tuple_validator": True,
-        "pair_tables_loaded": loads,
-        "exact_rule_count": len(p288.spec.exact_detail_rules()),
-        "tuple_range_verified": True,
-        "writer_guard": cfg_audit._audit_writer_guard(
-            disassembly["s22_fyg8_e1_write"]
-        ),
-        "postbuild_exact_sequence_binding_pending": True,
-        "verified": False,
-    }
-
-
-def audit_linked_validator(
-    disassembly: dict[str, str],
-    calls: dict[str, list[str]],
-    symbol_addresses: dict[str, int],
-) -> dict[str, Any]:
-    try:
-        result = legacy.audit_linked_validator(
-            disassembly, calls, symbol_addresses
-        )
-    except AuditError as exc:
-        if "does not load exact table: s22_fyg8_e2_sequence" not in str(exc):
-            raise
-        return _fallback_validator(
-            disassembly, calls, symbol_addresses
-        )
-    result["audit_implementation"] = IMPLEMENTATION_ID
-    result["pair_tables_loaded"]["sequence_form"] = "direct"
-    result["postbuild_exact_sequence_binding_pending"] = False
-    return result
-
-
-def _dump_address_bytes(
-    objdump: Path,
-    vmlinux: Path,
-    start: int,
-    size: int,
-) -> bytes:
-    text = repro._run(  # noqa: SLF001
-        [
-            str(objdump),
-            "-s",
-            f"--start-address=0x{start:x}",
-            f"--stop-address=0x{start + size:x}",
-            str(vmlinux),
-        ],
-        "objdump switch table",
-    )
-    addressed: dict[int, int] = {}
-    for line in text.splitlines():
-        match = re.match(r"^\s*([0-9a-fA-F]+)\s+(.+)$", line)
-        if match is None:
-            continue
-        cursor = int(match.group(1), 16)
-        columns = re.split(r"\s{2,}", match.group(2), maxsplit=1)[0]
-        for token in columns.split():
-            if (
-                re.fullmatch(r"[0-9a-fA-F]{2,8}", token) is None
-                or len(token) % 2
-            ):
-                break
-            for value in bytes.fromhex(token):
-                addressed[cursor] = value
-                cursor += 1
-    try:
-        return bytes(addressed[start + offset] for offset in range(size))
-    except KeyError as exc:
-        raise AuditError("P2.88 linked switch-table dump is short") from exc
-
-
-def _little_u64s(data: bytes) -> tuple[int, ...]:
-    if not data or len(data) % 8:
-        raise AuditError("P2.88 switch-table byte width differs")
-    return tuple(
-        int.from_bytes(data[offset : offset + 8], "little")
-        for offset in range(0, len(data), 8)
-    )
-
-
-def _validate_switch_table_values(
-    structure: dict[str, Any],
-    counts: tuple[int, ...],
-    pointers: tuple[int, ...],
-    sequence_addresses: tuple[int, int, int],
-) -> dict[str, Any]:
-    expected_counts = (9, 15, len(p288.linked_table_bytes()[
-        "s22_fyg8_e2_sequence"
-    ]))
-    if counts != expected_counts:
+        detail = (executed.stdout + executed.stderr)[-2000:]
         raise AuditError(
-            f"P2.88 linked sequence count switch differs: {counts}"
+            "P2.88 host validator exhaustive evaluation failed: "
+            + detail.decode("utf-8", "replace")
         )
-    if pointers != sequence_addresses:
-        raise AuditError("P2.88 linked sequence pointer switch differs")
-    if (
-        structure.get("profile_domain") != [1, 3]
-        or structure.get("profile_index_bias") != 1
-        or structure.get("entry_width") != 8
-        or structure.get("count_guard_before_pointer_load") is not True
-        or structure.get("generation_indexed_byte_load") is not True
-        or structure.get("request_stage_compare") is not True
-    ):
-        raise AuditError("P2.88 linked switch-table structure differs")
     return {
-        "form": "profile-indexed-switch-table",
-        "profile_domain": [1, 3],
-        "profile_index_bias": 1,
-        "e2_profile_index": 2,
-        "sequence_symbols": [
-            "s22_fyg8_e1a_sequence",
-            "s22_fyg8_e1b_sequence",
-            "s22_fyg8_e2_sequence",
-        ],
-        "sequence_counts": list(expected_counts),
-        "e2_count": expected_counts[2],
-        "count_table_exact": True,
-        "pointer_table_exact": True,
-        "generation_indexed_byte_load": True,
-        "request_stage_compare": True,
-        "exact_e2_sequence_target": True,
+        "compiler": compiler_receipt,
+        "compiler_version_sha256": hashlib.sha256(version.stdout).hexdigest(),
+        "translation_unit": repro.candidate_contract.intent.receipt(tu),
+        "generation_domain": [0, HOST_GENERATIONS - 1],
+        "stage_domain": [0, 255],
+        "item_index_domain": [0, 255],
+        "checked_pairs": HOST_CASE_COUNT,
+        "accepted_pairs": HOST_ACCEPT_COUNT,
+        "expected_output": HOST_OUTPUT.decode("ascii").strip(),
+        "same_production_functions_unmodified": True,
+        "register_allocation_independent": True,
+        "exhaustive_pair_domain": True,
         "verified": True,
     }
 
 
-def _exact_switch_table_audit(
-    args, result: dict[str, Any]  # noqa: ANN001
+def host_native_exhaustive(root: Path) -> dict[str, Any]:
+    patch = p288.generate(root)["patch"]
+    result = run_host_validator_tu(host_validator_tu(patch))
+    result["identity_patch"] = p288.receipt(patch)
+    result["production_validator_source"] = p288.receipt(
+        production_validator_source(patch)
+    )
+    return result
+
+
+def _section_headers(data: bytes) -> tuple[list[tuple[int, ...]], int]:
+    if (
+        len(data) < 64
+        or data[:4] != b"\x7fELF"
+        or data[4] != 2
+        or data[5] != 1
+    ):
+        raise AuditError("P2.88 linked vmlinux is not ELF64 little-endian")
+    header = struct.unpack_from("<HHIQQQIHHHHHH", data, 16)
+    section_offset = header[5]
+    section_size = header[10]
+    section_count = header[11]
+    string_index = header[12]
+    if section_size != 64 or not section_count:
+        raise AuditError("P2.88 linked ELF section table is unsupported")
+    end = section_offset + section_size * section_count
+    if section_offset < 64 or end > len(data):
+        raise AuditError("P2.88 linked ELF section table is out of bounds")
+    sections = [
+        struct.unpack_from("<IIQQQQIIQQ", data, section_offset + 64 * index)
+        for index in range(section_count)
+    ]
+    if string_index >= section_count:
+        raise AuditError("P2.88 linked ELF string section is invalid")
+    return sections, string_index
+
+
+def _slice(data: bytes, offset: int, size: int, label: str) -> bytes:
+    if (
+        isinstance(offset, bool)
+        or isinstance(size, bool)
+        or offset < 0
+        or size < 0
+        or offset + size > len(data)
+    ):
+        raise AuditError(f"P2.88 linked ELF {label} is out of bounds")
+    return data[offset : offset + size]
+
+
+def _c_string(table: bytes, offset: int) -> str:
+    if not 0 <= offset < len(table):
+        raise AuditError("P2.88 linked ELF string offset is invalid")
+    end = table.find(b"\0", offset)
+    if end < 0:
+        raise AuditError("P2.88 linked ELF string is unterminated")
+    try:
+        return table[offset:end].decode("ascii")
+    except UnicodeError as exc:
+        raise AuditError("P2.88 linked ELF symbol is not ASCII") from exc
+
+
+def elf_symbol_bytes(data: bytes, symbol_name: str) -> bytes:
+    sections, _string_index = _section_headers(data)
+    matches: list[bytes] = []
+    for section in sections:
+        (
+            _name,
+            section_type,
+            _flags,
+            _address,
+            offset,
+            size,
+            link,
+            _info,
+            _alignment,
+            entry_size,
+        ) = section
+        if section_type != 2:
+            continue
+        if entry_size != 24 or link >= len(sections):
+            raise AuditError("P2.88 linked ELF symbol table is malformed")
+        string_section = sections[link]
+        strings = _slice(
+            data,
+            string_section[4],
+            string_section[5],
+            "symbol strings",
+        )
+        symbols = _slice(data, offset, size, "symbol table")
+        if len(symbols) % 24:
+            raise AuditError("P2.88 linked ELF symbol table is truncated")
+        for cursor in range(0, len(symbols), 24):
+            name, _info, _other, index, value, symbol_size = (
+                struct.unpack_from("<IBBHQQ", symbols, cursor)
+            )
+            if _c_string(strings, name) != symbol_name:
+                continue
+            if index == 0 or index >= len(sections) or not symbol_size:
+                raise AuditError("P2.88 linked ELF symbol placement is invalid")
+            target = sections[index]
+            relative = value - target[3]
+            if relative < 0 or relative + symbol_size > target[5]:
+                raise AuditError("P2.88 linked ELF symbol exceeds its section")
+            matches.append(
+                _slice(
+                    data,
+                    target[4] + relative,
+                    symbol_size,
+                    f"symbol {symbol_name}",
+                )
+            )
+    if len(matches) != 1:
+        raise AuditError(
+            f"P2.88 linked ELF symbol cardinality differs: "
+            f"{symbol_name}={len(matches)}"
+        )
+    return matches[0]
+
+
+def verify_linked_table_data(
+    vmlinux: bytes, expected: dict[str, bytes]
 ) -> dict[str, Any]:
+    if tuple(expected) != LINKED_DATA_SYMBOLS:
+        raise AuditError("P2.88 expected linked table set differs")
+    tables: dict[str, Any] = {}
+    for symbol_name in LINKED_DATA_SYMBOLS:
+        expected_bytes = expected[symbol_name]
+        actual = elf_symbol_bytes(vmlinux, symbol_name)
+        if actual != expected_bytes:
+            raise AuditError(
+                f"P2.88 linked table bytes differ: {symbol_name}"
+            )
+        tables[symbol_name] = {
+            "symbol_size": len(actual),
+            "symbol_receipt": p288.receipt(actual),
+            "expected_receipt": p288.receipt(expected_bytes),
+            "byte_identical": True,
+        }
+    sequence = expected["s22_fyg8_e2_sequence"]
+    items = expected["s22_fyg8_e2_items"]
+    kinds = expected["s22_fyg8_e2_kinds"]
+    if (
+        len(sequence) != 103
+        or len(items) != len(sequence)
+        or len(kinds) != len(sequence)
+        or tuple(zip(sequence, items, strict=True))
+        != p288.spec.POSITION_SEQUENCE
+    ):
+        raise AuditError("P2.88 linked position-table encoding differs")
+    return {
+        "symbols": tables,
+        "position_count": len(p288.spec.POSITIONS),
+        "position_pairs_unique": (
+            len(set(p288.spec.POSITION_SEQUENCE))
+            == len(p288.spec.POSITION_SEQUENCE)
+        ),
+        "terminal_generation": p288.spec.TERMINAL_GENERATION,
+        "direct_elf_symbol_data": True,
+        "objdump_text_not_used": True,
+        "stage_and_item_bytes_equal_position_sequence": True,
+        "kind_and_detail_rule_bytes_equal_source_contract": True,
+        "verified": True,
+    }
+
+
+def linked_table_data(args, result: dict[str, Any]) -> dict[str, Any]:  # noqa: ANN001
     root = repro.candidate_contract.intent.repo_root()
     directory = repro.candidate_contract.intent.resolve(root, args.build_a)
-    paths = {
-        "vmlinux": directory / "vmlinux",
-        "nm": repro.candidate_contract.intent.resolve(root, args.nm),
-        "objdump": repro.candidate_contract.intent.resolve(root, args.objdump),
-    }
-    captured = {
-        "vmlinux": repro.candidate_contract.stable_read(
-            paths["vmlinux"],
-            "P2.88 post-build linked vmlinux",
-            repro.ARTIFACT_LIMITS["vmlinux"],
-        ),
-        "nm": repro.candidate_contract.stable_read(
-            paths["nm"], "P2.88 post-build nm", 16 * 1024 * 1024
-        ),
-        "objdump": repro.candidate_contract.stable_read(
-            paths["objdump"],
-            "P2.88 post-build objdump",
-            16 * 1024 * 1024,
-        ),
-    }
-    receipts = {
-        name: repro.candidate_contract.intent.receipt(data)
-        for name, data in captured.items()
-    }
-    expected_vmlinux = (
-        result.get("build_a", {})
-        .get("artifacts", {})
-        .get("vmlinux")
+    vmlinux = repro.candidate_contract.stable_read(
+        directory / "vmlinux",
+        "P2.88 direct-ELF linked vmlinux",
+        repro.ARTIFACT_LIMITS["vmlinux"],
     )
-    if receipts["vmlinux"] != expected_vmlinux:
+    receipt = repro.candidate_contract.intent.receipt(vmlinux)
+    expected_receipt = (
+        result.get("build_a", {}).get("artifacts", {}).get("vmlinux")
+    )
+    if receipt != expected_receipt:
         raise AuditError(
-            "P2.88 post-build vmlinux changed after reproducibility audit"
+            "P2.88 linked vmlinux changed after reproducibility audit"
         )
-    with tempfile.TemporaryDirectory(
-        prefix="s22-p288-postbuild-linked-"
-    ) as temporary:
-        staged: dict[str, Path] = {}
-        for name, data in captured.items():
-            path = Path(temporary) / name
-            path.write_bytes(data)
-            path.chmod(0o700 if name in {"nm", "objdump"} else 0o600)
-            staged[name] = path
-        ranges = repro._symbol_ranges(  # noqa: SLF001
-            repro._run(  # noqa: SLF001
-                [str(staged["nm"]), "-n", str(staged["vmlinux"])],
-                "P2.88 post-build nm",
-            )
-        )
-        request = repro._disassemble(  # noqa: SLF001
-            staged["objdump"],
-            staged["vmlinux"],
-            ranges,
-            "s22_fyg8_e1_request_allowed",
-        )
-        structure = _switch_table_structure(request)
-        count_bytes = _dump_address_bytes(
-            staged["objdump"],
-            staged["vmlinux"],
-            structure["count_base"],
-            24,
-        )
-        pointer_bytes = _dump_address_bytes(
-            staged["objdump"],
-            staged["vmlinux"],
-            structure["pointer_base"],
-            24,
-        )
-        symbols = (
-            "s22_fyg8_e1a_sequence",
-            "s22_fyg8_e1b_sequence",
-            "s22_fyg8_e2_sequence",
-        )
-        if any(symbol not in ranges for symbol in symbols):
-            raise AuditError(
-                "P2.88 linked sequence switch target symbol is missing"
-            )
-        proof = _validate_switch_table_values(
-            structure,
-            _little_u64s(count_bytes),
-            _little_u64s(pointer_bytes),
-            tuple(ranges[symbol][0] for symbol in symbols),
-        )
-    proof["staged_input_receipts"] = receipts
+    proof = verify_linked_table_data(vmlinux, p288.linked_table_bytes())
+    proof["vmlinux"] = receipt
     return proof
 
 
@@ -564,10 +530,6 @@ def _support_delta(root: Path) -> dict[str, Any]:
         stderr=subprocess.PIPE,
         text=True,
     )
-    if head.returncode != 0 or re.fullmatch(
-        r"[0-9a-f]{40}", head.stdout.strip()
-    ) is None:
-        raise AuditError("P2.88 post-build support HEAD is unavailable")
     status = subprocess.run(
         ("git", "status", "--porcelain=v1", "-z", "--untracked-files=all"),
         cwd=root,
@@ -576,7 +538,9 @@ def _support_delta(root: Path) -> dict[str, Any]:
         stderr=subprocess.PIPE,
     )
     if (
-        status.returncode != 0
+        head.returncode != 0
+        or re.fullmatch(r"[0-9a-f]{40}", head.stdout.strip()) is None
+        or status.returncode != 0
         or status.stdout
         or head.stdout.strip() == SUPPORT_BASE_COMMIT
     ):
@@ -591,6 +555,54 @@ def _support_delta(root: Path) -> dict[str, Any]:
         "source_key_count": len(p288.SOURCE_KEYS),
         "materials": materials,
         "verified": True,
+    }
+
+
+def audit_linked_validator(
+    disassembly: dict[str, str],
+    calls: dict[str, list[str]],
+    _symbol_addresses: dict[str, int],
+) -> dict[str, Any]:
+    required = (
+        "s22_fyg8_e1_expected_item",
+        "s22_fyg8_e1_request_allowed",
+        "s22_fyg8_e1_detail_allowed",
+        "s22_fyg8_p288_tuple_allowed",
+        "s22_fyg8_e1_write",
+    )
+    if any(not isinstance(disassembly.get(name), str) for name in required):
+        raise AuditError("P2.88 linked validator evidence is incomplete")
+    legacy._require_call(
+        calls, "s22_fyg8_e1_write", "s22_fyg8_e1_request_allowed"
+    )
+    legacy._require_call(
+        calls,
+        "s22_fyg8_e1_request_allowed",
+        "s22_fyg8_e1_expected_item",
+    )
+    legacy._require_call(
+        calls,
+        "s22_fyg8_e1_request_allowed",
+        "s22_fyg8_e1_detail_allowed",
+    )
+    legacy._require_call(
+        calls,
+        "s22_fyg8_e1_detail_allowed",
+        "s22_fyg8_p288_tuple_allowed",
+    )
+    return {
+        "audit_adapter": ADAPTER_ID,
+        "audit_implementation": IMPLEMENTATION_ID,
+        "writer_calls_request_validator": True,
+        "request_calls_item_validator": True,
+        "request_calls_detail_validator": True,
+        "detail_calls_tuple_validator": True,
+        "writer_guard": cfg_audit._audit_writer_guard(
+            disassembly["s22_fyg8_e1_write"]
+        ),
+        "register_specific_validator_patterns_used": False,
+        "validator_semantics_pending_host_exhaustive": True,
+        "verified": False,
     }
 
 
@@ -631,37 +643,26 @@ def check(args) -> dict[str, Any]:  # noqa: ANN001
         or linked.get("source_contract_semantics", {}).get("verified")
         is not True
         or not isinstance(validator, dict)
+        or validator.get("validator_semantics_pending_host_exhaustive")
+        is not True
     ):
         raise AuditError("P2.88 post-build linked adapter was not applied")
-    sequence = validator.get("pair_tables_loaded", {}).get("sequence")
-    if (
-        not isinstance(sequence, dict)
-        or sequence.get("form") != "profile-indexed-switch-table"
-    ):
-        if validator.get("verified") is not True:
-            raise AuditError("P2.88 direct linked validator is incomplete")
-        exact_sequence = {
-            "form": "direct",
-            "verified": True,
-        }
-    else:
-        exact_sequence = _exact_switch_table_audit(args, result)
-        sequence["exact_binding_deferred_to_postbuild"] = False
-        sequence["postbuild_exact_binding"] = exact_sequence
-        validator["postbuild_exact_sequence_binding_pending"] = False
-        validator["verified"] = True
+    root = repro.candidate_contract.intent.repo_root()
+    host_proof = host_native_exhaustive(root)
+    table_proof = linked_table_data(args, result)
+    validator["host_native_exhaustive"] = host_proof
+    validator["linked_table_data"] = table_proof
+    validator["validator_semantics_pending_host_exhaustive"] = False
+    validator["verified"] = True
     linked["gnu_aarch64_tools"] = tool_identity
     linked["postbuild_audit"] = {
         "implementation_id": IMPLEMENTATION_ID,
         "semantic_adapter_id": ADAPTER_ID,
-        "exact_sequence_binding": exact_sequence,
-        "support_delta": _support_delta(
-            repro.candidate_contract.intent.repo_root()
-        ),
+        "host_native_exhaustive": host_proof,
+        "linked_table_data": table_proof,
+        "support_delta": _support_delta(root),
         "verified": True,
     }
-    if validator.get("verified") is not True:
-        raise AuditError("P2.88 post-build validator did not close")
     return result
 
 
