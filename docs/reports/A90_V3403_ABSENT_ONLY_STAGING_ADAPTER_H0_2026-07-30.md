@@ -3,7 +3,7 @@
 Date: 2026-07-30 KST
 
 Status:
-`PASS_HOST_THIRD_REMEDIATION_RE_REVIEW_PENDING_NO_LIVE_AUTHORITY`
+`PASS_HOST_FOURTH_REMEDIATION_RE_REVIEW_PENDING_NO_LIVE_AUTHORITY`
 
 ## Scope
 
@@ -77,7 +77,7 @@ The keyed rootfs remains:
 - The focused suite passes `31/31`.
 - The new adapter plus V3403 build, D3 handoff, and D3 rootfs focused group
   passes `56/56`.
-- The complete adapter/orchestrator/V3403 focused group passes `99/99`.
+- The complete adapter/orchestrator/V3403 focused group passes `100/100`.
 - Every declared prepublication fault leaves the final path absent.
 - Every modeled postpublication fault preserves the exact final identity but
   keeps `candidate_allowed=false`.

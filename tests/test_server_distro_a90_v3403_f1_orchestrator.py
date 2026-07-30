@@ -878,20 +878,31 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
             transaction = Path(temp_dir)
             journal = transaction / "journal"
-            raw_log = transaction / "rollback-pre-spawn.raw.log"
-            raw_log.write_bytes(b"")
-            raw_log.chmod(0o600)
-            failure = {
-                **f1.command_record(raw_log, 125),
-                "process_started": False,
-                "execution_error": {
-                    "type": "FileNotFoundError",
-                    "stage": "process-spawn",
-                    "errno": 2,
-                },
-            }
+
+            def fail_before_spawn(
+                command: list[str],
+                *,
+                log_path: Path,
+                timeout: float,
+            ) -> dict[str, object]:
+                log_path.write_bytes(b"")
+                log_path.chmod(0o600)
+                return {
+                    **f1.command_record(log_path, 125),
+                    "process_started": False,
+                    "execution_error": {
+                        "type": "FileNotFoundError",
+                        "stage": "process-spawn",
+                        "errno": 2,
+                    },
+                }
+
             with (
-                mock.patch.object(f1, "run_logged", return_value=failure),
+                mock.patch.object(
+                    f1,
+                    "run_logged",
+                    side_effect=fail_before_spawn,
+                ),
                 self.assertRaisesRegex(
                     RuntimeError,
                     "helper did not start; recover rollback only",
@@ -913,7 +924,11 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                     "rollback-process-not-started",
                 ],
             )
-            allowed, mode, rejection_count = f1.rollback_pre_spawn_retry(records)
+            allowed, mode, rejection_count = f1.rollback_pre_spawn_retry(
+                spec,
+                transaction,
+                records,
+            )
             self.assertTrue(allowed)
             self.assertEqual(mode, "from-native")
             self.assertEqual(rejection_count, 1)
@@ -921,6 +936,7 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
             self.assertEqual(records[-1]["rollback_transfer_count"], 0)
 
     def test_unpaired_latest_rollback_intent_is_never_retried(self) -> None:
+        spec = sample_spec()
         records = [
             {
                 "action": "rollback-transfer-started",
@@ -942,10 +958,51 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                 "recovery_mode": "adb-recovery",
             },
         ]
-        allowed, mode, rejection_count = f1.rollback_pre_spawn_retry(records)
+        with tempfile.TemporaryDirectory(
+            dir=f1.staging.PRIVATE_ROOT
+        ) as temp_dir:
+            allowed, mode, rejection_count = f1.rollback_pre_spawn_retry(
+                spec,
+                Path(temp_dir),
+                records,
+            )
+            self.assertFalse(allowed)
+            self.assertIsNone(mode)
+            self.assertEqual(rejection_count, 0)
+
+    def test_conflicting_started_failure_then_malformed_not_started_is_refused(
+        self,
+    ) -> None:
+        spec = sample_spec()
+        records = [
+            {
+                "action": "rollback-transfer-started",
+                "recovery_mode": "adb-recovery",
+            },
+            {
+                "action": "rollback-invocation-failed",
+                "rollback_retry_forbidden": True,
+                "record": {"process_started": True, "returncode": 1},
+            },
+            {
+                "action": "rollback-process-not-started",
+                "rollback_process_started": False,
+                "record": {
+                    "process_started": False,
+                    "execution_error": {"stage": "process-spawn"},
+                },
+            },
+        ]
+        with tempfile.TemporaryDirectory(
+            dir=f1.staging.PRIVATE_ROOT
+        ) as temp_dir:
+            allowed, _, rejection_count = f1.rollback_pre_spawn_retry(
+                spec,
+                Path(temp_dir),
+                records,
+            )
         self.assertFalse(allowed)
-        self.assertEqual(mode, "adb-recovery")
-        self.assertEqual(rejection_count, 1)
+        self.assertEqual(rejection_count, 0)
 
     def test_recovery_reinvokes_only_definite_pre_spawn_rollback(self) -> None:
         spec = sample_spec()
@@ -973,26 +1030,6 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                         "candidate-transfer-started",
                         {"rollback_required": True},
                     ),
-                    (
-                        "RECOVERY_ROLLBACK",
-                        "rollback-transfer-started",
-                        {"recovery_mode": "from-native"},
-                    ),
-                    (
-                        "RECOVERY_ROLLBACK",
-                        "rollback-process-not-started",
-                        {
-                            "rollback_process_started": False,
-                            "record": {
-                                "process_started": False,
-                                "execution_error": {
-                                    "type": "FileNotFoundError",
-                                    "stage": "process-spawn",
-                                    "errno": 2,
-                                },
-                            },
-                        },
-                    ),
                 )
                 for state, action, payload in records:
                     f1.append_record(
@@ -1002,6 +1039,45 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                         payload,
                         manifest_sha256=spec.stage.manifest_sha256,
                         run_id=spec.stage.run_id,
+                    )
+                initial_args = sample_args()
+
+                def fail_before_spawn(
+                    command: list[str],
+                    *,
+                    log_path: Path,
+                    timeout: float,
+                ) -> dict[str, object]:
+                    log_path.write_bytes(b"")
+                    log_path.chmod(0o600)
+                    return {
+                        **f1.command_record(log_path, 125),
+                        "process_started": False,
+                        "execution_error": {
+                            "type": "FileNotFoundError",
+                            "stage": "process-spawn",
+                            "errno": 2,
+                        },
+                    }
+
+                with (
+                    mock.patch.object(
+                        f1,
+                        "run_logged",
+                        side_effect=fail_before_spawn,
+                    ),
+                    self.assertRaisesRegex(
+                        RuntimeError,
+                        "helper did not start; recover rollback only",
+                    ),
+                ):
+                    f1.invoke_rollback(
+                        spec,
+                        initial_args,
+                        transaction,
+                        journal,
+                        [],
+                        from_native=True,
                     )
                 args = sample_args()
                 args.approval = None

@@ -1479,40 +1479,139 @@ def invoke_rollback(
 
 
 def rollback_pre_spawn_retry(
+    spec: F1Spec,
+    transaction_dir: Path,
     records: list[dict[str, Any]],
 ) -> tuple[bool, str | None, int]:
-    latest_intent = -1
-    latest_not_started = -1
-    recovery_mode: str | None = None
-    rejection_count = 0
-    for index, record in enumerate(records):
-        action = record.get("action")
-        if action == "rollback-transfer-started":
-            latest_intent = index
-            mode = record.get("recovery_mode")
-            recovery_mode = mode if isinstance(mode, str) else None
-        elif action == "rollback-process-not-started":
-            execution = record.get("record")
-            execution_error = (
-                execution.get("execution_error")
-                if isinstance(execution, dict)
-                else None
-            )
-            if (
-                record.get("rollback_process_started") is False
-                and isinstance(execution, dict)
-                and execution.get("process_started") is False
-                and isinstance(execution_error, dict)
-                and execution_error.get("stage") == "process-spawn"
-            ):
-                latest_not_started = index
-                rejection_count += 1
-    allowed = (
-        latest_intent >= 0
-        and latest_not_started > latest_intent
-        and recovery_mode in ("from-native", "adb-recovery")
+    if len(records) < 2:
+        return False, None, 0
+    intent = records[-2]
+    rejection = records[-1]
+    prior_rejections = sum(
+        record.get("action") == "rollback-process-not-started"
+        for record in records[:-1]
     )
-    return allowed, recovery_mode, rejection_count
+    common_keys = {
+        "schema",
+        "sequence",
+        "timestamp_utc",
+        "run_id",
+        "manifest_sha256",
+        "state",
+        "action",
+    }
+    intent_keys = common_keys | {
+        "rollback_sha256",
+        "rollback_attempt_limit",
+        "rollback_process_started",
+        "candidate_replay",
+        "recovery_mode",
+        "prior_pre_spawn_rejections",
+    }
+    rejection_keys = common_keys | {
+        "candidate_replay",
+        "rollback_process_started",
+        "rollback_transfer_count",
+        "rollback_retry_preserved",
+        "record",
+    }
+    recovery_mode = intent.get("recovery_mode")
+    if (
+        set(intent) != intent_keys
+        or set(rejection) != rejection_keys
+        or intent.get("action") != "rollback-transfer-started"
+        or rejection.get("action") != "rollback-process-not-started"
+        or intent.get("state") != "RECOVERY_ROLLBACK"
+        or rejection.get("state") != "RECOVERY_ROLLBACK"
+        or rejection.get("sequence") != intent.get("sequence", -2) + 1
+        or intent.get("rollback_sha256") != spec.rollback.sha256
+        or intent.get("rollback_attempt_limit") != 1
+        or intent.get("rollback_process_started") is not None
+        or intent.get("candidate_replay") is not False
+        or recovery_mode not in ("from-native", "adb-recovery")
+        or intent.get("prior_pre_spawn_rejections") != prior_rejections
+        or rejection.get("candidate_replay") is not False
+        or rejection.get("rollback_process_started") is not False
+        or rejection.get("rollback_transfer_count") != 0
+        or rejection.get("rollback_retry_preserved") is not True
+    ):
+        return False, recovery_mode if isinstance(recovery_mode, str) else None, 0
+
+    execution = rejection.get("record")
+    if not isinstance(execution, dict):
+        return False, recovery_mode, 0
+    execution_keys = {
+        "returncode",
+        "raw_log",
+        "raw_log_size",
+        "raw_log_sha256",
+        "process_started",
+        "execution_error",
+        "phase_classification",
+    }
+    execution_error = execution.get("execution_error")
+    phase_classification = execution.get("phase_classification")
+    phase_keys = {
+        "local_image_validated",
+        "native_recovery_requested",
+        "recovery_endpoint_selected",
+        "payload_transfer_started",
+        "boot_write_started",
+        "boot_write_completed",
+        "readback_completed",
+    }
+    error_type = (
+        execution_error.get("type")
+        if isinstance(execution_error, dict)
+        else None
+    )
+    if (
+        set(execution) != execution_keys
+        or execution.get("returncode") != 125
+        or execution.get("process_started") is not False
+        or not isinstance(execution_error, dict)
+        or set(execution_error) != {"type", "stage", "errno"}
+        or not isinstance(error_type, str)
+        or (
+            error_type != "OSError"
+            and not error_type.endswith("Error")
+        )
+        or error_type == "TimeoutExpired"
+        or execution_error.get("stage") != "process-spawn"
+        or not (
+            execution_error.get("errno") is None
+            or isinstance(execution_error.get("errno"), int)
+        )
+        or not isinstance(phase_classification, dict)
+        or set(phase_classification) != phase_keys
+        or any(value is not False for value in phase_classification.values())
+        or execution.get("raw_log_size") != 0
+        or execution.get("raw_log_sha256") != hashlib.sha256(b"").hexdigest()
+    ):
+        return False, recovery_mode, 0
+
+    if prior_rejections:
+        log_name = (
+            f"rollback-flash-pre-spawn-retry-{prior_rejections:04d}.raw.log"
+        )
+    else:
+        log_name = "rollback-flash.raw.log"
+    expected_log = (transaction_dir / log_name).resolve()
+    raw_log_value = execution.get("raw_log")
+    if not isinstance(raw_log_value, str):
+        return False, recovery_mode, 0
+    try:
+        actual_log = Path(raw_log_value).resolve(strict=True)
+        require_private_regular(actual_log)
+    except (FileNotFoundError, ContractError):
+        return False, recovery_mode, 0
+    if (
+        actual_log != expected_log
+        or actual_log.stat().st_size != execution["raw_log_size"]
+        or sha256_file(actual_log) != execution["raw_log_sha256"]
+    ):
+        return False, recovery_mode, 0
+    return True, recovery_mode, prior_rejections + 1
 
 
 def close_transaction(
@@ -1904,7 +2003,11 @@ def recover_approved_rollback(spec: F1Spec, args: argparse.Namespace) -> dict[st
             "rollback-completion-recovered-by-health",
         )
     )
-    retry_allowed, retry_mode, rejection_count = rollback_pre_spawn_retry(records)
+    retry_allowed, retry_mode, rejection_count = rollback_pre_spawn_retry(
+        spec,
+        transaction_dir,
+        records,
+    )
     if retry_allowed and not rollback_flashed:
         if args.recovery_path is not None and args.recovery_path != retry_mode:
             raise ContractError(
@@ -2131,7 +2234,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         issues.append("recovery does not rebuild timeline from durable journal")
     if "approved_bindings(spec, args, recovery=True)" not in recover:
         issues.append("recovery does not reopen the consumed approval binding")
-    if "rollback_pre_spawn_retry(records)" not in recover:
+    if "rollback_pre_spawn_retry(" not in recover:
         issues.append("recovery cannot distinguish a definite rollback pre-spawn failure")
     if "pre_spawn_retry_index=rejection_count" not in recover:
         issues.append("recovery does not preserve the exact rollback after pre-spawn failure")

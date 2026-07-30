@@ -53,12 +53,18 @@ rollback attempt even though no process had started. The third host-only
 remediation treats timeout as candidate-state uncertainty with mandatory
 rollback, and records an exact `process-spawn` failure as transfer count zero
 so rollback-only recovery can resume under the consumed approval. Any
-possibly-started rollback remains non-retryable. The combined closure now
-passes `99/99` and contains no concrete network address. It has not staged a
-byte or invoked a flash. The changed closure still needs independent re-review
-and a fresh exact three-path D0 before final-manifest promotion. The private
-manifest therefore remains a non-approvable draft. Debian PID1 is still
-unproved, internal userdata remains untouched, and no A90 live authority
+possibly-started rollback remains non-retryable. The fourth independent review
+correctly returned `NO_GO`: a malformed process-not-started record appended
+after a started failure could satisfy the loose retry predicate. The fourth
+host-only remediation accepts only one directly adjacent latest
+intent/process-not-started pair with exact outer/nested shape, zero-transfer
+fields, recovery mode, private empty raw-log path/size/SHA, and prior rejection
+count. A conflicting or malformed record now fails closed. The combined
+closure passes `100/100` and contains no concrete network address. It has not
+staged a byte or invoked a flash. The changed closure still needs independent
+re-review and a fresh exact three-path D0 before final-manifest promotion. The
+private manifest therefore remains a non-approvable draft. Debian PID1 is
+still unproved, internal userdata remains untouched, and no A90 live authority
 exists.**
 
 Stock D1 v2 and P2.84 selected different runtime-PM paths. Stock's first two
