@@ -21,6 +21,7 @@ import s22plus_fyg8_p286_source_contract as p286_contract  # noqa: E402
 import s22plus_fyg8_p288_candidate_intent as candidate_intent  # noqa: E402
 import s22plus_fyg8_p288_contract_spec as spec  # noqa: E402
 import s22plus_fyg8_p288_e1_decoder as decoder  # noqa: E402
+import s22plus_fyg8_p288_e2_stock_closure as stock_closure  # noqa: E402
 import s22plus_fyg8_p288_latest_stage_model as model  # noqa: E402
 import s22plus_fyg8_p288_linked_audit as linked_audit  # noqa: E402
 import s22plus_fyg8_p288_pre_lto_qualification as qualification  # noqa: E402
@@ -340,6 +341,15 @@ class P288PairContractTests(unittest.TestCase):
             p286_contract.DEFAULT_HSPHY_MODULE,
         )
         self.assertEqual(adapter.CONTRACT_ID, source_contract.CONTRACT_ID)
+
+    def test_stock_closure_applies_p286_authority_context_exactly_once(self):
+        result = stock_closure.build_result(ROOT)
+        self.assertEqual(result["schema"], stock_closure.SCHEMA)
+        self.assertEqual(result["verdict"], stock_closure.VERDICT)
+        self.assertEqual(
+            result["contract_id"], source_contract.CONTRACT_ID
+        )
+        self.assertTrue(result["verified"])
 
     def test_pre_intent_freeze_is_git_derived_and_exact(self):
         result = change_freeze.validate_freeze(ROOT)

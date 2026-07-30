@@ -96,7 +96,7 @@ outside identity and are approval-bundle-bound. Intent and build remain
 forbidden until the Git-derived freeze, full focused validation, and clean
 pre-intent implementation commit pass.
 
-That pre-intent static/fault closure now passes: 129 inherited-plus-P2.88
+That pre-intent static/fault closure now passes: 130 inherited-plus-P2.88
 focused tests, 46 typed-evidence/Process-v2 regressions, deterministic static
 AArch64 two-link output, all 206,202 reachable tuples, exact `61 == 61`
 producer routes, publication-order mutation rejection, silence-park routing,

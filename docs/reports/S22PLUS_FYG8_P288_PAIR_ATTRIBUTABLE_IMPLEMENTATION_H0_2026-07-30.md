@@ -125,7 +125,7 @@ freeze reports:
 
 The pre-intent implementation passes:
 
-- 129 inherited-plus-P2.88 focused tests in one interpreter;
+- 130 inherited-plus-P2.88 focused tests in one interpreter;
 - 46 typed-evidence and Process-v2 regression tests;
 - deterministic generation and two identical static AArch64 userspace links;
 - clean kernel-patch application and pair-indexed linked-validator audit;
@@ -151,6 +151,13 @@ two paths while delegating every identity-bearing operation to P2.88. The
 focused suite proves the proxy does not add either attribute to the selected
 source-contract module. The immutable intent reopens with the same run ID and
 all 83 source receipts unchanged.
+
+A later qualification assembly also failed closed before build because the
+P2.88 stock-closure adapter entered the P2.86 authority context twice. That
+made the inner P2.86 delta check see an empty delta. The adapter now delegates
+once to the P2.86 validator, which owns its own scoped context; a focused
+`build_result()` regression proves the exact P2.86 authority and unchanged
+60-module closure. This correction is bundle-bound support, not a SOURCE_KEY.
 
 ## Current safety state
 

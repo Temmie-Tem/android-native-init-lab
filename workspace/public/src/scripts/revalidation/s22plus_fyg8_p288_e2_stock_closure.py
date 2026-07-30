@@ -28,8 +28,7 @@ def select(source_contract_id: str | None):
 
 
 def _validate_p288_authority_strings(data: bytes) -> None:
-    with _p286_authority_paths():
-        p286._validate_p286_authority_strings(data)
+    p286._validate_p286_authority_strings(data)
 
 
 _validate_p286_authority_strings = _validate_p288_authority_strings
