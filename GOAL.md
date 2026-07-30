@@ -24,6 +24,24 @@ observed a normal candidate boot without a boot loop. The formal verdict is
 later readback, configfs bind, final sampling, ACM receipt, or terminal success
 may be inferred from the missing generation 89.
 
+Post-live reset-reason H0 rejects an asynchronous candidate-time reset. The
+first firmware stream after the exact record is the operator's later physical
+Download entry: XBL reports a valid warm reset and PMIC reports
+`PS_HOLD`/S2 warm reset. There is no earlier watchdog, panic, oops, or reset
+boot, and no indexed Samsung kernel record after the candidate checkpoint.
+This does not reject a PID1 hang or evidence park that persisted until the
+operator action.
+
+The first new P2.88 symbolic marker was numbered correctly but placed on the
+far side of the unresolved corridor. Its wrapper runs all 12 sysfs bind-gate
+checks before the generation-89 checkpoint write. The static source-order
+gate checked marker-call order, not adjacency to the durable write. Missing
+generation 89 therefore still spans the generation-88 publisher return tail,
+straight-line return and `clock_gettime`, the hidden gate scan, and the next
+checkpoint publication. No successor F1 may be requested until the first new
+position immediately follows the generation-88 publisher return and has no
+unrelated revalidation before its durable write.
+
 The live transaction exercised the durable recovery design. Initial rollback
 endpoint discovery stopped on a measured USB membership race. Rollback-only
 recovery transferred the exact rollback once, durably reached
@@ -122,10 +140,22 @@ commit-CRC-clear mutation on the retained medium. Raw ring adjacency is exact:
 the byte after the record begins the next warm-reset XBL stream, with zero
 Samsung kernel timestamp prefixes in between. Retained-log `idx` therefore did
 not drift during the candidate run, and neither a torn newer slot nor
-header-drift `-ESTALE` explains the silence.
-The exact live blocking primitive remains unproved. The candidate observer
-closed as a bounded `endpoint-timeout`; the operator reported a normal
-candidate boot without a boot loop.
+header-drift `-ESTALE` explains the silence. The exact live blocking primitive
+remains unproved, but an asynchronous reset is no longer in the live candidate
+explanation set.
+
+P2.88's removal of the pre-helper and immediate post-helper trace snapshots
+was intentional, not an instrumentation-only drift. `residual_outer_open` and
+the `c57/c58/c59` timeout refinement were retired; the remaining refresh is
+later, after helper and readback boundaries. The helper actuation itself
+remains P2.86.
+
+The bound decoder's generation-87 presentation bug is closed without changing
+its approval-bound bytes. A versioned post-live renderer maps
+progress/detail-zero to `progress-no-diagnostic-detail` and terminal
+success/detail-zero to `terminal-success`. Record validity, active generation,
+nonzero details, and the closed F1 verdict are unchanged. Current and frozen
+P2.88 SOURCE_KEYS remain exact `83/83` with no changed receipt.
 
 No S22+ F1 live run is currently authorized. Both P2.84 stock-D1 approvals and
 the P2.84, P2.86, and P2.88 F1 approvals are consumed. Do not repeat P2.82 or
@@ -188,6 +218,9 @@ corrected A/B pair then matched.
   closure, and completed one candidate plus one exact rollback. Its retained
   state still ends at inherited generation 88; generation 89 and every new
   P2.88 coordinate remain unproved.
+- P2.88 post-live H0 proves the first next-boot reason is the operator's
+  `PS_HOLD`/S2 warm reset rather than a candidate-time watchdog/panic reset,
+  and exposes the 12-gate sysfs revalidation hidden before generation 89.
 - Exact source rejects treating a parent-PM sign or PHY flag as electrical
   proof; swallowed clock errors remain non-proof.
 - Process v2 common D0/F1 execution, regular-path boot-only Odin transport,
@@ -207,6 +240,7 @@ Load-bearing current reports:
 - `docs/reports/S22PLUS_FYG8_P288_ITEM_INDEX_SUBPOSITION_SUCCESSOR_DESIGN_H0_2026-07-30.md`
 - `docs/reports/S22PLUS_FYG8_P288_PAIR_ATTRIBUTABLE_IMPLEMENTATION_H0_2026-07-30.md`
 - `docs/reports/S22PLUS_FYG8_P288_PAIR_ATTRIBUTABLE_RESTART_F1_CLOSED_2026-07-30.md`
+- `docs/reports/S22PLUS_FYG8_P288_GEN88_TO_GEN89_CORRIDOR_AND_RESET_REASON_H0_2026-07-30.md`
 - `docs/operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 
@@ -358,18 +392,19 @@ operations before the asserted publication boundaries.
 1. Preserve the closed P2.88 journal, structured result, transfer receipts,
    retained reads, and USBFS diagnostics.
 2. Keep P2.88 closed and immutable; do not replay or rebuild it.
-3. Audit, host-only, the exact production corridor from accepted generation 88
-   through the first generated generation-89 publication.
-4. Prove whether the first new publisher is reached, whether the checkpoint
-   client derives the expected `(stage,item_index)` pair, and how any
-   publication failure reaches the evidence-park invariant.
-5. Reconcile inherited generation-87 `0x8e/detail=0`: it is accepted without an
-   integrity issue but its P2.88 semantic rendering still calls detail zero
-   `invalid`.
+3. Preserve the H0 reset-reason result: no candidate-time asynchronous reset
+   preceded the operator's `PS_HOLD`/S2 Download entry.
+4. Design the next first subposition immediately after the accepted
+   generation-88 publisher return, with no gate revalidation or other
+   unrelated syscall before its durable write. Inspect the full publisher
+   wrapper, not only symbolic call order.
+5. Keep the post-live v2 semantic renderer analysis-only. Do not rewrite the
+   approval-bound P2.88 decoder or reinterpret the closed live verdict.
 6. Keep the CDC-ACM `endpoint-timeout` as downstream corroboration only. It
    does not identify the missing generation-89 boundary.
-7. Do not select, implement, or build another candidate until this H0 corridor
-   is closed. Any later successor needs a fresh frozen identity, deterministic
+7. Before selecting a successor, close the generation-88 publisher's local
+   state/update/error semantics and add a static adjacency mutation gate.
+8. Any later successor needs a fresh frozen identity, deterministic
    Full-LTO/package/static closure, ready manifest, D0, and exact F1 approval.
 
 No device step is added when H0 can answer the question.
