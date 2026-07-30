@@ -513,6 +513,14 @@ corrected A/B pair then matched.
   handoff retained a per-owner `-EBUSY` after its final owner rescan reached
   zero, so `switch_root` was not reached. Candidate/rollback are `1/1`, no
   replay, exact V2321 health is restored, and the run is closed.
+- A90 V3404 is the fresh H0 successor to that exact boundary. Only strict-D3
+  per-owner `-EBUSY` is deferred to the successful final zero-owner scan.
+  D4/preserving mode, service failures, final-scan failures, non-timeout owner
+  errors, and any nonzero owner count remain fail-closed. Focused `16/16`,
+  inherited D3/HUD regressions, AArch64 static build, boot packaging, marker
+  audit, and independent review pass. The private boot artifact is
+  hash-identified by the generated source-build report; no run or live
+  authority exists.
 
 Load-bearing current reports:
 
@@ -521,6 +529,7 @@ Load-bearing current reports:
 - `docs/reports/A90_V3403_ABSENT_ONLY_STAGING_ADAPTER_H0_2026-07-30.md`
 - `docs/reports/A90_V3403_MINIMAL_F1_ORCHESTRATOR_H0_2026-07-30.md`
 - `docs/reports/NATIVE_INIT_V3403_D3_IMMUTABLE_HANDOFF_H0_CLOSURE_2026-07-30.md`
+- `docs/reports/NATIVE_INIT_V3404_D3_RESOLVED_OWNER_TIMEOUT_SOURCE_BUILD_2026-07-31.md`
 - `docs/reports/S22PLUS_FYG8_P284_CONTROLLED_SUSPEND_F1_CLOSED_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P284_POST_SUSPEND_RESTART_GAP_FOCUSED_ANALYSIS_H0_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P284_STOCK_OUTER_D1_V2_LIVE_NO_PROOF_2026-07-29.md`
@@ -727,10 +736,13 @@ The A90 branch proceeds independently:
 7. Preserve closed run `a90-v3403-debian-f1-20260731-03`, its consumed
    approval and continuation, `1/1` transfers, one handoff, source-unchanged
    failure, final V2321 health, and no-proof verdict.
-8. In H0, make the final zero-owner rescan authoritative for a resolved
-   per-owner timeout without masking other display-service or scan failures.
-   Build and independently review a fresh versioned successor before preparing
-   any later run or requesting another F1 approval.
+8. Preserve V3404's completed H0 closure: only strict-D3 per-owner `-EBUSY`
+   may be resolved by a successful zero-owner rescan; D4, service, scan,
+   non-timeout owner, and nonzero-owner results remain fatal.
+9. In H0, bind the reviewed V3404 artifact to a fresh run/manifest and the
+   existing attended rollback machinery, then complete exact preflight before
+   requesting one new F1 approval. No V3403 run, receipt, continuation, or
+   approval may be reused.
 
 No device step is added when H0 can answer the question.
 

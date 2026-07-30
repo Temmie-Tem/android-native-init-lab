@@ -1307,8 +1307,10 @@ static int d_handoff_stop_display_owners_mode(const char *tag, bool preserve_dpu
     struct dirent *entry;
     struct dpublic_hud_service_opts dpublic_opts;
     unsigned int killed = 0;
+    unsigned int owner_timeouts = 0;
     unsigned int remaining = 0;
     int final_rc = 0;
+    int scan_rc;
     int service_rc;
 
     service_rc = a90_service_stop(A90_SERVICE_HUD, A90_D_HANDOFF_HUD_TIMEOUT_MS);
@@ -1350,7 +1352,9 @@ static int d_handoff_stop_display_owners_mode(const char *tag, bool preserve_dpu
             continue;
         }
         rc = d_handoff_stop_drm_owner(tag, pid);
-        if (rc < 0) {
+        if (!preserve_dpublic && rc == -EBUSY) {
+            owner_timeouts++;
+        } else if (rc < 0) {
             final_rc = rc;
         } else {
             killed++;
@@ -1358,11 +1362,14 @@ static int d_handoff_stop_display_owners_mode(const char *tag, bool preserve_dpu
     }
     closedir(proc);
 
-    service_rc = d_handoff_count_display_owners(preserve_dpublic, &remaining);
-    if (service_rc < 0) {
-        final_rc = final_rc < 0 ? final_rc : service_rc;
+    scan_rc = d_handoff_count_display_owners(preserve_dpublic, &remaining);
+    if (scan_rc < 0) {
+        final_rc = final_rc < 0 ? final_rc : scan_rc;
     } else if (remaining != 0U) {
         final_rc = -EBUSY;
+    } else if (owner_timeouts != 0U) {
+        a90_console_printf("%s handoff_display owner_timeouts=%u resolved_by_zero_owner_scan=1\r\n",
+                           tag, owner_timeouts);
     }
     a90_console_printf("%s handoff_display required_nonpreserved_owner_count=0 observed=%u\r\n",
                        tag, remaining);
