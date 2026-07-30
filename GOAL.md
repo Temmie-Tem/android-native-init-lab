@@ -79,6 +79,32 @@ one audited evidence-park primitive. Regulator predicates are explicitly
 excluded because they would add new sysfs/blocking failure surfaces rather
 than improve location attribution.
 
+The pre-intent P2.88 implementation now exists as a versioned overlay. Its
+pair-aware model, generated userspace/kernel tables, runtime transformation,
+decoder, and typed-evidence selection agree on 103 exact positions. The
+runtime source-order gate rejects removal, reorder, duplication, and rename
+mutations. Its bidirectional producer audit currently reports
+`61 declared == 61 active`, with zero missing or undeclared suffix routes.
+All raw parks remain behind exact/reserved publication wrappers, and the
+helper-returned marker precedes every restart readback.
+
+The planned P2.88 identity is 83 SOURCE_KEYS: all 70 P2.86 receipts unchanged,
+9 new direct payload sources, and 4 new generated keys. Nine keys in the full
+identity are generated and 74 have direct repository paths. Verifier, report,
+selector, decoder/model, typed evidence, and Process-v2 registration stay
+outside identity and are approval-bundle-bound. Intent and build remain
+forbidden until the Git-derived freeze, full focused validation, and clean
+pre-intent implementation commit pass.
+
+That pre-intent static/fault closure now passes: 128 inherited-plus-P2.88
+focused tests, 46 typed-evidence/Process-v2 regressions, deterministic static
+AArch64 two-link output, all 206,202 reachable tuples, exact `61 == 61`
+producer routes, publication-order mutation rejection, silence-park routing,
+and the 103-position terminal bound. The freeze reports inherited `70/70`
+with no changed key, 83 planned SOURCE_KEYS, and exact equality between all 24
+Git-derived and declared change-window paths. A clean scoped implementation
+commit and post-commit freeze/source-key print remain before intent.
+
 Both retained slots are valid. Generation 89 left no target-slot
 commit-CRC-clear mutation on the retained medium. Raw ring adjacency is exact:
 the byte after the record begins the next warm-reset XBL stream, with zero
@@ -162,6 +188,7 @@ Load-bearing current reports:
 - `docs/reports/S22PLUS_FYG8_P286_POST_0X8F_SILENCE_ATTRIBUTION_H0_2026-07-30.md`
 - `docs/reports/S22PLUS_FYG8_P286_EARLY_RESTART_TRACE_LOAD_BEARING_AUDIT_H0_2026-07-30.md`
 - `docs/reports/S22PLUS_FYG8_P288_ITEM_INDEX_SUBPOSITION_SUCCESSOR_DESIGN_H0_2026-07-30.md`
+- `docs/reports/S22PLUS_FYG8_P288_PAIR_ATTRIBUTABLE_IMPLEMENTATION_H0_2026-07-30.md`
 - `docs/operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 

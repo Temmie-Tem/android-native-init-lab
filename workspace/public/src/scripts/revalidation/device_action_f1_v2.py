@@ -429,7 +429,7 @@ def execution_critical_source_receipts(
                 selected_decoder.__file__
             ),
             "e1_latest_stage_design_model": Path(
-                typed_evidence.e1_latest_stage.model.__file__
+                selected_decoder.model.__file__
             ),
             "candidate_intent": Path(candidate_intent.__file__),
         }
@@ -460,6 +460,13 @@ def execution_critical_source_receipts(
 
                 for name, path in p286_freeze.NON_IDENTITY_SUPPORT_PATHS.items():
                     e1_latest_stage_sources[f"p286_support_{name}"] = (
+                        candidate_intent.repo_root() / path
+                    )
+            elif source_contract_id == typed_evidence.P288_SOURCE_CONTRACT_ID:
+                import s22plus_fyg8_p288_change_freeze as p288_freeze
+
+                for name, path in p288_freeze.NON_IDENTITY_SUPPORT_PATHS.items():
+                    e1_latest_stage_sources[f"p288_support_{name}"] = (
                         candidate_intent.repo_root() / path
                     )
         elif profile in candidate_intent.SUPPORTED_PROFILES:
