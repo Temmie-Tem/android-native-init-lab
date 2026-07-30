@@ -44,6 +44,10 @@ DEFAULT_NM = base.DEFAULT_NM
 DEFAULT_OBJDUMP = base.DEFAULT_OBJDUMP
 ARTIFACT_LIMITS = dict(base.ARTIFACT_LIMITS)
 RANDOM_PRIVATE_PATH_PREFIX = base.RANDOM_PRIVATE_PATH_PREFIX
+CLANG_RESOURCE_PATH_MARKERS = (
+    b"/lib/clang/",
+    b"/lib64/clang/",
+)
 LINKED_VALIDATOR_ADAPTERS = {
     **base.LINKED_VALIDATOR_ADAPTERS,
     P288_SOURCE_CONTRACT_ID: "s22plus_fyg8_p288_linked_audit",
@@ -122,7 +126,10 @@ def audit_a_path_leaks(directory: Path) -> dict[str, Any]:
         value
         for value in strings
         if value.startswith(b"/")
-        and b"/lib/clang/" in value
+        and any(
+            marker in value
+            for marker in CLANG_RESOURCE_PATH_MARKERS
+        )
         and b"/include" in value
     )
     stable_paths = tuple(

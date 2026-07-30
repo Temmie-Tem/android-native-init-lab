@@ -421,9 +421,18 @@ class P288PairContractTests(unittest.TestCase):
         ) as directory:
             build_a = Path(directory)
             relative = build_a.relative_to(ROOT)
-            stable = b"/private-repo/clang/lib/clang/17/include"
+            stable = (
+                b"/private-repo/clang/lib64/clang/12.0.5/include"
+            )
+            alternate_stable = (
+                b"/private-repo/clang/lib/clang/17/include"
+            )
             (build_a / "vmlinux").write_bytes(
-                b"\x7fELF\x00" + stable + b"\x00"
+                b"\x7fELF\x00"
+                + stable
+                + b"\x00"
+                + alternate_stable
+                + b"\x00"
             )
             (build_a / "Image").write_bytes(b"IMAGE")
             result = repro_check.audit_a_path_leaks(relative)
@@ -431,8 +440,8 @@ class P288PairContractTests(unittest.TestCase):
             self.assertEqual(
                 result["absolute_host_clang_resource_path_count"], 0
             )
-            self.assertGreater(
-                result["mapped_clang_resource_path_count"], 0
+            self.assertEqual(
+                result["mapped_clang_resource_path_count"], 2
             )
 
             (build_a / "vmlinux").write_bytes(
@@ -450,7 +459,7 @@ class P288PairContractTests(unittest.TestCase):
             (build_a / "vmlinux").write_bytes(
                 b"\x7fELF\x00"
                 + stable
-                + b"\x00/opt/clang/lib/clang/17/include\x00"
+                + b"\x00/opt/clang/lib64/clang/12.0.5/include\x00"
             )
             with self.assertRaisesRegex(
                 repro_check.CheckError,
