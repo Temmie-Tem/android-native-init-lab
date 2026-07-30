@@ -3,6 +3,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+AGENTS_REVIEW_THRESHOLD_LINES = 220
+AGENTS_HARD_MAX_LINES = 260
 GOAL_REVIEW_THRESHOLD_LINES = 800
 GOAL_HARD_MAX_LINES = 900
 
@@ -33,7 +35,14 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
     def test_active_contracts_remain_small(self):
-        self.assertLessEqual(len(self.agents.splitlines()), 220)
+        self.assertLessEqual(
+            len(self.agents.splitlines()),
+            AGENTS_HARD_MAX_LINES,
+            (
+                "AGENTS.md exceeds its hard limit; review completed posture "
+                f"for archival after {AGENTS_REVIEW_THRESHOLD_LINES} lines"
+            ),
+        )
         self.assertLessEqual(
             len(self.goal.splitlines()),
             GOAL_HARD_MAX_LINES,

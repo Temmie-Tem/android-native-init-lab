@@ -95,6 +95,9 @@ NON_IDENTITY_SUPPORT_PATHS = MappingProxyType(
             "workspace/public/src/scripts/revalidation/"
             "device_action_f1_v2.py"
         ),
+        "process_v2_docs_regression": Path(
+            "tests/test_device_action_process_v2_docs.py"
+        ),
     }
 )
 GOVERNANCE_PATHS = frozenset(
@@ -276,7 +279,7 @@ def validate_freeze(root: Path) -> dict[str, Any]:
         or len(GENERATED_SOURCE_KEYS) != 12
         or len(inherited) != 74
         or len(PAYLOAD_SOURCE_PATHS) != 8
-        or len(NON_IDENTITY_SUPPORT_PATHS) != 15
+        or len(NON_IDENTITY_SUPPORT_PATHS) != 16
         or len(PLANNED_SOURCE_KEYS) != 94
         or len(planned) != 82
     ):
