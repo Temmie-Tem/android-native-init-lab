@@ -25,8 +25,14 @@ The host-only V3403 successor now cleans all display owners before storage,
 mounts only an absent-only work copy, and proves every modeled pre-switch
 failure leaves the source byte-identical. V3403 passes the focused `41/41`
 suite and AArch64 compile. A fresh, package-authenticated, clean 2 GiB D3
-sysvinit rootfs and the exact V2321 rollback are hash-verified. Debian PID1 is
-still unproved, internal userdata remains untouched, and no A90 live authority
+sysvinit rootfs and the exact V2321 rollback are hash-verified. A host-only
+absent-only SD staging adapter now uses an exclusive ext4 directory and
+hard-link no-clobber publication; its fault model, source-order gate, and
+connected read-only preflight pass. It has not staged a byte. The adapter still
+needs one independent safety review, and no manifest-driven A90 Process-v2
+orchestrator yet owns candidate observation plus rollback. The private
+manifest therefore remains a non-approvable draft. Debian PID1 is still
+unproved, internal userdata remains untouched, and no A90 live authority
 exists.**
 
 Stock D1 v2 and P2.84 selected different runtime-PM paths. Stock's first two
@@ -400,8 +406,13 @@ The A90 branch proceeds independently:
    clean-ext4, ownership, init, and credential-absence closure.
 5. Before any later device action, create a new run and prepared manifest that
    binds the exact A90 target, V3403 boot, fresh rootfs, exact V2321 rollback,
-   checked runner, bounded observation, and final health. Run the required
-   connected preflight and obtain one fresh exact approval.
+   checked runner, bounded observation, and final health.
+6. Independently review the absent-only staging closure and implement one
+   manifest-driven A90 F1 orchestrator that consumes its durable result and
+   owns candidate observation, mandatory rollback, and final health without
+   candidate replay.
+7. Only after that reviewed closure exists, promote a final manifest, repeat
+   the exact connected preflight, and obtain one fresh exact approval.
 
 No device step is added when H0 can answer the question.
 
