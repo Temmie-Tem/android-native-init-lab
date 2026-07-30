@@ -36,22 +36,30 @@ a concrete device address. The host-only remediation now derives the stage
 path from stable run ID, semantically validates D0, reconstructs the exact
 private recovery target for every boot transfer, separates version/build
 checks, repairs timelines from durable journal state, refuses preexisting
-    staging output, and rehashes the remote rootfs immediately before candidate
-    intent. The second independent review correctly returned `NO_GO`: the draft
-    manifest could self-declare authority without a fresh operator approval
-    receipt, staging results could be created as mode `0664`, journal final names
-    were exposed before a complete durable write, and subprocess timeout/exec
-    errors escaped without structured phase evidence or a guaranteed-private raw
-    log. The second host-only remediation keeps all manifest authority false,
-    separates approval preparation from execution with one exact private token,
-    publishes result/journal JSON only after a complete mode-`0600` write and
-    `fsync`, and classifies timeout/exec failures into private raw-log records.
-    The combined closure now passes `94/94` and contains no concrete network
-    address. It has not staged a byte or invoked a flash. The changed closure
-    still needs independent re-review and a fresh exact three-path D0 before
-    final-manifest promotion. The private manifest therefore remains a
-    non-approvable draft. Debian PID1 is still unproved, internal userdata remains
-    untouched, and no A90 live authority exists.**
+staging output, and rehashes the remote rootfs immediately before candidate
+intent. The second independent review correctly returned `NO_GO`: the draft
+manifest could self-declare authority without a fresh operator approval
+receipt, staging results could be created as mode `0664`, journal final names
+were exposed before a complete durable write, and subprocess timeout/exec
+errors escaped without structured phase evidence or a guaranteed-private raw
+log. The second host-only remediation keeps all manifest authority false,
+separates approval preparation from execution with one exact private token,
+publishes result/journal JSON only after a complete mode-`0600` write and
+`fsync`, and classifies timeout/exec failures into private raw-log records.
+The third independent review correctly returned `NO_GO`: an unmarked candidate
+helper timeout was misclassified as definite pre-session rejection and dropped
+rollback authority, while a rollback helper pre-spawn error consumed the only
+rollback attempt even though no process had started. The third host-only
+remediation treats timeout as candidate-state uncertainty with mandatory
+rollback, and records an exact `process-spawn` failure as transfer count zero
+so rollback-only recovery can resume under the consumed approval. Any
+possibly-started rollback remains non-retryable. The combined closure now
+passes `99/99` and contains no concrete network address. It has not staged a
+byte or invoked a flash. The changed closure still needs independent re-review
+and a fresh exact three-path D0 before final-manifest promotion. The private
+manifest therefore remains a non-approvable draft. Debian PID1 is still
+unproved, internal userdata remains untouched, and no A90 live authority
+exists.**
 
 Stock D1 v2 and P2.84 selected different runtime-PM paths. Stock's first two
 outer works ended by `0.291 ms`, followed by deferred child and parent PM

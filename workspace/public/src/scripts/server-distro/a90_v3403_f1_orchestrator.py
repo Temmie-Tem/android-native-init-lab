@@ -805,6 +805,7 @@ def run_logged(
         0o600,
     )
     execution_error: dict[str, Any] | None = None
+    process_started = False
     returncode: int
     with os.fdopen(descriptor, "wb") as output:
         try:
@@ -816,26 +817,59 @@ def run_logged(
                 timeout=timeout,
                 check=False,
             )
+            process_started = True
             returncode = completed.returncode
         except subprocess.TimeoutExpired:
+            process_started = True
             returncode = 124
             execution_error = {
                 "type": "TimeoutExpired",
+                "stage": "process-wait",
                 "timeout_sec": timeout,
             }
         except OSError as exc:
             returncode = 125
             execution_error = {
                 "type": type(exc).__name__,
+                "stage": "process-spawn",
                 "errno": exc.errno,
             }
         finally:
             output.flush()
             os.fsync(output.fileno())
     record = command_record(log_path, returncode)
+    record["process_started"] = process_started
     if execution_error is not None:
         record["execution_error"] = execution_error
     return record
+
+
+def candidate_failure_is_definite_pre_session(record: dict[str, Any]) -> bool:
+    classification = record.get("phase_classification")
+    if not isinstance(classification, dict):
+        raise ContractError("candidate failure lacks phase classification")
+    if any(
+        classification.get(name) is True
+        for name in (
+            "native_recovery_requested",
+            "recovery_endpoint_selected",
+            "payload_transfer_started",
+            "boot_write_started",
+        )
+    ):
+        return False
+    execution_error = record.get("execution_error")
+    if (
+        isinstance(execution_error, dict)
+        and execution_error.get("type") == "TimeoutExpired"
+    ):
+        return False
+    if record.get("process_started") is False:
+        return (
+            isinstance(execution_error, dict)
+            and execution_error.get("stage") == "process-spawn"
+        )
+    return execution_error is None
 
 
 def json_sha256(value: Any) -> str:
@@ -1330,6 +1364,7 @@ def invoke_rollback(
     events: list[dict[str, str]],
     *,
     from_native: bool,
+    pre_spawn_retry_index: int = 0,
 ) -> dict[str, Any]:
     ensure_event(transaction_dir, events, "rollback_flash_start")
     append_record(
@@ -1338,13 +1373,21 @@ def invoke_rollback(
         "rollback-transfer-started",
         {
             "rollback_sha256": spec.rollback.sha256,
-            "rollback_attempt_count": 1,
+            "rollback_attempt_limit": 1,
+            "rollback_process_started": None,
             "candidate_replay": False,
             "recovery_mode": "from-native" if from_native else "adb-recovery",
+            "prior_pre_spawn_rejections": pre_spawn_retry_index,
         },
         manifest_sha256=spec.stage.manifest_sha256,
         run_id=spec.stage.run_id,
     )
+    if pre_spawn_retry_index:
+        log_name = (
+            f"rollback-flash-pre-spawn-retry-{pre_spawn_retry_index:04d}.raw.log"
+        )
+    else:
+        log_name = "rollback-flash.raw.log"
     record = run_logged(
         flash_command(
             spec,
@@ -1352,13 +1395,36 @@ def invoke_rollback(
             rollback=True,
             from_native=from_native,
         ),
-        log_path=transaction_dir / "rollback-flash.raw.log",
+        log_path=transaction_dir / log_name,
         timeout=args.flash_command_timeout,
     )
     if record["returncode"] != 0:
         record["phase_classification"] = classify_flash_log(
             Path(str(record["raw_log"]))
         )
+        execution_error = record.get("execution_error")
+        if (
+            record.get("process_started") is False
+            and isinstance(execution_error, dict)
+            and execution_error.get("stage") == "process-spawn"
+        ):
+            append_record(
+                journal_dir,
+                "RECOVERY_ROLLBACK",
+                "rollback-process-not-started",
+                {
+                    "candidate_replay": False,
+                    "rollback_process_started": False,
+                    "rollback_transfer_count": 0,
+                    "rollback_retry_preserved": True,
+                    "record": record,
+                },
+                manifest_sha256=spec.stage.manifest_sha256,
+                run_id=spec.stage.run_id,
+            )
+            raise RuntimeError(
+                "rollback helper did not start; recover rollback only"
+            )
         append_record(
             journal_dir,
             "RECOVERY_ROLLBACK",
@@ -1410,6 +1476,43 @@ def invoke_rollback(
         run_id=spec.stage.run_id,
     )
     return health
+
+
+def rollback_pre_spawn_retry(
+    records: list[dict[str, Any]],
+) -> tuple[bool, str | None, int]:
+    latest_intent = -1
+    latest_not_started = -1
+    recovery_mode: str | None = None
+    rejection_count = 0
+    for index, record in enumerate(records):
+        action = record.get("action")
+        if action == "rollback-transfer-started":
+            latest_intent = index
+            mode = record.get("recovery_mode")
+            recovery_mode = mode if isinstance(mode, str) else None
+        elif action == "rollback-process-not-started":
+            execution = record.get("record")
+            execution_error = (
+                execution.get("execution_error")
+                if isinstance(execution, dict)
+                else None
+            )
+            if (
+                record.get("rollback_process_started") is False
+                and isinstance(execution, dict)
+                and execution.get("process_started") is False
+                and isinstance(execution_error, dict)
+                and execution_error.get("stage") == "process-spawn"
+            ):
+                latest_not_started = index
+                rejection_count += 1
+    allowed = (
+        latest_intent >= 0
+        and latest_not_started > latest_intent
+        and recovery_mode in ("from-native", "adb-recovery")
+    )
+    return allowed, recovery_mode, rejection_count
 
 
 def close_transaction(
@@ -1635,17 +1738,7 @@ def execute_approved_f1(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any
         Path(str(candidate_record["raw_log"]))
     )
     if candidate_record["returncode"] != 0:
-        classification = candidate_record["phase_classification"]
-        device_session_started = any(
-            classification[name]
-            for name in (
-                "native_recovery_requested",
-                "recovery_endpoint_selected",
-                "payload_transfer_started",
-                "boot_write_started",
-            )
-        )
-        if not device_session_started:
+        if candidate_failure_is_definite_pre_session(candidate_record):
             append_record(
                 journal_dir,
                 "ABORTED",
@@ -1660,7 +1753,8 @@ def execute_approved_f1(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any
                 run_id=spec.stage.run_id,
             )
             exc = RuntimeError(
-                "candidate was rejected before a device session; fresh approval required"
+                "candidate was definitively rejected before a device session; "
+                "fresh approval required"
             )
             abort_before_candidate(spec, transaction_dir, journal_dir, events, exc)
             raise exc
@@ -1810,7 +1904,25 @@ def recover_approved_rollback(spec: F1Spec, args: argparse.Namespace) -> dict[st
             "rollback-completion-recovered-by-health",
         )
     )
-    if rollback_started and not rollback_flashed:
+    retry_allowed, retry_mode, rejection_count = rollback_pre_spawn_retry(records)
+    if retry_allowed and not rollback_flashed:
+        if args.recovery_path is not None and args.recovery_path != retry_mode:
+            raise ContractError(
+                "recovery path conflicts with durable pre-spawn rollback mode"
+            )
+        from_native = retry_mode == "from-native"
+        if from_native:
+            require_rollback_source_native(spec, args)
+        health = invoke_rollback(
+            spec,
+            args,
+            transaction_dir,
+            journal_dir,
+            events,
+            from_native=from_native,
+            pre_spawn_retry_index=rejection_count,
+        )
+    elif rollback_started and not rollback_flashed:
         health = verify_final_health(spec, args)
         append_record(
             journal_dir,
@@ -1955,6 +2067,8 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
     required_functions = (
         "def prepare_approval(",
         "def load_approval_prepared(",
+        "def candidate_failure_is_definite_pre_session(",
+        "def rollback_pre_spawn_retry(",
         "def execute_approved_f1(",
         "def recover_approved_rollback(",
         "def invoke_rollback(",
@@ -2017,6 +2131,10 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         issues.append("recovery does not rebuild timeline from durable journal")
     if "approved_bindings(spec, args, recovery=True)" not in recover:
         issues.append("recovery does not reopen the consumed approval binding")
+    if "rollback_pre_spawn_retry(records)" not in recover:
+        issues.append("recovery cannot distinguish a definite rollback pre-spawn failure")
+    if "pre_spawn_retry_index=rejection_count" not in recover:
+        issues.append("recovery does not preserve the exact rollback after pre-spawn failure")
     append_start = source.find("def append_record(")
     read_start = source.find("def read_journal(", append_start + 1)
     if append_start < 0 or read_start < 0:
@@ -2027,6 +2145,8 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         issues.append("journal does not use atomic exclusive publication")
     if "fresh exact F1 approval token mismatch" not in source:
         issues.append("fresh exact approval token gate is missing")
+    if "candidate_failure_is_definite_pre_session(candidate_record)" not in execute:
+        issues.append("candidate timeout uncertainty does not preserve rollback")
     if 'mode.add_argument("--prepare-approval"' not in source:
         issues.append("separate approval preparation mode is missing")
     return tuple(issues)

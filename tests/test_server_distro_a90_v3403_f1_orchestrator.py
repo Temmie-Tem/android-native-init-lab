@@ -94,6 +94,8 @@ def sample_args() -> object:
         bridge_timeout=180.0,
         remote_timeout=180.0,
         transfer_timeout=1200.0,
+        staging_command_timeout=1800.0,
+        flash_command_timeout=600.0,
         ssh_connect_timeout=8.0,
         recovery_path=None,
     )
@@ -708,6 +710,8 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                 )
             self.assertEqual(record["returncode"], 124)
             self.assertEqual(record["execution_error"]["type"], "TimeoutExpired")
+            self.assertEqual(record["execution_error"]["stage"], "process-wait")
+            self.assertTrue(record["process_started"])
             self.assertEqual(stat.S_IMODE(log.stat().st_mode), 0o600)
 
     def test_run_logged_exec_error_is_private_and_structured(self) -> None:
@@ -725,8 +729,307 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                 )
             self.assertEqual(record["returncode"], 125)
             self.assertEqual(record["execution_error"]["type"], "FileNotFoundError")
+            self.assertEqual(record["execution_error"]["stage"], "process-spawn")
             self.assertEqual(record["execution_error"]["errno"], 2)
+            self.assertFalse(record["process_started"])
             self.assertEqual(stat.S_IMODE(log.stat().st_mode), 0o600)
+
+    def test_candidate_timeout_without_marker_preserves_rollback(self) -> None:
+        classification = {
+            name: False
+            for name in (
+                "local_image_validated",
+                "native_recovery_requested",
+                "recovery_endpoint_selected",
+                "payload_transfer_started",
+                "boot_write_started",
+                "boot_write_completed",
+                "readback_completed",
+            )
+        }
+        timeout = {
+            "returncode": 124,
+            "process_started": True,
+            "execution_error": {
+                "type": "TimeoutExpired",
+                "stage": "process-wait",
+                "timeout_sec": 3.0,
+            },
+            "phase_classification": classification,
+        }
+        self.assertFalse(f1.candidate_failure_is_definite_pre_session(timeout))
+
+        pre_spawn = {
+            "returncode": 125,
+            "process_started": False,
+            "execution_error": {
+                "type": "FileNotFoundError",
+                "stage": "process-spawn",
+                "errno": 2,
+            },
+            "phase_classification": classification,
+        }
+        self.assertTrue(f1.candidate_failure_is_definite_pre_session(pre_spawn))
+
+        completed_host_rejection = {
+            "returncode": 2,
+            "process_started": True,
+            "phase_classification": classification,
+        }
+        self.assertTrue(
+            f1.candidate_failure_is_definite_pre_session(
+                completed_host_rejection
+            )
+        )
+
+    def test_execute_candidate_timeout_routes_to_mandatory_rollback(self) -> None:
+        spec = sample_spec()
+        args = sample_args()
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            base = Path(temp_dir)
+            old_base = f1.PRIVATE_RUN_BASE
+            try:
+                f1.PRIVATE_RUN_BASE = base
+                transaction = base / spec.stage.run_id / "f1-live"
+                args.transaction_dir = transaction
+                calls = 0
+
+                def fake_run_logged(
+                    command: list[str],
+                    *,
+                    log_path: Path,
+                    timeout: float,
+                ) -> dict[str, object]:
+                    nonlocal calls
+                    calls += 1
+                    log_path.write_bytes(b"")
+                    log_path.chmod(0o600)
+                    record: dict[str, object] = {
+                        **f1.command_record(log_path, 0 if calls == 1 else 124),
+                        "process_started": True,
+                    }
+                    if calls == 2:
+                        record["execution_error"] = {
+                            "type": "TimeoutExpired",
+                            "stage": "process-wait",
+                            "timeout_sec": timeout,
+                        }
+                    return record
+
+                with (
+                    mock.patch.object(
+                        f1,
+                        "approved_bindings",
+                        return_value={"approval_binding_sha256": "9" * 64},
+                    ),
+                    mock.patch.object(f1, "verify_local_closure"),
+                    mock.patch.object(f1, "run_logged", side_effect=fake_run_logged),
+                    mock.patch.object(f1, "validate_stage_result", return_value={}),
+                    mock.patch.object(
+                        f1.staging,
+                        "require_exact_bridge",
+                        return_value={},
+                    ),
+                    mock.patch.object(
+                        f1.staging,
+                        "require_baseline",
+                        return_value={},
+                    ),
+                    mock.patch.object(
+                        f1,
+                        "remote_source_preflight",
+                        return_value={},
+                    ),
+                    mock.patch.object(
+                        f1,
+                        "require_rollback_source_native",
+                        return_value={},
+                    ),
+                    mock.patch.object(
+                        f1,
+                        "invoke_rollback",
+                        return_value={"final_health": True},
+                    ) as rollback,
+                    mock.patch.object(
+                        f1,
+                        "close_transaction",
+                        return_value={"status": "closed"},
+                    ),
+                ):
+                    result = f1.execute_approved_f1(spec, args)
+                self.assertEqual(result["status"], "closed")
+                rollback.assert_called_once()
+                journal = f1.read_journal(spec, transaction)
+                actions = [record["action"] for record in journal]
+                self.assertIn("candidate-invocation-failed", actions)
+                self.assertNotIn("candidate-host-rejected", actions)
+                failed = next(
+                    record
+                    for record in journal
+                    if record["action"] == "candidate-invocation-failed"
+                )
+                self.assertTrue(failed["rollback_required"])
+            finally:
+                f1.PRIVATE_RUN_BASE = old_base
+
+    def test_rollback_pre_spawn_error_preserves_same_approval_retry(self) -> None:
+        spec = sample_spec()
+        args = sample_args()
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            transaction = Path(temp_dir)
+            journal = transaction / "journal"
+            raw_log = transaction / "rollback-pre-spawn.raw.log"
+            raw_log.write_bytes(b"")
+            raw_log.chmod(0o600)
+            failure = {
+                **f1.command_record(raw_log, 125),
+                "process_started": False,
+                "execution_error": {
+                    "type": "FileNotFoundError",
+                    "stage": "process-spawn",
+                    "errno": 2,
+                },
+            }
+            with (
+                mock.patch.object(f1, "run_logged", return_value=failure),
+                self.assertRaisesRegex(
+                    RuntimeError,
+                    "helper did not start; recover rollback only",
+                ),
+            ):
+                f1.invoke_rollback(
+                    spec,
+                    args,
+                    transaction,
+                    journal,
+                    [],
+                    from_native=True,
+                )
+            records = f1.read_journal(spec, transaction)
+            self.assertEqual(
+                [record["action"] for record in records],
+                [
+                    "rollback-transfer-started",
+                    "rollback-process-not-started",
+                ],
+            )
+            allowed, mode, rejection_count = f1.rollback_pre_spawn_retry(records)
+            self.assertTrue(allowed)
+            self.assertEqual(mode, "from-native")
+            self.assertEqual(rejection_count, 1)
+            self.assertTrue(records[-1]["rollback_retry_preserved"])
+            self.assertEqual(records[-1]["rollback_transfer_count"], 0)
+
+    def test_unpaired_latest_rollback_intent_is_never_retried(self) -> None:
+        records = [
+            {
+                "action": "rollback-transfer-started",
+                "recovery_mode": "adb-recovery",
+            },
+            {
+                "action": "rollback-process-not-started",
+                "rollback_process_started": False,
+                "record": {
+                    "process_started": False,
+                    "execution_error": {
+                        "type": "FileNotFoundError",
+                        "stage": "process-spawn",
+                    },
+                },
+            },
+            {
+                "action": "rollback-transfer-started",
+                "recovery_mode": "adb-recovery",
+            },
+        ]
+        allowed, mode, rejection_count = f1.rollback_pre_spawn_retry(records)
+        self.assertFalse(allowed)
+        self.assertEqual(mode, "adb-recovery")
+        self.assertEqual(rejection_count, 1)
+
+    def test_recovery_reinvokes_only_definite_pre_spawn_rollback(self) -> None:
+        spec = sample_spec()
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            base = Path(temp_dir)
+            old_base = f1.PRIVATE_RUN_BASE
+            try:
+                f1.PRIVATE_RUN_BASE = base
+                prepared = write_approval_prepared(base, spec)
+                transaction = base / spec.stage.run_id / "f1-live"
+                journal = transaction / "journal"
+                approved_payload = {
+                    "approval_binding_sha256": prepared[
+                        "approval_binding_sha256"
+                    ],
+                    "approval_token_sha256": hashlib.sha256(
+                        str(prepared["approval_token"]).encode("utf-8")
+                    ).hexdigest(),
+                }
+                records = (
+                    ("PREFLIGHT", "preflight", {}),
+                    ("APPROVED", "approved", approved_payload),
+                    (
+                        "APPROVED",
+                        "candidate-transfer-started",
+                        {"rollback_required": True},
+                    ),
+                    (
+                        "RECOVERY_ROLLBACK",
+                        "rollback-transfer-started",
+                        {"recovery_mode": "from-native"},
+                    ),
+                    (
+                        "RECOVERY_ROLLBACK",
+                        "rollback-process-not-started",
+                        {
+                            "rollback_process_started": False,
+                            "record": {
+                                "process_started": False,
+                                "execution_error": {
+                                    "type": "FileNotFoundError",
+                                    "stage": "process-spawn",
+                                    "errno": 2,
+                                },
+                            },
+                        },
+                    ),
+                )
+                for state, action, payload in records:
+                    f1.append_record(
+                        journal,
+                        state,
+                        action,
+                        payload,
+                        manifest_sha256=spec.stage.manifest_sha256,
+                        run_id=spec.stage.run_id,
+                    )
+                args = sample_args()
+                args.approval = None
+                args.transaction_dir = transaction
+                with (
+                    mock.patch.object(f1, "verify_local_closure"),
+                    mock.patch.object(f1, "require_rollback_source_native"),
+                    mock.patch.object(
+                        f1,
+                        "invoke_rollback",
+                        return_value={"final_health": True},
+                    ) as invoke,
+                    mock.patch.object(
+                        f1,
+                        "close_transaction",
+                        return_value={"status": "closed"},
+                    ),
+                ):
+                    result = f1.recover_approved_rollback(spec, args)
+                self.assertEqual(result["status"], "closed")
+                invoke.assert_called_once()
+                self.assertTrue(invoke.call_args.kwargs["from_native"])
+                self.assertEqual(
+                    invoke.call_args.kwargs["pre_spawn_retry_index"],
+                    1,
+                )
+            finally:
+                f1.PRIVATE_RUN_BASE = old_base
 
     def test_incomplete_journal_temp_is_ignored_by_sequence(self) -> None:
         spec = sample_spec()

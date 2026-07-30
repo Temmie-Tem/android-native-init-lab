@@ -3,7 +3,7 @@
 Date: 2026-07-30 KST
 
 Status:
-`PASS_HOST_SECOND_REMEDIATION_RE_REVIEW_PENDING_NO_LIVE_AUTHORITY`
+`PASS_HOST_THIRD_REMEDIATION_RE_REVIEW_PENDING_NO_LIVE_AUTHORITY`
 
 ## Scope
 
@@ -19,9 +19,9 @@ rollback transfer, mount, `switch_root`, or userdata operation occurred.
 
 - Orchestrator:
   `workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py`
-- Size: `77243`
+- Size: `82006`
 - SHA256:
-  `332e789945f7dc234aa988386912102dc79d6e196a1a94753f2449f15f9ba5bc`
+  `6de4c7f00b73db848c1a71e3cf949a7912ca085be50c18e2972a00f41f429c0d`
 - Focused tests:
   `tests/test_server_distro_a90_v3403_f1_orchestrator.py`
 - Staging adapter SHA256:
@@ -63,9 +63,13 @@ The remediated orchestrator performs only this sequence:
 11. require exact V2321 health before closing.
 
 Recovery contains no candidate route. If candidate intent exists without a
-rollback-intent record, recovery can invoke only the rollback. If rollback
-intent already exists but completion is missing, recovery never reinvokes it;
-it can close only when read-only checks prove the exact V2321 final health.
+rollback-intent record, recovery can invoke only the rollback. If a rollback
+helper process may have started but completion is missing, recovery never
+reinvokes it; it can close only when read-only checks prove exact V2321 final
+health. The sole retryable exception is a structured `process-spawn` error
+that proves the helper process never started and records rollback transfer
+count zero. That rollback-only resume reuses the consumed approval and durable
+recovery mode, not a second token or a new operator choice.
 
 Both normal `--from-native` and attended TWRP recovery routes use the same
 manifest-bound recovery ADB digest. The raw value is reconstructed only in
@@ -115,12 +119,34 @@ with atomic replacement. Raw logs are opened mode `0600` before subprocess
 launch, and timeout or `OSError` becomes a structured nonzero record that
 flows through the existing phase classifier and durable failure path.
 
+The third independent review of remediation commit
+`451c3558a8f4476685039d15508a61ccffa4bd95` also returned `NO_GO`. It found
+two exception-semantic blockers:
+
+1. a candidate helper timeout with no recognized phase marker was closed as
+   definite pre-session rejection, discarding mandatory rollback authority
+   even though marker absence at timeout does not prove no device session; and
+2. a rollback helper `OSError` before process creation was treated as a
+   consumed, non-retryable rollback attempt, leaving no route to restore a
+   candidate still running.
+
+The third remediation records whether the subprocess actually started and
+labels timeout as `process-wait` and `OSError` as `process-spawn`. Candidate
+timeout is always state-uncertain and retains rollback authority; only a
+completed marker-free host rejection or exact pre-spawn failure can close
+before rollback. A rollback pre-spawn failure records transfer count zero and
+`rollback_retry_preserved=true`. Recovery accepts that exception only when the
+complete durable record proves `process_started=false` and
+`stage=process-spawn`; it reuses the recorded recovery mode and same approval.
+Any unpaired rollback intent, timeout, nonzero started process, or possible
+device session remains retry-forbidden.
+
 ## Validation
 
 - Python compilation passed.
-- The orchestrator suite passes `38/38`.
+- The orchestrator suite passes `43/43`.
 - The orchestrator, staging adapter, V3403 build, D3 handoff, and rootfs group
-  passes `94/94`.
+  passes `99/99`.
 - Every modeled candidate-intent failure selects rollback-only recovery.
 - A previously started rollback is never invoked twice.
 - Durable completion records repair missing ordered timeline events without
@@ -145,6 +171,13 @@ flows through the existing phase classifier and durable failure path.
   sequence, and timeline repair atomically replaces only a complete snapshot.
 - Timeout and missing-executable fault tests produce private mode-`0600` raw
   logs and structured return codes without losing phase classification.
+- An end-to-end candidate timeout fault with no marker records
+  `candidate-invocation-failed`, keeps `rollback_required=true`, and reaches
+  mandatory rollback rather than `candidate-host-rejected`.
+- An actual rollback pre-spawn fault records process-start false and transfer
+  count zero. Rollback-only recovery with no second token selects the same
+  durable recovery mode and a distinct raw-log path; an unpaired later intent
+  remains non-retryable.
 - The private draft inspection reports `device_contact=false` and
   `device_write=false`.
 - A forced live invocation with the draft is rejected before creating either
@@ -152,8 +185,8 @@ flows through the existing phase classifier and durable failure path.
 
 ## Remaining gate
 
-Both earlier review rounds are closed `NO_GO`; the second remediation has not
-yet passed the required independent re-review. The current private draft
+All three earlier review rounds are closed `NO_GO`; the third remediation has
+not yet passed the required independent re-review. The current private draft
 remains deliberately non-approvable.
 
 The remaining sequence is:
