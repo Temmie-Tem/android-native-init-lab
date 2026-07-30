@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 
 import s22plus_fyg8_p286_candidate_static_checker as base
@@ -10,6 +11,7 @@ import build_s22plus_fyg8_p288_candidate as candidate
 import s22plus_fyg8_p288_build_repro_check as repro
 import s22plus_fyg8_p288_candidate_contract as contract
 import s22plus_fyg8_p288_e2_stock_closure as p288_closure
+import s22plus_fyg8_p288_postbuild_linked_audit as postbuild_audit
 import s22plus_fyg8_p288_userspace_build as userspace
 
 
@@ -73,11 +75,45 @@ def _configure() -> None:
     base.DEFAULT_NM = DEFAULT_NM
     base.DEFAULT_OBJDUMP = DEFAULT_OBJDUMP
     base.DEFAULT_OUT = DEFAULT_OUT
+    base.verify_repro = verify_repro
 
 
 def __getattr__(name: str):
     _configure()
     return getattr(base, name)
+
+
+def verify_repro(root: Path, args, exact_contract):  # noqa: ANN001, ANN201
+    result, payload = base.read_json(
+        base.resolve(root, args.repro_result),
+        "P2.88 build reproducibility result",
+        16 * 1024 * 1024,
+    )
+    check_args = argparse.Namespace(
+        build_a=args.build_a,
+        build_b=args.build_b,
+        source=args.source,
+        intent=args.intent,
+        patch=args.patch,
+        nm=args.nm,
+        objdump=args.objdump,
+    )
+    try:
+        fresh = postbuild_audit.check(check_args)
+    except (postbuild_audit.AuditError, repro.CheckError) as exc:
+        raise CheckError(str(exc)) from exc
+    if (
+        result != fresh
+        or result.get("candidate_contract") != exact_contract
+        or result.get("linked_audit", {})
+        .get("postbuild_audit", {})
+        .get("verified")
+        is not True
+    ):
+        raise CheckError(
+            "P2.88 reproducibility result differs from post-build verification"
+        )
+    return result, base.receipt(payload)
 
 
 def audit(args):  # noqa: ANN001, ANN201
