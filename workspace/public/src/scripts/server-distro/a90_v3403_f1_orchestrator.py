@@ -1497,19 +1497,14 @@ def invoke_rollback(
     return health
 
 
-def rollback_pre_spawn_retry(
+def rollback_pre_spawn_pair_is_exact(
     spec: F1Spec,
     transaction_dir: Path,
-    records: list[dict[str, Any]],
-) -> tuple[bool, str | None, int]:
-    if len(records) < 2:
-        return False, None, 0
-    intent = records[-2]
-    rejection = records[-1]
-    prior_rejections = sum(
-        record.get("action") == "rollback-process-not-started"
-        for record in records[:-1]
-    )
+    intent: dict[str, Any],
+    rejection: dict[str, Any],
+    *,
+    prior_rejections: int,
+) -> tuple[bool, str | None]:
     common_keys = {
         "schema",
         "sequence",
@@ -1561,11 +1556,11 @@ def rollback_pre_spawn_retry(
         or rejection.get("rollback_transfer_count") != 0
         or rejection.get("rollback_retry_preserved") is not True
     ):
-        return False, recovery_mode if isinstance(recovery_mode, str) else None, 0
+        return False, recovery_mode if isinstance(recovery_mode, str) else None
 
     execution = rejection.get("record")
     if not isinstance(execution, dict):
-        return False, recovery_mode, 0
+        return False, recovery_mode
     execution_keys = {
         "returncode",
         "raw_log",
@@ -1609,7 +1604,7 @@ def rollback_pre_spawn_retry(
         or execution.get("raw_log_size") != 0
         or execution.get("raw_log_sha256") != hashlib.sha256(b"").hexdigest()
     ):
-        return False, recovery_mode, 0
+        return False, recovery_mode
 
     if prior_rejections:
         log_name = (
@@ -1617,26 +1612,92 @@ def rollback_pre_spawn_retry(
         )
     else:
         log_name = "rollback-flash.raw.log"
-    expected_log = (transaction_dir / log_name).resolve()
+    # Keep the exact canonical-parent/lexical-leaf pathname. Resolving this
+    # before comparing and lstat-checking the leaf would let a symlink replace
+    # the expected name and redefine the journal's accepted raw-log pathname.
+    expected_log = transaction_dir / log_name
     raw_log_value = execution.get("raw_log")
     if (
         not isinstance(raw_log_value, str)
         or raw_log_value != str(expected_log)
     ):
-        return False, recovery_mode, 0
+        return False, recovery_mode
     raw_log_path = Path(raw_log_value)
     try:
         require_private_regular(raw_log_path)
         actual_log = raw_log_path.resolve(strict=True)
     except (FileNotFoundError, ContractError):
-        return False, recovery_mode, 0
+        return False, recovery_mode
     if (
         actual_log != expected_log
         or actual_log.stat().st_size != execution["raw_log_size"]
         or sha256_file(actual_log) != execution["raw_log_sha256"]
     ):
-        return False, recovery_mode, 0
-    return True, recovery_mode, prior_rejections + 1
+        return False, recovery_mode
+    return True, recovery_mode
+
+
+def rollback_pre_spawn_retry(
+    spec: F1Spec,
+    transaction_dir: Path,
+    records: list[dict[str, Any]],
+) -> tuple[bool, str | None, int]:
+    rollback_states = {
+        "RECOVERY_ROLLBACK",
+        "ROLLBACK_FLASHED",
+        "HEALTH_VERIFIED",
+        "CLOSED",
+    }
+    rollback_marker_keys = {
+        "rollback_attempt_limit",
+        "rollback_process_started",
+        "prior_pre_spawn_rejections",
+        "rollback_retry_forbidden",
+        "rollback_transfer_count",
+        "rollback_retry_preserved",
+    }
+    related_positions: list[int] = []
+    for index, record in enumerate(records):
+        action = record.get("action")
+        if (
+            action in {"health-verified", "closed"}
+            or (
+                isinstance(action, str)
+                and action.startswith("rollback-")
+            )
+            or record.get("state") in rollback_states
+            or rollback_marker_keys.intersection(record)
+        ):
+            related_positions.append(index)
+    if not related_positions:
+        return False, None, 0
+
+    # A retryable history is one complete suffix made only of exact adjacent
+    # intent/process-not-started pairs. This rules out any earlier possibly
+    # started invocation, completion, health closure, malformed pair, or
+    # unrelated record before a later otherwise-valid pair.
+    retry_suffix = records[related_positions[0] :]
+    if len(retry_suffix) < 2 or len(retry_suffix) % 2:
+        return False, None, 0
+
+    recovery_modes: list[str] = []
+    for pair_index in range(0, len(retry_suffix), 2):
+        intent = retry_suffix[pair_index]
+        rejection = retry_suffix[pair_index + 1]
+        exact, recovery_mode = rollback_pre_spawn_pair_is_exact(
+            spec,
+            transaction_dir,
+            intent,
+            rejection,
+            prior_rejections=pair_index // 2,
+        )
+        if not exact or recovery_mode is None:
+            return False, recovery_mode, 0
+        recovery_modes.append(recovery_mode)
+
+    if len(set(recovery_modes)) != 1:
+        return False, recovery_modes[-1], 0
+    return True, recovery_modes[-1], len(recovery_modes)
 
 
 def close_transaction(

@@ -3,7 +3,7 @@
 Date: 2026-07-30 KST
 
 Status:
-`PASS_HOST_FIFTH_REMEDIATION_RE_REVIEW_PENDING_NO_LIVE_AUTHORITY`
+`PASS_HOST_SIXTH_REMEDIATION_RE_REVIEW_PENDING_NO_LIVE_AUTHORITY`
 
 ## Scope
 
@@ -19,9 +19,9 @@ rollback transfer, mount, `switch_root`, or userdata operation occurred.
 
 - Orchestrator:
   `workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py`
-- Size: `86690`
+- Size: `88845`
 - SHA256:
-  `a4a1aaebcb44fb31f774a88f976eae7379118229f2a515be7bcfaa0f51077457`
+  `372fbf62668bc58ec899fd7d20c7671fb37a743465e41982213b0c69f0800528`
 - Focused tests:
   `tests/test_server_distro_a90_v3403_f1_orchestrator.py`
 - Staging adapter SHA256:
@@ -180,6 +180,31 @@ transaction path; that original path is checked with `lstat` as a private
 non-symlink regular file before resolution and hash reopening. Boolean, float,
 bogus-error, timestamp, and symlink mutations now fail closed.
 
+The sixth independent review of remediation commit
+`13928159f5a8a2d315048a5a2e4c0112c521fbee` passed the exact `101/101`
+snapshot, 33 isolated mutations, 22 full-recovery mutations, genuine-pair
+recovery, and the earlier timeout/started/unpaired/conflict semantics, but
+returned `NO_GO` on two remaining global-history paths. Resolving the expected
+raw-log name before comparison allowed both the exact leaf and recorded
+`raw_log` to be retargeted to the same private empty symlink target. Separately,
+an older `rollback-invocation-failed` with `process_started=true` could be
+hidden behind a later otherwise exact adjacent pre-spawn pair because only the
+last two records were validated. Both mutations reached `invoke_rollback` in
+full recovery.
+
+The sixth remediation preserves the exact canonical-parent/lexical-leaf raw
+log pathname without resolving it before string equality and `lstat`. The
+original expected leaf must be a private non-symlink regular file before its
+resolved identity is reopened and checked. Retry history is no longer a
+last-pair predicate: from the first rollback state, action, or retry-marker
+field through the journal end, the complete suffix must be an even sequence of
+exact adjacent intent/process-not-started pairs. Every pair is checked with
+its ordinal prior-rejection count and unique raw-log name, all pairs must retain
+one recovery mode, and any earlier possibly-started failure, completion,
+health closure, malformed pair, renamed rollback marker, or unrelated suffix
+record makes retry non-authoritative. Multiple genuine pre-spawn pairs remain
+accepted and advance only the unique next log ordinal.
+
 ## Validation
 
 - Python compilation passed.
@@ -224,6 +249,13 @@ bogus-error, timestamp, and symlink mutations now fail closed.
 - The independent matrix's bool/float numeric substitutions, bogus error
   type, noncanonical timestamps, and exact-name symlink are all rejected;
   generic journal reads also reject float sequence values.
+- Retargeting both an exact-name symlink and the journal `raw_log` to its
+  resolved target is rejected in the predicate and does not invoke rollback in
+  full recovery.
+- An older possibly-started rollback followed by a new exact pair is rejected
+  in the predicate and full recovery, including when its action/state names are
+  obscured but rollback marker fields remain. A history made only of multiple
+  exact pre-spawn pairs remains retryable with the next unique ordinal.
 - The private draft inspection reports `device_contact=false` and
   `device_write=false`.
 - A forced live invocation with the draft is rejected before creating either
@@ -231,7 +263,7 @@ bogus-error, timestamp, and symlink mutations now fail closed.
 
 ## Remaining gate
 
-All five earlier review rounds are closed `NO_GO`; the fifth remediation has
+All six earlier review rounds are closed `NO_GO`; the sixth remediation has
 not yet passed the required independent re-review. The current private draft
 remains deliberately non-approvable.
 

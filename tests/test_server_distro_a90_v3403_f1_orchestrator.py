@@ -1002,6 +1002,76 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                     )
                     self.assertFalse(mutated_allowed)
 
+            historical_intent = copy.deepcopy(records[-2])
+            historical_intent["sequence"] = 0
+            historical_failure = {
+                "schema": records[-1]["schema"],
+                "sequence": 1,
+                "timestamp_utc": records[-1]["timestamp_utc"],
+                "run_id": records[-1]["run_id"],
+                "manifest_sha256": records[-1]["manifest_sha256"],
+                "state": "RECOVERY_ROLLBACK",
+                "action": "rollback-invocation-failed",
+                "candidate_replay": False,
+                "rollback_retry_forbidden": True,
+                "record": {
+                    "returncode": 1,
+                    "process_started": True,
+                },
+            }
+            latest_intent = copy.deepcopy(records[-2])
+            latest_intent["sequence"] = 2
+            latest_rejection = copy.deepcopy(records[-1])
+            latest_rejection["sequence"] = 3
+            started_then_exact = [
+                historical_intent,
+                historical_failure,
+                latest_intent,
+                latest_rejection,
+            ]
+            history_allowed, _, _ = f1.rollback_pre_spawn_retry(
+                spec,
+                transaction,
+                started_then_exact,
+            )
+            self.assertFalse(history_allowed)
+            obscured_history = copy.deepcopy(started_then_exact)
+            obscured_history[0]["action"] = "renamed-intent"
+            obscured_history[0]["state"] = "APPROVED"
+            obscured_history[1]["action"] = "renamed-failure"
+            obscured_history[1]["state"] = "APPROVED"
+            obscured_allowed, _, _ = f1.rollback_pre_spawn_retry(
+                spec,
+                transaction,
+                obscured_history,
+            )
+            self.assertFalse(obscured_allowed)
+
+            retry_log = (
+                transaction
+                / "rollback-flash-pre-spawn-retry-0001.raw.log"
+            )
+            retry_log.write_bytes(b"")
+            retry_log.chmod(0o600)
+            second_intent = copy.deepcopy(records[-2])
+            second_intent["sequence"] = records[-2]["sequence"] + 2
+            second_intent["prior_pre_spawn_rejections"] = 1
+            second_rejection = copy.deepcopy(records[-1])
+            second_rejection["sequence"] = records[-1]["sequence"] + 2
+            second_rejection["record"].update(
+                f1.command_record(retry_log, 125)
+            )
+            repeated_allowed, repeated_mode, repeated_count = (
+                f1.rollback_pre_spawn_retry(
+                    spec,
+                    transaction,
+                    [*records, second_intent, second_rejection],
+                )
+            )
+            self.assertTrue(repeated_allowed)
+            self.assertEqual(repeated_mode, "from-native")
+            self.assertEqual(repeated_count, 2)
+
             raw_log = Path(str(records[-1]["record"]["raw_log"]))
             symlink_target = transaction / "other-empty-private.raw.log"
             symlink_target.write_bytes(b"")
@@ -1014,6 +1084,16 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                 records,
             )
             self.assertFalse(symlink_allowed)
+            retargeted = copy.deepcopy(records)
+            retargeted[-1]["record"]["raw_log"] = str(
+                symlink_target.resolve()
+            )
+            retargeted_allowed, _, _ = f1.rollback_pre_spawn_retry(
+                spec,
+                transaction,
+                retargeted,
+            )
+            self.assertFalse(retargeted_allowed)
 
     def test_unpaired_latest_rollback_intent_is_never_retried(self) -> None:
         spec = sample_spec()
@@ -1159,9 +1239,45 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                         [],
                         from_native=True,
                     )
+                raw_log = transaction / "rollback-flash.raw.log"
+                symlink_target = transaction / "retarget-empty-private.raw.log"
+                symlink_target.write_bytes(b"")
+                symlink_target.chmod(0o600)
+                raw_log.unlink()
+                raw_log.symlink_to(symlink_target)
+                rejection_path = sorted(journal.glob("*.json"))[-1]
+                rejection = json.loads(rejection_path.read_text())
+                rejection["record"]["raw_log"] = str(
+                    symlink_target.resolve()
+                )
+                f1.write_private_json_atomic(rejection_path, rejection)
                 args = sample_args()
                 args.approval = None
                 args.transaction_dir = transaction
+                with (
+                    mock.patch.object(f1, "verify_local_closure"),
+                    mock.patch.object(f1, "require_rollback_source_native"),
+                    mock.patch.object(
+                        f1,
+                        "verify_final_health",
+                        side_effect=f1.ContractError(
+                            "retargeted evidence cannot prove rollback completion"
+                        ),
+                    ),
+                    mock.patch.object(f1, "invoke_rollback") as refused_invoke,
+                    self.assertRaisesRegex(
+                        f1.ContractError,
+                        "retargeted evidence",
+                    ),
+                ):
+                    f1.recover_approved_rollback(spec, args)
+                refused_invoke.assert_not_called()
+
+                raw_log.unlink()
+                raw_log.write_bytes(b"")
+                raw_log.chmod(0o600)
+                rejection["record"]["raw_log"] = str(raw_log)
+                f1.write_private_json_atomic(rejection_path, rejection)
                 with (
                     mock.patch.object(f1, "verify_local_closure"),
                     mock.patch.object(f1, "require_rollback_source_native"),
@@ -1184,6 +1300,107 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                     invoke.call_args.kwargs["pre_spawn_retry_index"],
                     1,
                 )
+
+                f1.append_record(
+                    journal,
+                    "RECOVERY_ROLLBACK",
+                    "rollback-transfer-started",
+                    {
+                        "rollback_sha256": spec.rollback.sha256,
+                        "rollback_attempt_limit": 1,
+                        "rollback_process_started": None,
+                        "candidate_replay": False,
+                        "recovery_mode": "from-native",
+                        "prior_pre_spawn_rejections": 1,
+                    },
+                    manifest_sha256=spec.stage.manifest_sha256,
+                    run_id=spec.stage.run_id,
+                )
+                f1.append_record(
+                    journal,
+                    "RECOVERY_ROLLBACK",
+                    "rollback-invocation-failed",
+                    {
+                        "candidate_replay": False,
+                        "rollback_retry_forbidden": True,
+                        "record": {
+                            "returncode": 1,
+                            "process_started": True,
+                        },
+                    },
+                    manifest_sha256=spec.stage.manifest_sha256,
+                    run_id=spec.stage.run_id,
+                )
+                f1.append_record(
+                    journal,
+                    "RECOVERY_ROLLBACK",
+                    "rollback-transfer-started",
+                    {
+                        "rollback_sha256": spec.rollback.sha256,
+                        "rollback_attempt_limit": 1,
+                        "rollback_process_started": None,
+                        "candidate_replay": False,
+                        "recovery_mode": "from-native",
+                        "prior_pre_spawn_rejections": 1,
+                    },
+                    manifest_sha256=spec.stage.manifest_sha256,
+                    run_id=spec.stage.run_id,
+                )
+                retry_log = (
+                    transaction
+                    / "rollback-flash-pre-spawn-retry-0001.raw.log"
+                )
+                retry_log.write_bytes(b"")
+                retry_log.chmod(0o600)
+                retry_record = {
+                    **f1.command_record(retry_log, 125),
+                    "process_started": False,
+                    "execution_error": {
+                        "type": "OSError",
+                        "stage": "process-spawn",
+                        "errno": 2,
+                    },
+                    "phase_classification": {
+                        "local_image_validated": False,
+                        "native_recovery_requested": False,
+                        "recovery_endpoint_selected": False,
+                        "payload_transfer_started": False,
+                        "boot_write_started": False,
+                        "boot_write_completed": False,
+                        "readback_completed": False,
+                    },
+                }
+                f1.append_record(
+                    journal,
+                    "RECOVERY_ROLLBACK",
+                    "rollback-process-not-started",
+                    {
+                        "candidate_replay": False,
+                        "rollback_process_started": False,
+                        "rollback_transfer_count": 0,
+                        "rollback_retry_preserved": True,
+                        "record": retry_record,
+                    },
+                    manifest_sha256=spec.stage.manifest_sha256,
+                    run_id=spec.stage.run_id,
+                )
+                with (
+                    mock.patch.object(f1, "verify_local_closure"),
+                    mock.patch.object(
+                        f1,
+                        "verify_final_health",
+                        side_effect=f1.ContractError(
+                            "historical started rollback cannot be retried"
+                        ),
+                    ),
+                    mock.patch.object(f1, "invoke_rollback") as history_invoke,
+                    self.assertRaisesRegex(
+                        f1.ContractError,
+                        "historical started rollback",
+                    ),
+                ):
+                    f1.recover_approved_rollback(spec, args)
+                history_invoke.assert_not_called()
             finally:
                 f1.PRIVATE_RUN_BASE = old_base
 
