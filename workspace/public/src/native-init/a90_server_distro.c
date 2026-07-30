@@ -38,10 +38,13 @@
 #define A90_D3_TOKEN "SERVER-DISTRO-D3B-SWITCHROOT"
 #define A90_D3_ALLOWED_IMAGE_ROOT "/mnt/sdext/a90/runtime/"
 #define A90_D3_ROOT "/mnt/sdext/a90/runtime/distro-root"
+#define A90_D3_WORK_IMAGE "/mnt/sdext/a90/runtime/d3-handoff-work.img"
 #define A90_D3_LOOP "/dev/loop0"
 #define A90_D3_BUSYBOX "/bin/busybox"
 #define A90_D3_INIT "/sbin/init"
 #define A90_D3_SWITCH_TIMEOUT_MS 30000
+#define A90_D3_COPY_TIMEOUT_MS 300000
+#define A90_D3_IMMUTABLE_TAG "A90D3H0"
 #define A90_D_HANDOFF_HUD_TIMEOUT_MS 3000
 #define A90_D_HANDOFF_DRM_OWNER_TIMEOUT_MS 1000
 #define A90_D_HW_TAG "A90DHW"
@@ -1268,10 +1271,43 @@ static int d_handoff_stop_drm_owner(const char *tag, pid_t pid) {
     return rc;
 }
 
-static int d_handoff_stop_display_owners(const char *tag) {
+static int d_handoff_count_display_owners(bool preserve_dpublic, unsigned int *count_out) {
     DIR *proc;
     struct dirent *entry;
+    unsigned int count = 0;
+
+    if (count_out == NULL) {
+        return -EINVAL;
+    }
+    proc = opendir("/proc");
+    if (proc == NULL) {
+        return -errno;
+    }
+    while ((entry = readdir(proc)) != NULL) {
+        pid_t pid;
+
+        if (d_handoff_parse_pid(entry->d_name, &pid) < 0) {
+            continue;
+        }
+        if (!d_handoff_pid_is_native_init(pid) || !d_handoff_pid_has_drm_fd(pid)) {
+            continue;
+        }
+        if (preserve_dpublic && dpublic_hud_service_pid_is_default(pid)) {
+            continue;
+        }
+        count++;
+    }
+    closedir(proc);
+    *count_out = count;
+    return 0;
+}
+
+static int d_handoff_stop_display_owners_mode(const char *tag, bool preserve_dpublic) {
+    DIR *proc;
+    struct dirent *entry;
+    struct dpublic_hud_service_opts dpublic_opts;
     unsigned int killed = 0;
+    unsigned int remaining = 0;
     int final_rc = 0;
     int service_rc;
 
@@ -1279,6 +1315,17 @@ static int d_handoff_stop_display_owners(const char *tag) {
     a90_console_printf("%s handoff_display service=autohud stop_rc=%d\r\n", tag, service_rc);
     if (service_rc < 0) {
         final_rc = service_rc;
+    }
+
+    if (!preserve_dpublic) {
+        dpublic_hud_service_default_opts(&dpublic_opts);
+        dpublic_opts.release_drm = true;
+        service_rc = dpublic_hud_service_stop(&dpublic_opts);
+        a90_console_printf("%s handoff_display service=dpublic-hud-presenter stop_rc=%d\r\n",
+                           tag, service_rc);
+        if (service_rc < 0) {
+            final_rc = service_rc;
+        }
     }
 
     proc = opendir("/proc");
@@ -1297,7 +1344,7 @@ static int d_handoff_stop_display_owners(const char *tag) {
         if (!d_handoff_pid_is_native_init(pid) || !d_handoff_pid_has_drm_fd(pid)) {
             continue;
         }
-        if (dpublic_hud_service_pid_is_default(pid)) {
+        if (preserve_dpublic && dpublic_hud_service_pid_is_default(pid)) {
             a90_console_printf("%s handoff_display drm_owner_pid=%ld action=preserve-dpublic-hud-presenter\r\n",
                                tag, (long)pid);
             continue;
@@ -1311,9 +1358,27 @@ static int d_handoff_stop_display_owners(const char *tag) {
     }
     closedir(proc);
 
+    service_rc = d_handoff_count_display_owners(preserve_dpublic, &remaining);
+    if (service_rc < 0) {
+        final_rc = final_rc < 0 ? final_rc : service_rc;
+    } else if (remaining != 0U) {
+        final_rc = -EBUSY;
+    }
+    a90_console_printf("%s handoff_display required_nonpreserved_owner_count=0 observed=%u\r\n",
+                       tag, remaining);
     a90_console_printf("%s handoff_display=done killed=%u rc=%d\r\n",
                        tag, killed, final_rc);
     return final_rc;
+}
+
+static int d_handoff_stop_display_owners(const char *tag) {
+    return d_handoff_stop_display_owners_mode(tag, true);
+}
+
+static int d3_handoff_stop_display_owners_strict(void) {
+    a90_console_printf("%s handoff_display strict=1 preserve_dpublic=0\r\n",
+                       A90_D3_IMMUTABLE_TAG);
+    return d_handoff_stop_display_owners_mode(A90_D3_TAG, false);
 }
 
 static int d3_hex64_valid(const char *s) {
@@ -1598,6 +1663,96 @@ static int d3_mount_root(void) {
     return 0;
 }
 
+static int d3_verify_source_sha(const char *image,
+                                const char *expected_sha,
+                                const char *phase) {
+    char actual_sha[65];
+
+    if (a90_helper_sha256_file(image, actual_sha, sizeof(actual_sha)) != 0) {
+        a90_console_printf("%s source_sha phase=%s compute=fail\r\n",
+                           A90_D3_IMMUTABLE_TAG, phase);
+        return -EIO;
+    }
+    if (!d3_sha_equal_ci(actual_sha, expected_sha)) {
+        a90_console_printf("%s source_sha phase=%s sha=%s expected_sha_match=0\r\n",
+                           A90_D3_IMMUTABLE_TAG, phase, actual_sha);
+        return -ESTALE;
+    }
+    a90_console_printf("%s source_sha phase=%s sha=%s expected_sha_match=1\r\n",
+                       A90_D3_IMMUTABLE_TAG, phase, actual_sha);
+    return 0;
+}
+
+static int d3_copy_work_image(const char *image,
+                              const char *expected_sha,
+                              bool *owned_out) {
+    struct stat st;
+    char *const argv[] = {
+        (char *)A90_D3_BUSYBOX,
+        (char *)"cp",
+        (char *)image,
+        (char *)A90_D3_WORK_IMAGE,
+        NULL,
+    };
+    int rc;
+
+    if (owned_out == NULL) {
+        return -EINVAL;
+    }
+    *owned_out = false;
+    if (strcmp(image, A90_D3_WORK_IMAGE) == 0) {
+        a90_console_printf("%s work_copy=refused reason=source-is-work-image\r\n",
+                           A90_D3_IMMUTABLE_TAG);
+        return -EPERM;
+    }
+    if (lstat(A90_D3_WORK_IMAGE, &st) == 0) {
+        a90_console_printf("%s work_copy=refused reason=preexisting path=%s\r\n",
+                           A90_D3_IMMUTABLE_TAG, A90_D3_WORK_IMAGE);
+        return -EEXIST;
+    }
+    if (errno != ENOENT) {
+        return -errno;
+    }
+
+    *owned_out = true;
+    rc = d3_run_busybox(argv, A90_D3_COPY_TIMEOUT_MS);
+    if (rc != 0) {
+        a90_console_printf("%s work_copy=fail rc=%d\r\n", A90_D3_IMMUTABLE_TAG, rc);
+        return rc > 0 ? -EIO : rc;
+    }
+    rc = d3_regular_file_ok(A90_D3_WORK_IMAGE);
+    if (rc < 0) {
+        return rc;
+    }
+    rc = d3_verify_source_sha(A90_D3_WORK_IMAGE, expected_sha, "work-copy");
+    if (rc < 0) {
+        return rc;
+    }
+    rc = d3_verify_source_sha(image, expected_sha, "post-copy-source");
+    if (rc < 0) {
+        return rc;
+    }
+    a90_console_printf("%s work_copy=ready source=%s work=%s\r\n",
+                       A90_D3_IMMUTABLE_TAG, image, A90_D3_WORK_IMAGE);
+    return 0;
+}
+
+static int d3_remove_work_image(bool owned) {
+    if (!owned) {
+        return 0;
+    }
+    if (unlink(A90_D3_WORK_IMAGE) < 0 && errno != ENOENT) {
+        int rc = -errno;
+
+        a90_console_printf("%s work_copy=cleanup-fail rc=%d path=%s\r\n",
+                           A90_D3_IMMUTABLE_TAG, rc, A90_D3_WORK_IMAGE);
+        return rc;
+    }
+    a90_console_printf("%s work_copy=removed path=%s\r\n",
+                       A90_D3_IMMUTABLE_TAG, A90_D3_WORK_IMAGE);
+    return 0;
+}
+
 static int d3_join(char *out, size_t out_size, const char *root, const char *leaf) {
     int n = snprintf(out, out_size, "%s/%s", root, leaf);
 
@@ -1815,6 +1970,9 @@ static int d3_move_core_mounts(bool *moved_proc,
     rc = d3_move_mount_one("/sys", "sys");
     if (rc < 0) {
         d3_restore_mount_one("proc", "/proc");
+        if (moved_proc != NULL) {
+            *moved_proc = false;
+        }
         return rc;
     }
     if (moved_sys != NULL) {
@@ -1825,6 +1983,12 @@ static int d3_move_core_mounts(bool *moved_proc,
         if (rc < 0) {
             d3_restore_mount_one("sys", "/sys");
             d3_restore_mount_one("proc", "/proc");
+            if (moved_sys != NULL) {
+                *moved_sys = false;
+            }
+            if (moved_proc != NULL) {
+                *moved_proc = false;
+            }
             return rc;
         }
         if (moved_dev != NULL) {
@@ -1835,6 +1999,12 @@ static int d3_move_core_mounts(bool *moved_proc,
         if (rc < 0) {
             d3_restore_mount_one("sys", "/sys");
             d3_restore_mount_one("proc", "/proc");
+            if (moved_sys != NULL) {
+                *moved_sys = false;
+            }
+            if (moved_proc != NULL) {
+                *moved_proc = false;
+            }
             return rc;
         }
     }
@@ -1859,10 +2029,10 @@ static void d3_restore_core_mounts(bool moved_proc, bool moved_sys, bool moved_d
 int a90_server_distro_switch_root_cmd(char **argv, int argc) {
     const char *image;
     const char *expected_sha;
-    char actual_sha[65];
     int rc;
     bool loop_created = false;
     bool loop_attached = false;
+    bool work_owned = false;
     bool root_mounted = false;
     bool moved_proc = false;
     bool moved_sys = false;
@@ -1907,16 +2077,11 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
     if (rc < 0) {
         return rc;
     }
-    if (a90_helper_sha256_file(image, actual_sha, sizeof(actual_sha)) != 0) {
-        a90_console_printf("%s sha=compute-fail\r\n", A90_D3_TAG);
-        return -EIO;
+    rc = d3_verify_source_sha(image, expected_sha, "initial");
+    if (rc < 0) {
+        a90_console_printf("%s stop=sha-mismatch rc=%d\r\n", A90_D3_TAG, rc);
+        return rc;
     }
-    if (!d3_sha_equal_ci(actual_sha, expected_sha)) {
-        a90_console_printf("%s sha=%s expected_sha_match=0 stop=sha-mismatch\r\n",
-                           A90_D3_TAG, actual_sha);
-        return -EPERM;
-    }
-    a90_console_printf("%s sha=%s expected_sha_match=1\r\n", A90_D3_TAG, actual_sha);
 
     rc = d3_mkdir_p(A90_D3_ROOT, 0755);
     if (rc < 0) {
@@ -1931,12 +2096,27 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
         a90_console_printf("%s stop=root-already-mounted root=%s\r\n", A90_D3_TAG, A90_D3_ROOT);
         return -EBUSY;
     }
+    rc = d3_handoff_stop_display_owners_strict();
+    if (rc < 0) {
+        a90_console_printf("%s stop=handoff-display-owner rc=%d\r\n", A90_D3_TAG, rc);
+        goto fail_immutable_source;
+    }
+    rc = d3_verify_source_sha(image, expected_sha, "post-display-cleanup");
+    if (rc < 0) {
+        a90_console_printf("%s stop=source-changed-during-display-cleanup rc=%d\r\n",
+                           A90_D3_TAG, rc);
+        goto fail_immutable_source;
+    }
+    rc = d3_copy_work_image(image, expected_sha, &work_owned);
+    if (rc < 0) {
+        goto fail_immutable_source;
+    }
     rc = d3_ensure_loop_node(&loop_created);
     if (rc < 0) {
         a90_console_printf("%s loop_node=fail rc=%d\r\n", A90_D3_TAG, rc);
-        return rc;
+        goto fail_immutable_source;
     }
-    rc = d3_attach_loop(image, &loop_attached);
+    rc = d3_attach_loop(A90_D3_WORK_IMAGE, &loop_attached);
     if (rc < 0) {
         goto fail_before_move;
     }
@@ -1950,11 +2130,6 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
         a90_console_printf("%s stop=distro-init-invalid rc=%d\r\n", A90_D3_TAG, rc);
         goto fail_before_move;
     }
-    rc = d_handoff_stop_display_owners(A90_D3_TAG);
-    if (rc < 0) {
-        a90_console_printf("%s stop=handoff-display-owner rc=%d\r\n", A90_D3_TAG, rc);
-        goto fail_before_move;
-    }
     rc = d3_move_core_mounts(&moved_proc, &moved_sys, &moved_dev, &mounted_devpts);
     if (rc < 0) {
         a90_console_printf("%s mount_move=fail rc=%d\r\n", A90_D3_TAG, rc);
@@ -1963,7 +2138,8 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
 
     a90_console_printf("%s exec_switch_root_now busybox=%s root=%s init=%s console=reuse-stdio\r\n",
                        A90_D3_TAG, A90_D3_BUSYBOX, A90_D3_ROOT, A90_D3_INIT);
-    a90_logf("server-distro", "D3 switch_root exec image=%s root=%s", image, A90_D3_ROOT);
+    a90_logf("server-distro", "D3 switch_root exec source=%s work=%s root=%s",
+             image, A90_D3_WORK_IMAGE, A90_D3_ROOT);
     sync();
     usleep(200000);
     execve(A90_D3_BUSYBOX, switch_argv, newenv);
@@ -1972,7 +2148,10 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
     a90_console_printf("%s execve_switch_root=fail rc=%d errno=%d (%s)\r\n",
                        A90_D3_TAG, rc, -rc, strerror(-rc));
     d3_restore_core_mounts(moved_proc, moved_sys, moved_dev, mounted_devpts);
-    return rc;
+    moved_proc = false;
+    moved_sys = false;
+    moved_dev = false;
+    mounted_devpts = false;
 
 fail_before_move:
     if (root_mounted) {
@@ -1987,6 +2166,15 @@ fail_before_move:
     if (loop_created) {
         (void)unlink(A90_D3_LOOP);
     }
+fail_immutable_source:
+    (void)d3_remove_work_image(work_owned);
+    if (d3_verify_source_sha(image, expected_sha, "after-failure") < 0) {
+        a90_console_printf("%s source_unchanged_after_failure=0 stop=source-identity-lost\r\n",
+                           A90_D3_IMMUTABLE_TAG);
+        return -ESTALE;
+    }
+    a90_console_printf("%s source_unchanged_after_failure=1\r\n",
+                       A90_D3_IMMUTABLE_TAG);
     return rc;
 }
 

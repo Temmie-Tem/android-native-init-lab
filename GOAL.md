@@ -19,13 +19,15 @@ zero-return PHY power-helper prefix, and the new exact parent
 change. No P2.86 `0x90`, `0xc50..0xc5c`, or terminal `0x93` survived. Exact
 rollback and final health passed.**
 
-**A90 parallel state: run `a90-debian-reactivation-f1-20260730-01` is closed
-healthy/no-proof. V3402 and exact V2321 rollback each completed one checked
-boot-only transfer. The first SD-backed Debian handoff stopped before
-`switch_root` at display-owner cleanup `-EBUSY`; its prior rw mount/unmount
-changed the bound rootfs image. The corrected handoff then failed closed at the
-immutable SHA gate. Debian PID1 is unproved, internal userdata was untouched,
-and V2321 final health passed. No A90 live authority remains.**
+**A90 parallel state: the V3402 run remains closed healthy/no-proof and
+non-replayable. Its late display cleanup consumed the old rootfs identity.
+The host-only V3403 successor now cleans all display owners before storage,
+mounts only an absent-only work copy, and proves every modeled pre-switch
+failure leaves the source byte-identical. V3403 passes the focused `41/41`
+suite and AArch64 compile. A fresh, package-authenticated, clean 2 GiB D3
+sysvinit rootfs and the exact V2321 rollback are hash-verified. Debian PID1 is
+still unproved, internal userdata remains untouched, and no A90 live authority
+exists.**
 
 Stock D1 v2 and P2.84 selected different runtime-PM paths. Stock's first two
 outer works ended by `0.291 ms`, followed by deferred child and parent PM
@@ -188,10 +190,15 @@ corrected A/B pair then matched.
   health with no candidate replay. It also proves the current D3 handoff can
   mutate the bound SD rootfs before a later display-owner failure, so Debian
   PID1 remains unproved for this run.
+- A90 V3403 closes the selected H0 successor: strict display cleanup occurs
+  before storage, only a verified work copy can be mounted rw, every modeled
+  pre-switch failure preserves the source, and a fresh authenticated D3
+  sysvinit image is privately hash-bound. It grants no live authority.
 
 Load-bearing current reports:
 
 - `docs/reports/A90_DEBIAN_REACTIVATION_F1_CLOSED_2026-07-30.md`
+- `docs/reports/NATIVE_INIT_V3403_D3_IMMUTABLE_HANDOFF_H0_CLOSURE_2026-07-30.md`
 - `docs/reports/S22PLUS_FYG8_P284_CONTROLLED_SUSPEND_F1_CLOSED_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P284_POST_SUSPEND_RESTART_GAP_FOCUSED_ANALYSIS_H0_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P284_STOCK_OUTER_D1_V2_LIVE_NO_PROOF_2026-07-29.md`
@@ -387,14 +394,14 @@ The A90 branch proceeds independently:
 1. Preserve the closed A90 journal, structured result, raw private evidence,
    and exact V2321 final-health state.
 2. Do not replay V3402 or reuse the consumed approval.
-3. Design an H0 successor that completes display-owner cleanup before
-   `d3_attach_loop()` and `d3_mount_root()`.
-4. Require a fresh immutable SD rootfs input and prove every pre-`switch_root`
-   failure leaves it byte-identical; a retry must never depend on accepting a
-   post-mount hash.
-5. Build and statically validate a fresh versioned A90 candidate. Any later
-   device step requires exact target selection, exact rollback, a new manifest,
-   and fresh approval.
+3. Preserve V3403's completed H0 source contract: display-owner cleanup before
+   storage, source recheck, absent-only work copy, and failure cleanup.
+4. Preserve the fresh D3 rootfs identity and its authenticated package,
+   clean-ext4, ownership, init, and credential-absence closure.
+5. Before any later device action, create a new run and prepared manifest that
+   binds the exact A90 target, V3403 boot, fresh rootfs, exact V2321 rollback,
+   checked runner, bounded observation, and final health. Run the required
+   connected preflight and obtain one fresh exact approval.
 
 No device step is added when H0 can answer the question.
 

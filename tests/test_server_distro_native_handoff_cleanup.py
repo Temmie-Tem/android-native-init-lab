@@ -22,14 +22,31 @@ class ServerDistroNativeHandoffCleanupTests(unittest.TestCase):
         self.assertIn("SIGKILL", source)
         self.assertIn("handoff_display=done", source)
 
-    def test_cleanup_runs_after_root_validation_before_mount_moves(self) -> None:
+    def test_d3_strict_cleanup_runs_before_work_copy_loop_and_rw_mount(self) -> None:
         source = SERVER_DISTRO.read_text(encoding="utf-8")
-        d3_check = source.index("rc = d3_check_distro_init();")
-        d3_cleanup = source.index("rc = d_handoff_stop_display_owners(A90_D3_TAG);")
+        d3_command = source.index("a90_server_distro_switch_root_cmd")
+        d3_cleanup = source.index("rc = d3_handoff_stop_display_owners_strict();", d3_command)
+        d3_rehash = source.index(
+            'd3_verify_source_sha(image, expected_sha, "post-display-cleanup")',
+            d3_cleanup,
+        )
+        d3_copy = source.index("d3_copy_work_image(image, expected_sha, &work_owned)", d3_rehash)
+        d3_attach = source.index(
+            "d3_attach_loop(A90_D3_WORK_IMAGE, &loop_attached)",
+            d3_copy,
+        )
+        d3_mount = source.index("rc = d3_mount_root();", d3_attach)
+        d3_check = source.index("rc = d3_check_distro_init();", d3_mount)
         d3_move = source.index("rc = d3_move_core_mounts(")
-        self.assertLess(d3_check, d3_cleanup)
+        self.assertLess(d3_cleanup, d3_rehash)
+        self.assertLess(d3_rehash, d3_copy)
+        self.assertLess(d3_copy, d3_attach)
+        self.assertLess(d3_attach, d3_mount)
+        self.assertLess(d3_mount, d3_check)
         self.assertLess(d3_cleanup, d3_move)
 
+    def test_d4_cleanup_still_runs_after_root_validation_before_mount_moves(self) -> None:
+        source = SERVER_DISTRO.read_text(encoding="utf-8")
         d4_check = source.index("rc = d4_check_userdata_init();", source.index("a90_server_distro_switch_root_userdata_cmd"))
         d4_cleanup = source.index("rc = d_handoff_stop_display_owners(A90_D4_TAG);")
         d4_move = source.index("rc = d4_move_core_mounts(")

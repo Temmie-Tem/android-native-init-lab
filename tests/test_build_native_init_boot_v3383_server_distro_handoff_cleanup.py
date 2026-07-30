@@ -53,7 +53,7 @@ class BuildNativeInitBootV3383ServerDistroHandoffCleanupTests(unittest.TestCase)
         self.assertIn("SIGTERM", source)
         self.assertIn("SIGKILL", source)
         self.assertIn("stop=handoff-display-owner", source)
-        self.assertIn("rc = d_handoff_stop_display_owners(A90_D3_TAG);", source)
+        self.assertIn("rc = d3_handoff_stop_display_owners_strict();", source)
         self.assertIn("rc = d_handoff_stop_display_owners(A90_D4_TAG);", source)
 
     def test_candidate_manifest_records_live_gate(self) -> None:

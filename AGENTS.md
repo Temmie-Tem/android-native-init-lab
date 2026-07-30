@@ -25,12 +25,19 @@ Do not add a device step when host-only work can answer the question.
   the rootfs image bytes. The one bounded corrected handoff stopped at the
   immutable SHA gate before mount. Debian PID1 was not reached, internal
   userdata was not touched, and the changed rootfs was not accepted.
-- The selected A90 successor is H0-only: move display-owner cleanup before loop
-  attachment/rw mount, preserve a fresh immutable SD rootfs input for each
-  attempt, and make every pre-`switch_root` failure leave that input
-  byte-identical. Do not replay V3402 or seek live authority until a fresh
-  versioned candidate, static validation, exact rollback, and new approval
-  exist.
+- The selected A90 H0 successor is implemented as V3403. Strict display-owner
+  cleanup precedes loop attachment and rw mount; the manifest-bound source is
+  rehashed, copied to one absent-only work image, and never mounted rw. Every
+  modeled pre-`switch_root` failure cleans only the work resources and leaves
+  the source byte-identical. The focused suite passes `41/41`, and the source
+  cross-compiles to AArch64.
+- A fresh private 2 GiB D3 sysvinit rootfs exists with SHA256
+  `16c504a8b1860fcc56272140b48d27a015bab1748b6c6be10fdb958bcdd7d749`.
+  Its Debian package trust chain, clean ext4 state, root-owned init contract,
+  locked root password, and credential/key absence passed host verification.
+  V3403 boot and exact V2321 rollback were also reopened and hash-verified.
+  This is H0 input closure only: no rootfs staging, target selection, prepared
+  F1 manifest, approval, or live authority exists. Do not replay V3402.
 - P2.82 consumed one exact approval. Its byte-identical reads end in terminal
   failure `0x8e/detail=0xc10`; the newline-bearing comparator made exact NONE
   readback impossible. No accepted ACM endpoint appeared. Child suspend,
