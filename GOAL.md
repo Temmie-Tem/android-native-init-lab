@@ -520,7 +520,7 @@ corrected A/B pair then matched.
   Strict display cleanup, absent-only work-copy verification, loop mount,
   proc/sys movement, dev preparation, and `exec_switch_root_now` passed; the
   Debian sysvinit SELinux warning followed. No SSH PID1 marker or automatic
-  candidate return was observed, so this run does not prove Debian PID1.
+  candidate return was observed by the live contract.
   Operator reboot recovered exact V3404, and rollback write/readback then
   completed once. USB re-enumeration changed only the transient tty realpath.
   An independently reviewed, hash-bound no-transfer closure performed exact
@@ -528,6 +528,15 @@ corrected A/B pair then matched.
   The final result is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, counts `1/1`,
   canonical eight events, and no live authority. Host comparison rejects a
   missing firstboot/init payload; the 2026-07-03 switch-root pass remains valid.
+  A later bounded D0 read-only preservation of the still-present work image
+  produced an exact 2 GiB host copy. Offline evidence now proves this V3404
+  handoff itself made Debian sysvinit PID1 and completed firstboot:
+  `/run/a90-d3-marker` records `proc1_exe=/usr/sbin/init`, and Dropbear started.
+  The formal transaction remains closed no-proof because its live SSH contract
+  failed. Host logs attribute that timeout to a missing fixed NCM profile after
+  candidate re-enumeration. The 120-second child entered global `sync`, but
+  reboot exec remains unproved; an unreturned sync is the leading, unproved
+  hypothesis.
 
 Load-bearing current reports:
 
@@ -539,6 +548,7 @@ Load-bearing current reports:
 - `docs/reports/NATIVE_INIT_V3404_D3_RESOLVED_OWNER_TIMEOUT_SOURCE_BUILD_2026-07-31.md`
 - `docs/reports/A90_V3404_REUSABLE_F1_STAGING_BINDING_H0_2026-07-31.md`
 - `docs/reports/A90_V3404_D3_SWITCHROOT_NO_PROOF_F1_CLOSED_2026-07-31.md`
+- `docs/reports/A90_V3404_D3_WORK_COPY_POSTMORTEM_DEBIAN_PID1_PROVEN_2026-07-31.md`
 - `docs/reports/S22PLUS_FYG8_P284_CONTROLLED_SUSPEND_F1_CLOSED_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P284_POST_SUSPEND_RESTART_GAP_FOCUSED_ANALYSIS_H0_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P284_STOCK_OUTER_D1_V2_LIVE_NO_PROOF_2026-07-29.md`
@@ -736,12 +746,14 @@ The A90 branch proceeds independently:
 8. Preserve closed V3404 run `a90-v3404-debian-f1-20260731-01`, its consumed
    approval and continuation, one handoff, candidate/rollback `1/1`, exact
    V2321 health, no replay, and no-proof verdict.
-9. Preserve the 2026-07-03 true switch-root proof and the current host finding
-   that init, inittab, firstboot, package identity, and isolated PID1 execution
-   remain intact; do not classify this run as an image-payload absence.
-10. Before another F1, use H0 and bounded D0 postmortem evidence to isolate the
-    new work-copy/display-cleanup runtime difference and design a durable
-    pre-init watchdog/trace boundary. No consumed run or approval is reusable.
+9. Preserve the 2026-07-03 switch-root proof and V3404's exact D0 work-image
+   preservation. V3404 now technically proves Debian sysvinit PID1 and
+   firstboot; do not classify it as an image-payload or SELinux-init failure.
+10. Before another F1, repair the manifest-bound host NCM profile after
+    candidate re-enumeration and add durable before/after-sync plus reboot
+    fallback evidence. Keep the original preservation image unrepaired, retain
+    the device work copy, and review changed F1 observer machinery. No consumed
+    run or approval is reusable.
 
 No device step is added when H0 can answer the question.
 
