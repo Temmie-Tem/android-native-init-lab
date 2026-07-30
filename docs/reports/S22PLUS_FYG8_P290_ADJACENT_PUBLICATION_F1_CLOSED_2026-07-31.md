@@ -64,11 +64,20 @@ first persistent CRC clear. This rejects the P2.88 explanation that the first
 new coordinate was merely too far beyond the unresolved corridor.
 
 The result strongly localizes the stop to the generation-88 publication
-return boundary. In the P2.90 contract's one-channel model, the remaining
-class is a non-return after the generation-88 durable commit, before the
-adjacent generation-89 publication can begin. A returned primary error would
-have entered the checked fallback route, while a generation-89 attempt would
-have invalidated or replaced the still-valid generation-87 target slot.
+return boundary. It does not prove that the publication hung. The materialized
+kernel can return `-ESTALE` after committing the next slot but before advancing
+its in-kernel state. A returned primary error enters P2.90's checked fallback,
+but a fallback error or non-return can still leave no later mutation.
+
+The exact remaining one-channel class is therefore either:
+
+- the generation-88 primary publication did not return after its durable
+  commit; or
+- it returned an error before kernel/client state advance, followed by a
+  fallback error or non-return.
+
+A generation-89 attempt would have invalidated or replaced the still-valid
+generation-87 target slot, so that attempt remains excluded.
 
 This does not identify the exact kernel instruction. It does establish that
 restart-helper dispatch, restart entry, and deadline construction were not
@@ -117,9 +126,8 @@ not be replayed.
 
 1. Audit the exact post-commit tail of the generation-88 retained writer and
    its procfs/VFS return path.
-2. Distinguish a non-return inside the checkpoint write from a non-return in
-   the immediate userspace publication tail without using the same retained
-   channel as its own sole witness.
+2. Distinguish primary non-return from a returned errno followed by fallback
+   failure without using the same retained channel as its own sole witness.
 3. Keep the CDC-ACM timeout as downstream corroboration only.
 4. Do not build or request another F1 until the generation-88 publication
    return boundary has a host-derived successor hypothesis.

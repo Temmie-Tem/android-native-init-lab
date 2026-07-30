@@ -352,8 +352,9 @@ rollback transferred with no replay. Its exact retained record again ends at
 valid generations 87 and 88; the immediately adjacent generation-89
 `(0x8f,item=1)` publication never reached its target-slot CRC clear. This
 rejects the P2.88 explanation that the first new coordinate was merely too far
-away. The remaining class is a non-return after the generation-88 durable
-commit and before the adjacent publication begins.
+away. The remaining class is primary non-return after the generation-88
+durable commit, or a returned post-commit error followed by fallback
+error/non-return before the adjacent publication begins.
 
 The P2.90 runtime implementation repairs the contract before another F1. It
 inserts `(0x8f,item=1..4)` immediately after the accepted generation-88
@@ -479,6 +480,9 @@ corrected A/B pair then matched.
   health pass. Its retained state still ends at generation 88, proving the
   adjacent generation-89 publication did not begin and localizing the stop to
   the generation-88 post-commit return boundary.
+- P2.90 materialized-kernel H0 refutes using the historical runtime-checkpoint
+  patch to infer rejection: linked P2.90 tables accept `(0x8f,item=1)`, and
+  retained generation 88 is outcome `PROGRESS`, so it did not terminal-lock.
 - Exact source rejects treating a parent-PM sign or PHY flag as electrical
   proof; swallowed clock errors remain non-proof.
 - Process v2 common D0/F1 execution, regular-path boot-only Odin transport,
@@ -720,8 +724,8 @@ operations before the asserted publication boundaries.
    immediately adjacent generation 89 did not begin its target-slot mutation.
 4. Audit the exact post-commit tail of the generation-88 retained writer and
    its procfs/VFS return path before selecting another successor.
-5. Distinguish a checkpoint-write non-return from an immediate userspace-tail
-   non-return without relying on the same retained channel as its sole witness.
+5. Distinguish primary non-return from returned errno plus fallback failure
+   without relying on the same retained channel as its sole witness.
 6. Keep CDC-ACM `endpoint-timeout` as downstream corroboration only.
 7. No new S22+ device action or F1 request is permitted by the closed P2.90
    unit. A successor requires fresh H0 design, identity, A/B, manifest, D0, and
