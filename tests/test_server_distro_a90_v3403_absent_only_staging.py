@@ -23,21 +23,22 @@ stage = load_script(
 SOURCE = Path(
     "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py"
 )
+TEST_RUN_ID = "a90-v3403-debian-f1-20260730-02"
 
 
 def sample_spec() -> object:
     return types.SimpleNamespace(
         local_size=2147483648,
         local_sha256="a" * 64,
-        remote_final=str(stage.REMOTE_FINAL),
+        remote_final=str(stage.derive_remote_final(TEST_RUN_ID)),
         remote_work=str(stage.REMOTE_WORK),
         remote_stage_dir=(
             "/mnt/sdext/a90/runtime/.a90-stage-"
-            "a90-v3403-debian-f1-20260730-02"
+            f"{TEST_RUN_ID}"
         ),
         remote_payload=(
             "/mnt/sdext/a90/runtime/.a90-stage-"
-            "a90-v3403-debian-f1-20260730-02/payload.img"
+            f"{TEST_RUN_ID}/payload.img"
         ),
         observer_device=".".join(("192", "168", "7", "2")),
         tcpctl_host=Path("workspace/public/src/scripts/revalidation/tcpctl_host.py"),
@@ -94,24 +95,29 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
             expected,
         )
 
-    def test_fixed_paths_and_stage_derivation(self) -> None:
+    def test_run_derived_final_and_fixed_work_paths(self) -> None:
         self.assertEqual(
-            str(stage.REMOTE_FINAL),
-            "/mnt/sdext/a90/runtime/debian-bookworm-arm64-d3-sysvinit-v3403-keyed.img",
+            str(stage.derive_remote_final(TEST_RUN_ID)),
+            (
+                "/mnt/sdext/a90/runtime/"
+                "debian-bookworm-arm64-d3-sysvinit-v3403-keyed-20260730-02.img"
+            ),
         )
         self.assertEqual(
             str(stage.REMOTE_WORK),
             "/mnt/sdext/a90/runtime/d3-handoff-work.img",
         )
         self.assertEqual(
-            str(stage.derive_stage_dir("a90-v3403-debian-f1-20260730-02")),
+            str(stage.derive_stage_dir(TEST_RUN_ID)),
             (
                 "/mnt/sdext/a90/runtime/.a90-stage-"
-                "a90-v3403-debian-f1-20260730-02"
+                f"{TEST_RUN_ID}"
             ),
         )
         with self.assertRaises(stage.ContractError):
             stage.derive_stage_dir("b" * 64)
+        with self.assertRaises(stage.ContractError):
+            stage.derive_remote_final("b" * 64)
 
     def test_connected_d0_semantics_bind_target_health_and_boot_artifacts(self) -> None:
         candidate = stage.BoundFile("candidate", Path("/private/candidate"), 4096, "a" * 64)
@@ -165,7 +171,7 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
             )
 
     def test_path_preflight_semantics_require_all_three_exact_paths(self) -> None:
-        run_id = "a90-v3403-debian-f1-20260730-02"
+        run_id = TEST_RUN_ID
         connected = stage.BoundFile(
             "connected",
             Path("/private/connected.json"),
@@ -173,6 +179,7 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
             "d" * 64,
         )
         stage_dir = str(stage.derive_stage_dir(run_id))
+        remote_final = str(stage.derive_remote_final(run_id))
         value = {
             "schema": stage.PATH_PREFLIGHT_SCHEMA,
             "run_id": run_id,
@@ -188,7 +195,7 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
                 "framed_rc": 0,
                 "framed_status": "ok",
                 "paths": {
-                    str(stage.REMOTE_FINAL): "absent",
+                    remote_final: "absent",
                     str(stage.REMOTE_WORK): "absent",
                     stage_dir: "absent",
                 },
@@ -205,7 +212,7 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
             value,
             run_id=run_id,
             connected_d0=connected,
-            remote_final=str(stage.REMOTE_FINAL),
+            remote_final=remote_final,
             remote_work=str(stage.REMOTE_WORK),
             remote_stage_dir=stage_dir,
         )
@@ -215,17 +222,27 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
                 value,
                 run_id=run_id,
                 connected_d0=connected,
-                remote_final=str(stage.REMOTE_FINAL),
+                remote_final=remote_final,
                 remote_work=str(stage.REMOTE_WORK),
                 remote_stage_dir=stage_dir,
             )
 
     def test_remote_final_rejects_every_other_path(self) -> None:
+        expected = str(stage.derive_remote_final(TEST_RUN_ID))
         self.assertEqual(
-            stage.validate_remote_final(str(stage.REMOTE_FINAL)),
-            str(stage.REMOTE_FINAL),
+            stage.validate_remote_final(expected, TEST_RUN_ID),
+            expected,
         )
         for value in (
+            "/mnt/sdext/a90/runtime/debian-bookworm-arm64-d3-sysvinit-v3403-keyed.img",
+            (
+                "/mnt/sdext/a90/runtime/"
+                "debian-bookworm-arm64-d3-sysvinit-v3403-keyed-20260730-03.img"
+            ),
+            (
+                "/mnt/sdext/a90/runtime//"
+                "debian-bookworm-arm64-d3-sysvinit-v3403-keyed-20260730-02.img"
+            ),
             "/mnt/sdext/a90/runtime/other.img",
             "/mnt/sdext/a90/runtime/../escape.img",
             "/data/local/tmp/rootfs.img",
@@ -233,7 +250,7 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
         ):
             with self.subTest(value=value):
                 with self.assertRaises(stage.ContractError):
-                    stage.validate_remote_final(value)
+                    stage.validate_remote_final(value, TEST_RUN_ID)
 
     def test_manifest_must_not_be_group_or_world_writable(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -509,6 +526,40 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
         )
         issues = stage.source_contract_issues(mutated)
         self.assertTrue(any("FINAL_ID=" in issue for issue in issues))
+
+    def test_source_contract_binds_manifest_final_to_exact_run_id(self) -> None:
+        source = SOURCE.read_text(encoding="utf-8")
+        mutated = source.replace(
+            'remote_final = validate_remote_final(keyed.get("device_path"), run_id)',
+            "remote_final = str(derive_remote_final(run_id))",
+            1,
+        )
+        issues = stage.source_contract_issues(mutated)
+        self.assertTrue(any("manifest remote final" in issue for issue in issues))
+
+        mutated = source.replace(
+            "expected = derive_remote_final(run_id)",
+            "expected = REMOTE_ROOT / str(value)",
+            1,
+        )
+        issues = stage.source_contract_issues(mutated)
+        self.assertTrue(any("remote final validator" in issue for issue in issues))
+
+        mutated = source.replace(
+            "suffix = run_id.removeprefix(RUN_ID_PREFIX)",
+            'suffix = "fixed"',
+            1,
+        )
+        issues = stage.source_contract_issues(mutated)
+        self.assertTrue(any("remote final derivation" in issue for issue in issues))
+
+        mutated = source.replace(
+            "stage_dir = derive_stage_dir(run_id)",
+            "stage_dir = REMOTE_ROOT / STAGE_PREFIX",
+            1,
+        )
+        issues = stage.source_contract_issues(mutated)
+        self.assertTrue(any("stage path" in issue for issue in issues))
 
     def test_default_cli_has_no_live_mode(self) -> None:
         parser = stage.build_parser()

@@ -50,8 +50,8 @@ EXPECTED_BASELINE_BUILD = "v2321-usb-clean-identity-rodata"
 REMOTE_ROOT = PurePosixPath("/mnt/sdext/a90/runtime")
 REMOTE_MOUNT = PurePosixPath("/mnt/sdext")
 REMOTE_WORK = REMOTE_ROOT / "d3-handoff-work.img"
-REMOTE_FINAL_NAME = "debian-bookworm-arm64-d3-sysvinit-v3403-keyed.img"
-REMOTE_FINAL = REMOTE_ROOT / REMOTE_FINAL_NAME
+RUN_ID_PREFIX = "a90-v3403-debian-f1-"
+REMOTE_FINAL_PREFIX = "debian-bookworm-arm64-d3-sysvinit-v3403-keyed-"
 STAGE_PREFIX = ".a90-stage-"
 STAGE_PAYLOAD_NAME = "payload.img"
 REQUIRED_FS_TYPE = "ext4"
@@ -239,12 +239,27 @@ def validate_sha256(value: Any, label: str) -> str:
     return value
 
 
-def validate_remote_final(value: Any) -> str:
+def derive_remote_final(run_id: str) -> PurePosixPath:
+    if RUN_ID_RE.fullmatch(run_id) is None:
+        raise ContractError("remote final path requires an exact A90 V3403 run_id")
+    suffix = run_id.removeprefix(RUN_ID_PREFIX)
+    return REMOTE_ROOT / f"{REMOTE_FINAL_PREFIX}{suffix}.img"
+
+
+def validate_remote_final(value: Any, run_id: str) -> str:
     if not isinstance(value, str):
         raise ContractError("remote final path must be a string")
     path = PurePosixPath(value)
-    if path != REMOTE_FINAL or path.parent != REMOTE_ROOT:
-        raise ContractError(f"remote final path is not the V3403 fixed path: {value}")
+    expected = derive_remote_final(run_id)
+    if (
+        value != str(expected)
+        or path != expected
+        or path.parent != REMOTE_ROOT
+        or path == REMOTE_WORK
+    ):
+        raise ContractError(
+            f"remote final path is not exact for run_id {run_id}: {value}"
+        )
     return str(path)
 
 
@@ -606,7 +621,7 @@ def stage_spec_from_manifest(
     if not isinstance(local_size, int) or local_size <= 0:
         raise ContractError("keyed rootfs size must be positive")
     local_sha = validate_sha256(keyed.get("sha256"), "keyed rootfs sha256")
-    remote_final = validate_remote_final(keyed.get("device_path"))
+    remote_final = validate_remote_final(keyed.get("device_path"), run_id)
 
     work = _dict(rootfs.get("work_copy"), "debian_rootfs.work_copy")
     if work.get("device_path") != str(REMOTE_WORK):
@@ -1097,8 +1112,47 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         ):
             if forbidden in publish:
                 issues.append(f"publish contract contains forbidden token: {forbidden}")
-    if "stage_dir = derive_stage_dir(run_id)" not in source:
-        issues.append("stage path is not derived from the stable run_id")
+    derivation_start = source.find("\ndef derive_remote_final(")
+    derivation_end = source.find("\ndef validate_remote_final(", derivation_start + 1)
+    if derivation_start < 0 or derivation_end < 0:
+        issues.append("missing remote final derivation source boundary")
+    else:
+        derivation = source[derivation_start:derivation_end]
+        for token in (
+            "if RUN_ID_RE.fullmatch(run_id) is None:",
+            "suffix = run_id.removeprefix(RUN_ID_PREFIX)",
+            'return REMOTE_ROOT / f"{REMOTE_FINAL_PREFIX}{suffix}.img"',
+        ):
+            if token not in derivation:
+                issues.append(f"remote final derivation contract missing: {token}")
+    validator_start = source.find("\ndef validate_remote_final(")
+    validator_end = source.find("\ndef validate_observer_device(", validator_start + 1)
+    if validator_start < 0 or validator_end < 0:
+        issues.append("missing remote final validator source boundary")
+    else:
+        validator = source[validator_start:validator_end]
+        for token in (
+            "expected = derive_remote_final(run_id)",
+            "value != str(expected)",
+            "path != expected",
+            "path.parent != REMOTE_ROOT",
+            "path == REMOTE_WORK",
+        ):
+            if token not in validator:
+                issues.append(f"remote final validator contract missing: {token}")
+    manifest_start = source.find("\ndef stage_spec_from_manifest(")
+    manifest_end = source.find("\ndef verify_local_closure(", manifest_start + 1)
+    if manifest_start < 0 or manifest_end < 0:
+        issues.append("missing manifest loader source boundary")
+    else:
+        manifest_loader = source[manifest_start:manifest_end]
+        if (
+            'remote_final = validate_remote_final(keyed.get("device_path"), run_id)'
+            not in manifest_loader
+        ):
+            issues.append("manifest remote final is not bound to its exact run_id")
+        if "stage_dir = derive_stage_dir(run_id)" not in manifest_loader:
+            issues.append("stage path is not derived from the stable run_id")
     execute_start = source.find("\ndef execute_approved_stage(")
     inspect_start = source.find("\ndef inspect_manifest(", execute_start + 1)
     if execute_start < 0 or inspect_start < 0:
