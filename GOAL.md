@@ -554,6 +554,7 @@ Load-bearing current reports:
 - `docs/reports/A90_V3404_REUSABLE_F1_STAGING_BINDING_H0_2026-07-31.md`
 - `docs/reports/A90_V3404_D3_SWITCHROOT_NO_PROOF_F1_CLOSED_2026-07-31.md`
 - `docs/reports/A90_V3404_D3_WORK_COPY_POSTMORTEM_DEBIAN_PID1_PROVEN_2026-07-31.md`
+- `docs/reports/A90_V3405_D3_SYNC_DECISION_SUPERVISOR_H0_2026-07-31.md`
 - `docs/reports/S22PLUS_FYG8_P284_CONTROLLED_SUSPEND_F1_CLOSED_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P284_POST_SUSPEND_RESTART_GAP_FOCUSED_ANALYSIS_H0_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P284_STOCK_OUTER_D1_V2_LIVE_NO_PROOF_2026-07-29.md`
@@ -754,11 +755,11 @@ The A90 branch proceeds independently:
 9. Preserve the 2026-07-03 switch-root proof and V3404's exact D0 work-image
    preservation. V3404 now technically proves Debian sysvinit PID1 and
    firstboot; do not classify it as an image-payload or SELinux-init failure.
-10. Before another F1, repair the manifest-bound host NCM profile after
-    candidate re-enumeration, remove global sync from the recovery-critical
-    path, and design a separate no-sync sysrq backstop. Close softdog semantics
-    host-side before any open. Retain both evidence copies and review changed
-    F1 machinery. No consumed run or approval is reusable.
+10. Preserve the independently reviewed V3405 no-sync parent supervisor and
+    exact private H0 image; its artifact-build GO is not live authority.
+11. Before another F1, add a retained current-run pmsg `phase=armed` observer
+    and stable USB-parent NCM rebind, then review changed F1 machinery and use
+    a fresh manifest, preflight, and approval. No prior approval is reusable.
 
 No device step is added when H0 can answer the question.
 
