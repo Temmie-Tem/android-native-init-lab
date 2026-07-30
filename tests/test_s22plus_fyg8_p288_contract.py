@@ -23,6 +23,7 @@ import s22plus_fyg8_p288_contract_spec as spec  # noqa: E402
 import s22plus_fyg8_p288_e1_decoder as decoder  # noqa: E402
 import s22plus_fyg8_p288_latest_stage_model as model  # noqa: E402
 import s22plus_fyg8_p288_linked_audit as linked_audit  # noqa: E402
+import s22plus_fyg8_p288_pre_lto_qualification as qualification  # noqa: E402
 import s22plus_fyg8_p288_source_contract as source_contract  # noqa: E402
 
 
@@ -323,6 +324,22 @@ class P288PairContractTests(unittest.TestCase):
                 source_contract.SOURCE_KEYS
             )
         )
+
+    def test_qualification_adapter_supplies_only_inherited_module_paths(self):
+        self.assertFalse(
+            hasattr(source_contract, "DEFAULT_DWC3_MSM_MODULE")
+        )
+        self.assertFalse(hasattr(source_contract, "DEFAULT_HSPHY_MODULE"))
+        adapter = qualification.QUALIFICATION_SOURCE_CONTRACT
+        self.assertEqual(
+            adapter.DEFAULT_DWC3_MSM_MODULE,
+            p286_contract.DEFAULT_DWC3_MSM_MODULE,
+        )
+        self.assertEqual(
+            adapter.DEFAULT_HSPHY_MODULE,
+            p286_contract.DEFAULT_HSPHY_MODULE,
+        )
+        self.assertEqual(adapter.CONTRACT_ID, source_contract.CONTRACT_ID)
 
     def test_pre_intent_freeze_is_git_derived_and_exact(self):
         result = change_freeze.validate_freeze(ROOT)

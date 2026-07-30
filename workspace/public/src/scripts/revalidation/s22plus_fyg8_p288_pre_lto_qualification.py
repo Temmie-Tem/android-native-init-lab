@@ -73,6 +73,19 @@ QualificationError = base.QualificationError
 _BASE_GATE_MATRIX = base._gate_matrix
 
 
+class _QualificationSourceContractAdapter:
+    """Expose the inherited module paths without changing P2.88 identity."""
+
+    DEFAULT_DWC3_MSM_MODULE = base.p286.DEFAULT_DWC3_MSM_MODULE
+    DEFAULT_HSPHY_MODULE = base.p286.DEFAULT_HSPHY_MODULE
+
+    def __getattr__(self, name: str):
+        return getattr(p288, name)
+
+
+QUALIFICATION_SOURCE_CONTRACT = _QualificationSourceContractAdapter()
+
+
 def _load_linked_audit_module():
     try:
         module = importlib.import_module(LINKED_AUDIT_MODULE_NAME)
@@ -244,7 +257,7 @@ def _configure() -> None:
     base.candidate_contract = candidate_contract
     base.spec = spec
     base.closure = closure
-    base.p286 = p288
+    base.p286 = QUALIFICATION_SOURCE_CONTRACT
     base.userspace = userspace
     base.SCHEMA = SCHEMA
     base.VERDICT = VERDICT

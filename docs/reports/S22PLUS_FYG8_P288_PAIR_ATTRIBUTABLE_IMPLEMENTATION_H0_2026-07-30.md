@@ -125,7 +125,7 @@ freeze reports:
 
 The pre-intent implementation passes:
 
-- 128 inherited-plus-P2.88 focused tests in one interpreter;
+- 129 inherited-plus-P2.88 focused tests in one interpreter;
 - 46 typed-evidence and Process-v2 regression tests;
 - deterministic generation and two identical static AArch64 userspace links;
 - clean kernel-patch application and pair-indexed linked-validator audit;
@@ -142,6 +142,15 @@ Loading the P2.88 candidate-intent adapter no longer mutates the historical
 P2.86 selector. A same-process regression first loads P2.88, exercises its
 candidate path, and then verifies P2.86 still accepts itself while retiring
 only P2.82/P2.84.
+
+The first pre-LTO qualification assembly failed closed before any kernel
+build: its support-only adapter passed the P2.88 source-contract module into
+the inherited generic assembler without exposing the inherited DWC3-MSM and
+HS-PHY module paths. A local qualification proxy now supplies exactly those
+two paths while delegating every identity-bearing operation to P2.88. The
+focused suite proves the proxy does not add either attribute to the selected
+source-contract module. The immutable intent reopens with the same run ID and
+all 83 source receipts unchanged.
 
 ## Current safety state
 
