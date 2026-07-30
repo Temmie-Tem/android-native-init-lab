@@ -534,9 +534,10 @@ corrected A/B pair then matched.
   `/run/a90-d3-marker` records `proc1_exe=/usr/sbin/init`, and Dropbear started.
   The formal transaction remains closed no-proof because its live SSH contract
   failed. Host logs attribute that timeout to a missing fixed NCM profile after
-  candidate re-enumeration. The 120-second child entered global `sync`, but
-  reboot exec remains unproved; an unreturned sync is the leading, unproved
-  hypothesis.
+  candidate re-enumeration. The 120-second child entered global `sync`; reboot
+  exec remains unproved. Offline closure excludes a missing reboot binary.
+  D0 proves sysrq enabled and the hardware watchdog active but kernel-petted,
+  so it is not a userspace-hang backstop; softdog was not opened.
 
 Load-bearing current reports:
 
@@ -750,10 +751,10 @@ The A90 branch proceeds independently:
    preservation. V3404 now technically proves Debian sysvinit PID1 and
    firstboot; do not classify it as an image-payload or SELinux-init failure.
 10. Before another F1, repair the manifest-bound host NCM profile after
-    candidate re-enumeration and add durable before/after-sync plus reboot
-    fallback evidence. Keep the original preservation image unrepaired, retain
-    the device work copy, and review changed F1 observer machinery. No consumed
-    run or approval is reusable.
+    candidate re-enumeration, remove global sync from the recovery-critical
+    path, and design a separate no-sync sysrq backstop. Close softdog semantics
+    host-side before any open. Retain both evidence copies and review changed
+    F1 machinery. No consumed run or approval is reusable.
 
 No device step is added when H0 can answer the question.
 

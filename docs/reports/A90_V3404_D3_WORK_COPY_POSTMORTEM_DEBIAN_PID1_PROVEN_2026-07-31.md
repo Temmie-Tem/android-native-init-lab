@@ -122,9 +122,96 @@ remains possible. A read-only `e2fsck -fn` skipped journal recovery and found
 free-block and free-inode counters behind its full scan, so the original
 preservation image must not be repaired in place.
 
-Before another F1, add durable markers immediately before and after the sync
-boundary, avoid an unbounded global-sync dependency in the recovery timer, and
-record reboot and sysrq fallback results. Keep recovery independent of SSH.
+An ordinary userspace timeout around `sync` would not close this hazard. A
+task blocked in uninterruptible I/O sleep cannot be recovered by a signal or
+`SIGKILL`; the recovery edge must be owned by another execution context that
+does not enter the same writeback path.
+
+## Reboot executable closure
+
+Offline inspection of the preserved work image excludes a missing or
+filesystem-level broken reboot executable:
+
+- `/sbin/reboot` is the expected relative link to `halt`;
+- `/sbin/halt` is executable mode `0755` and is an AArch64 PIE executable;
+- its ELF interpreter and required `libc.so.6` are present in the image; and
+- the link targets and loader dependencies all resolve within the Debian root.
+
+This does not prove that the reboot program or reboot syscall ran. It removes
+the proposed `127`/missing-command branch and leaves the bracket at either an
+unreturned `sync` or a later reboot/fallback failure. The unchanged halt
+access time remains supporting evidence for the former, not standalone proof.
+
+## Recovery-backstop inventory
+
+One bounded connected D0 read-only inventory was run against the exact healthy
+V2321 target. It made no device write, created no node, opened no watchdog, and
+ended with `version`, `status`, and `selftest fail=0`.
+
+The current kernel reports:
+
+```text
+CONFIG_WATCHDOG=y
+CONFIG_WATCHDOG_CORE=y
+# CONFIG_WATCHDOG_NOWAYOUT is not set
+# CONFIG_WATCHDOG_SYSFS is not set
+CONFIG_SOFT_WATCHDOG=y
+CONFIG_QCOM_WATCHDOG_V2=y
+kernel.sysrq=1
+```
+
+The Qualcomm hardware watchdog is present and enabled. The
+`qcom,msm-watchdog` platform device is bound to `msm_watchdog`, its disable
+state is `0`, and the `msm_watchdog` kernel thread exists. Device-tree values
+select a 9.36-second pet interval and an 11-second bark interval. The node has
+no `qcom,userspace-watchdog` property and exposes only the one-way `disable`
+attribute, not the userspace-pet attributes.
+
+This distinction is load-bearing: the existing hardware watchdog is
+kernel-owned and continuously pet by its kernel thread. It detects a wider
+kernel/CPU liveness failure, but it is not a userspace lease that expires when
+the Debian timer child blocks in `sync`. It therefore cannot be treated as the
+automatic-return backstop without a separate kernel/device-tree design.
+
+The one standard watchdog-class entry is virtual, has no native-init-created
+`/dev/watchdog` or `/dev/watchdog0`, and has no optional watchdog sysfs
+attributes because `CONFIG_WATCHDOG_SYSFS` is disabled. Together with the
+built-in softdog symbols and the fact that the Qualcomm driver owns its
+separate platform surface, this strongly attributes the standard entry to
+softdog. Opening it could arm a reset, so identity/close/timeout semantics must
+be closed host-side before any versioned helper creates or opens its device
+node. This D0 deliberately did neither.
+
+RTC0 is the bound `qcom,qpnp-rtc`, is marked wakeup-enabled, and has a readable
+`/proc/driver/rtc`, but no `wakealarm` attribute and no `/dev/rtc*` node is
+present in native-init. No alarm is armed. RTC wake is therefore not a
+currently exposed automatic-return surface, and in any case is not by itself
+an awake-system reset mechanism.
+
+The sysrq fallback is enabled on the current kernel and
+`/proc/sysrq-trigger` exists. It is useful only if a separate process reaches
+it: the current script places `sync` before both `reboot -f` and the sysrq
+write, so an unreturned sync makes both unreachable.
+
+The public Android msm 4.14 `watchdog_v2.c` reference matches the observed
+driver, thread, device-tree properties, sysfs surface, and pet/bark model. It
+is supporting source evidence, not a claim that the public commit is
+byte-identical to this Samsung kernel.
+
+Before another F1:
+
+1. remove global `sync` from the recovery-critical sequence;
+2. use a rootfs-local durability operation with explicit before/after markers,
+   while treating it as potentially blocking rather than killable;
+3. arm a later, independent no-sync sysrq supervisor before that operation;
+4. close softdog semantics and fault-test its helper host-side before deciding
+   whether it should replace or supplement the supervisor; and
+5. keep recovery independent of SSH and repair the host NCM profile after
+   candidate re-enumeration.
+
+This is a new recovery-hazard design. Any execution-critical implementation
+and live use require the normal focused independent review and fresh
+manifest/approval; this inventory grants no authority.
 
 ## Disposition
 
@@ -133,7 +220,13 @@ record reboot and sysrq fallback results. Keep recovery independent of SSH.
 - Dropbear start: proven.
 - Live SSH contract: failed because the host candidate NCM profile was absent.
 - Timer arm and 120-second wake: proven.
+- Reboot executable and loader presence: proven.
 - Automatic reboot syscall: unproved.
+- Existing Qualcomm hardware watchdog: active but kernel-petted, not a
+  userspace automatic-return lease.
+- Sysrq fallback availability on V2321: present and enabled, but unreachable
+  behind the current global sync if that call does not return.
+- Watchdog/RTC write or open: none.
 - Original F1 journal/result: unchanged and still formally closed no-proof.
 - Candidate/rollback transfers: still exactly `1/1`; no replay.
 - Final device health: exact V2321, healthy.
