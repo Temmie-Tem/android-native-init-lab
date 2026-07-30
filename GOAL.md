@@ -28,9 +28,13 @@ suite and AArch64 compile. A fresh, package-authenticated, clean 2 GiB D3
 sysvinit rootfs and the exact V2321 rollback are hash-verified. A host-only
 absent-only SD staging adapter now uses an exclusive ext4 directory and
 hard-link no-clobber publication; its fault model, source-order gate, and
-connected read-only preflight pass. It has not staged a byte. The adapter still
-needs one independent safety review, and no manifest-driven A90 Process-v2
-orchestrator yet owns candidate observation plus rollback. The private
+connected read-only preflight pass. A minimal manifest-driven F1 orchestrator
+now delegates to that adapter and the existing checked `native_init_flash.py`;
+it durably limits candidate and rollback invocation to one each, keeps the
+candidate out of recovery, and owns bounded observation plus final health. The
+combined host-only closure passes `78/78`. It has not staged a byte or invoked
+a flash. The new execution closure still needs one independent safety review
+and an exact recovery-ADB digest before final-manifest promotion. The private
 manifest therefore remains a non-approvable draft. Debian PID1 is still
 unproved, internal userdata remains untouched, and no A90 live authority
 exists.**
@@ -204,6 +208,8 @@ corrected A/B pair then matched.
 Load-bearing current reports:
 
 - `docs/reports/A90_DEBIAN_REACTIVATION_F1_CLOSED_2026-07-30.md`
+- `docs/reports/A90_V3403_ABSENT_ONLY_STAGING_ADAPTER_H0_2026-07-30.md`
+- `docs/reports/A90_V3403_MINIMAL_F1_ORCHESTRATOR_H0_2026-07-30.md`
 - `docs/reports/NATIVE_INIT_V3403_D3_IMMUTABLE_HANDOFF_H0_CLOSURE_2026-07-30.md`
 - `docs/reports/S22PLUS_FYG8_P284_CONTROLLED_SUSPEND_F1_CLOSED_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P284_POST_SUSPEND_RESTART_GAP_FOCUSED_ANALYSIS_H0_2026-07-29.md`
@@ -407,12 +413,12 @@ The A90 branch proceeds independently:
 5. Before any later device action, create a new run and prepared manifest that
    binds the exact A90 target, V3403 boot, fresh rootfs, exact V2321 rollback,
    checked runner, bounded observation, and final health.
-6. Independently review the absent-only staging closure and implement one
-   manifest-driven A90 F1 orchestrator that consumes its durable result and
-   owns candidate observation, mandatory rollback, and final health without
-   candidate replay.
-7. Only after that reviewed closure exists, promote a final manifest, repeat
-   the exact connected preflight, and obtain one fresh exact approval.
+6. Independently review the implemented staging-plus-orchestrator closure. The
+   orchestrator only composes the checked staging and flash helpers, records
+   candidate intent before one invocation, and exposes rollback-only recovery.
+7. Bind the exact recovery-ADB digest. Only after the reviewed closure exists,
+   promote a final manifest, repeat the exact connected preflight, and obtain
+   one fresh exact approval.
 
 No device step is added when H0 can answer the question.
 
