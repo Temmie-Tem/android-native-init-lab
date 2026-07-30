@@ -261,6 +261,46 @@ advance. A successful fallback would have left a replacement or later failure
 record; the retained progress generation 88 proves no fallback commit, not why
 it failed or did not return.
 
+P2.90 is the selected host-only successor. Its predesign audit reads the exact
+retained bytes and writer protocol rather than inferring from stage names.
+Generation 89 targets slot 1, but the valid generation-87 slot 1 remains
+unchanged. Because the writer has no separate persistent staging area and
+first clears that target slot's commit CRC, generation 89 never reached its
+first persistent mutation. A generation-89 post-commit `-ESTALE` is therefore
+rejected. The remaining publication class is a non-return/error before the
+generation-89 target mutation, including a possible generation-88 primary
+error followed by fallback failure or non-return.
+
+The P2.90 runtime implementation repairs the contract before another F1. It
+inserts `(0x8f,item=1..4)` immediately after the accepted generation-88
+publisher return, suspend return, restart entry, and deadline completion,
+followed by the inherited `(0x90,item=0)` helper dispatch. The first new call
+has no gate revalidation, tracefs read, or unrelated syscall before it. A
+separate source-to-table gate proves helper-dispatch ordinal 92 constructs
+exactly `(0x90,0)` from `client->generation` and the linked step, closing the
+runtime-request half left outside the earlier exhaustive validator proof.
+
+All 16 historical park sites are mechanically accounted. Twelve surviving
+historical sites use a checked unclassified fallback, two were removed by the
+inherited P2.88 transformation, and two already follow confirmed publication.
+The materialized successor include has 14 checked generic routes and three
+confirmed-publication routes. Raw park is confined to one confirmed sink and
+one explicitly named persistent checkpoint-channel-failure sink. The latter
+cannot self-report through the same failed retained channel; its exact residual
+class is primary/fallback non-return or both returned errors. P2.90 does not
+claim the impossible stronger invariant.
+
+P2.90 keeps the 45-byte/two-slot ABI and has 107 unique position pairs with
+terminal generation 107. Its identity is frozen at 94 SOURCE_KEYS: all 83
+P2.88 receipts unchanged, eight new direct byte-affecting sources, and three
+new generated sources. Verifier, decoder/model, selector, typed evidence,
+Process-v2 support, tests, freeze logic, and report remain outside identity and
+must be bundle-bound. The host implementation passes clean patch application,
+deterministic static AArch64 two-link output, checked-publication fault paths,
+adjacency and mutation gates, direct ELF table comparison, and a
+register-independent exhaustive validator run over `7,077,888` inputs with
+exactly 107 accepts.
+
 P2.88's removal of the pre-helper and immediate post-helper trace snapshots
 was intentional, not an instrumentation-only drift. `residual_outer_open` and
 the `c57/c58/c59` timeout refinement were retired; the remaining refresh is
@@ -342,6 +382,15 @@ corrected A/B pair then matched.
   passed, distinguishes the historical eight-gate plan from the exact
   twelve-gate candidate, and refutes durable publication dominance: only an
   attempted fallback precedes 14 of the 16 inherited park sites.
+- P2.90 predesign H0 rejects a generation-89 post-commit error from the exact
+  unchanged slot-1 CRC evidence and proves runtime helper dispatch constructs
+  the declared `(0x90,0)` request.
+- P2.90 implements checked primary/fallback publication routing, explicitly
+  isolates the one-channel persistent-failure sink, and places four adjacent
+  `0x8f` coordinates before the inherited helper-dispatch position.
+- P2.90 host validation accounts for all 16 historical parks, compiles two
+  byte-identical static AArch64 userspace links, and exhaustively checks
+  `7,077,888` validator inputs with exactly 107 accepted pairs.
 - Exact source rejects treating a parent-PM sign or PHY flag as electrical
   proof; swallowed clock errors remain non-proof.
 - Process v2 common D0/F1 execution, regular-path boot-only Odin transport,
@@ -545,22 +594,25 @@ operations before the asserted publication boundaries.
    preceded the operator's `PS_HOLD`/S2 Download entry.
 4. Preserve the formal `6fc2881e` result: source/table validator mismatch is
    strongly rejected, while runtime publication return/state remains open.
-5. Before placing another marker, replace the false no-silent-park claim with
-   a mechanically checked policy that distinguishes attempted fallback from a
-   confirmed durable record. If the sole retained channel cannot report its
-   own persistent failure, state that limitation explicitly.
-6. Design the next first subposition immediately after the accepted
-   generation-88 publisher return, with no gate revalidation or other
-   unrelated syscall before its durable write. Inspect the full publisher
-   wrapper, not only symbolic call order.
-7. Keep the post-live v2 semantic renderer analysis-only. Do not rewrite the
+5. Preserve the P2.90 H0 result: all historical parks are accounted, generic
+   fallbacks are checked, and total checkpoint-channel failure remains one
+   explicit non-self-reporting sink.
+6. Preserve the P2.90 adjacency result: generation 89 is immediately after the
+   accepted generation-88 publisher return, and helper dispatch is generation
+   93 at exact pair `(0x90,0)`.
+7. Complete the Git-derived pre-intent freeze with exact `83/83` inherited
+   receipts, 94/94 planned source keys, and exact declared-path equality.
+8. After a clean scoped implementation commit, derive one new P2.90 intent.
+   From that point no selected SOURCE_KEY may change.
+9. Run pre-LTO qualification, then Full-LTO A. Start B only after A has zero
+   random-private and absolute clang-resource path leaks. Require byte-identical
+   A/B plus fresh linked/package/static closure before any ready manifest.
+10. Keep the post-live v2 semantic renderer analysis-only. Do not rewrite the
    approval-bound P2.88 decoder or reinterpret the closed live verdict.
-8. Keep the CDC-ACM `endpoint-timeout` as downstream corroboration only. It
+11. Keep the CDC-ACM `endpoint-timeout` as downstream corroboration only. It
    does not identify the missing generation-89 boundary.
-9. Before selecting a successor, close the generation-88 publisher's local
-   state/update/error semantics and add a static adjacency mutation gate.
-10. Any later successor needs a fresh frozen identity, deterministic
-   Full-LTO/package/static closure, ready manifest, D0, and exact F1 approval.
+12. No S22+ device action or F1 request is permitted by this H0 unit. A later
+    successor requires a fresh ready manifest, D0, and exact F1 approval.
 
 The A90 branch proceeds independently:
 

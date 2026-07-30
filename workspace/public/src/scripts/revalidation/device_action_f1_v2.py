@@ -469,6 +469,13 @@ def execution_critical_source_receipts(
                     e1_latest_stage_sources[f"p288_support_{name}"] = (
                         candidate_intent.repo_root() / path
                     )
+            elif source_contract_id == typed_evidence.P290_SOURCE_CONTRACT_ID:
+                import s22plus_fyg8_p290_change_freeze as p290_freeze
+
+                for name, path in p290_freeze.NON_IDENTITY_SUPPORT_PATHS.items():
+                    e1_latest_stage_sources[f"p290_support_{name}"] = (
+                        candidate_intent.repo_root() / path
+                    )
         elif profile in candidate_intent.SUPPORTED_PROFILES:
             for name, path in candidate_intent.source_paths_for_profile(
                 profile
