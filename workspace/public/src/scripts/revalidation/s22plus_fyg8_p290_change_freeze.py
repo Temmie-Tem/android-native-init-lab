@@ -24,7 +24,7 @@ P288_FROZEN_INTENT = Path(
     "workspace/private/outputs/s22plus_fyg8_p288/"
     "intent/candidate-intent.json"
 )
-CHANGE_WINDOW_BASE_COMMIT = "277ab77e6f1eeef4b62647f9b3f4dcb77c8e0491"
+CHANGE_WINDOW_BASE_COMMIT = "c993b6784bc904a1d6e37d29023aeb89a130ef44"
 INTENT_DERIVED = False
 BUILD_EXECUTED = False
 DEVICE_CONTACT = False

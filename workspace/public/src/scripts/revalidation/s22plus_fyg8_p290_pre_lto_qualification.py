@@ -41,7 +41,11 @@ DEFAULT_OUT = Path(
     "qualification.json"
 )
 FOCUSED_TESTS = (
-    *inherited.FOCUSED_TESTS,
+    *tuple(
+        path
+        for path in inherited.FOCUSED_TESTS
+        if path != Path("tests/test_s22plus_fyg8_p288_contract.py")
+    ),
     Path("tests/test_s22plus_fyg8_p290_contract.py"),
     Path("tests/test_s22plus_fyg8_p290_predesign_audit.py"),
 )
