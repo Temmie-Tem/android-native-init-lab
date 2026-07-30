@@ -31,8 +31,13 @@ Do not add a device step when host-only work can answer the question.
   rollback counts are `0/0`; the run is closed and non-reusable. The H0 repair
   now makes staging and the orchestrator share one canonical approval-binding
   builder. Related `157/157`, `py_compile`, and independent re-review passed.
-  No new run, manifest, approval, continuation receipt, or live authority
-  exists. This successor never applies retroactively to a consumed run.
+  Fresh successor `a90-v3403-debian-f1-20260731-03` now binds a new-inode
+  rootfs/key, exact V2321 D0, three-path absence, topology-bound NCM, and a
+  zero-issue final manifest. Both the orchestrator and staging validator reopen
+  its private approval receipt with exact `900/3/1`; all authority remains
+  false. No staging, flash, reboot, candidate attempt, continuation receipt, or
+  live authority exists. The next gate is one fresh exact F1 approval. This
+  successor never applies retroactively to a consumed run.
 - P2.82 consumed one exact approval. Its byte-identical reads end in terminal
   failure `0x8e/detail=0xc10`; the newline-bearing comparator made exact NONE
   readback impossible. No accepted ACM endpoint appeared. Child suspend,
