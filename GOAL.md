@@ -156,7 +156,20 @@ operation. Exact V2321 return health passed. The unit is stopped as
 `STOP_UNAPPROVED_D1_HIDE_RETURN_HEALTH_PASS`: SD path state is unproved and no
 new run, manifest, approval, staging, flash, or live authority exists. Resume
 requires operator direction and a no-menu-control D0 path; no old approval or
-run may be reused.**
+run may be reused. The operator then directed resume. A no-menu-control
+successor produced fresh connected D0 and exact three-path absence evidence.
+The old fixed-name source remains untouched and excluded. The staging adapter
+now derives one unique final source path from the exact run ID and byte-exactly
+binds the manifest to it; legacy, cross-run, traversal, outside-root, and work
+paths are rejected while hard-link no-clobber publication is unchanged. The
+focused closure passes `125/125`, independent safety review returned `GO`, and
+commit `b59c939d` contains the change. Fresh run
+`a90-v3403-debian-f1-20260731-01` binds a new-inode keyed rootfs, observer key,
+connected evidence, candidate, exact V2321 rollback, staging adapter, and
+orchestrator. Both host inspections report zero issues. One private mode-0600
+approval receipt is prepared with all authority false. No staging, flash, or
+reboot has occurred; the next gate is one fresh exact operator acknowledgement
+of that receipt's token.**
 
 Stock D1 v2 and P2.84 selected different runtime-PM paths. Stock's first two
 outer works ended by `0.291 ms`, followed by deferred child and parent PM
